@@ -1,0 +1,28 @@
+# Build artifacts
+build/
+bin/
+lib/
+out/
+*.dir/
+
+# Visual Studio / MSVC
+.vs/
+*.sln.docstates
+*.user
+*.suo
+x64/
+x86/
+Debug/
+Release/
+
+# CLion / JetBrains / VSCode
+.idea/
+.vscode/
+cmake-build-*/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
