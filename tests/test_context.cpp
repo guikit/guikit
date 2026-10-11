@@ -2915,6 +2915,16 @@ void TestContainersAndLayoutsReorganization() {
             if (auto c6 = grid.Cell6()) {
                 ui.Text("Half Width Cell");
             }
+            if (auto c5 = grid.Cell(5)) {
+                CHECK(c5.GetNode() != nullptr);
+                CHECK(c5.GetNode()->colSpan == 5);
+                ui.Text("Span 5 Cell");
+            }
+            if (auto c7 = grid.Cell(7)) {
+                CHECK(c7.GetNode() != nullptr);
+                CHECK(c7.GetNode()->colSpan == 7);
+                ui.Text("Span 7 Cell");
+            }
         }
     }
 

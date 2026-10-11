@@ -1,41 +1,22 @@
-#pragma once
-
+#include "guikit/core/Solver.hpp"
 #include <algorithm>
 #include <cmath>
 #include "guikit/backend/ICanvas.hpp"
+#include "guikit/core/Node.hpp"
 #include "guikit/core/Theme.hpp"
-#include "guikit/layout/Node.hpp"
 
 namespace guikit {
 
-/// Resolves 2D flex layout for an arbitrary tree of GuiKit nodes.
-class Solver {
-public:
-    /// Measures intrinsic content sizes bottom-up with the given theme.
-    static void Measure(Node* root, ICanvas* canvas, const UiTheme& theme) {
-        if (!root) return;
-        MeasureNode(root, canvas, theme);
-    }
+namespace {
 
-    /// Measures intrinsic content sizes bottom-up with default dark theme.
-    static void Measure(Node* root, ICanvas* canvas = nullptr) {
-        static const UiTheme defaultTheme = UiTheme::Dark();
-        Measure(root, canvas, defaultTheme);
-    }
+static void MeasureNode(Node* node, ICanvas* canvas, const UiTheme& theme);
+static void ArrangeNode(Node* node, Rect availableRect, const UiTheme& theme);
+static float ResolveNodeHeight(Node* node, float availableWidth);
+static void ArrangeRow(Node* node, const Rect& contentRect, const UiTheme& theme);
+static void ArrangeWrap(Node* node, const Rect& contentRect, const UiTheme& theme);
+static void ArrangeColumn(Node* node, const Rect& contentRect, const UiTheme& theme);
+static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& theme);
 
-    /// Computes final coordinates and dimensions top-down based on parent constraints.
-    static void Arrange(Node* root, Rect availableRect, const UiTheme& theme) {
-        if (!root) return;
-        ArrangeNode(root, availableRect, theme);
-    }
-
-    /// Computes final coordinates and dimensions top-down with default dark theme.
-    static void Arrange(Node* root, Rect availableRect) {
-        static const UiTheme defaultTheme = UiTheme::Dark();
-        Arrange(root, availableRect, defaultTheme);
-    }
-
-private:
     static void MeasureNode(Node* node, ICanvas* canvas, const UiTheme& theme) {
         // Measure children bottom-up first
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
@@ -802,8 +783,27 @@ private:
                 : node->padding.Vertical();
         }
     }
-};
 
-using LayoutSolver = Solver;
+} // namespace
+
+void Solver::Measure(Node* root, ICanvas* canvas, const UiTheme& theme) {
+    if (!root) return;
+    MeasureNode(root, canvas, theme);
+}
+
+void Solver::Measure(Node* root, ICanvas* canvas) {
+    static const UiTheme defaultTheme = UiTheme::Dark();
+    Measure(root, canvas, defaultTheme);
+}
+
+void Solver::Arrange(Node* root, Rect availableRect, const UiTheme& theme) {
+    if (!root) return;
+    ArrangeNode(root, availableRect, theme);
+}
+
+void Solver::Arrange(Node* root, Rect availableRect) {
+    static const UiTheme defaultTheme = UiTheme::Dark();
+    Arrange(root, availableRect, defaultTheme);
+}
 
 } // namespace guikit

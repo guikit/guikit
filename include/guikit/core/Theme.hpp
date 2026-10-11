@@ -2,8 +2,9 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 #include "guikit/core/Tokens.hpp"
-#include "guikit/layout/Types.hpp"
+#include "guikit/core/Types.hpp"
 
 namespace guikit {
 

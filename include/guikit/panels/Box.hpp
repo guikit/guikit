@@ -3,7 +3,6 @@
 #include <optional>
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
-#include "guikit/layout/Types.hpp"
 
 namespace guikit {
 

@@ -6,4 +6,4 @@
 
 #include "guikit/Context.hpp"
 #include "guikit/core/FrameMetrics.hpp"
-#include "guikit/core/UiStyle.hpp"
+#include "guikit/core/Theme.hpp"

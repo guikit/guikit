@@ -5,7 +5,6 @@
 #include "guikit/core/ContainerScope.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
-#include "guikit/layout/Types.hpp"
 
 namespace guikit {
 
@@ -43,6 +42,9 @@ struct CellOptions {
 class GridScope : public ContainerScope {
 public:
     using ContainerScope::ContainerScope;
+
+    /// Arbitrary span cell slot (1..12 columns)
+    ContainerScope Cell(int span, CellOptions opts = {}, std::source_location loc = std::source_location::current());
 
     /// Full-width 12-column cell slot
     ContainerScope Cell(CellOptions opts = {}, std::source_location loc = std::source_location::current()) {

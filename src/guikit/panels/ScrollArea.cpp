@@ -1,7 +1,7 @@
 #include "guikit/panels/ScrollArea.hpp"
 #include <algorithm>
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/layout/Node.hpp"
+#include "guikit/core/Node.hpp"
 
 namespace guikit {
 

@@ -3,8 +3,8 @@
 #include <cmath>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/layout/Solver.hpp"
-#include "guikit/layout/Node.hpp"
+#include "guikit/core/Solver.hpp"
+#include "guikit/core/Node.hpp"
 
 namespace guikit {
 

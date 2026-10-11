@@ -1,11 +1,10 @@
-#include "guikit/widgets/Toolbar.hpp"
+#include "guikit/panels/Toolbar.hpp"
 #include <algorithm>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/layout/Node.hpp"
+#include "guikit/core/Node.hpp"
 
 namespace guikit {
-
 
 void ToolbarScope::Separator(float heightRatio, std::source_location loc) {
     if (!m_ctx || !m_node) return;

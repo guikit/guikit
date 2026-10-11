@@ -44,6 +44,7 @@ endif()
 set(GUIKIT_SOURCES
     src/guikit/Context.cpp
     src/guikit/core/Theme.cpp
+    src/guikit/core/Solver.cpp
     src/guikit/backend/ThorCanvas.cpp
     src/guikit/backend/SdlCanvas.cpp
     src/guikit/graphics/Icon.cpp
@@ -54,6 +55,7 @@ set(GUIKIT_SOURCES
     src/guikit/layout/Spacer.cpp
     src/guikit/panels/Carousel.cpp
     src/guikit/panels/ScrollArea.cpp
+    src/guikit/panels/Toolbar.cpp
     src/guikit/widgets/Button.cpp
     src/guikit/widgets/Checkbox.cpp
     src/guikit/widgets/Heading.cpp
@@ -62,7 +64,6 @@ set(GUIKIT_SOURCES
     src/guikit/widgets/Switch.cpp
     src/guikit/widgets/TabBar.cpp
     src/guikit/widgets/Text.cpp
-    src/guikit/widgets/Toolbar.cpp
 )
 
 add_library(guikit STATIC ${GUIKIT_SOURCES})

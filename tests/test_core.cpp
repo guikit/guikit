@@ -6,7 +6,7 @@
 #include "guikit/core/Response.hpp"
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
-#include "guikit/layout/Node.hpp"
+#include "guikit/core/Node.hpp"
 
 static int g_failures = 0;
 

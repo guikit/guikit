@@ -18,8 +18,8 @@
 #include "guikit/core/Types.hpp"
 #include "guikit/core/UiString.hpp"
 #include "guikit/graphics/Icon.hpp"
-#include "guikit/layout/Solver.hpp"
-#include "guikit/layout/Node.hpp"
+#include "guikit/core/Solver.hpp"
+#include "guikit/core/Node.hpp"
 #include "guikit/core/ContainerScope.hpp"
 #include "guikit/layout/Row.hpp"
 #include "guikit/layout/Column.hpp"
@@ -30,6 +30,7 @@
 #include "guikit/panels/Card.hpp"
 #include "guikit/panels/Carousel.hpp"
 #include "guikit/panels/ScrollArea.hpp"
+#include "guikit/panels/Toolbar.hpp"
 #include "guikit/widgets/Button.hpp"
 #include "guikit/widgets/Checkbox.hpp"
 #include "guikit/widgets/Heading.hpp"
@@ -38,7 +39,6 @@
 #include "guikit/widgets/Switch.hpp"
 #include "guikit/widgets/TabBar.hpp"
 #include "guikit/widgets/Text.hpp"
-#include "guikit/widgets/Toolbar.hpp"
 
 namespace guikit {
 
@@ -862,6 +862,9 @@ inline ContainerScope::~ContainerScope() {
 }
 
 // Inline implementations of GridScope slot helpers
+inline ContainerScope GridScope::Cell(int span, CellOptions opts, std::source_location loc) {
+    return m_ctx ? m_ctx->CreateCell(span, opts, loc) : ContainerScope(nullptr, nullptr);
+}
 inline ContainerScope GridScope::Cell12(CellOptions opts, std::source_location loc) {
     return m_ctx ? m_ctx->CreateCell(12, opts, loc) : ContainerScope(nullptr, nullptr);
 }

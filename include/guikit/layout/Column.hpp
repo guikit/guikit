@@ -5,7 +5,6 @@
 #include "guikit/core/ContainerScope.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
-#include "guikit/layout/Types.hpp"
 
 namespace guikit {
 

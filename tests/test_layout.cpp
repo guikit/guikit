@@ -1,9 +1,9 @@
-﻿#include <cmath>
+#include <cmath>
 #include <iostream>
 #include "guikit/core/Allocator.hpp"
 #include "guikit/core/Theme.hpp"
-#include "guikit/layout/Solver.hpp"
-#include "guikit/layout/Node.hpp"
+#include "guikit/core/Solver.hpp"
+#include "guikit/core/Node.hpp"
 
 static int g_failures = 0;
 

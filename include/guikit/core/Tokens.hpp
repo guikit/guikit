@@ -6,15 +6,6 @@
 
 namespace guikit {
 
-/// Scale for density, typography, spacing, and component dimensions.
-enum class UiSize : uint8_t {
-    None = 0, ///< Zero / unpadded / no gap / square corners
-    Xs,       ///< Extra Small (compact toolbars, inline badges, dense data tables)
-    Sm,       ///< Small (secondary panels, compact forms)
-    Md,       ///< Medium (standard default controls across the engine)
-    Lg,       ///< Large (prominent action bars, touch-friendly interfaces)
-    Xl        ///< Extra Large (hero actions, emergency stops, kiosk displays)
-};
 
 /// Semantic visual variants for colors, states, and emphasis across all widgets.
 enum class UiVariant : uint8_t {

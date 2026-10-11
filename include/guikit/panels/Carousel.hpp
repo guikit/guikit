@@ -6,7 +6,6 @@
 #include "guikit/core/Id.hpp"
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
-#include "guikit/layout/Types.hpp"
 
 namespace guikit {
 
