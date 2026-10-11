@@ -103,8 +103,10 @@ int main(int argc, char* argv[]) {
     float cardRadius = 8.0f;
     float cardPadding = 16.0f;
     float cardGap = 8.0f;
-    float layoutGap = 8.0f;
-    float gridGap = 12.0f;
+    float gridColGap = 12.0f;
+    float gridRowGap = 10.0f;
+    float colGap = 12.0f;
+    float rowGap = 8.0f;
     guikit::UiSize headingSize = guikit::UiSize::Md;
     guikit::FrameMetrics metrics;
 
@@ -448,8 +450,8 @@ int main(int argc, char* argv[]) {
                                             ui.InvalidateAll();
                                         }
 
-                                        // 3. Card Surface Geometry (Pixel Sliders)
-                                        ui.Heading({.title = "Card Surface", .size = guikit::UiSize::Sm, .divider = true});
+                                        // 3. Card Container Geometry (Pixel Sliders)
+                                        ui.Heading({.title = "Card Container", .size = guikit::UiSize::Sm, .divider = true});
                                         if (ui.Slider(cardRadius, 0.0f, 24.0f, {
                                             .label = "Corner Radius",
                                             .format = "%.0f px"
@@ -463,28 +465,43 @@ int main(int argc, char* argv[]) {
                                             ui.InvalidateAll();
                                         }
                                         if (ui.Slider(cardGap, 0.0f, 24.0f, {
-                                            .label = "Child Element Gap",
+                                            .label = "Inner Element Gap",
                                             .format = "%.0f px"
                                         }).changed) {
                                             ui.InvalidateAll();
                                         }
 
-                                        // 4. Layout & Grid Spacing (Pixel Sliders)
-                                        ui.Heading({.title = "Layout & Grid", .size = guikit::UiSize::Sm, .divider = true});
-                                        if (ui.Slider(gridGap, 0.0f, 32.0f, {
-                                            .label = "Grid Cell Gap",
+                                        // 4. Grid Layout (Separate X and Y gaps)
+                                        ui.Heading({.title = "Grid Layout", .size = guikit::UiSize::Sm, .divider = true});
+                                        if (ui.Slider(gridColGap, 0.0f, 32.0f, {
+                                            .label = "Column Gap (X)",
                                             .format = "%.0f px"
                                         }).changed) {
                                             ui.InvalidateAll();
                                         }
-                                        if (ui.Slider(layoutGap, 0.0f, 32.0f, {
-                                            .label = "Column / Section Gap",
+                                        if (ui.Slider(gridRowGap, 0.0f, 32.0f, {
+                                            .label = "Row Gap (Y)",
                                             .format = "%.0f px"
                                         }).changed) {
                                             ui.InvalidateAll();
                                         }
 
-                                        // 5. Typography Size (UiSize StepSlider)
+                                        // 5. Flexbox Layout (Column & Row)
+                                        ui.Heading({.title = "Flexbox (Column & Row)", .size = guikit::UiSize::Sm, .divider = true});
+                                        if (ui.Slider(colGap, 0.0f, 32.0f, {
+                                            .label = "Column Gap (Y)",
+                                            .format = "%.0f px"
+                                        }).changed) {
+                                            ui.InvalidateAll();
+                                        }
+                                        if (ui.Slider(rowGap, 0.0f, 24.0f, {
+                                            .label = "Row Gap (X)",
+                                            .format = "%.0f px"
+                                        }).changed) {
+                                            ui.InvalidateAll();
+                                        }
+
+                                        // 6. Typography Size (UiSize StepSlider)
                                         ui.Heading({.title = "Typography", .size = guikit::UiSize::Sm, .divider = true});
                                         if (ui.StepSlider(headingSize, {
                                             .label = "Heading Size",
@@ -505,8 +522,10 @@ int main(int argc, char* argv[]) {
                                             cardRadius = 8.0f;
                                             cardGap = 8.0f;
                                             cardPadding = 16.0f;
-                                            layoutGap = 8.0f;
-                                            gridGap = 12.0f;
+                                            gridColGap = 12.0f;
+                                            gridRowGap = 10.0f;
+                                            colGap = 12.0f;
+                                            rowGap = 8.0f;
                                             headingSize = guikit::UiSize::Md;
                                             appTheme.density = guikit::Density::Standard;
                                             appTheme.SetDensity(appTheme.density);
@@ -642,7 +661,7 @@ int main(int argc, char* argv[]) {
 
                     // Content Column (Right side workspace)
                     if (auto contentCol = ui.Column({
-                        .gap = layoutGap,
+                        .gap = colGap,
                         .heightMode = guikit::SizeMode::Stretch,
                         .size = controlsSize,
                         .theme = &appTheme,
@@ -657,8 +676,8 @@ int main(int argc, char* argv[]) {
                         };
                         const auto makeGrid = [&]() {
                             return guikit::GridOptions{
-                                .gap = gridGap,
-                                .runGap = gridGap
+                                .gap = gridColGap,
+                                .runGap = gridRowGap
                             };
                         };
 
@@ -679,7 +698,7 @@ int main(int argc, char* argv[]) {
                             if (auto scroll = ui.ScrollArea()) {
                                 if (auto dashboardGrid = ui.Grid(makeGrid())) {
                                     // Left Column: wraps to full width when narrow
-                                    if (auto colLeft = dashboardGrid.Cell6()) {
+                                    if (auto colLeft = dashboardGrid.Cell6({.gap = colGap})) {
                                         if (auto card1 = ui.Card(makeCard())) {
                                             ui.Heading({.title = "Primary Stop Conditions", .subtitle = "Sensory tripwire thresholds & limits", .size = headingSize});
                                             if (auto grid1 = ui.Grid(makeGrid())) {
@@ -736,7 +755,7 @@ int main(int argc, char* argv[]) {
                                     }
 
                                     // Right Column: wraps to full width when narrow
-                                    if (auto colRight = dashboardGrid.Cell6()) {
+                                    if (auto colRight = dashboardGrid.Cell6({.gap = colGap})) {
                                         if (auto card3 = ui.Card(makeCard())) {
                                             ui.Heading({.title = "Secondary Criteria & PID", .subtitle = "Dynamic closed-loop feedback parameters", .size = headingSize});
                                             if (auto grid3 = ui.Grid(makeGrid())) {
@@ -771,7 +790,7 @@ int main(int argc, char* argv[]) {
                             if (auto card = ui.Card(makeCard())) {
                                 ui.Heading({.title = "Interactive Reactive State", .subtitle = "Pure immediate mode with zero external widget IDs and instant response.", .size = headingSize});
 
-                                if (auto actionRow = ui.Wrap({.align = guikit::Alignment::Center})) {
+                                if (auto actionRow = ui.Wrap({.gap = rowGap, .runGap = colGap, .align = guikit::Alignment::Center})) {
                                     if (ui.Button({.label = "Increment (+1)", .icon = guikit::Icon::Plus(), .variant = guikit::UiVariant::Success})) {
                                         ++counter;
                                     }
@@ -785,7 +804,7 @@ int main(int argc, char* argv[]) {
                                     ui.Text(ui.Format("Value: {}", counter), {.role = guikit::TextRole::HeadlineMedium, .variant = guikit::UiVariant::Info});
                                 }
 
-                                if (auto togglesRow = ui.Wrap({.gap = 16.0f, .align = guikit::Alignment::Center})) {
+                                if (auto togglesRow = ui.Wrap({.gap = rowGap, .runGap = colGap, .align = guikit::Alignment::Center})) {
                                     ui.Checkbox(showTelemetry, {.label = "Show Telemetry", .variant = guikit::UiVariant::Info});
                                     if (ui.Switch(formMode, {
                                         .label = "Form Mode",
@@ -880,7 +899,7 @@ int main(int argc, char* argv[]) {
                             if (auto card = ui.Card(makeCard())) {
                                 ui.Heading({.title = "Dynamic 3-Way Equal Stretch Layout", .subtitle = "Each button automatically receives exactly 33.3% available width via stretch = true.", .size = headingSize});
 
-                                if (auto stretchRow = ui.Row()) {
+                                if (auto stretchRow = ui.Row({.gap = rowGap})) {
                                     ui.Button({.label = "Col 1 (Stretch)", .stretch = true});
                                     ui.Button({.label = "Col 2 (Stretch)", .stretch = true});
                                     ui.Button({.label = "Col 3 (Stretch)", .stretch = true});
