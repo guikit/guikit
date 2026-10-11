@@ -1,4 +1,5 @@
 #include <SDL3/SDL.h>
+#include <array>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -50,6 +51,8 @@ int main(int argc, char* argv[]) {
 
     int counter = 0;
     int activeTabIndex = 0;
+    bool showSidebar = true;
+    int sidebarTabIndex = 0;
     bool running = true;
     bool vsyncEnabled = true;
     bool reactiveMode = true;
@@ -260,6 +263,20 @@ int main(int argc, char* argv[]) {
 
                     tb.Separator();
 
+                    // Sidebar Inspector Toggle
+                    if (tb.ToolButton({
+                        .label = showSidebar ? "Sidebar: ON" : "Sidebar: OFF",
+                        .icon = guikit::Icon::Settings(),
+                        .variant = showSidebar ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+                        .labelVariants = {"Sidebar: ON", "Sidebar: OFF"},
+                        .active = showSidebar
+                    })) {
+                        showSidebar = !showSidebar;
+                        ui.InvalidateAll();
+                    }
+
+                    tb.Separator();
+
                     // VSync Toggle
                     if (tb.ToolButton({
                         .label = vsyncEnabled ? "VSync: ON" : "VSync: OFF",
@@ -353,214 +370,518 @@ int main(int argc, char* argv[]) {
                     }
                 }
 
-                // First-class Vector TabBar with Carousel auto-scrolling
-                const std::vector<guikit::TabItem> navTabs = {
-                    {.label = "Overview", .icon = guikit::Icon::Eye()},
-                    {.label = "Flexbox Demo", .icon = guikit::Icon::Settings()},
-                    {.label = "Industrial Dashboard", .icon = guikit::Icon::Folder(), .badge = "Live"},
-                    {.label = "Telemetry & Logs", .icon = guikit::Icon::Play()},
-                    {.label = "Network Diagnostics", .icon = guikit::Icon::Plus()},
-                    {.label = "Calibration Matrix", .icon = guikit::Icon::Settings()},
-                    {.label = "System Audit", .icon = guikit::Icon::Trash()}
-                };
-                ui.TabBar(activeTabIndex, navTabs, {.style = tabStyle});
+                // Workspace Row containing Sidebar (left) and Content Area (right)
+                if (auto workspaceRow = ui.Row({.gap = guikit::UiSize::Md, .heightMode = guikit::SizeMode::Stretch})) {
+                    // Collapsible Style Inspector Sidebar
+                    if (showSidebar) {
+                        if (auto sidebarBox = ui.Box({.heightMode = guikit::SizeMode::Stretch, .fixedWidth = 300.0f})) {
+                            if (auto sidebarCard = ui.Card({.gap = guikit::UiSize::Sm, .heightMode = guikit::SizeMode::Stretch})) {
+                                ui.Heading({
+                                    .title = "Style Inspector",
+                                    .subtitle = "Live Token Tuning",
+                                    .icon = guikit::Icon::Settings()
+                                });
 
-                if (activeTabIndex == 2) {
-                    // Industrial Dashboard: responsive 2-column layout inside a dedicated ScrollArea
-                    if (auto scroll = ui.ScrollArea()) {
-                        if (auto dashboardGrid = ui.Grid()) {
-                            // Left Column: wraps to full width when narrow
-                            if (auto colLeft = dashboardGrid.Cell6()) {
-                                if (auto card1 = ui.Card()) {
-                                    ui.Heading({.title = "Primary Stop Conditions", .subtitle = "Sensory tripwire thresholds & limits"});
-                                    if (auto grid1 = ui.Grid()) {
-                                        if (auto c = grid1.Cell12()) {
-                                            ui.Switch(enableSensors, {
-                                                .label = "Enable Sensor Drop Limits",
-                                                .description = "Immediate stop on threshold breach"
-                                            });
-                                        }
-                                        if (auto c = grid1.Cell6()) {
-                                            ui.InputField(maxTravel, {.label = "Max Travel", .suffix = "mm", .format = "%.1f"});
-                                        }
-                                        if (auto c = grid1.Cell6()) {
-                                            ui.InputField(maxVelocity, {.label = "Max Velocity", .suffix = "mm/s", .format = "%.1f"});
-                                        }
-                                        if (auto c = grid1.Cell12()) {
-                                            ui.Select(sensorChannel, {
-                                                "Channel A (Load Cell 50kN)",
-                                                "Channel B (Optical Extensometer)",
-                                                "Channel C (Laser Interferometer)"
-                                            }, {
-                                                .label = "Primary Sensor Channel",
-                                                .description = "Active physical transducer bus",
-                                                .labelPlacement = guikit::Placement::Stacked
-                                            });
-                                        }
-                                    }
-                                }
+                                static const std::array<guikit::TabItem, 2> sidebarTabs = {{
+                                    {.label = "Geometry", .icon = guikit::Icon::Settings()},
+                                    {.label = "Colors", .icon = guikit::Icon::Eye()}
+                                }};
+                                ui.TabBar(sidebarTabIndex, sidebarTabs, {
+                                    .style = guikit::TabBarStyle::Pill,
+                                    .fullWidth = true
+                                });
 
-                                if (auto card2 = ui.Card()) {
-                                    ui.Heading({.title = "Emergency Interlocks", .subtitle = "Hardware line supervision & failsafes", .variant = guikit::UiVariant::Danger});
-                                    if (auto grid2 = ui.Grid()) {
-                                        if (auto c = grid2.Cell12()) {
-                                            ui.Switch(hwEstop, {
-                                                .label = "Hardware E-Stop Line",
-                                                .description = "Continuous 24V loop monitoring",
-                                                .variant = guikit::UiVariant::Danger
-                                            });
+                                if (auto sidebarScroll = ui.ScrollArea({.gap = guikit::UiSize::Sm})) {
+                                    auto& th = ui.GetTheme();
+                                    if (sidebarTabIndex == 0) {
+                                        // === GEOMETRY TAB ===
+                                        ui.Text("Density Scale", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        if (auto row = ui.Row({.gap = guikit::UiSize::Xs})) {
+                                            const auto curDensity = ui.GetDensity();
+                                            if (ui.Button({
+                                                .label = "Standard",
+                                                .variant = (curDensity == guikit::Density::Standard) ? guikit::UiVariant::Primary : guikit::UiVariant::Default,
+                                                .stretch = true
+                                            })) {
+                                                ui.SetDensity(guikit::Density::Standard);
+                                                ui.InvalidateAll();
+                                            }
+                                            if (ui.Button({
+                                                .label = "Compact",
+                                                .variant = (curDensity == guikit::Density::Compact) ? guikit::UiVariant::Primary : guikit::UiVariant::Default,
+                                                .stretch = true
+                                            })) {
+                                                ui.SetDensity(guikit::Density::Compact);
+                                                ui.InvalidateAll();
+                                            }
+                                            if (ui.Button({
+                                                .label = "Touch",
+                                                .variant = (curDensity == guikit::Density::Touch) ? guikit::UiVariant::Primary : guikit::UiVariant::Default,
+                                                .stretch = true
+                                            })) {
+                                                ui.SetDensity(guikit::Density::Touch);
+                                                ui.InvalidateAll();
+                                            }
                                         }
-                                        if (auto c = grid2.Cell6()) {
-                                            ui.Select(interlockMode, {
-                                                "Immediate Cutoff",
-                                                "Controlled Ramp-down",
-                                                "Hold Position"
-                                            }, {
-                                                .label = "Interlock Action"
-                                            });
-                                        }
-                                        if (auto c = grid2.Cell6()) {
-                                            ui.InputField(rampDown, {.label = "Ramp Duration", .suffix = "ms", .format = "%.0f"});
-                                        }
-                                    }
-                                }
-                            }
 
-                            // Right Column: wraps to full width when narrow
-                            if (auto colRight = dashboardGrid.Cell6()) {
-                                if (auto card3 = ui.Card()) {
-                                    ui.Heading({.title = "Secondary Criteria & PID", .subtitle = "Dynamic closed-loop feedback parameters"});
-                                    if (auto grid3 = ui.Grid()) {
-                                        if (auto c = grid3.Cell6()) {
-                                            ui.InputField(forceLimit, {.label = "Force Drop Limit", .suffix = "%", .format = "%.1f"});
+                                        ui.Text("Corner Radius", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        if (auto row = ui.Row({.gap = guikit::UiSize::Xs})) {
+                                            if (ui.Button({.label = "Sharp (0px)", .stretch = true})) {
+                                                th.radius = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+                                                ui.InvalidateAll();
+                                            }
+                                            if (ui.Button({.label = "Default (6px)", .stretch = true})) {
+                                                th.radius = {0.0f, 2.0f, 4.0f, 6.0f, 8.0f, 12.0f};
+                                                ui.InvalidateAll();
+                                            }
+                                            if (ui.Button({.label = "Pill (14px)", .stretch = true})) {
+                                                th.radius = {0.0f, 4.0f, 8.0f, 14.0f, 20.0f, 28.0f};
+                                                ui.InvalidateAll();
+                                            }
                                         }
-                                        if (auto c = grid3.Cell6()) {
-                                            ui.InputField(yieldRatio, {.label = "Yield Ratio", .suffix = "%", .format = "%.2f"});
+                                        if (auto grid = ui.Grid()) {
+                                            if (auto c1 = grid.Cell4()) {
+                                                if (ui.InputField(th.radius[2], {.label = "Radius Sm", .suffix = "px", .format = "%.0f"}).changed) {
+                                                    ui.InvalidateAll();
+                                                }
+                                            }
+                                            if (auto c2 = grid.Cell4()) {
+                                                if (ui.InputField(th.radius[3], {.label = "Radius Md", .suffix = "px", .format = "%.0f"}).changed) {
+                                                    ui.InvalidateAll();
+                                                }
+                                            }
+                                            if (auto c3 = grid.Cell4()) {
+                                                if (ui.InputField(th.radius[4], {.label = "Radius Lg", .suffix = "px", .format = "%.0f"}).changed) {
+                                                    ui.InvalidateAll();
+                                                }
+                                            }
                                         }
-                                        if (auto c = grid3.Cell4()) {
-                                            ui.InputField(pGain, {.label = "P-Gain", .format = "%.2f"});
+
+                                        ui.Text("Spacing & Gaps", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        if (auto row = ui.Row({.gap = guikit::UiSize::Xs})) {
+                                            if (ui.Button({.label = "Tight", .stretch = true})) {
+                                                th.spacing = {0.0f, 2.0f, 4.0f, 8.0f, 12.0f, 16.0f};
+                                                ui.InvalidateAll();
+                                            }
+                                            if (ui.Button({.label = "Normal", .stretch = true})) {
+                                                th.spacing = {0.0f, 4.0f, 8.0f, 12.0f, 16.0f, 24.0f};
+                                                ui.InvalidateAll();
+                                            }
+                                            if (ui.Button({.label = "Spacious", .stretch = true})) {
+                                                th.spacing = {0.0f, 6.0f, 12.0f, 18.0f, 26.0f, 36.0f};
+                                                ui.InvalidateAll();
+                                            }
                                         }
-                                        if (auto c = grid3.Cell4()) {
-                                            ui.InputField(iGain, {.label = "I-Gain", .format = "%.3f"});
+                                        if (auto grid = ui.Grid()) {
+                                            if (auto c1 = grid.Cell4()) {
+                                                if (ui.InputField(th.spacing[2], {.label = "Gap Sm", .suffix = "px", .format = "%.0f"}).changed) {
+                                                    ui.InvalidateAll();
+                                                }
+                                            }
+                                            if (auto c2 = grid.Cell4()) {
+                                                if (ui.InputField(th.spacing[3], {.label = "Gap Md", .suffix = "px", .format = "%.0f"}).changed) {
+                                                    ui.InvalidateAll();
+                                                }
+                                            }
+                                            if (auto c3 = grid.Cell4()) {
+                                                if (ui.InputField(th.spacing[4], {.label = "Gap Lg", .suffix = "px", .format = "%.0f"}).changed) {
+                                                    ui.InvalidateAll();
+                                                }
+                                            }
                                         }
-                                        if (auto c = grid3.Cell4()) {
-                                            ui.InputField(dGain, {.label = "D-Gain", .format = "%.3f"});
+
+                                        ui.Text("Control Heights", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        if (auto grid = ui.Grid()) {
+                                            if (auto c1 = grid.Cell4()) {
+                                                if (ui.InputField(th.GetMetrics(guikit::UiSize::Sm).defaultHeight, {.label = "Height Sm", .suffix = "px", .format = "%.0f"}).changed) {
+                                                    ui.InvalidateAll();
+                                                }
+                                            }
+                                            if (auto c2 = grid.Cell4()) {
+                                                if (ui.InputField(th.GetMetrics(guikit::UiSize::Md).defaultHeight, {.label = "Height Md", .suffix = "px", .format = "%.0f"}).changed) {
+                                                    ui.InvalidateAll();
+                                                }
+                                            }
+                                            if (auto c3 = grid.Cell4()) {
+                                                if (ui.InputField(th.GetMetrics(guikit::UiSize::Lg).defaultHeight, {.label = "Height Lg", .suffix = "px", .format = "%.0f"}).changed) {
+                                                    ui.InvalidateAll();
+                                                }
+                                            }
                                         }
-                                        if (auto c = grid3.Cell12()) {
-                                            ui.Switch(diagLogging, {
-                                                .label = "Log High-Speed Telemetry",
-                                                .description = "Record 10 kHz buffer to internal flash"
-                                            });
+
+                                        ui.Text("Typography Line Height", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        if (ui.InputField(th.lineHeightMultiplier, {.label = "Line Height Ratio", .format = "%.2f"}).changed) {
+                                            ui.InvalidateAll();
+                                        }
+
+                                        if (ui.Button({
+                                            .label = "Reset Geometry Defaults",
+                                            .icon = guikit::Icon::Refresh(),
+                                            .variant = guikit::UiVariant::Secondary,
+                                            .stretch = true
+                                        })) {
+                                            const auto defTheme = darkMode ? guikit::UiTheme::Dark(guikit::Density::Standard) : guikit::UiTheme::Light(guikit::Density::Standard);
+                                            th.spacing = defTheme.spacing;
+                                            th.radius = defTheme.radius;
+                                            th.metrics = defTheme.metrics;
+                                            th.density = guikit::Density::Standard;
+                                            th.lineHeightMultiplier = guikit::kDefaultLineHeightMultiplier;
+                                            ui.InvalidateAll();
+                                        }
+                                    } else {
+                                        // === COLORS TAB ===
+                                        if (ui.Switch(darkMode, {
+                                            .label = "Dark Mode",
+                                            .description = "Switch between Dark and Light palette"
+                                        }).changed) {
+                                            ui.SetThemeMode(darkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light);
+                                            ui.InvalidateAll();
+                                        }
+
+                                        ui.Text("Brand Accent", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        auto setAccent = [&](guikit::Color accent, guikit::Color hover, guikit::Color active) {
+                                            th.palette.accent = accent;
+                                            th.palette.accentHover = hover;
+                                            th.palette.focusRing = accent;
+                                            th.palette.caret = accent;
+                                            auto& prim = th.GetVariant(guikit::UiVariant::Primary);
+                                            prim.bg = accent;
+                                            prim.bgHover = hover;
+                                            prim.bgActive = active;
+                                            ui.InvalidateAll();
+                                        };
+
+                                        if (auto grid = ui.Grid()) {
+                                            if (auto c = grid.Cell4()) {
+                                                if (ui.Button({.label = "Sky Blue", .variant = guikit::UiVariant::Primary, .stretch = true})) {
+                                                    setAccent(guikit::Color::Hex(0x38BDF8FF), guikit::Color::Hex(0x60A5FAFF), guikit::Color::Hex(0x2563EBFF));
+                                                }
+                                            }
+                                            if (auto c = grid.Cell4()) {
+                                                if (ui.Button({.label = "Emerald", .variant = guikit::UiVariant::Success, .stretch = true})) {
+                                                    setAccent(guikit::Color::Hex(0x10B981FF), guikit::Color::Hex(0x34D399FF), guikit::Color::Hex(0x059669FF));
+                                                }
+                                            }
+                                            if (auto c = grid.Cell4()) {
+                                                if (ui.Button({.label = "Violet", .stretch = true})) {
+                                                    setAccent(guikit::Color::Hex(0x8B5CF6FF), guikit::Color::Hex(0xA78BFAFF), guikit::Color::Hex(0x7C3AEDFF));
+                                                }
+                                            }
+                                            if (auto c = grid.Cell4()) {
+                                                if (ui.Button({.label = "Amber", .variant = guikit::UiVariant::Warning, .stretch = true})) {
+                                                    setAccent(guikit::Color::Hex(0xF59E0BFF), guikit::Color::Hex(0xFBBF24FF), guikit::Color::Hex(0xD97706FF));
+                                                }
+                                            }
+                                            if (auto c = grid.Cell4()) {
+                                                if (ui.Button({.label = "Rose", .variant = guikit::UiVariant::Danger, .stretch = true})) {
+                                                    setAccent(guikit::Color::Hex(0xF43F5EFF), guikit::Color::Hex(0xFB7185FF), guikit::Color::Hex(0xE11D48FF));
+                                                }
+                                            }
+                                            if (auto c = grid.Cell4()) {
+                                                if (ui.Button({.label = "Cyan", .variant = guikit::UiVariant::Info, .stretch = true})) {
+                                                    setAccent(guikit::Color::Hex(0x06B6D4FF), guikit::Color::Hex(0x22D3EEFF), guikit::Color::Hex(0x0891B2FF));
+                                                }
+                                            }
+                                        }
+
+                                        ui.Text("Dark Surface Tones", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        auto setSurfaceTone = [&](guikit::Color bg, guikit::Color surf, guikit::Color elev, guikit::Color bdr) {
+                                            th.palette.background = bg;
+                                            th.palette.surface = surf;
+                                            th.palette.surfaceElevated = elev;
+                                            th.palette.border = bdr;
+                                            th.palette.inputBackground = bg;
+                                            ui.SetClearColor(bg);
+                                            ui.InvalidateAll();
+                                        };
+
+                                        if (auto grid = ui.Grid()) {
+                                            if (auto c = grid.Cell6()) {
+                                                if (ui.Button({.label = "Slate (Default)", .stretch = true})) {
+                                                    setSurfaceTone(guikit::Color::Hex(0x0B0F19FF), guikit::Color::Hex(0x1E293BFF), guikit::Color::Hex(0x1E293BFF), guikit::Color::Hex(0x334155FF));
+                                                }
+                                            }
+                                            if (auto c = grid.Cell6()) {
+                                                if (ui.Button({.label = "Zinc Gray", .stretch = true})) {
+                                                    setSurfaceTone(guikit::Color::Hex(0x18181BFF), guikit::Color::Hex(0x27272AFF), guikit::Color::Hex(0x27272AFF), guikit::Color::Hex(0x3F3F46FF));
+                                                }
+                                            }
+                                            if (auto c = grid.Cell6()) {
+                                                if (ui.Button({.label = "OLED Black", .stretch = true})) {
+                                                    setSurfaceTone(guikit::Color::Hex(0x000000FF), guikit::Color::Hex(0x121212FF), guikit::Color::Hex(0x181818FF), guikit::Color::Hex(0x27272AFF));
+                                                }
+                                            }
+                                            if (auto c = grid.Cell6()) {
+                                                if (ui.Button({.label = "Deep Navy", .stretch = true})) {
+                                                    setSurfaceTone(guikit::Color::Hex(0x0A0F1DFF), guikit::Color::Hex(0x151E32FF), guikit::Color::Hex(0x1C2844FF), guikit::Color::Hex(0x263554FF));
+                                                }
+                                            }
+                                        }
+
+                                        ui.Text("Border Contrast", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        if (auto row = ui.Row({.gap = guikit::UiSize::Xs})) {
+                                            if (ui.Button({.label = "Subtle", .stretch = true})) {
+                                                th.palette.border = guikit::Color::Hex(0x33415560);
+                                                ui.InvalidateAll();
+                                            }
+                                            if (ui.Button({.label = "Default", .stretch = true})) {
+                                                th.palette.border = guikit::Color::Hex(0x334155FF);
+                                                ui.InvalidateAll();
+                                            }
+                                            if (ui.Button({.label = "High", .stretch = true})) {
+                                                th.palette.border = guikit::Color::Hex(0x64748BFF);
+                                                ui.InvalidateAll();
+                                            }
+                                        }
+
+                                        if (ui.Button({
+                                            .label = "Reset Color Defaults",
+                                            .icon = guikit::Icon::Refresh(),
+                                            .variant = guikit::UiVariant::Secondary,
+                                            .stretch = true
+                                        })) {
+                                            const auto defTheme = darkMode ? guikit::UiTheme::Dark(ui.GetDensity()) : guikit::UiTheme::Light(ui.GetDensity());
+                                            th.palette = defTheme.palette;
+                                            th.variants = defTheme.variants;
+                                            ui.SetClearColor(th.palette.background);
+                                            ui.InvalidateAll();
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                } else {
-                    // Content Panel Card for Tabs 0 and 1
-                    if (auto card = ui.Card()) {
-                        if (activeTabIndex == 0) {
-                            // Overview Tab: Interactive Counter
-                            ui.Heading({.title = "Interactive Reactive State", .subtitle = "Pure immediate mode with zero external widget IDs and instant response."});
 
-                            if (auto actionRow = ui.Wrap({.align = guikit::Alignment::Center})) {
-                                if (ui.Button({.label = "Increment (+1)", .icon = guikit::Icon::Plus(), .variant = guikit::UiVariant::Success})) {
-                                    ++counter;
-                                }
-                                if (ui.Button({.label = "Decrement (-1)", .icon = guikit::Icon::Minus(), .variant = guikit::UiVariant::Warning})) {
-                                    --counter;
-                                }
-                                if (ui.Button({.label = "Reset", .icon = guikit::Icon::Refresh(), .variant = guikit::UiVariant::Danger})) {
-                                    counter = 0;
-                                }
+                    // Content Column (Right side workspace)
+                    if (auto contentCol = ui.Column({.gap = guikit::UiSize::Sm, .heightMode = guikit::SizeMode::Stretch})) {
+                        // First-class Vector TabBar with Carousel auto-scrolling
+                        static const std::array<guikit::TabItem, 7> navTabs = {{
+                            {.label = "Overview", .icon = guikit::Icon::Eye()},
+                            {.label = "Flexbox Demo", .icon = guikit::Icon::Settings()},
+                            {.label = "Industrial Dashboard", .icon = guikit::Icon::Folder(), .badge = "Live"},
+                            {.label = "Telemetry & Logs", .icon = guikit::Icon::Play()},
+                            {.label = "Network Diagnostics", .icon = guikit::Icon::Plus()},
+                            {.label = "Calibration Matrix", .icon = guikit::Icon::Settings()},
+                            {.label = "System Audit", .icon = guikit::Icon::Trash()}
+                        }};
+                        ui.TabBar(activeTabIndex, navTabs, {.style = tabStyle});
 
-                                ui.Text(ui.Format("Value: {}", counter), {.role = guikit::TextRole::HeadlineMedium, .variant = guikit::UiVariant::Info});
+                        if (activeTabIndex == 2) {
+                            // Industrial Dashboard: responsive 2-column layout inside a dedicated ScrollArea
+                            if (auto scroll = ui.ScrollArea()) {
+                                if (auto dashboardGrid = ui.Grid()) {
+                                    // Left Column: wraps to full width when narrow
+                                    if (auto colLeft = dashboardGrid.Cell6()) {
+                                        if (auto card1 = ui.Card()) {
+                                            ui.Heading({.title = "Primary Stop Conditions", .subtitle = "Sensory tripwire thresholds & limits"});
+                                            if (auto grid1 = ui.Grid()) {
+                                                if (auto c = grid1.Cell12()) {
+                                                    ui.Switch(enableSensors, {
+                                                        .label = "Enable Sensor Drop Limits",
+                                                        .description = "Immediate stop on threshold breach"
+                                                    });
+                                                }
+                                                if (auto c = grid1.Cell6()) {
+                                                    ui.InputField(maxTravel, {.label = "Max Travel", .suffix = "mm", .format = "%.1f"});
+                                                }
+                                                if (auto c = grid1.Cell6()) {
+                                                    ui.InputField(maxVelocity, {.label = "Max Velocity", .suffix = "mm/s", .format = "%.1f"});
+                                                }
+                                                if (auto c = grid1.Cell12()) {
+                                                    ui.Select(sensorChannel, {
+                                                        "Channel A (Load Cell 50kN)",
+                                                        "Channel B (Optical Extensometer)",
+                                                        "Channel C (Laser Interferometer)"
+                                                    }, {
+                                                        .label = "Primary Sensor Channel",
+                                                        .description = "Active physical transducer bus",
+                                                        .labelPlacement = guikit::Placement::Stacked
+                                                    });
+                                                }
+                                            }
+                                        }
+
+                                        if (auto card2 = ui.Card()) {
+                                            ui.Heading({.title = "Emergency Interlocks", .subtitle = "Hardware line supervision & failsafes", .variant = guikit::UiVariant::Danger});
+                                            if (auto grid2 = ui.Grid()) {
+                                                if (auto c = grid2.Cell12()) {
+                                                    ui.Switch(hwEstop, {
+                                                        .label = "Hardware E-Stop Line",
+                                                        .description = "Continuous 24V loop monitoring",
+                                                        .variant = guikit::UiVariant::Danger
+                                                    });
+                                                }
+                                                if (auto c = grid2.Cell6()) {
+                                                    ui.Select(interlockMode, {
+                                                        "Immediate Cutoff",
+                                                        "Controlled Ramp-down",
+                                                        "Hold Position"
+                                                    }, {
+                                                        .label = "Interlock Action"
+                                                    });
+                                                }
+                                                if (auto c = grid2.Cell6()) {
+                                                    ui.InputField(rampDown, {.label = "Ramp Duration", .suffix = "ms", .format = "%.0f"});
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Right Column: wraps to full width when narrow
+                                    if (auto colRight = dashboardGrid.Cell6()) {
+                                        if (auto card3 = ui.Card()) {
+                                            ui.Heading({.title = "Secondary Criteria & PID", .subtitle = "Dynamic closed-loop feedback parameters"});
+                                            if (auto grid3 = ui.Grid()) {
+                                                if (auto c = grid3.Cell6()) {
+                                                    ui.InputField(forceLimit, {.label = "Force Drop Limit", .suffix = "%", .format = "%.1f"});
+                                                }
+                                                if (auto c = grid3.Cell6()) {
+                                                    ui.InputField(yieldRatio, {.label = "Yield Ratio", .suffix = "%", .format = "%.2f"});
+                                                }
+                                                if (auto c = grid3.Cell4()) {
+                                                    ui.InputField(pGain, {.label = "P-Gain", .format = "%.2f"});
+                                                }
+                                                if (auto c = grid3.Cell4()) {
+                                                    ui.InputField(iGain, {.label = "I-Gain", .format = "%.3f"});
+                                                }
+                                                if (auto c = grid3.Cell4()) {
+                                                    ui.InputField(dGain, {.label = "D-Gain", .format = "%.3f"});
+                                                }
+                                                if (auto c = grid3.Cell12()) {
+                                                    ui.Switch(diagLogging, {
+                                                        .label = "Log High-Speed Telemetry",
+                                                        .description = "Record 10 kHz buffer to internal flash"
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
+                        } else if (activeTabIndex == 0) {
+                            // Overview Tab: Interactive Counter & Form
+                            if (auto card = ui.Card()) {
+                                ui.Heading({.title = "Interactive Reactive State", .subtitle = "Pure immediate mode with zero external widget IDs and instant response."});
 
-                            if (auto togglesRow = ui.Wrap({.gap = guikit::UiSize::Lg, .align = guikit::Alignment::Center})) {
-                                ui.Checkbox(showTelemetry, {.label = "Show Telemetry", .variant = guikit::UiVariant::Info});
-                                if (ui.Switch(formMode, {
-                                    .label = "Form Mode",
-                                    .description = "Toggle stacked vs default label layout",
-                                    .labelPlacement = guikit::Placement::Stacked
-                                    }).changed) {
-                                    ui.InvalidateAll();
+                                if (auto actionRow = ui.Wrap({.align = guikit::Alignment::Center})) {
+                                    if (ui.Button({.label = "Increment (+1)", .icon = guikit::Icon::Plus(), .variant = guikit::UiVariant::Success})) {
+                                        ++counter;
+                                    }
+                                    if (ui.Button({.label = "Decrement (-1)", .icon = guikit::Icon::Minus(), .variant = guikit::UiVariant::Warning})) {
+                                        --counter;
+                                    }
+                                    if (ui.Button({.label = "Reset", .icon = guikit::Icon::Refresh(), .variant = guikit::UiVariant::Danger})) {
+                                        counter = 0;
+                                    }
+
+                                    ui.Text(ui.Format("Value: {}", counter), {.role = guikit::TextRole::HeadlineMedium, .variant = guikit::UiVariant::Info});
                                 }
-                                ui.Checkbox(true, {.label = "Auto-Scale", .disabled = true});
+
+                                if (auto togglesRow = ui.Wrap({.gap = guikit::UiSize::Lg, .align = guikit::Alignment::Center})) {
+                                    ui.Checkbox(showTelemetry, {.label = "Show Telemetry", .variant = guikit::UiVariant::Info});
+                                    if (ui.Switch(formMode, {
+                                        .label = "Form Mode",
+                                        .description = "Toggle stacked vs default label layout",
+                                        .labelPlacement = guikit::Placement::Stacked
+                                        }).changed) {
+                                        ui.InvalidateAll();
+                                    }
+                                    ui.Checkbox(true, {.label = "Auto-Scale", .disabled = true});
+                                }
+
+                                if (showTelemetry) {
+                                    ui.Heading({
+                                        .title = "Telemetry Stream",
+                                        .subtitle = "1000 samples/sec | Jitter < 0.2ms | Hardware loop nominal",
+                                        .icon = guikit::Icon::Check(),
+                                        .badge = "ACTIVE",
+                                        .variant = guikit::UiVariant::Success
+                                    });
+                                }
+
+                                const guikit::Placement activePlacement = formMode ? guikit::Placement::Stacked : guikit::Placement::Leading;
+
+                                if (auto fieldsGrid = ui.Grid()) {
+                                    if (auto c1 = fieldsGrid.Cell3()) {
+                                        ui.InputField(speedDrop, {
+                                            .label = "Speed Drop dF/dt",
+                                            .description = "Automatic stop of testing on load drop",
+                                            .suffix = "%",
+                                            .format = "%.0f",
+                                            .labelPlacement = activePlacement
+                                        });
+                                    }
+                                    if (auto c2 = fieldsGrid.Cell3()) {
+                                        ui.InputField(sampleId, {
+                                            .label = "Sample Identifier",
+                                            .description = "Unique test specimen code",
+                                            .placeholder = "Enter sample code...",
+                                            .labelPlacement = activePlacement
+                                        });
+                                    }
+                                    if (auto c3 = fieldsGrid.Cell3()) {
+                                        ui.Select(baudIndex, {"9600 bps", "19200 bps", "38400 bps", "115200 bps"}, {
+                                            .label = "Baud Rate",
+                                            .description = "Serial communication bus rate",
+                                            .labelPlacement = activePlacement
+                                        });
+                                    }
+                                    if (auto c4 = fieldsGrid.Cell3()) {
+                                        ui.Select(profileMode, {"Eco Saver", "Standard Performance", "Industrial High-Speed", "Extreme Calibration"}, {
+                                            .label = "Operation Profile",
+                                            .description = "Active runtime sensor & compute profile",
+                                            .labelPlacement = activePlacement
+                                        });
+                                    }
+                                }
                             }
+                        } else if (activeTabIndex == 1) {
+                            // Flexbox Demo Tab: Equal Stretch & Alignment
+                            if (auto card = ui.Card()) {
+                                ui.Heading({.title = "Dynamic 3-Way Equal Stretch Layout", .subtitle = "Each button automatically receives exactly 33.3% available width via stretch = true."});
 
-                            if (showTelemetry) {
-                                ui.Heading({
-                                    .title = "Telemetry Stream",
-                                    .subtitle = "1000 samples/sec | Jitter < 0.2ms | Hardware loop nominal",
-                                    .icon = guikit::Icon::Check(),
-                                    .badge = "ACTIVE",
-                                    .variant = guikit::UiVariant::Success
-                                });
-                            }
+                                if (auto stretchRow = ui.Row()) {
+                                    ui.Button({.label = "Col 1 (Stretch)", .stretch = true});
+                                    ui.Button({.label = "Col 2 (Stretch)", .stretch = true});
+                                    ui.Button({.label = "Col 3 (Stretch)", .stretch = true});
+                                }
 
-                            const guikit::Placement activePlacement = formMode ? guikit::Placement::Stacked : guikit::Placement::Leading;
-
-                            if (auto fieldsGrid = ui.Grid()) {
-                                if (auto c1 = fieldsGrid.Cell3()) {
-                                    ui.InputField(speedDrop, {
-                                        .label = "Speed Drop dF/dt",
-                                        .description = "Automatic stop of testing on load drop",
-                                        .suffix = "%",
-                                        .format = "%.0f",
-                                        .labelPlacement = activePlacement
-                                    });
-                                }
-                                if (auto c2 = fieldsGrid.Cell3()) {
-                                    ui.InputField(sampleId, {
-                                        .label = "Sample Identifier",
-                                        .description = "Unique test specimen code",
-                                        .placeholder = "Enter sample code...",
-                                        .labelPlacement = activePlacement
-                                    });
-                                }
-                                if (auto c3 = fieldsGrid.Cell3()) {
-                                    ui.Select(baudIndex, {"9600 bps", "19200 bps", "38400 bps", "115200 bps"}, {
-                                        .label = "Baud Rate",
-                                        .description = "Serial communication bus rate",
-                                        .labelPlacement = activePlacement
-                                    });
-                                }
-                                if (auto c4 = fieldsGrid.Cell3()) {
-                                    ui.Select(profileMode, {"Eco Saver", "Standard Performance", "Industrial High-Speed", "Extreme Calibration"}, {
-                                        .label = "Operation Profile",
-                                        .description = "Active runtime sensor & compute profile",
-                                        .labelPlacement = activePlacement
-                                    });
+                                ui.Heading({.title = "Horizontal Carousel Ribbon", .subtitle = "Autonomous scroll container with navigation arrows and mouse wheel support."});
+                                if (auto ribbon = ui.Carousel({.gap = guikit::UiSize::Sm})) {
+                                    for (int k = 1; k <= 10; ++k) {
+                                        ui.Button({
+                                            .label = ui.Format("Module #{:02d}", k),
+                                            .variant = (k % 3 == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Default
+                                        });
+                                    }
                                 }
                             }
                         } else {
-                            // Flexbox Demo Tab: Equal Stretch & Alignment
-                            ui.Heading({.title = "Dynamic 3-Way Equal Stretch Layout", .subtitle = "Each button automatically receives exactly 33.3% available width via stretch = true."});
-
-                            if (auto stretchRow = ui.Row()) {
-                                ui.Button({.label = "Col 1 (Stretch)", .stretch = true});
-                                ui.Button({.label = "Col 2 (Stretch)", .stretch = true});
-                                ui.Button({.label = "Col 3 (Stretch)", .stretch = true});
-                            }
-
-                            ui.Heading({.title = "Horizontal Carousel Ribbon", .subtitle = "Autonomous scroll container with navigation arrows and mouse wheel support."});
-                            if (auto ribbon = ui.Carousel({.gap = guikit::UiSize::Sm})) {
-                                for (int k = 1; k <= 10; ++k) {
-                                    ui.Button({
-                                        .label = ui.Format("Module #{:02d}", k),
-                                        .variant = (k % 3 == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Default
-                                    });
+                            // Diagnostics & Audit Tabs
+                            if (auto card = ui.Card()) {
+                                ui.Heading({
+                                    .title = navTabs[activeTabIndex].label,
+                                    .subtitle = "Operational module telemetry stream and live system diagnostics.",
+                                    .icon = navTabs[activeTabIndex].icon
+                                });
+                                if (auto grid = ui.Grid()) {
+                                    if (auto c1 = grid.Cell6()) {
+                                        ui.Text(ui.Format("Channel Status: ONLINE | Active node: [{}]", navTabs[activeTabIndex].label),
+                                                {.role = guikit::TextRole::BodyMedium, .variant = guikit::UiVariant::Success});
+                                    }
+                                    if (auto c2 = grid.Cell6()) {
+                                        ui.Text("Latency: 0.18 ms | Packet Drop: 0.00% | CRC: OK",
+                                                {.role = guikit::TextRole::CodeMedium, .variant = guikit::UiVariant::Info});
+                                    }
                                 }
                             }
                         }
-                    }
-                }
 
-                // Vertical Spacer pushing the footer down (only for non-stretching tabs)
-                if (activeTabIndex != 2) {
-                    ui.Spacer();
+                        // Vertical Spacer pushing the footer down (only for non-stretching tabs)
+                        if (activeTabIndex != 2) {
+                            ui.Spacer();
+                        }
+                    }
                 }
 
                 // Sticky Footer Bar
