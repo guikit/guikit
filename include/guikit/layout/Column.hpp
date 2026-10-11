@@ -8,6 +8,7 @@
 
 namespace guikit {
 
+struct UiTheme;
 class Context;
 
 /// Options for configuring a vertical Column layout.
@@ -20,6 +21,8 @@ struct ColumnOptions {
     SizeMode heightMode{SizeMode::Stretch};
     std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
+    const UiTheme* theme{nullptr};
+    std::optional<float> scale{std::nullopt};
 };
 
 /// Autonomous immediate mode Column layout entry point.

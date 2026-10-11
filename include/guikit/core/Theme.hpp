@@ -196,6 +196,9 @@ struct UiTheme {
 
     /// Updates metrics, spacing, and radius to the requested density scale.
     void SetDensity(Density d) noexcept;
+
+    /// Returns a new theme with all metrics, typography, spacing, and radius scaled by factor.
+    [[nodiscard]] UiTheme Scaled(float factor) const noexcept;
 };
 
 /// Backward-compatible alias for UiTheme.

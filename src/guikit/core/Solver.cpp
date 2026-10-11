@@ -18,14 +18,16 @@ static void ArrangeColumn(Node* node, const Rect& contentRect, const UiTheme& th
 static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& theme);
 
     static void MeasureNode(Node* node, ICanvas* canvas, const UiTheme& theme) {
+        const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
+
         // Measure children bottom-up first
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-            MeasureNode(child, canvas, theme);
+            MeasureNode(child, canvas, activeTheme);
         }
 
         // Custom autonomous measure delegate (leaves or specialized containers)
         if (node->measureFn) {
-            node->intrinsicSize = node->measureFn(node, canvas, theme);
+            node->intrinsicSize = node->measureFn(node, canvas, activeTheme);
             return;
         }
 
@@ -314,6 +316,8 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
     static void ArrangeNode(Node* node, Rect availableRect, const UiTheme& theme) {
         if (!node) return;
 
+        const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
+
         // Custom autonomous arrangement delegate (e.g. Carousel, custom containers)
         if (node->arrangeFn) {
             node->arrangeFn(node, availableRect);
@@ -345,7 +349,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         }
 
         if (node->type == NodeType::ScrollArea) {
-            const ScrollbarMetrics& sm = theme.GetScrollbar(node->uiSize);
+            const ScrollbarMetrics& sm = activeTheme.GetScrollbar(node->uiSize);
             const float fullW = std::max(0.0f, node->computedRect.w - node->padding.Horizontal());
             const float viewportH = std::max(0.0f, node->computedRect.h - node->padding.Vertical());
 
@@ -399,11 +403,11 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             );
 
             if (node->direction == FlexDirection::Grid) {
-                ArrangeGrid(node, scrollContentRect, theme);
+                ArrangeGrid(node, scrollContentRect, activeTheme);
             } else if (node->direction == FlexDirection::Row) {
-                ArrangeRow(node, scrollContentRect, theme);
+                ArrangeRow(node, scrollContentRect, activeTheme);
             } else {
-                ArrangeColumn(node, scrollContentRect, theme);
+                ArrangeColumn(node, scrollContentRect, activeTheme);
             }
             return;
         }
@@ -416,13 +420,13 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         );
 
         if (node->direction == FlexDirection::Row) {
-            ArrangeRow(node, contentRect, theme);
+            ArrangeRow(node, contentRect, activeTheme);
         } else if (node->direction == FlexDirection::Wrap) {
-            ArrangeWrap(node, contentRect, theme);
+            ArrangeWrap(node, contentRect, activeTheme);
         } else if (node->direction == FlexDirection::Grid) {
-            ArrangeGrid(node, contentRect, theme);
+            ArrangeGrid(node, contentRect, activeTheme);
         } else {
-            ArrangeColumn(node, contentRect, theme);
+            ArrangeColumn(node, contentRect, activeTheme);
         }
     }
 

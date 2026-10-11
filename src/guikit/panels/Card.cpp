@@ -12,9 +12,20 @@ ContainerScope Card::Open(
     const Id idOuter = ctx.MakeChildId(loc);
     const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
+    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
+
+    UiTheme* pushedTheme = nullptr;
+    if (opts.theme != nullptr || opts.scale.has_value()) {
+        UiTheme scopedTheme = opts.theme ? *opts.theme : ctx.GetTheme();
+        if (opts.scale.has_value() && *opts.scale > 0.0f) {
+            scopedTheme = scopedTheme.Scaled(*opts.scale);
+        }
+        pushedTheme = ctx.PushTheme(scopedTheme);
+    }
 
     // Outer styled surface frame
     Node* outerNode = ctx.CreateNode(NodeType::Card, idOuter);
+    outerNode->theme = pushedTheme;
     outerNode->direction = FlexDirection::Column;
     outerNode->gap = opts.gap.has_value() ? ctx.GetTheme().GetGap(*opts.gap) : ctx.GetTheme().GetGap(activeSize);
     outerNode->minWidth = opts.minWidth;
@@ -31,6 +42,7 @@ ContainerScope Card::Open(
     outerNode->borderColor = (opts.borderColor.a > 0) ? opts.borderColor : pal.border;
     outerNode->borderWidth = opts.borderWidth;
 
+    ctx.PushScale(activeScale);
     ctx.PushSize(activeSize);
     ctx.PushDisabled(activeDisabled);
     ctx.PushContainer(outerNode);

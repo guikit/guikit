@@ -3155,6 +3155,65 @@ void TestContextCleanArchitectureAndStateGC() {
     CHECK(ui.FindState<TemporaryWidgetState>(activeId)->value == 999);
 }
 
+void TestScopedThemeAndScaleOverrides() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+
+    const uint32_t width = 800;
+    const uint32_t height = 600;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    UiTheme customTheme = UiTheme::Light();
+    customTheme.palette.surface = Color(123, 234, 45, 255);
+
+    UiTheme inspectorTheme = UiTheme::Dark();
+    inspectorTheme.palette.surface = Color(10, 20, 30, 255);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
+
+    const float baseBtnHeight = ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight;
+    CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 0.001f);
+
+    // 1. Scoped theme override
+    if (auto box = ui.Box({.theme = &customTheme})) {
+        CHECK(ui.GetTheme().palette.surface == Color(123, 234, 45, 255));
+        CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 0.001f);
+    }
+    // Should restore after box closes
+    CHECK(ui.GetTheme().palette.surface != Color(123, 234, 45, 255));
+
+    // 2. Scoped scale override
+    if (auto col = ui.Column({.scale = 2.0f})) {
+        CHECK_NEAR(ui.GetCurrentScale(), 2.0f, 0.001f);
+        const float scaledBtnHeight = ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight;
+        CHECK_NEAR(scaledBtnHeight, baseBtnHeight * 2.0f, 0.001f);
+    }
+    // Should restore after col closes
+    CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 0.001f);
+    CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight, 0.001f);
+
+    // 3. Isolated sidebar vs scaled content in row
+    if (auto row = ui.Row()) {
+        if (auto sidebar = ui.Box({.theme = &inspectorTheme, .scale = 1.0f})) {
+            CHECK(ui.GetTheme().palette.surface == Color(10, 20, 30, 255));
+            CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 0.001f);
+            CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight, 0.001f);
+        }
+
+        if (auto content = ui.Column({.scale = 1.5f})) {
+            CHECK_NEAR(ui.GetCurrentScale(), 1.5f, 0.001f);
+            CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight * 1.5f, 0.001f);
+        }
+    }
+
+    CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 0.001f);
+
+    ui.EndFrame(canvas);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -3195,6 +3254,7 @@ int main() {
     TestContainersAndLayoutsReorganization();
     TestGenericTemplateFacade();
     TestContextCleanArchitectureAndStateGC();
+    TestScopedThemeAndScaleOverrides();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

@@ -13,8 +13,19 @@ GridScope Grid::Open(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
+    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
+
+    UiTheme* pushedTheme = nullptr;
+    if (opts.theme != nullptr || opts.scale.has_value()) {
+        UiTheme scopedTheme = opts.theme ? *opts.theme : ctx.GetTheme();
+        if (opts.scale.has_value() && *opts.scale > 0.0f) {
+            scopedTheme = scopedTheme.Scaled(*opts.scale);
+        }
+        pushedTheme = ctx.PushTheme(scopedTheme);
+    }
 
     Node* node = ctx.CreateNode(NodeType::Grid, id);
+    node->theme = pushedTheme;
     node->direction = FlexDirection::Grid;
     node->gridColumns = static_cast<uint8_t>(opts.columns);
     node->minColWidth = opts.minColWidth;
@@ -28,6 +39,7 @@ GridScope Grid::Open(
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
 
+    ctx.PushScale(activeScale);
     ctx.PushSize(activeSize);
     ctx.PushDisabled(activeDisabled);
     ctx.PushContainer(node);
@@ -40,8 +52,19 @@ ContainerScope GridScope::Cell(int span, CellOptions opts, std::source_location 
     const Id id = m_ctx->MakeChildId(loc);
     const UiSize activeSize = opts.size.value_or(m_ctx->GetCurrentSize());
     const bool activeDisabled = opts.disabled || m_ctx->IsDisabled();
+    const float activeScale = opts.scale.value_or(m_ctx->GetCurrentScale());
+
+    UiTheme* pushedTheme = nullptr;
+    if (opts.theme != nullptr || opts.scale.has_value()) {
+        UiTheme scopedTheme = opts.theme ? *opts.theme : m_ctx->GetTheme();
+        if (opts.scale.has_value() && *opts.scale > 0.0f) {
+            scopedTheme = scopedTheme.Scaled(*opts.scale);
+        }
+        pushedTheme = m_ctx->PushTheme(scopedTheme);
+    }
 
     Node* node = m_ctx->CreateNode(NodeType::Cell, id);
+    node->theme = pushedTheme;
     node->direction = FlexDirection::Column;
     node->colSpan = std::clamp(span, 1, 12);
     node->minWidth = opts.minWidth;
@@ -55,9 +78,11 @@ ContainerScope GridScope::Cell(int span, CellOptions opts, std::source_location 
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
 
+    m_ctx->PushScale(activeScale);
     m_ctx->PushSize(activeSize);
     m_ctx->PushDisabled(activeDisabled);
     m_ctx->PushContainer(node);
+    return ContainerScope(m_ctx, node);
     return ContainerScope(m_ctx, node);
 }
 

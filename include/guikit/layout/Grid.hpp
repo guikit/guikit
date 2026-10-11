@@ -8,6 +8,7 @@
 
 namespace guikit {
 
+struct UiTheme;
 class Context;
 
 /// Options for configuring a 12-column responsive cell grid layout.
@@ -23,6 +24,8 @@ struct GridOptions {
     SizeMode heightMode{SizeMode::Fit};
     std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
+    const UiTheme* theme{nullptr};
+    std::optional<float> scale{std::nullopt};
 };
 
 /// Options for configuring an individual grid cell slot.
@@ -36,6 +39,8 @@ struct CellOptions {
     std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
     bool clipChildren{false};                       ///< Clip cell children to cell boundaries (default: false)
+    const UiTheme* theme{nullptr};
+    std::optional<float> scale{std::nullopt};
 };
 
 /// Specialized RAII Scope guard for Grid containers providing direct cell slot helpers.

@@ -8,6 +8,7 @@
 
 namespace guikit {
 
+struct UiTheme;
 class Context;
 
 /// Options for configuring a visual Box container.
@@ -25,6 +26,8 @@ struct BoxOptions {
     bool clipChildren{false};
     std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
+    const UiTheme* theme{nullptr};
+    std::optional<float> scale{std::nullopt};
 };
 
 /// Autonomous immediate mode Box container entry point.

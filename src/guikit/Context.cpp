@@ -54,10 +54,13 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
     m_containerStack.clear();
     m_sizeStack.clear();
     m_disabledStack.clear();
+    m_themeStack.clear();
+    m_scaleStack.clear();
     m_currFrameBounds.clear();
 
     m_sizeStack.push_back(UiSize::Md);
     m_disabledStack.push_back(false);
+    m_scaleStack.push_back(1.0f);
 
     // Create root container spanning the entire logical viewport
     const Vec2 logicalSize = m_viewportSize / m_dpiScale;
@@ -150,8 +153,34 @@ void Context::PushContainer(Node* node) {
 void Context::PopContainer(Node* node) {
     if (!m_containerStack.empty() && m_containerStack.back() == node) {
         m_containerStack.pop_back();
+        if (node->theme != nullptr) {
+            PopTheme();
+        }
+        PopScale();
         PopSize();
         PopDisabled();
+    }
+}
+
+UiTheme* Context::PushTheme(const UiTheme& theme) {
+    UiTheme* arenaTheme = m_arena.Allocate<UiTheme>(theme);
+    m_themeStack.push_back(arenaTheme);
+    return arenaTheme;
+}
+
+void Context::PopTheme() {
+    if (!m_themeStack.empty()) {
+        m_themeStack.pop_back();
+    }
+}
+
+void Context::PushScale(float scale) {
+    m_scaleStack.push_back((scale > 0.0f) ? scale : 1.0f);
+}
+
+void Context::PopScale() {
+    if (m_scaleStack.size() > 1) {
+        m_scaleStack.pop_back();
     }
 }
 
@@ -701,7 +730,7 @@ void Context::EndFrame(ICanvas& canvas) {
             canvas.Clear(m_clearColor, m_dirtyRect);
         }
 
-        RenderNodeRecursive(m_root, canvas, m_dirtyRect);
+        RenderNodeRecursive(m_root, canvas, m_dirtyRect, m_theme);
 
         // Render floating overlay passes (e.g. dropdown popups, tooltips)
         for (const auto& overlayFn : m_overlayPasses) {
@@ -743,13 +772,15 @@ void Context::EndFrame(ICanvas& canvas) {
     }
 }
 
-void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirtyRect) {
+void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirtyRect, const UiTheme& parentTheme) {
     if (!node) return;
     if (node->computedRect.w <= 0.0f || node->computedRect.h <= 0.0f) return;
     if (!node->computedRect.Intersects(dirtyRect)) return;
 
+    const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : parentTheme;
+
     if (node->clipChildren) {
-        canvas.PushClip(GetNodeContentClipRect(node, m_theme));
+        canvas.PushClip(GetNodeContentClipRect(node, activeTheme));
     }
 
     // Render background / border if present (skip for self-rendering leaf widgets)
@@ -771,12 +802,12 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
 
     // Render specific widget contents
     if (node->renderFn) {
-        node->renderFn(node, canvas, m_theme);
+        node->renderFn(node, canvas, activeTheme);
     }
 
     // Recurse on children
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-        RenderNodeRecursive(child, canvas, dirtyRect);
+        RenderNodeRecursive(child, canvas, dirtyRect, activeTheme);
     }
 
     if (node->clipChildren) {
@@ -785,7 +816,7 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
 
     // Render post-pass overlay contents (after children and outside clip)
     if (node->postRenderFn) {
-        node->postRenderFn(node, canvas, m_theme);
+        node->postRenderFn(node, canvas, activeTheme);
     }
 }
 

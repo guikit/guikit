@@ -165,9 +165,13 @@ public:
         InvalidateAll();
     }
 
-    /// Returns the active UI theme.
-    [[nodiscard]] const UiTheme& GetTheme() const noexcept { return m_theme; }
-    [[nodiscard]] UiTheme& GetTheme() noexcept { return m_theme; }
+    /// Returns the active UI theme (or top of theme scope stack if scoped).
+    [[nodiscard]] const UiTheme& GetTheme() const noexcept {
+        return m_themeStack.empty() ? m_theme : *m_themeStack.back();
+    }
+    [[nodiscard]] UiTheme& GetTheme() noexcept {
+        return m_themeStack.empty() ? m_theme : *m_themeStack.back();
+    }
 
     /// Sets the clear color used by EndFrame when clearing dirty damage regions.
     void SetClearColor(Color color) noexcept { m_clearColor = color; }
@@ -299,6 +303,30 @@ public:
         PushDisabled(disabled);
         fn();
         PopDisabled();
+    }
+
+    // --- Theme & Scale Scopes ---
+    UiTheme* PushTheme(const UiTheme& theme);
+    void PopTheme();
+
+    void PushScale(float scale);
+    void PopScale();
+    [[nodiscard]] float GetCurrentScale() const noexcept {
+        return m_scaleStack.empty() ? 1.0f : m_scaleStack.back();
+    }
+
+    template<typename Fn>
+    void Theme(const UiTheme& theme, Fn&& fn) {
+        PushTheme(theme);
+        fn();
+        PopTheme();
+    }
+
+    template<typename Fn>
+    void Scale(float scale, Fn&& fn) {
+        PushScale(scale);
+        fn();
+        PopScale();
     }
 
     // --- Widgets ---
@@ -547,7 +575,7 @@ public:
     }
 
 private:
-    void RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirtyRect);
+    void RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirtyRect, const UiTheme& parentTheme);
     void UpdateScrollAreasRecursive(Node* node);
 
     // Widget snapshot for frame-to-frame change detection
@@ -589,6 +617,8 @@ private:
     std::vector<Node*> m_containerStack;
     std::vector<UiSize> m_sizeStack;
     std::vector<bool> m_disabledStack;
+    std::vector<UiTheme*> m_themeStack;
+    std::vector<float> m_scaleStack;
     Node* m_root{nullptr};
 
     Vec2 m_viewportSize{800.0f, 600.0f};

@@ -30,6 +30,8 @@ struct ScrollAreaOptions {
     std::optional<Padding> padding{std::nullopt};   ///< Viewport content padding (nullopt = zero)
     std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
+    const UiTheme* theme{nullptr};
+    std::optional<float> scale{std::nullopt};
 };
 
 /// ScrollArea container logic and scrollbar rendering.

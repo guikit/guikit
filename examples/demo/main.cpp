@@ -97,7 +97,11 @@ int main(int argc, char* argv[]) {
     guikit::TabBarStyle tabStyle = guikit::TabBarStyle::Underline;
     guikit::FrameMetrics metrics;
 
+    static const guikit::UiTheme inspectorTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
+    guikit::UiTheme appTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
+
     ui.SetThemeMode(darkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light);
+    ui.SetClearColor(appTheme.palette.background);
     ui.SetIdleHeartbeatMs(heartbeatMsValues[heartbeatIndex]);
 
     auto handleEvent = [&](const SDL_Event& event) {
@@ -207,7 +211,7 @@ int main(int argc, char* argv[]) {
         metrics.BeginFrame();
 
         // --- Begin Immediate Mode GuiKit Frame ---
-        ui.BeginFrame({static_cast<float>(winWidth), static_cast<float>(winHeight)}, scaleValues[scaleIndex]);
+        ui.BeginFrame({static_cast<float>(winWidth), static_cast<float>(winHeight)}, 1.0f);
         {
             if (auto mainCol = ui.Column()) {
                 // Header Bar
@@ -221,21 +225,25 @@ int main(int argc, char* argv[]) {
                 // Engine HUD Toolbar
                 if (auto tb = ui.Toolbar()) {
                     // Density Preset Toggle
-                    const char* densityLabel = (ui.GetDensity() == guikit::Density::Standard) ? "Density: Standard" :
-                                              ((ui.GetDensity() == guikit::Density::Compact) ? "Density: Compact" : "Density: Touch");
+                    const char* densityLabel = (appTheme.density == guikit::Density::Standard) ? "Density: Standard" :
+                                              ((appTheme.density == guikit::Density::Compact) ? "Density: Compact" : "Density: Touch");
                     if (tb.ToolButton({
                         .label = densityLabel,
                         .icon = guikit::Icon::Settings(),
                         .labelVariants = {"Density: Standard", "Density: Compact", "Density: Touch"},
                         .active = true
                     })) {
-                        if (ui.GetDensity() == guikit::Density::Standard) {
-                            ui.SetDensity(guikit::Density::Compact);
-                        } else if (ui.GetDensity() == guikit::Density::Compact) {
-                            ui.SetDensity(guikit::Density::Touch);
+                        if (appTheme.density == guikit::Density::Standard) {
+                            appTheme.density = guikit::Density::Compact;
+                            appTheme.metrics = (darkMode ? guikit::UiTheme::Dark(guikit::Density::Compact) : guikit::UiTheme::Light(guikit::Density::Compact)).metrics;
+                        } else if (appTheme.density == guikit::Density::Compact) {
+                            appTheme.density = guikit::Density::Touch;
+                            appTheme.metrics = (darkMode ? guikit::UiTheme::Dark(guikit::Density::Touch) : guikit::UiTheme::Light(guikit::Density::Touch)).metrics;
                         } else {
-                            ui.SetDensity(guikit::Density::Standard);
+                            appTheme.density = guikit::Density::Standard;
+                            appTheme.metrics = (darkMode ? guikit::UiTheme::Dark(guikit::Density::Standard) : guikit::UiTheme::Light(guikit::Density::Standard)).metrics;
                         }
+                        ui.InvalidateAll();
                     }
 
                     tb.Separator();
@@ -257,7 +265,10 @@ int main(int argc, char* argv[]) {
                         .active = darkMode
                     })) {
                         darkMode = !darkMode;
-                        ui.SetThemeMode(darkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light);
+                        const auto defTheme = darkMode ? guikit::UiTheme::Dark(appTheme.density) : guikit::UiTheme::Light(appTheme.density);
+                        appTheme.palette = defTheme.palette;
+                        appTheme.variants = defTheme.variants;
+                        ui.SetClearColor(appTheme.palette.background);
                         ui.InvalidateAll();
                     }
 
@@ -374,7 +385,12 @@ int main(int argc, char* argv[]) {
                 if (auto workspaceRow = ui.Row({.gap = guikit::UiSize::Md, .heightMode = guikit::SizeMode::Stretch})) {
                     // Collapsible Style Inspector Sidebar
                     if (showSidebar) {
-                        if (auto sidebarBox = ui.Box({.heightMode = guikit::SizeMode::Stretch, .fixedWidth = 300.0f})) {
+                        if (auto sidebarBox = ui.Box({
+                            .heightMode = guikit::SizeMode::Stretch,
+                            .fixedWidth = 300.0f,
+                            .theme = &inspectorTheme,
+                            .scale = 1.0f
+                        })) {
                             if (auto sidebarCard = ui.Card({.gap = guikit::UiSize::Sm, .heightMode = guikit::SizeMode::Stretch})) {
                                 ui.Heading({
                                     .title = "Style Inspector",
@@ -392,34 +408,36 @@ int main(int argc, char* argv[]) {
                                 });
 
                                 if (auto sidebarScroll = ui.ScrollArea({.gap = guikit::UiSize::Sm})) {
-                                    auto& th = ui.GetTheme();
+                                    auto& th = appTheme;
                                     if (sidebarTabIndex == 0) {
                                         // === GEOMETRY TAB ===
                                         ui.Text("Density Scale", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
                                         if (auto row = ui.Row({.gap = guikit::UiSize::Xs})) {
-                                            const auto curDensity = ui.GetDensity();
                                             if (ui.Button({
                                                 .label = "Standard",
-                                                .variant = (curDensity == guikit::Density::Standard) ? guikit::UiVariant::Primary : guikit::UiVariant::Default,
+                                                .variant = (appTheme.density == guikit::Density::Standard) ? guikit::UiVariant::Primary : guikit::UiVariant::Default,
                                                 .stretch = true
                                             })) {
-                                                ui.SetDensity(guikit::Density::Standard);
+                                                appTheme.density = guikit::Density::Standard;
+                                                appTheme.metrics = (darkMode ? guikit::UiTheme::Dark(guikit::Density::Standard) : guikit::UiTheme::Light(guikit::Density::Standard)).metrics;
                                                 ui.InvalidateAll();
                                             }
                                             if (ui.Button({
                                                 .label = "Compact",
-                                                .variant = (curDensity == guikit::Density::Compact) ? guikit::UiVariant::Primary : guikit::UiVariant::Default,
+                                                .variant = (appTheme.density == guikit::Density::Compact) ? guikit::UiVariant::Primary : guikit::UiVariant::Default,
                                                 .stretch = true
                                             })) {
-                                                ui.SetDensity(guikit::Density::Compact);
+                                                appTheme.density = guikit::Density::Compact;
+                                                appTheme.metrics = (darkMode ? guikit::UiTheme::Dark(guikit::Density::Compact) : guikit::UiTheme::Light(guikit::Density::Compact)).metrics;
                                                 ui.InvalidateAll();
                                             }
                                             if (ui.Button({
                                                 .label = "Touch",
-                                                .variant = (curDensity == guikit::Density::Touch) ? guikit::UiVariant::Primary : guikit::UiVariant::Default,
+                                                .variant = (appTheme.density == guikit::Density::Touch) ? guikit::UiVariant::Primary : guikit::UiVariant::Default,
                                                 .stretch = true
                                             })) {
-                                                ui.SetDensity(guikit::Density::Touch);
+                                                appTheme.density = guikit::Density::Touch;
+                                                appTheme.metrics = (darkMode ? guikit::UiTheme::Dark(guikit::Density::Touch) : guikit::UiTheme::Light(guikit::Density::Touch)).metrics;
                                                 ui.InvalidateAll();
                                             }
                                         }
@@ -534,7 +552,10 @@ int main(int argc, char* argv[]) {
                                             .label = "Dark Mode",
                                             .description = "Switch between Dark and Light palette"
                                         }).changed) {
-                                            ui.SetThemeMode(darkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light);
+                                            const auto defTheme = darkMode ? guikit::UiTheme::Dark(appTheme.density) : guikit::UiTheme::Light(appTheme.density);
+                                            appTheme.palette = defTheme.palette;
+                                            appTheme.variants = defTheme.variants;
+                                            ui.SetClearColor(appTheme.palette.background);
                                             ui.InvalidateAll();
                                         }
 
@@ -640,7 +661,7 @@ int main(int argc, char* argv[]) {
                                             .variant = guikit::UiVariant::Secondary,
                                             .stretch = true
                                         })) {
-                                            const auto defTheme = darkMode ? guikit::UiTheme::Dark(ui.GetDensity()) : guikit::UiTheme::Light(ui.GetDensity());
+                                            const auto defTheme = darkMode ? guikit::UiTheme::Dark(appTheme.density) : guikit::UiTheme::Light(appTheme.density);
                                             th.palette = defTheme.palette;
                                             th.variants = defTheme.variants;
                                             ui.SetClearColor(th.palette.background);
@@ -653,7 +674,12 @@ int main(int argc, char* argv[]) {
                     }
 
                     // Content Column (Right side workspace)
-                    if (auto contentCol = ui.Column({.gap = guikit::UiSize::Sm, .heightMode = guikit::SizeMode::Stretch})) {
+                    if (auto contentCol = ui.Column({
+                        .gap = guikit::UiSize::Sm,
+                        .heightMode = guikit::SizeMode::Stretch,
+                        .theme = &appTheme,
+                        .scale = scaleValues[scaleIndex]
+                    })) {
                         // First-class Vector TabBar with Carousel auto-scrolling
                         static const std::array<guikit::TabItem, 7> navTabs = {{
                             {.label = "Overview", .icon = guikit::Icon::Eye()},

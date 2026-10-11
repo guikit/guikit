@@ -8,6 +8,7 @@
 
 namespace guikit {
 
+struct UiTheme;
 class Context;
 
 /// Options for configuring an auto-wrapping flow layout.
@@ -21,6 +22,8 @@ struct WrapOptions {
     SizeMode heightMode{SizeMode::Fit};
     std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
+    const UiTheme* theme{nullptr};
+    std::optional<float> scale{std::nullopt};
 };
 
 /// Autonomous immediate mode Wrap layout entry point.

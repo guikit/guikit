@@ -1,4 +1,5 @@
 #include "guikit/core/Theme.hpp"
+#include <cmath>
 
 namespace guikit {
 
@@ -255,6 +256,92 @@ UiTheme UiTheme::Light(Density d) noexcept {
     PopulateComponentMetrics(theme);
     ApplyDensity(theme, d);
     return theme;
+}
+
+UiTheme UiTheme::Scaled(float factor) const noexcept {
+    UiTheme copy = *this;
+    if (factor <= 0.0f || std::abs(factor - 1.0f) < 0.0001f) {
+        return copy;
+    }
+    for (auto& s : copy.spacing) s *= factor;
+    for (auto& r : copy.radius) r *= factor;
+    for (auto& m : copy.metrics) {
+        m.defaultHeight *= factor;
+        m.fontSize *= factor;
+        m.paddingX *= factor;
+        m.paddingY *= factor;
+        m.cornerRadius *= factor;
+        m.iconSize *= factor;
+    }
+    for (auto& t : copy.typography) {
+        t.fontSize *= factor;
+        t.lineHeight *= factor;
+    }
+    for (auto& sb : copy.scrollbars) {
+        sb.trackWidth *= factor;
+        sb.minThumbLength *= factor;
+        sb.cornerRadius *= factor;
+        sb.scrollStep *= factor;
+        sb.margin *= factor;
+        sb.gutter *= factor;
+    }
+    for (auto& sw : copy.switches) {
+        sw.trackSize.x *= factor;
+        sw.trackSize.y *= factor;
+        sw.knobDiameter *= factor;
+        sw.knobPadding *= factor;
+        sw.gap *= factor;
+        sw.fontSize *= factor;
+        sw.descFontSize *= factor;
+        sw.descGap *= factor;
+    }
+    for (auto& cb : copy.checkboxes) {
+        cb.boxSize *= factor;
+        cb.cornerRadius *= factor;
+        cb.gap *= factor;
+        cb.fontSize *= factor;
+        cb.descFontSize *= factor;
+        cb.descGap *= factor;
+        cb.strokeWidth *= factor;
+    }
+    for (auto& in : copy.inputs) {
+        in.defaultHeight *= factor;
+        in.cornerRadius *= factor;
+        in.paddingX *= factor;
+        in.fontSize *= factor;
+        in.labelFontSize *= factor;
+        in.descFontSize *= factor;
+        in.labelGap *= factor;
+        in.descGap *= factor;
+        in.strokeWidth *= factor;
+        in.iconSize *= factor;
+    }
+    for (auto& sl : copy.selects) {
+        sl.defaultHeight *= factor;
+        sl.cornerRadius *= factor;
+        sl.paddingX *= factor;
+        sl.fontSize *= factor;
+        sl.labelFontSize *= factor;
+        sl.descFontSize *= factor;
+        sl.labelGap *= factor;
+        sl.descGap *= factor;
+        sl.strokeWidth *= factor;
+        sl.iconSize *= factor;
+        sl.itemHeight *= factor;
+    }
+    for (auto& hd : copy.headings) {
+        hd.titleFontSize *= factor;
+        hd.subtitleFontSize *= factor;
+        hd.badgeFontSize *= factor;
+        hd.iconSize *= factor;
+        hd.gap *= factor;
+        hd.badgeGap *= factor;
+        hd.lineGap *= factor;
+    }
+    for (auto& v : copy.variants) {
+        v.borderWidth *= factor;
+    }
+    return copy;
 }
 
 } // namespace guikit

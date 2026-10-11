@@ -70,6 +70,7 @@ struct Node {
     Node* firstChild{nullptr};
     Node* lastChild{nullptr};
     Node* nextSibling{nullptr};
+    const UiTheme* theme{nullptr};
 
     uint32_t childIndex{0};     ///< Index of this node within its parent container
     uint32_t childCount{0};     ///< Total number of direct children
@@ -90,17 +91,17 @@ struct Node {
     Justify justify{Justify::Start};
     UiSize uiSize{UiSize::Md};
 
-    // Interaction & container flags
-    bool isSpacer{false};
-    bool clipChildren{false};
-    bool scrollbarHovered{false};
-    bool scrollbarActive{false};
-    bool disabled{false};
-    bool hovered{false};
-    bool pressed{false};
-    bool focused{false};
-    bool checked{false};
-    bool active{false};
+    // Interaction & container flags (packed 1-bit flags to maintain tight cache footprint)
+    bool isSpacer : 1 {false};
+    bool clipChildren : 1 {false};
+    bool scrollbarHovered : 1 {false};
+    bool scrollbarActive : 1 {false};
+    bool disabled : 1 {false};
+    bool hovered : 1 {false};
+    bool pressed : 1 {false};
+    bool focused : 1 {false};
+    bool checked : 1 {false};
+    bool active : 1 {false};
 
     float fixedWidth{0.0f};
     float fixedHeight{0.0f};

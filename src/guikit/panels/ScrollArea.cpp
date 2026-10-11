@@ -14,8 +14,19 @@ ContainerScope ScrollArea::Open(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
+    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
+
+    UiTheme* pushedTheme = nullptr;
+    if (opts.theme != nullptr || opts.scale.has_value()) {
+        UiTheme scopedTheme = opts.theme ? *opts.theme : ctx.GetTheme();
+        if (opts.scale.has_value() && *opts.scale > 0.0f) {
+            scopedTheme = scopedTheme.Scaled(*opts.scale);
+        }
+        pushedTheme = ctx.PushTheme(scopedTheme);
+    }
 
     Node* node = ctx.CreateNode(NodeType::ScrollArea, id);
+    node->theme = pushedTheme;
     node->direction = (opts.orientation == Orientation::Horizontal) ? FlexDirection::Row : FlexDirection::Column;
     node->clipChildren = true;
     node->widthMode = SizeMode::Stretch;
@@ -47,6 +58,7 @@ ContainerScope ScrollArea::Open(
 
     node->scrollOffset = state.offset;
 
+    ctx.PushScale(activeScale);
     ctx.PushSize(activeSize);
     ctx.PushDisabled(activeDisabled);
     ctx.PushContainer(node);
