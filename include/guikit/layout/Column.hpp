@@ -25,7 +25,7 @@ struct ColumnOptions {
 /// Autonomous immediate mode Column layout entry point.
 class Column {
 public:
-    static ContainerScope Open(
+    [[nodiscard]] static ContainerScope Open(
         Context& ctx,
         const ColumnOptions& opts = {},
         std::source_location loc = std::source_location::current()

@@ -30,7 +30,7 @@ struct CardOptions {
 /// Autonomous immediate mode Card surface container entry point.
 class Card {
 public:
-    static ContainerScope Open(
+    [[nodiscard]] static ContainerScope Open(
         Context& ctx,
         const CardOptions& opts = {},
         std::source_location loc = std::source_location::current()

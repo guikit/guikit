@@ -212,27 +212,27 @@ public:
     void InvalidateRect(Rect rect) noexcept;
 
     // --- Layout Scopes ---
-    ContainerScope Row(
+    [[nodiscard]] ContainerScope Row(
         RowOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
-    ContainerScope Column(
+    [[nodiscard]] ContainerScope Column(
         ColumnOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
-    ContainerScope Wrap(
+    [[nodiscard]] ContainerScope Wrap(
         WrapOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
-    GridScope CellGrid(
+    [[nodiscard]] GridScope CellGrid(
         GridOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
-    GridScope Grid(
+    [[nodiscard]] GridScope Grid(
         GridOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
@@ -243,22 +243,22 @@ public:
     );
 
     // --- Panel Scopes ---
-    ContainerScope Box(
+    [[nodiscard]] ContainerScope Box(
         BoxOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
-    ContainerScope Card(
+    [[nodiscard]] ContainerScope Card(
         CardOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
-    ContainerScope ScrollArea(
+    [[nodiscard]] ContainerScope ScrollArea(
         ScrollAreaOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
-    ContainerScope Carousel(
+    [[nodiscard]] ContainerScope Carousel(
         CarouselOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
@@ -559,7 +559,7 @@ public:
     }
 
     // --- Toolbar Component ---
-    ToolbarScope Toolbar(
+    [[nodiscard]] ToolbarScope Toolbar(
         ToolbarOptions opts = {},
         std::source_location loc = std::source_location::current()
     );

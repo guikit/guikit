@@ -39,31 +39,31 @@ struct CellOptions {
 };
 
 /// Specialized RAII Scope guard for Grid containers providing direct cell slot helpers.
-class GridScope : public ContainerScope {
+class [[nodiscard]] GridScope : public ContainerScope {
 public:
     using ContainerScope::ContainerScope;
 
     /// Arbitrary span cell slot (1..12 columns)
-    ContainerScope Cell(int span, CellOptions opts = {}, std::source_location loc = std::source_location::current());
+    [[nodiscard]] ContainerScope Cell(int span, CellOptions opts = {}, std::source_location loc = std::source_location::current());
 
     /// Full-width 12-column cell slot
-    ContainerScope Cell(CellOptions opts = {}, std::source_location loc = std::source_location::current()) {
+    [[nodiscard]] ContainerScope Cell(CellOptions opts = {}, std::source_location loc = std::source_location::current()) {
         return Cell12(opts, loc);
     }
 
-    ContainerScope Cell12(CellOptions opts = {}, std::source_location loc = std::source_location::current());
-    ContainerScope Cell8(CellOptions opts = {}, std::source_location loc = std::source_location::current());
-    ContainerScope Cell6(CellOptions opts = {}, std::source_location loc = std::source_location::current());
-    ContainerScope Cell4(CellOptions opts = {}, std::source_location loc = std::source_location::current());
-    ContainerScope Cell3(CellOptions opts = {}, std::source_location loc = std::source_location::current());
-    ContainerScope Cell2(CellOptions opts = {}, std::source_location loc = std::source_location::current());
-    ContainerScope Cell1(CellOptions opts = {}, std::source_location loc = std::source_location::current());
+    [[nodiscard]] ContainerScope Cell12(CellOptions opts = {}, std::source_location loc = std::source_location::current());
+    [[nodiscard]] ContainerScope Cell8(CellOptions opts = {}, std::source_location loc = std::source_location::current());
+    [[nodiscard]] ContainerScope Cell6(CellOptions opts = {}, std::source_location loc = std::source_location::current());
+    [[nodiscard]] ContainerScope Cell4(CellOptions opts = {}, std::source_location loc = std::source_location::current());
+    [[nodiscard]] ContainerScope Cell3(CellOptions opts = {}, std::source_location loc = std::source_location::current());
+    [[nodiscard]] ContainerScope Cell2(CellOptions opts = {}, std::source_location loc = std::source_location::current());
+    [[nodiscard]] ContainerScope Cell1(CellOptions opts = {}, std::source_location loc = std::source_location::current());
 };
 
 /// Autonomous immediate mode Grid layout entry point.
 class Grid {
 public:
-    static GridScope Open(
+    [[nodiscard]] static GridScope Open(
         Context& ctx,
         const GridOptions& opts = {},
         std::source_location loc = std::source_location::current()

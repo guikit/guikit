@@ -26,7 +26,7 @@ struct WrapOptions {
 /// Autonomous immediate mode Wrap layout entry point.
 class Wrap {
 public:
-    static ContainerScope Open(
+    [[nodiscard]] static ContainerScope Open(
         Context& ctx,
         const WrapOptions& opts = {},
         std::source_location loc = std::source_location::current()

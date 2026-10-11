@@ -6,7 +6,7 @@ class Context;
 struct Node;
 
 /// RAII Scope guard for hierarchical layout and visual containers.
-class ContainerScope {
+class [[nodiscard]] ContainerScope {
 public:
     ContainerScope(Context* ctx, Node* node) noexcept
         : m_ctx(ctx), m_node(node) {}

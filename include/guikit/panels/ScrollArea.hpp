@@ -36,7 +36,7 @@ struct ScrollAreaOptions {
 class ScrollArea {
 public:
     /// Primary immediate mode entry point for ScrollArea container.
-    static ContainerScope Open(
+    [[nodiscard]] static ContainerScope Open(
         Context& ctx,
         const ScrollAreaOptions& opts = {},
         std::source_location loc = std::source_location::current()

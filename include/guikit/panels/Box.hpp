@@ -30,7 +30,7 @@ struct BoxOptions {
 /// Autonomous immediate mode Box container entry point.
 class Box {
 public:
-    static ContainerScope Open(
+    [[nodiscard]] static ContainerScope Open(
         Context& ctx,
         const BoxOptions& opts = {},
         std::source_location loc = std::source_location::current()

@@ -39,7 +39,7 @@ struct ToolbarOptions {
 };
 
 /// RAII scope for Toolbar container.
-class ToolbarScope : public ContainerScope {
+class [[nodiscard]] ToolbarScope : public ContainerScope {
 public:
     using ContainerScope::ContainerScope;
 
@@ -63,7 +63,7 @@ public:
 /// Autonomous Toolbar widget logic (measuring, rendering, and tool button utilities).
 class Toolbar {
 public:
-    static ToolbarScope Open(
+    [[nodiscard]] static ToolbarScope Open(
         Context& ctx,
         ToolbarOptions opts = {},
         std::source_location loc = std::source_location::current()

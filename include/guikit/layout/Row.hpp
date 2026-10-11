@@ -24,7 +24,7 @@ struct RowOptions {
 /// Autonomous immediate mode Row layout entry point.
 class Row {
 public:
-    static ContainerScope Open(
+    [[nodiscard]] static ContainerScope Open(
         Context& ctx,
         const RowOptions& opts = {},
         std::source_location loc = std::source_location::current()

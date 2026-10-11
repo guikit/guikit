@@ -54,7 +54,7 @@ struct CarouselData {
 class Carousel {
 public:
     /// Primary immediate mode entry point for Carousel container.
-    static ContainerScope Open(
+    [[nodiscard]] static ContainerScope Open(
         Context& ctx,
         const CarouselOptions& opts = {},
         std::source_location loc = std::source_location::current()
