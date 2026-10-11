@@ -13,6 +13,13 @@ namespace guikit {
 class Context;
 class ICanvas;
 
+/// Divider placement style for Heading widget.
+enum class HeadingDivider : uint8_t {
+    None = 0,
+    Bottom,   ///< Full-width horizontal divider line underneath heading
+    Trailing  ///< Inline horizontal divider line extending from title to right edge
+};
+
 /// Clean configuration options for a composite Heading widget (Title + Subtitle + Icon + Badge).
 struct HeadingOptions {
     std::string_view title{};
@@ -21,6 +28,8 @@ struct HeadingOptions {
     std::string_view badge{};                      ///< Optional pill badge after title
     UiVariant variant{UiVariant::Default};         ///< Accent color variant
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
+    bool divider{false};                           ///< Whether to render a horizontal divider line
+    HeadingDivider dividerStyle{HeadingDivider::Bottom}; ///< Divider placement style (Bottom or Trailing)
 };
 
 /// Autonomous Heading widget logic (execution, measuring, and rendering).

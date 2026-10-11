@@ -2354,7 +2354,7 @@ void TestHeadingWidgetWorkflow() {
     ThorCanvas canvas;
     canvas.SetTarget(pixels.data(), width, height, width);
 
-    Response head1, head2;
+    Response head1, head2, head3, head4;
     std::string dynamicSubtitle = "Initial Subtitle";
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = UiSize::Md, .padding = Padding::All(16.0f)})) {
@@ -2366,6 +2366,8 @@ void TestHeadingWidgetWorkflow() {
                 .badge = "ACTIVE",
                 .variant = UiVariant::Success
             });
+            head3 = ui.Heading({.title = "Section Divider", .divider = true});
+            head4 = ui.Heading({.title = "Trailing Divider", .divider = true, .dividerStyle = HeadingDivider::Trailing});
         }
     };
 
@@ -2380,16 +2382,26 @@ void TestHeadingWidgetWorkflow() {
 
     CHECK(head1.id.IsValid());
     CHECK(head2.id.IsValid());
+    CHECK(head3.id.IsValid());
+    CHECK(head4.id.IsValid());
 
     const Rect r1 = ui.GetPrevFrameBounds(head1.id);
     const Rect r2 = ui.GetPrevFrameBounds(head2.id);
+    const Rect r3 = ui.GetPrevFrameBounds(head3.id);
+    const Rect r4 = ui.GetPrevFrameBounds(head4.id);
 
     // Width should stretch across container (800 - 32 padding = 768)
     CHECK_NEAR(r1.w, 768.0f, 1.0f);
     CHECK_NEAR(r2.w, 768.0f, 1.0f);
+    CHECK_NEAR(r3.w, 768.0f, 1.0f);
+    CHECK_NEAR(r4.w, 768.0f, 1.0f);
     CHECK(r1.h > 0.0f);
     CHECK(r2.h > 0.0f);
+    CHECK(r3.h > 0.0f);
+    CHECK(r4.h > 0.0f);
     CHECK(r2.y >= r1.Bottom());
+    CHECK(r3.y >= r2.Bottom());
+    CHECK(r4.y >= r3.Bottom());
 
     // 3. Dirty rect damage tracking when heading text changes
     // Frame 3: no changes -> no dirty damage

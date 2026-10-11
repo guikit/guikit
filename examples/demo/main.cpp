@@ -424,7 +424,7 @@ int main(int argc, char* argv[]) {
                                         // === GEOMETRY TAB ===
 
                                         // 1. Controls Size (UiSize StepSlider)
-                                        ui.Text("Controls Size", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        ui.Heading({.title = "Controls Size", .size = guikit::UiSize::Sm, .divider = true});
                                         if (ui.StepSlider(controlsSize, {
                                             .label = "Button, Input, Select, Switch",
                                             .showTicks = true,
@@ -435,7 +435,7 @@ int main(int argc, char* argv[]) {
                                         }
 
                                         // 2. Density Mode StepSlider
-                                        ui.Text("Density Preset", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        ui.Heading({.title = "Density Preset", .size = guikit::UiSize::Sm, .divider = true});
                                         static constexpr std::array<std::string_view, 3> densityLabels = {"Standard", "Compact", "Touch"};
                                         size_t densityIdx = (appTheme.density == guikit::Density::Touch) ? 2 : ((appTheme.density == guikit::Density::Compact) ? 1 : 0);
                                         if (ui.StepSlider(densityIdx, densityLabels, {
@@ -449,7 +449,7 @@ int main(int argc, char* argv[]) {
                                         }
 
                                         // 3. Card Surface Geometry (UiSize StepSliders)
-                                        ui.Text("Card Surface", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        ui.Heading({.title = "Card Surface", .size = guikit::UiSize::Sm, .divider = true});
                                         if (ui.StepSlider(cardRadius, {
                                             .label = "Corner Radius",
                                             .showTicks = true,
@@ -479,7 +479,7 @@ int main(int argc, char* argv[]) {
                                         }
 
                                         // 4. Layout & Grid Spacing (UiSize StepSliders)
-                                        ui.Text("Layout & Grid", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        ui.Heading({.title = "Layout & Grid", .size = guikit::UiSize::Sm, .divider = true});
                                         if (ui.StepSlider(gridGap, {
                                             .label = "Grid Cell Gap",
                                             .showTicks = true,
@@ -500,7 +500,7 @@ int main(int argc, char* argv[]) {
                                         }
 
                                         // 5. Typography Size (UiSize StepSlider)
-                                        ui.Text("Typography", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        ui.Heading({.title = "Typography", .size = guikit::UiSize::Sm, .divider = true});
                                         if (ui.StepSlider(headingSize, {
                                             .label = "Heading Size",
                                             .showTicks = true,
@@ -529,6 +529,7 @@ int main(int argc, char* argv[]) {
                                         }
                                     } else {
                                         // === COLORS TAB ===
+                                        ui.Heading({.title = "Color Scheme", .size = guikit::UiSize::Sm, .divider = true});
                                         if (ui.Switch(darkMode, {
                                             .label = "Dark Mode",
                                             .description = "Switch between Dark and Light palette"
@@ -540,7 +541,7 @@ int main(int argc, char* argv[]) {
                                             ui.InvalidateAll();
                                         }
 
-                                        ui.Text("Brand Accent", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        ui.Heading({.title = "Brand Accent", .size = guikit::UiSize::Sm, .divider = true});
                                         auto setAccent = [&](guikit::Color accent, guikit::Color hover, guikit::Color active) {
                                             th.palette.accent = accent;
                                             th.palette.accentHover = hover;
@@ -586,7 +587,7 @@ int main(int argc, char* argv[]) {
                                             }
                                         }
 
-                                        ui.Text("Dark Surface Tones", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        ui.Heading({.title = "Dark Surface Tones", .size = guikit::UiSize::Sm, .divider = true});
                                         auto setSurfaceTone = [&](guikit::Color bg, guikit::Color surf, guikit::Color elev, guikit::Color bdr) {
                                             th.palette.background = bg;
                                             th.palette.surface = surf;
@@ -620,7 +621,7 @@ int main(int argc, char* argv[]) {
                                             }
                                         }
 
-                                        ui.Text("Border Contrast", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        ui.Heading({.title = "Border Contrast", .size = guikit::UiSize::Sm, .divider = true});
                                         if (auto row = ui.Row({.gap = guikit::UiSize::Xs})) {
                                             if (ui.Button({.label = "Subtle", .stretch = true})) {
                                                 th.palette.border = guikit::Color::Hex(0x33415560);

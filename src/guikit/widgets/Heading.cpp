@@ -38,6 +38,8 @@ Response Heading::Run(
         node->text,
         hOpts->subtitle,
         hOpts->badge,
+        opts.divider,
+        static_cast<uint8_t>(opts.dividerStyle),
         static_cast<uint8_t>(opts.icon.GetType()),
         static_cast<uint8_t>(opts.icon.GetId()),
         opts.icon.GetPath()
@@ -119,9 +121,14 @@ Vec2 Heading::Measure(const HeadingOptions& opts, UiSize size, ICanvas* canvas, 
     }
 
     const float totalW = std::max(titleLineW, subW);
-    const float totalH = (subH > 0.0f && titleLineH > 0.0f)
+    float totalH = (subH > 0.0f && titleLineH > 0.0f)
         ? (titleLineH + m.lineGap + subH)
         : (titleLineH + subH);
+
+    if (opts.divider && opts.dividerStyle == HeadingDivider::Bottom) {
+        const float divPad = std::max(4.0f, m.gap * 0.75f);
+        totalH += divPad + 1.0f + divPad * 0.5f;
+    }
 
     return {totalW, totalH};
 }
@@ -197,6 +204,37 @@ void Heading::Render(
         const float subH = canvas.GetLineHeight(m.subtitleFontSize);
         const Rect subR(bounds.x, subY, bounds.w, subH);
         canvas.DrawTextBox(sub, subR, m.subtitleFontSize, subtitleColor, 0.0f, 0.5f);
+    }
+
+    // 5. Draw Divider
+    if (opts.divider) {
+        const Color divColor = (opts.variant != UiVariant::Default)
+            ? theme.GetVariant(opts.variant).border
+            : pal.borderSubtle;
+
+        if (opts.dividerStyle == HeadingDivider::Bottom) {
+            const float divPad = std::max(4.0f, m.gap * 0.75f);
+            const float textH = sub.empty() ? titleLineH : (titleLineH + m.lineGap + canvas.GetLineHeight(m.subtitleFontSize));
+            const float divY = std::floor(topY + textH + divPad) + 0.5f;
+            canvas.DrawLine(
+                Vec2(bounds.x, divY),
+                Vec2(bounds.Right(), divY),
+                divColor,
+                1.0f
+            );
+        } else if (opts.dividerStyle == HeadingDivider::Trailing) {
+            const float lineStartX = curX + m.gap;
+            const float lineEndX = bounds.Right();
+            if (lineEndX > lineStartX + 4.0f) {
+                const float lineY = std::floor(topY + titleLineH * 0.5f) + 0.5f;
+                canvas.DrawLine(
+                    Vec2(lineStartX, lineY),
+                    Vec2(lineEndX, lineY),
+                    divColor,
+                    1.0f
+                );
+            }
+        }
     }
 }
 
