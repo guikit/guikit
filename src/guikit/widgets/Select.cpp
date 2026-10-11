@@ -20,8 +20,8 @@ Rect Select::GetBoxRect(
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasDesc = !opts.description.empty();
 
-    const float labelH = hasLabel ? (m.labelFontSize * 1.35f) : 0.0f;
-    const float descH = hasDesc ? (m.descFontSize * 1.35f) : 0.0f;
+    const float labelH = hasLabel ? (canvas ? canvas->GetLineHeight(m.labelFontSize) : theme.GetLineHeight(m.labelFontSize)) : 0.0f;
+    const float descH = hasDesc ? (canvas ? canvas->GetLineHeight(m.descFontSize) : theme.GetLineHeight(m.descFontSize)) : 0.0f;
 
     if (opts.labelPlacement == Placement::Stacked) {
         float curY = bounds.y;
@@ -37,7 +37,7 @@ Rect Select::GetBoxRect(
             if (canvas) {
                 labelW = canvas->MeasureText(effectiveLabel, m.labelFontSize).x;
             } else {
-                labelW = static_cast<float>(effectiveLabel.length()) * (m.labelFontSize * 0.58f);
+                labelW = static_cast<float>(effectiveLabel.length()) * (m.labelFontSize * kDefaultCharAdvanceRatio);
             }
         }
         const float boxX = bounds.x + labelW + (hasLabel ? m.paddingX : 0.0f);
@@ -51,7 +51,7 @@ Rect Select::GetBoxRect(
             if (canvas) {
                 labelW = canvas->MeasureText(effectiveLabel, m.labelFontSize).x;
             } else {
-                labelW = static_cast<float>(effectiveLabel.length()) * (m.labelFontSize * 0.58f);
+                labelW = static_cast<float>(effectiveLabel.length()) * (m.labelFontSize * kDefaultCharAdvanceRatio);
             }
         }
         const float boxW = std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f));
@@ -95,7 +95,7 @@ Vec2 Select::Measure(
         if (canvas) {
             labelDims = canvas->MeasureText(effectiveLabel, m.labelFontSize);
         } else {
-            labelDims = {static_cast<float>(effectiveLabel.length()) * (m.labelFontSize * 0.58f), m.labelFontSize * 1.35f};
+            labelDims = {static_cast<float>(effectiveLabel.length()) * (m.labelFontSize * kDefaultCharAdvanceRatio), theme.GetLineHeight(m.labelFontSize)};
         }
     }
 
@@ -104,7 +104,7 @@ Vec2 Select::Measure(
         if (canvas) {
             descDims = canvas->MeasureText(opts.description, m.descFontSize);
         } else {
-            descDims = {static_cast<float>(opts.description.length()) * (m.descFontSize * 0.58f), m.descFontSize * 1.35f};
+            descDims = {static_cast<float>(opts.description.length()) * (m.descFontSize * kDefaultCharAdvanceRatio), theme.GetLineHeight(m.descFontSize)};
         }
     }
 
@@ -403,8 +403,8 @@ void Select::Render(
     Rect labelRect;
     Rect descRect;
 
-    const float labelH = hasLabel ? (m.labelFontSize * 1.35f) : 0.0f;
-    const float descH = hasDesc ? (m.descFontSize * 1.35f) : 0.0f;
+    const float labelH = hasLabel ? canvas.GetLineHeight(m.labelFontSize) : 0.0f;
+    const float descH = hasDesc ? canvas.GetLineHeight(m.descFontSize) : 0.0f;
 
     if (opts.labelPlacement == Placement::Stacked) {
         float curY = bounds.y;

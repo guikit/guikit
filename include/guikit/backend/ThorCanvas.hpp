@@ -51,6 +51,7 @@ public:
     ) override;
 
     Vec2 MeasureText(std::string_view text, float fontSize) override;
+    [[nodiscard]] float GetLineHeight(float fontSize) override;
     void DrawText(std::string_view text, Vec2 pos, float fontSize, Color color) override;
     void DrawTextBox(
         std::string_view text,

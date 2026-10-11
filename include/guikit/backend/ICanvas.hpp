@@ -51,6 +51,9 @@ public:
     /// Measures the dimensions of a single-line text string using backend font metrics.
     virtual Vec2 MeasureText(std::string_view text, float fontSize) = 0;
 
+    /// Returns the vertical typographic line height for the specified font size according to backend font metrics.
+    [[nodiscard]] virtual float GetLineHeight(float fontSize) = 0;
+
     /// Draws a single-line text string with specified font size and color.
     virtual void DrawText(std::string_view text, Vec2 pos, float fontSize, Color color) = 0;
 

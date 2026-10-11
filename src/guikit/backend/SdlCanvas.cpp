@@ -4,6 +4,7 @@
 #include <numbers>
 #include <string>
 #include <vector>
+#include "guikit/core/Tokens.hpp"
 
 namespace guikit {
 
@@ -203,11 +204,16 @@ void SdlCanvas::DrawRoundRect(
 }
 
 Vec2 SdlCanvas::MeasureText(std::string_view text, float fontSize) {
-    if (text.empty() || fontSize <= 0.0f) {
+    if (fontSize <= 0.0f) {
         return {0.0f, 0.0f};
     }
-    // Proportional typographic measure matching standard UI system fonts
-    return {static_cast<float>(text.length()) * (fontSize * 0.58f), fontSize * 1.35f};
+    const float totalAdvance = text.empty() ? 0.0f : static_cast<float>(text.length()) * (fontSize * kDefaultCharAdvanceRatio);
+    return {totalAdvance, GetLineHeight(fontSize)};
+}
+
+float SdlCanvas::GetLineHeight(float fontSize) {
+    if (fontSize <= 0.0f) return 0.0f;
+    return fontSize * kDefaultLineHeightMultiplier;
 }
 
 void SdlCanvas::DrawText(std::string_view text, Vec2 pos, float fontSize, Color color) {

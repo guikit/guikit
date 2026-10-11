@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <array>
 #include <cstdint>
@@ -12,6 +12,7 @@ namespace guikit {
 struct UiTheme {
     ThemeMode mode{ThemeMode::Dark};
     Density density{Density::Standard};
+    float lineHeightMultiplier{kDefaultLineHeightMultiplier};
 
     // 1. Semantic color palette
     ThemePalette palette{};
@@ -169,6 +170,7 @@ struct UiTheme {
 
     [[nodiscard]] constexpr Density GetDensity() const noexcept { return density; }
     [[nodiscard]] constexpr const ComponentMetrics& GetComponentMetrics(UiSize size) const noexcept { return GetMetrics(size); }
+    [[nodiscard]] constexpr float GetLineHeight(float fontSize) const noexcept { return fontSize * lineHeightMultiplier; }
 
     // --- Standard Theme Factories ---
     [[nodiscard]] static UiTheme Dark(Density d = Density::Standard) noexcept;

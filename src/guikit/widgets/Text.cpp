@@ -65,7 +65,7 @@ Vec2 Text::Measure(std::string_view label, const TextOptions& opts, ICanvas* can
         return dims;
     }
 
-    const float estW = static_cast<float>(label.length()) * (m.fontSize * (m.isMonospace ? 0.62f : 0.58f));
+    const float estW = static_cast<float>(label.length()) * (m.fontSize * (m.isMonospace ? kMonospaceCharAdvanceRatio : kDefaultCharAdvanceRatio));
     return {estW, m.lineHeight};
 }
 

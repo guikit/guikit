@@ -189,7 +189,7 @@ Vec2 InputField::Measure(
         if (canvas) {
             labelDims = canvas->MeasureText(effectiveLabel, m.labelFontSize);
         } else {
-            labelDims = {static_cast<float>(effectiveLabel.length()) * (m.labelFontSize * 0.58f), m.labelFontSize * 1.35f};
+            labelDims = {static_cast<float>(effectiveLabel.length()) * (m.labelFontSize * kDefaultCharAdvanceRatio), theme.GetLineHeight(m.labelFontSize)};
         }
     }
 
@@ -198,7 +198,7 @@ Vec2 InputField::Measure(
         if (canvas) {
             descDims = canvas->MeasureText(opts.description, m.descFontSize);
         } else {
-            descDims = {static_cast<float>(opts.description.length()) * (m.descFontSize * 0.58f), m.descFontSize * 1.35f};
+            descDims = {static_cast<float>(opts.description.length()) * (m.descFontSize * kDefaultCharAdvanceRatio), theme.GetLineHeight(m.descFontSize)};
         }
     }
 
@@ -273,8 +273,8 @@ void InputField::Render(
     Rect labelRect;
     Rect descRect;
 
-    const float labelH = hasLabel ? (m.labelFontSize * 1.35f) : 0.0f;
-    const float descH = hasDesc ? (m.descFontSize * 1.35f) : 0.0f;
+    const float labelH = hasLabel ? canvas.GetLineHeight(m.labelFontSize) : 0.0f;
+    const float descH = hasDesc ? canvas.GetLineHeight(m.descFontSize) : 0.0f;
 
     if (opts.labelPlacement == Placement::Stacked) {
         float curY = bounds.y;

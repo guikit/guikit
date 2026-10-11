@@ -154,7 +154,7 @@ Vec2 TabBar::MeasureTab(
         if (canvas) {
             textW = canvas->MeasureText(item.label, m.fontSize).x;
         } else {
-            textW = static_cast<float>(item.label.length()) * (m.fontSize * 0.62f);
+            textW = static_cast<float>(item.label.length()) * (m.fontSize * kDefaultCharAdvanceRatio);
         }
         contentW += textW;
     }

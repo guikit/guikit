@@ -3,6 +3,7 @@
 #include <cmath>
 #include <iostream>
 #include <thread>
+#include "guikit/core/Tokens.hpp"
 #include "thorvg.h"
 
 namespace guikit {
@@ -240,13 +241,18 @@ Vec2 ThorCanvas::MeasureText(std::string_view text, float fontSize) {
             cur++;
         }
     }
-    const Vec2 result{totalAdvance, fontSize * 1.35f};
+    const Vec2 result{totalAdvance, GetLineHeight(fontSize)};
 
     if (m_textMeasureCache.size() > 2048) {
         m_textMeasureCache.clear();
     }
     m_textMeasureCache.emplace(key, result);
     return result;
+}
+
+float ThorCanvas::GetLineHeight(float fontSize) {
+    if (fontSize <= 0.0f) return 0.0f;
+    return fontSize * kDefaultLineHeightMultiplier;
 }
 
 void ThorCanvas::DrawText(std::string_view text, Vec2 pos, float fontSize, Color color) {

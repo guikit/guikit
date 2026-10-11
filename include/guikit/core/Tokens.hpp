@@ -71,6 +71,15 @@ enum class TextRole : uint8_t {
     CodeSmall       ///< 11px / LH 15px
 };
 
+/// Typographic metrics ratio representing line-height to font-size for standard UI text.
+inline constexpr float kDefaultLineHeightMultiplier = 1.35f;
+
+/// Typographic metrics ratio representing average character advance to font-size for proportional text fallback.
+inline constexpr float kDefaultCharAdvanceRatio = 0.58f;
+
+/// Typographic metrics ratio representing average character advance to font-size for monospace text fallback.
+inline constexpr float kMonospaceCharAdvanceRatio = 0.62f;
+
 /// Metrics associated with a TextRole.
 struct TypographyMetrics {
     float fontSize;

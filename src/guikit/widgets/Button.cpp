@@ -60,7 +60,7 @@ Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, co
         if (canvas) {
             maxTextW = canvas->MeasureText(opts.label, m.fontSize).x;
         } else {
-            maxTextW = static_cast<float>(opts.label.length()) * (m.fontSize * 0.62f);
+            maxTextW = static_cast<float>(opts.label.length()) * (m.fontSize * kDefaultCharAdvanceRatio);
         }
     }
 
@@ -71,7 +71,7 @@ Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, co
         if (canvas) {
             varW = canvas->MeasureText(var, m.fontSize).x;
         } else {
-            varW = static_cast<float>(var.length()) * (m.fontSize * 0.62f);
+            varW = static_cast<float>(var.length()) * (m.fontSize * kDefaultCharAdvanceRatio);
         }
         maxTextW = std::max(maxTextW, varW);
     }
@@ -155,20 +155,22 @@ void Button::Render(
         // Icon + Label
         if (opts.iconPlacement == Placement::Top) {
             const float gap = 4.0f;
-            const float totalContentH = m.iconSize + gap + m.fontSize;
+            const float textH = canvas.GetLineHeight(m.fontSize);
+            const float totalContentH = m.iconSize + gap + textH;
             const float startY = bounds.y + (bounds.h - totalContentH) * 0.5f;
             const float iconX = bounds.x + (bounds.w - m.iconSize) * 0.5f;
             opts.icon.Draw(canvas, Rect(iconX, startY, m.iconSize, m.iconSize), textCol);
-            const Rect textRect(bounds.x, startY + m.iconSize + gap, bounds.w, m.fontSize * 1.35f);
+            const Rect textRect(bounds.x, startY + m.iconSize + gap, bounds.w, textH);
             canvas.DrawTextBox(opts.label, textRect, m.fontSize, textCol, 0.5f, 0.5f);
         } else if (opts.iconPlacement == Placement::Bottom) {
             const float gap = 4.0f;
-            const float totalContentH = m.iconSize + gap + m.fontSize;
+            const float textH = canvas.GetLineHeight(m.fontSize);
+            const float totalContentH = m.iconSize + gap + textH;
             const float startY = bounds.y + (bounds.h - totalContentH) * 0.5f;
-            const Rect textRect(bounds.x, startY, bounds.w, m.fontSize * 1.35f);
+            const Rect textRect(bounds.x, startY, bounds.w, textH);
             canvas.DrawTextBox(opts.label, textRect, m.fontSize, textCol, 0.5f, 0.5f);
             const float iconX = bounds.x + (bounds.w - m.iconSize) * 0.5f;
-            opts.icon.Draw(canvas, Rect(iconX, startY + m.fontSize + gap, m.iconSize, m.iconSize), textCol);
+            opts.icon.Draw(canvas, Rect(iconX, startY + textH + gap, m.iconSize, m.iconSize), textCol);
         } else if (opts.iconPlacement == Placement::Trailing) {
             const float gap = 8.0f;
             float textW = canvas.MeasureText(opts.label, m.fontSize).x;

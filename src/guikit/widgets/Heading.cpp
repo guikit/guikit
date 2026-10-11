@@ -78,10 +78,11 @@ Vec2 Heading::Measure(const HeadingOptions& opts, UiSize size, ICanvas* canvas, 
         if (canvas) {
             textW = canvas->MeasureText(opts.title, m.titleFontSize).x;
         } else {
-            textW = static_cast<float>(opts.title.length()) * (m.titleFontSize * 0.58f);
+            textW = static_cast<float>(opts.title.length()) * (m.titleFontSize * kDefaultCharAdvanceRatio);
         }
         titleLineW += textW;
-        titleLineH = std::max(titleLineH, m.titleFontSize * 1.35f);
+        const float titleH = canvas ? canvas->GetLineHeight(m.titleFontSize) : theme.GetLineHeight(m.titleFontSize);
+        titleLineH = std::max(titleLineH, titleH);
     }
 
     if (!opts.badge.empty()) {
@@ -103,9 +104,9 @@ Vec2 Heading::Measure(const HeadingOptions& opts, UiSize size, ICanvas* canvas, 
         if (canvas) {
             subW = canvas->MeasureText(sub, m.subtitleFontSize).x;
         } else {
-            subW = static_cast<float>(sub.length()) * (m.subtitleFontSize * 0.58f);
+            subW = static_cast<float>(sub.length()) * (m.subtitleFontSize * kDefaultCharAdvanceRatio);
         }
-        subH = m.subtitleFontSize * 1.35f;
+        subH = canvas ? canvas->GetLineHeight(m.subtitleFontSize) : theme.GetLineHeight(m.subtitleFontSize);
     }
 
     const float totalW = std::max(titleLineW, subW);
@@ -140,7 +141,7 @@ void Heading::Render(
 
     float titleLineH = 0.0f;
     if (opts.icon.IsValid()) titleLineH = std::max(titleLineH, m.iconSize);
-    if (!opts.title.empty()) titleLineH = std::max(titleLineH, m.titleFontSize * 1.35f);
+    if (!opts.title.empty()) titleLineH = std::max(titleLineH, canvas.GetLineHeight(m.titleFontSize));
     if (!opts.badge.empty()) titleLineH = std::max(titleLineH, m.badgeFontSize * 1.4f);
 
     float curX = bounds.x;
@@ -184,7 +185,7 @@ void Heading::Render(
     // 4. Draw Subtitle
     if (!sub.empty()) {
         const float subY = topY + titleLineH + m.lineGap;
-        const float subH = m.subtitleFontSize * 1.35f;
+        const float subH = canvas.GetLineHeight(m.subtitleFontSize);
         const Rect subR(bounds.x, subY, bounds.w, subH);
         canvas.DrawTextBox(sub, subR, m.subtitleFontSize, subtitleColor, 0.0f, 0.5f);
     }
