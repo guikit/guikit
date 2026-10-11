@@ -1,5 +1,6 @@
 #pragma once
 
+#include <any>
 #include <chrono>
 #include <functional>
 #include <initializer_list>
@@ -724,6 +725,27 @@ public:
     bool ConsumeKey(Key key);
     void ScrollToId(Id id);
 
+    // --- Generic Persistent State Storage ---
+    /// Persistent typed state storage across frames for widgets by deterministic Id.
+    template <typename T>
+    [[nodiscard]] T& GetOrCreateState(Id id, T defaultVal = T{}) {
+        auto it = m_customStates.find(id);
+        if (it == m_customStates.end()) {
+            it = m_customStates.emplace(id, std::make_any<T>(std::move(defaultVal))).first;
+        }
+        return std::any_cast<T&>(it->second);
+    }
+
+    /// Finds persistent typed state associated with a unique widget Id, or nullptr if not found.
+    template <typename T>
+    [[nodiscard]] const T* FindState(Id id) const {
+        auto it = m_customStates.find(id);
+        if (it == m_customStates.end()) {
+            return nullptr;
+        }
+        return std::any_cast<T>(&it->second);
+    }
+
 private:
     void RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirtyRect);
     void UpdateScrollAreasRecursive(Node* node);
@@ -827,64 +849,11 @@ private:
     Rect m_openPopupRect{0.0f, 0.0f, 0.0f, 0.0f};
     std::vector<std::function<void(ICanvas&)>> m_overlayPasses;
     Vec2 m_mouseWheel{0.0f, 0.0f};
-    std::unordered_map<Id, int> m_lastActiveTabs;
+    std::unordered_map<Id, std::any> m_customStates;
 
     void RenderDebugBoundsRecursive(Node* node, ICanvas& canvas);
     Node* FindDeepestNodeAt(Node* root, Vec2 pos, Rect clipRect);
     void RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize);
-
-    friend class GridScope;
-    friend class TabBar;
-    friend class Carousel;
-    ContainerScope CreateCell(int span, CellOptions opts, std::source_location loc = std::source_location::current());
 };
-
-// Inline implementations of Response imperative actions
-inline void Response::Focus() {
-    if (ctx && id.IsValid()) {
-        ctx->RequestFocus(id);
-    }
-}
-
-inline void Response::ScrollTo() {
-    if (ctx && id.IsValid()) {
-        ctx->ScrollToId(id);
-    }
-}
-
-// Inline implementation of ContainerScope destructor
-inline ContainerScope::~ContainerScope() {
-    if (m_ctx && m_node) {
-        m_ctx->PopContainer(m_node);
-        m_ctx = nullptr;
-        m_node = nullptr;
-    }
-}
-
-// Inline implementations of GridScope slot helpers
-inline ContainerScope GridScope::Cell(int span, CellOptions opts, std::source_location loc) {
-    return m_ctx ? m_ctx->CreateCell(span, opts, loc) : ContainerScope(nullptr, nullptr);
-}
-inline ContainerScope GridScope::Cell12(CellOptions opts, std::source_location loc) {
-    return m_ctx ? m_ctx->CreateCell(12, opts, loc) : ContainerScope(nullptr, nullptr);
-}
-inline ContainerScope GridScope::Cell8(CellOptions opts, std::source_location loc) {
-    return m_ctx ? m_ctx->CreateCell(8, opts, loc) : ContainerScope(nullptr, nullptr);
-}
-inline ContainerScope GridScope::Cell6(CellOptions opts, std::source_location loc) {
-    return m_ctx ? m_ctx->CreateCell(6, opts, loc) : ContainerScope(nullptr, nullptr);
-}
-inline ContainerScope GridScope::Cell4(CellOptions opts, std::source_location loc) {
-    return m_ctx ? m_ctx->CreateCell(4, opts, loc) : ContainerScope(nullptr, nullptr);
-}
-inline ContainerScope GridScope::Cell3(CellOptions opts, std::source_location loc) {
-    return m_ctx ? m_ctx->CreateCell(3, opts, loc) : ContainerScope(nullptr, nullptr);
-}
-inline ContainerScope GridScope::Cell2(CellOptions opts, std::source_location loc) {
-    return m_ctx ? m_ctx->CreateCell(2, opts, loc) : ContainerScope(nullptr, nullptr);
-}
-inline ContainerScope GridScope::Cell1(CellOptions opts, std::source_location loc) {
-    return m_ctx ? m_ctx->CreateCell(1, opts, loc) : ContainerScope(nullptr, nullptr);
-}
 
 } // namespace guikit

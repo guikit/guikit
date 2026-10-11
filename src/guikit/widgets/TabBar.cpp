@@ -52,9 +52,9 @@ Response TabBar::Run(
     }
 
     // Auto-scroll to active tab when activeIndex changes or on initial display
-    auto itLast = ctx.m_lastActiveTabs.find(barNode->id);
-    if (itLast == ctx.m_lastActiveTabs.end() || itLast->second != activeIndex) {
-        ctx.m_lastActiveTabs[barNode->id] = activeIndex;
+    int& lastActive = ctx.GetOrCreateState<int>(barNode->id, -1);
+    if (lastActive != activeIndex) {
+        lastActive = activeIndex;
         if (auto* cData = barNode->As<CarouselData>()) {
             cData->scrollToActiveTab = true;
         }
@@ -76,7 +76,7 @@ Response TabBar::Run(
             activeIndex = static_cast<int>(i);
             res.changed = true;
             res.clicked = true;
-            ctx.m_lastActiveTabs[barNode->id] = activeIndex;
+            ctx.GetOrCreateState<int>(barNode->id) = activeIndex;
             if (auto* cData = barNode->As<CarouselData>()) {
                 cData->scrollToActiveTab = true;
             }

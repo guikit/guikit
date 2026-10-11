@@ -464,31 +464,6 @@ ContainerScope Context::Card(CardOptions opts, std::source_location loc) {
     return ContainerScope(this, outerNode);
 }
 
-ContainerScope Context::CreateCell(int span, CellOptions opts, std::source_location loc) {
-    const Id id = MakeChildId(loc);
-    const UiSize activeSize = opts.size.value_or(GetCurrentSize());
-    const bool activeDisabled = opts.disabled || IsDisabled();
-
-    Node* node = CreateNode(NodeType::Cell, id);
-    node->direction = FlexDirection::Column;
-    node->colSpan = std::clamp(span, 1, 12);
-    node->minWidth = opts.minWidth;
-    node->clipChildren = opts.clipChildren;
-    node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
-    node->padding = m_theme.ResolvePadding(opts.padding);
-    node->align = opts.align;
-    node->justify = opts.justify;
-    node->widthMode = SizeMode::Stretch;
-    node->heightMode = opts.heightMode;
-    node->uiSize = activeSize;
-    node->disabled = activeDisabled;
-
-    PushSize(activeSize);
-    PushDisabled(activeDisabled);
-    PushContainer(node);
-    return ContainerScope(this, node);
-}
-
 void Context::Spacer(float flex, std::source_location loc) {
     const Id id = MakeChildId(loc);
     Node* node = CreateNode(NodeType::Spacer, id);
