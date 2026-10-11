@@ -1,0 +1,13 @@
+CompileFlags:
+  CompilationDatabase: "."
+  Add:
+    - -std=c++20
+    - -Iinclude
+    - -Ithird_party/SDL/include
+    - -Ithird_party/thorvg/inc
+    - -Wno-unknown-warning-option
+    - -Wno-unused-command-line-argument
+
+Diagnostics:
+  Suppress:
+    - unused-includes

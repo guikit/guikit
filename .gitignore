@@ -4,6 +4,8 @@ bin/
 lib/
 out/
 *.dir/
+compile_commands.json
+.clangd/
 
 # Visual Studio / MSVC
 .vs/
