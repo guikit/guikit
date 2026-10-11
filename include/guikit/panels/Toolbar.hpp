@@ -17,6 +17,7 @@ class Node;
 
 /// Configuration options for a ToolButton.
 struct ToolButtonOptions {
+    std::string_view label{};
     Icon icon{};
     UiVariant variant{UiVariant::Ghost};
     Placement iconPlacement{Placement::Leading};
@@ -51,7 +52,6 @@ public:
 
     /// Adds a compact tool button with icon and optional label.
     Response ToolButton(
-        std::string_view label = {},
         ToolButtonOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
@@ -71,27 +71,8 @@ public:
 
     static Response ToolButton(
         Context& ctx,
-        std::string_view label,
-        ToolButtonOptions opts,
+        const ToolButtonOptions& opts = {},
         std::source_location loc = std::source_location::current()
-    );
-
-    static Vec2 MeasureToolButton(
-        std::string_view label,
-        const ToolButtonOptions& opts,
-        UiSize size,
-        ICanvas* canvas = nullptr
-    );
-
-    static void RenderToolButton(
-        ICanvas& canvas,
-        Rect bounds,
-        std::string_view label,
-        const ToolButtonOptions& opts,
-        UiSize size,
-        bool hovered,
-        bool pressed,
-        bool disabled
     );
 
     static void RenderSeparator(

@@ -308,11 +308,10 @@ ToolbarScope Context::Toolbar(
 }
 
 Response Context::ToolButton(
-    std::string_view label,
     ToolButtonOptions opts,
     std::source_location loc
 ) {
-    return Toolbar::ToolButton(*this, label, opts, loc);
+    return Toolbar::ToolButton(*this, opts, loc);
 }
 
 void Context::RequestFocus(Id id) {

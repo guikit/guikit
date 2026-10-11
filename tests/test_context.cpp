@@ -1913,12 +1913,12 @@ void TestToolbarWidgetWorkflow() {
 
     auto renderToolbar = [&]() {
         if (auto tb = ui.Toolbar({.size = UiSize::Md, .padding = UiSize::Sm})) {
-            btnNew = tb.ToolButton("New", {.icon = Icon::Plus()});
-            btnSave = tb.ToolButton("Save", {.icon = Icon::Check(), .disabled = true});
+            btnNew = tb.ToolButton({.label = "New", .icon = Icon::Plus()});
+            btnSave = tb.ToolButton({.label = "Save", .icon = Icon::Check(), .disabled = true});
             tb.Separator();
-            btnSettings = tb.ToolButton("", {.icon = Icon::Settings(), .active = toolSettingsActive});
+            btnSettings = tb.ToolButton({.icon = Icon::Settings(), .active = toolSettingsActive});
             tb.Spacer();
-            tb.ToolButton("Status", {.icon = Icon::Eye()});
+            tb.ToolButton({.label = "Status", .icon = Icon::Eye()});
         }
     };
 
@@ -2254,9 +2254,9 @@ void TestLeafWidgetSizeOverrides() {
 
             // Toolbar ToolButtons: Inherited (Md), Local override Xl, Local override Xs
             if (auto tb = ui.Toolbar()) {
-                toolInherit = tb.ToolButton("Inherit", {.icon = Icon::Play()});
-                toolXl = tb.ToolButton("Large", {.icon = Icon::Play(), .size = UiSize::Xl});
-                toolXs = tb.ToolButton("Small", {.icon = Icon::Play(), .size = UiSize::Xs});
+                toolInherit = tb.ToolButton({.label = "Inherit", .icon = Icon::Play()});
+                toolXl = tb.ToolButton({.label = "Large", .icon = Icon::Play(), .size = UiSize::Xl});
+                toolXs = tb.ToolButton({.label = "Small", .icon = Icon::Play(), .size = UiSize::Xs});
             }
         }
     };
@@ -2528,11 +2528,11 @@ void TestIndustrialDashboardNoBlackLines() {
                 }
 
                 if (auto tb = ui.Toolbar()) {
-                    tb.ToolButton("Density: Standard");
+                    tb.ToolButton({.label = "Density: Standard"});
                     tb.Separator();
-                    tb.ToolButton("Scale: 100%");
+                    tb.ToolButton({.label = "Scale: 100%"});
                     tb.Separator();
-                    tb.ToolButton("Theme: Dark");
+                    tb.ToolButton({.label = "Theme: Dark"});
                 }
 
                 const std::vector<TabItem> navTabs = {

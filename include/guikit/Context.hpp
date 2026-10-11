@@ -521,7 +521,6 @@ public:
     );
 
     Response ToolButton(
-        std::string_view label = {},
         ToolButtonOptions opts = {},
         std::source_location loc = std::source_location::current()
     );

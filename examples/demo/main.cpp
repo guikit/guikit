@@ -220,7 +220,8 @@ int main(int argc, char* argv[]) {
                     // Density Preset Toggle
                     const char* densityLabel = (ui.GetDensity() == guikit::Density::Standard) ? "Density: Standard" :
                                               ((ui.GetDensity() == guikit::Density::Compact) ? "Density: Compact" : "Density: Touch");
-                    if (tb.ToolButton(densityLabel, {
+                    if (tb.ToolButton({
+                        .label = densityLabel,
                         .icon = guikit::Icon::Settings(),
                         .labelVariants = {"Density: Standard", "Density: Compact", "Density: Touch"},
                         .active = true
@@ -246,7 +247,8 @@ int main(int argc, char* argv[]) {
                     tb.Separator();
 
                     // Theme Mode Toggle
-                    if (tb.ToolButton(darkMode ? "Theme: Dark" : "Theme: Light", {
+                    if (tb.ToolButton({
+                        .label = darkMode ? "Theme: Dark" : "Theme: Light",
                         .icon = darkMode ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
                         .labelVariants = {"Theme: Dark", "Theme: Light"},
                         .active = darkMode
@@ -259,7 +261,8 @@ int main(int argc, char* argv[]) {
                     tb.Separator();
 
                     // VSync Toggle
-                    if (tb.ToolButton(vsyncEnabled ? "VSync: ON" : "VSync: OFF", {
+                    if (tb.ToolButton({
+                        .label = vsyncEnabled ? "VSync: ON" : "VSync: OFF",
                         .icon = guikit::Icon::Refresh(),
                         .variant = vsyncEnabled ? guikit::UiVariant::Success : guikit::UiVariant::Ghost,
                         .labelVariants = {"VSync: ON", "VSync: OFF"},
@@ -270,7 +273,8 @@ int main(int argc, char* argv[]) {
                     }
 
                     // Reactive Mode Toggle
-                    if (tb.ToolButton(reactiveMode ? "Reactive: ON" : "Reactive: OFF", {
+                    if (tb.ToolButton({
+                        .label = reactiveMode ? "Reactive: ON" : "Reactive: OFF",
                         .icon = reactiveMode ? guikit::Icon::Play() : guikit::Icon::Pause(),
                         .variant = reactiveMode ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
                         .labelVariants = {"Reactive: ON", "Reactive: OFF"},
@@ -284,7 +288,8 @@ int main(int argc, char* argv[]) {
 
                     // Dirty Rect Toggle
                     const bool dirtyActive = ui.IsDirtyRectEnabled();
-                    if (tb.ToolButton(dirtyActive ? "Dirty: ON" : "Dirty: OFF", {
+                    if (tb.ToolButton({
+                        .label = dirtyActive ? "Dirty: ON" : "Dirty: OFF",
                         .icon = guikit::Icon::Settings(),
                         .variant = dirtyActive ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
                         .labelVariants = {"Dirty: ON", "Dirty: OFF"},
@@ -301,7 +306,8 @@ int main(int argc, char* argv[]) {
 
                     // Debug Bounds Toggle
                     const bool boundsActive = ui.IsDebugBounds();
-                    if (tb.ToolButton(boundsActive ? "Bounds: ON" : "Bounds: OFF", {
+                    if (tb.ToolButton({
+                        .label = boundsActive ? "Bounds: ON" : "Bounds: OFF",
                         .icon = boundsActive ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
                         .variant = boundsActive ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
                         .labelVariants = {"Bounds: ON", "Bounds: OFF"},
@@ -312,7 +318,8 @@ int main(int argc, char* argv[]) {
 
                     // Inspect Mode Toggle (Chrome DevTools Inspect element)
                     const bool inspectActive = ui.IsInspectMode();
-                    if (tb.ToolButton(inspectActive ? "Inspect: ON" : "Inspect: OFF", {
+                    if (tb.ToolButton({
+                        .label = inspectActive ? "Inspect: ON" : "Inspect: OFF",
                         .icon = guikit::Icon::Search(),
                         .variant = inspectActive ? guikit::UiVariant::Warning : guikit::UiVariant::Ghost,
                         .labelVariants = {"Inspect: ON", "Inspect: OFF"},
@@ -322,7 +329,8 @@ int main(int argc, char* argv[]) {
                     }
 
                     // Idle Heartbeat Presets Cycle
-                    if (tb.ToolButton(heartbeatLabels[heartbeatIndex], {
+                    if (tb.ToolButton({
+                        .label = heartbeatLabels[heartbeatIndex],
                         .icon = guikit::Icon::Plus(),
                         .labelVariants = heartbeatLabels,
                         .disabled = !reactiveMode
@@ -334,7 +342,8 @@ int main(int argc, char* argv[]) {
                     tb.Spacer();
 
                     // TabBar Style Toggle
-                    if (tb.ToolButton(tabStyle == guikit::TabBarStyle::Underline ? "Tabs: Underline" : "Tabs: Pill", {
+                    if (tb.ToolButton({
+                        .label = tabStyle == guikit::TabBarStyle::Underline ? "Tabs: Underline" : "Tabs: Pill",
                         .icon = guikit::Icon::Folder(),
                         .labelVariants = {"Tabs: Underline", "Tabs: Pill"}
                     })) {

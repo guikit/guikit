@@ -40,12 +40,11 @@ void ToolbarScope::Spacer(std::source_location loc) {
 }
 
 Response ToolbarScope::ToolButton(
-    std::string_view label,
     ToolButtonOptions opts,
     std::source_location loc
 ) {
     if (!m_ctx) return Response{};
-    return Toolbar::ToolButton(*m_ctx, label, opts, loc);
+    return Toolbar::ToolButton(*m_ctx, opts, loc);
 }
 
 ToolbarScope Toolbar::Open(
@@ -103,8 +102,7 @@ ToolbarScope Toolbar::Open(
 
 Response Toolbar::ToolButton(
     Context& ctx,
-    std::string_view label,
-    ToolButtonOptions opts,
+    const ToolButtonOptions& opts,
     std::source_location loc
 ) {
     const Id id = ctx.MakeChildId(loc);
@@ -119,7 +117,7 @@ Response Toolbar::ToolButton(
     }
 
     Node* node = ctx.CreateNode(NodeType::Button, id);
-    node->text = ctx.AllocString(label);
+    node->text = ctx.AllocString(opts.label);
 
     ButtonOptions bOpts;
     bOpts.label = node->text;
