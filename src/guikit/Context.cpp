@@ -196,9 +196,6 @@ ContainerScope Context::Wrap(WrapOptions opts, std::source_location loc) {
     return Open<guikit::Wrap>(opts, loc);
 }
 
-GridScope Context::CellGrid(GridOptions opts, std::source_location loc) {
-    return Open<guikit::Grid>(opts, loc);
-}
 
 GridScope Context::Grid(GridOptions opts, std::source_location loc) {
     return Open<guikit::Grid>(opts, loc);

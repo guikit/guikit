@@ -175,13 +175,6 @@ public:
     /// Returns the current clear color.
     [[nodiscard]] Color GetClearColor() const noexcept { return m_clearColor; }
 
-    // --- Style & Density (Backward compatibility alias) ---
-    /// Sets the application UI style metrics and spacing scale.
-    void SetStyle(const UiTheme& style) noexcept { SetTheme(style); }
-
-    /// Returns the current application UI style.
-    [[nodiscard]] const UiTheme& GetStyle() const noexcept { return m_theme; }
-    [[nodiscard]] UiTheme& GetStyle() noexcept { return m_theme; }
 
     /// Sets the UI density preset (Standard, Compact, Touch).
     void SetDensity(Density density) noexcept { m_theme.SetDensity(density); InvalidateAll(); }
@@ -258,11 +251,6 @@ public:
 
     [[nodiscard]] ContainerScope Wrap(
         WrapOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    [[nodiscard]] GridScope CellGrid(
-        GridOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
@@ -384,24 +372,6 @@ public:
 
     Response Checkbox(const bool*, CheckboxOptions = {}, std::source_location = std::source_location::current()) = delete;
 
-    /// Convenience aliases for developers familiar with Toggle terminology.
-    Response Toggle(
-        bool& value,
-        SwitchOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return Switch(value, opts, loc);
-    }
-
-    Response Toggle(
-        const bool& checked,
-        SwitchOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return Switch(checked, opts, loc);
-    }
-
-    Response Toggle(const bool*, SwitchOptions = {}, std::source_location = std::source_location::current()) = delete;
 
     // --- InputField Widget ---
     template <InputFieldEditable T>
@@ -427,14 +397,6 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
-    template <InputFieldEditable T>
-    Response InputNumber(
-        T& value,
-        InputFieldOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return InputField(value, opts, loc);
-    }
 
     // --- Select (Dropdown) Widget ---
     template <SelectTarget T>
@@ -489,30 +451,6 @@ public:
         return TabBar(activeIndex, std::span<const TabItem>(tabs.begin(), tabs.size()), opts, loc);
     }
 
-    template <typename IndexT>
-    Response TabBar(
-        IndexT& activeIndex,
-        std::span<const std::string_view> tabs,
-        TabBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
-        std::vector<TabItem> items;
-        items.reserve(tabs.size());
-        for (const auto& label : tabs) {
-            items.push_back(TabItem{.label = label});
-        }
-        return TabBar(activeIndex, std::span<const TabItem>(items), opts, loc);
-    }
-
-    template <typename IndexT>
-    Response TabBar(
-        IndexT& activeIndex,
-        std::initializer_list<std::string_view> tabs,
-        TabBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
-        return TabBar(activeIndex, std::span<const std::string_view>(tabs.begin(), tabs.size()), opts, loc);
-    }
 
     // --- Toolbar Component ---
     [[nodiscard]] ToolbarScope Toolbar(
@@ -529,10 +467,6 @@ public:
     [[nodiscard]] UiString String(std::string_view text);
     [[nodiscard]] std::string_view AllocString(std::string_view text);
 
-    [[deprecated("Use AllocString instead")]]
-    [[nodiscard]] std::string_view InternString(std::string_view text) {
-        return AllocString(text);
-    }
 
     template <typename... Args>
     [[nodiscard]] UiString Format(std::format_string<Args...> fmt, Args&&... args) {

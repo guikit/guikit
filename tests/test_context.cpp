@@ -246,7 +246,7 @@ void TestWrapContainerInContextApi() {
     WidgetResponse b2;
     WidgetResponse b3;
 
-    ui.GetStyle().Spacing().md = 10.0f;
+    ui.GetTheme().Spacing().md = 10.0f;
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = UiSize::Md, .padding = Padding::All(20.0f)})) {
             // Available width inside padding = 300 - 40 = 260.
@@ -768,7 +768,7 @@ void TestSwitchAndCheckboxWidgets() {
         if (auto col = ui.Column({.gap = UiSize::Md, .padding = Padding::All(16.0f)})) {
             rSwitch = ui.Switch(switchState, {.label = "Dark Mode"});
             rCheck = ui.Checkbox(checkState, {.label = "VSync"});
-            rToggle = ui.Toggle(toggleState, {.label = "Turbo Mode", .labelPlacement = Placement::Leading});
+            rToggle = ui.Switch(toggleState, {.label = "Turbo Mode", .labelPlacement = Placement::Leading});
             rIndeterminate = ui.Checkbox(false, {.label = "Select All", .indeterminate = true});
             rDesc = ui.Switch(descState, {
                 .label = "Auto Breakdown",
@@ -1393,8 +1393,8 @@ void TestGridAndCardLayout() {
     WidgetResponse inp2Res;
 
     auto renderUI = [&]() {
-        // 1. Standalone CellGrid with 12-column slots
-        if (auto grid = ui.CellGrid({.gap = UiSize::Md})) {
+        // 1. Standalone Grid with 12-column slots
+        if (auto grid = ui.Grid({.gap = UiSize::Md})) {
             if (auto c1 = grid.Cell6()) {
                 sw1Res = ui.Switch(switchVal1, {.label = "Sensor A"});
             }
@@ -1406,10 +1406,10 @@ void TestGridAndCardLayout() {
             }
         }
 
-        // 2. High-level Card surface containing an explicit CellGrid layout
+        // 2. High-level Card surface containing an explicit Grid layout
         if (auto card = ui.Card()) {
             ui.Heading({.title = "Motion Controller", .subtitle = "Direct axis tuning"});
-            if (auto grid = ui.CellGrid()) {
+            if (auto grid = ui.Grid()) {
                 if (auto c1 = grid.Cell6()) {
                     inp2Res = ui.InputField(nameVal, {.label = "Device Name"});
                 }
@@ -1778,7 +1778,7 @@ void TestDirtyRectDamageTracking() {
     TabBarStyle currentTabStyle = TabBarStyle::Underline;
     auto renderTabTest = [&]() {
         if (auto col = ui.Column()) {
-            ui.TabBar(tabIdx, {"Tab1", "Tab2"}, {.style = currentTabStyle});
+            ui.TabBar(tabIdx, {{"Tab1"}, {"Tab2"}}, {.style = currentTabStyle});
         }
     };
 
@@ -1878,7 +1878,7 @@ void TestTabBarWidgetWorkflow() {
     int pillIdx = 0;
     auto renderPill = [&]() {
         if (auto col = ui.Column({.padding = Padding::All(10.0f)})) {
-            ui.TabBar(pillIdx, {"Alpha", "Beta", "Gamma"}, {.style = TabBarStyle::Pill});
+            ui.TabBar(pillIdx, {{"Alpha"}, {"Beta"}, {"Gamma"}}, {.style = TabBarStyle::Pill});
         }
     };
 
@@ -2179,7 +2179,7 @@ void TestUiStyleAndDensityScaling() {
     CHECK_NEAR(b2.rect.y, b1.rect.Bottom() + 16.0f, 0.01f);
 
     // Frame 4: Custom spacing scale override
-    ui.GetStyle().Spacing().md = 25.0f;
+    ui.GetTheme().Spacing().md = 25.0f;
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     render();
     ui.EndFrame(canvas);
@@ -2544,12 +2544,12 @@ void TestIndustrialDashboardNoBlackLines() {
 
                 if (activeTabIndex == 2) {
                     if (auto scroll = ui.ScrollArea()) {
-                        if (auto dashboardGrid = ui.CellGrid()) {
+                        if (auto dashboardGrid = ui.Grid()) {
                             if (auto colLeft = dashboardGrid.Cell6()) {
                                 if (auto card1 = ui.Card()) {
                                     cardId = card1.GetNode()->id;
                                     ui.Heading({.title = "Primary Stop Conditions", .subtitle = "Sensory tripwire thresholds & limits"});
-                                    if (auto grid1 = ui.CellGrid()) {
+                                    if (auto grid1 = ui.Grid()) {
                                         if (auto c = grid1.Cell12()) {
                                             ui.Switch(enableSensors, {
                                                 .label = "Enable Sensor Drop Limits",
@@ -2557,10 +2557,10 @@ void TestIndustrialDashboardNoBlackLines() {
                                             });
                                         }
                                         if (auto c = grid1.Cell6()) {
-                                            ui.InputNumber(maxTravel, {.label = "Max Travel", .suffix = "mm", .format = "%.1f"});
+                                            ui.InputField(maxTravel, {.label = "Max Travel", .suffix = "mm", .format = "%.1f"});
                                         }
                                         if (auto c = grid1.Cell6()) {
-                                            ui.InputNumber(maxVelocity, {.label = "Max Velocity", .suffix = "mm/s", .format = "%.1f"});
+                                            ui.InputField(maxVelocity, {.label = "Max Velocity", .suffix = "mm/s", .format = "%.1f"});
                                         }
                                         if (auto c = grid1.Cell12()) {
                                             ui.Select(sensorChannel, {
@@ -2578,7 +2578,7 @@ void TestIndustrialDashboardNoBlackLines() {
 
                                 if (auto card2 = ui.Card()) {
                                     ui.Heading({.title = "Emergency Interlocks", .subtitle = "Hardware line supervision & failsafes", .variant = UiVariant::Danger});
-                                    if (auto grid2 = ui.CellGrid()) {
+                                    if (auto grid2 = ui.Grid()) {
                                         if (auto c = grid2.Cell12()) {
                                             ui.Switch(hwEstop, {
                                                 .label = "Hardware E-Stop Line",
@@ -2596,7 +2596,7 @@ void TestIndustrialDashboardNoBlackLines() {
                                             });
                                         }
                                         if (auto c = grid2.Cell6()) {
-                                            ui.InputNumber(rampDown, {.label = "Ramp Duration", .suffix = "ms", .format = "%.0f"});
+                                            ui.InputField(rampDown, {.label = "Ramp Duration", .suffix = "ms", .format = "%.0f"});
                                         }
                                     }
                                 }

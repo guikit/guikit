@@ -368,12 +368,12 @@ int main(int argc, char* argv[]) {
                 if (activeTabIndex == 2) {
                     // Industrial Dashboard: responsive 2-column layout inside a dedicated ScrollArea
                     if (auto scroll = ui.ScrollArea()) {
-                        if (auto dashboardGrid = ui.CellGrid()) {
+                        if (auto dashboardGrid = ui.Grid()) {
                             // Left Column: wraps to full width when narrow
                             if (auto colLeft = dashboardGrid.Cell6()) {
                                 if (auto card1 = ui.Card()) {
                                     ui.Heading({.title = "Primary Stop Conditions", .subtitle = "Sensory tripwire thresholds & limits"});
-                                    if (auto grid1 = ui.CellGrid()) {
+                                    if (auto grid1 = ui.Grid()) {
                                         if (auto c = grid1.Cell12()) {
                                             ui.Switch(enableSensors, {
                                                 .label = "Enable Sensor Drop Limits",
@@ -381,10 +381,10 @@ int main(int argc, char* argv[]) {
                                             });
                                         }
                                         if (auto c = grid1.Cell6()) {
-                                            ui.InputNumber(maxTravel, {.label = "Max Travel", .suffix = "mm", .format = "%.1f"});
+                                            ui.InputField(maxTravel, {.label = "Max Travel", .suffix = "mm", .format = "%.1f"});
                                         }
                                         if (auto c = grid1.Cell6()) {
-                                            ui.InputNumber(maxVelocity, {.label = "Max Velocity", .suffix = "mm/s", .format = "%.1f"});
+                                            ui.InputField(maxVelocity, {.label = "Max Velocity", .suffix = "mm/s", .format = "%.1f"});
                                         }
                                         if (auto c = grid1.Cell12()) {
                                             ui.Select(sensorChannel, {
@@ -402,7 +402,7 @@ int main(int argc, char* argv[]) {
 
                                 if (auto card2 = ui.Card()) {
                                     ui.Heading({.title = "Emergency Interlocks", .subtitle = "Hardware line supervision & failsafes", .variant = guikit::UiVariant::Danger});
-                                    if (auto grid2 = ui.CellGrid()) {
+                                    if (auto grid2 = ui.Grid()) {
                                         if (auto c = grid2.Cell12()) {
                                             ui.Switch(hwEstop, {
                                                 .label = "Hardware E-Stop Line",
@@ -420,7 +420,7 @@ int main(int argc, char* argv[]) {
                                             });
                                         }
                                         if (auto c = grid2.Cell6()) {
-                                            ui.InputNumber(rampDown, {.label = "Ramp Duration", .suffix = "ms", .format = "%.0f"});
+                                            ui.InputField(rampDown, {.label = "Ramp Duration", .suffix = "ms", .format = "%.0f"});
                                         }
                                     }
                                 }
@@ -430,21 +430,21 @@ int main(int argc, char* argv[]) {
                             if (auto colRight = dashboardGrid.Cell6()) {
                                 if (auto card3 = ui.Card()) {
                                     ui.Heading({.title = "Secondary Criteria & PID", .subtitle = "Dynamic closed-loop feedback parameters"});
-                                    if (auto grid3 = ui.CellGrid()) {
+                                    if (auto grid3 = ui.Grid()) {
                                         if (auto c = grid3.Cell6()) {
-                                            ui.InputNumber(forceLimit, {.label = "Force Drop Limit", .suffix = "%", .format = "%.1f"});
+                                            ui.InputField(forceLimit, {.label = "Force Drop Limit", .suffix = "%", .format = "%.1f"});
                                         }
                                         if (auto c = grid3.Cell6()) {
-                                            ui.InputNumber(yieldRatio, {.label = "Yield Ratio", .suffix = "%", .format = "%.2f"});
+                                            ui.InputField(yieldRatio, {.label = "Yield Ratio", .suffix = "%", .format = "%.2f"});
                                         }
                                         if (auto c = grid3.Cell4()) {
-                                            ui.InputNumber(pGain, {.label = "P-Gain", .format = "%.2f"});
+                                            ui.InputField(pGain, {.label = "P-Gain", .format = "%.2f"});
                                         }
                                         if (auto c = grid3.Cell4()) {
-                                            ui.InputNumber(iGain, {.label = "I-Gain", .format = "%.3f"});
+                                            ui.InputField(iGain, {.label = "I-Gain", .format = "%.3f"});
                                         }
                                         if (auto c = grid3.Cell4()) {
-                                            ui.InputNumber(dGain, {.label = "D-Gain", .format = "%.3f"});
+                                            ui.InputField(dGain, {.label = "D-Gain", .format = "%.3f"});
                                         }
                                         if (auto c = grid3.Cell12()) {
                                             ui.Switch(diagLogging, {
@@ -502,7 +502,7 @@ int main(int argc, char* argv[]) {
 
                             const guikit::Placement activePlacement = formMode ? guikit::Placement::Stacked : guikit::Placement::Leading;
 
-                            if (auto fieldsGrid = ui.CellGrid()) {
+                            if (auto fieldsGrid = ui.Grid()) {
                                 if (auto c1 = fieldsGrid.Cell3()) {
                                     ui.InputField(speedDrop, {
                                         .label = "Speed Drop dF/dt",
