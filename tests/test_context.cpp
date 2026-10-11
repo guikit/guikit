@@ -718,25 +718,25 @@ void TestSwitchAndCheckboxWidgets() {
     const auto theme = UiTheme::Dark();
     // 1. Test measurement
     const SwitchMetrics sm = theme.GetSwitch(UiSize::Md);
-    Vec2 sMeasNoLabel = Switch::Measure("", {}, UiSize::Md);
+    Vec2 sMeasNoLabel = Switch::Measure({}, UiSize::Md);
     CHECK(sMeasNoLabel.x == sm.trackSize.x);
     CHECK(sMeasNoLabel.y == sm.trackSize.y);
 
-    Vec2 sMeasWithLabel = Switch::Measure("Enable", {}, UiSize::Md);
+    Vec2 sMeasWithLabel = Switch::Measure({.label = "Enable"}, UiSize::Md);
     CHECK(sMeasWithLabel.x > sm.trackSize.x);
 
-    Vec2 sMeasWithDesc = Switch::Measure("Enable", {.description = "Details"}, UiSize::Md);
+    Vec2 sMeasWithDesc = Switch::Measure({.label = "Enable", .description = "Details"}, UiSize::Md);
     CHECK(sMeasWithDesc.y > sMeasWithLabel.y);
 
     const CheckboxMetrics cm = theme.GetCheckbox(UiSize::Md);
-    Vec2 cMeasNoLabel = Checkbox::Measure("", {}, UiSize::Md);
+    Vec2 cMeasNoLabel = Checkbox::Measure({}, UiSize::Md);
     CHECK(cMeasNoLabel.x == cm.boxSize);
     CHECK(cMeasNoLabel.y == cm.boxSize);
 
-    Vec2 cMeasWithLabel = Checkbox::Measure("Enable", {}, UiSize::Md);
+    Vec2 cMeasWithLabel = Checkbox::Measure({.label = "Enable"}, UiSize::Md);
     CHECK(cMeasWithLabel.x > cm.boxSize);
 
-    Vec2 cMeasWithDesc = Checkbox::Measure("Enable", {.description = "Details"}, UiSize::Md);
+    Vec2 cMeasWithDesc = Checkbox::Measure({.label = "Enable", .description = "Details"}, UiSize::Md);
     CHECK(cMeasWithDesc.y > cMeasWithLabel.y);
 
     // 2. Interactive mutation test
@@ -766,14 +766,16 @@ void TestSwitchAndCheckboxWidgets() {
 
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = UiSize::Md, .padding = Padding::All(16.0f)})) {
-            rSwitch = ui.Switch("Dark Mode", &switchState);
-            rCheck = ui.Checkbox("VSync", &checkState);
-            rToggle = ui.Toggle("Turbo Mode", &toggleState, {.labelPlacement = Placement::Leading});
-            rIndeterminate = ui.Checkbox("Select All", false, {.indeterminate = true});
-            rDesc = ui.Switch("Auto Breakdown", &descState, {
+            rSwitch = ui.Switch(&switchState, {.label = "Dark Mode"});
+            rCheck = ui.Checkbox(&checkState, {.label = "VSync"});
+            rToggle = ui.Toggle(&toggleState, {.label = "Turbo Mode", .labelPlacement = Placement::Leading});
+            rIndeterminate = ui.Checkbox(false, {.label = "Select All", .indeterminate = true});
+            rDesc = ui.Switch(&descState, {
+                .label = "Auto Breakdown",
                 .description = "Automatic stop of testing on load drop"
             });
-            rStacked = ui.Switch("Stacked Mode", &stackedState, {
+            rStacked = ui.Switch(&stackedState, {
+                .label = "Stacked Mode",
                 .description = "Description below switch control",
                 .labelPlacement = Placement::Stacked
             });
@@ -934,7 +936,8 @@ void TestInputFieldWidget() {
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = UiSize::Lg, .padding = Padding::All(20.0f)})) {
             // Numeric field with unit and description (as in user screenshot)
-            rSpeed = ui.InputField("Speed Drop dF/dt", speedDrop, {
+            rSpeed = ui.InputField(speedDrop, {
+                .label = "Speed Drop dF/dt",
                 .description = "Automatic stop of testing on load drop",
                 .suffix = "%",
                 .format = "%.0f",
@@ -942,13 +945,15 @@ void TestInputFieldWidget() {
             });
 
             // Integer count with unit suffix
-            rCount = ui.InputField("Cycle Count", count, {
+            rCount = ui.InputField(count, {
+                .label = "Cycle Count",
                 .suffix = "cycles",
                 .labelPlacement = Placement::Stacked
             });
 
             // Text input with placeholder
-            rName = ui.InputField("Sample ID", sampleName, {
+            rName = ui.InputField(sampleName, {
+                .label = "Sample ID",
                 .placeholder = "Enter identifier...",
                 .labelPlacement = Placement::Stacked
             });
@@ -1075,16 +1080,20 @@ void TestSelectWidget() {
 
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = UiSize::Md, .padding = Padding::All(20.0f)})) {
-            rBaud = ui.Select("Baud Rate", baudIndex, {"9600", "19200", "38400", "115200"}, {
+            rBaud = ui.Select(baudIndex, {"9600", "19200", "38400", "115200"}, {
+                .label = "Baud Rate",
                 .description = "Serial bus communication speed",
                 .labelPlacement = Placement::Stacked
             });
 
-            rMode = ui.Select("Control Mode", modeIndex, {"Auto", "Manual", "Direct"}, {
+            rMode = ui.Select(modeIndex, {"Auto", "Manual", "Direct"}, {
+                .label = "Control Mode",
                 .disabled = disabledMode
             });
 
-            rProfile = ui.Select("Profile", profile, {"Eco", "Standard", "Performance", "Extreme"});
+            rProfile = ui.Select(profile, {"Eco", "Standard", "Performance", "Extreme"}, {
+                .label = "Profile"
+            });
         }
     };
 
@@ -1290,7 +1299,8 @@ void TestSelectWidget() {
     size_t limIdx = 0;
     WidgetResponse rLim;
     auto renderLimited = [&]() {
-        rLim = ui.Select("Limited Dropdown", limIdx, {"Item 1", "Item 2", "Item 3", "Item 4", "Item 5"}, {
+        rLim = ui.Select(limIdx, {"Item 1", "Item 2", "Item 3", "Item 4", "Item 5"}, {
+            .label = "Limited Dropdown",
             .maxVisibleItems = 2
         });
     };
@@ -1386,13 +1396,13 @@ void TestGridAndCardLayout() {
         // 1. Standalone CellGrid with 12-column slots
         if (auto grid = ui.CellGrid({.gap = UiSize::Md})) {
             if (auto c1 = grid.Cell6()) {
-                sw1Res = ui.Switch("Sensor A", &switchVal1);
+                sw1Res = ui.Switch(&switchVal1, {.label = "Sensor A"});
             }
             if (auto c2 = grid.Cell6()) {
-                sw2Res = ui.Switch("Sensor B", &switchVal2);
+                sw2Res = ui.Switch(&switchVal2, {.label = "Sensor B"});
             }
             if (auto c3 = grid.Cell12()) {
-                inp1Res = ui.InputField("Speed Target", speedVal);
+                inp1Res = ui.InputField(speedVal, {.label = "Speed Target"});
             }
         }
 
@@ -1401,7 +1411,7 @@ void TestGridAndCardLayout() {
             ui.Heading({.title = "Motion Controller", .subtitle = "Direct axis tuning"});
             if (auto grid = ui.CellGrid()) {
                 if (auto c1 = grid.Cell6()) {
-                    inp2Res = ui.InputField("Device Name", nameVal);
+                    inp2Res = ui.InputField(nameVal, {.label = "Device Name"});
                 }
                 if (auto c2 = grid.Cell6()) {
                     ui.Button("Calibrate Zero");
@@ -2016,16 +2026,16 @@ void TestContainerSizeInheritanceAndWidgetStretch() {
         if (auto col = ui.Column({.size = sz})) {
             if (isLarge) {
                 btnLg = ui.Button("Large Action");
-                swLg = ui.Switch("Large Switch", &switchVal);
-                cbLg = ui.Checkbox("Large Checkbox", &checkVal);
-                inLg = ui.InputField("Large Input", inputVal);
-                selLg = ui.Select("Large Select", selectIdx, {"One", "Two"});
+                swLg = ui.Switch(&switchVal, {.label = "Large Switch"});
+                cbLg = ui.Checkbox(&checkVal, {.label = "Large Checkbox"});
+                inLg = ui.InputField(inputVal, {.label = "Large Input"});
+                selLg = ui.Select(selectIdx, {"One", "Two"}, {.label = "Large Select"});
             } else {
                 btnSm = ui.Button("Small Action");
-                swSm = ui.Switch("Small Switch", &switchVal);
-                cbSm = ui.Checkbox("Small Checkbox", &checkVal);
-                inSm = ui.InputField("Small Input", inputVal);
-                selSm = ui.Select("Small Select", selectIdx, {"One", "Two"});
+                swSm = ui.Switch(&switchVal, {.label = "Small Switch"});
+                cbSm = ui.Checkbox(&checkVal, {.label = "Small Checkbox"});
+                inSm = ui.InputField(inputVal, {.label = "Small Input"});
+                selSm = ui.Select(selectIdx, {"One", "Two"}, {.label = "Small Select"});
             }
         }
     };
@@ -2216,30 +2226,30 @@ void TestLeafWidgetSizeOverrides() {
 
             // Switches: Inherited (Md), Local override Xl, Local override Xs
             if (auto r2 = ui.Row()) {
-                swInherit = ui.Switch("Inherit", &swVal);
-                swXl = ui.Switch("Large", &swVal, {.size = UiSize::Xl});
-                swXs = ui.Switch("Small", &swVal, {.size = UiSize::Xs});
+                swInherit = ui.Switch(&swVal, {.label = "Inherit"});
+                swXl = ui.Switch(&swVal, {.label = "Large", .size = UiSize::Xl});
+                swXs = ui.Switch(&swVal, {.label = "Small", .size = UiSize::Xs});
             }
 
             // Checkboxes: Inherited (Md), Local override Xl, Local override Xs
             if (auto r3 = ui.Row()) {
-                cbInherit = ui.Checkbox("Inherit", &cbVal);
-                cbXl = ui.Checkbox("Large", &cbVal, {.size = UiSize::Xl});
-                cbXs = ui.Checkbox("Small", &cbVal, {.size = UiSize::Xs});
+                cbInherit = ui.Checkbox(&cbVal, {.label = "Inherit"});
+                cbXl = ui.Checkbox(&cbVal, {.label = "Large", .size = UiSize::Xl});
+                cbXs = ui.Checkbox(&cbVal, {.label = "Small", .size = UiSize::Xs});
             }
 
             // InputFields: Inherited (Md), Local override Xl, Local override Xs
             if (auto r4 = ui.Row()) {
-                inInherit = ui.InputField("Inherit", inVal);
-                inXl = ui.InputField("Large", inVal, {.size = UiSize::Xl});
-                inXs = ui.InputField("Small", inVal, {.size = UiSize::Xs});
+                inInherit = ui.InputField(inVal, {.label = "Inherit"});
+                inXl = ui.InputField(inVal, {.label = "Large", .size = UiSize::Xl});
+                inXs = ui.InputField(inVal, {.label = "Small", .size = UiSize::Xs});
             }
 
             // Selects: Inherited (Md), Local override Xl, Local override Xs
             if (auto r5 = ui.Row()) {
-                selInherit = ui.Select("Inherit", selIdx, selItems);
-                selXl = ui.Select("Large", selIdx, selItems, {.size = UiSize::Xl});
-                selXs = ui.Select("Small", selIdx, selItems, {.size = UiSize::Xs});
+                selInherit = ui.Select(selIdx, selItems, {.label = "Inherit"});
+                selXl = ui.Select(selIdx, selItems, {.label = "Large", .size = UiSize::Xl});
+                selXs = ui.Select(selIdx, selItems, {.label = "Small", .size = UiSize::Xs});
             }
 
             // Toolbar ToolButtons: Inherited (Md), Local override Xl, Local override Xs
@@ -2541,22 +2551,24 @@ void TestIndustrialDashboardNoBlackLines() {
                                     ui.Heading({.title = "Primary Stop Conditions", .subtitle = "Sensory tripwire thresholds & limits"});
                                     if (auto grid1 = ui.CellGrid()) {
                                         if (auto c = grid1.Cell12()) {
-                                            ui.Switch("Enable Sensor Drop Limits", &enableSensors, {
+                                            ui.Switch(&enableSensors, {
+                                                .label = "Enable Sensor Drop Limits",
                                                 .description = "Immediate stop on threshold breach"
                                             });
                                         }
                                         if (auto c = grid1.Cell6()) {
-                                            ui.InputNumber("Max Travel", maxTravel, "mm", {.format = "%.1f"});
+                                            ui.InputNumber(maxTravel, {.label = "Max Travel", .suffix = "mm", .format = "%.1f"});
                                         }
                                         if (auto c = grid1.Cell6()) {
-                                            ui.InputNumber("Max Velocity", maxVelocity, "mm/s", {.format = "%.1f"});
+                                            ui.InputNumber(maxVelocity, {.label = "Max Velocity", .suffix = "mm/s", .format = "%.1f"});
                                         }
                                         if (auto c = grid1.Cell12()) {
-                                            ui.Select("Primary Sensor Channel", sensorChannel, {
+                                            ui.Select(sensorChannel, {
                                                 "Channel A (Load Cell 50kN)",
                                                 "Channel B (Optical Extensometer)",
                                                 "Channel C (Laser Interferometer)"
                                             }, {
+                                                .label = "Primary Sensor Channel",
                                                 .description = "Active physical transducer bus",
                                                 .labelPlacement = Placement::Stacked
                                             });
@@ -2568,20 +2580,23 @@ void TestIndustrialDashboardNoBlackLines() {
                                     ui.Heading({.title = "Emergency Interlocks", .subtitle = "Hardware line supervision & failsafes", .variant = UiVariant::Danger});
                                     if (auto grid2 = ui.CellGrid()) {
                                         if (auto c = grid2.Cell12()) {
-                                            ui.Switch("Hardware E-Stop Line", &hwEstop, {
+                                            ui.Switch(&hwEstop, {
+                                                .label = "Hardware E-Stop Line",
                                                 .description = "Continuous 24V loop monitoring",
                                                 .variant = UiVariant::Danger
                                             });
                                         }
                                         if (auto c = grid2.Cell6()) {
-                                            ui.Select("Interlock Action", interlockMode, {
+                                            ui.Select(interlockMode, {
                                                 "Immediate Cutoff",
                                                 "Controlled Ramp-down",
                                                 "Hold Position"
+                                            }, {
+                                                .label = "Interlock Action"
                                             });
                                         }
                                         if (auto c = grid2.Cell6()) {
-                                            ui.InputNumber("Ramp Duration", rampDown, "ms", {.format = "%.0f"});
+                                            ui.InputNumber(rampDown, {.label = "Ramp Duration", .suffix = "ms", .format = "%.0f"});
                                         }
                                     }
                                 }
@@ -2813,7 +2828,7 @@ void TestDebugBoundsAndInspectMode() {
         if (auto row = ui.Row({.gap = UiSize::Md})) {
             ui.Button("Inspect Me");
             ui.Spacer();
-            ui.Switch("Toggle Switch", false);
+            ui.Switch(false, {.label = "Toggle Switch"});
         }
         if (auto card = ui.Card()) {
             ui.Text("Card Inner Text");

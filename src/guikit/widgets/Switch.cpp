@@ -8,7 +8,6 @@ namespace guikit {
 
 Response Switch::Run(
     Context& ctx,
-    std::string_view label,
     bool* value,
     bool checkedState,
     const SwitchOptions& opts,
@@ -38,8 +37,7 @@ Response Switch::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::Switch, id);
-    const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
-    node->text = ctx.AllocString(effectiveLabel);
+    node->text = ctx.AllocString(opts.label);
     SwitchOptions optsCopy = opts;
     optsCopy.label = node->text;
     if (!opts.description.empty()) {
@@ -55,14 +53,13 @@ Response Switch::Run(
     );
     node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<SwitchOptions>();
-        return Switch::Measure(n->text, opts ? *opts : SwitchOptions{}, n->uiSize, canvas, theme);
+        return Switch::Measure(opts ? *opts : SwitchOptions{}, n->uiSize, canvas, theme);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* opts = n->As<SwitchOptions>();
         Switch::Render(
             canvas,
             n->computedRect,
-            n->text,
             n->checked,
             opts ? *opts : SwitchOptions{},
             n->uiSize,
@@ -86,14 +83,13 @@ Response Switch::Run(
 }
 
 Vec2 Switch::Measure(
-    std::string_view label,
     const SwitchOptions& opts,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme
 ) {
     const SwitchMetrics& m = theme.GetSwitch(size);
-    const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
+    const std::string_view effectiveLabel = opts.label;
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasDesc = !opts.description.empty();
 
@@ -179,19 +175,17 @@ Vec2 Switch::Measure(
 }
 
 Vec2 Switch::Measure(
-    std::string_view label,
     const SwitchOptions& opts,
     UiSize size,
     ICanvas* canvas
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
-    return Measure(label, opts, size, canvas, defaultTheme);
+    return Measure(opts, size, canvas, defaultTheme);
 }
 
 void Switch::Render(
     ICanvas& canvas,
     Rect bounds,
-    std::string_view label,
     bool checked,
     const SwitchOptions& opts,
     UiSize size,
@@ -205,7 +199,7 @@ void Switch::Render(
     }
 
     const SwitchMetrics& m = theme.GetSwitch(size);
-    const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
+    const std::string_view effectiveLabel = opts.label;
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasDesc = !opts.description.empty();
     const bool hasText = hasLabel || hasDesc;

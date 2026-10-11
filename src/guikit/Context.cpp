@@ -280,40 +280,24 @@ Response Context::Heading(HeadingOptions opts, std::source_location loc) {
     return Run<guikit::Heading>(opts, loc);
 }
 
-Response Context::Switch(std::string_view label, bool* value, SwitchOptions opts, std::source_location loc) {
-    return Run<guikit::Switch>(label, value, value ? *value : false, opts, loc);
-}
-
 Response Context::Switch(bool* value, SwitchOptions opts, std::source_location loc) {
-    return Run<guikit::Switch>(std::string_view{}, value, value ? *value : false, opts, loc);
-}
-
-Response Context::Switch(std::string_view label, bool checked, SwitchOptions opts, std::source_location loc) {
-    return Run<guikit::Switch>(label, nullptr, checked, opts, loc);
+    return Run<guikit::Switch>(value, value ? *value : false, opts, loc);
 }
 
 Response Context::Switch(bool checked, SwitchOptions opts, std::source_location loc) {
-    return Run<guikit::Switch>(std::string_view{}, nullptr, checked, opts, loc);
-}
-
-Response Context::Checkbox(std::string_view label, bool* value, CheckboxOptions opts, std::source_location loc) {
-    return Run<guikit::Checkbox>(label, value, value ? *value : false, opts, loc);
+    return Run<guikit::Switch>(nullptr, checked, opts, loc);
 }
 
 Response Context::Checkbox(bool* value, CheckboxOptions opts, std::source_location loc) {
-    return Run<guikit::Checkbox>(std::string_view{}, value, value ? *value : false, opts, loc);
-}
-
-Response Context::Checkbox(std::string_view label, bool checked, CheckboxOptions opts, std::source_location loc) {
-    return Run<guikit::Checkbox>(label, nullptr, checked, opts, loc);
+    return Run<guikit::Checkbox>(value, value ? *value : false, opts, loc);
 }
 
 Response Context::Checkbox(bool checked, CheckboxOptions opts, std::source_location loc) {
-    return Run<guikit::Checkbox>(std::string_view{}, nullptr, checked, opts, loc);
+    return Run<guikit::Checkbox>(nullptr, checked, opts, loc);
 }
 
-Response Context::InputField(std::string_view label, std::string_view value, InputFieldOptions opts, std::source_location loc) {
-    return Run<guikit::InputField>(label, nullptr, nullptr, nullptr, nullptr, value, opts, loc);
+Response Context::InputField(std::string_view value, InputFieldOptions opts, std::source_location loc) {
+    return Run<guikit::InputField>(nullptr, nullptr, nullptr, nullptr, value, opts, loc);
 }
 
 ToolbarScope Context::Toolbar(

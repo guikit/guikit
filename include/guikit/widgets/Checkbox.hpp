@@ -27,10 +27,9 @@ static_assert(sizeof(CheckboxOptions) <= 40, "CheckboxOptions must stay compact"
 /// Autonomous Checkbox widget logic (execution, measuring, and rendering).
 class Checkbox {
 public:
-    /// Primary immediate mode entry point for Checkbox widget with state pointer and label.
+    /// Primary immediate mode entry point for Checkbox widget with state pointer and options.
     static Response Run(
         Context& ctx,
-        std::string_view label,
         bool* value,
         bool checkedState,
         const CheckboxOptions& opts = {},
@@ -39,14 +38,12 @@ public:
 
     /// Measures intrinsic dimensions based on box size, gap, and label text.
     static Vec2 Measure(
-        std::string_view label,
         const CheckboxOptions& opts,
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme
     );
     static Vec2 Measure(
-        std::string_view label,
         const CheckboxOptions& opts,
         UiSize size,
         ICanvas* canvas = nullptr
@@ -56,7 +53,6 @@ public:
     static void Render(
         ICanvas& canvas,
         Rect bounds,
-        std::string_view label,
         bool checked,
         const CheckboxOptions& opts,
         UiSize size,

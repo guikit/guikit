@@ -11,7 +11,6 @@ namespace guikit {
 
 Response InputField::Run(
     Context& ctx,
-    std::string_view label,
     std::string* stringValue,
     float* floatValue,
     double* doubleValue,
@@ -103,8 +102,7 @@ Response InputField::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::InputField, id);
-    const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
-    node->text = ctx.AllocString(effectiveLabel);
+    node->text = ctx.AllocString(opts.label);
 
     InputFieldOptions optsCopy = opts;
     optsCopy.label = node->text;
@@ -136,7 +134,6 @@ Response InputField::Run(
     node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<InputFieldData>();
         return InputField::Measure(
-            n->text,
             d ? d->displayText : std::string_view{},
             d ? d->opts : InputFieldOptions{},
             n->uiSize,
@@ -149,7 +146,6 @@ Response InputField::Run(
         InputField::Render(
             canvas,
             n->computedRect,
-            n->text,
             d ? d->displayText : std::string_view{},
             d ? d->opts : InputFieldOptions{},
             n->uiSize,
@@ -177,7 +173,6 @@ Response InputField::Run(
 }
 
 Vec2 InputField::Measure(
-    std::string_view label,
     std::string_view displayText,
     const InputFieldOptions& opts,
     UiSize size,
@@ -185,7 +180,7 @@ Vec2 InputField::Measure(
     const UiTheme& theme
 ) {
     const InputFieldMetrics& m = theme.GetInputField(size);
-    const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
+    const std::string_view effectiveLabel = opts.label;
 
     float boxW = 120.0f;
     switch (size) {
@@ -248,20 +243,18 @@ Vec2 InputField::Measure(
 }
 
 Vec2 InputField::Measure(
-    std::string_view label,
     std::string_view displayText,
     const InputFieldOptions& opts,
     UiSize size,
     ICanvas* canvas
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
-    return Measure(label, displayText, opts, size, canvas, defaultTheme);
+    return Measure(displayText, opts, size, canvas, defaultTheme);
 }
 
 void InputField::Render(
     ICanvas& canvas,
     Rect bounds,
-    std::string_view label,
     std::string_view displayText,
     const InputFieldOptions& opts,
     UiSize size,
@@ -278,7 +271,7 @@ void InputField::Render(
     }
 
     const InputFieldMetrics& m = theme.GetInputField(size);
-    const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
+    const std::string_view effectiveLabel = opts.label;
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasDesc = !opts.description.empty();
 

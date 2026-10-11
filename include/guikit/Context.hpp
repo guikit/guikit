@@ -356,21 +356,7 @@ public:
 
     // --- Switch Widget ---
     Response Switch(
-        std::string_view label,
         bool* value,
-        SwitchOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response Switch(
-        bool* value,
-        SwitchOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response Switch(
-        std::string_view label,
-        bool checked,
         SwitchOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
@@ -383,21 +369,7 @@ public:
 
     // --- Checkbox Widget ---
     Response Checkbox(
-        std::string_view label,
         bool* value,
-        CheckboxOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response Checkbox(
-        bool* value,
-        CheckboxOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response Checkbox(
-        std::string_view label,
-        bool checked,
         CheckboxOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
@@ -410,29 +382,11 @@ public:
 
     /// Convenience aliases for developers familiar with Toggle terminology.
     Response Toggle(
-        std::string_view label,
-        bool* value,
-        SwitchOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return Switch(label, value, opts, loc);
-    }
-
-    Response Toggle(
         bool* value,
         SwitchOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
         return Switch(value, opts, loc);
-    }
-
-    Response Toggle(
-        std::string_view label,
-        bool checked,
-        SwitchOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return Switch(label, checked, opts, loc);
     }
 
     Response Toggle(
@@ -446,33 +400,22 @@ public:
     // --- InputField Widget ---
     template <InputFieldEditable T>
     Response InputField(
-        std::string_view label,
         T& value,
         InputFieldOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
         if constexpr (std::is_same_v<std::decay_t<T>, std::string>) {
-            return InputField::Run(*this, label, &value, nullptr, nullptr, nullptr, {}, opts, loc);
+            return Run<guikit::InputField>(&value, nullptr, nullptr, nullptr, std::string_view{}, opts, loc);
         } else if constexpr (std::is_same_v<std::decay_t<T>, float>) {
-            return InputField::Run(*this, label, nullptr, &value, nullptr, nullptr, {}, opts, loc);
+            return Run<guikit::InputField>(nullptr, &value, nullptr, nullptr, std::string_view{}, opts, loc);
         } else if constexpr (std::is_same_v<std::decay_t<T>, double>) {
-            return InputField::Run(*this, label, nullptr, nullptr, &value, nullptr, {}, opts, loc);
+            return Run<guikit::InputField>(nullptr, nullptr, &value, nullptr, std::string_view{}, opts, loc);
         } else if constexpr (std::is_same_v<std::decay_t<T>, int>) {
-            return InputField::Run(*this, label, nullptr, nullptr, nullptr, &value, {}, opts, loc);
+            return Run<guikit::InputField>(nullptr, nullptr, nullptr, &value, std::string_view{}, opts, loc);
         }
     }
 
-    template <InputFieldEditable T>
     Response InputField(
-        T& value,
-        InputFieldOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return InputField({}, value, opts, loc);
-    }
-
-    Response InputField(
-        std::string_view label,
         std::string_view value,
         InputFieldOptions opts = {},
         std::source_location loc = std::source_location::current()
@@ -480,67 +423,40 @@ public:
 
     template <InputFieldEditable T>
     Response InputNumber(
-        std::string_view label,
         T& value,
-        std::string_view unit = {},
         InputFieldOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
-        if (!unit.empty()) {
-            opts.suffix = unit;
-        }
-        return InputField(label, value, opts, loc);
+        return InputField(value, opts, loc);
     }
 
     // --- Select (Dropdown) Widget ---
     template <SelectTarget T>
     Response Select(
-        std::string_view label,
         T& selected,
         std::span<const std::string_view> items,
         SelectOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
         if constexpr (std::is_same_v<std::decay_t<T>, size_t>) {
-            return Select::Run(*this, label, &selected, nullptr, nullptr, nullptr, items, opts, loc);
+            return Run<guikit::Select>(&selected, nullptr, nullptr, nullptr, items, opts, loc);
         } else if constexpr (std::is_same_v<std::decay_t<T>, int>) {
-            return Select::Run(*this, label, nullptr, &selected, nullptr, nullptr, items, opts, loc);
+            return Run<guikit::Select>(nullptr, &selected, nullptr, nullptr, items, opts, loc);
         } else if constexpr (std::is_same_v<std::decay_t<T>, std::string>) {
-            return Select::Run(*this, label, nullptr, nullptr, &selected, nullptr, items, opts, loc);
+            return Run<guikit::Select>(nullptr, nullptr, &selected, nullptr, items, opts, loc);
         } else if constexpr (std::is_same_v<std::decay_t<T>, std::string_view>) {
-            return Select::Run(*this, label, nullptr, nullptr, nullptr, &selected, items, opts, loc);
+            return Run<guikit::Select>(nullptr, nullptr, nullptr, &selected, items, opts, loc);
         }
     }
 
     template <SelectTarget T>
     Response Select(
         T& selected,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return Select({}, selected, items, opts, loc);
-    }
-
-    template <SelectTarget T>
-    Response Select(
-        std::string_view label,
-        T& selected,
         std::initializer_list<std::string_view> items,
         SelectOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
-        return Select(label, selected, std::span<const std::string_view>(items.begin(), items.size()), opts, loc);
-    }
-
-    template <SelectTarget T>
-    Response Select(
-        T& selected,
-        std::initializer_list<std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return Select({}, selected, std::span<const std::string_view>(items.begin(), items.size()), opts, loc);
+        return Select(selected, std::span<const std::string_view>(items.begin(), items.size()), opts, loc);
     }
 
     // --- TabBar Component ---

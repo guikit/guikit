@@ -44,10 +44,9 @@ struct InputFieldData {
 /// Autonomous InputField widget logic (execution, measuring, and rendering).
 class InputField {
 public:
-    /// Primary immediate mode entry point for InputField with label and editable value pointers.
+    /// Primary immediate mode entry point for InputField with editable value pointers.
     static Response Run(
         Context& ctx,
-        std::string_view label,
         std::string* stringValue,
         float* floatValue,
         double* doubleValue,
@@ -59,7 +58,6 @@ public:
 
     /// Measures intrinsic dimensions based on content, label, suffix, and placement.
     static Vec2 Measure(
-        std::string_view label,
         std::string_view displayText,
         const InputFieldOptions& opts,
         UiSize size,
@@ -67,7 +65,6 @@ public:
         const UiTheme& theme
     );
     static Vec2 Measure(
-        std::string_view label,
         std::string_view displayText,
         const InputFieldOptions& opts,
         UiSize size,
@@ -78,7 +75,6 @@ public:
     static void Render(
         ICanvas& canvas,
         Rect bounds,
-        std::string_view label,
         std::string_view displayText,
         const InputFieldOptions& opts,
         UiSize size,

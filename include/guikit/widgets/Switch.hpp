@@ -26,10 +26,9 @@ static_assert(sizeof(SwitchOptions) <= 40, "SwitchOptions must stay compact");
 /// Autonomous Switch widget logic (execution, measuring, and rendering).
 class Switch {
 public:
-    /// Primary immediate mode entry point for Switch widget with state pointer and label.
+    /// Primary immediate mode entry point for Switch widget with state pointer and options.
     static Response Run(
         Context& ctx,
-        std::string_view label,
         bool* value,
         bool checkedState,
         const SwitchOptions& opts = {},
@@ -38,14 +37,12 @@ public:
 
     /// Measures intrinsic dimensions based on track size, gap, and label text.
     static Vec2 Measure(
-        std::string_view label,
         const SwitchOptions& opts,
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme
     );
     static Vec2 Measure(
-        std::string_view label,
         const SwitchOptions& opts,
         UiSize size,
         ICanvas* canvas = nullptr
@@ -55,7 +52,6 @@ public:
     static void Render(
         ICanvas& canvas,
         Rect bounds,
-        std::string_view label,
         bool checked,
         const SwitchOptions& opts,
         UiSize size,

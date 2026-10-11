@@ -9,14 +9,13 @@ namespace guikit {
 
 Rect Select::GetBoxRect(
     Rect bounds,
-    std::string_view label,
     const SelectOptions& opts,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme
 ) {
     const SelectMetrics& m = theme.GetSelect(size);
-    const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
+    const std::string_view effectiveLabel = opts.label;
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasDesc = !opts.description.empty();
 
@@ -71,14 +70,13 @@ Rect Select::GetBoxRect(
 }
 
 Vec2 Select::Measure(
-    std::string_view label,
     const SelectOptions& opts,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme
 ) {
     const SelectMetrics& m = theme.GetSelect(size);
-    const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
+    const std::string_view effectiveLabel = opts.label;
 
     float boxW = 160.0f;
     switch (size) {
@@ -141,18 +139,16 @@ Vec2 Select::Measure(
 }
 
 Vec2 Select::Measure(
-    std::string_view label,
     const SelectOptions& opts,
     UiSize size,
     ICanvas* canvas
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
-    return Measure(label, opts, size, canvas, defaultTheme);
+    return Measure(opts, size, canvas, defaultTheme);
 }
 
 Response Select::Run(
     Context& ctx,
-    std::string_view label,
     size_t* selectedIndex,
     int* selectedIntIndex,
     std::string* selectedString,
@@ -214,7 +210,7 @@ Response Select::Run(
     const UiTheme theme = ctx.GetTheme();
     const SelectMetrics& m = theme.GetSelect(activeSize);
     const Rect prevBounds = ctx.GetPrevFrameBounds(id);
-    const Rect boxRect = GetBoxRect(prevBounds, !label.empty() ? label : opts.label, opts, activeSize, nullptr, theme);
+    const Rect boxRect = GetBoxRect(prevBounds, opts, activeSize, nullptr, theme);
 
     bool isOpen = wasOpen;
 
@@ -334,8 +330,7 @@ Response Select::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::Select, id);
-    const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
-    node->text = ctx.AllocString(effectiveLabel);
+    node->text = ctx.AllocString(opts.label);
 
     SelectOptions optsCopy = opts;
     optsCopy.label = node->text;
@@ -357,14 +352,13 @@ Response Select::Run(
     );
     node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<SelectData>();
-        return Select::Measure(n->text, d ? d->opts : SelectOptions{}, n->uiSize, canvas, theme);
+        return Select::Measure(d ? d->opts : SelectOptions{}, n->uiSize, canvas, theme);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* d = n->As<SelectData>();
         Select::Render(
             canvas,
             n->computedRect,
-            n->text,
             d ? d->displayText : std::string_view{},
             d ? d->opts : SelectOptions{},
             n->uiSize,
@@ -390,7 +384,6 @@ Response Select::Run(
 void Select::Render(
     ICanvas& canvas,
     Rect bounds,
-    std::string_view label,
     std::string_view currentText,
     const SelectOptions& opts,
     UiSize size,
@@ -404,7 +397,7 @@ void Select::Render(
     }
 
     const SelectMetrics& m = theme.GetSelect(size);
-    const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
+    const std::string_view effectiveLabel = opts.label;
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasDesc = !opts.description.empty();
 

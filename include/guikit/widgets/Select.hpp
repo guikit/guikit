@@ -41,7 +41,6 @@ public:
     /// Primary immediate mode entry point for Select with index and string pointers.
     static Response Run(
         Context& ctx,
-        std::string_view label,
         size_t* selectedIndex,
         int* selectedIntIndex,
         std::string* selectedString,
@@ -53,14 +52,12 @@ public:
 
     /// Measures intrinsic dimensions based on content, label, and placement.
     static Vec2 Measure(
-        std::string_view label,
         const SelectOptions& opts,
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme
     );
     static Vec2 Measure(
-        std::string_view label,
         const SelectOptions& opts,
         UiSize size,
         ICanvas* canvas = nullptr
@@ -69,7 +66,6 @@ public:
     /// Computes the exact bounding box for the closed select field within overall bounds.
     static Rect GetBoxRect(
         Rect bounds,
-        std::string_view label,
         const SelectOptions& opts,
         UiSize size,
         ICanvas* canvas = nullptr,
@@ -80,7 +76,6 @@ public:
     static void Render(
         ICanvas& canvas,
         Rect bounds,
-        std::string_view label,
         std::string_view currentText,
         const SelectOptions& opts,
         UiSize size,

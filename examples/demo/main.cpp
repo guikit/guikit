@@ -366,22 +366,24 @@ int main(int argc, char* argv[]) {
                                     ui.Heading({.title = "Primary Stop Conditions", .subtitle = "Sensory tripwire thresholds & limits"});
                                     if (auto grid1 = ui.CellGrid()) {
                                         if (auto c = grid1.Cell12()) {
-                                            ui.Switch("Enable Sensor Drop Limits", &enableSensors, {
+                                            ui.Switch(&enableSensors, {
+                                                .label = "Enable Sensor Drop Limits",
                                                 .description = "Immediate stop on threshold breach"
                                             });
                                         }
                                         if (auto c = grid1.Cell6()) {
-                                            ui.InputNumber("Max Travel", maxTravel, "mm", {.format = "%.1f"});
+                                            ui.InputNumber(maxTravel, {.label = "Max Travel", .suffix = "mm", .format = "%.1f"});
                                         }
                                         if (auto c = grid1.Cell6()) {
-                                            ui.InputNumber("Max Velocity", maxVelocity, "mm/s", {.format = "%.1f"});
+                                            ui.InputNumber(maxVelocity, {.label = "Max Velocity", .suffix = "mm/s", .format = "%.1f"});
                                         }
                                         if (auto c = grid1.Cell12()) {
-                                            ui.Select("Primary Sensor Channel", sensorChannel, {
+                                            ui.Select(sensorChannel, {
                                                 "Channel A (Load Cell 50kN)",
                                                 "Channel B (Optical Extensometer)",
                                                 "Channel C (Laser Interferometer)"
                                             }, {
+                                                .label = "Primary Sensor Channel",
                                                 .description = "Active physical transducer bus",
                                                 .labelPlacement = guikit::Placement::Stacked
                                             });
@@ -393,20 +395,23 @@ int main(int argc, char* argv[]) {
                                     ui.Heading({.title = "Emergency Interlocks", .subtitle = "Hardware line supervision & failsafes", .variant = guikit::UiVariant::Danger});
                                     if (auto grid2 = ui.CellGrid()) {
                                         if (auto c = grid2.Cell12()) {
-                                            ui.Switch("Hardware E-Stop Line", &hwEstop, {
+                                            ui.Switch(&hwEstop, {
+                                                .label = "Hardware E-Stop Line",
                                                 .description = "Continuous 24V loop monitoring",
                                                 .variant = guikit::UiVariant::Danger
                                             });
                                         }
                                         if (auto c = grid2.Cell6()) {
-                                            ui.Select("Interlock Action", interlockMode, {
+                                            ui.Select(interlockMode, {
                                                 "Immediate Cutoff",
                                                 "Controlled Ramp-down",
                                                 "Hold Position"
+                                            }, {
+                                                .label = "Interlock Action"
                                             });
                                         }
                                         if (auto c = grid2.Cell6()) {
-                                            ui.InputNumber("Ramp Duration", rampDown, "ms", {.format = "%.0f"});
+                                            ui.InputNumber(rampDown, {.label = "Ramp Duration", .suffix = "ms", .format = "%.0f"});
                                         }
                                     }
                                 }
@@ -418,22 +423,23 @@ int main(int argc, char* argv[]) {
                                     ui.Heading({.title = "Secondary Criteria & PID", .subtitle = "Dynamic closed-loop feedback parameters"});
                                     if (auto grid3 = ui.CellGrid()) {
                                         if (auto c = grid3.Cell6()) {
-                                            ui.InputNumber("Force Drop Limit", forceLimit, "%", {.format = "%.1f"});
+                                            ui.InputNumber(forceLimit, {.label = "Force Drop Limit", .suffix = "%", .format = "%.1f"});
                                         }
                                         if (auto c = grid3.Cell6()) {
-                                            ui.InputNumber("Yield Ratio", yieldRatio, "%", {.format = "%.2f"});
+                                            ui.InputNumber(yieldRatio, {.label = "Yield Ratio", .suffix = "%", .format = "%.2f"});
                                         }
                                         if (auto c = grid3.Cell4()) {
-                                            ui.InputNumber("P-Gain", pGain, {}, {.format = "%.2f"});
+                                            ui.InputNumber(pGain, {.label = "P-Gain", .format = "%.2f"});
                                         }
                                         if (auto c = grid3.Cell4()) {
-                                            ui.InputNumber("I-Gain", iGain, {}, {.format = "%.3f"});
+                                            ui.InputNumber(iGain, {.label = "I-Gain", .format = "%.3f"});
                                         }
                                         if (auto c = grid3.Cell4()) {
-                                            ui.InputNumber("D-Gain", dGain, {}, {.format = "%.3f"});
+                                            ui.InputNumber(dGain, {.label = "D-Gain", .format = "%.3f"});
                                         }
                                         if (auto c = grid3.Cell12()) {
-                                            ui.Switch("Log High-Speed Telemetry", &diagLogging, {
+                                            ui.Switch(&diagLogging, {
+                                                .label = "Log High-Speed Telemetry",
                                                 .description = "Record 10 kHz buffer to internal flash"
                                             });
                                         }
@@ -464,14 +470,15 @@ int main(int argc, char* argv[]) {
                             }
 
                             if (auto togglesRow = ui.Wrap({.gap = guikit::UiSize::Lg, .align = guikit::Alignment::Center})) {
-                                ui.Checkbox("Show Telemetry", &showTelemetry, {.variant = guikit::UiVariant::Info});
-                                if (ui.Switch("Form Mode", &formMode, {
+                                ui.Checkbox(&showTelemetry, {.label = "Show Telemetry", .variant = guikit::UiVariant::Info});
+                                if (ui.Switch(&formMode, {
+                                    .label = "Form Mode",
                                     .description = "Toggle stacked vs default label layout",
                                     .labelPlacement = guikit::Placement::Stacked
                                     }).changed) {
                                     ui.InvalidateAll();
                                 }
-                                ui.Checkbox("Auto-Scale", true, {.disabled = true});
+                                ui.Checkbox(true, {.label = "Auto-Scale", .disabled = true});
                             }
 
                             if (showTelemetry) {
@@ -488,7 +495,8 @@ int main(int argc, char* argv[]) {
 
                             if (auto fieldsGrid = ui.CellGrid()) {
                                 if (auto c1 = fieldsGrid.Cell3()) {
-                                    ui.InputField("Speed Drop dF/dt", speedDrop, {
+                                    ui.InputField(speedDrop, {
+                                        .label = "Speed Drop dF/dt",
                                         .description = "Automatic stop of testing on load drop",
                                         .suffix = "%",
                                         .format = "%.0f",
@@ -496,20 +504,23 @@ int main(int argc, char* argv[]) {
                                     });
                                 }
                                 if (auto c2 = fieldsGrid.Cell3()) {
-                                    ui.InputField("Sample Identifier", sampleId, {
+                                    ui.InputField(sampleId, {
+                                        .label = "Sample Identifier",
                                         .description = "Unique test specimen code",
                                         .placeholder = "Enter sample code...",
                                         .labelPlacement = activePlacement
                                     });
                                 }
                                 if (auto c3 = fieldsGrid.Cell3()) {
-                                    ui.Select("Baud Rate", baudIndex, {"9600 bps", "19200 bps", "38400 bps", "115200 bps"}, {
+                                    ui.Select(baudIndex, {"9600 bps", "19200 bps", "38400 bps", "115200 bps"}, {
+                                        .label = "Baud Rate",
                                         .description = "Serial communication bus rate",
                                         .labelPlacement = activePlacement
                                     });
                                 }
                                 if (auto c4 = fieldsGrid.Cell3()) {
-                                    ui.Select("Operation Profile", profileMode, {"Eco Saver", "Standard Performance", "Industrial High-Speed", "Extreme Calibration"}, {
+                                    ui.Select(profileMode, {"Eco Saver", "Standard Performance", "Industrial High-Speed", "Extreme Calibration"}, {
+                                        .label = "Operation Profile",
                                         .description = "Active runtime sensor & compute profile",
                                         .labelPlacement = activePlacement
                                     });

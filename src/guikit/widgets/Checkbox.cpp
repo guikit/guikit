@@ -8,7 +8,6 @@ namespace guikit {
 
 Response Checkbox::Run(
     Context& ctx,
-    std::string_view label,
     bool* value,
     bool checkedState,
     const CheckboxOptions& opts,
@@ -38,8 +37,7 @@ Response Checkbox::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::Checkbox, id);
-    const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
-    node->text = ctx.AllocString(effectiveLabel);
+    node->text = ctx.AllocString(opts.label);
     CheckboxOptions optsCopy = opts;
     optsCopy.label = node->text;
     if (!opts.description.empty()) {
@@ -56,14 +54,13 @@ Response Checkbox::Run(
     );
     node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<CheckboxOptions>();
-        return Checkbox::Measure(n->text, opts ? *opts : CheckboxOptions{}, n->uiSize, canvas, theme);
+        return Checkbox::Measure(opts ? *opts : CheckboxOptions{}, n->uiSize, canvas, theme);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* opts = n->As<CheckboxOptions>();
         Checkbox::Render(
             canvas,
             n->computedRect,
-            n->text,
             n->checked,
             opts ? *opts : CheckboxOptions{},
             n->uiSize,
@@ -87,14 +84,13 @@ Response Checkbox::Run(
 }
 
 Vec2 Checkbox::Measure(
-    std::string_view label,
     const CheckboxOptions& opts,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme
 ) {
     const CheckboxMetrics& m = theme.GetCheckbox(size);
-    const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
+    const std::string_view effectiveLabel = opts.label;
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasDesc = !opts.description.empty();
 
@@ -180,19 +176,17 @@ Vec2 Checkbox::Measure(
 }
 
 Vec2 Checkbox::Measure(
-    std::string_view label,
     const CheckboxOptions& opts,
     UiSize size,
     ICanvas* canvas
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
-    return Measure(label, opts, size, canvas, defaultTheme);
+    return Measure(opts, size, canvas, defaultTheme);
 }
 
 void Checkbox::Render(
     ICanvas& canvas,
     Rect bounds,
-    std::string_view label,
     bool checked,
     const CheckboxOptions& opts,
     UiSize size,
@@ -206,7 +200,7 @@ void Checkbox::Render(
     }
 
     const CheckboxMetrics& m = theme.GetCheckbox(size);
-    const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
+    const std::string_view effectiveLabel = opts.label;
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasDesc = !opts.description.empty();
     const bool hasText = hasLabel || hasDesc;
