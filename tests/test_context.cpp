@@ -3228,15 +3228,17 @@ void TestSliderAndStepSliderWidgets() {
     int intVal = 4;
     size_t stepIndex = 1;
     UiSize activeSize = UiSize::Sm;
+    UiSize activeRadius = UiSize::None;
     static constexpr std::array<std::string_view, 3> stepLabels = {"Low", "Medium", "High"};
 
-    Response r1, r2, r3, r4;
+    Response r1, r2, r3, r4, r5;
     auto renderUI = [&]() {
         if (auto col = ui.Column()) {
             r1 = ui.Slider(floatVal, 0.0f, 10.0f, {.label = "Gain", .suffix = "dB"});
             r2 = ui.Slider(intVal, 1, 8, {.label = "Columns"});
             r3 = ui.StepSlider(stepIndex, stepLabels, {.label = "Preset"});
             r4 = ui.StepSlider(activeSize, {.label = "Size"});
+            r5 = ui.StepSlider(activeRadius, {.label = "Radius", .includeNone = true});
         }
     };
 
@@ -3249,6 +3251,7 @@ void TestSliderAndStepSliderWidgets() {
     CHECK(intVal == 4);
     CHECK(stepIndex == 1);
     CHECK(activeSize == UiSize::Sm);
+    CHECK(activeRadius == UiSize::None);
     const Rect r1Bounds = ui.GetPrevFrameBounds(r1.id);
     CHECK(r1Bounds.w > 0.0f);
     CHECK(r1Bounds.h > 0.0f);
@@ -3300,10 +3303,12 @@ void TestSliderAndStepSliderWidgets() {
 
     // Frame 5: StepSlider for UiSize
     activeSize = UiSize::Lg;
+    activeRadius = UiSize::Md;
     ui.BeginFrame({400.0f, 600.0f});
     renderUI();
     ui.EndFrame(canvas);
     CHECK(activeSize == UiSize::Lg);
+    CHECK(activeRadius == UiSize::Md);
 }
 
 int main() {

@@ -99,7 +99,13 @@ int main(int argc, char* argv[]) {
     float dGain = 0.01f;
     bool diagLogging = true;
     guikit::TabBarStyle tabStyle = guikit::TabBarStyle::Underline;
-    guikit::UiSize demoComponentSize = guikit::UiSize::Md;
+    guikit::UiSize controlsSize = guikit::UiSize::Md;
+    guikit::UiSize cardRadius = guikit::UiSize::Md;
+    guikit::UiSize cardPadding = guikit::UiSize::Md;
+    guikit::UiSize cardGap = guikit::UiSize::Sm;
+    guikit::UiSize layoutGap = guikit::UiSize::Sm;
+    guikit::UiSize gridGap = guikit::UiSize::Md;
+    guikit::UiSize headingSize = guikit::UiSize::Md;
     guikit::FrameMetrics metrics;
 
     static const guikit::UiTheme inspectorTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
@@ -417,10 +423,10 @@ int main(int argc, char* argv[]) {
                                     if (sidebarTabIndex == 0) {
                                         // === GEOMETRY TAB ===
 
-                                        // 1. Component Size (UiSize StepSlider)
-                                        ui.Text("Component Scale", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
-                                        if (ui.StepSlider(demoComponentSize, {
-                                            .label = "Active UiSize",
+                                        // 1. Controls Size (UiSize StepSlider)
+                                        ui.Text("Controls Size", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        if (ui.StepSlider(controlsSize, {
+                                            .label = "Button, Input, Select, Switch",
                                             .showTicks = true,
                                             .showLabels = true,
                                             .showValue = true
@@ -429,11 +435,11 @@ int main(int argc, char* argv[]) {
                                         }
 
                                         // 2. Density Mode StepSlider
-                                        ui.Text("Density Scale", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        ui.Text("Density Preset", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
                                         static constexpr std::array<std::string_view, 3> densityLabels = {"Standard", "Compact", "Touch"};
                                         size_t densityIdx = (appTheme.density == guikit::Density::Touch) ? 2 : ((appTheme.density == guikit::Density::Compact) ? 1 : 0);
                                         if (ui.StepSlider(densityIdx, densityLabels, {
-                                            .label = "Density Preset",
+                                            .label = "Global Density",
                                             .showTicks = true,
                                             .showLabels = true
                                         }).changed) {
@@ -442,60 +448,83 @@ int main(int argc, char* argv[]) {
                                             ui.InvalidateAll();
                                         }
 
-                                        // 3. Corner Radius Sliders
-                                        ui.Text("Corner Radius", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
-                                        if (ui.Slider(th.radius[2], 0.0f, 24.0f, {.label = "Radius Sm", .suffix = "px", .step = 1.0f}).changed) {
+                                        // 3. Card Surface Geometry (UiSize StepSliders)
+                                        ui.Text("Card Surface", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        if (ui.StepSlider(cardRadius, {
+                                            .label = "Corner Radius",
+                                            .showTicks = true,
+                                            .showLabels = true,
+                                            .showValue = true,
+                                            .includeNone = true
+                                        }).changed) {
                                             ui.InvalidateAll();
                                         }
-                                        if (ui.Slider(th.radius[3], 0.0f, 32.0f, {.label = "Radius Md", .suffix = "px", .step = 1.0f}).changed) {
+                                        if (ui.StepSlider(cardPadding, {
+                                            .label = "Internal Padding",
+                                            .showTicks = true,
+                                            .showLabels = true,
+                                            .showValue = true,
+                                            .includeNone = true
+                                        }).changed) {
                                             ui.InvalidateAll();
                                         }
-                                        if (ui.Slider(th.radius[4], 0.0f, 48.0f, {.label = "Radius Lg", .suffix = "px", .step = 1.0f}).changed) {
-                                            ui.InvalidateAll();
-                                        }
-
-                                        // 4. Spacing & Gaps Sliders
-                                        ui.Text("Spacing & Gaps", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
-                                        if (ui.Slider(th.spacing[2], 0.0f, 24.0f, {.label = "Gap Sm", .suffix = "px", .step = 1.0f}).changed) {
-                                            ui.InvalidateAll();
-                                        }
-                                        if (ui.Slider(th.spacing[3], 0.0f, 32.0f, {.label = "Gap Md", .suffix = "px", .step = 1.0f}).changed) {
-                                            ui.InvalidateAll();
-                                        }
-                                        if (ui.Slider(th.spacing[4], 0.0f, 48.0f, {.label = "Gap Lg", .suffix = "px", .step = 1.0f}).changed) {
-                                            ui.InvalidateAll();
-                                        }
-
-                                        // 5. Control Heights Sliders
-                                        ui.Text("Control Heights", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
-                                        if (ui.Slider(th.GetMetrics(guikit::UiSize::Sm).defaultHeight, 16.0f, 48.0f, {.label = "Height Sm", .suffix = "px", .step = 1.0f}).changed) {
-                                            ui.InvalidateAll();
-                                        }
-                                        if (ui.Slider(th.GetMetrics(guikit::UiSize::Md).defaultHeight, 20.0f, 60.0f, {.label = "Height Md", .suffix = "px", .step = 1.0f}).changed) {
-                                            ui.InvalidateAll();
-                                        }
-                                        if (ui.Slider(th.GetMetrics(guikit::UiSize::Lg).defaultHeight, 24.0f, 72.0f, {.label = "Height Lg", .suffix = "px", .step = 1.0f}).changed) {
+                                        if (ui.StepSlider(cardGap, {
+                                            .label = "Child Element Gap",
+                                            .showTicks = true,
+                                            .showLabels = true,
+                                            .showValue = true,
+                                            .includeNone = true
+                                        }).changed) {
                                             ui.InvalidateAll();
                                         }
 
-                                        // 6. Typography Line Height Slider
-                                        ui.Text("Typography Line Height", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
-                                        if (ui.Slider(th.lineHeightMultiplier, 1.0f, 2.5f, {.label = "Line Height Ratio", .format = "%.2f", .step = 0.05f}).changed) {
+                                        // 4. Layout & Grid Spacing (UiSize StepSliders)
+                                        ui.Text("Layout & Grid", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        if (ui.StepSlider(gridGap, {
+                                            .label = "Grid Cell Gap",
+                                            .showTicks = true,
+                                            .showLabels = true,
+                                            .showValue = true,
+                                            .includeNone = true
+                                        }).changed) {
+                                            ui.InvalidateAll();
+                                        }
+                                        if (ui.StepSlider(layoutGap, {
+                                            .label = "Column / Section Gap",
+                                            .showTicks = true,
+                                            .showLabels = true,
+                                            .showValue = true,
+                                            .includeNone = true
+                                        }).changed) {
+                                            ui.InvalidateAll();
+                                        }
+
+                                        // 5. Typography Size (UiSize StepSlider)
+                                        ui.Text("Typography", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        if (ui.StepSlider(headingSize, {
+                                            .label = "Heading Size",
+                                            .showTicks = true,
+                                            .showLabels = true,
+                                            .showValue = true
+                                        }).changed) {
                                             ui.InvalidateAll();
                                         }
 
                                         if (ui.Button({
-                                            .label = "Reset Geometry Defaults",
+                                            .label = "Reset Element Parameters",
                                             .icon = guikit::Icon::Refresh(),
                                             .variant = guikit::UiVariant::Secondary,
                                             .stretch = true
                                         })) {
-                                            const auto defTheme = darkMode ? guikit::UiTheme::Dark(guikit::Density::Standard) : guikit::UiTheme::Light(guikit::Density::Standard);
-                                            th.spacing = defTheme.spacing;
-                                            th.radius = defTheme.radius;
-                                            th.metrics = defTheme.metrics;
-                                            th.density = guikit::Density::Standard;
-                                            th.lineHeightMultiplier = guikit::kDefaultLineHeightMultiplier;
+                                            controlsSize = guikit::UiSize::Md;
+                                            cardRadius = guikit::UiSize::Md;
+                                            cardGap = guikit::UiSize::Sm;
+                                            cardPadding = guikit::UiSize::Md;
+                                            layoutGap = guikit::UiSize::Sm;
+                                            gridGap = guikit::UiSize::Md;
+                                            headingSize = guikit::UiSize::Md;
+                                            appTheme.density = guikit::Density::Standard;
+                                            appTheme.SetDensity(appTheme.density);
                                             ui.InvalidateAll();
                                         }
                                     } else {
@@ -627,12 +656,26 @@ int main(int argc, char* argv[]) {
 
                     // Content Column (Right side workspace)
                     if (auto contentCol = ui.Column({
-                        .gap = guikit::UiSize::Sm,
+                        .gap = layoutGap,
                         .heightMode = guikit::SizeMode::Stretch,
-                        .size = demoComponentSize,
+                        .size = controlsSize,
                         .theme = &appTheme,
                         .scale = scaleValues[scaleIndex]
                     })) {
+                        const auto makeCard = [&]() {
+                            return guikit::CardOptions{
+                                .gap = cardGap,
+                                .padding = guikit::Padding(cardPadding),
+                                .radius = cardRadius
+                            };
+                        };
+                        const auto makeGrid = [&]() {
+                            return guikit::GridOptions{
+                                .gap = gridGap,
+                                .runGap = gridGap
+                            };
+                        };
+
                         // First-class Vector TabBar with Carousel auto-scrolling
                         static const std::array<guikit::TabItem, 7> navTabs = {{
                             {.label = "Overview", .icon = guikit::Icon::Eye()},
@@ -648,12 +691,12 @@ int main(int argc, char* argv[]) {
                         if (activeTabIndex == 2) {
                             // Industrial Dashboard: responsive 2-column layout inside a dedicated ScrollArea
                             if (auto scroll = ui.ScrollArea()) {
-                                if (auto dashboardGrid = ui.Grid()) {
+                                if (auto dashboardGrid = ui.Grid(makeGrid())) {
                                     // Left Column: wraps to full width when narrow
                                     if (auto colLeft = dashboardGrid.Cell6()) {
-                                        if (auto card1 = ui.Card()) {
-                                            ui.Heading({.title = "Primary Stop Conditions", .subtitle = "Sensory tripwire thresholds & limits"});
-                                            if (auto grid1 = ui.Grid()) {
+                                        if (auto card1 = ui.Card(makeCard())) {
+                                            ui.Heading({.title = "Primary Stop Conditions", .subtitle = "Sensory tripwire thresholds & limits", .size = headingSize});
+                                            if (auto grid1 = ui.Grid(makeGrid())) {
                                                 if (auto c = grid1.Cell12()) {
                                                     ui.Switch(enableSensors, {
                                                         .label = "Enable Sensor Drop Limits",
@@ -680,9 +723,9 @@ int main(int argc, char* argv[]) {
                                             }
                                         }
 
-                                        if (auto card2 = ui.Card()) {
-                                            ui.Heading({.title = "Emergency Interlocks", .subtitle = "Hardware line supervision & failsafes", .variant = guikit::UiVariant::Danger});
-                                            if (auto grid2 = ui.Grid()) {
+                                        if (auto card2 = ui.Card(makeCard())) {
+                                            ui.Heading({.title = "Emergency Interlocks", .subtitle = "Hardware line supervision & failsafes", .variant = guikit::UiVariant::Danger, .size = headingSize});
+                                            if (auto grid2 = ui.Grid(makeGrid())) {
                                                 if (auto c = grid2.Cell12()) {
                                                     ui.Switch(hwEstop, {
                                                         .label = "Hardware E-Stop Line",
@@ -708,9 +751,9 @@ int main(int argc, char* argv[]) {
 
                                     // Right Column: wraps to full width when narrow
                                     if (auto colRight = dashboardGrid.Cell6()) {
-                                        if (auto card3 = ui.Card()) {
-                                            ui.Heading({.title = "Secondary Criteria & PID", .subtitle = "Dynamic closed-loop feedback parameters"});
-                                            if (auto grid3 = ui.Grid()) {
+                                        if (auto card3 = ui.Card(makeCard())) {
+                                            ui.Heading({.title = "Secondary Criteria & PID", .subtitle = "Dynamic closed-loop feedback parameters", .size = headingSize});
+                                            if (auto grid3 = ui.Grid(makeGrid())) {
                                                 if (auto c = grid3.Cell6()) {
                                                     ui.InputField(forceLimit, {.label = "Force Drop Limit", .suffix = "%", .format = "%.1f"});
                                                 }
@@ -739,8 +782,8 @@ int main(int argc, char* argv[]) {
                             }
                         } else if (activeTabIndex == 0) {
                             // Overview Tab: Interactive Counter & Form
-                            if (auto card = ui.Card()) {
-                                ui.Heading({.title = "Interactive Reactive State", .subtitle = "Pure immediate mode with zero external widget IDs and instant response."});
+                            if (auto card = ui.Card(makeCard())) {
+                                ui.Heading({.title = "Interactive Reactive State", .subtitle = "Pure immediate mode with zero external widget IDs and instant response.", .size = headingSize});
 
                                 if (auto actionRow = ui.Wrap({.align = guikit::Alignment::Center})) {
                                     if (ui.Button({.label = "Increment (+1)", .icon = guikit::Icon::Plus(), .variant = guikit::UiVariant::Success})) {
@@ -774,13 +817,14 @@ int main(int argc, char* argv[]) {
                                         .subtitle = "1000 samples/sec | Jitter < 0.2ms | Hardware loop nominal",
                                         .icon = guikit::Icon::Check(),
                                         .badge = "ACTIVE",
-                                        .variant = guikit::UiVariant::Success
+                                        .variant = guikit::UiVariant::Success,
+                                        .size = headingSize
                                     });
                                 }
 
                                 const guikit::Placement activePlacement = formMode ? guikit::Placement::Stacked : guikit::Placement::Leading;
 
-                                if (auto fieldsGrid = ui.Grid()) {
+                                if (auto fieldsGrid = ui.Grid(makeGrid())) {
                                     if (auto c1 = fieldsGrid.Cell3()) {
                                         ui.InputField(speedDrop, {
                                             .label = "Speed Drop dF/dt",
@@ -817,10 +861,11 @@ int main(int argc, char* argv[]) {
                                 ui.Heading({
                                     .title = "Precision Continuous & Stepped Sliders",
                                     .subtitle = "Immediate-mode numeric sliders with wheel scrubbing, ticks, and step presets",
-                                    .icon = guikit::Icon::Settings()
+                                    .icon = guikit::Icon::Settings(),
+                                    .size = headingSize
                                 });
 
-                                if (auto sliderGrid = ui.Grid()) {
+                                if (auto sliderGrid = ui.Grid(makeGrid())) {
                                     if (auto c1 = sliderGrid.Cell4()) {
                                         ui.Slider(masterGain, 0.0f, 100.0f, {
                                             .label = "Master Analog Gain",
@@ -846,8 +891,8 @@ int main(int argc, char* argv[]) {
                             }
                         } else if (activeTabIndex == 1) {
                             // Flexbox Demo Tab: Equal Stretch & Alignment
-                            if (auto card = ui.Card()) {
-                                ui.Heading({.title = "Dynamic 3-Way Equal Stretch Layout", .subtitle = "Each button automatically receives exactly 33.3% available width via stretch = true."});
+                            if (auto card = ui.Card(makeCard())) {
+                                ui.Heading({.title = "Dynamic 3-Way Equal Stretch Layout", .subtitle = "Each button automatically receives exactly 33.3% available width via stretch = true.", .size = headingSize});
 
                                 if (auto stretchRow = ui.Row()) {
                                     ui.Button({.label = "Col 1 (Stretch)", .stretch = true});
@@ -855,7 +900,7 @@ int main(int argc, char* argv[]) {
                                     ui.Button({.label = "Col 3 (Stretch)", .stretch = true});
                                 }
 
-                                ui.Heading({.title = "Horizontal Carousel Ribbon", .subtitle = "Autonomous scroll container with navigation arrows and mouse wheel support."});
+                                ui.Heading({.title = "Horizontal Carousel Ribbon", .subtitle = "Autonomous scroll container with navigation arrows and mouse wheel support.", .size = headingSize});
                                 if (auto ribbon = ui.Carousel({.gap = guikit::UiSize::Sm})) {
                                     for (int k = 1; k <= 10; ++k) {
                                         ui.Button({
@@ -867,13 +912,14 @@ int main(int argc, char* argv[]) {
                             }
                         } else {
                             // Diagnostics & Audit Tabs
-                            if (auto card = ui.Card()) {
+                            if (auto card = ui.Card(makeCard())) {
                                 ui.Heading({
                                     .title = navTabs[activeTabIndex].label,
                                     .subtitle = "Operational module telemetry stream and live system diagnostics.",
-                                    .icon = navTabs[activeTabIndex].icon
+                                    .icon = navTabs[activeTabIndex].icon,
+                                    .size = headingSize
                                 });
-                                if (auto grid = ui.Grid()) {
+                                if (auto grid = ui.Grid(makeGrid())) {
                                     if (auto c1 = grid.Cell6()) {
                                         ui.Text(ui.Format("Channel Status: ONLINE | Active node: [{}]", navTabs[activeTabIndex].label),
                                                 {.role = guikit::TextRole::BodyMedium, .variant = guikit::UiVariant::Success});

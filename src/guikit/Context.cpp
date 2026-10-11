@@ -299,24 +299,31 @@ Response Context::StepSlider(
     StepSliderOptions opts,
     std::source_location loc
 ) {
+    static constexpr std::array<std::string_view, 6> kSizeLabelsWithNone = {"NONE", "XS", "SM", "MD", "LG", "XL"};
+    static constexpr std::array<UiSize, 6> kSizesWithNone = {UiSize::None, UiSize::Xs, UiSize::Sm, UiSize::Md, UiSize::Lg, UiSize::Xl};
+
     static constexpr std::array<std::string_view, 5> kSizeLabels = {"XS", "SM", "MD", "LG", "XL"};
     static constexpr std::array<UiSize, 5> kSizes = {UiSize::Xs, UiSize::Sm, UiSize::Md, UiSize::Lg, UiSize::Xl};
 
-    size_t idx = 2; // Default to Md
-    for (size_t i = 0; i < kSizes.size(); ++i) {
-        if (kSizes[i] == size) {
+    const bool hasNone = opts.includeNone || size == UiSize::None;
+    const auto sizesSpan = hasNone ? std::span<const UiSize>(kSizesWithNone) : std::span<const UiSize>(kSizes);
+    const auto labelsSpan = hasNone ? std::span<const std::string_view>(kSizeLabelsWithNone) : std::span<const std::string_view>(kSizeLabels);
+
+    size_t idx = 0;
+    for (size_t i = 0; i < sizesSpan.size(); ++i) {
+        if (sizesSpan[i] == size) {
             idx = i;
             break;
         }
     }
 
     if (opts.stepLabels.empty()) {
-        opts.stepLabels = kSizeLabels;
+        opts.stepLabels = labelsSpan;
     }
 
     Response res = StepSlider(idx, opts.stepLabels.size(), opts, loc);
-    if (res.changed && idx < kSizes.size()) {
-        size = kSizes[idx];
+    if (res.changed && idx < sizesSpan.size()) {
+        size = sizesSpan[idx];
     }
     return res;
 }
