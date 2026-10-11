@@ -14,6 +14,7 @@ Context::Context() {
 }
 
 void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
+    ++m_frameIndex;
     const float effScale = (dpiScale > 0.0f) ? dpiScale : 1.0f;
     if (m_viewportSize != viewportSize || m_dpiScale != effScale) {
         InvalidateAll();
@@ -411,46 +412,11 @@ void Context::OnKeyDown(Key key, KeyModifiers mods) {
     }
 
     if (m_focusedId.IsValid() && m_editState.id == m_focusedId) {
-        switch (key) {
-            case Key::Backspace:
-                if (m_editState.cursor > 0 && !m_editState.text.empty()) {
-                    m_editState.text.erase(m_editState.cursor - 1, 1);
-                    m_editState.cursor--;
-                    m_editState.changed = true;
-                }
-                break;
-            case Key::Delete:
-                if (m_editState.cursor < m_editState.text.size()) {
-                    m_editState.text.erase(m_editState.cursor, 1);
-                    m_editState.changed = true;
-                }
-                break;
-            case Key::Left:
-                if (m_editState.cursor > 0) {
-                    m_editState.cursor--;
-                }
-                break;
-            case Key::Right:
-                if (m_editState.cursor < m_editState.text.size()) {
-                    m_editState.cursor++;
-                }
-                break;
-            case Key::Home:
-                m_editState.cursor = 0;
-                break;
-            case Key::End:
-                m_editState.cursor = m_editState.text.size();
-                break;
-            case Key::Enter:
-                m_editState.submitted = true;
+        bool lostFocus = false;
+        if (m_editState.HandleKey(key, lostFocus)) {
+            if (lostFocus) {
                 m_focusedId = Id::Null();
-                break;
-            case Key::Escape:
-                m_focusedId = Id::Null();
-                m_editState.id = Id::Null();
-                break;
-            default:
-                break;
+            }
         }
     } else {
         m_pendingKeyEvents.push_back({key, mods});
@@ -511,51 +477,16 @@ std::string_view Context::GetOrStartTextEdit(
     }
 
     for (const auto& txt : m_pendingTextInput) {
-        if (m_editState.cursor <= m_editState.text.size()) {
-            m_editState.text.insert(m_editState.cursor, txt);
-            m_editState.cursor += txt.size();
-            m_editState.changed = true;
-        }
+        m_editState.Insert(txt);
     }
     m_pendingTextInput.clear();
 
     for (const auto& ev : m_pendingKeyEvents) {
-        switch (ev.key) {
-            case Key::Backspace:
-                if (m_editState.cursor > 0 && !m_editState.text.empty()) {
-                    m_editState.text.erase(m_editState.cursor - 1, 1);
-                    m_editState.cursor--;
-                    m_editState.changed = true;
-                }
-                break;
-            case Key::Delete:
-                if (m_editState.cursor < m_editState.text.size()) {
-                    m_editState.text.erase(m_editState.cursor, 1);
-                    m_editState.changed = true;
-                }
-                break;
-            case Key::Left:
-                if (m_editState.cursor > 0) m_editState.cursor--;
-                break;
-            case Key::Right:
-                if (m_editState.cursor < m_editState.text.size()) m_editState.cursor++;
-                break;
-            case Key::Home:
-                m_editState.cursor = 0;
-                break;
-            case Key::End:
-                m_editState.cursor = m_editState.text.size();
-                break;
-            case Key::Enter:
-                m_editState.submitted = true;
+        bool lostFocus = false;
+        if (m_editState.HandleKey(ev.key, lostFocus)) {
+            if (lostFocus) {
                 m_focusedId = Id::Null();
-                break;
-            case Key::Escape:
-                m_focusedId = Id::Null();
-                m_editState.id = Id::Null();
-                break;
-            default:
-                break;
+            }
         }
     }
     m_pendingKeyEvents.clear();
@@ -611,29 +542,23 @@ bool Context::IsCursorVisible(std::optional<CursorBlinkMode> modeOverride) const
     return true;
 }
 
+static Rect GetNodeContentClipRect(const Node* node, const UiTheme& theme) {
+    if (!node) return Rect();
+    if (node->type == NodeType::ScrollArea) {
+        return ScrollArea::GetContentClipRect(node, theme);
+    }
+    if (node->type == NodeType::Carousel) {
+        return Carousel::GetContentClipRect(node);
+    }
+    return node->computedRect;
+}
+
 static void CollectBoundsRecursive(Node* node, std::unordered_map<Id, Rect>& outBounds, Rect parentClip, const UiTheme& theme) {
     if (!node) return;
 
     Rect effectiveClip = parentClip;
     if (node->clipChildren) {
-        if (node->type == NodeType::ScrollArea) {
-            const ScrollbarMetrics& sm = theme.GetScrollbar(node->uiSize);
-            const bool showScrollbar = (node->scrollbarPolicy == VisibilityPolicy::Always) ||
-                (node->scrollbarPolicy == VisibilityPolicy::Auto && node->scrollContentSize.y > node->computedRect.h);
-            const float gutter = (showScrollbar && node->scrollOrientation != Orientation::Horizontal) ? sm.gutter : 0.0f;
-            const Rect viewRect(
-                node->computedRect.x + node->padding.left,
-                node->computedRect.y + node->padding.top,
-                std::max(0.0f, node->computedRect.w - node->padding.Horizontal() - gutter),
-                std::max(0.0f, node->computedRect.h - node->padding.Vertical())
-            );
-            effectiveClip = parentClip.Intersect(viewRect);
-        } else if (node->type == NodeType::Carousel) {
-            auto* cData = node->As<CarouselData>();
-            effectiveClip = parentClip.Intersect(cData ? cData->viewportRect : node->computedRect);
-        } else {
-            effectiveClip = parentClip.Intersect(node->computedRect);
-        }
+        effectiveClip = parentClip.Intersect(GetNodeContentClipRect(node, theme));
     }
 
     if (node->id.IsValid()) {
@@ -642,22 +567,8 @@ static void CollectBoundsRecursive(Node* node, std::unordered_map<Id, Rect>& out
             outBounds[node->id] = clipped;
         }
 
-        // Register interactive arrow button bounds for Carousel
         if (node->type == NodeType::Carousel) {
-            if (auto* cData = node->As<CarouselData>()) {
-                if (cData->showLeftArrow && cData->leftArrowRect.w > 0.0f) {
-                    const Rect clippedLeft = cData->leftArrowRect.Intersect(parentClip);
-                    if (clippedLeft.w > 0.0f && clippedLeft.h > 0.0f) {
-                        outBounds[GetCarouselLeftArrowId(node->id)] = clippedLeft;
-                    }
-                }
-                if (cData->showRightArrow && cData->rightArrowRect.w > 0.0f) {
-                    const Rect clippedRight = cData->rightArrowRect.Intersect(parentClip);
-                    if (clippedRight.w > 0.0f && clippedRight.h > 0.0f) {
-                        outBounds[GetCarouselRightArrowId(node->id)] = clippedRight;
-                    }
-                }
-            }
+            Carousel::CollectBounds(node, outBounds, parentClip);
         }
     }
 
@@ -669,77 +580,10 @@ static void CollectBoundsRecursive(Node* node, std::unordered_map<Id, Rect>& out
 void Context::UpdateScrollAreasRecursive(Node* node) {
     if (!node) return;
 
-    if (node->type == NodeType::Carousel && node->id.IsValid()) {
-        auto& state = GetOrCreateState<ScrollState>(node->id);
-        state.offset.x = node->scrollOffset.x;
-    }
-
-    if (node->type == NodeType::ScrollArea && node->id.IsValid()) {
-        auto& state = GetOrCreateState<ScrollState>(node->id);
-        const ScrollbarMetrics& m = m_theme.GetScrollbar(node->uiSize);
-
-        const float viewportW = node->computedRect.w;
-        const float viewportH = node->computedRect.h;
-        const float contentW = node->scrollContentSize.x;
-        const float contentH = node->scrollContentSize.y;
-
-        const float maxScrollY = std::max(0.0f, contentH - viewportH);
-        const float maxScrollX = std::max(0.0f, contentW - viewportW);
-
-        state.offset.y = std::clamp(state.offset.y, 0.0f, maxScrollY);
-        state.offset.x = std::clamp(state.offset.x, 0.0f, maxScrollX);
-        node->scrollOffset = state.offset;
-
-        // Thumb geometry for vertical scroll
-        if (viewportH > 10.0f && maxScrollY > 0.0f) {
-            const float trackX = node->computedRect.Right() - m.trackWidth - m.margin;
-            const float trackY = node->computedRect.y + m.margin;
-            const float trackH = std::max(0.0f, viewportH - 2.0f * m.margin);
-
-            const float thumbH = std::clamp((viewportH / contentH) * trackH, m.minThumbLength, trackH);
-            const float travelH = trackH - thumbH;
-            const float scrollRatio = (maxScrollY > 0.0f) ? (state.offset.y / maxScrollY) : 0.0f;
-            const float thumbY = trackY + scrollRatio * travelH;
-            const Rect trackRect(trackX, trackY, m.trackWidth, trackH);
-            const Rect thumbRect(trackX, thumbY, m.trackWidth, thumbH);
-
-            const bool hoverThumb = thumbRect.Contains(m_mousePos);
-            const bool hoverTrack = trackRect.Contains(m_mousePos);
-            node->scrollbarHovered = hoverThumb || hoverTrack;
-
-            if (hoverThumb && m_mouseClicked) {
-                state.draggingY = true;
-                state.dragStartMouse = m_mousePos;
-                state.dragStartOffset = state.offset.y;
-                m_activeId = node->id;
-            } else if (hoverTrack && m_mouseClicked && !hoverThumb) {
-                // Page jump towards click position on track
-                if (m_mousePos.y < thumbY) {
-                    state.offset.y = std::max(0.0f, state.offset.y - viewportH * 0.8f);
-                } else {
-                    state.offset.y = std::min(maxScrollY, state.offset.y + viewportH * 0.8f);
-                }
-                node->scrollOffset = state.offset;
-            }
-
-            if (state.draggingY) {
-                node->scrollbarActive = true;
-                if (m_mouseDown) {
-                    const float deltaY = m_mousePos.y - state.dragStartMouse.y;
-                    if (travelH > 0.0f) {
-                        state.offset.y = std::clamp(state.dragStartOffset + (deltaY / travelH) * maxScrollY, 0.0f, maxScrollY);
-                        node->scrollOffset = state.offset;
-                    }
-                } else {
-                    state.draggingY = false;
-                    if (m_activeId == node->id) {
-                        m_activeId = Id::Null();
-                    }
-                }
-            }
-        } else {
-            state.draggingY = false;
-        }
+    if (node->type == NodeType::ScrollArea) {
+        ScrollArea::Update(*this, node);
+    } else if (node->type == NodeType::Carousel) {
+        Carousel::Update(*this, node);
     }
 
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
@@ -767,35 +611,10 @@ void Context::ScrollToId(Id id) {
 
     for (Node* p = target->parent; p != nullptr; p = p->parent) {
         if (p->type == NodeType::ScrollArea && p->id.IsValid()) {
-            auto& state = GetOrCreateState<ScrollState>(p->id);
-            const float targetTop = target->computedRect.y;
-            const float targetBottom = target->computedRect.Bottom();
-            const float viewTop = p->computedRect.y;
-            const float viewBottom = p->computedRect.Bottom();
-
-            if (targetTop < viewTop) {
-                state.offset.y -= (viewTop - targetTop);
-            } else if (targetBottom > viewBottom) {
-                state.offset.y += (targetBottom - viewBottom);
-            }
-            if (state.offset.y < 0.0f) state.offset.y = 0.0f;
-            p->scrollOffset = state.offset;
+            ScrollArea::ScrollToChild(*this, p, target);
             break;
         } else if (p->type == NodeType::Carousel && p->id.IsValid()) {
-            auto& state = GetOrCreateState<ScrollState>(p->id);
-            const float targetLeft = target->computedRect.x;
-            const float targetRight = target->computedRect.Right();
-            auto* cData = p->As<CarouselData>();
-            const float viewLeft = cData ? cData->viewportRect.x : p->computedRect.x;
-            const float viewRight = cData ? cData->viewportRect.Right() : p->computedRect.Right();
-
-            if (targetLeft < viewLeft) {
-                state.offset.x -= (viewLeft - targetLeft);
-            } else if (targetRight > viewRight) {
-                state.offset.x += (targetRight - viewRight);
-            }
-            if (state.offset.x < 0.0f) state.offset.x = 0.0f;
-            p->scrollOffset = state.offset;
+            Carousel::ScrollToChild(*this, p, target);
             break;
         }
     }
@@ -958,6 +777,19 @@ void Context::EndFrame(ICanvas& canvas) {
     m_pendingKeyEvents.clear();
     m_pendingTextInput.clear();
 
+    // Periodically prune stale persistent states (every 600 frames = ~10s at 60fps)
+    if (m_frameIndex % 600 == 0 && m_frameIndex > 0) {
+        for (auto it = m_customStates.begin(); it != m_customStates.end(); ) {
+            if (it->second.lastFrameActive + 600 < m_frameIndex &&
+                it->first.id != m_focusedId &&
+                it->first.id != m_activeId) {
+                it = m_customStates.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
     if (m_repaintFrames > 0) {
         --m_repaintFrames;
     }
@@ -969,24 +801,7 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
     if (!node->computedRect.Intersects(dirtyRect)) return;
 
     if (node->clipChildren) {
-        if (node->type == NodeType::ScrollArea) {
-            const ScrollbarMetrics& sm = m_theme.GetScrollbar(node->uiSize);
-            const bool showScrollbar = (node->scrollbarPolicy == VisibilityPolicy::Always) ||
-                (node->scrollbarPolicy == VisibilityPolicy::Auto && node->scrollContentSize.y > node->computedRect.h);
-            const float gutter = (showScrollbar && node->scrollOrientation != Orientation::Horizontal) ? sm.gutter : 0.0f;
-            const Rect clipRect(
-                node->computedRect.x + node->padding.left,
-                node->computedRect.y + node->padding.top,
-                std::max(0.0f, node->computedRect.w - node->padding.Horizontal() - gutter),
-                std::max(0.0f, node->computedRect.h - node->padding.Vertical())
-            );
-            canvas.PushClip(clipRect);
-        } else if (node->type == NodeType::Carousel) {
-            auto* cData = node->As<CarouselData>();
-            canvas.PushClip(cData ? cData->viewportRect : node->computedRect);
-        } else {
-            canvas.PushClip(node->computedRect);
-        }
+        canvas.PushClip(GetNodeContentClipRect(node, m_theme));
     }
 
     // Render background / border if present (skip for self-rendering leaf widgets)
@@ -1127,14 +942,7 @@ Node* Context::FindDeepestNodeAt(Node* root, Vec2 pos, Rect clipRect) {
 
     Rect effectiveClip = clipRect;
     if (root->clipChildren) {
-        if (root->type == NodeType::ScrollArea) {
-            effectiveClip = clipRect.Intersect(root->computedRect);
-        } else if (root->type == NodeType::Carousel) {
-            auto* cData = root->As<CarouselData>();
-            effectiveClip = clipRect.Intersect(cData ? cData->viewportRect : root->computedRect);
-        } else {
-            effectiveClip = clipRect.Intersect(root->computedRect);
-        }
+        effectiveClip = clipRect.Intersect(GetNodeContentClipRect(root, m_theme));
     }
 
     const Rect visibleRect = root->computedRect.Intersect(effectiveClip);

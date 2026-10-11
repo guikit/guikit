@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <source_location>
+#include <unordered_map>
 #include "guikit/core/ContainerScope.hpp"
 #include "guikit/core/Id.hpp"
 #include "guikit/core/Theme.hpp"
@@ -66,6 +67,22 @@ public:
 
     /// Custom flex row arrangement with dynamic gutters and scroll viewport.
     static void Arrange(Node* node, const Rect& availableRect);
+
+    /// Returns the active visible viewport rectangle for children clipping.
+    [[nodiscard]] static Rect GetContentClipRect(const Node* node);
+
+    /// Synchronizes persistent scroll state with arrangement results.
+    static void Update(Context& ctx, Node* node);
+
+    /// Adjusts scroll offset so the target child node is visible within the viewport.
+    static void ScrollToChild(Context& ctx, Node* carouselNode, const Node* targetNode);
+
+    /// Registers interactive arrow bounds into the bounds map for instantaneous hit testing.
+    static void CollectBounds(
+        const Node* node,
+        std::unordered_map<Id, Rect>& outBounds,
+        Rect parentClip
+    );
 
     /// Renders navigation arrow buttons for an overflowing Carousel container (RenderFunc signature).
     static void RenderArrows(

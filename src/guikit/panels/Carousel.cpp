@@ -342,4 +342,57 @@ void Carousel::RenderArrows(
     }
 }
 
+Rect Carousel::GetContentClipRect(const Node* node) {
+    if (!node) return Rect();
+    const auto* cData = node->As<CarouselData>();
+    return cData ? cData->viewportRect : node->computedRect;
+}
+
+void Carousel::Update(Context& ctx, Node* node) {
+    if (!node || !node->id.IsValid()) return;
+    auto& state = ctx.GetOrCreateState<ScrollState>(node->id);
+    state.offset.x = node->scrollOffset.x;
+}
+
+void Carousel::ScrollToChild(Context& ctx, Node* carouselNode, const Node* targetNode) {
+    if (!carouselNode || !targetNode || !carouselNode->id.IsValid()) return;
+    auto& state = ctx.GetOrCreateState<ScrollState>(carouselNode->id);
+    const float targetLeft = targetNode->computedRect.x;
+    const float targetRight = targetNode->computedRect.Right();
+    const auto* cData = carouselNode->As<CarouselData>();
+    const float viewLeft = cData ? cData->viewportRect.x : carouselNode->computedRect.x;
+    const float viewRight = cData ? cData->viewportRect.Right() : carouselNode->computedRect.Right();
+
+    if (targetLeft < viewLeft) {
+        state.offset.x -= (viewLeft - targetLeft);
+    } else if (targetRight > viewRight) {
+        state.offset.x += (targetRight - viewRight);
+    }
+    if (state.offset.x < 0.0f) state.offset.x = 0.0f;
+    carouselNode->scrollOffset = state.offset;
+}
+
+void Carousel::CollectBounds(
+    const Node* node,
+    std::unordered_map<Id, Rect>& outBounds,
+    Rect parentClip
+) {
+    if (!node || node->type != NodeType::Carousel) return;
+    const auto* cData = node->As<CarouselData>();
+    if (!cData) return;
+
+    if (cData->showLeftArrow && cData->leftArrowRect.w > 0.0f) {
+        const Rect clippedLeft = cData->leftArrowRect.Intersect(parentClip);
+        if (clippedLeft.w > 0.0f && clippedLeft.h > 0.0f) {
+            outBounds[GetCarouselLeftArrowId(node->id)] = clippedLeft;
+        }
+    }
+    if (cData->showRightArrow && cData->rightArrowRect.w > 0.0f) {
+        const Rect clippedRight = cData->rightArrowRect.Intersect(parentClip);
+        if (clippedRight.w > 0.0f && clippedRight.h > 0.0f) {
+            outBounds[GetCarouselRightArrowId(node->id)] = clippedRight;
+        }
+    }
+}
+
 } // namespace guikit

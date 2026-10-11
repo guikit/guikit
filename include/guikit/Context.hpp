@@ -92,6 +92,11 @@ struct StateKeyHash {
     }
 };
 
+struct StoredState {
+    std::any value;
+    uint64_t lastFrameActive{0};
+};
+
 } // namespace detail
 
 /// Primary immediate mode context coordinating input, layout, and rendering.
@@ -640,6 +645,11 @@ public:
     [[nodiscard]] bool HasActiveTextEdit(Id id) const noexcept { return m_editState.id == id && id.IsValid(); }
     void ClearFocus() noexcept { m_focusedId = Id::Null(); }
 
+    [[nodiscard]] Id GetActiveId() const noexcept { return m_activeId; }
+    void SetActiveId(Id id) noexcept { m_activeId = id; }
+    [[nodiscard]] uint64_t GetFrameIndex() const noexcept { return m_frameIndex; }
+    [[nodiscard]] size_t GetCustomStateCount() const noexcept { return m_customStates.size(); }
+
     std::string_view GetOrStartTextEdit(
         Id id,
         std::string_view initialText,
@@ -685,9 +695,11 @@ public:
         detail::StateKey key{id, std::type_index(typeid(T))};
         auto it = m_customStates.find(key);
         if (it == m_customStates.end()) {
-            it = m_customStates.emplace(key, std::make_any<T>(std::move(defaultVal))).first;
+            it = m_customStates.emplace(key, detail::StoredState{std::make_any<T>(std::move(defaultVal)), m_frameIndex}).first;
+        } else {
+            it->second.lastFrameActive = m_frameIndex;
         }
-        return std::any_cast<T&>(it->second);
+        return std::any_cast<T&>(it->second.value);
     }
 
     /// Finds persistent typed state associated with a unique widget Id, or nullptr if not found.
@@ -698,7 +710,7 @@ public:
         if (it == m_customStates.end()) {
             return nullptr;
         }
-        return std::any_cast<T>(&it->second);
+        return std::any_cast<T>(&it->second.value);
     }
 
 private:
@@ -775,6 +787,54 @@ private:
         size_t cursor{0};
         bool changed{false};
         bool submitted{false};
+
+        void Insert(std::string_view utf8Text) {
+            if (cursor <= text.size()) {
+                text.insert(cursor, utf8Text);
+                cursor += utf8Text.size();
+                changed = true;
+            }
+        }
+
+        bool HandleKey(Key key, bool& outLostFocus) {
+            switch (key) {
+                case Key::Backspace:
+                    if (cursor > 0 && !text.empty()) {
+                        text.erase(cursor - 1, 1);
+                        cursor--;
+                        changed = true;
+                    }
+                    return true;
+                case Key::Delete:
+                    if (cursor < text.size()) {
+                        text.erase(cursor, 1);
+                        changed = true;
+                    }
+                    return true;
+                case Key::Left:
+                    if (cursor > 0) cursor--;
+                    return true;
+                case Key::Right:
+                    if (cursor < text.size()) cursor++;
+                    return true;
+                case Key::Home:
+                    cursor = 0;
+                    return true;
+                case Key::End:
+                    cursor = text.size();
+                    return true;
+                case Key::Enter:
+                    submitted = true;
+                    outLostFocus = true;
+                    return true;
+                case Key::Escape:
+                    outLostFocus = true;
+                    id = Id::Null();
+                    return true;
+                default:
+                    return false;
+            }
+        }
     };
     ActiveEditState m_editState;
 
@@ -794,7 +854,8 @@ private:
     Rect m_openPopupRect{0.0f, 0.0f, 0.0f, 0.0f};
     std::vector<std::function<void(ICanvas&)>> m_overlayPasses;
     Vec2 m_mouseWheel{0.0f, 0.0f};
-    std::unordered_map<detail::StateKey, std::any, detail::StateKeyHash> m_customStates;
+    std::unordered_map<detail::StateKey, detail::StoredState, detail::StateKeyHash> m_customStates;
+    uint64_t m_frameIndex{0};
 
     void RenderDebugBoundsRecursive(Node* node, ICanvas& canvas);
     Node* FindDeepestNodeAt(Node* root, Vec2 pos, Rect clipRect);

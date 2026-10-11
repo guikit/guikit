@@ -42,6 +42,15 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
+    /// Returns the active visible viewport rectangle (computed bounds minus padding and gutter).
+    [[nodiscard]] static Rect GetContentClipRect(const Node* node, const UiTheme& theme);
+
+    /// Updates scrollbar hover, dragging, and paging interactions for this frame.
+    static void Update(Context& ctx, Node* node);
+
+    /// Adjusts scroll offset so the target child node is visible within the viewport.
+    static void ScrollToChild(Context& ctx, Node* scrollNode, const Node* targetNode);
+
     /// Renders scrollbar thumb and track after children (postRenderFn signature).
     static void RenderScrollbar(
         const Node* node,

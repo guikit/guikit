@@ -3046,6 +3046,100 @@ void TestGenericTemplateFacade() {
     ui.EndFrame(canvas);
 }
 
+void TestContextCleanArchitectureAndStateGC() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 400;
+    const uint32_t height = 300;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    // 1. Verify ActiveEditState buffer text manipulation
+    Id inputId(9999);
+    ui.RequestFocus(inputId);
+    size_t cursor = 0;
+    bool changed = false;
+    bool submitted = false;
+
+    // Start editing with "Hello"
+    std::string_view text1 = ui.GetOrStartTextEdit(inputId, "Hello", cursor, changed, submitted);
+    CHECK(text1 == "Hello");
+    CHECK(cursor == 5);
+
+    // Test text insertion
+    ui.OnTextInput(" World");
+    std::string_view text2 = ui.GetOrStartTextEdit(inputId, text1, cursor, changed, submitted);
+    CHECK(text2 == "Hello World");
+    CHECK(cursor == 11);
+    CHECK(changed);
+
+    // Test backspace
+    ui.OnKeyDown(Key::Backspace);
+    std::string_view text3 = ui.GetOrStartTextEdit(inputId, text2, cursor, changed, submitted);
+    CHECK(text3 == "Hello Worl");
+    CHECK(cursor == 10);
+
+    // Test Home, Delete
+    ui.OnKeyDown(Key::Home);
+    ui.OnKeyDown(Key::Delete);
+    std::string_view text4 = ui.GetOrStartTextEdit(inputId, text3, cursor, changed, submitted);
+    CHECK(text4 == "ello Worl");
+    CHECK(cursor == 0);
+
+    // Test Enter submission
+    ui.OnKeyDown(Key::Enter);
+    ui.GetOrStartTextEdit(inputId, text4, cursor, changed, submitted);
+    CHECK(submitted);
+    CHECK(ui.GetFocusedId() == Id::Null());
+
+    // 2. Verify State Garbage Collection (Pruning stale states after 600 frames)
+    struct TemporaryWidgetState {
+        int value{42};
+    };
+
+    Id staleId(1111);
+    Id activeId(2222);
+
+    // Frame 1: Create both states
+    ui.BeginFrame({400.0f, 300.0f});
+    ui.GetOrCreateState<TemporaryWidgetState>(staleId).value = 100;
+    ui.GetOrCreateState<TemporaryWidgetState>(activeId).value = 200;
+    CHECK(ui.GetCustomStateCount() == 2);
+    ui.EndFrame(canvas);
+
+    // Run 599 frames keeping activeId refreshed, but leaving staleId untouched
+    for (int f = 2; f <= 599; ++f) {
+        ui.BeginFrame({400.0f, 300.0f});
+        ui.GetOrCreateState<TemporaryWidgetState>(activeId).value = 200 + f;
+        ui.EndFrame(canvas);
+    }
+    CHECK(ui.GetCustomStateCount() == 2); // Not yet pruned at frame 599
+
+    // Frame 600: Pruning trigger! staleId was created at frame 1, so 1 + 600 < 600 is false.
+    ui.BeginFrame({400.0f, 300.0f});
+    ui.GetOrCreateState<TemporaryWidgetState>(activeId).value = 800;
+    ui.EndFrame(canvas);
+
+    // Advance to frame 602 (staleId active frame was 1; 1 + 600 < 602 is true!)
+    for (int f = 601; f < 1200; ++f) {
+        ui.BeginFrame({400.0f, 300.0f});
+        ui.GetOrCreateState<TemporaryWidgetState>(activeId).value = 900;
+        ui.EndFrame(canvas);
+    }
+
+    // At frame 1200 (next 600-frame periodic GC boundary):
+    ui.BeginFrame({400.0f, 300.0f});
+    ui.GetOrCreateState<TemporaryWidgetState>(activeId).value = 999;
+    ui.EndFrame(canvas);
+
+    // Stale state should now be garbage-collected!
+    CHECK(ui.FindState<TemporaryWidgetState>(staleId) == nullptr);
+    CHECK(ui.FindState<TemporaryWidgetState>(activeId) != nullptr);
+    CHECK(ui.FindState<TemporaryWidgetState>(activeId)->value == 999);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -3085,6 +3179,7 @@ int main() {
     TestPostRenderDelegateWorkflow();
     TestContainersAndLayoutsReorganization();
     TestGenericTemplateFacade();
+    TestContextCleanArchitectureAndStateGC();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";
