@@ -45,6 +45,7 @@ struct UiTheme {
     std::array<InputFieldMetrics, 6> inputs{};
     std::array<SelectMetrics, 6>     selects{};
     std::array<HeadingMetrics, 6>    headings{};
+    std::array<SliderMetrics, 6>     sliders{};
 
     // --- Fast Inline Accessors ---
 
@@ -170,6 +171,15 @@ struct UiTheme {
     [[nodiscard]] constexpr HeadingMetrics& GetHeading(UiSize size) noexcept {
         const size_t idx = static_cast<size_t>(size);
         return (idx < headings.size()) ? headings[idx] : headings[static_cast<size_t>(UiSize::Md)];
+    }
+
+    [[nodiscard]] constexpr const SliderMetrics& GetSlider(UiSize size) const noexcept {
+        const size_t idx = static_cast<size_t>(size);
+        return (idx < sliders.size()) ? sliders[idx] : sliders[static_cast<size_t>(UiSize::Md)];
+    }
+    [[nodiscard]] constexpr SliderMetrics& GetSlider(UiSize size) noexcept {
+        const size_t idx = static_cast<size_t>(size);
+        return (idx < sliders.size()) ? sliders[idx] : sliders[static_cast<size_t>(UiSize::Md)];
     }
 
     struct SpacingProxy {

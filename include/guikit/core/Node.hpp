@@ -57,7 +57,9 @@ enum class NodeType : uint16_t {
     TabItem     = 207,
     Separator   = 208,
     Spacer      = 209,
-    Custom      = 210,
+    Slider      = 210,
+    StepSlider  = 211,
+    Custom      = 212,
 
     // --- User Extension Base (1000+) ---
     User        = 1000

@@ -281,6 +281,42 @@ void TestCarouselMetricsTokens() {
     CHECK(scaledMd.scrollStep == 220.0f);
 }
 
+void TestSliderMetricsTokens() {
+    using namespace guikit;
+
+    UiTheme theme = UiTheme::Dark();
+
+    // 1. Standard metrics baseline checks
+    const auto& md = theme.GetSlider(UiSize::Md);
+    CHECK(md.defaultHeight == 26.0f);
+    CHECK(md.trackHeight == 5.0f);
+    CHECK(md.thumbSize == 18.0f);
+    CHECK(md.cornerRadius == 9.0f);
+    CHECK(md.tickSize == 4.0f);
+
+    const auto& xs = theme.GetSlider(UiSize::Xs);
+    CHECK(xs.defaultHeight == 18.0f);
+    CHECK(xs.thumbSize == 12.0f);
+
+    // 2. Mutable accessor check
+    theme.GetSlider(UiSize::Md).trackHeight = 7.0f;
+    CHECK(theme.GetSlider(UiSize::Md).trackHeight == 7.0f);
+
+    // 3. Density presets
+    UiTheme compactTheme = UiTheme::Dark(Density::Compact);
+    CHECK(compactTheme.GetSlider(UiSize::Md).thumbSize == 16.0f);
+
+    UiTheme touchTheme = UiTheme::Dark(Density::Touch);
+    CHECK(touchTheme.GetSlider(UiSize::Md).thumbSize == 26.0f);
+
+    // 4. Scaling
+    UiTheme scaledTheme = UiTheme::Dark().Scaled(2.0f);
+    const auto& scaledMd = scaledTheme.GetSlider(UiSize::Md);
+    CHECK(scaledMd.defaultHeight == 52.0f);
+    CHECK(scaledMd.thumbSize == 36.0f);
+    CHECK(scaledMd.trackHeight == 10.0f);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Core Foundation...\n";
 
@@ -291,6 +327,7 @@ int main() {
     TestFrameMetrics();
     TestNodeFootprint();
     TestCarouselMetricsTokens();
+    TestSliderMetricsTokens();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Core tests passed successfully!\n";

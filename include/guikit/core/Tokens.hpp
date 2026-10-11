@@ -109,6 +109,20 @@ struct CarouselMetrics {
     float scrollStep;      ///< Scroll distance in points per arrow button click
 };
 
+/// Standardized metrics for Slider and StepSlider widgets according to UiSize.
+struct SliderMetrics {
+    float defaultHeight;  ///< Height of the interactive track/thumb row
+    float trackHeight;    ///< Height/thickness of the horizontal track
+    float thumbSize;      ///< Diameter/size of the circular thumb knob
+    float cornerRadius;   ///< Rounding radius of track and thumb
+    float tickSize;       ///< Diameter of tick marks on StepSlider track
+    float labelFontSize;  ///< Font size for header label and value text
+    float tickFontSize;   ///< Font size for discrete step labels below track
+    float labelGap;       ///< Vertical gap between header label and track
+    float tickGap;        ///< Vertical gap between track and step labels
+    float descGap;        ///< Vertical gap between slider and description
+};
+
 /// Standardized metrics for Switch widget according to UiSize.
 struct SwitchMetrics {
     Vec2 trackSize;

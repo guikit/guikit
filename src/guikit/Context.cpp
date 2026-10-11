@@ -294,6 +294,33 @@ Response Context::InputField(std::string_view value, InputFieldOptions opts, std
     return Run<guikit::InputField>(nullptr, nullptr, nullptr, nullptr, value, opts, loc);
 }
 
+Response Context::StepSlider(
+    UiSize& size,
+    StepSliderOptions opts,
+    std::source_location loc
+) {
+    static constexpr std::array<std::string_view, 5> kSizeLabels = {"XS", "SM", "MD", "LG", "XL"};
+    static constexpr std::array<UiSize, 5> kSizes = {UiSize::Xs, UiSize::Sm, UiSize::Md, UiSize::Lg, UiSize::Xl};
+
+    size_t idx = 2; // Default to Md
+    for (size_t i = 0; i < kSizes.size(); ++i) {
+        if (kSizes[i] == size) {
+            idx = i;
+            break;
+        }
+    }
+
+    if (opts.stepLabels.empty()) {
+        opts.stepLabels = kSizeLabels;
+    }
+
+    Response res = StepSlider(idx, opts.stepLabels.size(), opts, loc);
+    if (res.changed && idx < kSizes.size()) {
+        size = kSizes[idx];
+    }
+    return res;
+}
+
 ToolbarScope Context::Toolbar(
     ToolbarOptions opts,
     std::source_location loc

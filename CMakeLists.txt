@@ -65,6 +65,7 @@ set(GUIKIT_SOURCES
     src/guikit/widgets/Heading.cpp
     src/guikit/widgets/InputField.cpp
     src/guikit/widgets/Select.cpp
+    src/guikit/widgets/Slider.cpp
     src/guikit/widgets/Switch.cpp
     src/guikit/widgets/TabBar.cpp
     src/guikit/widgets/Text.cpp

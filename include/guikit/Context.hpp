@@ -39,6 +39,7 @@
 #include "guikit/widgets/Heading.hpp"
 #include "guikit/widgets/InputField.hpp"
 #include "guikit/widgets/Select.hpp"
+#include "guikit/widgets/Slider.hpp"
 #include "guikit/widgets/Switch.hpp"
 #include "guikit/widgets/TabBar.hpp"
 #include "guikit/widgets/Text.hpp"
@@ -72,6 +73,9 @@ concept SelectTarget =
     std::is_same_v<std::decay_t<T>, int> ||
     std::is_same_v<std::decay_t<T>, std::string> ||
     std::is_same_v<std::decay_t<T>, std::string_view>;
+
+template <typename T>
+concept SliderNumeric = std::integral<std::decay_t<T>> || std::floating_point<std::decay_t<T>>;
 
 namespace detail {
 
@@ -457,6 +461,76 @@ public:
         return TabBar(activeIndex, std::span<const TabItem>(tabs.begin(), tabs.size()), opts, loc);
     }
 
+    // --- Slider & StepSlider Widgets ---
+    template <SliderNumeric T>
+    Response Slider(
+        T& value,
+        T min,
+        T max,
+        SliderOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        if constexpr (std::is_same_v<std::decay_t<T>, double>) {
+            return Run<guikit::Slider>(&value, nullptr, nullptr, min, max, opts, loc);
+        } else if constexpr (std::is_same_v<std::decay_t<T>, float>) {
+            return Run<guikit::Slider>(nullptr, &value, nullptr, static_cast<double>(min), static_cast<double>(max), opts, loc);
+        } else {
+            int64_t val64 = static_cast<int64_t>(value);
+            Response res = Run<guikit::Slider>(nullptr, nullptr, &val64, static_cast<double>(min), static_cast<double>(max), opts, loc);
+            if (res.changed) {
+                value = static_cast<T>(val64);
+            }
+            return res;
+        }
+    }
+
+    template <typename IndexT>
+    Response StepSlider(
+        IndexT& index,
+        size_t totalSteps,
+        StepSliderOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT>) {
+        if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
+            return Run<guikit::StepSlider>(&index, nullptr, totalSteps, opts, loc);
+        } else if constexpr (std::is_same_v<std::decay_t<IndexT>, int>) {
+            return Run<guikit::StepSlider>(nullptr, &index, totalSteps, opts, loc);
+        } else {
+            int idxInt = static_cast<int>(index);
+            Response res = Run<guikit::StepSlider>(nullptr, &idxInt, totalSteps, opts, loc);
+            if (res.changed) {
+                index = static_cast<IndexT>(idxInt);
+            }
+            return res;
+        }
+    }
+
+    template <typename IndexT>
+    Response StepSlider(
+        IndexT& index,
+        std::span<const std::string_view> labels,
+        StepSliderOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT>) {
+        opts.stepLabels = labels;
+        return StepSlider(index, labels.size(), opts, loc);
+    }
+
+    template <typename IndexT>
+    Response StepSlider(
+        IndexT& index,
+        std::initializer_list<std::string_view> labels,
+        StepSliderOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT>) {
+        return StepSlider(index, std::span<const std::string_view>(labels.begin(), labels.size()), opts, loc);
+    }
+
+    Response StepSlider(
+        UiSize& size,
+        StepSliderOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
 
     // --- Toolbar Component ---
     [[nodiscard]] ToolbarScope Toolbar(

@@ -199,6 +199,15 @@ void PopulateComponentMetrics(UiTheme& theme) {
         HeadingMetrics{ 18.0f, 14.0f, 12.0f, 18.0f, 8.0f, 8.0f, 3.0f }, // Lg
         HeadingMetrics{ 22.0f, 15.0f, 13.0f, 22.0f, 8.0f, 10.0f, 4.0f }  // Xl
     }};
+
+    theme.sliders = {{
+        SliderMetrics{ 26.0f, 5.0f, 18.0f, 9.0f, 4.0f, 13.0f, 12.0f, 5.0f, 5.0f, 3.0f }, // None
+        SliderMetrics{ 18.0f, 3.0f, 12.0f, 6.0f, 3.0f, 11.0f, 10.0f, 3.0f, 3.0f, 2.0f }, // Xs
+        SliderMetrics{ 22.0f, 4.0f, 14.0f, 7.0f, 3.5f, 12.0f, 11.0f, 4.0f, 4.0f, 2.0f }, // Sm
+        SliderMetrics{ 26.0f, 5.0f, 18.0f, 9.0f, 4.0f, 13.0f, 12.0f, 5.0f, 5.0f, 3.0f }, // Md
+        SliderMetrics{ 32.0f, 6.0f, 22.0f, 11.0f, 5.0f, 15.0f, 13.0f, 6.0f, 6.0f, 3.0f }, // Lg
+        SliderMetrics{ 38.0f, 8.0f, 26.0f, 13.0f, 6.0f, 17.0f, 14.0f, 8.0f, 8.0f, 4.0f }  // Xl
+    }};
 }
 
 void ApplyDensity(UiTheme& theme, Density d) {
@@ -222,6 +231,14 @@ void ApplyDensity(UiTheme& theme, Density d) {
             CarouselMetrics{ 30.0f, 15.0f, 6.0f, 4.0f, 6.0f, 40.0f, 120.0f }, // Lg
             CarouselMetrics{ 36.0f, 18.0f, 8.0f, 5.0f, 8.0f, 49.0f, 150.0f }  // Xl
         }};
+        theme.sliders = {{
+            SliderMetrics{ 22.0f, 4.0f, 16.0f, 8.0f, 3.5f, 12.0f, 11.0f, 4.0f, 4.0f, 2.0f }, // None
+            SliderMetrics{ 16.0f, 2.5f, 10.0f, 5.0f, 2.5f, 10.0f,  9.0f, 2.0f, 2.0f, 2.0f }, // Xs
+            SliderMetrics{ 20.0f, 3.0f, 12.0f, 6.0f, 3.0f, 11.0f, 10.0f, 3.0f, 3.0f, 2.0f }, // Sm
+            SliderMetrics{ 22.0f, 4.0f, 16.0f, 8.0f, 3.5f, 12.0f, 11.0f, 4.0f, 4.0f, 2.0f }, // Md
+            SliderMetrics{ 28.0f, 5.0f, 20.0f, 10.0f, 4.0f, 14.0f, 12.0f, 5.0f, 5.0f, 3.0f }, // Lg
+            SliderMetrics{ 34.0f, 6.0f, 24.0f, 12.0f, 5.0f, 16.0f, 13.0f, 6.0f, 6.0f, 3.0f }  // Xl
+        }};
     } else if (d == Density::Touch) {
         theme.spacing = {0.0f, 6.0f, 12.0f, 16.0f, 24.0f, 32.0f};
         theme.radius  = {0.0f, 4.0f, 6.0f, 8.0f, 12.0f, 16.0f};
@@ -241,6 +258,14 @@ void ApplyDensity(UiTheme& theme, Density d) {
             CarouselMetrics{ 42.0f, 22.0f, 10.0f, 6.0f, 10.0f, 58.0f, 160.0f }, // Lg
             CarouselMetrics{ 48.0f, 26.0f, 12.0f, 8.0f, 12.0f, 68.0f, 200.0f }  // Xl
         }};
+        theme.sliders = {{
+            SliderMetrics{ 36.0f, 6.0f, 26.0f, 13.0f, 6.0f, 15.0f, 13.0f, 6.0f, 6.0f, 4.0f }, // None
+            SliderMetrics{ 24.0f, 4.0f, 16.0f,  8.0f, 4.0f, 12.0f, 11.0f, 4.0f, 4.0f, 3.0f }, // Xs
+            SliderMetrics{ 30.0f, 5.0f, 20.0f, 10.0f, 5.0f, 13.0f, 12.0f, 5.0f, 5.0f, 3.0f }, // Sm
+            SliderMetrics{ 36.0f, 6.0f, 26.0f, 13.0f, 6.0f, 15.0f, 13.0f, 6.0f, 6.0f, 4.0f }, // Md
+            SliderMetrics{ 44.0f, 8.0f, 32.0f, 16.0f, 7.0f, 17.0f, 15.0f, 8.0f, 8.0f, 4.0f }, // Lg
+            SliderMetrics{ 52.0f, 10.0f, 38.0f, 19.0f, 8.0f, 20.0f, 16.0f, 10.0f, 10.0f, 5.0f } // Xl
+        }};
     } else { // Density::Standard
         theme.spacing = {0.0f, 4.0f, 8.0f, 12.0f, 16.0f, 24.0f};
         theme.radius  = {0.0f, 2.0f, 4.0f, 6.0f, 8.0f, 12.0f};
@@ -259,6 +284,14 @@ void ApplyDensity(UiTheme& theme, Density d) {
             CarouselMetrics{ 26.0f, 14.0f,  6.0f, 4.0f,  6.0f, 36.0f, 110.0f }, // Md
             CarouselMetrics{ 32.0f, 16.0f,  8.0f, 5.0f,  8.0f, 45.0f, 140.0f }, // Lg
             CarouselMetrics{ 40.0f, 20.0f, 10.0f, 6.0f, 10.0f, 56.0f, 180.0f }  // Xl
+        }};
+        theme.sliders = {{
+            SliderMetrics{ 26.0f, 5.0f, 18.0f, 9.0f, 4.0f, 13.0f, 12.0f, 5.0f, 5.0f, 3.0f }, // None
+            SliderMetrics{ 18.0f, 3.0f, 12.0f, 6.0f, 3.0f, 11.0f, 10.0f, 3.0f, 3.0f, 2.0f }, // Xs
+            SliderMetrics{ 22.0f, 4.0f, 14.0f, 7.0f, 3.5f, 12.0f, 11.0f, 4.0f, 4.0f, 2.0f }, // Sm
+            SliderMetrics{ 26.0f, 5.0f, 18.0f, 9.0f, 4.0f, 13.0f, 12.0f, 5.0f, 5.0f, 3.0f }, // Md
+            SliderMetrics{ 32.0f, 6.0f, 22.0f, 11.0f, 5.0f, 15.0f, 13.0f, 6.0f, 6.0f, 3.0f }, // Lg
+            SliderMetrics{ 38.0f, 8.0f, 26.0f, 13.0f, 6.0f, 17.0f, 14.0f, 8.0f, 8.0f, 4.0f }  // Xl
         }};
     }
 }
@@ -383,6 +416,18 @@ UiTheme UiTheme::Scaled(float factor) const noexcept {
         hd.gap *= factor;
         hd.badgeGap *= factor;
         hd.lineGap *= factor;
+    }
+    for (auto& sl : copy.sliders) {
+        sl.defaultHeight *= factor;
+        sl.trackHeight *= factor;
+        sl.thumbSize *= factor;
+        sl.cornerRadius *= factor;
+        sl.tickSize *= factor;
+        sl.labelFontSize *= factor;
+        sl.tickFontSize *= factor;
+        sl.labelGap *= factor;
+        sl.tickGap *= factor;
+        sl.descGap *= factor;
     }
     for (auto& v : copy.variants) {
         v.borderWidth *= factor;

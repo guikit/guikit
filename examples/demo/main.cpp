@@ -63,6 +63,10 @@ int main(int argc, char* argv[]) {
     std::string sampleId = "Specimen-2026-X";
     size_t baudIndex = 1;
     std::string profileMode = "Standard Performance";
+    float masterGain = 72.5f;
+    int channelCount = 4;
+    size_t filterPreset = 1;
+    static constexpr std::array<std::string_view, 4> filterLabels = {"Bypass", "Butterworth", "Chebyshev", "Bessel"};
     size_t heartbeatIndex = 2; // Default: 500 ms (2 Hz)
     const std::vector<int> heartbeatMsValues = {-1, 250, 500, 1000, 2000};
     const std::vector<std::string_view> heartbeatLabels = {
@@ -95,6 +99,7 @@ int main(int argc, char* argv[]) {
     float dGain = 0.01f;
     bool diagLogging = true;
     guikit::TabBarStyle tabStyle = guikit::TabBarStyle::Underline;
+    guikit::UiSize demoComponentSize = guikit::UiSize::Md;
     guikit::FrameMetrics metrics;
 
     static const guikit::UiTheme inspectorTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
@@ -411,124 +416,71 @@ int main(int argc, char* argv[]) {
                                     auto& th = appTheme;
                                     if (sidebarTabIndex == 0) {
                                         // === GEOMETRY TAB ===
+
+                                        // 1. Component Size (UiSize StepSlider)
+                                        ui.Text("Component Scale", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
+                                        if (ui.StepSlider(demoComponentSize, {
+                                            .label = "Active UiSize",
+                                            .showTicks = true,
+                                            .showLabels = true,
+                                            .showValue = true
+                                        }).changed) {
+                                            ui.InvalidateAll();
+                                        }
+
+                                        // 2. Density Mode StepSlider
                                         ui.Text("Density Scale", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
-                                        if (auto row = ui.Row({.gap = guikit::UiSize::Xs})) {
-                                            if (ui.Button({
-                                                .label = "Standard",
-                                                .variant = (appTheme.density == guikit::Density::Standard) ? guikit::UiVariant::Primary : guikit::UiVariant::Default,
-                                                .stretch = true
-                                            })) {
-                                                appTheme.density = guikit::Density::Standard;
-                                                appTheme.metrics = (darkMode ? guikit::UiTheme::Dark(guikit::Density::Standard) : guikit::UiTheme::Light(guikit::Density::Standard)).metrics;
-                                                ui.InvalidateAll();
-                                            }
-                                            if (ui.Button({
-                                                .label = "Compact",
-                                                .variant = (appTheme.density == guikit::Density::Compact) ? guikit::UiVariant::Primary : guikit::UiVariant::Default,
-                                                .stretch = true
-                                            })) {
-                                                appTheme.density = guikit::Density::Compact;
-                                                appTheme.metrics = (darkMode ? guikit::UiTheme::Dark(guikit::Density::Compact) : guikit::UiTheme::Light(guikit::Density::Compact)).metrics;
-                                                ui.InvalidateAll();
-                                            }
-                                            if (ui.Button({
-                                                .label = "Touch",
-                                                .variant = (appTheme.density == guikit::Density::Touch) ? guikit::UiVariant::Primary : guikit::UiVariant::Default,
-                                                .stretch = true
-                                            })) {
-                                                appTheme.density = guikit::Density::Touch;
-                                                appTheme.metrics = (darkMode ? guikit::UiTheme::Dark(guikit::Density::Touch) : guikit::UiTheme::Light(guikit::Density::Touch)).metrics;
-                                                ui.InvalidateAll();
-                                            }
+                                        static constexpr std::array<std::string_view, 3> densityLabels = {"Standard", "Compact", "Touch"};
+                                        size_t densityIdx = (appTheme.density == guikit::Density::Touch) ? 2 : ((appTheme.density == guikit::Density::Compact) ? 1 : 0);
+                                        if (ui.StepSlider(densityIdx, densityLabels, {
+                                            .label = "Density Preset",
+                                            .showTicks = true,
+                                            .showLabels = true
+                                        }).changed) {
+                                            appTheme.density = (densityIdx == 2) ? guikit::Density::Touch : ((densityIdx == 1) ? guikit::Density::Compact : guikit::Density::Standard);
+                                            appTheme.SetDensity(appTheme.density);
+                                            ui.InvalidateAll();
                                         }
 
+                                        // 3. Corner Radius Sliders
                                         ui.Text("Corner Radius", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
-                                        if (auto row = ui.Row({.gap = guikit::UiSize::Xs})) {
-                                            if (ui.Button({.label = "Sharp (0px)", .stretch = true})) {
-                                                th.radius = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-                                                ui.InvalidateAll();
-                                            }
-                                            if (ui.Button({.label = "Default (6px)", .stretch = true})) {
-                                                th.radius = {0.0f, 2.0f, 4.0f, 6.0f, 8.0f, 12.0f};
-                                                ui.InvalidateAll();
-                                            }
-                                            if (ui.Button({.label = "Pill (14px)", .stretch = true})) {
-                                                th.radius = {0.0f, 4.0f, 8.0f, 14.0f, 20.0f, 28.0f};
-                                                ui.InvalidateAll();
-                                            }
+                                        if (ui.Slider(th.radius[2], 0.0f, 24.0f, {.label = "Radius Sm", .suffix = "px", .step = 1.0f}).changed) {
+                                            ui.InvalidateAll();
                                         }
-                                        if (auto grid = ui.Grid()) {
-                                            if (auto c1 = grid.Cell4()) {
-                                                if (ui.InputField(th.radius[2], {.label = "Radius Sm", .suffix = "px", .format = "%.0f"}).changed) {
-                                                    ui.InvalidateAll();
-                                                }
-                                            }
-                                            if (auto c2 = grid.Cell4()) {
-                                                if (ui.InputField(th.radius[3], {.label = "Radius Md", .suffix = "px", .format = "%.0f"}).changed) {
-                                                    ui.InvalidateAll();
-                                                }
-                                            }
-                                            if (auto c3 = grid.Cell4()) {
-                                                if (ui.InputField(th.radius[4], {.label = "Radius Lg", .suffix = "px", .format = "%.0f"}).changed) {
-                                                    ui.InvalidateAll();
-                                                }
-                                            }
+                                        if (ui.Slider(th.radius[3], 0.0f, 32.0f, {.label = "Radius Md", .suffix = "px", .step = 1.0f}).changed) {
+                                            ui.InvalidateAll();
+                                        }
+                                        if (ui.Slider(th.radius[4], 0.0f, 48.0f, {.label = "Radius Lg", .suffix = "px", .step = 1.0f}).changed) {
+                                            ui.InvalidateAll();
                                         }
 
+                                        // 4. Spacing & Gaps Sliders
                                         ui.Text("Spacing & Gaps", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
-                                        if (auto row = ui.Row({.gap = guikit::UiSize::Xs})) {
-                                            if (ui.Button({.label = "Tight", .stretch = true})) {
-                                                th.spacing = {0.0f, 2.0f, 4.0f, 8.0f, 12.0f, 16.0f};
-                                                ui.InvalidateAll();
-                                            }
-                                            if (ui.Button({.label = "Normal", .stretch = true})) {
-                                                th.spacing = {0.0f, 4.0f, 8.0f, 12.0f, 16.0f, 24.0f};
-                                                ui.InvalidateAll();
-                                            }
-                                            if (ui.Button({.label = "Spacious", .stretch = true})) {
-                                                th.spacing = {0.0f, 6.0f, 12.0f, 18.0f, 26.0f, 36.0f};
-                                                ui.InvalidateAll();
-                                            }
+                                        if (ui.Slider(th.spacing[2], 0.0f, 24.0f, {.label = "Gap Sm", .suffix = "px", .step = 1.0f}).changed) {
+                                            ui.InvalidateAll();
                                         }
-                                        if (auto grid = ui.Grid()) {
-                                            if (auto c1 = grid.Cell4()) {
-                                                if (ui.InputField(th.spacing[2], {.label = "Gap Sm", .suffix = "px", .format = "%.0f"}).changed) {
-                                                    ui.InvalidateAll();
-                                                }
-                                            }
-                                            if (auto c2 = grid.Cell4()) {
-                                                if (ui.InputField(th.spacing[3], {.label = "Gap Md", .suffix = "px", .format = "%.0f"}).changed) {
-                                                    ui.InvalidateAll();
-                                                }
-                                            }
-                                            if (auto c3 = grid.Cell4()) {
-                                                if (ui.InputField(th.spacing[4], {.label = "Gap Lg", .suffix = "px", .format = "%.0f"}).changed) {
-                                                    ui.InvalidateAll();
-                                                }
-                                            }
+                                        if (ui.Slider(th.spacing[3], 0.0f, 32.0f, {.label = "Gap Md", .suffix = "px", .step = 1.0f}).changed) {
+                                            ui.InvalidateAll();
+                                        }
+                                        if (ui.Slider(th.spacing[4], 0.0f, 48.0f, {.label = "Gap Lg", .suffix = "px", .step = 1.0f}).changed) {
+                                            ui.InvalidateAll();
                                         }
 
+                                        // 5. Control Heights Sliders
                                         ui.Text("Control Heights", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
-                                        if (auto grid = ui.Grid()) {
-                                            if (auto c1 = grid.Cell4()) {
-                                                if (ui.InputField(th.GetMetrics(guikit::UiSize::Sm).defaultHeight, {.label = "Height Sm", .suffix = "px", .format = "%.0f"}).changed) {
-                                                    ui.InvalidateAll();
-                                                }
-                                            }
-                                            if (auto c2 = grid.Cell4()) {
-                                                if (ui.InputField(th.GetMetrics(guikit::UiSize::Md).defaultHeight, {.label = "Height Md", .suffix = "px", .format = "%.0f"}).changed) {
-                                                    ui.InvalidateAll();
-                                                }
-                                            }
-                                            if (auto c3 = grid.Cell4()) {
-                                                if (ui.InputField(th.GetMetrics(guikit::UiSize::Lg).defaultHeight, {.label = "Height Lg", .suffix = "px", .format = "%.0f"}).changed) {
-                                                    ui.InvalidateAll();
-                                                }
-                                            }
+                                        if (ui.Slider(th.GetMetrics(guikit::UiSize::Sm).defaultHeight, 16.0f, 48.0f, {.label = "Height Sm", .suffix = "px", .step = 1.0f}).changed) {
+                                            ui.InvalidateAll();
+                                        }
+                                        if (ui.Slider(th.GetMetrics(guikit::UiSize::Md).defaultHeight, 20.0f, 60.0f, {.label = "Height Md", .suffix = "px", .step = 1.0f}).changed) {
+                                            ui.InvalidateAll();
+                                        }
+                                        if (ui.Slider(th.GetMetrics(guikit::UiSize::Lg).defaultHeight, 24.0f, 72.0f, {.label = "Height Lg", .suffix = "px", .step = 1.0f}).changed) {
+                                            ui.InvalidateAll();
                                         }
 
+                                        // 6. Typography Line Height Slider
                                         ui.Text("Typography Line Height", {.role = guikit::TextRole::LabelLarge, .variant = guikit::UiVariant::Info});
-                                        if (ui.InputField(th.lineHeightMultiplier, {.label = "Line Height Ratio", .format = "%.2f"}).changed) {
+                                        if (ui.Slider(th.lineHeightMultiplier, 1.0f, 2.5f, {.label = "Line Height Ratio", .format = "%.2f", .step = 0.05f}).changed) {
                                             ui.InvalidateAll();
                                         }
 
@@ -677,6 +629,7 @@ int main(int argc, char* argv[]) {
                     if (auto contentCol = ui.Column({
                         .gap = guikit::UiSize::Sm,
                         .heightMode = guikit::SizeMode::Stretch,
+                        .size = demoComponentSize,
                         .theme = &appTheme,
                         .scale = scaleValues[scaleIndex]
                     })) {
@@ -857,6 +810,36 @@ int main(int argc, char* argv[]) {
                                             .label = "Operation Profile",
                                             .description = "Active runtime sensor & compute profile",
                                             .labelPlacement = activePlacement
+                                        });
+                                    }
+                                }
+
+                                ui.Heading({
+                                    .title = "Precision Continuous & Stepped Sliders",
+                                    .subtitle = "Immediate-mode numeric sliders with wheel scrubbing, ticks, and step presets",
+                                    .icon = guikit::Icon::Settings()
+                                });
+
+                                if (auto sliderGrid = ui.Grid()) {
+                                    if (auto c1 = sliderGrid.Cell4()) {
+                                        ui.Slider(masterGain, 0.0f, 100.0f, {
+                                            .label = "Master Analog Gain",
+                                            .suffix = "dB",
+                                            .format = "%.1f"
+                                        });
+                                    }
+                                    if (auto c2 = sliderGrid.Cell4()) {
+                                        ui.Slider(channelCount, 1, 8, {
+                                            .label = "ADC Active Channels",
+                                            .suffix = "ch",
+                                            .step = 1.0f
+                                        });
+                                    }
+                                    if (auto c3 = sliderGrid.Cell4()) {
+                                        ui.StepSlider(filterPreset, filterLabels, {
+                                            .label = "DSP Filter Mode",
+                                            .showTicks = true,
+                                            .showLabels = true
                                         });
                                     }
                                 }
