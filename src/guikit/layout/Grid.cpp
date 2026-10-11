@@ -29,8 +29,8 @@ GridScope Grid::Open(
     node->direction = FlexDirection::Grid;
     node->gridColumns = static_cast<uint8_t>(opts.columns);
     node->minColWidth = opts.minColWidth;
-    node->gap = opts.gap.has_value() ? ctx.GetTheme().GetGap(*opts.gap) : ctx.GetTheme().GetGap(activeSize);
-    node->runGap = opts.runGap.has_value() ? ctx.GetTheme().GetGap(*opts.runGap) : ctx.GetTheme().GetGap(activeSize);
+    node->gap = opts.gap.value_or(ctx.GetTheme().GetGap(activeSize));
+    node->runGap = opts.runGap.value_or(node->gap);
     node->padding = ctx.GetTheme().ResolvePadding(opts.padding);
     node->align = opts.align;
     node->justify = opts.justify;
@@ -69,7 +69,7 @@ ContainerScope GridScope::Cell(int span, CellOptions opts, std::source_location 
     node->colSpan = std::clamp(span, 1, 12);
     node->minWidth = opts.minWidth;
     node->clipChildren = opts.clipChildren;
-    node->gap = opts.gap.has_value() ? m_ctx->GetTheme().GetGap(*opts.gap) : m_ctx->GetTheme().GetGap(activeSize);
+    node->gap = opts.gap.value_or(m_ctx->GetTheme().GetGap(activeSize));
     node->padding = m_ctx->GetTheme().ResolvePadding(opts.padding);
     node->align = opts.align;
     node->justify = opts.justify;

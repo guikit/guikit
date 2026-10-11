@@ -13,8 +13,8 @@ class Context;
 
 /// Options for configuring an auto-wrapping flow layout.
 struct WrapOptions {
-    std::optional<UiSize> gap{std::nullopt};        ///< Horizontal gap between items on same line
-    std::optional<UiSize> runGap{std::nullopt};     ///< Vertical gap between consecutive wrapped lines
+    std::optional<float> gap{std::nullopt};        ///< Horizontal gap between items on same line
+    std::optional<float> runGap{std::nullopt};     ///< Vertical gap between consecutive wrapped lines
     std::optional<Padding> padding{std::nullopt};
     Alignment align{Alignment::Center};
     Justify justify{Justify::Start};

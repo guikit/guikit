@@ -36,7 +36,7 @@ Response TabBar::Run(
     if (opts.scrollable && !opts.fullWidth) {
         CarouselOptions cOpts;
         cOpts.size = activeSize;
-        cOpts.gap = (activeSize <= UiSize::Sm) ? UiSize::Xs : UiSize::Sm;
+        cOpts.gap = (activeSize <= UiSize::Sm) ? ctx.GetTheme().GetGap(UiSize::Xs) : ctx.GetTheme().GetGap(UiSize::Sm);
         cOpts.scrollWheel = true;
         cOpts.disabled = ctx.IsDisabled();
 

@@ -15,8 +15,8 @@ class Context;
 struct GridOptions {
     int columns{12};                                ///< Total number of columns in the grid (default: 12)
     float minColWidth{0.0f};                        ///< Minimum column width before wrapping items (0 = auto content intrinsic)
-    std::optional<UiSize> gap{std::nullopt};        ///< Horizontal gap between columns (nullopt = inherit size)
-    std::optional<UiSize> runGap{std::nullopt};     ///< Vertical gap between wrapped rows (nullopt = match gap)
+    std::optional<float> gap{std::nullopt};        ///< Horizontal gap between columns (nullopt = from theme)
+    std::optional<float> runGap{std::nullopt};     ///< Vertical gap between wrapped rows (nullopt = match gap)
     std::optional<Padding> padding{std::nullopt};   ///< Container padding (nullopt = zero)
     Alignment align{Alignment::Stretch};
     Justify justify{Justify::Start};
@@ -31,7 +31,7 @@ struct GridOptions {
 /// Options for configuring an individual grid cell slot.
 struct CellOptions {
     float minWidth{0.0f};                           ///< Minimum width constraint (0 = auto content intrinsic)
-    std::optional<UiSize> gap{std::nullopt};        ///< Gap between stacked children inside this cell
+    std::optional<float> gap{std::nullopt};        ///< Gap between stacked children inside this cell
     std::optional<Padding> padding{std::nullopt};   ///< Internal cell padding (nullopt = zero)
     Alignment align{Alignment::Stretch};
     Justify justify{Justify::Start};

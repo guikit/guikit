@@ -26,7 +26,7 @@ struct ScrollState {
 struct ScrollAreaOptions {
     Orientation orientation{Orientation::Vertical};
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};
-    std::optional<UiSize> gap{std::nullopt};        ///< Gap between consecutive scroll items (nullopt = zero)
+    std::optional<float> gap{std::nullopt};        ///< Gap between consecutive scroll items (nullopt = zero)
     std::optional<Padding> padding{std::nullopt};   ///< Viewport content padding (nullopt = zero)
     std::optional<UiSize> size{std::nullopt};
     bool disabled{false};

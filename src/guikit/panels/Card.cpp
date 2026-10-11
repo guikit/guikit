@@ -27,12 +27,12 @@ ContainerScope Card::Open(
     Node* outerNode = ctx.CreateNode(NodeType::Card, idOuter);
     outerNode->theme = pushedTheme;
     outerNode->direction = FlexDirection::Column;
-    outerNode->gap = opts.gap.has_value() ? ctx.GetTheme().GetGap(*opts.gap) : ctx.GetTheme().GetGap(activeSize);
+    outerNode->gap = opts.gap.value_or(ctx.GetTheme().GetGap(activeSize));
     outerNode->minWidth = opts.minWidth;
     outerNode->widthMode = opts.widthMode;
     outerNode->heightMode = opts.heightMode;
     outerNode->padding = ctx.GetTheme().ResolvePadding(opts.padding, activeSize);
-    outerNode->cornerRadius = opts.radius.has_value() ? ctx.GetTheme().GetRadius(*opts.radius) : ctx.GetTheme().GetRadius(activeSize);
+    outerNode->cornerRadius = opts.radius.value_or(ctx.GetTheme().GetRadius(activeSize));
     outerNode->clipChildren = opts.clipChildren;
     outerNode->uiSize = activeSize;
     outerNode->disabled = activeDisabled;

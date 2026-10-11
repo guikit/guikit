@@ -100,11 +100,11 @@ int main(int argc, char* argv[]) {
     bool diagLogging = true;
     guikit::TabBarStyle tabStyle = guikit::TabBarStyle::Underline;
     guikit::UiSize controlsSize = guikit::UiSize::Md;
-    guikit::UiSize cardRadius = guikit::UiSize::Md;
-    guikit::UiSize cardPadding = guikit::UiSize::Md;
-    guikit::UiSize cardGap = guikit::UiSize::Sm;
-    guikit::UiSize layoutGap = guikit::UiSize::Sm;
-    guikit::UiSize gridGap = guikit::UiSize::Md;
+    float cardRadius = 8.0f;
+    float cardPadding = 16.0f;
+    float cardGap = 8.0f;
+    float layoutGap = 8.0f;
+    float gridGap = 12.0f;
     guikit::UiSize headingSize = guikit::UiSize::Md;
     guikit::FrameMetrics metrics;
 
@@ -393,7 +393,7 @@ int main(int argc, char* argv[]) {
                 }
 
                 // Workspace Row containing Sidebar (left) and Content Area (right)
-                if (auto workspaceRow = ui.Row({.gap = guikit::UiSize::Md, .heightMode = guikit::SizeMode::Stretch})) {
+                if (auto workspaceRow = ui.Row({.gap = 12.0f, .heightMode = guikit::SizeMode::Stretch})) {
                     // Collapsible Style Inspector Sidebar
                     if (showSidebar) {
                         if (auto sidebarBox = ui.Box({
@@ -402,7 +402,7 @@ int main(int argc, char* argv[]) {
                             .theme = &inspectorTheme,
                             .scale = 1.0f
                         })) {
-                            if (auto sidebarCard = ui.Card({.gap = guikit::UiSize::Sm, .heightMode = guikit::SizeMode::Stretch})) {
+                            if (auto sidebarCard = ui.Card({.gap = 8.0f, .heightMode = guikit::SizeMode::Stretch})) {
                                 ui.Heading({
                                     .title = "Style Inspector",
                                     .subtitle = "Live Token Tuning",
@@ -418,7 +418,7 @@ int main(int argc, char* argv[]) {
                                     .fullWidth = true
                                 });
 
-                                if (auto sidebarScroll = ui.ScrollArea({.gap = guikit::UiSize::Sm})) {
+                                if (auto sidebarScroll = ui.ScrollArea({.gap = 8.0f})) {
                                     auto& th = appTheme;
                                     if (sidebarTabIndex == 0) {
                                         // === GEOMETRY TAB ===
@@ -448,53 +448,38 @@ int main(int argc, char* argv[]) {
                                             ui.InvalidateAll();
                                         }
 
-                                        // 3. Card Surface Geometry (UiSize StepSliders)
+                                        // 3. Card Surface Geometry (Pixel Sliders)
                                         ui.Heading({.title = "Card Surface", .size = guikit::UiSize::Sm, .divider = true});
-                                        if (ui.StepSlider(cardRadius, {
+                                        if (ui.Slider(cardRadius, 0.0f, 24.0f, {
                                             .label = "Corner Radius",
-                                            .showTicks = true,
-                                            .showLabels = true,
-                                            .showValue = true,
-                                            .includeNone = true
+                                            .format = "%.0f px"
                                         }).changed) {
                                             ui.InvalidateAll();
                                         }
-                                        if (ui.StepSlider(cardPadding, {
+                                        if (ui.Slider(cardPadding, 0.0f, 32.0f, {
                                             .label = "Internal Padding",
-                                            .showTicks = true,
-                                            .showLabels = true,
-                                            .showValue = true,
-                                            .includeNone = true
+                                            .format = "%.0f px"
                                         }).changed) {
                                             ui.InvalidateAll();
                                         }
-                                        if (ui.StepSlider(cardGap, {
+                                        if (ui.Slider(cardGap, 0.0f, 24.0f, {
                                             .label = "Child Element Gap",
-                                            .showTicks = true,
-                                            .showLabels = true,
-                                            .showValue = true,
-                                            .includeNone = true
+                                            .format = "%.0f px"
                                         }).changed) {
                                             ui.InvalidateAll();
                                         }
 
-                                        // 4. Layout & Grid Spacing (UiSize StepSliders)
+                                        // 4. Layout & Grid Spacing (Pixel Sliders)
                                         ui.Heading({.title = "Layout & Grid", .size = guikit::UiSize::Sm, .divider = true});
-                                        if (ui.StepSlider(gridGap, {
+                                        if (ui.Slider(gridGap, 0.0f, 32.0f, {
                                             .label = "Grid Cell Gap",
-                                            .showTicks = true,
-                                            .showLabels = true,
-                                            .showValue = true,
-                                            .includeNone = true
+                                            .format = "%.0f px"
                                         }).changed) {
                                             ui.InvalidateAll();
                                         }
-                                        if (ui.StepSlider(layoutGap, {
+                                        if (ui.Slider(layoutGap, 0.0f, 32.0f, {
                                             .label = "Column / Section Gap",
-                                            .showTicks = true,
-                                            .showLabels = true,
-                                            .showValue = true,
-                                            .includeNone = true
+                                            .format = "%.0f px"
                                         }).changed) {
                                             ui.InvalidateAll();
                                         }
@@ -517,11 +502,11 @@ int main(int argc, char* argv[]) {
                                             .stretch = true
                                         })) {
                                             controlsSize = guikit::UiSize::Md;
-                                            cardRadius = guikit::UiSize::Md;
-                                            cardGap = guikit::UiSize::Sm;
-                                            cardPadding = guikit::UiSize::Md;
-                                            layoutGap = guikit::UiSize::Sm;
-                                            gridGap = guikit::UiSize::Md;
+                                            cardRadius = 8.0f;
+                                            cardGap = 8.0f;
+                                            cardPadding = 16.0f;
+                                            layoutGap = 8.0f;
+                                            gridGap = 12.0f;
                                             headingSize = guikit::UiSize::Md;
                                             appTheme.density = guikit::Density::Standard;
                                             appTheme.SetDensity(appTheme.density);
@@ -622,7 +607,7 @@ int main(int argc, char* argv[]) {
                                         }
 
                                         ui.Heading({.title = "Border Contrast", .size = guikit::UiSize::Sm, .divider = true});
-                                        if (auto row = ui.Row({.gap = guikit::UiSize::Xs})) {
+                                        if (auto row = ui.Row({.gap = 4.0f})) {
                                             if (ui.Button({.label = "Subtle", .stretch = true})) {
                                                 th.palette.border = guikit::Color::Hex(0x33415560);
                                                 ui.InvalidateAll();
@@ -800,7 +785,7 @@ int main(int argc, char* argv[]) {
                                     ui.Text(ui.Format("Value: {}", counter), {.role = guikit::TextRole::HeadlineMedium, .variant = guikit::UiVariant::Info});
                                 }
 
-                                if (auto togglesRow = ui.Wrap({.gap = guikit::UiSize::Lg, .align = guikit::Alignment::Center})) {
+                                if (auto togglesRow = ui.Wrap({.gap = 16.0f, .align = guikit::Alignment::Center})) {
                                     ui.Checkbox(showTelemetry, {.label = "Show Telemetry", .variant = guikit::UiVariant::Info});
                                     if (ui.Switch(formMode, {
                                         .label = "Form Mode",
@@ -902,7 +887,7 @@ int main(int argc, char* argv[]) {
                                 }
 
                                 ui.Heading({.title = "Horizontal Carousel Ribbon", .subtitle = "Autonomous scroll container with navigation arrows and mouse wheel support.", .size = headingSize});
-                                if (auto ribbon = ui.Carousel({.gap = guikit::UiSize::Sm})) {
+                                if (auto ribbon = ui.Carousel({.gap = 8.0f})) {
                                     for (int k = 1; k <= 10; ++k) {
                                         ui.Button({
                                             .label = ui.Format("Module #{:02d}", k),

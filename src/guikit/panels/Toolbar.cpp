@@ -61,7 +61,7 @@ ToolbarScope Toolbar::Open(
     Node* node = ctx.CreateNode(NodeType::Container, id);
     node->direction = FlexDirection::Row;
     node->align = Alignment::Center;
-    node->gap = opts.gap.has_value() ? ctx.GetTheme().GetGap(*opts.gap) : ctx.GetTheme().GetGap(activeSize);
+    node->gap = opts.gap.value_or(ctx.GetTheme().GetGap(activeSize));
 
     Padding toolbarPadding;
     if (opts.padding.has_value()) {
@@ -89,7 +89,7 @@ ToolbarScope Toolbar::Open(
     node->backgroundColor = opts.backgroundColor.a > 0 ? opts.backgroundColor : pal.surface;
     node->borderColor = opts.borderColor.a > 0 ? opts.borderColor : pal.border;
     node->borderWidth = (opts.borderColor.a > 0) ? 1.0f : 0.0f;
-    node->cornerRadius = opts.radius.has_value() ? ctx.GetTheme().GetRadius(*opts.radius) : ctx.GetTheme().GetRadius(activeSize);
+    node->cornerRadius = opts.radius.value_or(ctx.GetTheme().GetRadius(activeSize));
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
 

@@ -16,7 +16,7 @@ struct Node;
 
 /// Configuration options for Carousel horizontal scroll container.
 struct CarouselOptions {
-    std::optional<UiSize> gap{std::nullopt};        ///< Gap between items in the ribbon (nullopt = from theme)
+    std::optional<float> gap{std::nullopt};        ///< Gap between items in the ribbon (nullopt = from theme)
     std::optional<Padding> padding{std::nullopt};   ///< Viewport content padding (nullopt = zero)
     Alignment align{Alignment::Center};             ///< Vertical alignment of items
     Justify justify{Justify::Start};                ///< Horizontal item distribution

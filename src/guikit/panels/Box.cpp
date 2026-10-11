@@ -26,12 +26,12 @@ ContainerScope Box::Open(
     Node* node = ctx.CreateNode(NodeType::Box, id);
     node->theme = pushedTheme;
     node->direction = FlexDirection::Column;
-    node->gap = opts.gap.has_value() ? ctx.GetTheme().GetGap(*opts.gap) : ctx.GetTheme().GetGap(activeSize);
+    node->gap = opts.gap.value_or(ctx.GetTheme().GetGap(activeSize));
     node->padding = ctx.GetTheme().ResolvePadding(opts.padding);
     node->backgroundColor = opts.backgroundColor;
     node->borderColor = opts.borderColor;
     node->borderWidth = opts.borderWidth;
-    node->cornerRadius = opts.radius.has_value() ? ctx.GetTheme().GetRadius(*opts.radius) : 0.0f;
+    node->cornerRadius = opts.radius.value_or(0.0f);
     node->clipChildren = opts.clipChildren;
     node->widthMode = opts.widthMode;
     node->heightMode = opts.heightMode;

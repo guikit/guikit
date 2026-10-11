@@ -155,7 +155,7 @@ void TestHeaderRowTextMetricsAndNoOverlap() {
     WidgetResponse bFlex;
 
     auto renderRow = [&]() {
-        if (auto row = ui.Row({.gap = UiSize::Sm})) {
+        if (auto row = ui.Row({.gap = 8.0f})) {
             if (auto b1 = ui.Box({.fixedWidth = 120.0f})) {
                 bOverview = ui.Button({.label = "Overview"});
             }
@@ -193,9 +193,9 @@ void TestFooterExitButtonStaysVisibleInNarrowWindow() {
 
     WidgetResponse exitBtn;
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = UiSize::Lg, .padding = Padding::All(24.0f)})) {
+        if (auto col = ui.Column({.gap = 16.0f, .padding = Padding::All(24.0f)})) {
             // Wide header (requires ~600px+)
-            if (auto header = ui.Row({.gap = UiSize::Md})) {
+            if (auto header = ui.Row({.gap = 12.0f})) {
                 ui.Text("GUIKIT GUI", {.role = TextRole::TitleLarge});
                 ui.Text("| Autonomous Vector GUI Engine", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
                 ui.Spacer();
@@ -205,7 +205,7 @@ void TestFooterExitButtonStaysVisibleInNarrowWindow() {
             ui.Spacer();
 
             // Footer with Exit button pushed to right
-            if (auto footer = ui.Row({.gap = UiSize::Md})) {
+            if (auto footer = ui.Row({.gap = 12.0f})) {
                 ui.Text("Zero heap allocations per frame | 0% idle CPU", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
                 ui.Spacer();
                 if (auto b = ui.Box({.fixedWidth = 80.0f})) {
@@ -248,12 +248,12 @@ void TestWrapContainerInContextApi() {
 
     ui.GetTheme().Spacing().md = 10.0f;
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = UiSize::Md, .padding = Padding::All(20.0f)})) {
+        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(20.0f)})) {
             // Available width inside padding = 300 - 40 = 260.
             // b1 (fixed 120), b2 (fixed 120), b3 (fixed 120)
             // b1 (120) + gap (10) + b2 (120) = 250 <= 260 (Line 1)
             // b3 wraps to Line 2! (y = 20 + 36 + 10 = 66)
-            if (auto wrap = ui.Wrap({.gap = UiSize::Md, .runGap = UiSize::Md})) {
+            if (auto wrap = ui.Wrap({.gap = 10.0f, .runGap = 10.0f})) {
                 if (auto box1 = ui.Box({.fixedWidth = 120.0f, .fixedHeight = 36.0f})) {
                     b1 = ui.Button({.label = "Button 1"});
                 }
@@ -299,25 +299,25 @@ void TestFooterExitButtonPushedToBottomWithCardAndWrap() {
 
     WidgetResponse exitBtn;
     auto renderUI = [&]() {
-        if (auto mainCol = ui.Column({.gap = UiSize::Lg, .padding = Padding::All(24.0f)})) {
-            if (auto header = ui.Row({.gap = UiSize::Md})) {
+        if (auto mainCol = ui.Column({.gap = 16.0f, .padding = Padding::All(24.0f)})) {
+            if (auto header = ui.Row({.gap = 12.0f})) {
                 ui.Text("GUIKIT GUI", {.role = TextRole::TitleLarge});
                 ui.Spacer();
             }
-            if (auto navRow = ui.Row({.gap = UiSize::Sm})) {
+            if (auto navRow = ui.Row({.gap = 8.0f})) {
                 if (auto box = ui.Box({.fixedWidth = 120.0f})) {
                     ui.Button({.label = "Overview"});
                 }
             }
-            if (auto card = ui.Box({.gap = UiSize::Lg, .padding = Padding::All(20.0f)})) {
+            if (auto card = ui.Box({.gap = 16.0f, .padding = Padding::All(20.0f)})) {
                 ui.Text("Card title", {.role = TextRole::HeadlineMedium});
-                if (auto wrap = ui.Wrap({.gap = UiSize::Md, .runGap = UiSize::Sm})) {
+                if (auto wrap = ui.Wrap({.gap = 12.0f, .runGap = 8.0f})) {
                     ui.Button({.label = "Btn 1"});
                     ui.Button({.label = "Btn 2"});
                 }
             }
             ui.Spacer();
-            if (auto footer = ui.Row({.gap = UiSize::Md})) {
+            if (auto footer = ui.Row({.gap = 12.0f})) {
                 ui.Text("Footer text", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
                 ui.Spacer();
                 if (auto box = ui.Box({.fixedWidth = 80.0f})) {
@@ -461,7 +461,7 @@ void TestBoxSlotWithUiSizeToken() {
     WidgetResponse btnSquareIcon;
 
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = UiSize::Md})) {
+        if (auto col = ui.Column({.gap = 12.0f})) {
             if (auto slotLg = ui.Box({.size = UiSize::Lg})) {
                 btnLarge = ui.Button({.label = "Large Action", .variant = UiVariant::Primary});
             }
@@ -501,7 +501,7 @@ void TestButtonWidgetRunAndResponseChaining() {
     ButtonResponse btn2;
 
     auto renderUI = [&]() {
-        if (auto row = ui.Row({.gap = UiSize::Sm})) {
+        if (auto row = ui.Row({.gap = 8.0f})) {
             // Autonomous Button::Run via ui.Button
             btn1 = ui.Button({
                 .label = "Next",
@@ -570,14 +570,14 @@ void TestUiStringAndContextFormatting() {
     canvas.SetTarget(pixels.data(), width, height, width);
 
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
-    if (auto col = ui.Column({.gap = UiSize::Sm})) {
+    if (auto col = ui.Column({.gap = 8.0f})) {
         ui.Text(ui.Format("Value: {}", 99));
         ui.Button({.label = ui.String("Action")});
     }
     ui.EndFrame(canvas);
 
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
-    if (auto col = ui.Column({.gap = UiSize::Sm})) {
+    if (auto col = ui.Column({.gap = 8.0f})) {
         ui.Text(ui.Format("Value: {}", 100));
         ui.Button({.label = ui.String("Action")});
     }
@@ -597,7 +597,7 @@ void TestBoxContainerGapSpacing() {
     WidgetResponse b2;
 
     auto renderUI = [&]() {
-        if (auto card = ui.Box({.gap = UiSize::Lg, .padding = Padding::All(10.0f)})) {
+        if (auto card = ui.Box({.gap = 16.0f, .padding = Padding::All(10.0f)})) {
             b1 = ui.Button({.label = "First Item"});
             b2 = ui.Button({.label = "Second Item"});
         }
@@ -657,7 +657,7 @@ void TestAutonomousTextWidgetAndTypographyRoles() {
     Response rCustom;
 
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = UiSize::Sm, .padding = Padding::All(16.0f)})) {
+        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(16.0f)})) {
             rDisp = ui.Text("Display Title", {.role = TextRole::DisplayLarge});
             rHead = ui.Text("Headline Section", {.role = TextRole::HeadlineMedium, .variant = UiVariant::Primary});
             rTitle = ui.Text("Title Header", {.role = TextRole::TitleLarge});
@@ -765,7 +765,7 @@ void TestSwitchAndCheckboxWidgets() {
     Response rOptCheck;
 
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = UiSize::Md, .padding = Padding::All(16.0f)})) {
+        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
             rSwitch = ui.Switch(switchState, {.label = "Dark Mode"});
             rCheck = ui.Checkbox(checkState, {.label = "VSync"});
             rToggle = ui.Switch(toggleState, {.label = "Turbo Mode", .labelPlacement = Placement::Leading});
@@ -934,7 +934,7 @@ void TestInputFieldWidget() {
     Response rOptInput;
 
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = UiSize::Lg, .padding = Padding::All(20.0f)})) {
+        if (auto col = ui.Column({.gap = 16.0f, .padding = Padding::All(20.0f)})) {
             // Numeric field with unit and description (as in user screenshot)
             rSpeed = ui.InputField(speedDrop, {
                 .label = "Speed Drop dF/dt",
@@ -1079,7 +1079,7 @@ void TestSelectWidget() {
     WidgetResponse rProfile;
 
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = UiSize::Md, .padding = Padding::All(20.0f)})) {
+        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(20.0f)})) {
             rBaud = ui.Select(baudIndex, {"9600", "19200", "38400", "115200"}, {
                 .label = "Baud Rate",
                 .description = "Serial bus communication speed",
@@ -1394,7 +1394,7 @@ void TestGridAndCardLayout() {
 
     auto renderUI = [&]() {
         // 1. Standalone Grid with 12-column slots
-        if (auto grid = ui.Grid({.gap = UiSize::Md})) {
+        if (auto grid = ui.Grid({.gap = 12.0f})) {
             if (auto c1 = grid.Cell6()) {
                 sw1Res = ui.Switch(switchVal1, {.label = "Sensor A"});
             }
@@ -1563,12 +1563,12 @@ void TestScrollAreaImmediateMode() {
 
     // Verify ScrollAreaOptions with gap and horizontal orientation
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
-    if (auto scrollH = ui.ScrollArea({.orientation = Orientation::Horizontal, .gap = UiSize::Sm})) {
+    if (auto scrollH = ui.ScrollArea({.orientation = Orientation::Horizontal, .gap = 8.0f})) {
         Node* n = scrollH.GetNode();
         CHECK(n != nullptr);
         if (n) {
             CHECK(n->direction == FlexDirection::Row);
-            CHECK(n->gap == UiTheme::Dark().GetGap(UiSize::Sm));
+            CHECK(n->gap == 8.0f);
         }
     }
     ui.EndFrame(canvas);
@@ -1977,7 +1977,7 @@ void TestLabelVariantsStableSizing() {
     Response btn;
 
     auto render = [&]() {
-        if (auto row = ui.Row({.gap = UiSize::Sm})) {
+        if (auto row = ui.Row({.gap = 8.0f})) {
             btn = ui.Button({
                 .label = state ? "VSync: ON" : "VSync: OFF",
                 .labelVariants = {"VSync: ON", "VSync: OFF"}
@@ -2357,7 +2357,7 @@ void TestHeadingWidgetWorkflow() {
     Response head1, head2, head3, head4;
     std::string dynamicSubtitle = "Initial Subtitle";
     auto renderUI = [&]() {
-        if (auto col = ui.Column({.gap = UiSize::Md, .padding = Padding::All(16.0f)})) {
+        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
             head1 = ui.Heading({.title = "System Overview", .subtitle = dynamicSubtitle});
             head2 = ui.Heading({
                 .title = "Telemetry Stream",
@@ -2693,7 +2693,7 @@ void TestCarouselWidgetAndTabBarOverflow() {
     WidgetResponse b1, b2, b3;
     Node* carouselNode = nullptr;
     auto renderCarousel = [&]() {
-        if (auto c = ui.Carousel({.gap = UiSize::Sm})) {
+        if (auto c = ui.Carousel({.gap = 8.0f})) {
             carouselNode = c.GetNode();
             b1 = ui.Button({.label = "Button 1"});
             b2 = ui.Button({.label = "Button 2"});
@@ -2837,8 +2837,8 @@ void TestDebugBoundsAndInspectMode() {
 
     // Frame with debug bounds and inspect mode enabled
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
-    if (auto col = ui.Column({.gap = UiSize::Sm, .padding = Padding::All(12.0f)})) {
-        if (auto row = ui.Row({.gap = UiSize::Md})) {
+    if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f)})) {
+        if (auto row = ui.Row({.gap = 12.0f})) {
             ui.Button({.label = "Inspect Me"});
             ui.Spacer();
             ui.Switch(false, {.label = "Toggle Switch"});
@@ -2930,16 +2930,16 @@ void TestContainersAndLayoutsReorganization() {
     ui.BeginFrame({800.0f, 600.0f});
 
     // 1. Layouts: Row, Column, Wrap, Grid
-    if (auto col = ui.Column({.gap = UiSize::Md})) {
-        if (auto row = ui.Row({.gap = UiSize::Sm, .align = Alignment::Center})) {
+    if (auto col = ui.Column({.gap = 12.0f})) {
+        if (auto row = ui.Row({.gap = 8.0f, .align = Alignment::Center})) {
             ui.Button({.label = "Btn 1"});
             ui.Button({.label = "Btn 2"});
         }
-        if (auto wrap = ui.Wrap({.gap = UiSize::Xs, .runGap = UiSize::Sm})) {
+        if (auto wrap = ui.Wrap({.gap = 4.0f, .runGap = 8.0f})) {
             ui.Button({.label = "W1"});
             ui.Button({.label = "W2"});
         }
-        if (auto grid = ui.Grid({.columns = 12, .gap = UiSize::Md})) {
+        if (auto grid = ui.Grid({.columns = 12, .gap = 12.0f})) {
             if (auto c6 = grid.Cell6()) {
                 ui.Text("Half Width Cell");
             }
@@ -2957,42 +2957,42 @@ void TestContainersAndLayoutsReorganization() {
     }
 
     // 2. Panels: Box, Card, ScrollArea, Carousel
-    if (ContainerScope box = ui.Box({.gap = UiSize::Sm, .padding = Padding::All(8.0f), .radius = UiSize::Md})) {
+    if (ContainerScope box = ui.Box({.gap = 8.0f, .padding = Padding::All(8.0f), .radius = 6.0f})) {
         Node* node = box.GetNode();
         CHECK(node != nullptr);
-        CHECK(node->cornerRadius == ui.GetTheme().GetRadius(UiSize::Md));
+        CHECK(node->cornerRadius == 6.0f);
         CHECK(node->padding.left == 8.0f);
         ui.Text("Inside Box");
     }
 
-    if (auto card = ui.Card({.gap = UiSize::Md, .padding = Padding::All(16.0f), .radius = UiSize::Lg})) {
+    if (auto card = ui.Card({.gap = 12.0f, .padding = Padding::All(16.0f), .radius = 8.0f})) {
         Node* node = card.GetNode();
         CHECK(node != nullptr);
-        CHECK(node->cornerRadius == ui.GetTheme().GetRadius(UiSize::Lg));
+        CHECK(node->cornerRadius == 8.0f);
         CHECK(node->padding.top == 16.0f);
         ui.Text("Inside Card");
     }
 
-    if (auto scroll = ui.ScrollArea({.orientation = Orientation::Vertical, .gap = UiSize::Sm, .padding = Padding::Symmetric(12.0f, 0.0f)})) {
+    if (auto scroll = ui.ScrollArea({.orientation = Orientation::Vertical, .gap = 8.0f, .padding = Padding::Symmetric(12.0f, 0.0f)})) {
         Node* node = scroll.GetNode();
         CHECK(node != nullptr);
         CHECK(node->padding.left == 12.0f);
-        CHECK(node->gap == ui.GetTheme().GetGap(UiSize::Sm));
+        CHECK(node->gap == 8.0f);
         ui.Button({.label = "Scroll Item 1"});
     }
 
-    if (auto carousel = ui.Carousel({.gap = UiSize::Lg, .padding = Padding::All(6.0f), .align = Alignment::End, .justify = Justify::Center})) {
+    if (auto carousel = ui.Carousel({.gap = 16.0f, .padding = Padding::All(6.0f), .align = Alignment::End, .justify = Justify::Center})) {
         Node* node = carousel.GetNode();
         CHECK(node != nullptr);
         CHECK(node->align == Alignment::End);
         CHECK(node->justify == Justify::Center);
         CHECK(node->padding.left == 6.0f);
-        CHECK(node->gap == ui.GetTheme().GetGap(UiSize::Lg));
+        CHECK(node->gap == 16.0f);
         ui.Button({.label = "Carousel Item 1"});
     }
 
     // 3. Static layout facades: Row::Open, Column::Open, Wrap::Open, Grid::Open, Spacer::Run
-    if (auto col2 = Column::Open(ui, {.gap = UiSize::Sm})) {
+    if (auto col2 = Column::Open(ui, {.gap = 8.0f})) {
         if (auto row2 = Row::Open(ui)) {
             ui.Button({.label = "Static Row Btn"});
             Spacer::Run(ui);
@@ -3323,6 +3323,102 @@ void TestSliderAndStepSliderWidgets() {
     CHECK(activeRadius == UiSize::Md);
 }
 
+void TestPixelGeometryAndWidgetUiSizeDecoupling() {
+    using namespace guikit;
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 800;
+    const uint32_t height = 600;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    ButtonResponse btnLg;
+    ButtonResponse btnSm;
+
+    auto render = [&]() {
+        // 1. Explicit arbitrary float pixel values for layout containers
+        if (auto row = ui.Row({.gap = 13.5f, .padding = Padding::Symmetric(15.0f, 7.5f)})) {
+            Node* n = row.GetNode();
+            CHECK(n != nullptr);
+            CHECK_NEAR(n->gap, 13.5f, 0.001f);
+            CHECK_NEAR(n->padding.left, 15.0f, 0.001f);
+            CHECK_NEAR(n->padding.top, 7.5f, 0.001f);
+        }
+
+        if (auto col = ui.Column({.gap = 21.25f})) {
+            Node* n = col.GetNode();
+            CHECK(n != nullptr);
+            CHECK_NEAR(n->gap, 21.25f, 0.001f);
+        }
+
+        if (auto wrap = ui.Wrap({.gap = 9.0f, .runGap = 14.5f})) {
+            Node* n = wrap.GetNode();
+            CHECK(n != nullptr);
+            CHECK_NEAR(n->gap, 9.0f, 0.001f);
+            CHECK_NEAR(n->runGap, 14.5f, 0.001f);
+        }
+
+        if (auto grid = ui.Grid({.gap = 11.0f, .runGap = 18.0f})) {
+            Node* n = grid.GetNode();
+            CHECK(n != nullptr);
+            CHECK_NEAR(n->gap, 11.0f, 0.001f);
+            CHECK_NEAR(n->runGap, 18.0f, 0.001f);
+
+            if (auto cell = grid.Cell(6, {.gap = 5.5f, .padding = 10.0f})) {
+                Node* cn = cell.GetNode();
+                CHECK(cn != nullptr);
+                CHECK_NEAR(cn->gap, 5.5f, 0.001f);
+                CHECK_NEAR(cn->padding.left, 10.0f, 0.001f);
+            }
+        }
+
+        // 2. Card and Box with float radius and single float padding
+        if (auto card = ui.Card({.gap = 7.0f, .padding = 20.0f, .radius = 12.5f})) {
+            Node* n = card.GetNode();
+            CHECK(n != nullptr);
+            CHECK_NEAR(n->gap, 7.0f, 0.001f);
+            CHECK_NEAR(n->padding.left, 20.0f, 0.001f);
+            CHECK_NEAR(n->cornerRadius, 12.5f, 0.001f);
+        }
+
+        if (auto box = ui.Box({.gap = 16.0f, .padding = 8.0f, .radius = 4.0f})) {
+            Node* n = box.GetNode();
+            CHECK(n != nullptr);
+            CHECK_NEAR(n->gap, 16.0f, 0.001f);
+            CHECK_NEAR(n->padding.left, 8.0f, 0.001f);
+            CHECK_NEAR(n->cornerRadius, 4.0f, 0.001f);
+        }
+
+        // 3. Fallback to theme defaults when gap / radius are omitted (nullopt)
+        if (auto defaultCard = ui.Card({.size = UiSize::Lg})) {
+            Node* n = defaultCard.GetNode();
+            CHECK(n != nullptr);
+            CHECK_NEAR(n->gap, ui.GetTheme().GetGap(UiSize::Lg), 0.001f);
+            CHECK_NEAR(n->cornerRadius, ui.GetTheme().GetRadius(UiSize::Lg), 0.001f);
+            CHECK_NEAR(n->padding.left, ui.GetTheme().GetPadding(UiSize::Lg).left, 0.001f);
+
+            // Child inherits UiSize::Lg height (48px)
+            btnLg = ui.Button({.label = "Inherited Lg"});
+
+            // Explicit override to UiSize::Sm height (32px)
+            btnSm = ui.Button({.label = "Explicit Sm", .size = UiSize::Sm});
+        }
+    };
+
+    // Frame 1: Measure and layout
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    render();
+    ui.EndFrame(canvas);
+
+    // Frame 2: Retrieve cached bounds from previous frame
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    render();
+    ui.EndFrame(canvas);
+
+    CHECK_NEAR(btnLg.rect.h, 48.0f, 0.001f);
+    CHECK_NEAR(btnSm.rect.h, 32.0f, 0.001f);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -3365,6 +3461,7 @@ int main() {
     TestContextCleanArchitectureAndStateGC();
     TestScopedThemeAndScaleOverrides();
     TestSliderAndStepSliderWidgets();
+    TestPixelGeometryAndWidgetUiSizeDecoupling();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

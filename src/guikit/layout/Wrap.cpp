@@ -26,8 +26,8 @@ ContainerScope Wrap::Open(
     Node* node = ctx.CreateNode(NodeType::Wrap, id);
     node->theme = pushedTheme;
     node->direction = FlexDirection::Wrap;
-    node->gap = opts.gap.has_value() ? ctx.GetTheme().GetGap(*opts.gap) : ctx.GetTheme().GetGap(activeSize);
-    node->runGap = opts.runGap.has_value() ? ctx.GetTheme().GetGap(*opts.runGap) : ctx.GetTheme().GetGap(activeSize);
+    node->gap = opts.gap.value_or(ctx.GetTheme().GetGap(activeSize));
+    node->runGap = opts.runGap.value_or(node->gap);
     node->padding = ctx.GetTheme().ResolvePadding(opts.padding);
     node->align = opts.align;
     node->justify = opts.justify;

@@ -32,7 +32,7 @@ ContainerScope ScrollArea::Open(
     node->widthMode = SizeMode::Stretch;
     node->heightMode = SizeMode::Stretch;
     node->flexGrow = 1.0f;
-    node->gap = opts.gap.has_value() ? ctx.GetTheme().GetGap(*opts.gap) : 0.0f;
+    node->gap = opts.gap.value_or(0.0f);
     node->padding = ctx.GetTheme().ResolvePadding(opts.padding);
     node->scrollOrientation = opts.orientation;
     node->scrollbarPolicy = opts.scrollbar;

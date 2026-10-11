@@ -13,7 +13,7 @@ class Context;
 
 /// Options for configuring a visual Box container.
 struct BoxOptions {
-    std::optional<UiSize> gap{std::nullopt};        ///< Gap between stacked children (nullopt = from theme)
+    std::optional<float> gap{std::nullopt};        ///< Gap between stacked children (nullopt = from theme)
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Fit};
     float fixedWidth{0.0f};
@@ -22,7 +22,7 @@ struct BoxOptions {
     Color backgroundColor{0, 0, 0, 0};
     Color borderColor{0, 0, 0, 0};
     float borderWidth{0.0f};
-    std::optional<UiSize> radius{std::nullopt};     ///< Corner radius token (nullopt = zero / sharp)
+    std::optional<float> radius{std::nullopt};     ///< Corner radius in pixels (nullopt = zero / sharp)
     bool clipChildren{false};
     std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
