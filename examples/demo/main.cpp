@@ -209,10 +209,10 @@ int main(int argc, char* argv[]) {
             if (auto mainCol = ui.Column()) {
                 // Header Bar
                 if (auto header = ui.Row({.align = guikit::Alignment::Center})) {
-                    ui.Title("GUIKIT GUI", guikit::UiVariant::Info);
-                    ui.Caption("| Autonomous Vector GUI Engine");
+                    ui.Text("GUIKIT GUI", {.role = guikit::TextRole::TitleLarge, .variant = guikit::UiVariant::Info});
+                    ui.Text("| Autonomous Vector GUI Engine", {.role = guikit::TextRole::LabelMedium, .variant = guikit::UiVariant::Muted});
                     ui.Spacer(); // Push build badge to right
-                    ui.Caption("C++20 Immediate + ThorVG");
+                    ui.Text("C++20 Immediate + ThorVG", {.role = guikit::TextRole::LabelMedium, .variant = guikit::UiVariant::Muted});
                 }
 
                 // Engine HUD Toolbar
@@ -565,7 +565,7 @@ int main(int argc, char* argv[]) {
 
                 // Sticky Footer Bar
                 if (auto footer = ui.Row({.align = guikit::Alignment::Center})) {
-                    ui.Caption(metrics.GetStatusString(), guikit::UiVariant::Muted);
+                    ui.Text(metrics.GetStatusString(), {.role = guikit::TextRole::LabelMedium, .variant = guikit::UiVariant::Muted});
                     ui.Spacer();
                     if (ui.Button({.label = "Exit", .icon = guikit::Icon::Close(), .variant = guikit::UiVariant::Ghost})) {
                         running = false;

@@ -313,22 +313,6 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
-    template <typename... Args>
-    Response TextFormat(
-        std::format_string<Args...> fmt,
-        Args&&... args
-    ) {
-        return Text(Format(fmt, std::forward<Args>(args)...));
-    }
-
-    // Semantic typography shorthands
-    Response Display(std::string_view label, UiVariant variant = UiVariant::Default, std::source_location loc = std::source_location::current());
-    Response Headline(std::string_view label, UiVariant variant = UiVariant::Default, std::source_location loc = std::source_location::current());
-    Response Title(std::string_view label, UiVariant variant = UiVariant::Default, std::source_location loc = std::source_location::current());
-    Response Subtitle(std::string_view label, UiVariant variant = UiVariant::Default, std::source_location loc = std::source_location::current());
-    Response Body(std::string_view label, UiVariant variant = UiVariant::Default, std::source_location loc = std::source_location::current());
-    Response Caption(std::string_view label, UiVariant variant = UiVariant::Muted, std::source_location loc = std::source_location::current());
-    Response Code(std::string_view label, UiVariant variant = UiVariant::Default, std::source_location loc = std::source_location::current());
 
     // --- Heading Widget ---
     Response Heading(

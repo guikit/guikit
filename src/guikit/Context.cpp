@@ -241,34 +241,6 @@ Response Context::Text(std::string_view label, TextOptions opts, std::source_loc
     return Run<guikit::Text>(label, opts, loc);
 }
 
-Response Context::Display(std::string_view label, UiVariant variant, std::source_location loc) {
-    return Text(label, {.role = TextRole::DisplayLarge, .variant = variant}, loc);
-}
-
-Response Context::Headline(std::string_view label, UiVariant variant, std::source_location loc) {
-    return Text(label, {.role = TextRole::HeadlineMedium, .variant = variant}, loc);
-}
-
-Response Context::Title(std::string_view label, UiVariant variant, std::source_location loc) {
-    return Text(label, {.role = TextRole::TitleLarge, .variant = variant}, loc);
-}
-
-Response Context::Subtitle(std::string_view label, UiVariant variant, std::source_location loc) {
-    return Text(label, {.role = TextRole::TitleMedium, .variant = variant}, loc);
-}
-
-Response Context::Body(std::string_view label, UiVariant variant, std::source_location loc) {
-    return Text(label, {.role = TextRole::BodyMedium, .variant = variant}, loc);
-}
-
-Response Context::Caption(std::string_view label, UiVariant variant, std::source_location loc) {
-    return Text(label, {.role = TextRole::LabelMedium, .variant = variant}, loc);
-}
-
-Response Context::Code(std::string_view label, UiVariant variant, std::source_location loc) {
-    return Text(label, {.role = TextRole::CodeMedium, .variant = variant}, loc);
-}
-
 Response Context::Heading(HeadingOptions opts, std::source_location loc) {
     return Run<guikit::Heading>(opts, loc);
 }

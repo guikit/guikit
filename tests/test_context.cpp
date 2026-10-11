@@ -196,17 +196,17 @@ void TestFooterExitButtonStaysVisibleInNarrowWindow() {
         if (auto col = ui.Column({.gap = UiSize::Lg, .padding = Padding::All(24.0f)})) {
             // Wide header (requires ~600px+)
             if (auto header = ui.Row({.gap = UiSize::Md})) {
-                ui.Title("GUIKIT GUI");
-                ui.Caption("| Autonomous Vector GUI Engine");
+                ui.Text("GUIKIT GUI", {.role = TextRole::TitleLarge});
+                ui.Text("| Autonomous Vector GUI Engine", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
                 ui.Spacer();
-                ui.Caption("C++20 Immediate + ThorVG");
+                ui.Text("C++20 Immediate + ThorVG", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
             }
 
             ui.Spacer();
 
             // Footer with Exit button pushed to right
             if (auto footer = ui.Row({.gap = UiSize::Md})) {
-                ui.Caption("Zero heap allocations per frame | 0% idle CPU");
+                ui.Text("Zero heap allocations per frame | 0% idle CPU", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
                 ui.Spacer();
                 if (auto b = ui.Box({.fixedWidth = 80.0f})) {
                     exitBtn = ui.Button({.label = "Exit"});
@@ -301,7 +301,7 @@ void TestFooterExitButtonPushedToBottomWithCardAndWrap() {
     auto renderUI = [&]() {
         if (auto mainCol = ui.Column({.gap = UiSize::Lg, .padding = Padding::All(24.0f)})) {
             if (auto header = ui.Row({.gap = UiSize::Md})) {
-                ui.Title("GUIKIT GUI");
+                ui.Text("GUIKIT GUI", {.role = TextRole::TitleLarge});
                 ui.Spacer();
             }
             if (auto navRow = ui.Row({.gap = UiSize::Sm})) {
@@ -310,7 +310,7 @@ void TestFooterExitButtonPushedToBottomWithCardAndWrap() {
                 }
             }
             if (auto card = ui.Box({.gap = UiSize::Lg, .padding = Padding::All(20.0f)})) {
-                ui.Headline("Card title");
+                ui.Text("Card title", {.role = TextRole::HeadlineMedium});
                 if (auto wrap = ui.Wrap({.gap = UiSize::Md, .runGap = UiSize::Sm})) {
                     ui.Button({.label = "Btn 1"});
                     ui.Button({.label = "Btn 2"});
@@ -318,7 +318,7 @@ void TestFooterExitButtonPushedToBottomWithCardAndWrap() {
             }
             ui.Spacer();
             if (auto footer = ui.Row({.gap = UiSize::Md})) {
-                ui.Caption("Footer text");
+                ui.Text("Footer text", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
                 ui.Spacer();
                 if (auto box = ui.Box({.fixedWidth = 80.0f})) {
                     exitBtn = ui.Button({.label = "Exit"});
@@ -658,13 +658,13 @@ void TestAutonomousTextWidgetAndTypographyRoles() {
 
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = UiSize::Sm, .padding = Padding::All(16.0f)})) {
-            rDisp = ui.Display("Display Title");
-            rHead = ui.Headline("Headline Section", UiVariant::Primary);
-            rTitle = ui.Title("Title Header");
-            rSub = ui.Subtitle("Subtitle Header");
-            rBody = ui.Body("Standard body text content");
-            rCap = ui.Caption("Muted caption info");
-            rCode = ui.Code("auto x = 42;");
+            rDisp = ui.Text("Display Title", {.role = TextRole::DisplayLarge});
+            rHead = ui.Text("Headline Section", {.role = TextRole::HeadlineMedium, .variant = UiVariant::Primary});
+            rTitle = ui.Text("Title Header", {.role = TextRole::TitleLarge});
+            rSub = ui.Text("Subtitle Header", {.role = TextRole::TitleMedium});
+            rBody = ui.Text("Standard body text content", {.role = TextRole::BodyMedium});
+            rCap = ui.Text("Muted caption info", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
+            rCode = ui.Text("auto x = 42;", {.role = TextRole::CodeMedium});
             rCustom = ui.Text("Aligned End", {.role = TextRole::LabelLarge, .variant = UiVariant::Success, .align = Align::End});
         }
     };
@@ -2522,10 +2522,10 @@ void TestIndustrialDashboardNoBlackLines() {
         auto renderUI = [&]() {
             if (auto mainCol = ui.Column()) {
                 if (auto header = ui.Row({.align = Alignment::Center})) {
-                    ui.Title("GUIKIT GUI", UiVariant::Info);
-                    ui.Caption("| Autonomous Vector GUI Engine");
+                    ui.Text("GUIKIT GUI", {.role = TextRole::TitleLarge, .variant = UiVariant::Info});
+                    ui.Text("| Autonomous Vector GUI Engine", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
                     ui.Spacer();
-                    ui.Caption("C++20 Immediate + ThorVG");
+                    ui.Text("C++20 Immediate + ThorVG", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
                 }
 
                 if (auto tb = ui.Toolbar()) {
