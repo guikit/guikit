@@ -184,296 +184,43 @@ bool Context::IsDisabled() const {
 }
 
 ContainerScope Context::Row(RowOptions opts, std::source_location loc) {
-    const Id id = MakeChildId(loc);
-    const UiSize activeSize = opts.size.value_or(GetCurrentSize());
-    const bool activeDisabled = opts.disabled || IsDisabled();
-
-    Node* node = CreateNode(NodeType::Row, id);
-    node->direction = FlexDirection::Row;
-    node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
-    node->padding = m_theme.ResolvePadding(opts.padding);
-    node->align = opts.align;
-    node->justify = opts.justify;
-    node->heightMode = opts.heightMode;
-    node->widthMode = SizeMode::Stretch;
-    node->uiSize = activeSize;
-    node->disabled = activeDisabled;
-
-    PushSize(activeSize);
-    PushDisabled(activeDisabled);
-    PushContainer(node);
-    return ContainerScope(this, node);
+    return Row::Open(*this, opts, loc);
 }
 
 ContainerScope Context::Column(ColumnOptions opts, std::source_location loc) {
-    const Id id = MakeChildId(loc);
-    const UiSize activeSize = opts.size.value_or(GetCurrentSize());
-    const bool activeDisabled = opts.disabled || IsDisabled();
-
-    Node* node = CreateNode(NodeType::Column, id);
-    node->direction = FlexDirection::Column;
-    node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
-    node->padding = m_theme.ResolvePadding(opts.padding);
-    node->align = opts.align;
-    node->justify = opts.justify;
-    node->widthMode = opts.widthMode;
-    node->heightMode = opts.heightMode;
-    node->uiSize = activeSize;
-    node->disabled = activeDisabled;
-
-    PushSize(activeSize);
-    PushDisabled(activeDisabled);
-    PushContainer(node);
-    return ContainerScope(this, node);
-}
-
-ContainerScope Context::Box(BoxOptions opts, std::source_location loc) {
-    const Id id = MakeChildId(loc);
-    const UiSize activeSize = opts.size.value_or(GetCurrentSize());
-    const bool activeDisabled = opts.disabled || IsDisabled();
-
-    Node* node = CreateNode(NodeType::Box, id);
-    node->direction = FlexDirection::Column;
-    node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
-    node->widthMode = opts.widthMode;
-    node->heightMode = opts.heightMode;
-
-    if (opts.fixedWidth > 0.0f) {
-        node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = opts.fixedWidth;
-    }
-    if (opts.fixedHeight > 0.0f) {
-        node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = opts.fixedHeight;
-    }
-
-    // If explicit size token is set and no fixedHeight was provided, use token height
-    if (opts.size.has_value() && opts.fixedHeight <= 0.0f) {
-        node->fixedHeight = m_theme.GetMetrics(*opts.size).defaultHeight;
-        node->heightMode = SizeMode::Fixed;
-    }
-
-    node->padding = m_theme.ResolvePadding(opts.padding);
-    node->backgroundColor = opts.backgroundColor;
-    node->borderColor = opts.borderColor;
-    node->borderWidth = opts.borderWidth;
-    node->cornerRadius = opts.radius.has_value() ? m_theme.GetRadius(*opts.radius) : 0.0f;
-    node->clipChildren = opts.clipChildren;
-    node->uiSize = activeSize;
-    node->disabled = activeDisabled;
-
-    PushSize(activeSize);
-    PushDisabled(activeDisabled);
-    PushContainer(node);
-    return ContainerScope(this, node);
+    return Column::Open(*this, opts, loc);
 }
 
 ContainerScope Context::Wrap(WrapOptions opts, std::source_location loc) {
-    const Id id = MakeChildId(loc);
-    const UiSize activeSize = opts.size.value_or(GetCurrentSize());
-    const bool activeDisabled = opts.disabled || IsDisabled();
-
-    Node* node = CreateNode(NodeType::Wrap, id);
-    node->direction = FlexDirection::Wrap;
-    node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
-    node->runGap = opts.runGap.has_value() ? m_theme.GetGap(*opts.runGap) : node->gap;
-    node->padding = m_theme.ResolvePadding(opts.padding);
-    node->align = opts.align;
-    node->justify = opts.justify;
-    node->widthMode = opts.widthMode;
-    node->heightMode = opts.heightMode;
-    node->uiSize = activeSize;
-    node->disabled = activeDisabled;
-
-    PushSize(activeSize);
-    PushDisabled(activeDisabled);
-    PushContainer(node);
-    return ContainerScope(this, node);
+    return Wrap::Open(*this, opts, loc);
 }
 
 GridScope Context::CellGrid(GridOptions opts, std::source_location loc) {
-    return Grid(opts, loc);
+    return Grid::Open(*this, opts, loc);
 }
 
 GridScope Context::Grid(GridOptions opts, std::source_location loc) {
-    const Id id = MakeChildId(loc);
-    const UiSize activeSize = opts.size.value_or(GetCurrentSize());
-    const bool activeDisabled = opts.disabled || IsDisabled();
-
-    Node* node = CreateNode(NodeType::Grid, id);
-    node->direction = FlexDirection::Grid;
-    node->gridColumns = (opts.columns > 0) ? opts.columns : 12;
-    node->minColWidth = opts.minColWidth;
-    node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
-    node->runGap = opts.runGap.has_value() ? m_theme.GetGap(*opts.runGap) : node->gap;
-    node->padding = m_theme.ResolvePadding(opts.padding);
-    node->align = opts.align;
-    node->justify = opts.justify;
-    node->widthMode = opts.widthMode;
-    node->heightMode = opts.heightMode;
-    node->uiSize = activeSize;
-    node->disabled = activeDisabled;
-
-    PushSize(activeSize);
-    PushDisabled(activeDisabled);
-    PushContainer(node);
-    return GridScope(this, node);
-}
-
-ContainerScope Context::ScrollArea(ScrollAreaOptions opts, std::source_location loc) {
-    const Id id = MakeChildId(loc);
-    const UiSize activeSize = opts.size.value_or(GetCurrentSize());
-    const bool activeDisabled = opts.disabled || IsDisabled();
-
-    Node* node = CreateNode(NodeType::ScrollArea, id);
-    node->direction = (opts.orientation == Orientation::Horizontal) ? FlexDirection::Row : FlexDirection::Column;
-    node->clipChildren = true;
-    node->widthMode = SizeMode::Stretch;
-    node->heightMode = SizeMode::Stretch;
-    node->flexGrow = 1.0f;
-    node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : 0.0f;
-    node->padding = m_theme.ResolvePadding(opts.padding);
-    node->scrollOrientation = opts.orientation;
-    node->scrollbarPolicy = opts.scrollbar;
-    node->uiSize = activeSize;
-    node->disabled = activeDisabled;
-    node->postRenderFn = &ScrollArea::RenderScrollbar;
-
-    // Retrieve persistent scroll state
-    auto& state = m_scrollStates[id];
-
-    // Handle immediate mouse wheel scroll if hovered on previous frame bounds
-    auto itPrev = m_prevFrameBounds.find(id);
-    if (itPrev != m_prevFrameBounds.end() && !node->disabled) {
-        if (itPrev->second.Contains(m_mousePos) && (m_mouseWheel.x != 0.0f || m_mouseWheel.y != 0.0f)) {
-            const ScrollbarMetrics& m = m_theme.GetScrollbar(activeSize);
-            state.offset.y -= m_mouseWheel.y * m.scrollStep;
-            state.offset.x -= m_mouseWheel.x * m.scrollStep;
-            if (state.offset.y < 0.0f) state.offset.y = 0.0f;
-            if (state.offset.x < 0.0f) state.offset.x = 0.0f;
-        }
-    }
-
-    node->scrollOffset = state.offset;
-
-    PushSize(activeSize);
-    PushDisabled(activeDisabled);
-    PushContainer(node);
-    return ContainerScope(this, node);
-}
-
-ContainerScope Context::Carousel(CarouselOptions opts, std::source_location loc) {
-    const Id id = MakeChildId(loc);
-    const UiSize activeSize = opts.size.value_or(GetCurrentSize());
-    const bool activeDisabled = opts.disabled || IsDisabled();
-    const ComponentMetrics& m = m_theme.GetMetrics(activeSize);
-
-    Node* node = CreateNode(NodeType::Carousel, id);
-    node->direction = FlexDirection::Row;
-    node->align = opts.align;
-    node->justify = opts.justify;
-    node->clipChildren = true;
-    node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
-    node->padding = m_theme.ResolvePadding(opts.padding);
-    node->widthMode = SizeMode::Stretch;
-    node->heightMode = SizeMode::Fit;
-    node->uiSize = activeSize;
-    node->disabled = activeDisabled;
-    auto* cData = AllocPayload<CarouselData>();
-    cData->opts = opts;
-    node->payload = cData;
-    node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
-        return Carousel::Measure(n, canvas, theme);
-    };
-    node->arrangeFn = &Carousel::Arrange;
-    node->postRenderFn = &Carousel::RenderArrows;
-
-    // Retrieve persistent scroll state
-    auto& state = m_scrollStates[id];
-
-    // Navigation arrow IDs
-    const Id leftArrowId = GetCarouselLeftArrowId(id);
-    const Id rightArrowId = GetCarouselRightArrowId(id);
-
-    Response leftRes = Interact(leftArrowId);
-    Response rightRes = Interact(rightArrowId);
-
-    cData->leftArrowHovered = leftRes.hovered;
-    cData->leftArrowPressed = leftRes.pressed;
-    cData->rightArrowHovered = rightRes.hovered;
-    cData->rightArrowPressed = rightRes.pressed;
-
-    const float step = m.defaultHeight * 3.0f;
-
-    if (leftRes.clicked && !activeDisabled) {
-        state.offset.x = std::max(0.0f, state.offset.x - step);
-        RequestRepaint(3);
-    }
-    if (rightRes.clicked && !activeDisabled) {
-        state.offset.x += step;
-        RequestRepaint(3);
-    }
-
-    // Handle horizontal mouse wheel scroll
-    if (opts.scrollWheel && !activeDisabled) {
-        auto itPrev = m_prevFrameBounds.find(id);
-        if (itPrev != m_prevFrameBounds.end() && itPrev->second.Contains(m_mousePos)) {
-            const float wheelDelta = (m_mouseWheel.x != 0.0f) ? m_mouseWheel.x : m_mouseWheel.y;
-            if (wheelDelta != 0.0f) {
-                state.offset.x -= wheelDelta * (m.defaultHeight * 0.8f);
-                if (state.offset.x < 0.0f) state.offset.x = 0.0f;
-                RequestRepaint(3);
-            }
-        }
-    }
-
-    node->scrollOffset = state.offset;
-
-    PushSize(activeSize);
-    PushDisabled(activeDisabled);
-    PushContainer(node);
-    return ContainerScope(this, node);
-}
-
-ContainerScope Context::Card(CardOptions opts, std::source_location loc) {
-    const Id idOuter = MakeChildId(loc);
-    const UiSize activeSize = opts.size.value_or(GetCurrentSize());
-    const bool activeDisabled = opts.disabled || IsDisabled();
-
-    // Outer styled surface frame
-    Node* outerNode = CreateNode(NodeType::Card, idOuter);
-    outerNode->direction = FlexDirection::Column;
-    outerNode->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
-    outerNode->minWidth = opts.minWidth;
-    outerNode->widthMode = opts.widthMode;
-    outerNode->heightMode = opts.heightMode;
-    outerNode->padding = m_theme.ResolvePadding(opts.padding, activeSize);
-    const auto& pal = m_theme.palette;
-    outerNode->backgroundColor = (opts.backgroundColor.a > 0) ? opts.backgroundColor : pal.surface;
-    outerNode->borderColor = (opts.borderColor.a > 0) ? opts.borderColor : pal.border;
-    outerNode->borderWidth = opts.borderWidth;
-    outerNode->cornerRadius = opts.radius.has_value() ? m_theme.GetRadius(*opts.radius) : m_theme.GetRadius(activeSize);
-    outerNode->clipChildren = opts.clipChildren;
-    outerNode->uiSize = activeSize;
-    outerNode->disabled = activeDisabled;
-
-    PushSize(activeSize);
-    PushDisabled(activeDisabled);
-    PushContainer(outerNode);
-
-    return ContainerScope(this, outerNode);
+    return Grid::Open(*this, opts, loc);
 }
 
 void Context::Spacer(float flex, std::source_location loc) {
-    const Id id = MakeChildId(loc);
-    Node* node = CreateNode(NodeType::Spacer, id);
-    node->isSpacer = true;
-    node->widthMode = SizeMode::Stretch;
-    node->heightMode = SizeMode::Stretch;
-    node->flexGrow = std::max(0.01f, flex);
-    node->measureFn = [](const Node*, ICanvas*, const UiTheme&) noexcept -> Vec2 {
-        return {0.0f, 0.0f};
-    };
+    Spacer::Run(*this, flex, loc);
+}
+
+ContainerScope Context::Box(BoxOptions opts, std::source_location loc) {
+    return Box::Open(*this, opts, loc);
+}
+
+ContainerScope Context::Card(CardOptions opts, std::source_location loc) {
+    return Card::Open(*this, opts, loc);
+}
+
+ContainerScope Context::ScrollArea(ScrollAreaOptions opts, std::source_location loc) {
+    return ScrollArea::Open(*this, opts, loc);
+}
+
+ContainerScope Context::Carousel(CarouselOptions opts, std::source_location loc) {
+    return Carousel::Open(*this, opts, loc);
 }
 
 Response Context::Button(ButtonOptions opts, std::source_location loc) {
@@ -486,10 +233,10 @@ Response Context::Button(std::string_view label, ButtonOptions opts, std::source
 }
 
 UiString Context::String(std::string_view text) {
-    return UiString(InternString(text));
+    return UiString(AllocString(text));
 }
 
-std::string_view Context::InternString(std::string_view text) {
+std::string_view Context::AllocString(std::string_view text) {
     if (text.empty()) return {};
     char* buf = static_cast<char*>(m_arena.AllocateRaw(text.size() + 1, alignof(char)));
     std::memcpy(buf, text.data(), text.size());
@@ -565,95 +312,8 @@ Response Context::Checkbox(bool checked, CheckboxOptions opts, std::source_locat
     return Checkbox::Run(*this, {}, nullptr, checked, opts, loc);
 }
 
-Response Context::InputField(std::string_view label, std::string& value, InputFieldOptions opts, std::source_location loc) {
-    return InputField::Run(*this, label, &value, nullptr, nullptr, nullptr, {}, opts, loc);
-}
-
-Response Context::InputField(std::string& value, InputFieldOptions opts, std::source_location loc) {
-    return InputField::Run(*this, {}, &value, nullptr, nullptr, nullptr, {}, opts, loc);
-}
-
-Response Context::InputField(std::string_view label, float& value, InputFieldOptions opts, std::source_location loc) {
-    return InputField::Run(*this, label, nullptr, &value, nullptr, nullptr, {}, opts, loc);
-}
-
-Response Context::InputField(float& value, InputFieldOptions opts, std::source_location loc) {
-    return InputField::Run(*this, {}, nullptr, &value, nullptr, nullptr, {}, opts, loc);
-}
-
-Response Context::InputField(std::string_view label, double& value, InputFieldOptions opts, std::source_location loc) {
-    return InputField::Run(*this, label, nullptr, nullptr, &value, nullptr, {}, opts, loc);
-}
-
-Response Context::InputField(double& value, InputFieldOptions opts, std::source_location loc) {
-    return InputField::Run(*this, {}, nullptr, nullptr, &value, nullptr, {}, opts, loc);
-}
-
-Response Context::InputField(std::string_view label, int& value, InputFieldOptions opts, std::source_location loc) {
-    return InputField::Run(*this, label, nullptr, nullptr, nullptr, &value, {}, opts, loc);
-}
-
-Response Context::InputField(int& value, InputFieldOptions opts, std::source_location loc) {
-    return InputField::Run(*this, {}, nullptr, nullptr, nullptr, &value, {}, opts, loc);
-}
-
 Response Context::InputField(std::string_view label, std::string_view value, InputFieldOptions opts, std::source_location loc) {
     return InputField::Run(*this, label, nullptr, nullptr, nullptr, nullptr, value, opts, loc);
-}
-
-Response Context::Select(std::string_view label, size_t& selectedIndex, std::span<const std::string_view> items, SelectOptions opts, std::source_location loc) {
-    return Select::Run(*this, label, &selectedIndex, nullptr, nullptr, nullptr, items, opts, loc);
-}
-
-Response Context::Select(size_t& selectedIndex, std::span<const std::string_view> items, SelectOptions opts, std::source_location loc) {
-    return Select::Run(*this, {}, &selectedIndex, nullptr, nullptr, nullptr, items, opts, loc);
-}
-
-Response Context::Select(std::string_view label, int& selectedIndex, std::span<const std::string_view> items, SelectOptions opts, std::source_location loc) {
-    return Select::Run(*this, label, nullptr, &selectedIndex, nullptr, nullptr, items, opts, loc);
-}
-
-Response Context::Select(int& selectedIndex, std::span<const std::string_view> items, SelectOptions opts, std::source_location loc) {
-    return Select::Run(*this, {}, nullptr, &selectedIndex, nullptr, nullptr, items, opts, loc);
-}
-
-Response Context::Select(std::string_view label, std::string& selectedValue, std::span<const std::string_view> items, SelectOptions opts, std::source_location loc) {
-    return Select::Run(*this, label, nullptr, nullptr, &selectedValue, nullptr, items, opts, loc);
-}
-
-Response Context::Select(std::string& selectedValue, std::span<const std::string_view> items, SelectOptions opts, std::source_location loc) {
-    return Select::Run(*this, {}, nullptr, nullptr, &selectedValue, nullptr, items, opts, loc);
-}
-
-Response Context::Select(std::string_view label, std::string_view& selectedValue, std::span<const std::string_view> items, SelectOptions opts, std::source_location loc) {
-    return Select::Run(*this, label, nullptr, nullptr, nullptr, &selectedValue, items, opts, loc);
-}
-
-Response Context::Select(std::string_view& selectedValue, std::span<const std::string_view> items, SelectOptions opts, std::source_location loc) {
-    return Select::Run(*this, {}, nullptr, nullptr, nullptr, &selectedValue, items, opts, loc);
-}
-
-Response Context::TabBar(
-    int& activeIndex,
-    std::span<const TabItem> tabs,
-    TabBarOptions opts,
-    std::source_location loc
-) {
-    return TabBar::Run(*this, activeIndex, tabs, opts, loc);
-}
-
-Response Context::TabBar(
-    int& activeIndex,
-    std::span<const std::string_view> tabs,
-    TabBarOptions opts,
-    std::source_location loc
-) {
-    std::vector<TabItem> items;
-    items.reserve(tabs.size());
-    for (const auto& label : tabs) {
-        items.push_back(TabItem{.label = label});
-    }
-    return TabBar::Run(*this, activeIndex, items, opts, loc);
 }
 
 ToolbarScope Context::Toolbar(
@@ -1011,12 +671,12 @@ void Context::UpdateScrollAreasRecursive(Node* node) {
     if (!node) return;
 
     if (node->type == NodeType::Carousel && node->id.IsValid()) {
-        auto& state = m_scrollStates[node->id];
+        auto& state = GetOrCreateState<ScrollState>(node->id);
         state.offset.x = node->scrollOffset.x;
     }
 
     if (node->type == NodeType::ScrollArea && node->id.IsValid()) {
-        auto& state = m_scrollStates[node->id];
+        auto& state = GetOrCreateState<ScrollState>(node->id);
         const ScrollbarMetrics& m = m_theme.GetScrollbar(node->uiSize);
 
         const float viewportW = node->computedRect.w;
@@ -1108,7 +768,7 @@ void Context::ScrollToId(Id id) {
 
     for (Node* p = target->parent; p != nullptr; p = p->parent) {
         if (p->type == NodeType::ScrollArea && p->id.IsValid()) {
-            auto& state = m_scrollStates[p->id];
+            auto& state = GetOrCreateState<ScrollState>(p->id);
             const float targetTop = target->computedRect.y;
             const float targetBottom = target->computedRect.Bottom();
             const float viewTop = p->computedRect.y;
@@ -1123,7 +783,7 @@ void Context::ScrollToId(Id id) {
             p->scrollOffset = state.offset;
             break;
         } else if (p->type == NodeType::Carousel && p->id.IsValid()) {
-            auto& state = m_scrollStates[p->id];
+            auto& state = GetOrCreateState<ScrollState>(p->id);
             const float targetLeft = target->computedRect.x;
             const float targetRight = target->computedRect.Right();
             auto* cData = p->As<CarouselData>();
@@ -1193,133 +853,12 @@ void Context::EndFrame(ICanvas& canvas) {
             snap.bgColor = n->backgroundColor.ToUint32();
             snap.borderColor = n->borderColor.ToUint32();
 
-            uint64_t h = 14695981039346656037ULL;
-            auto hashStr = [&](std::string_view sv) {
-                for (char c : sv) {
-                    h = (h ^ static_cast<uint8_t>(c)) * 1099511628211ULL;
-                }
-            };
-            auto hashBytes = [&](const void* data, size_t len) {
-                const uint8_t* p = static_cast<const uint8_t*>(data);
-                for (size_t i = 0; i < len; ++i) {
-                    h = (h ^ p[i]) * 1099511628211ULL;
-                }
-            };
-            auto hashVal = [&](auto val) {
-                hashBytes(&val, sizeof(val));
-            };
-            auto hashIcon = [&](const Icon& ic) {
-                hashVal(static_cast<uint8_t>(ic.GetType()));
-                hashVal(static_cast<uint8_t>(ic.GetId()));
-                if (!ic.GetPath().empty()) hashStr(ic.GetPath());
-            };
-
+            uint64_t h = n->visualHash != 0 ? n->visualHash : detail::HashStringView(n->text);
             if (m_editState.id.IsValid() && n->id == m_editState.id) {
                 snap.flags |= (cursorVis ? 16u : 0u) | 32u;
                 snap.cursor = m_editState.cursor;
-                hashStr(m_editState.text);
-            } else {
-                hashStr(n->text);
+                h = detail::HashStringView(m_editState.text, h);
             }
-
-            hashVal(static_cast<uint8_t>(n->type));
-            hashVal(static_cast<uint8_t>(n->uiSize));
-            hashVal(n->borderWidth);
-            hashVal(n->cornerRadius);
-
-            switch (n->type) {
-                case NodeType::TabItem: {
-                    if (const auto* t = n->As<TabItemData>()) {
-                        hashVal(static_cast<uint8_t>(t->barOpts.style));
-                        hashVal(static_cast<uint8_t>(t->barOpts.showSeparator));
-                        hashVal(t->barOpts.activeColor.ToUint32());
-                        hashVal(static_cast<uint8_t>(t->item.variant));
-                        hashStr(t->item.badge);
-                        hashIcon(t->item.icon);
-                    }
-                    break;
-                }
-                case NodeType::Button: {
-                    if (const auto* b = n->As<ButtonOptions>()) {
-                        hashVal(static_cast<uint8_t>(b->variant));
-                        hashVal(static_cast<uint8_t>(b->iconPlacement));
-                        hashVal(static_cast<uint8_t>(b->active));
-                        hashIcon(b->icon);
-                    }
-                    break;
-                }
-                case NodeType::Switch: {
-                    if (const auto* s = n->As<SwitchOptions>()) {
-                        hashVal(static_cast<uint8_t>(s->variant));
-                        hashVal(static_cast<uint8_t>(s->labelPlacement));
-                    }
-                    break;
-                }
-                case NodeType::Checkbox: {
-                    if (const auto* c = n->As<CheckboxOptions>()) {
-                        hashVal(static_cast<uint8_t>(c->variant));
-                        hashVal(static_cast<uint8_t>(c->labelPlacement));
-                        hashVal(static_cast<uint8_t>(c->indeterminate));
-                    }
-                    break;
-                }
-                case NodeType::InputField: {
-                    if (const auto* in = n->As<InputFieldData>()) {
-                        hashVal(static_cast<uint8_t>(in->opts.variant));
-                        hashStr(in->opts.prefix);
-                        hashStr(in->opts.suffix);
-                        hashIcon(in->opts.prefixIcon);
-                        hashIcon(in->opts.suffixIcon);
-                        hashVal(static_cast<uint8_t>(in->opts.readOnly));
-                        if (!in->displayText.empty()) {
-                            hashStr(in->displayText);
-                        }
-                    }
-                    break;
-                }
-                case NodeType::Select: {
-                    if (const auto* sel = n->As<SelectData>()) {
-                        hashVal(static_cast<uint8_t>(sel->opts.variant));
-                        hashIcon(sel->opts.prefixIcon);
-                        if (!sel->displayText.empty()) {
-                            hashStr(sel->displayText);
-                        }
-                    }
-                    break;
-                }
-                case NodeType::Text: {
-                    if (const auto* t = n->As<TextOptions>()) {
-                        hashVal(static_cast<uint8_t>(t->role));
-                        hashVal(static_cast<uint8_t>(t->variant));
-                        hashVal(static_cast<uint8_t>(t->align));
-                    }
-                    break;
-                }
-                case NodeType::Heading: {
-                    if (const auto* h = n->As<HeadingOptions>()) {
-                        hashStr(h->title);
-                        hashStr(h->subtitle);
-                        hashStr(h->badge);
-                        hashIcon(h->icon);
-                        hashVal(static_cast<uint8_t>(h->variant));
-                    }
-                    break;
-                }
-                case NodeType::Carousel: {
-                    if (const auto* c = n->As<CarouselData>()) {
-                        hashVal(static_cast<uint8_t>(c->showLeftArrow));
-                        hashVal(static_cast<uint8_t>(c->showRightArrow));
-                        hashVal(static_cast<uint8_t>(c->leftArrowHovered));
-                        hashVal(static_cast<uint8_t>(c->rightArrowHovered));
-                        hashVal(static_cast<uint8_t>(c->leftArrowPressed));
-                        hashVal(static_cast<uint8_t>(c->rightArrowPressed));
-                    }
-                    hashVal(n->scrollOffset.x);
-                    break;
-                }
-                default: break;
-            }
-
             snap.visualHash = h;
 
             auto it = m_prevSnapshots.find(n->id);

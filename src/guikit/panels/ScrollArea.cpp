@@ -1,9 +1,57 @@
 #include "guikit/panels/ScrollArea.hpp"
 #include <algorithm>
+#include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Node.hpp"
 
 namespace guikit {
+
+ContainerScope ScrollArea::Open(
+    Context& ctx,
+    const ScrollAreaOptions& opts,
+    std::source_location loc
+) {
+    const Id id = ctx.MakeChildId(loc);
+    const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
+    const bool activeDisabled = opts.disabled || ctx.IsDisabled();
+
+    Node* node = ctx.CreateNode(NodeType::ScrollArea, id);
+    node->direction = (opts.orientation == Orientation::Horizontal) ? FlexDirection::Row : FlexDirection::Column;
+    node->clipChildren = true;
+    node->widthMode = SizeMode::Stretch;
+    node->heightMode = SizeMode::Stretch;
+    node->flexGrow = 1.0f;
+    node->gap = opts.gap.has_value() ? ctx.GetTheme().GetGap(*opts.gap) : 0.0f;
+    node->padding = ctx.GetTheme().ResolvePadding(opts.padding);
+    node->scrollOrientation = opts.orientation;
+    node->scrollbarPolicy = opts.scrollbar;
+    node->uiSize = activeSize;
+    node->disabled = activeDisabled;
+    node->postRenderFn = &ScrollArea::RenderScrollbar;
+
+    // Retrieve persistent scroll state
+    auto& state = ctx.GetOrCreateState<ScrollState>(id);
+
+    // Handle immediate mouse wheel scroll if hovered on previous frame bounds
+    Rect prevBounds = ctx.GetPrevFrameBounds(id);
+    if (prevBounds.w > 0.0f && prevBounds.h > 0.0f && !node->disabled) {
+        Vec2 wheel = ctx.GetMouseWheel();
+        if (prevBounds.Contains(ctx.GetMousePos()) && (wheel.x != 0.0f || wheel.y != 0.0f)) {
+            const ScrollbarMetrics& m = ctx.GetTheme().GetScrollbar(activeSize);
+            state.offset.y -= wheel.y * m.scrollStep;
+            state.offset.x -= wheel.x * m.scrollStep;
+            if (state.offset.y < 0.0f) state.offset.y = 0.0f;
+            if (state.offset.x < 0.0f) state.offset.x = 0.0f;
+        }
+    }
+
+    node->scrollOffset = state.offset;
+
+    ctx.PushSize(activeSize);
+    ctx.PushDisabled(activeDisabled);
+    ctx.PushContainer(node);
+    return ContainerScope(&ctx, node);
+}
 
 void ScrollArea::RenderScrollbar(
     const Node* node,

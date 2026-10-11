@@ -100,7 +100,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                         continue;
                     }
 
-                    const int span = std::clamp(lineEnd->colSpan, 1, totalCols);
+                    const int span = std::clamp<int>(lineEnd->colSpan, 1, totalCols);
                     if (itemsInLine > 0 && currentSpan + span > totalCols) {
                         break;
                     }
@@ -257,7 +257,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                         continue;
                     }
 
-                    int span = std::clamp(lineEnd->colSpan, 1, totalCols);
+                    int span = std::clamp<int>(lineEnd->colSpan, 1, totalCols);
                     const float reqMinW = (lineEnd->minWidth > 0.0f) ? lineEnd->minWidth : ((node->minColWidth > 0.0f) ? node->minColWidth : lineEnd->intrinsicSize.x);
 
                     if (itemsInLine > 0) {
@@ -688,7 +688,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     continue;
                 }
 
-                int span = std::clamp(lineEnd->colSpan, 1, totalCols);
+                int span = std::clamp<int>(lineEnd->colSpan, 1, totalCols);
                 const float reqMinW = (lineEnd->minWidth > 0.0f) ? lineEnd->minWidth : ((node->minColWidth > 0.0f) ? node->minColWidth : lineEnd->intrinsicSize.x);
 
                 if (itemsInLine > 0) {
@@ -744,7 +744,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             for (Node* child = lineStart; child != lineEnd; child = child->nextSibling) {
                 if (child->isSpacer) continue;
 
-                int span = std::clamp(child->colSpan, 1, totalCols);
+                int span = std::clamp<int>(child->colSpan, 1, totalCols);
                 const float reqMinW = (child->minWidth > 0.0f) ? child->minWidth : ((node->minColWidth > 0.0f) ? node->minColWidth : child->intrinsicSize.x);
                 if (itemsInLine == 1 && (lineEnd != nullptr || (reqMinW > 0.0f && ((static_cast<float>(span) / static_cast<float>(totalCols)) * (availW + gap) - gap) < reqMinW))) {
                     span = totalCols;

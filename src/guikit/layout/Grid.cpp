@@ -10,7 +10,28 @@ GridScope Grid::Open(
     const GridOptions& opts,
     std::source_location loc
 ) {
-    return ctx.Grid(opts, loc);
+    const Id id = ctx.MakeChildId(loc);
+    const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
+    const bool activeDisabled = opts.disabled || ctx.IsDisabled();
+
+    Node* node = ctx.CreateNode(NodeType::Grid, id);
+    node->direction = FlexDirection::Grid;
+    node->gridColumns = static_cast<uint8_t>(opts.columns);
+    node->minColWidth = opts.minColWidth;
+    node->gap = opts.gap.has_value() ? ctx.GetTheme().GetGap(*opts.gap) : ctx.GetTheme().GetGap(activeSize);
+    node->runGap = opts.runGap.has_value() ? ctx.GetTheme().GetGap(*opts.runGap) : ctx.GetTheme().GetGap(activeSize);
+    node->padding = ctx.GetTheme().ResolvePadding(opts.padding);
+    node->align = opts.align;
+    node->justify = opts.justify;
+    node->widthMode = opts.widthMode;
+    node->heightMode = opts.heightMode;
+    node->uiSize = activeSize;
+    node->disabled = activeDisabled;
+
+    ctx.PushSize(activeSize);
+    ctx.PushDisabled(activeDisabled);
+    ctx.PushContainer(node);
+    return GridScope(&ctx, node);
 }
 
 ContainerScope GridScope::Cell(int span, CellOptions opts, std::source_location loc) {

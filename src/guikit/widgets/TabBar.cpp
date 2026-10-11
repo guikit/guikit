@@ -84,12 +84,23 @@ Response TabBar::Run(
         }
 
         Node* tabNode = ctx.CreateNode(NodeType::TabItem, tabId);
-        tabNode->text = ctx.InternString(item.label);
+        tabNode->text = ctx.AllocString(item.label);
         auto* tData = ctx.AllocPayload<TabItemData>();
         tData->item = item;
         tData->item.label = tabNode->text;
         tData->barOpts = opts;
         tabNode->payload = tData;
+        tabNode->visualHash = detail::HashArgs(
+            opts.style,
+            opts.showSeparator,
+            opts.activeColor.ToUint32(),
+            item.variant,
+            item.badge,
+            tabNode->text,
+            static_cast<uint8_t>(item.icon.GetType()),
+            static_cast<uint8_t>(item.icon.GetId()),
+            item.icon.GetPath()
+        );
         tabNode->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
             const auto* d = n->As<TabItemData>();
             return TabBar::MeasureTab(

@@ -39,13 +39,20 @@ Response Switch::Run(
 
     Node* node = ctx.CreateNode(NodeType::Switch, id);
     const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
-    node->text = ctx.InternString(effectiveLabel);
+    node->text = ctx.AllocString(effectiveLabel);
     SwitchOptions optsCopy = opts;
     optsCopy.label = node->text;
     if (!opts.description.empty()) {
-        optsCopy.description = ctx.InternString(opts.description);
+        optsCopy.description = ctx.AllocString(opts.description);
     }
     node->payload = ctx.AllocPayload<SwitchOptions>(optsCopy);
+    node->visualHash = detail::HashArgs(
+        opts.variant,
+        opts.labelPlacement,
+        currentChecked,
+        node->text,
+        optsCopy.description
+    );
     node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<SwitchOptions>();
         return Switch::Measure(n->text, opts ? *opts : SwitchOptions{}, n->uiSize, canvas, theme);

@@ -1,10 +1,14 @@
 #pragma once
-
+ 
 #include <optional>
+#include <source_location>
+#include "guikit/core/ContainerScope.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
 
 namespace guikit {
+
+class Context;
 
 /// Options for configuring a visual Box container.
 struct BoxOptions {
@@ -21,6 +25,16 @@ struct BoxOptions {
     bool clipChildren{false};
     std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
+};
+
+/// Autonomous immediate mode Box container entry point.
+class Box {
+public:
+    static ContainerScope Open(
+        Context& ctx,
+        const BoxOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    );
 };
 
 } // namespace guikit

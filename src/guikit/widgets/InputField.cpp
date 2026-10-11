@@ -104,22 +104,35 @@ Response InputField::Run(
 
     Node* node = ctx.CreateNode(NodeType::InputField, id);
     const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
-    node->text = ctx.InternString(effectiveLabel);
+    node->text = ctx.AllocString(effectiveLabel);
 
     InputFieldOptions optsCopy = opts;
     optsCopy.label = node->text;
-    if (!opts.description.empty()) optsCopy.description = ctx.InternString(opts.description);
-    if (!opts.placeholder.empty()) optsCopy.placeholder = ctx.InternString(opts.placeholder);
-    if (!opts.prefix.empty()) optsCopy.prefix = ctx.InternString(opts.prefix);
-    if (!opts.suffix.empty()) optsCopy.suffix = ctx.InternString(opts.suffix);
+    if (!opts.description.empty()) optsCopy.description = ctx.AllocString(opts.description);
+    if (!opts.placeholder.empty()) optsCopy.placeholder = ctx.AllocString(opts.placeholder);
+    if (!opts.prefix.empty()) optsCopy.prefix = ctx.AllocString(opts.prefix);
+    if (!opts.suffix.empty()) optsCopy.suffix = ctx.AllocString(opts.suffix);
 
     auto* data = ctx.AllocPayload<InputFieldData>();
     data->opts = optsCopy;
-    data->displayText = ctx.InternString(displayText);
+    data->displayText = ctx.AllocString(displayText);
     data->cursor = cursor;
     data->cursorVisible = isFocused && ctx.IsCursorVisible(opts.cursorMode);
     data->cursorWidth = ctx.GetCursorConfig().width;
     node->payload = data;
+    node->visualHash = detail::HashArgs(
+        opts.variant,
+        opts.readOnly,
+        data->displayText,
+        optsCopy.prefix,
+        optsCopy.suffix,
+        optsCopy.placeholder,
+        node->text,
+        static_cast<uint8_t>(opts.prefixIcon.GetType()),
+        static_cast<uint8_t>(opts.prefixIcon.GetId()),
+        static_cast<uint8_t>(opts.suffixIcon.GetType()),
+        static_cast<uint8_t>(opts.suffixIcon.GetId())
+    );
     node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<InputFieldData>();
         return InputField::Measure(

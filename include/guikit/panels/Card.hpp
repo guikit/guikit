@@ -1,10 +1,14 @@
 #pragma once
 
 #include <optional>
+#include <source_location>
+#include "guikit/core/ContainerScope.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
 
 namespace guikit {
+
+class Context;
 
 /// Options for configuring a visual Card surface container.
 struct CardOptions {
@@ -21,6 +25,16 @@ struct CardOptions {
     SizeMode heightMode{SizeMode::Fit};
     std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
+};
+
+/// Autonomous immediate mode Card surface container entry point.
+class Card {
+public:
+    static ContainerScope Open(
+        Context& ctx,
+        const CardOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    );
 };
 
 } // namespace guikit

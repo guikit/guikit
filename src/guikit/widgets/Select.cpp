@@ -335,17 +335,26 @@ Response Select::Run(
 
     Node* node = ctx.CreateNode(NodeType::Select, id);
     const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
-    node->text = ctx.InternString(effectiveLabel);
+    node->text = ctx.AllocString(effectiveLabel);
 
     SelectOptions optsCopy = opts;
     optsCopy.label = node->text;
-    if (!opts.description.empty()) optsCopy.description = ctx.InternString(opts.description);
-    if (!opts.placeholder.empty()) optsCopy.placeholder = ctx.InternString(opts.placeholder);
+    if (!opts.description.empty()) optsCopy.description = ctx.AllocString(opts.description);
+    if (!opts.placeholder.empty()) optsCopy.placeholder = ctx.AllocString(opts.placeholder);
 
     auto* data = ctx.AllocPayload<SelectData>();
     data->opts = optsCopy;
-    data->displayText = ctx.InternString(currentDisplayText);
+    data->displayText = ctx.AllocString(currentDisplayText);
     node->payload = data;
+    node->visualHash = detail::HashArgs(
+        opts.variant,
+        node->text,
+        data->displayText,
+        optsCopy.description,
+        optsCopy.placeholder,
+        static_cast<uint8_t>(opts.prefixIcon.GetType()),
+        static_cast<uint8_t>(opts.prefixIcon.GetId())
+    );
     node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<SelectData>();
         return Select::Measure(n->text, d ? d->opts : SelectOptions{}, n->uiSize, canvas, theme);

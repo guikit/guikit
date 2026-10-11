@@ -55,6 +55,8 @@ set(GUIKIT_SOURCES
     src/guikit/layout/Wrap.cpp
     src/guikit/layout/Grid.cpp
     src/guikit/layout/Spacer.cpp
+    src/guikit/panels/Box.cpp
+    src/guikit/panels/Card.cpp
     src/guikit/panels/Carousel.cpp
     src/guikit/panels/ScrollArea.cpp
     src/guikit/panels/Toolbar.cpp

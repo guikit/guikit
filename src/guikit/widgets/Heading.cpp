@@ -23,16 +23,25 @@ Response Heading::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::Heading, id);
-    node->text = ctx.InternString(opts.title);
+    node->text = ctx.AllocString(opts.title);
     auto* hOpts = ctx.AllocPayload<HeadingOptions>(opts);
     hOpts->title = node->text;
     if (!opts.subtitle.empty()) {
-        hOpts->subtitle = ctx.InternString(opts.subtitle);
+        hOpts->subtitle = ctx.AllocString(opts.subtitle);
     }
     if (!opts.badge.empty()) {
-        hOpts->badge = ctx.InternString(opts.badge);
+        hOpts->badge = ctx.AllocString(opts.badge);
     }
     node->payload = hOpts;
+    node->visualHash = detail::HashArgs(
+        opts.variant,
+        node->text,
+        hOpts->subtitle,
+        hOpts->badge,
+        static_cast<uint8_t>(opts.icon.GetType()),
+        static_cast<uint8_t>(opts.icon.GetId()),
+        opts.icon.GetPath()
+    );
     node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<HeadingOptions>();
         return Heading::Measure(opts ? *opts : HeadingOptions{}, n->uiSize, canvas, theme);

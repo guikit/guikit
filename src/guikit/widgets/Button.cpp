@@ -21,10 +21,21 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
     }
 
     Node* node = ctx.CreateNode(NodeType::Button, id);
-    node->text = ctx.InternString(opts.label);
+    node->text = ctx.AllocString(opts.label);
     auto* bOpts = ctx.AllocPayload<ButtonOptions>(opts);
     bOpts->label = node->text;
     node->payload = bOpts;
+    node->visualHash = detail::HashArgs(
+        opts.variant,
+        opts.iconPlacement,
+        opts.active,
+        opts.stretch,
+        opts.size.value_or(activeSize),
+        static_cast<uint8_t>(opts.icon.GetType()),
+        static_cast<uint8_t>(opts.icon.GetId()),
+        opts.icon.GetPath(),
+        node->text
+    );
     node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* b = n->As<ButtonOptions>();
         return Button::Measure(b ? *b : ButtonOptions{}, n->uiSize, canvas, theme);

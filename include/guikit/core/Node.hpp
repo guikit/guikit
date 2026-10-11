@@ -75,34 +75,45 @@ struct Node {
     uint32_t childCount{0};     ///< Total number of direct children
 
     Id id{Id::Null()};          ///< Unique identity
-    NodeType type{NodeType::Container};
+    uint64_t visualHash{0};     ///< Fast visual fingerprint for frame-to-frame damage tracking
 
-    // Layout configuration
+    // Layout configuration & ambient state
+    NodeType type{NodeType::Container};
     FlexDirection direction{FlexDirection::Column};
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Fit};
+    uint8_t gridColumns{12};    ///< Number of columns in Grid layout container
+    uint8_t colSpan{12};        ///< Number of grid columns occupied by this item (1..12)
+    Orientation scrollOrientation{Orientation::Vertical};
+    VisibilityPolicy scrollbarPolicy{VisibilityPolicy::Auto};
+    Alignment align{Alignment::Stretch};
+    Justify justify{Justify::Start};
+    UiSize uiSize{UiSize::Md};
+
+    // Interaction & container flags
+    bool isSpacer{false};
+    bool clipChildren{false};
+    bool scrollbarHovered{false};
+    bool scrollbarActive{false};
+    bool disabled{false};
+    bool hovered{false};
+    bool pressed{false};
+    bool focused{false};
+    bool checked{false};
+    bool active{false};
+
     float fixedWidth{0.0f};
     float fixedHeight{0.0f};
     float flexGrow{1.0f};       ///< Distribution factor for Stretch/Spacer elements
     float gap{0.0f};            ///< Gap between consecutive children on same line
     float runGap{0.0f};         ///< Vertical gap between consecutive wrapped lines
-    int gridColumns{12};        ///< Number of columns in Grid layout container
-    int colSpan{12};            ///< Number of grid columns occupied by this item (1..12)
     float minWidth{0.0f};       ///< Minimum width constraint for responsive wrapping
     float minColWidth{0.0f};    ///< Minimum column width constraint for Grid container
     Padding padding{};          ///< Internal padding inside container
-    Alignment align{Alignment::Stretch};
-    Justify justify{Justify::Start};
-    bool isSpacer{false};
-    bool clipChildren{false};
 
     // Scroll area configuration and state
-    Orientation scrollOrientation{Orientation::Vertical};
-    VisibilityPolicy scrollbarPolicy{VisibilityPolicy::Auto};
     Vec2 scrollOffset{0.0f, 0.0f};      ///< Active scroll offset in points
     Vec2 scrollContentSize{0.0f, 0.0f}; ///< Total extent of child content
-    bool scrollbarHovered{false};
-    bool scrollbarActive{false};
 
     // Measured and computed bounds
     Vec2 intrinsicSize{0.0f, 0.0f};  ///< Natural content size (bottom-up measure pass)
@@ -118,15 +129,6 @@ struct Node {
     std::string_view text{};
     Color textColor{255, 255, 255, 255};
     float fontSize{14.0f};
-
-    // Ambient state and interaction flags
-    UiSize uiSize{UiSize::Md};
-    bool disabled{false};
-    bool hovered{false};
-    bool pressed{false};
-    bool focused{false};
-    bool checked{false};
-    bool active{false};
 
     // Generic arena-allocated widget payload (ButtonOptions, InputFieldData, CarouselData, user data, etc.)
     void* payload{nullptr};

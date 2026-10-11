@@ -39,13 +39,21 @@ Response Checkbox::Run(
 
     Node* node = ctx.CreateNode(NodeType::Checkbox, id);
     const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
-    node->text = ctx.InternString(effectiveLabel);
+    node->text = ctx.AllocString(effectiveLabel);
     CheckboxOptions optsCopy = opts;
     optsCopy.label = node->text;
     if (!opts.description.empty()) {
-        optsCopy.description = ctx.InternString(opts.description);
+        optsCopy.description = ctx.AllocString(opts.description);
     }
     node->payload = ctx.AllocPayload<CheckboxOptions>(optsCopy);
+    node->visualHash = detail::HashArgs(
+        opts.variant,
+        opts.labelPlacement,
+        opts.indeterminate,
+        currentChecked,
+        node->text,
+        optsCopy.description
+    );
     node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<CheckboxOptions>();
         return Checkbox::Measure(n->text, opts ? *opts : CheckboxOptions{}, n->uiSize, canvas, theme);

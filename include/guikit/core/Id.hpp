@@ -5,6 +5,8 @@
 #include <source_location>
 #include <string_view>
 
+#include <type_traits>
+
 namespace guikit {
 
 /// 64-bit unique widget identifier generated automatically without manual string tags.
@@ -46,6 +48,28 @@ constexpr uint64_t HashStringView(std::string_view str, uint64_t hash = Fnv1aOff
 
 constexpr uint64_t HashInt64(uint64_t val, uint64_t hash = Fnv1aOffsetBasis) noexcept {
     return HashBytes(&val, sizeof(val), hash);
+}
+
+template <typename T>
+constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexcept {
+    using CleanT = std::decay_t<T>;
+    if constexpr (std::is_same_v<CleanT, std::string_view>) {
+        return HashStringView(val, hash);
+    } else if constexpr (std::is_same_v<CleanT, const char*>) {
+        return val ? HashStringView(std::string_view(val), hash) : hash;
+    } else if constexpr (std::is_enum_v<CleanT>) {
+        auto underlying = static_cast<std::underlying_type_t<CleanT>>(val);
+        return HashBytes(&underlying, sizeof(underlying), hash);
+    } else {
+        return HashBytes(&val, sizeof(val), hash);
+    }
+}
+
+template <typename... Args>
+constexpr uint64_t HashArgs(const Args&... args) noexcept {
+    uint64_t h = Fnv1aOffsetBasis;
+    ((h = HashVal(args, h)), ...);
+    return h;
 }
 
 } // namespace detail

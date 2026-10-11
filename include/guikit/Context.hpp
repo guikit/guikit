@@ -8,6 +8,8 @@
 #include <span>
 #include <source_location>
 #include <string_view>
+#include <type_traits>
+#include <typeindex>
 #include <unordered_map>
 #include <vector>
 #include "guikit/backend/ICanvas.hpp"
@@ -42,6 +44,41 @@
 #include "guikit/widgets/Text.hpp"
 
 namespace guikit {
+
+template <typename T>
+concept InputFieldEditable =
+    std::is_same_v<std::decay_t<T>, std::string> ||
+    std::is_same_v<std::decay_t<T>, float> ||
+    std::is_same_v<std::decay_t<T>, double> ||
+    std::is_same_v<std::decay_t<T>, int>;
+
+template <typename T>
+concept SelectTarget =
+    std::is_same_v<std::decay_t<T>, size_t> ||
+    std::is_same_v<std::decay_t<T>, int> ||
+    std::is_same_v<std::decay_t<T>, std::string> ||
+    std::is_same_v<std::decay_t<T>, std::string_view>;
+
+namespace detail {
+
+struct StateKey {
+    Id id;
+    std::type_index type;
+
+    bool operator==(const StateKey& other) const noexcept {
+        return id == other.id && type == other.type;
+    }
+};
+
+struct StateKeyHash {
+    size_t operator()(const StateKey& k) const noexcept {
+        size_t h1 = std::hash<Id>{}(k.id);
+        size_t h2 = k.type.hash_code();
+        return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+    }
+};
+
+} // namespace detail
 
 /// Primary immediate mode context coordinating input, layout, and rendering.
 class Context {
@@ -373,57 +410,32 @@ public:
     }
 
     // --- InputField Widget ---
+    template <InputFieldEditable T>
     Response InputField(
         std::string_view label,
-        std::string& value,
+        T& value,
         InputFieldOptions opts = {},
         std::source_location loc = std::source_location::current()
-    );
+    ) {
+        if constexpr (std::is_same_v<std::decay_t<T>, std::string>) {
+            return InputField::Run(*this, label, &value, nullptr, nullptr, nullptr, {}, opts, loc);
+        } else if constexpr (std::is_same_v<std::decay_t<T>, float>) {
+            return InputField::Run(*this, label, nullptr, &value, nullptr, nullptr, {}, opts, loc);
+        } else if constexpr (std::is_same_v<std::decay_t<T>, double>) {
+            return InputField::Run(*this, label, nullptr, nullptr, &value, nullptr, {}, opts, loc);
+        } else if constexpr (std::is_same_v<std::decay_t<T>, int>) {
+            return InputField::Run(*this, label, nullptr, nullptr, nullptr, &value, {}, opts, loc);
+        }
+    }
 
+    template <InputFieldEditable T>
     Response InputField(
-        std::string& value,
+        T& value,
         InputFieldOptions opts = {},
         std::source_location loc = std::source_location::current()
-    );
-
-    Response InputField(
-        std::string_view label,
-        float& value,
-        InputFieldOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response InputField(
-        float& value,
-        InputFieldOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response InputField(
-        std::string_view label,
-        double& value,
-        InputFieldOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response InputField(
-        double& value,
-        InputFieldOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response InputField(
-        std::string_view label,
-        int& value,
-        InputFieldOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response InputField(
-        int& value,
-        InputFieldOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
+    ) {
+        return InputField({}, value, opts, loc);
+    }
 
     Response InputField(
         std::string_view label,
@@ -432,7 +444,7 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
-    template <typename T>
+    template <InputFieldEditable T>
     Response InputNumber(
         std::string_view label,
         T& value,
@@ -447,195 +459,102 @@ public:
     }
 
     // --- Select (Dropdown) Widget ---
+    template <SelectTarget T>
     Response Select(
         std::string_view label,
-        size_t& selectedIndex,
+        T& selected,
         std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response Select(
-        size_t& selectedIndex,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response Select(
-        std::string_view label,
-        int& selectedIndex,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response Select(
-        int& selectedIndex,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response Select(
-        std::string_view label,
-        std::string& selectedValue,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response Select(
-        std::string& selectedValue,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response Select(
-        std::string_view label,
-        std::string_view& selectedValue,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response Select(
-        std::string_view& selectedValue,
-        std::span<const std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response Select(
-        std::string_view label,
-        size_t& selectedIndex,
-        std::initializer_list<std::string_view> items,
         SelectOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
-        return Select(label, selectedIndex, std::span<const std::string_view>(items.begin(), items.size()), opts, loc);
+        if constexpr (std::is_same_v<std::decay_t<T>, size_t>) {
+            return Select::Run(*this, label, &selected, nullptr, nullptr, nullptr, items, opts, loc);
+        } else if constexpr (std::is_same_v<std::decay_t<T>, int>) {
+            return Select::Run(*this, label, nullptr, &selected, nullptr, nullptr, items, opts, loc);
+        } else if constexpr (std::is_same_v<std::decay_t<T>, std::string>) {
+            return Select::Run(*this, label, nullptr, nullptr, &selected, nullptr, items, opts, loc);
+        } else if constexpr (std::is_same_v<std::decay_t<T>, std::string_view>) {
+            return Select::Run(*this, label, nullptr, nullptr, nullptr, &selected, items, opts, loc);
+        }
     }
 
+    template <SelectTarget T>
     Response Select(
-        size_t& selectedIndex,
-        std::initializer_list<std::string_view> items,
+        T& selected,
+        std::span<const std::string_view> items,
         SelectOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
-        return Select(selectedIndex, std::span<const std::string_view>(items.begin(), items.size()), opts, loc);
+        return Select({}, selected, items, opts, loc);
     }
 
+    template <SelectTarget T>
     Response Select(
         std::string_view label,
-        int& selectedIndex,
+        T& selected,
         std::initializer_list<std::string_view> items,
         SelectOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
-        return Select(label, selectedIndex, std::span<const std::string_view>(items.begin(), items.size()), opts, loc);
+        return Select(label, selected, std::span<const std::string_view>(items.begin(), items.size()), opts, loc);
     }
 
+    template <SelectTarget T>
     Response Select(
-        int& selectedIndex,
+        T& selected,
         std::initializer_list<std::string_view> items,
         SelectOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
-        return Select(selectedIndex, std::span<const std::string_view>(items.begin(), items.size()), opts, loc);
-    }
-
-    Response Select(
-        std::string_view label,
-        std::string& selectedValue,
-        std::initializer_list<std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return Select(label, selectedValue, std::span<const std::string_view>(items.begin(), items.size()), opts, loc);
-    }
-
-    Response Select(
-        std::string& selectedValue,
-        std::initializer_list<std::string_view> items,
-        SelectOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return Select(selectedValue, std::span<const std::string_view>(items.begin(), items.size()), opts, loc);
+        return Select({}, selected, std::span<const std::string_view>(items.begin(), items.size()), opts, loc);
     }
 
     // --- TabBar Component ---
+    template <typename IndexT>
     Response TabBar(
-        int& activeIndex,
+        IndexT& activeIndex,
         std::span<const TabItem> tabs,
         TabBarOptions opts = {},
         std::source_location loc = std::source_location::current()
-    );
-
-    Response TabBar(
-        int& activeIndex,
-        std::initializer_list<TabItem> tabs,
-        TabBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return TabBar(activeIndex, std::span<const TabItem>(tabs.begin(), tabs.size()), opts, loc);
-    }
-
-    Response TabBar(
-        int& activeIndex,
-        std::span<const std::string_view> tabs,
-        TabBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response TabBar(
-        int& activeIndex,
-        std::initializer_list<std::string_view> tabs,
-        TabBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
-        return TabBar(activeIndex, std::span<const std::string_view>(tabs.begin(), tabs.size()), opts, loc);
-    }
-
-    Response TabBar(
-        size_t& activeIndex,
-        std::span<const TabItem> tabs,
-        TabBarOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    ) {
+    ) requires (std::is_integral_v<IndexT>) {
         int idx = static_cast<int>(activeIndex);
-        Response r = TabBar(idx, tabs, opts, loc);
-        if (r.changed && idx >= 0) activeIndex = static_cast<size_t>(idx);
+        Response r = TabBar::Run(*this, idx, tabs, opts, loc);
+        if (r.changed && idx >= 0) activeIndex = static_cast<IndexT>(idx);
         return r;
     }
 
+    template <typename IndexT>
     Response TabBar(
-        size_t& activeIndex,
+        IndexT& activeIndex,
         std::initializer_list<TabItem> tabs,
         TabBarOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) {
+    ) requires (std::is_integral_v<IndexT>) {
         return TabBar(activeIndex, std::span<const TabItem>(tabs.begin(), tabs.size()), opts, loc);
     }
 
+    template <typename IndexT>
     Response TabBar(
-        size_t& activeIndex,
+        IndexT& activeIndex,
         std::span<const std::string_view> tabs,
         TabBarOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) {
-        int idx = static_cast<int>(activeIndex);
-        Response r = TabBar(idx, tabs, opts, loc);
-        if (r.changed && idx >= 0) activeIndex = static_cast<size_t>(idx);
-        return r;
+    ) requires (std::is_integral_v<IndexT>) {
+        std::vector<TabItem> items;
+        items.reserve(tabs.size());
+        for (const auto& label : tabs) {
+            items.push_back(TabItem{.label = label});
+        }
+        return TabBar(activeIndex, std::span<const TabItem>(items), opts, loc);
     }
 
+    template <typename IndexT>
     Response TabBar(
-        size_t& activeIndex,
+        IndexT& activeIndex,
         std::initializer_list<std::string_view> tabs,
         TabBarOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) {
+    ) requires (std::is_integral_v<IndexT>) {
         return TabBar(activeIndex, std::span<const std::string_view>(tabs.begin(), tabs.size()), opts, loc);
     }
 
@@ -653,13 +572,18 @@ public:
 
     // --- String & Formatting Services ---
     [[nodiscard]] UiString String(std::string_view text);
-    [[nodiscard]] std::string_view InternString(std::string_view text);
+    [[nodiscard]] std::string_view AllocString(std::string_view text);
+
+    [[deprecated("Use AllocString instead")]]
+    [[nodiscard]] std::string_view InternString(std::string_view text) {
+        return AllocString(text);
+    }
 
     template <typename... Args>
     [[nodiscard]] UiString Format(std::format_string<Args...> fmt, Args&&... args) {
         BasicUiString<128> temp;
         temp.Format(fmt, std::forward<Args>(args)...);
-        return UiString(InternString(temp.View()));
+        return UiString(AllocString(temp.View()));
     }
 
     // --- Core Engine Services for Widgets ---
@@ -726,12 +650,13 @@ public:
     void ScrollToId(Id id);
 
     // --- Generic Persistent State Storage ---
-    /// Persistent typed state storage across frames for widgets by deterministic Id.
+    /// Persistent typed state storage across frames for widgets by deterministic Id and Type.
     template <typename T>
     [[nodiscard]] T& GetOrCreateState(Id id, T defaultVal = T{}) {
-        auto it = m_customStates.find(id);
+        detail::StateKey key{id, std::type_index(typeid(T))};
+        auto it = m_customStates.find(key);
         if (it == m_customStates.end()) {
-            it = m_customStates.emplace(id, std::make_any<T>(std::move(defaultVal))).first;
+            it = m_customStates.emplace(key, std::make_any<T>(std::move(defaultVal))).first;
         }
         return std::any_cast<T&>(it->second);
     }
@@ -739,7 +664,8 @@ public:
     /// Finds persistent typed state associated with a unique widget Id, or nullptr if not found.
     template <typename T>
     [[nodiscard]] const T* FindState(Id id) const {
-        auto it = m_customStates.find(id);
+        detail::StateKey key{id, std::type_index(typeid(T))};
+        auto it = m_customStates.find(key);
         if (it == m_customStates.end()) {
             return nullptr;
         }
@@ -834,22 +760,12 @@ private:
     std::unordered_map<Id, Rect> m_prevFrameBounds;
     std::unordered_map<Id, Rect> m_currFrameBounds;
 
-    // Persistent scroll state for ScrollArea viewports
-    struct ScrollState {
-        Vec2 offset{0.0f, 0.0f};
-        bool draggingY{false};
-        bool draggingX{false};
-        float dragStartOffset{0.0f};
-        Vec2 dragStartMouse{0.0f, 0.0f};
-    };
-    std::unordered_map<Id, ScrollState> m_scrollStates;
-
     // Floating popup & overlay state
     Id m_openPopupId{Id::Null()};
     Rect m_openPopupRect{0.0f, 0.0f, 0.0f, 0.0f};
     std::vector<std::function<void(ICanvas&)>> m_overlayPasses;
     Vec2 m_mouseWheel{0.0f, 0.0f};
-    std::unordered_map<Id, std::any> m_customStates;
+    std::unordered_map<detail::StateKey, std::any, detail::StateKeyHash> m_customStates;
 
     void RenderDebugBoundsRecursive(Node* node, ICanvas& canvas);
     Node* FindDeepestNodeAt(Node* root, Vec2 pos, Rect clipRect);

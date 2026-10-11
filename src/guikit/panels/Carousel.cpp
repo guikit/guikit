@@ -5,6 +5,7 @@
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Solver.hpp"
 #include "guikit/core/Node.hpp"
+#include "guikit/panels/ScrollArea.hpp"
 
 namespace guikit {
 
@@ -13,7 +14,75 @@ ContainerScope Carousel::Open(
     const CarouselOptions& opts,
     std::source_location loc
 ) {
-    return ctx.Carousel(opts, loc);
+    const Id id = ctx.MakeChildId(loc);
+    const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
+    const bool activeDisabled = opts.disabled || ctx.IsDisabled();
+    const ComponentMetrics& m = ctx.GetTheme().GetMetrics(activeSize);
+
+    Node* node = ctx.CreateNode(NodeType::Carousel, id);
+    node->direction = FlexDirection::Row;
+    node->align = opts.align;
+    node->justify = opts.justify;
+    node->clipChildren = true;
+    node->widthMode = SizeMode::Stretch;
+    node->heightMode = SizeMode::Fit;
+    node->gap = opts.gap.has_value() ? ctx.GetTheme().GetGap(*opts.gap) : ctx.GetTheme().GetGap(activeSize);
+    node->padding = ctx.GetTheme().ResolvePadding(opts.padding);
+    node->uiSize = activeSize;
+    node->disabled = activeDisabled;
+
+    node->measureFn = &Carousel::Measure;
+    node->arrangeFn = &Carousel::Arrange;
+    node->postRenderFn = &Carousel::RenderArrows;
+
+    auto* cData = ctx.AllocPayload<CarouselData>();
+    cData->opts = opts;
+    node->payload = cData;
+
+    auto& state = ctx.GetOrCreateState<ScrollState>(id);
+
+    // Handle interactive arrow button clicks from previous frame
+    const Id leftArrowId = GetCarouselLeftArrowId(id);
+    const Id rightArrowId = GetCarouselRightArrowId(id);
+    Response leftRes = ctx.Interact(leftArrowId);
+    Response rightRes = ctx.Interact(rightArrowId);
+
+    cData->leftArrowHovered = leftRes.hovered;
+    cData->leftArrowPressed = leftRes.pressed;
+    cData->rightArrowHovered = rightRes.hovered;
+    cData->rightArrowPressed = rightRes.pressed;
+
+    const float step = m.defaultHeight * 3.0f;
+
+    if (leftRes.clicked && !activeDisabled) {
+        state.offset.x = std::max(0.0f, state.offset.x - step);
+        ctx.RequestRepaint(3);
+    }
+    if (rightRes.clicked && !activeDisabled) {
+        state.offset.x += step;
+        ctx.RequestRepaint(3);
+    }
+
+    // Handle horizontal mouse wheel scroll
+    if (opts.scrollWheel && !activeDisabled) {
+        Rect prevBounds = ctx.GetPrevFrameBounds(id);
+        if (prevBounds.w > 0.0f && prevBounds.h > 0.0f && prevBounds.Contains(ctx.GetMousePos())) {
+            Vec2 wheel = ctx.GetMouseWheel();
+            const float wheelDelta = (wheel.x != 0.0f) ? wheel.x : wheel.y;
+            if (wheelDelta != 0.0f) {
+                state.offset.x -= wheelDelta * (m.defaultHeight * 0.8f);
+                if (state.offset.x < 0.0f) state.offset.x = 0.0f;
+                ctx.RequestRepaint(3);
+            }
+        }
+    }
+
+    node->scrollOffset = state.offset;
+
+    ctx.PushSize(activeSize);
+    ctx.PushDisabled(activeDisabled);
+    ctx.PushContainer(node);
+    return ContainerScope(&ctx, node);
 }
 
 Vec2 Carousel::Measure(const Node* node, ICanvas* /*canvas*/, const UiTheme& /*theme*/) {

@@ -25,8 +25,9 @@ Response Text::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::Text, id);
-    node->text = ctx.InternString(label);
+    node->text = ctx.AllocString(label);
     node->payload = ctx.AllocPayload<TextOptions>(opts);
+    node->visualHash = detail::HashArgs(opts.role, opts.variant, opts.align, node->text);
     node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<TextOptions>();
         return Text::Measure(n->text, opts ? *opts : TextOptions{}, canvas, theme);
