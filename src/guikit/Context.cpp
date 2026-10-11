@@ -299,7 +299,7 @@ Response Context::StepSlider(
     StepSliderOptions opts,
     std::source_location loc
 ) {
-    static constexpr std::array<std::string_view, 6> kSizeLabelsWithNone = {"NONE", "XS", "SM", "MD", "LG", "XL"};
+    static constexpr std::array<std::string_view, 6> kSizeLabelsWithNone = {"0", "XS", "SM", "MD", "LG", "XL"};
     static constexpr std::array<UiSize, 6> kSizesWithNone = {UiSize::None, UiSize::Xs, UiSize::Sm, UiSize::Md, UiSize::Lg, UiSize::Xl};
 
     static constexpr std::array<std::string_view, 5> kSizeLabels = {"XS", "SM", "MD", "LG", "XL"};
