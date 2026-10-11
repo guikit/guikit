@@ -253,11 +253,11 @@ BoxScope Context::Box(BoxOptions opts, std::source_location loc) {
         node->heightMode = SizeMode::Fixed;
     }
 
-    node->padding = opts.padding;
+    node->padding = opts.padding.value_or(Padding{});
     node->backgroundColor = opts.backgroundColor;
     node->borderColor = opts.borderColor;
     node->borderWidth = opts.borderWidth;
-    node->cornerRadius = opts.radius.has_value() ? m_theme.GetRadius(*opts.radius) : opts.cornerRadius;
+    node->cornerRadius = opts.radius.has_value() ? m_theme.GetRadius(*opts.radius) : 0.0f;
     node->clipChildren = opts.clipChildren;
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
@@ -373,12 +373,13 @@ ScrollAreaScope Context::ScrollArea(ScrollAreaOptions opts, std::source_location
     const bool activeDisabled = opts.disabled || IsDisabled();
 
     Node* node = CreateNode(NodeType::ScrollArea, id);
-    node->direction = FlexDirection::Column;
+    node->direction = (opts.orientation == Orientation::Horizontal) ? FlexDirection::Row : FlexDirection::Column;
     node->clipChildren = true;
     node->widthMode = SizeMode::Stretch;
     node->heightMode = SizeMode::Stretch;
     node->flexGrow = 1.0f;
-    node->padding = opts.padding;
+    node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : 0.0f;
+    node->padding = opts.padding.value_or(Padding{});
     node->scrollOrientation = opts.orientation;
     node->scrollbarPolicy = opts.scrollbar;
     node->uiSize = activeSize;
@@ -497,7 +498,7 @@ CardScope Context::Card(CardOptions opts, std::source_location loc) {
     outerNode->backgroundColor = (opts.backgroundColor.a > 0) ? opts.backgroundColor : pal.surface;
     outerNode->borderColor = (opts.borderColor.a > 0) ? opts.borderColor : pal.border;
     outerNode->borderWidth = opts.borderWidth;
-    outerNode->cornerRadius = opts.radius.has_value() ? m_theme.GetRadius(*opts.radius) : (opts.cornerRadius > 0.0f ? opts.cornerRadius : m_theme.GetRadius(activeSize));
+    outerNode->cornerRadius = opts.radius.has_value() ? m_theme.GetRadius(*opts.radius) : m_theme.GetRadius(activeSize);
     outerNode->clipChildren = opts.clipChildren;
     outerNode->uiSize = activeSize;
     outerNode->disabled = activeDisabled;

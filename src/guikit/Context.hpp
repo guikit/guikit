@@ -17,7 +17,6 @@
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/core/UiString.hpp"
-#include "guikit/core/UiStyle.hpp"
 #include "guikit/graphics/Icon.hpp"
 #include "guikit/layout/LayoutSolver.hpp"
 #include "guikit/layout/Node.hpp"

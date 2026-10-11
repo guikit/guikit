@@ -1550,6 +1550,18 @@ void TestScrollAreaImmediateMode() {
     bBtn1 = ui.GetPrevFrameBounds(btn1Res.id);
     CHECK(bBtn1.h > 0.0f);
     CHECK_NEAR(bBtn1.y, 0.0f, 1.0f);
+
+    // Verify ScrollAreaOptions with gap and horizontal orientation
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    if (auto scrollH = ui.ScrollArea({.orientation = Orientation::Horizontal, .gap = UiSize::Sm})) {
+        Node* n = scrollH.GetNode();
+        CHECK(n != nullptr);
+        if (n) {
+            CHECK(n->direction == FlexDirection::Row);
+            CHECK(n->gap == UiTheme::Dark().GetGap(UiSize::Sm));
+        }
+    }
+    ui.EndFrame(canvas);
 }
 
 void TestReactiveEventLoop() {

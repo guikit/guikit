@@ -40,12 +40,11 @@ struct BoxOptions {
     SizeMode heightMode{SizeMode::Fit};
     float fixedWidth{0.0f};
     float fixedHeight{0.0f};
-    Padding padding{};
+    std::optional<Padding> padding{std::nullopt};
     Color backgroundColor{0, 0, 0, 0};
     Color borderColor{0, 0, 0, 0};
     float borderWidth{0.0f};
     std::optional<UiSize> radius{std::nullopt};
-    float cornerRadius{0.0f};
     bool clipChildren{false};
     std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
@@ -103,7 +102,6 @@ struct CardOptions {
     Color borderColor{Color::Transparent()};
     float borderWidth{1.0f};
     std::optional<UiSize> radius{std::nullopt};     ///< Corner radius token (nullopt = auto from style density)
-    float cornerRadius{0.0f};                       ///< Explicit pixel fallback if provided
     bool clipChildren{true};                        ///< Default true: clip children to prevent content from bleeding outside card
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Fit};
@@ -115,7 +113,8 @@ struct CardOptions {
 struct ScrollAreaOptions {
     Orientation orientation{Orientation::Vertical};
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};
-    Padding padding{};
+    std::optional<UiSize> gap{std::nullopt};        ///< Gap between consecutive scroll items (nullopt = zero)
+    std::optional<Padding> padding{std::nullopt};   ///< Viewport content padding (nullopt = zero)
     std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
 };
