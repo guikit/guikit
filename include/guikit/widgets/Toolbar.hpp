@@ -1,8 +1,9 @@
-﻿#pragma once
+#pragma once
 
 #include <optional>
 #include <source_location>
 #include <string_view>
+#include "guikit/core/ContainerScope.hpp"
 #include "guikit/core/Response.hpp"
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
@@ -39,18 +40,9 @@ struct ToolbarOptions {
 };
 
 /// RAII scope for Toolbar container.
-class ToolbarScope {
+class ToolbarScope : public ContainerScope {
 public:
-    ToolbarScope(Context* ctx, Node* node);
-    ~ToolbarScope();
-
-    ToolbarScope(const ToolbarScope&) = delete;
-    ToolbarScope& operator=(const ToolbarScope&) = delete;
-
-    ToolbarScope(ToolbarScope&& other) noexcept;
-    ToolbarScope& operator=(ToolbarScope&& other) noexcept;
-
-    explicit operator bool() const noexcept { return m_node != nullptr; }
+    using ContainerScope::ContainerScope;
 
     /// Adds a vertical separator bar between tool groups.
     void Separator(float heightRatio = 0.55f, std::source_location loc = std::source_location::current());
@@ -65,15 +57,8 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
-    /// Returns the underlying Node.
-    [[nodiscard]] Node* GetNode() const noexcept { return m_node; }
-
     /// Direct access to underlying Context.
     [[nodiscard]] Context& Ctx() noexcept { return *m_ctx; }
-
-private:
-    Context* m_ctx{nullptr};
-    Node* m_node{nullptr};
 };
 
 /// Autonomous Toolbar widget logic (measuring, rendering, and tool button utilities).

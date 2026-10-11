@@ -1,11 +1,11 @@
-﻿#pragma once
+#pragma once
 
 #include <optional>
 #include <source_location>
+#include "guikit/core/ContainerScope.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/layout/Types.hpp"
-#include "guikit/containers/Container.hpp"
 
 namespace guikit {
 
@@ -24,12 +24,10 @@ struct WrapOptions {
     bool disabled{false};
 };
 
-using WrapScope = ContainerScope;
-
 /// Autonomous immediate mode Wrap layout entry point.
 class Wrap {
 public:
-    static WrapScope Open(
+    static ContainerScope Open(
         Context& ctx,
         const WrapOptions& opts = {},
         std::source_location loc = std::source_location::current()

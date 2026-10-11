@@ -20,7 +20,7 @@ Response TabBar::Run(
     const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
     const ComponentMetrics& m = ctx.GetTheme().GetMetrics(activeSize);
 
-    std::optional<CarouselScope> carouselScope;
+    std::optional<ContainerScope> carouselScope;
     Node* barNode = nullptr;
 
     if (opts.scrollable && !opts.fullWidth) {

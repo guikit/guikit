@@ -3,7 +3,7 @@
 
 namespace guikit {
 
-WrapScope Wrap::Open(
+ContainerScope Wrap::Open(
     Context& ctx,
     const WrapOptions& opts,
     std::source_location loc

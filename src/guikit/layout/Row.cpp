@@ -3,7 +3,7 @@
 
 namespace guikit {
 
-RowScope Row::Open(
+ContainerScope Row::Open(
     Context& ctx,
     const RowOptions& opts,
     std::source_location loc

@@ -183,7 +183,7 @@ bool Context::IsDisabled() const {
     return !m_disabledStack.empty() && m_disabledStack.back();
 }
 
-RowScope Context::Row(RowOptions opts, std::source_location loc) {
+ContainerScope Context::Row(RowOptions opts, std::source_location loc) {
     const Id id = MakeChildId(loc);
     const UiSize activeSize = opts.size.value_or(GetCurrentSize());
     const bool activeDisabled = opts.disabled || IsDisabled();
@@ -202,10 +202,10 @@ RowScope Context::Row(RowOptions opts, std::source_location loc) {
     PushSize(activeSize);
     PushDisabled(activeDisabled);
     PushContainer(node);
-    return RowScope(this, node);
+    return ContainerScope(this, node);
 }
 
-ColumnScope Context::Column(ColumnOptions opts, std::source_location loc) {
+ContainerScope Context::Column(ColumnOptions opts, std::source_location loc) {
     const Id id = MakeChildId(loc);
     const UiSize activeSize = opts.size.value_or(GetCurrentSize());
     const bool activeDisabled = opts.disabled || IsDisabled();
@@ -224,10 +224,10 @@ ColumnScope Context::Column(ColumnOptions opts, std::source_location loc) {
     PushSize(activeSize);
     PushDisabled(activeDisabled);
     PushContainer(node);
-    return ColumnScope(this, node);
+    return ContainerScope(this, node);
 }
 
-BoxScope Context::Box(BoxOptions opts, std::source_location loc) {
+ContainerScope Context::Box(BoxOptions opts, std::source_location loc) {
     const Id id = MakeChildId(loc);
     const UiSize activeSize = opts.size.value_or(GetCurrentSize());
     const bool activeDisabled = opts.disabled || IsDisabled();
@@ -265,10 +265,10 @@ BoxScope Context::Box(BoxOptions opts, std::source_location loc) {
     PushSize(activeSize);
     PushDisabled(activeDisabled);
     PushContainer(node);
-    return BoxScope(this, node);
+    return ContainerScope(this, node);
 }
 
-WrapScope Context::Wrap(WrapOptions opts, std::source_location loc) {
+ContainerScope Context::Wrap(WrapOptions opts, std::source_location loc) {
     const Id id = MakeChildId(loc);
     const UiSize activeSize = opts.size.value_or(GetCurrentSize());
     const bool activeDisabled = opts.disabled || IsDisabled();
@@ -288,7 +288,7 @@ WrapScope Context::Wrap(WrapOptions opts, std::source_location loc) {
     PushSize(activeSize);
     PushDisabled(activeDisabled);
     PushContainer(node);
-    return WrapScope(this, node);
+    return ContainerScope(this, node);
 }
 
 GridScope Context::CellGrid(GridOptions opts, std::source_location loc) {
@@ -320,7 +320,7 @@ GridScope Context::Grid(GridOptions opts, std::source_location loc) {
     return GridScope(this, node);
 }
 
-ScrollAreaScope Context::ScrollArea(ScrollAreaOptions opts, std::source_location loc) {
+ContainerScope Context::ScrollArea(ScrollAreaOptions opts, std::source_location loc) {
     const Id id = MakeChildId(loc);
     const UiSize activeSize = opts.size.value_or(GetCurrentSize());
     const bool activeDisabled = opts.disabled || IsDisabled();
@@ -359,10 +359,10 @@ ScrollAreaScope Context::ScrollArea(ScrollAreaOptions opts, std::source_location
     PushSize(activeSize);
     PushDisabled(activeDisabled);
     PushContainer(node);
-    return ScrollAreaScope(this, node);
+    return ContainerScope(this, node);
 }
 
-CarouselScope Context::Carousel(CarouselOptions opts, std::source_location loc) {
+ContainerScope Context::Carousel(CarouselOptions opts, std::source_location loc) {
     const Id id = MakeChildId(loc);
     const UiSize activeSize = opts.size.value_or(GetCurrentSize());
     const bool activeDisabled = opts.disabled || IsDisabled();
@@ -432,10 +432,10 @@ CarouselScope Context::Carousel(CarouselOptions opts, std::source_location loc) 
     PushSize(activeSize);
     PushDisabled(activeDisabled);
     PushContainer(node);
-    return CarouselScope(this, node);
+    return ContainerScope(this, node);
 }
 
-CardScope Context::Card(CardOptions opts, std::source_location loc) {
+ContainerScope Context::Card(CardOptions opts, std::source_location loc) {
     const Id idOuter = MakeChildId(loc);
     const UiSize activeSize = opts.size.value_or(GetCurrentSize());
     const bool activeDisabled = opts.disabled || IsDisabled();
@@ -461,10 +461,10 @@ CardScope Context::Card(CardOptions opts, std::source_location loc) {
     PushDisabled(activeDisabled);
     PushContainer(outerNode);
 
-    return CardScope(this, outerNode);
+    return ContainerScope(this, outerNode);
 }
 
-CellScope Context::CreateCell(int span, CellOptions opts, std::source_location loc) {
+ContainerScope Context::CreateCell(int span, CellOptions opts, std::source_location loc) {
     const Id id = MakeChildId(loc);
     const UiSize activeSize = opts.size.value_or(GetCurrentSize());
     const bool activeDisabled = opts.disabled || IsDisabled();
@@ -486,7 +486,7 @@ CellScope Context::CreateCell(int span, CellOptions opts, std::source_location l
     PushSize(activeSize);
     PushDisabled(activeDisabled);
     PushContainer(node);
-    return CellScope(this, node);
+    return ContainerScope(this, node);
 }
 
 void Context::Spacer(float flex, std::source_location loc) {

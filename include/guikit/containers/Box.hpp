@@ -1,10 +1,9 @@
-﻿#pragma once
+#pragma once
 
 #include <optional>
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/layout/Types.hpp"
-#include "guikit/containers/Container.hpp"
 
 namespace guikit {
 
@@ -24,7 +23,5 @@ struct BoxOptions {
     std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
 };
-
-using BoxScope = ContainerScope;
 
 } // namespace guikit

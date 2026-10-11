@@ -6,38 +6,6 @@
 
 namespace guikit {
 
-ToolbarScope::ToolbarScope(Context* ctx, Node* node)
-    : m_ctx(ctx)
-    , m_node(node)
-{
-}
-
-ToolbarScope::~ToolbarScope() {
-    if (m_ctx && m_node) {
-        m_ctx->PopContainer(m_node);
-    }
-}
-
-ToolbarScope::ToolbarScope(ToolbarScope&& other) noexcept
-    : m_ctx(other.m_ctx)
-    , m_node(other.m_node)
-{
-    other.m_ctx = nullptr;
-    other.m_node = nullptr;
-}
-
-ToolbarScope& ToolbarScope::operator=(ToolbarScope&& other) noexcept {
-    if (this != &other) {
-        if (m_ctx && m_node) {
-            m_ctx->PopContainer(m_node);
-        }
-        m_ctx = other.m_ctx;
-        m_node = other.m_node;
-        other.m_ctx = nullptr;
-        other.m_node = nullptr;
-    }
-    return *this;
-}
 
 void ToolbarScope::Separator(float heightRatio, std::source_location loc) {
     if (!m_ctx || !m_node) return;

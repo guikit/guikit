@@ -1,4 +1,4 @@
-﻿#include "guikit/containers/Carousel.hpp"
+#include "guikit/containers/Carousel.hpp"
 #include <algorithm>
 #include <cmath>
 #include "guikit/Context.hpp"
@@ -8,7 +8,7 @@
 
 namespace guikit {
 
-CarouselScope Carousel::Open(
+ContainerScope Carousel::Open(
     Context& ctx,
     const CarouselOptions& opts,
     std::source_location loc

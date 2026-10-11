@@ -1,11 +1,10 @@
-﻿#pragma once
+#pragma once
 
 #include <optional>
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/layout/Types.hpp"
-#include "guikit/containers/Container.hpp"
 
 namespace guikit {
 
@@ -21,8 +20,6 @@ struct ScrollAreaOptions {
     std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
 };
-
-using ScrollAreaScope = ContainerScope;
 
 /// ScrollArea container logic and scrollbar rendering.
 class ScrollArea {

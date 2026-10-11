@@ -46,7 +46,4 @@ protected:
     Node* m_node{nullptr};
 };
 
-/// Clean type alias for container scope.
-using Container = ContainerScope;
-
 } // namespace guikit

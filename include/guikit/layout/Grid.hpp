@@ -1,11 +1,11 @@
-﻿#pragma once
+#pragma once
 
 #include <optional>
 #include <source_location>
+#include "guikit/core/ContainerScope.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/layout/Types.hpp"
-#include "guikit/containers/Container.hpp"
 
 namespace guikit {
 
@@ -26,8 +26,6 @@ struct GridOptions {
     bool disabled{false};
 };
 
-using CellGridOptions = GridOptions;
-
 /// Options for configuring an individual grid cell slot.
 struct CellOptions {
     float minWidth{0.0f};                           ///< Minimum width constraint (0 = auto content intrinsic)
@@ -40,28 +38,24 @@ struct CellOptions {
     bool disabled{false};
 };
 
-using CellScope = ContainerScope;
-
 /// Specialized RAII Scope guard for Grid containers providing direct cell slot helpers.
 class GridScope : public ContainerScope {
 public:
     using ContainerScope::ContainerScope;
 
     /// Full-width 12-column cell slot
-    CellScope Cell(CellOptions opts = {}, std::source_location loc = std::source_location::current()) {
+    ContainerScope Cell(CellOptions opts = {}, std::source_location loc = std::source_location::current()) {
         return Cell12(opts, loc);
     }
 
-    CellScope Cell12(CellOptions opts = {}, std::source_location loc = std::source_location::current());
-    CellScope Cell8(CellOptions opts = {}, std::source_location loc = std::source_location::current());
-    CellScope Cell6(CellOptions opts = {}, std::source_location loc = std::source_location::current());
-    CellScope Cell4(CellOptions opts = {}, std::source_location loc = std::source_location::current());
-    CellScope Cell3(CellOptions opts = {}, std::source_location loc = std::source_location::current());
-    CellScope Cell2(CellOptions opts = {}, std::source_location loc = std::source_location::current());
-    CellScope Cell1(CellOptions opts = {}, std::source_location loc = std::source_location::current());
+    ContainerScope Cell12(CellOptions opts = {}, std::source_location loc = std::source_location::current());
+    ContainerScope Cell8(CellOptions opts = {}, std::source_location loc = std::source_location::current());
+    ContainerScope Cell6(CellOptions opts = {}, std::source_location loc = std::source_location::current());
+    ContainerScope Cell4(CellOptions opts = {}, std::source_location loc = std::source_location::current());
+    ContainerScope Cell3(CellOptions opts = {}, std::source_location loc = std::source_location::current());
+    ContainerScope Cell2(CellOptions opts = {}, std::source_location loc = std::source_location::current());
+    ContainerScope Cell1(CellOptions opts = {}, std::source_location loc = std::source_location::current());
 };
-
-using CellGridScope = GridScope;
 
 /// Autonomous immediate mode Grid layout entry point.
 class Grid {

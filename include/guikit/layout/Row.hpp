@@ -1,11 +1,11 @@
-﻿#pragma once
+#pragma once
 
 #include <optional>
 #include <source_location>
+#include "guikit/core/ContainerScope.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/layout/Types.hpp"
-#include "guikit/containers/Container.hpp"
 
 namespace guikit {
 
@@ -22,12 +22,10 @@ struct RowOptions {
     bool disabled{false};
 };
 
-using RowScope = ContainerScope;
-
 /// Autonomous immediate mode Row layout entry point.
 class Row {
 public:
-    static RowScope Open(
+    static ContainerScope Open(
         Context& ctx,
         const RowOptions& opts = {},
         std::source_location loc = std::source_location::current()

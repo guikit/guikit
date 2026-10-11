@@ -3,7 +3,7 @@
 
 namespace guikit {
 
-ColumnScope Column::Open(
+ContainerScope Column::Open(
     Context& ctx,
     const ColumnOptions& opts,
     std::source_location loc

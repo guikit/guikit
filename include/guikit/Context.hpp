@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <chrono>
 #include <functional>
@@ -20,7 +20,7 @@
 #include "guikit/graphics/Icon.hpp"
 #include "guikit/layout/Solver.hpp"
 #include "guikit/layout/Node.hpp"
-#include "guikit/containers/Container.hpp"
+#include "guikit/core/ContainerScope.hpp"
 #include "guikit/layout/Row.hpp"
 #include "guikit/layout/Column.hpp"
 #include "guikit/layout/Wrap.hpp"
@@ -174,17 +174,17 @@ public:
     void InvalidateRect(Rect rect) noexcept;
 
     // --- Layout Scopes ---
-    RowScope Row(
+    ContainerScope Row(
         RowOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
-    ColumnScope Column(
+    ContainerScope Column(
         ColumnOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
-    WrapScope Wrap(
+    ContainerScope Wrap(
         WrapOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
@@ -205,22 +205,22 @@ public:
     );
 
     // --- Container Scopes ---
-    BoxScope Box(
+    ContainerScope Box(
         BoxOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
-    CardScope Card(
+    ContainerScope Card(
         CardOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
-    ScrollAreaScope ScrollArea(
+    ContainerScope ScrollArea(
         ScrollAreaOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
-    CarouselScope Carousel(
+    ContainerScope Carousel(
         CarouselOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
@@ -836,7 +836,7 @@ private:
     friend class GridScope;
     friend class TabBar;
     friend class Carousel;
-    CellScope CreateCell(int span, CellOptions opts, std::source_location loc = std::source_location::current());
+    ContainerScope CreateCell(int span, CellOptions opts, std::source_location loc = std::source_location::current());
 };
 
 // Inline implementations of Response imperative actions
@@ -862,26 +862,26 @@ inline ContainerScope::~ContainerScope() {
 }
 
 // Inline implementations of GridScope slot helpers
-inline CellScope GridScope::Cell12(CellOptions opts, std::source_location loc) {
-    return m_ctx ? m_ctx->CreateCell(12, opts, loc) : CellScope(nullptr, nullptr);
+inline ContainerScope GridScope::Cell12(CellOptions opts, std::source_location loc) {
+    return m_ctx ? m_ctx->CreateCell(12, opts, loc) : ContainerScope(nullptr, nullptr);
 }
-inline CellScope GridScope::Cell8(CellOptions opts, std::source_location loc) {
-    return m_ctx ? m_ctx->CreateCell(8, opts, loc) : CellScope(nullptr, nullptr);
+inline ContainerScope GridScope::Cell8(CellOptions opts, std::source_location loc) {
+    return m_ctx ? m_ctx->CreateCell(8, opts, loc) : ContainerScope(nullptr, nullptr);
 }
-inline CellScope GridScope::Cell6(CellOptions opts, std::source_location loc) {
-    return m_ctx ? m_ctx->CreateCell(6, opts, loc) : CellScope(nullptr, nullptr);
+inline ContainerScope GridScope::Cell6(CellOptions opts, std::source_location loc) {
+    return m_ctx ? m_ctx->CreateCell(6, opts, loc) : ContainerScope(nullptr, nullptr);
 }
-inline CellScope GridScope::Cell4(CellOptions opts, std::source_location loc) {
-    return m_ctx ? m_ctx->CreateCell(4, opts, loc) : CellScope(nullptr, nullptr);
+inline ContainerScope GridScope::Cell4(CellOptions opts, std::source_location loc) {
+    return m_ctx ? m_ctx->CreateCell(4, opts, loc) : ContainerScope(nullptr, nullptr);
 }
-inline CellScope GridScope::Cell3(CellOptions opts, std::source_location loc) {
-    return m_ctx ? m_ctx->CreateCell(3, opts, loc) : CellScope(nullptr, nullptr);
+inline ContainerScope GridScope::Cell3(CellOptions opts, std::source_location loc) {
+    return m_ctx ? m_ctx->CreateCell(3, opts, loc) : ContainerScope(nullptr, nullptr);
 }
-inline CellScope GridScope::Cell2(CellOptions opts, std::source_location loc) {
-    return m_ctx ? m_ctx->CreateCell(2, opts, loc) : CellScope(nullptr, nullptr);
+inline ContainerScope GridScope::Cell2(CellOptions opts, std::source_location loc) {
+    return m_ctx ? m_ctx->CreateCell(2, opts, loc) : ContainerScope(nullptr, nullptr);
 }
-inline CellScope GridScope::Cell1(CellOptions opts, std::source_location loc) {
-    return m_ctx ? m_ctx->CreateCell(1, opts, loc) : CellScope(nullptr, nullptr);
+inline ContainerScope GridScope::Cell1(CellOptions opts, std::source_location loc) {
+    return m_ctx ? m_ctx->CreateCell(1, opts, loc) : ContainerScope(nullptr, nullptr);
 }
 
 } // namespace guikit

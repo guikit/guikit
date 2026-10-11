@@ -1,12 +1,12 @@
-﻿#pragma once
+#pragma once
 
 #include <optional>
 #include <source_location>
+#include "guikit/core/ContainerScope.hpp"
 #include "guikit/core/Id.hpp"
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/layout/Types.hpp"
-#include "guikit/containers/Container.hpp"
 
 namespace guikit {
 
@@ -24,8 +24,6 @@ struct CarouselOptions {
     std::optional<UiSize> size{std::nullopt};       ///< Size token determining arrow sizes and baseline height
     bool disabled{false};                           ///< Interaction suppression
 };
-
-using CarouselScope = ContainerScope;
 
 /// Internal runtime state allocated in frame arena for Carousel container nodes.
 struct CarouselData {
@@ -57,7 +55,7 @@ struct CarouselData {
 class Carousel {
 public:
     /// Primary immediate mode entry point for Carousel container.
-    static CarouselScope Open(
+    static ContainerScope Open(
         Context& ctx,
         const CarouselOptions& opts = {},
         std::source_location loc = std::source_location::current()
