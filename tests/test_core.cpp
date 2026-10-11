@@ -1,4 +1,4 @@
-﻿#include <iostream>
+#include <iostream>
 #include <unordered_set>
 #include "guikit/core/Allocator.hpp"
 #include "guikit/core/FrameMetrics.hpp"
@@ -57,6 +57,28 @@ void TestGeometryAndTypes() {
     CHECK(theme.GetRadius(UiSize::Md) == 6.0f);
     Dp dpVal = 16.0_dp;
     CHECK(dpVal.ToPixels(2.0f) == 32.0f);
+
+    // Padding token and resolution tests
+    static_assert(sizeof(Padding) == 16, "Padding must remain 16 bytes for Node packing");
+    Padding pUniform{12.0f};
+    CHECK(pUniform.left == 12.0f && pUniform.top == 12.0f && pUniform.right == 12.0f && pUniform.bottom == 12.0f);
+    CHECK(!pUniform.IsToken());
+
+    Padding pToken{UiSize::Sm};
+    CHECK(pToken.IsToken());
+    CHECK(pToken.GetToken() == UiSize::Sm);
+
+    Padding pResolved = theme.ResolvePadding(pToken);
+    CHECK(pResolved == theme.GetPadding(UiSize::Sm));
+
+    Padding pEmptyResolved = theme.ResolvePadding(std::nullopt);
+    CHECK((pEmptyResolved == Padding{0.0f, 0.0f, 0.0f, 0.0f}));
+
+    Padding pCardResolved = theme.ResolvePadding(std::nullopt, UiSize::Md);
+    CHECK(pCardResolved == theme.GetPadding(UiSize::Md));
+
+    // Typography line height test
+    CHECK(theme.GetLineHeight(14.0f) == 14.0f * kDefaultLineHeightMultiplier);
 }
 
 void TestIdGeneration() {

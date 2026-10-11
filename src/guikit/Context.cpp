@@ -191,7 +191,7 @@ ContainerScope Context::Row(RowOptions opts, std::source_location loc) {
     Node* node = CreateNode(NodeType::Row, id);
     node->direction = FlexDirection::Row;
     node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
-    node->padding = opts.padding;
+    node->padding = m_theme.ResolvePadding(opts.padding);
     node->align = opts.align;
     node->justify = opts.justify;
     node->heightMode = opts.heightMode;
@@ -213,7 +213,7 @@ ContainerScope Context::Column(ColumnOptions opts, std::source_location loc) {
     Node* node = CreateNode(NodeType::Column, id);
     node->direction = FlexDirection::Column;
     node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
-    node->padding = opts.padding;
+    node->padding = m_theme.ResolvePadding(opts.padding);
     node->align = opts.align;
     node->justify = opts.justify;
     node->widthMode = opts.widthMode;
@@ -253,7 +253,7 @@ ContainerScope Context::Box(BoxOptions opts, std::source_location loc) {
         node->heightMode = SizeMode::Fixed;
     }
 
-    node->padding = opts.padding.value_or(Padding{});
+    node->padding = m_theme.ResolvePadding(opts.padding);
     node->backgroundColor = opts.backgroundColor;
     node->borderColor = opts.borderColor;
     node->borderWidth = opts.borderWidth;
@@ -277,7 +277,7 @@ ContainerScope Context::Wrap(WrapOptions opts, std::source_location loc) {
     node->direction = FlexDirection::Wrap;
     node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
     node->runGap = opts.runGap.has_value() ? m_theme.GetGap(*opts.runGap) : node->gap;
-    node->padding = opts.padding;
+    node->padding = m_theme.ResolvePadding(opts.padding);
     node->align = opts.align;
     node->justify = opts.justify;
     node->widthMode = opts.widthMode;
@@ -306,7 +306,7 @@ GridScope Context::Grid(GridOptions opts, std::source_location loc) {
     node->minColWidth = opts.minColWidth;
     node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
     node->runGap = opts.runGap.has_value() ? m_theme.GetGap(*opts.runGap) : node->gap;
-    node->padding = opts.padding;
+    node->padding = m_theme.ResolvePadding(opts.padding);
     node->align = opts.align;
     node->justify = opts.justify;
     node->widthMode = opts.widthMode;
@@ -332,7 +332,7 @@ ContainerScope Context::ScrollArea(ScrollAreaOptions opts, std::source_location 
     node->heightMode = SizeMode::Stretch;
     node->flexGrow = 1.0f;
     node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : 0.0f;
-    node->padding = opts.padding.value_or(Padding{});
+    node->padding = m_theme.ResolvePadding(opts.padding);
     node->scrollOrientation = opts.orientation;
     node->scrollbarPolicy = opts.scrollbar;
     node->uiSize = activeSize;
@@ -374,7 +374,7 @@ ContainerScope Context::Carousel(CarouselOptions opts, std::source_location loc)
     node->justify = opts.justify;
     node->clipChildren = true;
     node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
-    node->padding = opts.padding.value_or(Padding{});
+    node->padding = m_theme.ResolvePadding(opts.padding);
     node->widthMode = SizeMode::Stretch;
     node->heightMode = SizeMode::Fit;
     node->uiSize = activeSize;
@@ -447,7 +447,7 @@ ContainerScope Context::Card(CardOptions opts, std::source_location loc) {
     outerNode->minWidth = opts.minWidth;
     outerNode->widthMode = opts.widthMode;
     outerNode->heightMode = opts.heightMode;
-    outerNode->padding = opts.padding.has_value() ? *opts.padding : m_theme.GetPadding(activeSize);
+    outerNode->padding = m_theme.ResolvePadding(opts.padding, activeSize);
     const auto& pal = m_theme.palette;
     outerNode->backgroundColor = (opts.backgroundColor.a > 0) ? opts.backgroundColor : pal.surface;
     outerNode->borderColor = (opts.borderColor.a > 0) ? opts.borderColor : pal.border;
@@ -475,7 +475,7 @@ ContainerScope Context::CreateCell(int span, CellOptions opts, std::source_locat
     node->minWidth = opts.minWidth;
     node->clipChildren = opts.clipChildren;
     node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
-    node->padding = opts.padding;
+    node->padding = m_theme.ResolvePadding(opts.padding);
     node->align = opts.align;
     node->justify = opts.justify;
     node->widthMode = SizeMode::Stretch;

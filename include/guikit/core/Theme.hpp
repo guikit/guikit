@@ -96,6 +96,20 @@ struct UiTheme {
         return Padding::All(val);
     }
 
+    /// Resolves an optional padding (design token or explicit insets) into concrete layout pixels.
+    [[nodiscard]] constexpr Padding ResolvePadding(std::optional<Padding> p, UiSize fallbackSize = UiSize::None) const noexcept {
+        if (p.has_value()) {
+            if (p->IsToken()) {
+                return GetPadding(p->GetToken());
+            }
+            return *p;
+        }
+        if (fallbackSize != UiSize::None) {
+            return GetPadding(fallbackSize);
+        }
+        return Padding{};
+    }
+
     [[nodiscard]] constexpr const SwitchMetrics& GetSwitch(UiSize size) const noexcept {
         const size_t idx = static_cast<size_t>(size);
         return (idx < switches.size()) ? switches[idx] : switches[static_cast<size_t>(UiSize::Md)];

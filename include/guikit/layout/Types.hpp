@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <optional>
+#include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
 
 namespace guikit {
@@ -40,7 +42,7 @@ enum class Justify : uint8_t {
     SpaceBetween    ///< Distribute items evenly; first item at start, last at end
 };
 
-/// Inset margins or internal padding on 4 sides.
+/// Inset margins or internal padding on 4 sides, supporting both explicit pixel insets and semantic design tokens.
 struct Padding {
     float left{0.0f};
     float top{0.0f};
@@ -48,24 +50,51 @@ struct Padding {
     float bottom{0.0f};
 
     constexpr Padding() noexcept = default;
+
+    /// Uniform explicit pixel padding on all 4 sides.
+    constexpr Padding(float all) noexcept
+        : left(all), top(all), right(all), bottom(all) {}
+
+    /// Explicit pixel padding on 4 individual sides.
     constexpr Padding(float l, float t, float r, float b) noexcept
         : left(l), top(t), right(r), bottom(b) {}
 
+    /// Semantic design token padding dynamically resolved via UiTheme and UI density scale.
+    constexpr Padding(UiSize size) noexcept
+        : left(-1.0f), top(static_cast<float>(size)), right(0.0f), bottom(0.0f) {}
+
     [[nodiscard]] static constexpr Padding All(float val) noexcept {
-        return {val, val, val, val};
+        return Padding(val);
     }
 
     [[nodiscard]] static constexpr Padding Symmetric(float horizontal, float vertical) noexcept {
-        return {horizontal, vertical, horizontal, vertical};
+        return Padding(horizontal, vertical, horizontal, vertical);
+    }
+
+    [[nodiscard]] constexpr bool IsToken() const noexcept {
+        return left < 0.0f;
+    }
+
+    [[nodiscard]] constexpr UiSize GetToken() const noexcept {
+        return (left < 0.0f) ? static_cast<UiSize>(top) : UiSize::None;
     }
 
     [[nodiscard]] constexpr float Horizontal() const noexcept {
-        return left + right;
+        return (left < 0.0f) ? 0.0f : (left + right);
     }
 
     [[nodiscard]] constexpr float Vertical() const noexcept {
-        return top + bottom;
+        return (left < 0.0f) ? 0.0f : (top + bottom);
+    }
+
+    [[nodiscard]] constexpr bool operator==(const Padding& other) const noexcept {
+        if (IsToken() || other.IsToken()) {
+            return IsToken() == other.IsToken() && GetToken() == other.GetToken();
+        }
+        return left == other.left && top == other.top && right == other.right && bottom == other.bottom;
     }
 };
+
+static_assert(sizeof(Padding) == 16, "Padding must remain exactly 16 bytes for cache line layout");
 
 } // namespace guikit

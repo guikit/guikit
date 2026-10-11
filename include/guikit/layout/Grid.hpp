@@ -17,7 +17,7 @@ struct GridOptions {
     float minColWidth{0.0f};                        ///< Minimum column width before wrapping items (0 = auto content intrinsic)
     std::optional<UiSize> gap{std::nullopt};        ///< Horizontal gap between columns (nullopt = inherit size)
     std::optional<UiSize> runGap{std::nullopt};     ///< Vertical gap between wrapped rows (nullopt = match gap)
-    Padding padding{};                              ///< Container padding
+    std::optional<Padding> padding{std::nullopt};   ///< Container padding (nullopt = zero)
     Alignment align{Alignment::Stretch};
     Justify justify{Justify::Start};
     SizeMode widthMode{SizeMode::Stretch};
@@ -30,7 +30,7 @@ struct GridOptions {
 struct CellOptions {
     float minWidth{0.0f};                           ///< Minimum width constraint (0 = auto content intrinsic)
     std::optional<UiSize> gap{std::nullopt};        ///< Gap between stacked children inside this cell
-    Padding padding{};                              ///< Internal cell padding
+    std::optional<Padding> padding{std::nullopt};   ///< Internal cell padding (nullopt = zero)
     Alignment align{Alignment::Stretch};
     Justify justify{Justify::Start};
     SizeMode heightMode{SizeMode::Fit};

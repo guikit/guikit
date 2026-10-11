@@ -14,7 +14,7 @@ class Context;
 /// Options for configuring a horizontal Row layout.
 struct RowOptions {
     std::optional<UiSize> gap{std::nullopt};
-    Padding padding{};
+    std::optional<Padding> padding{std::nullopt};
     Alignment align{Alignment::Stretch};
     Justify justify{Justify::Start};
     SizeMode heightMode{SizeMode::Fit};

@@ -67,11 +67,16 @@ ToolbarScope Toolbar::Open(
 
     Padding toolbarPadding;
     if (opts.padding.has_value()) {
-        if (*opts.padding == UiSize::None) {
-            toolbarPadding = Padding{};
+        if (opts.padding->IsToken()) {
+            const UiSize t = opts.padding->GetToken();
+            if (t == UiSize::None) {
+                toolbarPadding = Padding{};
+            } else {
+                const float g = ctx.GetTheme().GetGap(t);
+                toolbarPadding = Padding::Symmetric(g, g * 0.5f);
+            }
         } else {
-            const float g = ctx.GetTheme().GetGap(*opts.padding);
-            toolbarPadding = Padding::Symmetric(g, g * 0.5f);
+            toolbarPadding = *opts.padding;
         }
     } else {
         const float g = ctx.GetTheme().GetGap(activeSize);

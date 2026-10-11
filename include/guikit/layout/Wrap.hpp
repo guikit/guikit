@@ -15,7 +15,7 @@ class Context;
 struct WrapOptions {
     std::optional<UiSize> gap{std::nullopt};        ///< Horizontal gap between items on same line
     std::optional<UiSize> runGap{std::nullopt};     ///< Vertical gap between consecutive wrapped lines
-    Padding padding{};
+    std::optional<Padding> padding{std::nullopt};
     Alignment align{Alignment::Center};
     Justify justify{Justify::Start};
     SizeMode widthMode{SizeMode::Stretch};

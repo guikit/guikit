@@ -32,7 +32,7 @@ struct ToolButtonOptions {
 struct ToolbarOptions {
     std::optional<UiSize> size{std::nullopt};       ///< Size token determining height, icon scale, and density
     std::optional<UiSize> gap{std::nullopt};        ///< Gap between toolbar items (nullopt = inherit size)
-    std::optional<UiSize> padding{std::nullopt};    ///< Internal toolbar padding token (nullopt = standard symmetric padding)
+    std::optional<Padding> padding{std::nullopt};   ///< Internal toolbar padding token or explicit insets (nullopt = standard symmetric padding)
     std::optional<UiSize> radius{std::nullopt};     ///< Corner radius token (nullopt = inherit size)
     Color backgroundColor{Color::Transparent()};
     Color borderColor{Color::Transparent()};
