@@ -26,10 +26,10 @@
 #include "guikit/layout/Wrap.hpp"
 #include "guikit/layout/Grid.hpp"
 #include "guikit/layout/Spacer.hpp"
-#include "guikit/containers/Box.hpp"
-#include "guikit/containers/Card.hpp"
-#include "guikit/containers/Carousel.hpp"
-#include "guikit/containers/ScrollArea.hpp"
+#include "guikit/panels/Box.hpp"
+#include "guikit/panels/Card.hpp"
+#include "guikit/panels/Carousel.hpp"
+#include "guikit/panels/ScrollArea.hpp"
 #include "guikit/widgets/Button.hpp"
 #include "guikit/widgets/Checkbox.hpp"
 #include "guikit/widgets/Heading.hpp"
@@ -204,7 +204,7 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
-    // --- Container Scopes ---
+    // --- Panel Scopes ---
     ContainerScope Box(
         BoxOptions opts = {},
         std::source_location loc = std::source_location::current()

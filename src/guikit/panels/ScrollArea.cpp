@@ -1,4 +1,4 @@
-#include "guikit/containers/ScrollArea.hpp"
+#include "guikit/panels/ScrollArea.hpp"
 #include <algorithm>
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/layout/Node.hpp"

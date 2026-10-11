@@ -3,7 +3,7 @@
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/layout/Node.hpp"
-#include "guikit/containers/Carousel.hpp"
+#include "guikit/panels/Carousel.hpp"
 
 namespace guikit {
 

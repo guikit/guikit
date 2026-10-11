@@ -2918,7 +2918,7 @@ void TestContainersAndLayoutsReorganization() {
         }
     }
 
-    // 2. Containers: Box, Card, ScrollArea, Carousel
+    // 2. Panels: Box, Card, ScrollArea, Carousel
     if (ContainerScope box = ui.Box({.gap = UiSize::Sm, .padding = Padding::All(8.0f), .radius = UiSize::Md})) {
         Node* node = box.GetNode();
         CHECK(node != nullptr);

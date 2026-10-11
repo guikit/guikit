@@ -18,12 +18,13 @@ Designed for high-performance desktop tools, embedded displays, and design-syste
   ```
 - **Flexbox & 12-Column Responsive Grid**: Built-in `LayoutSolver` supporting rows, columns, wrapping, intrinsic sizing, and responsive grid collapse.
 - **Component Palette**:
-  - **Containers**: `Row`, `Column`, `Grid`, `Card`, `Carousel` (with horizontal arrow scrolling)
+  - **Layout**: `Row`, `Column`, `Wrap`, `Grid`, `Spacer`
+  - **Panels & Surfaces**: `Box`, `Card`, `ScrollArea`, `Carousel`
   - **Inputs**: `InputField` (text & numeric), `Select` (dropdowns), `Switch`, `Checkbox`
   - **Navigation**: `TabBar` (with responsive carousel overflow), `Toolbar`
   - **Typography & Display**: `Heading` (H1-H4), `Text`, `Icon` (vector icons)
 - **Token-Driven Design System**: `UiStyle`, `UiVariant` (Default, Primary, Success, Warning, Danger, Info, Ghost), `UiSize`, and `UiDensity` presets.
-- **High Performance**: Zero runtime heap churn in render loops using an internal `BumpAllocator`.
+- **High Performance**: Zero runtime heap churn in render loops using an internal `Allocator`.
 
 ---
 
@@ -31,19 +32,20 @@ Designed for high-performance desktop tools, embedded displays, and design-syste
 
 ```text
 guikit/
-├── src/guikit/
+├── include/guikit/      # Canonical public C++20 headers
 │   ├── backend/         # Hardware abstraction (ThorCanvas, SdlCanvas, ICanvas)
-│   ├── core/            # Tokens, Types, Allocator, Id, FrameMetrics, UiStyle
+│   ├── core/            # Tokens, Types, Allocator, Id, FrameMetrics, ContainerScope
 │   ├── graphics/        # Vector Icon definitions and rendering
-│   ├── layout/          # Flexbox & Grid solver (LayoutSolver, Node, Scope)
+│   ├── layout/          # Flexbox & Grid solver (Solver, Node, Row, Column, Grid...)
+│   ├── panels/          # Surface frames & viewports (Box, Card, ScrollArea, Carousel)
 │   ├── widgets/         # Immediate-mode UI widgets
 │   ├── Context.hpp      # Main UI Context
-│   └── Context.cpp
-├── examples/
-│   └── demo/           # Interactive component showcase
-├── tests/              # Automated unit tests (core, layout, context)
-├── assets/fonts/       # Default typography assets (Roboto)
-└── third_party/        # SDL3 and ThorVG git submodules
+│   └── GuiKit.hpp       # Umbrella master include
+├── src/guikit/          # Implementation units (.cpp)
+├── examples/            # Interactive component showcase
+├── tests/               # Automated unit tests (core, layout, context)
+├── assets/              # Typography assets and branding
+└── third_party/         # SDL3 and ThorVG git submodules
 ```
 
 ---

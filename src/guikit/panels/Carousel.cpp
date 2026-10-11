@@ -1,4 +1,4 @@
-#include "guikit/containers/Carousel.hpp"
+#include "guikit/panels/Carousel.hpp"
 #include <algorithm>
 #include <cmath>
 #include "guikit/Context.hpp"
