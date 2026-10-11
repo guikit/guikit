@@ -356,33 +356,37 @@ public:
 
     // --- Switch Widget ---
     Response Switch(
-        bool* value,
+        bool& value,
         SwitchOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
     Response Switch(
-        bool checked,
+        const bool& checked,
         SwitchOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
+    Response Switch(const bool*, SwitchOptions = {}, std::source_location = std::source_location::current()) = delete;
+
     // --- Checkbox Widget ---
     Response Checkbox(
-        bool* value,
+        bool& value,
         CheckboxOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
     Response Checkbox(
-        bool checked,
+        const bool& checked,
         CheckboxOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
+
+    Response Checkbox(const bool*, CheckboxOptions = {}, std::source_location = std::source_location::current()) = delete;
 
     /// Convenience aliases for developers familiar with Toggle terminology.
     Response Toggle(
-        bool* value,
+        bool& value,
         SwitchOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
@@ -390,12 +394,14 @@ public:
     }
 
     Response Toggle(
-        bool checked,
+        const bool& checked,
         SwitchOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
         return Switch(checked, opts, loc);
     }
+
+    Response Toggle(const bool*, SwitchOptions = {}, std::source_location = std::source_location::current()) = delete;
 
     // --- InputField Widget ---
     template <InputFieldEditable T>

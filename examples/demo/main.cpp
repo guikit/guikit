@@ -366,7 +366,7 @@ int main(int argc, char* argv[]) {
                                     ui.Heading({.title = "Primary Stop Conditions", .subtitle = "Sensory tripwire thresholds & limits"});
                                     if (auto grid1 = ui.CellGrid()) {
                                         if (auto c = grid1.Cell12()) {
-                                            ui.Switch(&enableSensors, {
+                                            ui.Switch(enableSensors, {
                                                 .label = "Enable Sensor Drop Limits",
                                                 .description = "Immediate stop on threshold breach"
                                             });
@@ -395,7 +395,7 @@ int main(int argc, char* argv[]) {
                                     ui.Heading({.title = "Emergency Interlocks", .subtitle = "Hardware line supervision & failsafes", .variant = guikit::UiVariant::Danger});
                                     if (auto grid2 = ui.CellGrid()) {
                                         if (auto c = grid2.Cell12()) {
-                                            ui.Switch(&hwEstop, {
+                                            ui.Switch(hwEstop, {
                                                 .label = "Hardware E-Stop Line",
                                                 .description = "Continuous 24V loop monitoring",
                                                 .variant = guikit::UiVariant::Danger
@@ -438,7 +438,7 @@ int main(int argc, char* argv[]) {
                                             ui.InputNumber(dGain, {.label = "D-Gain", .format = "%.3f"});
                                         }
                                         if (auto c = grid3.Cell12()) {
-                                            ui.Switch(&diagLogging, {
+                                            ui.Switch(diagLogging, {
                                                 .label = "Log High-Speed Telemetry",
                                                 .description = "Record 10 kHz buffer to internal flash"
                                             });
@@ -470,8 +470,8 @@ int main(int argc, char* argv[]) {
                             }
 
                             if (auto togglesRow = ui.Wrap({.gap = guikit::UiSize::Lg, .align = guikit::Alignment::Center})) {
-                                ui.Checkbox(&showTelemetry, {.label = "Show Telemetry", .variant = guikit::UiVariant::Info});
-                                if (ui.Switch(&formMode, {
+                                ui.Checkbox(showTelemetry, {.label = "Show Telemetry", .variant = guikit::UiVariant::Info});
+                                if (ui.Switch(formMode, {
                                     .label = "Form Mode",
                                     .description = "Toggle stacked vs default label layout",
                                     .labelPlacement = guikit::Placement::Stacked

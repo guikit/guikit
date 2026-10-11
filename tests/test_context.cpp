@@ -766,21 +766,21 @@ void TestSwitchAndCheckboxWidgets() {
 
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = UiSize::Md, .padding = Padding::All(16.0f)})) {
-            rSwitch = ui.Switch(&switchState, {.label = "Dark Mode"});
-            rCheck = ui.Checkbox(&checkState, {.label = "VSync"});
-            rToggle = ui.Toggle(&toggleState, {.label = "Turbo Mode", .labelPlacement = Placement::Leading});
+            rSwitch = ui.Switch(switchState, {.label = "Dark Mode"});
+            rCheck = ui.Checkbox(checkState, {.label = "VSync"});
+            rToggle = ui.Toggle(toggleState, {.label = "Turbo Mode", .labelPlacement = Placement::Leading});
             rIndeterminate = ui.Checkbox(false, {.label = "Select All", .indeterminate = true});
-            rDesc = ui.Switch(&descState, {
+            rDesc = ui.Switch(descState, {
                 .label = "Auto Breakdown",
                 .description = "Automatic stop of testing on load drop"
             });
-            rStacked = ui.Switch(&stackedState, {
+            rStacked = ui.Switch(stackedState, {
                 .label = "Stacked Mode",
                 .description = "Description below switch control",
                 .labelPlacement = Placement::Stacked
             });
-            rOptSwitch = ui.Switch(&optSwitchState, {.label = "Option Switch"});
-            rOptCheck = ui.Checkbox(&optCheckState, {.label = "Option Checkbox"});
+            rOptSwitch = ui.Switch(optSwitchState, {.label = "Option Switch"});
+            rOptCheck = ui.Checkbox(optCheckState, {.label = "Option Checkbox"});
         }
     };
 
@@ -1396,10 +1396,10 @@ void TestGridAndCardLayout() {
         // 1. Standalone CellGrid with 12-column slots
         if (auto grid = ui.CellGrid({.gap = UiSize::Md})) {
             if (auto c1 = grid.Cell6()) {
-                sw1Res = ui.Switch(&switchVal1, {.label = "Sensor A"});
+                sw1Res = ui.Switch(switchVal1, {.label = "Sensor A"});
             }
             if (auto c2 = grid.Cell6()) {
-                sw2Res = ui.Switch(&switchVal2, {.label = "Sensor B"});
+                sw2Res = ui.Switch(switchVal2, {.label = "Sensor B"});
             }
             if (auto c3 = grid.Cell12()) {
                 inp1Res = ui.InputField(speedVal, {.label = "Speed Target"});
@@ -2026,14 +2026,14 @@ void TestContainerSizeInheritanceAndWidgetStretch() {
         if (auto col = ui.Column({.size = sz})) {
             if (isLarge) {
                 btnLg = ui.Button("Large Action");
-                swLg = ui.Switch(&switchVal, {.label = "Large Switch"});
-                cbLg = ui.Checkbox(&checkVal, {.label = "Large Checkbox"});
+                swLg = ui.Switch(switchVal, {.label = "Large Switch"});
+                cbLg = ui.Checkbox(checkVal, {.label = "Large Checkbox"});
                 inLg = ui.InputField(inputVal, {.label = "Large Input"});
                 selLg = ui.Select(selectIdx, {"One", "Two"}, {.label = "Large Select"});
             } else {
                 btnSm = ui.Button("Small Action");
-                swSm = ui.Switch(&switchVal, {.label = "Small Switch"});
-                cbSm = ui.Checkbox(&checkVal, {.label = "Small Checkbox"});
+                swSm = ui.Switch(switchVal, {.label = "Small Switch"});
+                cbSm = ui.Checkbox(checkVal, {.label = "Small Checkbox"});
                 inSm = ui.InputField(inputVal, {.label = "Small Input"});
                 selSm = ui.Select(selectIdx, {"One", "Two"}, {.label = "Small Select"});
             }
@@ -2226,16 +2226,16 @@ void TestLeafWidgetSizeOverrides() {
 
             // Switches: Inherited (Md), Local override Xl, Local override Xs
             if (auto r2 = ui.Row()) {
-                swInherit = ui.Switch(&swVal, {.label = "Inherit"});
-                swXl = ui.Switch(&swVal, {.label = "Large", .size = UiSize::Xl});
-                swXs = ui.Switch(&swVal, {.label = "Small", .size = UiSize::Xs});
+                swInherit = ui.Switch(swVal, {.label = "Inherit"});
+                swXl = ui.Switch(swVal, {.label = "Large", .size = UiSize::Xl});
+                swXs = ui.Switch(swVal, {.label = "Small", .size = UiSize::Xs});
             }
 
             // Checkboxes: Inherited (Md), Local override Xl, Local override Xs
             if (auto r3 = ui.Row()) {
-                cbInherit = ui.Checkbox(&cbVal, {.label = "Inherit"});
-                cbXl = ui.Checkbox(&cbVal, {.label = "Large", .size = UiSize::Xl});
-                cbXs = ui.Checkbox(&cbVal, {.label = "Small", .size = UiSize::Xs});
+                cbInherit = ui.Checkbox(cbVal, {.label = "Inherit"});
+                cbXl = ui.Checkbox(cbVal, {.label = "Large", .size = UiSize::Xl});
+                cbXs = ui.Checkbox(cbVal, {.label = "Small", .size = UiSize::Xs});
             }
 
             // InputFields: Inherited (Md), Local override Xl, Local override Xs
@@ -2551,7 +2551,7 @@ void TestIndustrialDashboardNoBlackLines() {
                                     ui.Heading({.title = "Primary Stop Conditions", .subtitle = "Sensory tripwire thresholds & limits"});
                                     if (auto grid1 = ui.CellGrid()) {
                                         if (auto c = grid1.Cell12()) {
-                                            ui.Switch(&enableSensors, {
+                                            ui.Switch(enableSensors, {
                                                 .label = "Enable Sensor Drop Limits",
                                                 .description = "Immediate stop on threshold breach"
                                             });
@@ -2580,7 +2580,7 @@ void TestIndustrialDashboardNoBlackLines() {
                                     ui.Heading({.title = "Emergency Interlocks", .subtitle = "Hardware line supervision & failsafes", .variant = UiVariant::Danger});
                                     if (auto grid2 = ui.CellGrid()) {
                                         if (auto c = grid2.Cell12()) {
-                                            ui.Switch(&hwEstop, {
+                                            ui.Switch(hwEstop, {
                                                 .label = "Hardware E-Stop Line",
                                                 .description = "Continuous 24V loop monitoring",
                                                 .variant = UiVariant::Danger

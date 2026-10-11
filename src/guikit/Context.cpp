@@ -280,19 +280,19 @@ Response Context::Heading(HeadingOptions opts, std::source_location loc) {
     return Run<guikit::Heading>(opts, loc);
 }
 
-Response Context::Switch(bool* value, SwitchOptions opts, std::source_location loc) {
-    return Run<guikit::Switch>(value, value ? *value : false, opts, loc);
+Response Context::Switch(bool& value, SwitchOptions opts, std::source_location loc) {
+    return Run<guikit::Switch>(&value, value, opts, loc);
 }
 
-Response Context::Switch(bool checked, SwitchOptions opts, std::source_location loc) {
+Response Context::Switch(const bool& checked, SwitchOptions opts, std::source_location loc) {
     return Run<guikit::Switch>(nullptr, checked, opts, loc);
 }
 
-Response Context::Checkbox(bool* value, CheckboxOptions opts, std::source_location loc) {
-    return Run<guikit::Checkbox>(value, value ? *value : false, opts, loc);
+Response Context::Checkbox(bool& value, CheckboxOptions opts, std::source_location loc) {
+    return Run<guikit::Checkbox>(&value, value, opts, loc);
 }
 
-Response Context::Checkbox(bool checked, CheckboxOptions opts, std::source_location loc) {
+Response Context::Checkbox(const bool& checked, CheckboxOptions opts, std::source_location loc) {
     return Run<guikit::Checkbox>(nullptr, checked, opts, loc);
 }
 
