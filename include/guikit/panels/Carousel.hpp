@@ -66,6 +66,7 @@ public:
     static Vec2 Measure(const Node* node, ICanvas* canvas = nullptr);
 
     /// Custom flex row arrangement with dynamic gutters and scroll viewport.
+    static void Arrange(Node* node, const Rect& availableRect, const UiTheme& theme);
     static void Arrange(Node* node, const Rect& availableRect);
 
     /// Returns the active visible viewport rectangle for children clipping.

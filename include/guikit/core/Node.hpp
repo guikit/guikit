@@ -16,7 +16,7 @@ struct UiTheme;
 using MeasureFunc = Vec2 (*)(const Node* node, ICanvas* canvas, const UiTheme& theme);
 
 /// Function signature for custom arrangement of a container node and its children.
-using ArrangeFunc = void (*)(Node* node, const Rect& availableRect);
+using ArrangeFunc = void (*)(Node* node, const Rect& availableRect, const UiTheme& theme);
 
 /// Function signature for rendering an element's visual contents.
 using RenderFunc = void (*)(const Node* node, ICanvas& canvas, const UiTheme& theme);

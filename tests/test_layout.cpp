@@ -4,6 +4,7 @@
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Solver.hpp"
 #include "guikit/core/Node.hpp"
+#include "guikit/panels/Carousel.hpp"
 
 static int g_failures = 0;
 
@@ -652,7 +653,7 @@ void TestCustomMeasureAndArrangeDelegates() {
     Node* child = arena.Allocate<Node>();
     customContainer->AddChild(child);
 
-    customContainer->arrangeFn = [](Node* node, const Rect& availableRect) {
+    customContainer->arrangeFn = [](Node* node, const Rect& availableRect, const UiTheme& /*theme*/) {
         node->computedRect = availableRect;
         if (node->firstChild) {
             node->firstChild->computedRect = Rect(availableRect.x + 10.0f, availableRect.y + 10.0f, 50.0f, 50.0f);
@@ -665,6 +666,115 @@ void TestCustomMeasureAndArrangeDelegates() {
     CHECK_NEAR(child->computedRect.x, 110.0f, 0.001f);
     CHECK_NEAR(child->computedRect.y, 110.0f, 0.001f);
     CHECK_NEAR(child->computedRect.w, 50.0f, 0.001f);
+}
+
+void TestStretchColumnInConstrainedRowWithHugeContent() {
+    using namespace guikit;
+
+    BumpAllocator arena;
+
+    // Row: 1000px wide, 600px high, gap 20px
+    Node* row = arena.Allocate<Node>();
+    row->direction = FlexDirection::Row;
+    row->widthMode = SizeMode::Stretch;
+    row->heightMode = SizeMode::Stretch;
+    row->gap = 20.0f;
+
+    // Sidebar: Fixed 300px
+    Node* sidebar = arena.Allocate<Node>();
+    sidebar->widthMode = SizeMode::Fixed;
+    sidebar->fixedWidth = 300.0f;
+    sidebar->heightMode = SizeMode::Stretch;
+    row->AddChild(sidebar);
+
+    // Content Column: Stretch width (flexGrow = 1.0f)
+    Node* contentCol = arena.Allocate<Node>();
+    contentCol->direction = FlexDirection::Column;
+    contentCol->widthMode = SizeMode::Stretch;
+    contentCol->heightMode = SizeMode::Stretch;
+    contentCol->gap = 10.0f;
+    row->AddChild(contentCol);
+
+    // Inside content column: a Carousel with Stretch width and multiple tabs totaling 1500px width
+    Node* carousel = arena.Allocate<Node>();
+    carousel->type = NodeType::Carousel;
+    carousel->direction = FlexDirection::Row;
+    carousel->widthMode = SizeMode::Stretch;
+    carousel->heightMode = SizeMode::Fixed;
+    carousel->fixedHeight = 40.0f;
+    carousel->gap = 10.0f;
+    carousel->measureFn = &Carousel::Measure;
+    carousel->arrangeFn = &Carousel::Arrange;
+
+    auto* cData = arena.Allocate<CarouselData>();
+    carousel->payload = cData;
+
+    // Add 10 tabs, each 150px wide = 1500px + 90px gap = 1590px total
+    for (int i = 0; i < 10; ++i) {
+        Node* tab = arena.Allocate<Node>();
+        tab->widthMode = SizeMode::Fixed;
+        tab->fixedWidth = 150.0f;
+        tab->heightMode = SizeMode::Stretch;
+        carousel->AddChild(tab);
+    }
+    contentCol->AddChild(carousel);
+
+    // Also a Grid with two Cell6 items (span 6 each), each containing a card with 380px intrinsic width
+    Node* grid = arena.Allocate<Node>();
+    grid->direction = FlexDirection::Grid;
+    grid->gridColumns = 12;
+    grid->widthMode = SizeMode::Stretch;
+    grid->heightMode = SizeMode::Fit;
+    grid->gap = 16.0f;
+
+    Node* cell1 = arena.Allocate<Node>();
+    cell1->direction = FlexDirection::Column;
+    cell1->colSpan = 6;
+    cell1->minWidth = 380.0f;
+    cell1->heightMode = SizeMode::Fixed;
+    cell1->fixedHeight = 200.0f;
+    grid->AddChild(cell1);
+
+    Node* cell2 = arena.Allocate<Node>();
+    cell2->direction = FlexDirection::Column;
+    cell2->colSpan = 6;
+    cell2->minWidth = 380.0f;
+    cell2->heightMode = SizeMode::Fixed;
+    cell2->fixedHeight = 200.0f;
+    grid->AddChild(cell2);
+
+    contentCol->AddChild(grid);
+
+    LayoutSolver::Measure(row);
+    LayoutSolver::Arrange(row, Rect(0.0f, 0.0f, 1000.0f, 600.0f));
+
+    // 1. Sidebar takes exactly 300px
+    CHECK_NEAR(sidebar->computedRect.x, 0.0f, 0.001f);
+    CHECK_NEAR(sidebar->computedRect.w, 300.0f, 0.001f);
+
+    // 2. Content Column takes exactly remaining space: 1000 - 300 - 20 = 680px
+    // It must NEVER expand to 1590px!
+    CHECK_NEAR(contentCol->computedRect.x, 320.0f, 0.001f);
+    CHECK_NEAR(contentCol->computedRect.w, 680.0f, 0.001f);
+    CHECK_NEAR(contentCol->computedRect.Right(), 1000.0f, 0.001f);
+
+    // 3. Carousel is constrained to contentCol's width (680px)
+    CHECK_NEAR(carousel->computedRect.w, 680.0f, 0.001f);
+    CHECK(carousel->scrollContentSize.x > 1500.0f);
+
+    // Since content (1590px) > available (680px), right arrow must be visible!
+    CHECK(cData->showRightArrow == true);
+
+    // 4. Responsive Grid auto-wraps:
+    // With availW = 680px, testW for span 6 is (6/12)*(680+16) - 16 = 332px < reqMinW (380px).
+    // So cell1 wraps to full width (span = 12, w = 680px) on line 1, and cell2 wraps to full width on line 2!
+    CHECK_NEAR(cell1->computedRect.x, 320.0f, 0.001f);
+    CHECK_NEAR(cell1->computedRect.w, 680.0f, 0.001f);
+    CHECK_NEAR(cell1->computedRect.y, carousel->computedRect.Bottom() + 10.0f, 0.001f);
+
+    CHECK_NEAR(cell2->computedRect.x, 320.0f, 0.001f);
+    CHECK_NEAR(cell2->computedRect.w, 680.0f, 0.001f);
+    CHECK_NEAR(cell2->computedRect.y, cell1->computedRect.Bottom() + 16.0f, 0.001f);
 }
 
 int main() {
@@ -681,6 +791,7 @@ int main() {
     TestGridResponsiveWrapAndExpand();
     TestScrollAreaLayoutSolver();
     TestCustomMeasureAndArrangeDelegates();
+    TestStretchColumnInConstrainedRowWithHugeContent();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Layout tests passed successfully!\n";

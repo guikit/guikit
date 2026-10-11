@@ -320,7 +320,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
         // Custom autonomous arrangement delegate (e.g. Carousel, custom containers)
         if (node->arrangeFn) {
-            node->arrangeFn(node, availableRect);
+            node->arrangeFn(node, availableRect, activeTheme);
             return;
         }
 
@@ -440,11 +440,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         uint32_t flexCount = 0;
 
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-            if (child->isSpacer) {
-                totalFlexGrow += std::max(0.01f, child->flexGrow);
-                ++flexCount;
-            } else if (child->widthMode == SizeMode::Stretch) {
-                baseSum += child->intrinsicSize.x;
+            if (child->isSpacer || child->widthMode == SizeMode::Stretch) {
                 totalFlexGrow += std::max(0.01f, child->flexGrow);
                 ++flexCount;
             } else if (child->widthMode == SizeMode::Fixed) {
@@ -468,25 +464,24 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
             float childW = 0.0f;
-            if (child->isSpacer) {
+            if (child->isSpacer || child->widthMode == SizeMode::Stretch) {
                 childW = (totalFlexGrow > 0.0f)
                     ? (freeSpace * (std::max(0.01f, child->flexGrow) / totalFlexGrow))
                     : 0.0f;
-            } else if (child->widthMode == SizeMode::Stretch) {
-                const float flexW = (totalFlexGrow > 0.0f)
-                    ? (freeSpace * (std::max(0.01f, child->flexGrow) / totalFlexGrow))
-                    : 0.0f;
-                childW = child->intrinsicSize.x + flexW;
             } else if (child->widthMode == SizeMode::Fixed) {
                 childW = child->fixedWidth;
             } else { // SizeMode::Fit
                 childW = child->intrinsicSize.x;
             }
 
+            if (child->minWidth > 0.0f) {
+                childW = std::max(childW, child->minWidth);
+            }
+
             float childH = contentRect.h;
             if (child->heightMode == SizeMode::Fixed) {
                 childH = child->fixedHeight;
-            } else if (child->heightMode == SizeMode::Fit || node->align != Alignment::Stretch) {
+            } else if (child->heightMode == SizeMode::Fit || (child->heightMode != SizeMode::Stretch && node->align != Alignment::Stretch)) {
                 childH = child->intrinsicSize.y;
             }
 
@@ -499,6 +494,12 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
             ArrangeNode(child, Rect(currentX, childY, childW, childH), theme);
             currentX += childW + node->gap;
+        }
+
+        if (node->widthMode == SizeMode::Fit) {
+            node->computedRect.w = (currentX > contentRect.x)
+                ? (currentX - contentRect.x - node->gap) + node->padding.Horizontal()
+                : node->padding.Horizontal();
         }
     }
 
@@ -597,11 +598,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         uint32_t flexCount = 0;
 
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-            if (child->isSpacer) {
-                totalFlexGrow += std::max(0.01f, child->flexGrow);
-                ++flexCount;
-            } else if (child->heightMode == SizeMode::Stretch) {
-                baseSum += child->intrinsicSize.y;
+            if (child->isSpacer || child->heightMode == SizeMode::Stretch) {
                 totalFlexGrow += std::max(0.01f, child->flexGrow);
                 ++flexCount;
             } else if (child->heightMode == SizeMode::Fixed) {
@@ -625,19 +622,10 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
             float childH = 0.0f;
-            if (child->isSpacer) {
+            if (child->isSpacer || child->heightMode == SizeMode::Stretch) {
                 childH = (totalFlexGrow > 0.0f)
                     ? (freeSpace * (std::max(0.01f, child->flexGrow) / totalFlexGrow))
                     : 0.0f;
-            } else if (child->heightMode == SizeMode::Stretch) {
-                if (node->childCount == 1 && (node->fixedHeight > 0.0f || node->heightMode == SizeMode::Fixed)) {
-                    childH = contentRect.h;
-                } else {
-                    const float flexH = (totalFlexGrow > 0.0f)
-                        ? (freeSpace * (std::max(0.01f, child->flexGrow) / totalFlexGrow))
-                        : 0.0f;
-                    childH = child->intrinsicSize.y + flexH;
-                }
             } else if (child->heightMode == SizeMode::Fixed) {
                 childH = child->fixedHeight;
             } else { // SizeMode::Fit
@@ -647,8 +635,12 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             float childW = contentRect.w;
             if (child->widthMode == SizeMode::Fixed) {
                 childW = child->fixedWidth;
-            } else if (child->widthMode == SizeMode::Fit || node->align != Alignment::Stretch) {
+            } else if (child->widthMode == SizeMode::Fit || (child->widthMode != SizeMode::Stretch && node->align != Alignment::Stretch)) {
                 childW = child->intrinsicSize.x;
+            }
+
+            if (child->minWidth > 0.0f) {
+                childW = std::max(childW, child->minWidth);
             }
 
             float childX = contentRect.x;

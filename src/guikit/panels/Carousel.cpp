@@ -105,14 +105,20 @@ Vec2 Carousel::Measure(const Node* node, ICanvas* /*canvas*/, const UiTheme& /*t
     }
     const Vec2 size = {totalWidth, maxHeight + node->padding.Vertical()};
     const_cast<Node*>(node)->scrollContentSize = size;
-    return size;
+    if (node->widthMode == SizeMode::Fit) {
+        return size;
+    } else if (node->widthMode == SizeMode::Fixed) {
+        return Vec2{node->fixedWidth, size.y};
+    } else {
+        return Vec2{0.0f, size.y};
+    }
 }
 
 Vec2 Carousel::Measure(const Node* node, ICanvas* canvas) {
     return Measure(node, canvas, UiTheme::Dark());
 }
 
-void Carousel::Arrange(Node* node, const Rect& availableRect) {
+void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& theme) {
     if (!node) return;
 
     float w = availableRect.w;
@@ -185,7 +191,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect) {
                 childY += (fullH - childH);
             }
             child->computedRect = Rect(curX, childY, childW, childH);
-            LayoutSolver::Arrange(child, child->computedRect);
+            LayoutSolver::Arrange(child, child->computedRect, theme);
             curX += childW + node->gap;
         }
         return;
@@ -265,9 +271,13 @@ void Carousel::Arrange(Node* node, const Rect& availableRect) {
             childY += (fullH - childH);
         }
         child->computedRect = Rect(curX, childY, childW, childH);
-        LayoutSolver::Arrange(child, child->computedRect);
+        LayoutSolver::Arrange(child, child->computedRect, theme);
         curX += childW + node->gap;
     }
+}
+
+void Carousel::Arrange(Node* node, const Rect& availableRect) {
+    Arrange(node, availableRect, UiTheme::Dark());
 }
 
 void Carousel::RenderArrows(
