@@ -2983,6 +2983,69 @@ void TestContainersAndLayoutsReorganization() {
     ui.EndFrame(canvas);
 }
 
+namespace {
+using namespace guikit;
+
+// Definition of a 3rd party user-defined widget
+struct MyCustomBadge {
+    static Response Run(Context& ctx, std::string_view text, UiVariant variant = UiVariant::Success, std::source_location loc = std::source_location::current()) {
+        const Id id = ctx.MakeChildId(loc);
+        Node* node = ctx.CreateNode(NodeType::Custom, id);
+        node->text = ctx.AllocString(text);
+        node->textColor = ctx.GetTheme().palette.textPrimary;
+        node->widthMode = SizeMode::Fit;
+        node->heightMode = SizeMode::Fit;
+        ctx.AdaptChildToContainer(node);
+        return ctx.Interact(id);
+    }
+};
+
+// Definition of a 3rd party user-defined container
+struct MyCustomPanel {
+    static ContainerScope Open(Context& ctx, float minWidth = 100.0f, std::source_location loc = std::source_location::current()) {
+        const Id id = ctx.MakeChildId(loc);
+        Node* node = ctx.CreateNode(NodeType::Container, id);
+        node->direction = FlexDirection::Column;
+        node->minWidth = minWidth;
+        node->widthMode = SizeMode::Stretch;
+        node->heightMode = SizeMode::Fit;
+        ctx.PushContainer(node);
+        return ContainerScope(&ctx, node);
+    }
+};
+} // namespace
+
+void TestGenericTemplateFacade() {
+    using namespace guikit;
+
+    static_assert(WidgetRunnable<MyCustomBadge, std::string_view>);
+    static_assert(WidgetRunnable<MyCustomBadge, std::string_view, UiVariant>);
+    static_assert(WidgetRunnable<Button, ButtonOptions>);
+    static_assert(WidgetRunnable<Button, std::string_view>);
+    static_assert(ContainerOpenable<MyCustomPanel>);
+    static_assert(ContainerOpenable<MyCustomPanel, float>);
+    static_assert(ContainerOpenable<Row, RowOptions>);
+    static_assert(ContainerOpenable<Card, CardOptions>);
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 400;
+    const uint32_t height = 300;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    if (auto panel = ui.Open<MyCustomPanel>(150.0f)) {
+        CHECK(panel.GetNode() != nullptr);
+        CHECK(panel.GetNode()->minWidth == 150.0f);
+        auto badge = ui.Run<MyCustomBadge>("LIVE STATUS", UiVariant::Success);
+        CHECK(badge.id.IsValid());
+        auto btn = ui.Run<Button>("Generic Button");
+        CHECK(btn.id.IsValid());
+    }
+    ui.EndFrame(canvas);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -3021,6 +3084,7 @@ int main() {
     TestDebugBoundsAndInspectMode();
     TestPostRenderDelegateWorkflow();
     TestContainersAndLayoutsReorganization();
+    TestGenericTemplateFacade();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

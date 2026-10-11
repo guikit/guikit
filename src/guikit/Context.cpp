@@ -184,52 +184,51 @@ bool Context::IsDisabled() const {
 }
 
 ContainerScope Context::Row(RowOptions opts, std::source_location loc) {
-    return Row::Open(*this, opts, loc);
+    return Open<guikit::Row>(opts, loc);
 }
 
 ContainerScope Context::Column(ColumnOptions opts, std::source_location loc) {
-    return Column::Open(*this, opts, loc);
+    return Open<guikit::Column>(opts, loc);
 }
 
 ContainerScope Context::Wrap(WrapOptions opts, std::source_location loc) {
-    return Wrap::Open(*this, opts, loc);
+    return Open<guikit::Wrap>(opts, loc);
 }
 
 GridScope Context::CellGrid(GridOptions opts, std::source_location loc) {
-    return Grid::Open(*this, opts, loc);
+    return Open<guikit::Grid>(opts, loc);
 }
 
 GridScope Context::Grid(GridOptions opts, std::source_location loc) {
-    return Grid::Open(*this, opts, loc);
+    return Open<guikit::Grid>(opts, loc);
 }
 
 void Context::Spacer(float flex, std::source_location loc) {
-    Spacer::Run(*this, flex, loc);
+    Run<guikit::Spacer>(flex, loc);
 }
 
 ContainerScope Context::Box(BoxOptions opts, std::source_location loc) {
-    return Box::Open(*this, opts, loc);
+    return Open<guikit::Box>(opts, loc);
 }
 
 ContainerScope Context::Card(CardOptions opts, std::source_location loc) {
-    return Card::Open(*this, opts, loc);
+    return Open<guikit::Card>(opts, loc);
 }
 
 ContainerScope Context::ScrollArea(ScrollAreaOptions opts, std::source_location loc) {
-    return ScrollArea::Open(*this, opts, loc);
+    return Open<guikit::ScrollArea>(opts, loc);
 }
 
 ContainerScope Context::Carousel(CarouselOptions opts, std::source_location loc) {
-    return Carousel::Open(*this, opts, loc);
+    return Open<guikit::Carousel>(opts, loc);
 }
 
 Response Context::Button(ButtonOptions opts, std::source_location loc) {
-    return Button::Run(*this, opts, loc);
+    return Run<guikit::Button>(opts, loc);
 }
 
 Response Context::Button(std::string_view label, ButtonOptions opts, std::source_location loc) {
-    opts.label = label;
-    return Button::Run(*this, opts, loc);
+    return Run<guikit::Button>(label, opts, loc);
 }
 
 UiString Context::String(std::string_view text) {
@@ -245,7 +244,7 @@ std::string_view Context::AllocString(std::string_view text) {
 }
 
 Response Context::Text(std::string_view label, TextOptions opts, std::source_location loc) {
-    return Text::Run(*this, label, opts, loc);
+    return Run<guikit::Text>(label, opts, loc);
 }
 
 Response Context::Display(std::string_view label, UiVariant variant, std::source_location loc) {
@@ -277,50 +276,50 @@ Response Context::Code(std::string_view label, UiVariant variant, std::source_lo
 }
 
 Response Context::Heading(HeadingOptions opts, std::source_location loc) {
-    return Heading::Run(*this, opts, loc);
+    return Run<guikit::Heading>(opts, loc);
 }
 
 Response Context::Switch(std::string_view label, bool* value, SwitchOptions opts, std::source_location loc) {
-    return Switch::Run(*this, label, value, value ? *value : false, opts, loc);
+    return Run<guikit::Switch>(label, value, value ? *value : false, opts, loc);
 }
 
 Response Context::Switch(bool* value, SwitchOptions opts, std::source_location loc) {
-    return Switch::Run(*this, {}, value, value ? *value : false, opts, loc);
+    return Run<guikit::Switch>(std::string_view{}, value, value ? *value : false, opts, loc);
 }
 
 Response Context::Switch(std::string_view label, bool checked, SwitchOptions opts, std::source_location loc) {
-    return Switch::Run(*this, label, nullptr, checked, opts, loc);
+    return Run<guikit::Switch>(label, nullptr, checked, opts, loc);
 }
 
 Response Context::Switch(bool checked, SwitchOptions opts, std::source_location loc) {
-    return Switch::Run(*this, {}, nullptr, checked, opts, loc);
+    return Run<guikit::Switch>(std::string_view{}, nullptr, checked, opts, loc);
 }
 
 Response Context::Checkbox(std::string_view label, bool* value, CheckboxOptions opts, std::source_location loc) {
-    return Checkbox::Run(*this, label, value, value ? *value : false, opts, loc);
+    return Run<guikit::Checkbox>(label, value, value ? *value : false, opts, loc);
 }
 
 Response Context::Checkbox(bool* value, CheckboxOptions opts, std::source_location loc) {
-    return Checkbox::Run(*this, {}, value, value ? *value : false, opts, loc);
+    return Run<guikit::Checkbox>(std::string_view{}, value, value ? *value : false, opts, loc);
 }
 
 Response Context::Checkbox(std::string_view label, bool checked, CheckboxOptions opts, std::source_location loc) {
-    return Checkbox::Run(*this, label, nullptr, checked, opts, loc);
+    return Run<guikit::Checkbox>(label, nullptr, checked, opts, loc);
 }
 
 Response Context::Checkbox(bool checked, CheckboxOptions opts, std::source_location loc) {
-    return Checkbox::Run(*this, {}, nullptr, checked, opts, loc);
+    return Run<guikit::Checkbox>(std::string_view{}, nullptr, checked, opts, loc);
 }
 
 Response Context::InputField(std::string_view label, std::string_view value, InputFieldOptions opts, std::source_location loc) {
-    return InputField::Run(*this, label, nullptr, nullptr, nullptr, nullptr, value, opts, loc);
+    return Run<guikit::InputField>(label, nullptr, nullptr, nullptr, nullptr, value, opts, loc);
 }
 
 ToolbarScope Context::Toolbar(
     ToolbarOptions opts,
     std::source_location loc
 ) {
-    return Toolbar::Open(*this, opts, loc);
+    return Open<guikit::Toolbar>(opts, loc);
 }
 
 Response Context::ToolButton(

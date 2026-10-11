@@ -39,6 +39,14 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
+    /// Convenience entry point for Button widget with caption label.
+    static Response Run(
+        Context& ctx,
+        std::string_view label,
+        ButtonOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
     /// Measures intrinsic dimensions based on content (icon + label + padding for current UiSize).
     static Vec2 Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme);
     static Vec2 Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas = nullptr);

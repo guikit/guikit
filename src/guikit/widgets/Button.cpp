@@ -56,6 +56,11 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
     return res;
 }
 
+Response Button::Run(Context& ctx, std::string_view label, ButtonOptions opts, std::source_location loc) {
+    opts.label = label;
+    return Run(ctx, opts, loc);
+}
+
 Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme) {
     const ComponentMetrics& m = theme.GetMetrics(size);
     const bool hasIcon = opts.icon.IsValid();

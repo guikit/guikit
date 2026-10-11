@@ -45,6 +45,20 @@
 
 namespace guikit {
 
+class Context;
+
+/// C++20 concept for any autonomous widget providing a static Run method.
+template <typename T, typename... Args>
+concept WidgetRunnable = requires(Context& ctx, Args&&... args) {
+    { T::Run(ctx, std::forward<Args>(args)...) };
+};
+
+/// C++20 concept for any autonomous layout or panel container providing a static Open method.
+template <typename T, typename... Args>
+concept ContainerOpenable = requires(Context& ctx, Args&&... args) {
+    { T::Open(ctx, std::forward<Args>(args)...) };
+};
+
 template <typename T>
 concept InputFieldEditable =
     std::is_same_v<std::decay_t<T>, std::string> ||
@@ -210,6 +224,21 @@ public:
 
     /// Explicitly invalidates a rectangular region to be repainted in the next frame.
     void InvalidateRect(Rect rect) noexcept;
+
+    // --- Generic Autonomous Widget & Container Dispatch (Open-Closed Platform) ---
+    /// Dispatches execution to any autonomous widget component satisfying WidgetRunnable.
+    template <typename WidgetT, typename... Args>
+        requires WidgetRunnable<WidgetT, Args...>
+    decltype(auto) Run(Args&&... args) {
+        return WidgetT::Run(*this, std::forward<Args>(args)...);
+    }
+
+    /// Dispatches opening to any autonomous layout or panel container satisfying ContainerOpenable.
+    template <typename ContainerT, typename... Args>
+        requires ContainerOpenable<ContainerT, Args...>
+    [[nodiscard]] decltype(auto) Open(Args&&... args) {
+        return ContainerT::Open(*this, std::forward<Args>(args)...);
+    }
 
     // --- Layout Scopes ---
     [[nodiscard]] ContainerScope Row(
