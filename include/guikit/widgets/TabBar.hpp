@@ -39,6 +39,8 @@ struct TabBarOptions {
     bool scrollable{true};      ///< Enable horizontal scrolling with arrows when tabs overflow
     Color activeColor{Color::Transparent()}; ///< Optional custom accent color override
     std::optional<UiSize> size{std::nullopt}; ///< Local size override (nullopt = inherit container size)
+    const UiTheme* theme{nullptr};            ///< Optional scoped theme override
+    std::optional<float> scale{std::nullopt}; ///< Optional scoped scale factor override
 };
 
 /// Internal runtime state allocated in frame arena for TabItem nodes.

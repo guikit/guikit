@@ -777,6 +777,72 @@ void TestStretchColumnInConstrainedRowWithHugeContent() {
     CHECK_NEAR(cell2->computedRect.y, cell1->computedRect.Bottom() + 16.0f, 0.001f);
 }
 
+void TestCarouselArrowScaling() {
+    using namespace guikit;
+
+    BumpAllocator arena;
+
+    // 1. Arrange at 1.0x scale (default theme, defaultHeight 36px)
+    Node* c1 = arena.Allocate<Node>();
+    c1->type = NodeType::Carousel;
+    c1->direction = FlexDirection::Row;
+    c1->widthMode = SizeMode::Stretch;
+    c1->heightMode = SizeMode::Fixed;
+    c1->fixedHeight = 36.0f;
+    c1->measureFn = &Carousel::Measure;
+    c1->arrangeFn = &Carousel::Arrange;
+    auto* d1 = arena.Allocate<CarouselData>();
+    c1->payload = d1;
+
+    for (int i = 0; i < 10; ++i) {
+        Node* tab = arena.Allocate<Node>();
+        tab->widthMode = SizeMode::Fixed;
+        tab->fixedWidth = 100.0f;
+        c1->AddChild(tab);
+    }
+
+    UiTheme theme1 = UiTheme::Dark();
+    LayoutSolver::Measure(c1, nullptr, theme1);
+    LayoutSolver::Arrange(c1, Rect(0.0f, 0.0f, 300.0f, 36.0f), theme1);
+
+    CHECK(d1->showRightArrow == true);
+    const float h1 = d1->rightArrowRect.h;
+    const float w1 = d1->rightArrowRect.w;
+    CHECK_NEAR(h1, w1, 0.001f); // Square button
+    CHECK(h1 >= 25.0f && h1 <= 30.0f);
+
+    // 2. Arrange at 2.0x scale (scaled theme, defaultHeight 72px)
+    Node* c2 = arena.Allocate<Node>();
+    c2->type = NodeType::Carousel;
+    c2->direction = FlexDirection::Row;
+    c2->widthMode = SizeMode::Stretch;
+    c2->heightMode = SizeMode::Fixed;
+    c2->fixedHeight = 72.0f;
+    c2->measureFn = &Carousel::Measure;
+    c2->arrangeFn = &Carousel::Arrange;
+    auto* d2 = arena.Allocate<CarouselData>();
+    c2->payload = d2;
+
+    for (int i = 0; i < 10; ++i) {
+        Node* tab = arena.Allocate<Node>();
+        tab->widthMode = SizeMode::Fixed;
+        tab->fixedWidth = 200.0f;
+        c2->AddChild(tab);
+    }
+
+    UiTheme theme2 = UiTheme::Dark().Scaled(2.0f);
+    LayoutSolver::Measure(c2, nullptr, theme2);
+    LayoutSolver::Arrange(c2, Rect(0.0f, 0.0f, 300.0f, 72.0f), theme2);
+
+    CHECK(d2->showRightArrow == true);
+    const float h2 = d2->rightArrowRect.h;
+    const float w2 = d2->rightArrowRect.w;
+    CHECK_NEAR(h2, w2, 0.001f); // Square button
+    // The 2.0x arrow button must be approximately double the 1.0x arrow button height (not capped at 26px!)
+    CHECK_NEAR(h2, h1 * 2.0f, 2.0f);
+    CHECK(h2 > 50.0f);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Layout Solver...\n";
 
@@ -792,6 +858,7 @@ int main() {
     TestScrollAreaLayoutSolver();
     TestCustomMeasureAndArrangeDelegates();
     TestStretchColumnInConstrainedRowWithHugeContent();
+    TestCarouselArrowScaling();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Layout tests passed successfully!\n";

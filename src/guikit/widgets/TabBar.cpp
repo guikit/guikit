@@ -18,6 +18,16 @@ Response TabBar::Run(
     if (tabs.empty()) return res;
 
     const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
+
+    UiTheme* pushedTheme = nullptr;
+    if (opts.theme != nullptr || opts.scale.has_value()) {
+        UiTheme scopedTheme = opts.theme ? *opts.theme : ctx.GetTheme();
+        if (opts.scale.has_value() && *opts.scale > 0.0f) {
+            scopedTheme = scopedTheme.Scaled(*opts.scale);
+        }
+        pushedTheme = ctx.PushTheme(scopedTheme);
+    }
+
     const ComponentMetrics& m = ctx.GetTheme().GetMetrics(activeSize);
 
     std::optional<ContainerScope> carouselScope;
@@ -32,6 +42,7 @@ Response TabBar::Run(
 
         carouselScope.emplace(ctx.Carousel(cOpts, loc));
         barNode = carouselScope->GetNode();
+        barNode->theme = pushedTheme;
         barNode->heightMode = SizeMode::Fixed;
         barNode->fixedHeight = m.defaultHeight;
         if (auto* cData = barNode->As<CarouselData>()) {
@@ -40,6 +51,7 @@ Response TabBar::Run(
     } else {
         const Id barId = ctx.MakeChildId(loc);
         barNode = ctx.CreateNode(NodeType::Container, barId);
+        barNode->theme = pushedTheme;
         barNode->direction = FlexDirection::Row;
         barNode->align = Alignment::Center;
         barNode->gap = (activeSize <= UiSize::Sm) ? ctx.GetTheme().GetGap(UiSize::Xs) : ctx.GetTheme().GetGap(UiSize::Sm);
@@ -138,6 +150,10 @@ Response TabBar::Run(
     if (!carouselScope) {
         ctx.PopContainer(barNode);
         ctx.AdaptChildToContainer(barNode);
+    }
+
+    if (pushedTheme) {
+        ctx.PopTheme();
     }
 
     return res;

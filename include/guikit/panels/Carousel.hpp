@@ -23,6 +23,8 @@ struct CarouselOptions {
     bool scrollWheel{true};                         ///< Enable horizontal mouse wheel scrolling
     std::optional<UiSize> size{std::nullopt};       ///< Size token determining arrow sizes and baseline height
     bool disabled{false};                           ///< Interaction suppression
+    const UiTheme* theme{nullptr};                  ///< Optional scoped theme override
+    std::optional<float> scale{std::nullopt};       ///< Optional scoped scale factor override
 };
 
 /// Internal runtime state allocated in frame arena for Carousel container nodes.

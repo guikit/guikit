@@ -17,9 +17,21 @@ ContainerScope Carousel::Open(
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
+    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
+
+    UiTheme* pushedTheme = nullptr;
+    if (opts.theme != nullptr || opts.scale.has_value()) {
+        UiTheme scopedTheme = opts.theme ? *opts.theme : ctx.GetTheme();
+        if (opts.scale.has_value() && *opts.scale > 0.0f) {
+            scopedTheme = scopedTheme.Scaled(*opts.scale);
+        }
+        pushedTheme = ctx.PushTheme(scopedTheme);
+    }
+
     const ComponentMetrics& m = ctx.GetTheme().GetMetrics(activeSize);
 
     Node* node = ctx.CreateNode(NodeType::Carousel, id);
+    node->theme = pushedTheme;
     node->direction = FlexDirection::Row;
     node->align = opts.align;
     node->justify = opts.justify;
@@ -79,6 +91,7 @@ ContainerScope Carousel::Open(
 
     node->scrollOffset = state.offset;
 
+    ctx.PushScale(activeScale);
     ctx.PushSize(activeSize);
     ctx.PushDisabled(activeDisabled);
     ctx.PushContainer(node);
@@ -197,11 +210,12 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
         return;
     }
 
-    // 3. Overflow detected: compute arrow dimensions
-    const float arrowMargin = 4.0f;
-    const float arrowBtnH = std::min(fullH - 6.0f, 26.0f);
+    // 3. Overflow detected: compute arrow dimensions proportionally to scaled theme metrics
+    const ComponentMetrics& m = theme.GetMetrics(node->uiSize);
+    const float arrowMargin = std::max(2.0f, std::round(m.paddingY * 0.65f));
+    const float arrowBtnH = std::max(16.0f, std::round(fullH * 0.76f));
     const float arrowBtnW = arrowBtnH; // Clean square pill button
-    const float arrowGap = 6.0f;
+    const float arrowGap = std::max(4.0f, std::round(m.paddingX * 0.5f));
     const float arrowY = startY + (fullH - arrowBtnH) * 0.5f;
     const float btnGutter = arrowMargin + arrowBtnW + arrowGap;
 
@@ -319,7 +333,7 @@ void Carousel::RenderArrows(
             canvas.DrawRoundRect(rect, m.cornerRadius, bg);
         }
 
-        const float isz = std::clamp(m.iconSize * 0.85f, 13.0f, 15.0f);
+        const float isz = std::max(10.0f, std::round(m.iconSize * 0.85f));
         const Rect iconBounds(
             rect.x + (rect.w - isz) * 0.5f,
             rect.y + (rect.h - isz) * 0.5f,
