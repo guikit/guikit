@@ -98,6 +98,17 @@ struct ScrollbarMetrics {
     float gutter;          ///< Total reserved gutter (trackWidth + 2 * margin)
 };
 
+/// Standardized metrics for Carousel navigation arrows and ribbon scrolling derived from UiSize tokens.
+struct CarouselMetrics {
+    float arrowButtonSize; ///< Width & height of the navigation arrow square button
+    float iconSize;        ///< Size of the vector chevron arrow icon
+    float cornerRadius;    ///< Rounding radius of the arrow button
+    float margin;          ///< Outer margin between arrow button and container edge
+    float gap;             ///< Inner gap between arrow button and scrollable viewport
+    float gutter;          ///< Total reserved gutter (margin + arrowButtonSize + gap)
+    float scrollStep;      ///< Scroll distance in points per arrow button click
+};
+
 /// Standardized metrics for Switch widget according to UiSize.
 struct SwitchMetrics {
     Vec2 trackSize;

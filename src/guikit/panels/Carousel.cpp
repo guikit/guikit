@@ -28,7 +28,7 @@ ContainerScope Carousel::Open(
         pushedTheme = ctx.PushTheme(scopedTheme);
     }
 
-    const ComponentMetrics& m = ctx.GetTheme().GetMetrics(activeSize);
+    const CarouselMetrics& cm = ctx.GetTheme().GetCarousel(activeSize);
 
     Node* node = ctx.CreateNode(NodeType::Carousel, id);
     node->theme = pushedTheme;
@@ -64,7 +64,7 @@ ContainerScope Carousel::Open(
     cData->rightArrowHovered = rightRes.hovered;
     cData->rightArrowPressed = rightRes.pressed;
 
-    const float step = m.defaultHeight * 3.0f;
+    const float step = cm.scrollStep;
 
     if (leftRes.clicked && !activeDisabled) {
         state.offset.x = std::max(0.0f, state.offset.x - step);
@@ -82,7 +82,7 @@ ContainerScope Carousel::Open(
             Vec2 wheel = ctx.GetMouseWheel();
             const float wheelDelta = (wheel.x != 0.0f) ? wheel.x : wheel.y;
             if (wheelDelta != 0.0f) {
-                state.offset.x -= wheelDelta * (m.defaultHeight * 0.8f);
+                state.offset.x -= wheelDelta * (cm.scrollStep * 0.35f);
                 if (state.offset.x < 0.0f) state.offset.x = 0.0f;
                 ctx.RequestRepaint(3);
             }
@@ -210,12 +210,12 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
         return;
     }
 
-    // 3. Overflow detected: compute arrow dimensions proportionally to scaled theme metrics
-    const ComponentMetrics& m = theme.GetMetrics(node->uiSize);
-    const float arrowMargin = std::max(2.0f, std::round(m.paddingY * 0.65f));
-    const float arrowBtnH = std::max(16.0f, std::round(fullH * 0.76f));
-    const float arrowBtnW = arrowBtnH; // Clean square pill button
-    const float arrowGap = std::max(4.0f, std::round(m.paddingX * 0.5f));
+    // 3. Overflow detected: compute arrow dimensions from theme tokens
+    const CarouselMetrics& cm = theme.GetCarousel(node->uiSize);
+    const float arrowMargin = cm.margin;
+    const float arrowBtnH = std::max(0.0f, std::min(fullH - cm.margin * 2.0f, cm.arrowButtonSize));
+    const float arrowBtnW = arrowBtnH; // Clean square button
+    const float arrowGap = cm.gap;
     const float arrowY = startY + (fullH - arrowBtnH) * 0.5f;
     const float btnGutter = arrowMargin + arrowBtnW + arrowGap;
 
@@ -311,7 +311,7 @@ void Carousel::RenderArrows(
 ) {
     if (!node) return;
     const auto& pal = theme.palette;
-    const ComponentMetrics& m = theme.GetMetrics(size);
+    const CarouselMetrics& cm = theme.GetCarousel(size);
     const VariantColors& ghost = theme.GetVariant(UiVariant::Ghost);
 
     // Refined ghost chevron navigation buttons
@@ -330,10 +330,10 @@ void Carousel::RenderArrows(
         }
 
         if (bg.a > 0) {
-            canvas.DrawRoundRect(rect, m.cornerRadius, bg);
+            canvas.DrawRoundRect(rect, cm.cornerRadius, bg);
         }
 
-        const float isz = std::max(10.0f, std::round(m.iconSize * 0.85f));
+        const float isz = std::min(rect.w, cm.iconSize);
         const Rect iconBounds(
             rect.x + (rect.w - isz) * 0.5f,
             rect.y + (rect.h - isz) * 0.5f,

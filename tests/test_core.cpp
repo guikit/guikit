@@ -215,6 +215,72 @@ void TestNodeFootprint() {
     CHECK(*constN.As<int>() == 42);
 }
 
+void TestCarouselMetricsTokens() {
+    using namespace guikit;
+
+    UiTheme theme = UiTheme::Dark();
+
+    // 1. Standard metrics baseline checks
+    const auto& md = theme.GetCarousel(UiSize::Md);
+    CHECK(md.arrowButtonSize == 26.0f);
+    CHECK(md.iconSize == 14.0f);
+    CHECK(md.cornerRadius == 6.0f);
+    CHECK(md.margin == 4.0f);
+    CHECK(md.gap == 6.0f);
+    CHECK(md.gutter == 36.0f);
+    CHECK(md.gutter == md.margin + md.arrowButtonSize + md.gap);
+    CHECK(md.scrollStep == 110.0f);
+
+    const auto& xs = theme.GetCarousel(UiSize::Xs);
+    CHECK(xs.arrowButtonSize == 18.0f);
+    CHECK(xs.iconSize == 10.0f);
+    CHECK(xs.gutter == 24.0f);
+    CHECK(xs.gutter == xs.margin + xs.arrowButtonSize + xs.gap);
+
+    const auto& sm = theme.GetCarousel(UiSize::Sm);
+    CHECK(sm.arrowButtonSize == 22.0f);
+    CHECK(sm.iconSize == 12.0f);
+    CHECK(sm.gutter == 30.0f);
+
+    const auto& lg = theme.GetCarousel(UiSize::Lg);
+    CHECK(lg.arrowButtonSize == 32.0f);
+    CHECK(lg.iconSize == 16.0f);
+    CHECK(lg.gutter == 45.0f);
+
+    const auto& xl = theme.GetCarousel(UiSize::Xl);
+    CHECK(xl.arrowButtonSize == 40.0f);
+    CHECK(xl.iconSize == 20.0f);
+    CHECK(xl.gutter == 56.0f);
+
+    // Fallback to Md on None
+    const auto& noneSize = theme.GetCarousel(UiSize::None);
+    CHECK(noneSize.arrowButtonSize == md.arrowButtonSize);
+
+    // 2. Mutable accessor check
+    theme.GetCarousel(UiSize::Md).scrollStep = 150.0f;
+    CHECK(theme.GetCarousel(UiSize::Md).scrollStep == 150.0f);
+
+    // 3. Density presets
+    UiTheme compactTheme = UiTheme::Dark(Density::Compact);
+    CHECK(compactTheme.GetCarousel(UiSize::Md).arrowButtonSize == 24.0f);
+    CHECK(compactTheme.GetCarousel(UiSize::Md).iconSize == 13.0f);
+
+    UiTheme touchTheme = UiTheme::Dark(Density::Touch);
+    CHECK(touchTheme.GetCarousel(UiSize::Md).arrowButtonSize == 36.0f);
+    CHECK(touchTheme.GetCarousel(UiSize::Md).iconSize == 18.0f);
+
+    // 4. Scaling
+    UiTheme scaledTheme = UiTheme::Dark().Scaled(2.0f);
+    const auto& scaledMd = scaledTheme.GetCarousel(UiSize::Md);
+    CHECK(scaledMd.arrowButtonSize == 52.0f);
+    CHECK(scaledMd.iconSize == 28.0f);
+    CHECK(scaledMd.cornerRadius == 12.0f);
+    CHECK(scaledMd.margin == 8.0f);
+    CHECK(scaledMd.gap == 12.0f);
+    CHECK(scaledMd.gutter == 72.0f);
+    CHECK(scaledMd.scrollStep == 220.0f);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Core Foundation...\n";
 
@@ -224,6 +290,7 @@ int main() {
     TestWidgetResponse();
     TestFrameMetrics();
     TestNodeFootprint();
+    TestCarouselMetricsTokens();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Core tests passed successfully!\n";

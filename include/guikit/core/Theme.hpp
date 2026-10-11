@@ -30,6 +30,9 @@ struct UiTheme {
     // 5. Scrollbar metrics per UiSize (6 sizes)
     std::array<ScrollbarMetrics, 6> scrollbars{};
 
+    // 5b. Carousel navigation metrics per UiSize (6 sizes)
+    std::array<CarouselMetrics, 6> carousels{};
+
     // 6. Spacing scale (gaps) per UiSize (6 sizes)
     std::array<float, 6> spacing{};
 
@@ -75,6 +78,19 @@ struct UiTheme {
     [[nodiscard]] constexpr const ScrollbarMetrics& GetScrollbar(UiSize size) const noexcept {
         const size_t idx = static_cast<size_t>(size);
         return (idx < scrollbars.size()) ? scrollbars[idx] : scrollbars[static_cast<size_t>(UiSize::Md)];
+    }
+    [[nodiscard]] constexpr ScrollbarMetrics& GetScrollbar(UiSize size) noexcept {
+        const size_t idx = static_cast<size_t>(size);
+        return (idx < scrollbars.size()) ? scrollbars[idx] : scrollbars[static_cast<size_t>(UiSize::Md)];
+    }
+
+    [[nodiscard]] constexpr const CarouselMetrics& GetCarousel(UiSize size) const noexcept {
+        const size_t idx = static_cast<size_t>(size);
+        return (idx < carousels.size()) ? carousels[idx] : carousels[static_cast<size_t>(UiSize::Md)];
+    }
+    [[nodiscard]] constexpr CarouselMetrics& GetCarousel(UiSize size) noexcept {
+        const size_t idx = static_cast<size_t>(size);
+        return (idx < carousels.size()) ? carousels[idx] : carousels[static_cast<size_t>(UiSize::Md)];
     }
 
     [[nodiscard]] constexpr float GetGap(UiSize size) const noexcept {

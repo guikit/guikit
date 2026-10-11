@@ -143,6 +143,17 @@ void PopulateScrollbars(UiTheme& theme) {
     }};
 }
 
+void PopulateCarousels(UiTheme& theme) {
+    theme.carousels = {{
+        CarouselMetrics{ 26.0f, 14.0f,  6.0f, 4.0f, 6.0f, 36.0f, 110.0f }, // None
+        CarouselMetrics{ 18.0f, 10.0f,  3.0f, 2.0f, 4.0f, 24.0f,  60.0f }, // Xs
+        CarouselMetrics{ 22.0f, 12.0f,  4.0f, 3.0f, 5.0f, 30.0f,  80.0f }, // Sm
+        CarouselMetrics{ 26.0f, 14.0f,  6.0f, 4.0f, 6.0f, 36.0f, 110.0f }, // Md
+        CarouselMetrics{ 32.0f, 16.0f,  8.0f, 5.0f, 8.0f, 45.0f, 140.0f }, // Lg
+        CarouselMetrics{ 40.0f, 20.0f, 10.0f, 6.0f, 10.0f, 56.0f, 180.0f }  // Xl
+    }};
+}
+
 void PopulateComponentMetrics(UiTheme& theme) {
     theme.switches = {{
         SwitchMetrics{ {36.0f, 20.0f}, 16.0f, 2.0f, 10.0f, 14.0f, 12.0f, 3.0f }, // None
@@ -203,6 +214,14 @@ void ApplyDensity(UiTheme& theme, Density d) {
             ComponentMetrics{ 40.0f, 15.0f, 16.0f,  8.0f, 6.0f, 18.0f }, // Lg
             ComponentMetrics{ 48.0f, 18.0f, 20.0f, 10.0f, 8.0f, 22.0f }  // Xl
         }};
+        theme.carousels = {{
+            CarouselMetrics{ 24.0f, 13.0f, 4.0f, 3.0f, 5.0f, 32.0f,  95.0f }, // None
+            CarouselMetrics{ 16.0f,  9.0f, 2.0f, 2.0f, 3.0f, 21.0f,  50.0f }, // Xs
+            CarouselMetrics{ 20.0f, 11.0f, 3.0f, 2.0f, 4.0f, 26.0f,  70.0f }, // Sm
+            CarouselMetrics{ 24.0f, 13.0f, 4.0f, 3.0f, 5.0f, 32.0f,  95.0f }, // Md
+            CarouselMetrics{ 30.0f, 15.0f, 6.0f, 4.0f, 6.0f, 40.0f, 120.0f }, // Lg
+            CarouselMetrics{ 36.0f, 18.0f, 8.0f, 5.0f, 8.0f, 49.0f, 150.0f }  // Xl
+        }};
     } else if (d == Density::Touch) {
         theme.spacing = {0.0f, 6.0f, 12.0f, 16.0f, 24.0f, 32.0f};
         theme.radius  = {0.0f, 4.0f, 6.0f, 8.0f, 12.0f, 16.0f};
@@ -214,6 +233,14 @@ void ApplyDensity(UiTheme& theme, Density d) {
             ComponentMetrics{ 56.0f, 20.0f, 24.0f, 12.0f, 10.0f, 26.0f }, // Lg
             ComponentMetrics{ 64.0f, 24.0f, 28.0f, 14.0f, 12.0f, 30.0f }  // Xl
         }};
+        theme.carousels = {{
+            CarouselMetrics{ 36.0f, 18.0f,  8.0f, 5.0f,  8.0f, 49.0f, 130.0f }, // None
+            CarouselMetrics{ 22.0f, 12.0f,  4.0f, 3.0f,  5.0f, 30.0f,  70.0f }, // Xs
+            CarouselMetrics{ 28.0f, 15.0f,  6.0f, 4.0f,  6.0f, 38.0f,  90.0f }, // Sm
+            CarouselMetrics{ 36.0f, 18.0f,  8.0f, 5.0f,  8.0f, 49.0f, 130.0f }, // Md
+            CarouselMetrics{ 42.0f, 22.0f, 10.0f, 6.0f, 10.0f, 58.0f, 160.0f }, // Lg
+            CarouselMetrics{ 48.0f, 26.0f, 12.0f, 8.0f, 12.0f, 68.0f, 200.0f }  // Xl
+        }};
     } else { // Density::Standard
         theme.spacing = {0.0f, 4.0f, 8.0f, 12.0f, 16.0f, 24.0f};
         theme.radius  = {0.0f, 2.0f, 4.0f, 6.0f, 8.0f, 12.0f};
@@ -224,6 +251,14 @@ void ApplyDensity(UiTheme& theme, Density d) {
             ComponentMetrics{ 40.0f, 15.0f, 16.0f,  8.0f,  6.0f, 18.0f }, // Md
             ComponentMetrics{ 48.0f, 18.0f, 20.0f, 10.0f,  8.0f, 22.0f }, // Lg
             ComponentMetrics{ 56.0f, 22.0f, 24.0f, 12.0f, 10.0f, 26.0f }  // Xl
+        }};
+        theme.carousels = {{
+            CarouselMetrics{ 26.0f, 14.0f,  6.0f, 4.0f,  6.0f, 36.0f, 110.0f }, // None
+            CarouselMetrics{ 18.0f, 10.0f,  3.0f, 2.0f,  4.0f, 24.0f,  60.0f }, // Xs
+            CarouselMetrics{ 22.0f, 12.0f,  4.0f, 3.0f,  5.0f, 30.0f,  80.0f }, // Sm
+            CarouselMetrics{ 26.0f, 14.0f,  6.0f, 4.0f,  6.0f, 36.0f, 110.0f }, // Md
+            CarouselMetrics{ 32.0f, 16.0f,  8.0f, 5.0f,  8.0f, 45.0f, 140.0f }, // Lg
+            CarouselMetrics{ 40.0f, 20.0f, 10.0f, 6.0f, 10.0f, 56.0f, 180.0f }  // Xl
         }};
     }
 }
@@ -241,6 +276,7 @@ UiTheme UiTheme::Dark(Density d) noexcept {
     PopulateVariants(theme, ThemeMode::Dark);
     PopulateTypography(theme);
     PopulateScrollbars(theme);
+    PopulateCarousels(theme);
     PopulateComponentMetrics(theme);
     ApplyDensity(theme, d);
     return theme;
@@ -253,6 +289,7 @@ UiTheme UiTheme::Light(Density d) noexcept {
     PopulateVariants(theme, ThemeMode::Light);
     PopulateTypography(theme);
     PopulateScrollbars(theme);
+    PopulateCarousels(theme);
     PopulateComponentMetrics(theme);
     ApplyDensity(theme, d);
     return theme;
@@ -284,6 +321,15 @@ UiTheme UiTheme::Scaled(float factor) const noexcept {
         sb.scrollStep *= factor;
         sb.margin *= factor;
         sb.gutter *= factor;
+    }
+    for (auto& cm : copy.carousels) {
+        cm.arrowButtonSize *= factor;
+        cm.iconSize *= factor;
+        cm.cornerRadius *= factor;
+        cm.margin *= factor;
+        cm.gap *= factor;
+        cm.gutter *= factor;
+        cm.scrollStep *= factor;
     }
     for (auto& sw : copy.switches) {
         sw.trackSize.x *= factor;
