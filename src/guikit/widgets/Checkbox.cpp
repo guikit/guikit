@@ -100,7 +100,7 @@ Vec2 Checkbox::Measure(
             labelDims = canvas->MeasureText(effectiveLabel, m.fontSize);
         } else {
             const float estW = static_cast<float>(effectiveLabel.length()) * (m.fontSize * 0.58f);
-            labelDims = {estW, m.fontSize * 1.25f};
+            labelDims = {estW, m.fontSize * 1.35f};
         }
     }
 
@@ -110,7 +110,7 @@ Vec2 Checkbox::Measure(
             descDims = canvas->MeasureText(opts.description, m.descFontSize);
         } else {
             const float estW = static_cast<float>(opts.description.length()) * (m.descFontSize * 0.58f);
-            descDims = {estW, m.descFontSize * 1.25f};
+            descDims = {estW, m.descFontSize * 1.35f};
         }
     }
 
@@ -208,8 +208,8 @@ void Checkbox::Render(
     Rect descRect;
     float alignX = 0.0f;
 
-    const float labelH = hasLabel ? std::max(m.fontSize * 1.2f, canvas.MeasureText(effectiveLabel, m.fontSize).y) : 0.0f;
-    const float descH = hasDesc ? std::max(m.descFontSize * 1.2f, canvas.MeasureText(opts.description, m.descFontSize).y) : 0.0f;
+    const float labelH = hasLabel ? std::max(m.fontSize * 1.35f, canvas.MeasureText(effectiveLabel, m.fontSize).y) : 0.0f;
+    const float descH = hasDesc ? std::max(m.descFontSize * 1.35f, canvas.MeasureText(opts.description, m.descFontSize).y) : 0.0f;
 
     if (!hasText) {
         const float boxY = bounds.y + (bounds.h - m.boxSize) * 0.5f;
@@ -342,14 +342,10 @@ void Checkbox::Render(
 
     // Draw text elements
     if (hasLabel && labelRect.w > 0.0f && labelRect.h > 0.0f) {
-        canvas.PushClip(labelRect);
         canvas.DrawTextBox(effectiveLabel, labelRect, m.fontSize, textCol, alignX, 0.5f);
-        canvas.PopClip();
     }
     if (hasDesc && descRect.w > 0.0f && descRect.h > 0.0f) {
-        canvas.PushClip(descRect);
         canvas.DrawTextBox(opts.description, descRect, m.descFontSize, descCol, alignX, 0.5f);
-        canvas.PopClip();
     }
 }
 

@@ -189,7 +189,7 @@ Vec2 InputField::Measure(
         if (canvas) {
             labelDims = canvas->MeasureText(effectiveLabel, m.labelFontSize);
         } else {
-            labelDims = {static_cast<float>(effectiveLabel.length()) * (m.labelFontSize * 0.58f), m.labelFontSize * 1.25f};
+            labelDims = {static_cast<float>(effectiveLabel.length()) * (m.labelFontSize * 0.58f), m.labelFontSize * 1.35f};
         }
     }
 
@@ -198,7 +198,7 @@ Vec2 InputField::Measure(
         if (canvas) {
             descDims = canvas->MeasureText(opts.description, m.descFontSize);
         } else {
-            descDims = {static_cast<float>(opts.description.length()) * (m.descFontSize * 0.58f), m.descFontSize * 1.25f};
+            descDims = {static_cast<float>(opts.description.length()) * (m.descFontSize * 0.58f), m.descFontSize * 1.35f};
         }
     }
 
@@ -273,8 +273,8 @@ void InputField::Render(
     Rect labelRect;
     Rect descRect;
 
-    const float labelH = hasLabel ? (m.labelFontSize * 1.25f) : 0.0f;
-    const float descH = hasDesc ? (m.descFontSize * 1.25f) : 0.0f;
+    const float labelH = hasLabel ? (m.labelFontSize * 1.35f) : 0.0f;
+    const float descH = hasDesc ? (m.descFontSize * 1.35f) : 0.0f;
 
     if (opts.labelPlacement == Placement::Stacked) {
         float curY = bounds.y;
@@ -419,14 +419,10 @@ void InputField::Render(
 
     // Draw external label & description
     if (hasLabel && labelRect.w > 0.0f && labelRect.h > 0.0f) {
-        canvas.PushClip(labelRect);
         canvas.DrawTextBox(effectiveLabel, labelRect, m.labelFontSize, labelCol, 0.0f, 0.5f);
-        canvas.PopClip();
     }
     if (hasDesc && descRect.w > 0.0f && descRect.h > 0.0f) {
-        canvas.PushClip(descRect);
         canvas.DrawTextBox(opts.description, descRect, m.descFontSize, descCol, 0.0f, 0.5f);
-        canvas.PopClip();
     }
 }
 

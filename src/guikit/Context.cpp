@@ -473,7 +473,7 @@ ContainerScope Context::CreateCell(int span, CellOptions opts, std::source_locat
     node->direction = FlexDirection::Column;
     node->colSpan = std::clamp(span, 1, 12);
     node->minWidth = opts.minWidth;
-    node->clipChildren = true;
+    node->clipChildren = opts.clipChildren;
     node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
     node->padding = opts.padding;
     node->align = opts.align;

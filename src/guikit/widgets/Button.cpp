@@ -159,13 +159,13 @@ void Button::Render(
             const float startY = bounds.y + (bounds.h - totalContentH) * 0.5f;
             const float iconX = bounds.x + (bounds.w - m.iconSize) * 0.5f;
             opts.icon.Draw(canvas, Rect(iconX, startY, m.iconSize, m.iconSize), textCol);
-            const Rect textRect(bounds.x, startY + m.iconSize + gap, bounds.w, m.fontSize * 1.25f);
+            const Rect textRect(bounds.x, startY + m.iconSize + gap, bounds.w, m.fontSize * 1.35f);
             canvas.DrawTextBox(opts.label, textRect, m.fontSize, textCol, 0.5f, 0.5f);
         } else if (opts.iconPlacement == Placement::Bottom) {
             const float gap = 4.0f;
             const float totalContentH = m.iconSize + gap + m.fontSize;
             const float startY = bounds.y + (bounds.h - totalContentH) * 0.5f;
-            const Rect textRect(bounds.x, startY, bounds.w, m.fontSize * 1.25f);
+            const Rect textRect(bounds.x, startY, bounds.w, m.fontSize * 1.35f);
             canvas.DrawTextBox(opts.label, textRect, m.fontSize, textCol, 0.5f, 0.5f);
             const float iconX = bounds.x + (bounds.w - m.iconSize) * 0.5f;
             opts.icon.Draw(canvas, Rect(iconX, startY + m.fontSize + gap, m.iconSize, m.iconSize), textCol);

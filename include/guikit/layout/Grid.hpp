@@ -36,6 +36,7 @@ struct CellOptions {
     SizeMode heightMode{SizeMode::Fit};
     std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
+    bool clipChildren{false};                       ///< Clip cell children to cell boundaries (default: false)
 };
 
 /// Specialized RAII Scope guard for Grid containers providing direct cell slot helpers.

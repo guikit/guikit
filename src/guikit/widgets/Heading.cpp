@@ -81,7 +81,7 @@ Vec2 Heading::Measure(const HeadingOptions& opts, UiSize size, ICanvas* canvas, 
             textW = static_cast<float>(opts.title.length()) * (m.titleFontSize * 0.58f);
         }
         titleLineW += textW;
-        titleLineH = std::max(titleLineH, m.titleFontSize * 1.25f);
+        titleLineH = std::max(titleLineH, m.titleFontSize * 1.35f);
     }
 
     if (!opts.badge.empty()) {
@@ -105,7 +105,7 @@ Vec2 Heading::Measure(const HeadingOptions& opts, UiSize size, ICanvas* canvas, 
         } else {
             subW = static_cast<float>(sub.length()) * (m.subtitleFontSize * 0.58f);
         }
-        subH = m.subtitleFontSize * 1.25f;
+        subH = m.subtitleFontSize * 1.35f;
     }
 
     const float totalW = std::max(titleLineW, subW);
@@ -140,7 +140,7 @@ void Heading::Render(
 
     float titleLineH = 0.0f;
     if (opts.icon.IsValid()) titleLineH = std::max(titleLineH, m.iconSize);
-    if (!opts.title.empty()) titleLineH = std::max(titleLineH, m.titleFontSize * 1.25f);
+    if (!opts.title.empty()) titleLineH = std::max(titleLineH, m.titleFontSize * 1.35f);
     if (!opts.badge.empty()) titleLineH = std::max(titleLineH, m.badgeFontSize * 1.4f);
 
     float curX = bounds.x;
@@ -184,7 +184,7 @@ void Heading::Render(
     // 4. Draw Subtitle
     if (!sub.empty()) {
         const float subY = topY + titleLineH + m.lineGap;
-        const float subH = m.subtitleFontSize * 1.25f;
+        const float subH = m.subtitleFontSize * 1.35f;
         const Rect subR(bounds.x, subY, bounds.w, subH);
         canvas.DrawTextBox(sub, subR, m.subtitleFontSize, subtitleColor, 0.0f, 0.5f);
     }
