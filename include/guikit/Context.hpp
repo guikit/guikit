@@ -303,12 +303,6 @@ public:
 
     // --- Widgets ---
     Response Button(
-        ButtonOptions opts,
-        std::source_location loc = std::source_location::current()
-    );
-
-    Response Button(
-        std::string_view label,
         ButtonOptions opts = {},
         std::source_location loc = std::source_location::current()
     );

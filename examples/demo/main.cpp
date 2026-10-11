@@ -465,13 +465,13 @@ int main(int argc, char* argv[]) {
                             ui.Heading({.title = "Interactive Reactive State", .subtitle = "Pure immediate mode with zero external widget IDs and instant response."});
 
                             if (auto actionRow = ui.Wrap({.align = guikit::Alignment::Center})) {
-                                if (ui.Button("Increment (+1)", {.icon = guikit::Icon::Plus(), .variant = guikit::UiVariant::Success})) {
+                                if (ui.Button({.label = "Increment (+1)", .icon = guikit::Icon::Plus(), .variant = guikit::UiVariant::Success})) {
                                     ++counter;
                                 }
-                                if (ui.Button("Decrement (-1)", {.icon = guikit::Icon::Minus(), .variant = guikit::UiVariant::Warning})) {
+                                if (ui.Button({.label = "Decrement (-1)", .icon = guikit::Icon::Minus(), .variant = guikit::UiVariant::Warning})) {
                                     --counter;
                                 }
-                                if (ui.Button("Reset", {.icon = guikit::Icon::Refresh(), .variant = guikit::UiVariant::Danger})) {
+                                if (ui.Button({.label = "Reset", .icon = guikit::Icon::Refresh(), .variant = guikit::UiVariant::Danger})) {
                                     counter = 0;
                                 }
 
@@ -540,15 +540,16 @@ int main(int argc, char* argv[]) {
                             ui.Heading({.title = "Dynamic 3-Way Equal Stretch Layout", .subtitle = "Each button automatically receives exactly 33.3% available width via stretch = true."});
 
                             if (auto stretchRow = ui.Row()) {
-                                ui.Button("Col 1 (Stretch)", {.stretch = true});
-                                ui.Button("Col 2 (Stretch)", {.stretch = true});
-                                ui.Button("Col 3 (Stretch)", {.stretch = true});
+                                ui.Button({.label = "Col 1 (Stretch)", .stretch = true});
+                                ui.Button({.label = "Col 2 (Stretch)", .stretch = true});
+                                ui.Button({.label = "Col 3 (Stretch)", .stretch = true});
                             }
 
                             ui.Heading({.title = "Horizontal Carousel Ribbon", .subtitle = "Autonomous scroll container with navigation arrows and mouse wheel support."});
                             if (auto ribbon = ui.Carousel({.gap = guikit::UiSize::Sm})) {
                                 for (int k = 1; k <= 10; ++k) {
-                                    ui.Button(ui.Format("Module #{:02d}", k), {
+                                    ui.Button({
+                                        .label = ui.Format("Module #{:02d}", k),
                                         .variant = (k % 3 == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Default
                                     });
                                 }
@@ -566,7 +567,7 @@ int main(int argc, char* argv[]) {
                 if (auto footer = ui.Row({.align = guikit::Alignment::Center})) {
                     ui.Caption(metrics.GetStatusString(), guikit::UiVariant::Muted);
                     ui.Spacer();
-                    if (ui.Button("Exit", {.icon = guikit::Icon::Close(), .variant = guikit::UiVariant::Ghost})) {
+                    if (ui.Button({.label = "Exit", .icon = guikit::Icon::Close(), .variant = guikit::UiVariant::Ghost})) {
                         running = false;
                     }
                 }

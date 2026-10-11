@@ -225,10 +225,6 @@ Response Context::Button(ButtonOptions opts, std::source_location loc) {
     return Run<guikit::Button>(opts, loc);
 }
 
-Response Context::Button(std::string_view label, ButtonOptions opts, std::source_location loc) {
-    return Run<guikit::Button>(label, opts, loc);
-}
-
 UiString Context::String(std::string_view text) {
     return UiString(AllocString(text));
 }

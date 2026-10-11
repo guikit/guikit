@@ -157,10 +157,10 @@ void TestHeaderRowTextMetricsAndNoOverlap() {
     auto renderRow = [&]() {
         if (auto row = ui.Row({.gap = UiSize::Sm})) {
             if (auto b1 = ui.Box({.fixedWidth = 120.0f})) {
-                bOverview = ui.Button("Overview");
+                bOverview = ui.Button({.label = "Overview"});
             }
             if (auto b2 = ui.Box({.fixedWidth = 150.0f})) {
-                bFlex = ui.Button("Flexbox Demo");
+                bFlex = ui.Button({.label = "Flexbox Demo"});
             }
         }
     };
@@ -209,7 +209,7 @@ void TestFooterExitButtonStaysVisibleInNarrowWindow() {
                 ui.Caption("Zero heap allocations per frame | 0% idle CPU");
                 ui.Spacer();
                 if (auto b = ui.Box({.fixedWidth = 80.0f})) {
-                    exitBtn = ui.Button("Exit");
+                    exitBtn = ui.Button({.label = "Exit"});
                 }
             }
         }
@@ -255,13 +255,13 @@ void TestWrapContainerInContextApi() {
             // b3 wraps to Line 2! (y = 20 + 36 + 10 = 66)
             if (auto wrap = ui.Wrap({.gap = UiSize::Md, .runGap = UiSize::Md})) {
                 if (auto box1 = ui.Box({.fixedWidth = 120.0f, .fixedHeight = 36.0f})) {
-                    b1 = ui.Button("Button 1");
+                    b1 = ui.Button({.label = "Button 1"});
                 }
                 if (auto box2 = ui.Box({.fixedWidth = 120.0f, .fixedHeight = 36.0f})) {
-                    b2 = ui.Button("Button 2");
+                    b2 = ui.Button({.label = "Button 2"});
                 }
                 if (auto box3 = ui.Box({.fixedWidth = 120.0f, .fixedHeight = 36.0f})) {
-                    b3 = ui.Button("Button 3");
+                    b3 = ui.Button({.label = "Button 3"});
                 }
             }
         }
@@ -306,14 +306,14 @@ void TestFooterExitButtonPushedToBottomWithCardAndWrap() {
             }
             if (auto navRow = ui.Row({.gap = UiSize::Sm})) {
                 if (auto box = ui.Box({.fixedWidth = 120.0f})) {
-                    ui.Button("Overview");
+                    ui.Button({.label = "Overview"});
                 }
             }
             if (auto card = ui.Box({.gap = UiSize::Lg, .padding = Padding::All(20.0f)})) {
                 ui.Headline("Card title");
                 if (auto wrap = ui.Wrap({.gap = UiSize::Md, .runGap = UiSize::Sm})) {
-                    ui.Button("Btn 1");
-                    ui.Button("Btn 2");
+                    ui.Button({.label = "Btn 1"});
+                    ui.Button({.label = "Btn 2"});
                 }
             }
             ui.Spacer();
@@ -321,7 +321,7 @@ void TestFooterExitButtonPushedToBottomWithCardAndWrap() {
                 ui.Caption("Footer text");
                 ui.Spacer();
                 if (auto box = ui.Box({.fixedWidth = 80.0f})) {
-                    exitBtn = ui.Button("Exit");
+                    exitBtn = ui.Button({.label = "Exit"});
                 }
             }
         }
@@ -396,11 +396,11 @@ void TestTwoLevelDisabledWorkflow() {
 
     auto renderUI = [&]() {
         if (auto row = ui.Row()) {
-            btnEnabled = ui.Button("Active");
-            btnDirectDisabled = ui.Button("Local Disabled", {.disabled = true});
+            btnEnabled = ui.Button({.label = "Active"});
+            btnDirectDisabled = ui.Button({.label = "Local Disabled", .disabled = true});
 
             ui.Disabled(true, [&] {
-                btnScopedDisabled = ui.Button("Scope Disabled");
+                btnScopedDisabled = ui.Button({.label = "Scope Disabled"});
             });
         }
     };
@@ -463,7 +463,7 @@ void TestBoxSlotWithUiSizeToken() {
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = UiSize::Md})) {
             if (auto slotLg = ui.Box({.size = UiSize::Lg})) {
-                btnLarge = ui.Button("Large Action", {.variant = UiVariant::Primary});
+                btnLarge = ui.Button({.label = "Large Action", .variant = UiVariant::Primary});
             }
             if (auto slotSquare = ui.Box({.fixedWidth = 32.0f, .size = UiSize::Sm})) {
                 btnSquareIcon = ui.Button({.icon = Icon::Close()});
@@ -572,14 +572,14 @@ void TestUiStringAndContextFormatting() {
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     if (auto col = ui.Column({.gap = UiSize::Sm})) {
         ui.Text(ui.Format("Value: {}", 99));
-        ui.Button(ui.String("Action"));
+        ui.Button({.label = ui.String("Action")});
     }
     ui.EndFrame(canvas);
 
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     if (auto col = ui.Column({.gap = UiSize::Sm})) {
         ui.Text(ui.Format("Value: {}", 100));
-        ui.Button(ui.String("Action"));
+        ui.Button({.label = ui.String("Action")});
     }
     ui.EndFrame(canvas);
 }
@@ -598,8 +598,8 @@ void TestBoxContainerGapSpacing() {
 
     auto renderUI = [&]() {
         if (auto card = ui.Box({.gap = UiSize::Lg, .padding = Padding::All(10.0f)})) {
-            b1 = ui.Button("First Item");
-            b2 = ui.Button("Second Item");
+            b1 = ui.Button({.label = "First Item"});
+            b2 = ui.Button({.label = "Second Item"});
         }
     };
 
@@ -1414,7 +1414,7 @@ void TestGridAndCardLayout() {
                     inp2Res = ui.InputField(nameVal, {.label = "Device Name"});
                 }
                 if (auto c2 = grid.Cell6()) {
-                    ui.Button("Calibrate Zero");
+                    ui.Button({.label = "Calibrate Zero"});
                 }
             }
         }
@@ -1493,13 +1493,13 @@ void TestScrollAreaImmediateMode() {
     auto renderUI = [&]() {
         if (auto scroll = ui.ScrollArea()) {
             if (auto box1 = ui.Box({.heightMode = SizeMode::Fixed, .fixedHeight = 200.0f})) {
-                btn1Res = ui.Button("Top Item");
+                btn1Res = ui.Button({.label = "Top Item"});
             }
             if (auto box2 = ui.Box({.heightMode = SizeMode::Fixed, .fixedHeight = 200.0f})) {
-                btn2Res = ui.Button("Middle Item");
+                btn2Res = ui.Button({.label = "Middle Item"});
             }
             if (auto box3 = ui.Box({.heightMode = SizeMode::Fixed, .fixedHeight = 200.0f})) {
-                btn3Res = ui.Button("Bottom Item");
+                btn3Res = ui.Button({.label = "Bottom Item"});
             }
         }
     };
@@ -1676,7 +1676,7 @@ void TestDirtyRectDamageTracking() {
     auto renderUI = [&](std::string* editVal = nullptr) {
         if (auto row = ui.Row()) {
             if (auto b = ui.Box({.fixedWidth = 120.0f})) {
-                ui.Button("Test Button");
+                ui.Button({.label = "Test Button"});
             }
             if (editVal) {
                 if (auto b = ui.Box({.fixedWidth = 200.0f})) {
@@ -1978,7 +1978,8 @@ void TestLabelVariantsStableSizing() {
 
     auto render = [&]() {
         if (auto row = ui.Row({.gap = UiSize::Sm})) {
-            btn = ui.Button(state ? "VSync: ON" : "VSync: OFF", {
+            btn = ui.Button({
+                .label = state ? "VSync: ON" : "VSync: OFF",
                 .labelVariants = {"VSync: ON", "VSync: OFF"}
             });
         }
@@ -2025,13 +2026,13 @@ void TestContainerSizeInheritanceAndWidgetStretch() {
     auto renderSizeTest = [&](UiSize sz, bool isLarge) {
         if (auto col = ui.Column({.size = sz})) {
             if (isLarge) {
-                btnLg = ui.Button("Large Action");
+                btnLg = ui.Button({.label = "Large Action"});
                 swLg = ui.Switch(switchVal, {.label = "Large Switch"});
                 cbLg = ui.Checkbox(checkVal, {.label = "Large Checkbox"});
                 inLg = ui.InputField(inputVal, {.label = "Large Input"});
                 selLg = ui.Select(selectIdx, {"One", "Two"}, {.label = "Large Select"});
             } else {
-                btnSm = ui.Button("Small Action");
+                btnSm = ui.Button({.label = "Small Action"});
                 swSm = ui.Switch(switchVal, {.label = "Small Switch"});
                 cbSm = ui.Checkbox(checkVal, {.label = "Small Checkbox"});
                 inSm = ui.InputField(inputVal, {.label = "Small Input"});
@@ -2079,9 +2080,9 @@ void TestContainerSizeInheritanceAndWidgetStretch() {
     Response btnCompact, btnStretch1, btnStretch2;
     auto renderStretchRow = [&]() {
         if (auto row = ui.Row()) {
-            btnCompact = ui.Button("Compact", {.stretch = false});
-            btnStretch1 = ui.Button("Stretch", {.stretch = true});
-            btnStretch2 = ui.Button("Stretch", {.stretch = true});
+            btnCompact = ui.Button({.label = "Compact", .stretch = false});
+            btnStretch1 = ui.Button({.label = "Stretch", .stretch = true});
+            btnStretch2 = ui.Button({.label = "Stretch", .stretch = true});
         }
     };
 
@@ -2138,8 +2139,8 @@ void TestUiStyleAndDensityScaling() {
 
     auto render = [&]() {
         if (auto col = ui.Column()) {
-            b1 = ui.Button("First");
-            b2 = ui.Button("Second");
+            b1 = ui.Button({.label = "First"});
+            b2 = ui.Button({.label = "Second"});
         }
     };
 
@@ -2219,9 +2220,9 @@ void TestLeafWidgetSizeOverrides() {
         if (auto col = ui.Column()) {
             // Buttons: Inherited (Md), Local override Xl, Local override Xs
             if (auto r1 = ui.Row()) {
-                btnInherit = ui.Button("Inherit");
-                btnXl = ui.Button("Large", {.size = UiSize::Xl});
-                btnXs = ui.Button("Small", {.size = UiSize::Xs});
+                btnInherit = ui.Button({.label = "Inherit"});
+                btnXl = ui.Button({.label = "Large", .size = UiSize::Xl});
+                btnXs = ui.Button({.label = "Small", .size = UiSize::Xs});
             }
 
             // Switches: Inherited (Md), Local override Xl, Local override Xs
@@ -2427,7 +2428,7 @@ void TestDpiScalingAndBackendMetadata() {
     CHECK_NEAR(ui.GetLogicalViewport().x, 1200.0f, 0.01f);
     CHECK_NEAR(ui.GetLogicalViewport().y, 900.0f, 0.01f);
     CHECK_NEAR(ui.GetDpiScale(), 1.0f, 0.01f);
-    ui.Button("TestBtn");
+    ui.Button({.label = "TestBtn"});
     ui.EndFrame(canvas);
     CHECK_NEAR(canvas.GetScale(), 1.0f, 0.01f);
 
@@ -2444,7 +2445,7 @@ void TestDpiScalingAndBackendMetadata() {
     CHECK_NEAR(ui.GetMousePos().y, 20.0f, 0.01f);
 
     // Render button and test layout
-    ui.Button("TestBtn");
+    ui.Button({.label = "TestBtn"});
     ui.EndFrame(canvas);
 
     // Canvas should receive 1.5x scale
@@ -2490,7 +2491,7 @@ void TestSdlCanvasBackendInterface() {
     // Verify Context renders into SdlCanvas via ICanvas polymorphism
     Context ui;
     ui.BeginFrame({800.0f, 600.0f}, 1.25f);
-    ui.Button("GPU Button");
+    ui.Button({.label = "GPU Button"});
     ui.EndFrame(canvas);
 }
 
@@ -2682,11 +2683,11 @@ void TestCarouselWidgetAndTabBarOverflow() {
     auto renderCarousel = [&]() {
         if (auto c = ui.Carousel({.gap = UiSize::Sm})) {
             carouselNode = c.GetNode();
-            b1 = ui.Button("Button 1");
-            b2 = ui.Button("Button 2");
-            b3 = ui.Button("Button 3");
-            ui.Button("Button 4");
-            ui.Button("Button 5");
+            b1 = ui.Button({.label = "Button 1"});
+            b2 = ui.Button({.label = "Button 2"});
+            b3 = ui.Button({.label = "Button 3"});
+            ui.Button({.label = "Button 4"});
+            ui.Button({.label = "Button 5"});
         }
     };
 
@@ -2826,7 +2827,7 @@ void TestDebugBoundsAndInspectMode() {
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     if (auto col = ui.Column({.gap = UiSize::Sm, .padding = Padding::All(12.0f)})) {
         if (auto row = ui.Row({.gap = UiSize::Md})) {
-            ui.Button("Inspect Me");
+            ui.Button({.label = "Inspect Me"});
             ui.Spacer();
             ui.Switch(false, {.label = "Toggle Switch"});
         }
@@ -2882,7 +2883,7 @@ void TestPostRenderDelegateWorkflow() {
             };
         }
 
-        ui.Button("Child Button");
+        ui.Button({.label = "Child Button"});
         Node* childNode = containerNode ? containerNode->firstChild : nullptr;
         CHECK(childNode != nullptr);
         if (childNode) {
@@ -2919,12 +2920,12 @@ void TestContainersAndLayoutsReorganization() {
     // 1. Layouts: Row, Column, Wrap, Grid
     if (auto col = ui.Column({.gap = UiSize::Md})) {
         if (auto row = ui.Row({.gap = UiSize::Sm, .align = Alignment::Center})) {
-            ui.Button("Btn 1");
-            ui.Button("Btn 2");
+            ui.Button({.label = "Btn 1"});
+            ui.Button({.label = "Btn 2"});
         }
         if (auto wrap = ui.Wrap({.gap = UiSize::Xs, .runGap = UiSize::Sm})) {
-            ui.Button("W1");
-            ui.Button("W2");
+            ui.Button({.label = "W1"});
+            ui.Button({.label = "W2"});
         }
         if (auto grid = ui.Grid({.columns = 12, .gap = UiSize::Md})) {
             if (auto c6 = grid.Cell6()) {
@@ -2965,7 +2966,7 @@ void TestContainersAndLayoutsReorganization() {
         CHECK(node != nullptr);
         CHECK(node->padding.left == 12.0f);
         CHECK(node->gap == ui.GetTheme().GetGap(UiSize::Sm));
-        ui.Button("Scroll Item 1");
+        ui.Button({.label = "Scroll Item 1"});
     }
 
     if (auto carousel = ui.Carousel({.gap = UiSize::Lg, .padding = Padding::All(6.0f), .align = Alignment::End, .justify = Justify::Center})) {
@@ -2975,18 +2976,18 @@ void TestContainersAndLayoutsReorganization() {
         CHECK(node->justify == Justify::Center);
         CHECK(node->padding.left == 6.0f);
         CHECK(node->gap == ui.GetTheme().GetGap(UiSize::Lg));
-        ui.Button("Carousel Item 1");
+        ui.Button({.label = "Carousel Item 1"});
     }
 
     // 3. Static layout facades: Row::Open, Column::Open, Wrap::Open, Grid::Open, Spacer::Run
     if (auto col2 = Column::Open(ui, {.gap = UiSize::Sm})) {
         if (auto row2 = Row::Open(ui)) {
-            ui.Button("Static Row Btn");
+            ui.Button({.label = "Static Row Btn"});
             Spacer::Run(ui);
-            ui.Button("Static Row Btn 2");
+            ui.Button({.label = "Static Row Btn 2"});
         }
         if (auto wrap2 = Wrap::Open(ui)) {
-            ui.Button("Static Wrap Btn");
+            ui.Button({.label = "Static Wrap Btn"});
         }
         if (auto grid2 = Grid::Open(ui)) {
             if (auto cell = grid2.Cell()) {
@@ -3036,7 +3037,6 @@ void TestGenericTemplateFacade() {
     static_assert(WidgetRunnable<MyCustomBadge, std::string_view>);
     static_assert(WidgetRunnable<MyCustomBadge, std::string_view, UiVariant>);
     static_assert(WidgetRunnable<Button, ButtonOptions>);
-    static_assert(WidgetRunnable<Button, std::string_view>);
     static_assert(ContainerOpenable<MyCustomPanel>);
     static_assert(ContainerOpenable<MyCustomPanel, float>);
     static_assert(ContainerOpenable<Row, RowOptions>);
@@ -3055,7 +3055,7 @@ void TestGenericTemplateFacade() {
         CHECK(panel.GetNode()->minWidth == 150.0f);
         auto badge = ui.Run<MyCustomBadge>("LIVE STATUS", UiVariant::Success);
         CHECK(badge.id.IsValid());
-        auto btn = ui.Run<Button>("Generic Button");
+        auto btn = ui.Run<Button>(ButtonOptions{.label = "Generic Button"});
         CHECK(btn.id.IsValid());
     }
     ui.EndFrame(canvas);

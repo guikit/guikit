@@ -35,15 +35,7 @@ public:
     /// Primary immediate mode entry point for Button widget.
     static Response Run(
         Context& ctx,
-        const ButtonOptions& opts,
-        std::source_location loc = std::source_location::current()
-    );
-
-    /// Convenience entry point for Button widget with caption label.
-    static Response Run(
-        Context& ctx,
-        std::string_view label,
-        ButtonOptions opts = {},
+        const ButtonOptions& opts = {},
         std::source_location loc = std::source_location::current()
     );
 

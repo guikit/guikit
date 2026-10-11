@@ -12,7 +12,7 @@ Designed for high-performance desktop tools, embedded displays, and design-syste
 - **Autonomous Architecture**: 100% standalone with zero dependency on Dear ImGui.
 - **Modern C++20 Immediate Mode**: Clean syntax with designated initializers, frame allocators, and reactive state:
   ```cpp
-  if (ui.Button("Save Project", {.variant = UiVariant::Primary, .size = UiSize::Lg})) {
+  if (ui.Button({.label = "Save Project", .variant = UiVariant::Primary, .size = UiSize::Lg})) {
       Save();
   }
   ```
