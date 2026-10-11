@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <optional>
 #include <source_location>
@@ -7,7 +7,7 @@
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/graphics/Icon.hpp"
-#include "guikit/layout/LayoutTypes.hpp"
+#include "guikit/layout/Types.hpp"
 
 namespace guikit {
 

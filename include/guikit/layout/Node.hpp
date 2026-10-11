@@ -1,11 +1,11 @@
-#pragma once
+﻿#pragma once
 
 #include <cstdint>
 #include <string_view>
 #include "guikit/core/Id.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
-#include "guikit/layout/LayoutTypes.hpp"
+#include "guikit/layout/Types.hpp"
 
 namespace guikit {
 

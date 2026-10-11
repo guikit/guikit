@@ -1,11 +1,11 @@
-#pragma once
+﻿#pragma once
 
 #include <source_location>
 #include <string_view>
 #include "guikit/core/Response.hpp"
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
-#include "guikit/layout/LayoutTypes.hpp"
+#include "guikit/layout/Types.hpp"
 
 namespace guikit {
 

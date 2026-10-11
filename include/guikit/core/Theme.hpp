@@ -1,9 +1,9 @@
-#pragma once
+﻿#pragma once
 
 #include <array>
 #include <cstdint>
 #include "guikit/core/Tokens.hpp"
-#include "guikit/layout/LayoutTypes.hpp"
+#include "guikit/layout/Types.hpp"
 
 namespace guikit {
 

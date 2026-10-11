@@ -1,6 +1,6 @@
-#include <iostream>
+﻿#include <iostream>
 #include <unordered_set>
-#include "guikit/core/BumpAllocator.hpp"
+#include "guikit/core/Allocator.hpp"
 #include "guikit/core/FrameMetrics.hpp"
 #include "guikit/core/Id.hpp"
 #include "guikit/core/Response.hpp"

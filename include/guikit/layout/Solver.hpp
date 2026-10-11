@@ -9,7 +9,7 @@
 namespace guikit {
 
 /// Resolves 2D flex layout for an arbitrary tree of GuiKit nodes.
-class LayoutSolver {
+class Solver {
 public:
     /// Measures intrinsic content sizes bottom-up with the given theme.
     static void Measure(Node* root, ICanvas* canvas, const UiTheme& theme) {
@@ -803,5 +803,7 @@ private:
         }
     }
 };
+
+using LayoutSolver = Solver;
 
 } // namespace guikit

@@ -1,27 +1,31 @@
-#pragma once
+﻿#pragma once
 
 #include <optional>
 #include <source_location>
 #include "guikit/core/Id.hpp"
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
+#include "guikit/layout/Types.hpp"
+#include "guikit/layout/Scope.hpp"
 
 namespace guikit {
 
 class Context;
 class ICanvas;
-class ContainerScope;
-using CarouselScope = ContainerScope;
 struct Node;
 
 /// Configuration options for Carousel horizontal scroll container.
 struct CarouselOptions {
-    std::optional<UiSize> size{std::nullopt};       ///< Size token determining arrow sizes and baseline height
-    std::optional<UiSize> gap{std::nullopt};        ///< Gap between items in the ribbon (nullopt = inherit size)
-    std::optional<UiSize> padding{std::nullopt};    ///< Internal padding token (nullopt = zero)
+    std::optional<UiSize> gap{std::nullopt};        ///< Gap between items in the ribbon (nullopt = from theme)
+    std::optional<Padding> padding{std::nullopt};   ///< Viewport content padding (nullopt = zero)
+    Alignment align{Alignment::Center};             ///< Vertical alignment of items
+    Justify justify{Justify::Start};                ///< Horizontal item distribution
     bool scrollWheel{true};                         ///< Enable horizontal mouse wheel scrolling
+    std::optional<UiSize> size{std::nullopt};       ///< Size token determining arrow sizes and baseline height
     bool disabled{false};                           ///< Interaction suppression
 };
+
+using CarouselScope = ContainerScope;
 
 /// Internal runtime state allocated in frame arena for Carousel container nodes.
 struct CarouselData {
@@ -47,9 +51,9 @@ struct CarouselData {
 /// Deterministic 64-bit ID for Carousel right navigation arrow button.
 [[nodiscard]] inline constexpr Id GetCarouselRightArrowId(Id carouselId) noexcept {
     return Id(detail::HashInt64(0xFF02, carouselId.value));
-};
+}
 
-/// Autonomous Carousel widget logic (execution, measuring, and rendering).
+/// Autonomous Carousel container logic (measuring, arrangement, and navigation overlay).
 class Carousel {
 public:
     /// Primary immediate mode entry point for Carousel container.

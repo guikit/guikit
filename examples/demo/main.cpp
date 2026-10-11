@@ -2,7 +2,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "guikit/Context.hpp"
+#include "guikit/GuiKit.hpp"
 #include "guikit/backend/ThorCanvas.hpp"
 #include "guikit/core/FrameMetrics.hpp"
 

@@ -11,28 +11,28 @@ namespace guikit {
 
 /// High-performance linear arena allocator for per-frame scratch objects.
 /// Guarantees O(1) allocation, zero heap churn during the frame, and O(1) reset.
-class BumpAllocator {
+class Allocator {
 public:
     static constexpr size_t DefaultChunkSize = 64 * 1024; // 64 KB
 
-    explicit BumpAllocator(size_t chunkSize = DefaultChunkSize)
+    explicit Allocator(size_t chunkSize = DefaultChunkSize)
         : m_defaultChunkSize(chunkSize) {
         Grow(m_defaultChunkSize);
     }
 
-    ~BumpAllocator() = default;
+    ~Allocator() = default;
 
-    BumpAllocator(const BumpAllocator&) = delete;
-    BumpAllocator& operator=(const BumpAllocator&) = delete;
+    Allocator(const Allocator&) = delete;
+    Allocator& operator=(const Allocator&) = delete;
 
-    BumpAllocator(BumpAllocator&& other) noexcept
+    Allocator(Allocator&& other) noexcept
         : m_chunks(std::move(other.m_chunks))
         , m_currentChunkIndex(other.m_currentChunkIndex)
         , m_defaultChunkSize(other.m_defaultChunkSize) {
         other.m_currentChunkIndex = 0;
     }
 
-    BumpAllocator& operator=(BumpAllocator&& other) noexcept {
+    Allocator& operator=(Allocator&& other) noexcept {
         if (this != &other) {
             m_chunks = std::move(other.m_chunks);
             m_currentChunkIndex = other.m_currentChunkIndex;
@@ -120,5 +120,7 @@ private:
     size_t m_currentChunkIndex{0};
     size_t m_defaultChunkSize{DefaultChunkSize};
 };
+
+using BumpAllocator = Allocator;
 
 } // namespace guikit

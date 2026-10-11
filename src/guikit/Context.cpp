@@ -291,7 +291,11 @@ WrapScope Context::Wrap(WrapOptions opts, std::source_location loc) {
     return WrapScope(this, node);
 }
 
-CellGridScope Context::CellGrid(CellGridOptions opts, std::source_location loc) {
+GridScope Context::CellGrid(GridOptions opts, std::source_location loc) {
+    return Grid(opts, loc);
+}
+
+GridScope Context::Grid(GridOptions opts, std::source_location loc) {
     const Id id = MakeChildId(loc);
     const UiSize activeSize = opts.size.value_or(GetCurrentSize());
     const bool activeDisabled = opts.disabled || IsDisabled();
@@ -313,59 +317,8 @@ CellGridScope Context::CellGrid(CellGridOptions opts, std::source_location loc) 
     PushSize(activeSize);
     PushDisabled(activeDisabled);
     PushContainer(node);
-    return CellGridScope(this, node);
+    return GridScope(this, node);
 }
-
-CellGridScope Context::Grid(CellGridOptions opts, std::source_location loc) {
-    return CellGrid(opts, loc);
-}
-
-namespace {
-
-void RenderScrollAreaScrollbar(const Node* node, ICanvas& canvas, const UiTheme& theme) {
-    if (!node) return;
-    bool showScrollbar = false;
-    if (node->scrollbarPolicy == VisibilityPolicy::Always) {
-        showScrollbar = true;
-    } else if (node->scrollbarPolicy == VisibilityPolicy::Auto) {
-        showScrollbar = (node->scrollContentSize.y > node->computedRect.h);
-    }
-
-    if (showScrollbar && node->computedRect.h > 10.0f) {
-        const ScrollbarMetrics& m = theme.GetScrollbar(node->uiSize);
-        const float trackX = node->computedRect.Right() - m.trackWidth - m.margin;
-        const float trackY = node->computedRect.y + m.margin;
-        const float trackH = std::max(0.0f, node->computedRect.h - 2.0f * m.margin);
-
-        const float contentH = std::max(node->computedRect.h, node->scrollContentSize.y);
-        const float maxScrollY = contentH - node->computedRect.h;
-        const float thumbH = std::clamp((node->computedRect.h / contentH) * trackH, m.minThumbLength, trackH);
-        const float travelH = trackH - thumbH;
-        const float scrollRatio = (maxScrollY > 0.0f) ? (node->scrollOffset.y / maxScrollY) : 0.0f;
-        const float thumbY = trackY + scrollRatio * travelH;
-
-        const Rect trackRect(trackX, trackY, m.trackWidth, trackH);
-        const Rect thumbRect(trackX, thumbY, m.trackWidth, thumbH);
-
-        const auto& pal = theme.palette;
-
-        // Subtle track background
-        const Color trackCol = pal.borderSubtle;
-        canvas.DrawRoundRect(trackRect, m.cornerRadius, trackCol);
-
-        // Thumb pill
-        Color thumbCol = pal.textMuted;
-        if (node->scrollbarActive) {
-            thumbCol = pal.accent;
-        } else if (node->scrollbarHovered) {
-            thumbCol = pal.textSecondary;
-        }
-
-        canvas.DrawRoundRect(thumbRect, m.cornerRadius, thumbCol);
-    }
-}
-
-} // namespace
 
 ScrollAreaScope Context::ScrollArea(ScrollAreaOptions opts, std::source_location loc) {
     const Id id = MakeChildId(loc);
@@ -384,7 +337,7 @@ ScrollAreaScope Context::ScrollArea(ScrollAreaOptions opts, std::source_location
     node->scrollbarPolicy = opts.scrollbar;
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
-    node->postRenderFn = &RenderScrollAreaScrollbar;
+    node->postRenderFn = &ScrollArea::RenderScrollbar;
 
     // Retrieve persistent scroll state
     auto& state = m_scrollStates[id];
@@ -417,10 +370,11 @@ CarouselScope Context::Carousel(CarouselOptions opts, std::source_location loc) 
 
     Node* node = CreateNode(NodeType::Carousel, id);
     node->direction = FlexDirection::Row;
-    node->align = Alignment::Center;
+    node->align = opts.align;
+    node->justify = opts.justify;
     node->clipChildren = true;
     node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
-    node->padding = opts.padding.has_value() ? m_theme.GetPadding(*opts.padding) : Padding{};
+    node->padding = opts.padding.value_or(Padding{});
     node->widthMode = SizeMode::Stretch;
     node->heightMode = SizeMode::Fit;
     node->uiSize = activeSize;

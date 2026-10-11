@@ -15,6 +15,9 @@
         #define NOMINMAX
     #endif
     #include <windows.h>
+    #if defined(DrawText)
+        #undef DrawText
+    #endif
 #else
     #include <ctime>
     #include <unistd.h>

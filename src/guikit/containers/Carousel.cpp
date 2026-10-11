@@ -1,9 +1,9 @@
-#include "guikit/widgets/Carousel.hpp"
+﻿#include "guikit/containers/Carousel.hpp"
 #include <algorithm>
 #include <cmath>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/layout/LayoutSolver.hpp"
+#include "guikit/layout/Solver.hpp"
 #include "guikit/layout/Node.hpp"
 
 namespace guikit {

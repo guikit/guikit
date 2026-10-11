@@ -1,8 +1,8 @@
-#include <cmath>
+﻿#include <cmath>
 #include <iostream>
-#include "guikit/core/BumpAllocator.hpp"
+#include "guikit/core/Allocator.hpp"
 #include "guikit/core/Theme.hpp"
-#include "guikit/layout/LayoutSolver.hpp"
+#include "guikit/layout/Solver.hpp"
 #include "guikit/layout/Node.hpp"
 
 static int g_failures = 0;

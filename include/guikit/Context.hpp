@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <chrono>
 #include <functional>
@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/BumpAllocator.hpp"
+#include "guikit/core/Allocator.hpp"
 #include "guikit/core/Id.hpp"
 #include "guikit/core/Response.hpp"
 #include "guikit/core/Theme.hpp"
@@ -18,11 +18,19 @@
 #include "guikit/core/Types.hpp"
 #include "guikit/core/UiString.hpp"
 #include "guikit/graphics/Icon.hpp"
-#include "guikit/layout/LayoutSolver.hpp"
+#include "guikit/layout/Solver.hpp"
 #include "guikit/layout/Node.hpp"
 #include "guikit/layout/Scope.hpp"
+#include "guikit/layout/Row.hpp"
+#include "guikit/layout/Column.hpp"
+#include "guikit/layout/Wrap.hpp"
+#include "guikit/layout/Grid.hpp"
+#include "guikit/layout/Spacer.hpp"
+#include "guikit/containers/Box.hpp"
+#include "guikit/containers/Card.hpp"
+#include "guikit/containers/Carousel.hpp"
+#include "guikit/containers/ScrollArea.hpp"
 #include "guikit/widgets/Button.hpp"
-#include "guikit/widgets/Carousel.hpp"
 #include "guikit/widgets/Checkbox.hpp"
 #include "guikit/widgets/Heading.hpp"
 #include "guikit/widgets/InputField.hpp"
@@ -165,7 +173,7 @@ public:
     /// Explicitly invalidates a rectangular region to be repainted in the next frame.
     void InvalidateRect(Rect rect) noexcept;
 
-    // --- Container Scopes ---
+    // --- Layout Scopes ---
     RowScope Row(
         RowOptions opts = {},
         std::source_location loc = std::source_location::current()
@@ -176,23 +184,34 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
-    BoxScope Box(
-        BoxOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
     WrapScope Wrap(
         WrapOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
-    CellGridScope CellGrid(
-        CellGridOptions opts = {},
+    GridScope CellGrid(
+        GridOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
-    CellGridScope Grid(
-        CellGridOptions opts = {},
+    GridScope Grid(
+        GridOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    void Spacer(
+        float flex = 1.0f,
+        std::source_location loc = std::source_location::current()
+    );
+
+    // --- Container Scopes ---
+    BoxScope Box(
+        BoxOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    CardScope Card(
+        CardOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 
@@ -203,16 +222,6 @@ public:
 
     CarouselScope Carousel(
         CarouselOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    CardScope Card(
-        CardOptions opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    void Spacer(
-        float flex = 1.0f,
         std::source_location loc = std::source_location::current()
     );
 
@@ -824,7 +833,7 @@ private:
     Node* FindDeepestNodeAt(Node* root, Vec2 pos, Rect clipRect);
     void RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize);
 
-    friend class CellGridScope;
+    friend class GridScope;
     friend class TabBar;
     friend class Carousel;
     CellScope CreateCell(int span, CellOptions opts, std::source_location loc = std::source_location::current());
@@ -852,26 +861,26 @@ inline ContainerScope::~ContainerScope() {
     }
 }
 
-// Inline implementations of CellGridScope slot helpers
-inline CellScope CellGridScope::Cell12(CellOptions opts, std::source_location loc) {
+// Inline implementations of GridScope slot helpers
+inline CellScope GridScope::Cell12(CellOptions opts, std::source_location loc) {
     return m_ctx ? m_ctx->CreateCell(12, opts, loc) : CellScope(nullptr, nullptr);
 }
-inline CellScope CellGridScope::Cell8(CellOptions opts, std::source_location loc) {
+inline CellScope GridScope::Cell8(CellOptions opts, std::source_location loc) {
     return m_ctx ? m_ctx->CreateCell(8, opts, loc) : CellScope(nullptr, nullptr);
 }
-inline CellScope CellGridScope::Cell6(CellOptions opts, std::source_location loc) {
+inline CellScope GridScope::Cell6(CellOptions opts, std::source_location loc) {
     return m_ctx ? m_ctx->CreateCell(6, opts, loc) : CellScope(nullptr, nullptr);
 }
-inline CellScope CellGridScope::Cell4(CellOptions opts, std::source_location loc) {
+inline CellScope GridScope::Cell4(CellOptions opts, std::source_location loc) {
     return m_ctx ? m_ctx->CreateCell(4, opts, loc) : CellScope(nullptr, nullptr);
 }
-inline CellScope CellGridScope::Cell3(CellOptions opts, std::source_location loc) {
+inline CellScope GridScope::Cell3(CellOptions opts, std::source_location loc) {
     return m_ctx ? m_ctx->CreateCell(3, opts, loc) : CellScope(nullptr, nullptr);
 }
-inline CellScope CellGridScope::Cell2(CellOptions opts, std::source_location loc) {
+inline CellScope GridScope::Cell2(CellOptions opts, std::source_location loc) {
     return m_ctx ? m_ctx->CreateCell(2, opts, loc) : CellScope(nullptr, nullptr);
 }
-inline CellScope CellGridScope::Cell1(CellOptions opts, std::source_location loc) {
+inline CellScope GridScope::Cell1(CellOptions opts, std::source_location loc) {
     return m_ctx ? m_ctx->CreateCell(1, opts, loc) : CellScope(nullptr, nullptr);
 }
 

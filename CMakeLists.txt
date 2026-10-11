@@ -47,8 +47,14 @@ set(GUIKIT_SOURCES
     src/guikit/backend/ThorCanvas.cpp
     src/guikit/backend/SdlCanvas.cpp
     src/guikit/graphics/Icon.cpp
+    src/guikit/layout/Row.cpp
+    src/guikit/layout/Column.cpp
+    src/guikit/layout/Wrap.cpp
+    src/guikit/layout/Grid.cpp
+    src/guikit/layout/Spacer.cpp
+    src/guikit/containers/Carousel.cpp
+    src/guikit/containers/ScrollArea.cpp
     src/guikit/widgets/Button.cpp
-    src/guikit/widgets/Carousel.cpp
     src/guikit/widgets/Checkbox.cpp
     src/guikit/widgets/Heading.cpp
     src/guikit/widgets/InputField.cpp
@@ -64,7 +70,7 @@ add_library(guikit::guikit ALIAS guikit)
 
 target_compile_features(guikit PUBLIC cxx_std_20)
 target_include_directories(guikit PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
 target_link_libraries(guikit PUBLIC thorvg SDL3::SDL3-static)

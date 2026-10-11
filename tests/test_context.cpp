@@ -2888,6 +2888,91 @@ void TestPostRenderDelegateWorkflow() {
     }
 }
 
+void TestContainersAndLayoutsReorganization() {
+    using namespace guikit;
+
+    std::cout << "  - TestContainersAndLayoutsReorganization...\n";
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 800;
+    const uint32_t height = 600;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    ui.BeginFrame({800.0f, 600.0f});
+
+    // 1. Layouts: Row, Column, Wrap, Grid
+    if (auto col = ui.Column({.gap = UiSize::Md})) {
+        if (auto row = ui.Row({.gap = UiSize::Sm, .align = Alignment::Center})) {
+            ui.Button("Btn 1");
+            ui.Button("Btn 2");
+        }
+        if (auto wrap = ui.Wrap({.gap = UiSize::Xs, .runGap = UiSize::Sm})) {
+            ui.Button("W1");
+            ui.Button("W2");
+        }
+        if (auto grid = ui.Grid({.columns = 12, .gap = UiSize::Md})) {
+            if (auto c6 = grid.Cell6()) {
+                ui.Text("Half Width Cell");
+            }
+        }
+    }
+
+    // 2. Containers: Box, Card, ScrollArea, Carousel
+    if (auto box = ui.Box({.gap = UiSize::Sm, .padding = Padding::All(8.0f), .radius = UiSize::Md})) {
+        Node* node = box.GetNode();
+        CHECK(node != nullptr);
+        CHECK(node->cornerRadius == ui.GetTheme().GetRadius(UiSize::Md));
+        CHECK(node->padding.left == 8.0f);
+        ui.Text("Inside Box");
+    }
+
+    if (auto card = ui.Card({.gap = UiSize::Md, .padding = Padding::All(16.0f), .radius = UiSize::Lg})) {
+        Node* node = card.GetNode();
+        CHECK(node != nullptr);
+        CHECK(node->cornerRadius == ui.GetTheme().GetRadius(UiSize::Lg));
+        CHECK(node->padding.top == 16.0f);
+        ui.Text("Inside Card");
+    }
+
+    if (auto scroll = ui.ScrollArea({.orientation = Orientation::Vertical, .gap = UiSize::Sm, .padding = Padding::Symmetric(12.0f, 0.0f)})) {
+        Node* node = scroll.GetNode();
+        CHECK(node != nullptr);
+        CHECK(node->padding.left == 12.0f);
+        CHECK(node->gap == ui.GetTheme().GetGap(UiSize::Sm));
+        ui.Button("Scroll Item 1");
+    }
+
+    if (auto carousel = ui.Carousel({.gap = UiSize::Lg, .padding = Padding::All(6.0f), .align = Alignment::End, .justify = Justify::Center})) {
+        Node* node = carousel.GetNode();
+        CHECK(node != nullptr);
+        CHECK(node->align == Alignment::End);
+        CHECK(node->justify == Justify::Center);
+        CHECK(node->padding.left == 6.0f);
+        CHECK(node->gap == ui.GetTheme().GetGap(UiSize::Lg));
+        ui.Button("Carousel Item 1");
+    }
+
+    // 3. Static layout facades: Row::Open, Column::Open, Wrap::Open, Grid::Open, Spacer::Run
+    if (auto col2 = Column::Open(ui, {.gap = UiSize::Sm})) {
+        if (auto row2 = Row::Open(ui)) {
+            ui.Button("Static Row Btn");
+            Spacer::Run(ui);
+            ui.Button("Static Row Btn 2");
+        }
+        if (auto wrap2 = Wrap::Open(ui)) {
+            ui.Button("Static Wrap Btn");
+        }
+        if (auto grid2 = Grid::Open(ui)) {
+            if (auto cell = grid2.Cell()) {
+                ui.Text("Static Grid Cell");
+            }
+        }
+    }
+
+    ui.EndFrame(canvas);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -2925,6 +3010,7 @@ int main() {
     TestSdlCanvasBackendInterface();
     TestDebugBoundsAndInspectMode();
     TestPostRenderDelegateWorkflow();
+    TestContainersAndLayoutsReorganization();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";
