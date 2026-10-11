@@ -20,7 +20,7 @@
 #include "guikit/graphics/Icon.hpp"
 #include "guikit/layout/Solver.hpp"
 #include "guikit/layout/Node.hpp"
-#include "guikit/layout/Scope.hpp"
+#include "guikit/containers/Container.hpp"
 #include "guikit/layout/Row.hpp"
 #include "guikit/layout/Column.hpp"
 #include "guikit/layout/Wrap.hpp"

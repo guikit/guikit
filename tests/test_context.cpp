@@ -2919,7 +2919,7 @@ void TestContainersAndLayoutsReorganization() {
     }
 
     // 2. Containers: Box, Card, ScrollArea, Carousel
-    if (auto box = ui.Box({.gap = UiSize::Sm, .padding = Padding::All(8.0f), .radius = UiSize::Md})) {
+    if (Container box = ui.Box({.gap = UiSize::Sm, .padding = Padding::All(8.0f), .radius = UiSize::Md})) {
         Node* node = box.GetNode();
         CHECK(node != nullptr);
         CHECK(node->cornerRadius == ui.GetTheme().GetRadius(UiSize::Md));
