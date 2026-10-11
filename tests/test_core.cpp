@@ -4,7 +4,9 @@
 #include "guikit/core/FrameMetrics.hpp"
 #include "guikit/core/Id.hpp"
 #include "guikit/core/Response.hpp"
+#include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
+#include "guikit/layout/Node.hpp"
 
 static int g_failures = 0;
 
@@ -49,8 +51,10 @@ void TestGeometryAndTypes() {
     CHECK(cLerp.r == 50 && cLerp.g == 100 && cLerp.b == 25 && cLerp.a == 50);
 
     // Spacing and DP literals
-    CHECK(ToPoints(Spacing::Small) == 8.0f);
-    CHECK(ToPoints(Spacing::Large) == 16.0f);
+    const auto theme = UiTheme::Dark();
+    CHECK(theme.GetGap(UiSize::Sm) == 8.0f);
+    CHECK(theme.GetGap(UiSize::Lg) == 16.0f);
+    CHECK(theme.GetRadius(UiSize::Md) == 6.0f);
     Dp dpVal = 16.0_dp;
     CHECK(dpVal.ToPixels(2.0f) == 32.0f);
 }
@@ -172,6 +176,23 @@ void TestFrameMetrics() {
     CHECK(status.find("budget") != std::string_view::npos);
 }
 
+void TestNodeFootprint() {
+    using namespace guikit;
+
+    // Verify Node has been decoupled from widget options and its size is compact
+    std::cout << "[INFO] sizeof(Node) = " << sizeof(Node) << " bytes\n";
+    CHECK(sizeof(Node) <= 248); // Compact 248 bytes with 4 polymorphic delegates (reduced from ~500 bytes)
+
+    // Verify generic payload casting
+    Node n;
+    int dummyPayload = 42;
+    n.payload = &dummyPayload;
+    CHECK(*n.As<int>() == 42);
+
+    const Node& constN = n;
+    CHECK(*constN.As<int>() == 42);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Core Foundation...\n";
 
@@ -180,6 +201,7 @@ int main() {
     TestBumpAllocator();
     TestWidgetResponse();
     TestFrameMetrics();
+    TestNodeFootprint();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Core tests passed successfully!\n";

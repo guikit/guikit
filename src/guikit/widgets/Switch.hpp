@@ -4,7 +4,7 @@
 #include <source_location>
 #include <string_view>
 #include "guikit/core/Response.hpp"
-#include "guikit/core/Tokens.hpp"
+#include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
 
 namespace guikit {
@@ -22,30 +22,6 @@ struct SwitchOptions {
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
 };
 static_assert(sizeof(SwitchOptions) <= 40, "SwitchOptions must stay compact");
-
-/// Standardized layout and geometry metrics for a Switch widget.
-struct SwitchMetrics {
-    Vec2 trackSize;
-    float knobDiameter;
-    float knobPadding;
-    float gap;
-    float fontSize;
-    float descFontSize;
-    float descGap;
-};
-
-/// Returns standardized metrics for Switch according to UiSize.
-[[nodiscard]] constexpr SwitchMetrics GetSwitchMetrics(UiSize size) noexcept {
-    switch (size) {
-        case UiSize::None:
-        case UiSize::Md: return { {36.0f, 20.0f}, 16.0f, 2.0f, 10.0f, 14.0f, 12.0f, 3.0f };
-        case UiSize::Xs: return { {24.0f, 14.0f}, 10.0f, 2.0f,  6.0f, 11.0f,  9.0f, 2.0f };
-        case UiSize::Sm: return { {28.0f, 16.0f}, 12.0f, 2.0f,  8.0f, 13.0f, 11.0f, 2.0f };
-        case UiSize::Lg: return { {44.0f, 24.0f}, 20.0f, 2.0f, 12.0f, 16.0f, 13.0f, 3.0f };
-        case UiSize::Xl: return { {52.0f, 28.0f}, 24.0f, 2.0f, 14.0f, 18.0f, 14.0f, 4.0f };
-    }
-    return { {36.0f, 20.0f}, 16.0f, 2.0f, 10.0f, 14.0f, 12.0f, 3.0f };
-}
 
 /// Autonomous Switch widget logic (execution, measuring, and rendering).
 class Switch {
@@ -65,6 +41,13 @@ public:
         std::string_view label,
         const SwitchOptions& opts,
         UiSize size,
+        ICanvas* canvas,
+        const UiTheme& theme
+    );
+    static Vec2 Measure(
+        std::string_view label,
+        const SwitchOptions& opts,
+        UiSize size,
         ICanvas* canvas = nullptr
     );
 
@@ -76,10 +59,10 @@ public:
         bool checked,
         const SwitchOptions& opts,
         UiSize size,
-        bool hovered = false,
-        bool pressed = false,
-        bool disabled = false,
-        ThemeMode theme = ThemeMode::Dark
+        bool hovered,
+        bool pressed,
+        bool disabled,
+        const UiTheme& theme
     );
 };
 

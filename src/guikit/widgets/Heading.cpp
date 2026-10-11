@@ -6,32 +6,6 @@
 
 namespace guikit {
 
-namespace {
-
-struct HeadingMetrics {
-    float titleFontSize;
-    float subtitleFontSize;
-    float badgeFontSize;
-    float iconSize;
-    float gap;
-    float badgeGap;
-    float lineGap;
-};
-
-[[nodiscard]] constexpr HeadingMetrics GetHeadingMetrics(UiSize size) noexcept {
-    switch (size) {
-        case UiSize::None:
-        case UiSize::Md: return { 16.0f, 13.0f, 11.0f, 16.0f, 6.0f, 8.0f, 2.0f };
-        case UiSize::Xs: return { 13.0f, 10.0f,  9.0f, 12.0f, 4.0f, 6.0f, 1.5f };
-        case UiSize::Sm: return { 14.0f, 11.0f, 10.0f, 14.0f, 5.0f, 6.0f, 2.0f };
-        case UiSize::Lg: return { 18.0f, 14.0f, 12.0f, 18.0f, 8.0f, 8.0f, 3.0f };
-        case UiSize::Xl: return { 22.0f, 15.0f, 13.0f, 22.0f, 8.0f, 10.0f, 4.0f };
-    }
-    return { 16.0f, 13.0f, 11.0f, 16.0f, 6.0f, 8.0f, 2.0f };
-}
-
-} // namespace
-
 Response Heading::Run(
     Context& ctx,
     const HeadingOptions& opts,
@@ -50,14 +24,29 @@ Response Heading::Run(
 
     Node* node = ctx.CreateNode(NodeType::Heading, id);
     node->text = ctx.InternString(opts.title);
-    node->headingOpts = opts;
-    node->headingOpts.title = node->text;
+    auto* hOpts = ctx.AllocPayload<HeadingOptions>(opts);
+    hOpts->title = node->text;
     if (!opts.subtitle.empty()) {
-        node->headingOpts.subtitle = ctx.InternString(opts.subtitle);
+        hOpts->subtitle = ctx.InternString(opts.subtitle);
     }
     if (!opts.badge.empty()) {
-        node->headingOpts.badge = ctx.InternString(opts.badge);
+        hOpts->badge = ctx.InternString(opts.badge);
     }
+    node->payload = hOpts;
+    node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+        const auto* opts = n->As<HeadingOptions>();
+        return Heading::Measure(opts ? *opts : HeadingOptions{}, n->uiSize, canvas, theme);
+    };
+    node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
+        const auto* opts = n->As<HeadingOptions>();
+        Heading::Render(
+            canvas,
+            n->computedRect,
+            opts ? *opts : HeadingOptions{},
+            n->uiSize,
+            theme
+        );
+    };
 
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
@@ -71,8 +60,8 @@ Response Heading::Run(
     return res;
 }
 
-Vec2 Heading::Measure(const HeadingOptions& opts, UiSize size, ICanvas* canvas) {
-    const HeadingMetrics m = GetHeadingMetrics(size);
+Vec2 Heading::Measure(const HeadingOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme) {
+    const HeadingMetrics& m = theme.GetHeading(size);
     const std::string_view sub = opts.subtitle;
 
     float titleLineW = 0.0f;
@@ -127,21 +116,25 @@ Vec2 Heading::Measure(const HeadingOptions& opts, UiSize size, ICanvas* canvas) 
     return {totalW, totalH};
 }
 
+Vec2 Heading::Measure(const HeadingOptions& opts, UiSize size, ICanvas* canvas) {
+    return Measure(opts, size, canvas, UiTheme::Dark());
+}
+
 void Heading::Render(
     ICanvas& canvas,
     Rect bounds,
     const HeadingOptions& opts,
     UiSize size,
-    ThemeMode theme
+    const UiTheme& theme
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) return;
 
-    const HeadingMetrics m = GetHeadingMetrics(size);
-    const auto pal = GetThemePalette(theme);
+    const HeadingMetrics& m = theme.GetHeading(size);
+    const auto& pal = theme.palette;
     const std::string_view sub = opts.subtitle;
 
     const Color titleColor = (opts.variant != UiVariant::Default)
-        ? GetVariantColors(opts.variant, theme).text
+        ? theme.GetVariant(opts.variant).text
         : pal.textPrimary;
     const Color subtitleColor = pal.textSecondary;
 
@@ -178,10 +171,10 @@ void Heading::Render(
         const float badgeY = topY + (titleLineH - badgeH) * 0.5f;
 
         const Color badgeBg = (opts.variant != UiVariant::Default)
-            ? GetVariantColors(opts.variant, theme).bgActive
-            : (theme == ThemeMode::Dark ? Color::Hex(0x33415580) : Color::Hex(0xE2E8F0FF));
+            ? theme.GetVariant(opts.variant).bgActive
+            : pal.surfaceHover;
         const Color badgeTextCol = (opts.variant != UiVariant::Default)
-            ? GetVariantColors(opts.variant, theme).text
+            ? theme.GetVariant(opts.variant).text
             : pal.textPrimary;
 
         canvas.DrawRoundRect(Rect(curX, badgeY, badgeW, badgeH), badgeH * 0.5f, badgeBg);

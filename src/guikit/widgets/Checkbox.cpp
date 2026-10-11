@@ -45,7 +45,26 @@ Response Checkbox::Run(
     if (!opts.description.empty()) {
         optsCopy.description = ctx.InternString(opts.description);
     }
-    node->checkboxOpts = optsCopy;
+    node->payload = ctx.AllocPayload<CheckboxOptions>(optsCopy);
+    node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+        const auto* opts = n->As<CheckboxOptions>();
+        return Checkbox::Measure(n->text, opts ? *opts : CheckboxOptions{}, n->uiSize, canvas, theme);
+    };
+    node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
+        const auto* opts = n->As<CheckboxOptions>();
+        Checkbox::Render(
+            canvas,
+            n->computedRect,
+            n->text,
+            n->checked,
+            opts ? *opts : CheckboxOptions{},
+            n->uiSize,
+            n->hovered,
+            n->pressed,
+            n->disabled,
+            theme
+        );
+    };
     node->checked = currentChecked;
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
@@ -63,9 +82,10 @@ Vec2 Checkbox::Measure(
     std::string_view label,
     const CheckboxOptions& opts,
     UiSize size,
-    ICanvas* canvas
+    ICanvas* canvas,
+    const UiTheme& theme
 ) {
-    const CheckboxMetrics m = GetCheckboxMetrics(size);
+    const CheckboxMetrics& m = theme.GetCheckbox(size);
     const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasDesc = !opts.description.empty();
@@ -151,6 +171,16 @@ Vec2 Checkbox::Measure(
     return {totalW, totalH};
 }
 
+Vec2 Checkbox::Measure(
+    std::string_view label,
+    const CheckboxOptions& opts,
+    UiSize size,
+    ICanvas* canvas
+) {
+    static const UiTheme defaultTheme = UiTheme::Dark();
+    return Measure(label, opts, size, canvas, defaultTheme);
+}
+
 void Checkbox::Render(
     ICanvas& canvas,
     Rect bounds,
@@ -161,13 +191,13 @@ void Checkbox::Render(
     bool hovered,
     bool /*pressed*/,
     bool disabled,
-    ThemeMode theme
+    const UiTheme& theme
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
         return;
     }
 
-    const CheckboxMetrics m = GetCheckboxMetrics(size);
+    const CheckboxMetrics& m = theme.GetCheckbox(size);
     const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasDesc = !opts.description.empty();
@@ -264,21 +294,21 @@ void Checkbox::Render(
     }
 
     // Determine colors
-    const auto pal = GetThemePalette(theme);
+    const auto& pal = theme.palette;
     Color boxFill;
     Color boxStroke;
     float strokeWidth = 1.5f;
-    Color markColor = Color::Hex(0xFFFFFFFF);
+    Color markColor = pal.controlKnobActive;
 
     const bool isActive = checked || opts.indeterminate;
 
     if (isActive) {
-        const VariantColors v = GetVariantColors(opts.variant, theme);
-        boxFill = hovered && !disabled ? v.bgHover : v.bg;
+        const VariantColors& v = theme.GetVariant(opts.variant);
+        boxFill = (hovered && !disabled) ? v.bgHover : v.bg;
         boxStroke = boxFill;
     } else {
-        boxFill = hovered && !disabled ? (theme == ThemeMode::Dark ? Color::Hex(0x334155FF) : Color::Hex(0xFFFFFFFF)) : (theme == ThemeMode::Dark ? Color::Hex(0x1E293BFF) : Color::Hex(0xF8FAFCFF));
-        boxStroke = hovered && !disabled ? (theme == ThemeMode::Dark ? Color::Hex(0x64748BFF) : Color::Hex(0x94A3B8FF)) : (theme == ThemeMode::Dark ? Color::Hex(0x475569FF) : Color::Hex(0xCBD5E1FF));
+        boxFill = (hovered && !disabled) ? pal.controlTrackHover : pal.controlTrack;
+        boxStroke = (hovered && !disabled) ? pal.borderHover : pal.border;
     }
 
     Color textCol = pal.textPrimary;
@@ -288,8 +318,8 @@ void Checkbox::Render(
         boxFill = boxFill.WithAlphaF(0.40f);
         boxStroke = boxStroke.WithAlphaF(0.40f);
         markColor = markColor.WithAlphaF(0.40f);
-        textCol = textCol.WithAlphaF(0.40f);
-        descCol = descCol.WithAlphaF(0.40f);
+        textCol = pal.textDisabled;
+        descCol = pal.textDisabled;
     }
 
     // Draw box

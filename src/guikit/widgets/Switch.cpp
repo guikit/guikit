@@ -45,7 +45,26 @@ Response Switch::Run(
     if (!opts.description.empty()) {
         optsCopy.description = ctx.InternString(opts.description);
     }
-    node->switchOpts = optsCopy;
+    node->payload = ctx.AllocPayload<SwitchOptions>(optsCopy);
+    node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+        const auto* opts = n->As<SwitchOptions>();
+        return Switch::Measure(n->text, opts ? *opts : SwitchOptions{}, n->uiSize, canvas, theme);
+    };
+    node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
+        const auto* opts = n->As<SwitchOptions>();
+        Switch::Render(
+            canvas,
+            n->computedRect,
+            n->text,
+            n->checked,
+            opts ? *opts : SwitchOptions{},
+            n->uiSize,
+            n->hovered,
+            n->pressed,
+            n->disabled,
+            theme
+        );
+    };
     node->checked = currentChecked;
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
@@ -63,9 +82,10 @@ Vec2 Switch::Measure(
     std::string_view label,
     const SwitchOptions& opts,
     UiSize size,
-    ICanvas* canvas
+    ICanvas* canvas,
+    const UiTheme& theme
 ) {
-    const SwitchMetrics m = GetSwitchMetrics(size);
+    const SwitchMetrics& m = theme.GetSwitch(size);
     const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasDesc = !opts.description.empty();
@@ -151,6 +171,16 @@ Vec2 Switch::Measure(
     return {totalW, totalH};
 }
 
+Vec2 Switch::Measure(
+    std::string_view label,
+    const SwitchOptions& opts,
+    UiSize size,
+    ICanvas* canvas
+) {
+    static const UiTheme defaultTheme = UiTheme::Dark();
+    return Measure(label, opts, size, canvas, defaultTheme);
+}
+
 void Switch::Render(
     ICanvas& canvas,
     Rect bounds,
@@ -161,13 +191,13 @@ void Switch::Render(
     bool hovered,
     bool /*pressed*/,
     bool disabled,
-    ThemeMode theme
+    const UiTheme& theme
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
         return;
     }
 
-    const SwitchMetrics m = GetSwitchMetrics(size);
+    const SwitchMetrics& m = theme.GetSwitch(size);
     const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasDesc = !opts.description.empty();
@@ -264,21 +294,23 @@ void Switch::Render(
     }
 
     // Determine colors
-    const auto pal = GetThemePalette(theme);
+    const auto& pal = theme.palette;
     Color trackFill;
     Color trackStroke{0, 0, 0, 0};
     float strokeWidth = 0.0f;
     Color knobFill;
 
     if (checked) {
-        const VariantColors v = GetVariantColors(opts.variant, theme);
-        trackFill = hovered && !disabled ? v.bgHover : v.bg;
-        knobFill = Color::Hex(0xFFFFFFFF);
+        const VariantColors& v = theme.GetVariant(opts.variant);
+        trackFill = (hovered && !disabled) ? v.bgHover : v.bg;
+        trackStroke = Color::Transparent();
+        strokeWidth = 0.0f;
+        knobFill = pal.controlKnobActive;
     } else {
-        trackFill = hovered && !disabled ? (theme == ThemeMode::Dark ? Color::Hex(0x334155FF) : Color::Hex(0xCBD5E1FF)) : (theme == ThemeMode::Dark ? Color::Hex(0x1E293BFF) : Color::Hex(0xE2E8F0FF));
-        trackStroke = hovered && !disabled ? (theme == ThemeMode::Dark ? Color::Hex(0x64748BFF) : Color::Hex(0x94A3B8FF)) : (theme == ThemeMode::Dark ? Color::Hex(0x475569FF) : Color::Hex(0xCBD5E1FF));
+        trackFill = (hovered && !disabled) ? pal.controlTrackHover : pal.controlTrack;
+        trackStroke = (hovered && !disabled) ? pal.borderHover : pal.border;
         strokeWidth = 1.0f;
-        knobFill = theme == ThemeMode::Dark ? (hovered && !disabled ? Color::Hex(0xE2E8F0FF) : Color::Hex(0x94A3B8FF)) : (hovered && !disabled ? Color::Hex(0xFFFFFFFF) : Color::Hex(0xF8FAFCFF));
+        knobFill = (hovered && !disabled) ? pal.controlKnobHover : pal.controlKnob;
     }
 
     Color textCol = pal.textPrimary;
@@ -288,8 +320,8 @@ void Switch::Render(
         trackFill = trackFill.WithAlphaF(0.40f);
         trackStroke = trackStroke.WithAlphaF(0.40f);
         knobFill = knobFill.WithAlphaF(0.40f);
-        textCol = textCol.WithAlphaF(0.40f);
-        descCol = descCol.WithAlphaF(0.40f);
+        textCol = pal.textDisabled;
+        descCol = pal.textDisabled;
     }
 
     // Draw track

@@ -12,9 +12,10 @@ Rect Select::GetBoxRect(
     std::string_view label,
     const SelectOptions& opts,
     UiSize size,
-    ICanvas* canvas
+    ICanvas* canvas,
+    const UiTheme& theme
 ) {
-    const SelectMetrics m = GetSelectMetrics(size);
+    const SelectMetrics& m = theme.GetSelect(size);
     const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasDesc = !opts.description.empty();
@@ -73,9 +74,10 @@ Vec2 Select::Measure(
     std::string_view label,
     const SelectOptions& opts,
     UiSize size,
-    ICanvas* canvas
+    ICanvas* canvas,
+    const UiTheme& theme
 ) {
-    const SelectMetrics m = GetSelectMetrics(size);
+    const SelectMetrics& m = theme.GetSelect(size);
     const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
 
     float boxW = 160.0f;
@@ -136,6 +138,16 @@ Vec2 Select::Measure(
     }
 
     return {boxW, m.defaultHeight};
+}
+
+Vec2 Select::Measure(
+    std::string_view label,
+    const SelectOptions& opts,
+    UiSize size,
+    ICanvas* canvas
+) {
+    static const UiTheme defaultTheme = UiTheme::Dark();
+    return Measure(label, opts, size, canvas, defaultTheme);
 }
 
 Response Select::Run(
@@ -199,9 +211,10 @@ Response Select::Run(
         currentDisplayText = opts.placeholder;
     }
 
-    const SelectMetrics m = GetSelectMetrics(activeSize);
+    const UiTheme theme = ctx.GetTheme();
+    const SelectMetrics& m = theme.GetSelect(activeSize);
     const Rect prevBounds = ctx.GetPrevFrameBounds(id);
-    const Rect boxRect = GetBoxRect(prevBounds, !label.empty() ? label : opts.label, opts, activeSize);
+    const Rect boxRect = GetBoxRect(prevBounds, !label.empty() ? label : opts.label, opts, activeSize, nullptr, theme);
 
     bool isOpen = wasOpen;
 
@@ -314,7 +327,6 @@ Response Select::Run(
     // Register overlay render callback if popup is open
     if (isOpen) {
         const Rect currentPopupRect = ctx.GetOpenPopupRect();
-        const ThemeMode theme = ctx.GetThemeMode();
         std::vector<std::string_view> itemsVec(items.begin(), items.end());
         ctx.RegisterOverlay([currentPopupRect, itemsVec = std::move(itemsVec), currIndex, hoveredItem, opts, activeSize, theme](ICanvas& canvas) {
             Select::RenderPopup(canvas, currentPopupRect, itemsVec, currIndex, hoveredItem, opts, activeSize, theme);
@@ -324,14 +336,35 @@ Response Select::Run(
     Node* node = ctx.CreateNode(NodeType::Select, id);
     const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
     node->text = ctx.InternString(effectiveLabel);
-    node->displayText = ctx.InternString(currentDisplayText);
 
     SelectOptions optsCopy = opts;
     optsCopy.label = node->text;
     if (!opts.description.empty()) optsCopy.description = ctx.InternString(opts.description);
     if (!opts.placeholder.empty()) optsCopy.placeholder = ctx.InternString(opts.placeholder);
 
-    node->selectOpts = optsCopy;
+    auto* data = ctx.AllocPayload<SelectData>();
+    data->opts = optsCopy;
+    data->displayText = ctx.InternString(currentDisplayText);
+    node->payload = data;
+    node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+        const auto* d = n->As<SelectData>();
+        return Select::Measure(n->text, d ? d->opts : SelectOptions{}, n->uiSize, canvas, theme);
+    };
+    node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
+        const auto* d = n->As<SelectData>();
+        Select::Render(
+            canvas,
+            n->computedRect,
+            n->text,
+            d ? d->displayText : std::string_view{},
+            d ? d->opts : SelectOptions{},
+            n->uiSize,
+            n->hovered,
+            n->focused,
+            n->disabled,
+            theme
+        );
+    };
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
@@ -355,13 +388,13 @@ void Select::Render(
     bool hovered,
     bool open,
     bool disabled,
-    ThemeMode theme
+    const UiTheme& theme
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
         return;
     }
 
-    const SelectMetrics m = GetSelectMetrics(size);
+    const SelectMetrics& m = theme.GetSelect(size);
     const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasDesc = !opts.description.empty();
@@ -429,20 +462,18 @@ void Select::Render(
     }
 
     // Determine colors
-    const auto pal = GetThemePalette(theme);
-    Color boxBg = hovered && !disabled
-        ? (theme == ThemeMode::Dark ? Color::Hex(0x1E293BFF) : Color::Hex(0xFFFFFFFF))
-        : (theme == ThemeMode::Dark ? Color::Hex(0x0F172AFF) : Color::Hex(0xF8FAFCFF));
+    const auto& pal = theme.palette;
+    Color boxBg = (hovered && !disabled) ? pal.surface : pal.inputBackground;
     Color boxBorder;
     float strokeW = m.strokeWidth;
 
     if (open && !disabled) {
-        boxBorder = (opts.variant == UiVariant::Default) ? pal.accent : GetVariantColors(opts.variant, theme).bg;
+        boxBorder = (opts.variant == UiVariant::Default) ? pal.focusRing : theme.GetVariant(opts.variant).bg;
         strokeW += 0.5f;
     } else if (hovered && !disabled) {
-        boxBorder = theme == ThemeMode::Dark ? Color::Hex(0x64748BFF) : Color::Hex(0x94A3B8FF);
+        boxBorder = (opts.variant == UiVariant::Default) ? pal.borderHover : theme.GetVariant(opts.variant).bgHover;
     } else {
-        boxBorder = (opts.variant == UiVariant::Default) ? pal.inputBorder : GetVariantColors(opts.variant, theme).border;
+        boxBorder = (opts.variant == UiVariant::Default) ? pal.inputBorder : theme.GetVariant(opts.variant).border;
     }
 
     Color textCol = pal.textPrimary;
@@ -509,19 +540,19 @@ void Select::RenderPopup(
     int hoveredIndex,
     const SelectOptions& opts,
     UiSize size,
-    ThemeMode theme
+    const UiTheme& theme
 ) {
     if (popupRect.w <= 0.0f || popupRect.h <= 0.0f || items.empty()) {
         return;
     }
 
-    const SelectMetrics m = GetSelectMetrics(size);
-    const auto pal = GetThemePalette(theme);
+    const SelectMetrics& m = theme.GetSelect(size);
+    const auto& pal = theme.palette;
 
     // Dropdown container styling: card with border and subtle shadow
     const Color popupBg = pal.surfaceElevated;
     const Color popupBorder = pal.border;
-    const Color shadowCol = Color::Hex(0x00000033);
+    const Color shadowCol = Color(0, 0, 0, 50);
 
     // Outer subtle drop shadow
     canvas.DrawRoundRect(Rect(popupRect.x, popupRect.y + 2.0f, popupRect.w, popupRect.h), m.cornerRadius + 1.0f, shadowCol);
@@ -543,21 +574,16 @@ void Select::RenderPopup(
         const bool isHovered = (static_cast<int>(i) == hoveredIndex);
 
         if (isSelected) {
-            const Color itemBg = theme == ThemeMode::Dark
-                ? (isHovered ? Color::Hex(0x075985CC) : Color::Hex(0x0C4A6ECC))
-                : (isHovered ? Color::Hex(0xBAE6FDFF) : Color::Hex(0xE0F2FEFF));
+            const Color itemBg = isHovered ? pal.surfaceActive : pal.surfaceHover;
             canvas.DrawRoundRect(itemRect, 4.0f, itemBg);
         } else if (isHovered) {
-            const Color itemBg = theme == ThemeMode::Dark ? Color::Hex(0x1E293BFF) : Color::Hex(0xF1F5F9FF);
-            canvas.DrawRoundRect(itemRect, 4.0f, itemBg);
+            canvas.DrawRoundRect(itemRect, 4.0f, pal.surfaceHover);
         }
 
         // Colors for item text and checkmark
         Color itemTextCol = pal.textPrimary;
         if (isSelected) {
-            itemTextCol = theme == ThemeMode::Dark
-                ? (isHovered ? Color::Hex(0xFFFFFFFF) : Color::Hex(0x38BDF8FF))
-                : (isHovered ? Color::Hex(0x0284C7FF) : Color::Hex(0x0369A1FF));
+            itemTextCol = pal.accent;
         } else if (isHovered) {
             itemTextCol = pal.textPrimary;
         }

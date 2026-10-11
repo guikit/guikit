@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include "guikit/backend/ICanvas.hpp"
+#include "guikit/core/Theme.hpp"
 #include "guikit/layout/Node.hpp"
 
 namespace guikit {
@@ -10,102 +11,50 @@ namespace guikit {
 /// Resolves 2D flex layout for an arbitrary tree of GuiKit nodes.
 class LayoutSolver {
 public:
-    /// Measures intrinsic content sizes bottom-up.
-    static void Measure(Node* root, ICanvas* canvas = nullptr) {
+    /// Measures intrinsic content sizes bottom-up with the given theme.
+    static void Measure(Node* root, ICanvas* canvas, const UiTheme& theme) {
         if (!root) return;
-        MeasureNode(root, canvas);
+        MeasureNode(root, canvas, theme);
+    }
+
+    /// Measures intrinsic content sizes bottom-up with default dark theme.
+    static void Measure(Node* root, ICanvas* canvas = nullptr) {
+        static const UiTheme defaultTheme = UiTheme::Dark();
+        Measure(root, canvas, defaultTheme);
     }
 
     /// Computes final coordinates and dimensions top-down based on parent constraints.
-    static void Arrange(Node* root, Rect availableRect) {
+    static void Arrange(Node* root, Rect availableRect, const UiTheme& theme) {
         if (!root) return;
-        ArrangeNode(root, availableRect);
+        ArrangeNode(root, availableRect, theme);
+    }
+
+    /// Computes final coordinates and dimensions top-down with default dark theme.
+    static void Arrange(Node* root, Rect availableRect) {
+        static const UiTheme defaultTheme = UiTheme::Dark();
+        Arrange(root, availableRect, defaultTheme);
     }
 
 private:
-    static void MeasureNode(Node* node, ICanvas* canvas = nullptr) {
+    static void MeasureNode(Node* node, ICanvas* canvas, const UiTheme& theme) {
         // Measure children bottom-up first
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-            MeasureNode(child, canvas);
+            MeasureNode(child, canvas, theme);
         }
 
-        // If this is a leaf widget, compute its intrinsic dimensions
-        if (node->childCount == 0) {
-            switch (node->type) {
-                case NodeType::Text: {
-                    node->intrinsicSize = Text::Measure(node->text, node->textOpts, canvas);
-                    break;
-                }
-                case NodeType::Button: {
-                    node->intrinsicSize = Button::Measure(node->buttonOpts, node->uiSize, canvas);
-                    break;
-                }
-                case NodeType::Switch: {
-                    node->intrinsicSize = Switch::Measure(node->text, node->switchOpts, node->uiSize, canvas);
-                    break;
-                }
-                case NodeType::Checkbox: {
-                    node->intrinsicSize = Checkbox::Measure(node->text, node->checkboxOpts, node->uiSize, canvas);
-                    break;
-                }
-                case NodeType::InputField: {
-                    node->intrinsicSize = InputField::Measure(node->text, node->displayText, node->inputOpts, node->uiSize, canvas);
-                    break;
-                }
-                case NodeType::Select: {
-                    node->intrinsicSize = Select::Measure(node->text, node->selectOpts, node->uiSize, canvas);
-                    break;
-                }
-                case NodeType::Heading: {
-                    node->intrinsicSize = Heading::Measure(node->headingOpts, node->uiSize, canvas);
-                    break;
-                }
-                case NodeType::Spacer: {
-                    node->intrinsicSize = {0.0f, 0.0f};
-                    break;
-                }
-                case NodeType::TabItem: {
-                    node->intrinsicSize = TabBar::MeasureTab(node->tabItemOpts, node->tabBarOpts, node->uiSize, canvas);
-                    break;
-                }
-                case NodeType::Separator: {
-                    node->intrinsicSize = {
-                        node->fixedWidth > 0.0f ? node->fixedWidth : 10.0f,
-                        node->fixedHeight > 0.0f ? node->fixedHeight : 20.0f
-                    };
-                    break;
-                }
-                default: {
-                    if (node->widthMode == SizeMode::Fixed || node->heightMode == SizeMode::Fixed) {
-                        node->intrinsicSize = {node->fixedWidth, node->fixedHeight};
-                    } else {
-                        node->intrinsicSize = {0.0f, 0.0f};
-                    }
-                    break;
-                }
-            }
+        // Custom autonomous measure delegate (leaves or specialized containers)
+        if (node->measureFn) {
+            node->intrinsicSize = node->measureFn(node, canvas, theme);
             return;
         }
 
-        // Container intrinsic size aggregation
-        if (node->type == NodeType::Carousel) {
-            float totalWidth = node->padding.Horizontal();
-            float maxHeight = 0.0f;
-            uint32_t activeChildren = 0;
-
-            for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-                const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
-                const float ch = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight : child->intrinsicSize.y;
-                totalWidth += cw;
-                maxHeight = std::max(maxHeight, ch);
-                ++activeChildren;
+        // If this is a leaf widget without custom measure delegate, compute its intrinsic dimensions
+        if (node->childCount == 0) {
+            if (node->widthMode == SizeMode::Fixed || node->heightMode == SizeMode::Fixed) {
+                node->intrinsicSize = {node->fixedWidth, node->fixedHeight};
+            } else {
+                node->intrinsicSize = {0.0f, 0.0f};
             }
-
-            if (activeChildren > 1) {
-                totalWidth += static_cast<float>(activeChildren - 1) * node->gap;
-            }
-            node->scrollContentSize = {totalWidth, maxHeight + node->padding.Vertical()};
-            node->intrinsicSize = {totalWidth, maxHeight + node->padding.Vertical()};
             return;
         }
 
@@ -381,7 +330,15 @@ private:
         return node->intrinsicSize.y;
     }
 
-    static void ArrangeNode(Node* node, Rect availableRect) {
+    static void ArrangeNode(Node* node, Rect availableRect, const UiTheme& theme) {
+        if (!node) return;
+
+        // Custom autonomous arrangement delegate (e.g. Carousel, custom containers)
+        if (node->arrangeFn) {
+            node->arrangeFn(node, availableRect);
+            return;
+        }
+
         // Resolve this node's own width and height
         float w = availableRect.w;
         float h = availableRect.h;
@@ -407,7 +364,7 @@ private:
         }
 
         if (node->type == NodeType::ScrollArea) {
-            const ScrollbarMetrics sm = GetScrollbarMetrics(node->uiSize);
+            const ScrollbarMetrics& sm = theme.GetScrollbar(node->uiSize);
             const float fullW = std::max(0.0f, node->computedRect.w - node->padding.Horizontal());
             const float viewportH = std::max(0.0f, node->computedRect.h - node->padding.Vertical());
 
@@ -461,17 +418,12 @@ private:
             );
 
             if (node->direction == FlexDirection::Grid) {
-                ArrangeGrid(node, scrollContentRect);
+                ArrangeGrid(node, scrollContentRect, theme);
             } else if (node->direction == FlexDirection::Row) {
-                ArrangeRow(node, scrollContentRect);
+                ArrangeRow(node, scrollContentRect, theme);
             } else {
-                ArrangeColumn(node, scrollContentRect);
+                ArrangeColumn(node, scrollContentRect, theme);
             }
-            return;
-        }
-
-        if (node->type == NodeType::Carousel) {
-            ArrangeCarousel(node, availableRect);
             return;
         }
 
@@ -483,169 +435,17 @@ private:
         );
 
         if (node->direction == FlexDirection::Row) {
-            ArrangeRow(node, contentRect);
+            ArrangeRow(node, contentRect, theme);
         } else if (node->direction == FlexDirection::Wrap) {
-            ArrangeWrap(node, contentRect);
+            ArrangeWrap(node, contentRect, theme);
         } else if (node->direction == FlexDirection::Grid) {
-            ArrangeGrid(node, contentRect);
+            ArrangeGrid(node, contentRect, theme);
         } else {
-            ArrangeColumn(node, contentRect);
+            ArrangeColumn(node, contentRect, theme);
         }
     }
 
-    static void ArrangeCarousel(Node* node, const Rect& availableRect) {
-        float w = availableRect.w;
-        float h = availableRect.h;
-
-        if (node->parent == nullptr && !node->isSpacer) {
-            if (node->widthMode == SizeMode::Fit) {
-                w = node->intrinsicSize.x;
-            } else if (node->widthMode == SizeMode::Fixed) {
-                w = node->fixedWidth;
-            }
-
-            if (node->heightMode == SizeMode::Fit) {
-                h = (node->childCount == 0) ? node->intrinsicSize.y : node->intrinsicSize.y;
-            } else if (node->heightMode == SizeMode::Fixed) {
-                h = node->fixedHeight;
-            }
-        } else {
-            if (node->heightMode == SizeMode::Fixed) {
-                h = node->fixedHeight;
-            } else if (node->heightMode == SizeMode::Fit) {
-                h = node->intrinsicSize.y;
-            }
-        }
-
-        node->computedRect = Rect(availableRect.x, availableRect.y, w, h);
-        if (node->childCount == 0) return;
-
-        const float startX = node->computedRect.x + node->padding.left;
-        const float startY = node->computedRect.y + node->padding.top;
-        const float fullW = std::max(0.0f, node->computedRect.w - node->padding.Horizontal());
-        const float fullH = std::max(0.0f, node->computedRect.h - node->padding.Vertical());
-
-        // 1. Calculate total width of all children
-        float totalChildrenW = 0.0f;
-        uint32_t activeChildren = 0;
-        for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-            const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
-            totalChildrenW += cw;
-            ++activeChildren;
-        }
-        if (activeChildren > 1) {
-            totalChildrenW += static_cast<float>(activeChildren - 1) * node->gap;
-        }
-        node->scrollContentSize = {totalChildrenW, fullH};
-
-        // 2. Check if overflow occurs
-        if (totalChildrenW <= fullW) {
-            // Fits within available width without scrolling
-            node->showLeftArrow = false;
-            node->showRightArrow = false;
-            node->leftArrowRect = Rect(0.0f, 0.0f, 0.0f, 0.0f);
-            node->rightArrowRect = Rect(0.0f, 0.0f, 0.0f, 0.0f);
-            node->carouselViewportRect = Rect(startX, startY, fullW, fullH);
-            node->scrollOffset.x = 0.0f;
-
-            // Arrange children in a standard row
-            float curX = startX;
-            for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-                float childW = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
-                float childH = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight :
-                               (child->heightMode == SizeMode::Stretch ? fullH : child->intrinsicSize.y);
-                float childY = startY;
-                if (node->align == Alignment::Center) {
-                    childY += (fullH - childH) * 0.5f;
-                } else if (node->align == Alignment::End) {
-                    childY += (fullH - childH);
-                }
-                child->computedRect = Rect(curX, childY, childW, childH);
-                ArrangeNode(child, child->computedRect);
-                curX += childW + node->gap;
-            }
-            return;
-        }
-
-        // 3. Overflow detected: compute arrow dimensions
-        const ComponentMetrics m = GetComponentMetrics(node->uiSize);
-        const float arrowMargin = 4.0f;
-        const float arrowBtnH = std::min(fullH - 6.0f, 26.0f);
-        const float arrowBtnW = arrowBtnH; // Clean square pill button
-        const float arrowGap = 6.0f;
-        const float arrowY = startY + (fullH - arrowBtnH) * 0.5f;
-        const float btnGutter = arrowMargin + arrowBtnW + arrowGap;
-
-        // Dynamic gutters: only allocate gutter space when an arrow is active
-        bool canScrollLeft = (node->scrollOffset.x > 1.0f);
-        float leftGutter = canScrollLeft ? btnGutter : 0.0f;
-        bool canScrollRight = (node->scrollOffset.x < (totalChildrenW - (fullW - leftGutter)) - 1.0f);
-        float rightGutter = canScrollRight ? btnGutter : 0.0f;
-
-        float viewportX = startX + leftGutter;
-        float viewportW = std::max(0.0f, fullW - leftGutter - rightGutter);
-        float maxScrollX = std::max(0.0f, totalChildrenW - viewportW);
-
-        // Auto-scroll to active tab if requested
-        if (node->scrollToActiveTab) {
-            float relX = 0.0f;
-            for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-                const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
-                if (child->tabActive) {
-                    if (relX < node->scrollOffset.x) {
-                        node->scrollOffset.x = relX;
-                    } else if (relX + cw > node->scrollOffset.x + viewportW) {
-                        node->scrollOffset.x = (relX + cw) - viewportW;
-                    }
-                    break;
-                }
-                relX += cw + node->gap;
-            }
-
-            // Recompute gutters after auto-scroll updated scrollOffset
-            canScrollLeft = (node->scrollOffset.x > 1.0f);
-            leftGutter = canScrollLeft ? btnGutter : 0.0f;
-            canScrollRight = (node->scrollOffset.x < (totalChildrenW - (fullW - leftGutter)) - 1.0f);
-            rightGutter = canScrollRight ? btnGutter : 0.0f;
-
-            viewportX = startX + leftGutter;
-            viewportW = std::max(0.0f, fullW - leftGutter - rightGutter);
-            maxScrollX = std::max(0.0f, totalChildrenW - viewportW);
-        }
-
-        // Clamp scroll offset
-        node->scrollOffset.x = std::clamp(node->scrollOffset.x, 0.0f, maxScrollX);
-
-        node->showLeftArrow = canScrollLeft;
-        node->showRightArrow = canScrollRight;
-
-        node->leftArrowRect = canScrollLeft
-            ? Rect(startX + arrowMargin, arrowY, arrowBtnW, arrowBtnH)
-            : Rect(0.0f, 0.0f, 0.0f, 0.0f);
-        node->rightArrowRect = canScrollRight
-            ? Rect(startX + fullW - arrowBtnW - arrowMargin, arrowY, arrowBtnW, arrowBtnH)
-            : Rect(0.0f, 0.0f, 0.0f, 0.0f);
-        node->carouselViewportRect = Rect(viewportX, startY, viewportW, fullH);
-
-        // Arrange children within the scrollable viewport
-        float curX = viewportX - node->scrollOffset.x;
-        for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-            float childW = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
-            float childH = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight :
-                           (child->heightMode == SizeMode::Stretch ? fullH : child->intrinsicSize.y);
-            float childY = startY;
-            if (node->align == Alignment::Center) {
-                childY += (fullH - childH) * 0.5f;
-            } else if (node->align == Alignment::End) {
-                childY += (fullH - childH);
-            }
-            child->computedRect = Rect(curX, childY, childW, childH);
-            ArrangeNode(child, child->computedRect);
-            curX += childW + node->gap;
-        }
-    }
-
-    static void ArrangeRow(Node* node, const Rect& contentRect) {
+    static void ArrangeRow(Node* node, const Rect& contentRect, const UiTheme& theme) {
         const float totalGap = (node->childCount > 1)
             ? static_cast<float>(node->childCount - 1) * node->gap
             : 0.0f;
@@ -712,12 +512,12 @@ private:
                 childY = contentRect.Bottom() - childH;
             }
 
-            ArrangeNode(child, Rect(currentX, childY, childW, childH));
+            ArrangeNode(child, Rect(currentX, childY, childW, childH), theme);
             currentX += childW + node->gap;
         }
     }
 
-    static void ArrangeWrap(Node* node, const Rect& contentRect) {
+    static void ArrangeWrap(Node* node, const Rect& contentRect, const UiTheme& theme) {
         const float maxLineWidth = std::max(0.0f, contentRect.w);
         Node* lineStart = node->firstChild;
         float currentY = contentRect.y;
@@ -788,7 +588,7 @@ private:
                     childY = currentY + (lineMaxH - ch);
                 }
 
-                ArrangeNode(child, Rect(itemX, childY, cw, ch));
+                ArrangeNode(child, Rect(itemX, childY, cw, ch), theme);
                 itemX += cw + itemGap;
             }
 
@@ -802,7 +602,7 @@ private:
         }
     }
 
-    static void ArrangeColumn(Node* node, const Rect& contentRect) {
+    static void ArrangeColumn(Node* node, const Rect& contentRect, const UiTheme& theme) {
         const float totalGap = (node->childCount > 1)
             ? static_cast<float>(node->childCount - 1) * node->gap
             : 0.0f;
@@ -873,7 +673,7 @@ private:
                 childX = contentRect.Right() - childW;
             }
 
-            ArrangeNode(child, Rect(childX, currentY, childW, childH));
+            ArrangeNode(child, Rect(childX, currentY, childW, childH), theme);
             currentY += child->computedRect.h + node->gap;
         }
 
@@ -884,7 +684,7 @@ private:
         }
     }
 
-    static void ArrangeGrid(Node* node, const Rect& contentRect) {
+    static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& theme) {
         const float availW = contentRect.w;
         const int totalCols = (node->gridColumns > 0) ? node->gridColumns : 12;
         const float gap = node->gap;
@@ -987,7 +787,7 @@ private:
                     childY = currentY + (lineMaxH - childH);
                 }
 
-                ArrangeNode(child, Rect(currentX, childY, childW, childH));
+                ArrangeNode(child, Rect(currentX, childY, childW, childH), theme);
                 currentX += childW + gap;
             }
 

@@ -1,5 +1,7 @@
 #include "guikit/Context.hpp"
 #include <algorithm>
+#include <format>
+#include <string>
 
 namespace guikit {
 
@@ -59,14 +61,13 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
     // Create root container spanning the entire logical viewport
     const Vec2 logicalSize = m_viewportSize / m_dpiScale;
     m_root = m_arena.Allocate<Node>();
-    m_root->type = NodeType::Container;
+    m_root->type = NodeType::Column;
     m_root->direction = FlexDirection::Column;
     m_root->widthMode = SizeMode::Stretch;
     m_root->heightMode = SizeMode::Stretch;
     m_root->computedRect = Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y);
     m_root->id = Id{0xFFFF'FFFF'FFFF'FFFF};
     m_root->uiSize = UiSize::Md;
-    m_root->themeMode = m_themeMode;
     m_root->disabled = false;
 
     m_containerStack.push_back(m_root);
@@ -76,7 +77,6 @@ Node* Context::CreateNode(NodeType type, Id id) {
     Node* node = m_arena.Allocate<Node>();
     node->type = type;
     node->id = id;
-    node->themeMode = m_themeMode;
 
     if (!m_containerStack.empty()) {
         m_containerStack.back()->AddChild(node);
@@ -188,9 +188,9 @@ RowScope Context::Row(RowOptions opts, std::source_location loc) {
     const UiSize activeSize = opts.size.value_or(GetCurrentSize());
     const bool activeDisabled = opts.disabled || IsDisabled();
 
-    Node* node = CreateNode(NodeType::Container, id);
+    Node* node = CreateNode(NodeType::Row, id);
     node->direction = FlexDirection::Row;
-    node->gap = opts.gap.has_value() ? m_style.GetGap(*opts.gap) : m_style.GetGap(activeSize);
+    node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
     node->padding = opts.padding;
     node->align = opts.align;
     node->justify = opts.justify;
@@ -210,9 +210,9 @@ ColumnScope Context::Column(ColumnOptions opts, std::source_location loc) {
     const UiSize activeSize = opts.size.value_or(GetCurrentSize());
     const bool activeDisabled = opts.disabled || IsDisabled();
 
-    Node* node = CreateNode(NodeType::Container, id);
+    Node* node = CreateNode(NodeType::Column, id);
     node->direction = FlexDirection::Column;
-    node->gap = opts.gap.has_value() ? m_style.GetGap(*opts.gap) : m_style.GetGap(activeSize);
+    node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
     node->padding = opts.padding;
     node->align = opts.align;
     node->justify = opts.justify;
@@ -232,9 +232,9 @@ BoxScope Context::Box(BoxOptions opts, std::source_location loc) {
     const UiSize activeSize = opts.size.value_or(GetCurrentSize());
     const bool activeDisabled = opts.disabled || IsDisabled();
 
-    Node* node = CreateNode(NodeType::Container, id);
+    Node* node = CreateNode(NodeType::Box, id);
     node->direction = FlexDirection::Column;
-    node->gap = opts.gap.has_value() ? m_style.GetGap(*opts.gap) : m_style.GetGap(activeSize);
+    node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
     node->widthMode = opts.widthMode;
     node->heightMode = opts.heightMode;
 
@@ -249,7 +249,7 @@ BoxScope Context::Box(BoxOptions opts, std::source_location loc) {
 
     // If explicit size token is set and no fixedHeight was provided, use token height
     if (opts.size.has_value() && opts.fixedHeight <= 0.0f) {
-        node->fixedHeight = m_style.GetComponentMetrics(*opts.size).defaultHeight;
+        node->fixedHeight = m_theme.GetMetrics(*opts.size).defaultHeight;
         node->heightMode = SizeMode::Fixed;
     }
 
@@ -257,7 +257,7 @@ BoxScope Context::Box(BoxOptions opts, std::source_location loc) {
     node->backgroundColor = opts.backgroundColor;
     node->borderColor = opts.borderColor;
     node->borderWidth = opts.borderWidth;
-    node->cornerRadius = opts.radius.has_value() ? m_style.GetRadius(*opts.radius) : opts.cornerRadius;
+    node->cornerRadius = opts.radius.has_value() ? m_theme.GetRadius(*opts.radius) : opts.cornerRadius;
     node->clipChildren = opts.clipChildren;
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
@@ -273,10 +273,10 @@ WrapScope Context::Wrap(WrapOptions opts, std::source_location loc) {
     const UiSize activeSize = opts.size.value_or(GetCurrentSize());
     const bool activeDisabled = opts.disabled || IsDisabled();
 
-    Node* node = CreateNode(NodeType::Container, id);
+    Node* node = CreateNode(NodeType::Wrap, id);
     node->direction = FlexDirection::Wrap;
-    node->gap = opts.gap.has_value() ? m_style.GetGap(*opts.gap) : m_style.GetGap(activeSize);
-    node->runGap = opts.runGap.has_value() ? m_style.GetGap(*opts.runGap) : node->gap;
+    node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
+    node->runGap = opts.runGap.has_value() ? m_theme.GetGap(*opts.runGap) : node->gap;
     node->padding = opts.padding;
     node->align = opts.align;
     node->justify = opts.justify;
@@ -296,12 +296,12 @@ CellGridScope Context::CellGrid(CellGridOptions opts, std::source_location loc) 
     const UiSize activeSize = opts.size.value_or(GetCurrentSize());
     const bool activeDisabled = opts.disabled || IsDisabled();
 
-    Node* node = CreateNode(NodeType::Container, id);
+    Node* node = CreateNode(NodeType::Grid, id);
     node->direction = FlexDirection::Grid;
     node->gridColumns = (opts.columns > 0) ? opts.columns : 12;
     node->minColWidth = opts.minColWidth;
-    node->gap = opts.gap.has_value() ? m_style.GetGap(*opts.gap) : m_style.GetGap(activeSize);
-    node->runGap = opts.runGap.has_value() ? m_style.GetGap(*opts.runGap) : node->gap;
+    node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
+    node->runGap = opts.runGap.has_value() ? m_theme.GetGap(*opts.runGap) : node->gap;
     node->padding = opts.padding;
     node->align = opts.align;
     node->justify = opts.justify;
@@ -320,6 +320,53 @@ CellGridScope Context::Grid(CellGridOptions opts, std::source_location loc) {
     return CellGrid(opts, loc);
 }
 
+namespace {
+
+void RenderScrollAreaScrollbar(const Node* node, ICanvas& canvas, const UiTheme& theme) {
+    if (!node) return;
+    bool showScrollbar = false;
+    if (node->scrollbarPolicy == VisibilityPolicy::Always) {
+        showScrollbar = true;
+    } else if (node->scrollbarPolicy == VisibilityPolicy::Auto) {
+        showScrollbar = (node->scrollContentSize.y > node->computedRect.h);
+    }
+
+    if (showScrollbar && node->computedRect.h > 10.0f) {
+        const ScrollbarMetrics& m = theme.GetScrollbar(node->uiSize);
+        const float trackX = node->computedRect.Right() - m.trackWidth - m.margin;
+        const float trackY = node->computedRect.y + m.margin;
+        const float trackH = std::max(0.0f, node->computedRect.h - 2.0f * m.margin);
+
+        const float contentH = std::max(node->computedRect.h, node->scrollContentSize.y);
+        const float maxScrollY = contentH - node->computedRect.h;
+        const float thumbH = std::clamp((node->computedRect.h / contentH) * trackH, m.minThumbLength, trackH);
+        const float travelH = trackH - thumbH;
+        const float scrollRatio = (maxScrollY > 0.0f) ? (node->scrollOffset.y / maxScrollY) : 0.0f;
+        const float thumbY = trackY + scrollRatio * travelH;
+
+        const Rect trackRect(trackX, trackY, m.trackWidth, trackH);
+        const Rect thumbRect(trackX, thumbY, m.trackWidth, thumbH);
+
+        const auto& pal = theme.palette;
+
+        // Subtle track background
+        const Color trackCol = pal.borderSubtle;
+        canvas.DrawRoundRect(trackRect, m.cornerRadius, trackCol);
+
+        // Thumb pill
+        Color thumbCol = pal.textMuted;
+        if (node->scrollbarActive) {
+            thumbCol = pal.accent;
+        } else if (node->scrollbarHovered) {
+            thumbCol = pal.textSecondary;
+        }
+
+        canvas.DrawRoundRect(thumbRect, m.cornerRadius, thumbCol);
+    }
+}
+
+} // namespace
+
 ScrollAreaScope Context::ScrollArea(ScrollAreaOptions opts, std::source_location loc) {
     const Id id = MakeChildId(loc);
     const UiSize activeSize = opts.size.value_or(GetCurrentSize());
@@ -336,6 +383,7 @@ ScrollAreaScope Context::ScrollArea(ScrollAreaOptions opts, std::source_location
     node->scrollbarPolicy = opts.scrollbar;
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
+    node->postRenderFn = &RenderScrollAreaScrollbar;
 
     // Retrieve persistent scroll state
     auto& state = m_scrollStates[id];
@@ -344,7 +392,7 @@ ScrollAreaScope Context::ScrollArea(ScrollAreaOptions opts, std::source_location
     auto itPrev = m_prevFrameBounds.find(id);
     if (itPrev != m_prevFrameBounds.end() && !node->disabled) {
         if (itPrev->second.Contains(m_mousePos) && (m_mouseWheel.x != 0.0f || m_mouseWheel.y != 0.0f)) {
-            const ScrollbarMetrics m = GetScrollbarMetrics(activeSize);
+            const ScrollbarMetrics& m = m_theme.GetScrollbar(activeSize);
             state.offset.y -= m_mouseWheel.y * m.scrollStep;
             state.offset.x -= m_mouseWheel.x * m.scrollStep;
             if (state.offset.y < 0.0f) state.offset.y = 0.0f;
@@ -364,19 +412,26 @@ CarouselScope Context::Carousel(CarouselOptions opts, std::source_location loc) 
     const Id id = MakeChildId(loc);
     const UiSize activeSize = opts.size.value_or(GetCurrentSize());
     const bool activeDisabled = opts.disabled || IsDisabled();
-    const ComponentMetrics m = m_style.GetComponentMetrics(activeSize);
+    const ComponentMetrics& m = m_theme.GetMetrics(activeSize);
 
     Node* node = CreateNode(NodeType::Carousel, id);
     node->direction = FlexDirection::Row;
     node->align = Alignment::Center;
     node->clipChildren = true;
-    node->gap = opts.gap.has_value() ? m_style.GetGap(*opts.gap) : m_style.GetGap(activeSize);
-    node->padding = opts.padding.has_value() ? m_style.GetPadding(*opts.padding) : Padding{};
+    node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
+    node->padding = opts.padding.has_value() ? m_theme.GetPadding(*opts.padding) : Padding{};
     node->widthMode = SizeMode::Stretch;
     node->heightMode = SizeMode::Fit;
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
-    node->carouselOpts = opts;
+    auto* cData = AllocPayload<CarouselData>();
+    cData->opts = opts;
+    node->payload = cData;
+    node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+        return Carousel::Measure(n, canvas, theme);
+    };
+    node->arrangeFn = &Carousel::Arrange;
+    node->postRenderFn = &Carousel::RenderArrows;
 
     // Retrieve persistent scroll state
     auto& state = m_scrollStates[id];
@@ -388,10 +443,10 @@ CarouselScope Context::Carousel(CarouselOptions opts, std::source_location loc) 
     Response leftRes = Interact(leftArrowId);
     Response rightRes = Interact(rightArrowId);
 
-    node->leftArrowHovered = leftRes.hovered;
-    node->leftArrowPressed = leftRes.pressed;
-    node->rightArrowHovered = rightRes.hovered;
-    node->rightArrowPressed = rightRes.pressed;
+    cData->leftArrowHovered = leftRes.hovered;
+    cData->leftArrowPressed = leftRes.pressed;
+    cData->rightArrowHovered = rightRes.hovered;
+    cData->rightArrowPressed = rightRes.pressed;
 
     const float step = m.defaultHeight * 3.0f;
 
@@ -431,18 +486,18 @@ CardScope Context::Card(CardOptions opts, std::source_location loc) {
     const bool activeDisabled = opts.disabled || IsDisabled();
 
     // Outer styled surface frame
-    Node* outerNode = CreateNode(NodeType::Container, idOuter);
+    Node* outerNode = CreateNode(NodeType::Card, idOuter);
     outerNode->direction = FlexDirection::Column;
-    outerNode->gap = opts.gap.has_value() ? m_style.GetGap(*opts.gap) : m_style.GetGap(activeSize);
+    outerNode->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
     outerNode->minWidth = opts.minWidth;
     outerNode->widthMode = opts.widthMode;
     outerNode->heightMode = opts.heightMode;
-    outerNode->padding = opts.padding.has_value() ? *opts.padding : m_style.GetPadding(activeSize);
-    const auto pal = GetThemePalette();
+    outerNode->padding = opts.padding.has_value() ? *opts.padding : m_theme.GetPadding(activeSize);
+    const auto& pal = m_theme.palette;
     outerNode->backgroundColor = (opts.backgroundColor.a > 0) ? opts.backgroundColor : pal.surface;
     outerNode->borderColor = (opts.borderColor.a > 0) ? opts.borderColor : pal.border;
     outerNode->borderWidth = opts.borderWidth;
-    outerNode->cornerRadius = opts.radius.has_value() ? m_style.GetRadius(*opts.radius) : (opts.cornerRadius > 0.0f ? opts.cornerRadius : m_style.GetRadius(activeSize));
+    outerNode->cornerRadius = opts.radius.has_value() ? m_theme.GetRadius(*opts.radius) : (opts.cornerRadius > 0.0f ? opts.cornerRadius : m_theme.GetRadius(activeSize));
     outerNode->clipChildren = opts.clipChildren;
     outerNode->uiSize = activeSize;
     outerNode->disabled = activeDisabled;
@@ -459,12 +514,12 @@ CellScope Context::CreateCell(int span, CellOptions opts, std::source_location l
     const UiSize activeSize = opts.size.value_or(GetCurrentSize());
     const bool activeDisabled = opts.disabled || IsDisabled();
 
-    Node* node = CreateNode(NodeType::Container, id);
+    Node* node = CreateNode(NodeType::Cell, id);
     node->direction = FlexDirection::Column;
     node->colSpan = std::clamp(span, 1, 12);
     node->minWidth = opts.minWidth;
     node->clipChildren = true;
-    node->gap = opts.gap.has_value() ? m_style.GetGap(*opts.gap) : m_style.GetGap(activeSize);
+    node->gap = opts.gap.has_value() ? m_theme.GetGap(*opts.gap) : m_theme.GetGap(activeSize);
     node->padding = opts.padding;
     node->align = opts.align;
     node->justify = opts.justify;
@@ -486,6 +541,9 @@ void Context::Spacer(float flex, std::source_location loc) {
     node->widthMode = SizeMode::Stretch;
     node->heightMode = SizeMode::Stretch;
     node->flexGrow = std::max(0.01f, flex);
+    node->measureFn = [](const Node*, ICanvas*, const UiTheme&) noexcept -> Vec2 {
+        return {0.0f, 0.0f};
+    };
 }
 
 Response Context::Button(ButtonOptions opts, std::source_location loc) {
@@ -714,6 +772,9 @@ void Context::OnMouseMove(Vec2 pos) {
     const float scale = (m_dpiScale > 0.0f) ? m_dpiScale : 1.0f;
     m_mousePos = pos / scale;
     RequestRepaint(3);
+    if (m_inspectModeEnabled) {
+        InvalidateAll();
+    }
 }
 
 void Context::OnMouseDown(int button) {
@@ -961,13 +1022,13 @@ bool Context::IsCursorVisible(std::optional<CursorBlinkMode> modeOverride) const
     return true;
 }
 
-static void CollectBoundsRecursive(Node* node, std::unordered_map<Id, Rect>& outBounds, Rect parentClip) {
+static void CollectBoundsRecursive(Node* node, std::unordered_map<Id, Rect>& outBounds, Rect parentClip, const UiTheme& theme) {
     if (!node) return;
 
     Rect effectiveClip = parentClip;
     if (node->clipChildren) {
         if (node->type == NodeType::ScrollArea) {
-            const ScrollbarMetrics sm = GetScrollbarMetrics(node->uiSize);
+            const ScrollbarMetrics& sm = theme.GetScrollbar(node->uiSize);
             const bool showScrollbar = (node->scrollbarPolicy == VisibilityPolicy::Always) ||
                 (node->scrollbarPolicy == VisibilityPolicy::Auto && node->scrollContentSize.y > node->computedRect.h);
             const float gutter = (showScrollbar && node->scrollOrientation != Orientation::Horizontal) ? sm.gutter : 0.0f;
@@ -979,7 +1040,8 @@ static void CollectBoundsRecursive(Node* node, std::unordered_map<Id, Rect>& out
             );
             effectiveClip = parentClip.Intersect(viewRect);
         } else if (node->type == NodeType::Carousel) {
-            effectiveClip = parentClip.Intersect(node->carouselViewportRect);
+            auto* cData = node->As<CarouselData>();
+            effectiveClip = parentClip.Intersect(cData ? cData->viewportRect : node->computedRect);
         } else {
             effectiveClip = parentClip.Intersect(node->computedRect);
         }
@@ -993,23 +1055,25 @@ static void CollectBoundsRecursive(Node* node, std::unordered_map<Id, Rect>& out
 
         // Register interactive arrow button bounds for Carousel
         if (node->type == NodeType::Carousel) {
-            if (node->showLeftArrow && node->leftArrowRect.w > 0.0f) {
-                const Rect clippedLeft = node->leftArrowRect.Intersect(parentClip);
-                if (clippedLeft.w > 0.0f && clippedLeft.h > 0.0f) {
-                    outBounds[GetCarouselLeftArrowId(node->id)] = clippedLeft;
+            if (auto* cData = node->As<CarouselData>()) {
+                if (cData->showLeftArrow && cData->leftArrowRect.w > 0.0f) {
+                    const Rect clippedLeft = cData->leftArrowRect.Intersect(parentClip);
+                    if (clippedLeft.w > 0.0f && clippedLeft.h > 0.0f) {
+                        outBounds[GetCarouselLeftArrowId(node->id)] = clippedLeft;
+                    }
                 }
-            }
-            if (node->showRightArrow && node->rightArrowRect.w > 0.0f) {
-                const Rect clippedRight = node->rightArrowRect.Intersect(parentClip);
-                if (clippedRight.w > 0.0f && clippedRight.h > 0.0f) {
-                    outBounds[GetCarouselRightArrowId(node->id)] = clippedRight;
+                if (cData->showRightArrow && cData->rightArrowRect.w > 0.0f) {
+                    const Rect clippedRight = cData->rightArrowRect.Intersect(parentClip);
+                    if (clippedRight.w > 0.0f && clippedRight.h > 0.0f) {
+                        outBounds[GetCarouselRightArrowId(node->id)] = clippedRight;
+                    }
                 }
             }
         }
     }
 
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-        CollectBoundsRecursive(child, outBounds, effectiveClip);
+        CollectBoundsRecursive(child, outBounds, effectiveClip, theme);
     }
 }
 
@@ -1023,7 +1087,7 @@ void Context::UpdateScrollAreasRecursive(Node* node) {
 
     if (node->type == NodeType::ScrollArea && node->id.IsValid()) {
         auto& state = m_scrollStates[node->id];
-        const ScrollbarMetrics m = GetScrollbarMetrics(node->uiSize);
+        const ScrollbarMetrics& m = m_theme.GetScrollbar(node->uiSize);
 
         const float viewportW = node->computedRect.w;
         const float viewportH = node->computedRect.h;
@@ -1132,8 +1196,9 @@ void Context::ScrollToId(Id id) {
             auto& state = m_scrollStates[p->id];
             const float targetLeft = target->computedRect.x;
             const float targetRight = target->computedRect.Right();
-            const float viewLeft = p->carouselViewportRect.x;
-            const float viewRight = p->carouselViewportRect.Right();
+            auto* cData = p->As<CarouselData>();
+            const float viewLeft = cData ? cData->viewportRect.x : p->computedRect.x;
+            const float viewRight = cData ? cData->viewportRect.Right() : p->computedRect.Right();
 
             if (targetLeft < viewLeft) {
                 state.offset.x -= (viewLeft - targetLeft);
@@ -1156,14 +1221,14 @@ void Context::EndFrame(ICanvas& canvas) {
     const Vec2 logicalSize = m_viewportSize / ((m_dpiScale > 0.0f) ? m_dpiScale : 1.0f);
 
     // Resolve geometry using canvas font metrics
-    LayoutSolver::Measure(m_root, &canvas);
-    LayoutSolver::Arrange(m_root, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y));
+    LayoutSolver::Measure(m_root, &canvas, m_theme);
+    LayoutSolver::Arrange(m_root, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme);
 
     // Update interactive scroll areas
     UpdateScrollAreasRecursive(m_root);
 
     // Cache computed bounds for instantaneous interaction feedback next frame
-    CollectBoundsRecursive(m_root, m_currFrameBounds, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y));
+    CollectBoundsRecursive(m_root, m_currFrameBounds, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme);
     m_prevFrameBounds = std::move(m_currFrameBounds);
 
     // Reset single-frame mouse impulse states
@@ -1194,7 +1259,7 @@ void Context::EndFrame(ICanvas& canvas) {
                          (n->pressed ? 2u : 0u) |
                          (n->disabled ? 4u : 0u) |
                          (n->checked ? 8u : 0u) |
-                         (n->tabActive ? 64u : 0u);
+                         (n->active ? 64u : 0u);
             snap.bgColor = n->backgroundColor.ToUint32();
             snap.borderColor = n->borderColor.ToUint32();
 
@@ -1225,80 +1290,100 @@ void Context::EndFrame(ICanvas& canvas) {
                 hashStr(m_editState.text);
             } else {
                 hashStr(n->text);
-                if (!n->displayText.empty()) {
-                    hashStr(n->displayText);
-                }
             }
 
             hashVal(static_cast<uint8_t>(n->type));
             hashVal(static_cast<uint8_t>(n->uiSize));
-            hashVal(static_cast<uint8_t>(n->themeMode));
             hashVal(n->borderWidth);
             hashVal(n->cornerRadius);
 
             switch (n->type) {
                 case NodeType::TabItem: {
-                    hashVal(static_cast<uint8_t>(n->tabBarOpts.style));
-                    hashVal(static_cast<uint8_t>(n->tabBarOpts.showSeparator));
-                    hashVal(n->tabBarOpts.activeColor.ToUint32());
-                    hashVal(static_cast<uint8_t>(n->tabItemOpts.variant));
-                    hashStr(n->tabItemOpts.badge);
-                    hashIcon(n->tabItemOpts.icon);
+                    if (const auto* t = n->As<TabItemData>()) {
+                        hashVal(static_cast<uint8_t>(t->barOpts.style));
+                        hashVal(static_cast<uint8_t>(t->barOpts.showSeparator));
+                        hashVal(t->barOpts.activeColor.ToUint32());
+                        hashVal(static_cast<uint8_t>(t->item.variant));
+                        hashStr(t->item.badge);
+                        hashIcon(t->item.icon);
+                    }
                     break;
                 }
                 case NodeType::Button: {
-                    hashVal(static_cast<uint8_t>(n->buttonOpts.variant));
-                    hashVal(static_cast<uint8_t>(n->buttonOpts.iconPlacement));
-                    hashVal(static_cast<uint8_t>(n->buttonOpts.active));
-                    hashIcon(n->buttonOpts.icon);
+                    if (const auto* b = n->As<ButtonOptions>()) {
+                        hashVal(static_cast<uint8_t>(b->variant));
+                        hashVal(static_cast<uint8_t>(b->iconPlacement));
+                        hashVal(static_cast<uint8_t>(b->active));
+                        hashIcon(b->icon);
+                    }
                     break;
                 }
                 case NodeType::Switch: {
-                    hashVal(static_cast<uint8_t>(n->switchOpts.variant));
-                    hashVal(static_cast<uint8_t>(n->switchOpts.labelPlacement));
+                    if (const auto* s = n->As<SwitchOptions>()) {
+                        hashVal(static_cast<uint8_t>(s->variant));
+                        hashVal(static_cast<uint8_t>(s->labelPlacement));
+                    }
                     break;
                 }
                 case NodeType::Checkbox: {
-                    hashVal(static_cast<uint8_t>(n->checkboxOpts.variant));
-                    hashVal(static_cast<uint8_t>(n->checkboxOpts.labelPlacement));
-                    hashVal(static_cast<uint8_t>(n->checkboxOpts.indeterminate));
+                    if (const auto* c = n->As<CheckboxOptions>()) {
+                        hashVal(static_cast<uint8_t>(c->variant));
+                        hashVal(static_cast<uint8_t>(c->labelPlacement));
+                        hashVal(static_cast<uint8_t>(c->indeterminate));
+                    }
                     break;
                 }
                 case NodeType::InputField: {
-                    hashVal(static_cast<uint8_t>(n->inputOpts.variant));
-                    hashStr(n->inputOpts.prefix);
-                    hashStr(n->inputOpts.suffix);
-                    hashIcon(n->inputOpts.prefixIcon);
-                    hashIcon(n->inputOpts.suffixIcon);
-                    hashVal(static_cast<uint8_t>(n->inputOpts.readOnly));
+                    if (const auto* in = n->As<InputFieldData>()) {
+                        hashVal(static_cast<uint8_t>(in->opts.variant));
+                        hashStr(in->opts.prefix);
+                        hashStr(in->opts.suffix);
+                        hashIcon(in->opts.prefixIcon);
+                        hashIcon(in->opts.suffixIcon);
+                        hashVal(static_cast<uint8_t>(in->opts.readOnly));
+                        if (!in->displayText.empty()) {
+                            hashStr(in->displayText);
+                        }
+                    }
                     break;
                 }
                 case NodeType::Select: {
-                    hashVal(static_cast<uint8_t>(n->selectOpts.variant));
-                    hashIcon(n->selectOpts.prefixIcon);
+                    if (const auto* sel = n->As<SelectData>()) {
+                        hashVal(static_cast<uint8_t>(sel->opts.variant));
+                        hashIcon(sel->opts.prefixIcon);
+                        if (!sel->displayText.empty()) {
+                            hashStr(sel->displayText);
+                        }
+                    }
                     break;
                 }
                 case NodeType::Text: {
-                    hashVal(static_cast<uint8_t>(n->textOpts.role));
-                    hashVal(static_cast<uint8_t>(n->textOpts.variant));
-                    hashVal(static_cast<uint8_t>(n->textOpts.align));
+                    if (const auto* t = n->As<TextOptions>()) {
+                        hashVal(static_cast<uint8_t>(t->role));
+                        hashVal(static_cast<uint8_t>(t->variant));
+                        hashVal(static_cast<uint8_t>(t->align));
+                    }
                     break;
                 }
                 case NodeType::Heading: {
-                    hashStr(n->headingOpts.title);
-                    hashStr(n->headingOpts.subtitle);
-                    hashStr(n->headingOpts.badge);
-                    hashIcon(n->headingOpts.icon);
-                    hashVal(static_cast<uint8_t>(n->headingOpts.variant));
+                    if (const auto* h = n->As<HeadingOptions>()) {
+                        hashStr(h->title);
+                        hashStr(h->subtitle);
+                        hashStr(h->badge);
+                        hashIcon(h->icon);
+                        hashVal(static_cast<uint8_t>(h->variant));
+                    }
                     break;
                 }
                 case NodeType::Carousel: {
-                    hashVal(static_cast<uint8_t>(n->showLeftArrow));
-                    hashVal(static_cast<uint8_t>(n->showRightArrow));
-                    hashVal(static_cast<uint8_t>(n->leftArrowHovered));
-                    hashVal(static_cast<uint8_t>(n->rightArrowHovered));
-                    hashVal(static_cast<uint8_t>(n->leftArrowPressed));
-                    hashVal(static_cast<uint8_t>(n->rightArrowPressed));
+                    if (const auto* c = n->As<CarouselData>()) {
+                        hashVal(static_cast<uint8_t>(c->showLeftArrow));
+                        hashVal(static_cast<uint8_t>(c->showRightArrow));
+                        hashVal(static_cast<uint8_t>(c->leftArrowHovered));
+                        hashVal(static_cast<uint8_t>(c->rightArrowHovered));
+                        hashVal(static_cast<uint8_t>(c->leftArrowPressed));
+                        hashVal(static_cast<uint8_t>(c->rightArrowPressed));
+                    }
                     hashVal(n->scrollOffset.x);
                     break;
                 }
@@ -1335,7 +1420,8 @@ void Context::EndFrame(ICanvas& canvas) {
 
     // Determine whether full repaint or partial dirty rect is required
     const float totalViewportArea = logicalSize.x * logicalSize.y;
-    if (!m_dirtyRectEnabled || m_forceFullRepaint || m_prevSnapshots.empty() || m_openPopupId.IsValid()) {
+    if (!m_dirtyRectEnabled || m_forceFullRepaint || m_prevSnapshots.empty() || m_openPopupId.IsValid() ||
+        m_debugBoundsEnabled || m_inspectModeEnabled) {
         m_isFullRepaint = true;
         m_hasDirtyDamage = true;
         m_dirtyRect = Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y);
@@ -1387,6 +1473,16 @@ void Context::EndFrame(ICanvas& canvas) {
             overlayFn(canvas);
         }
 
+        // Developer Debug Pass: Element bounds and padding
+        if (m_debugBoundsEnabled) {
+            RenderDebugBoundsRecursive(m_root, canvas);
+        }
+
+        // Developer Debug Pass: Chrome DevTools-style hover inspector & floating badge
+        if (m_inspectModeEnabled) {
+            RenderInspectOverlay(m_root, canvas, logicalSize);
+        }
+
         canvas.PopClip();
         canvas.End();
     }
@@ -1406,7 +1502,7 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
 
     if (node->clipChildren) {
         if (node->type == NodeType::ScrollArea) {
-            const ScrollbarMetrics sm = GetScrollbarMetrics(node->uiSize);
+            const ScrollbarMetrics& sm = m_theme.GetScrollbar(node->uiSize);
             const bool showScrollbar = (node->scrollbarPolicy == VisibilityPolicy::Always) ||
                 (node->scrollbarPolicy == VisibilityPolicy::Auto && node->scrollContentSize.y > node->computedRect.h);
             const float gutter = (showScrollbar && node->scrollOrientation != Orientation::Horizontal) ? sm.gutter : 0.0f;
@@ -1418,18 +1514,15 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
             );
             canvas.PushClip(clipRect);
         } else if (node->type == NodeType::Carousel) {
-            canvas.PushClip(node->carouselViewportRect);
+            auto* cData = node->As<CarouselData>();
+            canvas.PushClip(cData ? cData->viewportRect : node->computedRect);
         } else {
             canvas.PushClip(node->computedRect);
         }
     }
 
-    // Render background / border if present (skip for self-rendering widgets)
-    if (node->type != NodeType::Button && node->type != NodeType::Text &&
-        node->type != NodeType::Switch && node->type != NodeType::Checkbox &&
-        node->type != NodeType::InputField && node->type != NodeType::Select &&
-        node->type != NodeType::TabItem && node->type != NodeType::Separator &&
-        node->type != NodeType::Heading) {
+    // Render background / border if present (skip for self-rendering leaf widgets)
+    if (!node->IsLeaf()) {
         if (node->backgroundColor.a > 0 || (node->borderColor.a > 0 && node->borderWidth > 0.0f)) {
             if (node->cornerRadius > 0.0f) {
                 canvas.DrawRoundRect(
@@ -1446,110 +1539,8 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
     }
 
     // Render specific widget contents
-    if (node->type == NodeType::Text && !node->text.empty()) {
-        Text::Render(
-            canvas,
-            node->computedRect,
-            node->text,
-            node->textOpts,
-            node->hovered,
-            node->disabled,
-            node->themeMode
-        );
-    } else if (node->type == NodeType::Button) {
-        Button::Render(
-            canvas,
-            node->computedRect,
-            node->buttonOpts,
-            node->uiSize,
-            node->hovered,
-            node->pressed,
-            node->disabled,
-            node->themeMode
-        );
-    } else if (node->type == NodeType::Switch) {
-        Switch::Render(
-            canvas,
-            node->computedRect,
-            node->text,
-            node->checked,
-            node->switchOpts,
-            node->uiSize,
-            node->hovered,
-            node->pressed,
-            node->disabled,
-            node->themeMode
-        );
-    } else if (node->type == NodeType::Checkbox) {
-        Checkbox::Render(
-            canvas,
-            node->computedRect,
-            node->text,
-            node->checked,
-            node->checkboxOpts,
-            node->uiSize,
-            node->hovered,
-            node->pressed,
-            node->disabled,
-            node->themeMode
-        );
-    } else if (node->type == NodeType::InputField) {
-        InputField::Render(
-            canvas,
-            node->computedRect,
-            node->text,
-            node->displayText,
-            node->inputOpts,
-            node->uiSize,
-            node->hovered,
-            node->focused,
-            node->cursor,
-            node->disabled,
-            node->cursorVisible,
-            node->cursorWidth,
-            node->themeMode
-        );
-    } else if (node->type == NodeType::Select) {
-        Select::Render(
-            canvas,
-            node->computedRect,
-            node->text,
-            node->displayText,
-            node->selectOpts,
-            node->uiSize,
-            node->hovered,
-            node->focused,
-            node->disabled,
-            node->themeMode
-        );
-    } else if (node->type == NodeType::TabItem) {
-        TabBar::RenderTab(
-            canvas,
-            node->computedRect,
-            node->tabItemOpts,
-            node->tabBarOpts,
-            node->uiSize,
-            node->tabActive,
-            node->hovered,
-            node->pressed,
-            node->disabled,
-            node->themeMode
-        );
-    } else if (node->type == NodeType::Separator) {
-        Toolbar::RenderSeparator(
-            canvas,
-            node->computedRect,
-            node->borderColor,
-            node->themeMode
-        );
-    } else if (node->type == NodeType::Heading) {
-        Heading::Render(
-            canvas,
-            node->computedRect,
-            node->headingOpts,
-            node->uiSize,
-            node->themeMode
-        );
+    if (node->renderFn) {
+        node->renderFn(node, canvas, m_theme);
     }
 
     // Recurse on children
@@ -1561,59 +1552,252 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
         canvas.PopClip();
     }
 
-    if (node->type == NodeType::Carousel) {
-        Carousel::RenderArrows(canvas, node, node->uiSize, node->themeMode);
-    }
-
-    // Render scrollbar for ScrollArea
-    if (node->type == NodeType::ScrollArea) {
-        bool showScrollbar = false;
-        if (node->scrollbarPolicy == VisibilityPolicy::Always) {
-            showScrollbar = true;
-        } else if (node->scrollbarPolicy == VisibilityPolicy::Auto) {
-            showScrollbar = (node->scrollContentSize.y > node->computedRect.h);
-        }
-
-        if (showScrollbar && node->computedRect.h > 10.0f) {
-            const ScrollbarMetrics m = GetScrollbarMetrics(node->uiSize);
-            const float trackX = node->computedRect.Right() - m.trackWidth - m.margin;
-            const float trackY = node->computedRect.y + m.margin;
-            const float trackH = std::max(0.0f, node->computedRect.h - 2.0f * m.margin);
-
-            const float contentH = std::max(node->computedRect.h, node->scrollContentSize.y);
-            const float maxScrollY = contentH - node->computedRect.h;
-            const float thumbH = std::clamp((node->computedRect.h / contentH) * trackH, m.minThumbLength, trackH);
-            const float travelH = trackH - thumbH;
-            const float scrollRatio = (maxScrollY > 0.0f) ? (node->scrollOffset.y / maxScrollY) : 0.0f;
-            const float thumbY = trackY + scrollRatio * travelH;
-
-            const Rect trackRect(trackX, trackY, m.trackWidth, trackH);
-            const Rect thumbRect(trackX, thumbY, m.trackWidth, thumbH);
-
-            // Subtle track background
-            const Color trackCol = Color::Hex(0x1E293B33); // Slate-800 20%
-            canvas.DrawRoundRect(trackRect, m.cornerRadius, trackCol);
-
-            // Thumb pill
-            Color thumbCol = Color::Hex(0x64748B80); // Slate-500 50%
-            if (node->scrollbarActive) {
-                thumbCol = Color::Hex(0xCBD5E1FF); // Slate-300 100%
-            } else if (node->scrollbarHovered) {
-                thumbCol = Color::Hex(0x94A3B8B3); // Slate-400 70%
-            }
-
-            canvas.DrawRoundRect(thumbRect, m.cornerRadius, thumbCol);
-        }
+    // Render post-pass overlay contents (after children and outside clip)
+    if (node->postRenderFn) {
+        node->postRenderFn(node, canvas, m_theme);
     }
 }
 
 void Context::SetThemeMode(ThemeMode mode) noexcept {
-    if (m_themeMode != mode) {
-        m_themeMode = mode;
-        const auto pal = guikit::GetThemePalette(mode);
-        m_clearColor = pal.background;
+    if (m_theme.mode != mode) {
+        m_theme = (mode == ThemeMode::Dark) ? UiTheme::Dark(m_theme.density) : UiTheme::Light(m_theme.density);
+        m_clearColor = m_theme.palette.background;
         InvalidateAll();
     }
+}
+
+void Context::SetDebugBounds(bool enabled) noexcept {
+    if (m_debugBoundsEnabled != enabled) {
+        m_debugBoundsEnabled = enabled;
+        InvalidateAll();
+    }
+}
+
+void Context::SetInspectMode(bool enabled) noexcept {
+    if (m_inspectModeEnabled != enabled) {
+        m_inspectModeEnabled = enabled;
+        InvalidateAll();
+    }
+}
+
+void Context::RenderDebugBoundsRecursive(Node* node, ICanvas& canvas) {
+    if (!node) return;
+    if (node->computedRect.w <= 0.0f || node->computedRect.h <= 0.0f) return;
+
+    if (node != m_root) {
+        const NodeCategory cat = node->GetCategory();
+
+        Color stroke;
+        Color padColor;
+        switch (cat) {
+            case NodeCategory::Container:
+                stroke = Color(192, 132, 252, 220); // Purple-400 (#C084FC)
+                padColor = Color(192, 132, 252, 35);
+                break;
+            case NodeCategory::Layout:
+                stroke = Color(56, 189, 248, 220);  // Sky-400 (#38BDF8)
+                padColor = Color(56, 189, 248, 30);
+                break;
+            case NodeCategory::Widget:
+                stroke = Color(74, 222, 128, 220);  // Green-400 (#4ADE80)
+                padColor = Color(74, 222, 128, 35);
+                break;
+            case NodeCategory::Spacer:
+                stroke = Color(245, 158, 11, 220);  // Amber-500 (#F59E0B)
+                padColor = Color(245, 158, 11, 35);
+                break;
+        }
+
+        // Draw 1px crisp bounding outline inset by 0.5px
+        const Rect strokeRect(
+            node->computedRect.x + 0.5f,
+            node->computedRect.y + 0.5f,
+            std::max(0.0f, node->computedRect.w - 1.0f),
+            std::max(0.0f, node->computedRect.h - 1.0f)
+        );
+        canvas.DrawRoundRect(strokeRect, 0.0f, Color(0, 0, 0, 0), stroke, 1.0f);
+
+        // Draw spacer fill
+        if (cat == NodeCategory::Spacer) {
+            canvas.DrawRect(node->computedRect, padColor);
+        }
+
+        // Draw padding strips if node defines internal padding
+        const auto& p = node->padding;
+        if (p.top > 0.0f || p.bottom > 0.0f || p.left > 0.0f || p.right > 0.0f) {
+            const float x = node->computedRect.x;
+            const float y = node->computedRect.y;
+            const float w = node->computedRect.w;
+            const float h = node->computedRect.h;
+
+            if (p.top > 0.0f) {
+                canvas.DrawRect(Rect(x, y, w, p.top), padColor);
+            }
+            if (p.bottom > 0.0f) {
+                canvas.DrawRect(Rect(x, y + h - p.bottom, w, p.bottom), padColor);
+            }
+            const float midH = std::max(0.0f, h - p.top - p.bottom);
+            if (midH > 0.0f) {
+                if (p.left > 0.0f) {
+                    canvas.DrawRect(Rect(x, y + p.top, p.left, midH), padColor);
+                }
+                if (p.right > 0.0f) {
+                    canvas.DrawRect(Rect(x + w - p.right, y + p.top, p.right, midH), padColor);
+                }
+            }
+        }
+    }
+
+    for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+        RenderDebugBoundsRecursive(child, canvas);
+    }
+}
+
+Node* Context::FindDeepestNodeAt(Node* root, Vec2 pos, Rect clipRect) {
+    if (!root) return nullptr;
+    if (root->computedRect.w <= 0.0f || root->computedRect.h <= 0.0f) return nullptr;
+
+    Rect effectiveClip = clipRect;
+    if (root->clipChildren) {
+        if (root->type == NodeType::ScrollArea) {
+            effectiveClip = clipRect.Intersect(root->computedRect);
+        } else if (root->type == NodeType::Carousel) {
+            auto* cData = root->As<CarouselData>();
+            effectiveClip = clipRect.Intersect(cData ? cData->viewportRect : root->computedRect);
+        } else {
+            effectiveClip = clipRect.Intersect(root->computedRect);
+        }
+    }
+
+    const Rect visibleRect = root->computedRect.Intersect(effectiveClip);
+    if (!visibleRect.Contains(pos)) {
+        return nullptr;
+    }
+
+    Node* bestHit = nullptr;
+    for (Node* c = root->firstChild; c != nullptr; c = c->nextSibling) {
+        Node* hit = FindDeepestNodeAt(c, pos, effectiveClip);
+        if (hit) {
+            bestHit = hit;
+        }
+    }
+
+    return bestHit ? bestHit : root;
+}
+
+void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize) {
+    if (!root) return;
+
+    Node* target = FindDeepestNodeAt(root, m_mousePos, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y));
+    if (!target || target == m_root) return;
+
+    // 1. Highlight inspected target with Chrome DevTools Box Model styling
+    // Content box: translucent blue (#6FA8DC, ~40% opacity)
+    const Rect contentRect(
+        target->computedRect.x + target->padding.left,
+        target->computedRect.y + target->padding.top,
+        std::max(0.0f, target->computedRect.w - target->padding.Horizontal()),
+        std::max(0.0f, target->computedRect.h - target->padding.Vertical())
+    );
+    if (contentRect.w > 0.0f && contentRect.h > 0.0f) {
+        canvas.DrawRect(contentRect, Color(111, 168, 220, 100));
+    }
+
+    // Padding strips: translucent green (#93C47D, ~55% opacity)
+    const auto& p = target->padding;
+    if (p.top > 0.0f || p.bottom > 0.0f || p.left > 0.0f || p.right > 0.0f) {
+        const Color devToolsPadColor(147, 196, 125, 140);
+        const float x = target->computedRect.x;
+        const float y = target->computedRect.y;
+        const float w = target->computedRect.w;
+        const float h = target->computedRect.h;
+
+        if (p.top > 0.0f) {
+            canvas.DrawRect(Rect(x, y, w, p.top), devToolsPadColor);
+        }
+        if (p.bottom > 0.0f) {
+            canvas.DrawRect(Rect(x, y + h - p.bottom, w, p.bottom), devToolsPadColor);
+        }
+        const float midH = std::max(0.0f, h - p.top - p.bottom);
+        if (midH > 0.0f) {
+            if (p.left > 0.0f) {
+                canvas.DrawRect(Rect(x, y + p.top, p.left, midH), devToolsPadColor);
+            }
+            if (p.right > 0.0f) {
+                canvas.DrawRect(Rect(x + w - p.right, y + p.top, p.right, midH), devToolsPadColor);
+            }
+        }
+    }
+
+    // Outer 2px solid cyan boundary
+    canvas.DrawRoundRect(target->computedRect, 0.0f, Color(0, 0, 0, 0), Color(56, 189, 248, 255), 2.0f);
+
+    // 2. Build DevTools floating info badge
+    std::string typeStr;
+    if (target->type == NodeType::Cell) {
+        typeStr = std::format("Cell ({})", target->colSpan);
+    } else {
+        typeStr = std::string(target->GetTypeName());
+    }
+
+    std::string labelStr;
+    if (!target->text.empty()) {
+        labelStr = std::string(target->text.substr(0, 24));
+    } else if (target->type == NodeType::Heading) {
+        if (const auto* h = target->As<HeadingOptions>()) {
+            if (!h->title.empty()) {
+                labelStr = std::string(h->title.substr(0, 24));
+            }
+        }
+    }
+
+    std::string line1 = labelStr.empty() ? typeStr : std::format("{} \"{}\"", typeStr, labelStr);
+    std::string line2 = std::format("{:.1f} × {:.1f} px", target->computedRect.w, target->computedRect.h);
+    std::string line3;
+    if (p.top > 0.0f || p.bottom > 0.0f || p.left > 0.0f || p.right > 0.0f) {
+        line3 = std::format("pad: {:.0f}, {:.0f}, {:.0f}, {:.0f}", p.top, p.right, p.bottom, p.left);
+    } else if (target->gap > 0.0f) {
+        line3 = std::format("gap: {:.0f} px", target->gap);
+    } else if (target->isSpacer) {
+        line3 = std::format("flex: {:.1f}", target->flexGrow);
+    } else {
+        const char* alignStr = "Start";
+        if (target->align == Alignment::Center) alignStr = "Center";
+        else if (target->align == Alignment::End) alignStr = "End";
+        else if (target->align == Alignment::Stretch) alignStr = "Stretch";
+        line3 = std::format("align: {}", alignStr);
+    }
+
+    const float fontSize = 11.0f;
+    const float w1 = canvas.MeasureText(line1, fontSize).x;
+    const float w2 = canvas.MeasureText(line2, fontSize).x;
+    const float w3 = canvas.MeasureText(line3, fontSize).x;
+    const float maxTextW = std::max({w1, w2, w3});
+
+    const float badgeW = std::max(140.0f, maxTextW + 24.0f);
+    const float badgeH = 58.0f;
+
+    // Positioning with smart flip if close to viewport boundaries
+    float bx = m_mousePos.x + 16.0f;
+    float by = m_mousePos.y + 16.0f;
+    if (bx + badgeW > logicalSize.x - 8.0f) {
+        bx = m_mousePos.x - badgeW - 12.0f;
+    }
+    if (by + badgeH > logicalSize.y - 8.0f) {
+        by = m_mousePos.y - badgeH - 12.0f;
+    }
+    bx = std::clamp(bx, 8.0f, std::max(8.0f, logicalSize.x - badgeW - 8.0f));
+    by = std::clamp(by, 8.0f, std::max(8.0f, logicalSize.y - badgeH - 8.0f));
+
+    const Rect badgeRect(bx, by, badgeW, badgeH);
+
+    // Draw dark tooltip backdrop
+    canvas.DrawRoundRect(badgeRect, 6.0f, Color(15, 23, 42, 245), Color(71, 85, 105, 220), 1.0f);
+
+    // Render 3 lines of text inside badge
+    canvas.DrawTextBox(line1, Rect(bx + 10.0f, by + 5.0f, badgeW - 20.0f, 16.0f), fontSize, Color(56, 189, 248, 255), 0.0f, 0.5f);
+    canvas.DrawTextBox(line2, Rect(bx + 10.0f, by + 21.0f, badgeW - 20.0f, 16.0f), fontSize, Color(241, 245, 249, 255), 0.0f, 0.5f);
+    canvas.DrawTextBox(line3, Rect(bx + 10.0f, by + 37.0f, badgeW - 20.0f, 16.0f), fontSize, Color(148, 163, 184, 255), 0.0f, 0.5f);
 }
 
 } // namespace guikit

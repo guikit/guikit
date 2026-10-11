@@ -3,7 +3,7 @@
 #include <optional>
 #include <source_location>
 #include "guikit/core/Id.hpp"
-#include "guikit/core/Tokens.hpp"
+#include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
 
 namespace guikit {
@@ -21,6 +21,22 @@ struct CarouselOptions {
     std::optional<UiSize> padding{std::nullopt};    ///< Internal padding token (nullopt = zero)
     bool scrollWheel{true};                         ///< Enable horizontal mouse wheel scrolling
     bool disabled{false};                           ///< Interaction suppression
+};
+
+/// Internal runtime state allocated in frame arena for Carousel container nodes.
+struct CarouselData {
+    CarouselOptions opts{};
+    Rect leftArrowRect{0.0f, 0.0f, 0.0f, 0.0f};
+    Rect rightArrowRect{0.0f, 0.0f, 0.0f, 0.0f};
+    Rect viewportRect{0.0f, 0.0f, 0.0f, 0.0f};
+    bool showLeftArrow{false};
+    bool showRightArrow{false};
+    bool leftArrowHovered{false};
+    bool rightArrowHovered{false};
+    bool leftArrowPressed{false};
+    bool rightArrowPressed{false};
+    bool scrollToActiveTab{false};
+    bool showBaselineSeparator{false};
 };
 
 /// Deterministic 64-bit ID for Carousel left navigation arrow button.
@@ -43,12 +59,26 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
-    /// Renders navigation arrow buttons for an overflowing Carousel container.
+    /// Measures intrinsic dimensions for a Carousel container ribbon.
+    static Vec2 Measure(const Node* node, ICanvas* canvas, const UiTheme& theme);
+    static Vec2 Measure(const Node* node, ICanvas* canvas = nullptr);
+
+    /// Custom flex row arrangement with dynamic gutters and scroll viewport.
+    static void Arrange(Node* node, const Rect& availableRect);
+
+    /// Renders navigation arrow buttons for an overflowing Carousel container (RenderFunc signature).
+    static void RenderArrows(
+        const Node* node,
+        ICanvas& canvas,
+        const UiTheme& theme
+    );
+
+    /// Backwards-compatible overload.
     static void RenderArrows(
         ICanvas& canvas,
         Node* node,
         UiSize size,
-        ThemeMode theme
+        const UiTheme& theme = UiTheme::Dark()
     );
 };
 

@@ -3,6 +3,7 @@
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/layout/Node.hpp"
+#include "guikit/widgets/Carousel.hpp"
 
 namespace guikit {
 
@@ -17,7 +18,7 @@ Response TabBar::Run(
     if (tabs.empty()) return res;
 
     const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
-    const ComponentMetrics m = ctx.GetStyle().GetComponentMetrics(activeSize);
+    const ComponentMetrics& m = ctx.GetTheme().GetMetrics(activeSize);
 
     std::optional<CarouselScope> carouselScope;
     Node* barNode = nullptr;
@@ -33,18 +34,20 @@ Response TabBar::Run(
         barNode = carouselScope->GetNode();
         barNode->heightMode = SizeMode::Fixed;
         barNode->fixedHeight = m.defaultHeight;
-        barNode->tabBarOpts = opts;
+        if (auto* cData = barNode->As<CarouselData>()) {
+            cData->showBaselineSeparator = (opts.showSeparator && opts.style == TabBarStyle::Underline);
+        }
     } else {
         const Id barId = ctx.MakeChildId(loc);
         barNode = ctx.CreateNode(NodeType::Container, barId);
         barNode->direction = FlexDirection::Row;
         barNode->align = Alignment::Center;
-        barNode->gap = (activeSize <= UiSize::Sm) ? ctx.GetStyle().GetGap(UiSize::Xs) : ctx.GetStyle().GetGap(UiSize::Sm);
+        barNode->gap = (activeSize <= UiSize::Sm) ? ctx.GetTheme().GetGap(UiSize::Xs) : ctx.GetTheme().GetGap(UiSize::Sm);
         barNode->uiSize = activeSize;
         barNode->widthMode = opts.fullWidth ? SizeMode::Stretch : SizeMode::Fit;
         barNode->heightMode = SizeMode::Fixed;
         barNode->fixedHeight = m.defaultHeight;
-        barNode->tabBarOpts = opts;
+        barNode->payload = ctx.AllocPayload<TabBarOptions>(opts);
         ctx.PushContainer(barNode);
     }
 
@@ -52,7 +55,9 @@ Response TabBar::Run(
     auto itLast = ctx.m_lastActiveTabs.find(barNode->id);
     if (itLast == ctx.m_lastActiveTabs.end() || itLast->second != activeIndex) {
         ctx.m_lastActiveTabs[barNode->id] = activeIndex;
-        barNode->scrollToActiveTab = true;
+        if (auto* cData = barNode->As<CarouselData>()) {
+            cData->scrollToActiveTab = true;
+        }
     }
 
     for (size_t i = 0; i < tabs.size(); ++i) {
@@ -72,16 +77,45 @@ Response TabBar::Run(
             res.changed = true;
             res.clicked = true;
             ctx.m_lastActiveTabs[barNode->id] = activeIndex;
-            barNode->scrollToActiveTab = true;
+            if (auto* cData = barNode->As<CarouselData>()) {
+                cData->scrollToActiveTab = true;
+            }
             ctx.RequestRepaint(3);
         }
 
         Node* tabNode = ctx.CreateNode(NodeType::TabItem, tabId);
         tabNode->text = ctx.InternString(item.label);
-        tabNode->tabItemOpts = item;
-        tabNode->tabItemOpts.label = tabNode->text;
-        tabNode->tabBarOpts = opts;
-        tabNode->tabActive = (activeIndex == static_cast<int>(i));
+        auto* tData = ctx.AllocPayload<TabItemData>();
+        tData->item = item;
+        tData->item.label = tabNode->text;
+        tData->barOpts = opts;
+        tabNode->payload = tData;
+        tabNode->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+            const auto* d = n->As<TabItemData>();
+            return TabBar::MeasureTab(
+                d ? d->item : TabItem{},
+                d ? d->barOpts : TabBarOptions{},
+                n->uiSize,
+                canvas,
+                theme
+            );
+        };
+        tabNode->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
+            const auto* d = n->As<TabItemData>();
+            TabBar::RenderTab(
+                canvas,
+                n->computedRect,
+                d ? d->item : TabItem{},
+                d ? d->barOpts : TabBarOptions{},
+                n->uiSize,
+                n->active,
+                n->hovered,
+                n->pressed,
+                n->disabled,
+                theme
+            );
+        };
+        tabNode->active = (activeIndex == static_cast<int>(i));
         tabNode->uiSize = activeSize;
         tabNode->disabled = effectiveDisabled;
         tabNode->hovered = tabRes.hovered;
@@ -102,9 +136,10 @@ Vec2 TabBar::MeasureTab(
     const TabItem& item,
     const TabBarOptions& opts,
     UiSize size,
-    ICanvas* canvas
+    ICanvas* canvas,
+    const UiTheme& theme
 ) {
-    const ComponentMetrics m = GetComponentMetrics(size);
+    const ComponentMetrics& m = theme.GetMetrics(size);
     float contentW = 0.0f;
 
     if (item.icon.IsValid()) {
@@ -142,6 +177,15 @@ Vec2 TabBar::MeasureTab(
     return {std::max(m.defaultHeight, totalW), m.defaultHeight};
 }
 
+Vec2 TabBar::MeasureTab(
+    const TabItem& item,
+    const TabBarOptions& opts,
+    UiSize size,
+    ICanvas* canvas
+) {
+    return MeasureTab(item, opts, size, canvas, UiTheme::Dark());
+}
+
 void TabBar::RenderTab(
     ICanvas& canvas,
     Rect bounds,
@@ -152,10 +196,10 @@ void TabBar::RenderTab(
     bool hovered,
     bool pressed,
     bool disabled,
-    ThemeMode theme
+    const UiTheme& theme
 ) {
-    const ComponentMetrics m = GetComponentMetrics(size);
-    const auto pal = GetThemePalette(theme);
+    const ComponentMetrics& m = theme.GetMetrics(size);
+    const auto& pal = theme.palette;
 
     if (opts.style == TabBarStyle::Underline) {
         // Horizontal baseline separator spanning across tabs
@@ -171,7 +215,7 @@ void TabBar::RenderTab(
         // Hover backdrop highlight
         if (hovered && !active && !disabled) {
             const Rect hoverR(bounds.x, bounds.y + 4.0f, bounds.w, bounds.h - 8.0f);
-            canvas.DrawRoundRect(hoverR, m.cornerRadius, theme == ThemeMode::Dark ? Color::Hex(0x33415540) : Color::Hex(0xE2E8F080));
+            canvas.DrawRoundRect(hoverR, m.cornerRadius, pal.surfaceHover);
         }
 
         // Bottom active underline accent
@@ -180,7 +224,7 @@ void TabBar::RenderTab(
             const float linePad = 2.0f;
             const Color lineCol = (opts.activeColor.a > 0)
                 ? opts.activeColor
-                : (item.variant != UiVariant::Default ? GetVariantColors(item.variant, theme).bg : pal.accent);
+                : (item.variant != UiVariant::Default ? theme.GetVariant(item.variant).bg : pal.accent);
             const Rect lineR(bounds.x + linePad, bounds.Bottom() - lineH, std::max(0.0f, bounds.w - linePad * 2.0f), lineH);
             canvas.DrawRoundRect(lineR, 1.5f, lineCol);
         }
@@ -189,21 +233,21 @@ void TabBar::RenderTab(
         if (active) {
             const Color pillCol = (opts.activeColor.a > 0)
                 ? opts.activeColor
-                : (item.variant != UiVariant::Default ? GetVariantColors(item.variant, theme).bgActive : (theme == ThemeMode::Dark ? Color::Hex(0x334155FF) : Color::Hex(0xE2E8F0FF)));
+                : (item.variant != UiVariant::Default ? theme.GetVariant(item.variant).bgActive : pal.surfaceActive);
             canvas.DrawRoundRect(bounds, m.cornerRadius, pillCol);
         } else if (hovered && !disabled) {
-            canvas.DrawRoundRect(bounds, m.cornerRadius, theme == ThemeMode::Dark ? Color::Hex(0x1E293B80) : Color::Hex(0xF1F5F980));
+            canvas.DrawRoundRect(bounds, m.cornerRadius, pal.surfaceHover);
         }
     }
 
     // Determine foreground colors for text and icon
     Color fgCol;
     if (disabled) {
-        fgCol = theme == ThemeMode::Dark ? Color::Hex(0x64748B80) : Color::Hex(0x94A3B880);
+        fgCol = pal.textDisabled;
     } else if (active) {
         fgCol = pal.textPrimary;
     } else if (hovered) {
-        fgCol = theme == ThemeMode::Dark ? Color::Hex(0xE2E8F0FF) : Color::Hex(0x334155FF);
+        fgCol = pal.textPrimary;
     } else {
         fgCol = pal.textSecondary;
     }
@@ -250,13 +294,14 @@ void TabBar::RenderTab(
         const float badgeH = badgeFontSize + 6.0f;
         const Rect badgeR(curX, centerY - badgeH * 0.5f, badgeW, badgeH);
 
-        Color badgeBg = active ? Color::Hex(0x0284C740) : Color::Hex(0x33415580);
-        Color badgeText = active ? Color::Hex(0x38BDF8FF) : Color::Hex(0x94A3B8FF);
+        Color badgeBg = active ? pal.accent.WithAlphaF(0.25f) : pal.surfaceHover;
+        Color badgeText = active ? pal.accent : pal.textSecondary;
 
         // Highlight "Live" badges in emerald green
         if (item.badge == "Live") {
-            badgeBg = Color::Hex(0x065F4680);
-            badgeText = Color::Hex(0x34D399FF);
+            const VariantColors success = theme.GetVariant(UiVariant::Success);
+            badgeBg = success.bg.WithAlphaF(0.5f);
+            badgeText = success.text;
         }
 
         canvas.DrawRoundRect(badgeR, 4.0f, badgeBg);

@@ -4,7 +4,7 @@
 #include <source_location>
 #include <string_view>
 #include "guikit/core/Response.hpp"
-#include "guikit/core/Tokens.hpp"
+#include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
 
 namespace guikit {
@@ -24,30 +24,6 @@ struct CheckboxOptions {
 };
 static_assert(sizeof(CheckboxOptions) <= 40, "CheckboxOptions must stay compact");
 
-/// Standardized layout and geometry metrics for a Checkbox widget.
-struct CheckboxMetrics {
-    float boxSize;
-    float cornerRadius;
-    float gap;
-    float fontSize;
-    float descFontSize;
-    float descGap;
-    float strokeWidth;
-};
-
-/// Returns standardized metrics for Checkbox according to UiSize.
-[[nodiscard]] constexpr CheckboxMetrics GetCheckboxMetrics(UiSize size) noexcept {
-    switch (size) {
-        case UiSize::None:
-        case UiSize::Md: return { 18.0f, 4.0f, 10.0f, 14.0f, 12.0f, 3.0f, 2.0f };
-        case UiSize::Xs: return { 12.0f, 2.5f,  6.0f, 11.0f,  9.0f, 2.0f, 1.5f };
-        case UiSize::Sm: return { 14.0f, 3.0f,  8.0f, 13.0f, 11.0f, 2.0f, 1.8f };
-        case UiSize::Lg: return { 22.0f, 5.0f, 12.0f, 16.0f, 13.0f, 3.0f, 2.4f };
-        case UiSize::Xl: return { 26.0f, 6.0f, 14.0f, 18.0f, 14.0f, 4.0f, 2.8f };
-    }
-    return { 18.0f, 4.0f, 10.0f, 14.0f, 12.0f, 3.0f, 2.0f };
-}
-
 /// Autonomous Checkbox widget logic (execution, measuring, and rendering).
 class Checkbox {
 public:
@@ -66,6 +42,13 @@ public:
         std::string_view label,
         const CheckboxOptions& opts,
         UiSize size,
+        ICanvas* canvas,
+        const UiTheme& theme
+    );
+    static Vec2 Measure(
+        std::string_view label,
+        const CheckboxOptions& opts,
+        UiSize size,
         ICanvas* canvas = nullptr
     );
 
@@ -77,10 +60,10 @@ public:
         bool checked,
         const CheckboxOptions& opts,
         UiSize size,
-        bool hovered = false,
-        bool pressed = false,
-        bool disabled = false,
-        ThemeMode theme = ThemeMode::Dark
+        bool hovered,
+        bool pressed,
+        bool disabled,
+        const UiTheme& theme
     );
 };
 

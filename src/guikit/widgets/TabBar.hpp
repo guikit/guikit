@@ -7,7 +7,7 @@
 #include <source_location>
 #include <string_view>
 #include "guikit/core/Response.hpp"
-#include "guikit/core/Tokens.hpp"
+#include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/graphics/Icon.hpp"
 
@@ -41,6 +41,12 @@ struct TabBarOptions {
     std::optional<UiSize> size{std::nullopt}; ///< Local size override (nullopt = inherit container size)
 };
 
+/// Internal runtime state allocated in frame arena for TabItem nodes.
+struct TabItemData {
+    TabItem item{};
+    TabBarOptions barOpts{};
+};
+
 /// Autonomous TabBar widget logic (execution, measuring, and rendering).
 class TabBar {
 public:
@@ -54,6 +60,13 @@ public:
     );
 
     /// Measures intrinsic dimensions of a single tab item.
+    static Vec2 MeasureTab(
+        const TabItem& item,
+        const TabBarOptions& opts,
+        UiSize size,
+        ICanvas* canvas,
+        const UiTheme& theme
+    );
     static Vec2 MeasureTab(
         const TabItem& item,
         const TabBarOptions& opts,
@@ -72,7 +85,7 @@ public:
         bool hovered,
         bool pressed,
         bool disabled,
-        ThemeMode theme = ThemeMode::Dark
+        const UiTheme& theme = UiTheme::Dark()
     );
 };
 

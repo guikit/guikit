@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include "guikit/Context.hpp"
+#include "guikit/core/Theme.hpp"
 #include "guikit/backend/SdlCanvas.hpp"
 #include "guikit/backend/ThorCanvas.hpp"
 #include "thorvg.h"
@@ -340,12 +341,13 @@ void TestFooterExitButtonPushedToBottomWithCardAndWrap() {
 void TestUiTokensAndIconFactories() {
     using namespace guikit;
 
+    const auto theme = UiTheme::Dark();
     // Verify 5-level scale metrics
-    const auto mXs = GetComponentMetrics(UiSize::Xs);
-    const auto mSm = GetComponentMetrics(UiSize::Sm);
-    const auto mMd = GetComponentMetrics(UiSize::Md);
-    const auto mLg = GetComponentMetrics(UiSize::Lg);
-    const auto mXl = GetComponentMetrics(UiSize::Xl);
+    const auto mXs = theme.GetMetrics(UiSize::Xs);
+    const auto mSm = theme.GetMetrics(UiSize::Sm);
+    const auto mMd = theme.GetMetrics(UiSize::Md);
+    const auto mLg = theme.GetMetrics(UiSize::Lg);
+    const auto mXl = theme.GetMetrics(UiSize::Xl);
 
     CHECK(mXs.defaultHeight < mSm.defaultHeight);
     CHECK(mSm.defaultHeight < mMd.defaultHeight);
@@ -616,17 +618,18 @@ void TestBoxContainerGapSpacing() {
 void TestAutonomousTextWidgetAndTypographyRoles() {
     using namespace guikit;
 
+    const auto theme = UiTheme::Dark();
     // 1. Verify intrinsic metrics and measurement for different roles
-    const TypographyMetrics mDisplay = GetTypographyMetrics(TextRole::DisplayLarge);
+    const TypographyMetrics mDisplay = theme.GetTypography(TextRole::DisplayLarge);
     CHECK(mDisplay.fontSize == 40.0f);
     CHECK(mDisplay.lineHeight == 48.0f);
     CHECK(!mDisplay.isMonospace);
 
-    const TypographyMetrics mBody = GetTypographyMetrics(TextRole::BodyMedium);
+    const TypographyMetrics mBody = theme.GetTypography(TextRole::BodyMedium);
     CHECK(mBody.fontSize == 14.0f);
     CHECK(mBody.lineHeight == 20.0f);
 
-    const TypographyMetrics mCode = GetTypographyMetrics(TextRole::CodeMedium);
+    const TypographyMetrics mCode = theme.GetTypography(TextRole::CodeMedium);
     CHECK(mCode.fontSize == 13.0f);
     CHECK(mCode.lineHeight == 18.0f);
     CHECK(mCode.isMonospace);
@@ -712,8 +715,9 @@ void TestSwitchAndCheckboxWidgets() {
     static_assert(sizeof(SwitchOptions) <= 40);
     static_assert(sizeof(CheckboxOptions) <= 40);
 
+    const auto theme = UiTheme::Dark();
     // 1. Test measurement
-    const SwitchMetrics sm = GetSwitchMetrics(UiSize::Md);
+    const SwitchMetrics sm = theme.GetSwitch(UiSize::Md);
     Vec2 sMeasNoLabel = Switch::Measure("", {}, UiSize::Md);
     CHECK(sMeasNoLabel.x == sm.trackSize.x);
     CHECK(sMeasNoLabel.y == sm.trackSize.y);
@@ -724,7 +728,7 @@ void TestSwitchAndCheckboxWidgets() {
     Vec2 sMeasWithDesc = Switch::Measure("Enable", {.description = "Details"}, UiSize::Md);
     CHECK(sMeasWithDesc.y > sMeasWithLabel.y);
 
-    const CheckboxMetrics cm = GetCheckboxMetrics(UiSize::Md);
+    const CheckboxMetrics cm = theme.GetCheckbox(UiSize::Md);
     Vec2 cMeasNoLabel = Checkbox::Measure("", {}, UiSize::Md);
     CHECK(cMeasNoLabel.x == cm.boxSize);
     CHECK(cMeasNoLabel.y == cm.boxSize);
@@ -1501,7 +1505,7 @@ void TestScrollAreaImmediateMode() {
     // Button 1 is visible at the top
     CHECK_NEAR(bBtn1.y, 0.0f, 1.0f);
     // Button 1 right edge strictly respects the scrollbar gutter (800 - 14 = 786px)
-    const ScrollbarMetrics sm = GetScrollbarMetrics(UiSize::Md);
+    const ScrollbarMetrics sm = UiTheme::Dark().GetScrollbar(UiSize::Md);
     CHECK_NEAR(bBtn1.Right(), 800.0f - sm.gutter, 1.0f);
     // Button 3 was placed at y = 400, which is outside the viewport (0..400) -> its clipped interaction bounds have h = 0
     CHECK(bBtn3.h <= 0.0f);
@@ -2676,10 +2680,14 @@ void TestCarouselWidgetAndTabBarOverflow() {
     // At offset 0: left arrow hidden, right arrow visible
     CHECK(carouselNode != nullptr);
     if (carouselNode) {
-        CHECK(!carouselNode->showLeftArrow);
-        CHECK(carouselNode->showRightArrow);
-        CHECK(carouselNode->leftArrowRect.w == 0.0f);
-        CHECK(carouselNode->rightArrowRect.w > 0.0f);
+        auto* cData = carouselNode->As<CarouselData>();
+        CHECK(cData != nullptr);
+        if (cData) {
+            CHECK(!cData->showLeftArrow);
+            CHECK(cData->showRightArrow);
+            CHECK(cData->leftArrowRect.w == 0.0f);
+            CHECK(cData->rightArrowRect.w > 0.0f);
+        }
     }
 
     // Initial offset is 0, so right arrow is visible at the right edge (x ~ 268..300, y ~ 0..36)
@@ -2706,8 +2714,12 @@ void TestCarouselWidgetAndTabBarOverflow() {
 
     // Scrolled: left arrow should now be visible!
     if (carouselNode) {
-        CHECK(carouselNode->showLeftArrow);
-        CHECK(carouselNode->leftArrowRect.w > 0.0f);
+        auto* cData = carouselNode->As<CarouselData>();
+        CHECK(cData != nullptr);
+        if (cData) {
+            CHECK(cData->showLeftArrow);
+            CHECK(cData->leftArrowRect.w > 0.0f);
+        }
     }
 
     // Test mouse wheel on carousel
@@ -2763,11 +2775,111 @@ void TestCarouselWidgetAndTabBarOverflow() {
     CHECK(activeTab == 6);
 }
 
+void TestDebugBoundsAndInspectMode() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+
+    const uint32_t width = 800;
+    const uint32_t height = 600;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    CHECK(!ui.IsDebugBounds());
+    CHECK(!ui.IsInspectMode());
+
+    ui.SetDebugBounds(true);
+    CHECK(ui.IsDebugBounds());
+
+    ui.SetInspectMode(true);
+    CHECK(ui.IsInspectMode());
+
+    // Frame with debug bounds and inspect mode enabled
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    if (auto col = ui.Column({.gap = UiSize::Sm, .padding = Padding::All(12.0f)})) {
+        if (auto row = ui.Row({.gap = UiSize::Md})) {
+            ui.Button("Inspect Me");
+            ui.Spacer();
+            ui.Switch("Toggle Switch", false);
+        }
+        if (auto card = ui.Card()) {
+            ui.Text("Card Inner Text");
+        }
+    }
+    // Hover mouse over button area
+    ui.OnMouseMove({30.0f, 25.0f});
+    ui.EndFrame(canvas);
+
+    // Frame renders fully without error, has damage
+    CHECK(ui.HasDirtyDamage());
+    CHECK(ui.IsFullRepaint());
+
+    // Toggle off
+    ui.SetDebugBounds(false);
+    ui.SetInspectMode(false);
+    CHECK(!ui.IsDebugBounds());
+    CHECK(!ui.IsInspectMode());
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    if (auto col = ui.Column()) {
+        ui.Text("Normal Mode");
+    }
+    ui.EndFrame(canvas);
+}
+
+void TestPostRenderDelegateWorkflow() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 400;
+    const uint32_t height = 300;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    static std::vector<int> executionTrace;
+    executionTrace.clear();
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+
+    if (auto c = ui.Column()) {
+        Node* containerNode = c.GetNode();
+        CHECK(containerNode != nullptr);
+        if (containerNode) {
+            containerNode->renderFn = [](const Node*, ICanvas&, const UiTheme&) {
+                executionTrace.push_back(1); // Pre-pass: before children
+            };
+            containerNode->postRenderFn = [](const Node*, ICanvas&, const UiTheme&) {
+                executionTrace.push_back(3); // Post-pass: after children
+            };
+        }
+
+        ui.Button("Child Button");
+        Node* childNode = containerNode ? containerNode->firstChild : nullptr;
+        CHECK(childNode != nullptr);
+        if (childNode) {
+            childNode->renderFn = [](const Node*, ICanvas&, const UiTheme&) {
+                executionTrace.push_back(2); // Child render pass
+            };
+        }
+    }
+
+    ui.EndFrame(canvas);
+
+    // Verify exact execution sequence: [1 (Pre-pass), 2 (Child pass), 3 (Post-pass)]
+    CHECK(executionTrace.size() == 3);
+    if (executionTrace.size() == 3) {
+        CHECK(executionTrace[0] == 1);
+        CHECK(executionTrace[1] == 2);
+        CHECK(executionTrace[2] == 3);
+    }
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
     TestIndustrialDashboardNoBlackLines();
-
     TestImmediateApiWorkflow();
     TestThorCanvasTextRendering();
     TestHeaderRowTextMetricsAndNoOverlap();
@@ -2799,6 +2911,8 @@ int main() {
     TestHeadingWidgetWorkflow();
     TestDpiScalingAndBackendMetadata();
     TestSdlCanvasBackendInterface();
+    TestDebugBoundsAndInspectMode();
+    TestPostRenderDelegateWorkflow();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

@@ -43,6 +43,7 @@ endif()
 # --- GuiKit Autonomous Vector GUI Library ---
 set(GUIKIT_SOURCES
     src/guikit/Context.cpp
+    src/guikit/core/Theme.cpp
     src/guikit/backend/ThorCanvas.cpp
     src/guikit/backend/SdlCanvas.cpp
     src/guikit/graphics/Icon.cpp

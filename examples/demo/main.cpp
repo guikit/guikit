@@ -136,6 +136,17 @@ int main(int argc, char* argv[]) {
                 ui.OnTextInput(event.text.text);
                 break;
             case SDL_EVENT_KEY_DOWN: {
+                const bool ctrl = (event.key.mod & SDL_KMOD_CTRL) != 0;
+                const bool shift = (event.key.mod & SDL_KMOD_SHIFT) != 0;
+                if ((ctrl && shift && event.key.key == SDLK_C) || (ctrl && event.key.key == SDLK_I)) {
+                    ui.SetInspectMode(!ui.IsInspectMode());
+                    break;
+                }
+                if (ctrl && event.key.key == SDLK_B) {
+                    ui.SetDebugBounds(!ui.IsDebugBounds());
+                    break;
+                }
+
                 guikit::Key key = guikit::Key::None;
                 switch (event.key.key) {
                     case SDLK_BACKSPACE: key = guikit::Key::Backspace; break;
@@ -284,6 +295,30 @@ int main(int argc, char* argv[]) {
                         if (!nextDirty) {
                             ui.InvalidateAll();
                         }
+                    }
+
+                    tb.Separator();
+
+                    // Debug Bounds Toggle
+                    const bool boundsActive = ui.IsDebugBounds();
+                    if (tb.ToolButton(boundsActive ? "Bounds: ON" : "Bounds: OFF", {
+                        .icon = boundsActive ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
+                        .variant = boundsActive ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+                        .labelVariants = {"Bounds: ON", "Bounds: OFF"},
+                        .active = boundsActive
+                    })) {
+                        ui.SetDebugBounds(!boundsActive);
+                    }
+
+                    // Inspect Mode Toggle (Chrome DevTools Inspect element)
+                    const bool inspectActive = ui.IsInspectMode();
+                    if (tb.ToolButton(inspectActive ? "Inspect: ON" : "Inspect: OFF", {
+                        .icon = guikit::Icon::Search(),
+                        .variant = inspectActive ? guikit::UiVariant::Warning : guikit::UiVariant::Ghost,
+                        .labelVariants = {"Inspect: ON", "Inspect: OFF"},
+                        .active = inspectActive
+                    })) {
+                        ui.SetInspectMode(!inspectActive);
                     }
 
                     // Idle Heartbeat Presets Cycle

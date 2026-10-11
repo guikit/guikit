@@ -3,7 +3,7 @@
 #include <source_location>
 #include <string_view>
 #include "guikit/core/Response.hpp"
-#include "guikit/core/Tokens.hpp"
+#include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/layout/LayoutTypes.hpp"
 
@@ -32,6 +32,7 @@ public:
     );
 
     /// Measures intrinsic dimensions based on text content and typography metrics.
+    static Vec2 Measure(std::string_view label, const TextOptions& opts, ICanvas* canvas, const UiTheme& theme);
     static Vec2 Measure(std::string_view label, const TextOptions& opts, ICanvas* canvas = nullptr);
 
     /// Renders text into allocated bounds with alignment and semantic color.
@@ -42,7 +43,7 @@ public:
         const TextOptions& opts,
         bool hovered = false,
         bool disabled = false,
-        ThemeMode theme = ThemeMode::Dark
+        const UiTheme& theme = UiTheme::Dark()
     );
 };
 

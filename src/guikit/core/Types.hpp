@@ -253,21 +253,7 @@ struct CursorConfig {
     float width{1.5f};          ///< Caret line width in pixels
 };
 
-/// Semantic spacing tokens in density-independent points.
-enum class Spacing : uint8_t {
-    None    = 0,
-    XSmall  = 4,
-    Small   = 8,
-    Medium  = 12,
-    Large   = 16,
-    XLarge  = 24,
-    XXLarge = 32
-};
 
-/// Helper to convert semantic spacing enum to floating-point value.
-[[nodiscard]] constexpr float ToPoints(Spacing spacing) noexcept {
-    return static_cast<float>(static_cast<uint8_t>(spacing));
-}
 
 /// Universal 1D/2D orientation for layout and components (ScrollArea, Splitter, Slider, Separator).
 enum class Orientation : uint8_t {

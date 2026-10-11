@@ -13,6 +13,7 @@
 #include "guikit/core/BumpAllocator.hpp"
 #include "guikit/core/Id.hpp"
 #include "guikit/core/Response.hpp"
+#include "guikit/core/Theme.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/core/UiString.hpp"
@@ -85,13 +86,24 @@ public:
     void SetThemeMode(ThemeMode mode) noexcept;
 
     /// Returns the current theme mode.
-    [[nodiscard]] ThemeMode GetThemeMode() const noexcept { return m_themeMode; }
+    [[nodiscard]] ThemeMode GetThemeMode() const noexcept { return m_theme.mode; }
 
     /// Returns true if dark mode is active.
-    [[nodiscard]] bool IsDarkMode() const noexcept { return m_themeMode == ThemeMode::Dark; }
+    [[nodiscard]] bool IsDarkMode() const noexcept { return m_theme.mode == ThemeMode::Dark; }
 
     /// Returns the active theme palette tokens.
-    [[nodiscard]] ThemePalette GetThemePalette() const noexcept { return guikit::GetThemePalette(m_themeMode); }
+    [[nodiscard]] const ThemePalette& GetThemePalette() const noexcept { return m_theme.palette; }
+
+    /// Sets the full UI theme (palette, variants, metrics, typography, etc.).
+    void SetTheme(const UiTheme& theme) noexcept {
+        m_theme = theme;
+        m_clearColor = m_theme.palette.background;
+        InvalidateAll();
+    }
+
+    /// Returns the active UI theme.
+    [[nodiscard]] const UiTheme& GetTheme() const noexcept { return m_theme; }
+    [[nodiscard]] UiTheme& GetTheme() noexcept { return m_theme; }
 
     /// Sets the clear color used by EndFrame when clearing dirty damage regions.
     void SetClearColor(Color color) noexcept { m_clearColor = color; }
@@ -99,19 +111,28 @@ public:
     /// Returns the current clear color.
     [[nodiscard]] Color GetClearColor() const noexcept { return m_clearColor; }
 
-    // --- Style & Density ---
+    // --- Style & Density (Backward compatibility alias) ---
     /// Sets the application UI style metrics and spacing scale.
-    void SetStyle(const UiStyle& style) noexcept { m_style = style; InvalidateAll(); }
+    void SetStyle(const UiTheme& style) noexcept { SetTheme(style); }
 
     /// Returns the current application UI style.
-    [[nodiscard]] const UiStyle& GetStyle() const noexcept { return m_style; }
-    [[nodiscard]] UiStyle& GetStyle() noexcept { return m_style; }
+    [[nodiscard]] const UiTheme& GetStyle() const noexcept { return m_theme; }
+    [[nodiscard]] UiTheme& GetStyle() noexcept { return m_theme; }
 
     /// Sets the UI density preset (Standard, Compact, Touch).
-    void SetDensity(Density density) noexcept { m_style.SetDensity(density); InvalidateAll(); }
+    void SetDensity(Density density) noexcept { m_theme.SetDensity(density); InvalidateAll(); }
 
     /// Returns the current UI density preset.
-    [[nodiscard]] Density GetDensity() const noexcept { return m_style.GetDensity(); }
+    [[nodiscard]] Density GetDensity() const noexcept { return m_theme.density; }
+
+    // --- Developer Debug & Inspector Tools ---
+    /// Sets whether 1px color-coded debug bounding boxes and padding overlays are rendered.
+    void SetDebugBounds(bool enabled) noexcept;
+    [[nodiscard]] bool IsDebugBounds() const noexcept { return m_debugBoundsEnabled; }
+
+    /// Sets whether the interactive element inspector (Chrome DevTools style) is active.
+    void SetInspectMode(bool enabled) noexcept;
+    [[nodiscard]] bool IsInspectMode() const noexcept { return m_inspectModeEnabled; }
 
     /// Returns true if this frame produced any visual damage requiring rasterization / blitting.
     [[nodiscard]] bool HasDirtyDamage() const noexcept { return m_hasDirtyDamage; }
@@ -636,6 +657,13 @@ public:
     Id MakeChildId(std::source_location loc);
     Response Interact(Id id);
     Node* CreateNode(NodeType type, Id id);
+    
+    /// Allocates and constructs arbitrary widget payload data in the per-frame scratch arena.
+    template <typename T, typename... Args>
+    [[nodiscard]] T* AllocPayload(Args&&... args) {
+        return m_arena.Allocate<T>(std::forward<Args>(args)...);
+    }
+
     void AdaptChildToContainer(Node* node);
     [[nodiscard]] Rect GetPrevFrameBounds(Id id) const;
 
@@ -718,13 +746,14 @@ private:
     std::unordered_map<Id, WidgetSnapshot> m_prevSnapshots;
     std::vector<Rect> m_explicitDamageRects;
     Rect m_dirtyRect{0.0f, 0.0f, 0.0f, 0.0f};
-    ThemeMode m_themeMode{ThemeMode::Dark};
-    UiStyle m_style{UiStyle::Standard()};
+    UiTheme m_theme{UiTheme::Dark()};
     Color m_clearColor{11, 15, 25, 255}; // Tailwind Slate-950 #0B0F19
     bool m_hasDirtyDamage{true};
     bool m_isFullRepaint{true};
     bool m_forceFullRepaint{true};
     bool m_dirtyRectEnabled{true};
+    bool m_debugBoundsEnabled{false};
+    bool m_inspectModeEnabled{false};
 
     BumpAllocator m_arena;
     std::vector<Node*> m_containerStack;
@@ -791,6 +820,10 @@ private:
     std::vector<std::function<void(ICanvas&)>> m_overlayPasses;
     Vec2 m_mouseWheel{0.0f, 0.0f};
     std::unordered_map<Id, int> m_lastActiveTabs;
+
+    void RenderDebugBoundsRecursive(Node* node, ICanvas& canvas);
+    Node* FindDeepestNodeAt(Node* root, Vec2 pos, Rect clipRect);
+    void RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize);
 
     friend class CellGridScope;
     friend class TabBar;

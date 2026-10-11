@@ -4,7 +4,7 @@
 #include <source_location>
 #include <string_view>
 #include "guikit/core/Response.hpp"
-#include "guikit/core/Tokens.hpp"
+#include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/graphics/Icon.hpp"
 #include "guikit/layout/LayoutTypes.hpp"
@@ -114,7 +114,7 @@ public:
         ICanvas& canvas,
         Rect bounds,
         Color color = Color::Transparent(),
-        ThemeMode theme = ThemeMode::Dark
+        const UiTheme& theme = UiTheme::Dark()
     );
 };
 

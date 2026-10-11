@@ -26,7 +26,23 @@ Response Text::Run(
 
     Node* node = ctx.CreateNode(NodeType::Text, id);
     node->text = ctx.InternString(label);
-    node->textOpts = opts;
+    node->payload = ctx.AllocPayload<TextOptions>(opts);
+    node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+        const auto* opts = n->As<TextOptions>();
+        return Text::Measure(n->text, opts ? *opts : TextOptions{}, canvas, theme);
+    };
+    node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
+        const auto* opts = n->As<TextOptions>();
+        Text::Render(
+            canvas,
+            n->computedRect,
+            n->text,
+            opts ? *opts : TextOptions{},
+            n->hovered,
+            n->disabled,
+            theme
+        );
+    };
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed;
@@ -38,11 +54,11 @@ Response Text::Run(
     return res;
 }
 
-Vec2 Text::Measure(std::string_view label, const TextOptions& opts, ICanvas* canvas) {
+Vec2 Text::Measure(std::string_view label, const TextOptions& opts, ICanvas* canvas, const UiTheme& theme) {
     if (label.empty()) {
         return {0.0f, 0.0f};
     }
-    const TypographyMetrics m = GetTypographyMetrics(opts.role);
+    const TypographyMetrics& m = theme.GetTypography(opts.role);
     if (canvas) {
         Vec2 dims = canvas->MeasureText(label, m.fontSize);
         dims.y = std::max(dims.y, m.lineHeight);
@@ -53,6 +69,11 @@ Vec2 Text::Measure(std::string_view label, const TextOptions& opts, ICanvas* can
     return {estW, m.lineHeight};
 }
 
+Vec2 Text::Measure(std::string_view label, const TextOptions& opts, ICanvas* canvas) {
+    static const UiTheme defaultTheme = UiTheme::Dark();
+    return Measure(label, opts, canvas, defaultTheme);
+}
+
 void Text::Render(
     ICanvas& canvas,
     Rect bounds,
@@ -60,18 +81,18 @@ void Text::Render(
     const TextOptions& opts,
     bool hovered,
     bool disabled,
-    ThemeMode theme
+    const UiTheme& theme
 ) {
     if (label.empty() || bounds.w <= 0.0f || bounds.h <= 0.0f) {
         return;
     }
-    const TypographyMetrics m = GetTypographyMetrics(opts.role);
-    Color color = GetVariantColors(opts.variant, theme).text;
+    const TypographyMetrics& m = theme.GetTypography(opts.role);
+    Color color = theme.GetVariant(opts.variant).text;
 
     if (disabled) {
         color = color.WithAlphaF(0.40f);
     } else if (hovered && opts.variant == UiVariant::Primary) {
-        color = GetVariantColors(opts.variant).bgHover;
+        color = theme.GetVariant(opts.variant).bgHover;
     }
 
     float alignFactor = 0.0f;

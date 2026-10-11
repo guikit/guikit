@@ -22,8 +22,17 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
 
     Node* node = ctx.CreateNode(NodeType::Button, id);
     node->text = ctx.InternString(opts.label);
-    node->buttonOpts = opts;
-    node->buttonOpts.label = node->text;
+    auto* bOpts = ctx.AllocPayload<ButtonOptions>(opts);
+    bOpts->label = node->text;
+    node->payload = bOpts;
+    node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+        const auto* b = n->As<ButtonOptions>();
+        return Button::Measure(b ? *b : ButtonOptions{}, n->uiSize, canvas, theme);
+    };
+    node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
+        const auto* b = n->As<ButtonOptions>();
+        Button::Render(canvas, n->computedRect, b ? *b : ButtonOptions{}, n->uiSize, n->hovered, n->pressed, n->disabled, theme);
+    };
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
@@ -36,8 +45,8 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
     return res;
 }
 
-Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas) {
-    const ComponentMetrics m = GetComponentMetrics(size);
+Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme) {
+    const ComponentMetrics& m = theme.GetMetrics(size);
     const bool hasIcon = opts.icon.IsValid();
     const bool hasLabel = !opts.label.empty();
 
@@ -85,6 +94,11 @@ Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas) {
     return {std::max(m.defaultHeight, totalW), contentH};
 }
 
+Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas) {
+    static const UiTheme defaultTheme = UiTheme::Dark();
+    return Measure(opts, size, canvas, defaultTheme);
+}
+
 void Button::Render(
     ICanvas& canvas,
     Rect bounds,
@@ -93,10 +107,10 @@ void Button::Render(
     bool hovered,
     bool pressed,
     bool disabled,
-    ThemeMode theme
+    const UiTheme& theme
 ) {
-    const ComponentMetrics m = GetComponentMetrics(size);
-    const VariantColors colors = GetVariantColors(opts.variant, theme);
+    const ComponentMetrics& m = theme.GetMetrics(size);
+    const VariantColors& colors = theme.GetVariant(opts.variant);
 
     Color bg = colors.bg;
     Color textCol = colors.text;

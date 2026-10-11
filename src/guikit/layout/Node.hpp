@@ -6,35 +6,62 @@
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/layout/LayoutTypes.hpp"
-#include "guikit/widgets/Button.hpp"
-#include "guikit/widgets/Carousel.hpp"
-#include "guikit/widgets/Checkbox.hpp"
-#include "guikit/widgets/Heading.hpp"
-#include "guikit/widgets/InputField.hpp"
-#include "guikit/widgets/Select.hpp"
-#include "guikit/widgets/Switch.hpp"
-#include "guikit/widgets/TabBar.hpp"
-#include "guikit/widgets/Text.hpp"
-#include "guikit/widgets/Toolbar.hpp"
 
 namespace guikit {
 
+class ICanvas;
+struct Node;
+struct UiTheme;
+
+/// Function signature for measuring intrinsic content dimensions of a leaf widget or container.
+using MeasureFunc = Vec2 (*)(const Node* node, ICanvas* canvas, const UiTheme& theme);
+
+/// Function signature for custom arrangement of a container node and its children.
+using ArrangeFunc = void (*)(Node* node, const Rect& availableRect);
+
+/// Function signature for rendering an element's visual contents.
+using RenderFunc = void (*)(const Node* node, ICanvas& canvas, const UiTheme& theme);
+
+/// Fundamental semantic category of a scene graph element.
+enum class NodeCategory : uint8_t {
+    Layout,     ///< Pure geometry and flow distribution: Row, Column, Wrap, Grid, Cell
+    Container,  ///< Visual surface and viewport boundary: Card, Box, ScrollArea, Carousel
+    Widget,     ///< Terminal interactive or content leaf element: Button, Input, Switch, Text...
+    Spacer      ///< Elastic expanding spring
+};
+
 /// Type of element represented by a frame graph node.
-enum class NodeType : uint8_t {
-    Container,  ///< General flex layout container (Row, Column, Box)
-    ScrollArea, ///< Viewport container providing scrollable view into overflowed children
-    Carousel,   ///< Horizontal ribbon container with automatic navigation arrows on overflow
-    Text,       ///< Text label
-    Button,     ///< Clickable button widget
-    Switch,     ///< Sliding pill toggle switch
-    Checkbox,   ///< Box toggle with checkmark
-    InputField, ///< Text or numeric editable field
-    Select,     ///< Dropdown combo box widget
-    Heading,    ///< Structured title and subtitle/description header widget
-    Spacer,     ///< Elastic spacer expanding to fill remaining room
-    Custom,     ///< User or custom renderer node
-    TabItem,    ///< Individual tab item in a TabBar
-    Separator   ///< Divider line separator (Toolbar/menu divider)
+/// Partitioned by numeric ranges for fast categorization and user extensibility.
+enum class NodeType : uint16_t {
+    // --- Layouts (1..99): Pure flow distribution ---
+    Row         = 1,
+    Column      = 2,
+    Wrap        = 3,
+    Grid        = 4,
+    Cell        = 5,
+
+    // --- Containers (100..199): Surfaces, boundaries, viewports ---
+    Card        = 100,
+    Box         = 101,
+    ScrollArea  = 102,
+    Carousel    = 103,
+    Container   = 104,  ///< General container alias for backward compatibility
+
+    // --- Leaf Widgets (200..999): Self-rendering elements ---
+    Button      = 200,
+    InputField  = 201,
+    Select      = 202,
+    Switch      = 203,
+    Checkbox    = 204,
+    Text        = 205,
+    Heading     = 206,
+    TabItem     = 207,
+    Separator   = 208,
+    Spacer      = 209,
+    Custom      = 210,
+
+    // --- User Extension Base (1000+) ---
+    User        = 1000
 };
 
 /// Lightweight, intrusive node in the per-frame layout graph allocated from BumpAllocator.
@@ -93,40 +120,84 @@ struct Node {
     Color textColor{255, 255, 255, 255};
     float fontSize{14.0f};
 
-    // Ambient state and widget configuration
+    // Ambient state and interaction flags
     UiSize uiSize{UiSize::Md};
-    ThemeMode themeMode{ThemeMode::Dark};
     bool disabled{false};
     bool hovered{false};
     bool pressed{false};
-    ButtonOptions buttonOpts{};
-    TextOptions textOpts{};
-    SwitchOptions switchOpts{};
-    CheckboxOptions checkboxOpts{};
-    InputFieldOptions inputOpts{};
-    SelectOptions selectOpts{};
-    HeadingOptions headingOpts{};
-    TabBarOptions tabBarOpts{};
-    TabItem tabItemOpts{};
-    ToolButtonOptions toolButtonOpts{};
-    CarouselOptions carouselOpts{};
-    Rect leftArrowRect{0.0f, 0.0f, 0.0f, 0.0f};
-    Rect rightArrowRect{0.0f, 0.0f, 0.0f, 0.0f};
-    Rect carouselViewportRect{0.0f, 0.0f, 0.0f, 0.0f};
-    bool showLeftArrow{false};
-    bool showRightArrow{false};
-    bool leftArrowHovered{false};
-    bool rightArrowHovered{false};
-    bool leftArrowPressed{false};
-    bool rightArrowPressed{false};
-    std::string_view displayText{};
-    bool checked{false};
     bool focused{false};
-    bool tabActive{false};
-    bool scrollToActiveTab{false};
-    bool cursorVisible{true};
-    float cursorWidth{1.5f};
-    size_t cursor{0};
+    bool checked{false};
+    bool active{false};
+
+    // Generic arena-allocated widget payload (ButtonOptions, InputFieldData, CarouselData, user data, etc.)
+    void* payload{nullptr};
+
+    // Autonomous measure, arrange, and render delegates (polymorphism with zero heap/vtable overhead)
+    MeasureFunc measureFn{nullptr};
+    ArrangeFunc arrangeFn{nullptr};
+    RenderFunc renderFn{nullptr};
+    RenderFunc postRenderFn{nullptr};
+
+    /// Casts payload to the specified widget data type.
+    template <typename T>
+    [[nodiscard]] T* As() noexcept {
+        return static_cast<T*>(payload);
+    }
+
+    /// Casts payload to the specified const widget data type.
+    template <typename T>
+    [[nodiscard]] const T* As() const noexcept {
+        return static_cast<const T*>(payload);
+    }
+
+    /// Returns the fundamental semantic category of this element.
+    [[nodiscard]] constexpr NodeCategory GetCategory() const noexcept {
+        const auto val = static_cast<uint16_t>(type);
+        if (type == NodeType::Spacer || isSpacer) {
+            return NodeCategory::Spacer;
+        }
+        if (val < 100) {
+            return NodeCategory::Layout;
+        }
+        if (val < 200) {
+            return NodeCategory::Container;
+        }
+        return NodeCategory::Widget;
+    }
+
+    /// Returns true if this is a leaf widget that cannot host child elements.
+    [[nodiscard]] constexpr bool IsLeaf() const noexcept {
+        const NodeCategory cat = GetCategory();
+        return cat == NodeCategory::Widget || cat == NodeCategory::Spacer;
+    }
+
+    /// Returns the canonical human-readable element type name for inspector and debug tooling.
+    [[nodiscard]] constexpr std::string_view GetTypeName() const noexcept {
+        switch (type) {
+            case NodeType::Row:        return "Row";
+            case NodeType::Column:     return "Column";
+            case NodeType::Wrap:       return "Wrap";
+            case NodeType::Grid:       return "Grid";
+            case NodeType::Cell:       return "Cell";
+            case NodeType::Card:       return "Card";
+            case NodeType::Box:        return "Box";
+            case NodeType::ScrollArea: return "ScrollArea";
+            case NodeType::Carousel:   return "Carousel";
+            case NodeType::Container:  return "Container";
+            case NodeType::Button:     return "Button";
+            case NodeType::InputField: return "InputField";
+            case NodeType::Select:     return "Select";
+            case NodeType::Switch:     return "Switch";
+            case NodeType::Checkbox:   return "Checkbox";
+            case NodeType::Text:       return "Text";
+            case NodeType::Heading:    return "Heading";
+            case NodeType::TabItem:    return "TabItem";
+            case NodeType::Separator:  return "Separator";
+            case NodeType::Spacer:     return "Spacer";
+            case NodeType::Custom:     return "Custom";
+            default:                   return (static_cast<uint16_t>(type) >= static_cast<uint16_t>(NodeType::User)) ? "UserWidget" : "Unknown";
+        }
+    }
 
     /// Appends a child node to this container in O(1).
     void AddChild(Node* child) noexcept {
@@ -144,5 +215,7 @@ struct Node {
         }
     }
 };
+
+static_assert(sizeof(Node) <= 248, "Node must remain compact (<= 248 bytes)");
 
 } // namespace guikit

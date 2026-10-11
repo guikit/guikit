@@ -48,7 +48,16 @@ void ToolbarScope::Separator(float heightRatio, std::source_location loc) {
     sep->heightMode = SizeMode::Fixed;
     const float parentH = (m_node->fixedHeight > 0.0f) ? m_node->fixedHeight : 32.0f;
     sep->fixedHeight = parentH * std::clamp(heightRatio, 0.1f, 1.0f);
-    sep->borderColor = m_node->borderColor.a > 0 ? m_node->borderColor : Color::Hex(0x334155FF);
+    sep->borderColor = m_node->borderColor;
+    sep->measureFn = [](const Node* n, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept -> Vec2 {
+        return {
+            n->fixedWidth > 0.0f ? n->fixedWidth : 10.0f,
+            n->fixedHeight > 0.0f ? n->fixedHeight : 20.0f
+        };
+    };
+    sep->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
+        Toolbar::RenderSeparator(canvas, n->computedRect, n->borderColor, theme);
+    };
 }
 
 void ToolbarScope::Spacer(std::source_location loc) {
@@ -58,6 +67,9 @@ void ToolbarScope::Spacer(std::source_location loc) {
     spacer->widthMode = SizeMode::Stretch;
     spacer->isSpacer = true;
     spacer->flexGrow = 1.0f;
+    spacer->measureFn = [](const Node*, ICanvas*, const UiTheme&) noexcept -> Vec2 {
+        return {0.0f, 0.0f};
+    };
 }
 
 Response ToolbarScope::ToolButton(
@@ -76,25 +88,25 @@ ToolbarScope Toolbar::Open(
 ) {
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
-    const ComponentMetrics m = ctx.GetStyle().GetComponentMetrics(activeSize);
+    const ComponentMetrics& m = ctx.GetTheme().GetMetrics(activeSize);
     const float barH = m.defaultHeight + 8.0f;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
 
     Node* node = ctx.CreateNode(NodeType::Container, id);
     node->direction = FlexDirection::Row;
     node->align = Alignment::Center;
-    node->gap = opts.gap.has_value() ? ctx.GetStyle().GetGap(*opts.gap) : ctx.GetStyle().GetGap(activeSize);
+    node->gap = opts.gap.has_value() ? ctx.GetTheme().GetGap(*opts.gap) : ctx.GetTheme().GetGap(activeSize);
 
     Padding toolbarPadding;
     if (opts.padding.has_value()) {
         if (*opts.padding == UiSize::None) {
             toolbarPadding = Padding{};
         } else {
-            const float g = ctx.GetStyle().GetGap(*opts.padding);
+            const float g = ctx.GetTheme().GetGap(*opts.padding);
             toolbarPadding = Padding::Symmetric(g, g * 0.5f);
         }
     } else {
-        const float g = ctx.GetStyle().GetGap(activeSize);
+        const float g = ctx.GetTheme().GetGap(activeSize);
         toolbarPadding = Padding::Symmetric(g, g * 0.5f);
     }
     node->padding = toolbarPadding;
@@ -102,11 +114,11 @@ ToolbarScope Toolbar::Open(
     node->widthMode = SizeMode::Stretch;
     node->heightMode = SizeMode::Fixed;
     node->fixedHeight = barH;
-    const auto pal = ctx.GetThemePalette();
+    const auto& pal = ctx.GetTheme().palette;
     node->backgroundColor = opts.backgroundColor.a > 0 ? opts.backgroundColor : pal.surface;
     node->borderColor = opts.borderColor.a > 0 ? opts.borderColor : pal.border;
     node->borderWidth = (opts.borderColor.a > 0) ? 1.0f : 0.0f;
-    node->cornerRadius = opts.radius.has_value() ? ctx.GetStyle().GetRadius(*opts.radius) : ctx.GetStyle().GetRadius(activeSize);
+    node->cornerRadius = opts.radius.has_value() ? ctx.GetTheme().GetRadius(*opts.radius) : ctx.GetTheme().GetRadius(activeSize);
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
 
@@ -148,7 +160,15 @@ Response Toolbar::ToolButton(
     bOpts.active = opts.active;
     bOpts.size = activeSize;
 
-    node->buttonOpts = bOpts;
+    node->payload = ctx.AllocPayload<ButtonOptions>(bOpts);
+    node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+        const auto* b = n->As<ButtonOptions>();
+        return Button::Measure(b ? *b : ButtonOptions{}, n->uiSize, canvas, theme);
+    };
+    node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
+        const auto* b = n->As<ButtonOptions>();
+        Button::Render(canvas, n->computedRect, b ? *b : ButtonOptions{}, n->uiSize, n->hovered, n->pressed, n->disabled, theme);
+    };
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
@@ -165,9 +185,9 @@ void Toolbar::RenderSeparator(
     ICanvas& canvas,
     Rect bounds,
     Color color,
-    ThemeMode theme
+    const UiTheme& theme
 ) {
-    const Color stroke = color.a > 0 ? color : GetThemePalette(theme).borderSubtle;
+    const Color stroke = color.a > 0 ? color : theme.palette.borderSubtle;
     const float midX = bounds.x + bounds.w * 0.5f;
     const float padY = std::max(2.0f, bounds.h * 0.20f);
     canvas.DrawLine(

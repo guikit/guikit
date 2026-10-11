@@ -5,7 +5,7 @@
 #include <string>
 #include <string_view>
 #include "guikit/core/Response.hpp"
-#include "guikit/core/Tokens.hpp"
+#include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/graphics/Icon.hpp"
 
@@ -32,32 +32,14 @@ struct InputFieldOptions {
     bool readOnly{false};                          ///< Non-editable display mode
 };
 
-/// Standardized layout and geometry metrics for an InputField widget.
-struct InputFieldMetrics {
-    float defaultHeight;
-    float cornerRadius;
-    float paddingX;
-    float fontSize;
-    float labelFontSize;
-    float descFontSize;
-    float labelGap;
-    float descGap;
-    float strokeWidth;
-    float iconSize;
+/// Internal runtime state allocated in frame arena for InputField nodes.
+struct InputFieldData {
+    InputFieldOptions opts{};
+    std::string_view displayText{};
+    size_t cursor{0};
+    float cursorWidth{1.5f};
+    bool cursorVisible{true};
 };
-
-/// Returns standardized metrics for InputField according to UiSize.
-[[nodiscard]] constexpr InputFieldMetrics GetInputFieldMetrics(UiSize size) noexcept {
-    switch (size) {
-        case UiSize::None:
-        case UiSize::Md: return { 36.0f, 6.0f, 12.0f, 14.0f, 13.0f, 12.0f, 4.0f, 3.0f, 1.0f, 16.0f };
-        case UiSize::Xs: return { 24.0f, 4.0f,  8.0f, 11.0f, 10.0f,  9.0f, 3.0f, 2.0f, 1.0f, 12.0f };
-        case UiSize::Sm: return { 28.0f, 5.0f, 10.0f, 13.0f, 12.0f, 11.0f, 3.0f, 2.0f, 1.0f, 14.0f };
-        case UiSize::Lg: return { 44.0f, 8.0f, 16.0f, 16.0f, 15.0f, 13.0f, 5.0f, 3.0f, 1.5f, 18.0f };
-        case UiSize::Xl: return { 52.0f, 10.0f, 20.0f, 18.0f, 16.0f, 14.0f, 6.0f, 4.0f, 1.5f, 22.0f };
-    }
-    return { 36.0f, 6.0f, 12.0f, 14.0f, 13.0f, 12.0f, 4.0f, 3.0f, 1.0f, 16.0f };
-}
 
 /// Autonomous InputField widget logic (execution, measuring, and rendering).
 class InputField {
@@ -81,6 +63,14 @@ public:
         std::string_view displayText,
         const InputFieldOptions& opts,
         UiSize size,
+        ICanvas* canvas,
+        const UiTheme& theme
+    );
+    static Vec2 Measure(
+        std::string_view label,
+        std::string_view displayText,
+        const InputFieldOptions& opts,
+        UiSize size,
         ICanvas* canvas = nullptr
     );
 
@@ -98,7 +88,7 @@ public:
         bool disabled = false,
         bool cursorVisible = true,
         float cursorWidth = 1.5f,
-        ThemeMode theme = ThemeMode::Dark
+        const UiTheme& theme = UiTheme::Dark()
     );
 };
 

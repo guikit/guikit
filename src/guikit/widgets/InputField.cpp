@@ -105,7 +105,6 @@ Response InputField::Run(
     Node* node = ctx.CreateNode(NodeType::InputField, id);
     const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
     node->text = ctx.InternString(effectiveLabel);
-    node->displayText = ctx.InternString(displayText);
 
     InputFieldOptions optsCopy = opts;
     optsCopy.label = node->text;
@@ -114,14 +113,47 @@ Response InputField::Run(
     if (!opts.prefix.empty()) optsCopy.prefix = ctx.InternString(opts.prefix);
     if (!opts.suffix.empty()) optsCopy.suffix = ctx.InternString(opts.suffix);
 
-    node->inputOpts = optsCopy;
+    auto* data = ctx.AllocPayload<InputFieldData>();
+    data->opts = optsCopy;
+    data->displayText = ctx.InternString(displayText);
+    data->cursor = cursor;
+    data->cursorVisible = isFocused && ctx.IsCursorVisible(opts.cursorMode);
+    data->cursorWidth = ctx.GetCursorConfig().width;
+    node->payload = data;
+    node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+        const auto* d = n->As<InputFieldData>();
+        return InputField::Measure(
+            n->text,
+            d ? d->displayText : std::string_view{},
+            d ? d->opts : InputFieldOptions{},
+            n->uiSize,
+            canvas,
+            theme
+        );
+    };
+    node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
+        const auto* d = n->As<InputFieldData>();
+        InputField::Render(
+            canvas,
+            n->computedRect,
+            n->text,
+            d ? d->displayText : std::string_view{},
+            d ? d->opts : InputFieldOptions{},
+            n->uiSize,
+            n->hovered,
+            n->focused,
+            d ? d->cursor : 0,
+            n->disabled,
+            d ? d->cursorVisible : false,
+            d ? d->cursorWidth : 1.5f,
+            theme
+        );
+    };
+
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->focused = isFocused;
-    node->cursor = cursor;
-    node->cursorVisible = isFocused && ctx.IsCursorVisible(opts.cursorMode);
-    node->cursorWidth = ctx.GetCursorConfig().width;
 
     node->widthMode = SizeMode::Stretch;
     node->heightMode = SizeMode::Fit;
@@ -136,9 +168,10 @@ Vec2 InputField::Measure(
     std::string_view displayText,
     const InputFieldOptions& opts,
     UiSize size,
-    ICanvas* canvas
+    ICanvas* canvas,
+    const UiTheme& theme
 ) {
-    const InputFieldMetrics m = GetInputFieldMetrics(size);
+    const InputFieldMetrics& m = theme.GetInputField(size);
     const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
 
     float boxW = 120.0f;
@@ -201,6 +234,17 @@ Vec2 InputField::Measure(
     return {boxW, m.defaultHeight};
 }
 
+Vec2 InputField::Measure(
+    std::string_view label,
+    std::string_view displayText,
+    const InputFieldOptions& opts,
+    UiSize size,
+    ICanvas* canvas
+) {
+    static const UiTheme defaultTheme = UiTheme::Dark();
+    return Measure(label, displayText, opts, size, canvas, defaultTheme);
+}
+
 void InputField::Render(
     ICanvas& canvas,
     Rect bounds,
@@ -214,13 +258,13 @@ void InputField::Render(
     bool disabled,
     bool cursorVisible,
     float cursorWidth,
-    ThemeMode theme
+    const UiTheme& theme
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
         return;
     }
 
-    const InputFieldMetrics m = GetInputFieldMetrics(size);
+    const InputFieldMetrics& m = theme.GetInputField(size);
     const std::string_view effectiveLabel = !label.empty() ? label : opts.label;
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasDesc = !opts.description.empty();
@@ -288,20 +332,18 @@ void InputField::Render(
     }
 
     // Determine colors
-    const auto pal = GetThemePalette(theme);
-    Color boxBg = hovered && !disabled
-        ? (theme == ThemeMode::Dark ? Color::Hex(0x1E293BFF) : Color::Hex(0xFFFFFFFF))
-        : (theme == ThemeMode::Dark ? Color::Hex(0x0F172AFF) : Color::Hex(0xF8FAFCFF));
+    const auto& pal = theme.palette;
+    Color boxBg = (hovered && !disabled) ? pal.surface : pal.inputBackground;
     Color boxBorder;
     float strokeW = m.strokeWidth;
 
     if (focused && !disabled) {
-        boxBorder = (opts.variant == UiVariant::Default) ? pal.accent : GetVariantColors(opts.variant, theme).bg;
+        boxBorder = (opts.variant == UiVariant::Default) ? pal.focusRing : theme.GetVariant(opts.variant).bg;
         strokeW += 0.5f;
     } else if (hovered && !disabled) {
-        boxBorder = theme == ThemeMode::Dark ? Color::Hex(0x64748BFF) : Color::Hex(0x94A3B8FF);
+        boxBorder = (opts.variant == UiVariant::Default) ? pal.borderHover : theme.GetVariant(opts.variant).bgHover;
     } else {
-        boxBorder = (opts.variant == UiVariant::Default) ? pal.inputBorder : GetVariantColors(opts.variant, theme).border;
+        boxBorder = (opts.variant == UiVariant::Default) ? pal.inputBorder : theme.GetVariant(opts.variant).border;
     }
 
     Color textCol = pal.textPrimary;
@@ -371,7 +413,7 @@ void InputField::Render(
         const float caretX = textRect.x + subW;
         const float caretH = m.fontSize * 1.15f;
         const float caretY = boxRect.y + (boxRect.h - caretH) * 0.5f;
-        canvas.DrawLine({caretX, caretY}, {caretX, caretY + caretH}, Color::Hex(0x38BDF8FF), cursorWidth);
+        canvas.DrawLine({caretX, caretY}, {caretX, caretY + caretH}, pal.caret, cursorWidth);
     }
     canvas.PopClip();
 

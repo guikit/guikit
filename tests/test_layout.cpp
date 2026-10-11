@@ -1,6 +1,7 @@
 #include <cmath>
 #include <iostream>
 #include "guikit/core/BumpAllocator.hpp"
+#include "guikit/core/Theme.hpp"
 #include "guikit/layout/LayoutSolver.hpp"
 #include "guikit/layout/Node.hpp"
 
@@ -611,7 +612,7 @@ void TestScrollAreaLayoutSolver() {
     CHECK_NEAR(c3->computedRect.y, 250.0f, 0.001f);
 
     // Verify that content width strictly reserves scrollbar gutter (so scrollbar never overlays children)
-    const ScrollbarMetrics sm = GetScrollbarMetrics(scroll->uiSize);
+    const ScrollbarMetrics& sm = UiTheme::Dark().GetScrollbar(scroll->uiSize);
     CHECK_NEAR(scroll->scrollContentSize.x, 400.0f - sm.gutter, 0.001f);
     CHECK_NEAR(c1->computedRect.w, 400.0f - sm.gutter, 0.001f);
 
@@ -631,6 +632,41 @@ void TestScrollAreaLayoutSolver() {
     CHECK_NEAR(c1->computedRect.w, 400.0f, 0.001f);
 }
 
+void TestCustomMeasureAndArrangeDelegates() {
+    using namespace guikit;
+
+    BumpAllocator arena;
+
+    // Custom widget with measureFn
+    Node* customLeaf = arena.Allocate<Node>();
+    customLeaf->measureFn = [](const Node*, ICanvas*, const UiTheme&) -> Vec2 {
+        return {123.0f, 45.0f};
+    };
+
+    LayoutSolver::Measure(customLeaf);
+    CHECK_NEAR(customLeaf->intrinsicSize.x, 123.0f, 0.001f);
+    CHECK_NEAR(customLeaf->intrinsicSize.y, 45.0f, 0.001f);
+
+    // Custom container with arrangeFn
+    Node* customContainer = arena.Allocate<Node>();
+    Node* child = arena.Allocate<Node>();
+    customContainer->AddChild(child);
+
+    customContainer->arrangeFn = [](Node* node, const Rect& availableRect) {
+        node->computedRect = availableRect;
+        if (node->firstChild) {
+            node->firstChild->computedRect = Rect(availableRect.x + 10.0f, availableRect.y + 10.0f, 50.0f, 50.0f);
+        }
+    };
+
+    LayoutSolver::Arrange(customContainer, Rect(100.0f, 100.0f, 300.0f, 200.0f));
+    CHECK_NEAR(customContainer->computedRect.x, 100.0f, 0.001f);
+    CHECK_NEAR(customContainer->computedRect.w, 300.0f, 0.001f);
+    CHECK_NEAR(child->computedRect.x, 110.0f, 0.001f);
+    CHECK_NEAR(child->computedRect.y, 110.0f, 0.001f);
+    CHECK_NEAR(child->computedRect.w, 50.0f, 0.001f);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Layout Solver...\n";
 
@@ -644,6 +680,7 @@ int main() {
     TestGridLayoutSolver();
     TestGridResponsiveWrapAndExpand();
     TestScrollAreaLayoutSolver();
+    TestCustomMeasureAndArrangeDelegates();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Layout tests passed successfully!\n";

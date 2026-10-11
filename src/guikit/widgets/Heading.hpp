@@ -4,7 +4,7 @@
 #include <source_location>
 #include <string_view>
 #include "guikit/core/Response.hpp"
-#include "guikit/core/Tokens.hpp"
+#include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/graphics/Icon.hpp"
 
@@ -34,6 +34,7 @@ public:
     );
 
     /// Measures intrinsic dimensions based on title, subtitle, icon, badge, and UiSize.
+    static Vec2 Measure(const HeadingOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme);
     static Vec2 Measure(const HeadingOptions& opts, UiSize size, ICanvas* canvas = nullptr);
 
     /// Renders the composite heading into allocated bounds.
@@ -42,7 +43,7 @@ public:
         Rect bounds,
         const HeadingOptions& opts,
         UiSize size,
-        ThemeMode theme = ThemeMode::Dark
+        const UiTheme& theme = UiTheme::Dark()
     );
 };
 
