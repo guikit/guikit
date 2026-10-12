@@ -172,6 +172,7 @@ int main(int argc, char* argv[]) {
     uint32_t selectMaxItems = 4;
 
     bool testSwitchState = true;
+    bool testDarkLightSwitch = false;
     guikit::Placement switchLabelPlace = guikit::Placement::Trailing;
     bool switchSymmetric = false;
     bool switchShowDesc = true;
@@ -1119,7 +1120,7 @@ int main(int argc, char* argv[]) {
                                                 ui.Switch(testSwitchState, {.label = "Xl", .size = guikit::UiSize::Xl});
                                             }
                                             if (auto row = ui.Row({.gap = 20.0f, .align = guikit::Alignment::Center})) {
-                                                ui.Switch(lightMode, {
+                                                ui.Switch(testDarkLightSwitch, {
                                                     .label = "Dark",
                                                     .trailingLabel = "Light",
                                                     .labelPlacement = guikit::Placement::Both,
