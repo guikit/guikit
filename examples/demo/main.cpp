@@ -760,43 +760,6 @@ int main(int argc, char* argv[]) {
 
                                             default: break;
                                         }
-
-                                        // Common Reset Action for Elements
-                                        if (ui.Button({
-                                            .label = "Reset Element Parameters",
-                                            .icon = guikit::Icon::Refresh(),
-                                            .variant = guikit::UiVariant::Secondary,
-                                            .stretch = true
-                                        })) {
-                                            controlsSize = guikit::UiSize::Md;
-                                            btnVariant = guikit::UiVariant::Primary;
-                                            btnHasIcon = true;
-                                            btnIconPlacement = guikit::Placement::Leading;
-                                            btnAlign = guikit::Align::Center;
-                                            btnStretch = false;
-                                            btnDisabled = false;
-                                            cardRadius = 8.0f;
-                                            cardGap = 8.0f;
-                                            cardPadding = 16.0f;
-                                            cardBorderWidth = 1.0f;
-                                            tabGap = 4.0f;
-                                            testTabRadius = 8.0f;
-                                            testTabPadding = 3.0f;
-                                            testTabBorderWidth = 1.0f;
-                                            testTabHasBg = true;
-                                            headingSize = guikit::UiSize::Md;
-                                            headingWordWrap = true;
-                                            headingDivider = true;
-                                            switchLabelPlace = guikit::Placement::Trailing;
-                                            switchSymmetric = false;
-                                            switchShowDesc = true;
-                                            switchDisabled = false;
-                                            checkboxLabelPlace = guikit::Placement::Trailing;
-                                            checkboxShowDesc = true;
-                                            checkboxDisabled = false;
-                                            testCheckboxIndet = false;
-                                            ui.InvalidateAll();
-                                        }
                                     } else {
                                         // Assembly Inspector (Scene & Environment)
                                         ui.Heading({
@@ -848,24 +811,6 @@ int main(int argc, char* argv[]) {
                                         } else if (selectedCategory == NavCategory::AsmFlexRibbon) {
                                             ui.Heading({.title = "Ribbon Spacing", .size = guikit::UiSize::Sm});
                                             if (ui.Slider(carouselGap, 0.0f, 24.0f, {.label = "Ribbon Items Gap", .format = "%.0f px"}).changed) ui.InvalidateAll();
-                                        }
-
-                                        // Common Reset Action for Assembly
-                                        if (ui.Button({
-                                            .label = "Reset Scene Parameters",
-                                            .icon = guikit::Icon::Refresh(),
-                                            .variant = guikit::UiVariant::Secondary,
-                                            .stretch = true
-                                        })) {
-                                            gridColGap = 12.0f;
-                                            gridRowGap = 10.0f;
-                                            cardRadius = 8.0f;
-                                            cardPadding = 16.0f;
-                                            cardBorderWidth = 1.0f;
-                                            carouselGap = 8.0f;
-                                            appTheme.density = guikit::Density::Standard;
-                                            appTheme.SetDensity(appTheme.density);
-                                            ui.InvalidateAll();
                                         }
                                     }
                                 }
