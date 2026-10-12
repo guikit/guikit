@@ -616,17 +616,31 @@ int main(int argc, char* argv[]) {
 
                                                 ui.Heading({.title = "Geometry & Options", .size = guikit::UiSize::Sm});
                                                 if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
-                                                static constexpr std::array<std::string_view, 3> switchPlacements = {"Trailing", "Leading", "Both"};
-                                                size_t spIdx = (switchLabelPlace == guikit::Placement::Both) ? 2 : ((switchLabelPlace == guikit::Placement::Leading) ? 1 : 0);
+                                                static constexpr std::array<std::string_view, 6> switchPlacements = {
+                                                    "Trailing", "Leading", "Top", "Bottom", "Stacked", "Both"
+                                                };
+                                                size_t spIdx = 0;
+                                                switch (switchLabelPlace) {
+                                                    case guikit::Placement::Trailing: spIdx = 0; break;
+                                                    case guikit::Placement::Leading:  spIdx = 1; break;
+                                                    case guikit::Placement::Top:      spIdx = 2; break;
+                                                    case guikit::Placement::Bottom:   spIdx = 3; break;
+                                                    case guikit::Placement::Stacked:  spIdx = 4; break;
+                                                    case guikit::Placement::Both:     spIdx = 5; break;
+                                                }
                                                 if (ui.StepSlider(spIdx, switchPlacements, {.label = "Label Placement", .showTicks = true, .showLabels = true}).changed) {
-                                                    if (spIdx == 2) switchLabelPlace = guikit::Placement::Both;
-                                                    else if (spIdx == 1) switchLabelPlace = guikit::Placement::Leading;
-                                                    else switchLabelPlace = guikit::Placement::Trailing;
+                                                    switch (spIdx) {
+                                                        case 0: switchLabelPlace = guikit::Placement::Trailing; break;
+                                                        case 1: switchLabelPlace = guikit::Placement::Leading;  break;
+                                                        case 2: switchLabelPlace = guikit::Placement::Top;      break;
+                                                        case 3: switchLabelPlace = guikit::Placement::Bottom;   break;
+                                                        case 4: switchLabelPlace = guikit::Placement::Stacked;  break;
+                                                        case 5: switchLabelPlace = guikit::Placement::Both;     break;
+                                                    }
                                                     ui.InvalidateAll();
                                                 }
                                                 if (ui.Switch(switchSymmetric, {.label = "Symmetric (Neutral Track)"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(switchShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(testSwitchState, {.label = "Checked State"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(switchDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
                                                 break;
                                             }
@@ -636,15 +650,30 @@ int main(int argc, char* argv[]) {
 
                                                 ui.Heading({.title = "Geometry & Options", .size = guikit::UiSize::Sm});
                                                 if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
-                                                static constexpr std::array<std::string_view, 2> checkPlacements = {"Trailing", "Leading"};
-                                                size_t cpIdx = (checkboxLabelPlace == guikit::Placement::Leading) ? 1 : 0;
+                                                static constexpr std::array<std::string_view, 5> checkPlacements = {
+                                                    "Trailing", "Leading", "Top", "Bottom", "Stacked"
+                                                };
+                                                size_t cpIdx = 0;
+                                                switch (checkboxLabelPlace) {
+                                                    case guikit::Placement::Trailing: cpIdx = 0; break;
+                                                    case guikit::Placement::Leading:  cpIdx = 1; break;
+                                                    case guikit::Placement::Top:      cpIdx = 2; break;
+                                                    case guikit::Placement::Bottom:   cpIdx = 3; break;
+                                                    case guikit::Placement::Stacked:  cpIdx = 4; break;
+                                                    default:                          cpIdx = 0; break;
+                                                }
                                                 if (ui.StepSlider(cpIdx, checkPlacements, {.label = "Label Placement", .showTicks = true, .showLabels = true}).changed) {
-                                                    checkboxLabelPlace = (cpIdx == 1) ? guikit::Placement::Leading : guikit::Placement::Trailing;
+                                                    switch (cpIdx) {
+                                                        case 0: checkboxLabelPlace = guikit::Placement::Trailing; break;
+                                                        case 1: checkboxLabelPlace = guikit::Placement::Leading;  break;
+                                                        case 2: checkboxLabelPlace = guikit::Placement::Top;      break;
+                                                        case 3: checkboxLabelPlace = guikit::Placement::Bottom;   break;
+                                                        case 4: checkboxLabelPlace = guikit::Placement::Stacked;  break;
+                                                    }
                                                     ui.InvalidateAll();
                                                 }
                                                 if (ui.Switch(testCheckboxIndet, {.label = "Indeterminate Tri-State"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(checkboxShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(testCheckboxState, {.label = "Checked State"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(checkboxDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
                                                 break;
                                             }
@@ -722,6 +751,14 @@ int main(int argc, char* argv[]) {
                                             headingSize = guikit::UiSize::Md;
                                             headingWordWrap = true;
                                             headingDivider = true;
+                                            switchLabelPlace = guikit::Placement::Trailing;
+                                            switchSymmetric = false;
+                                            switchShowDesc = true;
+                                            switchDisabled = false;
+                                            checkboxLabelPlace = guikit::Placement::Trailing;
+                                            checkboxShowDesc = true;
+                                            checkboxDisabled = false;
+                                            testCheckboxIndet = false;
                                             ui.InvalidateAll();
                                         }
                                     } else {
@@ -1279,6 +1316,17 @@ int main(int argc, char* argv[]) {
                                         }
 
                                         case NavCategory::ElemSwitch: {
+                                            auto placementName = [](guikit::Placement p) -> std::string_view {
+                                                switch (p) {
+                                                    case guikit::Placement::Leading:  return "Leading";
+                                                    case guikit::Placement::Trailing: return "Trailing";
+                                                    case guikit::Placement::Top:      return "Top";
+                                                    case guikit::Placement::Bottom:   return "Bottom";
+                                                    case guikit::Placement::Stacked:  return "Stacked";
+                                                    case guikit::Placement::Both:     return "Both";
+                                                }
+                                                return "Trailing";
+                                            };
                                             snippet = std::format(
                                                 "ui.Switch(switchState, {{\n"
                                                 "    .label = \"{}\",\n"
@@ -1293,7 +1341,7 @@ int main(int argc, char* argv[]) {
                                                 (switchLabelPlace == guikit::Placement::Both) ? "    .trailingLabel = \"Light\",\n" : "",
                                                 switchShowDesc ? "    .description = \"Safety interlocking system\",\n" : "",
                                                 btnVariant == guikit::UiVariant::Primary ? "Primary" : "Default",
-                                                switchLabelPlace == guikit::Placement::Both ? "Both" : (switchLabelPlace == guikit::Placement::Leading ? "Leading" : "Trailing"),
+                                                placementName(switchLabelPlace),
                                                 switchSymmetric ? "    .symmetric = true,\n" : "",
                                                 controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
                                                 switchDisabled ? ",\n    .disabled = true" : ""
@@ -1302,6 +1350,17 @@ int main(int argc, char* argv[]) {
                                         }
 
                                         case NavCategory::ElemCheckbox: {
+                                            auto placementName = [](guikit::Placement p) -> std::string_view {
+                                                switch (p) {
+                                                    case guikit::Placement::Leading:  return "Leading";
+                                                    case guikit::Placement::Trailing: return "Trailing";
+                                                    case guikit::Placement::Top:      return "Top";
+                                                    case guikit::Placement::Bottom:   return "Bottom";
+                                                    case guikit::Placement::Stacked:  return "Stacked";
+                                                    case guikit::Placement::Both:     return "Both";
+                                                }
+                                                return "Trailing";
+                                            };
                                             snippet = std::format(
                                                 "ui.Checkbox(checkState, {{\n"
                                                 "    .label = \"Telemetry Logging\",\n"
@@ -1313,7 +1372,7 @@ int main(int argc, char* argv[]) {
                                                 "}});",
                                                 checkboxShowDesc ? "    .description = \"Save trace to buffer\",\n" : "",
                                                 btnVariant == guikit::UiVariant::Primary ? "Primary" : "Default",
-                                                checkboxLabelPlace == guikit::Placement::Leading ? "Leading" : "Trailing",
+                                                placementName(checkboxLabelPlace),
                                                 testCheckboxIndet ? "    .indeterminate = true,\n" : "",
                                                 controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
                                                 checkboxDisabled ? ",\n    .disabled = true" : ""
