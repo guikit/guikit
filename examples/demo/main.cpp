@@ -444,7 +444,9 @@ int main(int argc, char* argv[]) {
                     }
 
                     tb.Spacer();
-                    ui.Text("guikit", {.role = guikit::TextRole::TitleMedium, .variant = guikit::UiVariant::Info});
+                    if (ui.Text("https://github.com/guikit/", {.role = guikit::TextRole::TitleMedium, .variant = guikit::UiVariant::Info})) {
+                        SDL_OpenURL("https://github.com/guikit/");
+                    }
                 }
 
                 // Workspace Row containing Sidebar (left) and Content Area (right)

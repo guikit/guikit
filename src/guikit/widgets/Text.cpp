@@ -88,12 +88,23 @@ void Text::Render(
         return;
     }
     const TypographyMetrics& m = theme.GetTypography(opts.role);
-    Color color = theme.GetVariant(opts.variant).text;
+    const auto& pal = theme.palette;
+    Color color;
+    switch (opts.variant) {
+        case UiVariant::Default:   color = pal.textPrimary; break;
+        case UiVariant::Secondary: color = pal.textSecondary; break;
+        case UiVariant::Ghost:     color = pal.textMuted; break;
+        default:                   color = theme.GetVariant(opts.variant).bg; break;
+    }
 
     if (disabled) {
         color = color.WithAlphaF(0.40f);
-    } else if (hovered && opts.variant == UiVariant::Primary) {
-        color = theme.GetVariant(opts.variant).bgHover;
+    } else if (hovered) {
+        if (opts.variant == UiVariant::Default || opts.variant == UiVariant::Secondary || opts.variant == UiVariant::Ghost) {
+            color = pal.textPrimary;
+        } else {
+            color = theme.GetVariant(opts.variant).bgHover;
+        }
     }
 
     float alignFactor = 0.0f;
