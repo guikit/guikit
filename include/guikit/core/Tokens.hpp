@@ -26,7 +26,8 @@ enum class Placement : uint8_t {
     Trailing,   ///< Placed after primary element (right / end)
     Top,        ///< Placed above primary element
     Bottom,     ///< Placed below primary element
-    Stacked     ///< Form standard layout: Label on top, primary control in middle, Description on bottom
+    Stacked,    ///< Form standard layout: Label on top, primary control in middle, Description on bottom
+    Both        ///< Dual-label layout: leading on left, trailing on right
 };
 
 /// 6x3 Typographic Role Matrix (Material 3 scale extended for desktop/engineering).

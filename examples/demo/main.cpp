@@ -122,7 +122,8 @@ int main(int argc, char* argv[]) {
         ElemSlider,
         ElemInputField,
         ElemSelect,
-        ElemSwitchCheckbox,
+        ElemSwitch,
+        ElemCheckbox,
         ElemTabBar,
         ElemContainers,
         ElemTypography,
@@ -171,10 +172,16 @@ int main(int argc, char* argv[]) {
     uint32_t selectMaxItems = 4;
 
     bool testSwitchState = true;
+    guikit::Placement switchLabelPlace = guikit::Placement::Trailing;
+    bool switchSymmetric = false;
+    bool switchShowDesc = true;
+    bool switchDisabled = false;
+
     bool testCheckboxState = true;
     bool testCheckboxIndet = false;
-    guikit::Placement switchLabelPlace = guikit::Placement::Trailing;
-    bool switchDisabled = false;
+    guikit::Placement checkboxLabelPlace = guikit::Placement::Trailing;
+    bool checkboxShowDesc = true;
+    bool checkboxDisabled = false;
 
     int testTabIdx = 0;
     static const std::array<guikit::TabItem, 3> inspectorDemoTabs = {{
@@ -341,7 +348,13 @@ int main(int argc, char* argv[]) {
                         }
                     }
 
-                    if (ui.Switch(lightMode, {.label = "Light", .size = guikit::UiSize::Md}).changed) {
+                    if (ui.Switch(lightMode, {
+                        .label = "Dark",
+                        .trailingLabel = "Light",
+                        .labelPlacement = guikit::Placement::Both,
+                        .symmetric = true,
+                        .size = guikit::UiSize::Md
+                    }).changed) {
                         darkMode = !lightMode;
                         const auto defTheme = darkMode ? guikit::UiTheme::Dark(appTheme.density) : guikit::UiTheme::Light(appTheme.density);
                         appTheme.palette = defTheme.palette;
@@ -445,7 +458,8 @@ int main(int argc, char* argv[]) {
                                     makeCatBtn(NavCategory::ElemSlider, "Slider", guikit::Icon::Settings());
                                     makeCatBtn(NavCategory::ElemInputField, "Input", guikit::Icon::Edit());
                                     makeCatBtn(NavCategory::ElemSelect, "Select", guikit::Icon::Plus());
-                                    makeCatBtn(NavCategory::ElemSwitchCheckbox, "Switch/Box", guikit::Icon::Check());
+                                    makeCatBtn(NavCategory::ElemSwitch, "Switch", guikit::Icon::Refresh());
+                                    makeCatBtn(NavCategory::ElemCheckbox, "Checkbox", guikit::Icon::Check());
                                     makeCatBtn(NavCategory::ElemTabBar, "TabBar", guikit::Icon::Folder());
                                     makeCatBtn(NavCategory::ElemContainers, "Containers", guikit::Icon::Copy());
                                     makeCatBtn(NavCategory::ElemTypography, "Typography", guikit::Icon::Edit());
@@ -597,19 +611,41 @@ int main(int argc, char* argv[]) {
                                                 break;
                                             }
 
-                                            case NavCategory::ElemSwitchCheckbox: {
-                                                ui.Heading({.title = "Switch & Checkbox", .subtitle = "Toggles & State Checkers", .size = guikit::UiSize::Sm, .divider = true});
+                                            case NavCategory::ElemSwitch: {
+                                                ui.Heading({.title = "Switch Inspector", .subtitle = "Two-State & Dual Toggles", .size = guikit::UiSize::Sm, .divider = true});
 
                                                 ui.Heading({.title = "Geometry & Options", .size = guikit::UiSize::Sm});
                                                 if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
-                                                static constexpr std::array<std::string_view, 2> labelPlacements = {"Trailing", "Leading"};
-                                                size_t lpIdx = (switchLabelPlace == guikit::Placement::Leading) ? 1 : 0;
-                                                if (ui.StepSlider(lpIdx, labelPlacements, {.label = "Label Placement", .showTicks = true, .showLabels = true}).changed) {
-                                                    switchLabelPlace = (lpIdx == 1) ? guikit::Placement::Leading : guikit::Placement::Trailing;
+                                                static constexpr std::array<std::string_view, 3> switchPlacements = {"Trailing", "Leading", "Both"};
+                                                size_t spIdx = (switchLabelPlace == guikit::Placement::Both) ? 2 : ((switchLabelPlace == guikit::Placement::Leading) ? 1 : 0);
+                                                if (ui.StepSlider(spIdx, switchPlacements, {.label = "Label Placement", .showTicks = true, .showLabels = true}).changed) {
+                                                    if (spIdx == 2) switchLabelPlace = guikit::Placement::Both;
+                                                    else if (spIdx == 1) switchLabelPlace = guikit::Placement::Leading;
+                                                    else switchLabelPlace = guikit::Placement::Trailing;
                                                     ui.InvalidateAll();
                                                 }
-                                                if (ui.Switch(testCheckboxIndet, {.label = "Checkbox Indeterminate"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(switchSymmetric, {.label = "Symmetric (Neutral Track)"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(switchShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(testSwitchState, {.label = "Checked State"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(switchDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
+                                                break;
+                                            }
+
+                                            case NavCategory::ElemCheckbox: {
+                                                ui.Heading({.title = "Checkbox Inspector", .subtitle = "Multi-State Selection & Tri-State", .size = guikit::UiSize::Sm, .divider = true});
+
+                                                ui.Heading({.title = "Geometry & Options", .size = guikit::UiSize::Sm});
+                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
+                                                static constexpr std::array<std::string_view, 2> checkPlacements = {"Trailing", "Leading"};
+                                                size_t cpIdx = (checkboxLabelPlace == guikit::Placement::Leading) ? 1 : 0;
+                                                if (ui.StepSlider(cpIdx, checkPlacements, {.label = "Label Placement", .showTicks = true, .showLabels = true}).changed) {
+                                                    checkboxLabelPlace = (cpIdx == 1) ? guikit::Placement::Leading : guikit::Placement::Trailing;
+                                                    ui.InvalidateAll();
+                                                }
+                                                if (ui.Switch(testCheckboxIndet, {.label = "Indeterminate Tri-State"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(checkboxShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(testCheckboxState, {.label = "Checked State"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(checkboxDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
                                                 break;
                                             }
 
@@ -885,22 +921,30 @@ int main(int argc, char* argv[]) {
                                                     break;
                                                 }
 
-                                                case NavCategory::ElemSwitchCheckbox: {
+                                                case NavCategory::ElemSwitch: {
                                                     if (auto swRow = ui.Row({.gap = 20.0f, .align = guikit::Alignment::Center})) {
                                                         ui.Switch(testSwitchState, {
-                                                            .label = "Hardware E-Stop",
-                                                            .description = "Safety interlocking",
+                                                            .label = (switchLabelPlace == guikit::Placement::Both) ? "Dark" : "Hardware E-Stop",
+                                                            .trailingLabel = (switchLabelPlace == guikit::Placement::Both) ? "Light" : "",
+                                                            .description = switchShowDesc ? "Safety interlocking system" : "",
                                                             .variant = btnVariant,
                                                             .labelPlacement = switchLabelPlace,
+                                                            .symmetric = switchSymmetric,
                                                             .disabled = switchDisabled,
                                                             .size = controlsSize
                                                         });
+                                                    }
+                                                    break;
+                                                }
+
+                                                case NavCategory::ElemCheckbox: {
+                                                    if (auto chRow = ui.Row({.gap = 20.0f, .align = guikit::Alignment::Center})) {
                                                         ui.Checkbox(testCheckboxState, {
                                                             .label = "Telemetry Logging",
-                                                            .description = "Save trace to buffer",
+                                                            .description = checkboxShowDesc ? "Save trace to buffer" : "",
                                                             .variant = btnVariant,
-                                                            .labelPlacement = switchLabelPlace,
-                                                            .disabled = switchDisabled,
+                                                            .labelPlacement = checkboxLabelPlace,
+                                                            .disabled = checkboxDisabled,
                                                             .indeterminate = testCheckboxIndet,
                                                             .size = controlsSize
                                                         });
@@ -994,7 +1038,7 @@ int main(int argc, char* argv[]) {
                                             }
                                             break;
                                         }
-                                        case NavCategory::ElemSwitchCheckbox: {
+                                        case NavCategory::ElemSwitch: {
                                             if (auto row = ui.Row({.gap = 16.0f, .align = guikit::Alignment::Center})) {
                                                 ui.Switch(testSwitchState, {.label = "Xs", .size = guikit::UiSize::Xs});
                                                 ui.Switch(testSwitchState, {.label = "Sm", .size = guikit::UiSize::Sm});
@@ -1002,12 +1046,47 @@ int main(int argc, char* argv[]) {
                                                 ui.Switch(testSwitchState, {.label = "Lg", .size = guikit::UiSize::Lg});
                                                 ui.Switch(testSwitchState, {.label = "Xl", .size = guikit::UiSize::Xl});
                                             }
+                                            if (auto row = ui.Row({.gap = 20.0f, .align = guikit::Alignment::Center})) {
+                                                ui.Switch(lightMode, {
+                                                    .label = "Dark",
+                                                    .trailingLabel = "Light",
+                                                    .labelPlacement = guikit::Placement::Both,
+                                                    .symmetric = true,
+                                                    .size = guikit::UiSize::Md
+                                                });
+                                                ui.Switch(testSwitchState, {
+                                                    .label = "Leading Label",
+                                                    .labelPlacement = guikit::Placement::Leading,
+                                                    .size = guikit::UiSize::Md
+                                                });
+                                                ui.Switch(testSwitchState, {
+                                                    .label = "Stacked Style",
+                                                    .description = "Placement::Stacked",
+                                                    .labelPlacement = guikit::Placement::Stacked,
+                                                    .size = guikit::UiSize::Md
+                                                });
+                                            }
+                                            break;
+                                        }
+                                        case NavCategory::ElemCheckbox: {
                                             if (auto row = ui.Row({.gap = 16.0f, .align = guikit::Alignment::Center})) {
                                                 ui.Checkbox(testCheckboxState, {.label = "Xs", .size = guikit::UiSize::Xs});
                                                 ui.Checkbox(testCheckboxState, {.label = "Sm", .size = guikit::UiSize::Sm});
                                                 ui.Checkbox(testCheckboxState, {.label = "Md", .size = guikit::UiSize::Md});
                                                 ui.Checkbox(testCheckboxState, {.label = "Lg", .size = guikit::UiSize::Lg});
                                                 ui.Checkbox(testCheckboxState, {.label = "Xl", .size = guikit::UiSize::Xl});
+                                            }
+                                            if (auto row = ui.Row({.gap = 20.0f, .align = guikit::Alignment::Center})) {
+                                                ui.Checkbox(testCheckboxState, {
+                                                    .label = "Tri-State Indeterminate",
+                                                    .indeterminate = true,
+                                                    .size = guikit::UiSize::Md
+                                                });
+                                                ui.Checkbox(testCheckboxState, {
+                                                    .label = "Leading Label",
+                                                    .labelPlacement = guikit::Placement::Leading,
+                                                    .size = guikit::UiSize::Md
+                                                });
                                             }
                                             break;
                                         }
@@ -1199,19 +1278,45 @@ int main(int argc, char* argv[]) {
                                             break;
                                         }
 
-                                        case NavCategory::ElemSwitchCheckbox: {
+                                        case NavCategory::ElemSwitch: {
                                             snippet = std::format(
                                                 "ui.Switch(switchState, {{\n"
-                                                "    .label = \"Hardware E-Stop\",\n"
-                                                "    .description = \"Safety interlocking\",\n"
+                                                "    .label = \"{}\",\n"
+                                                "{}"
+                                                "{}"
                                                 "    .variant = guikit::UiVariant::{},\n"
                                                 "    .labelPlacement = guikit::Placement::{},\n"
+                                                "{}"
                                                 "    .size = guikit::UiSize::{}{}\n"
                                                 "}});",
+                                                (switchLabelPlace == guikit::Placement::Both) ? "Dark" : "Hardware E-Stop",
+                                                (switchLabelPlace == guikit::Placement::Both) ? "    .trailingLabel = \"Light\",\n" : "",
+                                                switchShowDesc ? "    .description = \"Safety interlocking system\",\n" : "",
                                                 btnVariant == guikit::UiVariant::Primary ? "Primary" : "Default",
-                                                switchLabelPlace == guikit::Placement::Leading ? "Leading" : "Trailing",
+                                                switchLabelPlace == guikit::Placement::Both ? "Both" : (switchLabelPlace == guikit::Placement::Leading ? "Leading" : "Trailing"),
+                                                switchSymmetric ? "    .symmetric = true,\n" : "",
                                                 controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
                                                 switchDisabled ? ",\n    .disabled = true" : ""
+                                            );
+                                            break;
+                                        }
+
+                                        case NavCategory::ElemCheckbox: {
+                                            snippet = std::format(
+                                                "ui.Checkbox(checkState, {{\n"
+                                                "    .label = \"Telemetry Logging\",\n"
+                                                "{}"
+                                                "    .variant = guikit::UiVariant::{},\n"
+                                                "    .labelPlacement = guikit::Placement::{},\n"
+                                                "{}"
+                                                "    .size = guikit::UiSize::{}{}\n"
+                                                "}});",
+                                                checkboxShowDesc ? "    .description = \"Save trace to buffer\",\n" : "",
+                                                btnVariant == guikit::UiVariant::Primary ? "Primary" : "Default",
+                                                checkboxLabelPlace == guikit::Placement::Leading ? "Leading" : "Trailing",
+                                                testCheckboxIndet ? "    .indeterminate = true,\n" : "",
+                                                controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
+                                                checkboxDisabled ? ",\n    .disabled = true" : ""
                                             );
                                             break;
                                         }

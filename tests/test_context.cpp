@@ -713,7 +713,7 @@ void TestAutonomousTextWidgetAndTypographyRoles() {
 void TestSwitchAndCheckboxWidgets() {
     using namespace guikit;
 
-    static_assert(sizeof(SwitchOptions) <= 40);
+    static_assert(sizeof(SwitchOptions) <= 64);
     static_assert(sizeof(CheckboxOptions) <= 40);
 
     const auto theme = UiTheme::Dark();
@@ -728,6 +728,23 @@ void TestSwitchAndCheckboxWidgets() {
 
     Vec2 sMeasWithDesc = Switch::Measure({.label = "Enable", .description = "Details"}, UiSize::Md);
     CHECK(sMeasWithDesc.y > sMeasWithLabel.y);
+
+    Vec2 sMeasBoth = Switch::Measure({
+        .label = "Dark",
+        .trailingLabel = "Light",
+        .labelPlacement = Placement::Both,
+        .symmetric = true
+    }, UiSize::Md);
+    CHECK(sMeasBoth.x > sMeasWithLabel.x);
+
+    Vec2 sMeasBothDesc = Switch::Measure({
+        .label = "Dark",
+        .trailingLabel = "Light",
+        .description = "Switch theme",
+        .labelPlacement = Placement::Both,
+        .symmetric = true
+    }, UiSize::Md);
+    CHECK(sMeasBothDesc.y > sMeasBoth.y);
 
     const CheckboxMetrics cm = theme.GetCheckbox(UiSize::Md);
     Vec2 cMeasNoLabel = Checkbox::Measure({}, UiSize::Md);
@@ -753,6 +770,7 @@ void TestSwitchAndCheckboxWidgets() {
     bool toggleState = false;
     bool descState = false;
     bool stackedState = false;
+    bool bothState = false;
     bool optSwitchState = false;
     bool optCheckState = false;
 
@@ -762,6 +780,7 @@ void TestSwitchAndCheckboxWidgets() {
     Response rIndeterminate;
     Response rDesc;
     Response rStacked;
+    Response rBoth;
     Response rOptSwitch;
     Response rOptCheck;
 
@@ -779,6 +798,12 @@ void TestSwitchAndCheckboxWidgets() {
                 .label = "Stacked Mode",
                 .description = "Description below switch control",
                 .labelPlacement = Placement::Stacked
+            });
+            rBoth = ui.Switch(bothState, {
+                .label = "Dark",
+                .trailingLabel = "Light",
+                .labelPlacement = Placement::Both,
+                .symmetric = true
             });
             rOptSwitch = ui.Switch(optSwitchState, {.label = "Option Switch"});
             rOptCheck = ui.Checkbox(optCheckState, {.label = "Option Checkbox"});
@@ -803,10 +828,12 @@ void TestSwitchAndCheckboxWidgets() {
     CHECK(rDesc.rect.h > rSwitch.rect.h);
     CHECK(rStacked.rect.w > 0.0f);
     CHECK(rStacked.rect.h > rSwitch.rect.h);
+    CHECK(rBoth.rect.w > 0.0f);
     CHECK(!switchState);
     CHECK(!checkState);
     CHECK(!descState);
     CHECK(!stackedState);
+    CHECK(!bothState);
 
     // 3. Click Switch to toggle value
     ui.OnMouseMove({rSwitch.rect.x + 5.0f, rSwitch.rect.y + 5.0f});

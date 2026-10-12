@@ -14,14 +14,16 @@ class ICanvas;
 
 /// Clean configuration options for Switch widget.
 struct SwitchOptions {
-    std::string_view label{};                      ///< Primary caption text
+    std::string_view label{};                      ///< Primary caption text (left/off label when Placement::Both)
+    std::string_view trailingLabel{};              ///< Secondary caption text (right/on label when Placement::Both)
     std::string_view description{};                ///< Optional explanation text below label
     UiVariant variant{UiVariant::Primary};          ///< Accent fill color when switched ON
     Placement labelPlacement{Placement::Trailing}; ///< Placement of label relative to the switch track
+    bool symmetric{false};                         ///< Neutral/symmetric track style (highlights active label)
     bool disabled{false};                          ///< Interaction suppression
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
 };
-static_assert(sizeof(SwitchOptions) <= 40, "SwitchOptions must stay compact");
+static_assert(sizeof(SwitchOptions) <= 64, "SwitchOptions must stay compact");
 
 /// Autonomous Switch widget logic (execution, measuring, and rendering).
 class Switch {
