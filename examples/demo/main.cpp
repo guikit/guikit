@@ -317,16 +317,8 @@ int main(int argc, char* argv[]) {
         ui.BeginFrame({static_cast<float>(winWidth), static_cast<float>(winHeight)}, 1.0f);
         {
             if (auto mainCol = ui.Column()) {
-                // Header Bar
-                if (auto header = ui.Row({.align = guikit::Alignment::Center})) {
-                    ui.Text("GUIKIT GUI", {.role = guikit::TextRole::TitleLarge, .variant = guikit::UiVariant::Info});
-                    ui.Text("| Autonomous Vector GUI Engine", {.role = guikit::TextRole::LabelMedium, .variant = guikit::UiVariant::Muted});
-                    ui.Spacer(); // Push build badge to right
-                    ui.Text("C++20 Immediate + ThorVG", {.role = guikit::TextRole::LabelMedium, .variant = guikit::UiVariant::Muted});
-                }
-
                 // Engine HUD Toolbar:
-                // SIdebar | Scale Light | VSync React Dirty Heartbeat | Bounds Inspect
+                // Sidebar | Scale Light | VSync React Dirty Heartbeat | Bounds Inspect | guikit
                 if (auto tb = ui.Toolbar()) {
                     // 1. Sidebar Toggle
                     if (tb.ToolButton({
@@ -416,6 +408,9 @@ int main(int argc, char* argv[]) {
                     })) {
                         ui.SetInspectMode(!inspectActive);
                     }
+
+                    tb.Spacer();
+                    ui.Text("guikit", {.role = guikit::TextRole::TitleMedium, .variant = guikit::UiVariant::Info});
                 }
 
                 // Workspace Row containing Sidebar (left) and Content Area (right)
