@@ -617,7 +617,7 @@ int main(int argc, char* argv[]) {
                                                 ui.Heading({.title = "Geometry & Options", .size = guikit::UiSize::Sm});
                                                 if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
                                                 static constexpr std::array<std::string_view, 6> switchPlacements = {
-                                                    "Trailing", "Leading", "Top", "Bottom", "Stacked", "Both"
+                                                    "Trail", "Lead", "Top", "Btm", "Stack", "Both"
                                                 };
                                                 size_t spIdx = 0;
                                                 switch (switchLabelPlace) {
@@ -651,7 +651,7 @@ int main(int argc, char* argv[]) {
                                                 ui.Heading({.title = "Geometry & Options", .size = guikit::UiSize::Sm});
                                                 if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
                                                 static constexpr std::array<std::string_view, 5> checkPlacements = {
-                                                    "Trailing", "Leading", "Top", "Bottom", "Stacked"
+                                                    "Trail", "Lead", "Top", "Btm", "Stack"
                                                 };
                                                 size_t cpIdx = 0;
                                                 switch (checkboxLabelPlace) {
