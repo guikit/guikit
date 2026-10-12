@@ -341,7 +341,7 @@ int main(int argc, char* argv[]) {
                         }
                     }
 
-                    if (ui.Switch(lightMode, {.label = "Light", .size = guikit::UiSize::Sm}).changed) {
+                    if (ui.Switch(lightMode, {.label = "Light", .size = guikit::UiSize::Md}).changed) {
                         darkMode = !lightMode;
                         const auto defTheme = darkMode ? guikit::UiTheme::Dark(appTheme.density) : guikit::UiTheme::Light(appTheme.density);
                         appTheme.palette = defTheme.palette;
@@ -353,18 +353,18 @@ int main(int argc, char* argv[]) {
                     tb.Separator();
 
                     // 3. VSync, React, Dirty Switches & Heartbeat Cycle
-                    if (ui.Switch(vsyncEnabled, {.label = "VSync", .size = guikit::UiSize::Sm}).changed) {
+                    if (ui.Switch(vsyncEnabled, {.label = "VSync", .size = guikit::UiSize::Md}).changed) {
                         SDL_SetRenderVSync(renderer, vsyncEnabled ? 1 : 0);
                     }
 
-                    if (ui.Switch(reactiveMode, {.label = "React", .size = guikit::UiSize::Sm}).changed) {
+                    if (ui.Switch(reactiveMode, {.label = "React", .size = guikit::UiSize::Md}).changed) {
                         if (!reactiveMode) {
                             ui.InvalidateAll();
                         }
                     }
 
                     bool dirtyActive = ui.IsDirtyRectEnabled();
-                    if (ui.Switch(dirtyActive, {.label = "Dirty", .size = guikit::UiSize::Sm}).changed) {
+                    if (ui.Switch(dirtyActive, {.label = "Dirty", .size = guikit::UiSize::Md}).changed) {
                         ui.SetDirtyRectEnabled(dirtyActive);
                         if (!dirtyActive) {
                             ui.InvalidateAll();
