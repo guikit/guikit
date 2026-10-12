@@ -29,6 +29,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
     node->visualHash = detail::HashArgs(
         opts.variant,
         opts.iconPlacement,
+        opts.align,
         opts.active,
         opts.stretch,
         opts.size.value_or(activeSize),
@@ -156,19 +157,31 @@ void Button::Render(
     const bool hasLabel = !opts.label.empty();
 
     if (hasIcon && !hasLabel) {
-        // Centered icon
+        // Icon-only
         const float isz = m.iconSize;
+        float iconX = bounds.x + (bounds.w - isz) * 0.5f;
+        if (opts.align == Align::Start) {
+            iconX = bounds.x + m.paddingX;
+        } else if (opts.align == Align::End) {
+            iconX = bounds.x + bounds.w - m.paddingX - isz;
+        }
         const Rect iconBounds(
-            bounds.x + (bounds.w - isz) * 0.5f,
+            iconX,
             bounds.y + (bounds.h - isz) * 0.5f,
             isz, isz
         );
         opts.icon.Draw(canvas, iconBounds, textCol);
     } else if (!hasIcon && hasLabel) {
-        // Centered label with automatic ellipsis
+        // Label-only with automatic ellipsis
         const float availW = std::max(0.0f, bounds.w - m.paddingX * 2.0f);
         const Rect textRect(bounds.x + m.paddingX, bounds.y, availW, bounds.h);
-        canvas.DrawTextBox(opts.label, textRect, m.fontSize, textCol, 0.5f, 0.5f);
+        float alignX = 0.5f;
+        if (opts.align == Align::Start) {
+            alignX = 0.0f;
+        } else if (opts.align == Align::End) {
+            alignX = 1.0f;
+        }
+        canvas.DrawTextBox(opts.label, textRect, m.fontSize, textCol, alignX, 0.5f);
     } else if (hasIcon && hasLabel) {
         // Icon + Label
         if (opts.iconPlacement == Placement::Top) {
@@ -176,18 +189,34 @@ void Button::Render(
             const float textH = canvas.GetLineHeight(m.fontSize);
             const float totalContentH = m.iconSize + gap + textH;
             const float startY = bounds.y + (bounds.h - totalContentH) * 0.5f;
-            const float iconX = bounds.x + (bounds.w - m.iconSize) * 0.5f;
+            float iconX = bounds.x + (bounds.w - m.iconSize) * 0.5f;
+            float alignX = 0.5f;
+            if (opts.align == Align::Start) {
+                iconX = bounds.x + m.paddingX;
+                alignX = 0.0f;
+            } else if (opts.align == Align::End) {
+                iconX = bounds.x + bounds.w - m.paddingX - m.iconSize;
+                alignX = 1.0f;
+            }
             opts.icon.Draw(canvas, Rect(iconX, startY, m.iconSize, m.iconSize), textCol);
             const Rect textRect(bounds.x + m.paddingX, startY + m.iconSize + gap, std::max(0.0f, bounds.w - m.paddingX * 2.0f), textH);
-            canvas.DrawTextBox(opts.label, textRect, m.fontSize, textCol, 0.5f, 0.5f);
+            canvas.DrawTextBox(opts.label, textRect, m.fontSize, textCol, alignX, 0.5f);
         } else if (opts.iconPlacement == Placement::Bottom) {
             const float gap = 4.0f;
             const float textH = canvas.GetLineHeight(m.fontSize);
             const float totalContentH = m.iconSize + gap + textH;
             const float startY = bounds.y + (bounds.h - totalContentH) * 0.5f;
+            float iconX = bounds.x + (bounds.w - m.iconSize) * 0.5f;
+            float alignX = 0.5f;
+            if (opts.align == Align::Start) {
+                iconX = bounds.x + m.paddingX;
+                alignX = 0.0f;
+            } else if (opts.align == Align::End) {
+                iconX = bounds.x + bounds.w - m.paddingX - m.iconSize;
+                alignX = 1.0f;
+            }
             const Rect textRect(bounds.x + m.paddingX, startY, std::max(0.0f, bounds.w - m.paddingX * 2.0f), textH);
-            canvas.DrawTextBox(opts.label, textRect, m.fontSize, textCol, 0.5f, 0.5f);
-            const float iconX = bounds.x + (bounds.w - m.iconSize) * 0.5f;
+            canvas.DrawTextBox(opts.label, textRect, m.fontSize, textCol, alignX, 0.5f);
             opts.icon.Draw(canvas, Rect(iconX, startY + textH + gap, m.iconSize, m.iconSize), textCol);
         } else if (opts.iconPlacement == Placement::Trailing) {
             const float gap = 8.0f;
@@ -201,11 +230,17 @@ void Button::Render(
             const float totalContentW = m.iconSize + gap + textW;
             const float centeredStartX = bounds.x + (bounds.w - totalContentW) * 0.5f;
             const float minStartX = bounds.x + m.paddingX;
-            const float startX = (!opts.labelVariants.empty() || bounds.w < totalContentW + m.paddingX * 2.0f)
-                ? minStartX
-                : centeredStartX;
+            const float maxStartX = bounds.x + bounds.w - m.paddingX - totalContentW;
+            float startX = centeredStartX;
+            if (opts.align == Align::Start) {
+                startX = minStartX;
+            } else if (opts.align == Align::End) {
+                startX = maxStartX;
+            } else if (!opts.labelVariants.empty() || bounds.w < totalContentW + m.paddingX * 2.0f) {
+                startX = minStartX;
+            }
             const float iconY = bounds.y + (bounds.h - m.iconSize) * 0.5f;
-            const Rect textRect(startX, bounds.y, availTextW, bounds.h);
+            const Rect textRect(startX, bounds.y, textW, bounds.h);
             canvas.DrawTextBox(displayLabel, textRect, m.fontSize, textCol, 0.0f, 0.5f);
             opts.icon.Draw(canvas, Rect(startX + textW + gap, iconY, m.iconSize, m.iconSize), textCol);
         } else { // Leading / default
@@ -220,12 +255,19 @@ void Button::Render(
             const float totalContentW = m.iconSize + gap + textW;
             const float centeredStartX = bounds.x + (bounds.w - totalContentW) * 0.5f;
             const float minStartX = bounds.x + m.paddingX;
-            const float startX = (!opts.labelVariants.empty() || bounds.w < totalContentW + m.paddingX * 2.0f)
-                ? minStartX
-                : centeredStartX;
+            const float maxStartX = bounds.x + bounds.w - m.paddingX - totalContentW;
+            float startX = centeredStartX;
+            if (opts.align == Align::Start) {
+                startX = minStartX;
+            } else if (opts.align == Align::End) {
+                startX = maxStartX;
+            } else if (!opts.labelVariants.empty() || bounds.w < totalContentW + m.paddingX * 2.0f) {
+                startX = minStartX;
+            }
             const float iconY = bounds.y + (bounds.h - m.iconSize) * 0.5f;
             opts.icon.Draw(canvas, Rect(startX, iconY, m.iconSize, m.iconSize), textCol);
-            const Rect textRect(startX + m.iconSize + gap, bounds.y, availTextW, bounds.h);
+            const float remainingW = std::max(0.0f, (bounds.x + bounds.w - m.paddingX) - (startX + m.iconSize + gap));
+            const Rect textRect(startX + m.iconSize + gap, bounds.y, remainingW, bounds.h);
             canvas.DrawTextBox(displayLabel, textRect, m.fontSize, textCol, 0.0f, 0.5f);
         }
     }

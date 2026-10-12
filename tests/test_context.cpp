@@ -3661,6 +3661,80 @@ void TestTextAreaWidgetWorkflow() {
     ui.EndFrame(canvas);
 }
 
+void TestButtonAlignmentAndProceduralIcons() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 400;
+    const uint32_t height = 500;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    // Verify IconId enum values & procedural drawing
+    auto editIcon = Icon::Edit();
+    CHECK(editIcon.IsValid());
+    CHECK(editIcon.GetId() == IconId::Edit);
+
+    auto copyIcon = Icon::Copy();
+    CHECK(copyIcon.IsValid());
+    CHECK(copyIcon.GetId() == IconId::Copy);
+
+    auto eyeOffIcon = Icon(IconId::EyeOff);
+    CHECK(eyeOffIcon.IsValid());
+    CHECK(eyeOffIcon.GetId() == IconId::EyeOff);
+
+    // Render frame with Left-Aligned (Start) navigation rail buttons
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
+    if (auto col = ui.Column({.gap = 4.0f})) {
+        ui.Button({
+            .label = "Button",
+            .icon = Icon::Play(),
+            .align = Align::Start,
+            .stretch = true
+        });
+        ui.Button({
+            .label = "Input",
+            .icon = Icon::Edit(),
+            .align = Align::Start,
+            .stretch = true
+        });
+        ui.Button({
+            .label = "Containers",
+            .icon = Icon::Copy(),
+            .align = Align::Start,
+            .stretch = true
+        });
+        ui.Button({
+            .label = "End-Aligned",
+            .icon = Icon::Settings(),
+            .align = Align::End,
+            .stretch = true
+        });
+        ui.Button({
+            .label = "Center-Aligned",
+            .icon = Icon::Folder(),
+            .align = Align::Center,
+            .stretch = true
+        });
+        // Label only left-aligned
+        ui.Button({
+            .label = "Label Only Left",
+            .align = Align::Start,
+            .stretch = true
+        });
+        // Icon only left-aligned
+        ui.Button({
+            .icon = Icon::Plus(),
+            .align = Align::Start,
+            .stretch = true
+        });
+    }
+    ui.EndFrame(canvas);
+
+    std::cout << "  [PASS] TestButtonAlignmentAndProceduralIcons completed\n";
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -3707,6 +3781,7 @@ int main() {
     TestSliderAndStepSliderWidgets();
     TestPixelGeometryAndWidgetUiSizeDecoupling();
     TestTextAreaWidgetWorkflow();
+    TestButtonAlignmentAndProceduralIcons();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

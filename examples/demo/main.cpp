@@ -145,6 +145,7 @@ int main(int argc, char* argv[]) {
     guikit::UiVariant btnVariant = guikit::UiVariant::Primary;
     bool btnHasIcon = true;
     guikit::Placement btnIconPlacement = guikit::Placement::Leading;
+    guikit::Align btnAlign = guikit::Align::Center;
     bool btnStretch = false;
     bool btnDisabled = false;
     int btnClicks = 0;
@@ -469,6 +470,7 @@ int main(int argc, char* argv[]) {
                                             .icon = icon,
                                             .variant = isSel ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
                                             .iconPlacement = guikit::Placement::Leading,
+                                            .align = guikit::Align::Start,
                                             .stretch = true,
                                             .disabled = false,
                                             .active = isSel,
@@ -568,6 +570,12 @@ int main(int argc, char* argv[]) {
 
                                                 ui.Heading({.title = "Options & States", .size = guikit::UiSize::Sm});
                                                 if (ui.Switch(btnStretch, {.label = "Stretch (Full Width)"}).changed) ui.InvalidateAll();
+                                                static constexpr std::array<std::string_view, 3> alignNames = {"Start (Left)", "Center", "End (Right)"};
+                                                size_t alignIdx = (btnAlign == guikit::Align::Start) ? 0 : ((btnAlign == guikit::Align::End) ? 2 : 1);
+                                                if (ui.StepSlider(alignIdx, alignNames, {.label = "Content Alignment", .showTicks = true, .showLabels = true}).changed) {
+                                                    btnAlign = (alignIdx == 0) ? guikit::Align::Start : ((alignIdx == 2) ? guikit::Align::End : guikit::Align::Center);
+                                                    ui.InvalidateAll();
+                                                }
                                                 if (ui.Switch(btnHasIcon, {.label = "Show Icon"}).changed) ui.InvalidateAll();
                                                 if (btnHasIcon) {
                                                     static constexpr std::array<std::string_view, 4> placeNames = {"Leading", "Trailing", "Top", "Bottom"};
@@ -708,6 +716,7 @@ int main(int argc, char* argv[]) {
                                             btnVariant = guikit::UiVariant::Primary;
                                             btnHasIcon = true;
                                             btnIconPlacement = guikit::Placement::Leading;
+                                            btnAlign = guikit::Align::Center;
                                             btnStretch = false;
                                             btnDisabled = false;
                                             cardRadius = 8.0f;
@@ -874,6 +883,7 @@ int main(int argc, char* argv[]) {
                                                         .icon = btnHasIcon ? guikit::Icon::Play() : guikit::Icon{},
                                                         .variant = btnVariant,
                                                         .iconPlacement = btnIconPlacement,
+                                                        .align = btnAlign,
                                                         .stretch = btnStretch,
                                                         .disabled = btnDisabled,
                                                         .size = controlsSize
@@ -1177,6 +1187,7 @@ int main(int argc, char* argv[]) {
                                                 "{}"
                                                 "{}"
                                                 "{}"
+                                                "{}"
                                                 "    .size = guikit::UiSize::{}\n"
                                                 "}});",
                                                 btnClicks > 0 ? std::format("Clicked {}x", btnClicks) : "Interactive Button",
@@ -1192,6 +1203,7 @@ int main(int argc, char* argv[]) {
                                                     btnIconPlacement == guikit::Placement::Leading ? "Leading" :
                                                     (btnIconPlacement == guikit::Placement::Trailing ? "Trailing" :
                                                     (btnIconPlacement == guikit::Placement::Top ? "Top" : "Bottom"))) : "",
+                                                btnAlign != guikit::Align::Center ? (btnAlign == guikit::Align::Start ? "    .align = guikit::Align::Start,\n" : "    .align = guikit::Align::End,\n") : "",
                                                 btnStretch ? "    .stretch = true,\n" : "",
                                                 btnDisabled ? "    .disabled = true,\n" : "",
                                                 controlsSize == guikit::UiSize::Xs ? "Xs" :

@@ -21,6 +21,7 @@ struct ToolButtonOptions {
     Icon icon{};
     UiVariant variant{UiVariant::Ghost};
     Placement iconPlacement{Placement::Leading};
+    Align align{Align::Center};  ///< Content horizontal alignment (Start = left, Center, End = right)
     LabelVariants labelVariants{};
     bool stretch{false};        ///< Expand to fill available horizontal space in flex containers
     bool disabled{false};

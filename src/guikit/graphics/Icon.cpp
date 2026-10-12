@@ -196,6 +196,32 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
                 break;
             }
 
+            case IconId::EyeOff: {
+                const float r = s * 0.16f;
+                canvas.DrawRoundRect(Rect(cx - r, cy - r, r * 2.0f, r * 2.0f), r, tint);
+                canvas.DrawLine(Vec2(cx - s * 0.35f, cy), Vec2(cx, cy - s * 0.22f), tint, stroke);
+                canvas.DrawLine(Vec2(cx, cy - s * 0.22f), Vec2(cx + s * 0.35f, cy), tint, stroke);
+                canvas.DrawLine(Vec2(cx - s * 0.35f, cy), Vec2(cx, cy + s * 0.22f), tint, stroke);
+                canvas.DrawLine(Vec2(cx, cy + s * 0.22f), Vec2(cx + s * 0.35f, cy), tint, stroke);
+                canvas.DrawLine(Vec2(cx - s * 0.32f, cy - s * 0.32f), Vec2(cx + s * 0.32f, cy + s * 0.32f), tint, stroke);
+                break;
+            }
+
+            case IconId::Edit: {
+                // Diagonal pencil: body shaft + tip point + paper base
+                canvas.DrawLine(Vec2(cx - s * 0.18f, cy + s * 0.18f), Vec2(cx + s * 0.20f, cy - s * 0.20f), tint, stroke * 1.4f);
+                canvas.DrawLine(Vec2(cx - s * 0.18f, cy + s * 0.18f), Vec2(cx - s * 0.30f, cy + s * 0.30f), tint, stroke);
+                canvas.DrawLine(Vec2(cx - s * 0.30f, cy + s * 0.32f), Vec2(cx + s * 0.30f, cy + s * 0.32f), tint, stroke);
+                break;
+            }
+
+            case IconId::Copy: {
+                // Two overlapping document outlines
+                canvas.DrawRoundRect(Rect(cx - s * 0.10f, cy - s * 0.30f, s * 0.40f, s * 0.46f), 1.5f, Color(0, 0, 0, 0), tint, stroke);
+                canvas.DrawRoundRect(Rect(cx - s * 0.30f, cy - s * 0.10f, s * 0.40f, s * 0.46f), 1.5f, Color(0, 0, 0, 0), tint, stroke);
+                break;
+            }
+
             default:
                 break;
         }
