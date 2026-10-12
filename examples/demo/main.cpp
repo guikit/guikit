@@ -848,24 +848,6 @@ int main(int argc, char* argv[]) {
                                 // ELEMENTS MODE: Component Sandbox (Hero + Matrices + C++ Code)
                                 // -------------------------------------------------------------
                                 if (auto heroCard = ui.Card({.gap = 12.0f, .padding = guikit::Padding::All(14.0f)})) {
-                                    if (auto hdrRow = ui.Row({.align = guikit::Alignment::Center})) {
-                                        std::string elemTitle = "Atom Component Sandbox";
-                                        if (selectedCategory == NavCategory::ElemButton) elemTitle = "Button Component (Atom)";
-                                        else if (selectedCategory == NavCategory::ElemSlider) elemTitle = "Slider Component (Atom)";
-                                        else if (selectedCategory == NavCategory::ElemInputField) elemTitle = "InputField Component (Atom)";
-                                        else if (selectedCategory == NavCategory::ElemSelect) elemTitle = "Select Component (Atom)";
-                                        else if (selectedCategory == NavCategory::ElemSwitchCheckbox) elemTitle = "Switch & Checkbox (Atoms)";
-                                        else if (selectedCategory == NavCategory::ElemTabBar) elemTitle = "TabBar Component (Atom)";
-                                        else if (selectedCategory == NavCategory::ElemContainers) elemTitle = "Containers: Card & Box (Surfaces)";
-                                        else if (selectedCategory == NavCategory::ElemTypography) elemTitle = "Typography: Heading & Text (Atoms)";
-
-                                        ui.Heading({
-                                            .title = elemTitle,
-                                            .subtitle = "Isolated component stage with live vector scaling and immediate interaction",
-                                            .size = guikit::UiSize::Sm
-                                        });
-                                    }
-
                                     // Hero Showcase Stage
                                     if (auto stageBox = ui.Box({
                                         .padding = guikit::Padding::All(24.0f),
@@ -1015,12 +997,6 @@ int main(int argc, char* argv[]) {
 
                                 // Design Token Scale Matrix (UiSize: Xs -> Xl)
                                 if (auto scaleMatrixCard = ui.Card({.gap = 8.0f, .padding = guikit::Padding::All(12.0f)})) {
-                                    ui.Heading({
-                                        .title = "Design Token Scale Matrix (UiSize)",
-                                        .subtitle = "Proportional density scaling across all 5 sizes (Xs, Sm, Md, Lg, Xl)",
-                                        .size = guikit::UiSize::Sm
-                                    });
-
                                     switch (selectedCategory) {
                                         case NavCategory::ElemButton: {
                                             if (auto row = ui.Row({.gap = 8.0f, .align = guikit::Alignment::Center})) {
@@ -1127,12 +1103,6 @@ int main(int argc, char* argv[]) {
 
                                 // Semantic Variants Matrix (UiVariant)
                                 if (auto varMatrixCard = ui.Card({.gap = 8.0f, .padding = guikit::Padding::All(12.0f)})) {
-                                    ui.Heading({
-                                        .title = "Semantic Variants Matrix (UiVariant)",
-                                        .subtitle = "Complete design token color family (8 core variants)",
-                                        .size = guikit::UiSize::Sm
-                                    });
-
                                     if (selectedCategory == NavCategory::ElemButton) {
                                         if (auto row = ui.Wrap({.gap = 8.0f, .runGap = 8.0f, .align = guikit::Alignment::Center})) {
                                             ui.Button({.label = "Default", .variant = guikit::UiVariant::Default, .size = controlsSize});
@@ -1159,12 +1129,6 @@ int main(int argc, char* argv[]) {
                                 // C++20 Immediate Mode Code Generator Card
                                 if (auto codeCard = ui.Card({.gap = 8.0f, .padding = guikit::Padding::All(12.0f)})) {
                                     if (auto hdr = ui.Row({.align = guikit::Alignment::Center})) {
-                                        ui.Heading({
-                                            .title = "C++20 Immediate Mode Invocation",
-                                            .subtitle = "Copy-pasteable widget call reflecting currently selected inspector options",
-                                            .icon = guikit::Icon::Copy(),
-                                            .size = guikit::UiSize::Sm
-                                        });
                                         ui.Spacer();
                                         if (ui.Button({
                                             .label = codeShowLineNumbers ? "Lines: ON" : "Lines: OFF",
