@@ -46,6 +46,7 @@ set(GUIKIT_SOURCES
     src/guikit/core/ContainerScope.cpp
     src/guikit/core/Response.cpp
     src/guikit/core/Theme.cpp
+    src/guikit/core/TextUtil.cpp
     src/guikit/core/Solver.cpp
     src/guikit/backend/ThorCanvas.cpp
     src/guikit/backend/SdlCanvas.cpp
@@ -69,6 +70,7 @@ set(GUIKIT_SOURCES
     src/guikit/widgets/Switch.cpp
     src/guikit/widgets/TabBar.cpp
     src/guikit/widgets/Text.cpp
+    src/guikit/widgets/TextArea.cpp
 )
 
 add_library(guikit STATIC ${GUIKIT_SOURCES})

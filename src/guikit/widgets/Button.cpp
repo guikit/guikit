@@ -3,6 +3,7 @@
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Node.hpp"
+#include "guikit/core/TextUtil.hpp"
 
 namespace guikit {
 
@@ -36,7 +37,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
         opts.icon.GetPath(),
         node->text
     );
-    node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* b = n->As<ButtonOptions>();
         return Button::Measure(b ? *b : ButtonOptions{}, n->uiSize, canvas, theme);
     };
@@ -50,6 +51,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
     node->pressed = res.pressed;
     node->widthMode = opts.stretch ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
+    node->minWidth = ctx.GetTheme().GetMetrics(activeSize).defaultHeight;
 
     ctx.AdaptChildToContainer(node);
 
@@ -144,6 +146,9 @@ void Button::Render(
         bg = colors.bgHover;
     }
 
+    // Clip all button content strictly to bounds to prevent any bleeding
+    canvas.PushClip(bounds);
+
     // Background & border
     canvas.DrawRoundRect(bounds, m.cornerRadius, bg, borderCol, borderW);
 
@@ -160,8 +165,10 @@ void Button::Render(
         );
         opts.icon.Draw(canvas, iconBounds, textCol);
     } else if (!hasIcon && hasLabel) {
-        // Centered label
-        canvas.DrawTextBox(opts.label, bounds, m.fontSize, textCol, 0.5f, 0.5f);
+        // Centered label with automatic ellipsis
+        const float availW = std::max(0.0f, bounds.w - m.paddingX * 2.0f);
+        const Rect textRect(bounds.x + m.paddingX, bounds.y, availW, bounds.h);
+        canvas.DrawTextBox(opts.label, textRect, m.fontSize, textCol, 0.5f, 0.5f);
     } else if (hasIcon && hasLabel) {
         // Icon + Label
         if (opts.iconPlacement == Placement::Top) {
@@ -171,20 +178,26 @@ void Button::Render(
             const float startY = bounds.y + (bounds.h - totalContentH) * 0.5f;
             const float iconX = bounds.x + (bounds.w - m.iconSize) * 0.5f;
             opts.icon.Draw(canvas, Rect(iconX, startY, m.iconSize, m.iconSize), textCol);
-            const Rect textRect(bounds.x, startY + m.iconSize + gap, bounds.w, textH);
+            const Rect textRect(bounds.x + m.paddingX, startY + m.iconSize + gap, std::max(0.0f, bounds.w - m.paddingX * 2.0f), textH);
             canvas.DrawTextBox(opts.label, textRect, m.fontSize, textCol, 0.5f, 0.5f);
         } else if (opts.iconPlacement == Placement::Bottom) {
             const float gap = 4.0f;
             const float textH = canvas.GetLineHeight(m.fontSize);
             const float totalContentH = m.iconSize + gap + textH;
             const float startY = bounds.y + (bounds.h - totalContentH) * 0.5f;
-            const Rect textRect(bounds.x, startY, bounds.w, textH);
+            const Rect textRect(bounds.x + m.paddingX, startY, std::max(0.0f, bounds.w - m.paddingX * 2.0f), textH);
             canvas.DrawTextBox(opts.label, textRect, m.fontSize, textCol, 0.5f, 0.5f);
             const float iconX = bounds.x + (bounds.w - m.iconSize) * 0.5f;
             opts.icon.Draw(canvas, Rect(iconX, startY + textH + gap, m.iconSize, m.iconSize), textCol);
         } else if (opts.iconPlacement == Placement::Trailing) {
             const float gap = 8.0f;
+            const float availTextW = std::max(0.0f, bounds.w - m.paddingX * 2.0f - m.iconSize - gap);
             float textW = canvas.MeasureText(opts.label, m.fontSize).x;
+            std::string displayLabel(opts.label);
+            if (textW > availTextW + kTextSubpixelTolerance && availTextW > 0.0f) {
+                displayLabel = TextUtil::TruncateWithEllipsis(opts.label, availTextW, m.fontSize, &canvas);
+                textW = canvas.MeasureText(displayLabel, m.fontSize).x;
+            }
             const float totalContentW = m.iconSize + gap + textW;
             const float centeredStartX = bounds.x + (bounds.w - totalContentW) * 0.5f;
             const float minStartX = bounds.x + m.paddingX;
@@ -192,12 +205,18 @@ void Button::Render(
                 ? minStartX
                 : centeredStartX;
             const float iconY = bounds.y + (bounds.h - m.iconSize) * 0.5f;
-            const Rect textRect(startX, bounds.y, textW, bounds.h);
-            canvas.DrawTextBox(opts.label, textRect, m.fontSize, textCol, 0.0f, 0.5f);
+            const Rect textRect(startX, bounds.y, availTextW, bounds.h);
+            canvas.DrawTextBox(displayLabel, textRect, m.fontSize, textCol, 0.0f, 0.5f);
             opts.icon.Draw(canvas, Rect(startX + textW + gap, iconY, m.iconSize, m.iconSize), textCol);
         } else { // Leading / default
             const float gap = 8.0f;
+            const float availTextW = std::max(0.0f, bounds.w - m.paddingX * 2.0f - m.iconSize - gap);
             float textW = canvas.MeasureText(opts.label, m.fontSize).x;
+            std::string displayLabel(opts.label);
+            if (textW > availTextW + kTextSubpixelTolerance && availTextW > 0.0f) {
+                displayLabel = TextUtil::TruncateWithEllipsis(opts.label, availTextW, m.fontSize, &canvas);
+                textW = canvas.MeasureText(displayLabel, m.fontSize).x;
+            }
             const float totalContentW = m.iconSize + gap + textW;
             const float centeredStartX = bounds.x + (bounds.w - totalContentW) * 0.5f;
             const float minStartX = bounds.x + m.paddingX;
@@ -206,10 +225,12 @@ void Button::Render(
                 : centeredStartX;
             const float iconY = bounds.y + (bounds.h - m.iconSize) * 0.5f;
             opts.icon.Draw(canvas, Rect(startX, iconY, m.iconSize, m.iconSize), textCol);
-            const Rect textRect(startX + m.iconSize + gap, bounds.y, textW, bounds.h);
-            canvas.DrawTextBox(opts.label, textRect, m.fontSize, textCol, 0.0f, 0.5f);
+            const Rect textRect(startX + m.iconSize + gap, bounds.y, availTextW, bounds.h);
+            canvas.DrawTextBox(displayLabel, textRect, m.fontSize, textCol, 0.0f, 0.5f);
         }
     }
+
+    canvas.PopClip();
 }
 
 } // namespace guikit

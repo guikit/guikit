@@ -3,6 +3,7 @@
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Node.hpp"
+#include "guikit/core/TextUtil.hpp"
 #include "guikit/panels/Carousel.hpp"
 
 namespace guikit {
@@ -33,10 +34,34 @@ Response TabBar::Run(
     std::optional<ContainerScope> carouselScope;
     Node* barNode = nullptr;
 
+    const float defaultTabGap = (activeSize <= UiSize::Sm) ? ctx.GetTheme().GetGap(UiSize::Xs) : ctx.GetTheme().GetGap(UiSize::Sm);
+    const float activeTabGap = opts.gap.value_or(defaultTabGap);
+
+    const bool hasCustomBgOrBorder = (opts.backgroundColor.a > 0 || opts.borderColor.a > 0);
+
+    Padding resolvedPadding{};
+    if (opts.padding.has_value()) {
+        resolvedPadding = *opts.padding;
+    } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
+        const float defaultPad = (activeSize <= UiSize::Sm) ? 2.0f : 3.0f;
+        resolvedPadding = Padding{defaultPad, defaultPad, defaultPad, defaultPad};
+    }
+
+    float resolvedRadius = 0.0f;
+    if (opts.radius.has_value()) {
+        resolvedRadius = *opts.radius;
+    } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
+        resolvedRadius = m.cornerRadius + 2.0f;
+    }
+
+    const float effectiveBorderWidth = (opts.borderWidth > 0.0f) ? opts.borderWidth
+        : (opts.borderColor.a > 0 ? 1.0f : 0.0f);
+
     if (opts.scrollable && !opts.fullWidth) {
         CarouselOptions cOpts;
         cOpts.size = activeSize;
-        cOpts.gap = (activeSize <= UiSize::Sm) ? ctx.GetTheme().GetGap(UiSize::Xs) : ctx.GetTheme().GetGap(UiSize::Sm);
+        cOpts.gap = activeTabGap;
+        cOpts.padding = resolvedPadding;
         cOpts.scrollWheel = true;
         cOpts.disabled = ctx.IsDisabled();
 
@@ -44,7 +69,22 @@ Response TabBar::Run(
         barNode = carouselScope->GetNode();
         barNode->theme = pushedTheme;
         barNode->heightMode = SizeMode::Fixed;
-        barNode->fixedHeight = m.defaultHeight;
+        barNode->fixedHeight = m.defaultHeight + resolvedPadding.Vertical();
+        barNode->backgroundColor = opts.backgroundColor;
+        barNode->borderColor = opts.borderColor;
+        barNode->borderWidth = effectiveBorderWidth;
+        barNode->cornerRadius = resolvedRadius;
+        if (resolvedRadius > 0.0f) {
+            barNode->clipChildren = true;
+        }
+        barNode->visualHash = detail::HashArgs(
+            opts.backgroundColor.ToUint32(),
+            opts.borderColor.ToUint32(),
+            effectiveBorderWidth,
+            resolvedRadius,
+            resolvedPadding.top,
+            resolvedPadding.left
+        );
         if (auto* cData = barNode->As<CarouselData>()) {
             cData->showBaselineSeparator = (opts.showSeparator && opts.style == TabBarStyle::Underline);
         }
@@ -54,11 +94,27 @@ Response TabBar::Run(
         barNode->theme = pushedTheme;
         barNode->direction = FlexDirection::Row;
         barNode->align = Alignment::Center;
-        barNode->gap = (activeSize <= UiSize::Sm) ? ctx.GetTheme().GetGap(UiSize::Xs) : ctx.GetTheme().GetGap(UiSize::Sm);
+        barNode->gap = activeTabGap;
+        barNode->padding = resolvedPadding;
         barNode->uiSize = activeSize;
         barNode->widthMode = opts.fullWidth ? SizeMode::Stretch : SizeMode::Fit;
         barNode->heightMode = SizeMode::Fixed;
-        barNode->fixedHeight = m.defaultHeight;
+        barNode->fixedHeight = m.defaultHeight + resolvedPadding.Vertical();
+        barNode->backgroundColor = opts.backgroundColor;
+        barNode->borderColor = opts.borderColor;
+        barNode->borderWidth = effectiveBorderWidth;
+        barNode->cornerRadius = resolvedRadius;
+        if (resolvedRadius > 0.0f) {
+            barNode->clipChildren = true;
+        }
+        barNode->visualHash = detail::HashArgs(
+            opts.backgroundColor.ToUint32(),
+            opts.borderColor.ToUint32(),
+            effectiveBorderWidth,
+            resolvedRadius,
+            resolvedPadding.top,
+            resolvedPadding.left
+        );
         barNode->payload = ctx.AllocPayload<TabBarOptions>(opts);
         ctx.PushContainer(barNode);
     }
@@ -106,6 +162,7 @@ Response TabBar::Run(
             opts.style,
             opts.showSeparator,
             opts.activeColor.ToUint32(),
+            opts.radius.value_or(-1.0f),
             item.variant,
             item.badge,
             tabNode->text,
@@ -113,7 +170,7 @@ Response TabBar::Run(
             static_cast<uint8_t>(item.icon.GetId()),
             item.icon.GetPath()
         );
-        tabNode->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+        tabNode->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
             const auto* d = n->As<TabItemData>();
             return TabBar::MeasureTab(
                 d ? d->item : TabItem{},
@@ -228,6 +285,8 @@ void TabBar::RenderTab(
     const ComponentMetrics& m = theme.GetMetrics(size);
     const auto& pal = theme.palette;
 
+    canvas.PushClip(bounds);
+
     if (opts.style == TabBarStyle::Underline) {
         // Horizontal baseline separator spanning across tabs
         if (opts.showSeparator) {
@@ -257,13 +316,30 @@ void TabBar::RenderTab(
         }
     } else {
         // Pill / Segmented style
+        const bool hasCustomBgOrBorder = (opts.backgroundColor.a > 0 || opts.borderColor.a > 0);
+        float padTop = 0.0f;
+        if (opts.padding.has_value()) {
+            padTop = opts.padding->top;
+        } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
+            padTop = (size <= UiSize::Sm) ? 2.0f : 3.0f;
+        }
+
+        float pillRadius = m.cornerRadius;
+        if (opts.radius.has_value()) {
+            if (*opts.radius == 0.0f) {
+                pillRadius = 0.0f;
+            } else {
+                pillRadius = std::max(0.0f, *opts.radius - padTop);
+            }
+        }
+
         if (active) {
             const Color pillCol = (opts.activeColor.a > 0)
                 ? opts.activeColor
                 : (item.variant != UiVariant::Default ? theme.GetVariant(item.variant).bgActive : pal.surfaceActive);
-            canvas.DrawRoundRect(bounds, m.cornerRadius, pillCol);
+            canvas.DrawRoundRect(bounds, pillRadius, pillCol);
         } else if (hovered && !disabled) {
-            canvas.DrawRoundRect(bounds, m.cornerRadius, pal.surfaceHover);
+            canvas.DrawRoundRect(bounds, pillRadius, pal.surfaceHover);
         }
     }
 
@@ -310,9 +386,16 @@ void TabBar::RenderTab(
 
     // Draw Label
     if (!item.label.empty()) {
-        const Rect textR(curX, bounds.y, textW, bounds.h);
-        canvas.DrawTextBox(item.label, textR, m.fontSize, fgCol, 0.0f, 0.5f);
-        curX += textW;
+        const float maxLabelW = std::max(0.0f, bounds.Right() - m.paddingX - curX - (item.badge.empty() ? 0.0f : (badgeW + 6.0f)));
+        float labelW = canvas.MeasureText(item.label, m.fontSize).x;
+        std::string displayLabel(item.label);
+        if (labelW > maxLabelW + kTextSubpixelTolerance && maxLabelW > 0.0f) {
+            displayLabel = TextUtil::TruncateWithEllipsis(item.label, maxLabelW, m.fontSize, &canvas);
+            labelW = canvas.MeasureText(displayLabel, m.fontSize).x;
+        }
+        const Rect textR(curX, bounds.y, maxLabelW, bounds.h);
+        canvas.DrawTextBox(displayLabel, textR, m.fontSize, fgCol, 0.0f, 0.5f);
+        curX += labelW;
     }
 
     // Draw Badge
@@ -334,6 +417,8 @@ void TabBar::RenderTab(
         canvas.DrawRoundRect(badgeR, 4.0f, badgeBg);
         canvas.DrawTextBox(item.badge, badgeR, badgeFontSize, badgeText, 0.5f, 0.5f);
     }
+
+    canvas.PopClip();
 }
 
 } // namespace guikit

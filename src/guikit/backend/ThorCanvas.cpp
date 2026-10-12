@@ -3,6 +3,7 @@
 #include <cmath>
 #include <iostream>
 #include <thread>
+#include "guikit/core/TextUtil.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "thorvg.h"
 
@@ -294,8 +295,15 @@ void ThorCanvas::DrawTextBox(
         if (cr.w <= 0.0f || cr.h <= 0.0f || !sBounds.Intersects(cr)) return;
     }
 
+    std::string truncated;
+    std::string_view drawText = text;
+    if (bounds.w > 0.0f && MeasureText(text, fontSize).x > bounds.w + kTextSubpixelTolerance) {
+        truncated = TextUtil::TruncateWithEllipsis(text, bounds.w, fontSize, this);
+        drawText = truncated;
+    }
+
     auto txt = tvg::Text::gen();
-    std::string textStr(text);
+    std::string textStr(drawText);
     txt->text(textStr.c_str());
 
     if (m_fontLoaded) {

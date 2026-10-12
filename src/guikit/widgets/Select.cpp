@@ -350,7 +350,7 @@ Response Select::Run(
         static_cast<uint8_t>(opts.prefixIcon.GetType()),
         static_cast<uint8_t>(opts.prefixIcon.GetId())
     );
-    node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<SelectData>();
         return Select::Measure(d ? d->opts : SelectOptions{}, n->uiSize, canvas, theme);
     };

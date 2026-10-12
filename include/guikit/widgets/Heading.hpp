@@ -30,6 +30,7 @@ struct HeadingOptions {
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     bool divider{false};                           ///< Whether to render a horizontal divider line
     HeadingDivider dividerStyle{HeadingDivider::Bottom}; ///< Divider placement style (Bottom or Trailing)
+    bool wordWrap{false};                          ///< Whether subtitle wraps into multiple lines when space is constrained
 };
 
 /// Autonomous Heading widget logic (execution, measuring, and rendering).
@@ -43,8 +44,18 @@ public:
     );
 
     /// Measures intrinsic dimensions based on title, subtitle, icon, badge, and UiSize.
-    static Vec2 Measure(const HeadingOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme);
-    static Vec2 Measure(const HeadingOptions& opts, UiSize size, ICanvas* canvas = nullptr);
+    /// When opts.wordWrap is true and availableWidth > 0, accounts for wrapped multi-line subtitle height.
+    static Vec2 Measure(const HeadingOptions& opts, UiSize size, float availableWidth, ICanvas* canvas, const UiTheme& theme);
+    static Vec2 Measure(const HeadingOptions& opts, UiSize size, float availableWidth = 0.0f, ICanvas* canvas = nullptr);
+
+    /// Resolves required height given available width, accounting for multi-line word wrapping if enabled.
+    static float ResolveHeight(
+        const HeadingOptions& opts,
+        UiSize size,
+        float availableWidth,
+        ICanvas* canvas,
+        const UiTheme& theme
+    );
 
     /// Renders the composite heading into allocated bounds.
     static void Render(

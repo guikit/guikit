@@ -131,7 +131,7 @@ Response InputField::Run(
         static_cast<uint8_t>(opts.suffixIcon.GetType()),
         static_cast<uint8_t>(opts.suffixIcon.GetId())
     );
-    node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<InputFieldData>();
         return InputField::Measure(
             d ? d->displayText : std::string_view{},

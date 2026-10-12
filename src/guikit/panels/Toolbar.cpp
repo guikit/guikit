@@ -16,7 +16,7 @@ void ToolbarScope::Separator(float heightRatio, std::source_location loc) {
     const float parentH = (m_node->fixedHeight > 0.0f) ? m_node->fixedHeight : 32.0f;
     sep->fixedHeight = parentH * std::clamp(heightRatio, 0.1f, 1.0f);
     sep->borderColor = m_node->borderColor;
-    sep->measureFn = [](const Node* n, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept -> Vec2 {
+    sep->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept -> Vec2 {
         return {
             n->fixedWidth > 0.0f ? n->fixedWidth : 10.0f,
             n->fixedHeight > 0.0f ? n->fixedHeight : 20.0f
@@ -34,7 +34,7 @@ void ToolbarScope::Spacer(std::source_location loc) {
     spacer->widthMode = SizeMode::Stretch;
     spacer->isSpacer = true;
     spacer->flexGrow = 1.0f;
-    spacer->measureFn = [](const Node*, ICanvas*, const UiTheme&) noexcept -> Vec2 {
+    spacer->measureFn = [](const Node*, float /*availableWidth*/, ICanvas*, const UiTheme&) noexcept -> Vec2 {
         return {0.0f, 0.0f};
     };
 }
@@ -142,7 +142,7 @@ Response Toolbar::ToolButton(
         opts.icon.GetPath(),
         node->text
     );
-    node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* b = n->As<ButtonOptions>();
         return Button::Measure(b ? *b : ButtonOptions{}, n->uiSize, canvas, theme);
     };

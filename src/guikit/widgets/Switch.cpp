@@ -51,7 +51,7 @@ Response Switch::Run(
         node->text,
         optsCopy.description
     );
-    node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<SwitchOptions>();
         return Switch::Measure(opts ? *opts : SwitchOptions{}, n->uiSize, canvas, theme);
     };

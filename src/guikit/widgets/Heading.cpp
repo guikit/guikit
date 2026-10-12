@@ -3,6 +3,7 @@
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Node.hpp"
+#include "guikit/core/TextUtil.hpp"
 
 namespace guikit {
 
@@ -40,13 +41,14 @@ Response Heading::Run(
         hOpts->badge,
         opts.divider,
         static_cast<uint8_t>(opts.dividerStyle),
+        opts.wordWrap,
         static_cast<uint8_t>(opts.icon.GetType()),
         static_cast<uint8_t>(opts.icon.GetId()),
         opts.icon.GetPath()
     );
-    node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<HeadingOptions>();
-        return Heading::Measure(opts ? *opts : HeadingOptions{}, n->uiSize, canvas, theme);
+        return Heading::Measure(opts ? *opts : HeadingOptions{}, n->uiSize, availableWidth, canvas, theme);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* opts = n->As<HeadingOptions>();
@@ -71,7 +73,7 @@ Response Heading::Run(
     return res;
 }
 
-Vec2 Heading::Measure(const HeadingOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme) {
+Vec2 Heading::Measure(const HeadingOptions& opts, UiSize size, float availableWidth, ICanvas* canvas, const UiTheme& theme) {
     const HeadingMetrics& m = theme.GetHeading(size);
     const std::string_view sub = opts.subtitle;
 
@@ -112,12 +114,18 @@ Vec2 Heading::Measure(const HeadingOptions& opts, UiSize size, ICanvas* canvas, 
     float subW = 0.0f;
     float subH = 0.0f;
     if (!sub.empty()) {
-        if (canvas) {
-            subW = canvas->MeasureText(sub, m.subtitleFontSize).x;
+        const float subLineH = canvas ? canvas->GetLineHeight(m.subtitleFontSize) : theme.GetLineHeight(m.subtitleFontSize);
+        if (opts.wordWrap && availableWidth > 0.0f) {
+            subH = TextUtil::MeasureWrappedHeight(sub, availableWidth, m.subtitleFontSize, subLineH, canvas);
+            subW = availableWidth;
         } else {
-            subW = static_cast<float>(sub.length()) * (m.subtitleFontSize * kDefaultCharAdvanceRatio);
+            if (canvas) {
+                subW = canvas->MeasureText(sub, m.subtitleFontSize).x;
+            } else {
+                subW = static_cast<float>(sub.length()) * (m.subtitleFontSize * kDefaultCharAdvanceRatio);
+            }
+            subH = subLineH;
         }
-        subH = canvas ? canvas->GetLineHeight(m.subtitleFontSize) : theme.GetLineHeight(m.subtitleFontSize);
     }
 
     const float totalW = std::max(titleLineW, subW);
@@ -133,8 +141,45 @@ Vec2 Heading::Measure(const HeadingOptions& opts, UiSize size, ICanvas* canvas, 
     return {totalW, totalH};
 }
 
-Vec2 Heading::Measure(const HeadingOptions& opts, UiSize size, ICanvas* canvas) {
-    return Measure(opts, size, canvas, UiTheme::Dark());
+Vec2 Heading::Measure(const HeadingOptions& opts, UiSize size, float availableWidth, ICanvas* canvas) {
+    return Measure(opts, size, availableWidth, canvas, UiTheme::Dark());
+}
+
+float Heading::ResolveHeight(
+    const HeadingOptions& opts,
+    UiSize size,
+    float availableWidth,
+    ICanvas* canvas,
+    const UiTheme& theme
+) {
+    const HeadingMetrics& m = theme.GetHeading(size);
+    const std::string_view sub = opts.subtitle;
+
+    float titleLineH = 0.0f;
+    if (opts.icon.IsValid()) titleLineH = std::max(titleLineH, m.iconSize);
+    if (!opts.title.empty()) titleLineH = std::max(titleLineH, canvas ? canvas->GetLineHeight(m.titleFontSize) : theme.GetLineHeight(m.titleFontSize));
+    if (!opts.badge.empty()) titleLineH = std::max(titleLineH, m.badgeFontSize * 1.4f);
+
+    float subH = 0.0f;
+    if (!sub.empty()) {
+        const float subLineH = canvas ? canvas->GetLineHeight(m.subtitleFontSize) : theme.GetLineHeight(m.subtitleFontSize);
+        if (opts.wordWrap && availableWidth > 0.0f) {
+            subH = TextUtil::MeasureWrappedHeight(sub, availableWidth, m.subtitleFontSize, subLineH, canvas);
+        } else {
+            subH = subLineH;
+        }
+    }
+
+    float totalH = (subH > 0.0f && titleLineH > 0.0f)
+        ? (titleLineH + m.lineGap + subH)
+        : (titleLineH + subH);
+
+    if (opts.divider && opts.dividerStyle == HeadingDivider::Bottom) {
+        const float divPad = std::max(4.0f, m.gap * 0.75f);
+        totalH += divPad + 1.0f + divPad * 0.5f;
+    }
+
+    return totalH;
 }
 
 void Heading::Render(
@@ -172,9 +217,15 @@ void Heading::Render(
 
     // 2. Draw Title
     if (!opts.title.empty()) {
+        const float titleAvailW = std::max(0.0f, bounds.Right() - curX - (opts.badge.empty() ? 0.0f : (m.badgeGap + 40.0f)));
         float titleW = canvas.MeasureText(opts.title, m.titleFontSize).x;
-        const Rect titleR(curX, topY, titleW, titleLineH);
-        canvas.DrawTextBox(opts.title, titleR, m.titleFontSize, titleColor, 0.0f, 0.5f);
+        std::string displayTitle(opts.title);
+        if (titleW > titleAvailW + kTextSubpixelTolerance && titleAvailW > 0.0f) {
+            displayTitle = TextUtil::TruncateWithEllipsis(opts.title, titleAvailW, m.titleFontSize, &canvas);
+            titleW = canvas.MeasureText(displayTitle, m.titleFontSize).x;
+        }
+        const Rect titleR(curX, topY, titleAvailW, titleLineH);
+        canvas.DrawTextBox(displayTitle, titleR, m.titleFontSize, titleColor, 0.0f, 0.5f);
         curX += titleW;
     }
 
@@ -199,11 +250,23 @@ void Heading::Render(
     }
 
     // 4. Draw Subtitle
+    float subTotalH = 0.0f;
     if (!sub.empty()) {
         const float subY = topY + titleLineH + m.lineGap;
-        const float subH = canvas.GetLineHeight(m.subtitleFontSize);
-        const Rect subR(bounds.x, subY, bounds.w, subH);
-        canvas.DrawTextBox(sub, subR, m.subtitleFontSize, subtitleColor, 0.0f, 0.5f);
+        const float subLineH = canvas.GetLineHeight(m.subtitleFontSize);
+        if (opts.wordWrap) {
+            auto lines = TextUtil::WrapText(sub, bounds.w, m.subtitleFontSize, &canvas);
+            for (size_t i = 0; i < lines.size(); ++i) {
+                const Rect subR(bounds.x, subY + static_cast<float>(i) * subLineH, bounds.w, subLineH);
+                canvas.DrawTextBox(lines[i], subR, m.subtitleFontSize, subtitleColor, 0.0f, 0.5f);
+            }
+            subTotalH = static_cast<float>(lines.empty() ? 1 : lines.size()) * subLineH;
+        } else {
+            std::string trSub = TextUtil::TruncateWithEllipsis(sub, bounds.w, m.subtitleFontSize, &canvas);
+            const Rect subR(bounds.x, subY, bounds.w, subLineH);
+            canvas.DrawTextBox(trSub, subR, m.subtitleFontSize, subtitleColor, 0.0f, 0.5f);
+            subTotalH = subLineH;
+        }
     }
 
     // 5. Draw Divider
@@ -214,7 +277,7 @@ void Heading::Render(
 
         if (opts.dividerStyle == HeadingDivider::Bottom) {
             const float divPad = std::max(4.0f, m.gap * 0.75f);
-            const float textH = sub.empty() ? titleLineH : (titleLineH + m.lineGap + canvas.GetLineHeight(m.subtitleFontSize));
+            const float textH = sub.empty() ? titleLineH : (titleLineH + m.lineGap + subTotalH);
             const float divY = std::floor(topY + textH + divPad) + 0.5f;
             canvas.DrawLine(
                 Vec2(bounds.x, divY),

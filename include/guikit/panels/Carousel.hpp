@@ -64,8 +64,8 @@ public:
     );
 
     /// Measures intrinsic dimensions for a Carousel container ribbon.
-    static Vec2 Measure(const Node* node, ICanvas* canvas, const UiTheme& theme);
-    static Vec2 Measure(const Node* node, ICanvas* canvas = nullptr);
+    static Vec2 Measure(const Node* node, float availableWidth, ICanvas* canvas, const UiTheme& theme);
+    static Vec2 Measure(const Node* node, float availableWidth = 0.0f, ICanvas* canvas = nullptr);
 
     /// Custom flex row arrangement with dynamic gutters and scroll viewport.
     static void Arrange(Node* node, const Rect& availableRect, const UiTheme& theme);

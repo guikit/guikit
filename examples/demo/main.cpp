@@ -107,14 +107,97 @@ int main(int argc, char* argv[]) {
     float gridRowGap = 10.0f;
     float colGap = 12.0f;
     float rowGap = 8.0f;
+    float tabGap = 4.0f;
+    float carouselGap = 8.0f;
+    float scrollGap = 12.0f;
     guikit::UiSize headingSize = guikit::UiSize::Md;
+    bool headingWordWrap = true;
+    bool headingDivider = true;
+    float cardBorderWidth = 1.0f;
+
+    enum class NavCategory : uint8_t {
+        // Elements (Atoms)
+        ElemButton = 0,
+        ElemSlider,
+        ElemInputField,
+        ElemSelect,
+        ElemSwitchCheckbox,
+        ElemTabBar,
+        ElemContainers,
+        ElemTypography,
+
+        // Assembly (Compositions)
+        AsmDashboard,
+        AsmFormControls,
+        AsmFlexRibbon,
+        AsmDiagnostics,
+        AsmThemeStudio
+    };
+
+    auto isElementCategory = [](NavCategory cat) {
+        return cat <= NavCategory::ElemTypography;
+    };
+
+    NavCategory selectedCategory = NavCategory::ElemButton;
+    bool codeShowLineNumbers = true;
+
+
+    guikit::UiVariant btnVariant = guikit::UiVariant::Primary;
+    bool btnHasIcon = true;
+    guikit::Placement btnIconPlacement = guikit::Placement::Leading;
+    bool btnStretch = false;
+    bool btnDisabled = false;
+    int btnClicks = 0;
+
+    float testSliderVal = 65.0f;
+    size_t testStepIdx = 2;
+    bool sliderContinuous = true;
+    bool sliderShowTicks = true;
+    bool sliderShowLabels = true;
+    bool sliderShowValue = true;
+    bool sliderDisabled = false;
+
+    std::string testInputText = "guikit.dev";
+    guikit::CursorBlinkMode inputCursorMode = guikit::CursorBlinkMode::Blinking;
+    bool inputReadOnly = false;
+    bool inputDisabled = false;
+    bool inputHasPrefix = true;
+    bool inputHasSuffix = false;
+
+    size_t testSelectIdx = 0;
+    static const std::vector<std::string_view> selectItems = {"Option Alpha", "Option Beta", "Option Gamma", "Option Delta", "Option Epsilon"};
+    bool selectDisabled = false;
+    bool selectStretch = true;
+    uint32_t selectMaxItems = 4;
+
+    bool testSwitchState = true;
+    bool testCheckboxState = true;
+    bool testCheckboxIndet = false;
+    guikit::Placement switchLabelPlace = guikit::Placement::Trailing;
+    bool switchDisabled = false;
+
+    int testTabIdx = 0;
+    static const std::array<guikit::TabItem, 3> inspectorDemoTabs = {{
+        {.label = "First", .icon = guikit::Icon::Settings()},
+        {.label = "Second", .icon = guikit::Icon::Eye()},
+        {.label = "Third", .icon = guikit::Icon::Play()}
+    }};
+    bool testTabShowSep = true;
+    bool testTabFullWidth = true;
+    bool testTabScrollable = false;
+    bool testTabHasBg = true;
+    float testTabRadius = 8.0f;
+    float testTabPadding = 3.0f;
+    float testTabBorderWidth = 1.0f;
+
     guikit::FrameMetrics metrics;
 
-    static const guikit::UiTheme inspectorTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
-    guikit::UiTheme appTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
+    static const guikit::UiTheme shellTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
+    static const guikit::UiTheme& inspectorTheme = shellTheme;
+    guikit::UiTheme appTheme = darkMode ? guikit::UiTheme::Dark(guikit::Density::Standard) : guikit::UiTheme::Light(guikit::Density::Standard);
 
-    ui.SetThemeMode(darkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light);
-    ui.SetClearColor(appTheme.palette.background);
+    ui.SetTheme(shellTheme);
+    ui.SetClearColor(shellTheme.palette.background);
     ui.SetIdleHeartbeatMs(heartbeatMsValues[heartbeatIndex]);
 
     auto handleEvent = [&](const SDL_Event& event) {
@@ -237,29 +320,6 @@ int main(int argc, char* argv[]) {
 
                 // Engine HUD Toolbar
                 if (auto tb = ui.Toolbar()) {
-                    // Density Preset Toggle
-                    const char* densityLabel = (appTheme.density == guikit::Density::Standard) ? "Density: Standard" :
-                                              ((appTheme.density == guikit::Density::Compact) ? "Density: Compact" : "Density: Touch");
-                    if (tb.ToolButton({
-                        .label = densityLabel,
-                        .icon = guikit::Icon::Settings(),
-                        .labelVariants = {"Density: Standard", "Density: Compact", "Density: Touch"},
-                        .active = true
-                    })) {
-                        if (appTheme.density == guikit::Density::Standard) {
-                            appTheme.density = guikit::Density::Compact;
-                            appTheme.metrics = (darkMode ? guikit::UiTheme::Dark(guikit::Density::Compact) : guikit::UiTheme::Light(guikit::Density::Compact)).metrics;
-                        } else if (appTheme.density == guikit::Density::Compact) {
-                            appTheme.density = guikit::Density::Touch;
-                            appTheme.metrics = (darkMode ? guikit::UiTheme::Dark(guikit::Density::Touch) : guikit::UiTheme::Light(guikit::Density::Touch)).metrics;
-                        } else {
-                            appTheme.density = guikit::Density::Standard;
-                            appTheme.metrics = (darkMode ? guikit::UiTheme::Dark(guikit::Density::Standard) : guikit::UiTheme::Light(guikit::Density::Standard)).metrics;
-                        }
-                        ui.InvalidateAll();
-                    }
-
-                    tb.Separator();
 
                     // Scale Preset Combo
                     if (auto scaleBox = ui.Box({.fixedWidth = 92.0f})) {
@@ -270,18 +330,18 @@ int main(int argc, char* argv[]) {
 
                     tb.Separator();
 
-                    // Theme Mode Toggle
+                    // Content Theme Mode Toggle
                     if (tb.ToolButton({
-                        .label = darkMode ? "Theme: Dark" : "Theme: Light",
+                        .label = darkMode ? "Content: Dark" : "Content: Light",
                         .icon = darkMode ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
-                        .labelVariants = {"Theme: Dark", "Theme: Light"},
+                        .labelVariants = {"Content: Dark", "Content: Light"},
                         .active = darkMode
                     })) {
                         darkMode = !darkMode;
                         const auto defTheme = darkMode ? guikit::UiTheme::Dark(appTheme.density) : guikit::UiTheme::Light(appTheme.density);
                         appTheme.palette = defTheme.palette;
                         appTheme.variants = defTheme.variants;
-                        ui.SetClearColor(appTheme.palette.background);
+                        appTheme.mode = darkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
                         ui.InvalidateAll();
                     }
 
@@ -382,136 +442,262 @@ int main(int argc, char* argv[]) {
 
                     tb.Spacer();
 
-                    // TabBar Style Toggle
-                    if (tb.ToolButton({
-                        .label = tabStyle == guikit::TabBarStyle::Underline ? "Tabs: Underline" : "Tabs: Pill",
-                        .icon = guikit::Icon::Folder(),
-                        .labelVariants = {"Tabs: Underline", "Tabs: Pill"}
-                    })) {
-                        tabStyle = (tabStyle == guikit::TabBarStyle::Underline)
-                            ? guikit::TabBarStyle::Pill
-                            : guikit::TabBarStyle::Underline;
-                    }
+                    std::string_view catBadge = isElementCategory(selectedCategory) ? "Mode: Elements" : "Mode: Assembly";
+                    ui.Text(catBadge, {
+                        .role = guikit::TextRole::LabelSmall,
+                        .variant = isElementCategory(selectedCategory) ? guikit::UiVariant::Primary : guikit::UiVariant::Info
+                    });
                 }
 
                 // Workspace Row containing Sidebar (left) and Content Area (right)
                 if (auto workspaceRow = ui.Row({.gap = 12.0f, .heightMode = guikit::SizeMode::Stretch})) {
-                    // Collapsible Style Inspector Sidebar
+                    // Collapsible Two-Level Inspector Sidebar
                     if (showSidebar) {
-                        if (auto sidebarBox = ui.Box({
+                        // 1. Level 1: Element Catalog & Assembly Rail (Left)
+                        if (auto railBox = ui.Box({
+                            .heightMode = guikit::SizeMode::Stretch,
+                            .fixedWidth = 155.0f,
+                            .theme = &inspectorTheme,
+                            .scale = 1.0f
+                        })) {
+                            if (auto railCard = ui.Card({.gap = 4.0f, .padding = guikit::Padding::All(8.0f), .heightMode = guikit::SizeMode::Stretch})) {
+                                if (auto railScroll = ui.ScrollArea({.gap = 4.0f})) {
+                                    auto makeCatBtn = [&](NavCategory cat, std::string_view label, guikit::Icon icon) {
+                                        const bool isSel = (selectedCategory == cat);
+                                        if (ui.Button({
+                                            .label = label,
+                                            .icon = icon,
+                                            .variant = isSel ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+                                            .iconPlacement = guikit::Placement::Leading,
+                                            .stretch = true,
+                                            .disabled = false,
+                                            .active = isSel,
+                                            .size = guikit::UiSize::Sm
+                                        })) {
+                                            selectedCategory = cat;
+                                            ui.InvalidateAll();
+                                        }
+                                    };
+
+                                    ui.Heading({
+                                        .title = "ELEMENTS",
+                                        .size = guikit::UiSize::Xs,
+                                        .divider = true
+                                    });
+                                    makeCatBtn(NavCategory::ElemButton, "Button", guikit::Icon::Play());
+                                    makeCatBtn(NavCategory::ElemSlider, "Slider", guikit::Icon::Settings());
+                                    makeCatBtn(NavCategory::ElemInputField, "Input", guikit::Icon::Edit());
+                                    makeCatBtn(NavCategory::ElemSelect, "Select", guikit::Icon::Plus());
+                                    makeCatBtn(NavCategory::ElemSwitchCheckbox, "Switch/Box", guikit::Icon::Check());
+                                    makeCatBtn(NavCategory::ElemTabBar, "TabBar", guikit::Icon::Folder());
+                                    makeCatBtn(NavCategory::ElemContainers, "Containers", guikit::Icon::Copy());
+                                    makeCatBtn(NavCategory::ElemTypography, "Typography", guikit::Icon::Edit());
+
+                                    if (auto spacerBox = ui.Box({.fixedHeight = 8.0f})) {}
+
+                                    ui.Heading({
+                                        .title = "ASSEMBLY",
+                                        .size = guikit::UiSize::Xs,
+                                        .divider = true
+                                    });
+                                    makeCatBtn(NavCategory::AsmDashboard, "Dashboard", guikit::Icon::Settings());
+                                    makeCatBtn(NavCategory::AsmFormControls, "Form Demo", guikit::Icon::Edit());
+                                    makeCatBtn(NavCategory::AsmFlexRibbon, "Flex Ribbon", guikit::Icon::Folder());
+                                    makeCatBtn(NavCategory::AsmDiagnostics, "Diagnostics", guikit::Icon::Eye());
+                                    makeCatBtn(NavCategory::AsmThemeStudio, "Theme Studio", guikit::Icon::Refresh());
+                                }
+                            }
+                        }
+
+                        // 2. Level 2: Inspector Panel (Right of Rail)
+                        if (auto inspectorBox = ui.Box({
                             .heightMode = guikit::SizeMode::Stretch,
                             .fixedWidth = 300.0f,
                             .theme = &inspectorTheme,
                             .scale = 1.0f
                         })) {
-                            if (auto sidebarCard = ui.Card({.gap = 8.0f, .heightMode = guikit::SizeMode::Stretch})) {
-                                ui.Heading({
-                                    .title = "Style Inspector",
-                                    .subtitle = "Live Token Tuning",
-                                    .icon = guikit::Icon::Settings()
-                                });
-
-                                static const std::array<guikit::TabItem, 2> sidebarTabs = {{
-                                    {.label = "Geometry", .icon = guikit::Icon::Settings()},
-                                    {.label = "Colors", .icon = guikit::Icon::Eye()}
-                                }};
-                                ui.TabBar(sidebarTabIndex, sidebarTabs, {
-                                    .style = guikit::TabBarStyle::Pill,
-                                    .fullWidth = true
-                                });
-
-                                if (auto sidebarScroll = ui.ScrollArea({.gap = 8.0f})) {
+                            if (auto inspectorCard = ui.Card({.gap = 6.0f, .padding = guikit::Padding::All(12.0f), .heightMode = guikit::SizeMode::Stretch})) {
+                                if (auto inspectorScroll = ui.ScrollArea({.gap = 8.0f})) {
                                     auto& th = appTheme;
-                                    if (sidebarTabIndex == 0) {
-                                        // === GEOMETRY TAB ===
+                                    if (isElementCategory(selectedCategory)) {
+                                        switch (selectedCategory) {
+                                            case NavCategory::ElemButton: {
+                                                ui.Heading({.title = "Button Inspector", .subtitle = "Design System Component", .size = guikit::UiSize::Sm, .divider = true});
 
-                                        // 1. Controls Size (UiSize StepSlider)
-                                        ui.Heading({.title = "Controls Size", .size = guikit::UiSize::Sm, .divider = true});
-                                        if (ui.StepSlider(controlsSize, {
-                                            .label = "Button, Input, Select, Switch",
-                                            .showTicks = true,
-                                            .showLabels = true,
-                                            .showValue = true
-                                        }).changed) {
-                                            ui.InvalidateAll();
+                                                ui.Heading({.title = "Geometry & Metrics", .size = guikit::UiSize::Sm});
+                                                if (ui.StepSlider(controlsSize, {
+                                                    .label = "Controls Size",
+                                                    .showTicks = true,
+                                                    .showLabels = true,
+                                                    .showValue = true
+                                                }).changed) {
+                                                    ui.InvalidateAll();
+                                                }
+                                                auto& m = th.GetMetrics(controlsSize);
+                                                if (ui.Slider(m.cornerRadius, 0.0f, 24.0f, {.label = "Corner Radius", .format = "%.0f px"}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(m.paddingX, 4.0f, 32.0f, {.label = "Horizontal Padding", .format = "%.0f px"}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(m.paddingY, 2.0f, 20.0f, {.label = "Vertical Padding", .format = "%.0f px"}).changed) ui.InvalidateAll();
+
+                                                ui.Heading({.title = "Variant & Styling", .size = guikit::UiSize::Sm});
+                                                static constexpr std::array<std::pair<guikit::UiVariant, std::string_view>, 8> variants = {{
+                                                    {guikit::UiVariant::Default, "Default"},
+                                                    {guikit::UiVariant::Primary, "Primary"},
+                                                    {guikit::UiVariant::Secondary, "Secondary"},
+                                                    {guikit::UiVariant::Success, "Success"},
+                                                    {guikit::UiVariant::Warning, "Warning"},
+                                                    {guikit::UiVariant::Danger, "Danger"},
+                                                    {guikit::UiVariant::Info, "Info"},
+                                                    {guikit::UiVariant::Ghost, "Ghost"}
+                                                }};
+                                                if (auto vGrid = ui.Grid()) {
+                                                    for (const auto& [v, name] : variants) {
+                                                        if (auto c = vGrid.Cell6()) {
+                                                            const bool activeV = (btnVariant == v);
+                                                            if (ui.Button({
+                                                                .label = name,
+                                                                .variant = v,
+                                                                .stretch = true,
+                                                                .active = activeV
+                                                            })) {
+                                                                btnVariant = v;
+                                                                ui.InvalidateAll();
+                                                            }
+                                                        }
+                                                    }
+                                                }
+
+                                                ui.Heading({.title = "Options & States", .size = guikit::UiSize::Sm});
+                                                if (ui.Switch(btnStretch, {.label = "Stretch (Full Width)"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(btnHasIcon, {.label = "Show Icon"}).changed) ui.InvalidateAll();
+                                                if (btnHasIcon) {
+                                                    static constexpr std::array<std::string_view, 4> placeNames = {"Leading", "Trailing", "Top", "Bottom"};
+                                                    size_t placeIdx = (btnIconPlacement == guikit::Placement::Trailing) ? 1 : ((btnIconPlacement == guikit::Placement::Top) ? 2 : ((btnIconPlacement == guikit::Placement::Bottom) ? 3 : 0));
+                                                    if (ui.StepSlider(placeIdx, placeNames, {.label = "Icon Placement", .showTicks = true, .showLabels = true}).changed) {
+                                                        btnIconPlacement = (placeIdx == 1) ? guikit::Placement::Trailing : ((placeIdx == 2) ? guikit::Placement::Top : ((placeIdx == 3) ? guikit::Placement::Bottom : guikit::Placement::Leading));
+                                                        ui.InvalidateAll();
+                                                    }
+                                                }
+                                                if (ui.Switch(btnDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
+                                                break;
+                                            }
+
+                                            case NavCategory::ElemSlider: {
+                                                ui.Heading({.title = "Slider Inspector", .subtitle = "Range & Quantized Controls", .size = guikit::UiSize::Sm, .divider = true});
+
+                                                ui.Heading({.title = "Mode & Geometry", .size = guikit::UiSize::Sm});
+                                                if (ui.Switch(sliderContinuous, {.label = "Continuous Mode", .description = "Continuous vs Quantized StepSlider"}).changed) ui.InvalidateAll();
+                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
+
+                                                ui.Heading({.title = "Display Options", .size = guikit::UiSize::Sm});
+                                                if (ui.Switch(sliderShowValue, {.label = "Show Value Tag"}).changed) ui.InvalidateAll();
+                                                if (!sliderContinuous) {
+                                                    if (ui.Switch(sliderShowTicks, {.label = "Show Step Ticks"}).changed) ui.InvalidateAll();
+                                                    if (ui.Switch(sliderShowLabels, {.label = "Show Step Labels"}).changed) ui.InvalidateAll();
+                                                }
+                                                if (ui.Switch(sliderDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
+                                                break;
+                                            }
+
+                                            case NavCategory::ElemInputField: {
+                                                ui.Heading({.title = "InputField Inspector", .subtitle = "Text & Value Editing", .size = guikit::UiSize::Sm, .divider = true});
+
+                                                ui.Heading({.title = "Geometry & Styling", .size = guikit::UiSize::Sm});
+                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
+                                                auto& m = th.GetMetrics(controlsSize);
+                                                if (ui.Slider(m.cornerRadius, 0.0f, 24.0f, {.label = "Corner Radius", .format = "%.0f px"}).changed) ui.InvalidateAll();
+
+                                                ui.Heading({.title = "Cursor & Flags", .size = guikit::UiSize::Sm});
+                                                static constexpr std::array<std::string_view, 3> cursorModes = {"Blinking", "Solid", "Hidden"};
+                                                size_t curIdx = (inputCursorMode == guikit::CursorBlinkMode::Solid) ? 1 : ((inputCursorMode == guikit::CursorBlinkMode::Hidden) ? 2 : 0);
+                                                if (ui.StepSlider(curIdx, cursorModes, {.label = "Cursor Blink Mode", .showTicks = true, .showLabels = true}).changed) {
+                                                    inputCursorMode = (curIdx == 1) ? guikit::CursorBlinkMode::Solid : ((curIdx == 2) ? guikit::CursorBlinkMode::Hidden : guikit::CursorBlinkMode::Blinking);
+                                                    ui.InvalidateAll();
+                                                }
+                                                if (ui.Switch(inputHasPrefix, {.label = "Prefix (https://)"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(inputHasSuffix, {.label = "Suffix (:443)"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(inputReadOnly, {.label = "Read Only"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(inputDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
+                                                break;
+                                            }
+
+                                            case NavCategory::ElemSelect: {
+                                                ui.Heading({.title = "Select Inspector", .subtitle = "Dropdown Options Menu", .size = guikit::UiSize::Sm, .divider = true});
+
+                                                ui.Heading({.title = "Geometry & Behavior", .size = guikit::UiSize::Sm});
+                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
+                                                float maxItemsFloat = static_cast<float>(selectMaxItems);
+                                                if (ui.Slider(maxItemsFloat, 2.0f, 8.0f, {.label = "Max Visible Menu Items", .format = "%.0f items", .step = 1.0}).changed) {
+                                                    selectMaxItems = static_cast<uint32_t>(maxItemsFloat);
+                                                    ui.InvalidateAll();
+                                                }
+                                                if (ui.Switch(selectDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
+                                                break;
+                                            }
+
+                                            case NavCategory::ElemSwitchCheckbox: {
+                                                ui.Heading({.title = "Switch & Checkbox", .subtitle = "Toggles & State Checkers", .size = guikit::UiSize::Sm, .divider = true});
+
+                                                ui.Heading({.title = "Geometry & Options", .size = guikit::UiSize::Sm});
+                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
+                                                static constexpr std::array<std::string_view, 2> labelPlacements = {"Trailing", "Leading"};
+                                                size_t lpIdx = (switchLabelPlace == guikit::Placement::Leading) ? 1 : 0;
+                                                if (ui.StepSlider(lpIdx, labelPlacements, {.label = "Label Placement", .showTicks = true, .showLabels = true}).changed) {
+                                                    switchLabelPlace = (lpIdx == 1) ? guikit::Placement::Leading : guikit::Placement::Trailing;
+                                                    ui.InvalidateAll();
+                                                }
+                                                if (ui.Switch(testCheckboxIndet, {.label = "Checkbox Indeterminate"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(switchDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
+                                                break;
+                                            }
+
+                                            case NavCategory::ElemTabBar: {
+                                                ui.Heading({.title = "TabBar Inspector", .subtitle = "Tabs & Segmented Control", .size = guikit::UiSize::Sm, .divider = true});
+
+                                                ui.Heading({.title = "Style & Container", .size = guikit::UiSize::Sm});
+                                                static constexpr std::array<std::string_view, 2> styleNames = {"Underline", "Pill"};
+                                                size_t styleIdx = (tabStyle == guikit::TabBarStyle::Pill) ? 1 : 0;
+                                                if (ui.StepSlider(styleIdx, styleNames, {.label = "TabBar Style", .showTicks = true, .showLabels = true}).changed) {
+                                                    tabStyle = (styleIdx == 1) ? guikit::TabBarStyle::Pill : guikit::TabBarStyle::Underline;
+                                                    ui.InvalidateAll();
+                                                }
+                                                if (ui.Switch(testTabHasBg, {.label = "Container Background Fill"}).changed) ui.InvalidateAll();
+                                                if (testTabHasBg) {
+                                                    if (ui.Slider(testTabRadius, 0.0f, 24.0f, {.label = "Container Corner Radius", .format = "%.0f px"}).changed) ui.InvalidateAll();
+                                                    if (ui.Slider(testTabPadding, 0.0f, 12.0f, {.label = "Container Internal Padding", .format = "%.0f px"}).changed) ui.InvalidateAll();
+                                                    if (ui.Slider(testTabBorderWidth, 0.0f, 4.0f, {.label = "Container Border Width", .format = "%.1f px"}).changed) ui.InvalidateAll();
+                                                }
+                                                if (ui.Slider(tabGap, 0.0f, 24.0f, {.label = "Tab Spacing (Gap)", .format = "%.0f px"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(testTabShowSep, {.label = "Baseline Separator"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(testTabFullWidth, {.label = "Full Width Stretch"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(testTabScrollable, {.label = "Scrollable Ribbon"}).changed) ui.InvalidateAll();
+                                                break;
+                                            }
+
+                                            case NavCategory::ElemContainers: {
+                                                ui.Heading({.title = "Containers Inspector", .subtitle = "Card, Box & Surfaces", .size = guikit::UiSize::Sm, .divider = true});
+
+                                                ui.Heading({.title = "Card Geometry", .size = guikit::UiSize::Sm});
+                                                if (ui.Slider(cardRadius, 0.0f, 24.0f, {.label = "Corner Radius", .format = "%.0f px"}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(cardPadding, 0.0f, 32.0f, {.label = "Internal Padding", .format = "%.0f px"}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(cardGap, 0.0f, 24.0f, {.label = "Content Spacing (Gap)", .format = "%.0f px"}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(cardBorderWidth, 0.0f, 4.0f, {.label = "Border Width", .format = "%.1f px"}).changed) ui.InvalidateAll();
+                                                break;
+                                            }
+
+                                            case NavCategory::ElemTypography: {
+                                                ui.Heading({.title = "Typography Inspector", .subtitle = "Headings & Text Scales", .size = guikit::UiSize::Sm, .divider = true});
+
+                                                ui.Heading({.title = "Typography Scale", .size = guikit::UiSize::Sm});
+                                                if (ui.StepSlider(headingSize, {.label = "Heading Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(headingDivider, {.label = "Show Divider Line"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(headingWordWrap, {.label = "Subtitle Word Wrap"}).changed) ui.InvalidateAll();
+                                                break;
+                                            }
+
+                                            default: break;
                                         }
 
-                                        // 2. Density Mode StepSlider
-                                        ui.Heading({.title = "Density Preset", .size = guikit::UiSize::Sm, .divider = true});
-                                        static constexpr std::array<std::string_view, 3> densityLabels = {"Standard", "Compact", "Touch"};
-                                        size_t densityIdx = (appTheme.density == guikit::Density::Touch) ? 2 : ((appTheme.density == guikit::Density::Compact) ? 1 : 0);
-                                        if (ui.StepSlider(densityIdx, densityLabels, {
-                                            .label = "Global Density",
-                                            .showTicks = true,
-                                            .showLabels = true
-                                        }).changed) {
-                                            appTheme.density = (densityIdx == 2) ? guikit::Density::Touch : ((densityIdx == 1) ? guikit::Density::Compact : guikit::Density::Standard);
-                                            appTheme.SetDensity(appTheme.density);
-                                            ui.InvalidateAll();
-                                        }
-
-                                        // 3. Card Container Geometry (Pixel Sliders)
-                                        ui.Heading({.title = "Card Container", .size = guikit::UiSize::Sm, .divider = true});
-                                        if (ui.Slider(cardRadius, 0.0f, 24.0f, {
-                                            .label = "Corner Radius",
-                                            .format = "%.0f px"
-                                        }).changed) {
-                                            ui.InvalidateAll();
-                                        }
-                                        if (ui.Slider(cardPadding, 0.0f, 32.0f, {
-                                            .label = "Internal Padding",
-                                            .format = "%.0f px"
-                                        }).changed) {
-                                            ui.InvalidateAll();
-                                        }
-                                        if (ui.Slider(cardGap, 0.0f, 24.0f, {
-                                            .label = "Inner Element Gap",
-                                            .format = "%.0f px"
-                                        }).changed) {
-                                            ui.InvalidateAll();
-                                        }
-
-                                        // 4. Grid Layout (Separate X and Y gaps)
-                                        ui.Heading({.title = "Grid Layout", .size = guikit::UiSize::Sm, .divider = true});
-                                        if (ui.Slider(gridColGap, 0.0f, 32.0f, {
-                                            .label = "Column Gap (X)",
-                                            .format = "%.0f px"
-                                        }).changed) {
-                                            ui.InvalidateAll();
-                                        }
-                                        if (ui.Slider(gridRowGap, 0.0f, 32.0f, {
-                                            .label = "Row Gap (Y)",
-                                            .format = "%.0f px"
-                                        }).changed) {
-                                            ui.InvalidateAll();
-                                        }
-
-                                        // 5. Flexbox Layout (Column & Row)
-                                        ui.Heading({.title = "Flexbox (Column & Row)", .size = guikit::UiSize::Sm, .divider = true});
-                                        if (ui.Slider(colGap, 0.0f, 32.0f, {
-                                            .label = "Column Gap (Y)",
-                                            .format = "%.0f px"
-                                        }).changed) {
-                                            ui.InvalidateAll();
-                                        }
-                                        if (ui.Slider(rowGap, 0.0f, 24.0f, {
-                                            .label = "Row Gap (X)",
-                                            .format = "%.0f px"
-                                        }).changed) {
-                                            ui.InvalidateAll();
-                                        }
-
-                                        // 6. Typography Size (UiSize StepSlider)
-                                        ui.Heading({.title = "Typography", .size = guikit::UiSize::Sm, .divider = true});
-                                        if (ui.StepSlider(headingSize, {
-                                            .label = "Heading Size",
-                                            .showTicks = true,
-                                            .showLabels = true,
-                                            .showValue = true
-                                        }).changed) {
-                                            ui.InvalidateAll();
-                                        }
-
+                                        // Common Reset Action for Elements
                                         if (ui.Button({
                                             .label = "Reset Element Parameters",
                                             .icon = guikit::Icon::Refresh(),
@@ -519,138 +705,92 @@ int main(int argc, char* argv[]) {
                                             .stretch = true
                                         })) {
                                             controlsSize = guikit::UiSize::Md;
+                                            btnVariant = guikit::UiVariant::Primary;
+                                            btnHasIcon = true;
+                                            btnIconPlacement = guikit::Placement::Leading;
+                                            btnStretch = false;
+                                            btnDisabled = false;
                                             cardRadius = 8.0f;
                                             cardGap = 8.0f;
                                             cardPadding = 16.0f;
-                                            gridColGap = 12.0f;
-                                            gridRowGap = 10.0f;
-                                            colGap = 12.0f;
-                                            rowGap = 8.0f;
+                                            cardBorderWidth = 1.0f;
+                                            tabGap = 4.0f;
+                                            testTabRadius = 8.0f;
+                                            testTabPadding = 3.0f;
+                                            testTabBorderWidth = 1.0f;
+                                            testTabHasBg = true;
                                             headingSize = guikit::UiSize::Md;
-                                            appTheme.density = guikit::Density::Standard;
-                                            appTheme.SetDensity(appTheme.density);
+                                            headingWordWrap = true;
+                                            headingDivider = true;
                                             ui.InvalidateAll();
                                         }
                                     } else {
-                                        // === COLORS TAB ===
-                                        ui.Heading({.title = "Color Scheme", .size = guikit::UiSize::Sm, .divider = true});
+                                        // Assembly Inspector (Scene & Environment)
+                                        ui.Heading({
+                                            .title = "Assembly Scene",
+                                            .subtitle = "Global Layout & Environment",
+                                            .size = guikit::UiSize::Sm,
+                                            .divider = true
+                                        });
+
+                                        ui.Heading({.title = "Theme & Density", .size = guikit::UiSize::Sm});
                                         if (ui.Switch(darkMode, {
-                                            .label = "Dark Mode",
-                                            .description = "Switch between Dark and Light palette"
+                                            .label = "Content Dark Mode",
+                                            .description = "Switch Content preview between Dark and Light palette"
                                         }).changed) {
                                             const auto defTheme = darkMode ? guikit::UiTheme::Dark(appTheme.density) : guikit::UiTheme::Light(appTheme.density);
                                             appTheme.palette = defTheme.palette;
                                             appTheme.variants = defTheme.variants;
-                                            ui.SetClearColor(appTheme.palette.background);
+                                            appTheme.mode = darkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
                                             ui.InvalidateAll();
                                         }
 
-                                        ui.Heading({.title = "Brand Accent", .size = guikit::UiSize::Sm, .divider = true});
-                                        auto setAccent = [&](guikit::Color accent, guikit::Color hover, guikit::Color active) {
-                                            th.palette.accent = accent;
-                                            th.palette.accentHover = hover;
-                                            th.palette.focusRing = accent;
-                                            th.palette.caret = accent;
-                                            auto& prim = th.GetVariant(guikit::UiVariant::Primary);
-                                            prim.bg = accent;
-                                            prim.bgHover = hover;
-                                            prim.bgActive = active;
+                                        static constexpr std::array<std::string_view, 3> asmDensityLabels = {"Compact", "Standard", "Touch"};
+                                        size_t dIdx = (appTheme.density == guikit::Density::Compact) ? 0 : ((appTheme.density == guikit::Density::Touch) ? 2 : 1);
+                                        if (ui.StepSlider(dIdx, asmDensityLabels, {.label = "Layout Density", .showTicks = true, .showLabels = true}).changed) {
+                                            appTheme.density = (dIdx == 0) ? guikit::Density::Compact : ((dIdx == 2) ? guikit::Density::Touch : guikit::Density::Standard);
+                                            appTheme.SetDensity(appTheme.density);
                                             ui.InvalidateAll();
-                                        };
-
-                                        if (auto grid = ui.Grid()) {
-                                            if (auto c = grid.Cell4()) {
-                                                if (ui.Button({.label = "Sky Blue", .variant = guikit::UiVariant::Primary, .stretch = true})) {
-                                                    setAccent(guikit::Color::Hex(0x38BDF8FF), guikit::Color::Hex(0x60A5FAFF), guikit::Color::Hex(0x2563EBFF));
-                                                }
-                                            }
-                                            if (auto c = grid.Cell4()) {
-                                                if (ui.Button({.label = "Emerald", .variant = guikit::UiVariant::Success, .stretch = true})) {
-                                                    setAccent(guikit::Color::Hex(0x10B981FF), guikit::Color::Hex(0x34D399FF), guikit::Color::Hex(0x059669FF));
-                                                }
-                                            }
-                                            if (auto c = grid.Cell4()) {
-                                                if (ui.Button({.label = "Violet", .stretch = true})) {
-                                                    setAccent(guikit::Color::Hex(0x8B5CF6FF), guikit::Color::Hex(0xA78BFAFF), guikit::Color::Hex(0x7C3AEDFF));
-                                                }
-                                            }
-                                            if (auto c = grid.Cell4()) {
-                                                if (ui.Button({.label = "Amber", .variant = guikit::UiVariant::Warning, .stretch = true})) {
-                                                    setAccent(guikit::Color::Hex(0xF59E0BFF), guikit::Color::Hex(0xFBBF24FF), guikit::Color::Hex(0xD97706FF));
-                                                }
-                                            }
-                                            if (auto c = grid.Cell4()) {
-                                                if (ui.Button({.label = "Rose", .variant = guikit::UiVariant::Danger, .stretch = true})) {
-                                                    setAccent(guikit::Color::Hex(0xF43F5EFF), guikit::Color::Hex(0xFB7185FF), guikit::Color::Hex(0xE11D48FF));
-                                                }
-                                            }
-                                            if (auto c = grid.Cell4()) {
-                                                if (ui.Button({.label = "Cyan", .variant = guikit::UiVariant::Info, .stretch = true})) {
-                                                    setAccent(guikit::Color::Hex(0x06B6D4FF), guikit::Color::Hex(0x22D3EEFF), guikit::Color::Hex(0x0891B2FF));
-                                                }
-                                            }
                                         }
 
-                                        ui.Heading({.title = "Dark Surface Tones", .size = guikit::UiSize::Sm, .divider = true});
-                                        auto setSurfaceTone = [&](guikit::Color bg, guikit::Color surf, guikit::Color elev, guikit::Color bdr) {
-                                            th.palette.background = bg;
-                                            th.palette.surface = surf;
-                                            th.palette.surfaceElevated = elev;
-                                            th.palette.border = bdr;
-                                            th.palette.inputBackground = bg;
-                                            ui.SetClearColor(bg);
-                                            ui.InvalidateAll();
-                                        };
+                                        ui.Heading({.title = "Grid Layout Spacing", .size = guikit::UiSize::Sm});
+                                        if (ui.Slider(gridColGap, 0.0f, 32.0f, {.label = "Horizontal Gap (Columns)", .format = "%.0f px"}).changed) ui.InvalidateAll();
+                                        if (ui.Slider(gridRowGap, 0.0f, 32.0f, {.label = "Vertical Gap (Rows)", .format = "%.0f px"}).changed) ui.InvalidateAll();
 
-                                        if (auto grid = ui.Grid()) {
-                                            if (auto c = grid.Cell6()) {
-                                                if (ui.Button({.label = "Slate (Default)", .stretch = true})) {
-                                                    setSurfaceTone(guikit::Color::Hex(0x0B0F19FF), guikit::Color::Hex(0x1E293BFF), guikit::Color::Hex(0x1E293BFF), guikit::Color::Hex(0x334155FF));
-                                                }
-                                            }
-                                            if (auto c = grid.Cell6()) {
-                                                if (ui.Button({.label = "Zinc Gray", .stretch = true})) {
-                                                    setSurfaceTone(guikit::Color::Hex(0x18181BFF), guikit::Color::Hex(0x27272AFF), guikit::Color::Hex(0x27272AFF), guikit::Color::Hex(0x3F3F46FF));
-                                                }
-                                            }
-                                            if (auto c = grid.Cell6()) {
-                                                if (ui.Button({.label = "OLED Black", .stretch = true})) {
-                                                    setSurfaceTone(guikit::Color::Hex(0x000000FF), guikit::Color::Hex(0x121212FF), guikit::Color::Hex(0x181818FF), guikit::Color::Hex(0x27272AFF));
-                                                }
-                                            }
-                                            if (auto c = grid.Cell6()) {
-                                                if (ui.Button({.label = "Deep Navy", .stretch = true})) {
-                                                    setSurfaceTone(guikit::Color::Hex(0x0A0F1DFF), guikit::Color::Hex(0x151E32FF), guikit::Color::Hex(0x1C2844FF), guikit::Color::Hex(0x263554FF));
-                                                }
-                                            }
+                                        ui.Heading({.title = "Surfaces & Containers", .size = guikit::UiSize::Sm});
+                                        if (ui.Slider(cardRadius, 0.0f, 24.0f, {.label = "Card Corner Radius", .format = "%.0f px"}).changed) ui.InvalidateAll();
+                                        if (ui.Slider(cardPadding, 4.0f, 32.0f, {.label = "Card Padding", .format = "%.0f px"}).changed) ui.InvalidateAll();
+                                        if (ui.Slider(cardBorderWidth, 0.0f, 4.0f, {.label = "Card Border Width", .format = "%.1f px"}).changed) ui.InvalidateAll();
+
+                                        if (selectedCategory == NavCategory::AsmDashboard) {
+                                            ui.Heading({.title = "Dashboard Overrides", .size = guikit::UiSize::Sm});
+                                            if (ui.Switch(hwEstop, {.label = "Hardware E-Stop Line", .variant = guikit::UiVariant::Danger}).changed) ui.InvalidateAll();
+                                            if (ui.Switch(enableSensors, {.label = "Sensor Drop Limits"}).changed) ui.InvalidateAll();
+                                            if (ui.Switch(diagLogging, {.label = "High-Speed Flash Logging"}).changed) ui.InvalidateAll();
+                                        } else if (selectedCategory == NavCategory::AsmFormControls) {
+                                            ui.Heading({.title = "Form Overrides", .size = guikit::UiSize::Sm});
+                                            if (ui.Switch(formMode, {.label = "Stacked Labels Mode"}).changed) ui.InvalidateAll();
+                                            if (ui.Switch(showTelemetry, {.label = "Show Telemetry Banner"}).changed) ui.InvalidateAll();
+                                        } else if (selectedCategory == NavCategory::AsmFlexRibbon) {
+                                            ui.Heading({.title = "Ribbon Spacing", .size = guikit::UiSize::Sm});
+                                            if (ui.Slider(carouselGap, 0.0f, 24.0f, {.label = "Ribbon Items Gap", .format = "%.0f px"}).changed) ui.InvalidateAll();
                                         }
 
-                                        ui.Heading({.title = "Border Contrast", .size = guikit::UiSize::Sm, .divider = true});
-                                        if (auto row = ui.Row({.gap = 4.0f})) {
-                                            if (ui.Button({.label = "Subtle", .stretch = true})) {
-                                                th.palette.border = guikit::Color::Hex(0x33415560);
-                                                ui.InvalidateAll();
-                                            }
-                                            if (ui.Button({.label = "Default", .stretch = true})) {
-                                                th.palette.border = guikit::Color::Hex(0x334155FF);
-                                                ui.InvalidateAll();
-                                            }
-                                            if (ui.Button({.label = "High", .stretch = true})) {
-                                                th.palette.border = guikit::Color::Hex(0x64748BFF);
-                                                ui.InvalidateAll();
-                                            }
-                                        }
-
+                                        // Common Reset Action for Assembly
                                         if (ui.Button({
-                                            .label = "Reset Color Defaults",
+                                            .label = "Reset Scene Parameters",
                                             .icon = guikit::Icon::Refresh(),
                                             .variant = guikit::UiVariant::Secondary,
                                             .stretch = true
                                         })) {
-                                            const auto defTheme = darkMode ? guikit::UiTheme::Dark(appTheme.density) : guikit::UiTheme::Light(appTheme.density);
-                                            th.palette = defTheme.palette;
-                                            th.variants = defTheme.variants;
-                                            ui.SetClearColor(th.palette.background);
+                                            gridColGap = 12.0f;
+                                            gridRowGap = 10.0f;
+                                            cardRadius = 8.0f;
+                                            cardPadding = 16.0f;
+                                            cardBorderWidth = 1.0f;
+                                            carouselGap = 8.0f;
+                                            appTheme.density = guikit::Density::Standard;
+                                            appTheme.SetDensity(appTheme.density);
                                             ui.InvalidateAll();
                                         }
                                     }
@@ -659,290 +799,920 @@ int main(int argc, char* argv[]) {
                         }
                     }
 
-                    // Content Column (Right side workspace)
-                    if (auto contentCol = ui.Column({
-                        .gap = colGap,
+                    // Content Canvas (Center / Right Workspace) with Scoped Theme & Canvas Frame
+                    if (auto contentBox = ui.Box({
+                        .widthMode = guikit::SizeMode::Stretch,
                         .heightMode = guikit::SizeMode::Stretch,
-                        .size = controlsSize,
+                        .padding = guikit::Padding::All(8.0f),
+                        .backgroundColor = appTheme.palette.background,
+                        .borderColor = shellTheme.palette.borderSubtle,
+                        .borderWidth = 1.0f,
+                        .radius = 8.0f,
+                        .clipChildren = true,
                         .theme = &appTheme,
                         .scale = scaleValues[scaleIndex]
                     })) {
-                        const auto makeCard = [&]() {
-                            return guikit::CardOptions{
-                                .gap = cardGap,
-                                .padding = guikit::Padding(cardPadding),
-                                .radius = cardRadius
+                        if (auto contentCol = ui.Column({
+                            .gap = colGap,
+                            .widthMode = guikit::SizeMode::Stretch,
+                            .heightMode = guikit::SizeMode::Stretch,
+                            .size = controlsSize
+                        })) {
+                            if (auto contentScroll = ui.ScrollArea({.gap = 12.0f})) {
+                            auto& th = appTheme;
+                            const auto makeCard = [&]() {
+                                return guikit::CardOptions{
+                                    .gap = cardGap,
+                                    .padding = guikit::Padding(cardPadding),
+                                    .radius = cardRadius
+                                };
                             };
-                        };
-                        const auto makeGrid = [&]() {
-                            return guikit::GridOptions{
-                                .gap = gridColGap,
-                                .runGap = gridRowGap
+                            const auto makeGrid = [&]() {
+                                return guikit::GridOptions{
+                                    .gap = gridColGap,
+                                    .runGap = gridRowGap
+                                };
                             };
-                        };
 
-                        // First-class Vector TabBar with Carousel auto-scrolling
-                        static const std::array<guikit::TabItem, 7> navTabs = {{
-                            {.label = "Overview", .icon = guikit::Icon::Eye()},
-                            {.label = "Flexbox Demo", .icon = guikit::Icon::Settings()},
-                            {.label = "Industrial Dashboard", .icon = guikit::Icon::Folder(), .badge = "Live"},
-                            {.label = "Telemetry & Logs", .icon = guikit::Icon::Play()},
-                            {.label = "Network Diagnostics", .icon = guikit::Icon::Plus()},
-                            {.label = "Calibration Matrix", .icon = guikit::Icon::Settings()},
-                            {.label = "System Audit", .icon = guikit::Icon::Trash()}
-                        }};
-                        ui.TabBar(activeTabIndex, navTabs, {.style = tabStyle});
+                            if (isElementCategory(selectedCategory)) {
+                                // -------------------------------------------------------------
+                                // ELEMENTS MODE: Component Sandbox (Hero + Matrices + C++ Code)
+                                // -------------------------------------------------------------
+                                if (auto heroCard = ui.Card({.gap = 12.0f, .padding = guikit::Padding::All(14.0f)})) {
+                                    if (auto hdrRow = ui.Row({.align = guikit::Alignment::Center})) {
+                                        std::string elemTitle = "Atom Component Sandbox";
+                                        if (selectedCategory == NavCategory::ElemButton) elemTitle = "Button Component (Atom)";
+                                        else if (selectedCategory == NavCategory::ElemSlider) elemTitle = "Slider Component (Atom)";
+                                        else if (selectedCategory == NavCategory::ElemInputField) elemTitle = "InputField Component (Atom)";
+                                        else if (selectedCategory == NavCategory::ElemSelect) elemTitle = "Select Component (Atom)";
+                                        else if (selectedCategory == NavCategory::ElemSwitchCheckbox) elemTitle = "Switch & Checkbox (Atoms)";
+                                        else if (selectedCategory == NavCategory::ElemTabBar) elemTitle = "TabBar Component (Atom)";
+                                        else if (selectedCategory == NavCategory::ElemContainers) elemTitle = "Containers: Card & Box (Surfaces)";
+                                        else if (selectedCategory == NavCategory::ElemTypography) elemTitle = "Typography: Heading & Text (Atoms)";
 
-                        if (activeTabIndex == 2) {
-                            // Industrial Dashboard: responsive 2-column layout inside a dedicated ScrollArea
-                            if (auto scroll = ui.ScrollArea()) {
-                                if (auto dashboardGrid = ui.Grid(makeGrid())) {
-                                    // Left Column: wraps to full width when narrow
-                                    if (auto colLeft = dashboardGrid.Cell6({.gap = colGap})) {
-                                        if (auto card1 = ui.Card(makeCard())) {
-                                            ui.Heading({.title = "Primary Stop Conditions", .subtitle = "Sensory tripwire thresholds & limits", .size = headingSize});
-                                            if (auto grid1 = ui.Grid(makeGrid())) {
-                                                if (auto c = grid1.Cell12()) {
-                                                    ui.Switch(enableSensors, {
-                                                        .label = "Enable Sensor Drop Limits",
-                                                        .description = "Immediate stop on threshold breach"
-                                                    });
-                                                }
-                                                if (auto c = grid1.Cell6()) {
-                                                    ui.InputField(maxTravel, {.label = "Max Travel", .suffix = "mm", .format = "%.1f"});
-                                                }
-                                                if (auto c = grid1.Cell6()) {
-                                                    ui.InputField(maxVelocity, {.label = "Max Velocity", .suffix = "mm/s", .format = "%.1f"});
-                                                }
-                                                if (auto c = grid1.Cell12()) {
-                                                    ui.Select(sensorChannel, {
-                                                        "Channel A (Load Cell 50kN)",
-                                                        "Channel B (Optical Extensometer)",
-                                                        "Channel C (Laser Interferometer)"
-                                                    }, {
-                                                        .label = "Primary Sensor Channel",
-                                                        .description = "Active physical transducer bus",
-                                                        .labelPlacement = guikit::Placement::Stacked
-                                                    });
-                                                }
-                                            }
-                                        }
-
-                                        if (auto card2 = ui.Card(makeCard())) {
-                                            ui.Heading({.title = "Emergency Interlocks", .subtitle = "Hardware line supervision & failsafes", .variant = guikit::UiVariant::Danger, .size = headingSize});
-                                            if (auto grid2 = ui.Grid(makeGrid())) {
-                                                if (auto c = grid2.Cell12()) {
-                                                    ui.Switch(hwEstop, {
-                                                        .label = "Hardware E-Stop Line",
-                                                        .description = "Continuous 24V loop monitoring",
-                                                        .variant = guikit::UiVariant::Danger
-                                                    });
-                                                }
-                                                if (auto c = grid2.Cell6()) {
-                                                    ui.Select(interlockMode, {
-                                                        "Immediate Cutoff",
-                                                        "Controlled Ramp-down",
-                                                        "Hold Position"
-                                                    }, {
-                                                        .label = "Interlock Action"
-                                                    });
-                                                }
-                                                if (auto c = grid2.Cell6()) {
-                                                    ui.InputField(rampDown, {.label = "Ramp Duration", .suffix = "ms", .format = "%.0f"});
-                                                }
-                                            }
-                                        }
+                                        ui.Heading({
+                                            .title = elemTitle,
+                                            .subtitle = "Isolated component stage with live vector scaling and immediate interaction",
+                                            .size = guikit::UiSize::Sm
+                                        });
                                     }
 
-                                    // Right Column: wraps to full width when narrow
-                                    if (auto colRight = dashboardGrid.Cell6({.gap = colGap})) {
-                                        if (auto card3 = ui.Card(makeCard())) {
-                                            ui.Heading({.title = "Secondary Criteria & PID", .subtitle = "Dynamic closed-loop feedback parameters", .size = headingSize});
-                                            if (auto grid3 = ui.Grid(makeGrid())) {
-                                                if (auto c = grid3.Cell6()) {
-                                                    ui.InputField(forceLimit, {.label = "Force Drop Limit", .suffix = "%", .format = "%.1f"});
+                                    // Hero Showcase Stage
+                                    if (auto stageBox = ui.Box({
+                                        .padding = guikit::Padding::All(24.0f),
+                                        .backgroundColor = th.palette.surfaceElevated,
+                                        .borderColor = th.palette.borderSubtle,
+                                        .borderWidth = 1.0f,
+                                        .radius = 8.0f
+                                    })) {
+                                        if (auto centerRow = ui.Row({.align = guikit::Alignment::Center, .justify = guikit::Justify::Center})) {
+                                            switch (selectedCategory) {
+                                                case NavCategory::ElemButton: {
+                                                    std::string btnText = btnClicks > 0 ? std::format("Clicked {}x", btnClicks) : "Interactive Button";
+                                                    if (ui.Button({
+                                                        .label = btnText,
+                                                        .icon = btnHasIcon ? guikit::Icon::Play() : guikit::Icon{},
+                                                        .variant = btnVariant,
+                                                        .iconPlacement = btnIconPlacement,
+                                                        .stretch = btnStretch,
+                                                        .disabled = btnDisabled,
+                                                        .size = controlsSize
+                                                    })) {
+                                                        ++btnClicks;
+                                                        ui.InvalidateAll();
+                                                    }
+                                                    break;
                                                 }
-                                                if (auto c = grid3.Cell6()) {
-                                                    ui.InputField(yieldRatio, {.label = "Yield Ratio", .suffix = "%", .format = "%.2f"});
+
+                                                case NavCategory::ElemSlider: {
+                                                    if (sliderContinuous) {
+                                                        ui.Slider(testSliderVal, 0.0f, 100.0f, {
+                                                            .label = "Analog Master Gain",
+                                                            .format = "%.1f %%",
+                                                            .showValue = sliderShowValue,
+                                                            .variant = btnVariant,
+                                                            .size = controlsSize,
+                                                            .disabled = sliderDisabled
+                                                        });
+                                                    } else {
+                                                        static constexpr std::array<std::string_view, 5> stepItems = {"Off", "Low", "Mid", "High", "Max"};
+                                                        ui.StepSlider(testStepIdx, stepItems, {
+                                                            .label = "DSP Filter Mode",
+                                                            .showTicks = sliderShowTicks,
+                                                            .showLabels = sliderShowLabels,
+                                                            .showValue = sliderShowValue,
+                                                            .variant = btnVariant,
+                                                            .size = controlsSize,
+                                                            .disabled = sliderDisabled
+                                                        });
+                                                    }
+                                                    break;
                                                 }
-                                                if (auto c = grid3.Cell4()) {
-                                                    ui.InputField(pGain, {.label = "P-Gain", .format = "%.2f"});
-                                                }
-                                                if (auto c = grid3.Cell4()) {
-                                                    ui.InputField(iGain, {.label = "I-Gain", .format = "%.3f"});
-                                                }
-                                                if (auto c = grid3.Cell4()) {
-                                                    ui.InputField(dGain, {.label = "D-Gain", .format = "%.3f"});
-                                                }
-                                                if (auto c = grid3.Cell12()) {
-                                                    ui.Switch(diagLogging, {
-                                                        .label = "Log High-Speed Telemetry",
-                                                        .description = "Record 10 kHz buffer to internal flash"
+
+                                                case NavCategory::ElemInputField: {
+                                                    ui.InputField(testInputText, {
+                                                        .label = "Server Endpoint",
+                                                        .description = "Configured host address",
+                                                        .placeholder = "Enter domain...",
+                                                        .prefix = inputHasPrefix ? "https://" : "",
+                                                        .suffix = inputHasSuffix ? ":443" : "",
+                                                        .variant = btnVariant,
+                                                        .cursorMode = inputCursorMode,
+                                                        .size = controlsSize,
+                                                        .disabled = inputDisabled,
+                                                        .readOnly = inputReadOnly
                                                     });
+                                                    break;
                                                 }
+
+                                                case NavCategory::ElemSelect: {
+                                                    ui.Select(testSelectIdx, selectItems, {
+                                                        .label = "Active Preset",
+                                                        .description = "Dropdown selection",
+                                                        .variant = btnVariant,
+                                                        .maxVisibleItems = selectMaxItems,
+                                                        .size = controlsSize,
+                                                        .disabled = selectDisabled
+                                                    });
+                                                    break;
+                                                }
+
+                                                case NavCategory::ElemSwitchCheckbox: {
+                                                    if (auto swRow = ui.Row({.gap = 20.0f, .align = guikit::Alignment::Center})) {
+                                                        ui.Switch(testSwitchState, {
+                                                            .label = "Hardware E-Stop",
+                                                            .description = "Safety interlocking",
+                                                            .variant = btnVariant,
+                                                            .labelPlacement = switchLabelPlace,
+                                                            .disabled = switchDisabled,
+                                                            .size = controlsSize
+                                                        });
+                                                        ui.Checkbox(testCheckboxState, {
+                                                            .label = "Telemetry Logging",
+                                                            .description = "Save trace to buffer",
+                                                            .variant = btnVariant,
+                                                            .labelPlacement = switchLabelPlace,
+                                                            .disabled = switchDisabled,
+                                                            .indeterminate = testCheckboxIndet,
+                                                            .size = controlsSize
+                                                        });
+                                                    }
+                                                    break;
+                                                }
+
+                                                case NavCategory::ElemTabBar: {
+                                                    ui.TabBar(testTabIdx, inspectorDemoTabs, {
+                                                        .style = tabStyle,
+                                                        .showSeparator = testTabShowSep,
+                                                        .fullWidth = testTabFullWidth,
+                                                        .scrollable = testTabScrollable,
+                                                        .gap = tabGap,
+                                                        .padding = testTabHasBg ? guikit::Padding::All(testTabPadding) : guikit::Padding{},
+                                                        .radius = testTabHasBg ? testTabRadius : 0.0f,
+                                                        .backgroundColor = testTabHasBg ? th.palette.surfaceElevated : guikit::Color::Transparent(),
+                                                        .borderColor = testTabHasBg ? th.palette.borderSubtle : guikit::Color::Transparent(),
+                                                        .borderWidth = testTabHasBg ? testTabBorderWidth : 0.0f
+                                                    });
+                                                    break;
+                                                }
+
+                                                case NavCategory::ElemContainers: {
+                                                    if (auto c = ui.Card({.gap = cardGap, .padding = guikit::Padding(cardPadding), .borderWidth = cardBorderWidth, .radius = cardRadius})) {
+                                                        ui.Text("Card Surface Component", {.role = guikit::TextRole::HeadlineSmall});
+                                                        ui.Text("Configurable padding, radius and spacing tokens", {.variant = guikit::UiVariant::Secondary});
+                                                        if (ui.Button({.label = "Inner Action", .variant = guikit::UiVariant::Primary, .size = controlsSize})) {}
+                                                    }
+                                                    break;
+                                                }
+
+                                                case NavCategory::ElemTypography: {
+                                                    ui.Heading({
+                                                        .title = "Typographic Heading Sample",
+                                                        .subtitle = "Dynamic typography scale test for multi-line layout hierarchy",
+                                                        .icon = guikit::Icon::Edit(),
+                                                        .size = headingSize,
+                                                        .divider = headingDivider,
+                                                        .wordWrap = headingWordWrap
+                                                    });
+                                                    break;
+                                                }
+
+                                                default: break;
                                             }
                                         }
                                     }
                                 }
-                            }
-                        } else if (activeTabIndex == 0) {
-                            // Overview Tab: Interactive Counter & Form
-                            if (auto card = ui.Card(makeCard())) {
-                                ui.Heading({.title = "Interactive Reactive State", .subtitle = "Pure immediate mode with zero external widget IDs and instant response.", .size = headingSize});
 
-                                if (auto actionRow = ui.Wrap({.gap = rowGap, .runGap = colGap, .align = guikit::Alignment::Center})) {
-                                    if (ui.Button({.label = "Increment (+1)", .icon = guikit::Icon::Plus(), .variant = guikit::UiVariant::Success})) {
-                                        ++counter;
-                                    }
-                                    if (ui.Button({.label = "Decrement (-1)", .icon = guikit::Icon::Minus(), .variant = guikit::UiVariant::Warning})) {
-                                        --counter;
-                                    }
-                                    if (ui.Button({.label = "Reset", .icon = guikit::Icon::Refresh(), .variant = guikit::UiVariant::Danger})) {
-                                        counter = 0;
-                                    }
-
-                                    ui.Text(ui.Format("Value: {}", counter), {.role = guikit::TextRole::HeadlineMedium, .variant = guikit::UiVariant::Info});
-                                }
-
-                                if (auto togglesRow = ui.Wrap({.gap = rowGap, .runGap = colGap, .align = guikit::Alignment::Center})) {
-                                    ui.Checkbox(showTelemetry, {.label = "Show Telemetry", .variant = guikit::UiVariant::Info});
-                                    if (ui.Switch(formMode, {
-                                        .label = "Form Mode",
-                                        .description = "Toggle stacked vs default label layout",
-                                        .labelPlacement = guikit::Placement::Stacked
-                                        }).changed) {
-                                        ui.InvalidateAll();
-                                    }
-                                    ui.Checkbox(true, {.label = "Auto-Scale", .disabled = true});
-                                }
-
-                                if (showTelemetry) {
+                                // Design Token Scale Matrix (UiSize: Xs -> Xl)
+                                if (auto scaleMatrixCard = ui.Card({.gap = 8.0f, .padding = guikit::Padding::All(12.0f)})) {
                                     ui.Heading({
-                                        .title = "Telemetry Stream",
-                                        .subtitle = "1000 samples/sec | Jitter < 0.2ms | Hardware loop nominal",
-                                        .icon = guikit::Icon::Check(),
-                                        .badge = "ACTIVE",
-                                        .variant = guikit::UiVariant::Success,
-                                        .size = headingSize
+                                        .title = "Design Token Scale Matrix (UiSize)",
+                                        .subtitle = "Proportional density scaling across all 5 sizes (Xs, Sm, Md, Lg, Xl)",
+                                        .size = guikit::UiSize::Sm
+                                    });
+
+                                    switch (selectedCategory) {
+                                        case NavCategory::ElemButton: {
+                                            if (auto row = ui.Row({.gap = 8.0f, .align = guikit::Alignment::Center})) {
+                                                ui.Button({.label = "Button Xs", .variant = btnVariant, .size = guikit::UiSize::Xs});
+                                                ui.Button({.label = "Button Sm", .variant = btnVariant, .size = guikit::UiSize::Sm});
+                                                ui.Button({.label = "Button Md", .variant = btnVariant, .size = guikit::UiSize::Md});
+                                                ui.Button({.label = "Button Lg", .variant = btnVariant, .size = guikit::UiSize::Lg});
+                                                ui.Button({.label = "Button Xl", .variant = btnVariant, .size = guikit::UiSize::Xl});
+                                            }
+                                            break;
+                                        }
+                                        case NavCategory::ElemSlider: {
+                                            if (auto grid = ui.Grid({.gap = 12.0f, .runGap = 8.0f})) {
+                                                if (auto c = grid.Cell4()) { ui.Slider(testSliderVal, 0.0f, 100.0f, {.label = "Size Xs", .size = guikit::UiSize::Xs}); }
+                                                if (auto c = grid.Cell4()) { ui.Slider(testSliderVal, 0.0f, 100.0f, {.label = "Size Sm", .size = guikit::UiSize::Sm}); }
+                                                if (auto c = grid.Cell4()) { ui.Slider(testSliderVal, 0.0f, 100.0f, {.label = "Size Md", .size = guikit::UiSize::Md}); }
+                                                if (auto c = grid.Cell6()) { ui.Slider(testSliderVal, 0.0f, 100.0f, {.label = "Size Lg", .size = guikit::UiSize::Lg}); }
+                                                if (auto c = grid.Cell6()) { ui.Slider(testSliderVal, 0.0f, 100.0f, {.label = "Size Xl", .size = guikit::UiSize::Xl}); }
+                                            }
+                                            break;
+                                        }
+                                        case NavCategory::ElemInputField: {
+                                            if (auto grid = ui.Grid({.gap = 12.0f, .runGap = 8.0f})) {
+                                                if (auto c = grid.Cell4()) { ui.InputField(testInputText, {.label = "Size Xs", .size = guikit::UiSize::Xs}); }
+                                                if (auto c = grid.Cell4()) { ui.InputField(testInputText, {.label = "Size Sm", .size = guikit::UiSize::Sm}); }
+                                                if (auto c = grid.Cell4()) { ui.InputField(testInputText, {.label = "Size Md", .size = guikit::UiSize::Md}); }
+                                                if (auto c = grid.Cell6()) { ui.InputField(testInputText, {.label = "Size Lg", .size = guikit::UiSize::Lg}); }
+                                                if (auto c = grid.Cell6()) { ui.InputField(testInputText, {.label = "Size Xl", .size = guikit::UiSize::Xl}); }
+                                            }
+                                            break;
+                                        }
+                                        case NavCategory::ElemSelect: {
+                                            if (auto grid = ui.Grid({.gap = 12.0f, .runGap = 8.0f})) {
+                                                if (auto c = grid.Cell4()) { ui.Select(testSelectIdx, selectItems, {.label = "Size Xs", .size = guikit::UiSize::Xs}); }
+                                                if (auto c = grid.Cell4()) { ui.Select(testSelectIdx, selectItems, {.label = "Size Sm", .size = guikit::UiSize::Sm}); }
+                                                if (auto c = grid.Cell4()) { ui.Select(testSelectIdx, selectItems, {.label = "Size Md", .size = guikit::UiSize::Md}); }
+                                                if (auto c = grid.Cell6()) { ui.Select(testSelectIdx, selectItems, {.label = "Size Lg", .size = guikit::UiSize::Lg}); }
+                                                if (auto c = grid.Cell6()) { ui.Select(testSelectIdx, selectItems, {.label = "Size Xl", .size = guikit::UiSize::Xl}); }
+                                            }
+                                            break;
+                                        }
+                                        case NavCategory::ElemSwitchCheckbox: {
+                                            if (auto row = ui.Row({.gap = 16.0f, .align = guikit::Alignment::Center})) {
+                                                ui.Switch(testSwitchState, {.label = "Xs", .size = guikit::UiSize::Xs});
+                                                ui.Switch(testSwitchState, {.label = "Sm", .size = guikit::UiSize::Sm});
+                                                ui.Switch(testSwitchState, {.label = "Md", .size = guikit::UiSize::Md});
+                                                ui.Switch(testSwitchState, {.label = "Lg", .size = guikit::UiSize::Lg});
+                                                ui.Switch(testSwitchState, {.label = "Xl", .size = guikit::UiSize::Xl});
+                                            }
+                                            if (auto row = ui.Row({.gap = 16.0f, .align = guikit::Alignment::Center})) {
+                                                ui.Checkbox(testCheckboxState, {.label = "Xs", .size = guikit::UiSize::Xs});
+                                                ui.Checkbox(testCheckboxState, {.label = "Sm", .size = guikit::UiSize::Sm});
+                                                ui.Checkbox(testCheckboxState, {.label = "Md", .size = guikit::UiSize::Md});
+                                                ui.Checkbox(testCheckboxState, {.label = "Lg", .size = guikit::UiSize::Lg});
+                                                ui.Checkbox(testCheckboxState, {.label = "Xl", .size = guikit::UiSize::Xl});
+                                            }
+                                            break;
+                                        }
+                                        case NavCategory::ElemTabBar: {
+                                            ui.TabBar(testTabIdx, inspectorDemoTabs, {.style = guikit::TabBarStyle::Underline, .fullWidth = true});
+                                            ui.TabBar(testTabIdx, inspectorDemoTabs, {
+                                                .style = guikit::TabBarStyle::Pill,
+                                                .fullWidth = true,
+                                                .padding = guikit::Padding::All(3.0f),
+                                                .radius = 8.0f,
+                                                .backgroundColor = th.palette.surfaceElevated
+                                            });
+                                            break;
+                                        }
+                                        case NavCategory::ElemContainers: {
+                                            if (auto grid = ui.Grid({.gap = 12.0f, .runGap = 8.0f})) {
+                                                if (auto c1 = grid.Cell4()) {
+                                                    if (auto cd = ui.Card({.gap = 6.0f, .padding = guikit::Padding::All(10.0f)})) {
+                                                        ui.Text("Surface Base", {.role = guikit::TextRole::TitleMedium});
+                                                        ui.Text("Card container standard", {.variant = guikit::UiVariant::Secondary});
+                                                    }
+                                                }
+                                                if (auto c2 = grid.Cell4()) {
+                                                    if (auto cd = ui.Card({.gap = 6.0f, .padding = guikit::Padding::All(10.0f), .backgroundColor = th.palette.surfaceElevated, .borderColor = th.palette.accent, .borderWidth = 1.5f})) {
+                                                        ui.Text("Surface Elevated", {.role = guikit::TextRole::TitleMedium, .variant = guikit::UiVariant::Primary});
+                                                        ui.Text("Card with primary border", {.variant = guikit::UiVariant::Secondary});
+                                                    }
+                                                }
+                                                if (auto c3 = grid.Cell4()) {
+                                                    if (auto cd = ui.Card({.gap = 6.0f, .padding = guikit::Padding::All(10.0f), .backgroundColor = th.palette.surfaceActive})) {
+                                                        ui.Text("Surface Subtle", {.role = guikit::TextRole::TitleMedium});
+                                                        ui.Text("Subdued background card", {.variant = guikit::UiVariant::Secondary});
+                                                    }
+                                                }
+                                            }
+                                            break;
+                                        }
+                                        case NavCategory::ElemTypography: {
+                                            ui.Text("Display Large Typography (40px)", {.role = guikit::TextRole::DisplayLarge});
+                                            ui.Text("Headline Medium Typography (22px)", {.role = guikit::TextRole::HeadlineMedium});
+                                            ui.Text("Title Large Component Header (18px)", {.role = guikit::TextRole::TitleLarge});
+                                            ui.Text("Body Medium Standard Paragraph (14px) - Clean legible rendering with subpixel positioning.", {.role = guikit::TextRole::BodyMedium});
+                                            ui.Text("Code Medium Monospace - void Run(Context& ctx, const Options& opts = {});", {.role = guikit::TextRole::CodeMedium});
+                                            break;
+                                        }
+                                        default: break;
+                                    }
+                                }
+
+                                // Semantic Variants Matrix (UiVariant)
+                                if (auto varMatrixCard = ui.Card({.gap = 8.0f, .padding = guikit::Padding::All(12.0f)})) {
+                                    ui.Heading({
+                                        .title = "Semantic Variants Matrix (UiVariant)",
+                                        .subtitle = "Complete design token color family (8 core variants)",
+                                        .size = guikit::UiSize::Sm
+                                    });
+
+                                    if (selectedCategory == NavCategory::ElemButton) {
+                                        if (auto row = ui.Wrap({.gap = 8.0f, .runGap = 8.0f, .align = guikit::Alignment::Center})) {
+                                            ui.Button({.label = "Default", .variant = guikit::UiVariant::Default, .size = controlsSize});
+                                            ui.Button({.label = "Primary", .variant = guikit::UiVariant::Primary, .size = controlsSize});
+                                            ui.Button({.label = "Secondary", .variant = guikit::UiVariant::Secondary, .size = controlsSize});
+                                            ui.Button({.label = "Success", .variant = guikit::UiVariant::Success, .size = controlsSize});
+                                            ui.Button({.label = "Warning", .variant = guikit::UiVariant::Warning, .size = controlsSize});
+                                            ui.Button({.label = "Danger", .variant = guikit::UiVariant::Danger, .size = controlsSize});
+                                            ui.Button({.label = "Info", .variant = guikit::UiVariant::Info, .size = controlsSize});
+                                            ui.Button({.label = "Ghost", .variant = guikit::UiVariant::Ghost, .size = controlsSize});
+                                        }
+                                    } else {
+                                        if (auto grid = ui.Grid({.gap = 12.0f, .runGap = 8.0f})) {
+                                            if (auto c = grid.Cell4()) { ui.Button({.label = "Default Variant", .variant = guikit::UiVariant::Default, .stretch = true, .size = controlsSize}); }
+                                            if (auto c = grid.Cell4()) { ui.Button({.label = "Primary Variant", .variant = guikit::UiVariant::Primary, .stretch = true, .size = controlsSize}); }
+                                            if (auto c = grid.Cell4()) { ui.Button({.label = "Secondary Variant", .variant = guikit::UiVariant::Secondary, .stretch = true, .size = controlsSize}); }
+                                            if (auto c = grid.Cell4()) { ui.Button({.label = "Success Variant", .variant = guikit::UiVariant::Success, .stretch = true, .size = controlsSize}); }
+                                            if (auto c = grid.Cell4()) { ui.Button({.label = "Warning Variant", .variant = guikit::UiVariant::Warning, .stretch = true, .size = controlsSize}); }
+                                            if (auto c = grid.Cell4()) { ui.Button({.label = "Danger Variant", .variant = guikit::UiVariant::Danger, .stretch = true, .size = controlsSize}); }
+                                        }
+                                    }
+                                }
+
+                                // C++20 Immediate Mode Code Generator Card
+                                if (auto codeCard = ui.Card({.gap = 8.0f, .padding = guikit::Padding::All(12.0f)})) {
+                                    if (auto hdr = ui.Row({.align = guikit::Alignment::Center})) {
+                                        ui.Heading({
+                                            .title = "C++20 Immediate Mode Invocation",
+                                            .subtitle = "Copy-pasteable widget call reflecting currently selected inspector options",
+                                            .icon = guikit::Icon::Copy(),
+                                            .size = guikit::UiSize::Sm
+                                        });
+                                        ui.Spacer();
+                                        if (ui.Button({
+                                            .label = codeShowLineNumbers ? "Lines: ON" : "Lines: OFF",
+                                            .variant = codeShowLineNumbers ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+                                            .size = guikit::UiSize::Xs
+                                        })) {
+                                            codeShowLineNumbers = !codeShowLineNumbers;
+                                            ui.InvalidateAll();
+                                        }
+                                    }
+
+                                    std::string snippet;
+                                    switch (selectedCategory) {
+                                        case NavCategory::ElemButton: {
+                                            snippet = std::format(
+                                                "ui.Button({{\n"
+                                                "    .label = \"{}\",\n"
+                                                "{}"
+                                                "    .variant = guikit::UiVariant::{},\n"
+                                                "{}"
+                                                "{}"
+                                                "{}"
+                                                "    .size = guikit::UiSize::{}\n"
+                                                "}});",
+                                                btnClicks > 0 ? std::format("Clicked {}x", btnClicks) : "Interactive Button",
+                                                btnHasIcon ? "    .icon = guikit::Icon::Play(),\n" : "",
+                                                btnVariant == guikit::UiVariant::Primary ? "Primary" :
+                                                (btnVariant == guikit::UiVariant::Secondary ? "Secondary" :
+                                                (btnVariant == guikit::UiVariant::Success ? "Success" :
+                                                (btnVariant == guikit::UiVariant::Warning ? "Warning" :
+                                                (btnVariant == guikit::UiVariant::Danger ? "Danger" :
+                                                (btnVariant == guikit::UiVariant::Info ? "Info" :
+                                                (btnVariant == guikit::UiVariant::Ghost ? "Ghost" : "Default")))))),
+                                                btnHasIcon ? std::format("    .iconPlacement = guikit::Placement::{},\n",
+                                                    btnIconPlacement == guikit::Placement::Leading ? "Leading" :
+                                                    (btnIconPlacement == guikit::Placement::Trailing ? "Trailing" :
+                                                    (btnIconPlacement == guikit::Placement::Top ? "Top" : "Bottom"))) : "",
+                                                btnStretch ? "    .stretch = true,\n" : "",
+                                                btnDisabled ? "    .disabled = true,\n" : "",
+                                                controlsSize == guikit::UiSize::Xs ? "Xs" :
+                                                (controlsSize == guikit::UiSize::Sm ? "Sm" :
+                                                (controlsSize == guikit::UiSize::Lg ? "Lg" :
+                                                (controlsSize == guikit::UiSize::Xl ? "Xl" : "Md")))
+                                            );
+                                            break;
+                                        }
+
+                                        case NavCategory::ElemSlider: {
+                                            if (sliderContinuous) {
+                                                snippet = std::format(
+                                                    "ui.Slider(gainValue, 0.0f, 100.0f, {{\n"
+                                                    "    .label = \"Analog Master Gain\",\n"
+                                                    "    .format = \"%.1f %%\",\n"
+                                                    "    .showValue = {},\n"
+                                                    "    .variant = guikit::UiVariant::{},\n"
+                                                    "    .size = guikit::UiSize::{}{}\n"
+                                                    "}});",
+                                                    sliderShowValue ? "true" : "false",
+                                                    btnVariant == guikit::UiVariant::Primary ? "Primary" : "Default",
+                                                    controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
+                                                    sliderDisabled ? ",\n    .disabled = true" : ""
+                                                );
+                                            } else {
+                                                snippet = std::format(
+                                                    "ui.StepSlider(presetIndex, filterLabels, {{\n"
+                                                    "    .label = \"DSP Filter Mode\",\n"
+                                                    "    .showTicks = {},\n"
+                                                    "    .showLabels = {},\n"
+                                                    "    .showValue = {},\n"
+                                                    "    .variant = guikit::UiVariant::{},\n"
+                                                    "    .size = guikit::UiSize::{}{}\n"
+                                                    "}});",
+                                                    sliderShowTicks ? "true" : "false",
+                                                    sliderShowLabels ? "true" : "false",
+                                                    sliderShowValue ? "true" : "false",
+                                                    btnVariant == guikit::UiVariant::Primary ? "Primary" : "Default",
+                                                    controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
+                                                    sliderDisabled ? ",\n    .disabled = true" : ""
+                                                );
+                                            }
+                                            break;
+                                        }
+
+                                        case NavCategory::ElemInputField: {
+                                            snippet = std::format(
+                                                "ui.InputField(textValue, {{\n"
+                                                "    .label = \"Server Endpoint\",\n"
+                                                "    .description = \"Configured host address\",\n"
+                                                "    .placeholder = \"Enter domain...\",\n"
+                                                "{}"
+                                                "{}"
+                                                "    .variant = guikit::UiVariant::{},\n"
+                                                "    .cursorMode = guikit::CursorBlinkMode::{},\n"
+                                                "    .size = guikit::UiSize::{}{}{}\n"
+                                                "}});",
+                                                inputHasPrefix ? "    .prefix = \"https://\",\n" : "",
+                                                inputHasSuffix ? "    .suffix = \":443\",\n" : "",
+                                                btnVariant == guikit::UiVariant::Primary ? "Primary" : "Default",
+                                                inputCursorMode == guikit::CursorBlinkMode::Solid ? "Solid" :
+                                                (inputCursorMode == guikit::CursorBlinkMode::Hidden ? "Hidden" : "Blinking"),
+                                                controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
+                                                inputDisabled ? ",\n    .disabled = true" : "",
+                                                inputReadOnly ? ",\n    .readOnly = true" : ""
+                                            );
+                                            break;
+                                        }
+
+                                        case NavCategory::ElemSelect: {
+                                            snippet = std::format(
+                                                "ui.Select(selectedIndex, itemsList, {{\n"
+                                                "    .label = \"Active Preset\",\n"
+                                                "    .description = \"Dropdown selection\",\n"
+                                                "    .variant = guikit::UiVariant::{},\n"
+                                                "    .maxVisibleItems = {},\n"
+                                                "    .size = guikit::UiSize::{}{}\n"
+                                                "}});",
+                                                btnVariant == guikit::UiVariant::Primary ? "Primary" : "Default",
+                                                selectMaxItems,
+                                                controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
+                                                selectDisabled ? ",\n    .disabled = true" : ""
+                                            );
+                                            break;
+                                        }
+
+                                        case NavCategory::ElemSwitchCheckbox: {
+                                            snippet = std::format(
+                                                "ui.Switch(switchState, {{\n"
+                                                "    .label = \"Hardware E-Stop\",\n"
+                                                "    .description = \"Safety interlocking\",\n"
+                                                "    .variant = guikit::UiVariant::{},\n"
+                                                "    .labelPlacement = guikit::Placement::{},\n"
+                                                "    .size = guikit::UiSize::{}{}\n"
+                                                "}});",
+                                                btnVariant == guikit::UiVariant::Primary ? "Primary" : "Default",
+                                                switchLabelPlace == guikit::Placement::Leading ? "Leading" : "Trailing",
+                                                controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
+                                                switchDisabled ? ",\n    .disabled = true" : ""
+                                            );
+                                            break;
+                                        }
+
+                                        case NavCategory::ElemTabBar: {
+                                            snippet = std::format(
+                                                "ui.TabBar(activeTab, tabItems, {{\n"
+                                                "    .style = guikit::TabBarStyle::{},\n"
+                                                "    .showSeparator = {},\n"
+                                                "    .fullWidth = {},\n"
+                                                "    .scrollable = {},\n"
+                                                "    .gap = {:.1f}f,\n"
+                                                "    .padding = guikit::Padding::All({:.1f}f),\n"
+                                                "    .radius = {:.1f}f,\n"
+                                                "    .backgroundColor = theme.palette.surfaceElevated,\n"
+                                                "    .borderColor = theme.palette.borderSubtle,\n"
+                                                "    .borderWidth = {:.1f}f\n"
+                                                "}});",
+                                                tabStyle == guikit::TabBarStyle::Pill ? "Pill" : "Underline",
+                                                testTabShowSep ? "true" : "false",
+                                                testTabFullWidth ? "true" : "false",
+                                                testTabScrollable ? "true" : "false",
+                                                tabGap,
+                                                testTabHasBg ? testTabPadding : 0.0f,
+                                                testTabHasBg ? testTabRadius : 0.0f,
+                                                testTabHasBg ? testTabBorderWidth : 0.0f
+                                            );
+                                            break;
+                                        }
+
+                                        case NavCategory::ElemContainers: {
+                                            snippet = std::format(
+                                                "if (auto card = ui.Card({{\n"
+                                                "    .gap = {:.1f}f,\n"
+                                                "    .padding = guikit::Padding({:.1f}f),\n"
+                                                "    .borderWidth = {:.1f}f,\n"
+                                                "    .radius = {:.1f}f\n"
+                                                "}})) {{\n"
+                                                "    ui.Text(\"Card Surface Component\");\n"
+                                                "}}",
+                                                cardGap, cardPadding, cardBorderWidth, cardRadius
+                                            );
+                                            break;
+                                        }
+
+                                        case NavCategory::ElemTypography: {
+                                            snippet = std::format(
+                                                "ui.Heading({{\n"
+                                                "    .title = \"Typographic Heading Sample\",\n"
+                                                "    .subtitle = \"Dynamic typography scale test\",\n"
+                                                "    .icon = guikit::Icon::Edit(),\n"
+                                                "    .size = guikit::UiSize::{},\n"
+                                                "    .divider = {},\n"
+                                                "    .wordWrap = {}\n"
+                                                "}});",
+                                                headingSize == guikit::UiSize::Sm ? "Sm" : (headingSize == guikit::UiSize::Lg ? "Lg" : "Md"),
+                                                headingDivider ? "true" : "false",
+                                                headingWordWrap ? "true" : "false"
+                                            );
+                                            break;
+                                        }
+
+                                        default: break;
+                                    }
+
+                                    ui.TextArea(snippet, {
+                                        .autoHeight = true,
+                                        .readOnly = true,
+                                        .showLineNumbers = codeShowLineNumbers,
+                                        .monospace = true,
+                                        .syntaxHighlighter = &guikit::TextArea::CppHighlighter
                                     });
                                 }
+                            } else {
+                                // -------------------------------------------------------------
+                                // ASSEMBLY MODE: Real-World Screens & Compositions
+                                // -------------------------------------------------------------
+                                switch (selectedCategory) {
+                                    case NavCategory::AsmDashboard: {
+                                        // Industrial Dashboard (responsive 2-column layout)
+                                        if (auto dashboardGrid = ui.Grid(makeGrid())) {
+                                            // Left Column
+                                            if (auto colLeft = dashboardGrid.Cell6({.gap = colGap})) {
+                                                if (auto card1 = ui.Card(makeCard())) {
+                                                    ui.Heading({.title = "Primary Stop Conditions", .subtitle = "Sensory tripwire thresholds & limits", .size = headingSize, .wordWrap = headingWordWrap});
+                                                    if (auto grid1 = ui.Grid(makeGrid())) {
+                                                        if (auto c = grid1.Cell12()) {
+                                                            ui.Switch(enableSensors, {
+                                                                .label = "Enable Sensor Drop Limits",
+                                                                .description = "Immediate stop on threshold breach"
+                                                            });
+                                                        }
+                                                        if (auto c = grid1.Cell6()) {
+                                                            ui.InputField(maxTravel, {.label = "Max Travel", .suffix = "mm", .format = "%.1f"});
+                                                        }
+                                                        if (auto c = grid1.Cell6()) {
+                                                            ui.InputField(maxVelocity, {.label = "Max Velocity", .suffix = "mm/s", .format = "%.1f"});
+                                                        }
+                                                        if (auto c = grid1.Cell12()) {
+                                                            ui.Select(sensorChannel, {
+                                                                "Channel A (Load Cell 50kN)",
+                                                                "Channel B (Optical Extensometer)",
+                                                                "Channel C (Laser Interferometer)"
+                                                            }, {
+                                                                .label = "Primary Sensor Channel",
+                                                                .description = "Active physical transducer bus",
+                                                                .labelPlacement = guikit::Placement::Stacked
+                                                            });
+                                                        }
+                                                    }
+                                                }
 
-                                const guikit::Placement activePlacement = formMode ? guikit::Placement::Stacked : guikit::Placement::Leading;
+                                                if (auto card2 = ui.Card(makeCard())) {
+                                                    ui.Heading({.title = "Emergency Interlocks", .subtitle = "Hardware line supervision & failsafes", .variant = guikit::UiVariant::Danger, .size = headingSize, .wordWrap = headingWordWrap});
+                                                    if (auto grid2 = ui.Grid(makeGrid())) {
+                                                        if (auto c = grid2.Cell12()) {
+                                                            ui.Switch(hwEstop, {
+                                                                .label = "Hardware E-Stop Line",
+                                                                .description = "Continuous 24V loop monitoring",
+                                                                .variant = guikit::UiVariant::Danger
+                                                            });
+                                                        }
+                                                        if (auto c = grid2.Cell6()) {
+                                                            ui.Select(interlockMode, {
+                                                                "Immediate Cutoff",
+                                                                "Controlled Ramp-down",
+                                                                "Hold Position"
+                                                            }, {
+                                                                .label = "Interlock Action"
+                                                            });
+                                                        }
+                                                        if (auto c = grid2.Cell6()) {
+                                                            ui.InputField(rampDown, {.label = "Ramp Duration", .suffix = "ms", .format = "%.0f"});
+                                                        }
+                                                    }
+                                                }
+                                            }
 
-                                if (auto fieldsGrid = ui.Grid(makeGrid())) {
-                                    if (auto c1 = fieldsGrid.Cell3()) {
-                                        ui.InputField(speedDrop, {
-                                            .label = "Speed Drop dF/dt",
-                                            .description = "Automatic stop of testing on load drop",
-                                            .suffix = "%",
-                                            .format = "%.0f",
-                                            .labelPlacement = activePlacement
-                                        });
-                                    }
-                                    if (auto c2 = fieldsGrid.Cell3()) {
-                                        ui.InputField(sampleId, {
-                                            .label = "Sample Identifier",
-                                            .description = "Unique test specimen code",
-                                            .placeholder = "Enter sample code...",
-                                            .labelPlacement = activePlacement
-                                        });
-                                    }
-                                    if (auto c3 = fieldsGrid.Cell3()) {
-                                        ui.Select(baudIndex, {"9600 bps", "19200 bps", "38400 bps", "115200 bps"}, {
-                                            .label = "Baud Rate",
-                                            .description = "Serial communication bus rate",
-                                            .labelPlacement = activePlacement
-                                        });
-                                    }
-                                    if (auto c4 = fieldsGrid.Cell3()) {
-                                        ui.Select(profileMode, {"Eco Saver", "Standard Performance", "Industrial High-Speed", "Extreme Calibration"}, {
-                                            .label = "Operation Profile",
-                                            .description = "Active runtime sensor & compute profile",
-                                            .labelPlacement = activePlacement
-                                        });
-                                    }
-                                }
+                                            // Right Column
+                                            if (auto colRight = dashboardGrid.Cell6({.gap = colGap})) {
+                                                if (auto card3 = ui.Card(makeCard())) {
+                                                    ui.Heading({.title = "Secondary Criteria & PID", .subtitle = "Dynamic closed-loop feedback parameters", .size = headingSize, .wordWrap = headingWordWrap});
+                                                    if (auto grid3 = ui.Grid(makeGrid())) {
+                                                        if (auto c = grid3.Cell6()) {
+                                                            ui.InputField(forceLimit, {.label = "Force Drop Limit", .suffix = "%", .format = "%.1f"});
+                                                        }
+                                                        if (auto c = grid3.Cell6()) {
+                                                            ui.InputField(yieldRatio, {.label = "Yield Ratio", .suffix = "%", .format = "%.2f"});
+                                                        }
+                                                        if (auto c = grid3.Cell4()) {
+                                                            ui.InputField(pGain, {.label = "P-Gain", .format = "%.2f"});
+                                                        }
+                                                        if (auto c = grid3.Cell4()) {
+                                                            ui.InputField(iGain, {.label = "I-Gain", .format = "%.3f"});
+                                                        }
+                                                        if (auto c = grid3.Cell4()) {
+                                                            ui.InputField(dGain, {.label = "D-Gain", .format = "%.3f"});
+                                                        }
+                                                        if (auto c = grid3.Cell12()) {
+                                                            ui.Switch(diagLogging, {
+                                                                .label = "Log High-Speed Telemetry",
+                                                                .description = "Record 10 kHz buffer to internal flash"
+                                                            });
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
 
-                                ui.Heading({
-                                    .title = "Precision Continuous & Stepped Sliders",
-                                    .subtitle = "Immediate-mode numeric sliders with wheel scrubbing, ticks, and step presets",
-                                    .icon = guikit::Icon::Settings(),
-                                    .size = headingSize
-                                });
+                                        if (auto cardAudit = ui.Card(makeCard())) {
+                                            ui.Heading({
+                                                .title = "Supervisor Hardware Loop Diagnostics",
+                                                .subtitle = "Live bus performance telemetry and continuous line supervision",
+                                                .icon = guikit::Icon::Check(),
+                                                .variant = guikit::UiVariant::Success,
+                                                .size = headingSize,
+                                                .wordWrap = headingWordWrap
+                                            });
+                                            if (auto g = ui.Grid(makeGrid())) {
+                                                if (auto c1 = g.Cell4()) {
+                                                    ui.Text("Safety Loop: CLOSED (Nominal)", {.role = guikit::TextRole::BodyMedium, .variant = guikit::UiVariant::Success});
+                                                }
+                                                if (auto c2 = g.Cell4()) {
+                                                    ui.Text("Bus Jitter: < 0.12 ms", {.role = guikit::TextRole::CodeMedium, .variant = guikit::UiVariant::Info});
+                                                }
+                                                if (auto c3 = g.Cell4()) {
+                                                    ui.Text("Supervisor Heartbeat: 1000 Hz", {.role = guikit::TextRole::CodeMedium});
+                                                }
+                                            }
+                                        }
+                                        break;
+                                    }
 
-                                if (auto sliderGrid = ui.Grid(makeGrid())) {
-                                    if (auto c1 = sliderGrid.Cell4()) {
-                                        ui.Slider(masterGain, 0.0f, 100.0f, {
-                                            .label = "Master Analog Gain",
-                                            .suffix = "dB",
-                                            .format = "%.1f"
-                                        });
+                                    case NavCategory::AsmFormControls: {
+                                        // Overview Tab: Interactive Counter & Form
+                                        if (auto card = ui.Card(makeCard())) {
+                                            ui.Heading({.title = "Interactive Reactive State", .subtitle = "Pure immediate mode with zero external widget IDs and instant response.", .size = headingSize, .wordWrap = headingWordWrap});
+
+                                            if (auto actionRow = ui.Wrap({.gap = rowGap, .runGap = colGap, .align = guikit::Alignment::Center})) {
+                                                if (ui.Button({.label = "Increment (+1)", .icon = guikit::Icon::Plus(), .variant = guikit::UiVariant::Success})) {
+                                                    ++counter;
+                                                }
+                                                if (ui.Button({.label = "Decrement (-1)", .icon = guikit::Icon::Minus(), .variant = guikit::UiVariant::Warning})) {
+                                                    --counter;
+                                                }
+                                                if (ui.Button({.label = "Reset", .icon = guikit::Icon::Refresh(), .variant = guikit::UiVariant::Danger})) {
+                                                    counter = 0;
+                                                }
+
+                                                ui.Text(ui.Format("Value: {}", counter), {.role = guikit::TextRole::HeadlineMedium, .variant = guikit::UiVariant::Info});
+                                            }
+
+                                            if (auto togglesRow = ui.Wrap({.gap = rowGap, .runGap = colGap, .align = guikit::Alignment::Center})) {
+                                                ui.Checkbox(showTelemetry, {.label = "Show Telemetry", .variant = guikit::UiVariant::Info});
+                                                if (ui.Switch(formMode, {
+                                                    .label = "Form Mode",
+                                                    .description = "Toggle stacked vs default label layout",
+                                                    .labelPlacement = guikit::Placement::Stacked
+                                                }).changed) {
+                                                    ui.InvalidateAll();
+                                                }
+                                                ui.Checkbox(true, {.label = "Auto-Scale", .disabled = true});
+                                            }
+
+                                            if (showTelemetry) {
+                                                ui.Heading({
+                                                    .title = "Telemetry Stream",
+                                                    .subtitle = "1000 samples/sec | Jitter < 0.2ms | Hardware loop nominal",
+                                                    .icon = guikit::Icon::Check(),
+                                                    .badge = "ACTIVE",
+                                                    .variant = guikit::UiVariant::Success,
+                                                    .size = headingSize,
+                                                    .wordWrap = headingWordWrap
+                                                });
+                                            }
+
+                                            const guikit::Placement activePlacement = formMode ? guikit::Placement::Stacked : guikit::Placement::Leading;
+
+                                            if (auto fieldsGrid = ui.Grid(makeGrid())) {
+                                                if (auto c1 = fieldsGrid.Cell3()) {
+                                                    ui.InputField(speedDrop, {
+                                                        .label = "Speed Drop dF/dt",
+                                                        .description = "Automatic stop of testing on load drop",
+                                                        .suffix = "%",
+                                                        .format = "%.0f",
+                                                        .labelPlacement = activePlacement
+                                                    });
+                                                }
+                                                if (auto c2 = fieldsGrid.Cell3()) {
+                                                    ui.InputField(sampleId, {
+                                                        .label = "Sample Identifier",
+                                                        .description = "Unique test specimen code",
+                                                        .placeholder = "Enter sample code...",
+                                                        .labelPlacement = activePlacement
+                                                    });
+                                                }
+                                                if (auto c3 = fieldsGrid.Cell3()) {
+                                                    ui.Select(baudIndex, {"9600 bps", "19200 bps", "38400 bps", "115200 bps"}, {
+                                                        .label = "Baud Rate",
+                                                        .description = "Serial communication bus rate",
+                                                        .labelPlacement = activePlacement
+                                                    });
+                                                }
+                                                if (auto c4 = fieldsGrid.Cell3()) {
+                                                    ui.Select(profileMode, {"Eco Saver", "Standard Performance", "Industrial High-Speed", "Extreme Calibration"}, {
+                                                        .label = "Operation Profile",
+                                                        .description = "Active runtime sensor & compute profile",
+                                                        .labelPlacement = activePlacement
+                                                    });
+                                                }
+                                            }
+
+                                            ui.Heading({
+                                                .title = "Precision Continuous & Stepped Sliders",
+                                                .subtitle = "Immediate-mode numeric sliders with wheel scrubbing, ticks, and step presets",
+                                                .icon = guikit::Icon::Settings(),
+                                                .size = headingSize,
+                                                .wordWrap = headingWordWrap
+                                            });
+
+                                            if (auto sliderGrid = ui.Grid(makeGrid())) {
+                                                if (auto c1 = sliderGrid.Cell4()) {
+                                                    ui.Slider(masterGain, 0.0f, 100.0f, {
+                                                        .label = "Master Analog Gain",
+                                                        .suffix = "dB",
+                                                        .format = "%.1f"
+                                                    });
+                                                }
+                                                if (auto c2 = sliderGrid.Cell4()) {
+                                                    ui.Slider(channelCount, 1, 8, {
+                                                        .label = "ADC Active Channels",
+                                                        .suffix = "ch",
+                                                        .step = 1.0f
+                                                    });
+                                                }
+                                                if (auto c3 = sliderGrid.Cell4()) {
+                                                    ui.StepSlider(filterPreset, filterLabels, {
+                                                        .label = "DSP Filter Mode",
+                                                        .showTicks = true,
+                                                        .showLabels = true
+                                                    });
+                                                }
+                                            }
+                                        }
+                                        break;
                                     }
-                                    if (auto c2 = sliderGrid.Cell4()) {
-                                        ui.Slider(channelCount, 1, 8, {
-                                            .label = "ADC Active Channels",
-                                            .suffix = "ch",
-                                            .step = 1.0f
-                                        });
+
+                                    case NavCategory::AsmFlexRibbon: {
+                                        // Flexbox Demo: Equal Stretch & Alignment
+                                        if (auto card = ui.Card(makeCard())) {
+                                            ui.Heading({.title = "Dynamic 3-Way Equal Stretch Layout", .subtitle = "Each button automatically receives exactly 33.3% available width via stretch = true.", .size = headingSize, .wordWrap = headingWordWrap});
+
+                                            if (auto stretchRow = ui.Row({.gap = rowGap})) {
+                                                ui.Button({.label = "Col 1 (Stretch)", .stretch = true});
+                                                ui.Button({.label = "Col 2 (Stretch)", .stretch = true});
+                                                ui.Button({.label = "Col 3 (Stretch)", .stretch = true});
+                                            }
+
+                                            ui.Heading({.title = "Horizontal Carousel Ribbon", .subtitle = "Autonomous scroll container with navigation arrows and mouse wheel support.", .size = headingSize, .wordWrap = headingWordWrap});
+                                            if (auto ribbon = ui.Carousel({.gap = carouselGap})) {
+                                                for (int k = 1; k <= 10; ++k) {
+                                                    ui.Button({
+                                                        .label = ui.Format("Module #{:02d}", k),
+                                                        .variant = (k % 3 == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Default
+                                                    });
+                                                }
+                                            }
+                                        }
+                                        break;
                                     }
-                                    if (auto c3 = sliderGrid.Cell4()) {
-                                        ui.StepSlider(filterPreset, filterLabels, {
-                                            .label = "DSP Filter Mode",
-                                            .showTicks = true,
-                                            .showLabels = true
-                                        });
+
+                                    case NavCategory::AsmDiagnostics: {
+                                        // Diagnostics & System Audit
+                                        if (auto card = ui.Card(makeCard())) {
+                                            ui.Heading({
+                                                .title = "System Diagnostics & Network Audit",
+                                                .subtitle = "Operational module telemetry stream and live system diagnostics.",
+                                                .icon = guikit::Icon::Check(),
+                                                .size = headingSize,
+                                                .wordWrap = headingWordWrap
+                                            });
+                                            if (auto grid = ui.Grid(makeGrid())) {
+                                                if (auto c1 = grid.Cell6()) {
+                                                    ui.Text("Channel Status: ONLINE | Active bus node: [SUPERVISOR]",
+                                                            {.role = guikit::TextRole::BodyMedium, .variant = guikit::UiVariant::Success});
+                                                }
+                                                if (auto c2 = grid.Cell6()) {
+                                                    ui.Text("Latency: 0.18 ms | Packet Drop: 0.00% | CRC: OK",
+                                                            {.role = guikit::TextRole::CodeMedium, .variant = guikit::UiVariant::Info});
+                                                }
+                                                if (auto c3 = grid.Cell6()) {
+                                                    ui.Text("Memory Arena High Watermark: 24.8 KB",
+                                                            {.role = guikit::TextRole::CodeMedium, .variant = guikit::UiVariant::Secondary});
+                                                }
+                                                if (auto c4 = grid.Cell6()) {
+                                                    ui.Text("Frame Damage Rate: 0 full repaints / 99.8% partial",
+                                                            {.role = guikit::TextRole::CodeMedium, .variant = guikit::UiVariant::Success});
+                                                }
+                                            }
+                                        }
+                                        break;
                                     }
+
+                                    case NavCategory::AsmThemeStudio: {
+                                        // Theme & Palette Studio
+                                        if (auto card = ui.Card(makeCard())) {
+                                            ui.Heading({
+                                                .title = "Theme & Palette Studio",
+                                                .subtitle = "Live token tweaking and contrast validation",
+                                                .size = headingSize,
+                                                .wordWrap = headingWordWrap
+                                            });
+
+                                            ui.Heading({.title = "Quick Accent Color Presets", .size = guikit::UiSize::Sm});
+                                            if (auto accentRow = ui.Wrap({.gap = 8.0f, .runGap = 8.0f})) {
+                                                auto makePreset = [&](std::string_view name, guikit::Color col) {
+                                                    if (ui.Button({.label = name, .size = guikit::UiSize::Sm})) {
+                                                        th.palette.accent = col;
+                                                        th.GetVariant(guikit::UiVariant::Primary).bg = col;
+                                                        th.palette.focusRing = col;
+                                                        ui.InvalidateAll();
+                                                    }
+                                                };
+                                                makePreset("Cyan", guikit::Color(6, 182, 212));
+                                                makePreset("Blue", guikit::Color(59, 130, 246));
+                                                makePreset("Purple", guikit::Color(168, 85, 247));
+                                                makePreset("Emerald", guikit::Color(16, 185, 129));
+                                                makePreset("Rose", guikit::Color(244, 63, 94));
+                                                makePreset("Amber", guikit::Color(245, 158, 11));
+                                            }
+
+                                            ui.Heading({.title = "Base Palette Tokens", .size = guikit::UiSize::Sm});
+                                            auto makeColorSliders = [&](std::string_view title, guikit::Color& c) {
+                                                float r = c.r, g = c.g, b = c.b;
+                                                bool changed = false;
+                                                ui.Text(title, {.role = guikit::TextRole::LabelMedium});
+                                                if (auto g_row = ui.Grid({.gap = 8.0f})) {
+                                                    if (auto c1 = g_row.Cell4()) { if (ui.Slider(r, 0.0f, 255.0f, {.label = "R", .format = "%.0f"}).changed) changed = true; }
+                                                    if (auto c2 = g_row.Cell4()) { if (ui.Slider(g, 0.0f, 255.0f, {.label = "G", .format = "%.0f"}).changed) changed = true; }
+                                                    if (auto c3 = g_row.Cell4()) { if (ui.Slider(b, 0.0f, 255.0f, {.label = "B", .format = "%.0f"}).changed) changed = true; }
+                                                }
+                                                if (changed) {
+                                                    c = guikit::Color(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), c.a);
+                                                    ui.InvalidateAll();
+                                                }
+                                            };
+
+                                            makeColorSliders("Primary Accent Fill", th.palette.accent);
+                                            makeColorSliders("Surface Color", th.palette.surface);
+                                            makeColorSliders("Background Color", th.palette.background);
+                                        }
+                                        break;
+                                    }
+
+                                    default: break;
                                 }
                             }
-                        } else if (activeTabIndex == 1) {
-                            // Flexbox Demo Tab: Equal Stretch & Alignment
-                            if (auto card = ui.Card(makeCard())) {
-                                ui.Heading({.title = "Dynamic 3-Way Equal Stretch Layout", .subtitle = "Each button automatically receives exactly 33.3% available width via stretch = true.", .size = headingSize});
-
-                                if (auto stretchRow = ui.Row({.gap = rowGap})) {
-                                    ui.Button({.label = "Col 1 (Stretch)", .stretch = true});
-                                    ui.Button({.label = "Col 2 (Stretch)", .stretch = true});
-                                    ui.Button({.label = "Col 3 (Stretch)", .stretch = true});
-                                }
-
-                                ui.Heading({.title = "Horizontal Carousel Ribbon", .subtitle = "Autonomous scroll container with navigation arrows and mouse wheel support.", .size = headingSize});
-                                if (auto ribbon = ui.Carousel({.gap = 8.0f})) {
-                                    for (int k = 1; k <= 10; ++k) {
-                                        ui.Button({
-                                            .label = ui.Format("Module #{:02d}", k),
-                                            .variant = (k % 3 == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Default
-                                        });
-                                    }
-                                }
-                            }
-                        } else {
-                            // Diagnostics & Audit Tabs
-                            if (auto card = ui.Card(makeCard())) {
-                                ui.Heading({
-                                    .title = navTabs[activeTabIndex].label,
-                                    .subtitle = "Operational module telemetry stream and live system diagnostics.",
-                                    .icon = navTabs[activeTabIndex].icon,
-                                    .size = headingSize
-                                });
-                                if (auto grid = ui.Grid(makeGrid())) {
-                                    if (auto c1 = grid.Cell6()) {
-                                        ui.Text(ui.Format("Channel Status: ONLINE | Active node: [{}]", navTabs[activeTabIndex].label),
-                                                {.role = guikit::TextRole::BodyMedium, .variant = guikit::UiVariant::Success});
-                                    }
-                                    if (auto c2 = grid.Cell6()) {
-                                        ui.Text("Latency: 0.18 ms | Packet Drop: 0.00% | CRC: OK",
-                                                {.role = guikit::TextRole::CodeMedium, .variant = guikit::UiVariant::Info});
-                                    }
-                                }
-                            }
-                        }
-
-                        // Vertical Spacer pushing the footer down (only for non-stretching tabs)
-                        if (activeTabIndex != 2) {
-                            ui.Spacer();
                         }
                     }
                 }
+            }
 
                 // Sticky Footer Bar
                 if (auto footer = ui.Row({.align = guikit::Alignment::Center})) {

@@ -43,6 +43,7 @@
 #include "guikit/widgets/Switch.hpp"
 #include "guikit/widgets/TabBar.hpp"
 #include "guikit/widgets/Text.hpp"
+#include "guikit/widgets/TextArea.hpp"
 
 namespace guikit {
 
@@ -407,6 +408,23 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
+    // --- TextArea Widget ---
+    Response TextArea(
+        std::string& value,
+        const TextAreaOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::TextArea>(&value, std::string_view{}, opts, loc);
+    }
+
+    Response TextArea(
+        std::string_view value,
+        const TextAreaOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::TextArea>(nullptr, value, opts, loc);
+    }
+
 
     // --- Select (Dropdown) Widget ---
     template <SelectTarget T>
@@ -590,7 +608,8 @@ public:
         std::string_view initialText,
         size_t& outCursor,
         bool& outChanged,
-        bool& outSubmitted
+        bool& outSubmitted,
+        bool multiline = false
     );
 
     // --- Cursor Configuration & State ---
@@ -724,6 +743,7 @@ private:
         size_t cursor{0};
         bool changed{false};
         bool submitted{false};
+        bool multiline{false};
 
         void Insert(std::string_view utf8Text) {
             if (cursor <= text.size()) {
@@ -754,13 +774,29 @@ private:
                 case Key::Right:
                     if (cursor < text.size()) cursor++;
                     return true;
-                case Key::Home:
-                    cursor = 0;
+                case Key::Home: {
+                    if (multiline) {
+                        size_t prevNl = text.rfind('\n', cursor > 0 ? cursor - 1 : 0);
+                        cursor = (prevNl == std::string::npos) ? 0 : prevNl + 1;
+                    } else {
+                        cursor = 0;
+                    }
                     return true;
-                case Key::End:
-                    cursor = text.size();
+                }
+                case Key::End: {
+                    if (multiline) {
+                        size_t nextNl = text.find('\n', cursor);
+                        cursor = (nextNl == std::string::npos) ? text.size() : nextNl;
+                    } else {
+                        cursor = text.size();
+                    }
                     return true;
+                }
                 case Key::Enter:
+                    if (multiline) {
+                        Insert("\n");
+                        return true;
+                    }
                     submitted = true;
                     outLostFocus = true;
                     return true;

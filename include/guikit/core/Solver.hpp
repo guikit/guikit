@@ -18,7 +18,7 @@ public:
     static void Measure(Node* root, ICanvas* canvas = nullptr);
 
     /// Computes final coordinates and dimensions top-down based on parent constraints.
-    static void Arrange(Node* root, Rect availableRect, const UiTheme& theme);
+    static void Arrange(Node* root, Rect availableRect, const UiTheme& theme, ICanvas* canvas = nullptr);
 
     /// Computes final coordinates and dimensions top-down with default dark theme.
     static void Arrange(Node* root, Rect availableRect);

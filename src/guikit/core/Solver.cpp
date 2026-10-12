@@ -10,12 +10,12 @@ namespace guikit {
 namespace {
 
 static void MeasureNode(Node* node, ICanvas* canvas, const UiTheme& theme);
-static void ArrangeNode(Node* node, Rect availableRect, const UiTheme& theme);
-static float ResolveNodeHeight(Node* node, float availableWidth);
-static void ArrangeRow(Node* node, const Rect& contentRect, const UiTheme& theme);
-static void ArrangeWrap(Node* node, const Rect& contentRect, const UiTheme& theme);
-static void ArrangeColumn(Node* node, const Rect& contentRect, const UiTheme& theme);
-static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& theme);
+static void ArrangeNode(Node* node, Rect availableRect, const UiTheme& theme, ICanvas* canvas = nullptr);
+static float ResolveNodeHeight(Node* node, float availableWidth, ICanvas* canvas, const UiTheme& theme);
+static void ArrangeRow(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas);
+static void ArrangeWrap(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas);
+static void ArrangeColumn(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas);
+static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas);
 
     static void MeasureNode(Node* node, ICanvas* canvas, const UiTheme& theme) {
         const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
@@ -27,7 +27,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
         // Custom autonomous measure delegate (leaves or specialized containers)
         if (node->measureFn) {
-            node->intrinsicSize = node->measureFn(node, canvas, activeTheme);
+            node->intrinsicSize = node->measureFn(node, 0.0f, canvas, activeTheme);
             return;
         }
 
@@ -160,7 +160,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
     }
 
     /// Resolves actual vertical dimension for a node given constrained available width.
-    static float ResolveNodeHeight(Node* node, float availableWidth) {
+    static float ResolveNodeHeight(Node* node, float availableWidth, ICanvas* canvas, const UiTheme& theme) {
         if (!node) return 0.0f;
         if (node->heightMode == SizeMode::Fixed) {
             return node->fixedHeight;
@@ -169,6 +169,10 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             return 0.0f;
         }
         if (node->childCount == 0) {
+            if (node->measureFn) {
+                const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
+                return node->measureFn(node, availableWidth, canvas, activeTheme).y;
+            }
             return node->intrinsicSize.y;
         }
 
@@ -226,7 +230,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->isSpacer) continue;
-                const float ch = ResolveNodeHeight(child, childAvailW);
+                const float ch = ResolveNodeHeight(child, childAvailW, canvas, theme);
                 sumH += ch;
                 ++activeChildren;
             }
@@ -282,7 +286,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     }
 
                     const float childW = std::max(0.0f, (static_cast<float>(span) / static_cast<float>(totalCols)) * (availW + gap) - gap);
-                    const float childH = ResolveNodeHeight(lineEnd, childW);
+                    const float childH = ResolveNodeHeight(lineEnd, childW, canvas, theme);
 
                     lineMaxH = std::max(lineMaxH, childH);
                     currentLineSpan += span;
@@ -296,7 +300,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
                 if (itemsInLine == 1 && lineEnd != nullptr) {
                     const float childW = availW;
-                    lineMaxH = ResolveNodeHeight(lineStart, childW);
+                    lineMaxH = ResolveNodeHeight(lineStart, childW, canvas, theme);
                 }
 
                 if (hasLines) {
@@ -313,7 +317,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         return node->intrinsicSize.y;
     }
 
-    static void ArrangeNode(Node* node, Rect availableRect, const UiTheme& theme) {
+    static void ArrangeNode(Node* node, Rect availableRect, const UiTheme& theme, ICanvas* canvas) {
         if (!node) return;
 
         const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
@@ -336,7 +340,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
 
             if (node->heightMode == SizeMode::Fit) {
-                h = (node->childCount == 0) ? node->intrinsicSize.y : ResolveNodeHeight(node, w);
+                h = ResolveNodeHeight(node, w, canvas, activeTheme);
             } else if (node->heightMode == SizeMode::Fixed) {
                 h = node->fixedHeight;
             }
@@ -360,7 +364,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 uint32_t active = 0;
                 for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                     if (child->isSpacer) continue;
-                    testH += ResolveNodeHeight(child, fullW);
+                    testH += ResolveNodeHeight(child, fullW, canvas, activeTheme);
                     ++active;
                 }
                 if (active > 1) {
@@ -382,7 +386,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             uint32_t activeChildren = 0;
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->isSpacer) continue;
-                contentH += ResolveNodeHeight(child, viewportW);
+                contentH += ResolveNodeHeight(child, viewportW, canvas, activeTheme);
                 ++activeChildren;
             }
             if (activeChildren > 1) {
@@ -403,11 +407,11 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             );
 
             if (node->direction == FlexDirection::Grid) {
-                ArrangeGrid(node, scrollContentRect, activeTheme);
+                ArrangeGrid(node, scrollContentRect, activeTheme, canvas);
             } else if (node->direction == FlexDirection::Row) {
-                ArrangeRow(node, scrollContentRect, activeTheme);
+                ArrangeRow(node, scrollContentRect, activeTheme, canvas);
             } else {
-                ArrangeColumn(node, scrollContentRect, activeTheme);
+                ArrangeColumn(node, scrollContentRect, activeTheme, canvas);
             }
             return;
         }
@@ -420,17 +424,17 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         );
 
         if (node->direction == FlexDirection::Row) {
-            ArrangeRow(node, contentRect, activeTheme);
+            ArrangeRow(node, contentRect, activeTheme, canvas);
         } else if (node->direction == FlexDirection::Wrap) {
-            ArrangeWrap(node, contentRect, activeTheme);
+            ArrangeWrap(node, contentRect, activeTheme, canvas);
         } else if (node->direction == FlexDirection::Grid) {
-            ArrangeGrid(node, contentRect, activeTheme);
+            ArrangeGrid(node, contentRect, activeTheme, canvas);
         } else {
-            ArrangeColumn(node, contentRect, activeTheme);
+            ArrangeColumn(node, contentRect, activeTheme, canvas);
         }
     }
 
-    static void ArrangeRow(Node* node, const Rect& contentRect, const UiTheme& theme) {
+    static void ArrangeRow(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas) {
         const float totalGap = (node->childCount > 1)
             ? static_cast<float>(node->childCount - 1) * node->gap
             : 0.0f;
@@ -492,7 +496,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 childY = contentRect.Bottom() - childH;
             }
 
-            ArrangeNode(child, Rect(currentX, childY, childW, childH), theme);
+            ArrangeNode(child, Rect(currentX, childY, childW, childH), theme, canvas);
             currentX += childW + node->gap;
         }
 
@@ -503,7 +507,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         }
     }
 
-    static void ArrangeWrap(Node* node, const Rect& contentRect, const UiTheme& theme) {
+    static void ArrangeWrap(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas) {
         const float maxLineWidth = std::max(0.0f, contentRect.w);
         Node* lineStart = node->firstChild;
         float currentY = contentRect.y;
@@ -574,7 +578,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     childY = currentY + (lineMaxH - ch);
                 }
 
-                ArrangeNode(child, Rect(itemX, childY, cw, ch), theme);
+                ArrangeNode(child, Rect(itemX, childY, cw, ch), theme, canvas);
                 itemX += cw + itemGap;
             }
 
@@ -588,7 +592,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         }
     }
 
-    static void ArrangeColumn(Node* node, const Rect& contentRect, const UiTheme& theme) {
+    static void ArrangeColumn(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas) {
         const float totalGap = (node->childCount > 1)
             ? static_cast<float>(node->childCount - 1) * node->gap
             : 0.0f;
@@ -604,7 +608,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             } else if (child->heightMode == SizeMode::Fixed) {
                 baseSum += child->fixedHeight;
             } else { // SizeMode::Fit
-                baseSum += ResolveNodeHeight(child, contentRect.w);
+                baseSum += ResolveNodeHeight(child, contentRect.w, canvas, theme);
             }
         }
 
@@ -629,7 +633,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             } else if (child->heightMode == SizeMode::Fixed) {
                 childH = child->fixedHeight;
             } else { // SizeMode::Fit
-                childH = ResolveNodeHeight(child, contentRect.w);
+                childH = ResolveNodeHeight(child, contentRect.w, canvas, theme);
             }
 
             float childW = contentRect.w;
@@ -650,7 +654,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 childX = contentRect.Right() - childW;
             }
 
-            ArrangeNode(child, Rect(childX, currentY, childW, childH), theme);
+            ArrangeNode(child, Rect(childX, currentY, childW, childH), theme, canvas);
             currentY += child->computedRect.h + node->gap;
         }
 
@@ -661,7 +665,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         }
     }
 
-    static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& theme) {
+    static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas) {
         const float availW = contentRect.w;
         const int totalCols = (node->gridColumns > 0) ? node->gridColumns : 12;
         const float gap = node->gap;
@@ -711,7 +715,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 if (lineEnd->heightMode == SizeMode::Fixed) {
                     childH = lineEnd->fixedHeight;
                 } else {
-                    childH = ResolveNodeHeight(lineEnd, childW);
+                    childH = ResolveNodeHeight(lineEnd, childW, canvas, theme);
                 }
 
                 lineMaxH = std::max(lineMaxH, childH);
@@ -728,7 +732,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 const float childW = availW;
                 lineMaxH = (lineStart->heightMode == SizeMode::Fixed)
                     ? lineStart->fixedHeight
-                    : ResolveNodeHeight(lineStart, childW);
+                    : ResolveNodeHeight(lineStart, childW, canvas, theme);
             }
 
             if (hasLines) {
@@ -754,7 +758,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 } else if (child->heightMode == SizeMode::Stretch || node->align == Alignment::Stretch) {
                     childH = lineMaxH;
                 } else {
-                    childH = ResolveNodeHeight(child, childW);
+                    childH = ResolveNodeHeight(child, childW, canvas, theme);
                 }
 
                 float childY = currentY;
@@ -764,7 +768,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     childY = currentY + (lineMaxH - childH);
                 }
 
-                ArrangeNode(child, Rect(currentX, childY, childW, childH), theme);
+                ArrangeNode(child, Rect(currentX, childY, childW, childH), theme, canvas);
                 currentX += childW + gap;
             }
 
@@ -792,14 +796,14 @@ void Solver::Measure(Node* root, ICanvas* canvas) {
     Measure(root, canvas, defaultTheme);
 }
 
-void Solver::Arrange(Node* root, Rect availableRect, const UiTheme& theme) {
+void Solver::Arrange(Node* root, Rect availableRect, const UiTheme& theme, ICanvas* canvas) {
     if (!root) return;
-    ArrangeNode(root, availableRect, theme);
+    ArrangeNode(root, availableRect, theme, canvas);
 }
 
 void Solver::Arrange(Node* root, Rect availableRect) {
     static const UiTheme defaultTheme = UiTheme::Dark();
-    Arrange(root, availableRect, defaultTheme);
+    Arrange(root, availableRect, defaultTheme, nullptr);
 }
 
 } // namespace guikit

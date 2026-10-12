@@ -13,7 +13,8 @@ struct Node;
 struct UiTheme;
 
 /// Function signature for measuring intrinsic content dimensions of a leaf widget or container.
-using MeasureFunc = Vec2 (*)(const Node* node, ICanvas* canvas, const UiTheme& theme);
+/// Takes available width (0.0f if unconstrained) for width-dependent height resolution (e.g. wrapped text).
+using MeasureFunc = Vec2 (*)(const Node* node, float availableWidth, ICanvas* canvas, const UiTheme& theme);
 
 /// Function signature for custom arrangement of a container node and its children.
 using ArrangeFunc = void (*)(Node* node, const Rect& availableRect, const UiTheme& theme);
@@ -60,6 +61,7 @@ enum class NodeType : uint16_t {
     Slider      = 210,
     StepSlider  = 211,
     Custom      = 212,
+    TextArea    = 213,
 
     // --- User Extension Base (1000+) ---
     User        = 1000
@@ -199,6 +201,7 @@ struct Node {
             case NodeType::Separator:  return "Separator";
             case NodeType::Spacer:     return "Spacer";
             case NodeType::Custom:     return "Custom";
+            case NodeType::TextArea:   return "TextArea";
             default:                   return (static_cast<uint16_t>(type) >= static_cast<uint16_t>(NodeType::User)) ? "UserWidget" : "Unknown";
         }
     }

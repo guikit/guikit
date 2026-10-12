@@ -1,4 +1,5 @@
 #include "guikit/backend/SdlCanvas.hpp"
+#include "guikit/core/TextUtil.hpp"
 #include <algorithm>
 #include <cmath>
 #include <numbers>
@@ -235,10 +236,20 @@ void SdlCanvas::DrawTextBox(
 ) {
     if (text.empty() || color.a == 0 || bounds.w <= 0.0f || bounds.h <= 0.0f) return;
 
-    const Vec2 dims = MeasureText(text, fontSize);
-    const float x = bounds.x + (bounds.w - dims.x) * alignX;
+    std::string truncated;
+    std::string_view drawText = text;
+    if (bounds.w > 0.0f && MeasureText(text, fontSize).x > bounds.w + kTextSubpixelTolerance) {
+        truncated = TextUtil::TruncateWithEllipsis(text, bounds.w, fontSize, this);
+        drawText = truncated;
+    }
+
+    const Vec2 dims = MeasureText(drawText, fontSize);
+    const float x = bounds.x + std::max(0.0f, (bounds.w - dims.x) * alignX);
     const float y = bounds.y + (bounds.h - dims.y) * alignY;
-    DrawText(text, {x, y}, fontSize, color);
+
+    PushClip(bounds);
+    DrawText(drawText, {x, y}, fontSize, color);
+    PopClip();
 }
 
 void SdlCanvas::DrawLine(Vec2 p1, Vec2 p2, Color color, float strokeWidth) {

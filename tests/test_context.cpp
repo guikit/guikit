@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include "guikit/Context.hpp"
+#include "guikit/core/TextUtil.hpp"
 #include "guikit/core/Theme.hpp"
 #include "guikit/backend/SdlCanvas.hpp"
 #include "guikit/backend/ThorCanvas.hpp"
@@ -1801,6 +1802,44 @@ void TestDirtyRectDamageTracking() {
     CHECK(!ui.IsFullRepaint());
     CHECK(ui.GetDirtyRect().w > 0.0f);
     CHECK(ui.GetDirtyRect().h > 0.0f);
+
+    // Frame 8: Slider dragging produces dirty damage while dragging
+    float sliderVal = 10.0f;
+    auto renderSlider = [&]() {
+        if (auto b = ui.Box({.fixedWidth = 300.0f})) {
+            ui.Slider(sliderVal, 0.0f, 100.0f);
+        }
+    };
+
+    // Initial render & settle layout completely
+    for (int i = 0; i < 3; ++i) {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        renderSlider();
+        ui.EndFrame(canvas);
+    }
+    CHECK(!ui.HasDirtyDamage());
+
+    // Mouse down on slider produces dirty damage
+    ui.OnMouseMove({150.0f, 20.0f});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderSlider();
+    ui.EndFrame(canvas);
+    CHECK(ui.HasDirtyDamage());
+    CHECK(!ui.IsFullRepaint());
+
+    // Moving mouse while dragging MUST produce dirty damage on every frame!
+    ui.OnMouseMove({220.0f, 20.0f});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderSlider();
+    ui.EndFrame(canvas);
+    CHECK(ui.HasDirtyDamage());
+    CHECK(!ui.IsFullRepaint());
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderSlider();
+    ui.EndFrame(canvas);
 }
 
 void TestTabBarWidgetWorkflow() {
@@ -1895,6 +1934,56 @@ void TestTabBarWidgetWorkflow() {
         CHECK_NEAR(underDims.x, pillDims.x, 0.001f);
         CHECK_NEAR(underDims.y, pillDims.y, 0.001f);
     }
+
+    // Frame: Test TabBar with custom backgroundColor, borderColor, radius, and padding
+    int styledIdx = 0;
+    const Color barBg(30, 32, 40, 255);
+    const Color barBorder(80, 85, 95, 255);
+    auto renderStyledTabBar = [&]() {
+        if (auto col = ui.Column({.padding = Padding::All(10.0f)})) {
+            ui.TabBar(styledIdx, {{"One"}, {"Two"}}, {
+                .style = TabBarStyle::Pill,
+                .fullWidth = true,
+                .padding = Padding::All(4.0f),
+                .radius = 10.0f,
+                .backgroundColor = barBg,
+                .borderColor = barBorder,
+                .borderWidth = 1.5f
+            });
+        }
+    };
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderStyledTabBar();
+    ui.EndFrame(canvas);
+
+    // Frame: Test dirty rect damage tracking on TabBar backgroundColor change
+    Color dynamicBg(20, 20, 20, 255);
+    auto renderDynamicBgTabBar = [&]() {
+        if (auto col = ui.Column({.padding = Padding::All(10.0f)})) {
+            ui.TabBar(styledIdx, {{"One"}, {"Two"}}, {
+                .style = TabBarStyle::Pill,
+                .backgroundColor = dynamicBg
+            });
+        }
+    };
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderDynamicBgTabBar();
+    ui.EndFrame(canvas);
+
+    // Idle frame: no changes -> HasDirtyDamage must be false
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderDynamicBgTabBar();
+    ui.EndFrame(canvas);
+    CHECK(!ui.HasDirtyDamage());
+
+    // Next frame: change backgroundColor -> must generate dirty damage
+    dynamicBg = Color(50, 60, 70, 255);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderDynamicBgTabBar();
+    ui.EndFrame(canvas);
+    CHECK(ui.HasDirtyDamage());
 }
 
 void TestToolbarWidgetWorkflow() {
@@ -3419,8 +3508,163 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
     CHECK_NEAR(btnSm.rect.h, 32.0f, 0.001f);
 }
 
+void TestTextWrappingAndBackendIndependence() {
+    using namespace guikit;
+    std::cout << "  - TestTextWrappingAndBackendIndependence...\n";
+
+    // 1. TextUtil unit checks with fallback ratio (canvas = nullptr)
+    const float singleW = TextUtil::MeasureWidth("Hello World", 14.0f, nullptr);
+    CHECK(singleW > 0.0f);
+
+    // Truncation with ellipsis
+    const std::string trunc = TextUtil::TruncateWithEllipsis("Very long string that needs truncation", 60.0f, 14.0f, nullptr);
+    CHECK(!trunc.empty());
+    CHECK(trunc.ends_with("..."));
+    CHECK(TextUtil::MeasureWidth(trunc, 14.0f, nullptr) <= 60.0f + 0.1f);
+
+    // Multi-line word wrap
+    const std::string sentence = "Sensory tripwire thresholds & limits for automated closed-loop machinery";
+    const auto lines = TextUtil::WrapText(sentence, 120.0f, 12.0f, nullptr);
+    CHECK(lines.size() >= 2);
+    for (const auto& line : lines) {
+        CHECK(TextUtil::MeasureWidth(line, 12.0f, nullptr) <= 120.0f + 1.0f);
+    }
+
+    const float wrappedH = TextUtil::MeasureWrappedHeight(sentence, 120.0f, 12.0f, 18.0f, nullptr);
+    CHECK_NEAR(wrappedH, static_cast<float>(lines.size()) * 18.0f, 0.01f);
+
+    // 2. Heading wordWrap test: single-line vs multi-line height resolution
+    HeadingOptions optsWrap{
+        .title = "Primary Stop Conditions",
+        .subtitle = "Sensory tripwire thresholds & limits for automated closed-loop machinery",
+        .wordWrap = true
+    };
+    HeadingOptions optsNoWrap{
+        .title = "Primary Stop Conditions",
+        .subtitle = "Sensory tripwire thresholds & limits for automated closed-loop machinery",
+        .wordWrap = false
+    };
+
+    const float hNoWrap = Heading::Measure(optsNoWrap, UiSize::Md, 150.0f).y;
+    const float hWrap = Heading::Measure(optsWrap, UiSize::Md, 150.0f).y;
+    // Multi-line wrapped heading in narrow width must be taller than single-line heading!
+    CHECK(hWrap > hNoWrap);
+
+    // 3. Backend independence: SdlCanvas (without ThorVG) layout and rendering
+    SdlCanvas sdlCanvas(nullptr);
+    sdlCanvas.Begin(300, 400, 1.0f);
+
+    Context ui;
+    ui.BeginFrame({300.0f, 400.0f}, 1.0f);
+    Response headResp;
+    Response btn1Resp, btn2Resp, btn3Resp;
+    if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(10.0f)})) {
+        headResp = ui.Heading(optsWrap);
+        if (auto row = ui.Row({.gap = 8.0f})) {
+            btn1Resp = ui.Button({.label = "Col 1 (Stretch)", .stretch = true});
+            btn2Resp = ui.Button({.label = "Col 2 (Stretch)", .stretch = true});
+            btn3Resp = ui.Button({.label = "Col 3 (Stretch)", .stretch = true});
+        }
+    }
+    ui.EndFrame(sdlCanvas);
+    sdlCanvas.End();
+
+    // Verify Heading wrapped height is reflected in placed bounds
+    const Rect headBounds = ui.GetPrevFrameBounds(headResp.id);
+    CHECK_NEAR(headBounds.w, 280.0f, 1.0f);
+    CHECK(headBounds.h > hNoWrap);
+
+    // Verify 3 stretch buttons divide available row width without overlap
+    const Rect b1 = ui.GetPrevFrameBounds(btn1Resp.id);
+    const Rect b2 = ui.GetPrevFrameBounds(btn2Resp.id);
+    const Rect b3 = ui.GetPrevFrameBounds(btn3Resp.id);
+
+    // Available width = 280, gap = 8, 2 gaps = 16, each button = (280 - 16) / 3 = 88.0f
+    CHECK_NEAR(b1.w, 88.0f, 1.0f);
+    CHECK_NEAR(b2.w, 88.0f, 1.0f);
+    CHECK_NEAR(b3.w, 88.0f, 1.0f);
+    // Strict non-overlap: b2 starts after b1 ends, b3 starts after b2 ends
+    CHECK(b2.x >= b1.Right() - 0.01f);
+    CHECK(b3.x >= b2.Right() - 0.01f);
+
+    // 4. TabBar rendering at 100% and 150% scales: labels must not falsely truncate
+    static const std::array<guikit::TabItem, 3> testTabs = {{
+        {.label = "Overview"},
+        {.label = "Industrial Dashboard", .badge = "Live"},
+        {.label = "Network Diagnostics"}
+    }};
+
+    for (float testScale : {1.0f, 1.5f}) {
+        int tabIdx = 0;
+        ThorCanvas thorCanvas;
+        std::vector<uint32_t> px(800 * 600, 0);
+        thorCanvas.SetTarget(px.data(), 800, 600, 800);
+        thorCanvas.Begin(800, 600, testScale);
+
+        Context tabUi;
+        tabUi.BeginFrame({800.0f, 600.0f}, testScale);
+        Response tabRes = tabUi.TabBar(tabIdx, testTabs, {.gap = 12.0f});
+        tabUi.EndFrame(thorCanvas);
+        thorCanvas.End();
+
+        CHECK(tabRes.clicked == false);
+    }
+
+    // 5. Verify TextUtil::TruncateWithEllipsis behaves deterministically
+    const std::string fullText = "Industrial Dashboard";
+    const std::string trFull = TextUtil::TruncateWithEllipsis(fullText, 400.0f, 14.0f, nullptr);
+    CHECK(trFull == fullText);
+
+    const std::string trShort = TextUtil::TruncateWithEllipsis(fullText, 60.0f, 14.0f, nullptr);
+    CHECK(trShort.ends_with("..."));
+    CHECK(trShort.length() < fullText.length());
+}
+
+void TestTextAreaWidgetWorkflow() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+
+    const uint32_t width = 800;
+    const uint32_t height = 600;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    std::string sampleCode = "ui.Button({\n    .label = \"Test\",\n    .variant = guikit::UiVariant::Primary\n});";
+
+    // 1. Measure test: autoHeight must scale with line count
+    const auto mSingle = TextArea::Measure("Single Line", {.autoHeight = true}, UiSize::Md, &canvas);
+    const auto mMulti = TextArea::Measure(sampleCode, {.autoHeight = true}, UiSize::Md, &canvas);
+    CHECK(mMulti.y > mSingle.y * 2.0f);
+
+    // 2. Syntax Highlighter test
+    std::vector<TextSpan> spans;
+    const auto theme = UiTheme::Dark();
+    TextArea::CppHighlighter("const auto val = 42;", 0, spans, theme, nullptr);
+    CHECK(!spans.empty());
+    CHECK(spans.size() >= 3);
+
+    // 3. Frame rendering with toggleable line numbers
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    auto res1 = ui.TextArea(sampleCode, {.autoHeight = true, .readOnly = true, .showLineNumbers = true, .syntaxHighlighter = &TextArea::CppHighlighter});
+    auto res2 = ui.TextArea(sampleCode, {.autoHeight = true, .readOnly = true, .showLineNumbers = false});
+    ui.EndFrame(canvas);
+
+    CHECK(!res1.clicked);
+    CHECK(!res2.clicked);
+
+    // 4. Multiline editing test
+    std::string editableText = "Line 1";
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    ui.TextArea(editableText);
+    ui.EndFrame(canvas);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
+
+    TestTextWrappingAndBackendIndependence();
 
     TestIndustrialDashboardNoBlackLines();
     TestImmediateApiWorkflow();
@@ -3462,6 +3706,7 @@ int main() {
     TestScopedThemeAndScaleOverrides();
     TestSliderAndStepSliderWidgets();
     TestPixelGeometryAndWidgetUiSizeDecoupling();
+    TestTextAreaWidgetWorkflow();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

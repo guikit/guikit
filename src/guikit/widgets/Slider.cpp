@@ -178,7 +178,20 @@ Response Slider::Run(
     data->formattedValue = formattedStr;
     node->payload = data;
 
-    node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    uint64_t valBits = 0;
+    std::memcpy(&valBits, &currentVal, sizeof(double));
+    node->visualHash = detail::HashArgs(
+        valBits,
+        opts.variant,
+        opts.showValue,
+        opts.format,
+        opts.suffix,
+        data->opts.label,
+        data->opts.description,
+        data->formattedValue
+    );
+
+    node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<SliderData>();
         return Slider::Measure(d ? d->opts : SliderOptions{},
                                d ? d->value : 0.0,
@@ -446,7 +459,18 @@ Response StepSlider::Run(
     data->totalSteps = totalSteps;
     node->payload = data;
 
-    node->measureFn = [](const Node* n, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->visualHash = detail::HashArgs(
+        curIdx,
+        totalSteps,
+        opts.variant,
+        opts.showTicks,
+        opts.showLabels,
+        opts.showValue,
+        data->opts.label,
+        data->opts.description
+    );
+
+    node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<StepSliderData>();
         return StepSlider::Measure(d ? d->opts : StepSliderOptions{},
                                    d ? d->index : 0,

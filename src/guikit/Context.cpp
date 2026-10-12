@@ -477,7 +477,8 @@ std::string_view Context::GetOrStartTextEdit(
     std::string_view initialText,
     size_t& outCursor,
     bool& outChanged,
-    bool& outSubmitted
+    bool& outSubmitted,
+    bool multiline
 ) {
     if (m_editState.id != id) {
         m_editState.id = id;
@@ -485,6 +486,9 @@ std::string_view Context::GetOrStartTextEdit(
         m_editState.cursor = m_editState.text.size();
         m_editState.changed = false;
         m_editState.submitted = false;
+        m_editState.multiline = multiline;
+    } else {
+        m_editState.multiline = multiline;
     }
 
     for (const auto& txt : m_pendingTextInput) {
@@ -641,7 +645,7 @@ void Context::EndFrame(ICanvas& canvas) {
 
     // Resolve geometry using canvas font metrics
     LayoutSolver::Measure(m_root, &canvas, m_theme);
-    LayoutSolver::Arrange(m_root, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme);
+    LayoutSolver::Arrange(m_root, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme, &canvas);
 
     // Update interactive scroll areas
     UpdateScrollAreasRecursive(m_root);

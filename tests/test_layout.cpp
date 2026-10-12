@@ -640,7 +640,7 @@ void TestCustomMeasureAndArrangeDelegates() {
 
     // Custom widget with measureFn
     Node* customLeaf = arena.Allocate<Node>();
-    customLeaf->measureFn = [](const Node*, ICanvas*, const UiTheme&) -> Vec2 {
+    customLeaf->measureFn = [](const Node*, float /*availableWidth*/, ICanvas*, const UiTheme&) -> Vec2 {
         return {123.0f, 45.0f};
     };
 

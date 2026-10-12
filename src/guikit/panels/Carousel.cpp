@@ -98,7 +98,7 @@ ContainerScope Carousel::Open(
     return ContainerScope(&ctx, node);
 }
 
-Vec2 Carousel::Measure(const Node* node, ICanvas* /*canvas*/, const UiTheme& /*theme*/) {
+Vec2 Carousel::Measure(const Node* node, float /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) {
     if (!node) return {0.0f, 0.0f};
 
     float totalWidth = node->padding.Horizontal();
@@ -127,8 +127,8 @@ Vec2 Carousel::Measure(const Node* node, ICanvas* /*canvas*/, const UiTheme& /*t
     }
 }
 
-Vec2 Carousel::Measure(const Node* node, ICanvas* canvas) {
-    return Measure(node, canvas, UiTheme::Dark());
+Vec2 Carousel::Measure(const Node* node, float availableWidth, ICanvas* canvas) {
+    return Measure(node, availableWidth, canvas, UiTheme::Dark());
 }
 
 void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& theme) {

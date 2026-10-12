@@ -37,6 +37,12 @@ struct TabBarOptions {
     bool showSeparator{true};   ///< In Underline style: draws a 1px baseline line under tabs
     bool fullWidth{false};      ///< Stretch tabs equally to fill available container width
     bool scrollable{true};      ///< Enable horizontal scrolling with arrows when tabs overflow
+    std::optional<float> gap{std::nullopt};   ///< Gap between consecutive tab items (nullopt = from theme)
+    std::optional<Padding> padding{std::nullopt};   ///< Container padding around tabs (nullopt = auto based on style)
+    std::optional<float> radius{std::nullopt};     ///< Bar corner rounding radius in pixels (nullopt = auto based on style)
+    Color backgroundColor{Color::Transparent()}; ///< Optional background fill color for the tab bar
+    Color borderColor{Color::Transparent()};     ///< Optional border color for the tab bar
+    float borderWidth{0.0f};                     ///< Optional border width in pixels
     Color activeColor{Color::Transparent()}; ///< Optional custom accent color override
     std::optional<UiSize> size{std::nullopt}; ///< Local size override (nullopt = inherit container size)
     const UiTheme* theme{nullptr};            ///< Optional scoped theme override
