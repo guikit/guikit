@@ -139,8 +139,6 @@ int main(int argc, char* argv[]) {
     };
 
     NavCategory selectedCategory = NavCategory::ElemButton;
-    bool codeShowLineNumbers = true;
-
 
     guikit::UiVariant btnVariant = guikit::UiVariant::Primary;
     bool btnHasIcon = true;
@@ -1128,18 +1126,6 @@ int main(int argc, char* argv[]) {
 
                                 // C++20 Immediate Mode Code Generator Card
                                 if (auto codeCard = ui.Card({.gap = 8.0f, .padding = guikit::Padding::All(12.0f)})) {
-                                    if (auto hdr = ui.Row({.align = guikit::Alignment::Center})) {
-                                        ui.Spacer();
-                                        if (ui.Button({
-                                            .label = codeShowLineNumbers ? "Lines: ON" : "Lines: OFF",
-                                            .variant = codeShowLineNumbers ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                                            .size = guikit::UiSize::Xs
-                                        })) {
-                                            codeShowLineNumbers = !codeShowLineNumbers;
-                                            ui.InvalidateAll();
-                                        }
-                                    }
-
                                     std::string snippet;
                                     switch (selectedCategory) {
                                         case NavCategory::ElemButton: {
@@ -1336,7 +1322,7 @@ int main(int argc, char* argv[]) {
                                     ui.TextArea(snippet, {
                                         .autoHeight = true,
                                         .readOnly = true,
-                                        .showLineNumbers = codeShowLineNumbers,
+                                        .showLineNumbers = true,
                                         .monospace = true,
                                         .syntaxHighlighter = &guikit::TextArea::CppHighlighter
                                     });
