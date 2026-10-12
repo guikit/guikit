@@ -328,6 +328,45 @@ Response Context::StepSlider(
     return res;
 }
 
+Response Context::StepSlider(
+    UiVariant& variant,
+    StepSliderOptions opts,
+    std::source_location loc
+) {
+    static constexpr std::array<std::string_view, 8> kVariantLabels = {
+        "Def", "Pri", "Sec", "Suc", "Wrn", "Dgr", "Inf", "Ghst"
+    };
+    static constexpr std::array<std::string_view, 8> kVariantFullNames = {
+        "Default", "Primary", "Secondary", "Success", "Warning", "Danger", "Info", "Ghost"
+    };
+    static constexpr std::array<UiVariant, 8> kVariants = {
+        UiVariant::Default, UiVariant::Primary, UiVariant::Secondary, UiVariant::Success,
+        UiVariant::Warning, UiVariant::Danger, UiVariant::Info, UiVariant::Ghost
+    };
+
+    size_t idx = 0;
+    for (size_t i = 0; i < kVariants.size(); ++i) {
+        if (kVariants[i] == variant) {
+            idx = i;
+            break;
+        }
+    }
+
+    if (opts.stepLabels.empty()) {
+        opts.stepLabels = kVariantLabels;
+    }
+    if (opts.valueText.empty() && idx < kVariantFullNames.size()) {
+        opts.valueText = kVariantFullNames[idx];
+    }
+    opts.variant = variant;
+
+    Response res = StepSlider(idx, opts.stepLabels.size(), opts, loc);
+    if (res.changed && idx < kVariants.size()) {
+        variant = kVariants[idx];
+    }
+    return res;
+}
+
 ToolbarScope Context::Toolbar(
     ToolbarOptions opts,
     std::source_location loc

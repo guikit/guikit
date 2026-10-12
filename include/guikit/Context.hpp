@@ -550,6 +550,12 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
+    Response StepSlider(
+        UiVariant& variant,
+        StepSliderOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
     // --- Toolbar Component ---
     [[nodiscard]] ToolbarScope Toolbar(
         ToolbarOptions opts = {},

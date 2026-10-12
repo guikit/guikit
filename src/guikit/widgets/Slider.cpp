@@ -456,6 +456,9 @@ Response StepSlider::Run(
     if (!opts.description.empty()) {
         data->opts.description = ctx.AllocString(opts.description);
     }
+    if (!opts.valueText.empty()) {
+        data->opts.valueText = ctx.AllocString(opts.valueText);
+    }
     data->index = curIdx;
     data->totalSteps = totalSteps;
     node->payload = data;
@@ -468,7 +471,8 @@ Response StepSlider::Run(
         opts.showLabels,
         opts.showValue,
         data->opts.label,
-        data->opts.description
+        data->opts.description,
+        data->opts.valueText
     );
 
     node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
@@ -554,11 +558,13 @@ void StepSlider::Render(
             canvas.DrawText(opts.label, Vec2(bounds.x, curY), m.labelFontSize, labelCol);
         }
 
-        if (opts.showValue && index < opts.stepLabels.size()) {
-            std::string_view valStr = opts.stepLabels[index];
-            const Vec2 valDims = canvas.MeasureText(valStr, m.labelFontSize);
-            const Color valCol = disabled ? pal.textDisabled : pal.accent;
-            canvas.DrawText(valStr, Vec2(bounds.Right() - valDims.x, curY), m.labelFontSize, valCol);
+        if (opts.showValue) {
+            std::string_view valStr = !opts.valueText.empty() ? opts.valueText : (index < opts.stepLabels.size() ? opts.stepLabels[index] : "");
+            if (!valStr.empty()) {
+                const Vec2 valDims = canvas.MeasureText(valStr, m.labelFontSize);
+                Color valCol = disabled ? pal.textDisabled : (opts.variant != UiVariant::Default ? (variantCol.bg.a > 0 ? variantCol.bg : pal.textPrimary) : pal.accent);
+                canvas.DrawText(valStr, Vec2(bounds.Right() - valDims.x, curY), m.labelFontSize, valCol);
+            }
         }
         curY += headerH + m.labelGap;
     }

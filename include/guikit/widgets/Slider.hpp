@@ -38,6 +38,7 @@ struct StepSliderOptions {
     bool showTicks{true};                          ///< Whether to render tick marks at each step
     bool showLabels{true};                         ///< Whether to render stepLabels below ticks
     bool showValue{false};                         ///< Whether to display currently selected label/index in header
+    std::string_view valueText{};                  ///< Optional custom display string for current value in header
     bool includeNone{false};                       ///< For UiSize overload: if true, range includes UiSize::None (None..Xl)
     UiVariant variant{UiVariant::Primary};         ///< Accent fill color for active track and thumb
     std::optional<UiSize> size{std::nullopt};      ///< Local size override

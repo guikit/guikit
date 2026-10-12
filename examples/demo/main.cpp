@@ -16,8 +16,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    int winWidth = 1024;
-    int winHeight = 720;
+    int winWidth = 1120;
+    int winHeight = 740;
 
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
@@ -514,7 +514,7 @@ int main(int argc, char* argv[]) {
                         // 2. Level 2: Inspector Panel (Right of Rail)
                         if (auto inspectorBox = ui.Box({
                             .heightMode = guikit::SizeMode::Stretch,
-                            .fixedWidth = 300.0f,
+                            .fixedWidth = 340.0f,
                             .theme = &inspectorTheme,
                             .scale = 1.0f
                         })) {
@@ -523,21 +523,13 @@ int main(int argc, char* argv[]) {
                                     auto& th = appTheme;
                                     auto renderVariantPicker = [&]() {
                                         ui.Heading({.title = "Variant & Styling", .size = guikit::UiSize::Sm});
-                                        if (auto vGrid = ui.Grid()) {
-                                            for (const auto& [v, name] : allVariants) {
-                                                if (auto c = vGrid.Cell6()) {
-                                                    const bool activeV = (btnVariant == v);
-                                                    if (ui.Button({
-                                                        .label = name,
-                                                        .variant = v,
-                                                        .stretch = true,
-                                                        .active = activeV
-                                                    })) {
-                                                        btnVariant = v;
-                                                        ui.InvalidateAll();
-                                                    }
-                                                }
-                                            }
+                                        if (ui.StepSlider(btnVariant, {
+                                            .label = "Semantic Variant",
+                                            .showTicks = true,
+                                            .showLabels = true,
+                                            .showValue = true
+                                        }).changed) {
+                                            ui.InvalidateAll();
                                         }
                                     };
 
