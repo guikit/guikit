@@ -319,7 +319,8 @@ void Slider::Render(
     const float fillW = ratio * trackWidth;
     if (fillW > 0.0f) {
         const Rect fillRect(trackStartX, centerY - m.trackHeight * 0.5f, fillW, m.trackHeight);
-        Color fillCol = disabled ? variantCol.bg.WithAlphaF(0.4f) : variantCol.bg;
+        Color baseFill = (opts.variant == UiVariant::Ghost) ? pal.borderHover : variantCol.bg;
+        Color fillCol = disabled ? baseFill.WithAlphaF(0.4f) : baseFill;
         canvas.DrawRoundRect(fillRect, m.trackHeight * 0.5f, fillCol);
     }
 
@@ -580,7 +581,8 @@ void StepSlider::Render(
     const float fillW = ratio * trackWidth;
     if (fillW > 0.0f) {
         const Rect fillRect(trackStartX, centerY - m.trackHeight * 0.5f, fillW, m.trackHeight);
-        Color fillCol = disabled ? variantCol.bg.WithAlphaF(0.4f) : variantCol.bg;
+        Color baseFill = (opts.variant == UiVariant::Ghost) ? pal.borderHover : variantCol.bg;
+        Color fillCol = disabled ? baseFill.WithAlphaF(0.4f) : baseFill;
         canvas.DrawRoundRect(fillRect, m.trackHeight * 0.5f, fillCol);
     }
 

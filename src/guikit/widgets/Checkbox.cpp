@@ -306,8 +306,17 @@ void Checkbox::Render(
 
     if (isActive) {
         const VariantColors& v = theme.GetVariant(opts.variant);
-        boxFill = (hovered && !disabled) ? v.bgHover : v.bg;
-        boxStroke = boxFill;
+        if (opts.variant == UiVariant::Ghost) {
+            boxFill = (hovered && !disabled) ? v.bgHover : Color::Transparent();
+            boxStroke = (hovered && !disabled) ? pal.borderHover : pal.border;
+            strokeWidth = 1.5f;
+            markColor = pal.textPrimary;
+        } else {
+            boxFill = (hovered && !disabled) ? v.bgHover : v.bg;
+            boxStroke = (v.borderWidth > 0.0f) ? v.border : boxFill;
+            strokeWidth = (v.borderWidth > 0.0f) ? v.borderWidth : 1.5f;
+            markColor = (opts.variant == UiVariant::Default) ? pal.textPrimary : pal.controlKnobActive;
+        }
     } else {
         boxFill = (hovered && !disabled) ? pal.controlTrackHover : pal.controlTrack;
         boxStroke = (hovered && !disabled) ? pal.borderHover : pal.border;

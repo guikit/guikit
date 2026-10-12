@@ -469,13 +469,20 @@ void Select::Render(
     Color boxBorder;
     float strokeW = m.strokeWidth;
 
+    const VariantColors& v = theme.GetVariant(opts.variant);
     if (open && !disabled) {
-        boxBorder = (opts.variant == UiVariant::Default) ? pal.focusRing : theme.GetVariant(opts.variant).bg;
+        boxBorder = (opts.variant == UiVariant::Default || opts.variant == UiVariant::Ghost) ? pal.focusRing : v.bg;
         strokeW += 0.5f;
     } else if (hovered && !disabled) {
-        boxBorder = (opts.variant == UiVariant::Default) ? pal.borderHover : theme.GetVariant(opts.variant).bgHover;
+        boxBorder = (opts.variant == UiVariant::Default || opts.variant == UiVariant::Ghost) ? pal.borderHover : v.bgHover;
     } else {
-        boxBorder = (opts.variant == UiVariant::Default) ? pal.inputBorder : theme.GetVariant(opts.variant).border;
+        if (opts.variant == UiVariant::Default) {
+            boxBorder = pal.inputBorder;
+        } else if (opts.variant == UiVariant::Ghost) {
+            boxBorder = pal.border;
+        } else {
+            boxBorder = (v.border.a > 0) ? v.border : v.bg;
+        }
     }
 
     Color textCol = pal.textPrimary;

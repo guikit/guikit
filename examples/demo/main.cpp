@@ -183,6 +183,39 @@ int main(int argc, char* argv[]) {
     bool checkboxShowDesc = true;
     bool checkboxDisabled = false;
 
+    static constexpr std::array<std::pair<guikit::UiVariant, std::string_view>, 8> allVariants = {{
+        {guikit::UiVariant::Default, "Default"},
+        {guikit::UiVariant::Primary, "Primary"},
+        {guikit::UiVariant::Secondary, "Secondary"},
+        {guikit::UiVariant::Success, "Success"},
+        {guikit::UiVariant::Warning, "Warning"},
+        {guikit::UiVariant::Danger, "Danger"},
+        {guikit::UiVariant::Info, "Info"},
+        {guikit::UiVariant::Ghost, "Ghost"}
+    }};
+
+    auto variantName = [](guikit::UiVariant v) -> std::string_view {
+        switch (v) {
+            case guikit::UiVariant::Primary:   return "Primary";
+            case guikit::UiVariant::Secondary: return "Secondary";
+            case guikit::UiVariant::Success:   return "Success";
+            case guikit::UiVariant::Warning:   return "Warning";
+            case guikit::UiVariant::Danger:    return "Danger";
+            case guikit::UiVariant::Info:      return "Info";
+            case guikit::UiVariant::Ghost:     return "Ghost";
+            default:                           return "Default";
+        }
+    };
+
+    static std::array<bool, 8> matrixSwitchStates = {true, true, true, true, true, true, true, true};
+    static std::array<bool, 8> matrixCheckStates = {true, true, true, true, true, true, true, true};
+    static std::array<float, 8> matrixSliderVals = {70.0f, 70.0f, 70.0f, 70.0f, 70.0f, 70.0f, 70.0f, 70.0f};
+    static std::array<std::string, 8> matrixInputTexts = {
+        "Default input", "Primary input", "Secondary input", "Success input",
+        "Warning input", "Danger input", "Info input", "Ghost input"
+    };
+    static std::array<size_t, 8> matrixSelectIdxs = {0, 1, 2, 0, 1, 2, 0, 1};
+
     int testTabIdx = 0;
     static const std::array<guikit::TabItem, 3> inspectorDemoTabs = {{
         {.label = "First", .icon = guikit::Icon::Settings()},
@@ -485,6 +518,26 @@ int main(int argc, char* argv[]) {
                             if (auto inspectorCard = ui.Card({.gap = 6.0f, .padding = guikit::Padding::All(12.0f), .heightMode = guikit::SizeMode::Stretch})) {
                                 if (auto inspectorScroll = ui.ScrollArea({.gap = 8.0f})) {
                                     auto& th = appTheme;
+                                    auto renderVariantPicker = [&]() {
+                                        ui.Heading({.title = "Variant & Styling", .size = guikit::UiSize::Sm});
+                                        if (auto vGrid = ui.Grid()) {
+                                            for (const auto& [v, name] : allVariants) {
+                                                if (auto c = vGrid.Cell6()) {
+                                                    const bool activeV = (btnVariant == v);
+                                                    if (ui.Button({
+                                                        .label = name,
+                                                        .variant = v,
+                                                        .stretch = true,
+                                                        .active = activeV
+                                                    })) {
+                                                        btnVariant = v;
+                                                        ui.InvalidateAll();
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    };
+
                                     if (isElementCategory(selectedCategory)) {
                                         switch (selectedCategory) {
                                             case NavCategory::ElemButton: {
@@ -504,33 +557,7 @@ int main(int argc, char* argv[]) {
                                                 if (ui.Slider(m.paddingX, 4.0f, 32.0f, {.label = "Horizontal Padding", .format = "%.0f px"}).changed) ui.InvalidateAll();
                                                 if (ui.Slider(m.paddingY, 2.0f, 20.0f, {.label = "Vertical Padding", .format = "%.0f px"}).changed) ui.InvalidateAll();
 
-                                                ui.Heading({.title = "Variant & Styling", .size = guikit::UiSize::Sm});
-                                                static constexpr std::array<std::pair<guikit::UiVariant, std::string_view>, 8> variants = {{
-                                                    {guikit::UiVariant::Default, "Default"},
-                                                    {guikit::UiVariant::Primary, "Primary"},
-                                                    {guikit::UiVariant::Secondary, "Secondary"},
-                                                    {guikit::UiVariant::Success, "Success"},
-                                                    {guikit::UiVariant::Warning, "Warning"},
-                                                    {guikit::UiVariant::Danger, "Danger"},
-                                                    {guikit::UiVariant::Info, "Info"},
-                                                    {guikit::UiVariant::Ghost, "Ghost"}
-                                                }};
-                                                if (auto vGrid = ui.Grid()) {
-                                                    for (const auto& [v, name] : variants) {
-                                                        if (auto c = vGrid.Cell6()) {
-                                                            const bool activeV = (btnVariant == v);
-                                                            if (ui.Button({
-                                                                .label = name,
-                                                                .variant = v,
-                                                                .stretch = true,
-                                                                .active = activeV
-                                                            })) {
-                                                                btnVariant = v;
-                                                                ui.InvalidateAll();
-                                                            }
-                                                        }
-                                                    }
-                                                }
+                                                renderVariantPicker();
 
                                                 ui.Heading({.title = "Options & States", .size = guikit::UiSize::Sm});
                                                 if (ui.Switch(btnStretch, {.label = "Stretch (Full Width)"}).changed) ui.InvalidateAll();
@@ -560,6 +587,8 @@ int main(int argc, char* argv[]) {
                                                 if (ui.Switch(sliderContinuous, {.label = "Continuous Mode", .description = "Continuous vs Quantized StepSlider"}).changed) ui.InvalidateAll();
                                                 if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
 
+                                                renderVariantPicker();
+
                                                 ui.Heading({.title = "Display Options", .size = guikit::UiSize::Sm});
                                                 if (ui.Switch(sliderShowValue, {.label = "Show Value Tag"}).changed) ui.InvalidateAll();
                                                 if (!sliderContinuous) {
@@ -577,6 +606,8 @@ int main(int argc, char* argv[]) {
                                                 if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
                                                 auto& m = th.GetMetrics(controlsSize);
                                                 if (ui.Slider(m.cornerRadius, 0.0f, 24.0f, {.label = "Corner Radius", .format = "%.0f px"}).changed) ui.InvalidateAll();
+
+                                                renderVariantPicker();
 
                                                 ui.Heading({.title = "Cursor & Flags", .size = guikit::UiSize::Sm});
                                                 static constexpr std::array<std::string_view, 3> cursorModes = {"Blinking", "Solid", "Hidden"};
@@ -602,6 +633,9 @@ int main(int argc, char* argv[]) {
                                                     selectMaxItems = static_cast<uint32_t>(maxItemsFloat);
                                                     ui.InvalidateAll();
                                                 }
+
+                                                renderVariantPicker();
+
                                                 if (ui.Switch(selectDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
                                                 break;
                                             }
@@ -634,6 +668,9 @@ int main(int argc, char* argv[]) {
                                                     }
                                                     ui.InvalidateAll();
                                                 }
+
+                                                renderVariantPicker();
+
                                                 if (ui.Switch(switchSymmetric, {.label = "Symmetric (Neutral Track)"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(switchShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(switchDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
@@ -667,6 +704,9 @@ int main(int argc, char* argv[]) {
                                                     }
                                                     ui.InvalidateAll();
                                                 }
+
+                                                renderVariantPicker();
+
                                                 if (ui.Switch(testCheckboxIndet, {.label = "Indeterminate Tri-State"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(checkboxShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(checkboxDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
@@ -1170,25 +1210,97 @@ int main(int argc, char* argv[]) {
 
                                 // Semantic Variants Matrix (UiVariant)
                                 if (auto varMatrixCard = ui.Card({.gap = 8.0f, .padding = guikit::Padding::All(12.0f)})) {
-                                    if (selectedCategory == NavCategory::ElemButton) {
-                                        if (auto row = ui.Wrap({.gap = 8.0f, .runGap = 8.0f, .align = guikit::Alignment::Center})) {
-                                            ui.Button({.label = "Default", .variant = guikit::UiVariant::Default, .size = controlsSize});
-                                            ui.Button({.label = "Primary", .variant = guikit::UiVariant::Primary, .size = controlsSize});
-                                            ui.Button({.label = "Secondary", .variant = guikit::UiVariant::Secondary, .size = controlsSize});
-                                            ui.Button({.label = "Success", .variant = guikit::UiVariant::Success, .size = controlsSize});
-                                            ui.Button({.label = "Warning", .variant = guikit::UiVariant::Warning, .size = controlsSize});
-                                            ui.Button({.label = "Danger", .variant = guikit::UiVariant::Danger, .size = controlsSize});
-                                            ui.Button({.label = "Info", .variant = guikit::UiVariant::Info, .size = controlsSize});
-                                            ui.Button({.label = "Ghost", .variant = guikit::UiVariant::Ghost, .size = controlsSize});
+                                    switch (selectedCategory) {
+                                        case NavCategory::ElemButton: {
+                                            if (auto row = ui.Wrap({.gap = 8.0f, .runGap = 8.0f, .align = guikit::Alignment::Center})) {
+                                                for (const auto& [v, name] : allVariants) {
+                                                    ui.Button({.label = name, .variant = v, .size = controlsSize});
+                                                }
+                                            }
+                                            break;
                                         }
-                                    } else {
-                                        if (auto grid = ui.Grid({.gap = 12.0f, .runGap = 8.0f})) {
-                                            if (auto c = grid.Cell4()) { ui.Button({.label = "Default Variant", .variant = guikit::UiVariant::Default, .stretch = true, .size = controlsSize}); }
-                                            if (auto c = grid.Cell4()) { ui.Button({.label = "Primary Variant", .variant = guikit::UiVariant::Primary, .stretch = true, .size = controlsSize}); }
-                                            if (auto c = grid.Cell4()) { ui.Button({.label = "Secondary Variant", .variant = guikit::UiVariant::Secondary, .stretch = true, .size = controlsSize}); }
-                                            if (auto c = grid.Cell4()) { ui.Button({.label = "Success Variant", .variant = guikit::UiVariant::Success, .stretch = true, .size = controlsSize}); }
-                                            if (auto c = grid.Cell4()) { ui.Button({.label = "Warning Variant", .variant = guikit::UiVariant::Warning, .stretch = true, .size = controlsSize}); }
-                                            if (auto c = grid.Cell4()) { ui.Button({.label = "Danger Variant", .variant = guikit::UiVariant::Danger, .stretch = true, .size = controlsSize}); }
+                                        case NavCategory::ElemSwitch: {
+                                            if (auto row = ui.Wrap({.gap = 16.0f, .runGap = 10.0f, .align = guikit::Alignment::Center})) {
+                                                for (size_t i = 0; i < allVariants.size(); ++i) {
+                                                    ui.Switch(matrixSwitchStates[i], {
+                                                        .label = allVariants[i].second,
+                                                        .variant = allVariants[i].first,
+                                                        .symmetric = false,
+                                                        .size = controlsSize
+                                                    });
+                                                }
+                                            }
+                                            break;
+                                        }
+                                        case NavCategory::ElemCheckbox: {
+                                            if (auto row = ui.Wrap({.gap = 16.0f, .runGap = 10.0f, .align = guikit::Alignment::Center})) {
+                                                for (size_t i = 0; i < allVariants.size(); ++i) {
+                                                    ui.Checkbox(matrixCheckStates[i], {
+                                                        .label = allVariants[i].second,
+                                                        .variant = allVariants[i].first,
+                                                        .size = controlsSize
+                                                    });
+                                                }
+                                            }
+                                            break;
+                                        }
+                                        case NavCategory::ElemSlider: {
+                                            if (auto grid = ui.Grid({.gap = 12.0f, .runGap = 8.0f})) {
+                                                for (size_t i = 0; i < allVariants.size(); ++i) {
+                                                    if (auto c = grid.Cell3()) {
+                                                        ui.Slider(matrixSliderVals[i], 0.0f, 100.0f, {
+                                                            .label = allVariants[i].second,
+                                                            .variant = allVariants[i].first,
+                                                            .size = controlsSize
+                                                        });
+                                                    }
+                                                }
+                                            }
+                                            break;
+                                        }
+                                        case NavCategory::ElemInputField: {
+                                            if (auto grid = ui.Grid({.gap = 12.0f, .runGap = 8.0f})) {
+                                                for (size_t i = 0; i < allVariants.size(); ++i) {
+                                                    if (auto c = grid.Cell3()) {
+                                                        ui.InputField(matrixInputTexts[i], {
+                                                            .label = allVariants[i].second,
+                                                            .variant = allVariants[i].first,
+                                                            .size = controlsSize
+                                                        });
+                                                    }
+                                                }
+                                            }
+                                            break;
+                                        }
+                                        case NavCategory::ElemSelect: {
+                                            if (auto grid = ui.Grid({.gap = 12.0f, .runGap = 8.0f})) {
+                                                for (size_t i = 0; i < allVariants.size(); ++i) {
+                                                    if (auto c = grid.Cell3()) {
+                                                        ui.Select(matrixSelectIdxs[i], selectItems, {
+                                                            .label = allVariants[i].second,
+                                                            .variant = allVariants[i].first,
+                                                            .size = controlsSize
+                                                        });
+                                                    }
+                                                }
+                                            }
+                                            break;
+                                        }
+                                        case NavCategory::ElemTypography: {
+                                            if (auto row = ui.Wrap({.gap = 16.0f, .runGap = 8.0f, .align = guikit::Alignment::Center})) {
+                                                for (const auto& [v, name] : allVariants) {
+                                                    ui.Text(name, {.role = guikit::TextRole::TitleMedium, .variant = v});
+                                                }
+                                            }
+                                            break;
+                                        }
+                                        default: {
+                                            if (auto row = ui.Wrap({.gap = 8.0f, .runGap = 8.0f, .align = guikit::Alignment::Center})) {
+                                                for (const auto& [v, name] : allVariants) {
+                                                    ui.Button({.label = name, .variant = v, .size = controlsSize});
+                                                }
+                                            }
+                                            break;
                                         }
                                     }
                                 }
@@ -1211,13 +1323,7 @@ int main(int argc, char* argv[]) {
                                                 "}});",
                                                 btnClicks > 0 ? std::format("Clicked {}x", btnClicks) : "Interactive Button",
                                                 btnHasIcon ? "    .icon = guikit::Icon::Play(),\n" : "",
-                                                btnVariant == guikit::UiVariant::Primary ? "Primary" :
-                                                (btnVariant == guikit::UiVariant::Secondary ? "Secondary" :
-                                                (btnVariant == guikit::UiVariant::Success ? "Success" :
-                                                (btnVariant == guikit::UiVariant::Warning ? "Warning" :
-                                                (btnVariant == guikit::UiVariant::Danger ? "Danger" :
-                                                (btnVariant == guikit::UiVariant::Info ? "Info" :
-                                                (btnVariant == guikit::UiVariant::Ghost ? "Ghost" : "Default")))))),
+                                                variantName(btnVariant),
                                                 btnHasIcon ? std::format("    .iconPlacement = guikit::Placement::{},\n",
                                                     btnIconPlacement == guikit::Placement::Leading ? "Leading" :
                                                     (btnIconPlacement == guikit::Placement::Trailing ? "Trailing" :
@@ -1244,7 +1350,7 @@ int main(int argc, char* argv[]) {
                                                     "    .size = guikit::UiSize::{}{}\n"
                                                     "}});",
                                                     sliderShowValue ? "true" : "false",
-                                                    btnVariant == guikit::UiVariant::Primary ? "Primary" : "Default",
+                                                    variantName(btnVariant),
                                                     controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
                                                     sliderDisabled ? ",\n    .disabled = true" : ""
                                                 );
@@ -1261,7 +1367,7 @@ int main(int argc, char* argv[]) {
                                                     sliderShowTicks ? "true" : "false",
                                                     sliderShowLabels ? "true" : "false",
                                                     sliderShowValue ? "true" : "false",
-                                                    btnVariant == guikit::UiVariant::Primary ? "Primary" : "Default",
+                                                    variantName(btnVariant),
                                                     controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
                                                     sliderDisabled ? ",\n    .disabled = true" : ""
                                                 );
@@ -1283,7 +1389,7 @@ int main(int argc, char* argv[]) {
                                                 "}});",
                                                 inputHasPrefix ? "    .prefix = \"https://\",\n" : "",
                                                 inputHasSuffix ? "    .suffix = \":443\",\n" : "",
-                                                btnVariant == guikit::UiVariant::Primary ? "Primary" : "Default",
+                                                variantName(btnVariant),
                                                 inputCursorMode == guikit::CursorBlinkMode::Solid ? "Solid" :
                                                 (inputCursorMode == guikit::CursorBlinkMode::Hidden ? "Hidden" : "Blinking"),
                                                 controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
@@ -1302,7 +1408,7 @@ int main(int argc, char* argv[]) {
                                                 "    .maxVisibleItems = {},\n"
                                                 "    .size = guikit::UiSize::{}{}\n"
                                                 "}});",
-                                                btnVariant == guikit::UiVariant::Primary ? "Primary" : "Default",
+                                                variantName(btnVariant),
                                                 selectMaxItems,
                                                 controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
                                                 selectDisabled ? ",\n    .disabled = true" : ""
@@ -1335,7 +1441,7 @@ int main(int argc, char* argv[]) {
                                                 (switchLabelPlace == guikit::Placement::Both) ? "Dark" : "Hardware E-Stop",
                                                 (switchLabelPlace == guikit::Placement::Both) ? "    .trailingLabel = \"Light\",\n" : "",
                                                 switchShowDesc ? "    .description = \"Safety interlocking system\",\n" : "",
-                                                btnVariant == guikit::UiVariant::Primary ? "Primary" : "Default",
+                                                variantName(btnVariant),
                                                 placementName(switchLabelPlace),
                                                 switchSymmetric ? "    .symmetric = true,\n" : "",
                                                 controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
@@ -1366,7 +1472,7 @@ int main(int argc, char* argv[]) {
                                                 "    .size = guikit::UiSize::{}{}\n"
                                                 "}});",
                                                 checkboxShowDesc ? "    .description = \"Save trace to buffer\",\n" : "",
-                                                btnVariant == guikit::UiVariant::Primary ? "Primary" : "Default",
+                                                variantName(btnVariant),
                                                 placementName(checkboxLabelPlace),
                                                 testCheckboxIndet ? "    .indeterminate = true,\n" : "",
                                                 controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
