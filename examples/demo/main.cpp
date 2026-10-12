@@ -57,6 +57,7 @@ int main(int argc, char* argv[]) {
     bool vsyncEnabled = true;
     bool reactiveMode = true;
     bool darkMode = true;
+    bool lightMode = false;
     bool showTelemetry = false;
     bool formMode = true;
     float speedDrop = 50.0f;
@@ -317,26 +318,31 @@ int main(int argc, char* argv[]) {
                     ui.Text("C++20 Immediate + ThorVG", {.role = guikit::TextRole::LabelMedium, .variant = guikit::UiVariant::Muted});
                 }
 
-                // Engine HUD Toolbar
+                // Engine HUD Toolbar:
+                // SIdebar | Scale Light | VSync React Dirty Heartbeat | Bounds Inspect
                 if (auto tb = ui.Toolbar()) {
+                    // 1. Sidebar Toggle
+                    if (tb.ToolButton({
+                        .label = "Sidebar",
+                        .icon = guikit::Icon::Settings(),
+                        .variant = showSidebar ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+                        .active = showSidebar
+                    })) {
+                        showSidebar = !showSidebar;
+                        ui.InvalidateAll();
+                    }
 
-                    // Scale Preset Combo
+                    tb.Separator();
+
+                    // 2. Scale Preset Combo & Light Mode Switch
                     if (auto scaleBox = ui.Box({.fixedWidth = 92.0f})) {
                         if (ui.Select(scaleIndex, scaleLabels, {.size = guikit::UiSize::Sm}).changed) {
                             ui.InvalidateAll();
                         }
                     }
 
-                    tb.Separator();
-
-                    // Content Theme Mode Toggle
-                    if (tb.ToolButton({
-                        .label = darkMode ? "Content: Dark" : "Content: Light",
-                        .icon = darkMode ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
-                        .labelVariants = {"Content: Dark", "Content: Light"},
-                        .active = darkMode
-                    })) {
-                        darkMode = !darkMode;
+                    if (ui.Switch(lightMode, {.label = "Light", .size = guikit::UiSize::Sm}).changed) {
+                        darkMode = !lightMode;
                         const auto defTheme = darkMode ? guikit::UiTheme::Dark(appTheme.density) : guikit::UiTheme::Light(appTheme.density);
                         appTheme.palette = defTheme.palette;
                         appTheme.variants = defTheme.variants;
@@ -346,92 +352,28 @@ int main(int argc, char* argv[]) {
 
                     tb.Separator();
 
-                    // Sidebar Inspector Toggle
-                    if (tb.ToolButton({
-                        .label = showSidebar ? "Sidebar: ON" : "Sidebar: OFF",
-                        .icon = guikit::Icon::Settings(),
-                        .variant = showSidebar ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                        .labelVariants = {"Sidebar: ON", "Sidebar: OFF"},
-                        .active = showSidebar
-                    })) {
-                        showSidebar = !showSidebar;
-                        ui.InvalidateAll();
-                    }
-
-                    tb.Separator();
-
-                    // VSync Toggle
-                    if (tb.ToolButton({
-                        .label = vsyncEnabled ? "VSync: ON" : "VSync: OFF",
-                        .icon = guikit::Icon::Refresh(),
-                        .variant = vsyncEnabled ? guikit::UiVariant::Success : guikit::UiVariant::Ghost,
-                        .labelVariants = {"VSync: ON", "VSync: OFF"},
-                        .active = vsyncEnabled
-                    })) {
-                        vsyncEnabled = !vsyncEnabled;
+                    // 3. VSync, React, Dirty Switches & Heartbeat Cycle
+                    if (ui.Switch(vsyncEnabled, {.label = "VSync", .size = guikit::UiSize::Sm}).changed) {
                         SDL_SetRenderVSync(renderer, vsyncEnabled ? 1 : 0);
                     }
 
-                    // Reactive Mode Toggle
-                    if (tb.ToolButton({
-                        .label = reactiveMode ? "Reactive: ON" : "Reactive: OFF",
-                        .icon = reactiveMode ? guikit::Icon::Play() : guikit::Icon::Pause(),
-                        .variant = reactiveMode ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                        .labelVariants = {"Reactive: ON", "Reactive: OFF"},
-                        .active = reactiveMode
-                    })) {
-                        reactiveMode = !reactiveMode;
+                    if (ui.Switch(reactiveMode, {.label = "React", .size = guikit::UiSize::Sm}).changed) {
                         if (!reactiveMode) {
                             ui.InvalidateAll();
                         }
                     }
 
-                    // Dirty Rect Toggle
-                    const bool dirtyActive = ui.IsDirtyRectEnabled();
-                    if (tb.ToolButton({
-                        .label = dirtyActive ? "Dirty: ON" : "Dirty: OFF",
-                        .icon = guikit::Icon::Settings(),
-                        .variant = dirtyActive ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
-                        .labelVariants = {"Dirty: ON", "Dirty: OFF"},
-                        .active = dirtyActive
-                    })) {
-                        const bool nextDirty = !dirtyActive;
-                        ui.SetDirtyRectEnabled(nextDirty);
-                        if (!nextDirty) {
+                    bool dirtyActive = ui.IsDirtyRectEnabled();
+                    if (ui.Switch(dirtyActive, {.label = "Dirty", .size = guikit::UiSize::Sm}).changed) {
+                        ui.SetDirtyRectEnabled(dirtyActive);
+                        if (!dirtyActive) {
                             ui.InvalidateAll();
                         }
                     }
 
-                    tb.Separator();
-
-                    // Debug Bounds Toggle
-                    const bool boundsActive = ui.IsDebugBounds();
-                    if (tb.ToolButton({
-                        .label = boundsActive ? "Bounds: ON" : "Bounds: OFF",
-                        .icon = boundsActive ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
-                        .variant = boundsActive ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
-                        .labelVariants = {"Bounds: ON", "Bounds: OFF"},
-                        .active = boundsActive
-                    })) {
-                        ui.SetDebugBounds(!boundsActive);
-                    }
-
-                    // Inspect Mode Toggle (Chrome DevTools Inspect element)
-                    const bool inspectActive = ui.IsInspectMode();
-                    if (tb.ToolButton({
-                        .label = inspectActive ? "Inspect: ON" : "Inspect: OFF",
-                        .icon = guikit::Icon::Search(),
-                        .variant = inspectActive ? guikit::UiVariant::Warning : guikit::UiVariant::Ghost,
-                        .labelVariants = {"Inspect: ON", "Inspect: OFF"},
-                        .active = inspectActive
-                    })) {
-                        ui.SetInspectMode(!inspectActive);
-                    }
-
-                    // Idle Heartbeat Presets Cycle
                     if (tb.ToolButton({
                         .label = heartbeatLabels[heartbeatIndex],
-                        .icon = guikit::Icon::Plus(),
+                        .icon = guikit::Icon::Refresh(),
                         .labelVariants = heartbeatLabels,
                         .disabled = !reactiveMode
                     })) {
@@ -439,13 +381,28 @@ int main(int argc, char* argv[]) {
                         ui.SetIdleHeartbeatMs(heartbeatMsValues[heartbeatIndex]);
                     }
 
-                    tb.Spacer();
+                    tb.Separator();
 
-                    std::string_view catBadge = isElementCategory(selectedCategory) ? "Mode: Elements" : "Mode: Assembly";
-                    ui.Text(catBadge, {
-                        .role = guikit::TextRole::LabelSmall,
-                        .variant = isElementCategory(selectedCategory) ? guikit::UiVariant::Primary : guikit::UiVariant::Info
-                    });
+                    // 4. Debug Bounds & Inspect Mode
+                    const bool boundsActive = ui.IsDebugBounds();
+                    if (tb.ToolButton({
+                        .label = "Bounds",
+                        .icon = boundsActive ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
+                        .variant = boundsActive ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+                        .active = boundsActive
+                    })) {
+                        ui.SetDebugBounds(!boundsActive);
+                    }
+
+                    const bool inspectActive = ui.IsInspectMode();
+                    if (tb.ToolButton({
+                        .label = "Inspect",
+                        .icon = guikit::Icon::Search(),
+                        .variant = inspectActive ? guikit::UiVariant::Warning : guikit::UiVariant::Ghost,
+                        .active = inspectActive
+                    })) {
+                        ui.SetInspectMode(!inspectActive);
+                    }
                 }
 
                 // Workspace Row containing Sidebar (left) and Content Area (right)
@@ -745,6 +702,7 @@ int main(int argc, char* argv[]) {
                                             .label = "Content Dark Mode",
                                             .description = "Switch Content preview between Dark and Light palette"
                                         }).changed) {
+                                            lightMode = !darkMode;
                                             const auto defTheme = darkMode ? guikit::UiTheme::Dark(appTheme.density) : guikit::UiTheme::Light(appTheme.density);
                                             appTheme.palette = defTheme.palette;
                                             appTheme.variants = defTheme.variants;
