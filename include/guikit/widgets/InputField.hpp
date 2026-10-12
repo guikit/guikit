@@ -28,6 +28,7 @@ struct InputFieldOptions {
     Icon suffixIcon{};                             ///< Optional vector icon inside field on right
     std::optional<CursorBlinkMode> cursorMode{std::nullopt}; ///< Cursor blink override (inherits context config if nullopt)
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
+    std::optional<float> radius{std::nullopt};     ///< Local corner radius override (nullopt = inherit from size metrics)
     bool disabled{false};                          ///< Interaction suppression
     bool readOnly{false};                          ///< Non-editable display mode
 };

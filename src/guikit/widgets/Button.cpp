@@ -33,6 +33,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
         opts.active,
         opts.stretch,
         opts.size.value_or(activeSize),
+        opts.radius.value_or(-1.0f),
         static_cast<uint8_t>(opts.icon.GetType()),
         static_cast<uint8_t>(opts.icon.GetId()),
         opts.icon.GetPath(),
@@ -151,7 +152,8 @@ void Button::Render(
     canvas.PushClip(bounds);
 
     // Background & border
-    canvas.DrawRoundRect(bounds, m.cornerRadius, bg, borderCol, borderW);
+    const float radius = opts.radius.value_or(m.cornerRadius);
+    canvas.DrawRoundRect(bounds, radius, bg, borderCol, borderW);
 
     const bool hasIcon = opts.icon.IsValid();
     const bool hasLabel = !opts.label.empty();

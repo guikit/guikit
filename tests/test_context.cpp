@@ -3762,6 +3762,35 @@ void TestButtonAlignmentAndProceduralIcons() {
     std::cout << "  [PASS] TestButtonAlignmentAndProceduralIcons completed\n";
 }
 
+void TestWidgetRadiusOverride() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 400;
+    const uint32_t height = 300;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    std::string inputText = "hello";
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
+    if (auto col = ui.Column({.gap = 8.0f})) {
+        auto btnDefault = ui.Button({.label = "Default Radius"});
+        auto btnCustom = ui.Button({.label = "Custom Radius", .radius = 16.0f});
+        auto inputDefault = ui.InputField(inputText, {.label = "Default Radius Input"});
+        auto inputCustom = ui.InputField(inputText, {.label = "Custom Radius Input", .radius = 14.0f});
+
+        CHECK(btnDefault.id.IsValid());
+        CHECK(btnCustom.id.IsValid());
+        CHECK(inputDefault.id.IsValid());
+        CHECK(inputCustom.id.IsValid());
+    }
+    ui.EndFrame(canvas);
+
+    std::cout << "  [PASS] TestWidgetRadiusOverride completed\n";
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -3809,6 +3838,7 @@ int main() {
     TestPixelGeometryAndWidgetUiSizeDecoupling();
     TestTextAreaWidgetWorkflow();
     TestButtonAlignmentAndProceduralIcons();
+    TestWidgetRadiusOverride();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

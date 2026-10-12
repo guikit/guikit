@@ -149,6 +149,7 @@ int main(int argc, char* argv[]) {
     bool btnStretch = false;
     bool btnDisabled = false;
     int btnClicks = 0;
+    float btnCornerRadius = 6.0f;
 
     float testSliderVal = 65.0f;
     size_t testStepIdx = 2;
@@ -164,6 +165,7 @@ int main(int argc, char* argv[]) {
     bool inputDisabled = false;
     bool inputHasPrefix = true;
     bool inputHasSuffix = false;
+    float inputCornerRadius = 6.0f;
 
     size_t testSelectIdx = 0;
     static const std::vector<std::string_view> selectItems = {"Option Alpha", "Option Beta", "Option Gamma", "Option Delta", "Option Epsilon"};
@@ -545,12 +547,12 @@ int main(int argc, char* argv[]) {
                                                     .showLabels = true,
                                                     .showValue = true
                                                 }).changed) {
+                                                    btnCornerRadius = th.GetMetrics(controlsSize).cornerRadius;
                                                     ui.InvalidateAll();
                                                 }
-                                                auto& m = th.GetMetrics(controlsSize);
-                                                if (ui.Slider(m.cornerRadius, 0.0f, 24.0f, {.label = "Corner Radius", .format = "%.0f px"}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(m.paddingX, 4.0f, 32.0f, {.label = "Horizontal Padding", .format = "%.0f px"}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(m.paddingY, 2.0f, 20.0f, {.label = "Vertical Padding", .format = "%.0f px"}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(btnCornerRadius, 0.0f, 24.0f, {.label = "Corner Radius", .format = "%.0f px"}).changed) {
+                                                    ui.InvalidateAll();
+                                                }
 
                                                 renderVariantPicker();
 
@@ -598,9 +600,13 @@ int main(int argc, char* argv[]) {
                                                 ui.Heading({.title = "InputField Inspector", .subtitle = "Text & Value Editing", .size = guikit::UiSize::Sm, .divider = true});
 
                                                 ui.Heading({.title = "Geometry & Styling", .size = guikit::UiSize::Sm});
-                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
-                                                auto& m = th.GetMetrics(controlsSize);
-                                                if (ui.Slider(m.cornerRadius, 0.0f, 24.0f, {.label = "Corner Radius", .format = "%.0f px"}).changed) ui.InvalidateAll();
+                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) {
+                                                    inputCornerRadius = th.GetMetrics(controlsSize).cornerRadius;
+                                                    ui.InvalidateAll();
+                                                }
+                                                if (ui.Slider(inputCornerRadius, 0.0f, 24.0f, {.label = "Corner Radius", .format = "%.0f px"}).changed) {
+                                                    ui.InvalidateAll();
+                                                }
 
                                                 renderVariantPicker();
 
@@ -927,7 +933,8 @@ int main(int argc, char* argv[]) {
                                                         .align = btnAlign,
                                                         .stretch = btnStretch,
                                                         .disabled = btnDisabled,
-                                                        .size = controlsSize
+                                                        .size = controlsSize,
+                                                        .radius = btnCornerRadius
                                                     })) {
                                                         ++btnClicks;
                                                         ui.InvalidateAll();
@@ -970,6 +977,7 @@ int main(int argc, char* argv[]) {
                                                         .variant = btnVariant,
                                                         .cursorMode = inputCursorMode,
                                                         .size = controlsSize,
+                                                        .radius = inputCornerRadius,
                                                         .disabled = inputDisabled,
                                                         .readOnly = inputReadOnly
                                                     });
@@ -1305,6 +1313,7 @@ int main(int argc, char* argv[]) {
                                     std::string snippet;
                                     switch (selectedCategory) {
                                         case NavCategory::ElemButton: {
+                                            const bool hasCustomRadius = std::abs(btnCornerRadius - th.GetMetrics(controlsSize).cornerRadius) > 0.01f;
                                             snippet = std::format(
                                                 "ui.Button({{\n"
                                                 "    .label = \"{}\",\n"
@@ -1314,11 +1323,13 @@ int main(int argc, char* argv[]) {
                                                 "{}"
                                                 "{}"
                                                 "{}"
+                                                "{}"
                                                 "    .size = guikit::UiSize::{}\n"
                                                 "}});",
                                                 btnClicks > 0 ? std::format("Clicked {}x", btnClicks) : "Interactive Button",
                                                 btnHasIcon ? "    .icon = guikit::Icon::Play(),\n" : "",
                                                 variantName(btnVariant),
+                                                hasCustomRadius ? std::format("    .radius = {:.0f}f,\n", btnCornerRadius) : "",
                                                 btnHasIcon ? std::format("    .iconPlacement = guikit::Placement::{},\n",
                                                     btnIconPlacement == guikit::Placement::Leading ? "Leading" :
                                                     (btnIconPlacement == guikit::Placement::Trailing ? "Trailing" :
@@ -1371,6 +1382,7 @@ int main(int argc, char* argv[]) {
                                         }
 
                                         case NavCategory::ElemInputField: {
+                                            const bool hasCustomInputRadius = std::abs(inputCornerRadius - th.GetMetrics(controlsSize).cornerRadius) > 0.01f;
                                             snippet = std::format(
                                                 "ui.InputField(textValue, {{\n"
                                                 "    .label = \"Server Endpoint\",\n"
@@ -1379,12 +1391,14 @@ int main(int argc, char* argv[]) {
                                                 "{}"
                                                 "{}"
                                                 "    .variant = guikit::UiVariant::{},\n"
+                                                "{}"
                                                 "    .cursorMode = guikit::CursorBlinkMode::{},\n"
                                                 "    .size = guikit::UiSize::{}{}{}\n"
                                                 "}});",
                                                 inputHasPrefix ? "    .prefix = \"https://\",\n" : "",
                                                 inputHasSuffix ? "    .suffix = \":443\",\n" : "",
                                                 variantName(btnVariant),
+                                                hasCustomInputRadius ? std::format("    .radius = {:.0f}f,\n", inputCornerRadius) : "",
                                                 inputCursorMode == guikit::CursorBlinkMode::Solid ? "Solid" :
                                                 (inputCursorMode == guikit::CursorBlinkMode::Hidden ? "Hidden" : "Blinking"),
                                                 controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),

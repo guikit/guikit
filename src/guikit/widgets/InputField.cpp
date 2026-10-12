@@ -121,6 +121,7 @@ Response InputField::Run(
     node->visualHash = detail::HashArgs(
         opts.variant,
         opts.readOnly,
+        opts.radius.value_or(-1.0f),
         data->displayText,
         optsCopy.prefix,
         optsCopy.suffix,
@@ -376,7 +377,8 @@ void InputField::Render(
     }
 
     // Draw box background and border
-    canvas.DrawRoundRect(boxRect, m.cornerRadius, boxBg, boxBorder, strokeW);
+    const float radius = opts.radius.value_or(m.cornerRadius);
+    canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
     // Left elements (prefix icon, prefix text)
     float leftX = boxRect.x + m.paddingX;
