@@ -3311,27 +3311,57 @@ void TestScopedThemeAndScaleOverrides() {
     // Should restore after box closes
     CHECK(ui.GetTheme().palette.surface != Color(123, 234, 45, 255));
 
-    // 2. Scoped scale override
+    // 2. Scoped scale override + nested theme override inheriting parent scale
     if (auto col = ui.Column({.scale = 2.0f})) {
         CHECK_NEAR(ui.GetCurrentScale(), 2.0f, 0.001f);
         const float scaledBtnHeight = ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight;
         CHECK_NEAR(scaledBtnHeight, baseBtnHeight * 2.0f, 0.001f);
+
+        // Nested container overriding only .theme must inherit parent scale (2.0f)
+        if (auto innerCard = ui.Card({.theme = &customTheme})) {
+            CHECK(ui.GetTheme().palette.surface == Color(123, 234, 45, 255));
+            CHECK_NEAR(ui.GetCurrentScale(), 2.0f, 0.001f);
+            CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight * 2.0f, 0.001f);
+        }
+        // After innerCard closes, parent scale and theme remain 2.0f
+        CHECK_NEAR(ui.GetCurrentScale(), 2.0f, 0.001f);
+        CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight * 2.0f, 0.001f);
     }
     // Should restore after col closes
     CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 0.001f);
     CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight, 0.001f);
 
-    // 3. Isolated sidebar vs scaled content in row
+    // 3. Toolbar inside a scaled container must preserve parent scale after closing
+    if (auto shellCol = ui.Column({.scale = 1.5f})) {
+        CHECK_NEAR(ui.GetCurrentScale(), 1.5f, 0.001f);
+        if (auto tb = ui.Toolbar()) {
+            tb.ToolButton({.label = "Action"});
+        }
+        // Scale must still be 1.5f after ToolbarScope destructor runs
+        CHECK_NEAR(ui.GetCurrentScale(), 1.5f, 0.001f);
+        CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight * 1.5f, 0.001f);
+    }
+    CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 0.001f);
+
+    // 4. Isolated sidebar vs scaled content in row + scoped debugBounds / inspectMode
     if (auto row = ui.Row()) {
-        if (auto sidebar = ui.Box({.theme = &inspectorTheme, .scale = 1.0f})) {
+        if (auto sidebar = ui.Box({.theme = &inspectorTheme, .scale = 1.0f, .debugBounds = false, .inspectMode = false})) {
             CHECK(ui.GetTheme().palette.surface == Color(10, 20, 30, 255));
             CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 0.001f);
             CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight, 0.001f);
+            CHECK(sidebar.GetNode()->debugBoundsOverride.has_value());
+            CHECK(*sidebar.GetNode()->debugBoundsOverride == false);
+            CHECK(sidebar.GetNode()->inspectModeOverride.has_value());
+            CHECK(*sidebar.GetNode()->inspectModeOverride == false);
         }
 
-        if (auto content = ui.Column({.scale = 1.5f})) {
+        if (auto content = ui.Card({.scale = 1.5f, .debugBounds = true, .inspectMode = true})) {
             CHECK_NEAR(ui.GetCurrentScale(), 1.5f, 0.001f);
             CHECK_NEAR(ui.GetTheme().GetMetrics(UiSize::Md).defaultHeight, baseBtnHeight * 1.5f, 0.001f);
+            CHECK(content.GetNode()->debugBoundsOverride.has_value());
+            CHECK(*content.GetNode()->debugBoundsOverride == true);
+            CHECK(content.GetNode()->inspectModeOverride.has_value());
+            CHECK(*content.GetNode()->inspectModeOverride == true);
         }
     }
 

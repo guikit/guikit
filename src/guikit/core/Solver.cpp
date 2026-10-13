@@ -168,9 +168,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         if (node->isSpacer) {
             return 0.0f;
         }
+        const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
         if (node->childCount == 0) {
             if (node->measureFn) {
-                const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
                 return node->measureFn(node, availableWidth, canvas, activeTheme).y;
             }
             return node->intrinsicSize.y;
@@ -230,7 +230,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->isSpacer) continue;
-                const float ch = ResolveNodeHeight(child, childAvailW, canvas, theme);
+                const float ch = ResolveNodeHeight(child, childAvailW, canvas, activeTheme);
                 sumH += ch;
                 ++activeChildren;
             }
@@ -286,7 +286,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     }
 
                     const float childW = std::max(0.0f, (static_cast<float>(span) / static_cast<float>(totalCols)) * (availW + gap) - gap);
-                    const float childH = ResolveNodeHeight(lineEnd, childW, canvas, theme);
+                    const float childH = ResolveNodeHeight(lineEnd, childW, canvas, activeTheme);
 
                     lineMaxH = std::max(lineMaxH, childH);
                     currentLineSpan += span;
@@ -300,7 +300,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
                 if (itemsInLine == 1 && lineEnd != nullptr) {
                     const float childW = availW;
-                    lineMaxH = ResolveNodeHeight(lineStart, childW, canvas, theme);
+                    lineMaxH = ResolveNodeHeight(lineStart, childW, canvas, activeTheme);
                 }
 
                 if (hasLines) {

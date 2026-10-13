@@ -312,6 +312,7 @@ public:
 
     // --- Theme & Scale Scopes ---
     UiTheme* PushTheme(const UiTheme& theme);
+    UiTheme* PushScopedTheme(const UiTheme* explicitTheme, std::optional<float> explicitScale);
     void PopTheme();
 
     void PushScale(float scale);
@@ -711,6 +712,7 @@ private:
     bool m_dirtyRectEnabled{true};
     bool m_debugBoundsEnabled{false};
     bool m_inspectModeEnabled{false};
+    bool m_anyScopedInspectActive{false};
 
     BumpAllocator m_arena;
     std::vector<Node*> m_containerStack;
@@ -836,7 +838,7 @@ private:
     std::unordered_map<detail::StateKey, detail::StoredState, detail::StateKeyHash> m_customStates;
     uint64_t m_frameIndex{0};
 
-    void RenderDebugBoundsRecursive(Node* node, ICanvas& canvas);
+    void RenderDebugBoundsRecursive(Node* node, ICanvas& canvas, bool inheritedDebugBounds);
     Node* FindDeepestNodeAt(Node* root, Vec2 pos, Rect clipRect);
     void RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize);
 };

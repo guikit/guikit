@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string_view>
 #include "guikit/core/Id.hpp"
 #include "guikit/core/Tokens.hpp"
@@ -94,6 +95,8 @@ struct Node {
     Alignment align{Alignment::Stretch};
     Justify justify{Justify::Start};
     UiSize uiSize{UiSize::Md};
+    std::optional<bool> debugBoundsOverride{std::nullopt};
+    std::optional<bool> inspectModeOverride{std::nullopt};
 
     // Interaction & container flags (packed 1-bit flags to maintain tight cache footprint)
     bool isSpacer : 1 {false};

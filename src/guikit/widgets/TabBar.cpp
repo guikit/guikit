@@ -19,21 +19,41 @@ Response TabBar::Run(
     if (tabs.empty()) return res;
 
     const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
-
-    UiTheme* pushedTheme = nullptr;
-    if (opts.theme != nullptr || opts.scale.has_value()) {
-        UiTheme scopedTheme = opts.theme ? *opts.theme : ctx.GetTheme();
-        if (opts.scale.has_value() && *opts.scale > 0.0f) {
-            scopedTheme = scopedTheme.Scaled(*opts.scale);
-        }
-        pushedTheme = ctx.PushTheme(scopedTheme);
-    }
-
-    const ComponentMetrics& m = ctx.GetTheme().GetMetrics(activeSize);
+    const bool activeDisabled = ctx.IsDisabled();
+    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
 
     std::optional<ContainerScope> carouselScope;
     Node* barNode = nullptr;
 
+    if (opts.scrollable && !opts.fullWidth) {
+        CarouselOptions cOpts;
+        cOpts.size = activeSize;
+        cOpts.scrollWheel = true;
+        cOpts.disabled = activeDisabled;
+        cOpts.theme = opts.theme;
+        cOpts.scale = opts.scale;
+
+        carouselScope.emplace(ctx.Carousel(cOpts, loc));
+        barNode = carouselScope->GetNode();
+    } else {
+        UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+        const Id barId = ctx.MakeChildId(loc);
+        barNode = ctx.CreateNode(NodeType::Container, barId);
+        barNode->theme = pushedTheme;
+        barNode->direction = FlexDirection::Row;
+        barNode->align = Alignment::Center;
+        barNode->uiSize = activeSize;
+        barNode->disabled = activeDisabled;
+        barNode->widthMode = opts.fullWidth ? SizeMode::Stretch : SizeMode::Fit;
+        barNode->payload = ctx.AllocPayload<TabBarOptions>(opts);
+
+        ctx.PushScale(activeScale);
+        ctx.PushSize(activeSize);
+        ctx.PushDisabled(activeDisabled);
+        ctx.PushContainer(barNode);
+    }
+
+    const ComponentMetrics& m = ctx.GetTheme().GetMetrics(activeSize);
     const float defaultTabGap = (activeSize <= UiSize::Sm) ? ctx.GetTheme().GetGap(UiSize::Xs) : ctx.GetTheme().GetGap(UiSize::Sm);
     const float activeTabGap = opts.gap.value_or(defaultTabGap);
 
@@ -43,7 +63,7 @@ Response TabBar::Run(
     if (opts.padding.has_value()) {
         resolvedPadding = *opts.padding;
     } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
-        const float defaultPad = (activeSize <= UiSize::Sm) ? 2.0f : 3.0f;
+        const float defaultPad = ((activeSize <= UiSize::Sm) ? 2.0f : 3.0f) * activeScale;
         resolvedPadding = Padding{defaultPad, defaultPad, defaultPad, defaultPad};
     }
 
@@ -51,72 +71,33 @@ Response TabBar::Run(
     if (opts.radius.has_value()) {
         resolvedRadius = *opts.radius;
     } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
-        resolvedRadius = m.cornerRadius + 2.0f;
+        resolvedRadius = m.cornerRadius + 2.0f * activeScale;
     }
 
     const float effectiveBorderWidth = (opts.borderWidth > 0.0f) ? opts.borderWidth
         : (opts.borderColor.a > 0 ? 1.0f : 0.0f);
 
-    if (opts.scrollable && !opts.fullWidth) {
-        CarouselOptions cOpts;
-        cOpts.size = activeSize;
-        cOpts.gap = activeTabGap;
-        cOpts.padding = resolvedPadding;
-        cOpts.scrollWheel = true;
-        cOpts.disabled = ctx.IsDisabled();
-
-        carouselScope.emplace(ctx.Carousel(cOpts, loc));
-        barNode = carouselScope->GetNode();
-        barNode->theme = pushedTheme;
-        barNode->heightMode = SizeMode::Fixed;
-        barNode->fixedHeight = m.defaultHeight + resolvedPadding.Vertical();
-        barNode->backgroundColor = opts.backgroundColor;
-        barNode->borderColor = opts.borderColor;
-        barNode->borderWidth = effectiveBorderWidth;
-        barNode->cornerRadius = resolvedRadius;
-        if (resolvedRadius > 0.0f) {
-            barNode->clipChildren = true;
-        }
-        barNode->visualHash = detail::HashArgs(
-            opts.backgroundColor.ToUint32(),
-            opts.borderColor.ToUint32(),
-            effectiveBorderWidth,
-            resolvedRadius,
-            resolvedPadding.top,
-            resolvedPadding.left
-        );
-        if (auto* cData = barNode->As<CarouselData>()) {
-            cData->showBaselineSeparator = (opts.showSeparator && opts.style == TabBarStyle::Underline);
-        }
-    } else {
-        const Id barId = ctx.MakeChildId(loc);
-        barNode = ctx.CreateNode(NodeType::Container, barId);
-        barNode->theme = pushedTheme;
-        barNode->direction = FlexDirection::Row;
-        barNode->align = Alignment::Center;
-        barNode->gap = activeTabGap;
-        barNode->padding = resolvedPadding;
-        barNode->uiSize = activeSize;
-        barNode->widthMode = opts.fullWidth ? SizeMode::Stretch : SizeMode::Fit;
-        barNode->heightMode = SizeMode::Fixed;
-        barNode->fixedHeight = m.defaultHeight + resolvedPadding.Vertical();
-        barNode->backgroundColor = opts.backgroundColor;
-        barNode->borderColor = opts.borderColor;
-        barNode->borderWidth = effectiveBorderWidth;
-        barNode->cornerRadius = resolvedRadius;
-        if (resolvedRadius > 0.0f) {
-            barNode->clipChildren = true;
-        }
-        barNode->visualHash = detail::HashArgs(
-            opts.backgroundColor.ToUint32(),
-            opts.borderColor.ToUint32(),
-            effectiveBorderWidth,
-            resolvedRadius,
-            resolvedPadding.top,
-            resolvedPadding.left
-        );
-        barNode->payload = ctx.AllocPayload<TabBarOptions>(opts);
-        ctx.PushContainer(barNode);
+    barNode->gap = activeTabGap;
+    barNode->padding = resolvedPadding;
+    barNode->heightMode = SizeMode::Fixed;
+    barNode->fixedHeight = m.defaultHeight + resolvedPadding.Vertical();
+    barNode->backgroundColor = opts.backgroundColor;
+    barNode->borderColor = opts.borderColor;
+    barNode->borderWidth = effectiveBorderWidth;
+    barNode->cornerRadius = resolvedRadius;
+    if (resolvedRadius > 0.0f) {
+        barNode->clipChildren = true;
+    }
+    barNode->visualHash = detail::HashArgs(
+        opts.backgroundColor.ToUint32(),
+        opts.borderColor.ToUint32(),
+        effectiveBorderWidth,
+        resolvedRadius,
+        resolvedPadding.top,
+        resolvedPadding.left
+    );
+    if (auto* cData = barNode->As<CarouselData>()) {
+        cData->showBaselineSeparator = (opts.showSeparator && opts.style == TabBarStyle::Underline);
     }
 
     // Auto-scroll to active tab when activeIndex changes or on initial display
@@ -207,10 +188,6 @@ Response TabBar::Run(
     if (!carouselScope) {
         ctx.PopContainer(barNode);
         ctx.AdaptChildToContainer(barNode);
-    }
-
-    if (pushedTheme) {
-        ctx.PopTheme();
     }
 
     return res;

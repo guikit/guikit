@@ -9,11 +9,12 @@ namespace guikit {
 void ToolbarScope::Separator(float heightRatio, std::source_location loc) {
     if (!m_ctx || !m_node) return;
     const Id id = m_ctx->MakeChildId(loc);
+    const float scale = m_ctx->GetCurrentScale();
     Node* sep = m_ctx->CreateNode(NodeType::Separator, id);
     sep->widthMode = SizeMode::Fixed;
-    sep->fixedWidth = 10.0f; // 10px slot with centered 1px line
+    sep->fixedWidth = 10.0f * scale; // 10px slot with centered 1px line
     sep->heightMode = SizeMode::Fixed;
-    const float parentH = (m_node->fixedHeight > 0.0f) ? m_node->fixedHeight : 32.0f;
+    const float parentH = (m_node->fixedHeight > 0.0f) ? m_node->fixedHeight : (32.0f * scale);
     sep->fixedHeight = parentH * std::clamp(heightRatio, 0.1f, 1.0f);
     sep->borderColor = m_node->borderColor;
     sep->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept -> Vec2 {
@@ -54,11 +55,15 @@ ToolbarScope Toolbar::Open(
 ) {
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
-    const ComponentMetrics& m = ctx.GetTheme().GetMetrics(activeSize);
-    const float barH = m.defaultHeight + 8.0f;
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
+    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+
+    const ComponentMetrics& m = ctx.GetTheme().GetMetrics(activeSize);
+    const float barH = m.defaultHeight + 8.0f * activeScale;
 
     Node* node = ctx.CreateNode(NodeType::Container, id);
+    node->theme = pushedTheme;
     node->direction = FlexDirection::Row;
     node->align = Alignment::Center;
     node->gap = opts.gap.value_or(ctx.GetTheme().GetGap(activeSize));
@@ -93,6 +98,7 @@ ToolbarScope Toolbar::Open(
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
 
+    ctx.PushScale(activeScale);
     ctx.PushSize(activeSize);
     ctx.PushDisabled(effectiveDisabled);
     ctx.PushContainer(node);

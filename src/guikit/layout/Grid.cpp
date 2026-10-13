@@ -14,15 +14,7 @@ GridScope Grid::Open(
     const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
     const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
-
-    UiTheme* pushedTheme = nullptr;
-    if (opts.theme != nullptr || opts.scale.has_value()) {
-        UiTheme scopedTheme = opts.theme ? *opts.theme : ctx.GetTheme();
-        if (opts.scale.has_value() && *opts.scale > 0.0f) {
-            scopedTheme = scopedTheme.Scaled(*opts.scale);
-        }
-        pushedTheme = ctx.PushTheme(scopedTheme);
-    }
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
 
     Node* node = ctx.CreateNode(NodeType::Grid, id);
     node->theme = pushedTheme;
@@ -53,15 +45,7 @@ ContainerScope GridScope::Cell(int span, CellOptions opts, std::source_location 
     const UiSize activeSize = opts.size.value_or(m_ctx->GetCurrentSize());
     const bool activeDisabled = opts.disabled || m_ctx->IsDisabled();
     const float activeScale = opts.scale.value_or(m_ctx->GetCurrentScale());
-
-    UiTheme* pushedTheme = nullptr;
-    if (opts.theme != nullptr || opts.scale.has_value()) {
-        UiTheme scopedTheme = opts.theme ? *opts.theme : m_ctx->GetTheme();
-        if (opts.scale.has_value() && *opts.scale > 0.0f) {
-            scopedTheme = scopedTheme.Scaled(*opts.scale);
-        }
-        pushedTheme = m_ctx->PushTheme(scopedTheme);
-    }
+    UiTheme* pushedTheme = m_ctx->PushScopedTheme(opts.theme, opts.scale);
 
     Node* node = m_ctx->CreateNode(NodeType::Cell, id);
     node->theme = pushedTheme;
@@ -82,7 +66,6 @@ ContainerScope GridScope::Cell(int span, CellOptions opts, std::source_location 
     m_ctx->PushSize(activeSize);
     m_ctx->PushDisabled(activeDisabled);
     m_ctx->PushContainer(node);
-    return ContainerScope(m_ctx, node);
     return ContainerScope(m_ctx, node);
 }
 

@@ -170,6 +170,26 @@ UiTheme* Context::PushTheme(const UiTheme& theme) {
     return arenaTheme;
 }
 
+UiTheme* Context::PushScopedTheme(const UiTheme* explicitTheme, std::optional<float> explicitScale) {
+    if (explicitTheme == nullptr && !explicitScale.has_value()) {
+        return nullptr;
+    }
+    const float prevScale = GetCurrentScale();
+    const float activeScale = explicitScale.value_or(prevScale);
+    UiTheme scopedTheme = (explicitTheme != nullptr) ? *explicitTheme : GetTheme();
+    if (explicitTheme != nullptr) {
+        if (activeScale > 0.0f && activeScale != 1.0f) {
+            scopedTheme = scopedTheme.Scaled(activeScale);
+        }
+    } else if (explicitScale.has_value() && *explicitScale > 0.0f) {
+        const float relFactor = (prevScale > 0.0f) ? (*explicitScale / prevScale) : *explicitScale;
+        if (relFactor != 1.0f) {
+            scopedTheme = scopedTheme.Scaled(relFactor);
+        }
+    }
+    return PushTheme(scopedTheme);
+}
+
 void Context::PopTheme() {
     if (!m_themeStack.empty()) {
         m_themeStack.pop_back();
@@ -414,7 +434,7 @@ void Context::OnMouseMove(Vec2 pos) {
     const float scale = (m_dpiScale > 0.0f) ? m_dpiScale : 1.0f;
     m_mousePos = pos / scale;
     RequestRepaint(3);
-    if (m_inspectModeEnabled) {
+    if (m_inspectModeEnabled || m_anyScopedInspectActive) {
         InvalidateAll();
     }
 }
@@ -612,9 +632,11 @@ static Rect GetNodeContentClipRect(const Node* node, const UiTheme& theme) {
 static void CollectBoundsRecursive(Node* node, std::unordered_map<Id, Rect>& outBounds, Rect parentClip, const UiTheme& theme) {
     if (!node) return;
 
+    const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
+
     Rect effectiveClip = parentClip;
     if (node->clipChildren) {
-        effectiveClip = parentClip.Intersect(GetNodeContentClipRect(node, theme));
+        effectiveClip = parentClip.Intersect(GetNodeContentClipRect(node, activeTheme));
     }
 
     if (node->id.IsValid()) {
@@ -629,7 +651,7 @@ static void CollectBoundsRecursive(Node* node, std::unordered_map<Id, Rect>& out
     }
 
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-        CollectBoundsRecursive(child, outBounds, effectiveClip, theme);
+        CollectBoundsRecursive(child, outBounds, effectiveClip, activeTheme);
     }
 }
 
@@ -713,9 +735,17 @@ void Context::EndFrame(ICanvas& canvas) {
     };
 
     const bool cursorVis = IsCursorVisible();
+    bool anyDebugBounds = m_debugBoundsEnabled;
+    bool anyInspectMode = m_inspectModeEnabled;
 
     std::function<void(Node*)> collectSnapshots = [&](Node* n) {
         if (!n) return;
+        if (n->debugBoundsOverride.value_or(false)) {
+            anyDebugBounds = true;
+        }
+        if (n->inspectModeOverride.value_or(false)) {
+            anyInspectMode = true;
+        }
         if (n->id.IsValid()) {
             WidgetSnapshot snap;
             snap.rect = n->computedRect;
@@ -753,6 +783,7 @@ void Context::EndFrame(ICanvas& canvas) {
     };
 
     collectSnapshots(m_root);
+    m_anyScopedInspectActive = anyInspectMode;
 
     // Detect removed widgets
     for (const auto& [id, prevSnap] : m_prevSnapshots) {
@@ -764,7 +795,7 @@ void Context::EndFrame(ICanvas& canvas) {
     // Determine whether full repaint or partial dirty rect is required
     const float totalViewportArea = logicalSize.x * logicalSize.y;
     if (!m_dirtyRectEnabled || m_forceFullRepaint || m_prevSnapshots.empty() || m_openPopupId.IsValid() ||
-        m_debugBoundsEnabled || m_inspectModeEnabled) {
+        anyDebugBounds || anyInspectMode) {
         m_isFullRepaint = true;
         m_hasDirtyDamage = true;
         m_dirtyRect = Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y);
@@ -817,12 +848,12 @@ void Context::EndFrame(ICanvas& canvas) {
         }
 
         // Developer Debug Pass: Element bounds and padding
-        if (m_debugBoundsEnabled) {
-            RenderDebugBoundsRecursive(m_root, canvas);
+        if (anyDebugBounds) {
+            RenderDebugBoundsRecursive(m_root, canvas, m_debugBoundsEnabled);
         }
 
         // Developer Debug Pass: Chrome DevTools-style hover inspector & floating badge
-        if (m_inspectModeEnabled) {
+        if (anyInspectMode) {
             RenderInspectOverlay(m_root, canvas, logicalSize);
         }
 
@@ -921,11 +952,13 @@ void Context::SetInspectMode(bool enabled) noexcept {
     }
 }
 
-void Context::RenderDebugBoundsRecursive(Node* node, ICanvas& canvas) {
+void Context::RenderDebugBoundsRecursive(Node* node, ICanvas& canvas, bool inheritedDebugBounds) {
     if (!node) return;
     if (node->computedRect.w <= 0.0f || node->computedRect.h <= 0.0f) return;
 
-    if (node != m_root) {
+    const bool activeDebug = node->debugBoundsOverride.value_or(inheritedDebugBounds);
+
+    if (node != m_root && activeDebug) {
         const NodeCategory cat = node->GetCategory();
 
         Color stroke;
@@ -990,7 +1023,7 @@ void Context::RenderDebugBoundsRecursive(Node* node, ICanvas& canvas) {
     }
 
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-        RenderDebugBoundsRecursive(child, canvas);
+        RenderDebugBoundsRecursive(child, canvas, activeDebug);
     }
 }
 
@@ -1000,7 +1033,14 @@ Node* Context::FindDeepestNodeAt(Node* root, Vec2 pos, Rect clipRect) {
 
     Rect effectiveClip = clipRect;
     if (root->clipChildren) {
-        effectiveClip = clipRect.Intersect(GetNodeContentClipRect(root, m_theme));
+        const UiTheme* resolvedTheme = &m_theme;
+        for (const Node* curr = root; curr != nullptr; curr = curr->parent) {
+            if (curr->theme != nullptr) {
+                resolvedTheme = curr->theme;
+                break;
+            }
+        }
+        effectiveClip = clipRect.Intersect(GetNodeContentClipRect(root, *resolvedTheme));
     }
 
     const Rect visibleRect = root->computedRect.Intersect(effectiveClip);
@@ -1024,6 +1064,15 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
 
     Node* target = FindDeepestNodeAt(root, m_mousePos, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y));
     if (!target || target == m_root) return;
+
+    bool inspectActive = m_inspectModeEnabled;
+    for (const Node* curr = target; curr != nullptr; curr = curr->parent) {
+        if (curr->inspectModeOverride.has_value()) {
+            inspectActive = *curr->inspectModeOverride;
+            break;
+        }
+    }
+    if (!inspectActive) return;
 
     // 1. Highlight inspected target with Chrome DevTools Box Model styling
     // Content box: translucent blue (#6FA8DC, ~40% opacity)

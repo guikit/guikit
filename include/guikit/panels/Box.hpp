@@ -28,6 +28,8 @@ struct BoxOptions {
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};
+    std::optional<bool> debugBounds{std::nullopt};
+    std::optional<bool> inspectMode{std::nullopt};
 };
 
 /// Autonomous immediate mode Box container entry point.

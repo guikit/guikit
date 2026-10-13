@@ -32,6 +32,8 @@ struct ScrollAreaOptions {
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};
+    std::optional<bool> debugBounds{std::nullopt};
+    std::optional<bool> inspectMode{std::nullopt};
 };
 
 /// ScrollArea container logic and scrollbar rendering.

@@ -56,8 +56,11 @@ int main(int argc, char* argv[]) {
     bool running = true;
     bool vsyncEnabled = true;
     bool reactiveMode = true;
-    bool darkMode = true;
-    bool lightMode = false;
+    bool shellLightMode = false;
+    bool previewDarkMode = true;
+    bool previewLightMode = false;
+    bool previewBounds = false;
+    bool previewInspect = false;
     bool showTelemetry = false;
     bool formMode = true;
     float speedDrop = 50.0f;
@@ -77,7 +80,8 @@ int main(int argc, char* argv[]) {
         "Heartbeat: 1 Hz",
         "Heartbeat: 0.5 Hz"
     };
-    size_t scaleIndex = 0; // Default: 100%
+    size_t shellScaleIndex = 0;   // Default: 100%
+    size_t previewScaleIndex = 0; // Default: 100%
     const std::vector<float> scaleValues = {1.0f, 1.25f, 1.5f, 1.75f, 2.0f};
     const std::vector<std::string_view> scaleLabels = {
         "100%",
@@ -304,9 +308,8 @@ int main(int argc, char* argv[]) {
 
     guikit::FrameMetrics metrics;
 
-    static const guikit::UiTheme shellTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
-    static const guikit::UiTheme& inspectorTheme = shellTheme;
-    guikit::UiTheme previewTheme = darkMode ? guikit::UiTheme::Dark(guikit::Density::Standard) : guikit::UiTheme::Light(guikit::Density::Standard);
+    guikit::UiTheme shellTheme = shellLightMode ? guikit::UiTheme::Light(guikit::Density::Standard) : guikit::UiTheme::Dark(guikit::Density::Standard);
+    guikit::UiTheme previewTheme = previewDarkMode ? guikit::UiTheme::Dark(guikit::Density::Standard) : guikit::UiTheme::Light(guikit::Density::Standard);
 
     ui.SetTheme(shellTheme);
     ui.SetClearColor(shellTheme.palette.background);
@@ -418,12 +421,15 @@ int main(int argc, char* argv[]) {
         const auto frameWorkStart = std::chrono::steady_clock::now();
         metrics.BeginFrame();
 
+        const float shellScale = scaleValues[shellScaleIndex];
+        const float previewScale = scaleValues[previewScaleIndex];
+
         // --- Begin Immediate Mode GuiKit Frame ---
         ui.BeginFrame({static_cast<float>(winWidth), static_cast<float>(winHeight)}, 1.0f);
         {
-            if (auto mainCol = ui.Column()) {
+            if (auto mainCol = ui.Column({.theme = &shellTheme, .scale = shellScale})) {
                 // Engine HUD Toolbar:
-                // Sidebar | Scale Light | VSync React Dirty Heartbeat | Bounds Inspect | guikit
+                // Sidebar | Scale Dark/Light Bounds Inspect | VSync React Dirty Heartbeat | guikit
                 if (auto tb = ui.Toolbar()) {
                     // 1. Sidebar Toggle
                     if (tb.ToolButton({
@@ -438,25 +444,43 @@ int main(int argc, char* argv[]) {
 
                     tb.Separator();
 
-                    // 2. Scale Preset Combo & Light Mode Switch
-                    if (auto scaleBox = ui.Box({.fixedWidth = 92.0f})) {
-                        if (ui.Select(scaleIndex, scaleLabels, {.size = guikit::UiSize::Sm}).changed) {
+                    // 2. Shell Controls Group: Scale, Dark/Light, Bounds, Inspect (affects UI except Preview)
+                    if (auto scaleBox = ui.Box({.fixedWidth = 92.0f * shellScale})) {
+                        if (ui.Select(shellScaleIndex, scaleLabels, {.size = guikit::UiSize::Sm}).changed) {
                             ui.InvalidateAll();
                         }
                     }
 
-                    if (ui.Switch(lightMode, {
+                    if (ui.Switch(shellLightMode, {
                         .label = "Dark",
                         .trailingLabel = "Light",
                         .symmetric = true,
                         .size = guikit::UiSize::Md
                     }).changed) {
-                        darkMode = !lightMode;
-                        const auto defTheme = darkMode ? guikit::UiTheme::Dark(previewTheme.density) : guikit::UiTheme::Light(previewTheme.density);
-                        previewTheme.palette = defTheme.palette;
-                        previewTheme.variants = defTheme.variants;
-                        previewTheme.mode = darkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
+                        shellTheme = shellLightMode ? guikit::UiTheme::Light(shellTheme.density) : guikit::UiTheme::Dark(shellTheme.density);
+                        ui.SetTheme(shellTheme);
+                        ui.SetClearColor(shellTheme.palette.background);
                         ui.InvalidateAll();
+                    }
+
+                    const bool boundsActive = ui.IsDebugBounds();
+                    if (tb.ToolButton({
+                        .label = "Bounds",
+                        .icon = boundsActive ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
+                        .variant = boundsActive ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+                        .active = boundsActive
+                    })) {
+                        ui.SetDebugBounds(!boundsActive);
+                    }
+
+                    const bool inspectActive = ui.IsInspectMode();
+                    if (tb.ToolButton({
+                        .label = "Inspect",
+                        .icon = guikit::Icon::Search(),
+                        .variant = inspectActive ? guikit::UiVariant::Warning : guikit::UiVariant::Ghost,
+                        .active = inspectActive
+                    })) {
+                        ui.SetInspectMode(!inspectActive);
                     }
 
                     tb.Separator();
@@ -490,29 +514,6 @@ int main(int argc, char* argv[]) {
                         ui.SetIdleHeartbeatMs(heartbeatMsValues[heartbeatIndex]);
                     }
 
-                    tb.Separator();
-
-                    // 4. Debug Bounds & Inspect Mode
-                    const bool boundsActive = ui.IsDebugBounds();
-                    if (tb.ToolButton({
-                        .label = "Bounds",
-                        .icon = boundsActive ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
-                        .variant = boundsActive ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
-                        .active = boundsActive
-                    })) {
-                        ui.SetDebugBounds(!boundsActive);
-                    }
-
-                    const bool inspectActive = ui.IsInspectMode();
-                    if (tb.ToolButton({
-                        .label = "Inspect",
-                        .icon = guikit::Icon::Search(),
-                        .variant = inspectActive ? guikit::UiVariant::Warning : guikit::UiVariant::Ghost,
-                        .active = inspectActive
-                    })) {
-                        ui.SetInspectMode(!inspectActive);
-                    }
-
                     tb.Spacer();
                     if (ui.Text("https://github.com/guikit/", {.role = guikit::TextRole::TitleMedium, .variant = guikit::UiVariant::Info})) {
                         SDL_OpenURL("https://github.com/guikit/");
@@ -526,9 +527,7 @@ int main(int argc, char* argv[]) {
                         // 1. Level 1: Element Catalog & Assembly Rail (Left)
                         if (auto railBox = ui.Box({
                             .heightMode = guikit::SizeMode::Stretch,
-                            .fixedWidth = 155.0f,
-                            .theme = &inspectorTheme,
-                            .scale = 1.0f
+                            .fixedWidth = 155.0f * shellScale
                         })) {
                             if (auto railCard = ui.Card({
                                 .gap = 4.0f,
@@ -589,9 +588,7 @@ int main(int argc, char* argv[]) {
                         // 2. Level 2: Inspector Panel (Right of Rail)
                         if (auto inspectorBox = ui.Box({
                             .heightMode = guikit::SizeMode::Stretch,
-                            .fixedWidth = 340.0f,
-                            .theme = &inspectorTheme,
-                            .scale = 1.0f
+                            .fixedWidth = 340.0f * shellScale
                         })) {
                             if (auto inspectorCard = ui.Card({
                                 .gap = 6.0f,
@@ -919,15 +916,15 @@ int main(int argc, char* argv[]) {
                                         }
                                     } else {
                                         // Assembly Inspector (Scene & Environment)
-                                        if (ui.Switch(darkMode, {
+                                        if (ui.Switch(previewDarkMode, {
                                             .label = "Preview Dark Mode",
                                             .description = "Switch preview between Dark and Light palette"
                                         }).changed) {
-                                            lightMode = !darkMode;
-                                            const auto defTheme = darkMode ? guikit::UiTheme::Dark(previewTheme.density) : guikit::UiTheme::Light(previewTheme.density);
+                                            previewLightMode = !previewDarkMode;
+                                            const auto defTheme = previewDarkMode ? guikit::UiTheme::Dark(previewTheme.density) : guikit::UiTheme::Light(previewTheme.density);
                                             previewTheme.palette = defTheme.palette;
                                             previewTheme.variants = defTheme.variants;
-                                            previewTheme.mode = darkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
+                                            previewTheme.mode = previewDarkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
                                             ui.InvalidateAll();
                                         }
 
@@ -962,7 +959,7 @@ int main(int argc, char* argv[]) {
                         }
                     }
 
-                    // Content Canvas (Center / Right Workspace) with Scoped Theme & Canvas Frame
+                    // Content Canvas (Center / Right Workspace)
                     if (auto contentBox = ui.Box({
                         .widthMode = guikit::SizeMode::Stretch,
                         .heightMode = guikit::SizeMode::Stretch,
@@ -971,15 +968,59 @@ int main(int argc, char* argv[]) {
                         .borderColor = shellTheme.palette.borderSubtle,
                         .borderWidth = 1.0f,
                         .radius = 8.0f,
-                        .clipChildren = true,
-                        .theme = &shellTheme,
-                        .scale = scaleValues[scaleIndex]
+                        .clipChildren = true
                     })) {
                         if (auto contentCol = ui.Column({
                             .gap = colGap,
                             .widthMode = guikit::SizeMode::Stretch,
                             .heightMode = guikit::SizeMode::Stretch
                         })) {
+                            // Local Preview Toolbar: Scale | Dark/Light | Bounds | Inspect (affects ONLY the Preview)
+                            if (auto previewTb = ui.Toolbar()) {
+                                ui.Text("PREVIEW", {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Muted});
+                                previewTb.Separator();
+
+                                if (auto pScaleBox = ui.Box({.fixedWidth = 92.0f * shellScale})) {
+                                    if (ui.Select(previewScaleIndex, scaleLabels, {.size = guikit::UiSize::Sm}).changed) {
+                                        ui.InvalidateAll();
+                                    }
+                                }
+
+                                if (ui.Switch(previewLightMode, {
+                                    .label = "Dark",
+                                    .trailingLabel = "Light",
+                                    .symmetric = true,
+                                    .size = guikit::UiSize::Md
+                                }).changed) {
+                                    previewDarkMode = !previewLightMode;
+                                    const auto defTheme = previewDarkMode ? guikit::UiTheme::Dark(previewTheme.density) : guikit::UiTheme::Light(previewTheme.density);
+                                    previewTheme.palette = defTheme.palette;
+                                    previewTheme.variants = defTheme.variants;
+                                    previewTheme.mode = previewDarkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
+                                    ui.InvalidateAll();
+                                }
+
+                                if (previewTb.ToolButton({
+                                    .label = "Bounds",
+                                    .icon = previewBounds ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
+                                    .variant = previewBounds ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+                                    .active = previewBounds
+                                })) {
+                                    previewBounds = !previewBounds;
+                                    ui.InvalidateAll();
+                                }
+
+                                if (previewTb.ToolButton({
+                                    .label = "Inspect",
+                                    .icon = guikit::Icon::Search(),
+                                    .variant = previewInspect ? guikit::UiVariant::Warning : guikit::UiVariant::Ghost,
+                                    .active = previewInspect
+                                })) {
+                                    previewInspect = !previewInspect;
+                                    ui.InvalidateAll();
+                                }
+                            }
+
                             auto& th = previewTheme;
                             const auto makeCard = [&]() {
                                 return guikit::CardOptions{
@@ -1004,7 +1045,10 @@ int main(int argc, char* argv[]) {
                                     .padding = guikit::Padding::All(14.0f),
                                     .radius = 8.0f,
                                     .heightMode = guikit::SizeMode::Stretch,
-                                    .theme = &previewTheme
+                                    .theme = &previewTheme,
+                                    .scale = previewScale,
+                                    .debugBounds = previewBounds,
+                                    .inspectMode = previewInspect
                                 })) {
                                     // Hero Showcase Stage
                                     if (auto stageBox = ui.Box({
@@ -1014,14 +1058,12 @@ int main(int argc, char* argv[]) {
                                         .backgroundColor = th.palette.surfaceElevated,
                                         .borderColor = th.palette.borderSubtle,
                                         .borderWidth = 1.0f,
-                                        .radius = 8.0f,
-                                        .theme = &previewTheme
+                                        .radius = 8.0f
                                     })) {
                                         if (auto centerRow = ui.Row({
                                             .align = guikit::Alignment::Center,
                                             .justify = guikit::Justify::Center,
-                                            .heightMode = guikit::SizeMode::Stretch,
-                                            .theme = &previewTheme
+                                            .heightMode = guikit::SizeMode::Stretch
                                         })) {
                                             switch (selectedCategory) {
                                                 case NavCategory::ElemButton: {
@@ -1599,8 +1641,22 @@ int main(int argc, char* argv[]) {
                                 // -------------------------------------------------------------
                                 // ASSEMBLY MODE: Real-World Screens & Compositions
                                 // -------------------------------------------------------------
-                                if (auto contentScroll = ui.ScrollArea({.gap = 12.0f, .theme = &previewTheme})) {
-                                    switch (selectedCategory) {
+                                if (auto previewBox = ui.Box({
+                                    .widthMode = guikit::SizeMode::Stretch,
+                                    .heightMode = guikit::SizeMode::Stretch,
+                                    .padding = guikit::Padding::All(8.0f),
+                                    .backgroundColor = previewTheme.palette.background,
+                                    .borderColor = previewTheme.palette.borderSubtle,
+                                    .borderWidth = 1.0f,
+                                    .radius = 8.0f,
+                                    .clipChildren = true,
+                                    .theme = &previewTheme,
+                                    .scale = previewScale,
+                                    .debugBounds = previewBounds,
+                                    .inspectMode = previewInspect
+                                })) {
+                                    if (auto contentScroll = ui.ScrollArea({.gap = 12.0f})) {
+                                        switch (selectedCategory) {
                                     case NavCategory::AsmDashboard: {
                                         // Industrial Dashboard (responsive 2-column layout)
                                         if (auto dashboardGrid = ui.Grid(makeGrid())) {
@@ -1938,6 +1994,7 @@ int main(int argc, char* argv[]) {
                                     }
 
                                     default: break;
+                                    }
                                 }
                             }
                         }

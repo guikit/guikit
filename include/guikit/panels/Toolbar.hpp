@@ -40,6 +40,8 @@ struct ToolbarOptions {
     Color backgroundColor{Color::Transparent()};
     Color borderColor{Color::Transparent()};
     bool disabled{false};
+    const UiTheme* theme{nullptr};
+    std::optional<float> scale{std::nullopt};
 };
 
 /// RAII scope for Toolbar container.

@@ -13,18 +13,12 @@ ContainerScope Box::Open(
     const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
     const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
-
-    UiTheme* pushedTheme = nullptr;
-    if (opts.theme != nullptr || opts.scale.has_value()) {
-        UiTheme scopedTheme = opts.theme ? *opts.theme : ctx.GetTheme();
-        if (opts.scale.has_value() && *opts.scale > 0.0f) {
-            scopedTheme = scopedTheme.Scaled(*opts.scale);
-        }
-        pushedTheme = ctx.PushTheme(scopedTheme);
-    }
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
 
     Node* node = ctx.CreateNode(NodeType::Box, id);
     node->theme = pushedTheme;
+    node->debugBoundsOverride = opts.debugBounds;
+    node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Column;
     node->gap = opts.gap.value_or(ctx.GetTheme().GetGap(activeSize));
     node->padding = ctx.GetTheme().ResolvePadding(opts.padding);
