@@ -21,8 +21,10 @@ struct ButtonOptions {
     Icon icon{};
     UiVariant variant{UiVariant::Secondary};
     Placement iconPlacement{Placement::Leading};
-    Placement labelPlacement{Placement::Stacked};  ///< Placement of external label/description relative to button capsule
-    Align align{Align::Center};   ///< Content horizontal alignment (Start = left, Center, End = right)
+    FormLayout layout{FormLayout::Stacked};        ///< Layout geometry: Stacked, Top, Bottom, Inline
+    ElementOrder placement{ElementOrder::Leading}; ///< Sequencing order: Leading (Text first), Trailing (Control first)
+    Align labelAlign{Align::Start};                ///< Label and description text alignment (Start, Center, End)
+    Align align{Align::Center};   ///< Content horizontal alignment inside button capsule (Start = left, Center, End = right)
     LabelVariants labelVariants{};
     StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Between (space-between), Fill
     std::optional<float> width{std::nullopt};      ///< Explicit capsule width in points (nullopt = auto from content)

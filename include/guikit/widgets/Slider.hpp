@@ -20,7 +20,9 @@ struct SliderOptions {
     std::string_view suffix{};                     ///< Optional unit/suffix displayed beside value (e.g. "px", "%")
     std::string_view format{};                     ///< Format string for value (defaults to "%d" for int, "%.1f" for float)
     std::optional<double> step{std::nullopt};      ///< Step quantization (defaults to 1.0 for integers, continuous for float)
-    Placement labelPlacement{Placement::Stacked};  ///< Label placement (Stacked = header row, Leading = side-by-side)
+    FormLayout layout{FormLayout::Stacked};        ///< Form layout (Stacked, Inline, Top, Bottom)
+    ElementOrder placement{ElementOrder::Leading}; ///< Element order (Leading = text first, Trailing = control first)
+    Align labelAlign{Align::Start};                ///< Label text alignment (Start, Center, End)
     bool showValue{true};                          ///< Whether to display current formatted value text
     UiVariant variant{UiVariant::Primary};         ///< Accent fill color for active track and thumb
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
@@ -36,7 +38,9 @@ struct StepSliderOptions {
     std::string_view label{};                      ///< Primary caption text above track
     std::string_view description{};                ///< Optional explanation text below slider
     std::span<const std::string_view> stepLabels{};///< Optional text labels for each discrete step
-    Placement labelPlacement{Placement::Stacked};  ///< Label placement
+    FormLayout layout{FormLayout::Stacked};        ///< Form layout (Stacked, Inline, Top, Bottom)
+    ElementOrder placement{ElementOrder::Leading}; ///< Element order (Leading = text first, Trailing = control first)
+    Align labelAlign{Align::Start};                ///< Label text alignment (Start, Center, End)
     bool showTicks{true};                          ///< Whether to render tick marks at each step
     bool showLabels{true};                         ///< Whether to render stepLabels below ticks
     bool showValue{false};                         ///< Whether to display currently selected label/index in header

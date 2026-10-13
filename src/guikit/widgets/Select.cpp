@@ -29,25 +29,42 @@ Rect Select::GetBoxRect(
         naturalBoxW = std::max(m.minWidth, naturalBoxW);
     }
 
-    if (opts.labelPlacement == Placement::Stacked) {
+    if (opts.layout == FormLayout::Stacked) {
         float curY = bounds.y;
         if (hasLabel) {
             curY += labelH + m.labelGap;
         }
         const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        const float boxX = (opts.placement == ElementOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
         return Rect(boxX, curY, boxW, m.defaultHeight);
     }
     
-    if (opts.labelPlacement == Placement::Leading) {
-        float labelW = 0.0f;
-        if (hasLabel) {
-            if (canvas) {
-                labelW = canvas->MeasureText(effectiveLabel, m.labelFontSize).x;
-            } else {
-                labelW = static_cast<float>(effectiveLabel.length()) * (m.labelFontSize * kDefaultCharAdvanceRatio);
-            }
+    if (opts.layout == FormLayout::Top) {
+        float curY = bounds.y;
+        if (hasLabel) curY += labelH + (hasDesc ? m.descGap : 0.0f);
+        if (hasDesc) curY += descH;
+        curY += m.labelGap;
+        const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
+        const float boxX = (opts.placement == ElementOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        return Rect(boxX, curY, boxW, m.defaultHeight);
+    }
+    
+    if (opts.layout == FormLayout::Bottom) {
+        const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
+        const float boxX = (opts.placement == ElementOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        return Rect(boxX, bounds.y, boxW, m.defaultHeight);
+    }
+    
+    // FormLayout::Inline
+    float labelW = 0.0f;
+    if (hasLabel) {
+        if (canvas) {
+            labelW = canvas->MeasureText(effectiveLabel, m.labelFontSize).x;
+        } else {
+            labelW = static_cast<float>(effectiveLabel.length()) * (m.labelFontSize * kDefaultCharAdvanceRatio);
         }
+    }
+    if (opts.placement == ElementOrder::Leading) {
         if (opts.stretch == StretchMode::Between) {
             const float boxW = std::min(naturalBoxW, std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f)));
             const float boxX = bounds.x + bounds.w - boxW;
@@ -61,37 +78,13 @@ Rect Select::GetBoxRect(
             const float boxW = std::min(naturalBoxW, std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f)));
             return Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
         }
-    }
-    
-    if (opts.labelPlacement == Placement::Trailing) {
-        float labelW = 0.0f;
-        if (hasLabel) {
-            if (canvas) {
-                labelW = canvas->MeasureText(effectiveLabel, m.labelFontSize).x;
-            } else {
-                labelW = static_cast<float>(effectiveLabel.length()) * (m.labelFontSize * kDefaultCharAdvanceRatio);
-            }
-        }
+    } else {
+        // ElementOrder::Trailing
         const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value())
             ? std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f))
             : std::min(naturalBoxW, std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f)));
         return Rect(bounds.x, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
     }
-    
-    if (opts.labelPlacement == Placement::Top) {
-        float curY = bounds.y;
-        if (hasLabel) curY += labelH + (hasDesc ? m.descGap : 0.0f);
-        if (hasDesc) curY += descH;
-        curY += m.labelGap;
-        const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
-        return Rect(boxX, curY, boxW, m.defaultHeight);
-    }
-    
-    // Placement::Bottom
-    const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
-    const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
-    return Rect(boxX, bounds.y, boxW, m.defaultHeight);
 }
 
 Vec2 Select::Measure(
@@ -131,26 +124,26 @@ Vec2 Select::Measure(
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasDesc = !opts.description.empty();
 
-    if (opts.labelPlacement == Placement::Stacked) {
+    if (opts.layout == FormLayout::Stacked) {
         float totalH = m.defaultHeight;
         if (hasLabel) totalH += labelDims.y + m.labelGap;
         if (hasDesc) totalH += m.descGap + descDims.y;
         return {std::max({boxW, labelDims.x, descDims.x}), totalH};
     }
 
-    if (opts.labelPlacement == Placement::Leading || opts.labelPlacement == Placement::Trailing) {
+    if (opts.layout == FormLayout::Inline) {
         const float labelW = hasLabel ? labelDims.x + m.paddingX : 0.0f;
         return {boxW + labelW, std::max(m.defaultHeight, labelDims.y)};
     }
 
-    if (opts.labelPlacement == Placement::Top) {
+    if (opts.layout == FormLayout::Top) {
         float textH = 0.0f;
         if (hasLabel) textH += labelDims.y;
         if (hasDesc) textH += (hasLabel ? m.descGap : 0.0f) + descDims.y;
         return {std::max({boxW, labelDims.x, descDims.x}), textH + m.labelGap + m.defaultHeight};
     }
 
-    if (opts.labelPlacement == Placement::Bottom) {
+    if (opts.layout == FormLayout::Bottom) {
         float textH = 0.0f;
         if (hasLabel) textH += labelDims.y;
         if (hasDesc) textH += (hasLabel ? m.descGap : 0.0f) + descDims.y;
@@ -401,7 +394,9 @@ Response Select::Run(
         data->displayText,
         optsCopy.description,
         optsCopy.placeholder,
-        opts.labelPlacement,
+        static_cast<uint8_t>(opts.layout),
+        static_cast<uint8_t>(opts.placement),
+        static_cast<uint8_t>(opts.labelAlign),
         opts.radius.value_or(-1.0f),
         static_cast<uint8_t>(opts.prefixIcon.GetType()),
         static_cast<uint8_t>(opts.prefixIcon.GetId())
@@ -471,54 +466,20 @@ void Select::Render(
         naturalBoxW = std::max(m.minWidth, naturalBoxW);
     }
 
-    if (opts.labelPlacement == Placement::Stacked) {
+    if (opts.layout == FormLayout::Stacked) {
         float curY = bounds.y;
         if (hasLabel) {
             labelRect = Rect(bounds.x, curY, bounds.w, labelH);
             curY += labelH + m.labelGap;
         }
         const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        boxRect = Rect(bounds.x, curY, boxW, m.defaultHeight);
+        const float boxX = (opts.placement == ElementOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
         curY += m.defaultHeight + m.descGap;
         if (hasDesc) {
             descRect = Rect(bounds.x, curY, bounds.w, descH);
         }
-    } else if (opts.labelPlacement == Placement::Leading) {
-        float labelW = 0.0f;
-        if (hasLabel) {
-            labelW = canvas.MeasureText(effectiveLabel, m.labelFontSize).x;
-            labelRect = Rect(bounds.x, bounds.y + (bounds.h - labelH) * 0.5f, labelW, labelH);
-        }
-        if (opts.stretch == StretchMode::Between) {
-            const float boxW = std::min(naturalBoxW, std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f)));
-            const float boxX = bounds.x + bounds.w - boxW;
-            boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
-        } else if (opts.stretch == StretchMode::Fill) {
-            const float boxX = bounds.x + labelW + (hasLabel ? m.paddingX : 0.0f);
-            const float boxW = opts.width.has_value() ? std::min(bounds.w - (labelW + (hasLabel ? m.paddingX : 0.0f)), naturalBoxW) : std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f));
-            boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
-        } else { // Compact
-            const float boxX = bounds.x + labelW + (hasLabel ? m.paddingX : 0.0f);
-            const float boxW = std::min(naturalBoxW, std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f)));
-            boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
-        }
-    } else if (opts.labelPlacement == Placement::Trailing) {
-        float labelW = 0.0f;
-        if (hasLabel) {
-            labelW = canvas.MeasureText(effectiveLabel, m.labelFontSize).x;
-        }
-        const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value())
-            ? std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f))
-            : std::min(naturalBoxW, std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f)));
-        boxRect = Rect(bounds.x, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
-        if (hasLabel) {
-            float labelX = bounds.x + boxW + m.paddingX;
-            if (opts.stretch == StretchMode::Between || (opts.stretch == StretchMode::Fill && opts.width.has_value())) {
-                labelX = std::max(labelX, bounds.x + bounds.w - labelW);
-            }
-            labelRect = Rect(labelX, bounds.y + (bounds.h - labelH) * 0.5f, labelW, labelH);
-        }
-    } else if (opts.labelPlacement == Placement::Top) {
+    } else if (opts.layout == FormLayout::Top) {
         float curY = bounds.y;
         if (hasLabel) {
             labelRect = Rect(bounds.x, curY, bounds.w, labelH);
@@ -530,11 +491,13 @@ void Select::Render(
         }
         curY += m.labelGap;
         const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        boxRect = Rect(bounds.x, curY, boxW, m.defaultHeight);
-    } else { // Placement::Bottom
+        const float boxX = (opts.placement == ElementOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
+    } else if (opts.layout == FormLayout::Bottom) {
         float curY = bounds.y;
         const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        boxRect = Rect(bounds.x, curY, boxW, m.defaultHeight);
+        const float boxX = (opts.placement == ElementOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
         curY += m.defaultHeight + m.descGap;
         if (hasLabel) {
             labelRect = Rect(bounds.x, curY, bounds.w, labelH);
@@ -542,6 +505,44 @@ void Select::Render(
         }
         if (hasDesc) {
             descRect = Rect(bounds.x, curY, bounds.w, descH);
+        }
+    } else { // FormLayout::Inline
+        float labelW = 0.0f;
+        if (hasLabel) {
+            labelW = canvas.MeasureText(effectiveLabel, m.labelFontSize).x;
+        }
+
+        if (opts.placement == ElementOrder::Leading) {
+            // Text first (left), box second (right)
+            if (hasLabel) {
+                labelRect = Rect(bounds.x, bounds.y + (bounds.h - labelH) * 0.5f, labelW, labelH);
+            }
+            if (opts.stretch == StretchMode::Between) {
+                const float boxW = std::min(naturalBoxW, std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f)));
+                const float boxX = bounds.x + bounds.w - boxW;
+                boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
+            } else if (opts.stretch == StretchMode::Fill) {
+                const float boxX = bounds.x + labelW + (hasLabel ? m.paddingX : 0.0f);
+                const float boxW = opts.width.has_value() ? std::min(bounds.w - (labelW + (hasLabel ? m.paddingX : 0.0f)), naturalBoxW) : std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f));
+                boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
+            } else { // Compact
+                const float boxX = bounds.x + labelW + (hasLabel ? m.paddingX : 0.0f);
+                const float boxW = std::min(naturalBoxW, std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f)));
+                boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
+            }
+        } else {
+            // ElementOrder::Trailing: Box first (left), text second (right)
+            const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value())
+                ? std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f))
+                : std::min(naturalBoxW, std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f)));
+            boxRect = Rect(bounds.x, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
+            if (hasLabel) {
+                float labelX = bounds.x + boxW + m.paddingX;
+                if (opts.stretch == StretchMode::Between || (opts.stretch == StretchMode::Fill && opts.width.has_value())) {
+                    labelX = std::max(labelX, bounds.x + bounds.w - labelW);
+                }
+                labelRect = Rect(labelX, bounds.y + (bounds.h - labelH) * 0.5f, labelW, labelH);
+            }
         }
     }
 
@@ -611,12 +612,13 @@ void Select::Render(
 
     canvas.PopClip();
 
-    // Draw external label & description
+    // Draw external label & description with labelAlign
+    const float alignFactor = (opts.labelAlign == Align::End) ? 1.0f : ((opts.labelAlign == Align::Center) ? 0.5f : 0.0f);
     if (hasLabel && labelRect.w > 0.0f && labelRect.h > 0.0f) {
-        canvas.DrawTextBox(effectiveLabel, labelRect, m.labelFontSize, labelCol, 0.0f, 0.5f);
+        canvas.DrawTextBox(effectiveLabel, labelRect, m.labelFontSize, labelCol, alignFactor, 0.5f);
     }
     if (hasDesc && descRect.w > 0.0f && descRect.h > 0.0f) {
-        canvas.DrawTextBox(opts.description, descRect, m.descFontSize, descCol, 0.0f, 0.5f);
+        canvas.DrawTextBox(opts.description, descRect, m.descFontSize, descCol, alignFactor, 0.5f);
     }
 }
 

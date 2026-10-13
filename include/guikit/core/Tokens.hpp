@@ -20,14 +20,26 @@ enum class UiVariant : uint8_t {
     Muted       ///< Subdued / secondary styling (slate-400)
 };
 
-/// Universal relative placement for companion elements (icons, labels, badges, adornments).
+/// Universal relative placement for companion elements (e.g. icons inside controls).
 enum class Placement : uint8_t {
     Leading,    ///< Placed before primary element (left / start)
     Trailing,   ///< Placed after primary element (right / end)
     Top,        ///< Placed above primary element
-    Bottom,     ///< Placed below primary element
-    Stacked,    ///< Form standard layout: Label on top, primary control in middle, Description on bottom
-    Both        ///< Dual-label layout: leading on left, trailing on right
+    Bottom      ///< Placed below primary element
+};
+
+/// Form layout structure for widgets with external labels/descriptions.
+enum class FormLayout : uint8_t {
+    Stacked,  ///< Label on top, control in middle, Description on bottom
+    Top,      ///< Label and Description above control
+    Bottom,   ///< Label and Description below control
+    Inline    ///< Horizontal inline row: Label and control side-by-side
+};
+
+/// Sequencing order between external text and interactive control.
+enum class ElementOrder : uint8_t {
+    Leading,   ///< Text first (left / start), control second (right / end)
+    Trailing   ///< Control first (left / start), text second (right / end)
 };
 
 /// 6x3 Typographic Role Matrix (Material 3 scale extended for desktop/engineering).

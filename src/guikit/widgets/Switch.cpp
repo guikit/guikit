@@ -49,7 +49,9 @@ Response Switch::Run(
     node->payload = ctx.AllocPayload<SwitchOptions>(optsCopy);
     node->visualHash = detail::HashArgs(
         opts.variant,
-        opts.labelPlacement,
+        static_cast<uint8_t>(opts.layout),
+        static_cast<uint8_t>(opts.placement),
+        static_cast<uint8_t>(opts.labelAlign),
         opts.symmetric,
         static_cast<uint8_t>(opts.stretch),
         currentChecked,
@@ -95,7 +97,7 @@ Vec2 Switch::Measure(
     const UiTheme& theme
 ) {
     const SwitchMetrics& m = theme.GetSwitch(size);
-    const bool isBoth = (opts.labelPlacement == Placement::Both);
+    const bool isBoth = (opts.layout == FormLayout::Inline && !opts.trailingLabel.empty());
     const std::string_view effectiveLabel = opts.label;
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasTrailingLabel = isBoth && !opts.trailingLabel.empty();
@@ -149,7 +151,7 @@ Vec2 Switch::Measure(
         return {totalW, totalH};
     }
 
-    if (opts.labelPlacement == Placement::Stacked) {
+    if (opts.layout == FormLayout::Stacked) {
         // Label on top, track in middle, description on bottom
         const float maxW = std::max({m.trackSize.x, labelDims.x, descDims.x});
         float totalH = m.trackSize.y;
@@ -162,7 +164,7 @@ Vec2 Switch::Measure(
         return {maxW, totalH};
     }
 
-    if (opts.labelPlacement == Placement::Top) {
+    if (opts.layout == FormLayout::Top) {
         // Both label and description above track
         const float maxW = std::max({m.trackSize.x, labelDims.x, descDims.x});
         float textH = 0.0f;
@@ -176,7 +178,7 @@ Vec2 Switch::Measure(
         return {maxW, textH + m.descGap + m.trackSize.y};
     }
 
-    if (opts.labelPlacement == Placement::Bottom) {
+    if (opts.layout == FormLayout::Bottom) {
         // Track above, both label and description below track
         const float maxW = std::max({m.trackSize.x, labelDims.x, descDims.x});
         float textH = 0.0f;
@@ -190,7 +192,7 @@ Vec2 Switch::Measure(
         return {maxW, m.trackSize.y + m.descGap + textH};
     }
 
-    // Horizontal: Leading or Trailing
+    // FormLayout::Inline
     const float textW = std::max(labelDims.x, descDims.x);
     float textH = 0.0f;
     if (hasLabel && hasDesc) {
@@ -231,7 +233,7 @@ void Switch::Render(
     }
 
     const SwitchMetrics& m = theme.GetSwitch(size);
-    const bool isBoth = (opts.labelPlacement == Placement::Both);
+    const bool isBoth = (opts.layout == FormLayout::Inline && !opts.trailingLabel.empty());
     const bool isSymmetric = opts.symmetric || isBoth;
     const std::string_view effectiveLabel = opts.label;
     const bool hasLabel = !effectiveLabel.empty();
@@ -288,20 +290,21 @@ void Switch::Render(
         if (hasDesc) {
             descRect = Rect(bounds.x, startY + topRowH + m.descGap, bounds.w, descH);
         }
-    } else if (opts.labelPlacement == Placement::Stacked) {
+    } else if (opts.layout == FormLayout::Stacked) {
         // Label on top, track in middle, description on bottom
         float curY = bounds.y;
         if (hasLabel) {
             labelRect = Rect(bounds.x, curY, bounds.w, labelH);
             curY += labelH + m.descGap;
         }
-        trackRect = Rect(bounds.x, curY, m.trackSize.x, m.trackSize.y);
+        const float trackX = (opts.placement == ElementOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
+        trackRect = Rect(trackX, curY, m.trackSize.x, m.trackSize.y);
         curY += m.trackSize.y + m.descGap;
         if (hasDesc) {
             descRect = Rect(bounds.x, curY, bounds.w, descH);
         }
         alignX = 0.0f;
-    } else if (opts.labelPlacement == Placement::Top) {
+    } else if (opts.layout == FormLayout::Top) {
         // Both label and description above track
         float curY = bounds.y;
         if (hasLabel) {
@@ -313,12 +316,14 @@ void Switch::Render(
             curY += descH;
         }
         curY += m.descGap;
-        trackRect = Rect(bounds.x, curY, m.trackSize.x, m.trackSize.y);
+        const float trackX = (opts.placement == ElementOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
+        trackRect = Rect(trackX, curY, m.trackSize.x, m.trackSize.y);
         alignX = 0.0f;
-    } else if (opts.labelPlacement == Placement::Bottom) {
+    } else if (opts.layout == FormLayout::Bottom) {
         // Track on top, both label and description below track
         float curY = bounds.y;
-        trackRect = Rect(bounds.x, curY, m.trackSize.x, m.trackSize.y);
+        const float trackX = (opts.placement == ElementOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
+        trackRect = Rect(trackX, curY, m.trackSize.x, m.trackSize.y);
         curY += m.trackSize.y + m.descGap;
         if (hasLabel) {
             labelRect = Rect(bounds.x, curY, bounds.w, labelH);
@@ -328,59 +333,51 @@ void Switch::Render(
             descRect = Rect(bounds.x, curY, bounds.w, descH);
         }
         alignX = 0.0f;
-    } else if (opts.labelPlacement == Placement::Leading) {
-        // Horizontal: Text on left, track on right
-        const float trackY = bounds.y + (bounds.h - m.trackSize.y) * 0.5f;
-        const float textW = std::max(0.0f, bounds.w - m.trackSize.x - m.gap);
-        const float totalTextH = (hasLabel && hasDesc) ? (labelH + m.descGap + descH) : (hasLabel ? labelH : descH);
-        const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
-
-        if (hasLabel && hasDesc) {
-            labelRect = Rect(bounds.x, startY, textW, labelH);
-            descRect = Rect(bounds.x, startY + labelH + m.descGap, textW, descH);
-        } else if (hasLabel) {
-            labelRect = Rect(bounds.x, startY, textW, labelH);
-        } else if (hasDesc) {
-            descRect = Rect(bounds.x, startY, textW, descH);
-        }
-
-        if (opts.stretch == StretchMode::Compact) {
-            const float naturalTextW = std::max(
-                hasLabel ? canvas.MeasureText(opts.label, m.fontSize).x : 0.0f,
-                hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
-            );
-            trackRect = Rect(bounds.x + naturalTextW + m.gap, trackY, m.trackSize.x, m.trackSize.y);
-        } else {
-            trackRect = Rect(bounds.x + bounds.w - m.trackSize.x, trackY, m.trackSize.x, m.trackSize.y);
-        }
-        alignX = 0.0f;
-    } else { // Trailing (default)
-        // Horizontal: Track on left, text on right
-        const float trackY = bounds.y + (bounds.h - m.trackSize.y) * 0.5f;
-        trackRect = Rect(bounds.x, trackY, m.trackSize.x, m.trackSize.y);
-
+    } else { // FormLayout::Inline
         const float naturalTextW = std::max(
             hasLabel ? canvas.MeasureText(opts.label, m.fontSize).x : 0.0f,
             hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
         );
-
-        float textX = bounds.x + m.trackSize.x + m.gap;
-        if (opts.stretch != StretchMode::Compact) {
-            textX = std::max(bounds.x + m.trackSize.x + m.gap, bounds.x + bounds.w - naturalTextW);
-        }
-        const float textW = std::max(0.0f, bounds.w - (textX - bounds.x));
+        const float trackY = bounds.y + (bounds.h - m.trackSize.y) * 0.5f;
         const float totalTextH = (hasLabel && hasDesc) ? (labelH + m.descGap + descH) : (hasLabel ? labelH : descH);
         const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
 
-        if (hasLabel && hasDesc) {
-            labelRect = Rect(textX, startY, textW, labelH);
-            descRect = Rect(textX, startY + labelH + m.descGap, textW, descH);
-        } else if (hasLabel) {
-            labelRect = Rect(textX, startY, textW, labelH);
-        } else if (hasDesc) {
-            descRect = Rect(textX, startY, textW, descH);
+        if (opts.placement == ElementOrder::Leading) {
+            // Text first (left), track second (right)
+            float trackX = bounds.x + bounds.w - m.trackSize.x;
+            if (opts.stretch == StretchMode::Compact) {
+                trackX = bounds.x + naturalTextW + m.gap;
+            }
+            trackRect = Rect(trackX, trackY, m.trackSize.x, m.trackSize.y);
+
+            const float textW = (opts.stretch == StretchMode::Between) ? naturalTextW : std::max(0.0f, bounds.w - m.trackSize.x - m.gap);
+            if (hasLabel && hasDesc) {
+                labelRect = Rect(bounds.x, startY, textW, labelH);
+                descRect = Rect(bounds.x, startY + labelH + m.descGap, textW, descH);
+            } else if (hasLabel) {
+                labelRect = Rect(bounds.x, startY, textW, labelH);
+            } else if (hasDesc) {
+                descRect = Rect(bounds.x, startY, textW, descH);
+            }
+        } else {
+            // ElementOrder::Trailing: Track first (left), text second (right)
+            trackRect = Rect(bounds.x, trackY, m.trackSize.x, m.trackSize.y);
+
+            float textX = bounds.x + m.trackSize.x + m.gap;
+            if (opts.stretch != StretchMode::Compact) {
+                textX = std::max(bounds.x + m.trackSize.x + m.gap, bounds.x + bounds.w - naturalTextW);
+            }
+            const float textW = std::max(0.0f, bounds.w - (textX - bounds.x));
+
+            if (hasLabel && hasDesc) {
+                labelRect = Rect(textX, startY, textW, labelH);
+                descRect = Rect(textX, startY + labelH + m.descGap, textW, descH);
+            } else if (hasLabel) {
+                labelRect = Rect(textX, startY, textW, labelH);
+            } else if (hasDesc) {
+                descRect = Rect(textX, startY, textW, descH);
+            }
         }
-        alignX = 0.0f;
     }
 
     // Determine colors
@@ -455,11 +452,12 @@ void Switch::Render(
             canvas.DrawTextBox(opts.description, descRect, m.descFontSize, descCol, 0.0f, 0.5f);
         }
     } else {
+        const float alignFactor = (opts.labelAlign == Align::End) ? 1.0f : ((opts.labelAlign == Align::Center) ? 0.5f : 0.0f);
         if (hasLabel && labelRect.w > 0.0f && labelRect.h > 0.0f) {
-            canvas.DrawTextBox(effectiveLabel, labelRect, m.fontSize, textCol, alignX, 0.5f);
+            canvas.DrawTextBox(effectiveLabel, labelRect, m.fontSize, textCol, alignFactor, 0.5f);
         }
         if (hasDesc && descRect.w > 0.0f && descRect.h > 0.0f) {
-            canvas.DrawTextBox(opts.description, descRect, m.descFontSize, descCol, alignX, 0.5f);
+            canvas.DrawTextBox(opts.description, descRect, m.descFontSize, descCol, alignFactor, 0.5f);
         }
     }
 }

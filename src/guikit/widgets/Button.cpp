@@ -35,7 +35,9 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
     node->visualHash = detail::HashArgs(
         opts.variant,
         opts.iconPlacement,
-        opts.labelPlacement,
+        static_cast<uint8_t>(opts.layout),
+        static_cast<uint8_t>(opts.placement),
+        static_cast<uint8_t>(opts.labelAlign),
         opts.align,
         opts.active,
         static_cast<uint8_t>(opts.stretch),
@@ -179,7 +181,7 @@ Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, co
         }
     }
 
-    if (opts.labelPlacement == Placement::Stacked) {
+    if (opts.layout == FormLayout::Stacked) {
         const float totalW = std::max({capsuleDims.x, labelDims.x, descDims.x});
         float totalH = capsuleDims.y;
         if (hasExternalLabel) totalH += labelDims.y + inputMetrics.labelGap;
@@ -187,7 +189,7 @@ Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, co
         return {totalW, totalH};
     }
 
-    if (opts.labelPlacement == Placement::Top) {
+    if (opts.layout == FormLayout::Top) {
         const float totalW = std::max({capsuleDims.x, labelDims.x, descDims.x});
         float textH = 0.0f;
         if (hasExternalLabel) textH += labelDims.y;
@@ -195,7 +197,7 @@ Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, co
         return {totalW, textH + inputMetrics.labelGap + capsuleDims.y};
     }
 
-    if (opts.labelPlacement == Placement::Bottom) {
+    if (opts.layout == FormLayout::Bottom) {
         const float totalW = std::max({capsuleDims.x, labelDims.x, descDims.x});
         float textH = 0.0f;
         if (hasExternalLabel) textH += labelDims.y;
@@ -203,7 +205,7 @@ Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, co
         return {totalW, capsuleDims.y + inputMetrics.descGap + textH};
     }
 
-    // Placement::Leading or Trailing (or Both)
+    // FormLayout::Inline
     const float textW = std::max(labelDims.x, descDims.x);
     float textH = 0.0f;
     if (hasExternalLabel && hasExternalDesc) {
@@ -261,7 +263,7 @@ void Button::Render(
             capW = opts.width.value_or(std::min(bounds.w, capSize.x));
         }
         float capX = bounds.x;
-        if (opts.stretch == StretchMode::Between) {
+        if (opts.stretch == StretchMode::Between || opts.placement == ElementOrder::Trailing) {
             capX = bounds.x + bounds.w - capW;
         } else if (capW < bounds.w) {
             if (opts.align == Align::Center) {
@@ -275,7 +277,7 @@ void Button::Render(
         const float labelH = hasExternalLabel ? canvas.GetLineHeight(inputMetrics.labelFontSize) : 0.0f;
         const float descH = hasExternalDesc ? canvas.GetLineHeight(inputMetrics.descFontSize) : 0.0f;
 
-        if (opts.labelPlacement == Placement::Stacked) {
+        if (opts.layout == FormLayout::Stacked) {
             float curY = bounds.y;
             if (hasExternalLabel) {
                 labelRect = Rect(bounds.x, curY, bounds.w, labelH);
@@ -283,7 +285,7 @@ void Button::Render(
             }
             const float capW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
             float capX = bounds.x;
-            if (opts.stretch == StretchMode::Between) {
+            if (opts.placement == ElementOrder::Trailing || opts.stretch == StretchMode::Between) {
                 capX = bounds.x + bounds.w - capW;
             } else if (opts.stretch != StretchMode::Fill || opts.width.has_value()) {
                 if (opts.align == Align::Center) {
@@ -297,7 +299,7 @@ void Button::Render(
             if (hasExternalDesc) {
                 descRect = Rect(bounds.x, curY, bounds.w, descH);
             }
-        } else if (opts.labelPlacement == Placement::Top) {
+        } else if (opts.layout == FormLayout::Top) {
             float curY = bounds.y;
             if (hasExternalLabel) {
                 labelRect = Rect(bounds.x, curY, bounds.w, labelH);
@@ -310,7 +312,7 @@ void Button::Render(
             curY += inputMetrics.labelGap;
             const float capW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
             float capX = bounds.x;
-            if (opts.stretch == StretchMode::Between) {
+            if (opts.placement == ElementOrder::Trailing || opts.stretch == StretchMode::Between) {
                 capX = bounds.x + bounds.w - capW;
             } else if (opts.stretch != StretchMode::Fill || opts.width.has_value()) {
                 if (opts.align == Align::Center) {
@@ -320,11 +322,11 @@ void Button::Render(
                 }
             }
             capsuleRect = Rect(capX, curY, capW, capSize.y);
-        } else if (opts.labelPlacement == Placement::Bottom) {
+        } else if (opts.layout == FormLayout::Bottom) {
             float curY = bounds.y;
             const float capW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
             float capX = bounds.x;
-            if (opts.stretch == StretchMode::Between) {
+            if (opts.placement == ElementOrder::Trailing || opts.stretch == StretchMode::Between) {
                 capX = bounds.x + bounds.w - capW;
             } else if (opts.stretch != StretchMode::Fill || opts.width.has_value()) {
                 if (opts.align == Align::Center) {
@@ -342,42 +344,7 @@ void Button::Render(
             if (hasExternalDesc) {
                 descRect = Rect(bounds.x, curY, bounds.w, descH);
             }
-        } else if (opts.labelPlacement == Placement::Leading) {
-            const float gap = m.paddingX;
-            const float naturalCapW = opts.width.value_or(capSize.x);
-            float capW = naturalCapW;
-            if (opts.stretch == StretchMode::Fill && !opts.width.has_value()) {
-                const float measuredTextW = std::max(
-                    hasExternalLabel ? canvas.MeasureText(effectiveExternalLabel, inputMetrics.labelFontSize).x : 0.0f,
-                    hasExternalDesc ? canvas.MeasureText(effectiveDescription, inputMetrics.descFontSize).x : 0.0f
-                );
-                capW = std::max(naturalCapW, bounds.w - measuredTextW - gap);
-            } else {
-                capW = std::min(bounds.w, naturalCapW);
-            }
-            const float textW = std::max(0.0f, bounds.w - capW - gap);
-            const float totalTextH = (hasExternalLabel && hasExternalDesc) ? (labelH + inputMetrics.descGap + descH) : (hasExternalLabel ? labelH : descH);
-            const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
-
-            float textY = startY;
-            if (hasExternalLabel) {
-                labelRect = Rect(bounds.x, textY, textW, labelH);
-                textY += labelH + inputMetrics.descGap;
-            }
-            if (hasExternalDesc) {
-                descRect = Rect(bounds.x, textY, textW, descH);
-            }
-
-            float capX = bounds.x + bounds.w - capW;
-            if (opts.stretch == StretchMode::Compact) {
-                const float measuredTextW = std::max(
-                    hasExternalLabel ? canvas.MeasureText(effectiveExternalLabel, inputMetrics.labelFontSize).x : 0.0f,
-                    hasExternalDesc ? canvas.MeasureText(effectiveDescription, inputMetrics.descFontSize).x : 0.0f
-                );
-                capX = bounds.x + measuredTextW + gap;
-            }
-            capsuleRect = Rect(capX, bounds.y + (bounds.h - capSize.y) * 0.5f, capW, capSize.y);
-        } else { // Trailing / default
+        } else { // FormLayout::Inline
             const float gap = m.paddingX;
             const float naturalCapW = opts.width.value_or(capSize.x);
             const float measuredTextW = std::max(
@@ -392,26 +359,48 @@ void Button::Render(
                 capW = std::min(bounds.w, naturalCapW);
             }
 
-            float textX = bounds.x + capW + gap;
-            if (opts.stretch == StretchMode::Between || (opts.stretch == StretchMode::Fill && opts.width.has_value())) {
-                textX = std::max(bounds.x + capW + gap, bounds.x + bounds.w - measuredTextW);
-            }
-            const float textW = std::max(0.0f, bounds.w - (textX - bounds.x));
+            const float textW = std::max(0.0f, bounds.w - capW - gap);
             const float totalTextH = (hasExternalLabel && hasExternalDesc) ? (labelH + inputMetrics.descGap + descH) : (hasExternalLabel ? labelH : descH);
             const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
 
-            capsuleRect = Rect(bounds.x, bounds.y + (bounds.h - capSize.y) * 0.5f, capW, capSize.y);
-            float textY = startY;
-            if (hasExternalLabel) {
-                labelRect = Rect(textX, textY, textW, labelH);
-                textY += labelH + inputMetrics.descGap;
-            }
-            if (hasExternalDesc) {
-                descRect = Rect(textX, textY, textW, descH);
+            if (opts.placement == ElementOrder::Leading) {
+                // Text first (left), capsule second (right)
+                float capX = bounds.x + bounds.w - capW;
+                if (opts.stretch == StretchMode::Compact) {
+                    capX = bounds.x + measuredTextW + gap;
+                }
+                capsuleRect = Rect(capX, bounds.y + (bounds.h - capSize.y) * 0.5f, capW, capSize.y);
+
+                const float availableTextW = (opts.stretch == StretchMode::Between) ? measuredTextW : textW;
+                float textY = startY;
+                if (hasExternalLabel) {
+                    labelRect = Rect(bounds.x, textY, availableTextW, labelH);
+                    textY += labelH + inputMetrics.descGap;
+                }
+                if (hasExternalDesc) {
+                    descRect = Rect(bounds.x, textY, availableTextW, descH);
+                }
+            } else {
+                // ElementOrder::Trailing: Capsule first (left), text second (right)
+                capsuleRect = Rect(bounds.x, bounds.y + (bounds.h - capSize.y) * 0.5f, capW, capSize.y);
+
+                float textX = bounds.x + capW + gap;
+                if (opts.stretch == StretchMode::Between || (opts.stretch == StretchMode::Fill && opts.width.has_value())) {
+                    textX = std::max(bounds.x + capW + gap, bounds.x + bounds.w - measuredTextW);
+                }
+                const float remTextW = std::max(0.0f, bounds.w - (textX - bounds.x));
+                float textY = startY;
+                if (hasExternalLabel) {
+                    labelRect = Rect(textX, textY, remTextW, labelH);
+                    textY += labelH + inputMetrics.descGap;
+                }
+                if (hasExternalDesc) {
+                    descRect = Rect(textX, textY, remTextW, descH);
+                }
             }
         }
 
-        // Draw external label and description (always left-aligned)
+        // Draw external label and description with labelAlign
         Color labelCol = pal.textPrimary;
         Color descCol = pal.textSecondary;
         if (disabled) {
@@ -419,11 +408,12 @@ void Button::Render(
             descCol = descCol.WithAlphaF(0.40f);
         }
 
+        const float alignFactor = (opts.labelAlign == Align::End) ? 1.0f : ((opts.labelAlign == Align::Center) ? 0.5f : 0.0f);
         if (hasExternalLabel && labelRect.w > 0.0f && labelRect.h > 0.0f) {
-            canvas.DrawTextBox(effectiveExternalLabel, labelRect, inputMetrics.labelFontSize, labelCol, 0.0f, 0.5f);
+            canvas.DrawTextBox(effectiveExternalLabel, labelRect, inputMetrics.labelFontSize, labelCol, alignFactor, 0.5f);
         }
         if (hasExternalDesc && descRect.w > 0.0f && descRect.h > 0.0f) {
-            canvas.DrawTextBox(effectiveDescription, descRect, inputMetrics.descFontSize, descCol, 0.0f, 0.5f);
+            canvas.DrawTextBox(effectiveDescription, descRect, inputMetrics.descFontSize, descCol, alignFactor, 0.5f);
         }
     }
 

@@ -82,19 +82,49 @@ Response Slider::Run(
         const float defaultTrackW = opts.width.value_or(m.defaultWidth);
         float trackStartX = prevBounds.x + halfThumb;
         float trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
-        if (opts.stretch == StretchMode::Fill) {
-            if (opts.width.has_value()) {
-                trackWidth = *opts.width;
-            } else {
-                trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
+
+        if (opts.layout == FormLayout::Inline) {
+            float textW = 0.0f;
+            if (!opts.label.empty()) {
+                textW += static_cast<float>(opts.label.size()) * (m.labelFontSize * 0.55f);
             }
-            trackStartX = prevBounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Between) {
-            trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
-            trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
-        } else { // Compact
-            trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
-            trackStartX = prevBounds.x + halfThumb;
+            if (opts.showValue) {
+                textW += (textW > 0.0f ? 8.0f : 0.0f) + 50.0f;
+            }
+            if (!opts.description.empty()) {
+                textW = std::max(textW, static_cast<float>(opts.description.size()) * (m.labelFontSize * 0.5f));
+            }
+            const float gap = textW > 0.0f ? 12.0f : 0.0f;
+            const float availTrackW = std::max(1.0f, prevBounds.w - textW - gap - m.thumbSize);
+            if (opts.stretch == StretchMode::Fill) {
+                trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+            } else {
+                trackWidth = std::min(defaultTrackW, availTrackW);
+            }
+            if (opts.placement == ElementOrder::Leading) {
+                if (opts.stretch == StretchMode::Between) {
+                    trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
+                } else {
+                    trackStartX = prevBounds.x + textW + gap + halfThumb;
+                }
+            } else {
+                trackStartX = prevBounds.x + halfThumb;
+            }
+        } else {
+            if (opts.stretch == StretchMode::Fill) {
+                if (opts.width.has_value()) {
+                    trackWidth = *opts.width;
+                } else {
+                    trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
+                }
+                trackStartX = prevBounds.x + halfThumb;
+            } else if (opts.stretch == StretchMode::Between || opts.placement == ElementOrder::Trailing) {
+                trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
+                trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
+            } else { // Compact
+                trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
+                trackStartX = prevBounds.x + halfThumb;
+            }
         }
 
         if (res.clicked || (res.pressed && !state.dragging)) {
@@ -199,6 +229,9 @@ Response Slider::Run(
         valBits,
         opts.variant,
         static_cast<uint8_t>(opts.stretch),
+        static_cast<uint8_t>(opts.layout),
+        static_cast<uint8_t>(opts.placement),
+        static_cast<uint8_t>(opts.labelAlign),
         opts.width.value_or(0.0f),
         opts.showValue,
         opts.format,
@@ -234,22 +267,53 @@ Vec2 Slider::Measure(
     double /*min*/,
     double /*max*/,
     UiSize size,
-    ICanvas* /*canvas*/,
+    ICanvas* canvas,
     const UiTheme& theme
 ) {
     const SliderMetrics& m = theme.GetSlider(size);
-    float totalH = std::max(m.defaultHeight, m.thumbSize);
-
+    const float trackH = std::max(m.defaultHeight, m.thumbSize);
     const bool hasHeader = !opts.label.empty() || opts.showValue;
-    if (hasHeader) {
-        totalH += m.labelFontSize * 1.3f + m.labelGap;
-    }
-    if (!opts.description.empty()) {
-        totalH += m.descGap + m.labelFontSize * 1.1f;
-    }
-
+    const bool hasDesc = !opts.description.empty();
+    const float headerH = hasHeader ? (m.labelFontSize * 1.3f) : 0.0f;
+    const float descH = hasDesc ? (m.descGap + m.labelFontSize * 1.1f) : 0.0f;
     const float defaultTrackW = opts.width.value_or(m.defaultWidth) + m.thumbSize;
-    return Vec2{defaultTrackW, totalH};
+
+    if (opts.layout == FormLayout::Stacked) {
+        float totalH = trackH;
+        if (hasHeader) totalH += headerH + m.labelGap;
+        if (hasDesc) totalH += descH;
+        return Vec2{defaultTrackW, totalH};
+    } else if (opts.layout == FormLayout::Top) {
+        return Vec2{defaultTrackW, trackH + m.labelGap + headerH + descH};
+    } else if (opts.layout == FormLayout::Bottom) {
+        return Vec2{defaultTrackW, trackH + m.descGap + headerH + descH};
+    } else { // FormLayout::Inline
+        float textW = 0.0f;
+        if (!opts.label.empty()) {
+            if (canvas) {
+                textW += canvas->MeasureText(opts.label, m.labelFontSize).x;
+            } else {
+                textW += static_cast<float>(opts.label.size()) * (m.labelFontSize * 0.55f);
+            }
+        }
+        if (opts.showValue) {
+            textW += (textW > 0.0f ? 8.0f : 0.0f) + 50.0f;
+        }
+        if (hasDesc) {
+            float dW = 0.0f;
+            if (canvas) {
+                dW = canvas->MeasureText(opts.description, m.labelFontSize * 0.9f).x;
+            } else {
+                dW = static_cast<float>(opts.description.size()) * (m.labelFontSize * 0.5f);
+            }
+            textW = std::max(textW, dW);
+        }
+        const float gap = textW > 0.0f ? 12.0f : 0.0f;
+        const float totalW = defaultTrackW + textW + gap;
+        const float textH = headerH + (hasDesc ? descH : 0.0f);
+        const float totalH = std::max(trackH, textH);
+        return Vec2{totalW, totalH};
+    }
 }
 
 Vec2 Slider::Measure(
@@ -283,61 +347,186 @@ void Slider::Render(
     const auto& pal = theme.palette;
     const VariantColors& variantCol = theme.GetVariant(opts.variant);
 
-    float curY = bounds.y;
-    const bool hasHeader = !opts.label.empty() || opts.showValue;
-
-    if (hasHeader) {
-        const float headerH = m.labelFontSize * 1.3f;
-        if (!opts.label.empty()) {
-            Color labelCol = disabled ? pal.textDisabled : pal.textPrimary;
-            canvas.DrawText(opts.label, Vec2(bounds.x, curY), m.labelFontSize, labelCol);
+    char valBuf[64];
+    if (!opts.format.empty()) {
+        std::string fmt(opts.format);
+        std::snprintf(valBuf, sizeof(valBuf), fmt.c_str(), value);
+    } else {
+        if (std::abs(value - std::round(value)) < 0.0001) {
+            std::snprintf(valBuf, sizeof(valBuf), "%.0f", value);
+        } else {
+            std::snprintf(valBuf, sizeof(valBuf), "%.1f", value);
         }
-
-        if (opts.showValue) {
-            char valBuf[64];
-            if (!opts.format.empty()) {
-                std::string fmt(opts.format);
-                std::snprintf(valBuf, sizeof(valBuf), fmt.c_str(), value);
-            } else {
-                if (std::abs(value - std::round(value)) < 0.0001) {
-                    std::snprintf(valBuf, sizeof(valBuf), "%.0f", value);
-                } else {
-                    std::snprintf(valBuf, sizeof(valBuf), "%.1f", value);
-                }
-            }
-            if (!opts.suffix.empty()) {
-                const size_t len = std::strlen(valBuf);
-                std::snprintf(valBuf + len, sizeof(valBuf) - len, " %.*s",
-                              static_cast<int>(opts.suffix.size()), opts.suffix.data());
-            }
-
-            const Vec2 valDims = canvas.MeasureText(valBuf, m.labelFontSize);
-            const Color valCol = disabled ? pal.textDisabled : pal.textSecondary;
-            canvas.DrawText(valBuf, Vec2(bounds.Right() - valDims.x, curY), m.labelFontSize, valCol);
-        }
-        curY += headerH + m.labelGap;
+    }
+    if (!opts.suffix.empty()) {
+        const size_t len = std::strlen(valBuf);
+        std::snprintf(valBuf + len, sizeof(valBuf) - len, " %.*s",
+                      static_cast<int>(opts.suffix.size()), opts.suffix.data());
     }
 
+    const bool hasHeader = !opts.label.empty() || opts.showValue;
+    const bool hasDesc = !opts.description.empty();
+    const float headerH = hasHeader ? (m.labelFontSize * 1.3f) : 0.0f;
+    const float descH = hasDesc ? (m.labelFontSize * 0.9f * 1.2f) : 0.0f;
     const float trackRowH = std::max(m.defaultHeight, m.thumbSize);
-    const float centerY = curY + trackRowH * 0.5f;
     const float halfThumb = m.thumbSize * 0.5f;
-
     const float defaultTrackW = opts.width.value_or(m.defaultWidth);
+
+    Rect headerRect;
+    Rect descRect;
     float trackStartX = bounds.x + halfThumb;
-    float trackWidth = std::max(0.0f, bounds.w - m.thumbSize);
-    if (opts.stretch == StretchMode::Fill) {
-        if (opts.width.has_value()) {
-            trackWidth = *opts.width;
-        } else {
-            trackWidth = std::max(0.0f, bounds.w - m.thumbSize);
+    float trackWidth = 0.0f;
+    float centerY = bounds.y + trackRowH * 0.5f;
+
+    if (opts.layout == FormLayout::Stacked) {
+        float curY = bounds.y;
+        if (hasHeader) {
+            headerRect = Rect(bounds.x, curY, bounds.w, headerH);
+            curY += headerH + m.labelGap;
         }
-        trackStartX = bounds.x + halfThumb;
-    } else if (opts.stretch == StretchMode::Between) {
-        trackWidth = std::min(defaultTrackW, std::max(0.0f, bounds.w - m.thumbSize));
-        trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
-    } else { // Compact
-        trackWidth = std::min(defaultTrackW, std::max(0.0f, bounds.w - m.thumbSize));
-        trackStartX = bounds.x + halfThumb;
+        centerY = curY + trackRowH * 0.5f;
+        curY += trackRowH + m.descGap;
+        if (hasDesc) {
+            descRect = Rect(bounds.x, curY, bounds.w, descH);
+        }
+
+        const float availTrackW = std::max(0.0f, bounds.w - m.thumbSize);
+        if (opts.stretch == StretchMode::Fill) {
+            trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+            trackStartX = bounds.x + halfThumb;
+        } else if (opts.stretch == StretchMode::Between || opts.placement == ElementOrder::Trailing) {
+            trackWidth = std::min(defaultTrackW, availTrackW);
+            trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
+        } else { // Compact
+            trackWidth = std::min(defaultTrackW, availTrackW);
+            trackStartX = bounds.x + halfThumb;
+        }
+    } else if (opts.layout == FormLayout::Top) {
+        float curY = bounds.y;
+        if (hasHeader) {
+            headerRect = Rect(bounds.x, curY, bounds.w, headerH);
+            curY += headerH + (hasDesc ? m.descGap : 0.0f);
+        }
+        if (hasDesc) {
+            descRect = Rect(bounds.x, curY, bounds.w, descH);
+            curY += descH;
+        }
+        curY += m.labelGap;
+        centerY = curY + trackRowH * 0.5f;
+
+        const float availTrackW = std::max(0.0f, bounds.w - m.thumbSize);
+        if (opts.stretch == StretchMode::Fill) {
+            trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+            trackStartX = bounds.x + halfThumb;
+        } else if (opts.stretch == StretchMode::Between || opts.placement == ElementOrder::Trailing) {
+            trackWidth = std::min(defaultTrackW, availTrackW);
+            trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
+        } else { // Compact
+            trackWidth = std::min(defaultTrackW, availTrackW);
+            trackStartX = bounds.x + halfThumb;
+        }
+    } else if (opts.layout == FormLayout::Bottom) {
+        float curY = bounds.y;
+        centerY = curY + trackRowH * 0.5f;
+        curY += trackRowH + m.descGap;
+        if (hasHeader) {
+            headerRect = Rect(bounds.x, curY, bounds.w, headerH);
+            curY += headerH + (hasDesc ? m.descGap : 0.0f);
+        }
+        if (hasDesc) {
+            descRect = Rect(bounds.x, curY, bounds.w, descH);
+        }
+
+        const float availTrackW = std::max(0.0f, bounds.w - m.thumbSize);
+        if (opts.stretch == StretchMode::Fill) {
+            trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+            trackStartX = bounds.x + halfThumb;
+        } else if (opts.stretch == StretchMode::Between || opts.placement == ElementOrder::Trailing) {
+            trackWidth = std::min(defaultTrackW, availTrackW);
+            trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
+        } else { // Compact
+            trackWidth = std::min(defaultTrackW, availTrackW);
+            trackStartX = bounds.x + halfThumb;
+        }
+    } else { // FormLayout::Inline
+        centerY = bounds.y + bounds.h * 0.5f;
+        float textW = 0.0f;
+        if (!opts.label.empty()) {
+            textW += canvas.MeasureText(opts.label, m.labelFontSize).x;
+        }
+        if (opts.showValue) {
+            textW += (textW > 0.0f ? 8.0f : 0.0f) + canvas.MeasureText(valBuf, m.labelFontSize).x;
+        }
+        if (hasDesc) {
+            textW = std::max(textW, canvas.MeasureText(opts.description, m.labelFontSize * 0.9f).x);
+        }
+
+        const float gap = textW > 0.0f ? 12.0f : 0.0f;
+        const float availTrackW = std::max(0.0f, bounds.w - textW - gap - m.thumbSize);
+        if (opts.stretch == StretchMode::Fill) {
+            trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+        } else {
+            trackWidth = std::min(defaultTrackW, availTrackW);
+        }
+
+        Rect textRect;
+        if (opts.placement == ElementOrder::Leading) {
+            // Text left, track right
+            textRect = Rect(bounds.x, bounds.y, textW, bounds.h);
+            if (opts.stretch == StretchMode::Between) {
+                trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
+            } else {
+                trackStartX = bounds.x + textW + gap + halfThumb;
+            }
+        } else {
+            // Track left, text right
+            trackStartX = bounds.x + halfThumb;
+            float textX = bounds.x + trackWidth + m.thumbSize + gap;
+            if (opts.stretch == StretchMode::Between) {
+                textX = std::max(textX, bounds.x + bounds.w - textW);
+            }
+            textRect = Rect(textX, bounds.y, textW, bounds.h);
+        }
+
+        if (hasHeader && hasDesc) {
+            const float totalTextH = headerH + m.descGap + descH;
+            const float startTextY = bounds.y + (bounds.h - totalTextH) * 0.5f;
+            headerRect = Rect(textRect.x, startTextY, textRect.w, headerH);
+            descRect = Rect(textRect.x, startTextY + headerH + m.descGap, textRect.w, descH);
+        } else if (hasHeader) {
+            headerRect = Rect(textRect.x, bounds.y + (bounds.h - headerH) * 0.5f, textRect.w, headerH);
+        } else if (hasDesc) {
+            descRect = Rect(textRect.x, bounds.y + (bounds.h - descH) * 0.5f, textRect.w, descH);
+        }
+    }
+
+    const float alignFactor = (opts.labelAlign == Align::End) ? 1.0f : ((opts.labelAlign == Align::Center) ? 0.5f : 0.0f);
+    const Color labelCol = disabled ? pal.textDisabled : pal.textPrimary;
+    const Color descCol = disabled ? pal.textDisabled : pal.textSecondary;
+
+    if (hasHeader && headerRect.w > 0.0f && headerRect.h > 0.0f) {
+        if (opts.showValue) {
+            const Vec2 valDims = canvas.MeasureText(valBuf, m.labelFontSize);
+            const Color valCol = disabled ? pal.textDisabled : pal.textSecondary;
+            float valX = headerRect.Right() - valDims.x;
+            Rect lblRect = Rect(headerRect.x, headerRect.y, std::max(0.0f, headerRect.w - valDims.x - 8.0f), headerRect.h);
+
+            if (opts.placement == ElementOrder::Trailing && opts.layout != FormLayout::Inline) {
+                valX = headerRect.x;
+                lblRect = Rect(headerRect.x + valDims.x + 8.0f, headerRect.y, std::max(0.0f, headerRect.w - valDims.x - 8.0f), headerRect.h);
+            }
+
+            canvas.DrawText(valBuf, Vec2(valX, headerRect.y + (headerRect.h - m.labelFontSize) * 0.5f), m.labelFontSize, valCol);
+            if (!opts.label.empty() && lblRect.w > 0.0f) {
+                canvas.DrawTextBox(opts.label, lblRect, m.labelFontSize, labelCol, alignFactor, 0.5f);
+            }
+        } else if (!opts.label.empty()) {
+            canvas.DrawTextBox(opts.label, headerRect, m.labelFontSize, labelCol, alignFactor, 0.5f);
+        }
+    }
+
+    if (hasDesc && descRect.w > 0.0f && descRect.h > 0.0f) {
+        canvas.DrawTextBox(opts.description, descRect, m.labelFontSize * 0.9f, descCol, alignFactor, 0.5f);
     }
 
     const double range = max - min;
@@ -368,13 +557,6 @@ void Slider::Render(
                         (active || hovered) ? pal.accent : pal.borderHover;
     const float thumbBorderW = (active || hovered) ? 2.5f : 2.0f;
     canvas.DrawRoundRect(thumbRect, halfThumb, thumbBg, thumbBorder, thumbBorderW);
-
-    // 4. Description text
-    if (!opts.description.empty()) {
-        curY += trackRowH + m.descGap;
-        Color descCol = disabled ? pal.textDisabled : pal.textSecondary;
-        canvas.DrawText(opts.description, Vec2(bounds.x, curY), m.labelFontSize * 0.9f, descCol);
-    }
 }
 
 // ============================================================================
@@ -427,19 +609,49 @@ Response StepSlider::Run(
         const float defaultTrackW = opts.width.value_or(m.defaultWidth);
         float trackStartX = prevBounds.x + halfThumb;
         float trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
-        if (opts.stretch == StretchMode::Fill) {
-            if (opts.width.has_value()) {
-                trackWidth = *opts.width;
-            } else {
-                trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
+
+        if (opts.layout == FormLayout::Inline) {
+            float textW = 0.0f;
+            if (!opts.label.empty()) {
+                textW += static_cast<float>(opts.label.size()) * (m.labelFontSize * 0.55f);
             }
-            trackStartX = prevBounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Between) {
-            trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
-            trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
-        } else { // Compact
-            trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
-            trackStartX = prevBounds.x + halfThumb;
+            if (opts.showValue) {
+                textW += (textW > 0.0f ? 8.0f : 0.0f) + 50.0f;
+            }
+            if (!opts.description.empty()) {
+                textW = std::max(textW, static_cast<float>(opts.description.size()) * (m.labelFontSize * 0.5f));
+            }
+            const float gap = textW > 0.0f ? 12.0f : 0.0f;
+            const float availTrackW = std::max(1.0f, prevBounds.w - textW - gap - m.thumbSize);
+            if (opts.stretch == StretchMode::Fill) {
+                trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+            } else {
+                trackWidth = std::min(defaultTrackW, availTrackW);
+            }
+            if (opts.placement == ElementOrder::Leading) {
+                if (opts.stretch == StretchMode::Between) {
+                    trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
+                } else {
+                    trackStartX = prevBounds.x + textW + gap + halfThumb;
+                }
+            } else {
+                trackStartX = prevBounds.x + halfThumb;
+            }
+        } else {
+            if (opts.stretch == StretchMode::Fill) {
+                if (opts.width.has_value()) {
+                    trackWidth = *opts.width;
+                } else {
+                    trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
+                }
+                trackStartX = prevBounds.x + halfThumb;
+            } else if (opts.stretch == StretchMode::Between || opts.placement == ElementOrder::Trailing) {
+                trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
+                trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
+            } else { // Compact
+                trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
+                trackStartX = prevBounds.x + halfThumb;
+            }
         }
 
         if (res.clicked || (res.pressed && !state.dragging)) {
@@ -517,6 +729,9 @@ Response StepSlider::Run(
         totalSteps,
         opts.variant,
         static_cast<uint8_t>(opts.stretch),
+        static_cast<uint8_t>(opts.layout),
+        static_cast<uint8_t>(opts.placement),
+        static_cast<uint8_t>(opts.labelAlign),
         opts.width.value_or(0.0f),
         opts.showTicks,
         opts.showLabels,
@@ -550,25 +765,54 @@ Vec2 StepSlider::Measure(
     size_t /*index*/,
     size_t /*totalSteps*/,
     UiSize size,
-    ICanvas* /*canvas*/,
+    ICanvas* canvas,
     const UiTheme& theme
 ) {
     const SliderMetrics& m = theme.GetSlider(size);
-    float totalH = std::max(m.defaultHeight, m.thumbSize);
-
+    const float extraLabelsH = (opts.showLabels && !opts.stepLabels.empty()) ? (m.tickGap + m.tickFontSize * 1.3f) : 0.0f;
+    const float trackH = std::max(m.defaultHeight, m.thumbSize) + extraLabelsH;
     const bool hasHeader = !opts.label.empty() || opts.showValue;
-    if (hasHeader) {
-        totalH += m.labelFontSize * 1.3f + m.labelGap;
-    }
-    if (opts.showLabels && !opts.stepLabels.empty()) {
-        totalH += m.tickGap + m.tickFontSize * 1.3f;
-    }
-    if (!opts.description.empty()) {
-        totalH += m.descGap + m.labelFontSize * 1.1f;
-    }
-
+    const bool hasDesc = !opts.description.empty();
+    const float headerH = hasHeader ? (m.labelFontSize * 1.3f) : 0.0f;
+    const float descH = hasDesc ? (m.descGap + m.labelFontSize * 1.1f) : 0.0f;
     const float defaultTrackW = opts.width.value_or(m.defaultWidth) + m.thumbSize;
-    return Vec2{defaultTrackW, totalH};
+
+    if (opts.layout == FormLayout::Stacked) {
+        float totalH = trackH;
+        if (hasHeader) totalH += headerH + m.labelGap;
+        if (hasDesc) totalH += descH;
+        return Vec2{defaultTrackW, totalH};
+    } else if (opts.layout == FormLayout::Top) {
+        return Vec2{defaultTrackW, trackH + m.labelGap + headerH + descH};
+    } else if (opts.layout == FormLayout::Bottom) {
+        return Vec2{defaultTrackW, trackH + m.descGap + headerH + descH};
+    } else { // FormLayout::Inline
+        float textW = 0.0f;
+        if (!opts.label.empty()) {
+            if (canvas) {
+                textW += canvas->MeasureText(opts.label, m.labelFontSize).x;
+            } else {
+                textW += static_cast<float>(opts.label.size()) * (m.labelFontSize * 0.55f);
+            }
+        }
+        if (opts.showValue) {
+            textW += (textW > 0.0f ? 8.0f : 0.0f) + 50.0f;
+        }
+        if (hasDesc) {
+            float dW = 0.0f;
+            if (canvas) {
+                dW = canvas->MeasureText(opts.description, m.labelFontSize * 0.9f).x;
+            } else {
+                dW = static_cast<float>(opts.description.size()) * (m.labelFontSize * 0.5f);
+            }
+            textW = std::max(textW, dW);
+        }
+        const float gap = textW > 0.0f ? 12.0f : 0.0f;
+        const float totalW = defaultTrackW + textW + gap;
+        const float textH = headerH + (hasDesc ? descH : 0.0f);
+        const float totalH = std::max(trackH, textH);
+        return Vec2{totalW, totalH};
+    }
 }
 
 Vec2 StepSlider::Measure(
@@ -600,47 +844,173 @@ void StepSlider::Render(
     const auto& pal = theme.palette;
     const VariantColors& variantCol = theme.GetVariant(opts.variant);
 
-    float curY = bounds.y;
+    std::string_view valStr = !opts.valueText.empty() ? opts.valueText : (index < opts.stepLabels.size() ? opts.stepLabels[index] : "");
+
     const bool hasHeader = !opts.label.empty() || opts.showValue;
+    const bool hasDesc = !opts.description.empty();
+    const float headerH = hasHeader ? (m.labelFontSize * 1.3f) : 0.0f;
+    const float descH = hasDesc ? (m.labelFontSize * 0.9f * 1.2f) : 0.0f;
+    const float trackRowH = std::max(m.defaultHeight, m.thumbSize);
+    const float extraLabelsH = (opts.showLabels && !opts.stepLabels.empty() && totalSteps > 1) ? (m.tickGap + m.tickFontSize * 1.3f) : 0.0f;
+    const float controlH = trackRowH + extraLabelsH;
+    const float halfThumb = m.thumbSize * 0.5f;
+    const float defaultTrackW = opts.width.value_or(m.defaultWidth);
 
-    if (hasHeader) {
-        const float headerH = m.labelFontSize * 1.3f;
+    Rect headerRect;
+    Rect descRect;
+    float trackStartX = bounds.x + halfThumb;
+    float trackWidth = 0.0f;
+    float centerY = bounds.y + trackRowH * 0.5f;
+
+    if (opts.layout == FormLayout::Stacked) {
+        float curY = bounds.y;
+        if (hasHeader) {
+            headerRect = Rect(bounds.x, curY, bounds.w, headerH);
+            curY += headerH + m.labelGap;
+        }
+        centerY = curY + trackRowH * 0.5f;
+        curY += controlH + m.descGap;
+        if (hasDesc) {
+            descRect = Rect(bounds.x, curY, bounds.w, descH);
+        }
+
+        const float availTrackW = std::max(0.0f, bounds.w - m.thumbSize);
+        if (opts.stretch == StretchMode::Fill) {
+            trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+            trackStartX = bounds.x + halfThumb;
+        } else if (opts.stretch == StretchMode::Between || opts.placement == ElementOrder::Trailing) {
+            trackWidth = std::min(defaultTrackW, availTrackW);
+            trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
+        } else { // Compact
+            trackWidth = std::min(defaultTrackW, availTrackW);
+            trackStartX = bounds.x + halfThumb;
+        }
+    } else if (opts.layout == FormLayout::Top) {
+        float curY = bounds.y;
+        if (hasHeader) {
+            headerRect = Rect(bounds.x, curY, bounds.w, headerH);
+            curY += headerH + (hasDesc ? m.descGap : 0.0f);
+        }
+        if (hasDesc) {
+            descRect = Rect(bounds.x, curY, bounds.w, descH);
+            curY += descH;
+        }
+        curY += m.labelGap;
+        centerY = curY + trackRowH * 0.5f;
+
+        const float availTrackW = std::max(0.0f, bounds.w - m.thumbSize);
+        if (opts.stretch == StretchMode::Fill) {
+            trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+            trackStartX = bounds.x + halfThumb;
+        } else if (opts.stretch == StretchMode::Between || opts.placement == ElementOrder::Trailing) {
+            trackWidth = std::min(defaultTrackW, availTrackW);
+            trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
+        } else { // Compact
+            trackWidth = std::min(defaultTrackW, availTrackW);
+            trackStartX = bounds.x + halfThumb;
+        }
+    } else if (opts.layout == FormLayout::Bottom) {
+        float curY = bounds.y;
+        centerY = curY + trackRowH * 0.5f;
+        curY += controlH + m.descGap;
+        if (hasHeader) {
+            headerRect = Rect(bounds.x, curY, bounds.w, headerH);
+            curY += headerH + (hasDesc ? m.descGap : 0.0f);
+        }
+        if (hasDesc) {
+            descRect = Rect(bounds.x, curY, bounds.w, descH);
+        }
+
+        const float availTrackW = std::max(0.0f, bounds.w - m.thumbSize);
+        if (opts.stretch == StretchMode::Fill) {
+            trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+            trackStartX = bounds.x + halfThumb;
+        } else if (opts.stretch == StretchMode::Between || opts.placement == ElementOrder::Trailing) {
+            trackWidth = std::min(defaultTrackW, availTrackW);
+            trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
+        } else { // Compact
+            trackWidth = std::min(defaultTrackW, availTrackW);
+            trackStartX = bounds.x + halfThumb;
+        }
+    } else { // FormLayout::Inline
+        centerY = bounds.y + (trackRowH * 0.5f);
+        float textW = 0.0f;
         if (!opts.label.empty()) {
-            Color labelCol = disabled ? pal.textDisabled : pal.textPrimary;
-            canvas.DrawText(opts.label, Vec2(bounds.x, curY), m.labelFontSize, labelCol);
+            textW += canvas.MeasureText(opts.label, m.labelFontSize).x;
+        }
+        if (opts.showValue && !valStr.empty()) {
+            textW += (textW > 0.0f ? 8.0f : 0.0f) + canvas.MeasureText(valStr, m.labelFontSize).x;
+        }
+        if (hasDesc) {
+            textW = std::max(textW, canvas.MeasureText(opts.description, m.labelFontSize * 0.9f).x);
         }
 
-        if (opts.showValue) {
-            std::string_view valStr = !opts.valueText.empty() ? opts.valueText : (index < opts.stepLabels.size() ? opts.stepLabels[index] : "");
-            if (!valStr.empty()) {
-                const Vec2 valDims = canvas.MeasureText(valStr, m.labelFontSize);
-                Color valCol = disabled ? pal.textDisabled : (opts.variant != UiVariant::Default ? (variantCol.bg.a > 0 ? variantCol.bg : pal.textPrimary) : pal.accent);
-                canvas.DrawText(valStr, Vec2(bounds.Right() - valDims.x, curY), m.labelFontSize, valCol);
-            }
+        const float gap = textW > 0.0f ? 12.0f : 0.0f;
+        const float availTrackW = std::max(0.0f, bounds.w - textW - gap - m.thumbSize);
+        if (opts.stretch == StretchMode::Fill) {
+            trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+        } else {
+            trackWidth = std::min(defaultTrackW, availTrackW);
         }
-        curY += headerH + m.labelGap;
+
+        Rect textRect;
+        if (opts.placement == ElementOrder::Leading) {
+            // Text left, track right
+            textRect = Rect(bounds.x, bounds.y, textW, bounds.h);
+            if (opts.stretch == StretchMode::Between) {
+                trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
+            } else {
+                trackStartX = bounds.x + textW + gap + halfThumb;
+            }
+        } else {
+            // Track left, text right
+            trackStartX = bounds.x + halfThumb;
+            float textX = bounds.x + trackWidth + m.thumbSize + gap;
+            if (opts.stretch == StretchMode::Between) {
+                textX = std::max(textX, bounds.x + bounds.w - textW);
+            }
+            textRect = Rect(textX, bounds.y, textW, bounds.h);
+        }
+
+        if (hasHeader && hasDesc) {
+            const float totalTextH = headerH + m.descGap + descH;
+            const float startTextY = bounds.y + (bounds.h - totalTextH) * 0.5f;
+            headerRect = Rect(textRect.x, startTextY, textRect.w, headerH);
+            descRect = Rect(textRect.x, startTextY + headerH + m.descGap, textRect.w, descH);
+        } else if (hasHeader) {
+            headerRect = Rect(textRect.x, bounds.y + (bounds.h - headerH) * 0.5f, textRect.w, headerH);
+        } else if (hasDesc) {
+            descRect = Rect(textRect.x, bounds.y + (bounds.h - descH) * 0.5f, textRect.w, descH);
+        }
     }
 
-    const float trackRowH = std::max(m.defaultHeight, m.thumbSize);
-    const float centerY = curY + trackRowH * 0.5f;
-    const float halfThumb = m.thumbSize * 0.5f;
+    const float alignFactor = (opts.labelAlign == Align::End) ? 1.0f : ((opts.labelAlign == Align::Center) ? 0.5f : 0.0f);
+    const Color labelCol = disabled ? pal.textDisabled : pal.textPrimary;
+    const Color descCol = disabled ? pal.textDisabled : pal.textSecondary;
 
-    const float defaultTrackW = opts.width.value_or(m.defaultWidth);
-    float trackStartX = bounds.x + halfThumb;
-    float trackWidth = std::max(0.0f, bounds.w - m.thumbSize);
-    if (opts.stretch == StretchMode::Fill) {
-        if (opts.width.has_value()) {
-            trackWidth = *opts.width;
-        } else {
-            trackWidth = std::max(0.0f, bounds.w - m.thumbSize);
+    if (hasHeader && headerRect.w > 0.0f && headerRect.h > 0.0f) {
+        if (opts.showValue && !valStr.empty()) {
+            const Vec2 valDims = canvas.MeasureText(valStr, m.labelFontSize);
+            Color valCol = disabled ? pal.textDisabled : (opts.variant != UiVariant::Default ? (variantCol.bg.a > 0 ? variantCol.bg : pal.textPrimary) : pal.accent);
+            float valX = headerRect.Right() - valDims.x;
+            Rect lblRect = Rect(headerRect.x, headerRect.y, std::max(0.0f, headerRect.w - valDims.x - 8.0f), headerRect.h);
+
+            if (opts.placement == ElementOrder::Trailing && opts.layout != FormLayout::Inline) {
+                valX = headerRect.x;
+                lblRect = Rect(headerRect.x + valDims.x + 8.0f, headerRect.y, std::max(0.0f, headerRect.w - valDims.x - 8.0f), headerRect.h);
+            }
+
+            canvas.DrawText(valStr, Vec2(valX, headerRect.y + (headerRect.h - m.labelFontSize) * 0.5f), m.labelFontSize, valCol);
+            if (!opts.label.empty() && lblRect.w > 0.0f) {
+                canvas.DrawTextBox(opts.label, lblRect, m.labelFontSize, labelCol, alignFactor, 0.5f);
+            }
+        } else if (!opts.label.empty()) {
+            canvas.DrawTextBox(opts.label, headerRect, m.labelFontSize, labelCol, alignFactor, 0.5f);
         }
-        trackStartX = bounds.x + halfThumb;
-    } else if (opts.stretch == StretchMode::Between) {
-        trackWidth = std::min(defaultTrackW, std::max(0.0f, bounds.w - m.thumbSize));
-        trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
-    } else { // Compact
-        trackWidth = std::min(defaultTrackW, std::max(0.0f, bounds.w - m.thumbSize));
-        trackStartX = bounds.x + halfThumb;
+    }
+
+    if (hasDesc && descRect.w > 0.0f && descRect.h > 0.0f) {
+        canvas.DrawTextBox(opts.description, descRect, m.labelFontSize * 0.9f, descCol, alignFactor, 0.5f);
     }
 
     const float ratio = (totalSteps > 1) ? static_cast<float>(index) / static_cast<float>(totalSteps - 1) : 0.0f;
@@ -697,14 +1067,6 @@ void StepSlider::Render(
             Color lblCol = (i == index) ? pal.accent : (disabled ? pal.textDisabled : pal.textSecondary);
             canvas.DrawText(lbl, Vec2(lblX, labelsY), m.tickFontSize, lblCol);
         }
-    }
-
-    // 6. Description text
-    if (!opts.description.empty()) {
-        const float extraH = (opts.showLabels && !opts.stepLabels.empty()) ? (m.tickGap + m.tickFontSize * 1.3f) : 0.0f;
-        curY += trackRowH + extraH + m.descGap;
-        Color descCol = disabled ? pal.textDisabled : pal.textSecondary;
-        canvas.DrawText(opts.description, Vec2(bounds.x, curY), m.labelFontSize * 0.9f, descCol);
     }
 }
 

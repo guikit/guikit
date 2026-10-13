@@ -17,13 +17,15 @@ struct CheckboxOptions {
     std::string_view label{};                      ///< Primary caption text
     std::string_view description{};                ///< Optional explanation text below label
     UiVariant variant{UiVariant::Primary};          ///< Accent fill color when checked
-    Placement labelPlacement{Placement::Trailing}; ///< Placement of label relative to the checkbox square
+    FormLayout layout{FormLayout::Inline};         ///< Layout geometry: Stacked, Top, Bottom, Inline
+    ElementOrder placement{ElementOrder::Trailing};///< Sequencing order: Leading (Text first), Trailing (Control first)
+    Align labelAlign{Align::Start};                ///< Label and description text alignment (Start, Center, End)
     StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Between, Fill
     bool disabled{false};                          ///< Interaction suppression
     bool indeterminate{false};                     ///< Tri-state / partial check (horizontal dash)
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
 };
-static_assert(sizeof(CheckboxOptions) <= 40, "CheckboxOptions must stay compact");
+static_assert(sizeof(CheckboxOptions) <= 48, "CheckboxOptions must stay compact");
 
 /// Autonomous Checkbox widget logic (execution, measuring, and rendering).
 class Checkbox {

@@ -23,7 +23,9 @@ struct InputFieldOptions {
     std::string_view suffix{};                     ///< Unit/symbol inside field on right (e.g. "%", "mm", "MB/s")
     std::string_view format{"%.2f"};               ///< Format string for floating-point values
     UiVariant variant{UiVariant::Default};         ///< Accent/border variant (Default, Warning, Danger, etc.)
-    Placement labelPlacement{Placement::Stacked};  ///< Placement of label (Stacked by default for form inputs)
+    FormLayout layout{FormLayout::Stacked};        ///< Layout geometry: Stacked, Top, Bottom, Inline
+    ElementOrder placement{ElementOrder::Leading}; ///< Sequencing order: Leading (Text first), Trailing (Control first)
+    Align labelAlign{Align::Start};                ///< Label and description text alignment (Start, Center, End)
     Icon prefixIcon{};                             ///< Optional vector icon inside field on left
     Icon suffixIcon{};                             ///< Optional vector icon inside field on right
     std::optional<CursorBlinkMode> cursorMode{std::nullopt}; ///< Cursor blink override (inherits context config if nullopt)
