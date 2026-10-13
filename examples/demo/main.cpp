@@ -560,15 +560,7 @@ int main(int argc, char* argv[]) {
                                         static constexpr std::array<std::string_view, 5> formPlacements = {"Stack", "Lead", "Trail", "Top", "Btm"};
                                         switch (selectedCategory) {
                                             case NavCategory::ElemButton: {
-                                                if (ui.StepSlider(controlsSize, {
-                                                    .label = "Controls Size",
-                                                    .showTicks = true,
-                                                    .showLabels = true,
-                                                    .showValue = true
-                                                }).changed) {
-                                                    btnCornerRadius = th.GetMetrics(controlsSize).cornerRadius;
-                                                    ui.InvalidateAll();
-                                                }
+                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
                                                 if (ui.Slider(btnCornerRadius, 0.0f, 24.0f, {.label = "Corner Radius", .format = "%.0f px"}).changed) {
                                                     ui.InvalidateAll();
                                                 }
@@ -632,10 +624,7 @@ int main(int argc, char* argv[]) {
                                             }
 
                                             case NavCategory::ElemInputField: {
-                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) {
-                                                    inputCornerRadius = th.GetMetrics(controlsSize).cornerRadius;
-                                                    ui.InvalidateAll();
-                                                }
+                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
                                                 if (ui.Slider(inputCornerRadius, 0.0f, 24.0f, {.label = "Corner Radius", .format = "%.0f px"}).changed) {
                                                     ui.InvalidateAll();
                                                 }
@@ -679,10 +668,7 @@ int main(int argc, char* argv[]) {
                                             }
 
                                             case NavCategory::ElemSelect: {
-                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) {
-                                                    selectCornerRadius = th.GetSelect(controlsSize).cornerRadius;
-                                                    ui.InvalidateAll();
-                                                }
+                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
                                                 if (ui.Slider(selectCornerRadius, 0.0f, 24.0f, {.label = "Corner Radius", .format = "%.0f px"}).changed) {
                                                     ui.InvalidateAll();
                                                 }
