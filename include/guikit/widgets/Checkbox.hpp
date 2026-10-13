@@ -17,8 +17,8 @@ struct CheckboxOptions {
     std::string_view label{};                      ///< Primary caption text
     std::string_view description{};                ///< Optional explanation text below label
     UiVariant variant{UiVariant::Primary};          ///< Accent fill color when checked
-    WidgetLayout layout{WidgetLayout::Inline};     ///< Layout geometry: Stacked, Top, Bottom, Inline
-    ContentOrder order{ContentOrder::Trailing};    ///< Sequencing order: Leading (Text first), Trailing (Control first)
+    ElementLayout layout{ElementLayout::Inline};     ///< Layout geometry: Stacked, Top, Bottom, Inline
+    InlineOrder inlineOrder{InlineOrder::ControlFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
     Align labelAlign{Align::Start};                ///< Label and description text alignment (Start, Center, End)
     StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Between, Fill
     bool disabled{false};                          ///< Interaction suppression

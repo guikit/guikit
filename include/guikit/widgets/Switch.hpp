@@ -18,8 +18,8 @@ struct SwitchOptions {
     std::string_view trailingLabel{};              ///< Secondary caption text (right/on label when Placement::Both)
     std::string_view description{};                ///< Optional explanation text below label
     UiVariant variant{UiVariant::Primary};          ///< Accent fill color when switched ON
-    WidgetLayout layout{WidgetLayout::Inline};     ///< Layout geometry: Stacked, Top, Bottom, Inline
-    ContentOrder order{ContentOrder::Trailing};    ///< Sequencing order: Leading (Text first), Trailing (Control first)
+    ElementLayout layout{ElementLayout::Inline};     ///< Layout geometry: Stacked, Top, Bottom, Inline
+    InlineOrder inlineOrder{InlineOrder::ControlFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
     Align labelAlign{Align::Start};                ///< Label and description text alignment (Start, Center, End)
     bool symmetric{false};                         ///< Neutral/symmetric track style (highlights active label)
     StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Between, Fill

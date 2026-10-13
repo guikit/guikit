@@ -28,18 +28,18 @@ enum class Placement : uint8_t {
     Bottom      ///< Placed below primary element
 };
 
-/// Compound layout structure for widgets with external labels/descriptions.
-enum class WidgetLayout : uint8_t {
+/// Compound layout structure for UI elements with external labels/descriptions.
+enum class ElementLayout : uint8_t {
     Stacked,  ///< Label on top, control in middle, Description on bottom
     Top,      ///< Label and Description above control
     Bottom,   ///< Label and Description below control
     Inline    ///< Horizontal inline row: Label and control side-by-side
 };
 
-/// Sequencing order between external text and interactive control content.
-enum class ContentOrder : uint8_t {
-    Leading,   ///< Text first (left / start), control second (right / end)
-    Trailing   ///< Control first (left / start), text second (right / end)
+/// Sequencing order between external label and interactive control in Inline layout.
+enum class InlineOrder : uint8_t {
+    LabelFirst,    ///< Label/text first (left / start), control second (right / end)
+    ControlFirst   ///< Control first (left / start), label/text second (right / end)
 };
 
 /// 6x3 Typographic Role Matrix (Material 3 scale extended for desktop/engineering).

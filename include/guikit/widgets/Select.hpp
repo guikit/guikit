@@ -22,8 +22,8 @@ struct SelectOptions {
     std::string_view description{};                ///< Optional helper text below select box
     std::string_view placeholder{"Select..."};     ///< Placeholder text when no item is selected or items list is empty
     UiVariant variant{UiVariant::Default};         ///< Accent/border variant (Default, Warning, Danger, etc.)
-    WidgetLayout layout{WidgetLayout::Stacked};    ///< Layout geometry: Stacked, Top, Bottom, Inline
-    ContentOrder order{ContentOrder::Leading};     ///< Sequencing order: Leading (Text first), Trailing (Control first)
+    ElementLayout layout{ElementLayout::Stacked};    ///< Layout geometry: Stacked, Top, Bottom, Inline
+    InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
     Align labelAlign{Align::Start};                ///< Label and description text alignment (Start, Center, End)
     Icon prefixIcon{};                             ///< Optional vector icon inside field on left
     std::optional<uint32_t> maxVisibleItems{std::nullopt}; ///< Optional limit on visible items count before scrolling

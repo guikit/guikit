@@ -23,8 +23,8 @@ struct InputFieldOptions {
     std::string_view suffix{};                     ///< Unit/symbol inside field on right (e.g. "%", "mm", "MB/s")
     std::string_view format{"%.2f"};               ///< Format string for floating-point values
     UiVariant variant{UiVariant::Default};         ///< Accent/border variant (Default, Warning, Danger, etc.)
-    WidgetLayout layout{WidgetLayout::Stacked};    ///< Layout geometry: Stacked, Top, Bottom, Inline
-    ContentOrder order{ContentOrder::Leading};     ///< Sequencing order: Leading (Text first), Trailing (Control first)
+    ElementLayout layout{ElementLayout::Stacked};    ///< Layout geometry: Stacked, Top, Bottom, Inline
+    InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
     Align labelAlign{Align::Start};                ///< Label and description text alignment (Start, Center, End)
     Icon prefixIcon{};                             ///< Optional vector icon inside field on left
     Icon suffixIcon{};                             ///< Optional vector icon inside field on right

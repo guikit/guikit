@@ -50,7 +50,7 @@ Response Switch::Run(
     node->visualHash = detail::HashArgs(
         opts.variant,
         static_cast<uint8_t>(opts.layout),
-        static_cast<uint8_t>(opts.order),
+        static_cast<uint8_t>(opts.inlineOrder),
         static_cast<uint8_t>(opts.labelAlign),
         opts.symmetric,
         static_cast<uint8_t>(opts.stretch),
@@ -97,7 +97,7 @@ Vec2 Switch::Measure(
     const UiTheme& theme
 ) {
     const SwitchMetrics& m = theme.GetSwitch(size);
-    const bool isBoth = (opts.layout == WidgetLayout::Inline && !opts.trailingLabel.empty());
+    const bool isBoth = (opts.layout == ElementLayout::Inline && !opts.trailingLabel.empty());
     const std::string_view effectiveLabel = opts.label;
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasTrailingLabel = isBoth && !opts.trailingLabel.empty();
@@ -151,7 +151,7 @@ Vec2 Switch::Measure(
         return {totalW, totalH};
     }
 
-    if (opts.layout == WidgetLayout::Stacked) {
+    if (opts.layout == ElementLayout::Stacked) {
         // Label on top, track in middle, description on bottom
         const float maxW = std::max({m.trackSize.x, labelDims.x, descDims.x});
         float totalH = m.trackSize.y;
@@ -164,7 +164,7 @@ Vec2 Switch::Measure(
         return {maxW, totalH};
     }
 
-    if (opts.layout == WidgetLayout::Top) {
+    if (opts.layout == ElementLayout::Top) {
         // Both label and description above track
         const float maxW = std::max({m.trackSize.x, labelDims.x, descDims.x});
         float textH = 0.0f;
@@ -178,7 +178,7 @@ Vec2 Switch::Measure(
         return {maxW, textH + m.descGap + m.trackSize.y};
     }
 
-    if (opts.layout == WidgetLayout::Bottom) {
+    if (opts.layout == ElementLayout::Bottom) {
         // Track above, both label and description below track
         const float maxW = std::max({m.trackSize.x, labelDims.x, descDims.x});
         float textH = 0.0f;
@@ -192,7 +192,7 @@ Vec2 Switch::Measure(
         return {maxW, m.trackSize.y + m.descGap + textH};
     }
 
-    // WidgetLayout::Inline
+    // ElementLayout::Inline
     const float textW = std::max(labelDims.x, descDims.x);
     float textH = 0.0f;
     if (hasLabel && hasDesc) {
@@ -233,7 +233,7 @@ void Switch::Render(
     }
 
     const SwitchMetrics& m = theme.GetSwitch(size);
-    const bool isBoth = (opts.layout == WidgetLayout::Inline && !opts.trailingLabel.empty());
+    const bool isBoth = (opts.layout == ElementLayout::Inline && !opts.trailingLabel.empty());
     const bool isSymmetric = opts.symmetric || isBoth;
     const std::string_view effectiveLabel = opts.label;
     const bool hasLabel = !effectiveLabel.empty();
@@ -290,21 +290,21 @@ void Switch::Render(
         if (hasDesc) {
             descRect = Rect(bounds.x, startY + topRowH + m.descGap, bounds.w, descH);
         }
-    } else if (opts.layout == WidgetLayout::Stacked) {
+    } else if (opts.layout == ElementLayout::Stacked) {
         // Label on top, track in middle, description on bottom
         float curY = bounds.y;
         if (hasLabel) {
             labelRect = Rect(bounds.x, curY, bounds.w, labelH);
             curY += labelH + m.descGap;
         }
-        const float trackX = (opts.order == ContentOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
+        const float trackX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
         trackRect = Rect(trackX, curY, m.trackSize.x, m.trackSize.y);
         curY += m.trackSize.y + m.descGap;
         if (hasDesc) {
             descRect = Rect(bounds.x, curY, bounds.w, descH);
         }
         alignX = 0.0f;
-    } else if (opts.layout == WidgetLayout::Top) {
+    } else if (opts.layout == ElementLayout::Top) {
         // Both label and description above track
         float curY = bounds.y;
         if (hasLabel) {
@@ -316,13 +316,13 @@ void Switch::Render(
             curY += descH;
         }
         curY += m.descGap;
-        const float trackX = (opts.order == ContentOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
+        const float trackX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
         trackRect = Rect(trackX, curY, m.trackSize.x, m.trackSize.y);
         alignX = 0.0f;
-    } else if (opts.layout == WidgetLayout::Bottom) {
+    } else if (opts.layout == ElementLayout::Bottom) {
         // Track on top, both label and description below track
         float curY = bounds.y;
-        const float trackX = (opts.order == ContentOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
+        const float trackX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
         trackRect = Rect(trackX, curY, m.trackSize.x, m.trackSize.y);
         curY += m.trackSize.y + m.descGap;
         if (hasLabel) {
@@ -333,7 +333,7 @@ void Switch::Render(
             descRect = Rect(bounds.x, curY, bounds.w, descH);
         }
         alignX = 0.0f;
-    } else { // WidgetLayout::Inline
+    } else { // ElementLayout::Inline
         const float naturalTextW = std::max(
             hasLabel ? canvas.MeasureText(opts.label, m.fontSize).x : 0.0f,
             hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
@@ -342,8 +342,8 @@ void Switch::Render(
         const float totalTextH = (hasLabel && hasDesc) ? (labelH + m.descGap + descH) : (hasLabel ? labelH : descH);
         const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
 
-        if (opts.order == ContentOrder::Leading) {
-            // Text first (left), track second (right)
+        if (opts.inlineOrder == InlineOrder::LabelFirst) {
+            // Label first (left), track second (right)
             float trackX = bounds.x + bounds.w - m.trackSize.x;
             if (opts.stretch == StretchMode::Compact) {
                 trackX = bounds.x + naturalTextW + m.gap;
@@ -360,7 +360,7 @@ void Switch::Render(
                 descRect = Rect(bounds.x, startY, textW, descH);
             }
         } else {
-            // ContentOrder::Trailing: Track first (left), text second (right)
+            // InlineOrder::ControlFirst: Track first (left), text second (right)
             trackRect = Rect(bounds.x, trackY, m.trackSize.x, m.trackSize.y);
 
             float textX = bounds.x + m.trackSize.x + m.gap;
