@@ -5,9 +5,52 @@
 #include <string>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
+#include "guikit/core/ElementComposer.hpp"
 #include "guikit/core/Node.hpp"
 
 namespace guikit {
+
+namespace {
+
+Vec2 MeasureInputBox(const InputFieldOptions& opts, UiSize size, const UiTheme& theme) noexcept {
+    const InputFieldMetrics& m = theme.GetInputField(size);
+    float boxW = (opts.stretch != StretchMode::Fill && opts.width.has_value()) ? *opts.width : m.defaultWidth;
+    if (opts.minWidth.has_value()) {
+        boxW = std::max(*opts.minWidth, boxW);
+    } else {
+        boxW = std::max(m.minWidth, boxW);
+    }
+    return {boxW, m.defaultHeight};
+}
+
+ElementSpec MakeInputFieldElementSpec(
+    const InputFieldOptions& opts,
+    UiSize size,
+    bool disabled,
+    const UiTheme& theme
+) noexcept {
+    const InputFieldMetrics& m = theme.GetInputField(size);
+    return ElementSpec{
+        .label = opts.label,
+        .description = opts.description,
+        .layout = opts.layout,
+        .inlineOrder = opts.inlineOrder,
+        .elementAlign = opts.elementAlign,
+        .stretch = opts.stretch,
+        .width = opts.width,
+        .descriptionVariant = opts.descriptionVariant,
+        .labelFontSize = m.labelFontSize,
+        .descFontSize = m.descFontSize,
+        .labelGap = m.labelGap,
+        .descGap = m.descGap,
+        .inlineGap = m.paddingX,
+        .stretchableControl = true,
+        .stretchHeightWhenStandalone = false,
+        .disabled = disabled
+    };
+}
+
+} // namespace
 
 Response InputField::Run(
     Context& ctx,
@@ -120,6 +163,10 @@ Response InputField::Run(
     node->payload = data;
     node->visualHash = detail::HashArgs(
         opts.variant,
+        opts.descriptionVariant,
+        static_cast<uint8_t>(opts.layout),
+        static_cast<uint8_t>(opts.inlineOrder),
+        static_cast<uint8_t>(opts.elementAlign),
         static_cast<uint8_t>(opts.stretch),
         opts.width.value_or(0.0f),
         opts.minWidth.value_or(0.0f),
@@ -129,6 +176,7 @@ Response InputField::Run(
         optsCopy.prefix,
         optsCopy.suffix,
         optsCopy.placeholder,
+        optsCopy.description,
         node->text,
         static_cast<uint8_t>(opts.prefixIcon.GetType()),
         static_cast<uint8_t>(opts.prefixIcon.GetId()),
@@ -177,79 +225,15 @@ Response InputField::Run(
 }
 
 Vec2 InputField::Measure(
-    std::string_view displayText,
+    std::string_view /*displayText*/,
     const InputFieldOptions& opts,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme
 ) {
-    const InputFieldMetrics& m = theme.GetInputField(size);
-    const std::string_view effectiveLabel = opts.label;
-
-    float boxW = opts.width.value_or(m.defaultWidth);
-    if (opts.minWidth.has_value()) {
-        boxW = std::max(*opts.minWidth, boxW);
-    } else {
-        boxW = std::max(m.minWidth, boxW);
-    }
-
-    Vec2 labelDims = {0.0f, 0.0f};
-    if (!effectiveLabel.empty()) {
-        if (canvas) {
-            labelDims = canvas->MeasureText(effectiveLabel, m.labelFontSize);
-        } else {
-            labelDims = {static_cast<float>(effectiveLabel.length()) * (m.labelFontSize * kDefaultCharAdvanceRatio), theme.GetLineHeight(m.labelFontSize)};
-        }
-    }
-
-    Vec2 descDims = {0.0f, 0.0f};
-    if (!opts.description.empty()) {
-        if (canvas) {
-            descDims = canvas->MeasureText(opts.description, m.descFontSize);
-        } else {
-            descDims = {static_cast<float>(opts.description.length()) * (m.descFontSize * kDefaultCharAdvanceRatio), theme.GetLineHeight(m.descFontSize)};
-        }
-    }
-
-    const bool hasLabel = !effectiveLabel.empty();
-    const bool hasDesc = !opts.description.empty();
-
-    if (opts.layout == ElementLayout::Stacked) {
-        float totalH = m.defaultHeight;
-        if (hasLabel) totalH += labelDims.y + m.labelGap;
-        if (hasDesc) totalH += m.descGap + descDims.y;
-        return {std::max({boxW, labelDims.x, descDims.x}), totalH};
-    }
-
-    if (opts.layout == ElementLayout::Inline) {
-        const float textW = std::max(labelDims.x, descDims.x);
-        float textH = 0.0f;
-        if (hasLabel && hasDesc) {
-            textH = labelDims.y + m.descGap + descDims.y;
-        } else if (hasLabel) {
-            textH = labelDims.y;
-        } else if (hasDesc) {
-            textH = descDims.y;
-        }
-        const float gap = (hasLabel || hasDesc) ? m.paddingX : 0.0f;
-        return {boxW + (textW > 0.0f ? gap + textW : 0.0f), std::max(m.defaultHeight, textH)};
-    }
-
-    if (opts.layout == ElementLayout::Top) {
-        float textH = 0.0f;
-        if (hasLabel) textH += labelDims.y;
-        if (hasDesc) textH += (hasLabel ? m.descGap : 0.0f) + descDims.y;
-        return {std::max({boxW, labelDims.x, descDims.x}), textH + m.labelGap + m.defaultHeight};
-    }
-
-    if (opts.layout == ElementLayout::Bottom) {
-        float textH = 0.0f;
-        if (hasLabel) textH += labelDims.y;
-        if (hasDesc) textH += (hasLabel ? m.descGap : 0.0f) + descDims.y;
-        return {std::max({boxW, labelDims.x, descDims.x}), m.defaultHeight + m.descGap + textH};
-    }
-
-    return {boxW, m.defaultHeight};
+    const Vec2 boxDims = MeasureInputBox(opts, size, theme);
+    const ElementSpec spec = MakeInputFieldElementSpec(opts, size, opts.disabled, theme);
+    return ElementComposer::Measure(boxDims, spec, canvas, theme);
 }
 
 Vec2 InputField::Measure(
@@ -281,122 +265,11 @@ void InputField::Render(
     }
 
     const InputFieldMetrics& m = theme.GetInputField(size);
-    const std::string_view effectiveLabel = opts.label;
-    const bool hasLabel = !effectiveLabel.empty();
-    const bool hasDesc = !opts.description.empty();
-
-    Rect boxRect;
-    Rect labelRect;
-    Rect descRect;
-
-    const float labelH = hasLabel ? canvas.GetLineHeight(m.labelFontSize) : 0.0f;
-    const float descH = hasDesc ? canvas.GetLineHeight(m.descFontSize) : 0.0f;
-    const float measuredLabelW = hasLabel ? canvas.MeasureText(effectiveLabel, m.labelFontSize).x : 0.0f;
-    const float measuredDescW = hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f;
-    const float measuredTextW = std::max(measuredLabelW, measuredDescW);
-
-    float naturalBoxW = opts.width.value_or(m.defaultWidth);
-    if (opts.minWidth.has_value()) {
-        naturalBoxW = std::max(*opts.minWidth, naturalBoxW);
-    } else {
-        naturalBoxW = std::max(m.minWidth, naturalBoxW);
-    }
-
-    if (opts.layout == ElementLayout::Stacked) {
-        const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(boxW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
-        const float boxX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - boxW) : bounds.x;
-
-        float curY = bounds.y;
-        if (hasLabel) {
-            labelRect = Rect(blockX, curY, blockW, labelH);
-            curY += labelH + m.labelGap;
-        }
-        boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
-        curY += m.defaultHeight + m.descGap;
-        if (hasDesc) {
-            descRect = Rect(blockX, curY, blockW, descH);
-        }
-    } else if (opts.layout == ElementLayout::Top) {
-        const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(boxW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
-        const float boxX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - boxW) : bounds.x;
-
-        float curY = bounds.y;
-        if (hasLabel) {
-            labelRect = Rect(blockX, curY, blockW, labelH);
-            curY += labelH + (hasDesc ? m.descGap : 0.0f);
-        }
-        if (hasDesc) {
-            descRect = Rect(blockX, curY, blockW, descH);
-            curY += descH;
-        }
-        curY += m.labelGap;
-        boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
-    } else if (opts.layout == ElementLayout::Bottom) {
-        const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(boxW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
-        const float boxX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - boxW) : bounds.x;
-
-        float curY = bounds.y;
-        boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
-        curY += m.defaultHeight + m.descGap;
-        if (hasLabel) {
-            labelRect = Rect(blockX, curY, blockW, labelH);
-            curY += labelH + (hasDesc ? m.descGap : 0.0f);
-        }
-        if (hasDesc) {
-            descRect = Rect(blockX, curY, blockW, descH);
-        }
-    } else { // ElementLayout::Inline
-        const float gap = (hasLabel || hasDesc) ? m.paddingX : 0.0f;
-        const float totalTextH = (hasLabel && hasDesc) ? (labelH + m.descGap + descH) : (hasLabel ? labelH : descH);
-        const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
-
-        float boxW = naturalBoxW;
-        if (opts.stretch == StretchMode::Fill) {
-            boxW = std::max(m.minWidth, bounds.w - measuredTextW - gap);
-        } else {
-            boxW = std::min(bounds.w, naturalBoxW);
-        }
-
-        if (opts.inlineOrder == InlineOrder::LabelFirst) {
-            // Label first (left), box second (right)
-            float boxX = bounds.x + bounds.w - boxW;
-            if (opts.stretch == StretchMode::Compact) {
-                boxX = bounds.x + measuredTextW + gap;
-            }
-            boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
-
-            float textY = startY;
-            if (hasLabel) {
-                labelRect = Rect(bounds.x, textY, measuredTextW, labelH);
-                textY += labelH + m.descGap;
-            }
-            if (hasDesc) {
-                descRect = Rect(bounds.x, textY, measuredTextW, descH);
-            }
-        } else {
-            // InlineOrder::ControlFirst: Box first (left), text second (right)
-            boxRect = Rect(bounds.x, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
-
-            float textX = bounds.x + boxW + gap;
-            if (opts.stretch == StretchMode::Space) {
-                textX = std::max(bounds.x + boxW + gap, bounds.x + bounds.w - measuredTextW);
-            }
-            float textY = startY;
-            if (hasLabel) {
-                labelRect = Rect(textX, textY, measuredTextW, labelH);
-                textY += labelH + m.descGap;
-            }
-            if (hasDesc) {
-                descRect = Rect(textX, textY, measuredTextW, descH);
-            }
-        }
-    }
+    const Vec2 boxDims = MeasureInputBox(opts, size, theme);
+    const ElementSpec spec = MakeInputFieldElementSpec(opts, size, disabled, theme);
+    const ElementGeometry geom = ElementComposer::Resolve(bounds, boxDims, spec, &canvas, theme);
+    ElementComposer::RenderText(canvas, geom, spec, theme);
+    const Rect boxRect = geom.controlRect;
 
     // Determine colors
     const auto& pal = theme.palette;
@@ -423,8 +296,6 @@ void InputField::Render(
     Color textCol = pal.textPrimary;
     Color placeholderCol = pal.textSecondary;
     Color unitCol = pal.textSecondary;
-    Color labelCol = pal.textPrimary;
-    Color descCol = pal.textSecondary;
 
     if (disabled) {
         boxBg = boxBg.WithAlphaF(0.40f);
@@ -432,8 +303,6 @@ void InputField::Render(
         textCol = textCol.WithAlphaF(0.40f);
         placeholderCol = placeholderCol.WithAlphaF(0.40f);
         unitCol = unitCol.WithAlphaF(0.40f);
-        labelCol = labelCol.WithAlphaF(0.40f);
-        descCol = descCol.WithAlphaF(0.40f);
     }
 
     // Draw box background and border
@@ -491,15 +360,6 @@ void InputField::Render(
         canvas.DrawLine({caretX, caretY}, {caretX, caretY + caretH}, pal.caret, cursorWidth);
     }
     canvas.PopClip();
-
-    // Draw external label & description with labelAlign
-    const float alignFactor = (opts.labelAlign == Align::End) ? 1.0f : ((opts.labelAlign == Align::Center) ? 0.5f : 0.0f);
-    if (hasLabel && labelRect.w > 0.0f && labelRect.h > 0.0f) {
-        canvas.DrawTextBox(effectiveLabel, labelRect, m.labelFontSize, labelCol, alignFactor, 0.5f);
-    }
-    if (hasDesc && descRect.w > 0.0f && descRect.h > 0.0f) {
-        canvas.DrawTextBox(opts.description, descRect, m.descFontSize, descCol, alignFactor, 0.5f);
-    }
 }
 
 } // namespace guikit

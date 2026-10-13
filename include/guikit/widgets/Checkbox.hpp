@@ -17,10 +17,11 @@ struct CheckboxOptions {
     std::string_view label{};                      ///< Primary caption text
     std::string_view description{};                ///< Optional explanation text below label
     UiVariant variant{UiVariant::Primary};          ///< Accent fill color when checked
+    UiVariant descriptionVariant{UiVariant::Muted};   ///< Semantic variant for description text (Muted, Warning, Danger, Success, Info, etc.)
     ElementLayout layout{ElementLayout::Inline};     ///< Layout geometry: Stacked, Top, Bottom, Inline
     InlineOrder inlineOrder{InlineOrder::ControlFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
-    Align labelAlign{Align::Start};                ///< Label and description text alignment (Start, Center, End)
-    StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Between, Fill
+    Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
+    StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Space, Fill
     bool disabled{false};                          ///< Interaction suppression
     bool indeterminate{false};                     ///< Tri-state / partial check (horizontal dash)
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)

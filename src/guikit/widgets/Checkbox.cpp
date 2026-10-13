@@ -2,9 +2,40 @@
 #include <algorithm>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
+#include "guikit/core/ElementComposer.hpp"
 #include "guikit/core/Node.hpp"
 
 namespace guikit {
+
+namespace {
+
+ElementSpec MakeCheckboxElementSpec(
+    const CheckboxOptions& opts,
+    UiSize size,
+    bool disabled,
+    const UiTheme& theme
+) noexcept {
+    const CheckboxMetrics& m = theme.GetCheckbox(size);
+    return ElementSpec{
+        .label = opts.label,
+        .description = opts.description,
+        .layout = opts.layout,
+        .inlineOrder = opts.inlineOrder,
+        .elementAlign = opts.elementAlign,
+        .stretch = opts.stretch,
+        .descriptionVariant = opts.descriptionVariant,
+        .labelFontSize = m.fontSize,
+        .descFontSize = m.descFontSize,
+        .labelGap = m.descGap,
+        .descGap = m.descGap,
+        .inlineGap = m.gap,
+        .stretchableControl = false,
+        .stretchHeightWhenStandalone = false,
+        .disabled = disabled
+    };
+}
+
+} // namespace
 
 Response Checkbox::Run(
     Context& ctx,
@@ -46,9 +77,10 @@ Response Checkbox::Run(
     node->payload = ctx.AllocPayload<CheckboxOptions>(optsCopy);
     node->visualHash = detail::HashArgs(
         opts.variant,
+        opts.descriptionVariant,
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
-        static_cast<uint8_t>(opts.labelAlign),
+        static_cast<uint8_t>(opts.elementAlign),
         opts.indeterminate,
         static_cast<uint8_t>(opts.stretch),
         currentChecked,
@@ -93,89 +125,8 @@ Vec2 Checkbox::Measure(
     const UiTheme& theme
 ) {
     const CheckboxMetrics& m = theme.GetCheckbox(size);
-    const std::string_view effectiveLabel = opts.label;
-    const bool hasLabel = !effectiveLabel.empty();
-    const bool hasDesc = !opts.description.empty();
-
-    if (!hasLabel && !hasDesc) {
-        return {m.boxSize, m.boxSize};
-    }
-
-    Vec2 labelDims = {0.0f, 0.0f};
-    if (hasLabel) {
-        if (canvas) {
-            labelDims = canvas->MeasureText(effectiveLabel, m.fontSize);
-        } else {
-            const float estW = static_cast<float>(effectiveLabel.length()) * (m.fontSize * kDefaultCharAdvanceRatio);
-            labelDims = {estW, theme.GetLineHeight(m.fontSize)};
-        }
-    }
-
-    Vec2 descDims = {0.0f, 0.0f};
-    if (hasDesc) {
-        if (canvas) {
-            descDims = canvas->MeasureText(opts.description, m.descFontSize);
-        } else {
-            const float estW = static_cast<float>(opts.description.length()) * (m.descFontSize * kDefaultCharAdvanceRatio);
-            descDims = {estW, theme.GetLineHeight(m.descFontSize)};
-        }
-    }
-
-    if (opts.layout == ElementLayout::Stacked) {
-        // Label on top, checkbox in middle, description on bottom
-        const float maxW = std::max({m.boxSize, labelDims.x, descDims.x});
-        float totalH = m.boxSize;
-        if (hasLabel) {
-            totalH += labelDims.y + m.descGap;
-        }
-        if (hasDesc) {
-            totalH += m.descGap + descDims.y;
-        }
-        return {maxW, totalH};
-    }
-
-    if (opts.layout == ElementLayout::Top) {
-        // Both label and description above checkbox
-        const float maxW = std::max({m.boxSize, labelDims.x, descDims.x});
-        float textH = 0.0f;
-        if (hasLabel && hasDesc) {
-            textH = labelDims.y + m.descGap + descDims.y;
-        } else if (hasLabel) {
-            textH = labelDims.y;
-        } else if (hasDesc) {
-            textH = descDims.y;
-        }
-        return {maxW, textH + m.descGap + m.boxSize};
-    }
-
-    if (opts.layout == ElementLayout::Bottom) {
-        // Checkbox above, both label and description below checkbox
-        const float maxW = std::max({m.boxSize, labelDims.x, descDims.x});
-        float textH = 0.0f;
-        if (hasLabel && hasDesc) {
-            textH = labelDims.y + m.descGap + descDims.y;
-        } else if (hasLabel) {
-            textH = labelDims.y;
-        } else if (hasDesc) {
-            textH = descDims.y;
-        }
-        return {maxW, m.boxSize + m.descGap + textH};
-    }
-
-    // ElementLayout::Inline
-    const float textW = std::max(labelDims.x, descDims.x);
-    float textH = 0.0f;
-    if (hasLabel && hasDesc) {
-        textH = labelDims.y + m.descGap + descDims.y;
-    } else if (hasLabel) {
-        textH = labelDims.y;
-    } else if (hasDesc) {
-        textH = descDims.y;
-    }
-
-    const float totalW = m.boxSize + m.gap + textW;
-    const float totalH = std::max(m.boxSize, textH);
-    return {totalW, totalH};
+    const ElementSpec spec = MakeCheckboxElementSpec(opts, size, opts.disabled, theme);
+    return ElementComposer::Measure({m.boxSize, m.boxSize}, spec, canvas, theme);
 }
 
 Vec2 Checkbox::Measure(
@@ -203,130 +154,10 @@ void Checkbox::Render(
     }
 
     const CheckboxMetrics& m = theme.GetCheckbox(size);
-    const std::string_view effectiveLabel = opts.label;
-    const bool hasLabel = !effectiveLabel.empty();
-    const bool hasDesc = !opts.description.empty();
-    const bool hasText = hasLabel || hasDesc;
-
-    Rect boxRect;
-    Rect labelRect;
-    Rect descRect;
-    float alignX = 0.0f;
-
-    const float labelH = hasLabel ? canvas.GetLineHeight(m.fontSize) : 0.0f;
-    const float descH = hasDesc ? canvas.GetLineHeight(m.descFontSize) : 0.0f;
-
-    if (!hasText) {
-        const float boxY = bounds.y + (bounds.h - m.boxSize) * 0.5f;
-        boxRect = Rect(bounds.x, boxY, m.boxSize, m.boxSize);
-    } else if (opts.layout == ElementLayout::Stacked) {
-        // Label on top, checkbox in middle, description on bottom
-        const float naturalTextW = std::max(
-            hasLabel ? canvas.MeasureText(opts.label, m.fontSize).x : 0.0f,
-            hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
-        );
-        const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(m.boxSize, naturalTextW));
-        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
-        const float boxX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - m.boxSize) : bounds.x;
-
-        float curY = bounds.y;
-        if (hasLabel) {
-            labelRect = Rect(blockX, curY, blockW, labelH);
-            curY += labelH + m.descGap;
-        }
-        boxRect = Rect(boxX, curY, m.boxSize, m.boxSize);
-        curY += m.boxSize + m.descGap;
-        if (hasDesc) {
-            descRect = Rect(blockX, curY, blockW, descH);
-        }
-        alignX = 0.0f;
-    } else if (opts.layout == ElementLayout::Top) {
-        // Both label and description above checkbox
-        const float naturalTextW = std::max(
-            hasLabel ? canvas.MeasureText(opts.label, m.fontSize).x : 0.0f,
-            hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
-        );
-        const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(m.boxSize, naturalTextW));
-        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
-        const float boxX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - m.boxSize) : bounds.x;
-
-        float curY = bounds.y;
-        if (hasLabel) {
-            labelRect = Rect(blockX, curY, blockW, labelH);
-            curY += labelH + (hasDesc ? m.descGap : 0.0f);
-        }
-        if (hasDesc) {
-            descRect = Rect(blockX, curY, blockW, descH);
-            curY += descH;
-        }
-        curY += m.descGap;
-        boxRect = Rect(boxX, curY, m.boxSize, m.boxSize);
-        alignX = 0.0f;
-    } else if (opts.layout == ElementLayout::Bottom) {
-        // Checkbox on top, both label and description below checkbox
-        const float naturalTextW = std::max(
-            hasLabel ? canvas.MeasureText(opts.label, m.fontSize).x : 0.0f,
-            hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
-        );
-        const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(m.boxSize, naturalTextW));
-        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
-        const float boxX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - m.boxSize) : bounds.x;
-
-        float curY = bounds.y;
-        boxRect = Rect(boxX, curY, m.boxSize, m.boxSize);
-        curY += m.boxSize + m.descGap;
-        if (hasLabel) {
-            labelRect = Rect(blockX, curY, blockW, labelH);
-            curY += labelH + (hasDesc ? m.descGap : 0.0f);
-        }
-        if (hasDesc) {
-            descRect = Rect(blockX, curY, blockW, descH);
-        }
-        alignX = 0.0f;
-    } else { // ElementLayout::Inline
-        const float naturalTextW = std::max(
-            hasLabel ? canvas.MeasureText(opts.label, m.fontSize).x : 0.0f,
-            hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
-        );
-        const float boxY = bounds.y + (bounds.h - m.boxSize) * 0.5f;
-        const float totalTextH = (hasLabel && hasDesc) ? (labelH + m.descGap + descH) : (hasLabel ? labelH : descH);
-        const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
-
-        if (opts.inlineOrder == InlineOrder::LabelFirst) {
-            // Label first (left), checkbox second (right)
-            float boxX = bounds.x + bounds.w - m.boxSize;
-            if (opts.stretch == StretchMode::Compact) {
-                boxX = bounds.x + naturalTextW + m.gap;
-            }
-            boxRect = Rect(boxX, boxY, m.boxSize, m.boxSize);
-
-            if (hasLabel && hasDesc) {
-                labelRect = Rect(bounds.x, startY, naturalTextW, labelH);
-                descRect = Rect(bounds.x, startY + labelH + m.descGap, naturalTextW, descH);
-            } else if (hasLabel) {
-                labelRect = Rect(bounds.x, startY, naturalTextW, labelH);
-            } else if (hasDesc) {
-                descRect = Rect(bounds.x, startY, naturalTextW, descH);
-            }
-        } else {
-            // InlineOrder::ControlFirst: Checkbox first (left), text second (right)
-            boxRect = Rect(bounds.x, boxY, m.boxSize, m.boxSize);
-
-            float textX = bounds.x + m.boxSize + m.gap;
-            if (opts.stretch == StretchMode::Space) {
-                textX = std::max(bounds.x + m.boxSize + m.gap, bounds.x + bounds.w - naturalTextW);
-            }
-
-            if (hasLabel && hasDesc) {
-                labelRect = Rect(textX, startY, naturalTextW, labelH);
-                descRect = Rect(textX, startY + labelH + m.descGap, naturalTextW, descH);
-            } else if (hasLabel) {
-                labelRect = Rect(textX, startY, naturalTextW, labelH);
-            } else if (hasDesc) {
-                descRect = Rect(textX, startY, naturalTextW, descH);
-            }
-        }
-    }
+    const ElementSpec spec = MakeCheckboxElementSpec(opts, size, disabled, theme);
+    const ElementGeometry geom = ElementComposer::Resolve(bounds, {m.boxSize, m.boxSize}, spec, &canvas, theme);
+    ElementComposer::RenderText(canvas, geom, spec, theme);
+    const Rect boxRect = geom.controlRect;
 
     // Determine colors
     const auto& pal = theme.palette;
@@ -355,15 +186,10 @@ void Checkbox::Render(
         boxStroke = (hovered && !disabled) ? pal.borderHover : pal.border;
     }
 
-    Color textCol = pal.textPrimary;
-    Color descCol = pal.textSecondary;
-
     if (disabled) {
         boxFill = boxFill.WithAlphaF(0.40f);
         boxStroke = boxStroke.WithAlphaF(0.40f);
         markColor = markColor.WithAlphaF(0.40f);
-        textCol = pal.textDisabled;
-        descCol = pal.textDisabled;
     }
 
     // Draw box
@@ -382,15 +208,6 @@ void Checkbox::Render(
         const Vec2 p2(boxRect.x + boxRect.w * 0.75f, boxRect.y + boxRect.h * 0.50f);
 
         canvas.DrawLine(p1, p2, markColor, m.strokeWidth);
-    }
-
-    // Draw text elements with labelAlign
-    const float alignFactor = (opts.labelAlign == Align::End) ? 1.0f : ((opts.labelAlign == Align::Center) ? 0.5f : 0.0f);
-    if (hasLabel && labelRect.w > 0.0f && labelRect.h > 0.0f) {
-        canvas.DrawTextBox(effectiveLabel, labelRect, m.fontSize, textCol, alignFactor, 0.5f);
-    }
-    if (hasDesc && descRect.w > 0.0f && descRect.h > 0.0f) {
-        canvas.DrawTextBox(opts.description, descRect, m.descFontSize, descCol, alignFactor, 0.5f);
     }
 }
 

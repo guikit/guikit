@@ -22,14 +22,15 @@ struct SliderOptions {
     std::optional<double> step{std::nullopt};      ///< Step quantization (defaults to 1.0 for integers, continuous for float)
     ElementLayout layout{ElementLayout::Stacked};    ///< Widget layout (Stacked, Inline, Top, Bottom)
     InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout (LabelFirst = text first, ControlFirst = control first)
-    Align labelAlign{Align::Start};                ///< Label text alignment (Start, Center, End)
+    Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
     bool showValue{true};                          ///< Whether to display current formatted value text
     UiVariant variant{UiVariant::Primary};         ///< Accent fill color for active track and thumb
+    UiVariant descriptionVariant{UiVariant::Muted};   ///< Semantic variant for description text (Muted, Warning, Danger, Success, Info, etc.)
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
-    StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Between (space-between), Fill
-    std::optional<float> width{std::nullopt};      ///< Explicit track width in points (nullopt = from theme)
+    StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
+    std::optional<float> width{std::nullopt};      ///< Track width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
     bool disabled{false};                          ///< Interaction suppression
 };
 
@@ -40,18 +41,19 @@ struct StepSliderOptions {
     std::span<const std::string_view> stepLabels{};///< Optional text labels for each discrete step
     ElementLayout layout{ElementLayout::Stacked};    ///< Widget layout (Stacked, Inline, Top, Bottom)
     InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout (LabelFirst = text first, ControlFirst = control first)
-    Align labelAlign{Align::Start};                ///< Label text alignment (Start, Center, End)
+    Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
     bool showTicks{true};                          ///< Whether to render tick marks at each step
     bool showLabels{true};                         ///< Whether to render stepLabels below ticks
     bool showValue{false};                         ///< Whether to display currently selected label/index in header
     std::string_view valueText{};                  ///< Optional custom display string for current value in header
     bool includeNone{false};                       ///< For UiSize overload: if true, range includes UiSize::None (None..Xl)
     UiVariant variant{UiVariant::Primary};         ///< Accent fill color for active track and thumb
+    UiVariant descriptionVariant{UiVariant::Muted};   ///< Semantic variant for description text (Muted, Warning, Danger, Success, Info, etc.)
     std::optional<UiSize> size{std::nullopt};      ///< Local size override
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
-    StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Between (space-between), Fill
-    std::optional<float> width{std::nullopt};      ///< Explicit track width in points (nullopt = from theme)
+    StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
+    std::optional<float> width{std::nullopt};      ///< Track width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
     bool disabled{false};                          ///< Interaction suppression
 };
 

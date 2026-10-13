@@ -168,15 +168,17 @@ int main(int argc, char* argv[]) {
     bool sliderContinuous = true;
     size_t sliderStretchIdx = 2; // Fill
     float sliderWidth = 0.0f;
+    float sliderFillPct = 50.0f;
     bool sliderShowLabel = true;
     bool sliderShowDesc = false;
+    guikit::UiVariant sliderDescVariant = guikit::UiVariant::Muted;
     bool sliderShowTicks = true;
     bool sliderShowLabels = true;
     bool sliderShowValue = true;
     bool sliderDisabled = false;
     guikit::ElementLayout sliderLayout = guikit::ElementLayout::Stacked;
     guikit::InlineOrder sliderInlineOrder = guikit::InlineOrder::LabelFirst;
-    guikit::Align sliderLabelAlign = guikit::Align::Start;
+    guikit::Align sliderElementAlign = guikit::Align::Start;
 
     std::string testInputText = "guikit.dev";
     guikit::CursorBlinkMode inputCursorMode = guikit::CursorBlinkMode::Blinking;
@@ -187,45 +189,51 @@ int main(int argc, char* argv[]) {
     float inputCornerRadius = 6.0f;
     bool inputShowLabel = true;
     bool inputShowDesc = false;
+    guikit::UiVariant inputDescVariant = guikit::UiVariant::Muted;
     guikit::ElementLayout inputLayout = guikit::ElementLayout::Stacked;
     guikit::InlineOrder inputInlineOrder = guikit::InlineOrder::LabelFirst;
-    guikit::Align inputLabelAlign = guikit::Align::Start;
+    guikit::Align inputElementAlign = guikit::Align::Start;
     size_t inputStretchIdx = 2; // Fill
     float inputWidth = 0.0f;
+    float inputFillPct = 50.0f;
 
     size_t testSelectIdx = 0;
     static const std::vector<std::string_view> selectItems = {"Option Alpha", "Option Beta", "Option Gamma", "Option Delta", "Option Epsilon"};
     bool selectDisabled = false;
     size_t selectStretchIdx = 2; // Fill
     float selectWidth = 0.0f;
+    float selectFillPct = 50.0f;
     uint32_t selectMaxItems = 4;
     float selectCornerRadius = 6.0f;
     bool selectShowLabel = true;
     bool selectShowDesc = true;
+    guikit::UiVariant selectDescVariant = guikit::UiVariant::Muted;
     guikit::ElementLayout selectLayout = guikit::ElementLayout::Stacked;
     guikit::InlineOrder selectInlineOrder = guikit::InlineOrder::LabelFirst;
-    guikit::Align selectLabelAlign = guikit::Align::Start;
+    guikit::Align selectElementAlign = guikit::Align::Start;
     bool selectHasPrefix = false;
 
     bool testSwitchState = true;
     bool testDarkLightSwitch = false;
     guikit::ElementLayout switchLayout = guikit::ElementLayout::Inline;
     guikit::InlineOrder switchInlineOrder = guikit::InlineOrder::ControlFirst;
-    guikit::Align switchLabelAlign = guikit::Align::Start;
+    guikit::Align switchElementAlign = guikit::Align::Start;
     size_t switchStretchIdx = 0; // Compact
     bool switchSymmetric = false;
     bool switchShowLabel = true;
     bool switchShowDesc = true;
+    guikit::UiVariant switchDescVariant = guikit::UiVariant::Muted;
     bool switchDisabled = false;
 
     bool testCheckboxState = true;
     bool testCheckboxIndet = false;
     guikit::ElementLayout checkboxLayout = guikit::ElementLayout::Inline;
     guikit::InlineOrder checkboxInlineOrder = guikit::InlineOrder::ControlFirst;
-    guikit::Align checkboxLabelAlign = guikit::Align::Start;
+    guikit::Align checkboxElementAlign = guikit::Align::Start;
     size_t checkboxStretchIdx = 0; // Compact
     bool checkboxShowLabel = true;
     bool checkboxShowDesc = true;
+    guikit::UiVariant checkboxDescVariant = guikit::UiVariant::Muted;
     bool checkboxDisabled = false;
 
     static constexpr std::array<std::string_view, 3> stretchModeNames = {"Compact", "Space", "Fill"};
@@ -616,6 +624,30 @@ int main(int argc, char* argv[]) {
                                         }
                                     };
 
+                                    auto renderDescVariantPicker = [&](guikit::UiVariant& descVar, bool enabled) {
+                                        static constexpr std::array<std::string_view, 7> descVarShort = {"Mut", "Def", "Pri", "Suc", "Wrn", "Dgr", "Inf"};
+                                        static constexpr std::array<guikit::UiVariant, 7> descVars = {
+                                            guikit::UiVariant::Muted, guikit::UiVariant::Default, guikit::UiVariant::Primary,
+                                            guikit::UiVariant::Success, guikit::UiVariant::Warning, guikit::UiVariant::Danger, guikit::UiVariant::Info
+                                        };
+                                        size_t descVarIdx = 0;
+                                        for (size_t i = 0; i < descVars.size(); ++i) {
+                                            if (descVars[i] == descVar) { descVarIdx = i; break; }
+                                        }
+                                        if (ui.StepSlider(descVarIdx, descVarShort, {
+                                            .label = "Description Variant",
+                                            .showTicks = true,
+                                            .showLabels = true,
+                                            .showValue = true,
+                                            .valueText = variantName(descVar),
+                                            .variant = (descVar == guikit::UiVariant::Muted) ? guikit::UiVariant::Secondary : descVar,
+                                            .disabled = !enabled
+                                        }).changed) {
+                                            descVar = descVars[descVarIdx];
+                                            ui.InvalidateAll();
+                                        }
+                                    };
+
                                     if (isElementCategory(selectedCategory)) {
                                         switch (selectedCategory) {
                                             case NavCategory::ElemButton: {
@@ -628,29 +660,7 @@ int main(int argc, char* argv[]) {
 
                                                 if (ui.Switch(btnShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(btnShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
-                                                {
-                                                    static constexpr std::array<std::string_view, 7> descVarShort = {"Mut", "Def", "Pri", "Suc", "Wrn", "Dgr", "Inf"};
-                                                    static constexpr std::array<guikit::UiVariant, 7> descVars = {
-                                                        guikit::UiVariant::Muted, guikit::UiVariant::Default, guikit::UiVariant::Primary,
-                                                        guikit::UiVariant::Success, guikit::UiVariant::Warning, guikit::UiVariant::Danger, guikit::UiVariant::Info
-                                                    };
-                                                    size_t descVarIdx = 0;
-                                                    for (size_t i = 0; i < descVars.size(); ++i) {
-                                                        if (descVars[i] == btnDescVariant) { descVarIdx = i; break; }
-                                                    }
-                                                    if (ui.StepSlider(descVarIdx, descVarShort, {
-                                                        .label = "Description Variant",
-                                                        .showTicks = true,
-                                                        .showLabels = true,
-                                                        .showValue = true,
-                                                        .valueText = variantName(btnDescVariant),
-                                                        .variant = (btnDescVariant == guikit::UiVariant::Muted) ? guikit::UiVariant::Secondary : btnDescVariant,
-                                                        .disabled = !btnShowDesc
-                                                    }).changed) {
-                                                        btnDescVariant = descVars[descVarIdx];
-                                                        ui.InvalidateAll();
-                                                    }
-                                                }
+                                                renderDescVariantPicker(btnDescVariant, btnShowDesc);
                                                 const bool btnHasExternal = btnShowLabel || btnShowDesc;
 
                                                 size_t btnLayoutIdx = static_cast<size_t>(btnLayout);
@@ -700,10 +710,9 @@ int main(int argc, char* argv[]) {
 
                                                 renderVariantPicker();
 
-                                                if (ui.StepSlider(sliderStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(sliderWidth, 0.0f, 400.0f, {.label = "Explicit Track Width", .format = (sliderWidth > 0.0f) ? "%.0f px" : "Default", .step = 10.0, .disabled = (sliderStretchIdx == 2)}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(sliderShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(sliderShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
+                                                renderDescVariantPicker(sliderDescVariant, sliderShowDesc);
                                                 const bool sliderHasExternal = sliderShowLabel || sliderShowDesc;
 
                                                 size_t slLayoutIdx = static_cast<size_t>(sliderLayout);
@@ -717,11 +726,18 @@ int main(int argc, char* argv[]) {
                                                     sliderInlineOrder = static_cast<guikit::InlineOrder>(slOrderIdx);
                                                     ui.InvalidateAll();
                                                 }
- 
-                                                size_t slAlignIdx = static_cast<size_t>(sliderLabelAlign);
-                                                if (ui.StepSlider(slAlignIdx, labelAlignNames, {.label = "Label Alignment", .showTicks = true, .showLabels = true, .disabled = !sliderHasExternal}).changed) {
-                                                    sliderLabelAlign = static_cast<guikit::Align>(slAlignIdx);
+
+                                                size_t slAlignIdx = static_cast<size_t>(sliderElementAlign);
+                                                if (ui.StepSlider(slAlignIdx, labelAlignNames, {.label = "Element Alignment", .showTicks = true, .showLabels = true, .disabled = (!sliderHasExternal && sliderStretchIdx == 0)}).changed) {
+                                                    sliderElementAlign = static_cast<guikit::Align>(slAlignIdx);
                                                     ui.InvalidateAll();
+                                                }
+
+                                                if (ui.StepSlider(sliderStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
+                                                if (sliderStretchIdx == 2) {
+                                                    if (ui.Slider(sliderFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .format = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
+                                                } else {
+                                                    if (ui.Slider(sliderWidth, 0.0f, 400.0f, {.label = "Explicit Width", .format = (sliderWidth > 0.0f) ? "%.0f px" : "Default", .step = 10.0f}).changed) ui.InvalidateAll();
                                                 }
                                                 if (ui.Switch(sliderShowValue, {.label = "Show Value Tag"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(sliderShowTicks, {.label = "Show Step Ticks", .disabled = sliderContinuous}).changed) ui.InvalidateAll();
@@ -738,10 +754,9 @@ int main(int argc, char* argv[]) {
 
                                                 renderVariantPicker();
 
-                                                if (ui.StepSlider(inputStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(inputWidth, 0.0f, 400.0f, {.label = "Explicit Width", .format = (inputWidth > 0.0f) ? "%.0f px" : "Default", .step = 10.0, .disabled = (inputStretchIdx == 2)}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(inputShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(inputShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
+                                                renderDescVariantPicker(inputDescVariant, inputShowDesc);
                                                 const bool inHasExternal = inputShowLabel || inputShowDesc;
 
                                                 size_t inLayoutIdx = static_cast<size_t>(inputLayout);
@@ -756,10 +771,17 @@ int main(int argc, char* argv[]) {
                                                     ui.InvalidateAll();
                                                 }
 
-                                                size_t inAlignIdx = static_cast<size_t>(inputLabelAlign);
-                                                if (ui.StepSlider(inAlignIdx, labelAlignNames, {.label = "Label Alignment", .showTicks = true, .showLabels = true, .disabled = !inHasExternal}).changed) {
-                                                    inputLabelAlign = static_cast<guikit::Align>(inAlignIdx);
+                                                size_t inAlignIdx = static_cast<size_t>(inputElementAlign);
+                                                if (ui.StepSlider(inAlignIdx, labelAlignNames, {.label = "Element Alignment", .showTicks = true, .showLabels = true, .disabled = (!inHasExternal && inputStretchIdx == 0)}).changed) {
+                                                    inputElementAlign = static_cast<guikit::Align>(inAlignIdx);
                                                     ui.InvalidateAll();
+                                                }
+
+                                                if (ui.StepSlider(inputStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
+                                                if (inputStretchIdx == 2) {
+                                                    if (ui.Slider(inputFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .format = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
+                                                } else {
+                                                    if (ui.Slider(inputWidth, 0.0f, 400.0f, {.label = "Explicit Width", .format = (inputWidth > 0.0f) ? "%.0f px" : "Default", .step = 10.0f}).changed) ui.InvalidateAll();
                                                 }
 
                                                 static constexpr std::array<std::string_view, 3> cursorModes = {"Blinking", "Solid", "Hidden"};
@@ -788,10 +810,9 @@ int main(int argc, char* argv[]) {
 
                                                 renderVariantPicker();
 
-                                                if (ui.StepSlider(selectStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(selectWidth, 0.0f, 400.0f, {.label = "Explicit Width", .format = (selectWidth > 0.0f) ? "%.0f px" : "Auto", .step = 10.0, .disabled = (selectStretchIdx == 2)}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(selectShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(selectShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
+                                                renderDescVariantPicker(selectDescVariant, selectShowDesc);
                                                 const bool selHasExternal = selectShowLabel || selectShowDesc;
 
                                                 size_t selLayoutIdx = static_cast<size_t>(selectLayout);
@@ -806,10 +827,17 @@ int main(int argc, char* argv[]) {
                                                     ui.InvalidateAll();
                                                 }
 
-                                                size_t selAlignIdx = static_cast<size_t>(selectLabelAlign);
-                                                if (ui.StepSlider(selAlignIdx, labelAlignNames, {.label = "Label Alignment", .showTicks = true, .showLabels = true, .disabled = !selHasExternal}).changed) {
-                                                    selectLabelAlign = static_cast<guikit::Align>(selAlignIdx);
+                                                size_t selAlignIdx = static_cast<size_t>(selectElementAlign);
+                                                if (ui.StepSlider(selAlignIdx, labelAlignNames, {.label = "Element Alignment", .showTicks = true, .showLabels = true, .disabled = (!selHasExternal && selectStretchIdx == 0)}).changed) {
+                                                    selectElementAlign = static_cast<guikit::Align>(selAlignIdx);
                                                     ui.InvalidateAll();
+                                                }
+
+                                                if (ui.StepSlider(selectStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
+                                                if (selectStretchIdx == 2) {
+                                                    if (ui.Slider(selectFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .format = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
+                                                } else {
+                                                    if (ui.Slider(selectWidth, 0.0f, 400.0f, {.label = "Explicit Width", .format = (selectWidth > 0.0f) ? "%.0f px" : "Auto", .step = 10.0f}).changed) ui.InvalidateAll();
                                                 }
 
                                                 if (ui.Switch(selectHasPrefix, {.label = "Prefix Icon"}).changed) ui.InvalidateAll();
@@ -822,9 +850,9 @@ int main(int argc, char* argv[]) {
 
                                                 renderVariantPicker();
 
-                                                if (ui.StepSlider(switchStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(switchShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(switchShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
+                                                renderDescVariantPicker(switchDescVariant, switchShowDesc);
                                                 const bool switchHasExternal = switchShowLabel || switchShowDesc;
 
                                                 size_t swLayoutIdx = static_cast<size_t>(switchLayout);
@@ -839,12 +867,13 @@ int main(int argc, char* argv[]) {
                                                     ui.InvalidateAll();
                                                 }
 
-                                                size_t swAlignIdx = static_cast<size_t>(switchLabelAlign);
-                                                if (ui.StepSlider(swAlignIdx, labelAlignNames, {.label = "Label Alignment", .showTicks = true, .showLabels = true, .disabled = !switchHasExternal}).changed) {
-                                                    switchLabelAlign = static_cast<guikit::Align>(swAlignIdx);
+                                                size_t swAlignIdx = static_cast<size_t>(switchElementAlign);
+                                                if (ui.StepSlider(swAlignIdx, labelAlignNames, {.label = "Element Alignment", .showTicks = true, .showLabels = true, .disabled = (!switchHasExternal && switchStretchIdx == 0)}).changed) {
+                                                    switchElementAlign = static_cast<guikit::Align>(swAlignIdx);
                                                     ui.InvalidateAll();
                                                 }
 
+                                                if (ui.StepSlider(switchStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(testDarkLightSwitch, {.label = "Dual Labels (Dark / Light)"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(switchSymmetric, {.label = "Symmetric (Neutral Track)"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(switchDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
@@ -856,9 +885,9 @@ int main(int argc, char* argv[]) {
 
                                                 renderVariantPicker();
 
-                                                if (ui.StepSlider(checkboxStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(checkboxShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(checkboxShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
+                                                renderDescVariantPicker(checkboxDescVariant, checkboxShowDesc);
                                                 const bool checkHasExternal = checkboxShowLabel || checkboxShowDesc;
 
                                                 size_t cbLayoutIdx = static_cast<size_t>(checkboxLayout);
@@ -873,12 +902,13 @@ int main(int argc, char* argv[]) {
                                                     ui.InvalidateAll();
                                                 }
 
-                                                size_t cbAlignIdx = static_cast<size_t>(checkboxLabelAlign);
-                                                if (ui.StepSlider(cbAlignIdx, labelAlignNames, {.label = "Label Alignment", .showTicks = true, .showLabels = true, .disabled = !checkHasExternal}).changed) {
-                                                    checkboxLabelAlign = static_cast<guikit::Align>(cbAlignIdx);
+                                                size_t cbAlignIdx = static_cast<size_t>(checkboxElementAlign);
+                                                if (ui.StepSlider(cbAlignIdx, labelAlignNames, {.label = "Element Alignment", .showTicks = true, .showLabels = true, .disabled = (!checkHasExternal && checkboxStretchIdx == 0)}).changed) {
+                                                    checkboxElementAlign = static_cast<guikit::Align>(cbAlignIdx);
                                                     ui.InvalidateAll();
                                                 }
 
+                                                if (ui.StepSlider(checkboxStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(testCheckboxIndet, {.label = "Indeterminate Tri-State"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(checkboxDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
                                                 break;
@@ -1105,12 +1135,13 @@ int main(int argc, char* argv[]) {
                                                             .format = "%.1f %%",
                                                             .layout = sliderLayout,
                                                             .inlineOrder = sliderInlineOrder,
-                                                            .labelAlign = sliderLabelAlign,
+                                                            .elementAlign = sliderElementAlign,
                                                             .showValue = sliderShowValue,
                                                             .variant = btnVariant,
+                                                            .descriptionVariant = sliderDescVariant,
                                                             .size = controlsSize,
                                                             .stretch = static_cast<guikit::StretchMode>(sliderStretchIdx),
-                                                            .width = (sliderStretchIdx != 2 && sliderWidth > 0.0f) ? std::optional<float>(sliderWidth) : std::nullopt,
+                                                            .width = (sliderStretchIdx == 2) ? std::optional<float>(sliderFillPct) : ((sliderWidth > 0.0f) ? std::optional<float>(sliderWidth) : std::nullopt),
                                                             .disabled = sliderDisabled
                                                         });
                                                     } else {
@@ -1120,14 +1151,15 @@ int main(int argc, char* argv[]) {
                                                             .description = sliderShowDesc ? "Select active FIR profile" : "",
                                                             .layout = sliderLayout,
                                                             .inlineOrder = sliderInlineOrder,
-                                                            .labelAlign = sliderLabelAlign,
+                                                            .elementAlign = sliderElementAlign,
                                                             .showTicks = sliderShowTicks,
                                                             .showLabels = sliderShowLabels,
                                                             .showValue = sliderShowValue,
                                                             .variant = btnVariant,
+                                                            .descriptionVariant = sliderDescVariant,
                                                             .size = controlsSize,
                                                             .stretch = static_cast<guikit::StretchMode>(sliderStretchIdx),
-                                                            .width = (sliderStretchIdx != 2 && sliderWidth > 0.0f) ? std::optional<float>(sliderWidth) : std::nullopt,
+                                                            .width = (sliderStretchIdx == 2) ? std::optional<float>(sliderFillPct) : ((sliderWidth > 0.0f) ? std::optional<float>(sliderWidth) : std::nullopt),
                                                             .disabled = sliderDisabled
                                                         });
                                                     }
@@ -1142,14 +1174,15 @@ int main(int argc, char* argv[]) {
                                                         .prefix = inputHasPrefix ? "https://" : "",
                                                         .suffix = inputHasSuffix ? ":443" : "",
                                                         .variant = btnVariant,
+                                                        .descriptionVariant = inputDescVariant,
                                                         .layout = inputLayout,
                                                         .inlineOrder = inputInlineOrder,
-                                                        .labelAlign = inputLabelAlign,
+                                                        .elementAlign = inputElementAlign,
                                                         .cursorMode = inputCursorMode,
                                                         .size = controlsSize,
                                                         .radius = inputCornerRadius,
                                                         .stretch = static_cast<guikit::StretchMode>(inputStretchIdx),
-                                                        .width = (inputStretchIdx != 2 && inputWidth > 0.0f) ? std::optional<float>(inputWidth) : std::nullopt,
+                                                        .width = (inputStretchIdx == 2) ? std::optional<float>(inputFillPct) : ((inputWidth > 0.0f) ? std::optional<float>(inputWidth) : std::nullopt),
                                                         .disabled = inputDisabled,
                                                         .readOnly = inputReadOnly
                                                     });
@@ -1161,54 +1194,53 @@ int main(int argc, char* argv[]) {
                                                         .label = selectShowLabel ? "Active Preset" : "",
                                                         .description = selectShowDesc ? "Dropdown selection" : "",
                                                         .variant = btnVariant,
+                                                        .descriptionVariant = selectDescVariant,
                                                         .layout = selectLayout,
                                                         .inlineOrder = selectInlineOrder,
-                                                        .labelAlign = selectLabelAlign,
+                                                        .elementAlign = selectElementAlign,
                                                         .prefixIcon = selectHasPrefix ? guikit::Icon::Settings() : guikit::Icon{},
                                                         .maxVisibleItems = selectMaxItems,
                                                         .size = controlsSize,
                                                         .radius = selectCornerRadius,
                                                         .stretch = static_cast<guikit::StretchMode>(selectStretchIdx),
-                                                        .width = (selectStretchIdx != 2 && selectWidth > 0.0f) ? std::optional<float>(selectWidth) : std::nullopt,
+                                                        .width = (selectStretchIdx == 2) ? std::optional<float>(selectFillPct) : ((selectWidth > 0.0f) ? std::optional<float>(selectWidth) : std::nullopt),
                                                         .disabled = selectDisabled
                                                     });
                                                     break;
                                                 }
 
                                                 case NavCategory::ElemSwitch: {
-                                                    if (auto swRow = ui.Row({.gap = 20.0f, .align = guikit::Alignment::Center})) {
-                                                        ui.Switch(testSwitchState, {
-                                                            .label = switchShowLabel ? (testDarkLightSwitch ? "Dark" : "Hardware E-Stop") : "",
-                                                            .trailingLabel = (switchShowLabel && testDarkLightSwitch) ? "Light" : "",
-                                                            .description = switchShowDesc ? "Safety interlocking system" : "",
-                                                            .variant = btnVariant,
-                                                            .layout = switchLayout,
-                                                            .inlineOrder = switchInlineOrder,
-                                                            .labelAlign = switchLabelAlign,
-                                                            .symmetric = switchSymmetric,
-                                                            .stretch = static_cast<guikit::StretchMode>(switchStretchIdx),
-                                                            .disabled = switchDisabled,
-                                                            .size = controlsSize
-                                                        });
-                                                    }
+                                                    ui.Switch(testSwitchState, {
+                                                        .label = switchShowLabel ? (testDarkLightSwitch ? "Dark" : "Hardware E-Stop") : "",
+                                                        .trailingLabel = (switchShowLabel && testDarkLightSwitch) ? "Light" : "",
+                                                        .description = switchShowDesc ? "Safety interlocking system" : "",
+                                                        .variant = btnVariant,
+                                                        .descriptionVariant = switchDescVariant,
+                                                        .layout = switchLayout,
+                                                        .inlineOrder = switchInlineOrder,
+                                                        .elementAlign = switchElementAlign,
+                                                        .symmetric = switchSymmetric,
+                                                        .stretch = static_cast<guikit::StretchMode>(switchStretchIdx),
+                                                        .disabled = switchDisabled,
+                                                        .size = controlsSize
+                                                    });
                                                     break;
                                                 }
 
                                                 case NavCategory::ElemCheckbox: {
-                                                    if (auto chRow = ui.Row({.gap = 20.0f, .align = guikit::Alignment::Center})) {
-                                                        ui.Checkbox(testCheckboxState, {
-                                                            .label = checkboxShowLabel ? "Telemetry Logging" : "",
-                                                            .description = checkboxShowDesc ? "Save trace to buffer" : "",
-                                                            .variant = btnVariant,
-                                                            .layout = checkboxLayout,
-                                                            .inlineOrder = checkboxInlineOrder,
-                                                            .labelAlign = checkboxLabelAlign,
-                                                            .stretch = static_cast<guikit::StretchMode>(checkboxStretchIdx),
-                                                            .disabled = checkboxDisabled,
-                                                            .indeterminate = testCheckboxIndet,
-                                                            .size = controlsSize
-                                                        });
-                                                    }
+                                                    ui.Checkbox(testCheckboxState, {
+                                                        .label = checkboxShowLabel ? "Telemetry Logging" : "",
+                                                        .description = checkboxShowDesc ? "Save trace to buffer" : "",
+                                                        .variant = btnVariant,
+                                                        .descriptionVariant = checkboxDescVariant,
+                                                        .layout = checkboxLayout,
+                                                        .inlineOrder = checkboxInlineOrder,
+                                                        .elementAlign = checkboxElementAlign,
+                                                        .stretch = static_cast<guikit::StretchMode>(checkboxStretchIdx),
+                                                        .disabled = checkboxDisabled,
+                                                        .indeterminate = testCheckboxIndet,
+                                                        .size = controlsSize
+                                                    });
                                                     break;
                                                 }
 
@@ -1359,8 +1391,10 @@ int main(int argc, char* argv[]) {
                                                     "    .step = std::nullopt,\n"
                                                     "    .layout = guikit::ElementLayout::{},\n"
                                                     "    .inlineOrder = guikit::InlineOrder::{},\n"
+                                                    "    .elementAlign = guikit::Align::{},\n"
                                                     "    .showValue = {},\n"
                                                     "    .variant = guikit::UiVariant::{},\n"
+                                                    "    .descriptionVariant = guikit::UiVariant::{},\n"
                                                     "    .size = guikit::UiSize::{},\n"
                                                     "    .stretch = guikit::StretchMode::{},\n"
                                                     "    .width = {},\n"
@@ -1372,11 +1406,13 @@ int main(int argc, char* argv[]) {
                                                     sliderShowDesc ? "Adjust internal preamp attenuation" : "",
                                                     elementLayoutEnumName(sliderLayout),
                                                     inlineOrderEnumName(sliderInlineOrder),
+                                                    labelAlignEnumName(sliderElementAlign),
                                                     sliderShowValue ? "true" : "false",
                                                     variantName(btnVariant),
+                                                    variantName(sliderDescVariant),
                                                     sizeName(controlsSize),
                                                     stretchModeEnumName(static_cast<guikit::StretchMode>(sliderStretchIdx)),
-                                                    (sliderStretchIdx != 2 && sliderWidth > 0.0f) ? std::format("{:.1f}f", sliderWidth) : "std::nullopt",
+                                                    (sliderStretchIdx == 2) ? std::format("{:.1f}f", sliderFillPct) : ((sliderWidth > 0.0f) ? std::format("{:.1f}f", sliderWidth) : "std::nullopt"),
                                                     sliderDisabled ? "true" : "false"
                                                 );
                                             } else {
@@ -1388,12 +1424,14 @@ int main(int argc, char* argv[]) {
                                                     "    .stepLabels = {{}},\n"
                                                     "    .layout = guikit::ElementLayout::{},\n"
                                                     "    .inlineOrder = guikit::InlineOrder::{},\n"
+                                                    "    .elementAlign = guikit::Align::{},\n"
                                                     "    .showTicks = {},\n"
                                                     "    .showLabels = {},\n"
                                                     "    .showValue = {},\n"
                                                     "    .valueText = \"\",\n"
                                                     "    .includeNone = false,\n"
                                                     "    .variant = guikit::UiVariant::{},\n"
+                                                    "    .descriptionVariant = guikit::UiVariant::{},\n"
                                                     "    .size = guikit::UiSize::{},\n"
                                                     "    .stretch = guikit::StretchMode::{},\n"
                                                     "    .width = {},\n"
@@ -1405,13 +1443,15 @@ int main(int argc, char* argv[]) {
                                                     sliderShowDesc ? "Select active FIR profile" : "",
                                                     elementLayoutEnumName(sliderLayout),
                                                     inlineOrderEnumName(sliderInlineOrder),
+                                                    labelAlignEnumName(sliderElementAlign),
                                                     sliderShowTicks ? "true" : "false",
                                                     sliderShowLabels ? "true" : "false",
                                                     sliderShowValue ? "true" : "false",
                                                     variantName(btnVariant),
+                                                    variantName(sliderDescVariant),
                                                     sizeName(controlsSize),
                                                     stretchModeEnumName(static_cast<guikit::StretchMode>(sliderStretchIdx)),
-                                                    (sliderStretchIdx != 2 && sliderWidth > 0.0f) ? std::format("{:.1f}f", sliderWidth) : "std::nullopt",
+                                                    (sliderStretchIdx == 2) ? std::format("{:.1f}f", sliderFillPct) : ((sliderWidth > 0.0f) ? std::format("{:.1f}f", sliderWidth) : "std::nullopt"),
                                                     sliderDisabled ? "true" : "false"
                                                 );
                                             }
@@ -1428,8 +1468,10 @@ int main(int argc, char* argv[]) {
                                                 "    .suffix = \"{}\",\n"
                                                 "    .format = \"%.2f\",\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
+                                                "    .descriptionVariant = guikit::UiVariant::{},\n"
                                                 "    .layout = guikit::ElementLayout::{},\n"
                                                 "    .inlineOrder = guikit::InlineOrder::{},\n"
+                                                "    .elementAlign = guikit::Align::{},\n"
                                                 "    .prefixIcon = {},\n"
                                                 "    .suffixIcon = {},\n"
                                                 "    .cursorMode = guikit::CursorBlinkMode::{},\n"
@@ -1445,15 +1487,17 @@ int main(int argc, char* argv[]) {
                                                 inputHasPrefix ? "https://" : "",
                                                 inputHasSuffix ? ":443" : "",
                                                 variantName(btnVariant),
+                                                variantName(inputDescVariant),
                                                 elementLayoutEnumName(inputLayout),
                                                 inlineOrderEnumName(inputInlineOrder),
+                                                labelAlignEnumName(inputElementAlign),
                                                 "{}",
                                                 "{}",
                                                 cursorModeName(inputCursorMode),
                                                 sizeName(controlsSize),
                                                 inputCornerRadius,
                                                 stretchModeEnumName(static_cast<guikit::StretchMode>(inputStretchIdx)),
-                                                (inputStretchIdx != 2 && inputWidth > 0.0f) ? std::format("{:.1f}f", inputWidth) : "std::nullopt",
+                                                (inputStretchIdx == 2) ? std::format("{:.1f}f", inputFillPct) : ((inputWidth > 0.0f) ? std::format("{:.1f}f", inputWidth) : "std::nullopt"),
                                                 inputDisabled ? "true" : "false",
                                                 inputReadOnly ? "true" : "false"
                                             );
@@ -1467,8 +1511,10 @@ int main(int argc, char* argv[]) {
                                                 "    .description = \"{}\",\n"
                                                 "    .placeholder = \"Select...\",\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
+                                                "    .descriptionVariant = guikit::UiVariant::{},\n"
                                                 "    .layout = guikit::ElementLayout::{},\n"
                                                 "    .inlineOrder = guikit::InlineOrder::{},\n"
+                                                "    .elementAlign = guikit::Align::{},\n"
                                                 "    .prefixIcon = {},\n"
                                                 "    .maxVisibleItems = {},\n"
                                                 "    .size = guikit::UiSize::{},\n"
@@ -1480,14 +1526,16 @@ int main(int argc, char* argv[]) {
                                                 selectShowLabel ? "Active Preset" : "",
                                                 selectShowDesc ? "Dropdown selection" : "",
                                                 variantName(btnVariant),
+                                                variantName(selectDescVariant),
                                                 elementLayoutEnumName(selectLayout),
                                                 inlineOrderEnumName(selectInlineOrder),
+                                                labelAlignEnumName(selectElementAlign),
                                                 selectHasPrefix ? "guikit::Icon::Settings()" : "{}",
                                                 selectMaxItems,
                                                 sizeName(controlsSize),
                                                 selectCornerRadius,
                                                 stretchModeEnumName(static_cast<guikit::StretchMode>(selectStretchIdx)),
-                                                (selectStretchIdx != 2 && selectWidth > 0.0f) ? std::format("{:.1f}f", selectWidth) : "std::nullopt",
+                                                (selectStretchIdx == 2) ? std::format("{:.1f}f", selectFillPct) : ((selectWidth > 0.0f) ? std::format("{:.1f}f", selectWidth) : "std::nullopt"),
                                                 selectDisabled ? "true" : "false"
                                             );
                                             break;
@@ -1500,10 +1548,12 @@ int main(int argc, char* argv[]) {
                                                 "    .trailingLabel = \"{}\",\n"
                                                 "    .description = \"{}\",\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
+                                                "    .descriptionVariant = guikit::UiVariant::{},\n"
                                                 "    .layout = guikit::ElementLayout::{},\n"
                                                 "    .inlineOrder = guikit::InlineOrder::{},\n"
-                                                "    .stretch = guikit::StretchMode::{},\n"
+                                                "    .elementAlign = guikit::Align::{},\n"
                                                 "    .symmetric = {},\n"
+                                                "    .stretch = guikit::StretchMode::{},\n"
                                                 "    .disabled = {},\n"
                                                 "    .size = guikit::UiSize::{}\n"
                                                 "}});",
@@ -1511,10 +1561,12 @@ int main(int argc, char* argv[]) {
                                                 (switchShowLabel && testDarkLightSwitch) ? "Light" : "",
                                                 switchShowDesc ? "Safety interlocking system" : "",
                                                 variantName(btnVariant),
+                                                variantName(switchDescVariant),
                                                 elementLayoutEnumName(switchLayout),
                                                 inlineOrderEnumName(switchInlineOrder),
-                                                stretchModeEnumName(static_cast<guikit::StretchMode>(switchStretchIdx)),
+                                                labelAlignEnumName(switchElementAlign),
                                                 switchSymmetric ? "true" : "false",
+                                                stretchModeEnumName(static_cast<guikit::StretchMode>(switchStretchIdx)),
                                                 switchDisabled ? "true" : "false",
                                                 sizeName(controlsSize)
                                             );
@@ -1527,8 +1579,10 @@ int main(int argc, char* argv[]) {
                                                 "    .label = \"{}\",\n"
                                                 "    .description = \"{}\",\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
+                                                "    .descriptionVariant = guikit::UiVariant::{},\n"
                                                 "    .layout = guikit::ElementLayout::{},\n"
                                                 "    .inlineOrder = guikit::InlineOrder::{},\n"
+                                                "    .elementAlign = guikit::Align::{},\n"
                                                 "    .stretch = guikit::StretchMode::{},\n"
                                                 "    .disabled = {},\n"
                                                 "    .indeterminate = {},\n"
@@ -1537,8 +1591,10 @@ int main(int argc, char* argv[]) {
                                                 checkboxShowLabel ? "Telemetry Logging" : "",
                                                 checkboxShowDesc ? "Save trace to buffer" : "",
                                                 variantName(btnVariant),
+                                                variantName(checkboxDescVariant),
                                                 elementLayoutEnumName(checkboxLayout),
                                                 inlineOrderEnumName(checkboxInlineOrder),
+                                                labelAlignEnumName(checkboxElementAlign),
                                                 stretchModeEnumName(static_cast<guikit::StretchMode>(checkboxStretchIdx)),
                                                 checkboxDisabled ? "true" : "false",
                                                 testCheckboxIndet ? "true" : "false",

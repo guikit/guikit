@@ -23,16 +23,17 @@ struct InputFieldOptions {
     std::string_view suffix{};                     ///< Unit/symbol inside field on right (e.g. "%", "mm", "MB/s")
     std::string_view format{"%.2f"};               ///< Format string for floating-point values
     UiVariant variant{UiVariant::Default};         ///< Accent/border variant (Default, Warning, Danger, etc.)
+    UiVariant descriptionVariant{UiVariant::Muted};   ///< Semantic variant for description text (Muted, Warning, Danger, Success, Info, etc.)
     ElementLayout layout{ElementLayout::Stacked};    ///< Layout geometry: Stacked, Top, Bottom, Inline
     InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
-    Align labelAlign{Align::Start};                ///< Label and description text alignment (Start, Center, End)
+    Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
     Icon prefixIcon{};                             ///< Optional vector icon inside field on left
     Icon suffixIcon{};                             ///< Optional vector icon inside field on right
     std::optional<CursorBlinkMode> cursorMode{std::nullopt}; ///< Cursor blink override (inherits context config if nullopt)
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     std::optional<float> radius{std::nullopt};     ///< Local corner radius override (nullopt = inherit from size metrics)
-    StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Between (space-between), Fill
-    std::optional<float> width{std::nullopt};      ///< Explicit input box width in points (nullopt = from theme / remaining)
+    StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
+    std::optional<float> width{std::nullopt};      ///< Input box width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum input box width constraint in points
     bool disabled{false};                          ///< Interaction suppression
     bool readOnly{false};                          ///< Non-editable display mode

@@ -4021,7 +4021,7 @@ void TestWidgetStretchModesAndExplicitWidth() {
         const float thumbSize = ui.GetTheme().GetSlider(UiSize::Md).thumbSize;
         CHECK_NEAR(szSDef.x, defaultW + thumbSize, 0.01f);
 
-        SliderOptions sExplicit{.width = 240.0f};
+        SliderOptions sExplicit{.stretch = StretchMode::Compact, .width = 240.0f};
         Vec2 szSExp = Slider::Measure(sExplicit, 50.0, 0.0, 100.0, UiSize::Md, &canvas, ui.GetTheme());
         CHECK_NEAR(szSExp.x, 240.0f + thumbSize, 0.01f);
     }
@@ -4033,7 +4033,7 @@ void TestWidgetStretchModesAndExplicitWidth() {
         const float defW = ui.GetTheme().GetSelect(UiSize::Md).defaultWidth;
         CHECK_NEAR(szSelDef.x, defW, 0.01f);
 
-        SelectOptions selExplicit{.width = 320.0f};
+        SelectOptions selExplicit{.stretch = StretchMode::Compact, .width = 320.0f};
         Vec2 szExp = Select::Measure(selExplicit, UiSize::Md, &canvas, ui.GetTheme());
         CHECK_NEAR(szExp.x, 320.0f, 0.01f);
 
@@ -4049,7 +4049,7 @@ void TestWidgetStretchModesAndExplicitWidth() {
         const float defInW = ui.GetTheme().GetInputField(UiSize::Md).defaultWidth;
         CHECK_NEAR(szInDef.x, defInW, 0.01f);
 
-        InputFieldOptions inExp{.width = 280.0f};
+        InputFieldOptions inExp{.stretch = StretchMode::Compact, .width = 280.0f};
         Vec2 szInExp = InputField::Measure("", inExp, UiSize::Md, &canvas, ui.GetTheme());
         CHECK_NEAR(szInExp.x, 280.0f, 0.01f);
 
@@ -4486,7 +4486,7 @@ void TestLabelAlignmentGeometryOptionA() {
             .label = "Trailing Field Info",
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::ControlFirst,
-            .labelAlign = Align::Center,
+            .elementAlign = Align::Center,
             .stretch = StretchMode::Space,
             .width = 200.0f
         };
@@ -4502,6 +4502,51 @@ void TestLabelAlignmentGeometryOptionA() {
         }
     }
 
+    // 4b. InputField in Stacked layout with StretchMode::Fill & .width = 50.0f (50% of 800px = 400px) & Align::End:
+    {
+        recCanvas.Reset();
+        InputFieldOptions opts{
+            .label = "Endpoint",
+            .description = "Primary host",
+            .descriptionVariant = UiVariant::Warning,
+            .layout = ElementLayout::Stacked,
+            .elementAlign = Align::End,
+            .stretch = StretchMode::Fill,
+            .width = 50.0f
+        };
+        InputField::Render(recCanvas, widgetBounds, "text", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
+        CHECK_NEAR(recCanvas.lastRoundRect.w, 400.0f, 0.01f);
+        CHECK_NEAR(recCanvas.lastRoundRect.x, 450.0f, 0.01f); // 50 + (800 - 400) * 1.0
+        const auto* descCall = recCanvas.FindTextBox("Primary host");
+        CHECK(descCall != nullptr);
+        if (descCall) {
+            CHECK_NEAR(descCall->alignX, 1.0f, 0.01f);
+        }
+    }
+
+    // 4c. Select in Inline layout with StretchMode::Fill & .width = 90.0f (90% of 800px = 720px):
+    // Long label must be cropped with "..." to fit inside remaining width (800 - 720 - gap)
+    {
+        recCanvas.Reset();
+        SelectOptions opts{
+            .label = "Very Long Dropdown Setting Title That Exceeds Available Remaining Width",
+            .layout = ElementLayout::Inline,
+            .inlineOrder = InlineOrder::LabelFirst,
+            .stretch = StretchMode::Fill,
+            .width = 90.0f
+        };
+        Select::Render(recCanvas, widgetBounds, "Option A", opts, UiSize::Md, false, false, false, darkTheme);
+        const Rect boxRect = Select::GetBoxRect(widgetBounds, opts, UiSize::Md, &recCanvas, darkTheme);
+        CHECK_NEAR(boxRect.w, 720.0f, 0.01f);
+        CHECK_NEAR(boxRect.x, 130.0f, 0.01f); // 50 + 800 - 720
+        CHECK(!recCanvas.textBoxCalls.empty());
+        if (!recCanvas.textBoxCalls.empty()) {
+            const auto& firstCall = recCanvas.textBoxCalls.front();
+            CHECK(firstCall.text.ends_with("..."));
+            CHECK(firstCall.bounds.Right() <= boxRect.x);
+        }
+    }
+
     // 5. Switch in Top layout with Compact stretch:
     // Label block width is max(trackSize.x, measuredTextW)
     {
@@ -4509,7 +4554,7 @@ void TestLabelAlignmentGeometryOptionA() {
         SwitchOptions opts{
             .label = "Short",
             .layout = ElementLayout::Top,
-            .labelAlign = Align::Center,
+            .elementAlign = Align::Center,
             .stretch = StretchMode::Compact
         };
         Switch::Render(recCanvas, widgetBounds, false, opts, UiSize::Md, false, false, false, darkTheme);
@@ -4585,6 +4630,27 @@ void TestLabelAlignmentGeometryOptionA() {
             const float expectedTextX = widgetBounds.x + widgetBounds.w - measuredW;
             CHECK_NEAR(call->bounds.x, expectedTextX, 0.01f);
             CHECK_NEAR(call->bounds.w, measuredW, 0.01f);
+        }
+    }
+
+    // 8b. Slider in Inline layout with StretchMode::Fill & .width = 85.0f (85% of 800px = 680px):
+    // Long label must be cropped with "..." to fit inside remaining width
+    {
+        recCanvas.Reset();
+        SliderOptions opts{
+            .label = "Very Long Slider Label That Exceeds Remaining Inline Space",
+            .layout = ElementLayout::Inline,
+            .inlineOrder = InlineOrder::LabelFirst,
+            .showValue = false,
+            .stretch = StretchMode::Fill,
+            .width = 85.0f
+        };
+        Slider::Render(recCanvas, widgetBounds, 0.5f, 0.0f, 1.0f, opts, UiSize::Md, false, false, false, darkTheme);
+        CHECK(!recCanvas.textBoxCalls.empty());
+        if (!recCanvas.textBoxCalls.empty()) {
+            const auto& firstCall = recCanvas.textBoxCalls.front();
+            CHECK(firstCall.text.ends_with("..."));
+            CHECK(firstCall.bounds.Right() <= (widgetBounds.x + widgetBounds.w - 680.0f));
         }
     }
 

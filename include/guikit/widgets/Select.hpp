@@ -22,15 +22,16 @@ struct SelectOptions {
     std::string_view description{};                ///< Optional helper text below select box
     std::string_view placeholder{"Select..."};     ///< Placeholder text when no item is selected or items list is empty
     UiVariant variant{UiVariant::Default};         ///< Accent/border variant (Default, Warning, Danger, etc.)
+    UiVariant descriptionVariant{UiVariant::Muted};   ///< Semantic variant for description text (Muted, Warning, Danger, Success, Info, etc.)
     ElementLayout layout{ElementLayout::Stacked};    ///< Layout geometry: Stacked, Top, Bottom, Inline
     InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
-    Align labelAlign{Align::Start};                ///< Label and description text alignment (Start, Center, End)
+    Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
     Icon prefixIcon{};                             ///< Optional vector icon inside field on left
     std::optional<uint32_t> maxVisibleItems{std::nullopt}; ///< Optional limit on visible items count before scrolling
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     std::optional<float> radius{std::nullopt};     ///< Local corner radius override (nullopt = inherit from size metrics)
-    StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Between (space-between), Fill
-    std::optional<float> width{std::nullopt};      ///< Explicit select box width in points (nullopt = auto from items)
+    StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
+    std::optional<float> width{std::nullopt};      ///< Select box width: in points for Compact/Space (nullopt = auto from items), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum select box width constraint in points
     bool disabled{false};                          ///< Interaction suppression
 };

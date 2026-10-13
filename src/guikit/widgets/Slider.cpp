@@ -5,6 +5,7 @@
 #include <cstring>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
+#include "guikit/core/ElementComposer.hpp"
 #include "guikit/core/Node.hpp"
 
 namespace guikit {
@@ -24,6 +25,89 @@ struct StepSliderData {
     size_t index{0};
     size_t totalSteps{1};
 };
+
+Vec2 MeasureSliderControl(const SliderOptions& opts, UiSize size, const UiTheme& theme) noexcept {
+    const SliderMetrics& m = theme.GetSlider(size);
+    const float trackRowH = std::max(m.defaultHeight, m.thumbSize);
+    const float trackW = (opts.stretch != StretchMode::Fill && opts.width.has_value()) ? *opts.width : m.defaultWidth;
+    return {trackW + m.thumbSize, trackRowH};
+}
+
+ElementSpec MakeSliderElementSpec(
+    const SliderOptions& opts,
+    std::string_view headerRightText,
+    UiSize size,
+    bool disabled,
+    const UiTheme& theme
+) noexcept {
+    const SliderMetrics& m = theme.GetSlider(size);
+    return ElementSpec{
+        .label = opts.label,
+        .description = opts.description,
+        .headerRightText = opts.showValue ? headerRightText : std::string_view{},
+        .hasHeaderRight = opts.showValue,
+        .headerRightMinWidth = 50.0f,
+        .layout = opts.layout,
+        .inlineOrder = opts.inlineOrder,
+        .elementAlign = opts.elementAlign,
+        .stretch = opts.stretch,
+        .width = opts.width,
+        .descriptionVariant = opts.descriptionVariant,
+        .labelFontSize = m.labelFontSize,
+        .descFontSize = m.labelFontSize * 0.9f,
+        .labelGap = m.labelGap,
+        .descGap = m.descGap,
+        .inlineGap = 12.0f,
+        .stretchableControl = true,
+        .stretchHeightWhenStandalone = false,
+        .disabled = disabled
+    };
+}
+
+Vec2 MeasureStepSliderControl(const StepSliderOptions& opts, size_t totalSteps, UiSize size, const UiTheme& theme) noexcept {
+    const SliderMetrics& m = theme.GetSlider(size);
+    const float trackRowH = std::max(m.defaultHeight, m.thumbSize);
+    const float extraLabelsH = (opts.showLabels && !opts.stepLabels.empty() && totalSteps > 1) ? (m.tickGap + m.tickFontSize * 1.3f) : 0.0f;
+    const float trackW = (opts.stretch != StretchMode::Fill && opts.width.has_value()) ? *opts.width : m.defaultWidth;
+    return {trackW + m.thumbSize, trackRowH + extraLabelsH};
+}
+
+ElementSpec MakeStepSliderElementSpec(
+    const StepSliderOptions& opts,
+    std::string_view headerRightText,
+    UiSize size,
+    bool disabled,
+    const UiTheme& theme
+) noexcept {
+    const SliderMetrics& m = theme.GetSlider(size);
+    const auto& pal = theme.palette;
+    const VariantColors& variantCol = theme.GetVariant(opts.variant);
+    const Color valCol = disabled
+        ? pal.textDisabled
+        : (opts.variant != UiVariant::Default ? (variantCol.bg.a > 0 ? variantCol.bg : pal.textPrimary) : pal.accent);
+    return ElementSpec{
+        .label = opts.label,
+        .description = opts.description,
+        .headerRightText = opts.showValue ? headerRightText : std::string_view{},
+        .hasHeaderRight = opts.showValue,
+        .headerRightMinWidth = 50.0f,
+        .layout = opts.layout,
+        .inlineOrder = opts.inlineOrder,
+        .elementAlign = opts.elementAlign,
+        .stretch = opts.stretch,
+        .width = opts.width,
+        .descriptionVariant = opts.descriptionVariant,
+        .labelFontSize = m.labelFontSize,
+        .descFontSize = m.labelFontSize * 0.9f,
+        .labelGap = m.labelGap,
+        .descGap = m.descGap,
+        .inlineGap = 12.0f,
+        .stretchableControl = true,
+        .stretchHeightWhenStandalone = false,
+        .disabled = disabled,
+        .headerRightColor = valCol
+    };
+}
 
 } // namespace
 
@@ -45,8 +129,9 @@ Response Slider::Run(
     const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    const UiTheme& activeTheme = ctx.GetTheme();
 
-    const SliderMetrics& m = ctx.GetTheme().GetSlider(activeSize);
+    const SliderMetrics& m = activeTheme.GetSlider(activeSize);
     const double rangeMin = std::min(min, max);
     const double rangeMax = std::max(min, max);
 
@@ -70,49 +155,11 @@ Response Slider::Run(
         state.dragging = false;
     } else {
         const float halfThumb = m.thumbSize * 0.5f;
-        const float defaultTrackW = opts.width.value_or(m.defaultWidth);
-        float trackStartX = prevBounds.x + halfThumb;
-        float trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
-
-        if (opts.layout == ElementLayout::Inline) {
-            float textW = 0.0f;
-            if (!opts.label.empty()) {
-                textW += static_cast<float>(opts.label.size()) * (m.labelFontSize * 0.55f);
-            }
-            if (opts.showValue) {
-                textW += (textW > 0.0f ? 8.0f : 0.0f) + 50.0f;
-            }
-            if (!opts.description.empty()) {
-                textW = std::max(textW, static_cast<float>(opts.description.size()) * (m.labelFontSize * 0.5f));
-            }
-            const float gap = textW > 0.0f ? 12.0f : 0.0f;
-            const float availTrackW = std::max(1.0f, prevBounds.w - textW - gap - m.thumbSize);
-            if (opts.stretch == StretchMode::Fill) {
-                trackWidth = availTrackW;
-            } else {
-                trackWidth = std::min(defaultTrackW, availTrackW);
-            }
-            if (opts.inlineOrder == InlineOrder::LabelFirst) {
-                if (opts.stretch == StretchMode::Space) {
-                    trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
-                } else {
-                    trackStartX = prevBounds.x + textW + gap + halfThumb;
-                }
-            } else {
-                trackStartX = prevBounds.x + halfThumb;
-            }
-        } else {
-            if (opts.stretch == StretchMode::Fill) {
-                trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
-                trackStartX = prevBounds.x + halfThumb;
-            } else if (opts.stretch == StretchMode::Space) {
-                trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
-                trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
-            } else { // Compact
-                trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
-                trackStartX = prevBounds.x + halfThumb;
-            }
-        }
+        const Vec2 ctrlDims = MeasureSliderControl(opts, activeSize, activeTheme);
+        const ElementSpec spec = MakeSliderElementSpec(opts, {}, activeSize, effectiveDisabled, activeTheme);
+        const ElementGeometry geom = ElementComposer::Resolve(prevBounds, ctrlDims, spec, nullptr, activeTheme);
+        const float trackStartX = geom.controlRect.x + halfThumb;
+        const float trackWidth = std::max(1.0f, geom.controlRect.w - m.thumbSize);
 
         if (res.clicked || (res.pressed && !state.dragging)) {
             state.dragging = true;
@@ -215,10 +262,11 @@ Response Slider::Run(
     node->visualHash = detail::HashArgs(
         valBits,
         opts.variant,
+        opts.descriptionVariant,
         static_cast<uint8_t>(opts.stretch),
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
-        static_cast<uint8_t>(opts.labelAlign),
+        static_cast<uint8_t>(opts.elementAlign),
         opts.width.value_or(0.0f),
         opts.showValue,
         opts.format,
@@ -260,50 +308,9 @@ Vec2 Slider::Measure(
     ICanvas* canvas,
     const UiTheme& theme
 ) {
-    const SliderMetrics& m = theme.GetSlider(size);
-    const float trackH = std::max(m.defaultHeight, m.thumbSize);
-    const bool hasHeader = !opts.label.empty() || opts.showValue;
-    const bool hasDesc = !opts.description.empty();
-    const float headerH = hasHeader ? (m.labelFontSize * 1.3f) : 0.0f;
-    const float descH = hasDesc ? (m.descGap + m.labelFontSize * 1.1f) : 0.0f;
-    const float defaultTrackW = opts.width.value_or(m.defaultWidth) + m.thumbSize;
-
-    if (opts.layout == ElementLayout::Stacked) {
-        float totalH = trackH;
-        if (hasHeader) totalH += headerH + m.labelGap;
-        if (hasDesc) totalH += descH;
-        return Vec2{defaultTrackW, totalH};
-    } else if (opts.layout == ElementLayout::Top) {
-        return Vec2{defaultTrackW, trackH + m.labelGap + headerH + descH};
-    } else if (opts.layout == ElementLayout::Bottom) {
-        return Vec2{defaultTrackW, trackH + m.descGap + headerH + descH};
-    } else { // ElementLayout::Inline
-        float textW = 0.0f;
-        if (!opts.label.empty()) {
-            if (canvas) {
-                textW += canvas->MeasureText(opts.label, m.labelFontSize).x;
-            } else {
-                textW += static_cast<float>(opts.label.size()) * (m.labelFontSize * 0.55f);
-            }
-        }
-        if (opts.showValue) {
-            textW += (textW > 0.0f ? 8.0f : 0.0f) + 50.0f;
-        }
-        if (hasDesc) {
-            float dW = 0.0f;
-            if (canvas) {
-                dW = canvas->MeasureText(opts.description, m.labelFontSize * 0.9f).x;
-            } else {
-                dW = static_cast<float>(opts.description.size()) * (m.labelFontSize * 0.5f);
-            }
-            textW = std::max(textW, dW);
-        }
-        const float gap = textW > 0.0f ? 12.0f : 0.0f;
-        const float totalW = defaultTrackW + textW + gap;
-        const float textH = headerH + (hasDesc ? descH : 0.0f);
-        const float totalH = std::max(trackH, textH);
-        return Vec2{totalW, totalH};
-    }
+    const Vec2 ctrlDims = MeasureSliderControl(opts, size, theme);
+    const ElementSpec spec = MakeSliderElementSpec(opts, {}, size, opts.disabled, theme);
+    return ElementComposer::Measure(ctrlDims, spec, canvas, theme);
 }
 
 Vec2 Slider::Measure(
@@ -354,172 +361,16 @@ void Slider::Render(
                       static_cast<int>(opts.suffix.size()), opts.suffix.data());
     }
 
-    const bool hasHeader = !opts.label.empty() || opts.showValue;
-    const bool hasDesc = !opts.description.empty();
-    const float headerH = hasHeader ? (m.labelFontSize * 1.3f) : 0.0f;
-    const float descH = hasDesc ? (m.labelFontSize * 0.9f * 1.2f) : 0.0f;
-    const float trackRowH = std::max(m.defaultHeight, m.thumbSize);
+    const Vec2 ctrlDims = MeasureSliderControl(opts, size, theme);
+    const ElementSpec spec = MakeSliderElementSpec(opts, valBuf, size, disabled, theme);
+    const ElementGeometry geom = ElementComposer::Resolve(bounds, ctrlDims, spec, &canvas, theme);
+    ElementComposer::RenderText(canvas, geom, spec, theme);
+
     const float halfThumb = m.thumbSize * 0.5f;
-    const float defaultTrackW = opts.width.value_or(m.defaultWidth);
-
-    const float measuredLabelW = !opts.label.empty() ? canvas.MeasureText(opts.label, m.labelFontSize).x : 0.0f;
-    const float measuredValW = opts.showValue ? ((measuredLabelW > 0.0f ? 8.0f : 0.0f) + canvas.MeasureText(valBuf, m.labelFontSize).x) : 0.0f;
-    const float measuredHeaderW = measuredLabelW + measuredValW;
-    const float measuredDescW = hasDesc ? canvas.MeasureText(opts.description, m.labelFontSize * 0.9f).x : 0.0f;
-    const float measuredTextW = std::max(measuredHeaderW, measuredDescW);
-
-    Rect headerRect;
-    Rect descRect;
-    float trackStartX = bounds.x + halfThumb;
-    float trackWidth = 0.0f;
-    float centerY = bounds.y + trackRowH * 0.5f;
-
-    if (opts.layout == ElementLayout::Stacked) {
-        const float availTrackW = std::max(0.0f, bounds.w - m.thumbSize);
-        if (opts.stretch == StretchMode::Fill) {
-            trackWidth = availTrackW;
-            trackStartX = bounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Space) {
-            trackWidth = std::min(defaultTrackW, availTrackW);
-            trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
-        } else { // Compact
-            trackWidth = std::min(defaultTrackW, availTrackW);
-            trackStartX = bounds.x + halfThumb;
-        }
-
-        const float fullTrackW = trackWidth + m.thumbSize;
-        const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(fullTrackW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
-
-        float curY = bounds.y;
-        if (hasHeader) {
-            headerRect = Rect(blockX, curY, blockW, headerH);
-            curY += headerH + m.labelGap;
-        }
-        centerY = curY + trackRowH * 0.5f;
-        curY += trackRowH + m.descGap;
-        if (hasDesc) {
-            descRect = Rect(blockX, curY, blockW, descH);
-        }
-    } else if (opts.layout == ElementLayout::Top) {
-        const float availTrackW = std::max(0.0f, bounds.w - m.thumbSize);
-        if (opts.stretch == StretchMode::Fill) {
-            trackWidth = availTrackW;
-            trackStartX = bounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Space) {
-            trackWidth = std::min(defaultTrackW, availTrackW);
-            trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
-        } else { // Compact
-            trackWidth = std::min(defaultTrackW, availTrackW);
-            trackStartX = bounds.x + halfThumb;
-        }
-
-        const float fullTrackW = trackWidth + m.thumbSize;
-        const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(fullTrackW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
-
-        float curY = bounds.y;
-        if (hasHeader) {
-            headerRect = Rect(blockX, curY, blockW, headerH);
-            curY += headerH + (hasDesc ? m.descGap : 0.0f);
-        }
-        if (hasDesc) {
-            descRect = Rect(blockX, curY, blockW, descH);
-            curY += descH;
-        }
-        curY += m.labelGap;
-        centerY = curY + trackRowH * 0.5f;
-    } else if (opts.layout == ElementLayout::Bottom) {
-        const float availTrackW = std::max(0.0f, bounds.w - m.thumbSize);
-        if (opts.stretch == StretchMode::Fill) {
-            trackWidth = availTrackW;
-            trackStartX = bounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Space) {
-            trackWidth = std::min(defaultTrackW, availTrackW);
-            trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
-        } else { // Compact
-            trackWidth = std::min(defaultTrackW, availTrackW);
-            trackStartX = bounds.x + halfThumb;
-        }
-
-        const float fullTrackW = trackWidth + m.thumbSize;
-        const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(fullTrackW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
-
-        float curY = bounds.y;
-        centerY = curY + trackRowH * 0.5f;
-        curY += trackRowH + m.descGap;
-        if (hasHeader) {
-            headerRect = Rect(blockX, curY, blockW, headerH);
-            curY += headerH + (hasDesc ? m.descGap : 0.0f);
-        }
-        if (hasDesc) {
-            descRect = Rect(blockX, curY, blockW, descH);
-        }
-    } else { // ElementLayout::Inline
-        centerY = bounds.y + bounds.h * 0.5f;
-        const float gap = measuredTextW > 0.0f ? 12.0f : 0.0f;
-        const float availTrackW = std::max(0.0f, bounds.w - measuredTextW - gap - m.thumbSize);
-        if (opts.stretch == StretchMode::Fill) {
-            trackWidth = availTrackW;
-        } else {
-            trackWidth = std::min(defaultTrackW, availTrackW);
-        }
-
-        Rect textRect;
-        if (opts.inlineOrder == InlineOrder::LabelFirst) {
-            // Label left, track right
-            if (opts.stretch == StretchMode::Compact) {
-                trackStartX = bounds.x + measuredTextW + gap + halfThumb;
-            } else {
-                trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
-            }
-            textRect = Rect(bounds.x, bounds.y, measuredTextW, bounds.h);
-        } else {
-            // Control left, label right
-            trackStartX = bounds.x + halfThumb;
-            float textX = bounds.x + trackWidth + m.thumbSize + gap;
-            if (opts.stretch == StretchMode::Space) {
-                textX = std::max(bounds.x + trackWidth + m.thumbSize + gap, bounds.x + bounds.w - measuredTextW);
-            }
-            textRect = Rect(textX, bounds.y, measuredTextW, bounds.h);
-        }
-
-        if (hasHeader && hasDesc) {
-            const float totalTextH = headerH + m.descGap + descH;
-            const float startTextY = bounds.y + (bounds.h - totalTextH) * 0.5f;
-            headerRect = Rect(textRect.x, startTextY, textRect.w, headerH);
-            descRect = Rect(textRect.x, startTextY + headerH + m.descGap, textRect.w, descH);
-        } else if (hasHeader) {
-            headerRect = Rect(textRect.x, bounds.y + (bounds.h - headerH) * 0.5f, textRect.w, headerH);
-        } else if (hasDesc) {
-            descRect = Rect(textRect.x, bounds.y + (bounds.h - descH) * 0.5f, textRect.w, descH);
-        }
-    }
-
-    const float alignFactor = (opts.labelAlign == Align::End) ? 1.0f : ((opts.labelAlign == Align::Center) ? 0.5f : 0.0f);
-    const Color labelCol = disabled ? pal.textDisabled : pal.textPrimary;
-    const Color descCol = disabled ? pal.textDisabled : pal.textSecondary;
-
-    if (hasHeader && headerRect.w > 0.0f && headerRect.h > 0.0f) {
-        if (opts.showValue) {
-            const Vec2 valDims = canvas.MeasureText(valBuf, m.labelFontSize);
-            const Color valCol = disabled ? pal.textDisabled : pal.textSecondary;
-            const float valX = headerRect.Right() - valDims.x;
-            const Rect lblRect = Rect(headerRect.x, headerRect.y, std::max(0.0f, headerRect.w - valDims.x - 8.0f), headerRect.h);
-
-            canvas.DrawText(valBuf, Vec2(valX, headerRect.y + (headerRect.h - m.labelFontSize) * 0.5f), m.labelFontSize, valCol);
-            if (!opts.label.empty() && lblRect.w > 0.0f) {
-                canvas.DrawTextBox(opts.label, lblRect, m.labelFontSize, labelCol, alignFactor, 0.5f);
-            }
-        } else if (!opts.label.empty()) {
-            canvas.DrawTextBox(opts.label, headerRect, m.labelFontSize, labelCol, alignFactor, 0.5f);
-        }
-    }
-
-    if (hasDesc && descRect.w > 0.0f && descRect.h > 0.0f) {
-        canvas.DrawTextBox(opts.description, descRect, m.labelFontSize * 0.9f, descCol, alignFactor, 0.5f);
-    }
+    const float trackRowH = std::max(m.defaultHeight, m.thumbSize);
+    const float trackStartX = geom.controlRect.x + halfThumb;
+    const float trackWidth = std::max(0.0f, geom.controlRect.w - m.thumbSize);
+    const float centerY = geom.controlRect.y + trackRowH * 0.5f;
 
     const double range = max - min;
     const float ratio = (range > 0.0) ? static_cast<float>(std::clamp((value - min) / range, 0.0, 1.0)) : 0.0f;
@@ -567,8 +418,9 @@ Response StepSlider::Run(
     const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    const UiTheme& activeTheme = ctx.GetTheme();
 
-    const SliderMetrics& m = ctx.GetTheme().GetSlider(activeSize);
+    const SliderMetrics& m = activeTheme.GetSlider(activeSize);
 
     if (totalSteps == 0) {
         totalSteps = opts.stepLabels.empty() ? 1 : opts.stepLabels.size();
@@ -589,49 +441,11 @@ Response StepSlider::Run(
         state.dragging = false;
     } else {
         const float halfThumb = m.thumbSize * 0.5f;
-        const float defaultTrackW = opts.width.value_or(m.defaultWidth);
-        float trackStartX = prevBounds.x + halfThumb;
-        float trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
-
-        if (opts.layout == ElementLayout::Inline) {
-            float textW = 0.0f;
-            if (!opts.label.empty()) {
-                textW += static_cast<float>(opts.label.size()) * (m.labelFontSize * 0.55f);
-            }
-            if (opts.showValue) {
-                textW += (textW > 0.0f ? 8.0f : 0.0f) + 50.0f;
-            }
-            if (!opts.description.empty()) {
-                textW = std::max(textW, static_cast<float>(opts.description.size()) * (m.labelFontSize * 0.5f));
-            }
-            const float gap = textW > 0.0f ? 12.0f : 0.0f;
-            const float availTrackW = std::max(1.0f, prevBounds.w - textW - gap - m.thumbSize);
-            if (opts.stretch == StretchMode::Fill) {
-                trackWidth = availTrackW;
-            } else {
-                trackWidth = std::min(defaultTrackW, availTrackW);
-            }
-            if (opts.inlineOrder == InlineOrder::LabelFirst) {
-                if (opts.stretch == StretchMode::Space) {
-                    trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
-                } else {
-                    trackStartX = prevBounds.x + textW + gap + halfThumb;
-                }
-            } else {
-                trackStartX = prevBounds.x + halfThumb;
-            }
-        } else {
-            if (opts.stretch == StretchMode::Fill) {
-                trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
-                trackStartX = prevBounds.x + halfThumb;
-            } else if (opts.stretch == StretchMode::Space) {
-                trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
-                trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
-            } else { // Compact
-                trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
-                trackStartX = prevBounds.x + halfThumb;
-            }
-        }
+        const Vec2 ctrlDims = MeasureStepSliderControl(opts, totalSteps, activeSize, activeTheme);
+        const ElementSpec spec = MakeStepSliderElementSpec(opts, {}, activeSize, effectiveDisabled, activeTheme);
+        const ElementGeometry geom = ElementComposer::Resolve(prevBounds, ctrlDims, spec, nullptr, activeTheme);
+        const float trackStartX = geom.controlRect.x + halfThumb;
+        const float trackWidth = std::max(1.0f, geom.controlRect.w - m.thumbSize);
 
         if (res.clicked || (res.pressed && !state.dragging)) {
             state.dragging = true;
@@ -707,10 +521,11 @@ Response StepSlider::Run(
         curIdx,
         totalSteps,
         opts.variant,
+        opts.descriptionVariant,
         static_cast<uint8_t>(opts.stretch),
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
-        static_cast<uint8_t>(opts.labelAlign),
+        static_cast<uint8_t>(opts.elementAlign),
         opts.width.value_or(0.0f),
         opts.showTicks,
         opts.showLabels,
@@ -745,56 +560,17 @@ Response StepSlider::Run(
 Vec2 StepSlider::Measure(
     const StepSliderOptions& opts,
     size_t /*index*/,
-    size_t /*totalSteps*/,
+    size_t totalSteps,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme
 ) {
-    const SliderMetrics& m = theme.GetSlider(size);
-    const float extraLabelsH = (opts.showLabels && !opts.stepLabels.empty()) ? (m.tickGap + m.tickFontSize * 1.3f) : 0.0f;
-    const float trackH = std::max(m.defaultHeight, m.thumbSize) + extraLabelsH;
-    const bool hasHeader = !opts.label.empty() || opts.showValue;
-    const bool hasDesc = !opts.description.empty();
-    const float headerH = hasHeader ? (m.labelFontSize * 1.3f) : 0.0f;
-    const float descH = hasDesc ? (m.descGap + m.labelFontSize * 1.1f) : 0.0f;
-    const float defaultTrackW = opts.width.value_or(m.defaultWidth) + m.thumbSize;
-
-    if (opts.layout == ElementLayout::Stacked) {
-        float totalH = trackH;
-        if (hasHeader) totalH += headerH + m.labelGap;
-        if (hasDesc) totalH += descH;
-        return Vec2{defaultTrackW, totalH};
-    } else if (opts.layout == ElementLayout::Top) {
-        return Vec2{defaultTrackW, trackH + m.labelGap + headerH + descH};
-    } else if (opts.layout == ElementLayout::Bottom) {
-        return Vec2{defaultTrackW, trackH + m.descGap + headerH + descH};
-    } else { // ElementLayout::Inline
-        float textW = 0.0f;
-        if (!opts.label.empty()) {
-            if (canvas) {
-                textW += canvas->MeasureText(opts.label, m.labelFontSize).x;
-            } else {
-                textW += static_cast<float>(opts.label.size()) * (m.labelFontSize * 0.55f);
-            }
-        }
-        if (opts.showValue) {
-            textW += (textW > 0.0f ? 8.0f : 0.0f) + 50.0f;
-        }
-        if (hasDesc) {
-            float dW = 0.0f;
-            if (canvas) {
-                dW = canvas->MeasureText(opts.description, m.labelFontSize * 0.9f).x;
-            } else {
-                dW = static_cast<float>(opts.description.size()) * (m.labelFontSize * 0.5f);
-            }
-            textW = std::max(textW, dW);
-        }
-        const float gap = textW > 0.0f ? 12.0f : 0.0f;
-        const float totalW = defaultTrackW + textW + gap;
-        const float textH = headerH + (hasDesc ? descH : 0.0f);
-        const float totalH = std::max(trackH, textH);
-        return Vec2{totalW, totalH};
+    if (totalSteps == 0) {
+        totalSteps = opts.stepLabels.empty() ? 1 : opts.stepLabels.size();
     }
+    const Vec2 ctrlDims = MeasureStepSliderControl(opts, totalSteps, size, theme);
+    const ElementSpec spec = MakeStepSliderElementSpec(opts, {}, size, opts.disabled, theme);
+    return ElementComposer::Measure(ctrlDims, spec, canvas, theme);
 }
 
 Vec2 StepSlider::Measure(
@@ -828,174 +604,16 @@ void StepSlider::Render(
 
     std::string_view valStr = !opts.valueText.empty() ? opts.valueText : (index < opts.stepLabels.size() ? opts.stepLabels[index] : "");
 
-    const bool hasHeader = !opts.label.empty() || opts.showValue;
-    const bool hasDesc = !opts.description.empty();
-    const float headerH = hasHeader ? (m.labelFontSize * 1.3f) : 0.0f;
-    const float descH = hasDesc ? (m.labelFontSize * 0.9f * 1.2f) : 0.0f;
-    const float trackRowH = std::max(m.defaultHeight, m.thumbSize);
-    const float extraLabelsH = (opts.showLabels && !opts.stepLabels.empty() && totalSteps > 1) ? (m.tickGap + m.tickFontSize * 1.3f) : 0.0f;
-    const float controlH = trackRowH + extraLabelsH;
+    const Vec2 ctrlDims = MeasureStepSliderControl(opts, totalSteps, size, theme);
+    const ElementSpec spec = MakeStepSliderElementSpec(opts, valStr, size, disabled, theme);
+    const ElementGeometry geom = ElementComposer::Resolve(bounds, ctrlDims, spec, &canvas, theme);
+    ElementComposer::RenderText(canvas, geom, spec, theme);
+
     const float halfThumb = m.thumbSize * 0.5f;
-    const float defaultTrackW = opts.width.value_or(m.defaultWidth);
-
-    const float measuredLabelW = !opts.label.empty() ? canvas.MeasureText(opts.label, m.labelFontSize).x : 0.0f;
-    const float measuredValW = (opts.showValue && !valStr.empty()) ? ((measuredLabelW > 0.0f ? 8.0f : 0.0f) + canvas.MeasureText(valStr, m.labelFontSize).x) : 0.0f;
-    const float measuredHeaderW = measuredLabelW + measuredValW;
-    const float measuredDescW = hasDesc ? canvas.MeasureText(opts.description, m.labelFontSize * 0.9f).x : 0.0f;
-    const float measuredTextW = std::max(measuredHeaderW, measuredDescW);
-
-    Rect headerRect;
-    Rect descRect;
-    float trackStartX = bounds.x + halfThumb;
-    float trackWidth = 0.0f;
-    float centerY = bounds.y + trackRowH * 0.5f;
-
-    if (opts.layout == ElementLayout::Stacked) {
-        const float availTrackW = std::max(0.0f, bounds.w - m.thumbSize);
-        if (opts.stretch == StretchMode::Fill) {
-            trackWidth = availTrackW;
-            trackStartX = bounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Space) {
-            trackWidth = std::min(defaultTrackW, availTrackW);
-            trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
-        } else { // Compact
-            trackWidth = std::min(defaultTrackW, availTrackW);
-            trackStartX = bounds.x + halfThumb;
-        }
-
-        const float fullTrackW = trackWidth + m.thumbSize;
-        const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(fullTrackW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
-
-        float curY = bounds.y;
-        if (hasHeader) {
-            headerRect = Rect(blockX, curY, blockW, headerH);
-            curY += headerH + m.labelGap;
-        }
-        centerY = curY + trackRowH * 0.5f;
-        curY += controlH + m.descGap;
-        if (hasDesc) {
-            descRect = Rect(blockX, curY, blockW, descH);
-        }
-    } else if (opts.layout == ElementLayout::Top) {
-        const float availTrackW = std::max(0.0f, bounds.w - m.thumbSize);
-        if (opts.stretch == StretchMode::Fill) {
-            trackWidth = availTrackW;
-            trackStartX = bounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Space) {
-            trackWidth = std::min(defaultTrackW, availTrackW);
-            trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
-        } else { // Compact
-            trackWidth = std::min(defaultTrackW, availTrackW);
-            trackStartX = bounds.x + halfThumb;
-        }
-
-        const float fullTrackW = trackWidth + m.thumbSize;
-        const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(fullTrackW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
-
-        float curY = bounds.y;
-        if (hasHeader) {
-            headerRect = Rect(blockX, curY, blockW, headerH);
-            curY += headerH + (hasDesc ? m.descGap : 0.0f);
-        }
-        if (hasDesc) {
-            descRect = Rect(blockX, curY, blockW, descH);
-            curY += descH;
-        }
-        curY += m.labelGap;
-        centerY = curY + trackRowH * 0.5f;
-    } else if (opts.layout == ElementLayout::Bottom) {
-        const float availTrackW = std::max(0.0f, bounds.w - m.thumbSize);
-        if (opts.stretch == StretchMode::Fill) {
-            trackWidth = availTrackW;
-            trackStartX = bounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Space) {
-            trackWidth = std::min(defaultTrackW, availTrackW);
-            trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
-        } else { // Compact
-            trackWidth = std::min(defaultTrackW, availTrackW);
-            trackStartX = bounds.x + halfThumb;
-        }
-
-        const float fullTrackW = trackWidth + m.thumbSize;
-        const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(fullTrackW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
-
-        float curY = bounds.y;
-        centerY = curY + trackRowH * 0.5f;
-        curY += controlH + m.descGap;
-        if (hasHeader) {
-            headerRect = Rect(blockX, curY, blockW, headerH);
-            curY += headerH + (hasDesc ? m.descGap : 0.0f);
-        }
-        if (hasDesc) {
-            descRect = Rect(blockX, curY, blockW, descH);
-        }
-    } else { // ElementLayout::Inline
-        centerY = bounds.y + (trackRowH * 0.5f);
-        const float gap = measuredTextW > 0.0f ? 12.0f : 0.0f;
-        const float availTrackW = std::max(0.0f, bounds.w - measuredTextW - gap - m.thumbSize);
-        if (opts.stretch == StretchMode::Fill) {
-            trackWidth = availTrackW;
-        } else {
-            trackWidth = std::min(defaultTrackW, availTrackW);
-        }
-
-        Rect textRect;
-        if (opts.inlineOrder == InlineOrder::LabelFirst) {
-            // Label left, track right
-            if (opts.stretch == StretchMode::Compact) {
-                trackStartX = bounds.x + measuredTextW + gap + halfThumb;
-            } else {
-                trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
-            }
-            textRect = Rect(bounds.x, bounds.y, measuredTextW, bounds.h);
-        } else {
-            // Control left, label right
-            trackStartX = bounds.x + halfThumb;
-            float textX = bounds.x + trackWidth + m.thumbSize + gap;
-            if (opts.stretch == StretchMode::Space) {
-                textX = std::max(bounds.x + trackWidth + m.thumbSize + gap, bounds.x + bounds.w - measuredTextW);
-            }
-            textRect = Rect(textX, bounds.y, measuredTextW, bounds.h);
-        }
-
-        if (hasHeader && hasDesc) {
-            const float totalTextH = headerH + m.descGap + descH;
-            const float startTextY = bounds.y + (bounds.h - totalTextH) * 0.5f;
-            headerRect = Rect(textRect.x, startTextY, textRect.w, headerH);
-            descRect = Rect(textRect.x, startTextY + headerH + m.descGap, textRect.w, descH);
-        } else if (hasHeader) {
-            headerRect = Rect(textRect.x, bounds.y + (bounds.h - headerH) * 0.5f, textRect.w, headerH);
-        } else if (hasDesc) {
-            descRect = Rect(textRect.x, bounds.y + (bounds.h - descH) * 0.5f, textRect.w, descH);
-        }
-    }
-
-    const float alignFactor = (opts.labelAlign == Align::End) ? 1.0f : ((opts.labelAlign == Align::Center) ? 0.5f : 0.0f);
-    const Color labelCol = disabled ? pal.textDisabled : pal.textPrimary;
-    const Color descCol = disabled ? pal.textDisabled : pal.textSecondary;
-
-    if (hasHeader && headerRect.w > 0.0f && headerRect.h > 0.0f) {
-        if (opts.showValue && !valStr.empty()) {
-            const Vec2 valDims = canvas.MeasureText(valStr, m.labelFontSize);
-            Color valCol = disabled ? pal.textDisabled : (opts.variant != UiVariant::Default ? (variantCol.bg.a > 0 ? variantCol.bg : pal.textPrimary) : pal.accent);
-            const float valX = headerRect.Right() - valDims.x;
-            const Rect lblRect = Rect(headerRect.x, headerRect.y, std::max(0.0f, headerRect.w - valDims.x - 8.0f), headerRect.h);
-
-            canvas.DrawText(valStr, Vec2(valX, headerRect.y + (headerRect.h - m.labelFontSize) * 0.5f), m.labelFontSize, valCol);
-            if (!opts.label.empty() && lblRect.w > 0.0f) {
-                canvas.DrawTextBox(opts.label, lblRect, m.labelFontSize, labelCol, alignFactor, 0.5f);
-            }
-        } else if (!opts.label.empty()) {
-            canvas.DrawTextBox(opts.label, headerRect, m.labelFontSize, labelCol, alignFactor, 0.5f);
-        }
-    }
-
-    if (hasDesc && descRect.w > 0.0f && descRect.h > 0.0f) {
-        canvas.DrawTextBox(opts.description, descRect, m.labelFontSize * 0.9f, descCol, alignFactor, 0.5f);
-    }
+    const float trackRowH = std::max(m.defaultHeight, m.thumbSize);
+    const float trackStartX = geom.controlRect.x + halfThumb;
+    const float trackWidth = std::max(0.0f, geom.controlRect.w - m.thumbSize);
+    const float centerY = geom.controlRect.y + trackRowH * 0.5f;
 
     const float ratio = (totalSteps > 1) ? static_cast<float>(index) / static_cast<float>(totalSteps - 1) : 0.0f;
 

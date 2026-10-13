@@ -2,6 +2,7 @@
 #include <algorithm>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
+#include "guikit/core/ElementComposer.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 
@@ -139,87 +140,44 @@ Vec2 MeasureButtonCapsule(
     return {totalW, contentH};
 }
 
+ElementSpec MakeButtonElementSpec(
+    const ButtonOptions& opts,
+    std::string_view effectiveExternalLabel,
+    UiSize size,
+    bool disabled,
+    const UiTheme& theme
+) noexcept {
+    const ComponentMetrics& m = theme.GetMetrics(size);
+    const auto& inputMetrics = theme.GetInputField(size);
+    return ElementSpec{
+        .label = effectiveExternalLabel,
+        .description = opts.description,
+        .layout = opts.layout,
+        .inlineOrder = opts.inlineOrder,
+        .elementAlign = opts.elementAlign,
+        .stretch = opts.stretch,
+        .width = opts.width,
+        .descriptionVariant = opts.descriptionVariant,
+        .labelFontSize = inputMetrics.labelFontSize,
+        .descFontSize = inputMetrics.descFontSize,
+        .labelGap = inputMetrics.labelGap,
+        .descGap = inputMetrics.descGap,
+        .inlineGap = m.paddingX,
+        .stretchableControl = true,
+        .stretchHeightWhenStandalone = true,
+        .disabled = disabled
+    };
+}
+
 } // namespace
 
 Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme) {
     const std::string_view effectiveCapsuleText = !opts.text.empty() ? opts.text : (opts.description.empty() ? opts.label : std::string_view{});
     const std::string_view effectiveExternalLabel = !opts.text.empty() ? opts.label : (!opts.description.empty() ? opts.label : std::string_view{});
-    const std::string_view effectiveDescription = opts.description;
-    const bool hasExternalLabel = !effectiveExternalLabel.empty();
-    const bool hasExternalDesc = !effectiveDescription.empty();
-    const bool hasExternal = hasExternalLabel || hasExternalDesc;
 
     const Vec2 capsuleDims = MeasureButtonCapsule(opts, effectiveCapsuleText, size, canvas, theme);
-
-    if (!hasExternal) {
-        return capsuleDims;
-    }
-
-    const ComponentMetrics& m = theme.GetMetrics(size);
-    const auto& inputMetrics = theme.GetInputField(size);
-
-    Vec2 labelDims = {0.0f, 0.0f};
-    if (hasExternalLabel) {
-        if (canvas) {
-            labelDims = canvas->MeasureText(effectiveExternalLabel, inputMetrics.labelFontSize);
-        } else {
-            labelDims = {
-                static_cast<float>(effectiveExternalLabel.length()) * (inputMetrics.labelFontSize * kDefaultCharAdvanceRatio),
-                theme.GetLineHeight(inputMetrics.labelFontSize)
-            };
-        }
-    }
-
-    Vec2 descDims = {0.0f, 0.0f};
-    if (hasExternalDesc) {
-        if (canvas) {
-            descDims = canvas->MeasureText(effectiveDescription, inputMetrics.descFontSize);
-        } else {
-            descDims = {
-                static_cast<float>(effectiveDescription.length()) * (inputMetrics.descFontSize * kDefaultCharAdvanceRatio),
-                theme.GetLineHeight(inputMetrics.descFontSize)
-            };
-        }
-    }
-
-    if (opts.layout == ElementLayout::Stacked) {
-        const float totalW = std::max({capsuleDims.x, labelDims.x, descDims.x});
-        float totalH = capsuleDims.y;
-        if (hasExternalLabel) totalH += labelDims.y + inputMetrics.labelGap;
-        if (hasExternalDesc)  totalH += inputMetrics.descGap + descDims.y;
-        return {totalW, totalH};
-    }
-
-    if (opts.layout == ElementLayout::Top) {
-        const float totalW = std::max({capsuleDims.x, labelDims.x, descDims.x});
-        float textH = 0.0f;
-        if (hasExternalLabel) textH += labelDims.y;
-        if (hasExternalDesc)  textH += (hasExternalLabel ? inputMetrics.descGap : 0.0f) + descDims.y;
-        return {totalW, textH + inputMetrics.labelGap + capsuleDims.y};
-    }
-
-    if (opts.layout == ElementLayout::Bottom) {
-        const float totalW = std::max({capsuleDims.x, labelDims.x, descDims.x});
-        float textH = 0.0f;
-        if (hasExternalLabel) textH += labelDims.y;
-        if (hasExternalDesc)  textH += (hasExternalLabel ? inputMetrics.descGap : 0.0f) + descDims.y;
-        return {totalW, capsuleDims.y + inputMetrics.descGap + textH};
-    }
-
-    // ElementLayout::Inline
-    const float textW = std::max(labelDims.x, descDims.x);
-    float textH = 0.0f;
-    if (hasExternalLabel && hasExternalDesc) {
-        textH = labelDims.y + inputMetrics.descGap + descDims.y;
-    } else if (hasExternalLabel) {
-        textH = labelDims.y;
-    } else if (hasExternalDesc) {
-        textH = descDims.y;
-    }
-    const float gap = m.paddingX;
-    const float totalW = capsuleDims.x + (textW > 0.0f ? gap + textW : 0.0f);
-    const float totalH = std::max(capsuleDims.y, textH);
-    return {totalW, totalH};
+    const ElementSpec spec = MakeButtonElementSpec(opts, effectiveExternalLabel, size, opts.disabled, theme);
+    return ElementComposer::Measure(capsuleDims, spec, canvas, theme);
 }
 
 Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas) {
@@ -242,160 +200,15 @@ void Button::Render(
     }
 
     const ComponentMetrics& m = theme.GetMetrics(size);
-    const auto& inputMetrics = theme.GetInputField(size);
-    const auto& pal = theme.palette;
 
     const std::string_view effectiveCapsuleText = !opts.text.empty() ? opts.text : (opts.description.empty() ? opts.label : std::string_view{});
     const std::string_view effectiveExternalLabel = !opts.text.empty() ? opts.label : (!opts.description.empty() ? opts.label : std::string_view{});
-    const std::string_view effectiveDescription = opts.description;
-    const bool hasExternalLabel = !effectiveExternalLabel.empty();
-    const bool hasExternalDesc = !effectiveDescription.empty();
-    const bool hasExternal = hasExternalLabel || hasExternalDesc;
-
-    Rect capsuleRect = bounds;
-    Rect labelRect;
-    Rect descRect;
 
     const Vec2 capSize = MeasureButtonCapsule(opts, effectiveCapsuleText, size, &canvas, theme);
-    const float alignFactor = (opts.elementAlign == Align::End) ? 1.0f : ((opts.elementAlign == Align::Center) ? 0.5f : 0.0f);
-
-    const auto resolveCapsuleWidth = [&](float intrinsicW) -> float {
-        if (opts.stretch == StretchMode::Fill) {
-            const float pct = std::clamp(opts.width.value_or(100.0f), 0.0f, 100.0f);
-            return bounds.w * (pct * 0.01f);
-        }
-        return std::min(bounds.w, opts.width.value_or(intrinsicW));
-    };
-
-    if (!hasExternal) {
-        const float capW = resolveCapsuleWidth(capSize.x);
-        const float capX = bounds.x + (bounds.w - capW) * alignFactor;
-        capsuleRect = Rect(capX, bounds.y, capW, bounds.h);
-    } else {
-        const float labelH = hasExternalLabel ? canvas.GetLineHeight(inputMetrics.labelFontSize) : 0.0f;
-        const float descH = hasExternalDesc ? canvas.GetLineHeight(inputMetrics.descFontSize) : 0.0f;
-
-        const float measuredLabelW = hasExternalLabel ? canvas.MeasureText(effectiveExternalLabel, inputMetrics.labelFontSize).x : 0.0f;
-        const float measuredDescW = hasExternalDesc ? canvas.MeasureText(effectiveDescription, inputMetrics.descFontSize).x : 0.0f;
-        const float measuredTextW = std::max(measuredLabelW, measuredDescW);
-        const float capW = resolveCapsuleWidth(capSize.x);
-
-        if (opts.layout == ElementLayout::Stacked) {
-            const float blockW = (opts.stretch == StretchMode::Compact) ? std::min(bounds.w, std::max(capW, measuredTextW)) : bounds.w;
-            const float blockX = bounds.x;
-            const float capX = blockX + (blockW - capW) * alignFactor;
-
-            float curY = bounds.y;
-            if (hasExternalLabel) {
-                labelRect = Rect(blockX, curY, blockW, labelH);
-                curY += labelH + inputMetrics.labelGap;
-            }
-            capsuleRect = Rect(capX, curY, capW, capSize.y);
-            curY += capsuleRect.h + inputMetrics.descGap;
-            if (hasExternalDesc) {
-                descRect = Rect(blockX, curY, blockW, descH);
-            }
-        } else if (opts.layout == ElementLayout::Top) {
-            const float blockW = (opts.stretch == StretchMode::Compact) ? std::min(bounds.w, std::max(capW, measuredTextW)) : bounds.w;
-            const float blockX = bounds.x;
-            const float capX = blockX + (blockW - capW) * alignFactor;
-
-            float curY = bounds.y;
-            if (hasExternalLabel) {
-                labelRect = Rect(blockX, curY, blockW, labelH);
-                curY += labelH + (hasExternalDesc ? inputMetrics.descGap : 0.0f);
-            }
-            if (hasExternalDesc) {
-                descRect = Rect(blockX, curY, blockW, descH);
-                curY += descH;
-            }
-            curY += inputMetrics.labelGap;
-            capsuleRect = Rect(capX, curY, capW, capSize.y);
-        } else if (opts.layout == ElementLayout::Bottom) {
-            const float blockW = (opts.stretch == StretchMode::Compact) ? std::min(bounds.w, std::max(capW, measuredTextW)) : bounds.w;
-            const float blockX = bounds.x;
-            const float capX = blockX + (blockW - capW) * alignFactor;
-
-            float curY = bounds.y;
-            capsuleRect = Rect(capX, curY, capW, capSize.y);
-            curY += capsuleRect.h + inputMetrics.descGap;
-            if (hasExternalLabel) {
-                labelRect = Rect(blockX, curY, blockW, labelH);
-                curY += labelH + (hasExternalDesc ? inputMetrics.descGap : 0.0f);
-            }
-            if (hasExternalDesc) {
-                descRect = Rect(blockX, curY, blockW, descH);
-            }
-        } else { // ElementLayout::Inline
-            const float gap = m.paddingX;
-            const float availTextW = std::max(0.0f, bounds.w - capW - gap);
-            const float textBlockW = std::min(measuredTextW, availTextW);
-
-            const float totalTextH = (hasExternalLabel && hasExternalDesc) ? (labelH + inputMetrics.descGap + descH) : (hasExternalLabel ? labelH : descH);
-            const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
-
-            if (opts.inlineOrder == InlineOrder::LabelFirst) {
-                // Label first (left), capsule second (right)
-                float capX = bounds.x + bounds.w - capW;
-                if (opts.stretch == StretchMode::Compact) {
-                    capX = bounds.x + (textBlockW > 0.0f ? textBlockW + gap : 0.0f);
-                }
-                capsuleRect = Rect(capX, bounds.y + (bounds.h - capSize.y) * 0.5f, capW, capSize.y);
-
-                float textY = startY;
-                if (hasExternalLabel) {
-                    labelRect = Rect(bounds.x, textY, textBlockW, labelH);
-                    textY += labelH + inputMetrics.descGap;
-                }
-                if (hasExternalDesc) {
-                    descRect = Rect(bounds.x, textY, textBlockW, descH);
-                }
-            } else {
-                // InlineOrder::ControlFirst: Capsule first (left), text second (right)
-                capsuleRect = Rect(bounds.x, bounds.y + (bounds.h - capSize.y) * 0.5f, capW, capSize.y);
-
-                float textX = bounds.x + capW + gap;
-                if (opts.stretch != StretchMode::Compact) {
-                    textX = std::max(bounds.x + capW + gap, bounds.x + bounds.w - textBlockW);
-                }
-                float textY = startY;
-                if (hasExternalLabel) {
-                    labelRect = Rect(textX, textY, textBlockW, labelH);
-                    textY += labelH + inputMetrics.descGap;
-                }
-                if (hasExternalDesc) {
-                    descRect = Rect(textX, textY, textBlockW, descH);
-                }
-            }
-        }
-
-        // Draw external label and description with elementAlign and automatic truncation
-        Color labelCol = pal.textPrimary;
-        Color descCol = theme.GetTextColor(opts.descriptionVariant);
-        if (disabled) {
-            labelCol = labelCol.WithAlphaF(0.40f);
-            descCol = descCol.WithAlphaF(0.40f);
-        }
-
-        if (hasExternalLabel && labelRect.w > 0.0f && labelRect.h > 0.0f) {
-            std::string truncLabel;
-            std::string_view drawLabel = effectiveExternalLabel;
-            if (measuredLabelW > labelRect.w + kTextSubpixelTolerance) {
-                truncLabel = TextUtil::TruncateWithEllipsis(effectiveExternalLabel, labelRect.w, inputMetrics.labelFontSize, &canvas);
-                drawLabel = truncLabel;
-            }
-            canvas.DrawTextBox(drawLabel, labelRect, inputMetrics.labelFontSize, labelCol, alignFactor, 0.5f);
-        }
-        if (hasExternalDesc && descRect.w > 0.0f && descRect.h > 0.0f) {
-            std::string truncDesc;
-            std::string_view drawDesc = effectiveDescription;
-            if (measuredDescW > descRect.w + kTextSubpixelTolerance) {
-                truncDesc = TextUtil::TruncateWithEllipsis(effectiveDescription, descRect.w, inputMetrics.descFontSize, &canvas);
-                drawDesc = truncDesc;
-            }
-            canvas.DrawTextBox(drawDesc, descRect, inputMetrics.descFontSize, descCol, alignFactor, 0.5f);
-        }
-    }
+    const ElementSpec spec = MakeButtonElementSpec(opts, effectiveExternalLabel, size, disabled, theme);
+    const ElementGeometry geom = ElementComposer::Resolve(bounds, capSize, spec, &canvas, theme);
+    ElementComposer::RenderText(canvas, geom, spec, theme);
+    const Rect capsuleRect = geom.controlRect;
 
     const VariantColors& colors = theme.GetVariant(opts.variant);
 
