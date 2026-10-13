@@ -556,13 +556,11 @@ int main(int argc, char* argv[]) {
                                                     ui.InvalidateAll();
                                                 }
                                                 if (ui.Switch(btnHasIcon, {.label = "Show Icon"}).changed) ui.InvalidateAll();
-                                                if (btnHasIcon) {
-                                                    static constexpr std::array<std::string_view, 4> placeNames = {"Leading", "Trailing", "Top", "Bottom"};
-                                                    size_t placeIdx = (btnIconPlacement == guikit::Placement::Trailing) ? 1 : ((btnIconPlacement == guikit::Placement::Top) ? 2 : ((btnIconPlacement == guikit::Placement::Bottom) ? 3 : 0));
-                                                    if (ui.StepSlider(placeIdx, placeNames, {.label = "Icon Placement", .showTicks = true, .showLabels = true}).changed) {
-                                                        btnIconPlacement = (placeIdx == 1) ? guikit::Placement::Trailing : ((placeIdx == 2) ? guikit::Placement::Top : ((placeIdx == 3) ? guikit::Placement::Bottom : guikit::Placement::Leading));
-                                                        ui.InvalidateAll();
-                                                    }
+                                                static constexpr std::array<std::string_view, 4> placeNames = {"Leading", "Trailing", "Top", "Bottom"};
+                                                size_t placeIdx = (btnIconPlacement == guikit::Placement::Trailing) ? 1 : ((btnIconPlacement == guikit::Placement::Top) ? 2 : ((btnIconPlacement == guikit::Placement::Bottom) ? 3 : 0));
+                                                if (ui.StepSlider(placeIdx, placeNames, {.label = "Icon Placement", .showTicks = true, .showLabels = true, .disabled = !btnHasIcon}).changed) {
+                                                    btnIconPlacement = (placeIdx == 1) ? guikit::Placement::Trailing : ((placeIdx == 2) ? guikit::Placement::Top : ((placeIdx == 3) ? guikit::Placement::Bottom : guikit::Placement::Leading));
+                                                    ui.InvalidateAll();
                                                 }
                                                 if (ui.Switch(btnDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
                                                 break;
@@ -579,10 +577,8 @@ int main(int argc, char* argv[]) {
 
                                                 ui.Heading({.title = "Display Options", .size = guikit::UiSize::Sm});
                                                 if (ui.Switch(sliderShowValue, {.label = "Show Value Tag"}).changed) ui.InvalidateAll();
-                                                if (!sliderContinuous) {
-                                                    if (ui.Switch(sliderShowTicks, {.label = "Show Step Ticks"}).changed) ui.InvalidateAll();
-                                                    if (ui.Switch(sliderShowLabels, {.label = "Show Step Labels"}).changed) ui.InvalidateAll();
-                                                }
+                                                if (ui.Switch(sliderShowTicks, {.label = "Show Step Ticks", .disabled = sliderContinuous}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(sliderShowLabels, {.label = "Show Step Labels", .disabled = sliderContinuous}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(sliderDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
                                                 break;
                                             }
@@ -716,11 +712,9 @@ int main(int argc, char* argv[]) {
                                                     ui.InvalidateAll();
                                                 }
                                                 if (ui.Switch(testTabHasBg, {.label = "Container Background Fill"}).changed) ui.InvalidateAll();
-                                                if (testTabHasBg) {
-                                                    if (ui.Slider(testTabRadius, 0.0f, 24.0f, {.label = "Container Corner Radius", .format = "%.0f px"}).changed) ui.InvalidateAll();
-                                                    if (ui.Slider(testTabPadding, 0.0f, 12.0f, {.label = "Container Internal Padding", .format = "%.0f px"}).changed) ui.InvalidateAll();
-                                                    if (ui.Slider(testTabBorderWidth, 0.0f, 4.0f, {.label = "Container Border Width", .format = "%.1f px"}).changed) ui.InvalidateAll();
-                                                }
+                                                if (ui.Slider(testTabRadius, 0.0f, 24.0f, {.label = "Container Corner Radius", .format = "%.0f px", .disabled = !testTabHasBg}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(testTabPadding, 0.0f, 12.0f, {.label = "Container Internal Padding", .format = "%.0f px", .disabled = !testTabHasBg}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(testTabBorderWidth, 0.0f, 4.0f, {.label = "Container Border Width", .format = "%.1f px", .disabled = !testTabHasBg}).changed) ui.InvalidateAll();
                                                 if (ui.Slider(tabGap, 0.0f, 24.0f, {.label = "Tab Spacing (Gap)", .format = "%.0f px"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(testTabShowSep, {.label = "Baseline Separator"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(testTabFullWidth, {.label = "Full Width Stretch"}).changed) ui.InvalidateAll();
