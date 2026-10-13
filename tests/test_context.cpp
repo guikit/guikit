@@ -4268,6 +4268,161 @@ void TestWidgetStretchModesAndExplicitWidth() {
     std::cout << "  [PASS] TestWidgetStretchModesAndExplicitWidth completed\n";
 }
 
+void TestLabelAlignmentGeometryOptionA() {
+    using namespace guikit;
+
+    class LabelRecordingCanvas : public ThorCanvas {
+    public:
+        struct TextBoxCall {
+            std::string text;
+            Rect bounds;
+            float alignX;
+        };
+        void DrawRoundRect(Rect rect, float radius, Color fill, Color stroke = Color(0, 0, 0, 0), float strokeWidth = 0.0f) override {
+            lastRoundRect = rect;
+            ThorCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
+        }
+        void DrawTextBox(std::string_view text, Rect bounds, float fontSize, Color color, float alignX = 0.0f, float alignY = 0.5f) override {
+            textBoxCalls.push_back({std::string(text), bounds, alignX});
+            ThorCanvas::DrawTextBox(text, bounds, fontSize, color, alignX, alignY);
+        }
+        void Reset() {
+            lastRoundRect = {};
+            textBoxCalls.clear();
+        }
+        const TextBoxCall* FindTextBox(std::string_view text) const {
+            for (const auto& c : textBoxCalls) {
+                if (c.text == text) return &c;
+            }
+            return nullptr;
+        }
+        Rect lastRoundRect{};
+        std::vector<TextBoxCall> textBoxCalls;
+    };
+
+    LabelRecordingCanvas recCanvas;
+    std::vector<uint32_t> pixels(800 * 600, 0);
+    recCanvas.SetTarget(pixels.data(), 800, 600, 800);
+    const UiTheme& darkTheme = UiTheme::Dark();
+    const Rect widgetBounds(50.0f, 100.0f, 800.0f, 80.0f);
+
+    // 1. Button in Top layout with Compact stretch:
+    // Label block width must be tied to control width (150px) rather than whole container (800px)
+    {
+        recCanvas.Reset();
+        ButtonOptions opts{
+            .label = "Header Label",
+            .text = "Click Me",
+            .layout = ElementLayout::Top,
+            .labelAlign = Align::Center,
+            .stretch = StretchMode::Compact,
+            .width = 150.0f
+        };
+        Button::Render(recCanvas, widgetBounds, opts, UiSize::Md, false, false, false, darkTheme);
+        const auto* call = recCanvas.FindTextBox("Header Label");
+        CHECK(call != nullptr);
+        if (call) {
+            CHECK_NEAR(call->bounds.x, 50.0f, 0.01f);
+            CHECK_NEAR(call->bounds.w, 150.0f, 0.01f);
+            CHECK_NEAR(call->alignX, 0.5f, 0.01f);
+        }
+    }
+
+    // 2. Button in Top layout with Fill stretch:
+    // Label block width spans entire container (800px)
+    {
+        recCanvas.Reset();
+        ButtonOptions opts{
+            .label = "Header Label",
+            .text = "Click Me",
+            .layout = ElementLayout::Top,
+            .labelAlign = Align::End,
+            .stretch = StretchMode::Fill
+        };
+        Button::Render(recCanvas, widgetBounds, opts, UiSize::Md, false, false, false, darkTheme);
+        const auto* call = recCanvas.FindTextBox("Header Label");
+        CHECK(call != nullptr);
+        if (call) {
+            CHECK_NEAR(call->bounds.x, 50.0f, 0.01f);
+            CHECK_NEAR(call->bounds.w, 800.0f, 0.01f);
+            CHECK_NEAR(call->alignX, 1.0f, 0.01f);
+        }
+    }
+
+    // 3. Button in Inline layout with StretchMode::Between & LabelFirst:
+    // Label rect width should span available space between container edge and button capsule
+    {
+        recCanvas.Reset();
+        ButtonOptions opts{
+            .label = "Setting Title",
+            .text = "Action",
+            .layout = ElementLayout::Inline,
+            .inlineOrder = InlineOrder::LabelFirst,
+            .labelAlign = Align::End,
+            .stretch = StretchMode::Between,
+            .width = 150.0f
+        };
+        Button::Render(recCanvas, widgetBounds, opts, UiSize::Md, false, false, false, darkTheme);
+        const auto* call = recCanvas.FindTextBox("Setting Title");
+        CHECK(call != nullptr);
+        if (call) {
+            // Button capsule is at 50 + 800 - 150 = 700
+            const float expectedCapX = 700.0f;
+            CHECK_NEAR(recCanvas.lastRoundRect.x, expectedCapX, 0.01f);
+            CHECK_NEAR(call->bounds.x, 50.0f, 0.01f);
+            // availableTextW is capX - gap - bounds.x > 500px, NOT squeezed to ~70px
+            CHECK(call->bounds.w > 500.0f);
+            CHECK_NEAR(call->alignX, 1.0f, 0.01f);
+        }
+    }
+
+    // 4. InputField in Inline layout with StretchMode::Between & ControlFirst:
+    // Label rect width spans from control to right container edge
+    {
+        recCanvas.Reset();
+        InputFieldOptions opts{
+            .label = "Trailing Field Info",
+            .layout = ElementLayout::Inline,
+            .inlineOrder = InlineOrder::ControlFirst,
+            .labelAlign = Align::Center,
+            .stretch = StretchMode::Between,
+            .width = 200.0f
+        };
+        InputField::Render(recCanvas, widgetBounds, "text", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
+        const auto* call = recCanvas.FindTextBox("Trailing Field Info");
+        CHECK(call != nullptr);
+        if (call) {
+            // Box is at 50, width 200
+            CHECK_NEAR(call->bounds.x, 50.0f + 200.0f + darkTheme.GetInputField(UiSize::Md).paddingX, 0.01f);
+            CHECK(call->bounds.w > 400.0f);
+            CHECK_NEAR(call->alignX, 0.5f, 0.01f);
+        }
+    }
+
+    // 5. Switch in Top layout with Compact stretch:
+    // Label block width is max(trackSize.x, measuredTextW)
+    {
+        recCanvas.Reset();
+        SwitchOptions opts{
+            .label = "Short",
+            .layout = ElementLayout::Top,
+            .labelAlign = Align::Center,
+            .stretch = StretchMode::Compact
+        };
+        Switch::Render(recCanvas, widgetBounds, false, opts, UiSize::Md, false, false, false, darkTheme);
+        const auto* call = recCanvas.FindTextBox("Short");
+        CHECK(call != nullptr);
+        if (call) {
+            CHECK_NEAR(call->bounds.x, 50.0f, 0.01f);
+            // Label block should NOT be 800px; it is bounded by track or text width
+            CHECK(call->bounds.w < 100.0f);
+            CHECK_NEAR(call->alignX, 0.5f, 0.01f);
+        }
+    }
+
+    std::cout << "  [PASS] TestLabelAlignmentGeometryOptionA completed\n";
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -4318,6 +4473,7 @@ int main() {
     TestWidgetRadiusOverride();
     TestButtonExternalLabelDescriptionAndPlacement();
     TestWidgetStretchModesAndExplicitWidth();
+    TestLabelAlignmentGeometryOptionA();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

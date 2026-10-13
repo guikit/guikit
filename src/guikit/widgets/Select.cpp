@@ -132,8 +132,17 @@ Vec2 Select::Measure(
     }
 
     if (opts.layout == ElementLayout::Inline) {
-        const float labelW = hasLabel ? labelDims.x + m.paddingX : 0.0f;
-        return {boxW + labelW, std::max(m.defaultHeight, labelDims.y)};
+        const float textW = std::max(labelDims.x, descDims.x);
+        float textH = 0.0f;
+        if (hasLabel && hasDesc) {
+            textH = labelDims.y + m.descGap + descDims.y;
+        } else if (hasLabel) {
+            textH = labelDims.y;
+        } else if (hasDesc) {
+            textH = descDims.y;
+        }
+        const float gap = (hasLabel || hasDesc) ? m.paddingX : 0.0f;
+        return {boxW + (textW > 0.0f ? gap + textW : 0.0f), std::max(m.defaultHeight, textH)};
     }
 
     if (opts.layout == ElementLayout::Top) {
@@ -458,6 +467,9 @@ void Select::Render(
 
     const float labelH = hasLabel ? canvas.GetLineHeight(m.labelFontSize) : 0.0f;
     const float descH = hasDesc ? canvas.GetLineHeight(m.descFontSize) : 0.0f;
+    const float measuredLabelW = hasLabel ? canvas.MeasureText(effectiveLabel, m.labelFontSize).x : 0.0f;
+    const float measuredDescW = hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f;
+    const float measuredTextW = std::max(measuredLabelW, measuredDescW);
 
     float naturalBoxW = opts.width.value_or(m.defaultWidth);
     if (opts.minWidth.has_value()) {
@@ -467,81 +479,100 @@ void Select::Render(
     }
 
     if (opts.layout == ElementLayout::Stacked) {
+        const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
+        const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(boxW, measuredTextW));
+        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+
         float curY = bounds.y;
         if (hasLabel) {
-            labelRect = Rect(bounds.x, curY, bounds.w, labelH);
+            labelRect = Rect(blockX, curY, blockW, labelH);
             curY += labelH + m.labelGap;
         }
-        const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
         boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
         curY += m.defaultHeight + m.descGap;
         if (hasDesc) {
-            descRect = Rect(bounds.x, curY, bounds.w, descH);
+            descRect = Rect(blockX, curY, blockW, descH);
         }
     } else if (opts.layout == ElementLayout::Top) {
+        const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
+        const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(boxW, measuredTextW));
+        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+
         float curY = bounds.y;
         if (hasLabel) {
-            labelRect = Rect(bounds.x, curY, bounds.w, labelH);
+            labelRect = Rect(blockX, curY, blockW, labelH);
             curY += labelH + (hasDesc ? m.descGap : 0.0f);
         }
         if (hasDesc) {
-            descRect = Rect(bounds.x, curY, bounds.w, descH);
+            descRect = Rect(blockX, curY, blockW, descH);
             curY += descH;
         }
         curY += m.labelGap;
-        const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
         boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
     } else if (opts.layout == ElementLayout::Bottom) {
-        float curY = bounds.y;
         const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
+        const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(boxW, measuredTextW));
+        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
         const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+
+        float curY = bounds.y;
         boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
         curY += m.defaultHeight + m.descGap;
         if (hasLabel) {
-            labelRect = Rect(bounds.x, curY, bounds.w, labelH);
+            labelRect = Rect(blockX, curY, blockW, labelH);
             curY += labelH + (hasDesc ? m.descGap : 0.0f);
         }
         if (hasDesc) {
-            descRect = Rect(bounds.x, curY, bounds.w, descH);
+            descRect = Rect(blockX, curY, blockW, descH);
         }
     } else { // ElementLayout::Inline
-        float labelW = 0.0f;
-        if (hasLabel) {
-            labelW = canvas.MeasureText(effectiveLabel, m.labelFontSize).x;
+        const float gap = (hasLabel || hasDesc) ? m.paddingX : 0.0f;
+        const float totalTextH = (hasLabel && hasDesc) ? (labelH + m.descGap + descH) : (hasLabel ? labelH : descH);
+        const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
+
+        float boxW = naturalBoxW;
+        if (opts.stretch == StretchMode::Fill) {
+            boxW = std::max(m.minWidth, bounds.w - measuredTextW - gap);
+        } else {
+            boxW = std::min(bounds.w, naturalBoxW);
         }
 
         if (opts.inlineOrder == InlineOrder::LabelFirst) {
             // Label first (left), box second (right)
-            if (hasLabel) {
-                labelRect = Rect(bounds.x, bounds.y + (bounds.h - labelH) * 0.5f, labelW, labelH);
+            float boxX = bounds.x + bounds.w - boxW;
+            if (opts.stretch == StretchMode::Compact) {
+                boxX = bounds.x + measuredTextW + gap;
             }
-            if (opts.stretch == StretchMode::Between) {
-                const float boxW = std::min(naturalBoxW, std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f)));
-                const float boxX = bounds.x + bounds.w - boxW;
-                boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
-            } else if (opts.stretch == StretchMode::Fill) {
-                const float boxX = bounds.x + labelW + (hasLabel ? m.paddingX : 0.0f);
-                const float boxW = std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f));
-                boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
-            } else { // Compact
-                const float boxX = bounds.x + labelW + (hasLabel ? m.paddingX : 0.0f);
-                const float boxW = std::min(naturalBoxW, std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f)));
-                boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
+            boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
+
+            const float availableTextW = (opts.stretch == StretchMode::Compact)
+                ? measuredTextW
+                : std::max(0.0f, boxX - gap - bounds.x);
+            float textY = startY;
+            if (hasLabel) {
+                labelRect = Rect(bounds.x, textY, availableTextW, labelH);
+                textY += labelH + m.descGap;
+            }
+            if (hasDesc) {
+                descRect = Rect(bounds.x, textY, availableTextW, descH);
             }
         } else {
             // InlineOrder::ControlFirst: Box first (left), text second (right)
-            const float boxW = (opts.stretch == StretchMode::Fill)
-                ? std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f))
-                : std::min(naturalBoxW, std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f)));
             boxRect = Rect(bounds.x, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
+
+            const float textX = bounds.x + boxW + gap;
+            const float remTextW = (opts.stretch == StretchMode::Compact)
+                ? measuredTextW
+                : std::max(0.0f, bounds.x + bounds.w - textX);
+            float textY = startY;
             if (hasLabel) {
-                float labelX = bounds.x + boxW + m.paddingX;
-                if (opts.stretch == StretchMode::Between) {
-                    labelX = std::max(labelX, bounds.x + bounds.w - labelW);
-                }
-                labelRect = Rect(labelX, bounds.y + (bounds.h - labelH) * 0.5f, labelW, labelH);
+                labelRect = Rect(textX, textY, remTextW, labelH);
+                textY += labelH + m.descGap;
+            }
+            if (hasDesc) {
+                descRect = Rect(textX, textY, remTextW, descH);
             }
         }
     }

@@ -292,45 +292,66 @@ void Switch::Render(
         }
     } else if (opts.layout == ElementLayout::Stacked) {
         // Label on top, track in middle, description on bottom
+        const float naturalTextW = std::max(
+            hasLabel ? canvas.MeasureText(opts.label, m.fontSize).x : 0.0f,
+            hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
+        );
+        const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(m.trackSize.x, naturalTextW));
+        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float trackX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
+
         float curY = bounds.y;
         if (hasLabel) {
-            labelRect = Rect(bounds.x, curY, bounds.w, labelH);
+            labelRect = Rect(blockX, curY, blockW, labelH);
             curY += labelH + m.descGap;
         }
-        const float trackX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
         trackRect = Rect(trackX, curY, m.trackSize.x, m.trackSize.y);
         curY += m.trackSize.y + m.descGap;
         if (hasDesc) {
-            descRect = Rect(bounds.x, curY, bounds.w, descH);
+            descRect = Rect(blockX, curY, blockW, descH);
         }
         alignX = 0.0f;
     } else if (opts.layout == ElementLayout::Top) {
         // Both label and description above track
+        const float naturalTextW = std::max(
+            hasLabel ? canvas.MeasureText(opts.label, m.fontSize).x : 0.0f,
+            hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
+        );
+        const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(m.trackSize.x, naturalTextW));
+        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float trackX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
+
         float curY = bounds.y;
         if (hasLabel) {
-            labelRect = Rect(bounds.x, curY, bounds.w, labelH);
+            labelRect = Rect(blockX, curY, blockW, labelH);
             curY += labelH + (hasDesc ? m.descGap : 0.0f);
         }
         if (hasDesc) {
-            descRect = Rect(bounds.x, curY, bounds.w, descH);
+            descRect = Rect(blockX, curY, blockW, descH);
             curY += descH;
         }
         curY += m.descGap;
-        const float trackX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
         trackRect = Rect(trackX, curY, m.trackSize.x, m.trackSize.y);
         alignX = 0.0f;
     } else if (opts.layout == ElementLayout::Bottom) {
         // Track on top, both label and description below track
-        float curY = bounds.y;
+        const float naturalTextW = std::max(
+            hasLabel ? canvas.MeasureText(opts.label, m.fontSize).x : 0.0f,
+            hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
+        );
+        const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(m.trackSize.x, naturalTextW));
+        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
         const float trackX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
+
+        float curY = bounds.y;
         trackRect = Rect(trackX, curY, m.trackSize.x, m.trackSize.y);
         curY += m.trackSize.y + m.descGap;
         if (hasLabel) {
-            labelRect = Rect(bounds.x, curY, bounds.w, labelH);
+            labelRect = Rect(blockX, curY, blockW, labelH);
             curY += labelH + (hasDesc ? m.descGap : 0.0f);
         }
         if (hasDesc) {
-            descRect = Rect(bounds.x, curY, bounds.w, descH);
+            descRect = Rect(blockX, curY, blockW, descH);
         }
         alignX = 0.0f;
     } else { // ElementLayout::Inline
@@ -350,32 +371,33 @@ void Switch::Render(
             }
             trackRect = Rect(trackX, trackY, m.trackSize.x, m.trackSize.y);
 
-            const float textW = (opts.stretch == StretchMode::Between) ? naturalTextW : std::max(0.0f, bounds.w - m.trackSize.x - m.gap);
+            const float availableTextW = (opts.stretch == StretchMode::Compact)
+                ? naturalTextW
+                : std::max(0.0f, trackX - m.gap - bounds.x);
             if (hasLabel && hasDesc) {
-                labelRect = Rect(bounds.x, startY, textW, labelH);
-                descRect = Rect(bounds.x, startY + labelH + m.descGap, textW, descH);
+                labelRect = Rect(bounds.x, startY, availableTextW, labelH);
+                descRect = Rect(bounds.x, startY + labelH + m.descGap, availableTextW, descH);
             } else if (hasLabel) {
-                labelRect = Rect(bounds.x, startY, textW, labelH);
+                labelRect = Rect(bounds.x, startY, availableTextW, labelH);
             } else if (hasDesc) {
-                descRect = Rect(bounds.x, startY, textW, descH);
+                descRect = Rect(bounds.x, startY, availableTextW, descH);
             }
         } else {
             // InlineOrder::ControlFirst: Track first (left), text second (right)
             trackRect = Rect(bounds.x, trackY, m.trackSize.x, m.trackSize.y);
 
-            float textX = bounds.x + m.trackSize.x + m.gap;
-            if (opts.stretch != StretchMode::Compact) {
-                textX = std::max(bounds.x + m.trackSize.x + m.gap, bounds.x + bounds.w - naturalTextW);
-            }
-            const float textW = std::max(0.0f, bounds.w - (textX - bounds.x));
+            const float textX = bounds.x + m.trackSize.x + m.gap;
+            const float remTextW = (opts.stretch == StretchMode::Compact)
+                ? naturalTextW
+                : std::max(0.0f, bounds.x + bounds.w - textX);
 
             if (hasLabel && hasDesc) {
-                labelRect = Rect(textX, startY, textW, labelH);
-                descRect = Rect(textX, startY + labelH + m.descGap, textW, descH);
+                labelRect = Rect(textX, startY, remTextW, labelH);
+                descRect = Rect(textX, startY + labelH + m.descGap, remTextW, descH);
             } else if (hasLabel) {
-                labelRect = Rect(textX, startY, textW, labelH);
+                labelRect = Rect(textX, startY, remTextW, labelH);
             } else if (hasDesc) {
-                descRect = Rect(textX, startY, textW, descH);
+                descRect = Rect(textX, startY, remTextW, descH);
             }
         }
     }

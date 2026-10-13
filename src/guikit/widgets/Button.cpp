@@ -268,53 +268,62 @@ void Button::Render(
         const float labelH = hasExternalLabel ? canvas.GetLineHeight(inputMetrics.labelFontSize) : 0.0f;
         const float descH = hasExternalDesc ? canvas.GetLineHeight(inputMetrics.descFontSize) : 0.0f;
 
+        const float measuredLabelW = hasExternalLabel ? canvas.MeasureText(effectiveExternalLabel, inputMetrics.labelFontSize).x : 0.0f;
+        const float measuredDescW = hasExternalDesc ? canvas.MeasureText(effectiveDescription, inputMetrics.descFontSize).x : 0.0f;
+        const float measuredTextW = std::max(measuredLabelW, measuredDescW);
+
         if (opts.layout == ElementLayout::Stacked) {
+            const float capW = (opts.stretch == StretchMode::Fill) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
+            const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(capW, measuredTextW));
+            const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
+            const float capX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - capW) : bounds.x;
+
             float curY = bounds.y;
             if (hasExternalLabel) {
-                labelRect = Rect(bounds.x, curY, bounds.w, labelH);
+                labelRect = Rect(blockX, curY, blockW, labelH);
                 curY += labelH + inputMetrics.labelGap;
             }
-            const float capW = (opts.stretch == StretchMode::Fill) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
-            const float capX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - capW) : bounds.x;
             capsuleRect = Rect(capX, curY, capW, capSize.y);
             curY += capsuleRect.h + inputMetrics.descGap;
             if (hasExternalDesc) {
-                descRect = Rect(bounds.x, curY, bounds.w, descH);
+                descRect = Rect(blockX, curY, blockW, descH);
             }
         } else if (opts.layout == ElementLayout::Top) {
+            const float capW = (opts.stretch == StretchMode::Fill) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
+            const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(capW, measuredTextW));
+            const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
+            const float capX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - capW) : bounds.x;
+
             float curY = bounds.y;
             if (hasExternalLabel) {
-                labelRect = Rect(bounds.x, curY, bounds.w, labelH);
+                labelRect = Rect(blockX, curY, blockW, labelH);
                 curY += labelH + (hasExternalDesc ? inputMetrics.descGap : 0.0f);
             }
             if (hasExternalDesc) {
-                descRect = Rect(bounds.x, curY, bounds.w, descH);
+                descRect = Rect(blockX, curY, blockW, descH);
                 curY += descH;
             }
             curY += inputMetrics.labelGap;
-            const float capW = (opts.stretch == StretchMode::Fill) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
-            const float capX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - capW) : bounds.x;
             capsuleRect = Rect(capX, curY, capW, capSize.y);
         } else if (opts.layout == ElementLayout::Bottom) {
-            float curY = bounds.y;
             const float capW = (opts.stretch == StretchMode::Fill) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
+            const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(capW, measuredTextW));
+            const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
             const float capX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - capW) : bounds.x;
+
+            float curY = bounds.y;
             capsuleRect = Rect(capX, curY, capW, capSize.y);
             curY += capsuleRect.h + inputMetrics.descGap;
             if (hasExternalLabel) {
-                labelRect = Rect(bounds.x, curY, bounds.w, labelH);
+                labelRect = Rect(blockX, curY, blockW, labelH);
                 curY += labelH + (hasExternalDesc ? inputMetrics.descGap : 0.0f);
             }
             if (hasExternalDesc) {
-                descRect = Rect(bounds.x, curY, bounds.w, descH);
+                descRect = Rect(blockX, curY, blockW, descH);
             }
         } else { // ElementLayout::Inline
             const float gap = m.paddingX;
             const float naturalCapW = opts.width.value_or(capSize.x);
-            const float measuredTextW = std::max(
-                hasExternalLabel ? canvas.MeasureText(effectiveExternalLabel, inputMetrics.labelFontSize).x : 0.0f,
-                hasExternalDesc ? canvas.MeasureText(effectiveDescription, inputMetrics.descFontSize).x : 0.0f
-            );
 
             float capW = naturalCapW;
             if (opts.stretch == StretchMode::Fill) {
@@ -323,7 +332,6 @@ void Button::Render(
                 capW = std::min(bounds.w, naturalCapW);
             }
 
-            const float textW = std::max(0.0f, bounds.w - capW - gap);
             const float totalTextH = (hasExternalLabel && hasExternalDesc) ? (labelH + inputMetrics.descGap + descH) : (hasExternalLabel ? labelH : descH);
             const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
 
@@ -335,7 +343,9 @@ void Button::Render(
                 }
                 capsuleRect = Rect(capX, bounds.y + (bounds.h - capSize.y) * 0.5f, capW, capSize.y);
 
-                const float availableTextW = (opts.stretch == StretchMode::Between) ? measuredTextW : textW;
+                const float availableTextW = (opts.stretch == StretchMode::Compact)
+                    ? measuredTextW
+                    : std::max(0.0f, capX - gap - bounds.x);
                 float textY = startY;
                 if (hasExternalLabel) {
                     labelRect = Rect(bounds.x, textY, availableTextW, labelH);
@@ -348,11 +358,10 @@ void Button::Render(
                 // InlineOrder::ControlFirst: Capsule first (left), text second (right)
                 capsuleRect = Rect(bounds.x, bounds.y + (bounds.h - capSize.y) * 0.5f, capW, capSize.y);
 
-                float textX = bounds.x + capW + gap;
-                if (opts.stretch == StretchMode::Between) {
-                    textX = std::max(bounds.x + capW + gap, bounds.x + bounds.w - measuredTextW);
-                }
-                const float remTextW = std::max(0.0f, bounds.w - (textX - bounds.x));
+                const float textX = bounds.x + capW + gap;
+                const float remTextW = (opts.stretch == StretchMode::Compact)
+                    ? measuredTextW
+                    : std::max(0.0f, bounds.x + bounds.w - textX);
                 float textY = startY;
                 if (hasExternalLabel) {
                     labelRect = Rect(textX, textY, remTextW, labelH);
