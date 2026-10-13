@@ -914,7 +914,6 @@ int main(int argc, char* argv[]) {
                             .heightMode = guikit::SizeMode::Stretch,
                             .size = controlsSize
                         })) {
-                            if (auto contentScroll = ui.ScrollArea({.gap = 12.0f})) {
                             auto& th = appTheme;
                             const auto makeCard = [&]() {
                                 return guikit::CardOptions{
@@ -932,18 +931,28 @@ int main(int argc, char* argv[]) {
 
                             if (isElementCategory(selectedCategory)) {
                                 // -------------------------------------------------------------
-                                // ELEMENTS MODE: Component Sandbox (Hero + Matrices + C++ Code)
+                                // ELEMENTS MODE: Component Sandbox (Hero 50% + C++ Code 50%)
                                 // -------------------------------------------------------------
-                                if (auto heroCard = ui.Card({.gap = 12.0f, .padding = guikit::Padding::All(14.0f)})) {
+                                if (auto heroCard = ui.Card({
+                                    .gap = 12.0f,
+                                    .padding = guikit::Padding::All(14.0f),
+                                    .heightMode = guikit::SizeMode::Stretch
+                                })) {
                                     // Hero Showcase Stage
                                     if (auto stageBox = ui.Box({
+                                        .widthMode = guikit::SizeMode::Stretch,
+                                        .heightMode = guikit::SizeMode::Stretch,
                                         .padding = guikit::Padding::All(24.0f),
                                         .backgroundColor = th.palette.surfaceElevated,
                                         .borderColor = th.palette.borderSubtle,
                                         .borderWidth = 1.0f,
                                         .radius = 8.0f
                                     })) {
-                                        if (auto centerRow = ui.Row({.align = guikit::Alignment::Center, .justify = guikit::Justify::Center})) {
+                                        if (auto centerRow = ui.Row({
+                                            .align = guikit::Alignment::Center,
+                                            .justify = guikit::Justify::Center,
+                                            .heightMode = guikit::SizeMode::Stretch
+                                        })) {
                                             switch (selectedCategory) {
                                                 case NavCategory::ElemButton: {
                                                     std::string btnText = btnClicks > 0 ? std::format("Clicked {}x", btnClicks) : "Interactive Button";
@@ -1100,7 +1109,11 @@ int main(int argc, char* argv[]) {
                                 }
 
                                 // C++20 Immediate Mode Code Generator Card
-                                if (auto codeCard = ui.Card({.gap = 8.0f, .padding = guikit::Padding::All(12.0f)})) {
+                                if (auto codeCard = ui.Card({
+                                    .gap = 8.0f,
+                                    .padding = guikit::Padding::All(12.0f),
+                                    .heightMode = guikit::SizeMode::Stretch
+                                })) {
                                     auto placementName = [](guikit::Placement p) -> std::string_view {
                                         switch (p) {
                                             case guikit::Placement::Leading:  return "Leading";
@@ -1113,40 +1126,69 @@ int main(int argc, char* argv[]) {
                                         return "Trailing";
                                     };
 
+                                    auto sizeName = [](guikit::UiSize s) -> std::string_view {
+                                        switch (s) {
+                                            case guikit::UiSize::Xs: return "Xs";
+                                            case guikit::UiSize::Sm: return "Sm";
+                                            case guikit::UiSize::Md: return "Md";
+                                            case guikit::UiSize::Lg: return "Lg";
+                                            case guikit::UiSize::Xl: return "Xl";
+                                            default: return "Md";
+                                        }
+                                    };
+
+                                    auto alignName = [](guikit::Align a) -> std::string_view {
+                                        switch (a) {
+                                            case guikit::Align::Start:  return "Start";
+                                            case guikit::Align::Center: return "Center";
+                                            case guikit::Align::End:    return "End";
+                                        }
+                                        return "Center";
+                                    };
+
+                                    auto cursorModeName = [](guikit::CursorBlinkMode m) -> std::string_view {
+                                        switch (m) {
+                                            case guikit::CursorBlinkMode::Blinking: return "Blinking";
+                                            case guikit::CursorBlinkMode::Solid:    return "Solid";
+                                            case guikit::CursorBlinkMode::Hidden:   return "Hidden";
+                                        }
+                                        return "Blinking";
+                                    };
+
                                     std::string snippet;
                                     switch (selectedCategory) {
                                         case NavCategory::ElemButton: {
-                                            const bool hasCustomRadius = std::abs(btnCornerRadius - th.GetMetrics(controlsSize).cornerRadius) > 0.01f;
                                             snippet = std::format(
-                                                "ui.Button({{\n"
-                                                "{}"
+                                                "if (ui.Button({{\n"
+                                                "    .label = \"{}\",\n"
                                                 "    .text = \"{}\",\n"
-                                                "{}"
-                                                "{}"
-                                                "{}"
+                                                "    .description = \"{}\",\n"
+                                                "    .icon = {},\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
-                                                "{}"
-                                                "{}"
-                                                "{}"
-                                                "{}"
-                                                "{}"
-                                                "    .size = guikit::UiSize::{}\n"
-                                                "}});",
-                                                btnShowHeader ? "    .label = \"System Action\",\n" : "",
+                                                "    .iconPlacement = guikit::Placement::{},\n"
+                                                "    .labelPlacement = guikit::Placement::{},\n"
+                                                "    .align = guikit::Align::{},\n"
+                                                "    .labelVariants = {{}},\n"
+                                                "    .stretch = {},\n"
+                                                "    .disabled = {},\n"
+                                                "    .active = false,\n"
+                                                "    .size = guikit::UiSize::{},\n"
+                                                "    .radius = {:.1f}f\n"
+                                                "}})) {{\n"
+                                                "    // On click handler\n"
+                                                "}}",
+                                                btnShowHeader ? "System Action" : "",
                                                 btnClicks > 0 ? std::format("Clicked {}x", btnClicks) : "Interactive Button",
-                                                btnShowDesc ? "    .description = \"Commit payload and trigger immediate canary rollout\",\n" : "",
-                                                (btnShowHeader || btnShowDesc) ? std::format("    .labelPlacement = guikit::Placement::{},\n", placementName(btnLabelPlace)) : "",
-                                                btnHasIcon ? "    .icon = guikit::Icon::Play(),\n" : "",
+                                                btnShowDesc ? "Commit payload and trigger immediate canary rollout" : "",
+                                                btnHasIcon ? "guikit::Icon::Play()" : "{}",
                                                 variantName(btnVariant),
-                                                hasCustomRadius ? std::format("    .radius = {:.0f}f,\n", btnCornerRadius) : "",
-                                                btnHasIcon ? std::format("    .iconPlacement = guikit::Placement::{},\n", placementName(btnIconPlacement)) : "",
-                                                btnAlign != guikit::Align::Center ? (btnAlign == guikit::Align::Start ? "    .align = guikit::Align::Start,\n" : "    .align = guikit::Align::End,\n") : "",
-                                                btnStretch ? "    .stretch = true,\n" : "",
-                                                btnDisabled ? "    .disabled = true,\n" : "",
-                                                controlsSize == guikit::UiSize::Xs ? "Xs" :
-                                                (controlsSize == guikit::UiSize::Sm ? "Sm" :
-                                                (controlsSize == guikit::UiSize::Lg ? "Lg" :
-                                                (controlsSize == guikit::UiSize::Xl ? "Xl" : "Md")))
+                                                placementName(btnIconPlacement),
+                                                placementName(btnLabelPlace),
+                                                alignName(btnAlign),
+                                                btnStretch ? "true" : "false",
+                                                btnDisabled ? "true" : "false",
+                                                sizeName(controlsSize),
+                                                btnCornerRadius
                                             );
                                             break;
                                         }
@@ -1156,90 +1198,112 @@ int main(int argc, char* argv[]) {
                                                 snippet = std::format(
                                                     "ui.Slider(gainValue, 0.0f, 100.0f, {{\n"
                                                     "    .label = \"Analog Master Gain\",\n"
+                                                    "    .description = \"\",\n"
+                                                    "    .suffix = \"\",\n"
                                                     "    .format = \"%.1f %%\",\n"
+                                                    "    .step = std::nullopt,\n"
+                                                    "    .labelPlacement = guikit::Placement::Stacked,\n"
                                                     "    .showValue = {},\n"
                                                     "    .variant = guikit::UiVariant::{},\n"
-                                                    "    .size = guikit::UiSize::{}{}\n"
+                                                    "    .size = guikit::UiSize::{},\n"
+                                                    "    .scale = std::nullopt,\n"
+                                                    "    .theme = nullptr,\n"
+                                                    "    .disabled = {}\n"
                                                     "}});",
                                                     sliderShowValue ? "true" : "false",
                                                     variantName(btnVariant),
-                                                    controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
-                                                    sliderDisabled ? ",\n    .disabled = true" : ""
+                                                    sizeName(controlsSize),
+                                                    sliderDisabled ? "true" : "false"
                                                 );
                                             } else {
                                                 snippet = std::format(
-                                                    "ui.StepSlider(presetIndex, filterLabels, {{\n"
+                                                    "static constexpr std::array<std::string_view, 5> stepItems = {{\"Off\", \"Low\", \"Mid\", \"High\", \"Max\"}};\n"
+                                                    "ui.StepSlider(presetIndex, stepItems, {{\n"
                                                     "    .label = \"DSP Filter Mode\",\n"
+                                                    "    .description = \"\",\n"
+                                                    "    .stepLabels = {{}},\n"
+                                                    "    .labelPlacement = guikit::Placement::Stacked,\n"
                                                     "    .showTicks = {},\n"
                                                     "    .showLabels = {},\n"
                                                     "    .showValue = {},\n"
+                                                    "    .valueText = \"\",\n"
+                                                    "    .includeNone = false,\n"
                                                     "    .variant = guikit::UiVariant::{},\n"
-                                                    "    .size = guikit::UiSize::{}{}\n"
+                                                    "    .size = guikit::UiSize::{},\n"
+                                                    "    .scale = std::nullopt,\n"
+                                                    "    .theme = nullptr,\n"
+                                                    "    .disabled = {}\n"
                                                     "}});",
                                                     sliderShowTicks ? "true" : "false",
                                                     sliderShowLabels ? "true" : "false",
                                                     sliderShowValue ? "true" : "false",
                                                     variantName(btnVariant),
-                                                    controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
-                                                    sliderDisabled ? ",\n    .disabled = true" : ""
+                                                    sizeName(controlsSize),
+                                                    sliderDisabled ? "true" : "false"
                                                 );
                                             }
                                             break;
                                         }
 
                                         case NavCategory::ElemInputField: {
-                                            const bool hasCustomInputRadius = std::abs(inputCornerRadius - th.GetMetrics(controlsSize).cornerRadius) > 0.01f;
                                             snippet = std::format(
-                                                "ui.InputField(textValue, {{\n"
-                                                "{}"
-                                                "{}"
-                                                "{}"
+                                                "ui.InputField(serverEndpoint, {{\n"
+                                                "    .label = \"{}\",\n"
+                                                "    .description = \"{}\",\n"
                                                 "    .placeholder = \"Enter domain...\",\n"
-                                                "{}"
-                                                "{}"
+                                                "    .prefix = \"{}\",\n"
+                                                "    .suffix = \"{}\",\n"
+                                                "    .format = \"%.2f\",\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
-                                                "{}"
+                                                "    .labelPlacement = guikit::Placement::{},\n"
+                                                "    .prefixIcon = {},\n"
+                                                "    .suffixIcon = {},\n"
                                                 "    .cursorMode = guikit::CursorBlinkMode::{},\n"
-                                                "    .size = guikit::UiSize::{}{}{}\n"
+                                                "    .size = guikit::UiSize::{},\n"
+                                                "    .radius = {:.1f}f,\n"
+                                                "    .disabled = {},\n"
+                                                "    .readOnly = {}\n"
                                                 "}});",
-                                                inputShowLabel ? "    .label = \"Server Endpoint\",\n" : "",
-                                                inputShowDesc ? "    .description = \"Configured host address\",\n" : "",
-                                                (inputShowLabel || inputShowDesc) ? std::format("    .labelPlacement = guikit::Placement::{},\n", placementName(inputLabelPlace)) : "",
-                                                inputHasPrefix ? "    .prefix = \"https://\",\n" : "",
-                                                inputHasSuffix ? "    .suffix = \":443\",\n" : "",
+                                                inputShowLabel ? "Server Endpoint" : "",
+                                                inputShowDesc ? "Configured host address" : "",
+                                                inputHasPrefix ? "https://" : "",
+                                                inputHasSuffix ? ":443" : "",
                                                 variantName(btnVariant),
-                                                hasCustomInputRadius ? std::format("    .radius = {:.0f}f,\n", inputCornerRadius) : "",
-                                                inputCursorMode == guikit::CursorBlinkMode::Solid ? "Solid" :
-                                                (inputCursorMode == guikit::CursorBlinkMode::Hidden ? "Hidden" : "Blinking"),
-                                                controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
-                                                inputDisabled ? ",\n    .disabled = true" : "",
-                                                inputReadOnly ? ",\n    .readOnly = true" : ""
+                                                placementName(inputLabelPlace),
+                                                "{}",
+                                                "{}",
+                                                cursorModeName(inputCursorMode),
+                                                sizeName(controlsSize),
+                                                inputCornerRadius,
+                                                inputDisabled ? "true" : "false",
+                                                inputReadOnly ? "true" : "false"
                                             );
                                             break;
                                         }
 
                                         case NavCategory::ElemSelect: {
-                                            const bool hasCustomRadius = std::abs(selectCornerRadius - th.GetSelect(controlsSize).cornerRadius) > 0.01f;
                                             snippet = std::format(
-                                                "ui.Select(selectedIndex, itemsList, {{\n"
-                                                "{}"
-                                                "{}"
-                                                "{}"
-                                                "{}"
+                                                "ui.Select(presetIndex, itemsList, {{\n"
+                                                "    .label = \"{}\",\n"
+                                                "    .description = \"{}\",\n"
+                                                "    .placeholder = \"Select...\",\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
-                                                "{}"
+                                                "    .labelPlacement = guikit::Placement::{},\n"
+                                                "    .prefixIcon = {},\n"
                                                 "    .maxVisibleItems = {},\n"
-                                                "    .size = guikit::UiSize::{}{}\n"
+                                                "    .size = guikit::UiSize::{},\n"
+                                                "    .radius = {:.1f}f,\n"
+                                                "    .disabled = {}\n"
                                                 "}});",
-                                                selectShowLabel ? "    .label = \"Active Preset\",\n" : "",
-                                                selectShowDesc ? "    .description = \"Dropdown selection\",\n" : "",
-                                                (selectShowLabel || selectShowDesc) ? std::format("    .labelPlacement = guikit::Placement::{},\n", placementName(selectLabelPlace)) : "",
-                                                selectHasPrefix ? "    .prefixIcon = guikit::Icon::Settings(),\n" : "",
+                                                selectShowLabel ? "Active Preset" : "",
+                                                selectShowDesc ? "Dropdown selection" : "",
                                                 variantName(btnVariant),
-                                                hasCustomRadius ? std::format("    .radius = {:.0f}f,\n", selectCornerRadius) : "",
+                                                placementName(selectLabelPlace),
+                                                selectHasPrefix ? "guikit::Icon::Settings()" : "{}",
                                                 selectMaxItems,
-                                                controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
-                                                selectDisabled ? ",\n    .disabled = true" : ""
+                                                sizeName(controlsSize),
+                                                selectCornerRadius,
+                                                selectDisabled ? "true" : "false"
                                             );
                                             break;
                                         }
@@ -1248,52 +1312,43 @@ int main(int argc, char* argv[]) {
                                             snippet = std::format(
                                                 "ui.Switch(switchState, {{\n"
                                                 "    .label = \"{}\",\n"
-                                                "{}"
-                                                "{}"
+                                                "    .trailingLabel = \"{}\",\n"
+                                                "    .description = \"{}\",\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
                                                 "    .labelPlacement = guikit::Placement::{},\n"
-                                                "{}"
-                                                "    .size = guikit::UiSize::{}{}\n"
+                                                "    .symmetric = {},\n"
+                                                "    .disabled = {},\n"
+                                                "    .size = guikit::UiSize::{}\n"
                                                 "}});",
                                                 (switchLabelPlace == guikit::Placement::Both) ? "Dark" : "Hardware E-Stop",
-                                                (switchLabelPlace == guikit::Placement::Both) ? "    .trailingLabel = \"Light\",\n" : "",
-                                                switchShowDesc ? "    .description = \"Safety interlocking system\",\n" : "",
+                                                (switchLabelPlace == guikit::Placement::Both) ? "Light" : "",
+                                                switchShowDesc ? "Safety interlocking system" : "",
                                                 variantName(btnVariant),
                                                 placementName(switchLabelPlace),
-                                                switchSymmetric ? "    .symmetric = true,\n" : "",
-                                                controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
-                                                switchDisabled ? ",\n    .disabled = true" : ""
+                                                switchSymmetric ? "true" : "false",
+                                                switchDisabled ? "true" : "false",
+                                                sizeName(controlsSize)
                                             );
                                             break;
                                         }
 
                                         case NavCategory::ElemCheckbox: {
-                                            auto placementName = [](guikit::Placement p) -> std::string_view {
-                                                switch (p) {
-                                                    case guikit::Placement::Leading:  return "Leading";
-                                                    case guikit::Placement::Trailing: return "Trailing";
-                                                    case guikit::Placement::Top:      return "Top";
-                                                    case guikit::Placement::Bottom:   return "Bottom";
-                                                    case guikit::Placement::Stacked:  return "Stacked";
-                                                    case guikit::Placement::Both:     return "Both";
-                                                }
-                                                return "Trailing";
-                                            };
                                             snippet = std::format(
                                                 "ui.Checkbox(checkState, {{\n"
                                                 "    .label = \"Telemetry Logging\",\n"
-                                                "{}"
+                                                "    .description = \"{}\",\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
                                                 "    .labelPlacement = guikit::Placement::{},\n"
-                                                "{}"
-                                                "    .size = guikit::UiSize::{}{}\n"
+                                                "    .disabled = {},\n"
+                                                "    .indeterminate = {},\n"
+                                                "    .size = guikit::UiSize::{}\n"
                                                 "}});",
-                                                checkboxShowDesc ? "    .description = \"Save trace to buffer\",\n" : "",
+                                                checkboxShowDesc ? "Save trace to buffer" : "",
                                                 variantName(btnVariant),
                                                 placementName(checkboxLabelPlace),
-                                                testCheckboxIndet ? "    .indeterminate = true,\n" : "",
-                                                controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
-                                                checkboxDisabled ? ",\n    .disabled = true" : ""
+                                                checkboxDisabled ? "true" : "false",
+                                                testCheckboxIndet ? "true" : "false",
+                                                sizeName(controlsSize)
                                             );
                                             break;
                                         }
@@ -1308,9 +1363,13 @@ int main(int argc, char* argv[]) {
                                                 "    .gap = {:.1f}f,\n"
                                                 "    .padding = guikit::Padding::All({:.1f}f),\n"
                                                 "    .radius = {:.1f}f,\n"
-                                                "    .backgroundColor = theme.palette.surfaceElevated,\n"
-                                                "    .borderColor = theme.palette.borderSubtle,\n"
-                                                "    .borderWidth = {:.1f}f\n"
+                                                "    .backgroundColor = {},\n"
+                                                "    .borderColor = {},\n"
+                                                "    .borderWidth = {:.1f}f,\n"
+                                                "    .activeColor = guikit::Color::Transparent(),\n"
+                                                "    .size = guikit::UiSize::{},\n"
+                                                "    .theme = nullptr,\n"
+                                                "    .scale = std::nullopt\n"
                                                 "}});",
                                                 tabStyle == guikit::TabBarStyle::Pill ? "Pill" : "Underline",
                                                 testTabShowSep ? "true" : "false",
@@ -1319,7 +1378,10 @@ int main(int argc, char* argv[]) {
                                                 tabGap,
                                                 testTabHasBg ? testTabPadding : 0.0f,
                                                 testTabHasBg ? testTabRadius : 0.0f,
-                                                testTabHasBg ? testTabBorderWidth : 0.0f
+                                                testTabHasBg ? "theme.palette.surfaceElevated" : "guikit::Color::Transparent()",
+                                                testTabHasBg ? "theme.palette.borderSubtle" : "guikit::Color::Transparent()",
+                                                testTabHasBg ? testTabBorderWidth : 0.0f,
+                                                sizeName(controlsSize)
                                             );
                                             break;
                                         }
@@ -1327,14 +1389,29 @@ int main(int argc, char* argv[]) {
                                         case NavCategory::ElemContainers: {
                                             snippet = std::format(
                                                 "if (auto card = ui.Card({{\n"
+                                                "    .variant = guikit::UiVariant::Default,\n"
+                                                "    .minWidth = 0.0f,\n"
                                                 "    .gap = {:.1f}f,\n"
                                                 "    .padding = guikit::Padding({:.1f}f),\n"
+                                                "    .backgroundColor = guikit::Color::Transparent(),\n"
+                                                "    .borderColor = guikit::Color::Transparent(),\n"
                                                 "    .borderWidth = {:.1f}f,\n"
-                                                "    .radius = {:.1f}f\n"
+                                                "    .radius = {:.1f}f,\n"
+                                                "    .clipChildren = true,\n"
+                                                "    .widthMode = guikit::SizeMode::Stretch,\n"
+                                                "    .heightMode = guikit::SizeMode::Fit,\n"
+                                                "    .size = guikit::UiSize::{},\n"
+                                                "    .disabled = false,\n"
+                                                "    .theme = nullptr,\n"
+                                                "    .scale = std::nullopt\n"
                                                 "}})) {{\n"
                                                 "    ui.Text(\"Card Surface Component\");\n"
                                                 "}}",
-                                                cardGap, cardPadding, cardBorderWidth, cardRadius
+                                                cardGap,
+                                                cardPadding,
+                                                cardBorderWidth,
+                                                cardRadius,
+                                                sizeName(controlsSize)
                                             );
                                             break;
                                         }
@@ -1343,13 +1420,16 @@ int main(int argc, char* argv[]) {
                                             snippet = std::format(
                                                 "ui.Heading({{\n"
                                                 "    .title = \"Typographic Heading Sample\",\n"
-                                                "    .subtitle = \"Dynamic typography scale test\",\n"
+                                                "    .subtitle = \"Dynamic typography scale test for multi-line layout hierarchy\",\n"
                                                 "    .icon = guikit::Icon::Edit(),\n"
+                                                "    .badge = \"\",\n"
+                                                "    .variant = guikit::UiVariant::Default,\n"
                                                 "    .size = guikit::UiSize::{},\n"
                                                 "    .divider = {},\n"
+                                                "    .dividerStyle = guikit::HeadingDivider::Bottom,\n"
                                                 "    .wordWrap = {}\n"
                                                 "}});",
-                                                headingSize == guikit::UiSize::Sm ? "Sm" : (headingSize == guikit::UiSize::Lg ? "Lg" : "Md"),
+                                                sizeName(headingSize),
                                                 headingDivider ? "true" : "false",
                                                 headingWordWrap ? "true" : "false"
                                             );
@@ -1360,18 +1440,20 @@ int main(int argc, char* argv[]) {
                                     }
 
                                     ui.TextArea(snippet, {
-                                        .autoHeight = true,
+                                        .autoHeight = false,
                                         .readOnly = true,
                                         .showLineNumbers = true,
                                         .monospace = true,
-                                        .syntaxHighlighter = &guikit::TextArea::CppHighlighter
+                                        .syntaxHighlighter = &guikit::TextArea::CppHighlighter,
+                                        .heightMode = guikit::SizeMode::Stretch
                                     });
                                 }
                             } else {
                                 // -------------------------------------------------------------
                                 // ASSEMBLY MODE: Real-World Screens & Compositions
                                 // -------------------------------------------------------------
-                                switch (selectedCategory) {
+                                if (auto contentScroll = ui.ScrollArea({.gap = 12.0f})) {
+                                    switch (selectedCategory) {
                                     case NavCategory::AsmDashboard: {
                                         // Industrial Dashboard (responsive 2-column layout)
                                         if (auto dashboardGrid = ui.Grid(makeGrid())) {

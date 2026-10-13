@@ -214,7 +214,7 @@ Response TextArea::Run(
     node->focused = isFocused;
 
     node->widthMode = SizeMode::Stretch;
-    node->heightMode = SizeMode::Fit;
+    node->heightMode = opts.heightMode;
 
     ctx.AdaptChildToContainer(node);
 

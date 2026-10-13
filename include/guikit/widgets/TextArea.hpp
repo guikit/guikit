@@ -45,6 +45,7 @@ struct TextAreaOptions {
     SyntaxHighlighter syntaxHighlighter{nullptr};  ///< Optional syntax highlighting hook
     void* highlighterUserData{nullptr};            ///< User data passed to syntax highlighter
     UiVariant variant{UiVariant::Default};         ///< Visual variant styling
+    SizeMode heightMode{SizeMode::Fit};            ///< Sizing behavior in layout (Fit or Stretch)
     std::optional<UiSize> size{std::nullopt};      ///< Local size override
     bool disabled{false};                          ///< Interaction suppression
 };
