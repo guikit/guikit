@@ -26,6 +26,7 @@ struct SelectOptions {
     Icon prefixIcon{};                             ///< Optional vector icon inside field on left
     std::optional<uint32_t> maxVisibleItems{std::nullopt}; ///< Optional limit on visible items count before scrolling
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
+    std::optional<float> radius{std::nullopt};     ///< Local corner radius override (nullopt = inherit from size metrics)
     bool disabled{false};                          ///< Interaction suppression
 };
 

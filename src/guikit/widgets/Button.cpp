@@ -25,10 +25,17 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
     node->text = ctx.AllocString(opts.label);
     auto* bOpts = ctx.AllocPayload<ButtonOptions>(opts);
     bOpts->label = node->text;
+    if (!opts.text.empty()) {
+        bOpts->text = ctx.AllocString(opts.text);
+    }
+    if (!opts.description.empty()) {
+        bOpts->description = ctx.AllocString(opts.description);
+    }
     node->payload = bOpts;
     node->visualHash = detail::HashArgs(
         opts.variant,
         opts.iconPlacement,
+        opts.labelPlacement,
         opts.align,
         opts.active,
         opts.stretch,
@@ -37,7 +44,9 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
         static_cast<uint8_t>(opts.icon.GetType()),
         static_cast<uint8_t>(opts.icon.GetId()),
         opts.icon.GetPath(),
-        node->text
+        node->text,
+        bOpts->text,
+        bOpts->description
     );
     node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* b = n->As<ButtonOptions>();
@@ -60,22 +69,30 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
     return res;
 }
 
-Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme) {
+namespace {
+
+Vec2 MeasureButtonCapsule(
+    const ButtonOptions& opts,
+    std::string_view effectiveCapsuleText,
+    UiSize size,
+    ICanvas* canvas,
+    const UiTheme& theme
+) {
     const ComponentMetrics& m = theme.GetMetrics(size);
     const bool hasIcon = opts.icon.IsValid();
-    const bool hasLabel = !opts.label.empty();
+    const bool hasCapsuleText = !effectiveCapsuleText.empty();
 
     // Icon-only button with no label variants defaults to square
-    if (hasIcon && !hasLabel && opts.labelVariants.empty()) {
+    if (hasIcon && !hasCapsuleText && opts.labelVariants.empty()) {
         return {m.defaultHeight, m.defaultHeight};
     }
 
     float maxTextW = 0.0f;
-    if (hasLabel) {
+    if (hasCapsuleText) {
         if (canvas) {
-            maxTextW = canvas->MeasureText(opts.label, m.fontSize).x;
+            maxTextW = canvas->MeasureText(effectiveCapsuleText, m.fontSize).x;
         } else {
-            maxTextW = static_cast<float>(opts.label.length()) * (m.fontSize * kDefaultCharAdvanceRatio);
+            maxTextW = static_cast<float>(effectiveCapsuleText.length()) * (m.fontSize * kDefaultCharAdvanceRatio);
         }
     }
 
@@ -109,6 +126,89 @@ Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, co
     return {std::max(m.defaultHeight, totalW), contentH};
 }
 
+} // namespace
+
+Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme) {
+    const std::string_view effectiveCapsuleText = !opts.text.empty() ? opts.text : (opts.description.empty() ? opts.label : std::string_view{});
+    const std::string_view effectiveExternalLabel = !opts.text.empty() ? opts.label : (!opts.description.empty() ? opts.label : std::string_view{});
+    const std::string_view effectiveDescription = opts.description;
+    const bool hasExternalLabel = !effectiveExternalLabel.empty();
+    const bool hasExternalDesc = !effectiveDescription.empty();
+    const bool hasExternal = hasExternalLabel || hasExternalDesc;
+
+    const Vec2 capsuleDims = MeasureButtonCapsule(opts, effectiveCapsuleText, size, canvas, theme);
+
+    if (!hasExternal) {
+        return capsuleDims;
+    }
+
+    const ComponentMetrics& m = theme.GetMetrics(size);
+    const auto& inputMetrics = theme.GetInputField(size);
+
+    Vec2 labelDims = {0.0f, 0.0f};
+    if (hasExternalLabel) {
+        if (canvas) {
+            labelDims = canvas->MeasureText(effectiveExternalLabel, inputMetrics.labelFontSize);
+        } else {
+            labelDims = {
+                static_cast<float>(effectiveExternalLabel.length()) * (inputMetrics.labelFontSize * kDefaultCharAdvanceRatio),
+                theme.GetLineHeight(inputMetrics.labelFontSize)
+            };
+        }
+    }
+
+    Vec2 descDims = {0.0f, 0.0f};
+    if (hasExternalDesc) {
+        if (canvas) {
+            descDims = canvas->MeasureText(effectiveDescription, inputMetrics.descFontSize);
+        } else {
+            descDims = {
+                static_cast<float>(effectiveDescription.length()) * (inputMetrics.descFontSize * kDefaultCharAdvanceRatio),
+                theme.GetLineHeight(inputMetrics.descFontSize)
+            };
+        }
+    }
+
+    if (opts.labelPlacement == Placement::Stacked) {
+        const float totalW = std::max({capsuleDims.x, labelDims.x, descDims.x});
+        float totalH = capsuleDims.y;
+        if (hasExternalLabel) totalH += labelDims.y + inputMetrics.labelGap;
+        if (hasExternalDesc)  totalH += inputMetrics.descGap + descDims.y;
+        return {totalW, totalH};
+    }
+
+    if (opts.labelPlacement == Placement::Top) {
+        const float totalW = std::max({capsuleDims.x, labelDims.x, descDims.x});
+        float textH = 0.0f;
+        if (hasExternalLabel) textH += labelDims.y;
+        if (hasExternalDesc)  textH += (hasExternalLabel ? inputMetrics.descGap : 0.0f) + descDims.y;
+        return {totalW, textH + inputMetrics.labelGap + capsuleDims.y};
+    }
+
+    if (opts.labelPlacement == Placement::Bottom) {
+        const float totalW = std::max({capsuleDims.x, labelDims.x, descDims.x});
+        float textH = 0.0f;
+        if (hasExternalLabel) textH += labelDims.y;
+        if (hasExternalDesc)  textH += (hasExternalLabel ? inputMetrics.descGap : 0.0f) + descDims.y;
+        return {totalW, capsuleDims.y + inputMetrics.descGap + textH};
+    }
+
+    // Placement::Leading or Trailing (or Both)
+    const float textW = std::max(labelDims.x, descDims.x);
+    float textH = 0.0f;
+    if (hasExternalLabel && hasExternalDesc) {
+        textH = labelDims.y + inputMetrics.descGap + descDims.y;
+    } else if (hasExternalLabel) {
+        textH = labelDims.y;
+    } else if (hasExternalDesc) {
+        textH = descDims.y;
+    }
+    const float gap = m.paddingX;
+    const float totalW = capsuleDims.x + (textW > 0.0f ? gap + textW : 0.0f);
+    const float totalH = std::max(capsuleDims.y, textH);
+    return {totalW, totalH};
+}
+
 Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas) {
     static const UiTheme defaultTheme = UiTheme::Dark();
     return Measure(opts, size, canvas, defaultTheme);
@@ -124,7 +224,144 @@ void Button::Render(
     bool disabled,
     const UiTheme& theme
 ) {
+    if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
+        return;
+    }
+
     const ComponentMetrics& m = theme.GetMetrics(size);
+    const auto& inputMetrics = theme.GetInputField(size);
+    const auto& pal = theme.palette;
+
+    const std::string_view effectiveCapsuleText = !opts.text.empty() ? opts.text : (opts.description.empty() ? opts.label : std::string_view{});
+    const std::string_view effectiveExternalLabel = !opts.text.empty() ? opts.label : (!opts.description.empty() ? opts.label : std::string_view{});
+    const std::string_view effectiveDescription = opts.description;
+    const bool hasExternalLabel = !effectiveExternalLabel.empty();
+    const bool hasExternalDesc = !effectiveDescription.empty();
+    const bool hasExternal = hasExternalLabel || hasExternalDesc;
+
+    Rect capsuleRect = bounds;
+    Rect labelRect;
+    Rect descRect;
+
+    if (hasExternal) {
+        const Vec2 capSize = MeasureButtonCapsule(opts, effectiveCapsuleText, size, &canvas, theme);
+        const float labelH = hasExternalLabel ? canvas.GetLineHeight(inputMetrics.labelFontSize) : 0.0f;
+        const float descH = hasExternalDesc ? canvas.GetLineHeight(inputMetrics.descFontSize) : 0.0f;
+
+        if (opts.labelPlacement == Placement::Stacked) {
+            float curY = bounds.y;
+            if (hasExternalLabel) {
+                labelRect = Rect(bounds.x, curY, bounds.w, labelH);
+                curY += labelH + inputMetrics.labelGap;
+            }
+            const float capW = opts.stretch ? bounds.w : std::min(bounds.w, capSize.x);
+            float capX = bounds.x;
+            if (!opts.stretch) {
+                if (opts.align == Align::Center) {
+                    capX = bounds.x + (bounds.w - capW) * 0.5f;
+                } else if (opts.align == Align::End) {
+                    capX = bounds.x + bounds.w - capW;
+                }
+            }
+            capsuleRect = Rect(capX, curY, capW, capSize.y);
+            curY += capsuleRect.h + inputMetrics.descGap;
+            if (hasExternalDesc) {
+                descRect = Rect(bounds.x, curY, bounds.w, descH);
+            }
+        } else if (opts.labelPlacement == Placement::Top) {
+            float curY = bounds.y;
+            if (hasExternalLabel) {
+                labelRect = Rect(bounds.x, curY, bounds.w, labelH);
+                curY += labelH + (hasExternalDesc ? inputMetrics.descGap : 0.0f);
+            }
+            if (hasExternalDesc) {
+                descRect = Rect(bounds.x, curY, bounds.w, descH);
+                curY += descH;
+            }
+            curY += inputMetrics.labelGap;
+            const float capW = opts.stretch ? bounds.w : std::min(bounds.w, capSize.x);
+            float capX = bounds.x;
+            if (!opts.stretch) {
+                if (opts.align == Align::Center) {
+                    capX = bounds.x + (bounds.w - capW) * 0.5f;
+                } else if (opts.align == Align::End) {
+                    capX = bounds.x + bounds.w - capW;
+                }
+            }
+            capsuleRect = Rect(capX, curY, capW, capSize.y);
+        } else if (opts.labelPlacement == Placement::Bottom) {
+            float curY = bounds.y;
+            const float capW = opts.stretch ? bounds.w : std::min(bounds.w, capSize.x);
+            float capX = bounds.x;
+            if (!opts.stretch) {
+                if (opts.align == Align::Center) {
+                    capX = bounds.x + (bounds.w - capW) * 0.5f;
+                } else if (opts.align == Align::End) {
+                    capX = bounds.x + bounds.w - capW;
+                }
+            }
+            capsuleRect = Rect(capX, curY, capW, capSize.y);
+            curY += capsuleRect.h + inputMetrics.descGap;
+            if (hasExternalLabel) {
+                labelRect = Rect(bounds.x, curY, bounds.w, labelH);
+                curY += labelH + (hasExternalDesc ? inputMetrics.descGap : 0.0f);
+            }
+            if (hasExternalDesc) {
+                descRect = Rect(bounds.x, curY, bounds.w, descH);
+            }
+        } else if (opts.labelPlacement == Placement::Leading) {
+            const float gap = m.paddingX;
+            const float capW = opts.stretch ? std::max(capSize.x, bounds.w * 0.4f) : std::min(bounds.w, capSize.x);
+            const float textW = std::max(0.0f, bounds.w - capW - gap);
+            const float totalTextH = (hasExternalLabel && hasExternalDesc) ? (labelH + inputMetrics.descGap + descH) : (hasExternalLabel ? labelH : descH);
+            const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
+
+            float textY = startY;
+            if (hasExternalLabel) {
+                labelRect = Rect(bounds.x, textY, textW, labelH);
+                textY += labelH + inputMetrics.descGap;
+            }
+            if (hasExternalDesc) {
+                descRect = Rect(bounds.x, textY, textW, descH);
+            }
+            capsuleRect = Rect(bounds.x + bounds.w - capW, bounds.y + (bounds.h - capSize.y) * 0.5f, capW, capSize.y);
+        } else { // Trailing / default
+            const float gap = m.paddingX;
+            const float capW = opts.stretch ? std::max(capSize.x, bounds.w * 0.4f) : std::min(bounds.w, capSize.x);
+            const float textX = bounds.x + capW + gap;
+            const float textW = std::max(0.0f, bounds.w - capW - gap);
+            const float totalTextH = (hasExternalLabel && hasExternalDesc) ? (labelH + inputMetrics.descGap + descH) : (hasExternalLabel ? labelH : descH);
+            const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
+
+            capsuleRect = Rect(bounds.x, bounds.y + (bounds.h - capSize.y) * 0.5f, capW, capSize.y);
+            float textY = startY;
+            if (hasExternalLabel) {
+                labelRect = Rect(textX, textY, textW, labelH);
+                textY += labelH + inputMetrics.descGap;
+            }
+            if (hasExternalDesc) {
+                descRect = Rect(textX, textY, textW, descH);
+            }
+        }
+
+        // Draw external label and description
+        Color labelCol = pal.textPrimary;
+        Color descCol = pal.textSecondary;
+        if (disabled) {
+            labelCol = labelCol.WithAlphaF(0.40f);
+            descCol = descCol.WithAlphaF(0.40f);
+        }
+
+        if (hasExternalLabel && labelRect.w > 0.0f && labelRect.h > 0.0f) {
+            const float alignX = (opts.labelPlacement == Placement::Leading) ? 1.0f : 0.0f;
+            canvas.DrawTextBox(effectiveExternalLabel, labelRect, inputMetrics.labelFontSize, labelCol, alignX, 0.5f);
+        }
+        if (hasExternalDesc && descRect.w > 0.0f && descRect.h > 0.0f) {
+            const float alignX = (opts.labelPlacement == Placement::Leading) ? 1.0f : 0.0f;
+            canvas.DrawTextBox(effectiveDescription, descRect, inputMetrics.descFontSize, descCol, alignX, 0.5f);
+        }
+    }
+
     const VariantColors& colors = theme.GetVariant(opts.variant);
 
     Color bg = colors.bg;
@@ -148,128 +385,128 @@ void Button::Render(
         bg = colors.bgHover;
     }
 
-    // Clip all button content strictly to bounds to prevent any bleeding
-    canvas.PushClip(bounds);
+    // Clip all button capsule content strictly to capsuleRect to prevent any bleeding
+    canvas.PushClip(capsuleRect);
 
     // Background & border
     const float radius = opts.radius.value_or(m.cornerRadius);
-    canvas.DrawRoundRect(bounds, radius, bg, borderCol, borderW);
+    canvas.DrawRoundRect(capsuleRect, radius, bg, borderCol, borderW);
 
     const bool hasIcon = opts.icon.IsValid();
-    const bool hasLabel = !opts.label.empty();
+    const bool hasCapsuleText = !effectiveCapsuleText.empty();
 
-    if (hasIcon && !hasLabel) {
+    if (hasIcon && !hasCapsuleText) {
         // Icon-only
         const float isz = m.iconSize;
-        float iconX = bounds.x + (bounds.w - isz) * 0.5f;
+        float iconX = capsuleRect.x + (capsuleRect.w - isz) * 0.5f;
         if (opts.align == Align::Start) {
-            iconX = bounds.x + m.paddingX;
+            iconX = capsuleRect.x + m.paddingX;
         } else if (opts.align == Align::End) {
-            iconX = bounds.x + bounds.w - m.paddingX - isz;
+            iconX = capsuleRect.x + capsuleRect.w - m.paddingX - isz;
         }
         const Rect iconBounds(
             iconX,
-            bounds.y + (bounds.h - isz) * 0.5f,
+            capsuleRect.y + (capsuleRect.h - isz) * 0.5f,
             isz, isz
         );
         opts.icon.Draw(canvas, iconBounds, textCol);
-    } else if (!hasIcon && hasLabel) {
+    } else if (!hasIcon && hasCapsuleText) {
         // Label-only with automatic ellipsis
-        const float availW = std::max(0.0f, bounds.w - m.paddingX * 2.0f);
-        const Rect textRect(bounds.x + m.paddingX, bounds.y, availW, bounds.h);
+        const float availW = std::max(0.0f, capsuleRect.w - m.paddingX * 2.0f);
+        const Rect textRect(capsuleRect.x + m.paddingX, capsuleRect.y, availW, capsuleRect.h);
         float alignX = 0.5f;
         if (opts.align == Align::Start) {
             alignX = 0.0f;
         } else if (opts.align == Align::End) {
             alignX = 1.0f;
         }
-        canvas.DrawTextBox(opts.label, textRect, m.fontSize, textCol, alignX, 0.5f);
-    } else if (hasIcon && hasLabel) {
+        canvas.DrawTextBox(effectiveCapsuleText, textRect, m.fontSize, textCol, alignX, 0.5f);
+    } else if (hasIcon && hasCapsuleText) {
         // Icon + Label
         if (opts.iconPlacement == Placement::Top) {
             const float gap = 4.0f;
             const float textH = canvas.GetLineHeight(m.fontSize);
             const float totalContentH = m.iconSize + gap + textH;
-            const float startY = bounds.y + (bounds.h - totalContentH) * 0.5f;
-            float iconX = bounds.x + (bounds.w - m.iconSize) * 0.5f;
+            const float startY = capsuleRect.y + (capsuleRect.h - totalContentH) * 0.5f;
+            float iconX = capsuleRect.x + (capsuleRect.w - m.iconSize) * 0.5f;
             float alignX = 0.5f;
             if (opts.align == Align::Start) {
-                iconX = bounds.x + m.paddingX;
+                iconX = capsuleRect.x + m.paddingX;
                 alignX = 0.0f;
             } else if (opts.align == Align::End) {
-                iconX = bounds.x + bounds.w - m.paddingX - m.iconSize;
+                iconX = capsuleRect.x + capsuleRect.w - m.paddingX - m.iconSize;
                 alignX = 1.0f;
             }
             opts.icon.Draw(canvas, Rect(iconX, startY, m.iconSize, m.iconSize), textCol);
-            const Rect textRect(bounds.x + m.paddingX, startY + m.iconSize + gap, std::max(0.0f, bounds.w - m.paddingX * 2.0f), textH);
-            canvas.DrawTextBox(opts.label, textRect, m.fontSize, textCol, alignX, 0.5f);
+            const Rect textRect(capsuleRect.x + m.paddingX, startY + m.iconSize + gap, std::max(0.0f, capsuleRect.w - m.paddingX * 2.0f), textH);
+            canvas.DrawTextBox(effectiveCapsuleText, textRect, m.fontSize, textCol, alignX, 0.5f);
         } else if (opts.iconPlacement == Placement::Bottom) {
             const float gap = 4.0f;
             const float textH = canvas.GetLineHeight(m.fontSize);
             const float totalContentH = m.iconSize + gap + textH;
-            const float startY = bounds.y + (bounds.h - totalContentH) * 0.5f;
-            float iconX = bounds.x + (bounds.w - m.iconSize) * 0.5f;
+            const float startY = capsuleRect.y + (capsuleRect.h - totalContentH) * 0.5f;
+            float iconX = capsuleRect.x + (capsuleRect.w - m.iconSize) * 0.5f;
             float alignX = 0.5f;
             if (opts.align == Align::Start) {
-                iconX = bounds.x + m.paddingX;
+                iconX = capsuleRect.x + m.paddingX;
                 alignX = 0.0f;
             } else if (opts.align == Align::End) {
-                iconX = bounds.x + bounds.w - m.paddingX - m.iconSize;
+                iconX = capsuleRect.x + capsuleRect.w - m.paddingX - m.iconSize;
                 alignX = 1.0f;
             }
-            const Rect textRect(bounds.x + m.paddingX, startY, std::max(0.0f, bounds.w - m.paddingX * 2.0f), textH);
-            canvas.DrawTextBox(opts.label, textRect, m.fontSize, textCol, alignX, 0.5f);
+            const Rect textRect(capsuleRect.x + m.paddingX, startY, std::max(0.0f, capsuleRect.w - m.paddingX * 2.0f), textH);
+            canvas.DrawTextBox(effectiveCapsuleText, textRect, m.fontSize, textCol, alignX, 0.5f);
             opts.icon.Draw(canvas, Rect(iconX, startY + textH + gap, m.iconSize, m.iconSize), textCol);
         } else if (opts.iconPlacement == Placement::Trailing) {
             const float gap = 8.0f;
-            const float availTextW = std::max(0.0f, bounds.w - m.paddingX * 2.0f - m.iconSize - gap);
-            float textW = canvas.MeasureText(opts.label, m.fontSize).x;
-            std::string displayLabel(opts.label);
+            const float availTextW = std::max(0.0f, capsuleRect.w - m.paddingX * 2.0f - m.iconSize - gap);
+            float textW = canvas.MeasureText(effectiveCapsuleText, m.fontSize).x;
+            std::string displayLabel(effectiveCapsuleText);
             if (textW > availTextW + kTextSubpixelTolerance && availTextW > 0.0f) {
-                displayLabel = TextUtil::TruncateWithEllipsis(opts.label, availTextW, m.fontSize, &canvas);
+                displayLabel = TextUtil::TruncateWithEllipsis(effectiveCapsuleText, availTextW, m.fontSize, &canvas);
                 textW = canvas.MeasureText(displayLabel, m.fontSize).x;
             }
             const float totalContentW = m.iconSize + gap + textW;
-            const float centeredStartX = bounds.x + (bounds.w - totalContentW) * 0.5f;
-            const float minStartX = bounds.x + m.paddingX;
-            const float maxStartX = bounds.x + bounds.w - m.paddingX - totalContentW;
+            const float centeredStartX = capsuleRect.x + (capsuleRect.w - totalContentW) * 0.5f;
+            const float minStartX = capsuleRect.x + m.paddingX;
+            const float maxStartX = capsuleRect.x + capsuleRect.w - m.paddingX - totalContentW;
             float startX = centeredStartX;
             if (opts.align == Align::Start) {
                 startX = minStartX;
             } else if (opts.align == Align::End) {
                 startX = maxStartX;
-            } else if (!opts.labelVariants.empty() || bounds.w < totalContentW + m.paddingX * 2.0f) {
+            } else if (!opts.labelVariants.empty() || capsuleRect.w < totalContentW + m.paddingX * 2.0f) {
                 startX = minStartX;
             }
-            const float iconY = bounds.y + (bounds.h - m.iconSize) * 0.5f;
-            const Rect textRect(startX, bounds.y, textW, bounds.h);
+            const float iconY = capsuleRect.y + (capsuleRect.h - m.iconSize) * 0.5f;
+            const Rect textRect(startX, capsuleRect.y, textW, capsuleRect.h);
             canvas.DrawTextBox(displayLabel, textRect, m.fontSize, textCol, 0.0f, 0.5f);
             opts.icon.Draw(canvas, Rect(startX + textW + gap, iconY, m.iconSize, m.iconSize), textCol);
         } else { // Leading / default
             const float gap = 8.0f;
-            const float availTextW = std::max(0.0f, bounds.w - m.paddingX * 2.0f - m.iconSize - gap);
-            float textW = canvas.MeasureText(opts.label, m.fontSize).x;
-            std::string displayLabel(opts.label);
+            const float availTextW = std::max(0.0f, capsuleRect.w - m.paddingX * 2.0f - m.iconSize - gap);
+            float textW = canvas.MeasureText(effectiveCapsuleText, m.fontSize).x;
+            std::string displayLabel(effectiveCapsuleText);
             if (textW > availTextW + kTextSubpixelTolerance && availTextW > 0.0f) {
-                displayLabel = TextUtil::TruncateWithEllipsis(opts.label, availTextW, m.fontSize, &canvas);
+                displayLabel = TextUtil::TruncateWithEllipsis(effectiveCapsuleText, availTextW, m.fontSize, &canvas);
                 textW = canvas.MeasureText(displayLabel, m.fontSize).x;
             }
             const float totalContentW = m.iconSize + gap + textW;
-            const float centeredStartX = bounds.x + (bounds.w - totalContentW) * 0.5f;
-            const float minStartX = bounds.x + m.paddingX;
-            const float maxStartX = bounds.x + bounds.w - m.paddingX - totalContentW;
+            const float centeredStartX = capsuleRect.x + (capsuleRect.w - totalContentW) * 0.5f;
+            const float minStartX = capsuleRect.x + m.paddingX;
+            const float maxStartX = capsuleRect.x + capsuleRect.w - m.paddingX - totalContentW;
             float startX = centeredStartX;
             if (opts.align == Align::Start) {
                 startX = minStartX;
             } else if (opts.align == Align::End) {
                 startX = maxStartX;
-            } else if (!opts.labelVariants.empty() || bounds.w < totalContentW + m.paddingX * 2.0f) {
+            } else if (!opts.labelVariants.empty() || capsuleRect.w < totalContentW + m.paddingX * 2.0f) {
                 startX = minStartX;
             }
-            const float iconY = bounds.y + (bounds.h - m.iconSize) * 0.5f;
+            const float iconY = capsuleRect.y + (capsuleRect.h - m.iconSize) * 0.5f;
             opts.icon.Draw(canvas, Rect(startX, iconY, m.iconSize, m.iconSize), textCol);
-            const float remainingW = std::max(0.0f, (bounds.x + bounds.w - m.paddingX) - (startX + m.iconSize + gap));
-            const Rect textRect(startX + m.iconSize + gap, bounds.y, remainingW, bounds.h);
+            const float remainingW = std::max(0.0f, (capsuleRect.x + capsuleRect.w - m.paddingX) - (startX + m.iconSize + gap));
+            const Rect textRect(startX + m.iconSize + gap, capsuleRect.y, remainingW, capsuleRect.h);
             canvas.DrawTextBox(displayLabel, textRect, m.fontSize, textCol, 0.0f, 0.5f);
         }
     }

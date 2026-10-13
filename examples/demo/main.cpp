@@ -150,6 +150,9 @@ int main(int argc, char* argv[]) {
     bool btnDisabled = false;
     int btnClicks = 0;
     float btnCornerRadius = 6.0f;
+    bool btnShowHeader = false;
+    bool btnShowDesc = false;
+    guikit::Placement btnLabelPlace = guikit::Placement::Stacked;
 
     float testSliderVal = 65.0f;
     size_t testStepIdx = 2;
@@ -166,12 +169,20 @@ int main(int argc, char* argv[]) {
     bool inputHasPrefix = true;
     bool inputHasSuffix = false;
     float inputCornerRadius = 6.0f;
+    bool inputShowLabel = true;
+    bool inputShowDesc = false;
+    guikit::Placement inputLabelPlace = guikit::Placement::Stacked;
 
     size_t testSelectIdx = 0;
     static const std::vector<std::string_view> selectItems = {"Option Alpha", "Option Beta", "Option Gamma", "Option Delta", "Option Epsilon"};
     bool selectDisabled = false;
     bool selectStretch = true;
     uint32_t selectMaxItems = 4;
+    float selectCornerRadius = 6.0f;
+    bool selectShowLabel = true;
+    bool selectShowDesc = true;
+    guikit::Placement selectLabelPlace = guikit::Placement::Stacked;
+    bool selectHasPrefix = false;
 
     bool testSwitchState = true;
     bool testDarkLightSwitch = false;
@@ -527,6 +538,7 @@ int main(int argc, char* argv[]) {
                                     };
 
                                     if (isElementCategory(selectedCategory)) {
+                                        static constexpr std::array<std::string_view, 5> formPlacements = {"Stack", "Lead", "Trail", "Top", "Btm"};
                                         switch (selectedCategory) {
                                             case NavCategory::ElemButton: {
                                                 ui.Heading({.title = "Button Inspector", .subtitle = "Design System Component", .size = guikit::UiSize::Sm, .divider = true});
@@ -546,6 +558,30 @@ int main(int argc, char* argv[]) {
                                                 }
 
                                                 renderVariantPicker();
+
+                                                ui.Heading({.title = "Label & Description", .size = guikit::UiSize::Sm});
+                                                if (ui.Switch(btnShowHeader, {.label = "Field Label (Header)"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(btnShowDesc, {.label = "Helper Description"}).changed) ui.InvalidateAll();
+                                                size_t bPlIdx = 0;
+                                                switch (btnLabelPlace) {
+                                                    case guikit::Placement::Stacked:  bPlIdx = 0; break;
+                                                    case guikit::Placement::Leading:  bPlIdx = 1; break;
+                                                    case guikit::Placement::Trailing: bPlIdx = 2; break;
+                                                    case guikit::Placement::Top:      bPlIdx = 3; break;
+                                                    case guikit::Placement::Bottom:   bPlIdx = 4; break;
+                                                    default:                          bPlIdx = 0; break;
+                                                }
+                                                const bool btnHasExternal = btnShowHeader || btnShowDesc;
+                                                if (ui.StepSlider(bPlIdx, formPlacements, {.label = "Label Placement", .showTicks = true, .showLabels = true, .disabled = !btnHasExternal}).changed) {
+                                                    switch (bPlIdx) {
+                                                        case 0: btnLabelPlace = guikit::Placement::Stacked;  break;
+                                                        case 1: btnLabelPlace = guikit::Placement::Leading;  break;
+                                                        case 2: btnLabelPlace = guikit::Placement::Trailing; break;
+                                                        case 3: btnLabelPlace = guikit::Placement::Top;      break;
+                                                        case 4: btnLabelPlace = guikit::Placement::Bottom;   break;
+                                                    }
+                                                    ui.InvalidateAll();
+                                                }
 
                                                 ui.Heading({.title = "Options & States", .size = guikit::UiSize::Sm});
                                                 if (ui.Switch(btnStretch, {.label = "Stretch (Full Width)"}).changed) ui.InvalidateAll();
@@ -597,6 +633,30 @@ int main(int argc, char* argv[]) {
 
                                                 renderVariantPicker();
 
+                                                ui.Heading({.title = "Label & Description", .size = guikit::UiSize::Sm});
+                                                if (ui.Switch(inputShowLabel, {.label = "Field Label"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(inputShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
+                                                size_t inPlIdx = 0;
+                                                switch (inputLabelPlace) {
+                                                    case guikit::Placement::Stacked:  inPlIdx = 0; break;
+                                                    case guikit::Placement::Leading:  inPlIdx = 1; break;
+                                                    case guikit::Placement::Trailing: inPlIdx = 2; break;
+                                                    case guikit::Placement::Top:      inPlIdx = 3; break;
+                                                    case guikit::Placement::Bottom:   inPlIdx = 4; break;
+                                                    default:                          inPlIdx = 0; break;
+                                                }
+                                                const bool inHasExternal = inputShowLabel || inputShowDesc;
+                                                if (ui.StepSlider(inPlIdx, formPlacements, {.label = "Label Placement", .showTicks = true, .showLabels = true, .disabled = !inHasExternal}).changed) {
+                                                    switch (inPlIdx) {
+                                                        case 0: inputLabelPlace = guikit::Placement::Stacked;  break;
+                                                        case 1: inputLabelPlace = guikit::Placement::Leading;  break;
+                                                        case 2: inputLabelPlace = guikit::Placement::Trailing; break;
+                                                        case 3: inputLabelPlace = guikit::Placement::Top;      break;
+                                                        case 4: inputLabelPlace = guikit::Placement::Bottom;   break;
+                                                    }
+                                                    ui.InvalidateAll();
+                                                }
+
                                                 ui.Heading({.title = "Cursor & Flags", .size = guikit::UiSize::Sm});
                                                 static constexpr std::array<std::string_view, 3> cursorModes = {"Blinking", "Solid", "Hidden"};
                                                 size_t curIdx = (inputCursorMode == guikit::CursorBlinkMode::Solid) ? 1 : ((inputCursorMode == guikit::CursorBlinkMode::Hidden) ? 2 : 0);
@@ -615,7 +675,13 @@ int main(int argc, char* argv[]) {
                                                 ui.Heading({.title = "Select Inspector", .subtitle = "Dropdown Options Menu", .size = guikit::UiSize::Sm, .divider = true});
 
                                                 ui.Heading({.title = "Geometry & Behavior", .size = guikit::UiSize::Sm});
-                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
+                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) {
+                                                    selectCornerRadius = th.GetSelect(controlsSize).cornerRadius;
+                                                    ui.InvalidateAll();
+                                                }
+                                                if (ui.Slider(selectCornerRadius, 0.0f, 24.0f, {.label = "Corner Radius", .format = "%.0f px"}).changed) {
+                                                    ui.InvalidateAll();
+                                                }
                                                 float maxItemsFloat = static_cast<float>(selectMaxItems);
                                                 if (ui.Slider(maxItemsFloat, 2.0f, 8.0f, {.label = "Max Visible Menu Items", .format = "%.0f items", .step = 1.0}).changed) {
                                                     selectMaxItems = static_cast<uint32_t>(maxItemsFloat);
@@ -624,6 +690,32 @@ int main(int argc, char* argv[]) {
 
                                                 renderVariantPicker();
 
+                                                ui.Heading({.title = "Label & Description", .size = guikit::UiSize::Sm});
+                                                if (ui.Switch(selectShowLabel, {.label = "Field Label"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(selectShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
+                                                size_t selPlIdx = 0;
+                                                switch (selectLabelPlace) {
+                                                    case guikit::Placement::Stacked:  selPlIdx = 0; break;
+                                                    case guikit::Placement::Leading:  selPlIdx = 1; break;
+                                                    case guikit::Placement::Trailing: selPlIdx = 2; break;
+                                                    case guikit::Placement::Top:      selPlIdx = 3; break;
+                                                    case guikit::Placement::Bottom:   selPlIdx = 4; break;
+                                                    default:                          selPlIdx = 0; break;
+                                                }
+                                                const bool selHasExternal = selectShowLabel || selectShowDesc;
+                                                if (ui.StepSlider(selPlIdx, formPlacements, {.label = "Label Placement", .showTicks = true, .showLabels = true, .disabled = !selHasExternal}).changed) {
+                                                    switch (selPlIdx) {
+                                                        case 0: selectLabelPlace = guikit::Placement::Stacked;  break;
+                                                        case 1: selectLabelPlace = guikit::Placement::Leading;  break;
+                                                        case 2: selectLabelPlace = guikit::Placement::Trailing; break;
+                                                        case 3: selectLabelPlace = guikit::Placement::Top;      break;
+                                                        case 4: selectLabelPlace = guikit::Placement::Bottom;   break;
+                                                    }
+                                                    ui.InvalidateAll();
+                                                }
+
+                                                ui.Heading({.title = "Options & States", .size = guikit::UiSize::Sm});
+                                                if (ui.Switch(selectHasPrefix, {.label = "Prefix Icon"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(selectDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
                                                 break;
                                             }
@@ -856,10 +948,13 @@ int main(int argc, char* argv[]) {
                                                 case NavCategory::ElemButton: {
                                                     std::string btnText = btnClicks > 0 ? std::format("Clicked {}x", btnClicks) : "Interactive Button";
                                                     if (ui.Button({
-                                                        .label = btnText,
+                                                        .label = btnShowHeader ? "System Action" : "",
+                                                        .text = btnText,
+                                                        .description = btnShowDesc ? "Commit payload and trigger immediate canary rollout" : "",
                                                         .icon = btnHasIcon ? guikit::Icon::Play() : guikit::Icon{},
                                                         .variant = btnVariant,
                                                         .iconPlacement = btnIconPlacement,
+                                                        .labelPlacement = btnLabelPlace,
                                                         .align = btnAlign,
                                                         .stretch = btnStretch,
                                                         .disabled = btnDisabled,
@@ -899,12 +994,13 @@ int main(int argc, char* argv[]) {
 
                                                 case NavCategory::ElemInputField: {
                                                     ui.InputField(testInputText, {
-                                                        .label = "Server Endpoint",
-                                                        .description = "Configured host address",
+                                                        .label = inputShowLabel ? "Server Endpoint" : "",
+                                                        .description = inputShowDesc ? "Configured host address" : "",
                                                         .placeholder = "Enter domain...",
                                                         .prefix = inputHasPrefix ? "https://" : "",
                                                         .suffix = inputHasSuffix ? ":443" : "",
                                                         .variant = btnVariant,
+                                                        .labelPlacement = inputLabelPlace,
                                                         .cursorMode = inputCursorMode,
                                                         .size = controlsSize,
                                                         .radius = inputCornerRadius,
@@ -916,11 +1012,14 @@ int main(int argc, char* argv[]) {
 
                                                 case NavCategory::ElemSelect: {
                                                     ui.Select(testSelectIdx, selectItems, {
-                                                        .label = "Active Preset",
-                                                        .description = "Dropdown selection",
+                                                        .label = selectShowLabel ? "Active Preset" : "",
+                                                        .description = selectShowDesc ? "Dropdown selection" : "",
                                                         .variant = btnVariant,
+                                                        .labelPlacement = selectLabelPlace,
+                                                        .prefixIcon = selectHasPrefix ? guikit::Icon::Settings() : guikit::Icon{},
                                                         .maxVisibleItems = selectMaxItems,
                                                         .size = controlsSize,
+                                                        .radius = selectCornerRadius,
                                                         .disabled = selectDisabled
                                                     });
                                                     break;
@@ -1002,13 +1101,28 @@ int main(int argc, char* argv[]) {
 
                                 // C++20 Immediate Mode Code Generator Card
                                 if (auto codeCard = ui.Card({.gap = 8.0f, .padding = guikit::Padding::All(12.0f)})) {
+                                    auto placementName = [](guikit::Placement p) -> std::string_view {
+                                        switch (p) {
+                                            case guikit::Placement::Leading:  return "Leading";
+                                            case guikit::Placement::Trailing: return "Trailing";
+                                            case guikit::Placement::Top:      return "Top";
+                                            case guikit::Placement::Bottom:   return "Bottom";
+                                            case guikit::Placement::Stacked:  return "Stacked";
+                                            case guikit::Placement::Both:     return "Both";
+                                        }
+                                        return "Trailing";
+                                    };
+
                                     std::string snippet;
                                     switch (selectedCategory) {
                                         case NavCategory::ElemButton: {
                                             const bool hasCustomRadius = std::abs(btnCornerRadius - th.GetMetrics(controlsSize).cornerRadius) > 0.01f;
                                             snippet = std::format(
                                                 "ui.Button({{\n"
-                                                "    .label = \"{}\",\n"
+                                                "{}"
+                                                "    .text = \"{}\",\n"
+                                                "{}"
+                                                "{}"
                                                 "{}"
                                                 "    .variant = guikit::UiVariant::{},\n"
                                                 "{}"
@@ -1018,14 +1132,14 @@ int main(int argc, char* argv[]) {
                                                 "{}"
                                                 "    .size = guikit::UiSize::{}\n"
                                                 "}});",
+                                                btnShowHeader ? "    .label = \"System Action\",\n" : "",
                                                 btnClicks > 0 ? std::format("Clicked {}x", btnClicks) : "Interactive Button",
+                                                btnShowDesc ? "    .description = \"Commit payload and trigger immediate canary rollout\",\n" : "",
+                                                (btnShowHeader || btnShowDesc) ? std::format("    .labelPlacement = guikit::Placement::{},\n", placementName(btnLabelPlace)) : "",
                                                 btnHasIcon ? "    .icon = guikit::Icon::Play(),\n" : "",
                                                 variantName(btnVariant),
                                                 hasCustomRadius ? std::format("    .radius = {:.0f}f,\n", btnCornerRadius) : "",
-                                                btnHasIcon ? std::format("    .iconPlacement = guikit::Placement::{},\n",
-                                                    btnIconPlacement == guikit::Placement::Leading ? "Leading" :
-                                                    (btnIconPlacement == guikit::Placement::Trailing ? "Trailing" :
-                                                    (btnIconPlacement == guikit::Placement::Top ? "Top" : "Bottom"))) : "",
+                                                btnHasIcon ? std::format("    .iconPlacement = guikit::Placement::{},\n", placementName(btnIconPlacement)) : "",
                                                 btnAlign != guikit::Align::Center ? (btnAlign == guikit::Align::Start ? "    .align = guikit::Align::Start,\n" : "    .align = guikit::Align::End,\n") : "",
                                                 btnStretch ? "    .stretch = true,\n" : "",
                                                 btnDisabled ? "    .disabled = true,\n" : "",
@@ -1077,8 +1191,9 @@ int main(int argc, char* argv[]) {
                                             const bool hasCustomInputRadius = std::abs(inputCornerRadius - th.GetMetrics(controlsSize).cornerRadius) > 0.01f;
                                             snippet = std::format(
                                                 "ui.InputField(textValue, {{\n"
-                                                "    .label = \"Server Endpoint\",\n"
-                                                "    .description = \"Configured host address\",\n"
+                                                "{}"
+                                                "{}"
+                                                "{}"
                                                 "    .placeholder = \"Enter domain...\",\n"
                                                 "{}"
                                                 "{}"
@@ -1087,6 +1202,9 @@ int main(int argc, char* argv[]) {
                                                 "    .cursorMode = guikit::CursorBlinkMode::{},\n"
                                                 "    .size = guikit::UiSize::{}{}{}\n"
                                                 "}});",
+                                                inputShowLabel ? "    .label = \"Server Endpoint\",\n" : "",
+                                                inputShowDesc ? "    .description = \"Configured host address\",\n" : "",
+                                                (inputShowLabel || inputShowDesc) ? std::format("    .labelPlacement = guikit::Placement::{},\n", placementName(inputLabelPlace)) : "",
                                                 inputHasPrefix ? "    .prefix = \"https://\",\n" : "",
                                                 inputHasSuffix ? "    .suffix = \":443\",\n" : "",
                                                 variantName(btnVariant),
@@ -1101,15 +1219,24 @@ int main(int argc, char* argv[]) {
                                         }
 
                                         case NavCategory::ElemSelect: {
+                                            const bool hasCustomRadius = std::abs(selectCornerRadius - th.GetSelect(controlsSize).cornerRadius) > 0.01f;
                                             snippet = std::format(
                                                 "ui.Select(selectedIndex, itemsList, {{\n"
-                                                "    .label = \"Active Preset\",\n"
-                                                "    .description = \"Dropdown selection\",\n"
+                                                "{}"
+                                                "{}"
+                                                "{}"
+                                                "{}"
                                                 "    .variant = guikit::UiVariant::{},\n"
+                                                "{}"
                                                 "    .maxVisibleItems = {},\n"
                                                 "    .size = guikit::UiSize::{}{}\n"
                                                 "}});",
+                                                selectShowLabel ? "    .label = \"Active Preset\",\n" : "",
+                                                selectShowDesc ? "    .description = \"Dropdown selection\",\n" : "",
+                                                (selectShowLabel || selectShowDesc) ? std::format("    .labelPlacement = guikit::Placement::{},\n", placementName(selectLabelPlace)) : "",
+                                                selectHasPrefix ? "    .prefixIcon = guikit::Icon::Settings(),\n" : "",
                                                 variantName(btnVariant),
+                                                hasCustomRadius ? std::format("    .radius = {:.0f}f,\n", selectCornerRadius) : "",
                                                 selectMaxItems,
                                                 controlsSize == guikit::UiSize::Sm ? "Sm" : (controlsSize == guikit::UiSize::Lg ? "Lg" : "Md"),
                                                 selectDisabled ? ",\n    .disabled = true" : ""
@@ -1118,17 +1245,6 @@ int main(int argc, char* argv[]) {
                                         }
 
                                         case NavCategory::ElemSwitch: {
-                                            auto placementName = [](guikit::Placement p) -> std::string_view {
-                                                switch (p) {
-                                                    case guikit::Placement::Leading:  return "Leading";
-                                                    case guikit::Placement::Trailing: return "Trailing";
-                                                    case guikit::Placement::Top:      return "Top";
-                                                    case guikit::Placement::Bottom:   return "Bottom";
-                                                    case guikit::Placement::Stacked:  return "Stacked";
-                                                    case guikit::Placement::Both:     return "Both";
-                                                }
-                                                return "Trailing";
-                                            };
                                             snippet = std::format(
                                                 "ui.Switch(switchState, {{\n"
                                                 "    .label = \"{}\",\n"

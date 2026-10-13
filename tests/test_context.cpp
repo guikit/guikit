@@ -3791,6 +3791,95 @@ void TestWidgetRadiusOverride() {
     std::cout << "  [PASS] TestWidgetRadiusOverride completed\n";
 }
 
+void TestButtonExternalLabelDescriptionAndPlacement() {
+    std::cout << "[TEST] Running TestButtonExternalLabelDescriptionAndPlacement...\n";
+
+    ThorCanvas canvas;
+    Context ui;
+
+    const uint32_t width = 600;
+    const uint32_t height = 500;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    // 1. Measure comparisons
+    const UiTheme& theme = UiTheme::Dark();
+    const Vec2 plainSize = Button::Measure({.label = "Deploy"}, UiSize::Md, &canvas, theme);
+    const Vec2 stackedSize = Button::Measure({
+        .label = "Deployment Action",
+        .text = "Deploy",
+        .description = "Immediate canary release",
+        .labelPlacement = Placement::Stacked
+    }, UiSize::Md, &canvas, theme);
+    const Vec2 leadingSize = Button::Measure({
+        .label = "Deployment Action",
+        .text = "Deploy",
+        .description = "Immediate canary release",
+        .labelPlacement = Placement::Leading
+    }, UiSize::Md, &canvas, theme);
+
+    // Stacked height must be strictly taller than plain button due to external label and description
+    CHECK(stackedSize.y > plainSize.y);
+    // Leading width must be strictly wider than plain button due to text placed beside button
+    CHECK(leadingSize.x > plainSize.x);
+
+    // 2. Full immediate mode execution and rendering across all placements
+    size_t selIdx = 0;
+    static const std::array<std::string_view, 3> items = {"Alpha", "Beta", "Gamma"};
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
+    if (auto col = ui.Column({.gap = 8.0f})) {
+        auto bStacked = ui.Button({
+            .label = "Action Header",
+            .text = "Click Stacked",
+            .description = "Helper info stacked",
+            .labelPlacement = Placement::Stacked
+        });
+        auto bLeading = ui.Button({
+            .label = "Action Header",
+            .text = "Click Leading",
+            .description = "Helper info leading",
+            .labelPlacement = Placement::Leading
+        });
+        auto bTrailing = ui.Button({
+            .label = "Action Header",
+            .text = "Click Trailing",
+            .description = "Helper info trailing",
+            .labelPlacement = Placement::Trailing
+        });
+        auto bTop = ui.Button({
+            .label = "Action Header",
+            .text = "Click Top",
+            .description = "Helper info top",
+            .labelPlacement = Placement::Top
+        });
+        auto bBottom = ui.Button({
+            .label = "Action Header",
+            .text = "Click Bottom",
+            .description = "Helper info bottom",
+            .labelPlacement = Placement::Bottom
+        });
+
+        // Select with custom radius override
+        auto selRes = ui.Select(selIdx, items, {
+            .label = "Select Header",
+            .description = "Choose option",
+            .labelPlacement = Placement::Stacked,
+            .radius = 12.0f
+        });
+
+        CHECK(bStacked.id.IsValid());
+        CHECK(bLeading.id.IsValid());
+        CHECK(bTrailing.id.IsValid());
+        CHECK(bTop.id.IsValid());
+        CHECK(bBottom.id.IsValid());
+        CHECK(selRes.id.IsValid());
+    }
+    ui.EndFrame(canvas);
+
+    std::cout << "  [PASS] TestButtonExternalLabelDescriptionAndPlacement completed\n";
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -3839,6 +3928,7 @@ int main() {
     TestTextAreaWidgetWorkflow();
     TestButtonAlignmentAndProceduralIcons();
     TestWidgetRadiusOverride();
+    TestButtonExternalLabelDescriptionAndPlacement();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";
