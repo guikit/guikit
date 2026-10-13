@@ -343,32 +343,29 @@ void Button::Render(
                 }
                 capsuleRect = Rect(capX, bounds.y + (bounds.h - capSize.y) * 0.5f, capW, capSize.y);
 
-                const float availableTextW = (opts.stretch == StretchMode::Compact)
-                    ? measuredTextW
-                    : std::max(0.0f, capX - gap - bounds.x);
                 float textY = startY;
                 if (hasExternalLabel) {
-                    labelRect = Rect(bounds.x, textY, availableTextW, labelH);
+                    labelRect = Rect(bounds.x, textY, measuredTextW, labelH);
                     textY += labelH + inputMetrics.descGap;
                 }
                 if (hasExternalDesc) {
-                    descRect = Rect(bounds.x, textY, availableTextW, descH);
+                    descRect = Rect(bounds.x, textY, measuredTextW, descH);
                 }
             } else {
                 // InlineOrder::ControlFirst: Capsule first (left), text second (right)
                 capsuleRect = Rect(bounds.x, bounds.y + (bounds.h - capSize.y) * 0.5f, capW, capSize.y);
 
-                const float textX = bounds.x + capW + gap;
-                const float remTextW = (opts.stretch == StretchMode::Compact)
-                    ? measuredTextW
-                    : std::max(0.0f, bounds.x + bounds.w - textX);
+                float textX = bounds.x + capW + gap;
+                if (opts.stretch == StretchMode::Between) {
+                    textX = std::max(bounds.x + capW + gap, bounds.x + bounds.w - measuredTextW);
+                }
                 float textY = startY;
                 if (hasExternalLabel) {
-                    labelRect = Rect(textX, textY, remTextW, labelH);
+                    labelRect = Rect(textX, textY, measuredTextW, labelH);
                     textY += labelH + inputMetrics.descGap;
                 }
                 if (hasExternalDesc) {
-                    descRect = Rect(textX, textY, remTextW, descH);
+                    descRect = Rect(textX, textY, measuredTextW, descH);
                 }
             }
         }

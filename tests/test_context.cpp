@@ -4350,7 +4350,7 @@ void TestLabelAlignmentGeometryOptionA() {
     }
 
     // 3. Button in Inline layout with StretchMode::Between & LabelFirst:
-    // Label rect width should span available space between container edge and button capsule
+    // Label is docked at left edge (50px), Button capsule is docked at right edge (700px)
     {
         recCanvas.Reset();
         ButtonOptions opts{
@@ -4370,14 +4370,14 @@ void TestLabelAlignmentGeometryOptionA() {
             const float expectedCapX = 700.0f;
             CHECK_NEAR(recCanvas.lastRoundRect.x, expectedCapX, 0.01f);
             CHECK_NEAR(call->bounds.x, 50.0f, 0.01f);
-            // availableTextW is capX - gap - bounds.x > 500px, NOT squeezed to ~70px
-            CHECK(call->bounds.w > 500.0f);
+            const float measuredW = recCanvas.MeasureText("Setting Title", darkTheme.GetInputField(UiSize::Md).labelFontSize).x;
+            CHECK_NEAR(call->bounds.w, measuredW, 0.01f);
             CHECK_NEAR(call->alignX, 1.0f, 0.01f);
         }
     }
 
     // 4. InputField in Inline layout with StretchMode::Between & ControlFirst:
-    // Label rect width spans from control to right container edge
+    // Control box is docked at left edge (50px), Label is docked at far right edge (850 - measuredW)
     {
         recCanvas.Reset();
         InputFieldOptions opts{
@@ -4392,9 +4392,10 @@ void TestLabelAlignmentGeometryOptionA() {
         const auto* call = recCanvas.FindTextBox("Trailing Field Info");
         CHECK(call != nullptr);
         if (call) {
-            // Box is at 50, width 200
-            CHECK_NEAR(call->bounds.x, 50.0f + 200.0f + darkTheme.GetInputField(UiSize::Md).paddingX, 0.01f);
-            CHECK(call->bounds.w > 400.0f);
+            const float measuredW = recCanvas.MeasureText("Trailing Field Info", darkTheme.GetInputField(UiSize::Md).labelFontSize).x;
+            const float expectedTextX = widgetBounds.x + widgetBounds.w - measuredW;
+            CHECK_NEAR(call->bounds.x, expectedTextX, 0.01f);
+            CHECK_NEAR(call->bounds.w, measuredW, 0.01f);
             CHECK_NEAR(call->alignX, 0.5f, 0.01f);
         }
     }
@@ -4417,6 +4418,71 @@ void TestLabelAlignmentGeometryOptionA() {
             // Label block should NOT be 800px; it is bounded by track or text width
             CHECK(call->bounds.w < 100.0f);
             CHECK_NEAR(call->alignX, 0.5f, 0.01f);
+        }
+    }
+
+    // 6. Switch in Inline layout with StretchMode::Between & ControlFirst:
+    // Track is at bounds.x (50px), Label is docked at far right edge
+    {
+        recCanvas.Reset();
+        SwitchOptions opts{
+            .label = "Power Switch",
+            .layout = ElementLayout::Inline,
+            .inlineOrder = InlineOrder::ControlFirst,
+            .stretch = StretchMode::Between
+        };
+        Switch::Render(recCanvas, widgetBounds, false, opts, UiSize::Md, false, false, false, darkTheme);
+        const auto* call = recCanvas.FindTextBox("Power Switch");
+        CHECK(call != nullptr);
+        if (call) {
+            const float measuredW = recCanvas.MeasureText("Power Switch", darkTheme.GetSwitch(UiSize::Md).fontSize).x;
+            const float expectedTextX = widgetBounds.x + widgetBounds.w - measuredW;
+            CHECK_NEAR(call->bounds.x, expectedTextX, 0.01f);
+            CHECK_NEAR(call->bounds.w, measuredW, 0.01f);
+        }
+    }
+
+    // 7. Checkbox in Inline layout with StretchMode::Between & ControlFirst:
+    // Checkbox is at bounds.x (50px), Label is docked at far right edge
+    {
+        recCanvas.Reset();
+        CheckboxOptions opts{
+            .label = "Enable Feature",
+            .layout = ElementLayout::Inline,
+            .inlineOrder = InlineOrder::ControlFirst,
+            .stretch = StretchMode::Between
+        };
+        Checkbox::Render(recCanvas, widgetBounds, false, opts, UiSize::Md, false, false, false, darkTheme);
+        const auto* call = recCanvas.FindTextBox("Enable Feature");
+        CHECK(call != nullptr);
+        if (call) {
+            const float measuredW = recCanvas.MeasureText("Enable Feature", darkTheme.GetCheckbox(UiSize::Md).fontSize).x;
+            const float expectedTextX = widgetBounds.x + widgetBounds.w - measuredW;
+            CHECK_NEAR(call->bounds.x, expectedTextX, 0.01f);
+            CHECK_NEAR(call->bounds.w, measuredW, 0.01f);
+        }
+    }
+
+    // 8. Slider in Inline layout with StretchMode::Between & ControlFirst:
+    // Control is at bounds.x (50px), Header is docked at far right edge
+    {
+        recCanvas.Reset();
+        SliderOptions opts{
+            .label = "Volume Level",
+            .layout = ElementLayout::Inline,
+            .inlineOrder = InlineOrder::ControlFirst,
+            .showValue = false,
+            .stretch = StretchMode::Between,
+            .width = 150.0f
+        };
+        Slider::Render(recCanvas, widgetBounds, 0.5f, 0.0f, 1.0f, opts, UiSize::Md, false, false, false, darkTheme);
+        const auto* call = recCanvas.FindTextBox("Volume Level");
+        CHECK(call != nullptr);
+        if (call) {
+            const float measuredW = recCanvas.MeasureText("Volume Level", darkTheme.GetSlider(UiSize::Md).labelFontSize).x;
+            const float expectedTextX = widgetBounds.x + widgetBounds.w - measuredW;
+            CHECK_NEAR(call->bounds.x, expectedTextX, 0.01f);
+            CHECK_NEAR(call->bounds.w, measuredW, 0.01f);
         }
     }
 

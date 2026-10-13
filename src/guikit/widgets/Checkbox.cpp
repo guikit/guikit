@@ -300,33 +300,30 @@ void Checkbox::Render(
             }
             boxRect = Rect(boxX, boxY, m.boxSize, m.boxSize);
 
-            const float availableTextW = (opts.stretch == StretchMode::Compact)
-                ? naturalTextW
-                : std::max(0.0f, boxX - m.gap - bounds.x);
             if (hasLabel && hasDesc) {
-                labelRect = Rect(bounds.x, startY, availableTextW, labelH);
-                descRect = Rect(bounds.x, startY + labelH + m.descGap, availableTextW, descH);
+                labelRect = Rect(bounds.x, startY, naturalTextW, labelH);
+                descRect = Rect(bounds.x, startY + labelH + m.descGap, naturalTextW, descH);
             } else if (hasLabel) {
-                labelRect = Rect(bounds.x, startY, availableTextW, labelH);
+                labelRect = Rect(bounds.x, startY, naturalTextW, labelH);
             } else if (hasDesc) {
-                descRect = Rect(bounds.x, startY, availableTextW, descH);
+                descRect = Rect(bounds.x, startY, naturalTextW, descH);
             }
         } else {
             // InlineOrder::ControlFirst: Checkbox first (left), text second (right)
             boxRect = Rect(bounds.x, boxY, m.boxSize, m.boxSize);
 
-            const float textX = bounds.x + m.boxSize + m.gap;
-            const float remTextW = (opts.stretch == StretchMode::Compact)
-                ? naturalTextW
-                : std::max(0.0f, bounds.x + bounds.w - textX);
+            float textX = bounds.x + m.boxSize + m.gap;
+            if (opts.stretch == StretchMode::Between) {
+                textX = std::max(bounds.x + m.boxSize + m.gap, bounds.x + bounds.w - naturalTextW);
+            }
 
             if (hasLabel && hasDesc) {
-                labelRect = Rect(textX, startY, remTextW, labelH);
-                descRect = Rect(textX, startY + labelH + m.descGap, remTextW, descH);
+                labelRect = Rect(textX, startY, naturalTextW, labelH);
+                descRect = Rect(textX, startY + labelH + m.descGap, naturalTextW, descH);
             } else if (hasLabel) {
-                labelRect = Rect(textX, startY, remTextW, labelH);
+                labelRect = Rect(textX, startY, naturalTextW, labelH);
             } else if (hasDesc) {
-                descRect = Rect(textX, startY, remTextW, descH);
+                descRect = Rect(textX, startY, naturalTextW, descH);
             }
         }
     }

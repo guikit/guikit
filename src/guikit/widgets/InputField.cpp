@@ -371,32 +371,29 @@ void InputField::Render(
             }
             boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
 
-            const float availableTextW = (opts.stretch == StretchMode::Compact)
-                ? measuredTextW
-                : std::max(0.0f, boxX - gap - bounds.x);
             float textY = startY;
             if (hasLabel) {
-                labelRect = Rect(bounds.x, textY, availableTextW, labelH);
+                labelRect = Rect(bounds.x, textY, measuredTextW, labelH);
                 textY += labelH + m.descGap;
             }
             if (hasDesc) {
-                descRect = Rect(bounds.x, textY, availableTextW, descH);
+                descRect = Rect(bounds.x, textY, measuredTextW, descH);
             }
         } else {
             // InlineOrder::ControlFirst: Box first (left), text second (right)
             boxRect = Rect(bounds.x, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
 
-            const float textX = bounds.x + boxW + gap;
-            const float remTextW = (opts.stretch == StretchMode::Compact)
-                ? measuredTextW
-                : std::max(0.0f, bounds.x + bounds.w - textX);
+            float textX = bounds.x + boxW + gap;
+            if (opts.stretch == StretchMode::Between) {
+                textX = std::max(bounds.x + boxW + gap, bounds.x + bounds.w - measuredTextW);
+            }
             float textY = startY;
             if (hasLabel) {
-                labelRect = Rect(textX, textY, remTextW, labelH);
+                labelRect = Rect(textX, textY, measuredTextW, labelH);
                 textY += labelH + m.descGap;
             }
             if (hasDesc) {
-                descRect = Rect(textX, textY, remTextW, descH);
+                descRect = Rect(textX, textY, measuredTextW, descH);
             }
         }
     }

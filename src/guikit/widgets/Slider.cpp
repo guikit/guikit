@@ -480,18 +480,15 @@ void Slider::Render(
             } else {
                 trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
             }
-            const float availableTextW = (opts.stretch == StretchMode::Compact)
-                ? measuredTextW
-                : std::max(0.0f, (trackStartX - halfThumb) - gap - bounds.x);
-            textRect = Rect(bounds.x, bounds.y, availableTextW, bounds.h);
+            textRect = Rect(bounds.x, bounds.y, measuredTextW, bounds.h);
         } else {
             // Control left, label right
             trackStartX = bounds.x + halfThumb;
-            const float textX = bounds.x + trackWidth + m.thumbSize + gap;
-            const float remTextW = (opts.stretch == StretchMode::Compact)
-                ? measuredTextW
-                : std::max(0.0f, bounds.x + bounds.w - textX);
-            textRect = Rect(textX, bounds.y, remTextW, bounds.h);
+            float textX = bounds.x + trackWidth + m.thumbSize + gap;
+            if (opts.stretch == StretchMode::Between) {
+                textX = std::max(bounds.x + trackWidth + m.thumbSize + gap, bounds.x + bounds.w - measuredTextW);
+            }
+            textRect = Rect(textX, bounds.y, measuredTextW, bounds.h);
         }
 
         if (hasHeader && hasDesc) {
@@ -965,18 +962,15 @@ void StepSlider::Render(
             } else {
                 trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
             }
-            const float availableTextW = (opts.stretch == StretchMode::Compact)
-                ? measuredTextW
-                : std::max(0.0f, (trackStartX - halfThumb) - gap - bounds.x);
-            textRect = Rect(bounds.x, bounds.y, availableTextW, bounds.h);
+            textRect = Rect(bounds.x, bounds.y, measuredTextW, bounds.h);
         } else {
             // Control left, label right
             trackStartX = bounds.x + halfThumb;
-            const float textX = bounds.x + trackWidth + m.thumbSize + gap;
-            const float remTextW = (opts.stretch == StretchMode::Compact)
-                ? measuredTextW
-                : std::max(0.0f, bounds.x + bounds.w - textX);
-            textRect = Rect(textX, bounds.y, remTextW, bounds.h);
+            float textX = bounds.x + trackWidth + m.thumbSize + gap;
+            if (opts.stretch == StretchMode::Between) {
+                textX = std::max(bounds.x + trackWidth + m.thumbSize + gap, bounds.x + bounds.w - measuredTextW);
+            }
+            textRect = Rect(textX, bounds.y, measuredTextW, bounds.h);
         }
 
         if (hasHeader && hasDesc) {
