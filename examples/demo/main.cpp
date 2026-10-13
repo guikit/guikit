@@ -222,11 +222,11 @@ int main(int argc, char* argv[]) {
     bool checkboxShowDesc = true;
     bool checkboxDisabled = false;
 
-    static constexpr std::array<std::string_view, 3> stretchModeNames = {"Compact", "Between", "Fill"};
+    static constexpr std::array<std::string_view, 3> stretchModeNames = {"Compact", "Space", "Fill"};
     auto stretchModeEnumName = [](guikit::StretchMode m) -> std::string_view {
         switch (m) {
             case guikit::StretchMode::Compact: return "Compact";
-            case guikit::StretchMode::Between: return "Between";
+            case guikit::StretchMode::Space: return "Space";
             default: return "Fill";
         }
     };

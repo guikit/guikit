@@ -408,9 +408,10 @@ enum class SizeMode : uint8_t {
 
 /// Stretch layout behavior for composite widgets containing labels and interactive controls.
 enum class StretchMode : uint8_t {
-    Compact,  ///< Compact intrinsic size based on content (no row stretching)
-    Between,  ///< Row stretches full width; label and control are pushed to opposite edges (space-between)
-    Fill      ///< Row stretches full width; control stretches to fill all remaining available space
+    Compact,        ///< Compact intrinsic size based on content (no row stretching)
+    Space,          ///< Row stretches full width; control stays compact and extra space becomes air/gap
+    Fill,           ///< Row stretches full width; control stretches to fill all remaining available space
+    Between = Space ///< Backward-compatible alias for Space
 };
 
 /// Alignment along the cross axis (perpendicular to FlexDirection).

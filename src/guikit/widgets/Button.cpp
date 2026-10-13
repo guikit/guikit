@@ -256,13 +256,14 @@ void Button::Render(
     Rect descRect;
 
     const Vec2 capSize = MeasureButtonCapsule(opts, effectiveCapsuleText, size, &canvas, theme);
+    const float alignFactor = (opts.labelAlign == Align::End) ? 1.0f : ((opts.labelAlign == Align::Center) ? 0.5f : 0.0f);
 
     if (!hasExternal) {
         float capW = bounds.w;
         if (opts.stretch != StretchMode::Fill) {
             capW = opts.width.value_or(std::min(bounds.w, capSize.x));
         }
-        const float capX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - capW) : bounds.x;
+        const float capX = bounds.x + (bounds.w - capW) * alignFactor;
         capsuleRect = Rect(capX, bounds.y, capW, bounds.h);
     } else {
         const float labelH = hasExternalLabel ? canvas.GetLineHeight(inputMetrics.labelFontSize) : 0.0f;
@@ -274,9 +275,9 @@ void Button::Render(
 
         if (opts.layout == ElementLayout::Stacked) {
             const float capW = (opts.stretch == StretchMode::Fill) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
-            const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(capW, measuredTextW));
-            const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
-            const float capX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - capW) : bounds.x;
+            const float blockW = (opts.stretch == StretchMode::Compact) ? std::min(bounds.w, std::max(capW, measuredTextW)) : bounds.w;
+            const float blockX = bounds.x;
+            const float capX = blockX + (blockW - capW) * alignFactor;
 
             float curY = bounds.y;
             if (hasExternalLabel) {
@@ -290,9 +291,9 @@ void Button::Render(
             }
         } else if (opts.layout == ElementLayout::Top) {
             const float capW = (opts.stretch == StretchMode::Fill) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
-            const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(capW, measuredTextW));
-            const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
-            const float capX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - capW) : bounds.x;
+            const float blockW = (opts.stretch == StretchMode::Compact) ? std::min(bounds.w, std::max(capW, measuredTextW)) : bounds.w;
+            const float blockX = bounds.x;
+            const float capX = blockX + (blockW - capW) * alignFactor;
 
             float curY = bounds.y;
             if (hasExternalLabel) {
@@ -307,9 +308,9 @@ void Button::Render(
             capsuleRect = Rect(capX, curY, capW, capSize.y);
         } else if (opts.layout == ElementLayout::Bottom) {
             const float capW = (opts.stretch == StretchMode::Fill) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
-            const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(capW, measuredTextW));
-            const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
-            const float capX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - capW) : bounds.x;
+            const float blockW = (opts.stretch == StretchMode::Compact) ? std::min(bounds.w, std::max(capW, measuredTextW)) : bounds.w;
+            const float blockX = bounds.x;
+            const float capX = blockX + (blockW - capW) * alignFactor;
 
             float curY = bounds.y;
             capsuleRect = Rect(capX, curY, capW, capSize.y);
@@ -356,7 +357,7 @@ void Button::Render(
                 capsuleRect = Rect(bounds.x, bounds.y + (bounds.h - capSize.y) * 0.5f, capW, capSize.y);
 
                 float textX = bounds.x + capW + gap;
-                if (opts.stretch == StretchMode::Between) {
+                if (opts.stretch == StretchMode::Space) {
                     textX = std::max(bounds.x + capW + gap, bounds.x + bounds.w - measuredTextW);
                 }
                 float textY = startY;
@@ -378,7 +379,6 @@ void Button::Render(
             descCol = descCol.WithAlphaF(0.40f);
         }
 
-        const float alignFactor = (opts.labelAlign == Align::End) ? 1.0f : ((opts.labelAlign == Align::Center) ? 0.5f : 0.0f);
         if (hasExternalLabel && labelRect.w > 0.0f && labelRect.h > 0.0f) {
             canvas.DrawTextBox(effectiveExternalLabel, labelRect, inputMetrics.labelFontSize, labelCol, alignFactor, 0.5f);
         }
