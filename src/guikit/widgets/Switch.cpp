@@ -262,17 +262,28 @@ void Switch::Render(
         const float trackY = startY + (topRowH - m.trackSize.y) * 0.5f;
         const float textY = startY + (topRowH - std::max(labelH, trailingLabelH)) * 0.5f;
 
-        float curX = bounds.x;
-        if (hasLabel) {
-            labelRect = Rect(curX, textY, leftDims.x, labelH);
-            curX += leftDims.x + m.gap;
-        }
-        trackRect = Rect(curX, trackY, m.trackSize.x, m.trackSize.y);
-        curX += m.trackSize.x;
-        if (hasTrailingLabel) {
-            curX += m.gap;
-            const float remW = std::max(rightDims.x, bounds.w - (curX - bounds.x));
-            trailingLabelRect = Rect(curX, textY, remW, trailingLabelH);
+        if (opts.stretch != StretchMode::Compact && bounds.w > (leftDims.x + m.trackSize.x + rightDims.x + m.gap * 2.0f)) {
+            if (hasLabel) {
+                labelRect = Rect(bounds.x, textY, leftDims.x, labelH);
+            }
+            const float trackX = bounds.x + (bounds.w - m.trackSize.x) * 0.5f;
+            trackRect = Rect(trackX, trackY, m.trackSize.x, m.trackSize.y);
+            if (hasTrailingLabel) {
+                trailingLabelRect = Rect(bounds.x + bounds.w - rightDims.x, textY, rightDims.x, trailingLabelH);
+            }
+        } else {
+            float curX = bounds.x;
+            if (hasLabel) {
+                labelRect = Rect(curX, textY, leftDims.x, labelH);
+                curX += leftDims.x + m.gap;
+            }
+            trackRect = Rect(curX, trackY, m.trackSize.x, m.trackSize.y);
+            curX += m.trackSize.x;
+            if (hasTrailingLabel) {
+                curX += m.gap;
+                const float remW = std::max(rightDims.x, bounds.w - (curX - bounds.x));
+                trailingLabelRect = Rect(curX, textY, remW, trailingLabelH);
+            }
         }
         if (hasDesc) {
             descRect = Rect(bounds.x, startY + topRowH + m.descGap, bounds.w, descH);
@@ -348,8 +359,16 @@ void Switch::Render(
         const float trackY = bounds.y + (bounds.h - m.trackSize.y) * 0.5f;
         trackRect = Rect(bounds.x, trackY, m.trackSize.x, m.trackSize.y);
 
-        const float textX = bounds.x + m.trackSize.x + m.gap;
-        const float textW = std::max(0.0f, bounds.w - m.trackSize.x - m.gap);
+        const float naturalTextW = std::max(
+            hasLabel ? canvas.MeasureText(opts.label, m.fontSize).x : 0.0f,
+            hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
+        );
+
+        float textX = bounds.x + m.trackSize.x + m.gap;
+        if (opts.stretch != StretchMode::Compact) {
+            textX = std::max(bounds.x + m.trackSize.x + m.gap, bounds.x + bounds.w - naturalTextW);
+        }
+        const float textW = std::max(0.0f, bounds.w - (textX - bounds.x));
         const float totalTextH = (hasLabel && hasDesc) ? (labelH + m.descGap + descH) : (hasLabel ? labelH : descH);
         const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
 

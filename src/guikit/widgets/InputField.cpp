@@ -332,7 +332,11 @@ void InputField::Render(
             : std::min(naturalBoxW, std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f)));
         boxRect = Rect(bounds.x, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
         if (hasLabel) {
-            labelRect = Rect(bounds.x + boxW + m.paddingX, bounds.y + (bounds.h - labelH) * 0.5f, bounds.w - boxW - m.paddingX, labelH);
+            float labelX = bounds.x + boxW + m.paddingX;
+            if (opts.stretch == StretchMode::Between || (opts.stretch == StretchMode::Fill && opts.width.has_value())) {
+                labelX = std::max(labelX, bounds.x + bounds.w - labelW);
+            }
+            labelRect = Rect(labelX, bounds.y + (bounds.h - labelH) * 0.5f, labelW, labelH);
         }
     } else if (opts.labelPlacement == Placement::Top) {
         float curY = bounds.y;

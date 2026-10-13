@@ -380,9 +380,23 @@ void Button::Render(
         } else { // Trailing / default
             const float gap = m.paddingX;
             const float naturalCapW = opts.width.value_or(capSize.x);
-            const float capW = std::min(bounds.w, naturalCapW);
-            const float textX = bounds.x + capW + gap;
-            const float textW = std::max(0.0f, bounds.w - capW - gap);
+            const float measuredTextW = std::max(
+                hasExternalLabel ? canvas.MeasureText(effectiveExternalLabel, inputMetrics.labelFontSize).x : 0.0f,
+                hasExternalDesc ? canvas.MeasureText(effectiveDescription, inputMetrics.descFontSize).x : 0.0f
+            );
+
+            float capW = naturalCapW;
+            if (opts.stretch == StretchMode::Fill && !opts.width.has_value()) {
+                capW = std::max(naturalCapW, bounds.w - measuredTextW - gap);
+            } else {
+                capW = std::min(bounds.w, naturalCapW);
+            }
+
+            float textX = bounds.x + capW + gap;
+            if (opts.stretch == StretchMode::Between || (opts.stretch == StretchMode::Fill && opts.width.has_value())) {
+                textX = std::max(bounds.x + capW + gap, bounds.x + bounds.w - measuredTextW);
+            }
+            const float textW = std::max(0.0f, bounds.w - (textX - bounds.x));
             const float totalTextH = (hasExternalLabel && hasExternalDesc) ? (labelH + inputMetrics.descGap + descH) : (hasExternalLabel ? labelH : descH);
             const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
 

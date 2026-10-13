@@ -288,8 +288,16 @@ void Checkbox::Render(
         const float boxY = bounds.y + (bounds.h - m.boxSize) * 0.5f;
         boxRect = Rect(bounds.x, boxY, m.boxSize, m.boxSize);
 
-        const float textX = bounds.x + m.boxSize + m.gap;
-        const float textW = std::max(0.0f, bounds.w - m.boxSize - m.gap);
+        const float naturalTextW = std::max(
+            hasLabel ? canvas.MeasureText(opts.label, m.fontSize).x : 0.0f,
+            hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
+        );
+
+        float textX = bounds.x + m.boxSize + m.gap;
+        if (opts.stretch != StretchMode::Compact) {
+            textX = std::max(bounds.x + m.boxSize + m.gap, bounds.x + bounds.w - naturalTextW);
+        }
+        const float textW = std::max(0.0f, bounds.w - (textX - bounds.x));
         const float totalTextH = (hasLabel && hasDesc) ? (labelH + m.descGap + descH) : (hasLabel ? labelH : descH);
         const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
 
