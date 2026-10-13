@@ -35,7 +35,8 @@ Rect Select::GetBoxRect(
             curY += labelH + m.labelGap;
         }
         const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        return Rect(bounds.x, curY, boxW, m.defaultHeight);
+        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        return Rect(boxX, curY, boxW, m.defaultHeight);
     }
     
     if (opts.labelPlacement == Placement::Leading) {
@@ -83,12 +84,14 @@ Rect Select::GetBoxRect(
         if (hasDesc) curY += descH;
         curY += m.labelGap;
         const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        return Rect(bounds.x, curY, boxW, m.defaultHeight);
+        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        return Rect(boxX, curY, boxW, m.defaultHeight);
     }
     
     // Placement::Bottom
     const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
-    return Rect(bounds.x, bounds.y, boxW, m.defaultHeight);
+    const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+    return Rect(boxX, bounds.y, boxW, m.defaultHeight);
 }
 
 Vec2 Select::Measure(

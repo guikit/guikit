@@ -283,7 +283,9 @@ void Button::Render(
             }
             const float capW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
             float capX = bounds.x;
-            if (opts.stretch != StretchMode::Fill || opts.width.has_value()) {
+            if (opts.stretch == StretchMode::Between) {
+                capX = bounds.x + bounds.w - capW;
+            } else if (opts.stretch != StretchMode::Fill || opts.width.has_value()) {
                 if (opts.align == Align::Center) {
                     capX = bounds.x + (bounds.w - capW) * 0.5f;
                 } else if (opts.align == Align::End) {
@@ -308,7 +310,9 @@ void Button::Render(
             curY += inputMetrics.labelGap;
             const float capW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
             float capX = bounds.x;
-            if (opts.stretch != StretchMode::Fill || opts.width.has_value()) {
+            if (opts.stretch == StretchMode::Between) {
+                capX = bounds.x + bounds.w - capW;
+            } else if (opts.stretch != StretchMode::Fill || opts.width.has_value()) {
                 if (opts.align == Align::Center) {
                     capX = bounds.x + (bounds.w - capW) * 0.5f;
                 } else if (opts.align == Align::End) {
@@ -320,7 +324,9 @@ void Button::Render(
             float curY = bounds.y;
             const float capW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
             float capX = bounds.x;
-            if (opts.stretch != StretchMode::Fill || opts.width.has_value()) {
+            if (opts.stretch == StretchMode::Between) {
+                capX = bounds.x + bounds.w - capW;
+            } else if (opts.stretch != StretchMode::Fill || opts.width.has_value()) {
                 if (opts.align == Align::Center) {
                     capX = bounds.x + (bounds.w - capW) * 0.5f;
                 } else if (opts.align == Align::End) {

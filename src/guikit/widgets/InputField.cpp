@@ -297,7 +297,8 @@ void InputField::Render(
             curY += labelH + m.labelGap;
         }
         const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        boxRect = Rect(bounds.x, curY, boxW, m.defaultHeight);
+        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
         curY += m.defaultHeight + m.descGap;
         if (hasDesc) {
             descRect = Rect(bounds.x, curY, bounds.w, descH);
@@ -345,11 +346,13 @@ void InputField::Render(
         }
         curY += m.labelGap;
         const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        boxRect = Rect(bounds.x, curY, boxW, m.defaultHeight);
+        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
     } else { // Placement::Bottom
         float curY = bounds.y;
         const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        boxRect = Rect(bounds.x, curY, boxW, m.defaultHeight);
+        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
         curY += m.defaultHeight + m.descGap;
         if (hasLabel) {
             labelRect = Rect(bounds.x, curY, bounds.w, labelH);

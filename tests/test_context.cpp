@@ -4081,6 +4081,47 @@ void TestWidgetStretchModesAndExplicitWidth() {
     CHECK(rInBetween.w > rInCompact.w);
     CHECK_NEAR(rInBetween.w, 800.0f, 0.01f);
 
+    // 6. Test Button in Placement::Stacked with StretchMode::Between vs Fill
+    Response btnStBetween, btnStFill;
+    ui.BeginFrame({800.0f, 600.0f});
+    if (auto col = ui.Column()) {
+        btnStBetween = ui.Button({
+            .label = "Header",
+            .text = "Action",
+            .labelPlacement = Placement::Stacked,
+            .stretch = StretchMode::Between
+        });
+        btnStFill = ui.Button({
+            .label = "Header",
+            .text = "Action",
+            .labelPlacement = Placement::Stacked,
+            .stretch = StretchMode::Fill
+        });
+    }
+    ui.EndFrame(canvas);
+
+    ui.BeginFrame({800.0f, 600.0f});
+    if (auto col = ui.Column()) {
+        btnStBetween = ui.Button({
+            .label = "Header",
+            .text = "Action",
+            .labelPlacement = Placement::Stacked,
+            .stretch = StretchMode::Between
+        });
+        btnStFill = ui.Button({
+            .label = "Header",
+            .text = "Action",
+            .labelPlacement = Placement::Stacked,
+            .stretch = StretchMode::Fill
+        });
+    }
+    ui.EndFrame(canvas);
+
+    const Rect rStBetween = ui.GetPrevFrameBounds(btnStBetween.id);
+    const Rect rStFill = ui.GetPrevFrameBounds(btnStFill.id);
+    CHECK_NEAR(rStBetween.w, 800.0f, 0.01f);
+    CHECK_NEAR(rStFill.w, 800.0f, 0.01f);
+
     std::cout << "  [PASS] TestWidgetStretchModesAndExplicitWidth completed\n";
 }
 
