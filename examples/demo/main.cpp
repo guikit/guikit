@@ -1180,6 +1180,7 @@ int main(int argc, char* argv[]) {
                                                 "    .align = guikit::Align::{},\n"
                                                 "    .labelVariants = {{}},\n"
                                                 "    .stretch = guikit::StretchMode::{},\n"
+                                                "    .width = {},\n"
                                                 "    .disabled = {},\n"
                                                 "    .active = false,\n"
                                                 "    .size = guikit::UiSize::{},\n"
@@ -1196,6 +1197,7 @@ int main(int argc, char* argv[]) {
                                                 placementName(btnLabelPlace),
                                                 alignName(btnAlign),
                                                 stretchModeEnumName(static_cast<guikit::StretchMode>(btnStretchIdx)),
+                                                btnWidth > 0.0f ? std::format("{:.1f}f", btnWidth) : "std::nullopt",
                                                 btnDisabled ? "true" : "false",
                                                 sizeName(controlsSize),
                                                 btnCornerRadius
@@ -1216,6 +1218,8 @@ int main(int argc, char* argv[]) {
                                                     "    .showValue = {},\n"
                                                     "    .variant = guikit::UiVariant::{},\n"
                                                     "    .size = guikit::UiSize::{},\n"
+                                                    "    .stretch = guikit::StretchMode::{},\n"
+                                                    "    .width = {},\n"
                                                     "    .scale = std::nullopt,\n"
                                                     "    .theme = nullptr,\n"
                                                     "    .disabled = {}\n"
@@ -1225,6 +1229,8 @@ int main(int argc, char* argv[]) {
                                                     sliderShowValue ? "true" : "false",
                                                     variantName(btnVariant),
                                                     sizeName(controlsSize),
+                                                    stretchModeEnumName(static_cast<guikit::StretchMode>(sliderStretchIdx)),
+                                                    sliderWidth > 0.0f ? std::format("{:.1f}f", sliderWidth) : "std::nullopt",
                                                     sliderDisabled ? "true" : "false"
                                                 );
                                             } else {
@@ -1242,6 +1248,8 @@ int main(int argc, char* argv[]) {
                                                     "    .includeNone = false,\n"
                                                     "    .variant = guikit::UiVariant::{},\n"
                                                     "    .size = guikit::UiSize::{},\n"
+                                                    "    .stretch = guikit::StretchMode::{},\n"
+                                                    "    .width = {},\n"
                                                     "    .scale = std::nullopt,\n"
                                                     "    .theme = nullptr,\n"
                                                     "    .disabled = {}\n"
@@ -1253,6 +1261,8 @@ int main(int argc, char* argv[]) {
                                                     sliderShowValue ? "true" : "false",
                                                     variantName(btnVariant),
                                                     sizeName(controlsSize),
+                                                    stretchModeEnumName(static_cast<guikit::StretchMode>(sliderStretchIdx)),
+                                                    sliderWidth > 0.0f ? std::format("{:.1f}f", sliderWidth) : "std::nullopt",
                                                     sliderDisabled ? "true" : "false"
                                                 );
                                             }
@@ -1275,6 +1285,8 @@ int main(int argc, char* argv[]) {
                                                 "    .cursorMode = guikit::CursorBlinkMode::{},\n"
                                                 "    .size = guikit::UiSize::{},\n"
                                                 "    .radius = {:.1f}f,\n"
+                                                "    .stretch = guikit::StretchMode::{},\n"
+                                                "    .width = {},\n"
                                                 "    .disabled = {},\n"
                                                 "    .readOnly = {}\n"
                                                 "}});",
@@ -1289,6 +1301,8 @@ int main(int argc, char* argv[]) {
                                                 cursorModeName(inputCursorMode),
                                                 sizeName(controlsSize),
                                                 inputCornerRadius,
+                                                stretchModeEnumName(static_cast<guikit::StretchMode>(inputStretchIdx)),
+                                                inputWidth > 0.0f ? std::format("{:.1f}f", inputWidth) : "std::nullopt",
                                                 inputDisabled ? "true" : "false",
                                                 inputReadOnly ? "true" : "false"
                                             );
@@ -1307,6 +1321,8 @@ int main(int argc, char* argv[]) {
                                                 "    .maxVisibleItems = {},\n"
                                                 "    .size = guikit::UiSize::{},\n"
                                                 "    .radius = {:.1f}f,\n"
+                                                "    .stretch = guikit::StretchMode::{},\n"
+                                                "    .width = {},\n"
                                                 "    .disabled = {}\n"
                                                 "}});",
                                                 selectShowLabel ? "Active Preset" : "",
@@ -1317,6 +1333,8 @@ int main(int argc, char* argv[]) {
                                                 selectMaxItems,
                                                 sizeName(controlsSize),
                                                 selectCornerRadius,
+                                                stretchModeEnumName(static_cast<guikit::StretchMode>(selectStretchIdx)),
+                                                selectWidth > 0.0f ? std::format("{:.1f}f", selectWidth) : "std::nullopt",
                                                 selectDisabled ? "true" : "false"
                                             );
                                             break;
@@ -1330,6 +1348,7 @@ int main(int argc, char* argv[]) {
                                                 "    .description = \"{}\",\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
                                                 "    .labelPlacement = guikit::Placement::{},\n"
+                                                "    .stretch = guikit::StretchMode::{},\n"
                                                 "    .symmetric = {},\n"
                                                 "    .disabled = {},\n"
                                                 "    .size = guikit::UiSize::{}\n"
@@ -1339,6 +1358,7 @@ int main(int argc, char* argv[]) {
                                                 switchShowDesc ? "Safety interlocking system" : "",
                                                 variantName(btnVariant),
                                                 placementName(switchLabelPlace),
+                                                stretchModeEnumName(static_cast<guikit::StretchMode>(switchStretchIdx)),
                                                 switchSymmetric ? "true" : "false",
                                                 switchDisabled ? "true" : "false",
                                                 sizeName(controlsSize)
@@ -1353,6 +1373,7 @@ int main(int argc, char* argv[]) {
                                                 "    .description = \"{}\",\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
                                                 "    .labelPlacement = guikit::Placement::{},\n"
+                                                "    .stretch = guikit::StretchMode::{},\n"
                                                 "    .disabled = {},\n"
                                                 "    .indeterminate = {},\n"
                                                 "    .size = guikit::UiSize::{}\n"
@@ -1361,6 +1382,7 @@ int main(int argc, char* argv[]) {
                                                 checkboxShowDesc ? "Save trace to buffer" : "",
                                                 variantName(btnVariant),
                                                 placementName(checkboxLabelPlace),
+                                                stretchModeEnumName(static_cast<guikit::StretchMode>(checkboxStretchIdx)),
                                                 checkboxDisabled ? "true" : "false",
                                                 testCheckboxIndet ? "true" : "false",
                                                 sizeName(controlsSize)
