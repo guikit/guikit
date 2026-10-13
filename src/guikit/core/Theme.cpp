@@ -342,6 +342,8 @@ UiTheme UiTheme::Scaled(float factor) const noexcept {
         m.paddingY *= factor;
         m.cornerRadius *= factor;
         m.iconSize *= factor;
+        m.minWidth *= factor;
+        m.defaultWidth *= factor;
     }
     for (auto& t : copy.typography) {
         t.fontSize *= factor;
@@ -394,6 +396,8 @@ UiTheme UiTheme::Scaled(float factor) const noexcept {
         in.descGap *= factor;
         in.strokeWidth *= factor;
         in.iconSize *= factor;
+        in.defaultWidth *= factor;
+        in.minWidth *= factor;
     }
     for (auto& sl : copy.selects) {
         sl.defaultHeight *= factor;
@@ -407,6 +411,8 @@ UiTheme UiTheme::Scaled(float factor) const noexcept {
         sl.strokeWidth *= factor;
         sl.iconSize *= factor;
         sl.itemHeight *= factor;
+        sl.defaultWidth *= factor;
+        sl.minWidth *= factor;
     }
     for (auto& hd : copy.headings) {
         hd.titleFontSize *= factor;
@@ -428,6 +434,7 @@ UiTheme UiTheme::Scaled(float factor) const noexcept {
         sl.labelGap *= factor;
         sl.tickGap *= factor;
         sl.descGap *= factor;
+        sl.defaultWidth *= factor;
     }
     for (auto& v : copy.variants) {
         v.borderWidth *= factor;

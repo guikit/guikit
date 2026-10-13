@@ -79,8 +79,23 @@ Response Slider::Run(
         state.dragging = false;
     } else {
         const float halfThumb = m.thumbSize * 0.5f;
-        const float trackStartX = prevBounds.x + halfThumb;
-        const float trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
+        const float defaultTrackW = opts.width.value_or(m.defaultWidth);
+        float trackStartX = prevBounds.x + halfThumb;
+        float trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
+        if (opts.stretch == StretchMode::Fill) {
+            if (opts.width.has_value()) {
+                trackWidth = *opts.width;
+            } else {
+                trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
+            }
+            trackStartX = prevBounds.x + halfThumb;
+        } else if (opts.stretch == StretchMode::Between) {
+            trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
+            trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
+        } else { // Compact
+            trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
+            trackStartX = prevBounds.x + halfThumb;
+        }
 
         if (res.clicked || (res.pressed && !state.dragging)) {
             state.dragging = true;
@@ -163,7 +178,7 @@ Response Slider::Run(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed || state.dragging;
-    node->widthMode = SizeMode::Stretch;
+    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
 
     auto* data = ctx.AllocPayload<SliderData>();
@@ -183,6 +198,8 @@ Response Slider::Run(
     node->visualHash = detail::HashArgs(
         valBits,
         opts.variant,
+        static_cast<uint8_t>(opts.stretch),
+        opts.width.value_or(0.0f),
         opts.showValue,
         opts.format,
         opts.suffix,
@@ -231,7 +248,8 @@ Vec2 Slider::Measure(
         totalH += m.descGap + m.labelFontSize * 1.1f;
     }
 
-    return Vec2{100.0f, totalH};
+    const float defaultTrackW = opts.width.value_or(m.defaultWidth) + m.thumbSize;
+    return Vec2{defaultTrackW, totalH};
 }
 
 Vec2 Slider::Measure(
@@ -303,8 +321,24 @@ void Slider::Render(
     const float trackRowH = std::max(m.defaultHeight, m.thumbSize);
     const float centerY = curY + trackRowH * 0.5f;
     const float halfThumb = m.thumbSize * 0.5f;
-    const float trackStartX = bounds.x + halfThumb;
-    const float trackWidth = std::max(0.0f, bounds.w - m.thumbSize);
+
+    const float defaultTrackW = opts.width.value_or(m.defaultWidth);
+    float trackStartX = bounds.x + halfThumb;
+    float trackWidth = std::max(0.0f, bounds.w - m.thumbSize);
+    if (opts.stretch == StretchMode::Fill) {
+        if (opts.width.has_value()) {
+            trackWidth = *opts.width;
+        } else {
+            trackWidth = std::max(0.0f, bounds.w - m.thumbSize);
+        }
+        trackStartX = bounds.x + halfThumb;
+    } else if (opts.stretch == StretchMode::Between) {
+        trackWidth = std::min(defaultTrackW, std::max(0.0f, bounds.w - m.thumbSize));
+        trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
+    } else { // Compact
+        trackWidth = std::min(defaultTrackW, std::max(0.0f, bounds.w - m.thumbSize));
+        trackStartX = bounds.x + halfThumb;
+    }
 
     const double range = max - min;
     const float ratio = (range > 0.0) ? static_cast<float>(std::clamp((value - min) / range, 0.0, 1.0)) : 0.0f;
@@ -390,8 +424,23 @@ Response StepSlider::Run(
         state.dragging = false;
     } else {
         const float halfThumb = m.thumbSize * 0.5f;
-        const float trackStartX = prevBounds.x + halfThumb;
-        const float trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
+        const float defaultTrackW = opts.width.value_or(m.defaultWidth);
+        float trackStartX = prevBounds.x + halfThumb;
+        float trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
+        if (opts.stretch == StretchMode::Fill) {
+            if (opts.width.has_value()) {
+                trackWidth = *opts.width;
+            } else {
+                trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
+            }
+            trackStartX = prevBounds.x + halfThumb;
+        } else if (opts.stretch == StretchMode::Between) {
+            trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
+            trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
+        } else { // Compact
+            trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
+            trackStartX = prevBounds.x + halfThumb;
+        }
 
         if (res.clicked || (res.pressed && !state.dragging)) {
             state.dragging = true;
@@ -447,7 +496,7 @@ Response StepSlider::Run(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed || state.dragging;
-    node->widthMode = SizeMode::Stretch;
+    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
 
     auto* data = ctx.AllocPayload<StepSliderData>();
@@ -467,6 +516,8 @@ Response StepSlider::Run(
         curIdx,
         totalSteps,
         opts.variant,
+        static_cast<uint8_t>(opts.stretch),
+        opts.width.value_or(0.0f),
         opts.showTicks,
         opts.showLabels,
         opts.showValue,
@@ -516,7 +567,8 @@ Vec2 StepSlider::Measure(
         totalH += m.descGap + m.labelFontSize * 1.1f;
     }
 
-    return Vec2{100.0f, totalH};
+    const float defaultTrackW = opts.width.value_or(m.defaultWidth) + m.thumbSize;
+    return Vec2{defaultTrackW, totalH};
 }
 
 Vec2 StepSlider::Measure(
@@ -572,8 +624,24 @@ void StepSlider::Render(
     const float trackRowH = std::max(m.defaultHeight, m.thumbSize);
     const float centerY = curY + trackRowH * 0.5f;
     const float halfThumb = m.thumbSize * 0.5f;
-    const float trackStartX = bounds.x + halfThumb;
-    const float trackWidth = std::max(0.0f, bounds.w - m.thumbSize);
+
+    const float defaultTrackW = opts.width.value_or(m.defaultWidth);
+    float trackStartX = bounds.x + halfThumb;
+    float trackWidth = std::max(0.0f, bounds.w - m.thumbSize);
+    if (opts.stretch == StretchMode::Fill) {
+        if (opts.width.has_value()) {
+            trackWidth = *opts.width;
+        } else {
+            trackWidth = std::max(0.0f, bounds.w - m.thumbSize);
+        }
+        trackStartX = bounds.x + halfThumb;
+    } else if (opts.stretch == StretchMode::Between) {
+        trackWidth = std::min(defaultTrackW, std::max(0.0f, bounds.w - m.thumbSize));
+        trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
+    } else { // Compact
+        trackWidth = std::min(defaultTrackW, std::max(0.0f, bounds.w - m.thumbSize));
+        trackStartX = bounds.x + halfThumb;
+    }
 
     const float ratio = (totalSteps > 1) ? static_cast<float>(index) / static_cast<float>(totalSteps - 1) : 0.0f;
 

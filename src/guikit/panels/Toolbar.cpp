@@ -127,6 +127,8 @@ Response Toolbar::ToolButton(
     bOpts.align = opts.align;
     bOpts.labelVariants = opts.labelVariants;
     bOpts.stretch = opts.stretch;
+    bOpts.width = opts.width;
+    bOpts.minWidth = opts.minWidth;
     bOpts.disabled = effectiveDisabled;
     bOpts.active = opts.active;
     bOpts.size = activeSize;
@@ -136,7 +138,7 @@ Response Toolbar::ToolButton(
         opts.variant,
         opts.iconPlacement,
         opts.active,
-        opts.stretch,
+        static_cast<uint8_t>(opts.stretch),
         opts.size.value_or(activeSize),
         static_cast<uint8_t>(opts.icon.GetType()),
         static_cast<uint8_t>(opts.icon.GetId()),
@@ -155,7 +157,7 @@ Response Toolbar::ToolButton(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed;
-    node->widthMode = opts.stretch ? SizeMode::Stretch : SizeMode::Fit;
+    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
 
     ctx.AdaptChildToContainer(node);

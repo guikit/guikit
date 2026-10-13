@@ -47,7 +47,7 @@ Response Text::Run(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed;
-    node->widthMode = SizeMode::Fit;
+    node->widthMode = (opts.align != Alignment::Start) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
 
     ctx.AdaptChildToContainer(node);

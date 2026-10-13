@@ -29,6 +29,9 @@ struct InputFieldOptions {
     std::optional<CursorBlinkMode> cursorMode{std::nullopt}; ///< Cursor blink override (inherits context config if nullopt)
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     std::optional<float> radius{std::nullopt};     ///< Local corner radius override (nullopt = inherit from size metrics)
+    StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Between (space-between), Fill
+    std::optional<float> width{std::nullopt};      ///< Explicit input box width in points (nullopt = from theme / remaining)
+    std::optional<float> minWidth{std::nullopt};   ///< Minimum input box width constraint in points
     bool disabled{false};                          ///< Interaction suppression
     bool readOnly{false};                          ///< Non-editable display mode
 };

@@ -18,6 +18,7 @@ struct CheckboxOptions {
     std::string_view description{};                ///< Optional explanation text below label
     UiVariant variant{UiVariant::Primary};          ///< Accent fill color when checked
     Placement labelPlacement{Placement::Trailing}; ///< Placement of label relative to the checkbox square
+    StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Between, Fill
     bool disabled{false};                          ///< Interaction suppression
     bool indeterminate{false};                     ///< Tri-state / partial check (horizontal dash)
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)

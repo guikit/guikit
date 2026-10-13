@@ -87,6 +87,8 @@ struct ComponentMetrics {
     float paddingY;
     float cornerRadius;
     float iconSize;
+    float minWidth{64.0f};
+    float defaultWidth{80.0f};
 };
 
 /// Standardized metrics for scrollbars derived from UiSize tokens.
@@ -122,6 +124,7 @@ struct SliderMetrics {
     float labelGap;       ///< Vertical gap between header label and track
     float tickGap;        ///< Vertical gap between track and step labels
     float descGap;        ///< Vertical gap between slider and description
+    float defaultWidth{180.0f}; ///< Default track length in points
 };
 
 /// Standardized metrics for Switch widget according to UiSize.
@@ -158,6 +161,8 @@ struct InputFieldMetrics {
     float descGap;
     float strokeWidth;
     float iconSize;
+    float defaultWidth{160.0f};
+    float minWidth{80.0f};
 };
 
 /// Standardized metrics for Select widget according to UiSize.
@@ -173,6 +178,8 @@ struct SelectMetrics {
     float strokeWidth;
     float iconSize;
     float itemHeight;
+    float defaultWidth{160.0f};
+    float minWidth{80.0f};
 };
 
 /// Standardized metrics for Heading widget according to UiSize.

@@ -48,6 +48,7 @@ Response Checkbox::Run(
         opts.variant,
         opts.labelPlacement,
         opts.indeterminate,
+        static_cast<uint8_t>(opts.stretch),
         currentChecked,
         node->text,
         optsCopy.description
@@ -75,7 +76,7 @@ Response Checkbox::Run(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed;
-    node->widthMode = SizeMode::Fit;
+    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
 
     ctx.AdaptChildToContainer(node);
@@ -272,8 +273,16 @@ void Checkbox::Render(
             descRect = Rect(bounds.x, startY, textW, descH);
         }
 
-        boxRect = Rect(bounds.x + bounds.w - m.boxSize, boxY, m.boxSize, m.boxSize);
-        alignX = 1.0f;
+        if (opts.stretch == StretchMode::Compact) {
+            const float naturalTextW = std::max(
+                hasLabel ? canvas.MeasureText(opts.label, m.fontSize).x : 0.0f,
+                hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
+            );
+            boxRect = Rect(bounds.x + naturalTextW + m.gap, boxY, m.boxSize, m.boxSize);
+        } else {
+            boxRect = Rect(bounds.x + bounds.w - m.boxSize, boxY, m.boxSize, m.boxSize);
+        }
+        alignX = 0.0f;
     } else { // Trailing (default)
         // Horizontal: Checkbox on left, text on right
         const float boxY = bounds.y + (bounds.h - m.boxSize) * 0.5f;

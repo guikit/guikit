@@ -131,7 +131,9 @@ void Context::AdaptChildToContainer(Node* node) {
     if (!node || m_containerStack.empty()) return;
     Node* parent = m_containerStack.back();
     if (parent->direction == FlexDirection::Column || parent->direction == FlexDirection::Grid) {
-        node->widthMode = SizeMode::Stretch;
+        if (node->widthMode != SizeMode::Fit && node->widthMode != SizeMode::Fixed) {
+            node->widthMode = SizeMode::Stretch;
+        }
         if (parent->heightMode == SizeMode::Fixed) {
             node->heightMode = SizeMode::Stretch;
         }

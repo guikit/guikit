@@ -158,10 +158,10 @@ void TestHeaderRowTextMetricsAndNoOverlap() {
     auto renderRow = [&]() {
         if (auto row = ui.Row({.gap = 8.0f})) {
             if (auto b1 = ui.Box({.fixedWidth = 120.0f})) {
-                bOverview = ui.Button({.label = "Overview"});
+                bOverview = ui.Button({.label = "Overview", .stretch = StretchMode::Fill});
             }
             if (auto b2 = ui.Box({.fixedWidth = 150.0f})) {
-                bFlex = ui.Button({.label = "Flexbox Demo"});
+                bFlex = ui.Button({.label = "Flexbox Demo", .stretch = StretchMode::Fill});
             }
         }
     };
@@ -210,7 +210,7 @@ void TestFooterExitButtonStaysVisibleInNarrowWindow() {
                 ui.Text("Zero heap allocations per frame | 0% idle CPU", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
                 ui.Spacer();
                 if (auto b = ui.Box({.fixedWidth = 80.0f})) {
-                    exitBtn = ui.Button({.label = "Exit"});
+                    exitBtn = ui.Button({.label = "Exit", .stretch = StretchMode::Fill});
                 }
             }
         }
@@ -256,13 +256,13 @@ void TestWrapContainerInContextApi() {
             // b3 wraps to Line 2! (y = 20 + 36 + 10 = 66)
             if (auto wrap = ui.Wrap({.gap = 10.0f, .runGap = 10.0f})) {
                 if (auto box1 = ui.Box({.fixedWidth = 120.0f, .fixedHeight = 36.0f})) {
-                    b1 = ui.Button({.label = "Button 1"});
+                    b1 = ui.Button({.label = "Button 1", .stretch = StretchMode::Fill});
                 }
                 if (auto box2 = ui.Box({.fixedWidth = 120.0f, .fixedHeight = 36.0f})) {
-                    b2 = ui.Button({.label = "Button 2"});
+                    b2 = ui.Button({.label = "Button 2", .stretch = StretchMode::Fill});
                 }
                 if (auto box3 = ui.Box({.fixedWidth = 120.0f, .fixedHeight = 36.0f})) {
-                    b3 = ui.Button({.label = "Button 3"});
+                    b3 = ui.Button({.label = "Button 3", .stretch = StretchMode::Fill});
                 }
             }
         }
@@ -464,7 +464,7 @@ void TestBoxSlotWithUiSizeToken() {
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = 12.0f})) {
             if (auto slotLg = ui.Box({.size = UiSize::Lg})) {
-                btnLarge = ui.Button({.label = "Large Action", .variant = UiVariant::Primary});
+                btnLarge = ui.Button({.label = "Large Action", .variant = UiVariant::Primary, .stretch = StretchMode::Fill});
             }
             if (auto slotSquare = ui.Box({.fixedWidth = 32.0f, .size = UiSize::Sm})) {
                 btnSquareIcon = ui.Button({.icon = Icon::Close()});
@@ -1521,7 +1521,7 @@ void TestScrollAreaImmediateMode() {
     auto renderUI = [&]() {
         if (auto scroll = ui.ScrollArea()) {
             if (auto box1 = ui.Box({.heightMode = SizeMode::Fixed, .fixedHeight = 200.0f})) {
-                btn1Res = ui.Button({.label = "Top Item"});
+                btn1Res = ui.Button({.label = "Top Item", .stretch = StretchMode::Fill});
             }
             if (auto box2 = ui.Box({.heightMode = SizeMode::Fixed, .fixedHeight = 200.0f})) {
                 btn2Res = ui.Button({.label = "Middle Item"});
@@ -2196,9 +2196,9 @@ void TestContainerSizeInheritanceAndWidgetStretch() {
     Response btnCompact, btnStretch1, btnStretch2;
     auto renderStretchRow = [&]() {
         if (auto row = ui.Row()) {
-            btnCompact = ui.Button({.label = "Compact", .stretch = false});
-            btnStretch1 = ui.Button({.label = "Stretch", .stretch = true});
-            btnStretch2 = ui.Button({.label = "Stretch", .stretch = true});
+            btnCompact = ui.Button({.label = "Compact", .stretch = StretchMode::Compact});
+            btnStretch1 = ui.Button({.label = "Stretch", .stretch = StretchMode::Fill});
+            btnStretch2 = ui.Button({.label = "Stretch", .stretch = StretchMode::Fill});
         }
     };
 
@@ -3588,9 +3588,9 @@ void TestTextWrappingAndBackendIndependence() {
     if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(10.0f)})) {
         headResp = ui.Heading(optsWrap);
         if (auto row = ui.Row({.gap = 8.0f})) {
-            btn1Resp = ui.Button({.label = "Col 1 (Stretch)", .stretch = true});
-            btn2Resp = ui.Button({.label = "Col 2 (Stretch)", .stretch = true});
-            btn3Resp = ui.Button({.label = "Col 3 (Stretch)", .stretch = true});
+            btn1Resp = ui.Button({.label = "Col 1 (Stretch)", .stretch = StretchMode::Fill});
+            btn2Resp = ui.Button({.label = "Col 2 (Stretch)", .stretch = StretchMode::Fill});
+            btn3Resp = ui.Button({.label = "Col 3 (Stretch)", .stretch = StretchMode::Fill});
         }
     }
     ui.EndFrame(sdlCanvas);
@@ -3718,43 +3718,43 @@ void TestButtonAlignmentAndProceduralIcons() {
             .label = "Button",
             .icon = Icon::Play(),
             .align = Align::Start,
-            .stretch = true
+            .stretch = StretchMode::Fill
         });
         ui.Button({
             .label = "Input",
             .icon = Icon::Edit(),
             .align = Align::Start,
-            .stretch = true
+            .stretch = StretchMode::Fill
         });
         ui.Button({
             .label = "Containers",
             .icon = Icon::Copy(),
             .align = Align::Start,
-            .stretch = true
+            .stretch = StretchMode::Fill
         });
         ui.Button({
             .label = "End-Aligned",
             .icon = Icon::Settings(),
             .align = Align::End,
-            .stretch = true
+            .stretch = StretchMode::Fill
         });
         ui.Button({
             .label = "Center-Aligned",
             .icon = Icon::Folder(),
             .align = Align::Center,
-            .stretch = true
+            .stretch = StretchMode::Fill
         });
         // Label only left-aligned
         ui.Button({
             .label = "Label Only Left",
             .align = Align::Start,
-            .stretch = true
+            .stretch = StretchMode::Fill
         });
         // Icon only left-aligned
         ui.Button({
             .icon = Icon::Plus(),
             .align = Align::Start,
-            .stretch = true
+            .stretch = StretchMode::Fill
         });
     }
     ui.EndFrame(canvas);
@@ -3880,6 +3880,210 @@ void TestButtonExternalLabelDescriptionAndPlacement() {
     std::cout << "  [PASS] TestButtonExternalLabelDescriptionAndPlacement completed\n";
 }
 
+void TestWidgetStretchModesAndExplicitWidth() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 800;
+    const uint32_t height = 1200;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    // 1. Button explicit width & minWidth in standalone Measure
+    {
+        ButtonOptions btnDef{.text = "Go"};
+        Vec2 szDef = Button::Measure(btnDef, UiSize::Md, &canvas, ui.GetTheme());
+
+        ButtonOptions btnWidth{.text = "Go", .width = 180.0f};
+        Vec2 szWidth = Button::Measure(btnWidth, UiSize::Md, &canvas, ui.GetTheme());
+        CHECK_NEAR(szWidth.x, 180.0f, 0.01f);
+
+        ButtonOptions btnMinSmall{.text = "Go", .minWidth = 140.0f};
+        Vec2 szMinSmall = Button::Measure(btnMinSmall, UiSize::Md, &canvas, ui.GetTheme());
+        CHECK(szMinSmall.x >= 140.0f);
+
+        ButtonOptions btnMinLarge{.text = "Very long button text that exceeds minimum", .minWidth = 50.0f};
+        Vec2 szMinLarge = Button::Measure(btnMinLarge, UiSize::Md, &canvas, ui.GetTheme());
+        CHECK(szMinLarge.x > 100.0f);
+    }
+
+    // 2. Slider standalone Measure with width
+    {
+        SliderOptions sDef;
+        Vec2 szSDef = Slider::Measure(sDef, 50.0, 0.0, 100.0, UiSize::Md, &canvas, ui.GetTheme());
+        const float defaultW = ui.GetTheme().GetSlider(UiSize::Md).defaultWidth;
+        const float thumbSize = ui.GetTheme().GetSlider(UiSize::Md).thumbSize;
+        CHECK_NEAR(szSDef.x, defaultW + thumbSize, 0.01f);
+
+        SliderOptions sExplicit{.width = 240.0f};
+        Vec2 szSExp = Slider::Measure(sExplicit, 50.0, 0.0, 100.0, UiSize::Md, &canvas, ui.GetTheme());
+        CHECK_NEAR(szSExp.x, 240.0f + thumbSize, 0.01f);
+    }
+
+    // 3. Select standalone Measure with intrinsic width & explicit width
+    {
+        SelectOptions selDef;
+        Vec2 szSelDef = Select::Measure(selDef, UiSize::Md, &canvas, ui.GetTheme());
+        const float defW = ui.GetTheme().GetSelect(UiSize::Md).defaultWidth;
+        CHECK_NEAR(szSelDef.x, defW, 0.01f);
+
+        SelectOptions selExplicit{.width = 320.0f};
+        Vec2 szExp = Select::Measure(selExplicit, UiSize::Md, &canvas, ui.GetTheme());
+        CHECK_NEAR(szExp.x, 320.0f, 0.01f);
+
+        SelectOptions selMin{.minWidth = 250.0f};
+        Vec2 szMin = Select::Measure(selMin, UiSize::Md, &canvas, ui.GetTheme());
+        CHECK(szMin.x >= 250.0f);
+    }
+
+    // 4. InputField standalone Measure with explicit width & minWidth
+    {
+        InputFieldOptions inDef;
+        Vec2 szInDef = InputField::Measure("", inDef, UiSize::Md, &canvas, ui.GetTheme());
+        const float defInW = ui.GetTheme().GetInputField(UiSize::Md).defaultWidth;
+        CHECK_NEAR(szInDef.x, defInW, 0.01f);
+
+        InputFieldOptions inExp{.width = 280.0f};
+        Vec2 szInExp = InputField::Measure("", inExp, UiSize::Md, &canvas, ui.GetTheme());
+        CHECK_NEAR(szInExp.x, 280.0f, 0.01f);
+
+        InputFieldOptions inMin{.minWidth = 220.0f};
+        Vec2 szInMin = InputField::Measure("", inMin, UiSize::Md, &canvas, ui.GetTheme());
+        CHECK(szInMin.x >= 220.0f);
+    }
+
+    // 5. Layout tests: Row with Compact vs Between vs Fill across widgets
+    Response btnCompact, btnFill1, btnFill2;
+    Response swCompact, swBetween;
+    Response cbCompact, cbBetween;
+    Response slCompact, slBetween;
+    Response selCompact, selBetween;
+    Response inCompact, inBetween;
+
+    bool swVal = true;
+    bool cbVal = true;
+    float slVal = 50.0f;
+    size_t selIdx = 0;
+    static const std::array<std::string_view, 2> selOpts = {"Alpha", "Beta"};
+    std::string inText = "Test";
+
+    auto render = [&]() {
+        if (auto col = ui.Column({.widthMode = SizeMode::Stretch})) {
+            // Button Row: Compact vs Fill
+            if (auto r1 = ui.Row({.gap = 10.0f})) {
+                btnCompact = ui.Button({.label = "Compact", .stretch = StretchMode::Compact});
+                btnFill1 = ui.Button({.label = "Fill 1", .stretch = StretchMode::Fill});
+                btnFill2 = ui.Button({.label = "Fill 2", .stretch = StretchMode::Fill});
+            }
+
+            // Switch in Placement::Leading: Compact vs Between
+            swCompact = ui.Switch(swVal, {
+                .label = "Switch Compact",
+                .labelPlacement = Placement::Leading,
+                .stretch = StretchMode::Compact
+            });
+            swBetween = ui.Switch(swVal, {
+                .label = "Switch Between",
+                .labelPlacement = Placement::Leading,
+                .stretch = StretchMode::Between
+            });
+
+            // Checkbox in Placement::Leading: Compact vs Between
+            cbCompact = ui.Checkbox(cbVal, {
+                .label = "Checkbox Compact",
+                .labelPlacement = Placement::Leading,
+                .stretch = StretchMode::Compact
+            });
+            cbBetween = ui.Checkbox(cbVal, {
+                .label = "Checkbox Between",
+                .labelPlacement = Placement::Leading,
+                .stretch = StretchMode::Between
+            });
+
+            // Slider: Compact vs Between
+            slCompact = ui.Slider(slVal, 0.0f, 100.0f, {
+                .label = "Slider Compact",
+                .labelPlacement = Placement::Leading,
+                .stretch = StretchMode::Compact
+            });
+            slBetween = ui.Slider(slVal, 0.0f, 100.0f, {
+                .label = "Slider Between",
+                .labelPlacement = Placement::Leading,
+                .stretch = StretchMode::Between
+            });
+
+            // Select: Compact vs Between
+            selCompact = ui.Select(selIdx, selOpts, {
+                .label = "Select Compact",
+                .labelPlacement = Placement::Leading,
+                .stretch = StretchMode::Compact
+            });
+            selBetween = ui.Select(selIdx, selOpts, {
+                .label = "Select Between",
+                .labelPlacement = Placement::Leading,
+                .stretch = StretchMode::Between
+            });
+
+            // InputField: Compact vs Between
+            inCompact = ui.InputField(inText, {
+                .label = "Input Compact",
+                .labelPlacement = Placement::Leading,
+                .stretch = StretchMode::Compact
+            });
+            inBetween = ui.InputField(inText, {
+                .label = "Input Between",
+                .labelPlacement = Placement::Leading,
+                .stretch = StretchMode::Between
+            });
+        }
+    };
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    render();
+    ui.EndFrame(canvas);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    render();
+    ui.EndFrame(canvas);
+
+    const Rect rBtnCompact = ui.GetPrevFrameBounds(btnCompact.id);
+    const Rect rBtnFill1 = ui.GetPrevFrameBounds(btnFill1.id);
+    const Rect rBtnFill2 = ui.GetPrevFrameBounds(btnFill2.id);
+
+    CHECK(rBtnCompact.w > 0.0f);
+    CHECK(rBtnFill1.w > rBtnCompact.w);
+    CHECK_NEAR(rBtnFill1.w, rBtnFill2.w, 0.01f);
+
+    const Rect rSwCompact = ui.GetPrevFrameBounds(swCompact.id);
+    const Rect rSwBetween = ui.GetPrevFrameBounds(swBetween.id);
+    // Between stretches across container width (800)
+    CHECK(rSwBetween.w > rSwCompact.w);
+    CHECK_NEAR(rSwBetween.w, 800.0f, 0.01f);
+
+    const Rect rCbCompact = ui.GetPrevFrameBounds(cbCompact.id);
+    const Rect rCbBetween = ui.GetPrevFrameBounds(cbBetween.id);
+    CHECK(rCbBetween.w > rCbCompact.w);
+    CHECK_NEAR(rCbBetween.w, 800.0f, 0.01f);
+
+    const Rect rSlCompact = ui.GetPrevFrameBounds(slCompact.id);
+    const Rect rSlBetween = ui.GetPrevFrameBounds(slBetween.id);
+    CHECK(rSlBetween.w > rSlCompact.w);
+    CHECK_NEAR(rSlBetween.w, 800.0f, 0.01f);
+
+    const Rect rSelCompact = ui.GetPrevFrameBounds(selCompact.id);
+    const Rect rSelBetween = ui.GetPrevFrameBounds(selBetween.id);
+    CHECK(rSelBetween.w > rSelCompact.w);
+    CHECK_NEAR(rSelBetween.w, 800.0f, 0.01f);
+
+    const Rect rInCompact = ui.GetPrevFrameBounds(inCompact.id);
+    const Rect rInBetween = ui.GetPrevFrameBounds(inBetween.id);
+    CHECK(rInBetween.w > rInCompact.w);
+    CHECK_NEAR(rInBetween.w, 800.0f, 0.01f);
+
+    std::cout << "  [PASS] TestWidgetStretchModesAndExplicitWidth completed\n";
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -3929,6 +4133,7 @@ int main() {
     TestButtonAlignmentAndProceduralIcons();
     TestWidgetRadiusOverride();
     TestButtonExternalLabelDescriptionAndPlacement();
+    TestWidgetStretchModesAndExplicitWidth();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

@@ -26,6 +26,8 @@ struct SliderOptions {
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
+    StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Between (space-between), Fill
+    std::optional<float> width{std::nullopt};      ///< Explicit track width in points (nullopt = from theme)
     bool disabled{false};                          ///< Interaction suppression
 };
 
@@ -44,6 +46,8 @@ struct StepSliderOptions {
     std::optional<UiSize> size{std::nullopt};      ///< Local size override
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
+    StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Between (space-between), Fill
+    std::optional<float> width{std::nullopt};      ///< Explicit track width in points (nullopt = from theme)
     bool disabled{false};                          ///< Interaction suppression
 };
 

@@ -27,6 +27,9 @@ struct SelectOptions {
     std::optional<uint32_t> maxVisibleItems{std::nullopt}; ///< Optional limit on visible items count before scrolling
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     std::optional<float> radius{std::nullopt};     ///< Local corner radius override (nullopt = inherit from size metrics)
+    StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Between (space-between), Fill
+    std::optional<float> width{std::nullopt};      ///< Explicit select box width in points (nullopt = auto from items)
+    std::optional<float> minWidth{std::nullopt};   ///< Minimum select box width constraint in points
     bool disabled{false};                          ///< Interaction suppression
 };
 

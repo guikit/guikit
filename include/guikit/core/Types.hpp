@@ -406,6 +406,13 @@ enum class SizeMode : uint8_t {
     Fixed       ///< Explicit dimension in points
 };
 
+/// Stretch layout behavior for composite widgets containing labels and interactive controls.
+enum class StretchMode : uint8_t {
+    Compact,  ///< Compact intrinsic size based on content (no row stretching)
+    Between,  ///< Row stretches full width; label and control are pushed to opposite edges (space-between)
+    Fill      ///< Row stretches full width; control stretches to fill all remaining available space
+};
+
 /// Alignment along the cross axis (perpendicular to FlexDirection).
 enum class Alignment : uint8_t {
     Start,      ///< Align to start of cross axis (Top in Row, Left in Column)

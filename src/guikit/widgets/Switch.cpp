@@ -51,6 +51,7 @@ Response Switch::Run(
         opts.variant,
         opts.labelPlacement,
         opts.symmetric,
+        static_cast<uint8_t>(opts.stretch),
         currentChecked,
         node->text,
         optsCopy.trailingLabel,
@@ -79,7 +80,7 @@ Response Switch::Run(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed;
-    node->widthMode = SizeMode::Fit;
+    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
 
     ctx.AdaptChildToContainer(node);
@@ -332,8 +333,16 @@ void Switch::Render(
             descRect = Rect(bounds.x, startY, textW, descH);
         }
 
-        trackRect = Rect(bounds.x + bounds.w - m.trackSize.x, trackY, m.trackSize.x, m.trackSize.y);
-        alignX = 1.0f;
+        if (opts.stretch == StretchMode::Compact) {
+            const float naturalTextW = std::max(
+                hasLabel ? canvas.MeasureText(opts.label, m.fontSize).x : 0.0f,
+                hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
+            );
+            trackRect = Rect(bounds.x + naturalTextW + m.gap, trackY, m.trackSize.x, m.trackSize.y);
+        } else {
+            trackRect = Rect(bounds.x + bounds.w - m.trackSize.x, trackY, m.trackSize.x, m.trackSize.y);
+        }
+        alignX = 0.0f;
     } else { // Trailing (default)
         // Horizontal: Track on left, text on right
         const float trackY = bounds.y + (bounds.h - m.trackSize.y) * 0.5f;

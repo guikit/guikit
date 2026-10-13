@@ -24,7 +24,9 @@ struct ButtonOptions {
     Placement labelPlacement{Placement::Stacked};  ///< Placement of external label/description relative to button capsule
     Align align{Align::Center};   ///< Content horizontal alignment (Start = left, Center, End = right)
     LabelVariants labelVariants{};
-    bool stretch{false};           ///< Expand to fill available horizontal space in flex containers
+    StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Between (space-between), Fill
+    std::optional<float> width{std::nullopt};      ///< Explicit capsule width in points (nullopt = auto from content)
+    std::optional<float> minWidth{std::nullopt};   ///< Minimum capsule width constraint in points
     bool disabled{false};
     bool active{false};
     std::optional<UiSize> size{std::nullopt}; ///< Local size override (nullopt = inherit container size)

@@ -22,12 +22,20 @@ Rect Select::GetBoxRect(
     const float labelH = hasLabel ? (canvas ? canvas->GetLineHeight(m.labelFontSize) : theme.GetLineHeight(m.labelFontSize)) : 0.0f;
     const float descH = hasDesc ? (canvas ? canvas->GetLineHeight(m.descFontSize) : theme.GetLineHeight(m.descFontSize)) : 0.0f;
 
+    float naturalBoxW = opts.width.value_or(m.defaultWidth);
+    if (opts.minWidth.has_value()) {
+        naturalBoxW = std::max(*opts.minWidth, naturalBoxW);
+    } else {
+        naturalBoxW = std::max(m.minWidth, naturalBoxW);
+    }
+
     if (opts.labelPlacement == Placement::Stacked) {
         float curY = bounds.y;
         if (hasLabel) {
             curY += labelH + m.labelGap;
         }
-        return Rect(bounds.x, curY, bounds.w, m.defaultHeight);
+        const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
+        return Rect(bounds.x, curY, boxW, m.defaultHeight);
     }
     
     if (opts.labelPlacement == Placement::Leading) {
@@ -39,9 +47,19 @@ Rect Select::GetBoxRect(
                 labelW = static_cast<float>(effectiveLabel.length()) * (m.labelFontSize * kDefaultCharAdvanceRatio);
             }
         }
-        const float boxX = bounds.x + labelW + (hasLabel ? m.paddingX : 0.0f);
-        const float boxW = std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f));
-        return Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
+        if (opts.stretch == StretchMode::Between) {
+            const float boxW = std::min(naturalBoxW, std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f)));
+            const float boxX = bounds.x + bounds.w - boxW;
+            return Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
+        } else if (opts.stretch == StretchMode::Fill) {
+            const float boxX = bounds.x + labelW + (hasLabel ? m.paddingX : 0.0f);
+            const float boxW = opts.width.has_value() ? std::min(bounds.w - (labelW + (hasLabel ? m.paddingX : 0.0f)), naturalBoxW) : std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f));
+            return Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
+        } else { // Compact
+            const float boxX = bounds.x + labelW + (hasLabel ? m.paddingX : 0.0f);
+            const float boxW = std::min(naturalBoxW, std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f)));
+            return Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
+        }
     }
     
     if (opts.labelPlacement == Placement::Trailing) {
@@ -53,7 +71,9 @@ Rect Select::GetBoxRect(
                 labelW = static_cast<float>(effectiveLabel.length()) * (m.labelFontSize * kDefaultCharAdvanceRatio);
             }
         }
-        const float boxW = std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f));
+        const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value())
+            ? std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f))
+            : std::min(naturalBoxW, std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f)));
         return Rect(bounds.x, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
     }
     
@@ -62,11 +82,13 @@ Rect Select::GetBoxRect(
         if (hasLabel) curY += labelH + (hasDesc ? m.descGap : 0.0f);
         if (hasDesc) curY += descH;
         curY += m.labelGap;
-        return Rect(bounds.x, curY, bounds.w, m.defaultHeight);
+        const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
+        return Rect(bounds.x, curY, boxW, m.defaultHeight);
     }
     
     // Placement::Bottom
-    return Rect(bounds.x, bounds.y, bounds.w, m.defaultHeight);
+    const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
+    return Rect(bounds.x, bounds.y, boxW, m.defaultHeight);
 }
 
 Vec2 Select::Measure(
@@ -78,14 +100,11 @@ Vec2 Select::Measure(
     const SelectMetrics& m = theme.GetSelect(size);
     const std::string_view effectiveLabel = opts.label;
 
-    float boxW = 160.0f;
-    switch (size) {
-        case UiSize::None:
-        case UiSize::Md: boxW = 160.0f; break;
-        case UiSize::Xs: boxW = 100.0f; break;
-        case UiSize::Sm: boxW = 120.0f; break;
-        case UiSize::Lg: boxW = 200.0f; break;
-        case UiSize::Xl: boxW = 240.0f; break;
+    float boxW = opts.width.value_or(m.defaultWidth);
+    if (opts.minWidth.has_value()) {
+        boxW = std::max(*opts.minWidth, boxW);
+    } else {
+        boxW = std::max(m.minWidth, boxW);
     }
 
     Vec2 labelDims = {0.0f, 0.0f};
@@ -209,8 +228,36 @@ Response Select::Run(
 
     const UiTheme theme = ctx.GetTheme();
     const SelectMetrics& m = theme.GetSelect(activeSize);
+
+    float maxItemTextW = 0.0f;
+    for (std::string_view it : items) {
+        const float itemW = static_cast<float>(it.length()) * (m.fontSize * kDefaultCharAdvanceRatio);
+        maxItemTextW = std::max(maxItemTextW, itemW);
+    }
+    if (!opts.placeholder.empty()) {
+        const float phW = static_cast<float>(opts.placeholder.length()) * (m.fontSize * kDefaultCharAdvanceRatio);
+        maxItemTextW = std::max(maxItemTextW, phW);
+    }
+    float intrinsicW = maxItemTextW + m.paddingX * 2.0f + m.iconSize + 8.0f;
+    if (opts.prefixIcon.IsValid()) {
+        intrinsicW += m.iconSize + 6.0f;
+    }
+    if (opts.minWidth.has_value()) {
+        intrinsicW = std::max(*opts.minWidth, intrinsicW);
+    } else {
+        intrinsicW = std::max(m.minWidth, intrinsicW);
+    }
+    if (opts.width.has_value()) {
+        intrinsicW = *opts.width;
+    }
+
+    SelectOptions runOpts = opts;
+    if (opts.stretch != StretchMode::Fill && !runOpts.width.has_value()) {
+        runOpts.width = intrinsicW;
+    }
+
     const Rect prevBounds = ctx.GetPrevFrameBounds(id);
-    const Rect boxRect = GetBoxRect(prevBounds, opts, activeSize, nullptr, theme);
+    const Rect boxRect = GetBoxRect(prevBounds, runOpts, activeSize, nullptr, theme);
 
     bool isOpen = wasOpen;
 
@@ -220,7 +267,7 @@ Response Select::Run(
             ctx.ClosePopup();
             isOpen = false;
         } else if (!items.empty()) {
-            const float popupW = boxRect.w > 0.0f ? boxRect.w : 160.0f;
+            const float popupW = boxRect.w > 0.0f ? boxRect.w : intrinsicW;
             const size_t visibleCount = opts.maxVisibleItems.has_value()
                 ? std::min(items.size(), static_cast<size_t>(*opts.maxVisibleItems))
                 : items.size();
@@ -334,6 +381,7 @@ Response Select::Run(
 
     SelectOptions optsCopy = opts;
     optsCopy.label = node->text;
+    if (opts.stretch != StretchMode::Fill && !optsCopy.width.has_value()) optsCopy.width = intrinsicW;
     if (!opts.description.empty()) optsCopy.description = ctx.AllocString(opts.description);
     if (!opts.placeholder.empty()) optsCopy.placeholder = ctx.AllocString(opts.placeholder);
 
@@ -343,6 +391,9 @@ Response Select::Run(
     node->payload = data;
     node->visualHash = detail::HashArgs(
         opts.variant,
+        static_cast<uint8_t>(opts.stretch),
+        optsCopy.width.value_or(0.0f),
+        opts.minWidth.value_or(0.0f),
         node->text,
         data->displayText,
         optsCopy.description,
@@ -375,7 +426,7 @@ Response Select::Run(
     node->hovered = res.hovered;
     node->focused = isOpen;
 
-    node->widthMode = SizeMode::Stretch;
+    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
 
     ctx.AdaptChildToContainer(node);
@@ -410,13 +461,21 @@ void Select::Render(
     const float labelH = hasLabel ? canvas.GetLineHeight(m.labelFontSize) : 0.0f;
     const float descH = hasDesc ? canvas.GetLineHeight(m.descFontSize) : 0.0f;
 
+    float naturalBoxW = opts.width.value_or(m.defaultWidth);
+    if (opts.minWidth.has_value()) {
+        naturalBoxW = std::max(*opts.minWidth, naturalBoxW);
+    } else {
+        naturalBoxW = std::max(m.minWidth, naturalBoxW);
+    }
+
     if (opts.labelPlacement == Placement::Stacked) {
         float curY = bounds.y;
         if (hasLabel) {
             labelRect = Rect(bounds.x, curY, bounds.w, labelH);
             curY += labelH + m.labelGap;
         }
-        boxRect = Rect(bounds.x, curY, bounds.w, m.defaultHeight);
+        const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
+        boxRect = Rect(bounds.x, curY, boxW, m.defaultHeight);
         curY += m.defaultHeight + m.descGap;
         if (hasDesc) {
             descRect = Rect(bounds.x, curY, bounds.w, descH);
@@ -427,15 +486,27 @@ void Select::Render(
             labelW = canvas.MeasureText(effectiveLabel, m.labelFontSize).x;
             labelRect = Rect(bounds.x, bounds.y + (bounds.h - labelH) * 0.5f, labelW, labelH);
         }
-        const float boxX = bounds.x + labelW + (hasLabel ? m.paddingX : 0.0f);
-        const float boxW = std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f));
-        boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
+        if (opts.stretch == StretchMode::Between) {
+            const float boxW = std::min(naturalBoxW, std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f)));
+            const float boxX = bounds.x + bounds.w - boxW;
+            boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
+        } else if (opts.stretch == StretchMode::Fill) {
+            const float boxX = bounds.x + labelW + (hasLabel ? m.paddingX : 0.0f);
+            const float boxW = opts.width.has_value() ? std::min(bounds.w - (labelW + (hasLabel ? m.paddingX : 0.0f)), naturalBoxW) : std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f));
+            boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
+        } else { // Compact
+            const float boxX = bounds.x + labelW + (hasLabel ? m.paddingX : 0.0f);
+            const float boxW = std::min(naturalBoxW, std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f)));
+            boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
+        }
     } else if (opts.labelPlacement == Placement::Trailing) {
         float labelW = 0.0f;
         if (hasLabel) {
             labelW = canvas.MeasureText(effectiveLabel, m.labelFontSize).x;
         }
-        const float boxW = std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f));
+        const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value())
+            ? std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f))
+            : std::min(naturalBoxW, std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f)));
         boxRect = Rect(bounds.x, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
         if (hasLabel) {
             labelRect = Rect(bounds.x + boxW + m.paddingX, bounds.y + (bounds.h - labelH) * 0.5f, bounds.w - boxW - m.paddingX, labelH);
@@ -451,10 +522,12 @@ void Select::Render(
             curY += descH;
         }
         curY += m.labelGap;
-        boxRect = Rect(bounds.x, curY, bounds.w, m.defaultHeight);
+        const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
+        boxRect = Rect(bounds.x, curY, boxW, m.defaultHeight);
     } else { // Placement::Bottom
         float curY = bounds.y;
-        boxRect = Rect(bounds.x, curY, bounds.w, m.defaultHeight);
+        const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
+        boxRect = Rect(bounds.x, curY, boxW, m.defaultHeight);
         curY += m.defaultHeight + m.descGap;
         if (hasLabel) {
             labelRect = Rect(bounds.x, curY, bounds.w, labelH);
