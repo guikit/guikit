@@ -649,7 +649,7 @@ int main(int argc, char* argv[]) {
                                                 }
 
                                                 if (ui.StepSlider(btnStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(btnWidth, 0.0f, 400.0f, {.label = "Explicit Width", .format = (btnWidth > 0.0f) ? "%.0f px" : "Auto", .step = 10.0}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(btnWidth, 0.0f, 400.0f, {.label = "Explicit Width", .format = (btnWidth > 0.0f) ? "%.0f px" : "Auto", .step = 10.0, .disabled = (btnStretchIdx == 2)}).changed) ui.InvalidateAll();
                                                 static constexpr std::array<std::string_view, 3> alignNames = {"Start (Left)", "Center", "End (Right)"};
                                                 size_t alignIdx = (btnAlign == guikit::Align::Start) ? 0 : ((btnAlign == guikit::Align::End) ? 2 : 1);
                                                 if (ui.StepSlider(alignIdx, alignNames, {.label = "Content Alignment", .showTicks = true, .showLabels = true}).changed) {
@@ -674,7 +674,7 @@ int main(int argc, char* argv[]) {
                                                 renderVariantPicker();
 
                                                 if (ui.StepSlider(sliderStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(sliderWidth, 0.0f, 400.0f, {.label = "Explicit Track Width", .format = (sliderWidth > 0.0f) ? "%.0f px" : "Default", .step = 10.0}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(sliderWidth, 0.0f, 400.0f, {.label = "Explicit Track Width", .format = (sliderWidth > 0.0f) ? "%.0f px" : "Default", .step = 10.0, .disabled = (sliderStretchIdx == 2)}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(sliderShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(sliderShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 const bool sliderHasExternal = sliderShowLabel || sliderShowDesc;
@@ -712,7 +712,7 @@ int main(int argc, char* argv[]) {
                                                 renderVariantPicker();
 
                                                 if (ui.StepSlider(inputStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(inputWidth, 0.0f, 400.0f, {.label = "Explicit Width", .format = (inputWidth > 0.0f) ? "%.0f px" : "Default", .step = 10.0}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(inputWidth, 0.0f, 400.0f, {.label = "Explicit Width", .format = (inputWidth > 0.0f) ? "%.0f px" : "Default", .step = 10.0, .disabled = (inputStretchIdx == 2)}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(inputShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(inputShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 const bool inHasExternal = inputShowLabel || inputShowDesc;
@@ -762,7 +762,7 @@ int main(int argc, char* argv[]) {
                                                 renderVariantPicker();
 
                                                 if (ui.StepSlider(selectStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(selectWidth, 0.0f, 400.0f, {.label = "Explicit Width", .format = (selectWidth > 0.0f) ? "%.0f px" : "Auto", .step = 10.0}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(selectWidth, 0.0f, 400.0f, {.label = "Explicit Width", .format = (selectWidth > 0.0f) ? "%.0f px" : "Auto", .step = 10.0, .disabled = (selectStretchIdx == 2)}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(selectShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(selectShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 const bool selHasExternal = selectShowLabel || selectShowDesc;
@@ -1013,7 +1013,7 @@ int main(int argc, char* argv[]) {
                                                         .labelAlign = btnLabelAlign,
                                                         .align = btnAlign,
                                                         .stretch = static_cast<guikit::StretchMode>(btnStretchIdx),
-                                                        .width = (btnWidth > 0.0f) ? std::optional<float>(btnWidth) : std::nullopt,
+                                                        .width = (btnStretchIdx != 2 && btnWidth > 0.0f) ? std::optional<float>(btnWidth) : std::nullopt,
                                                         .disabled = btnDisabled,
                                                         .size = controlsSize,
                                                         .radius = btnCornerRadius
@@ -1037,7 +1037,7 @@ int main(int argc, char* argv[]) {
                                                             .variant = btnVariant,
                                                             .size = controlsSize,
                                                             .stretch = static_cast<guikit::StretchMode>(sliderStretchIdx),
-                                                            .width = (sliderWidth > 0.0f) ? std::optional<float>(sliderWidth) : std::nullopt,
+                                                            .width = (sliderStretchIdx != 2 && sliderWidth > 0.0f) ? std::optional<float>(sliderWidth) : std::nullopt,
                                                             .disabled = sliderDisabled
                                                         });
                                                     } else {
@@ -1054,7 +1054,7 @@ int main(int argc, char* argv[]) {
                                                             .variant = btnVariant,
                                                             .size = controlsSize,
                                                             .stretch = static_cast<guikit::StretchMode>(sliderStretchIdx),
-                                                            .width = (sliderWidth > 0.0f) ? std::optional<float>(sliderWidth) : std::nullopt,
+                                                            .width = (sliderStretchIdx != 2 && sliderWidth > 0.0f) ? std::optional<float>(sliderWidth) : std::nullopt,
                                                             .disabled = sliderDisabled
                                                         });
                                                     }
@@ -1076,7 +1076,7 @@ int main(int argc, char* argv[]) {
                                                         .size = controlsSize,
                                                         .radius = inputCornerRadius,
                                                         .stretch = static_cast<guikit::StretchMode>(inputStretchIdx),
-                                                        .width = (inputWidth > 0.0f) ? std::optional<float>(inputWidth) : std::nullopt,
+                                                        .width = (inputStretchIdx != 2 && inputWidth > 0.0f) ? std::optional<float>(inputWidth) : std::nullopt,
                                                         .disabled = inputDisabled,
                                                         .readOnly = inputReadOnly
                                                     });
@@ -1096,7 +1096,7 @@ int main(int argc, char* argv[]) {
                                                         .size = controlsSize,
                                                         .radius = selectCornerRadius,
                                                         .stretch = static_cast<guikit::StretchMode>(selectStretchIdx),
-                                                        .width = (selectWidth > 0.0f) ? std::optional<float>(selectWidth) : std::nullopt,
+                                                        .width = (selectStretchIdx != 2 && selectWidth > 0.0f) ? std::optional<float>(selectWidth) : std::nullopt,
                                                         .disabled = selectDisabled
                                                     });
                                                     break;
@@ -1265,7 +1265,7 @@ int main(int argc, char* argv[]) {
                                                 labelAlignEnumName(btnLabelAlign),
                                                 alignName(btnAlign),
                                                 stretchModeEnumName(static_cast<guikit::StretchMode>(btnStretchIdx)),
-                                                btnWidth > 0.0f ? std::format("{:.1f}f", btnWidth) : "std::nullopt",
+                                                (btnStretchIdx != 2 && btnWidth > 0.0f) ? std::format("{:.1f}f", btnWidth) : "std::nullopt",
                                                 btnDisabled ? "true" : "false",
                                                 sizeName(controlsSize),
                                                 btnCornerRadius
@@ -1301,7 +1301,7 @@ int main(int argc, char* argv[]) {
                                                     variantName(btnVariant),
                                                     sizeName(controlsSize),
                                                     stretchModeEnumName(static_cast<guikit::StretchMode>(sliderStretchIdx)),
-                                                    sliderWidth > 0.0f ? std::format("{:.1f}f", sliderWidth) : "std::nullopt",
+                                                    (sliderStretchIdx != 2 && sliderWidth > 0.0f) ? std::format("{:.1f}f", sliderWidth) : "std::nullopt",
                                                     sliderDisabled ? "true" : "false"
                                                 );
                                             } else {
@@ -1336,7 +1336,7 @@ int main(int argc, char* argv[]) {
                                                     variantName(btnVariant),
                                                     sizeName(controlsSize),
                                                     stretchModeEnumName(static_cast<guikit::StretchMode>(sliderStretchIdx)),
-                                                    sliderWidth > 0.0f ? std::format("{:.1f}f", sliderWidth) : "std::nullopt",
+                                                    (sliderStretchIdx != 2 && sliderWidth > 0.0f) ? std::format("{:.1f}f", sliderWidth) : "std::nullopt",
                                                     sliderDisabled ? "true" : "false"
                                                 );
                                             }
@@ -1378,7 +1378,7 @@ int main(int argc, char* argv[]) {
                                                 sizeName(controlsSize),
                                                 inputCornerRadius,
                                                 stretchModeEnumName(static_cast<guikit::StretchMode>(inputStretchIdx)),
-                                                inputWidth > 0.0f ? std::format("{:.1f}f", inputWidth) : "std::nullopt",
+                                                (inputStretchIdx != 2 && inputWidth > 0.0f) ? std::format("{:.1f}f", inputWidth) : "std::nullopt",
                                                 inputDisabled ? "true" : "false",
                                                 inputReadOnly ? "true" : "false"
                                             );
@@ -1412,7 +1412,7 @@ int main(int argc, char* argv[]) {
                                                 sizeName(controlsSize),
                                                 selectCornerRadius,
                                                 stretchModeEnumName(static_cast<guikit::StretchMode>(selectStretchIdx)),
-                                                selectWidth > 0.0f ? std::format("{:.1f}f", selectWidth) : "std::nullopt",
+                                                (selectStretchIdx != 2 && selectWidth > 0.0f) ? std::format("{:.1f}f", selectWidth) : "std::nullopt",
                                                 selectDisabled ? "true" : "false"
                                             );
                                             break;

@@ -34,7 +34,7 @@ Rect Select::GetBoxRect(
         if (hasLabel) {
             curY += labelH + m.labelGap;
         }
-        const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
+        const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
         const float boxX = (opts.order == ContentOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
         return Rect(boxX, curY, boxW, m.defaultHeight);
     }
@@ -44,13 +44,13 @@ Rect Select::GetBoxRect(
         if (hasLabel) curY += labelH + (hasDesc ? m.descGap : 0.0f);
         if (hasDesc) curY += descH;
         curY += m.labelGap;
-        const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
+        const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
         const float boxX = (opts.order == ContentOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
         return Rect(boxX, curY, boxW, m.defaultHeight);
     }
     
     if (opts.layout == WidgetLayout::Bottom) {
-        const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
+        const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
         const float boxX = (opts.order == ContentOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
         return Rect(boxX, bounds.y, boxW, m.defaultHeight);
     }
@@ -71,7 +71,7 @@ Rect Select::GetBoxRect(
             return Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
         } else if (opts.stretch == StretchMode::Fill) {
             const float boxX = bounds.x + labelW + (hasLabel ? m.paddingX : 0.0f);
-            const float boxW = opts.width.has_value() ? std::min(bounds.w - (labelW + (hasLabel ? m.paddingX : 0.0f)), naturalBoxW) : std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f));
+            const float boxW = std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f));
             return Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
         } else { // Compact
             const float boxX = bounds.x + labelW + (hasLabel ? m.paddingX : 0.0f);
@@ -80,7 +80,7 @@ Rect Select::GetBoxRect(
         }
     } else {
         // ContentOrder::Trailing
-        const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value())
+        const float boxW = (opts.stretch == StretchMode::Fill)
             ? std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f))
             : std::min(naturalBoxW, std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f)));
         return Rect(bounds.x, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
@@ -472,7 +472,7 @@ void Select::Render(
             labelRect = Rect(bounds.x, curY, bounds.w, labelH);
             curY += labelH + m.labelGap;
         }
-        const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
+        const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
         const float boxX = (opts.order == ContentOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
         boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
         curY += m.defaultHeight + m.descGap;
@@ -490,12 +490,12 @@ void Select::Render(
             curY += descH;
         }
         curY += m.labelGap;
-        const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
+        const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
         const float boxX = (opts.order == ContentOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
         boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
     } else if (opts.layout == WidgetLayout::Bottom) {
         float curY = bounds.y;
-        const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
+        const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
         const float boxX = (opts.order == ContentOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
         boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
         curY += m.defaultHeight + m.descGap;
@@ -523,7 +523,7 @@ void Select::Render(
                 boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
             } else if (opts.stretch == StretchMode::Fill) {
                 const float boxX = bounds.x + labelW + (hasLabel ? m.paddingX : 0.0f);
-                const float boxW = opts.width.has_value() ? std::min(bounds.w - (labelW + (hasLabel ? m.paddingX : 0.0f)), naturalBoxW) : std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f));
+                const float boxW = std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f));
                 boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
             } else { // Compact
                 const float boxX = bounds.x + labelW + (hasLabel ? m.paddingX : 0.0f);
@@ -532,13 +532,13 @@ void Select::Render(
             }
         } else {
             // ContentOrder::Trailing: Box first (left), text second (right)
-            const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value())
+            const float boxW = (opts.stretch == StretchMode::Fill)
                 ? std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f))
                 : std::min(naturalBoxW, std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f)));
             boxRect = Rect(bounds.x, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
             if (hasLabel) {
                 float labelX = bounds.x + boxW + m.paddingX;
-                if (opts.stretch == StretchMode::Between || (opts.stretch == StretchMode::Fill && opts.width.has_value())) {
+                if (opts.stretch == StretchMode::Between) {
                     labelX = std::max(labelX, bounds.x + bounds.w - labelW);
                 }
                 labelRect = Rect(labelX, bounds.y + (bounds.h - labelH) * 0.5f, labelW, labelH);

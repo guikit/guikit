@@ -97,7 +97,7 @@ Response Slider::Run(
             const float gap = textW > 0.0f ? 12.0f : 0.0f;
             const float availTrackW = std::max(1.0f, prevBounds.w - textW - gap - m.thumbSize);
             if (opts.stretch == StretchMode::Fill) {
-                trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+                trackWidth = availTrackW;
             } else {
                 trackWidth = std::min(defaultTrackW, availTrackW);
             }
@@ -112,11 +112,7 @@ Response Slider::Run(
             }
         } else {
             if (opts.stretch == StretchMode::Fill) {
-                if (opts.width.has_value()) {
-                    trackWidth = *opts.width;
-                } else {
-                    trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
-                }
+                trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
                 trackStartX = prevBounds.x + halfThumb;
             } else if (opts.stretch == StretchMode::Between || opts.order == ContentOrder::Trailing) {
                 trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
@@ -392,7 +388,7 @@ void Slider::Render(
 
         const float availTrackW = std::max(0.0f, bounds.w - m.thumbSize);
         if (opts.stretch == StretchMode::Fill) {
-            trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+            trackWidth = availTrackW;
             trackStartX = bounds.x + halfThumb;
         } else if (opts.stretch == StretchMode::Between || opts.order == ContentOrder::Trailing) {
             trackWidth = std::min(defaultTrackW, availTrackW);
@@ -416,7 +412,7 @@ void Slider::Render(
 
         const float availTrackW = std::max(0.0f, bounds.w - m.thumbSize);
         if (opts.stretch == StretchMode::Fill) {
-            trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+            trackWidth = availTrackW;
             trackStartX = bounds.x + halfThumb;
         } else if (opts.stretch == StretchMode::Between || opts.order == ContentOrder::Trailing) {
             trackWidth = std::min(defaultTrackW, availTrackW);
@@ -439,7 +435,7 @@ void Slider::Render(
 
         const float availTrackW = std::max(0.0f, bounds.w - m.thumbSize);
         if (opts.stretch == StretchMode::Fill) {
-            trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+            trackWidth = availTrackW;
             trackStartX = bounds.x + halfThumb;
         } else if (opts.stretch == StretchMode::Between || opts.order == ContentOrder::Trailing) {
             trackWidth = std::min(defaultTrackW, availTrackW);
@@ -464,7 +460,7 @@ void Slider::Render(
         const float gap = textW > 0.0f ? 12.0f : 0.0f;
         const float availTrackW = std::max(0.0f, bounds.w - textW - gap - m.thumbSize);
         if (opts.stretch == StretchMode::Fill) {
-            trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+            trackWidth = availTrackW;
         } else {
             trackWidth = std::min(defaultTrackW, availTrackW);
         }
@@ -624,7 +620,7 @@ Response StepSlider::Run(
             const float gap = textW > 0.0f ? 12.0f : 0.0f;
             const float availTrackW = std::max(1.0f, prevBounds.w - textW - gap - m.thumbSize);
             if (opts.stretch == StretchMode::Fill) {
-                trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+                trackWidth = availTrackW;
             } else {
                 trackWidth = std::min(defaultTrackW, availTrackW);
             }
@@ -639,11 +635,7 @@ Response StepSlider::Run(
             }
         } else {
             if (opts.stretch == StretchMode::Fill) {
-                if (opts.width.has_value()) {
-                    trackWidth = *opts.width;
-                } else {
-                    trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
-                }
+                trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
                 trackStartX = prevBounds.x + halfThumb;
             } else if (opts.stretch == StretchMode::Between || opts.order == ContentOrder::Trailing) {
                 trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
@@ -876,7 +868,7 @@ void StepSlider::Render(
 
         const float availTrackW = std::max(0.0f, bounds.w - m.thumbSize);
         if (opts.stretch == StretchMode::Fill) {
-            trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+            trackWidth = availTrackW;
             trackStartX = bounds.x + halfThumb;
         } else if (opts.stretch == StretchMode::Between || opts.order == ContentOrder::Trailing) {
             trackWidth = std::min(defaultTrackW, availTrackW);
@@ -900,7 +892,7 @@ void StepSlider::Render(
 
         const float availTrackW = std::max(0.0f, bounds.w - m.thumbSize);
         if (opts.stretch == StretchMode::Fill) {
-            trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+            trackWidth = availTrackW;
             trackStartX = bounds.x + halfThumb;
         } else if (opts.stretch == StretchMode::Between || opts.order == ContentOrder::Trailing) {
             trackWidth = std::min(defaultTrackW, availTrackW);
@@ -923,7 +915,7 @@ void StepSlider::Render(
 
         const float availTrackW = std::max(0.0f, bounds.w - m.thumbSize);
         if (opts.stretch == StretchMode::Fill) {
-            trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+            trackWidth = availTrackW;
             trackStartX = bounds.x + halfThumb;
         } else if (opts.stretch == StretchMode::Between || opts.order == ContentOrder::Trailing) {
             trackWidth = std::min(defaultTrackW, availTrackW);
@@ -948,7 +940,7 @@ void StepSlider::Render(
         const float gap = textW > 0.0f ? 12.0f : 0.0f;
         const float availTrackW = std::max(0.0f, bounds.w - textW - gap - m.thumbSize);
         if (opts.stretch == StretchMode::Fill) {
-            trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
+            trackWidth = availTrackW;
         } else {
             trackWidth = std::min(defaultTrackW, availTrackW);
         }

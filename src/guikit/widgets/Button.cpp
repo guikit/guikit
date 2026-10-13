@@ -259,13 +259,13 @@ void Button::Render(
 
     if (!hasExternal) {
         float capW = bounds.w;
-        if (opts.stretch != StretchMode::Fill || opts.width.has_value()) {
+        if (opts.stretch != StretchMode::Fill) {
             capW = opts.width.value_or(std::min(bounds.w, capSize.x));
         }
         float capX = bounds.x;
         if (opts.stretch == StretchMode::Between || opts.order == ContentOrder::Trailing) {
             capX = bounds.x + bounds.w - capW;
-        } else if (capW < bounds.w) {
+        } else if (opts.stretch != StretchMode::Fill && capW < bounds.w) {
             if (opts.align == Align::Center) {
                 capX = bounds.x + (bounds.w - capW) * 0.5f;
             } else if (opts.align == Align::End) {
@@ -283,12 +283,12 @@ void Button::Render(
                 labelRect = Rect(bounds.x, curY, bounds.w, labelH);
                 curY += labelH + inputMetrics.labelGap;
             }
-            const float capW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
+            const float capW = (opts.stretch == StretchMode::Fill) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
             float capX = bounds.x;
-            if (opts.order == ContentOrder::Trailing || opts.stretch == StretchMode::Between) {
-                capX = bounds.x + bounds.w - capW;
-            } else if (opts.stretch != StretchMode::Fill || opts.width.has_value()) {
-                if (opts.align == Align::Center) {
+            if (opts.stretch != StretchMode::Fill) {
+                if (opts.order == ContentOrder::Trailing || opts.stretch == StretchMode::Between) {
+                    capX = bounds.x + bounds.w - capW;
+                } else if (opts.align == Align::Center) {
                     capX = bounds.x + (bounds.w - capW) * 0.5f;
                 } else if (opts.align == Align::End) {
                     capX = bounds.x + bounds.w - capW;
@@ -310,12 +310,12 @@ void Button::Render(
                 curY += descH;
             }
             curY += inputMetrics.labelGap;
-            const float capW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
+            const float capW = (opts.stretch == StretchMode::Fill) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
             float capX = bounds.x;
-            if (opts.order == ContentOrder::Trailing || opts.stretch == StretchMode::Between) {
-                capX = bounds.x + bounds.w - capW;
-            } else if (opts.stretch != StretchMode::Fill || opts.width.has_value()) {
-                if (opts.align == Align::Center) {
+            if (opts.stretch != StretchMode::Fill) {
+                if (opts.order == ContentOrder::Trailing || opts.stretch == StretchMode::Between) {
+                    capX = bounds.x + bounds.w - capW;
+                } else if (opts.align == Align::Center) {
                     capX = bounds.x + (bounds.w - capW) * 0.5f;
                 } else if (opts.align == Align::End) {
                     capX = bounds.x + bounds.w - capW;
@@ -324,12 +324,12 @@ void Button::Render(
             capsuleRect = Rect(capX, curY, capW, capSize.y);
         } else if (opts.layout == WidgetLayout::Bottom) {
             float curY = bounds.y;
-            const float capW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
+            const float capW = (opts.stretch == StretchMode::Fill) ? bounds.w : opts.width.value_or(std::min(bounds.w, capSize.x));
             float capX = bounds.x;
-            if (opts.order == ContentOrder::Trailing || opts.stretch == StretchMode::Between) {
-                capX = bounds.x + bounds.w - capW;
-            } else if (opts.stretch != StretchMode::Fill || opts.width.has_value()) {
-                if (opts.align == Align::Center) {
+            if (opts.stretch != StretchMode::Fill) {
+                if (opts.order == ContentOrder::Trailing || opts.stretch == StretchMode::Between) {
+                    capX = bounds.x + bounds.w - capW;
+                } else if (opts.align == Align::Center) {
                     capX = bounds.x + (bounds.w - capW) * 0.5f;
                 } else if (opts.align == Align::End) {
                     capX = bounds.x + bounds.w - capW;
@@ -353,8 +353,8 @@ void Button::Render(
             );
 
             float capW = naturalCapW;
-            if (opts.stretch == StretchMode::Fill && !opts.width.has_value()) {
-                capW = std::max(naturalCapW, bounds.w - measuredTextW - gap);
+            if (opts.stretch == StretchMode::Fill) {
+                capW = std::max(capSize.x, bounds.w - measuredTextW - gap);
             } else {
                 capW = std::min(bounds.w, naturalCapW);
             }
@@ -385,7 +385,7 @@ void Button::Render(
                 capsuleRect = Rect(bounds.x, bounds.y + (bounds.h - capSize.y) * 0.5f, capW, capSize.y);
 
                 float textX = bounds.x + capW + gap;
-                if (opts.stretch == StretchMode::Between || (opts.stretch == StretchMode::Fill && opts.width.has_value())) {
+                if (opts.stretch == StretchMode::Between) {
                     textX = std::max(bounds.x + capW + gap, bounds.x + bounds.w - measuredTextW);
                 }
                 const float remTextW = std::max(0.0f, bounds.w - (textX - bounds.x));
