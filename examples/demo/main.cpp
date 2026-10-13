@@ -239,7 +239,7 @@ int main(int argc, char* argv[]) {
 
     static const guikit::UiTheme shellTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
     static const guikit::UiTheme& inspectorTheme = shellTheme;
-    guikit::UiTheme appTheme = darkMode ? guikit::UiTheme::Dark(guikit::Density::Standard) : guikit::UiTheme::Light(guikit::Density::Standard);
+    guikit::UiTheme previewTheme = darkMode ? guikit::UiTheme::Dark(guikit::Density::Standard) : guikit::UiTheme::Light(guikit::Density::Standard);
 
     ui.SetTheme(shellTheme);
     ui.SetClearColor(shellTheme.palette.background);
@@ -386,10 +386,10 @@ int main(int argc, char* argv[]) {
                         .size = guikit::UiSize::Md
                     }).changed) {
                         darkMode = !lightMode;
-                        const auto defTheme = darkMode ? guikit::UiTheme::Dark(appTheme.density) : guikit::UiTheme::Light(appTheme.density);
-                        appTheme.palette = defTheme.palette;
-                        appTheme.variants = defTheme.variants;
-                        appTheme.mode = darkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
+                        const auto defTheme = darkMode ? guikit::UiTheme::Dark(previewTheme.density) : guikit::UiTheme::Light(previewTheme.density);
+                        previewTheme.palette = defTheme.palette;
+                        previewTheme.variants = defTheme.variants;
+                        previewTheme.mode = darkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
                         ui.InvalidateAll();
                     }
 
@@ -464,7 +464,12 @@ int main(int argc, char* argv[]) {
                             .theme = &inspectorTheme,
                             .scale = 1.0f
                         })) {
-                            if (auto railCard = ui.Card({.gap = 4.0f, .padding = guikit::Padding::All(8.0f), .heightMode = guikit::SizeMode::Stretch})) {
+                            if (auto railCard = ui.Card({
+                                .gap = 4.0f,
+                                .padding = guikit::Padding::All(8.0f),
+                                .radius = 8.0f,
+                                .heightMode = guikit::SizeMode::Stretch
+                            })) {
                                 if (auto railScroll = ui.ScrollArea({.gap = 4.0f})) {
                                     auto makeCatBtn = [&](NavCategory cat, std::string_view label, guikit::Icon icon) {
                                         const bool isSel = (selectedCategory == cat);
@@ -522,11 +527,21 @@ int main(int argc, char* argv[]) {
                             .theme = &inspectorTheme,
                             .scale = 1.0f
                         })) {
-                            if (auto inspectorCard = ui.Card({.gap = 6.0f, .padding = guikit::Padding::All(12.0f), .heightMode = guikit::SizeMode::Stretch})) {
+                            if (auto inspectorCard = ui.Card({
+                                .gap = 6.0f,
+                                .padding = guikit::Padding::All(12.0f),
+                                .radius = 8.0f,
+                                .heightMode = guikit::SizeMode::Stretch
+                            })) {
                                 if (auto inspectorScroll = ui.ScrollArea({.gap = 8.0f})) {
-                                    auto& th = appTheme;
+                                    ui.Heading({
+                                        .title = "INSPECTOR",
+                                        .size = guikit::UiSize::Xs,
+                                        .divider = true
+                                    });
+
+                                    auto& th = previewTheme;
                                     auto renderVariantPicker = [&]() {
-                                        ui.Heading({.title = "Variant & Styling", .size = guikit::UiSize::Sm});
                                         if (ui.StepSlider(btnVariant, {
                                             .label = "Semantic Variant",
                                             .showTicks = true,
@@ -541,9 +556,6 @@ int main(int argc, char* argv[]) {
                                         static constexpr std::array<std::string_view, 5> formPlacements = {"Stack", "Lead", "Trail", "Top", "Btm"};
                                         switch (selectedCategory) {
                                             case NavCategory::ElemButton: {
-                                                ui.Heading({.title = "Button Inspector", .subtitle = "Design System Component", .size = guikit::UiSize::Sm, .divider = true});
-
-                                                ui.Heading({.title = "Geometry & Metrics", .size = guikit::UiSize::Sm});
                                                 if (ui.StepSlider(controlsSize, {
                                                     .label = "Controls Size",
                                                     .showTicks = true,
@@ -559,7 +571,6 @@ int main(int argc, char* argv[]) {
 
                                                 renderVariantPicker();
 
-                                                ui.Heading({.title = "Label & Description", .size = guikit::UiSize::Sm});
                                                 if (ui.Switch(btnShowHeader, {.label = "Field Label (Header)"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(btnShowDesc, {.label = "Helper Description"}).changed) ui.InvalidateAll();
                                                 size_t bPlIdx = 0;
@@ -583,7 +594,6 @@ int main(int argc, char* argv[]) {
                                                     ui.InvalidateAll();
                                                 }
 
-                                                ui.Heading({.title = "Options & States", .size = guikit::UiSize::Sm});
                                                 if (ui.Switch(btnStretch, {.label = "Stretch (Full Width)"}).changed) ui.InvalidateAll();
                                                 static constexpr std::array<std::string_view, 3> alignNames = {"Start (Left)", "Center", "End (Right)"};
                                                 size_t alignIdx = (btnAlign == guikit::Align::Start) ? 0 : ((btnAlign == guikit::Align::End) ? 2 : 1);
@@ -603,15 +613,11 @@ int main(int argc, char* argv[]) {
                                             }
 
                                             case NavCategory::ElemSlider: {
-                                                ui.Heading({.title = "Slider Inspector", .subtitle = "Range & Quantized Controls", .size = guikit::UiSize::Sm, .divider = true});
-
-                                                ui.Heading({.title = "Mode & Geometry", .size = guikit::UiSize::Sm});
                                                 if (ui.Switch(sliderContinuous, {.label = "Continuous Mode", .description = "Continuous vs Quantized StepSlider"}).changed) ui.InvalidateAll();
                                                 if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
 
                                                 renderVariantPicker();
 
-                                                ui.Heading({.title = "Display Options", .size = guikit::UiSize::Sm});
                                                 if (ui.Switch(sliderShowValue, {.label = "Show Value Tag"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(sliderShowTicks, {.label = "Show Step Ticks", .disabled = sliderContinuous}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(sliderShowLabels, {.label = "Show Step Labels", .disabled = sliderContinuous}).changed) ui.InvalidateAll();
@@ -620,9 +626,6 @@ int main(int argc, char* argv[]) {
                                             }
 
                                             case NavCategory::ElemInputField: {
-                                                ui.Heading({.title = "InputField Inspector", .subtitle = "Text & Value Editing", .size = guikit::UiSize::Sm, .divider = true});
-
-                                                ui.Heading({.title = "Geometry & Styling", .size = guikit::UiSize::Sm});
                                                 if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) {
                                                     inputCornerRadius = th.GetMetrics(controlsSize).cornerRadius;
                                                     ui.InvalidateAll();
@@ -633,7 +636,6 @@ int main(int argc, char* argv[]) {
 
                                                 renderVariantPicker();
 
-                                                ui.Heading({.title = "Label & Description", .size = guikit::UiSize::Sm});
                                                 if (ui.Switch(inputShowLabel, {.label = "Field Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(inputShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 size_t inPlIdx = 0;
@@ -657,7 +659,6 @@ int main(int argc, char* argv[]) {
                                                     ui.InvalidateAll();
                                                 }
 
-                                                ui.Heading({.title = "Cursor & Flags", .size = guikit::UiSize::Sm});
                                                 static constexpr std::array<std::string_view, 3> cursorModes = {"Blinking", "Solid", "Hidden"};
                                                 size_t curIdx = (inputCursorMode == guikit::CursorBlinkMode::Solid) ? 1 : ((inputCursorMode == guikit::CursorBlinkMode::Hidden) ? 2 : 0);
                                                 if (ui.StepSlider(curIdx, cursorModes, {.label = "Cursor Blink Mode", .showTicks = true, .showLabels = true}).changed) {
@@ -672,9 +673,6 @@ int main(int argc, char* argv[]) {
                                             }
 
                                             case NavCategory::ElemSelect: {
-                                                ui.Heading({.title = "Select Inspector", .subtitle = "Dropdown Options Menu", .size = guikit::UiSize::Sm, .divider = true});
-
-                                                ui.Heading({.title = "Geometry & Behavior", .size = guikit::UiSize::Sm});
                                                 if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) {
                                                     selectCornerRadius = th.GetSelect(controlsSize).cornerRadius;
                                                     ui.InvalidateAll();
@@ -690,7 +688,6 @@ int main(int argc, char* argv[]) {
 
                                                 renderVariantPicker();
 
-                                                ui.Heading({.title = "Label & Description", .size = guikit::UiSize::Sm});
                                                 if (ui.Switch(selectShowLabel, {.label = "Field Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(selectShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 size_t selPlIdx = 0;
@@ -714,16 +711,12 @@ int main(int argc, char* argv[]) {
                                                     ui.InvalidateAll();
                                                 }
 
-                                                ui.Heading({.title = "Options & States", .size = guikit::UiSize::Sm});
                                                 if (ui.Switch(selectHasPrefix, {.label = "Prefix Icon"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(selectDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
                                                 break;
                                             }
 
                                             case NavCategory::ElemSwitch: {
-                                                ui.Heading({.title = "Switch Inspector", .subtitle = "Two-State & Dual Toggles", .size = guikit::UiSize::Sm, .divider = true});
-
-                                                ui.Heading({.title = "Geometry & Options", .size = guikit::UiSize::Sm});
                                                 if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
                                                 static constexpr std::array<std::string_view, 6> switchPlacements = {
                                                     "Trail", "Lead", "Top", "Btm", "Stack", "Both"
@@ -758,9 +751,6 @@ int main(int argc, char* argv[]) {
                                             }
 
                                             case NavCategory::ElemCheckbox: {
-                                                ui.Heading({.title = "Checkbox Inspector", .subtitle = "Multi-State Selection & Tri-State", .size = guikit::UiSize::Sm, .divider = true});
-
-                                                ui.Heading({.title = "Geometry & Options", .size = guikit::UiSize::Sm});
                                                 if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
                                                 static constexpr std::array<std::string_view, 5> checkPlacements = {
                                                     "Trail", "Lead", "Top", "Btm", "Stack"
@@ -794,9 +784,6 @@ int main(int argc, char* argv[]) {
                                             }
 
                                             case NavCategory::ElemTabBar: {
-                                                ui.Heading({.title = "TabBar Inspector", .subtitle = "Tabs & Segmented Control", .size = guikit::UiSize::Sm, .divider = true});
-
-                                                ui.Heading({.title = "Style & Container", .size = guikit::UiSize::Sm});
                                                 static constexpr std::array<std::string_view, 2> styleNames = {"Underline", "Pill"};
                                                 size_t styleIdx = (tabStyle == guikit::TabBarStyle::Pill) ? 1 : 0;
                                                 if (ui.StepSlider(styleIdx, styleNames, {.label = "TabBar Style", .showTicks = true, .showLabels = true}).changed) {
@@ -815,9 +802,6 @@ int main(int argc, char* argv[]) {
                                             }
 
                                             case NavCategory::ElemContainers: {
-                                                ui.Heading({.title = "Containers Inspector", .subtitle = "Card, Box & Surfaces", .size = guikit::UiSize::Sm, .divider = true});
-
-                                                ui.Heading({.title = "Card Geometry", .size = guikit::UiSize::Sm});
                                                 if (ui.Slider(cardRadius, 0.0f, 24.0f, {.label = "Corner Radius", .format = "%.0f px"}).changed) ui.InvalidateAll();
                                                 if (ui.Slider(cardPadding, 0.0f, 32.0f, {.label = "Internal Padding", .format = "%.0f px"}).changed) ui.InvalidateAll();
                                                 if (ui.Slider(cardGap, 0.0f, 24.0f, {.label = "Content Spacing (Gap)", .format = "%.0f px"}).changed) ui.InvalidateAll();
@@ -826,9 +810,6 @@ int main(int argc, char* argv[]) {
                                             }
 
                                             case NavCategory::ElemTypography: {
-                                                ui.Heading({.title = "Typography Inspector", .subtitle = "Headings & Text Scales", .size = guikit::UiSize::Sm, .divider = true});
-
-                                                ui.Heading({.title = "Typography Scale", .size = guikit::UiSize::Sm});
                                                 if (ui.StepSlider(headingSize, {.label = "Heading Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(headingDivider, {.label = "Show Divider Line"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(headingWordWrap, {.label = "Subtitle Word Wrap"}).changed) ui.InvalidateAll();
@@ -839,54 +820,41 @@ int main(int argc, char* argv[]) {
                                         }
                                     } else {
                                         // Assembly Inspector (Scene & Environment)
-                                        ui.Heading({
-                                            .title = "Assembly Scene",
-                                            .subtitle = "Global Layout & Environment",
-                                            .size = guikit::UiSize::Sm,
-                                            .divider = true
-                                        });
-
-                                        ui.Heading({.title = "Theme & Density", .size = guikit::UiSize::Sm});
                                         if (ui.Switch(darkMode, {
-                                            .label = "Content Dark Mode",
-                                            .description = "Switch Content preview between Dark and Light palette"
+                                            .label = "Preview Dark Mode",
+                                            .description = "Switch preview between Dark and Light palette"
                                         }).changed) {
                                             lightMode = !darkMode;
-                                            const auto defTheme = darkMode ? guikit::UiTheme::Dark(appTheme.density) : guikit::UiTheme::Light(appTheme.density);
-                                            appTheme.palette = defTheme.palette;
-                                            appTheme.variants = defTheme.variants;
-                                            appTheme.mode = darkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
+                                            const auto defTheme = darkMode ? guikit::UiTheme::Dark(previewTheme.density) : guikit::UiTheme::Light(previewTheme.density);
+                                            previewTheme.palette = defTheme.palette;
+                                            previewTheme.variants = defTheme.variants;
+                                            previewTheme.mode = darkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
                                             ui.InvalidateAll();
                                         }
 
                                         static constexpr std::array<std::string_view, 3> asmDensityLabels = {"Compact", "Standard", "Touch"};
-                                        size_t dIdx = (appTheme.density == guikit::Density::Compact) ? 0 : ((appTheme.density == guikit::Density::Touch) ? 2 : 1);
+                                        size_t dIdx = (previewTheme.density == guikit::Density::Compact) ? 0 : ((previewTheme.density == guikit::Density::Touch) ? 2 : 1);
                                         if (ui.StepSlider(dIdx, asmDensityLabels, {.label = "Layout Density", .showTicks = true, .showLabels = true}).changed) {
-                                            appTheme.density = (dIdx == 0) ? guikit::Density::Compact : ((dIdx == 2) ? guikit::Density::Touch : guikit::Density::Standard);
-                                            appTheme.SetDensity(appTheme.density);
+                                            previewTheme.density = (dIdx == 0) ? guikit::Density::Compact : ((dIdx == 2) ? guikit::Density::Touch : guikit::Density::Standard);
+                                            previewTheme.SetDensity(previewTheme.density);
                                             ui.InvalidateAll();
                                         }
 
-                                        ui.Heading({.title = "Grid Layout Spacing", .size = guikit::UiSize::Sm});
                                         if (ui.Slider(gridColGap, 0.0f, 32.0f, {.label = "Horizontal Gap (Columns)", .format = "%.0f px"}).changed) ui.InvalidateAll();
                                         if (ui.Slider(gridRowGap, 0.0f, 32.0f, {.label = "Vertical Gap (Rows)", .format = "%.0f px"}).changed) ui.InvalidateAll();
 
-                                        ui.Heading({.title = "Surfaces & Containers", .size = guikit::UiSize::Sm});
                                         if (ui.Slider(cardRadius, 0.0f, 24.0f, {.label = "Card Corner Radius", .format = "%.0f px"}).changed) ui.InvalidateAll();
                                         if (ui.Slider(cardPadding, 4.0f, 32.0f, {.label = "Card Padding", .format = "%.0f px"}).changed) ui.InvalidateAll();
                                         if (ui.Slider(cardBorderWidth, 0.0f, 4.0f, {.label = "Card Border Width", .format = "%.1f px"}).changed) ui.InvalidateAll();
 
                                         if (selectedCategory == NavCategory::AsmDashboard) {
-                                            ui.Heading({.title = "Dashboard Overrides", .size = guikit::UiSize::Sm});
                                             if (ui.Switch(hwEstop, {.label = "Hardware E-Stop Line", .variant = guikit::UiVariant::Danger}).changed) ui.InvalidateAll();
                                             if (ui.Switch(enableSensors, {.label = "Sensor Drop Limits"}).changed) ui.InvalidateAll();
                                             if (ui.Switch(diagLogging, {.label = "High-Speed Flash Logging"}).changed) ui.InvalidateAll();
                                         } else if (selectedCategory == NavCategory::AsmFormControls) {
-                                            ui.Heading({.title = "Form Overrides", .size = guikit::UiSize::Sm});
                                             if (ui.Switch(formMode, {.label = "Stacked Labels Mode"}).changed) ui.InvalidateAll();
                                             if (ui.Switch(showTelemetry, {.label = "Show Telemetry Banner"}).changed) ui.InvalidateAll();
                                         } else if (selectedCategory == NavCategory::AsmFlexRibbon) {
-                                            ui.Heading({.title = "Ribbon Spacing", .size = guikit::UiSize::Sm});
                                             if (ui.Slider(carouselGap, 0.0f, 24.0f, {.label = "Ribbon Items Gap", .format = "%.0f px"}).changed) ui.InvalidateAll();
                                         }
                                     }
@@ -900,21 +868,20 @@ int main(int argc, char* argv[]) {
                         .widthMode = guikit::SizeMode::Stretch,
                         .heightMode = guikit::SizeMode::Stretch,
                         .padding = guikit::Padding::All(8.0f),
-                        .backgroundColor = appTheme.palette.background,
+                        .backgroundColor = shellTheme.palette.background,
                         .borderColor = shellTheme.palette.borderSubtle,
                         .borderWidth = 1.0f,
                         .radius = 8.0f,
                         .clipChildren = true,
-                        .theme = &appTheme,
+                        .theme = &shellTheme,
                         .scale = scaleValues[scaleIndex]
                     })) {
                         if (auto contentCol = ui.Column({
                             .gap = colGap,
                             .widthMode = guikit::SizeMode::Stretch,
-                            .heightMode = guikit::SizeMode::Stretch,
-                            .size = controlsSize
+                            .heightMode = guikit::SizeMode::Stretch
                         })) {
-                            auto& th = appTheme;
+                            auto& th = previewTheme;
                             const auto makeCard = [&]() {
                                 return guikit::CardOptions{
                                     .gap = cardGap,
@@ -936,7 +903,9 @@ int main(int argc, char* argv[]) {
                                 if (auto heroCard = ui.Card({
                                     .gap = 12.0f,
                                     .padding = guikit::Padding::All(14.0f),
-                                    .heightMode = guikit::SizeMode::Stretch
+                                    .radius = 8.0f,
+                                    .heightMode = guikit::SizeMode::Stretch,
+                                    .theme = &previewTheme
                                 })) {
                                     // Hero Showcase Stage
                                     if (auto stageBox = ui.Box({
@@ -946,12 +915,14 @@ int main(int argc, char* argv[]) {
                                         .backgroundColor = th.palette.surfaceElevated,
                                         .borderColor = th.palette.borderSubtle,
                                         .borderWidth = 1.0f,
-                                        .radius = 8.0f
+                                        .radius = 8.0f,
+                                        .theme = &previewTheme
                                     })) {
                                         if (auto centerRow = ui.Row({
                                             .align = guikit::Alignment::Center,
                                             .justify = guikit::Justify::Center,
-                                            .heightMode = guikit::SizeMode::Stretch
+                                            .heightMode = guikit::SizeMode::Stretch,
+                                            .theme = &previewTheme
                                         })) {
                                             switch (selectedCategory) {
                                                 case NavCategory::ElemButton: {
@@ -1112,7 +1083,9 @@ int main(int argc, char* argv[]) {
                                 if (auto codeCard = ui.Card({
                                     .gap = 8.0f,
                                     .padding = guikit::Padding::All(12.0f),
-                                    .heightMode = guikit::SizeMode::Stretch
+                                    .radius = 8.0f,
+                                    .heightMode = guikit::SizeMode::Stretch,
+                                    .theme = &shellTheme
                                 })) {
                                     auto placementName = [](guikit::Placement p) -> std::string_view {
                                         switch (p) {
@@ -1452,7 +1425,7 @@ int main(int argc, char* argv[]) {
                                 // -------------------------------------------------------------
                                 // ASSEMBLY MODE: Real-World Screens & Compositions
                                 // -------------------------------------------------------------
-                                if (auto contentScroll = ui.ScrollArea({.gap = 12.0f})) {
+                                if (auto contentScroll = ui.ScrollArea({.gap = 12.0f, .theme = &previewTheme})) {
                                     switch (selectedCategory) {
                                     case NavCategory::AsmDashboard: {
                                         // Industrial Dashboard (responsive 2-column layout)
