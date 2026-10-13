@@ -150,13 +150,15 @@ int main(int argc, char* argv[]) {
     bool btnDisabled = false;
     int btnClicks = 0;
     float btnCornerRadius = 6.0f;
-    bool btnShowHeader = false;
+    bool btnShowLabel = false;
     bool btnShowDesc = false;
     guikit::Placement btnLabelPlace = guikit::Placement::Stacked;
 
     float testSliderVal = 65.0f;
     size_t testStepIdx = 2;
     bool sliderContinuous = true;
+    bool sliderShowLabel = true;
+    bool sliderShowDesc = false;
     bool sliderShowTicks = true;
     bool sliderShowLabels = true;
     bool sliderShowValue = true;
@@ -188,12 +190,14 @@ int main(int argc, char* argv[]) {
     bool testDarkLightSwitch = false;
     guikit::Placement switchLabelPlace = guikit::Placement::Trailing;
     bool switchSymmetric = false;
+    bool switchShowLabel = true;
     bool switchShowDesc = true;
     bool switchDisabled = false;
 
     bool testCheckboxState = true;
     bool testCheckboxIndet = false;
     guikit::Placement checkboxLabelPlace = guikit::Placement::Trailing;
+    bool checkboxShowLabel = true;
     bool checkboxShowDesc = true;
     bool checkboxDisabled = false;
 
@@ -571,8 +575,8 @@ int main(int argc, char* argv[]) {
 
                                                 renderVariantPicker();
 
-                                                if (ui.Switch(btnShowHeader, {.label = "Field Label (Header)"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(btnShowDesc, {.label = "Helper Description"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(btnShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(btnShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 size_t bPlIdx = 0;
                                                 switch (btnLabelPlace) {
                                                     case guikit::Placement::Stacked:  bPlIdx = 0; break;
@@ -582,7 +586,7 @@ int main(int argc, char* argv[]) {
                                                     case guikit::Placement::Bottom:   bPlIdx = 4; break;
                                                     default:                          bPlIdx = 0; break;
                                                 }
-                                                const bool btnHasExternal = btnShowHeader || btnShowDesc;
+                                                const bool btnHasExternal = btnShowLabel || btnShowDesc;
                                                 if (ui.StepSlider(bPlIdx, formPlacements, {.label = "Label Placement", .showTicks = true, .showLabels = true, .disabled = !btnHasExternal}).changed) {
                                                     switch (bPlIdx) {
                                                         case 0: btnLabelPlace = guikit::Placement::Stacked;  break;
@@ -618,6 +622,8 @@ int main(int argc, char* argv[]) {
 
                                                 renderVariantPicker();
 
+                                                if (ui.Switch(sliderShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(sliderShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(sliderShowValue, {.label = "Show Value Tag"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(sliderShowTicks, {.label = "Show Step Ticks", .disabled = sliderContinuous}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(sliderShowLabels, {.label = "Show Step Labels", .disabled = sliderContinuous}).changed) ui.InvalidateAll();
@@ -636,7 +642,7 @@ int main(int argc, char* argv[]) {
 
                                                 renderVariantPicker();
 
-                                                if (ui.Switch(inputShowLabel, {.label = "Field Label"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(inputShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(inputShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 size_t inPlIdx = 0;
                                                 switch (inputLabelPlace) {
@@ -688,7 +694,7 @@ int main(int argc, char* argv[]) {
 
                                                 renderVariantPicker();
 
-                                                if (ui.Switch(selectShowLabel, {.label = "Field Label"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(selectShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(selectShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 size_t selPlIdx = 0;
                                                 switch (selectLabelPlace) {
@@ -718,6 +724,12 @@ int main(int argc, char* argv[]) {
 
                                             case NavCategory::ElemSwitch: {
                                                 if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
+
+                                                renderVariantPicker();
+
+                                                if (ui.Switch(switchShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(switchShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
+                                                const bool switchHasExternal = switchShowLabel || switchShowDesc;
                                                 static constexpr std::array<std::string_view, 6> switchPlacements = {
                                                     "Trail", "Lead", "Top", "Btm", "Stack", "Both"
                                                 };
@@ -730,7 +742,7 @@ int main(int argc, char* argv[]) {
                                                     case guikit::Placement::Stacked:  spIdx = 4; break;
                                                     case guikit::Placement::Both:     spIdx = 5; break;
                                                 }
-                                                if (ui.StepSlider(spIdx, switchPlacements, {.label = "Label Placement", .showTicks = true, .showLabels = true}).changed) {
+                                                if (ui.StepSlider(spIdx, switchPlacements, {.label = "Label Placement", .showTicks = true, .showLabels = true, .disabled = !switchHasExternal}).changed) {
                                                     switch (spIdx) {
                                                         case 0: switchLabelPlace = guikit::Placement::Trailing; break;
                                                         case 1: switchLabelPlace = guikit::Placement::Leading;  break;
@@ -742,16 +754,19 @@ int main(int argc, char* argv[]) {
                                                     ui.InvalidateAll();
                                                 }
 
-                                                renderVariantPicker();
-
                                                 if (ui.Switch(switchSymmetric, {.label = "Symmetric (Neutral Track)"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(switchShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(switchDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
                                                 break;
                                             }
 
                                             case NavCategory::ElemCheckbox: {
                                                 if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
+
+                                                renderVariantPicker();
+
+                                                if (ui.Switch(checkboxShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(checkboxShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
+                                                const bool checkHasExternal = checkboxShowLabel || checkboxShowDesc;
                                                 static constexpr std::array<std::string_view, 5> checkPlacements = {
                                                     "Trail", "Lead", "Top", "Btm", "Stack"
                                                 };
@@ -764,7 +779,7 @@ int main(int argc, char* argv[]) {
                                                     case guikit::Placement::Stacked:  cpIdx = 4; break;
                                                     default:                          cpIdx = 0; break;
                                                 }
-                                                if (ui.StepSlider(cpIdx, checkPlacements, {.label = "Label Placement", .showTicks = true, .showLabels = true}).changed) {
+                                                if (ui.StepSlider(cpIdx, checkPlacements, {.label = "Label Placement", .showTicks = true, .showLabels = true, .disabled = !checkHasExternal}).changed) {
                                                     switch (cpIdx) {
                                                         case 0: checkboxLabelPlace = guikit::Placement::Trailing; break;
                                                         case 1: checkboxLabelPlace = guikit::Placement::Leading;  break;
@@ -775,10 +790,7 @@ int main(int argc, char* argv[]) {
                                                     ui.InvalidateAll();
                                                 }
 
-                                                renderVariantPicker();
-
                                                 if (ui.Switch(testCheckboxIndet, {.label = "Indeterminate Tri-State"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(checkboxShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(checkboxDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
                                                 break;
                                             }
@@ -928,7 +940,7 @@ int main(int argc, char* argv[]) {
                                                 case NavCategory::ElemButton: {
                                                     std::string btnText = btnClicks > 0 ? std::format("Clicked {}x", btnClicks) : "Interactive Button";
                                                     if (ui.Button({
-                                                        .label = btnShowHeader ? "System Action" : "",
+                                                        .label = btnShowLabel ? "System Action" : "",
                                                         .text = btnText,
                                                         .description = btnShowDesc ? "Commit payload and trigger immediate canary rollout" : "",
                                                         .icon = btnHasIcon ? guikit::Icon::Play() : guikit::Icon{},
@@ -950,7 +962,8 @@ int main(int argc, char* argv[]) {
                                                 case NavCategory::ElemSlider: {
                                                     if (sliderContinuous) {
                                                         ui.Slider(testSliderVal, 0.0f, 100.0f, {
-                                                            .label = "Analog Master Gain",
+                                                            .label = sliderShowLabel ? "Analog Master Gain" : "",
+                                                            .description = sliderShowDesc ? "Adjust internal preamp attenuation" : "",
                                                             .format = "%.1f %%",
                                                             .showValue = sliderShowValue,
                                                             .variant = btnVariant,
@@ -960,7 +973,8 @@ int main(int argc, char* argv[]) {
                                                     } else {
                                                         static constexpr std::array<std::string_view, 5> stepItems = {"Off", "Low", "Mid", "High", "Max"};
                                                         ui.StepSlider(testStepIdx, stepItems, {
-                                                            .label = "DSP Filter Mode",
+                                                            .label = sliderShowLabel ? "DSP Filter Mode" : "",
+                                                            .description = sliderShowDesc ? "Select active FIR profile" : "",
                                                             .showTicks = sliderShowTicks,
                                                             .showLabels = sliderShowLabels,
                                                             .showValue = sliderShowValue,
@@ -1008,8 +1022,8 @@ int main(int argc, char* argv[]) {
                                                 case NavCategory::ElemSwitch: {
                                                     if (auto swRow = ui.Row({.gap = 20.0f, .align = guikit::Alignment::Center})) {
                                                         ui.Switch(testSwitchState, {
-                                                            .label = (switchLabelPlace == guikit::Placement::Both) ? "Dark" : "Hardware E-Stop",
-                                                            .trailingLabel = (switchLabelPlace == guikit::Placement::Both) ? "Light" : "",
+                                                            .label = switchShowLabel ? ((switchLabelPlace == guikit::Placement::Both) ? "Dark" : "Hardware E-Stop") : "",
+                                                            .trailingLabel = (switchShowLabel && switchLabelPlace == guikit::Placement::Both) ? "Light" : "",
                                                             .description = switchShowDesc ? "Safety interlocking system" : "",
                                                             .variant = btnVariant,
                                                             .labelPlacement = switchLabelPlace,
@@ -1024,7 +1038,7 @@ int main(int argc, char* argv[]) {
                                                 case NavCategory::ElemCheckbox: {
                                                     if (auto chRow = ui.Row({.gap = 20.0f, .align = guikit::Alignment::Center})) {
                                                         ui.Checkbox(testCheckboxState, {
-                                                            .label = "Telemetry Logging",
+                                                            .label = checkboxShowLabel ? "Telemetry Logging" : "",
                                                             .description = checkboxShowDesc ? "Save trace to buffer" : "",
                                                             .variant = btnVariant,
                                                             .labelPlacement = checkboxLabelPlace,
@@ -1150,7 +1164,7 @@ int main(int argc, char* argv[]) {
                                                 "}})) {{\n"
                                                 "    // On click handler\n"
                                                 "}}",
-                                                btnShowHeader ? "System Action" : "",
+                                                btnShowLabel ? "System Action" : "",
                                                 btnClicks > 0 ? std::format("Clicked {}x", btnClicks) : "Interactive Button",
                                                 btnShowDesc ? "Commit payload and trigger immediate canary rollout" : "",
                                                 btnHasIcon ? "guikit::Icon::Play()" : "{}",
@@ -1170,8 +1184,8 @@ int main(int argc, char* argv[]) {
                                             if (sliderContinuous) {
                                                 snippet = std::format(
                                                     "ui.Slider(gainValue, 0.0f, 100.0f, {{\n"
-                                                    "    .label = \"Analog Master Gain\",\n"
-                                                    "    .description = \"\",\n"
+                                                    "    .label = \"{}\",\n"
+                                                    "    .description = \"{}\",\n"
                                                     "    .suffix = \"\",\n"
                                                     "    .format = \"%.1f %%\",\n"
                                                     "    .step = std::nullopt,\n"
@@ -1183,6 +1197,8 @@ int main(int argc, char* argv[]) {
                                                     "    .theme = nullptr,\n"
                                                     "    .disabled = {}\n"
                                                     "}});",
+                                                    sliderShowLabel ? "Analog Master Gain" : "",
+                                                    sliderShowDesc ? "Adjust internal preamp attenuation" : "",
                                                     sliderShowValue ? "true" : "false",
                                                     variantName(btnVariant),
                                                     sizeName(controlsSize),
@@ -1192,8 +1208,8 @@ int main(int argc, char* argv[]) {
                                                 snippet = std::format(
                                                     "static constexpr std::array<std::string_view, 5> stepItems = {{\"Off\", \"Low\", \"Mid\", \"High\", \"Max\"}};\n"
                                                     "ui.StepSlider(presetIndex, stepItems, {{\n"
-                                                    "    .label = \"DSP Filter Mode\",\n"
-                                                    "    .description = \"\",\n"
+                                                    "    .label = \"{}\",\n"
+                                                    "    .description = \"{}\",\n"
                                                     "    .stepLabels = {{}},\n"
                                                     "    .labelPlacement = guikit::Placement::Stacked,\n"
                                                     "    .showTicks = {},\n"
@@ -1207,6 +1223,8 @@ int main(int argc, char* argv[]) {
                                                     "    .theme = nullptr,\n"
                                                     "    .disabled = {}\n"
                                                     "}});",
+                                                    sliderShowLabel ? "DSP Filter Mode" : "",
+                                                    sliderShowDesc ? "Select active FIR profile" : "",
                                                     sliderShowTicks ? "true" : "false",
                                                     sliderShowLabels ? "true" : "false",
                                                     sliderShowValue ? "true" : "false",
@@ -1293,8 +1311,8 @@ int main(int argc, char* argv[]) {
                                                 "    .disabled = {},\n"
                                                 "    .size = guikit::UiSize::{}\n"
                                                 "}});",
-                                                (switchLabelPlace == guikit::Placement::Both) ? "Dark" : "Hardware E-Stop",
-                                                (switchLabelPlace == guikit::Placement::Both) ? "Light" : "",
+                                                switchShowLabel ? ((switchLabelPlace == guikit::Placement::Both) ? "Dark" : "Hardware E-Stop") : "",
+                                                (switchShowLabel && switchLabelPlace == guikit::Placement::Both) ? "Light" : "",
                                                 switchShowDesc ? "Safety interlocking system" : "",
                                                 variantName(btnVariant),
                                                 placementName(switchLabelPlace),
@@ -1308,7 +1326,7 @@ int main(int argc, char* argv[]) {
                                         case NavCategory::ElemCheckbox: {
                                             snippet = std::format(
                                                 "ui.Checkbox(checkState, {{\n"
-                                                "    .label = \"Telemetry Logging\",\n"
+                                                "    .label = \"{}\",\n"
                                                 "    .description = \"{}\",\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
                                                 "    .labelPlacement = guikit::Placement::{},\n"
@@ -1316,6 +1334,7 @@ int main(int argc, char* argv[]) {
                                                 "    .indeterminate = {},\n"
                                                 "    .size = guikit::UiSize::{}\n"
                                                 "}});",
+                                                checkboxShowLabel ? "Telemetry Logging" : "",
                                                 checkboxShowDesc ? "Save trace to buffer" : "",
                                                 variantName(btnVariant),
                                                 placementName(checkboxLabelPlace),
