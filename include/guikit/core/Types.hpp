@@ -281,12 +281,12 @@ struct Dp {
     }
 };
 
-/// Non-allocating view wrapper for candidate text labels used in dynamic layout sizing.
-class LabelVariants {
+/// Non-allocating view wrapper for candidate text strings used in dynamic layout sizing.
+class TextVariants {
 public:
-    constexpr LabelVariants() noexcept = default;
+    constexpr TextVariants() noexcept = default;
 
-    constexpr LabelVariants(std::initializer_list<std::string_view> list) noexcept {
+    constexpr TextVariants(std::initializer_list<std::string_view> list) noexcept {
         const size_t n = std::min(list.size(), m_inline.size());
         auto it = list.begin();
         for (size_t i = 0; i < n; ++i, ++it) {
@@ -296,23 +296,23 @@ public:
         m_span = std::span<const std::string_view>(m_inline.data(), m_count);
     }
 
-    constexpr LabelVariants(std::span<const std::string_view> s) noexcept
+    constexpr TextVariants(std::span<const std::string_view> s) noexcept
         : m_span(s)
     {
     }
 
     template <size_t N>
-    constexpr LabelVariants(const std::array<std::string_view, N>& arr) noexcept
+    constexpr TextVariants(const std::array<std::string_view, N>& arr) noexcept
         : m_span(arr.data(), arr.size())
     {
     }
 
-    LabelVariants(const std::vector<std::string_view>& vec) noexcept
+    TextVariants(const std::vector<std::string_view>& vec) noexcept
         : m_span(vec.data(), vec.size())
     {
     }
 
-    constexpr LabelVariants(const LabelVariants& other) noexcept
+    constexpr TextVariants(const TextVariants& other) noexcept
         : m_inline(other.m_inline)
         , m_count(other.m_count)
     {
@@ -323,7 +323,7 @@ public:
         }
     }
 
-    constexpr LabelVariants& operator=(const LabelVariants& other) noexcept {
+    constexpr TextVariants& operator=(const TextVariants& other) noexcept {
         if (this != &other) {
             m_inline = other.m_inline;
             m_count = other.m_count;
@@ -336,7 +336,7 @@ public:
         return *this;
     }
 
-    constexpr LabelVariants(LabelVariants&& other) noexcept
+    constexpr TextVariants(TextVariants&& other) noexcept
         : m_inline(other.m_inline)
         , m_count(other.m_count)
     {
@@ -347,7 +347,7 @@ public:
         }
     }
 
-    constexpr LabelVariants& operator=(LabelVariants&& other) noexcept {
+    constexpr TextVariants& operator=(TextVariants&& other) noexcept {
         if (this != &other) {
             m_inline = other.m_inline;
             m_count = other.m_count;
@@ -408,10 +408,9 @@ enum class SizeMode : uint8_t {
 
 /// Stretch layout behavior for composite widgets containing labels and interactive controls.
 enum class StretchMode : uint8_t {
-    Compact,        ///< Compact intrinsic size based on content (no row stretching)
-    Space,          ///< Row stretches full width; control stays compact and extra space becomes air/gap
-    Fill,           ///< Row stretches full width; control stretches to fill all remaining available space
-    Between = Space ///< Backward-compatible alias for Space
+    Compact, ///< Compact intrinsic size based on content (no row stretching)
+    Space,   ///< Row stretches full width; control stays compact and extra space becomes air/gap
+    Fill     ///< Row stretches full width; control stretches to fill all remaining available space
 };
 
 /// Alignment along the cross axis (perpendicular to FlexDirection).

@@ -297,8 +297,8 @@ void Switch::Render(
             hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
         );
         const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(m.trackSize.x, naturalTextW));
-        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
-        const float trackX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
+        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float trackX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
 
         float curY = bounds.y;
         if (hasLabel) {
@@ -318,8 +318,8 @@ void Switch::Render(
             hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
         );
         const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(m.trackSize.x, naturalTextW));
-        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
-        const float trackX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
+        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float trackX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
 
         float curY = bounds.y;
         if (hasLabel) {
@@ -340,8 +340,8 @@ void Switch::Render(
             hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
         );
         const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(m.trackSize.x, naturalTextW));
-        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
-        const float trackX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
+        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float trackX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - m.trackSize.x) : bounds.x;
 
         float curY = bounds.y;
         trackRect = Rect(trackX, curY, m.trackSize.x, m.trackSize.y);
@@ -384,7 +384,7 @@ void Switch::Render(
             trackRect = Rect(bounds.x, trackY, m.trackSize.x, m.trackSize.y);
 
             float textX = bounds.x + m.trackSize.x + m.gap;
-            if (opts.stretch == StretchMode::Between) {
+            if (opts.stretch == StretchMode::Space) {
                 textX = std::max(bounds.x + m.trackSize.x + m.gap, bounds.x + bounds.w - naturalTextW);
             }
 

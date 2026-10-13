@@ -35,7 +35,7 @@ Rect Select::GetBoxRect(
             curY += labelH + m.labelGap;
         }
         const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        const float boxX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - boxW) : bounds.x;
         return Rect(boxX, curY, boxW, m.defaultHeight);
     }
     
@@ -45,13 +45,13 @@ Rect Select::GetBoxRect(
         if (hasDesc) curY += descH;
         curY += m.labelGap;
         const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        const float boxX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - boxW) : bounds.x;
         return Rect(boxX, curY, boxW, m.defaultHeight);
     }
     
     if (opts.layout == ElementLayout::Bottom) {
         const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        const float boxX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - boxW) : bounds.x;
         return Rect(boxX, bounds.y, boxW, m.defaultHeight);
     }
     
@@ -65,7 +65,7 @@ Rect Select::GetBoxRect(
         }
     }
     if (opts.inlineOrder == InlineOrder::LabelFirst) {
-        if (opts.stretch == StretchMode::Between) {
+        if (opts.stretch == StretchMode::Space) {
             const float boxW = std::min(naturalBoxW, std::max(0.0f, bounds.w - labelW - (hasLabel ? m.paddingX : 0.0f)));
             const float boxX = bounds.x + bounds.w - boxW;
             return Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
@@ -481,8 +481,8 @@ void Select::Render(
     if (opts.layout == ElementLayout::Stacked) {
         const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
         const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(boxW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
-        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float boxX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - boxW) : bounds.x;
 
         float curY = bounds.y;
         if (hasLabel) {
@@ -497,8 +497,8 @@ void Select::Render(
     } else if (opts.layout == ElementLayout::Top) {
         const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
         const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(boxW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
-        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float boxX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - boxW) : bounds.x;
 
         float curY = bounds.y;
         if (hasLabel) {
@@ -514,8 +514,8 @@ void Select::Render(
     } else if (opts.layout == ElementLayout::Bottom) {
         const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
         const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(boxW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
-        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float boxX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - boxW) : bounds.x;
 
         float curY = bounds.y;
         boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
@@ -560,7 +560,7 @@ void Select::Render(
             boxRect = Rect(bounds.x, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
 
             float textX = bounds.x + boxW + gap;
-            if (opts.stretch == StretchMode::Between) {
+            if (opts.stretch == StretchMode::Space) {
                 textX = std::max(bounds.x + boxW + gap, bounds.x + bounds.w - measuredTextW);
             }
             float textY = startY;

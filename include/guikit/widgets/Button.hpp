@@ -21,12 +21,12 @@ struct ButtonOptions {
     Icon icon{};
     UiVariant variant{UiVariant::Secondary};
     Placement iconPlacement{Placement::Leading};
-    ElementLayout layout{ElementLayout::Stacked};    ///< Layout geometry: Stacked, Top, Bottom, Inline
+    ElementLayout layout{ElementLayout::Stacked};     ///< Layout geometry: Stacked, Top, Bottom, Inline
     InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
-    Align labelAlign{Align::Start};                ///< Label and description text alignment (Start, Center, End)
-    Align align{Align::Center};   ///< Content horizontal alignment inside button capsule (Start = left, Center, End = right)
-    LabelVariants labelVariants{};
-    StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Between (space-between), Fill
+    Align elementAlign{Align::Start};                 ///< Element composition and label alignment (Start, Center, End)
+    Align controlAlign{Align::Center};                ///< Content horizontal alignment inside button capsule (Start, Center, End)
+    TextVariants textVariants{};                      ///< Candidate capsule text strings for stable intrinsic width sizing
+    StretchMode stretch{StretchMode::Compact};        ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};      ///< Explicit capsule width in points (nullopt = auto from content)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum capsule width constraint in points
     bool disabled{false};

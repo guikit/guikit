@@ -2094,7 +2094,7 @@ void TestLabelVariantsStableSizing() {
         if (auto row = ui.Row({.gap = 8.0f})) {
             btn = ui.Button({
                 .label = state ? "VSync: ON" : "VSync: OFF",
-                .labelVariants = {"VSync: ON", "VSync: OFF"}
+                .textVariants = {"VSync: ON", "VSync: OFF"}
             });
         }
     };
@@ -3715,43 +3715,43 @@ void TestButtonAlignmentAndProceduralIcons() {
         ui.Button({
             .label = "Button",
             .icon = Icon::Play(),
-            .align = Align::Start,
+            .controlAlign = Align::Start,
             .stretch = StretchMode::Fill
         });
         ui.Button({
             .label = "Input",
             .icon = Icon::Edit(),
-            .align = Align::Start,
+            .controlAlign = Align::Start,
             .stretch = StretchMode::Fill
         });
         ui.Button({
             .label = "Containers",
             .icon = Icon::Copy(),
-            .align = Align::Start,
+            .controlAlign = Align::Start,
             .stretch = StretchMode::Fill
         });
         ui.Button({
             .label = "End-Aligned",
             .icon = Icon::Settings(),
-            .align = Align::End,
+            .controlAlign = Align::End,
             .stretch = StretchMode::Fill
         });
         ui.Button({
             .label = "Center-Aligned",
             .icon = Icon::Folder(),
-            .align = Align::Center,
+            .controlAlign = Align::Center,
             .stretch = StretchMode::Fill
         });
         // Label only left-aligned
         ui.Button({
             .label = "Label Only Left",
-            .align = Align::Start,
+            .controlAlign = Align::Start,
             .stretch = StretchMode::Fill
         });
         // Icon only left-aligned
         ui.Button({
             .icon = Icon::Plus(),
-            .align = Align::Start,
+            .controlAlign = Align::Start,
             .stretch = StretchMode::Fill
         });
     }
@@ -3785,7 +3785,7 @@ void TestButtonAlignmentAndProceduralIcons() {
         .label = "Action Label",
         .text = "Click Action",
         .layout = ElementLayout::Stacked,
-        .align = Align::Start,
+        .controlAlign = Align::Start,
         .stretch = StretchMode::Compact,
         .width = 150.0f
     };
@@ -3793,7 +3793,7 @@ void TestButtonAlignmentAndProceduralIcons() {
         .label = "Action Label",
         .text = "Click Action",
         .layout = ElementLayout::Stacked,
-        .align = Align::Center,
+        .controlAlign = Align::Center,
         .stretch = StretchMode::Compact,
         .width = 150.0f
     };
@@ -3801,7 +3801,7 @@ void TestButtonAlignmentAndProceduralIcons() {
         .label = "Action Label",
         .text = "Click Action",
         .layout = ElementLayout::Stacked,
-        .align = Align::End,
+        .controlAlign = Align::End,
         .stretch = StretchMode::Compact,
         .width = 150.0f
     };
@@ -4052,31 +4052,31 @@ void TestWidgetStretchModesAndExplicitWidth() {
                 btnFill2 = ui.Button({.label = "Fill 2", .stretch = StretchMode::Fill});
             }
 
-            // Switch in InlineOrder::LabelFirst: Compact vs Between
+            // Switch in InlineOrder::LabelFirst: Compact vs Space
             swCompact = ui.Switch(swVal, {
                 .label = "Switch Compact",
                 .inlineOrder = InlineOrder::LabelFirst,
                 .stretch = StretchMode::Compact
             });
             swBetween = ui.Switch(swVal, {
-                .label = "Switch Between",
+                .label = "Switch Space",
                 .inlineOrder = InlineOrder::LabelFirst,
-                .stretch = StretchMode::Between
+                .stretch = StretchMode::Space
             });
 
-            // Checkbox in InlineOrder::LabelFirst: Compact vs Between
+            // Checkbox in InlineOrder::LabelFirst: Compact vs Space
             cbCompact = ui.Checkbox(cbVal, {
                 .label = "Checkbox Compact",
                 .inlineOrder = InlineOrder::LabelFirst,
                 .stretch = StretchMode::Compact
             });
             cbBetween = ui.Checkbox(cbVal, {
-                .label = "Checkbox Between",
+                .label = "Checkbox Space",
                 .inlineOrder = InlineOrder::LabelFirst,
-                .stretch = StretchMode::Between
+                .stretch = StretchMode::Space
             });
 
-            // Slider: Compact vs Between
+            // Slider: Compact vs Space
             slCompact = ui.Slider(slVal, 0.0f, 100.0f, {
                 .label = "Slider Compact",
                 .layout = ElementLayout::Inline,
@@ -4084,13 +4084,13 @@ void TestWidgetStretchModesAndExplicitWidth() {
                 .stretch = StretchMode::Compact
             });
             slBetween = ui.Slider(slVal, 0.0f, 100.0f, {
-                .label = "Slider Between",
+                .label = "Slider Space",
                 .layout = ElementLayout::Inline,
                 .inlineOrder = InlineOrder::LabelFirst,
-                .stretch = StretchMode::Between
+                .stretch = StretchMode::Space
             });
 
-            // Select: Compact vs Between
+            // Select: Compact vs Space
             selCompact = ui.Select(selIdx, selOpts, {
                 .label = "Select Compact",
                 .layout = ElementLayout::Inline,
@@ -4098,13 +4098,13 @@ void TestWidgetStretchModesAndExplicitWidth() {
                 .stretch = StretchMode::Compact
             });
             selBetween = ui.Select(selIdx, selOpts, {
-                .label = "Select Between",
+                .label = "Select Space",
                 .layout = ElementLayout::Inline,
                 .inlineOrder = InlineOrder::LabelFirst,
-                .stretch = StretchMode::Between
+                .stretch = StretchMode::Space
             });
 
-            // InputField: Compact vs Between
+            // InputField: Compact vs Space
             inCompact = ui.InputField(inText, {
                 .label = "Input Compact",
                 .layout = ElementLayout::Inline,
@@ -4112,10 +4112,10 @@ void TestWidgetStretchModesAndExplicitWidth() {
                 .stretch = StretchMode::Compact
             });
             inBetween = ui.InputField(inText, {
-                .label = "Input Between",
+                .label = "Input Space",
                 .layout = ElementLayout::Inline,
                 .inlineOrder = InlineOrder::LabelFirst,
-                .stretch = StretchMode::Between
+                .stretch = StretchMode::Space
             });
         }
     };
@@ -4138,7 +4138,7 @@ void TestWidgetStretchModesAndExplicitWidth() {
 
     const Rect rSwCompact = ui.GetPrevFrameBounds(swCompact.id);
     const Rect rSwBetween = ui.GetPrevFrameBounds(swBetween.id);
-    // Between stretches across container width (800)
+    // Space stretches across container width (800)
     CHECK(rSwBetween.w > rSwCompact.w);
     CHECK_NEAR(rSwBetween.w, 800.0f, 0.01f);
 
@@ -4162,7 +4162,7 @@ void TestWidgetStretchModesAndExplicitWidth() {
     CHECK(rInBetween.w > rInCompact.w);
     CHECK_NEAR(rInBetween.w, 800.0f, 0.01f);
 
-    // 6. Test Button in Placement::Stacked with StretchMode::Between vs Fill
+    // 6. Test Button in Placement::Stacked with StretchMode::Space vs Fill
     Response btnStBetween, btnStFill;
     ui.BeginFrame({800.0f, 600.0f});
     if (auto col = ui.Column()) {
@@ -4170,7 +4170,7 @@ void TestWidgetStretchModesAndExplicitWidth() {
             .label = "Header",
             .text = "Action",
             .layout = ElementLayout::Stacked,
-            .stretch = StretchMode::Between
+            .stretch = StretchMode::Space
         });
         btnStFill = ui.Button({
             .label = "Header",
@@ -4187,7 +4187,7 @@ void TestWidgetStretchModesAndExplicitWidth() {
             .label = "Header",
             .text = "Action",
             .layout = ElementLayout::Stacked,
-            .stretch = StretchMode::Between
+            .stretch = StretchMode::Space
         });
         btnStFill = ui.Button({
             .label = "Header",
@@ -4203,7 +4203,7 @@ void TestWidgetStretchModesAndExplicitWidth() {
     CHECK_NEAR(rStBetween.w, 800.0f, 0.01f);
     CHECK_NEAR(rStFill.w, 800.0f, 0.01f);
 
-    // 7. Test Button in InlineOrder::ControlFirst with StretchMode::Compact, Between, Fill
+    // 7. Test Button in InlineOrder::ControlFirst with StretchMode::Compact, Space, Fill
     Response btnTrCompact, btnTrBetween, btnTrFill;
     ui.BeginFrame({800.0f, 600.0f});
     if (auto col = ui.Column()) {
@@ -4219,7 +4219,7 @@ void TestWidgetStretchModesAndExplicitWidth() {
             .text = "Action",
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::ControlFirst,
-            .stretch = StretchMode::Between
+            .stretch = StretchMode::Space
         });
         btnTrFill = ui.Button({
             .label = "Trailing Label",
@@ -4245,7 +4245,7 @@ void TestWidgetStretchModesAndExplicitWidth() {
             .text = "Action",
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::ControlFirst,
-            .stretch = StretchMode::Between
+            .stretch = StretchMode::Space
         });
         btnTrFill = ui.Button({
             .label = "Trailing Label",
@@ -4314,7 +4314,7 @@ void TestLabelAlignmentGeometryOptionA() {
             .label = "Header Label",
             .text = "Click Me",
             .layout = ElementLayout::Top,
-            .labelAlign = Align::Center,
+            .elementAlign = Align::Center,
             .stretch = StretchMode::Compact,
             .width = 150.0f
         };
@@ -4336,7 +4336,7 @@ void TestLabelAlignmentGeometryOptionA() {
             .label = "Header Label",
             .text = "Click Me",
             .layout = ElementLayout::Top,
-            .labelAlign = Align::End,
+            .elementAlign = Align::End,
             .stretch = StretchMode::Fill
         };
         Button::Render(recCanvas, widgetBounds, opts, UiSize::Md, false, false, false, darkTheme);
@@ -4349,7 +4349,31 @@ void TestLabelAlignmentGeometryOptionA() {
         }
     }
 
-    // 3. Button in Inline layout with StretchMode::Between & LabelFirst:
+    // 2b. Button in Top layout with Space stretch and elementAlign = End:
+    // Both Label and compact Button capsule (150px) align to the right edge of the 800px row
+    {
+        recCanvas.Reset();
+        ButtonOptions opts{
+            .label = "Header Label",
+            .text = "Click Me",
+            .layout = ElementLayout::Top,
+            .elementAlign = Align::End,
+            .stretch = StretchMode::Space,
+            .width = 150.0f
+        };
+        Button::Render(recCanvas, widgetBounds, opts, UiSize::Md, false, false, false, darkTheme);
+        const auto* call = recCanvas.FindTextBox("Header Label");
+        CHECK(call != nullptr);
+        if (call) {
+            CHECK_NEAR(call->bounds.x, 50.0f, 0.01f);
+            CHECK_NEAR(call->bounds.w, 800.0f, 0.01f);
+            CHECK_NEAR(call->alignX, 1.0f, 0.01f);
+            CHECK_NEAR(recCanvas.lastRoundRect.x, 700.0f, 0.01f);
+            CHECK_NEAR(recCanvas.lastRoundRect.w, 150.0f, 0.01f);
+        }
+    }
+
+    // 3. Button in Inline layout with StretchMode::Space & LabelFirst:
     // Label is docked at left edge (50px), Button capsule is docked at right edge (700px)
     {
         recCanvas.Reset();
@@ -4358,8 +4382,8 @@ void TestLabelAlignmentGeometryOptionA() {
             .text = "Action",
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::LabelFirst,
-            .labelAlign = Align::End,
-            .stretch = StretchMode::Between,
+            .elementAlign = Align::End,
+            .stretch = StretchMode::Space,
             .width = 150.0f
         };
         Button::Render(recCanvas, widgetBounds, opts, UiSize::Md, false, false, false, darkTheme);
@@ -4376,7 +4400,7 @@ void TestLabelAlignmentGeometryOptionA() {
         }
     }
 
-    // 4. InputField in Inline layout with StretchMode::Between & ControlFirst:
+    // 4. InputField in Inline layout with StretchMode::Space & ControlFirst:
     // Control box is docked at left edge (50px), Label is docked at far right edge (850 - measuredW)
     {
         recCanvas.Reset();
@@ -4385,7 +4409,7 @@ void TestLabelAlignmentGeometryOptionA() {
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::ControlFirst,
             .labelAlign = Align::Center,
-            .stretch = StretchMode::Between,
+            .stretch = StretchMode::Space,
             .width = 200.0f
         };
         InputField::Render(recCanvas, widgetBounds, "text", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
@@ -4421,7 +4445,7 @@ void TestLabelAlignmentGeometryOptionA() {
         }
     }
 
-    // 6. Switch in Inline layout with StretchMode::Between & ControlFirst:
+    // 6. Switch in Inline layout with StretchMode::Space & ControlFirst:
     // Track is at bounds.x (50px), Label is docked at far right edge
     {
         recCanvas.Reset();
@@ -4429,7 +4453,7 @@ void TestLabelAlignmentGeometryOptionA() {
             .label = "Power Switch",
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::ControlFirst,
-            .stretch = StretchMode::Between
+            .stretch = StretchMode::Space
         };
         Switch::Render(recCanvas, widgetBounds, false, opts, UiSize::Md, false, false, false, darkTheme);
         const auto* call = recCanvas.FindTextBox("Power Switch");
@@ -4442,7 +4466,7 @@ void TestLabelAlignmentGeometryOptionA() {
         }
     }
 
-    // 7. Checkbox in Inline layout with StretchMode::Between & ControlFirst:
+    // 7. Checkbox in Inline layout with StretchMode::Space & ControlFirst:
     // Checkbox is at bounds.x (50px), Label is docked at far right edge
     {
         recCanvas.Reset();
@@ -4450,7 +4474,7 @@ void TestLabelAlignmentGeometryOptionA() {
             .label = "Enable Feature",
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::ControlFirst,
-            .stretch = StretchMode::Between
+            .stretch = StretchMode::Space
         };
         Checkbox::Render(recCanvas, widgetBounds, false, opts, UiSize::Md, false, false, false, darkTheme);
         const auto* call = recCanvas.FindTextBox("Enable Feature");
@@ -4463,7 +4487,7 @@ void TestLabelAlignmentGeometryOptionA() {
         }
     }
 
-    // 8. Slider in Inline layout with StretchMode::Between & ControlFirst:
+    // 8. Slider in Inline layout with StretchMode::Space & ControlFirst:
     // Control is at bounds.x (50px), Header is docked at far right edge
     {
         recCanvas.Reset();
@@ -4472,7 +4496,7 @@ void TestLabelAlignmentGeometryOptionA() {
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::ControlFirst,
             .showValue = false,
-            .stretch = StretchMode::Between,
+            .stretch = StretchMode::Space,
             .width = 150.0f
         };
         Slider::Render(recCanvas, widgetBounds, 0.5f, 0.0f, 1.0f, opts, UiSize::Md, false, false, false, darkTheme);

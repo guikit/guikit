@@ -37,8 +37,8 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
         opts.iconPlacement,
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
-        static_cast<uint8_t>(opts.labelAlign),
-        opts.align,
+        static_cast<uint8_t>(opts.elementAlign),
+        opts.controlAlign,
         opts.active,
         static_cast<uint8_t>(opts.stretch),
         opts.width.value_or(0.0f),
@@ -86,8 +86,8 @@ Vec2 MeasureButtonCapsule(
     const bool hasIcon = opts.icon.IsValid();
     const bool hasCapsuleText = !effectiveCapsuleText.empty();
 
-    // Icon-only button with no label variants defaults to square
-    if (hasIcon && !hasCapsuleText && opts.labelVariants.empty()) {
+    // Icon-only button with no text variants defaults to square
+    if (hasIcon && !hasCapsuleText && opts.textVariants.empty()) {
         const float w = opts.width.value_or(m.defaultHeight);
         return {w, m.defaultHeight};
     }
@@ -101,8 +101,8 @@ Vec2 MeasureButtonCapsule(
         }
     }
 
-    // Evaluate all candidate label variants to ensure stable sizing across state changes
-    for (std::string_view var : opts.labelVariants) {
+    // Evaluate all candidate text variants to ensure stable sizing across state changes
+    for (std::string_view var : opts.textVariants) {
         if (var.empty()) continue;
         float varW = 0.0f;
         if (canvas) {
@@ -256,7 +256,7 @@ void Button::Render(
     Rect descRect;
 
     const Vec2 capSize = MeasureButtonCapsule(opts, effectiveCapsuleText, size, &canvas, theme);
-    const float alignFactor = (opts.labelAlign == Align::End) ? 1.0f : ((opts.labelAlign == Align::Center) ? 0.5f : 0.0f);
+    const float alignFactor = (opts.elementAlign == Align::End) ? 1.0f : ((opts.elementAlign == Align::Center) ? 0.5f : 0.0f);
 
     if (!hasExternal) {
         float capW = bounds.w;
@@ -424,9 +424,9 @@ void Button::Render(
         // Icon-only
         const float isz = m.iconSize;
         float iconX = capsuleRect.x + (capsuleRect.w - isz) * 0.5f;
-        if (opts.align == Align::Start) {
+        if (opts.controlAlign == Align::Start) {
             iconX = capsuleRect.x + m.paddingX;
-        } else if (opts.align == Align::End) {
+        } else if (opts.controlAlign == Align::End) {
             iconX = capsuleRect.x + capsuleRect.w - m.paddingX - isz;
         }
         const Rect iconBounds(
@@ -440,9 +440,9 @@ void Button::Render(
         const float availW = std::max(0.0f, capsuleRect.w - m.paddingX * 2.0f);
         const Rect textRect(capsuleRect.x + m.paddingX, capsuleRect.y, availW, capsuleRect.h);
         float alignX = 0.5f;
-        if (opts.align == Align::Start) {
+        if (opts.controlAlign == Align::Start) {
             alignX = 0.0f;
-        } else if (opts.align == Align::End) {
+        } else if (opts.controlAlign == Align::End) {
             alignX = 1.0f;
         }
         canvas.DrawTextBox(effectiveCapsuleText, textRect, m.fontSize, textCol, alignX, 0.5f);
@@ -455,10 +455,10 @@ void Button::Render(
             const float startY = capsuleRect.y + (capsuleRect.h - totalContentH) * 0.5f;
             float iconX = capsuleRect.x + (capsuleRect.w - m.iconSize) * 0.5f;
             float alignX = 0.5f;
-            if (opts.align == Align::Start) {
+            if (opts.controlAlign == Align::Start) {
                 iconX = capsuleRect.x + m.paddingX;
                 alignX = 0.0f;
-            } else if (opts.align == Align::End) {
+            } else if (opts.controlAlign == Align::End) {
                 iconX = capsuleRect.x + capsuleRect.w - m.paddingX - m.iconSize;
                 alignX = 1.0f;
             }
@@ -472,10 +472,10 @@ void Button::Render(
             const float startY = capsuleRect.y + (capsuleRect.h - totalContentH) * 0.5f;
             float iconX = capsuleRect.x + (capsuleRect.w - m.iconSize) * 0.5f;
             float alignX = 0.5f;
-            if (opts.align == Align::Start) {
+            if (opts.controlAlign == Align::Start) {
                 iconX = capsuleRect.x + m.paddingX;
                 alignX = 0.0f;
-            } else if (opts.align == Align::End) {
+            } else if (opts.controlAlign == Align::End) {
                 iconX = capsuleRect.x + capsuleRect.w - m.paddingX - m.iconSize;
                 alignX = 1.0f;
             }
@@ -496,11 +496,11 @@ void Button::Render(
             const float minStartX = capsuleRect.x + m.paddingX;
             const float maxStartX = capsuleRect.x + capsuleRect.w - m.paddingX - totalContentW;
             float startX = centeredStartX;
-            if (opts.align == Align::Start) {
+            if (opts.controlAlign == Align::Start) {
                 startX = minStartX;
-            } else if (opts.align == Align::End) {
+            } else if (opts.controlAlign == Align::End) {
                 startX = maxStartX;
-            } else if (!opts.labelVariants.empty() || capsuleRect.w < totalContentW + m.paddingX * 2.0f) {
+            } else if (!opts.textVariants.empty() || capsuleRect.w < totalContentW + m.paddingX * 2.0f) {
                 startX = minStartX;
             }
             const float iconY = capsuleRect.y + (capsuleRect.h - m.iconSize) * 0.5f;
@@ -521,11 +521,11 @@ void Button::Render(
             const float minStartX = capsuleRect.x + m.paddingX;
             const float maxStartX = capsuleRect.x + capsuleRect.w - m.paddingX - totalContentW;
             float startX = centeredStartX;
-            if (opts.align == Align::Start) {
+            if (opts.controlAlign == Align::Start) {
                 startX = minStartX;
-            } else if (opts.align == Align::End) {
+            } else if (opts.controlAlign == Align::End) {
                 startX = maxStartX;
-            } else if (!opts.labelVariants.empty() || capsuleRect.w < totalContentW + m.paddingX * 2.0f) {
+            } else if (!opts.textVariants.empty() || capsuleRect.w < totalContentW + m.paddingX * 2.0f) {
                 startX = minStartX;
             }
             const float iconY = capsuleRect.y + (capsuleRect.h - m.iconSize) * 0.5f;

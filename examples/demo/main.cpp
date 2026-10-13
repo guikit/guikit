@@ -145,7 +145,7 @@ int main(int argc, char* argv[]) {
     guikit::UiVariant btnVariant = guikit::UiVariant::Primary;
     bool btnHasIcon = true;
     guikit::Placement btnIconPlacement = guikit::Placement::Leading;
-    guikit::Align btnAlign = guikit::Align::Center;
+    guikit::Align btnControlAlign = guikit::Align::Center;
     size_t btnStretchIdx = 0; // Compact
     float btnWidth = 0.0f;    // 0 = auto
     bool btnDisabled = false;
@@ -155,7 +155,7 @@ int main(int argc, char* argv[]) {
     bool btnShowDesc = false;
     guikit::ElementLayout btnLayout = guikit::ElementLayout::Stacked;
     guikit::InlineOrder btnInlineOrder = guikit::InlineOrder::LabelFirst;
-    guikit::Align btnLabelAlign = guikit::Align::Start;
+    guikit::Align btnElementAlign = guikit::Align::Start;
 
     float testSliderVal = 65.0f;
     size_t testStepIdx = 2;
@@ -481,7 +481,7 @@ int main(int argc, char* argv[]) {
                     if (tb.ToolButton({
                         .label = heartbeatLabels[heartbeatIndex],
                         .icon = guikit::Icon::Refresh(),
-                        .labelVariants = heartbeatLabels,
+                        .textVariants = heartbeatLabels,
                         .disabled = !reactiveMode
                     })) {
                         heartbeatIndex = (heartbeatIndex + 1) % heartbeatLabels.size();
@@ -542,7 +542,7 @@ int main(int argc, char* argv[]) {
                                             .icon = icon,
                                             .variant = isSel ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
                                             .iconPlacement = guikit::Placement::Leading,
-                                            .align = guikit::Align::Start,
+                                            .controlAlign = guikit::Align::Start,
                                             .stretch = guikit::StretchMode::Fill,
                                             .disabled = false,
                                             .active = isSel,
@@ -642,18 +642,18 @@ int main(int argc, char* argv[]) {
                                                     ui.InvalidateAll();
                                                 }
 
-                                                size_t btnAlignIdx = static_cast<size_t>(btnLabelAlign);
-                                                if (ui.StepSlider(btnAlignIdx, labelAlignNames, {.label = "Label Alignment", .showTicks = true, .showLabels = true, .disabled = !btnHasExternal}).changed) {
-                                                    btnLabelAlign = static_cast<guikit::Align>(btnAlignIdx);
+                                                size_t btnAlignIdx = static_cast<size_t>(btnElementAlign);
+                                                if (ui.StepSlider(btnAlignIdx, labelAlignNames, {.label = "Element Alignment", .showTicks = true, .showLabels = true, .disabled = (!btnHasExternal && btnStretchIdx != 1)}).changed) {
+                                                    btnElementAlign = static_cast<guikit::Align>(btnAlignIdx);
                                                     ui.InvalidateAll();
                                                 }
 
                                                 if (ui.StepSlider(btnStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
                                                 if (ui.Slider(btnWidth, 0.0f, 400.0f, {.label = "Explicit Width", .format = (btnWidth > 0.0f) ? "%.0f px" : "Auto", .step = 10.0, .disabled = (btnStretchIdx == 2)}).changed) ui.InvalidateAll();
                                                 static constexpr std::array<std::string_view, 3> alignNames = {"Start (Left)", "Center", "End (Right)"};
-                                                size_t alignIdx = (btnAlign == guikit::Align::Start) ? 0 : ((btnAlign == guikit::Align::End) ? 2 : 1);
-                                                if (ui.StepSlider(alignIdx, alignNames, {.label = "Content Alignment", .showTicks = true, .showLabels = true}).changed) {
-                                                    btnAlign = (alignIdx == 0) ? guikit::Align::Start : ((alignIdx == 2) ? guikit::Align::End : guikit::Align::Center);
+                                                size_t alignIdx = (btnControlAlign == guikit::Align::Start) ? 0 : ((btnControlAlign == guikit::Align::End) ? 2 : 1);
+                                                if (ui.StepSlider(alignIdx, alignNames, {.label = "Control Alignment", .showTicks = true, .showLabels = true}).changed) {
+                                                    btnControlAlign = (alignIdx == 0) ? guikit::Align::Start : ((alignIdx == 2) ? guikit::Align::End : guikit::Align::Center);
                                                     ui.InvalidateAll();
                                                 }
                                                 if (ui.Switch(btnHasIcon, {.label = "Show Icon"}).changed) ui.InvalidateAll();
@@ -1010,8 +1010,8 @@ int main(int argc, char* argv[]) {
                                                         .iconPlacement = btnIconPlacement,
                                                         .layout = btnLayout,
                                                         .inlineOrder = btnInlineOrder,
-                                                        .labelAlign = btnLabelAlign,
-                                                        .align = btnAlign,
+                                                        .elementAlign = btnElementAlign,
+                                                        .controlAlign = btnControlAlign,
                                                         .stretch = static_cast<guikit::StretchMode>(btnStretchIdx),
                                                         .width = (btnStretchIdx != 2 && btnWidth > 0.0f) ? std::optional<float>(btnWidth) : std::nullopt,
                                                         .disabled = btnDisabled,
@@ -1242,9 +1242,9 @@ int main(int argc, char* argv[]) {
                                                 "    .iconPlacement = guikit::Placement::{},\n"
                                                 "    .layout = guikit::ElementLayout::{},\n"
                                                 "    .inlineOrder = guikit::InlineOrder::{},\n"
-                                                "    .labelAlign = guikit::Align::{},\n"
-                                                "    .align = guikit::Align::{},\n"
-                                                "    .labelVariants = {{}},\n"
+                                                "    .elementAlign = guikit::Align::{},\n"
+                                                "    .controlAlign = guikit::Align::{},\n"
+                                                "    .textVariants = {{}},\n"
                                                 "    .stretch = guikit::StretchMode::{},\n"
                                                 "    .width = {},\n"
                                                 "    .disabled = {},\n"
@@ -1262,8 +1262,8 @@ int main(int argc, char* argv[]) {
                                                 placementName(btnIconPlacement),
                                                 elementLayoutEnumName(btnLayout),
                                                 inlineOrderEnumName(btnInlineOrder),
-                                                labelAlignEnumName(btnLabelAlign),
-                                                alignName(btnAlign),
+                                                labelAlignEnumName(btnElementAlign),
+                                                alignName(btnControlAlign),
                                                 stretchModeEnumName(static_cast<guikit::StretchMode>(btnStretchIdx)),
                                                 (btnStretchIdx != 2 && btnWidth > 0.0f) ? std::format("{:.1f}f", btnWidth) : "std::nullopt",
                                                 btnDisabled ? "true" : "false",

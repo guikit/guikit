@@ -102,7 +102,7 @@ Response Slider::Run(
                 trackWidth = std::min(defaultTrackW, availTrackW);
             }
             if (opts.inlineOrder == InlineOrder::LabelFirst) {
-                if (opts.stretch == StretchMode::Between) {
+                if (opts.stretch == StretchMode::Space) {
                     trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
                 } else {
                     trackStartX = prevBounds.x + textW + gap + halfThumb;
@@ -114,7 +114,7 @@ Response Slider::Run(
             if (opts.stretch == StretchMode::Fill) {
                 trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
                 trackStartX = prevBounds.x + halfThumb;
-            } else if (opts.stretch == StretchMode::Between) {
+            } else if (opts.stretch == StretchMode::Space) {
                 trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
                 trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
             } else { // Compact
@@ -385,7 +385,7 @@ void Slider::Render(
         if (opts.stretch == StretchMode::Fill) {
             trackWidth = availTrackW;
             trackStartX = bounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Between) {
+        } else if (opts.stretch == StretchMode::Space) {
             trackWidth = std::min(defaultTrackW, availTrackW);
             trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
         } else { // Compact
@@ -395,7 +395,7 @@ void Slider::Render(
 
         const float fullTrackW = trackWidth + m.thumbSize;
         const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(fullTrackW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
 
         float curY = bounds.y;
         if (hasHeader) {
@@ -412,7 +412,7 @@ void Slider::Render(
         if (opts.stretch == StretchMode::Fill) {
             trackWidth = availTrackW;
             trackStartX = bounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Between) {
+        } else if (opts.stretch == StretchMode::Space) {
             trackWidth = std::min(defaultTrackW, availTrackW);
             trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
         } else { // Compact
@@ -422,7 +422,7 @@ void Slider::Render(
 
         const float fullTrackW = trackWidth + m.thumbSize;
         const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(fullTrackW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
 
         float curY = bounds.y;
         if (hasHeader) {
@@ -440,7 +440,7 @@ void Slider::Render(
         if (opts.stretch == StretchMode::Fill) {
             trackWidth = availTrackW;
             trackStartX = bounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Between) {
+        } else if (opts.stretch == StretchMode::Space) {
             trackWidth = std::min(defaultTrackW, availTrackW);
             trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
         } else { // Compact
@@ -450,7 +450,7 @@ void Slider::Render(
 
         const float fullTrackW = trackWidth + m.thumbSize;
         const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(fullTrackW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
 
         float curY = bounds.y;
         centerY = curY + trackRowH * 0.5f;
@@ -485,7 +485,7 @@ void Slider::Render(
             // Control left, label right
             trackStartX = bounds.x + halfThumb;
             float textX = bounds.x + trackWidth + m.thumbSize + gap;
-            if (opts.stretch == StretchMode::Between) {
+            if (opts.stretch == StretchMode::Space) {
                 textX = std::max(bounds.x + trackWidth + m.thumbSize + gap, bounds.x + bounds.w - measuredTextW);
             }
             textRect = Rect(textX, bounds.y, measuredTextW, bounds.h);
@@ -627,7 +627,7 @@ Response StepSlider::Run(
                 trackWidth = std::min(defaultTrackW, availTrackW);
             }
             if (opts.inlineOrder == InlineOrder::LabelFirst) {
-                if (opts.stretch == StretchMode::Between) {
+                if (opts.stretch == StretchMode::Space) {
                     trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
                 } else {
                     trackStartX = prevBounds.x + textW + gap + halfThumb;
@@ -639,7 +639,7 @@ Response StepSlider::Run(
             if (opts.stretch == StretchMode::Fill) {
                 trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
                 trackStartX = prevBounds.x + halfThumb;
-            } else if (opts.stretch == StretchMode::Between) {
+            } else if (opts.stretch == StretchMode::Space) {
                 trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
                 trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
             } else { // Compact
@@ -867,7 +867,7 @@ void StepSlider::Render(
         if (opts.stretch == StretchMode::Fill) {
             trackWidth = availTrackW;
             trackStartX = bounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Between) {
+        } else if (opts.stretch == StretchMode::Space) {
             trackWidth = std::min(defaultTrackW, availTrackW);
             trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
         } else { // Compact
@@ -877,7 +877,7 @@ void StepSlider::Render(
 
         const float fullTrackW = trackWidth + m.thumbSize;
         const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(fullTrackW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
 
         float curY = bounds.y;
         if (hasHeader) {
@@ -894,7 +894,7 @@ void StepSlider::Render(
         if (opts.stretch == StretchMode::Fill) {
             trackWidth = availTrackW;
             trackStartX = bounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Between) {
+        } else if (opts.stretch == StretchMode::Space) {
             trackWidth = std::min(defaultTrackW, availTrackW);
             trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
         } else { // Compact
@@ -904,7 +904,7 @@ void StepSlider::Render(
 
         const float fullTrackW = trackWidth + m.thumbSize;
         const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(fullTrackW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
 
         float curY = bounds.y;
         if (hasHeader) {
@@ -922,7 +922,7 @@ void StepSlider::Render(
         if (opts.stretch == StretchMode::Fill) {
             trackWidth = availTrackW;
             trackStartX = bounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Between) {
+        } else if (opts.stretch == StretchMode::Space) {
             trackWidth = std::min(defaultTrackW, availTrackW);
             trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
         } else { // Compact
@@ -932,7 +932,7 @@ void StepSlider::Render(
 
         const float fullTrackW = trackWidth + m.thumbSize;
         const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(fullTrackW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
 
         float curY = bounds.y;
         centerY = curY + trackRowH * 0.5f;
@@ -967,7 +967,7 @@ void StepSlider::Render(
             // Control left, label right
             trackStartX = bounds.x + halfThumb;
             float textX = bounds.x + trackWidth + m.thumbSize + gap;
-            if (opts.stretch == StretchMode::Between) {
+            if (opts.stretch == StretchMode::Space) {
                 textX = std::max(bounds.x + trackWidth + m.thumbSize + gap, bounds.x + bounds.w - measuredTextW);
             }
             textRect = Rect(textX, bounds.y, measuredTextW, bounds.h);

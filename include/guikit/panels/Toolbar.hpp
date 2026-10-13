@@ -21,9 +21,9 @@ struct ToolButtonOptions {
     Icon icon{};
     UiVariant variant{UiVariant::Ghost};
     Placement iconPlacement{Placement::Leading};
-    Align align{Align::Center};  ///< Content horizontal alignment (Start = left, Center, End = right)
-    LabelVariants labelVariants{};
-    StretchMode stretch{StretchMode::Compact};  ///< Sizing behavior: Compact, Between, Fill
+    Align controlAlign{Align::Center};  ///< Content horizontal alignment (Start = left, Center, End = right)
+    TextVariants textVariants{};
+    StretchMode stretch{StretchMode::Compact};  ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};       ///< Explicit capsule width in pixels
     std::optional<float> minWidth{std::nullopt};    ///< Minimum capsule width in pixels
     bool disabled{false};

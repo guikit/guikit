@@ -305,8 +305,8 @@ void InputField::Render(
     if (opts.layout == ElementLayout::Stacked) {
         const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
         const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(boxW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
-        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float boxX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - boxW) : bounds.x;
 
         float curY = bounds.y;
         if (hasLabel) {
@@ -321,8 +321,8 @@ void InputField::Render(
     } else if (opts.layout == ElementLayout::Top) {
         const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
         const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(boxW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
-        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float boxX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - boxW) : bounds.x;
 
         float curY = bounds.y;
         if (hasLabel) {
@@ -338,8 +338,8 @@ void InputField::Render(
     } else if (opts.layout == ElementLayout::Bottom) {
         const float boxW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, naturalBoxW);
         const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(boxW, measuredTextW));
-        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
-        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float boxX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - boxW) : bounds.x;
 
         float curY = bounds.y;
         boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
@@ -384,7 +384,7 @@ void InputField::Render(
             boxRect = Rect(bounds.x, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
 
             float textX = bounds.x + boxW + gap;
-            if (opts.stretch == StretchMode::Between) {
+            if (opts.stretch == StretchMode::Space) {
                 textX = std::max(bounds.x + boxW + gap, bounds.x + bounds.w - measuredTextW);
             }
             float textY = startY;

@@ -226,8 +226,8 @@ void Checkbox::Render(
             hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
         );
         const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(m.boxSize, naturalTextW));
-        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
-        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.boxSize) : bounds.x;
+        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float boxX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - m.boxSize) : bounds.x;
 
         float curY = bounds.y;
         if (hasLabel) {
@@ -247,8 +247,8 @@ void Checkbox::Render(
             hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
         );
         const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(m.boxSize, naturalTextW));
-        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
-        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.boxSize) : bounds.x;
+        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float boxX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - m.boxSize) : bounds.x;
 
         float curY = bounds.y;
         if (hasLabel) {
@@ -269,8 +269,8 @@ void Checkbox::Render(
             hasDesc ? canvas.MeasureText(opts.description, m.descFontSize).x : 0.0f
         );
         const float blockW = (opts.stretch == StretchMode::Fill) ? bounds.w : std::min(bounds.w, std::max(m.boxSize, naturalTextW));
-        const float blockX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - blockW) : bounds.x;
-        const float boxX = (opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - m.boxSize) : bounds.x;
+        const float blockX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - blockW) : bounds.x;
+        const float boxX = (opts.stretch == StretchMode::Space) ? (bounds.x + bounds.w - m.boxSize) : bounds.x;
 
         float curY = bounds.y;
         boxRect = Rect(boxX, curY, m.boxSize, m.boxSize);
@@ -313,7 +313,7 @@ void Checkbox::Render(
             boxRect = Rect(bounds.x, boxY, m.boxSize, m.boxSize);
 
             float textX = bounds.x + m.boxSize + m.gap;
-            if (opts.stretch == StretchMode::Between) {
+            if (opts.stretch == StretchMode::Space) {
                 textX = std::max(bounds.x + m.boxSize + m.gap, bounds.x + bounds.w - naturalTextW);
             }
 

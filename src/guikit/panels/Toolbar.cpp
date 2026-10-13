@@ -124,8 +124,8 @@ Response Toolbar::ToolButton(
     bOpts.icon = opts.icon;
     bOpts.variant = opts.variant;
     bOpts.iconPlacement = opts.iconPlacement;
-    bOpts.align = opts.align;
-    bOpts.labelVariants = opts.labelVariants;
+    bOpts.controlAlign = opts.controlAlign;
+    bOpts.textVariants = opts.textVariants;
     bOpts.stretch = opts.stretch;
     bOpts.width = opts.width;
     bOpts.minWidth = opts.minWidth;
