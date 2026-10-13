@@ -3757,6 +3757,80 @@ void TestButtonAlignmentAndProceduralIcons() {
     }
     ui.EndFrame(canvas);
 
+    // Verify that Content Alignment (.align) affects only content inside button capsule,
+    // and does NOT move the button capsule relative to bounds or external labels
+    class RecordingCanvas : public ThorCanvas {
+    public:
+        void DrawRoundRect(Rect rect, float radius, Color fill, Color stroke = Color(0, 0, 0, 0), float strokeWidth = 0.0f) override {
+            lastCapsuleRect = rect;
+            ThorCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
+        }
+        void DrawTextBox(std::string_view text, Rect bounds, float fontSize, Color color, float alignX = 0.0f, float alignY = 0.5f) override {
+            lastTextBounds = bounds;
+            lastAlignX = alignX;
+            ThorCanvas::DrawTextBox(text, bounds, fontSize, color, alignX, alignY);
+        }
+        Rect lastCapsuleRect{};
+        Rect lastTextBounds{};
+        float lastAlignX{0.0f};
+    };
+
+    RecordingCanvas recCanvas;
+    std::vector<uint32_t> recPixels(800 * 600, 0);
+    recCanvas.SetTarget(recPixels.data(), 800, 600, 800);
+    const UiTheme& darkTheme = UiTheme::Dark();
+    const Rect widgetBounds(50.0f, 100.0f, 400.0f, 80.0f);
+
+    ButtonOptions bStart{
+        .label = "Action Label",
+        .text = "Click Action",
+        .layout = ElementLayout::Stacked,
+        .align = Align::Start,
+        .stretch = StretchMode::Compact,
+        .width = 150.0f
+    };
+    ButtonOptions bCenter{
+        .label = "Action Label",
+        .text = "Click Action",
+        .layout = ElementLayout::Stacked,
+        .align = Align::Center,
+        .stretch = StretchMode::Compact,
+        .width = 150.0f
+    };
+    ButtonOptions bEnd{
+        .label = "Action Label",
+        .text = "Click Action",
+        .layout = ElementLayout::Stacked,
+        .align = Align::End,
+        .stretch = StretchMode::Compact,
+        .width = 150.0f
+    };
+
+    Button::Render(recCanvas, widgetBounds, bStart, UiSize::Md, false, false, false, darkTheme);
+    const Rect capStart = recCanvas.lastCapsuleRect;
+    const float alignXStart = recCanvas.lastAlignX;
+
+    Button::Render(recCanvas, widgetBounds, bCenter, UiSize::Md, false, false, false, darkTheme);
+    const Rect capCenter = recCanvas.lastCapsuleRect;
+    const float alignXCenter = recCanvas.lastAlignX;
+
+    Button::Render(recCanvas, widgetBounds, bEnd, UiSize::Md, false, false, false, darkTheme);
+    const Rect capEnd = recCanvas.lastCapsuleRect;
+    const float alignXEnd = recCanvas.lastAlignX;
+
+    // Capsule positions must be strictly identical (not shifted horizontally by .align)
+    CHECK_NEAR(capStart.x, widgetBounds.x, 0.01f);
+    CHECK_NEAR(capCenter.x, widgetBounds.x, 0.01f);
+    CHECK_NEAR(capEnd.x, widgetBounds.x, 0.01f);
+    CHECK_NEAR(capStart.w, 150.0f, 0.01f);
+    CHECK_NEAR(capCenter.w, 150.0f, 0.01f);
+    CHECK_NEAR(capEnd.w, 150.0f, 0.01f);
+
+    // Meanwhile, text content alignment inside the capsule must reflect .align (0.0f, 0.5f, 1.0f)
+    CHECK_NEAR(alignXStart, 0.0f, 0.01f);
+    CHECK_NEAR(alignXCenter, 0.5f, 0.01f);
+    CHECK_NEAR(alignXEnd, 1.0f, 0.01f);
+
     std::cout << "  [PASS] TestButtonAlignmentAndProceduralIcons completed\n";
 }
 
