@@ -4439,6 +4439,45 @@ void TestLabelAlignmentGeometryOptionA() {
         }
     }
 
+    // 3b. Button in Top layout with StretchMode::Fill & .width = 50.0f (50% of 800px = 400px) & Align::Center:
+    {
+        recCanvas.Reset();
+        ButtonOptions opts{
+            .label = "Header Label",
+            .text = "Action",
+            .layout = ElementLayout::Top,
+            .elementAlign = Align::Center,
+            .stretch = StretchMode::Fill,
+            .width = 50.0f
+        };
+        Button::Render(recCanvas, widgetBounds, opts, UiSize::Md, false, false, false, darkTheme);
+        CHECK_NEAR(recCanvas.lastRoundRect.w, 400.0f, 0.01f);
+        CHECK_NEAR(recCanvas.lastRoundRect.x, 250.0f, 0.01f); // 50 + (800 - 400) * 0.5
+    }
+
+    // 3c. Button in Inline layout with StretchMode::Fill & .width = 90.0f (90% of 800px = 720px):
+    // Long label must be cropped with "..." to fit inside remaining width (800 - 720 - gap)
+    {
+        recCanvas.Reset();
+        ButtonOptions opts{
+            .label = "Very Long Setting Title That Exceeds Available Remaining Width",
+            .text = "Action",
+            .layout = ElementLayout::Inline,
+            .inlineOrder = InlineOrder::LabelFirst,
+            .stretch = StretchMode::Fill,
+            .width = 90.0f
+        };
+        Button::Render(recCanvas, widgetBounds, opts, UiSize::Md, false, false, false, darkTheme);
+        CHECK_NEAR(recCanvas.lastRoundRect.w, 720.0f, 0.01f);
+        CHECK_NEAR(recCanvas.lastRoundRect.x, 130.0f, 0.01f); // 50 + 800 - 720
+        CHECK(!recCanvas.textBoxCalls.empty());
+        if (!recCanvas.textBoxCalls.empty()) {
+            const auto& firstCall = recCanvas.textBoxCalls.front();
+            CHECK(firstCall.text.ends_with("..."));
+            CHECK(firstCall.bounds.Right() <= recCanvas.lastRoundRect.x);
+        }
+    }
+
     // 4. InputField in Inline layout with StretchMode::Space & ControlFirst:
     // Control box is docked at left edge (50px), Label is docked at far right edge (850 - measuredW)
     {

@@ -151,7 +151,8 @@ int main(int argc, char* argv[]) {
     guikit::Placement btnIconPlacement = guikit::Placement::Leading;
     guikit::Align btnControlAlign = guikit::Align::Center;
     size_t btnStretchIdx = 0; // Compact
-    float btnWidth = 0.0f;    // 0 = auto
+    float btnWidth = 0.0f;    // 0 = auto (px in Compact/Space)
+    float btnFillPct = 50.0f; // 50% default in Fill mode
     bool btnDisabled = false;
     int btnClicks = 0;
     float btnCornerRadius = 6.0f;
@@ -665,13 +666,17 @@ int main(int argc, char* argv[]) {
                                                 }
 
                                                 size_t btnAlignIdx = static_cast<size_t>(btnElementAlign);
-                                                if (ui.StepSlider(btnAlignIdx, labelAlignNames, {.label = "Element Alignment", .showTicks = true, .showLabels = true, .disabled = (!btnHasExternal && btnStretchIdx != 1)}).changed) {
+                                                if (ui.StepSlider(btnAlignIdx, labelAlignNames, {.label = "Element Alignment", .showTicks = true, .showLabels = true, .disabled = (!btnHasExternal && btnStretchIdx == 0)}).changed) {
                                                     btnElementAlign = static_cast<guikit::Align>(btnAlignIdx);
                                                     ui.InvalidateAll();
                                                 }
 
                                                 if (ui.StepSlider(btnStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(btnWidth, 0.0f, 400.0f, {.label = "Explicit Width", .format = (btnWidth > 0.0f) ? "%.0f px" : "Auto", .step = 10.0, .disabled = (btnStretchIdx == 2)}).changed) ui.InvalidateAll();
+                                                if (btnStretchIdx == 2) {
+                                                    if (ui.Slider(btnFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .format = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
+                                                } else {
+                                                    if (ui.Slider(btnWidth, 0.0f, 400.0f, {.label = "Explicit Width", .format = (btnWidth > 0.0f) ? "%.0f px" : "Auto", .step = 10.0f}).changed) ui.InvalidateAll();
+                                                }
                                                 static constexpr std::array<std::string_view, 3> alignNames = {"Start (Left)", "Center", "End (Right)"};
                                                 size_t alignIdx = (btnControlAlign == guikit::Align::Start) ? 0 : ((btnControlAlign == guikit::Align::End) ? 2 : 1);
                                                 if (ui.StepSlider(alignIdx, alignNames, {.label = "Control Alignment", .showTicks = true, .showLabels = true}).changed) {
@@ -1081,7 +1086,7 @@ int main(int argc, char* argv[]) {
                                                         .elementAlign = btnElementAlign,
                                                         .controlAlign = btnControlAlign,
                                                         .stretch = static_cast<guikit::StretchMode>(btnStretchIdx),
-                                                        .width = (btnStretchIdx != 2 && btnWidth > 0.0f) ? std::optional<float>(btnWidth) : std::nullopt,
+                                                        .width = (btnStretchIdx == 2) ? std::optional<float>(btnFillPct) : ((btnWidth > 0.0f) ? std::optional<float>(btnWidth) : std::nullopt),
                                                         .disabled = btnDisabled,
                                                         .size = controlsSize,
                                                         .radius = btnCornerRadius
@@ -1335,7 +1340,7 @@ int main(int argc, char* argv[]) {
                                                 labelAlignEnumName(btnElementAlign),
                                                 alignName(btnControlAlign),
                                                 stretchModeEnumName(static_cast<guikit::StretchMode>(btnStretchIdx)),
-                                                (btnStretchIdx != 2 && btnWidth > 0.0f) ? std::format("{:.1f}f", btnWidth) : "std::nullopt",
+                                                (btnStretchIdx == 2) ? std::format("{:.1f}f", btnFillPct) : ((btnWidth > 0.0f) ? std::format("{:.1f}f", btnWidth) : "std::nullopt"),
                                                 btnDisabled ? "true" : "false",
                                                 sizeName(controlsSize),
                                                 btnCornerRadius

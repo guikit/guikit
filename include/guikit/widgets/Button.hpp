@@ -28,7 +28,7 @@ struct ButtonOptions {
     Align controlAlign{Align::Center};                ///< Content horizontal alignment inside button capsule (Start, Center, End)
     TextVariants textVariants{};                      ///< Candidate capsule text strings for stable intrinsic width sizing
     StretchMode stretch{StretchMode::Compact};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Explicit capsule width in points (nullopt = auto from content)
+    std::optional<float> width{std::nullopt};      ///< Capsule width: in points for Compact/Space (nullopt = auto), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum capsule width constraint in points
     bool disabled{false};
     bool active{false};
