@@ -21,8 +21,8 @@ struct ButtonOptions {
     Icon icon{};
     UiVariant variant{UiVariant::Secondary};
     Placement iconPlacement{Placement::Leading};
-    FormLayout layout{FormLayout::Stacked};        ///< Layout geometry: Stacked, Top, Bottom, Inline
-    ElementOrder placement{ElementOrder::Leading}; ///< Sequencing order: Leading (Text first), Trailing (Control first)
+    WidgetLayout layout{WidgetLayout::Stacked};    ///< Layout geometry: Stacked, Top, Bottom, Inline
+    ContentOrder order{ContentOrder::Leading};     ///< Sequencing order: Leading (Text first), Trailing (Control first)
     Align labelAlign{Align::Start};                ///< Label and description text alignment (Start, Center, End)
     Align align{Align::Center};   ///< Content horizontal alignment inside button capsule (Start = left, Center, End = right)
     LabelVariants labelVariants{};

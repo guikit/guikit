@@ -28,16 +28,16 @@ enum class Placement : uint8_t {
     Bottom      ///< Placed below primary element
 };
 
-/// Form layout structure for widgets with external labels/descriptions.
-enum class FormLayout : uint8_t {
+/// Compound layout structure for widgets with external labels/descriptions.
+enum class WidgetLayout : uint8_t {
     Stacked,  ///< Label on top, control in middle, Description on bottom
     Top,      ///< Label and Description above control
     Bottom,   ///< Label and Description below control
     Inline    ///< Horizontal inline row: Label and control side-by-side
 };
 
-/// Sequencing order between external text and interactive control.
-enum class ElementOrder : uint8_t {
+/// Sequencing order between external text and interactive control content.
+enum class ContentOrder : uint8_t {
     Leading,   ///< Text first (left / start), control second (right / end)
     Trailing   ///< Control first (left / start), text second (right / end)
 };

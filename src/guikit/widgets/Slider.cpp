@@ -83,7 +83,7 @@ Response Slider::Run(
         float trackStartX = prevBounds.x + halfThumb;
         float trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
 
-        if (opts.layout == FormLayout::Inline) {
+        if (opts.layout == WidgetLayout::Inline) {
             float textW = 0.0f;
             if (!opts.label.empty()) {
                 textW += static_cast<float>(opts.label.size()) * (m.labelFontSize * 0.55f);
@@ -101,7 +101,7 @@ Response Slider::Run(
             } else {
                 trackWidth = std::min(defaultTrackW, availTrackW);
             }
-            if (opts.placement == ElementOrder::Leading) {
+            if (opts.order == ContentOrder::Leading) {
                 if (opts.stretch == StretchMode::Between) {
                     trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
                 } else {
@@ -118,7 +118,7 @@ Response Slider::Run(
                     trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
                 }
                 trackStartX = prevBounds.x + halfThumb;
-            } else if (opts.stretch == StretchMode::Between || opts.placement == ElementOrder::Trailing) {
+            } else if (opts.stretch == StretchMode::Between || opts.order == ContentOrder::Trailing) {
                 trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
                 trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
             } else { // Compact
@@ -230,7 +230,7 @@ Response Slider::Run(
         opts.variant,
         static_cast<uint8_t>(opts.stretch),
         static_cast<uint8_t>(opts.layout),
-        static_cast<uint8_t>(opts.placement),
+        static_cast<uint8_t>(opts.order),
         static_cast<uint8_t>(opts.labelAlign),
         opts.width.value_or(0.0f),
         opts.showValue,
@@ -278,16 +278,16 @@ Vec2 Slider::Measure(
     const float descH = hasDesc ? (m.descGap + m.labelFontSize * 1.1f) : 0.0f;
     const float defaultTrackW = opts.width.value_or(m.defaultWidth) + m.thumbSize;
 
-    if (opts.layout == FormLayout::Stacked) {
+    if (opts.layout == WidgetLayout::Stacked) {
         float totalH = trackH;
         if (hasHeader) totalH += headerH + m.labelGap;
         if (hasDesc) totalH += descH;
         return Vec2{defaultTrackW, totalH};
-    } else if (opts.layout == FormLayout::Top) {
+    } else if (opts.layout == WidgetLayout::Top) {
         return Vec2{defaultTrackW, trackH + m.labelGap + headerH + descH};
-    } else if (opts.layout == FormLayout::Bottom) {
+    } else if (opts.layout == WidgetLayout::Bottom) {
         return Vec2{defaultTrackW, trackH + m.descGap + headerH + descH};
-    } else { // FormLayout::Inline
+    } else { // WidgetLayout::Inline
         float textW = 0.0f;
         if (!opts.label.empty()) {
             if (canvas) {
@@ -378,7 +378,7 @@ void Slider::Render(
     float trackWidth = 0.0f;
     float centerY = bounds.y + trackRowH * 0.5f;
 
-    if (opts.layout == FormLayout::Stacked) {
+    if (opts.layout == WidgetLayout::Stacked) {
         float curY = bounds.y;
         if (hasHeader) {
             headerRect = Rect(bounds.x, curY, bounds.w, headerH);
@@ -394,14 +394,14 @@ void Slider::Render(
         if (opts.stretch == StretchMode::Fill) {
             trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
             trackStartX = bounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Between || opts.placement == ElementOrder::Trailing) {
+        } else if (opts.stretch == StretchMode::Between || opts.order == ContentOrder::Trailing) {
             trackWidth = std::min(defaultTrackW, availTrackW);
             trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
         } else { // Compact
             trackWidth = std::min(defaultTrackW, availTrackW);
             trackStartX = bounds.x + halfThumb;
         }
-    } else if (opts.layout == FormLayout::Top) {
+    } else if (opts.layout == WidgetLayout::Top) {
         float curY = bounds.y;
         if (hasHeader) {
             headerRect = Rect(bounds.x, curY, bounds.w, headerH);
@@ -418,14 +418,14 @@ void Slider::Render(
         if (opts.stretch == StretchMode::Fill) {
             trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
             trackStartX = bounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Between || opts.placement == ElementOrder::Trailing) {
+        } else if (opts.stretch == StretchMode::Between || opts.order == ContentOrder::Trailing) {
             trackWidth = std::min(defaultTrackW, availTrackW);
             trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
         } else { // Compact
             trackWidth = std::min(defaultTrackW, availTrackW);
             trackStartX = bounds.x + halfThumb;
         }
-    } else if (opts.layout == FormLayout::Bottom) {
+    } else if (opts.layout == WidgetLayout::Bottom) {
         float curY = bounds.y;
         centerY = curY + trackRowH * 0.5f;
         curY += trackRowH + m.descGap;
@@ -441,14 +441,14 @@ void Slider::Render(
         if (opts.stretch == StretchMode::Fill) {
             trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
             trackStartX = bounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Between || opts.placement == ElementOrder::Trailing) {
+        } else if (opts.stretch == StretchMode::Between || opts.order == ContentOrder::Trailing) {
             trackWidth = std::min(defaultTrackW, availTrackW);
             trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
         } else { // Compact
             trackWidth = std::min(defaultTrackW, availTrackW);
             trackStartX = bounds.x + halfThumb;
         }
-    } else { // FormLayout::Inline
+    } else { // WidgetLayout::Inline
         centerY = bounds.y + bounds.h * 0.5f;
         float textW = 0.0f;
         if (!opts.label.empty()) {
@@ -470,7 +470,7 @@ void Slider::Render(
         }
 
         Rect textRect;
-        if (opts.placement == ElementOrder::Leading) {
+        if (opts.order == ContentOrder::Leading) {
             // Text left, track right
             textRect = Rect(bounds.x, bounds.y, textW, bounds.h);
             if (opts.stretch == StretchMode::Between) {
@@ -511,7 +511,7 @@ void Slider::Render(
             float valX = headerRect.Right() - valDims.x;
             Rect lblRect = Rect(headerRect.x, headerRect.y, std::max(0.0f, headerRect.w - valDims.x - 8.0f), headerRect.h);
 
-            if (opts.placement == ElementOrder::Trailing && opts.layout != FormLayout::Inline) {
+            if (opts.order == ContentOrder::Trailing && opts.layout != WidgetLayout::Inline) {
                 valX = headerRect.x;
                 lblRect = Rect(headerRect.x + valDims.x + 8.0f, headerRect.y, std::max(0.0f, headerRect.w - valDims.x - 8.0f), headerRect.h);
             }
@@ -610,7 +610,7 @@ Response StepSlider::Run(
         float trackStartX = prevBounds.x + halfThumb;
         float trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
 
-        if (opts.layout == FormLayout::Inline) {
+        if (opts.layout == WidgetLayout::Inline) {
             float textW = 0.0f;
             if (!opts.label.empty()) {
                 textW += static_cast<float>(opts.label.size()) * (m.labelFontSize * 0.55f);
@@ -628,7 +628,7 @@ Response StepSlider::Run(
             } else {
                 trackWidth = std::min(defaultTrackW, availTrackW);
             }
-            if (opts.placement == ElementOrder::Leading) {
+            if (opts.order == ContentOrder::Leading) {
                 if (opts.stretch == StretchMode::Between) {
                     trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
                 } else {
@@ -645,7 +645,7 @@ Response StepSlider::Run(
                     trackWidth = std::max(1.0f, prevBounds.w - m.thumbSize);
                 }
                 trackStartX = prevBounds.x + halfThumb;
-            } else if (opts.stretch == StretchMode::Between || opts.placement == ElementOrder::Trailing) {
+            } else if (opts.stretch == StretchMode::Between || opts.order == ContentOrder::Trailing) {
                 trackWidth = std::min(defaultTrackW, std::max(1.0f, prevBounds.w - m.thumbSize));
                 trackStartX = prevBounds.x + prevBounds.w - m.thumbSize - trackWidth + halfThumb;
             } else { // Compact
@@ -730,7 +730,7 @@ Response StepSlider::Run(
         opts.variant,
         static_cast<uint8_t>(opts.stretch),
         static_cast<uint8_t>(opts.layout),
-        static_cast<uint8_t>(opts.placement),
+        static_cast<uint8_t>(opts.order),
         static_cast<uint8_t>(opts.labelAlign),
         opts.width.value_or(0.0f),
         opts.showTicks,
@@ -777,16 +777,16 @@ Vec2 StepSlider::Measure(
     const float descH = hasDesc ? (m.descGap + m.labelFontSize * 1.1f) : 0.0f;
     const float defaultTrackW = opts.width.value_or(m.defaultWidth) + m.thumbSize;
 
-    if (opts.layout == FormLayout::Stacked) {
+    if (opts.layout == WidgetLayout::Stacked) {
         float totalH = trackH;
         if (hasHeader) totalH += headerH + m.labelGap;
         if (hasDesc) totalH += descH;
         return Vec2{defaultTrackW, totalH};
-    } else if (opts.layout == FormLayout::Top) {
+    } else if (opts.layout == WidgetLayout::Top) {
         return Vec2{defaultTrackW, trackH + m.labelGap + headerH + descH};
-    } else if (opts.layout == FormLayout::Bottom) {
+    } else if (opts.layout == WidgetLayout::Bottom) {
         return Vec2{defaultTrackW, trackH + m.descGap + headerH + descH};
-    } else { // FormLayout::Inline
+    } else { // WidgetLayout::Inline
         float textW = 0.0f;
         if (!opts.label.empty()) {
             if (canvas) {
@@ -862,7 +862,7 @@ void StepSlider::Render(
     float trackWidth = 0.0f;
     float centerY = bounds.y + trackRowH * 0.5f;
 
-    if (opts.layout == FormLayout::Stacked) {
+    if (opts.layout == WidgetLayout::Stacked) {
         float curY = bounds.y;
         if (hasHeader) {
             headerRect = Rect(bounds.x, curY, bounds.w, headerH);
@@ -878,14 +878,14 @@ void StepSlider::Render(
         if (opts.stretch == StretchMode::Fill) {
             trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
             trackStartX = bounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Between || opts.placement == ElementOrder::Trailing) {
+        } else if (opts.stretch == StretchMode::Between || opts.order == ContentOrder::Trailing) {
             trackWidth = std::min(defaultTrackW, availTrackW);
             trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
         } else { // Compact
             trackWidth = std::min(defaultTrackW, availTrackW);
             trackStartX = bounds.x + halfThumb;
         }
-    } else if (opts.layout == FormLayout::Top) {
+    } else if (opts.layout == WidgetLayout::Top) {
         float curY = bounds.y;
         if (hasHeader) {
             headerRect = Rect(bounds.x, curY, bounds.w, headerH);
@@ -902,14 +902,14 @@ void StepSlider::Render(
         if (opts.stretch == StretchMode::Fill) {
             trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
             trackStartX = bounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Between || opts.placement == ElementOrder::Trailing) {
+        } else if (opts.stretch == StretchMode::Between || opts.order == ContentOrder::Trailing) {
             trackWidth = std::min(defaultTrackW, availTrackW);
             trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
         } else { // Compact
             trackWidth = std::min(defaultTrackW, availTrackW);
             trackStartX = bounds.x + halfThumb;
         }
-    } else if (opts.layout == FormLayout::Bottom) {
+    } else if (opts.layout == WidgetLayout::Bottom) {
         float curY = bounds.y;
         centerY = curY + trackRowH * 0.5f;
         curY += controlH + m.descGap;
@@ -925,14 +925,14 @@ void StepSlider::Render(
         if (opts.stretch == StretchMode::Fill) {
             trackWidth = opts.width.has_value() ? std::min(availTrackW, *opts.width) : availTrackW;
             trackStartX = bounds.x + halfThumb;
-        } else if (opts.stretch == StretchMode::Between || opts.placement == ElementOrder::Trailing) {
+        } else if (opts.stretch == StretchMode::Between || opts.order == ContentOrder::Trailing) {
             trackWidth = std::min(defaultTrackW, availTrackW);
             trackStartX = bounds.x + bounds.w - m.thumbSize - trackWidth + halfThumb;
         } else { // Compact
             trackWidth = std::min(defaultTrackW, availTrackW);
             trackStartX = bounds.x + halfThumb;
         }
-    } else { // FormLayout::Inline
+    } else { // WidgetLayout::Inline
         centerY = bounds.y + (trackRowH * 0.5f);
         float textW = 0.0f;
         if (!opts.label.empty()) {
@@ -954,7 +954,7 @@ void StepSlider::Render(
         }
 
         Rect textRect;
-        if (opts.placement == ElementOrder::Leading) {
+        if (opts.order == ContentOrder::Leading) {
             // Text left, track right
             textRect = Rect(bounds.x, bounds.y, textW, bounds.h);
             if (opts.stretch == StretchMode::Between) {
@@ -995,7 +995,7 @@ void StepSlider::Render(
             float valX = headerRect.Right() - valDims.x;
             Rect lblRect = Rect(headerRect.x, headerRect.y, std::max(0.0f, headerRect.w - valDims.x - 8.0f), headerRect.h);
 
-            if (opts.placement == ElementOrder::Trailing && opts.layout != FormLayout::Inline) {
+            if (opts.order == ContentOrder::Trailing && opts.layout != WidgetLayout::Inline) {
                 valX = headerRect.x;
                 lblRect = Rect(headerRect.x + valDims.x + 8.0f, headerRect.y, std::max(0.0f, headerRect.w - valDims.x - 8.0f), headerRect.h);
             }

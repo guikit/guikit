@@ -786,7 +786,7 @@ void TestSwitchAndCheckboxWidgets() {
         if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
             rSwitch = ui.Switch(switchState, {.label = "Dark Mode"});
             rCheck = ui.Checkbox(checkState, {.label = "VSync"});
-            rToggle = ui.Switch(toggleState, {.label = "Turbo Mode", .placement = ElementOrder::Leading});
+            rToggle = ui.Switch(toggleState, {.label = "Turbo Mode", .order = ContentOrder::Leading});
             rIndeterminate = ui.Checkbox(false, {.label = "Select All", .indeterminate = true});
             rDesc = ui.Switch(descState, {
                 .label = "Auto Breakdown",
@@ -795,12 +795,12 @@ void TestSwitchAndCheckboxWidgets() {
             rStacked = ui.Switch(stackedState, {
                 .label = "Stacked Mode",
                 .description = "Description below switch control",
-                .layout = FormLayout::Stacked
+                .layout = WidgetLayout::Stacked
             });
             rBoth = ui.Switch(bothState, {
                 .label = "Dark",
                 .trailingLabel = "Light",
-                .layout = FormLayout::Inline,
+                .layout = WidgetLayout::Inline,
                 .symmetric = true
             });
             rOptSwitch = ui.Switch(optSwitchState, {.label = "Option Switch"});
@@ -967,28 +967,28 @@ void TestInputFieldWidget() {
                 .description = "Automatic stop of testing on load drop",
                 .suffix = "%",
                 .format = "%.0f",
-                .layout = FormLayout::Stacked
+                .layout = WidgetLayout::Stacked
             });
 
             // Integer count with unit suffix
             rCount = ui.InputField(count, {
                 .label = "Cycle Count",
                 .suffix = "cycles",
-                .layout = FormLayout::Stacked
+                .layout = WidgetLayout::Stacked
             });
 
             // Text input with placeholder
             rName = ui.InputField(sampleName, {
                 .label = "Sample ID",
                 .placeholder = "Enter identifier...",
-                .layout = FormLayout::Stacked
+                .layout = WidgetLayout::Stacked
             });
 
             // Field with label set exclusively via InputFieldOptions
             rOptInput = ui.InputField(optInputVal, {
                 .label = "Tolerance Margin",
                 .suffix = "mm",
-                .layout = FormLayout::Stacked
+                .layout = WidgetLayout::Stacked
             });
         }
     };
@@ -1109,7 +1109,7 @@ void TestSelectWidget() {
             rBaud = ui.Select(baudIndex, {"9600", "19200", "38400", "115200"}, {
                 .label = "Baud Rate",
                 .description = "Serial bus communication speed",
-                .layout = FormLayout::Stacked
+                .layout = WidgetLayout::Stacked
             });
 
             rMode = ui.Select(modeIndex, {"Auto", "Manual", "Direct"}, {
@@ -2697,7 +2697,7 @@ void TestIndustrialDashboardNoBlackLines() {
                                             }, {
                                                 .label = "Primary Sensor Channel",
                                                 .description = "Active physical transducer bus",
-                                                .layout = FormLayout::Stacked
+                                                .layout = WidgetLayout::Stacked
                                             });
                                         }
                                     }
@@ -3807,14 +3807,14 @@ void TestButtonExternalLabelDescriptionAndPlacement() {
         .label = "Deployment Action",
         .text = "Deploy",
         .description = "Immediate canary release",
-        .layout = FormLayout::Stacked
+        .layout = WidgetLayout::Stacked
     }, UiSize::Md, &canvas, theme);
     const Vec2 leadingSize = Button::Measure({
         .label = "Deployment Action",
         .text = "Deploy",
         .description = "Immediate canary release",
-        .layout = FormLayout::Inline,
-        .placement = ElementOrder::Leading
+        .layout = WidgetLayout::Inline,
+        .order = ContentOrder::Leading
     }, UiSize::Md, &canvas, theme);
 
     // Stacked height must be strictly taller than plain button due to external label and description
@@ -3832,40 +3832,40 @@ void TestButtonExternalLabelDescriptionAndPlacement() {
             .label = "Action Header",
             .text = "Click Stacked",
             .description = "Helper info stacked",
-            .layout = FormLayout::Stacked
+            .layout = WidgetLayout::Stacked
         });
         auto bLeading = ui.Button({
             .label = "Action Header",
             .text = "Click Leading",
             .description = "Helper info leading",
-            .layout = FormLayout::Inline,
-            .placement = ElementOrder::Leading
+            .layout = WidgetLayout::Inline,
+            .order = ContentOrder::Leading
         });
         auto bTrailing = ui.Button({
             .label = "Action Header",
             .text = "Click Trailing",
             .description = "Helper info trailing",
-            .layout = FormLayout::Inline,
-            .placement = ElementOrder::Trailing
+            .layout = WidgetLayout::Inline,
+            .order = ContentOrder::Trailing
         });
         auto bTop = ui.Button({
             .label = "Action Header",
             .text = "Click Top",
             .description = "Helper info top",
-            .layout = FormLayout::Top
+            .layout = WidgetLayout::Top
         });
         auto bBottom = ui.Button({
             .label = "Action Header",
             .text = "Click Bottom",
             .description = "Helper info bottom",
-            .layout = FormLayout::Bottom
+            .layout = WidgetLayout::Bottom
         });
 
         // Select with custom radius override
         auto selRes = ui.Select(selIdx, items, {
             .label = "Select Header",
             .description = "Choose option",
-            .layout = FormLayout::Stacked,
+            .layout = WidgetLayout::Stacked,
             .radius = 12.0f
         });
 
@@ -3978,69 +3978,69 @@ void TestWidgetStretchModesAndExplicitWidth() {
                 btnFill2 = ui.Button({.label = "Fill 2", .stretch = StretchMode::Fill});
             }
 
-            // Switch in Placement::Leading: Compact vs Between
+            // Switch in ContentOrder::Leading: Compact vs Between
             swCompact = ui.Switch(swVal, {
                 .label = "Switch Compact",
-                .placement = ElementOrder::Leading,
+                .order = ContentOrder::Leading,
                 .stretch = StretchMode::Compact
             });
             swBetween = ui.Switch(swVal, {
                 .label = "Switch Between",
-                .placement = ElementOrder::Leading,
+                .order = ContentOrder::Leading,
                 .stretch = StretchMode::Between
             });
 
-            // Checkbox in Placement::Leading: Compact vs Between
+            // Checkbox in ContentOrder::Leading: Compact vs Between
             cbCompact = ui.Checkbox(cbVal, {
                 .label = "Checkbox Compact",
-                .placement = ElementOrder::Leading,
+                .order = ContentOrder::Leading,
                 .stretch = StretchMode::Compact
             });
             cbBetween = ui.Checkbox(cbVal, {
                 .label = "Checkbox Between",
-                .placement = ElementOrder::Leading,
+                .order = ContentOrder::Leading,
                 .stretch = StretchMode::Between
             });
 
             // Slider: Compact vs Between
             slCompact = ui.Slider(slVal, 0.0f, 100.0f, {
                 .label = "Slider Compact",
-                .layout = FormLayout::Inline,
-                .placement = ElementOrder::Leading,
+                .layout = WidgetLayout::Inline,
+                .order = ContentOrder::Leading,
                 .stretch = StretchMode::Compact
             });
             slBetween = ui.Slider(slVal, 0.0f, 100.0f, {
                 .label = "Slider Between",
-                .layout = FormLayout::Inline,
-                .placement = ElementOrder::Leading,
+                .layout = WidgetLayout::Inline,
+                .order = ContentOrder::Leading,
                 .stretch = StretchMode::Between
             });
 
             // Select: Compact vs Between
             selCompact = ui.Select(selIdx, selOpts, {
                 .label = "Select Compact",
-                .layout = FormLayout::Inline,
-                .placement = ElementOrder::Leading,
+                .layout = WidgetLayout::Inline,
+                .order = ContentOrder::Leading,
                 .stretch = StretchMode::Compact
             });
             selBetween = ui.Select(selIdx, selOpts, {
                 .label = "Select Between",
-                .layout = FormLayout::Inline,
-                .placement = ElementOrder::Leading,
+                .layout = WidgetLayout::Inline,
+                .order = ContentOrder::Leading,
                 .stretch = StretchMode::Between
             });
 
             // InputField: Compact vs Between
             inCompact = ui.InputField(inText, {
                 .label = "Input Compact",
-                .layout = FormLayout::Inline,
-                .placement = ElementOrder::Leading,
+                .layout = WidgetLayout::Inline,
+                .order = ContentOrder::Leading,
                 .stretch = StretchMode::Compact
             });
             inBetween = ui.InputField(inText, {
                 .label = "Input Between",
-                .layout = FormLayout::Inline,
-                .placement = ElementOrder::Leading,
+                .layout = WidgetLayout::Inline,
+                .order = ContentOrder::Leading,
                 .stretch = StretchMode::Between
             });
         }
@@ -4095,13 +4095,13 @@ void TestWidgetStretchModesAndExplicitWidth() {
         btnStBetween = ui.Button({
             .label = "Header",
             .text = "Action",
-            .layout = FormLayout::Stacked,
+            .layout = WidgetLayout::Stacked,
             .stretch = StretchMode::Between
         });
         btnStFill = ui.Button({
             .label = "Header",
             .text = "Action",
-            .layout = FormLayout::Stacked,
+            .layout = WidgetLayout::Stacked,
             .stretch = StretchMode::Fill
         });
     }
@@ -4112,13 +4112,13 @@ void TestWidgetStretchModesAndExplicitWidth() {
         btnStBetween = ui.Button({
             .label = "Header",
             .text = "Action",
-            .layout = FormLayout::Stacked,
+            .layout = WidgetLayout::Stacked,
             .stretch = StretchMode::Between
         });
         btnStFill = ui.Button({
             .label = "Header",
             .text = "Action",
-            .layout = FormLayout::Stacked,
+            .layout = WidgetLayout::Stacked,
             .stretch = StretchMode::Fill
         });
     }
@@ -4129,29 +4129,29 @@ void TestWidgetStretchModesAndExplicitWidth() {
     CHECK_NEAR(rStBetween.w, 800.0f, 0.01f);
     CHECK_NEAR(rStFill.w, 800.0f, 0.01f);
 
-    // 7. Test Button in Placement::Trailing with StretchMode::Compact, Between, Fill
+    // 7. Test Button in ContentOrder::Trailing with StretchMode::Compact, Between, Fill
     Response btnTrCompact, btnTrBetween, btnTrFill;
     ui.BeginFrame({800.0f, 600.0f});
     if (auto col = ui.Column()) {
         btnTrCompact = ui.Button({
             .label = "Trailing Label",
             .text = "Action",
-            .layout = FormLayout::Inline,
-            .placement = ElementOrder::Trailing,
+            .layout = WidgetLayout::Inline,
+            .order = ContentOrder::Trailing,
             .stretch = StretchMode::Compact
         });
         btnTrBetween = ui.Button({
             .label = "Trailing Label",
             .text = "Action",
-            .layout = FormLayout::Inline,
-            .placement = ElementOrder::Trailing,
+            .layout = WidgetLayout::Inline,
+            .order = ContentOrder::Trailing,
             .stretch = StretchMode::Between
         });
         btnTrFill = ui.Button({
             .label = "Trailing Label",
             .text = "Action",
-            .layout = FormLayout::Inline,
-            .placement = ElementOrder::Trailing,
+            .layout = WidgetLayout::Inline,
+            .order = ContentOrder::Trailing,
             .stretch = StretchMode::Fill
         });
     }
@@ -4162,22 +4162,22 @@ void TestWidgetStretchModesAndExplicitWidth() {
         btnTrCompact = ui.Button({
             .label = "Trailing Label",
             .text = "Action",
-            .layout = FormLayout::Inline,
-            .placement = ElementOrder::Trailing,
+            .layout = WidgetLayout::Inline,
+            .order = ContentOrder::Trailing,
             .stretch = StretchMode::Compact
         });
         btnTrBetween = ui.Button({
             .label = "Trailing Label",
             .text = "Action",
-            .layout = FormLayout::Inline,
-            .placement = ElementOrder::Trailing,
+            .layout = WidgetLayout::Inline,
+            .order = ContentOrder::Trailing,
             .stretch = StretchMode::Between
         });
         btnTrFill = ui.Button({
             .label = "Trailing Label",
             .text = "Action",
-            .layout = FormLayout::Inline,
-            .placement = ElementOrder::Trailing,
+            .layout = WidgetLayout::Inline,
+            .order = ContentOrder::Trailing,
             .stretch = StretchMode::Fill
         });
     }

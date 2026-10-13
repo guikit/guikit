@@ -214,26 +214,26 @@ Vec2 InputField::Measure(
     const bool hasLabel = !effectiveLabel.empty();
     const bool hasDesc = !opts.description.empty();
 
-    if (opts.layout == FormLayout::Stacked) {
+    if (opts.layout == WidgetLayout::Stacked) {
         float totalH = m.defaultHeight;
         if (hasLabel) totalH += labelDims.y + m.labelGap;
         if (hasDesc) totalH += m.descGap + descDims.y;
         return {std::max({boxW, labelDims.x, descDims.x}), totalH};
     }
 
-    if (opts.layout == FormLayout::Inline) {
+    if (opts.layout == WidgetLayout::Inline) {
         const float labelW = hasLabel ? labelDims.x + m.paddingX : 0.0f;
         return {boxW + labelW, std::max(m.defaultHeight, labelDims.y)};
     }
 
-    if (opts.layout == FormLayout::Top) {
+    if (opts.layout == WidgetLayout::Top) {
         float textH = 0.0f;
         if (hasLabel) textH += labelDims.y;
         if (hasDesc) textH += (hasLabel ? m.descGap : 0.0f) + descDims.y;
         return {std::max({boxW, labelDims.x, descDims.x}), textH + m.labelGap + m.defaultHeight};
     }
 
-    if (opts.layout == FormLayout::Bottom) {
+    if (opts.layout == WidgetLayout::Bottom) {
         float textH = 0.0f;
         if (hasLabel) textH += labelDims.y;
         if (hasDesc) textH += (hasLabel ? m.descGap : 0.0f) + descDims.y;
@@ -290,20 +290,20 @@ void InputField::Render(
         naturalBoxW = std::max(m.minWidth, naturalBoxW);
     }
 
-    if (opts.layout == FormLayout::Stacked) {
+    if (opts.layout == WidgetLayout::Stacked) {
         float curY = bounds.y;
         if (hasLabel) {
             labelRect = Rect(bounds.x, curY, bounds.w, labelH);
             curY += labelH + m.labelGap;
         }
         const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        const float boxX = (opts.placement == ElementOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        const float boxX = (opts.order == ContentOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
         boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
         curY += m.defaultHeight + m.descGap;
         if (hasDesc) {
             descRect = Rect(bounds.x, curY, bounds.w, descH);
         }
-    } else if (opts.layout == FormLayout::Top) {
+    } else if (opts.layout == WidgetLayout::Top) {
         float curY = bounds.y;
         if (hasLabel) {
             labelRect = Rect(bounds.x, curY, bounds.w, labelH);
@@ -315,12 +315,12 @@ void InputField::Render(
         }
         curY += m.labelGap;
         const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        const float boxX = (opts.placement == ElementOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        const float boxX = (opts.order == ContentOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
         boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
-    } else if (opts.layout == FormLayout::Bottom) {
+    } else if (opts.layout == WidgetLayout::Bottom) {
         float curY = bounds.y;
         const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value()) ? bounds.w : std::min(bounds.w, naturalBoxW);
-        const float boxX = (opts.placement == ElementOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
+        const float boxX = (opts.order == ContentOrder::Trailing || opts.stretch == StretchMode::Between) ? (bounds.x + bounds.w - boxW) : bounds.x;
         boxRect = Rect(boxX, curY, boxW, m.defaultHeight);
         curY += m.defaultHeight + m.descGap;
         if (hasLabel) {
@@ -330,13 +330,13 @@ void InputField::Render(
         if (hasDesc) {
             descRect = Rect(bounds.x, curY, bounds.w, descH);
         }
-    } else { // FormLayout::Inline
+    } else { // WidgetLayout::Inline
         float labelW = 0.0f;
         if (hasLabel) {
             labelW = canvas.MeasureText(effectiveLabel, m.labelFontSize).x;
         }
 
-        if (opts.placement == ElementOrder::Leading) {
+        if (opts.order == ContentOrder::Leading) {
             // Text first (left), box second (right)
             if (hasLabel) {
                 labelRect = Rect(bounds.x, bounds.y + (bounds.h - labelH) * 0.5f, labelW, labelH);
@@ -355,7 +355,7 @@ void InputField::Render(
                 boxRect = Rect(boxX, bounds.y + (bounds.h - m.defaultHeight) * 0.5f, boxW, m.defaultHeight);
             }
         } else {
-            // ElementOrder::Trailing: Box first (left), text second (right)
+            // ContentOrder::Trailing: Box first (left), text second (right)
             const float boxW = (opts.stretch == StretchMode::Fill && !opts.width.has_value())
                 ? std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f))
                 : std::min(naturalBoxW, std::max(0.0f, bounds.w - (hasLabel ? (labelW + m.paddingX) : 0.0f)));

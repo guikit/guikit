@@ -153,8 +153,8 @@ int main(int argc, char* argv[]) {
     float btnCornerRadius = 6.0f;
     bool btnShowLabel = false;
     bool btnShowDesc = false;
-    guikit::FormLayout btnLayout = guikit::FormLayout::Stacked;
-    guikit::ElementOrder btnPlacement = guikit::ElementOrder::Leading;
+    guikit::WidgetLayout btnLayout = guikit::WidgetLayout::Stacked;
+    guikit::ContentOrder btnOrder = guikit::ContentOrder::Leading;
     guikit::Align btnLabelAlign = guikit::Align::Start;
 
     float testSliderVal = 65.0f;
@@ -168,8 +168,8 @@ int main(int argc, char* argv[]) {
     bool sliderShowLabels = true;
     bool sliderShowValue = true;
     bool sliderDisabled = false;
-    guikit::FormLayout sliderLayout = guikit::FormLayout::Stacked;
-    guikit::ElementOrder sliderPlacement = guikit::ElementOrder::Leading;
+    guikit::WidgetLayout sliderLayout = guikit::WidgetLayout::Stacked;
+    guikit::ContentOrder sliderOrder = guikit::ContentOrder::Leading;
     guikit::Align sliderLabelAlign = guikit::Align::Start;
 
     std::string testInputText = "guikit.dev";
@@ -181,8 +181,8 @@ int main(int argc, char* argv[]) {
     float inputCornerRadius = 6.0f;
     bool inputShowLabel = true;
     bool inputShowDesc = false;
-    guikit::FormLayout inputLayout = guikit::FormLayout::Stacked;
-    guikit::ElementOrder inputPlacement = guikit::ElementOrder::Leading;
+    guikit::WidgetLayout inputLayout = guikit::WidgetLayout::Stacked;
+    guikit::ContentOrder inputOrder = guikit::ContentOrder::Leading;
     guikit::Align inputLabelAlign = guikit::Align::Start;
     size_t inputStretchIdx = 2; // Fill
     float inputWidth = 0.0f;
@@ -196,15 +196,15 @@ int main(int argc, char* argv[]) {
     float selectCornerRadius = 6.0f;
     bool selectShowLabel = true;
     bool selectShowDesc = true;
-    guikit::FormLayout selectLayout = guikit::FormLayout::Stacked;
-    guikit::ElementOrder selectPlacement = guikit::ElementOrder::Leading;
+    guikit::WidgetLayout selectLayout = guikit::WidgetLayout::Stacked;
+    guikit::ContentOrder selectOrder = guikit::ContentOrder::Leading;
     guikit::Align selectLabelAlign = guikit::Align::Start;
     bool selectHasPrefix = false;
 
     bool testSwitchState = true;
     bool testDarkLightSwitch = false;
-    guikit::FormLayout switchLayout = guikit::FormLayout::Inline;
-    guikit::ElementOrder switchPlacement = guikit::ElementOrder::Trailing;
+    guikit::WidgetLayout switchLayout = guikit::WidgetLayout::Inline;
+    guikit::ContentOrder switchOrder = guikit::ContentOrder::Trailing;
     guikit::Align switchLabelAlign = guikit::Align::Start;
     size_t switchStretchIdx = 0; // Compact
     bool switchSymmetric = false;
@@ -214,8 +214,8 @@ int main(int argc, char* argv[]) {
 
     bool testCheckboxState = true;
     bool testCheckboxIndet = false;
-    guikit::FormLayout checkboxLayout = guikit::FormLayout::Inline;
-    guikit::ElementOrder checkboxPlacement = guikit::ElementOrder::Trailing;
+    guikit::WidgetLayout checkboxLayout = guikit::WidgetLayout::Inline;
+    guikit::ContentOrder checkboxOrder = guikit::ContentOrder::Trailing;
     guikit::Align checkboxLabelAlign = guikit::Align::Start;
     size_t checkboxStretchIdx = 0; // Compact
     bool checkboxShowLabel = true;
@@ -231,24 +231,24 @@ int main(int argc, char* argv[]) {
         }
     };
 
-    static constexpr std::array<std::string_view, 4> formLayoutNames = {"Stacked", "Top", "Bottom", "Inline"};
-    static constexpr std::array<std::string_view, 2> elementOrderNames = {"Leading (Text 1st)", "Trailing (Ctrl 1st)"};
+    static constexpr std::array<std::string_view, 4> widgetLayoutNames = {"Stacked", "Top", "Bottom", "Inline"};
+    static constexpr std::array<std::string_view, 2> contentOrderNames = {"Leading (Text 1st)", "Trailing (Ctrl 1st)"};
     static constexpr std::array<std::string_view, 3> labelAlignNames = {"Start (Left)", "Center", "End (Right)"};
 
-    auto formLayoutEnumName = [](guikit::FormLayout l) -> std::string_view {
+    auto widgetLayoutEnumName = [](guikit::WidgetLayout l) -> std::string_view {
         switch (l) {
-            case guikit::FormLayout::Stacked: return "Stacked";
-            case guikit::FormLayout::Top:     return "Top";
-            case guikit::FormLayout::Bottom:  return "Bottom";
-            case guikit::FormLayout::Inline:  return "Inline";
+            case guikit::WidgetLayout::Stacked: return "Stacked";
+            case guikit::WidgetLayout::Top:     return "Top";
+            case guikit::WidgetLayout::Bottom:  return "Bottom";
+            case guikit::WidgetLayout::Inline:  return "Inline";
         }
         return "Stacked";
     };
 
-    auto elementOrderEnumName = [](guikit::ElementOrder o) -> std::string_view {
+    auto contentOrderEnumName = [](guikit::ContentOrder o) -> std::string_view {
         switch (o) {
-            case guikit::ElementOrder::Leading: return "Leading";
-            case guikit::ElementOrder::Trailing: return "Trailing";
+            case guikit::ContentOrder::Leading:  return "Leading";
+            case guikit::ContentOrder::Trailing: return "Trailing";
         }
         return "Leading";
     };
@@ -631,14 +631,14 @@ int main(int argc, char* argv[]) {
                                                 const bool btnHasExternal = btnShowLabel || btnShowDesc;
 
                                                 size_t btnLayoutIdx = static_cast<size_t>(btnLayout);
-                                                if (ui.StepSlider(btnLayoutIdx, formLayoutNames, {.label = "Form Layout", .showTicks = true, .showLabels = true, .disabled = !btnHasExternal}).changed) {
-                                                    btnLayout = static_cast<guikit::FormLayout>(btnLayoutIdx);
+                                                if (ui.StepSlider(btnLayoutIdx, widgetLayoutNames, {.label = "Widget Layout", .showTicks = true, .showLabels = true, .disabled = !btnHasExternal}).changed) {
+                                                    btnLayout = static_cast<guikit::WidgetLayout>(btnLayoutIdx);
                                                     ui.InvalidateAll();
                                                 }
 
-                                                size_t btnPlaceIdx = static_cast<size_t>(btnPlacement);
-                                                if (ui.StepSlider(btnPlaceIdx, elementOrderNames, {.label = "Element Order", .showTicks = true, .showLabels = true, .disabled = !btnHasExternal}).changed) {
-                                                    btnPlacement = static_cast<guikit::ElementOrder>(btnPlaceIdx);
+                                                size_t btnOrderIdx = static_cast<size_t>(btnOrder);
+                                                if (ui.StepSlider(btnOrderIdx, contentOrderNames, {.label = "Content Order", .showTicks = true, .showLabels = true, .disabled = !btnHasExternal}).changed) {
+                                                    btnOrder = static_cast<guikit::ContentOrder>(btnOrderIdx);
                                                     ui.InvalidateAll();
                                                 }
 
@@ -680,17 +680,17 @@ int main(int argc, char* argv[]) {
                                                 const bool sliderHasExternal = sliderShowLabel || sliderShowDesc;
 
                                                 size_t slLayoutIdx = static_cast<size_t>(sliderLayout);
-                                                if (ui.StepSlider(slLayoutIdx, formLayoutNames, {.label = "Form Layout", .showTicks = true, .showLabels = true, .disabled = !sliderHasExternal}).changed) {
-                                                    sliderLayout = static_cast<guikit::FormLayout>(slLayoutIdx);
+                                                if (ui.StepSlider(slLayoutIdx, widgetLayoutNames, {.label = "Widget Layout", .showTicks = true, .showLabels = true, .disabled = !sliderHasExternal}).changed) {
+                                                    sliderLayout = static_cast<guikit::WidgetLayout>(slLayoutIdx);
                                                     ui.InvalidateAll();
                                                 }
 
-                                                size_t slPlaceIdx = static_cast<size_t>(sliderPlacement);
-                                                if (ui.StepSlider(slPlaceIdx, elementOrderNames, {.label = "Element Order", .showTicks = true, .showLabels = true, .disabled = !sliderHasExternal}).changed) {
-                                                    sliderPlacement = static_cast<guikit::ElementOrder>(slPlaceIdx);
+                                                size_t slOrderIdx = static_cast<size_t>(sliderOrder);
+                                                if (ui.StepSlider(slOrderIdx, contentOrderNames, {.label = "Content Order", .showTicks = true, .showLabels = true, .disabled = !sliderHasExternal}).changed) {
+                                                    sliderOrder = static_cast<guikit::ContentOrder>(slOrderIdx);
                                                     ui.InvalidateAll();
                                                 }
-
+ 
                                                 size_t slAlignIdx = static_cast<size_t>(sliderLabelAlign);
                                                 if (ui.StepSlider(slAlignIdx, labelAlignNames, {.label = "Label Alignment", .showTicks = true, .showLabels = true, .disabled = !sliderHasExternal}).changed) {
                                                     sliderLabelAlign = static_cast<guikit::Align>(slAlignIdx);
@@ -718,14 +718,14 @@ int main(int argc, char* argv[]) {
                                                 const bool inHasExternal = inputShowLabel || inputShowDesc;
 
                                                 size_t inLayoutIdx = static_cast<size_t>(inputLayout);
-                                                if (ui.StepSlider(inLayoutIdx, formLayoutNames, {.label = "Form Layout", .showTicks = true, .showLabels = true, .disabled = !inHasExternal}).changed) {
-                                                    inputLayout = static_cast<guikit::FormLayout>(inLayoutIdx);
+                                                if (ui.StepSlider(inLayoutIdx, widgetLayoutNames, {.label = "Widget Layout", .showTicks = true, .showLabels = true, .disabled = !inHasExternal}).changed) {
+                                                    inputLayout = static_cast<guikit::WidgetLayout>(inLayoutIdx);
                                                     ui.InvalidateAll();
                                                 }
 
-                                                size_t inPlaceIdx = static_cast<size_t>(inputPlacement);
-                                                if (ui.StepSlider(inPlaceIdx, elementOrderNames, {.label = "Element Order", .showTicks = true, .showLabels = true, .disabled = !inHasExternal}).changed) {
-                                                    inputPlacement = static_cast<guikit::ElementOrder>(inPlaceIdx);
+                                                size_t inOrderIdx = static_cast<size_t>(inputOrder);
+                                                if (ui.StepSlider(inOrderIdx, contentOrderNames, {.label = "Content Order", .showTicks = true, .showLabels = true, .disabled = !inHasExternal}).changed) {
+                                                    inputOrder = static_cast<guikit::ContentOrder>(inOrderIdx);
                                                     ui.InvalidateAll();
                                                 }
 
@@ -768,14 +768,14 @@ int main(int argc, char* argv[]) {
                                                 const bool selHasExternal = selectShowLabel || selectShowDesc;
 
                                                 size_t selLayoutIdx = static_cast<size_t>(selectLayout);
-                                                if (ui.StepSlider(selLayoutIdx, formLayoutNames, {.label = "Form Layout", .showTicks = true, .showLabels = true, .disabled = !selHasExternal}).changed) {
-                                                    selectLayout = static_cast<guikit::FormLayout>(selLayoutIdx);
+                                                if (ui.StepSlider(selLayoutIdx, widgetLayoutNames, {.label = "Widget Layout", .showTicks = true, .showLabels = true, .disabled = !selHasExternal}).changed) {
+                                                    selectLayout = static_cast<guikit::WidgetLayout>(selLayoutIdx);
                                                     ui.InvalidateAll();
                                                 }
 
-                                                size_t selPlaceIdx = static_cast<size_t>(selectPlacement);
-                                                if (ui.StepSlider(selPlaceIdx, elementOrderNames, {.label = "Element Order", .showTicks = true, .showLabels = true, .disabled = !selHasExternal}).changed) {
-                                                    selectPlacement = static_cast<guikit::ElementOrder>(selPlaceIdx);
+                                                size_t selOrderIdx = static_cast<size_t>(selectOrder);
+                                                if (ui.StepSlider(selOrderIdx, contentOrderNames, {.label = "Content Order", .showTicks = true, .showLabels = true, .disabled = !selHasExternal}).changed) {
+                                                    selectOrder = static_cast<guikit::ContentOrder>(selOrderIdx);
                                                     ui.InvalidateAll();
                                                 }
 
@@ -801,14 +801,14 @@ int main(int argc, char* argv[]) {
                                                 const bool switchHasExternal = switchShowLabel || switchShowDesc;
 
                                                 size_t swLayoutIdx = static_cast<size_t>(switchLayout);
-                                                if (ui.StepSlider(swLayoutIdx, formLayoutNames, {.label = "Form Layout", .showTicks = true, .showLabels = true, .disabled = !switchHasExternal}).changed) {
-                                                    switchLayout = static_cast<guikit::FormLayout>(swLayoutIdx);
+                                                if (ui.StepSlider(swLayoutIdx, widgetLayoutNames, {.label = "Widget Layout", .showTicks = true, .showLabels = true, .disabled = !switchHasExternal}).changed) {
+                                                    switchLayout = static_cast<guikit::WidgetLayout>(swLayoutIdx);
                                                     ui.InvalidateAll();
                                                 }
 
-                                                size_t swPlaceIdx = static_cast<size_t>(switchPlacement);
-                                                if (ui.StepSlider(swPlaceIdx, elementOrderNames, {.label = "Element Order", .showTicks = true, .showLabels = true, .disabled = !switchHasExternal}).changed) {
-                                                    switchPlacement = static_cast<guikit::ElementOrder>(swPlaceIdx);
+                                                size_t swOrderIdx = static_cast<size_t>(switchOrder);
+                                                if (ui.StepSlider(swOrderIdx, contentOrderNames, {.label = "Content Order", .showTicks = true, .showLabels = true, .disabled = !switchHasExternal}).changed) {
+                                                    switchOrder = static_cast<guikit::ContentOrder>(swOrderIdx);
                                                     ui.InvalidateAll();
                                                 }
 
@@ -835,14 +835,14 @@ int main(int argc, char* argv[]) {
                                                 const bool checkHasExternal = checkboxShowLabel || checkboxShowDesc;
 
                                                 size_t cbLayoutIdx = static_cast<size_t>(checkboxLayout);
-                                                if (ui.StepSlider(cbLayoutIdx, formLayoutNames, {.label = "Form Layout", .showTicks = true, .showLabels = true, .disabled = !checkHasExternal}).changed) {
-                                                    checkboxLayout = static_cast<guikit::FormLayout>(cbLayoutIdx);
+                                                if (ui.StepSlider(cbLayoutIdx, widgetLayoutNames, {.label = "Widget Layout", .showTicks = true, .showLabels = true, .disabled = !checkHasExternal}).changed) {
+                                                    checkboxLayout = static_cast<guikit::WidgetLayout>(cbLayoutIdx);
                                                     ui.InvalidateAll();
                                                 }
 
-                                                size_t cbPlaceIdx = static_cast<size_t>(checkboxPlacement);
-                                                if (ui.StepSlider(cbPlaceIdx, elementOrderNames, {.label = "Element Order", .showTicks = true, .showLabels = true, .disabled = !checkHasExternal}).changed) {
-                                                    checkboxPlacement = static_cast<guikit::ElementOrder>(cbPlaceIdx);
+                                                size_t cbOrderIdx = static_cast<size_t>(checkboxOrder);
+                                                if (ui.StepSlider(cbOrderIdx, contentOrderNames, {.label = "Content Order", .showTicks = true, .showLabels = true, .disabled = !checkHasExternal}).changed) {
+                                                    checkboxOrder = static_cast<guikit::ContentOrder>(cbOrderIdx);
                                                     ui.InvalidateAll();
                                                 }
 
@@ -1009,7 +1009,7 @@ int main(int argc, char* argv[]) {
                                                         .variant = btnVariant,
                                                         .iconPlacement = btnIconPlacement,
                                                         .layout = btnLayout,
-                                                        .placement = btnPlacement,
+                                                        .order = btnOrder,
                                                         .labelAlign = btnLabelAlign,
                                                         .align = btnAlign,
                                                         .stretch = static_cast<guikit::StretchMode>(btnStretchIdx),
@@ -1031,7 +1031,7 @@ int main(int argc, char* argv[]) {
                                                             .description = sliderShowDesc ? "Adjust internal preamp attenuation" : "",
                                                             .format = "%.1f %%",
                                                             .layout = sliderLayout,
-                                                            .placement = sliderPlacement,
+                                                            .order = sliderOrder,
                                                             .labelAlign = sliderLabelAlign,
                                                             .showValue = sliderShowValue,
                                                             .variant = btnVariant,
@@ -1046,7 +1046,7 @@ int main(int argc, char* argv[]) {
                                                             .label = sliderShowLabel ? "DSP Filter Mode" : "",
                                                             .description = sliderShowDesc ? "Select active FIR profile" : "",
                                                             .layout = sliderLayout,
-                                                            .placement = sliderPlacement,
+                                                            .order = sliderOrder,
                                                             .labelAlign = sliderLabelAlign,
                                                             .showTicks = sliderShowTicks,
                                                             .showLabels = sliderShowLabels,
@@ -1070,7 +1070,7 @@ int main(int argc, char* argv[]) {
                                                         .suffix = inputHasSuffix ? ":443" : "",
                                                         .variant = btnVariant,
                                                         .layout = inputLayout,
-                                                        .placement = inputPlacement,
+                                                        .order = inputOrder,
                                                         .labelAlign = inputLabelAlign,
                                                         .cursorMode = inputCursorMode,
                                                         .size = controlsSize,
@@ -1089,7 +1089,7 @@ int main(int argc, char* argv[]) {
                                                         .description = selectShowDesc ? "Dropdown selection" : "",
                                                         .variant = btnVariant,
                                                         .layout = selectLayout,
-                                                        .placement = selectPlacement,
+                                                        .order = selectOrder,
                                                         .labelAlign = selectLabelAlign,
                                                         .prefixIcon = selectHasPrefix ? guikit::Icon::Settings() : guikit::Icon{},
                                                         .maxVisibleItems = selectMaxItems,
@@ -1110,7 +1110,7 @@ int main(int argc, char* argv[]) {
                                                             .description = switchShowDesc ? "Safety interlocking system" : "",
                                                             .variant = btnVariant,
                                                             .layout = switchLayout,
-                                                            .placement = switchPlacement,
+                                                            .order = switchOrder,
                                                             .labelAlign = switchLabelAlign,
                                                             .symmetric = switchSymmetric,
                                                             .stretch = static_cast<guikit::StretchMode>(switchStretchIdx),
@@ -1128,7 +1128,7 @@ int main(int argc, char* argv[]) {
                                                             .description = checkboxShowDesc ? "Save trace to buffer" : "",
                                                             .variant = btnVariant,
                                                             .layout = checkboxLayout,
-                                                            .placement = checkboxPlacement,
+                                                            .order = checkboxOrder,
                                                             .labelAlign = checkboxLabelAlign,
                                                             .stretch = static_cast<guikit::StretchMode>(checkboxStretchIdx),
                                                             .disabled = checkboxDisabled,
@@ -1240,8 +1240,8 @@ int main(int argc, char* argv[]) {
                                                 "    .icon = {},\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
                                                 "    .iconPlacement = guikit::Placement::{},\n"
-                                                "    .layout = guikit::FormLayout::{},\n"
-                                                "    .placement = guikit::ElementOrder::{},\n"
+                                                "    .layout = guikit::WidgetLayout::{},\n"
+                                                "    .order = guikit::ContentOrder::{},\n"
                                                 "    .labelAlign = guikit::Align::{},\n"
                                                 "    .align = guikit::Align::{},\n"
                                                 "    .labelVariants = {{}},\n"
@@ -1260,8 +1260,8 @@ int main(int argc, char* argv[]) {
                                                 btnHasIcon ? "guikit::Icon::Play()" : "{}",
                                                 variantName(btnVariant),
                                                 placementName(btnIconPlacement),
-                                                formLayoutEnumName(btnLayout),
-                                                elementOrderEnumName(btnPlacement),
+                                                widgetLayoutEnumName(btnLayout),
+                                                contentOrderEnumName(btnOrder),
                                                 labelAlignEnumName(btnLabelAlign),
                                                 alignName(btnAlign),
                                                 stretchModeEnumName(static_cast<guikit::StretchMode>(btnStretchIdx)),
@@ -1282,8 +1282,8 @@ int main(int argc, char* argv[]) {
                                                     "    .suffix = \"\",\n"
                                                     "    .format = \"%.1f %%\",\n"
                                                     "    .step = std::nullopt,\n"
-                                                    "    .layout = guikit::FormLayout::{},\n"
-                                                    "    .placement = guikit::ElementOrder::{},\n"
+                                                    "    .layout = guikit::WidgetLayout::{},\n"
+                                                    "    .order = guikit::ContentOrder::{},\n"
                                                     "    .showValue = {},\n"
                                                     "    .variant = guikit::UiVariant::{},\n"
                                                     "    .size = guikit::UiSize::{},\n"
@@ -1295,8 +1295,8 @@ int main(int argc, char* argv[]) {
                                                     "}});",
                                                     sliderShowLabel ? "Analog Master Gain" : "",
                                                     sliderShowDesc ? "Adjust internal preamp attenuation" : "",
-                                                    formLayoutEnumName(sliderLayout),
-                                                    elementOrderEnumName(sliderPlacement),
+                                                    widgetLayoutEnumName(sliderLayout),
+                                                    contentOrderEnumName(sliderOrder),
                                                     sliderShowValue ? "true" : "false",
                                                     variantName(btnVariant),
                                                     sizeName(controlsSize),
@@ -1311,8 +1311,8 @@ int main(int argc, char* argv[]) {
                                                     "    .label = \"{}\",\n"
                                                     "    .description = \"{}\",\n"
                                                     "    .stepLabels = {{}},\n"
-                                                    "    .layout = guikit::FormLayout::{},\n"
-                                                    "    .placement = guikit::ElementOrder::{},\n"
+                                                    "    .layout = guikit::WidgetLayout::{},\n"
+                                                    "    .order = guikit::ContentOrder::{},\n"
                                                     "    .showTicks = {},\n"
                                                     "    .showLabels = {},\n"
                                                     "    .showValue = {},\n"
@@ -1328,8 +1328,8 @@ int main(int argc, char* argv[]) {
                                                     "}});",
                                                     sliderShowLabel ? "DSP Filter Mode" : "",
                                                     sliderShowDesc ? "Select active FIR profile" : "",
-                                                    formLayoutEnumName(sliderLayout),
-                                                    elementOrderEnumName(sliderPlacement),
+                                                    widgetLayoutEnumName(sliderLayout),
+                                                    contentOrderEnumName(sliderOrder),
                                                     sliderShowTicks ? "true" : "false",
                                                     sliderShowLabels ? "true" : "false",
                                                     sliderShowValue ? "true" : "false",
@@ -1353,8 +1353,8 @@ int main(int argc, char* argv[]) {
                                                 "    .suffix = \"{}\",\n"
                                                 "    .format = \"%.2f\",\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
-                                                "    .layout = guikit::FormLayout::{},\n"
-                                                "    .placement = guikit::ElementOrder::{},\n"
+                                                "    .layout = guikit::WidgetLayout::{},\n"
+                                                "    .order = guikit::ContentOrder::{},\n"
                                                 "    .prefixIcon = {},\n"
                                                 "    .suffixIcon = {},\n"
                                                 "    .cursorMode = guikit::CursorBlinkMode::{},\n"
@@ -1370,8 +1370,8 @@ int main(int argc, char* argv[]) {
                                                 inputHasPrefix ? "https://" : "",
                                                 inputHasSuffix ? ":443" : "",
                                                 variantName(btnVariant),
-                                                formLayoutEnumName(inputLayout),
-                                                elementOrderEnumName(inputPlacement),
+                                                widgetLayoutEnumName(inputLayout),
+                                                contentOrderEnumName(inputOrder),
                                                 "{}",
                                                 "{}",
                                                 cursorModeName(inputCursorMode),
@@ -1392,8 +1392,8 @@ int main(int argc, char* argv[]) {
                                                 "    .description = \"{}\",\n"
                                                 "    .placeholder = \"Select...\",\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
-                                                "    .layout = guikit::FormLayout::{},\n"
-                                                "    .placement = guikit::ElementOrder::{},\n"
+                                                "    .layout = guikit::WidgetLayout::{},\n"
+                                                "    .order = guikit::ContentOrder::{},\n"
                                                 "    .prefixIcon = {},\n"
                                                 "    .maxVisibleItems = {},\n"
                                                 "    .size = guikit::UiSize::{},\n"
@@ -1405,8 +1405,8 @@ int main(int argc, char* argv[]) {
                                                 selectShowLabel ? "Active Preset" : "",
                                                 selectShowDesc ? "Dropdown selection" : "",
                                                 variantName(btnVariant),
-                                                formLayoutEnumName(selectLayout),
-                                                elementOrderEnumName(selectPlacement),
+                                                widgetLayoutEnumName(selectLayout),
+                                                contentOrderEnumName(selectOrder),
                                                 selectHasPrefix ? "guikit::Icon::Settings()" : "{}",
                                                 selectMaxItems,
                                                 sizeName(controlsSize),
@@ -1425,8 +1425,8 @@ int main(int argc, char* argv[]) {
                                                 "    .trailingLabel = \"{}\",\n"
                                                 "    .description = \"{}\",\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
-                                                "    .layout = guikit::FormLayout::{},\n"
-                                                "    .placement = guikit::ElementOrder::{},\n"
+                                                "    .layout = guikit::WidgetLayout::{},\n"
+                                                "    .order = guikit::ContentOrder::{},\n"
                                                 "    .stretch = guikit::StretchMode::{},\n"
                                                 "    .symmetric = {},\n"
                                                 "    .disabled = {},\n"
@@ -1436,8 +1436,8 @@ int main(int argc, char* argv[]) {
                                                 (switchShowLabel && testDarkLightSwitch) ? "Light" : "",
                                                 switchShowDesc ? "Safety interlocking system" : "",
                                                 variantName(btnVariant),
-                                                formLayoutEnumName(switchLayout),
-                                                elementOrderEnumName(switchPlacement),
+                                                widgetLayoutEnumName(switchLayout),
+                                                contentOrderEnumName(switchOrder),
                                                 stretchModeEnumName(static_cast<guikit::StretchMode>(switchStretchIdx)),
                                                 switchSymmetric ? "true" : "false",
                                                 switchDisabled ? "true" : "false",
@@ -1452,8 +1452,8 @@ int main(int argc, char* argv[]) {
                                                 "    .label = \"{}\",\n"
                                                 "    .description = \"{}\",\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
-                                                "    .layout = guikit::FormLayout::{},\n"
-                                                "    .placement = guikit::ElementOrder::{},\n"
+                                                "    .layout = guikit::WidgetLayout::{},\n"
+                                                "    .order = guikit::ContentOrder::{},\n"
                                                 "    .stretch = guikit::StretchMode::{},\n"
                                                 "    .disabled = {},\n"
                                                 "    .indeterminate = {},\n"
@@ -1462,8 +1462,8 @@ int main(int argc, char* argv[]) {
                                                 checkboxShowLabel ? "Telemetry Logging" : "",
                                                 checkboxShowDesc ? "Save trace to buffer" : "",
                                                 variantName(btnVariant),
-                                                formLayoutEnumName(checkboxLayout),
-                                                elementOrderEnumName(checkboxPlacement),
+                                                widgetLayoutEnumName(checkboxLayout),
+                                                contentOrderEnumName(checkboxOrder),
                                                 stretchModeEnumName(static_cast<guikit::StretchMode>(checkboxStretchIdx)),
                                                 checkboxDisabled ? "true" : "false",
                                                 testCheckboxIndet ? "true" : "false",
@@ -1601,7 +1601,7 @@ int main(int argc, char* argv[]) {
                                                             }, {
                                                                 .label = "Primary Sensor Channel",
                                                                 .description = "Active physical transducer bus",
-                                                                .layout = guikit::FormLayout::Stacked
+                                                                .layout = guikit::WidgetLayout::Stacked
                                                             });
                                                         }
                                                     }
@@ -1712,7 +1712,7 @@ int main(int argc, char* argv[]) {
                                                 if (ui.Switch(formMode, {
                                                     .label = "Form Mode",
                                                     .description = "Toggle stacked vs default label layout",
-                                                    .layout = guikit::FormLayout::Stacked
+                                                    .layout = guikit::WidgetLayout::Stacked
                                                 }).changed) {
                                                     ui.InvalidateAll();
                                                 }
@@ -1731,7 +1731,7 @@ int main(int argc, char* argv[]) {
                                                 });
                                             }
 
-                                            const guikit::FormLayout activeLayout = formMode ? guikit::FormLayout::Stacked : guikit::FormLayout::Top;
+                                            const guikit::WidgetLayout activeLayout = formMode ? guikit::WidgetLayout::Stacked : guikit::WidgetLayout::Top;
 
                                             if (auto fieldsGrid = ui.Grid(makeGrid())) {
                                                 if (auto c1 = fieldsGrid.Cell3()) {
