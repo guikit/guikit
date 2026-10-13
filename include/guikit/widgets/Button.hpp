@@ -20,6 +20,7 @@ struct ButtonOptions {
     std::string_view description{};                ///< Optional external helper text below/beside button
     Icon icon{};
     UiVariant variant{UiVariant::Secondary};
+    UiVariant descriptionVariant{UiVariant::Muted};   ///< Semantic variant for description text (Muted, Warning, Danger, Success, Info, etc.)
     Placement iconPlacement{Placement::Leading};
     ElementLayout layout{ElementLayout::Stacked};     ///< Layout geometry: Stacked, Top, Bottom, Inline
     InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst

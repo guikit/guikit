@@ -4277,13 +4277,14 @@ void TestLabelAlignmentGeometryOptionA() {
             std::string text;
             Rect bounds;
             float alignX;
+            Color color;
         };
         void DrawRoundRect(Rect rect, float radius, Color fill, Color stroke = Color(0, 0, 0, 0), float strokeWidth = 0.0f) override {
             lastRoundRect = rect;
             ThorCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
         }
         void DrawTextBox(std::string_view text, Rect bounds, float fontSize, Color color, float alignX = 0.0f, float alignY = 0.5f) override {
-            textBoxCalls.push_back({std::string(text), bounds, alignX});
+            textBoxCalls.push_back({std::string(text), bounds, alignX, color});
             ThorCanvas::DrawTextBox(text, bounds, fontSize, color, alignX, alignY);
         }
         void Reset() {
@@ -4313,6 +4314,8 @@ void TestLabelAlignmentGeometryOptionA() {
         ButtonOptions opts{
             .label = "Header Label",
             .text = "Click Me",
+            .description = "Warning helper",
+            .descriptionVariant = UiVariant::Warning,
             .layout = ElementLayout::Top,
             .elementAlign = Align::Center,
             .stretch = StretchMode::Compact,
@@ -4325,6 +4328,12 @@ void TestLabelAlignmentGeometryOptionA() {
             CHECK_NEAR(call->bounds.x, 50.0f, 0.01f);
             CHECK_NEAR(call->bounds.w, 150.0f, 0.01f);
             CHECK_NEAR(call->alignX, 0.5f, 0.01f);
+            CHECK(call->color == darkTheme.palette.textPrimary);
+        }
+        const auto* descCall = recCanvas.FindTextBox("Warning helper");
+        CHECK(descCall != nullptr);
+        if (descCall) {
+            CHECK(descCall->color == darkTheme.GetTextColor(UiVariant::Warning));
         }
     }
 

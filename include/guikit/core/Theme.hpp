@@ -67,6 +67,16 @@ struct UiTheme {
         return (idx < variants.size()) ? variants[idx] : variants[static_cast<size_t>(UiVariant::Default)];
     }
 
+    [[nodiscard]] constexpr Color GetTextColor(UiVariant variant) const noexcept {
+        switch (variant) {
+            case UiVariant::Default:   return palette.textPrimary;
+            case UiVariant::Secondary:
+            case UiVariant::Muted:     return palette.textSecondary;
+            case UiVariant::Ghost:     return palette.textMuted;
+            default:                   return GetVariant(variant).bg;
+        }
+    }
+
     [[nodiscard]] constexpr const TypographyMetrics& GetTypography(TextRole role) const noexcept {
         const size_t idx = static_cast<size_t>(role);
         return (idx < typography.size()) ? typography[idx] : typography[static_cast<size_t>(TextRole::BodyMedium)];

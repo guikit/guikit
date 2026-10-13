@@ -153,6 +153,7 @@ int main(int argc, char* argv[]) {
     float btnCornerRadius = 6.0f;
     bool btnShowLabel = false;
     bool btnShowDesc = false;
+    guikit::UiVariant btnDescVariant = guikit::UiVariant::Muted;
     guikit::ElementLayout btnLayout = guikit::ElementLayout::Stacked;
     guikit::InlineOrder btnInlineOrder = guikit::InlineOrder::LabelFirst;
     guikit::Align btnElementAlign = guikit::Align::Start;
@@ -282,6 +283,7 @@ int main(int argc, char* argv[]) {
             case guikit::UiVariant::Danger:    return "Danger";
             case guikit::UiVariant::Info:      return "Info";
             case guikit::UiVariant::Ghost:     return "Ghost";
+            case guikit::UiVariant::Muted:     return "Muted";
             default:                           return "Default";
         }
     };
@@ -628,6 +630,29 @@ int main(int argc, char* argv[]) {
 
                                                 if (ui.Switch(btnShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(btnShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
+                                                {
+                                                    static constexpr std::array<std::string_view, 7> descVarShort = {"Mut", "Def", "Pri", "Suc", "Wrn", "Dgr", "Inf"};
+                                                    static constexpr std::array<guikit::UiVariant, 7> descVars = {
+                                                        guikit::UiVariant::Muted, guikit::UiVariant::Default, guikit::UiVariant::Primary,
+                                                        guikit::UiVariant::Success, guikit::UiVariant::Warning, guikit::UiVariant::Danger, guikit::UiVariant::Info
+                                                    };
+                                                    size_t descVarIdx = 0;
+                                                    for (size_t i = 0; i < descVars.size(); ++i) {
+                                                        if (descVars[i] == btnDescVariant) { descVarIdx = i; break; }
+                                                    }
+                                                    if (ui.StepSlider(descVarIdx, descVarShort, {
+                                                        .label = "Description Variant",
+                                                        .showTicks = true,
+                                                        .showLabels = true,
+                                                        .showValue = true,
+                                                        .valueText = variantName(btnDescVariant),
+                                                        .variant = (btnDescVariant == guikit::UiVariant::Muted) ? guikit::UiVariant::Secondary : btnDescVariant,
+                                                        .disabled = !btnShowDesc
+                                                    }).changed) {
+                                                        btnDescVariant = descVars[descVarIdx];
+                                                        ui.InvalidateAll();
+                                                    }
+                                                }
                                                 const bool btnHasExternal = btnShowLabel || btnShowDesc;
 
                                                 size_t btnLayoutIdx = static_cast<size_t>(btnLayout);
@@ -1007,6 +1032,7 @@ int main(int argc, char* argv[]) {
                                                         .description = btnShowDesc ? "Commit payload and trigger immediate canary rollout" : "",
                                                         .icon = btnHasIcon ? guikit::Icon::Play() : guikit::Icon{},
                                                         .variant = btnVariant,
+                                                        .descriptionVariant = btnDescVariant,
                                                         .iconPlacement = btnIconPlacement,
                                                         .layout = btnLayout,
                                                         .inlineOrder = btnInlineOrder,
@@ -1239,6 +1265,7 @@ int main(int argc, char* argv[]) {
                                                 "    .description = \"{}\",\n"
                                                 "    .icon = {},\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
+                                                "    .descriptionVariant = guikit::UiVariant::{},\n"
                                                 "    .iconPlacement = guikit::Placement::{},\n"
                                                 "    .layout = guikit::ElementLayout::{},\n"
                                                 "    .inlineOrder = guikit::InlineOrder::{},\n"
@@ -1259,6 +1286,7 @@ int main(int argc, char* argv[]) {
                                                 btnShowDesc ? "Commit payload and trigger immediate canary rollout" : "",
                                                 btnHasIcon ? "guikit::Icon::Play()" : "{}",
                                                 variantName(btnVariant),
+                                                variantName(btnDescVariant),
                                                 placementName(btnIconPlacement),
                                                 elementLayoutEnumName(btnLayout),
                                                 inlineOrderEnumName(btnInlineOrder),

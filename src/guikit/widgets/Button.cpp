@@ -34,6 +34,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
     node->payload = bOpts;
     node->visualHash = detail::HashArgs(
         opts.variant,
+        opts.descriptionVariant,
         opts.iconPlacement,
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
@@ -371,9 +372,9 @@ void Button::Render(
             }
         }
 
-        // Draw external label and description with labelAlign
+        // Draw external label and description with elementAlign
         Color labelCol = pal.textPrimary;
-        Color descCol = pal.textSecondary;
+        Color descCol = theme.GetTextColor(opts.descriptionVariant);
         if (disabled) {
             labelCol = labelCol.WithAlphaF(0.40f);
             descCol = descCol.WithAlphaF(0.40f);
