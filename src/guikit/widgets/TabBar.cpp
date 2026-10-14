@@ -45,7 +45,6 @@ Response TabBar::Run(
         barNode->uiSize = activeSize;
         barNode->disabled = activeDisabled;
         barNode->widthMode = opts.fullWidth ? SizeMode::Stretch : SizeMode::Fit;
-        barNode->payload = ctx.AllocPayload<TabBarOptions>(opts);
 
         ctx.PushScale(activeScale);
         ctx.PushSize(activeSize);
@@ -97,16 +96,30 @@ Response TabBar::Run(
         resolvedPadding.top,
         resolvedPadding.left
     );
-    if (auto* cData = barNode->As<CarouselData>()) {
-        cData->showBaselineSeparator = (opts.showSeparator && opts.style == TabBarStyle::Underline);
+    if (barNode->type == NodeType::Carousel) {
+        if (auto* cData = barNode->As<CarouselData>()) {
+            cData->showBaselineSeparator = (opts.showSeparator && opts.style == TabBarStyle::Underline);
+        }
+    } else if (opts.showSeparator && opts.style == TabBarStyle::Underline) {
+        barNode->postRenderFn = [](const Node* n, ICanvas& canvas, const UiTheme& th) noexcept {
+            const float sepY = n->computedRect.Bottom() - 0.5f;
+            canvas.DrawLine(
+                Vec2(n->computedRect.x, sepY),
+                Vec2(n->computedRect.Right(), sepY),
+                th.palette.borderSubtle,
+                1.0f
+            );
+        };
     }
 
     // Auto-scroll to active tab when activeIndex changes or on initial display
     int& lastActive = ctx.GetOrCreateState<int>(barNode->id, -1);
     if (lastActive != activeIndex) {
         lastActive = activeIndex;
-        if (auto* cData = barNode->As<CarouselData>()) {
-            cData->scrollToActiveTab = true;
+        if (barNode->type == NodeType::Carousel) {
+            if (auto* cData = barNode->As<CarouselData>()) {
+                cData->scrollToActiveTab = true;
+            }
         }
     }
 
@@ -127,8 +140,10 @@ Response TabBar::Run(
             res.changed = true;
             res.clicked = true;
             ctx.GetOrCreateState<int>(barNode->id) = activeIndex;
-            if (auto* cData = barNode->As<CarouselData>()) {
-                cData->scrollToActiveTab = true;
+            if (barNode->type == NodeType::Carousel) {
+                if (auto* cData = barNode->As<CarouselData>()) {
+                    cData->scrollToActiveTab = true;
+                }
             }
             ctx.RequestRepaint(3);
         }

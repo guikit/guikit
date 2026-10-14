@@ -2108,11 +2108,12 @@ void TestTabBarWidgetWorkflow() {
 
     // Frame: Test TabBar with custom backgroundColor, borderColor, radius, and padding
     int styledIdx = 0;
+    Response styledRes;
     const Color barBg(30, 32, 40, 255);
     const Color barBorder(80, 85, 95, 255);
     auto renderStyledTabBar = [&]() {
         if (auto col = ui.Column({.padding = Padding::All(10.0f)})) {
-            ui.TabBar(styledIdx, {{"One"}, {"Two"}}, {
+            styledRes = ui.TabBar(styledIdx, {{"First"}, {"Second"}, {"Third"}}, {
                 .style = TabBarStyle::Pill,
                 .fullWidth = true,
                 .padding = Padding::All(4.0f),
@@ -2127,6 +2128,20 @@ void TestTabBarWidgetWorkflow() {
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderStyledTabBar();
     ui.EndFrame(canvas);
+
+    // Click on "Third" tab (index 2, right third of 800px fullWidth bar -> x ~ 650, y ~ 28)
+    ui.OnMouseMove({650.0f, 28.0f});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderStyledTabBar();
+    ui.EndFrame(canvas);
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderStyledTabBar();
+    ui.EndFrame(canvas);
+    CHECK(styledIdx == 2);
+    CHECK(styledRes.changed);
 
     // Frame: Test dirty rect damage tracking on TabBar backgroundColor change
     Color dynamicBg(20, 20, 20, 255);
