@@ -57,6 +57,17 @@ constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexc
         return HashStringView(val, hash);
     } else if constexpr (std::is_same_v<CleanT, const char*>) {
         return val ? HashStringView(std::string_view(val), hash) : hash;
+    } else if constexpr (requires { val.text; val.role; val.variant; }) {
+        hash = HashStringView(val.text, hash);
+        const uint8_t hasRole = val.role.has_value() ? 1u : 0u;
+        const uint8_t roleVal = val.role.has_value() ? static_cast<uint8_t>(*val.role) : 0u;
+        const uint8_t hasVar = val.variant.has_value() ? 1u : 0u;
+        const uint8_t varVal = val.variant.has_value() ? static_cast<uint8_t>(*val.variant) : 0u;
+        hash = HashBytes(&hasRole, sizeof(hasRole), hash);
+        hash = HashBytes(&roleVal, sizeof(roleVal), hash);
+        hash = HashBytes(&hasVar, sizeof(hasVar), hash);
+        hash = HashBytes(&varVal, sizeof(varVal), hash);
+        return hash;
     } else if constexpr (std::is_enum_v<CleanT>) {
         auto underlying = static_cast<std::underlying_type_t<CleanT>>(val);
         return HashBytes(&underlying, sizeof(underlying), hash);

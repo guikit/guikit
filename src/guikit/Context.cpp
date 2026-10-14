@@ -378,7 +378,10 @@ Response Context::StepSlider(
         opts.stepLabels = kVariantLabels;
     }
     if (opts.valueText.empty() && idx < kVariantFullNames.size()) {
-        opts.valueText = kVariantFullNames[idx];
+        opts.valueText.text = kVariantFullNames[idx];
+    }
+    if (!opts.valueText.variant.has_value() && variant != UiVariant::Default) {
+        opts.valueText.variant = variant;
     }
     opts.variant = variant;
 

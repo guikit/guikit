@@ -1,7 +1,11 @@
 #pragma once
 
+#include <concepts>
 #include <cstdint>
+#include <optional>
+#include <string>
 #include <string_view>
+#include <type_traits>
 #include "guikit/core/Types.hpp"
 
 namespace guikit {
@@ -20,12 +24,13 @@ enum class UiVariant : uint8_t {
     Muted       ///< Subdued / secondary styling (slate-400)
 };
 
-/// Universal relative placement for companion elements (e.g. icons inside controls).
+/// Universal relative placement for companion elements (e.g. icons or value readouts inside controls).
 enum class Placement : uint8_t {
     Leading,    ///< Placed before primary element (left / start)
     Trailing,   ///< Placed after primary element (right / end)
     Top,        ///< Placed above primary element
-    Bottom      ///< Placed below primary element
+    Bottom,     ///< Placed below primary element
+    Thumb       ///< Placed dynamically above the interactive thumb/handle (e.g. Slider)
 };
 
 /// Compound layout structure for UI elements with external labels/descriptions.
@@ -74,6 +79,98 @@ enum class TextRole : uint8_t {
     CodeMedium,     ///< 13px / LH 18px
     CodeSmall       ///< 11px / LH 15px
 };
+
+/// Styled text wrapper combining text content with optional typographic role and color variant overrides.
+/// Implicitly constructible from string literals, std::string_view, std::string, and BasicUiString (ui.Format).
+struct UiText {
+    std::string_view text{};
+    std::optional<TextRole> role{std::nullopt};
+    std::optional<UiVariant> variant{std::nullopt};
+
+    constexpr UiText() noexcept = default;
+    constexpr UiText(const char* s) noexcept : text(s ? s : "") {}
+    constexpr UiText(std::string_view s) noexcept : text(s) {}
+    UiText(const std::string& s) noexcept : text(s) {}
+
+    template <typename S>
+        requires (std::convertible_to<const S&, std::string_view> &&
+                  !std::is_same_v<std::decay_t<S>, UiText> &&
+                  !std::is_same_v<std::decay_t<S>, std::string_view> &&
+                  !std::is_same_v<std::decay_t<S>, std::string> &&
+                  !std::is_convertible_v<const S&, const char*>)
+    constexpr UiText(const S& s) noexcept : text(static_cast<std::string_view>(s)) {}
+
+    constexpr UiText(UiVariant v) noexcept : variant(v) {}
+    constexpr UiText(TextRole r) noexcept : role(r) {}
+    constexpr UiText(TextRole r, UiVariant v) noexcept : role(r), variant(v) {}
+    constexpr UiText(UiVariant v, TextRole r) noexcept : role(r), variant(v) {}
+
+    constexpr UiText(std::string_view s, UiVariant v) noexcept : text(s), variant(v) {}
+    constexpr UiText(const char* s, UiVariant v) noexcept : text(s ? s : ""), variant(v) {}
+    UiText(const std::string& s, UiVariant v) noexcept : text(s), variant(v) {}
+
+    template <typename S>
+        requires (std::convertible_to<const S&, std::string_view> &&
+                  !std::is_same_v<std::decay_t<S>, UiText> &&
+                  !std::is_same_v<std::decay_t<S>, std::string_view> &&
+                  !std::is_same_v<std::decay_t<S>, std::string> &&
+                  !std::is_convertible_v<const S&, const char*>)
+    constexpr UiText(const S& s, UiVariant v) noexcept : text(static_cast<std::string_view>(s)), variant(v) {}
+
+    constexpr UiText(std::string_view s, TextRole r) noexcept : text(s), role(r) {}
+    constexpr UiText(const char* s, TextRole r) noexcept : text(s ? s : ""), role(r) {}
+    UiText(const std::string& s, TextRole r) noexcept : text(s), role(r) {}
+
+    template <typename S>
+        requires (std::convertible_to<const S&, std::string_view> &&
+                  !std::is_same_v<std::decay_t<S>, UiText> &&
+                  !std::is_same_v<std::decay_t<S>, std::string_view> &&
+                  !std::is_same_v<std::decay_t<S>, std::string> &&
+                  !std::is_convertible_v<const S&, const char*>)
+    constexpr UiText(const S& s, TextRole r) noexcept : text(static_cast<std::string_view>(s)), role(r) {}
+
+    constexpr UiText(std::string_view s, TextRole r, UiVariant v) noexcept : text(s), role(r), variant(v) {}
+    constexpr UiText(const char* s, TextRole r, UiVariant v) noexcept : text(s ? s : ""), role(r), variant(v) {}
+    UiText(const std::string& s, TextRole r, UiVariant v) noexcept : text(s), role(r), variant(v) {}
+
+    template <typename S>
+        requires (std::convertible_to<const S&, std::string_view> &&
+                  !std::is_same_v<std::decay_t<S>, UiText> &&
+                  !std::is_same_v<std::decay_t<S>, std::string_view> &&
+                  !std::is_same_v<std::decay_t<S>, std::string> &&
+                  !std::is_convertible_v<const S&, const char*>)
+    constexpr UiText(const S& s, TextRole r, UiVariant v) noexcept : text(static_cast<std::string_view>(s)), role(r), variant(v) {}
+
+    constexpr UiText(std::string_view s, UiVariant v, TextRole r) noexcept : text(s), role(r), variant(v) {}
+    constexpr UiText(const char* s, UiVariant v, TextRole r) noexcept : text(s ? s : ""), role(r), variant(v) {}
+    UiText(const std::string& s, UiVariant v, TextRole r) noexcept : text(s), role(r), variant(v) {}
+
+    template <typename S>
+        requires (std::convertible_to<const S&, std::string_view> &&
+                  !std::is_same_v<std::decay_t<S>, UiText> &&
+                  !std::is_same_v<std::decay_t<S>, std::string_view> &&
+                  !std::is_same_v<std::decay_t<S>, std::string> &&
+                  !std::is_convertible_v<const S&, const char*>)
+    constexpr UiText(const S& s, UiVariant v, TextRole r) noexcept : text(static_cast<std::string_view>(s)), role(r), variant(v) {}
+
+    [[nodiscard]] constexpr bool empty() const noexcept { return text.empty(); }
+    [[nodiscard]] constexpr size_t length() const noexcept { return text.length(); }
+    [[nodiscard]] constexpr size_t size() const noexcept { return text.size(); }
+    [[nodiscard]] constexpr const char* data() const noexcept { return text.data(); }
+    [[nodiscard]] constexpr operator std::string_view() const noexcept { return text; }
+
+    [[nodiscard]] constexpr TextRole RoleOr(TextRole fallback) const noexcept {
+        return role.value_or(fallback);
+    }
+    [[nodiscard]] constexpr UiVariant VariantOr(UiVariant fallback) const noexcept {
+        return variant.value_or(fallback);
+    }
+
+    [[nodiscard]] constexpr bool operator==(const UiText& other) const noexcept = default;
+    [[nodiscard]] constexpr bool operator==(std::string_view sv) const noexcept { return text == sv; }
+    [[nodiscard]] constexpr bool operator==(const char* s) const noexcept { return text == (s ? std::string_view(s) : std::string_view{}); }
+};
+static_assert(sizeof(UiText) <= 24, "UiText must remain compact (<= 24 bytes)");
 
 /// Typographic metrics ratio representing line-height to font-size for standard UI text.
 inline constexpr float kDefaultLineHeightMultiplier = 1.35f;

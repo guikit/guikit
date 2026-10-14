@@ -1,8 +1,8 @@
 #pragma once
 
 #include <optional>
-#include <string_view>
 #include "guikit/core/Theme.hpp"
+#include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
 
 namespace guikit {
@@ -11,26 +11,20 @@ class ICanvas;
 
 /// Common layout and text specification for a composite UI element.
 struct ElementSpec {
-    std::string_view label{};
-    std::string_view description{};
-    std::string_view headerRightText{};               ///< Optional right-aligned value text in the label row (e.g., Slider value)
-    bool hasHeaderRight{false};                       ///< Whether the header row reserves space for right-aligned value text
-    float headerRightMinWidth{50.0f};                 ///< Minimum reserved width for right-aligned value text to prevent layout jitter
+    UiText label{};
+    UiText description{};
     ElementLayout layout{ElementLayout::Stacked};
     InlineOrder inlineOrder{InlineOrder::LabelFirst};
     Align elementAlign{Align::Start};
     StretchMode stretch{StretchMode::Compact};
     std::optional<float> width{std::nullopt};         ///< Control width: in points for Compact/Space, or % (0..100) for Fill
-    UiVariant descriptionVariant{UiVariant::Muted};
-    float labelFontSize{13.0f};
-    float descFontSize{11.0f};
+    UiSize widgetSize{UiSize::Md};
     float labelGap{6.0f};
     float descGap{4.0f};
     float inlineGap{10.0f};
     bool stretchableControl{true};                    ///< True for Button/InputField/Select/Slider; false for fixed-size controls (Switch/Checkbox)
     bool stretchHeightWhenStandalone{false};          ///< True for Button capsule when standalone; false to center control vertically
     bool disabled{false};
-    Color headerRightColor{};                         ///< Optional color override for headerRightText
 };
 
 /// Resolved bounding rectangles for a composite UI element.
@@ -40,7 +34,8 @@ struct ElementGeometry {
     Rect descRect{};
     float measuredLabelW{0.0f};
     float measuredDescW{0.0f};
-    float measuredRightW{0.0f};
+    float labelFontSize{14.0f};
+    float descFontSize{11.0f};
     bool hasLabel{false};
     bool hasDesc{false};
     bool hasExternal{false};
@@ -67,7 +62,7 @@ public:
         const UiTheme& theme
     ) noexcept;
 
-    /// Renders the external label, optional headerRightText, and description with automatic ellipsis truncation.
+    /// Renders the external label and description with automatic ellipsis truncation.
     static void RenderText(
         ICanvas& canvas,
         const ElementGeometry& geom,

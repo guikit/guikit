@@ -14,20 +14,20 @@ class ICanvas;
 
 /// Clean configuration options for Switch widget.
 struct SwitchOptions {
-    std::string_view label{};                      ///< Primary caption text (left/off label when Placement::Both)
-    std::string_view trailingLabel{};              ///< Secondary caption text (right/on label when Placement::Both)
-    std::string_view description{};                ///< Optional explanation text below label
+    UiText label{};                                ///< Primary external caption text
+    UiText textLeft{};                             ///< Optional companion text inside control to the left of the switch track (off state)
+    UiText textRight{};                            ///< Optional companion text inside control to the right of the switch track (on state)
+    UiText description{};                          ///< Optional external explanation text
     UiVariant variant{UiVariant::Primary};          ///< Accent fill color when switched ON
-    UiVariant descriptionVariant{UiVariant::Muted};   ///< Semantic variant for description text (Muted, Warning, Danger, Success, Info, etc.)
     ElementLayout layout{ElementLayout::Inline};     ///< Layout geometry: Stacked, Top, Bottom, Inline
     InlineOrder inlineOrder{InlineOrder::ControlFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
     Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
-    bool symmetric{false};                         ///< Neutral/symmetric track style (highlights active label)
+    bool symmetric{false};                         ///< Neutral/symmetric track style (highlights active side label)
     StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Space, Fill
     bool disabled{false};                          ///< Interaction suppression
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
 };
-static_assert(sizeof(SwitchOptions) <= 64, "SwitchOptions must stay compact");
+static_assert(sizeof(SwitchOptions) <= 120, "SwitchOptions must stay compact");
 
 /// Autonomous Switch widget logic (execution, measuring, and rendering).
 class Switch {

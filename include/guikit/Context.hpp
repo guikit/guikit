@@ -571,7 +571,12 @@ public:
     // --- String & Formatting Services ---
     [[nodiscard]] UiString String(std::string_view text);
     [[nodiscard]] std::string_view AllocString(std::string_view text);
-
+    [[nodiscard]] UiText AllocText(UiText t) {
+        if (!t.text.empty()) {
+            t.text = AllocString(t.text);
+        }
+        return t;
+    }
 
     template <typename... Args>
     [[nodiscard]] UiString Format(std::format_string<Args...> fmt, Args&&... args) {

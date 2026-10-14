@@ -713,8 +713,8 @@ void TestAutonomousTextWidgetAndTypographyRoles() {
 void TestSwitchAndCheckboxWidgets() {
     using namespace guikit;
 
-    static_assert(sizeof(SwitchOptions) <= 64);
-    static_assert(sizeof(CheckboxOptions) <= 48);
+    static_assert(sizeof(SwitchOptions) <= 120);
+    static_assert(sizeof(CheckboxOptions) <= 64);
 
     const auto theme = UiTheme::Dark();
     // 1. Test measurement
@@ -730,15 +730,16 @@ void TestSwitchAndCheckboxWidgets() {
     CHECK(sMeasWithDesc.y > sMeasWithLabel.y);
 
     Vec2 sMeasBoth = Switch::Measure({
-        .label = "Dark",
-        .trailingLabel = "Light",
+        .textLeft = "Dark",
+        .textRight = "Light",
         .symmetric = true
     }, UiSize::Md);
     CHECK(sMeasBoth.x > sMeasWithLabel.x);
 
     Vec2 sMeasBothDesc = Switch::Measure({
-        .label = "Dark",
-        .trailingLabel = "Light",
+        .label = "Theme",
+        .textLeft = "Dark",
+        .textRight = "Light",
         .description = "Switch theme",
         .symmetric = true
     }, UiSize::Md);
@@ -798,8 +799,8 @@ void TestSwitchAndCheckboxWidgets() {
                 .layout = ElementLayout::Stacked
             });
             rBoth = ui.Switch(bothState, {
-                .label = "Dark",
-                .trailingLabel = "Light",
+                .textLeft = "Dark",
+                .textRight = "Light",
                 .layout = ElementLayout::Inline,
                 .symmetric = true
             });
@@ -4015,15 +4016,19 @@ void TestWidgetStretchModesAndExplicitWidth() {
 
     // 2. Slider standalone Measure with width
     {
-        SliderOptions sDef;
+        SliderOptions sDef{.showValue = false};
         Vec2 szSDef = Slider::Measure(sDef, 50.0, 0.0, 100.0, UiSize::Md, &canvas, ui.GetTheme());
         const float defaultW = ui.GetTheme().GetSlider(UiSize::Md).defaultWidth;
         const float thumbSize = ui.GetTheme().GetSlider(UiSize::Md).thumbSize;
         CHECK_NEAR(szSDef.x, defaultW + thumbSize, 0.01f);
 
-        SliderOptions sExplicit{.stretch = StretchMode::Compact, .width = 240.0f};
+        SliderOptions sExplicit{.showValue = false, .stretch = StretchMode::Compact, .width = 240.0f};
         Vec2 szSExp = Slider::Measure(sExplicit, 50.0, 0.0, 100.0, UiSize::Md, &canvas, ui.GetTheme());
         CHECK_NEAR(szSExp.x, 240.0f + thumbSize, 0.01f);
+
+        SliderOptions sWithVal{.showValue = true};
+        Vec2 szSVal = Slider::Measure(sWithVal, 50.0, 0.0, 100.0, UiSize::Md, &canvas, ui.GetTheme());
+        CHECK(szSVal.x > szSDef.x);
     }
 
     // 3. Select standalone Measure with intrinsic width & explicit width
@@ -4298,38 +4303,40 @@ void TestWidgetStretchModesAndExplicitWidth() {
     std::cout << "  [PASS] TestWidgetStretchModesAndExplicitWidth completed\n";
 }
 
+namespace {
+class LabelRecordingCanvas : public guikit::ThorCanvas {
+public:
+    struct TextBoxCall {
+        std::string text;
+        guikit::Rect bounds;
+        float alignX;
+        guikit::Color color;
+    };
+    void DrawRoundRect(guikit::Rect rect, float radius, guikit::Color fill, guikit::Color stroke = guikit::Color(0, 0, 0, 0), float strokeWidth = 0.0f) override {
+        lastRoundRect = rect;
+        ThorCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
+    }
+    void DrawTextBox(std::string_view text, guikit::Rect bounds, float fontSize, guikit::Color color, float alignX = 0.0f, float alignY = 0.5f) override {
+        textBoxCalls.push_back({std::string(text), bounds, alignX, color});
+        ThorCanvas::DrawTextBox(text, bounds, fontSize, color, alignX, alignY);
+    }
+    void Reset() {
+        lastRoundRect = {};
+        textBoxCalls.clear();
+    }
+    const TextBoxCall* FindTextBox(std::string_view text) const {
+        for (const auto& c : textBoxCalls) {
+            if (c.text == text) return &c;
+        }
+        return nullptr;
+    }
+    guikit::Rect lastRoundRect{};
+    std::vector<TextBoxCall> textBoxCalls;
+};
+} // namespace
+
 void TestLabelAlignmentGeometryOptionA() {
     using namespace guikit;
-
-    class LabelRecordingCanvas : public ThorCanvas {
-    public:
-        struct TextBoxCall {
-            std::string text;
-            Rect bounds;
-            float alignX;
-            Color color;
-        };
-        void DrawRoundRect(Rect rect, float radius, Color fill, Color stroke = Color(0, 0, 0, 0), float strokeWidth = 0.0f) override {
-            lastRoundRect = rect;
-            ThorCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
-        }
-        void DrawTextBox(std::string_view text, Rect bounds, float fontSize, Color color, float alignX = 0.0f, float alignY = 0.5f) override {
-            textBoxCalls.push_back({std::string(text), bounds, alignX, color});
-            ThorCanvas::DrawTextBox(text, bounds, fontSize, color, alignX, alignY);
-        }
-        void Reset() {
-            lastRoundRect = {};
-            textBoxCalls.clear();
-        }
-        const TextBoxCall* FindTextBox(std::string_view text) const {
-            for (const auto& c : textBoxCalls) {
-                if (c.text == text) return &c;
-            }
-            return nullptr;
-        }
-        Rect lastRoundRect{};
-        std::vector<TextBoxCall> textBoxCalls;
-    };
 
     LabelRecordingCanvas recCanvas;
     std::vector<uint32_t> pixels(800 * 600, 0);
@@ -4344,8 +4351,7 @@ void TestLabelAlignmentGeometryOptionA() {
         ButtonOptions opts{
             .label = "Header Label",
             .text = "Click Me",
-            .description = "Warning helper",
-            .descriptionVariant = UiVariant::Warning,
+            .description = {"Warning helper", UiVariant::Warning},
             .layout = ElementLayout::Top,
             .elementAlign = Align::Center,
             .stretch = StretchMode::Compact,
@@ -4433,7 +4439,7 @@ void TestLabelAlignmentGeometryOptionA() {
             const float expectedCapX = 700.0f;
             CHECK_NEAR(recCanvas.lastRoundRect.x, expectedCapX, 0.01f);
             CHECK_NEAR(call->bounds.x, 50.0f, 0.01f);
-            const float measuredW = recCanvas.MeasureText("Setting Title", darkTheme.GetInputField(UiSize::Md).labelFontSize).x;
+            const float measuredW = recCanvas.MeasureText("Setting Title", darkTheme.GetTypography(TextRole::LabelLarge).fontSize).x;
             CHECK_NEAR(call->bounds.w, measuredW, 0.01f);
             CHECK_NEAR(call->alignX, 1.0f, 0.01f);
         }
@@ -4494,7 +4500,7 @@ void TestLabelAlignmentGeometryOptionA() {
         const auto* call = recCanvas.FindTextBox("Trailing Field Info");
         CHECK(call != nullptr);
         if (call) {
-            const float measuredW = recCanvas.MeasureText("Trailing Field Info", darkTheme.GetInputField(UiSize::Md).labelFontSize).x;
+            const float measuredW = recCanvas.MeasureText("Trailing Field Info", darkTheme.GetTypography(TextRole::LabelLarge).fontSize).x;
             const float expectedTextX = widgetBounds.x + widgetBounds.w - measuredW;
             CHECK_NEAR(call->bounds.x, expectedTextX, 0.01f);
             CHECK_NEAR(call->bounds.w, measuredW, 0.01f);
@@ -4507,8 +4513,7 @@ void TestLabelAlignmentGeometryOptionA() {
         recCanvas.Reset();
         InputFieldOptions opts{
             .label = "Endpoint",
-            .description = "Primary host",
-            .descriptionVariant = UiVariant::Warning,
+            .description = {"Primary host", UiVariant::Warning},
             .layout = ElementLayout::Stacked,
             .elementAlign = Align::End,
             .stretch = StretchMode::Fill,
@@ -4582,7 +4587,7 @@ void TestLabelAlignmentGeometryOptionA() {
         const auto* call = recCanvas.FindTextBox("Power Switch");
         CHECK(call != nullptr);
         if (call) {
-            const float measuredW = recCanvas.MeasureText("Power Switch", darkTheme.GetSwitch(UiSize::Md).fontSize).x;
+            const float measuredW = recCanvas.MeasureText("Power Switch", darkTheme.GetTypography(TextRole::LabelLarge).fontSize).x;
             const float expectedTextX = widgetBounds.x + widgetBounds.w - measuredW;
             CHECK_NEAR(call->bounds.x, expectedTextX, 0.01f);
             CHECK_NEAR(call->bounds.w, measuredW, 0.01f);
@@ -4603,7 +4608,7 @@ void TestLabelAlignmentGeometryOptionA() {
         const auto* call = recCanvas.FindTextBox("Enable Feature");
         CHECK(call != nullptr);
         if (call) {
-            const float measuredW = recCanvas.MeasureText("Enable Feature", darkTheme.GetCheckbox(UiSize::Md).fontSize).x;
+            const float measuredW = recCanvas.MeasureText("Enable Feature", darkTheme.GetTypography(TextRole::LabelLarge).fontSize).x;
             const float expectedTextX = widgetBounds.x + widgetBounds.w - measuredW;
             CHECK_NEAR(call->bounds.x, expectedTextX, 0.01f);
             CHECK_NEAR(call->bounds.w, measuredW, 0.01f);
@@ -4626,7 +4631,7 @@ void TestLabelAlignmentGeometryOptionA() {
         const auto* call = recCanvas.FindTextBox("Volume Level");
         CHECK(call != nullptr);
         if (call) {
-            const float measuredW = recCanvas.MeasureText("Volume Level", darkTheme.GetSlider(UiSize::Md).labelFontSize).x;
+            const float measuredW = recCanvas.MeasureText("Volume Level", darkTheme.GetTypography(TextRole::LabelLarge).fontSize).x;
             const float expectedTextX = widgetBounds.x + widgetBounds.w - measuredW;
             CHECK_NEAR(call->bounds.x, expectedTextX, 0.01f);
             CHECK_NEAR(call->bounds.w, measuredW, 0.01f);
@@ -4655,6 +4660,132 @@ void TestLabelAlignmentGeometryOptionA() {
     }
 
     std::cout << "  [PASS] TestLabelAlignmentGeometryOptionA completed\n";
+}
+
+void TestUiTextAndControlCompanionText() {
+    using namespace guikit;
+    std::cout << "  - TestUiTextAndControlCompanionText...\n";
+
+    static_assert(sizeof(UiText) <= 24);
+
+    const UiTheme& darkTheme = UiTheme::Dark();
+    LabelRecordingCanvas recCanvas;
+    std::vector<uint32_t> pixels(800 * 600, 0);
+    recCanvas.SetTarget(pixels.data(), 800, 600, 800);
+    const Rect widgetBounds(20.0f, 20.0f, 400.0f, 120.0f);
+
+    // 1. UiText construction and default vs overridden typography/color resolution
+    {
+        UiText plain = "Plain";
+        CHECK(plain.text == "Plain");
+        CHECK(!plain.role.has_value());
+        CHECK(!plain.variant.has_value());
+
+        // Default role/color resolution:
+        // Label -> LabelLarge (14px at Md), Default (textPrimary)
+        CHECK_NEAR(darkTheme.ResolveFontSize(plain, TextRole::LabelLarge, UiSize::Md), 14.0f, 0.01f);
+        CHECK(darkTheme.ResolveTextColor(plain, UiVariant::Default) == darkTheme.palette.textPrimary);
+
+        // Companion text (textLeft/textRight/valueText) -> LabelMedium (12px at Md), Secondary (textSecondary)
+        CHECK_NEAR(darkTheme.ResolveFontSize(plain, TextRole::LabelMedium, UiSize::Md), 12.0f, 0.01f);
+        CHECK(darkTheme.ResolveTextColor(plain, UiVariant::Secondary) == darkTheme.palette.textSecondary);
+
+        // Description -> LabelSmall (11px at Md), Muted (textSecondary)
+        CHECK_NEAR(darkTheme.ResolveFontSize(plain, TextRole::LabelSmall, UiSize::Md), 11.0f, 0.01f);
+        CHECK(darkTheme.ResolveTextColor(plain, UiVariant::Muted) == darkTheme.palette.textSecondary);
+
+        // Overridden role and variant
+        UiText custom = {"Alert", TextRole::TitleMedium, UiVariant::Danger};
+        CHECK_NEAR(darkTheme.ResolveFontSize(custom, TextRole::LabelSmall, UiSize::Md),
+                   darkTheme.GetTypography(TextRole::TitleMedium).fontSize, 0.01f);
+        CHECK(darkTheme.ResolveTextColor(custom, UiVariant::Muted) == darkTheme.GetTextColor(UiVariant::Danger));
+    }
+
+    // 2. Switch with external .label + internal .textLeft / .textRight + .description
+    {
+        recCanvas.Reset();
+        SwitchOptions opts{
+            .label = "System Theme",
+            .textLeft = "Dark",
+            .textRight = {"Light", UiVariant::Info},
+            .description = {"Applies globally", UiVariant::Warning},
+            .layout = ElementLayout::Top,
+            .symmetric = true
+        };
+        Switch::Render(recCanvas, widgetBounds, true, opts, UiSize::Md, false, false, false, darkTheme);
+
+        const auto* lblCall = recCanvas.FindTextBox("System Theme");
+        const auto* leftCall = recCanvas.FindTextBox("Dark");
+        const auto* rightCall = recCanvas.FindTextBox("Light");
+        const auto* descCall = recCanvas.FindTextBox("Applies globally");
+
+        CHECK(lblCall != nullptr);
+        CHECK(leftCall != nullptr);
+        CHECK(rightCall != nullptr);
+        CHECK(descCall != nullptr);
+
+        if (lblCall && leftCall && rightCall && descCall) {
+            CHECK(lblCall->color == darkTheme.palette.textPrimary);
+            CHECK(leftCall->color == darkTheme.palette.textSecondary);
+            CHECK(rightCall->color == darkTheme.GetTextColor(UiVariant::Info));
+            CHECK(descCall->color == darkTheme.GetTextColor(UiVariant::Warning));
+            // leftText is to the left of rightText
+            CHECK(leftCall->bounds.Right() < rightCall->bounds.x);
+            // External label is above the control row
+            CHECK(lblCall->bounds.Bottom() <= leftCall->bounds.y + 1.0f);
+        }
+    }
+
+    // 3. Slider with .textLeft, .textRight, and all 5 .valuePlacement positions
+    for (Placement vp : {Placement::Leading, Placement::Trailing, Placement::Top, Placement::Bottom, Placement::Thumb}) {
+        recCanvas.Reset();
+        SliderOptions opts{
+            .label = "Master Gain",
+            .textLeft = "0%",
+            .textRight = "100%",
+            .description = "Preamp level",
+            .format = "%.0f%%",
+            .layout = ElementLayout::Stacked,
+            .showValue = true,
+            .valuePlacement = vp,
+            .variant = UiVariant::Danger // Even with Danger variant, value readout defaults to neutral Secondary!
+        };
+
+        Vec2 measured = Slider::Measure(opts, 50.0, 0.0, 100.0, UiSize::Md, &recCanvas, darkTheme);
+        CHECK(measured.x > 0.0f);
+        CHECK(measured.y > 0.0f);
+
+        Slider::Render(recCanvas, Rect(20.0f, 20.0f, 400.0f, measured.y), 50.0, 0.0, 100.0, opts, UiSize::Md, false, false, false, darkTheme);
+
+        const auto* lblCall = recCanvas.FindTextBox("Master Gain");
+        const auto* leftCall = recCanvas.FindTextBox("0%");
+        const auto* rightCall = recCanvas.FindTextBox("100%");
+        const auto* valCall = recCanvas.FindTextBox("50%");
+
+        CHECK(lblCall != nullptr);
+        CHECK(leftCall != nullptr);
+        CHECK(rightCall != nullptr);
+        CHECK(valCall != nullptr);
+
+        if (lblCall && leftCall && rightCall && valCall) {
+            // Verify value readout is NOT colored with Danger variant by default, but Secondary!
+            CHECK(valCall->color == darkTheme.palette.textSecondary);
+            CHECK(leftCall->color == darkTheme.palette.textSecondary);
+            CHECK(rightCall->color == darkTheme.palette.textSecondary);
+
+            if (vp == Placement::Top || vp == Placement::Thumb) {
+                CHECK(valCall->bounds.Bottom() <= leftCall->bounds.Center().y);
+            } else if (vp == Placement::Bottom) {
+                CHECK(valCall->bounds.y >= leftCall->bounds.Center().y);
+            } else if (vp == Placement::Leading) {
+                CHECK(valCall->bounds.x < rightCall->bounds.x);
+            } else if (vp == Placement::Trailing) {
+                CHECK(valCall->bounds.x > leftCall->bounds.x);
+            }
+        }
+    }
+
+    std::cout << "  [PASS] TestUiTextAndControlCompanionText completed\n";
 }
 
 int main() {
@@ -4708,6 +4839,7 @@ int main() {
     TestButtonExternalLabelDescriptionAndPlacement();
     TestWidgetStretchModesAndExplicitWidth();
     TestLabelAlignmentGeometryOptionA();
+    TestUiTextAndControlCompanionText();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

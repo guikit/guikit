@@ -9,6 +9,43 @@ namespace guikit {
 
 namespace {
 
+Vec2 MeasureSwitchControl(
+    const SwitchOptions& opts,
+    UiSize size,
+    ICanvas* canvas,
+    const UiTheme& theme
+) noexcept {
+    const SwitchMetrics& m = theme.GetSwitch(size);
+    float ctrlW = m.trackSize.x;
+    float ctrlH = m.trackSize.y;
+
+    if (!opts.textLeft.empty()) {
+        const float leftFont = theme.ResolveFontSize(opts.textLeft, TextRole::LabelMedium, size);
+        const Vec2 leftDims = canvas
+            ? canvas->MeasureText(opts.textLeft.text, leftFont)
+            : Vec2{
+                static_cast<float>(opts.textLeft.length()) * (leftFont * kDefaultCharAdvanceRatio),
+                theme.GetLineHeight(leftFont)
+            };
+        ctrlW += leftDims.x + m.gap;
+        ctrlH = std::max(ctrlH, leftDims.y);
+    }
+
+    if (!opts.textRight.empty()) {
+        const float rightFont = theme.ResolveFontSize(opts.textRight, TextRole::LabelMedium, size);
+        const Vec2 rightDims = canvas
+            ? canvas->MeasureText(opts.textRight.text, rightFont)
+            : Vec2{
+                static_cast<float>(opts.textRight.length()) * (rightFont * kDefaultCharAdvanceRatio),
+                theme.GetLineHeight(rightFont)
+            };
+        ctrlW += m.gap + rightDims.x;
+        ctrlH = std::max(ctrlH, rightDims.y);
+    }
+
+    return {ctrlW, ctrlH};
+}
+
 ElementSpec MakeSwitchElementSpec(
     const SwitchOptions& opts,
     UiSize size,
@@ -23,9 +60,7 @@ ElementSpec MakeSwitchElementSpec(
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
         .stretch = opts.stretch,
-        .descriptionVariant = opts.descriptionVariant,
-        .labelFontSize = m.fontSize,
-        .descFontSize = m.descFontSize,
+        .widgetSize = size,
         .labelGap = m.descGap,
         .descGap = m.descGap,
         .inlineGap = m.gap,
@@ -68,27 +103,24 @@ Response Switch::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::Switch, id);
-    node->text = ctx.AllocString(opts.label);
     SwitchOptions optsCopy = opts;
-    optsCopy.label = node->text;
-    if (!opts.trailingLabel.empty()) {
-        optsCopy.trailingLabel = ctx.AllocString(opts.trailingLabel);
-    }
-    if (!opts.description.empty()) {
-        optsCopy.description = ctx.AllocString(opts.description);
-    }
+    optsCopy.label = ctx.AllocText(opts.label);
+    optsCopy.textLeft = ctx.AllocText(opts.textLeft);
+    optsCopy.textRight = ctx.AllocText(opts.textRight);
+    optsCopy.description = ctx.AllocText(opts.description);
+    node->text = optsCopy.label.text;
     node->payload = ctx.AllocPayload<SwitchOptions>(optsCopy);
     node->visualHash = detail::HashArgs(
         opts.variant,
-        opts.descriptionVariant,
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
         static_cast<uint8_t>(opts.elementAlign),
         opts.symmetric,
         static_cast<uint8_t>(opts.stretch),
         currentChecked,
-        node->text,
-        optsCopy.trailingLabel,
+        optsCopy.label,
+        optsCopy.textLeft,
+        optsCopy.textRight,
         optsCopy.description
     );
     node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
@@ -128,59 +160,9 @@ Vec2 Switch::Measure(
     ICanvas* canvas,
     const UiTheme& theme
 ) {
-    const SwitchMetrics& m = theme.GetSwitch(size);
-    const bool isBoth = (opts.layout == ElementLayout::Inline && !opts.trailingLabel.empty());
-
-    if (!isBoth) {
-        const ElementSpec spec = MakeSwitchElementSpec(opts, size, opts.disabled, theme);
-        return ElementComposer::Measure(m.trackSize, spec, canvas, theme);
-    }
-
-    const bool hasLabel = !opts.label.empty();
-    const bool hasTrailingLabel = !opts.trailingLabel.empty();
-    const bool hasDesc = !opts.description.empty();
-
-    Vec2 labelDims = {0.0f, 0.0f};
-    if (hasLabel) {
-        if (canvas) {
-            labelDims = canvas->MeasureText(opts.label, m.fontSize);
-        } else {
-            const float estW = static_cast<float>(opts.label.length()) * (m.fontSize * kDefaultCharAdvanceRatio);
-            labelDims = {estW, theme.GetLineHeight(m.fontSize)};
-        }
-    }
-
-    Vec2 descDims = {0.0f, 0.0f};
-    if (hasDesc) {
-        if (canvas) {
-            descDims = canvas->MeasureText(opts.description, m.descFontSize);
-        } else {
-            const float estW = static_cast<float>(opts.description.length()) * (m.descFontSize * kDefaultCharAdvanceRatio);
-            descDims = {estW, theme.GetLineHeight(m.descFontSize)};
-        }
-    }
-
-    Vec2 trailingDims = {0.0f, 0.0f};
-    if (hasTrailingLabel) {
-        if (canvas) {
-            trailingDims = canvas->MeasureText(opts.trailingLabel, m.fontSize);
-        } else {
-            const float estW = static_cast<float>(opts.trailingLabel.length()) * (m.fontSize * kDefaultCharAdvanceRatio);
-            trailingDims = {estW, theme.GetLineHeight(m.fontSize)};
-        }
-    }
-
-    float topRowW = m.trackSize.x;
-    if (hasLabel) {
-        topRowW += labelDims.x + m.gap;
-    }
-    if (hasTrailingLabel) {
-        topRowW += m.gap + trailingDims.x;
-    }
-    const float topRowH = std::max({m.trackSize.y, labelDims.y, trailingDims.y});
-    const float totalW = std::max(topRowW, descDims.x);
-    const float totalH = topRowH + (hasDesc ? (m.descGap + descDims.y) : 0.0f);
-    return {totalW, totalH};
+    const Vec2 ctrlDims = MeasureSwitchControl(opts, size, canvas, theme);
+    const ElementSpec spec = MakeSwitchElementSpec(opts, size, opts.disabled, theme);
+    return ElementComposer::Measure(ctrlDims, spec, canvas, theme);
 }
 
 Vec2 Switch::Measure(
@@ -209,81 +191,56 @@ void Switch::Render(
 
     const SwitchMetrics& m = theme.GetSwitch(size);
     const auto& pal = theme.palette;
-    const bool isBoth = (opts.layout == ElementLayout::Inline && !opts.trailingLabel.empty());
-    const bool isSymmetric = opts.symmetric || isBoth;
+    const bool hasDualText = !opts.textLeft.empty() && !opts.textRight.empty();
+    const bool isSymmetric = opts.symmetric || hasDualText;
 
-    Rect trackRect;
-    Rect labelRect;
-    Rect trailingLabelRect;
-    Rect descRect;
+    const Vec2 ctrlDims = MeasureSwitchControl(opts, size, &canvas, theme);
+    const ElementSpec spec = MakeSwitchElementSpec(opts, size, disabled, theme);
+    const ElementGeometry geom = ElementComposer::Resolve(bounds, ctrlDims, spec, &canvas, theme);
+    ElementComposer::RenderText(canvas, geom, spec, theme);
 
-    if (isBoth) {
-        const bool hasLabel = !opts.label.empty();
-        const bool hasTrailingLabel = !opts.trailingLabel.empty();
-        const bool hasDesc = !opts.description.empty();
-
-        const float labelH = hasLabel ? canvas.GetLineHeight(m.fontSize) : 0.0f;
-        const float trailingLabelH = hasTrailingLabel ? canvas.GetLineHeight(m.fontSize) : 0.0f;
-        const float descH = hasDesc ? canvas.GetLineHeight(m.descFontSize) : 0.0f;
-
-        const Vec2 leftDims = hasLabel ? canvas.MeasureText(opts.label, m.fontSize) : Vec2{0.0f, 0.0f};
-        const Vec2 rightDims = hasTrailingLabel ? canvas.MeasureText(opts.trailingLabel, m.fontSize) : Vec2{0.0f, 0.0f};
-
-        const float topRowH = std::max({m.trackSize.y, labelH, trailingLabelH});
-        const float totalContentH = topRowH + (hasDesc ? (m.descGap + descH) : 0.0f);
-        const float startY = bounds.y + std::max(0.0f, (bounds.h - totalContentH) * 0.5f);
-        const float trackY = startY + (topRowH - m.trackSize.y) * 0.5f;
-        const float textY = startY + (topRowH - std::max(labelH, trailingLabelH)) * 0.5f;
-
-        if (opts.stretch != StretchMode::Compact && bounds.w > (leftDims.x + m.trackSize.x + rightDims.x + m.gap * 2.0f)) {
-            if (hasLabel) {
-                labelRect = Rect(bounds.x, textY, leftDims.x, labelH);
-            }
-            const float trackX = bounds.x + (bounds.w - m.trackSize.x) * 0.5f;
-            trackRect = Rect(trackX, trackY, m.trackSize.x, m.trackSize.y);
-            if (hasTrailingLabel) {
-                trailingLabelRect = Rect(bounds.x + bounds.w - rightDims.x, textY, rightDims.x, trailingLabelH);
-            }
-        } else {
-            float curX = bounds.x;
-            if (hasLabel) {
-                labelRect = Rect(curX, textY, leftDims.x, labelH);
-                curX += leftDims.x + m.gap;
-            }
-            trackRect = Rect(curX, trackY, m.trackSize.x, m.trackSize.y);
-            curX += m.trackSize.x;
-            if (hasTrailingLabel) {
-                curX += m.gap;
-                const float remW = std::max(rightDims.x, bounds.w - (curX - bounds.x));
-                trailingLabelRect = Rect(curX, textY, remW, trailingLabelH);
-            }
-        }
-        if (hasDesc) {
-            descRect = Rect(bounds.x, startY + topRowH + m.descGap, bounds.w, descH);
-        }
-
-        if (hasLabel && labelRect.w > 0.0f && labelRect.h > 0.0f) {
-            const Color leftCol = disabled ? pal.textDisabled : (checked ? pal.textMuted : pal.textPrimary);
-            canvas.DrawTextBox(opts.label, labelRect, m.fontSize, leftCol, 1.0f, 0.5f);
-        }
-        if (hasTrailingLabel && trailingLabelRect.w > 0.0f && trailingLabelRect.h > 0.0f) {
-            const Color rightCol = disabled ? pal.textDisabled : (checked ? pal.textPrimary : pal.textMuted);
-            canvas.DrawTextBox(opts.trailingLabel, trailingLabelRect, m.fontSize, rightCol, 0.0f, 0.5f);
-        }
-        if (hasDesc && descRect.w > 0.0f && descRect.h > 0.0f) {
-            Color descCol = theme.GetTextColor(opts.descriptionVariant);
-            if (disabled) descCol = descCol.WithAlphaF(0.40f);
-            const float alignFactor = (opts.elementAlign == Align::End) ? 1.0f : ((opts.elementAlign == Align::Center) ? 0.5f : 0.0f);
-            canvas.DrawTextBox(opts.description, descRect, m.descFontSize, descCol, alignFactor, 0.5f);
-        }
-    } else {
-        const ElementSpec spec = MakeSwitchElementSpec(opts, size, disabled, theme);
-        const ElementGeometry geom = ElementComposer::Resolve(bounds, m.trackSize, spec, &canvas, theme);
-        ElementComposer::RenderText(canvas, geom, spec, theme);
-        trackRect = geom.controlRect;
+    float curX = geom.controlRect.x;
+    if (!opts.textLeft.empty()) {
+        const float leftFont = theme.ResolveFontSize(opts.textLeft, TextRole::LabelMedium, size);
+        const Vec2 leftDims = canvas.MeasureText(opts.textLeft.text, leftFont);
+        const UiVariant defaultLeftVar = isSymmetric
+            ? (checked ? UiVariant::Secondary : UiVariant::Default)
+            : UiVariant::Secondary;
+        const Color leftCol = theme.ResolveTextColor(opts.textLeft, defaultLeftVar, disabled);
+        canvas.DrawTextBox(
+            opts.textLeft.text,
+            Rect(curX, geom.controlRect.y, leftDims.x, geom.controlRect.h),
+            leftFont,
+            leftCol,
+            1.0f,
+            0.5f
+        );
+        curX += leftDims.x + m.gap;
     }
 
-    // Determine colors
+    const float trackY = geom.controlRect.y + (geom.controlRect.h - m.trackSize.y) * 0.5f;
+    const Rect trackRect(curX, trackY, m.trackSize.x, m.trackSize.y);
+    curX += m.trackSize.x;
+
+    if (!opts.textRight.empty()) {
+        curX += m.gap;
+        const float rightFont = theme.ResolveFontSize(opts.textRight, TextRole::LabelMedium, size);
+        const Vec2 rightDims = canvas.MeasureText(opts.textRight.text, rightFont);
+        const UiVariant defaultRightVar = isSymmetric
+            ? (checked ? UiVariant::Default : UiVariant::Secondary)
+            : UiVariant::Secondary;
+        const Color rightCol = theme.ResolveTextColor(opts.textRight, defaultRightVar, disabled);
+        canvas.DrawTextBox(
+            opts.textRight.text,
+            Rect(curX, geom.controlRect.y, rightDims.x, geom.controlRect.h),
+            rightFont,
+            rightCol,
+            0.0f,
+            0.5f
+        );
+    }
+
+    // Determine track & knob colors
     Color trackFill;
     Color trackStroke{0, 0, 0, 0};
     float strokeWidth = 0.0f;

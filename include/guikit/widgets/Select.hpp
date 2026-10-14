@@ -18,11 +18,10 @@ class ICanvas;
 
 /// Clean configuration options for Select (dropdown combo box) widget.
 struct SelectOptions {
-    std::string_view label{};                      ///< Primary caption text
-    std::string_view description{};                ///< Optional helper text below select box
+    UiText label{};                                ///< Primary caption text
+    UiText description{};                          ///< Optional helper text below select box
     std::string_view placeholder{"Select..."};     ///< Placeholder text when no item is selected or items list is empty
     UiVariant variant{UiVariant::Default};         ///< Accent/border variant (Default, Warning, Danger, etc.)
-    UiVariant descriptionVariant{UiVariant::Muted};   ///< Semantic variant for description text (Muted, Warning, Danger, Success, Info, etc.)
     ElementLayout layout{ElementLayout::Stacked};    ///< Layout geometry: Stacked, Top, Bottom, Inline
     InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
     Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)

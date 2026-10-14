@@ -175,6 +175,8 @@ int main(int argc, char* argv[]) {
     bool sliderShowTicks = true;
     bool sliderShowLabels = true;
     bool sliderShowValue = true;
+    guikit::Placement sliderValuePlacement = guikit::Placement::Trailing;
+    bool sliderShowRangeText = false;
     bool sliderDisabled = false;
     guikit::ElementLayout sliderLayout = guikit::ElementLayout::Stacked;
     guikit::InlineOrder sliderInlineOrder = guikit::InlineOrder::LabelFirst;
@@ -461,8 +463,8 @@ int main(int argc, char* argv[]) {
                     }
 
                     if (ui.Switch(shellLightMode, {
-                        .label = "Dark",
-                        .trailingLabel = "Light",
+                        .textLeft = "Dark",
+                        .textRight = "Light",
                         .symmetric = true,
                         .size = guikit::UiSize::Md
                     }).changed) {
@@ -639,7 +641,7 @@ int main(int argc, char* argv[]) {
                                             .showTicks = true,
                                             .showLabels = true,
                                             .showValue = true,
-                                            .valueText = variantName(descVar),
+                                            .valueText = {variantName(descVar), (descVar == guikit::UiVariant::Muted) ? guikit::UiVariant::Secondary : descVar},
                                             .variant = (descVar == guikit::UiVariant::Muted) ? guikit::UiVariant::Secondary : descVar,
                                             .disabled = !enabled
                                         }).changed) {
@@ -740,6 +742,18 @@ int main(int argc, char* argv[]) {
                                                     if (ui.Slider(sliderWidth, 0.0f, 400.0f, {.label = "Explicit Width", .format = (sliderWidth > 0.0f) ? "%.0f px" : "Default", .step = 10.0f}).changed) ui.InvalidateAll();
                                                 }
                                                 if (ui.Switch(sliderShowValue, {.label = "Show Value Tag"}).changed) ui.InvalidateAll();
+                                                static constexpr std::array<std::string_view, 5> valPlaceNames = {"Lead", "Trail", "Top", "Btm", "Thumb"};
+                                                size_t valPlaceIdx = static_cast<size_t>(sliderValuePlacement);
+                                                if (ui.StepSlider(valPlaceIdx, valPlaceNames, {
+                                                    .label = "Value Placement",
+                                                    .showTicks = true,
+                                                    .showLabels = true,
+                                                    .disabled = !sliderShowValue
+                                                }).changed) {
+                                                    sliderValuePlacement = static_cast<guikit::Placement>(valPlaceIdx);
+                                                    ui.InvalidateAll();
+                                                }
+                                                if (ui.Switch(sliderShowRangeText, {.label = "Show Range Text (Min / Max)"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(sliderShowTicks, {.label = "Show Step Ticks", .disabled = sliderContinuous}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(sliderShowLabels, {.label = "Show Step Labels", .disabled = sliderContinuous}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(sliderDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
@@ -874,7 +888,7 @@ int main(int argc, char* argv[]) {
                                                 }
 
                                                 if (ui.StepSlider(switchStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(testDarkLightSwitch, {.label = "Dual Labels (Dark / Light)"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(testDarkLightSwitch, {.label = "Side Text (Off / On)"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(switchSymmetric, {.label = "Symmetric (Neutral Track)"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(switchDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
                                                 break;
@@ -1022,8 +1036,8 @@ int main(int argc, char* argv[]) {
                                 }
 
                                 if (ui.Switch(previewLightMode, {
-                                    .label = "Dark",
-                                    .trailingLabel = "Light",
+                                    .textLeft = "Dark",
+                                    .textRight = "Light",
                                     .symmetric = true,
                                     .size = guikit::UiSize::Md
                                 }).changed) {
@@ -1106,10 +1120,9 @@ int main(int argc, char* argv[]) {
                                                     if (ui.Button({
                                                         .label = btnShowLabel ? "System Action" : "",
                                                         .text = btnText,
-                                                        .description = btnShowDesc ? "Commit payload and trigger immediate canary rollout" : "",
+                                                        .description = {btnShowDesc ? "Commit payload and trigger immediate canary rollout" : "", btnDescVariant},
                                                         .icon = btnHasIcon ? guikit::Icon::Play() : guikit::Icon{},
                                                         .variant = btnVariant,
-                                                        .descriptionVariant = btnDescVariant,
                                                         .iconPlacement = btnIconPlacement,
                                                         .layout = btnLayout,
                                                         .inlineOrder = btnInlineOrder,
@@ -1131,14 +1144,16 @@ int main(int argc, char* argv[]) {
                                                     if (sliderContinuous) {
                                                         ui.Slider(testSliderVal, 0.0f, 100.0f, {
                                                             .label = sliderShowLabel ? "Analog Master Gain" : "",
-                                                            .description = sliderShowDesc ? "Adjust internal preamp attenuation" : "",
+                                                            .textLeft = sliderShowRangeText ? "0%" : "",
+                                                            .textRight = sliderShowRangeText ? "100%" : "",
+                                                            .description = {sliderShowDesc ? "Adjust internal preamp attenuation" : "", sliderDescVariant},
                                                             .format = "%.1f %%",
                                                             .layout = sliderLayout,
                                                             .inlineOrder = sliderInlineOrder,
                                                             .elementAlign = sliderElementAlign,
                                                             .showValue = sliderShowValue,
+                                                            .valuePlacement = sliderValuePlacement,
                                                             .variant = btnVariant,
-                                                            .descriptionVariant = sliderDescVariant,
                                                             .size = controlsSize,
                                                             .stretch = static_cast<guikit::StretchMode>(sliderStretchIdx),
                                                             .width = (sliderStretchIdx == 2) ? std::optional<float>(sliderFillPct) : ((sliderWidth > 0.0f) ? std::optional<float>(sliderWidth) : std::nullopt),
@@ -1148,15 +1163,17 @@ int main(int argc, char* argv[]) {
                                                         static constexpr std::array<std::string_view, 5> stepItems = {"Off", "Low", "Mid", "High", "Max"};
                                                         ui.StepSlider(testStepIdx, stepItems, {
                                                             .label = sliderShowLabel ? "DSP Filter Mode" : "",
-                                                            .description = sliderShowDesc ? "Select active FIR profile" : "",
+                                                            .textLeft = sliderShowRangeText ? "Min" : "",
+                                                            .textRight = sliderShowRangeText ? "Max" : "",
+                                                            .description = {sliderShowDesc ? "Select active FIR profile" : "", sliderDescVariant},
                                                             .layout = sliderLayout,
                                                             .inlineOrder = sliderInlineOrder,
                                                             .elementAlign = sliderElementAlign,
                                                             .showTicks = sliderShowTicks,
                                                             .showLabels = sliderShowLabels,
                                                             .showValue = sliderShowValue,
+                                                            .valuePlacement = sliderValuePlacement,
                                                             .variant = btnVariant,
-                                                            .descriptionVariant = sliderDescVariant,
                                                             .size = controlsSize,
                                                             .stretch = static_cast<guikit::StretchMode>(sliderStretchIdx),
                                                             .width = (sliderStretchIdx == 2) ? std::optional<float>(sliderFillPct) : ((sliderWidth > 0.0f) ? std::optional<float>(sliderWidth) : std::nullopt),
@@ -1169,12 +1186,11 @@ int main(int argc, char* argv[]) {
                                                 case NavCategory::ElemInputField: {
                                                     ui.InputField(testInputText, {
                                                         .label = inputShowLabel ? "Server Endpoint" : "",
-                                                        .description = inputShowDesc ? "Configured host address" : "",
+                                                        .description = {inputShowDesc ? "Configured host address" : "", inputDescVariant},
                                                         .placeholder = "Enter domain...",
                                                         .prefix = inputHasPrefix ? "https://" : "",
                                                         .suffix = inputHasSuffix ? ":443" : "",
                                                         .variant = btnVariant,
-                                                        .descriptionVariant = inputDescVariant,
                                                         .layout = inputLayout,
                                                         .inlineOrder = inputInlineOrder,
                                                         .elementAlign = inputElementAlign,
@@ -1192,9 +1208,8 @@ int main(int argc, char* argv[]) {
                                                 case NavCategory::ElemSelect: {
                                                     ui.Select(testSelectIdx, selectItems, {
                                                         .label = selectShowLabel ? "Active Preset" : "",
-                                                        .description = selectShowDesc ? "Dropdown selection" : "",
+                                                        .description = {selectShowDesc ? "Dropdown selection" : "", selectDescVariant},
                                                         .variant = btnVariant,
-                                                        .descriptionVariant = selectDescVariant,
                                                         .layout = selectLayout,
                                                         .inlineOrder = selectInlineOrder,
                                                         .elementAlign = selectElementAlign,
@@ -1211,11 +1226,11 @@ int main(int argc, char* argv[]) {
 
                                                 case NavCategory::ElemSwitch: {
                                                     ui.Switch(testSwitchState, {
-                                                        .label = switchShowLabel ? (testDarkLightSwitch ? "Dark" : "Hardware E-Stop") : "",
-                                                        .trailingLabel = (switchShowLabel && testDarkLightSwitch) ? "Light" : "",
-                                                        .description = switchShowDesc ? "Safety interlocking system" : "",
+                                                        .label = switchShowLabel ? "Hardware E-Stop" : "",
+                                                        .textLeft = testDarkLightSwitch ? "Off" : "",
+                                                        .textRight = testDarkLightSwitch ? "On" : "",
+                                                        .description = {switchShowDesc ? "Safety interlocking system" : "", switchDescVariant},
                                                         .variant = btnVariant,
-                                                        .descriptionVariant = switchDescVariant,
                                                         .layout = switchLayout,
                                                         .inlineOrder = switchInlineOrder,
                                                         .elementAlign = switchElementAlign,
@@ -1230,9 +1245,8 @@ int main(int argc, char* argv[]) {
                                                 case NavCategory::ElemCheckbox: {
                                                     ui.Checkbox(testCheckboxState, {
                                                         .label = checkboxShowLabel ? "Telemetry Logging" : "",
-                                                        .description = checkboxShowDesc ? "Save trace to buffer" : "",
+                                                        .description = {checkboxShowDesc ? "Save trace to buffer" : "", checkboxDescVariant},
                                                         .variant = btnVariant,
-                                                        .descriptionVariant = checkboxDescVariant,
                                                         .layout = checkboxLayout,
                                                         .inlineOrder = checkboxInlineOrder,
                                                         .elementAlign = checkboxElementAlign,
@@ -1301,8 +1315,15 @@ int main(int argc, char* argv[]) {
                                             case guikit::Placement::Trailing: return "Trailing";
                                             case guikit::Placement::Top:      return "Top";
                                             case guikit::Placement::Bottom:   return "Bottom";
+                                            case guikit::Placement::Thumb:    return "Thumb";
                                         }
                                         return "Trailing";
+                                    };
+
+                                    auto formatDesc = [&](bool show, std::string_view text, guikit::UiVariant v) -> std::string {
+                                        if (!show) return "\"\"";
+                                        if (v == guikit::UiVariant::Muted) return std::format("\"{}\"", text);
+                                        return std::format("{{\"{}\", guikit::UiVariant::{}}}", text, variantName(v));
                                     };
 
                                     auto sizeName = [](guikit::UiSize s) -> std::string_view {
@@ -1341,10 +1362,9 @@ int main(int argc, char* argv[]) {
                                                 "if (ui.Button({{\n"
                                                 "    .label = \"{}\",\n"
                                                 "    .text = \"{}\",\n"
-                                                "    .description = \"{}\",\n"
+                                                "    .description = {},\n"
                                                 "    .icon = {},\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
-                                                "    .descriptionVariant = guikit::UiVariant::{},\n"
                                                 "    .iconPlacement = guikit::Placement::{},\n"
                                                 "    .layout = guikit::ElementLayout::{},\n"
                                                 "    .inlineOrder = guikit::InlineOrder::{},\n"
@@ -1362,10 +1382,9 @@ int main(int argc, char* argv[]) {
                                                 "}}",
                                                 btnShowLabel ? "System Action" : "",
                                                 btnClicks > 0 ? std::format("Clicked {}x", btnClicks) : "Interactive Button",
-                                                btnShowDesc ? "Commit payload and trigger immediate canary rollout" : "",
+                                                formatDesc(btnShowDesc, "Commit payload and trigger immediate canary rollout", btnDescVariant),
                                                 btnHasIcon ? "guikit::Icon::Play()" : "{}",
                                                 variantName(btnVariant),
-                                                variantName(btnDescVariant),
                                                 placementName(btnIconPlacement),
                                                 elementLayoutEnumName(btnLayout),
                                                 inlineOrderEnumName(btnInlineOrder),
@@ -1385,7 +1404,9 @@ int main(int argc, char* argv[]) {
                                                 snippet = std::format(
                                                     "ui.Slider(gainValue, 0.0f, 100.0f, {{\n"
                                                     "    .label = \"{}\",\n"
-                                                    "    .description = \"{}\",\n"
+                                                    "    .textLeft = \"{}\",\n"
+                                                    "    .textRight = \"{}\",\n"
+                                                    "    .description = {},\n"
                                                     "    .suffix = \"\",\n"
                                                     "    .format = \"%.1f %%\",\n"
                                                     "    .step = std::nullopt,\n"
@@ -1393,8 +1414,9 @@ int main(int argc, char* argv[]) {
                                                     "    .inlineOrder = guikit::InlineOrder::{},\n"
                                                     "    .elementAlign = guikit::Align::{},\n"
                                                     "    .showValue = {},\n"
+                                                    "    .valuePlacement = guikit::Placement::{},\n"
+                                                    "    .valueText = \"\",\n"
                                                     "    .variant = guikit::UiVariant::{},\n"
-                                                    "    .descriptionVariant = guikit::UiVariant::{},\n"
                                                     "    .size = guikit::UiSize::{},\n"
                                                     "    .stretch = guikit::StretchMode::{},\n"
                                                     "    .width = {},\n"
@@ -1403,13 +1425,15 @@ int main(int argc, char* argv[]) {
                                                     "    .disabled = {}\n"
                                                     "}});",
                                                     sliderShowLabel ? "Analog Master Gain" : "",
-                                                    sliderShowDesc ? "Adjust internal preamp attenuation" : "",
+                                                    sliderShowRangeText ? "0%" : "",
+                                                    sliderShowRangeText ? "100%" : "",
+                                                    formatDesc(sliderShowDesc, "Adjust internal preamp attenuation", sliderDescVariant),
                                                     elementLayoutEnumName(sliderLayout),
                                                     inlineOrderEnumName(sliderInlineOrder),
                                                     labelAlignEnumName(sliderElementAlign),
                                                     sliderShowValue ? "true" : "false",
+                                                    placementName(sliderValuePlacement),
                                                     variantName(btnVariant),
-                                                    variantName(sliderDescVariant),
                                                     sizeName(controlsSize),
                                                     stretchModeEnumName(static_cast<guikit::StretchMode>(sliderStretchIdx)),
                                                     (sliderStretchIdx == 2) ? std::format("{:.1f}f", sliderFillPct) : ((sliderWidth > 0.0f) ? std::format("{:.1f}f", sliderWidth) : "std::nullopt"),
@@ -1420,7 +1444,9 @@ int main(int argc, char* argv[]) {
                                                     "static constexpr std::array<std::string_view, 5> stepItems = {{\"Off\", \"Low\", \"Mid\", \"High\", \"Max\"}};\n"
                                                     "ui.StepSlider(presetIndex, stepItems, {{\n"
                                                     "    .label = \"{}\",\n"
-                                                    "    .description = \"{}\",\n"
+                                                    "    .textLeft = \"{}\",\n"
+                                                    "    .textRight = \"{}\",\n"
+                                                    "    .description = {},\n"
                                                     "    .stepLabels = {{}},\n"
                                                     "    .layout = guikit::ElementLayout::{},\n"
                                                     "    .inlineOrder = guikit::InlineOrder::{},\n"
@@ -1428,10 +1454,10 @@ int main(int argc, char* argv[]) {
                                                     "    .showTicks = {},\n"
                                                     "    .showLabels = {},\n"
                                                     "    .showValue = {},\n"
+                                                    "    .valuePlacement = guikit::Placement::{},\n"
                                                     "    .valueText = \"\",\n"
                                                     "    .includeNone = false,\n"
                                                     "    .variant = guikit::UiVariant::{},\n"
-                                                    "    .descriptionVariant = guikit::UiVariant::{},\n"
                                                     "    .size = guikit::UiSize::{},\n"
                                                     "    .stretch = guikit::StretchMode::{},\n"
                                                     "    .width = {},\n"
@@ -1440,15 +1466,17 @@ int main(int argc, char* argv[]) {
                                                     "    .disabled = {}\n"
                                                     "}});",
                                                     sliderShowLabel ? "DSP Filter Mode" : "",
-                                                    sliderShowDesc ? "Select active FIR profile" : "",
+                                                    sliderShowRangeText ? "Min" : "",
+                                                    sliderShowRangeText ? "Max" : "",
+                                                    formatDesc(sliderShowDesc, "Select active FIR profile", sliderDescVariant),
                                                     elementLayoutEnumName(sliderLayout),
                                                     inlineOrderEnumName(sliderInlineOrder),
                                                     labelAlignEnumName(sliderElementAlign),
                                                     sliderShowTicks ? "true" : "false",
                                                     sliderShowLabels ? "true" : "false",
                                                     sliderShowValue ? "true" : "false",
+                                                    placementName(sliderValuePlacement),
                                                     variantName(btnVariant),
-                                                    variantName(sliderDescVariant),
                                                     sizeName(controlsSize),
                                                     stretchModeEnumName(static_cast<guikit::StretchMode>(sliderStretchIdx)),
                                                     (sliderStretchIdx == 2) ? std::format("{:.1f}f", sliderFillPct) : ((sliderWidth > 0.0f) ? std::format("{:.1f}f", sliderWidth) : "std::nullopt"),
@@ -1462,13 +1490,12 @@ int main(int argc, char* argv[]) {
                                             snippet = std::format(
                                                 "ui.InputField(serverEndpoint, {{\n"
                                                 "    .label = \"{}\",\n"
-                                                "    .description = \"{}\",\n"
+                                                "    .description = {},\n"
                                                 "    .placeholder = \"Enter domain...\",\n"
                                                 "    .prefix = \"{}\",\n"
                                                 "    .suffix = \"{}\",\n"
                                                 "    .format = \"%.2f\",\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
-                                                "    .descriptionVariant = guikit::UiVariant::{},\n"
                                                 "    .layout = guikit::ElementLayout::{},\n"
                                                 "    .inlineOrder = guikit::InlineOrder::{},\n"
                                                 "    .elementAlign = guikit::Align::{},\n"
@@ -1483,11 +1510,10 @@ int main(int argc, char* argv[]) {
                                                 "    .readOnly = {}\n"
                                                 "}});",
                                                 inputShowLabel ? "Server Endpoint" : "",
-                                                inputShowDesc ? "Configured host address" : "",
+                                                formatDesc(inputShowDesc, "Configured host address", inputDescVariant),
                                                 inputHasPrefix ? "https://" : "",
                                                 inputHasSuffix ? ":443" : "",
                                                 variantName(btnVariant),
-                                                variantName(inputDescVariant),
                                                 elementLayoutEnumName(inputLayout),
                                                 inlineOrderEnumName(inputInlineOrder),
                                                 labelAlignEnumName(inputElementAlign),
@@ -1508,10 +1534,9 @@ int main(int argc, char* argv[]) {
                                             snippet = std::format(
                                                 "ui.Select(presetIndex, itemsList, {{\n"
                                                 "    .label = \"{}\",\n"
-                                                "    .description = \"{}\",\n"
+                                                "    .description = {},\n"
                                                 "    .placeholder = \"Select...\",\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
-                                                "    .descriptionVariant = guikit::UiVariant::{},\n"
                                                 "    .layout = guikit::ElementLayout::{},\n"
                                                 "    .inlineOrder = guikit::InlineOrder::{},\n"
                                                 "    .elementAlign = guikit::Align::{},\n"
@@ -1524,9 +1549,8 @@ int main(int argc, char* argv[]) {
                                                 "    .disabled = {}\n"
                                                 "}});",
                                                 selectShowLabel ? "Active Preset" : "",
-                                                selectShowDesc ? "Dropdown selection" : "",
+                                                formatDesc(selectShowDesc, "Dropdown selection", selectDescVariant),
                                                 variantName(btnVariant),
-                                                variantName(selectDescVariant),
                                                 elementLayoutEnumName(selectLayout),
                                                 inlineOrderEnumName(selectInlineOrder),
                                                 labelAlignEnumName(selectElementAlign),
@@ -1545,10 +1569,10 @@ int main(int argc, char* argv[]) {
                                             snippet = std::format(
                                                 "ui.Switch(switchState, {{\n"
                                                 "    .label = \"{}\",\n"
-                                                "    .trailingLabel = \"{}\",\n"
-                                                "    .description = \"{}\",\n"
+                                                "    .textLeft = \"{}\",\n"
+                                                "    .textRight = \"{}\",\n"
+                                                "    .description = {},\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
-                                                "    .descriptionVariant = guikit::UiVariant::{},\n"
                                                 "    .layout = guikit::ElementLayout::{},\n"
                                                 "    .inlineOrder = guikit::InlineOrder::{},\n"
                                                 "    .elementAlign = guikit::Align::{},\n"
@@ -1557,11 +1581,11 @@ int main(int argc, char* argv[]) {
                                                 "    .disabled = {},\n"
                                                 "    .size = guikit::UiSize::{}\n"
                                                 "}});",
-                                                switchShowLabel ? (testDarkLightSwitch ? "Dark" : "Hardware E-Stop") : "",
-                                                (switchShowLabel && testDarkLightSwitch) ? "Light" : "",
-                                                switchShowDesc ? "Safety interlocking system" : "",
+                                                switchShowLabel ? "Hardware E-Stop" : "",
+                                                testDarkLightSwitch ? "Off" : "",
+                                                testDarkLightSwitch ? "On" : "",
+                                                formatDesc(switchShowDesc, "Safety interlocking system", switchDescVariant),
                                                 variantName(btnVariant),
-                                                variantName(switchDescVariant),
                                                 elementLayoutEnumName(switchLayout),
                                                 inlineOrderEnumName(switchInlineOrder),
                                                 labelAlignEnumName(switchElementAlign),
@@ -1577,9 +1601,8 @@ int main(int argc, char* argv[]) {
                                             snippet = std::format(
                                                 "ui.Checkbox(checkState, {{\n"
                                                 "    .label = \"{}\",\n"
-                                                "    .description = \"{}\",\n"
+                                                "    .description = {},\n"
                                                 "    .variant = guikit::UiVariant::{},\n"
-                                                "    .descriptionVariant = guikit::UiVariant::{},\n"
                                                 "    .layout = guikit::ElementLayout::{},\n"
                                                 "    .inlineOrder = guikit::InlineOrder::{},\n"
                                                 "    .elementAlign = guikit::Align::{},\n"
@@ -1589,9 +1612,8 @@ int main(int argc, char* argv[]) {
                                                 "    .size = guikit::UiSize::{}\n"
                                                 "}});",
                                                 checkboxShowLabel ? "Telemetry Logging" : "",
-                                                checkboxShowDesc ? "Save trace to buffer" : "",
+                                                formatDesc(checkboxShowDesc, "Save trace to buffer", checkboxDescVariant),
                                                 variantName(btnVariant),
-                                                variantName(checkboxDescVariant),
                                                 elementLayoutEnumName(checkboxLayout),
                                                 inlineOrderEnumName(checkboxInlineOrder),
                                                 labelAlignEnumName(checkboxElementAlign),

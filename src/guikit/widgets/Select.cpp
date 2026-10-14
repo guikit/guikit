@@ -36,9 +36,7 @@ ElementSpec MakeSelectElementSpec(
         .elementAlign = opts.elementAlign,
         .stretch = opts.stretch,
         .width = opts.width,
-        .descriptionVariant = opts.descriptionVariant,
-        .labelFontSize = m.labelFontSize,
-        .descFontSize = m.descFontSize,
+        .widgetSize = size,
         .labelGap = m.labelGap,
         .descGap = m.descGap,
         .inlineGap = m.paddingX,
@@ -293,12 +291,12 @@ Response Select::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::Select, id);
-    node->text = ctx.AllocString(opts.label);
 
     SelectOptions optsCopy = opts;
-    optsCopy.label = node->text;
+    optsCopy.label = ctx.AllocText(opts.label);
+    optsCopy.description = ctx.AllocText(opts.description);
+    node->text = optsCopy.label.text;
     if (opts.stretch != StretchMode::Fill && !optsCopy.width.has_value()) optsCopy.width = intrinsicW;
-    if (!opts.description.empty()) optsCopy.description = ctx.AllocString(opts.description);
     if (!opts.placeholder.empty()) optsCopy.placeholder = ctx.AllocString(opts.placeholder);
 
     auto* data = ctx.AllocPayload<SelectData>();
@@ -307,11 +305,10 @@ Response Select::Run(
     node->payload = data;
     node->visualHash = detail::HashArgs(
         opts.variant,
-        opts.descriptionVariant,
         static_cast<uint8_t>(opts.stretch),
         optsCopy.width.value_or(0.0f),
         opts.minWidth.value_or(0.0f),
-        node->text,
+        optsCopy.label,
         data->displayText,
         optsCopy.description,
         optsCopy.placeholder,

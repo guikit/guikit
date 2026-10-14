@@ -23,19 +23,14 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
     }
 
     Node* node = ctx.CreateNode(NodeType::Button, id);
-    node->text = ctx.AllocString(opts.label);
     auto* bOpts = ctx.AllocPayload<ButtonOptions>(opts);
-    bOpts->label = node->text;
-    if (!opts.text.empty()) {
-        bOpts->text = ctx.AllocString(opts.text);
-    }
-    if (!opts.description.empty()) {
-        bOpts->description = ctx.AllocString(opts.description);
-    }
+    bOpts->label = ctx.AllocText(opts.label);
+    bOpts->text = ctx.AllocText(opts.text);
+    bOpts->description = ctx.AllocText(opts.description);
+    node->text = bOpts->label.text;
     node->payload = bOpts;
     node->visualHash = detail::HashArgs(
         opts.variant,
-        opts.descriptionVariant,
         opts.iconPlacement,
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
@@ -50,7 +45,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
         static_cast<uint8_t>(opts.icon.GetType()),
         static_cast<uint8_t>(opts.icon.GetId()),
         opts.icon.GetPath(),
-        node->text,
+        bOpts->label,
         bOpts->text,
         bOpts->description
     );
@@ -79,12 +74,13 @@ namespace {
 
 Vec2 MeasureButtonCapsule(
     const ButtonOptions& opts,
-    std::string_view effectiveCapsuleText,
+    const UiText& effectiveCapsuleText,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme
 ) {
     const ComponentMetrics& m = theme.GetMetrics(size);
+    const float capFontSize = theme.ResolveFontSize(effectiveCapsuleText, TextRole::LabelMedium, size);
     const bool hasIcon = opts.icon.IsValid();
     const bool hasCapsuleText = !effectiveCapsuleText.empty();
 
@@ -97,9 +93,9 @@ Vec2 MeasureButtonCapsule(
     float maxTextW = 0.0f;
     if (hasCapsuleText) {
         if (canvas) {
-            maxTextW = canvas->MeasureText(effectiveCapsuleText, m.fontSize).x;
+            maxTextW = canvas->MeasureText(effectiveCapsuleText.text, capFontSize).x;
         } else {
-            maxTextW = static_cast<float>(effectiveCapsuleText.length()) * (m.fontSize * kDefaultCharAdvanceRatio);
+            maxTextW = static_cast<float>(effectiveCapsuleText.length()) * (capFontSize * kDefaultCharAdvanceRatio);
         }
     }
 
@@ -108,9 +104,9 @@ Vec2 MeasureButtonCapsule(
         if (var.empty()) continue;
         float varW = 0.0f;
         if (canvas) {
-            varW = canvas->MeasureText(var, m.fontSize).x;
+            varW = canvas->MeasureText(var, capFontSize).x;
         } else {
-            varW = static_cast<float>(var.length()) * (m.fontSize * kDefaultCharAdvanceRatio);
+            varW = static_cast<float>(var.length()) * (capFontSize * kDefaultCharAdvanceRatio);
         }
         maxTextW = std::max(maxTextW, varW);
     }
@@ -120,7 +116,7 @@ Vec2 MeasureButtonCapsule(
     if (hasIcon && maxTextW > 0.0f) {
         if (opts.iconPlacement == Placement::Top || opts.iconPlacement == Placement::Bottom) {
             contentW = std::max(m.iconSize, maxTextW);
-            contentH = std::max(m.defaultHeight, m.iconSize + 4.0f + m.fontSize + m.paddingY * 2.0f);
+            contentH = std::max(m.defaultHeight, m.iconSize + 4.0f + capFontSize + m.paddingY * 2.0f);
         } else {
             const float gap = 8.0f;
             contentW = m.iconSize + gap + maxTextW;
@@ -142,7 +138,7 @@ Vec2 MeasureButtonCapsule(
 
 ElementSpec MakeButtonElementSpec(
     const ButtonOptions& opts,
-    std::string_view effectiveExternalLabel,
+    const UiText& effectiveExternalLabel,
     UiSize size,
     bool disabled,
     const UiTheme& theme
@@ -157,9 +153,7 @@ ElementSpec MakeButtonElementSpec(
         .elementAlign = opts.elementAlign,
         .stretch = opts.stretch,
         .width = opts.width,
-        .descriptionVariant = opts.descriptionVariant,
-        .labelFontSize = inputMetrics.labelFontSize,
-        .descFontSize = inputMetrics.descFontSize,
+        .widgetSize = size,
         .labelGap = inputMetrics.labelGap,
         .descGap = inputMetrics.descGap,
         .inlineGap = m.paddingX,
@@ -172,8 +166,8 @@ ElementSpec MakeButtonElementSpec(
 } // namespace
 
 Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme) {
-    const std::string_view effectiveCapsuleText = !opts.text.empty() ? opts.text : (opts.description.empty() ? opts.label : std::string_view{});
-    const std::string_view effectiveExternalLabel = !opts.text.empty() ? opts.label : (!opts.description.empty() ? opts.label : std::string_view{});
+    const UiText effectiveCapsuleText = !opts.text.empty() ? opts.text : (opts.description.empty() ? opts.label : UiText{});
+    const UiText effectiveExternalLabel = !opts.text.empty() ? opts.label : (!opts.description.empty() ? opts.label : UiText{});
 
     const Vec2 capsuleDims = MeasureButtonCapsule(opts, effectiveCapsuleText, size, canvas, theme);
     const ElementSpec spec = MakeButtonElementSpec(opts, effectiveExternalLabel, size, opts.disabled, theme);
@@ -201,8 +195,9 @@ void Button::Render(
 
     const ComponentMetrics& m = theme.GetMetrics(size);
 
-    const std::string_view effectiveCapsuleText = !opts.text.empty() ? opts.text : (opts.description.empty() ? opts.label : std::string_view{});
-    const std::string_view effectiveExternalLabel = !opts.text.empty() ? opts.label : (!opts.description.empty() ? opts.label : std::string_view{});
+    const UiText effectiveCapsuleText = !opts.text.empty() ? opts.text : (opts.description.empty() ? opts.label : UiText{});
+    const UiText effectiveExternalLabel = !opts.text.empty() ? opts.label : (!opts.description.empty() ? opts.label : UiText{});
+    const float capFontSize = theme.ResolveFontSize(effectiveCapsuleText, TextRole::LabelMedium, size);
 
     const Vec2 capSize = MeasureButtonCapsule(opts, effectiveCapsuleText, size, &canvas, theme);
     const ElementSpec spec = MakeButtonElementSpec(opts, effectiveExternalLabel, size, disabled, theme);
@@ -213,7 +208,9 @@ void Button::Render(
     const VariantColors& colors = theme.GetVariant(opts.variant);
 
     Color bg = colors.bg;
-    Color textCol = colors.text;
+    Color textCol = effectiveCapsuleText.variant.has_value()
+        ? theme.GetTextColor(*effectiveCapsuleText.variant)
+        : colors.text;
     Color borderCol = colors.border;
     float borderW = colors.borderWidth;
 
@@ -268,12 +265,12 @@ void Button::Render(
         } else if (opts.controlAlign == Align::End) {
             alignX = 1.0f;
         }
-        canvas.DrawTextBox(effectiveCapsuleText, textRect, m.fontSize, textCol, alignX, 0.5f);
+        canvas.DrawTextBox(effectiveCapsuleText.text, textRect, capFontSize, textCol, alignX, 0.5f);
     } else if (hasIcon && hasCapsuleText) {
         // Icon + Label
         if (opts.iconPlacement == Placement::Top) {
             const float gap = 4.0f;
-            const float textH = canvas.GetLineHeight(m.fontSize);
+            const float textH = canvas.GetLineHeight(capFontSize);
             const float totalContentH = m.iconSize + gap + textH;
             const float startY = capsuleRect.y + (capsuleRect.h - totalContentH) * 0.5f;
             float iconX = capsuleRect.x + (capsuleRect.w - m.iconSize) * 0.5f;
@@ -287,10 +284,10 @@ void Button::Render(
             }
             opts.icon.Draw(canvas, Rect(iconX, startY, m.iconSize, m.iconSize), textCol);
             const Rect textRect(capsuleRect.x + m.paddingX, startY + m.iconSize + gap, std::max(0.0f, capsuleRect.w - m.paddingX * 2.0f), textH);
-            canvas.DrawTextBox(effectiveCapsuleText, textRect, m.fontSize, textCol, alignX, 0.5f);
+            canvas.DrawTextBox(effectiveCapsuleText.text, textRect, capFontSize, textCol, alignX, 0.5f);
         } else if (opts.iconPlacement == Placement::Bottom) {
             const float gap = 4.0f;
-            const float textH = canvas.GetLineHeight(m.fontSize);
+            const float textH = canvas.GetLineHeight(capFontSize);
             const float totalContentH = m.iconSize + gap + textH;
             const float startY = capsuleRect.y + (capsuleRect.h - totalContentH) * 0.5f;
             float iconX = capsuleRect.x + (capsuleRect.w - m.iconSize) * 0.5f;
@@ -303,16 +300,16 @@ void Button::Render(
                 alignX = 1.0f;
             }
             const Rect textRect(capsuleRect.x + m.paddingX, startY, std::max(0.0f, capsuleRect.w - m.paddingX * 2.0f), textH);
-            canvas.DrawTextBox(effectiveCapsuleText, textRect, m.fontSize, textCol, alignX, 0.5f);
+            canvas.DrawTextBox(effectiveCapsuleText.text, textRect, capFontSize, textCol, alignX, 0.5f);
             opts.icon.Draw(canvas, Rect(iconX, startY + textH + gap, m.iconSize, m.iconSize), textCol);
         } else if (opts.iconPlacement == Placement::Trailing) {
             const float gap = 8.0f;
             const float availTextW = std::max(0.0f, capsuleRect.w - m.paddingX * 2.0f - m.iconSize - gap);
-            float textW = canvas.MeasureText(effectiveCapsuleText, m.fontSize).x;
-            std::string displayLabel(effectiveCapsuleText);
+            float textW = canvas.MeasureText(effectiveCapsuleText.text, capFontSize).x;
+            std::string displayLabel(effectiveCapsuleText.text);
             if (textW > availTextW + kTextSubpixelTolerance && availTextW > 0.0f) {
-                displayLabel = TextUtil::TruncateWithEllipsis(effectiveCapsuleText, availTextW, m.fontSize, &canvas);
-                textW = canvas.MeasureText(displayLabel, m.fontSize).x;
+                displayLabel = TextUtil::TruncateWithEllipsis(effectiveCapsuleText.text, availTextW, capFontSize, &canvas);
+                textW = canvas.MeasureText(displayLabel, capFontSize).x;
             }
             const float totalContentW = m.iconSize + gap + textW;
             const float centeredStartX = capsuleRect.x + (capsuleRect.w - totalContentW) * 0.5f;
@@ -328,16 +325,16 @@ void Button::Render(
             }
             const float iconY = capsuleRect.y + (capsuleRect.h - m.iconSize) * 0.5f;
             const Rect textRect(startX, capsuleRect.y, textW, capsuleRect.h);
-            canvas.DrawTextBox(displayLabel, textRect, m.fontSize, textCol, 0.0f, 0.5f);
+            canvas.DrawTextBox(displayLabel, textRect, capFontSize, textCol, 0.0f, 0.5f);
             opts.icon.Draw(canvas, Rect(startX + textW + gap, iconY, m.iconSize, m.iconSize), textCol);
         } else { // Leading / default
             const float gap = 8.0f;
             const float availTextW = std::max(0.0f, capsuleRect.w - m.paddingX * 2.0f - m.iconSize - gap);
-            float textW = canvas.MeasureText(effectiveCapsuleText, m.fontSize).x;
-            std::string displayLabel(effectiveCapsuleText);
+            float textW = canvas.MeasureText(effectiveCapsuleText.text, capFontSize).x;
+            std::string displayLabel(effectiveCapsuleText.text);
             if (textW > availTextW + kTextSubpixelTolerance && availTextW > 0.0f) {
-                displayLabel = TextUtil::TruncateWithEllipsis(effectiveCapsuleText, availTextW, m.fontSize, &canvas);
-                textW = canvas.MeasureText(displayLabel, m.fontSize).x;
+                displayLabel = TextUtil::TruncateWithEllipsis(effectiveCapsuleText.text, availTextW, capFontSize, &canvas);
+                textW = canvas.MeasureText(displayLabel, capFontSize).x;
             }
             const float totalContentW = m.iconSize + gap + textW;
             const float centeredStartX = capsuleRect.x + (capsuleRect.w - totalContentW) * 0.5f;
@@ -355,7 +352,7 @@ void Button::Render(
             opts.icon.Draw(canvas, Rect(startX, iconY, m.iconSize, m.iconSize), textCol);
             const float remainingW = std::max(0.0f, (capsuleRect.x + capsuleRect.w - m.paddingX) - (startX + m.iconSize + gap));
             const Rect textRect(startX + m.iconSize + gap, capsuleRect.y, remainingW, capsuleRect.h);
-            canvas.DrawTextBox(displayLabel, textRect, m.fontSize, textCol, 0.0f, 0.5f);
+            canvas.DrawTextBox(displayLabel, textRect, capFontSize, textCol, 0.0f, 0.5f);
         }
     }
 

@@ -86,6 +86,37 @@ struct UiTheme {
         return (idx < typography.size()) ? typography[idx] : typography[static_cast<size_t>(TextRole::BodyMedium)];
     }
 
+    /// Resolves font size for a UiText: uses explicit TextRole if set, or defaultRole scaled by widget UiSize.
+    [[nodiscard]] constexpr float ResolveFontSize(
+        const UiText& text,
+        TextRole defaultRole,
+        UiSize widgetSize = UiSize::Md
+    ) const noexcept {
+        if (text.role.has_value()) {
+            return GetTypography(*text.role).fontSize;
+        }
+        const float baseFont = GetTypography(defaultRole).fontSize;
+        if (widgetSize == UiSize::Md || widgetSize == UiSize::None) {
+            return baseFont;
+        }
+        const float mdMetricFont = GetMetrics(UiSize::Md).fontSize;
+        const float sizeMetricFont = GetMetrics(widgetSize).fontSize;
+        if (mdMetricFont > 0.0f && sizeMetricFont > 0.0f) {
+            return baseFont * (sizeMetricFont / mdMetricFont);
+        }
+        return baseFont;
+    }
+
+    /// Resolves text color for a UiText: uses explicit UiVariant if set, or defaultVariant, applying disabled alpha.
+    [[nodiscard]] constexpr Color ResolveTextColor(
+        const UiText& text,
+        UiVariant defaultVariant,
+        bool disabled = false
+    ) const noexcept {
+        const Color col = GetTextColor(text.VariantOr(defaultVariant));
+        return disabled ? col.WithAlphaF(0.40f) : col;
+    }
+
     [[nodiscard]] constexpr const ScrollbarMetrics& GetScrollbar(UiSize size) const noexcept {
         const size_t idx = static_cast<size_t>(size);
         return (idx < scrollbars.size()) ? scrollbars[idx] : scrollbars[static_cast<size_t>(UiSize::Md)];

@@ -23,9 +23,7 @@ ElementSpec MakeCheckboxElementSpec(
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
         .stretch = opts.stretch,
-        .descriptionVariant = opts.descriptionVariant,
-        .labelFontSize = m.fontSize,
-        .descFontSize = m.descFontSize,
+        .widgetSize = size,
         .labelGap = m.descGap,
         .descGap = m.descGap,
         .inlineGap = m.gap,
@@ -68,23 +66,20 @@ Response Checkbox::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::Checkbox, id);
-    node->text = ctx.AllocString(opts.label);
     CheckboxOptions optsCopy = opts;
-    optsCopy.label = node->text;
-    if (!opts.description.empty()) {
-        optsCopy.description = ctx.AllocString(opts.description);
-    }
+    optsCopy.label = ctx.AllocText(opts.label);
+    optsCopy.description = ctx.AllocText(opts.description);
+    node->text = optsCopy.label.text;
     node->payload = ctx.AllocPayload<CheckboxOptions>(optsCopy);
     node->visualHash = detail::HashArgs(
         opts.variant,
-        opts.descriptionVariant,
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
         static_cast<uint8_t>(opts.elementAlign),
         opts.indeterminate,
         static_cast<uint8_t>(opts.stretch),
         currentChecked,
-        node->text,
+        optsCopy.label,
         optsCopy.description
     );
     node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {

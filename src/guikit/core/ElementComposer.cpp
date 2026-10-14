@@ -12,7 +12,7 @@ Vec2 ElementComposer::Measure(
     ICanvas* canvas,
     const UiTheme& theme
 ) noexcept {
-    const bool hasLabel = !spec.label.empty() || spec.hasHeaderRight || !spec.headerRightText.empty();
+    const bool hasLabel = !spec.label.empty();
     const bool hasDesc = !spec.description.empty();
     const bool hasExternal = hasLabel || hasDesc;
 
@@ -20,38 +20,26 @@ Vec2 ElementComposer::Measure(
         return intrinsicControlSize;
     }
 
+    const float labelFontSize = theme.ResolveFontSize(spec.label, TextRole::LabelLarge, spec.widgetSize);
+    const float descFontSize = theme.ResolveFontSize(spec.description, TextRole::LabelSmall, spec.widgetSize);
+
     Vec2 labelDims = {0.0f, 0.0f};
     if (hasLabel) {
-        const float lineH = canvas ? canvas->GetLineHeight(spec.labelFontSize) : theme.GetLineHeight(spec.labelFontSize);
-        float w = 0.0f;
-        if (!spec.label.empty()) {
-            if (canvas) {
-                w = canvas->MeasureText(spec.label, spec.labelFontSize).x;
-            } else {
-                w = static_cast<float>(spec.label.length()) * (spec.labelFontSize * kDefaultCharAdvanceRatio);
-            }
-        }
-        if (spec.hasHeaderRight || !spec.headerRightText.empty()) {
-            float rightW = spec.headerRightMinWidth;
-            if (!spec.headerRightText.empty()) {
-                const float mw = canvas
-                    ? canvas->MeasureText(spec.headerRightText, spec.labelFontSize).x
-                    : static_cast<float>(spec.headerRightText.length()) * (spec.labelFontSize * kDefaultCharAdvanceRatio);
-                rightW = std::max(rightW, mw);
-            }
-            w += (w > 0.0f ? 8.0f : 0.0f) + rightW;
-        }
+        const float lineH = canvas ? canvas->GetLineHeight(labelFontSize) : theme.GetLineHeight(labelFontSize);
+        const float w = canvas
+            ? canvas->MeasureText(spec.label.text, labelFontSize).x
+            : static_cast<float>(spec.label.length()) * (labelFontSize * kDefaultCharAdvanceRatio);
         labelDims = {w, lineH};
     }
 
     Vec2 descDims = {0.0f, 0.0f};
     if (hasDesc) {
         if (canvas) {
-            descDims = canvas->MeasureText(spec.description, spec.descFontSize);
+            descDims = canvas->MeasureText(spec.description.text, descFontSize);
         } else {
             descDims = {
-                static_cast<float>(spec.description.length()) * (spec.descFontSize * kDefaultCharAdvanceRatio),
-                theme.GetLineHeight(spec.descFontSize)
+                static_cast<float>(spec.description.length()) * (descFontSize * kDefaultCharAdvanceRatio),
+                theme.GetLineHeight(descFontSize)
             };
         }
     }
@@ -103,9 +91,11 @@ ElementGeometry ElementComposer::Resolve(
     const UiTheme& theme
 ) noexcept {
     ElementGeometry geom{};
-    geom.hasLabel = !spec.label.empty() || spec.hasHeaderRight || !spec.headerRightText.empty();
+    geom.hasLabel = !spec.label.empty();
     geom.hasDesc = !spec.description.empty();
     geom.hasExternal = geom.hasLabel || geom.hasDesc;
+    geom.labelFontSize = theme.ResolveFontSize(spec.label, TextRole::LabelLarge, spec.widgetSize);
+    geom.descFontSize = theme.ResolveFontSize(spec.description, TextRole::LabelSmall, spec.widgetSize);
 
     const float alignFactor = (spec.elementAlign == Align::End) ? 1.0f : ((spec.elementAlign == Align::Center) ? 0.5f : 0.0f);
 
@@ -126,37 +116,25 @@ ElementGeometry ElementComposer::Resolve(
     }
 
     const float labelH = geom.hasLabel
-        ? (canvas ? canvas->GetLineHeight(spec.labelFontSize) : theme.GetLineHeight(spec.labelFontSize))
+        ? (canvas ? canvas->GetLineHeight(geom.labelFontSize) : theme.GetLineHeight(geom.labelFontSize))
         : 0.0f;
     const float descH = geom.hasDesc
-        ? (canvas ? canvas->GetLineHeight(spec.descFontSize) : theme.GetLineHeight(spec.descFontSize))
+        ? (canvas ? canvas->GetLineHeight(geom.descFontSize) : theme.GetLineHeight(geom.descFontSize))
         : 0.0f;
 
-    if (!spec.label.empty()) {
+    if (geom.hasLabel) {
         geom.measuredLabelW = canvas
-            ? canvas->MeasureText(spec.label, spec.labelFontSize).x
-            : static_cast<float>(spec.label.length()) * (spec.labelFontSize * kDefaultCharAdvanceRatio);
+            ? canvas->MeasureText(spec.label.text, geom.labelFontSize).x
+            : static_cast<float>(spec.label.length()) * (geom.labelFontSize * kDefaultCharAdvanceRatio);
     }
-    if (!spec.headerRightText.empty()) {
-        geom.measuredRightW = canvas
-            ? canvas->MeasureText(spec.headerRightText, spec.labelFontSize).x
-            : static_cast<float>(spec.headerRightText.length()) * (spec.labelFontSize * kDefaultCharAdvanceRatio);
-    }
-    float reservedRightW = 0.0f;
-    if (spec.hasHeaderRight || !spec.headerRightText.empty()) {
-        reservedRightW = std::max(spec.headerRightMinWidth, geom.measuredRightW);
-    }
-    const float measuredHeaderW = geom.measuredLabelW
-        + ((geom.measuredLabelW > 0.0f && reservedRightW > 0.0f) ? 8.0f : 0.0f)
-        + reservedRightW;
 
     if (geom.hasDesc) {
         geom.measuredDescW = canvas
-            ? canvas->MeasureText(spec.description, spec.descFontSize).x
-            : static_cast<float>(spec.description.length()) * (spec.descFontSize * kDefaultCharAdvanceRatio);
+            ? canvas->MeasureText(spec.description.text, geom.descFontSize).x
+            : static_cast<float>(spec.description.length()) * (geom.descFontSize * kDefaultCharAdvanceRatio);
     }
 
-    const float measuredTextW = std::max(measuredHeaderW, geom.measuredDescW);
+    const float measuredTextW = std::max(geom.measuredLabelW, geom.measuredDescW);
 
     if (spec.layout == ElementLayout::Stacked) {
         const float blockW = (spec.stretch == StretchMode::Compact) ? std::min(bounds.w, std::max(ctrlW, measuredTextW)) : bounds.w;
@@ -262,54 +240,28 @@ void ElementComposer::RenderText(
         return;
     }
 
-    const auto& pal = theme.palette;
     const float alignFactor = (spec.elementAlign == Align::End) ? 1.0f : ((spec.elementAlign == Align::Center) ? 0.5f : 0.0f);
-
-    Color labelCol = pal.textPrimary;
-    Color descCol = theme.GetTextColor(spec.descriptionVariant);
-    if (spec.disabled) {
-        labelCol = labelCol.WithAlphaF(0.40f);
-        descCol = descCol.WithAlphaF(0.40f);
-    }
+    const Color labelCol = theme.ResolveTextColor(spec.label, UiVariant::Default, spec.disabled);
+    const Color descCol = theme.ResolveTextColor(spec.description, UiVariant::Muted, spec.disabled);
 
     if (geom.hasLabel && geom.labelRect.w > 0.0f && geom.labelRect.h > 0.0f) {
-        Rect lblRect = geom.labelRect;
-        if (!spec.headerRightText.empty()) {
-            const Color rightCol = (spec.headerRightColor.a > 0)
-                ? spec.headerRightColor
-                : (spec.disabled ? pal.textDisabled : pal.textSecondary);
-            std::string truncRight;
-            std::string_view drawRight = spec.headerRightText;
-            float rightW = geom.measuredRightW;
-            if (rightW > geom.labelRect.w + kTextSubpixelTolerance) {
-                truncRight = TextUtil::TruncateWithEllipsis(spec.headerRightText, geom.labelRect.w, spec.labelFontSize, &canvas);
-                drawRight = truncRight;
-                rightW = canvas.MeasureText(drawRight, spec.labelFontSize).x;
-            }
-            const float rightX = geom.labelRect.Right() - rightW;
-            canvas.DrawText(drawRight, Vec2(rightX, geom.labelRect.y + (geom.labelRect.h - spec.labelFontSize) * 0.5f), spec.labelFontSize, rightCol);
-            lblRect.w = std::max(0.0f, geom.labelRect.w - rightW - (!spec.label.empty() ? 8.0f : 0.0f));
+        std::string truncLabel;
+        std::string_view drawLabel = spec.label.text;
+        if (geom.measuredLabelW > geom.labelRect.w + kTextSubpixelTolerance) {
+            truncLabel = TextUtil::TruncateWithEllipsis(spec.label.text, geom.labelRect.w, geom.labelFontSize, &canvas);
+            drawLabel = truncLabel;
         }
-
-        if (!spec.label.empty() && lblRect.w > 0.0f) {
-            std::string truncLabel;
-            std::string_view drawLabel = spec.label;
-            if (geom.measuredLabelW > lblRect.w + kTextSubpixelTolerance) {
-                truncLabel = TextUtil::TruncateWithEllipsis(spec.label, lblRect.w, spec.labelFontSize, &canvas);
-                drawLabel = truncLabel;
-            }
-            canvas.DrawTextBox(drawLabel, lblRect, spec.labelFontSize, labelCol, alignFactor, 0.5f);
-        }
+        canvas.DrawTextBox(drawLabel, geom.labelRect, geom.labelFontSize, labelCol, alignFactor, 0.5f);
     }
 
     if (geom.hasDesc && geom.descRect.w > 0.0f && geom.descRect.h > 0.0f) {
         std::string truncDesc;
-        std::string_view drawDesc = spec.description;
+        std::string_view drawDesc = spec.description.text;
         if (geom.measuredDescW > geom.descRect.w + kTextSubpixelTolerance) {
-            truncDesc = TextUtil::TruncateWithEllipsis(spec.description, geom.descRect.w, spec.descFontSize, &canvas);
+            truncDesc = TextUtil::TruncateWithEllipsis(spec.description.text, geom.descRect.w, geom.descFontSize, &canvas);
             drawDesc = truncDesc;
         }
-        canvas.DrawTextBox(drawDesc, geom.descRect, spec.descFontSize, descCol, alignFactor, 0.5f);
+        canvas.DrawTextBox(drawDesc, geom.descRect, geom.descFontSize, descCol, alignFactor, 0.5f);
     }
 }
 

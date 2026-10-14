@@ -38,9 +38,7 @@ ElementSpec MakeInputFieldElementSpec(
         .elementAlign = opts.elementAlign,
         .stretch = opts.stretch,
         .width = opts.width,
-        .descriptionVariant = opts.descriptionVariant,
-        .labelFontSize = m.labelFontSize,
-        .descFontSize = m.descFontSize,
+        .widgetSize = size,
         .labelGap = m.labelGap,
         .descGap = m.descGap,
         .inlineGap = m.paddingX,
@@ -145,11 +143,11 @@ Response InputField::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::InputField, id);
-    node->text = ctx.AllocString(opts.label);
 
     InputFieldOptions optsCopy = opts;
-    optsCopy.label = node->text;
-    if (!opts.description.empty()) optsCopy.description = ctx.AllocString(opts.description);
+    optsCopy.label = ctx.AllocText(opts.label);
+    optsCopy.description = ctx.AllocText(opts.description);
+    node->text = optsCopy.label.text;
     if (!opts.placeholder.empty()) optsCopy.placeholder = ctx.AllocString(opts.placeholder);
     if (!opts.prefix.empty()) optsCopy.prefix = ctx.AllocString(opts.prefix);
     if (!opts.suffix.empty()) optsCopy.suffix = ctx.AllocString(opts.suffix);
@@ -163,7 +161,6 @@ Response InputField::Run(
     node->payload = data;
     node->visualHash = detail::HashArgs(
         opts.variant,
-        opts.descriptionVariant,
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
         static_cast<uint8_t>(opts.elementAlign),
@@ -177,7 +174,7 @@ Response InputField::Run(
         optsCopy.suffix,
         optsCopy.placeholder,
         optsCopy.description,
-        node->text,
+        optsCopy.label,
         static_cast<uint8_t>(opts.prefixIcon.GetType()),
         static_cast<uint8_t>(opts.prefixIcon.GetId()),
         static_cast<uint8_t>(opts.suffixIcon.GetType()),

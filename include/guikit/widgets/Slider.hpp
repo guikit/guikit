@@ -15,45 +15,50 @@ class ICanvas;
 
 /// Clean configuration options for continuous numeric Slider widget.
 struct SliderOptions {
-    std::string_view label{};                      ///< Primary caption text above or beside track
-    std::string_view description{};                ///< Optional explanation text below slider
-    std::string_view suffix{};                     ///< Optional unit/suffix displayed beside value (e.g. "px", "%")
+    UiText label{};                                ///< External primary caption text above or beside control
+    UiText textLeft{};                             ///< Optional companion text inside control on the left of the track
+    UiText textRight{};                            ///< Optional companion text inside control on the right of the track
+    UiText description{};                          ///< Optional external explanation text
+    UiText valueText{};                            ///< Optional value text/style override (empty text = auto-formatted value)
+    std::string_view suffix{};                     ///< Optional unit/suffix appended to auto-formatted value (e.g. "px", "%")
     std::string_view format{};                     ///< Format string for value (defaults to "%d" for int, "%.1f" for float)
     std::optional<double> step{std::nullopt};      ///< Step quantization (defaults to 1.0 for integers, continuous for float)
     ElementLayout layout{ElementLayout::Stacked};    ///< Widget layout (Stacked, Inline, Top, Bottom)
     InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout (LabelFirst = text first, ControlFirst = control first)
     Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
-    bool showValue{true};                          ///< Whether to display current formatted value text
+    bool showValue{true};                          ///< Whether to display current formatted value text inside control
+    Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     UiVariant variant{UiVariant::Primary};         ///< Accent fill color for active track and thumb
-    UiVariant descriptionVariant{UiVariant::Muted};   ///< Semantic variant for description text (Muted, Warning, Danger, Success, Info, etc.)
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Track width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
+    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
     bool disabled{false};                          ///< Interaction suppression
 };
 
 /// Clean configuration options for discrete N-position StepSlider widget.
 struct StepSliderOptions {
-    std::string_view label{};                      ///< Primary caption text above track
-    std::string_view description{};                ///< Optional explanation text below slider
+    UiText label{};                                ///< External primary caption text above or beside control
+    UiText textLeft{};                             ///< Optional companion text inside control on the left of the track
+    UiText textRight{};                            ///< Optional companion text inside control on the right of the track
+    UiText description{};                          ///< Optional external explanation text
     std::span<const std::string_view> stepLabels{};///< Optional text labels for each discrete step
     ElementLayout layout{ElementLayout::Stacked};    ///< Widget layout (Stacked, Inline, Top, Bottom)
     InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout (LabelFirst = text first, ControlFirst = control first)
     Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
     bool showTicks{true};                          ///< Whether to render tick marks at each step
     bool showLabels{true};                         ///< Whether to render stepLabels below ticks
-    bool showValue{false};                         ///< Whether to display currently selected label/index in header
-    std::string_view valueText{};                  ///< Optional custom display string for current value in header
+    bool showValue{false};                         ///< Whether to display currently selected label/value inside control
+    Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
+    UiText valueText{};                            ///< Optional custom display text/style for current value
     bool includeNone{false};                       ///< For UiSize overload: if true, range includes UiSize::None (None..Xl)
     UiVariant variant{UiVariant::Primary};         ///< Accent fill color for active track and thumb
-    UiVariant descriptionVariant{UiVariant::Muted};   ///< Semantic variant for description text (Muted, Warning, Danger, Success, Info, etc.)
     std::optional<UiSize> size{std::nullopt};      ///< Local size override
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Track width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
+    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
     bool disabled{false};                          ///< Interaction suppression
 };
 

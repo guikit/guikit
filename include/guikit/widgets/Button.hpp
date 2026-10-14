@@ -15,12 +15,11 @@ class ICanvas;
 
 /// Clean configuration options for a Button widget.
 struct ButtonOptions {
-    std::string_view label{};                      ///< Primary external caption text (or fallback capsule text if text & description are empty)
-    std::string_view text{};                       ///< Text inside the button capsule
-    std::string_view description{};                ///< Optional external helper text below/beside button
+    UiText label{};                                ///< Primary external caption text (or fallback capsule text if text & description are empty)
+    UiText text{};                                 ///< Text inside the button capsule
+    UiText description{};                          ///< Optional external helper text below/beside button
     Icon icon{};
     UiVariant variant{UiVariant::Secondary};
-    UiVariant descriptionVariant{UiVariant::Muted};   ///< Semantic variant for description text (Muted, Warning, Danger, Success, Info, etc.)
     Placement iconPlacement{Placement::Leading};
     ElementLayout layout{ElementLayout::Stacked};     ///< Layout geometry: Stacked, Top, Bottom, Inline
     InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
