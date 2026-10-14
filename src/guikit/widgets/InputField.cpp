@@ -147,10 +147,10 @@ Response InputField::Run(
     InputFieldOptions optsCopy = opts;
     optsCopy.label = ctx.AllocText(opts.label);
     optsCopy.description = ctx.AllocText(opts.description);
+    optsCopy.prefix = ctx.AllocText(opts.prefix);
+    optsCopy.suffix = ctx.AllocText(opts.suffix);
     node->text = optsCopy.label.text;
     if (!opts.placeholder.empty()) optsCopy.placeholder = ctx.AllocString(opts.placeholder);
-    if (!opts.prefix.empty()) optsCopy.prefix = ctx.AllocString(opts.prefix);
-    if (!opts.suffix.empty()) optsCopy.suffix = ctx.AllocString(opts.suffix);
 
     auto* data = ctx.AllocPayload<InputFieldData>();
     data->opts = optsCopy;
@@ -314,9 +314,13 @@ void InputField::Render(
         leftX += m.iconSize + 6.0f;
     }
     if (!opts.prefix.empty()) {
-        const Vec2 pSize = canvas.MeasureText(opts.prefix, m.fontSize);
+        const float pFont = opts.prefix.role.has_value()
+            ? theme.ResolveFontSize(opts.prefix, TextRole::LabelMedium, size)
+            : m.fontSize;
+        const Color pCol = theme.ResolveTextColor(opts.prefix, UiVariant::Secondary, disabled);
+        const Vec2 pSize = canvas.MeasureText(opts.prefix.text, pFont);
         const Rect pRect(leftX, boxRect.y, pSize.x, boxRect.h);
-        canvas.DrawTextBox(opts.prefix, pRect, m.fontSize, unitCol, 0.0f, 0.5f);
+        canvas.DrawTextBox(opts.prefix.text, pRect, pFont, pCol, 0.0f, 0.5f);
         leftX += pSize.x + 4.0f;
     }
 
@@ -329,10 +333,14 @@ void InputField::Render(
         rightX -= 6.0f;
     }
     if (!opts.suffix.empty()) {
-        const Vec2 sSize = canvas.MeasureText(opts.suffix, m.fontSize);
+        const float sFont = opts.suffix.role.has_value()
+            ? theme.ResolveFontSize(opts.suffix, TextRole::LabelMedium, size)
+            : m.fontSize;
+        const Color sCol = theme.ResolveTextColor(opts.suffix, UiVariant::Secondary, disabled);
+        const Vec2 sSize = canvas.MeasureText(opts.suffix.text, sFont);
         rightX -= sSize.x;
         const Rect sRect(rightX, boxRect.y, sSize.x, boxRect.h);
-        canvas.DrawTextBox(opts.suffix, sRect, m.fontSize, unitCol, 0.0f, 0.5f);
+        canvas.DrawTextBox(opts.suffix.text, sRect, sFont, sCol, 0.0f, 0.5f);
         rightX -= 6.0f;
     }
 

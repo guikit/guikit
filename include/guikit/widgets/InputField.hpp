@@ -19,8 +19,8 @@ struct InputFieldOptions {
     UiText label{};                                ///< Primary caption text
     UiText description{};                          ///< Optional helper text below input box
     std::string_view placeholder{};                ///< Placeholder text when empty (e.g. "Enter value...")
-    std::string_view prefix{};                     ///< Symbol/text inside field on left (e.g. "$", "±")
-    std::string_view suffix{};                     ///< Unit/symbol inside field on right (e.g. "%", "mm", "MB/s")
+    UiText prefix{};                               ///< Symbol/text inside field on left (e.g. "$", "±")
+    UiText suffix{};                               ///< Unit/symbol inside field on right (e.g. "%", "mm", "MB/s")
     std::string_view format{"%.2f"};               ///< Format string for floating-point values
     UiVariant variant{UiVariant::Default};         ///< Accent/border variant (Default, Warning, Danger, etc.)
     ElementLayout layout{ElementLayout::Stacked};    ///< Layout geometry: Stacked, Top, Bottom, Inline

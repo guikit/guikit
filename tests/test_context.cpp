@@ -4785,6 +4785,25 @@ void TestUiTextAndControlCompanionText() {
         }
     }
 
+    // 4. InputField with UiText prefix and suffix
+    {
+        recCanvas.Reset();
+        InputFieldOptions opts{
+            .label = "Endpoint",
+            .prefix = {"https://", UiVariant::Info},
+            .suffix = ":443"
+        };
+        InputField::Render(recCanvas, widgetBounds, "guikit.dev", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
+        const auto* prefCall = recCanvas.FindTextBox("https://");
+        const auto* sufCall = recCanvas.FindTextBox(":443");
+        CHECK(prefCall != nullptr);
+        CHECK(sufCall != nullptr);
+        if (prefCall && sufCall) {
+            CHECK(prefCall->color == darkTheme.GetTextColor(UiVariant::Info));
+            CHECK(sufCall->color == darkTheme.palette.textSecondary);
+        }
+    }
+
     std::cout << "  [PASS] TestUiTextAndControlCompanionText completed\n";
 }
 
