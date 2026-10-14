@@ -28,7 +28,8 @@ struct SelectItem {
 struct SelectOptions {
     UiText label{};                                ///< Primary caption text
     UiText description{};                          ///< Optional helper text below select box
-    std::string_view placeholder{"Select..."};     ///< Placeholder text when no item is selected or items list is empty
+    UiText placeholder{"Select..."};               ///< Placeholder text when no item is selected or items list is empty
+    UiText tooltip{};                              ///< Optional floating tooltip text on hover
     UiAffix prefix{};                              ///< Optional default leading icon/text inside closed field
     UiAffix suffix{};                              ///< Optional default trailing text/icon inside closed field
     UiVariant variant{UiVariant::Default};         ///< Accent/border variant (Default, Warning, Danger, etc.)
@@ -111,7 +112,8 @@ public:
         bool hovered = false,
         bool open = false,
         bool disabled = false,
-        const UiTheme& theme = UiTheme::Dark()
+        const UiTheme& theme = UiTheme::Dark(),
+        bool focused = false
     );
 
     /// Renders the floating popup menu containing rich SelectItem dropdown items.

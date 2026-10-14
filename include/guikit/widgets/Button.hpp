@@ -18,6 +18,7 @@ struct ButtonOptions {
     UiText label{};                                ///< Primary external caption text (or fallback capsule text if text & description are empty)
     UiText text{};                                 ///< Text inside the button capsule
     UiText description{};                          ///< Optional external helper text below/beside button
+    UiText tooltip{};                              ///< Optional floating tooltip text on hover
     Icon icon{};
     UiVariant variant{UiVariant::Secondary};
     Placement iconPlacement{Placement::Leading};
@@ -60,7 +61,8 @@ public:
         bool hovered,
         bool pressed,
         bool disabled,
-        const UiTheme& theme
+        const UiTheme& theme,
+        bool focused = false
     );
 };
 

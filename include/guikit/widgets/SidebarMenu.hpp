@@ -31,6 +31,7 @@ struct SidebarMenuItem {
     Icon icon{};                                        ///< Optional leading icon
     UiText badge{};                                     ///< Optional trailing badge/counter (default role: LabelSmall)
     UiText section{};                                   ///< Optional section heading above this item (used in span overload)
+    UiText tooltip{};                                   ///< Optional floating tooltip (defaults to item.text when menu is collapsed)
     std::optional<UiVariant> variant{std::nullopt};     ///< Optional per-item highlight variant override (nullopt = inherit menu variant)
     bool active{false};                                 ///< Whether this item is currently selected/active
     bool disabled{false};
@@ -157,7 +158,8 @@ public:
         bool hovered,
         bool pressed,
         bool disabled,
-        const UiTheme& theme = UiTheme::Dark()
+        const UiTheme& theme = UiTheme::Dark(),
+        bool focused = false
     );
 };
 

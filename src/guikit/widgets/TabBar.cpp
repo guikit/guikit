@@ -128,11 +128,24 @@ Response TabBar::Run(
         const Id tabId = MakeId(static_cast<uint32_t>(i), loc, barNode->id);
         const bool effectiveDisabled = item.disabled || ctx.IsDisabled();
 
+        ctx.RegisterFocusable(tabId, effectiveDisabled);
+
         Response tabRes = ctx.Interact(tabId);
         if (effectiveDisabled) {
             tabRes.clicked = false;
             tabRes.hovered = false;
             tabRes.pressed = false;
+        } else {
+            if (tabRes.clicked) {
+                ctx.RequestFocus(tabId);
+            }
+            if (ctx.IsFocused(tabId) && (ctx.ConsumeKey(Key::Space) || ctx.ConsumeKey(Key::Enter))) {
+                tabRes.clicked = true;
+            }
+        }
+
+        if (tabRes.hovered && !item.tooltip.empty()) {
+            ctx.SetTooltip(item.tooltip, tabRes.rect);
         }
 
         if (tabRes.clicked && !effectiveDisabled && activeIndex != static_cast<int>(i)) {
@@ -149,20 +162,22 @@ Response TabBar::Run(
         }
 
         Node* tabNode = ctx.CreateNode(NodeType::TabItem, tabId);
-        tabNode->text = ctx.AllocString(item.label);
         auto* tData = ctx.AllocPayload<TabItemData>();
         tData->item = item;
-        tData->item.label = tabNode->text;
+        tData->item.label = ctx.AllocText(item.label);
+        tData->item.badge = ctx.AllocText(item.badge);
+        tData->item.tooltip = ctx.AllocText(item.tooltip);
         tData->barOpts = opts;
-        tabNode->payload = tData;
+        tabNode->text = tData->item.label.text;
+        tabNode->SetPayload(tData);
         tabNode->visualHash = detail::HashArgs(
             opts.style,
             opts.showSeparator,
             opts.activeColor.ToUint32(),
             opts.radius.value_or(-1.0f),
             item.variant,
-            item.badge,
-            tabNode->text,
+            tData->item.badge,
+            tData->item.label,
             static_cast<uint8_t>(item.icon.GetType()),
             static_cast<uint8_t>(item.icon.GetId()),
             item.icon.GetPath()
@@ -189,7 +204,8 @@ Response TabBar::Run(
                 n->hovered,
                 n->pressed,
                 n->disabled,
-                theme
+                theme,
+                n->focused
             );
         };
         tabNode->active = (activeIndex == static_cast<int>(i));
@@ -197,6 +213,7 @@ Response TabBar::Run(
         tabNode->disabled = effectiveDisabled;
         tabNode->hovered = tabRes.hovered;
         tabNode->pressed = tabRes.pressed;
+        tabNode->focused = ctx.IsFocused(tabId);
         tabNode->widthMode = opts.fullWidth ? SizeMode::Stretch : SizeMode::Fit;
         tabNode->heightMode = SizeMode::Stretch;
     }
@@ -216,35 +233,26 @@ Vec2 TabBar::MeasureTab(
     ICanvas* canvas,
     const UiTheme& theme
 ) {
+    (void)opts;
     const ComponentMetrics& m = theme.GetMetrics(size);
+    const float labelFont = theme.ResolveFontSize(item.label, TextRole::LabelMedium, size);
+    const float badgeFontSize = item.badge.role.has_value() ? theme.GetTypography(*item.badge.role).fontSize : (m.fontSize * 0.78f);
     float contentW = 0.0f;
 
     if (item.icon.IsValid()) {
         contentW += m.iconSize;
     }
 
-    if (!item.label.empty()) {
+    if (item.label.HasContentOrReserve()) {
         if (contentW > 0.0f) {
             contentW += 6.0f; // Gap between icon and text
         }
-        float textW = 0.0f;
-        if (canvas) {
-            textW = canvas->MeasureText(item.label, m.fontSize).x;
-        } else {
-            textW = static_cast<float>(item.label.length()) * (m.fontSize * kDefaultCharAdvanceRatio);
-        }
-        contentW += textW;
+        contentW += TextUtil::MeasureWidth(item.label, labelFont, canvas);
     }
 
-    if (!item.badge.empty()) {
+    if (item.badge.HasContentOrReserve()) {
         contentW += 6.0f; // Gap between text and badge
-        float badgeTextW = 0.0f;
-        const float badgeFontSize = m.fontSize * 0.78f;
-        if (canvas) {
-            badgeTextW = canvas->MeasureText(item.badge, badgeFontSize).x;
-        } else {
-            badgeTextW = static_cast<float>(item.badge.length()) * (badgeFontSize * 0.55f);
-        }
+        const float badgeTextW = TextUtil::MeasureWidth(item.badge, badgeFontSize, canvas);
         contentW += badgeTextW + 12.0f; // Badge padding
     }
 
@@ -273,10 +281,14 @@ void TabBar::RenderTab(
     bool hovered,
     bool pressed,
     bool disabled,
-    const UiTheme& theme
+    const UiTheme& theme,
+    bool focused
 ) {
+    (void)pressed;
     const ComponentMetrics& m = theme.GetMetrics(size);
     const auto& pal = theme.palette;
+    const float labelFont = theme.ResolveFontSize(item.label, TextRole::LabelMedium, size);
+    const float badgeFontSize = item.badge.role.has_value() ? theme.GetTypography(*item.badge.role).fontSize : (m.fontSize * 0.78f);
 
     canvas.PushClip(bounds);
 
@@ -307,6 +319,9 @@ void TabBar::RenderTab(
             const Rect lineR(bounds.x + linePad, bounds.Bottom() - lineH, std::max(0.0f, bounds.w - linePad * 2.0f), lineH);
             canvas.DrawRoundRect(lineR, 1.5f, lineCol);
         }
+        if (focused && !disabled) {
+            canvas.DrawRoundRect(Rect(bounds.x + 1.0f, bounds.y + 2.0f, std::max(0.0f, bounds.w - 2.0f), std::max(0.0f, bounds.h - 4.0f)), m.cornerRadius, Color::Transparent(), pal.focusRing, 1.5f);
+        }
     } else {
         // Pill / Segmented style
         const bool hasCustomBgOrBorder = (opts.backgroundColor.a > 0 || opts.borderColor.a > 0);
@@ -326,13 +341,18 @@ void TabBar::RenderTab(
             }
         }
 
+        const Color focusBorder = (focused && !disabled) ? pal.focusRing : Color::Transparent();
+        const float focusBorderW = (focused && !disabled) ? 1.5f : 0.0f;
+
         if (active) {
             const Color pillCol = (opts.activeColor.a > 0)
                 ? opts.activeColor
                 : (item.variant != UiVariant::Default ? theme.GetVariant(item.variant).bgActive : pal.surfaceActive);
-            canvas.DrawRoundRect(bounds, pillRadius, pillCol);
+            canvas.DrawRoundRect(bounds, pillRadius, pillCol, focusBorder, focusBorderW);
         } else if (hovered && !disabled) {
-            canvas.DrawRoundRect(bounds, pillRadius, pal.surfaceHover);
+            canvas.DrawRoundRect(bounds, pillRadius, pal.surfaceHover, focusBorder, focusBorderW);
+        } else if (focused && !disabled) {
+            canvas.DrawRoundRect(bounds, pillRadius, Color::Transparent(), focusBorder, focusBorderW);
         }
     }
 
@@ -340,9 +360,9 @@ void TabBar::RenderTab(
     Color fgCol;
     if (disabled) {
         fgCol = pal.textDisabled;
-    } else if (active) {
-        fgCol = pal.textPrimary;
-    } else if (hovered) {
+    } else if (item.label.variant.has_value()) {
+        fgCol = theme.GetTextColor(*item.label.variant);
+    } else if (active || hovered) {
         fgCol = pal.textPrimary;
     } else {
         fgCol = pal.textSecondary;
@@ -354,16 +374,15 @@ void TabBar::RenderTab(
         contentW += m.iconSize;
     }
     float textW = 0.0f;
-    if (!item.label.empty()) {
+    if (item.label.HasContentOrReserve()) {
         if (contentW > 0.0f) contentW += 6.0f;
-        textW = canvas.MeasureText(item.label, m.fontSize).x;
+        textW = TextUtil::MeasureWidth(item.label, labelFont, &canvas);
         contentW += textW;
     }
     float badgeW = 0.0f;
-    const float badgeFontSize = m.fontSize * 0.78f;
-    if (!item.badge.empty()) {
+    if (item.badge.HasContentOrReserve()) {
         contentW += 6.0f;
-        badgeW = canvas.MeasureText(item.badge, badgeFontSize).x + 12.0f;
+        badgeW = TextUtil::MeasureWidth(item.badge, badgeFontSize, &canvas) + 12.0f;
         contentW += badgeW;
     }
 
@@ -380,14 +399,14 @@ void TabBar::RenderTab(
     // Draw Label
     if (!item.label.empty()) {
         const float maxLabelW = std::max(0.0f, bounds.Right() - m.paddingX - curX - (item.badge.empty() ? 0.0f : (badgeW + 6.0f)));
-        float labelW = canvas.MeasureText(item.label, m.fontSize).x;
-        std::string displayLabel(item.label);
+        float labelW = canvas.MeasureText(item.label.text, labelFont).x;
+        std::string displayLabel(item.label.text);
         if (labelW > maxLabelW + kTextSubpixelTolerance && maxLabelW > 0.0f) {
-            displayLabel = TextUtil::TruncateWithEllipsis(item.label, maxLabelW, m.fontSize, &canvas);
-            labelW = canvas.MeasureText(displayLabel, m.fontSize).x;
+            displayLabel = TextUtil::TruncateWithEllipsis(item.label.text, maxLabelW, labelFont, &canvas);
+            labelW = canvas.MeasureText(displayLabel, labelFont).x;
         }
         const Rect textR(curX, bounds.y, maxLabelW, bounds.h);
-        canvas.DrawTextBox(displayLabel, textR, m.fontSize, fgCol, 0.0f, 0.5f);
+        canvas.DrawTextBox(displayLabel, textR, labelFont, fgCol, 0.0f, 0.5f);
         curX += labelW;
     }
 
@@ -400,15 +419,18 @@ void TabBar::RenderTab(
         Color badgeBg = active ? pal.accent.WithAlphaF(0.25f) : pal.surfaceHover;
         Color badgeText = active ? pal.accent : pal.textSecondary;
 
-        // Highlight "Live" badges in emerald green
-        if (item.badge == "Live") {
+        if (item.badge.variant.has_value()) {
+            const VariantColors vc = theme.GetVariant(*item.badge.variant);
+            badgeBg = vc.bg.WithAlphaF(0.5f);
+            badgeText = vc.text;
+        } else if (item.badge.text == "Live") {
             const VariantColors success = theme.GetVariant(UiVariant::Success);
             badgeBg = success.bg.WithAlphaF(0.5f);
             badgeText = success.text;
         }
 
         canvas.DrawRoundRect(badgeR, 4.0f, badgeBg);
-        canvas.DrawTextBox(item.badge, badgeR, badgeFontSize, badgeText, 0.5f, 0.5f);
+        canvas.DrawTextBox(item.badge.text, badgeR, badgeFontSize, badgeText, 0.5f, 0.5f);
     }
 
     canvas.PopClip();

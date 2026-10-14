@@ -18,16 +18,18 @@ struct SwitchOptions {
     UiText textLeft{};                             ///< Optional companion text inside control to the left of the switch track (off state)
     UiText textRight{};                            ///< Optional companion text inside control to the right of the switch track (on state)
     UiText description{};                          ///< Optional external explanation text
+    UiText tooltip{};                              ///< Optional floating tooltip text on hover
     UiVariant variant{UiVariant::Primary};          ///< Accent fill color when switched ON
     ElementLayout layout{ElementLayout::Inline};     ///< Layout geometry: Stacked, Top, Bottom, Inline
     InlineOrder inlineOrder{InlineOrder::ControlFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
     Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
     bool symmetric{false};                         ///< Neutral/symmetric track style (highlights active side label)
     StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Space, Fill
+    std::optional<float> width{std::nullopt};      ///< Element width: in points for Compact/Space (nullopt = auto), or % of bounds (0..100) for Fill (nullopt = 100%)
     bool disabled{false};                          ///< Interaction suppression
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
 };
-static_assert(sizeof(SwitchOptions) <= 184, "SwitchOptions must stay compact");
+static_assert(sizeof(SwitchOptions) <= 232, "SwitchOptions must stay compact");
 
 /// Autonomous Switch widget logic (execution, measuring, and rendering).
 class Switch {
@@ -66,7 +68,8 @@ public:
         bool hovered,
         bool pressed,
         bool disabled,
-        const UiTheme& theme
+        const UiTheme& theme,
+        bool focused = false
     );
 };
 

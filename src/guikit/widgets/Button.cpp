@@ -13,6 +13,8 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
 
+    ctx.RegisterFocusable(id, effectiveDisabled);
+
     Response res = ctx.Interact(id);
     if (effectiveDisabled) {
         res.clicked = false;
@@ -20,6 +22,17 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
         res.pressed = false;
         res.rightClicked = false;
         res.doubleClicked = false;
+    } else {
+        if (res.clicked) {
+            ctx.RequestFocus(id);
+        }
+        if (ctx.IsFocused(id) && (ctx.ConsumeKey(Key::Space) || ctx.ConsumeKey(Key::Enter))) {
+            res.clicked = true;
+        }
+    }
+
+    if (res.hovered && !opts.tooltip.empty()) {
+        ctx.SetTooltip(opts.tooltip, res.rect);
     }
 
     Node* node = ctx.CreateNode(NodeType::Button, id);
@@ -27,8 +40,9 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
     bOpts->label = ctx.AllocText(opts.label);
     bOpts->text = ctx.AllocText(opts.text);
     bOpts->description = ctx.AllocText(opts.description);
+    bOpts->tooltip = ctx.AllocText(opts.tooltip);
     node->text = bOpts->label.text;
-    node->payload = bOpts;
+    node->SetPayload(bOpts);
     node->visualHash = detail::HashArgs(
         opts.variant,
         opts.iconPlacement,
@@ -55,12 +69,13 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* b = n->As<ButtonOptions>();
-        Button::Render(canvas, n->computedRect, b ? *b : ButtonOptions{}, n->uiSize, n->hovered, n->pressed, n->disabled, theme);
+        Button::Render(canvas, n->computedRect, b ? *b : ButtonOptions{}, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused);
     };
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed;
+    node->focused = ctx.IsFocused(id);
     node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
     node->minWidth = ctx.GetTheme().GetMetrics(activeSize).defaultHeight;
@@ -170,7 +185,8 @@ void Button::Render(
     bool hovered,
     bool pressed,
     bool disabled,
-    const UiTheme& theme
+    const UiTheme& theme,
+    bool focused
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
         return;
@@ -213,6 +229,11 @@ void Button::Render(
         }
     } else if (hovered) {
         bg = colors.bgHover;
+    }
+
+    if (focused && !disabled) {
+        borderCol = theme.palette.focusRing;
+        borderW = std::max(borderW, 2.0f);
     }
 
     // Clip all button capsule content strictly to capsuleRect to prevent any bleeding

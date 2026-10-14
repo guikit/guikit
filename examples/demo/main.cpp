@@ -185,6 +185,8 @@ int main(int argc, char* argv[]) {
 
     std::string testInputText = "guikit.dev";
     guikit::CursorBlinkMode inputCursorMode = guikit::CursorBlinkMode::Blinking;
+    bool inputPassword = false;
+    bool inputClearable = true;
     bool inputReadOnly = false;
     bool inputDisabled = false;
     bool inputHasPrefix = true;
@@ -430,6 +432,7 @@ int main(int argc, char* argv[]) {
                     case SDLK_KP_ENTER:  key = guikit::Key::Enter; break;
                     case SDLK_ESCAPE:    key = guikit::Key::Escape; break;
                     case SDLK_TAB:       key = guikit::Key::Tab; break;
+                    case SDLK_SPACE:     key = guikit::Key::Space; break;
                     case SDLK_LEFT:      key = guikit::Key::Left; break;
                     case SDLK_RIGHT:     key = guikit::Key::Right; break;
                     case SDLK_UP:        key = guikit::Key::Up; break;
@@ -823,6 +826,8 @@ int main(int argc, char* argv[]) {
                                                 }
                                                 if (ui.Switch(inputHasPrefix, {.label = "Prefix (https://)"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(inputHasSuffix, {.label = "Suffix (:443)"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(inputClearable, {.label = "Clearable Button ('X')"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(inputPassword, {.label = "Password Mask & Reveal"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(inputReadOnly, {.label = "Read Only"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(inputDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
                                                 break;
@@ -1241,6 +1246,8 @@ int main(int argc, char* argv[]) {
                                                         .radius = inputCornerRadius,
                                                         .stretch = static_cast<guikit::StretchMode>(inputStretchIdx),
                                                         .width = (inputStretchIdx == 2) ? std::optional<float>(inputFillPct) : ((inputWidth > 0.0f) ? std::optional<float>(inputWidth) : std::nullopt),
+                                                        .password = inputPassword,
+                                                        .clearable = inputClearable,
                                                         .disabled = inputDisabled,
                                                         .readOnly = inputReadOnly
                                                     });
@@ -1614,6 +1621,8 @@ int main(int argc, char* argv[]) {
                                                 "    .radius = {:.1f}f,\n"
                                                 "    .stretch = guikit::StretchMode::{},\n"
                                                 "    .width = {},\n"
+                                                "    .password = {},\n"
+                                                "    .clearable = {},\n"
                                                 "    .disabled = {},\n"
                                                 "    .readOnly = {}\n"
                                                 "}});",
@@ -1630,6 +1639,8 @@ int main(int argc, char* argv[]) {
                                                 inputCornerRadius,
                                                 stretchModeEnumName(static_cast<guikit::StretchMode>(inputStretchIdx)),
                                                 (inputStretchIdx == 2) ? std::format("{:.1f}f", inputFillPct) : ((inputWidth > 0.0f) ? std::format("{:.1f}f", inputWidth) : "std::nullopt"),
+                                                inputPassword ? "true" : "false",
+                                                inputClearable ? "true" : "false",
                                                 inputDisabled ? "true" : "false",
                                                 inputReadOnly ? "true" : "false"
                                             );

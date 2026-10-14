@@ -224,6 +224,7 @@ enum class Key : uint16_t {
     Enter,
     Escape,
     Tab,
+    Space,
     Left,
     Right,
     Home,

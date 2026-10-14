@@ -713,8 +713,8 @@ void TestAutonomousTextWidgetAndTypographyRoles() {
 void TestSwitchAndCheckboxWidgets() {
     using namespace guikit;
 
-    static_assert(sizeof(SwitchOptions) <= 184);
-    static_assert(sizeof(CheckboxOptions) <= 96);
+    static_assert(sizeof(SwitchOptions) <= 232);
+    static_assert(sizeof(CheckboxOptions) <= 144);
 
     const auto theme = UiTheme::Dark();
     // 1. Test measurement
@@ -5806,6 +5806,233 @@ void TestSelectPopupScrollingWithMaxVisibleItems() {
     std::cout << "  [PASS] TestSelectPopupScrollingWithMaxVisibleItems completed\n";
 }
 
+void TestBaseElementsAllInOneEnhancements() {
+    using namespace guikit;
+    const UiTheme& darkTheme = UiTheme::Dark();
+    LabelRecordingCanvas recCanvas;
+    std::vector<uint32_t> pixels(800 * 600, 0);
+    recCanvas.SetTarget(pixels.data(), 800, 600, 800);
+
+    // 1. Type-safe Node::SetPayload<T> and Node::As<T>() verification
+    {
+        Node n;
+        ButtonOptions bOpts{.label = "Test"};
+        n.SetPayload(&bOpts);
+        CHECK(n.As<ButtonOptions>() == &bOpts);
+        CHECK(n.As<SwitchOptions>() == nullptr);
+        CHECK(n.As<InputFieldData>() == nullptr);
+    }
+
+    // 2. SwitchOptions::width and CheckboxOptions::width (Compact px width & Fill percentage width)
+    {
+        Context ui;
+        bool sw = true;
+        bool cb = true;
+        Response swCompact, swWide, cbFill50, cbFill100;
+
+        auto renderWidths = [&]() {
+            if (auto col = ui.Column({.gap = 8.0f})) {
+                swCompact = ui.Switch(sw, {.label = "Sw", .stretch = StretchMode::Compact});
+                swWide = ui.Switch(sw, {.label = "Sw", .stretch = StretchMode::Compact, .width = 240.0f});
+                cbFill50 = ui.Checkbox(cb, {.label = "Cb", .stretch = StretchMode::Fill, .width = 50.0f});
+                cbFill100 = ui.Checkbox(cb, {.label = "Cb", .stretch = StretchMode::Fill, .width = 100.0f});
+            }
+        };
+
+        ui.BeginFrame({400.0f, 300.0f});
+        renderWidths();
+        ui.EndFrame(recCanvas);
+
+        ui.BeginFrame({400.0f, 300.0f});
+        renderWidths();
+        ui.EndFrame(recCanvas);
+
+        CHECK_NEAR(swWide.rect.w, 240.0f, 0.5f);
+        CHECK(swWide.rect.w > swCompact.rect.w);
+    }
+
+    // 3. Keyboard Tab / Shift+Tab Focus Traversal & Space / Enter Activation + Tooltip Overlay
+    {
+        Context ui;
+        int btnClicks = 0;
+        bool cbChecked = false;
+        bool swState = false;
+        float sliderVal = 50.0f;
+        Response btnRes, cbRes, swRes, slRes;
+
+        auto renderFocusScene = [&]() {
+            if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(16.0f)})) {
+                btnRes = ui.Button({.label = "FirstBtn", .tooltip = "Action Tooltip Text"});
+                if (btnRes.clicked) ++btnClicks;
+                cbRes = ui.Checkbox(cbChecked, {.label = "SecondCb"});
+                swRes = ui.Switch(swState, {.label = "ThirdSw"});
+                slRes = ui.Slider(sliderVal, 0.0f, 100.0f, {.label = "FourthSl", .step = 10.0});
+            }
+        };
+
+        // Frame 1 & 2: Settle layout
+        ui.BeginFrame({500.0f, 400.0f});
+        renderFocusScene();
+        ui.EndFrame(recCanvas);
+
+        ui.BeginFrame({500.0f, 400.0f});
+        renderFocusScene();
+        ui.EndFrame(recCanvas);
+
+        CHECK(!ui.GetFocusedId().IsValid());
+
+        // Press Tab -> focuses FirstBtn
+        ui.OnKeyDown(Key::Tab);
+        ui.BeginFrame({500.0f, 400.0f});
+        renderFocusScene();
+        ui.EndFrame(recCanvas);
+        CHECK(ui.GetFocusedId() == btnRes.id);
+
+        // Press Space while FirstBtn is focused -> activates button!
+        ui.OnKeyDown(Key::Space);
+        ui.BeginFrame({500.0f, 400.0f});
+        renderFocusScene();
+        ui.EndFrame(recCanvas);
+        CHECK(btnClicks == 1);
+
+        // Press Tab -> focuses SecondCb, then Space toggles cbChecked -> true
+        ui.OnKeyDown(Key::Tab);
+        ui.OnKeyDown(Key::Space);
+        ui.BeginFrame({500.0f, 400.0f});
+        renderFocusScene();
+        ui.EndFrame(recCanvas);
+        CHECK(ui.GetFocusedId() == cbRes.id);
+        CHECK(cbChecked == true);
+
+        // Press Tab -> focuses ThirdSw, then Enter toggles swState -> true
+        ui.OnKeyDown(Key::Tab);
+        ui.OnKeyDown(Key::Enter);
+        ui.BeginFrame({500.0f, 400.0f});
+        renderFocusScene();
+        ui.EndFrame(recCanvas);
+        CHECK(ui.GetFocusedId() == swRes.id);
+        CHECK(swState == true);
+
+        // Press Tab -> focuses FourthSl, then Right arrow steps sliderVal from 50 -> 60
+        ui.OnKeyDown(Key::Tab);
+        ui.OnKeyDown(Key::Right);
+        ui.BeginFrame({500.0f, 400.0f});
+        renderFocusScene();
+        ui.EndFrame(recCanvas);
+        CHECK(ui.GetFocusedId() == slRes.id);
+        CHECK_NEAR(sliderVal, 60.0f, 0.01f);
+
+        // Shift+Tab -> moves focus backward from FourthSl back to ThirdSw
+        ui.OnKeyDown(Key::Tab, {.shift = true});
+        ui.BeginFrame({500.0f, 400.0f});
+        renderFocusScene();
+        ui.EndFrame(recCanvas);
+        CHECK(ui.GetFocusedId() == swRes.id);
+
+        // Hover over FirstBtn -> renders "Action Tooltip Text" in overlay!
+        recCanvas.Reset();
+        ui.OnMouseMove(btnRes.rect.Center());
+        ui.BeginFrame({500.0f, 400.0f});
+        renderFocusScene();
+        ui.EndFrame(recCanvas);
+        CHECK(recCanvas.FindTextBox("Action Tooltip Text") != nullptr);
+    }
+
+    // 4. InputField: Password Masking & Reveal Toggle, Clearable Button, Numeric min/max/step
+    {
+        Context ui;
+        std::string pwdText = "secret";
+        std::string searchText = "query123";
+        int numVal = 10;
+        Response pwdRes, searchRes, numRes;
+
+        auto renderInputs = [&]() {
+            if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+                pwdRes = ui.InputField(pwdText, {
+                    .label = "Password",
+                    .password = true,
+                    .passwordReveal = true
+                });
+                searchRes = ui.InputField(searchText, {
+                    .label = "Search",
+                    .clearable = true
+                });
+                numRes = ui.InputField(numVal, {
+                    .label = "Count",
+                    .min = 0.0,
+                    .max = 15.0,
+                    .step = 5.0
+                });
+            }
+        };
+
+        ui.BeginFrame({400.0f, 300.0f});
+        renderInputs();
+        ui.EndFrame(recCanvas);
+
+        recCanvas.Reset();
+        ui.InvalidateAll();
+        ui.BeginFrame({400.0f, 300.0f});
+        renderInputs();
+        ui.EndFrame(recCanvas);
+
+        // Password field must render "******" and NOT "secret"
+        CHECK(recCanvas.FindTextBox("******") != nullptr);
+        CHECK(recCanvas.FindTextBox("secret") == nullptr);
+
+        // Click on the eye reveal button on the right side of pwdRes box -> reveals "secret"!
+        const auto& im = darkTheme.GetInputField(UiSize::Md);
+        const Vec2 revealBtnPos(pwdRes.rect.Right() - im.paddingX - im.iconSize * 0.5f, pwdRes.rect.Bottom() - im.defaultHeight * 0.5f);
+        recCanvas.Reset();
+        ui.OnMouseMove(revealBtnPos);
+        ui.OnMouseDown(1);
+        ui.BeginFrame({400.0f, 300.0f});
+        renderInputs();
+        ui.EndFrame(recCanvas);
+        ui.OnMouseUp(1);
+
+        CHECK(recCanvas.FindTextBox("secret") != nullptr);
+
+        // Click on the clear ('X') button on the right side of searchRes box -> clears searchText!
+        const Vec2 clearBtnPos(searchRes.rect.Right() - im.paddingX - im.iconSize * 0.5f, searchRes.rect.Bottom() - im.defaultHeight * 0.5f);
+        ui.OnMouseMove(clearBtnPos);
+        ui.OnMouseDown(1);
+        ui.BeginFrame({400.0f, 300.0f});
+        renderInputs();
+        ui.EndFrame(recCanvas);
+        ui.OnMouseUp(1);
+
+        CHECK(searchText.empty());
+        CHECK(searchRes.changed);
+
+        // Focus numRes and press Key::Up twice (step = 5, max = 15): 10 -> 15 -> clamped at 15!
+        ui.RequestFocus(numRes.id);
+        ui.OnKeyDown(Key::Up);
+        ui.BeginFrame({400.0f, 300.0f});
+        renderInputs();
+        ui.EndFrame(recCanvas);
+        CHECK(numVal == 15);
+        CHECK(numRes.changed);
+
+        ui.OnKeyDown(Key::Up);
+        ui.BeginFrame({400.0f, 300.0f});
+        renderInputs();
+        ui.EndFrame(recCanvas);
+        CHECK(numVal == 15); // Clamped to max = 15
+
+        // Press Key::Down 4 times: 15 -> 10 -> 5 -> 0 -> clamped at 0!
+        for (int i = 0; i < 4; ++i) {
+            ui.OnKeyDown(Key::Down);
+            ui.BeginFrame({400.0f, 300.0f});
+            renderInputs();
+            ui.EndFrame(recCanvas);
+        }
+        CHECK(numVal == 0); // Clamped to min = 0
+    }
+
+    std::cout << "  [PASS] TestBaseElementsAllInOneEnhancements completed\n";
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -5862,6 +6089,7 @@ int main() {
     TestUiTextModesAndVerticalSpaceReservation();
     TestSelectItemsAndUnifiedAffixes();
     TestSelectPopupScrollingWithMaxVisibleItems();
+    TestBaseElementsAllInOneEnhancements();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

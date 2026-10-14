@@ -1,13 +1,28 @@
 #pragma once
 
+#include <cassert>
 #include <cstdint>
 #include <optional>
 #include <string_view>
+#include <type_traits>
 #include "guikit/core/Id.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
 
 namespace guikit {
+
+namespace detail {
+inline uint16_t NextPayloadTypeId() noexcept {
+    static uint16_t counter = 0;
+    return ++counter;
+}
+
+template <typename T>
+[[nodiscard]] inline uint16_t GetPayloadTypeId() noexcept {
+    static const uint16_t id = NextPayloadTypeId();
+    return id;
+}
+} // namespace detail
 
 class ICanvas;
 struct Node;
@@ -113,6 +128,7 @@ struct Node {
     bool active : 1 {false};
     bool sidebarRight : 1 {false};
     bool sidebarScrollable : 1 {true};
+    uint16_t payloadTypeId{0};  ///< Runtime type tag for safe Node::As<T>() casting
 
     float fixedWidth{0.0f};
     float fixedHeight{0.0f};
@@ -151,15 +167,30 @@ struct Node {
     RenderFunc renderFn{nullptr};
     RenderFunc postRenderFn{nullptr};
 
-    /// Casts payload to the specified widget data type.
+    /// Attaches a typed arena-allocated payload to this node with runtime type verification.
+    template <typename T>
+    void SetPayload(T* ptr) noexcept {
+        payload = ptr;
+        payloadTypeId = ptr ? detail::GetPayloadTypeId<std::remove_cv_t<T>>() : 0;
+    }
+
+    /// Casts payload to the specified widget data type, returning nullptr on type mismatch.
     template <typename T>
     [[nodiscard]] T* As() noexcept {
+        if (!payload) return nullptr;
+        if (payloadTypeId != 0 && payloadTypeId != detail::GetPayloadTypeId<std::remove_cv_t<T>>()) {
+            return nullptr;
+        }
         return static_cast<T*>(payload);
     }
 
-    /// Casts payload to the specified const widget data type.
+    /// Casts payload to the specified const widget data type, returning nullptr on type mismatch.
     template <typename T>
     [[nodiscard]] const T* As() const noexcept {
+        if (!payload) return nullptr;
+        if (payloadTypeId != 0 && payloadTypeId != detail::GetPayloadTypeId<std::remove_cv_t<T>>()) {
+            return nullptr;
+        }
         return static_cast<const T*>(payload);
     }
 

@@ -22,10 +22,10 @@ enum class HeadingDivider : uint8_t {
 
 /// Clean configuration options for a composite Heading widget (Title + Subtitle + Icon + Badge).
 struct HeadingOptions {
-    std::string_view title{};
-    std::string_view subtitle{};
+    UiText title{};                                ///< Primary heading title text
+    UiText subtitle{};                             ///< Optional secondary subtitle text
     Icon icon{};                                   ///< Optional vector icon before title
-    std::string_view badge{};                      ///< Optional pill badge after title
+    UiText badge{};                                ///< Optional pill badge after title (supports independent UiVariant)
     UiVariant variant{UiVariant::Default};         ///< Accent color variant
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     bool divider{false};                           ///< Whether to render a horizontal divider line

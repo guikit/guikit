@@ -739,6 +739,7 @@ public:
         bool readOnly = false
     );
 
+    void SetTextEditBuffer(Id id, std::string_view text);
     void SetTextEditCursor(Id id, size_t cursor, size_t selectionAnchor) noexcept;
     [[nodiscard]] bool GetTextEditSelection(Id id, size_t& outStart, size_t& outEnd) const noexcept;
     [[nodiscard]] size_t GetTextEditAnchor(Id id) const noexcept {
@@ -756,13 +757,15 @@ public:
     void AdvanceTime(double deltaSeconds) noexcept;
     [[nodiscard]] double GetCurrentTime() const noexcept { return m_currentTimeSec; }
 
-    // --- Popup & Overlay Management ---
+    // --- Popup, Tooltip & Overlay Management ---
     void OpenPopup(Id id, Rect bounds);
     void ClosePopup();
     [[nodiscard]] bool IsPopupOpen(Id id) const noexcept { return m_openPopupId == id && id.IsValid(); }
     [[nodiscard]] Id GetOpenPopupId() const noexcept { return m_openPopupId; }
     [[nodiscard]] Rect GetOpenPopupRect() const noexcept { return m_openPopupRect; }
     void RegisterOverlay(std::function<void(ICanvas&)> drawFn);
+    void SetTooltip(UiText tooltip, Rect anchorRect);
+    void RegisterFocusable(Id id, bool disabled = false);
 
     // --- Input Queries & Consumption ---
     [[nodiscard]] Vec2 GetMousePos() const noexcept { return m_mousePos; }
@@ -822,7 +825,7 @@ private:
     struct WidgetSnapshot {
         Rect rect{};
         uint64_t visualHash{0};
-        uint32_t flags{0}; // bits: 0=hovered, 1=pressed, 2=disabled, 3=checked, 4=cursorVisible, 5=activeEdit, 6=tabActive
+        uint32_t flags{0}; // bits: 0=hovered, 1=pressed, 2=disabled, 3=checked, 4=cursorVisible, 5=activeEdit, 6=tabActive, 7=focused
         size_t cursor{0};
         size_t selectionAnchor{0};
         uint32_t bgColor{0};
@@ -943,16 +946,22 @@ private:
     // Previous frame widget bounds for instantaneous hit testing
     std::unordered_map<Id, Rect> m_prevFrameBounds;
     std::unordered_map<Id, Rect> m_currFrameBounds;
+    std::vector<Id> m_prevFocusableIds;
+    std::vector<Id> m_currFocusableIds;
 
-    // Floating popup & overlay state
+    // Floating popup, tooltip & overlay state
     Id m_openPopupId{Id::Null()};
     Rect m_openPopupRect{0.0f, 0.0f, 0.0f, 0.0f};
+    UiText m_activeTooltip{};
+    Rect m_activeTooltipAnchor{0.0f, 0.0f, 0.0f, 0.0f};
+    bool m_hadTooltipLastFrame{false};
     std::vector<std::function<void(ICanvas&)>> m_overlayPasses;
     Vec2 m_mouseWheel{0.0f, 0.0f};
     std::unordered_map<detail::StateKey, detail::StoredState, detail::StateKeyHash> m_customStates;
     uint64_t m_frameIndex{0};
 
     void RenderDebugBoundsRecursive(Node* node, ICanvas& canvas, bool inheritedDebugBounds);
+    void RenderTooltipOverlay(ICanvas& canvas, Vec2 logicalSize);
     Node* FindDeepestNodeAt(Node* root, Vec2 pos, Rect clipRect);
     void RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize);
 };

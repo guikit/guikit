@@ -41,7 +41,7 @@ ContainerScope Carousel::Open(
 
     auto* cData = ctx.AllocPayload<CarouselData>();
     cData->opts = opts;
-    node->payload = cData;
+    node->SetPayload(cData);
 
     auto& state = ctx.GetOrCreateState<ScrollState>(id);
 

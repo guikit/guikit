@@ -23,6 +23,7 @@ ElementSpec MakeCheckboxElementSpec(
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
         .stretch = opts.stretch,
+        .width = opts.width,
         .widgetSize = size,
         .labelGap = m.descGap,
         .descGap = m.descGap,
@@ -46,6 +47,8 @@ Response Checkbox::Run(
     const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
 
+    ctx.RegisterFocusable(id, effectiveDisabled);
+
     Response res = ctx.Interact(id);
     if (effectiveDisabled) {
         res.clicked = false;
@@ -53,6 +56,17 @@ Response Checkbox::Run(
         res.pressed = false;
         res.rightClicked = false;
         res.doubleClicked = false;
+    } else {
+        if (res.clicked) {
+            ctx.RequestFocus(id);
+        }
+        if (ctx.IsFocused(id) && (ctx.ConsumeKey(Key::Space) || ctx.ConsumeKey(Key::Enter))) {
+            res.clicked = true;
+        }
+    }
+
+    if (res.hovered && !opts.tooltip.empty()) {
+        ctx.SetTooltip(opts.tooltip, res.rect);
     }
 
     bool currentChecked = (value != nullptr) ? *value : checkedState;
@@ -69,8 +83,9 @@ Response Checkbox::Run(
     CheckboxOptions optsCopy = opts;
     optsCopy.label = ctx.AllocText(opts.label);
     optsCopy.description = ctx.AllocText(opts.description);
+    optsCopy.tooltip = ctx.AllocText(opts.tooltip);
     node->text = optsCopy.label.text;
-    node->payload = ctx.AllocPayload<CheckboxOptions>(optsCopy);
+    node->SetPayload(ctx.AllocPayload<CheckboxOptions>(optsCopy));
     node->visualHash = detail::HashArgs(
         opts.variant,
         static_cast<uint8_t>(opts.layout),
@@ -78,6 +93,7 @@ Response Checkbox::Run(
         static_cast<uint8_t>(opts.elementAlign),
         opts.indeterminate,
         static_cast<uint8_t>(opts.stretch),
+        opts.width.value_or(0.0f),
         currentChecked,
         optsCopy.label,
         optsCopy.description
@@ -97,7 +113,8 @@ Response Checkbox::Run(
             n->hovered,
             n->pressed,
             n->disabled,
-            theme
+            theme,
+            n->focused
         );
     };
     node->checked = currentChecked;
@@ -105,6 +122,7 @@ Response Checkbox::Run(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed;
+    node->focused = ctx.IsFocused(id);
     node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
 
@@ -144,7 +162,8 @@ void Checkbox::Render(
     bool hovered,
     bool /*pressed*/,
     bool disabled,
-    const UiTheme& theme
+    const UiTheme& theme,
+    bool focused
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
         return;
@@ -187,6 +206,9 @@ void Checkbox::Render(
         boxFill = boxFill.WithAlphaF(0.40f);
         boxStroke = boxStroke.WithAlphaF(0.40f);
         markColor = markColor.WithAlphaF(0.40f);
+    } else if (focused) {
+        boxStroke = pal.focusRing;
+        strokeWidth = std::max(strokeWidth, 2.0f);
     }
 
     // Draw box

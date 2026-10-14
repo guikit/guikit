@@ -416,6 +416,8 @@ Response Slider::Run(
     Rect prevBounds = ctx.GetPrevFrameBounds(id);
     auto& state = ctx.GetOrCreateState<SliderState>(id);
 
+    ctx.RegisterFocusable(id, effectiveDisabled);
+
     Response res = ctx.Interact(id);
     if (effectiveDisabled) {
         res.clicked = false;
@@ -440,6 +442,7 @@ Response Slider::Run(
         if (res.clicked || (res.pressed && !state.dragging)) {
             state.dragging = true;
             ctx.SetActiveId(id);
+            ctx.RequestFocus(id);
         }
 
         if (state.dragging) {
@@ -482,6 +485,30 @@ Response Slider::Run(
                 }
             }
         }
+
+        // Keyboard arrow adjustment when focused
+        if (ctx.IsFocused(id) && !state.dragging) {
+            const double stepDelta = (effectiveStep > 0.0) ? effectiveStep : (rangeMax - rangeMin) * 0.05;
+            if (ctx.ConsumeKey(Key::Right) || ctx.ConsumeKey(Key::Up)) {
+                const double rawVal = std::clamp(currentVal + stepDelta, rangeMin, rangeMax);
+                if (rawVal != currentVal) {
+                    currentVal = rawVal;
+                    res.changed = true;
+                    ctx.RequestRepaint(3);
+                }
+            } else if (ctx.ConsumeKey(Key::Left) || ctx.ConsumeKey(Key::Down)) {
+                const double rawVal = std::clamp(currentVal - stepDelta, rangeMin, rangeMax);
+                if (rawVal != currentVal) {
+                    currentVal = rawVal;
+                    res.changed = true;
+                    ctx.RequestRepaint(3);
+                }
+            }
+        }
+    }
+
+    if (res.hovered && !opts.tooltip.empty()) {
+        ctx.SetTooltip(opts.tooltip, prevBounds);
     }
 
     // Write back updated value
@@ -500,6 +527,7 @@ Response Slider::Run(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed || state.dragging;
+    node->focused = ctx.IsFocused(id);
     node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
 
@@ -509,6 +537,7 @@ Response Slider::Run(
     data->opts.textLeft = ctx.AllocText(opts.textLeft);
     data->opts.textRight = ctx.AllocText(opts.textRight);
     data->opts.description = ctx.AllocText(opts.description);
+    data->opts.tooltip = ctx.AllocText(opts.tooltip);
     data->opts.valueFormat = ctx.AllocText(opts.valueFormat);
     node->text = data->opts.label.text;
     data->value = currentVal;
@@ -516,7 +545,7 @@ Response Slider::Run(
     data->max = rangeMax;
     data->isInt = (valInt != nullptr);
     data->formattedValue = formattedStr;
-    node->payload = data;
+    node->SetPayload(data);
 
     uint64_t valBits = 0;
     std::memcpy(&valBits, &currentVal, sizeof(double));
@@ -551,7 +580,7 @@ Response Slider::Run(
         const auto* d = n->As<SliderData>();
         if (!d) return;
         Slider::Render(canvas, n->computedRect, d->value, d->min, d->max,
-                       d->opts, n->uiSize, n->hovered, n->pressed, n->disabled, theme);
+                       d->opts, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused);
     };
 
     ctx.AdaptChildToContainer(node);
@@ -612,7 +641,8 @@ void Slider::Render(
     bool hovered,
     bool active,
     bool disabled,
-    const UiTheme& theme
+    const UiTheme& theme,
+    bool focused
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) return;
 
@@ -678,8 +708,9 @@ void Slider::Render(
                     active   ? variantCol.bgActive :
                     hovered  ? pal.surface : pal.surface;
     Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
+                        focused  ? pal.focusRing :
                         (active || hovered) ? pal.accent : pal.borderHover;
-    const float thumbBorderW = (active || hovered) ? 2.5f : 2.0f;
+    const float thumbBorderW = (active || hovered || focused) ? 2.5f : 2.0f;
     canvas.DrawRoundRect(thumbRect, halfThumb, thumbBg, thumbBorder, thumbBorderW);
 }
 
@@ -720,6 +751,8 @@ Response StepSlider::Run(
     Rect prevBounds = ctx.GetPrevFrameBounds(id);
     auto& state = ctx.GetOrCreateState<SliderState>(id);
 
+    ctx.RegisterFocusable(id, effectiveDisabled);
+
     Response res = ctx.Interact(id);
     if (effectiveDisabled) {
         res.clicked = false;
@@ -744,6 +777,7 @@ Response StepSlider::Run(
         if (res.clicked || (res.pressed && !state.dragging)) {
             state.dragging = true;
             ctx.SetActiveId(id);
+            ctx.RequestFocus(id);
         }
 
         if (state.dragging) {
@@ -784,6 +818,27 @@ Response StepSlider::Run(
                 }
             }
         }
+
+        // Keyboard arrow adjustment when focused
+        if (ctx.IsFocused(id) && !state.dragging) {
+            if (ctx.ConsumeKey(Key::Right) || ctx.ConsumeKey(Key::Up)) {
+                if (curIdx + 1 < totalSteps) {
+                    curIdx++;
+                    res.changed = true;
+                    ctx.RequestRepaint(3);
+                }
+            } else if (ctx.ConsumeKey(Key::Left) || ctx.ConsumeKey(Key::Down)) {
+                if (curIdx > 0) {
+                    curIdx--;
+                    res.changed = true;
+                    ctx.RequestRepaint(3);
+                }
+            }
+        }
+    }
+
+    if (res.hovered && !opts.tooltip.empty()) {
+        ctx.SetTooltip(opts.tooltip, prevBounds);
     }
 
     if (indexSizeT != nullptr) *indexSizeT = curIdx;
@@ -795,6 +850,7 @@ Response StepSlider::Run(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed || state.dragging;
+    node->focused = ctx.IsFocused(id);
     node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
 
@@ -804,11 +860,12 @@ Response StepSlider::Run(
     data->opts.textLeft = ctx.AllocText(opts.textLeft);
     data->opts.textRight = ctx.AllocText(opts.textRight);
     data->opts.description = ctx.AllocText(opts.description);
+    data->opts.tooltip = ctx.AllocText(opts.tooltip);
     data->opts.valueText = ctx.AllocText(opts.valueText);
     node->text = data->opts.label.text;
     data->index = curIdx;
     data->totalSteps = totalSteps;
-    node->payload = data;
+    node->SetPayload(data);
 
     node->visualHash = detail::HashArgs(
         curIdx,
@@ -842,7 +899,7 @@ Response StepSlider::Run(
         const auto* d = n->As<StepSliderData>();
         if (!d) return;
         StepSlider::Render(canvas, n->computedRect, d->index, d->totalSteps,
-                           d->opts, n->uiSize, n->hovered, n->pressed, n->disabled, theme);
+                           d->opts, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused);
     };
 
     ctx.AdaptChildToContainer(node);
@@ -902,7 +959,8 @@ void StepSlider::Render(
     bool hovered,
     bool active,
     bool disabled,
-    const UiTheme& theme
+    const UiTheme& theme,
+    bool focused
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) return;
 
@@ -978,8 +1036,9 @@ void StepSlider::Render(
                     active   ? variantCol.bgActive :
                     hovered  ? pal.surface : pal.surface;
     Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
+                        focused  ? pal.focusRing :
                         (active || hovered) ? pal.accent : pal.borderHover;
-    const float thumbBorderW = (active || hovered) ? 2.5f : 2.0f;
+    const float thumbBorderW = (active || hovered || focused) ? 2.5f : 2.0f;
     canvas.DrawRoundRect(thumbRect, halfThumb, thumbBg, thumbBorder, thumbBorderW);
 
     // 5. Draw step labels below track

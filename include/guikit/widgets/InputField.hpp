@@ -19,6 +19,7 @@ struct InputFieldOptions {
     UiText label{};                                ///< Primary caption text
     UiText description{};                          ///< Optional helper text below input box
     UiText placeholder{};                          ///< Placeholder text when empty (e.g. "Enter value...")
+    UiText tooltip{};                              ///< Optional floating tooltip shown on hover
     UiAffix prefix{};                              ///< Leading icon and/or symbol/text inside field on left (e.g. "$", Icon::Search(), {Icon::Search(), "https://"})
     UiAffix suffix{};                              ///< Trailing unit/symbol/text and/or icon inside field on right (e.g. "%", "mm", {"MB/s", Icon::Check()})
     UiText valueFormat{"%.2f"};                    ///< Format string for numeric values and/or candidate width variants
@@ -32,6 +33,12 @@ struct InputFieldOptions {
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};      ///< Input box width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum input box width constraint in points
+    std::optional<double> min{std::nullopt};       ///< Optional minimum numeric value constraint
+    std::optional<double> max{std::nullopt};       ///< Optional maximum numeric value constraint
+    std::optional<double> step{std::nullopt};      ///< Optional step increment for Up/Down keys and mouse wheel on numeric fields
+    bool password{false};                          ///< Masks input characters with '*'
+    bool passwordReveal{true};                     ///< Shows an interactive eye/eye-off toggle button when password is true
+    bool clearable{false};                         ///< Shows an interactive clear ('X') button when non-empty and editable
     bool disabled{false};                          ///< Interaction suppression
     bool readOnly{false};                          ///< Non-editable display mode
 };
@@ -46,6 +53,11 @@ struct InputFieldData {
     float scrollX{0.0f};
     float cursorWidth{1.5f};
     bool cursorVisible{true};
+    bool showClearBtn{false};
+    bool clearHovered{false};
+    bool showRevealBtn{false};
+    bool revealHovered{false};
+    bool passwordRevealed{false};
 };
 
 /// Autonomous InputField widget logic (execution, measuring, and rendering).
@@ -96,7 +108,12 @@ public:
         const UiTheme& theme = UiTheme::Dark(),
         size_t selStart = 0,
         size_t selEnd = 0,
-        float scrollX = 0.0f
+        float scrollX = 0.0f,
+        bool showClearBtn = false,
+        bool clearHovered = false,
+        bool showRevealBtn = false,
+        bool revealHovered = false,
+        bool passwordRevealed = false
     );
 };
 

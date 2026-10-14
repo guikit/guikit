@@ -13,12 +13,24 @@ Vec2 ElementComposer::Measure(
     const UiTheme& theme,
     float availableWidth
 ) noexcept {
+    if (!spec.stretchableControl && spec.width.has_value() && spec.stretch == StretchMode::Fill && availableWidth > 0.0f) {
+        const float pct = std::clamp(*spec.width, 0.0f, 100.0f);
+        availableWidth *= (pct * 0.01f);
+    }
+
+    const auto applyFixedWidthIfNeeded = [&](Vec2 measured) noexcept -> Vec2 {
+        if (!spec.stretchableControl && spec.width.has_value() && spec.stretch != StretchMode::Fill) {
+            measured.x = std::max(measured.x, theme.Scale(*spec.width));
+        }
+        return measured;
+    };
+
     const bool hasLabel = spec.label.HasContentOrReserve();
     const bool hasDesc = spec.description.HasContentOrReserve();
     const bool hasExternal = hasLabel || hasDesc;
 
     if (!hasExternal) {
-        return intrinsicControlSize;
+        return applyFixedWidthIfNeeded(intrinsicControlSize);
     }
 
     const float labelFontSize = theme.ResolveFontSize(spec.label, TextRole::LabelLarge, spec.widgetSize);
@@ -40,14 +52,18 @@ Vec2 ElementComposer::Measure(
     }
 
     float textWrapW = availableWidth;
+    if (!spec.stretchableControl && spec.width.has_value() && spec.stretch != StretchMode::Fill) {
+        const float fixedW = theme.Scale(*spec.width);
+        textWrapW = (availableWidth > 0.0f) ? std::min(availableWidth, fixedW) : fixedW;
+    }
     if (spec.layout == ElementLayout::Inline) {
-        if (availableWidth > 0.0f) {
-            float ctrlW = std::min(availableWidth, intrinsicControlSize.x);
+        if (textWrapW > 0.0f) {
+            float ctrlW = std::min(textWrapW, intrinsicControlSize.x);
             if (spec.stretchableControl && spec.stretch == StretchMode::Fill && spec.width.has_value()) {
                 const float pct = std::clamp(*spec.width, 0.0f, 100.0f);
-                ctrlW = availableWidth * (pct * 0.01f);
+                ctrlW = textWrapW * (pct * 0.01f);
             }
-            textWrapW = std::max(0.0f, availableWidth - ctrlW - spec.inlineGap);
+            textWrapW = std::max(0.0f, textWrapW - ctrlW - spec.inlineGap);
         }
     } else if (spec.stretch == StretchMode::Compact && spec.stretchableControl) {
         const float compactBlockW = std::max({intrinsicControlSize.x, effLabelW, effDescW});
@@ -73,7 +89,7 @@ Vec2 ElementComposer::Measure(
         float totalH = intrinsicControlSize.y;
         if (hasLabel) totalH += labelDims.y + spec.labelGap;
         if (hasDesc)  totalH += spec.descGap + descDims.y;
-        return {totalW, totalH};
+        return applyFixedWidthIfNeeded({totalW, totalH});
     }
 
     if (spec.layout == ElementLayout::Top) {
@@ -81,7 +97,7 @@ Vec2 ElementComposer::Measure(
         float textH = 0.0f;
         if (hasLabel) textH += labelDims.y;
         if (hasDesc)  textH += (hasLabel ? spec.descGap : 0.0f) + descDims.y;
-        return {totalW, textH + spec.labelGap + intrinsicControlSize.y};
+        return applyFixedWidthIfNeeded({totalW, textH + spec.labelGap + intrinsicControlSize.y});
     }
 
     if (spec.layout == ElementLayout::Bottom) {
@@ -89,7 +105,7 @@ Vec2 ElementComposer::Measure(
         float textH = 0.0f;
         if (hasLabel) textH += labelDims.y;
         if (hasDesc)  textH += (hasLabel ? spec.descGap : 0.0f) + descDims.y;
-        return {totalW, intrinsicControlSize.y + spec.descGap + textH};
+        return applyFixedWidthIfNeeded({totalW, intrinsicControlSize.y + spec.descGap + textH});
     }
 
     // ElementLayout::Inline
@@ -105,7 +121,7 @@ Vec2 ElementComposer::Measure(
     }
     const float totalW = intrinsicControlSize.x + (hasAnyText && textW > 0.0f ? spec.inlineGap + textW : 0.0f);
     const float totalH = std::max(intrinsicControlSize.y, textH);
-    return {totalW, totalH};
+    return applyFixedWidthIfNeeded({totalW, totalH});
 }
 
 ElementGeometry ElementComposer::Resolve(
@@ -123,6 +139,13 @@ ElementGeometry ElementComposer::Resolve(
     geom.descFontSize = theme.ResolveFontSize(spec.description, TextRole::LabelSmall, spec.widgetSize);
 
     const float alignFactor = (spec.elementAlign == Align::End) ? 1.0f : ((spec.elementAlign == Align::Center) ? 0.5f : 0.0f);
+
+    if (!spec.stretchableControl && spec.stretch == StretchMode::Fill && spec.width.has_value()) {
+        const float pct = std::clamp(*spec.width, 0.0f, 100.0f);
+        const float effW = bounds.w * (pct * 0.01f);
+        bounds.x += (bounds.w - effW) * alignFactor;
+        bounds.w = effW;
+    }
 
     float ctrlW = std::min(bounds.w, intrinsicControlSize.x);
     if (spec.stretchableControl && spec.stretch == StretchMode::Fill) {
@@ -168,9 +191,10 @@ ElementGeometry ElementComposer::Resolve(
     }
 
     const float measuredTextW = std::max(effLabelW, effDescW);
+    const bool compactNaturalBlock = (spec.stretch == StretchMode::Compact) && (spec.stretchableControl || !spec.width.has_value());
 
     if (spec.layout == ElementLayout::Stacked) {
-        const float blockW = (spec.stretch == StretchMode::Compact) ? std::min(bounds.w, std::max(ctrlW, measuredTextW)) : bounds.w;
+        const float blockW = compactNaturalBlock ? std::min(bounds.w, std::max(ctrlW, measuredTextW)) : bounds.w;
         const float labelH = geom.hasLabel
             ? TextUtil::MeasureUiTextHeight(spec.label, blockW, geom.labelFontSize, labelLineH, canvas)
             : 0.0f;
@@ -191,7 +215,7 @@ ElementGeometry ElementComposer::Resolve(
             geom.descRect = Rect(blockX, curY, blockW, descH);
         }
     } else if (spec.layout == ElementLayout::Top) {
-        const float blockW = (spec.stretch == StretchMode::Compact) ? std::min(bounds.w, std::max(ctrlW, measuredTextW)) : bounds.w;
+        const float blockW = compactNaturalBlock ? std::min(bounds.w, std::max(ctrlW, measuredTextW)) : bounds.w;
         const float labelH = geom.hasLabel
             ? TextUtil::MeasureUiTextHeight(spec.label, blockW, geom.labelFontSize, labelLineH, canvas)
             : 0.0f;
@@ -213,7 +237,7 @@ ElementGeometry ElementComposer::Resolve(
         curY += spec.labelGap;
         geom.controlRect = Rect(ctrlX, curY, ctrlW, intrinsicControlSize.y);
     } else if (spec.layout == ElementLayout::Bottom) {
-        const float blockW = (spec.stretch == StretchMode::Compact) ? std::min(bounds.w, std::max(ctrlW, measuredTextW)) : bounds.w;
+        const float blockW = compactNaturalBlock ? std::min(bounds.w, std::max(ctrlW, measuredTextW)) : bounds.w;
         const float labelH = geom.hasLabel
             ? TextUtil::MeasureUiTextHeight(spec.label, blockW, geom.labelFontSize, labelLineH, canvas)
             : 0.0f;
@@ -240,7 +264,7 @@ ElementGeometry ElementComposer::Resolve(
         }
         const float availTextW = std::max(0.0f, bounds.w - ctrlW - gap);
         const float textBlockW = (spec.label.wrap == TextWrap::Word || spec.description.wrap == TextWrap::Word)
-            ? ((spec.stretch == StretchMode::Compact) ? std::min(measuredTextW, availTextW) : availTextW)
+            ? (compactNaturalBlock ? std::min(measuredTextW, availTextW) : availTextW)
             : std::min(measuredTextW, availTextW);
 
         const float labelH = geom.hasLabel
@@ -255,7 +279,7 @@ ElementGeometry ElementComposer::Resolve(
 
         if (spec.inlineOrder == InlineOrder::LabelFirst) {
             float ctrlX = bounds.x + bounds.w - ctrlW;
-            if (spec.stretch == StretchMode::Compact) {
+            if (compactNaturalBlock) {
                 ctrlX = bounds.x + (textBlockW > 0.0f ? textBlockW + gap : 0.0f);
             }
             geom.controlRect = Rect(ctrlX, bounds.y + (bounds.h - intrinsicControlSize.y) * 0.5f, ctrlW, intrinsicControlSize.y);
@@ -273,7 +297,7 @@ ElementGeometry ElementComposer::Resolve(
             geom.controlRect = Rect(bounds.x, bounds.y + (bounds.h - intrinsicControlSize.y) * 0.5f, ctrlW, intrinsicControlSize.y);
 
             float textX = bounds.x + ctrlW + gap;
-            if (spec.stretch != StretchMode::Compact) {
+            if (!compactNaturalBlock) {
                 textX = std::max(bounds.x + ctrlW + gap, bounds.x + bounds.w - textBlockW);
             }
             float textY = startY;

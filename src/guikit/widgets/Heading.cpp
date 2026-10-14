@@ -24,19 +24,15 @@ Response Heading::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::Heading, id);
-    node->text = ctx.AllocString(opts.title);
     auto* hOpts = ctx.AllocPayload<HeadingOptions>(opts);
-    hOpts->title = node->text;
-    if (!opts.subtitle.empty()) {
-        hOpts->subtitle = ctx.AllocString(opts.subtitle);
-    }
-    if (!opts.badge.empty()) {
-        hOpts->badge = ctx.AllocString(opts.badge);
-    }
-    node->payload = hOpts;
+    hOpts->title = ctx.AllocText(opts.title);
+    hOpts->subtitle = ctx.AllocText(opts.subtitle);
+    hOpts->badge = ctx.AllocText(opts.badge);
+    node->text = hOpts->title.text;
+    node->SetPayload(hOpts);
     node->visualHash = detail::HashArgs(
         opts.variant,
-        node->text,
+        hOpts->title,
         hOpts->subtitle,
         hOpts->badge,
         opts.divider,
@@ -75,7 +71,9 @@ Response Heading::Run(
 
 Vec2 Heading::Measure(const HeadingOptions& opts, UiSize size, float availableWidth, ICanvas* canvas, const UiTheme& theme) {
     const HeadingMetrics& m = theme.GetHeading(size);
-    const std::string_view sub = opts.subtitle;
+    const float titleFont = opts.title.role.has_value() ? theme.GetTypography(*opts.title.role).fontSize : m.titleFontSize;
+    const float subFont = opts.subtitle.role.has_value() ? theme.GetTypography(*opts.subtitle.role).fontSize : m.subtitleFontSize;
+    const float badgeFont = opts.badge.role.has_value() ? theme.GetTypography(*opts.badge.role).fontSize : m.badgeFontSize;
 
     float titleLineW = 0.0f;
     float titleLineH = 0.0f;
@@ -85,47 +83,35 @@ Vec2 Heading::Measure(const HeadingOptions& opts, UiSize size, float availableWi
         titleLineH = std::max(titleLineH, m.iconSize);
     }
 
-    if (!opts.title.empty()) {
+    if (opts.title.HasContentOrReserve()) {
         if (titleLineW > 0.0f) titleLineW += m.gap;
-        float textW = 0.0f;
-        if (canvas) {
-            textW = canvas->MeasureText(opts.title, m.titleFontSize).x;
-        } else {
-            textW = static_cast<float>(opts.title.length()) * (m.titleFontSize * kDefaultCharAdvanceRatio);
-        }
+        const float textW = TextUtil::MeasureWidth(opts.title, titleFont, canvas);
         titleLineW += textW;
-        const float titleH = canvas ? canvas->GetLineHeight(m.titleFontSize) : theme.GetLineHeight(m.titleFontSize);
+        const float titleH = canvas ? canvas->GetLineHeight(titleFont) : theme.GetLineHeight(titleFont);
         titleLineH = std::max(titleLineH, titleH);
     }
 
-    if (!opts.badge.empty()) {
+    if (opts.badge.HasContentOrReserve()) {
         if (titleLineW > 0.0f) titleLineW += m.badgeGap;
-        float badgeTextW = 0.0f;
-        if (canvas) {
-            badgeTextW = canvas->MeasureText(opts.badge, m.badgeFontSize).x;
-        } else {
-            badgeTextW = static_cast<float>(opts.badge.length()) * (m.badgeFontSize * 0.55f);
-        }
+        const float badgeTextW = TextUtil::MeasureWidth(opts.badge, badgeFont, canvas);
         const float badgeW = badgeTextW + 12.0f;
         titleLineW += badgeW;
-        titleLineH = std::max(titleLineH, m.badgeFontSize * 1.4f);
+        titleLineH = std::max(titleLineH, badgeFont * 1.4f);
     }
 
     float subW = 0.0f;
     float subH = 0.0f;
-    if (!sub.empty()) {
-        const float subLineH = canvas ? canvas->GetLineHeight(m.subtitleFontSize) : theme.GetLineHeight(m.subtitleFontSize);
-        if (opts.wordWrap && availableWidth > 0.0f) {
-            subH = TextUtil::MeasureWrappedHeight(sub, availableWidth, m.subtitleFontSize, subLineH, canvas);
-            subW = availableWidth;
-        } else {
-            if (canvas) {
-                subW = canvas->MeasureText(sub, m.subtitleFontSize).x;
-            } else {
-                subW = static_cast<float>(sub.length()) * (m.subtitleFontSize * kDefaultCharAdvanceRatio);
-            }
-            subH = subLineH;
+    if (opts.subtitle.HasContentOrReserve()) {
+        const float subLineH = canvas ? canvas->GetLineHeight(subFont) : theme.GetLineHeight(subFont);
+        UiText subSpec = opts.subtitle;
+        if (opts.wordWrap) {
+            subSpec.wrap = TextWrap::Word;
         }
+        subW = TextUtil::MeasureWidth(subSpec, subFont, canvas);
+        if (subSpec.wrap == TextWrap::Word && availableWidth > 0.0f) {
+            subW = std::min(subW, availableWidth);
+        }
+        subH = TextUtil::MeasureUiTextHeight(subSpec, availableWidth, subFont, subLineH, canvas);
     }
 
     const float totalW = std::max(titleLineW, subW);
@@ -152,34 +138,7 @@ float Heading::ResolveHeight(
     ICanvas* canvas,
     const UiTheme& theme
 ) {
-    const HeadingMetrics& m = theme.GetHeading(size);
-    const std::string_view sub = opts.subtitle;
-
-    float titleLineH = 0.0f;
-    if (opts.icon.IsValid()) titleLineH = std::max(titleLineH, m.iconSize);
-    if (!opts.title.empty()) titleLineH = std::max(titleLineH, canvas ? canvas->GetLineHeight(m.titleFontSize) : theme.GetLineHeight(m.titleFontSize));
-    if (!opts.badge.empty()) titleLineH = std::max(titleLineH, m.badgeFontSize * 1.4f);
-
-    float subH = 0.0f;
-    if (!sub.empty()) {
-        const float subLineH = canvas ? canvas->GetLineHeight(m.subtitleFontSize) : theme.GetLineHeight(m.subtitleFontSize);
-        if (opts.wordWrap && availableWidth > 0.0f) {
-            subH = TextUtil::MeasureWrappedHeight(sub, availableWidth, m.subtitleFontSize, subLineH, canvas);
-        } else {
-            subH = subLineH;
-        }
-    }
-
-    float totalH = (subH > 0.0f && titleLineH > 0.0f)
-        ? (titleLineH + m.lineGap + subH)
-        : (titleLineH + subH);
-
-    if (opts.divider && opts.dividerStyle == HeadingDivider::Bottom) {
-        const float divPad = std::max(4.0f, m.gap * 0.75f);
-        totalH += divPad + 1.0f + divPad * 0.5f;
-    }
-
-    return totalH;
+    return Measure(opts, size, availableWidth, canvas, theme).y;
 }
 
 void Heading::Render(
@@ -193,17 +152,18 @@ void Heading::Render(
 
     const HeadingMetrics& m = theme.GetHeading(size);
     const auto& pal = theme.palette;
-    const std::string_view sub = opts.subtitle;
+    const float titleFont = opts.title.role.has_value() ? theme.GetTypography(*opts.title.role).fontSize : m.titleFontSize;
+    const float subFont = opts.subtitle.role.has_value() ? theme.GetTypography(*opts.subtitle.role).fontSize : m.subtitleFontSize;
+    const float badgeFont = opts.badge.role.has_value() ? theme.GetTypography(*opts.badge.role).fontSize : m.badgeFontSize;
 
-    const Color titleColor = (opts.variant != UiVariant::Default)
-        ? theme.GetVariant(opts.variant).text
-        : pal.textPrimary;
-    const Color subtitleColor = pal.textSecondary;
+    const UiVariant defaultTitleVar = (opts.variant != UiVariant::Default) ? opts.variant : UiVariant::Default;
+    const Color titleColor = theme.ResolveTextColor(opts.title, defaultTitleVar, false);
+    const Color subtitleColor = theme.ResolveTextColor(opts.subtitle, UiVariant::Secondary, false);
 
     float titleLineH = 0.0f;
     if (opts.icon.IsValid()) titleLineH = std::max(titleLineH, m.iconSize);
-    if (!opts.title.empty()) titleLineH = std::max(titleLineH, canvas.GetLineHeight(m.titleFontSize));
-    if (!opts.badge.empty()) titleLineH = std::max(titleLineH, m.badgeFontSize * 1.4f);
+    if (opts.title.HasContentOrReserve()) titleLineH = std::max(titleLineH, canvas.GetLineHeight(titleFont));
+    if (opts.badge.HasContentOrReserve()) titleLineH = std::max(titleLineH, badgeFont * 1.4f);
 
     float curX = bounds.x;
     const float topY = bounds.y;
@@ -217,55 +177,53 @@ void Heading::Render(
 
     // 2. Draw Title
     if (!opts.title.empty()) {
-        const float titleAvailW = std::max(0.0f, bounds.Right() - curX - (opts.badge.empty() ? 0.0f : (m.badgeGap + 40.0f)));
-        float titleW = canvas.MeasureText(opts.title, m.titleFontSize).x;
-        std::string displayTitle(opts.title);
+        const float badgeReserveW = opts.badge.empty() ? 0.0f : (m.badgeGap + TextUtil::MeasureWidth(opts.badge, badgeFont, &canvas) + 12.0f);
+        const float titleAvailW = std::max(0.0f, bounds.Right() - curX - badgeReserveW);
+        float titleW = canvas.MeasureText(opts.title.text, titleFont).x;
+        std::string displayTitle(opts.title.text);
         if (titleW > titleAvailW + kTextSubpixelTolerance && titleAvailW > 0.0f) {
-            displayTitle = TextUtil::TruncateWithEllipsis(opts.title, titleAvailW, m.titleFontSize, &canvas);
-            titleW = canvas.MeasureText(displayTitle, m.titleFontSize).x;
+            displayTitle = TextUtil::TruncateWithEllipsis(opts.title.text, titleAvailW, titleFont, &canvas);
+            titleW = canvas.MeasureText(displayTitle, titleFont).x;
         }
         const Rect titleR(curX, topY, titleAvailW, titleLineH);
-        canvas.DrawTextBox(displayTitle, titleR, m.titleFontSize, titleColor, 0.0f, 0.5f);
+        canvas.DrawTextBox(displayTitle, titleR, titleFont, titleColor, 0.0f, 0.5f);
         curX += titleW;
     }
 
     // 3. Draw Badge
     if (!opts.badge.empty()) {
         curX += m.badgeGap;
-        float badgeTextW = canvas.MeasureText(opts.badge, m.badgeFontSize).x;
+        const float badgeTextW = TextUtil::MeasureWidth(opts.badge, badgeFont, &canvas);
         const float badgePadH = 6.0f;
         const float badgeW = badgeTextW + badgePadH * 2.0f;
-        const float badgeH = m.badgeFontSize + 4.0f;
+        const float badgeH = badgeFont + 4.0f;
         const float badgeY = topY + (titleLineH - badgeH) * 0.5f;
 
-        const Color badgeBg = (opts.variant != UiVariant::Default)
-            ? theme.GetVariant(opts.variant).bgActive
+        const UiVariant badgeVar = opts.badge.variant.value_or(opts.variant);
+        const Color badgeBg = (badgeVar != UiVariant::Default)
+            ? theme.GetVariant(badgeVar).bgActive
             : pal.surfaceHover;
-        const Color badgeTextCol = (opts.variant != UiVariant::Default)
-            ? theme.GetVariant(opts.variant).text
+        const Color badgeTextCol = (badgeVar != UiVariant::Default)
+            ? theme.GetVariant(badgeVar).text
             : pal.textPrimary;
 
         canvas.DrawRoundRect(Rect(curX, badgeY, badgeW, badgeH), badgeH * 0.5f, badgeBg);
-        canvas.DrawTextBox(opts.badge, Rect(curX, badgeY, badgeW, badgeH), m.badgeFontSize, badgeTextCol, 0.5f, 0.5f);
+        canvas.DrawTextBox(opts.badge.text, Rect(curX, badgeY, badgeW, badgeH), badgeFont, badgeTextCol, 0.5f, 0.5f);
     }
 
     // 4. Draw Subtitle
     float subTotalH = 0.0f;
-    if (!sub.empty()) {
+    if (opts.subtitle.HasContentOrReserve()) {
         const float subY = topY + titleLineH + m.lineGap;
-        const float subLineH = canvas.GetLineHeight(m.subtitleFontSize);
+        const float subLineH = canvas.GetLineHeight(subFont);
+        UiText subSpec = opts.subtitle;
         if (opts.wordWrap) {
-            auto lines = TextUtil::WrapText(sub, bounds.w, m.subtitleFontSize, &canvas);
-            for (size_t i = 0; i < lines.size(); ++i) {
-                const Rect subR(bounds.x, subY + static_cast<float>(i) * subLineH, bounds.w, subLineH);
-                canvas.DrawTextBox(lines[i], subR, m.subtitleFontSize, subtitleColor, 0.0f, 0.5f);
-            }
-            subTotalH = static_cast<float>(lines.empty() ? 1 : lines.size()) * subLineH;
-        } else {
-            std::string trSub = TextUtil::TruncateWithEllipsis(sub, bounds.w, m.subtitleFontSize, &canvas);
-            const Rect subR(bounds.x, subY, bounds.w, subLineH);
-            canvas.DrawTextBox(trSub, subR, m.subtitleFontSize, subtitleColor, 0.0f, 0.5f);
-            subTotalH = subLineH;
+            subSpec.wrap = TextWrap::Word;
+        }
+        subTotalH = TextUtil::MeasureUiTextHeight(subSpec, bounds.w, subFont, subLineH, &canvas);
+        if (!subSpec.empty()) {
+            const Rect subR(bounds.x, subY, bounds.w, subTotalH);
+            TextUtil::DrawUiText(canvas, subSpec, subR, subFont, subLineH, subtitleColor, 0.0f, 0.5f);
         }
     }
 
@@ -277,7 +235,7 @@ void Heading::Render(
 
         if (opts.dividerStyle == HeadingDivider::Bottom) {
             const float divPad = std::max(4.0f, m.gap * 0.75f);
-            const float textH = sub.empty() ? titleLineH : (titleLineH + m.lineGap + subTotalH);
+            const float textH = (subTotalH <= 0.0f) ? titleLineH : (titleLineH + m.lineGap + subTotalH);
             const float divY = std::floor(topY + textH + divPad) + 0.5f;
             canvas.DrawLine(
                 Vec2(bounds.x, divY),

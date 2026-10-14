@@ -24,9 +24,10 @@ enum class TabBarStyle : uint8_t {
 
 /// Definition of an individual tab item.
 struct TabItem {
-    std::string_view label{};
+    UiText label{};
     Icon icon{};
-    std::string_view badge{};
+    UiText badge{};
+    UiText tooltip{};
     UiVariant variant{UiVariant::Default};
     bool disabled{false};
 };
@@ -93,7 +94,8 @@ public:
         bool hovered,
         bool pressed,
         bool disabled,
-        const UiTheme& theme = UiTheme::Dark()
+        const UiTheme& theme = UiTheme::Dark(),
+        bool focused = false
     );
 };
 

@@ -101,6 +101,10 @@ Response TextArea::Run(
     const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
 
+    if (!opts.readOnly) {
+        ctx.RegisterFocusable(id, effectiveDisabled);
+    }
+
     Response res = ctx.Interact(id);
     if (effectiveDisabled) {
         res.clicked = false;
@@ -164,7 +168,7 @@ Response TextArea::Run(
     data->cursor = cursor;
     data->cursorVisible = isFocused && ctx.IsCursorVisible();
     data->scrollY = state.scrollY;
-    node->payload = data;
+    node->SetPayload(data);
 
     node->visualHash = detail::HashArgs(
         opts.variant,

@@ -29,6 +29,35 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
     }
 
     m_overlayPasses.clear();
+    m_currFocusableIds.clear();
+    m_activeTooltip = {};
+    m_activeTooltipAnchor = {};
+
+    if (!m_openPopupId.IsValid() && !m_prevFocusableIds.empty()) {
+        for (auto it = m_pendingKeyEvents.begin(); it != m_pendingKeyEvents.end(); ) {
+            if (it->key == Key::Tab) {
+                const bool reverse = it->mods.shift;
+                it = m_pendingKeyEvents.erase(it);
+                auto curIt = std::find(m_prevFocusableIds.begin(), m_prevFocusableIds.end(), m_focusedId);
+                Id nextId = Id::Null();
+                if (curIt == m_prevFocusableIds.end()) {
+                    nextId = reverse ? m_prevFocusableIds.back() : m_prevFocusableIds.front();
+                } else {
+                    const size_t idx = static_cast<size_t>(std::distance(m_prevFocusableIds.begin(), curIt));
+                    const size_t n = m_prevFocusableIds.size();
+                    const size_t nextIdx = reverse ? ((idx + n - 1) % n) : ((idx + 1) % n);
+                    nextId = m_prevFocusableIds[nextIdx];
+                }
+                if (m_editState.id.IsValid() && m_editState.id != nextId) {
+                    m_editState.id = Id::Null();
+                }
+                m_focusedId = nextId;
+                InvalidateAll();
+            } else {
+                ++it;
+            }
+        }
+    }
 
     if (m_mouseClicked && m_openPopupId.IsValid()) {
         auto it = m_prevFrameBounds.find(m_openPopupId);
@@ -767,10 +796,10 @@ void Context::OnKeyDown(Key key, KeyModifiers mods) {
             if (lostFocus) {
                 m_focusedId = Id::Null();
             }
+            return;
         }
-    } else {
-        m_pendingKeyEvents.push_back({key, mods});
     }
+    m_pendingKeyEvents.push_back({key, mods});
 }
 
 void Context::OpenPopup(Id id, Rect bounds) {
@@ -799,6 +828,20 @@ void Context::InvalidateRect(Rect rect) noexcept {
 
 void Context::RegisterOverlay(std::function<void(ICanvas&)> drawFn) {
     m_overlayPasses.push_back(std::move(drawFn));
+}
+
+void Context::SetTooltip(UiText tooltip, Rect anchorRect) {
+    if (tooltip.empty() || m_openPopupId.IsValid()) {
+        return;
+    }
+    m_activeTooltip = AllocText(tooltip);
+    m_activeTooltipAnchor = anchorRect;
+}
+
+void Context::RegisterFocusable(Id id, bool disabled) {
+    if (!disabled && id.IsValid()) {
+        m_currFocusableIds.push_back(id);
+    }
 }
 
 bool Context::ConsumeKey(Key key) {
@@ -864,15 +907,17 @@ std::string_view Context::GetOrStartTextEdit(
     }
     m_pendingTextInput.clear();
 
-    for (const auto& ev : m_pendingKeyEvents) {
+    for (auto it = m_pendingKeyEvents.begin(); it != m_pendingKeyEvents.end(); ) {
         bool lostFocus = false;
-        if (m_editState.HandleKey(*this, ev.key, ev.mods, lostFocus)) {
+        if (m_editState.HandleKey(*this, it->key, it->mods, lostFocus)) {
             if (lostFocus) {
                 m_focusedId = Id::Null();
             }
+            it = m_pendingKeyEvents.erase(it);
+        } else {
+            ++it;
         }
     }
-    m_pendingKeyEvents.clear();
 
     m_editState.cursor = std::min(m_editState.cursor, m_editState.text.size());
     m_editState.selectionAnchor = std::min(m_editState.selectionAnchor, m_editState.text.size());
@@ -889,6 +934,17 @@ std::string_view Context::GetOrStartTextEdit(
     }
 
     return m_editState.text;
+}
+
+void Context::SetTextEditBuffer(Id id, std::string_view text) {
+    if (!id.IsValid()) return;
+    m_editState.id = id;
+    m_editState.text.assign(text);
+    m_editState.cursor = m_editState.text.size();
+    m_editState.selectionAnchor = m_editState.cursor;
+    m_editState.changed = false;
+    m_editState.submitted = false;
+    ResetCursorBlink();
 }
 
 void Context::SetTextEditCursor(Id id, size_t cursor, size_t selectionAnchor) noexcept {
@@ -1045,9 +1101,10 @@ void Context::EndFrame(ICanvas& canvas) {
     // Update interactive scroll areas
     UpdateScrollAreasRecursive(m_root);
 
-    // Cache computed bounds for instantaneous interaction feedback next frame
+    // Cache computed bounds and focusable widget list for next frame
     CollectBoundsRecursive(m_root, m_currFrameBounds, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme);
     m_prevFrameBounds = std::move(m_currFrameBounds);
+    m_prevFocusableIds = std::move(m_currFocusableIds);
 
     // Reset single-frame mouse impulse states
     m_mouseClicked = false;
@@ -1085,7 +1142,8 @@ void Context::EndFrame(ICanvas& canvas) {
                          (n->pressed ? 2u : 0u) |
                          (n->disabled ? 4u : 0u) |
                          (n->checked ? 8u : 0u) |
-                         (n->active ? 64u : 0u);
+                         (n->active ? 64u : 0u) |
+                         (n->focused ? 128u : 0u);
             snap.bgColor = n->backgroundColor.ToUint32();
             snap.borderColor = n->borderColor.ToUint32();
 
@@ -1125,10 +1183,12 @@ void Context::EndFrame(ICanvas& canvas) {
         }
     }
 
+    const bool hasTooltip = !m_activeTooltip.empty();
+
     // Determine whether full repaint or partial dirty rect is required
     const float totalViewportArea = logicalSize.x * logicalSize.y;
     if (!m_dirtyRectEnabled || m_forceFullRepaint || m_prevSnapshots.empty() || m_openPopupId.IsValid() ||
-        anyDebugBounds || anyInspectMode) {
+        hasTooltip || m_hadTooltipLastFrame || anyDebugBounds || anyInspectMode) {
         m_isFullRepaint = true;
         m_hasDirtyDamage = true;
         m_dirtyRect = Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y);
@@ -1160,6 +1220,7 @@ void Context::EndFrame(ICanvas& canvas) {
     }
 
     m_forceFullRepaint = false;
+    m_hadTooltipLastFrame = hasTooltip;
     m_prevSnapshots = std::move(currSnapshots);
 
     // If damage exists, clear target buffer and rasterize scene graph
@@ -1175,9 +1236,14 @@ void Context::EndFrame(ICanvas& canvas) {
 
         RenderNodeRecursive(m_root, canvas, m_dirtyRect, m_theme);
 
-        // Render floating overlay passes (e.g. dropdown popups, tooltips)
+        // Render floating overlay passes (e.g. dropdown popups)
         for (const auto& overlayFn : m_overlayPasses) {
             overlayFn(canvas);
+        }
+
+        // Render floating tooltip overlay
+        if (hasTooltip) {
+            RenderTooltipOverlay(canvas, logicalSize);
         }
 
         // Developer Debug Pass: Element bounds and padding
@@ -1462,7 +1528,7 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
     } else if (target->type == NodeType::Heading) {
         if (const auto* h = target->As<HeadingOptions>()) {
             if (!h->title.empty()) {
-                labelStr = std::string(h->title.substr(0, 24));
+                labelStr = std::string(h->title.text.substr(0, 24));
             }
         }
     }
@@ -1514,6 +1580,51 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
     canvas.DrawTextBox(line1, Rect(bx + 10.0f, by + 5.0f, badgeW - 20.0f, 16.0f), fontSize, Color(56, 189, 248, 255), 0.0f, 0.5f);
     canvas.DrawTextBox(line2, Rect(bx + 10.0f, by + 21.0f, badgeW - 20.0f, 16.0f), fontSize, Color(241, 245, 249, 255), 0.0f, 0.5f);
     canvas.DrawTextBox(line3, Rect(bx + 10.0f, by + 37.0f, badgeW - 20.0f, 16.0f), fontSize, Color(148, 163, 184, 255), 0.0f, 0.5f);
+}
+
+void Context::RenderTooltipOverlay(ICanvas& canvas, Vec2 logicalSize) {
+    if (m_activeTooltip.empty()) return;
+
+    const float fontSize = m_theme.ResolveFontSize(m_activeTooltip, TextRole::LabelSmall, UiSize::Sm);
+    const float lineH = canvas.GetLineHeight(fontSize);
+
+    const float maxTextW = 280.0f;
+    const float natW = TextUtil::MeasureWidth(m_activeTooltip, fontSize, &canvas);
+    const float contentW = std::min(natW, maxTextW);
+    const float contentH = TextUtil::MeasureUiTextHeight(
+        m_activeTooltip, std::max(1.0f, contentW), fontSize, lineH, &canvas);
+
+    const float padX = 10.0f;
+    const float padY = 6.0f;
+    const float boxW = std::max(28.0f, contentW + padX * 2.0f);
+    const float boxH = std::max(24.0f, contentH + padY * 2.0f);
+
+    float bx = m_mousePos.x + 12.0f;
+    float by = m_mousePos.y + 18.0f;
+    if (m_activeTooltipAnchor.w > 0.0f && m_activeTooltipAnchor.h > 0.0f) {
+        bx = m_activeTooltipAnchor.x + (m_activeTooltipAnchor.w - boxW) * 0.5f;
+        by = m_activeTooltipAnchor.y - boxH - 6.0f;
+        if (by < 8.0f) {
+            by = m_activeTooltipAnchor.y + m_activeTooltipAnchor.h + 6.0f;
+        }
+    }
+
+    bx = std::clamp(bx, 8.0f, std::max(8.0f, logicalSize.x - boxW - 8.0f));
+    by = std::clamp(by, 8.0f, std::max(8.0f, logicalSize.y - boxH - 8.0f));
+
+    const Rect boxRect(bx, by, boxW, boxH);
+    canvas.DrawRoundRect(Rect(bx, by + 2.0f, boxW, boxH), 6.0f, Color(0, 0, 0, 60), Color::Transparent(), 0.0f);
+    canvas.DrawRoundRect(boxRect, 6.0f, Color(15, 23, 42, 245), Color(71, 85, 105, 220), 1.0f);
+
+    Color textColor(248, 250, 252, 255);
+    if (m_activeTooltip.variant.has_value()) {
+        textColor = m_theme.GetTextColor(*m_activeTooltip.variant);
+    }
+
+    TextUtil::DrawUiText(
+        canvas, m_activeTooltip,
+        Rect(bx + padX, by + padY, contentW + 2.0f, contentH),
+        fontSize, lineH, textColor, 0.0f, 0.5f);
 }
 
 } // namespace guikit

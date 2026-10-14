@@ -1,5 +1,6 @@
 #include "guikit/widgets/InputField.hpp"
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -46,6 +47,12 @@ Vec2 MeasureInputBox(
                 const float sFont = theme.ResolveFontSize(opts.suffix.text, TextRole::LabelMedium, size);
                 const float sW = TextUtil::MeasureAffixWidth(opts.suffix, sFont, m.iconSize, 4.0f, canvas);
                 totalW += sW + 6.0f;
+            }
+            if (opts.password && opts.passwordReveal) {
+                totalW += m.iconSize + 8.0f;
+            }
+            if (opts.clearable && !opts.readOnly) {
+                totalW += m.iconSize + 8.0f;
             }
             boxW = totalW;
         }
@@ -94,14 +101,25 @@ struct InputFieldState {
     bool draggingWord{false};
     size_t wordDragStart{0};
     size_t wordDragEnd{0};
+    bool passwordRevealed{false};
+    bool actionBtnDown{false};
 };
 
-Rect ResolveInputTextRect(
+struct InputBoxRects {
+    Rect boxRect{};
+    Rect textRect{};
+    Rect clearRect{};
+    Rect revealRect{};
+};
+
+InputBoxRects ResolveInputBoxRects(
     Rect bounds,
     const InputFieldOptions& opts,
     UiSize size,
     ICanvas* canvas,
-    const UiTheme& theme
+    const UiTheme& theme,
+    bool showClearBtn,
+    bool showRevealBtn
 ) noexcept {
     const InputFieldMetrics& m = theme.GetInputField(size);
     const Vec2 boxDims = MeasureInputBox(opts, size, canvas, theme);
@@ -124,8 +142,69 @@ Rect ResolveInputTextRect(
         rightX -= sW + 6.0f;
     }
 
+    Rect revealRect{};
+    if (showRevealBtn) {
+        const float btnSize = m.iconSize + 4.0f;
+        rightX -= btnSize;
+        revealRect = Rect(rightX, boxRect.y + (boxRect.h - btnSize) * 0.5f, btnSize, btnSize);
+        rightX -= 4.0f;
+    }
+
+    Rect clearRect{};
+    if (showClearBtn) {
+        const float btnSize = m.iconSize + 4.0f;
+        rightX -= btnSize;
+        clearRect = Rect(rightX, boxRect.y + (boxRect.h - btnSize) * 0.5f, btnSize, btnSize);
+        rightX -= 4.0f;
+    }
+
     const float availW = std::max(0.0f, rightX - leftX);
-    return Rect(leftX, boxRect.y, availW, boxRect.h);
+    return InputBoxRects{
+        .boxRect = boxRect,
+        .textRect = Rect(leftX, boxRect.y, availW, boxRect.h),
+        .clearRect = clearRect,
+        .revealRect = revealRect
+    };
+}
+
+size_t SnapToUtf8CodepointBoundary(std::string_view text, size_t idx) noexcept {
+    idx = std::min(idx, text.size());
+    while (idx > 0 && idx < text.size() && (static_cast<unsigned char>(text[idx]) & 0xC0) == 0x80) {
+        --idx;
+    }
+    return idx;
+}
+
+double ClampNumericValue(double val, const InputFieldOptions& opts) noexcept {
+    if (opts.min.has_value()) {
+        val = std::max(val, *opts.min);
+    }
+    if (opts.max.has_value()) {
+        val = std::min(val, *opts.max);
+    }
+    return val;
+}
+
+void FormatNumericValue(
+    char* valBuf,
+    size_t bufSize,
+    float* floatValue,
+    double* doubleValue,
+    int* intValue,
+    const InputFieldOptions& opts
+) noexcept {
+    if (floatValue != nullptr) {
+        const char* fmt = opts.valueFormat.empty() ? "%.2f" : opts.valueFormat.text.data();
+        std::snprintf(valBuf, bufSize, fmt, *floatValue);
+    } else if (doubleValue != nullptr) {
+        const char* fmt = opts.valueFormat.empty() ? "%.2f" : opts.valueFormat.text.data();
+        std::snprintf(valBuf, bufSize, fmt, *doubleValue);
+    } else if (intValue != nullptr) {
+        const bool customIntFmt = !opts.valueFormat.empty() &&
+                                  opts.valueFormat.text != "%.2f" &&
+                                  opts.valueFormat.text.find('f') == std::string_view::npos;
+        std::snprintf(valBuf, bufSize, customIntFmt ? opts.valueFormat.text.data() : "%d", *intValue);
+    }
 }
 
 } // namespace
@@ -145,6 +224,8 @@ Response InputField::Run(
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const bool wasFocused = ctx.IsFocused(id) && !effectiveDisabled;
 
+    ctx.RegisterFocusable(id, effectiveDisabled || opts.readOnly);
+
     Response res = ctx.Interact(id);
     if (effectiveDisabled) {
         res.clicked = false;
@@ -161,39 +242,114 @@ Response InputField::Run(
     const bool isFocused = ctx.IsFocused(id) && !effectiveDisabled;
     res.focused = isFocused;
 
+    if (res.hovered && !opts.tooltip.empty()) {
+        ctx.SetTooltip(opts.tooltip, res.rect);
+    }
+
     InputFieldOptions optsCopy = opts;
     optsCopy.label = ctx.AllocText(opts.label);
     optsCopy.description = ctx.AllocText(opts.description);
     optsCopy.placeholder = ctx.AllocText(opts.placeholder);
+    optsCopy.tooltip = ctx.AllocText(opts.tooltip);
     optsCopy.prefix = ctx.AllocAffix(opts.prefix);
     optsCopy.suffix = ctx.AllocAffix(opts.suffix);
     optsCopy.valueFormat = ctx.AllocText(opts.valueFormat);
 
+    const bool isNumeric = (floatValue != nullptr || doubleValue != nullptr || intValue != nullptr);
+    if (isNumeric && (opts.min.has_value() || opts.max.has_value())) {
+        if (floatValue != nullptr) {
+            *floatValue = static_cast<float>(ClampNumericValue(static_cast<double>(*floatValue), opts));
+        } else if (doubleValue != nullptr) {
+            *doubleValue = ClampNumericValue(*doubleValue, opts);
+        } else if (intValue != nullptr) {
+            *intValue = static_cast<int>( std::llround(ClampNumericValue(static_cast<double>(*intValue), opts)) );
+        }
+    }
+
     // Convert underlying data to formatted text
-    char valBuf[64];
+    char valBuf[64]{};
     std::string_view valStr;
 
     if (stringValue != nullptr) {
         valStr = *stringValue;
-    } else if (floatValue != nullptr) {
-        const char* fmt = optsCopy.valueFormat.empty() ? "%.2f" : optsCopy.valueFormat.text.data();
-        std::snprintf(valBuf, sizeof(valBuf), fmt, *floatValue);
-        valStr = valBuf;
-    } else if (doubleValue != nullptr) {
-        const char* fmt = optsCopy.valueFormat.empty() ? "%.2f" : optsCopy.valueFormat.text.data();
-        std::snprintf(valBuf, sizeof(valBuf), fmt, *doubleValue);
-        valStr = valBuf;
-    } else if (intValue != nullptr) {
-        const bool customIntFmt = !optsCopy.valueFormat.empty() &&
-                                  optsCopy.valueFormat.text != "%.2f" &&
-                                  optsCopy.valueFormat.text.find('f') == std::string_view::npos;
-        std::snprintf(valBuf, sizeof(valBuf), customIntFmt ? optsCopy.valueFormat.text.data() : "%d", *intValue);
+    } else if (isNumeric) {
+        FormatNumericValue(valBuf, sizeof(valBuf), floatValue, doubleValue, intValue, optsCopy);
         valStr = valBuf;
     } else {
         valStr = displayFallback;
     }
 
     auto& state = ctx.GetOrCreateState<InputFieldState>(id);
+    if (!res.pressed && !mouseJustPressed) {
+        state.actionBtnDown = false;
+    }
+
+    const UiTheme& theme = ctx.GetTheme();
+    ICanvas* canvas = ctx.GetCanvas();
+    const Rect refBounds = (res.rect.w > 0.0f && res.rect.h > 0.0f)
+        ? res.rect
+        : Rect({0.0f, 0.0f}, InputField::Measure(valStr, optsCopy, activeSize, canvas, theme));
+
+    const bool showRevealBtn = opts.password && opts.passwordReveal && !effectiveDisabled;
+    bool showClearBtn = opts.clearable && !valStr.empty() && !effectiveDisabled && !opts.readOnly;
+    InputBoxRects rects = ResolveInputBoxRects(refBounds, optsCopy, activeSize, canvas, theme, showClearBtn, showRevealBtn);
+
+    const Vec2 mousePos = ctx.GetMousePos();
+    bool revealHovered = showRevealBtn && res.hovered && rects.revealRect.Contains(mousePos);
+    bool clearHovered = showClearBtn && res.hovered && rects.clearRect.Contains(mousePos);
+
+    if (mouseJustPressed) {
+        if (revealHovered) {
+            state.passwordRevealed = !state.passwordRevealed;
+            state.actionBtnDown = true;
+        } else if (clearHovered) {
+            state.actionBtnDown = true;
+            state.scrollX = 0.0f;
+            if (stringValue != nullptr) {
+                stringValue->clear();
+                valStr = *stringValue;
+            } else {
+                valStr = "";
+            }
+            ctx.SetTextEditBuffer(id, "");
+            showClearBtn = false;
+            clearHovered = false;
+            rects = ResolveInputBoxRects(refBounds, optsCopy, activeSize, canvas, theme, showClearBtn, showRevealBtn);
+            res.changed = true;
+        }
+    }
+
+    // Handle numeric Up/Down key and mouse wheel stepping when focused
+    if (isNumeric && isFocused && !opts.readOnly && !effectiveDisabled) {
+        double stepDelta = 0.0;
+        const double stepVal = opts.step.value_or(1.0);
+        if (ctx.ConsumeKey(Key::Up)) {
+            stepDelta += stepVal;
+        }
+        if (ctx.ConsumeKey(Key::Down)) {
+            stepDelta -= stepVal;
+        }
+        if (res.hovered && std::abs(ctx.GetMouseWheel().y) > 0.001f) {
+            stepDelta += (ctx.GetMouseWheel().y > 0.0f ? stepVal : -stepVal);
+            ctx.ConsumeMouseWheel();
+        }
+
+        if (stepDelta != 0.0) {
+            if (floatValue != nullptr) {
+                const double nextVal = ClampNumericValue(static_cast<double>(*floatValue) + stepDelta, opts);
+                *floatValue = static_cast<float>(nextVal);
+            } else if (doubleValue != nullptr) {
+                *doubleValue = ClampNumericValue(*doubleValue + stepDelta, opts);
+            } else if (intValue != nullptr) {
+                const double nextVal = ClampNumericValue(static_cast<double>(*intValue) + stepDelta, opts);
+                *intValue = static_cast<int>(std::llround(nextVal));
+            }
+            FormatNumericValue(valBuf, sizeof(valBuf), floatValue, doubleValue, intValue, optsCopy);
+            valStr = valBuf;
+            ctx.SetTextEditBuffer(id, valStr);
+            res.changed = true;
+        }
+    }
 
     // Active edit state integration with Context
     size_t cursor = 0;
@@ -202,20 +358,26 @@ Response InputField::Run(
 
     if (isFocused || ctx.HasActiveTextEdit(id)) {
         std::string_view currentEditText = ctx.EnsureTextEdit(id, valStr, /*multiline=*/false, opts.readOnly);
+        showClearBtn = opts.clearable && !currentEditText.empty() && !effectiveDisabled && !opts.readOnly;
+        rects = ResolveInputBoxRects(refBounds, optsCopy, activeSize, canvas, theme, showClearBtn, showRevealBtn);
+        clearHovered = showClearBtn && res.hovered && rects.clearRect.Contains(mousePos);
 
-        const UiTheme& theme = ctx.GetTheme();
-        ICanvas* canvas = ctx.GetCanvas();
-        const Rect refBounds = (res.rect.w > 0.0f && res.rect.h > 0.0f)
-            ? res.rect
-            : Rect({0.0f, 0.0f}, InputField::Measure(currentEditText, optsCopy, activeSize, canvas, theme));
-        const Rect textRect = ResolveInputTextRect(refBounds, optsCopy, activeSize, canvas, theme);
+        const Rect textRect = rects.textRect;
         const float inputFont = theme.ResolveFontSize(optsCopy.valueFormat, TextRole::LabelMedium, activeSize);
 
+        const bool isMasked = opts.password && !state.passwordRevealed;
+        std::string maskedEditBuf;
+        std::string_view hitTestText = currentEditText;
+        if (isMasked && !currentEditText.empty()) {
+            maskedEditBuf.assign(currentEditText.size(), '*');
+            hitTestText = maskedEditBuf;
+        }
+
         // Handle LMB click, double/triple click, Shift+click, and LMB drag selection
-        if (mouseJustPressed || res.pressed) {
-            const Vec2 mousePos = ctx.GetMousePos();
+        if ((mouseJustPressed || res.pressed) && !state.actionBtnDown) {
             const float localX = (mousePos.x - textRect.x) + state.scrollX;
-            const size_t hitIdx = TextUtil::HitTestIndex(currentEditText, localX, inputFont, canvas);
+            size_t hitIdx = TextUtil::HitTestIndex(hitTestText, localX, inputFont, canvas);
+            hitIdx = SnapToUtf8CodepointBoundary(currentEditText, hitIdx);
 
             if (mouseJustPressed) {
                 const double now = ctx.GetCurrentTime();
@@ -239,7 +401,9 @@ Response InputField::Run(
                 } else if (state.clickCount == 2) {
                     size_t wStart = 0;
                     size_t wEnd = 0;
-                    TextUtil::SelectWordAt(currentEditText, hitIdx, wStart, wEnd);
+                    TextUtil::SelectWordAt(hitTestText, hitIdx, wStart, wEnd);
+                    wStart = SnapToUtf8CodepointBoundary(currentEditText, wStart);
+                    wEnd = SnapToUtf8CodepointBoundary(currentEditText, wEnd);
                     state.draggingWord = true;
                     state.wordDragStart = wStart;
                     state.wordDragEnd = wEnd;
@@ -254,7 +418,9 @@ Response InputField::Run(
                 } else if (state.draggingWord) {
                     size_t wStart = 0;
                     size_t wEnd = 0;
-                    TextUtil::SelectWordAt(currentEditText, hitIdx, wStart, wEnd);
+                    TextUtil::SelectWordAt(hitTestText, hitIdx, wStart, wEnd);
+                    wStart = SnapToUtf8CodepointBoundary(currentEditText, wStart);
+                    wEnd = SnapToUtf8CodepointBoundary(currentEditText, wEnd);
                     if (hitIdx < state.wordDragStart) {
                         ctx.SetTextEditCursor(id, wStart, state.wordDragEnd);
                     } else {
@@ -284,21 +450,22 @@ Response InputField::Run(
                 std::string s(displayText);
                 const float f = std::strtof(s.c_str(), &end);
                 if (end != s.c_str()) {
-                    *floatValue = f;
+                    *floatValue = static_cast<float>(ClampNumericValue(static_cast<double>(f), opts));
                 }
             } else if (doubleValue != nullptr) {
                 char* end = nullptr;
                 std::string s(displayText);
                 const double d = std::strtod(s.c_str(), &end);
                 if (end != s.c_str()) {
-                    *doubleValue = d;
+                    *doubleValue = ClampNumericValue(d, opts);
                 }
             } else if (intValue != nullptr) {
                 char* end = nullptr;
                 std::string s(displayText);
                 const long i = std::strtol(s.c_str(), &end, 10);
                 if (end != s.c_str()) {
-                    *intValue = static_cast<int>(i);
+                    const double clamped = ClampNumericValue(static_cast<double>(i), opts);
+                    *intValue = static_cast<int>(std::llround(clamped));
                 }
             }
             res.changed = true;
@@ -306,14 +473,32 @@ Response InputField::Run(
 
         if (submitted) {
             res.submitted = true;
+            if (isNumeric && !opts.readOnly) {
+                FormatNumericValue(valBuf, sizeof(valBuf), floatValue, doubleValue, intValue, optsCopy);
+                valStr = valBuf;
+                ctx.SetTextEditBuffer(id, valStr);
+                displayText = valStr;
+                cursor = displayText.size();
+                selAnchor = cursor;
+            }
         }
 
+        showClearBtn = opts.clearable && !displayText.empty() && !effectiveDisabled && !opts.readOnly;
+        rects = ResolveInputBoxRects(refBounds, optsCopy, activeSize, canvas, theme, showClearBtn, showRevealBtn);
+        clearHovered = showClearBtn && res.hovered && rects.clearRect.Contains(mousePos);
+
         // Update horizontal scrollX to keep active cursor within visible textRect
-        if (textRect.w > 0.0f && isFocused) {
-            const size_t safeCursor = std::min(cursor, displayText.size());
-            const float cursorX = TextUtil::MeasureWidth(displayText.substr(0, safeCursor), inputFont, canvas);
-            const float fullTextW = TextUtil::MeasureWidth(displayText, inputFont, canvas);
-            const float visibleW = std::max(0.0f, textRect.w - 2.0f);
+        if (rects.textRect.w > 0.0f && isFocused) {
+            std::string maskedDisplayBuf;
+            std::string_view measureText = displayText;
+            if (opts.password && !state.passwordRevealed && !displayText.empty()) {
+                maskedDisplayBuf.assign(displayText.size(), '*');
+                measureText = maskedDisplayBuf;
+            }
+            const size_t safeCursor = std::min(cursor, measureText.size());
+            const float cursorX = TextUtil::MeasureWidth(measureText.substr(0, safeCursor), inputFont, canvas);
+            const float fullTextW = TextUtil::MeasureWidth(measureText, inputFont, canvas);
+            const float visibleW = std::max(0.0f, rects.textRect.w - 2.0f);
 
             if (cursorX < state.scrollX) {
                 state.scrollX = cursorX;
@@ -332,19 +517,31 @@ Response InputField::Run(
     const size_t selStart = std::min(cursor, selAnchor);
     const size_t selEnd = std::max(cursor, selAnchor);
 
+    std::string maskedFinalBuf;
+    std::string_view renderedText = displayText;
+    if (opts.password && !state.passwordRevealed && !displayText.empty()) {
+        maskedFinalBuf.assign(displayText.size(), '*');
+        renderedText = maskedFinalBuf;
+    }
+
     Node* node = ctx.CreateNode(NodeType::InputField, id);
     node->text = optsCopy.label.text;
 
     auto* data = ctx.AllocPayload<InputFieldData>();
     data->opts = optsCopy;
-    data->displayText = ctx.AllocString(displayText);
+    data->displayText = ctx.AllocString(renderedText);
     data->cursor = cursor;
     data->selStart = selStart;
     data->selEnd = selEnd;
     data->scrollX = state.scrollX;
     data->cursorVisible = isFocused && !opts.readOnly && ctx.IsCursorVisible(opts.cursorMode);
     data->cursorWidth = ctx.GetCursorConfig().width;
-    node->payload = data;
+    data->showClearBtn = showClearBtn;
+    data->clearHovered = clearHovered;
+    data->showRevealBtn = showRevealBtn;
+    data->revealHovered = revealHovered;
+    data->passwordRevealed = state.passwordRevealed;
+    node->SetPayload(data);
     node->visualHash = detail::HashArgs(
         opts.variant,
         static_cast<uint8_t>(opts.layout),
@@ -354,12 +551,20 @@ Response InputField::Run(
         opts.width.value_or(0.0f),
         opts.minWidth.value_or(0.0f),
         opts.readOnly,
+        opts.password,
+        opts.passwordReveal,
+        opts.clearable,
         opts.radius.value_or(-1.0f),
         data->displayText,
         data->cursor,
         data->selStart,
         data->selEnd,
         data->scrollX,
+        data->showClearBtn,
+        data->clearHovered,
+        data->showRevealBtn,
+        data->revealHovered,
+        data->passwordRevealed,
         optsCopy.prefix,
         optsCopy.suffix,
         optsCopy.placeholder,
@@ -395,7 +600,12 @@ Response InputField::Run(
             theme,
             d ? d->selStart : 0,
             d ? d->selEnd : 0,
-            d ? d->scrollX : 0.0f
+            d ? d->scrollX : 0.0f,
+            d ? d->showClearBtn : false,
+            d ? d->clearHovered : false,
+            d ? d->showRevealBtn : false,
+            d ? d->revealHovered : false,
+            d ? d->passwordRevealed : false
         );
     };
 
@@ -452,7 +662,12 @@ void InputField::Render(
     const UiTheme& theme,
     size_t selStart,
     size_t selEnd,
-    float scrollX
+    float scrollX,
+    bool showClearBtn,
+    bool clearHovered,
+    bool showRevealBtn,
+    bool revealHovered,
+    bool passwordRevealed
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
         return;
@@ -517,7 +732,7 @@ void InputField::Render(
         leftX += pW + pGap;
     }
 
-    // Right elements (suffix text and/or icon)
+    // Right elements (suffix text/icon, password reveal button, clear button)
     float rightX = boxRect.x + boxRect.w - m.paddingX;
     if (opts.suffix.HasContentOrReserve()) {
         const float sFont = theme.ResolveFontSize(opts.suffix.text, TextRole::LabelMedium, size);
@@ -527,6 +742,39 @@ void InputField::Render(
         rightX -= sW;
         TextUtil::DrawAffix(canvas, opts.suffix, Rect(rightX, boxRect.y, sW, boxRect.h), sFont, m.iconSize, sTextCol, sIconCol, 4.0f);
         rightX -= 6.0f;
+    }
+
+    if (showRevealBtn) {
+        const float btnSize = m.iconSize + 4.0f;
+        rightX -= btnSize;
+        const Rect btnRect(rightX, boxRect.y + (boxRect.h - btnSize) * 0.5f, btnSize, btnSize);
+        if (revealHovered && !disabled) {
+            canvas.DrawRoundRect(btnRect, 4.0f, pal.surfaceHover, Color::Transparent(), 0.0f);
+        }
+        const Rect icRect(rightX + 2.0f, boxRect.y + (boxRect.h - m.iconSize) * 0.5f, m.iconSize, m.iconSize);
+        const Color icCol = (revealHovered && !disabled) ? pal.textPrimary : unitCol;
+        const Icon eyeIcon = passwordRevealed ? Icon::EyeOff() : Icon::Eye();
+        eyeIcon.Draw(canvas, icRect, icCol);
+        rightX -= 4.0f;
+    }
+
+    if (showClearBtn) {
+        const float btnSize = m.iconSize + 4.0f;
+        rightX -= btnSize;
+        const Rect btnRect(rightX, boxRect.y + (boxRect.h - btnSize) * 0.5f, btnSize, btnSize);
+        if (clearHovered && !disabled) {
+            canvas.DrawRoundRect(btnRect, 4.0f, pal.surfaceHover, Color::Transparent(), 0.0f);
+        }
+        const float clearIconSz = std::max(8.0f, m.iconSize - 2.0f);
+        const Rect icRect(
+            rightX + (btnSize - clearIconSz) * 0.5f,
+            boxRect.y + (boxRect.h - clearIconSz) * 0.5f,
+            clearIconSz,
+            clearIconSz
+        );
+        const Color icCol = (clearHovered && !disabled) ? pal.textPrimary : unitCol;
+        Icon::Close().Draw(canvas, icRect, icCol);
+        rightX -= 4.0f;
     }
 
     // Text / placeholder / selection / cursor in middle

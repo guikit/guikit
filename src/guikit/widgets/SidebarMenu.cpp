@@ -38,7 +38,7 @@ void SidebarMenuScope::Section(
     }
 
     Heading::Run(*m_ctx, HeadingOptions{
-        .title = title.text,
+        .title = title,
         .size = UiSize::Xs,
         .divider = divider
     }, loc);
@@ -165,6 +165,8 @@ Response SidebarMenu::Item(
     const UiSize activeSize = menuOpts.size.value_or(ctx.GetCurrentSize());
     const bool effectiveDisabled = item.disabled || menuOpts.disabled || ctx.IsDisabled();
 
+    ctx.RegisterFocusable(id, effectiveDisabled);
+
     Response res = ctx.Interact(id);
     if (effectiveDisabled) {
         res.clicked = false;
@@ -172,6 +174,20 @@ Response SidebarMenu::Item(
         res.pressed = false;
         res.rightClicked = false;
         res.doubleClicked = false;
+    } else {
+        if (res.clicked) {
+            ctx.RequestFocus(id);
+        }
+        if (ctx.IsFocused(id) && (ctx.ConsumeKey(Key::Space) || ctx.ConsumeKey(Key::Enter))) {
+            res.clicked = true;
+        }
+    }
+
+    if (res.hovered) {
+        const UiText effTooltip = !item.tooltip.empty() ? item.tooltip : (menuOpts.collapsed ? item.text : UiText{});
+        if (!effTooltip.empty()) {
+            ctx.SetTooltip(effTooltip, res.rect);
+        }
     }
 
     Node* node = ctx.CreateNode(NodeType::SidebarItem, id);
@@ -180,15 +196,17 @@ Response SidebarMenu::Item(
     data->item.text = ctx.AllocText(item.text);
     data->item.badge = ctx.AllocText(item.badge);
     data->item.section = ctx.AllocText(item.section);
+    data->item.tooltip = ctx.AllocText(item.tooltip);
     data->menuOpts = menuOpts;
 
     node->text = data->item.text.text;
-    node->payload = data;
+    node->SetPayload(data);
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed;
     node->active = item.active;
+    node->focused = ctx.IsFocused(id);
     node->widthMode = menuOpts.collapsed ? SizeMode::Fixed : SizeMode::Stretch;
     node->heightMode = SizeMode::Fit;
     if (menuOpts.collapsed) {
@@ -218,7 +236,7 @@ Response SidebarMenu::Item(
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* d = n->As<SidebarItemData>();
         if (!d) return;
-        SidebarMenu::RenderItem(canvas, n->computedRect, d->item, d->menuOpts, n->uiSize, n->hovered, n->pressed, n->disabled, theme);
+        SidebarMenu::RenderItem(canvas, n->computedRect, d->item, d->menuOpts, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused);
     };
 
     return res;
@@ -279,7 +297,8 @@ void SidebarMenu::RenderItem(
     bool hovered,
     bool pressed,
     bool disabled,
-    const UiTheme& theme
+    const UiTheme& theme,
+    bool focused
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) return;
 
@@ -327,6 +346,9 @@ void SidebarMenu::RenderItem(
         bg = bg.WithAlphaF(0.40f);
         textCol = textCol.WithAlphaF(0.40f);
         iconCol = iconCol.WithAlphaF(0.40f);
+    } else if (focused) {
+        borderCol = pal.focusRing;
+        borderW = 1.5f;
     }
 
     canvas.PushClip(bounds);

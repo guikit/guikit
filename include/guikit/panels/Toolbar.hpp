@@ -18,6 +18,7 @@ class Node;
 /// Configuration options for a ToolButton.
 struct ToolButtonOptions {
     UiText label{};
+    UiText tooltip{};
     Icon icon{};
     UiVariant variant{UiVariant::Ghost};
     Placement iconPlacement{Placement::Leading};

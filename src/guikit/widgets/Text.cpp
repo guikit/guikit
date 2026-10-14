@@ -39,7 +39,7 @@ Response Text::Run(
     data->label = ctx.AllocText(label);
     data->opts = opts;
     node->text = data->label.text;
-    node->payload = data;
+    node->SetPayload(data);
     node->visualHash = detail::HashArgs(opts.role, opts.variant, opts.align, data->label);
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<TextPayload>();

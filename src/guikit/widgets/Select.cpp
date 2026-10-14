@@ -117,12 +117,21 @@ Response Select::Run(
 
     const bool wasOpen = ctx.IsPopupOpen(id);
 
+    ctx.RegisterFocusable(id, effectiveDisabled);
+
     Response res = ctx.Interact(id);
     if (effectiveDisabled) {
         res.clicked = false;
         res.hovered = false;
         res.pressed = false;
         res.focused = false;
+    } else {
+        if (res.clicked) {
+            ctx.RequestFocus(id);
+        }
+        if (!wasOpen && ctx.IsFocused(id) && (ctx.ConsumeKey(Key::Space) || ctx.ConsumeKey(Key::Enter) || ctx.ConsumeKey(Key::Down))) {
+            res.clicked = true;
+        }
     }
 
     // Determine currently selected index from pointers
@@ -176,8 +185,8 @@ Response Select::Run(
         // Also ensure popup row width (with item's own prefix & suffix) fits
         maxRowW = std::max(maxRowW, measureRowContentW(it.text, it.prefix, it.suffix));
     }
-    if (!opts.placeholder.empty()) {
-        maxRowW = std::max(maxRowW, measureRowContentW(UiText(opts.placeholder), opts.prefix, opts.suffix));
+    if (opts.placeholder.HasContentOrReserve()) {
+        maxRowW = std::max(maxRowW, measureRowContentW(opts.placeholder, opts.prefix, opts.suffix));
     }
 
     const bool exceedsVisibleItems = opts.maxVisibleItems.has_value()
@@ -480,21 +489,26 @@ Response Select::Run(
         });
     }
 
+    if (res.hovered && !isOpen && !opts.tooltip.empty()) {
+        ctx.SetTooltip(opts.tooltip, prevBounds);
+    }
+
     Node* node = ctx.CreateNode(NodeType::Select, id);
 
     SelectOptions optsCopy = opts;
     optsCopy.label = ctx.AllocText(opts.label);
     optsCopy.description = ctx.AllocText(opts.description);
+    optsCopy.placeholder = ctx.AllocText(opts.placeholder);
+    optsCopy.tooltip = ctx.AllocText(opts.tooltip);
     optsCopy.prefix = ctx.AllocAffix(activePrefix);
     optsCopy.suffix = ctx.AllocAffix(activeSuffix);
     node->text = optsCopy.label.text;
     if (opts.stretch != StretchMode::Fill && !optsCopy.width.has_value()) optsCopy.width = unscaledIntrinsicW;
-    if (!opts.placeholder.empty()) optsCopy.placeholder = ctx.AllocString(opts.placeholder);
 
     auto* data = ctx.AllocPayload<SelectData>();
     data->opts = optsCopy;
     data->displayText = ctx.AllocText(currentDisplayText);
-    node->payload = data;
+    node->SetPayload(data);
     node->visualHash = detail::HashArgs(
         opts.variant,
         static_cast<uint8_t>(opts.stretch),
@@ -524,15 +538,17 @@ Response Select::Run(
             d ? d->opts : SelectOptions{},
             n->uiSize,
             n->hovered,
-            n->focused,
+            n->active,
             n->disabled,
-            theme
+            theme,
+            n->focused
         );
     };
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
-    node->focused = isOpen;
+    node->active = isOpen;
+    node->focused = isOpen || ctx.IsFocused(id);
 
     node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
@@ -551,7 +567,8 @@ void Select::Render(
     bool hovered,
     bool open,
     bool disabled,
-    const UiTheme& theme
+    const UiTheme& theme,
+    bool focused
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
         return;
@@ -571,7 +588,7 @@ void Select::Render(
     float strokeW = m.strokeWidth;
 
     const VariantColors& v = theme.GetVariant(opts.variant);
-    if (open && !disabled) {
+    if ((open || focused) && !disabled) {
         boxBorder = (opts.variant == UiVariant::Default || opts.variant == UiVariant::Ghost) ? pal.focusRing : v.bg;
         strokeW += 0.5f;
     } else if (hovered && !disabled) {
@@ -586,14 +603,13 @@ void Select::Render(
         }
     }
 
-    Color placeholderCol = pal.textSecondary;
+    Color placeholderCol = theme.ResolveTextColor(opts.placeholder, UiVariant::Secondary, disabled);
     Color chevronCol = open ? pal.accent : pal.textSecondary;
     Color unitCol = pal.textSecondary;
 
     if (disabled) {
         boxBg = boxBg.WithAlphaF(0.40f);
         boxBorder = boxBorder.WithAlphaF(0.40f);
-        placeholderCol = placeholderCol.WithAlphaF(0.40f);
         chevronCol = chevronCol.WithAlphaF(0.40f);
         unitCol = unitCol.WithAlphaF(0.40f);
     }
@@ -635,7 +651,7 @@ void Select::Render(
     const Rect textRect(leftX, boxRect.y, availW, boxRect.h);
     canvas.PushClip(textRect);
 
-    const bool isPlaceholder = currentText.empty() || (!currentText.variant.has_value() && currentText.text == opts.placeholder);
+    const bool isPlaceholder = currentText.empty() || (!currentText.variant.has_value() && currentText.text == opts.placeholder.text);
     const float selFont = theme.ResolveFontSize(currentText, TextRole::LabelMedium, size);
     const Color mainCol = isPlaceholder
         ? placeholderCol
