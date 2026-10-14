@@ -16,16 +16,25 @@ namespace guikit {
 class Context;
 class ICanvas;
 
+/// Individual item definition for Select dropdown widget.
+struct SelectItem {
+    UiText text{};           ///< Primary item label text (default role: LabelMedium)
+    UiAffix prefix{};        ///< Optional leading icon and/or text on the left of this item
+    UiAffix suffix{};        ///< Optional trailing text and/or icon on the right of this item
+    bool disabled{false};    ///< Whether this item is non-selectable and dimmed
+};
+
 /// Clean configuration options for Select (dropdown combo box) widget.
 struct SelectOptions {
     UiText label{};                                ///< Primary caption text
     UiText description{};                          ///< Optional helper text below select box
     std::string_view placeholder{"Select..."};     ///< Placeholder text when no item is selected or items list is empty
+    UiAffix prefix{};                              ///< Optional default leading icon/text inside closed field
+    UiAffix suffix{};                              ///< Optional default trailing text/icon inside closed field
     UiVariant variant{UiVariant::Default};         ///< Accent/border variant (Default, Warning, Danger, etc.)
     ElementLayout layout{ElementLayout::Stacked};    ///< Layout geometry: Stacked, Top, Bottom, Inline
     InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
     Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
-    Icon prefixIcon{};                             ///< Optional vector icon inside field on left
     std::optional<uint32_t> maxVisibleItems{std::nullopt}; ///< Optional limit on visible items count before scrolling
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     std::optional<float> radius{std::nullopt};     ///< Local corner radius override (nullopt = inherit from size metrics)
@@ -38,13 +47,25 @@ struct SelectOptions {
 /// Internal runtime state allocated in frame arena for Select nodes.
 struct SelectData {
     SelectOptions opts{};
-    std::string_view displayText{};
+    UiText displayText{};
 };
 
 /// Autonomous Select (dropdown combo box) widget logic.
 class Select {
 public:
-    /// Primary immediate mode entry point for Select with index and string pointers.
+    /// Primary immediate mode entry point for Select with rich SelectItem elements.
+    static Response Run(
+        Context& ctx,
+        size_t* selectedIndex,
+        int* selectedIntIndex,
+        std::string* selectedString,
+        std::string_view* selectedStringView,
+        std::span<const SelectItem> items,
+        const SelectOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    /// Convenience immediate mode entry point for Select with plain string_view items.
     static Response Run(
         Context& ctx,
         size_t* selectedIndex,
@@ -61,12 +82,14 @@ public:
         const SelectOptions& opts,
         UiSize size,
         ICanvas* canvas,
-        const UiTheme& theme
+        const UiTheme& theme,
+        float availableWidth = 0.0f
     );
     static Vec2 Measure(
         const SelectOptions& opts,
         UiSize size,
-        ICanvas* canvas = nullptr
+        ICanvas* canvas = nullptr,
+        float availableWidth = 0.0f
     );
 
     /// Computes the exact bounding box for the closed select field within overall bounds.
@@ -78,11 +101,11 @@ public:
         const UiTheme& theme = UiTheme::Dark()
     );
 
-    /// Renders the closed select frame with active text, prefix icon, and chevron.
+    /// Renders the closed select frame with active text, prefix/suffix affixes, and chevron.
     static void Render(
         ICanvas& canvas,
         Rect bounds,
-        std::string_view currentText,
+        UiText currentText,
         const SelectOptions& opts,
         UiSize size,
         bool hovered = false,
@@ -91,7 +114,22 @@ public:
         const UiTheme& theme = UiTheme::Dark()
     );
 
-    /// Renders the floating popup menu containing dropdown items.
+    /// Renders the floating popup menu containing rich SelectItem dropdown items.
+    static void RenderPopup(
+        ICanvas& canvas,
+        Rect popupRect,
+        std::span<const SelectItem> items,
+        size_t selectedIndex,
+        int hoveredIndex,
+        const SelectOptions& opts,
+        UiSize size,
+        const UiTheme& theme = UiTheme::Dark(),
+        float scrollY = 0.0f,
+        bool scrollbarHovered = false,
+        bool scrollbarActive = false
+    );
+
+    /// Convenience overload rendering popup menu from plain string_view items.
     static void RenderPopup(
         ICanvas& canvas,
         Rect popupRect,
@@ -100,7 +138,10 @@ public:
         int hoveredIndex,
         const SelectOptions& opts,
         UiSize size,
-        const UiTheme& theme = UiTheme::Dark()
+        const UiTheme& theme = UiTheme::Dark(),
+        float scrollY = 0.0f,
+        bool scrollbarHovered = false,
+        bool scrollbarActive = false
     );
 };
 

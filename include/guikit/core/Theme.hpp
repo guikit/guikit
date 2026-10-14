@@ -14,6 +14,7 @@ struct UiTheme {
     ThemeMode mode{ThemeMode::Dark};
     Density density{Density::Standard};
     float lineHeightMultiplier{kDefaultLineHeightMultiplier};
+    float scale{1.0f};
 
     // 1. Semantic color palette
     ThemePalette palette{};
@@ -86,7 +87,30 @@ struct UiTheme {
         return (idx < typography.size()) ? typography[idx] : typography[static_cast<size_t>(TextRole::BodyMedium)];
     }
 
-    /// Resolves font size for a UiText: uses explicit TextRole if set, or defaultRole scaled by widget UiSize.
+    /// Resolves font size for a semantic TextRole at a given widget UiSize.
+    [[nodiscard]] constexpr float ResolveFontSize(
+        TextRole role,
+        UiSize widgetSize = UiSize::Md
+    ) const noexcept {
+        if ((widgetSize == UiSize::Md || widgetSize == UiSize::None) && density == Density::Standard) {
+            return GetTypography(role).fontSize;
+        }
+        const ComponentMetrics& cm = GetMetrics(widgetSize);
+        switch (role) {
+            case TextRole::LabelLarge:
+            case TextRole::BodyMedium:
+                return cm.fontSize;
+            case TextRole::LabelMedium:
+            case TextRole::BodySmall:
+                return cm.companionFontSize;
+            case TextRole::LabelSmall:
+                return cm.descFontSize;
+            default:
+                return GetTypography(role).fontSize;
+        }
+    }
+
+    /// Resolves font size for a UiText: uses explicit TextRole if set, or resolves defaultRole for widgetSize.
     [[nodiscard]] constexpr float ResolveFontSize(
         const UiText& text,
         TextRole defaultRole,
@@ -95,16 +119,7 @@ struct UiTheme {
         if (text.role.has_value()) {
             return GetTypography(*text.role).fontSize;
         }
-        const float baseFont = GetTypography(defaultRole).fontSize;
-        if (widgetSize == UiSize::Md || widgetSize == UiSize::None) {
-            return baseFont;
-        }
-        const float mdMetricFont = GetMetrics(UiSize::Md).fontSize;
-        const float sizeMetricFont = GetMetrics(widgetSize).fontSize;
-        if (mdMetricFont > 0.0f && sizeMetricFont > 0.0f) {
-            return baseFont * (sizeMetricFont / mdMetricFont);
-        }
-        return baseFont;
+        return ResolveFontSize(defaultRole, widgetSize);
     }
 
     /// Resolves text color for a UiText: uses explicit UiVariant if set, or defaultVariant, applying disabled alpha.
@@ -135,14 +150,29 @@ struct UiTheme {
         return (idx < carousels.size()) ? carousels[idx] : carousels[static_cast<size_t>(UiSize::Md)];
     }
 
+    /// Scales an explicit logical dimension (dp at 100% scale) by the active theme scale factor.
+    [[nodiscard]] constexpr float Scale(float v) const noexcept {
+        return v * scale;
+    }
+
     [[nodiscard]] constexpr float GetGap(UiSize size) const noexcept {
         const size_t idx = static_cast<size_t>(size);
         return (idx < spacing.size()) ? spacing[idx] : spacing[static_cast<size_t>(UiSize::Md)];
     }
 
+    /// Resolves an optional explicit gap (in base dp) or falls back to the theme spacing token for fallbackSize.
+    [[nodiscard]] constexpr float ResolveGap(std::optional<float> explicitGap, UiSize fallbackSize = UiSize::Md) const noexcept {
+        return explicitGap.has_value() ? (*explicitGap * scale) : GetGap(fallbackSize);
+    }
+
     [[nodiscard]] constexpr float GetRadius(UiSize size) const noexcept {
         const size_t idx = static_cast<size_t>(size);
         return (idx < radius.size()) ? radius[idx] : radius[static_cast<size_t>(UiSize::Md)];
+    }
+
+    /// Resolves an optional explicit corner radius (in base dp) or falls back to the theme radius token for fallbackSize.
+    [[nodiscard]] constexpr float ResolveRadius(std::optional<float> explicitRadius, UiSize fallbackSize = UiSize::Md) const noexcept {
+        return explicitRadius.has_value() ? (*explicitRadius * scale) : GetRadius(fallbackSize);
     }
 
     [[nodiscard]] constexpr Padding GetPadding(UiSize size) const noexcept {
@@ -155,13 +185,13 @@ struct UiTheme {
         return Padding::All(val);
     }
 
-    /// Resolves an optional padding (design token or explicit insets) into concrete layout pixels.
+    /// Resolves an optional padding (design token or explicit insets in base dp) into scaled layout coordinates.
     [[nodiscard]] constexpr Padding ResolvePadding(std::optional<Padding> p, UiSize fallbackSize = UiSize::None) const noexcept {
         if (p.has_value()) {
             if (p->IsToken()) {
                 return GetPadding(p->GetToken());
             }
-            return *p;
+            return Padding(p->left * scale, p->top * scale, p->right * scale, p->bottom * scale);
         }
         if (fallbackSize != UiSize::None) {
             return GetPadding(fallbackSize);

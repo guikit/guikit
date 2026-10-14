@@ -25,7 +25,6 @@ struct ButtonOptions {
     InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
     Align elementAlign{Align::Start};                 ///< Element composition and label alignment (Start, Center, End)
     Align controlAlign{Align::Center};                ///< Content horizontal alignment inside button capsule (Start, Center, End)
-    TextVariants textVariants{};                      ///< Candidate capsule text strings for stable intrinsic width sizing
     StretchMode stretch{StretchMode::Compact};        ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};      ///< Capsule width: in points for Compact/Space (nullopt = auto), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum capsule width constraint in points
@@ -49,8 +48,8 @@ public:
     );
 
     /// Measures intrinsic dimensions based on content (icon + label + padding for current UiSize).
-    static Vec2 Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme);
-    static Vec2 Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas = nullptr);
+    static Vec2 Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme, float availableWidth = 0.0f);
+    static Vec2 Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas = nullptr, float availableWidth = 0.0f);
 
     /// Renders the button into its allocated bounds according to interaction and disabled state.
     static void Render(

@@ -4,6 +4,7 @@
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/ElementComposer.hpp"
 #include "guikit/core/Node.hpp"
+#include "guikit/core/TextUtil.hpp"
 
 namespace guikit {
 
@@ -19,28 +20,20 @@ Vec2 MeasureSwitchControl(
     float ctrlW = m.trackSize.x;
     float ctrlH = m.trackSize.y;
 
-    if (!opts.textLeft.empty()) {
+    if (!opts.textLeft.empty() || !opts.textLeft.variants.empty()) {
         const float leftFont = theme.ResolveFontSize(opts.textLeft, TextRole::LabelMedium, size);
-        const Vec2 leftDims = canvas
-            ? canvas->MeasureText(opts.textLeft.text, leftFont)
-            : Vec2{
-                static_cast<float>(opts.textLeft.length()) * (leftFont * kDefaultCharAdvanceRatio),
-                theme.GetLineHeight(leftFont)
-            };
-        ctrlW += leftDims.x + m.gap;
-        ctrlH = std::max(ctrlH, leftDims.y);
+        const float leftW = TextUtil::MeasureWidth(opts.textLeft, leftFont, canvas);
+        const float leftH = canvas ? canvas->GetLineHeight(leftFont) : theme.GetLineHeight(leftFont);
+        ctrlW += leftW + m.gap;
+        ctrlH = std::max(ctrlH, leftH);
     }
 
-    if (!opts.textRight.empty()) {
+    if (!opts.textRight.empty() || !opts.textRight.variants.empty()) {
         const float rightFont = theme.ResolveFontSize(opts.textRight, TextRole::LabelMedium, size);
-        const Vec2 rightDims = canvas
-            ? canvas->MeasureText(opts.textRight.text, rightFont)
-            : Vec2{
-                static_cast<float>(opts.textRight.length()) * (rightFont * kDefaultCharAdvanceRatio),
-                theme.GetLineHeight(rightFont)
-            };
-        ctrlW += m.gap + rightDims.x;
-        ctrlH = std::max(ctrlH, rightDims.y);
+        const float rightW = TextUtil::MeasureWidth(opts.textRight, rightFont, canvas);
+        const float rightH = canvas ? canvas->GetLineHeight(rightFont) : theme.GetLineHeight(rightFont);
+        ctrlW += m.gap + rightW;
+        ctrlH = std::max(ctrlH, rightH);
     }
 
     return {ctrlW, ctrlH};
@@ -123,9 +116,9 @@ Response Switch::Run(
         optsCopy.textRight,
         optsCopy.description
     );
-    node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<SwitchOptions>();
-        return Switch::Measure(opts ? *opts : SwitchOptions{}, n->uiSize, canvas, theme);
+        return Switch::Measure(opts ? *opts : SwitchOptions{}, n->uiSize, canvas, theme, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* opts = n->As<SwitchOptions>();
@@ -158,20 +151,22 @@ Vec2 Switch::Measure(
     const SwitchOptions& opts,
     UiSize size,
     ICanvas* canvas,
-    const UiTheme& theme
+    const UiTheme& theme,
+    float availableWidth
 ) {
     const Vec2 ctrlDims = MeasureSwitchControl(opts, size, canvas, theme);
     const ElementSpec spec = MakeSwitchElementSpec(opts, size, opts.disabled, theme);
-    return ElementComposer::Measure(ctrlDims, spec, canvas, theme);
+    return ElementComposer::Measure(ctrlDims, spec, canvas, theme, availableWidth);
 }
 
 Vec2 Switch::Measure(
     const SwitchOptions& opts,
     UiSize size,
-    ICanvas* canvas
+    ICanvas* canvas,
+    float availableWidth
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
-    return Measure(opts, size, canvas, defaultTheme);
+    return Measure(opts, size, canvas, defaultTheme, availableWidth);
 }
 
 void Switch::Render(
@@ -191,8 +186,6 @@ void Switch::Render(
 
     const SwitchMetrics& m = theme.GetSwitch(size);
     const auto& pal = theme.palette;
-    const bool hasDualText = !opts.textLeft.empty() && !opts.textRight.empty();
-    const bool isSymmetric = opts.symmetric || hasDualText;
 
     const Vec2 ctrlDims = MeasureSwitchControl(opts, size, &canvas, theme);
     const ElementSpec spec = MakeSwitchElementSpec(opts, size, disabled, theme);
@@ -200,44 +193,44 @@ void Switch::Render(
     ElementComposer::RenderText(canvas, geom, spec, theme);
 
     float curX = geom.controlRect.x;
-    if (!opts.textLeft.empty()) {
+    if (!opts.textLeft.empty() || !opts.textLeft.variants.empty()) {
         const float leftFont = theme.ResolveFontSize(opts.textLeft, TextRole::LabelMedium, size);
-        const Vec2 leftDims = canvas.MeasureText(opts.textLeft.text, leftFont);
-        const UiVariant defaultLeftVar = isSymmetric
-            ? (checked ? UiVariant::Secondary : UiVariant::Default)
-            : UiVariant::Secondary;
-        const Color leftCol = theme.ResolveTextColor(opts.textLeft, defaultLeftVar, disabled);
-        canvas.DrawTextBox(
-            opts.textLeft.text,
-            Rect(curX, geom.controlRect.y, leftDims.x, geom.controlRect.h),
-            leftFont,
-            leftCol,
-            1.0f,
-            0.5f
-        );
-        curX += leftDims.x + m.gap;
+        const float leftW = TextUtil::MeasureWidth(opts.textLeft, leftFont, &canvas);
+        if (!opts.textLeft.empty()) {
+            const UiVariant defaultLeftVar = checked ? UiVariant::Secondary : UiVariant::Default;
+            const Color leftCol = theme.ResolveTextColor(opts.textLeft, defaultLeftVar, disabled);
+            canvas.DrawTextBox(
+                opts.textLeft.text,
+                Rect(curX, geom.controlRect.y, leftW, geom.controlRect.h),
+                leftFont,
+                leftCol,
+                1.0f,
+                0.5f
+            );
+        }
+        curX += leftW + m.gap;
     }
 
     const float trackY = geom.controlRect.y + (geom.controlRect.h - m.trackSize.y) * 0.5f;
     const Rect trackRect(curX, trackY, m.trackSize.x, m.trackSize.y);
     curX += m.trackSize.x;
 
-    if (!opts.textRight.empty()) {
+    if (!opts.textRight.empty() || !opts.textRight.variants.empty()) {
         curX += m.gap;
         const float rightFont = theme.ResolveFontSize(opts.textRight, TextRole::LabelMedium, size);
-        const Vec2 rightDims = canvas.MeasureText(opts.textRight.text, rightFont);
-        const UiVariant defaultRightVar = isSymmetric
-            ? (checked ? UiVariant::Default : UiVariant::Secondary)
-            : UiVariant::Secondary;
-        const Color rightCol = theme.ResolveTextColor(opts.textRight, defaultRightVar, disabled);
-        canvas.DrawTextBox(
-            opts.textRight.text,
-            Rect(curX, geom.controlRect.y, rightDims.x, geom.controlRect.h),
-            rightFont,
-            rightCol,
-            0.0f,
-            0.5f
-        );
+        const float rightW = TextUtil::MeasureWidth(opts.textRight, rightFont, &canvas);
+        if (!opts.textRight.empty()) {
+            const UiVariant defaultRightVar = checked ? UiVariant::Default : UiVariant::Secondary;
+            const Color rightCol = theme.ResolveTextColor(opts.textRight, defaultRightVar, disabled);
+            canvas.DrawTextBox(
+                opts.textRight.text,
+                Rect(curX, geom.controlRect.y, rightW, geom.controlRect.h),
+                rightFont,
+                rightCol,
+                0.0f,
+                0.5f
+            );
+        }
     }
 
     // Determine track & knob colors
@@ -246,7 +239,7 @@ void Switch::Render(
     float strokeWidth = 0.0f;
     Color knobFill;
 
-    if (isSymmetric) {
+    if (opts.symmetric) {
         trackFill = (hovered && !disabled) ? pal.controlTrackHover : pal.controlTrack;
         trackStroke = (hovered && !disabled) ? pal.borderHover : pal.border;
         strokeWidth = 1.0f;

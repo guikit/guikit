@@ -7,6 +7,7 @@
 #include <string_view>
 #include <type_traits>
 #include "guikit/core/Types.hpp"
+#include "guikit/graphics/Icon.hpp"
 
 namespace guikit {
 
@@ -80,80 +81,170 @@ enum class TextRole : uint8_t {
     CodeSmall       ///< 11px / LH 15px
 };
 
-/// Styled text wrapper combining text content with optional typographic role and color variant overrides.
+/// Text wrapping and overflow behavior for UiText elements (labels, descriptions, and standalone text).
+enum class TextWrap : uint8_t {
+    SingleLine = 0, ///< Single line; truncated with trailing "..." if it exceeds available width (default)
+    Word            ///< Multi-line word wrapping; breaks by words/characters to fit available width
+};
+
+/// Line count constraints and vertical space reservation policy for UiText.
+struct TextLines {
+    uint8_t minLines{0}; ///< Minimum reserved vertical lines (0 = collapse when empty, >=1 = always reserve height)
+    uint8_t maxLines{0}; ///< Maximum visible lines before "..." truncation (0 = unlimited when Word, 1 when SingleLine)
+    TextWrap wrap{TextWrap::SingleLine};
+
+    constexpr TextLines() noexcept = default;
+    constexpr TextLines(uint8_t inMin, uint8_t inMax, TextWrap inWrap = TextWrap::Word) noexcept
+        : minLines(inMin)
+        , maxLines(inMax)
+        , wrap((inMax == 1) ? TextWrap::SingleLine : inWrap) {}
+
+    /// Reserves vertical height for at least `n` lines even when the text is empty (prevents vertical layout shift).
+    /// When `n == 1`, defaults to single-line mode with "..." truncation. When `n > 1`, enables word wrapping.
+    [[nodiscard]] static constexpr TextLines Reserve(uint8_t n = 1) noexcept {
+        return TextLines(n, (n == 1) ? 1 : 0, (n > 1) ? TextWrap::Word : TextWrap::SingleLine);
+    }
+
+    /// Limits multi-line word wrapping to at most `n` lines (truncating the last visible line with "..."),
+    /// while collapsing to 0 height when the text is empty.
+    [[nodiscard]] static constexpr TextLines Max(uint8_t n) noexcept {
+        return TextLines(0, n, (n == 1) ? TextWrap::SingleLine : TextWrap::Word);
+    }
+
+    /// Reserves and caps height at exactly `n` lines (`minLines = n`, `maxLines = n`).
+    [[nodiscard]] static constexpr TextLines Fixed(uint8_t n = 1) noexcept {
+        return TextLines(n, n, (n > 1) ? TextWrap::Word : TextWrap::SingleLine);
+    }
+
+    [[nodiscard]] constexpr bool operator==(const TextLines& other) const noexcept = default;
+};
+
+struct UiText;
+
+namespace detail {
+template <typename S>
+concept UiStringLike =
+    std::convertible_to<const S&, std::string_view> &&
+    !std::is_same_v<std::decay_t<S>, UiText> &&
+    !std::is_same_v<std::decay_t<S>, TextVariants>;
+
+template <typename S>
+    requires UiStringLike<S>
+[[nodiscard]] constexpr std::string_view ToUiStringView(const S& s) noexcept {
+    if constexpr (std::is_convertible_v<const S&, const char*>) {
+        const char* p = s;
+        return p ? std::string_view(p) : std::string_view{};
+    } else {
+        return static_cast<std::string_view>(s);
+    }
+}
+
+template <typename T>
+concept UiTextModifier =
+    std::is_same_v<std::decay_t<T>, TextRole> ||
+    std::is_same_v<std::decay_t<T>, UiVariant> ||
+    std::is_same_v<std::decay_t<T>, TextVariants> ||
+    std::is_same_v<std::decay_t<T>, TextWrap> ||
+    std::is_same_v<std::decay_t<T>, TextLines>;
+} // namespace detail
+
+/// Styled text wrapper combining text content with optional typographic role, color variant,
+/// wrapping/line reservation policy, and candidate width/height variants.
 /// Implicitly constructible from string literals, std::string_view, std::string, and BasicUiString (ui.Format).
 struct UiText {
     std::string_view text{};
     std::optional<TextRole> role{std::nullopt};
     std::optional<UiVariant> variant{std::nullopt};
+    TextWrap wrap{TextWrap::SingleLine};
+    uint8_t minLines{0};
+    uint8_t maxLines{0};
+    TextVariants variants{};
+
+    constexpr void ApplyModifier(TextRole r) noexcept { role = r; }
+    constexpr void ApplyModifier(UiVariant v) noexcept { variant = v; }
+    constexpr void ApplyModifier(TextVariants vars) noexcept { variants = vars; }
+    constexpr void ApplyModifier(TextWrap w) noexcept { wrap = w; }
+    constexpr void ApplyModifier(TextLines l) noexcept {
+        minLines = l.minLines;
+        maxLines = l.maxLines;
+        wrap = l.wrap;
+    }
 
     constexpr UiText() noexcept = default;
     constexpr UiText(const char* s) noexcept : text(s ? s : "") {}
-    constexpr UiText(std::string_view s) noexcept : text(s) {}
-    UiText(const std::string& s) noexcept : text(s) {}
 
     template <typename S>
-        requires (std::convertible_to<const S&, std::string_view> &&
-                  !std::is_same_v<std::decay_t<S>, UiText> &&
-                  !std::is_same_v<std::decay_t<S>, std::string_view> &&
-                  !std::is_same_v<std::decay_t<S>, std::string> &&
-                  !std::is_convertible_v<const S&, const char*>)
+        requires (detail::UiStringLike<S> && !std::is_convertible_v<const S&, const char*>)
     constexpr UiText(const S& s) noexcept : text(static_cast<std::string_view>(s)) {}
 
-    constexpr UiText(UiVariant v) noexcept : variant(v) {}
-    constexpr UiText(TextRole r) noexcept : role(r) {}
-    constexpr UiText(TextRole r, UiVariant v) noexcept : role(r), variant(v) {}
-    constexpr UiText(UiVariant v, TextRole r) noexcept : role(r), variant(v) {}
+    template <detail::UiTextModifier... Mods>
+        requires (sizeof...(Mods) >= 1)
+    constexpr UiText(Mods... mods) noexcept {
+        (ApplyModifier(mods), ...);
+    }
 
-    constexpr UiText(std::string_view s, UiVariant v) noexcept : text(s), variant(v) {}
-    constexpr UiText(const char* s, UiVariant v) noexcept : text(s ? s : ""), variant(v) {}
-    UiText(const std::string& s, UiVariant v) noexcept : text(s), variant(v) {}
+    template <typename S, detail::UiTextModifier... Mods>
+        requires (detail::UiStringLike<S> && sizeof...(Mods) >= 1)
+    constexpr UiText(const S& s, Mods... mods) noexcept : text(detail::ToUiStringView(s)) {
+        (ApplyModifier(mods), ...);
+    }
 
-    template <typename S>
-        requires (std::convertible_to<const S&, std::string_view> &&
-                  !std::is_same_v<std::decay_t<S>, UiText> &&
-                  !std::is_same_v<std::decay_t<S>, std::string_view> &&
-                  !std::is_same_v<std::decay_t<S>, std::string> &&
-                  !std::is_convertible_v<const S&, const char*>)
-    constexpr UiText(const S& s, UiVariant v) noexcept : text(static_cast<std::string_view>(s)), variant(v) {}
+    // Explicit TextVariants constructors for braced-initializer-list deduction (e.g. {"text", {"A", "B"}})
+    constexpr UiText(TextVariants vars) noexcept : variants(vars) {}
+    constexpr UiText(UiVariant v, TextVariants vars) noexcept : variant(v), variants(vars) {}
+    constexpr UiText(TextRole r, TextVariants vars) noexcept : role(r), variants(vars) {}
+    constexpr UiText(TextRole r, UiVariant v, TextVariants vars) noexcept : role(r), variant(v), variants(vars) {}
+    constexpr UiText(UiVariant v, TextRole r, TextVariants vars) noexcept : role(r), variant(v), variants(vars) {}
+    constexpr UiText(TextWrap w, TextVariants vars) noexcept : wrap(w), variants(vars) {}
+    constexpr UiText(UiVariant v, TextWrap w, TextVariants vars) noexcept : variant(v), wrap(w), variants(vars) {}
+    constexpr UiText(TextLines l, TextVariants vars) noexcept
+        : wrap(l.wrap), minLines(l.minLines), maxLines(l.maxLines), variants(vars) {}
+    constexpr UiText(UiVariant v, TextLines l, TextVariants vars) noexcept
+        : variant(v), wrap(l.wrap), minLines(l.minLines), maxLines(l.maxLines), variants(vars) {}
 
-    constexpr UiText(std::string_view s, TextRole r) noexcept : text(s), role(r) {}
-    constexpr UiText(const char* s, TextRole r) noexcept : text(s ? s : ""), role(r) {}
-    UiText(const std::string& s, TextRole r) noexcept : text(s), role(r) {}
+    constexpr UiText(std::string_view s, TextVariants vars) noexcept : text(s), variants(vars) {}
+    constexpr UiText(std::string_view s, UiVariant v, TextVariants vars) noexcept : text(s), variant(v), variants(vars) {}
+    constexpr UiText(std::string_view s, TextVariants vars, UiVariant v) noexcept : text(s), variant(v), variants(vars) {}
+    constexpr UiText(std::string_view s, TextRole r, TextVariants vars) noexcept : text(s), role(r), variants(vars) {}
+    constexpr UiText(std::string_view s, TextVariants vars, TextRole r) noexcept : text(s), role(r), variants(vars) {}
+    constexpr UiText(std::string_view s, TextRole r, UiVariant v, TextVariants vars) noexcept : text(s), role(r), variant(v), variants(vars) {}
+    constexpr UiText(std::string_view s, UiVariant v, TextRole r, TextVariants vars) noexcept : text(s), role(r), variant(v), variants(vars) {}
+    constexpr UiText(std::string_view s, TextWrap w, TextVariants vars) noexcept : text(s), wrap(w), variants(vars) {}
+    constexpr UiText(std::string_view s, UiVariant v, TextWrap w, TextVariants vars) noexcept : text(s), variant(v), wrap(w), variants(vars) {}
+    constexpr UiText(std::string_view s, TextLines l, TextVariants vars) noexcept
+        : text(s), wrap(l.wrap), minLines(l.minLines), maxLines(l.maxLines), variants(vars) {}
+    constexpr UiText(std::string_view s, UiVariant v, TextLines l, TextVariants vars) noexcept
+        : text(s), variant(v), wrap(l.wrap), minLines(l.minLines), maxLines(l.maxLines), variants(vars) {}
 
-    template <typename S>
-        requires (std::convertible_to<const S&, std::string_view> &&
-                  !std::is_same_v<std::decay_t<S>, UiText> &&
-                  !std::is_same_v<std::decay_t<S>, std::string_view> &&
-                  !std::is_same_v<std::decay_t<S>, std::string> &&
-                  !std::is_convertible_v<const S&, const char*>)
-    constexpr UiText(const S& s, TextRole r) noexcept : text(static_cast<std::string_view>(s)), role(r) {}
-
-    constexpr UiText(std::string_view s, TextRole r, UiVariant v) noexcept : text(s), role(r), variant(v) {}
-    constexpr UiText(const char* s, TextRole r, UiVariant v) noexcept : text(s ? s : ""), role(r), variant(v) {}
-    UiText(const std::string& s, TextRole r, UiVariant v) noexcept : text(s), role(r), variant(v) {}
-
-    template <typename S>
-        requires (std::convertible_to<const S&, std::string_view> &&
-                  !std::is_same_v<std::decay_t<S>, UiText> &&
-                  !std::is_same_v<std::decay_t<S>, std::string_view> &&
-                  !std::is_same_v<std::decay_t<S>, std::string> &&
-                  !std::is_convertible_v<const S&, const char*>)
-    constexpr UiText(const S& s, TextRole r, UiVariant v) noexcept : text(static_cast<std::string_view>(s)), role(r), variant(v) {}
-
-    constexpr UiText(std::string_view s, UiVariant v, TextRole r) noexcept : text(s), role(r), variant(v) {}
-    constexpr UiText(const char* s, UiVariant v, TextRole r) noexcept : text(s ? s : ""), role(r), variant(v) {}
-    UiText(const std::string& s, UiVariant v, TextRole r) noexcept : text(s), role(r), variant(v) {}
-
-    template <typename S>
-        requires (std::convertible_to<const S&, std::string_view> &&
-                  !std::is_same_v<std::decay_t<S>, UiText> &&
-                  !std::is_same_v<std::decay_t<S>, std::string_view> &&
-                  !std::is_same_v<std::decay_t<S>, std::string> &&
-                  !std::is_convertible_v<const S&, const char*>)
-    constexpr UiText(const S& s, UiVariant v, TextRole r) noexcept : text(static_cast<std::string_view>(s)), role(r), variant(v) {}
+    [[nodiscard]] constexpr UiText WithRole(TextRole r) const noexcept {
+        UiText copy = *this;
+        copy.role = r;
+        return copy;
+    }
+    [[nodiscard]] constexpr UiText WithVariant(UiVariant v) const noexcept {
+        UiText copy = *this;
+        copy.variant = v;
+        return copy;
+    }
+    [[nodiscard]] constexpr UiText WithWrap(TextWrap w) const noexcept {
+        UiText copy = *this;
+        copy.wrap = w;
+        return copy;
+    }
+    [[nodiscard]] constexpr UiText WithLines(TextLines l) const noexcept {
+        UiText copy = *this;
+        copy.ApplyModifier(l);
+        return copy;
+    }
+    [[nodiscard]] constexpr UiText Reserve(uint8_t n = 1) const noexcept {
+        return WithLines(TextLines::Reserve(n));
+    }
 
     [[nodiscard]] constexpr bool empty() const noexcept { return text.empty(); }
+    /// Returns true if the text has visible characters, width/height candidate variants, or reserved minimum lines.
+    [[nodiscard]] constexpr bool HasContentOrReserve() const noexcept {
+        return !text.empty() || !variants.empty() || minLines > 0;
+    }
     [[nodiscard]] constexpr size_t length() const noexcept { return text.length(); }
     [[nodiscard]] constexpr size_t size() const noexcept { return text.size(); }
     [[nodiscard]] constexpr const char* data() const noexcept { return text.data(); }
@@ -170,7 +261,110 @@ struct UiText {
     [[nodiscard]] constexpr bool operator==(std::string_view sv) const noexcept { return text == sv; }
     [[nodiscard]] constexpr bool operator==(const char* s) const noexcept { return text == (s ? std::string_view(s) : std::string_view{}); }
 };
-static_assert(sizeof(UiText) <= 24, "UiText must remain compact (<= 24 bytes)");
+static_assert(sizeof(UiText) <= 40, "UiText must remain compact (<= 40 bytes)");
+
+/// Unified value token for leading/trailing affixes (.prefix and .suffix) supporting text, icon, or both.
+struct UiAffix {
+    UiText text{};
+    Icon icon{};
+    Placement iconPlacement{Placement::Leading}; ///< Leading: [Icon][Text], Trailing: [Text][Icon]
+
+    constexpr UiAffix() noexcept = default;
+    constexpr UiAffix(const char* s) noexcept : text(s) {}
+
+    template <typename S>
+        requires (detail::UiStringLike<S> && !std::is_convertible_v<const S&, const char*>)
+    constexpr UiAffix(const S& s) noexcept : text(s) {}
+
+    constexpr UiAffix(UiText t) noexcept : text(t) {}
+    constexpr UiAffix(Icon ic) noexcept : icon(ic) {}
+    constexpr UiAffix(IconId id) noexcept : icon(id) {}
+
+    template <detail::UiTextModifier... Mods>
+        requires (sizeof...(Mods) >= 1)
+    constexpr UiAffix(Mods... mods) noexcept : text(mods...) {}
+
+    template <typename S, detail::UiTextModifier... Mods>
+        requires (detail::UiStringLike<S> && sizeof...(Mods) >= 1)
+    constexpr UiAffix(const S& s, Mods... mods) noexcept : text(s, mods...) {}
+
+    // Icon + modifiers (e.g. {Icon::Settings(), UiVariant::Info})
+    template <detail::UiTextModifier... Mods>
+        requires (sizeof...(Mods) >= 1)
+    constexpr UiAffix(Icon ic, Mods... mods) noexcept : text(mods...), icon(ic) {}
+
+    // Icon + Text (Icon Leading): {Icon::Search(), "Filter", UiVariant::Secondary, ...}
+    template <typename S, detail::UiTextModifier... Mods>
+        requires (detail::UiStringLike<S>)
+    constexpr UiAffix(Icon ic, const S& s, Mods... mods) noexcept
+        : text(detail::ToUiStringView(s), mods...), icon(ic), iconPlacement(Placement::Leading) {}
+
+    constexpr UiAffix(Icon ic, UiText t, Placement placement = Placement::Leading) noexcept
+        : text(t), icon(ic), iconPlacement(placement) {}
+
+    // Text + Icon (Icon Trailing): {"Pro", Icon::Check(), UiVariant::Warning, ...}
+    template <typename S, detail::UiTextModifier... Mods>
+        requires (detail::UiStringLike<S>)
+    constexpr UiAffix(const S& s, Icon ic, Mods... mods) noexcept
+        : text(detail::ToUiStringView(s), mods...), icon(ic), iconPlacement(Placement::Trailing) {}
+
+    constexpr UiAffix(UiText t, Icon ic, Placement placement = Placement::Trailing) noexcept
+        : text(t), icon(ic), iconPlacement(placement) {}
+
+    // TextVariants support
+    constexpr UiAffix(TextVariants vars) noexcept : text(vars) {}
+    constexpr UiAffix(std::string_view s, TextVariants vars) noexcept : text(s, vars) {}
+    constexpr UiAffix(Icon ic, TextVariants vars) noexcept : text(vars), icon(ic), iconPlacement(Placement::Leading) {}
+
+    [[nodiscard]] constexpr UiAffix WithIcon(Icon ic, Placement placement = Placement::Leading) const noexcept {
+        UiAffix copy = *this;
+        copy.icon = ic;
+        copy.iconPlacement = placement;
+        return copy;
+    }
+    [[nodiscard]] constexpr UiAffix WithText(UiText t) const noexcept {
+        UiAffix copy = *this;
+        copy.text = t;
+        return copy;
+    }
+    [[nodiscard]] constexpr UiAffix WithVariant(UiVariant v) const noexcept {
+        UiAffix copy = *this;
+        copy.text.variant = v;
+        return copy;
+    }
+    [[nodiscard]] constexpr UiAffix WithRole(TextRole r) const noexcept {
+        UiAffix copy = *this;
+        copy.text.role = r;
+        return copy;
+    }
+
+    [[nodiscard]] constexpr bool empty() const noexcept {
+        return text.empty() && !icon.IsValid();
+    }
+    [[nodiscard]] constexpr bool HasContentOrReserve() const noexcept {
+        return text.HasContentOrReserve() || icon.IsValid();
+    }
+    [[nodiscard]] constexpr bool HasText() const noexcept {
+        return !text.empty() || !text.variants.empty();
+    }
+    [[nodiscard]] constexpr bool HasIcon() const noexcept {
+        return icon.IsValid();
+    }
+
+    [[nodiscard]] constexpr operator std::string_view() const noexcept { return text.text; }
+    [[nodiscard]] constexpr operator const UiText&() const noexcept { return text; }
+
+    [[nodiscard]] constexpr bool operator==(const UiAffix& other) const noexcept = default;
+    [[nodiscard]] constexpr bool operator==(std::string_view sv) const noexcept {
+        return !icon.IsValid() && text.text == sv;
+    }
+    [[nodiscard]] constexpr bool operator==(const char* s) const noexcept {
+        return !icon.IsValid() && text == s;
+    }
+    [[nodiscard]] constexpr bool operator==(const Icon& ic) const noexcept {
+        return text.empty() && icon == ic;
+    }
+};
 
 /// Typographic metrics ratio representing line-height to font-size for standard UI text.
 inline constexpr float kDefaultLineHeightMultiplier = 1.35f;
@@ -191,7 +385,9 @@ struct TypographyMetrics {
 /// Standardized component metrics associated with each UiSize.
 struct ComponentMetrics {
     float defaultHeight;
-    float fontSize;
+    float fontSize;          ///< Primary label / control text size (LabelLarge level)
+    float companionFontSize; ///< Companion / inner control text size (LabelMedium level)
+    float descFontSize;      ///< Helper description / caption text size (LabelSmall level)
     float paddingX;
     float paddingY;
     float cornerRadius;
@@ -228,8 +424,6 @@ struct SliderMetrics {
     float thumbSize;      ///< Diameter/size of the circular thumb knob
     float cornerRadius;   ///< Rounding radius of track and thumb
     float tickSize;       ///< Diameter of tick marks on StepSlider track
-    float labelFontSize;  ///< Font size for header label and value text
-    float tickFontSize;   ///< Font size for discrete step labels below track
     float labelGap;       ///< Vertical gap between header label and track
     float tickGap;        ///< Vertical gap between track and step labels
     float descGap;        ///< Vertical gap between slider and description
@@ -242,8 +436,6 @@ struct SwitchMetrics {
     float knobDiameter;
     float knobPadding;
     float gap;
-    float fontSize;
-    float descFontSize;
     float descGap;
 };
 
@@ -252,8 +444,6 @@ struct CheckboxMetrics {
     float boxSize;
     float cornerRadius;
     float gap;
-    float fontSize;
-    float descFontSize;
     float descGap;
     float strokeWidth;
 };
@@ -263,9 +453,6 @@ struct InputFieldMetrics {
     float defaultHeight;
     float cornerRadius;
     float paddingX;
-    float fontSize;
-    float labelFontSize;
-    float descFontSize;
     float labelGap;
     float descGap;
     float strokeWidth;
@@ -279,9 +466,6 @@ struct SelectMetrics {
     float defaultHeight;
     float cornerRadius;
     float paddingX;
-    float fontSize;
-    float labelFontSize;
-    float descFontSize;
     float labelGap;
     float descGap;
     float strokeWidth;

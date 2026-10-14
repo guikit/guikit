@@ -3,12 +3,22 @@
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Node.hpp"
+#include "guikit/core/TextUtil.hpp"
 
 namespace guikit {
 
+namespace {
+
+struct TextPayload {
+    UiText label;
+    TextOptions opts;
+};
+
+} // namespace
+
 Response Text::Run(
     Context& ctx,
-    std::string_view label,
+    UiText label,
     const TextOptions& opts,
     std::source_location loc
 ) {
@@ -25,20 +35,26 @@ Response Text::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::Text, id);
-    node->text = ctx.AllocString(label);
-    node->payload = ctx.AllocPayload<TextOptions>(opts);
-    node->visualHash = detail::HashArgs(opts.role, opts.variant, opts.align, node->text);
-    node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
-        const auto* opts = n->As<TextOptions>();
-        return Text::Measure(n->text, opts ? *opts : TextOptions{}, canvas, theme);
+    auto* data = ctx.AllocPayload<TextPayload>();
+    data->label = ctx.AllocText(label);
+    data->opts = opts;
+    node->text = data->label.text;
+    node->payload = data;
+    node->visualHash = detail::HashArgs(opts.role, opts.variant, opts.align, data->label);
+    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+        const auto* d = n->As<TextPayload>();
+        if (!d) {
+            return Text::Measure(n->text, TextOptions{}, canvas, theme, availableWidth);
+        }
+        return Text::Measure(d->label, d->opts, canvas, theme, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
-        const auto* opts = n->As<TextOptions>();
+        const auto* d = n->As<TextPayload>();
         Text::Render(
             canvas,
             n->computedRect,
-            n->text,
-            opts ? *opts : TextOptions{},
+            d ? d->label : UiText(n->text),
+            d ? d->opts : TextOptions{},
             n->hovered,
             n->disabled,
             theme
@@ -47,7 +63,9 @@ Response Text::Run(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed;
-    node->widthMode = (opts.align != Alignment::Start) ? SizeMode::Stretch : SizeMode::Fit;
+    node->widthMode = (opts.align != Alignment::Start || label.wrap == TextWrap::Word)
+        ? SizeMode::Stretch
+        : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
 
     ctx.AdaptChildToContainer(node);
@@ -55,30 +73,57 @@ Response Text::Run(
     return res;
 }
 
-Vec2 Text::Measure(std::string_view label, const TextOptions& opts, ICanvas* canvas, const UiTheme& theme) {
-    if (label.empty()) {
+Vec2 Text::Measure(
+    const UiText& label,
+    const TextOptions& opts,
+    ICanvas* canvas,
+    const UiTheme& theme,
+    float availableWidth
+) {
+    if (!label.HasContentOrReserve()) {
         return {0.0f, 0.0f};
     }
-    const TypographyMetrics& m = theme.GetTypography(opts.role);
-    if (canvas) {
-        Vec2 dims = canvas->MeasureText(label, m.fontSize);
-        dims.y = std::max(dims.y, m.lineHeight);
-        return dims;
+    const TextRole effectiveRole = (opts.role != TextRole::BodyMedium)
+        ? opts.role
+        : label.role.value_or(opts.role);
+    const TypographyMetrics& m = theme.GetTypography(effectiveRole);
+
+    auto measureSingleLineW = [&](std::string_view sv) -> float {
+        if (sv.empty()) {
+            return 0.0f;
+        }
+        if (canvas) {
+            return canvas->MeasureText(sv, m.fontSize).x;
+        }
+        return static_cast<float>(sv.length()) * (m.fontSize * (m.isMonospace ? kMonospaceCharAdvanceRatio : kDefaultCharAdvanceRatio));
+    };
+
+    float w = measureSingleLineW(label.text);
+    for (std::string_view var : label.variants) {
+        w = std::max(w, measureSingleLineW(var));
     }
 
-    const float estW = static_cast<float>(label.length()) * (m.fontSize * (m.isMonospace ? kMonospaceCharAdvanceRatio : kDefaultCharAdvanceRatio));
-    return {estW, m.lineHeight};
+    float h = TextUtil::MeasureUiTextHeight(label, availableWidth, m.fontSize, m.lineHeight, canvas);
+    if (canvas && !label.text.empty() && (label.wrap == TextWrap::SingleLine || label.maxLines == 1) && label.minLines <= 1) {
+        h = std::max(h, canvas->MeasureText(label.text, m.fontSize).y);
+    }
+    return {w, h};
 }
 
-Vec2 Text::Measure(std::string_view label, const TextOptions& opts, ICanvas* canvas) {
+Vec2 Text::Measure(
+    const UiText& label,
+    const TextOptions& opts,
+    ICanvas* canvas,
+    float availableWidth
+) {
     static const UiTheme defaultTheme = UiTheme::Dark();
-    return Measure(label, opts, canvas, defaultTheme);
+    return Measure(label, opts, canvas, defaultTheme, availableWidth);
 }
 
 void Text::Render(
     ICanvas& canvas,
     Rect bounds,
-    std::string_view label,
+    const UiText& label,
     const TextOptions& opts,
     bool hovered,
     bool disabled,
@@ -87,17 +132,23 @@ void Text::Render(
     if (label.empty() || bounds.w <= 0.0f || bounds.h <= 0.0f) {
         return;
     }
-    const TypographyMetrics& m = theme.GetTypography(opts.role);
+    const TextRole effectiveRole = (opts.role != TextRole::BodyMedium)
+        ? opts.role
+        : label.role.value_or(opts.role);
+    const UiVariant effectiveVariant = (opts.variant != UiVariant::Default)
+        ? opts.variant
+        : label.variant.value_or(opts.variant);
+    const TypographyMetrics& m = theme.GetTypography(effectiveRole);
     const auto& pal = theme.palette;
-    Color color = theme.GetTextColor(opts.variant);
+    Color color = theme.GetTextColor(effectiveVariant);
 
     if (disabled) {
         color = color.WithAlphaF(0.40f);
     } else if (hovered) {
-        if (opts.variant == UiVariant::Default || opts.variant == UiVariant::Secondary || opts.variant == UiVariant::Muted || opts.variant == UiVariant::Ghost) {
+        if (effectiveVariant == UiVariant::Default || effectiveVariant == UiVariant::Secondary || effectiveVariant == UiVariant::Muted || effectiveVariant == UiVariant::Ghost) {
             color = pal.textPrimary;
         } else {
-            color = theme.GetVariant(opts.variant).bgHover;
+            color = theme.GetVariant(effectiveVariant).bgHover;
         }
     }
 
@@ -108,7 +159,7 @@ void Text::Render(
         alignFactor = 1.0f;
     }
 
-    canvas.DrawTextBox(label, bounds, m.fontSize, color, alignFactor, 0.5f);
+    TextUtil::DrawUiText(canvas, label, bounds, m.fontSize, m.lineHeight, color, alignFactor, 0.5f);
 }
 
 } // namespace guikit

@@ -50,7 +50,8 @@ public:
         Vec2 intrinsicControlSize,
         const ElementSpec& spec,
         ICanvas* canvas,
-        const UiTheme& theme
+        const UiTheme& theme,
+        float availableWidth = 0.0f
     ) noexcept;
 
     /// Resolves bounding boxes for the control, external label, and description within `bounds`.

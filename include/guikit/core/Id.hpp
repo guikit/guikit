@@ -57,6 +57,16 @@ constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexc
         return HashStringView(val, hash);
     } else if constexpr (std::is_same_v<CleanT, const char*>) {
         return val ? HashStringView(std::string_view(val), hash) : hash;
+    } else if constexpr (requires { val.text; val.icon; val.iconPlacement; }) {
+        hash = HashVal(val.text, hash);
+        const uint8_t icType = static_cast<uint8_t>(val.icon.GetType());
+        const uint16_t icId = static_cast<uint16_t>(val.icon.GetId());
+        const uint8_t icPlace = static_cast<uint8_t>(val.iconPlacement);
+        hash = HashBytes(&icType, sizeof(icType), hash);
+        hash = HashBytes(&icId, sizeof(icId), hash);
+        hash = HashStringView(val.icon.GetPath(), hash);
+        hash = HashBytes(&icPlace, sizeof(icPlace), hash);
+        return hash;
     } else if constexpr (requires { val.text; val.role; val.variant; }) {
         hash = HashStringView(val.text, hash);
         const uint8_t hasRole = val.role.has_value() ? 1u : 0u;
@@ -67,6 +77,17 @@ constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexc
         hash = HashBytes(&roleVal, sizeof(roleVal), hash);
         hash = HashBytes(&hasVar, sizeof(hasVar), hash);
         hash = HashBytes(&varVal, sizeof(varVal), hash);
+        if constexpr (requires { val.wrap; val.minLines; val.maxLines; }) {
+            const uint8_t wrapVal = static_cast<uint8_t>(val.wrap);
+            hash = HashBytes(&wrapVal, sizeof(wrapVal), hash);
+            hash = HashBytes(&val.minLines, sizeof(val.minLines), hash);
+            hash = HashBytes(&val.maxLines, sizeof(val.maxLines), hash);
+        }
+        if constexpr (requires { val.variants; }) {
+            for (std::string_view v : val.variants) {
+                hash = HashStringView(v, hash);
+            }
+        }
         return hash;
     } else if constexpr (std::is_enum_v<CleanT>) {
         auto underlying = static_cast<std::underlying_type_t<CleanT>>(val);

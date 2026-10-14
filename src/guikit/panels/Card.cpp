@@ -16,25 +16,26 @@ ContainerScope Card::Open(
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
 
     // Outer styled surface frame
+    const UiTheme& theme = ctx.GetTheme();
     Node* outerNode = ctx.CreateNode(NodeType::Card, idOuter);
     outerNode->theme = pushedTheme;
     outerNode->debugBoundsOverride = opts.debugBounds;
     outerNode->inspectModeOverride = opts.inspectMode;
     outerNode->direction = FlexDirection::Column;
-    outerNode->gap = opts.gap.value_or(ctx.GetTheme().GetGap(activeSize));
-    outerNode->minWidth = opts.minWidth;
+    outerNode->gap = theme.ResolveGap(opts.gap, activeSize);
+    outerNode->minWidth = theme.Scale(opts.minWidth);
     outerNode->widthMode = opts.widthMode;
     outerNode->heightMode = opts.heightMode;
-    outerNode->padding = ctx.GetTheme().ResolvePadding(opts.padding, activeSize);
-    outerNode->cornerRadius = opts.radius.value_or(ctx.GetTheme().GetRadius(activeSize));
+    outerNode->padding = theme.ResolvePadding(opts.padding, activeSize);
+    outerNode->cornerRadius = theme.ResolveRadius(opts.radius, activeSize);
     outerNode->clipChildren = opts.clipChildren;
     outerNode->uiSize = activeSize;
     outerNode->disabled = activeDisabled;
 
-    const auto& pal = ctx.GetTheme().palette;
+    const auto& pal = theme.palette;
     outerNode->backgroundColor = (opts.backgroundColor.a > 0) ? opts.backgroundColor : pal.surface;
     outerNode->borderColor = (opts.borderColor.a > 0) ? opts.borderColor : pal.border;
-    outerNode->borderWidth = opts.borderWidth;
+    outerNode->borderWidth = theme.Scale(opts.borderWidth);
 
     ctx.PushScale(activeScale);
     ctx.PushSize(activeSize);

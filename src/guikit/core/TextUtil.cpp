@@ -44,6 +44,23 @@ float TextUtil::MeasureWidth(
     return static_cast<float>(text.length()) * (fontSize * kDefaultCharAdvanceRatio);
 }
 
+float TextUtil::MeasureUiTextWidth(
+    const UiText& text,
+    float fontSize,
+    ICanvas* canvas
+) noexcept {
+    if (fontSize <= 0.0f) {
+        return 0.0f;
+    }
+    float maxW = MeasureWidth(text.text, fontSize, canvas);
+    for (std::string_view var : text.variants) {
+        if (!var.empty()) {
+            maxW = std::max(maxW, MeasureWidth(var, fontSize, canvas));
+        }
+    }
+    return maxW;
+}
+
 std::string TextUtil::TruncateWithEllipsis(
     std::string_view text,
     float maxWidth,
@@ -218,6 +235,407 @@ float TextUtil::MeasureWrappedHeight(
         return lineHeight;
     }
     return static_cast<float>(lines.size()) * lineHeight;
+}
+
+float TextUtil::MeasureUiTextHeight(
+    const UiText& text,
+    float maxWidth,
+    float fontSize,
+    float lineHeight,
+    ICanvas* canvas
+) noexcept {
+    if (!text.HasContentOrReserve() || fontSize <= 0.0f || lineHeight <= 0.0f) {
+        return 0.0f;
+    }
+
+    size_t linesCount = std::max<size_t>(1, text.minLines);
+
+    if (text.wrap == TextWrap::Word && text.maxLines != 1) {
+        auto countLinesFor = [&](std::string_view sv) -> size_t {
+            if (sv.empty()) {
+                return 0;
+            }
+            if (maxWidth > 0.0f) {
+                const auto wrapped = WrapText(sv, maxWidth, fontSize, canvas);
+                return std::max<size_t>(1, wrapped.size());
+            }
+            size_t count = 1;
+            for (char ch : sv) {
+                if (ch == '\n') {
+                    ++count;
+                }
+            }
+            return count;
+        };
+
+        linesCount = std::max(linesCount, countLinesFor(text.text));
+        for (std::string_view var : text.variants) {
+            linesCount = std::max(linesCount, countLinesFor(var));
+        }
+
+        if (text.maxLines > 0) {
+            linesCount = std::min<size_t>(linesCount, text.maxLines);
+            linesCount = std::max<size_t>(linesCount, text.minLines);
+        }
+    }
+
+    return static_cast<float>(linesCount) * lineHeight;
+}
+
+void TextUtil::DrawUiText(
+    ICanvas& canvas,
+    const UiText& text,
+    Rect bounds,
+    float fontSize,
+    float lineHeight,
+    Color color,
+    float alignX,
+    float singleLineAlignY
+) {
+    if (text.empty() || bounds.w <= 0.0f || bounds.h <= 0.0f || fontSize <= 0.0f) {
+        return;
+    }
+
+    const float lh = (lineHeight > 0.0f) ? lineHeight : (fontSize * kDefaultLineHeightMultiplier);
+
+    if (text.wrap == TextWrap::SingleLine || text.maxLines == 1) {
+        const Rect drawRect = (text.minLines > 1 && bounds.h > lh + kTextSubpixelTolerance)
+            ? Rect(bounds.x, bounds.y, bounds.w, lh)
+            : bounds;
+        const float effAlignY = (text.minLines > 1 && bounds.h > lh + kTextSubpixelTolerance)
+            ? 0.5f
+            : singleLineAlignY;
+
+        const size_t nlPos = text.text.find('\n');
+        const std::string_view firstLine = (nlPos != std::string_view::npos)
+            ? text.text.substr(0, nlPos)
+            : text.text;
+
+        if (nlPos != std::string_view::npos) {
+            const std::string withDots = std::string(firstLine) + "...";
+            if (MeasureWidth(withDots, fontSize, &canvas) <= drawRect.w + kTextSubpixelTolerance) {
+                canvas.DrawTextBox(withDots, drawRect, fontSize, color, alignX, effAlignY);
+            } else {
+                const std::string truncated = TruncateWithEllipsis(firstLine, drawRect.w, fontSize, &canvas);
+                if (!truncated.empty()) {
+                    canvas.DrawTextBox(truncated, drawRect, fontSize, color, alignX, effAlignY);
+                }
+            }
+            return;
+        }
+
+        if (MeasureWidth(firstLine, fontSize, &canvas) <= drawRect.w + kTextSubpixelTolerance) {
+            canvas.DrawTextBox(firstLine, drawRect, fontSize, color, alignX, effAlignY);
+        } else {
+            const std::string truncated = TruncateWithEllipsis(firstLine, drawRect.w, fontSize, &canvas);
+            if (!truncated.empty()) {
+                canvas.DrawTextBox(truncated, drawRect, fontSize, color, alignX, effAlignY);
+            }
+        }
+        return;
+    }
+
+    // Multi-line Word wrap mode
+    const auto lines = WrapText(text.text, bounds.w, fontSize, &canvas);
+    if (lines.empty()) {
+        return;
+    }
+
+    const size_t heightFitLines = (lh > 0.0f)
+        ? static_cast<size_t>(std::max(1.0f, std::floor((bounds.h + kTextSubpixelTolerance) / lh)))
+        : lines.size();
+    const size_t maxAllowedLines = (text.maxLines > 0)
+        ? std::min<size_t>(text.maxLines, heightFitLines)
+        : heightFitLines;
+    const size_t visibleCount = std::min(lines.size(), maxAllowedLines);
+
+    for (size_t i = 0; i < visibleCount; ++i) {
+        const Rect lineRect(bounds.x, bounds.y + static_cast<float>(i) * lh, bounds.w, lh);
+        if (i + 1 == visibleCount && lines.size() > visibleCount) {
+            const size_t startOffset = static_cast<size_t>(lines[i].data() - text.text.data());
+            const std::string_view tail = text.text.substr(startOffset);
+            const size_t nlPos = tail.find('\n');
+            const std::string_view paragraphSlice = (nlPos != std::string_view::npos) ? tail.substr(0, nlPos) : tail;
+
+            std::string truncated;
+            if (MeasureWidth(paragraphSlice, fontSize, &canvas) > bounds.w + kTextSubpixelTolerance) {
+                truncated = TruncateWithEllipsis(paragraphSlice, bounds.w, fontSize, &canvas);
+            } else {
+                const std::string withDots = std::string(paragraphSlice) + "...";
+                if (MeasureWidth(withDots, fontSize, &canvas) <= bounds.w + kTextSubpixelTolerance) {
+                    truncated = withDots;
+                } else {
+                    truncated = TruncateWithEllipsis(paragraphSlice, bounds.w, fontSize, &canvas);
+                }
+            }
+            if (!truncated.empty()) {
+                canvas.DrawTextBox(truncated, lineRect, fontSize, color, alignX, 0.5f);
+            }
+        } else {
+            canvas.DrawTextBox(lines[i], lineRect, fontSize, color, alignX, 0.5f);
+        }
+    }
+}
+
+float TextUtil::MeasureAffixWidth(
+    const UiAffix& affix,
+    float fontSize,
+    float iconSize,
+    float innerGap,
+    ICanvas* canvas
+) noexcept {
+    const bool hasIcon = affix.icon.IsValid() && iconSize > 0.0f;
+    const float textW = affix.HasText() ? MeasureUiTextWidth(affix.text, fontSize, canvas) : 0.0f;
+    float w = 0.0f;
+    if (hasIcon) {
+        w += iconSize;
+    }
+    if (textW > 0.0f) {
+        if (hasIcon) {
+            w += innerGap;
+        }
+        w += textW;
+    }
+    return w;
+}
+
+float TextUtil::DrawAffix(
+    ICanvas& canvas,
+    const UiAffix& affix,
+    Rect rowBounds,
+    float fontSize,
+    float iconSize,
+    Color textColor,
+    Color iconColor,
+    float innerGap
+) {
+    const bool hasIcon = affix.icon.IsValid() && iconSize > 0.0f;
+    const float textW = affix.HasText() ? MeasureUiTextWidth(affix.text, fontSize, &canvas) : 0.0f;
+    if (!hasIcon && textW <= 0.0f) {
+        return 0.0f;
+    }
+
+    float curX = rowBounds.x;
+    if (affix.iconPlacement != Placement::Trailing) {
+        if (hasIcon) {
+            const Rect icRect(curX, rowBounds.y + (rowBounds.h - iconSize) * 0.5f, iconSize, iconSize);
+            affix.icon.Draw(canvas, icRect, iconColor);
+            curX += iconSize;
+            if (textW > 0.0f) {
+                curX += innerGap;
+            }
+        }
+        if (textW > 0.0f) {
+            if (!affix.text.empty()) {
+                const Rect txtRect(curX, rowBounds.y, textW, rowBounds.h);
+                canvas.DrawTextBox(affix.text.text, txtRect, fontSize, textColor, 0.0f, 0.5f);
+            }
+            curX += textW;
+        }
+    } else {
+        if (textW > 0.0f) {
+            if (!affix.text.empty()) {
+                const Rect txtRect(curX, rowBounds.y, textW, rowBounds.h);
+                canvas.DrawTextBox(affix.text.text, txtRect, fontSize, textColor, 0.0f, 0.5f);
+            }
+            curX += textW;
+            if (hasIcon) {
+                curX += innerGap;
+            }
+        }
+        if (hasIcon) {
+            const Rect icRect(curX, rowBounds.y + (rowBounds.h - iconSize) * 0.5f, iconSize, iconSize);
+            affix.icon.Draw(canvas, icRect, iconColor);
+            curX += iconSize;
+        }
+    }
+    return curX - rowBounds.x;
+}
+
+namespace {
+
+enum class CharCategory : uint8_t {
+    Whitespace = 0,
+    Word,
+    Punctuation
+};
+
+[[nodiscard]] CharCategory ClassifyUtf8Char(std::string_view text, size_t charStart) noexcept {
+    if (charStart >= text.size()) {
+        return CharCategory::Whitespace;
+    }
+    const uint8_t b = static_cast<uint8_t>(text[charStart]);
+    if (b == ' ' || b == '\t' || b == '\n' || b == '\r') {
+        return CharCategory::Whitespace;
+    }
+    // Treat multi-byte UTF-8 sequences (e.g. Cyrillic, European accents, CJK) and ASCII alnum + '_' as word characters
+    if (b >= 0x80 ||
+        (b >= 'a' && b <= 'z') ||
+        (b >= 'A' && b <= 'Z') ||
+        (b >= '0' && b <= '9') ||
+        b == '_') {
+        return CharCategory::Word;
+    }
+    return CharCategory::Punctuation;
+}
+
+} // namespace
+
+size_t TextUtil::PrevCharBoundary(std::string_view text, size_t index) noexcept {
+    if (text.empty() || index == 0) {
+        return 0;
+    }
+    if (index > text.size()) {
+        index = text.size();
+    }
+    --index;
+    while (index > 0 && !IsUtf8LeadByte(static_cast<uint8_t>(text[index]))) {
+        --index;
+    }
+    return index;
+}
+
+size_t TextUtil::NextCharBoundary(std::string_view text, size_t index) noexcept {
+    return NextUtf8CharBoundary(text, index);
+}
+
+size_t TextUtil::PrevWordBoundary(std::string_view text, size_t index) noexcept {
+    if (text.empty() || index == 0) {
+        return 0;
+    }
+    size_t pos = std::min(index, text.size());
+
+    // 1. Skip preceding whitespace backwards
+    while (pos > 0) {
+        const size_t prev = PrevCharBoundary(text, pos);
+        if (ClassifyUtf8Char(text, prev) != CharCategory::Whitespace) {
+            break;
+        }
+        pos = prev;
+    }
+    if (pos == 0) {
+        return 0;
+    }
+
+    // 2. Skip contiguous characters of the same non-whitespace category backwards
+    const size_t firstChar = PrevCharBoundary(text, pos);
+    const CharCategory targetCat = ClassifyUtf8Char(text, firstChar);
+    pos = firstChar;
+    while (pos > 0) {
+        const size_t prev = PrevCharBoundary(text, pos);
+        if (ClassifyUtf8Char(text, prev) != targetCat) {
+            break;
+        }
+        pos = prev;
+    }
+    return pos;
+}
+
+size_t TextUtil::NextWordBoundary(std::string_view text, size_t index) noexcept {
+    const size_t n = text.size();
+    if (n == 0 || index >= n) {
+        return n;
+    }
+    size_t pos = index;
+    while (pos > 0 && !IsUtf8LeadByte(static_cast<uint8_t>(text[pos]))) {
+        --pos;
+    }
+
+    // 1. If starting on whitespace, skip whitespace first
+    while (pos < n && ClassifyUtf8Char(text, pos) == CharCategory::Whitespace) {
+        pos = NextCharBoundary(text, pos);
+    }
+    if (pos >= n) {
+        return n;
+    }
+
+    // 2. Skip contiguous characters of the same category forwards
+    const CharCategory targetCat = ClassifyUtf8Char(text, pos);
+    while (pos < n && ClassifyUtf8Char(text, pos) == targetCat) {
+        pos = NextCharBoundary(text, pos);
+    }
+    return pos;
+}
+
+void TextUtil::SelectWordAt(std::string_view text, size_t index, size_t& outStart, size_t& outEnd) noexcept {
+    if (text.empty()) {
+        outStart = 0;
+        outEnd = 0;
+        return;
+    }
+    const size_t n = text.size();
+    size_t pos = std::min(index, n);
+    if (pos == n) {
+        pos = PrevCharBoundary(text, n);
+    } else {
+        while (pos > 0 && !IsUtf8LeadByte(static_cast<uint8_t>(text[pos]))) {
+            --pos;
+        }
+    }
+
+    const CharCategory cat = ClassifyUtf8Char(text, pos);
+    size_t start = pos;
+    while (start > 0) {
+        const size_t prev = PrevCharBoundary(text, start);
+        if (ClassifyUtf8Char(text, prev) != cat) {
+            break;
+        }
+        start = prev;
+    }
+
+    size_t end = NextCharBoundary(text, pos);
+    while (end < n && ClassifyUtf8Char(text, end) == cat) {
+        end = NextCharBoundary(text, end);
+    }
+
+    outStart = start;
+    outEnd = end;
+}
+
+size_t TextUtil::HitTestIndex(
+    std::string_view text,
+    float localX,
+    float fontSize,
+    ICanvas* canvas
+) noexcept {
+    if (text.empty() || localX <= 0.0f || fontSize <= 0.0f) {
+        return 0;
+    }
+    const float totalW = MeasureWidth(text, fontSize, canvas);
+    if (localX >= totalW) {
+        return text.size();
+    }
+
+    // Collect valid UTF-8 character boundary indices
+    std::vector<size_t> boundaries;
+    boundaries.reserve(text.size() + 1);
+    boundaries.push_back(0);
+    for (size_t i = 1; i <= text.size(); ++i) {
+        if (i == text.size() || IsUtf8LeadByte(static_cast<uint8_t>(text[i]))) {
+            boundaries.push_back(i);
+        }
+    }
+    if (boundaries.size() <= 1) {
+        return 0;
+    }
+
+    // Binary search for the character interval [boundaries[low], boundaries[low + 1]] containing localX
+    size_t low = 0;
+    size_t high = boundaries.size() - 1;
+    while (low + 1 < high) {
+        const size_t mid = low + (high - low) / 2;
+        const float w = MeasureWidth(text.substr(0, boundaries[mid]), fontSize, canvas);
+        if (w <= localX) {
+            low = mid;
+        } else {
+            high = mid;
+        }
+    }
+
+    const float w0 = MeasureWidth(text.substr(0, boundaries[low]), fontSize, canvas);
+    const float w1 = MeasureWidth(text.substr(0, boundaries[high]), fontSize, canvas);
+    const float midX = 0.5f * (w0 + w1);
+    return (localX < midX) ? boundaries[low] : boundaries[high];
 }
 
 } // namespace guikit

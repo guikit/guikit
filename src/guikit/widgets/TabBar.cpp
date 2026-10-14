@@ -53,15 +53,16 @@ Response TabBar::Run(
         ctx.PushContainer(barNode);
     }
 
-    const ComponentMetrics& m = ctx.GetTheme().GetMetrics(activeSize);
-    const float defaultTabGap = (activeSize <= UiSize::Sm) ? ctx.GetTheme().GetGap(UiSize::Xs) : ctx.GetTheme().GetGap(UiSize::Sm);
-    const float activeTabGap = opts.gap.value_or(defaultTabGap);
+    const UiTheme& theme = ctx.GetTheme();
+    const ComponentMetrics& m = theme.GetMetrics(activeSize);
+    const float defaultTabGap = (activeSize <= UiSize::Sm) ? theme.GetGap(UiSize::Xs) : theme.GetGap(UiSize::Sm);
+    const float activeTabGap = opts.gap.has_value() ? theme.Scale(*opts.gap) : defaultTabGap;
 
     const bool hasCustomBgOrBorder = (opts.backgroundColor.a > 0 || opts.borderColor.a > 0);
 
     Padding resolvedPadding{};
     if (opts.padding.has_value()) {
-        resolvedPadding = *opts.padding;
+        resolvedPadding = theme.ResolvePadding(opts.padding);
     } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
         const float defaultPad = ((activeSize <= UiSize::Sm) ? 2.0f : 3.0f) * activeScale;
         resolvedPadding = Padding{defaultPad, defaultPad, defaultPad, defaultPad};
@@ -69,13 +70,13 @@ Response TabBar::Run(
 
     float resolvedRadius = 0.0f;
     if (opts.radius.has_value()) {
-        resolvedRadius = *opts.radius;
+        resolvedRadius = theme.Scale(*opts.radius);
     } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
         resolvedRadius = m.cornerRadius + 2.0f * activeScale;
     }
 
-    const float effectiveBorderWidth = (opts.borderWidth > 0.0f) ? opts.borderWidth
-        : (opts.borderColor.a > 0 ? 1.0f : 0.0f);
+    const float effectiveBorderWidth = (opts.borderWidth > 0.0f) ? theme.Scale(opts.borderWidth)
+        : (opts.borderColor.a > 0 ? theme.Scale(1.0f) : 0.0f);
 
     barNode->gap = activeTabGap;
     barNode->padding = resolvedPadding;

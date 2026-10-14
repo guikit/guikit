@@ -16,14 +16,15 @@ GridScope Grid::Open(
     const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
 
+    const UiTheme& theme = ctx.GetTheme();
     Node* node = ctx.CreateNode(NodeType::Grid, id);
     node->theme = pushedTheme;
     node->direction = FlexDirection::Grid;
     node->gridColumns = static_cast<uint8_t>(opts.columns);
-    node->minColWidth = opts.minColWidth;
-    node->gap = opts.gap.value_or(ctx.GetTheme().GetGap(activeSize));
-    node->runGap = opts.runGap.value_or(node->gap);
-    node->padding = ctx.GetTheme().ResolvePadding(opts.padding);
+    node->minColWidth = theme.Scale(opts.minColWidth);
+    node->gap = theme.ResolveGap(opts.gap, activeSize);
+    node->runGap = opts.runGap.has_value() ? theme.Scale(*opts.runGap) : node->gap;
+    node->padding = theme.ResolvePadding(opts.padding);
     node->align = opts.align;
     node->justify = opts.justify;
     node->widthMode = opts.widthMode;
@@ -47,14 +48,15 @@ ContainerScope GridScope::Cell(int span, CellOptions opts, std::source_location 
     const float activeScale = opts.scale.value_or(m_ctx->GetCurrentScale());
     UiTheme* pushedTheme = m_ctx->PushScopedTheme(opts.theme, opts.scale);
 
+    const UiTheme& theme = m_ctx->GetTheme();
     Node* node = m_ctx->CreateNode(NodeType::Cell, id);
     node->theme = pushedTheme;
     node->direction = FlexDirection::Column;
     node->colSpan = std::clamp(span, 1, 12);
-    node->minWidth = opts.minWidth;
+    node->minWidth = theme.Scale(opts.minWidth);
     node->clipChildren = opts.clipChildren;
-    node->gap = opts.gap.value_or(m_ctx->GetTheme().GetGap(activeSize));
-    node->padding = m_ctx->GetTheme().ResolvePadding(opts.padding);
+    node->gap = theme.ResolveGap(opts.gap, activeSize);
+    node->padding = theme.ResolvePadding(opts.padding);
     node->align = opts.align;
     node->justify = opts.justify;
     node->widthMode = SizeMode::Stretch;

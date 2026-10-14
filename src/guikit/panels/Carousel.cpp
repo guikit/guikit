@@ -30,7 +30,7 @@ ContainerScope Carousel::Open(
     node->clipChildren = true;
     node->widthMode = SizeMode::Stretch;
     node->heightMode = SizeMode::Fit;
-    node->gap = opts.gap.value_or(ctx.GetTheme().GetGap(activeSize));
+    node->gap = ctx.GetTheme().ResolveGap(opts.gap, activeSize);
     node->padding = ctx.GetTheme().ResolvePadding(opts.padding);
     node->uiSize = activeSize;
     node->disabled = activeDisabled;

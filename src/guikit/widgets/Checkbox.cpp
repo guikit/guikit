@@ -82,9 +82,9 @@ Response Checkbox::Run(
         optsCopy.label,
         optsCopy.description
     );
-    node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<CheckboxOptions>();
-        return Checkbox::Measure(opts ? *opts : CheckboxOptions{}, n->uiSize, canvas, theme);
+        return Checkbox::Measure(opts ? *opts : CheckboxOptions{}, n->uiSize, canvas, theme, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* opts = n->As<CheckboxOptions>();
@@ -117,20 +117,22 @@ Vec2 Checkbox::Measure(
     const CheckboxOptions& opts,
     UiSize size,
     ICanvas* canvas,
-    const UiTheme& theme
+    const UiTheme& theme,
+    float availableWidth
 ) {
     const CheckboxMetrics& m = theme.GetCheckbox(size);
     const ElementSpec spec = MakeCheckboxElementSpec(opts, size, opts.disabled, theme);
-    return ElementComposer::Measure({m.boxSize, m.boxSize}, spec, canvas, theme);
+    return ElementComposer::Measure({m.boxSize, m.boxSize}, spec, canvas, theme, availableWidth);
 }
 
 Vec2 Checkbox::Measure(
     const CheckboxOptions& opts,
     UiSize size,
-    ICanvas* canvas
+    ICanvas* canvas,
+    float availableWidth
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
-    return Measure(opts, size, canvas, defaultTheme);
+    return Measure(opts, size, canvas, defaultTheme, availableWidth);
 }
 
 void Checkbox::Render(

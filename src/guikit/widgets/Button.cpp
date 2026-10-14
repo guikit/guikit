@@ -49,9 +49,9 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
         bOpts->text,
         bOpts->description
     );
-    node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* b = n->As<ButtonOptions>();
-        return Button::Measure(b ? *b : ButtonOptions{}, n->uiSize, canvas, theme);
+        return Button::Measure(b ? *b : ButtonOptions{}, n->uiSize, canvas, theme, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* b = n->As<ButtonOptions>();
@@ -80,36 +80,17 @@ Vec2 MeasureButtonCapsule(
     const UiTheme& theme
 ) {
     const ComponentMetrics& m = theme.GetMetrics(size);
-    const float capFontSize = theme.ResolveFontSize(effectiveCapsuleText, TextRole::LabelMedium, size);
+    const float capFontSize = theme.ResolveFontSize(effectiveCapsuleText, TextRole::LabelLarge, size);
     const bool hasIcon = opts.icon.IsValid();
     const bool hasCapsuleText = !effectiveCapsuleText.empty();
 
     // Icon-only button with no text variants defaults to square
-    if (hasIcon && !hasCapsuleText && opts.textVariants.empty()) {
-        const float w = (opts.stretch != StretchMode::Fill && opts.width.has_value()) ? *opts.width : m.defaultHeight;
+    if (hasIcon && !hasCapsuleText && effectiveCapsuleText.variants.empty()) {
+        const float w = (opts.stretch != StretchMode::Fill && opts.width.has_value()) ? theme.Scale(*opts.width) : m.defaultHeight;
         return {w, m.defaultHeight};
     }
 
-    float maxTextW = 0.0f;
-    if (hasCapsuleText) {
-        if (canvas) {
-            maxTextW = canvas->MeasureText(effectiveCapsuleText.text, capFontSize).x;
-        } else {
-            maxTextW = static_cast<float>(effectiveCapsuleText.length()) * (capFontSize * kDefaultCharAdvanceRatio);
-        }
-    }
-
-    // Evaluate all candidate text variants to ensure stable sizing across state changes
-    for (std::string_view var : opts.textVariants) {
-        if (var.empty()) continue;
-        float varW = 0.0f;
-        if (canvas) {
-            varW = canvas->MeasureText(var, capFontSize).x;
-        } else {
-            varW = static_cast<float>(var.length()) * (capFontSize * kDefaultCharAdvanceRatio);
-        }
-        maxTextW = std::max(maxTextW, varW);
-    }
+    const float maxTextW = TextUtil::MeasureWidth(effectiveCapsuleText, capFontSize, canvas);
 
     float contentW = 0.0f;
     float contentH = m.defaultHeight;
@@ -127,9 +108,9 @@ Vec2 MeasureButtonCapsule(
 
     float totalW = contentW + m.paddingX * 2.0f;
     if (opts.stretch != StretchMode::Fill && opts.width.has_value()) {
-        totalW = *opts.width;
+        totalW = theme.Scale(*opts.width);
     } else if (opts.minWidth.has_value()) {
-        totalW = std::max({m.defaultHeight, *opts.minWidth, totalW});
+        totalW = std::max({m.defaultHeight, theme.Scale(*opts.minWidth), totalW});
     } else {
         totalW = std::max(m.defaultHeight, totalW);
     }
@@ -165,18 +146,20 @@ ElementSpec MakeButtonElementSpec(
 
 } // namespace
 
-Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme) {
-    const UiText effectiveCapsuleText = !opts.text.empty() ? opts.text : (opts.description.empty() ? opts.label : UiText{});
-    const UiText effectiveExternalLabel = !opts.text.empty() ? opts.label : (!opts.description.empty() ? opts.label : UiText{});
+Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme, float availableWidth) {
+    const bool hasExplicitText = !opts.text.empty() || !opts.text.variants.empty();
+    const bool hasExplicitDesc = opts.description.HasContentOrReserve();
+    const UiText effectiveCapsuleText = hasExplicitText ? opts.text : (!hasExplicitDesc ? opts.label : UiText{});
+    const UiText effectiveExternalLabel = hasExplicitText ? opts.label : (hasExplicitDesc ? opts.label : UiText{});
 
     const Vec2 capsuleDims = MeasureButtonCapsule(opts, effectiveCapsuleText, size, canvas, theme);
     const ElementSpec spec = MakeButtonElementSpec(opts, effectiveExternalLabel, size, opts.disabled, theme);
-    return ElementComposer::Measure(capsuleDims, spec, canvas, theme);
+    return ElementComposer::Measure(capsuleDims, spec, canvas, theme, availableWidth);
 }
 
-Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas) {
+Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, float availableWidth) {
     static const UiTheme defaultTheme = UiTheme::Dark();
-    return Measure(opts, size, canvas, defaultTheme);
+    return Measure(opts, size, canvas, defaultTheme, availableWidth);
 }
 
 void Button::Render(
@@ -195,9 +178,11 @@ void Button::Render(
 
     const ComponentMetrics& m = theme.GetMetrics(size);
 
-    const UiText effectiveCapsuleText = !opts.text.empty() ? opts.text : (opts.description.empty() ? opts.label : UiText{});
-    const UiText effectiveExternalLabel = !opts.text.empty() ? opts.label : (!opts.description.empty() ? opts.label : UiText{});
-    const float capFontSize = theme.ResolveFontSize(effectiveCapsuleText, TextRole::LabelMedium, size);
+    const bool hasExplicitText = !opts.text.empty() || !opts.text.variants.empty();
+    const bool hasExplicitDesc = opts.description.HasContentOrReserve();
+    const UiText effectiveCapsuleText = hasExplicitText ? opts.text : (!hasExplicitDesc ? opts.label : UiText{});
+    const UiText effectiveExternalLabel = hasExplicitText ? opts.label : (hasExplicitDesc ? opts.label : UiText{});
+    const float capFontSize = theme.ResolveFontSize(effectiveCapsuleText, TextRole::LabelLarge, size);
 
     const Vec2 capSize = MeasureButtonCapsule(opts, effectiveCapsuleText, size, &canvas, theme);
     const ElementSpec spec = MakeButtonElementSpec(opts, effectiveExternalLabel, size, disabled, theme);
@@ -234,7 +219,7 @@ void Button::Render(
     canvas.PushClip(capsuleRect);
 
     // Background & border
-    const float radius = opts.radius.value_or(m.cornerRadius);
+    const float radius = opts.radius.has_value() ? theme.Scale(*opts.radius) : m.cornerRadius;
     canvas.DrawRoundRect(capsuleRect, radius, bg, borderCol, borderW);
 
     const bool hasIcon = opts.icon.IsValid();
@@ -320,7 +305,7 @@ void Button::Render(
                 startX = minStartX;
             } else if (opts.controlAlign == Align::End) {
                 startX = maxStartX;
-            } else if (!opts.textVariants.empty() || capsuleRect.w < totalContentW + m.paddingX * 2.0f) {
+            } else if (!effectiveCapsuleText.variants.empty() || capsuleRect.w < totalContentW + m.paddingX * 2.0f) {
                 startX = minStartX;
             }
             const float iconY = capsuleRect.y + (capsuleRect.h - m.iconSize) * 0.5f;
@@ -345,7 +330,7 @@ void Button::Render(
                 startX = minStartX;
             } else if (opts.controlAlign == Align::End) {
                 startX = maxStartX;
-            } else if (!opts.textVariants.empty() || capsuleRect.w < totalContentW + m.paddingX * 2.0f) {
+            } else if (!effectiveCapsuleText.variants.empty() || capsuleRect.w < totalContentW + m.paddingX * 2.0f) {
                 startX = minStartX;
             }
             const float iconY = capsuleRect.y + (capsuleRect.h - m.iconSize) * 0.5f;

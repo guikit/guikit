@@ -10,10 +10,11 @@ Vec2 ElementComposer::Measure(
     Vec2 intrinsicControlSize,
     const ElementSpec& spec,
     ICanvas* canvas,
-    const UiTheme& theme
+    const UiTheme& theme,
+    float availableWidth
 ) noexcept {
-    const bool hasLabel = !spec.label.empty();
-    const bool hasDesc = !spec.description.empty();
+    const bool hasLabel = spec.label.HasContentOrReserve();
+    const bool hasDesc = spec.description.HasContentOrReserve();
     const bool hasExternal = hasLabel || hasDesc;
 
     if (!hasExternal) {
@@ -23,25 +24,48 @@ Vec2 ElementComposer::Measure(
     const float labelFontSize = theme.ResolveFontSize(spec.label, TextRole::LabelLarge, spec.widgetSize);
     const float descFontSize = theme.ResolveFontSize(spec.description, TextRole::LabelSmall, spec.widgetSize);
 
+    const float rawLabelW = hasLabel ? TextUtil::MeasureWidth(spec.label, labelFontSize, canvas) : 0.0f;
+    const float rawDescW = hasDesc ? TextUtil::MeasureWidth(spec.description, descFontSize, canvas) : 0.0f;
+
+    float effLabelW = rawLabelW;
+    float effDescW = rawDescW;
+    if (spec.layout != ElementLayout::Inline && spec.stretch == StretchMode::Compact && spec.stretchableControl) {
+        if (spec.label.wrap == TextWrap::Word) {
+            effLabelW = std::min(rawLabelW, intrinsicControlSize.x);
+        }
+        const float baseW = std::max(intrinsicControlSize.x, effLabelW);
+        if (spec.description.wrap == TextWrap::Word) {
+            effDescW = std::min(rawDescW, baseW);
+        }
+    }
+
+    float textWrapW = availableWidth;
+    if (spec.layout == ElementLayout::Inline) {
+        if (availableWidth > 0.0f) {
+            float ctrlW = std::min(availableWidth, intrinsicControlSize.x);
+            if (spec.stretchableControl && spec.stretch == StretchMode::Fill && spec.width.has_value()) {
+                const float pct = std::clamp(*spec.width, 0.0f, 100.0f);
+                ctrlW = availableWidth * (pct * 0.01f);
+            }
+            textWrapW = std::max(0.0f, availableWidth - ctrlW - spec.inlineGap);
+        }
+    } else if (spec.stretch == StretchMode::Compact && spec.stretchableControl) {
+        const float compactBlockW = std::max({intrinsicControlSize.x, effLabelW, effDescW});
+        textWrapW = (availableWidth > 0.0f) ? std::min(availableWidth, compactBlockW) : compactBlockW;
+    }
+
     Vec2 labelDims = {0.0f, 0.0f};
     if (hasLabel) {
         const float lineH = canvas ? canvas->GetLineHeight(labelFontSize) : theme.GetLineHeight(labelFontSize);
-        const float w = canvas
-            ? canvas->MeasureText(spec.label.text, labelFontSize).x
-            : static_cast<float>(spec.label.length()) * (labelFontSize * kDefaultCharAdvanceRatio);
-        labelDims = {w, lineH};
+        const float h = TextUtil::MeasureUiTextHeight(spec.label, textWrapW, labelFontSize, lineH, canvas);
+        labelDims = {effLabelW, h};
     }
 
     Vec2 descDims = {0.0f, 0.0f};
     if (hasDesc) {
-        if (canvas) {
-            descDims = canvas->MeasureText(spec.description.text, descFontSize);
-        } else {
-            descDims = {
-                static_cast<float>(spec.description.length()) * (descFontSize * kDefaultCharAdvanceRatio),
-                theme.GetLineHeight(descFontSize)
-            };
-        }
+        const float lineH = canvas ? canvas->GetLineHeight(descFontSize) : theme.GetLineHeight(descFontSize);
+        const float h = TextUtil::MeasureUiTextHeight(spec.description, textWrapW, descFontSize, lineH, canvas);
+        descDims = {effDescW, h};
     }
 
     if (spec.layout == ElementLayout::Stacked) {
@@ -70,6 +94,7 @@ Vec2 ElementComposer::Measure(
 
     // ElementLayout::Inline
     const float textW = std::max(labelDims.x, descDims.x);
+    const bool hasAnyText = (textW > 0.0f) || hasLabel || hasDesc;
     float textH = 0.0f;
     if (hasLabel && hasDesc) {
         textH = labelDims.y + spec.descGap + descDims.y;
@@ -78,7 +103,7 @@ Vec2 ElementComposer::Measure(
     } else if (hasDesc) {
         textH = descDims.y;
     }
-    const float totalW = intrinsicControlSize.x + (textW > 0.0f ? spec.inlineGap + textW : 0.0f);
+    const float totalW = intrinsicControlSize.x + (hasAnyText && textW > 0.0f ? spec.inlineGap + textW : 0.0f);
     const float totalH = std::max(intrinsicControlSize.y, textH);
     return {totalW, totalH};
 }
@@ -91,8 +116,8 @@ ElementGeometry ElementComposer::Resolve(
     const UiTheme& theme
 ) noexcept {
     ElementGeometry geom{};
-    geom.hasLabel = !spec.label.empty();
-    geom.hasDesc = !spec.description.empty();
+    geom.hasLabel = spec.label.HasContentOrReserve();
+    geom.hasDesc = spec.description.HasContentOrReserve();
     geom.hasExternal = geom.hasLabel || geom.hasDesc;
     geom.labelFontSize = theme.ResolveFontSize(spec.label, TextRole::LabelLarge, spec.widgetSize);
     geom.descFontSize = theme.ResolveFontSize(spec.description, TextRole::LabelSmall, spec.widgetSize);
@@ -115,29 +140,43 @@ ElementGeometry ElementComposer::Resolve(
         return geom;
     }
 
-    const float labelH = geom.hasLabel
+    const float labelLineH = geom.hasLabel
         ? (canvas ? canvas->GetLineHeight(geom.labelFontSize) : theme.GetLineHeight(geom.labelFontSize))
         : 0.0f;
-    const float descH = geom.hasDesc
+    const float descLineH = geom.hasDesc
         ? (canvas ? canvas->GetLineHeight(geom.descFontSize) : theme.GetLineHeight(geom.descFontSize))
         : 0.0f;
 
     if (geom.hasLabel) {
-        geom.measuredLabelW = canvas
-            ? canvas->MeasureText(spec.label.text, geom.labelFontSize).x
-            : static_cast<float>(spec.label.length()) * (geom.labelFontSize * kDefaultCharAdvanceRatio);
+        geom.measuredLabelW = TextUtil::MeasureWidth(spec.label, geom.labelFontSize, canvas);
     }
 
     if (geom.hasDesc) {
-        geom.measuredDescW = canvas
-            ? canvas->MeasureText(spec.description.text, geom.descFontSize).x
-            : static_cast<float>(spec.description.length()) * (geom.descFontSize * kDefaultCharAdvanceRatio);
+        geom.measuredDescW = TextUtil::MeasureWidth(spec.description, geom.descFontSize, canvas);
     }
 
-    const float measuredTextW = std::max(geom.measuredLabelW, geom.measuredDescW);
+    float effLabelW = geom.measuredLabelW;
+    float effDescW = geom.measuredDescW;
+    if (spec.layout != ElementLayout::Inline && spec.stretch == StretchMode::Compact && spec.stretchableControl) {
+        if (spec.label.wrap == TextWrap::Word) {
+            effLabelW = std::min(effLabelW, ctrlW);
+        }
+        const float baseW = std::max(ctrlW, effLabelW);
+        if (spec.description.wrap == TextWrap::Word) {
+            effDescW = std::min(effDescW, baseW);
+        }
+    }
+
+    const float measuredTextW = std::max(effLabelW, effDescW);
 
     if (spec.layout == ElementLayout::Stacked) {
         const float blockW = (spec.stretch == StretchMode::Compact) ? std::min(bounds.w, std::max(ctrlW, measuredTextW)) : bounds.w;
+        const float labelH = geom.hasLabel
+            ? TextUtil::MeasureUiTextHeight(spec.label, blockW, geom.labelFontSize, labelLineH, canvas)
+            : 0.0f;
+        const float descH = geom.hasDesc
+            ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas)
+            : 0.0f;
         const float blockX = bounds.x;
         const float ctrlX = blockX + (blockW - ctrlW) * alignFactor;
 
@@ -153,6 +192,12 @@ ElementGeometry ElementComposer::Resolve(
         }
     } else if (spec.layout == ElementLayout::Top) {
         const float blockW = (spec.stretch == StretchMode::Compact) ? std::min(bounds.w, std::max(ctrlW, measuredTextW)) : bounds.w;
+        const float labelH = geom.hasLabel
+            ? TextUtil::MeasureUiTextHeight(spec.label, blockW, geom.labelFontSize, labelLineH, canvas)
+            : 0.0f;
+        const float descH = geom.hasDesc
+            ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas)
+            : 0.0f;
         const float blockX = bounds.x;
         const float ctrlX = blockX + (blockW - ctrlW) * alignFactor;
 
@@ -169,6 +214,12 @@ ElementGeometry ElementComposer::Resolve(
         geom.controlRect = Rect(ctrlX, curY, ctrlW, intrinsicControlSize.y);
     } else if (spec.layout == ElementLayout::Bottom) {
         const float blockW = (spec.stretch == StretchMode::Compact) ? std::min(bounds.w, std::max(ctrlW, measuredTextW)) : bounds.w;
+        const float labelH = geom.hasLabel
+            ? TextUtil::MeasureUiTextHeight(spec.label, blockW, geom.labelFontSize, labelLineH, canvas)
+            : 0.0f;
+        const float descH = geom.hasDesc
+            ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas)
+            : 0.0f;
         const float blockX = bounds.x;
         const float ctrlX = blockX + (blockW - ctrlW) * alignFactor;
 
@@ -188,7 +239,16 @@ ElementGeometry ElementComposer::Resolve(
             ctrlW = std::max(0.0f, bounds.w - measuredTextW - gap);
         }
         const float availTextW = std::max(0.0f, bounds.w - ctrlW - gap);
-        const float textBlockW = std::min(measuredTextW, availTextW);
+        const float textBlockW = (spec.label.wrap == TextWrap::Word || spec.description.wrap == TextWrap::Word)
+            ? ((spec.stretch == StretchMode::Compact) ? std::min(measuredTextW, availTextW) : availTextW)
+            : std::min(measuredTextW, availTextW);
+
+        const float labelH = geom.hasLabel
+            ? TextUtil::MeasureUiTextHeight(spec.label, textBlockW, geom.labelFontSize, labelLineH, canvas)
+            : 0.0f;
+        const float descH = geom.hasDesc
+            ? TextUtil::MeasureUiTextHeight(spec.description, textBlockW, geom.descFontSize, descLineH, canvas)
+            : 0.0f;
 
         const float totalTextH = (geom.hasLabel && geom.hasDesc) ? (labelH + spec.descGap + descH) : (geom.hasLabel ? labelH : descH);
         const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
@@ -244,24 +304,14 @@ void ElementComposer::RenderText(
     const Color labelCol = theme.ResolveTextColor(spec.label, UiVariant::Default, spec.disabled);
     const Color descCol = theme.ResolveTextColor(spec.description, UiVariant::Muted, spec.disabled);
 
-    if (geom.hasLabel && geom.labelRect.w > 0.0f && geom.labelRect.h > 0.0f) {
-        std::string truncLabel;
-        std::string_view drawLabel = spec.label.text;
-        if (geom.measuredLabelW > geom.labelRect.w + kTextSubpixelTolerance) {
-            truncLabel = TextUtil::TruncateWithEllipsis(spec.label.text, geom.labelRect.w, geom.labelFontSize, &canvas);
-            drawLabel = truncLabel;
-        }
-        canvas.DrawTextBox(drawLabel, geom.labelRect, geom.labelFontSize, labelCol, alignFactor, 0.5f);
+    if (geom.hasLabel && !spec.label.empty() && geom.labelRect.w > 0.0f && geom.labelRect.h > 0.0f) {
+        const float lineH = canvas.GetLineHeight(geom.labelFontSize);
+        TextUtil::DrawUiText(canvas, spec.label, geom.labelRect, geom.labelFontSize, lineH, labelCol, alignFactor, 0.5f);
     }
 
-    if (geom.hasDesc && geom.descRect.w > 0.0f && geom.descRect.h > 0.0f) {
-        std::string truncDesc;
-        std::string_view drawDesc = spec.description.text;
-        if (geom.measuredDescW > geom.descRect.w + kTextSubpixelTolerance) {
-            truncDesc = TextUtil::TruncateWithEllipsis(spec.description.text, geom.descRect.w, geom.descFontSize, &canvas);
-            drawDesc = truncDesc;
-        }
-        canvas.DrawTextBox(drawDesc, geom.descRect, geom.descFontSize, descCol, alignFactor, 0.5f);
+    if (geom.hasDesc && !spec.description.empty() && geom.descRect.w > 0.0f && geom.descRect.h > 0.0f) {
+        const float lineH = canvas.GetLineHeight(geom.descFontSize);
+        TextUtil::DrawUiText(canvas, spec.description, geom.descRect, geom.descFontSize, lineH, descCol, alignFactor, 0.5f);
     }
 }
 

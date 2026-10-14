@@ -238,7 +238,7 @@ Vec2 TextArea::Measure(
 
     float h = 0.0f;
     if (opts.fixedHeight.has_value() && *opts.fixedHeight > 0.0f) {
-        h = *opts.fixedHeight;
+        h = theme.Scale(*opts.fixedHeight);
     } else if (opts.autoHeight) {
         h = padY * 2.0f + static_cast<float>(totalLines) * lineHeight;
     } else if (opts.rows.has_value() && *opts.rows > 0) {

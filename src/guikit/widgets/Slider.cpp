@@ -7,6 +7,7 @@
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/ElementComposer.hpp"
 #include "guikit/core/Node.hpp"
+#include "guikit/core/TextUtil.hpp"
 
 namespace guikit {
 
@@ -17,6 +18,7 @@ struct SliderData {
     double value{0.0};
     double min{0.0};
     double max{1.0};
+    bool isInt{false};
     std::string_view formattedValue{};
 };
 
@@ -31,12 +33,48 @@ void FormatSliderValue(
     size_t bufSize,
     double value,
     bool isInt,
-    std::string_view format,
-    std::string_view suffix
+    std::string_view format
 ) noexcept {
     if (!format.empty()) {
+        char convSpec = '\0';
+        bool isLongLong = false;
+        bool isLong = false;
+        for (size_t i = 0; i < format.size(); ++i) {
+            if (format[i] == '%') {
+                if (i + 1 < format.size() && format[i + 1] == '%') {
+                    ++i; // skip escaped %%
+                    continue;
+                }
+                for (size_t j = i + 1; j < format.size(); ++j) {
+                    const char c = format[j];
+                    if (c == 'l') {
+                        if (isLong) isLongLong = true;
+                        else isLong = true;
+                    } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+                        convSpec = c;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+
         std::string fmt(format);
-        std::snprintf(valBuf, bufSize, fmt.c_str(), value);
+        if (convSpec == 'd' || convSpec == 'i' || convSpec == 'u' ||
+            convSpec == 'x' || convSpec == 'X' || convSpec == 'o') {
+            const long long intVal = static_cast<long long>(std::round(value));
+            if (isLongLong) {
+                std::snprintf(valBuf, bufSize, fmt.c_str(), intVal);
+            } else if (isLong) {
+                std::snprintf(valBuf, bufSize, fmt.c_str(), static_cast<long>(intVal));
+            } else {
+                std::snprintf(valBuf, bufSize, fmt.c_str(), static_cast<int>(intVal));
+            }
+        } else if (convSpec != '\0') {
+            std::snprintf(valBuf, bufSize, fmt.c_str(), value);
+        } else {
+            std::snprintf(valBuf, bufSize, fmt.c_str());
+        }
     } else if (isInt) {
         std::snprintf(valBuf, bufSize, "%lld", static_cast<long long>(std::round(value)));
     } else {
@@ -44,13 +82,6 @@ void FormatSliderValue(
             std::snprintf(valBuf, bufSize, "%.0f", value);
         } else {
             std::snprintf(valBuf, bufSize, "%.1f", value);
-        }
-    }
-    if (!suffix.empty()) {
-        const size_t len = std::strlen(valBuf);
-        if (len < bufSize) {
-            std::snprintf(valBuf + len, bufSize - len, " %.*s",
-                          static_cast<int>(suffix.size()), suffix.data());
         }
     }
 }
@@ -76,8 +107,8 @@ struct SliderControlMetrics {
 SliderControlMetrics ComputeSliderControlMetrics(
     const UiText& textLeft,
     const UiText& textRight,
-    const UiText& valueText,
-    std::string_view formattedVal,
+    const UiText& valueStyle,
+    std::string_view effectiveValStr,
     bool showValue,
     Placement valuePlacement,
     StretchMode stretch,
@@ -85,7 +116,12 @@ SliderControlMetrics ComputeSliderControlMetrics(
     float extraLabelsH,
     UiSize size,
     ICanvas* canvas,
-    const UiTheme& theme
+    const UiTheme& theme,
+    std::span<const std::string_view> extraValCandidates = {},
+    bool hasNumericRange = false,
+    double rangeMin = 0.0,
+    double rangeMax = 1.0,
+    bool isInt = false
 ) noexcept {
     const SliderMetrics& m = theme.GetSlider(size);
     const float innerGap = 8.0f;
@@ -93,40 +129,65 @@ SliderControlMetrics ComputeSliderControlMetrics(
     cm.trackRowH = std::max(m.defaultHeight, m.thumbSize);
     cm.extraLabelsH = extraLabelsH;
 
-    if (!textLeft.empty()) {
+    const bool hasLeftText = !textLeft.empty() || !textLeft.variants.empty();
+    const bool hasRightText = !textRight.empty() || !textRight.variants.empty();
+
+    if (hasLeftText) {
         cm.leftTextFont = theme.ResolveFontSize(textLeft, TextRole::LabelMedium, size);
-        cm.leftTextW = canvas
-            ? canvas->MeasureText(textLeft.text, cm.leftTextFont).x
-            : static_cast<float>(textLeft.length()) * (cm.leftTextFont * kDefaultCharAdvanceRatio);
+        cm.leftTextW = TextUtil::MeasureWidth(textLeft, cm.leftTextFont, canvas);
     }
 
-    if (!textRight.empty()) {
+    if (hasRightText) {
         cm.rightTextFont = theme.ResolveFontSize(textRight, TextRole::LabelMedium, size);
-        cm.rightTextW = canvas
-            ? canvas->MeasureText(textRight.text, cm.rightTextFont).x
-            : static_cast<float>(textRight.length()) * (cm.rightTextFont * kDefaultCharAdvanceRatio);
+        cm.rightTextW = TextUtil::MeasureWidth(textRight, cm.rightTextFont, canvas);
     }
 
-    const std::string_view effectiveValStr = !valueText.empty() ? valueText.text : formattedVal;
     if (showValue) {
-        cm.valFont = theme.ResolveFontSize(valueText, TextRole::LabelMedium, size);
+        cm.valFont = theme.ResolveFontSize(valueStyle, TextRole::LabelMedium, size);
         cm.valLineH = canvas ? canvas->GetLineHeight(cm.valFont) : theme.GetLineHeight(cm.valFont);
-        if (!effectiveValStr.empty()) {
-            cm.valW = canvas
-                ? canvas->MeasureText(effectiveValStr, cm.valFont).x
-                : static_cast<float>(effectiveValStr.length()) * (cm.valFont * kDefaultCharAdvanceRatio);
+        cm.valW = TextUtil::MeasureWidth(effectiveValStr, cm.valFont, canvas);
+        cm.valReserveW = cm.valW;
+
+        if (hasNumericRange) {
+            auto measureNumericFmt = [&](std::string_view fmt) {
+                char buf[64];
+                FormatSliderValue(buf, sizeof(buf), rangeMin, isInt, fmt);
+                cm.valReserveW = std::max(cm.valReserveW, TextUtil::MeasureWidth(std::string_view(buf), cm.valFont, canvas));
+
+                FormatSliderValue(buf, sizeof(buf), rangeMax, isInt, fmt);
+                cm.valReserveW = std::max(cm.valReserveW, TextUtil::MeasureWidth(std::string_view(buf), cm.valFont, canvas));
+
+                const double sampleVal = (rangeMax > rangeMin + 0.1)
+                    ? (rangeMax - 0.1)
+                    : (rangeMin + (rangeMax - rangeMin) * 0.88);
+                FormatSliderValue(buf, sizeof(buf), sampleVal, isInt, fmt);
+                cm.valReserveW = std::max(cm.valReserveW, TextUtil::MeasureWidth(std::string_view(buf), cm.valFont, canvas));
+            };
+
+            measureNumericFmt(valueStyle.text);
+            for (std::string_view var : valueStyle.variants) {
+                if (!var.empty()) {
+                    measureNumericFmt(var);
+                }
+            }
+        } else {
+            cm.valReserveW = std::max(cm.valReserveW, TextUtil::MeasureWidth(valueStyle, cm.valFont, canvas));
+            for (std::string_view cand : extraValCandidates) {
+                if (!cand.empty()) {
+                    cm.valReserveW = std::max(cm.valReserveW, TextUtil::MeasureWidth(cand, cm.valFont, canvas));
+                }
+            }
         }
-        cm.valReserveW = std::max(cm.valW, 38.0f);
     }
 
-    if (!textLeft.empty()) {
+    if (hasLeftText) {
         cm.leftGutterW += cm.leftTextW + innerGap;
     }
     if (showValue && valuePlacement == Placement::Leading) {
         cm.leftGutterW += cm.valReserveW + innerGap;
     }
 
-    if (!textRight.empty()) {
+    if (hasRightText) {
         cm.rightGutterW += innerGap + cm.rightTextW;
     }
     if (showValue && valuePlacement == Placement::Trailing) {
@@ -140,7 +201,7 @@ SliderControlMetrics ComputeSliderControlMetrics(
         cm.bottomValH = 2.0f + cm.valLineH;
     }
 
-    const float trackW = (stretch != StretchMode::Fill && width.has_value()) ? *width : m.defaultWidth;
+    const float trackW = (stretch != StretchMode::Fill && width.has_value()) ? theme.Scale(*width) : m.defaultWidth;
     cm.intrinsicControlSize = {
         cm.leftGutterW + trackW + m.thumbSize + cm.rightGutterW,
         cm.topValH + cm.trackRowH + cm.extraLabelsH + cm.bottomValH
@@ -158,29 +219,30 @@ void RenderSliderCompanionTexts(
     const SliderControlMetrics& cm,
     const UiText& textLeft,
     const UiText& textRight,
-    const UiText& valueText,
-    std::string_view formattedVal,
+    const UiText& valueStyle,
+    std::string_view effectiveValStr,
     bool showValue,
     Placement valuePlacement,
     bool disabled,
     const UiTheme& theme
 ) noexcept {
     const float innerGap = 8.0f;
-    const std::string_view effectiveValStr = !valueText.empty() ? valueText.text : formattedVal;
-    const Color valCol = theme.ResolveTextColor(valueText, UiVariant::Secondary, disabled);
+    const Color valCol = theme.ResolveTextColor(valueStyle, UiVariant::Secondary, disabled);
 
     // Left gutter: [textLeft] [Leading value]
     float leftX = controlRect.x;
-    if (!textLeft.empty()) {
-        const Color leftCol = theme.ResolveTextColor(textLeft, UiVariant::Secondary, disabled);
-        canvas.DrawTextBox(
-            textLeft.text,
-            Rect(leftX, trackRowY, cm.leftTextW, cm.trackRowH),
-            cm.leftTextFont,
-            leftCol,
-            0.0f,
-            0.5f
-        );
+    if (!textLeft.empty() || !textLeft.variants.empty()) {
+        if (!textLeft.empty()) {
+            const Color leftCol = theme.ResolveTextColor(textLeft, UiVariant::Secondary, disabled);
+            canvas.DrawTextBox(
+                textLeft.text,
+                Rect(leftX, trackRowY, cm.leftTextW, cm.trackRowH),
+                cm.leftTextFont,
+                leftCol,
+                0.0f,
+                0.5f
+            );
+        }
         leftX += cm.leftTextW + innerGap;
     }
     if (showValue && valuePlacement == Placement::Leading && !effectiveValStr.empty()) {
@@ -196,17 +258,19 @@ void RenderSliderCompanionTexts(
 
     // Right gutter: [textRight] [Trailing value]
     float rightX = trackRegionX + trackRegionW;
-    if (!textRight.empty()) {
+    if (!textRight.empty() || !textRight.variants.empty()) {
         rightX += innerGap;
-        const Color rightCol = theme.ResolveTextColor(textRight, UiVariant::Secondary, disabled);
-        canvas.DrawTextBox(
-            textRight.text,
-            Rect(rightX, trackRowY, cm.rightTextW, cm.trackRowH),
-            cm.rightTextFont,
-            rightCol,
-            0.0f,
-            0.5f
-        );
+        if (!textRight.empty()) {
+            const Color rightCol = theme.ResolveTextColor(textRight, UiVariant::Secondary, disabled);
+            canvas.DrawTextBox(
+                textRight.text,
+                Rect(rightX, trackRowY, cm.rightTextW, cm.trackRowH),
+                cm.rightTextFont,
+                rightCol,
+                0.0f,
+                0.5f
+            );
+        }
         rightX += cm.rightTextW;
     }
     if (showValue && valuePlacement == Placement::Trailing && !effectiveValStr.empty()) {
@@ -347,7 +411,7 @@ Response Slider::Run(
                                  (valInt != nullptr) ? 1.0 : 0.0;
 
     char initValBuf[64];
-    FormatSliderValue(initValBuf, sizeof(initValBuf), currentVal, valInt != nullptr, opts.format, opts.suffix);
+    FormatSliderValue(initValBuf, sizeof(initValBuf), currentVal, valInt != nullptr, opts.valueFormat.text);
 
     Rect prevBounds = ctx.GetPrevFrameBounds(id);
     auto& state = ctx.GetOrCreateState<SliderState>(id);
@@ -361,9 +425,10 @@ Response Slider::Run(
     } else {
         const float halfThumb = m.thumbSize * 0.5f;
         const SliderControlMetrics cm = ComputeSliderControlMetrics(
-            opts.textLeft, opts.textRight, opts.valueText, initValBuf,
+            opts.textLeft, opts.textRight, opts.valueFormat, initValBuf,
             opts.showValue, opts.valuePlacement, opts.stretch, opts.width,
-            0.0f, activeSize, nullptr, activeTheme
+            0.0f, activeSize, nullptr, activeTheme,
+            {}, true, rangeMin, rangeMax, valInt != nullptr
         );
         const ElementSpec spec = MakeSliderElementSpec(opts, activeSize, effectiveDisabled, activeTheme);
         const ElementGeometry geom = ElementComposer::Resolve(prevBounds, cm.intrinsicControlSize, spec, nullptr, activeTheme);
@@ -426,7 +491,7 @@ Response Slider::Run(
 
     // Format current value string
     char valBuf[64];
-    FormatSliderValue(valBuf, sizeof(valBuf), currentVal, valInt != nullptr, opts.format, opts.suffix);
+    FormatSliderValue(valBuf, sizeof(valBuf), currentVal, valInt != nullptr, opts.valueFormat.text);
     const std::string_view formattedStr = ctx.AllocString(valBuf);
 
     Node* node = ctx.CreateNode(NodeType::Slider, id);
@@ -444,11 +509,12 @@ Response Slider::Run(
     data->opts.textLeft = ctx.AllocText(opts.textLeft);
     data->opts.textRight = ctx.AllocText(opts.textRight);
     data->opts.description = ctx.AllocText(opts.description);
-    data->opts.valueText = ctx.AllocText(opts.valueText);
+    data->opts.valueFormat = ctx.AllocText(opts.valueFormat);
     node->text = data->opts.label.text;
     data->value = currentVal;
     data->min = rangeMin;
     data->max = rangeMax;
+    data->isInt = (valInt != nullptr);
     data->formattedValue = formattedStr;
     node->payload = data;
 
@@ -464,23 +530,21 @@ Response Slider::Run(
         static_cast<uint8_t>(opts.valuePlacement),
         opts.width.value_or(0.0f),
         opts.showValue,
-        opts.format,
-        opts.suffix,
         data->opts.label,
         data->opts.textLeft,
         data->opts.textRight,
         data->opts.description,
-        data->opts.valueText,
+        data->opts.valueFormat,
         data->formattedValue
     );
 
-    node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<SliderData>();
         return Slider::Measure(d ? d->opts : SliderOptions{},
                                d ? d->value : 0.0,
                                d ? d->min : 0.0,
                                d ? d->max : 1.0,
-                               n->uiSize, canvas, theme);
+                               n->uiSize, canvas, theme, availableWidth);
     };
 
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
@@ -500,21 +564,28 @@ Response Slider::Run(
 Vec2 Slider::Measure(
     const SliderOptions& opts,
     double value,
-    double /*min*/,
-    double /*max*/,
+    double min,
+    double max,
     UiSize size,
     ICanvas* canvas,
-    const UiTheme& theme
+    const UiTheme& theme,
+    float availableWidth
 ) {
+    const double rangeMin = std::min(min, max);
+    const double rangeMax = std::max(min, max);
+    const bool isIntStep = opts.step.has_value() && *opts.step >= 1.0 &&
+                           std::abs(*opts.step - std::round(*opts.step)) < 0.0001 &&
+                           std::abs(rangeMin - std::round(rangeMin)) < 0.0001;
     char valBuf[64];
-    FormatSliderValue(valBuf, sizeof(valBuf), value, false, opts.format, opts.suffix);
+    FormatSliderValue(valBuf, sizeof(valBuf), value, isIntStep, opts.valueFormat.text);
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
-        opts.textLeft, opts.textRight, opts.valueText, valBuf,
+        opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
         opts.showValue, opts.valuePlacement, opts.stretch, opts.width,
-        0.0f, size, canvas, theme
+        0.0f, size, canvas, theme,
+        {}, true, rangeMin, rangeMax, isIntStep
     );
     const ElementSpec spec = MakeSliderElementSpec(opts, size, opts.disabled, theme);
-    return ElementComposer::Measure(cm.intrinsicControlSize, spec, canvas, theme);
+    return ElementComposer::Measure(cm.intrinsicControlSize, spec, canvas, theme, availableWidth);
 }
 
 Vec2 Slider::Measure(
@@ -523,10 +594,11 @@ Vec2 Slider::Measure(
     double min,
     double max,
     UiSize size,
-    ICanvas* canvas
+    ICanvas* canvas,
+    float availableWidth
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
-    return Measure(opts, value, min, max, size, canvas, defaultTheme);
+    return Measure(opts, value, min, max, size, canvas, defaultTheme, availableWidth);
 }
 
 void Slider::Render(
@@ -547,14 +619,20 @@ void Slider::Render(
     const SliderMetrics& m = theme.GetSlider(size);
     const auto& pal = theme.palette;
     const VariantColors& variantCol = theme.GetVariant(opts.variant);
+    const double rangeMin = std::min(min, max);
+    const double rangeMax = std::max(min, max);
+    const bool isIntStep = opts.step.has_value() && *opts.step >= 1.0 &&
+                           std::abs(*opts.step - std::round(*opts.step)) < 0.0001 &&
+                           std::abs(rangeMin - std::round(rangeMin)) < 0.0001;
 
     char valBuf[64];
-    FormatSliderValue(valBuf, sizeof(valBuf), value, false, opts.format, opts.suffix);
+    FormatSliderValue(valBuf, sizeof(valBuf), value, isIntStep, opts.valueFormat.text);
 
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
-        opts.textLeft, opts.textRight, opts.valueText, valBuf,
+        opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
         opts.showValue, opts.valuePlacement, opts.stretch, opts.width,
-        0.0f, size, &canvas, theme
+        0.0f, size, &canvas, theme,
+        {}, true, rangeMin, rangeMax, isIntStep
     );
     const ElementSpec spec = MakeSliderElementSpec(opts, size, disabled, theme);
     const ElementGeometry geom = ElementComposer::Resolve(bounds, cm.intrinsicControlSize, spec, &canvas, theme);
@@ -576,7 +654,7 @@ void Slider::Render(
     // 0. Draw companion textLeft / textRight and value readout
     RenderSliderCompanionTexts(
         canvas, geom.controlRect, trackRegionX, trackRegionW, trackRowY, thumbCenterX,
-        cm, opts.textLeft, opts.textRight, opts.valueText, valBuf,
+        cm, opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
         opts.showValue, opts.valuePlacement, disabled, theme
     );
 
@@ -633,8 +711,11 @@ Response StepSlider::Run(
                     (indexInt != nullptr)   ? static_cast<size_t>(std::max(0, *indexInt)) : 0;
     curIdx = std::min(curIdx, totalSteps - 1);
 
-    const std::string_view initStepStr = (curIdx < opts.stepLabels.size()) ? opts.stepLabels[curIdx] : std::string_view{};
-    const float extraLabelsH = (opts.showLabels && !opts.stepLabels.empty() && totalSteps > 1) ? (m.tickGap + m.tickFontSize * 1.3f) : 0.0f;
+    const std::string_view initStepStr = !opts.valueText.empty()
+        ? opts.valueText.text
+        : ((curIdx < opts.stepLabels.size()) ? opts.stepLabels[curIdx] : std::string_view{});
+    const float tickFont = activeTheme.ResolveFontSize(TextRole::LabelSmall, activeSize);
+    const float extraLabelsH = (opts.showLabels && !opts.stepLabels.empty() && totalSteps > 1) ? (m.tickGap + tickFont * 1.3f) : 0.0f;
 
     Rect prevBounds = ctx.GetPrevFrameBounds(id);
     auto& state = ctx.GetOrCreateState<SliderState>(id);
@@ -650,7 +731,8 @@ Response StepSlider::Run(
         const SliderControlMetrics cm = ComputeSliderControlMetrics(
             opts.textLeft, opts.textRight, opts.valueText, initStepStr,
             opts.showValue, opts.valuePlacement, opts.stretch, opts.width,
-            extraLabelsH, activeSize, nullptr, activeTheme
+            extraLabelsH, activeSize, nullptr, activeTheme,
+            opts.stepLabels
         );
         const ElementSpec spec = MakeStepSliderElementSpec(opts, activeSize, effectiveDisabled, activeTheme);
         const ElementGeometry geom = ElementComposer::Resolve(prevBounds, cm.intrinsicControlSize, spec, nullptr, activeTheme);
@@ -748,12 +830,12 @@ Response StepSlider::Run(
         data->opts.valueText
     );
 
-    node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<StepSliderData>();
         return StepSlider::Measure(d ? d->opts : StepSliderOptions{},
                                    d ? d->index : 0,
                                    d ? d->totalSteps : 1,
-                                   n->uiSize, canvas, theme);
+                                   n->uiSize, canvas, theme, availableWidth);
     };
 
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
@@ -776,21 +858,26 @@ Vec2 StepSlider::Measure(
     size_t totalSteps,
     UiSize size,
     ICanvas* canvas,
-    const UiTheme& theme
+    const UiTheme& theme,
+    float availableWidth
 ) {
     if (totalSteps == 0) {
         totalSteps = opts.stepLabels.empty() ? 1 : opts.stepLabels.size();
     }
     const SliderMetrics& m = theme.GetSlider(size);
-    const float extraLabelsH = (opts.showLabels && !opts.stepLabels.empty() && totalSteps > 1) ? (m.tickGap + m.tickFontSize * 1.3f) : 0.0f;
-    const std::string_view stepStr = (index < opts.stepLabels.size()) ? opts.stepLabels[index] : std::string_view{};
+    const float tickFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
+    const float extraLabelsH = (opts.showLabels && !opts.stepLabels.empty() && totalSteps > 1) ? (m.tickGap + tickFont * 1.3f) : 0.0f;
+    const std::string_view stepStr = !opts.valueText.empty()
+        ? opts.valueText.text
+        : ((index < opts.stepLabels.size()) ? opts.stepLabels[index] : std::string_view{});
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, opts.valueText, stepStr,
         opts.showValue, opts.valuePlacement, opts.stretch, opts.width,
-        extraLabelsH, size, canvas, theme
+        extraLabelsH, size, canvas, theme,
+        opts.stepLabels
     );
     const ElementSpec spec = MakeStepSliderElementSpec(opts, size, opts.disabled, theme);
-    return ElementComposer::Measure(cm.intrinsicControlSize, spec, canvas, theme);
+    return ElementComposer::Measure(cm.intrinsicControlSize, spec, canvas, theme, availableWidth);
 }
 
 Vec2 StepSlider::Measure(
@@ -798,10 +885,11 @@ Vec2 StepSlider::Measure(
     size_t index,
     size_t totalSteps,
     UiSize size,
-    ICanvas* canvas
+    ICanvas* canvas,
+    float availableWidth
 ) {
     static const UiTheme defaultTheme = UiTheme::Dark();
-    return Measure(opts, index, totalSteps, size, canvas, defaultTheme);
+    return Measure(opts, index, totalSteps, size, canvas, defaultTheme, availableWidth);
 }
 
 void StepSlider::Render(
@@ -819,16 +907,20 @@ void StepSlider::Render(
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) return;
 
     const SliderMetrics& m = theme.GetSlider(size);
+    const float tickFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
     const auto& pal = theme.palette;
     const VariantColors& variantCol = theme.GetVariant(opts.variant);
 
-    const std::string_view stepStr = (index < opts.stepLabels.size()) ? opts.stepLabels[index] : std::string_view{};
-    const float extraLabelsH = (opts.showLabels && !opts.stepLabels.empty() && totalSteps > 1) ? (m.tickGap + m.tickFontSize * 1.3f) : 0.0f;
+    const std::string_view stepStr = !opts.valueText.empty()
+        ? opts.valueText.text
+        : ((index < opts.stepLabels.size()) ? opts.stepLabels[index] : std::string_view{});
+    const float extraLabelsH = (opts.showLabels && !opts.stepLabels.empty() && totalSteps > 1) ? (m.tickGap + tickFont * 1.3f) : 0.0f;
 
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, opts.valueText, stepStr,
         opts.showValue, opts.valuePlacement, opts.stretch, opts.width,
-        extraLabelsH, size, &canvas, theme
+        extraLabelsH, size, &canvas, theme,
+        opts.stepLabels
     );
     const ElementSpec spec = MakeStepSliderElementSpec(opts, size, disabled, theme);
     const ElementGeometry geom = ElementComposer::Resolve(bounds, cm.intrinsicControlSize, spec, &canvas, theme);
@@ -897,11 +989,11 @@ void StepSlider::Render(
             const float t = static_cast<float>(i) / static_cast<float>(totalSteps - 1);
             const float tickX = trackStartX + t * trackWidth;
             const std::string_view lbl = opts.stepLabels[i];
-            const Vec2 dims = canvas.MeasureText(lbl, m.tickFontSize);
+            const Vec2 dims = canvas.MeasureText(lbl, tickFont);
             float lblX = tickX - dims.x * 0.5f;
             lblX = std::clamp(lblX, trackRegionX, std::max(trackRegionX, trackRegionX + trackRegionW - dims.x));
             Color lblCol = (i == index) ? pal.accent : (disabled ? pal.textDisabled : pal.textSecondary);
-            canvas.DrawText(lbl, Vec2(lblX, labelsY), m.tickFontSize, lblCol);
+            canvas.DrawText(lbl, Vec2(lblX, labelsY), tickFont, lblCol);
         }
     }
 }

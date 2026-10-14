@@ -61,12 +61,14 @@ set(GUIKIT_SOURCES
     src/guikit/panels/Card.cpp
     src/guikit/panels/Carousel.cpp
     src/guikit/panels/ScrollArea.cpp
+    src/guikit/panels/Sidebar.cpp
     src/guikit/panels/Toolbar.cpp
     src/guikit/widgets/Button.cpp
     src/guikit/widgets/Checkbox.cpp
     src/guikit/widgets/Heading.cpp
     src/guikit/widgets/InputField.cpp
     src/guikit/widgets/Select.cpp
+    src/guikit/widgets/SidebarMenu.cpp
     src/guikit/widgets/Slider.cpp
     src/guikit/widgets/Switch.cpp
     src/guikit/widgets/TabBar.cpp

@@ -18,7 +18,7 @@ ContainerScope Row::Open(
     Node* node = ctx.CreateNode(NodeType::Row, id);
     node->theme = pushedTheme;
     node->direction = FlexDirection::Row;
-    node->gap = opts.gap.value_or(ctx.GetTheme().GetGap(activeSize));
+    node->gap = ctx.GetTheme().ResolveGap(opts.gap, activeSize);
     node->padding = ctx.GetTheme().ResolvePadding(opts.padding);
     node->align = opts.align;
     node->justify = opts.justify;

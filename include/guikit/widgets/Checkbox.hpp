@@ -25,7 +25,7 @@ struct CheckboxOptions {
     bool indeterminate{false};                     ///< Tri-state / partial check (horizontal dash)
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
 };
-static_assert(sizeof(CheckboxOptions) <= 64, "CheckboxOptions must stay compact");
+static_assert(sizeof(CheckboxOptions) <= 96, "CheckboxOptions must stay compact");
 
 /// Autonomous Checkbox widget logic (execution, measuring, and rendering).
 class Checkbox {
@@ -44,12 +44,14 @@ public:
         const CheckboxOptions& opts,
         UiSize size,
         ICanvas* canvas,
-        const UiTheme& theme
+        const UiTheme& theme,
+        float availableWidth = 0.0f
     );
     static Vec2 Measure(
         const CheckboxOptions& opts,
         UiSize size,
-        ICanvas* canvas = nullptr
+        ICanvas* canvas = nullptr,
+        float availableWidth = 0.0f
     );
 
     /// Renders the checkbox square, checkmark/dash, and optional label text.

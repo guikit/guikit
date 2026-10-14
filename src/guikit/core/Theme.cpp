@@ -156,39 +156,39 @@ void PopulateCarousels(UiTheme& theme) {
 
 void PopulateComponentMetrics(UiTheme& theme) {
     theme.switches = {{
-        SwitchMetrics{ {36.0f, 20.0f}, 16.0f, 2.0f, 10.0f, 14.0f, 12.0f, 3.0f }, // None
-        SwitchMetrics{ {24.0f, 14.0f}, 10.0f, 2.0f,  6.0f, 11.0f,  9.0f, 2.0f }, // Xs
-        SwitchMetrics{ {28.0f, 16.0f}, 12.0f, 2.0f,  8.0f, 13.0f, 11.0f, 2.0f }, // Sm
-        SwitchMetrics{ {36.0f, 20.0f}, 16.0f, 2.0f, 10.0f, 14.0f, 12.0f, 3.0f }, // Md
-        SwitchMetrics{ {44.0f, 24.0f}, 20.0f, 2.0f, 12.0f, 16.0f, 13.0f, 3.0f }, // Lg
-        SwitchMetrics{ {52.0f, 28.0f}, 24.0f, 2.0f, 14.0f, 18.0f, 14.0f, 4.0f }  // Xl
+        SwitchMetrics{ {36.0f, 20.0f}, 16.0f, 2.0f, 10.0f, 3.0f }, // None
+        SwitchMetrics{ {24.0f, 14.0f}, 10.0f, 2.0f,  6.0f, 2.0f }, // Xs
+        SwitchMetrics{ {28.0f, 16.0f}, 12.0f, 2.0f,  8.0f, 2.0f }, // Sm
+        SwitchMetrics{ {36.0f, 20.0f}, 16.0f, 2.0f, 10.0f, 3.0f }, // Md
+        SwitchMetrics{ {44.0f, 24.0f}, 20.0f, 2.0f, 12.0f, 3.0f }, // Lg
+        SwitchMetrics{ {52.0f, 28.0f}, 24.0f, 2.0f, 14.0f, 4.0f }  // Xl
     }};
 
     theme.checkboxes = {{
-        CheckboxMetrics{ 18.0f, 4.0f, 10.0f, 14.0f, 12.0f, 3.0f, 2.0f }, // None
-        CheckboxMetrics{ 12.0f, 2.5f,  6.0f, 11.0f,  9.0f, 2.0f, 1.5f }, // Xs
-        CheckboxMetrics{ 14.0f, 3.0f,  8.0f, 13.0f, 11.0f, 2.0f, 1.8f }, // Sm
-        CheckboxMetrics{ 18.0f, 4.0f, 10.0f, 14.0f, 12.0f, 3.0f, 2.0f }, // Md
-        CheckboxMetrics{ 22.0f, 5.0f, 12.0f, 16.0f, 13.0f, 3.0f, 2.4f }, // Lg
-        CheckboxMetrics{ 26.0f, 6.0f, 14.0f, 18.0f, 14.0f, 4.0f, 2.8f }  // Xl
+        CheckboxMetrics{ 18.0f, 4.0f, 10.0f, 3.0f, 2.0f }, // None
+        CheckboxMetrics{ 12.0f, 2.5f,  6.0f, 2.0f, 1.5f }, // Xs
+        CheckboxMetrics{ 14.0f, 3.0f,  8.0f, 2.0f, 1.8f }, // Sm
+        CheckboxMetrics{ 18.0f, 4.0f, 10.0f, 3.0f, 2.0f }, // Md
+        CheckboxMetrics{ 22.0f, 5.0f, 12.0f, 3.0f, 2.4f }, // Lg
+        CheckboxMetrics{ 26.0f, 6.0f, 14.0f, 4.0f, 2.8f }  // Xl
     }};
 
     theme.inputs = {{
-        InputFieldMetrics{ 36.0f,  6.0f, 12.0f, 14.0f, 13.0f, 12.0f, 4.0f, 3.0f, 1.0f, 16.0f }, // None
-        InputFieldMetrics{ 24.0f,  4.0f,  8.0f, 11.0f, 10.0f,  9.0f, 3.0f, 2.0f, 1.0f, 12.0f }, // Xs
-        InputFieldMetrics{ 28.0f,  5.0f, 10.0f, 13.0f, 12.0f, 11.0f, 3.0f, 2.0f, 1.0f, 14.0f }, // Sm
-        InputFieldMetrics{ 36.0f,  6.0f, 12.0f, 14.0f, 13.0f, 12.0f, 4.0f, 3.0f, 1.0f, 16.0f }, // Md
-        InputFieldMetrics{ 44.0f,  8.0f, 16.0f, 16.0f, 15.0f, 13.0f, 5.0f, 3.0f, 1.5f, 18.0f }, // Lg
-        InputFieldMetrics{ 52.0f, 10.0f, 20.0f, 18.0f, 16.0f, 14.0f, 6.0f, 4.0f, 1.5f, 22.0f }  // Xl
+        InputFieldMetrics{ 36.0f,  6.0f, 12.0f, 4.0f, 3.0f, 1.0f, 16.0f }, // None
+        InputFieldMetrics{ 24.0f,  4.0f,  8.0f, 3.0f, 2.0f, 1.0f, 12.0f }, // Xs
+        InputFieldMetrics{ 28.0f,  5.0f, 10.0f, 3.0f, 2.0f, 1.0f, 14.0f }, // Sm
+        InputFieldMetrics{ 36.0f,  6.0f, 12.0f, 4.0f, 3.0f, 1.0f, 16.0f }, // Md
+        InputFieldMetrics{ 44.0f,  8.0f, 16.0f, 5.0f, 3.0f, 1.5f, 18.0f }, // Lg
+        InputFieldMetrics{ 52.0f, 10.0f, 20.0f, 6.0f, 4.0f, 1.5f, 22.0f }  // Xl
     }};
 
     theme.selects = {{
-        SelectMetrics{ 36.0f,  6.0f, 12.0f, 14.0f, 13.0f, 12.0f, 4.0f, 3.0f, 1.0f, 16.0f, 32.0f }, // None
-        SelectMetrics{ 24.0f,  4.0f,  8.0f, 11.0f, 10.0f,  9.0f, 3.0f, 2.0f, 1.0f, 12.0f, 22.0f }, // Xs
-        SelectMetrics{ 28.0f,  5.0f, 10.0f, 13.0f, 12.0f, 11.0f, 3.0f, 2.0f, 1.0f, 14.0f, 26.0f }, // Sm
-        SelectMetrics{ 36.0f,  6.0f, 12.0f, 14.0f, 13.0f, 12.0f, 4.0f, 3.0f, 1.0f, 16.0f, 32.0f }, // Md
-        SelectMetrics{ 44.0f,  8.0f, 16.0f, 16.0f, 15.0f, 13.0f, 5.0f, 3.0f, 1.5f, 18.0f, 38.0f }, // Lg
-        SelectMetrics{ 52.0f, 10.0f, 20.0f, 18.0f, 16.0f, 14.0f, 6.0f, 4.0f, 1.5f, 22.0f, 44.0f }  // Xl
+        SelectMetrics{ 36.0f,  6.0f, 12.0f, 4.0f, 3.0f, 1.0f, 16.0f, 32.0f }, // None
+        SelectMetrics{ 24.0f,  4.0f,  8.0f, 3.0f, 2.0f, 1.0f, 12.0f, 22.0f }, // Xs
+        SelectMetrics{ 28.0f,  5.0f, 10.0f, 3.0f, 2.0f, 1.0f, 14.0f, 26.0f }, // Sm
+        SelectMetrics{ 36.0f,  6.0f, 12.0f, 4.0f, 3.0f, 1.0f, 16.0f, 32.0f }, // Md
+        SelectMetrics{ 44.0f,  8.0f, 16.0f, 5.0f, 3.0f, 1.5f, 18.0f, 38.0f }, // Lg
+        SelectMetrics{ 52.0f, 10.0f, 20.0f, 6.0f, 4.0f, 1.5f, 22.0f, 44.0f }  // Xl
     }};
 
     theme.headings = {{
@@ -201,12 +201,12 @@ void PopulateComponentMetrics(UiTheme& theme) {
     }};
 
     theme.sliders = {{
-        SliderMetrics{ 26.0f, 5.0f, 18.0f, 9.0f, 4.0f, 13.0f, 12.0f, 5.0f, 5.0f, 3.0f }, // None
-        SliderMetrics{ 18.0f, 3.0f, 12.0f, 6.0f, 3.0f, 11.0f, 10.0f, 3.0f, 3.0f, 2.0f }, // Xs
-        SliderMetrics{ 22.0f, 4.0f, 14.0f, 7.0f, 3.5f, 12.0f, 11.0f, 4.0f, 4.0f, 2.0f }, // Sm
-        SliderMetrics{ 26.0f, 5.0f, 18.0f, 9.0f, 4.0f, 13.0f, 12.0f, 5.0f, 5.0f, 3.0f }, // Md
-        SliderMetrics{ 32.0f, 6.0f, 22.0f, 11.0f, 5.0f, 15.0f, 13.0f, 6.0f, 6.0f, 3.0f }, // Lg
-        SliderMetrics{ 38.0f, 8.0f, 26.0f, 13.0f, 6.0f, 17.0f, 14.0f, 8.0f, 8.0f, 4.0f }  // Xl
+        SliderMetrics{ 26.0f, 5.0f, 18.0f, 9.0f, 4.0f, 5.0f, 5.0f, 3.0f }, // None
+        SliderMetrics{ 18.0f, 3.0f, 12.0f, 6.0f, 3.0f, 3.0f, 3.0f, 2.0f }, // Xs
+        SliderMetrics{ 22.0f, 4.0f, 14.0f, 7.0f, 3.5f, 4.0f, 4.0f, 2.0f }, // Sm
+        SliderMetrics{ 26.0f, 5.0f, 18.0f, 9.0f, 4.0f, 5.0f, 5.0f, 3.0f }, // Md
+        SliderMetrics{ 32.0f, 6.0f, 22.0f, 11.0f, 5.0f, 6.0f, 6.0f, 3.0f }, // Lg
+        SliderMetrics{ 38.0f, 8.0f, 26.0f, 13.0f, 6.0f, 8.0f, 8.0f, 4.0f }  // Xl
     }};
 }
 
@@ -216,12 +216,12 @@ void ApplyDensity(UiTheme& theme, Density d) {
         theme.spacing = {0.0f, 2.0f, 4.0f, 8.0f, 12.0f, 16.0f};
         theme.radius  = {0.0f, 2.0f, 3.0f, 4.0f, 6.0f, 8.0f};
         theme.metrics = {{
-            ComponentMetrics{  0.0f,  0.0f,  0.0f,  0.0f, 0.0f,  0.0f }, // None
-            ComponentMetrics{ 20.0f, 10.0f,  6.0f,  2.0f, 2.0f, 10.0f }, // Xs
-            ComponentMetrics{ 26.0f, 12.0f, 10.0f,  4.0f, 3.0f, 13.0f }, // Sm
-            ComponentMetrics{ 32.0f, 13.0f, 12.0f,  5.0f, 4.0f, 15.0f }, // Md
-            ComponentMetrics{ 40.0f, 15.0f, 16.0f,  8.0f, 6.0f, 18.0f }, // Lg
-            ComponentMetrics{ 48.0f, 18.0f, 20.0f, 10.0f, 8.0f, 22.0f }  // Xl
+            ComponentMetrics{  0.0f, 13.0f, 11.0f, 10.0f,  0.0f,  0.0f, 0.0f,  0.0f }, // None
+            ComponentMetrics{ 20.0f, 10.0f,  9.0f,  8.0f,  6.0f,  2.0f, 2.0f, 10.0f }, // Xs
+            ComponentMetrics{ 26.0f, 12.0f, 10.0f,  9.0f, 10.0f,  4.0f, 3.0f, 13.0f }, // Sm
+            ComponentMetrics{ 32.0f, 13.0f, 11.0f, 10.0f, 12.0f,  5.0f, 4.0f, 15.0f }, // Md
+            ComponentMetrics{ 40.0f, 15.0f, 13.0f, 11.0f, 16.0f,  8.0f, 6.0f, 18.0f }, // Lg
+            ComponentMetrics{ 48.0f, 18.0f, 15.0f, 13.0f, 20.0f, 10.0f, 8.0f, 22.0f }  // Xl
         }};
         theme.carousels = {{
             CarouselMetrics{ 24.0f, 13.0f, 4.0f, 3.0f, 5.0f, 32.0f,  95.0f }, // None
@@ -232,23 +232,23 @@ void ApplyDensity(UiTheme& theme, Density d) {
             CarouselMetrics{ 36.0f, 18.0f, 8.0f, 5.0f, 8.0f, 49.0f, 150.0f }  // Xl
         }};
         theme.sliders = {{
-            SliderMetrics{ 22.0f, 4.0f, 16.0f, 8.0f, 3.5f, 12.0f, 11.0f, 4.0f, 4.0f, 2.0f }, // None
-            SliderMetrics{ 16.0f, 2.5f, 10.0f, 5.0f, 2.5f, 10.0f,  9.0f, 2.0f, 2.0f, 2.0f }, // Xs
-            SliderMetrics{ 20.0f, 3.0f, 12.0f, 6.0f, 3.0f, 11.0f, 10.0f, 3.0f, 3.0f, 2.0f }, // Sm
-            SliderMetrics{ 22.0f, 4.0f, 16.0f, 8.0f, 3.5f, 12.0f, 11.0f, 4.0f, 4.0f, 2.0f }, // Md
-            SliderMetrics{ 28.0f, 5.0f, 20.0f, 10.0f, 4.0f, 14.0f, 12.0f, 5.0f, 5.0f, 3.0f }, // Lg
-            SliderMetrics{ 34.0f, 6.0f, 24.0f, 12.0f, 5.0f, 16.0f, 13.0f, 6.0f, 6.0f, 3.0f }  // Xl
+            SliderMetrics{ 22.0f, 4.0f, 16.0f, 8.0f, 3.5f, 4.0f, 4.0f, 2.0f }, // None
+            SliderMetrics{ 16.0f, 2.5f, 10.0f, 5.0f, 2.5f, 2.0f, 2.0f, 2.0f }, // Xs
+            SliderMetrics{ 20.0f, 3.0f, 12.0f, 6.0f, 3.0f, 3.0f, 3.0f, 2.0f }, // Sm
+            SliderMetrics{ 22.0f, 4.0f, 16.0f, 8.0f, 3.5f, 4.0f, 4.0f, 2.0f }, // Md
+            SliderMetrics{ 28.0f, 5.0f, 20.0f, 10.0f, 4.0f, 5.0f, 5.0f, 3.0f }, // Lg
+            SliderMetrics{ 34.0f, 6.0f, 24.0f, 12.0f, 5.0f, 6.0f, 6.0f, 3.0f }  // Xl
         }};
     } else if (d == Density::Touch) {
         theme.spacing = {0.0f, 6.0f, 12.0f, 16.0f, 24.0f, 32.0f};
         theme.radius  = {0.0f, 4.0f, 6.0f, 8.0f, 12.0f, 16.0f};
         theme.metrics = {{
-            ComponentMetrics{  0.0f,  0.0f,  0.0f,  0.0f,  0.0f,  0.0f }, // None
-            ComponentMetrics{ 28.0f, 12.0f, 10.0f,  4.0f,  4.0f, 14.0f }, // Xs
-            ComponentMetrics{ 36.0f, 14.0f, 14.0f,  6.0f,  6.0f, 16.0f }, // Sm
-            ComponentMetrics{ 48.0f, 18.0f, 20.0f, 10.0f,  8.0f, 22.0f }, // Md
-            ComponentMetrics{ 56.0f, 20.0f, 24.0f, 12.0f, 10.0f, 26.0f }, // Lg
-            ComponentMetrics{ 64.0f, 24.0f, 28.0f, 14.0f, 12.0f, 30.0f }  // Xl
+            ComponentMetrics{  0.0f, 16.0f, 14.0f, 12.0f,  0.0f,  0.0f,  0.0f,  0.0f }, // None
+            ComponentMetrics{ 28.0f, 12.0f, 10.0f,  9.0f, 10.0f,  4.0f,  4.0f, 14.0f }, // Xs
+            ComponentMetrics{ 36.0f, 14.0f, 12.0f, 11.0f, 14.0f,  6.0f,  6.0f, 16.0f }, // Sm
+            ComponentMetrics{ 48.0f, 16.0f, 14.0f, 12.0f, 20.0f, 10.0f,  8.0f, 22.0f }, // Md
+            ComponentMetrics{ 56.0f, 18.0f, 16.0f, 14.0f, 24.0f, 12.0f, 10.0f, 26.0f }, // Lg
+            ComponentMetrics{ 64.0f, 22.0f, 18.0f, 16.0f, 28.0f, 14.0f, 12.0f, 30.0f }  // Xl
         }};
         theme.carousels = {{
             CarouselMetrics{ 36.0f, 18.0f,  8.0f, 5.0f,  8.0f, 49.0f, 130.0f }, // None
@@ -259,23 +259,23 @@ void ApplyDensity(UiTheme& theme, Density d) {
             CarouselMetrics{ 48.0f, 26.0f, 12.0f, 8.0f, 12.0f, 68.0f, 200.0f }  // Xl
         }};
         theme.sliders = {{
-            SliderMetrics{ 36.0f, 6.0f, 26.0f, 13.0f, 6.0f, 15.0f, 13.0f, 6.0f, 6.0f, 4.0f }, // None
-            SliderMetrics{ 24.0f, 4.0f, 16.0f,  8.0f, 4.0f, 12.0f, 11.0f, 4.0f, 4.0f, 3.0f }, // Xs
-            SliderMetrics{ 30.0f, 5.0f, 20.0f, 10.0f, 5.0f, 13.0f, 12.0f, 5.0f, 5.0f, 3.0f }, // Sm
-            SliderMetrics{ 36.0f, 6.0f, 26.0f, 13.0f, 6.0f, 15.0f, 13.0f, 6.0f, 6.0f, 4.0f }, // Md
-            SliderMetrics{ 44.0f, 8.0f, 32.0f, 16.0f, 7.0f, 17.0f, 15.0f, 8.0f, 8.0f, 4.0f }, // Lg
-            SliderMetrics{ 52.0f, 10.0f, 38.0f, 19.0f, 8.0f, 20.0f, 16.0f, 10.0f, 10.0f, 5.0f } // Xl
+            SliderMetrics{ 36.0f, 6.0f, 26.0f, 13.0f, 6.0f, 6.0f, 6.0f, 4.0f }, // None
+            SliderMetrics{ 24.0f, 4.0f, 16.0f,  8.0f, 4.0f, 4.0f, 4.0f, 3.0f }, // Xs
+            SliderMetrics{ 30.0f, 5.0f, 20.0f, 10.0f, 5.0f, 5.0f, 5.0f, 3.0f }, // Sm
+            SliderMetrics{ 36.0f, 6.0f, 26.0f, 13.0f, 6.0f, 6.0f, 6.0f, 4.0f }, // Md
+            SliderMetrics{ 44.0f, 8.0f, 32.0f, 16.0f, 7.0f, 8.0f, 8.0f, 4.0f }, // Lg
+            SliderMetrics{ 52.0f, 10.0f, 38.0f, 19.0f, 8.0f, 10.0f, 10.0f, 5.0f } // Xl
         }};
     } else { // Density::Standard
         theme.spacing = {0.0f, 4.0f, 8.0f, 12.0f, 16.0f, 24.0f};
         theme.radius  = {0.0f, 2.0f, 4.0f, 6.0f, 8.0f, 12.0f};
         theme.metrics = {{
-            ComponentMetrics{  0.0f,  0.0f,  0.0f,  0.0f,  0.0f,  0.0f }, // None
-            ComponentMetrics{ 24.0f, 11.0f,  8.0f,  3.0f,  3.0f, 12.0f }, // Xs
-            ComponentMetrics{ 32.0f, 13.0f, 12.0f,  5.0f,  4.0f, 15.0f }, // Sm
-            ComponentMetrics{ 40.0f, 15.0f, 16.0f,  8.0f,  6.0f, 18.0f }, // Md
-            ComponentMetrics{ 48.0f, 18.0f, 20.0f, 10.0f,  8.0f, 22.0f }, // Lg
-            ComponentMetrics{ 56.0f, 22.0f, 24.0f, 12.0f, 10.0f, 26.0f }  // Xl
+            ComponentMetrics{  0.0f, 14.0f, 12.0f, 11.0f,  0.0f,  0.0f,  0.0f,  0.0f }, // None
+            ComponentMetrics{ 24.0f, 11.0f, 10.0f,  9.0f,  8.0f,  3.0f,  3.0f, 12.0f }, // Xs
+            ComponentMetrics{ 32.0f, 13.0f, 11.0f, 10.0f, 12.0f,  5.0f,  4.0f, 15.0f }, // Sm
+            ComponentMetrics{ 40.0f, 14.0f, 12.0f, 11.0f, 16.0f,  8.0f,  6.0f, 18.0f }, // Md
+            ComponentMetrics{ 48.0f, 16.0f, 14.0f, 12.0f, 20.0f, 10.0f,  8.0f, 22.0f }, // Lg
+            ComponentMetrics{ 56.0f, 18.0f, 16.0f, 14.0f, 24.0f, 12.0f, 10.0f, 26.0f }  // Xl
         }};
         theme.carousels = {{
             CarouselMetrics{ 26.0f, 14.0f,  6.0f, 4.0f,  6.0f, 36.0f, 110.0f }, // None
@@ -286,12 +286,12 @@ void ApplyDensity(UiTheme& theme, Density d) {
             CarouselMetrics{ 40.0f, 20.0f, 10.0f, 6.0f, 10.0f, 56.0f, 180.0f }  // Xl
         }};
         theme.sliders = {{
-            SliderMetrics{ 26.0f, 5.0f, 18.0f, 9.0f, 4.0f, 13.0f, 12.0f, 5.0f, 5.0f, 3.0f }, // None
-            SliderMetrics{ 18.0f, 3.0f, 12.0f, 6.0f, 3.0f, 11.0f, 10.0f, 3.0f, 3.0f, 2.0f }, // Xs
-            SliderMetrics{ 22.0f, 4.0f, 14.0f, 7.0f, 3.5f, 12.0f, 11.0f, 4.0f, 4.0f, 2.0f }, // Sm
-            SliderMetrics{ 26.0f, 5.0f, 18.0f, 9.0f, 4.0f, 13.0f, 12.0f, 5.0f, 5.0f, 3.0f }, // Md
-            SliderMetrics{ 32.0f, 6.0f, 22.0f, 11.0f, 5.0f, 15.0f, 13.0f, 6.0f, 6.0f, 3.0f }, // Lg
-            SliderMetrics{ 38.0f, 8.0f, 26.0f, 13.0f, 6.0f, 17.0f, 14.0f, 8.0f, 8.0f, 4.0f }  // Xl
+            SliderMetrics{ 26.0f, 5.0f, 18.0f, 9.0f, 4.0f, 5.0f, 5.0f, 3.0f }, // None
+            SliderMetrics{ 18.0f, 3.0f, 12.0f, 6.0f, 3.0f, 3.0f, 3.0f, 2.0f }, // Xs
+            SliderMetrics{ 22.0f, 4.0f, 14.0f, 7.0f, 3.5f, 4.0f, 4.0f, 2.0f }, // Sm
+            SliderMetrics{ 26.0f, 5.0f, 18.0f, 9.0f, 4.0f, 5.0f, 5.0f, 3.0f }, // Md
+            SliderMetrics{ 32.0f, 6.0f, 22.0f, 11.0f, 5.0f, 6.0f, 6.0f, 3.0f }, // Lg
+            SliderMetrics{ 38.0f, 8.0f, 26.0f, 13.0f, 6.0f, 8.0f, 8.0f, 4.0f }  // Xl
         }};
     }
 }
@@ -333,11 +333,14 @@ UiTheme UiTheme::Scaled(float factor) const noexcept {
     if (factor <= 0.0f || std::abs(factor - 1.0f) < 0.0001f) {
         return copy;
     }
+    copy.scale *= factor;
     for (auto& s : copy.spacing) s *= factor;
     for (auto& r : copy.radius) r *= factor;
     for (auto& m : copy.metrics) {
         m.defaultHeight *= factor;
         m.fontSize *= factor;
+        m.companionFontSize *= factor;
+        m.descFontSize *= factor;
         m.paddingX *= factor;
         m.paddingY *= factor;
         m.cornerRadius *= factor;
@@ -372,16 +375,12 @@ UiTheme UiTheme::Scaled(float factor) const noexcept {
         sw.knobDiameter *= factor;
         sw.knobPadding *= factor;
         sw.gap *= factor;
-        sw.fontSize *= factor;
-        sw.descFontSize *= factor;
         sw.descGap *= factor;
     }
     for (auto& cb : copy.checkboxes) {
         cb.boxSize *= factor;
         cb.cornerRadius *= factor;
         cb.gap *= factor;
-        cb.fontSize *= factor;
-        cb.descFontSize *= factor;
         cb.descGap *= factor;
         cb.strokeWidth *= factor;
     }
@@ -389,9 +388,6 @@ UiTheme UiTheme::Scaled(float factor) const noexcept {
         in.defaultHeight *= factor;
         in.cornerRadius *= factor;
         in.paddingX *= factor;
-        in.fontSize *= factor;
-        in.labelFontSize *= factor;
-        in.descFontSize *= factor;
         in.labelGap *= factor;
         in.descGap *= factor;
         in.strokeWidth *= factor;
@@ -403,9 +399,6 @@ UiTheme UiTheme::Scaled(float factor) const noexcept {
         sl.defaultHeight *= factor;
         sl.cornerRadius *= factor;
         sl.paddingX *= factor;
-        sl.fontSize *= factor;
-        sl.labelFontSize *= factor;
-        sl.descFontSize *= factor;
         sl.labelGap *= factor;
         sl.descGap *= factor;
         sl.strokeWidth *= factor;
@@ -429,8 +422,6 @@ UiTheme UiTheme::Scaled(float factor) const noexcept {
         sl.thumbSize *= factor;
         sl.cornerRadius *= factor;
         sl.tickSize *= factor;
-        sl.labelFontSize *= factor;
-        sl.tickFontSize *= factor;
         sl.labelGap *= factor;
         sl.tickGap *= factor;
         sl.descGap *= factor;

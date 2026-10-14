@@ -281,19 +281,14 @@ struct Dp {
     }
 };
 
-/// Non-allocating view wrapper for candidate text strings used in dynamic layout sizing.
+/// Non-allocating 16-byte view wrapper for candidate text strings used in dynamic layout sizing.
 class TextVariants {
 public:
     constexpr TextVariants() noexcept = default;
 
-    constexpr TextVariants(std::initializer_list<std::string_view> list) noexcept {
-        const size_t n = std::min(list.size(), m_inline.size());
-        auto it = list.begin();
-        for (size_t i = 0; i < n; ++i, ++it) {
-            m_inline[i] = *it;
-        }
-        m_count = n;
-        m_span = std::span<const std::string_view>(m_inline.data(), m_count);
+    constexpr TextVariants(std::initializer_list<std::string_view> list) noexcept
+        : m_span(list.begin(), list.size())
+    {
     }
 
     constexpr TextVariants(std::span<const std::string_view> s) noexcept
@@ -312,65 +307,28 @@ public:
     {
     }
 
-    constexpr TextVariants(const TextVariants& other) noexcept
-        : m_inline(other.m_inline)
-        , m_count(other.m_count)
-    {
-        if (other.m_span.data() == other.m_inline.data()) {
-            m_span = std::span<const std::string_view>(m_inline.data(), m_count);
-        } else {
-            m_span = other.m_span;
-        }
-    }
-
-    constexpr TextVariants& operator=(const TextVariants& other) noexcept {
-        if (this != &other) {
-            m_inline = other.m_inline;
-            m_count = other.m_count;
-            if (other.m_span.data() == other.m_inline.data()) {
-                m_span = std::span<const std::string_view>(m_inline.data(), m_count);
-            } else {
-                m_span = other.m_span;
-            }
-        }
-        return *this;
-    }
-
-    constexpr TextVariants(TextVariants&& other) noexcept
-        : m_inline(other.m_inline)
-        , m_count(other.m_count)
-    {
-        if (other.m_span.data() == other.m_inline.data()) {
-            m_span = std::span<const std::string_view>(m_inline.data(), m_count);
-        } else {
-            m_span = other.m_span;
-        }
-    }
-
-    constexpr TextVariants& operator=(TextVariants&& other) noexcept {
-        if (this != &other) {
-            m_inline = other.m_inline;
-            m_count = other.m_count;
-            if (other.m_span.data() == other.m_inline.data()) {
-                m_span = std::span<const std::string_view>(m_inline.data(), m_count);
-            } else {
-                m_span = other.m_span;
-            }
-        }
-        return *this;
-    }
-
     [[nodiscard]] constexpr auto begin() const noexcept { return m_span.begin(); }
     [[nodiscard]] constexpr auto end() const noexcept { return m_span.end(); }
     [[nodiscard]] constexpr bool empty() const noexcept { return m_span.empty(); }
     [[nodiscard]] constexpr size_t size() const noexcept { return m_span.size(); }
     [[nodiscard]] constexpr std::span<const std::string_view> span() const noexcept { return m_span; }
 
+    [[nodiscard]] constexpr bool operator==(const TextVariants& other) const noexcept {
+        if (m_span.size() != other.m_span.size()) {
+            return false;
+        }
+        for (size_t i = 0; i < m_span.size(); ++i) {
+            if (m_span[i] != other.m_span[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
 private:
     std::span<const std::string_view> m_span{};
-    std::array<std::string_view, 8> m_inline{};
-    size_t m_count{0};
 };
+static_assert(sizeof(TextVariants) == 16, "TextVariants must remain 16 bytes");
 
 namespace literals {
     constexpr Dp operator""_dp(long double v) noexcept {

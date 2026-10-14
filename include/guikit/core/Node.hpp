@@ -47,6 +47,7 @@ enum class NodeType : uint16_t {
     ScrollArea  = 102,
     Carousel    = 103,
     Container   = 104,  ///< General container alias for backward compatibility
+    Sidebar     = 105,  ///< Dockable vertical sidebar container (Left or Right)
 
     // --- Leaf Widgets (200..999): Self-rendering elements ---
     Button      = 200,
@@ -63,6 +64,7 @@ enum class NodeType : uint16_t {
     StepSlider  = 211,
     Custom      = 212,
     TextArea    = 213,
+    SidebarItem = 214,
 
     // --- User Extension Base (1000+) ---
     User        = 1000
@@ -109,6 +111,8 @@ struct Node {
     bool focused : 1 {false};
     bool checked : 1 {false};
     bool active : 1 {false};
+    bool sidebarRight : 1 {false};
+    bool sidebarScrollable : 1 {true};
 
     float fixedWidth{0.0f};
     float fixedHeight{0.0f};
@@ -191,20 +195,24 @@ struct Node {
             case NodeType::Card:       return "Card";
             case NodeType::Box:        return "Box";
             case NodeType::ScrollArea: return "ScrollArea";
-            case NodeType::Carousel:   return "Carousel";
-            case NodeType::Container:  return "Container";
-            case NodeType::Button:     return "Button";
-            case NodeType::InputField: return "InputField";
-            case NodeType::Select:     return "Select";
-            case NodeType::Switch:     return "Switch";
-            case NodeType::Checkbox:   return "Checkbox";
-            case NodeType::Text:       return "Text";
-            case NodeType::Heading:    return "Heading";
-            case NodeType::TabItem:    return "TabItem";
-            case NodeType::Separator:  return "Separator";
-            case NodeType::Spacer:     return "Spacer";
-            case NodeType::Custom:     return "Custom";
-            case NodeType::TextArea:   return "TextArea";
+            case NodeType::Carousel:    return "Carousel";
+            case NodeType::Container:   return "Container";
+            case NodeType::Sidebar:     return "Sidebar";
+            case NodeType::Button:      return "Button";
+            case NodeType::InputField:  return "InputField";
+            case NodeType::Select:      return "Select";
+            case NodeType::Switch:      return "Switch";
+            case NodeType::Checkbox:    return "Checkbox";
+            case NodeType::Text:        return "Text";
+            case NodeType::Heading:     return "Heading";
+            case NodeType::TabItem:     return "TabItem";
+            case NodeType::Separator:   return "Separator";
+            case NodeType::Spacer:      return "Spacer";
+            case NodeType::Slider:      return "Slider";
+            case NodeType::StepSlider:  return "StepSlider";
+            case NodeType::Custom:      return "Custom";
+            case NodeType::TextArea:    return "TextArea";
+            case NodeType::SidebarItem: return "SidebarItem";
             default:                   return (static_cast<uint16_t>(type) >= static_cast<uint16_t>(NodeType::User)) ? "UserWidget" : "Unknown";
         }
     }

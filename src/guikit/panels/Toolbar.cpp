@@ -59,14 +59,15 @@ ToolbarScope Toolbar::Open(
     const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
 
-    const ComponentMetrics& m = ctx.GetTheme().GetMetrics(activeSize);
+    const UiTheme& theme = ctx.GetTheme();
+    const ComponentMetrics& m = theme.GetMetrics(activeSize);
     const float barH = m.defaultHeight + 8.0f * activeScale;
 
     Node* node = ctx.CreateNode(NodeType::Container, id);
     node->theme = pushedTheme;
     node->direction = FlexDirection::Row;
     node->align = Alignment::Center;
-    node->gap = opts.gap.value_or(ctx.GetTheme().GetGap(activeSize));
+    node->gap = theme.ResolveGap(opts.gap, activeSize);
 
     Padding toolbarPadding;
     if (opts.padding.has_value()) {
@@ -75,14 +76,14 @@ ToolbarScope Toolbar::Open(
             if (t == UiSize::None) {
                 toolbarPadding = Padding{};
             } else {
-                const float g = ctx.GetTheme().GetGap(t);
+                const float g = theme.GetGap(t);
                 toolbarPadding = Padding::Symmetric(g, g * 0.5f);
             }
         } else {
-            toolbarPadding = *opts.padding;
+            toolbarPadding = theme.ResolvePadding(opts.padding);
         }
     } else {
-        const float g = ctx.GetTheme().GetGap(activeSize);
+        const float g = theme.GetGap(activeSize);
         toolbarPadding = Padding::Symmetric(g, g * 0.5f);
     }
     node->padding = toolbarPadding;
@@ -90,11 +91,11 @@ ToolbarScope Toolbar::Open(
     node->widthMode = SizeMode::Stretch;
     node->heightMode = SizeMode::Fixed;
     node->fixedHeight = barH;
-    const auto& pal = ctx.GetTheme().palette;
+    const auto& pal = theme.palette;
     node->backgroundColor = opts.backgroundColor.a > 0 ? opts.backgroundColor : pal.surface;
     node->borderColor = opts.borderColor.a > 0 ? opts.borderColor : pal.border;
-    node->borderWidth = (opts.borderColor.a > 0) ? 1.0f : 0.0f;
-    node->cornerRadius = opts.radius.value_or(ctx.GetTheme().GetRadius(activeSize));
+    node->borderWidth = (opts.borderColor.a > 0) ? theme.Scale(1.0f) : 0.0f;
+    node->cornerRadius = theme.ResolveRadius(opts.radius, activeSize);
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
 
@@ -123,15 +124,14 @@ Response Toolbar::ToolButton(
     }
 
     Node* node = ctx.CreateNode(NodeType::Button, id);
-    node->text = ctx.AllocString(opts.label);
 
     ButtonOptions bOpts;
-    bOpts.label = node->text;
+    bOpts.label = ctx.AllocText(opts.label);
+    node->text = bOpts.label.text;
     bOpts.icon = opts.icon;
     bOpts.variant = opts.variant;
     bOpts.iconPlacement = opts.iconPlacement;
     bOpts.controlAlign = opts.controlAlign;
-    bOpts.textVariants = opts.textVariants;
     bOpts.stretch = opts.stretch;
     bOpts.width = opts.width;
     bOpts.minWidth = opts.minWidth;
@@ -149,11 +149,11 @@ Response Toolbar::ToolButton(
         static_cast<uint8_t>(opts.icon.GetType()),
         static_cast<uint8_t>(opts.icon.GetId()),
         opts.icon.GetPath(),
-        node->text
+        bOpts.label
     );
-    node->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* b = n->As<ButtonOptions>();
-        return Button::Measure(b ? *b : ButtonOptions{}, n->uiSize, canvas, theme);
+        return Button::Measure(b ? *b : ButtonOptions{}, n->uiSize, canvas, theme, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* b = n->As<ButtonOptions>();

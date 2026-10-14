@@ -18,16 +18,14 @@ class ICanvas;
 struct InputFieldOptions {
     UiText label{};                                ///< Primary caption text
     UiText description{};                          ///< Optional helper text below input box
-    std::string_view placeholder{};                ///< Placeholder text when empty (e.g. "Enter value...")
-    UiText prefix{};                               ///< Symbol/text inside field on left (e.g. "$", "±")
-    UiText suffix{};                               ///< Unit/symbol inside field on right (e.g. "%", "mm", "MB/s")
-    std::string_view format{"%.2f"};               ///< Format string for floating-point values
+    UiText placeholder{};                          ///< Placeholder text when empty (e.g. "Enter value...")
+    UiAffix prefix{};                              ///< Leading icon and/or symbol/text inside field on left (e.g. "$", Icon::Search(), {Icon::Search(), "https://"})
+    UiAffix suffix{};                              ///< Trailing unit/symbol/text and/or icon inside field on right (e.g. "%", "mm", {"MB/s", Icon::Check()})
+    UiText valueFormat{"%.2f"};                    ///< Format string for numeric values and/or candidate width variants
     UiVariant variant{UiVariant::Default};         ///< Accent/border variant (Default, Warning, Danger, etc.)
     ElementLayout layout{ElementLayout::Stacked};    ///< Layout geometry: Stacked, Top, Bottom, Inline
     InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
     Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
-    Icon prefixIcon{};                             ///< Optional vector icon inside field on left
-    Icon suffixIcon{};                             ///< Optional vector icon inside field on right
     std::optional<CursorBlinkMode> cursorMode{std::nullopt}; ///< Cursor blink override (inherits context config if nullopt)
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     std::optional<float> radius{std::nullopt};     ///< Local corner radius override (nullopt = inherit from size metrics)
@@ -43,6 +41,9 @@ struct InputFieldData {
     InputFieldOptions opts{};
     std::string_view displayText{};
     size_t cursor{0};
+    size_t selStart{0};
+    size_t selEnd{0};
+    float scrollX{0.0f};
     float cursorWidth{1.5f};
     bool cursorVisible{true};
 };
@@ -68,16 +69,18 @@ public:
         const InputFieldOptions& opts,
         UiSize size,
         ICanvas* canvas,
-        const UiTheme& theme
+        const UiTheme& theme,
+        float availableWidth = 0.0f
     );
     static Vec2 Measure(
         std::string_view displayText,
         const InputFieldOptions& opts,
         UiSize size,
-        ICanvas* canvas = nullptr
+        ICanvas* canvas = nullptr,
+        float availableWidth = 0.0f
     );
 
-    /// Renders the input frame, label, prefix, suffix/unit, text/placeholder, and cursor.
+    /// Renders the input frame, label, prefix, suffix/unit, text/placeholder, selection highlight, and cursor.
     static void Render(
         ICanvas& canvas,
         Rect bounds,
@@ -90,7 +93,10 @@ public:
         bool disabled = false,
         bool cursorVisible = true,
         float cursorWidth = 1.5f,
-        const UiTheme& theme = UiTheme::Dark()
+        const UiTheme& theme = UiTheme::Dark(),
+        size_t selStart = 0,
+        size_t selEnd = 0,
+        float scrollX = 0.0f
     );
 };
 

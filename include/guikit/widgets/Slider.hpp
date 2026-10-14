@@ -19,9 +19,7 @@ struct SliderOptions {
     UiText textLeft{};                             ///< Optional companion text inside control on the left of the track
     UiText textRight{};                            ///< Optional companion text inside control on the right of the track
     UiText description{};                          ///< Optional external explanation text
-    UiText valueText{};                            ///< Optional value text/style override (empty text = auto-formatted value)
-    std::string_view suffix{};                     ///< Optional unit/suffix appended to auto-formatted value (e.g. "px", "%")
-    std::string_view format{};                     ///< Format string for value (defaults to "%d" for int, "%.1f" for float)
+    UiText valueFormat{};                          ///< Format string and style for value (e.g. "%.1f %%", {"%.1f dB", UiVariant::Info}, or static text; empty text = default numeric format)
     std::optional<double> step{std::nullopt};      ///< Step quantization (defaults to 1.0 for integers, continuous for float)
     ElementLayout layout{ElementLayout::Stacked};    ///< Widget layout (Stacked, Inline, Top, Bottom)
     InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout (LabelFirst = text first, ControlFirst = control first)
@@ -90,7 +88,8 @@ public:
         double max,
         UiSize size,
         ICanvas* canvas,
-        const UiTheme& theme
+        const UiTheme& theme,
+        float availableWidth = 0.0f
     );
     static Vec2 Measure(
         const SliderOptions& opts,
@@ -98,7 +97,8 @@ public:
         double min,
         double max,
         UiSize size,
-        ICanvas* canvas = nullptr
+        ICanvas* canvas = nullptr,
+        float availableWidth = 0.0f
     );
 
     static void Render(
@@ -134,14 +134,16 @@ public:
         size_t totalSteps,
         UiSize size,
         ICanvas* canvas,
-        const UiTheme& theme
+        const UiTheme& theme,
+        float availableWidth = 0.0f
     );
     static Vec2 Measure(
         const StepSliderOptions& opts,
         size_t index,
         size_t totalSteps,
         UiSize size,
-        ICanvas* canvas = nullptr
+        ICanvas* canvas = nullptr,
+        float availableWidth = 0.0f
     );
 
     static void Render(

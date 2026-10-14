@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <format>
 #include <string>
+#include "guikit/core/TextUtil.hpp"
 
 namespace guikit {
 
@@ -43,9 +44,15 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
         auto it = m_prevFrameBounds.find(m_focusedId);
         if (it != m_prevFrameBounds.end()) {
             if (!it->second.Contains(m_mousePos)) {
+                if (m_editState.id == m_focusedId) {
+                    m_editState.id = Id::Null();
+                }
                 m_focusedId = Id::Null();
             }
         } else {
+            if (m_editState.id == m_focusedId) {
+                m_editState.id = Id::Null();
+            }
             m_focusedId = Id::Null();
         }
     }
@@ -272,6 +279,10 @@ ContainerScope Context::Carousel(CarouselOptions opts, std::source_location loc)
     return Open<guikit::Carousel>(opts, loc);
 }
 
+ContainerScope Context::Sidebar(SidebarOptions opts, std::source_location loc) {
+    return Open<guikit::Sidebar>(opts, loc);
+}
+
 Response Context::Button(ButtonOptions opts, std::source_location loc) {
     return Run<guikit::Button>(opts, loc);
 }
@@ -288,7 +299,7 @@ std::string_view Context::AllocString(std::string_view text) {
     return std::string_view(buf, text.size());
 }
 
-Response Context::Text(std::string_view label, TextOptions opts, std::source_location loc) {
+Response Context::Text(UiText label, TextOptions opts, std::source_location loc) {
     return Run<guikit::Text>(label, opts, loc);
 }
 
@@ -380,6 +391,9 @@ Response Context::StepSlider(
     if (opts.valueText.empty() && idx < kVariantFullNames.size()) {
         opts.valueText.text = kVariantFullNames[idx];
     }
+    if (opts.valueText.variants.empty()) {
+        opts.valueText.variants = kVariantFullNames;
+    }
     if (!opts.valueText.variant.has_value() && variant != UiVariant::Default) {
         opts.valueText.variant = variant;
     }
@@ -406,9 +420,273 @@ Response Context::ToolButton(
     return Toolbar::ToolButton(*this, opts, loc);
 }
 
+SidebarMenuScope Context::SidebarMenu(
+    SidebarMenuOptions opts,
+    std::source_location loc
+) {
+    return Open<guikit::SidebarMenu>(opts, loc);
+}
+
 void Context::RequestFocus(Id id) {
+    if (m_focusedId != id && m_editState.id.IsValid() && m_editState.id != id) {
+        m_editState.id = Id::Null();
+    }
     m_focusedId = id;
     ResetCursorBlink();
+}
+
+void Context::SetClipboardCallbacks(ClipboardGetFn getFn, ClipboardSetFn setFn) {
+    m_clipboardGetFn = std::move(getFn);
+    m_clipboardSetFn = std::move(setFn);
+}
+
+void Context::SetClipboardText(std::string_view text) {
+    m_clipboardText = std::string(text);
+    if (m_clipboardSetFn) {
+        m_clipboardSetFn(text);
+    }
+}
+
+std::string Context::GetClipboardText() const {
+    if (m_clipboardGetFn) {
+        std::string ext = m_clipboardGetFn();
+        if (!ext.empty() || m_clipboardText.empty()) {
+            return ext;
+        }
+    }
+    return m_clipboardText;
+}
+
+bool Context::ActiveEditState::DeleteSelection() {
+    if (!HasSelection() || readOnly) {
+        return false;
+    }
+    SaveUndo();
+    const size_t s = std::min(SelectionStart(), text.size());
+    const size_t e = std::min(SelectionEnd(), text.size());
+    if (e > s) {
+        text.erase(s, e - s);
+        cursor = s;
+        selectionAnchor = s;
+        changed = true;
+        return true;
+    }
+    selectionAnchor = cursor;
+    return false;
+}
+
+void Context::ActiveEditState::Insert(std::string_view utf8Text) {
+    if (readOnly || utf8Text.empty()) {
+        return;
+    }
+
+    std::string sanitized;
+    sanitized.reserve(utf8Text.size());
+    for (char c : utf8Text) {
+        const uint8_t u = static_cast<uint8_t>(c);
+        if (c == '\r') {
+            continue;
+        }
+        if (c == '\n') {
+            if (multiline) {
+                sanitized.push_back('\n');
+            }
+            continue;
+        }
+        if (u < 32 && c != '\t') {
+            continue;
+        }
+        sanitized.push_back(c);
+    }
+
+    if (sanitized.empty() && !HasSelection()) {
+        return;
+    }
+
+    SaveUndo();
+    if (HasSelection()) {
+        const size_t s = std::min(SelectionStart(), text.size());
+        const size_t e = std::min(SelectionEnd(), text.size());
+        if (e > s) {
+            text.erase(s, e - s);
+        }
+        cursor = s;
+        selectionAnchor = s;
+    }
+
+    if (cursor > text.size()) {
+        cursor = text.size();
+    }
+    if (!sanitized.empty()) {
+        text.insert(cursor, sanitized);
+        cursor += sanitized.size();
+        selectionAnchor = cursor;
+    }
+    changed = true;
+}
+
+bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mods, bool& outLostFocus) {
+    if (mods.ctrl) {
+        switch (key) {
+            case Key::A:
+                SelectAll();
+                return true;
+            case Key::C:
+                if (HasSelection()) {
+                    ctx.SetClipboardText(SelectedText());
+                }
+                return true;
+            case Key::X:
+                if (HasSelection()) {
+                    ctx.SetClipboardText(SelectedText());
+                    if (!readOnly) {
+                        DeleteSelection();
+                    }
+                }
+                return true;
+            case Key::V:
+                if (!readOnly) {
+                    const std::string clip = ctx.GetClipboardText();
+                    if (!clip.empty()) {
+                        Insert(clip);
+                    }
+                }
+                return true;
+            case Key::Z:
+                if (!readOnly && undoText != text) {
+                    std::swap(text, undoText);
+                    cursor = std::min(undoCursor, text.size());
+                    selectionAnchor = cursor;
+                    changed = true;
+                }
+                return true;
+            default:
+                break;
+        }
+    }
+
+    switch (key) {
+        case Key::Backspace: {
+            if (readOnly) {
+                return true;
+            }
+            if (HasSelection()) {
+                DeleteSelection();
+            } else if (cursor > 0 && !text.empty()) {
+                SaveUndo();
+                const size_t safeCur = std::min(cursor, text.size());
+                const size_t prev = mods.ctrl
+                    ? TextUtil::PrevWordBoundary(text, safeCur)
+                    : TextUtil::PrevCharBoundary(text, safeCur);
+                if (safeCur > prev) {
+                    text.erase(prev, safeCur - prev);
+                    cursor = prev;
+                    selectionAnchor = cursor;
+                    changed = true;
+                }
+            }
+            return true;
+        }
+        case Key::Delete: {
+            if (readOnly) {
+                return true;
+            }
+            if (HasSelection()) {
+                DeleteSelection();
+            } else if (cursor < text.size()) {
+                SaveUndo();
+                const size_t next = mods.ctrl
+                    ? TextUtil::NextWordBoundary(text, cursor)
+                    : TextUtil::NextCharBoundary(text, cursor);
+                if (next > cursor) {
+                    text.erase(cursor, next - cursor);
+                    selectionAnchor = cursor;
+                    changed = true;
+                }
+            }
+            return true;
+        }
+        case Key::Left: {
+            if (!mods.shift && HasSelection()) {
+                if (mods.ctrl) {
+                    cursor = TextUtil::PrevWordBoundary(text, SelectionStart());
+                } else {
+                    cursor = SelectionStart();
+                }
+                selectionAnchor = cursor;
+            } else {
+                cursor = mods.ctrl
+                    ? TextUtil::PrevWordBoundary(text, cursor)
+                    : TextUtil::PrevCharBoundary(text, cursor);
+                if (!mods.shift) {
+                    selectionAnchor = cursor;
+                }
+            }
+            return true;
+        }
+        case Key::Right: {
+            if (!mods.shift && HasSelection()) {
+                if (mods.ctrl) {
+                    cursor = TextUtil::NextWordBoundary(text, SelectionEnd());
+                } else {
+                    cursor = SelectionEnd();
+                }
+                selectionAnchor = cursor;
+            } else {
+                cursor = mods.ctrl
+                    ? TextUtil::NextWordBoundary(text, cursor)
+                    : TextUtil::NextCharBoundary(text, cursor);
+                if (!mods.shift) {
+                    selectionAnchor = cursor;
+                }
+            }
+            return true;
+        }
+        case Key::Home: {
+            if (multiline && !mods.ctrl) {
+                const size_t prevNl = (cursor > 0) ? text.rfind('\n', cursor - 1) : std::string::npos;
+                cursor = (prevNl == std::string::npos) ? 0 : prevNl + 1;
+            } else {
+                cursor = 0;
+            }
+            if (!mods.shift) {
+                selectionAnchor = cursor;
+            }
+            return true;
+        }
+        case Key::End: {
+            if (multiline && !mods.ctrl) {
+                const size_t nextNl = text.find('\n', cursor);
+                cursor = (nextNl == std::string::npos) ? text.size() : nextNl;
+            } else {
+                cursor = text.size();
+            }
+            if (!mods.shift) {
+                selectionAnchor = cursor;
+            }
+            return true;
+        }
+        case Key::Enter:
+            if (multiline) {
+                if (!readOnly) {
+                    Insert("\n");
+                }
+                return true;
+            }
+            submitted = true;
+            outLostFocus = true;
+            return true;
+        case Key::Escape:
+            if (HasSelection()) {
+                selectionAnchor = cursor;
+                return true;
+            }
+            outLostFocus = true;
+            id = Id::Null();
+            return true;
+        default:
+            return false;
+    }
 }
 
 void Context::RequestRepaint(int frames) noexcept {
@@ -467,18 +745,15 @@ void Context::OnMouseWheel(float x, float y) {
 void Context::OnTextInput(std::string_view utf8Text) {
     ResetCursorBlink();
     RequestRepaint(3);
-    if (m_focusedId.IsValid() && m_editState.id == m_focusedId) {
-        if (m_editState.cursor <= m_editState.text.size()) {
-            m_editState.text.insert(m_editState.cursor, utf8Text);
-            m_editState.cursor += utf8Text.size();
-            m_editState.changed = true;
-        }
+    if (!m_mouseClicked && m_focusedId.IsValid() && m_editState.id == m_focusedId) {
+        m_editState.Insert(utf8Text);
     } else {
         m_pendingTextInput.emplace_back(utf8Text);
     }
 }
 
 void Context::OnKeyDown(Key key, KeyModifiers mods) {
+    m_keyMods = mods;
     ResetCursorBlink();
     RequestRepaint(3);
 
@@ -486,9 +761,9 @@ void Context::OnKeyDown(Key key, KeyModifiers mods) {
         ClosePopup();
     }
 
-    if (m_focusedId.IsValid() && m_editState.id == m_focusedId) {
+    if (!m_mouseClicked && m_focusedId.IsValid() && m_editState.id == m_focusedId) {
         bool lostFocus = false;
-        if (m_editState.HandleKey(key, lostFocus)) {
+        if (m_editState.HandleKey(*this, key, mods, lostFocus)) {
             if (lostFocus) {
                 m_focusedId = Id::Null();
             }
@@ -536,6 +811,30 @@ bool Context::ConsumeKey(Key key) {
     return false;
 }
 
+std::string_view Context::EnsureTextEdit(
+    Id id,
+    std::string_view initialText,
+    bool multiline,
+    bool readOnly
+) {
+    if (m_editState.id != id) {
+        m_editState.id = id;
+        m_editState.text = initialText;
+        m_editState.cursor = m_editState.text.size();
+        m_editState.selectionAnchor = m_editState.cursor;
+        m_editState.undoText = m_editState.text;
+        m_editState.undoCursor = m_editState.cursor;
+        m_editState.changed = false;
+        m_editState.submitted = false;
+        m_editState.multiline = multiline;
+        m_editState.readOnly = readOnly;
+    } else {
+        m_editState.multiline = multiline;
+        m_editState.readOnly = readOnly;
+    }
+    return m_editState.text;
+}
+
 std::string_view Context::GetOrStartTextEdit(
     Id id,
     std::string_view initialText,
@@ -544,16 +843,21 @@ std::string_view Context::GetOrStartTextEdit(
     bool& outSubmitted,
     bool multiline
 ) {
-    if (m_editState.id != id) {
-        m_editState.id = id;
-        m_editState.text = initialText;
-        m_editState.cursor = m_editState.text.size();
-        m_editState.changed = false;
-        m_editState.submitted = false;
-        m_editState.multiline = multiline;
-    } else {
-        m_editState.multiline = multiline;
-    }
+    size_t anchor = 0;
+    return GetOrStartTextEdit(id, initialText, outCursor, anchor, outChanged, outSubmitted, multiline, false);
+}
+
+std::string_view Context::GetOrStartTextEdit(
+    Id id,
+    std::string_view initialText,
+    size_t& outCursor,
+    size_t& outSelectionAnchor,
+    bool& outChanged,
+    bool& outSubmitted,
+    bool multiline,
+    bool readOnly
+) {
+    EnsureTextEdit(id, initialText, multiline, readOnly);
 
     for (const auto& txt : m_pendingTextInput) {
         m_editState.Insert(txt);
@@ -562,7 +866,7 @@ std::string_view Context::GetOrStartTextEdit(
 
     for (const auto& ev : m_pendingKeyEvents) {
         bool lostFocus = false;
-        if (m_editState.HandleKey(ev.key, lostFocus)) {
+        if (m_editState.HandleKey(*this, ev.key, ev.mods, lostFocus)) {
             if (lostFocus) {
                 m_focusedId = Id::Null();
             }
@@ -570,7 +874,11 @@ std::string_view Context::GetOrStartTextEdit(
     }
     m_pendingKeyEvents.clear();
 
+    m_editState.cursor = std::min(m_editState.cursor, m_editState.text.size());
+    m_editState.selectionAnchor = std::min(m_editState.selectionAnchor, m_editState.text.size());
+
     outCursor = m_editState.cursor;
+    outSelectionAnchor = m_editState.selectionAnchor;
     outChanged = m_editState.changed;
     outSubmitted = m_editState.submitted;
 
@@ -581,6 +889,25 @@ std::string_view Context::GetOrStartTextEdit(
     }
 
     return m_editState.text;
+}
+
+void Context::SetTextEditCursor(Id id, size_t cursor, size_t selectionAnchor) noexcept {
+    if (m_editState.id == id && id.IsValid()) {
+        m_editState.cursor = std::min(cursor, m_editState.text.size());
+        m_editState.selectionAnchor = std::min(selectionAnchor, m_editState.text.size());
+        ResetCursorBlink();
+    }
+}
+
+bool Context::GetTextEditSelection(Id id, size_t& outStart, size_t& outEnd) const noexcept {
+    if (m_editState.id == id && id.IsValid()) {
+        outStart = m_editState.SelectionStart();
+        outEnd = m_editState.SelectionEnd();
+        return m_editState.HasSelection();
+    }
+    outStart = 0;
+    outEnd = 0;
+    return false;
 }
 
 void Context::ResetCursorBlink() noexcept {
@@ -623,7 +950,7 @@ bool Context::IsCursorVisible(std::optional<CursorBlinkMode> modeOverride) const
 
 static Rect GetNodeContentClipRect(const Node* node, const UiTheme& theme) {
     if (!node) return Rect();
-    if (node->type == NodeType::ScrollArea) {
+    if (node->type == NodeType::ScrollArea || (node->type == NodeType::Sidebar && node->sidebarScrollable)) {
         return ScrollArea::GetContentClipRect(node, theme);
     }
     if (node->type == NodeType::Carousel) {
@@ -637,13 +964,8 @@ static void CollectBoundsRecursive(Node* node, std::unordered_map<Id, Rect>& out
 
     const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
 
-    Rect effectiveClip = parentClip;
-    if (node->clipChildren) {
-        effectiveClip = parentClip.Intersect(GetNodeContentClipRect(node, activeTheme));
-    }
-
     if (node->id.IsValid()) {
-        const Rect clipped = node->computedRect.Intersect(effectiveClip);
+        const Rect clipped = node->computedRect.Intersect(parentClip);
         if (clipped.w > 0.0f && clipped.h > 0.0f) {
             outBounds[node->id] = clipped;
         }
@@ -651,6 +973,11 @@ static void CollectBoundsRecursive(Node* node, std::unordered_map<Id, Rect>& out
         if (node->type == NodeType::Carousel) {
             Carousel::CollectBounds(node, outBounds, parentClip);
         }
+    }
+
+    Rect effectiveClip = parentClip;
+    if (node->clipChildren) {
+        effectiveClip = parentClip.Intersect(GetNodeContentClipRect(node, activeTheme));
     }
 
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
@@ -661,7 +988,7 @@ static void CollectBoundsRecursive(Node* node, std::unordered_map<Id, Rect>& out
 void Context::UpdateScrollAreasRecursive(Node* node) {
     if (!node) return;
 
-    if (node->type == NodeType::ScrollArea) {
+    if (node->type == NodeType::ScrollArea || (node->type == NodeType::Sidebar && node->sidebarScrollable)) {
         ScrollArea::Update(*this, node);
     } else if (node->type == NodeType::Carousel) {
         Carousel::Update(*this, node);
@@ -691,7 +1018,7 @@ void Context::ScrollToId(Id id) {
     if (!target) return;
 
     for (Node* p = target->parent; p != nullptr; p = p->parent) {
-        if (p->type == NodeType::ScrollArea && p->id.IsValid()) {
+        if ((p->type == NodeType::ScrollArea || (p->type == NodeType::Sidebar && p->sidebarScrollable)) && p->id.IsValid()) {
             ScrollArea::ScrollToChild(*this, p, target);
             break;
         } else if (p->type == NodeType::Carousel && p->id.IsValid()) {
@@ -702,6 +1029,8 @@ void Context::ScrollToId(Id id) {
 }
 
 void Context::EndFrame(ICanvas& canvas) {
+    m_lastCanvas = &canvas;
+
     // Balance any unclosed container scopes
     while (m_containerStack.size() > 1) {
         m_containerStack.pop_back();
@@ -764,6 +1093,7 @@ void Context::EndFrame(ICanvas& canvas) {
             if (m_editState.id.IsValid() && n->id == m_editState.id) {
                 snap.flags |= (cursorVis ? 16u : 0u) | 32u;
                 snap.cursor = m_editState.cursor;
+                snap.selectionAnchor = m_editState.selectionAnchor;
                 h = detail::HashStringView(m_editState.text, h);
             }
             snap.visualHash = h;
@@ -892,10 +1222,6 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
 
     const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : parentTheme;
 
-    if (node->clipChildren) {
-        canvas.PushClip(GetNodeContentClipRect(node, activeTheme));
-    }
-
     // Render background / border if present (skip for self-rendering leaf widgets)
     if (!node->IsLeaf()) {
         if (node->backgroundColor.a > 0 || (node->borderColor.a > 0 && node->borderWidth > 0.0f)) {
@@ -916,6 +1242,10 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
     // Render specific widget contents
     if (node->renderFn) {
         node->renderFn(node, canvas, activeTheme);
+    }
+
+    if (node->clipChildren) {
+        canvas.PushClip(GetNodeContentClipRect(node, activeTheme));
     }
 
     // Recurse on children
@@ -1034,6 +1364,11 @@ Node* Context::FindDeepestNodeAt(Node* root, Vec2 pos, Rect clipRect) {
     if (!root) return nullptr;
     if (root->computedRect.w <= 0.0f || root->computedRect.h <= 0.0f) return nullptr;
 
+    const Rect visibleRect = root->computedRect.Intersect(clipRect);
+    if (!visibleRect.Contains(pos)) {
+        return nullptr;
+    }
+
     Rect effectiveClip = clipRect;
     if (root->clipChildren) {
         const UiTheme* resolvedTheme = &m_theme;
@@ -1044,11 +1379,6 @@ Node* Context::FindDeepestNodeAt(Node* root, Vec2 pos, Rect clipRect) {
             }
         }
         effectiveClip = clipRect.Intersect(GetNodeContentClipRect(root, *resolvedTheme));
-    }
-
-    const Rect visibleRect = root->computedRect.Intersect(effectiveClip);
-    if (!visibleRect.Contains(pos)) {
-        return nullptr;
     }
 
     Node* bestHit = nullptr;

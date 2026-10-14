@@ -27,7 +27,7 @@ struct SwitchOptions {
     bool disabled{false};                          ///< Interaction suppression
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
 };
-static_assert(sizeof(SwitchOptions) <= 120, "SwitchOptions must stay compact");
+static_assert(sizeof(SwitchOptions) <= 184, "SwitchOptions must stay compact");
 
 /// Autonomous Switch widget logic (execution, measuring, and rendering).
 class Switch {
@@ -46,12 +46,14 @@ public:
         const SwitchOptions& opts,
         UiSize size,
         ICanvas* canvas,
-        const UiTheme& theme
+        const UiTheme& theme,
+        float availableWidth = 0.0f
     );
     static Vec2 Measure(
         const SwitchOptions& opts,
         UiSize size,
-        ICanvas* canvas = nullptr
+        ICanvas* canvas = nullptr,
+        float availableWidth = 0.0f
     );
 
     /// Renders the switch track, knob, and optional label text.

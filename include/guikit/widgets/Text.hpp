@@ -25,20 +25,31 @@ public:
     /// Primary immediate mode entry point for Text widget.
     static Response Run(
         Context& ctx,
-        std::string_view label,
+        UiText label,
         const TextOptions& opts = {},
         std::source_location loc = std::source_location::current()
     );
 
     /// Measures intrinsic dimensions based on text content and typography metrics.
-    static Vec2 Measure(std::string_view label, const TextOptions& opts, ICanvas* canvas, const UiTheme& theme);
-    static Vec2 Measure(std::string_view label, const TextOptions& opts, ICanvas* canvas = nullptr);
+    static Vec2 Measure(
+        const UiText& label,
+        const TextOptions& opts,
+        ICanvas* canvas,
+        const UiTheme& theme,
+        float availableWidth = 0.0f
+    );
+    static Vec2 Measure(
+        const UiText& label,
+        const TextOptions& opts,
+        ICanvas* canvas = nullptr,
+        float availableWidth = 0.0f
+    );
 
-    /// Renders text into allocated bounds with alignment and semantic color.
+    /// Renders text into allocated bounds with alignment, wrapping/truncation, and semantic color.
     static void Render(
         ICanvas& canvas,
         Rect bounds,
-        std::string_view label,
+        const UiText& label,
         const TextOptions& opts,
         bool hovered = false,
         bool disabled = false,

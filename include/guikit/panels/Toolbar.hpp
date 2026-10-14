@@ -17,12 +17,11 @@ class Node;
 
 /// Configuration options for a ToolButton.
 struct ToolButtonOptions {
-    std::string_view label{};
+    UiText label{};
     Icon icon{};
     UiVariant variant{UiVariant::Ghost};
     Placement iconPlacement{Placement::Leading};
     Align controlAlign{Align::Center};  ///< Content horizontal alignment (Start = left, Center, End = right)
-    TextVariants textVariants{};
     StretchMode stretch{StretchMode::Compact};  ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};       ///< Explicit capsule width in pixels
     std::optional<float> minWidth{std::nullopt};    ///< Minimum capsule width in pixels

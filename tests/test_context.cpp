@@ -713,8 +713,8 @@ void TestAutonomousTextWidgetAndTypographyRoles() {
 void TestSwitchAndCheckboxWidgets() {
     using namespace guikit;
 
-    static_assert(sizeof(SwitchOptions) <= 120);
-    static_assert(sizeof(CheckboxOptions) <= 64);
+    static_assert(sizeof(SwitchOptions) <= 184);
+    static_assert(sizeof(CheckboxOptions) <= 96);
 
     const auto theme = UiTheme::Dark();
     // 1. Test measurement
@@ -967,7 +967,7 @@ void TestInputFieldWidget() {
                 .label = "Speed Drop dF/dt",
                 .description = "Automatic stop of testing on load drop",
                 .suffix = "%",
-                .format = "%.0f",
+                .valueFormat = "%.0f",
                 .layout = ElementLayout::Stacked
             });
 
@@ -1012,8 +1012,8 @@ void TestInputFieldWidget() {
     CHECK(rOptInput.rect.h > 36.0f);
     CHECK(!rSpeed.focused);
 
-    // 1. Click speed field to focus
-    ui.OnMouseMove({rSpeed.rect.x + 15.0f, rSpeed.rect.y + 25.0f});
+    // 1. Click speed field to focus (click past end of "50" so cursor is placed at end)
+    ui.OnMouseMove({rSpeed.rect.x + 100.0f, rSpeed.rect.y + 25.0f});
     ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
@@ -1047,8 +1047,8 @@ void TestInputFieldWidget() {
     CHECK(!rSpeed.focused);
     CHECK(!ui.IsFocused(rSpeed.id));
 
-    // 4. Click name field and edit string
-    ui.OnMouseMove({rName.rect.x + 15.0f, rName.rect.y + 25.0f});
+    // 4. Click name field (past end of "Specimen-A") and edit string
+    ui.OnMouseMove({rName.rect.x + 150.0f, rName.rect.y + 25.0f});
     ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
@@ -1068,6 +1068,151 @@ void TestInputFieldWidget() {
 
     CHECK(rName.changed);
     CHECK(sampleName == "Specimen-A-X");
+
+    // 4a. LMB click at the very start of the text (x + 12.0f -> index 0) and insert prefix
+    ui.OnMouseMove({rName.rect.x + 12.0f, rName.rect.y + 25.0f});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    ui.OnMouseUp(1);
+    ui.OnTextInput("ID:");
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(sampleName == "ID:Specimen-A-X");
+
+    // 4b. Keyboard selection, Clipboard (Ctrl+A, Ctrl+C, Ctrl+X, Ctrl+V), and Undo (Ctrl+Z)
+    ui.OnKeyDown(Key::A, {.ctrl = true});
+    ui.OnKeyDown(Key::C, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(ui.GetClipboardText() == "ID:Specimen-A-X");
+
+    // Select last 3 chars ("A-X") using End then Shift+Left x3, then Ctrl+X to cut
+    ui.OnKeyDown(Key::End);
+    ui.OnKeyDown(Key::Left, {.shift = true});
+    ui.OnKeyDown(Key::Left, {.shift = true});
+    ui.OnKeyDown(Key::Left, {.shift = true});
+    ui.OnKeyDown(Key::X, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(ui.GetClipboardText() == "A-X");
+    CHECK(sampleName == "ID:Specimen-");
+
+    // Undo (Ctrl+Z) restores "ID:Specimen-A-X"
+    ui.OnKeyDown(Key::Z, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(sampleName == "ID:Specimen-A-X");
+
+    // Paste (Ctrl+V) at end with newline sanitization
+    ui.SetClipboardText("-99\r\n");
+    ui.OnKeyDown(Key::End);
+    ui.OnKeyDown(Key::V, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(sampleName == "ID:Specimen-A-X-99");
+
+    // Word deletion via Ctrl+Backspace (deletes "99", then "-")
+    ui.OnKeyDown(Key::Backspace, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(sampleName == "ID:Specimen-A-X-");
+
+    ui.OnKeyDown(Key::Backspace, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(sampleName == "ID:Specimen-A-X");
+
+    // 4c. LMB drag selection: press at start (x + 12) and drag to right (x + 200) to select all, then replace
+    ui.OnMouseMove({rName.rect.x + 12.0f, rName.rect.y + 25.0f});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    ui.OnMouseMove({rName.rect.x + 200.0f, rName.rect.y + 25.0f});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    size_t selS = 0, selE = 0;
+    CHECK(ui.GetTextEditSelection(rName.id, selS, selE));
+    CHECK(selS == 0);
+    CHECK(selE == sampleName.size());
+
+    ui.OnMouseUp(1);
+    ui.OnTextInput("Specimen-A-X");
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(sampleName == "Specimen-A-X");
+
+    // 4d. Double-click word selection on "Specimen" (near start at x + 20.0f)
+    ui.SetCurrentTime(10.0);
+    ui.OnMouseMove({rName.rect.x + 20.0f, rName.rect.y + 25.0f});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    ui.AdvanceTime(0.10); // within 0.35s double-click threshold
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    CHECK(ui.GetTextEditSelection(rName.id, selS, selE));
+    CHECK(selS == 0);
+    CHECK(selE == 8); // "Specimen"
+
+    // 4e. UTF-8 Cyrillic editing & word navigation
+    sampleName = "Привет мир";
+    ui.ClearFocus();
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    // Focus and place cursor at end of "Привет мир"
+    ui.AdvanceTime(1.0);
+    ui.OnMouseMove({rName.rect.x + 200.0f, rName.rect.y + 25.0f});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    ui.OnMouseUp(1);
+
+    // Backspace deletes single 2-byte UTF-8 character 'р' -> "Привет ми"
+    ui.OnKeyDown(Key::Backspace);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(sampleName == "Привет ми");
+
+    // Ctrl+Backspace deletes the whole Cyrillic word "ми" -> "Привет "
+    ui.OnKeyDown(Key::Backspace, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(sampleName == "Привет ");
+
+    // Restore sampleName to "Specimen-A-X"
+    sampleName = "Specimen-A-X";
 
     // 5. Click outside (e.g. at 5, 5 in padding) to blur focus
     ui.OnMouseMove({5.0f, 5.0f});
@@ -2094,8 +2239,7 @@ void TestLabelVariantsStableSizing() {
     auto render = [&]() {
         if (auto row = ui.Row({.gap = 8.0f})) {
             btn = ui.Button({
-                .label = state ? "VSync: ON" : "VSync: OFF",
-                .textVariants = {"VSync: ON", "VSync: OFF"}
+                .label = {state ? "VSync: ON" : "VSync: OFF", {"VSync: ON", "VSync: OFF"}}
             });
         }
     };
@@ -2118,6 +2262,55 @@ void TestLabelVariantsStableSizing() {
     CHECK(boundsOff.w > 0.0f);
     CHECK(boundsOn.w > 0.0f);
     CHECK_NEAR(boundsOff.w, boundsOn.w, 0.001f);
+
+    // Also verify Slider and StepSlider intrinsic width stability across min/max and variants
+    {
+        static constexpr std::array<std::string_view, 2> autoPxVars = {"Auto", "%.0f px"};
+        SliderOptions slOpts{.valueFormat = {"Auto", autoPxVars}, .showValue = true, .stretch = StretchMode::Compact};
+        const Vec2 szAuto = Slider::Measure(slOpts, 0.0, 0.0, 400.0, UiSize::Md, &canvas, ui.GetTheme());
+        slOpts.valueFormat = {"%.0f px", autoPxVars};
+        const Vec2 szPx = Slider::Measure(slOpts, 400.0, 0.0, 400.0, UiSize::Md, &canvas, ui.GetTheme());
+        CHECK_NEAR(szAuto.x, szPx.x, 0.001f);
+
+        static constexpr std::array<std::string_view, 3> shortSteps = {"A", "B", "C"};
+        static constexpr std::array<std::string_view, 3> fullNames = {"Short", "Medium", "ExtraLongVariantName"};
+        StepSliderOptions stOpts{
+            .stepLabels = shortSteps,
+            .showValue = true,
+            .valueText = {"Short", fullNames},
+            .stretch = StretchMode::Compact
+        };
+        const Vec2 st0 = StepSlider::Measure(stOpts, 0, 3, UiSize::Md, &canvas, ui.GetTheme());
+        stOpts.valueText = {"ExtraLongVariantName", fullNames};
+        const Vec2 st2 = StepSlider::Measure(stOpts, 2, 3, UiSize::Md, &canvas, ui.GetTheme());
+        CHECK_NEAR(st0.x, st2.x, 0.001f);
+
+        // Verify InputField Compact auto-width calculation from valueFormat variants (and that placeholder does not affect width)
+        static constexpr std::array<std::string_view, 2> shortNumVars = {"0", "99"};
+        static constexpr std::array<std::string_view, 2> longEndpointVars = {"localhost", "https://production-cluster.guikit.dev:8443"};
+        InputFieldOptions inShortOpts{
+            .placeholder = "Very long placeholder hint that must not inflate compact box width...",
+            .suffix = "%",
+            .valueFormat = {"%.0f", shortNumVars},
+            .stretch = StretchMode::Compact
+        };
+        InputFieldOptions inLongOpts{
+            .placeholder = "Host...",
+            .prefix = "https://",
+            .valueFormat = {longEndpointVars},
+            .stretch = StretchMode::Compact
+        };
+        const Vec2 szShortIn = InputField::Measure("5", inShortOpts, UiSize::Md, &canvas, ui.GetTheme());
+        const Vec2 szShortIn2 = InputField::Measure("99", inShortOpts, UiSize::Md, &canvas, ui.GetTheme());
+        const Vec2 szLongIn = InputField::Measure("localhost", inLongOpts, UiSize::Md, &canvas, ui.GetTheme());
+        const float defInW = ui.GetTheme().GetInputField(UiSize::Md).defaultWidth;
+
+        // Short numeric compact input with variants must be narrower than defaultWidth (160pt) even with a long placeholder
+        CHECK(szShortIn.x < defInW);
+        CHECK_NEAR(szShortIn.x, szShortIn2.x, 0.001f);
+        // Long endpoint compact input with variants must expand beyond defaultWidth to fit the longest variant
+        CHECK(szLongIn.x > defInW);
+    }
     CHECK_NEAR(boundsOff.h, boundsOn.h, 0.001f);
 }
 
@@ -2685,10 +2878,10 @@ void TestIndustrialDashboardNoBlackLines() {
                                             });
                                         }
                                         if (auto c = grid1.Cell6()) {
-                                            ui.InputField(maxTravel, {.label = "Max Travel", .suffix = "mm", .format = "%.1f"});
+                                            ui.InputField(maxTravel, {.label = "Max Travel", .suffix = "mm", .valueFormat = "%.1f"});
                                         }
                                         if (auto c = grid1.Cell6()) {
-                                            ui.InputField(maxVelocity, {.label = "Max Velocity", .suffix = "mm/s", .format = "%.1f"});
+                                            ui.InputField(maxVelocity, {.label = "Max Velocity", .suffix = "mm/s", .valueFormat = "%.1f"});
                                         }
                                         if (auto c = grid1.Cell12()) {
                                             ui.Select(sensorChannel, {
@@ -2724,7 +2917,7 @@ void TestIndustrialDashboardNoBlackLines() {
                                             });
                                         }
                                         if (auto c = grid2.Cell6()) {
-                                            ui.InputField(rampDown, {.label = "Ramp Duration", .suffix = "ms", .format = "%.0f"});
+                                            ui.InputField(rampDown, {.label = "Ramp Duration", .suffix = "ms", .valueFormat = "%.0f"});
                                         }
                                     }
                                 }
@@ -3366,6 +3559,48 @@ void TestScopedThemeAndScaleOverrides() {
         }
     }
 
+    // 5. Explicit linear dimensions (dp) scale proportionally with .scale, while Fill % width stays unscaled
+    if (auto scaledCol = ui.Column({.gap = 10.0f, .padding = Padding::All(12.0f), .scale = 2.0f})) {
+        const Node* colNode = scaledCol.GetNode();
+        CHECK(colNode != nullptr);
+        CHECK_NEAR(ui.GetTheme().scale, 2.0f, 0.001f);
+        CHECK_NEAR(colNode->gap, 20.0f, 0.001f);
+        CHECK_NEAR(colNode->padding.left, 24.0f, 0.001f);
+        CHECK_NEAR(colNode->padding.top, 24.0f, 0.001f);
+
+        // Token-based padding must not be double-scaled
+        const Padding tokenPad = ui.GetTheme().ResolvePadding(Padding(UiSize::Sm));
+        CHECK_NEAR(tokenPad.left, ui.GetTheme().GetPadding(UiSize::Sm).left, 0.001f);
+
+        if (auto fixedBox = ui.Box({.fixedWidth = 100.0f, .fixedHeight = 40.0f, .borderWidth = 2.0f, .radius = 6.0f})) {
+            const Node* boxNode = fixedBox.GetNode();
+            CHECK_NEAR(boxNode->fixedWidth, 200.0f, 0.001f);
+            CHECK_NEAR(boxNode->fixedHeight, 80.0f, 0.001f);
+            CHECK_NEAR(boxNode->borderWidth, 4.0f, 0.001f);
+            CHECK_NEAR(boxNode->cornerRadius, 12.0f, 0.001f);
+        }
+
+        if (auto sb = ui.Sidebar({.width = 160.0f, .minWidth = 80.0f, .gap = 8.0f})) {
+            const Node* sbNode = sb.GetNode();
+            CHECK_NEAR(sbNode->fixedWidth, 320.0f, 0.001f);
+            CHECK_NEAR(sbNode->minWidth, 160.0f, 0.001f);
+            CHECK_NEAR(sbNode->gap, 16.0f, 0.001f);
+        }
+
+        const Vec2 btnCompact = Button::Measure(ButtonOptions{.text = "OK", .stretch = StretchMode::Compact, .width = 120.0f}, UiSize::Md, &canvas, ui.GetTheme());
+        CHECK_NEAR(btnCompact.x, 240.0f, 0.001f);
+
+        const Vec2 inpCompact = InputField::Measure("12", InputFieldOptions{.stretch = StretchMode::Compact, .width = 90.0f}, UiSize::Md, &canvas, ui.GetTheme());
+        CHECK_NEAR(inpCompact.x, 180.0f, 0.001f);
+
+        const Vec2 selCompact = Select::Measure(SelectOptions{.stretch = StretchMode::Compact, .width = 110.0f}, UiSize::Md, &canvas, ui.GetTheme());
+        CHECK_NEAR(selCompact.x, 220.0f, 0.001f);
+
+        // StretchMode::Fill treats .width as percentage (0..100%), which must NOT be multiplied by scale
+        const Rect fillBox = Select::GetBoxRect(Rect(0.0f, 0.0f, 400.0f, 60.0f), SelectOptions{.label = "Mode", .layout = ElementLayout::Inline, .stretch = StretchMode::Fill, .width = 50.0f}, UiSize::Md, &canvas, ui.GetTheme());
+        CHECK_NEAR(fillBox.w, 200.0f, 0.01f);
+    }
+
     CHECK_NEAR(ui.GetCurrentScale(), 1.0f, 0.001f);
 
     ui.EndFrame(canvas);
@@ -3391,8 +3626,8 @@ void TestSliderAndStepSliderWidgets() {
     Response r1, r2, r3, r4, r5;
     auto renderUI = [&]() {
         if (auto col = ui.Column()) {
-            r1 = ui.Slider(floatVal, 0.0f, 10.0f, {.label = "Gain", .suffix = "dB"});
-            r2 = ui.Slider(intVal, 1, 8, {.label = "Columns"});
+            r1 = ui.Slider(floatVal, 0.0f, 10.0f, {.label = "Gain", .valueFormat = "%.1f dB"});
+            r2 = ui.Slider(intVal, 1, 8, {.label = "Columns", .valueFormat = "%d ch"});
             r3 = ui.StepSlider(stepIndex, stepLabels, {.label = "Preset"});
             r4 = ui.StepSlider(activeSize, {.label = "Size"});
             r5 = ui.StepSlider(activeRadius, {.label = "Radius", .includeNone = true});
@@ -4666,7 +4901,7 @@ void TestUiTextAndControlCompanionText() {
     using namespace guikit;
     std::cout << "  - TestUiTextAndControlCompanionText...\n";
 
-    static_assert(sizeof(UiText) <= 24);
+    static_assert(sizeof(UiText) <= 40);
 
     const UiTheme& darkTheme = UiTheme::Dark();
     LabelRecordingCanvas recCanvas;
@@ -4736,7 +4971,7 @@ void TestUiTextAndControlCompanionText() {
         }
     }
 
-    // 3. Slider with .textLeft, .textRight, and all 5 .valuePlacement positions
+    // 3. Slider with .textLeft, .textRight, .valueFormat, and all 5 .valuePlacement positions
     for (Placement vp : {Placement::Leading, Placement::Trailing, Placement::Top, Placement::Bottom, Placement::Thumb}) {
         recCanvas.Reset();
         SliderOptions opts{
@@ -4744,7 +4979,7 @@ void TestUiTextAndControlCompanionText() {
             .textLeft = "0%",
             .textRight = "100%",
             .description = "Preamp level",
-            .format = "%.0f%%",
+            .valueFormat = "%.0f%%",
             .layout = ElementLayout::Stacked,
             .showValue = true,
             .valuePlacement = vp,
@@ -4785,6 +5020,22 @@ void TestUiTextAndControlCompanionText() {
         }
     }
 
+    // 3b. Slider with styled .valueFormat (format + semantic variant)
+    {
+        recCanvas.Reset();
+        SliderOptions opts{
+            .label = "Temperature",
+            .valueFormat = {"%.1f C", UiVariant::Warning},
+            .showValue = true
+        };
+        Slider::Render(recCanvas, Rect(20.0f, 20.0f, 300.0f, 60.0f), 36.6, 0.0, 100.0, opts, UiSize::Md, false, false, false, darkTheme);
+        const auto* valCall = recCanvas.FindTextBox("36.6 C");
+        CHECK(valCall != nullptr);
+        if (valCall) {
+            CHECK(valCall->color == darkTheme.GetTextColor(UiVariant::Warning));
+        }
+    }
+
     // 4. InputField with UiText prefix and suffix
     {
         recCanvas.Reset();
@@ -4805,6 +5056,739 @@ void TestUiTextAndControlCompanionText() {
     }
 
     std::cout << "  [PASS] TestUiTextAndControlCompanionText completed\n";
+}
+
+void TestSidebarAndSidebarMenuWorkflow() {
+    using namespace guikit;
+
+    // 1. Verify unified typography resolution (Single Source of Truth)
+    {
+        const UiTheme darkTheme = UiTheme::Dark(Density::Standard);
+        const UiText defaultText{"Action"};
+        // Primary control text (LabelLarge default role) -> ComponentMetrics::fontSize
+        CHECK_NEAR(darkTheme.ResolveFontSize(defaultText, TextRole::LabelLarge, UiSize::Xs), 11.0f, 0.01f);
+        CHECK_NEAR(darkTheme.ResolveFontSize(defaultText, TextRole::LabelLarge, UiSize::Sm), 13.0f, 0.01f);
+        CHECK_NEAR(darkTheme.ResolveFontSize(defaultText, TextRole::LabelLarge, UiSize::Md), 14.0f, 0.01f);
+        CHECK_NEAR(darkTheme.ResolveFontSize(defaultText, TextRole::LabelLarge, UiSize::Lg), 16.0f, 0.01f);
+        CHECK_NEAR(darkTheme.ResolveFontSize(defaultText, TextRole::LabelLarge, UiSize::Xl), 18.0f, 0.01f);
+
+        // Companion text (LabelMedium default role) -> ComponentMetrics::companionFontSize
+        CHECK_NEAR(darkTheme.ResolveFontSize(defaultText, TextRole::LabelMedium, UiSize::Sm), 11.0f, 0.01f);
+        CHECK_NEAR(darkTheme.ResolveFontSize(defaultText, TextRole::LabelMedium, UiSize::Md), 12.0f, 0.01f);
+
+        // Description text (LabelSmall default role) -> ComponentMetrics::descFontSize
+        CHECK_NEAR(darkTheme.ResolveFontSize(defaultText, TextRole::LabelSmall, UiSize::Sm), 10.0f, 0.01f);
+        CHECK_NEAR(darkTheme.ResolveFontSize(defaultText, TextRole::LabelSmall, UiSize::Md), 11.0f, 0.01f);
+    }
+
+    // 2. Test multiple Sidebars docking in call order (Left1, Left2, Right1, Right2) + Center Workspace
+    Context ui;
+    const uint32_t width = 1000;
+    const uint32_t height = 600;
+    std::vector<uint32_t> pixels(width * height, 0);
+    ThorCanvas canvas;
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    Id sbLeft1Id, sbLeft2Id, sbRight1Id, sbRight2Id;
+    Response centerBtn;
+
+    auto renderMultiSidebar = [&]() {
+        if (auto workspace = ui.Row({.gap = 10.0f, .padding = Padding::All(0.0f), .heightMode = SizeMode::Stretch})) {
+            // Left Sidebar #1: Fixed width 120px -> docks at x = 0..120
+            if (auto sb1 = ui.Sidebar({.side = SidebarSide::Left, .width = 120.0f})) {
+                sbLeft1Id = sb1.GetNode()->id;
+                ui.Text("Rail 1");
+            }
+            // Left Sidebar #2: Fixed width 200px -> docks right after Left #1 at x = 130..330
+            if (auto sb2 = ui.Sidebar({.side = SidebarSide::Left, .width = 200.0f})) {
+                sbLeft2Id = sb2.GetNode()->id;
+                ui.Text("Inspector 2");
+            }
+            // Right Sidebar #1: Fixed width 150px -> docks at right edge x = 850..1000
+            if (auto sb3 = ui.Sidebar({.side = SidebarSide::Right, .width = 150.0f})) {
+                sbRight1Id = sb3.GetNode()->id;
+                ui.Text("Right 1");
+            }
+            // Right Sidebar #2: Fixed width 100px -> docks to the left of Right #1 at x = 740..840
+            if (auto sb4 = ui.Sidebar({.side = SidebarSide::Right, .width = 100.0f})) {
+                sbRight2Id = sb4.GetNode()->id;
+                ui.Text("Right 2");
+            }
+            // Remaining child occupies the remaining center space: x = 340..730 (width = 390)
+            centerBtn = ui.Button({.text = "Center Workspace", .stretch = StretchMode::Fill});
+        }
+    };
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderMultiSidebar();
+    ui.EndFrame(canvas);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderMultiSidebar();
+    ui.EndFrame(canvas);
+
+    const Rect rLeft1  = ui.GetPrevFrameBounds(sbLeft1Id);
+    const Rect rLeft2  = ui.GetPrevFrameBounds(sbLeft2Id);
+    const Rect rRight1 = ui.GetPrevFrameBounds(sbRight1Id);
+    const Rect rRight2 = ui.GetPrevFrameBounds(sbRight2Id);
+    const Rect rCenter = ui.GetPrevFrameBounds(centerBtn.id);
+
+    CHECK_NEAR(rLeft1.x, 0.0f, 0.01f);
+    CHECK_NEAR(rLeft1.w, 120.0f, 0.01f);
+    CHECK_NEAR(rLeft1.h, 600.0f, 0.01f);
+
+    CHECK_NEAR(rLeft2.x, 130.0f, 0.01f);
+    CHECK_NEAR(rLeft2.w, 200.0f, 0.01f);
+
+    CHECK_NEAR(rRight1.x, 850.0f, 0.01f);
+    CHECK_NEAR(rRight1.w, 150.0f, 0.01f);
+
+    CHECK_NEAR(rRight2.x, 740.0f, 0.01f);
+    CHECK_NEAR(rRight2.w, 100.0f, 0.01f);
+
+    CHECK_NEAR(rCenter.x, 340.0f, 0.01f);
+    CHECK_NEAR(rCenter.w, 390.0f, 0.01f);
+
+    // 3. Test Auto-Fit Sidebar width + SidebarMenu (Scope API & Collapsed mode)
+    int activeMenuVal = 0;
+    bool menuCollapsed = false;
+    Id fitSidebarId;
+    Response item0Res, item1Res;
+
+    auto renderAutoFitMenu = [&]() {
+        if (auto workspace = ui.Row({.gap = 8.0f, .heightMode = SizeMode::Stretch})) {
+            if (auto sb = ui.Sidebar({.side = SidebarSide::Left})) {
+                fitSidebarId = sb.GetNode()->id;
+                if (auto menu = ui.SidebarMenu({
+                    .style = SidebarMenuStyle::Indicator,
+                    .collapsed = menuCollapsed,
+                    .size = UiSize::Sm
+                })) {
+                    menu.Section("NAVIGATION");
+                    item0Res = menu.Item(activeMenuVal, 0, {.text = "Dashboard", .icon = Icon::Settings(), .badge = "4"});
+                    item1Res = menu.Item(activeMenuVal, 1, {.text = "Analytics", .icon = Icon::Search()});
+                    menu.Separator();
+                }
+            }
+        }
+    };
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderAutoFitMenu();
+    ui.EndFrame(canvas);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderAutoFitMenu();
+    ui.EndFrame(canvas);
+
+    const Rect expandedSbBounds = ui.GetPrevFrameBounds(fitSidebarId);
+    const Rect item1Bounds = ui.GetPrevFrameBounds(item1Res.id);
+    CHECK(expandedSbBounds.w > 90.0f);
+    CHECK(item1Bounds.w > 70.0f);
+
+    // Click second menu item ("Analytics")
+    ui.OnMouseMove(item1Bounds.Center());
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderAutoFitMenu();
+    ui.EndFrame(canvas);
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderAutoFitMenu();
+    ui.EndFrame(canvas);
+
+    CHECK(activeMenuVal == 1);
+
+    // Collapse SidebarMenu into icon-only rail -> auto-fit Sidebar width shrinks!
+    menuCollapsed = true;
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderAutoFitMenu();
+    ui.EndFrame(canvas);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderAutoFitMenu();
+    ui.EndFrame(canvas);
+
+    const Rect collapsedSbBounds = ui.GetPrevFrameBounds(fitSidebarId);
+    CHECK(collapsedSbBounds.w > 24.0f);
+    CHECK(collapsedSbBounds.w < expandedSbBounds.w);
+
+    // 4. Test declarative Span/Initializer-list overload of ui.SidebarMenu
+    int spanIdx = 0;
+    Response spanMenuRes;
+    auto renderSpanMenu = [&]() {
+        if (auto sb = ui.Sidebar({.width = 180.0f})) {
+            spanMenuRes = ui.SidebarMenu(spanIdx, {
+                {.text = "First", .icon = Icon::Play()},
+                {.text = "Second", .icon = Icon::Check(), .badge = "9"}
+            });
+        }
+    };
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderSpanMenu();
+    ui.EndFrame(canvas);
+    CHECK(spanMenuRes.id.IsValid());
+    CHECK(spanIdx == 0);
+
+    std::cout << "  [PASS] TestSidebarAndSidebarMenuWorkflow completed\n";
+}
+
+void TestUiTextModesAndVerticalSpaceReservation() {
+    using namespace guikit;
+    std::cout << "  - TestUiTextModesAndVerticalSpaceReservation...\n";
+
+    const UiTheme& darkTheme = UiTheme::Dark();
+    LabelRecordingCanvas recCanvas;
+    std::vector<uint32_t> pixels(800 * 600, 0);
+    recCanvas.SetTarget(pixels.data(), 800, 600, 800);
+
+    // 1. Single-line truncation with "..." when text exceeds bounds
+    {
+        recCanvas.Reset();
+        InputFieldOptions opts{
+            .label = "Very long field label that should be truncated with ellipsis in a narrow box",
+            .description = "Very long description text that should also be cropped on a single line",
+            .layout = ElementLayout::Stacked
+        };
+        const Vec2 m = InputField::Measure("", opts, UiSize::Md, &recCanvas, darkTheme, 120.0f);
+        InputField::Render(recCanvas, Rect(10.0f, 10.0f, 120.0f, m.y), "", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
+
+        CHECK(recCanvas.textBoxCalls.size() == 2);
+        if (recCanvas.textBoxCalls.size() == 2) {
+            CHECK(recCanvas.textBoxCalls[0].text.ends_with("..."));
+            CHECK(recCanvas.textBoxCalls[1].text.ends_with("..."));
+        }
+    }
+
+    // 2. Multi-line word wrapping (TextWrap::Word) + Max lines truncation (TextLines::Max(2))
+    {
+        recCanvas.Reset();
+        InputFieldOptions singleOpts{
+            .label = "Username",
+            .description = {"Single line description", TextWrap::SingleLine},
+            .layout = ElementLayout::Stacked
+        };
+        InputFieldOptions multiOpts{
+            .label = "Username",
+            .description = {
+                "This validation description is intentionally long so that it wraps across multiple lines in a narrow container",
+                UiVariant::Danger,
+                TextWrap::Word,
+                TextLines::Max(2)
+            },
+            .layout = ElementLayout::Stacked
+        };
+
+        const Vec2 singleM = InputField::Measure("", singleOpts, UiSize::Md, &recCanvas, darkTheme, 140.0f);
+        const Vec2 multiM = InputField::Measure("", multiOpts, UiSize::Md, &recCanvas, darkTheme, 140.0f);
+        const float descFontSize = darkTheme.ResolveFontSize(multiOpts.description, TextRole::LabelSmall, UiSize::Md);
+        const float descLineH = descFontSize * kDefaultLineHeightMultiplier;
+
+        // Multi-line with Max(2) must be exactly 1 description line taller than single-line
+        CHECK_NEAR(multiM.y - singleM.y, descLineH, 0.01f);
+
+        InputField::Render(recCanvas, Rect(10.0f, 10.0f, 140.0f, multiM.y), "", multiOpts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
+        // 1 call for "Username" + 2 calls for the 2 wrapped lines of description
+        CHECK(recCanvas.textBoxCalls.size() == 3);
+        if (recCanvas.textBoxCalls.size() == 3) {
+            CHECK(recCanvas.textBoxCalls[0].text == "Username");
+            CHECK(recCanvas.textBoxCalls[2].text.ends_with("..."));
+        }
+    }
+
+    // 3. Zero vertical layout shift when conditional error description appears/disappears (TextLines::Reserve(1))
+    {
+        Context ui;
+        std::string email = "user@";
+        bool hasError = false;
+        Response inputRes;
+        Response submitBtnRes;
+
+        auto renderForm = [&]() {
+            if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+                inputRes = ui.InputField(email, {
+                    .label = "Email",
+                    .description = {
+                        hasError ? "Invalid email address format" : "",
+                        UiVariant::Danger,
+                        TextLines::Reserve(1)
+                    }
+                });
+                submitBtnRes = ui.Button({.text = "Submit"});
+            }
+        };
+
+        // Frame 1: No error (description is empty, but 1 line is reserved)
+        recCanvas.Reset();
+        hasError = false;
+        ui.BeginFrame({260.0f, 300.0f});
+        renderForm();
+        ui.EndFrame(recCanvas);
+
+        const Rect btnRectNoError = ui.GetPrevFrameBounds(submitBtnRes.id);
+        const Rect inputRectNoError = ui.GetPrevFrameBounds(inputRes.id);
+        CHECK(recCanvas.FindTextBox("Invalid email address format") == nullptr);
+
+        // Frame 2: Error appears!
+        recCanvas.Reset();
+        hasError = true;
+        ui.BeginFrame({260.0f, 300.0f});
+        renderForm();
+        ui.EndFrame(recCanvas);
+
+        const Rect btnRectWithError = ui.GetPrevFrameBounds(submitBtnRes.id);
+        const Rect inputRectWithError = ui.GetPrevFrameBounds(inputRes.id);
+        CHECK(recCanvas.FindTextBox("Invalid email address format") != nullptr);
+
+        // Zero vertical shift!
+        CHECK_NEAR(inputRectNoError.h, inputRectWithError.h, 0.001f);
+        CHECK_NEAR(btnRectNoError.y, btnRectWithError.y, 0.001f);
+    }
+
+    // 4. Zero vertical shift for multi-line fixed reservation (TextWrap::Word + TextLines::Fixed(2))
+    {
+        Context ui;
+        std::string password;
+        int errorStage = 0; // 0 = no error, 1 = 1-line error, 2 = 3-line error (clamped to 2 lines)
+        Response submitBtnRes;
+
+        auto renderPasswordForm = [&]() {
+            std::string_view errText = "";
+            if (errorStage == 1) {
+                errText = "Too short";
+            } else if (errorStage == 2) {
+                errText = "Password must be at least 12 characters long and include uppercase, lowercase, numbers, and special symbols";
+            }
+
+            if (auto col = ui.Column({.gap = 10.0f, .padding = Padding::All(12.0f)})) {
+                ui.InputField(password, {
+                    .label = "Password",
+                    .description = {
+                        errText,
+                        UiVariant::Danger,
+                        TextWrap::Word,
+                        TextLines::Fixed(2)
+                    }
+                });
+                submitBtnRes = ui.Button({.text = "Continue"});
+            }
+        };
+
+        errorStage = 0;
+        ui.BeginFrame({180.0f, 300.0f});
+        renderPasswordForm();
+        ui.EndFrame(recCanvas);
+        const float btnYStage0 = ui.GetPrevFrameBounds(submitBtnRes.id).y;
+
+        errorStage = 1;
+        ui.BeginFrame({180.0f, 300.0f});
+        renderPasswordForm();
+        ui.EndFrame(recCanvas);
+        const float btnYStage1 = ui.GetPrevFrameBounds(submitBtnRes.id).y;
+
+        errorStage = 2;
+        ui.BeginFrame({180.0f, 300.0f});
+        renderPasswordForm();
+        ui.EndFrame(recCanvas);
+        const float btnYStage2 = ui.GetPrevFrameBounds(submitBtnRes.id).y;
+
+        CHECK_NEAR(btnYStage0, btnYStage1, 0.001f);
+        CHECK_NEAR(btnYStage0, btnYStage2, 0.001f);
+    }
+
+    // 5. Standalone ui.Text with TextWrap::Word and TextLines::Reserve
+    {
+        Context ui;
+        bool showNotice = false;
+        Response belowBtn;
+
+        auto renderTextDemo = [&]() {
+            if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(10.0f)})) {
+                ui.Text({
+                    showNotice ? "This standalone text widget wraps across two lines cleanly" : "",
+                    UiVariant::Secondary,
+                    TextWrap::Word,
+                    TextLines::Fixed(2)
+                });
+                belowBtn = ui.Button({.text = "OK"});
+            }
+        };
+
+        showNotice = false;
+        ui.BeginFrame({160.0f, 300.0f});
+        renderTextDemo();
+        ui.EndFrame(recCanvas);
+        const float yHidden = ui.GetPrevFrameBounds(belowBtn.id).y;
+
+        showNotice = true;
+        recCanvas.Reset();
+        ui.BeginFrame({160.0f, 300.0f});
+        renderTextDemo();
+        ui.EndFrame(recCanvas);
+        const float yShown = ui.GetPrevFrameBounds(belowBtn.id).y;
+
+        CHECK_NEAR(yHidden, yShown, 0.001f);
+        CHECK(recCanvas.textBoxCalls.size() >= 2); // Wrapped text + button text
+    }
+
+    std::cout << "  [PASS] TestUiTextModesAndVerticalSpaceReservation completed\n";
+}
+
+void TestSelectItemsAndUnifiedAffixes() {
+    using namespace guikit;
+    std::cout << "  - TestSelectItemsAndUnifiedAffixes...\n";
+
+    const UiTheme& darkTheme = UiTheme::Dark();
+    LabelRecordingCanvas recCanvas;
+    std::vector<uint32_t> pixels(800 * 600, 0);
+    recCanvas.SetTarget(pixels.data(), 800, 600, 800);
+
+    // 1. Unified UiAffix in InputField: icon only, text only, and combined icon + text
+    {
+        recCanvas.Reset();
+        InputFieldOptions opts{
+            .label = "Endpoint",
+            .prefix = {Icon::Search(), "https://", UiVariant::Info},
+            .suffix = {"Verified", Icon::Check(), UiVariant::Success}
+        };
+        CHECK(opts.prefix.HasIcon());
+        CHECK(opts.prefix.HasText());
+        CHECK(opts.prefix.iconPlacement == Placement::Leading);
+        CHECK(opts.suffix.HasIcon());
+        CHECK(opts.suffix.HasText());
+        CHECK(opts.suffix.iconPlacement == Placement::Trailing);
+
+        InputField::Render(recCanvas, Rect(20.0f, 20.0f, 400.0f, 70.0f), "guikit.dev", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
+
+        const auto* pCall = recCanvas.FindTextBox("https://");
+        const auto* valCall = recCanvas.FindTextBox("guikit.dev");
+        const auto* sCall = recCanvas.FindTextBox("Verified");
+        CHECK(pCall != nullptr);
+        CHECK(valCall != nullptr);
+        CHECK(sCall != nullptr);
+        if (pCall && valCall && sCall) {
+            CHECK(pCall->bounds.Right() <= valCall->bounds.x + 1.0f);
+            CHECK(valCall->bounds.Right() <= sCall->bounds.x + 1.0f);
+            CHECK(pCall->color == darkTheme.GetTextColor(UiVariant::Info));
+            CHECK(sCall->color == darkTheme.GetTextColor(UiVariant::Success));
+        }
+    }
+
+    // 2. Select with SelectItem (per-item prefix, suffix, and disabled items)
+    {
+        Context ui;
+        size_t selectedIdx = 0;
+        Response selRes;
+
+        const std::vector<SelectItem> items = {
+            {.text = "1920x1080", .prefix = "FHD", .suffix = {"60 Hz", UiVariant::Muted}},
+            {.text = "2560x1440", .prefix = {Icon::Settings(), "QHD"}, .suffix = {"144 Hz", UiVariant::Info}},
+            {.text = "3840x2160", .prefix = "4K", .suffix = {"Pro", Icon::Check(), UiVariant::Warning}, .disabled = true},
+            {.text = "5120x2880", .prefix = "5K", .suffix = {"240 Hz", UiVariant::Success}}
+        };
+
+        auto renderSelect = [&]() {
+            if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(16.0f)})) {
+                selRes = ui.Select(selectedIdx, items, {
+                    .label = "Resolution",
+                    .stretch = StretchMode::Compact
+                });
+            }
+        };
+
+        // Frame 1 & 2: Closed Select box shows item 0's prefix ("FHD"), text ("1920x1080"), and suffix ("60 Hz")
+        ui.BeginFrame({500.0f, 400.0f});
+        renderSelect();
+        ui.EndFrame(recCanvas);
+
+        recCanvas.Reset();
+        ui.InvalidateAll();
+        ui.BeginFrame({500.0f, 400.0f});
+        renderSelect();
+        ui.EndFrame(recCanvas);
+
+        const auto* fhdCall = recCanvas.FindTextBox("FHD");
+        const auto* textCall = recCanvas.FindTextBox("1920x1080");
+        const auto* hzCall = recCanvas.FindTextBox("60 Hz");
+        CHECK(fhdCall != nullptr);
+        CHECK(textCall != nullptr);
+        CHECK(hzCall != nullptr);
+        if (fhdCall && textCall && hzCall) {
+            CHECK(fhdCall->bounds.Right() <= textCall->bounds.x + 1.0f);
+            CHECK(textCall->bounds.x < hzCall->bounds.x);
+        }
+
+        // Click to open popup
+        const Rect selBounds = ui.GetPrevFrameBounds(selRes.id);
+        ui.OnMouseMove(selBounds.Center());
+        ui.OnMouseDown(1);
+        ui.BeginFrame({500.0f, 400.0f});
+        renderSelect();
+        ui.EndFrame(recCanvas);
+
+        recCanvas.Reset();
+        ui.OnMouseUp(1);
+        ui.BeginFrame({500.0f, 400.0f});
+        renderSelect();
+        ui.EndFrame(recCanvas);
+
+        CHECK(ui.IsPopupOpen(selRes.id));
+        // Popup should render all items' prefixes and suffixes
+        CHECK(recCanvas.FindTextBox("QHD") != nullptr);
+        CHECK(recCanvas.FindTextBox("144 Hz") != nullptr);
+        CHECK(recCanvas.FindTextBox("4K") != nullptr);
+        CHECK(recCanvas.FindTextBox("Pro") != nullptr);
+        CHECK(recCanvas.FindTextBox("5K") != nullptr);
+        CHECK(recCanvas.FindTextBox("240 Hz") != nullptr);
+
+        // Press Key::Down -> moves from index 0 to index 1 ("2560x1440")
+        ui.OnKeyDown(Key::Down);
+        ui.BeginFrame({500.0f, 400.0f});
+        renderSelect();
+        ui.EndFrame(recCanvas);
+        CHECK(selectedIdx == 1);
+        CHECK(selRes.changed);
+
+        // Press Key::Down again -> skips disabled index 2 ("3840x2160") and lands on index 3 ("5120x2880")!
+        ui.OnKeyDown(Key::Down);
+        ui.BeginFrame({500.0f, 400.0f});
+        renderSelect();
+        ui.EndFrame(recCanvas);
+        CHECK(selectedIdx == 3);
+        CHECK(selRes.changed);
+
+        // Press Key::Up -> skips disabled index 2 and lands back on index 1!
+        ui.OnKeyDown(Key::Up);
+        ui.BeginFrame({500.0f, 400.0f});
+        renderSelect();
+        ui.EndFrame(recCanvas);
+        CHECK(selectedIdx == 1);
+        CHECK(selRes.changed);
+
+        // Try clicking on disabled item 2 in popup -> should NOT select index 2 or close popup
+        const Rect popupRect = ui.GetOpenPopupRect();
+        const float itemH = darkTheme.GetSelect(UiSize::Md).itemHeight;
+        const Vec2 item2Center(popupRect.x + popupRect.w * 0.5f, popupRect.y + 4.0f + 2.5f * itemH);
+        ui.OnMouseMove(item2Center);
+        ui.OnMouseDown(1);
+        ui.BeginFrame({500.0f, 400.0f});
+        renderSelect();
+        ui.EndFrame(recCanvas);
+
+        ui.OnMouseUp(1);
+        ui.BeginFrame({500.0f, 400.0f});
+        renderSelect();
+        ui.EndFrame(recCanvas);
+
+        CHECK(selectedIdx == 1);
+        CHECK(ui.IsPopupOpen(selRes.id));
+    }
+
+    std::cout << "  [PASS] TestSelectItemsAndUnifiedAffixes completed\n";
+}
+
+void TestSelectPopupScrollingWithMaxVisibleItems() {
+    using namespace guikit;
+    const UiTheme& darkTheme = UiTheme::Dark();
+    LabelRecordingCanvas recCanvas;
+    std::vector<uint32_t> pixels(800 * 600, 0);
+    recCanvas.SetTarget(pixels.data(), 800, 600, 800);
+
+    const std::array<SelectItem, 8> items = {{
+        {.text = "Option 0", .suffix = "S0"},
+        {.text = "Option 1", .suffix = "S1"},
+        {.text = "Option 2", .suffix = "S2"},
+        {.text = "Option 3", .suffix = "S3"},
+        {.text = "Option 4", .suffix = "S4"},
+        {.text = "Option 5", .suffix = "S5"},
+        {.text = "Option 6", .suffix = "S6"},
+        {.text = "Option 7", .suffix = "S7"}
+    }};
+
+    // 1. Verify Compact Select reserves scrollbar gutter width when items.size() > maxVisibleItems
+    {
+        Context ui;
+        size_t idxA = 0;
+        size_t idxB = 0;
+        WidgetResponse resNoScroll;
+        WidgetResponse resScroll;
+
+        auto renderPair = [&]() {
+            if (auto col = ui.Column({.gap = 8.0f})) {
+                resNoScroll = ui.Select(idxA, std::span<const SelectItem>(items), {
+                    .maxVisibleItems = 10,
+                    .stretch = StretchMode::Compact
+                });
+                resScroll = ui.Select(idxB, std::span<const SelectItem>(items), {
+                    .maxVisibleItems = 3,
+                    .stretch = StretchMode::Compact
+                });
+            }
+        };
+
+        ui.BeginFrame({500.0f, 300.0f});
+        renderPair();
+        ui.EndFrame(recCanvas);
+
+        ui.BeginFrame({500.0f, 300.0f});
+        renderPair();
+        ui.EndFrame(recCanvas);
+
+        const float expectedGutter = darkTheme.GetScrollbar(UiSize::Md).gutter;
+        CHECK_NEAR(resScroll.rect.w - resNoScroll.rect.w, expectedGutter, 0.5f);
+    }
+
+    // 2. Interactive popup scrolling: culling, keyboard auto-scroll, wheel isolation from ScrollArea, thumb drag, item click
+    {
+        Context ui;
+        size_t selectedIdx = 0;
+        WidgetResponse selRes;
+
+        auto renderScene = [&]() {
+            if (auto sa = ui.ScrollArea()) {
+                if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+                    selRes = ui.Select(selectedIdx, std::span<const SelectItem>(items), {
+                        .label = "Scrollable Select",
+                        .maxVisibleItems = 3
+                    });
+                    // Extra tall content so parent ScrollArea is scrollable if it receives wheel events
+                    for (int i = 0; i < 15; ++i) {
+                        ui.Button({.label = "Background Filler Row"});
+                    }
+                }
+            }
+        };
+
+        // Initial layout passes
+        ui.BeginFrame({500.0f, 300.0f});
+        renderScene();
+        ui.EndFrame(recCanvas);
+
+        ui.BeginFrame({500.0f, 300.0f});
+        renderScene();
+        ui.EndFrame(recCanvas);
+
+        const float initialSelectY = selRes.rect.y;
+
+        // Open the Select popup
+        ui.OnMouseMove(selRes.rect.Center());
+        ui.OnMouseDown(1);
+        ui.BeginFrame({500.0f, 300.0f});
+        renderScene();
+        ui.EndFrame(recCanvas);
+
+        recCanvas.Reset();
+        ui.OnMouseUp(1);
+        ui.BeginFrame({500.0f, 300.0f});
+        renderScene();
+        ui.EndFrame(recCanvas);
+
+        CHECK(ui.IsPopupOpen(selRes.id));
+        const Rect popupRect = ui.GetOpenPopupRect();
+        const float itemH = darkTheme.GetSelect(UiSize::Md).itemHeight;
+        CHECK_NEAR(popupRect.h, 3.0f * itemH + 8.0f, 0.5f);
+
+        // At scrollY == 0: Options 0, 1, 2 are visible; Options 3..7 are culled
+        CHECK(recCanvas.FindTextBox("Option 0") != nullptr);
+        CHECK(recCanvas.FindTextBox("Option 1") != nullptr);
+        CHECK(recCanvas.FindTextBox("Option 2") != nullptr);
+        CHECK(recCanvas.FindTextBox("Option 3") == nullptr);
+        CHECK(recCanvas.FindTextBox("Option 7") == nullptr);
+
+        // Navigate Down 4 times with keyboard -> selects Option 4 and auto-scrolls it into view
+        for (int step = 0; step < 4; ++step) {
+            recCanvas.Reset();
+            ui.OnKeyDown(Key::Down);
+            ui.BeginFrame({500.0f, 300.0f});
+            renderScene();
+            ui.EndFrame(recCanvas);
+        }
+        CHECK(selectedIdx == 4);
+        // Option 4 must now be visible (along with Options 2 and 3), while Option 0 and Option 1 are culled above
+        CHECK(recCanvas.FindTextBox("Option 0") == nullptr);
+        CHECK(recCanvas.FindTextBox("Option 1") == nullptr);
+        CHECK(recCanvas.FindTextBox("Option 2") != nullptr);
+        CHECK(recCanvas.FindTextBox("Option 3") != nullptr);
+        CHECK(recCanvas.FindTextBox("Option 4") != nullptr);
+        CHECK(recCanvas.FindTextBox("Option 5") == nullptr);
+
+        // Scroll mouse wheel down inside open popup -> scrolls popup to bottom (Option 7 visible),
+        // while parent ScrollArea MUST NOT scroll (selRes.rect.y remains unchanged!)
+        recCanvas.Reset();
+        ui.OnMouseMove(popupRect.Center());
+        ui.OnMouseWheel(0.0f, -5.0f);
+        ui.BeginFrame({500.0f, 300.0f});
+        renderScene();
+        ui.EndFrame(recCanvas);
+
+        // Render one more frame so any parent ScrollArea scroll offset change would take effect on layout
+        recCanvas.Reset();
+        ui.InvalidateAll();
+        ui.BeginFrame({500.0f, 300.0f});
+        renderScene();
+        ui.EndFrame(recCanvas);
+
+        CHECK_NEAR(selRes.rect.y, initialSelectY, 0.01f);
+        CHECK(recCanvas.FindTextBox("Option 3") == nullptr);
+        CHECK(recCanvas.FindTextBox("Option 5") != nullptr);
+        CHECK(recCanvas.FindTextBox("Option 6") != nullptr);
+        CHECK(recCanvas.FindTextBox("Option 7") != nullptr);
+
+        // Drag scrollbar thumb back to top -> releasing mouse button must NOT close popup or select an item
+        const auto& sm = darkTheme.GetScrollbar(UiSize::Md);
+        const float trackX = popupRect.Right() - sm.margin - sm.trackWidth * 0.5f;
+        const float bottomThumbY = popupRect.Bottom() - 4.0f - sm.margin - sm.minThumbLength * 0.5f;
+
+        ui.OnMouseMove({trackX, bottomThumbY});
+        ui.OnMouseDown(1);
+        ui.BeginFrame({500.0f, 300.0f});
+        renderScene();
+        ui.EndFrame(recCanvas);
+
+        // Drag thumb up to top of popup
+        ui.OnMouseMove({trackX, popupRect.y + 8.0f});
+        ui.BeginFrame({500.0f, 300.0f});
+        renderScene();
+        ui.EndFrame(recCanvas);
+
+        recCanvas.Reset();
+        ui.OnMouseUp(1);
+        ui.BeginFrame({500.0f, 300.0f});
+        renderScene();
+        ui.EndFrame(recCanvas);
+
+        CHECK(ui.IsPopupOpen(selRes.id));
+        CHECK(selectedIdx == 4); // Unchanged by thumb drag release!
+        CHECK(recCanvas.FindTextBox("Option 0") != nullptr);
+        CHECK(recCanvas.FindTextBox("Option 7") == nullptr);
+
+        // Scroll back to bottom with wheel and click on Option 7 (last visible row in popup)
+        ui.OnMouseMove(popupRect.Center());
+        ui.OnMouseWheel(0.0f, -10.0f);
+        ui.BeginFrame({500.0f, 300.0f});
+        renderScene();
+        ui.EndFrame(recCanvas);
+
+        const Vec2 lastVisibleRowCenter(popupRect.x + popupRect.w * 0.4f, popupRect.Bottom() - 4.0f - itemH * 0.5f);
+        ui.OnMouseMove(lastVisibleRowCenter);
+        ui.OnMouseDown(1);
+        ui.BeginFrame({500.0f, 300.0f});
+        renderScene();
+        ui.EndFrame(recCanvas);
+
+        ui.OnMouseUp(1);
+        ui.BeginFrame({500.0f, 300.0f});
+        renderScene();
+        ui.EndFrame(recCanvas);
+
+        CHECK(!ui.IsPopupOpen(selRes.id));
+        CHECK(selectedIdx == 7);
+        CHECK(selRes.changed);
+    }
+
+    std::cout << "  [PASS] TestSelectPopupScrollingWithMaxVisibleItems completed\n";
 }
 
 int main() {
@@ -4859,6 +5843,10 @@ int main() {
     TestWidgetStretchModesAndExplicitWidth();
     TestLabelAlignmentGeometryOptionA();
     TestUiTextAndControlCompanionText();
+    TestSidebarAndSidebarMenuWorkflow();
+    TestUiTextModesAndVerticalSpaceReservation();
+    TestSelectItemsAndUnifiedAffixes();
+    TestSelectPopupScrollingWithMaxVisibleItems();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

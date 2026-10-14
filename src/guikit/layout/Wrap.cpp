@@ -17,10 +17,11 @@ ContainerScope Wrap::Open(
 
     Node* node = ctx.CreateNode(NodeType::Wrap, id);
     node->theme = pushedTheme;
+    const UiTheme& theme = ctx.GetTheme();
     node->direction = FlexDirection::Wrap;
-    node->gap = opts.gap.value_or(ctx.GetTheme().GetGap(activeSize));
-    node->runGap = opts.runGap.value_or(node->gap);
-    node->padding = ctx.GetTheme().ResolvePadding(opts.padding);
+    node->gap = theme.ResolveGap(opts.gap, activeSize);
+    node->runGap = opts.runGap.has_value() ? theme.Scale(*opts.runGap) : node->gap;
+    node->padding = theme.ResolvePadding(opts.padding);
     node->align = opts.align;
     node->justify = opts.justify;
     node->widthMode = SizeMode::Stretch;

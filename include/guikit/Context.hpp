@@ -33,12 +33,14 @@
 #include "guikit/panels/Card.hpp"
 #include "guikit/panels/Carousel.hpp"
 #include "guikit/panels/ScrollArea.hpp"
+#include "guikit/panels/Sidebar.hpp"
 #include "guikit/panels/Toolbar.hpp"
 #include "guikit/widgets/Button.hpp"
 #include "guikit/widgets/Checkbox.hpp"
 #include "guikit/widgets/Heading.hpp"
 #include "guikit/widgets/InputField.hpp"
 #include "guikit/widgets/Select.hpp"
+#include "guikit/widgets/SidebarMenu.hpp"
 #include "guikit/widgets/Slider.hpp"
 #include "guikit/widgets/Switch.hpp"
 #include "guikit/widgets/TabBar.hpp"
@@ -294,6 +296,11 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
+    [[nodiscard]] ContainerScope Sidebar(
+        SidebarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
     // --- Scale & State Scopes ---
     void PushSize(UiSize size);
     void PopSize();
@@ -342,7 +349,7 @@ public:
     );
 
     Response Text(
-        std::string_view label,
+        UiText label,
         TextOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
@@ -431,6 +438,34 @@ public:
     template <SelectTarget T>
     Response Select(
         T& selected,
+        std::span<const SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        if constexpr (std::is_same_v<std::decay_t<T>, size_t>) {
+            return Run<guikit::Select>(&selected, nullptr, nullptr, nullptr, items, opts, loc);
+        } else if constexpr (std::is_same_v<std::decay_t<T>, int>) {
+            return Run<guikit::Select>(nullptr, &selected, nullptr, nullptr, items, opts, loc);
+        } else if constexpr (std::is_same_v<std::decay_t<T>, std::string>) {
+            return Run<guikit::Select>(nullptr, nullptr, &selected, nullptr, items, opts, loc);
+        } else if constexpr (std::is_same_v<std::decay_t<T>, std::string_view>) {
+            return Run<guikit::Select>(nullptr, nullptr, nullptr, &selected, items, opts, loc);
+        }
+    }
+
+    template <SelectTarget T>
+    Response Select(
+        T& selected,
+        std::initializer_list<SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Select(selected, std::span<const SelectItem>(items.begin(), items.size()), opts, loc);
+    }
+
+    template <SelectTarget T>
+    Response Select(
+        T& selected,
         std::span<const std::string_view> items,
         SelectOptions opts = {},
         std::source_location loc = std::source_location::current()
@@ -478,6 +513,35 @@ public:
         std::source_location loc = std::source_location::current()
     ) requires (std::is_integral_v<IndexT>) {
         return TabBar(activeIndex, std::span<const TabItem>(tabs.begin(), tabs.size()), opts, loc);
+    }
+
+    // --- SidebarMenu Component ---
+    [[nodiscard]] SidebarMenuScope SidebarMenu(
+        SidebarMenuOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    template <typename IndexT>
+    Response SidebarMenu(
+        IndexT& activeIndex,
+        std::span<const SidebarMenuItem> items,
+        SidebarMenuOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+        int idx = static_cast<int>(activeIndex);
+        Response r = SidebarMenu::Run(*this, idx, items, opts, loc);
+        if (r.changed && idx >= 0) activeIndex = static_cast<IndexT>(idx);
+        return r;
+    }
+
+    template <typename IndexT>
+    Response SidebarMenu(
+        IndexT& activeIndex,
+        std::initializer_list<SidebarMenuItem> items,
+        SidebarMenuOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+        return SidebarMenu(activeIndex, std::span<const SidebarMenuItem>(items.begin(), items.size()), opts, loc);
     }
 
     // --- Slider & StepSlider Widgets ---
@@ -575,7 +639,26 @@ public:
         if (!t.text.empty()) {
             t.text = AllocString(t.text);
         }
+        if (!t.variants.empty()) {
+            const size_t count = t.variants.size();
+            auto* arr = static_cast<std::string_view*>(
+                m_arena.AllocateRaw(sizeof(std::string_view) * count, alignof(std::string_view))
+            );
+            size_t i = 0;
+            for (std::string_view v : t.variants) {
+                arr[i++] = v.empty() ? std::string_view{} : AllocString(v);
+            }
+            t.variants = std::span<const std::string_view>(arr, count);
+        }
         return t;
+    }
+
+    [[nodiscard]] UiAffix AllocAffix(UiAffix a) {
+        a.text = AllocText(a.text);
+        if (!a.icon.GetPath().empty()) {
+            a.icon = Icon::File(AllocString(a.icon.GetPath()));
+        }
+        return a;
     }
 
     template <typename... Args>
@@ -608,12 +691,33 @@ public:
     [[nodiscard]] Id GetFocusedId() const noexcept { return m_focusedId; }
     [[nodiscard]] bool IsFocused(Id id) const noexcept { return m_focusedId == id && id.IsValid(); }
     [[nodiscard]] bool HasActiveTextEdit(Id id) const noexcept { return m_editState.id == id && id.IsValid(); }
-    void ClearFocus() noexcept { m_focusedId = Id::Null(); }
+    void ClearFocus() noexcept {
+        if (m_editState.id == m_focusedId) {
+            m_editState.id = Id::Null();
+        }
+        m_focusedId = Id::Null();
+    }
 
     [[nodiscard]] Id GetActiveId() const noexcept { return m_activeId; }
     void SetActiveId(Id id) noexcept { m_activeId = id; }
     [[nodiscard]] uint64_t GetFrameIndex() const noexcept { return m_frameIndex; }
     [[nodiscard]] size_t GetCustomStateCount() const noexcept { return m_customStates.size(); }
+    [[nodiscard]] ICanvas* GetCanvas() const noexcept { return m_lastCanvas; }
+
+    // --- Clipboard Services ---
+    using ClipboardGetFn = std::function<std::string()>;
+    using ClipboardSetFn = std::function<void(std::string_view)>;
+
+    void SetClipboardCallbacks(ClipboardGetFn getFn, ClipboardSetFn setFn);
+    void SetClipboardText(std::string_view text);
+    [[nodiscard]] std::string GetClipboardText() const;
+
+    std::string_view EnsureTextEdit(
+        Id id,
+        std::string_view initialText,
+        bool multiline = false,
+        bool readOnly = false
+    );
 
     std::string_view GetOrStartTextEdit(
         Id id,
@@ -623,6 +727,23 @@ public:
         bool& outSubmitted,
         bool multiline = false
     );
+
+    std::string_view GetOrStartTextEdit(
+        Id id,
+        std::string_view initialText,
+        size_t& outCursor,
+        size_t& outSelectionAnchor,
+        bool& outChanged,
+        bool& outSubmitted,
+        bool multiline = false,
+        bool readOnly = false
+    );
+
+    void SetTextEditCursor(Id id, size_t cursor, size_t selectionAnchor) noexcept;
+    [[nodiscard]] bool GetTextEditSelection(Id id, size_t& outStart, size_t& outEnd) const noexcept;
+    [[nodiscard]] size_t GetTextEditAnchor(Id id) const noexcept {
+        return (m_editState.id == id && id.IsValid()) ? m_editState.selectionAnchor : 0;
+    }
 
     // --- Cursor Configuration & State ---
     void SetCursorConfig(const CursorConfig& config) noexcept { m_cursorConfig = config; }
@@ -649,8 +770,22 @@ public:
     [[nodiscard]] bool IsMouseClicked() const noexcept { return m_mouseClicked; }
     [[nodiscard]] bool IsMouseReleased() const noexcept { return m_mouseReleased; }
     void ConsumeMouseClick() noexcept { m_mouseClicked = false; m_mouseReleased = false; }
+    void SetKeyModifiers(KeyModifiers mods) noexcept { m_keyMods = mods; }
+    [[nodiscard]] KeyModifiers GetKeyModifiers() const noexcept { return m_keyMods; }
     [[nodiscard]] Vec2 GetViewportSize() const noexcept { return m_viewportSize; }
-    [[nodiscard]] Vec2 GetMouseWheel() const noexcept { return m_mouseWheel; }
+    [[nodiscard]] Vec2 GetMouseWheel() const noexcept {
+        if (m_openPopupId.IsValid() && m_openPopupRect.Contains(m_mousePos)) {
+            return {0.0f, 0.0f};
+        }
+        return m_mouseWheel;
+    }
+    [[nodiscard]] Vec2 GetPopupMouseWheel(Id popupId) const noexcept {
+        if (m_openPopupId == popupId && popupId.IsValid()) {
+            return m_mouseWheel;
+        }
+        return {0.0f, 0.0f};
+    }
+    void ConsumeMouseWheel() noexcept { m_mouseWheel = {0.0f, 0.0f}; }
     bool ConsumeKey(Key key);
     void ScrollToId(Id id);
 
@@ -689,6 +824,7 @@ private:
         uint64_t visualHash{0};
         uint32_t flags{0}; // bits: 0=hovered, 1=pressed, 2=disabled, 3=checked, 4=cursorVisible, 5=activeEdit, 6=tabActive
         size_t cursor{0};
+        size_t selectionAnchor{0};
         uint32_t bgColor{0};
         uint32_t borderColor{0};
 
@@ -697,6 +833,7 @@ private:
                    visualHash == o.visualHash &&
                    flags == o.flags &&
                    cursor == o.cursor &&
+                   selectionAnchor == o.selectionAnchor &&
                    bgColor == o.bgColor &&
                    borderColor == o.borderColor;
         }
@@ -726,6 +863,7 @@ private:
     std::vector<UiTheme*> m_themeStack;
     std::vector<float> m_scaleStack;
     Node* m_root{nullptr};
+    ICanvas* m_lastCanvas{nullptr};
 
     Vec2 m_viewportSize{800.0f, 600.0f};
     float m_dpiScale{1.0f};
@@ -742,8 +880,14 @@ private:
     bool m_mouseDown{false};
     bool m_mouseClicked{false};
     bool m_mouseReleased{false};
+    KeyModifiers m_keyMods{};
     int m_repaintFrames{3};
     int m_idleHeartbeatMs{500};
+
+    // Clipboard state
+    ClipboardGetFn m_clipboardGetFn{};
+    ClipboardSetFn m_clipboardSetFn{};
+    std::string m_clipboardText{};
 
     Id m_hoveredId{Id::Null()};
     Id m_activeId{Id::Null()};
@@ -754,73 +898,38 @@ private:
         Id id{Id::Null()};
         std::string text;
         size_t cursor{0};
+        size_t selectionAnchor{0};
+        std::string undoText;
+        size_t undoCursor{0};
         bool changed{false};
         bool submitted{false};
         bool multiline{false};
+        bool readOnly{false};
 
-        void Insert(std::string_view utf8Text) {
-            if (cursor <= text.size()) {
-                text.insert(cursor, utf8Text);
-                cursor += utf8Text.size();
-                changed = true;
-            }
+        [[nodiscard]] bool HasSelection() const noexcept { return cursor != selectionAnchor; }
+        [[nodiscard]] size_t SelectionStart() const noexcept { return std::min(cursor, selectionAnchor); }
+        [[nodiscard]] size_t SelectionEnd() const noexcept { return std::max(cursor, selectionAnchor); }
+
+        [[nodiscard]] std::string_view SelectedText() const noexcept {
+            if (!HasSelection()) return {};
+            const size_t s = std::min(SelectionStart(), text.size());
+            const size_t e = std::min(SelectionEnd(), text.size());
+            return std::string_view(text).substr(s, e - s);
         }
 
-        bool HandleKey(Key key, bool& outLostFocus) {
-            switch (key) {
-                case Key::Backspace:
-                    if (cursor > 0 && !text.empty()) {
-                        text.erase(cursor - 1, 1);
-                        cursor--;
-                        changed = true;
-                    }
-                    return true;
-                case Key::Delete:
-                    if (cursor < text.size()) {
-                        text.erase(cursor, 1);
-                        changed = true;
-                    }
-                    return true;
-                case Key::Left:
-                    if (cursor > 0) cursor--;
-                    return true;
-                case Key::Right:
-                    if (cursor < text.size()) cursor++;
-                    return true;
-                case Key::Home: {
-                    if (multiline) {
-                        size_t prevNl = text.rfind('\n', cursor > 0 ? cursor - 1 : 0);
-                        cursor = (prevNl == std::string::npos) ? 0 : prevNl + 1;
-                    } else {
-                        cursor = 0;
-                    }
-                    return true;
-                }
-                case Key::End: {
-                    if (multiline) {
-                        size_t nextNl = text.find('\n', cursor);
-                        cursor = (nextNl == std::string::npos) ? text.size() : nextNl;
-                    } else {
-                        cursor = text.size();
-                    }
-                    return true;
-                }
-                case Key::Enter:
-                    if (multiline) {
-                        Insert("\n");
-                        return true;
-                    }
-                    submitted = true;
-                    outLostFocus = true;
-                    return true;
-                case Key::Escape:
-                    outLostFocus = true;
-                    id = Id::Null();
-                    return true;
-                default:
-                    return false;
-            }
+        void SaveUndo() {
+            undoText = text;
+            undoCursor = cursor;
         }
+
+        void SelectAll() noexcept {
+            selectionAnchor = 0;
+            cursor = text.size();
+        }
+
+        bool DeleteSelection();
+        void Insert(std::string_view utf8Text);
+        bool HandleKey(Context& ctx, Key key, KeyModifiers mods, bool& outLostFocus);
     };
     ActiveEditState m_editState;
 
