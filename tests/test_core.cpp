@@ -7,6 +7,7 @@
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/core/Node.hpp"
+#include "guikit/core/TextUtil.hpp"
 #include "guikit/geo/MapGrid.hpp"
 
 static int g_failures = 0;
@@ -409,6 +410,41 @@ void TestMapGridAndProjections() {
     CHECK(dmmStr.find("007") != std::string::npos);
 }
 
+void TestTextWrapForceSplitLastWord() {
+    using namespace guikit;
+
+    // 1. Single long word at end of string wider than maxWidth
+    {
+        const std::string_view text = "StretchMode::Fill.";
+        const auto lines = TextUtil::WrapText(text, 60.0f, 14.0f, nullptr);
+        CHECK(lines.size() >= 2);
+        std::string reconstructed;
+        for (std::string_view ln : lines) {
+            reconstructed.append(ln);
+        }
+        CHECK(reconstructed == text);
+    }
+
+    // 2. Multi-word string where the final word requires force-splitting across narrow widths
+    {
+        const std::string_view subtitle =
+            "Each button automatically receives exactly 33.3% available width via stretch = StretchMode::Fill.";
+        for (float maxW = 4.0f; maxW <= 250.0f; maxW += 7.0f) {
+            const auto lines = TextUtil::WrapText(subtitle, maxW, 13.0f, nullptr);
+            CHECK(!lines.empty());
+        }
+    }
+
+    // 3. UTF-8 multi-byte string force-split at the end of string
+    {
+        const std::string_view utf8Text = "Короткий текст СверхдлинноеСловоВКонцеСтроки";
+        for (float maxW = 5.0f; maxW <= 200.0f; maxW += 11.0f) {
+            const auto lines = TextUtil::WrapText(utf8Text, maxW, 14.0f, nullptr);
+            CHECK(!lines.empty());
+        }
+    }
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Core Foundation...\n";
 
@@ -422,6 +458,7 @@ int main() {
     TestSliderMetricsTokens();
     TestComputeBoxFit();
     TestMapGridAndProjections();
+    TestTextWrapForceSplitLastWord();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Core tests passed successfully!\n";

@@ -183,13 +183,10 @@ std::vector<std::string_view> TextUtil::WrapText(
         // Word is wider than maxWidth by itself: break it character by character
         size_t chunkStart = lineStart;
         while (chunkStart < wordEnd) {
-            size_t chunkEnd = NextUtf8CharBoundary(text, chunkStart);
-            while (chunkEnd <= wordEnd) {
-                const size_t nextBoundary = NextUtf8CharBoundary(text, chunkEnd);
-                if (nextBoundary > wordEnd) {
-                    if (MeasureWidth(text.substr(chunkStart, wordEnd - chunkStart), fontSize, canvas) <= maxWidth) {
-                        chunkEnd = wordEnd;
-                    }
+            size_t chunkEnd = std::min(NextUtf8CharBoundary(text, chunkStart), wordEnd);
+            while (chunkEnd < wordEnd) {
+                const size_t nextBoundary = std::min(NextUtf8CharBoundary(text, chunkEnd), wordEnd);
+                if (nextBoundary <= chunkEnd) {
                     break;
                 }
                 if (MeasureWidth(text.substr(chunkStart, nextBoundary - chunkStart), fontSize, canvas) > maxWidth) {
@@ -198,8 +195,8 @@ std::vector<std::string_view> TextUtil::WrapText(
                 chunkEnd = nextBoundary;
             }
 
-            if (chunkEnd == chunkStart) {
-                chunkEnd = NextUtf8CharBoundary(text, chunkStart);
+            if (chunkEnd <= chunkStart) {
+                chunkEnd = std::min(NextUtf8CharBoundary(text, chunkStart), wordEnd);
             }
 
             if (chunkEnd < wordEnd) {

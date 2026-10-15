@@ -158,6 +158,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    SDL_SetWindowMinimumSize(window, 320, 240);
     SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     SDL_SetRenderVSync(renderer, 1);
     SDL_StartTextInput(window);
@@ -165,15 +166,17 @@ int main(int argc, char* argv[]) {
     guikit::Context ui;
     guikit::ThorCanvas canvas;
 
-    std::vector<uint32_t> pixelBuffer(winWidth * winHeight, 0);
-    canvas.SetTarget(pixelBuffer.data(), winWidth, winHeight, winWidth);
+    int bufWidth = winWidth;
+    int bufHeight = winHeight;
+    std::vector<uint32_t> pixelBuffer(static_cast<size_t>(bufWidth) * static_cast<size_t>(bufHeight), 0);
+    canvas.SetTarget(pixelBuffer.data(), bufWidth, bufHeight, bufWidth);
 
     SDL_Texture* screenTexture = SDL_CreateTexture(
         renderer,
         SDL_PIXELFORMAT_ABGR8888,
         SDL_TEXTUREACCESS_STREAMING,
-        winWidth,
-        winHeight
+        bufWidth,
+        bufHeight
     );
 
     bool showSidebar = true;
@@ -229,21 +232,12 @@ int main(int argc, char* argv[]) {
                 running = false;
                 break;
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: {
-                winWidth = event.window.data1;
-                winHeight = event.window.data2;
-                pixelBuffer.resize(winWidth * winHeight, 0);
-                canvas.SetTarget(pixelBuffer.data(), winWidth, winHeight, winWidth);
-                if (screenTexture) {
-                    SDL_DestroyTexture(screenTexture);
+                if (event.window.data1 > 0 && event.window.data2 > 0) {
+                    winWidth = event.window.data1;
+                    winHeight = event.window.data2;
+                    ui.InvalidateAll();
+                    ui.RequestRepaint(3);
                 }
-                screenTexture = SDL_CreateTexture(
-                    renderer,
-                    SDL_PIXELFORMAT_ABGR8888,
-                    SDL_TEXTUREACCESS_STREAMING,
-                    winWidth,
-                    winHeight
-                );
-                ui.RequestRepaint(3);
                 break;
             }
             case SDL_EVENT_MOUSE_MOTION:
@@ -343,6 +337,27 @@ int main(int argc, char* argv[]) {
     };
 
     auto renderFrame = [&]() {
+        if (winWidth <= 0 || winHeight <= 0) {
+            return;
+        }
+        if (winWidth != bufWidth || winHeight != bufHeight) {
+            bufWidth = winWidth;
+            bufHeight = winHeight;
+            pixelBuffer.assign(static_cast<size_t>(bufWidth) * static_cast<size_t>(bufHeight), 0);
+            canvas.SetTarget(pixelBuffer.data(), bufWidth, bufHeight, bufWidth);
+            if (screenTexture) {
+                SDL_DestroyTexture(screenTexture);
+            }
+            screenTexture = SDL_CreateTexture(
+                renderer,
+                SDL_PIXELFORMAT_ABGR8888,
+                SDL_TEXTUREACCESS_STREAMING,
+                bufWidth,
+                bufHeight
+            );
+            ui.InvalidateAll();
+        }
+
         const auto frameWorkStart = std::chrono::steady_clock::now();
         metrics.BeginFrame();
 
