@@ -131,13 +131,27 @@ int main(int argc, char* argv[]) {
     float carouselGap = 8.0f;
     float scrollGap = 12.0f;
     guikit::UiSize headingSize = guikit::UiSize::Md;
+    guikit::UiVariant headingTitleVariant = guikit::UiVariant::Default;
+    bool headingShowSubtitle = true;
+    guikit::UiVariant headingSubtitleVariant = guikit::UiVariant::Secondary;
+    guikit::ElementLayout headingLayout = guikit::ElementLayout::Stacked;
+    guikit::InlineOrder headingInlineOrder = guikit::InlineOrder::ControlFirst;
+    guikit::Align headingElementAlign = guikit::Align::Start;
+    size_t headingStretchIdx = 2; // Fill
+    float headingWidth = 0.0f;
+    float headingFillPct = 100.0f;
+    bool headingShowIcon = false;
+    bool headingShowBadge = false;
+    guikit::UiVariant headingBadgeVariant = guikit::UiVariant::Info;
     bool headingWordWrap = true;
     bool headingDivider = true;
+    guikit::HeadingDivider headingDividerStyle = guikit::HeadingDivider::Bottom;
     float cardBorderWidth = 1.0f;
 
     enum class NavCategory : uint8_t {
         // Elements (Atoms)
-        ElemButton = 0,
+        ElemHeading = 0,
+        ElemButton,
         ElemSlider,
         ElemInputField,
         ElemSelect,
@@ -145,8 +159,7 @@ int main(int argc, char* argv[]) {
         ElemCheckbox,
         ElemTabBar,
         ElemSidebar,
-        ElemContainers,
-        ElemTypography,
+        ElemCard,
         ElemImage,
         ElemScene,
         ElemMarkdown,
@@ -163,7 +176,7 @@ int main(int argc, char* argv[]) {
         return cat <= NavCategory::ElemMarkdown;
     };
 
-    NavCategory selectedCategory = NavCategory::ElemButton;
+    NavCategory selectedCategory = NavCategory::ElemHeading;
 
     guikit::UiVariant btnVariant = guikit::UiVariant::Primary;
     bool btnHasIcon = true;
@@ -175,8 +188,8 @@ int main(int argc, char* argv[]) {
     bool btnDisabled = false;
     int btnClicks = 0;
     float btnCornerRadius = 6.0f;
-    bool btnShowLabel = false;
-    bool btnShowDesc = false;
+    bool btnShowLabel = true;
+    bool btnShowDesc = true;
     guikit::UiVariant btnDescVariant = guikit::UiVariant::Muted;
     guikit::ElementLayout btnLayout = guikit::ElementLayout::Stacked;
     guikit::InlineOrder btnInlineOrder = guikit::InlineOrder::LabelFirst;
@@ -189,7 +202,7 @@ int main(int argc, char* argv[]) {
     float sliderWidth = 0.0f;
     float sliderFillPct = 50.0f;
     bool sliderShowLabel = true;
-    bool sliderShowDesc = false;
+    bool sliderShowDesc = true;
     guikit::UiVariant sliderDescVariant = guikit::UiVariant::Muted;
     bool sliderShowTicks = true;
     bool sliderShowLabels = true;
@@ -211,7 +224,7 @@ int main(int argc, char* argv[]) {
     bool inputHasSuffix = false;
     float inputCornerRadius = 6.0f;
     bool inputShowLabel = true;
-    bool inputShowDesc = false;
+    bool inputShowDesc = true;
     guikit::UiVariant inputDescVariant = guikit::UiVariant::Muted;
     guikit::ElementLayout inputLayout = guikit::ElementLayout::Stacked;
     guikit::InlineOrder inputInlineOrder = guikit::InlineOrder::LabelFirst;
@@ -375,12 +388,11 @@ int main(int argc, char* argv[]) {
     guikit::Align imgElementAlign = guikit::Align::Center;
 
     // Scene 2D Camera demo state
-    size_t sceneModeIdx = 0; // 0 = QUAD 303 Schematic (M12160), 1 = OSM Tile Map Prototype
-    bool sceneVintagePaper = true;
     guikit::SceneBackground sceneBg = guikit::SceneBackground::Solid;
     static constexpr std::array<std::string_view, 4> sceneBgNames = {
         "Solid", "Checker", "Dots", "Lines"
     };
+    bool sceneSelectableItems = true;
     bool sceneShowControls = true;
     bool sceneShowScrollbars = true;
     float sceneRadius = 8.0f;
@@ -677,16 +689,18 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                             const NavCategory prevCat = selectedCategory;
                             if (auto menu = ui.SidebarMenu({.size = guikit::UiSize::Sm})) {
                                 menu.Section("ELEMENTS");
+                                menu.Item(selectedCategory, NavCategory::ElemHeading,    {.text = "Heading",    .icon = guikit::Icon::Edit()});
                                 menu.Item(selectedCategory, NavCategory::ElemButton,     {.text = "Button",     .icon = guikit::Icon::Play()});
                                 menu.Item(selectedCategory, NavCategory::ElemSlider,     {.text = "Slider",     .icon = guikit::Icon::Settings()});
                                 menu.Item(selectedCategory, NavCategory::ElemInputField, {.text = "Input",      .icon = guikit::Icon::Edit()});
                                 menu.Item(selectedCategory, NavCategory::ElemSelect,     {.text = "Select",     .icon = guikit::Icon::Plus()});
                                 menu.Item(selectedCategory, NavCategory::ElemSwitch,     {.text = "Switch",     .icon = guikit::Icon::Refresh()});
                                 menu.Item(selectedCategory, NavCategory::ElemCheckbox,   {.text = "Checkbox",   .icon = guikit::Icon::Check()});
+
+                                menu.Section("COMPONENTS");
                                 menu.Item(selectedCategory, NavCategory::ElemTabBar,     {.text = "TabBar",     .icon = guikit::Icon::Folder()});
                                 menu.Item(selectedCategory, NavCategory::ElemSidebar,    {.text = "Sidebar",    .icon = guikit::Icon::Folder()});
-                                menu.Item(selectedCategory, NavCategory::ElemContainers, {.text = "Containers", .icon = guikit::Icon::Copy()});
-                                menu.Item(selectedCategory, NavCategory::ElemTypography, {.text = "Typography", .icon = guikit::Icon::Edit()});
+                                menu.Item(selectedCategory, NavCategory::ElemCard,       {.text = "Card",       .icon = guikit::Icon::Copy()});
                                 menu.Item(selectedCategory, NavCategory::ElemImage,      {.text = "Image",      .icon = guikit::Icon::Eye(), .badge = "New"});
                                 menu.Item(selectedCategory, NavCategory::ElemScene,      {.text = "Scene 2D",   .icon = guikit::Icon::Search(), .badge = "New"});
                                 menu.Item(selectedCategory, NavCategory::ElemMarkdown,   {.text = "Markdown",   .icon = guikit::Icon::Edit(), .badge = "New"});
@@ -753,6 +767,36 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                         }
                                     };
 
+                                    auto renderElementLayoutControls = [&](
+                                        bool hasExternal,
+                                        guikit::ElementLayout& layout,
+                                        guikit::InlineOrder& inlineOrder,
+                                        guikit::Align& elementAlign,
+                                        size_t& stretchIdx
+                                    ) {
+                                        size_t layoutIdx = static_cast<size_t>(layout);
+                                        if (ui.StepSlider(layoutIdx, elementLayoutNames, {.label = "Element Layout", .showTicks = true, .showLabels = true, .disabled = !hasExternal}).changed) {
+                                            layout = static_cast<guikit::ElementLayout>(layoutIdx);
+                                            ui.InvalidateAll();
+                                        }
+
+                                        size_t orderIdx = static_cast<size_t>(inlineOrder);
+                                        if (ui.StepSlider(orderIdx, inlineOrderNames, {.label = "Inline Order", .showTicks = true, .showLabels = true, .disabled = (!hasExternal || layout != guikit::ElementLayout::Inline)}).changed) {
+                                            inlineOrder = static_cast<guikit::InlineOrder>(orderIdx);
+                                            ui.InvalidateAll();
+                                        }
+
+                                        size_t alignIdx = static_cast<size_t>(elementAlign);
+                                        if (ui.StepSlider(alignIdx, labelAlignNames, {.label = "Element Alignment", .showTicks = true, .showLabels = true, .disabled = (!hasExternal && stretchIdx == 0)}).changed) {
+                                            elementAlign = static_cast<guikit::Align>(alignIdx);
+                                            ui.InvalidateAll();
+                                        }
+
+                                        if (ui.StepSlider(stretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) {
+                                            ui.InvalidateAll();
+                                        }
+                                    };
+
                                     if (isElementCategory(selectedCategory)) {
                                         switch (selectedCategory) {
                                             case NavCategory::ElemButton: {
@@ -766,27 +810,8 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 if (ui.Switch(btnShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(btnShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 renderDescVariantPicker(btnDescVariant, btnShowDesc);
-                                                const bool btnHasExternal = btnShowLabel || btnShowDesc;
 
-                                                size_t btnLayoutIdx = static_cast<size_t>(btnLayout);
-                                                if (ui.StepSlider(btnLayoutIdx, elementLayoutNames, {.label = "Element Layout", .showTicks = true, .showLabels = true, .disabled = !btnHasExternal}).changed) {
-                                                    btnLayout = static_cast<guikit::ElementLayout>(btnLayoutIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                size_t btnOrderIdx = static_cast<size_t>(btnInlineOrder);
-                                                if (ui.StepSlider(btnOrderIdx, inlineOrderNames, {.label = "Inline Order", .showTicks = true, .showLabels = true, .disabled = (!btnHasExternal || btnLayout != guikit::ElementLayout::Inline)}).changed) {
-                                                    btnInlineOrder = static_cast<guikit::InlineOrder>(btnOrderIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                size_t btnAlignIdx = static_cast<size_t>(btnElementAlign);
-                                                if (ui.StepSlider(btnAlignIdx, labelAlignNames, {.label = "Element Alignment", .showTicks = true, .showLabels = true, .disabled = (!btnHasExternal && btnStretchIdx == 0)}).changed) {
-                                                    btnElementAlign = static_cast<guikit::Align>(btnAlignIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                if (ui.StepSlider(btnStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
+                                                renderElementLayoutControls(btnShowLabel || btnShowDesc, btnLayout, btnInlineOrder, btnElementAlign, btnStretchIdx);
                                                 if (btnStretchIdx == 2) {
                                                     if (ui.Slider(btnFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
                                                 } else {
@@ -818,27 +843,8 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 if (ui.Switch(sliderShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(sliderShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 renderDescVariantPicker(sliderDescVariant, sliderShowDesc);
-                                                const bool sliderHasExternal = sliderShowLabel || sliderShowDesc;
 
-                                                size_t slLayoutIdx = static_cast<size_t>(sliderLayout);
-                                                if (ui.StepSlider(slLayoutIdx, elementLayoutNames, {.label = "Element Layout", .showTicks = true, .showLabels = true, .disabled = !sliderHasExternal}).changed) {
-                                                    sliderLayout = static_cast<guikit::ElementLayout>(slLayoutIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                size_t slOrderIdx = static_cast<size_t>(sliderInlineOrder);
-                                                if (ui.StepSlider(slOrderIdx, inlineOrderNames, {.label = "Inline Order", .showTicks = true, .showLabels = true, .disabled = (!sliderHasExternal || sliderLayout != guikit::ElementLayout::Inline)}).changed) {
-                                                    sliderInlineOrder = static_cast<guikit::InlineOrder>(slOrderIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                size_t slAlignIdx = static_cast<size_t>(sliderElementAlign);
-                                                if (ui.StepSlider(slAlignIdx, labelAlignNames, {.label = "Element Alignment", .showTicks = true, .showLabels = true, .disabled = (!sliderHasExternal && sliderStretchIdx == 0)}).changed) {
-                                                    sliderElementAlign = static_cast<guikit::Align>(slAlignIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                if (ui.StepSlider(sliderStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
+                                                renderElementLayoutControls(sliderShowLabel || sliderShowDesc, sliderLayout, sliderInlineOrder, sliderElementAlign, sliderStretchIdx);
                                                 if (sliderStretchIdx == 2) {
                                                     if (ui.Slider(sliderFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
                                                 } else {
@@ -874,27 +880,8 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 if (ui.Switch(inputShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(inputShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 renderDescVariantPicker(inputDescVariant, inputShowDesc);
-                                                const bool inHasExternal = inputShowLabel || inputShowDesc;
 
-                                                size_t inLayoutIdx = static_cast<size_t>(inputLayout);
-                                                if (ui.StepSlider(inLayoutIdx, elementLayoutNames, {.label = "Element Layout", .showTicks = true, .showLabels = true, .disabled = !inHasExternal}).changed) {
-                                                    inputLayout = static_cast<guikit::ElementLayout>(inLayoutIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                size_t inOrderIdx = static_cast<size_t>(inputInlineOrder);
-                                                if (ui.StepSlider(inOrderIdx, inlineOrderNames, {.label = "Inline Order", .showTicks = true, .showLabels = true, .disabled = (!inHasExternal || inputLayout != guikit::ElementLayout::Inline)}).changed) {
-                                                    inputInlineOrder = static_cast<guikit::InlineOrder>(inOrderIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                size_t inAlignIdx = static_cast<size_t>(inputElementAlign);
-                                                if (ui.StepSlider(inAlignIdx, labelAlignNames, {.label = "Element Alignment", .showTicks = true, .showLabels = true, .disabled = (!inHasExternal && inputStretchIdx == 0)}).changed) {
-                                                    inputElementAlign = static_cast<guikit::Align>(inAlignIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                if (ui.StepSlider(inputStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
+                                                renderElementLayoutControls(inputShowLabel || inputShowDesc, inputLayout, inputInlineOrder, inputElementAlign, inputStretchIdx);
                                                 if (inputStretchIdx == 2) {
                                                     if (ui.Slider(inputFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
                                                 } else {
@@ -932,27 +919,8 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 if (ui.Switch(selectShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(selectShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 renderDescVariantPicker(selectDescVariant, selectShowDesc);
-                                                const bool selHasExternal = selectShowLabel || selectShowDesc;
 
-                                                size_t selLayoutIdx = static_cast<size_t>(selectLayout);
-                                                if (ui.StepSlider(selLayoutIdx, elementLayoutNames, {.label = "Element Layout", .showTicks = true, .showLabels = true, .disabled = !selHasExternal}).changed) {
-                                                    selectLayout = static_cast<guikit::ElementLayout>(selLayoutIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                size_t selOrderIdx = static_cast<size_t>(selectInlineOrder);
-                                                if (ui.StepSlider(selOrderIdx, inlineOrderNames, {.label = "Inline Order", .showTicks = true, .showLabels = true, .disabled = (!selHasExternal || selectLayout != guikit::ElementLayout::Inline)}).changed) {
-                                                    selectInlineOrder = static_cast<guikit::InlineOrder>(selOrderIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                size_t selAlignIdx = static_cast<size_t>(selectElementAlign);
-                                                if (ui.StepSlider(selAlignIdx, labelAlignNames, {.label = "Element Alignment", .showTicks = true, .showLabels = true, .disabled = (!selHasExternal && selectStretchIdx == 0)}).changed) {
-                                                    selectElementAlign = static_cast<guikit::Align>(selAlignIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                if (ui.StepSlider(selectStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
+                                                renderElementLayoutControls(selectShowLabel || selectShowDesc, selectLayout, selectInlineOrder, selectElementAlign, selectStretchIdx);
                                                 if (selectStretchIdx == 2) {
                                                     if (ui.Slider(selectFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
                                                 } else {
@@ -972,27 +940,8 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 if (ui.Switch(switchShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(switchShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 renderDescVariantPicker(switchDescVariant, switchShowDesc);
-                                                const bool switchHasExternal = switchShowLabel || switchShowDesc;
 
-                                                size_t swLayoutIdx = static_cast<size_t>(switchLayout);
-                                                if (ui.StepSlider(swLayoutIdx, elementLayoutNames, {.label = "Element Layout", .showTicks = true, .showLabels = true, .disabled = !switchHasExternal}).changed) {
-                                                    switchLayout = static_cast<guikit::ElementLayout>(swLayoutIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                size_t swOrderIdx = static_cast<size_t>(switchInlineOrder);
-                                                if (ui.StepSlider(swOrderIdx, inlineOrderNames, {.label = "Inline Order", .showTicks = true, .showLabels = true, .disabled = (!switchHasExternal || switchLayout != guikit::ElementLayout::Inline)}).changed) {
-                                                    switchInlineOrder = static_cast<guikit::InlineOrder>(swOrderIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                size_t swAlignIdx = static_cast<size_t>(switchElementAlign);
-                                                if (ui.StepSlider(swAlignIdx, labelAlignNames, {.label = "Element Alignment", .showTicks = true, .showLabels = true, .disabled = (!switchHasExternal && switchStretchIdx == 0)}).changed) {
-                                                    switchElementAlign = static_cast<guikit::Align>(swAlignIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                if (ui.StepSlider(switchStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
+                                                renderElementLayoutControls(switchShowLabel || switchShowDesc, switchLayout, switchInlineOrder, switchElementAlign, switchStretchIdx);
                                                 if (ui.Switch(testDarkLightSwitch, {.label = "Side Text (Off / On)"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(switchSymmetric, {.label = "Symmetric (Neutral Track)"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(switchDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
@@ -1007,27 +956,8 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 if (ui.Switch(checkboxShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(checkboxShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
                                                 renderDescVariantPicker(checkboxDescVariant, checkboxShowDesc);
-                                                const bool checkHasExternal = checkboxShowLabel || checkboxShowDesc;
 
-                                                size_t cbLayoutIdx = static_cast<size_t>(checkboxLayout);
-                                                if (ui.StepSlider(cbLayoutIdx, elementLayoutNames, {.label = "Element Layout", .showTicks = true, .showLabels = true, .disabled = !checkHasExternal}).changed) {
-                                                    checkboxLayout = static_cast<guikit::ElementLayout>(cbLayoutIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                size_t cbOrderIdx = static_cast<size_t>(checkboxInlineOrder);
-                                                if (ui.StepSlider(cbOrderIdx, inlineOrderNames, {.label = "Inline Order", .showTicks = true, .showLabels = true, .disabled = (!checkHasExternal || checkboxLayout != guikit::ElementLayout::Inline)}).changed) {
-                                                    checkboxInlineOrder = static_cast<guikit::InlineOrder>(cbOrderIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                size_t cbAlignIdx = static_cast<size_t>(checkboxElementAlign);
-                                                if (ui.StepSlider(cbAlignIdx, labelAlignNames, {.label = "Element Alignment", .showTicks = true, .showLabels = true, .disabled = (!checkHasExternal && checkboxStretchIdx == 0)}).changed) {
-                                                    checkboxElementAlign = static_cast<guikit::Align>(cbAlignIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                if (ui.StepSlider(checkboxStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
+                                                renderElementLayoutControls(checkboxShowLabel || checkboxShowDesc, checkboxLayout, checkboxInlineOrder, checkboxElementAlign, checkboxStretchIdx);
                                                 if (ui.Switch(testCheckboxIndet, {.label = "Indeterminate Tri-State"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(checkboxDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
                                                 break;
@@ -1077,7 +1007,9 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 break;
                                             }
 
-                                            case NavCategory::ElemContainers: {
+                                            case NavCategory::ElemCard: {
+                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
+                                                renderVariantPicker();
                                                 if (ui.Slider(cardRadius, 0.0f, 24.0f, {.label = "Corner Radius", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
                                                 if (ui.Slider(cardPadding, 0.0f, 32.0f, {.label = "Internal Padding", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
                                                 if (ui.Slider(cardGap, 0.0f, 24.0f, {.label = "Content Spacing (Gap)", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
@@ -1085,10 +1017,50 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 break;
                                             }
 
-                                            case NavCategory::ElemTypography: {
+                                            case NavCategory::ElemHeading: {
                                                 if (ui.StepSlider(headingSize, {.label = "Heading Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
+                                                if (ui.StepSlider(headingTitleVariant, {
+                                                    .label = "Title (Label) Variant",
+                                                    .showTicks = true,
+                                                    .showLabels = true,
+                                                    .showValue = true
+                                                }).changed) {
+                                                    ui.InvalidateAll();
+                                                }
+                                                if (ui.Switch(headingShowSubtitle, {.label = "Show Subtitle (Description)"}).changed) ui.InvalidateAll();
+                                                renderDescVariantPicker(headingSubtitleVariant, headingShowSubtitle);
+
+                                                renderElementLayoutControls(true, headingLayout, headingInlineOrder, headingElementAlign, headingStretchIdx);
+                                                if (headingStretchIdx == 2) {
+                                                    if (ui.Slider(headingFillPct, 20.0f, 100.0f, {.label = "Explicit Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
+                                                } else {
+                                                    if (ui.Slider(headingWidth, 0.0f, 500.0f, {.label = "Explicit Width", .valueFormat = {(headingWidth > 0.0f) ? "%.0f px" : "Auto", {"Auto", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
+                                                }
+
+                                                if (ui.Switch(headingWordWrap, {.label = "Subtitle Word Wrap", .disabled = !headingShowSubtitle}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(headingShowIcon, {.label = "Show Leading Icon"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(headingShowBadge, {.label = "Show Trailing Badge"}).changed) ui.InvalidateAll();
+                                                if (ui.StepSlider(headingBadgeVariant, {
+                                                    .label = "Badge Variant",
+                                                    .showTicks = true,
+                                                    .showLabels = true,
+                                                    .showValue = true,
+                                                    .disabled = !headingShowBadge
+                                                }).changed) {
+                                                    ui.InvalidateAll();
+                                                }
                                                 if (ui.Switch(headingDivider, {.label = "Show Divider Line"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(headingWordWrap, {.label = "Subtitle Word Wrap"}).changed) ui.InvalidateAll();
+                                                static constexpr std::array<std::string_view, 2> divStyles = {"Bottom", "Trailing"};
+                                                size_t divStyleIdx = (headingDividerStyle == guikit::HeadingDivider::Trailing) ? 1 : 0;
+                                                if (ui.StepSlider(divStyleIdx, divStyles, {
+                                                    .label = "Divider Placement",
+                                                    .showTicks = true,
+                                                    .showLabels = true,
+                                                    .disabled = !headingDivider
+                                                }).changed) {
+                                                    headingDividerStyle = (divStyleIdx == 1) ? guikit::HeadingDivider::Trailing : guikit::HeadingDivider::Bottom;
+                                                    ui.InvalidateAll();
+                                                }
                                                 break;
                                             }
 
@@ -1118,24 +1090,13 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                             }
 
                                             case NavCategory::ElemScene: {
-                                                static constexpr std::array<std::string_view, 2> sceneModes = {"QUAD 303", "OSM Map"};
-                                                if (ui.StepSlider(sceneModeIdx, sceneModes, {.label = "Scene Demo Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
-                                                if (sceneModeIdx == 0) {
-                                                    if (ui.Switch(sceneVintagePaper, {
-                                                        .label = "Schematic Sheet Palette",
-                                                        .textLeft = "Dark CAD",
-                                                        .textRight = "Vellum",
-                                                        .symmetric = true
-                                                    }).changed) {
-                                                        ui.InvalidateAll();
-                                                    }
-                                                }
                                                 size_t bgIdx = static_cast<size_t>(sceneBg);
                                                 if (ui.StepSlider(bgIdx, sceneBgNames, {.label = "Canvas Backdrop", .showTicks = true, .showLabels = true}).changed) {
                                                     sceneBg = static_cast<guikit::SceneBackground>(bgIdx);
                                                     ui.InvalidateAll();
                                                 }
-                                                if (ui.Switch(sceneShowControls, {.label = "Floating Zoom HUD (- / Fit / 100% / +)"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(sceneSelectableItems, {.label = "Interactive Item Selection"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(sceneShowControls, {.label = "Floating Zoom & Inspector HUD"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(sceneShowScrollbars, {.label = "2D Scrollbars (H + V)"}).changed) ui.InvalidateAll();
                                                 if (ui.Slider(sceneRadius, 0.0f, 20.0f, {.label = "Viewport Radius", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
                                                 if (ui.Slider(sceneGridStep, 12.0f, 64.0f, {.label = "Grid Step", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
@@ -1312,11 +1273,11 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                         })) {
                                             switch (selectedCategory) {
                                                 case NavCategory::ElemButton: {
-                                                    std::string btnText = btnClicks > 0 ? std::format("Clicked {}x", btnClicks) : "Interactive Button";
+                                                    std::string btnText = btnClicks > 0 ? std::format("Clicked {}x", btnClicks) : "Click me";
                                                     if (ui.Button({
-                                                        .label = btnShowLabel ? "System Action" : "",
+                                                        .label = btnShowLabel ? "A button" : "",
                                                         .text = btnText,
-                                                        .description = {btnShowDesc ? "Commit payload and trigger immediate canary rollout" : "", btnDescVariant},
+                                                        .description = {btnShowDesc ? "This is a button" : "", btnDescVariant},
                                                         .icon = btnHasIcon ? guikit::Icon::Play() : guikit::Icon{},
                                                         .variant = btnVariant,
                                                         .iconPlacement = btnIconPlacement,
@@ -1339,10 +1300,10 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 case NavCategory::ElemSlider: {
                                                     if (sliderContinuous) {
                                                         ui.Slider(testSliderVal, 0.0f, 100.0f, {
-                                                            .label = sliderShowLabel ? "Analog Master Gain" : "",
+                                                            .label = sliderShowLabel ? "A slider" : "",
                                                             .textLeft = sliderShowRangeText ? "0%" : "",
                                                             .textRight = sliderShowRangeText ? "100%" : "",
-                                                            .description = {sliderShowDesc ? "Adjust internal preamp attenuation" : "", sliderDescVariant},
+                                                            .description = {sliderShowDesc ? "This is a slider" : "", sliderDescVariant},
                                                             .valueFormat = "%.1f %%",
                                                             .layout = sliderLayout,
                                                             .inlineOrder = sliderInlineOrder,
@@ -1358,10 +1319,10 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                     } else {
                                                         static constexpr std::array<std::string_view, 5> stepItems = {"Off", "Low", "Mid", "High", "Max"};
                                                         ui.StepSlider(testStepIdx, stepItems, {
-                                                            .label = sliderShowLabel ? "DSP Filter Mode" : "",
+                                                            .label = sliderShowLabel ? "A step slider" : "",
                                                             .textLeft = sliderShowRangeText ? "Min" : "",
                                                             .textRight = sliderShowRangeText ? "Max" : "",
-                                                            .description = {sliderShowDesc ? "Select active FIR profile" : "", sliderDescVariant},
+                                                            .description = {sliderShowDesc ? "This is a step slider" : "", sliderDescVariant},
                                                             .layout = sliderLayout,
                                                             .inlineOrder = sliderInlineOrder,
                                                             .elementAlign = sliderElementAlign,
@@ -1381,8 +1342,8 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
 
                                                 case NavCategory::ElemInputField: {
                                                     ui.InputField(testInputText, {
-                                                        .label = inputShowLabel ? "Server Endpoint" : "",
-                                                        .description = {inputShowDesc ? "Configured host address" : "", inputDescVariant},
+                                                        .label = inputShowLabel ? "A text input" : "",
+                                                        .description = {inputShowDesc ? "This is a text input" : "", inputDescVariant},
                                                         .placeholder = "Enter domain...",
                                                         .prefix = inputHasPrefix ? "https://" : "",
                                                         .suffix = inputHasSuffix ? ":443" : "",
@@ -1406,8 +1367,8 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
 
                                                 case NavCategory::ElemSelect: {
                                                     ui.Select(testSelectIdx, selectItems, {
-                                                        .label = selectShowLabel ? "Active Preset" : "",
-                                                        .description = {selectShowDesc ? "Dropdown selection" : "", selectDescVariant},
+                                                        .label = selectShowLabel ? "A select" : "",
+                                                        .description = {selectShowDesc ? "This is a select" : "", selectDescVariant},
                                                         .prefix = selectHasPrefix ? guikit::Icon::Settings() : guikit::Icon{},
                                                         .variant = btnVariant,
                                                         .layout = selectLayout,
@@ -1425,10 +1386,10 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
 
                                                 case NavCategory::ElemSwitch: {
                                                     ui.Switch(testSwitchState, {
-                                                        .label = switchShowLabel ? "Hardware E-Stop" : "",
+                                                        .label = switchShowLabel ? "A switch" : "",
                                                         .textLeft = testDarkLightSwitch ? "Off" : "",
                                                         .textRight = testDarkLightSwitch ? "On" : "",
-                                                        .description = {switchShowDesc ? "Safety interlocking system" : "", switchDescVariant},
+                                                        .description = {switchShowDesc ? "This is a switch" : "", switchDescVariant},
                                                         .variant = btnVariant,
                                                         .layout = switchLayout,
                                                         .inlineOrder = switchInlineOrder,
@@ -1443,8 +1404,8 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
 
                                                 case NavCategory::ElemCheckbox: {
                                                     ui.Checkbox(testCheckboxState, {
-                                                        .label = checkboxShowLabel ? "Telemetry Logging" : "",
-                                                        .description = {checkboxShowDesc ? "Save trace to buffer" : "", checkboxDescVariant},
+                                                        .label = checkboxShowLabel ? "A checkbox" : "",
+                                                        .description = {checkboxShowDesc ? "This is a checkbox" : "", checkboxDescVariant},
                                                         .variant = btnVariant,
                                                         .layout = checkboxLayout,
                                                         .inlineOrder = checkboxInlineOrder,
@@ -1544,22 +1505,50 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                     break;
                                                 }
 
-                                                case NavCategory::ElemContainers: {
-                                                    if (auto c = ui.Card({.gap = cardGap, .padding = guikit::Padding(cardPadding), .borderWidth = cardBorderWidth, .radius = cardRadius})) {
-                                                        ui.Text("Card Surface Component", {.role = guikit::TextRole::HeadlineSmall});
-                                                        ui.Text("Configurable padding, radius and spacing tokens", {.variant = guikit::UiVariant::Secondary});
-                                                        if (ui.Button({.label = "Inner Action", .variant = guikit::UiVariant::Primary, .size = controlsSize})) {}
+                                                case NavCategory::ElemCard: {
+                                                    if (auto c = ui.Card({
+                                                        .gap = cardGap,
+                                                        .padding = guikit::Padding(cardPadding),
+                                                        .borderWidth = cardBorderWidth,
+                                                        .radius = cardRadius,
+                                                        .size = controlsSize
+                                                    })) {
+                                                        ui.Heading({
+                                                            .title = "Card Surface Component",
+                                                            .subtitle = "Configurable padding, radius and spacing tokens",
+                                                            .icon = guikit::Icon::Copy(),
+                                                            .size = controlsSize,
+                                                            .divider = true
+                                                        });
+                                                        if (ui.Button({
+                                                            .text = "Inner Action",
+                                                            .icon = guikit::Icon::Play(),
+                                                            .variant = btnVariant,
+                                                            .size = controlsSize
+                                                        })) {}
                                                     }
                                                     break;
                                                 }
 
-                                                case NavCategory::ElemTypography: {
+                                                case NavCategory::ElemHeading: {
                                                     ui.Heading({
-                                                        .title = "Typographic Heading Sample",
-                                                        .subtitle = "Dynamic typography scale test for multi-line layout hierarchy",
-                                                        .icon = guikit::Icon::Edit(),
+                                                        .title = {"A heading", headingTitleVariant},
+                                                        .subtitle = headingShowSubtitle
+                                                            ? guikit::UiText{"This is a heading", headingSubtitleVariant}
+                                                            : guikit::UiText{},
+                                                        .icon = headingShowIcon ? guikit::Icon::Edit() : guikit::Icon{},
+                                                        .badge = headingShowBadge
+                                                            ? guikit::UiText{"v2.4", headingBadgeVariant}
+                                                            : guikit::UiText{},
+                                                        .variant = headingTitleVariant,
                                                         .size = headingSize,
+                                                        .layout = headingLayout,
+                                                        .inlineOrder = headingInlineOrder,
+                                                        .elementAlign = headingElementAlign,
+                                                        .stretch = static_cast<guikit::StretchMode>(headingStretchIdx),
+                                                        .width = (headingStretchIdx == 2) ? std::optional<float>(headingFillPct) : ((headingWidth > 0.0f) ? std::optional<float>(headingWidth) : std::nullopt),
                                                         .divider = headingDivider,
+                                                        .dividerStyle = headingDividerStyle,
                                                         .wordWrap = headingWordWrap
                                                     });
                                                     break;
@@ -1567,8 +1556,8 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
 
                                                 case NavCategory::ElemImage: {
                                                     ui.Image(imgSources[imgSourceIdx % imgSources.size()], {
-                                                        .label = imgShowLabel ? imgSourceNames[imgSourceIdx % imgSourceNames.size()] : "",
-                                                        .description = imgShowDesc ? "Vector SVG rendered via ThorVG + pure ComputeBoxFit solver" : "",
+                                                        .label = imgShowLabel ? "A vector image" : "",
+                                                        .description = imgShowDesc ? "This is a vector image" : "",
                                                         .fit = imgFit,
                                                         .layout = imgLayout,
                                                         .elementAlign = imgElementAlign,
@@ -1584,71 +1573,23 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 }
 
                                                 case NavCategory::ElemScene: {
-                                                    const auto schemPal = sceneVintagePaper
+                                                    const auto schemPal = previewLightMode
                                                         ? guikit::demo::SchematicPalette::VintagePaper()
                                                         : guikit::demo::SchematicPalette::DarkCad();
-                                                    const guikit::Vec2 worldDims = (sceneModeIdx == 0)
-                                                        ? guikit::Vec2{2200.0f, 920.0f}
-                                                        : guikit::Vec2{2048.0f, 1536.0f};
                                                     if (auto scene = ui.Scene({
-                                                        .worldSize = worldDims,
+                                                        .worldSize = guikit::Vec2{2200.0f, 920.0f},
                                                         .background = sceneBg,
                                                         .gridStep = sceneGridStep,
                                                         .heightMode = guikit::SizeMode::Stretch,
+                                                        .selectableItems = sceneSelectableItems,
                                                         .showScrollbars = sceneShowScrollbars,
                                                         .showControls = sceneShowControls,
                                                         .radius = sceneRadius,
-                                                        .backgroundColor = (sceneModeIdx == 0) ? schemPal.sheetBg : guikit::Color::Transparent()
+                                                        .backgroundColor = schemPal.sheetBg
                                                     })) {
-                                                        if (sceneModeIdx == 0) {
-                                                            // Mode 0: QUAD 303 Power Amplifier Circuit Diagram (M12160)
-                                                            // Pure vector BS 3939 primitives rendered in 2D World Coordinates
-                                                            guikit::demo::RenderQuad303Schematic(scene, schemPal);
-                                                        } else {
-                                                            // Mode 1: Virtualized 2D Tile Grid (OSM Map Engine Prototype)
-                                                            const guikit::Rect vis = scene.GetVisibleWorldRect();
-                                                            const float tileSz = 256.0f;
-                                                            const int minTx = std::max(0, static_cast<int>(std::floor(vis.x / tileSz)));
-                                                            const int maxTx = std::min(7, static_cast<int>(std::floor(vis.Right() / tileSz)));
-                                                            const int minTy = std::max(0, static_cast<int>(std::floor(vis.y / tileSz)));
-                                                            const int maxTy = std::min(5, static_cast<int>(std::floor(vis.Bottom() / tileSz)));
-
-                                                            for (int ty = minTy; ty <= maxTy; ++ty) {
-                                                                for (int tx = minTx; tx <= maxTx; ++tx) {
-                                                                    const guikit::Rect tileRect(tx * tileSz, ty * tileSz, tileSz, tileSz);
-                                                                    const bool even = ((tx + ty) % 2 == 0);
-                                                                    const guikit::Color fill = even
-                                                                        ? guikit::Color(15, 23, 42, 230)
-                                                                        : guikit::Color(30, 41, 59, 230);
-                                                                    scene.DrawRect(tileRect.Inset(2.0f), fill, 6.0f, guikit::Color(51, 65, 85, 200), 1.0f);
-
-                                                                    // Procedural arterial roads & river inside tile
-                                                                    scene.DrawLine(
-                                                                        {tileRect.x, tileRect.y + 128.0f},
-                                                                        {tileRect.Right(), tileRect.y + 128.0f},
-                                                                        guikit::Color(56, 189, 248, 70),
-                                                                        2.0f
-                                                                    );
-                                                                    scene.DrawLine(
-                                                                        {tileRect.x + 128.0f, tileRect.y},
-                                                                        {tileRect.x + 128.0f, tileRect.Bottom()},
-                                                                        guikit::Color(148, 163, 184, 55),
-                                                                        1.5f
-                                                                    );
-
-                                                                    // Tile coordinate badge [z=14 / x / y]
-                                                                    const auto tileLabel = ui.Format("OSM Tile [14/{}/{}]", 8420 + tx, 5460 + ty);
-                                                                    scene.DrawText(tileLabel.View(), {tileRect.x + 14.0f, tileRect.y + 14.0f}, 12.0f, guikit::Color(148, 163, 184), guikit::FontStyle::Regular, false);
-                                                                }
-                                                            }
-
-                                                            // GPS Route overlay across world coordinates
-                                                            scene.DrawLine({180.0f, 220.0f}, {640.0f, 420.0f}, guikit::Color(16, 185, 129), 4.0f);
-                                                            scene.DrawLine({640.0f, 420.0f}, {1180.0f, 340.0f}, guikit::Color(16, 185, 129), 4.0f);
-                                                            scene.DrawLine({1180.0f, 340.0f}, {1680.0f, 780.0f}, guikit::Color(56, 189, 248), 4.0f);
-                                                            scene.DrawRect({628.0f, 408.0f, 24.0f, 24.0f}, guikit::Color(16, 185, 129), 12.0f, guikit::Color(255, 255, 255), 2.5f);
-                                                            scene.DrawText("Waypoint Alpha", {660.0f, 412.0f}, 13.0f, guikit::Color(52, 211, 153), guikit::FontStyle::Bold, true);
-                                                        }
+                                                        // QUAD 303 Power Amplifier Circuit Diagram (M12160)
+                                                        // Pure vector BS 3939 primitives rendered in 2D World Coordinates
+                                                        guikit::demo::RenderQuad303Schematic(scene, schemPal);
                                                     }
                                                     break;
                                                 }
@@ -1759,9 +1700,9 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 "}})) {{\n"
                                                 "    // On click handler\n"
                                                 "}}",
-                                                btnShowLabel ? "System Action" : "",
-                                                btnClicks > 0 ? std::format("Clicked {}x", btnClicks) : "Interactive Button",
-                                                formatDesc(btnShowDesc, "Commit payload and trigger immediate canary rollout", btnDescVariant),
+                                                btnShowLabel ? "A button" : "",
+                                                btnClicks > 0 ? std::format("Clicked {}x", btnClicks) : "Click me",
+                                                formatDesc(btnShowDesc, "This is a button", btnDescVariant),
                                                 btnHasIcon ? "guikit::Icon::Play()" : "{}",
                                                 variantName(btnVariant),
                                                 placementName(btnIconPlacement),
@@ -1801,10 +1742,10 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                     "    .theme = nullptr,\n"
                                                     "    .disabled = {}\n"
                                                     "}});",
-                                                    sliderShowLabel ? "Analog Master Gain" : "",
+                                                    sliderShowLabel ? "A slider" : "",
                                                     sliderShowRangeText ? "0%" : "",
                                                     sliderShowRangeText ? "100%" : "",
-                                                    formatDesc(sliderShowDesc, "Adjust internal preamp attenuation", sliderDescVariant),
+                                                    formatDesc(sliderShowDesc, "This is a slider", sliderDescVariant),
                                                     elementLayoutEnumName(sliderLayout),
                                                     inlineOrderEnumName(sliderInlineOrder),
                                                     labelAlignEnumName(sliderElementAlign),
@@ -1842,10 +1783,10 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                     "    .theme = nullptr,\n"
                                                     "    .disabled = {}\n"
                                                     "}});",
-                                                    sliderShowLabel ? "DSP Filter Mode" : "",
+                                                    sliderShowLabel ? "A step slider" : "",
                                                     sliderShowRangeText ? "Min" : "",
                                                     sliderShowRangeText ? "Max" : "",
-                                                    formatDesc(sliderShowDesc, "Select active FIR profile", sliderDescVariant),
+                                                    formatDesc(sliderShowDesc, "This is a step slider", sliderDescVariant),
                                                     elementLayoutEnumName(sliderLayout),
                                                     inlineOrderEnumName(sliderInlineOrder),
                                                     labelAlignEnumName(sliderElementAlign),
@@ -1886,8 +1827,8 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 "    .disabled = {},\n"
                                                 "    .readOnly = {}\n"
                                                 "}});",
-                                                inputShowLabel ? "Server Endpoint" : "",
-                                                formatDesc(inputShowDesc, "Configured host address", inputDescVariant),
+                                                inputShowLabel ? "A text input" : "",
+                                                formatDesc(inputShowDesc, "This is a text input", inputDescVariant),
                                                 inputHasPrefix ? "https://" : "",
                                                 inputHasSuffix ? ":443" : "",
                                                 variantName(btnVariant),
@@ -1925,8 +1866,8 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 "    .width = {},\n"
                                                 "    .disabled = {}\n"
                                                 "}});",
-                                                selectShowLabel ? "Active Preset" : "",
-                                                formatDesc(selectShowDesc, "Dropdown selection", selectDescVariant),
+                                                selectShowLabel ? "A select" : "",
+                                                formatDesc(selectShowDesc, "This is a select", selectDescVariant),
                                                 selectHasPrefix ? "guikit::Icon::Settings()" : "{}",
                                                 variantName(btnVariant),
                                                 elementLayoutEnumName(selectLayout),
@@ -1958,10 +1899,10 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 "    .disabled = {},\n"
                                                 "    .size = guikit::UiSize::{}\n"
                                                 "}});",
-                                                switchShowLabel ? "Hardware E-Stop" : "",
+                                                switchShowLabel ? "A switch" : "",
                                                 testDarkLightSwitch ? "Off" : "",
                                                 testDarkLightSwitch ? "On" : "",
-                                                formatDesc(switchShowDesc, "Safety interlocking system", switchDescVariant),
+                                                formatDesc(switchShowDesc, "This is a switch", switchDescVariant),
                                                 variantName(btnVariant),
                                                 elementLayoutEnumName(switchLayout),
                                                 inlineOrderEnumName(switchInlineOrder),
@@ -1988,8 +1929,8 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 "    .indeterminate = {},\n"
                                                 "    .size = guikit::UiSize::{}\n"
                                                 "}});",
-                                                checkboxShowLabel ? "Telemetry Logging" : "",
-                                                formatDesc(checkboxShowDesc, "Save trace to buffer", checkboxDescVariant),
+                                                checkboxShowLabel ? "A checkbox" : "",
+                                                formatDesc(checkboxShowDesc, "This is a checkbox", checkboxDescVariant),
                                                 variantName(btnVariant),
                                                 elementLayoutEnumName(checkboxLayout),
                                                 inlineOrderEnumName(checkboxInlineOrder),
@@ -2065,51 +2006,88 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                             break;
                                         }
 
-                                        case NavCategory::ElemContainers: {
+                                        case NavCategory::ElemCard: {
                                             snippet = std::format(
                                                 "if (auto card = ui.Card({{\n"
-                                                "    .variant = guikit::UiVariant::Default,\n"
-                                                "    .minWidth = 0.0f,\n"
                                                 "    .gap = {:.1f}f,\n"
                                                 "    .padding = guikit::Padding({:.1f}f),\n"
-                                                "    .backgroundColor = guikit::Color::Transparent(),\n"
-                                                "    .borderColor = guikit::Color::Transparent(),\n"
                                                 "    .borderWidth = {:.1f}f,\n"
                                                 "    .radius = {:.1f}f,\n"
                                                 "    .clipChildren = true,\n"
                                                 "    .widthMode = guikit::SizeMode::Stretch,\n"
                                                 "    .heightMode = guikit::SizeMode::Fit,\n"
-                                                "    .size = guikit::UiSize::{},\n"
-                                                "    .disabled = false,\n"
-                                                "    .theme = nullptr,\n"
-                                                "    .scale = std::nullopt\n"
+                                                "    .size = guikit::UiSize::{}\n"
                                                 "}})) {{\n"
-                                                "    ui.Text(\"Card Surface Component\");\n"
+                                                "    ui.Heading({{\n"
+                                                "        .title = \"Card Surface Component\",\n"
+                                                "        .subtitle = \"Configurable padding, radius and spacing tokens\",\n"
+                                                "        .icon = guikit::Icon::Copy(),\n"
+                                                "        .size = guikit::UiSize::{},\n"
+                                                "        .divider = true\n"
+                                                "    }});\n"
+                                                "    if (ui.Button({{\n"
+                                                "        .text = \"Inner Action\",\n"
+                                                "        .icon = guikit::Icon::Play(),\n"
+                                                "        .variant = guikit::UiVariant::{},\n"
+                                                "        .size = guikit::UiSize::{}\n"
+                                                "    }})) {{\n"
+                                                "        // On click handler\n"
+                                                "    }}\n"
                                                 "}}",
                                                 cardGap,
                                                 cardPadding,
                                                 cardBorderWidth,
                                                 cardRadius,
+                                                sizeName(controlsSize),
+                                                sizeName(controlsSize),
+                                                variantName(btnVariant),
                                                 sizeName(controlsSize)
                                             );
                                             break;
                                         }
 
-                                        case NavCategory::ElemTypography: {
+                                        case NavCategory::ElemHeading: {
+                                            const std::string titleExpr = (headingTitleVariant == guikit::UiVariant::Default)
+                                                ? "\"A heading\""
+                                                : std::format("{{\"A heading\", guikit::UiVariant::{}}}", variantName(headingTitleVariant));
+                                            const std::string subExpr = !headingShowSubtitle
+                                                ? "\"\""
+                                                : ((headingSubtitleVariant == guikit::UiVariant::Secondary)
+                                                    ? "\"This is a heading\""
+                                                    : std::format("{{\"This is a heading\", guikit::UiVariant::{}}}", variantName(headingSubtitleVariant)));
+                                            const std::string badgeExpr = !headingShowBadge
+                                                ? "\"\""
+                                                : std::format("{{\"v2.4\", guikit::UiVariant::{}}}", variantName(headingBadgeVariant));
                                             snippet = std::format(
                                                 "ui.Heading({{\n"
-                                                "    .title = \"Typographic Heading Sample\",\n"
-                                                "    .subtitle = \"Dynamic typography scale test for multi-line layout hierarchy\",\n"
-                                                "    .icon = guikit::Icon::Edit(),\n"
-                                                "    .badge = \"\",\n"
-                                                "    .variant = guikit::UiVariant::Default,\n"
+                                                "    .title = {},\n"
+                                                "    .subtitle = {},\n"
+                                                "    .icon = {},\n"
+                                                "    .badge = {},\n"
+                                                "    .variant = guikit::UiVariant::{},\n"
                                                 "    .size = guikit::UiSize::{},\n"
+                                                "    .layout = guikit::ElementLayout::{},\n"
+                                                "    .inlineOrder = guikit::InlineOrder::{},\n"
+                                                "    .elementAlign = guikit::Align::{},\n"
+                                                "    .stretch = guikit::StretchMode::{},\n"
+                                                "    .width = {},\n"
                                                 "    .divider = {},\n"
-                                                "    .dividerStyle = guikit::HeadingDivider::Bottom,\n"
+                                                "    .dividerStyle = guikit::HeadingDivider::{},\n"
                                                 "    .wordWrap = {}\n"
                                                 "}});",
+                                                titleExpr,
+                                                subExpr,
+                                                headingShowIcon ? "guikit::Icon::Edit()" : "{}",
+                                                badgeExpr,
+                                                variantName(headingTitleVariant),
                                                 sizeName(headingSize),
+                                                elementLayoutEnumName(headingLayout),
+                                                inlineOrderEnumName(headingInlineOrder),
+                                                labelAlignEnumName(headingElementAlign),
+                                                stretchModeEnumName(static_cast<guikit::StretchMode>(headingStretchIdx)),
+                                                (headingStretchIdx == 2) ? std::format("{:.1f}f", headingFillPct) : ((headingWidth > 0.0f) ? std::format("{:.1f}f", headingWidth) : "std::nullopt"),
                                                 headingDivider ? "true" : "false",
+                                                headingDividerStyle == guikit::HeadingDivider::Trailing ? "Trailing" : "Bottom",
                                                 headingWordWrap ? "true" : "false"
                                             );
                                             break;
@@ -2130,8 +2108,8 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 "    .size = guikit::UiSize::{}\n"
                                                 "}});",
                                                 imgSources[imgSourceIdx % imgSources.size()],
-                                                imgShowLabel ? imgSourceNames[imgSourceIdx % imgSourceNames.size()] : "",
-                                                imgShowDesc ? "Vector SVG rendered via ThorVG + pure ComputeBoxFit solver" : "",
+                                                imgShowLabel ? "A vector image" : "",
+                                                imgShowDesc ? "This is a vector image" : "",
                                                 fitModeNames[static_cast<size_t>(imgFit)],
                                                 stretchModeEnumName(static_cast<guikit::StretchMode>(imgStretchIdx)),
                                                 (imgStretchIdx == 2) ? imgFillPct : imgWidth,
@@ -2147,26 +2125,26 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                         case NavCategory::ElemScene: {
                                             snippet = std::format(
                                                 "if (auto scene = ui.Scene({{\n"
-                                                "    .worldSize = guikit::Vec2{{{:.1f}f, {:.1f}f}},\n"
+                                                "    .worldSize = guikit::Vec2{{2200.0f, 920.0f}},\n"
                                                 "    .background = guikit::SceneBackground::{},\n"
                                                 "    .gridStep = {:.1f}f,\n"
                                                 "    .heightMode = guikit::SizeMode::Stretch,\n"
+                                                "    .selectableItems = {},\n"
                                                 "    .showScrollbars = {},\n"
                                                 "    .showControls = {},\n"
                                                 "    .radius = {:.1f}f\n"
                                                 "}})) {{\n"
-                                                "    // BS 3939 Vector Electronic Schematic Primitives (QUAD 303 M12160)\n"
+                                                "    // Interactive BS 3939 Vector Schematic Primitives via scene.Item(...)\n"
                                                 "    const auto pal = guikit::demo::SchematicPalette::{}();\n"
                                                 "    guikit::demo::RenderQuad303Schematic(scene, pal);\n"
                                                 "}}",
-                                                (sceneModeIdx == 0) ? 2200.0f : 2048.0f,
-                                                (sceneModeIdx == 0) ? 920.0f : 1536.0f,
                                                 sceneBgNames[static_cast<size_t>(sceneBg)],
                                                 sceneGridStep,
+                                                sceneSelectableItems ? "true" : "false",
                                                 sceneShowScrollbars ? "true" : "false",
                                                 sceneShowControls ? "true" : "false",
                                                 sceneRadius,
-                                                sceneVintagePaper ? "VintagePaper" : "DarkCad"
+                                                previewLightMode ? "VintagePaper" : "DarkCad"
                                             );
                                             break;
                                         }

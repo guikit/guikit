@@ -30,6 +30,8 @@ struct SelectOptions {
     UiText description{};                          ///< Optional helper text below select box
     UiText placeholder{"Select..."};               ///< Placeholder text when no item is selected or items list is empty
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
+    Icon icon{};                                   ///< Optional leading icon in external Element label bar
+    UiText badge{};                                ///< Optional trailing pill badge in external Element label bar
     UiAffix prefix{};                              ///< Optional default leading icon/text inside closed field
     UiAffix suffix{};                              ///< Optional default trailing text/icon inside closed field
     UiVariant variant{UiVariant::Default};         ///< Accent/border variant (Default, Warning, Danger, etc.)
@@ -42,6 +44,8 @@ struct SelectOptions {
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};      ///< Select box width: in points for Compact/Space (nullopt = auto from items), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum select box width constraint in points
+    bool divider{false};                           ///< Whether to render an Element divider line
+    ElementDivider dividerStyle{ElementDivider::Bottom}; ///< Element divider placement style (Bottom or Trailing)
     bool disabled{false};                          ///< Interaction suppression
 };
 

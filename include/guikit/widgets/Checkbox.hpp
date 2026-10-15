@@ -17,17 +17,21 @@ struct CheckboxOptions {
     UiText label{};                                ///< Primary caption text
     UiText description{};                          ///< Optional explanation text below label
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
+    Icon icon{};                                   ///< Optional leading icon in external Element label bar
+    UiText badge{};                                ///< Optional trailing pill badge in external Element label bar
     UiVariant variant{UiVariant::Primary};          ///< Accent fill color when checked
     ElementLayout layout{ElementLayout::Inline};     ///< Layout geometry: Stacked, Top, Bottom, Inline
     InlineOrder inlineOrder{InlineOrder::ControlFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
     Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
     StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};      ///< Element width: in points for Compact/Space (nullopt = auto), or % of bounds (0..100) for Fill (nullopt = 100%)
+    bool divider{false};                           ///< Whether to render an Element divider line
+    ElementDivider dividerStyle{ElementDivider::Bottom}; ///< Element divider placement style (Bottom or Trailing)
     bool disabled{false};                          ///< Interaction suppression
     bool indeterminate{false};                     ///< Tri-state / partial check (horizontal dash)
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
 };
-static_assert(sizeof(CheckboxOptions) <= 144, "CheckboxOptions must stay compact");
+static_assert(sizeof(CheckboxOptions) <= 232, "CheckboxOptions must stay compact");
 
 /// Autonomous Checkbox widget logic (execution, measuring, and rendering).
 class Checkbox {

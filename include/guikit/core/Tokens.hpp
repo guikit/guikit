@@ -48,6 +48,15 @@ enum class InlineOrder : uint8_t {
     ControlFirst   ///< Control first (left / start), label/text second (right / end)
 };
 
+/// Divider placement style for Element, Heading, and composite widgets.
+enum class ElementDivider : uint8_t {
+    None = 0,
+    Bottom,   ///< Horizontal divider line underneath the element
+    Trailing  ///< Inline horizontal divider line flanking/trailing the label bar
+};
+
+using HeadingDivider = ElementDivider;
+
 /// 6x3 Typographic Role Matrix (Material 3 scale extended for desktop/engineering).
 enum class TextRole : uint8_t {
     // Display (hero metrics, large gauges, KPI counters)

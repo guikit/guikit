@@ -1,70 +1,75 @@
 #pragma once
 
-#include <optional>
 #include <source_location>
-#include <string_view>
-#include "guikit/core/Response.hpp"
-#include "guikit/core/Theme.hpp"
-#include "guikit/core/Types.hpp"
-#include "guikit/graphics/Icon.hpp"
+#include "guikit/core/Element.hpp"
 
 namespace guikit {
 
-class Context;
-class ICanvas;
-
-/// Divider placement style for Heading widget.
-enum class HeadingDivider : uint8_t {
-    None = 0,
-    Bottom,   ///< Full-width horizontal divider line underneath heading
-    Trailing  ///< Inline horizontal divider line extending from title to right edge
-};
-
-/// Clean configuration options for a composite Heading widget (Title + Subtitle + Icon + Badge).
-struct HeadingOptions {
-    UiText title{};                                ///< Primary heading title text
-    UiText subtitle{};                             ///< Optional secondary subtitle text
-    Icon icon{};                                   ///< Optional vector icon before title
-    UiText badge{};                                ///< Optional pill badge after title (supports independent UiVariant)
-    UiVariant variant{UiVariant::Default};         ///< Accent color variant
-    std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
-    bool divider{false};                           ///< Whether to render a horizontal divider line
-    HeadingDivider dividerStyle{HeadingDivider::Bottom}; ///< Divider placement style (Bottom or Trailing)
-    bool wordWrap{false};                          ///< Whether subtitle wraps into multiple lines when space is constrained
-};
-
-/// Autonomous Heading widget logic (execution, measuring, and rendering).
-class Heading {
+/// Heading is a standalone `Element` configured with Heading typography (`headingTypography = true`).
+class Heading : public Element {
 public:
-    /// Primary immediate mode entry point for Heading widget.
+    [[nodiscard]] static ElementOptions WithHeadingStyle(ElementOptions opts) noexcept {
+        opts.headingTypography = true;
+        return opts;
+    }
+
     static Response Run(
         Context& ctx,
         const HeadingOptions& opts,
         std::source_location loc = std::source_location::current()
-    );
+    ) {
+        return Element::Run(ctx, WithHeadingStyle(opts), loc);
+    }
 
-    /// Measures intrinsic dimensions based on title, subtitle, icon, badge, and UiSize.
-    /// When opts.wordWrap is true and availableWidth > 0, accounts for wrapped multi-line subtitle height.
-    static Vec2 Measure(const HeadingOptions& opts, UiSize size, float availableWidth, ICanvas* canvas, const UiTheme& theme);
-    static Vec2 Measure(const HeadingOptions& opts, UiSize size, float availableWidth = 0.0f, ICanvas* canvas = nullptr);
+    static Vec2 Measure(
+        const HeadingOptions& opts,
+        UiSize size,
+        ICanvas* canvas,
+        const UiTheme& theme,
+        float availableWidth = 0.0f
+    ) noexcept {
+        return Element::Measure(WithHeadingStyle(opts), size, canvas, theme, availableWidth);
+    }
 
-    /// Resolves required height given available width, accounting for multi-line word wrapping if enabled.
+    static Vec2 Measure(
+        const HeadingOptions& opts,
+        UiSize size,
+        float availableWidth,
+        ICanvas* canvas,
+        const UiTheme& theme
+    ) noexcept {
+        return Element::Measure(WithHeadingStyle(opts), size, canvas, theme, availableWidth);
+    }
+
+    static Vec2 Measure(
+        const HeadingOptions& opts,
+        UiSize size,
+        float availableWidth = 0.0f,
+        ICanvas* canvas = nullptr
+    ) noexcept {
+        return Element::Measure(WithHeadingStyle(opts), size, canvas, UiTheme::Dark(), availableWidth);
+    }
+
     static float ResolveHeight(
         const HeadingOptions& opts,
         UiSize size,
         float availableWidth,
         ICanvas* canvas,
         const UiTheme& theme
-    );
+    ) noexcept {
+        return Measure(opts, size, canvas, theme, availableWidth).y;
+    }
 
-    /// Renders the composite heading into allocated bounds.
     static void Render(
         ICanvas& canvas,
         Rect bounds,
         const HeadingOptions& opts,
         UiSize size,
-        const UiTheme& theme = UiTheme::Dark()
-    );
+        const UiTheme& theme,
+        bool disabled = false
+    ) noexcept {
+        Element::Render(canvas, bounds, WithHeadingStyle(opts), size, theme, disabled);
+    }
 };
 
 } // namespace guikit

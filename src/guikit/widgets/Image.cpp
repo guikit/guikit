@@ -3,7 +3,7 @@
 #include <cmath>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/ElementComposer.hpp"
+#include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 
@@ -64,6 +64,9 @@ ElementSpec MakeImageSpec(const ImageOptions& opts, UiSize size, const UiTheme& 
     return ElementSpec{
         .label = opts.label,
         .description = opts.description,
+        .icon = opts.icon,
+        .badge = opts.badge,
+        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -73,6 +76,8 @@ ElementSpec MakeImageSpec(const ImageOptions& opts, UiSize size, const UiTheme& 
         .labelGap = theme.Scale(6.0f),
         .descGap = theme.Scale(4.0f),
         .inlineGap = theme.Scale(12.0f),
+        .divider = opts.divider,
+        .dividerStyle = opts.dividerStyle,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = (opts.heightMode == SizeMode::Stretch),
         .disabled = disabled
@@ -109,6 +114,7 @@ Response Image::Run(
     payload->opts = opts;
     payload->opts.label = ctx.AllocText(opts.label);
     payload->opts.description = ctx.AllocText(opts.description);
+    payload->opts.badge = ctx.AllocText(opts.badge);
     payload->opts.alt = ctx.AllocText(opts.alt);
     payload->opts.tooltip = ctx.AllocString(opts.tooltip);
     node->text = payload->opts.label.text.empty() ? payload->source : payload->opts.label.text;
@@ -118,7 +124,14 @@ Response Image::Run(
         payload->source,
         payload->opts.label,
         payload->opts.description,
+        payload->opts.badge,
         payload->opts.alt,
+        opts.variant,
+        opts.divider,
+        static_cast<uint8_t>(opts.dividerStyle),
+        static_cast<uint8_t>(opts.icon.GetType()),
+        static_cast<uint8_t>(opts.icon.GetId()),
+        opts.icon.GetPath(),
         static_cast<uint8_t>(opts.fit),
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
@@ -200,7 +213,7 @@ Vec2 Image::Measure(
     }
 
     const Vec2 ctrlSize = ComputeControlBoxSize(naturalSize, opts, theme, ctrlAvailW);
-    return ElementComposer::Measure(ctrlSize, spec, canvas, theme, availableWidth);
+    return Element::Measure(ctrlSize, spec, canvas, theme, availableWidth);
 }
 
 void Image::DrawCheckerboard(
@@ -270,8 +283,8 @@ void Image::Render(
     }
 
     const Vec2 ctrlSize = ComputeControlBoxSize(naturalSize, opts, theme, ctrlAvailW);
-    const ElementGeometry geom = ElementComposer::Resolve(bounds, ctrlSize, spec, &canvas, theme);
-    ElementComposer::RenderText(canvas, geom, spec, theme);
+    const ElementGeometry geom = Element::Resolve(bounds, ctrlSize, spec, &canvas, theme);
+    Element::RenderText(canvas, geom, spec, theme);
 
     const Rect box = geom.controlRect;
     if (box.w <= 0.0f || box.h <= 0.0f) return;

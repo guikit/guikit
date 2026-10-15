@@ -19,6 +19,9 @@ struct ImageOptions {
     std::string_view source{};                          ///< Image file path (.svg, .png, .jpg) or inline <svg>
     UiText label{};                                     ///< Optional external heading/label
     UiText description{};                               ///< Optional external caption/description
+    Icon icon{};                                        ///< Optional leading icon in external Element label bar
+    UiText badge{};                                     ///< Optional trailing pill badge in external Element label bar
+    UiVariant variant{UiVariant::Default};              ///< Semantic variant for external Element label bar / divider
     UiText alt{};                                       ///< Fallback text when image is missing or fails to load
     std::string_view tooltip{};                         ///< Optional hover tooltip text
     ObjectFit fit{ObjectFit::Contain};                  ///< Fitting policy inside the control box
@@ -37,6 +40,8 @@ struct ImageOptions {
     Color borderColor{0, 0, 0, 0};                      ///< Optional frame border color (0 = theme.palette.borderSubtle)
     Color backgroundColor{0, 0, 0, 0};                  ///< Optional background fill color behind image
     bool checkerboard{false};                           ///< Render transparency checkerboard pattern behind image
+    bool divider{false};                                ///< Whether to render an Element divider line
+    ElementDivider dividerStyle{ElementDivider::Bottom};///< Element divider placement style (Bottom or Trailing)
     uint8_t opacity{255};                               ///< Image opacity [0..255]
     std::optional<UiSize> size{std::nullopt};           ///< Local size token override
     bool disabled{false};

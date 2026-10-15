@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <optional>
 #include <source_location>
+#include <span>
 #include <string_view>
 #include <vector>
 #include "guikit/backend/ICanvas.hpp"
@@ -14,6 +15,7 @@
 namespace guikit {
 
 class Context;
+class SceneScope;
 struct Node;
 
 /// Visual background pattern for a 2D Scene viewport.
@@ -24,11 +26,36 @@ enum class SceneBackground : uint8_t {
     GridLines       ///< World-space adaptive coordinate grid lines (for CAD, maps, and plots)
 };
 
+/// Configuration options for an interactive world-space item inside a Scene.
+struct SceneItemOptions {
+    std::string_view id{};                      ///< Unique item identifier within the scene (e.g. "R100", "TR101")
+    std::string_view title{};                   ///< Display value or part number (e.g. "220K", "BC 154")
+    std::string_view category{};                ///< Component category/type (e.g. "Resistor", "PNP Transistor")
+    std::optional<Rect> hitRect{std::nullopt};  ///< Explicit world-space hit box (auto-computed from geometry if nullopt)
+    bool selectable{true};                      ///< Whether this item participates in hit-testing and selection
+};
+
+/// Resolved metadata, interaction flags, and world-space bounding box of a recorded SceneItem.
+struct SceneItemInfo {
+    uint64_t key{0};                ///< Deterministic 64-bit item key
+    std::string_view id{};          ///< Frame-arena allocated identifier
+    std::string_view title{};       ///< Frame-arena allocated title/value
+    std::string_view category{};    ///< Frame-arena allocated category
+    Rect worldBounds{};             ///< World-space bounding box of the item's geometry
+    int32_t firstCmdIndex{0};       ///< First draw command index belonging to this item
+    bool hasExplicitBounds{false};  ///< True if hitRect was explicitly provided
+    bool selectable{true};
+    bool hovered{false};
+    bool selected{false};
+    bool clicked{false};
+};
+
 /// Persistent camera and interaction state for a 2D Scene viewport.
 struct SceneState {
     Vec2 pan{0.0f, 0.0f};       ///< Offset of world origin (0,0) relative to viewport top-left in screen pixels
     float zoom{1.0f};           ///< Active camera zoom factor
     bool initialized{false};    ///< True once initial fit/framing has been computed
+    bool pointerDown{false};    ///< True while left mouse button is held after pressing inside viewport
     bool panning{false};        ///< True while dragging the canvas with mouse
     Vec2 panStartMouse{0.0f, 0.0f};
     Vec2 panStartOffset{0.0f, 0.0f};
@@ -38,6 +65,22 @@ struct SceneState {
     float dragStartScrollY{0.0f};
     Vec2 dragStartScrollMouse{0.0f, 0.0f};
     uint8_t hoveredHudBtn{0};   ///< 1 = '-', 2 = 'Fit', 3 = '100%', 4 = '+'
+
+    // Interactive SceneItem selection & marquee state
+    uint64_t hoveredItemKey{0};
+    uint64_t clickedItemKey{0};
+    std::vector<uint64_t> selectedItemKeys{};
+    bool boxSelecting{false};
+    Vec2 boxSelectStartWorld{0.0f, 0.0f};
+    Vec2 boxSelectCurrentWorld{0.0f, 0.0f};
+
+    [[nodiscard]] bool IsSelected(uint64_t key) const noexcept {
+        if (key == 0) return false;
+        for (uint64_t k : selectedItemKeys) {
+            if (k == key) return true;
+        }
+        return false;
+    }
 };
 
 /// Configuration options for a 2D Scene camera viewport.
@@ -62,6 +105,7 @@ struct SceneOptions {
     float zoomStep{1.2f};
     bool zoomable{true};                                ///< Allow mouse wheel zooming towards cursor
     bool pannable{true};                                ///< Allow mouse drag panning
+    bool selectableItems{true};                         ///< Enable interactive hit-testing, click selection, and Shift+Drag marquee selection
     bool showScrollbars{true};                          ///< Render 2D (X/Y) scrollbars when worldSize overflows viewport
     bool showControls{true};                            ///< Render floating Zoom HUD (-, Fit, 100%, +)
     bool clampToWorld{true};                            ///< Clamp panning to worldSize bounds when worldSize is finite
@@ -88,6 +132,7 @@ struct SceneDrawCmd {
         TextBox
     };
     Type type{Type::Rect};
+    int32_t itemIndex{-1};      ///< Owning SceneItemInfo index in ScenePayload::items (-1 if unowned)
     std::string_view textOrSource{};
     Rect rect{};
     Vec2 p1{};
@@ -111,12 +156,65 @@ struct ScenePayload {
     SceneOptions opts{};
     SceneState* state{nullptr};
     std::vector<SceneDrawCmd> drawCmds{};
+    std::vector<SceneItemInfo> items{};
+    int32_t activeItemIndex{-1};
+};
+
+/// RAII scope that groups world-space draw commands into an interactive, selectable SceneItem.
+class SceneItemScope {
+public:
+    SceneItemScope(
+        SceneScope* scene,
+        int32_t itemIndex,
+        int32_t prevItemIndex,
+        bool hovered,
+        bool selected,
+        bool clicked
+    ) noexcept;
+    ~SceneItemScope() noexcept;
+
+    SceneItemScope(const SceneItemScope&) = delete;
+    SceneItemScope& operator=(const SceneItemScope&) = delete;
+    SceneItemScope(SceneItemScope&& other) noexcept;
+    SceneItemScope& operator=(SceneItemScope&&) = delete;
+
+    [[nodiscard]] explicit operator bool() const noexcept { return true; }
+    [[nodiscard]] bool IsHovered() const noexcept { return m_hovered; }
+    [[nodiscard]] bool IsSelected() const noexcept { return m_selected; }
+    [[nodiscard]] bool Clicked() const noexcept { return m_clicked; }
+    [[nodiscard]] int32_t GetItemIndex() const noexcept { return m_itemIndex; }
+
+private:
+    SceneScope* m_scene{nullptr};
+    int32_t m_itemIndex{-1};
+    int32_t m_prevItemIndex{-1};
+    bool m_hovered{false};
+    bool m_selected{false};
+    bool m_clicked{false};
 };
 
 /// RAII scope for a 2D Scene container providing World <-> Screen transforms and world-space drawing.
 class SceneScope : public ContainerScope {
 public:
     SceneScope(Context* ctx, Node* node, ScenePayload* payload, Rect prevViewport) noexcept;
+
+    /// Declares an interactive world-space item whose bounding box is automatically computed from enclosed geometry.
+    [[nodiscard]] SceneItemScope Item(const SceneItemOptions& opts);
+
+    /// Returns all interactive items recorded in the scene during this frame.
+    [[nodiscard]] std::span<const SceneItemInfo> GetItems() const noexcept;
+
+    /// Returns the currently hovered item (or nullptr if none).
+    [[nodiscard]] const SceneItemInfo* GetHoveredItem() const noexcept;
+
+    /// Returns the number of currently selected items.
+    [[nodiscard]] size_t GetSelectedCount() const noexcept;
+
+    /// Clears all selected items in the scene.
+    void ClearSelection() noexcept;
+
+    /// Selects an item by its string identifier.
+    void SelectItem(std::string_view id, bool addToSelection = false) noexcept;
 
     /// Returns the current camera zoom multiplier.
     [[nodiscard]] float GetZoom() const noexcept;
@@ -223,6 +321,9 @@ public:
     );
 
 private:
+    friend class SceneItemScope;
+    void FinalizeItem(int32_t itemIndex, int32_t prevItemIndex) noexcept;
+
     ScenePayload* m_payload{nullptr};
     Rect m_viewport{};
 };

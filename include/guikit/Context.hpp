@@ -363,9 +363,14 @@ public:
     );
 
 
-    // --- Heading Widget ---
+    // --- Element / Heading Widgets ---
+    Response Element(
+        ElementOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
     Response Heading(
-        HeadingOptions opts,
+        HeadingOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
 

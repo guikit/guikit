@@ -2,8 +2,10 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <format>
+#include <string>
 #include "guikit/Context.hpp"
-#include "guikit/core/ElementComposer.hpp"
+#include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 #include "guikit/panels/ScrollArea.hpp"
@@ -157,11 +159,216 @@ HudLayout ComputeHudLayout(Rect vp, const UiTheme& theme, bool hasHScroll, bool 
 
 } // namespace
 
+SceneItemScope::SceneItemScope(
+    SceneScope* scene,
+    int32_t itemIndex,
+    int32_t prevItemIndex,
+    bool hovered,
+    bool selected,
+    bool clicked
+) noexcept
+    : m_scene(scene)
+    , m_itemIndex(itemIndex)
+    , m_prevItemIndex(prevItemIndex)
+    , m_hovered(hovered)
+    , m_selected(selected)
+    , m_clicked(clicked)
+{
+}
+
+SceneItemScope::~SceneItemScope() noexcept {
+    if (m_scene && m_itemIndex >= 0) {
+        m_scene->FinalizeItem(m_itemIndex, m_prevItemIndex);
+    }
+}
+
+SceneItemScope::SceneItemScope(SceneItemScope&& other) noexcept
+    : m_scene(other.m_scene)
+    , m_itemIndex(other.m_itemIndex)
+    , m_prevItemIndex(other.m_prevItemIndex)
+    , m_hovered(other.m_hovered)
+    , m_selected(other.m_selected)
+    , m_clicked(other.m_clicked)
+{
+    other.m_scene = nullptr;
+    other.m_itemIndex = -1;
+}
+
 SceneScope::SceneScope(Context* ctx, Node* node, ScenePayload* payload, Rect prevViewport) noexcept
     : ContainerScope(ctx, node)
     , m_payload(payload)
     , m_viewport(prevViewport)
 {
+}
+
+SceneItemScope SceneScope::Item(const SceneItemOptions& opts) {
+    if (!m_ctx || !m_payload || !m_payload->state) {
+        return SceneItemScope(nullptr, -1, -1, false, false, false);
+    }
+
+    const int32_t prevIdx = m_payload->activeItemIndex;
+    const int32_t newIdx = static_cast<int32_t>(m_payload->items.size());
+
+    uint64_t baseKey = detail::HashStringView(opts.id.empty() ? opts.title : opts.id);
+    if (baseKey == 0) {
+        baseKey = detail::HashArgs(static_cast<uint32_t>(newIdx + 1));
+    }
+    // Disambiguate if another item in the same scene shares the same base string key
+    uint64_t key = baseKey;
+    uint32_t dupCount = 0;
+    for (const SceneItemInfo& existing : m_payload->items) {
+        if (existing.key == key) {
+            ++dupCount;
+            key = detail::HashArgs(baseKey, dupCount);
+        }
+    }
+
+    const SceneState& state = *m_payload->state;
+    const bool isHov = (key != 0 && state.hoveredItemKey == key);
+    const bool isSel = state.IsSelected(key);
+    const bool isClk = (key != 0 && state.clickedItemKey == key);
+
+    SceneItemInfo info{};
+    info.key = key;
+    info.id = m_ctx->AllocString(opts.id);
+    info.title = m_ctx->AllocString(opts.title);
+    info.category = m_ctx->AllocString(opts.category);
+    info.firstCmdIndex = static_cast<int32_t>(m_payload->drawCmds.size());
+    info.hasExplicitBounds = opts.hitRect.has_value();
+    info.worldBounds = opts.hitRect.value_or(Rect{});
+    info.selectable = opts.selectable;
+    info.hovered = isHov;
+    info.selected = isSel;
+    info.clicked = isClk;
+
+    m_payload->items.push_back(info);
+    m_payload->activeItemIndex = newIdx;
+
+    return SceneItemScope(this, newIdx, prevIdx, isHov, isSel, isClk);
+}
+
+void SceneScope::FinalizeItem(int32_t itemIndex, int32_t prevItemIndex) noexcept {
+    if (!m_payload) return;
+    m_payload->activeItemIndex = prevItemIndex;
+
+    if (itemIndex < 0 || itemIndex >= static_cast<int32_t>(m_payload->items.size())) {
+        return;
+    }
+
+    SceneItemInfo& item = m_payload->items[static_cast<size_t>(itemIndex)];
+    if (item.hasExplicitBounds) {
+        return;
+    }
+
+    float minX = 1e30f, minY = 1e30f;
+    float maxX = -1e30f, maxY = -1e30f;
+    bool hasGeom = false;
+
+    auto expandPt = [&](Vec2 p) {
+        minX = std::min(minX, p.x);
+        minY = std::min(minY, p.y);
+        maxX = std::max(maxX, p.x);
+        maxY = std::max(maxY, p.y);
+        hasGeom = true;
+    };
+    auto expandRect = [&](Rect r) {
+        if (r.w <= 0.0f && r.h <= 0.0f) return;
+        expandPt(r.Pos());
+        expandPt({r.Right(), r.Bottom()});
+    };
+
+    const int32_t cmdCount = static_cast<int32_t>(m_payload->drawCmds.size());
+    for (int32_t i = item.firstCmdIndex; i < cmdCount; ++i) {
+        const SceneDrawCmd& cmd = m_payload->drawCmds[static_cast<size_t>(i)];
+        if (cmd.itemIndex != itemIndex) continue;
+
+        switch (cmd.type) {
+            case SceneDrawCmd::Type::Image:
+            case SceneDrawCmd::Type::Rect:
+                expandRect(cmd.rect);
+                break;
+            case SceneDrawCmd::Type::Line:
+                expandPt(cmd.p1);
+                expandPt(cmd.p2);
+                break;
+            case SceneDrawCmd::Type::Triangle:
+                expandPt(cmd.p1);
+                expandPt(cmd.p2);
+                expandPt(cmd.p3);
+                break;
+            case SceneDrawCmd::Type::Text:
+            case SceneDrawCmd::Type::TextBox:
+                // Excluded from primary geometry pass so external text callouts don't inflate component hitboxes
+                break;
+        }
+    }
+
+    // Fallback if the item consists solely of text commands
+    if (!hasGeom) {
+        for (int32_t i = item.firstCmdIndex; i < cmdCount; ++i) {
+            const SceneDrawCmd& cmd = m_payload->drawCmds[static_cast<size_t>(i)];
+            if (cmd.itemIndex != itemIndex) continue;
+            if (cmd.type == SceneDrawCmd::Type::TextBox) {
+                expandRect(cmd.rect);
+            } else if (cmd.type == SceneDrawCmd::Type::Text) {
+                expandRect(Rect(cmd.p1.x, cmd.p1.y - cmd.fontSize, cmd.fontSize * 3.0f, cmd.fontSize));
+            }
+        }
+    }
+
+    if (hasGeom) {
+        // Ensure thin single-line items have a minimum 4-unit world AABB thickness
+        if (maxX - minX < 4.0f) {
+            const float cx = 0.5f * (minX + maxX);
+            minX = cx - 2.0f;
+            maxX = cx + 2.0f;
+        }
+        if (maxY - minY < 4.0f) {
+            const float cy = 0.5f * (minY + maxY);
+            minY = cy - 2.0f;
+            maxY = cy + 2.0f;
+        }
+        item.worldBounds = Rect(minX, minY, maxX - minX, maxY - minY);
+    }
+}
+
+std::span<const SceneItemInfo> SceneScope::GetItems() const noexcept {
+    if (!m_payload) return {};
+    return m_payload->items;
+}
+
+const SceneItemInfo* SceneScope::GetHoveredItem() const noexcept {
+    if (!m_payload) return nullptr;
+    for (const SceneItemInfo& item : m_payload->items) {
+        if (item.hovered) return &item;
+    }
+    return nullptr;
+}
+
+size_t SceneScope::GetSelectedCount() const noexcept {
+    return (m_payload && m_payload->state) ? m_payload->state->selectedItemKeys.size() : 0;
+}
+
+void SceneScope::ClearSelection() noexcept {
+    if (!m_payload || !m_payload->state) return;
+    m_payload->state->selectedItemKeys.clear();
+    for (SceneItemInfo& item : m_payload->items) {
+        item.selected = false;
+    }
+}
+
+void SceneScope::SelectItem(std::string_view id, bool addToSelection) noexcept {
+    if (!m_payload || !m_payload->state || id.empty()) return;
+    const uint64_t key = detail::HashStringView(id);
+    if (!addToSelection) {
+        m_payload->state->selectedItemKeys.clear();
+    }
+    if (!m_payload->state->IsSelected(key)) {
+        m_payload->state->selectedItemKeys.push_back(key);
+    }
+    for (SceneItemInfo& item : m_payload->items) {
+        item.selected = m_payload->state->IsSelected(item.key);
+    }
 }
 
 float SceneScope::GetZoom() const noexcept {
@@ -229,6 +436,7 @@ void SceneScope::DrawImage(
     if (!m_ctx || !m_payload || source.empty()) return;
     SceneDrawCmd cmd{};
     cmd.type = SceneDrawCmd::Type::Image;
+    cmd.itemIndex = m_payload->activeItemIndex;
     cmd.textOrSource = m_ctx->AllocString(source);
     cmd.rect = worldRect;
     cmd.radius = radius;
@@ -246,6 +454,7 @@ void SceneScope::DrawRect(
     if (!m_payload) return;
     SceneDrawCmd cmd{};
     cmd.type = SceneDrawCmd::Type::Rect;
+    cmd.itemIndex = m_payload->activeItemIndex;
     cmd.rect = worldRect;
     cmd.fill = fill;
     cmd.radius = radius;
@@ -282,6 +491,7 @@ void SceneScope::DrawTriangle(
     if (!m_payload) return;
     SceneDrawCmd cmd{};
     cmd.type = SceneDrawCmd::Type::Triangle;
+    cmd.itemIndex = m_payload->activeItemIndex;
     cmd.p1 = worldP1;
     cmd.p2 = worldP2;
     cmd.p3 = worldP3;
@@ -324,6 +534,7 @@ void SceneScope::DrawLine(Vec2 worldP1, Vec2 worldP2, Color color, float strokeW
     if (!m_payload) return;
     SceneDrawCmd cmd{};
     cmd.type = SceneDrawCmd::Type::Line;
+    cmd.itemIndex = m_payload->activeItemIndex;
     cmd.p1 = worldP1;
     cmd.p2 = worldP2;
     cmd.fill = color;
@@ -343,6 +554,7 @@ void SceneScope::DrawText(
     if (!m_ctx || !m_payload || text.empty()) return;
     SceneDrawCmd cmd{};
     cmd.type = SceneDrawCmd::Type::Text;
+    cmd.itemIndex = m_payload->activeItemIndex;
     cmd.textOrSource = m_ctx->AllocString(text);
     cmd.p1 = worldPos;
     cmd.fontSize = fontSize;
@@ -367,6 +579,7 @@ void SceneScope::DrawTextBox(
     if (!m_ctx || !m_payload || text.empty() || worldRect.w <= 0.0f || worldRect.h <= 0.0f) return;
     SceneDrawCmd cmd{};
     cmd.type = SceneDrawCmd::Type::TextBox;
+    cmd.itemIndex = m_payload->activeItemIndex;
     cmd.textOrSource = m_ctx->AllocString(text);
     cmd.rect = worldRect;
     cmd.fontSize = fontSize;
@@ -458,6 +671,11 @@ SceneScope Scene::Open(
         state.pan.x,
         state.pan.y,
         state.hoveredHudBtn,
+        state.hoveredItemKey,
+        state.selectedItemKeys.size(),
+        state.boxSelecting,
+        state.boxSelectCurrentWorld.x,
+        state.boxSelectCurrentWorld.y,
         activeSize,
         activeDisabled
     );
@@ -498,6 +716,7 @@ void Scene::Update(Context& ctx, Node* node) {
 
     SceneState& state = *payload->state;
     const SceneOptions& opts = payload->opts;
+    state.clickedItemKey = 0;
 
     const UiTheme* resolvedTheme = &ctx.GetTheme();
     for (const Node* curr = node; curr != nullptr; curr = curr->parent) {
@@ -517,10 +736,12 @@ void Scene::Update(Context& ctx, Node* node) {
     if (node->disabled) return;
 
     const float s = theme.Scale(1.0f);
+    const float worldScale = std::max(0.0001f, state.zoom * s);
     const Vec2 mousePos = ctx.GetMousePos();
     const bool insideVp = vp.Contains(mousePos);
     const bool mouseClicked = ctx.IsMouseClicked();
     const bool mouseDown = ctx.IsMouseDown();
+    const KeyModifiers mods = ctx.GetKeyModifiers();
 
     const bool hasWorld = opts.worldSize.has_value() && opts.worldSize->x > 0.0f && opts.worldSize->y > 0.0f;
     const float worldScreenW = hasWorld ? (opts.worldSize->x * s * state.zoom) : 0.0f;
@@ -543,8 +764,8 @@ void Scene::Update(Context& ctx, Node* node) {
             if (mouseClicked && state.hoveredHudBtn != 0) {
                 const Vec2 centerRel = { vp.w * 0.5f, vp.h * 0.5f };
                 const Vec2 worldCenter = {
-                    (centerRel.x - state.pan.x) / std::max(0.0001f, state.zoom * s),
-                    (centerRel.y - state.pan.y) / std::max(0.0001f, state.zoom * s)
+                    (centerRel.x - state.pan.x) / worldScale,
+                    (centerRel.y - state.pan.y) / worldScale
                 };
                 if (state.hoveredHudBtn == 1) {
                     state.zoom = std::clamp(state.zoom / opts.zoomStep, opts.minZoom, opts.maxZoom);
@@ -642,20 +863,119 @@ void Scene::Update(Context& ctx, Node* node) {
         }
     }
 
-    // 4. Drag-to-Pan with mouse
-    if (opts.pannable && !hudConsumed && !scrollbarBusy) {
-        if (insideVp && mouseClicked) {
-            state.panning = true;
+    const Vec2 mouseWorld = {
+        (mousePos.x - vp.x - state.pan.x) / std::max(0.0001f, state.zoom * s),
+        (mousePos.y - vp.y - state.pan.y) / std::max(0.0001f, state.zoom * s)
+    };
+
+    // 4. Spatial Hit-Testing for SceneItems (smallest-area / topmost priority)
+    const uint64_t prevHoveredKey = state.hoveredItemKey;
+    state.hoveredItemKey = 0;
+    if (opts.selectableItems && insideVp && !hudConsumed && !scrollbarBusy && !state.panning && !state.boxSelecting) {
+        const float worldHitPad = (3.5f * s) / std::max(0.0001f, state.zoom * s);
+        float bestArea = 1e30f;
+
+        for (const SceneItemInfo& item : payload->items) {
+            if (!item.selectable || item.worldBounds.w <= 0.0f || item.worldBounds.h <= 0.0f) {
+                continue;
+            }
+            const Rect hitBox(
+                item.worldBounds.x - worldHitPad,
+                item.worldBounds.y - worldHitPad,
+                item.worldBounds.w + worldHitPad * 2.0f,
+                item.worldBounds.h + worldHitPad * 2.0f
+            );
+            if (hitBox.Contains(mouseWorld)) {
+                const float area = item.worldBounds.Area();
+                if (area <= bestArea * 1.05f) {
+                    bestArea = area;
+                    state.hoveredItemKey = item.key;
+                }
+            }
+        }
+    }
+    if (state.hoveredItemKey != prevHoveredKey) {
+        ctx.RequestRepaint(2);
+    }
+
+    // 5. Pointer Press / Drag-to-Pan / Click-to-Select / Shift+Drag Marquee Box Selection
+    if (!hudConsumed && !scrollbarBusy && insideVp && mouseClicked) {
+        if (opts.selectableItems && mods.shift) {
+            state.boxSelecting = true;
+            state.boxSelectStartWorld = mouseWorld;
+            state.boxSelectCurrentWorld = mouseWorld;
+            ctx.SetActiveId(node->id);
+            ctx.RequestRepaint(2);
+        } else {
+            state.pointerDown = true;
+            state.panning = false;
             state.panStartMouse = mousePos;
             state.panStartOffset = state.pan;
             ctx.SetActiveId(node->id);
         }
     }
-    if (state.panning) {
+
+    if (state.boxSelecting) {
         if (mouseDown) {
-            state.pan = state.panStartOffset + (mousePos - state.panStartMouse);
+            state.boxSelectCurrentWorld = mouseWorld;
             ctx.RequestRepaint(2);
         } else {
+            const float x1 = std::min(state.boxSelectStartWorld.x, state.boxSelectCurrentWorld.x);
+            const float y1 = std::min(state.boxSelectStartWorld.y, state.boxSelectCurrentWorld.y);
+            const float x2 = std::max(state.boxSelectStartWorld.x, state.boxSelectCurrentWorld.x);
+            const float y2 = std::max(state.boxSelectStartWorld.y, state.boxSelectCurrentWorld.y);
+            const Rect marquee(x1, y1, x2 - x1, y2 - y1);
+
+            if (!mods.ctrl) {
+                state.selectedItemKeys.clear();
+            }
+            if (marquee.w > 1.0f || marquee.h > 1.0f) {
+                for (const SceneItemInfo& item : payload->items) {
+                    if (item.selectable && item.worldBounds.Intersects(marquee)) {
+                        if (!state.IsSelected(item.key)) {
+                            state.selectedItemKeys.push_back(item.key);
+                        }
+                    }
+                }
+            }
+            state.boxSelecting = false;
+            if (ctx.GetActiveId() == node->id) {
+                ctx.SetActiveId(Id::Null());
+            }
+            ctx.RequestRepaint(2);
+        }
+    } else if (state.pointerDown) {
+        if (mouseDown) {
+            const Vec2 delta = mousePos - state.panStartMouse;
+            if (!state.panning && opts.pannable && (std::abs(delta.x) >= 3.5f || std::abs(delta.y) >= 3.5f)) {
+                state.panning = true;
+            }
+            if (state.panning) {
+                state.pan = state.panStartOffset + delta;
+                ctx.RequestRepaint(2);
+            }
+        } else {
+            // Mouse button released: if we did not drag-pan, treat as a click!
+            if (!state.panning && opts.selectableItems) {
+                if (state.hoveredItemKey != 0) {
+                    state.clickedItemKey = state.hoveredItemKey;
+                    if (mods.ctrl) {
+                        auto it = std::find(state.selectedItemKeys.begin(), state.selectedItemKeys.end(), state.hoveredItemKey);
+                        if (it != state.selectedItemKeys.end()) {
+                            state.selectedItemKeys.erase(it);
+                        } else {
+                            state.selectedItemKeys.push_back(state.hoveredItemKey);
+                        }
+                    } else {
+                        state.selectedItemKeys.clear();
+                        state.selectedItemKeys.push_back(state.hoveredItemKey);
+                    }
+                } else if (!mods.ctrl) {
+                    state.selectedItemKeys.clear();
+                }
+                ctx.RequestRepaint(2);
+            }
+            state.pointerDown = false;
             state.panning = false;
             if (ctx.GetActiveId() == node->id) {
                 ctx.SetActiveId(Id::Null());
@@ -663,7 +983,31 @@ void Scene::Update(Context& ctx, Node* node) {
         }
     }
 
+    // Sync current-frame item flags and visualHash so rendering & damage tracking are immediate
+    uint64_t selHash = 0;
+    for (uint64_t k : state.selectedItemKeys) {
+        selHash = detail::HashArgs(selHash, k);
+    }
+    for (SceneItemInfo& item : payload->items) {
+        item.hovered = (item.key != 0 && item.key == state.hoveredItemKey);
+        item.selected = state.IsSelected(item.key);
+        item.clicked = (item.key != 0 && item.key == state.clickedItemKey);
+    }
+
     ClampCameraToWorld(state, opts, vp, theme);
+
+    node->visualHash = detail::HashArgs(
+        node->visualHash,
+        state.zoom,
+        state.pan.x,
+        state.pan.y,
+        state.hoveredHudBtn,
+        state.hoveredItemKey,
+        selHash,
+        state.boxSelecting,
+        state.boxSelectCurrentWorld.x,
+        state.boxSelectCurrentWorld.y
+    );
 
     node->scrollContentSize = { worldScreenW, worldScreenH };
     node->scrollOffset = { std::max(0.0f, -state.pan.x), std::max(0.0f, -state.pan.y) };
@@ -744,39 +1088,75 @@ void Scene::RenderBackgroundAndWorld(
         }
     }
 
-    // 2. Execute recorded world-space draw commands
+    auto worldRectToScreen = [&](Rect wr) noexcept -> Rect {
+        return Rect(
+            vp.x + state.pan.x + wr.x * worldScale,
+            vp.y + state.pan.y + wr.y * worldScale,
+            wr.w * worldScale,
+            wr.h * worldScale
+        );
+    };
+
+    auto blendColor = [](Color c, Color target, float t) noexcept -> Color {
+        if (c.a == 0) return c;
+        return Color(
+            static_cast<uint8_t>(std::round(c.r + (target.r - c.r) * t)),
+            static_cast<uint8_t>(std::round(c.g + (target.g - c.g) * t)),
+            static_cast<uint8_t>(std::round(c.b + (target.b - c.b) * t)),
+            c.a
+        );
+    };
+
+    const Color accentCol = theme.palette.accent;
+    const float boxPad = 4.0f * s;
+
+    // 2. Render subtle backdrop glow under hovered/selected SceneItems
+    for (const SceneItemInfo& item : payload->items) {
+        if ((!item.hovered && !item.selected) || item.worldBounds.w <= 0.0f || item.worldBounds.h <= 0.0f) {
+            continue;
+        }
+        const Rect sr = worldRectToScreen(item.worldBounds);
+        const Rect halo(sr.x - boxPad, sr.y - boxPad, sr.w + boxPad * 2.0f, sr.h + boxPad * 2.0f);
+        if (halo.Intersects(vp)) {
+            canvas.DrawRoundRect(halo, 3.0f * s, accentCol.WithAlpha(item.selected ? 34 : 18));
+        }
+    }
+
+    // 3. Execute recorded world-space draw commands (with automatic SceneItem tinting)
+    const int32_t itemCount = static_cast<int32_t>(payload->items.size());
     for (const SceneDrawCmd& cmd : payload->drawCmds) {
+        const SceneItemInfo* owner = (cmd.itemIndex >= 0 && cmd.itemIndex < itemCount)
+            ? &payload->items[static_cast<size_t>(cmd.itemIndex)]
+            : nullptr;
+        const bool isSel = owner && owner->selected;
+        const bool isHov = owner && owner->hovered && !isSel;
+        const float tintFactor = isSel ? 1.0f : (isHov ? 0.72f : 0.0f);
+        const float strokeBoost = isSel ? 1.25f : (isHov ? 1.12f : 1.0f);
+
         switch (cmd.type) {
             case SceneDrawCmd::Type::Image: {
-                const Rect dst(
-                    vp.x + state.pan.x + cmd.rect.x * worldScale,
-                    vp.y + state.pan.y + cmd.rect.y * worldScale,
-                    cmd.rect.w * worldScale,
-                    cmd.rect.h * worldScale
-                );
+                const Rect dst = worldRectToScreen(cmd.rect);
                 if (dst.Intersects(vp)) {
                     canvas.DrawImage(cmd.textOrSource, dst, cmd.radius * state.zoom, cmd.opacity);
                 }
                 break;
             }
             case SceneDrawCmd::Type::Rect: {
-                const Rect dst(
-                    vp.x + state.pan.x + cmd.rect.x * worldScale,
-                    vp.y + state.pan.y + cmd.rect.y * worldScale,
-                    cmd.rect.w * worldScale,
-                    cmd.rect.h * worldScale
-                );
+                const Rect dst = worldRectToScreen(cmd.rect);
                 if (dst.Intersects(vp)) {
                     const float sw = (cmd.strokeWidth > 0.0f)
-                        ? std::max(0.75f, cmd.strokeWidth * worldScale)
+                        ? std::max(0.75f, cmd.strokeWidth * worldScale * strokeBoost)
                         : 0.0f;
-                    canvas.DrawRoundRect(
-                        dst,
-                        cmd.radius * worldScale,
-                        cmd.fill,
-                        cmd.stroke,
-                        sw
-                    );
+                    Color fill = cmd.fill;
+                    Color stroke = cmd.stroke;
+                    if (tintFactor > 0.0f) {
+                        if (cmd.strokeWidth > 0.0f && stroke.a > 0) {
+                            stroke = blendColor(stroke, accentCol, tintFactor);
+                        } else if (cmd.strokeWidth == 0.0f && fill.a > 0) {
+                            fill = blendColor(fill, accentCol, tintFactor);
+                        }
+                    }
+                    canvas.DrawRoundRect(dst, cmd.radius * worldScale, fill, stroke, sw);
                 }
                 break;
             }
@@ -789,7 +1169,8 @@ void Scene::RenderBackgroundAndWorld(
                     vp.x + state.pan.x + cmd.p2.x * worldScale,
                     vp.y + state.pan.y + cmd.p2.y * worldScale
                 };
-                canvas.DrawLine(sp1, sp2, cmd.fill, std::max(0.75f, cmd.strokeWidth * worldScale));
+                const Color col = (tintFactor > 0.0f) ? blendColor(cmd.fill, accentCol, tintFactor) : cmd.fill;
+                canvas.DrawLine(sp1, sp2, col, std::max(0.75f, cmd.strokeWidth * worldScale * strokeBoost));
                 break;
             }
             case SceneDrawCmd::Type::Triangle: {
@@ -806,9 +1187,11 @@ void Scene::RenderBackgroundAndWorld(
                     vp.y + state.pan.y + cmd.p3.y * worldScale
                 };
                 const float sw = (cmd.strokeWidth > 0.0f)
-                    ? std::max(0.75f, cmd.strokeWidth * worldScale)
+                    ? std::max(0.75f, cmd.strokeWidth * worldScale * strokeBoost)
                     : 0.0f;
-                canvas.DrawTriangle(sp1, sp2, sp3, cmd.fill, cmd.stroke, sw);
+                const Color fill = (tintFactor > 0.0f) ? blendColor(cmd.fill, accentCol, tintFactor) : cmd.fill;
+                const Color stroke = (tintFactor > 0.0f) ? blendColor(cmd.stroke, accentCol, tintFactor) : cmd.stroke;
+                canvas.DrawTriangle(sp1, sp2, sp3, fill, stroke, sw);
                 break;
             }
             case SceneDrawCmd::Type::Text: {
@@ -820,37 +1203,79 @@ void Scene::RenderBackgroundAndWorld(
                     ? (cmd.fontSize * worldScale)
                     : theme.Scale(cmd.fontSize);
                 if (fs >= 2.2f) {
-                    canvas.DrawTextStyled(cmd.textOrSource, sp, fs, cmd.fill, cmd.fontStyle, cmd.angleDeg);
+                    const Color col = (tintFactor > 0.0f) ? blendColor(cmd.fill, accentCol, tintFactor) : cmd.fill;
+                    canvas.DrawTextStyled(cmd.textOrSource, sp, fs, col, cmd.fontStyle, cmd.angleDeg);
                 }
                 break;
             }
             case SceneDrawCmd::Type::TextBox: {
-                const Rect dst(
-                    vp.x + state.pan.x + cmd.rect.x * worldScale,
-                    vp.y + state.pan.y + cmd.rect.y * worldScale,
-                    cmd.rect.w * worldScale,
-                    cmd.rect.h * worldScale
-                );
+                const Rect dst = worldRectToScreen(cmd.rect);
                 if (dst.Intersects(vp)) {
                     const float fs = cmd.scaleFontWithZoom
                         ? (cmd.fontSize * worldScale)
                         : theme.Scale(cmd.fontSize);
                     if (fs >= 2.2f) {
+                        const Color col = (tintFactor > 0.0f) ? blendColor(cmd.fill, accentCol, tintFactor) : cmd.fill;
                         const Vec2 ts = canvas.MeasureTextStyled(cmd.textOrSource, fs, cmd.fontStyle);
                         const float opticalH = fs * 1.18f;
                         if (std::abs(cmd.angleDeg + 90.0f) < 1.0f) {
                             const float tx = dst.x + (dst.w - opticalH) * cmd.alignX;
                             const float ty = dst.y + ts.x + (dst.h - ts.x) * cmd.alignY;
-                            canvas.DrawTextStyled(cmd.textOrSource, {tx, ty}, fs, cmd.fill, cmd.fontStyle, cmd.angleDeg);
+                            canvas.DrawTextStyled(cmd.textOrSource, {tx, ty}, fs, col, cmd.fontStyle, cmd.angleDeg);
                         } else {
                             const float tx = dst.x + (dst.w - ts.x) * cmd.alignX;
                             const float ty = dst.y + (dst.h - opticalH) * cmd.alignY;
-                            canvas.DrawTextStyled(cmd.textOrSource, {tx, ty}, fs, cmd.fill, cmd.fontStyle, cmd.angleDeg);
+                            canvas.DrawTextStyled(cmd.textOrSource, {tx, ty}, fs, col, cmd.fontStyle, cmd.angleDeg);
                         }
                     }
                 }
                 break;
             }
+        }
+    }
+
+    // 4. Render CAD Selection & Hover Frames with Corner Grips
+    const float gripSz = 4.5f * s;
+    const float halfGrip = gripSz * 0.5f;
+    for (const SceneItemInfo& item : payload->items) {
+        if ((!item.hovered && !item.selected) || item.worldBounds.w <= 0.0f || item.worldBounds.h <= 0.0f) {
+            continue;
+        }
+        const Rect sr = worldRectToScreen(item.worldBounds);
+        const Rect frame(sr.x - boxPad, sr.y - boxPad, sr.w + boxPad * 2.0f, sr.h + boxPad * 2.0f);
+        if (!frame.Intersects(vp)) continue;
+
+        if (item.selected) {
+            canvas.DrawRoundRect(frame, 2.0f * s, Color::Transparent(), accentCol, 1.5f * s);
+            const Vec2 corners[4] = {
+                {frame.x, frame.y},
+                {frame.Right(), frame.y},
+                {frame.x, frame.Bottom()},
+                {frame.Right(), frame.Bottom()}
+            };
+            for (const Vec2& c : corners) {
+                canvas.DrawRoundRect(
+                    Rect(c.x - halfGrip, c.y - halfGrip, gripSz, gripSz),
+                    1.0f,
+                    accentCol,
+                    theme.palette.surfaceElevated,
+                    1.0f
+                );
+            }
+        } else if (item.hovered) {
+            canvas.DrawRoundRect(frame, 3.0f * s, Color::Transparent(), accentCol.WithAlpha(165), 1.0f * s);
+        }
+    }
+
+    // 5. Render Shift+Drag Marquee Selection Box
+    if (state.boxSelecting) {
+        const float wx1 = std::min(state.boxSelectStartWorld.x, state.boxSelectCurrentWorld.x);
+        const float wy1 = std::min(state.boxSelectStartWorld.y, state.boxSelectCurrentWorld.y);
+        const float wx2 = std::max(state.boxSelectStartWorld.x, state.boxSelectCurrentWorld.x);
+        const float wy2 = std::max(state.boxSelectStartWorld.y, state.boxSelectCurrentWorld.y);
+        const Rect mScreen = worldRectToScreen(Rect(wx1, wy1, wx2 - wx1, wy2 - wy1));
+        if (mScreen.w > 1.0f || mScreen.h > 1.0f) {
+            canvas.DrawRoundRect(mScreen, 2.0f * s, accentCol.WithAlpha(35), accentCol, 1.5f * s);
         }
     }
 
@@ -910,7 +1335,7 @@ void Scene::RenderOverlays(
         );
     }
 
-    // 2. Render Floating Zoom HUD
+    // 2. Render Floating Zoom HUD (Bottom-Right) and CAD Selection Inspector Pill (Bottom-Left)
     if (opts.showControls && vp.w > 180.0f * s && vp.h > 60.0f * s) {
         const HudLayout hud = ComputeHudLayout(vp, theme, showHScroll, showVScroll, node->uiSize);
         const Color hudBg = theme.palette.surfaceElevated.WithAlpha(235);
@@ -934,6 +1359,55 @@ void Scene::RenderOverlays(
         char zoomBuf[24];
         std::snprintf(zoomBuf, sizeof(zoomBuf), "%.0f%%", state.zoom * 100.0f);
         canvas.DrawTextBox(zoomBuf, hud.badgeRect, fs, theme.palette.textSecondary, 0.5f, 0.5f);
+
+        // CAD Component Inspector Pill (Bottom-Left) when an item is hovered or selected
+        const SceneItemInfo* hovItem = nullptr;
+        const SceneItemInfo* primarySelItem = nullptr;
+        for (const SceneItemInfo& item : payload->items) {
+            if (item.hovered) hovItem = &item;
+            if (item.selected) primarySelItem = &item;
+        }
+
+        const size_t selCount = state.selectedItemKeys.size();
+        const SceneItemInfo* activeInfo = hovItem ? hovItem : primarySelItem;
+        if (activeInfo || selCount > 0) {
+            std::string badgeText;
+            std::string detailText;
+            if (selCount > 1 && !hovItem) {
+                badgeText = "MULTI-SELECT";
+                detailText = std::format("{} components selected  (Ctrl+Click or Shift+Drag)", selCount);
+            } else if (activeInfo) {
+                badgeText = activeInfo->category.empty()
+                    ? (activeInfo->selected ? "SELECTED" : "HOVER")
+                    : std::string(activeInfo->category);
+                detailText = std::string(activeInfo->id);
+                if (!activeInfo->title.empty()) {
+                    detailText += "  —  ";
+                    detailText += activeInfo->title;
+                }
+                if (selCount > 1) {
+                    detailText += std::format("  (+{} selected)", selCount - 1);
+                }
+            }
+
+            if (!detailText.empty()) {
+                const float pad = 4.0f * s;
+                const float badgeTextW = canvas.MeasureText(badgeText, fs).x + 14.0f * s;
+                const float detailTextW = canvas.MeasureText(detailText, fs).x + 16.0f * s;
+                const float pillW = std::min(hud.barRect.x - (vp.x + 16.0f * s), pad * 2.0f + badgeTextW + detailTextW);
+                if (pillW > 80.0f * s) {
+                    const Rect pillRect(vp.x + 10.0f * s, hud.barRect.y, pillW, hud.barRect.h);
+                    canvas.DrawRoundRect(pillRect, 6.0f * s, hudBg, hudBorder, 1.0f);
+
+                    const Rect catRect(pillRect.x + pad, pillRect.y + pad, badgeTextW, pillRect.h - pad * 2.0f);
+                    canvas.DrawRoundRect(catRect, 4.0f * s, theme.palette.accent.WithAlpha(40));
+                    canvas.DrawTextBox(badgeText, catRect, fs, theme.palette.accent, 0.5f, 0.5f);
+
+                    const Rect txtRect(catRect.Right() + 8.0f * s, pillRect.y + pad, std::max(0.0f, pillRect.Right() - catRect.Right() - 12.0f * s), pillRect.h - pad * 2.0f);
+                    canvas.DrawTextBox(detailText, txtRect, fs, theme.palette.textPrimary, 0.0f, 0.5f);
+                }
+            }
+        }
     }
 
     // 3. Render Viewport Frame Border

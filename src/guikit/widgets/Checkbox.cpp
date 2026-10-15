@@ -2,7 +2,7 @@
 #include <algorithm>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/ElementComposer.hpp"
+#include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
 
 namespace guikit {
@@ -19,6 +19,9 @@ ElementSpec MakeCheckboxElementSpec(
     return ElementSpec{
         .label = opts.label,
         .description = opts.description,
+        .icon = opts.icon,
+        .badge = opts.badge,
+        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -28,6 +31,8 @@ ElementSpec MakeCheckboxElementSpec(
         .labelGap = m.descGap,
         .descGap = m.descGap,
         .inlineGap = m.gap,
+        .divider = opts.divider,
+        .dividerStyle = opts.dividerStyle,
         .stretchableControl = false,
         .stretchHeightWhenStandalone = false,
         .disabled = disabled
@@ -83,6 +88,7 @@ Response Checkbox::Run(
     CheckboxOptions optsCopy = opts;
     optsCopy.label = ctx.AllocText(opts.label);
     optsCopy.description = ctx.AllocText(opts.description);
+    optsCopy.badge = ctx.AllocText(opts.badge);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
     node->text = optsCopy.label.text;
     node->SetPayload(ctx.AllocPayload<CheckboxOptions>(optsCopy));
@@ -94,9 +100,15 @@ Response Checkbox::Run(
         opts.indeterminate,
         static_cast<uint8_t>(opts.stretch),
         opts.width.value_or(0.0f),
+        opts.divider,
+        static_cast<uint8_t>(opts.dividerStyle),
+        static_cast<uint8_t>(opts.icon.GetType()),
+        static_cast<uint8_t>(opts.icon.GetId()),
+        opts.icon.GetPath(),
         currentChecked,
         optsCopy.label,
-        optsCopy.description
+        optsCopy.description,
+        optsCopy.badge
     );
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<CheckboxOptions>();
@@ -140,7 +152,7 @@ Vec2 Checkbox::Measure(
 ) {
     const CheckboxMetrics& m = theme.GetCheckbox(size);
     const ElementSpec spec = MakeCheckboxElementSpec(opts, size, opts.disabled, theme);
-    return ElementComposer::Measure({m.boxSize, m.boxSize}, spec, canvas, theme, availableWidth);
+    return Element::Measure({m.boxSize, m.boxSize}, spec, canvas, theme, availableWidth);
 }
 
 Vec2 Checkbox::Measure(
@@ -171,8 +183,8 @@ void Checkbox::Render(
 
     const CheckboxMetrics& m = theme.GetCheckbox(size);
     const ElementSpec spec = MakeCheckboxElementSpec(opts, size, disabled, theme);
-    const ElementGeometry geom = ElementComposer::Resolve(bounds, {m.boxSize, m.boxSize}, spec, &canvas, theme);
-    ElementComposer::RenderText(canvas, geom, spec, theme);
+    const ElementGeometry geom = Element::Resolve(bounds, {m.boxSize, m.boxSize}, spec, &canvas, theme);
+    Element::RenderText(canvas, geom, spec, theme);
     const Rect boxRect = geom.controlRect;
 
     // Determine colors

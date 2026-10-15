@@ -19,7 +19,9 @@ struct ButtonOptions {
     UiText text{};                                 ///< Text inside the button capsule
     UiText description{};                          ///< Optional external helper text below/beside button
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
-    Icon icon{};
+    Icon icon{};                                   ///< Icon inside the button capsule
+    Icon labelIcon{};                              ///< Optional leading icon in external Element label bar
+    UiText badge{};                                ///< Optional trailing pill badge in external Element label bar
     UiVariant variant{UiVariant::Secondary};
     Placement iconPlacement{Placement::Leading};
     ElementLayout layout{ElementLayout::Stacked};     ///< Layout geometry: Stacked, Top, Bottom, Inline
@@ -29,6 +31,8 @@ struct ButtonOptions {
     StretchMode stretch{StretchMode::Compact};        ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};      ///< Capsule width: in points for Compact/Space (nullopt = auto), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum capsule width constraint in points
+    bool divider{false};                           ///< Whether to render an Element divider line
+    ElementDivider dividerStyle{ElementDivider::Bottom}; ///< Element divider placement style (Bottom or Trailing)
     bool disabled{false};
     bool active{false};
     std::optional<UiSize> size{std::nullopt}; ///< Local size override (nullopt = inherit container size)

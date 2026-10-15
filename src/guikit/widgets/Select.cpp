@@ -3,7 +3,7 @@
 #include <vector>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/ElementComposer.hpp"
+#include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 
@@ -32,6 +32,9 @@ ElementSpec MakeSelectElementSpec(
     return ElementSpec{
         .label = opts.label,
         .description = opts.description,
+        .icon = opts.icon,
+        .badge = opts.badge,
+        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -41,6 +44,8 @@ ElementSpec MakeSelectElementSpec(
         .labelGap = m.labelGap,
         .descGap = m.descGap,
         .inlineGap = m.paddingX,
+        .divider = opts.divider,
+        .dividerStyle = opts.dividerStyle,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = false,
         .disabled = disabled
@@ -58,7 +63,7 @@ Rect Select::GetBoxRect(
 ) {
     const Vec2 boxDims = MeasureSelectBox(opts, size, theme);
     const ElementSpec spec = MakeSelectElementSpec(opts, size, opts.disabled, theme);
-    return ElementComposer::Resolve(bounds, boxDims, spec, canvas, theme).controlRect;
+    return Element::Resolve(bounds, boxDims, spec, canvas, theme).controlRect;
 }
 
 Vec2 Select::Measure(
@@ -70,7 +75,7 @@ Vec2 Select::Measure(
 ) {
     const Vec2 boxDims = MeasureSelectBox(opts, size, theme);
     const ElementSpec spec = MakeSelectElementSpec(opts, size, opts.disabled, theme);
-    return ElementComposer::Measure(boxDims, spec, canvas, theme, availableWidth);
+    return Element::Measure(boxDims, spec, canvas, theme, availableWidth);
 }
 
 Vec2 Select::Measure(
@@ -497,6 +502,7 @@ Response Select::Run(
 
     SelectOptions optsCopy = opts;
     optsCopy.label = ctx.AllocText(opts.label);
+    optsCopy.badge = ctx.AllocText(opts.badge);
     optsCopy.description = ctx.AllocText(opts.description);
     optsCopy.placeholder = ctx.AllocText(opts.placeholder);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
@@ -515,6 +521,8 @@ Response Select::Run(
         optsCopy.width.value_or(0.0f),
         opts.minWidth.value_or(0.0f),
         optsCopy.label,
+        optsCopy.badge,
+        optsCopy.icon,
         data->displayText,
         optsCopy.description,
         optsCopy.placeholder,
@@ -523,6 +531,8 @@ Response Select::Run(
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
         static_cast<uint8_t>(opts.elementAlign),
+        static_cast<uint8_t>(opts.divider),
+        static_cast<uint8_t>(opts.dividerStyle),
         opts.radius.value_or(-1.0f)
     );
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
@@ -577,8 +587,8 @@ void Select::Render(
     const SelectMetrics& m = theme.GetSelect(size);
     const Vec2 boxDims = MeasureSelectBox(opts, size, theme);
     const ElementSpec spec = MakeSelectElementSpec(opts, size, disabled, theme);
-    const ElementGeometry geom = ElementComposer::Resolve(bounds, boxDims, spec, &canvas, theme);
-    ElementComposer::RenderText(canvas, geom, spec, theme);
+    const ElementGeometry geom = Element::Resolve(bounds, boxDims, spec, &canvas, theme);
+    Element::RenderText(canvas, geom, spec, theme);
     const Rect boxRect = geom.controlRect;
 
     // Determine colors

@@ -5,7 +5,7 @@
 #include <cstring>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/ElementComposer.hpp"
+#include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 
@@ -335,6 +335,9 @@ ElementSpec MakeSliderElementSpec(
     return ElementSpec{
         .label = opts.label,
         .description = opts.description,
+        .icon = opts.icon,
+        .badge = opts.badge,
+        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -344,6 +347,8 @@ ElementSpec MakeSliderElementSpec(
         .labelGap = m.labelGap,
         .descGap = m.descGap,
         .inlineGap = 12.0f,
+        .divider = opts.divider,
+        .dividerStyle = opts.dividerStyle,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = false,
         .disabled = disabled
@@ -360,6 +365,9 @@ ElementSpec MakeStepSliderElementSpec(
     return ElementSpec{
         .label = opts.label,
         .description = opts.description,
+        .icon = opts.icon,
+        .badge = opts.badge,
+        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -369,6 +377,8 @@ ElementSpec MakeStepSliderElementSpec(
         .labelGap = m.labelGap,
         .descGap = m.descGap,
         .inlineGap = 12.0f,
+        .divider = opts.divider,
+        .dividerStyle = opts.dividerStyle,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = false,
         .disabled = disabled
@@ -433,7 +443,7 @@ Response Slider::Run(
             {}, true, rangeMin, rangeMax, valInt != nullptr
         );
         const ElementSpec spec = MakeSliderElementSpec(opts, activeSize, effectiveDisabled, activeTheme);
-        const ElementGeometry geom = ElementComposer::Resolve(prevBounds, cm.intrinsicControlSize, spec, nullptr, activeTheme);
+        const ElementGeometry geom = Element::Resolve(prevBounds, cm.intrinsicControlSize, spec, nullptr, activeTheme);
         const float trackRegionX = geom.controlRect.x + cm.leftGutterW;
         const float trackRegionW = std::max(m.thumbSize, geom.controlRect.w - cm.leftGutterW - cm.rightGutterW);
         const float trackStartX = trackRegionX + halfThumb;
@@ -534,6 +544,7 @@ Response Slider::Run(
     auto* data = ctx.AllocPayload<SliderData>();
     data->opts = opts;
     data->opts.label = ctx.AllocText(opts.label);
+    data->opts.badge = ctx.AllocText(opts.badge);
     data->opts.textLeft = ctx.AllocText(opts.textLeft);
     data->opts.textRight = ctx.AllocText(opts.textRight);
     data->opts.description = ctx.AllocText(opts.description);
@@ -557,9 +568,13 @@ Response Slider::Run(
         static_cast<uint8_t>(opts.inlineOrder),
         static_cast<uint8_t>(opts.elementAlign),
         static_cast<uint8_t>(opts.valuePlacement),
+        static_cast<uint8_t>(opts.divider),
+        static_cast<uint8_t>(opts.dividerStyle),
         opts.width.value_or(0.0f),
         opts.showValue,
         data->opts.label,
+        data->opts.badge,
+        data->opts.icon,
         data->opts.textLeft,
         data->opts.textRight,
         data->opts.description,
@@ -614,7 +629,7 @@ Vec2 Slider::Measure(
         {}, true, rangeMin, rangeMax, isIntStep
     );
     const ElementSpec spec = MakeSliderElementSpec(opts, size, opts.disabled, theme);
-    return ElementComposer::Measure(cm.intrinsicControlSize, spec, canvas, theme, availableWidth);
+    return Element::Measure(cm.intrinsicControlSize, spec, canvas, theme, availableWidth);
 }
 
 Vec2 Slider::Measure(
@@ -665,8 +680,8 @@ void Slider::Render(
         {}, true, rangeMin, rangeMax, isIntStep
     );
     const ElementSpec spec = MakeSliderElementSpec(opts, size, disabled, theme);
-    const ElementGeometry geom = ElementComposer::Resolve(bounds, cm.intrinsicControlSize, spec, &canvas, theme);
-    ElementComposer::RenderText(canvas, geom, spec, theme);
+    const ElementGeometry geom = Element::Resolve(bounds, cm.intrinsicControlSize, spec, &canvas, theme);
+    Element::RenderText(canvas, geom, spec, theme);
 
     const float halfThumb = m.thumbSize * 0.5f;
     const float trackRegionX = geom.controlRect.x + cm.leftGutterW;
@@ -768,7 +783,7 @@ Response StepSlider::Run(
             opts.stepLabels
         );
         const ElementSpec spec = MakeStepSliderElementSpec(opts, activeSize, effectiveDisabled, activeTheme);
-        const ElementGeometry geom = ElementComposer::Resolve(prevBounds, cm.intrinsicControlSize, spec, nullptr, activeTheme);
+        const ElementGeometry geom = Element::Resolve(prevBounds, cm.intrinsicControlSize, spec, nullptr, activeTheme);
         const float trackRegionX = geom.controlRect.x + cm.leftGutterW;
         const float trackRegionW = std::max(m.thumbSize, geom.controlRect.w - cm.leftGutterW - cm.rightGutterW);
         const float trackStartX = trackRegionX + halfThumb;
@@ -857,6 +872,7 @@ Response StepSlider::Run(
     auto* data = ctx.AllocPayload<StepSliderData>();
     data->opts = opts;
     data->opts.label = ctx.AllocText(opts.label);
+    data->opts.badge = ctx.AllocText(opts.badge);
     data->opts.textLeft = ctx.AllocText(opts.textLeft);
     data->opts.textRight = ctx.AllocText(opts.textRight);
     data->opts.description = ctx.AllocText(opts.description);
@@ -876,11 +892,15 @@ Response StepSlider::Run(
         static_cast<uint8_t>(opts.inlineOrder),
         static_cast<uint8_t>(opts.elementAlign),
         static_cast<uint8_t>(opts.valuePlacement),
+        static_cast<uint8_t>(opts.divider),
+        static_cast<uint8_t>(opts.dividerStyle),
         opts.width.value_or(0.0f),
         opts.showTicks,
         opts.showLabels,
         opts.showValue,
         data->opts.label,
+        data->opts.badge,
+        data->opts.icon,
         data->opts.textLeft,
         data->opts.textRight,
         data->opts.description,
@@ -934,7 +954,7 @@ Vec2 StepSlider::Measure(
         opts.stepLabels
     );
     const ElementSpec spec = MakeStepSliderElementSpec(opts, size, opts.disabled, theme);
-    return ElementComposer::Measure(cm.intrinsicControlSize, spec, canvas, theme, availableWidth);
+    return Element::Measure(cm.intrinsicControlSize, spec, canvas, theme, availableWidth);
 }
 
 Vec2 StepSlider::Measure(
@@ -981,8 +1001,8 @@ void StepSlider::Render(
         opts.stepLabels
     );
     const ElementSpec spec = MakeStepSliderElementSpec(opts, size, disabled, theme);
-    const ElementGeometry geom = ElementComposer::Resolve(bounds, cm.intrinsicControlSize, spec, &canvas, theme);
-    ElementComposer::RenderText(canvas, geom, spec, theme);
+    const ElementGeometry geom = Element::Resolve(bounds, cm.intrinsicControlSize, spec, &canvas, theme);
+    Element::RenderText(canvas, geom, spec, theme);
 
     const float halfThumb = m.thumbSize * 0.5f;
     const float trackRegionX = geom.controlRect.x + cm.leftGutterW;

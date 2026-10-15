@@ -6,7 +6,7 @@
 #include <string>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/ElementComposer.hpp"
+#include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 
@@ -78,6 +78,9 @@ ElementSpec MakeInputFieldElementSpec(
     return ElementSpec{
         .label = opts.label,
         .description = opts.description,
+        .icon = opts.icon,
+        .badge = opts.badge,
+        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -87,6 +90,8 @@ ElementSpec MakeInputFieldElementSpec(
         .labelGap = m.labelGap,
         .descGap = m.descGap,
         .inlineGap = m.paddingX,
+        .divider = opts.divider,
+        .dividerStyle = opts.dividerStyle,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = false,
         .disabled = disabled
@@ -248,6 +253,7 @@ Response InputField::Run(
 
     InputFieldOptions optsCopy = opts;
     optsCopy.label = ctx.AllocText(opts.label);
+    optsCopy.badge = ctx.AllocText(opts.badge);
     optsCopy.description = ctx.AllocText(opts.description);
     optsCopy.placeholder = ctx.AllocText(opts.placeholder);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
@@ -548,6 +554,8 @@ Response InputField::Run(
         static_cast<uint8_t>(opts.inlineOrder),
         static_cast<uint8_t>(opts.elementAlign),
         static_cast<uint8_t>(opts.stretch),
+        static_cast<uint8_t>(opts.divider),
+        static_cast<uint8_t>(opts.dividerStyle),
         opts.width.value_or(0.0f),
         opts.minWidth.value_or(0.0f),
         opts.readOnly,
@@ -570,7 +578,9 @@ Response InputField::Run(
         optsCopy.placeholder,
         optsCopy.valueFormat,
         optsCopy.description,
-        optsCopy.label
+        optsCopy.label,
+        optsCopy.badge,
+        optsCopy.icon
     );
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<InputFieldData>();
@@ -633,7 +643,7 @@ Vec2 InputField::Measure(
 ) {
     const Vec2 boxDims = MeasureInputBox(opts, size, canvas, theme);
     const ElementSpec spec = MakeInputFieldElementSpec(opts, size, opts.disabled, theme);
-    return ElementComposer::Measure(boxDims, spec, canvas, theme, availableWidth);
+    return Element::Measure(boxDims, spec, canvas, theme, availableWidth);
 }
 
 Vec2 InputField::Measure(
@@ -676,8 +686,8 @@ void InputField::Render(
     const InputFieldMetrics& m = theme.GetInputField(size);
     const Vec2 boxDims = MeasureInputBox(opts, size, &canvas, theme);
     const ElementSpec spec = MakeInputFieldElementSpec(opts, size, disabled, theme);
-    const ElementGeometry geom = ElementComposer::Resolve(bounds, boxDims, spec, &canvas, theme);
-    ElementComposer::RenderText(canvas, geom, spec, theme);
+    const ElementGeometry geom = Element::Resolve(bounds, boxDims, spec, &canvas, theme);
+    Element::RenderText(canvas, geom, spec, theme);
     const Rect boxRect = geom.controlRect;
 
     // Determine colors

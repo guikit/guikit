@@ -47,7 +47,7 @@ set(GUIKIT_SOURCES
     src/guikit/core/Response.cpp
     src/guikit/core/Theme.cpp
     src/guikit/core/TextUtil.cpp
-    src/guikit/core/ElementComposer.cpp
+    src/guikit/core/Element.cpp
     src/guikit/core/Solver.cpp
     src/guikit/backend/ThorCanvas.cpp
     src/guikit/backend/SdlCanvas.cpp
@@ -66,7 +66,6 @@ set(GUIKIT_SOURCES
     src/guikit/panels/Toolbar.cpp
     src/guikit/widgets/Button.cpp
     src/guikit/widgets/Checkbox.cpp
-    src/guikit/widgets/Heading.cpp
     src/guikit/widgets/Image.cpp
     src/guikit/widgets/InputField.cpp
     src/guikit/widgets/Markdown.cpp

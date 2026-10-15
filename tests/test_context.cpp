@@ -713,8 +713,8 @@ void TestAutonomousTextWidgetAndTypographyRoles() {
 void TestSwitchAndCheckboxWidgets() {
     using namespace guikit;
 
-    static_assert(sizeof(SwitchOptions) <= 232);
-    static_assert(sizeof(CheckboxOptions) <= 144);
+    static_assert(sizeof(SwitchOptions) <= 312);
+    static_assert(sizeof(CheckboxOptions) <= 224);
 
     const auto theme = UiTheme::Dark();
     // 1. Test measurement
@@ -6030,6 +6030,88 @@ void TestBaseElementsAllInOneEnhancements() {
         CHECK(numVal == 0); // Clamped to min = 0
     }
 
+    // 5. Heading unified ElementComposer model (.label / .description aliases, ElementLayout, Align, StretchMode & width)
+    {
+        Context ui;
+        Response hLeft, hCenter, hRight, hTop, hInline, hCompact;
+        auto renderElementHeading = [&]() {
+            if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(16.0f)})) {
+                hLeft = ui.Heading({
+                    .label = "LeftH",
+                    .description = "SubLeft",
+                    .elementAlign = Align::Start
+                });
+                hCenter = ui.Heading({
+                    .label = "CenterH",
+                    .description = "SubCenter",
+                    .elementAlign = Align::Center,
+                    .divider = true,
+                    .dividerStyle = HeadingDivider::Trailing
+                });
+                hRight = ui.Heading({
+                    .label = "RightH",
+                    .description = "SubRight",
+                    .elementAlign = Align::End
+                });
+                hTop = ui.Heading({
+                    .label = "TitleBottom",
+                    .description = "OverlineTop",
+                    .layout = ElementLayout::Top
+                });
+                hInline = ui.Heading({
+                    .label = "InlineTitle",
+                    .description = "InlineSub",
+                    .layout = ElementLayout::Inline
+                });
+                hCompact = ui.Heading({
+                    .label = "CompactH",
+                    .stretch = StretchMode::Compact,
+                    .width = 220.0f
+                });
+            }
+        };
+
+        ui.BeginFrame({800.0f, 600.0f});
+        renderElementHeading();
+        ui.EndFrame(recCanvas);
+
+        recCanvas.Reset();
+        ui.InvalidateAll();
+        ui.BeginFrame({800.0f, 600.0f});
+        renderElementHeading();
+        ui.EndFrame(recCanvas);
+
+        // Compact heading respects explicit pixel width
+        CHECK_NEAR(ui.GetPrevFrameBounds(hCompact.id).w, 220.0f, 1.0f);
+
+        // Element alignment sets alignX on subtitle text boxes: Start=0.0, Center=0.5, End=1.0
+        const auto* tbSubLeft = recCanvas.FindTextBox("SubLeft");
+        const auto* tbSubCenter = recCanvas.FindTextBox("SubCenter");
+        const auto* tbSubRight = recCanvas.FindTextBox("SubRight");
+        CHECK(tbSubLeft != nullptr);
+        CHECK(tbSubCenter != nullptr);
+        CHECK(tbSubRight != nullptr);
+        if (tbSubLeft && tbSubCenter && tbSubRight) {
+            CHECK_NEAR(tbSubLeft->alignX, 0.0f, 0.01f);
+            CHECK_NEAR(tbSubCenter->alignX, 0.5f, 0.01f);
+            CHECK_NEAR(tbSubRight->alignX, 1.0f, 0.01f);
+        }
+
+        // ElementLayout::Top places description ("OverlineTop") at the top of hTop bounds
+        const auto* tbOverline = recCanvas.FindTextBox("OverlineTop");
+        CHECK(tbOverline != nullptr);
+        if (tbOverline) {
+            CHECK_NEAR(tbOverline->bounds.y, ui.GetPrevFrameBounds(hTop.id).y, 1.0f);
+        }
+
+        // ElementLayout::Inline places description ("InlineSub") to the right of the primary title bar
+        const auto* tbInlineSub = recCanvas.FindTextBox("InlineSub");
+        CHECK(tbInlineSub != nullptr);
+        if (tbInlineSub) {
+            CHECK(tbInlineSub->bounds.x > ui.GetPrevFrameBounds(hInline.id).x + 40.0f);
+        }
+    }
+
     std::cout << "  [PASS] TestBaseElementsAllInOneEnhancements completed\n";
 }
 
@@ -6062,6 +6144,11 @@ void TestImageSceneAndMarkdownWidgets() {
     Response imgRes;
     Rect sceneVisRect{};
     float sceneZoom = 0.0f;
+    Vec2 itemR1ScreenCenter{};
+    Rect itemR1WorldBounds{};
+    bool r1Hovered = false;
+    bool r1Selected = false;
+    size_t selectedCount = 0;
     MarkdownResponse mdRes;
 
     auto renderUI = [&]() {
@@ -6081,7 +6168,22 @@ void TestImageSceneAndMarkdownWidgets() {
                 sceneVisRect = scene.GetVisibleWorldRect();
                 sceneZoom = scene.GetZoom();
                 scene.DrawImage(kInlineSvg, {0.0f, 0.0f, 200.0f, 100.0f});
-                scene.DrawRect({300.0f, 100.0f, 50.0f, 50.0f}, Color(16, 185, 129));
+
+                if (auto item = scene.Item({.id = "R1", .title = "10 kOhm", .category = "Resistor"})) {
+                    r1Hovered = item.IsHovered();
+                    r1Selected = item.IsSelected();
+                    scene.DrawRect({300.0f, 100.0f, 60.0f, 20.0f}, Color(16, 185, 129));
+                    // Distant text callout must NOT inflate geometry worldBounds
+                    scene.DrawText("R1 10k", {300.0f, 60.0f}, 10.0f, Color(255, 255, 255));
+                }
+
+                for (const auto& info : scene.GetItems()) {
+                    if (info.id == "R1") {
+                        itemR1WorldBounds = info.worldBounds;
+                    }
+                }
+                itemR1ScreenCenter = scene.WorldToScreen({330.0f, 110.0f});
+                selectedCount = scene.GetSelectedCount();
             }
 
             mdRes = ui.Markdown(kSampleMd, {
@@ -6097,7 +6199,7 @@ void TestImageSceneAndMarkdownWidgets() {
     renderUI();
     ui.EndFrame(canvas);
 
-    // Frame 2: Verify layout geometry & camera state
+    // Frame 2: Verify layout geometry, camera state & SceneItem auto-BBox
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
     ui.EndFrame(canvas);
@@ -6115,11 +6217,148 @@ void TestImageSceneAndMarkdownWidgets() {
     CHECK(sceneZoom > 0.1f && sceneZoom <= 1.0f);
     CHECK(sceneVisRect.w > 0.0f && sceneVisRect.h > 0.0f);
 
+    // 3b. Verify SceneItemScope auto-BBox (strictly wraps geometry [300,100,60,20], ignoring text callout at y=60)
+    CHECK_NEAR(itemR1WorldBounds.x, 300.0f, 0.5f);
+    CHECK_NEAR(itemR1WorldBounds.y, 100.0f, 0.5f);
+    CHECK_NEAR(itemR1WorldBounds.w, 60.0f, 0.5f);
+    CHECK_NEAR(itemR1WorldBounds.h, 20.0f, 0.5f);
+    CHECK(!r1Selected);
+    CHECK(selectedCount == 0);
+
+    // 3c. Hover and click on R1 in screen space -> selects R1
+    ui.OnMouseMove(itemR1ScreenCenter);
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    // Next frame reads updated selection state
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    CHECK(r1Hovered);
+    CHECK(r1Selected);
+    CHECK(selectedCount == 1);
+
     // 4. Verify Markdown widget measured non-zero height for headings, alert, code block, and table
     CHECK_NEAR(mdRes.rect.w, 768.0f, 1.0f);
     CHECK(mdRes.rect.h > 180.0f);
 
     std::cout << "  [PASS] TestImageSceneAndMarkdownWidgets completed\n";
+}
+
+void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
+    using namespace guikit;
+    std::cout << "  [TEST] TestUnifiedElementHeaderDecorationsAcrossWidgets...\n";
+
+    Context ui;
+    ThorCanvas canvas;
+    std::vector<uint32_t> pixels(800 * 900, 0);
+    canvas.SetTarget(pixels.data(), 800, 900, 800);
+
+    // 1. Verify that adding icon, badge, and divider to widgets increases measured width/height appropriately
+    const UiTheme& theme = ui.GetTheme();
+    {
+        ButtonOptions baseBtn{.label = "A button", .text = "Click me", .description = "This is a button"};
+        ButtonOptions decBtn = baseBtn;
+        decBtn.labelIcon = Icon::Edit();
+        decBtn.badge = {"v1.0", UiVariant::Info};
+        decBtn.divider = true;
+
+        const Vec2 szBase = Button::Measure(baseBtn, UiSize::Md, &canvas, theme);
+        const Vec2 szDec  = Button::Measure(decBtn, UiSize::Md, &canvas, theme);
+        CHECK(szDec.x > szBase.x);
+        CHECK(szDec.y > szBase.y);
+    }
+
+    // 2. Render all Element-based widgets with icon/badge/divider in a live frame
+    float sliderVal = 42.0f;
+    size_t stepIdx = 1;
+    std::string inputVal = "hello";
+    size_t selectIdx = 0;
+    bool swVal = true;
+    bool cbVal = false;
+    static constexpr std::array<std::string_view, 3> items = {"One", "Two", "Three"};
+
+    for (int frame = 0; frame < 2; ++frame) {
+        ui.BeginFrame({800.0f, 900.0f});
+        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f)})) {
+            ui.Heading({
+                .title = "A heading",
+                .subtitle = "This is a heading",
+                .icon = Icon::Edit(),
+                .badge = {"v2.4", UiVariant::Info},
+                .divider = true
+            });
+            ui.Element({
+                .label = "An element",
+                .description = "This is an element",
+                .icon = Icon::Settings(),
+                .badge = "Core",
+                .divider = true
+            });
+            ui.Button({
+                .label = "A button",
+                .text = "Click me",
+                .description = "This is a button",
+                .icon = Icon::Play(),
+                .labelIcon = Icon::Edit(),
+                .badge = "Action",
+                .divider = true
+            });
+            ui.Slider(sliderVal, 0.0f, 100.0f, {
+                .label = "A slider",
+                .description = "This is a slider",
+                .icon = Icon::Settings(),
+                .badge = "dB",
+                .divider = true
+            });
+            ui.StepSlider(stepIdx, items, {
+                .label = "A step slider",
+                .description = "This is a step slider",
+                .icon = Icon::Settings(),
+                .badge = "3-step",
+                .divider = true
+            });
+            ui.InputField(inputVal, {
+                .label = "A text input",
+                .description = "This is a text input",
+                .icon = Icon::Edit(),
+                .badge = "UTF-8",
+                .divider = true
+            });
+            ui.Select(selectIdx, items, {
+                .label = "A select",
+                .description = "This is a select",
+                .icon = Icon::Plus(),
+                .badge = "Menu",
+                .divider = true
+            });
+            ui.Switch(swVal, {
+                .label = "A switch",
+                .description = "This is a switch",
+                .icon = Icon::Refresh(),
+                .badge = "Toggle",
+                .divider = true
+            });
+            ui.Checkbox(cbVal, {
+                .label = "A checkbox",
+                .description = "This is a checkbox",
+                .icon = Icon::Check(),
+                .badge = "Bool",
+                .divider = true
+            });
+        }
+        ui.EndFrame(canvas);
+    }
+
+    std::cout << "  [PASS] TestUnifiedElementHeaderDecorationsAcrossWidgets completed\n";
 }
 
 int main() {
@@ -6180,6 +6419,7 @@ int main() {
     TestSelectPopupScrollingWithMaxVisibleItems();
     TestBaseElementsAllInOneEnhancements();
     TestImageSceneAndMarkdownWidgets();
+    TestUnifiedElementHeaderDecorationsAcrossWidgets();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

@@ -336,6 +336,10 @@ Response Context::Text(UiText label, TextOptions opts, std::source_location loc)
     return Run<guikit::Text>(label, opts, loc);
 }
 
+Response Context::Element(ElementOptions opts, std::source_location loc) {
+    return Run<guikit::Element>(opts, loc);
+}
+
 Response Context::Heading(HeadingOptions opts, std::source_location loc) {
     return Run<guikit::Heading>(opts, loc);
 }

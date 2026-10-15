@@ -2,7 +2,7 @@
 #include <algorithm>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/ElementComposer.hpp"
+#include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 
@@ -49,6 +49,9 @@ ElementSpec MakeSwitchElementSpec(
     return ElementSpec{
         .label = opts.label,
         .description = opts.description,
+        .icon = opts.icon,
+        .badge = opts.badge,
+        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -58,6 +61,8 @@ ElementSpec MakeSwitchElementSpec(
         .labelGap = m.descGap,
         .descGap = m.descGap,
         .inlineGap = m.gap,
+        .divider = opts.divider,
+        .dividerStyle = opts.dividerStyle,
         .stretchableControl = false,
         .stretchHeightWhenStandalone = false,
         .disabled = disabled
@@ -115,6 +120,7 @@ Response Switch::Run(
     optsCopy.textLeft = ctx.AllocText(opts.textLeft);
     optsCopy.textRight = ctx.AllocText(opts.textRight);
     optsCopy.description = ctx.AllocText(opts.description);
+    optsCopy.badge = ctx.AllocText(opts.badge);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
     node->text = optsCopy.label.text;
     node->SetPayload(ctx.AllocPayload<SwitchOptions>(optsCopy));
@@ -126,11 +132,17 @@ Response Switch::Run(
         opts.symmetric,
         static_cast<uint8_t>(opts.stretch),
         opts.width.value_or(0.0f),
+        opts.divider,
+        static_cast<uint8_t>(opts.dividerStyle),
+        static_cast<uint8_t>(opts.icon.GetType()),
+        static_cast<uint8_t>(opts.icon.GetId()),
+        opts.icon.GetPath(),
         currentChecked,
         optsCopy.label,
         optsCopy.textLeft,
         optsCopy.textRight,
-        optsCopy.description
+        optsCopy.description,
+        optsCopy.badge
     );
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<SwitchOptions>();
@@ -174,7 +186,7 @@ Vec2 Switch::Measure(
 ) {
     const Vec2 ctrlDims = MeasureSwitchControl(opts, size, canvas, theme);
     const ElementSpec spec = MakeSwitchElementSpec(opts, size, opts.disabled, theme);
-    return ElementComposer::Measure(ctrlDims, spec, canvas, theme, availableWidth);
+    return Element::Measure(ctrlDims, spec, canvas, theme, availableWidth);
 }
 
 Vec2 Switch::Measure(
@@ -208,8 +220,8 @@ void Switch::Render(
 
     const Vec2 ctrlDims = MeasureSwitchControl(opts, size, &canvas, theme);
     const ElementSpec spec = MakeSwitchElementSpec(opts, size, disabled, theme);
-    const ElementGeometry geom = ElementComposer::Resolve(bounds, ctrlDims, spec, &canvas, theme);
-    ElementComposer::RenderText(canvas, geom, spec, theme);
+    const ElementGeometry geom = Element::Resolve(bounds, ctrlDims, spec, &canvas, theme);
+    Element::RenderText(canvas, geom, spec, theme);
 
     float curX = geom.controlRect.x;
     if (!opts.textLeft.empty() || !opts.textLeft.variants.empty()) {

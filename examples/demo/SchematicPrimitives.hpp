@@ -118,6 +118,11 @@ public:
 
     /// Draws a numbered PCB edge terminal pin inside a circle (`1`..`15`).
     void BoardPin(Vec2 pt, std::string_view number) {
+        auto item = m_scene.Item({
+            .id = number,
+            .title = "PCB Edge Terminal",
+            .category = "Board Pin"
+        });
         constexpr float r = 6.2f;
         m_scene.DrawCircle(pt, r, m_pal.bodyFill, m_pal.inkBold, m_pal.symbolWidth);
         m_scene.DrawTextBox(
@@ -210,6 +215,11 @@ public:
         int labelSide = 1,
         bool dashed = false
     ) {
+        auto item = m_scene.Item({
+            .id = refDes.empty() ? value : refDes,
+            .title = value,
+            .category = dashed ? "Load Impedance" : "Resistor"
+        });
         const float w = vertical ? 11.5f : 32.0f;
         const float h = vertical ? 32.0f : 11.5f;
         const Rect box(center.x - w * 0.5f, center.y - h * 0.5f, w, h);
@@ -263,6 +273,11 @@ public:
         std::string_view value,
         int labelSide = -1
     ) {
+        auto item = m_scene.Item({
+            .id = refDes,
+            .title = value,
+            .category = "Preset Trimmer"
+        });
         const float w = vertical ? 11.0f : 32.0f;
         const float h = vertical ? 32.0f : 11.0f;
         const Rect box(center.x - w * 0.5f, center.y - h * 0.5f, w, h);
@@ -289,6 +304,11 @@ public:
 
     /// Draws a BS 3939 cartridge fuse (`FS1`) with continuous conductor passing through the body.
     void Fuse(Vec2 center, bool vertical, std::string_view refDes, int labelSide = 1) {
+        auto item = m_scene.Item({
+            .id = refDes,
+            .title = "Mains Fuse",
+            .category = "Fuse"
+        });
         const float w = vertical ? 10.5f : 28.0f;
         const float h = vertical ? 28.0f : 10.5f;
         const Rect box(center.x - w * 0.5f, center.y - h * 0.5f, w, h);
@@ -316,6 +336,11 @@ public:
         int posSide = -1,
         int labelSide = -1
     ) {
+        auto item = m_scene.Item({
+            .id = refDes,
+            .title = value,
+            .category = electrolytic ? "Electrolytic Cap" : "Capacitor"
+        });
         if (vertical) {
             m_scene.DrawRect(Rect(center.x - 8.5f, center.y - 3.8f, 17.0f, 7.6f), m_pal.bodyFill);
             if (!electrolytic) {
@@ -367,6 +392,11 @@ public:
 
     /// Draws a 4-loop horizontal inductor coil (`L100`).
     void InductorH(Vec2 center, std::string_view refDes, float totalWidth = 38.0f) {
+        auto item = m_scene.Item({
+            .id = refDes,
+            .title = "Output Choke",
+            .category = "Inductor"
+        });
         const int loops = 4;
         const float r = totalWidth / (static_cast<float>(loops) * 2.0f);
         m_scene.DrawRect(Rect(center.x - totalWidth * 0.5f, center.y - r - 2.0f, totalWidth, r + 4.0f), m_pal.bodyFill);
@@ -392,6 +422,14 @@ public:
         bool isZener = false,
         int labelSide = 1
     ) {
+        std::optional<SceneItemScope> itemScope;
+        if (!refDes.empty()) {
+            itemScope.emplace(m_scene.Item({
+                .id = refDes,
+                .title = partNum,
+                .category = isZener ? "Zener Reference" : "Diode"
+            }));
+        }
         constexpr float kDegToRad = 3.14159265358979323846f / 180.0f;
         const float rad = dirDeg * kDegToRad;
         const Vec2 dir{std::cos(rad), std::sin(rad)};
@@ -454,6 +492,11 @@ public:
         bool emitterAtTop = false,
         int labelSide = -1
     ) {
+        auto item = m_scene.Item({
+            .id = refDes,
+            .title = partNum,
+            .category = isPNP ? "PNP Transistor" : "NPN Transistor"
+        });
         constexpr float r = 15.0f;
         m_scene.DrawCircle(center, r, m_pal.bodyFill, m_pal.inkBold, m_pal.symbolWidth * 1.15f);
 
@@ -527,6 +570,11 @@ public:
     /// Draws the diamond full-wave bridge rectifier (`MR1`–`MR4`, `1S421 / PM7A2L`).
     /// Corners: Top `(cx, cy-r)`, Right `(cx+r, cy)`, Bottom `(cx, cy+r)`, Left `(cx-r, cy)`.
     void DiodeBridge(Vec2 center, float r = 44.0f) {
+        auto item = m_scene.Item({
+            .id = "MR1..MR4",
+            .title = "1S421 / PM7A2L",
+            .category = "Bridge Rectifier"
+        });
         const Vec2 top{center.x, center.y - r};
         const Vec2 right{center.x + r, center.y};
         const Vec2 bot{center.x, center.y + r};
@@ -581,11 +629,7 @@ public:
     /// Draws the 4-pin DIN input socket `SK1` and its off-sheet dual routing at the far left.
     void DinSocketSK1(Vec2 center, float yIn, float yChs, float xDriverLeft) {
         const Rect shield(center.x - 20.0f, center.y - 26.0f, 40.0f, 56.0f);
-        DashedRect(shield, 5.5f, 3.5f, 1.15f);
-        m_scene.DrawText("SK1", {shield.x - 18.0f, center.y - 22.0f}, 6.0f, m_pal.inkBold, FontStyle::Bold);
-
         constexpr float r = 16.5f;
-        m_scene.DrawCircle(center, r, m_pal.bodyFill, m_pal.inkBold, m_pal.symbolWidth);
 
         // 4 internal pins: 1 (top-left), 3 (top-right), 2 (bottom-left), 4 (bottom-right)
         const Vec2 p1{center.x - 5.5f, center.y - 6.0f};
@@ -617,14 +661,25 @@ public:
         WireH(shield.x, xDriverLeft, yChs);
         Junction({76.0f, yChs});
 
-        SolderPad(p1, 2.2f);
-        SolderPad(p2, 2.2f);
-        SolderPad(p3, 2.2f);
-        SolderPad(p4, 2.2f);
-        m_scene.DrawText("1", {p1.x - 6.5f, p1.y - 2.0f}, 5.2f, m_pal.inkBold, FontStyle::Bold);
-        m_scene.DrawText("3", {p3.x + 3.2f, p3.y - 2.0f}, 5.2f, m_pal.inkBold, FontStyle::Bold);
-        m_scene.DrawText("2", {p2.x - 6.5f, p2.y - 2.0f}, 5.2f, m_pal.inkBold, FontStyle::Bold);
-        m_scene.DrawText("4", {p4.x + 3.2f, p4.y - 2.0f}, 5.2f, m_pal.inkBold, FontStyle::Bold);
+        {
+            auto sk1Item = m_scene.Item({
+                .id = "SK1",
+                .title = "4-Pin DIN Input",
+                .category = "Connector",
+                .hitRect = shield
+            });
+            DashedRect(shield, 5.5f, 3.5f, 1.15f);
+            m_scene.DrawText("SK1", {shield.x - 18.0f, center.y - 22.0f}, 6.0f, m_pal.inkBold, FontStyle::Bold);
+            m_scene.DrawCircle(center, r, m_pal.bodyFill, m_pal.inkBold, m_pal.symbolWidth);
+            SolderPad(p1, 2.2f);
+            SolderPad(p2, 2.2f);
+            SolderPad(p3, 2.2f);
+            SolderPad(p4, 2.2f);
+            m_scene.DrawText("1", {p1.x - 6.5f, p1.y - 2.0f}, 5.2f, m_pal.inkBold, FontStyle::Bold);
+            m_scene.DrawText("3", {p3.x + 3.2f, p3.y - 2.0f}, 5.2f, m_pal.inkBold, FontStyle::Bold);
+            m_scene.DrawText("2", {p2.x - 6.5f, p2.y - 2.0f}, 5.2f, m_pal.inkBold, FontStyle::Bold);
+            m_scene.DrawText("4", {p4.x + 3.2f, p4.y - 2.0f}, 5.2f, m_pal.inkBold, FontStyle::Bold);
+        }
 
         // Dual arrows at bottom-left ("TO RIGHTHAND AMPLIFIER")
         m_scene.DrawTriangle({60.0f, 765.0f}, {56.6f, 758.0f}, {63.4f, 758.0f}, m_pal.bodyFill, m_pal.inkBold, 1.2f);
@@ -639,48 +694,63 @@ public:
     void MainsTransformerSection(Vec2 topLeft, float ySecTop, float ySecBot) {
         const float tx = topLeft.x;
         const float ty = topLeft.y;
-        m_scene.DrawText("T1", {tx - 4.0f, ty - 16.0f}, 6.6f, m_pal.inkBold, FontStyle::Bold);
-
-        // Secondary winding (left of core, loops bulging LEFT: 90 deg sweep 180 deg)
-        // Includes 8 active loops (ySecTop..ySecBot) + 3 lower loops with open tap tail
-        const int secLoops = 8;
-        const float secR = (ySecBot - ySecTop) / (static_cast<float>(secLoops) * 2.0f);
-        for (int i = 0; i < secLoops + 3; ++i) {
-            const float cy = ySecTop + secR * (2.0f * static_cast<float>(i) + 1.0f);
-            m_scene.DrawArc({tx, cy}, secR, 90.0f, 180.0f, m_pal.inkBold, m_pal.symbolWidth, 9);
-        }
-        WireH(tx - 12.0f, tx, ySecBot + secR * 6.0f);
-
-        // Dual iron core vertical bars
         const float coreTop = ty + 4.0f;
         const float coreBot = ty + 292.0f;
-        m_scene.DrawLine({tx + 4.0f, coreTop}, {tx + 4.0f, coreBot}, m_pal.inkBold, 1.9f);
-        m_scene.DrawLine({tx + 8.0f, coreTop}, {tx + 8.0f, coreBot}, m_pal.inkBold, 1.9f);
-
-        // Two primary windings (right of core, loops bulging RIGHT: -90 deg sweep 180 deg)
         const float priX = tx + 12.0f;
         const float priR = 6.2f;
-        // Upper primary winding (9 loops: y = ty+10 .. ty+122)
-        for (int i = 0; i < 9; ++i) {
-            m_scene.DrawArc({priX, ty + 10.0f + priR * (2.0f * i + 1.0f)}, priR, -90.0f, 180.0f, m_pal.inkBold, m_pal.symbolWidth, 8);
-        }
-        // Lower primary winding (11 loops: y = ty+148 .. ty+284)
-        for (int i = 0; i < 11; ++i) {
-            m_scene.DrawArc({priX, ty + 148.0f + priR * (2.0f * i + 1.0f)}, priR, -90.0f, 180.0f, m_pal.inkBold, m_pal.symbolWidth, 8);
+        const int secLoops = 8;
+        const float secR = (ySecBot - ySecTop) / (static_cast<float>(secLoops) * 2.0f);
+
+        {
+            auto t1Item = m_scene.Item({
+                .id = "T1",
+                .title = "Mains Power Transformer",
+                .category = "Transformer"
+            });
+            m_scene.DrawText("T1", {tx - 4.0f, ty - 16.0f}, 6.6f, m_pal.inkBold, FontStyle::Bold);
+
+            // Secondary winding (left of core, loops bulging LEFT: 90 deg sweep 180 deg)
+            // Includes 8 active loops (ySecTop..ySecBot) + 3 lower loops with open tap tail
+            for (int i = 0; i < secLoops + 3; ++i) {
+                const float cy = ySecTop + secR * (2.0f * static_cast<float>(i) + 1.0f);
+                m_scene.DrawArc({tx, cy}, secR, 90.0f, 180.0f, m_pal.inkBold, m_pal.symbolWidth, 9);
+            }
+            WireH(tx - 12.0f, tx, ySecBot + secR * 6.0f);
+
+            // Dual iron core vertical bars
+            m_scene.DrawLine({tx + 4.0f, coreTop}, {tx + 4.0f, coreBot}, m_pal.inkBold, 1.9f);
+            m_scene.DrawLine({tx + 8.0f, coreTop}, {tx + 8.0f, coreBot}, m_pal.inkBold, 1.9f);
+
+            // Two primary windings (right of core, loops bulging RIGHT: -90 deg sweep 180 deg)
+            // Upper primary winding (9 loops: y = ty+10 .. ty+122)
+            for (int i = 0; i < 9; ++i) {
+                m_scene.DrawArc({priX, ty + 10.0f + priR * (2.0f * i + 1.0f)}, priR, -90.0f, 180.0f, m_pal.inkBold, m_pal.symbolWidth, 8);
+            }
+            // Lower primary winding (11 loops: y = ty+148 .. ty+284)
+            for (int i = 0; i < 11; ++i) {
+                m_scene.DrawArc({priX, ty + 148.0f + priR * (2.0f * i + 1.0f)}, priR, -90.0f, 180.0f, m_pal.inkBold, m_pal.symbolWidth, 8);
+            }
         }
 
         // Voltage Tap Selector Rotary Carousel
         const Vec2 selCenter{tx + 72.0f, ty + 114.0f};
-        m_scene.DrawCircle(selCenter, 20.0f, m_pal.bodyFill, m_pal.inkBold, m_pal.symbolWidth);
         Vec2 pads[6];
-        for (int p = 0; p < 6; ++p) {
-            const float ang = (static_cast<float>(p) * 60.0f - 90.0f) * (3.14159265f / 180.0f);
-            pads[p] = {selCenter.x + std::cos(ang) * 13.0f, selCenter.y + std::sin(ang) * 13.0f};
-            SolderPad(pads[p], 2.3f);
+        {
+            auto vsItem = m_scene.Item({
+                .id = "VS1",
+                .title = "100-250V Tap Selector",
+                .category = "Selector"
+            });
+            m_scene.DrawCircle(selCenter, 20.0f, m_pal.bodyFill, m_pal.inkBold, m_pal.symbolWidth);
+            for (int p = 0; p < 6; ++p) {
+                const float ang = (static_cast<float>(p) * 60.0f - 90.0f) * (3.14159265f / 180.0f);
+                pads[p] = {selCenter.x + std::cos(ang) * 13.0f, selCenter.y + std::sin(ang) * 13.0f};
+                SolderPad(pads[p], 2.3f);
+            }
+            // Internal selector bridges
+            m_scene.DrawLine(pads[4], pads[1], m_pal.inkBold, 1.8f);
+            m_scene.DrawLine(pads[3], pads[2], m_pal.inkBold, 1.8f);
         }
-        // Internal selector bridges
-        m_scene.DrawLine(pads[4], pads[1], m_pal.inkBold, 1.8f);
-        m_scene.DrawLine(pads[3], pads[2], m_pal.inkBold, 1.8f);
 
         // Primary tap connections matching M12160
         const float yPri1Top = ty + 10.0f;
@@ -731,11 +801,18 @@ public:
         Junction({neonX, yPri2Bot});
         Resistor({neonX, ty + 196.0f}, true, "R2", "100K", 1);
         const Vec2 v1Pos{neonX, ty + 252.0f};
-        m_scene.DrawCircle(v1Pos, 8.5f, m_pal.bodyFill, m_pal.inkBold, m_pal.symbolWidth);
-        SolderPad({v1Pos.x - 2.6f, v1Pos.y}, 1.6f);
-        SolderPad({v1Pos.x + 2.6f, v1Pos.y}, 1.6f);
-        Junction({v1Pos.x - 2.6f, v1Pos.y + 4.2f}, 1.3f);
-        SideLabel({v1Pos.x + 10.5f, v1Pos.y}, 1, "V1", "SGL");
+        {
+            auto v1Item = m_scene.Item({
+                .id = "V1",
+                .title = "SGL Neon Indicator",
+                .category = "Indicator"
+            });
+            m_scene.DrawCircle(v1Pos, 8.5f, m_pal.bodyFill, m_pal.inkBold, m_pal.symbolWidth);
+            SolderPad({v1Pos.x - 2.6f, v1Pos.y}, 1.6f);
+            SolderPad({v1Pos.x + 2.6f, v1Pos.y}, 1.6f);
+            Junction({v1Pos.x - 2.6f, v1Pos.y + 4.2f}, 1.3f);
+            SideLabel({v1Pos.x + 10.5f, v1Pos.y}, 1, "V1", "SGL");
+        }
 
         // Fuse FS1 on Right Mains line (steps inward to xFuse = tx + 92)
         const float xFuse = tx + 92.0f;
@@ -745,11 +822,18 @@ public:
 
         // PL1 3-pin Mains Connector Circle
         const Vec2 pl1Pos{(xLeftMains + xFuse) * 0.5f, ty + 360.0f};
-        m_scene.DrawCircle(pl1Pos, 17.5f, m_pal.bodyFill, m_pal.inkBold, m_pal.symbolWidth);
-        Junction({xLeftMains, pl1Pos.y - 3.0f}, 2.6f);
-        Junction({xFuse,      pl1Pos.y - 3.0f}, 2.6f);
-        Junction({pl1Pos.x,   pl1Pos.y + 8.5f}, 2.6f);
-        m_scene.DrawText("PL1", {pl1Pos.x + 20.0f, pl1Pos.y + 4.0f}, 6.2f, m_pal.inkBold, FontStyle::Bold);
+        {
+            auto pl1Item = m_scene.Item({
+                .id = "PL1",
+                .title = "3-Pin Mains Input",
+                .category = "Connector"
+            });
+            m_scene.DrawCircle(pl1Pos, 17.5f, m_pal.bodyFill, m_pal.inkBold, m_pal.symbolWidth);
+            Junction({xLeftMains, pl1Pos.y - 3.0f}, 2.6f);
+            Junction({xFuse,      pl1Pos.y - 3.0f}, 2.6f);
+            Junction({pl1Pos.x,   pl1Pos.y + 8.5f}, 2.6f);
+            m_scene.DrawText("PL1", {pl1Pos.x + 20.0f, pl1Pos.y + 4.0f}, 6.2f, m_pal.inkBold, FontStyle::Bold);
+        }
 
         // Dashed electrostatic screen / core ground line from T1 core to PL1 Earth pin
         WireV(pl1Pos.x, pl1Pos.y + 8.5f, pl1Pos.y + 24.0f);

@@ -2,7 +2,7 @@
 #include <algorithm>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/ElementComposer.hpp"
+#include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 
@@ -40,6 +40,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
     bOpts->label = ctx.AllocText(opts.label);
     bOpts->text = ctx.AllocText(opts.text);
     bOpts->description = ctx.AllocText(opts.description);
+    bOpts->badge = ctx.AllocText(opts.badge);
     bOpts->tooltip = ctx.AllocText(opts.tooltip);
     node->text = bOpts->label.text;
     node->SetPayload(bOpts);
@@ -56,12 +57,18 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
         opts.minWidth.value_or(0.0f),
         opts.size.value_or(activeSize),
         opts.radius.value_or(-1.0f),
+        opts.divider,
+        static_cast<uint8_t>(opts.dividerStyle),
         static_cast<uint8_t>(opts.icon.GetType()),
         static_cast<uint8_t>(opts.icon.GetId()),
         opts.icon.GetPath(),
+        static_cast<uint8_t>(opts.labelIcon.GetType()),
+        static_cast<uint8_t>(opts.labelIcon.GetId()),
+        opts.labelIcon.GetPath(),
         bOpts->label,
         bOpts->text,
-        bOpts->description
+        bOpts->description,
+        bOpts->badge
     );
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* b = n->As<ButtonOptions>();
@@ -144,6 +151,9 @@ ElementSpec MakeButtonElementSpec(
     return ElementSpec{
         .label = effectiveExternalLabel,
         .description = opts.description,
+        .icon = opts.labelIcon,
+        .badge = opts.badge,
+        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -153,8 +163,10 @@ ElementSpec MakeButtonElementSpec(
         .labelGap = inputMetrics.labelGap,
         .descGap = inputMetrics.descGap,
         .inlineGap = m.paddingX,
+        .divider = opts.divider,
+        .dividerStyle = opts.dividerStyle,
         .stretchableControl = true,
-        .stretchHeightWhenStandalone = true,
+        .stretchHeightWhenStandalone = (!opts.divider || opts.dividerStyle != ElementDivider::Bottom),
         .disabled = disabled
     };
 }
@@ -163,13 +175,13 @@ ElementSpec MakeButtonElementSpec(
 
 Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme, float availableWidth) {
     const bool hasExplicitText = !opts.text.empty() || !opts.text.variants.empty();
-    const bool hasExplicitDesc = opts.description.HasContentOrReserve();
+    const bool hasExplicitDesc = opts.description.HasContentOrReserve() || opts.labelIcon.IsValid() || opts.badge.HasContentOrReserve();
     const UiText effectiveCapsuleText = hasExplicitText ? opts.text : (!hasExplicitDesc ? opts.label : UiText{});
     const UiText effectiveExternalLabel = hasExplicitText ? opts.label : (hasExplicitDesc ? opts.label : UiText{});
 
     const Vec2 capsuleDims = MeasureButtonCapsule(opts, effectiveCapsuleText, size, canvas, theme);
     const ElementSpec spec = MakeButtonElementSpec(opts, effectiveExternalLabel, size, opts.disabled, theme);
-    return ElementComposer::Measure(capsuleDims, spec, canvas, theme, availableWidth);
+    return Element::Measure(capsuleDims, spec, canvas, theme, availableWidth);
 }
 
 Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, float availableWidth) {
@@ -195,15 +207,15 @@ void Button::Render(
     const ComponentMetrics& m = theme.GetMetrics(size);
 
     const bool hasExplicitText = !opts.text.empty() || !opts.text.variants.empty();
-    const bool hasExplicitDesc = opts.description.HasContentOrReserve();
+    const bool hasExplicitDesc = opts.description.HasContentOrReserve() || opts.labelIcon.IsValid() || opts.badge.HasContentOrReserve();
     const UiText effectiveCapsuleText = hasExplicitText ? opts.text : (!hasExplicitDesc ? opts.label : UiText{});
     const UiText effectiveExternalLabel = hasExplicitText ? opts.label : (hasExplicitDesc ? opts.label : UiText{});
     const float capFontSize = theme.ResolveFontSize(effectiveCapsuleText, TextRole::LabelLarge, size);
 
     const Vec2 capSize = MeasureButtonCapsule(opts, effectiveCapsuleText, size, &canvas, theme);
     const ElementSpec spec = MakeButtonElementSpec(opts, effectiveExternalLabel, size, disabled, theme);
-    const ElementGeometry geom = ElementComposer::Resolve(bounds, capSize, spec, &canvas, theme);
-    ElementComposer::RenderText(canvas, geom, spec, theme);
+    const ElementGeometry geom = Element::Resolve(bounds, capSize, spec, &canvas, theme);
+    Element::RenderText(canvas, geom, spec, theme);
     const Rect capsuleRect = geom.controlRect;
 
     const VariantColors& colors = theme.GetVariant(opts.variant);

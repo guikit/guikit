@@ -20,6 +20,8 @@ struct InputFieldOptions {
     UiText description{};                          ///< Optional helper text below input box
     UiText placeholder{};                          ///< Placeholder text when empty (e.g. "Enter value...")
     UiText tooltip{};                              ///< Optional floating tooltip shown on hover
+    Icon icon{};                                   ///< Optional leading icon in external Element label bar
+    UiText badge{};                                ///< Optional trailing pill badge in external Element label bar
     UiAffix prefix{};                              ///< Leading icon and/or symbol/text inside field on left (e.g. "$", Icon::Search(), {Icon::Search(), "https://"})
     UiAffix suffix{};                              ///< Trailing unit/symbol/text and/or icon inside field on right (e.g. "%", "mm", {"MB/s", Icon::Check()})
     UiText valueFormat{"%.2f"};                    ///< Format string for numeric values and/or candidate width variants
@@ -36,6 +38,8 @@ struct InputFieldOptions {
     std::optional<double> min{std::nullopt};       ///< Optional minimum numeric value constraint
     std::optional<double> max{std::nullopt};       ///< Optional maximum numeric value constraint
     std::optional<double> step{std::nullopt};      ///< Optional step increment for Up/Down keys and mouse wheel on numeric fields
+    bool divider{false};                           ///< Whether to render an Element divider line
+    ElementDivider dividerStyle{ElementDivider::Bottom}; ///< Element divider placement style (Bottom or Trailing)
     bool password{false};                          ///< Masks input characters with '*'
     bool passwordReveal{true};                     ///< Shows an interactive eye/eye-off toggle button when password is true
     bool clearable{false};                         ///< Shows an interactive clear ('X') button when non-empty and editable
