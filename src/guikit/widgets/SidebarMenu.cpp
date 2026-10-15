@@ -216,7 +216,7 @@ Response SidebarMenu::Item(
     node->visualHash = detail::HashArgs(
         static_cast<uint8_t>(menuOpts.style),
         menuOpts.collapsed,
-        menuOpts.radius.value_or(-1.0f),
+        menuOpts.borderRadius.value_or(-1.0f),
         item.variant.value_or(menuOpts.variant),
         item.active,
         effectiveDisabled,
@@ -306,7 +306,7 @@ void SidebarMenu::RenderItem(
     const auto& pal = theme.palette;
     const UiVariant effectiveVariant = item.variant.value_or(opts.variant);
     const VariantColors& v = theme.GetVariant(effectiveVariant);
-    const float radius = opts.radius.value_or(m.cornerRadius);
+    const float radius = opts.borderRadius.value_or(m.cornerRadius);
 
     Color bg = Color::Transparent();
     Color borderCol = Color::Transparent();

@@ -56,7 +56,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
         opts.width.value_or(0.0f),
         opts.minWidth.value_or(0.0f),
         opts.size.value_or(activeSize),
-        opts.radius.value_or(-1.0f),
+        opts.borderRadius.value_or(-1.0f),
         opts.divider,
         static_cast<uint8_t>(opts.dividerStyle),
         static_cast<uint8_t>(opts.icon.GetType()),
@@ -252,7 +252,7 @@ void Button::Render(
     canvas.PushClip(capsuleRect);
 
     // Background & border
-    const float radius = opts.radius.has_value() ? theme.Scale(*opts.radius) : m.cornerRadius;
+    const float radius = opts.borderRadius.has_value() ? theme.Scale(*opts.borderRadius) : m.cornerRadius;
     canvas.DrawRoundRect(capsuleRect, radius, bg, borderCol, borderW);
 
     const bool hasIcon = opts.icon.IsValid();

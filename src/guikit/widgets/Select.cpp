@@ -533,7 +533,7 @@ Response Select::Run(
         static_cast<uint8_t>(opts.elementAlign),
         static_cast<uint8_t>(opts.divider),
         static_cast<uint8_t>(opts.dividerStyle),
-        opts.radius.value_or(-1.0f)
+        opts.borderRadius.value_or(-1.0f)
     );
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<SelectData>();
@@ -625,7 +625,7 @@ void Select::Render(
     }
 
     // Draw box background and border
-    const float radius = opts.radius.has_value() ? theme.Scale(*opts.radius) : m.cornerRadius;
+    const float radius = opts.borderRadius.has_value() ? theme.Scale(*opts.borderRadius) : m.cornerRadius;
     canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
     // Left elements (prefix icon and/or text)

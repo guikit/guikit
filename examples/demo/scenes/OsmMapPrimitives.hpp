@@ -5,7 +5,7 @@
 #include <cstdio>
 #include <string>
 #include <string_view>
-#include "guikit/core/MapGrid.hpp"
+#include "guikit/geo/MapGrid.hpp"
 #include "guikit/panels/Scene.hpp"
 
 namespace guikit::demo {
@@ -283,7 +283,7 @@ inline MapViewState RenderOsmSlippyMap(
     // -------------------------------------------------------------------------
     // 4. OpenSeaMap Nautical Border Rulers (Top Longitude & Left Latitude Bars)
     // -------------------------------------------------------------------------
-    if (opts.showBorderRulers && opts.showNauticalGraticule) {
+    if (opts.showBorderRulers) {
         const float rulerThick = 20.0f * invZ;
         const float leftBarW = rulerThick * 3.9f;
         const float topRulerStartX = visWorld.x + leftBarW;
@@ -363,7 +363,7 @@ inline MapViewState RenderOsmSlippyMap(
     // 5. Dual Scale Bar Overlay (Nautical Miles NM/cab + Metric km/m)
     // -------------------------------------------------------------------------
     if (opts.showScaleBarOverlay) {
-        const float leftOffset = (opts.showBorderRulers && opts.showNauticalGraticule) ? 90.0f : 14.0f;
+        const float leftOffset = opts.showBorderRulers ? 90.0f : 14.0f;
         const float boxW = 240.0f * invZ;
         const float boxH = 54.0f * invZ;
         const float boxX = visWorld.x + leftOffset * invZ;

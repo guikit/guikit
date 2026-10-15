@@ -1172,7 +1172,7 @@ Response TextArea::Run(
         optsCopy.autoHeight,
         optsCopy.rows.value_or(0u),
         optsCopy.fixedHeight.value_or(-1.0f),
-        optsCopy.radius.value_or(-1.0f),
+        optsCopy.borderRadius.value_or(-1.0f),
         optsCopy.syntax.has_value() ? optsCopy.syntax->enabled : false,
         cursor,
         state.selectionStart,
@@ -1312,7 +1312,7 @@ void TextArea::Render(
     if (editorBox.w <= 0.0f || editorBox.h <= 0.0f) return;
 
     // 2. Render editor container frame
-    const float r = theme.ResolveRadius(opts.radius, size);
+    const float r = theme.ResolveRadius(opts.borderRadius, size);
     const Color bgCol = disabled ? pal.inputBackground.WithAlphaF(0.45f) : pal.inputBackground;
     Color borderCol = pal.inputBorder;
     float strokeW = theme.Scale(1.0f);

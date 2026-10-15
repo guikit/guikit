@@ -26,7 +26,7 @@ ContainerScope Box::Open(
     node->backgroundColor = opts.backgroundColor;
     node->borderColor = opts.borderColor;
     node->borderWidth = theme.Scale(opts.borderWidth);
-    node->cornerRadius = opts.radius.has_value() ? theme.Scale(*opts.radius) : 0.0f;
+    node->cornerRadius = opts.borderRadius.has_value() ? theme.Scale(*opts.borderRadius) : 0.0f;
     node->clipChildren = opts.clipChildren;
     node->widthMode = opts.widthMode;
     node->heightMode = opts.heightMode;

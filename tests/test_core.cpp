@@ -7,7 +7,7 @@
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/core/Node.hpp"
-#include "guikit/core/MapGrid.hpp"
+#include "guikit/geo/MapGrid.hpp"
 
 static int g_failures = 0;
 

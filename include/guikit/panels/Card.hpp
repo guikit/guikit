@@ -20,7 +20,7 @@ struct CardOptions {
     Color backgroundColor{Color::Transparent()};
     Color borderColor{Color::Transparent()};
     float borderWidth{1.0f};
-    std::optional<float> radius{std::nullopt};     ///< Corner radius in pixels (nullopt = auto from theme)
+    std::optional<float> borderRadius{std::nullopt}; ///< Corner radius in pixels (nullopt = auto from theme)
     bool clipChildren{true};                        ///< Clip children to prevent content bleeding outside rounded card
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Fit};

@@ -36,7 +36,7 @@ struct ButtonOptions {
     bool disabled{false};
     bool active{false};
     std::optional<UiSize> size{std::nullopt}; ///< Local size override (nullopt = inherit container size)
-    std::optional<float> radius{std::nullopt}; ///< Local corner radius override (nullopt = inherit from size metrics)
+    std::optional<float> borderRadius{std::nullopt}; ///< Local corner radius override (nullopt = inherit from size metrics)
 };
 
 /// Type alias for button response.

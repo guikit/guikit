@@ -68,8 +68,8 @@ Response TabBar::Run(
     }
 
     float resolvedRadius = 0.0f;
-    if (opts.radius.has_value()) {
-        resolvedRadius = theme.Scale(*opts.radius);
+    if (opts.borderRadius.has_value()) {
+        resolvedRadius = theme.Scale(*opts.borderRadius);
     } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
         resolvedRadius = m.cornerRadius + 2.0f * activeScale;
     }
@@ -174,7 +174,7 @@ Response TabBar::Run(
             opts.style,
             opts.showSeparator,
             opts.activeColor.ToUint32(),
-            opts.radius.value_or(-1.0f),
+            opts.borderRadius.value_or(-1.0f),
             item.variant,
             tData->item.badge,
             tData->item.label,
@@ -333,11 +333,11 @@ void TabBar::RenderTab(
         }
 
         float pillRadius = m.cornerRadius;
-        if (opts.radius.has_value()) {
-            if (*opts.radius == 0.0f) {
+        if (opts.borderRadius.has_value()) {
+            if (*opts.borderRadius == 0.0f) {
                 pillRadius = 0.0f;
             } else {
-                pillRadius = std::max(0.0f, *opts.radius - padTop);
+                pillRadius = std::max(0.0f, *opts.borderRadius - padTop);
             }
         }
 

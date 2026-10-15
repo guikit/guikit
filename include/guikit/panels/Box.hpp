@@ -22,7 +22,7 @@ struct BoxOptions {
     Color backgroundColor{0, 0, 0, 0};
     Color borderColor{0, 0, 0, 0};
     float borderWidth{0.0f};
-    std::optional<float> radius{std::nullopt};     ///< Corner radius in pixels (nullopt = zero / sharp)
+    std::optional<float> borderRadius{std::nullopt}; ///< Corner radius in pixels (nullopt = zero / sharp)
     bool clipChildren{false};
     std::optional<UiSize> size{std::nullopt};
     bool disabled{false};

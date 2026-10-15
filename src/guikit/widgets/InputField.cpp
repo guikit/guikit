@@ -562,7 +562,7 @@ Response InputField::Run(
         opts.password,
         opts.passwordReveal,
         opts.clearable,
-        opts.radius.value_or(-1.0f),
+        opts.borderRadius.value_or(-1.0f),
         data->displayText,
         data->cursor,
         data->selStart,
@@ -725,7 +725,7 @@ void InputField::Render(
     }
 
     // Draw box background and border
-    const float radius = opts.radius.has_value() ? theme.Scale(*opts.radius) : m.cornerRadius;
+    const float radius = opts.borderRadius.has_value() ? theme.Scale(*opts.borderRadius) : m.cornerRadius;
     canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
     const float inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);

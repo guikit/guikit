@@ -2117,7 +2117,7 @@ void TestTabBarWidgetWorkflow() {
                 .style = TabBarStyle::Pill,
                 .fullWidth = true,
                 .padding = Padding::All(4.0f),
-                .radius = 10.0f,
+                .borderRadius = 10.0f,
                 .backgroundColor = barBg,
                 .borderColor = barBorder,
                 .borderWidth = 1.5f
@@ -3280,7 +3280,7 @@ void TestContainersAndLayoutsReorganization() {
     }
 
     // 2. Panels: Box, Card, ScrollArea, Carousel
-    if (ContainerScope box = ui.Box({.gap = 8.0f, .padding = Padding::All(8.0f), .radius = 6.0f})) {
+    if (ContainerScope box = ui.Box({.gap = 8.0f, .padding = Padding::All(8.0f), .borderRadius = 6.0f})) {
         Node* node = box.GetNode();
         CHECK(node != nullptr);
         CHECK(node->cornerRadius == 6.0f);
@@ -3288,7 +3288,7 @@ void TestContainersAndLayoutsReorganization() {
         ui.Text("Inside Box");
     }
 
-    if (auto card = ui.Card({.gap = 12.0f, .padding = Padding::All(16.0f), .radius = 8.0f})) {
+    if (auto card = ui.Card({.gap = 12.0f, .padding = Padding::All(16.0f), .borderRadius = 8.0f})) {
         Node* node = card.GetNode();
         CHECK(node != nullptr);
         CHECK(node->cornerRadius == 8.0f);
@@ -3587,7 +3587,7 @@ void TestScopedThemeAndScaleOverrides() {
         const Padding tokenPad = ui.GetTheme().ResolvePadding(Padding(UiSize::Sm));
         CHECK_NEAR(tokenPad.left, ui.GetTheme().GetPadding(UiSize::Sm).left, 0.001f);
 
-        if (auto fixedBox = ui.Box({.fixedWidth = 100.0f, .fixedHeight = 40.0f, .borderWidth = 2.0f, .radius = 6.0f})) {
+        if (auto fixedBox = ui.Box({.fixedWidth = 100.0f, .fixedHeight = 40.0f, .borderWidth = 2.0f, .borderRadius = 6.0f})) {
             const Node* boxNode = fixedBox.GetNode();
             CHECK_NEAR(boxNode->fixedWidth, 200.0f, 0.001f);
             CHECK_NEAR(boxNode->fixedHeight, 80.0f, 0.001f);
@@ -3768,7 +3768,7 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
         }
 
         // 2. Card and Box with float radius and single float padding
-        if (auto card = ui.Card({.gap = 7.0f, .padding = 20.0f, .radius = 12.5f})) {
+        if (auto card = ui.Card({.gap = 7.0f, .padding = 20.0f, .borderRadius = 12.5f})) {
             Node* n = card.GetNode();
             CHECK(n != nullptr);
             CHECK_NEAR(n->gap, 7.0f, 0.001f);
@@ -3776,7 +3776,7 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
             CHECK_NEAR(n->cornerRadius, 12.5f, 0.001f);
         }
 
-        if (auto box = ui.Box({.gap = 16.0f, .padding = 8.0f, .radius = 4.0f})) {
+        if (auto box = ui.Box({.gap = 16.0f, .padding = 8.0f, .borderRadius = 4.0f})) {
             Node* n = box.GetNode();
             CHECK(n != nullptr);
             CHECK_NEAR(n->gap, 16.0f, 0.001f);
@@ -4303,9 +4303,9 @@ void TestWidgetRadiusOverride() {
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
     if (auto col = ui.Column({.gap = 8.0f})) {
         auto btnDefault = ui.Button({.label = "Default Radius"});
-        auto btnCustom = ui.Button({.label = "Custom Radius", .radius = 16.0f});
+        auto btnCustom = ui.Button({.label = "Custom Radius", .borderRadius = 16.0f});
         auto inputDefault = ui.InputField(inputText, {.label = "Default Radius Input"});
-        auto inputCustom = ui.InputField(inputText, {.label = "Custom Radius Input", .radius = 14.0f});
+        auto inputCustom = ui.InputField(inputText, {.label = "Custom Radius Input", .borderRadius = 14.0f});
 
         CHECK(btnDefault.id.IsValid());
         CHECK(btnCustom.id.IsValid());
@@ -4394,7 +4394,7 @@ void TestButtonExternalLabelDescriptionAndPlacement() {
             .label = "Select Header",
             .description = "Choose option",
             .layout = ElementLayout::Stacked,
-            .radius = 12.0f
+            .borderRadius = 12.0f
         });
 
         CHECK(bStacked.id.IsValid());

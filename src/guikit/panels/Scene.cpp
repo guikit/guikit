@@ -1127,7 +1127,7 @@ void Scene::RenderBackgroundAndWorld(
     const Rect vp = geom.controlRect;
     if (vp.w <= 0.0f || vp.h <= 0.0f) return;
 
-    const float rad = opts.radius.has_value() ? theme.Scale(*opts.radius) : 0.0f;
+    const float rad = opts.borderRadius.has_value() ? theme.Scale(*opts.borderRadius) : 0.0f;
     const Color bgCol = (opts.backgroundColor.a > 0) ? opts.backgroundColor : theme.palette.surface;
 
     // 1. Render Background Pattern
@@ -1506,7 +1506,7 @@ void Scene::RenderOverlays(
 
     // 3. Render Viewport Frame Border
     if (opts.borderWidth > 0.0f) {
-        const float rad = opts.radius.has_value() ? theme.Scale(*opts.radius) : 0.0f;
+        const float rad = opts.borderRadius.has_value() ? theme.Scale(*opts.borderRadius) : 0.0f;
         const Color bCol = (opts.borderColor.a > 0) ? opts.borderColor : theme.palette.borderSubtle;
         canvas.DrawRoundRect(vp, rad, Color::Transparent(), bCol, theme.Scale(opts.borderWidth));
     }

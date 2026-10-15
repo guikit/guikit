@@ -91,7 +91,7 @@ struct TextAreaOptions {
     SizeMode heightMode{SizeMode::Fit};                 ///< Vertical sizing behavior in layout (Fit or Stretch)
     bool divider{false};                                ///< Draw a structural divider line under header/widget
     ElementDivider dividerStyle{ElementDivider::Bottom};///< Divider placement (Bottom or Trailing)
-    std::optional<float> radius{std::nullopt};          ///< Optional corner radius override
+    std::optional<float> borderRadius{std::nullopt};    ///< Optional corner radius override
     std::optional<UiSize> size{std::nullopt};           ///< Local size override
     std::optional<float> scale{std::nullopt};           ///< Optional local UI scale factor override
     const UiTheme* theme{nullptr};                      ///< Optional local theme override

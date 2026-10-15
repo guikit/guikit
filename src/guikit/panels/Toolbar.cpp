@@ -95,7 +95,7 @@ ToolbarScope Toolbar::Open(
     node->backgroundColor = opts.backgroundColor.a > 0 ? opts.backgroundColor : pal.surface;
     node->borderColor = opts.borderColor.a > 0 ? opts.borderColor : pal.border;
     node->borderWidth = (opts.borderColor.a > 0) ? theme.Scale(1.0f) : 0.0f;
-    node->cornerRadius = theme.ResolveRadius(opts.radius, activeSize);
+    node->cornerRadius = theme.ResolveRadius(opts.borderRadius, activeSize);
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
 

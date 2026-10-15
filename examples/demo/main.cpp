@@ -3,17 +3,128 @@
 #include <emscripten.h>
 #include <emscripten/html5.h>
 #endif
-#include <array>
+#include <chrono>
 #include <iostream>
 #include <string>
 #include <vector>
 #include "guikit/GuiKit.hpp"
 #include "guikit/backend/ThorCanvas.hpp"
 #include "guikit/core/FrameMetrics.hpp"
-#include "SchematicPrimitives.hpp"
-#include "OsmMapPrimitives.hpp"
+#include "DemoContext.hpp"
+
+namespace {
+
+using namespace guikit::demo;
+
+void DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
+    switch (cat) {
+        // 1. ELEMENTS
+        case NavCategory::ElemHeading:       RenderHeadingInspector(ui, ctx); break;
+        case NavCategory::ElemButton:        RenderButtonInspector(ui, ctx); break;
+        case NavCategory::ElemSlider:        RenderSliderInspector(ui, ctx); break;
+        case NavCategory::ElemInputField:    RenderInputInspector(ui, ctx); break;
+        case NavCategory::ElemSelect:        RenderSelectInspector(ui, ctx); break;
+        case NavCategory::ElemSwitch:        RenderSwitchInspector(ui, ctx); break;
+        case NavCategory::ElemCheckbox:      RenderCheckboxInspector(ui, ctx); break;
+
+        // 2. PANELS & NAV
+        case NavCategory::PanelCard:         RenderCardInspector(ui, ctx); break;
+        case NavCategory::PanelTabBar:       RenderTabBarInspector(ui, ctx); break;
+        case NavCategory::PanelSidebar:      RenderSidebarInspector(ui, ctx); break;
+
+        // 3. CONTENT & MEDIA
+        case NavCategory::ContentImage:      RenderImageInspector(ui, ctx); break;
+        case NavCategory::ContentMarkdown:   RenderMarkdownInspector(ui, ctx); break;
+        case NavCategory::ContentCodeEditor: RenderCodeEditorInspector(ui, ctx); break;
+
+        // 4. 2D SCENES
+        case NavCategory::SceneSchematic2D:  RenderSchematicInspector(ui, ctx); break;
+        case NavCategory::SceneOsmMap:       RenderOsmMapInspector(ui, ctx); break;
+
+        // 5. ASSEMBLY
+        case NavCategory::AsmDashboard:      RenderDashboardInspector(ui, ctx); break;
+        case NavCategory::AsmFormControls:   RenderFormControlsInspector(ui, ctx); break;
+        case NavCategory::AsmFlexRibbon:     RenderFlexRibbonInspector(ui, ctx); break;
+        case NavCategory::AsmDiagnostics:    RenderDiagnosticsInspector(ui, ctx); break;
+        case NavCategory::AsmThemeStudio:    RenderThemeStudioInspector(ui, ctx); break;
+    }
+}
+
+void DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
+    switch (cat) {
+        // 1. ELEMENTS
+        case NavCategory::ElemHeading:       RenderHeadingStage(ui, ctx); break;
+        case NavCategory::ElemButton:        RenderButtonStage(ui, ctx); break;
+        case NavCategory::ElemSlider:        RenderSliderStage(ui, ctx); break;
+        case NavCategory::ElemInputField:    RenderInputStage(ui, ctx); break;
+        case NavCategory::ElemSelect:        RenderSelectStage(ui, ctx); break;
+        case NavCategory::ElemSwitch:        RenderSwitchStage(ui, ctx); break;
+        case NavCategory::ElemCheckbox:      RenderCheckboxStage(ui, ctx); break;
+
+        // 2. PANELS & NAV
+        case NavCategory::PanelCard:         RenderCardStage(ui, ctx); break;
+        case NavCategory::PanelTabBar:       RenderTabBarStage(ui, ctx); break;
+        case NavCategory::PanelSidebar:      RenderSidebarStage(ui, ctx); break;
+
+        // 3. CONTENT & MEDIA
+        case NavCategory::ContentImage:      RenderImageStage(ui, ctx); break;
+        case NavCategory::ContentMarkdown:   RenderMarkdownStage(ui, ctx); break;
+        case NavCategory::ContentCodeEditor: RenderCodeEditorStage(ui, ctx); break;
+
+        // 4. 2D SCENES
+        case NavCategory::SceneSchematic2D:  RenderSchematicStage(ui, ctx); break;
+        case NavCategory::SceneOsmMap:       RenderOsmMapStage(ui, ctx); break;
+
+        default: break;
+    }
+}
+
+std::string DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
+    switch (cat) {
+        // 1. ELEMENTS
+        case NavCategory::ElemHeading:       return GenerateHeadingCode(ctx);
+        case NavCategory::ElemButton:        return GenerateButtonCode(ctx);
+        case NavCategory::ElemSlider:        return GenerateSliderCode(ctx);
+        case NavCategory::ElemInputField:    return GenerateInputCode(ctx);
+        case NavCategory::ElemSelect:        return GenerateSelectCode(ctx);
+        case NavCategory::ElemSwitch:        return GenerateSwitchCode(ctx);
+        case NavCategory::ElemCheckbox:      return GenerateCheckboxCode(ctx);
+
+        // 2. PANELS & NAV
+        case NavCategory::PanelCard:         return GenerateCardCode(ctx);
+        case NavCategory::PanelTabBar:       return GenerateTabBarCode(ctx);
+        case NavCategory::PanelSidebar:      return GenerateSidebarCode(ctx);
+
+        // 3. CONTENT & MEDIA
+        case NavCategory::ContentImage:      return GenerateImageCode(ctx);
+        case NavCategory::ContentMarkdown:   return GenerateMarkdownCode(ctx);
+        case NavCategory::ContentCodeEditor: return GenerateCodeEditorCode(ctx);
+
+        // 4. 2D SCENES
+        case NavCategory::SceneSchematic2D:  return GenerateSchematicCode(ctx);
+        case NavCategory::SceneOsmMap:       return GenerateOsmMapCode(ctx);
+
+        default:                             return {};
+    }
+}
+
+void DispatchAssemblyScreen(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
+    switch (cat) {
+        case NavCategory::AsmDashboard:    RenderDashboardScreen(ui, ctx); break;
+        case NavCategory::AsmFormControls: RenderFormControlsScreen(ui, ctx); break;
+        case NavCategory::AsmFlexRibbon:   RenderFlexRibbonScreen(ui, ctx); break;
+        case NavCategory::AsmDiagnostics:  RenderDiagnosticsScreen(ui, ctx); break;
+        case NavCategory::AsmThemeStudio:  RenderThemeStudioScreen(ui, ctx); break;
+        default: break;
+    }
+}
+
+} // namespace
 
 int main(int argc, char* argv[]) {
+    (void)argc;
+    (void)argv;
+
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         std::cerr << "Failed to initialize SDL3: " << SDL_GetError() << std::endl;
         return 1;
@@ -65,28 +176,11 @@ int main(int argc, char* argv[]) {
         winHeight
     );
 
-    int counter = 0;
-    int activeTabIndex = 0;
     bool showSidebar = true;
-    int sidebarTabIndex = 0;
     bool running = true;
     bool vsyncEnabled = true;
     bool reactiveMode = true;
-    bool shellLightMode = false;
-    bool previewDarkMode = true;
-    bool previewLightMode = false;
-    bool previewBounds = false;
-    bool previewInspect = false;
-    bool showTelemetry = false;
-    bool formMode = true;
-    float speedDrop = 50.0f;
-    std::string sampleId = "Specimen-2026-X";
-    size_t baudIndex = 1;
-    std::string profileMode = "Standard Performance";
-    float masterGain = 72.5f;
-    int channelCount = 4;
-    size_t filterPreset = 1;
-    static constexpr std::array<std::string_view, 4> filterLabels = {"Bypass", "Butterworth", "Chebyshev", "Bessel"};
+
     size_t heartbeatIndex = 2; // Default: 500 ms (2 Hz)
     const std::vector<int> heartbeatMsValues = {-1, 250, 500, 1000, 2000};
     const std::vector<std::string_view> heartbeatLabels = {
@@ -96,6 +190,7 @@ int main(int argc, char* argv[]) {
         "Heartbeat: 1 Hz",
         "Heartbeat: 0.5 Hz"
     };
+
     size_t shellScaleIndex = 0;   // Default: 100%
     size_t previewScaleIndex = 0; // Default: 100%
     const std::vector<float> scaleValues = {1.0f, 1.25f, 1.5f, 1.75f, 2.0f};
@@ -106,413 +201,13 @@ int main(int argc, char* argv[]) {
         "175%",
         "200%"
     };
-    bool enableSensors = true;
-    float maxTravel = 150.0f;
-    float maxVelocity = 25.0f;
-    size_t sensorChannel = 0;
-    bool hwEstop = true;
-    size_t interlockMode = 1;
-    float rampDown = 250.0f;
-    float forceLimit = 85.0f;
-    float yieldRatio = 0.2f;
-    float pGain = 1.25f;
-    float iGain = 0.05f;
-    float dGain = 0.01f;
-    bool diagLogging = true;
-    guikit::TabBarStyle tabStyle = guikit::TabBarStyle::Underline;
-    guikit::UiSize controlsSize = guikit::UiSize::Md;
-    float cardRadius = 8.0f;
-    float cardPadding = 16.0f;
-    float cardGap = 8.0f;
-    float gridColGap = 12.0f;
-    float gridRowGap = 10.0f;
-    float colGap = 12.0f;
-    float rowGap = 8.0f;
-    float tabGap = 4.0f;
-    float carouselGap = 8.0f;
-    float scrollGap = 12.0f;
-    guikit::UiSize headingSize = guikit::UiSize::Md;
-    guikit::UiVariant headingTitleVariant = guikit::UiVariant::Default;
-    bool headingShowSubtitle = true;
-    guikit::UiVariant headingSubtitleVariant = guikit::UiVariant::Secondary;
-    guikit::ElementLayout headingLayout = guikit::ElementLayout::Stacked;
-    guikit::InlineOrder headingInlineOrder = guikit::InlineOrder::ControlFirst;
-    guikit::Align headingElementAlign = guikit::Align::Start;
-    size_t headingStretchIdx = 2; // Fill
-    float headingWidth = 0.0f;
-    float headingFillPct = 100.0f;
-    bool headingShowIcon = false;
-    bool headingShowBadge = false;
-    guikit::UiVariant headingBadgeVariant = guikit::UiVariant::Info;
-    bool headingWordWrap = true;
-    bool headingDivider = true;
-    guikit::HeadingDivider headingDividerStyle = guikit::HeadingDivider::Bottom;
-    float cardBorderWidth = 1.0f;
-
-    enum class NavCategory : uint8_t {
-        // Elements (Atoms)
-        ElemHeading = 0,
-        ElemButton,
-        ElemSlider,
-        ElemInputField,
-        ElemSelect,
-        ElemSwitch,
-        ElemCheckbox,
-        ElemTabBar,
-        ElemSidebar,
-        ElemCard,
-        ElemImage,
-        ElemScene,
-        ElemOsmMap,
-        ElemMarkdown,
-        ElemTextArea,
-
-        // Assembly (Compositions)
-        AsmDashboard,
-        AsmFormControls,
-        AsmFlexRibbon,
-        AsmDiagnostics,
-        AsmThemeStudio
-    };
-
-    auto isElementCategory = [](NavCategory cat) {
-        return cat <= NavCategory::ElemTextArea;
-    };
 
     NavCategory selectedCategory = NavCategory::ElemHeading;
-
-    guikit::UiVariant btnVariant = guikit::UiVariant::Primary;
-    bool btnHasIcon = true;
-    guikit::Placement btnIconPlacement = guikit::Placement::Leading;
-    guikit::Align btnControlAlign = guikit::Align::Center;
-    size_t btnStretchIdx = 0; // Compact
-    float btnWidth = 0.0f;    // 0 = auto (px in Compact/Space)
-    float btnFillPct = 50.0f; // 50% default in Fill mode
-    bool btnDisabled = false;
-    int btnClicks = 0;
-    float btnCornerRadius = 6.0f;
-    bool btnShowLabel = true;
-    bool btnShowDesc = true;
-    guikit::UiVariant btnDescVariant = guikit::UiVariant::Muted;
-    guikit::ElementLayout btnLayout = guikit::ElementLayout::Stacked;
-    guikit::InlineOrder btnInlineOrder = guikit::InlineOrder::LabelFirst;
-    guikit::Align btnElementAlign = guikit::Align::Start;
-
-    float testSliderVal = 65.0f;
-    size_t testStepIdx = 2;
-    bool sliderContinuous = true;
-    size_t sliderStretchIdx = 2; // Fill
-    float sliderWidth = 0.0f;
-    float sliderFillPct = 50.0f;
-    bool sliderShowLabel = true;
-    bool sliderShowDesc = true;
-    guikit::UiVariant sliderDescVariant = guikit::UiVariant::Muted;
-    bool sliderShowTicks = true;
-    bool sliderShowLabels = true;
-    bool sliderShowValue = true;
-    guikit::Placement sliderValuePlacement = guikit::Placement::Trailing;
-    bool sliderShowRangeText = false;
-    bool sliderDisabled = false;
-    guikit::ElementLayout sliderLayout = guikit::ElementLayout::Stacked;
-    guikit::InlineOrder sliderInlineOrder = guikit::InlineOrder::LabelFirst;
-    guikit::Align sliderElementAlign = guikit::Align::Start;
-
-    std::string testInputText = "guikit.dev";
-    guikit::CursorBlinkMode inputCursorMode = guikit::CursorBlinkMode::Blinking;
-    bool inputPassword = false;
-    bool inputClearable = true;
-    bool inputReadOnly = false;
-    bool inputDisabled = false;
-    bool inputHasPrefix = true;
-    bool inputHasSuffix = false;
-    float inputCornerRadius = 6.0f;
-    bool inputShowLabel = true;
-    bool inputShowDesc = true;
-    guikit::UiVariant inputDescVariant = guikit::UiVariant::Muted;
-    guikit::ElementLayout inputLayout = guikit::ElementLayout::Stacked;
-    guikit::InlineOrder inputInlineOrder = guikit::InlineOrder::LabelFirst;
-    guikit::Align inputElementAlign = guikit::Align::Start;
-    size_t inputStretchIdx = 2; // Fill
-    float inputWidth = 0.0f;
-    float inputFillPct = 50.0f;
-
-    size_t testSelectIdx = 0;
-    static const std::vector<std::string_view> selectItems = {"Option Alpha", "Option Beta", "Option Gamma", "Option Delta", "Option Epsilon"};
-    bool selectDisabled = false;
-    size_t selectStretchIdx = 2; // Fill
-    float selectWidth = 0.0f;
-    float selectFillPct = 50.0f;
-    uint32_t selectMaxItems = 4;
-    float selectCornerRadius = 6.0f;
-    bool selectShowLabel = true;
-    bool selectShowDesc = true;
-    guikit::UiVariant selectDescVariant = guikit::UiVariant::Muted;
-    guikit::ElementLayout selectLayout = guikit::ElementLayout::Stacked;
-    guikit::InlineOrder selectInlineOrder = guikit::InlineOrder::LabelFirst;
-    guikit::Align selectElementAlign = guikit::Align::Start;
-    bool selectHasPrefix = false;
-
-    bool testSwitchState = true;
-    bool testDarkLightSwitch = false;
-    guikit::ElementLayout switchLayout = guikit::ElementLayout::Inline;
-    guikit::InlineOrder switchInlineOrder = guikit::InlineOrder::ControlFirst;
-    guikit::Align switchElementAlign = guikit::Align::Start;
-    size_t switchStretchIdx = 0; // Compact
-    bool switchSymmetric = false;
-    bool switchShowLabel = true;
-    bool switchShowDesc = true;
-    guikit::UiVariant switchDescVariant = guikit::UiVariant::Muted;
-    bool switchDisabled = false;
-
-    bool testCheckboxState = true;
-    bool testCheckboxIndet = false;
-    guikit::ElementLayout checkboxLayout = guikit::ElementLayout::Inline;
-    guikit::InlineOrder checkboxInlineOrder = guikit::InlineOrder::ControlFirst;
-    guikit::Align checkboxElementAlign = guikit::Align::Start;
-    size_t checkboxStretchIdx = 0; // Compact
-    bool checkboxShowLabel = true;
-    bool checkboxShowDesc = true;
-    guikit::UiVariant checkboxDescVariant = guikit::UiVariant::Muted;
-    bool checkboxDisabled = false;
-
-    static constexpr std::array<std::string_view, 3> stretchModeNames = {"Compact", "Space", "Fill"};
-    auto stretchModeEnumName = [](guikit::StretchMode m) -> std::string_view {
-        switch (m) {
-            case guikit::StretchMode::Compact: return "Compact";
-            case guikit::StretchMode::Space: return "Space";
-            default: return "Fill";
-        }
-    };
-
-    static constexpr std::array<std::string_view, 4> elementLayoutNames = {"Stacked", "Top", "Bottom", "Inline"};
-    static constexpr std::array<std::string_view, 2> inlineOrderNames = {"LabelFirst", "ControlFirst"};
-    static constexpr std::array<std::string_view, 3> labelAlignNames = {"Start (Left)", "Center", "End (Right)"};
-
-    auto elementLayoutEnumName = [](guikit::ElementLayout l) -> std::string_view {
-        switch (l) {
-            case guikit::ElementLayout::Stacked: return "Stacked";
-            case guikit::ElementLayout::Top:     return "Top";
-            case guikit::ElementLayout::Bottom:  return "Bottom";
-            case guikit::ElementLayout::Inline:  return "Inline";
-        }
-        return "Stacked";
-    };
-
-    auto inlineOrderEnumName = [](guikit::InlineOrder o) -> std::string_view {
-        switch (o) {
-            case guikit::InlineOrder::LabelFirst:   return "LabelFirst";
-            case guikit::InlineOrder::ControlFirst: return "ControlFirst";
-        }
-        return "LabelFirst";
-    };
-
-    auto labelAlignEnumName = [](guikit::Align a) -> std::string_view {
-        switch (a) {
-            case guikit::Align::Start: return "Start";
-            case guikit::Align::Center: return "Center";
-            case guikit::Align::End: return "End";
-        }
-        return "Start";
-    };
-
-    static constexpr std::array<std::pair<guikit::UiVariant, std::string_view>, 8> allVariants = {{
-        {guikit::UiVariant::Default, "Default"},
-        {guikit::UiVariant::Primary, "Primary"},
-        {guikit::UiVariant::Secondary, "Secondary"},
-        {guikit::UiVariant::Success, "Success"},
-        {guikit::UiVariant::Warning, "Warning"},
-        {guikit::UiVariant::Danger, "Danger"},
-        {guikit::UiVariant::Info, "Info"},
-        {guikit::UiVariant::Ghost, "Ghost"}
-    }};
-
-    auto variantName = [](guikit::UiVariant v) -> std::string_view {
-        switch (v) {
-            case guikit::UiVariant::Primary:   return "Primary";
-            case guikit::UiVariant::Secondary: return "Secondary";
-            case guikit::UiVariant::Success:   return "Success";
-            case guikit::UiVariant::Warning:   return "Warning";
-            case guikit::UiVariant::Danger:    return "Danger";
-            case guikit::UiVariant::Info:      return "Info";
-            case guikit::UiVariant::Ghost:     return "Ghost";
-            case guikit::UiVariant::Muted:     return "Muted";
-            default:                           return "Default";
-        }
-    };
-
-    int testTabIdx = 0;
-    static const std::array<guikit::TabItem, 3> inspectorDemoTabs = {{
-        {.label = "First", .icon = guikit::Icon::Settings()},
-        {.label = "Second", .icon = guikit::Icon::Eye()},
-        {.label = "Third", .icon = guikit::Icon::Play()}
-    }};
-    bool testTabShowSep = true;
-    bool testTabFullWidth = true;
-    bool testTabScrollable = false;
-    bool testTabHasBg = true;
-    float testTabRadius = 8.0f;
-    float testTabPadding = 3.0f;
-    float testTabBorderWidth = 1.0f;
-
-    int testSidebarMenuIdx = 0;
-    guikit::SidebarMenuStyle testSidebarMenuStyle = guikit::SidebarMenuStyle::Pill;
-    guikit::SidebarSide testSidebarSide = guikit::SidebarSide::Left;
-    bool testSidebarCollapsed = false;
-    bool testSidebarShowBadges = true;
-    bool testSidebarShowSections = true;
-    bool testSidebarAutoWidth = true;
-    float testSidebarFixedWidth = 200.0f;
-
-    // Image demo state
-    size_t imgSourceIdx = 0;
-    static constexpr std::array<std::string_view, 2> imgSources = {
-        "assets/images/architecture.svg",
-        "assets/images/circuit.svg"
-    };
-    static constexpr std::array<std::string_view, 2> imgSourceNames = {
-        "Architecture Diagram",
-        "Circuit Schematic"
-    };
-    guikit::ObjectFit imgFit = guikit::ObjectFit::Contain;
-    static constexpr std::array<std::string_view, 5> fitModeNames = {
-        "Contain", "Cover", "Fill", "ScaleDown", "Original"
-    };
-    size_t imgStretchIdx = 2; // Fill
-    float imgWidth = 360.0f;
-    float imgFillPct = 85.0f;
-    float imgHeight = 180.0f;
-    bool imgAutoHeight = true;
-    float imgRadius = 8.0f;
-    float imgBorderWidth = 1.0f;
-    bool imgCheckerboard = true;
-    bool imgShowLabel = true;
-    bool imgShowDesc = true;
-    guikit::ElementLayout imgLayout = guikit::ElementLayout::Stacked;
-    guikit::Align imgElementAlign = guikit::Align::Center;
-
-    // Scene 2D Camera demo state
-    guikit::SceneBackground sceneBg = guikit::SceneBackground::Solid;
-    static constexpr std::array<std::string_view, 4> sceneBgNames = {
-        "Solid", "Checker", "Dots", "Lines"
-    };
-    bool sceneSelectableItems = true;
-    bool sceneShowControls = true;
-    bool sceneShowScrollbars = true;
-    float sceneRadius = 8.0f;
-    float sceneGridStep = 32.0f;
-
-    // OSM Slippy Map & OpenSeaMap Nautical Graticule demo state
-    guikit::demo::OsmMapRenderOptions osmOpts{};
-    guikit::MapViewState osmLastView{};
-    bool osmShowControls = true;
-    bool osmShowScrollbars = true;
-    bool osmSelectableItems = true;
-    float osmRadius = 8.0f;
-    bool osmCameraInitialized = false;
-    std::optional<guikit::GeoCoord> osmPendingCenterGeo{};
-    std::optional<float> osmPendingSceneZoom{};
-    size_t osmRegionPresetIdx = 0;
-    static constexpr std::array<std::string_view, 6> osmRegionPresetNames = {
-        "Helgoland / German Bight (z=7)",
-        "Kiel Canal / Elbe Approach (z=9)",
-        "Dover Strait TSS (z=8)",
-        "Greenwich Prime Meridian (z=8)",
-        "Strait of Gibraltar (z=8)",
-        "Global Overview (z=2)"
-    };
-    static constexpr std::array<std::string_view, 3> osmCrsShortNames = {
-        "EPSG:3857", "EPSG:3395", "EPSG:4326"
-    };
-    static constexpr std::array<std::string_view, 3> osmCoordFormatNames = {
-        "Nautical DMM", "Decimal", "DMS"
-    };
-
-    // Markdown demo state
-    bool mdCodeLineNumbers = true;
-    bool mdSyntaxHighlight = true;
-    bool mdShowCopyButton = true;
-    bool mdImageCheckerboard = true;
-    float mdImageMaxHeight = 200.0f;
-    float mdImageRadius = 8.0f;
-    float mdBlockGap = 12.0f;
-    std::string mdLastClickedLink{};
-
-    // TextArea / Code Editor demo state
-    bool taShowLabel = true;
-    bool taShowDesc = true;
-    bool taLineNumbers = true;
-    bool taCopyButton = true;
-    bool taMonospace = true;
-    bool taWordWrap = false;
-    bool taReadOnly = false;
-    bool taAllowZoom = true;
-    float taZoom = 1.0f;
-    size_t taSyntaxMode = 0; // 0 = C++20, 1 = JSON, 2 = Custom DSL, 3 = Plain
-    static constexpr std::array<std::string_view, 4> taSyntaxLabels = {"C++20", "JSON", "Custom", "Plain"};
-    static constexpr std::array<std::string_view, 5> kCustomKeywords = {"rule", "when", "then", "emit", "alert"};
-    static constexpr std::array<std::string_view, 4> kCustomTypes = {"Sensor", "Signal", "Threshold", "Millis"};
-    std::string taEditorBuffer =
-        "#include \"guikit/GuiKit.hpp\"\n\n"
-        "// Interactive Code Editor (Click, Select, Edit, Ctrl+Wheel Zoom)\n"
-        "void RenderEditorDemo(guikit::Context& ui, std::string& sourceCode) {\n"
-        "    const auto syntax = guikit::SyntaxConfig::Cpp();\n"
-        "    ui.TextArea(sourceCode, {\n"
-        "        .label = \"A text area\",\n"
-        "        .description = \"This is a text area\",\n"
-        "        .showLineNumbers = true,\n"
-        "        .showCopyButton = true,\n"
-        "        .allowZoom = true,\n"
-        "        .syntax = syntax\n"
-        "    });\n"
-        "}\n";
-
-    static constexpr std::string_view kDemoMarkdownDoc =
-R"(# GuiKit Rich Markdown Engine
-
-Welcome to **GuiKit's** native vector `ui.Markdown` viewer! Everything is parsed into a lightweight cached AST and rendered at **60+ FPS** via *ThorVG* with crisp typography, **bold**, *italic*, ~~strikethrough~~, `inline code` pills, and interactive links like [https://github.com/guikit](https://github.com/guikit).
-
-> [!TIP]
-> You can embed vector **SVG**, **PNG**, or **JPG** diagrams directly inside Markdown, copy code snippets with one click, and inspect every layout box!
-
-## 1. Architecture Diagram (`assets/images/architecture.svg`)
-
-![GuiKit 4-Layer Architecture: Solver -> Scene -> ThorVG](assets/images/architecture.svg)
-
-## 2. Interactive C++20 Code Block
-
-```cpp
-// Autonomous 2D World Camera & Rich Markdown
-if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
-    scene.DrawImage("assets/images/circuit.svg", {0, 0, 800, 500});
-    const guikit::Rect visible = scene.GetVisibleWorldRect();
-}
-```
-
-## 3. Key Features & Task Checklist
-
-- [x] **Pure BoxFit & Solver** with `aspectRatio`, `minHeight`, and 2D `ScrollArea`
-- [x] **Stateless `ui.Image`** with `Contain`, `Cover`, `Fill`, `ScaleDown`, `Original`
-- [x] **Stateful `ui.Scene`** with cursor-centric zoom, drag pan, and OSM tile culling
-- [ ] Connect live HTTP tile loader for OpenStreetMap `[z/x/y]` tiles
-
-| Component | Layer | Coordinate Space | Responsibility |
-| :--- | :---: | :---: | :--- |
-| `ComputeBoxFit` | Core | Pure Math | Aspect-ratio fitting |
-| `ui.Image` | Widget | Screen Space | Stateless SVG/PNG/JPG leaf |
-| `ui.Scene` | Panel | World <-> Screen | 2D Camera, Pan/Zoom & HUD |
-| `ui.Markdown` | Widget | Flow Layout | Rich AST Document Viewer |
-
-> [!WARNING]
-> Hover over any `[link](...)` to preview its target URL tooltip, or click **Copy** on the code block above!
-)";
-
+    DemoContext demoCtx;
     guikit::FrameMetrics metrics;
 
-    guikit::UiTheme shellTheme = shellLightMode ? guikit::UiTheme::Light(guikit::Density::Standard) : guikit::UiTheme::Dark(guikit::Density::Standard);
-    guikit::UiTheme previewTheme = previewDarkMode ? guikit::UiTheme::Dark(guikit::Density::Standard) : guikit::UiTheme::Light(guikit::Density::Standard);
-
-    ui.SetTheme(shellTheme);
-    ui.SetClearColor(shellTheme.palette.background);
+    ui.SetTheme(demoCtx.shellTheme);
+    ui.SetClearColor(demoCtx.shellTheme.palette.background);
     ui.SetIdleHeartbeatMs(heartbeatMsValues[heartbeatIndex]);
     ui.SetClipboardCallbacks(
         []() -> std::string {
@@ -654,14 +349,11 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
         const float shellScale = scaleValues[shellScaleIndex];
         const float previewScale = scaleValues[previewScaleIndex];
 
-        // --- Begin Immediate Mode GuiKit Frame ---
         ui.BeginFrame({static_cast<float>(winWidth), static_cast<float>(winHeight)}, 1.0f);
         {
-            if (auto mainCol = ui.Column({.theme = &shellTheme, .scale = shellScale})) {
-                // Engine HUD Toolbar:
-                // Sidebar | Scale Dark/Light Bounds Inspect | VSync React Dirty Heartbeat | guikit
+            if (auto mainCol = ui.Column({.theme = &demoCtx.shellTheme, .scale = shellScale})) {
+                // Engine HUD Toolbar
                 if (auto tb = ui.Toolbar()) {
-                    // 1. Sidebar Toggle
                     if (tb.ToolButton({
                         .label = "Sidebar",
                         .icon = guikit::Icon::Settings(),
@@ -674,22 +366,23 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
 
                     tb.Separator();
 
-                    // 2. Shell Controls Group: Scale, Dark/Light, Bounds, Inspect (affects UI except Preview)
                     if (auto scaleBox = ui.Box({.fixedWidth = 92.0f})) {
                         if (ui.Select(shellScaleIndex, scaleLabels, {.size = guikit::UiSize::Sm}).changed) {
                             ui.InvalidateAll();
                         }
                     }
 
-                    if (ui.Switch(shellLightMode, {
+                    if (ui.Switch(demoCtx.shellLightMode, {
                         .textLeft = "Dark",
                         .textRight = "Light",
                         .symmetric = true,
                         .size = guikit::UiSize::Md
                     }).changed) {
-                        shellTheme = shellLightMode ? guikit::UiTheme::Light(shellTheme.density) : guikit::UiTheme::Dark(shellTheme.density);
-                        ui.SetTheme(shellTheme);
-                        ui.SetClearColor(shellTheme.palette.background);
+                        demoCtx.shellTheme = demoCtx.shellLightMode
+                            ? guikit::UiTheme::Light(demoCtx.shellTheme.density)
+                            : guikit::UiTheme::Dark(demoCtx.shellTheme.density);
+                        ui.SetTheme(demoCtx.shellTheme);
+                        ui.SetClearColor(demoCtx.shellTheme.palette.background);
                         ui.InvalidateAll();
                     }
 
@@ -715,7 +408,6 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
 
                     tb.Separator();
 
-                    // 3. VSync, React, Dirty Switches & Heartbeat Cycle
                     if (ui.Switch(vsyncEnabled, {.label = "VSync", .size = guikit::UiSize::Md}).changed) {
                         SDL_SetRenderVSync(renderer, vsyncEnabled ? 1 : 0);
                     }
@@ -751,47 +443,50 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
 
                 // Workspace Row containing Sidebar (left) and Content Area (right)
                 if (auto workspaceRow = ui.Row({.gap = 12.0f, .heightMode = guikit::SizeMode::Stretch})) {
-                    // Collapsible Two-Level Inspector Sidebar
                     if (showSidebar) {
-                        // 1. Level 1: Element Catalog & Assembly Rail (Left, auto-fit width)
+                        // 1. Level 1: 5-Section Catalog Rail
                         if (auto railSidebar = ui.Sidebar({
                             .side = guikit::SidebarSide::Left,
-                            .minWidth = 152.0f
+                            .minWidth = 156.0f
                         })) {
                             const NavCategory prevCat = selectedCategory;
                             if (auto menu = ui.SidebarMenu({.size = guikit::UiSize::Sm})) {
                                 menu.Section("ELEMENTS");
-                                menu.Item(selectedCategory, NavCategory::ElemHeading,    {.text = "Heading",    .icon = guikit::Icon::Edit()});
-                                menu.Item(selectedCategory, NavCategory::ElemButton,     {.text = "Button",     .icon = guikit::Icon::Play()});
-                                menu.Item(selectedCategory, NavCategory::ElemSlider,     {.text = "Slider",     .icon = guikit::Icon::Settings()});
-                                menu.Item(selectedCategory, NavCategory::ElemInputField, {.text = "Input",      .icon = guikit::Icon::Edit()});
-                                menu.Item(selectedCategory, NavCategory::ElemSelect,     {.text = "Select",     .icon = guikit::Icon::Plus()});
-                                menu.Item(selectedCategory, NavCategory::ElemSwitch,     {.text = "Switch",     .icon = guikit::Icon::Refresh()});
-                                menu.Item(selectedCategory, NavCategory::ElemCheckbox,   {.text = "Checkbox",   .icon = guikit::Icon::Check()});
+                                menu.Item(selectedCategory, NavCategory::ElemHeading,       {.text = "Heading",      .icon = guikit::Icon::Edit()});
+                                menu.Item(selectedCategory, NavCategory::ElemButton,        {.text = "Button",       .icon = guikit::Icon::Play()});
+                                menu.Item(selectedCategory, NavCategory::ElemSlider,        {.text = "Slider",       .icon = guikit::Icon::Settings()});
+                                menu.Item(selectedCategory, NavCategory::ElemInputField,    {.text = "Input",        .icon = guikit::Icon::Edit()});
+                                menu.Item(selectedCategory, NavCategory::ElemSelect,        {.text = "Select",       .icon = guikit::Icon::Plus()});
+                                menu.Item(selectedCategory, NavCategory::ElemSwitch,        {.text = "Switch",       .icon = guikit::Icon::Refresh()});
+                                menu.Item(selectedCategory, NavCategory::ElemCheckbox,      {.text = "Checkbox",     .icon = guikit::Icon::Check()});
 
-                                menu.Section("COMPONENTS");
-                                menu.Item(selectedCategory, NavCategory::ElemTabBar,     {.text = "TabBar",     .icon = guikit::Icon::Folder()});
-                                menu.Item(selectedCategory, NavCategory::ElemSidebar,    {.text = "Sidebar",    .icon = guikit::Icon::Folder()});
-                                menu.Item(selectedCategory, NavCategory::ElemCard,       {.text = "Card",       .icon = guikit::Icon::Copy()});
-                                menu.Item(selectedCategory, NavCategory::ElemImage,      {.text = "Image",      .icon = guikit::Icon::Eye(), .badge = "New"});
-                                menu.Item(selectedCategory, NavCategory::ElemScene,      {.text = "Scene 2D",   .icon = guikit::Icon::Search(), .badge = "New"});
-                                menu.Item(selectedCategory, NavCategory::ElemOsmMap,     {.text = "OSM Map",    .icon = guikit::Icon::Search(), .badge = "New"});
-                                menu.Item(selectedCategory, NavCategory::ElemMarkdown,   {.text = "Markdown",   .icon = guikit::Icon::Edit(), .badge = "New"});
-                                menu.Item(selectedCategory, NavCategory::ElemTextArea,   {.text = "Code Editor",.icon = guikit::Icon::Edit(), .badge = "New"});
+                                menu.Section("PANELS & NAV");
+                                menu.Item(selectedCategory, NavCategory::PanelCard,         {.text = "Card",         .icon = guikit::Icon::Copy()});
+                                menu.Item(selectedCategory, NavCategory::PanelTabBar,       {.text = "TabBar",       .icon = guikit::Icon::Folder()});
+                                menu.Item(selectedCategory, NavCategory::PanelSidebar,      {.text = "Sidebar",      .icon = guikit::Icon::Folder()});
+
+                                menu.Section("CONTENT & MEDIA");
+                                menu.Item(selectedCategory, NavCategory::ContentImage,      {.text = "Image",        .icon = guikit::Icon::Eye()});
+                                menu.Item(selectedCategory, NavCategory::ContentMarkdown,   {.text = "Markdown",     .icon = guikit::Icon::Edit()});
+                                menu.Item(selectedCategory, NavCategory::ContentCodeEditor, {.text = "Code Editor",  .icon = guikit::Icon::Edit()});
+
+                                menu.Section("2D SCENES");
+                                menu.Item(selectedCategory, NavCategory::SceneSchematic2D,  {.text = "Schematic 2D", .icon = guikit::Icon::Search()});
+                                menu.Item(selectedCategory, NavCategory::SceneOsmMap,       {.text = "OSM Map",      .icon = guikit::Icon::Search(), .badge = "GIS"});
 
                                 menu.Section("ASSEMBLY");
-                                menu.Item(selectedCategory, NavCategory::AsmDashboard,    {.text = "Dashboard",    .icon = guikit::Icon::Settings()});
-                                menu.Item(selectedCategory, NavCategory::AsmFormControls, {.text = "Form Demo",    .icon = guikit::Icon::Edit()});
-                                menu.Item(selectedCategory, NavCategory::AsmFlexRibbon,   {.text = "Flex Ribbon",  .icon = guikit::Icon::Folder()});
-                                menu.Item(selectedCategory, NavCategory::AsmDiagnostics,  {.text = "Diagnostics",  .icon = guikit::Icon::Eye()});
-                                menu.Item(selectedCategory, NavCategory::AsmThemeStudio,  {.text = "Theme Studio", .icon = guikit::Icon::Refresh()});
+                                menu.Item(selectedCategory, NavCategory::AsmDashboard,      {.text = "Dashboard",    .icon = guikit::Icon::Settings()});
+                                menu.Item(selectedCategory, NavCategory::AsmFormControls,   {.text = "Form Demo",    .icon = guikit::Icon::Edit()});
+                                menu.Item(selectedCategory, NavCategory::AsmFlexRibbon,     {.text = "Flex Ribbon",  .icon = guikit::Icon::Folder()});
+                                menu.Item(selectedCategory, NavCategory::AsmDiagnostics,    {.text = "Diagnostics",  .icon = guikit::Icon::Eye()});
+                                menu.Item(selectedCategory, NavCategory::AsmThemeStudio,    {.text = "Theme Studio", .icon = guikit::Icon::Refresh()});
                             }
                             if (selectedCategory != prevCat) {
                                 ui.InvalidateAll();
                             }
                         }
 
-                        // 2. Level 2: Inspector Panel (Automatically docks right after the first Sidebar)
+                        // 2. Level 2: Inspector Panel
                         if (auto inspectorSidebar = ui.Sidebar({
                             .side = guikit::SidebarSide::Left,
                             .width = 340.0f,
@@ -803,579 +498,7 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                 .size = guikit::UiSize::Xs,
                                 .divider = true
                             });
-
-                                    auto& th = previewTheme;
-                                    auto renderVariantPicker = [&]() {
-                                        if (ui.StepSlider(btnVariant, {
-                                            .label = "Semantic Variant",
-                                            .showTicks = true,
-                                            .showLabels = true,
-                                            .showValue = true
-                                        }).changed) {
-                                            ui.InvalidateAll();
-                                        }
-                                    };
-
-                                    auto renderDescVariantPicker = [&](guikit::UiVariant& descVar, bool enabled) {
-                                        static constexpr std::array<std::string_view, 7> descVarShort = {"Mut", "Def", "Pri", "Suc", "Wrn", "Dgr", "Inf"};
-                                        static constexpr std::array<std::string_view, 7> descVarFull = {"Muted", "Default", "Primary", "Success", "Warning", "Danger", "Info"};
-                                        static constexpr std::array<guikit::UiVariant, 7> descVars = {
-                                            guikit::UiVariant::Muted, guikit::UiVariant::Default, guikit::UiVariant::Primary,
-                                            guikit::UiVariant::Success, guikit::UiVariant::Warning, guikit::UiVariant::Danger, guikit::UiVariant::Info
-                                        };
-                                        size_t descVarIdx = 0;
-                                        for (size_t i = 0; i < descVars.size(); ++i) {
-                                            if (descVars[i] == descVar) { descVarIdx = i; break; }
-                                        }
-                                        if (ui.StepSlider(descVarIdx, descVarShort, {
-                                            .label = "Description Variant",
-                                            .showTicks = true,
-                                            .showLabels = true,
-                                            .showValue = true,
-                                            .valueText = {variantName(descVar), (descVar == guikit::UiVariant::Muted) ? guikit::UiVariant::Secondary : descVar, descVarFull},
-                                            .variant = (descVar == guikit::UiVariant::Muted) ? guikit::UiVariant::Secondary : descVar,
-                                            .disabled = !enabled
-                                        }).changed) {
-                                            descVar = descVars[descVarIdx];
-                                            ui.InvalidateAll();
-                                        }
-                                    };
-
-                                    auto renderElementLayoutControls = [&](
-                                        bool hasExternal,
-                                        guikit::ElementLayout& layout,
-                                        guikit::InlineOrder& inlineOrder,
-                                        guikit::Align& elementAlign,
-                                        size_t& stretchIdx
-                                    ) {
-                                        size_t layoutIdx = static_cast<size_t>(layout);
-                                        if (ui.StepSlider(layoutIdx, elementLayoutNames, {.label = "Element Layout", .showTicks = true, .showLabels = true, .disabled = !hasExternal}).changed) {
-                                            layout = static_cast<guikit::ElementLayout>(layoutIdx);
-                                            ui.InvalidateAll();
-                                        }
-
-                                        size_t orderIdx = static_cast<size_t>(inlineOrder);
-                                        if (ui.StepSlider(orderIdx, inlineOrderNames, {.label = "Inline Order", .showTicks = true, .showLabels = true, .disabled = (!hasExternal || layout != guikit::ElementLayout::Inline)}).changed) {
-                                            inlineOrder = static_cast<guikit::InlineOrder>(orderIdx);
-                                            ui.InvalidateAll();
-                                        }
-
-                                        size_t alignIdx = static_cast<size_t>(elementAlign);
-                                        if (ui.StepSlider(alignIdx, labelAlignNames, {.label = "Element Alignment", .showTicks = true, .showLabels = true, .disabled = (!hasExternal && stretchIdx == 0)}).changed) {
-                                            elementAlign = static_cast<guikit::Align>(alignIdx);
-                                            ui.InvalidateAll();
-                                        }
-
-                                        if (ui.StepSlider(stretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) {
-                                            ui.InvalidateAll();
-                                        }
-                                    };
-
-                                    if (isElementCategory(selectedCategory)) {
-                                        switch (selectedCategory) {
-                                            case NavCategory::ElemButton: {
-                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(btnCornerRadius, 0.0f, 24.0f, {.label = "Corner Radius", .valueFormat = "%.0f px"}).changed) {
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                renderVariantPicker();
-
-                                                if (ui.Switch(btnShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(btnShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
-                                                renderDescVariantPicker(btnDescVariant, btnShowDesc);
-
-                                                renderElementLayoutControls(btnShowLabel || btnShowDesc, btnLayout, btnInlineOrder, btnElementAlign, btnStretchIdx);
-                                                if (btnStretchIdx == 2) {
-                                                    if (ui.Slider(btnFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
-                                                } else {
-                                                    if (ui.Slider(btnWidth, 0.0f, 400.0f, {.label = "Explicit Width", .valueFormat = {(btnWidth > 0.0f) ? "%.0f px" : "Auto", {"Auto", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
-                                                }
-                                                static constexpr std::array<std::string_view, 3> alignNames = {"Start (Left)", "Center", "End (Right)"};
-                                                size_t alignIdx = (btnControlAlign == guikit::Align::Start) ? 0 : ((btnControlAlign == guikit::Align::End) ? 2 : 1);
-                                                if (ui.StepSlider(alignIdx, alignNames, {.label = "Control Alignment", .showTicks = true, .showLabels = true}).changed) {
-                                                    btnControlAlign = (alignIdx == 0) ? guikit::Align::Start : ((alignIdx == 2) ? guikit::Align::End : guikit::Align::Center);
-                                                    ui.InvalidateAll();
-                                                }
-                                                if (ui.Switch(btnHasIcon, {.label = "Show Icon"}).changed) ui.InvalidateAll();
-                                                static constexpr std::array<std::string_view, 4> placeNames = {"Leading", "Trailing", "Top", "Bottom"};
-                                                size_t placeIdx = (btnIconPlacement == guikit::Placement::Trailing) ? 1 : ((btnIconPlacement == guikit::Placement::Top) ? 2 : ((btnIconPlacement == guikit::Placement::Bottom) ? 3 : 0));
-                                                if (ui.StepSlider(placeIdx, placeNames, {.label = "Icon Placement", .showTicks = true, .showLabels = true, .disabled = !btnHasIcon}).changed) {
-                                                    btnIconPlacement = (placeIdx == 1) ? guikit::Placement::Trailing : ((placeIdx == 2) ? guikit::Placement::Top : ((placeIdx == 3) ? guikit::Placement::Bottom : guikit::Placement::Leading));
-                                                    ui.InvalidateAll();
-                                                }
-                                                if (ui.Switch(btnDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
-                                                break;
-                                            }
-
-                                            case NavCategory::ElemSlider: {
-                                                if (ui.Switch(sliderContinuous, {.label = "Continuous Mode", .description = "Continuous vs Quantized StepSlider"}).changed) ui.InvalidateAll();
-                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
-
-                                                renderVariantPicker();
-
-                                                if (ui.Switch(sliderShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(sliderShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
-                                                renderDescVariantPicker(sliderDescVariant, sliderShowDesc);
-
-                                                renderElementLayoutControls(sliderShowLabel || sliderShowDesc, sliderLayout, sliderInlineOrder, sliderElementAlign, sliderStretchIdx);
-                                                if (sliderStretchIdx == 2) {
-                                                    if (ui.Slider(sliderFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
-                                                } else {
-                                                    if (ui.Slider(sliderWidth, 0.0f, 400.0f, {.label = "Explicit Width", .valueFormat = {(sliderWidth > 0.0f) ? "%.0f px" : "Default", {"Default", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
-                                                }
-                                                if (ui.Switch(sliderShowValue, {.label = "Show Value Tag"}).changed) ui.InvalidateAll();
-                                                static constexpr std::array<std::string_view, 5> valPlaceNames = {"Lead", "Trail", "Top", "Btm", "Thumb"};
-                                                size_t valPlaceIdx = static_cast<size_t>(sliderValuePlacement);
-                                                if (ui.StepSlider(valPlaceIdx, valPlaceNames, {
-                                                    .label = "Value Placement",
-                                                    .showTicks = true,
-                                                    .showLabels = true,
-                                                    .disabled = !sliderShowValue
-                                                }).changed) {
-                                                    sliderValuePlacement = static_cast<guikit::Placement>(valPlaceIdx);
-                                                    ui.InvalidateAll();
-                                                }
-                                                if (ui.Switch(sliderShowRangeText, {.label = "Show Range Text (Min / Max)"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(sliderShowTicks, {.label = "Show Step Ticks", .disabled = sliderContinuous}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(sliderShowLabels, {.label = "Show Step Labels", .disabled = sliderContinuous}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(sliderDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
-                                                break;
-                                            }
-
-                                            case NavCategory::ElemInputField: {
-                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(inputCornerRadius, 0.0f, 24.0f, {.label = "Corner Radius", .valueFormat = "%.0f px"}).changed) {
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                renderVariantPicker();
-
-                                                if (ui.Switch(inputShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(inputShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
-                                                renderDescVariantPicker(inputDescVariant, inputShowDesc);
-
-                                                renderElementLayoutControls(inputShowLabel || inputShowDesc, inputLayout, inputInlineOrder, inputElementAlign, inputStretchIdx);
-                                                if (inputStretchIdx == 2) {
-                                                    if (ui.Slider(inputFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
-                                                } else {
-                                                    if (ui.Slider(inputWidth, 0.0f, 400.0f, {.label = "Explicit Width", .valueFormat = {(inputWidth > 0.0f) ? "%.0f px" : "Default", {"Default", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
-                                                }
-
-                                                static constexpr std::array<std::string_view, 3> cursorModes = {"Blinking", "Solid", "Hidden"};
-                                                size_t curIdx = (inputCursorMode == guikit::CursorBlinkMode::Solid) ? 1 : ((inputCursorMode == guikit::CursorBlinkMode::Hidden) ? 2 : 0);
-                                                if (ui.StepSlider(curIdx, cursorModes, {.label = "Cursor Blink Mode", .showTicks = true, .showLabels = true}).changed) {
-                                                    inputCursorMode = (curIdx == 1) ? guikit::CursorBlinkMode::Solid : ((curIdx == 2) ? guikit::CursorBlinkMode::Hidden : guikit::CursorBlinkMode::Blinking);
-                                                    ui.InvalidateAll();
-                                                }
-                                                if (ui.Switch(inputHasPrefix, {.label = "Prefix (https://)"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(inputHasSuffix, {.label = "Suffix (:443)"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(inputClearable, {.label = "Clearable Button ('X')"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(inputPassword, {.label = "Password Mask & Reveal"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(inputReadOnly, {.label = "Read Only"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(inputDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
-                                                break;
-                                            }
-
-                                            case NavCategory::ElemSelect: {
-                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(selectCornerRadius, 0.0f, 24.0f, {.label = "Corner Radius", .valueFormat = "%.0f px"}).changed) {
-                                                    ui.InvalidateAll();
-                                                }
-                                                float maxItemsFloat = static_cast<float>(selectMaxItems);
-                                                if (ui.Slider(maxItemsFloat, 2.0f, 8.0f, {.label = "Max Visible Menu Items", .valueFormat = "%.0f items", .step = 1.0}).changed) {
-                                                    selectMaxItems = static_cast<uint32_t>(maxItemsFloat);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                renderVariantPicker();
-
-                                                if (ui.Switch(selectShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(selectShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
-                                                renderDescVariantPicker(selectDescVariant, selectShowDesc);
-
-                                                renderElementLayoutControls(selectShowLabel || selectShowDesc, selectLayout, selectInlineOrder, selectElementAlign, selectStretchIdx);
-                                                if (selectStretchIdx == 2) {
-                                                    if (ui.Slider(selectFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
-                                                } else {
-                                                    if (ui.Slider(selectWidth, 0.0f, 400.0f, {.label = "Explicit Width", .valueFormat = {(selectWidth > 0.0f) ? "%.0f px" : "Auto", {"Auto", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
-                                                }
-
-                                                if (ui.Switch(selectHasPrefix, {.label = "Prefix Icon"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(selectDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
-                                                break;
-                                            }
-
-                                            case NavCategory::ElemSwitch: {
-                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
-
-                                                renderVariantPicker();
-
-                                                if (ui.Switch(switchShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(switchShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
-                                                renderDescVariantPicker(switchDescVariant, switchShowDesc);
-
-                                                renderElementLayoutControls(switchShowLabel || switchShowDesc, switchLayout, switchInlineOrder, switchElementAlign, switchStretchIdx);
-                                                if (ui.Switch(testDarkLightSwitch, {.label = "Side Text (Off / On)"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(switchSymmetric, {.label = "Symmetric (Neutral Track)"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(switchDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
-                                                break;
-                                            }
-
-                                            case NavCategory::ElemCheckbox: {
-                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
-
-                                                renderVariantPicker();
-
-                                                if (ui.Switch(checkboxShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(checkboxShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
-                                                renderDescVariantPicker(checkboxDescVariant, checkboxShowDesc);
-
-                                                renderElementLayoutControls(checkboxShowLabel || checkboxShowDesc, checkboxLayout, checkboxInlineOrder, checkboxElementAlign, checkboxStretchIdx);
-                                                if (ui.Switch(testCheckboxIndet, {.label = "Indeterminate Tri-State"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(checkboxDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
-                                                break;
-                                            }
-
-                                            case NavCategory::ElemTabBar: {
-                                                static constexpr std::array<std::string_view, 2> styleNames = {"Underline", "Pill"};
-                                                size_t styleIdx = (tabStyle == guikit::TabBarStyle::Pill) ? 1 : 0;
-                                                if (ui.StepSlider(styleIdx, styleNames, {.label = "TabBar Style", .showTicks = true, .showLabels = true}).changed) {
-                                                    tabStyle = (styleIdx == 1) ? guikit::TabBarStyle::Pill : guikit::TabBarStyle::Underline;
-                                                    ui.InvalidateAll();
-                                                }
-                                                if (ui.Switch(testTabHasBg, {.label = "Container Background Fill"}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(testTabRadius, 0.0f, 24.0f, {.label = "Container Corner Radius", .valueFormat = "%.0f px", .disabled = !testTabHasBg}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(testTabPadding, 0.0f, 12.0f, {.label = "Container Internal Padding", .valueFormat = "%.0f px", .disabled = !testTabHasBg}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(testTabBorderWidth, 0.0f, 4.0f, {.label = "Container Border Width", .valueFormat = "%.1f px", .disabled = !testTabHasBg}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(tabGap, 0.0f, 24.0f, {.label = "Tab Spacing (Gap)", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(testTabShowSep, {.label = "Baseline Separator"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(testTabFullWidth, {.label = "Full Width Stretch"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(testTabScrollable, {.label = "Scrollable Ribbon"}).changed) ui.InvalidateAll();
-                                                break;
-                                            }
-
-                                            case NavCategory::ElemSidebar: {
-                                                if (ui.StepSlider(controlsSize, {.label = "Menu Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
-                                                renderVariantPicker();
-
-                                                static constexpr std::array<std::string_view, 2> sbMenuStyleNames = {"Pill", "Indicator"};
-                                                size_t sbStyleIdx = (testSidebarMenuStyle == guikit::SidebarMenuStyle::Indicator) ? 1 : 0;
-                                                if (ui.StepSlider(sbStyleIdx, sbMenuStyleNames, {.label = "Menu Style", .showTicks = true, .showLabels = true}).changed) {
-                                                    testSidebarMenuStyle = (sbStyleIdx == 1) ? guikit::SidebarMenuStyle::Indicator : guikit::SidebarMenuStyle::Pill;
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                static constexpr std::array<std::string_view, 2> sbSideNames = {"Left", "Right"};
-                                                size_t sbSideIdx = (testSidebarSide == guikit::SidebarSide::Right) ? 1 : 0;
-                                                if (ui.StepSlider(sbSideIdx, sbSideNames, {.label = "Dock Side", .showTicks = true, .showLabels = true}).changed) {
-                                                    testSidebarSide = (sbSideIdx == 1) ? guikit::SidebarSide::Right : guikit::SidebarSide::Left;
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                if (ui.Switch(testSidebarCollapsed, {.label = "Collapsed Rail (Icons Only)"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(testSidebarShowSections, {.label = "Show Section Headers"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(testSidebarShowBadges, {.label = "Show Trailing Badges"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(testSidebarAutoWidth, {.label = "Auto-Fit Width"}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(testSidebarFixedWidth, 120.0f, 300.0f, {.label = "Explicit Width", .valueFormat = "%.0f px", .disabled = testSidebarAutoWidth}).changed) ui.InvalidateAll();
-                                                break;
-                                            }
-
-                                            case NavCategory::ElemCard: {
-                                                if (ui.StepSlider(controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
-                                                renderVariantPicker();
-                                                if (ui.Slider(cardRadius, 0.0f, 24.0f, {.label = "Corner Radius", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(cardPadding, 0.0f, 32.0f, {.label = "Internal Padding", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(cardGap, 0.0f, 24.0f, {.label = "Content Spacing (Gap)", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(cardBorderWidth, 0.0f, 4.0f, {.label = "Border Width", .valueFormat = "%.1f px"}).changed) ui.InvalidateAll();
-                                                break;
-                                            }
-
-                                            case NavCategory::ElemHeading: {
-                                                if (ui.StepSlider(headingSize, {.label = "Heading Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
-                                                if (ui.StepSlider(headingTitleVariant, {
-                                                    .label = "Title (Label) Variant",
-                                                    .showTicks = true,
-                                                    .showLabels = true,
-                                                    .showValue = true
-                                                }).changed) {
-                                                    ui.InvalidateAll();
-                                                }
-                                                if (ui.Switch(headingShowSubtitle, {.label = "Show Subtitle (Description)"}).changed) ui.InvalidateAll();
-                                                renderDescVariantPicker(headingSubtitleVariant, headingShowSubtitle);
-
-                                                renderElementLayoutControls(true, headingLayout, headingInlineOrder, headingElementAlign, headingStretchIdx);
-                                                if (headingStretchIdx == 2) {
-                                                    if (ui.Slider(headingFillPct, 20.0f, 100.0f, {.label = "Explicit Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
-                                                } else {
-                                                    if (ui.Slider(headingWidth, 0.0f, 500.0f, {.label = "Explicit Width", .valueFormat = {(headingWidth > 0.0f) ? "%.0f px" : "Auto", {"Auto", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
-                                                }
-
-                                                if (ui.Switch(headingWordWrap, {.label = "Subtitle Word Wrap", .disabled = !headingShowSubtitle}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(headingShowIcon, {.label = "Show Leading Icon"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(headingShowBadge, {.label = "Show Trailing Badge"}).changed) ui.InvalidateAll();
-                                                if (ui.StepSlider(headingBadgeVariant, {
-                                                    .label = "Badge Variant",
-                                                    .showTicks = true,
-                                                    .showLabels = true,
-                                                    .showValue = true,
-                                                    .disabled = !headingShowBadge
-                                                }).changed) {
-                                                    ui.InvalidateAll();
-                                                }
-                                                if (ui.Switch(headingDivider, {.label = "Show Divider Line"}).changed) ui.InvalidateAll();
-                                                static constexpr std::array<std::string_view, 2> divStyles = {"Bottom", "Trailing"};
-                                                size_t divStyleIdx = (headingDividerStyle == guikit::HeadingDivider::Trailing) ? 1 : 0;
-                                                if (ui.StepSlider(divStyleIdx, divStyles, {
-                                                    .label = "Divider Placement",
-                                                    .showTicks = true,
-                                                    .showLabels = true,
-                                                    .disabled = !headingDivider
-                                                }).changed) {
-                                                    headingDividerStyle = (divStyleIdx == 1) ? guikit::HeadingDivider::Trailing : guikit::HeadingDivider::Bottom;
-                                                    ui.InvalidateAll();
-                                                }
-                                                break;
-                                            }
-
-                                            case NavCategory::ElemImage: {
-                                                if (ui.Select(imgSourceIdx, imgSourceNames, {.label = "Vector SVG Asset"}).changed) ui.InvalidateAll();
-                                                size_t fitIdx = static_cast<size_t>(imgFit);
-                                                if (ui.StepSlider(fitIdx, fitModeNames, {.label = "ObjectFit Policy", .showTicks = true, .showLabels = true}).changed) {
-                                                    imgFit = static_cast<guikit::ObjectFit>(fitIdx);
-                                                    ui.InvalidateAll();
-                                                }
-                                                if (ui.StepSlider(imgStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
-                                                if (imgStretchIdx == 2) {
-                                                    if (ui.Slider(imgFillPct, 20.0f, 100.0f, {.label = "Fill Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
-                                                } else {
-                                                    if (ui.Slider(imgWidth, 120.0f, 560.0f, {.label = "Explicit Width", .valueFormat = "%.0f px", .step = 10.0f}).changed) ui.InvalidateAll();
-                                                }
-                                                if (ui.Switch(imgAutoHeight, {.label = "Auto Aspect-Ratio Height"}).changed) ui.InvalidateAll();
-                                                if (!imgAutoHeight) {
-                                                    if (ui.Slider(imgHeight, 80.0f, 320.0f, {.label = "Explicit Height", .valueFormat = "%.0f px", .step = 10.0f}).changed) ui.InvalidateAll();
-                                                }
-                                                if (ui.Slider(imgRadius, 0.0f, 24.0f, {.label = "Corner Radius", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(imgBorderWidth, 0.0f, 4.0f, {.label = "Border Width", .valueFormat = "%.1f px"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(imgCheckerboard, {.label = "Checkerboard Backdrop"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(imgShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(imgShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
-                                                break;
-                                            }
-
-                                            case NavCategory::ElemScene: {
-                                                size_t bgIdx = static_cast<size_t>(sceneBg);
-                                                if (ui.StepSlider(bgIdx, sceneBgNames, {.label = "Canvas Backdrop", .showTicks = true, .showLabels = true}).changed) {
-                                                    sceneBg = static_cast<guikit::SceneBackground>(bgIdx);
-                                                    ui.InvalidateAll();
-                                                }
-                                                if (ui.Switch(sceneSelectableItems, {.label = "Interactive Item Selection"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(sceneShowControls, {.label = "Floating Zoom & Inspector HUD"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(sceneShowScrollbars, {.label = "2D Scrollbars (H + V)"}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(sceneRadius, 0.0f, 20.0f, {.label = "Viewport Radius", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(sceneGridStep, 12.0f, 64.0f, {.label = "Grid Step", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-                                                break;
-                                            }
-
-                                            case NavCategory::ElemOsmMap: {
-                                                if (ui.Select(osmRegionPresetIdx, osmRegionPresetNames, {
-                                                    .label = "Chart Region / Camera Jump",
-                                                    .prefix = guikit::Icon::Search()
-                                                }).changed) {
-                                                    if (osmRegionPresetIdx < guikit::demo::kMaritimeWaypoints.size()) {
-                                                        const auto& wp = guikit::demo::kMaritimeWaypoints[osmRegionPresetIdx];
-                                                        osmPendingCenterGeo = wp.coord;
-                                                        osmPendingSceneZoom = guikit::MapGrid::TileZoomToSceneZoom(wp.defaultTileZoom, osmOpts.baseZoom);
-                                                    } else {
-                                                        osmPendingCenterGeo = guikit::GeoCoord{20.0, 0.0};
-                                                        osmPendingSceneZoom = guikit::MapGrid::TileZoomToSceneZoom(2.0f, osmOpts.baseZoom);
-                                                    }
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                size_t crsIdx = static_cast<size_t>(osmOpts.crs);
-                                                if (ui.StepSlider(crsIdx, osmCrsShortNames, {
-                                                    .label = "Projection (CRS)",
-                                                    .showTicks = true,
-                                                    .showLabels = true
-                                                }).changed) {
-                                                    const guikit::GeoCoord keepCenter = osmLastView.center;
-                                                    osmOpts.crs = static_cast<guikit::MapCrs>(crsIdx);
-                                                    osmPendingCenterGeo = keepCenter;
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                size_t fmtIdx = static_cast<size_t>(osmOpts.coordFormat);
-                                                if (ui.StepSlider(fmtIdx, osmCoordFormatNames, {
-                                                    .label = "Coordinate Format",
-                                                    .showTicks = true,
-                                                    .showLabels = true
-                                                }).changed) {
-                                                    osmOpts.coordFormat = static_cast<guikit::GeoCoordFormat>(fmtIdx);
-                                                    ui.InvalidateAll();
-                                                }
-
-                                                if (ui.Switch(osmOpts.showTileGrid, {.label = "OSM Tile Grid [z/x/y]"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(osmOpts.showSubTileQuadtree, {.label = "2x2 Sub-Tile Quadtree", .disabled = !osmOpts.showTileGrid}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(osmOpts.showNauticalGraticule, {.label = "Nautical Graticule (OpenSeaMap)"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(osmOpts.showBorderRulers, {.label = "Border Lat/Lon Rulers (1' = 1 NM)"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(osmOpts.showSeamarksAndCourses, {.label = "IALA Seamarks & Rhumb Courses"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(osmOpts.showScaleBarOverlay, {.label = "Dual Scale Bar (NM + km)"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(osmShowControls, {.label = "Floating Zoom & Inspector HUD"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(osmShowScrollbars, {.label = "2D Scrollbars (H + V)"}).changed) ui.InvalidateAll();
-
-                                                if (auto telCard = ui.Card({
-                                                    .gap = 4.0f,
-                                                    .padding = guikit::Padding::All(8.0f),
-                                                    .radius = 6.0f
-                                                })) {
-                                                    ui.Text(
-                                                        ui.Format("Tile Pyramid: z={} ({} visible tiles)",
-                                                                  osmLastView.tileZoom,
-                                                                  osmLastView.visibleTiles.size()),
-                                                        {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Primary}
-                                                    );
-                                                    ui.Text(
-                                                        ui.Format("Graticule Step: {:.2f}' ({:.2f} NM)",
-                                                                  osmLastView.graticuleStepArcMin,
-                                                                  osmLastView.graticuleStepArcMin),
-                                                        {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Info}
-                                                    );
-                                                    ui.Text(
-                                                        ui.Format("Center: {}",
-                                                                  guikit::MapGrid::FormatCoord(osmLastView.center, osmOpts.coordFormat)),
-                                                        {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Secondary}
-                                                    );
-                                                    const auto curTile = guikit::MapGrid::GeoToTileId(osmLastView.cursor, osmLastView.tileZoom, osmOpts.crs);
-                                                    ui.Text(
-                                                        ui.Format("Cursor: {} [/{}/{}/{}]",
-                                                                  guikit::MapGrid::FormatCoord(osmLastView.cursor, osmOpts.coordFormat),
-                                                                  curTile.z,
-                                                                  curTile.x,
-                                                                  curTile.y),
-                                                        {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Success}
-                                                    );
-                                                }
-                                                break;
-                                            }
-
-                                            case NavCategory::ElemMarkdown: {
-                                                if (ui.Switch(mdSyntaxHighlight, {.label = "C++ Syntax Highlighting"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(mdCodeLineNumbers, {.label = "Code Line Numbers Gutter"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(mdShowCopyButton, {.label = "Interactive Copy Button"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(mdImageCheckerboard, {.label = "Embedded Image Checkerboard"}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(mdImageMaxHeight, 100.0f, 320.0f, {.label = "Image Max Height", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(mdImageRadius, 0.0f, 20.0f, {.label = "Image Corner Radius", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(mdBlockGap, 4.0f, 24.0f, {.label = "Paragraph / Block Gap", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-                                                if (!mdLastClickedLink.empty()) {
-                                                    ui.Text(ui.Format("Clicked: {}", mdLastClickedLink), {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Info});
-                                                }
-                                                break;
-                                            }
-
-                                            case NavCategory::ElemTextArea: {
-                                                if (ui.Switch(taShowLabel, {.label = "Show Element Label"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(taShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
-                                                if (ui.StepSlider(taSyntaxMode, taSyntaxLabels, {.label = "Syntax Preset", .showTicks = true, .showLabels = true}).changed) {
-                                                    if (taSyntaxMode == 0) {
-                                                        taEditorBuffer =
-                                                            "#include \"guikit/GuiKit.hpp\"\n\n"
-                                                            "// Interactive Code Editor (Click, Select, Edit, Ctrl+Wheel Zoom)\n"
-                                                            "void RenderEditorDemo(guikit::Context& ui, std::string& sourceCode) {\n"
-                                                            "    const auto syntax = guikit::SyntaxConfig::Cpp();\n"
-                                                            "    ui.TextArea(sourceCode, {\n"
-                                                            "        .label = \"A text area\",\n"
-                                                            "        .description = \"This is a text area\",\n"
-                                                            "        .showLineNumbers = true,\n"
-                                                            "        .showCopyButton = true,\n"
-                                                            "        .allowZoom = true,\n"
-                                                            "        .syntax = syntax\n"
-                                                            "    });\n"
-                                                            "}\n";
-                                                    } else if (taSyntaxMode == 1) {
-                                                        taEditorBuffer =
-                                                            "{\n"
-                                                            "    \"widget\": \"TextArea\",\n"
-                                                            "    \"monospace\": true,\n"
-                                                            "    \"zoomRange\": [0.5, 3.0],\n"
-                                                            "    \"features\": [\n"
-                                                            "        \"2D Cursor & Selection\",\n"
-                                                            "        \"Configurable Syntax\",\n"
-                                                            "        \"Ctrl+Wheel Zoom\"\n"
-                                                            "    ],\n"
-                                                            "    \"readOnly\": false\n"
-                                                            "}\n";
-                                                    } else if (taSyntaxMode == 2) {
-                                                        taEditorBuffer =
-                                                            "# Custom Rule Engine DSL (Keywords, Types & Comments)\n"
-                                                            "rule OverheatProtection {\n"
-                                                            "    when Sensor.temp > 85.5 then {\n"
-                                                            "        emit Signal(\"EMERGENCY_STOP\", 100);\n"
-                                                            "        alert Threshold(85.5);\n"
-                                                            "    }\n"
-                                                            "}\n";
-                                                    } else {
-                                                        taEditorBuffer =
-                                                            "Plain text mode without syntax highlighting.\n"
-                                                            "You can click anywhere to place the cursor,\n"
-                                                            "drag or Shift+Arrow to select across multiple lines,\n"
-                                                            "and hold Ctrl + Mouse Wheel to zoom in and out!\n";
-                                                    }
-                                                    ui.InvalidateAll();
-                                                }
-                                                if (ui.Switch(taLineNumbers, {.label = "Line Numbers Gutter"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(taCopyButton, {.label = "Show Copy Button"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(taMonospace, {.label = "Monospace Font"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(taWordWrap, {.label = "Word Wrap"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(taReadOnly, {.label = "Read-Only Mode"}).changed) ui.InvalidateAll();
-                                                if (ui.Switch(taAllowZoom, {.label = "Allow Ctrl + Wheel Zoom"}).changed) ui.InvalidateAll();
-                                                if (ui.Slider(taZoom, 0.5f, 2.5f, {.label = "Editor Zoom", .valueFormat = "%.2fx"}).changed) ui.InvalidateAll();
-                                                break;
-                                            }
-
-                                            default: break;
-                                        }
-                                    } else {
-                                        // Assembly Inspector (Scene & Environment)
-                                        if (ui.Switch(previewDarkMode, {
-                                            .label = "Preview Dark Mode",
-                                            .description = "Switch preview between Dark and Light palette"
-                                        }).changed) {
-                                            previewLightMode = !previewDarkMode;
-                                            const auto defTheme = previewDarkMode ? guikit::UiTheme::Dark(previewTheme.density) : guikit::UiTheme::Light(previewTheme.density);
-                                            previewTheme.palette = defTheme.palette;
-                                            previewTheme.variants = defTheme.variants;
-                                            previewTheme.syntax = defTheme.syntax;
-                                            previewTheme.mode = previewDarkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
-                                            ui.InvalidateAll();
-                                        }
-
-                                        static constexpr std::array<std::string_view, 3> asmDensityLabels = {"Compact", "Standard", "Touch"};
-                                        size_t dIdx = (previewTheme.density == guikit::Density::Compact) ? 0 : ((previewTheme.density == guikit::Density::Touch) ? 2 : 1);
-                                        if (ui.StepSlider(dIdx, asmDensityLabels, {.label = "Layout Density", .showTicks = true, .showLabels = true}).changed) {
-                                            previewTheme.density = (dIdx == 0) ? guikit::Density::Compact : ((dIdx == 2) ? guikit::Density::Touch : guikit::Density::Standard);
-                                            previewTheme.SetDensity(previewTheme.density);
-                                            ui.InvalidateAll();
-                                        }
-
-                                        if (ui.Slider(gridColGap, 0.0f, 32.0f, {.label = "Horizontal Gap (Columns)", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-                                        if (ui.Slider(gridRowGap, 0.0f, 32.0f, {.label = "Vertical Gap (Rows)", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-
-                                        if (ui.Slider(cardRadius, 0.0f, 24.0f, {.label = "Card Corner Radius", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-                                        if (ui.Slider(cardPadding, 4.0f, 32.0f, {.label = "Card Padding", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-                                        if (ui.Slider(cardBorderWidth, 0.0f, 4.0f, {.label = "Card Border Width", .valueFormat = "%.1f px"}).changed) ui.InvalidateAll();
-
-                                        if (selectedCategory == NavCategory::AsmDashboard) {
-                                            if (ui.Switch(hwEstop, {.label = "Hardware E-Stop Line", .variant = guikit::UiVariant::Danger}).changed) ui.InvalidateAll();
-                                            if (ui.Switch(enableSensors, {.label = "Sensor Drop Limits"}).changed) ui.InvalidateAll();
-                                            if (ui.Switch(diagLogging, {.label = "High-Speed Flash Logging"}).changed) ui.InvalidateAll();
-                                        } else if (selectedCategory == NavCategory::AsmFormControls) {
-                                            if (ui.Switch(formMode, {.label = "Stacked Labels Mode"}).changed) ui.InvalidateAll();
-                                            if (ui.Switch(showTelemetry, {.label = "Show Telemetry Banner"}).changed) ui.InvalidateAll();
-                                        } else if (selectedCategory == NavCategory::AsmFlexRibbon) {
-                                            if (ui.Slider(carouselGap, 0.0f, 24.0f, {.label = "Ribbon Items Gap", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-                                        }
-                                    }
+                            DispatchInspector(ui, selectedCategory, demoCtx);
                         }
                     }
 
@@ -1384,18 +507,18 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                         .widthMode = guikit::SizeMode::Stretch,
                         .heightMode = guikit::SizeMode::Stretch,
                         .padding = guikit::Padding::All(8.0f),
-                        .backgroundColor = shellTheme.palette.background,
-                        .borderColor = shellTheme.palette.borderSubtle,
+                        .backgroundColor = demoCtx.shellTheme.palette.background,
+                        .borderColor = demoCtx.shellTheme.palette.borderSubtle,
                         .borderWidth = 1.0f,
-                        .radius = 8.0f,
+                        .borderRadius = 8.0f,
                         .clipChildren = true
                     })) {
                         if (auto contentCol = ui.Column({
-                            .gap = colGap,
+                            .gap = demoCtx.colGap,
                             .widthMode = guikit::SizeMode::Stretch,
                             .heightMode = guikit::SizeMode::Stretch
                         })) {
-                            // Local Preview Toolbar: Scale | Dark/Light | Bounds | Inspect (affects ONLY the Preview)
+                            // Local Preview Toolbar
                             if (auto previewTb = ui.Toolbar()) {
                                 ui.Text("PREVIEW", {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Muted});
                                 previewTb.Separator();
@@ -1406,1144 +529,84 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                     }
                                 }
 
-                                if (ui.Switch(previewLightMode, {
+                                if (ui.Switch(demoCtx.previewLightMode, {
                                     .textLeft = "Dark",
                                     .textRight = "Light",
                                     .symmetric = true,
                                     .size = guikit::UiSize::Md
                                 }).changed) {
-                                    previewDarkMode = !previewLightMode;
-                                    const auto defTheme = previewDarkMode ? guikit::UiTheme::Dark(previewTheme.density) : guikit::UiTheme::Light(previewTheme.density);
-                                    previewTheme.palette = defTheme.palette;
-                                    previewTheme.variants = defTheme.variants;
-                                    previewTheme.syntax = defTheme.syntax;
-                                    previewTheme.mode = previewDarkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
+                                    demoCtx.previewDarkMode = !demoCtx.previewLightMode;
+                                    const auto defTheme = demoCtx.previewDarkMode
+                                        ? guikit::UiTheme::Dark(demoCtx.previewTheme.density)
+                                        : guikit::UiTheme::Light(demoCtx.previewTheme.density);
+                                    demoCtx.previewTheme.palette = defTheme.palette;
+                                    demoCtx.previewTheme.variants = defTheme.variants;
+                                    demoCtx.previewTheme.syntax = defTheme.syntax;
+                                    demoCtx.previewTheme.mode = demoCtx.previewDarkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
                                     ui.InvalidateAll();
                                 }
 
                                 if (previewTb.ToolButton({
                                     .label = "Bounds",
-                                    .icon = previewBounds ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
-                                    .variant = previewBounds ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
-                                    .active = previewBounds
+                                    .icon = demoCtx.previewBounds ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
+                                    .variant = demoCtx.previewBounds ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+                                    .active = demoCtx.previewBounds
                                 })) {
-                                    previewBounds = !previewBounds;
+                                    demoCtx.previewBounds = !demoCtx.previewBounds;
                                     ui.InvalidateAll();
                                 }
 
                                 if (previewTb.ToolButton({
                                     .label = "Inspect",
                                     .icon = guikit::Icon::Search(),
-                                    .variant = previewInspect ? guikit::UiVariant::Warning : guikit::UiVariant::Ghost,
-                                    .active = previewInspect
+                                    .variant = demoCtx.previewInspect ? guikit::UiVariant::Warning : guikit::UiVariant::Ghost,
+                                    .active = demoCtx.previewInspect
                                 })) {
-                                    previewInspect = !previewInspect;
+                                    demoCtx.previewInspect = !demoCtx.previewInspect;
                                     ui.InvalidateAll();
                                 }
                             }
 
-                            auto& th = previewTheme;
-                            const auto makeCard = [&]() {
-                                return guikit::CardOptions{
-                                    .gap = cardGap,
-                                    .padding = guikit::Padding(cardPadding),
-                                    .radius = cardRadius
-                                };
-                            };
-                            const auto makeGrid = [&]() {
-                                return guikit::GridOptions{
-                                    .gap = gridColGap,
-                                    .runGap = gridRowGap
-                                };
-                            };
-
-                            if (isElementCategory(selectedCategory)) {
-                                // -------------------------------------------------------------
-                                // ELEMENTS MODE: Component Sandbox (Hero 50% + C++ Code 50%)
-                                // -------------------------------------------------------------
+                            if (IsSandboxCategory(selectedCategory)) {
+                                // SANDBOX MODE: Hero Stage (50%) + C++20 Code Generator (50%)
                                 if (auto heroCard = ui.Card({
                                     .gap = 12.0f,
                                     .padding = guikit::Padding::All(14.0f),
-                                    .radius = 8.0f,
+                                    .borderRadius = 8.0f,
                                     .heightMode = guikit::SizeMode::Stretch,
-                                    .theme = &previewTheme,
+                                    .theme = &demoCtx.previewTheme,
                                     .scale = previewScale,
-                                    .debugBounds = previewBounds,
-                                    .inspectMode = previewInspect
+                                    .debugBounds = demoCtx.previewBounds,
+                                    .inspectMode = demoCtx.previewInspect
                                 })) {
-                                    // Hero Showcase Stage
-                                    const bool isFullStage = (selectedCategory == NavCategory::ElemScene ||
-                                                              selectedCategory == NavCategory::ElemOsmMap ||
-                                                              selectedCategory == NavCategory::ElemMarkdown ||
-                                                              selectedCategory == NavCategory::ElemTextArea ||
-                                                              selectedCategory == NavCategory::ElemSidebar);
+                                    const bool isFullStage = IsFullStageCategory(selectedCategory);
                                     if (auto stageBox = ui.Box({
                                         .widthMode = guikit::SizeMode::Stretch,
                                         .heightMode = guikit::SizeMode::Stretch,
                                         .padding = guikit::Padding::All(isFullStage ? 8.0f : 24.0f),
-                                        .backgroundColor = th.palette.surfaceElevated,
-                                        .borderColor = th.palette.borderSubtle,
+                                        .backgroundColor = demoCtx.previewTheme.palette.surfaceElevated,
+                                        .borderColor = demoCtx.previewTheme.palette.borderSubtle,
                                         .borderWidth = 1.0f,
-                                        .radius = 8.0f
+                                        .borderRadius = 8.0f
                                     })) {
                                         if (auto centerRow = ui.Row({
                                             .align = isFullStage ? guikit::Alignment::Stretch : guikit::Alignment::Center,
                                             .justify = guikit::Justify::Center,
                                             .heightMode = guikit::SizeMode::Stretch
                                         })) {
-                                            switch (selectedCategory) {
-                                                case NavCategory::ElemButton: {
-                                                    std::string btnText = btnClicks > 0 ? std::format("Clicked {}x", btnClicks) : "Click me";
-                                                    if (ui.Button({
-                                                        .label = btnShowLabel ? "A button" : "",
-                                                        .text = btnText,
-                                                        .description = {btnShowDesc ? "This is a button" : "", btnDescVariant},
-                                                        .icon = btnHasIcon ? guikit::Icon::Play() : guikit::Icon{},
-                                                        .variant = btnVariant,
-                                                        .iconPlacement = btnIconPlacement,
-                                                        .layout = btnLayout,
-                                                        .inlineOrder = btnInlineOrder,
-                                                        .elementAlign = btnElementAlign,
-                                                        .controlAlign = btnControlAlign,
-                                                        .stretch = static_cast<guikit::StretchMode>(btnStretchIdx),
-                                                        .width = (btnStretchIdx == 2) ? std::optional<float>(btnFillPct) : ((btnWidth > 0.0f) ? std::optional<float>(btnWidth) : std::nullopt),
-                                                        .disabled = btnDisabled,
-                                                        .size = controlsSize,
-                                                        .radius = btnCornerRadius
-                                                    })) {
-                                                        ++btnClicks;
-                                                        ui.InvalidateAll();
-                                                    }
-                                                    break;
-                                                }
-
-                                                case NavCategory::ElemSlider: {
-                                                    if (sliderContinuous) {
-                                                        ui.Slider(testSliderVal, 0.0f, 100.0f, {
-                                                            .label = sliderShowLabel ? "A slider" : "",
-                                                            .textLeft = sliderShowRangeText ? "0%" : "",
-                                                            .textRight = sliderShowRangeText ? "100%" : "",
-                                                            .description = {sliderShowDesc ? "This is a slider" : "", sliderDescVariant},
-                                                            .valueFormat = "%.1f %%",
-                                                            .layout = sliderLayout,
-                                                            .inlineOrder = sliderInlineOrder,
-                                                            .elementAlign = sliderElementAlign,
-                                                            .showValue = sliderShowValue,
-                                                            .valuePlacement = sliderValuePlacement,
-                                                            .variant = btnVariant,
-                                                            .size = controlsSize,
-                                                            .stretch = static_cast<guikit::StretchMode>(sliderStretchIdx),
-                                                            .width = (sliderStretchIdx == 2) ? std::optional<float>(sliderFillPct) : ((sliderWidth > 0.0f) ? std::optional<float>(sliderWidth) : std::nullopt),
-                                                            .disabled = sliderDisabled
-                                                        });
-                                                    } else {
-                                                        static constexpr std::array<std::string_view, 5> stepItems = {"Off", "Low", "Mid", "High", "Max"};
-                                                        ui.StepSlider(testStepIdx, stepItems, {
-                                                            .label = sliderShowLabel ? "A step slider" : "",
-                                                            .textLeft = sliderShowRangeText ? "Min" : "",
-                                                            .textRight = sliderShowRangeText ? "Max" : "",
-                                                            .description = {sliderShowDesc ? "This is a step slider" : "", sliderDescVariant},
-                                                            .layout = sliderLayout,
-                                                            .inlineOrder = sliderInlineOrder,
-                                                            .elementAlign = sliderElementAlign,
-                                                            .showTicks = sliderShowTicks,
-                                                            .showLabels = sliderShowLabels,
-                                                            .showValue = sliderShowValue,
-                                                            .valuePlacement = sliderValuePlacement,
-                                                            .variant = btnVariant,
-                                                            .size = controlsSize,
-                                                            .stretch = static_cast<guikit::StretchMode>(sliderStretchIdx),
-                                                            .width = (sliderStretchIdx == 2) ? std::optional<float>(sliderFillPct) : ((sliderWidth > 0.0f) ? std::optional<float>(sliderWidth) : std::nullopt),
-                                                            .disabled = sliderDisabled
-                                                        });
-                                                    }
-                                                    break;
-                                                }
-
-                                                case NavCategory::ElemInputField: {
-                                                    ui.InputField(testInputText, {
-                                                        .label = inputShowLabel ? "A text input" : "",
-                                                        .description = {inputShowDesc ? "This is a text input" : "", inputDescVariant},
-                                                        .placeholder = "Enter domain...",
-                                                        .prefix = inputHasPrefix ? "https://" : "",
-                                                        .suffix = inputHasSuffix ? ":443" : "",
-                                                        .valueFormat = {{"guikit.dev", "api.guikit.dev"}},
-                                                        .variant = btnVariant,
-                                                        .layout = inputLayout,
-                                                        .inlineOrder = inputInlineOrder,
-                                                        .elementAlign = inputElementAlign,
-                                                        .cursorMode = inputCursorMode,
-                                                        .size = controlsSize,
-                                                        .radius = inputCornerRadius,
-                                                        .stretch = static_cast<guikit::StretchMode>(inputStretchIdx),
-                                                        .width = (inputStretchIdx == 2) ? std::optional<float>(inputFillPct) : ((inputWidth > 0.0f) ? std::optional<float>(inputWidth) : std::nullopt),
-                                                        .password = inputPassword,
-                                                        .clearable = inputClearable,
-                                                        .disabled = inputDisabled,
-                                                        .readOnly = inputReadOnly
-                                                    });
-                                                    break;
-                                                }
-
-                                                case NavCategory::ElemSelect: {
-                                                    ui.Select(testSelectIdx, selectItems, {
-                                                        .label = selectShowLabel ? "A select" : "",
-                                                        .description = {selectShowDesc ? "This is a select" : "", selectDescVariant},
-                                                        .prefix = selectHasPrefix ? guikit::Icon::Settings() : guikit::Icon{},
-                                                        .variant = btnVariant,
-                                                        .layout = selectLayout,
-                                                        .inlineOrder = selectInlineOrder,
-                                                        .elementAlign = selectElementAlign,
-                                                        .maxVisibleItems = selectMaxItems,
-                                                        .size = controlsSize,
-                                                        .radius = selectCornerRadius,
-                                                        .stretch = static_cast<guikit::StretchMode>(selectStretchIdx),
-                                                        .width = (selectStretchIdx == 2) ? std::optional<float>(selectFillPct) : ((selectWidth > 0.0f) ? std::optional<float>(selectWidth) : std::nullopt),
-                                                        .disabled = selectDisabled
-                                                    });
-                                                    break;
-                                                }
-
-                                                case NavCategory::ElemSwitch: {
-                                                    ui.Switch(testSwitchState, {
-                                                        .label = switchShowLabel ? "A switch" : "",
-                                                        .textLeft = testDarkLightSwitch ? "Off" : "",
-                                                        .textRight = testDarkLightSwitch ? "On" : "",
-                                                        .description = {switchShowDesc ? "This is a switch" : "", switchDescVariant},
-                                                        .variant = btnVariant,
-                                                        .layout = switchLayout,
-                                                        .inlineOrder = switchInlineOrder,
-                                                        .elementAlign = switchElementAlign,
-                                                        .symmetric = switchSymmetric,
-                                                        .stretch = static_cast<guikit::StretchMode>(switchStretchIdx),
-                                                        .disabled = switchDisabled,
-                                                        .size = controlsSize
-                                                    });
-                                                    break;
-                                                }
-
-                                                case NavCategory::ElemCheckbox: {
-                                                    ui.Checkbox(testCheckboxState, {
-                                                        .label = checkboxShowLabel ? "A checkbox" : "",
-                                                        .description = {checkboxShowDesc ? "This is a checkbox" : "", checkboxDescVariant},
-                                                        .variant = btnVariant,
-                                                        .layout = checkboxLayout,
-                                                        .inlineOrder = checkboxInlineOrder,
-                                                        .elementAlign = checkboxElementAlign,
-                                                        .stretch = static_cast<guikit::StretchMode>(checkboxStretchIdx),
-                                                        .disabled = checkboxDisabled,
-                                                        .indeterminate = testCheckboxIndet,
-                                                        .size = controlsSize
-                                                    });
-                                                    break;
-                                                }
-
-                                                case NavCategory::ElemTabBar: {
-                                                    ui.TabBar(testTabIdx, inspectorDemoTabs, {
-                                                        .style = tabStyle,
-                                                        .showSeparator = testTabShowSep,
-                                                        .fullWidth = testTabFullWidth,
-                                                        .scrollable = testTabScrollable,
-                                                        .gap = tabGap,
-                                                        .padding = testTabHasBg ? guikit::Padding::All(testTabPadding) : guikit::Padding{},
-                                                        .radius = testTabHasBg ? testTabRadius : 0.0f,
-                                                        .backgroundColor = testTabHasBg ? th.palette.surfaceElevated : guikit::Color::Transparent(),
-                                                        .borderColor = testTabHasBg ? th.palette.borderSubtle : guikit::Color::Transparent(),
-                                                        .borderWidth = testTabHasBg ? testTabBorderWidth : 0.0f
-                                                    });
-                                                    break;
-                                                }
-
-                                                case NavCategory::ElemSidebar: {
-                                                    if (auto demoWorkspace = ui.Box({
-                                                        .gap = 12.0f,
-                                                        .widthMode = guikit::SizeMode::Stretch,
-                                                        .heightMode = guikit::SizeMode::Stretch
-                                                    })) {
-                                                        if (auto sb = ui.Sidebar({
-                                                            .side = testSidebarSide,
-                                                            .width = testSidebarAutoWidth ? std::nullopt : std::optional<float>(testSidebarFixedWidth),
-                                                            .scrollable = true
-                                                        })) {
-                                                            const int prevIdx = testSidebarMenuIdx;
-                                                            if (auto menu = ui.SidebarMenu({
-                                                                .style = testSidebarMenuStyle,
-                                                                .collapsed = testSidebarCollapsed,
-                                                                .variant = btnVariant,
-                                                                .size = controlsSize
-                                                            })) {
-                                                                if (testSidebarShowSections) {
-                                                                    menu.Section("WORKSPACE");
-                                                                }
-                                                                menu.Item(testSidebarMenuIdx, 0, {
-                                                                    .text = "Overview",
-                                                                    .icon = guikit::Icon::Folder(),
-                                                                    .badge = testSidebarShowBadges ? "3" : ""
-                                                                });
-                                                                menu.Item(testSidebarMenuIdx, 1, {
-                                                                    .text = "Analytics",
-                                                                    .icon = guikit::Icon::Search(),
-                                                                    .badge = testSidebarShowBadges ? "New" : ""
-                                                                });
-                                                                menu.Item(testSidebarMenuIdx, 2, {
-                                                                    .text = "Deployments",
-                                                                    .icon = guikit::Icon::Play()
-                                                                });
-                                                                if (testSidebarShowSections) {
-                                                                    menu.Section("SYSTEM");
-                                                                }
-                                                                menu.Item(testSidebarMenuIdx, 3, {
-                                                                    .text = "Settings",
-                                                                    .icon = guikit::Icon::Settings()
-                                                                });
-                                                            }
-                                                            if (testSidebarMenuIdx != prevIdx) {
-                                                                ui.InvalidateAll();
-                                                            }
-                                                        }
-
-                                                        if (auto mainPane = ui.Card({
-                                                            .gap = 6.0f,
-                                                            .padding = guikit::Padding::All(16.0f),
-                                                            .widthMode = guikit::SizeMode::Stretch,
-                                                            .heightMode = guikit::SizeMode::Stretch
-                                                        })) {
-                                                            static constexpr std::array<std::string_view, 4> pageTitles = {
-                                                                "Overview Dashboard", "Real-Time Analytics", "Active Deployments", "System Settings"
-                                                            };
-                                                            ui.Heading({
-                                                                .title = pageTitles[static_cast<size_t>(std::clamp(testSidebarMenuIdx, 0, 3))],
-                                                                .subtitle = "Docked Sidebar + SidebarMenu container arrangement",
-                                                                .size = guikit::UiSize::Sm,
-                                                                .divider = true
-                                                            });
-                                                            ui.Text("Remaining workspace automatically stretches around docked Left/Right Sidebars.", {
-                                                                .variant = guikit::UiVariant::Secondary
-                                                            });
-                                                        }
-                                                    }
-                                                    break;
-                                                }
-
-                                                case NavCategory::ElemCard: {
-                                                    if (auto c = ui.Card({
-                                                        .gap = cardGap,
-                                                        .padding = guikit::Padding(cardPadding),
-                                                        .borderWidth = cardBorderWidth,
-                                                        .radius = cardRadius,
-                                                        .size = controlsSize
-                                                    })) {
-                                                        ui.Heading({
-                                                            .title = "Card Surface Component",
-                                                            .subtitle = "Configurable padding, radius and spacing tokens",
-                                                            .icon = guikit::Icon::Copy(),
-                                                            .size = controlsSize,
-                                                            .divider = true
-                                                        });
-                                                        if (ui.Button({
-                                                            .text = "Inner Action",
-                                                            .icon = guikit::Icon::Play(),
-                                                            .variant = btnVariant,
-                                                            .size = controlsSize
-                                                        })) {}
-                                                    }
-                                                    break;
-                                                }
-
-                                                case NavCategory::ElemHeading: {
-                                                    ui.Heading({
-                                                        .title = {"A heading", headingTitleVariant},
-                                                        .subtitle = headingShowSubtitle
-                                                            ? guikit::UiText{"This is a heading", headingSubtitleVariant}
-                                                            : guikit::UiText{},
-                                                        .icon = headingShowIcon ? guikit::Icon::Edit() : guikit::Icon{},
-                                                        .badge = headingShowBadge
-                                                            ? guikit::UiText{"v2.4", headingBadgeVariant}
-                                                            : guikit::UiText{},
-                                                        .variant = headingTitleVariant,
-                                                        .size = headingSize,
-                                                        .layout = headingLayout,
-                                                        .inlineOrder = headingInlineOrder,
-                                                        .elementAlign = headingElementAlign,
-                                                        .stretch = static_cast<guikit::StretchMode>(headingStretchIdx),
-                                                        .width = (headingStretchIdx == 2) ? std::optional<float>(headingFillPct) : ((headingWidth > 0.0f) ? std::optional<float>(headingWidth) : std::nullopt),
-                                                        .divider = headingDivider,
-                                                        .dividerStyle = headingDividerStyle,
-                                                        .wordWrap = headingWordWrap
-                                                    });
-                                                    break;
-                                                }
-
-                                                case NavCategory::ElemImage: {
-                                                    ui.Image(imgSources[imgSourceIdx % imgSources.size()], {
-                                                        .label = imgShowLabel ? "A vector image" : "",
-                                                        .description = imgShowDesc ? "This is a vector image" : "",
-                                                        .fit = imgFit,
-                                                        .layout = imgLayout,
-                                                        .elementAlign = imgElementAlign,
-                                                        .stretch = static_cast<guikit::StretchMode>(imgStretchIdx),
-                                                        .width = (imgStretchIdx == 2) ? std::optional<float>(imgFillPct) : std::optional<float>(imgWidth),
-                                                        .height = imgAutoHeight ? std::nullopt : std::optional<float>(imgHeight),
-                                                        .radius = imgRadius,
-                                                        .borderWidth = imgBorderWidth,
-                                                        .checkerboard = imgCheckerboard,
-                                                        .size = controlsSize
-                                                    });
-                                                    break;
-                                                }
-
-                                                case NavCategory::ElemScene: {
-                                                    const auto schemPal = previewLightMode
-                                                        ? guikit::demo::SchematicPalette::VintagePaper()
-                                                        : guikit::demo::SchematicPalette::DarkCad();
-                                                    if (auto scene = ui.Scene({
-                                                        .worldSize = guikit::Vec2{2200.0f, 920.0f},
-                                                        .background = sceneBg,
-                                                        .gridStep = sceneGridStep,
-                                                        .heightMode = guikit::SizeMode::Stretch,
-                                                        .selectableItems = sceneSelectableItems,
-                                                        .showScrollbars = sceneShowScrollbars,
-                                                        .showControls = sceneShowControls,
-                                                        .radius = sceneRadius
-                                                    })) {
-                                                        // QUAD 303 Power Amplifier Circuit Diagram (M12160)
-                                                        // Pure vector BS 3939 primitives rendered in 2D World Coordinates
-                                                        guikit::demo::RenderQuad303Schematic(scene, schemPal);
-                                                    }
-                                                    break;
-                                                }
-
-                                                case NavCategory::ElemOsmMap: {
-                                                    osmOpts.lightMode = previewLightMode;
-                                                    if (auto scene = ui.Scene({
-                                                        .worldSize = guikit::Vec2{osmOpts.worldSize, osmOpts.worldSize},
-                                                        .background = guikit::SceneBackground::Solid,
-                                                        .heightMode = guikit::SizeMode::Stretch,
-                                                        .minZoom = 0.25f,
-                                                        .maxZoom = 4096.0f,
-                                                        .selectableItems = osmSelectableItems,
-                                                        .showScrollbars = osmShowScrollbars,
-                                                        .showControls = osmShowControls,
-                                                        .radius = osmRadius
-                                                    })) {
-                                                        if (!osmCameraInitialized) {
-                                                            osmCameraInitialized = true;
-                                                            const auto& wp = guikit::demo::kMaritimeWaypoints[0];
-                                                            const guikit::Vec2 helgolandWorld = guikit::MapGrid::GeoToWorld(wp.coord, osmOpts.worldSize, osmOpts.crs);
-                                                            const float initSceneZoom = guikit::MapGrid::TileZoomToSceneZoom(7.0f, osmOpts.baseZoom);
-                                                            scene.CenterOn(helgolandWorld, initSceneZoom);
-                                                        } else if (osmPendingCenterGeo.has_value()) {
-                                                            const guikit::Vec2 targetWorld = guikit::MapGrid::GeoToWorld(*osmPendingCenterGeo, osmOpts.worldSize, osmOpts.crs);
-                                                            scene.CenterOn(targetWorld, osmPendingSceneZoom);
-                                                            osmPendingCenterGeo.reset();
-                                                            osmPendingSceneZoom.reset();
-                                                        }
-
-                                                        osmLastView = guikit::demo::RenderOsmSlippyMap(scene, osmOpts);
-                                                    }
-                                                    break;
-                                                }
-
-                                                case NavCategory::ElemMarkdown: {
-                                                    if (auto mdScroll = ui.ScrollArea({
-                                                        .padding = guikit::Padding::All(8.0f)
-                                                    })) {
-                                                        const auto mdRes = ui.Markdown(kDemoMarkdownDoc, {
-                                                            .codeLineNumbers = mdCodeLineNumbers,
-                                                            .syntaxHighlight = mdSyntaxHighlight,
-                                                            .showCopyButton = mdShowCopyButton,
-                                                            .imageCheckerboard = mdImageCheckerboard,
-                                                            .imageMaxHeight = mdImageMaxHeight,
-                                                            .imageRadius = mdImageRadius,
-                                                            .blockGap = mdBlockGap,
-                                                            .size = controlsSize
-                                                        });
-                                                        if (!mdRes.clickedLink.empty()) {
-                                                            mdLastClickedLink = std::string(mdRes.clickedLink);
-                                                            SDL_OpenURL(mdLastClickedLink.c_str());
-                                                        }
-                                                    }
-                                                    break;
-                                                }
-
-                                                case NavCategory::ElemTextArea: {
-                                                    guikit::SyntaxConfig synCfg = guikit::SyntaxConfig::Plain();
-                                                    if (taSyntaxMode == 0) {
-                                                        synCfg = guikit::SyntaxConfig::Cpp();
-                                                    } else if (taSyntaxMode == 1) {
-                                                        synCfg = guikit::SyntaxConfig::Json();
-                                                    } else if (taSyntaxMode == 2) {
-                                                        synCfg = guikit::SyntaxConfig{
-                                                            .enabled = true,
-                                                            .keywords = kCustomKeywords,
-                                                            .types = kCustomTypes,
-                                                            .lineComment = "#",
-                                                            .blockCommentStart = "/*",
-                                                            .blockCommentEnd = "*/",
-                                                            .preprocessorPrefix = '\0',
-                                                            .highlightStrings = true,
-                                                            .highlightNumbers = true,
-                                                            .highlightFunctions = true,
-                                                            .highlightPunctuation = true
-                                                        };
-                                                    }
-                                                    ui.TextArea(taEditorBuffer, {
-                                                        .label = taShowLabel ? "A text area" : "",
-                                                        .description = taShowDesc ? "This is a text area" : "",
-                                                        .autoHeight = false,
-                                                        .readOnly = taReadOnly,
-                                                        .showLineNumbers = taLineNumbers,
-                                                        .showCopyButton = taCopyButton,
-                                                        .monospace = taMonospace,
-                                                        .wordWrap = taWordWrap,
-                                                        .allowZoom = taAllowZoom,
-                                                        .zoom = taZoom,
-                                                        .syntax = synCfg,
-                                                        .heightMode = guikit::SizeMode::Stretch,
-                                                        .size = controlsSize
-                                                    });
-                                                    break;
-                                                }
-
-                                                default: break;
-                                            }
+                                            DispatchSandboxStage(ui, selectedCategory, demoCtx);
                                         }
                                     }
                                 }
 
-                                // C++20 Immediate Mode Code Generator Card
                                 if (auto codeCard = ui.Card({
                                     .gap = 8.0f,
                                     .padding = guikit::Padding::All(12.0f),
-                                    .radius = 8.0f,
+                                    .borderRadius = 8.0f,
                                     .heightMode = guikit::SizeMode::Stretch,
-                                    .theme = &shellTheme
+                                    .theme = &demoCtx.shellTheme
                                 })) {
-                                    auto placementName = [](guikit::Placement p) -> std::string_view {
-                                        switch (p) {
-                                            case guikit::Placement::Leading:  return "Leading";
-                                            case guikit::Placement::Trailing: return "Trailing";
-                                            case guikit::Placement::Top:      return "Top";
-                                            case guikit::Placement::Bottom:   return "Bottom";
-                                            case guikit::Placement::Thumb:    return "Thumb";
-                                        }
-                                        return "Trailing";
-                                    };
-
-                                    auto formatDesc = [&](bool show, std::string_view text, guikit::UiVariant v) -> std::string {
-                                        if (!show) return "\"\"";
-                                        if (v == guikit::UiVariant::Muted) return std::format("\"{}\"", text);
-                                        return std::format("{{\"{}\", guikit::UiVariant::{}}}", text, variantName(v));
-                                    };
-
-                                    auto sizeName = [](guikit::UiSize s) -> std::string_view {
-                                        switch (s) {
-                                            case guikit::UiSize::Xs: return "Xs";
-                                            case guikit::UiSize::Sm: return "Sm";
-                                            case guikit::UiSize::Md: return "Md";
-                                            case guikit::UiSize::Lg: return "Lg";
-                                            case guikit::UiSize::Xl: return "Xl";
-                                            default: return "Md";
-                                        }
-                                    };
-
-                                    auto alignName = [](guikit::Align a) -> std::string_view {
-                                        switch (a) {
-                                            case guikit::Align::Start:  return "Start";
-                                            case guikit::Align::Center: return "Center";
-                                            case guikit::Align::End:    return "End";
-                                        }
-                                        return "Center";
-                                    };
-
-                                    auto cursorModeName = [](guikit::CursorBlinkMode m) -> std::string_view {
-                                        switch (m) {
-                                            case guikit::CursorBlinkMode::Blinking: return "Blinking";
-                                            case guikit::CursorBlinkMode::Solid:    return "Solid";
-                                            case guikit::CursorBlinkMode::Hidden:   return "Hidden";
-                                        }
-                                        return "Blinking";
-                                    };
-
-                                    std::string snippet;
-                                     switch (selectedCategory) {
-                                        case NavCategory::ElemButton: {
-                                            snippet = std::format(
-                                                "if (ui.Button({{\n"
-                                                "    .label = \"{}\",\n"
-                                                "    .text = \"{}\",\n"
-                                                "    .description = {},\n"
-                                                "    .icon = {},\n"
-                                                "    .variant = guikit::UiVariant::{},\n"
-                                                "    .iconPlacement = guikit::Placement::{},\n"
-                                                "    .layout = guikit::ElementLayout::{},\n"
-                                                "    .inlineOrder = guikit::InlineOrder::{},\n"
-                                                "    .elementAlign = guikit::Align::{},\n"
-                                                "    .controlAlign = guikit::Align::{},\n"
-                                                "    .stretch = guikit::StretchMode::{},\n"
-                                                "    .width = {},\n"
-                                                "    .disabled = {},\n"
-                                                "    .active = false,\n"
-                                                "    .size = guikit::UiSize::{},\n"
-                                                "    .radius = {:.1f}f\n"
-                                                "}})) {{\n"
-                                                "    // On click handler\n"
-                                                "}}",
-                                                btnShowLabel ? "A button" : "",
-                                                btnClicks > 0 ? std::format("Clicked {}x", btnClicks) : "Click me",
-                                                formatDesc(btnShowDesc, "This is a button", btnDescVariant),
-                                                btnHasIcon ? "guikit::Icon::Play()" : "{}",
-                                                variantName(btnVariant),
-                                                placementName(btnIconPlacement),
-                                                elementLayoutEnumName(btnLayout),
-                                                inlineOrderEnumName(btnInlineOrder),
-                                                labelAlignEnumName(btnElementAlign),
-                                                alignName(btnControlAlign),
-                                                stretchModeEnumName(static_cast<guikit::StretchMode>(btnStretchIdx)),
-                                                (btnStretchIdx == 2) ? std::format("{:.1f}f", btnFillPct) : ((btnWidth > 0.0f) ? std::format("{:.1f}f", btnWidth) : "std::nullopt"),
-                                                btnDisabled ? "true" : "false",
-                                                sizeName(controlsSize),
-                                                btnCornerRadius
-                                            );
-                                            break;
-                                        }
-
-                                        case NavCategory::ElemSlider: {
-                                            if (sliderContinuous) {
-                                                snippet = std::format(
-                                                    "ui.Slider(gainValue, 0.0f, 100.0f, {{\n"
-                                                    "    .label = \"{}\",\n"
-                                                    "    .textLeft = \"{}\",\n"
-                                                    "    .textRight = \"{}\",\n"
-                                                    "    .description = {},\n"
-                                                    "    .valueFormat = \"%.1f %%\",\n"
-                                                    "    .step = std::nullopt,\n"
-                                                    "    .layout = guikit::ElementLayout::{},\n"
-                                                    "    .inlineOrder = guikit::InlineOrder::{},\n"
-                                                    "    .elementAlign = guikit::Align::{},\n"
-                                                    "    .showValue = {},\n"
-                                                    "    .valuePlacement = guikit::Placement::{},\n"
-                                                    "    .variant = guikit::UiVariant::{},\n"
-                                                    "    .size = guikit::UiSize::{},\n"
-                                                    "    .stretch = guikit::StretchMode::{},\n"
-                                                    "    .width = {},\n"
-                                                    "    .scale = std::nullopt,\n"
-                                                    "    .theme = nullptr,\n"
-                                                    "    .disabled = {}\n"
-                                                    "}});",
-                                                    sliderShowLabel ? "A slider" : "",
-                                                    sliderShowRangeText ? "0%" : "",
-                                                    sliderShowRangeText ? "100%" : "",
-                                                    formatDesc(sliderShowDesc, "This is a slider", sliderDescVariant),
-                                                    elementLayoutEnumName(sliderLayout),
-                                                    inlineOrderEnumName(sliderInlineOrder),
-                                                    labelAlignEnumName(sliderElementAlign),
-                                                    sliderShowValue ? "true" : "false",
-                                                    placementName(sliderValuePlacement),
-                                                    variantName(btnVariant),
-                                                    sizeName(controlsSize),
-                                                    stretchModeEnumName(static_cast<guikit::StretchMode>(sliderStretchIdx)),
-                                                    (sliderStretchIdx == 2) ? std::format("{:.1f}f", sliderFillPct) : ((sliderWidth > 0.0f) ? std::format("{:.1f}f", sliderWidth) : "std::nullopt"),
-                                                    sliderDisabled ? "true" : "false"
-                                                );
-                                            } else {
-                                                snippet = std::format(
-                                                    "static constexpr std::array<std::string_view, 5> stepItems = {{\"Off\", \"Low\", \"Mid\", \"High\", \"Max\"}};\n"
-                                                    "ui.StepSlider(presetIndex, stepItems, {{\n"
-                                                    "    .label = \"{}\",\n"
-                                                    "    .textLeft = \"{}\",\n"
-                                                    "    .textRight = \"{}\",\n"
-                                                    "    .description = {},\n"
-                                                    "    .stepLabels = {{}},\n"
-                                                    "    .layout = guikit::ElementLayout::{},\n"
-                                                    "    .inlineOrder = guikit::InlineOrder::{},\n"
-                                                    "    .elementAlign = guikit::Align::{},\n"
-                                                    "    .showTicks = {},\n"
-                                                    "    .showLabels = {},\n"
-                                                    "    .showValue = {},\n"
-                                                    "    .valuePlacement = guikit::Placement::{},\n"
-                                                    "    .valueText = \"\",\n"
-                                                    "    .includeNone = false,\n"
-                                                    "    .variant = guikit::UiVariant::{},\n"
-                                                    "    .size = guikit::UiSize::{},\n"
-                                                    "    .stretch = guikit::StretchMode::{},\n"
-                                                    "    .width = {},\n"
-                                                    "    .scale = std::nullopt,\n"
-                                                    "    .theme = nullptr,\n"
-                                                    "    .disabled = {}\n"
-                                                    "}});",
-                                                    sliderShowLabel ? "A step slider" : "",
-                                                    sliderShowRangeText ? "Min" : "",
-                                                    sliderShowRangeText ? "Max" : "",
-                                                    formatDesc(sliderShowDesc, "This is a step slider", sliderDescVariant),
-                                                    elementLayoutEnumName(sliderLayout),
-                                                    inlineOrderEnumName(sliderInlineOrder),
-                                                    labelAlignEnumName(sliderElementAlign),
-                                                    sliderShowTicks ? "true" : "false",
-                                                    sliderShowLabels ? "true" : "false",
-                                                    sliderShowValue ? "true" : "false",
-                                                    placementName(sliderValuePlacement),
-                                                    variantName(btnVariant),
-                                                    sizeName(controlsSize),
-                                                    stretchModeEnumName(static_cast<guikit::StretchMode>(sliderStretchIdx)),
-                                                    (sliderStretchIdx == 2) ? std::format("{:.1f}f", sliderFillPct) : ((sliderWidth > 0.0f) ? std::format("{:.1f}f", sliderWidth) : "std::nullopt"),
-                                                    sliderDisabled ? "true" : "false"
-                                                );
-                                            }
-                                            break;
-                                        }
-
-                                        case NavCategory::ElemInputField: {
-                                            snippet = std::format(
-                                                "ui.InputField(serverEndpoint, {{\n"
-                                                "    .label = \"{}\",\n"
-                                                "    .description = {},\n"
-                                                "    .placeholder = \"Enter domain...\",\n"
-                                                "    .prefix = \"{}\",\n"
-                                                "    .suffix = \"{}\",\n"
-                                                "    .valueFormat = {{{{\"guikit.dev\", \"api.guikit.dev\"}}}},\n"
-                                                "    .variant = guikit::UiVariant::{},\n"
-                                                "    .layout = guikit::ElementLayout::{},\n"
-                                                "    .inlineOrder = guikit::InlineOrder::{},\n"
-                                                "    .elementAlign = guikit::Align::{},\n"
-                                                "    .cursorMode = guikit::CursorBlinkMode::{},\n"
-                                                "    .size = guikit::UiSize::{},\n"
-                                                "    .radius = {:.1f}f,\n"
-                                                "    .stretch = guikit::StretchMode::{},\n"
-                                                "    .width = {},\n"
-                                                "    .password = {},\n"
-                                                "    .clearable = {},\n"
-                                                "    .disabled = {},\n"
-                                                "    .readOnly = {}\n"
-                                                "}});",
-                                                inputShowLabel ? "A text input" : "",
-                                                formatDesc(inputShowDesc, "This is a text input", inputDescVariant),
-                                                inputHasPrefix ? "https://" : "",
-                                                inputHasSuffix ? ":443" : "",
-                                                variantName(btnVariant),
-                                                elementLayoutEnumName(inputLayout),
-                                                inlineOrderEnumName(inputInlineOrder),
-                                                labelAlignEnumName(inputElementAlign),
-                                                cursorModeName(inputCursorMode),
-                                                sizeName(controlsSize),
-                                                inputCornerRadius,
-                                                stretchModeEnumName(static_cast<guikit::StretchMode>(inputStretchIdx)),
-                                                (inputStretchIdx == 2) ? std::format("{:.1f}f", inputFillPct) : ((inputWidth > 0.0f) ? std::format("{:.1f}f", inputWidth) : "std::nullopt"),
-                                                inputPassword ? "true" : "false",
-                                                inputClearable ? "true" : "false",
-                                                inputDisabled ? "true" : "false",
-                                                inputReadOnly ? "true" : "false"
-                                            );
-                                            break;
-                                        }
-
-                                        case NavCategory::ElemSelect: {
-                                            snippet = std::format(
-                                                "ui.Select(presetIndex, itemsList, {{\n"
-                                                "    .label = \"{}\",\n"
-                                                "    .description = {},\n"
-                                                "    .placeholder = \"Select...\",\n"
-                                                "    .prefix = {},\n"
-                                                "    .variant = guikit::UiVariant::{},\n"
-                                                "    .layout = guikit::ElementLayout::{},\n"
-                                                "    .inlineOrder = guikit::InlineOrder::{},\n"
-                                                "    .elementAlign = guikit::Align::{},\n"
-                                                "    .maxVisibleItems = {},\n"
-                                                "    .size = guikit::UiSize::{},\n"
-                                                "    .radius = {:.1f}f,\n"
-                                                "    .stretch = guikit::StretchMode::{},\n"
-                                                "    .width = {},\n"
-                                                "    .disabled = {}\n"
-                                                "}});",
-                                                selectShowLabel ? "A select" : "",
-                                                formatDesc(selectShowDesc, "This is a select", selectDescVariant),
-                                                selectHasPrefix ? "guikit::Icon::Settings()" : "{}",
-                                                variantName(btnVariant),
-                                                elementLayoutEnumName(selectLayout),
-                                                inlineOrderEnumName(selectInlineOrder),
-                                                labelAlignEnumName(selectElementAlign),
-                                                selectMaxItems,
-                                                sizeName(controlsSize),
-                                                selectCornerRadius,
-                                                stretchModeEnumName(static_cast<guikit::StretchMode>(selectStretchIdx)),
-                                                (selectStretchIdx == 2) ? std::format("{:.1f}f", selectFillPct) : ((selectWidth > 0.0f) ? std::format("{:.1f}f", selectWidth) : "std::nullopt"),
-                                                selectDisabled ? "true" : "false"
-                                            );
-                                            break;
-                                        }
-
-                                        case NavCategory::ElemSwitch: {
-                                            snippet = std::format(
-                                                "ui.Switch(switchState, {{\n"
-                                                "    .label = \"{}\",\n"
-                                                "    .textLeft = \"{}\",\n"
-                                                "    .textRight = \"{}\",\n"
-                                                "    .description = {},\n"
-                                                "    .variant = guikit::UiVariant::{},\n"
-                                                "    .layout = guikit::ElementLayout::{},\n"
-                                                "    .inlineOrder = guikit::InlineOrder::{},\n"
-                                                "    .elementAlign = guikit::Align::{},\n"
-                                                "    .symmetric = {},\n"
-                                                "    .stretch = guikit::StretchMode::{},\n"
-                                                "    .disabled = {},\n"
-                                                "    .size = guikit::UiSize::{}\n"
-                                                "}});",
-                                                switchShowLabel ? "A switch" : "",
-                                                testDarkLightSwitch ? "Off" : "",
-                                                testDarkLightSwitch ? "On" : "",
-                                                formatDesc(switchShowDesc, "This is a switch", switchDescVariant),
-                                                variantName(btnVariant),
-                                                elementLayoutEnumName(switchLayout),
-                                                inlineOrderEnumName(switchInlineOrder),
-                                                labelAlignEnumName(switchElementAlign),
-                                                switchSymmetric ? "true" : "false",
-                                                stretchModeEnumName(static_cast<guikit::StretchMode>(switchStretchIdx)),
-                                                switchDisabled ? "true" : "false",
-                                                sizeName(controlsSize)
-                                            );
-                                            break;
-                                        }
-
-                                        case NavCategory::ElemCheckbox: {
-                                            snippet = std::format(
-                                                "ui.Checkbox(checkState, {{\n"
-                                                "    .label = \"{}\",\n"
-                                                "    .description = {},\n"
-                                                "    .variant = guikit::UiVariant::{},\n"
-                                                "    .layout = guikit::ElementLayout::{},\n"
-                                                "    .inlineOrder = guikit::InlineOrder::{},\n"
-                                                "    .elementAlign = guikit::Align::{},\n"
-                                                "    .stretch = guikit::StretchMode::{},\n"
-                                                "    .disabled = {},\n"
-                                                "    .indeterminate = {},\n"
-                                                "    .size = guikit::UiSize::{}\n"
-                                                "}});",
-                                                checkboxShowLabel ? "A checkbox" : "",
-                                                formatDesc(checkboxShowDesc, "This is a checkbox", checkboxDescVariant),
-                                                variantName(btnVariant),
-                                                elementLayoutEnumName(checkboxLayout),
-                                                inlineOrderEnumName(checkboxInlineOrder),
-                                                labelAlignEnumName(checkboxElementAlign),
-                                                stretchModeEnumName(static_cast<guikit::StretchMode>(checkboxStretchIdx)),
-                                                checkboxDisabled ? "true" : "false",
-                                                testCheckboxIndet ? "true" : "false",
-                                                sizeName(controlsSize)
-                                            );
-                                            break;
-                                        }
-
-                                        case NavCategory::ElemTabBar: {
-                                            snippet = std::format(
-                                                "ui.TabBar(activeTab, tabItems, {{\n"
-                                                "    .style = guikit::TabBarStyle::{},\n"
-                                                "    .showSeparator = {},\n"
-                                                "    .fullWidth = {},\n"
-                                                "    .scrollable = {},\n"
-                                                "    .gap = {:.1f}f,\n"
-                                                "    .padding = guikit::Padding::All({:.1f}f),\n"
-                                                "    .radius = {:.1f}f,\n"
-                                                "    .backgroundColor = {},\n"
-                                                "    .borderColor = {},\n"
-                                                "    .borderWidth = {:.1f}f,\n"
-                                                "    .activeColor = guikit::Color::Transparent(),\n"
-                                                "    .size = guikit::UiSize::{},\n"
-                                                "    .theme = nullptr,\n"
-                                                "    .scale = std::nullopt\n"
-                                                "}});",
-                                                tabStyle == guikit::TabBarStyle::Pill ? "Pill" : "Underline",
-                                                testTabShowSep ? "true" : "false",
-                                                testTabFullWidth ? "true" : "false",
-                                                testTabScrollable ? "true" : "false",
-                                                tabGap,
-                                                testTabHasBg ? testTabPadding : 0.0f,
-                                                testTabHasBg ? testTabRadius : 0.0f,
-                                                testTabHasBg ? "theme.palette.surfaceElevated" : "guikit::Color::Transparent()",
-                                                testTabHasBg ? "theme.palette.borderSubtle" : "guikit::Color::Transparent()",
-                                                testTabHasBg ? testTabBorderWidth : 0.0f,
-                                                sizeName(controlsSize)
-                                            );
-                                            break;
-                                        }
-
-                                        case NavCategory::ElemSidebar: {
-                                            snippet = std::format(
-                                                "if (auto sb = ui.Sidebar({{\n"
-                                                "    .side = guikit::SidebarSide::{},\n"
-                                                "    .width = {},\n"
-                                                "    .scrollable = true\n"
-                                                "}})) {{\n"
-                                                "    if (auto menu = ui.SidebarMenu({{\n"
-                                                "        .style = guikit::SidebarMenuStyle::{},\n"
-                                                "        .collapsed = {},\n"
-                                                "        .variant = guikit::UiVariant::{},\n"
-                                                "        .size = guikit::UiSize::{}\n"
-                                                "    }})) {{\n"
-                                                "        menu.Section(\"WORKSPACE\");\n"
-                                                "        menu.Item(selected, 0, {{.text = \"Overview\", .icon = guikit::Icon::Folder(){}}});\n"
-                                                "        menu.Item(selected, 1, {{.text = \"Analytics\", .icon = guikit::Icon::Search(){}}});\n"
-                                                "    }}\n"
-                                                "}}",
-                                                testSidebarSide == guikit::SidebarSide::Right ? "Right" : "Left",
-                                                testSidebarAutoWidth ? "std::nullopt" : std::format("{:.1f}f", testSidebarFixedWidth),
-                                                testSidebarMenuStyle == guikit::SidebarMenuStyle::Indicator ? "Indicator" : "Pill",
-                                                testSidebarCollapsed ? "true" : "false",
-                                                variantName(btnVariant),
-                                                sizeName(controlsSize),
-                                                testSidebarShowBadges ? ", .badge = \"3\"" : "",
-                                                testSidebarShowBadges ? ", .badge = \"New\"" : ""
-                                            );
-                                            break;
-                                        }
-
-                                        case NavCategory::ElemCard: {
-                                            snippet = std::format(
-                                                "if (auto card = ui.Card({{\n"
-                                                "    .gap = {:.1f}f,\n"
-                                                "    .padding = guikit::Padding({:.1f}f),\n"
-                                                "    .borderWidth = {:.1f}f,\n"
-                                                "    .radius = {:.1f}f,\n"
-                                                "    .clipChildren = true,\n"
-                                                "    .widthMode = guikit::SizeMode::Stretch,\n"
-                                                "    .heightMode = guikit::SizeMode::Fit,\n"
-                                                "    .size = guikit::UiSize::{}\n"
-                                                "}})) {{\n"
-                                                "    ui.Heading({{\n"
-                                                "        .title = \"Card Surface Component\",\n"
-                                                "        .subtitle = \"Configurable padding, radius and spacing tokens\",\n"
-                                                "        .icon = guikit::Icon::Copy(),\n"
-                                                "        .size = guikit::UiSize::{},\n"
-                                                "        .divider = true\n"
-                                                "    }});\n"
-                                                "    if (ui.Button({{\n"
-                                                "        .text = \"Inner Action\",\n"
-                                                "        .icon = guikit::Icon::Play(),\n"
-                                                "        .variant = guikit::UiVariant::{},\n"
-                                                "        .size = guikit::UiSize::{}\n"
-                                                "    }})) {{\n"
-                                                "        // On click handler\n"
-                                                "    }}\n"
-                                                "}}",
-                                                cardGap,
-                                                cardPadding,
-                                                cardBorderWidth,
-                                                cardRadius,
-                                                sizeName(controlsSize),
-                                                sizeName(controlsSize),
-                                                variantName(btnVariant),
-                                                sizeName(controlsSize)
-                                            );
-                                            break;
-                                        }
-
-                                        case NavCategory::ElemHeading: {
-                                            const std::string titleExpr = (headingTitleVariant == guikit::UiVariant::Default)
-                                                ? "\"A heading\""
-                                                : std::format("{{\"A heading\", guikit::UiVariant::{}}}", variantName(headingTitleVariant));
-                                            const std::string subExpr = !headingShowSubtitle
-                                                ? "\"\""
-                                                : ((headingSubtitleVariant == guikit::UiVariant::Secondary)
-                                                    ? "\"This is a heading\""
-                                                    : std::format("{{\"This is a heading\", guikit::UiVariant::{}}}", variantName(headingSubtitleVariant)));
-                                            const std::string badgeExpr = !headingShowBadge
-                                                ? "\"\""
-                                                : std::format("{{\"v2.4\", guikit::UiVariant::{}}}", variantName(headingBadgeVariant));
-                                            snippet = std::format(
-                                                "ui.Heading({{\n"
-                                                "    .title = {},\n"
-                                                "    .subtitle = {},\n"
-                                                "    .icon = {},\n"
-                                                "    .badge = {},\n"
-                                                "    .variant = guikit::UiVariant::{},\n"
-                                                "    .size = guikit::UiSize::{},\n"
-                                                "    .layout = guikit::ElementLayout::{},\n"
-                                                "    .inlineOrder = guikit::InlineOrder::{},\n"
-                                                "    .elementAlign = guikit::Align::{},\n"
-                                                "    .stretch = guikit::StretchMode::{},\n"
-                                                "    .width = {},\n"
-                                                "    .divider = {},\n"
-                                                "    .dividerStyle = guikit::HeadingDivider::{},\n"
-                                                "    .wordWrap = {}\n"
-                                                "}});",
-                                                titleExpr,
-                                                subExpr,
-                                                headingShowIcon ? "guikit::Icon::Edit()" : "{}",
-                                                badgeExpr,
-                                                variantName(headingTitleVariant),
-                                                sizeName(headingSize),
-                                                elementLayoutEnumName(headingLayout),
-                                                inlineOrderEnumName(headingInlineOrder),
-                                                labelAlignEnumName(headingElementAlign),
-                                                stretchModeEnumName(static_cast<guikit::StretchMode>(headingStretchIdx)),
-                                                (headingStretchIdx == 2) ? std::format("{:.1f}f", headingFillPct) : ((headingWidth > 0.0f) ? std::format("{:.1f}f", headingWidth) : "std::nullopt"),
-                                                headingDivider ? "true" : "false",
-                                                headingDividerStyle == guikit::HeadingDivider::Trailing ? "Trailing" : "Bottom",
-                                                headingWordWrap ? "true" : "false"
-                                            );
-                                            break;
-                                        }
-
-                                        case NavCategory::ElemImage: {
-                                            snippet = std::format(
-                                                "ui.Image(\"{}\", {{\n"
-                                                "    .label = \"{}\",\n"
-                                                "    .description = \"{}\",\n"
-                                                "    .fit = guikit::ObjectFit::{},\n"
-                                                "    .stretch = guikit::StretchMode::{},\n"
-                                                "    .width = {:.1f}f,\n"
-                                                "    .height = {},\n"
-                                                "    .radius = {:.1f}f,\n"
-                                                "    .borderWidth = {:.1f}f,\n"
-                                                "    .checkerboard = {},\n"
-                                                "    .size = guikit::UiSize::{}\n"
-                                                "}});",
-                                                imgSources[imgSourceIdx % imgSources.size()],
-                                                imgShowLabel ? "A vector image" : "",
-                                                imgShowDesc ? "This is a vector image" : "",
-                                                fitModeNames[static_cast<size_t>(imgFit)],
-                                                stretchModeEnumName(static_cast<guikit::StretchMode>(imgStretchIdx)),
-                                                (imgStretchIdx == 2) ? imgFillPct : imgWidth,
-                                                imgAutoHeight ? "std::nullopt" : std::format("{:.1f}f", imgHeight),
-                                                imgRadius,
-                                                imgBorderWidth,
-                                                imgCheckerboard ? "true" : "false",
-                                                sizeName(controlsSize)
-                                            );
-                                            break;
-                                        }
-
-                                        case NavCategory::ElemScene: {
-                                            snippet = std::format(
-                                                "if (auto scene = ui.Scene({{\n"
-                                                "    .worldSize = guikit::Vec2{{2200.0f, 920.0f}},\n"
-                                                "    .background = guikit::SceneBackground::{},\n"
-                                                "    .gridStep = {:.1f}f,\n"
-                                                "    .heightMode = guikit::SizeMode::Stretch,\n"
-                                                "    .selectableItems = {},\n"
-                                                "    .showScrollbars = {},\n"
-                                                "    .showControls = {},\n"
-                                                "    .radius = {:.1f}f\n"
-                                                "}})) {{\n"
-                                                "    // Interactive BS 3939 Vector Schematic Primitives via scene.Item(...)\n"
-                                                "    const auto pal = guikit::demo::SchematicPalette::{}();\n"
-                                                "    guikit::demo::RenderQuad303Schematic(scene, pal);\n"
-                                                "}}",
-                                                sceneBgNames[static_cast<size_t>(sceneBg)],
-                                                sceneGridStep,
-                                                sceneSelectableItems ? "true" : "false",
-                                                sceneShowScrollbars ? "true" : "false",
-                                                sceneShowControls ? "true" : "false",
-                                                sceneRadius,
-                                                previewLightMode ? "VintagePaper" : "DarkCad"
-                                            );
-                                            break;
-                                        }
-
-                                        case NavCategory::ElemOsmMap: {
-                                            static constexpr std::array<std::string_view, 3> crsEnumNames = {
-                                                "EPSG3857_WebMercator",
-                                                "EPSG3395_WorldMercator",
-                                                "EPSG4326_PlateCarree"
-                                            };
-                                            static constexpr std::array<std::string_view, 3> fmtEnumNames = {
-                                                "NauticalDMM",
-                                                "DecimalDegrees",
-                                                "DMS"
-                                            };
-                                            snippet = std::format(
-                                                "guikit::MapGridConfig mapCfg{{\n"
-                                                "    .worldSize = 2048.0f,\n"
-                                                "    .baseZoom = 3,\n"
-                                                "    .crs = guikit::MapCrs::{}\n"
-                                                "}};\n"
-                                                "if (auto scene = ui.Scene({{\n"
-                                                "    .worldSize = {{mapCfg.worldSize, mapCfg.worldSize}},\n"
-                                                "    .minZoom = 0.25f, .maxZoom = 4096.0f,\n"
-                                                "    .showScrollbars = {}, .showControls = {}\n"
-                                                "}})) {{\n"
-                                                "    const auto view = guikit::MapGrid::ComputeView(\n"
-                                                "        scene.GetVisibleWorldRect(), scene.GetZoom(),\n"
-                                                "        scene.GetWorldMousePos(), scene.IsHovered(), mapCfg\n"
-                                                "    );\n"
-                                                "    // Optional TileSourceCallback for PNG/JPG from SQLite / Disk / HTTP:\n"
-                                                "    for (const auto& cell : view.visibleTiles) {{\n"
-                                                "        if (auto uri = tileSource ? tileSource(cell.id, 0) : std::nullopt) {{\n"
-                                                "            scene.DrawImage(*uri, cell.worldRect);\n"
-                                                "        }}\n"
-                                                "    }}\n"
-                                                "    // Nautical Graticule (1' = 1 NM) + Coord Format: guikit::GeoCoordFormat::{}\n"
-                                                "}}",
-                                                crsEnumNames[static_cast<size_t>(osmOpts.crs)],
-                                                osmShowScrollbars ? "true" : "false",
-                                                osmShowControls ? "true" : "false",
-                                                fmtEnumNames[static_cast<size_t>(osmOpts.coordFormat)]
-                                            );
-                                            break;
-                                        }
-
-                                        case NavCategory::ElemMarkdown: {
-                                            snippet = std::format(
-                                                "if (auto scroll = ui.ScrollArea({{.padding = guikit::Padding::All(8.0f)}})) {{\n"
-                                                "    auto res = ui.Markdown(markdownSource, {{\n"
-                                                "        .codeLineNumbers = {},\n"
-                                                "        .syntaxHighlight = {},\n"
-                                                "        .showCopyButton = {},\n"
-                                                "        .imageCheckerboard = {},\n"
-                                                "        .imageMaxHeight = {:.1f}f,\n"
-                                                "        .imageRadius = {:.1f}f,\n"
-                                                "        .blockGap = {:.1f}f,\n"
-                                                "        .size = guikit::UiSize::{}\n"
-                                                "    }});\n"
-                                                "    if (!res.clickedLink.empty()) SDL_OpenURL(std::string(res.clickedLink).c_str());\n"
-                                                "}}",
-                                                mdCodeLineNumbers ? "true" : "false",
-                                                mdSyntaxHighlight ? "true" : "false",
-                                                mdShowCopyButton ? "true" : "false",
-                                                mdImageCheckerboard ? "true" : "false",
-                                                mdImageMaxHeight,
-                                                mdImageRadius,
-                                                mdBlockGap,
-                                                sizeName(controlsSize)
-                                            );
-                                            break;
-                                        }
-
-                                        case NavCategory::ElemTextArea: {
-                                            std::string synLine = "guikit::SyntaxConfig::Plain()";
-                                            if (taSyntaxMode == 0) synLine = "guikit::SyntaxConfig::Cpp()";
-                                            else if (taSyntaxMode == 1) synLine = "guikit::SyntaxConfig::Json()";
-                                            else if (taSyntaxMode == 2) synLine = "customSyntaxConfig";
-
-                                            snippet = "ui.TextArea(sourceBuffer, {\n";
-                                            if (taShowLabel) snippet += "    .label = \"A text area\",\n";
-                                            if (taShowDesc) snippet += "    .description = \"This is a text area\",\n";
-                                            snippet += std::format(
-                                                "    .size = guikit::UiSize::{},\n"
-                                                "    .wordWrap = {},\n"
-                                                "    .readOnly = {},\n"
-                                                "    .showLineNumbers = {},\n"
-                                                "    .showCopyButton = {},\n"
-                                                "    .monospace = {},\n"
-                                                "    .allowZoom = {},\n"
-                                                "    .zoom = {:.2f}f,\n"
-                                                "    .syntax = {},\n"
-                                                "    .heightMode = guikit::SizeMode::Stretch\n"
-                                                "}});",
-                                                sizeName(controlsSize),
-                                                taWordWrap ? "true" : "false",
-                                                taReadOnly ? "true" : "false",
-                                                taLineNumbers ? "true" : "false",
-                                                taCopyButton ? "true" : "false",
-                                                taMonospace ? "true" : "false",
-                                                taAllowZoom ? "true" : "false",
-                                                taZoom,
-                                                synLine
-                                            );
-                                            break;
-                                        }
-
-                                        default: break;
-                                    }
-
+                                    std::string snippet = DispatchCodeGenerator(selectedCategory, demoCtx);
                                     ui.TextArea(snippet, {
                                         .autoHeight = false,
                                         .readOnly = true,
@@ -2556,368 +619,29 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                     });
                                 }
                             } else {
-                                // -------------------------------------------------------------
                                 // ASSEMBLY MODE: Real-World Screens & Compositions
-                                // -------------------------------------------------------------
                                 if (auto previewBox = ui.Box({
                                     .widthMode = guikit::SizeMode::Stretch,
                                     .heightMode = guikit::SizeMode::Stretch,
                                     .padding = guikit::Padding::All(8.0f),
-                                    .backgroundColor = previewTheme.palette.background,
-                                    .borderColor = previewTheme.palette.borderSubtle,
+                                    .backgroundColor = demoCtx.previewTheme.palette.background,
+                                    .borderColor = demoCtx.previewTheme.palette.borderSubtle,
                                     .borderWidth = 1.0f,
-                                    .radius = 8.0f,
+                                    .borderRadius = 8.0f,
                                     .clipChildren = true,
-                                    .theme = &previewTheme,
+                                    .theme = &demoCtx.previewTheme,
                                     .scale = previewScale,
-                                    .debugBounds = previewBounds,
-                                    .inspectMode = previewInspect
+                                    .debugBounds = demoCtx.previewBounds,
+                                    .inspectMode = demoCtx.previewInspect
                                 })) {
                                     if (auto contentScroll = ui.ScrollArea({.gap = 12.0f})) {
-                                        switch (selectedCategory) {
-                                    case NavCategory::AsmDashboard: {
-                                        // Industrial Dashboard (responsive 2-column layout)
-                                        if (auto dashboardGrid = ui.Grid(makeGrid())) {
-                                            // Left Column
-                                            if (auto colLeft = dashboardGrid.Cell6({.gap = colGap})) {
-                                                if (auto card1 = ui.Card(makeCard())) {
-                                                    ui.Heading({.title = "Primary Stop Conditions", .subtitle = "Sensory tripwire thresholds & limits", .size = headingSize, .wordWrap = headingWordWrap});
-                                                    if (auto grid1 = ui.Grid(makeGrid())) {
-                                                        if (auto c = grid1.Cell12()) {
-                                                            ui.Switch(enableSensors, {
-                                                                .label = "Enable Sensor Drop Limits",
-                                                                .description = "Immediate stop on threshold breach"
-                                                            });
-                                                        }
-                                                        if (auto c = grid1.Cell6()) {
-                                                            ui.InputField(maxTravel, {.label = "Max Travel", .suffix = "mm", .valueFormat = "%.1f"});
-                                                        }
-                                                        if (auto c = grid1.Cell6()) {
-                                                            ui.InputField(maxVelocity, {.label = "Max Velocity", .suffix = "mm/s", .valueFormat = "%.1f"});
-                                                        }
-                                                        if (auto c = grid1.Cell12()) {
-                                                            ui.Select(sensorChannel, {
-                                                                "Channel A (Load Cell 50kN)",
-                                                                "Channel B (Optical Extensometer)",
-                                                                "Channel C (Laser Interferometer)"
-                                                            }, {
-                                                                .label = "Primary Sensor Channel",
-                                                                .description = "Active physical transducer bus",
-                                                                .layout = guikit::ElementLayout::Stacked
-                                                            });
-                                                        }
-                                                    }
-                                                }
-
-                                                if (auto card2 = ui.Card(makeCard())) {
-                                                    ui.Heading({.title = "Emergency Interlocks", .subtitle = "Hardware line supervision & failsafes", .variant = guikit::UiVariant::Danger, .size = headingSize, .wordWrap = headingWordWrap});
-                                                    if (auto grid2 = ui.Grid(makeGrid())) {
-                                                        if (auto c = grid2.Cell12()) {
-                                                            ui.Switch(hwEstop, {
-                                                                .label = "Hardware E-Stop Line",
-                                                                .description = "Continuous 24V loop monitoring",
-                                                                .variant = guikit::UiVariant::Danger
-                                                            });
-                                                        }
-                                                        if (auto c = grid2.Cell6()) {
-                                                            ui.Select(interlockMode, {
-                                                                "Immediate Cutoff",
-                                                                "Controlled Ramp-down",
-                                                                "Hold Position"
-                                                            }, {
-                                                                .label = "Interlock Action"
-                                                            });
-                                                        }
-                                                        if (auto c = grid2.Cell6()) {
-                                                            ui.InputField(rampDown, {.label = "Ramp Duration", .suffix = "ms", .valueFormat = "%.0f"});
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            // Right Column
-                                            if (auto colRight = dashboardGrid.Cell6({.gap = colGap})) {
-                                                if (auto card3 = ui.Card(makeCard())) {
-                                                    ui.Heading({.title = "Secondary Criteria & PID", .subtitle = "Dynamic closed-loop feedback parameters", .size = headingSize, .wordWrap = headingWordWrap});
-                                                    if (auto grid3 = ui.Grid(makeGrid())) {
-                                                        if (auto c = grid3.Cell6()) {
-                                                            ui.InputField(forceLimit, {.label = "Force Drop Limit", .suffix = "%", .valueFormat = "%.1f"});
-                                                        }
-                                                        if (auto c = grid3.Cell6()) {
-                                                            ui.InputField(yieldRatio, {.label = "Yield Ratio", .suffix = "%", .valueFormat = "%.2f"});
-                                                        }
-                                                        if (auto c = grid3.Cell4()) {
-                                                            ui.InputField(pGain, {.label = "P-Gain", .valueFormat = "%.2f"});
-                                                        }
-                                                        if (auto c = grid3.Cell4()) {
-                                                            ui.InputField(iGain, {.label = "I-Gain", .valueFormat = "%.3f"});
-                                                        }
-                                                        if (auto c = grid3.Cell4()) {
-                                                            ui.InputField(dGain, {.label = "D-Gain", .valueFormat = "%.3f"});
-                                                        }
-                                                        if (auto c = grid3.Cell12()) {
-                                                            ui.Switch(diagLogging, {
-                                                                .label = "Log High-Speed Telemetry",
-                                                                .description = "Record 10 kHz buffer to internal flash"
-                                                            });
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        if (auto cardAudit = ui.Card(makeCard())) {
-                                            ui.Heading({
-                                                .title = "Supervisor Hardware Loop Diagnostics",
-                                                .subtitle = "Live bus performance telemetry and continuous line supervision",
-                                                .icon = guikit::Icon::Check(),
-                                                .variant = guikit::UiVariant::Success,
-                                                .size = headingSize,
-                                                .wordWrap = headingWordWrap
-                                            });
-                                            if (auto g = ui.Grid(makeGrid())) {
-                                                if (auto c1 = g.Cell4()) {
-                                                    ui.Text("Safety Loop: CLOSED (Nominal)", {.role = guikit::TextRole::BodyMedium, .variant = guikit::UiVariant::Success});
-                                                }
-                                                if (auto c2 = g.Cell4()) {
-                                                    ui.Text("Bus Jitter: < 0.12 ms", {.role = guikit::TextRole::CodeMedium, .variant = guikit::UiVariant::Info});
-                                                }
-                                                if (auto c3 = g.Cell4()) {
-                                                    ui.Text("Supervisor Heartbeat: 1000 Hz", {.role = guikit::TextRole::CodeMedium});
-                                                }
-                                            }
-                                        }
-                                        break;
-                                    }
-
-                                    case NavCategory::AsmFormControls: {
-                                        // Overview Tab: Interactive Counter & Form
-                                        if (auto card = ui.Card(makeCard())) {
-                                            ui.Heading({.title = "Interactive Reactive State", .subtitle = "Pure immediate mode with zero external widget IDs and instant response.", .size = headingSize, .wordWrap = headingWordWrap});
-
-                                            if (auto actionRow = ui.Wrap({.gap = rowGap, .runGap = colGap, .align = guikit::Alignment::Center})) {
-                                                if (ui.Button({.label = "Increment (+1)", .icon = guikit::Icon::Plus(), .variant = guikit::UiVariant::Success})) {
-                                                    ++counter;
-                                                }
-                                                if (ui.Button({.label = "Decrement (-1)", .icon = guikit::Icon::Minus(), .variant = guikit::UiVariant::Warning})) {
-                                                    --counter;
-                                                }
-                                                if (ui.Button({.label = "Reset", .icon = guikit::Icon::Refresh(), .variant = guikit::UiVariant::Danger})) {
-                                                    counter = 0;
-                                                }
-
-                                                ui.Text(ui.Format("Value: {}", counter), {.role = guikit::TextRole::HeadlineMedium, .variant = guikit::UiVariant::Info});
-                                            }
-
-                                            if (auto togglesRow = ui.Wrap({.gap = rowGap, .runGap = colGap, .align = guikit::Alignment::Center})) {
-                                                ui.Checkbox(showTelemetry, {.label = "Show Telemetry", .variant = guikit::UiVariant::Info});
-                                                if (ui.Switch(formMode, {
-                                                    .label = "Form Mode",
-                                                    .description = "Toggle stacked vs default label layout",
-                                                    .layout = guikit::ElementLayout::Stacked
-                                                }).changed) {
-                                                    ui.InvalidateAll();
-                                                }
-                                                ui.Checkbox(true, {.label = "Auto-Scale", .disabled = true});
-                                            }
-
-                                            if (showTelemetry) {
-                                                ui.Heading({
-                                                    .title = "Telemetry Stream",
-                                                    .subtitle = "1000 samples/sec | Jitter < 0.2ms | Hardware loop nominal",
-                                                    .icon = guikit::Icon::Check(),
-                                                    .badge = "ACTIVE",
-                                                    .variant = guikit::UiVariant::Success,
-                                                    .size = headingSize,
-                                                    .wordWrap = headingWordWrap
-                                                });
-                                            }
-
-                                            const guikit::ElementLayout activeLayout = formMode ? guikit::ElementLayout::Stacked : guikit::ElementLayout::Top;
-
-                                            if (auto fieldsGrid = ui.Grid(makeGrid())) {
-                                                if (auto c1 = fieldsGrid.Cell3()) {
-                                                    ui.InputField(speedDrop, {
-                                                        .label = "Speed Drop dF/dt",
-                                                        .description = "Automatic stop of testing on load drop",
-                                                        .suffix = "%",
-                                                        .valueFormat = "%.0f",
-                                                        .layout = activeLayout
-                                                    });
-                                                }
-                                                if (auto c2 = fieldsGrid.Cell3()) {
-                                                    ui.InputField(sampleId, {
-                                                        .label = "Sample Identifier",
-                                                        .description = "Unique test specimen code",
-                                                        .placeholder = "Enter sample code...",
-                                                        .layout = activeLayout
-                                                    });
-                                                }
-                                                if (auto c3 = fieldsGrid.Cell3()) {
-                                                    ui.Select(baudIndex, {"9600 bps", "19200 bps", "38400 bps", "115200 bps"}, {
-                                                        .label = "Baud Rate",
-                                                        .description = "Serial communication bus rate",
-                                                        .layout = activeLayout
-                                                    });
-                                                }
-                                                if (auto c4 = fieldsGrid.Cell3()) {
-                                                    ui.Select(profileMode, {"Eco Saver", "Standard Performance", "Industrial High-Speed", "Extreme Calibration"}, {
-                                                        .label = "Operation Profile",
-                                                        .description = "Active runtime sensor & compute profile",
-                                                        .layout = activeLayout
-                                                    });
-                                                }
-                                            }
-
-                                            ui.Heading({
-                                                .title = "Precision Continuous & Stepped Sliders",
-                                                .subtitle = "Immediate-mode numeric sliders with wheel scrubbing, ticks, and step presets",
-                                                .icon = guikit::Icon::Settings(),
-                                                .size = headingSize,
-                                                .wordWrap = headingWordWrap
-                                            });
-
-                                            if (auto sliderGrid = ui.Grid(makeGrid())) {
-                                                if (auto c1 = sliderGrid.Cell4()) {
-                                                    ui.Slider(masterGain, 0.0f, 100.0f, {
-                                                        .label = "Master Analog Gain",
-                                                        .valueFormat = "%.1f dB"
-                                                    });
-                                                }
-                                                if (auto c2 = sliderGrid.Cell4()) {
-                                                    ui.Slider(channelCount, 1, 8, {
-                                                        .label = "ADC Active Channels",
-                                                        .valueFormat = "%d ch",
-                                                        .step = 1.0f
-                                                    });
-                                                }
-                                                if (auto c3 = sliderGrid.Cell4()) {
-                                                    ui.StepSlider(filterPreset, filterLabels, {
-                                                        .label = "DSP Filter Mode",
-                                                        .showTicks = true,
-                                                        .showLabels = true
-                                                    });
-                                                }
-                                            }
-                                        }
-                                        break;
-                                    }
-
-                                    case NavCategory::AsmFlexRibbon: {
-                                        // Flexbox Demo: Equal Stretch & Alignment
-                                        if (auto card = ui.Card(makeCard())) {
-                                            ui.Heading({.title = "Dynamic 3-Way Equal Stretch Layout", .subtitle = "Each button automatically receives exactly 33.3% available width via stretch = StretchMode::Fill.", .size = headingSize, .wordWrap = headingWordWrap});
-
-                                            if (auto stretchRow = ui.Row({.gap = rowGap})) {
-                                                ui.Button({.label = "Col 1 (Stretch)", .stretch = guikit::StretchMode::Fill});
-                                                ui.Button({.label = "Col 2 (Stretch)", .stretch = guikit::StretchMode::Fill});
-                                                ui.Button({.label = "Col 3 (Stretch)", .stretch = guikit::StretchMode::Fill});
-                                            }
-
-                                            ui.Heading({.title = "Horizontal Carousel Ribbon", .subtitle = "Autonomous scroll container with navigation arrows and mouse wheel support.", .size = headingSize, .wordWrap = headingWordWrap});
-                                            if (auto ribbon = ui.Carousel({.gap = carouselGap})) {
-                                                for (int k = 1; k <= 10; ++k) {
-                                                    ui.Button({
-                                                        .label = ui.Format("Module #{:02d}", k),
-                                                        .variant = (k % 3 == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Default
-                                                    });
-                                                }
-                                            }
-                                        }
-                                        break;
-                                    }
-
-                                    case NavCategory::AsmDiagnostics: {
-                                        // Diagnostics & System Audit
-                                        if (auto card = ui.Card(makeCard())) {
-                                            ui.Heading({
-                                                .title = "System Diagnostics & Network Audit",
-                                                .subtitle = "Operational module telemetry stream and live system diagnostics.",
-                                                .icon = guikit::Icon::Check(),
-                                                .size = headingSize,
-                                                .wordWrap = headingWordWrap
-                                            });
-                                            if (auto grid = ui.Grid(makeGrid())) {
-                                                if (auto c1 = grid.Cell6()) {
-                                                    ui.Text("Channel Status: ONLINE | Active bus node: [SUPERVISOR]",
-                                                            {.role = guikit::TextRole::BodyMedium, .variant = guikit::UiVariant::Success});
-                                                }
-                                                if (auto c2 = grid.Cell6()) {
-                                                    ui.Text("Latency: 0.18 ms | Packet Drop: 0.00% | CRC: OK",
-                                                            {.role = guikit::TextRole::CodeMedium, .variant = guikit::UiVariant::Info});
-                                                }
-                                                if (auto c3 = grid.Cell6()) {
-                                                    ui.Text("Memory Arena High Watermark: 24.8 KB",
-                                                            {.role = guikit::TextRole::CodeMedium, .variant = guikit::UiVariant::Secondary});
-                                                }
-                                                if (auto c4 = grid.Cell6()) {
-                                                    ui.Text("Frame Damage Rate: 0 full repaints / 99.8% partial",
-                                                            {.role = guikit::TextRole::CodeMedium, .variant = guikit::UiVariant::Success});
-                                                }
-                                            }
-                                        }
-                                        break;
-                                    }
-
-                                    case NavCategory::AsmThemeStudio: {
-                                        // Theme & Palette Studio
-                                        if (auto card = ui.Card(makeCard())) {
-                                            ui.Heading({
-                                                .title = "Theme & Palette Studio",
-                                                .subtitle = "Live token tweaking and contrast validation",
-                                                .size = headingSize,
-                                                .wordWrap = headingWordWrap
-                                            });
-
-                                            ui.Heading({.title = "Quick Accent Color Presets", .size = guikit::UiSize::Sm});
-                                            if (auto accentRow = ui.Wrap({.gap = 8.0f, .runGap = 8.0f})) {
-                                                auto makePreset = [&](std::string_view name, guikit::Color col) {
-                                                    if (ui.Button({.label = name, .size = guikit::UiSize::Sm})) {
-                                                        th.palette.accent = col;
-                                                        th.GetVariant(guikit::UiVariant::Primary).bg = col;
-                                                        th.palette.focusRing = col;
-                                                        ui.InvalidateAll();
-                                                    }
-                                                };
-                                                makePreset("Cyan", guikit::Color(6, 182, 212));
-                                                makePreset("Blue", guikit::Color(59, 130, 246));
-                                                makePreset("Purple", guikit::Color(168, 85, 247));
-                                                makePreset("Emerald", guikit::Color(16, 185, 129));
-                                                makePreset("Rose", guikit::Color(244, 63, 94));
-                                                makePreset("Amber", guikit::Color(245, 158, 11));
-                                            }
-
-                                            ui.Heading({.title = "Base Palette Tokens", .size = guikit::UiSize::Sm});
-                                            auto makeColorSliders = [&](std::string_view title, guikit::Color& c) {
-                                                float r = c.r, g = c.g, b = c.b;
-                                                bool changed = false;
-                                                ui.Text(title, {.role = guikit::TextRole::LabelMedium});
-                                                if (auto g_row = ui.Grid({.gap = 8.0f})) {
-                                                    if (auto c1 = g_row.Cell4()) { if (ui.Slider(r, 0.0f, 255.0f, {.label = "R", .valueFormat = "%.0f"}).changed) changed = true; }
-                                                    if (auto c2 = g_row.Cell4()) { if (ui.Slider(g, 0.0f, 255.0f, {.label = "G", .valueFormat = "%.0f"}).changed) changed = true; }
-                                                    if (auto c3 = g_row.Cell4()) { if (ui.Slider(b, 0.0f, 255.0f, {.label = "B", .valueFormat = "%.0f"}).changed) changed = true; }
-                                                }
-                                                if (changed) {
-                                                    c = guikit::Color(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), c.a);
-                                                    ui.InvalidateAll();
-                                                }
-                                            };
-
-                                            makeColorSliders("Primary Accent Fill", th.palette.accent);
-                                            makeColorSliders("Surface Color", th.palette.surface);
-                                            makeColorSliders("Background Color", th.palette.background);
-                                        }
-                                        break;
-                                    }
-
-                                    default: break;
+                                        DispatchAssemblyScreen(ui, selectedCategory, demoCtx);
                                     }
                                 }
                             }
                         }
                     }
                 }
-            }
 
                 // Sticky Footer Bar
                 if (auto footer = ui.Row({.align = guikit::Alignment::Center})) {
@@ -2959,11 +683,9 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
         }
 
 #ifndef __EMSCRIPTEN__
-        // Frame rate limiter and pacing:
-        // Ensures smooth 60 FPS pacing and prevents unconstrained spinning when presenting is skipped or VSync is off
         const auto frameEnd = std::chrono::steady_clock::now();
         const double frameElapsedMs = std::chrono::duration<double, std::milli>(frameEnd - frameWorkStart).count();
-        const double targetFrameMs = 1000.0 / 60.0; // 16.67 ms (60 FPS)
+        const double targetFrameMs = 1000.0 / 60.0;
         if (frameElapsedMs < targetFrameMs) {
             const double remainingMs = targetFrameMs - frameElapsedMs;
             if (!reactiveMode && !vsyncEnabled) {
@@ -2989,7 +711,6 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
             return;
         }
 
-        // Sync SDL window size with browser canvas CSS size when window is resized
         double cssW = 0.0, cssH = 0.0;
         if (emscripten_get_element_css_size("#canvas", &cssW, &cssH) == EMSCRIPTEN_RESULT_SUCCESS) {
             const int targetW = static_cast<int>(cssW);
@@ -3039,9 +760,6 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                     handleEvent(event);
                 }
             } else {
-                // Timeout expired with no events.
-                // If timeoutMs <= 0 (disabled periodic heartbeat / deep sleep), continue waiting.
-                // If timeoutMs > 0, the periodic heartbeat fired: proceed to render 1 frame to refresh metrics.
                 if (timeoutMs <= 0 && !ui.NeedsRepaint()) {
                     continue;
                 }

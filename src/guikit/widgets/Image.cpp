@@ -143,7 +143,7 @@ Response Image::Run(
         opts.width.value_or(0.0f),
         opts.height.value_or(0.0f),
         opts.maxHeight.value_or(0.0f),
-        opts.radius.value_or(-1.0f),
+        opts.borderRadius.value_or(-1.0f),
         opts.borderWidth,
         opts.borderColor.ToUint32(),
         opts.backgroundColor.ToUint32(),
@@ -289,7 +289,7 @@ void Image::Render(
     const Rect box = geom.controlRect;
     if (box.w <= 0.0f || box.h <= 0.0f) return;
 
-    const float rad = opts.radius.has_value() ? theme.Scale(*opts.radius) : 0.0f;
+    const float rad = opts.borderRadius.has_value() ? theme.Scale(*opts.borderRadius) : 0.0f;
     if (opts.checkerboard) {
         DrawCheckerboard(canvas, box, rad, theme);
     } else if (opts.backgroundColor.a > 0) {

@@ -35,7 +35,7 @@ struct ImageOptions {
     std::optional<float> height{std::nullopt};          ///< Explicit height in px (nullopt = auto from aspect ratio)
     std::optional<float> maxHeight{std::nullopt};       ///< Optional maximum height cap in px
     SizeMode heightMode{SizeMode::Fit};                 ///< Fit (auto/fixed) or Stretch (expand to fill parent height)
-    std::optional<float> radius{6.0f};                  ///< Corner radius in px
+    std::optional<float> borderRadius{6.0f};            ///< Corner radius in px
     float borderWidth{0.0f};                            ///< Optional frame border thickness in px
     Color borderColor{0, 0, 0, 0};                      ///< Optional frame border color (0 = theme.palette.borderSubtle)
     Color backgroundColor{0, 0, 0, 0};                  ///< Optional background fill color behind image

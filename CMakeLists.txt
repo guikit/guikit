@@ -12,7 +12,7 @@ endif()
 
 # Source files in UTF-8: MSVC otherwise assumes ANSI code page
 if (MSVC)
-    add_compile_options(/utf-8 /Zc:__cplusplus)
+    add_compile_options(/utf-8 /Zc:__cplusplus /MP)
 endif()
 
 # --- SDL3 (Submodule or System Package) ---
@@ -96,6 +96,26 @@ option(GUIKIT_BUILD_DEMO "Build GuiKit interactive demo" ON)
 if (GUIKIT_BUILD_DEMO)
     add_executable(guikit_demo
         examples/demo/main.cpp
+        examples/demo/elements/HeadingScreen.cpp
+        examples/demo/elements/ButtonScreen.cpp
+        examples/demo/elements/SliderScreen.cpp
+        examples/demo/elements/InputScreen.cpp
+        examples/demo/elements/SelectScreen.cpp
+        examples/demo/elements/SwitchScreen.cpp
+        examples/demo/elements/CheckboxScreen.cpp
+        examples/demo/panels/CardScreen.cpp
+        examples/demo/panels/TabBarScreen.cpp
+        examples/demo/panels/SidebarScreen.cpp
+        examples/demo/content/ImageScreen.cpp
+        examples/demo/content/MarkdownScreen.cpp
+        examples/demo/content/CodeEditorScreen.cpp
+        examples/demo/scenes/SchematicScreen.cpp
+        examples/demo/scenes/OsmMapScreen.cpp
+        examples/demo/assemblies/DashboardScreen.cpp
+        examples/demo/assemblies/FormControlsScreen.cpp
+        examples/demo/assemblies/FlexRibbonScreen.cpp
+        examples/demo/assemblies/DiagnosticsScreen.cpp
+        examples/demo/assemblies/ThemeStudioScreen.cpp
     )
     target_link_libraries(guikit_demo PRIVATE guikit SDL3::SDL3-static)
     if (EMSCRIPTEN)

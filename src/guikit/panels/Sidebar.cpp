@@ -35,7 +35,7 @@ ContainerScope Sidebar::Open(
     }
     node->heightMode = SizeMode::Stretch;
     node->padding = theme.ResolvePadding(opts.padding, activeSize);
-    node->cornerRadius = theme.ResolveRadius(opts.radius, activeSize);
+    node->cornerRadius = theme.ResolveRadius(opts.borderRadius, activeSize);
     node->clipChildren = opts.clipChildren;
     node->scrollOrientation = Orientation::Vertical;
     node->scrollbarPolicy = opts.scrollbar;

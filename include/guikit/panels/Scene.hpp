@@ -114,7 +114,7 @@ struct SceneOptions {
     bool showScrollbars{true};                          ///< Render 2D (X/Y) scrollbars when worldSize overflows viewport
     bool showControls{true};                            ///< Render floating Zoom HUD (-, Fit, 100%, +)
     bool clampToWorld{true};                            ///< Clamp panning to worldSize bounds when worldSize is finite
-    std::optional<float> radius{6.0f};
+    std::optional<float> borderRadius{6.0f};
     float borderWidth{1.0f};
     Color backgroundColor{0, 0, 0, 0};
     Color borderColor{0, 0, 0, 0};

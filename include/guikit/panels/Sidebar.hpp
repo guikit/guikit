@@ -29,7 +29,7 @@ struct SidebarOptions {
     Color backgroundColor{Color::Transparent()};
     Color borderColor{Color::Transparent()};
     float borderWidth{1.0f};
-    std::optional<float> radius{std::nullopt};      ///< Corner radius in pixels (nullopt = auto from theme)
+    std::optional<float> borderRadius{std::nullopt}; ///< Corner radius in pixels (nullopt = auto from theme)
     bool clipChildren{true};
     std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
