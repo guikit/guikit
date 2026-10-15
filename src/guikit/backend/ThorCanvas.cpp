@@ -10,7 +10,11 @@
 namespace guikit {
 
 ThorCanvas::ThorCanvas() {
-    uint32_t threads = std::max(1u, std::thread::hardware_concurrency());
+#ifdef __EMSCRIPTEN__
+    const uint32_t threads = 0;
+#else
+    const uint32_t threads = std::max(1u, std::thread::hardware_concurrency());
+#endif
     tvg::Initializer::init(threads);
     m_canvas = tvg::SwCanvas::gen(tvg::EngineOption::Default);
 
@@ -251,33 +255,72 @@ Vec2 ThorCanvas::MeasureText(std::string_view text, float fontSize) {
     return result;
 }
 
+Vec2 ThorCanvas::MeasureTextStyled(std::string_view text, float fontSize, FontStyle style) {
+    Vec2 base = MeasureText(text, fontSize);
+    if (style == FontStyle::Bold || style == FontStyle::BoldItalic) {
+        base.x += 0.6f;
+    }
+    return base;
+}
+
 float ThorCanvas::GetLineHeight(float fontSize) {
     if (fontSize <= 0.0f) return 0.0f;
     return fontSize * kDefaultLineHeightMultiplier;
 }
 
 void ThorCanvas::DrawText(std::string_view text, Vec2 pos, float fontSize, Color color) {
+    DrawTextStyled(text, pos, fontSize, color, FontStyle::Regular);
+}
+
+void ThorCanvas::DrawTextStyled(
+    std::string_view text,
+    Vec2 pos,
+    float fontSize,
+    Color color,
+    FontStyle style,
+    float angleDeg
+) {
     if (text.empty() || color.a == 0 || !m_canvas) return;
     if (!m_clipStack.empty() && (m_clipStack.back().w <= 0.0f || m_clipStack.back().h <= 0.0f)) return;
 
-    auto txt = tvg::Text::gen();
-    std::string textStr(text);
-    txt->text(textStr.c_str());
+    const bool isItalic = (style == FontStyle::Italic || style == FontStyle::BoldItalic);
+    const bool isBold = (style == FontStyle::Bold || style == FontStyle::BoldItalic);
+    const bool hasRot = std::abs(angleDeg) > 0.01f;
+    const float rad = hasRot ? (angleDeg * 0.017453292519943295f) : 0.0f;
+    const float cosA = hasRot ? std::cos(rad) : 1.0f;
+    const float sinA = hasRot ? std::sin(rad) : 0.0f;
 
-    if (m_fontLoaded) {
-        if (m_defaultFontPath.empty() || txt->font(m_defaultFontPath.c_str()) != tvg::Result::Success) {
-            txt->font(nullptr);
+    auto emitTextPass = [&](float offset) {
+        auto txt = tvg::Text::gen();
+        std::string textStr(text);
+        txt->text(textStr.c_str());
+
+        if (m_fontLoaded) {
+            if (m_defaultFontPath.empty() || txt->font(m_defaultFontPath.c_str()) != tvg::Result::Success) {
+                txt->font(nullptr);
+            }
         }
+
+        txt->size(fontSize * m_scale);
+        if (isItalic) {
+            txt->italic(0.18f);
+        }
+        txt->fill(color.r, color.g, color.b);
+        txt->opacity(color.a);
+        txt->align(0.0f, 0.0f);
+        if (hasRot) {
+            txt->rotate(angleDeg);
+        }
+        txt->translate((pos.x + offset * cosA) * m_scale, (pos.y + offset * sinA) * m_scale);
+
+        ApplyClip(txt);
+        m_canvas->add(txt);
+    };
+
+    emitTextPass(0.0f);
+    if (isBold) {
+        emitTextPass(0.55f);
     }
-
-    txt->size(fontSize * m_scale);
-    txt->fill(color.r, color.g, color.b);
-    txt->opacity(color.a);
-    txt->align(0.0f, 0.0f);
-    txt->translate(pos.x * m_scale, pos.y * m_scale);
-
-    ApplyClip(txt);
-    m_canvas->add(txt);
 }
 
 void ThorCanvas::DrawTextBox(
@@ -350,6 +393,182 @@ void ThorCanvas::DrawLine(Vec2 p1, Vec2 p2, Color color, float strokeWidth) {
 
     ApplyClip(shape);
     m_canvas->add(shape);
+}
+
+void ThorCanvas::DrawTriangle(
+    Vec2 p1,
+    Vec2 p2,
+    Vec2 p3,
+    Color fill,
+    Color stroke,
+    float strokeWidth
+) {
+    if ((fill.a == 0 && (stroke.a == 0 || strokeWidth <= 0.0f)) || !m_canvas) return;
+    const Vec2 sp1(p1.x * m_scale, p1.y * m_scale);
+    const Vec2 sp2(p2.x * m_scale, p2.y * m_scale);
+    const Vec2 sp3(p3.x * m_scale, p3.y * m_scale);
+
+    if (!m_clipStack.empty()) {
+        const Rect& cr = m_clipStack.back();
+        if (cr.w <= 0.0f || cr.h <= 0.0f) return;
+        const float minX = std::min({sp1.x, sp2.x, sp3.x}) - strokeWidth * m_scale;
+        const float minY = std::min({sp1.y, sp2.y, sp3.y}) - strokeWidth * m_scale;
+        const float maxX = std::max({sp1.x, sp2.x, sp3.x}) + strokeWidth * m_scale;
+        const float maxY = std::max({sp1.y, sp2.y, sp3.y}) + strokeWidth * m_scale;
+        if (!Rect(minX, minY, maxX - minX, maxY - minY).Intersects(cr)) return;
+    }
+
+    auto shape = tvg::Shape::gen();
+    shape->moveTo(sp1.x, sp1.y);
+    shape->lineTo(sp2.x, sp2.y);
+    shape->lineTo(sp3.x, sp3.y);
+    shape->close();
+
+    if (fill.a > 0) {
+        shape->fill(fill.r, fill.g, fill.b, fill.a);
+    }
+    if (stroke.a > 0 && strokeWidth > 0.0f) {
+        shape->strokeWidth(strokeWidth * m_scale);
+        shape->strokeJoin(tvg::StrokeJoin::Round);
+        shape->strokeFill(stroke.r, stroke.g, stroke.b, stroke.a);
+    }
+
+    ApplyClip(shape);
+    m_canvas->add(shape);
+}
+
+const ThorCanvas::ImageCacheEntry& ThorCanvas::ResolveImageEntry(std::string_view source) {
+    static const ImageCacheEntry kEmptyEntry{};
+    if (source.empty()) return kEmptyEntry;
+
+    std::string key(source);
+    auto it = m_imageCache.find(key);
+    if (it != m_imageCache.end()) {
+        return it->second;
+    }
+
+    ImageCacheEntry entry{};
+    std::string_view trimmed = source;
+    while (!trimmed.empty() && (trimmed.front() == ' ' || trimmed.front() == '\t' || trimmed.front() == '\n' || trimmed.front() == '\r')) {
+        trimmed.remove_prefix(1);
+    }
+
+    auto* probe = tvg::Picture::gen();
+    if (trimmed.starts_with("<svg") || trimmed.starts_with("<?xml")) {
+        entry.isInlineSvg = true;
+        entry.resolvedDataOrPath = std::string(trimmed);
+        if (probe->load(entry.resolvedDataOrPath.data(),
+                        static_cast<uint32_t>(entry.resolvedDataOrPath.size()),
+                        "svg",
+                        nullptr,
+                        false) == tvg::Result::Success) {
+            float w = 0.0f, h = 0.0f;
+            probe->size(&w, &h);
+            if (w > 0.0f && h > 0.0f) {
+                entry.size = {w, h};
+                entry.valid = true;
+            }
+        }
+    } else {
+        const char* prefixes[] = {"", "../", "../../", "../../../"};
+        for (const char* prefix : prefixes) {
+            std::string candidate = std::string(prefix) + key;
+            if (probe->load(candidate.c_str()) == tvg::Result::Success) {
+                float w = 0.0f, h = 0.0f;
+                probe->size(&w, &h);
+                if (w > 0.0f && h > 0.0f) {
+                    entry.resolvedDataOrPath = std::move(candidate);
+                    entry.size = {w, h};
+                    entry.valid = true;
+                    break;
+                }
+            }
+        }
+    }
+    delete probe;
+
+    auto [insertedIt, _] = m_imageCache.emplace(std::move(key), std::move(entry));
+    return insertedIt->second;
+}
+
+Vec2 ThorCanvas::GetImageSize(std::string_view source) {
+    const auto& entry = ResolveImageEntry(source);
+    return entry.valid ? entry.size : Vec2{0.0f, 0.0f};
+}
+
+bool ThorCanvas::DrawImage(
+    std::string_view source,
+    Rect destRect,
+    float cornerRadius,
+    uint8_t opacity
+) {
+    if (source.empty() || opacity == 0 || destRect.w <= 0.0f || destRect.h <= 0.0f || !m_canvas) {
+        return false;
+    }
+
+    const Rect sBounds(destRect.x * m_scale, destRect.y * m_scale, destRect.w * m_scale, destRect.h * m_scale);
+    if (!m_clipStack.empty()) {
+        const Rect& cr = m_clipStack.back();
+        if (cr.w <= 0.0f || cr.h <= 0.0f || !sBounds.Intersects(cr)) {
+            return true; // Valid image, simply clipped out of view
+        }
+    }
+
+    const auto& entry = ResolveImageEntry(source);
+    if (!entry.valid || entry.size.x <= 0.0f || entry.size.y <= 0.0f) {
+        return false;
+    }
+
+    auto* pic = tvg::Picture::gen();
+    tvg::Result res = tvg::Result::InvalidArguments;
+    if (entry.isInlineSvg) {
+        res = pic->load(entry.resolvedDataOrPath.data(),
+                        static_cast<uint32_t>(entry.resolvedDataOrPath.size()),
+                        "svg",
+                        nullptr,
+                        false);
+    } else {
+        res = pic->load(entry.resolvedDataOrPath.c_str());
+    }
+
+    if (res != tvg::Result::Success) {
+        delete pic;
+        return false;
+    }
+
+    const float sx = sBounds.w / entry.size.x;
+    const float sy = sBounds.h / entry.size.y;
+    const tvg::Matrix m = {
+        sx, 0.0f, sBounds.x,
+        0.0f, sy, sBounds.y,
+        0.0f, 0.0f, 1.0f
+    };
+    pic->transform(m);
+
+    if (opacity < 255) {
+        pic->opacity(opacity);
+    }
+
+    const float sRad = std::max(0.0f, cornerRadius * m_scale);
+    if (sRad > 0.0f) {
+        Rect clipR = sBounds;
+        float effRad = sRad;
+        if (!m_clipStack.empty()) {
+            const Rect& activeClip = m_clipStack.back();
+            if (!activeClip.Contains(sBounds.Pos()) || !activeClip.Contains({sBounds.Right(), sBounds.Bottom()})) {
+                clipR = sBounds.Intersect(activeClip);
+                effRad = 0.0f;
+            }
+        }
+        auto* clipper = tvg::Shape::gen();
+        clipper->appendRect(clipR.x, clipR.y, clipR.w, clipR.h, effRad, effRad);
+        pic->clip(clipper);
+    } else {
+        ApplyClip(pic);
+    }
+
+    m_canvas->add(pic);
+    return true;
 }
 
 } // namespace guikit

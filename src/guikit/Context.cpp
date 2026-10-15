@@ -312,6 +312,10 @@ ContainerScope Context::Sidebar(SidebarOptions opts, std::source_location loc) {
     return Open<guikit::Sidebar>(opts, loc);
 }
 
+SceneScope Context::Scene(SceneOptions opts, std::source_location loc) {
+    return Open<guikit::Scene>(opts, loc);
+}
+
 Response Context::Button(ButtonOptions opts, std::source_location loc) {
     return Run<guikit::Button>(opts, loc);
 }
@@ -334,6 +338,18 @@ Response Context::Text(UiText label, TextOptions opts, std::source_location loc)
 
 Response Context::Heading(HeadingOptions opts, std::source_location loc) {
     return Run<guikit::Heading>(opts, loc);
+}
+
+Response Context::Image(std::string_view source, ImageOptions opts, std::source_location loc) {
+    return Run<guikit::Image>(source, opts, loc);
+}
+
+Response Context::Image(ImageOptions opts, std::source_location loc) {
+    return Run<guikit::Image>(opts.source, opts, loc);
+}
+
+MarkdownResponse Context::Markdown(std::string_view markdownText, const MarkdownOptions& opts, std::source_location loc) {
+    return Run<guikit::Markdown>(markdownText, opts, loc);
 }
 
 Response Context::Switch(bool& value, SwitchOptions opts, std::source_location loc) {
@@ -1009,6 +1025,9 @@ static Rect GetNodeContentClipRect(const Node* node, const UiTheme& theme) {
     if (node->type == NodeType::ScrollArea || (node->type == NodeType::Sidebar && node->sidebarScrollable)) {
         return ScrollArea::GetContentClipRect(node, theme);
     }
+    if (node->type == NodeType::Scene) {
+        return Scene::GetViewportRect(node, nullptr, theme);
+    }
     if (node->type == NodeType::Carousel) {
         return Carousel::GetContentClipRect(node);
     }
@@ -1046,6 +1065,8 @@ void Context::UpdateScrollAreasRecursive(Node* node) {
 
     if (node->type == NodeType::ScrollArea || (node->type == NodeType::Sidebar && node->sidebarScrollable)) {
         ScrollArea::Update(*this, node);
+    } else if (node->type == NodeType::Scene) {
+        Scene::Update(*this, node);
     } else if (node->type == NodeType::Carousel) {
         Carousel::Update(*this, node);
     }

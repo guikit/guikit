@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500">
+  <rect x="0" y="0" width="800" height="500" rx="16" fill="#0B1120" stroke="#1E293B" stroke-width="2"/>
+
+  <!-- Subtle background grid -->
+  <g stroke="#1E293B" stroke-width="1">
+    <line x1="0" y1="100" x2="800" y2="100"/>
+    <line x1="0" y1="200" x2="800" y2="200"/>
+    <line x1="0" y1="300" x2="800" y2="300"/>
+    <line x1="0" y1="400" x2="800" y2="400"/>
+    <line x1="160" y1="0" x2="160" y2="500"/>
+    <line x1="320" y1="0" x2="320" y2="500"/>
+    <line x1="480" y1="0" x2="480" y2="500"/>
+    <line x1="640" y1="0" x2="640" y2="500"/>
+  </g>
+
+  <!-- Signal bus traces -->
+  <polyline points="120,130 260,130 300,190 420,190" fill="none" stroke="#38BDF8" stroke-width="3.5"/>
+  <polyline points="120,360 250,360 300,290 420,290" fill="none" stroke="#A855F7" stroke-width="3.5"/>
+  <polyline points="540,240 680,240" fill="none" stroke="#10B981" stroke-width="4"/>
+  <polyline points="480,140 480,80 680,80" fill="none" stroke="#F59E0B" stroke-width="3"/>
+  <polyline points="480,340 480,410 680,410" fill="none" stroke="#EC4899" stroke-width="3"/>
+
+  <!-- Node 1: Sensor Input A -->
+  <rect x="44" y="86" width="110" height="88" rx="12" fill="#1E293B" stroke="#38BDF8" stroke-width="2.5"/>
+  <circle cx="99" cy="130" r="22" fill="#0284C7" fill-opacity="0.3" stroke="#38BDF8" stroke-width="2"/>
+  <circle cx="99" cy="130" r="7" fill="#38BDF8"/>
+
+  <!-- Node 2: Sensor Input B -->
+  <rect x="44" y="316" width="110" height="88" rx="12" fill="#1E293B" stroke="#A855F7" stroke-width="2.5"/>
+  <polygon points="99,336 124,380 74,380" fill="#7E22CE" fill-opacity="0.3" stroke="#C084FC" stroke-width="2"/>
+
+  <!-- Central Processor Core -->
+  <rect x="380" y="140" width="200" height="200" rx="18" fill="#0F172A" stroke="#38BDF8" stroke-width="3"/>
+  <rect x="404" y="164" width="152" height="152" rx="12" fill="#1E293B" stroke="#6366F1" stroke-width="2"/>
+  <circle cx="480" cy="240" r="46" fill="#4F46E5" fill-opacity="0.25" stroke="#818CF8" stroke-width="2.5"/>
+  <circle cx="480" cy="240" r="18" fill="#38BDF8"/>
+
+  <!-- Output Stage Top -->
+  <rect x="640" y="44" width="116" height="72" rx="10" fill="#1E293B" stroke="#F59E0B" stroke-width="2.5"/>
+  <rect x="664" y="68" width="68" height="24" rx="6" fill="#F59E0B" fill-opacity="0.35"/>
+
+  <!-- Output Stage Center -->
+  <rect x="640" y="196" width="116" height="88" rx="12" fill="#1E293B" stroke="#10B981" stroke-width="2.5"/>
+  <circle cx="698" cy="240" r="24" fill="#059669" fill-opacity="0.35" stroke="#34D399" stroke-width="2.5"/>
+  <polyline points="686,240 695,249 712,231" fill="none" stroke="#34D399" stroke-width="3"/>
+
+  <!-- Output Stage Bottom -->
+  <rect x="640" y="374" width="116" height="72" rx="10" fill="#1E293B" stroke="#EC4899" stroke-width="2.5"/>
+  <rect x="664" y="398" width="68" height="24" rx="6" fill="#EC4899" fill-opacity="0.35"/>
+
+  <!-- Solder / junction points -->
+  <circle cx="260" cy="130" r="5" fill="#38BDF8"/>
+  <circle cx="300" cy="190" r="5" fill="#38BDF8"/>
+  <circle cx="250" cy="360" r="5" fill="#C084FC"/>
+  <circle cx="300" cy="290" r="5" fill="#C084FC"/>
+  <circle cx="480" cy="80" r="5" fill="#F59E0B"/>
+  <circle cx="480" cy="410" r="5" fill="#EC4899"/>
+</svg>

@@ -201,6 +201,8 @@ ElementGeometry ElementComposer::Resolve(
         const float descH = geom.hasDesc
             ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas)
             : 0.0f;
+        const float availCtrlH = std::max(0.0f, bounds.h - (geom.hasLabel ? labelH + spec.labelGap : 0.0f) - (geom.hasDesc ? descH + spec.descGap : 0.0f));
+        const float ctrlH = spec.stretchHeightWhenStandalone ? availCtrlH : intrinsicControlSize.y;
         const float blockX = bounds.x;
         const float ctrlX = blockX + (blockW - ctrlW) * alignFactor;
 
@@ -209,7 +211,7 @@ ElementGeometry ElementComposer::Resolve(
             geom.labelRect = Rect(blockX, curY, blockW, labelH);
             curY += labelH + spec.labelGap;
         }
-        geom.controlRect = Rect(ctrlX, curY, ctrlW, intrinsicControlSize.y);
+        geom.controlRect = Rect(ctrlX, curY, ctrlW, ctrlH);
         curY += geom.controlRect.h + spec.descGap;
         if (geom.hasDesc) {
             geom.descRect = Rect(blockX, curY, blockW, descH);
@@ -222,6 +224,8 @@ ElementGeometry ElementComposer::Resolve(
         const float descH = geom.hasDesc
             ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas)
             : 0.0f;
+        const float textTotalH = (geom.hasLabel ? labelH : 0.0f) + (geom.hasDesc ? (geom.hasLabel ? spec.descGap : 0.0f) + descH : 0.0f) + spec.labelGap;
+        const float ctrlH = spec.stretchHeightWhenStandalone ? std::max(0.0f, bounds.h - textTotalH) : intrinsicControlSize.y;
         const float blockX = bounds.x;
         const float ctrlX = blockX + (blockW - ctrlW) * alignFactor;
 
@@ -235,7 +239,7 @@ ElementGeometry ElementComposer::Resolve(
             curY += descH;
         }
         curY += spec.labelGap;
-        geom.controlRect = Rect(ctrlX, curY, ctrlW, intrinsicControlSize.y);
+        geom.controlRect = Rect(ctrlX, curY, ctrlW, ctrlH);
     } else if (spec.layout == ElementLayout::Bottom) {
         const float blockW = compactNaturalBlock ? std::min(bounds.w, std::max(ctrlW, measuredTextW)) : bounds.w;
         const float labelH = geom.hasLabel
@@ -244,11 +248,13 @@ ElementGeometry ElementComposer::Resolve(
         const float descH = geom.hasDesc
             ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas)
             : 0.0f;
+        const float textTotalH = spec.descGap + (geom.hasLabel ? labelH : 0.0f) + (geom.hasDesc ? (geom.hasLabel ? spec.descGap : 0.0f) + descH : 0.0f);
+        const float ctrlH = spec.stretchHeightWhenStandalone ? std::max(0.0f, bounds.h - textTotalH) : intrinsicControlSize.y;
         const float blockX = bounds.x;
         const float ctrlX = blockX + (blockW - ctrlW) * alignFactor;
 
         float curY = bounds.y;
-        geom.controlRect = Rect(ctrlX, curY, ctrlW, intrinsicControlSize.y);
+        geom.controlRect = Rect(ctrlX, curY, ctrlW, ctrlH);
         curY += geom.controlRect.h + spec.descGap;
         if (geom.hasLabel) {
             geom.labelRect = Rect(blockX, curY, blockW, labelH);
@@ -276,13 +282,14 @@ ElementGeometry ElementComposer::Resolve(
 
         const float totalTextH = (geom.hasLabel && geom.hasDesc) ? (labelH + spec.descGap + descH) : (geom.hasLabel ? labelH : descH);
         const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
+        const float ctrlH = spec.stretchHeightWhenStandalone ? bounds.h : intrinsicControlSize.y;
 
         if (spec.inlineOrder == InlineOrder::LabelFirst) {
             float ctrlX = bounds.x + bounds.w - ctrlW;
             if (compactNaturalBlock) {
                 ctrlX = bounds.x + (textBlockW > 0.0f ? textBlockW + gap : 0.0f);
             }
-            geom.controlRect = Rect(ctrlX, bounds.y + (bounds.h - intrinsicControlSize.y) * 0.5f, ctrlW, intrinsicControlSize.y);
+            geom.controlRect = Rect(ctrlX, bounds.y + (bounds.h - ctrlH) * 0.5f, ctrlW, ctrlH);
 
             float textY = startY;
             if (geom.hasLabel) {
@@ -294,7 +301,7 @@ ElementGeometry ElementComposer::Resolve(
             }
         } else {
             // InlineOrder::ControlFirst
-            geom.controlRect = Rect(bounds.x, bounds.y + (bounds.h - intrinsicControlSize.y) * 0.5f, ctrlW, intrinsicControlSize.y);
+            geom.controlRect = Rect(bounds.x, bounds.y + (bounds.h - ctrlH) * 0.5f, ctrlW, ctrlH);
 
             float textX = bounds.x + ctrlW + gap;
             if (!compactNaturalBlock) {

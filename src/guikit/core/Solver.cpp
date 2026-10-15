@@ -182,10 +182,13 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         }
         const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
         if (node->childCount == 0) {
+            float h = node->intrinsicSize.y;
             if (node->measureFn) {
-                return node->measureFn(node, availableWidth, canvas, activeTheme).y;
+                h = node->measureFn(node, availableWidth, canvas, activeTheme).y;
+            } else if (node->aspectRatio > 0.0f && availableWidth > 0.0f) {
+                h = availableWidth / node->aspectRatio;
             }
-            return node->intrinsicSize.y;
+            return std::max(node->minHeight, h);
         }
 
         if (node->direction == FlexDirection::Wrap) {
@@ -233,6 +236,51 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
 
             return totalH + node->padding.Vertical();
+        }
+
+        if (node->direction == FlexDirection::Row && node->heightMode == SizeMode::Fit) {
+            const float contentW = std::max(0.0f, availableWidth - node->padding.Horizontal());
+            uint32_t flowChildCount = 0;
+            float baseSum = 0.0f;
+            float totalFlexGrow = 0.0f;
+
+            for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+                if (child->type == NodeType::Sidebar) continue;
+                ++flowChildCount;
+                if (child->isSpacer || child->widthMode == SizeMode::Stretch) {
+                    totalFlexGrow += std::max(0.01f, child->flexGrow);
+                } else if (child->widthMode == SizeMode::Fixed) {
+                    baseSum += child->fixedWidth;
+                } else {
+                    baseSum += child->intrinsicSize.x;
+                }
+            }
+
+            const float totalGap = (flowChildCount > 1)
+                ? static_cast<float>(flowChildCount - 1) * node->gap
+                : 0.0f;
+            const float freeSpace = std::max(0.0f, contentW - totalGap - baseSum);
+
+            float maxH = 0.0f;
+            for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+                if (child->isSpacer || child->type == NodeType::Sidebar) continue;
+                float childW = 0.0f;
+                if (child->widthMode == SizeMode::Stretch) {
+                    childW = (totalFlexGrow > 0.0f)
+                        ? (freeSpace * (std::max(0.01f, child->flexGrow) / totalFlexGrow))
+                        : 0.0f;
+                } else if (child->widthMode == SizeMode::Fixed) {
+                    childW = child->fixedWidth;
+                } else {
+                    childW = child->intrinsicSize.x;
+                }
+                if (child->minWidth > 0.0f) {
+                    childW = std::max(childW, child->minWidth);
+                }
+                const float ch = ResolveNodeHeight(child, childW, canvas, activeTheme);
+                maxH = std::max(maxH, ch);
+            }
+            return maxH + node->padding.Vertical();
         }
 
         if (node->direction == FlexDirection::Column && node->heightMode == SizeMode::Fit) {
@@ -367,16 +415,50 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         if (node->type == NodeType::ScrollArea || (node->type == NodeType::Sidebar && node->sidebarScrollable)) {
             const ScrollbarMetrics& sm = activeTheme.GetScrollbar(node->uiSize);
             const float fullW = std::max(0.0f, node->computedRect.w - node->padding.Horizontal());
-            const float viewportH = std::max(0.0f, node->computedRect.h - node->padding.Vertical());
+            const float fullH = std::max(0.0f, node->computedRect.h - node->padding.Vertical());
+            const bool allowV = (node->scrollOrientation == Orientation::Vertical || node->scrollOrientation == Orientation::Both);
+            const bool allowH = (node->scrollOrientation == Orientation::Horizontal || node->scrollOrientation == Orientation::Both);
 
-            // 1. Determine if vertical scrollbar is required
-            bool needScrollbar = (node->scrollbarPolicy == VisibilityPolicy::Always);
-            if (!needScrollbar && node->scrollbarPolicy == VisibilityPolicy::Auto && node->scrollOrientation != Orientation::Horizontal) {
+            // 1. Determine if horizontal scrollbar is required
+            float naturalContentW = fullW;
+            if (allowH) {
+                if (node->direction == FlexDirection::Row) {
+                    float sumW = 0.0f;
+                    uint32_t active = 0;
+                    for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+                        if (child->isSpacer || child->type == NodeType::Sidebar) continue;
+                        sumW += (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
+                        ++active;
+                    }
+                    if (active > 1) sumW += static_cast<float>(active - 1) * node->gap;
+                    naturalContentW = std::max(fullW, sumW);
+                } else {
+                    float maxW = fullW;
+                    for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+                        if (child->isSpacer || child->type == NodeType::Sidebar) continue;
+                        const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
+                        maxW = std::max(maxW, cw);
+                    }
+                    naturalContentW = maxW;
+                }
+            }
+
+            const bool needScrollbarX = allowH && (
+                node->scrollbarPolicy == VisibilityPolicy::Always ||
+                (node->scrollbarPolicy == VisibilityPolicy::Auto && naturalContentW > fullW + 0.5f)
+            );
+            const float gutterY = needScrollbarX ? sm.gutter : 0.0f;
+            const float viewportH = std::max(0.0f, fullH - gutterY);
+
+            // 2. Determine if vertical scrollbar is required
+            bool needScrollbarY = allowV && (node->scrollbarPolicy == VisibilityPolicy::Always);
+            if (!needScrollbarY && allowV && node->scrollbarPolicy == VisibilityPolicy::Auto) {
+                const float measureW = allowH ? naturalContentW : fullW;
                 float testH = 0.0f;
                 uint32_t active = 0;
                 for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                     if (child->isSpacer || child->type == NodeType::Sidebar) continue;
-                    testH += ResolveNodeHeight(child, fullW, canvas, activeTheme);
+                    testH += ResolveNodeHeight(child, measureW, canvas, activeTheme);
                     ++active;
                 }
                 if (active > 1) {
@@ -384,38 +466,44 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 }
                 testH += node->padding.Vertical();
                 if (testH > viewportH) {
-                    needScrollbar = true;
+                    needScrollbarY = true;
                 }
             }
 
-            // 2. Reserve gutter so scrollbar never overlays content
-            const float activeGutter = (needScrollbar && node->scrollOrientation != Orientation::Horizontal)
-                ? sm.gutter
-                : 0.0f;
-            const float viewportW = std::max(0.0f, fullW - activeGutter);
+            // 3. Reserve gutter so scrollbar never overlays content
+            const float activeGutterX = (needScrollbarY && allowV) ? sm.gutter : 0.0f;
+            const float viewportW = std::max(0.0f, fullW - activeGutterX);
+            const float effectiveContentW = allowH ? std::max(viewportW, naturalContentW) : viewportW;
 
             float contentH = 0.0f;
             uint32_t activeChildren = 0;
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->isSpacer || child->type == NodeType::Sidebar) continue;
-                contentH += ResolveNodeHeight(child, viewportW, canvas, activeTheme);
+                const float ch = ResolveNodeHeight(child, effectiveContentW, canvas, activeTheme);
+                if (node->direction == FlexDirection::Row) {
+                    contentH = std::max(contentH, ch);
+                } else {
+                    contentH += ch;
+                }
                 ++activeChildren;
             }
-            if (activeChildren > 1) {
+            if (node->direction != FlexDirection::Row && activeChildren > 1) {
                 contentH += static_cast<float>(activeChildren - 1) * node->gap;
             }
             contentH += node->padding.Vertical();
 
-            node->scrollContentSize = {viewportW, contentH};
+            node->scrollContentSize = {effectiveContentW + node->padding.Horizontal(), contentH};
 
-            const float maxScrollY = std::max(0.0f, contentH - viewportH);
+            const float maxScrollY = allowV ? std::max(0.0f, contentH - viewportH) : 0.0f;
+            const float maxScrollX = allowH ? std::max(0.0f, effectiveContentW - viewportW) : 0.0f;
             node->scrollOffset.y = std::clamp(node->scrollOffset.y, 0.0f, maxScrollY);
+            node->scrollOffset.x = std::clamp(node->scrollOffset.x, 0.0f, maxScrollX);
 
             const Rect scrollContentRect(
                 node->computedRect.x + node->padding.left - node->scrollOffset.x,
                 node->computedRect.y + node->padding.top - node->scrollOffset.y,
-                viewportW,
-                contentH
+                effectiveContentW,
+                allowV ? contentH : viewportH
             );
 
             if (node->direction == FlexDirection::Grid) {
@@ -572,6 +660,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             } else if (child->heightMode == SizeMode::Fit || (child->heightMode != SizeMode::Stretch && node->align != Alignment::Stretch)) {
                 childH = ResolveNodeHeight(child, childW, canvas, theme);
             }
+            if (!child->isSpacer && child->minHeight > 0.0f) {
+                childH = std::max(childH, child->minHeight);
+            }
 
             float childY = contentRect.y;
             if (node->align == Alignment::Center) {
@@ -677,6 +768,10 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
     }
 
     static void ArrangeColumn(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas) {
+        const bool parentHasDefiniteHeight = (node->heightMode != SizeMode::Fit) &&
+            (node->type != NodeType::ScrollArea) &&
+            !(node->type == NodeType::Sidebar && node->sidebarScrollable);
+
         uint32_t flowChildCount = 0;
         float baseSum = 0.0f;
         float totalFlexGrow = 0.0f;
@@ -685,12 +780,12 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
             if (child->type == NodeType::Sidebar) continue;
             ++flowChildCount;
-            if (child->isSpacer || child->heightMode == SizeMode::Stretch) {
+            if (child->isSpacer || (child->heightMode == SizeMode::Stretch && parentHasDefiniteHeight)) {
                 totalFlexGrow += std::max(0.01f, child->flexGrow);
                 ++flexCount;
             } else if (child->heightMode == SizeMode::Fixed) {
                 baseSum += child->fixedHeight;
-            } else { // SizeMode::Fit
+            } else if (!child->isSpacer) { // SizeMode::Fit or Stretch inside Fit/ScrollArea parent
                 baseSum += ResolveNodeHeight(child, contentRect.w, canvas, theme);
             }
         }
@@ -714,13 +809,16 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
             if (child->type == NodeType::Sidebar) continue;
             float childH = 0.0f;
-            if (child->isSpacer || child->heightMode == SizeMode::Stretch) {
+            if (child->isSpacer || (child->heightMode == SizeMode::Stretch && parentHasDefiniteHeight)) {
                 childH = (totalFlexGrow > 0.0f)
                     ? (freeSpace * (std::max(0.01f, child->flexGrow) / totalFlexGrow))
                     : 0.0f;
+                if (!child->isSpacer && child->minHeight > 0.0f) {
+                    childH = std::max(childH, child->minHeight);
+                }
             } else if (child->heightMode == SizeMode::Fixed) {
                 childH = child->fixedHeight;
-            } else { // SizeMode::Fit
+            } else if (!child->isSpacer) { // SizeMode::Fit or Stretch inside Fit/ScrollArea parent
                 childH = ResolveNodeHeight(child, contentRect.w, canvas, theme);
             }
 

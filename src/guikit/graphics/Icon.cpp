@@ -222,9 +222,45 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
                 break;
             }
 
+            case IconId::Info: {
+                const float r = s * 0.40f;
+                canvas.DrawRoundRect(Rect(cx - r, cy - r, r * 2.0f, r * 2.0f), r, Color(0, 0, 0, 0), tint, stroke);
+                canvas.DrawLine(Vec2(cx, cy - s * 0.04f), Vec2(cx, cy + s * 0.24f), tint, stroke * 1.2f);
+                canvas.DrawRoundRect(Rect(cx - stroke * 0.6f, cy - s * 0.24f, stroke * 1.2f, stroke * 1.2f), stroke * 0.6f, tint);
+                break;
+            }
+
+            case IconId::Warning: {
+                canvas.DrawLine(Vec2(cx, cy - s * 0.38f), Vec2(cx - s * 0.40f, cy + s * 0.34f), tint, stroke);
+                canvas.DrawLine(Vec2(cx, cy - s * 0.38f), Vec2(cx + s * 0.40f, cy + s * 0.34f), tint, stroke);
+                canvas.DrawLine(Vec2(cx - s * 0.40f, cy + s * 0.34f), Vec2(cx + s * 0.40f, cy + s * 0.34f), tint, stroke);
+                canvas.DrawLine(Vec2(cx, cy - s * 0.12f), Vec2(cx, cy + s * 0.12f), tint, stroke * 1.15f);
+                canvas.DrawRoundRect(Rect(cx - stroke * 0.6f, cy + s * 0.20f, stroke * 1.2f, stroke * 1.2f), stroke * 0.6f, tint);
+                break;
+            }
+
+            case IconId::Flash: {
+                canvas.DrawLine(Vec2(cx + s * 0.08f, cy - s * 0.38f), Vec2(cx - s * 0.22f, cy + s * 0.04f), tint, stroke * 1.1f);
+                canvas.DrawLine(Vec2(cx - s * 0.22f, cy + s * 0.04f), Vec2(cx + s * 0.14f, cy + s * 0.04f), tint, stroke * 1.1f);
+                canvas.DrawLine(Vec2(cx + s * 0.14f, cy + s * 0.04f), Vec2(cx - s * 0.08f, cy + s * 0.38f), tint, stroke * 1.1f);
+                break;
+            }
+
+            case IconId::Error: {
+                const float r = s * 0.40f;
+                canvas.DrawRoundRect(Rect(cx - r, cy - r, r * 2.0f, r * 2.0f), r, Color(0, 0, 0, 0), tint, stroke);
+                canvas.DrawLine(Vec2(cx, cy - s * 0.22f), Vec2(cx, cy + s * 0.06f), tint, stroke * 1.2f);
+                canvas.DrawRoundRect(Rect(cx - stroke * 0.6f, cy + s * 0.16f, stroke * 1.2f, stroke * 1.2f), stroke * 0.6f, tint);
+                break;
+            }
+
             default:
                 break;
         }
+    } else if (m_type == SourceType::Asset && !m_path.empty()) {
+        canvas.DrawImage(m_path, bounds, 0.0f, tint.a);
+    } else if (m_type == SourceType::Texture && m_textureId != 0) {
+        canvas.DrawTexture(m_textureId, bounds, std::nullopt, tint);
     }
 }
 

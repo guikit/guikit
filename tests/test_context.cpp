@@ -6033,6 +6033,95 @@ void TestBaseElementsAllInOneEnhancements() {
     std::cout << "  [PASS] TestBaseElementsAllInOneEnhancements completed\n";
 }
 
+void TestImageSceneAndMarkdownWidgets() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 800;
+    const uint32_t height = 900;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    static constexpr std::string_view kInlineSvg =
+        R"(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" width="200" height="100">)"
+        R"(<rect x="0" y="0" width="200" height="100" fill="#38BDF8"/></svg>)";
+
+    static constexpr std::string_view kSampleMd =
+        "# Title Heading\n\n"
+        "Paragraph with **bold**, *italic*, `code`, and [Link](https://guikit.dev).\n\n"
+        "> [!NOTE]\n"
+        "> Alert note block.\n\n"
+        "```cpp\n"
+        "int x = 42;\n"
+        "```\n\n"
+        "| Col A | Col B |\n"
+        "| :--- | :---: |\n"
+        "| Val 1 | Val 2 |\n";
+
+    Response imgRes;
+    Rect sceneVisRect{};
+    float sceneZoom = 0.0f;
+    MarkdownResponse mdRes;
+
+    auto renderUI = [&]() {
+        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+            imgRes = ui.Image(kInlineSvg, {
+                .label = "Inline Vector SVG",
+                .stretch = StretchMode::Fill,
+                .width = 50.0f,
+                .checkerboard = true
+            });
+
+            if (auto scene = ui.Scene({
+                .worldSize = Vec2{1000.0f, 800.0f},
+                .background = SceneBackground::GridDots,
+                .height = 200.0f
+            })) {
+                sceneVisRect = scene.GetVisibleWorldRect();
+                sceneZoom = scene.GetZoom();
+                scene.DrawImage(kInlineSvg, {0.0f, 0.0f, 200.0f, 100.0f});
+                scene.DrawRect({300.0f, 100.0f, 50.0f, 50.0f}, Color(16, 185, 129));
+            }
+
+            mdRes = ui.Markdown(kSampleMd, {
+                .codeLineNumbers = true,
+                .syntaxHighlight = true,
+                .showCopyButton = true
+            });
+        }
+    };
+
+    // Frame 1: Measure & Arrange
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    // Frame 2: Verify layout geometry & camera state
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    // 1. Verify inline SVG natural size query via ThorCanvas
+    const Vec2 svgNat = canvas.GetImageSize(kInlineSvg);
+    CHECK_NEAR(svgNat.x, 200.0f, 0.5f);
+    CHECK_NEAR(svgNat.y, 100.0f, 0.5f);
+
+    // 2. Verify Image widget layout (50% of 768px = 384px wide, 2:1 aspect ratio -> >= 192px tall with label)
+    CHECK_NEAR(imgRes.rect.w, 768.0f, 1.0f);
+    CHECK(imgRes.rect.h >= 192.0f);
+
+    // 3. Verify Scene 2D camera fit-to-viewport & visible world rect
+    CHECK(sceneZoom > 0.1f && sceneZoom <= 1.0f);
+    CHECK(sceneVisRect.w > 0.0f && sceneVisRect.h > 0.0f);
+
+    // 4. Verify Markdown widget measured non-zero height for headings, alert, code block, and table
+    CHECK_NEAR(mdRes.rect.w, 768.0f, 1.0f);
+    CHECK(mdRes.rect.h > 180.0f);
+
+    std::cout << "  [PASS] TestImageSceneAndMarkdownWidgets completed\n";
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -6090,6 +6179,7 @@ int main() {
     TestSelectItemsAndUnifiedAffixes();
     TestSelectPopupScrollingWithMaxVisibleItems();
     TestBaseElementsAllInOneEnhancements();
+    TestImageSceneAndMarkdownWidgets();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

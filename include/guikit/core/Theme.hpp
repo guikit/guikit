@@ -110,6 +110,13 @@ struct UiTheme {
         }
     }
 
+    [[nodiscard]] constexpr float GetFontSize(
+        TextRole role,
+        UiSize widgetSize = UiSize::Md
+    ) const noexcept {
+        return ResolveFontSize(role, widgetSize);
+    }
+
     /// Resolves font size for a UiText: uses explicit TextRole if set, or resolves defaultRole for widgetSize.
     [[nodiscard]] constexpr float ResolveFontSize(
         const UiText& text,

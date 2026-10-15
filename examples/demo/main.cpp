@@ -1,4 +1,8 @@
 #include <SDL3/SDL.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include <emscripten/html5.h>
+#endif
 #include <array>
 #include <iostream>
 #include <string>
@@ -6,11 +10,9 @@
 #include "guikit/GuiKit.hpp"
 #include "guikit/backend/ThorCanvas.hpp"
 #include "guikit/core/FrameMetrics.hpp"
+#include "SchematicPrimitives.hpp"
 
 int main(int argc, char* argv[]) {
-    (void)argc;
-    (void)argv;
-
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         std::cerr << "Failed to initialize SDL3: " << SDL_GetError() << std::endl;
         return 1;
@@ -18,13 +20,26 @@ int main(int argc, char* argv[]) {
 
     int winWidth = 1120;
     int winHeight = 740;
+#ifdef __EMSCRIPTEN__
+    {
+        double cssW = 0.0, cssH = 0.0;
+        if (emscripten_get_element_css_size("#canvas", &cssW, &cssH) == EMSCRIPTEN_RESULT_SUCCESS &&
+            cssW >= 200.0 && cssH >= 200.0) {
+            winWidth = static_cast<int>(cssW);
+            winHeight = static_cast<int>(cssH);
+        }
+    }
+    const SDL_WindowFlags windowFlags = SDL_WINDOW_RESIZABLE;
+#else
+    const SDL_WindowFlags windowFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
+#endif
 
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
     const char* winTitle = "GuiKit Vector GUI Demo (C++20 Immediate Mode + ThorVG)";
 
     if (!SDL_CreateWindowAndRenderer(winTitle, winWidth, winHeight,
-                                     SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY,
+                                     windowFlags,
                                      &window, &renderer)) {
         std::cerr << "Failed to create SDL window & renderer: " << SDL_GetError() << std::endl;
         SDL_Quit();
@@ -132,6 +147,9 @@ int main(int argc, char* argv[]) {
         ElemSidebar,
         ElemContainers,
         ElemTypography,
+        ElemImage,
+        ElemScene,
+        ElemMarkdown,
 
         // Assembly (Compositions)
         AsmDashboard,
@@ -142,7 +160,7 @@ int main(int argc, char* argv[]) {
     };
 
     auto isElementCategory = [](NavCategory cat) {
-        return cat <= NavCategory::ElemTypography;
+        return cat <= NavCategory::ElemMarkdown;
     };
 
     NavCategory selectedCategory = NavCategory::ElemButton;
@@ -329,6 +347,95 @@ int main(int argc, char* argv[]) {
     bool testSidebarAutoWidth = true;
     float testSidebarFixedWidth = 200.0f;
 
+    // Image demo state
+    size_t imgSourceIdx = 0;
+    static constexpr std::array<std::string_view, 2> imgSources = {
+        "assets/images/architecture.svg",
+        "assets/images/circuit.svg"
+    };
+    static constexpr std::array<std::string_view, 2> imgSourceNames = {
+        "Architecture Diagram",
+        "Circuit Schematic"
+    };
+    guikit::ObjectFit imgFit = guikit::ObjectFit::Contain;
+    static constexpr std::array<std::string_view, 5> fitModeNames = {
+        "Contain", "Cover", "Fill", "ScaleDown", "Original"
+    };
+    size_t imgStretchIdx = 2; // Fill
+    float imgWidth = 360.0f;
+    float imgFillPct = 85.0f;
+    float imgHeight = 180.0f;
+    bool imgAutoHeight = true;
+    float imgRadius = 8.0f;
+    float imgBorderWidth = 1.0f;
+    bool imgCheckerboard = true;
+    bool imgShowLabel = true;
+    bool imgShowDesc = true;
+    guikit::ElementLayout imgLayout = guikit::ElementLayout::Stacked;
+    guikit::Align imgElementAlign = guikit::Align::Center;
+
+    // Scene 2D Camera demo state
+    size_t sceneModeIdx = 0; // 0 = QUAD 303 Schematic (M12160), 1 = OSM Tile Map Prototype
+    bool sceneVintagePaper = true;
+    guikit::SceneBackground sceneBg = guikit::SceneBackground::Solid;
+    static constexpr std::array<std::string_view, 4> sceneBgNames = {
+        "Solid", "Checker", "Dots", "Lines"
+    };
+    bool sceneShowControls = true;
+    bool sceneShowScrollbars = true;
+    float sceneRadius = 8.0f;
+    float sceneGridStep = 32.0f;
+
+    // Markdown demo state
+    bool mdCodeLineNumbers = true;
+    bool mdSyntaxHighlight = true;
+    bool mdShowCopyButton = true;
+    bool mdImageCheckerboard = true;
+    float mdImageMaxHeight = 200.0f;
+    float mdImageRadius = 8.0f;
+    float mdBlockGap = 12.0f;
+    std::string mdLastClickedLink{};
+
+    static constexpr std::string_view kDemoMarkdownDoc =
+R"(# GuiKit Rich Markdown Engine
+
+Welcome to **GuiKit's** native vector `ui.Markdown` viewer! Everything is parsed into a lightweight cached AST and rendered at **60+ FPS** via *ThorVG* with crisp typography, **bold**, *italic*, ~~strikethrough~~, `inline code` pills, and interactive links like [https://github.com/guikit](https://github.com/guikit).
+
+> [!TIP]
+> You can embed vector **SVG**, **PNG**, or **JPG** diagrams directly inside Markdown, copy code snippets with one click, and inspect every layout box!
+
+## 1. Architecture Diagram (`assets/images/architecture.svg`)
+
+![GuiKit 4-Layer Architecture: Solver -> Scene -> ThorVG](assets/images/architecture.svg)
+
+## 2. Interactive C++20 Code Block
+
+```cpp
+// Autonomous 2D World Camera & Rich Markdown
+if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
+    scene.DrawImage("assets/images/circuit.svg", {0, 0, 800, 500});
+    const guikit::Rect visible = scene.GetVisibleWorldRect();
+}
+```
+
+## 3. Key Features & Task Checklist
+
+- [x] **Pure BoxFit & Solver** with `aspectRatio`, `minHeight`, and 2D `ScrollArea`
+- [x] **Stateless `ui.Image`** with `Contain`, `Cover`, `Fill`, `ScaleDown`, `Original`
+- [x] **Stateful `ui.Scene`** with cursor-centric zoom, drag pan, and OSM tile culling
+- [ ] Connect live HTTP tile loader for OpenStreetMap `[z/x/y]` tiles
+
+| Component | Layer | Coordinate Space | Responsibility |
+| :--- | :---: | :---: | :--- |
+| `ComputeBoxFit` | Core | Pure Math | Aspect-ratio fitting |
+| `ui.Image` | Widget | Screen Space | Stateless SVG/PNG/JPG leaf |
+| `ui.Scene` | Panel | World <-> Screen | 2D Camera, Pan/Zoom & HUD |
+| `ui.Markdown` | Widget | Flow Layout | Rich AST Document Viewer |
+
+> [!WARNING]
+> Hover over any `[link](...)` to preview its target URL tooltip, or click **Copy** on the code block above!
+)";
+
     guikit::FrameMetrics metrics;
 
     guikit::UiTheme shellTheme = shellLightMode ? guikit::UiTheme::Light(guikit::Density::Standard) : guikit::UiTheme::Dark(guikit::Density::Standard);
@@ -456,34 +563,7 @@ int main(int argc, char* argv[]) {
         }
     };
 
-    while (running) {
-        if (reactiveMode && !ui.NeedsRepaint()) {
-            const int timeoutMs = ui.GetRecommendedSleepTimeoutMs();
-            SDL_Event event;
-            if (SDL_WaitEventTimeout(&event, timeoutMs)) {
-                handleEvent(event);
-                while (SDL_PollEvent(&event)) {
-                    handleEvent(event);
-                }
-            } else {
-                // Timeout expired with no events.
-                // If timeoutMs <= 0 (disabled periodic heartbeat / deep sleep), continue waiting.
-                // If timeoutMs > 0, the periodic heartbeat fired: proceed to render 1 frame to refresh metrics.
-                if (timeoutMs <= 0 && !ui.NeedsRepaint()) {
-                    continue;
-                }
-            }
-        } else {
-            SDL_Event event;
-            while (SDL_PollEvent(&event)) {
-                handleEvent(event);
-            }
-        }
-
-        if (!running) {
-            break;
-        }
-
+    auto renderFrame = [&]() {
         const auto frameWorkStart = std::chrono::steady_clock::now();
         metrics.BeginFrame();
 
@@ -607,6 +687,9 @@ int main(int argc, char* argv[]) {
                                 menu.Item(selectedCategory, NavCategory::ElemSidebar,    {.text = "Sidebar",    .icon = guikit::Icon::Folder()});
                                 menu.Item(selectedCategory, NavCategory::ElemContainers, {.text = "Containers", .icon = guikit::Icon::Copy()});
                                 menu.Item(selectedCategory, NavCategory::ElemTypography, {.text = "Typography", .icon = guikit::Icon::Edit()});
+                                menu.Item(selectedCategory, NavCategory::ElemImage,      {.text = "Image",      .icon = guikit::Icon::Eye(), .badge = "New"});
+                                menu.Item(selectedCategory, NavCategory::ElemScene,      {.text = "Scene 2D",   .icon = guikit::Icon::Search(), .badge = "New"});
+                                menu.Item(selectedCategory, NavCategory::ElemMarkdown,   {.text = "Markdown",   .icon = guikit::Icon::Edit(), .badge = "New"});
 
                                 menu.Section("ASSEMBLY");
                                 menu.Item(selectedCategory, NavCategory::AsmDashboard,    {.text = "Dashboard",    .icon = guikit::Icon::Settings()});
@@ -1009,6 +1092,70 @@ int main(int argc, char* argv[]) {
                                                 break;
                                             }
 
+                                            case NavCategory::ElemImage: {
+                                                if (ui.Select(imgSourceIdx, imgSourceNames, {.label = "Vector SVG Asset"}).changed) ui.InvalidateAll();
+                                                size_t fitIdx = static_cast<size_t>(imgFit);
+                                                if (ui.StepSlider(fitIdx, fitModeNames, {.label = "ObjectFit Policy", .showTicks = true, .showLabels = true}).changed) {
+                                                    imgFit = static_cast<guikit::ObjectFit>(fitIdx);
+                                                    ui.InvalidateAll();
+                                                }
+                                                if (ui.StepSlider(imgStretchIdx, stretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
+                                                if (imgStretchIdx == 2) {
+                                                    if (ui.Slider(imgFillPct, 20.0f, 100.0f, {.label = "Fill Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
+                                                } else {
+                                                    if (ui.Slider(imgWidth, 120.0f, 560.0f, {.label = "Explicit Width", .valueFormat = "%.0f px", .step = 10.0f}).changed) ui.InvalidateAll();
+                                                }
+                                                if (ui.Switch(imgAutoHeight, {.label = "Auto Aspect-Ratio Height"}).changed) ui.InvalidateAll();
+                                                if (!imgAutoHeight) {
+                                                    if (ui.Slider(imgHeight, 80.0f, 320.0f, {.label = "Explicit Height", .valueFormat = "%.0f px", .step = 10.0f}).changed) ui.InvalidateAll();
+                                                }
+                                                if (ui.Slider(imgRadius, 0.0f, 24.0f, {.label = "Corner Radius", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(imgBorderWidth, 0.0f, 4.0f, {.label = "Border Width", .valueFormat = "%.1f px"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(imgCheckerboard, {.label = "Checkerboard Backdrop"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(imgShowLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(imgShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
+                                                break;
+                                            }
+
+                                            case NavCategory::ElemScene: {
+                                                static constexpr std::array<std::string_view, 2> sceneModes = {"QUAD 303", "OSM Map"};
+                                                if (ui.StepSlider(sceneModeIdx, sceneModes, {.label = "Scene Demo Mode", .showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
+                                                if (sceneModeIdx == 0) {
+                                                    if (ui.Switch(sceneVintagePaper, {
+                                                        .label = "Schematic Sheet Palette",
+                                                        .textLeft = "Dark CAD",
+                                                        .textRight = "Vellum",
+                                                        .symmetric = true
+                                                    }).changed) {
+                                                        ui.InvalidateAll();
+                                                    }
+                                                }
+                                                size_t bgIdx = static_cast<size_t>(sceneBg);
+                                                if (ui.StepSlider(bgIdx, sceneBgNames, {.label = "Canvas Backdrop", .showTicks = true, .showLabels = true}).changed) {
+                                                    sceneBg = static_cast<guikit::SceneBackground>(bgIdx);
+                                                    ui.InvalidateAll();
+                                                }
+                                                if (ui.Switch(sceneShowControls, {.label = "Floating Zoom HUD (- / Fit / 100% / +)"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(sceneShowScrollbars, {.label = "2D Scrollbars (H + V)"}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(sceneRadius, 0.0f, 20.0f, {.label = "Viewport Radius", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(sceneGridStep, 12.0f, 64.0f, {.label = "Grid Step", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+                                                break;
+                                            }
+
+                                            case NavCategory::ElemMarkdown: {
+                                                if (ui.Switch(mdSyntaxHighlight, {.label = "C++ Syntax Highlighting"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(mdCodeLineNumbers, {.label = "Code Line Numbers Gutter"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(mdShowCopyButton, {.label = "Interactive Copy Button"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(mdImageCheckerboard, {.label = "Embedded Image Checkerboard"}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(mdImageMaxHeight, 100.0f, 320.0f, {.label = "Image Max Height", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(mdImageRadius, 0.0f, 20.0f, {.label = "Image Corner Radius", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(mdBlockGap, 4.0f, 24.0f, {.label = "Paragraph / Block Gap", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+                                                if (!mdLastClickedLink.empty()) {
+                                                    ui.Text(ui.Format("Clicked: {}", mdLastClickedLink), {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Info});
+                                                }
+                                                break;
+                                            }
+
                                             default: break;
                                         }
                                     } else {
@@ -1146,17 +1293,20 @@ int main(int argc, char* argv[]) {
                                     .inspectMode = previewInspect
                                 })) {
                                     // Hero Showcase Stage
+                                    const bool isFullStage = (selectedCategory == NavCategory::ElemScene ||
+                                                              selectedCategory == NavCategory::ElemMarkdown ||
+                                                              selectedCategory == NavCategory::ElemSidebar);
                                     if (auto stageBox = ui.Box({
                                         .widthMode = guikit::SizeMode::Stretch,
                                         .heightMode = guikit::SizeMode::Stretch,
-                                        .padding = guikit::Padding::All(24.0f),
+                                        .padding = guikit::Padding::All(isFullStage ? 8.0f : 24.0f),
                                         .backgroundColor = th.palette.surfaceElevated,
                                         .borderColor = th.palette.borderSubtle,
                                         .borderWidth = 1.0f,
                                         .radius = 8.0f
                                     })) {
                                         if (auto centerRow = ui.Row({
-                                            .align = guikit::Alignment::Center,
+                                            .align = isFullStage ? guikit::Alignment::Stretch : guikit::Alignment::Center,
                                             .justify = guikit::Justify::Center,
                                             .heightMode = guikit::SizeMode::Stretch
                                         })) {
@@ -1412,6 +1562,116 @@ int main(int argc, char* argv[]) {
                                                         .divider = headingDivider,
                                                         .wordWrap = headingWordWrap
                                                     });
+                                                    break;
+                                                }
+
+                                                case NavCategory::ElemImage: {
+                                                    ui.Image(imgSources[imgSourceIdx % imgSources.size()], {
+                                                        .label = imgShowLabel ? imgSourceNames[imgSourceIdx % imgSourceNames.size()] : "",
+                                                        .description = imgShowDesc ? "Vector SVG rendered via ThorVG + pure ComputeBoxFit solver" : "",
+                                                        .fit = imgFit,
+                                                        .layout = imgLayout,
+                                                        .elementAlign = imgElementAlign,
+                                                        .stretch = static_cast<guikit::StretchMode>(imgStretchIdx),
+                                                        .width = (imgStretchIdx == 2) ? std::optional<float>(imgFillPct) : std::optional<float>(imgWidth),
+                                                        .height = imgAutoHeight ? std::nullopt : std::optional<float>(imgHeight),
+                                                        .radius = imgRadius,
+                                                        .borderWidth = imgBorderWidth,
+                                                        .checkerboard = imgCheckerboard,
+                                                        .size = controlsSize
+                                                    });
+                                                    break;
+                                                }
+
+                                                case NavCategory::ElemScene: {
+                                                    const auto schemPal = sceneVintagePaper
+                                                        ? guikit::demo::SchematicPalette::VintagePaper()
+                                                        : guikit::demo::SchematicPalette::DarkCad();
+                                                    const guikit::Vec2 worldDims = (sceneModeIdx == 0)
+                                                        ? guikit::Vec2{2200.0f, 920.0f}
+                                                        : guikit::Vec2{2048.0f, 1536.0f};
+                                                    if (auto scene = ui.Scene({
+                                                        .worldSize = worldDims,
+                                                        .background = sceneBg,
+                                                        .gridStep = sceneGridStep,
+                                                        .heightMode = guikit::SizeMode::Stretch,
+                                                        .showScrollbars = sceneShowScrollbars,
+                                                        .showControls = sceneShowControls,
+                                                        .radius = sceneRadius,
+                                                        .backgroundColor = (sceneModeIdx == 0) ? schemPal.sheetBg : guikit::Color::Transparent()
+                                                    })) {
+                                                        if (sceneModeIdx == 0) {
+                                                            // Mode 0: QUAD 303 Power Amplifier Circuit Diagram (M12160)
+                                                            // Pure vector BS 3939 primitives rendered in 2D World Coordinates
+                                                            guikit::demo::RenderQuad303Schematic(scene, schemPal);
+                                                        } else {
+                                                            // Mode 1: Virtualized 2D Tile Grid (OSM Map Engine Prototype)
+                                                            const guikit::Rect vis = scene.GetVisibleWorldRect();
+                                                            const float tileSz = 256.0f;
+                                                            const int minTx = std::max(0, static_cast<int>(std::floor(vis.x / tileSz)));
+                                                            const int maxTx = std::min(7, static_cast<int>(std::floor(vis.Right() / tileSz)));
+                                                            const int minTy = std::max(0, static_cast<int>(std::floor(vis.y / tileSz)));
+                                                            const int maxTy = std::min(5, static_cast<int>(std::floor(vis.Bottom() / tileSz)));
+
+                                                            for (int ty = minTy; ty <= maxTy; ++ty) {
+                                                                for (int tx = minTx; tx <= maxTx; ++tx) {
+                                                                    const guikit::Rect tileRect(tx * tileSz, ty * tileSz, tileSz, tileSz);
+                                                                    const bool even = ((tx + ty) % 2 == 0);
+                                                                    const guikit::Color fill = even
+                                                                        ? guikit::Color(15, 23, 42, 230)
+                                                                        : guikit::Color(30, 41, 59, 230);
+                                                                    scene.DrawRect(tileRect.Inset(2.0f), fill, 6.0f, guikit::Color(51, 65, 85, 200), 1.0f);
+
+                                                                    // Procedural arterial roads & river inside tile
+                                                                    scene.DrawLine(
+                                                                        {tileRect.x, tileRect.y + 128.0f},
+                                                                        {tileRect.Right(), tileRect.y + 128.0f},
+                                                                        guikit::Color(56, 189, 248, 70),
+                                                                        2.0f
+                                                                    );
+                                                                    scene.DrawLine(
+                                                                        {tileRect.x + 128.0f, tileRect.y},
+                                                                        {tileRect.x + 128.0f, tileRect.Bottom()},
+                                                                        guikit::Color(148, 163, 184, 55),
+                                                                        1.5f
+                                                                    );
+
+                                                                    // Tile coordinate badge [z=14 / x / y]
+                                                                    const auto tileLabel = ui.Format("OSM Tile [14/{}/{}]", 8420 + tx, 5460 + ty);
+                                                                    scene.DrawText(tileLabel.View(), {tileRect.x + 14.0f, tileRect.y + 14.0f}, 12.0f, guikit::Color(148, 163, 184), guikit::FontStyle::Regular, false);
+                                                                }
+                                                            }
+
+                                                            // GPS Route overlay across world coordinates
+                                                            scene.DrawLine({180.0f, 220.0f}, {640.0f, 420.0f}, guikit::Color(16, 185, 129), 4.0f);
+                                                            scene.DrawLine({640.0f, 420.0f}, {1180.0f, 340.0f}, guikit::Color(16, 185, 129), 4.0f);
+                                                            scene.DrawLine({1180.0f, 340.0f}, {1680.0f, 780.0f}, guikit::Color(56, 189, 248), 4.0f);
+                                                            scene.DrawRect({628.0f, 408.0f, 24.0f, 24.0f}, guikit::Color(16, 185, 129), 12.0f, guikit::Color(255, 255, 255), 2.5f);
+                                                            scene.DrawText("Waypoint Alpha", {660.0f, 412.0f}, 13.0f, guikit::Color(52, 211, 153), guikit::FontStyle::Bold, true);
+                                                        }
+                                                    }
+                                                    break;
+                                                }
+
+                                                case NavCategory::ElemMarkdown: {
+                                                    if (auto mdScroll = ui.ScrollArea({
+                                                        .padding = guikit::Padding::All(8.0f)
+                                                    })) {
+                                                        const auto mdRes = ui.Markdown(kDemoMarkdownDoc, {
+                                                            .codeLineNumbers = mdCodeLineNumbers,
+                                                            .syntaxHighlight = mdSyntaxHighlight,
+                                                            .showCopyButton = mdShowCopyButton,
+                                                            .imageCheckerboard = mdImageCheckerboard,
+                                                            .imageMaxHeight = mdImageMaxHeight,
+                                                            .imageRadius = mdImageRadius,
+                                                            .blockGap = mdBlockGap,
+                                                            .size = controlsSize
+                                                        });
+                                                        if (!mdRes.clickedLink.empty()) {
+                                                            mdLastClickedLink = std::string(mdRes.clickedLink);
+                                                            SDL_OpenURL(mdLastClickedLink.c_str());
+                                                        }
+                                                    }
                                                     break;
                                                 }
 
@@ -1855,6 +2115,89 @@ int main(int argc, char* argv[]) {
                                             break;
                                         }
 
+                                        case NavCategory::ElemImage: {
+                                            snippet = std::format(
+                                                "ui.Image(\"{}\", {{\n"
+                                                "    .label = \"{}\",\n"
+                                                "    .description = \"{}\",\n"
+                                                "    .fit = guikit::ObjectFit::{},\n"
+                                                "    .stretch = guikit::StretchMode::{},\n"
+                                                "    .width = {:.1f}f,\n"
+                                                "    .height = {},\n"
+                                                "    .radius = {:.1f}f,\n"
+                                                "    .borderWidth = {:.1f}f,\n"
+                                                "    .checkerboard = {},\n"
+                                                "    .size = guikit::UiSize::{}\n"
+                                                "}});",
+                                                imgSources[imgSourceIdx % imgSources.size()],
+                                                imgShowLabel ? imgSourceNames[imgSourceIdx % imgSourceNames.size()] : "",
+                                                imgShowDesc ? "Vector SVG rendered via ThorVG + pure ComputeBoxFit solver" : "",
+                                                fitModeNames[static_cast<size_t>(imgFit)],
+                                                stretchModeEnumName(static_cast<guikit::StretchMode>(imgStretchIdx)),
+                                                (imgStretchIdx == 2) ? imgFillPct : imgWidth,
+                                                imgAutoHeight ? "std::nullopt" : std::format("{:.1f}f", imgHeight),
+                                                imgRadius,
+                                                imgBorderWidth,
+                                                imgCheckerboard ? "true" : "false",
+                                                sizeName(controlsSize)
+                                            );
+                                            break;
+                                        }
+
+                                        case NavCategory::ElemScene: {
+                                            snippet = std::format(
+                                                "if (auto scene = ui.Scene({{\n"
+                                                "    .worldSize = guikit::Vec2{{{:.1f}f, {:.1f}f}},\n"
+                                                "    .background = guikit::SceneBackground::{},\n"
+                                                "    .gridStep = {:.1f}f,\n"
+                                                "    .heightMode = guikit::SizeMode::Stretch,\n"
+                                                "    .showScrollbars = {},\n"
+                                                "    .showControls = {},\n"
+                                                "    .radius = {:.1f}f\n"
+                                                "}})) {{\n"
+                                                "    // BS 3939 Vector Electronic Schematic Primitives (QUAD 303 M12160)\n"
+                                                "    const auto pal = guikit::demo::SchematicPalette::{}();\n"
+                                                "    guikit::demo::RenderQuad303Schematic(scene, pal);\n"
+                                                "}}",
+                                                (sceneModeIdx == 0) ? 2200.0f : 2048.0f,
+                                                (sceneModeIdx == 0) ? 920.0f : 1536.0f,
+                                                sceneBgNames[static_cast<size_t>(sceneBg)],
+                                                sceneGridStep,
+                                                sceneShowScrollbars ? "true" : "false",
+                                                sceneShowControls ? "true" : "false",
+                                                sceneRadius,
+                                                sceneVintagePaper ? "VintagePaper" : "DarkCad"
+                                            );
+                                            break;
+                                        }
+
+                                        case NavCategory::ElemMarkdown: {
+                                            snippet = std::format(
+                                                "if (auto scroll = ui.ScrollArea({{.padding = guikit::Padding::All(8.0f)}})) {{\n"
+                                                "    auto res = ui.Markdown(markdownSource, {{\n"
+                                                "        .codeLineNumbers = {},\n"
+                                                "        .syntaxHighlight = {},\n"
+                                                "        .showCopyButton = {},\n"
+                                                "        .imageCheckerboard = {},\n"
+                                                "        .imageMaxHeight = {:.1f}f,\n"
+                                                "        .imageRadius = {:.1f}f,\n"
+                                                "        .blockGap = {:.1f}f,\n"
+                                                "        .size = guikit::UiSize::{}\n"
+                                                "    }});\n"
+                                                "    if (!res.clickedLink.empty()) SDL_OpenURL(std::string(res.clickedLink).c_str());\n"
+                                                "}}",
+                                                mdCodeLineNumbers ? "true" : "false",
+                                                mdSyntaxHighlight ? "true" : "false",
+                                                mdShowCopyButton ? "true" : "false",
+                                                mdImageCheckerboard ? "true" : "false",
+                                                mdImageMaxHeight,
+                                                mdImageRadius,
+                                                mdBlockGap,
+                                                sizeName(controlsSize)
+                                            );
+                                            break;
+                                        }
+
                                         default: break;
                                     }
 
@@ -2270,6 +2613,7 @@ int main(int argc, char* argv[]) {
             metrics.MarkFramePresented();
         }
 
+#ifndef __EMSCRIPTEN__
         // Frame rate limiter and pacing:
         // Ensures smooth 60 FPS pacing and prevents unconstrained spinning when presenting is skipped or VSync is off
         const auto frameEnd = std::chrono::steady_clock::now();
@@ -2285,9 +2629,92 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
+#else
+        (void)frameWorkStart;
+#endif
 
         metrics.EndFrame(60.0f);
+    };
+
+#ifdef __EMSCRIPTEN__
+    auto lastRenderTime = std::chrono::steady_clock::now();
+    auto emLoopStep = [&]() {
+        if (!running) {
+            emscripten_cancel_main_loop();
+            return;
+        }
+
+        // Sync SDL window size with browser canvas CSS size when window is resized
+        double cssW = 0.0, cssH = 0.0;
+        if (emscripten_get_element_css_size("#canvas", &cssW, &cssH) == EMSCRIPTEN_RESULT_SUCCESS) {
+            const int targetW = static_cast<int>(cssW);
+            const int targetH = static_cast<int>(cssH);
+            if (targetW >= 200 && targetH >= 200 && (targetW != winWidth || targetH != winHeight)) {
+                SDL_SetWindowSize(window, targetW, targetH);
+            }
+        }
+
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            handleEvent(event);
+        }
+
+        if (reactiveMode && !ui.NeedsRepaint()) {
+            const int timeoutMs = ui.GetRecommendedSleepTimeoutMs();
+            if (timeoutMs <= 0) {
+                return;
+            }
+            const auto now = std::chrono::steady_clock::now();
+            const double elapsedMs = std::chrono::duration<double, std::milli>(now - lastRenderTime).count();
+            if (elapsedMs < static_cast<double>(timeoutMs)) {
+                return;
+            }
+        }
+
+        lastRenderTime = std::chrono::steady_clock::now();
+        renderFrame();
+    };
+
+    emscripten_set_main_loop_arg(
+        [](void* arg) {
+            (*static_cast<decltype(emLoopStep)*>(arg))();
+        },
+        &emLoopStep,
+        0,
+        true
+    );
+#else
+    while (running) {
+        if (reactiveMode && !ui.NeedsRepaint()) {
+            const int timeoutMs = ui.GetRecommendedSleepTimeoutMs();
+            SDL_Event event;
+            if (SDL_WaitEventTimeout(&event, timeoutMs)) {
+                handleEvent(event);
+                while (SDL_PollEvent(&event)) {
+                    handleEvent(event);
+                }
+            } else {
+                // Timeout expired with no events.
+                // If timeoutMs <= 0 (disabled periodic heartbeat / deep sleep), continue waiting.
+                // If timeoutMs > 0, the periodic heartbeat fired: proceed to render 1 frame to refresh metrics.
+                if (timeoutMs <= 0 && !ui.NeedsRepaint()) {
+                    continue;
+                }
+            }
+        } else {
+            SDL_Event event;
+            while (SDL_PollEvent(&event)) {
+                handleEvent(event);
+            }
+        }
+
+        if (!running) {
+            break;
+        }
+
+        renderFrame();
     }
+#endif
 
     if (screenTexture) {
         SDL_DestroyTexture(screenTexture);

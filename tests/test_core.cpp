@@ -203,7 +203,7 @@ void TestNodeFootprint() {
 
     // Verify Node has been decoupled from widget options and its size is compact
     std::cout << "[INFO] sizeof(Node) = " << sizeof(Node) << " bytes\n";
-    CHECK(sizeof(Node) <= 248); // Compact 248 bytes with 4 polymorphic delegates (reduced from ~500 bytes)
+    CHECK(sizeof(Node) <= 256); // Compact <=256 bytes with 4 polymorphic delegates + aspect-ratio/minHeight/2D scroll state
 
     // Verify generic payload casting
     Node n;
@@ -317,6 +317,38 @@ void TestSliderMetricsTokens() {
     CHECK(scaledMd.trackHeight == 10.0f);
 }
 
+void TestComputeBoxFit() {
+    using namespace guikit;
+
+    const Rect box{10.0f, 20.0f, 400.0f, 200.0f}; // 2:1 container
+    const Vec2 srcWide{800.0f, 200.0f};           // 4:1 source
+
+    // 1. Contain: scales by min(400/800=0.5, 200/200=1.0) = 0.5 -> 400x100 centered vertically
+    const Rect rContain = ComputeBoxFit(ObjectFit::Contain, srcWide, box);
+    CHECK(rContain.x == 10.0f && rContain.y == 70.0f);
+    CHECK(rContain.w == 400.0f && rContain.h == 100.0f);
+
+    // 2. Cover: scales by max(0.5, 1.0) = 1.0 -> 800x200 centered horizontally
+    const Rect rCover = ComputeBoxFit(ObjectFit::Cover, srcWide, box);
+    CHECK(rCover.x == -190.0f && rCover.y == 20.0f);
+    CHECK(rCover.w == 800.0f && rCover.h == 200.0f);
+
+    // 3. Fill: stretches directly to box
+    const Rect rFill = ComputeBoxFit(ObjectFit::Fill, srcWide, box);
+    CHECK(rFill == box);
+
+    // 4. ScaleDown with smaller source (100x50): keeps 1:1 natural size (never upscales)
+    const Vec2 srcSmall{100.0f, 50.0f};
+    const Rect rScaleDown = ComputeBoxFit(ObjectFit::ScaleDown, srcSmall, box);
+    CHECK(rScaleDown.w == 100.0f && rScaleDown.h == 50.0f);
+    CHECK(rScaleDown.x == 160.0f && rScaleDown.y == 95.0f);
+
+    // 5. Original with End/End alignment (1.0f, 1.0f)
+    const Rect rOrigEnd = ComputeBoxFit(ObjectFit::Original, srcSmall, box, 1.0f, 1.0f);
+    CHECK(rOrigEnd.x == 310.0f && rOrigEnd.y == 170.0f);
+    CHECK(rOrigEnd.w == 100.0f && rOrigEnd.h == 50.0f);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Core Foundation...\n";
 
@@ -328,6 +360,7 @@ int main() {
     TestNodeFootprint();
     TestCarouselMetricsTokens();
     TestSliderMetricsTokens();
+    TestComputeBoxFit();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Core tests passed successfully!\n";

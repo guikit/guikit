@@ -61,12 +61,15 @@ set(GUIKIT_SOURCES
     src/guikit/panels/Card.cpp
     src/guikit/panels/Carousel.cpp
     src/guikit/panels/ScrollArea.cpp
+    src/guikit/panels/Scene.cpp
     src/guikit/panels/Sidebar.cpp
     src/guikit/panels/Toolbar.cpp
     src/guikit/widgets/Button.cpp
     src/guikit/widgets/Checkbox.cpp
     src/guikit/widgets/Heading.cpp
+    src/guikit/widgets/Image.cpp
     src/guikit/widgets/InputField.cpp
+    src/guikit/widgets/Markdown.cpp
     src/guikit/widgets/Select.cpp
     src/guikit/widgets/SidebarMenu.cpp
     src/guikit/widgets/Slider.cpp
@@ -96,6 +99,18 @@ if (GUIKIT_BUILD_DEMO)
         examples/demo/main.cpp
     )
     target_link_libraries(guikit_demo PRIVATE guikit SDL3::SDL3-static)
+    if (EMSCRIPTEN)
+        set_target_properties(guikit_demo PROPERTIES SUFFIX ".html")
+        target_link_options(guikit_demo PRIVATE
+            "-sALLOW_MEMORY_GROWTH=1"
+            "-sINITIAL_MEMORY=67108864"
+            "-sMAX_WEBGL_VERSION=2"
+            "-sMIN_WEBGL_VERSION=1"
+            "-sEXIT_RUNTIME=0"
+            "--preload-file" "${CMAKE_CURRENT_SOURCE_DIR}/assets@assets"
+            "--shell-file" "${CMAKE_CURRENT_SOURCE_DIR}/examples/demo/shell.html"
+        )
+    endif()
 endif()
 
 # --- Unit Tests ---

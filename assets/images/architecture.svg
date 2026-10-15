@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 280" width="640" height="280">
+  <!-- Background -->
+  <rect x="0" y="0" width="640" height="280" rx="14" fill="#0F172A" stroke="#334155" stroke-width="2"/>
+
+  <!-- Grid pattern lines -->
+  <line x1="0" y1="70" x2="640" y2="70" stroke="#1E293B" stroke-width="1"/>
+  <line x1="0" y1="140" x2="640" y2="140" stroke="#1E293B" stroke-width="1"/>
+  <line x1="0" y1="210" x2="640" y2="210" stroke="#1E293B" stroke-width="1"/>
+  <line x1="160" y1="0" x2="160" y2="280" stroke="#1E293B" stroke-width="1"/>
+  <line x1="320" y1="0" x2="320" y2="280" stroke="#1E293B" stroke-width="1"/>
+  <line x1="480" y1="0" x2="480" y2="280" stroke="#1E293B" stroke-width="1"/>
+
+  <!-- Layer 1: Layout Solver -->
+  <rect x="28" y="36" width="164" height="208" rx="10" fill="#1E293B" stroke="#38BDF8" stroke-width="2"/>
+  <rect x="42" y="54" width="136" height="36" rx="6" fill="#0EA5E9" fill-opacity="0.25" stroke="#38BDF8" stroke-width="1.5"/>
+  <circle cx="62" cy="72" r="6" fill="#38BDF8"/>
+  <rect x="78" y="68" width="84" height="8" rx="4" fill="#E2E8F0"/>
+  <rect x="42" y="106" width="136" height="52" rx="6" fill="#0F172A" stroke="#475569" stroke-width="1.5"/>
+  <rect x="54" y="118" width="90" height="8" rx="4" fill="#94A3B8"/>
+  <rect x="54" y="134" width="112" height="8" rx="4" fill="#64748B"/>
+  <rect x="42" y="172" width="136" height="54" rx="6" fill="#0F172A" stroke="#475569" stroke-width="1.5"/>
+  <rect x="54" y="186" width="76" height="8" rx="4" fill="#38BDF8"/>
+  <rect x="54" y="202" width="104" height="8" rx="4" fill="#64748B"/>
+
+  <!-- Connector 1 -> 2 -->
+  <line x1="192" y1="140" x2="238" y2="140" stroke="#38BDF8" stroke-width="3"/>
+  <polygon points="238,140 226,133 226,147" fill="#38BDF8"/>
+
+  <!-- Layer 2: Scene & Viewport -->
+  <rect x="238" y="36" width="164" height="208" rx="10" fill="#1E293B" stroke="#A855F7" stroke-width="2"/>
+  <rect x="252" y="54" width="136" height="36" rx="6" fill="#9333EA" fill-opacity="0.25" stroke="#C084FC" stroke-width="1.5"/>
+  <circle cx="272" cy="72" r="6" fill="#C084FC"/>
+  <rect x="288" y="68" width="84" height="8" rx="4" fill="#E2E8F0"/>
+  <rect x="252" y="106" width="136" height="120" rx="8" fill="#0F172A" stroke="#A855F7" stroke-width="1.5"/>
+  <circle cx="320" cy="166" r="36" fill="#A855F7" fill-opacity="0.2" stroke="#C084FC" stroke-width="2"/>
+  <line x1="284" y1="166" x2="356" y2="166" stroke="#C084FC" stroke-width="1.5"/>
+  <line x1="320" y1="130" x2="320" y2="202" stroke="#C084FC" stroke-width="1.5"/>
+  <circle cx="320" cy="166" r="6" fill="#F0ABFC"/>
+
+  <!-- Connector 2 -> 3 -->
+  <line x1="402" y1="140" x2="448" y2="140" stroke="#C084FC" stroke-width="3"/>
+  <polygon points="448,140 436,133 436,147" fill="#C084FC"/>
+
+  <!-- Layer 3: ThorVG Vector Rasterizer -->
+  <rect x="448" y="36" width="164" height="208" rx="10" fill="#1E293B" stroke="#10B981" stroke-width="2"/>
+  <rect x="462" y="54" width="136" height="36" rx="6" fill="#059669" fill-opacity="0.25" stroke="#34D399" stroke-width="1.5"/>
+  <circle cx="482" cy="72" r="6" fill="#34D399"/>
+  <rect x="498" y="68" width="84" height="8" rx="4" fill="#E2E8F0"/>
+  <rect x="462" y="106" width="136" height="120" rx="8" fill="#0F172A" stroke="#10B981" stroke-width="1.5"/>
+  <polygon points="530,122 572,196 488,196" fill="#10B981" fill-opacity="0.25" stroke="#34D399" stroke-width="2"/>
+  <circle cx="530" cy="172" r="14" fill="#34D399" fill-opacity="0.45"/>
+</svg>

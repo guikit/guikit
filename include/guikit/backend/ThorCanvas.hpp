@@ -51,8 +51,17 @@ public:
     ) override;
 
     Vec2 MeasureText(std::string_view text, float fontSize) override;
+    Vec2 MeasureTextStyled(std::string_view text, float fontSize, FontStyle style) override;
     [[nodiscard]] float GetLineHeight(float fontSize) override;
     void DrawText(std::string_view text, Vec2 pos, float fontSize, Color color) override;
+    void DrawTextStyled(
+        std::string_view text,
+        Vec2 pos,
+        float fontSize,
+        Color color,
+        FontStyle style,
+        float angleDeg = 0.0f
+    ) override;
     void DrawTextBox(
         std::string_view text,
         Rect bounds,
@@ -62,8 +71,32 @@ public:
         float alignY = 0.5f
     ) override;
     void DrawLine(Vec2 p1, Vec2 p2, Color color, float strokeWidth = 1.0f) override;
+    void DrawTriangle(
+        Vec2 p1,
+        Vec2 p2,
+        Vec2 p3,
+        Color fill,
+        Color stroke = Color(0, 0, 0, 0),
+        float strokeWidth = 0.0f
+    ) override;
+
+    Vec2 GetImageSize(std::string_view source) override;
+    bool DrawImage(
+        std::string_view source,
+        Rect destRect,
+        float cornerRadius = 0.0f,
+        uint8_t opacity = 255
+    ) override;
 
 private:
+    struct ImageCacheEntry {
+        std::string resolvedDataOrPath;
+        Vec2 size{0.0f, 0.0f};
+        bool isInlineSvg{false};
+        bool valid{false};
+    };
+
+    const ImageCacheEntry& ResolveImageEntry(std::string_view source);
     void ApplyClip(tvg::Paint* paint);
 
     tvg::SwCanvas* m_canvas{nullptr};
@@ -94,6 +127,7 @@ private:
     };
 
     std::unordered_map<TextMeasureKey, Vec2, TextMeasureKeyHash> m_textMeasureCache;
+    std::unordered_map<std::string, ImageCacheEntry> m_imageCache;
 };
 
 } // namespace guikit

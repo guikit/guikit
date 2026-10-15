@@ -41,7 +41,11 @@ enum class IconId : uint16_t {
     Folder,
     Save,
     Eye,
-    EyeOff
+    EyeOff,
+    Info,
+    Warning,
+    Flash,
+    Error
 };
 
 /// First-class Value Object representing an icon (procedural vector, asset file, or texture).
@@ -105,6 +109,10 @@ public:
     [[nodiscard]] static constexpr Icon ChevronDown()  noexcept { return Icon(IconId::ChevronDown); }
     [[nodiscard]] static constexpr Icon Eye()          noexcept { return Icon(IconId::Eye); }
     [[nodiscard]] static constexpr Icon EyeOff()       noexcept { return Icon(IconId::EyeOff); }
+    [[nodiscard]] static constexpr Icon Info()         noexcept { return Icon(IconId::Info); }
+    [[nodiscard]] static constexpr Icon Warning()      noexcept { return Icon(IconId::Warning); }
+    [[nodiscard]] static constexpr Icon Flash()        noexcept { return Icon(IconId::Flash); }
+    [[nodiscard]] static constexpr Icon Error()        noexcept { return Icon(IconId::Error); }
 
     // State queries
     [[nodiscard]] constexpr bool IsEmpty() const noexcept { return m_type == SourceType::None; }
@@ -137,6 +145,7 @@ public:
 
     /// Renders this icon within the specified rectangular bounds using the given tint color.
     void Draw(ICanvas& canvas, Rect bounds, Color tint) const;
+    void Render(ICanvas& canvas, Rect bounds, Color tint) const { Draw(canvas, bounds, tint); }
 
 private:
     IconId m_id{IconId::None};

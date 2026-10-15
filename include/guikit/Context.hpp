@@ -33,12 +33,15 @@
 #include "guikit/panels/Card.hpp"
 #include "guikit/panels/Carousel.hpp"
 #include "guikit/panels/ScrollArea.hpp"
+#include "guikit/panels/Scene.hpp"
 #include "guikit/panels/Sidebar.hpp"
 #include "guikit/panels/Toolbar.hpp"
 #include "guikit/widgets/Button.hpp"
 #include "guikit/widgets/Checkbox.hpp"
 #include "guikit/widgets/Heading.hpp"
+#include "guikit/widgets/Image.hpp"
 #include "guikit/widgets/InputField.hpp"
+#include "guikit/widgets/Markdown.hpp"
 #include "guikit/widgets/Select.hpp"
 #include "guikit/widgets/SidebarMenu.hpp"
 #include "guikit/widgets/Slider.hpp"
@@ -301,6 +304,11 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
+    [[nodiscard]] SceneScope Scene(
+        SceneOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
     // --- Scale & State Scopes ---
     void PushSize(UiSize size);
     void PopSize();
@@ -358,6 +366,25 @@ public:
     // --- Heading Widget ---
     Response Heading(
         HeadingOptions opts,
+        std::source_location loc = std::source_location::current()
+    );
+
+    // --- Image Widget ---
+    Response Image(
+        std::string_view source,
+        ImageOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    Response Image(
+        ImageOptions opts,
+        std::source_location loc = std::source_location::current()
+    );
+
+    // --- Markdown Document Viewer Widget ---
+    MarkdownResponse Markdown(
+        std::string_view markdownText,
+        const MarkdownOptions& opts = {},
         std::source_location loc = std::source_location::current()
     );
 

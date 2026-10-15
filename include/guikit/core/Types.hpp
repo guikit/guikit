@@ -391,6 +391,58 @@ enum class Justify : uint8_t {
     SpaceBetween    ///< Distribute items evenly; first item at start, last at end
 };
 
+/// Content fitting policy within a target bounding box (Image, Scene, Video).
+enum class ObjectFit : uint8_t {
+    Contain,    ///< Scale uniformly to fit entirely inside destination bounds (default)
+    Cover,      ///< Scale uniformly to fill destination bounds completely (cropping excess)
+    Fill,       ///< Stretch non-uniformly to match destination width and height
+    ScaleDown,  ///< Like Contain, but never enlarges above 100% (1:1) natural size
+    Original    ///< Keep 1:1 natural dimensions without scaling
+};
+
+/// Pure geometric helper computing the fitted destination rectangle for `srcSize` inside `dstRect`.
+[[nodiscard]] constexpr Rect ComputeBoxFit(
+    ObjectFit fit,
+    Vec2 srcSize,
+    Rect dstRect,
+    float alignX = 0.5f,
+    float alignY = 0.5f
+) noexcept {
+    if (dstRect.w <= 0.0f || dstRect.h <= 0.0f) {
+        return {dstRect.x, dstRect.y, 0.0f, 0.0f};
+    }
+    if (srcSize.x <= 0.0f || srcSize.y <= 0.0f || fit == ObjectFit::Fill) {
+        return dstRect;
+    }
+
+    float scale = 1.0f;
+    const float scaleX = dstRect.w / srcSize.x;
+    const float scaleY = dstRect.h / srcSize.y;
+
+    switch (fit) {
+        case ObjectFit::Contain:
+            scale = std::min(scaleX, scaleY);
+            break;
+        case ObjectFit::Cover:
+            scale = std::max(scaleX, scaleY);
+            break;
+        case ObjectFit::ScaleDown:
+            scale = std::min(1.0f, std::min(scaleX, scaleY));
+            break;
+        case ObjectFit::Original:
+            scale = 1.0f;
+            break;
+        case ObjectFit::Fill:
+            return dstRect;
+    }
+
+    const float outW = srcSize.x * scale;
+    const float outH = srcSize.y * scale;
+    const float outX = dstRect.x + (dstRect.w - outW) * alignX;
+    const float outY = dstRect.y + (dstRect.h - outH) * alignY;
+    return {outX, outY, outW, outH};
+}
+
 /// Inset margins or internal padding on 4 sides, supporting both explicit pixel insets and semantic design tokens.
 struct Padding {
     float left{0.0f};

@@ -1,5 +1,8 @@
 # Build artifacts
 build/
+build_wasm/
+dist/
+.emsdk/
 bin/
 lib/
 out/

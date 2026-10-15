@@ -7,6 +7,15 @@
 
 namespace guikit {
 
+/// Typographic style variants for rich text and Markdown rendering.
+enum class FontStyle : uint8_t {
+    Regular = 0,
+    Bold,
+    Italic,
+    BoldItalic,
+    Monospace
+};
+
 /// Abstract interface for vector graphics rendering backends.
 class ICanvas {
 public:
@@ -51,11 +60,28 @@ public:
     /// Measures the dimensions of a single-line text string using backend font metrics.
     virtual Vec2 MeasureText(std::string_view text, float fontSize) = 0;
 
+    /// Measures the dimensions of a styled single-line text string (Bold, Italic, Monospace).
+    virtual Vec2 MeasureTextStyled(std::string_view text, float fontSize, FontStyle /*style*/) {
+        return MeasureText(text, fontSize);
+    }
+
     /// Returns the vertical typographic line height for the specified font size according to backend font metrics.
     [[nodiscard]] virtual float GetLineHeight(float fontSize) = 0;
 
     /// Draws a single-line text string with specified font size and color.
     virtual void DrawText(std::string_view text, Vec2 pos, float fontSize, Color color) = 0;
+
+    /// Draws a single-line text string with typographic style and optional rotation angle in degrees.
+    virtual void DrawTextStyled(
+        std::string_view text,
+        Vec2 pos,
+        float fontSize,
+        Color color,
+        FontStyle /*style*/,
+        float /*angleDeg*/ = 0.0f
+    ) {
+        DrawText(text, pos, fontSize, color);
+    }
 
     /// Draws text constrained within a bounding rectangle with horizontal and vertical alignment factors [0..1].
     virtual void DrawTextBox(
@@ -69,6 +95,44 @@ public:
 
     /// Draws a line segment between two points.
     virtual void DrawLine(Vec2 p1, Vec2 p2, Color color, float strokeWidth = 1.0f) = 0;
+
+    /// Draws a filled and/or stroked triangle defined by three points.
+    virtual void DrawTriangle(
+        Vec2 p1,
+        Vec2 p2,
+        Vec2 p3,
+        Color fill,
+        Color stroke = Color(0, 0, 0, 0),
+        float strokeWidth = 0.0f
+    ) {
+        if (fill.a > 0) {
+            DrawLine(p1, p2, fill, 1.0f);
+            DrawLine(p2, p3, fill, 1.0f);
+            DrawLine(p3, p1, fill, 1.0f);
+        }
+        if (stroke.a > 0 && strokeWidth > 0.0f) {
+            DrawLine(p1, p2, stroke, strokeWidth);
+            DrawLine(p2, p3, stroke, strokeWidth);
+            DrawLine(p3, p1, stroke, strokeWidth);
+        }
+    }
+
+    /// Queries the natural (unscaled) dimensions of a vector/raster image (SVG, PNG, JPG, or inline <svg>).
+    /// Returns {0, 0} if the image cannot be found or loaded.
+    virtual Vec2 GetImageSize(std::string_view /*source*/) {
+        return {0.0f, 0.0f};
+    }
+
+    /// Draws a vector or raster image (SVG, PNG, JPG, or inline <svg>) stretched to `destRect`.
+    /// Returns true if the image was loaded and queued for rendering.
+    virtual bool DrawImage(
+        std::string_view /*source*/,
+        Rect /*destRect*/,
+        float /*cornerRadius*/ = 0.0f,
+        uint8_t /*opacity*/ = 255
+    ) {
+        return false;
+    }
 
     /// Draws a hardware or memory texture (e.g. SDL_Texture* handle or image id).
     virtual void DrawTexture(

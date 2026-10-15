@@ -63,6 +63,7 @@ enum class NodeType : uint16_t {
     Carousel    = 103,
     Container   = 104,  ///< General container alias for backward compatibility
     Sidebar     = 105,  ///< Dockable vertical sidebar container (Left or Right)
+    Scene       = 106,  ///< Interactive 2D world camera & pan/zoom viewport
 
     // --- Leaf Widgets (200..999): Self-rendering elements ---
     Button      = 200,
@@ -80,6 +81,8 @@ enum class NodeType : uint16_t {
     Custom      = 212,
     TextArea    = 213,
     SidebarItem = 214,
+    Image       = 215,
+    Markdown    = 216,
 
     // --- User Extension Base (1000+) ---
     User        = 1000
@@ -120,6 +123,8 @@ struct Node {
     bool clipChildren : 1 {false};
     bool scrollbarHovered : 1 {false};
     bool scrollbarActive : 1 {false};
+    bool scrollbarHoveredX : 1 {false};
+    bool scrollbarActiveX : 1 {false};
     bool disabled : 1 {false};
     bool hovered : 1 {false};
     bool pressed : 1 {false};
@@ -136,6 +141,8 @@ struct Node {
     float gap{0.0f};            ///< Gap between consecutive children on same line
     float runGap{0.0f};         ///< Vertical gap between consecutive wrapped lines
     float minWidth{0.0f};       ///< Minimum width constraint for responsive wrapping
+    float minHeight{0.0f};      ///< Minimum height constraint for 2D elements and Stretch fallback
+    float aspectRatio{0.0f};    ///< Optional width/height ratio (> 0 enables automatic height from width)
     float minColWidth{0.0f};    ///< Minimum column width constraint for Grid container
     Padding padding{};          ///< Internal padding inside container
 
@@ -218,17 +225,18 @@ struct Node {
     /// Returns the canonical human-readable element type name for inspector and debug tooling.
     [[nodiscard]] constexpr std::string_view GetTypeName() const noexcept {
         switch (type) {
-            case NodeType::Row:        return "Row";
-            case NodeType::Column:     return "Column";
-            case NodeType::Wrap:       return "Wrap";
-            case NodeType::Grid:       return "Grid";
-            case NodeType::Cell:       return "Cell";
-            case NodeType::Card:       return "Card";
-            case NodeType::Box:        return "Box";
-            case NodeType::ScrollArea: return "ScrollArea";
+            case NodeType::Row:         return "Row";
+            case NodeType::Column:      return "Column";
+            case NodeType::Wrap:        return "Wrap";
+            case NodeType::Grid:        return "Grid";
+            case NodeType::Cell:        return "Cell";
+            case NodeType::Card:        return "Card";
+            case NodeType::Box:         return "Box";
+            case NodeType::ScrollArea:  return "ScrollArea";
             case NodeType::Carousel:    return "Carousel";
             case NodeType::Container:   return "Container";
             case NodeType::Sidebar:     return "Sidebar";
+            case NodeType::Scene:       return "Scene";
             case NodeType::Button:      return "Button";
             case NodeType::InputField:  return "InputField";
             case NodeType::Select:      return "Select";
@@ -244,7 +252,9 @@ struct Node {
             case NodeType::Custom:      return "Custom";
             case NodeType::TextArea:    return "TextArea";
             case NodeType::SidebarItem: return "SidebarItem";
-            default:                   return (static_cast<uint16_t>(type) >= static_cast<uint16_t>(NodeType::User)) ? "UserWidget" : "Unknown";
+            case NodeType::Image:       return "Image";
+            case NodeType::Markdown:    return "Markdown";
+            default:                    return (static_cast<uint16_t>(type) >= static_cast<uint16_t>(NodeType::User)) ? "UserWidget" : "Unknown";
         }
     }
 
@@ -265,6 +275,6 @@ struct Node {
     }
 };
 
-static_assert(sizeof(Node) <= 248, "Node must remain compact (<= 248 bytes)");
+static_assert(sizeof(Node) <= 256, "Node must remain compact (<= 256 bytes / 4 cache lines)");
 
 } // namespace guikit

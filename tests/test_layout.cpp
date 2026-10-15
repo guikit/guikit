@@ -843,6 +843,45 @@ void TestCarouselArrowScaling() {
     CHECK(h2 > 50.0f);
 }
 
+void TestAspectRatioMinHeightAndStretchFallback() {
+    using namespace guikit;
+
+    BumpAllocator arena;
+
+    // 1. AspectRatio auto-height in a Fit Column
+    Node* col = arena.Allocate<Node>();
+    col->direction = FlexDirection::Column;
+    col->widthMode = SizeMode::Fixed;
+    col->fixedWidth = 400.0f;
+    col->heightMode = SizeMode::Fit;
+    col->gap = 10.0f;
+
+    Node* imgNode = arena.Allocate<Node>();
+    imgNode->type = NodeType::Image;
+    imgNode->widthMode = SizeMode::Stretch;
+    imgNode->heightMode = SizeMode::Fit;
+    imgNode->aspectRatio = 2.0f; // width / height = 2.0 -> height = 400 / 2 = 200
+    col->AddChild(imgNode);
+
+    // 2. Stretch child inside a Fit Column falls back to minHeight instead of collapsing to 0!
+    Node* sceneNode = arena.Allocate<Node>();
+    sceneNode->type = NodeType::Scene;
+    sceneNode->widthMode = SizeMode::Stretch;
+    sceneNode->heightMode = SizeMode::Stretch;
+    sceneNode->minHeight = 240.0f;
+    col->AddChild(sceneNode);
+
+    LayoutSolver::Measure(col);
+    LayoutSolver::Arrange(col, Rect(0.0f, 0.0f, 400.0f, 0.0f));
+
+    CHECK_NEAR(imgNode->computedRect.w, 400.0f, 0.001f);
+    CHECK_NEAR(imgNode->computedRect.h, 200.0f, 0.001f);
+
+    CHECK_NEAR(sceneNode->computedRect.w, 400.0f, 0.001f);
+    CHECK_NEAR(sceneNode->computedRect.h, 240.0f, 0.001f);
+    CHECK_NEAR(col->computedRect.h, 450.0f, 0.001f); // 200 + 10 + 240
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Layout Solver...\n";
 
@@ -859,6 +898,7 @@ int main() {
     TestCustomMeasureAndArrangeDelegates();
     TestStretchColumnInConstrainedRowWithHugeContent();
     TestCarouselArrowScaling();
+    TestAspectRatioMinHeightAndStretchFallback();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Layout tests passed successfully!\n";

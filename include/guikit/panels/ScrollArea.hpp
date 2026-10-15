@@ -3,6 +3,7 @@
 #include <optional>
 #include <source_location>
 #include "guikit/core/ContainerScope.hpp"
+#include "guikit/core/Id.hpp"
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
@@ -13,12 +14,13 @@ class Context;
 class ICanvas;
 struct Node;
 
-/// Persistent scroll state for ScrollArea and Carousel viewports.
+/// Persistent scroll state for ScrollArea and 2D viewports.
 struct ScrollState {
     Vec2 offset{0.0f, 0.0f};
     bool draggingY{false};
     bool draggingX{false};
     float dragStartOffset{0.0f};
+    float dragStartOffsetX{0.0f};
     Vec2 dragStartMouse{0.0f, 0.0f};
 };
 
@@ -36,7 +38,7 @@ struct ScrollAreaOptions {
     std::optional<bool> inspectMode{std::nullopt};
 };
 
-/// ScrollArea container logic and scrollbar rendering.
+/// ScrollArea container logic and shared 1D/2D scrollbar primitives.
 class ScrollArea {
 public:
     /// Primary immediate mode entry point for ScrollArea container.
@@ -60,6 +62,38 @@ public:
         const Node* node,
         ICanvas& canvas,
         const UiTheme& theme = UiTheme::Dark()
+    );
+
+    /// Shared primitive: renders a vertical or horizontal scrollbar along the edge of `viewportRect`.
+    static void RenderAxisScrollbar(
+        ICanvas& canvas,
+        Rect viewportRect,
+        float contentLength,
+        float scrollOffset,
+        bool isHorizontal,
+        bool hovered,
+        bool active,
+        UiSize size,
+        const UiTheme& theme,
+        float cornerReserve = 0.0f
+    );
+
+    /// Shared primitive: updates interaction (hover, thumb drag, track page jump) for a single scrollbar axis.
+    static void UpdateAxisScrollbar(
+        Context& ctx,
+        Id ownerId,
+        Rect viewportRect,
+        float contentLength,
+        float& ioScrollOffset,
+        bool& ioDragging,
+        float& ioDragStartOffset,
+        Vec2& ioDragStartMouse,
+        bool& outHovered,
+        bool& outActive,
+        bool isHorizontal,
+        UiSize size,
+        const UiTheme& theme,
+        float cornerReserve = 0.0f
     );
 };
 
