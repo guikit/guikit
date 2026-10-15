@@ -6,4 +6,5 @@
 
 #include "guikit/Context.hpp"
 #include "guikit/core/FrameMetrics.hpp"
+#include "guikit/core/MapGrid.hpp"
 #include "guikit/core/Theme.hpp"

@@ -73,6 +73,11 @@ struct SceneState {
     bool boxSelecting{false};
     Vec2 boxSelectStartWorld{0.0f, 0.0f};
     Vec2 boxSelectCurrentWorld{0.0f, 0.0f};
+    std::optional<Vec2> pendingCenterWorld{std::nullopt};
+    std::optional<float> pendingCenterZoom{std::nullopt};
+    bool preUpdatedCamera{false};
+    bool preUpdateHudConsumed{false};
+    bool preUpdateScrollbarBusy{false};
 
     [[nodiscard]] bool IsSelected(uint64_t key) const noexcept {
         if (key == 0) return false;
@@ -219,8 +224,14 @@ public:
     /// Returns the current camera zoom multiplier.
     [[nodiscard]] float GetZoom() const noexcept;
 
+    /// Returns the effective screen-pixels-per-world-unit scale factor (zoom * themeScale).
+    [[nodiscard]] float GetWorldScale() const noexcept;
+
     /// Sets the camera zoom multiplier (clamped to [minZoom, maxZoom]).
     void SetZoom(float zoom) noexcept;
+
+    /// Centers the camera on a specific world-space coordinate with an optional new zoom multiplier.
+    void CenterOn(Vec2 worldPoint, std::optional<float> zoom = std::nullopt) noexcept;
 
     /// Resets camera to initial fit framing.
     void ResetView() noexcept;

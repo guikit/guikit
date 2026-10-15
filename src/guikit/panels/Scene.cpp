@@ -375,14 +375,42 @@ float SceneScope::GetZoom() const noexcept {
     return (m_payload && m_payload->state) ? m_payload->state->zoom : 1.0f;
 }
 
+float SceneScope::GetWorldScale() const noexcept {
+    if (!m_ctx || !m_payload || !m_payload->state) return 1.0f;
+    return std::max(0.0001f, m_ctx->GetTheme().Scale(1.0f) * m_payload->state->zoom);
+}
+
 void SceneScope::SetZoom(float zoom) noexcept {
     if (!m_payload || !m_payload->state) return;
     m_payload->state->zoom = std::clamp(zoom, m_payload->opts.minZoom, m_payload->opts.maxZoom);
 }
 
+void SceneScope::CenterOn(Vec2 worldPoint, std::optional<float> zoom) noexcept {
+    if (!m_payload || !m_payload->state) return;
+    SceneState& st = *m_payload->state;
+    if (zoom.has_value()) {
+        st.zoom = std::clamp(*zoom, m_payload->opts.minZoom, m_payload->opts.maxZoom);
+    }
+    if (m_ctx && m_viewport.w > 1.0f && m_viewport.h > 1.0f) {
+        const UiTheme& theme = m_ctx->GetTheme();
+        const float s = theme.Scale(1.0f) * st.zoom;
+        st.pan.x = m_viewport.w * 0.5f - worldPoint.x * s;
+        st.pan.y = m_viewport.h * 0.5f - worldPoint.y * s;
+        ClampCameraToWorld(st, m_payload->opts, m_viewport, theme);
+        st.initialized = true;
+        st.pendingCenterWorld.reset();
+        st.pendingCenterZoom.reset();
+    } else {
+        st.pendingCenterWorld = worldPoint;
+        st.pendingCenterZoom = zoom;
+    }
+}
+
 void SceneScope::ResetView() noexcept {
     if (!m_payload || !m_payload->state) return;
     m_payload->state->initialized = false;
+    m_payload->state->pendingCenterWorld.reset();
+    m_payload->state->pendingCenterZoom.reset();
 }
 
 Vec2 SceneScope::GetPan() const noexcept {
@@ -592,148 +620,40 @@ void SceneScope::DrawTextBox(
     m_payload->drawCmds.push_back(cmd);
 }
 
-SceneScope Scene::Open(
+namespace {
+
+void UpdateSceneCameraTransform(
     Context& ctx,
-    const SceneOptions& opts,
-    std::source_location loc
+    Node* node,
+    ScenePayload* payload,
+    Rect vp,
+    const UiTheme& theme
 ) {
-    const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
-    const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
-
-    const UiTheme& theme = ctx.GetTheme();
-    auto& state = ctx.GetOrCreateState<SceneState>(id);
-
-    Node* node = ctx.CreateNode(NodeType::Scene, id);
-    node->theme = pushedTheme;
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
-    node->direction = FlexDirection::Column;
-    node->clipChildren = true;
-    node->uiSize = activeSize;
-    node->disabled = activeDisabled;
-
-    auto* payload = ctx.AllocPayload<ScenePayload>();
-    payload->opts = opts;
-    payload->opts.label = ctx.AllocText(opts.label);
-    payload->opts.description = ctx.AllocText(opts.description);
-    payload->state = &state;
-    node->SetPayload(payload);
-
-    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& th) noexcept -> Vec2 {
-        const auto* p = n->As<ScenePayload>();
-        if (!p) return {0.0f, 0.0f};
-        return Scene::Measure(p->opts, n->uiSize, canvas, th, availableWidth);
-    };
-    node->renderFn = &Scene::RenderBackgroundAndWorld;
-    node->postRenderFn = &Scene::RenderOverlays;
-
-    const bool hasExt = opts.label.HasContentOrReserve() || opts.description.HasContentOrReserve();
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : opts.widthMode;
-    node->heightMode = opts.heightMode;
-    if (opts.width.has_value() && opts.stretch != StretchMode::Fill && !hasExt) {
-        node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = theme.Scale(*opts.width);
-    }
-    if (opts.height.has_value() && *opts.height > 0.0f && !hasExt) {
-        node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(*opts.height);
-    }
-    node->minHeight = opts.height.has_value() ? theme.Scale(*opts.height) : theme.Scale(opts.minHeight);
-
-    Rect prevBounds = ctx.GetPrevFrameBounds(id);
-    Rect prevVp = prevBounds;
-    if (prevBounds.w > 0.0f && prevBounds.h > 0.0f && hasExt) {
-        const ElementSpec spec = MakeSceneSpec(opts, activeSize, theme, activeDisabled);
-        const Vec2 ctrlSize = ComputeSceneControlSize(opts, theme, prevBounds.w);
-        prevVp = ElementComposer::Resolve(prevBounds, ctrlSize, spec, nullptr, theme).controlRect;
-    }
-
-    node->visualHash = detail::HashArgs(
-        payload->opts.label,
-        payload->opts.description,
-        opts.worldSize.has_value() ? opts.worldSize->x : 0.0f,
-        opts.worldSize.has_value() ? opts.worldSize->y : 0.0f,
-        static_cast<uint8_t>(opts.initialFit),
-        static_cast<uint8_t>(opts.background),
-        opts.gridStep,
-        opts.backgroundColor.ToUint32(),
-        static_cast<uint8_t>(opts.layout),
-        static_cast<uint8_t>(opts.stretch),
-        static_cast<uint8_t>(opts.heightMode),
-        opts.width.value_or(0.0f),
-        opts.height.value_or(0.0f),
-        opts.showScrollbars,
-        opts.showControls,
-        state.zoom,
-        state.pan.x,
-        state.pan.y,
-        state.hoveredHudBtn,
-        state.hoveredItemKey,
-        state.selectedItemKeys.size(),
-        state.boxSelecting,
-        state.boxSelectCurrentWorld.x,
-        state.boxSelectCurrentWorld.y,
-        activeSize,
-        activeDisabled
-    );
-
-    ctx.PushScale(activeScale);
-    ctx.PushSize(activeSize);
-    ctx.PushDisabled(activeDisabled);
-    ctx.PushContainer(node);
-    return SceneScope(&ctx, node, payload, prevVp);
-}
-
-Rect Scene::GetViewportRect(const Node* node, ICanvas* canvas, const UiTheme& theme) noexcept {
-    if (!node) return {};
-    const auto* payload = node->As<ScenePayload>();
-    if (!payload) return node->computedRect;
-
-    const ElementSpec spec = MakeSceneSpec(payload->opts, node->uiSize, theme, node->disabled);
-    const Vec2 ctrlSize = ComputeSceneControlSize(payload->opts, theme, node->computedRect.w);
-    return ElementComposer::Resolve(node->computedRect, ctrlSize, spec, canvas, theme).controlRect;
-}
-
-Vec2 Scene::Measure(
-    const SceneOptions& opts,
-    UiSize size,
-    ICanvas* canvas,
-    const UiTheme& theme,
-    float availableWidth
-) {
-    const ElementSpec spec = MakeSceneSpec(opts, size, theme, opts.disabled);
-    const Vec2 ctrlSize = ComputeSceneControlSize(opts, theme, availableWidth);
-    return ElementComposer::Measure(ctrlSize, spec, canvas, theme, availableWidth);
-}
-
-void Scene::Update(Context& ctx, Node* node) {
-    if (!node || !node->id.IsValid()) return;
-    auto* payload = node->As<ScenePayload>();
-    if (!payload || !payload->state) return;
-
     SceneState& state = *payload->state;
     const SceneOptions& opts = payload->opts;
-    state.clickedItemKey = 0;
-
-    const UiTheme* resolvedTheme = &ctx.GetTheme();
-    for (const Node* curr = node; curr != nullptr; curr = curr->parent) {
-        if (curr->theme != nullptr) {
-            resolvedTheme = curr->theme;
-            break;
-        }
-    }
-    const UiTheme& theme = *resolvedTheme;
-    const Rect vp = GetViewportRect(node, nullptr, theme);
-    if (vp.w <= 1.0f || vp.h <= 1.0f) return;
 
     if (!state.initialized) {
         ApplyInitialFit(state, opts, vp, theme);
     }
+    if (state.pendingCenterWorld.has_value()) {
+        if (state.pendingCenterZoom.has_value()) {
+            state.zoom = std::clamp(*state.pendingCenterZoom, opts.minZoom, opts.maxZoom);
+        }
+        const float s = theme.Scale(1.0f) * state.zoom;
+        state.pan.x = vp.w * 0.5f - state.pendingCenterWorld->x * s;
+        state.pan.y = vp.h * 0.5f - state.pendingCenterWorld->y * s;
+        ClampCameraToWorld(state, opts, vp, theme);
+        state.initialized = true;
+        state.pendingCenterWorld.reset();
+        state.pendingCenterZoom.reset();
+    }
 
-    if (node->disabled) return;
+    state.preUpdateHudConsumed = false;
+    state.preUpdateScrollbarBusy = false;
+    if (node->disabled) {
+        ClampCameraToWorld(state, opts, vp, theme);
+        return;
+    }
 
     const float s = theme.Scale(1.0f);
     const float worldScale = std::max(0.0001f, state.zoom * s);
@@ -868,7 +788,214 @@ void Scene::Update(Context& ctx, Node* node) {
         (mousePos.y - vp.y - state.pan.y) / std::max(0.0001f, state.zoom * s)
     };
 
-    // 4. Spatial Hit-Testing for SceneItems (smallest-area / topmost priority)
+    // 4. Pointer Press & Active Drag-to-Pan / Marquee Box Update
+    if (!hudConsumed && !scrollbarBusy && insideVp && mouseClicked) {
+        if (opts.selectableItems && mods.shift) {
+            state.boxSelecting = true;
+            state.boxSelectStartWorld = mouseWorld;
+            state.boxSelectCurrentWorld = mouseWorld;
+            ctx.SetActiveId(node->id);
+            ctx.RequestRepaint(2);
+        } else {
+            state.pointerDown = true;
+            state.panning = false;
+            state.panStartMouse = mousePos;
+            state.panStartOffset = state.pan;
+            ctx.SetActiveId(node->id);
+        }
+    }
+
+    if (state.boxSelecting && mouseDown) {
+        state.boxSelectCurrentWorld = mouseWorld;
+        ctx.RequestRepaint(2);
+    } else if (state.pointerDown && mouseDown) {
+        const Vec2 delta = mousePos - state.panStartMouse;
+        if (!state.panning && opts.pannable && (std::abs(delta.x) >= 3.5f || std::abs(delta.y) >= 3.5f)) {
+            state.panning = true;
+        }
+        if (state.panning) {
+            state.pan = state.panStartOffset + delta;
+            ctx.RequestRepaint(2);
+        }
+    }
+
+    ClampCameraToWorld(state, opts, vp, theme);
+    state.preUpdateHudConsumed = hudConsumed;
+    state.preUpdateScrollbarBusy = scrollbarBusy;
+}
+
+} // namespace
+
+SceneScope Scene::Open(
+    Context& ctx,
+    const SceneOptions& opts,
+    std::source_location loc
+) {
+    const Id id = ctx.MakeChildId(loc);
+    const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
+    const bool activeDisabled = opts.disabled || ctx.IsDisabled();
+    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+
+    const UiTheme& theme = ctx.GetTheme();
+    auto& state = ctx.GetOrCreateState<SceneState>(id);
+
+    Node* node = ctx.CreateNode(NodeType::Scene, id);
+    node->theme = pushedTheme;
+    node->debugBoundsOverride = opts.debugBounds;
+    node->inspectModeOverride = opts.inspectMode;
+    node->direction = FlexDirection::Column;
+    node->clipChildren = true;
+    node->uiSize = activeSize;
+    node->disabled = activeDisabled;
+
+    auto* payload = ctx.AllocPayload<ScenePayload>();
+    payload->opts = opts;
+    payload->opts.label = ctx.AllocText(opts.label);
+    payload->opts.description = ctx.AllocText(opts.description);
+    payload->state = &state;
+    node->SetPayload(payload);
+
+    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& th) noexcept -> Vec2 {
+        const auto* p = n->As<ScenePayload>();
+        if (!p) return {0.0f, 0.0f};
+        return Scene::Measure(p->opts, n->uiSize, canvas, th, availableWidth);
+    };
+    node->renderFn = &Scene::RenderBackgroundAndWorld;
+    node->postRenderFn = &Scene::RenderOverlays;
+
+    const bool hasExt = opts.label.HasContentOrReserve() || opts.description.HasContentOrReserve();
+    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : opts.widthMode;
+    node->heightMode = opts.heightMode;
+    if (opts.width.has_value() && opts.stretch != StretchMode::Fill && !hasExt) {
+        node->widthMode = SizeMode::Fixed;
+        node->fixedWidth = theme.Scale(*opts.width);
+    }
+    if (opts.height.has_value() && *opts.height > 0.0f && !hasExt) {
+        node->heightMode = SizeMode::Fixed;
+        node->fixedHeight = theme.Scale(*opts.height);
+    }
+    node->minHeight = opts.height.has_value() ? theme.Scale(*opts.height) : theme.Scale(opts.minHeight);
+
+    Rect prevBounds = ctx.GetPrevFrameBounds(id);
+    Rect prevVp = prevBounds;
+    if (prevBounds.w > 0.0f && prevBounds.h > 0.0f && hasExt) {
+        const ElementSpec spec = MakeSceneSpec(opts, activeSize, theme, activeDisabled);
+        const Vec2 ctrlSize = ComputeSceneControlSize(opts, theme, prevBounds.w);
+        prevVp = ElementComposer::Resolve(prevBounds, ctrlSize, spec, nullptr, theme).controlRect;
+    }
+
+    // Eagerly update camera pan & zoom before SceneScope body runs so GetVisibleWorldRect() and GetZoom() have zero 1-frame lag!
+    state.preUpdatedCamera = false;
+    if (prevVp.w > 1.0f && prevVp.h > 1.0f) {
+        UpdateSceneCameraTransform(ctx, node, payload, prevVp, theme);
+        state.preUpdatedCamera = true;
+    }
+
+    node->visualHash = detail::HashArgs(
+        payload->opts.label,
+        payload->opts.description,
+        opts.worldSize.has_value() ? opts.worldSize->x : 0.0f,
+        opts.worldSize.has_value() ? opts.worldSize->y : 0.0f,
+        static_cast<uint8_t>(opts.initialFit),
+        static_cast<uint8_t>(opts.background),
+        opts.gridStep,
+        opts.backgroundColor.ToUint32(),
+        static_cast<uint8_t>(opts.layout),
+        static_cast<uint8_t>(opts.stretch),
+        static_cast<uint8_t>(opts.heightMode),
+        opts.width.value_or(0.0f),
+        opts.height.value_or(0.0f),
+        opts.showScrollbars,
+        opts.showControls,
+        state.zoom,
+        state.pan.x,
+        state.pan.y,
+        state.hoveredHudBtn,
+        state.hoveredItemKey,
+        state.selectedItemKeys.size(),
+        state.boxSelecting,
+        state.boxSelectCurrentWorld.x,
+        state.boxSelectCurrentWorld.y,
+        activeSize,
+        activeDisabled
+    );
+
+    ctx.PushScale(activeScale);
+    ctx.PushSize(activeSize);
+    ctx.PushDisabled(activeDisabled);
+    ctx.PushContainer(node);
+    return SceneScope(&ctx, node, payload, prevVp);
+}
+
+Rect Scene::GetViewportRect(const Node* node, ICanvas* canvas, const UiTheme& theme) noexcept {
+    if (!node) return {};
+    const auto* payload = node->As<ScenePayload>();
+    if (!payload) return node->computedRect;
+
+    const ElementSpec spec = MakeSceneSpec(payload->opts, node->uiSize, theme, node->disabled);
+    const Vec2 ctrlSize = ComputeSceneControlSize(payload->opts, theme, node->computedRect.w);
+    return ElementComposer::Resolve(node->computedRect, ctrlSize, spec, canvas, theme).controlRect;
+}
+
+Vec2 Scene::Measure(
+    const SceneOptions& opts,
+    UiSize size,
+    ICanvas* canvas,
+    const UiTheme& theme,
+    float availableWidth
+) {
+    const ElementSpec spec = MakeSceneSpec(opts, size, theme, opts.disabled);
+    const Vec2 ctrlSize = ComputeSceneControlSize(opts, theme, availableWidth);
+    return ElementComposer::Measure(ctrlSize, spec, canvas, theme, availableWidth);
+}
+
+void Scene::Update(Context& ctx, Node* node) {
+    if (!node || !node->id.IsValid()) return;
+    auto* payload = node->As<ScenePayload>();
+    if (!payload || !payload->state) return;
+
+    SceneState& state = *payload->state;
+    const SceneOptions& opts = payload->opts;
+    state.clickedItemKey = 0;
+
+    const UiTheme* resolvedTheme = &ctx.GetTheme();
+    for (const Node* curr = node; curr != nullptr; curr = curr->parent) {
+        if (curr->theme != nullptr) {
+            resolvedTheme = curr->theme;
+            break;
+        }
+    }
+    const UiTheme& theme = *resolvedTheme;
+    const Rect vp = GetViewportRect(node, nullptr, theme);
+    if (vp.w <= 1.0f || vp.h <= 1.0f) return;
+
+    if (!state.preUpdatedCamera) {
+        UpdateSceneCameraTransform(ctx, node, payload, vp, theme);
+    } else {
+        ClampCameraToWorld(state, opts, vp, theme);
+    }
+
+    if (node->disabled) return;
+
+    const float s = theme.Scale(1.0f);
+    const Vec2 mousePos = ctx.GetMousePos();
+    const bool insideVp = vp.Contains(mousePos);
+    const bool mouseDown = ctx.IsMouseDown();
+    const KeyModifiers mods = ctx.GetKeyModifiers();
+    const bool hudConsumed = state.preUpdateHudConsumed;
+    const bool scrollbarBusy = state.preUpdateScrollbarBusy;
+
+    const bool hasWorld = opts.worldSize.has_value() && opts.worldSize->x > 0.0f && opts.worldSize->y > 0.0f;
+    const float worldScreenW = hasWorld ? (opts.worldSize->x * s * state.zoom) : 0.0f;
+    const float worldScreenH = hasWorld ? (opts.worldSize->y * s * state.zoom) : 0.0f;
+
+    const Vec2 mouseWorld = {
+        (mousePos.x - vp.x - state.pan.x) / std::max(0.0001f, state.zoom * s),
+        (mousePos.y - vp.y - state.pan.y) / std::max(0.0001f, state.zoom * s)
+    };
+
+    // Spatial Hit-Testing for SceneItems (smallest-area / topmost priority)
     const uint64_t prevHoveredKey = state.hoveredItemKey;
     state.hoveredItemKey = 0;
     if (opts.selectableItems && insideVp && !hudConsumed && !scrollbarBusy && !state.panning && !state.boxSelecting) {
@@ -898,88 +1025,55 @@ void Scene::Update(Context& ctx, Node* node) {
         ctx.RequestRepaint(2);
     }
 
-    // 5. Pointer Press / Drag-to-Pan / Click-to-Select / Shift+Drag Marquee Box Selection
-    if (!hudConsumed && !scrollbarBusy && insideVp && mouseClicked) {
-        if (opts.selectableItems && mods.shift) {
-            state.boxSelecting = true;
-            state.boxSelectStartWorld = mouseWorld;
-            state.boxSelectCurrentWorld = mouseWorld;
-            ctx.SetActiveId(node->id);
-            ctx.RequestRepaint(2);
-        } else {
-            state.pointerDown = true;
-            state.panning = false;
-            state.panStartMouse = mousePos;
-            state.panStartOffset = state.pan;
-            ctx.SetActiveId(node->id);
+    // Complete Marquee Box Selection or Click-to-Select on mouse button release
+    if (state.boxSelecting && !mouseDown) {
+        const float x1 = std::min(state.boxSelectStartWorld.x, state.boxSelectCurrentWorld.x);
+        const float y1 = std::min(state.boxSelectStartWorld.y, state.boxSelectCurrentWorld.y);
+        const float x2 = std::max(state.boxSelectStartWorld.x, state.boxSelectCurrentWorld.x);
+        const float y2 = std::max(state.boxSelectStartWorld.y, state.boxSelectCurrentWorld.y);
+        const Rect marquee(x1, y1, x2 - x1, y2 - y1);
+
+        if (!mods.ctrl) {
+            state.selectedItemKeys.clear();
         }
-    }
-
-    if (state.boxSelecting) {
-        if (mouseDown) {
-            state.boxSelectCurrentWorld = mouseWorld;
-            ctx.RequestRepaint(2);
-        } else {
-            const float x1 = std::min(state.boxSelectStartWorld.x, state.boxSelectCurrentWorld.x);
-            const float y1 = std::min(state.boxSelectStartWorld.y, state.boxSelectCurrentWorld.y);
-            const float x2 = std::max(state.boxSelectStartWorld.x, state.boxSelectCurrentWorld.x);
-            const float y2 = std::max(state.boxSelectStartWorld.y, state.boxSelectCurrentWorld.y);
-            const Rect marquee(x1, y1, x2 - x1, y2 - y1);
-
-            if (!mods.ctrl) {
-                state.selectedItemKeys.clear();
-            }
-            if (marquee.w > 1.0f || marquee.h > 1.0f) {
-                for (const SceneItemInfo& item : payload->items) {
-                    if (item.selectable && item.worldBounds.Intersects(marquee)) {
-                        if (!state.IsSelected(item.key)) {
-                            state.selectedItemKeys.push_back(item.key);
-                        }
+        if (marquee.w > 1.0f || marquee.h > 1.0f) {
+            for (const SceneItemInfo& item : payload->items) {
+                if (item.selectable && item.worldBounds.Intersects(marquee)) {
+                    if (!state.IsSelected(item.key)) {
+                        state.selectedItemKeys.push_back(item.key);
                     }
                 }
             }
-            state.boxSelecting = false;
-            if (ctx.GetActiveId() == node->id) {
-                ctx.SetActiveId(Id::Null());
-            }
-            ctx.RequestRepaint(2);
         }
-    } else if (state.pointerDown) {
-        if (mouseDown) {
-            const Vec2 delta = mousePos - state.panStartMouse;
-            if (!state.panning && opts.pannable && (std::abs(delta.x) >= 3.5f || std::abs(delta.y) >= 3.5f)) {
-                state.panning = true;
-            }
-            if (state.panning) {
-                state.pan = state.panStartOffset + delta;
-                ctx.RequestRepaint(2);
-            }
-        } else {
-            // Mouse button released: if we did not drag-pan, treat as a click!
-            if (!state.panning && opts.selectableItems) {
-                if (state.hoveredItemKey != 0) {
-                    state.clickedItemKey = state.hoveredItemKey;
-                    if (mods.ctrl) {
-                        auto it = std::find(state.selectedItemKeys.begin(), state.selectedItemKeys.end(), state.hoveredItemKey);
-                        if (it != state.selectedItemKeys.end()) {
-                            state.selectedItemKeys.erase(it);
-                        } else {
-                            state.selectedItemKeys.push_back(state.hoveredItemKey);
-                        }
+        state.boxSelecting = false;
+        if (ctx.GetActiveId() == node->id) {
+            ctx.SetActiveId(Id::Null());
+        }
+        ctx.RequestRepaint(2);
+    } else if (state.pointerDown && !mouseDown) {
+        if (!state.panning && opts.selectableItems) {
+            if (state.hoveredItemKey != 0) {
+                state.clickedItemKey = state.hoveredItemKey;
+                if (mods.ctrl) {
+                    auto it = std::find(state.selectedItemKeys.begin(), state.selectedItemKeys.end(), state.hoveredItemKey);
+                    if (it != state.selectedItemKeys.end()) {
+                        state.selectedItemKeys.erase(it);
                     } else {
-                        state.selectedItemKeys.clear();
                         state.selectedItemKeys.push_back(state.hoveredItemKey);
                     }
-                } else if (!mods.ctrl) {
+                } else {
                     state.selectedItemKeys.clear();
+                    state.selectedItemKeys.push_back(state.hoveredItemKey);
                 }
-                ctx.RequestRepaint(2);
+            } else if (!mods.ctrl) {
+                state.selectedItemKeys.clear();
             }
-            state.pointerDown = false;
-            state.panning = false;
-            if (ctx.GetActiveId() == node->id) {
-                ctx.SetActiveId(Id::Null());
-            }
+            ctx.RequestRepaint(2);
+        }
+        state.pointerDown = false;
+        state.panning = false;
+        if (ctx.GetActiveId() == node->id) {
+            ctx.SetActiveId(Id::Null());
         }
     }
 

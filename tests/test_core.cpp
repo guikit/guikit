@@ -7,6 +7,7 @@
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/core/Node.hpp"
+#include "guikit/core/MapGrid.hpp"
 
 static int g_failures = 0;
 
@@ -349,6 +350,65 @@ void TestComputeBoxFit() {
     CHECK(rOrigEnd.w == 100.0f && rOrigEnd.h == 50.0f);
 }
 
+void TestMapGridAndProjections() {
+    using namespace guikit;
+
+    // 1. Round-trip Geographic <-> Normalized (u, v) across all 3 CRS projections
+    const GeoCoord helgoland{54.1833, 7.8833};
+    for (MapCrs crs : {MapCrs::EPSG3857_WebMercator,
+                       MapCrs::EPSG3395_WorldMercator,
+                       MapCrs::EPSG4326_PlateCarree}) {
+        const Vec2 uv = MapGrid::GeoToNormalized(helgoland, crs);
+        CHECK(uv.x > 0.5f && uv.x < 0.6f);
+        CHECK(uv.y > 0.1f && uv.y < 0.45f);
+        const GeoCoord back = MapGrid::NormalizedToGeo(uv, crs);
+        CHECK(std::abs(back.lat - helgoland.lat) < 1e-3);
+        CHECK(std::abs(back.lon - helgoland.lon) < 1e-3);
+    }
+
+    // 2. Noticeable difference between Spherical (EPSG:3857) and WGS84 Ellipsoidal (EPSG:3395) Mercator Y
+    const auto [u3857, v3857] = MapGrid::GeoToNormalized(helgoland, MapCrs::EPSG3857_WebMercator);
+    const auto [u3395, v3395] = MapGrid::GeoToNormalized(helgoland, MapCrs::EPSG3395_WorldMercator);
+    CHECK(std::abs(u3857 - u3395) < 1e-9);
+    CHECK(std::abs(v3857 - v3395) > 5e-4);
+
+    // 3. Tile ID & View State calculation
+    MapGridConfig cfg{
+        .crs = MapCrs::EPSG3857_WebMercator,
+        .worldSize = 2048.0f,
+        .baseZoom = 3,
+        .minTileZoom = 1,
+        .maxTileZoom = 18
+    };
+    const Vec2 helgolandWorld = MapGrid::GeoToWorld(helgoland, cfg.worldSize, cfg.crs);
+    const float sceneZoomZ7 = MapGrid::TileZoomToSceneZoom(7.0f, cfg.baseZoom);
+    CHECK(std::abs(sceneZoomZ7 - 16.0f) < 1e-4f);
+
+    const Rect visibleWorld{
+        helgolandWorld.x - 20.0f,
+        helgolandWorld.y - 15.0f,
+        40.0f,
+        30.0f
+    };
+    const Rect viewportRect{0.0f, 0.0f, 640.0f, 480.0f};
+    const MapViewState view = MapGrid::ComputeView(
+        visibleWorld, viewportRect, sceneZoomZ7, helgolandWorld, cfg
+    );
+    CHECK(view.tileZoom == 7);
+    CHECK(!view.visibleTiles.empty());
+    CHECK(!view.meridians.empty());
+    CHECK(!view.parallels.empty());
+    CHECK(std::abs(view.cursor.lat - helgoland.lat) < 1e-2);
+    CHECK(std::abs(view.cursor.lon - helgoland.lon) < 1e-2);
+    CHECK(view.metricScale.screenPixels > 20.0f);
+    CHECK(view.nauticalScale.screenPixels > 20.0f);
+
+    // 4. Nautical DMM formatting check
+    const std::string dmmStr = MapGrid::FormatCoord(helgoland, GeoCoordFormat::NauticalDMM);
+    CHECK(dmmStr.find("54") != std::string::npos);
+    CHECK(dmmStr.find("007") != std::string::npos);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Core Foundation...\n";
 
@@ -361,6 +421,7 @@ int main() {
     TestCarouselMetricsTokens();
     TestSliderMetricsTokens();
     TestComputeBoxFit();
+    TestMapGridAndProjections();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Core tests passed successfully!\n";

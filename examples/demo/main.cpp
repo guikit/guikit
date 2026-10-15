@@ -11,6 +11,7 @@
 #include "guikit/backend/ThorCanvas.hpp"
 #include "guikit/core/FrameMetrics.hpp"
 #include "SchematicPrimitives.hpp"
+#include "OsmMapPrimitives.hpp"
 
 int main(int argc, char* argv[]) {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
@@ -162,6 +163,7 @@ int main(int argc, char* argv[]) {
         ElemCard,
         ElemImage,
         ElemScene,
+        ElemOsmMap,
         ElemMarkdown,
         ElemTextArea,
 
@@ -398,6 +400,32 @@ int main(int argc, char* argv[]) {
     bool sceneShowScrollbars = true;
     float sceneRadius = 8.0f;
     float sceneGridStep = 32.0f;
+
+    // OSM Slippy Map & OpenSeaMap Nautical Graticule demo state
+    guikit::demo::OsmMapRenderOptions osmOpts{};
+    guikit::MapViewState osmLastView{};
+    bool osmShowControls = true;
+    bool osmShowScrollbars = true;
+    bool osmSelectableItems = true;
+    float osmRadius = 8.0f;
+    bool osmCameraInitialized = false;
+    std::optional<guikit::GeoCoord> osmPendingCenterGeo{};
+    std::optional<float> osmPendingSceneZoom{};
+    size_t osmRegionPresetIdx = 0;
+    static constexpr std::array<std::string_view, 6> osmRegionPresetNames = {
+        "Helgoland / German Bight (z=7)",
+        "Kiel Canal / Elbe Approach (z=9)",
+        "Dover Strait TSS (z=8)",
+        "Greenwich Prime Meridian (z=8)",
+        "Strait of Gibraltar (z=8)",
+        "Global Overview (z=2)"
+    };
+    static constexpr std::array<std::string_view, 3> osmCrsShortNames = {
+        "EPSG:3857", "EPSG:3395", "EPSG:4326"
+    };
+    static constexpr std::array<std::string_view, 3> osmCoordFormatNames = {
+        "Nautical DMM", "Decimal", "DMS"
+    };
 
     // Markdown demo state
     bool mdCodeLineNumbers = true;
@@ -747,6 +775,7 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                 menu.Item(selectedCategory, NavCategory::ElemCard,       {.text = "Card",       .icon = guikit::Icon::Copy()});
                                 menu.Item(selectedCategory, NavCategory::ElemImage,      {.text = "Image",      .icon = guikit::Icon::Eye(), .badge = "New"});
                                 menu.Item(selectedCategory, NavCategory::ElemScene,      {.text = "Scene 2D",   .icon = guikit::Icon::Search(), .badge = "New"});
+                                menu.Item(selectedCategory, NavCategory::ElemOsmMap,     {.text = "OSM Map",    .icon = guikit::Icon::Search(), .badge = "New"});
                                 menu.Item(selectedCategory, NavCategory::ElemMarkdown,   {.text = "Markdown",   .icon = guikit::Icon::Edit(), .badge = "New"});
                                 menu.Item(selectedCategory, NavCategory::ElemTextArea,   {.text = "Code Editor",.icon = guikit::Icon::Edit(), .badge = "New"});
 
@@ -1148,6 +1177,88 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 break;
                                             }
 
+                                            case NavCategory::ElemOsmMap: {
+                                                if (ui.Select(osmRegionPresetIdx, osmRegionPresetNames, {
+                                                    .label = "Chart Region / Camera Jump",
+                                                    .prefix = guikit::Icon::Search()
+                                                }).changed) {
+                                                    if (osmRegionPresetIdx < guikit::demo::kMaritimeWaypoints.size()) {
+                                                        const auto& wp = guikit::demo::kMaritimeWaypoints[osmRegionPresetIdx];
+                                                        osmPendingCenterGeo = wp.coord;
+                                                        osmPendingSceneZoom = guikit::MapGrid::TileZoomToSceneZoom(wp.defaultTileZoom, osmOpts.baseZoom);
+                                                    } else {
+                                                        osmPendingCenterGeo = guikit::GeoCoord{20.0, 0.0};
+                                                        osmPendingSceneZoom = guikit::MapGrid::TileZoomToSceneZoom(2.0f, osmOpts.baseZoom);
+                                                    }
+                                                    ui.InvalidateAll();
+                                                }
+
+                                                size_t crsIdx = static_cast<size_t>(osmOpts.crs);
+                                                if (ui.StepSlider(crsIdx, osmCrsShortNames, {
+                                                    .label = "Projection (CRS)",
+                                                    .showTicks = true,
+                                                    .showLabels = true
+                                                }).changed) {
+                                                    const guikit::GeoCoord keepCenter = osmLastView.center;
+                                                    osmOpts.crs = static_cast<guikit::MapCrs>(crsIdx);
+                                                    osmPendingCenterGeo = keepCenter;
+                                                    ui.InvalidateAll();
+                                                }
+
+                                                size_t fmtIdx = static_cast<size_t>(osmOpts.coordFormat);
+                                                if (ui.StepSlider(fmtIdx, osmCoordFormatNames, {
+                                                    .label = "Coordinate Format",
+                                                    .showTicks = true,
+                                                    .showLabels = true
+                                                }).changed) {
+                                                    osmOpts.coordFormat = static_cast<guikit::GeoCoordFormat>(fmtIdx);
+                                                    ui.InvalidateAll();
+                                                }
+
+                                                if (ui.Switch(osmOpts.showTileGrid, {.label = "OSM Tile Grid [z/x/y]"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(osmOpts.showSubTileQuadtree, {.label = "2x2 Sub-Tile Quadtree", .disabled = !osmOpts.showTileGrid}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(osmOpts.showNauticalGraticule, {.label = "Nautical Graticule (OpenSeaMap)"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(osmOpts.showBorderRulers, {.label = "Border Lat/Lon Rulers (1' = 1 NM)"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(osmOpts.showSeamarksAndCourses, {.label = "IALA Seamarks & Rhumb Courses"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(osmOpts.showScaleBarOverlay, {.label = "Dual Scale Bar (NM + km)"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(osmShowControls, {.label = "Floating Zoom & Inspector HUD"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(osmShowScrollbars, {.label = "2D Scrollbars (H + V)"}).changed) ui.InvalidateAll();
+
+                                                if (auto telCard = ui.Card({
+                                                    .gap = 4.0f,
+                                                    .padding = guikit::Padding::All(8.0f),
+                                                    .radius = 6.0f
+                                                })) {
+                                                    ui.Text(
+                                                        ui.Format("Tile Pyramid: z={} ({} visible tiles)",
+                                                                  osmLastView.tileZoom,
+                                                                  osmLastView.visibleTiles.size()),
+                                                        {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Primary}
+                                                    );
+                                                    ui.Text(
+                                                        ui.Format("Graticule Step: {:.2f}' ({:.2f} NM)",
+                                                                  osmLastView.graticuleStepArcMin,
+                                                                  osmLastView.graticuleStepArcMin),
+                                                        {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Info}
+                                                    );
+                                                    ui.Text(
+                                                        ui.Format("Center: {}",
+                                                                  guikit::MapGrid::FormatCoord(osmLastView.center, osmOpts.coordFormat)),
+                                                        {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Secondary}
+                                                    );
+                                                    const auto curTile = guikit::MapGrid::GeoToTileId(osmLastView.cursor, osmLastView.tileZoom, osmOpts.crs);
+                                                    ui.Text(
+                                                        ui.Format("Cursor: {} [/{}/{}/{}]",
+                                                                  guikit::MapGrid::FormatCoord(osmLastView.cursor, osmOpts.coordFormat),
+                                                                  curTile.z,
+                                                                  curTile.x,
+                                                                  curTile.y),
+                                                        {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Success}
+                                                    );
+                                                }
+                                                break;
+                                            }
+
                                             case NavCategory::ElemMarkdown: {
                                                 if (ui.Switch(mdSyntaxHighlight, {.label = "C++ Syntax Highlighting"}).changed) ui.InvalidateAll();
                                                 if (ui.Switch(mdCodeLineNumbers, {.label = "Code Line Numbers Gutter"}).changed) ui.InvalidateAll();
@@ -1362,6 +1473,7 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                 })) {
                                     // Hero Showcase Stage
                                     const bool isFullStage = (selectedCategory == NavCategory::ElemScene ||
+                                                              selectedCategory == NavCategory::ElemOsmMap ||
                                                               selectedCategory == NavCategory::ElemMarkdown ||
                                                               selectedCategory == NavCategory::ElemTextArea ||
                                                               selectedCategory == NavCategory::ElemSidebar);
@@ -1697,6 +1809,37 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                         // QUAD 303 Power Amplifier Circuit Diagram (M12160)
                                                         // Pure vector BS 3939 primitives rendered in 2D World Coordinates
                                                         guikit::demo::RenderQuad303Schematic(scene, schemPal);
+                                                    }
+                                                    break;
+                                                }
+
+                                                case NavCategory::ElemOsmMap: {
+                                                    osmOpts.lightMode = previewLightMode;
+                                                    if (auto scene = ui.Scene({
+                                                        .worldSize = guikit::Vec2{osmOpts.worldSize, osmOpts.worldSize},
+                                                        .background = guikit::SceneBackground::Solid,
+                                                        .heightMode = guikit::SizeMode::Stretch,
+                                                        .minZoom = 0.25f,
+                                                        .maxZoom = 4096.0f,
+                                                        .selectableItems = osmSelectableItems,
+                                                        .showScrollbars = osmShowScrollbars,
+                                                        .showControls = osmShowControls,
+                                                        .radius = osmRadius
+                                                    })) {
+                                                        if (!osmCameraInitialized) {
+                                                            osmCameraInitialized = true;
+                                                            const auto& wp = guikit::demo::kMaritimeWaypoints[0];
+                                                            const guikit::Vec2 helgolandWorld = guikit::MapGrid::GeoToWorld(wp.coord, osmOpts.worldSize, osmOpts.crs);
+                                                            const float initSceneZoom = guikit::MapGrid::TileZoomToSceneZoom(7.0f, osmOpts.baseZoom);
+                                                            scene.CenterOn(helgolandWorld, initSceneZoom);
+                                                        } else if (osmPendingCenterGeo.has_value()) {
+                                                            const guikit::Vec2 targetWorld = guikit::MapGrid::GeoToWorld(*osmPendingCenterGeo, osmOpts.worldSize, osmOpts.crs);
+                                                            scene.CenterOn(targetWorld, osmPendingSceneZoom);
+                                                            osmPendingCenterGeo.reset();
+                                                            osmPendingSceneZoom.reset();
+                                                        }
+
+                                                        osmLastView = guikit::demo::RenderOsmSlippyMap(scene, osmOpts);
                                                     }
                                                     break;
                                                 }
@@ -2291,6 +2434,48 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 sceneShowControls ? "true" : "false",
                                                 sceneRadius,
                                                 previewLightMode ? "VintagePaper" : "DarkCad"
+                                            );
+                                            break;
+                                        }
+
+                                        case NavCategory::ElemOsmMap: {
+                                            static constexpr std::array<std::string_view, 3> crsEnumNames = {
+                                                "EPSG3857_WebMercator",
+                                                "EPSG3395_WorldMercator",
+                                                "EPSG4326_PlateCarree"
+                                            };
+                                            static constexpr std::array<std::string_view, 3> fmtEnumNames = {
+                                                "NauticalDMM",
+                                                "DecimalDegrees",
+                                                "DMS"
+                                            };
+                                            snippet = std::format(
+                                                "guikit::MapGridConfig mapCfg{{\n"
+                                                "    .worldSize = 2048.0f,\n"
+                                                "    .baseZoom = 3,\n"
+                                                "    .crs = guikit::MapCrs::{}\n"
+                                                "}};\n"
+                                                "if (auto scene = ui.Scene({{\n"
+                                                "    .worldSize = {{mapCfg.worldSize, mapCfg.worldSize}},\n"
+                                                "    .minZoom = 0.25f, .maxZoom = 4096.0f,\n"
+                                                "    .showScrollbars = {}, .showControls = {}\n"
+                                                "}})) {{\n"
+                                                "    const auto view = guikit::MapGrid::ComputeView(\n"
+                                                "        scene.GetVisibleWorldRect(), scene.GetZoom(),\n"
+                                                "        scene.GetWorldMousePos(), scene.IsHovered(), mapCfg\n"
+                                                "    );\n"
+                                                "    // Optional TileSourceCallback for PNG/JPG from SQLite / Disk / HTTP:\n"
+                                                "    for (const auto& cell : view.visibleTiles) {{\n"
+                                                "        if (auto uri = tileSource ? tileSource(cell.id, 0) : std::nullopt) {{\n"
+                                                "            scene.DrawImage(*uri, cell.worldRect);\n"
+                                                "        }}\n"
+                                                "    }}\n"
+                                                "    // Nautical Graticule (1' = 1 NM) + Coord Format: guikit::GeoCoordFormat::{}\n"
+                                                "}}",
+                                                crsEnumNames[static_cast<size_t>(osmOpts.crs)],
+                                                osmShowScrollbars ? "true" : "false",
+                                                osmShowControls ? "true" : "false",
+                                                fmtEnumNames[static_cast<size_t>(osmOpts.coordFormat)]
                                             );
                                             break;
                                         }
