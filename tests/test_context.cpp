@@ -5402,15 +5402,18 @@ void TestSidebarAndSidebarMenuWorkflow() {
     CHECK(collapsedSbBounds.w > 24.0f);
     CHECK(collapsedSbBounds.w < expandedSbBounds.w);
 
-    // 4. Test declarative Span/Initializer-list overload of ui.SidebarMenu
+    // 4. Test declarative Span/Initializer-list overload of ui.SidebarMenu and collapsed ignoring explicit width
     int spanIdx = 0;
+    bool fixedSbCollapsed = false;
+    Id fixedSbId = Id::Null();
     Response spanMenuRes;
     auto renderSpanMenu = [&]() {
-        if (auto sb = ui.Sidebar({.width = 180.0f})) {
+        if (auto sb = ui.Sidebar({.width = 200.0f})) {
+            fixedSbId = sb.GetNode()->id;
             spanMenuRes = ui.SidebarMenu(spanIdx, {
                 {.text = "First", .icon = Icon::Play()},
                 {.text = "Second", .icon = Icon::Check(), .badge = "9"}
-            });
+            }, {.collapsed = fixedSbCollapsed});
         }
     };
 
@@ -5419,6 +5422,13 @@ void TestSidebarAndSidebarMenuWorkflow() {
     ui.EndFrame(canvas);
     CHECK(spanMenuRes.id.IsValid());
     CHECK(spanIdx == 0);
+    CHECK_NEAR(ui.GetPrevFrameBounds(fixedSbId).w, 200.0f, 0.5f);
+
+    fixedSbCollapsed = true;
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderSpanMenu();
+    ui.EndFrame(canvas);
+    CHECK(ui.GetPrevFrameBounds(fixedSbId).w < 80.0f);
 
     std::cout << "  [PASS] TestSidebarAndSidebarMenuWorkflow completed\n";
 }

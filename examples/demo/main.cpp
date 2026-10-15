@@ -130,8 +130,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    int winWidth = 1120;
-    int winHeight = 740;
+    int winWidth = 1380;
+    int winHeight = 800;
 #ifdef __EMSCRIPTEN__
     {
         double cssW = 0.0, cssH = 0.0;
@@ -486,19 +486,48 @@ int main(int argc, char* argv[]) {
                             }
                         }
 
-                        // 2. Level 2: Inspector Panel
-                        if (auto inspectorSidebar = ui.Sidebar({
-                            .side = guikit::SidebarSide::Left,
-                            .width = 340.0f,
-                            .gap = 8.0f,
-                            .padding = guikit::Padding::All(12.0f)
-                        })) {
-                            ui.Heading({
-                                .title = "INSPECTOR",
-                                .size = guikit::UiSize::Xs,
-                                .divider = true
-                            });
-                            DispatchInspector(ui, selectedCategory, demoCtx);
+                        if (IsElementCategory(selectedCategory)) {
+                            // 2. Level 2: Shared Element Inspector Sidebar
+                            if (auto elemSidebar = ui.Sidebar({
+                                .side = guikit::SidebarSide::Left,
+                                .width = 280.0f,
+                                .gap = 8.0f,
+                                .padding = guikit::Padding::All(12.0f)
+                            })) {
+                                demoCtx.RenderElementInspector(ui);
+                            }
+
+                            // 3. Level 3: Control-Specific Inspector Sidebar (for interactive Element controls)
+                            if (selectedCategory != NavCategory::ElemHeading) {
+                                if (auto ctrlSidebar = ui.Sidebar({
+                                    .side = guikit::SidebarSide::Left,
+                                    .width = 260.0f,
+                                    .gap = 8.0f,
+                                    .padding = guikit::Padding::All(12.0f)
+                                })) {
+                                    ui.Heading({
+                                        .title = "CONTROL",
+                                        .size = guikit::UiSize::Xs,
+                                        .divider = true
+                                    });
+                                    DispatchInspector(ui, selectedCategory, demoCtx);
+                                }
+                            }
+                        } else {
+                            // 2. Level 2: Inspector Panel
+                            if (auto inspectorSidebar = ui.Sidebar({
+                                .side = guikit::SidebarSide::Left,
+                                .width = 320.0f,
+                                .gap = 8.0f,
+                                .padding = guikit::Padding::All(12.0f)
+                            })) {
+                                ui.Heading({
+                                    .title = "INSPECTOR",
+                                    .size = guikit::UiSize::Xs,
+                                    .divider = true
+                                });
+                                DispatchInspector(ui, selectedCategory, demoCtx);
+                            }
                         }
                     }
 

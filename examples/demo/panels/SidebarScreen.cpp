@@ -39,8 +39,8 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
     if (ui.Switch(s_state.collapsed, {.label = "Collapsed Rail (Icons Only)"}).changed) ui.InvalidateAll();
     if (ui.Switch(s_state.showSections, {.label = "Show Section Headers"}).changed) ui.InvalidateAll();
     if (ui.Switch(s_state.showBadges, {.label = "Show Trailing Badges"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.autoWidth, {.label = "Auto-Fit Width"}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.fixedWidth, 120.0f, 300.0f, {.label = "Explicit Width", .valueFormat = "%.0f px", .disabled = s_state.autoWidth}).changed) ui.InvalidateAll();
+    if (ui.Switch(s_state.autoWidth, {.label = "Auto-Fit Width", .disabled = s_state.collapsed}).changed) ui.InvalidateAll();
+    if (ui.Slider(s_state.fixedWidth, 120.0f, 300.0f, {.label = "Explicit Width", .valueFormat = "%.0f px", .disabled = s_state.collapsed || s_state.autoWidth}).changed) ui.InvalidateAll();
 }
 
 void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
@@ -51,7 +51,7 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
     })) {
         if (auto sb = ui.Sidebar({
             .side = s_state.side,
-            .width = s_state.autoWidth ? std::nullopt : std::optional<float>(s_state.fixedWidth),
+            .width = (s_state.collapsed || s_state.autoWidth) ? std::nullopt : std::optional<float>(s_state.fixedWidth),
             .scrollable = true
         })) {
             const int prevIdx = s_state.menuIdx;
@@ -132,7 +132,7 @@ std::string GenerateSidebarCode(const DemoContext& ctx) {
         "    }}\n"
         "}}",
         s_state.side == guikit::SidebarSide::Right ? "Right" : "Left",
-        s_state.autoWidth ? "std::nullopt" : std::format("{:.1f}f", s_state.fixedWidth),
+        (s_state.collapsed || s_state.autoWidth) ? "std::nullopt" : std::format("{:.1f}f", s_state.fixedWidth),
         s_state.menuStyle == guikit::SidebarMenuStyle::Indicator ? "Indicator" : "Pill",
         s_state.collapsed ? "true" : "false",
         VariantName(ctx.btnVariant),

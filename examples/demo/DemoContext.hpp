@@ -39,6 +39,10 @@ enum class NavCategory : uint8_t {
     AsmThemeStudio
 };
 
+constexpr bool IsElementCategory(NavCategory cat) noexcept {
+    return cat <= NavCategory::ElemCheckbox;
+}
+
 constexpr bool IsSandboxCategory(NavCategory cat) noexcept {
     return cat <= NavCategory::SceneOsmMap;
 }
@@ -163,9 +167,25 @@ struct DemoContext {
     guikit::UiTheme shellTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
     guikit::UiTheme previewTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
 
-    // Shared sandbox tokens
+    // Shared Element tokens (synchronized across all 7 ELEMENTS screens)
     guikit::UiSize controlsSize = guikit::UiSize::Md;
     guikit::UiVariant btnVariant = guikit::UiVariant::Primary;
+    std::string elemLabel = "Element Label";
+    std::string elemDesc = "Secondary description text";
+    guikit::UiVariant elemDescVariant = guikit::UiVariant::Muted;
+    bool elemWordWrap = true;
+    bool elemShowIcon = false;
+    std::string elemBadge = "";
+    guikit::UiVariant elemBadgeVariant = guikit::UiVariant::Info;
+    guikit::ElementLayout elemLayout = guikit::ElementLayout::Stacked;
+    guikit::InlineOrder elemInlineOrder = guikit::InlineOrder::LabelFirst;
+    guikit::Align elemAlign = guikit::Align::Start;
+    size_t elemStretchIdx = 2; // 0 = Compact, 1 = Space, 2 = Fill
+    float elemWidth = 0.0f;    // 0 = Auto (px in Compact/Space)
+    float elemFillPct = 50.0f; // % in Fill mode
+    bool elemDivider = false;
+    guikit::ElementDivider elemDividerStyle = guikit::ElementDivider::Bottom;
+    bool elemDisabled = false;
 
     // Shared assembly & container layout tokens
     float cardRadius = 8.0f;
@@ -178,6 +198,68 @@ struct DemoContext {
     float rowGap = 8.0f;
     guikit::UiSize headingSize = guikit::UiSize::Md;
     bool headingWordWrap = true;
+
+    bool HasElementExternal() const noexcept {
+        return !elemLabel.empty() || !elemDesc.empty() || elemShowIcon || !elemBadge.empty();
+    }
+
+    guikit::UiText GetElementDescription() const noexcept {
+        if (elemDesc.empty()) return {};
+        return guikit::UiText{
+            elemDesc,
+            elemDescVariant,
+            elemWordWrap ? guikit::TextWrap::Word : guikit::TextWrap::SingleLine
+        };
+    }
+
+    guikit::Icon GetElementIcon() const noexcept {
+        return elemShowIcon ? guikit::Icon::Edit() : guikit::Icon{};
+    }
+
+    guikit::UiText GetElementBadge() const noexcept {
+        if (elemBadge.empty()) return {};
+        return guikit::UiText{elemBadge, elemBadgeVariant};
+    }
+
+    guikit::StretchMode GetElementStretch() const noexcept {
+        return static_cast<guikit::StretchMode>(elemStretchIdx);
+    }
+
+    std::optional<float> GetElementWidth() const noexcept {
+        if (elemStretchIdx == 2) return elemFillPct;
+        return (elemWidth > 0.0f) ? std::optional<float>(elemWidth) : std::nullopt;
+    }
+
+    std::string FormatElementDescCode() const {
+        return FormatDesc(!elemDesc.empty(), elemDesc, elemDescVariant);
+    }
+
+    std::string FormatElementIconCode() const {
+        return elemShowIcon ? "guikit::Icon::Edit()" : "{}";
+    }
+
+    std::string FormatElementBadgeCode() const {
+        if (elemBadge.empty()) return "\"\"";
+        return std::string("{\"") + elemBadge + "\", guikit::UiVariant::" + std::string(VariantName(elemBadgeVariant)) + "}";
+    }
+
+    std::string_view FormatDividerStyleCode() const noexcept {
+        return (elemDividerStyle == guikit::ElementDivider::Trailing) ? "Trailing" : "Bottom";
+    }
+
+    std::string FormatElementWidthCode() const {
+        if (elemStretchIdx == 2) {
+            char buf[32];
+            std::snprintf(buf, sizeof(buf), "%.1ff", elemFillPct);
+            return buf;
+        }
+        if (elemWidth > 0.0f) {
+            char buf[32];
+            std::snprintf(buf, sizeof(buf), "%.1ff", elemWidth);
+            return buf;
+        }
+        return "std::nullopt";
+    }
 
     guikit::CardOptions MakeCard() const noexcept {
         return guikit::CardOptions{
@@ -262,6 +344,81 @@ struct DemoContext {
         if (ui.StepSlider(stretchIdx, kStretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) {
             ui.InvalidateAll();
         }
+    }
+
+    void RenderElementInspector(guikit::Context& ui) {
+        ui.Heading({
+            .title = "ELEMENT",
+            .size = guikit::UiSize::Xs,
+            .divider = true
+        });
+        if (ui.StepSlider(controlsSize, {.label = "Element Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) {
+            ui.InvalidateAll();
+        }
+
+        RenderVariantPicker(ui);
+
+        if (ui.InputField(elemLabel, {
+            .label = "Label Text",
+            .placeholder = "No label...",
+            .clearable = true
+        }).changed) {
+            ui.InvalidateAll();
+        }
+
+        if (ui.InputField(elemDesc, {
+            .label = "Description Text",
+            .placeholder = "No description...",
+            .clearable = true
+        }).changed) {
+            ui.InvalidateAll();
+        }
+
+        RenderDescVariantPicker(ui, elemDescVariant, !elemDesc.empty());
+        if (ui.Switch(elemWordWrap, {.label = "Description Word Wrap", .disabled = elemDesc.empty()}).changed) {
+            ui.InvalidateAll();
+        }
+
+        RenderElementLayoutControls(ui, HasElementExternal(), elemLayout, elemInlineOrder, elemAlign, elemStretchIdx);
+        if (elemStretchIdx == 2) {
+            if (ui.Slider(elemFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
+        } else {
+            if (ui.Slider(elemWidth, 0.0f, 400.0f, {.label = "Explicit Width", .valueFormat = {(elemWidth > 0.0f) ? "%.0f px" : "Auto", {"Auto", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
+        }
+
+        if (ui.Switch(elemShowIcon, {.label = "Show Leading Icon"}).changed) ui.InvalidateAll();
+
+        if (ui.InputField(elemBadge, {
+            .label = "Badge Text",
+            .placeholder = "No badge (e.g. v2.4)...",
+            .clearable = true
+        }).changed) {
+            ui.InvalidateAll();
+        }
+        if (ui.StepSlider(elemBadgeVariant, {
+            .label = "Badge Variant",
+            .showTicks = true,
+            .showLabels = true,
+            .showValue = true,
+            .disabled = elemBadge.empty()
+        }).changed) {
+            ui.InvalidateAll();
+        }
+
+        if (ui.Switch(elemDivider, {.label = "Show Divider Line"}).changed) ui.InvalidateAll();
+        static constexpr std::array<std::string_view, 2> divStyles = {"Bottom", "Trailing"};
+        size_t divStyleIdx = (elemDividerStyle == guikit::ElementDivider::Trailing) ? 1 : 0;
+        if (ui.StepSlider(divStyleIdx, divStyles, {
+            .label = "Divider Placement",
+            .showTicks = true,
+            .showLabels = true,
+            .disabled = !elemDivider
+        }).changed) {
+            elemDividerStyle = (divStyleIdx == 1) ? guikit::ElementDivider::Trailing : guikit::ElementDivider::Bottom;
+            ui.InvalidateAll();
+        }
+
+        if (ui.Switch(elemDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
     }
 
     void RenderAssemblyCommonInspector(guikit::Context& ui) {

@@ -106,7 +106,14 @@ SidebarMenuScope SidebarMenu::Open(
     node->justify = Justify::Start;
     node->gap = opts.gap.has_value() ? theme.Scale(*opts.gap) : (4.0f * activeScale);
 
-    if (opts.width.has_value()) {
+    if (opts.collapsed) {
+        node->widthMode = SizeMode::Fit;
+        if (node->parent && node->parent->type == NodeType::Sidebar) {
+            node->parent->widthMode = SizeMode::Fit;
+            node->parent->fixedWidth = 0.0f;
+            node->parent->minWidth = 0.0f;
+        }
+    } else if (opts.width.has_value()) {
         node->widthMode = SizeMode::Fixed;
         node->fixedWidth = theme.Scale(*opts.width);
     } else {

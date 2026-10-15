@@ -5,42 +5,27 @@ namespace guikit::demo {
 
 namespace {
 struct ButtonState {
+    std::string text = "Click me";
     bool hasIcon = true;
     guikit::Placement iconPlacement = guikit::Placement::Leading;
     guikit::Align controlAlign = guikit::Align::Center;
-    size_t stretchIdx = 0; // Compact
-    float width = 0.0f;    // 0 = auto (px in Compact/Space)
-    float fillPct = 50.0f; // 50% default in Fill mode
-    bool disabled = false;
     int clicks = 0;
     float cornerRadius = 6.0f;
-    bool showLabel = true;
-    bool showDesc = true;
-    guikit::UiVariant descVariant = guikit::UiVariant::Muted;
-    guikit::ElementLayout layout = guikit::ElementLayout::Stacked;
-    guikit::InlineOrder inlineOrder = guikit::InlineOrder::LabelFirst;
-    guikit::Align elementAlign = guikit::Align::Start;
 };
 ButtonState s_state;
 } // namespace
 
-void RenderButtonInspector(guikit::Context& ui, DemoContext& ctx) {
-    if (ui.StepSlider(ctx.controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.cornerRadius, 0.0f, 24.0f, {.label = "Corner Radius", .valueFormat = "%.0f px"}).changed) {
+void RenderButtonInspector(guikit::Context& ui, DemoContext&) {
+    if (ui.InputField(s_state.text, {
+        .label = "Capsule Text",
+        .placeholder = "Icon-only...",
+        .clearable = true
+    }).changed) {
+        s_state.clicks = 0;
         ui.InvalidateAll();
     }
-
-    ctx.RenderVariantPicker(ui);
-
-    if (ui.Switch(s_state.showLabel, {.label = "Show Label"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.showDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
-    ctx.RenderDescVariantPicker(ui, s_state.descVariant, s_state.showDesc);
-
-    ctx.RenderElementLayoutControls(ui, s_state.showLabel || s_state.showDesc, s_state.layout, s_state.inlineOrder, s_state.elementAlign, s_state.stretchIdx);
-    if (s_state.stretchIdx == 2) {
-        if (ui.Slider(s_state.fillPct, 10.0f, 100.0f, {.label = "Explicit Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
-    } else {
-        if (ui.Slider(s_state.width, 0.0f, 400.0f, {.label = "Explicit Width", .valueFormat = {(s_state.width > 0.0f) ? "%.0f px" : "Auto", {"Auto", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
+    if (ui.Slider(s_state.cornerRadius, 0.0f, 24.0f, {.label = "Border Radius", .valueFormat = "%.0f px"}).changed) {
+        ui.InvalidateAll();
     }
 
     static constexpr std::array<std::string_view, 3> alignNames = {"Start (Left)", "Center", "End (Right)"};
@@ -49,32 +34,37 @@ void RenderButtonInspector(guikit::Context& ui, DemoContext& ctx) {
         s_state.controlAlign = (alignIdx == 0) ? guikit::Align::Start : ((alignIdx == 2) ? guikit::Align::End : guikit::Align::Center);
         ui.InvalidateAll();
     }
-    if (ui.Switch(s_state.hasIcon, {.label = "Show Icon"}).changed) ui.InvalidateAll();
+    if (ui.Switch(s_state.hasIcon, {.label = "Show Capsule Icon"}).changed) ui.InvalidateAll();
     static constexpr std::array<std::string_view, 4> placeNames = {"Leading", "Trailing", "Top", "Bottom"};
     size_t placeIdx = (s_state.iconPlacement == guikit::Placement::Trailing) ? 1 : ((s_state.iconPlacement == guikit::Placement::Top) ? 2 : ((s_state.iconPlacement == guikit::Placement::Bottom) ? 3 : 0));
     if (ui.StepSlider(placeIdx, placeNames, {.label = "Icon Placement", .showTicks = true, .showLabels = true, .disabled = !s_state.hasIcon}).changed) {
         s_state.iconPlacement = (placeIdx == 1) ? guikit::Placement::Trailing : ((placeIdx == 2) ? guikit::Placement::Top : ((placeIdx == 3) ? guikit::Placement::Bottom : guikit::Placement::Leading));
         ui.InvalidateAll();
     }
-    if (ui.Switch(s_state.disabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
 }
 
 void RenderButtonStage(guikit::Context& ui, DemoContext& ctx) {
-    std::string btnText = s_state.clicks > 0 ? std::format("Clicked {}x", s_state.clicks) : "Click me";
+    std::string btnText = (s_state.clicks > 0 && !s_state.text.empty())
+        ? std::format("{} ({}x)", s_state.text, s_state.clicks)
+        : s_state.text;
     if (ui.Button({
-        .label = s_state.showLabel ? "A button" : "",
+        .label = ctx.elemLabel,
         .text = btnText,
-        .description = {s_state.showDesc ? "This is a button" : "", s_state.descVariant},
+        .description = ctx.GetElementDescription(),
         .icon = s_state.hasIcon ? guikit::Icon::Play() : guikit::Icon{},
+        .labelIcon = ctx.GetElementIcon(),
+        .badge = ctx.GetElementBadge(),
         .variant = ctx.btnVariant,
         .iconPlacement = s_state.iconPlacement,
-        .layout = s_state.layout,
-        .inlineOrder = s_state.inlineOrder,
-        .elementAlign = s_state.elementAlign,
+        .layout = ctx.elemLayout,
+        .inlineOrder = ctx.elemInlineOrder,
+        .elementAlign = ctx.elemAlign,
         .controlAlign = s_state.controlAlign,
-        .stretch = static_cast<guikit::StretchMode>(s_state.stretchIdx),
-        .width = (s_state.stretchIdx == 2) ? std::optional<float>(s_state.fillPct) : ((s_state.width > 0.0f) ? std::optional<float>(s_state.width) : std::nullopt),
-        .disabled = s_state.disabled,
+        .stretch = ctx.GetElementStretch(),
+        .width = ctx.GetElementWidth(),
+        .divider = ctx.elemDivider,
+        .dividerStyle = ctx.elemDividerStyle,
+        .disabled = ctx.elemDisabled,
         .size = ctx.controlsSize,
         .borderRadius = s_state.cornerRadius
     })) {
@@ -90,6 +80,8 @@ std::string GenerateButtonCode(const DemoContext& ctx) {
         "    .text = \"{}\",\n"
         "    .description = {},\n"
         "    .icon = {},\n"
+        "    .labelIcon = {},\n"
+        "    .badge = {},\n"
         "    .variant = guikit::UiVariant::{},\n"
         "    .iconPlacement = guikit::Placement::{},\n"
         "    .layout = guikit::ElementLayout::{},\n"
@@ -98,6 +90,8 @@ std::string GenerateButtonCode(const DemoContext& ctx) {
         "    .controlAlign = guikit::Align::{},\n"
         "    .stretch = guikit::StretchMode::{},\n"
         "    .width = {},\n"
+        "    .divider = {},\n"
+        "    .dividerStyle = guikit::ElementDivider::{},\n"
         "    .disabled = {},\n"
         "    .active = false,\n"
         "    .size = guikit::UiSize::{},\n"
@@ -105,19 +99,23 @@ std::string GenerateButtonCode(const DemoContext& ctx) {
         "}})) {{\n"
         "    // On click handler\n"
         "}}",
-        s_state.showLabel ? "A button" : "",
-        s_state.clicks > 0 ? std::format("Clicked {}x", s_state.clicks) : "Click me",
-        FormatDesc(s_state.showDesc, "This is a button", s_state.descVariant),
+        ctx.elemLabel,
+        s_state.text,
+        ctx.FormatElementDescCode(),
         s_state.hasIcon ? "guikit::Icon::Play()" : "{}",
+        ctx.FormatElementIconCode(),
+        ctx.FormatElementBadgeCode(),
         VariantName(ctx.btnVariant),
         PlacementName(s_state.iconPlacement),
-        ElementLayoutEnumName(s_state.layout),
-        InlineOrderEnumName(s_state.inlineOrder),
-        LabelAlignEnumName(s_state.elementAlign),
+        ElementLayoutEnumName(ctx.elemLayout),
+        InlineOrderEnumName(ctx.elemInlineOrder),
+        LabelAlignEnumName(ctx.elemAlign),
         AlignName(s_state.controlAlign),
-        StretchModeEnumName(static_cast<guikit::StretchMode>(s_state.stretchIdx)),
-        (s_state.stretchIdx == 2) ? std::format("{:.1f}f", s_state.fillPct) : ((s_state.width > 0.0f) ? std::format("{:.1f}f", s_state.width) : "std::nullopt"),
-        s_state.disabled ? "true" : "false",
+        StretchModeEnumName(ctx.GetElementStretch()),
+        ctx.FormatElementWidthCode(),
+        ctx.elemDivider ? "true" : "false",
+        ctx.FormatDividerStyleCode(),
+        ctx.elemDisabled ? "true" : "false",
         SizeName(ctx.controlsSize),
         s_state.cornerRadius
     );
