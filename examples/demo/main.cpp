@@ -163,6 +163,7 @@ int main(int argc, char* argv[]) {
         ElemImage,
         ElemScene,
         ElemMarkdown,
+        ElemTextArea,
 
         // Assembly (Compositions)
         AsmDashboard,
@@ -173,7 +174,7 @@ int main(int argc, char* argv[]) {
     };
 
     auto isElementCategory = [](NavCategory cat) {
-        return cat <= NavCategory::ElemMarkdown;
+        return cat <= NavCategory::ElemTextArea;
     };
 
     NavCategory selectedCategory = NavCategory::ElemHeading;
@@ -408,6 +409,35 @@ int main(int argc, char* argv[]) {
     float mdBlockGap = 12.0f;
     std::string mdLastClickedLink{};
 
+    // TextArea / Code Editor demo state
+    bool taShowLabel = true;
+    bool taShowDesc = true;
+    bool taLineNumbers = true;
+    bool taCopyButton = true;
+    bool taMonospace = true;
+    bool taWordWrap = false;
+    bool taReadOnly = false;
+    bool taAllowZoom = true;
+    float taZoom = 1.0f;
+    size_t taSyntaxMode = 0; // 0 = C++20, 1 = JSON, 2 = Custom DSL, 3 = Plain
+    static constexpr std::array<std::string_view, 4> taSyntaxLabels = {"C++20", "JSON", "Custom", "Plain"};
+    static constexpr std::array<std::string_view, 5> kCustomKeywords = {"rule", "when", "then", "emit", "alert"};
+    static constexpr std::array<std::string_view, 4> kCustomTypes = {"Sensor", "Signal", "Threshold", "Millis"};
+    std::string taEditorBuffer =
+        "#include \"guikit/GuiKit.hpp\"\n\n"
+        "// Interactive Code Editor (Click, Select, Edit, Ctrl+Wheel Zoom)\n"
+        "void RenderEditorDemo(guikit::Context& ui, std::string& sourceCode) {\n"
+        "    const auto syntax = guikit::SyntaxConfig::Cpp();\n"
+        "    ui.TextArea(sourceCode, {\n"
+        "        .label = \"A text area\",\n"
+        "        .description = \"This is a text area\",\n"
+        "        .showLineNumbers = true,\n"
+        "        .showCopyButton = true,\n"
+        "        .allowZoom = true,\n"
+        "        .syntax = syntax\n"
+        "    });\n"
+        "}\n";
+
     static constexpr std::string_view kDemoMarkdownDoc =
 R"(# GuiKit Rich Markdown Engine
 
@@ -509,9 +539,16 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
             case SDL_EVENT_MOUSE_BUTTON_UP:
                 ui.OnMouseUp(event.button.button);
                 break;
-            case SDL_EVENT_MOUSE_WHEEL:
+            case SDL_EVENT_MOUSE_WHEEL: {
+                const SDL_Keymod mod = SDL_GetModState();
+                ui.SetKeyModifiers({
+                    .ctrl  = (mod & SDL_KMOD_CTRL) != 0,
+                    .shift = (mod & SDL_KMOD_SHIFT) != 0,
+                    .alt   = (mod & SDL_KMOD_ALT) != 0
+                });
                 ui.OnMouseWheel(event.wheel.x, event.wheel.y);
                 break;
+            }
             case SDL_EVENT_TEXT_INPUT: {
                 const SDL_Keymod mod = SDL_GetModState();
                 if ((mod & SDL_KMOD_CTRL) && !(mod & SDL_KMOD_ALT)) {
@@ -563,6 +600,13 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                     case SDLK_V:         if (ctrl) key = guikit::Key::V; break;
                     case SDLK_X:         if (ctrl) key = guikit::Key::X; break;
                     case SDLK_Z:         if (ctrl) key = guikit::Key::Z; break;
+                    case SDLK_EQUALS:
+                    case SDLK_PLUS:
+                    case SDLK_KP_PLUS:   if (ctrl) key = guikit::Key::Plus; break;
+                    case SDLK_MINUS:
+                    case SDLK_KP_MINUS:  if (ctrl) key = guikit::Key::Minus; break;
+                    case SDLK_0:
+                    case SDLK_KP_0:      if (ctrl) key = guikit::Key::Zero; break;
                     default: break;
                 }
                 if (key != guikit::Key::None) {
@@ -704,6 +748,7 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                 menu.Item(selectedCategory, NavCategory::ElemImage,      {.text = "Image",      .icon = guikit::Icon::Eye(), .badge = "New"});
                                 menu.Item(selectedCategory, NavCategory::ElemScene,      {.text = "Scene 2D",   .icon = guikit::Icon::Search(), .badge = "New"});
                                 menu.Item(selectedCategory, NavCategory::ElemMarkdown,   {.text = "Markdown",   .icon = guikit::Icon::Edit(), .badge = "New"});
+                                menu.Item(selectedCategory, NavCategory::ElemTextArea,   {.text = "Code Editor",.icon = guikit::Icon::Edit(), .badge = "New"});
 
                                 menu.Section("ASSEMBLY");
                                 menu.Item(selectedCategory, NavCategory::AsmDashboard,    {.text = "Dashboard",    .icon = guikit::Icon::Settings()});
@@ -1117,6 +1162,66 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                 break;
                                             }
 
+                                            case NavCategory::ElemTextArea: {
+                                                if (ui.Switch(taShowLabel, {.label = "Show Element Label"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(taShowDesc, {.label = "Show Description"}).changed) ui.InvalidateAll();
+                                                if (ui.StepSlider(taSyntaxMode, taSyntaxLabels, {.label = "Syntax Preset", .showTicks = true, .showLabels = true}).changed) {
+                                                    if (taSyntaxMode == 0) {
+                                                        taEditorBuffer =
+                                                            "#include \"guikit/GuiKit.hpp\"\n\n"
+                                                            "// Interactive Code Editor (Click, Select, Edit, Ctrl+Wheel Zoom)\n"
+                                                            "void RenderEditorDemo(guikit::Context& ui, std::string& sourceCode) {\n"
+                                                            "    const auto syntax = guikit::SyntaxConfig::Cpp();\n"
+                                                            "    ui.TextArea(sourceCode, {\n"
+                                                            "        .label = \"A text area\",\n"
+                                                            "        .description = \"This is a text area\",\n"
+                                                            "        .showLineNumbers = true,\n"
+                                                            "        .showCopyButton = true,\n"
+                                                            "        .allowZoom = true,\n"
+                                                            "        .syntax = syntax\n"
+                                                            "    });\n"
+                                                            "}\n";
+                                                    } else if (taSyntaxMode == 1) {
+                                                        taEditorBuffer =
+                                                            "{\n"
+                                                            "    \"widget\": \"TextArea\",\n"
+                                                            "    \"monospace\": true,\n"
+                                                            "    \"zoomRange\": [0.5, 3.0],\n"
+                                                            "    \"features\": [\n"
+                                                            "        \"2D Cursor & Selection\",\n"
+                                                            "        \"Configurable Syntax\",\n"
+                                                            "        \"Ctrl+Wheel Zoom\"\n"
+                                                            "    ],\n"
+                                                            "    \"readOnly\": false\n"
+                                                            "}\n";
+                                                    } else if (taSyntaxMode == 2) {
+                                                        taEditorBuffer =
+                                                            "# Custom Rule Engine DSL (Keywords, Types & Comments)\n"
+                                                            "rule OverheatProtection {\n"
+                                                            "    when Sensor.temp > 85.5 then {\n"
+                                                            "        emit Signal(\"EMERGENCY_STOP\", 100);\n"
+                                                            "        alert Threshold(85.5);\n"
+                                                            "    }\n"
+                                                            "}\n";
+                                                    } else {
+                                                        taEditorBuffer =
+                                                            "Plain text mode without syntax highlighting.\n"
+                                                            "You can click anywhere to place the cursor,\n"
+                                                            "drag or Shift+Arrow to select across multiple lines,\n"
+                                                            "and hold Ctrl + Mouse Wheel to zoom in and out!\n";
+                                                    }
+                                                    ui.InvalidateAll();
+                                                }
+                                                if (ui.Switch(taLineNumbers, {.label = "Line Numbers Gutter"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(taCopyButton, {.label = "Show Copy Button"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(taMonospace, {.label = "Monospace Font"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(taWordWrap, {.label = "Word Wrap"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(taReadOnly, {.label = "Read-Only Mode"}).changed) ui.InvalidateAll();
+                                                if (ui.Switch(taAllowZoom, {.label = "Allow Ctrl + Wheel Zoom"}).changed) ui.InvalidateAll();
+                                                if (ui.Slider(taZoom, 0.5f, 2.5f, {.label = "Editor Zoom", .valueFormat = "%.2fx"}).changed) ui.InvalidateAll();
+                                                break;
+                                            }
+
                                             default: break;
                                         }
                                     } else {
@@ -1129,6 +1234,7 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                             const auto defTheme = previewDarkMode ? guikit::UiTheme::Dark(previewTheme.density) : guikit::UiTheme::Light(previewTheme.density);
                                             previewTheme.palette = defTheme.palette;
                                             previewTheme.variants = defTheme.variants;
+                                            previewTheme.syntax = defTheme.syntax;
                                             previewTheme.mode = previewDarkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
                                             ui.InvalidateAll();
                                         }
@@ -1199,6 +1305,7 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                     const auto defTheme = previewDarkMode ? guikit::UiTheme::Dark(previewTheme.density) : guikit::UiTheme::Light(previewTheme.density);
                                     previewTheme.palette = defTheme.palette;
                                     previewTheme.variants = defTheme.variants;
+                                    previewTheme.syntax = defTheme.syntax;
                                     previewTheme.mode = previewDarkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
                                     ui.InvalidateAll();
                                 }
@@ -1256,6 +1363,7 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                     // Hero Showcase Stage
                                     const bool isFullStage = (selectedCategory == NavCategory::ElemScene ||
                                                               selectedCategory == NavCategory::ElemMarkdown ||
+                                                              selectedCategory == NavCategory::ElemTextArea ||
                                                               selectedCategory == NavCategory::ElemSidebar);
                                     if (auto stageBox = ui.Box({
                                         .widthMode = guikit::SizeMode::Stretch,
@@ -1584,8 +1692,7 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                         .selectableItems = sceneSelectableItems,
                                                         .showScrollbars = sceneShowScrollbars,
                                                         .showControls = sceneShowControls,
-                                                        .radius = sceneRadius,
-                                                        .backgroundColor = schemPal.sheetBg
+                                                        .radius = sceneRadius
                                                     })) {
                                                         // QUAD 303 Power Amplifier Circuit Diagram (M12160)
                                                         // Pure vector BS 3939 primitives rendered in 2D World Coordinates
@@ -1613,6 +1720,45 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                                             SDL_OpenURL(mdLastClickedLink.c_str());
                                                         }
                                                     }
+                                                    break;
+                                                }
+
+                                                case NavCategory::ElemTextArea: {
+                                                    guikit::SyntaxConfig synCfg = guikit::SyntaxConfig::Plain();
+                                                    if (taSyntaxMode == 0) {
+                                                        synCfg = guikit::SyntaxConfig::Cpp();
+                                                    } else if (taSyntaxMode == 1) {
+                                                        synCfg = guikit::SyntaxConfig::Json();
+                                                    } else if (taSyntaxMode == 2) {
+                                                        synCfg = guikit::SyntaxConfig{
+                                                            .enabled = true,
+                                                            .keywords = kCustomKeywords,
+                                                            .types = kCustomTypes,
+                                                            .lineComment = "#",
+                                                            .blockCommentStart = "/*",
+                                                            .blockCommentEnd = "*/",
+                                                            .preprocessorPrefix = '\0',
+                                                            .highlightStrings = true,
+                                                            .highlightNumbers = true,
+                                                            .highlightFunctions = true,
+                                                            .highlightPunctuation = true
+                                                        };
+                                                    }
+                                                    ui.TextArea(taEditorBuffer, {
+                                                        .label = taShowLabel ? "A text area" : "",
+                                                        .description = taShowDesc ? "This is a text area" : "",
+                                                        .autoHeight = false,
+                                                        .readOnly = taReadOnly,
+                                                        .showLineNumbers = taLineNumbers,
+                                                        .showCopyButton = taCopyButton,
+                                                        .monospace = taMonospace,
+                                                        .wordWrap = taWordWrap,
+                                                        .allowZoom = taAllowZoom,
+                                                        .zoom = taZoom,
+                                                        .syntax = synCfg,
+                                                        .heightMode = guikit::SizeMode::Stretch,
+                                                        .size = controlsSize
+                                                    });
                                                     break;
                                                 }
 
@@ -2176,6 +2322,40 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                             break;
                                         }
 
+                                        case NavCategory::ElemTextArea: {
+                                            std::string synLine = "guikit::SyntaxConfig::Plain()";
+                                            if (taSyntaxMode == 0) synLine = "guikit::SyntaxConfig::Cpp()";
+                                            else if (taSyntaxMode == 1) synLine = "guikit::SyntaxConfig::Json()";
+                                            else if (taSyntaxMode == 2) synLine = "customSyntaxConfig";
+
+                                            snippet = "ui.TextArea(sourceBuffer, {\n";
+                                            if (taShowLabel) snippet += "    .label = \"A text area\",\n";
+                                            if (taShowDesc) snippet += "    .description = \"This is a text area\",\n";
+                                            snippet += std::format(
+                                                "    .size = guikit::UiSize::{},\n"
+                                                "    .wordWrap = {},\n"
+                                                "    .readOnly = {},\n"
+                                                "    .showLineNumbers = {},\n"
+                                                "    .showCopyButton = {},\n"
+                                                "    .monospace = {},\n"
+                                                "    .allowZoom = {},\n"
+                                                "    .zoom = {:.2f}f,\n"
+                                                "    .syntax = {},\n"
+                                                "    .heightMode = guikit::SizeMode::Stretch\n"
+                                                "}});",
+                                                sizeName(controlsSize),
+                                                taWordWrap ? "true" : "false",
+                                                taReadOnly ? "true" : "false",
+                                                taLineNumbers ? "true" : "false",
+                                                taCopyButton ? "true" : "false",
+                                                taMonospace ? "true" : "false",
+                                                taAllowZoom ? "true" : "false",
+                                                taZoom,
+                                                synLine
+                                            );
+                                            break;
+                                        }
+
                                         default: break;
                                     }
 
@@ -2183,8 +2363,10 @@ if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
                                         .autoHeight = false,
                                         .readOnly = true,
                                         .showLineNumbers = true,
+                                        .showCopyButton = true,
                                         .monospace = true,
-                                        .syntaxHighlighter = &guikit::TextArea::CppHighlighter,
+                                        .allowZoom = true,
+                                        .syntax = guikit::SyntaxConfig::Cpp(),
                                         .heightMode = guikit::SizeMode::Stretch
                                     });
                                 }

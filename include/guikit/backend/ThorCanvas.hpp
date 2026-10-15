@@ -30,6 +30,9 @@ public:
     /// Loads a TrueType/OpenType font from file for text rendering.
     bool LoadFontFile(const std::string& path);
 
+    /// Loads a TrueType/OpenType monospace font from file for FontStyle::Monospace rendering.
+    bool LoadMonospaceFontFile(const std::string& path);
+
     // ICanvas implementation
     void Begin(uint32_t width, uint32_t height, float scale = 1.0f) override;
     void End() override;
@@ -98,6 +101,7 @@ private:
 
     const ImageCacheEntry& ResolveImageEntry(std::string_view source);
     void ApplyClip(tvg::Paint* paint);
+    void ApplyFont(tvg::Text* txt, FontStyle style) const;
 
     tvg::SwCanvas* m_canvas{nullptr};
     tvg::Text* m_measureText{nullptr};
@@ -109,20 +113,27 @@ private:
 
     std::vector<Rect> m_clipStack;
     std::string m_defaultFontPath;
+    std::string m_defaultFontName;
     bool m_fontLoaded{false};
+    std::string m_monoFontPath;
+    std::string m_monoFontName;
+    bool m_monoFontLoaded{false};
 
     struct TextMeasureKey {
         uint64_t hash;
         uint32_t fontSizeBits;
+        uint8_t style;
 
         bool operator==(const TextMeasureKey& other) const noexcept {
-            return hash == other.hash && fontSizeBits == other.fontSizeBits;
+            return hash == other.hash && fontSizeBits == other.fontSizeBits && style == other.style;
         }
     };
 
     struct TextMeasureKeyHash {
         size_t operator()(const TextMeasureKey& k) const noexcept {
-            return static_cast<size_t>(k.hash ^ (static_cast<uint64_t>(k.fontSizeBits) * 0x9e3779b97f4a7c15ULL));
+            uint64_t mixed = k.hash ^ (static_cast<uint64_t>(k.fontSizeBits) * 0x9e3779b97f4a7c15ULL);
+            mixed ^= static_cast<uint64_t>(k.style) * 0x517cc1b727220a95ULL;
+            return static_cast<size_t>(mixed);
         }
     };
 

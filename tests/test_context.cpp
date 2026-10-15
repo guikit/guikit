@@ -3939,32 +3939,205 @@ void TestTextAreaWidgetWorkflow() {
 
     std::string sampleCode = "ui.Button({\n    .label = \"Test\",\n    .variant = guikit::UiVariant::Primary\n});";
 
-    // 1. Measure test: autoHeight must scale with line count
+    // 1. Measure test: autoHeight must scale with line count, Element header, and zoom
     const auto mSingle = TextArea::Measure("Single Line", {.autoHeight = true}, UiSize::Md, &canvas);
     const auto mMulti = TextArea::Measure(sampleCode, {.autoHeight = true}, UiSize::Md, &canvas);
+    const auto mWithHeader = TextArea::Measure(sampleCode, {
+        .label = "A text area",
+        .description = "This is a text area",
+        .autoHeight = true
+    }, UiSize::Md, &canvas);
     CHECK(mMulti.y > mSingle.y * 2.0f);
+    CHECK(mWithHeader.y > mMulti.y);
 
-    // 2. Syntax Highlighter test
+    // 2. Configurable Syntax Highlighter test (Cpp, Json, Custom)
     std::vector<TextSpan> spans;
     const auto theme = UiTheme::Dark();
-    TextArea::CppHighlighter("const auto val = 42;", 0, spans, theme, nullptr);
+    const std::string_view cppLine = "const int count = Compute(42, \"ok\"); // comment";
+    TextArea::HighlightLine(cppLine, 0, SyntaxConfig::Cpp(), spans, theme);
     CHECK(!spans.empty());
+    // Verify spans cover the entire line contiguously with no gaps or overlaps
+    size_t expectedCol = 0;
+    bool foundKeyword = false;
+    bool foundType = false;
+    bool foundFunc = false;
+    bool foundNumber = false;
+    bool foundString = false;
+    bool foundComment = false;
+    for (const auto& sp : spans) {
+        CHECK(sp.startCol == expectedCol);
+        expectedCol = sp.startCol + sp.length;
+        const std::string_view tok = cppLine.substr(sp.startCol, sp.length);
+        if (tok == "const" && sp.color == theme.syntax.keyword) foundKeyword = true;
+        if (tok == "int" && sp.color == theme.syntax.type) foundType = true;
+        if (tok == "Compute" && sp.color == theme.syntax.function) foundFunc = true;
+        if (tok == "42" && sp.color == theme.syntax.number) foundNumber = true;
+        if (tok == "\"ok\"" && sp.color == theme.syntax.string) foundString = true;
+        if (tok.starts_with("//") && sp.color == theme.syntax.comment) foundComment = true;
+    }
+    CHECK(expectedCol == cppLine.size());
+    CHECK(foundKeyword);
+    CHECK(foundType);
+    CHECK(foundFunc);
+    CHECK(foundNumber);
+    CHECK(foundString);
+    CHECK(foundComment);
+
+    // Custom SyntaxConfig test
+    static constexpr std::array<std::string_view, 2> customKw = {"rule", "when"};
+    static constexpr std::array<std::string_view, 1> customTy = {"Sensor"};
+    SyntaxConfig customCfg{
+        .enabled = true,
+        .keywords = customKw,
+        .types = customTy,
+        .lineComment = "#"
+    };
+    TextArea::HighlightLine("rule Sensor # note", 0, customCfg, spans, theme);
     CHECK(spans.size() >= 3);
+    CHECK(spans.front().color == theme.syntax.keyword);
+    CHECK(spans.back().color == theme.syntax.comment);
 
-    // 3. Frame rendering with toggleable line numbers
+    // 3. Interactive 2D editing, multiline navigation (Up/Down/Tab/Enter), and Ctrl+Wheel zoom
+    std::string editableText = "int a = 1;\nint b = 2;";
+    float editorZoom = 1.0f;
+    Response editRes;
+    auto renderEditor = [&]() {
+        editRes = ui.TextArea(editableText, {
+            .label = "A text area",
+            .description = "This is a text area",
+            .autoHeight = true,
+            .showLineNumbers = true,
+            .showCopyButton = true,
+            .allowZoom = true,
+            .zoom = editorZoom,
+            .syntax = SyntaxConfig::Cpp()
+        });
+    };
+
+    // Frame 1 & 2: Settle layout
+    for (int f = 0; f < 2; ++f) {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        renderEditor();
+        ui.EndFrame(canvas);
+    }
+    const float heightBeforeZoom = editRes.rect.h;
+    CHECK(editRes.rect.w > 100.0f);
+    CHECK(heightBeforeZoom > 50.0f);
+
+    // Click inside editor to focus & place cursor
+    const Vec2 clickPt(editRes.rect.x + 80.0f, editRes.rect.y + 60.0f);
+    ui.OnMouseMove(clickPt);
+    ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
-    auto res1 = ui.TextArea(sampleCode, {.autoHeight = true, .readOnly = true, .showLineNumbers = true, .syntaxHighlighter = &TextArea::CppHighlighter});
-    auto res2 = ui.TextArea(sampleCode, {.autoHeight = true, .readOnly = true, .showLineNumbers = false});
+    renderEditor();
+    ui.EndFrame(canvas);
+    ui.OnMouseUp(1);
+
+    CHECK(ui.GetFocusedId() == editRes.id);
+
+    // Press Home, then Down arrow, then Tab -> indents second line with 4 spaces!
+    ui.OnKeyDown(Key::Home);
+    ui.OnKeyDown(Key::Down);
+    ui.OnKeyDown(Key::Home);
+    ui.OnKeyDown(Key::Tab);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderEditor();
     ui.EndFrame(canvas);
 
-    CHECK(!res1.clicked);
-    CHECK(!res2.clicked);
+    CHECK(editableText == "int a = 1;\n    int b = 2;");
+    CHECK(editRes.changed);
 
-    // 4. Multiline editing test
-    std::string editableText = "Line 1";
+    // Increase zoom via editorZoom option -> autoHeight editor grows taller!
+    editorZoom = 1.5f;
+    for (int f = 0; f < 2; ++f) {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        renderEditor();
+        ui.EndFrame(canvas);
+    }
+    CHECK(editRes.rect.h > heightBeforeZoom);
+
+    // 4. Verify glyph metric box height and precise mouse coordinate hit-testing per line & column
+    const float codeFontSize = theme.GetTypography(TextRole::CodeMedium).fontSize;
+    const float glyphBoxH = canvas.MeasureTextStyled("Mg", codeFontSize, FontStyle::Monospace).y;
+    CHECK(glyphBoxH > codeFontSize * 1.35f);
+
+    std::string coordText = "AAAA\nBBBB\nCCCC";
+    Response coordRes;
+    auto renderCoordEditor = [&]() {
+        coordRes = ui.TextArea(coordText, {
+            .autoHeight = true,
+            .showLineNumbers = true,
+            .showCopyButton = false,
+            .syntax = SyntaxConfig::Plain()
+        });
+    };
+    for (int f = 0; f < 2; ++f) {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        renderCoordEditor();
+        ui.EndFrame(canvas);
+    }
+
+    // Compute exact linear line height and gutter width for Md size
+    const auto& cm = theme.GetMetrics(UiSize::Md);
+    const float lineH = std::max(theme.GetLineHeight(codeFontSize), glyphBoxH * 1.14f);
+    const float padY = std::max(theme.Scale(8.0f), cm.paddingY);
+    const float padX = std::max(theme.Scale(10.0f), cm.paddingX);
+    const float charW = canvas.MeasureTextStyled("B", codeFontSize, FontStyle::Monospace).x;
+    const float digitW = canvas.MeasureTextStyled("8", codeFontSize, FontStyle::Monospace).x;
+    const float gutterW = 2.0f * digitW + charW * 1.25f * 2.0f;
+    const float textStartX = coordRes.rect.x + 1.0f + gutterW + padX;
+    const float line1CenterY = coordRes.rect.y + 1.0f + padY + lineH * 1.5f; // Center of second line ("BBBB")
+
+    // Click right after the 2nd 'B' on line 1 (column 2) and insert 'X'
+    const Vec2 line1Col2Pt(textStartX + charW * 2.0f, line1CenterY);
+    ui.OnMouseMove(line1Col2Pt);
+    ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
-    ui.TextArea(editableText);
+    renderCoordEditor();
     ui.EndFrame(canvas);
+    ui.OnMouseUp(1);
+
+    ui.OnTextInput("X");
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderCoordEditor();
+    ui.EndFrame(canvas);
+
+    CHECK(coordText == "AAAA\nBBXBB\nCCCC");
+
+    // 5. Verify continuous sub-pixel zoom without std::ceil step quantization:
+    // Every 0.01x zoom increment must smoothly increase height (never staying frozen and jumping).
+    float prevSubZoomH = 0.0f;
+    for (int step = 0; step <= 4; ++step) {
+        const float z = 1.0f + static_cast<float>(step) * 0.01f;
+        const Vec2 measured = TextArea::Measure(coordText, {
+            .autoHeight = true,
+            .showLineNumbers = true,
+            .monospace = true,
+            .zoom = z
+        }, UiSize::Md, &canvas, theme);
+        if (step > 0) {
+            CHECK(measured.y > prevSubZoomH);
+        }
+        prevSubZoomH = measured.y;
+    }
+
+    // 6. Verify Ctrl+Plus and Ctrl+0 keyboard zoom shortcuts on focused editor
+    const float hAt1x = coordRes.rect.h;
+    ui.OnKeyDown(Key::Plus, {.ctrl = true});
+    for (int f = 0; f < 2; ++f) {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        renderCoordEditor();
+        ui.EndFrame(canvas);
+    }
+    CHECK(coordRes.rect.h > hAt1x);
+
+    ui.OnKeyDown(Key::Zero, {.ctrl = true});
+    for (int f = 0; f < 2; ++f) {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        renderCoordEditor();
+        ui.EndFrame(canvas);
+    }
+    CHECK(std::abs(coordRes.rect.h - hAt1x) < 0.05f);
 }
 
 void TestButtonAlignmentAndProceduralIcons() {

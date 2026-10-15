@@ -19,6 +19,9 @@ struct UiTheme {
     // 1. Semantic color palette
     ThemePalette palette{};
 
+    // 1b. Syntax highlighting color palette for code editors & viewers
+    SyntaxPalette syntax{};
+
     // 2. State colors for semantic variants (UiVariant::Default .. Muted, 9 variants)
     std::array<VariantColors, 9> variants{};
 

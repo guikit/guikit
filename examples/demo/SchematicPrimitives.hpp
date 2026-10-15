@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 #include <string_view>
+#include <utility>
+#include <vector>
 #include "guikit/panels/Scene.hpp"
 
 namespace guikit::demo {
@@ -59,16 +61,22 @@ public:
     // 1. WIRES, BUSES, JUNCTIONS & BOARD TERMINALS
     // =========================================================================
 
+    void AddCutout(Rect r) {
+        m_cutouts.push_back(r);
+    }
+
     void Wire(Vec2 a, Vec2 b) {
-        m_scene.DrawLine(a, b, m_pal.ink, m_pal.wireWidth);
+        m_wires.push_back({a, b});
     }
 
     void WireH(float x1, float x2, float y) {
-        m_scene.DrawLine({x1, y}, {x2, y}, m_pal.ink, m_pal.wireWidth);
+        if (x1 > x2) std::swap(x1, x2);
+        m_wires.push_back({{x1, y}, {x2, y}});
     }
 
     void WireV(float x, float y1, float y2) {
-        m_scene.DrawLine({x, y1}, {x, y2}, m_pal.ink, m_pal.wireWidth);
+        if (y1 > y2) std::swap(y1, y2);
+        m_wires.push_back({{x, y1}, {x, y2}});
     }
 
     void WireOrtho(Vec2 a, Vec2 b, bool horizFirst = true) {
@@ -77,9 +85,77 @@ public:
         Wire(corner, b);
     }
 
+    /// Flushes all recorded interconnecting wires, clipping them cleanly against component bodies
+    /// so every component interior remains transparent and showcases the Scene Canvas Backdrop.
+    void FlushWires() {
+        std::vector<std::pair<float, float>> intervals;
+        std::vector<std::pair<float, float>> nextIntervals;
+        for (const auto& [a, b] : m_wires) {
+            const float dx = b.x - a.x;
+            const float dy = b.y - a.y;
+            const float len = std::hypot(dx, dy);
+            if (len < 0.25f) continue;
+
+            intervals.clear();
+            intervals.push_back({0.0f, 1.0f});
+
+            for (const Rect& r : m_cutouts) {
+                float tx0 = 0.0f, tx1 = 1.0f;
+                if (std::abs(dx) < 1e-4f) {
+                    if (a.x <= r.x + 0.05f || a.x >= r.Right() - 0.05f) continue;
+                } else {
+                    tx0 = (r.x - a.x) / dx;
+                    tx1 = (r.Right() - a.x) / dx;
+                    if (tx0 > tx1) std::swap(tx0, tx1);
+                }
+
+                float ty0 = 0.0f, ty1 = 1.0f;
+                if (std::abs(dy) < 1e-4f) {
+                    if (a.y <= r.y + 0.05f || a.y >= r.Bottom() - 0.05f) continue;
+                } else {
+                    ty0 = (r.y - a.y) / dy;
+                    ty1 = (r.Bottom() - a.y) / dy;
+                    if (ty0 > ty1) std::swap(ty0, ty1);
+                }
+
+                const float tEnter = std::max(0.0f, std::max(tx0, ty0));
+                const float tExit  = std::min(1.0f, std::min(tx1, ty1));
+                if (tEnter >= tExit - 1e-4f) continue;
+
+                nextIntervals.clear();
+                for (const auto& [u0, u1] : intervals) {
+                    if (tExit <= u0 || tEnter >= u1) {
+                        nextIntervals.push_back({u0, u1});
+                    } else {
+                        if (tEnter > u0 + 1e-4f) {
+                            nextIntervals.push_back({u0, tEnter});
+                        }
+                        if (tExit < u1 - 1e-4f) {
+                            nextIntervals.push_back({tExit, u1});
+                        }
+                    }
+                }
+                intervals.swap(nextIntervals);
+                if (intervals.empty()) break;
+            }
+
+            for (const auto& [u0, u1] : intervals) {
+                if ((u1 - u0) * len >= 0.4f) {
+                    m_scene.DrawLine(
+                        {a.x + dx * u0, a.y + dy * u0},
+                        {a.x + dx * u1, a.y + dy * u1},
+                        m_pal.ink,
+                        m_pal.wireWidth
+                    );
+                }
+            }
+        }
+        m_wires.clear();
+    }
+
     /// Draws a semicircular wire bridge crossover along a vertical wire crossing a horizontal wire at `yCross`.
     void WireHopV(float x, float yCross, float r = 4.5f) {
-        m_scene.DrawRect(Rect(x - 2.0f, yCross - r, 4.0f, r * 2.0f), m_pal.bodyFill);
+        AddCutout(Rect(x - 2.0f, yCross - r, 4.0f, r * 2.0f));
         WireH(x - r, x + r, yCross);
         m_scene.DrawArc({x, yCross}, r, -90.0f, 180.0f, m_pal.ink, m_pal.wireWidth, 10);
     }
@@ -124,7 +200,8 @@ public:
             .category = "Board Pin"
         });
         constexpr float r = 6.2f;
-        m_scene.DrawCircle(pt, r, m_pal.bodyFill, m_pal.inkBold, m_pal.symbolWidth);
+        AddCutout(Rect(pt.x - r, pt.y - r, r * 2.0f, r * 2.0f));
+        m_scene.DrawCircle(pt, r, Color::Transparent(), m_pal.inkBold, m_pal.symbolWidth);
         m_scene.DrawTextBox(
             number,
             Rect(pt.x - r, pt.y - r, r * 2.0f, r * 2.0f),
@@ -138,7 +215,7 @@ public:
 
     /// Draws a small hollow solder pad circle (used on PCB layout and switches).
     void SolderPad(Vec2 pt, float r = 3.0f) {
-        m_scene.DrawCircle(pt, r, m_pal.bodyFill, m_pal.inkBold, 1.2f);
+        m_scene.DrawCircle(pt, r, Color::Transparent(), m_pal.inkBold, 1.2f);
     }
 
     /// Draws a British Standard raked chassis earth symbol.
@@ -153,11 +230,12 @@ public:
 
     /// Draws a hollow triangular off-sheet signal arrow (e.g. "TO RIGHTHAND AMPLIFIER").
     void SignalArrowDown(Vec2 pt, std::string_view line1 = "", std::string_view line2 = "") {
+        AddCutout(Rect(pt.x - 3.6f, pt.y - 7.2f, 7.2f, 7.2f));
         m_scene.DrawTriangle(
             {pt.x, pt.y},
             {pt.x - 3.6f, pt.y - 7.2f},
             {pt.x + 3.6f, pt.y - 7.2f},
-            m_pal.bodyFill,
+            Color::Transparent(),
             m_pal.inkBold,
             1.2f
         );
@@ -223,12 +301,12 @@ public:
         const float w = vertical ? 11.5f : 32.0f;
         const float h = vertical ? 32.0f : 11.5f;
         const Rect box(center.x - w * 0.5f, center.y - h * 0.5f, w, h);
+        AddCutout(box);
 
         if (dashed) {
-            m_scene.DrawRect(box, m_pal.bodyFill);
             DashedRect(box, 3.5f, 2.2f, 1.15f);
         } else {
-            m_scene.DrawRect(box, m_pal.bodyFill, 0.0f, m_pal.inkBold, m_pal.symbolWidth);
+            m_scene.DrawRect(box, Color::Transparent(), 0.0f, m_pal.inkBold, m_pal.symbolWidth);
         }
 
         if (!value.empty()) {
@@ -281,7 +359,8 @@ public:
         const float w = vertical ? 11.0f : 32.0f;
         const float h = vertical ? 32.0f : 11.0f;
         const Rect box(center.x - w * 0.5f, center.y - h * 0.5f, w, h);
-        m_scene.DrawRect(box, m_pal.bodyFill, 0.0f, m_pal.inkBold, m_pal.symbolWidth);
+        AddCutout(box);
+        m_scene.DrawRect(box, Color::Transparent(), 0.0f, m_pal.inkBold, m_pal.symbolWidth);
 
         // Diagonal preset shaft across body with BS 3939 preset T-bar at top-right
         const Vec2 p1 = {center.x - 9.5f, center.y + 11.0f};
@@ -312,15 +391,15 @@ public:
         const float w = vertical ? 10.5f : 28.0f;
         const float h = vertical ? 28.0f : 10.5f;
         const Rect box(center.x - w * 0.5f, center.y - h * 0.5f, w, h);
-        m_scene.DrawRect(box, m_pal.bodyFill, 0.0f, m_pal.inkBold, m_pal.symbolWidth);
+        m_scene.DrawRect(box, Color::Transparent(), 0.0f, m_pal.inkBold, m_pal.symbolWidth);
         if (vertical) {
-            WireV(center.x, box.y, box.Bottom());
+            m_scene.DrawLine({center.x, box.y}, {center.x, box.Bottom()}, m_pal.ink, m_pal.wireWidth);
             if (!refDes.empty()) {
                 const float ax = (labelSide >= 0) ? (box.Right() + 3.0f) : (box.x - 3.0f);
                 SideLabel({ax, center.y}, labelSide, refDes);
             }
         } else {
-            WireH(box.x, box.Right(), center.y);
+            m_scene.DrawLine({box.x, center.y}, {box.Right(), center.y}, m_pal.ink, m_pal.wireWidth);
         }
     }
 
@@ -342,7 +421,9 @@ public:
             .category = electrolytic ? "Electrolytic Cap" : "Capacitor"
         });
         if (vertical) {
-            m_scene.DrawRect(Rect(center.x - 8.5f, center.y - 3.8f, 17.0f, 7.6f), m_pal.bodyFill);
+            const float cutTop = electrolytic ? (center.y - 4.2f) : (center.y - 3.4f);
+            const float cutBot = electrolytic ? (center.y + 4.0f) : (center.y + 3.4f);
+            AddCutout(Rect(center.x - 7.5f, cutTop, 15.0f, cutBot - cutTop));
             if (!electrolytic) {
                 m_scene.DrawRect(Rect(center.x - 7.5f, center.y - 3.4f, 15.0f, 2.2f), m_pal.inkBold);
                 m_scene.DrawRect(Rect(center.x - 7.5f, center.y + 1.2f, 15.0f, 2.2f), m_pal.inkBold);
@@ -350,11 +431,11 @@ public:
                 const float topY = center.y - 4.2f;
                 const float botY = center.y + 1.2f;
                 if (posSide <= 0) {
-                    m_scene.DrawRect(Rect(center.x - 7.5f, topY, 15.0f, 3.0f), m_pal.bodyFill, 0.0f, m_pal.inkBold, 1.2f);
+                    m_scene.DrawRect(Rect(center.x - 7.5f, topY, 15.0f, 3.0f), Color::Transparent(), 0.0f, m_pal.inkBold, 1.2f);
                     m_scene.DrawRect(Rect(center.x - 7.5f, botY, 15.0f, 2.8f), m_pal.inkBold);
                 } else {
                     m_scene.DrawRect(Rect(center.x - 7.5f, topY, 15.0f, 2.8f), m_pal.inkBold);
-                    m_scene.DrawRect(Rect(center.x - 7.5f, botY, 15.0f, 3.0f), m_pal.bodyFill, 0.0f, m_pal.inkBold, 1.2f);
+                    m_scene.DrawRect(Rect(center.x - 7.5f, botY, 15.0f, 3.0f), Color::Transparent(), 0.0f, m_pal.inkBold, 1.2f);
                 }
             }
             if (labelSide == 2) {
@@ -364,7 +445,9 @@ public:
                 SideLabel({ax, center.y}, labelSide, refDes, value);
             }
         } else {
-            m_scene.DrawRect(Rect(center.x - 3.8f, center.y - 8.5f, 7.6f, 17.0f), m_pal.bodyFill);
+            const float cutLeft = electrolytic ? (center.x - 4.2f) : (center.x - 3.4f);
+            const float cutRight = electrolytic ? (center.x + 4.0f) : (center.x + 3.4f);
+            AddCutout(Rect(cutLeft, center.y - 7.5f, cutRight - cutLeft, 15.0f));
             if (!electrolytic) {
                 m_scene.DrawRect(Rect(center.x - 3.4f, center.y - 7.5f, 2.2f, 15.0f), m_pal.inkBold);
                 m_scene.DrawRect(Rect(center.x + 1.2f, center.y - 7.5f, 2.2f, 15.0f), m_pal.inkBold);
@@ -372,11 +455,11 @@ public:
                 const float leftX = center.x - 4.2f;
                 const float rightX = center.x + 1.2f;
                 if (posSide <= 0) {
-                    m_scene.DrawRect(Rect(leftX, center.y - 7.5f, 3.0f, 15.0f), m_pal.bodyFill, 0.0f, m_pal.inkBold, 1.2f);
+                    m_scene.DrawRect(Rect(leftX, center.y - 7.5f, 3.0f, 15.0f), Color::Transparent(), 0.0f, m_pal.inkBold, 1.2f);
                     m_scene.DrawRect(Rect(rightX, center.y - 7.5f, 2.8f, 15.0f), m_pal.inkBold);
                 } else {
                     m_scene.DrawRect(Rect(leftX, center.y - 7.5f, 2.8f, 15.0f), m_pal.inkBold);
-                    m_scene.DrawRect(Rect(rightX, center.y - 7.5f, 3.0f, 15.0f), m_pal.bodyFill, 0.0f, m_pal.inkBold, 1.2f);
+                    m_scene.DrawRect(Rect(rightX, center.y - 7.5f, 3.0f, 15.0f), Color::Transparent(), 0.0f, m_pal.inkBold, 1.2f);
                 }
             }
             if (!refDes.empty() && !value.empty() && labelSide < 0) {
@@ -399,7 +482,7 @@ public:
         });
         const int loops = 4;
         const float r = totalWidth / (static_cast<float>(loops) * 2.0f);
-        m_scene.DrawRect(Rect(center.x - totalWidth * 0.5f, center.y - r - 2.0f, totalWidth, r + 4.0f), m_pal.bodyFill);
+        AddCutout(Rect(center.x - totalWidth * 0.5f, center.y - 2.0f, totalWidth, 4.0f));
         for (int i = 0; i < loops; ++i) {
             const float cx = (center.x - totalWidth * 0.5f) + r * (2.0f * static_cast<float>(i) + 1.0f);
             m_scene.DrawArc({cx, center.y}, r, 180.0f, 180.0f, m_pal.inkBold, m_pal.symbolWidth, 10);
@@ -498,7 +581,7 @@ public:
             .category = isPNP ? "PNP Transistor" : "NPN Transistor"
         });
         constexpr float r = 15.0f;
-        m_scene.DrawCircle(center, r, m_pal.bodyFill, m_pal.inkBold, m_pal.symbolWidth * 1.15f);
+        m_scene.DrawCircle(center, r, Color::Transparent(), m_pal.inkBold, m_pal.symbolWidth * 1.15f);
 
         const float sgn = baseLeft ? -1.0f : 1.0f;
         const float barX = center.x + sgn * 4.5f;
@@ -580,10 +663,10 @@ public:
         const Vec2 bot{center.x, center.y + r};
         const Vec2 left{center.x - r, center.y};
 
-        Wire(left, top);
-        Wire(right, top);
-        Wire(bot, left);
-        Wire(bot, right);
+        m_scene.DrawLine(left, top, m_pal.ink, m_pal.wireWidth);
+        m_scene.DrawLine(right, top, m_pal.ink, m_pal.wireWidth);
+        m_scene.DrawLine(bot, left, m_pal.ink, m_pal.wireWidth);
+        m_scene.DrawLine(bot, right, m_pal.ink, m_pal.wireWidth);
 
         Junction(top);
         Junction(right);
@@ -638,26 +721,26 @@ public:
         const Vec2 p4{center.x + 6.0f, center.y + 5.5f};
 
         // Pin 1 -> up to yIn -> right to Pin 10
-        WireV(p1.x, yIn, p1.y);
+        WireV(p1.x, yIn, p1.y - 2.2f);
         WireH(p1.x, xDriverLeft, yIn);
 
         // Pin 3 -> up above shield -> left around SK1 -> down to Righthand Amplifier arrow 1
         const float yTopLoop = yIn + 14.0f;
         const float xLeftOuter = 24.0f;
-        WireV(p3.x, yTopLoop, p3.y);
+        WireV(p3.x, yTopLoop, p3.y - 2.2f);
         WireH(xLeftOuter, p3.x, yTopLoop);
         WireV(xLeftOuter, yTopLoop, yChs);
         WireH(xLeftOuter, 60.0f, yChs);
-        WireV(60.0f, yChs, 765.0f);
+        WireV(60.0f, yChs, 758.0f);
 
         // Pin 2 -> left to grounded shield wall + down to yChs return rail (Pin 11)
-        WireH(shield.x, p2.x, p2.y);
+        WireH(shield.x, p2.x - 2.2f, p2.y);
         Junction({shield.x, p2.y});
         WireV(shield.x, p2.y, center.y + 42.0f);
         ChassisEarth({shield.x, center.y + 42.0f});
 
         // Second vertical line to Righthand Amplifier arrow 2 (shielded return)
-        WireV(76.0f, center.y + 30.0f, 765.0f);
+        WireV(76.0f, center.y + 30.0f, 758.0f);
         WireH(shield.x, xDriverLeft, yChs);
         Junction({76.0f, yChs});
 
@@ -670,7 +753,7 @@ public:
             });
             DashedRect(shield, 5.5f, 3.5f, 1.15f);
             m_scene.DrawText("SK1", {shield.x - 18.0f, center.y - 22.0f}, 6.0f, m_pal.inkBold, FontStyle::Bold);
-            m_scene.DrawCircle(center, r, m_pal.bodyFill, m_pal.inkBold, m_pal.symbolWidth);
+            m_scene.DrawCircle(center, r, Color::Transparent(), m_pal.inkBold, m_pal.symbolWidth);
             SolderPad(p1, 2.2f);
             SolderPad(p2, 2.2f);
             SolderPad(p3, 2.2f);
@@ -682,8 +765,8 @@ public:
         }
 
         // Dual arrows at bottom-left ("TO RIGHTHAND AMPLIFIER")
-        m_scene.DrawTriangle({60.0f, 765.0f}, {56.6f, 758.0f}, {63.4f, 758.0f}, m_pal.bodyFill, m_pal.inkBold, 1.2f);
-        m_scene.DrawTriangle({76.0f, 765.0f}, {72.6f, 758.0f}, {79.4f, 758.0f}, m_pal.bodyFill, m_pal.inkBold, 1.2f);
+        m_scene.DrawTriangle({60.0f, 765.0f}, {56.6f, 758.0f}, {63.4f, 758.0f}, Color::Transparent(), m_pal.inkBold, 1.2f);
+        m_scene.DrawTriangle({76.0f, 765.0f}, {72.6f, 758.0f}, {79.4f, 758.0f}, Color::Transparent(), m_pal.inkBold, 1.2f);
         m_scene.DrawTextBox("TO RIGHTHAND", Rect(20.0f, 769.0f, 96.0f, 8.0f), 5.6f, m_pal.inkBold, 0.5f, 0.5f, FontStyle::Bold);
         m_scene.DrawLine({38.0f, 778.5f}, {98.0f, 778.5f}, m_pal.ink, 0.85f);
         m_scene.DrawTextBox("AMPLIFIER", Rect(20.0f, 780.0f, 96.0f, 8.0f), 5.6f, m_pal.inkBold, 0.5f, 0.5f, FontStyle::Bold);
@@ -715,7 +798,7 @@ public:
                 const float cy = ySecTop + secR * (2.0f * static_cast<float>(i) + 1.0f);
                 m_scene.DrawArc({tx, cy}, secR, 90.0f, 180.0f, m_pal.inkBold, m_pal.symbolWidth, 9);
             }
-            WireH(tx - 12.0f, tx, ySecBot + secR * 6.0f);
+            m_scene.DrawLine({tx - 12.0f, ySecBot + secR * 6.0f}, {tx, ySecBot + secR * 6.0f}, m_pal.ink, m_pal.wireWidth);
 
             // Dual iron core vertical bars
             m_scene.DrawLine({tx + 4.0f, coreTop}, {tx + 4.0f, coreBot}, m_pal.inkBold, 1.9f);
@@ -741,7 +824,7 @@ public:
                 .title = "100-250V Tap Selector",
                 .category = "Selector"
             });
-            m_scene.DrawCircle(selCenter, 20.0f, m_pal.bodyFill, m_pal.inkBold, m_pal.symbolWidth);
+            m_scene.DrawCircle(selCenter, 20.0f, Color::Transparent(), m_pal.inkBold, m_pal.symbolWidth);
             for (int p = 0; p < 6; ++p) {
                 const float ang = (static_cast<float>(p) * 60.0f - 90.0f) * (3.14159265f / 180.0f);
                 pads[p] = {selCenter.x + std::cos(ang) * 13.0f, selCenter.y + std::sin(ang) * 13.0f};
@@ -801,13 +884,14 @@ public:
         Junction({neonX, yPri2Bot});
         Resistor({neonX, ty + 196.0f}, true, "R2", "100K", 1);
         const Vec2 v1Pos{neonX, ty + 252.0f};
+        AddCutout(Rect(v1Pos.x - 8.5f, v1Pos.y - 8.5f, 17.0f, 17.0f));
         {
             auto v1Item = m_scene.Item({
                 .id = "V1",
                 .title = "SGL Neon Indicator",
                 .category = "Indicator"
             });
-            m_scene.DrawCircle(v1Pos, 8.5f, m_pal.bodyFill, m_pal.inkBold, m_pal.symbolWidth);
+            m_scene.DrawCircle(v1Pos, 8.5f, Color::Transparent(), m_pal.inkBold, m_pal.symbolWidth);
             SolderPad({v1Pos.x - 2.6f, v1Pos.y}, 1.6f);
             SolderPad({v1Pos.x + 2.6f, v1Pos.y}, 1.6f);
             Junction({v1Pos.x - 2.6f, v1Pos.y + 4.2f}, 1.3f);
@@ -828,7 +912,7 @@ public:
                 .title = "3-Pin Mains Input",
                 .category = "Connector"
             });
-            m_scene.DrawCircle(pl1Pos, 17.5f, m_pal.bodyFill, m_pal.inkBold, m_pal.symbolWidth);
+            m_scene.DrawCircle(pl1Pos, 17.5f, Color::Transparent(), m_pal.inkBold, m_pal.symbolWidth);
             Junction({xLeftMains, pl1Pos.y - 3.0f}, 2.6f);
             Junction({xFuse,      pl1Pos.y - 3.0f}, 2.6f);
             Junction({pl1Pos.x,   pl1Pos.y + 8.5f}, 2.6f);
@@ -846,7 +930,6 @@ public:
     /// Draws the authentic right-hand mechanical PCB outlines (`M12098 ISS. 10` and `M12088 ISS. 5`).
     void PcbCopperOutlines(Rect topBoard, Rect botBoard) {
         // 1. Top Board: Driver Board M12098 ISS. 10 with stepped left corners and right edge notch
-        m_scene.DrawRect(topBoard, m_pal.bodyFill);
         const float x0 = topBoard.x;
         const float y0 = topBoard.y;
         const float x1 = topBoard.Right();
@@ -904,7 +987,7 @@ public:
         );
 
         // 2. Bottom Board: Power Supply Board M12088 ISS. 5
-        m_scene.DrawRect(botBoard, m_pal.bodyFill, 2.0f, m_pal.inkBold, m_pal.symbolWidth);
+        m_scene.DrawRect(botBoard, Color::Transparent(), 2.0f, m_pal.inkBold, m_pal.symbolWidth);
         SolderPad({botBoard.x + 34.0f, botBoard.Bottom() - 30.0f}, 3.4f);
         m_scene.DrawTextBox("RV200", Rect(botBoard.x + 12.0f, botBoard.Bottom() - 22.0f, 44.0f, 9.0f), 6.0f, m_pal.inkBold, 0.5f, 0.5f, FontStyle::Bold);
 
@@ -942,7 +1025,7 @@ public:
     /// Draws the authentic bottom-right engineering title block:
     /// "QUAD — The Acoustical Mfg. Co. Ltd. Huntingdon England | QUAD 303 CIRCUIT DIAGRAM | M12160".
     void QuadTitleBlock(Rect box) {
-        m_scene.DrawRect(box, m_pal.bodyFill, 0.0f, m_pal.inkBold, m_pal.symbolWidth * 1.2f);
+        m_scene.DrawRect(box, Color::Transparent(), 0.0f, m_pal.inkBold, m_pal.symbolWidth * 1.2f);
 
         const float midX = box.x + box.w * 0.55f;
         const float revCol1 = box.x + 38.0f;
@@ -1025,6 +1108,8 @@ public:
 private:
     SceneScope& m_scene;
     SchematicPalette m_pal;
+    std::vector<std::pair<Vec2, Vec2>> m_wires;
+    std::vector<Rect> m_cutouts;
 };
 
 /// Renders the complete QUAD 303 Power Amplifier Circuit Diagram (Drawing M12160)
@@ -1032,8 +1117,8 @@ private:
 inline void RenderQuad303Schematic(SceneScope& scene, const SchematicPalette& pal) {
     SchematicPainter sp(scene, pal);
 
-    // Outer drafting sheet border
-    scene.DrawRect(Rect(10.0f, 10.0f, 2180.0f, 900.0f), pal.sheetBg, 4.0f, pal.inkMuted, 1.0f);
+    // Outer drafting sheet border (transparent fill so Scene Canvas Backdrop is fully visible)
+    scene.DrawRect(Rect(10.0f, 10.0f, 2180.0f, 900.0f), Color::Transparent(), 4.0f, pal.inkMuted, 1.0f);
 
     // =========================================================================
     // GLOBAL HORIZONTAL RAILS & BOARD BOUNDARIES
@@ -1619,6 +1704,7 @@ inline void RenderQuad303Schematic(SceneScope& scene, const SchematicPalette& pa
     // BOTTOM-RIGHT ENGINEERING TITLE BLOCK (M12160)
     // =========================================================================
     sp.QuadTitleBlock(Rect(1236.0f, 774.0f, 940.0f, 118.0f));
+    sp.FlushWires();
 }
 
 } // namespace guikit::demo

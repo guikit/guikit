@@ -34,8 +34,13 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
     m_activeTooltipAnchor = {};
 
     if (!m_openPopupId.IsValid() && !m_prevFocusableIds.empty()) {
+        const bool multilineEditorFocused =
+            m_focusedId.IsValid() &&
+            m_editState.id == m_focusedId &&
+            m_editState.multiline &&
+            !m_editState.readOnly;
         for (auto it = m_pendingKeyEvents.begin(); it != m_pendingKeyEvents.end(); ) {
-            if (it->key == Key::Tab) {
+            if (it->key == Key::Tab && !(multilineEditorFocused && !it->mods.shift && !it->mods.ctrl)) {
                 const bool reverse = it->mods.shift;
                 it = m_pendingKeyEvents.erase(it);
                 auto curIt = std::find(m_prevFocusableIds.begin(), m_prevFocusableIds.end(), m_focusedId);
@@ -691,6 +696,53 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
             }
             return true;
         }
+        case Key::Up: {
+            if (!multiline) {
+                return false;
+            }
+            const size_t safeCur = std::min(cursor, text.size());
+            const size_t prevNl = (safeCur > 0) ? text.rfind('\n', safeCur - 1) : std::string::npos;
+            const size_t curLineStart = (prevNl == std::string::npos) ? 0 : (prevNl + 1);
+            const size_t col = safeCur - curLineStart;
+            if (curLineStart == 0) {
+                cursor = 0;
+            } else {
+                const size_t prevLineEnd = curLineStart - 1;
+                const size_t prevPrevNl = (prevLineEnd > 0) ? text.rfind('\n', prevLineEnd - 1) : std::string::npos;
+                const size_t prevLineStart = (prevPrevNl == std::string::npos) ? 0 : (prevPrevNl + 1);
+                const size_t prevLineLen = prevLineEnd - prevLineStart;
+                cursor = prevLineStart + std::min(col, prevLineLen);
+            }
+            if (!mods.shift) {
+                selectionAnchor = cursor;
+            }
+            return true;
+        }
+        case Key::Down: {
+            if (!multiline) {
+                return false;
+            }
+            const size_t safeCur = std::min(cursor, text.size());
+            const size_t prevNl = (safeCur > 0) ? text.rfind('\n', safeCur - 1) : std::string::npos;
+            const size_t curLineStart = (prevNl == std::string::npos) ? 0 : (prevNl + 1);
+            const size_t col = safeCur - curLineStart;
+            const size_t curLineEnd = text.find('\n', safeCur);
+            if (curLineEnd == std::string::npos) {
+                cursor = text.size();
+            } else {
+                const size_t nextLineStart = curLineEnd + 1;
+                size_t nextLineEnd = text.find('\n', nextLineStart);
+                if (nextLineEnd == std::string::npos) {
+                    nextLineEnd = text.size();
+                }
+                const size_t nextLineLen = nextLineEnd - nextLineStart;
+                cursor = nextLineStart + std::min(col, nextLineLen);
+            }
+            if (!mods.shift) {
+                selectionAnchor = cursor;
+            }
+            return true;
+        }
         case Key::Home: {
             if (multiline && !mods.ctrl) {
                 const size_t prevNl = (cursor > 0) ? text.rfind('\n', cursor - 1) : std::string::npos;
@@ -715,10 +767,23 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
             }
             return true;
         }
+        case Key::Tab:
+            if (multiline && !readOnly && !mods.ctrl && !mods.shift) {
+                Insert("    ");
+                return true;
+            }
+            return false;
         case Key::Enter:
             if (multiline) {
                 if (!readOnly) {
-                    Insert("\n");
+                    const size_t safeCur = std::min(cursor, text.size());
+                    const size_t prevNl = (safeCur > 0) ? text.rfind('\n', safeCur - 1) : std::string::npos;
+                    const size_t curLineStart = (prevNl == std::string::npos) ? 0 : (prevNl + 1);
+                    std::string nlWithIndent = "\n";
+                    for (size_t i = curLineStart; i < safeCur && (text[i] == ' ' || text[i] == '\t'); ++i) {
+                        nlWithIndent.push_back(text[i]);
+                    }
+                    Insert(nlWithIndent);
                 }
                 return true;
             }
@@ -894,6 +959,13 @@ std::string_view Context::EnsureTextEdit(
     } else {
         m_editState.multiline = multiline;
         m_editState.readOnly = readOnly;
+        if ((multiline || readOnly) && !m_editState.changed && m_editState.text != initialText) {
+            m_editState.text = initialText;
+            m_editState.cursor = std::min(m_editState.cursor, m_editState.text.size());
+            m_editState.selectionAnchor = std::min(m_editState.selectionAnchor, m_editState.text.size());
+            m_editState.undoText = m_editState.text;
+            m_editState.undoCursor = m_editState.cursor;
+        }
     }
     return m_editState.text;
 }

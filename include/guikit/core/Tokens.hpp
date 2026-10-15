@@ -557,4 +557,19 @@ struct VariantColors {
     float borderWidth{0.0f};
 };
 
+/// Color palette for configurable code syntax highlighting and editor overlays.
+struct SyntaxPalette {
+    Color keyword;        ///< Control flow / language keywords (if, return, struct, const...)
+    Color type;           ///< Built-in and standard types (int, float, std, string, UiTheme...)
+    Color function;       ///< Function & method calls (Button, Format, DrawRect...)
+    Color string;         ///< String and character literals ("...", '...')
+    Color number;         ///< Numeric literals (42, 3.14f, 0xFF...)
+    Color comment;        ///< Line and block comments (//..., /*...*/)
+    Color preprocessor;   ///< Preprocessor directives (#include, #pragma...)
+    Color punctuation;    ///< Operators, braces, parentheses, semicolons
+    Color identifier;     ///< Default identifiers and plain code text
+    Color lineHighlight;  ///< Subtle background tint for the active cursor line
+    Color selectionBg;    ///< Background fill for selected text ranges
+};
+
 } // namespace guikit

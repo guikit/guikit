@@ -9,6 +9,20 @@
 
 namespace guikit {
 
+namespace {
+
+std::string ExtractFontName(const std::string& path) {
+    const size_t slash = path.find_last_of("/\\");
+    const std::string base = (slash == std::string::npos) ? path : path.substr(slash + 1);
+    const size_t dot = base.find_last_of('.');
+    if (dot != std::string::npos && dot > 0) {
+        return base.substr(0, dot);
+    }
+    return base;
+}
+
+} // namespace
+
 ThorCanvas::ThorCanvas() {
 #ifdef __EMSCRIPTEN__
     const uint32_t threads = 0;
@@ -29,6 +43,25 @@ ThorCanvas::ThorCanvas() {
     };
     for (const char* candidate : defaultFontCandidates) {
         if (LoadFontFile(candidate)) {
+            break;
+        }
+    }
+
+    // Auto-detect monospace fonts for code editors & code blocks
+    const char* monoFontCandidates[] = {
+        "assets/fonts/JetBrainsMono-Regular.ttf",
+        "../assets/fonts/JetBrainsMono-Regular.ttf",
+        "../../assets/fonts/JetBrainsMono-Regular.ttf",
+        "assets/fonts/RobotoMono-Regular.ttf",
+        "../assets/fonts/RobotoMono-Regular.ttf",
+        "../../assets/fonts/RobotoMono-Regular.ttf",
+        "C:/Windows/Fonts/CascadiaMono.ttf",
+        "C:/Windows/Fonts/CascadiaCode.ttf",
+        "C:/Windows/Fonts/consola.ttf",
+        "C:/Windows/Fonts/cour.ttf"
+    };
+    for (const char* candidate : monoFontCandidates) {
+        if (LoadMonospaceFontFile(candidate)) {
             break;
         }
     }
@@ -63,11 +96,46 @@ bool ThorCanvas::LoadFontFile(const std::string& path) {
     tvg::Result res = tvg::Text::load(path.c_str());
     if (res == tvg::Result::Success) {
         m_defaultFontPath = path;
+        m_defaultFontName = ExtractFontName(path);
         m_fontLoaded = true;
         m_textMeasureCache.clear();
         return true;
     }
     return false;
+}
+
+bool ThorCanvas::LoadMonospaceFontFile(const std::string& path) {
+    if (path.empty()) return false;
+    tvg::Result res = tvg::Text::load(path.c_str());
+    if (res == tvg::Result::Success) {
+        m_monoFontPath = path;
+        m_monoFontName = ExtractFontName(path);
+        m_monoFontLoaded = true;
+        m_textMeasureCache.clear();
+        return true;
+    }
+    return false;
+}
+
+void ThorCanvas::ApplyFont(tvg::Text* txt, FontStyle style) const {
+    if (!txt) return;
+    if (style == FontStyle::Monospace && m_monoFontLoaded) {
+        if (!m_monoFontName.empty() && txt->font(m_monoFontName.c_str()) == tvg::Result::Success) {
+            return;
+        }
+        if (!m_monoFontPath.empty() && txt->font(m_monoFontPath.c_str()) == tvg::Result::Success) {
+            return;
+        }
+    }
+    if (m_fontLoaded) {
+        if (!m_defaultFontName.empty() && txt->font(m_defaultFontName.c_str()) == tvg::Result::Success) {
+            return;
+        }
+        if (!m_defaultFontPath.empty() && txt->font(m_defaultFontPath.c_str()) == tvg::Result::Success) {
+            return;
+        }
+        txt->font(nullptr);
+    }
 }
 
 void ThorCanvas::Begin(uint32_t width, uint32_t height, float scale) {
@@ -203,6 +271,10 @@ void ThorCanvas::DrawRoundRect(
 }
 
 Vec2 ThorCanvas::MeasureText(std::string_view text, float fontSize) {
+    return {MeasureTextStyled(text, fontSize, FontStyle::Regular).x, GetLineHeight(fontSize)};
+}
+
+Vec2 ThorCanvas::MeasureTextStyled(std::string_view text, float fontSize, FontStyle style) {
     if (text.empty() || fontSize <= 0.0f) {
         return {0.0f, 0.0f};
     }
@@ -213,7 +285,7 @@ Vec2 ThorCanvas::MeasureText(std::string_view text, float fontSize) {
     }
     uint32_t fsBits = 0;
     std::memcpy(&fsBits, &fontSize, sizeof(float));
-    const TextMeasureKey key{h, fsBits};
+    const TextMeasureKey key{h, fsBits, static_cast<uint8_t>(style)};
 
     auto it = m_textMeasureCache.find(key);
     if (it != m_textMeasureCache.end()) {
@@ -223,11 +295,7 @@ Vec2 ThorCanvas::MeasureText(std::string_view text, float fontSize) {
     if (!m_measureText) {
         m_measureText = tvg::Text::gen();
     }
-    if (m_fontLoaded) {
-        if (m_defaultFontPath.empty() || m_measureText->font(m_defaultFontPath.c_str()) != tvg::Result::Success) {
-            m_measureText->font(nullptr);
-        }
-    }
+    ApplyFont(m_measureText, style);
 
     m_measureText->size(fontSize);
     std::string textStr(text);
@@ -236,6 +304,17 @@ Vec2 ThorCanvas::MeasureText(std::string_view text, float fontSize) {
     float totalAdvance = 0.0f;
     const char* cur = textStr.c_str();
     while (*cur) {
+        if (*cur == '\t') {
+            tvg::GlyphMetrics spGm{};
+            const char* spNext = nullptr;
+            if (m_measureText->metrics(" ", spGm, &spNext) == tvg::Result::Success) {
+                totalAdvance += spGm.advance * 4.0f;
+            } else {
+                totalAdvance += fontSize * 2.4f;
+            }
+            cur++;
+            continue;
+        }
         tvg::GlyphMetrics gm{};
         const char* next = nullptr;
         if (m_measureText->metrics(cur, gm, &next) == tvg::Result::Success && next) {
@@ -246,21 +325,23 @@ Vec2 ThorCanvas::MeasureText(std::string_view text, float fontSize) {
             cur++;
         }
     }
-    const Vec2 result{totalAdvance, GetLineHeight(fontSize)};
+    if (style == FontStyle::Bold || style == FontStyle::BoldItalic) {
+        totalAdvance += 0.6f;
+    }
+
+    float glyphBoxH = GetLineHeight(fontSize);
+    tvg::TextMetrics tm{};
+    if (m_measureText->metrics(tm) == tvg::Result::Success && (tm.ascent - tm.descent) > 0.0f) {
+        glyphBoxH = tm.ascent - tm.descent;
+    }
+
+    const Vec2 result{totalAdvance, glyphBoxH};
 
     if (m_textMeasureCache.size() > 2048) {
         m_textMeasureCache.clear();
     }
     m_textMeasureCache.emplace(key, result);
     return result;
-}
-
-Vec2 ThorCanvas::MeasureTextStyled(std::string_view text, float fontSize, FontStyle style) {
-    Vec2 base = MeasureText(text, fontSize);
-    if (style == FontStyle::Bold || style == FontStyle::BoldItalic) {
-        base.x += 0.6f;
-    }
-    return base;
 }
 
 float ThorCanvas::GetLineHeight(float fontSize) {
@@ -295,11 +376,7 @@ void ThorCanvas::DrawTextStyled(
         std::string textStr(text);
         txt->text(textStr.c_str());
 
-        if (m_fontLoaded) {
-            if (m_defaultFontPath.empty() || txt->font(m_defaultFontPath.c_str()) != tvg::Result::Success) {
-                txt->font(nullptr);
-            }
-        }
+        ApplyFont(txt, style);
 
         txt->size(fontSize * m_scale);
         if (isItalic) {
@@ -349,11 +426,7 @@ void ThorCanvas::DrawTextBox(
     std::string textStr(drawText);
     txt->text(textStr.c_str());
 
-    if (m_fontLoaded) {
-        if (m_defaultFontPath.empty() || txt->font(m_defaultFontPath.c_str()) != tvg::Result::Success) {
-            txt->font(nullptr);
-        }
-    }
+    ApplyFont(txt, FontStyle::Regular);
 
     txt->size(fontSize * m_scale);
     txt->fill(color.r, color.g, color.b);

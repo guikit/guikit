@@ -620,7 +620,8 @@ FlowResult LayoutOrRenderSpans(
 
             if (doRender && canvas) {
                 const Color drawCol = isLink ? theme.palette.accent : baseColor;
-                const float textY = bounds.y + curY + (lineH - baseFontSize) * 0.5f;
+                const float glyphH = canvas->MeasureTextStyled("Mg", baseFontSize, effStyle).y;
+                const float textY = bounds.y + curY + (lineH - ((glyphH > 0.0f) ? glyphH : baseFontSize)) * 0.5f;
                 canvas->DrawTextStyled(word, {bounds.x + curX, textY}, baseFontSize, drawCol, effStyle);
 
                 if (isLink) {
@@ -1021,10 +1022,11 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                         );
                     }
 
+                    const float codeGlyphH = canvas->MeasureTextStyled("Mg", codeFs, FontStyle::Monospace).y;
                     std::vector<TextSpan> syntaxSpans;
                     for (size_t ln = 0; ln < codeLines.size(); ++ln) {
                         const float ly = boxRect.y + headerH + padY + static_cast<float>(ln) * codeLineH;
-                        const float textY = ly + (codeLineH - codeFs) * 0.5f;
+                        const float textY = ly + (codeLineH - ((codeGlyphH > 0.0f) ? codeGlyphH : codeFs)) * 0.5f;
 
                         if (opts.codeLineNumbers) {
                             char lnBuf[16];
@@ -1045,19 +1047,28 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                             syntaxSpans.clear();
                             TextArea::CppHighlighter(lineStr, ln, syntaxSpans, theme, nullptr);
                             if (syntaxSpans.empty()) {
-                                canvas->DrawText(lineStr, {codeStartX, textY}, codeFs, theme.palette.textPrimary);
+                                canvas->DrawTextStyled(lineStr, {codeStartX, textY}, codeFs, theme.palette.textPrimary, FontStyle::Monospace);
                             } else {
                                 float spanX = codeStartX;
                                 for (const TextSpan& sp : syntaxSpans) {
                                     if (sp.startCol < lineStr.size() && sp.length > 0) {
                                         const std::string_view tok = lineStr.substr(sp.startCol, sp.length);
-                                        canvas->DrawText(tok, {spanX, textY}, codeFs, sp.color);
-                                        spanX += canvas->MeasureText(tok, codeFs).x;
+                                        bool allSpaces = true;
+                                        for (char ch : tok) {
+                                            if (ch != ' ' && ch != '\t') {
+                                                allSpaces = false;
+                                                break;
+                                            }
+                                        }
+                                        if (!allSpaces) {
+                                            canvas->DrawTextStyled(tok, {spanX, textY}, codeFs, sp.color, FontStyle::Monospace);
+                                        }
+                                        spanX += canvas->MeasureTextStyled(tok, codeFs, FontStyle::Monospace).x;
                                     }
                                 }
                             }
                         } else if (!lineStr.empty()) {
-                            canvas->DrawText(lineStr, {codeStartX, textY}, codeFs, theme.palette.textPrimary);
+                            canvas->DrawTextStyled(lineStr, {codeStartX, textY}, codeFs, theme.palette.textPrimary, FontStyle::Monospace);
                         }
                     }
                     canvas->PopClip();

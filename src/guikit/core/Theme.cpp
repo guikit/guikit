@@ -63,6 +63,38 @@ void PopulatePalette(UiTheme& theme, ThemeMode mode) {
     }
 }
 
+void PopulateSyntaxPalette(UiTheme& theme, ThemeMode mode) {
+    if (mode == ThemeMode::Light) {
+        theme.syntax = {
+            .keyword       = Color::Hex(0x7E22CEFF), // Purple-700
+            .type          = Color::Hex(0x0284C7FF), // Sky-600
+            .function      = Color::Hex(0x2563EBFF), // Blue-600
+            .string        = Color::Hex(0x059669FF), // Emerald-600
+            .number        = Color::Hex(0xD97706FF), // Amber-600
+            .comment       = Color::Hex(0x64748BFF), // Slate-500
+            .preprocessor  = Color::Hex(0xDB2777FF), // Pink-600
+            .punctuation   = Color::Hex(0x475569FF), // Slate-600
+            .identifier    = Color::Hex(0x0F172AFF), // Slate-900
+            .lineHighlight = Color::Hex(0xE2E8F070), // Subtle Slate-200
+            .selectionBg   = Color::Hex(0x0284C733)  // Sky-600 / 20%
+        };
+    } else {
+        theme.syntax = {
+            .keyword       = Color::Hex(0xC084FCFF), // Purple-400
+            .type          = Color::Hex(0x38BDF8FF), // Sky-400
+            .function      = Color::Hex(0x60A5FAFF), // Blue-400
+            .string        = Color::Hex(0x34D399FF), // Emerald-400
+            .number        = Color::Hex(0xFBBF24FF), // Amber-400
+            .comment       = Color::Hex(0x64748BFF), // Slate-500
+            .preprocessor  = Color::Hex(0xF472B6FF), // Pink-400
+            .punctuation   = Color::Hex(0x94A3B8FF), // Slate-400
+            .identifier    = Color::Hex(0xF8FAFCFF), // Slate-50
+            .lineHighlight = Color::Hex(0x1E293B90), // Subtle Slate-800
+            .selectionBg   = Color::Hex(0x38BDF840)  // Sky-400 / 25%
+        };
+    }
+}
+
 void PopulateVariants(UiTheme& theme, ThemeMode mode) {
     if (mode == ThemeMode::Light) {
         theme.variants = {{
@@ -306,6 +338,7 @@ UiTheme UiTheme::Dark(Density d) noexcept {
     UiTheme theme;
     theme.mode = ThemeMode::Dark;
     PopulatePalette(theme, ThemeMode::Dark);
+    PopulateSyntaxPalette(theme, ThemeMode::Dark);
     PopulateVariants(theme, ThemeMode::Dark);
     PopulateTypography(theme);
     PopulateScrollbars(theme);
@@ -319,6 +352,7 @@ UiTheme UiTheme::Light(Density d) noexcept {
     UiTheme theme;
     theme.mode = ThemeMode::Light;
     PopulatePalette(theme, ThemeMode::Light);
+    PopulateSyntaxPalette(theme, ThemeMode::Light);
     PopulateVariants(theme, ThemeMode::Light);
     PopulateTypography(theme);
     PopulateScrollbars(theme);
