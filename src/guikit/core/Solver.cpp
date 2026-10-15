@@ -648,6 +648,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 childW = child->fixedWidth;
             } else { // SizeMode::Fit
                 childW = child->intrinsicSize.x;
+                if (node->widthMode != SizeMode::Fit && contentRect.w > 0.0f && flowChildCount == 1) {
+                    childW = std::min(childW, contentRect.w);
+                }
             }
 
             if (child->minWidth > 0.0f) {
@@ -662,6 +665,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
             if (!child->isSpacer && child->minHeight > 0.0f) {
                 childH = std::max(childH, child->minHeight);
+            }
+            if ((node->heightMode == SizeMode::Stretch || child->type == NodeType::Image) && contentRect.h > 0.0f) {
+                childH = std::min(childH, contentRect.h);
             }
 
             float childY = contentRect.y;
@@ -820,6 +826,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 childH = child->fixedHeight;
             } else if (!child->isSpacer) { // SizeMode::Fit or Stretch inside Fit/ScrollArea parent
                 childH = ResolveNodeHeight(child, contentRect.w, canvas, theme);
+                if (parentHasDefiniteHeight && child->type == NodeType::Image && contentRect.h > 0.0f) {
+                    childH = std::min(childH, std::max(0.0f, contentRect.Bottom() - currentY));
+                }
             }
 
             float childW = contentRect.w;

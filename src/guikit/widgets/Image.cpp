@@ -40,8 +40,9 @@ Vec2 ComputeControlBoxSize(
         ctrlW = availableWidth * (pct * 0.01f);
     } else if (opts.width.has_value() && *opts.width > 0.0f) {
         ctrlW = theme.Scale(*opts.width);
-    } else if (availableWidth > 0.0f && (opts.fit == ObjectFit::Contain || opts.fit == ObjectFit::ScaleDown)) {
-        ctrlW = std::min(natW, availableWidth);
+    }
+    if (availableWidth > 0.0f) {
+        ctrlW = std::min(ctrlW, availableWidth);
     }
 
     float ctrlH = natH;

@@ -369,7 +369,7 @@ ElementGeometry Element::Resolve(
 
     if (!geom.hasExternal) {
         const float ctrlX = bounds.x + (bounds.w - ctrlW) * alignFactor;
-        const float ctrlH = stretchStandaloneH ? bounds.h : intrinsicControlSize.y;
+        const float ctrlH = stretchStandaloneH ? bounds.h : std::min(intrinsicControlSize.y, bounds.h);
         const float ctrlY = stretchStandaloneH ? bounds.y : (bounds.y + (bounds.h - ctrlH) * 0.5f);
         geom.controlRect = Rect(ctrlX, ctrlY, ctrlW, ctrlH);
         return geom;
@@ -421,7 +421,7 @@ ElementGeometry Element::Resolve(
             ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas)
             : 0.0f;
         const float availCtrlH = std::max(0.0f, bounds.h - (geom.hasLabel ? labelH + spec.labelGap : 0.0f) - (geom.hasDesc ? descH + spec.descGap : 0.0f));
-        const float ctrlH = stretchStandaloneH ? availCtrlH : intrinsicControlSize.y;
+        const float ctrlH = stretchStandaloneH ? availCtrlH : std::min(intrinsicControlSize.y, availCtrlH);
         const float blockX = bounds.x;
         const float ctrlX = blockX + (blockW - ctrlW) * alignFactor;
 
@@ -442,7 +442,8 @@ ElementGeometry Element::Resolve(
             ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas)
             : 0.0f;
         const float textTotalH = (geom.hasLabel ? labelH : 0.0f) + (geom.hasDesc ? (geom.hasLabel ? spec.descGap : 0.0f) + descH : 0.0f) + spec.labelGap;
-        const float ctrlH = stretchStandaloneH ? std::max(0.0f, bounds.h - textTotalH) : intrinsicControlSize.y;
+        const float availCtrlH = std::max(0.0f, bounds.h - textTotalH);
+        const float ctrlH = stretchStandaloneH ? availCtrlH : std::min(intrinsicControlSize.y, availCtrlH);
         const float blockX = bounds.x;
         const float ctrlX = blockX + (blockW - ctrlW) * alignFactor;
 
@@ -464,7 +465,8 @@ ElementGeometry Element::Resolve(
             ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas)
             : 0.0f;
         const float textTotalH = spec.descGap + (geom.hasLabel ? labelH : 0.0f) + (geom.hasDesc ? (geom.hasLabel ? spec.descGap : 0.0f) + descH : 0.0f);
-        const float ctrlH = stretchStandaloneH ? std::max(0.0f, bounds.h - textTotalH) : intrinsicControlSize.y;
+        const float availCtrlH = std::max(0.0f, bounds.h - textTotalH);
+        const float ctrlH = stretchStandaloneH ? availCtrlH : std::min(intrinsicControlSize.y, availCtrlH);
         const float blockX = bounds.x;
         const float ctrlX = blockX + (blockW - ctrlW) * alignFactor;
 
@@ -495,7 +497,7 @@ ElementGeometry Element::Resolve(
 
         const float totalTextH = (geom.hasLabel && geom.hasDesc) ? (labelH + spec.descGap + descH) : (geom.hasLabel ? labelH : descH);
         const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
-        const float ctrlH = stretchStandaloneH ? bounds.h : intrinsicControlSize.y;
+        const float ctrlH = stretchStandaloneH ? bounds.h : std::min(intrinsicControlSize.y, bounds.h);
 
         if (spec.inlineOrder == InlineOrder::LabelFirst) {
             float ctrlX = bounds.x + bounds.w - ctrlW;

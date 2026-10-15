@@ -6433,6 +6433,38 @@ void TestImageSceneAndMarkdownWidgets() {
     CHECK_NEAR(mdRes.rect.w, 768.0f, 1.0f);
     CHECK(mdRes.rect.h > 180.0f);
 
+    // 5. Verify Image inside a constrained-height Row container never overflows container bounds
+    {
+        Response stageImgRes;
+        for (int frame = 0; frame < 2; ++frame) {
+            ui.BeginFrame({900.0f, 300.0f});
+            if (auto stageBox = ui.Box({
+                .widthMode = SizeMode::Stretch,
+                .heightMode = SizeMode::Stretch,
+                .padding = Padding::All(24.0f)
+            })) {
+                if (auto centerRow = ui.Row({
+                    .align = Alignment::Center,
+                    .justify = Justify::Center,
+                    .heightMode = SizeMode::Stretch
+                })) {
+                    stageImgRes = ui.Image(kInlineSvg, {
+                        .label = "A vector image",
+                        .description = "This is a vector image",
+                        .fit = ObjectFit::Contain,
+                        .stretch = StretchMode::Fill,
+                        .width = 85.0f,
+                        .checkerboard = true
+                    });
+                }
+            }
+            ui.EndFrame(canvas);
+        }
+        CHECK(stageImgRes.rect.y >= 24.0f - 0.5f);
+        CHECK(stageImgRes.rect.Bottom() <= 300.0f - 24.0f + 0.5f);
+        CHECK(stageImgRes.rect.h <= 300.0f - 48.0f + 0.5f);
+    }
+
     std::cout << "  [PASS] TestImageSceneAndMarkdownWidgets completed\n";
 }
 
