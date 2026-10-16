@@ -33,6 +33,7 @@ struct SceneItemOptions {
     std::string_view category{};                ///< Component category/type (e.g. "Resistor", "PNP Transistor")
     std::optional<Rect> hitRect{std::nullopt};  ///< Explicit world-space hit box (auto-computed from geometry if nullopt)
     bool selectable{true};                      ///< Whether this item participates in hit-testing and selection
+    bool showSelectionFrame{true};              ///< Whether to draw automatic CAD hover/selection box around worldBounds
 };
 
 /// Resolved metadata, interaction flags, and world-space bounding box of a recorded SceneItem.
@@ -45,6 +46,7 @@ struct SceneItemInfo {
     int32_t firstCmdIndex{0};       ///< First draw command index belonging to this item
     bool hasExplicitBounds{false};  ///< True if hitRect was explicitly provided
     bool selectable{true};
+    bool showSelectionFrame{true};
     bool hovered{false};
     bool selected{false};
     bool clicked{false};
@@ -244,6 +246,9 @@ public:
 
     /// Returns the current screen-space pan offset of the world origin (0,0).
     [[nodiscard]] Vec2 GetPan() const noexcept;
+
+    /// Returns true if the user is actively dragging/panning the scene viewport.
+    [[nodiscard]] bool IsPanning() const noexcept;
 
     /// Returns the screen-space viewport rectangle.
     [[nodiscard]] Rect GetViewportRect() const noexcept { return m_viewport; }

@@ -21,58 +21,14 @@ void RenderMapBackgroundLayers(
     const MapViewState& view,
     bool lightMode
 ) {
-    const float z = std::max(0.0001f, scene.GetZoom());
-    const float invZ = 1.0f / z;
-    const Rect visWorld = scene.GetVisibleWorldRect();
+    const Color tileEvenFill = lightMode ? Color::Rgba(238, 245, 252, 95) : Color::Rgba(18, 30, 46, 95);
+    const Color tileOddFill  = lightMode ? Color::Rgba(226, 237, 248, 95) : Color::Rgba(24, 38, 58, 95);
 
-    const Color tileEvenFill   = lightMode ? Color::Rgba(238, 245, 252, 95)  : Color::Rgba(18, 30, 46, 95);
-    const Color tileOddFill    = lightMode ? Color::Rgba(226, 237, 248, 95)  : Color::Rgba(24, 38, 58, 95);
-    const Color tileHoverFill  = lightMode ? Color::Rgba(59, 130, 246, 45)   : Color::Rgba(56, 189, 248, 45);
-    const Color tileSelectFill = lightMode ? Color::Rgba(37, 99, 235, 70)    : Color::Rgba(56, 189, 248, 75);
-    const Color tileBorderCol  = lightMode ? Color::Rgba(100, 135, 175, 150) : Color::Rgba(75, 115, 160, 145);
-    const Color subTileCol     = lightMode ? Color::Rgba(100, 135, 175, 55)  : Color::Rgba(90, 135, 185, 50);
-    const Color tileIdTextCol  = lightMode ? Color::Rgba(35, 65, 105, 220)   : Color::Rgba(148, 195, 245, 220);
-    const Color tileMetaCol    = lightMode ? Color::Rgba(70, 100, 135, 185)  : Color::Rgba(120, 160, 205, 180);
-    const Color seamarkCyan    = lightMode ? Color::Rgba(2, 132, 199, 230)   : Color::Rgba(56, 189, 248, 235);
-
-    const Color gratMinorCol   = lightMode ? Color::Rgba(15, 118, 110, 80)   : Color::Rgba(45, 212, 191, 70);
-    const Color gratMajorCol   = lightMode ? Color::Rgba(13, 148, 136, 155)  : Color::Rgba(45, 212, 191, 145);
-    const Color gratZeroCol    = lightMode ? Color::Rgba(220, 38, 38, 190)   : Color::Rgba(248, 113, 113, 195);
-
-    // 1. OSM [z/x/y] Tile Pyramid Cells & Universal Tile Source Callback Hook
+    // Base OSM [z/x/y] Tile Pyramid Background & Optional Raster Tile Source
     for (const OsmTileCell& cell : view.visibleTiles) {
         const Rect& r = cell.worldRect;
-        const float screenTileW = r.w * z;
-
-        char idBuf[40]{};
-        std::snprintf(idBuf, sizeof(idBuf), "%d/%d/%d", cell.id.z, cell.id.x, cell.id.y);
-
-        char titleBuf[96]{};
-        std::snprintf(
-            titleBuf,
-            sizeof(titleBuf),
-            "NW %.3f°, %.3f° | SE %.3f°, %.3f°",
-            cell.geoBounds.nw.lat,
-            cell.geoBounds.nw.lon,
-            cell.geoBounds.se.lat,
-            cell.geoBounds.se.lon
-        );
-
-        auto item = scene.Item({
-            .id = idBuf,
-            .title = titleBuf,
-            .category = "OSM Tile [z/x/y]",
-            .hitRect = r,
-            .selectable = opts.selectableItems
-        });
-
         const bool isCheckerOdd = ((cell.id.x + cell.id.y) & 1) != 0;
-        Color cellFill = isCheckerOdd ? tileOddFill : tileEvenFill;
-        if (item.IsSelected()) {
-            cellFill = tileSelectFill;
-        } else if (item.IsHovered()) {
-            cellFill = tileHoverFill;
-        }
+        const Color cellFill = isCheckerOdd ? tileOddFill : tileEvenFill;
 
         bool drewBaseTile = false;
         if (opts.tileSource != nullptr) {
@@ -89,81 +45,6 @@ void RenderMapBackgroundLayers(
 
         if (!drewBaseTile) {
             scene.DrawRect(r, cellFill);
-        } else if (item.IsHovered() || item.IsSelected()) {
-            scene.DrawRect(r, cellFill);
-        }
-
-        if (opts.showTileGrid) {
-            if (opts.showSubTileQuadtree && screenTileW >= 110.0f) {
-                const float midX = r.x + r.w * 0.5f;
-                const float midY = r.y + r.h * 0.5f;
-                scene.DrawLine({midX, r.y}, {midX, r.Bottom()}, subTileCol, 1.0f * invZ);
-                scene.DrawLine({r.x, midY}, {r.Right(), midY}, subTileCol, 1.0f * invZ);
-            }
-
-            const float borderW = (item.IsSelected() ? 2.2f : (item.IsHovered() ? 1.6f : 1.0f)) * invZ;
-            const Color borderC = item.IsSelected() ? seamarkCyan : tileBorderCol;
-            scene.DrawRect(r, Color::Transparent(), 0.0f, borderC, borderW);
-
-            if (screenTileW >= 64.0f) {
-                char labelBuf[48]{};
-                std::snprintf(labelBuf, sizeof(labelBuf), "z=%d  [%d, %d]", cell.id.z, cell.id.x, cell.id.y);
-                scene.DrawTextBox(
-                    labelBuf,
-                    Rect(r.x, r.y + r.h * 0.34f, r.w, r.h * 0.18f),
-                    12.0f,
-                    tileIdTextCol,
-                    0.5f,
-                    0.5f,
-                    FontStyle::Monospace,
-                    /*scaleWithZoom=*/false
-                );
-            }
-
-            if (screenTileW >= 150.0f) {
-                char uriBuf[64]{};
-                std::snprintf(uriBuf, sizeof(uriBuf), "/tile/%d/%d/%d.png", cell.id.z, cell.id.x, cell.id.y);
-                scene.DrawTextBox(
-                    uriBuf,
-                    Rect(r.x, r.y + r.h * 0.52f, r.w, r.h * 0.14f),
-                    10.5f,
-                    tileMetaCol,
-                    0.5f,
-                    0.5f,
-                    FontStyle::Monospace,
-                    /*scaleWithZoom=*/false
-                );
-
-                const std::string nwText = MapGrid::FormatCoord(cell.geoBounds.nw, opts.coordFormat);
-                scene.DrawText(
-                    nwText,
-                    {r.x + 6.0f * invZ, r.y + 6.0f * invZ},
-                    9.5f,
-                    tileMetaCol,
-                    FontStyle::Monospace,
-                    /*scaleWithZoom=*/false
-                );
-            }
-        }
-    }
-
-    // 2. OpenSeaMap Nautical Graticule (Degrees & Nautical Arc-Minutes, 1' = 1 NM)
-    if (opts.showNauticalGraticule) {
-        const float vy0 = std::clamp(visWorld.y, 0.0f, opts.worldSize);
-        const float vy1 = std::clamp(visWorld.Bottom(), 0.0f, opts.worldSize);
-        const float vx0 = std::clamp(visWorld.x, 0.0f, opts.worldSize);
-        const float vx1 = std::clamp(visWorld.Right(), 0.0f, opts.worldSize);
-
-        for (const GraticuleLine& m : view.meridians) {
-            const Color col = m.isZero ? gratZeroCol : (m.isMajor ? gratMajorCol : gratMinorCol);
-            const float w = (m.isZero ? 1.8f : (m.isMajor ? 1.25f : 0.85f)) * invZ;
-            scene.DrawLine({m.worldPos, vy0}, {m.worldPos, vy1}, col, w);
-        }
-
-        for (const GraticuleLine& p : view.parallels) {
-            const Color col = p.isZero ? gratZeroCol : (p.isMajor ? gratMajorCol : gratMinorCol);
-            const float w = (p.isZero ? 1.8f : (p.isMajor ? 1.25f : 0.85f)) * invZ;
-            scene.DrawLine({vx0, p.worldPos}, {vx1, p.worldPos}, col, w);
         }
     }
 }
@@ -386,7 +267,93 @@ void MapViewScope::RenderForegroundOverlays() {
     const Color seamarkMagenta = m_lightMode ? Color::Rgba(185, 28, 140, 235) : Color::Rgba(232, 121, 249, 240);
     const Color seamarkCyan    = m_lightMode ? Color::Rgba(2, 132, 199, 230)  : Color::Rgba(56, 189, 248, 235);
 
-    // 1. OpenSeaMap Nautical Border Rulers (Top Longitude & Left Latitude Bars)
+    // 1. OpenSeaMap Nautical Graticule (Degrees & Nautical Arc-Minutes, 1' = 1 NM) — rendered over chart tiles
+    if (m_opts.showNauticalGraticule) {
+        const Color gratMinorCol = m_lightMode ? Color::Rgba(15, 118, 110, 105)  : Color::Rgba(20, 184, 166, 110);
+        const Color gratMajorCol = m_lightMode ? Color::Rgba(13, 148, 136, 175)  : Color::Rgba(45, 212, 191, 175);
+        const Color gratZeroCol  = m_lightMode ? Color::Rgba(220, 38, 38, 200)   : Color::Rgba(248, 113, 113, 205);
+
+        const float vy0 = std::clamp(visWorld.y, 0.0f, m_opts.worldSize);
+        const float vy1 = std::clamp(visWorld.Bottom(), 0.0f, m_opts.worldSize);
+        const float vx0 = std::clamp(visWorld.x, 0.0f, m_opts.worldSize);
+        const float vx1 = std::clamp(visWorld.Right(), 0.0f, m_opts.worldSize);
+
+        for (const GraticuleLine& m : m_view.meridians) {
+            const Color col = m.isZero ? gratZeroCol : (m.isMajor ? gratMajorCol : gratMinorCol);
+            const float w = (m.isZero ? 1.8f : (m.isMajor ? 1.25f : 0.85f)) * invZ;
+            m_scene.DrawLine({m.worldPos, vy0}, {m.worldPos, vy1}, col, w);
+        }
+
+        for (const GraticuleLine& p : m_view.parallels) {
+            const Color col = p.isZero ? gratZeroCol : (p.isMajor ? gratMajorCol : gratMinorCol);
+            const float w = (p.isZero ? 1.8f : (p.isMajor ? 1.25f : 0.85f)) * invZ;
+            m_scene.DrawLine({vx0, p.worldPos}, {vx1, p.worldPos}, col, w);
+        }
+    }
+
+    // 2. OSM [z/x/y] Tile Pyramid Wireframe & Coordinates — rendered over chart tiles when enabled
+    if (m_opts.showTileGrid) {
+        const Color tileBorderCol = m_lightMode ? Color::Rgba(59, 130, 246, 150)  : Color::Rgba(56, 189, 248, 145);
+        const Color subTileCol    = m_lightMode ? Color::Rgba(59, 130, 246, 65)   : Color::Rgba(56, 189, 248, 60);
+        const Color tileIdTextCol = m_lightMode ? Color::Rgba(30, 58, 138, 215)   : Color::Rgba(125, 211, 252, 215);
+        const Color tileMetaCol   = m_lightMode ? Color::Rgba(51, 65, 85, 185)    : Color::Rgba(148, 163, 184, 185);
+
+        for (const OsmTileCell& cell : m_view.visibleTiles) {
+            const Rect& r = cell.worldRect;
+            const float screenTileW = r.w * z;
+
+            if (m_opts.showSubTileQuadtree && screenTileW >= 110.0f) {
+                const float midX = r.x + r.w * 0.5f;
+                const float midY = r.y + r.h * 0.5f;
+                m_scene.DrawLine({midX, r.y}, {midX, r.Bottom()}, subTileCol, 1.0f * invZ);
+                m_scene.DrawLine({r.x, midY}, {r.Right(), midY}, subTileCol, 1.0f * invZ);
+            }
+
+            m_scene.DrawRect(r, Color::Transparent(), 0.0f, tileBorderCol, 1.0f * invZ);
+
+            if (screenTileW >= 64.0f) {
+                char labelBuf[48]{};
+                std::snprintf(labelBuf, sizeof(labelBuf), "z=%d  [%d, %d]", cell.id.z, cell.id.x, cell.id.y);
+                m_scene.DrawTextBox(
+                    labelBuf,
+                    Rect(r.x, r.y + r.h * 0.34f, r.w, r.h * 0.18f),
+                    12.0f,
+                    tileIdTextCol,
+                    0.5f,
+                    0.5f,
+                    FontStyle::Monospace,
+                    /*scaleWithZoom=*/false
+                );
+            }
+
+            if (screenTileW >= 150.0f) {
+                char uriBuf[64]{};
+                std::snprintf(uriBuf, sizeof(uriBuf), "/tile/%d/%d/%d.png", cell.id.z, cell.id.x, cell.id.y);
+                m_scene.DrawTextBox(
+                    uriBuf,
+                    Rect(r.x, r.y + r.h * 0.52f, r.w, r.h * 0.14f),
+                    10.5f,
+                    tileMetaCol,
+                    0.5f,
+                    0.5f,
+                    FontStyle::Monospace,
+                    /*scaleWithZoom=*/false
+                );
+
+                const std::string nwText = MapGrid::FormatCoord(cell.geoBounds.nw, m_opts.coordFormat);
+                m_scene.DrawText(
+                    nwText,
+                    {r.x + 6.0f * invZ, r.y + 6.0f * invZ},
+                    9.5f,
+                    tileMetaCol,
+                    FontStyle::Monospace,
+                    /*scaleWithZoom=*/false
+                );
+            }
+        }
+    }
+
+    // 3. OpenSeaMap Nautical Border Rulers (Top Longitude & Left Latitude Bars)
     if (m_opts.showBorderRulers) {
         const float rulerThick = 20.0f * invZ;
         const float leftBarW = rulerThick * 3.9f;

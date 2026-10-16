@@ -701,7 +701,18 @@ bool ThorCanvas::DrawPixels(
         return false;
     }
 
-    const Rect sBounds(destRect.x * m_scale, destRect.y * m_scale, destRect.w * m_scale, destRect.h * m_scale);
+    const float sRad = std::max(0.0f, cornerRadius * m_scale);
+    Rect sBounds(destRect.x * m_scale, destRect.y * m_scale, destRect.w * m_scale, destRect.h * m_scale);
+    if (sRad <= 0.0f) {
+        const float sx0 = std::round(sBounds.x);
+        const float sy0 = std::round(sBounds.y);
+        const float sx1 = std::round(sBounds.Right());
+        const float sy1 = std::round(sBounds.Bottom());
+        sBounds = Rect(sx0, sy0, std::max(0.0f, sx1 - sx0), std::max(0.0f, sy1 - sy0));
+        if (sBounds.w <= 0.0f || sBounds.h <= 0.0f) {
+            return true;
+        }
+    }
     if (!m_clipStack.empty()) {
         const Rect& cr = m_clipStack.back();
         if (cr.w <= 0.0f || cr.h <= 0.0f || !sBounds.Intersects(cr)) {
@@ -728,7 +739,6 @@ bool ThorCanvas::DrawPixels(
         pic->opacity(opacity);
     }
 
-    const float sRad = std::max(0.0f, cornerRadius * m_scale);
     if (sRad > 0.0f) {
         Rect clipR = sBounds;
         float effRad = sRad;

@@ -239,6 +239,7 @@ SceneItemScope SceneScope::Item(const SceneItemOptions& opts) {
     info.hasExplicitBounds = opts.hitRect.has_value();
     info.worldBounds = opts.hitRect.value_or(Rect{});
     info.selectable = opts.selectable;
+    info.showSelectionFrame = opts.showSelectionFrame;
     info.hovered = isHov;
     info.selected = isSel;
     info.clicked = isClk;
@@ -418,6 +419,10 @@ void SceneScope::ResetView() noexcept {
 
 Vec2 SceneScope::GetPan() const noexcept {
     return (m_payload && m_payload->state) ? m_payload->state->pan : Vec2{0.0f, 0.0f};
+}
+
+bool SceneScope::IsPanning() const noexcept {
+    return (m_payload && m_payload->state) ? m_payload->state->panning : false;
 }
 
 Vec2 SceneScope::WorldToScreen(Vec2 worldPt) const noexcept {
@@ -1225,12 +1230,35 @@ void Scene::RenderBackgroundAndWorld(
         }
     }
 
+    const double vpX = static_cast<double>(vp.x);
+    const double vpY = static_cast<double>(vp.y);
+    const double panX = static_cast<double>(state.pan.x);
+    const double panY = static_cast<double>(state.pan.y);
+    const double wScale = static_cast<double>(worldScale);
+
     auto worldRectToScreen = [&](Rect wr) noexcept -> Rect {
+        const double x0 = vpX + panX + static_cast<double>(wr.x) * wScale;
+        const double y0 = vpY + panY + static_cast<double>(wr.y) * wScale;
+        const double x1 = vpX + panX + (static_cast<double>(wr.x) + static_cast<double>(wr.w)) * wScale;
+        const double y1 = vpY + panY + (static_cast<double>(wr.y) + static_cast<double>(wr.h)) * wScale;
         return Rect(
-            vp.x + state.pan.x + wr.x * worldScale,
-            vp.y + state.pan.y + wr.y * worldScale,
-            wr.w * worldScale,
-            wr.h * worldScale
+            static_cast<float>(x0),
+            static_cast<float>(y0),
+            static_cast<float>(x1 - x0),
+            static_cast<float>(y1 - y0)
+        );
+    };
+
+    auto worldRectToSnappedScreen = [&](Rect wr) noexcept -> Rect {
+        const double x0 = std::round(vpX + panX + static_cast<double>(wr.x) * wScale);
+        const double y0 = std::round(vpY + panY + static_cast<double>(wr.y) * wScale);
+        const double x1 = std::round(vpX + panX + (static_cast<double>(wr.x) + static_cast<double>(wr.w)) * wScale);
+        const double y1 = std::round(vpY + panY + (static_cast<double>(wr.y) + static_cast<double>(wr.h)) * wScale);
+        return Rect(
+            static_cast<float>(x0),
+            static_cast<float>(y0),
+            static_cast<float>(std::max(0.0, x1 - x0)),
+            static_cast<float>(std::max(0.0, y1 - y0))
         );
     };
 
@@ -1249,7 +1277,7 @@ void Scene::RenderBackgroundAndWorld(
 
     // 2. Render subtle backdrop glow under hovered/selected SceneItems
     for (const SceneItemInfo& item : payload->items) {
-        if ((!item.hovered && !item.selected) || item.worldBounds.w <= 0.0f || item.worldBounds.h <= 0.0f) {
+        if (!item.showSelectionFrame || (!item.hovered && !item.selected) || item.worldBounds.w <= 0.0f || item.worldBounds.h <= 0.0f) {
             continue;
         }
         const Rect sr = worldRectToScreen(item.worldBounds);
@@ -1272,14 +1300,14 @@ void Scene::RenderBackgroundAndWorld(
 
         switch (cmd.type) {
             case SceneDrawCmd::Type::Image: {
-                const Rect dst = worldRectToScreen(cmd.rect);
+                const Rect dst = (cmd.radius <= 0.0f) ? worldRectToSnappedScreen(cmd.rect) : worldRectToScreen(cmd.rect);
                 if (dst.Intersects(vp)) {
                     canvas.DrawImage(cmd.textOrSource, dst, cmd.radius * state.zoom, cmd.opacity);
                 }
                 break;
             }
             case SceneDrawCmd::Type::Pixels: {
-                const Rect dst = worldRectToScreen(cmd.rect);
+                const Rect dst = (cmd.radius <= 0.0f) ? worldRectToSnappedScreen(cmd.rect) : worldRectToScreen(cmd.rect);
                 if (dst.Intersects(vp) && cmd.pixels && cmd.pixelW > 0 && cmd.pixelH > 0) {
                     canvas.DrawPixels(cmd.pixels, cmd.pixelW, cmd.pixelH, dst, cmd.radius * state.zoom, cmd.opacity);
                 }
@@ -1382,7 +1410,7 @@ void Scene::RenderBackgroundAndWorld(
     const float gripSz = 4.5f * s;
     const float halfGrip = gripSz * 0.5f;
     for (const SceneItemInfo& item : payload->items) {
-        if ((!item.hovered && !item.selected) || item.worldBounds.w <= 0.0f || item.worldBounds.h <= 0.0f) {
+        if (!item.showSelectionFrame || (!item.hovered && !item.selected) || item.worldBounds.w <= 0.0f || item.worldBounds.h <= 0.0f) {
             continue;
         }
         const Rect sr = worldRectToScreen(item.worldBounds);
