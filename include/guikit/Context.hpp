@@ -217,6 +217,9 @@ public:
     /// Returns the active bounding rectangle of the dirty damage region for this frame (in logical points).
     [[nodiscard]] Rect GetDirtyRect() const noexcept { return m_dirtyRect; }
 
+    /// Returns the list of mutually disjoint dirty damage rectangles for this frame (in logical points).
+    [[nodiscard]] const std::vector<Rect>& GetDirtyRects() const noexcept { return m_dirtyRects; }
+
     /// Returns the active bounding rectangle of the dirty damage region in physical pixels for GPU blitting.
     [[nodiscard]] Rect GetPhysicalDirtyRect() const noexcept {
         const float x1 = std::floor(m_dirtyRect.x * m_dpiScale);
@@ -903,6 +906,7 @@ private:
 
     std::unordered_map<Id, WidgetSnapshot> m_prevSnapshots;
     std::vector<Rect> m_explicitDamageRects;
+    std::vector<Rect> m_dirtyRects;
     Rect m_dirtyRect{0.0f, 0.0f, 0.0f, 0.0f};
     UiTheme m_theme{UiTheme::Dark()};
     Color m_clearColor{11, 15, 25, 255}; // Tailwind Slate-950 #0B0F19

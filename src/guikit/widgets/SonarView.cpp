@@ -55,6 +55,8 @@ struct SonarViewState {
     std::vector<uint32_t> abgrPixels{};
     uint32_t cachedImgW{0};
     uint32_t cachedImgH{0};
+    uint64_t gridGeneration{1};
+    uint64_t lastInputHash{0};
 
     float rangeZoom{1.0f};
     float eblBearingDeg{35.0f};
@@ -63,6 +65,12 @@ struct SonarViewState {
     int selectedTargetId{-1};
     float prevSweepAngleDeg{0.0f};
     bool initialized{false};
+
+    uint64_t baseLayerKey{0};
+    uint32_t baseLayerW{0};
+    uint32_t baseLayerH{0};
+    std::vector<uint32_t> baseLayerPixels{};
+    bool baseLayerValid{false};
 };
 
 struct SonarViewPayload {
@@ -557,7 +565,10 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
         : theme.GetRadius(node->uiSize);
     const Color bgConsole{6, 10, 18, 255};
     const Color borderCol = theme.palette.borderSubtle;
-    canvas.DrawRoundRect(r, radius, bgConsole, borderCol, 1.0f);
+    const Color gridLineCol{56, 189, 248, 48};
+    const Color gridMajorCol{56, 189, 248, 95};
+    const Color labelTextCol{148, 163, 184, 225};
+    const Color accentTextCol{56, 189, 248, 235};
 
     const float colorbarW = opts.showColorbar ? 52.0f : 0.0f;
     const Rect plotRect(
@@ -573,245 +584,370 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
         std::max(16.0f, r.h - 4.0f)
     );
 
-    canvas.PushClip(plotRect);
-
     const SonarPlotGeometry geom = SonarPlotGeometry::Compute(plotRect, opts, resp.rangeZoom);
 
-    // 1. Rasterize & blit polar / sector / B-scan heatmap in exact 1:1 screen-space coordinates of `geom`
-    if (payload->state) {
-        SonarViewState& state = *payload->state;
-        const float resScale = std::min({
-            0.80f,
-            560.0f / std::max(1.0f, plotRect.w),
-            460.0f / std::max(1.0f, plotRect.h)
-        });
-        const uint32_t imgW = static_cast<uint32_t>(std::max(64.0f, std::round(plotRect.w * resScale)));
-        const uint32_t imgH = static_cast<uint32_t>(std::max(64.0f, std::round(plotRect.h * resScale)));
-        state.cachedImgW = imgW;
-        state.cachedImgH = imgH;
-        state.abgrPixels.resize(static_cast<size_t>(imgW) * imgH);
-
+    auto makeSonarGpuDesc = [&](SonarViewState& state) {
         const auto lut = BuildSonarColormapLut(opts.colormap);
-        const uint32_t bgAbgr = PackAbgr(Color(6, 10, 18, 255));
-        const float stepX = plotRect.w / static_cast<float>(imgW);
-        const float stepY = plotRect.h / static_cast<float>(imgH);
+        ICanvas::SonarGpuFieldDesc gpuDesc{};
+        gpuDesc.widgetId = node->id.value;
+        gpuDesc.dataGeneration = state.gridGeneration;
+        gpuDesc.polarData = state.persistentGrid.data();
+        gpuDesc.numBeams = state.numBeams;
+        gpuDesc.numRangeBins = state.numRangeBins;
+        gpuDesc.colormapId = static_cast<uint8_t>(opts.colormap);
+        for (size_t i = 0; i < 256; ++i) {
+            gpuDesc.colormapAbgr[i] = PackAbgr(lut[i]);
+        }
+        gpuDesc.plotRect = plotRect;
+        gpuDesc.origin = geom.origin;
+        gpuDesc.maxRadiusPx = geom.maxRadiusPx;
+        gpuDesc.minRangeMeters = geom.minRange;
+        gpuDesc.visibleMaxRangeMeters = geom.visibleMaxRange;
+        gpuDesc.matrixMaxRangeMeters = opts.maxRangeMeters;
+        gpuDesc.matrixStartBearingDeg = opts.matrixStartBearingDeg;
+        gpuDesc.matrixEndBearingDeg = opts.matrixEndBearingDeg;
+        gpuDesc.displayMode = static_cast<uint8_t>(geom.mode);
+        gpuDesc.bscanInnerRect = geom.GetBScanInnerRect();
+        gpuDesc.headingDeg = geom.headingDeg;
+        gpuDesc.sectorApertureDeg = geom.sectorApertureDeg;
+        gpuDesc.gainDb = opts.gainDb;
+        gpuDesc.tvgAmount = opts.tvgAmount;
+        gpuDesc.clutterThreshold = opts.clutterThreshold;
+        gpuDesc.bgColor = bgConsole;
+        return gpuDesc;
+    };
 
-        for (uint32_t py = 0; py < imgH; ++py) {
-            uint32_t* rowPtr = state.abgrPixels.data() + static_cast<size_t>(py) * imgW;
-            const float sy = plotRect.y + (static_cast<float>(py) + 0.5f) * stepY;
-            for (uint32_t px = 0; px < imgW; ++px) {
-                const float sx = plotRect.x + (static_cast<float>(px) + 0.5f) * stepX;
-                float rMeters = 0.0f;
-                float brgDeg = 0.0f;
-                if (geom.ScreenToPolar({sx, sy}, rMeters, brgDeg)) {
-                    const float echo = SampleProcessedEcho(state, opts, rMeters, brgDeg);
-                    const size_t idx = static_cast<size_t>(std::clamp(echo * 255.0f, 0.0f, 255.0f));
-                    rowPtr[px] = PackAbgr(lut[idx]);
+    const uint64_t staticKey = detail::HashArgs(
+        std::round(r.x * 2.0f),
+        std::round(r.y * 2.0f),
+        std::round(r.w * 2.0f),
+        std::round(r.h * 2.0f),
+        canvas.GetScale(),
+        canvas.SupportsGpuShaders(),
+        static_cast<uint8_t>(opts.displayMode),
+        static_cast<uint8_t>(opts.colormap),
+        opts.maxRangeMeters,
+        opts.minRangeMeters,
+        opts.headingDeg,
+        opts.sectorApertureDeg,
+        opts.rangeRingCount,
+        opts.showRangeRings,
+        opts.showBearingDial,
+        opts.showColorbar,
+        opts.clutterThreshold,
+        opts.guardZone.enabled,
+        opts.guardZone.minRangeMeters,
+        opts.guardZone.maxRangeMeters,
+        opts.guardZone.startBearingDeg,
+        opts.guardZone.endBearingDeg,
+        resp.guardZoneAlarm,
+        resp.rangeZoom,
+        borderCol.ToUint32()
+    );
+
+    bool restoredFromCache = false;
+    if (payload->state && canvas.SupportsGpuShaders()) {
+        SonarViewState& state = *payload->state;
+        if (state.baseLayerValid && state.baseLayerKey == staticKey) {
+            if (canvas.RestoreRegion(r, state.baseLayerPixels, state.baseLayerW, state.baseLayerH)) {
+                restoredFromCache = true;
+                canvas.PushClip(plotRect);
+                const auto gpuDesc = makeSonarGpuDesc(state);
+                canvas.DrawSonarGpuField(gpuDesc, false);
+                canvas.PopClip();
+            }
+        }
+    }
+
+    if (!restoredFromCache) {
+        // =====================================================================
+        // PASS A: Static Base Layer (Console frame, GPU hole, Guard Zone, Range Rings, Dial, Colorbar)
+        // =====================================================================
+        canvas.DrawRoundRect(r, radius, bgConsole, borderCol, 1.0f);
+        canvas.PushClip(plotRect);
+
+        if (payload->state) {
+            SonarViewState& state = *payload->state;
+            const auto gpuDesc = makeSonarGpuDesc(state);
+            if (!canvas.DrawSonarGpuField(gpuDesc, true)) {
+                const auto lut = BuildSonarColormapLut(opts.colormap);
+                const float resScale = std::min({
+                    0.80f,
+                    560.0f / std::max(1.0f, plotRect.w),
+                    460.0f / std::max(1.0f, plotRect.h)
+                });
+                const uint32_t imgW = static_cast<uint32_t>(std::max(64.0f, std::round(plotRect.w * resScale)));
+                const uint32_t imgH = static_cast<uint32_t>(std::max(64.0f, std::round(plotRect.h * resScale)));
+                state.cachedImgW = imgW;
+                state.cachedImgH = imgH;
+                state.abgrPixels.resize(static_cast<size_t>(imgW) * imgH);
+
+                const uint32_t bgAbgr = PackAbgr(bgConsole);
+                const float stepX = plotRect.w / static_cast<float>(imgW);
+                const float stepY = plotRect.h / static_cast<float>(imgH);
+
+                for (uint32_t py = 0; py < imgH; ++py) {
+                    uint32_t* rowPtr = state.abgrPixels.data() + static_cast<size_t>(py) * imgW;
+                    const float sy = plotRect.y + (static_cast<float>(py) + 0.5f) * stepY;
+                    for (uint32_t px = 0; px < imgW; ++px) {
+                        const float sx = plotRect.x + (static_cast<float>(px) + 0.5f) * stepX;
+                        float rMeters = 0.0f;
+                        float brgDeg = 0.0f;
+                        if (geom.ScreenToPolar({sx, sy}, rMeters, brgDeg)) {
+                            const float echo = SampleProcessedEcho(state, opts, rMeters, brgDeg);
+                            const size_t idx = static_cast<size_t>(std::clamp(echo * 255.0f, 0.0f, 255.0f));
+                            rowPtr[px] = PackAbgr(lut[idx]);
+                        } else {
+                            rowPtr[px] = bgAbgr;
+                        }
+                    }
+                }
+
+                canvas.DrawPixels(
+                    state.abgrPixels.data(),
+                    imgW,
+                    imgH,
+                    plotRect
+                );
+            }
+        }
+
+        // 2. Guard Zone tactical sector overlay
+        if (opts.guardZone.enabled) {
+            const float gzMinR = std::clamp(opts.guardZone.minRangeMeters, 0.0f, geom.visibleMaxRange);
+            const float gzMaxR = std::clamp(opts.guardZone.maxRangeMeters, gzMinR, geom.visibleMaxRange);
+            if (gzMaxR > gzMinR + 1.0f) {
+                const Color gzStroke = resp.guardZoneAlarm
+                    ? Color(244, 63, 94, 225)
+                    : Color(34, 211, 238, 145);
+                const Color gzFill = resp.guardZoneAlarm
+                    ? Color(244, 63, 94, 38)
+                    : Color(34, 211, 238, 20);
+
+                if (geom.mode == SonarDisplayMode::PPI_360 || geom.mode == SonarDisplayMode::SectorWedge) {
+                    float span = std::fmod(opts.guardZone.endBearingDeg - opts.guardZone.startBearingDeg + 360.0f, 360.0f);
+                    if (span <= 0.01f) span = 360.0f;
+
+                    constexpr int kArcSteps = 28;
+                    for (int i = 0; i < kArcSteps; ++i) {
+                        const float b0 = opts.guardZone.startBearingDeg + (static_cast<float>(i) / kArcSteps) * span;
+                        const float b1 = opts.guardZone.startBearingDeg + (static_cast<float>(i + 1) / kArcSteps) * span;
+                        const Vec2 outer0 = geom.PolarToScreen(gzMaxR, b0);
+                        const Vec2 outer1 = geom.PolarToScreen(gzMaxR, b1);
+                        const Vec2 inner0 = geom.PolarToScreen(gzMinR, b0);
+                        const Vec2 inner1 = geom.PolarToScreen(gzMinR, b1);
+                        canvas.DrawTriangle(inner0, outer0, outer1, gzFill);
+                        canvas.DrawTriangle(inner0, outer1, inner1, gzFill);
+                        canvas.DrawLine(outer0, outer1, gzStroke, resp.guardZoneAlarm ? 1.8f : 1.2f);
+                        canvas.DrawLine(inner0, inner1, gzStroke, resp.guardZoneAlarm ? 1.8f : 1.2f);
+                    }
+                    canvas.DrawLine(
+                        geom.PolarToScreen(gzMinR, opts.guardZone.startBearingDeg),
+                        geom.PolarToScreen(gzMaxR, opts.guardZone.startBearingDeg),
+                        gzStroke,
+                        resp.guardZoneAlarm ? 1.8f : 1.2f
+                    );
+                    canvas.DrawLine(
+                        geom.PolarToScreen(gzMinR, opts.guardZone.endBearingDeg),
+                        geom.PolarToScreen(gzMaxR, opts.guardZone.endBearingDeg),
+                        gzStroke,
+                        resp.guardZoneAlarm ? 1.8f : 1.2f
+                    );
                 } else {
-                    rowPtr[px] = bgAbgr;
+                    const Vec2 p0 = geom.PolarToScreen(gzMaxR, opts.guardZone.startBearingDeg);
+                    const Vec2 p1 = geom.PolarToScreen(gzMinR, opts.guardZone.endBearingDeg);
+                    const Rect gzRect(
+                        std::min(p0.x, p1.x),
+                        std::min(p0.y, p1.y),
+                        std::abs(p1.x - p0.x),
+                        std::abs(p1.y - p0.y)
+                    );
+                    canvas.DrawRoundRect(gzRect, 2.0f, gzFill, gzStroke, 1.4f);
                 }
             }
         }
 
-        canvas.DrawPixels(
-            state.abgrPixels.data(),
-            imgW,
-            imgH,
-            plotRect
-        );
-    }
+        // 3. Range Rings & Azimuth Spokes / Bearing Dial
+        const uint32_t ringCount = std::clamp(opts.rangeRingCount, 2u, 10u);
+        if (geom.mode == SonarDisplayMode::PPI_360) {
+            if (opts.showRangeRings) {
+                for (uint32_t i = 1; i <= ringCount; ++i) {
+                    const float frac = static_cast<float>(i) / static_cast<float>(ringCount);
+                    const float rPx = frac * geom.maxRadiusPx;
+                    const Color c = (i == ringCount) ? gridMajorCol : gridLineCol;
+                    DrawCircleOutline(canvas, geom.origin, rPx, Color::Transparent(), c, (i == ringCount) ? 1.5f : 1.0f);
 
-    const Color gridLineCol{56, 189, 248, 48};
-    const Color gridMajorCol{56, 189, 248, 95};
-    const Color labelTextCol{148, 163, 184, 225};
-    const Color accentTextCol{56, 189, 248, 235};
-
-    // 2. Guard Zone tactical sector overlay
-    if (opts.guardZone.enabled) {
-        const float gzMinR = std::clamp(opts.guardZone.minRangeMeters, 0.0f, geom.visibleMaxRange);
-        const float gzMaxR = std::clamp(opts.guardZone.maxRangeMeters, gzMinR, geom.visibleMaxRange);
-        if (gzMaxR > gzMinR + 1.0f) {
-            const Color gzStroke = resp.guardZoneAlarm
-                ? Color(244, 63, 94, 225)
-                : Color(34, 211, 238, 145);
-            const Color gzFill = resp.guardZoneAlarm
-                ? Color(244, 63, 94, 38)
-                : Color(34, 211, 238, 20);
-
-            if (geom.mode == SonarDisplayMode::PPI_360 || geom.mode == SonarDisplayMode::SectorWedge) {
-                float span = std::fmod(opts.guardZone.endBearingDeg - opts.guardZone.startBearingDeg + 360.0f, 360.0f);
-                if (span <= 0.01f) span = 360.0f;
-
-                constexpr int kArcSteps = 28;
-                for (int i = 0; i < kArcSteps; ++i) {
-                    const float b0 = opts.guardZone.startBearingDeg + (static_cast<float>(i) / kArcSteps) * span;
-                    const float b1 = opts.guardZone.startBearingDeg + (static_cast<float>(i + 1) / kArcSteps) * span;
-                    const Vec2 outer0 = geom.PolarToScreen(gzMaxR, b0);
-                    const Vec2 outer1 = geom.PolarToScreen(gzMaxR, b1);
-                    const Vec2 inner0 = geom.PolarToScreen(gzMinR, b0);
-                    const Vec2 inner1 = geom.PolarToScreen(gzMinR, b1);
-                    canvas.DrawTriangle(inner0, outer0, outer1, gzFill);
-                    canvas.DrawTriangle(inner0, outer1, inner1, gzFill);
-                    canvas.DrawLine(outer0, outer1, gzStroke, resp.guardZoneAlarm ? 1.8f : 1.2f);
-                    canvas.DrawLine(inner0, inner1, gzStroke, resp.guardZoneAlarm ? 1.8f : 1.2f);
-                }
-                canvas.DrawLine(
-                    geom.PolarToScreen(gzMinR, opts.guardZone.startBearingDeg),
-                    geom.PolarToScreen(gzMaxR, opts.guardZone.startBearingDeg),
-                    gzStroke,
-                    resp.guardZoneAlarm ? 1.8f : 1.2f
-                );
-                canvas.DrawLine(
-                    geom.PolarToScreen(gzMinR, opts.guardZone.endBearingDeg),
-                    geom.PolarToScreen(gzMaxR, opts.guardZone.endBearingDeg),
-                    gzStroke,
-                    resp.guardZoneAlarm ? 1.8f : 1.2f
-                );
-            } else {
-                const Vec2 p0 = geom.PolarToScreen(gzMaxR, opts.guardZone.startBearingDeg);
-                const Vec2 p1 = geom.PolarToScreen(gzMinR, opts.guardZone.endBearingDeg);
-                const Rect gzRect(
-                    std::min(p0.x, p1.x),
-                    std::min(p0.y, p1.y),
-                    std::abs(p1.x - p0.x),
-                    std::abs(p1.y - p0.y)
-                );
-                canvas.DrawRoundRect(gzRect, 2.0f, gzFill, gzStroke, 1.4f);
-            }
-        }
-    }
-
-    // 3. Range Rings & Azimuth Spokes / Bearing Dial
-    const uint32_t ringCount = std::clamp(opts.rangeRingCount, 2u, 10u);
-    if (geom.mode == SonarDisplayMode::PPI_360) {
-        if (opts.showRangeRings) {
-            for (uint32_t i = 1; i <= ringCount; ++i) {
-                const float frac = static_cast<float>(i) / static_cast<float>(ringCount);
-                const float rPx = frac * geom.maxRadiusPx;
-                const Color c = (i == ringCount) ? gridMajorCol : gridLineCol;
-                DrawCircleOutline(canvas, geom.origin, rPx, Color::Transparent(), c, (i == ringCount) ? 1.5f : 1.0f);
-
-                char rBuf[32];
-                std::snprintf(rBuf, sizeof(rBuf), "%.0fm", frac * geom.visibleMaxRange);
-                canvas.DrawText(rBuf, {geom.origin.x + 5.0f, geom.origin.y - rPx + 2.0f}, 10.0f, labelTextCol);
-            }
-        }
-
-        if (opts.showBearingDial) {
-            for (int deg = 0; deg < 360; deg += 30) {
-                const float rad = static_cast<float>(deg) * kDegToRad;
-                const Vec2 inner{geom.origin.x + std::sin(rad) * (geom.maxRadiusPx * 0.12f),
-                                 geom.origin.y - std::cos(rad) * (geom.maxRadiusPx * 0.12f)};
-                const Vec2 outer{geom.origin.x + std::sin(rad) * geom.maxRadiusPx,
-                                 geom.origin.y - std::cos(rad) * geom.maxRadiusPx};
-                const bool cardinal = (deg % 90 == 0);
-                canvas.DrawLine(inner, outer, cardinal ? gridMajorCol : gridLineCol, cardinal ? 1.2f : 0.9f);
-            }
-
-            for (int deg = 0; deg < 360; deg += 5) {
-                const float rad = static_cast<float>(deg) * kDegToRad;
-                const bool major = (deg % 30 == 0);
-                const bool med = (deg % 10 == 0);
-                const float tickLen = major ? 7.0f : (med ? 4.5f : 2.5f);
-                const Vec2 p0{geom.origin.x + std::sin(rad) * geom.maxRadiusPx,
-                              geom.origin.y - std::cos(rad) * geom.maxRadiusPx};
-                const Vec2 p1{geom.origin.x + std::sin(rad) * (geom.maxRadiusPx + tickLen),
-                              geom.origin.y - std::cos(rad) * (geom.maxRadiusPx + tickLen)};
-                canvas.DrawLine(p0, p1, major ? accentTextCol : labelTextCol, major ? 1.4f : 1.0f);
-
-                if (major) {
-                    char bBuf[16];
-                    if (deg == 0) std::snprintf(bBuf, sizeof(bBuf), "000 N");
-                    else if (deg == 90) std::snprintf(bBuf, sizeof(bBuf), "090 E");
-                    else if (deg == 180) std::snprintf(bBuf, sizeof(bBuf), "180 S");
-                    else if (deg == 270) std::snprintf(bBuf, sizeof(bBuf), "270 W");
-                    else std::snprintf(bBuf, sizeof(bBuf), "%03d", deg);
-
-                    const float labelR = geom.maxRadiusPx + 15.0f;
-                    const Vec2 lp{geom.origin.x + std::sin(rad) * labelR - 14.0f,
-                                  geom.origin.y - std::cos(rad) * labelR - 6.0f};
-                    canvas.DrawText(bBuf, lp, 10.5f, (deg % 90 == 0) ? accentTextCol : labelTextCol);
+                    char rBuf[32];
+                    std::snprintf(rBuf, sizeof(rBuf), "%.0fm", frac * geom.visibleMaxRange);
+                    canvas.DrawText(rBuf, {geom.origin.x + 5.0f, geom.origin.y - rPx + 2.0f}, 10.0f, labelTextCol);
                 }
             }
-        }
-    } else if (geom.mode == SonarDisplayMode::SectorWedge) {
-        const float halfAp = geom.sectorApertureDeg * 0.5f;
-        if (opts.showRangeRings) {
-            for (uint32_t i = 1; i <= ringCount; ++i) {
-                const float frac = static_cast<float>(i) / static_cast<float>(ringCount);
-                const float rPx = frac * geom.maxRadiusPx;
-                const bool outer = (i == ringCount);
-                DrawArcPolyline(
-                    canvas,
-                    geom.origin,
-                    rPx,
-                    -halfAp,
-                    +halfAp,
-                    outer ? gridMajorCol : gridLineCol,
-                    outer ? 1.6f : 1.0f,
-                    48
-                );
 
-                const float rightRad = halfAp * kDegToRad;
-                const Vec2 rp{
-                    geom.origin.x + std::sin(rightRad) * rPx + 6.0f,
-                    geom.origin.y - std::cos(rightRad) * rPx - 6.0f
-                };
-                char rBuf[32];
-                std::snprintf(rBuf, sizeof(rBuf), "%.0fm", frac * geom.visibleMaxRange);
-                canvas.DrawText(rBuf, rp, 10.0f, labelTextCol);
+            if (opts.showBearingDial) {
+                for (int deg = 0; deg < 360; deg += 30) {
+                    const float rad = static_cast<float>(deg) * kDegToRad;
+                    const Vec2 inner{geom.origin.x + std::sin(rad) * (geom.maxRadiusPx * 0.12f),
+                                     geom.origin.y - std::cos(rad) * (geom.maxRadiusPx * 0.12f)};
+                    const Vec2 outer{geom.origin.x + std::sin(rad) * geom.maxRadiusPx,
+                                     geom.origin.y - std::cos(rad) * geom.maxRadiusPx};
+                    const bool cardinal = (deg % 90 == 0);
+                    canvas.DrawLine(inner, outer, cardinal ? gridMajorCol : gridLineCol, cardinal ? 1.2f : 0.9f);
+                }
+
+                for (int deg = 0; deg < 360; deg += 5) {
+                    const float rad = static_cast<float>(deg) * kDegToRad;
+                    const bool major = (deg % 30 == 0);
+                    const bool med = (deg % 10 == 0);
+                    const float tickLen = major ? 7.0f : (med ? 4.5f : 2.5f);
+                    const Vec2 p0{geom.origin.x + std::sin(rad) * geom.maxRadiusPx,
+                                  geom.origin.y - std::cos(rad) * geom.maxRadiusPx};
+                    const Vec2 p1{geom.origin.x + std::sin(rad) * (geom.maxRadiusPx + tickLen),
+                                  geom.origin.y - std::cos(rad) * (geom.maxRadiusPx + tickLen)};
+                    canvas.DrawLine(p0, p1, major ? accentTextCol : labelTextCol, major ? 1.4f : 1.0f);
+
+                    if (major) {
+                        char bBuf[16];
+                        if (deg == 0) std::snprintf(bBuf, sizeof(bBuf), "000 N");
+                        else if (deg == 90) std::snprintf(bBuf, sizeof(bBuf), "090 E");
+                        else if (deg == 180) std::snprintf(bBuf, sizeof(bBuf), "180 S");
+                        else if (deg == 270) std::snprintf(bBuf, sizeof(bBuf), "270 W");
+                        else std::snprintf(bBuf, sizeof(bBuf), "%03d", deg);
+
+                        const float labelR = geom.maxRadiusPx + 15.0f;
+                        const Vec2 lp{geom.origin.x + std::sin(rad) * labelR - 14.0f,
+                                      geom.origin.y - std::cos(rad) * labelR - 6.0f};
+                        canvas.DrawText(bBuf, lp, 10.5f, (deg % 90 == 0) ? accentTextCol : labelTextCol);
+                    }
+                }
             }
-        }
-
-        const Vec2 leftEdge = geom.PolarToScreen(geom.visibleMaxRange, geom.headingDeg - halfAp);
-        const Vec2 rightEdge = geom.PolarToScreen(geom.visibleMaxRange, geom.headingDeg + halfAp);
-        canvas.DrawLine(geom.origin, leftEdge, gridMajorCol, 1.5f);
-        canvas.DrawLine(geom.origin, rightEdge, gridMajorCol, 1.5f);
-
-        if (opts.showBearingDial) {
-            const int stepDeg = (geom.sectorApertureDeg <= 90.0f) ? 15 : 30;
-            for (float rel = -halfAp; rel <= halfAp + 0.1f; rel += static_cast<float>(stepDeg)) {
-                const float brg = NormalizeBearingDeg(geom.headingDeg + rel);
-                const Vec2 pOuter = geom.PolarToScreen(geom.visibleMaxRange, brg);
-                const bool centerRay = (std::abs(rel) < 0.5f);
-                canvas.DrawLine(geom.origin, pOuter, centerRay ? gridMajorCol : gridLineCol, centerRay ? 1.3f : 0.9f);
-
-                const float rad = rel * kDegToRad;
-                const Vec2 lp{
-                    geom.origin.x + std::sin(rad) * (geom.maxRadiusPx + 14.0f) - 12.0f,
-                    geom.origin.y - std::cos(rad) * (geom.maxRadiusPx + 14.0f) - 7.0f
-                };
-                char bBuf[16];
-                std::snprintf(bBuf, sizeof(bBuf), "%03.0f°", brg);
-                canvas.DrawText(bBuf, lp, 10.0f, centerRay ? accentTextCol : labelTextCol);
-            }
-        }
-    } else {
-        const Rect inner = geom.GetBScanInnerRect();
-        canvas.DrawRoundRect(inner, 0.0f, Color::Transparent(), gridMajorCol, 1.2f);
-        if (opts.showRangeRings) {
-            for (uint32_t i = 1; i <= ringCount; ++i) {
-                const float frac = static_cast<float>(i) / static_cast<float>(ringCount);
-                const float y = inner.Bottom() - frac * inner.h;
-                canvas.DrawLine({inner.x, y}, {inner.Right(), y}, gridLineCol, 1.0f);
-                char rBuf[32];
-                std::snprintf(rBuf, sizeof(rBuf), "%.0fm", frac * geom.visibleMaxRange);
-                canvas.DrawText(rBuf, {plotRect.x + 6.0f, y - 6.0f}, 10.0f, labelTextCol);
-            }
-        }
-        if (opts.showBearingDial) {
+        } else if (geom.mode == SonarDisplayMode::SectorWedge) {
             const float halfAp = geom.sectorApertureDeg * 0.5f;
-            for (int i = 0; i <= 6; ++i) {
-                const float u = static_cast<float>(i) / 6.0f;
-                const float x = inner.x + u * inner.w;
-                canvas.DrawLine({x, inner.y}, {x, inner.Bottom()}, gridLineCol, 1.0f);
-                const float brg = NormalizeBearingDeg(geom.headingDeg + (u - 0.5f) * 2.0f * halfAp);
-                char bBuf[16];
-                std::snprintf(bBuf, sizeof(bBuf), "%03.0f°", brg);
-                canvas.DrawText(bBuf, {x - 12.0f, inner.Bottom() + 4.0f}, 10.0f, labelTextCol);
+            if (opts.showRangeRings) {
+                for (uint32_t i = 1; i <= ringCount; ++i) {
+                    const float frac = static_cast<float>(i) / static_cast<float>(ringCount);
+                    const float rPx = frac * geom.maxRadiusPx;
+                    const bool outer = (i == ringCount);
+                    DrawArcPolyline(
+                        canvas,
+                        geom.origin,
+                        rPx,
+                        -halfAp,
+                        +halfAp,
+                        outer ? gridMajorCol : gridLineCol,
+                        outer ? 1.6f : 1.0f,
+                        48
+                    );
+
+                    const float rightRad = halfAp * kDegToRad;
+                    const Vec2 rp{
+                        geom.origin.x + std::sin(rightRad) * rPx + 6.0f,
+                        geom.origin.y - std::cos(rightRad) * rPx - 6.0f
+                    };
+                    char rBuf[32];
+                    std::snprintf(rBuf, sizeof(rBuf), "%.0fm", frac * geom.visibleMaxRange);
+                    canvas.DrawText(rBuf, rp, 10.0f, labelTextCol);
+                }
+            }
+
+            const Vec2 leftEdge = geom.PolarToScreen(geom.visibleMaxRange, geom.headingDeg - halfAp);
+            const Vec2 rightEdge = geom.PolarToScreen(geom.visibleMaxRange, geom.headingDeg + halfAp);
+            canvas.DrawLine(geom.origin, leftEdge, gridMajorCol, 1.5f);
+            canvas.DrawLine(geom.origin, rightEdge, gridMajorCol, 1.5f);
+
+            if (opts.showBearingDial) {
+                const int stepDeg = (geom.sectorApertureDeg <= 90.0f) ? 15 : 30;
+                for (float rel = -halfAp; rel <= halfAp + 0.1f; rel += static_cast<float>(stepDeg)) {
+                    const float brg = NormalizeBearingDeg(geom.headingDeg + rel);
+                    const Vec2 pOuter = geom.PolarToScreen(geom.visibleMaxRange, brg);
+                    const bool centerRay = (std::abs(rel) < 0.5f);
+                    canvas.DrawLine(geom.origin, pOuter, centerRay ? gridMajorCol : gridLineCol, centerRay ? 1.3f : 0.9f);
+
+                    const float rad = rel * kDegToRad;
+                    const Vec2 lp{
+                        geom.origin.x + std::sin(rad) * (geom.maxRadiusPx + 14.0f) - 12.0f,
+                        geom.origin.y - std::cos(rad) * (geom.maxRadiusPx + 14.0f) - 7.0f
+                    };
+                    char bBuf[16];
+                    std::snprintf(bBuf, sizeof(bBuf), "%03.0f°", brg);
+                    canvas.DrawText(bBuf, lp, 10.0f, centerRay ? accentTextCol : labelTextCol);
+                }
+            }
+        } else {
+            const Rect inner = geom.GetBScanInnerRect();
+            canvas.DrawRoundRect(inner, 0.0f, Color::Transparent(), gridMajorCol, 1.2f);
+            if (opts.showRangeRings) {
+                for (uint32_t i = 1; i <= ringCount; ++i) {
+                    const float frac = static_cast<float>(i) / static_cast<float>(ringCount);
+                    const float y = inner.Bottom() - frac * inner.h;
+                    canvas.DrawLine({inner.x, y}, {inner.Right(), y}, gridLineCol, 1.0f);
+                    char rBuf[32];
+                    std::snprintf(rBuf, sizeof(rBuf), "%.0fm", frac * geom.visibleMaxRange);
+                    canvas.DrawText(rBuf, {plotRect.x + 6.0f, y - 6.0f}, 10.0f, labelTextCol);
+                }
+            }
+            if (opts.showBearingDial) {
+                const float halfAp = geom.sectorApertureDeg * 0.5f;
+                for (int i = 0; i <= 6; ++i) {
+                    const float u = static_cast<float>(i) / 6.0f;
+                    const float x = inner.x + u * inner.w;
+                    canvas.DrawLine({x, inner.y}, {x, inner.Bottom()}, gridLineCol, 1.0f);
+                    const float brg = NormalizeBearingDeg(geom.headingDeg + (u - 0.5f) * 2.0f * halfAp);
+                    char bBuf[16];
+                    std::snprintf(bBuf, sizeof(bBuf), "%03.0f°", brg);
+                    canvas.DrawText(bBuf, {x - 12.0f, inner.Bottom() + 4.0f}, 10.0f, labelTextCol);
+                }
+            }
+        }
+
+        canvas.PopClip();
+
+        // Right-hand Acoustic Backscatter dB Colorbar
+        if (opts.showColorbar && colorbarRect.w >= 20.0f) {
+            canvas.PushClip(colorbarRect);
+            canvas.DrawRect(colorbarRect, Color(9, 13, 24, 255));
+            canvas.DrawLine({colorbarRect.x, colorbarRect.y}, {colorbarRect.x, colorbarRect.Bottom()}, borderCol, 1.0f);
+
+            const auto lut = BuildSonarColormapLut(opts.colormap);
+            const Rect barStrip(colorbarRect.x + 8.0f, colorbarRect.y + 24.0f, 12.0f, std::max(24.0f, colorbarRect.h - 48.0f));
+            constexpr int kSteps = 32;
+            for (int i = 0; i < kSteps; ++i) {
+                const float t0 = static_cast<float>(i) / kSteps;
+                const float t1 = static_cast<float>(i + 1) / kSteps;
+                const float val = 1.0f - (t0 + t1) * 0.5f;
+                const size_t lutIdx = static_cast<size_t>(std::clamp(val * 255.0f, 0.0f, 255.0f));
+                const Rect seg(barStrip.x, barStrip.y + t0 * barStrip.h, barStrip.w, (t1 - t0) * barStrip.h + 1.0f);
+                canvas.DrawRect(seg, lut[lutIdx]);
+            }
+            canvas.DrawRoundRect(barStrip, 2.0f, Color::Transparent(), Color(148, 163, 184, 120), 1.0f);
+
+            const float threshY = barStrip.Bottom() - std::clamp(opts.clutterThreshold, 0.0f, 0.85f) * barStrip.h;
+            canvas.DrawLine({barStrip.x - 3.0f, threshY}, {barStrip.Right() + 3.0f, threshY}, Color(244, 63, 94, 230), 1.8f);
+
+            canvas.DrawText("dB", {colorbarRect.x + 8.0f, colorbarRect.y + 6.0f}, 10.0f, accentTextCol);
+            for (int i = 0; i <= 4; ++i) {
+                const float frac = static_cast<float>(i) / 4.0f;
+                const float y = barStrip.y + frac * barStrip.h;
+                const int dbVal = -i * 15;
+                char dbBuf[16];
+                std::snprintf(dbBuf, sizeof(dbBuf), "%d", dbVal);
+                canvas.DrawText(dbBuf, {barStrip.Right() + 4.0f, y - 5.0f}, 9.5f, labelTextCol);
+            }
+            canvas.PopClip();
+        }
+
+        if (payload->state && canvas.SupportsGpuShaders()) {
+            SonarViewState& state = *payload->state;
+            if (canvas.CaptureRegion(r, state.baseLayerPixels, state.baseLayerW, state.baseLayerH)) {
+                state.baseLayerKey = staticKey;
+                state.baseLayerValid = true;
             }
         }
     }
+
+    // =====================================================================
+    // PASS B: Dynamic Tactical Overlay (Sweep Line, EBL/VRM, Contacts, Crosshair, HUD)
+    // =====================================================================
+    canvas.PushClip(plotRect);
 
     // 4. Active Rotating Sweep Line
     if (opts.scanMode == SonarScanMode::RotatingSweep) {
@@ -973,40 +1109,6 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
     }
 
     canvas.PopClip();
-
-    // 9. Right-hand Acoustic Backscatter dB Colorbar
-    if (opts.showColorbar && colorbarRect.w >= 20.0f) {
-        canvas.PushClip(colorbarRect);
-        canvas.DrawRect(colorbarRect, Color(9, 13, 24, 255));
-        canvas.DrawLine({colorbarRect.x, colorbarRect.y}, {colorbarRect.x, colorbarRect.Bottom()}, borderCol, 1.0f);
-
-        const auto lut = BuildSonarColormapLut(opts.colormap);
-        const Rect barStrip(colorbarRect.x + 8.0f, colorbarRect.y + 24.0f, 12.0f, std::max(24.0f, colorbarRect.h - 48.0f));
-        constexpr int kSteps = 32;
-        for (int i = 0; i < kSteps; ++i) {
-            const float t0 = static_cast<float>(i) / kSteps;
-            const float t1 = static_cast<float>(i + 1) / kSteps;
-            const float val = 1.0f - (t0 + t1) * 0.5f;
-            const size_t lutIdx = static_cast<size_t>(std::clamp(val * 255.0f, 0.0f, 255.0f));
-            const Rect seg(barStrip.x, barStrip.y + t0 * barStrip.h, barStrip.w, (t1 - t0) * barStrip.h + 1.0f);
-            canvas.DrawRect(seg, lut[lutIdx]);
-        }
-        canvas.DrawRoundRect(barStrip, 2.0f, Color::Transparent(), Color(148, 163, 184, 120), 1.0f);
-
-        const float threshY = barStrip.Bottom() - std::clamp(opts.clutterThreshold, 0.0f, 0.85f) * barStrip.h;
-        canvas.DrawLine({barStrip.x - 3.0f, threshY}, {barStrip.Right() + 3.0f, threshY}, Color(244, 63, 94, 230), 1.8f);
-
-        canvas.DrawText("dB", {colorbarRect.x + 8.0f, colorbarRect.y + 6.0f}, 10.0f, accentTextCol);
-        for (int i = 0; i <= 4; ++i) {
-            const float frac = static_cast<float>(i) / 4.0f;
-            const float y = barStrip.y + frac * barStrip.h;
-            const int dbVal = -i * 15;
-            char dbBuf[16];
-            std::snprintf(dbBuf, sizeof(dbBuf), "%d", dbVal);
-            canvas.DrawText(dbBuf, {barStrip.Right() + 4.0f, y - 5.0f}, 9.5f, labelTextCol);
-        }
-        canvas.PopClip();
-    }
 }
 
 } // namespace
@@ -1064,6 +1166,7 @@ SonarViewResponse SonarView::Run(
         state.numRangeBins = numBins;
         state.persistentGrid.assign(totalCells, 0.0f);
         state.prevSweepAngleDeg = opts.sweepAngleDeg;
+        state.gridGeneration++;
         if (!state.initialized) {
             state.rangeZoom = opts.viewRangeZoom ? std::clamp(*opts.viewRangeZoom, 0.2f, 1.0f) : 1.0f;
             state.eblBearingDeg = opts.eblBearingDeg ? *opts.eblBearingDeg : 35.0f;
@@ -1093,35 +1196,44 @@ SonarViewResponse SonarView::Run(
     // 1. Update Polar Persistence Buffer from `polarMatrix`
     const float persist = std::clamp(opts.persistence, 0.0f, 0.97f);
     if (polarMatrix.size() >= totalCells) {
-        if (opts.scanMode == SonarScanMode::MultibeamContinuous) {
-            for (size_t i = 0; i < totalCells; ++i) {
-                const float incoming = std::clamp(polarMatrix[i], 0.0f, 1.0f);
-                const float decayed = state.persistentGrid[i] * persist;
-                state.persistentGrid[i] = std::max(incoming, decayed * 0.92f + incoming * 0.08f);
-            }
-        } else {
-            const float frameDecay = 0.965f + 0.032f * persist;
-            const float spanDeg = opts.matrixEndBearingDeg - opts.matrixStartBearingDeg;
-            const float halfSweep = std::max(3.0f, opts.sweepBeamWidthDeg * 0.5f);
-            for (uint32_t b = 0; b < numBeams; ++b) {
-                const float beamNorm = static_cast<float>(b) / static_cast<float>(std::max(1u, numBeams - 1));
-                float beamBrg = 0.0f;
-                if (std::abs(spanDeg) >= 359.5f) {
-                    beamBrg = NormalizeBearingDeg(opts.matrixStartBearingDeg + beamNorm * 360.0f);
-                } else {
-                    beamBrg = NormalizeBearingDeg(opts.headingDeg + (beamNorm - 0.5f) * spanDeg);
+        uint64_t inHash = detail::HashArgs(opts.sweepAngleDeg, static_cast<uint8_t>(opts.scanMode), persist);
+        const size_t step = std::max<size_t>(1, totalCells / 64);
+        for (size_t i = 0; i < totalCells; i += step) {
+            inHash = detail::HashArgs(inHash, polarMatrix[i]);
+        }
+        if (inHash != state.lastInputHash || state.gridGeneration <= 1) {
+            state.lastInputHash = inHash;
+            state.gridGeneration++;
+            if (opts.scanMode == SonarScanMode::MultibeamContinuous) {
+                for (size_t i = 0; i < totalCells; ++i) {
+                    const float incoming = std::clamp(polarMatrix[i], 0.0f, 1.0f);
+                    const float decayed = state.persistentGrid[i] * persist;
+                    state.persistentGrid[i] = std::max(incoming, decayed * 0.92f + incoming * 0.08f);
                 }
-                const float diff = std::abs(SignedAngleDiffDeg(beamBrg, opts.sweepAngleDeg));
-                const bool inBeam = (diff <= halfSweep);
-                float* row = state.persistentGrid.data() + static_cast<size_t>(b) * numBins;
-                const float* srcRow = polarMatrix.data() + static_cast<size_t>(b) * numBins;
-                for (uint32_t r = 0; r < numBins; ++r) {
-                    float v = row[r] * frameDecay;
-                    if (inBeam) {
-                        const float beamWeight = 1.0f - (diff / (halfSweep + 0.1f)) * 0.35f;
-                        v = std::max(v, std::clamp(srcRow[r] * beamWeight, 0.0f, 1.0f));
+            } else {
+                const float frameDecay = 0.965f + 0.032f * persist;
+                const float spanDeg = opts.matrixEndBearingDeg - opts.matrixStartBearingDeg;
+                const float halfSweep = std::max(3.0f, opts.sweepBeamWidthDeg * 0.5f);
+                for (uint32_t b = 0; b < numBeams; ++b) {
+                    const float beamNorm = static_cast<float>(b) / static_cast<float>(std::max(1u, numBeams - 1));
+                    float beamBrg = 0.0f;
+                    if (std::abs(spanDeg) >= 359.5f) {
+                        beamBrg = NormalizeBearingDeg(opts.matrixStartBearingDeg + beamNorm * 360.0f);
+                    } else {
+                        beamBrg = NormalizeBearingDeg(opts.headingDeg + (beamNorm - 0.5f) * spanDeg);
                     }
-                    row[r] = v;
+                    const float diff = std::abs(SignedAngleDiffDeg(beamBrg, opts.sweepAngleDeg));
+                    const bool inBeam = (diff <= halfSweep);
+                    float* row = state.persistentGrid.data() + static_cast<size_t>(b) * numBins;
+                    const float* srcRow = polarMatrix.data() + static_cast<size_t>(b) * numBins;
+                    for (uint32_t r = 0; r < numBins; ++r) {
+                        float v = row[r] * frameDecay;
+                        if (inBeam) {
+                            const float beamWeight = 1.0f - (diff / (halfSweep + 0.1f)) * 0.35f;
+                            v = std::max(v, std::clamp(srcRow[r] * beamWeight, 0.0f, 1.0f));
+                        }
+                        row[r] = v;
+                    }
                 }
             }
         }
@@ -1285,7 +1397,8 @@ SonarViewResponse SonarView::Run(
         plotRect.w,
         plotRect.h,
         effectiveSize,
-        isDisabled
+        isDisabled,
+        canvas ? canvas->SupportsGpuShaders() : false
     );
 
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* c, const UiTheme& th) noexcept -> Vec2 {

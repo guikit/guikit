@@ -50,6 +50,7 @@ set(GUIKIT_SOURCES
     src/guikit/core/Element.cpp
     src/guikit/core/Solver.cpp
     src/guikit/backend/ThorCanvas.cpp
+    src/guikit/backend/SdlGlShaderEngine.cpp
     src/guikit/backend/SdlCanvas.cpp
     src/guikit/graphics/Icon.cpp
     src/guikit/layout/Row.cpp

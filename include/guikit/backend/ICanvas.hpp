@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <optional>
 #include <string_view>
+#include <vector>
 #include "guikit/core/Types.hpp"
 
 namespace guikit {
@@ -170,6 +171,72 @@ public:
         std::optional<Rect> /*srcRect*/ = std::nullopt,
         Color /*tint*/ = Color(255, 255, 255, 255)
     ) {}
+
+    /// Declarative descriptor for hardware GPU shader rendering of a polar/sector/B-scan sonar/radar field.
+    struct SonarGpuFieldDesc {
+        uint64_t widgetId{0};
+        uint64_t dataGeneration{0};
+        const float* polarData{nullptr}; ///< Row-major [numBeams * numRangeBins] normalized echo [0..1]
+        uint32_t numBeams{0};
+        uint32_t numRangeBins{0};
+        uint8_t colormapId{0};
+        uint32_t colormapAbgr[256]{};
+        Rect plotRect{};
+        Rect clipRect{};
+        Vec2 origin{};
+        float maxRadiusPx{100.0f};
+        float minRangeMeters{0.0f};
+        float visibleMaxRangeMeters{500.0f};
+        float matrixMaxRangeMeters{500.0f};
+        float matrixStartBearingDeg{0.0f};
+        float matrixEndBearingDeg{360.0f};
+        uint8_t displayMode{0}; ///< 0 = PPI_360, 1 = SectorWedge, 2 = BScan
+        Rect bscanInnerRect{};
+        float headingDeg{0.0f};
+        float sectorApertureDeg{120.0f};
+        float gainDb{0.0f};
+        float tvgAmount{0.5f};
+        float clutterThreshold{0.1f};
+        Color bgColor{6, 10, 18, 255};
+    };
+
+    /// Declarative descriptor for hardware GPU shader rendering of an STFT spectrogram / waterfall field.
+    struct SpectrogramGpuFieldDesc {
+        uint64_t widgetId{0};
+        uint64_t dataGeneration{0};
+        const float* dbGrid{nullptr}; ///< Row-major [texHeight * texWidth] dB values
+        uint32_t texWidth{0};
+        uint32_t texHeight{0};
+        uint8_t colormapId{0};
+        uint32_t colormapAbgr[256]{};
+        Rect plotRect{};
+        Rect clipRect{};
+        float dbFloor{-100.0f};
+        float dbCeil{0.0f};
+        Color bgColor{8, 6, 22, 255};
+    };
+
+    /// Returns true if GPU shader field rendering is active on this canvas.
+    [[nodiscard]] virtual bool SupportsGpuShaders() const noexcept { return false; }
+
+    /// Queues a GPU shader pass for a sonar/radar polar heatmap and optionally punches a transparent window in the CPU layer.
+    /// Returns true if handled by GPU, or false if the caller should fall back to CPU rasterization.
+    virtual bool DrawSonarGpuField(const SonarGpuFieldDesc& /*desc*/, bool /*punchHole*/ = true) { return false; }
+
+    /// Queues a GPU shader pass for an STFT spectrogram heatmap and optionally punches a transparent window in the CPU layer.
+    /// Returns true if handled by GPU, or false if the caller should fall back to CPU rasterization.
+    virtual bool DrawSpectrogramGpuField(const SpectrogramGpuFieldDesc& /*desc*/, bool /*punchHole*/ = true) { return false; }
+
+    /// Flushes pending draw commands and captures a physical pixel snapshot of `rect` for retained base-layer caching.
+    virtual bool CaptureRegion(Rect /*rect*/, std::vector<uint32_t>& /*outPixels*/, uint32_t& /*outW*/, uint32_t& /*outH*/) {
+        return false;
+    }
+
+    /// Flushes pending draw commands and blits a previously captured pixel snapshot directly into the target surface.
+    virtual bool RestoreRegion(Rect /*rect*/, const std::vector<uint32_t>& /*inPixels*/, uint32_t /*inW*/, uint32_t /*inH*/) {
+        return false;
+    }
 };
 
 } // namespace guikit
+

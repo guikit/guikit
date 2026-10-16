@@ -858,8 +858,12 @@ int Context::GetRecommendedSleepTimeoutMs() const noexcept {
 
 void Context::OnMouseMove(Vec2 pos) {
     const float scale = (m_dpiScale > 0.0f) ? m_dpiScale : 1.0f;
-    m_mousePos = pos / scale;
-    RequestRepaint(3);
+    const Vec2 newPos = pos / scale;
+    if (std::abs(newPos.x - m_mousePos.x) < 0.25f && std::abs(newPos.y - m_mousePos.y) < 0.25f) {
+        return;
+    }
+    m_mousePos = newPos;
+    RequestRepaint(1);
     if (m_inspectModeEnabled || m_anyScopedInspectActive) {
         InvalidateAll();
     }
@@ -1314,37 +1318,68 @@ void Context::EndFrame(ICanvas& canvas) {
     const bool hasTooltip = !m_activeTooltip.empty();
 
     // Determine whether full repaint or partial dirty rect is required
+    m_dirtyRects.clear();
     const float totalViewportArea = logicalSize.x * logicalSize.y;
     if (!m_dirtyRectEnabled || m_forceFullRepaint || m_prevSnapshots.empty() || m_openPopupId.IsValid() ||
         hasTooltip || m_hadTooltipLastFrame || anyDebugBounds || anyInspectMode) {
         m_isFullRepaint = true;
         m_hasDirtyDamage = true;
         m_dirtyRect = Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y);
+        m_dirtyRects.push_back(m_dirtyRect);
     } else if (damageRects.empty()) {
         m_isFullRepaint = false;
         m_hasDirtyDamage = false;
         m_dirtyRect = Rect{0.0f, 0.0f, 0.0f, 0.0f};
     } else {
-        Rect unionRect = damageRects[0];
-        for (size_t i = 1; i < damageRects.size(); ++i) {
-            unionRect = unionRect.Union(damageRects[i]);
-        }
-        // Expand by 2.0px margin to cover anti-aliasing edges and clamp to logical viewport
+        // Expand each damage rect by 2.0px margin to cover anti-aliasing edges and coalesce overlapping regions
         const float pad = 2.0f;
-        const float x1 = std::max(0.0f, std::floor(unionRect.x - pad));
-        const float y1 = std::max(0.0f, std::floor(unionRect.y - pad));
-        const float x2 = std::min(logicalSize.x, std::ceil(unionRect.Right() + pad));
-        const float y2 = std::min(logicalSize.y, std::ceil(unionRect.Bottom() + pad));
-        unionRect = Rect(x1, y1, std::max(0.0f, x2 - x1), std::max(0.0f, y2 - y1));
-
-        if (unionRect.Area() >= 0.5f * totalViewportArea) {
-            m_isFullRepaint = true;
-            m_dirtyRect = Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y);
-        } else {
-            m_isFullRepaint = false;
-            m_dirtyRect = unionRect;
+        for (const Rect& raw : damageRects) {
+            const float x1 = std::max(0.0f, std::floor(raw.x - pad));
+            const float y1 = std::max(0.0f, std::floor(raw.y - pad));
+            const float x2 = std::min(logicalSize.x, std::ceil(raw.Right() + pad));
+            const float y2 = std::min(logicalSize.y, std::ceil(raw.Bottom() + pad));
+            if (x2 > x1 && y2 > y1) {
+                m_dirtyRects.emplace_back(x1, y1, x2 - x1, y2 - y1);
+            }
         }
-        m_hasDirtyDamage = true;
+
+        bool mergedAny = true;
+        while (mergedAny && m_dirtyRects.size() > 1) {
+            mergedAny = false;
+            for (size_t i = 0; i < m_dirtyRects.size() && !mergedAny; ++i) {
+                for (size_t j = i + 1; j < m_dirtyRects.size(); ++j) {
+                    if (m_dirtyRects[i].Intersects(m_dirtyRects[j])) {
+                        m_dirtyRects[i] = m_dirtyRects[i].Union(m_dirtyRects[j]);
+                        m_dirtyRects.erase(m_dirtyRects.begin() + static_cast<ptrdiff_t>(j));
+                        mergedAny = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (m_dirtyRects.empty()) {
+            m_isFullRepaint = false;
+            m_hasDirtyDamage = false;
+            m_dirtyRect = Rect{0.0f, 0.0f, 0.0f, 0.0f};
+        } else {
+            Rect unionRect = m_dirtyRects[0];
+            float totalDamageArea = m_dirtyRects[0].Area();
+            for (size_t i = 1; i < m_dirtyRects.size(); ++i) {
+                unionRect = unionRect.Union(m_dirtyRects[i]);
+                totalDamageArea += m_dirtyRects[i].Area();
+            }
+
+            if (totalDamageArea >= 0.96f * totalViewportArea || m_dirtyRects.size() > 8) {
+                m_isFullRepaint = true;
+                m_dirtyRect = Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y);
+                m_dirtyRects.assign(1, m_dirtyRect);
+            } else {
+                m_isFullRepaint = false;
+                m_dirtyRect = unionRect;
+            }
+            m_hasDirtyDamage = true;
+        }
     }
 
     m_forceFullRepaint = false;
@@ -1354,38 +1389,39 @@ void Context::EndFrame(ICanvas& canvas) {
     // If damage exists, clear target buffer and rasterize scene graph
     if (m_hasDirtyDamage) {
         canvas.Begin(static_cast<uint32_t>(m_viewportSize.x), static_cast<uint32_t>(m_viewportSize.y), m_dpiScale);
-        canvas.PushClip(m_dirtyRect);
 
         if (m_isFullRepaint) {
+            canvas.PushClip(m_dirtyRect);
             canvas.Clear(m_clearColor);
+            RenderNodeRecursive(m_root, canvas, m_dirtyRect, m_theme);
+
+            for (const auto& overlayFn : m_overlayPasses) {
+                overlayFn(canvas);
+            }
+            if (hasTooltip) {
+                RenderTooltipOverlay(canvas, logicalSize);
+            }
+            if (anyDebugBounds) {
+                RenderDebugBoundsRecursive(m_root, canvas, m_debugBoundsEnabled);
+            }
+            if (anyInspectMode) {
+                RenderInspectOverlay(m_root, canvas, logicalSize);
+            }
+
+            canvas.PopClip();
+            canvas.End();
         } else {
-            canvas.Clear(m_clearColor, m_dirtyRect);
+            for (const Rect& dr : m_dirtyRects) {
+                canvas.PushClip(dr);
+                canvas.Clear(m_clearColor, dr);
+                RenderNodeRecursive(m_root, canvas, dr, m_theme);
+                for (const auto& overlayFn : m_overlayPasses) {
+                    overlayFn(canvas);
+                }
+                canvas.PopClip();
+                canvas.End();
+            }
         }
-
-        RenderNodeRecursive(m_root, canvas, m_dirtyRect, m_theme);
-
-        // Render floating overlay passes (e.g. dropdown popups)
-        for (const auto& overlayFn : m_overlayPasses) {
-            overlayFn(canvas);
-        }
-
-        // Render floating tooltip overlay
-        if (hasTooltip) {
-            RenderTooltipOverlay(canvas, logicalSize);
-        }
-
-        // Developer Debug Pass: Element bounds and padding
-        if (anyDebugBounds) {
-            RenderDebugBoundsRecursive(m_root, canvas, m_debugBoundsEnabled);
-        }
-
-        // Developer Debug Pass: Chrome DevTools-style hover inspector & floating badge
-        if (anyInspectMode) {
-            RenderInspectOverlay(m_root, canvas, logicalSize);
-        }
-
-        canvas.PopClip();
-        canvas.End();
     }
 
     m_pendingKeyEvents.clear();

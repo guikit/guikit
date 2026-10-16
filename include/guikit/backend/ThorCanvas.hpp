@@ -99,6 +99,25 @@ public:
         uint8_t opacity = 255
     ) override;
 
+    void SetGpuShadersEnabled(bool enabled) noexcept {
+        m_gpuShadersEnabled = enabled;
+        if (!enabled) {
+            m_sonarGpuPasses.clear();
+            m_spectrogramGpuPasses.clear();
+        }
+    }
+    [[nodiscard]] bool SupportsGpuShaders() const noexcept override { return m_gpuShadersEnabled; }
+    bool DrawSonarGpuField(const SonarGpuFieldDesc& desc, bool punchHole = true) override;
+    bool DrawSpectrogramGpuField(const SpectrogramGpuFieldDesc& desc, bool punchHole = true) override;
+    bool CaptureRegion(Rect rect, std::vector<uint32_t>& outPixels, uint32_t& outW, uint32_t& outH) override;
+    bool RestoreRegion(Rect rect, const std::vector<uint32_t>& inPixels, uint32_t inW, uint32_t inH) override;
+
+    [[nodiscard]] const std::vector<SonarGpuFieldDesc>& GetSonarGpuPasses() const noexcept { return m_sonarGpuPasses; }
+    [[nodiscard]] const std::vector<SpectrogramGpuFieldDesc>& GetSpectrogramGpuPasses() const noexcept { return m_spectrogramGpuPasses; }
+    [[nodiscard]] bool HasActiveGpuPasses() const noexcept {
+        return m_gpuShadersEnabled && (!m_sonarGpuPasses.empty() || !m_spectrogramGpuPasses.empty());
+    }
+
 private:
     struct ImageCacheEntry {
         std::string resolvedDataOrPath;
@@ -108,8 +127,9 @@ private:
     };
 
     const ImageCacheEntry& ResolveImageEntry(std::string_view source);
-    void ApplyClip(tvg::Paint* paint);
+    void ApplyClip(tvg::Paint* paint, std::optional<Rect> bounds = std::nullopt);
     void ApplyFont(tvg::Text* txt, FontStyle style) const;
+    void PunchHole(Rect rect);
 
     tvg::SwCanvas* m_canvas{nullptr};
     tvg::Text* m_measureText{nullptr};
@@ -118,8 +138,13 @@ private:
     uint32_t m_height{0};
     uint32_t m_stride{0};
     float m_scale{1.0f};
+    bool m_gpuShadersEnabled{false};
+
+    std::vector<SonarGpuFieldDesc> m_sonarGpuPasses;
+    std::vector<SpectrogramGpuFieldDesc> m_spectrogramGpuPasses;
 
     std::vector<Rect> m_clipStack;
+    std::vector<Rect> m_gpuClipStack;
     std::string m_defaultFontPath;
     std::string m_defaultFontName;
     bool m_fontLoaded{false};

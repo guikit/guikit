@@ -9,6 +9,7 @@
 #include <vector>
 #include "guikit/GuiKit.hpp"
 #include "guikit/backend/ThorCanvas.hpp"
+#include "guikit/backend/SdlGlShaderEngine.hpp"
 #include "guikit/core/FrameMetrics.hpp"
 #include "DemoContext.hpp"
 
@@ -163,12 +164,26 @@ int main(int argc, char* argv[]) {
     SDL_Renderer* renderer = nullptr;
     const char* winTitle = "GuiKit Vector GUI Demo (C++20 Immediate Mode + ThorVG)";
 
+#ifndef __EMSCRIPTEN__
+    SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
+#endif
     if (!SDL_CreateWindowAndRenderer(winTitle, winWidth, winHeight,
                                      windowFlags,
                                      &window, &renderer)) {
+#ifndef __EMSCRIPTEN__
+        SDL_SetHint(SDL_HINT_RENDER_DRIVER, nullptr);
+        if (!SDL_CreateWindowAndRenderer(winTitle, winWidth, winHeight,
+                                         windowFlags,
+                                         &window, &renderer)) {
+            std::cerr << "Failed to create SDL window & renderer: " << SDL_GetError() << std::endl;
+            SDL_Quit();
+            return 1;
+        }
+#else
         std::cerr << "Failed to create SDL window & renderer: " << SDL_GetError() << std::endl;
         SDL_Quit();
         return 1;
+#endif
     }
 
     SDL_SetWindowMinimumSize(window, 320, 240);
@@ -182,6 +197,9 @@ int main(int argc, char* argv[]) {
 
     guikit::Context ui;
     guikit::ThorCanvas canvas;
+    guikit::SdlGlShaderEngine gpuShaderEngine;
+    bool gpuShadersEnabled = gpuShaderEngine.Initialize(renderer);
+    canvas.SetGpuShadersEnabled(gpuShadersEnabled);
 
     int bufWidth = winWidth;
     int bufHeight = winHeight;
@@ -196,6 +214,7 @@ int main(int argc, char* argv[]) {
         bufHeight
     );
     SDL_SetTextureScaleMode(screenTexture, SDL_SCALEMODE_NEAREST);
+    SDL_SetTextureBlendMode(screenTexture, SDL_BLENDMODE_BLEND_PREMULTIPLIED);
 
     bool showSidebar = true;
     bool running = true;
@@ -374,6 +393,7 @@ int main(int argc, char* argv[]) {
                 bufHeight
             );
             SDL_SetTextureScaleMode(screenTexture, SDL_SCALEMODE_NEAREST);
+            SDL_SetTextureBlendMode(screenTexture, SDL_BLENDMODE_BLEND_PREMULTIPLIED);
             ui.InvalidateAll();
         }
 
@@ -441,6 +461,16 @@ int main(int argc, char* argv[]) {
                     }
 
                     tb.Separator();
+
+                    if (ui.Switch(gpuShadersEnabled, {
+                        .label = "GPU",
+                        .disabled = !gpuShaderEngine.IsAvailable(),
+                        .size = guikit::UiSize::Md
+                    }).changed) {
+                        canvas.SetGpuShadersEnabled(gpuShadersEnabled && gpuShaderEngine.IsAvailable());
+                        ui.InvalidateAll();
+                        ui.RequestRepaint(2);
+                    }
 
                     if (ui.Switch(vsyncEnabled, {.label = "VSync", .size = guikit::UiSize::Md}).changed) {
                         SDL_SetRenderVSync(renderer, vsyncEnabled ? 1 : 0);
@@ -724,8 +754,17 @@ int main(int argc, char* argv[]) {
                 }
 
                 // Sticky Footer Bar
-                if (auto footer = ui.Row({.align = guikit::Alignment::Center})) {
+                if (auto footer = ui.Row({.gap = 8.0f, .align = guikit::Alignment::Center})) {
                     ui.Text(metrics.GetStatusString(), {.role = guikit::TextRole::LabelMedium, .variant = guikit::UiVariant::Muted});
+                    const bool isGpuScene = (selectedCategory == NavCategory::SceneSonarView || selectedCategory == NavCategory::SceneSignalView);
+                    if (gpuShaderEngine.IsAvailable()) {
+                        ui.Text(
+                            isGpuScene ? "|  GPU Shaders: GLSL Underlay Active" : "|  GPU Shaders: GLSL Ready",
+                            {.role = guikit::TextRole::LabelMedium, .variant = isGpuScene ? guikit::UiVariant::Success : guikit::UiVariant::Info}
+                        );
+                    } else {
+                        ui.Text("|  GPU Shaders: CPU Fallback", {.role = guikit::TextRole::LabelMedium, .variant = guikit::UiVariant::Warning});
+                    }
                     ui.Spacer();
                     if (ui.Button({.label = "Exit", .icon = guikit::Icon::Close(), .variant = guikit::UiVariant::Ghost})) {
                         running = false;
@@ -743,18 +782,24 @@ int main(int argc, char* argv[]) {
                 if (ui.IsFullRepaint()) {
                     SDL_UpdateTexture(screenTexture, nullptr, pixelBuffer.data(), winWidth * sizeof(uint32_t));
                 } else {
-                    const guikit::Rect r = ui.GetPhysicalDirtyRect();
-                    const SDL_Rect sdlR = {
-                        static_cast<int>(r.x),
-                        static_cast<int>(r.y),
-                        static_cast<int>(r.w),
-                        static_cast<int>(r.h)
-                    };
-                    const uint32_t* src = pixelBuffer.data() + sdlR.y * winWidth + sdlR.x;
-                    SDL_UpdateTexture(screenTexture, &sdlR, src, winWidth * sizeof(uint32_t));
+                    const float dpiScale = ui.GetDpiScale();
+                    for (const guikit::Rect& dr : ui.GetDirtyRects()) {
+                        const int x1 = std::clamp(static_cast<int>(std::floor(dr.x * dpiScale)), 0, winWidth);
+                        const int y1 = std::clamp(static_cast<int>(std::floor(dr.y * dpiScale)), 0, winHeight);
+                        const int x2 = std::clamp(static_cast<int>(std::ceil(dr.Right() * dpiScale)), 0, winWidth);
+                        const int y2 = std::clamp(static_cast<int>(std::ceil(dr.Bottom() * dpiScale)), 0, winHeight);
+                        if (x2 > x1 && y2 > y1) {
+                            const SDL_Rect sdlR = {x1, y1, x2 - x1, y2 - y1};
+                            const uint32_t* src = pixelBuffer.data() + static_cast<size_t>(sdlR.y) * winWidth + sdlR.x;
+                            SDL_UpdateTexture(screenTexture, &sdlR, src, winWidth * sizeof(uint32_t));
+                        }
+                    }
                 }
             }
             SDL_RenderClear(renderer);
+            if (canvas.HasActiveGpuPasses()) {
+                gpuShaderEngine.RenderUnderlays(canvas, static_cast<uint32_t>(winWidth), static_cast<uint32_t>(winHeight));
+            }
             SDL_RenderTexture(renderer, screenTexture, nullptr, nullptr);
             metrics.MarkGpuDone();
 
@@ -766,14 +811,10 @@ int main(int argc, char* argv[]) {
         const auto frameEnd = std::chrono::steady_clock::now();
         const double frameElapsedMs = std::chrono::duration<double, std::milli>(frameEnd - frameWorkStart).count();
         const double targetFrameMs = 1000.0 / 60.0;
-        if (frameElapsedMs < targetFrameMs) {
+        if (frameElapsedMs + 1.0 < targetFrameMs) {
             const double remainingMs = targetFrameMs - frameElapsedMs;
-            if (!reactiveMode && !vsyncEnabled) {
+            if (!vsyncEnabled || !shouldPresent || reactiveMode) {
                 SDL_Delay(static_cast<uint32_t>(remainingMs));
-            } else if (!shouldPresent) {
-                if (remainingMs >= 1.0) {
-                    SDL_Delay(static_cast<uint32_t>(remainingMs));
-                }
             }
         }
 #else
@@ -858,6 +899,7 @@ int main(int argc, char* argv[]) {
     }
 #endif
 
+    gpuShaderEngine.Shutdown();
     if (screenTexture) {
         SDL_DestroyTexture(screenTexture);
     }

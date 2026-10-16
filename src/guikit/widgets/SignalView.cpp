@@ -384,9 +384,13 @@ struct SpectrogramCache {
     SpectrogramColormap colormap{SpectrogramColormap::Inferno};
     float dbFloor{0.0f};
     float dbCeil{0.0f};
+    uint64_t dbGridGeneration{1};
 
     std::vector<uint32_t> pixels{};
+    std::vector<float> stftBinsDb{}; // kTexW * halfBins cached raw STFT magnitude in dB
+    bool stftValid{false};
     std::vector<float> dbGrid{}; // kTexW * kTexH (row 0 = top / maxFreq, row kTexH-1 = bottom / minFreq)
+    bool pixelsValid{false};
 
     // Reusable scratch buffers
     std::vector<float> winWeights{};
@@ -395,7 +399,6 @@ struct SpectrogramCache {
     FftWindowType cachedWinType{FftWindowType::Hann};
     std::vector<float> re{};
     std::vector<float> im{};
-    std::vector<float> colBinsDb{};
 
     void EnsureValid(
         std::span<const float> samples,
@@ -410,20 +413,27 @@ struct SpectrogramCache {
         FrequencyScale reqScale,
         SpectrogramColormap reqCmap,
         float reqFloor,
-        float reqCeil
+        float reqCeil,
+        bool skipCpuPixels = false
     ) {
         const uint32_t effFft = SanitizeFftSize(reqFftSize);
+        const uint32_t halfBins = effFft / 2 + 1;
         const float safeFloor = std::min(reqFloor, reqCeil - 6.0f);
         const float safeCeil = reqCeil;
 
-        const bool geometrySame =
+        const bool stftSame =
+            stftValid &&
             signalFp == fp &&
             std::abs(viewStartSec - startSec) < 1e-7 &&
             std::abs(viewEndSec - endSec) < 1e-7 &&
-            std::abs(minFreqHz - fMin) < 0.05f &&
-            std::abs(maxFreqHz - fMax) < 0.05f &&
             fftSize == effFft &&
             windowType == reqWin &&
+            stftBinsDb.size() == static_cast<size_t>(kTexW * halfBins);
+
+        const bool geometrySame =
+            stftSame &&
+            std::abs(minFreqHz - fMin) < 0.05f &&
+            std::abs(maxFreqHz - fMax) < 0.05f &&
             freqScale == reqScale &&
             dbGrid.size() == static_cast<size_t>(kTexW * kTexH);
 
@@ -432,7 +442,7 @@ struct SpectrogramCache {
             colormap == reqCmap &&
             std::abs(dbFloor - safeFloor) < 0.05f &&
             std::abs(dbCeil - safeCeil) < 0.05f &&
-            pixels.size() == static_cast<size_t>(kTexW * kTexH);
+            (skipCpuPixels || (pixelsValid && pixels.size() == static_cast<size_t>(kTexW * kTexH)));
 
         if (colorSame) {
             return;
@@ -450,31 +460,38 @@ struct SpectrogramCache {
         dbFloor = safeFloor;
         dbCeil = safeCeil;
 
-        pixels.resize(static_cast<size_t>(kTexW * kTexH));
         dbGrid.resize(static_cast<size_t>(kTexW * kTexH), -120.0f);
 
         if (samples.empty() || sampleRate <= 0.0f) {
-            const uint32_t bgPx = PackAbgr(EvaluateColormap(colormap, 0.0f));
-            std::fill(pixels.begin(), pixels.end(), bgPx);
+            dbGridGeneration++;
+            stftValid = false;
+            std::fill(dbGrid.begin(), dbGrid.end(), -120.0f);
+            if (!skipCpuPixels) {
+                pixels.resize(static_cast<size_t>(kTexW * kTexH));
+                const uint32_t bgPx = PackAbgr(EvaluateColormap(colormap, 0.0f));
+                std::fill(pixels.begin(), pixels.end(), bgPx);
+                pixelsValid = true;
+            } else {
+                pixelsValid = false;
+            }
             return;
         }
 
-        if (!geometrySame) {
+        if (!stftSame) {
             if (cachedWinSize != effFft || cachedWinType != reqWin) {
                 BuildFftWindow(effFft, reqWin, winWeights, winNorm);
                 cachedWinSize = effFft;
                 cachedWinType = reqWin;
             }
 
-            const uint32_t halfBins = effFft / 2 + 1;
             re.resize(effFft);
             im.resize(effFft);
-            colBinsDb.resize(halfBins);
+            stftBinsDb.resize(static_cast<size_t>(kTexW * halfBins));
 
-            const float nyquist = 0.5f * sampleRate;
             const double spanSec = std::max(1e-6, endSec - startSec);
             const int64_t totalSamples = static_cast<int64_t>(samples.size());
             const int64_t halfFft = static_cast<int64_t>(effFft / 2);
+            const float winNormSq = winNorm * winNorm;
 
             for (uint32_t x = 0; x < kTexW; ++x) {
                 const double colTimeSec = startSec + (static_cast<double>(x) + 0.5) / static_cast<double>(kTexW) * spanSec;
@@ -490,33 +507,54 @@ struct SpectrogramCache {
 
                 Radix2Fft(re, im);
 
+                float* colOut = stftBinsDb.data() + static_cast<size_t>(x) * halfBins;
                 for (uint32_t b = 0; b < halfBins; ++b) {
-                    const float mag = std::sqrt(re[b] * re[b] + im[b] * im[b]) * winNorm;
-                    colBinsDb[b] = 20.0f * std::log10(std::max(1e-6f, mag));
+                    const float magSq = (re[b] * re[b] + im[b] * im[b]) * winNormSq;
+                    colOut[b] = 10.0f * std::log10(std::max(1e-12f, magSq));
                 }
+            }
+            stftValid = true;
+        }
 
-                for (uint32_t y = 0; y < kTexH; ++y) {
-                    // y = 0 is top (maxFreqHz), y = kTexH - 1 is bottom (minFreqHz)
-                    const float normFromBottom = 1.0f - (static_cast<float>(y) + 0.5f) / static_cast<float>(kTexH);
-                    const float freq = NormalizedYToFreqHz(normFromBottom, fMin, fMax, reqScale);
-                    const float binFloat = std::clamp((freq / std::max(1.0f, nyquist)) * static_cast<float>(halfBins - 1),
-                                                      0.0f,
-                                                      static_cast<float>(halfBins - 1));
-                    const uint32_t b0 = static_cast<uint32_t>(binFloat);
-                    const uint32_t b1 = std::min(halfBins - 1, b0 + 1);
-                    const float frac = binFloat - static_cast<float>(b0);
-                    const float dbVal = colBinsDb[b0] + (colBinsDb[b1] - colBinsDb[b0]) * frac;
-                    dbGrid[static_cast<size_t>(y) * kTexW + x] = dbVal;
+        if (!geometrySame) {
+            dbGridGeneration++;
+            const float nyquist = 0.5f * sampleRate;
+            const float maxBinF = static_cast<float>(halfBins - 1);
+            const float invNyquistBins = maxBinF / std::max(1.0f, nyquist);
+
+            for (uint32_t y = 0; y < kTexH; ++y) {
+                // y = 0 is top (maxFreqHz), y = kTexH - 1 is bottom (minFreqHz)
+                const float normFromBottom = 1.0f - (static_cast<float>(y) + 0.5f) / static_cast<float>(kTexH);
+                const float freq = NormalizedYToFreqHz(normFromBottom, fMin, fMax, reqScale);
+                const float binFloat = std::clamp(freq * invNyquistBins, 0.0f, maxBinF);
+                const uint32_t b0 = static_cast<uint32_t>(binFloat);
+                const uint32_t b1 = std::min(halfBins - 1, b0 + 1);
+                const float frac = binFloat - static_cast<float>(b0);
+
+                float* rowOut = dbGrid.data() + static_cast<size_t>(y) * kTexW;
+                const float* stftPtr = stftBinsDb.data();
+                for (uint32_t x = 0; x < kTexW; ++x) {
+                    const float c0 = stftPtr[b0];
+                    const float c1 = stftPtr[b1];
+                    rowOut[x] = c0 + (c1 - c0) * frac;
+                    stftPtr += halfBins;
                 }
             }
         }
 
+        if (skipCpuPixels) {
+            pixelsValid = false;
+            return;
+        }
+
         // Map dbGrid to ABGR8888 pixels using [dbFloor, dbCeil] and active colormap
+        pixels.resize(static_cast<size_t>(kTexW * kTexH));
         const float invRange = 1.0f / std::max(1.0f, safeCeil - safeFloor);
         for (size_t i = 0; i < dbGrid.size(); ++i) {
             const float norm = std::clamp((dbGrid[i] - safeFloor) * invRange, 0.0f, 1.0f);
             pixels[i] = PackAbgr(EvaluateColormap(colormap, norm));
         }
+        pixelsValid = true;
     }
 
     [[nodiscard]] float SampleDbAt(float normX, float normYFromTop) const noexcept {
@@ -527,6 +565,245 @@ struct SpectrogramCache {
         const uint32_t y = std::min(kTexH - 1, static_cast<uint32_t>(std::clamp(normYFromTop, 0.0f, 0.9999f) * static_cast<float>(kTexH)));
         return dbGrid[static_cast<size_t>(y) * kTexW + x];
     }
+};
+
+[[nodiscard]] Color BlendColorOverOpaque(Color bg, Color fg) noexcept {
+    const uint32_t a = fg.a;
+    const uint32_t invA = 255u - a;
+    return Color(
+        static_cast<uint8_t>((fg.r * a + bg.r * invA + 127u) / 255u),
+        static_cast<uint8_t>((fg.g * a + bg.g * invA + 127u) / 255u),
+        static_cast<uint8_t>((fg.b * a + bg.b * invA + 127u) / 255u),
+        255
+    );
+}
+
+[[nodiscard]] float AmplitudeToNormY(float sampleVal, float gain, AmplitudeScale scale) noexcept {
+    const float v = sampleVal * gain;
+    if (scale == AmplitudeScale::Linear) {
+        return std::clamp(0.5f - 0.5f * v, 0.0f, 1.0f);
+    }
+    // In dBFS mode, waveform trace remains bipolar around center 0.5, with soft logarithmic compression for low-level visibility
+    return std::clamp(0.5f - 0.5f * v, 0.0f, 1.0f);
+}
+
+struct OverviewBitmapCache {
+    uint64_t signalFp{0};
+    uint32_t width{0};
+    uint32_t height{0};
+    bool isDark{true};
+    uint32_t accentAbgr{0};
+    bool valid{false};
+    std::vector<uint32_t> pixels{};
+
+    void EnsureValid(
+        const WaveformPyramid& pyramid,
+        uint64_t fp,
+        uint32_t w,
+        uint32_t h,
+        bool dark,
+        Color accent
+    ) {
+        if (w == 0 || h == 0) return;
+        const uint32_t acc = PackAbgr(accent);
+        if (valid && signalFp == fp && width == w && height == h && isDark == dark && accentAbgr == acc &&
+            pixels.size() == static_cast<size_t>(w) * h) {
+            return;
+        }
+        signalFp = fp;
+        width = w;
+        height = h;
+        isDark = dark;
+        accentAbgr = acc;
+        valid = true;
+
+        const Color bgCol = dark ? Color(8, 12, 20, 255) : Color(230, 236, 244, 255);
+        const uint32_t bgPx = PackAbgr(bgCol);
+        const uint32_t barPx = PackAbgr(BlendColorOverOpaque(bgCol, accent.WithAlpha(165)));
+        pixels.assign(static_cast<size_t>(w) * h, bgPx);
+
+        if (pyramid.overview256.empty()) return;
+        const size_t bins = pyramid.overview256.size();
+        const float midY = static_cast<float>(h) * 0.5f;
+        const float halfH = static_cast<float>(h) * 0.44f;
+
+        for (uint32_t x = 0; x < w; ++x) {
+            const size_t binIdx = std::min(bins - 1, (static_cast<size_t>(x) * bins) / w);
+            const auto& pk = pyramid.overview256[binIdx];
+            const float yMin = midY - std::clamp(pk.maxVal, -1.0f, 1.0f) * halfH;
+            const float yMax = midY - std::clamp(pk.minVal, -1.0f, 1.0f) * halfH;
+            const int iy0 = std::clamp(static_cast<int>(std::floor(yMin)), 0, static_cast<int>(h) - 1);
+            const int iy1 = std::clamp(static_cast<int>(std::ceil(std::max(yMin + 1.0f, yMax))), iy0, static_cast<int>(h) - 1);
+            for (int y = iy0; y <= iy1; ++y) {
+                pixels[static_cast<size_t>(y) * w + x] = barPx;
+            }
+        }
+    }
+};
+
+struct WaveformBitmapCache {
+    uint64_t signalFp{0};
+    double viewStartSec{-1.0};
+    double viewEndSec{-1.0};
+    float waveformGain{-1.0f};
+    AmplitudeScale ampScale{AmplitudeScale::dBFS};
+    bool showRms{true};
+    bool showGrid{true};
+    bool isDark{true};
+    uint32_t width{0};
+    uint32_t height{0};
+    bool valid{false};
+    std::vector<uint32_t> pixels{};
+
+    void EnsureValid(
+        std::span<const float> samples,
+        const WaveformPyramid& pyramid,
+        uint64_t fp,
+        float sampleRate,
+        double startSec,
+        double endSec,
+        float gain,
+        AmplitudeScale reqScale,
+        bool reqShowRms,
+        bool reqShowGrid,
+        bool dark,
+        double firstMajorTime,
+        double majorTimeStep,
+        float uiScale,
+        Color gridCol,
+        Color subGridCol,
+        Color zeroLineCol,
+        uint32_t w,
+        uint32_t h
+    ) {
+        if (w == 0 || h == 0) return;
+        if (valid &&
+            signalFp == fp &&
+            width == w &&
+            height == h &&
+            isDark == dark &&
+            showRms == reqShowRms &&
+            showGrid == reqShowGrid &&
+            ampScale == reqScale &&
+            std::abs(viewStartSec - startSec) < 1e-7 &&
+            std::abs(viewEndSec - endSec) < 1e-7 &&
+            std::abs(waveformGain - gain) < 1e-4f &&
+            pixels.size() == static_cast<size_t>(w) * h) {
+            return;
+        }
+
+        signalFp = fp;
+        viewStartSec = startSec;
+        viewEndSec = endSec;
+        waveformGain = gain;
+        ampScale = reqScale;
+        showRms = reqShowRms;
+        showGrid = reqShowGrid;
+        isDark = dark;
+        width = w;
+        height = h;
+        valid = true;
+
+        const Color bgCol = dark ? Color(10, 14, 23, 255) : Color(252, 253, 255, 255);
+        const uint32_t bgPx = PackAbgr(bgCol);
+        const uint32_t gridPx = PackAbgr(BlendColorOverOpaque(bgCol, gridCol));
+        const uint32_t subGridPx = PackAbgr(BlendColorOverOpaque(bgCol, subGridCol));
+        const uint32_t zeroLinePx = PackAbgr(BlendColorOverOpaque(bgCol, zeroLineCol));
+
+        pixels.assign(static_cast<size_t>(w) * h, bgPx);
+
+        const double viewSpan = std::max(1e-6, endSec - startSec);
+
+        // 1. Vertical time grid lines
+        if (reqShowGrid && majorTimeStep > 1e-9) {
+            for (double t = firstMajorTime; t <= endSec + 1e-9; t += majorTimeStep) {
+                const int tx = static_cast<int>(std::lround(((t - startSec) / viewSpan) * static_cast<double>(w)));
+                if (tx >= 0 && tx < static_cast<int>(w)) {
+                    uint32_t* colPtr = pixels.data() + tx;
+                    for (uint32_t y = 0; y < h; ++y) {
+                        *colPtr = gridPx;
+                        colPtr += w;
+                    }
+                }
+            }
+        }
+
+        // 2. Horizontal amplitude grid lines
+        static constexpr std::array<float, 5> kNormLevels = {0.9f, 0.5f, 0.0f, -0.5f, -0.9f};
+        for (float lv : kNormLevels) {
+            if (!reqShowGrid && lv != 0.0f) continue;
+            const int gy = std::clamp(static_cast<int>(std::lround((0.5f - 0.5f * lv) * static_cast<float>(h))), 0, static_cast<int>(h) - 1);
+            std::fill_n(pixels.data() + static_cast<size_t>(gy) * w, w, (lv == 0.0f) ? zeroLinePx : subGridPx);
+        }
+
+        if (samples.empty()) return;
+
+        // 3. Pixel-column Mipmap Pyramid envelope (Peak + RMS + Clipping ticks)
+        const Color peakRaw = dark ? Color(56, 189, 248, 215) : Color(2, 132, 199, 220);
+        const Color rmsRaw  = dark ? Color(14, 165, 233, 255) : Color(3, 105, 161, 255);
+        const uint32_t peakPx = PackAbgr(BlendColorOverOpaque(bgCol, peakRaw));
+        const uint32_t rmsPx  = PackAbgr(rmsRaw);
+        const uint32_t clipPx = PackAbgr(Color(239, 68, 68, 255));
+
+        const float hf = static_cast<float>(h);
+        float prevMidY = hf * 0.5f;
+        const int clipTickH = std::max(1, static_cast<int>(std::lround(3.0f * uiScale)));
+
+        for (uint32_t col = 0; col < w; ++col) {
+            const double t0 = startSec + (static_cast<double>(col) / static_cast<double>(w)) * viewSpan;
+            const double t1 = startSec + (static_cast<double>(col + 1) / static_cast<double>(w)) * viewSpan;
+            const size_t s0 = static_cast<size_t>(std::clamp(t0 * sampleRate, 0.0, static_cast<double>(samples.size() - 1)));
+            const size_t s1 = static_cast<size_t>(std::clamp(std::ceil(t1 * sampleRate), static_cast<double>(s0 + 1), static_cast<double>(samples.size())));
+
+            const PeakBucket pk = pyramid.QueryRange(samples, s0, s1);
+            float yTop = AmplitudeToNormY(pk.maxVal, gain, reqScale) * hf;
+            float yBot = AmplitudeToNormY(pk.minVal, gain, reqScale) * hf;
+            if (yBot < yTop + 1.0f) {
+                const float avgY = 0.5f * (yTop + yBot);
+                yTop = std::min(avgY, prevMidY);
+                yBot = std::max(avgY + 1.0f, prevMidY);
+                prevMidY = avgY;
+            } else {
+                prevMidY = 0.5f * (yTop + yBot);
+            }
+
+            const int iy0 = std::clamp(static_cast<int>(std::floor(yTop)), 0, static_cast<int>(h) - 1);
+            const int iy1 = std::clamp(static_cast<int>(std::ceil(yBot)), iy0, static_cast<int>(h) - 1);
+            for (int y = iy0; y <= iy1; ++y) {
+                pixels[static_cast<size_t>(y) * w + col] = peakPx;
+            }
+
+            if (reqShowRms && pk.rmsVal > 1e-4f) {
+                const float rmsTop = AmplitudeToNormY(pk.rmsVal, gain, reqScale) * hf;
+                const float rmsBot = AmplitudeToNormY(-pk.rmsVal, gain, reqScale) * hf;
+                if (rmsBot > rmsTop + 1.0f) {
+                    const int ir0 = std::clamp(static_cast<int>(std::floor(rmsTop)), 0, static_cast<int>(h) - 1);
+                    const int ir1 = std::clamp(static_cast<int>(std::ceil(rmsBot)), ir0, static_cast<int>(h) - 1);
+                    for (int y = ir0; y <= ir1; ++y) {
+                        pixels[static_cast<size_t>(y) * w + col] = rmsPx;
+                    }
+                }
+            }
+
+            if (pk.maxVal >= 0.999f) {
+                for (int y = 0; y < std::min(clipTickH, static_cast<int>(h)); ++y) {
+                    pixels[static_cast<size_t>(y) * w + col] = clipPx;
+                }
+            } else if (pk.minVal <= -0.999f) {
+                for (int y = std::max(0, static_cast<int>(h) - clipTickH); y < static_cast<int>(h); ++y) {
+                    pixels[static_cast<size_t>(y) * w + col] = clipPx;
+                }
+            }
+        }
+    }
+};
+
+struct StaticBaseLayerCache {
+    uint64_t cacheKey{0};
+    uint32_t width{0};
+    uint32_t height{0};
+    std::vector<uint32_t> pixels{};
+    bool valid{false};
 };
 
 enum class DragMode : uint8_t {
@@ -586,6 +863,9 @@ struct SignalViewInternalState {
 
     WaveformPyramid pyramid{};
     SpectrogramCache specCache{};
+    OverviewBitmapCache overviewCache{};
+    WaveformBitmapCache waveCache{};
+    StaticBaseLayerCache baseLayerCache{};
 };
 
 struct SignalViewGeometry {
@@ -723,15 +1003,6 @@ struct SignalViewGeometry {
     else if (frac > 2.0) mult = 2.5;
     else if (frac > 1.0) mult = 2.0;
     return mult * exp10;
-}
-
-[[nodiscard]] float AmplitudeToNormY(float sampleVal, float gain, AmplitudeScale scale) noexcept {
-    const float v = sampleVal * gain;
-    if (scale == AmplitudeScale::Linear) {
-        return std::clamp(0.5f - 0.5f * v, 0.0f, 1.0f);
-    }
-    // In dBFS mode, waveform trace remains bipolar around center 0.5, with soft logarithmic compression for low-level visibility
-    return std::clamp(0.5f - 0.5f * v, 0.0f, 1.0f);
 }
 
 [[nodiscard]] ElementSpec MakeSignalViewElementSpec(
@@ -932,7 +1203,6 @@ SignalViewResponse SignalView::Run(
                 st.waveformGain = std::clamp(st.waveformGain * (wheel.y > 0.0f ? 1.25f : 0.80f), 0.1f, 64.0f);
                 if (opts.waveformGainBinding) *opts.waveformGainBinding = st.waveformGain;
                 res.changed = true;
-                ctx.InvalidateAll();
             } else if (geom.specRulerRect.Contains(mouse) || (geom.specPlotRect.Contains(mouse) && mods.ctrl)) {
                 // Vertical frequency band zoom anchored at cursor frequency
                 const float normY = 1.0f - std::clamp((mouse.y - geom.specPlotRect.y) / std::max(1.0f, geom.specPlotRect.h), 0.0f, 1.0f);
@@ -947,13 +1217,11 @@ SignalViewResponse SignalView::Run(
                 st.viewMinFreqHz = newF0;
                 st.viewMaxFreqHz = newF1;
                 res.changed = true;
-                ctx.InvalidateAll();
             } else if (geom.colorbarRect.Contains(mouse)) {
                 const float curFloor = st.hasDbFloorOverride ? st.dbFloorOverride : opts.dbFloor;
                 st.dbFloorOverride = std::clamp(curFloor + (wheel.y > 0.0f ? 4.0f : -4.0f), -130.0f, opts.dbCeil - 12.0f);
                 st.hasDbFloorOverride = true;
                 res.changed = true;
-                ctx.InvalidateAll();
             } else if (geom.wavePlotRect.Contains(mouse) || geom.specPlotRect.Contains(mouse) ||
                        geom.timeRulerRect.Contains(mouse) || geom.overviewRect.Contains(mouse)) {
                 // Horizontal Time Zoom anchored at mouse X
@@ -969,7 +1237,6 @@ SignalViewResponse SignalView::Run(
                 st.viewStartSec = newT0;
                 st.viewEndSec = newT1;
                 res.changed = true;
-                ctx.InvalidateAll();
             }
         }
 
@@ -997,7 +1264,6 @@ SignalViewResponse SignalView::Run(
                     st.splitRatio = 0.5f;
                     if (opts.splitRatioBinding) *opts.splitRatioBinding = st.splitRatio;
                     res.changed = true;
-                    ctx.InvalidateAll();
                 } else {
                     st.dragMode = DragMode::Splitter;
                 }
@@ -1024,7 +1290,6 @@ SignalViewResponse SignalView::Run(
                     st.dragStartView1 = newT1;
                     st.dragMode = DragMode::OverviewPan;
                     res.changed = true;
-                    ctx.InvalidateAll();
                 }
             } else if (geom.timeRulerRect.Contains(mouse)) {
                 const double clickTime = st.viewStartSec +
@@ -1039,7 +1304,6 @@ SignalViewResponse SignalView::Run(
                         markerList.push_back(SignalMarker{clickTime, lbl, Color(245, 158, 11, 255)});
                     }
                     res.changed = true;
-                    ctx.InvalidateAll();
                 } else if (hoveredMarker >= 0 && opts.allowMarkerEditing) {
                     st.activeMarkerIdx = hoveredMarker;
                     st.dragMode = DragMode::MarkerMove;
@@ -1048,14 +1312,12 @@ SignalViewResponse SignalView::Run(
                     if (opts.playheadTimeSec) *opts.playheadTimeSec = st.playheadSec;
                     st.dragMode = DragMode::TimeRulerScrub;
                     res.changed = true;
-                    ctx.InvalidateAll();
                 }
             } else if (geom.waveRulerRect.Contains(mouse)) {
                 if (isDoubleClick) {
                     st.waveformGain = 1.0f;
                     if (opts.waveformGainBinding) *opts.waveformGainBinding = st.waveformGain;
                     res.changed = true;
-                    ctx.InvalidateAll();
                 } else {
                     st.dragMode = DragMode::AmplitudeGain;
                 }
@@ -1064,7 +1326,6 @@ SignalViewResponse SignalView::Run(
                     st.viewMinFreqHz = absMinFreq;
                     st.viewMaxFreqHz = nyquistHz;
                     res.changed = true;
-                    ctx.InvalidateAll();
                 } else {
                     st.dragMode = DragMode::FrequencyPan;
                 }
@@ -1072,7 +1333,6 @@ SignalViewResponse SignalView::Run(
                 if (isDoubleClick) {
                     st.hasDbFloorOverride = false;
                     res.changed = true;
-                    ctx.InvalidateAll();
                 } else {
                     st.dragMode = DragMode::ColorbarFloor;
                 }
@@ -1099,7 +1359,6 @@ SignalViewResponse SignalView::Run(
                     }
                     if (opts.selection) *opts.selection = st.selection;
                     res.changed = true;
-                    ctx.InvalidateAll();
                 } else if (mods.alt) {
                     st.dragMode = DragMode::PlotPan;
                 } else {
@@ -1150,7 +1409,6 @@ SignalViewResponse SignalView::Run(
                         st.dragAnchorFreqHz = clickFreq;
                         st.dragMode = (inSpec && opts.allowSpectralSelection) ? DragMode::SpecSelectNew : DragMode::WaveSelectNew;
                         res.changed = true;
-                        ctx.InvalidateAll();
                     }
                 }
             }
@@ -1189,7 +1447,6 @@ SignalViewResponse SignalView::Run(
                         st.splitRatio = std::clamp((mouse.y - bodyTop) / bodyH, 0.0f, 1.0f);
                         if (opts.splitRatioBinding) *opts.splitRatioBinding = st.splitRatio;
                         res.changed = true;
-                        ctx.InvalidateAll();
                         break;
                     }
                     case DragMode::OverviewPan: {
@@ -1201,21 +1458,18 @@ SignalViewResponse SignalView::Run(
                         st.viewStartSec = t0;
                         st.viewEndSec = t1;
                         res.changed = true;
-                        ctx.InvalidateAll();
                         break;
                     }
                     case DragMode::OverviewResizeLeft: {
                         const double dt = static_cast<double>(dx / std::max(1.0f, geom.overviewRect.w)) * totalDurationSec;
                         st.viewStartSec = std::clamp(st.dragStartView0 + dt, 0.0, st.viewEndSec - minTimeSpan);
                         res.changed = true;
-                        ctx.InvalidateAll();
                         break;
                     }
                     case DragMode::OverviewResizeRight: {
                         const double dt = static_cast<double>(dx / std::max(1.0f, geom.overviewRect.w)) * totalDurationSec;
                         st.viewEndSec = std::clamp(st.dragStartView1 + dt, st.viewStartSec + minTimeSpan, totalDurationSec);
                         res.changed = true;
-                        ctx.InvalidateAll();
                         break;
                     }
                     case DragMode::TimeRulerScrub: {
@@ -1223,7 +1477,6 @@ SignalViewResponse SignalView::Run(
                         st.playheadSec = st.viewStartSec + rel * viewSpan;
                         if (opts.playheadTimeSec) *opts.playheadTimeSec = st.playheadSec;
                         res.changed = true;
-                        ctx.InvalidateAll();
                         break;
                     }
                     case DragMode::MarkerMove: {
@@ -1233,7 +1486,6 @@ SignalViewResponse SignalView::Run(
                                 std::clamp(st.viewStartSec + rel * viewSpan, 0.0, totalDurationSec);
                             res.activeMarkerIndex = st.activeMarkerIdx;
                             res.changed = true;
-                            ctx.InvalidateAll();
                         }
                         break;
                     }
@@ -1242,7 +1494,6 @@ SignalViewResponse SignalView::Run(
                         st.waveformGain = std::clamp(st.dragStartGain * factor, 0.1f, 64.0f);
                         if (opts.waveformGainBinding) *opts.waveformGainBinding = st.waveformGain;
                         res.changed = true;
-                        ctx.InvalidateAll();
                         break;
                     }
                     case DragMode::FrequencyPan: {
@@ -1255,14 +1506,12 @@ SignalViewResponse SignalView::Run(
                         st.viewMinFreqHz = f0;
                         st.viewMaxFreqHz = f1;
                         res.changed = true;
-                        ctx.InvalidateAll();
                         break;
                     }
                     case DragMode::ColorbarFloor: {
                         st.dbFloorOverride = std::clamp(st.dragStartDbFloor + dy * 0.4f, -130.0f, opts.dbCeil - 12.0f);
                         st.hasDbFloorOverride = true;
                         res.changed = true;
-                        ctx.InvalidateAll();
                         break;
                     }
                     case DragMode::PlotPan: {
@@ -1285,7 +1534,6 @@ SignalViewResponse SignalView::Run(
                             st.viewMaxFreqHz = f1;
                         }
                         res.changed = true;
-                        ctx.InvalidateAll();
                         break;
                     }
                     case DragMode::WaveSelectNew: {
@@ -1298,7 +1546,6 @@ SignalViewResponse SignalView::Run(
                             st.selection.hasSpectralBox = false;
                             if (opts.selection) *opts.selection = st.selection;
                             res.changed = true;
-                            ctx.InvalidateAll();
                         }
                         break;
                     }
@@ -1316,7 +1563,6 @@ SignalViewResponse SignalView::Run(
                             st.selection.highFreqHz = std::max(st.dragAnchorFreqHz, curF);
                             if (opts.selection) *opts.selection = st.selection;
                             res.changed = true;
-                            ctx.InvalidateAll();
                         }
                         break;
                     }
@@ -1327,7 +1573,6 @@ SignalViewResponse SignalView::Run(
                         st.selection.endTimeSec = st.dragStartSelection.MaxTimeSec();
                         if (opts.selection) *opts.selection = st.selection;
                         res.changed = true;
-                        ctx.InvalidateAll();
                         break;
                     }
                     case DragMode::SelectResizeRight: {
@@ -1337,7 +1582,6 @@ SignalViewResponse SignalView::Run(
                         st.selection.endTimeSec = std::max(curT, st.dragStartSelection.MinTimeSec() + 1e-5);
                         if (opts.selection) *opts.selection = st.selection;
                         res.changed = true;
-                        ctx.InvalidateAll();
                         break;
                     }
                     case DragMode::SelectResizeHighFreq: {
@@ -1347,7 +1591,6 @@ SignalViewResponse SignalView::Run(
                         st.selection.highFreqHz = std::max(curF, st.dragStartSelection.MinFreqHz() + 10.0f);
                         if (opts.selection) *opts.selection = st.selection;
                         res.changed = true;
-                        ctx.InvalidateAll();
                         break;
                     }
                     case DragMode::SelectResizeLowFreq: {
@@ -1357,7 +1600,6 @@ SignalViewResponse SignalView::Run(
                         st.selection.highFreqHz = st.dragStartSelection.MaxFreqHz();
                         if (opts.selection) *opts.selection = st.selection;
                         res.changed = true;
-                        ctx.InvalidateAll();
                         break;
                     }
                     case DragMode::SelectMoveBox: {
@@ -1376,7 +1618,6 @@ SignalViewResponse SignalView::Run(
                         }
                         if (opts.selection) *opts.selection = st.selection;
                         res.changed = true;
-                        ctx.InvalidateAll();
                         break;
                     }
                     default:
@@ -1388,6 +1629,7 @@ SignalViewResponse SignalView::Run(
 
     // Ensure spectrogram cache is updated for current view parameters
     const float effectiveDbFloor = st.hasDbFloorOverride ? st.dbFloorOverride : opts.dbFloor;
+    const bool gpuShadersActive = (canvas && canvas->SupportsGpuShaders());
     st.specCache.EnsureValid(
         samples,
         fp,
@@ -1401,7 +1643,8 @@ SignalViewResponse SignalView::Run(
         opts.frequencyScale,
         opts.colormap,
         effectiveDbFloor,
-        opts.dbCeil
+        opts.dbCeil,
+        gpuShadersActive
     );
 
     // Populate live response telemetry
@@ -1473,6 +1716,11 @@ SignalViewResponse SignalView::Run(
     node->text = payload->opts.label.text.empty() ? "SignalView" : payload->opts.label.text;
     node->SetPayload(payload);
 
+    uint64_t markerFp = markerList.size();
+    for (const auto& mk : markerList) {
+        markerFp = detail::HashArgs(markerFp, mk.timeSec, mk.label);
+    }
+
     node->visualHash = detail::HashArgs(
         fp,
         payload->opts.label,
@@ -1507,12 +1755,13 @@ SignalViewResponse SignalView::Run(
         st.selection.hasSpectralBox,
         st.selection.lowFreqHz,
         st.selection.highFreqHz,
-        markerList.size(),
+        markerFp,
         res.cursorInsidePlot ? mouse.x : -1.0f,
         res.cursorInsidePlot ? mouse.y : -1.0f,
         static_cast<uint8_t>(st.dragMode),
         activeSize,
-        effectiveDisabled
+        effectiveDisabled,
+        gpuShadersActive
     );
 
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* c, const UiTheme& th) noexcept -> Vec2 {
@@ -1526,7 +1775,7 @@ SignalViewResponse SignalView::Run(
         if (!p || !p->state) return;
 
         const SignalViewOptions& o = p->opts;
-        const SignalViewInternalState& s = *p->state;
+        SignalViewInternalState& s = *p->state;
         const float scale = th.Scale(1.0f);
         const ElementSpec spec = MakeSignalViewElementSpec(o, n->uiSize, th, n->disabled);
         const Vec2 ctrlSize = {n->computedRect.w, n->computedRect.h};
@@ -1546,9 +1795,6 @@ SignalViewResponse SignalView::Run(
         const Color textMuted = th.palette.textMuted;
         const Color textSec   = th.palette.textSecondary;
 
-        c.DrawRoundRect(box, rad, bgSurface, borderCol, 1.0f);
-        c.PushClip(box.Inset(1.0f));
-
         const SignalViewGeometry g = ComputeSignalGeometry(box, o, s.splitRatio, th);
         const float sampleRate = std::max(1.0f, o.sampleRate);
         const double totalDur = !p->samples.empty()
@@ -1557,169 +1803,193 @@ SignalViewResponse SignalView::Run(
         const double viewSpan = std::max(1e-6, s.viewEndSec - s.viewStartSec);
         const float smallFs = th.GetFontSize(TextRole::LabelSmall);
         const auto& markers = o.markers ? *o.markers : s.markers;
+        const float effFloor = s.hasDbFloorOverride ? s.dbFloorOverride : o.dbFloor;
 
-        // 1. Render Overview Minimap Bar
-        if (o.showOverviewBar && g.overviewRect.w > 0.0f && g.overviewRect.h > 0.0f) {
-            c.DrawRect(Rect(box.x, g.overviewRect.y, box.w, g.overviewRect.h), rulerBg);
-            c.DrawTextBox("OVERVIEW", Rect(box.x + 6.0f * scale, g.overviewRect.y, std::max(0.0f, g.overviewRect.x - box.x - 8.0f * scale), g.overviewRect.h),
-                          smallFs * 0.85f, textMuted, 0.0f, 0.5f);
-
-            const Rect ov = g.overviewRect;
-            c.DrawRect(ov, isDark ? Color(8, 12, 20, 255) : Color(230, 236, 244, 255));
-
-            // Mini waveform from 256-bin pyramid summary
-            if (!s.pyramid.overview256.empty()) {
-                const size_t bins = s.pyramid.overview256.size();
-                const float midY = ov.y + ov.h * 0.5f;
-                const float halfH = ov.h * 0.44f;
-                const Color miniCol = th.palette.accent.WithAlpha(165);
-                for (size_t i = 0; i < bins; ++i) {
-                    const float bx = ov.x + (static_cast<float>(i) + 0.5f) / static_cast<float>(bins) * ov.w;
-                    const auto& pk = s.pyramid.overview256[i];
-                    const float yMin = midY - std::clamp(pk.maxVal, -1.0f, 1.0f) * halfH;
-                    const float yMax = midY - std::clamp(pk.minVal, -1.0f, 1.0f) * halfH;
-                    c.DrawLine({bx, yMin}, {bx, std::max(yMin + 1.0f, yMax)}, miniCol, std::max(1.0f, ov.w / static_cast<float>(bins)));
-                }
-            }
-
-            // Selection region in overview
-            if (s.selection.active && s.selection.DurationSec() > 1e-6) {
-                const float sx0 = ov.x + static_cast<float>(s.selection.MinTimeSec() / totalDur) * ov.w;
-                const float sx1 = ov.x + static_cast<float>(s.selection.MaxTimeSec() / totalDur) * ov.w;
-                c.DrawRect(Rect(sx0, ov.y, std::max(1.0f, sx1 - sx0), ov.h), Color(56, 189, 248, 45));
-            }
-
-            // Viewport lens [viewStartSec .. viewEndSec]
-            const float lx0 = ov.x + static_cast<float>(s.viewStartSec / totalDur) * ov.w;
-            const float lx1 = ov.x + static_cast<float>(s.viewEndSec / totalDur) * ov.w;
-            const Rect lensRect(lx0, ov.y + 1.0f, std::max(4.0f, lx1 - lx0), ov.h - 2.0f);
-            c.DrawRoundRect(lensRect, 3.0f * scale,
-                            th.palette.accent.WithAlpha(38),
-                            th.palette.accent,
-                            1.5f);
-            // Left/Right lens resize grip bars
-            c.DrawRect(Rect(lensRect.x, lensRect.y + 3.0f * scale, 2.5f * scale, std::max(2.0f, lensRect.h - 6.0f * scale)), th.palette.accent);
-            c.DrawRect(Rect(lensRect.Right() - 2.5f * scale, lensRect.y + 3.0f * scale, 2.5f * scale, std::max(2.0f, lensRect.h - 6.0f * scale)), th.palette.accent);
-
-            // Playhead in overview
-            const float phX = ov.x + static_cast<float>(s.playheadSec / totalDur) * ov.w;
-            c.DrawLine({phX, ov.y}, {phX, ov.Bottom()}, Color(239, 68, 68, 230), 1.5f);
-
-            c.DrawLine({box.x, ov.Bottom()}, {box.Right(), ov.Bottom()}, borderCol, 1.0f);
+        uint64_t markerFp = markers.size();
+        for (const auto& mk : markers) {
+            markerFp = detail::HashArgs(markerFp, mk.timeSec, mk.label, mk.color.ToUint32());
         }
 
-        // 2. Compute Shared Adaptive Time Grid Ticks
-        const float maxTimeTicks = std::max(3.0f, std::floor(g.timeRulerRect.w / (88.0f * scale)));
-        const double majorTimeStep = NiceTimeStep(viewSpan, maxTimeTicks);
-        const double minorTimeStep = majorTimeStep * 0.2;
-        const double firstMajorTime = std::ceil(s.viewStartSec / majorTimeStep) * majorTimeStep;
-        const double firstMinorTime = std::ceil(s.viewStartSec / minorTimeStep) * minorTimeStep;
+        const uint64_t staticKey = detail::HashArgs(
+            s.lastSignalFp,
+            std::round(box.x * 2.0f),
+            std::round(box.y * 2.0f),
+            std::round(box.w * 2.0f),
+            std::round(box.h * 2.0f),
+            scale,
+            c.GetScale(),
+            isDark,
+            th.palette.accent.ToUint32(),
+            c.SupportsGpuShaders(),
+            static_cast<uint8_t>(o.panelOrder),
+            static_cast<uint8_t>(o.amplitudeScale),
+            static_cast<uint8_t>(o.frequencyScale),
+            static_cast<uint8_t>(o.colormap),
+            static_cast<uint8_t>(o.fftWindow),
+            o.fftSize,
+            effFloor,
+            o.dbCeil,
+            o.showOverviewBar,
+            o.showTimeRuler,
+            o.showAmplitudeRuler,
+            o.showFrequencyRuler,
+            o.showColorbar,
+            o.showGrid,
+            o.showRms,
+            s.viewStartSec,
+            s.viewEndSec,
+            s.splitRatio,
+            s.waveformGain,
+            s.viewMinFreqHz,
+            s.viewMaxFreqHz,
+            markerFp
+        );
 
-        // 3. Render Time Ruler & Cue Markers
-        if (o.showTimeRuler && g.timeRulerRect.w > 0.0f && g.timeRulerRect.h > 0.0f) {
-            const Rect tr = g.timeRulerRect;
-            c.DrawRect(Rect(box.x, tr.y, box.w, tr.h), rulerBg);
-            c.DrawTextBox(o.amplitudeScale == AmplitudeScale::dBFS ? "dBFS / Hz" : "LIN / Hz",
-                          Rect(box.x + 6.0f * scale, tr.y, std::max(0.0f, tr.x - box.x - 8.0f * scale), tr.h),
-                          smallFs * 0.85f, textMuted, 0.0f, 0.5f);
+        auto makeSpecGpuDesc = [&]() {
+            ICanvas::SpectrogramGpuFieldDesc gpuDesc{};
+            gpuDesc.widgetId = n->id.value;
+            gpuDesc.dataGeneration = s.specCache.dbGridGeneration;
+            gpuDesc.dbGrid = s.specCache.dbGrid.data();
+            gpuDesc.texWidth = SpectrogramCache::kTexW;
+            gpuDesc.texHeight = SpectrogramCache::kTexH;
+            gpuDesc.colormapId = static_cast<uint8_t>(o.colormap);
+            for (size_t i = 0; i < 256; ++i) {
+                gpuDesc.colormapAbgr[i] = PackAbgr(EvaluateColormap(o.colormap, static_cast<float>(i) / 255.0f));
+            }
+            gpuDesc.plotRect = g.specPlotRect;
+            gpuDesc.dbFloor = s.specCache.dbFloor;
+            gpuDesc.dbCeil = s.specCache.dbCeil;
+            gpuDesc.bgColor = Color(8, 6, 22, 255);
+            return gpuDesc;
+        };
 
-            // Minor ticks
-            for (double t = firstMinorTime; t <= s.viewEndSec + 1e-9; t += minorTimeStep) {
-                const float tx = tr.x + static_cast<float>((t - s.viewStartSec) / viewSpan) * tr.w;
-                if (tx >= tr.x && tx <= tr.Right()) {
-                    c.DrawLine({tx, tr.Bottom() - 4.0f * scale}, {tx, tr.Bottom()}, borderCol, 1.0f);
+        bool restoredFromCache = false;
+        if (s.baseLayerCache.valid && s.baseLayerCache.cacheKey == staticKey) {
+            if (c.RestoreRegion(box, s.baseLayerCache.pixels, s.baseLayerCache.width, s.baseLayerCache.height)) {
+                restoredFromCache = true;
+                if (g.specPlotRect.w > 0.0f && g.specPlotRect.h > 2.0f && !s.specCache.dbGrid.empty()) {
+                    c.PushClip(g.specPlotRect);
+                    const auto gpuDesc = makeSpecGpuDesc();
+                    c.DrawSpectrogramGpuField(gpuDesc, false);
+                    c.PopClip();
                 }
             }
-
-            // Major ticks + labels
-            for (double t = firstMajorTime; t <= s.viewEndSec + 1e-9; t += majorTimeStep) {
-                const float tx = tr.x + static_cast<float>((t - s.viewStartSec) / viewSpan) * tr.w;
-                if (tx >= tr.x && tx <= tr.Right()) {
-                    c.DrawLine({tx, tr.Bottom() - 8.0f * scale}, {tx, tr.Bottom()}, textMuted, 1.0f);
-                    const std::string lbl = FormatTimeTick(t, viewSpan);
-                    c.DrawText(lbl, {tx + 3.0f * scale, tr.y + 3.0f * scale}, smallFs * 0.88f, textSec);
-                }
-            }
-
-            // Cue Markers on Time Ruler
-            for (size_t i = 0; i < markers.size(); ++i) {
-                const auto& mk = markers[i];
-                if (mk.timeSec < s.viewStartSec || mk.timeSec > s.viewEndSec) continue;
-                const float mx = tr.x + static_cast<float>((mk.timeSec - s.viewStartSec) / viewSpan) * tr.w;
-                const float flagW = std::max(28.0f * scale, c.MeasureText(mk.label, smallFs * 0.82f).x + 8.0f * scale);
-                const float flagH = 13.0f * scale;
-                const Rect flagRect(std::min(mx, tr.Right() - flagW), tr.y + 1.0f, flagW, flagH);
-                c.DrawRoundRect(flagRect, 2.5f * scale, mk.color);
-                c.DrawTriangle({mx, tr.Bottom()}, {mx - 4.0f * scale, tr.Bottom() - 5.0f * scale}, {mx + 4.0f * scale, tr.Bottom() - 5.0f * scale}, mk.color);
-                c.DrawTextBox(mk.label, flagRect, smallFs * 0.80f, Color(15, 23, 42, 255), 0.5f, 0.5f);
-            }
-
-            // Playhead triangle on Time Ruler
-            if (s.playheadSec >= s.viewStartSec && s.playheadSec <= s.viewEndSec) {
-                const float px = tr.x + static_cast<float>((s.playheadSec - s.viewStartSec) / viewSpan) * tr.w;
-                const Color phCol(239, 68, 68, 255);
-                c.DrawTriangle(
-                    {px - 5.5f * scale, tr.Bottom() - 9.0f * scale},
-                    {px + 5.5f * scale, tr.Bottom() - 9.0f * scale},
-                    {px, tr.Bottom()},
-                    phCol
-                );
-            }
-
-            c.DrawLine({box.x, tr.Bottom()}, {box.Right(), tr.Bottom()}, borderCol, 1.0f);
         }
 
-        // 4. Render Waveform Panel + Amplitude Ruler
-        if (g.wavePlotRect.w > 0.0f && g.wavePlotRect.h > 2.0f) {
-            const Rect wp = g.wavePlotRect;
-            const Rect wr = g.waveRulerRect;
+        if (!restoredFromCache) {
+            // =====================================================================
+            // PASS A: Render Static Base Layer (Overview, Rulers, Waveform, Spec Grid, Markers)
+            // =====================================================================
+            c.DrawRoundRect(box, rad, bgSurface, borderCol, 1.0f);
+            c.PushClip(box.Inset(1.0f));
 
-            if (wr.w > 0.0f) {
-                c.DrawRect(wr, rulerBg);
+            // 1. Overview Minimap Bar (Static part)
+            if (o.showOverviewBar && g.overviewRect.w > 0.0f && g.overviewRect.h > 0.0f) {
+                c.DrawRect(Rect(box.x, g.overviewRect.y, box.w, g.overviewRect.h), rulerBg);
+                c.DrawTextBox("OVERVIEW", Rect(box.x + 6.0f * scale, g.overviewRect.y, std::max(0.0f, g.overviewRect.x - box.x - 8.0f * scale), g.overviewRect.h),
+                              smallFs * 0.85f, textMuted, 0.0f, 0.5f);
+
+                const Rect ov = g.overviewRect;
+                const uint32_t ovW = std::max(1u, static_cast<uint32_t>(std::lround(ov.w)));
+                const uint32_t ovH = std::max(1u, static_cast<uint32_t>(std::lround(ov.h)));
+                s.overviewCache.EnsureValid(s.pyramid, s.lastSignalFp, ovW, ovH, isDark, th.palette.accent);
+                if (!s.overviewCache.pixels.empty()) {
+                    c.DrawPixels(s.overviewCache.pixels.data(), s.overviewCache.width, s.overviewCache.height, ov);
+                } else {
+                    c.DrawRect(ov, isDark ? Color(8, 12, 20, 255) : Color(230, 236, 244, 255));
+                }
+
+                // Viewport lens [viewStartSec .. viewEndSec]
+                const float lx0 = ov.x + static_cast<float>(s.viewStartSec / totalDur) * ov.w;
+                const float lx1 = ov.x + static_cast<float>(s.viewEndSec / totalDur) * ov.w;
+                const Rect lensRect(lx0, ov.y + 1.0f, std::max(4.0f, lx1 - lx0), ov.h - 2.0f);
+                c.DrawRoundRect(lensRect, 3.0f * scale,
+                                th.palette.accent.WithAlpha(38),
+                                th.palette.accent,
+                                1.5f);
+                c.DrawRect(Rect(lensRect.x, lensRect.y + 3.0f * scale, 2.5f * scale, std::max(2.0f, lensRect.h - 6.0f * scale)), th.palette.accent);
+                c.DrawRect(Rect(lensRect.Right() - 2.5f * scale, lensRect.y + 3.0f * scale, 2.5f * scale, std::max(2.0f, lensRect.h - 6.0f * scale)), th.palette.accent);
+                c.DrawLine({box.x, ov.Bottom()}, {box.Right(), ov.Bottom()}, borderCol, 1.0f);
             }
 
-            c.PushClip(wp);
-            c.DrawRect(wp, isDark ? Color(10, 14, 23, 255) : Color(252, 253, 255, 255));
+            // 2. Compute Shared Adaptive Time Grid Ticks
+            const float maxTimeTicks = std::max(3.0f, std::floor(g.timeRulerRect.w / (88.0f * scale)));
+            const double majorTimeStep = NiceTimeStep(viewSpan, maxTimeTicks);
+            const double minorTimeStep = majorTimeStep * 0.2;
+            const double firstMajorTime = std::ceil(s.viewStartSec / majorTimeStep) * majorTimeStep;
+            const double firstMinorTime = std::ceil(s.viewStartSec / minorTimeStep) * minorTimeStep;
 
-            // Time grid lines
-            if (o.showGrid) {
+            // 3. Time Ruler & Cue Markers
+            if (o.showTimeRuler && g.timeRulerRect.w > 0.0f && g.timeRulerRect.h > 0.0f) {
+                const Rect tr = g.timeRulerRect;
+                c.DrawRect(Rect(box.x, tr.y, box.w, tr.h), rulerBg);
+                c.DrawTextBox(o.amplitudeScale == AmplitudeScale::dBFS ? "dBFS / Hz" : "LIN / Hz",
+                              Rect(box.x + 6.0f * scale, tr.y, std::max(0.0f, tr.x - box.x - 8.0f * scale), tr.h),
+                              smallFs * 0.85f, textMuted, 0.0f, 0.5f);
+
+                for (double t = firstMinorTime; t <= s.viewEndSec + 1e-9; t += minorTimeStep) {
+                    const float tx = tr.x + static_cast<float>((t - s.viewStartSec) / viewSpan) * tr.w;
+                    if (tx >= tr.x && tx <= tr.Right()) {
+                        c.DrawLine({tx, tr.Bottom() - 4.0f * scale}, {tx, tr.Bottom()}, borderCol, 1.0f);
+                    }
+                }
+
                 for (double t = firstMajorTime; t <= s.viewEndSec + 1e-9; t += majorTimeStep) {
-                    const float tx = wp.x + static_cast<float>((t - s.viewStartSec) / viewSpan) * wp.w;
-                    c.DrawLine({tx, wp.y}, {tx, wp.Bottom()}, gridCol, 1.0f);
+                    const float tx = tr.x + static_cast<float>((t - s.viewStartSec) / viewSpan) * tr.w;
+                    if (tx >= tr.x && tx <= tr.Right()) {
+                        c.DrawLine({tx, tr.Bottom() - 8.0f * scale}, {tx, tr.Bottom()}, textMuted, 1.0f);
+                        const std::string lbl = FormatTimeTick(t, viewSpan);
+                        c.DrawText(lbl, {tx + 3.0f * scale, tr.y + 3.0f * scale}, smallFs * 0.88f, textSec);
+                    }
                 }
+
+                for (size_t i = 0; i < markers.size(); ++i) {
+                    const auto& mk = markers[i];
+                    if (mk.timeSec < s.viewStartSec || mk.timeSec > s.viewEndSec) continue;
+                    const float mx = tr.x + static_cast<float>((mk.timeSec - s.viewStartSec) / viewSpan) * tr.w;
+                    const float flagW = std::max(28.0f * scale, c.MeasureText(mk.label, smallFs * 0.82f).x + 8.0f * scale);
+                    const float flagH = 13.0f * scale;
+                    const Rect flagRect(std::min(mx, tr.Right() - flagW), tr.y + 1.0f, flagW, flagH);
+                    c.DrawRoundRect(flagRect, 2.5f * scale, mk.color);
+                    c.DrawTriangle({mx, tr.Bottom()}, {mx - 4.0f * scale, tr.Bottom() - 5.0f * scale}, {mx + 4.0f * scale, tr.Bottom() - 5.0f * scale}, mk.color);
+                    c.DrawTextBox(mk.label, flagRect, smallFs * 0.80f, Color(15, 23, 42, 255), 0.5f, 0.5f);
+                }
+
+                c.DrawLine({box.x, tr.Bottom()}, {box.Right(), tr.Bottom()}, borderCol, 1.0f);
             }
 
-            // Horizontal amplitude grid lines
-            static constexpr std::array<float, 5> kNormLevels = {0.9f, 0.5f, 0.0f, -0.5f, -0.9f};
-            for (float lv : kNormLevels) {
-                const float gy = wp.y + (0.5f - 0.5f * lv) * wp.h;
-                if (o.showGrid || lv == 0.0f) {
-                    c.DrawLine({wp.x, gy}, {wp.Right(), gy}, (lv == 0.0f) ? textMuted.WithAlpha(120) : subGridCol, 1.0f);
-                }
-            }
+            // 4. Waveform Panel + Amplitude Ruler
+            if (g.wavePlotRect.w > 0.0f && g.wavePlotRect.h > 2.0f) {
+                const Rect wp = g.wavePlotRect;
+                const Rect wr = g.waveRulerRect;
 
-            // Active Time Selection overlay on Waveform
-            if (s.selection.active && s.selection.DurationSec() > 1e-6) {
-                const float sx0 = wp.x + static_cast<float>((s.selection.MinTimeSec() - s.viewStartSec) / viewSpan) * wp.w;
-                const float sx1 = wp.x + static_cast<float>((s.selection.MaxTimeSec() - s.viewStartSec) / viewSpan) * wp.w;
-                const Rect selR = Rect(sx0, wp.y, std::max(1.0f, sx1 - sx0), wp.h).Intersect(wp);
-                if (selR.w > 0.0f) {
-                    c.DrawRect(selR, Color(56, 189, 248, isDark ? 36 : 45));
-                    c.DrawLine({sx0, wp.y}, {sx0, wp.Bottom()}, Color(56, 189, 248, 220), 1.5f);
-                    c.DrawLine({sx1, wp.y}, {sx1, wp.Bottom()}, Color(56, 189, 248, 220), 1.5f);
+                if (wr.w > 0.0f) {
+                    c.DrawRect(wr, rulerBg);
                 }
-            }
 
-            // Render Waveform Envelope (or discrete sample stems/dots when zoomed in)
-            if (!p->samples.empty()) {
+                c.PushClip(wp);
+
                 const double samplesInView = viewSpan * static_cast<double>(sampleRate);
-                const double samplesPerPixel = samplesInView / static_cast<double>( std::max(1.0f, wp.w));
-                const Color peakCol = isDark ? Color(56, 189, 248, 215) : Color(2, 132, 199, 220);
-                const Color rmsCol  = isDark ? Color(14, 165, 233, 255) : Color(3, 105, 161, 255);
-                const float midY = wp.y + wp.h * 0.5f;
+                const double samplesPerPixel = samplesInView / static_cast<double>(std::max(1.0f, wp.w));
 
-                if (samplesPerPixel <= 0.35) {
-                    // Individual sample-level rendering (connected line + sample dots)
+                if (!p->samples.empty() && samplesPerPixel <= 0.35) {
+                    c.DrawRect(wp, isDark ? Color(10, 14, 23, 255) : Color(252, 253, 255, 255));
+                    if (o.showGrid) {
+                        for (double t = firstMajorTime; t <= s.viewEndSec + 1e-9; t += majorTimeStep) {
+                            const float tx = wp.x + static_cast<float>((t - s.viewStartSec) / viewSpan) * wp.w;
+                            c.DrawLine({tx, wp.y}, {tx, wp.Bottom()}, gridCol, 1.0f);
+                        }
+                    }
+                    static constexpr std::array<float, 5> kNormLevels = {0.9f, 0.5f, 0.0f, -0.5f, -0.9f};
+                    for (float lv : kNormLevels) {
+                        const float gy = wp.y + (0.5f - 0.5f * lv) * wp.h;
+                        if (o.showGrid || lv == 0.0f) {
+                            c.DrawLine({wp.x, gy}, {wp.Right(), gy}, (lv == 0.0f) ? textMuted.WithAlpha(120) : subGridCol, 1.0f);
+                        }
+                    }
+
+                    const Color peakCol = isDark ? Color(56, 189, 248, 215) : Color(2, 132, 199, 220);
+                    const Color rmsCol  = isDark ? Color(14, 165, 233, 255) : Color(3, 105, 161, 255);
                     const int64_t idxStart = std::max<int64_t>(0, static_cast<int64_t>(std::floor(s.viewStartSec * sampleRate)) - 1);
                     const int64_t idxEnd   = std::min<int64_t>(static_cast<int64_t>(p->samples.size()) - 1,
                                                                static_cast<int64_t>(std::ceil(s.viewEndSec * sampleRate)) + 1);
@@ -1740,127 +2010,244 @@ SignalViewResponse SignalView::Run(
                         hasPrev = true;
                     }
                 } else {
-                    // Pixel-column Mipmap Pyramid rendering (O(W))
-                    const int cols = std::max(1, static_cast<int>(std::ceil(wp.w)));
-                    float prevMidY = midY;
-                    for (int col = 0; col < cols; ++col) {
-                        const double t0 = s.viewStartSec + (static_cast<double>(col) / static_cast<double>(cols)) * viewSpan;
-                        const double t1 = s.viewStartSec + (static_cast<double>(col + 1) / static_cast<double>(cols)) * viewSpan;
-                        const size_t s0 = static_cast<size_t>(std::clamp(t0 * sampleRate, 0.0, static_cast<double>(p->samples.size() - 1)));
-                        const size_t s1 = static_cast<size_t>(std::clamp(std::ceil(t1 * sampleRate), static_cast<double>(s0 + 1), static_cast<double>(p->samples.size())));
-
-                        const PeakBucket pk = s.pyramid.QueryRange(p->samples, s0, s1);
-                        const float x = wp.x + static_cast<float>(col) + 0.5f;
-                        float yTop = wp.y + AmplitudeToNormY(pk.maxVal, s.waveformGain, o.amplitudeScale) * wp.h;
-                        float yBot = wp.y + AmplitudeToNormY(pk.minVal, s.waveformGain, o.amplitudeScale) * wp.h;
-                        if (yBot < yTop + 1.0f) {
-                            const float avgY = 0.5f * (yTop + yBot);
-                            yTop = std::min(avgY, prevMidY);
-                            yBot = std::max(avgY + 1.0f, prevMidY);
-                            prevMidY = avgY;
-                        } else {
-                            prevMidY = 0.5f * (yTop + yBot);
-                        }
-
-                        c.DrawLine({x, yTop}, {x, yBot}, peakCol, 1.0f);
-
-                        if (o.showRms && pk.rmsVal > 1e-4f) {
-                            const float rmsTop = wp.y + AmplitudeToNormY(pk.rmsVal, s.waveformGain, o.amplitudeScale) * wp.h;
-                            const float rmsBot = wp.y + AmplitudeToNormY(-pk.rmsVal, s.waveformGain, o.amplitudeScale) * wp.h;
-                            if (rmsBot > rmsTop + 1.0f) {
-                                c.DrawLine({x, rmsTop}, {x, rmsBot}, rmsCol, 1.0f);
-                            }
-                        }
-
-                        // Red clipping indicator tick if |sample| >= 0.999f
-                        if (pk.maxVal >= 0.999f || pk.minVal <= -0.999f) {
-                            c.DrawRect(Rect(x - 0.5f, (pk.maxVal >= 0.999f) ? wp.y : (wp.Bottom() - 3.0f * scale), 1.5f, 3.0f * scale),
-                                       Color(239, 68, 68, 255));
-                        }
+                    const uint32_t wpW = std::max(1u, static_cast<uint32_t>(std::lround(wp.w)));
+                    const uint32_t wpH = std::max(1u, static_cast<uint32_t>(std::lround(wp.h)));
+                    s.waveCache.EnsureValid(
+                        p->samples,
+                        s.pyramid,
+                        s.lastSignalFp,
+                        sampleRate,
+                        s.viewStartSec,
+                        s.viewEndSec,
+                        s.waveformGain,
+                        o.amplitudeScale,
+                        o.showRms,
+                        o.showGrid,
+                        isDark,
+                        firstMajorTime,
+                        majorTimeStep,
+                        scale,
+                        gridCol,
+                        subGridCol,
+                        textMuted.WithAlpha(120),
+                        wpW,
+                        wpH
+                    );
+                    if (!s.waveCache.pixels.empty()) {
+                        c.DrawPixels(s.waveCache.pixels.data(), s.waveCache.width, s.waveCache.height, wp);
                     }
+                }
+
+                for (const auto& mk : markers) {
+                    if (mk.timeSec < s.viewStartSec || mk.timeSec > s.viewEndSec) continue;
+                    const float mx = wp.x + static_cast<float>((mk.timeSec - s.viewStartSec) / viewSpan) * wp.w;
+                    c.DrawLine({mx, wp.y}, {mx, wp.Bottom()}, mk.color.WithAlpha(160), 1.0f);
+                }
+
+                c.PopClip();
+
+                if (o.showAmplitudeRuler && wr.w > 0.0f && wr.h > 24.0f) {
+                    constexpr float kNormLevels[] = {1.0f, 0.5f, 0.0f, -0.5f, -1.0f};
+                    c.PushClip(wr);
+                    for (float lv : kNormLevels) {
+                        const float gy = wr.y + (0.5f - 0.5f * lv) * wr.h;
+                        c.DrawLine({wr.Right() - 5.0f * scale, gy}, {wr.Right(), gy}, textMuted, 1.0f);
+                        const float effAmp = std::abs(lv) / std::max(0.01f, s.waveformGain);
+                        char lbl[24]{};
+                        if (o.amplitudeScale == AmplitudeScale::dBFS) {
+                            if (std::abs(lv) < 1e-3f) {
+                                std::snprintf(lbl, sizeof(lbl), "-inf");
+                            } else {
+                                const float db = 20.0f * std::log10(std::max(1e-5f, effAmp));
+                                std::snprintf(lbl, sizeof(lbl), "%+.0f dB", db);
+                            }
+                        } else {
+                            std::snprintf(lbl, sizeof(lbl), "%+.2f", lv / std::max(0.01f, s.waveformGain));
+                        }
+                        c.DrawTextBox(lbl, Rect(wr.x + 2.0f * scale, gy - 7.0f * scale, wr.w - 8.0f * scale, 14.0f * scale),
+                                      smallFs * 0.82f, textSec, 1.0f, 0.5f);
+                    }
+                    c.PopClip();
+                    c.DrawLine({wr.Right(), wr.y}, {wr.Right(), wr.Bottom()}, borderCol, 1.0f);
                 }
             }
 
-            // Cue Marker lines on Waveform
-            for (const auto& mk : markers) {
-                if (mk.timeSec < s.viewStartSec || mk.timeSec > s.viewEndSec) continue;
-                const float mx = wp.x + static_cast<float>((mk.timeSec - s.viewStartSec) / viewSpan) * wp.w;
-                c.DrawLine({mx, wp.y}, {mx, wp.Bottom()}, mk.color.WithAlpha(160), 1.0f);
+            // 5. Spectrogram Panel + Frequency Ruler + Colorbar
+            if (g.specPlotRect.w > 0.0f && g.specPlotRect.h > 2.0f) {
+                const Rect sp = g.specPlotRect;
+                const Rect sr = g.specRulerRect;
+                const Rect cb = g.colorbarRect;
+
+                if (sr.w > 0.0f) {
+                    c.DrawRect(sr, rulerBg);
+                }
+                if (cb.w > 0.0f) {
+                    c.DrawRect(cb, rulerBg);
+                }
+
+                c.PushClip(sp);
+                if (!s.specCache.dbGrid.empty()) {
+                    const auto gpuDesc = makeSpecGpuDesc();
+                    if (!c.DrawSpectrogramGpuField(gpuDesc, true)) {
+                        if (!s.specCache.pixels.empty()) {
+                            c.DrawPixels(s.specCache.pixels.data(), SpectrogramCache::kTexW, SpectrogramCache::kTexH, sp);
+                        } else {
+                            c.DrawRect(sp, Color(8, 6, 22, 255));
+                        }
+                    }
+                } else {
+                    c.DrawRect(sp, Color(8, 6, 22, 255));
+                }
+
+                if (o.showGrid) {
+                    for (double t = firstMajorTime; t <= s.viewEndSec + 1e-9; t += majorTimeStep) {
+                        const float tx = sp.x + static_cast<float>((t - s.viewStartSec) / viewSpan) * sp.w;
+                        c.DrawLine({tx, sp.y}, {tx, sp.Bottom()}, Color(255, 255, 255, 38), 1.0f);
+                    }
+                }
+
+                const int numFreqTicks = std::max(2, static_cast<int>(std::floor(sp.h / (32.0f * scale))));
+                for (int i = 0; i <= numFreqTicks; ++i) {
+                    const float normFromBottom = static_cast<float>(i) / static_cast<float>(numFreqTicks);
+                    const float gy = sp.Bottom() - normFromBottom * sp.h;
+                    if (o.showGrid && i > 0 && i < numFreqTicks) {
+                        c.DrawLine({sp.x, gy}, {sp.Right(), gy}, Color(255, 255, 255, 38), 1.0f);
+                    }
+                }
+
+                for (const auto& mk : markers) {
+                    if (mk.timeSec < s.viewStartSec || mk.timeSec > s.viewEndSec) continue;
+                    const float mx = sp.x + static_cast<float>((mk.timeSec - s.viewStartSec) / viewSpan) * sp.w;
+                    c.DrawLine({mx, sp.y}, {mx, sp.Bottom()}, mk.color.WithAlpha(170), 1.0f);
+                }
+
+                c.PopClip();
+
+                if (o.showFrequencyRuler && sr.w > 0.0f && sr.h > 24.0f) {
+                    c.PushClip(sr);
+                    for (int i = 0; i <= numFreqTicks; ++i) {
+                        const float normFromBottom = static_cast<float>(i) / static_cast<float>(numFreqTicks);
+                        const float gy = std::clamp(sr.Bottom() - normFromBottom * sr.h, sr.y + 6.0f * scale, sr.Bottom() - 6.0f * scale);
+                        const float freq = NormalizedYToFreqHz(normFromBottom, s.viewMinFreqHz, s.viewMaxFreqHz, o.frequencyScale);
+                        c.DrawLine({sr.Right() - 5.0f * scale, sr.Bottom() - normFromBottom * sr.h},
+                                   {sr.Right(), sr.Bottom() - normFromBottom * sr.h}, textMuted, 1.0f);
+                        const std::string lbl = FormatFreqTick(freq) + "Hz";
+                        c.DrawTextBox(lbl, Rect(sr.x + 2.0f * scale, gy - 7.0f * scale, sr.w - 8.0f * scale, 14.0f * scale),
+                                      smallFs * 0.80f, textSec, 1.0f, 0.5f);
+                    }
+                    c.PopClip();
+                    c.DrawLine({sr.Right(), sr.y}, {sr.Right(), sr.Bottom()}, borderCol, 1.0f);
+                }
+
+                if (o.showColorbar && cb.w > 0.0f && cb.h > 24.0f) {
+                    c.PushClip(cb);
+                    c.DrawLine({cb.x, cb.y}, {cb.x, cb.Bottom()}, borderCol, 1.0f);
+                    const Rect barStrip(cb.x + 5.0f * scale, cb.y + 6.0f * scale, 8.0f * scale, std::max(8.0f, cb.h - 12.0f * scale));
+                    const int gradSteps = 24;
+                    const float stepH = barStrip.h / static_cast<float>(gradSteps);
+                    for (int i = 0; i < gradSteps; ++i) {
+                        const float norm = 1.0f - (static_cast<float>(i) + 0.5f) / static_cast<float>(gradSteps);
+                        c.DrawRect(Rect(barStrip.x, barStrip.y + static_cast<float>(i) * stepH, barStrip.w, stepH + 0.5f),
+                                   EvaluateColormap(o.colormap, norm));
+                    }
+                    c.DrawRoundRect(barStrip, 2.0f * scale, Color::Transparent(), borderCol, 1.0f);
+
+                    const int dbTicks = std::max(2, static_cast<int>(std::floor(barStrip.h / (28.0f * scale))));
+                    for (int i = 0; i <= dbTicks; ++i) {
+                        const float frac = static_cast<float>(i) / static_cast<float>(dbTicks);
+                        const float dbVal = o.dbCeil - frac * (o.dbCeil - effFloor);
+                        const float ty = std::clamp(barStrip.y + frac * barStrip.h, cb.y + 6.0f * scale, cb.Bottom() - 6.0f * scale);
+                        char lbl[16]{};
+                        std::snprintf(lbl, sizeof(lbl), "%.0f", dbVal);
+                        c.DrawTextBox(lbl, Rect(barStrip.Right() + 2.0f * scale, ty - 6.0f * scale, cb.Right() - barStrip.Right() - 3.0f * scale, 12.0f * scale),
+                                      smallFs * 0.78f, textMuted, 0.0f, 0.5f);
+                    }
+                    c.PopClip();
+                }
             }
 
-            // Playhead line on Waveform
-            if (s.playheadSec >= s.viewStartSec && s.playheadSec <= s.viewEndSec) {
-                const float px = wp.x + static_cast<float>((s.playheadSec - s.viewStartSec) / viewSpan) * wp.w;
-                c.DrawLine({px, wp.y}, {px, wp.Bottom()}, Color(239, 68, 68, 240), 1.5f);
+            // 6. Horizontal Splitter Bar (Static base state)
+            if (g.splitterRect.w > 0.0f && g.splitterRect.h > 0.0f) {
+                const Color splitBg = isDark ? Color(24, 34, 52, 255) : Color(218, 226, 236, 255);
+                c.DrawRect(g.splitterRect, splitBg);
+                c.DrawLine({g.splitterRect.x, g.splitterRect.y}, {g.splitterRect.Right(), g.splitterRect.y}, borderCol, 1.0f);
+                c.DrawLine({g.splitterRect.x, g.splitterRect.Bottom()}, {g.splitterRect.Right(), g.splitterRect.Bottom()}, borderCol, 1.0f);
+                const float pillW = 36.0f * scale;
+                const float pillH = 2.5f * scale;
+                const Rect pillRect(
+                    g.splitterRect.x + (g.splitterRect.w - pillW) * 0.5f,
+                    g.splitterRect.y + (g.splitterRect.h - pillH) * 0.5f,
+                    pillW,
+                    pillH
+                );
+                c.DrawRoundRect(pillRect, pillH * 0.5f, textMuted);
             }
 
             c.PopClip();
 
-            // Amplitude Ruler labels & ticks
-            if (o.showAmplitudeRuler && wr.w > 0.0f && wr.h > 24.0f) {
-                c.PushClip(wr);
-                for (float lv : kNormLevels) {
-                    const float gy = wr.y + (0.5f - 0.5f * lv) * wr.h;
-                    c.DrawLine({wr.Right() - 5.0f * scale, gy}, {wr.Right(), gy}, textMuted, 1.0f);
-                    const float effAmp = std::abs(lv) / std::max(0.01f, s.waveformGain);
-                    char lbl[24]{};
-                    if (o.amplitudeScale == AmplitudeScale::dBFS) {
-                        if (std::abs(lv) < 1e-3f) {
-                            std::snprintf(lbl, sizeof(lbl), "-inf");
-                        } else {
-                            const float db = 20.0f * std::log10(std::max(1e-5f, effAmp));
-                            std::snprintf(lbl, sizeof(lbl), "%+.0f dB", db);
-                        }
-                    } else {
-                        std::snprintf(lbl, sizeof(lbl), "%+.2f", lv / std::max(0.01f, s.waveformGain));
-                    }
-                    c.DrawTextBox(lbl, Rect(wr.x + 2.0f * scale, gy - 7.0f * scale, wr.w - 8.0f * scale, 14.0f * scale),
-                                  smallFs * 0.82f, textSec, 1.0f, 0.5f);
-                }
-                c.PopClip();
-                c.DrawLine({wr.Right(), wr.y}, {wr.Right(), wr.Bottom()}, borderCol, 1.0f);
+            if (c.CaptureRegion(box, s.baseLayerCache.pixels, s.baseLayerCache.width, s.baseLayerCache.height)) {
+                s.baseLayerCache.cacheKey = staticKey;
+                s.baseLayerCache.valid = true;
             }
         }
 
-        // 5. Render Spectrogram Panel + Frequency Ruler + Colorbar
+        // =====================================================================
+        // PASS B: Dynamic Overlay Layer (Selection, Playhead, Splitter Hover, Crosshair HUD)
+        // =====================================================================
+        c.PushClip(box.Inset(1.0f));
+
+        // 1. Overview dynamic overlays (Selection + Playhead)
+        if (o.showOverviewBar && g.overviewRect.w > 0.0f && g.overviewRect.h > 0.0f) {
+            const Rect ov = g.overviewRect;
+            if (s.selection.active && s.selection.DurationSec() > 1e-6) {
+                const float sx0 = ov.x + static_cast<float>(s.selection.MinTimeSec() / totalDur) * ov.w;
+                const float sx1 = ov.x + static_cast<float>(s.selection.MaxTimeSec() / totalDur) * ov.w;
+                c.DrawRect(Rect(sx0, ov.y, std::max(1.0f, sx1 - sx0), ov.h), Color(56, 189, 248, 45));
+            }
+            const float phX = ov.x + static_cast<float>(s.playheadSec / totalDur) * ov.w;
+            c.DrawLine({phX, ov.y}, {phX, ov.Bottom()}, Color(239, 68, 68, 230), 1.5f);
+        }
+
+        // 2. Time Ruler Playhead triangle
+        if (o.showTimeRuler && g.timeRulerRect.w > 0.0f && g.timeRulerRect.h > 0.0f) {
+            const Rect tr = g.timeRulerRect;
+            if (s.playheadSec >= s.viewStartSec && s.playheadSec <= s.viewEndSec) {
+                const float px = tr.x + static_cast<float>((s.playheadSec - s.viewStartSec) / viewSpan) * tr.w;
+                const Color phCol(239, 68, 68, 255);
+                c.DrawTriangle(
+                    {px - 5.5f * scale, tr.Bottom() - 9.0f * scale},
+                    {px + 5.5f * scale, tr.Bottom() - 9.0f * scale},
+                    {px, tr.Bottom()},
+                    phCol
+                );
+            }
+        }
+
+        // 3. Waveform dynamic overlays (Selection + Playhead)
+        if (g.wavePlotRect.w > 0.0f && g.wavePlotRect.h > 2.0f) {
+            const Rect wp = g.wavePlotRect;
+            c.PushClip(wp);
+            if (s.selection.active && s.selection.DurationSec() > 1e-6) {
+                const float sx0 = wp.x + static_cast<float>((s.selection.MinTimeSec() - s.viewStartSec) / viewSpan) * wp.w;
+                const float sx1 = wp.x + static_cast<float>((s.selection.MaxTimeSec() - s.viewStartSec) / viewSpan) * wp.w;
+                const Rect selR = Rect(sx0, wp.y, std::max(1.0f, sx1 - sx0), wp.h).Intersect(wp);
+                if (selR.w > 0.0f) {
+                    c.DrawRect(selR, Color(56, 189, 248, isDark ? 36 : 45));
+                    c.DrawLine({sx0, wp.y}, {sx0, wp.Bottom()}, Color(56, 189, 248, 220), 1.5f);
+                    c.DrawLine({sx1, wp.y}, {sx1, wp.Bottom()}, Color(56, 189, 248, 220), 1.5f);
+                }
+            }
+            if (s.playheadSec >= s.viewStartSec && s.playheadSec <= s.viewEndSec) {
+                const float px = wp.x + static_cast<float>((s.playheadSec - s.viewStartSec) / viewSpan) * wp.w;
+                c.DrawLine({px, wp.y}, {px, wp.Bottom()}, Color(239, 68, 68, 240), 1.5f);
+            }
+            c.PopClip();
+        }
+
+        // 4. Spectrogram dynamic overlays (2D Selection Box + Playhead)
         if (g.specPlotRect.w > 0.0f && g.specPlotRect.h > 2.0f) {
             const Rect sp = g.specPlotRect;
-            const Rect sr = g.specRulerRect;
-            const Rect cb = g.colorbarRect;
-
-            if (sr.w > 0.0f) {
-                c.DrawRect(sr, rulerBg);
-            }
-            if (cb.w > 0.0f) {
-                c.DrawRect(cb, rulerBg);
-            }
-
             c.PushClip(sp);
-            if (!s.specCache.pixels.empty()) {
-                c.DrawPixels(s.specCache.pixels.data(), SpectrogramCache::kTexW, SpectrogramCache::kTexH, sp);
-            } else {
-                c.DrawRect(sp, Color(8, 6, 22, 255));
-            }
-
-            // Time grid lines on Spectrogram
-            if (o.showGrid) {
-                for (double t = firstMajorTime; t <= s.viewEndSec + 1e-9; t += majorTimeStep) {
-                    const float tx = sp.x + static_cast<float>((t - s.viewStartSec) / viewSpan) * sp.w;
-                    c.DrawLine({tx, sp.y}, {tx, sp.Bottom()}, Color(255, 255, 255, 38), 1.0f);
-                }
-            }
-
-            // Frequency grid lines & Ruler ticks
-            const int numFreqTicks = std::max(2, static_cast<int>(std::floor(sp.h / (32.0f * scale))));
-            for (int i = 0; i <= numFreqTicks; ++i) {
-                const float normFromBottom = static_cast<float>(i) / static_cast<float>(numFreqTicks);
-                const float gy = sp.Bottom() - normFromBottom * sp.h;
-                if (o.showGrid && i > 0 && i < numFreqTicks) {
-                    c.DrawLine({sp.x, gy}, {sp.Right(), gy}, Color(255, 255, 255, 38), 1.0f);
-                }
-            }
-
-            // Selection / 2D Spectral Selection Box on Spectrogram
             if (s.selection.active && s.selection.DurationSec() > 1e-6) {
                 const float sx0 = sp.x + static_cast<float>((s.selection.MinTimeSec() - s.viewStartSec) / viewSpan) * sp.w;
                 const float sx1 = sp.x + static_cast<float>((s.selection.MaxTimeSec() - s.viewStartSec) / viewSpan) * sp.w;
@@ -1876,7 +2263,6 @@ SignalViewResponse SignalView::Run(
                                 Color(56, 189, 248, 235),
                                 1.5f);
                 if (s.selection.hasSpectralBox) {
-                    // Corner handles (iZotope RX style)
                     const float hs = 4.0f * scale;
                     const Color hc(255, 255, 255, 240);
                     c.DrawRect(Rect(boxSel.x - hs * 0.5f, boxSel.y - hs * 0.5f, hs, hs), hc);
@@ -1885,92 +2271,34 @@ SignalViewResponse SignalView::Run(
                     c.DrawRect(Rect(boxSel.Right() - hs * 0.5f, boxSel.Bottom() - hs * 0.5f, hs, hs), hc);
                 }
             }
-
-            // Cue Marker lines on Spectrogram
-            for (const auto& mk : markers) {
-                if (mk.timeSec < s.viewStartSec || mk.timeSec > s.viewEndSec) continue;
-                const float mx = sp.x + static_cast<float>((mk.timeSec - s.viewStartSec) / viewSpan) * sp.w;
-                c.DrawLine({mx, sp.y}, {mx, sp.Bottom()}, mk.color.WithAlpha(170), 1.0f);
-            }
-
-            // Playhead line on Spectrogram
             if (s.playheadSec >= s.viewStartSec && s.playheadSec <= s.viewEndSec) {
                 const float px = sp.x + static_cast<float>((s.playheadSec - s.viewStartSec) / viewSpan) * sp.w;
                 c.DrawLine({px, sp.y}, {px, sp.Bottom()}, Color(239, 68, 68, 240), 1.5f);
             }
-
             c.PopClip();
-
-            // Frequency Ruler labels & ticks
-            if (o.showFrequencyRuler && sr.w > 0.0f && sr.h > 24.0f) {
-                c.PushClip(sr);
-                for (int i = 0; i <= numFreqTicks; ++i) {
-                    const float normFromBottom = static_cast<float>(i) / static_cast<float>(numFreqTicks);
-                    const float gy = std::clamp(sr.Bottom() - normFromBottom * sr.h, sr.y + 6.0f * scale, sr.Bottom() - 6.0f * scale);
-                    const float freq = NormalizedYToFreqHz(normFromBottom, s.viewMinFreqHz, s.viewMaxFreqHz, o.frequencyScale);
-                    c.DrawLine({sr.Right() - 5.0f * scale, sr.Bottom() - normFromBottom * sr.h},
-                               {sr.Right(), sr.Bottom() - normFromBottom * sr.h}, textMuted, 1.0f);
-                    const std::string lbl = FormatFreqTick(freq) + "Hz";
-                    c.DrawTextBox(lbl, Rect(sr.x + 2.0f * scale, gy - 7.0f * scale, sr.w - 8.0f * scale, 14.0f * scale),
-                                  smallFs * 0.80f, textSec, 1.0f, 0.5f);
-                }
-                c.PopClip();
-                c.DrawLine({sr.Right(), sr.y}, {sr.Right(), sr.Bottom()}, borderCol, 1.0f);
-            }
-
-            // Right-hand dBFS Colorbar
-            if (o.showColorbar && cb.w > 0.0f && cb.h > 24.0f) {
-                c.PushClip(cb);
-                c.DrawLine({cb.x, cb.y}, {cb.x, cb.Bottom()}, borderCol, 1.0f);
-                const Rect barStrip(cb.x + 5.0f * scale, cb.y + 6.0f * scale, 8.0f * scale, std::max(8.0f, cb.h - 12.0f * scale));
-                const int gradSteps = 24;
-                const float stepH = barStrip.h / static_cast<float>(gradSteps);
-                for (int i = 0; i < gradSteps; ++i) {
-                    const float norm = 1.0f - (static_cast<float>(i) + 0.5f) / static_cast<float>(gradSteps);
-                    c.DrawRect(Rect(barStrip.x, barStrip.y + static_cast<float>(i) * stepH, barStrip.w, stepH + 0.5f),
-                               EvaluateColormap(o.colormap, norm));
-                }
-                c.DrawRoundRect(barStrip, 2.0f * scale, Color::Transparent(), borderCol, 1.0f);
-
-                const float effFloor = s.hasDbFloorOverride ? s.dbFloorOverride : o.dbFloor;
-                const int dbTicks = std::max(2, static_cast<int>(std::floor(barStrip.h / (28.0f * scale))));
-                for (int i = 0; i <= dbTicks; ++i) {
-                    const float frac = static_cast<float>(i) / static_cast<float>(dbTicks);
-                    const float dbVal = o.dbCeil - frac * (o.dbCeil - effFloor);
-                    const float ty = std::clamp(barStrip.y + frac * barStrip.h, cb.y + 6.0f * scale, cb.Bottom() - 6.0f * scale);
-                    char lbl[16]{};
-                    std::snprintf(lbl, sizeof(lbl), "%.0f", dbVal);
-                    c.DrawTextBox(lbl, Rect(barStrip.Right() + 2.0f * scale, ty - 6.0f * scale, cb.Right() - barStrip.Right() - 3.0f * scale, 12.0f * scale),
-                                  smallFs * 0.78f, textMuted, 0.0f, 0.5f);
-                }
-                c.PopClip();
-            }
         }
 
-        // 6. Render Horizontal Splitter Bar
+        // 5. Splitter active hover highlight (only drawn when hovered or dragged)
         if (g.splitterRect.w > 0.0f && g.splitterRect.h > 0.0f) {
             const bool splitHover = (s.dragMode == DragMode::Splitter) ||
                                     (p->isHovered && g.splitterRect.Inset(-2.0f).Contains(p->mousePos));
-            const Color splitBg = splitHover
-                ? th.palette.accent.WithAlpha(65)
-                : (isDark ? Color(24, 34, 52, 255) : Color(218, 226, 236, 255));
-            c.DrawRect(g.splitterRect, splitBg);
-            c.DrawLine({g.splitterRect.x, g.splitterRect.y}, {g.splitterRect.Right(), g.splitterRect.y}, borderCol, 1.0f);
-            c.DrawLine({g.splitterRect.x, g.splitterRect.Bottom()}, {g.splitterRect.Right(), g.splitterRect.Bottom()}, borderCol, 1.0f);
-
-            // Center grip pill
-            const float pillW = 36.0f * scale;
-            const float pillH = 2.5f * scale;
-            const Rect pillRect(
-                g.splitterRect.x + (g.splitterRect.w - pillW) * 0.5f,
-                g.splitterRect.y + (g.splitterRect.h - pillH) * 0.5f,
-                pillW,
-                pillH
-            );
-            c.DrawRoundRect(pillRect, pillH * 0.5f, splitHover ? th.palette.accent : textMuted);
+            if (splitHover) {
+                c.DrawRect(g.splitterRect, th.palette.accent.WithAlpha(65));
+                c.DrawLine({g.splitterRect.x, g.splitterRect.y}, {g.splitterRect.Right(), g.splitterRect.y}, borderCol, 1.0f);
+                c.DrawLine({g.splitterRect.x, g.splitterRect.Bottom()}, {g.splitterRect.Right(), g.splitterRect.Bottom()}, borderCol, 1.0f);
+                const float pillW = 36.0f * scale;
+                const float pillH = 2.5f * scale;
+                const Rect pillRect(
+                    g.splitterRect.x + (g.splitterRect.w - pillW) * 0.5f,
+                    g.splitterRect.y + (g.splitterRect.h - pillH) * 0.5f,
+                    pillW,
+                    pillH
+                );
+                c.DrawRoundRect(pillRect, pillH * 0.5f, th.palette.accent);
+            }
         }
 
-        // 7. Render Synchronized Crosshair & Live Telemetry HUD
+        // 6. Synchronized Crosshair & Live Telemetry HUD
         if (o.showCrosshair && p->isHovered) {
             const bool inWave = g.wavePlotRect.w > 0.0f && g.wavePlotRect.h > 0.0f && g.wavePlotRect.Contains(p->mousePos);
             const bool inSpec = g.specPlotRect.w > 0.0f && g.specPlotRect.h > 0.0f && g.specPlotRect.Contains(p->mousePos);
@@ -1978,17 +2306,14 @@ SignalViewResponse SignalView::Run(
                 const Rect activePlot = inSpec ? g.specPlotRect : g.wavePlotRect;
                 const Color crossCol(248, 250, 252, 165);
 
-                // Synchronized vertical hairline across BOTH Waveform and Spectrogram
                 if (g.wavePlotRect.h > 2.0f) {
                     c.DrawLine({p->mousePos.x, g.wavePlotRect.y}, {p->mousePos.x, g.wavePlotRect.Bottom()}, crossCol, 1.0f);
                 }
                 if (g.specPlotRect.h > 2.0f) {
                     c.DrawLine({p->mousePos.x, g.specPlotRect.y}, {p->mousePos.x, g.specPlotRect.Bottom()}, crossCol, 1.0f);
                 }
-                // Horizontal hairline in active panel
                 c.DrawLine({activePlot.x, p->mousePos.y}, {activePlot.Right(), p->mousePos.y}, crossCol, 1.0f);
 
-                // Compute telemetry readout string
                 const float normX = std::clamp((p->mousePos.x - activePlot.x) / std::max(1.0f, activePlot.w), 0.0f, 1.0f);
                 const double curT = s.viewStartSec + static_cast<double>(normX) * viewSpan;
                 const size_t sampleIdx = !p->samples.empty()

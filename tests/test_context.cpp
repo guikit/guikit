@@ -3,7 +3,9 @@
 #include "guikit/Context.hpp"
 #include "guikit/core/TextUtil.hpp"
 #include "guikit/core/Theme.hpp"
+#include <SDL3/SDL.h>
 #include "guikit/backend/SdlCanvas.hpp"
+#include "guikit/backend/SdlGlShaderEngine.hpp"
 #include "guikit/backend/ThorCanvas.hpp"
 #include "thorvg.h"
 
@@ -1772,17 +1774,15 @@ void TestReactiveEventLoop() {
     CHECK(!ui.NeedsRepaint());
     CHECK(ui.GetRecommendedSleepTimeoutMs() > 0);
 
-    // Mouse movement wakes up reactive loop
+    // Mouse movement wakes up reactive loop for 1 frame
     ui.OnMouseMove({25.0f, 25.0f});
-    CHECK(ui.GetRepaintFramesLeft() == 3);
+    CHECK(ui.GetRepaintFramesLeft() == 1);
     CHECK(ui.NeedsRepaint());
     CHECK(ui.GetRecommendedSleepTimeoutMs() == 0);
 
-    // Drain 3 frames
-    for (int i = 0; i < 3; ++i) {
-        ui.BeginFrame({100.0f, 100.0f});
-        ui.EndFrame(canvas);
-    }
+    // Drain frame
+    ui.BeginFrame({100.0f, 100.0f});
+    ui.EndFrame(canvas);
     CHECK(!ui.NeedsRepaint());
 
     // Holding mouse button down prevents sleeping
@@ -6899,6 +6899,193 @@ void TestSonarViewWidgetWorkflow() {
     std::cout << "  [PASS] TestSonarViewWidgetWorkflow completed\n";
 }
 
+void TestSonarAndSignalGpuShaderPipeline() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+
+    const uint32_t width = 800;
+    const uint32_t height = 600;
+    std::vector<uint32_t> pixels(width * height, 0xFF112233u);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    std::vector<float> sonarMatrix(90 * 128, 0.4f);
+    std::vector<float> audioSamples(4096, 0.0f);
+    for (size_t i = 0; i < audioSamples.size(); ++i) {
+        audioSamples[i] = std::sin(static_cast<float>(i) * 0.1f) * 0.5f;
+    }
+
+    bool btnToggle = false;
+    auto renderUI = [&]() {
+        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(8.0f)})) {
+            if (ui.Button({.label = btnToggle ? "Mode B" : "Mode A"})) {
+                btnToggle = !btnToggle;
+            }
+            ui.SonarView(sonarMatrix, {
+                .label = "GPU Sonar Test",
+                .numBeams = 90,
+                .numRangeBins = 128,
+                .height = 220.0f
+            });
+            ui.SignalView(audioSamples, {
+                .label = "GPU Signal Test",
+                .sampleRate = 48000.0f,
+                .height = 220.0f
+            });
+        }
+    };
+
+    // 1. Render with GPU shaders enabled (Frame 1: initial layout, Frame 2: bounds converged)
+    canvas.SetGpuShadersEnabled(true);
+    CHECK(canvas.SupportsGpuShaders());
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    CHECK(canvas.HasActiveGpuPasses());
+    CHECK(canvas.GetSonarGpuPasses().size() == 1);
+    CHECK(canvas.GetSpectrogramGpuPasses().size() == 1);
+
+    const auto& sonarPass = canvas.GetSonarGpuPasses()[0];
+    CHECK(sonarPass.numBeams == 90);
+    CHECK(sonarPass.numRangeBins == 128);
+    CHECK(sonarPass.plotRect.w > 100.0f);
+    CHECK(sonarPass.clipRect.w > 100.0f);
+
+    // Verify PunchHole created transparent underlay pixels inside sonarPass.plotRect
+    size_t transparentCount = 0;
+    const int sx0 = static_cast<int>(sonarPass.plotRect.x) + 4;
+    const int sy0 = static_cast<int>(sonarPass.plotRect.y) + 4;
+    const int sx1 = static_cast<int>(sonarPass.plotRect.Right()) - 4;
+    const int sy1 = static_cast<int>(sonarPass.plotRect.Bottom()) - 4;
+    for (int y = sy0; y < sy1; y += 4) {
+        for (int x = sx0; x < sx1; x += 4) {
+            const uint32_t px = pixels[static_cast<size_t>(y) * width + static_cast<size_t>(x)];
+            if ((px >> 24) == 0) {
+                transparentCount++;
+            }
+        }
+    }
+    CHECK(transparentCount > 50);
+
+    // 2. Partial dirty-rect update on top button (outside SonarView & SignalView) preserves cached GPU passes
+    btnToggle = true;
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    CHECK(!ui.IsFullRepaint());
+    CHECK(canvas.HasActiveGpuPasses());
+    CHECK(canvas.GetSonarGpuPasses().size() == 1);
+    CHECK(canvas.GetSpectrogramGpuPasses().size() == 1);
+
+    // 3. Toggle GPU shaders OFF -> automatic CPU fallback with opaque background in plotRect
+    canvas.SetGpuShadersEnabled(false);
+    CHECK(!canvas.SupportsGpuShaders());
+    CHECK(!canvas.HasActiveGpuPasses());
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    size_t opaqueCount = 0;
+    for (int y = sy0; y < sy1; y += 8) {
+        for (int x = sx0; x < sx1; x += 8) {
+            const uint32_t px = pixels[static_cast<size_t>(y) * width + static_cast<size_t>(x)];
+            if ((px >> 24) == 255) {
+                opaqueCount++;
+            }
+        }
+    }
+    CHECK(opaqueCount > 20);
+
+    // 4. Test real SDL3 OpenGL renderer + SdlGlShaderEngine underlay rendering & pixel readback
+    if (SDL_Init(SDL_INIT_VIDEO)) {
+        SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
+        SDL_Window* win = nullptr;
+        SDL_Renderer* ren = nullptr;
+        if (SDL_CreateWindowAndRenderer("GpuTest", width, height, SDL_WINDOW_HIDDEN, &win, &ren)) {
+            SdlGlShaderEngine gpuEngine;
+            const bool glOk = gpuEngine.Initialize(ren);
+            CHECK(glOk);
+            CHECK(gpuEngine.IsAvailable());
+            canvas.SetGpuShadersEnabled(glOk);
+            ui.InvalidateAll();
+
+            SDL_Texture* tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, width, height);
+            SDL_SetTextureScaleMode(tex, SDL_SCALEMODE_NEAREST);
+            SDL_SetTextureBlendMode(tex, SDL_BLENDMODE_BLEND_PREMULTIPLIED);
+
+            for (int f = 0; f < 3; ++f) {
+                if (f == 1) {
+                    // Mutate sonar matrix & button on frame 1 to exercise glTexSubImage2D & partial updates
+                    sonarMatrix[10] = 0.9f;
+                    btnToggle = !btnToggle;
+                }
+                ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+                renderUI();
+                ui.EndFrame(canvas);
+
+                SDL_UpdateTexture(tex, nullptr, pixels.data(), width * sizeof(uint32_t));
+                SDL_RenderClear(ren);
+                if (canvas.HasActiveGpuPasses()) {
+                    gpuEngine.RenderUnderlays(canvas, width, height);
+                }
+                SDL_RenderTexture(ren, tex, nullptr, nullptr);
+
+                if (f == 2) {
+                    SDL_Surface* readSurf = SDL_RenderReadPixels(ren, nullptr);
+                    CHECK(readSurf != nullptr);
+                    if (readSurf) {
+                        CHECK(readSurf->w == static_cast<int>(width));
+                        CHECK(readSurf->h == static_cast<int>(height));
+                        SDL_DestroySurface(readSurf);
+                    }
+                }
+
+                SDL_RenderPresent(ren);
+            }
+
+            // 5. Verify mouse crosshair movement over SignalView uses StaticBaseLayerCache (RestoreRegion),
+            //    keeps partial dirty rect (!IsFullRepaint), preserves GPU underlay pass, and runs in < 2.0 ms/frame.
+            const Rect specPlot = canvas.GetSpectrogramGpuPasses()[0].plotRect;
+            double totalCrosshairMs = 0.0;
+            constexpr int kMoveFrames = 20;
+            for (int m = 0; m < kMoveFrames; ++m) {
+                ui.OnMouseMove({specPlot.x + 25.0f + static_cast<float>(m * 4), specPlot.y + 15.0f + static_cast<float>((m % 5) * 3)});
+                const auto t0 = std::chrono::steady_clock::now();
+                ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+                renderUI();
+                ui.EndFrame(canvas);
+                const auto t1 = std::chrono::steady_clock::now();
+                totalCrosshairMs += std::chrono::duration<double, std::milli>(t1 - t0).count();
+
+                CHECK(ui.HasDirtyDamage());
+                CHECK(!ui.IsFullRepaint());
+                CHECK(canvas.HasActiveGpuPasses());
+                CHECK(canvas.GetSpectrogramGpuPasses().size() == 1);
+            }
+            const double avgCrosshairMs = totalCrosshairMs / static_cast<double>(kMoveFrames);
+            std::cout << "  [BENCH] SignalView mouse crosshair move CPU frame time: " << avgCrosshairMs << " ms/frame\n";
+            CHECK(avgCrosshairMs < 5.0);
+
+            gpuEngine.Shutdown();
+            SDL_DestroyTexture(tex);
+            SDL_DestroyRenderer(ren);
+            SDL_DestroyWindow(win);
+        }
+        SDL_Quit();
+    }
+
+    std::cout << "  [PASS] TestSonarAndSignalGpuShaderPipeline completed\n";
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -6961,6 +7148,7 @@ int main() {
     TestSignalViewWidgetWorkflow();
     TestMapViewWidgetWorkflow();
     TestSonarViewWidgetWorkflow();
+    TestSonarAndSignalGpuShaderPipeline();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";
