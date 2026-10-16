@@ -1077,4 +1077,866 @@ void StepSlider::Render(
     }
 }
 
+// ============================================================================
+// RangeSlider (Two-Thumb Continuous / Stepped Interval Slider)
+// ============================================================================
+
+namespace {
+
+enum class RangeDragMode : uint8_t {
+    None = 0,
+    LowThumb,
+    HighThumb,
+    IntervalSpan
+};
+
+struct RangeSliderState {
+    RangeDragMode dragMode{RangeDragMode::None};
+    uint8_t activeThumb{1}; // 0 = low thumb, 1 = high thumb
+    double dragStartLow{0.0};
+    double dragStartHigh{0.0};
+    float dragStartMouseX{0.0f};
+};
+
+struct RangeSliderData {
+    RangeSliderOptions opts;
+    double lowValue{0.0};
+    double highValue{1.0};
+    double min{0.0};
+    double max{1.0};
+    uint8_t activeThumb{1};
+};
+
+struct ProgressBarData {
+    ProgressBarOptions opts;
+    double value{0.0};
+    double min{0.0};
+    double max{100.0};
+};
+
+ElementSpec MakeRangeSliderElementSpec(
+    const RangeSliderOptions& opts,
+    UiSize size,
+    bool disabled,
+    const UiTheme& theme
+) noexcept {
+    const SliderMetrics& m = theme.GetSlider(size);
+    return ElementSpec{
+        .label = opts.label,
+        .description = opts.description,
+        .icon = opts.icon,
+        .badge = opts.badge,
+        .variant = opts.variant,
+        .layout = opts.layout,
+        .inlineOrder = opts.inlineOrder,
+        .elementAlign = opts.elementAlign,
+        .stretch = opts.stretch,
+        .width = opts.width,
+        .widgetSize = size,
+        .labelGap = m.labelGap,
+        .descGap = m.descGap,
+        .inlineGap = 12.0f,
+        .divider = opts.divider,
+        .dividerStyle = opts.dividerStyle,
+        .stretchableControl = true,
+        .stretchHeightWhenStandalone = false,
+        .disabled = disabled
+    };
+}
+
+ElementSpec MakeProgressBarElementSpec(
+    const ProgressBarOptions& opts,
+    UiSize size,
+    bool disabled,
+    const UiTheme& theme
+) noexcept {
+    const SliderMetrics& m = theme.GetSlider(size);
+    return ElementSpec{
+        .label = opts.label,
+        .description = opts.description,
+        .icon = opts.icon,
+        .badge = opts.badge,
+        .variant = opts.variant,
+        .layout = opts.layout,
+        .inlineOrder = opts.inlineOrder,
+        .elementAlign = opts.elementAlign,
+        .stretch = opts.stretch,
+        .width = opts.width,
+        .widgetSize = size,
+        .labelGap = m.labelGap,
+        .descGap = m.descGap,
+        .inlineGap = 12.0f,
+        .divider = opts.divider,
+        .dividerStyle = opts.dividerStyle,
+        .stretchableControl = true,
+        .stretchHeightWhenStandalone = false,
+        .disabled = disabled
+    };
+}
+
+void FormatRangeSliderPair(
+    char* outBuf,
+    size_t bufSize,
+    double lowVal,
+    double highVal,
+    bool isInt,
+    std::string_view format
+) noexcept {
+    int specCount = 0;
+    size_t secondSpecPos = std::string_view::npos;
+    for (size_t i = 0; i < format.size(); ++i) {
+        if (format[i] == '%') {
+            if (i + 1 < format.size() && format[i + 1] == '%') {
+                ++i;
+                continue;
+            }
+            ++specCount;
+            if (specCount == 2) {
+                secondSpecPos = i;
+            }
+        }
+    }
+
+    if (specCount >= 2 && secondSpecPos != std::string_view::npos) {
+        const std::string_view part1 = format.substr(0, secondSpecPos);
+        const std::string_view part2 = format.substr(secondSpecPos);
+        char lowBuf[64];
+        char highBuf[64];
+        FormatSliderValue(lowBuf, sizeof(lowBuf), lowVal, isInt, part1);
+        FormatSliderValue(highBuf, sizeof(highBuf), highVal, isInt, part2);
+        std::snprintf(outBuf, bufSize, "%s%s", lowBuf, highBuf);
+        return;
+    }
+
+    char lowBuf[48];
+    char highBuf[48];
+    FormatSliderValue(lowBuf, sizeof(lowBuf), lowVal, isInt, format);
+    FormatSliderValue(highBuf, sizeof(highBuf), highVal, isInt, format);
+    std::snprintf(outBuf, bufSize, "%s .. %s", lowBuf, highBuf);
+}
+
+} // namespace
+
+Response RangeSlider::Run(
+    Context& ctx,
+    double* lowDouble,
+    double* highDouble,
+    float* lowFloat,
+    float* highFloat,
+    int64_t* lowInt,
+    int64_t* highInt,
+    double min,
+    double max,
+    const RangeSliderOptions& opts,
+    std::source_location loc
+) {
+    const Id id = ctx.MakeChildId(loc);
+    const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
+    const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    const UiTheme& activeTheme = ctx.GetTheme();
+
+    const SliderMetrics& m = activeTheme.GetSlider(activeSize);
+    const double rangeMin = std::min(min, max);
+    const double rangeMax = std::max(min, max);
+    const bool isInt = (lowInt != nullptr || highInt != nullptr);
+    const double effectiveStep = (opts.step.has_value() && *opts.step > 0.0) ? *opts.step : (isInt ? 1.0 : 0.0);
+    const double minSpan = std::clamp(std::max(0.0, opts.minSpan), 0.0, rangeMax - rangeMin);
+
+    double curLow = (lowDouble != nullptr) ? *lowDouble :
+                    (lowFloat != nullptr)  ? static_cast<double>(*lowFloat) :
+                    (lowInt != nullptr)    ? static_cast<double>(*lowInt) : rangeMin;
+    double curHigh = (highDouble != nullptr) ? *highDouble :
+                     (highFloat != nullptr)  ? static_cast<double>(*highFloat) :
+                     (highInt != nullptr)    ? static_cast<double>(*highInt) : rangeMax;
+
+    curLow = std::clamp(curLow, rangeMin, rangeMax);
+    curHigh = std::clamp(curHigh, rangeMin, rangeMax);
+    if (curHigh < curLow + minSpan) {
+        curHigh = std::min(rangeMax, curLow + minSpan);
+        curLow = std::max(rangeMin, curHigh - minSpan);
+    }
+
+    char initValBuf[96];
+    FormatRangeSliderPair(initValBuf, sizeof(initValBuf), curLow, curHigh, isInt, opts.valueFormat.text);
+    char maxSpanBuf[96];
+    FormatRangeSliderPair(maxSpanBuf, sizeof(maxSpanBuf), rangeMin, rangeMax, isInt, opts.valueFormat.text);
+    const std::string_view maxSpanView(maxSpanBuf);
+
+    Rect prevBounds = ctx.GetPrevFrameBounds(id);
+    auto& state = ctx.GetOrCreateState<RangeSliderState>(id);
+
+    ctx.RegisterFocusable(id, effectiveDisabled);
+
+    Response res = ctx.Interact(id);
+    if (effectiveDisabled) {
+        res.clicked = false;
+        res.hovered = false;
+        res.pressed = false;
+        state.dragMode = RangeDragMode::None;
+    } else {
+        const float halfThumb = m.thumbSize * 0.5f;
+        const SliderControlMetrics cm = ComputeSliderControlMetrics(
+            opts.textLeft, opts.textRight, opts.valueFormat, initValBuf,
+            opts.showValue, opts.valuePlacement, opts.stretch, opts.width,
+            0.0f, activeSize, nullptr, activeTheme,
+            std::span<const std::string_view>(&maxSpanView, 1)
+        );
+        const ElementSpec spec = MakeRangeSliderElementSpec(opts, activeSize, effectiveDisabled, activeTheme);
+        const ElementGeometry geom = Element::Resolve(prevBounds, cm.intrinsicControlSize, spec, nullptr, activeTheme);
+        const float trackRegionX = geom.controlRect.x + cm.leftGutterW;
+        const float trackRegionW = std::max(m.thumbSize, geom.controlRect.w - cm.leftGutterW - cm.rightGutterW);
+        const float trackStartX = trackRegionX + halfThumb;
+        const float trackWidth = std::max(1.0f, trackRegionW - m.thumbSize);
+
+        const double range = std::max(1e-9, rangeMax - rangeMin);
+        const float lowRatio = static_cast<float>(std::clamp((curLow - rangeMin) / range, 0.0, 1.0));
+        const float highRatio = static_cast<float>(std::clamp((curHigh - rangeMin) / range, 0.0, 1.0));
+        const float lowThumbX = trackStartX + lowRatio * trackWidth;
+        const float highThumbX = trackStartX + highRatio * trackWidth;
+
+        if (res.clicked || (res.pressed && state.dragMode == RangeDragMode::None)) {
+            const float mouseX = ctx.GetMousePos().x;
+            const float distLow = std::abs(mouseX - lowThumbX);
+            const float distHigh = std::abs(mouseX - highThumbX);
+            const bool insideIntervalBar = (mouseX > lowThumbX + halfThumb * 1.15f) &&
+                                           (mouseX < highThumbX - halfThumb * 1.15f) &&
+                                           ((highThumbX - lowThumbX) > m.thumbSize * 1.8f);
+
+            if (insideIntervalBar || ctx.GetKeyModifiers().shift) {
+                state.dragMode = RangeDragMode::IntervalSpan;
+            } else if (distLow < distHigh || (distLow == distHigh && mouseX < lowThumbX)) {
+                state.dragMode = RangeDragMode::LowThumb;
+                state.activeThumb = 0;
+            } else {
+                state.dragMode = RangeDragMode::HighThumb;
+                state.activeThumb = 1;
+            }
+            state.dragStartLow = curLow;
+            state.dragStartHigh = curHigh;
+            state.dragStartMouseX = mouseX;
+            ctx.SetActiveId(id);
+            ctx.RequestFocus(id);
+        }
+
+        if (state.dragMode != RangeDragMode::None) {
+            if (!ctx.IsMouseDown()) {
+                state.dragMode = RangeDragMode::None;
+                if (ctx.GetActiveId() == id) {
+                    ctx.SetActiveId(Id::Null());
+                }
+            } else {
+                res.pressed = true;
+                const float mouseX = ctx.GetMousePos().x;
+                auto quantize = [&](double v) -> double {
+                    if (effectiveStep > 0.0) {
+                        v = rangeMin + std::round((v - rangeMin) / effectiveStep) * effectiveStep;
+                    }
+                    return std::clamp(v, rangeMin, rangeMax);
+                };
+
+                if (state.dragMode == RangeDragMode::LowThumb) {
+                    const float t = std::clamp((mouseX - trackStartX) / trackWidth, 0.0f, 1.0f);
+                    double rawLow = quantize(rangeMin + t * (rangeMax - rangeMin));
+                    rawLow = std::min(rawLow, curHigh - minSpan);
+                    rawLow = std::clamp(rawLow, rangeMin, rangeMax);
+                    if (rawLow != curLow) {
+                        curLow = rawLow;
+                        res.changed = true;
+                        ctx.RequestRepaint(3);
+                    }
+                } else if (state.dragMode == RangeDragMode::HighThumb) {
+                    const float t = std::clamp((mouseX - trackStartX) / trackWidth, 0.0f, 1.0f);
+                    double rawHigh = quantize(rangeMin + t * (rangeMax - rangeMin));
+                    rawHigh = std::max(rawHigh, curLow + minSpan);
+                    rawHigh = std::clamp(rawHigh, rangeMin, rangeMax);
+                    if (rawHigh != curHigh) {
+                        curHigh = rawHigh;
+                        res.changed = true;
+                        ctx.RequestRepaint(3);
+                    }
+                } else if (state.dragMode == RangeDragMode::IntervalSpan) {
+                    const double span = state.dragStartHigh - state.dragStartLow;
+                    const double deltaVal = ((mouseX - state.dragStartMouseX) / trackWidth) * (rangeMax - rangeMin);
+                    double newLow = state.dragStartLow + deltaVal;
+                    if (newLow < rangeMin) newLow = rangeMin;
+                    if (newLow + span > rangeMax) newLow = rangeMax - span;
+                    newLow = quantize(newLow);
+                    double newHigh = std::clamp(newLow + span, rangeMin, rangeMax);
+                    if (effectiveStep > 0.0) {
+                        newHigh = quantize(newHigh);
+                    }
+                    if (newLow != curLow || newHigh != curHigh) {
+                        curLow = newLow;
+                        curHigh = newHigh;
+                        res.changed = true;
+                        ctx.RequestRepaint(3);
+                    }
+                }
+            }
+        }
+
+        // Keyboard arrow adjustment when focused
+        if (ctx.IsFocused(id) && state.dragMode == RangeDragMode::None) {
+            const double stepDelta = (effectiveStep > 0.0) ? effectiveStep : (rangeMax - rangeMin) * 0.05;
+            double dir = 0.0;
+            if (ctx.ConsumeKey(Key::Right) || ctx.ConsumeKey(Key::Up)) dir = 1.0;
+            else if (ctx.ConsumeKey(Key::Left) || ctx.ConsumeKey(Key::Down)) dir = -1.0;
+
+            if (dir != 0.0) {
+                if (state.activeThumb == 0) {
+                    const double nextLow = std::clamp(curLow + dir * stepDelta, rangeMin, curHigh - minSpan);
+                    if (nextLow != curLow) {
+                        curLow = nextLow;
+                        res.changed = true;
+                        ctx.RequestRepaint(3);
+                    }
+                } else {
+                    const double nextHigh = std::clamp(curHigh + dir * stepDelta, curLow + minSpan, rangeMax);
+                    if (nextHigh != curHigh) {
+                        curHigh = nextHigh;
+                        res.changed = true;
+                        ctx.RequestRepaint(3);
+                    }
+                }
+            }
+        }
+    }
+
+    if (res.hovered && !opts.tooltip.empty()) {
+        ctx.SetTooltip(opts.tooltip, prevBounds);
+    }
+
+    if (lowDouble != nullptr)  *lowDouble = curLow;
+    if (highDouble != nullptr) *highDouble = curHigh;
+    if (lowFloat != nullptr)   *lowFloat = static_cast<float>(curLow);
+    if (highFloat != nullptr)  *highFloat = static_cast<float>(curHigh);
+    if (lowInt != nullptr)     *lowInt = static_cast<int64_t>(std::round(curLow));
+    if (highInt != nullptr)    *highInt = static_cast<int64_t>(std::round(curHigh));
+
+    Node* node = ctx.CreateNode(NodeType::RangeSlider, id);
+    node->theme = pushedTheme;
+    node->uiSize = activeSize;
+    node->disabled = effectiveDisabled;
+    node->hovered = res.hovered;
+    node->pressed = res.pressed || (state.dragMode != RangeDragMode::None);
+    node->focused = ctx.IsFocused(id);
+    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
+    node->heightMode = SizeMode::Fit;
+
+    auto* data = ctx.AllocPayload<RangeSliderData>();
+    data->opts = opts;
+    data->opts.label = ctx.AllocText(opts.label);
+    data->opts.badge = ctx.AllocText(opts.badge);
+    data->opts.textLeft = ctx.AllocText(opts.textLeft);
+    data->opts.textRight = ctx.AllocText(opts.textRight);
+    data->opts.description = ctx.AllocText(opts.description);
+    data->opts.tooltip = ctx.AllocText(opts.tooltip);
+    data->opts.valueFormat = ctx.AllocText(opts.valueFormat);
+    node->text = data->opts.label.text;
+    data->lowValue = curLow;
+    data->highValue = curHigh;
+    data->min = rangeMin;
+    data->max = rangeMax;
+    data->activeThumb = state.activeThumb;
+    node->SetPayload(data);
+
+    uint64_t lowBits = 0, highBits = 0;
+    std::memcpy(&lowBits, &curLow, sizeof(double));
+    std::memcpy(&highBits, &curHigh, sizeof(double));
+    node->visualHash = detail::HashArgs(
+        lowBits,
+        highBits,
+        state.activeThumb,
+        opts.variant,
+        static_cast<uint8_t>(opts.stretch),
+        static_cast<uint8_t>(opts.layout),
+        static_cast<uint8_t>(opts.inlineOrder),
+        static_cast<uint8_t>(opts.elementAlign),
+        static_cast<uint8_t>(opts.valuePlacement),
+        static_cast<uint8_t>(opts.divider),
+        static_cast<uint8_t>(opts.dividerStyle),
+        opts.width.value_or(0.0f),
+        opts.showValue,
+        data->opts.label,
+        data->opts.badge,
+        data->opts.icon,
+        data->opts.textLeft,
+        data->opts.textRight,
+        data->opts.description,
+        data->opts.valueFormat
+    );
+
+    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+        const auto* d = n->As<RangeSliderData>();
+        return RangeSlider::Measure(
+            d ? d->opts : RangeSliderOptions{},
+            d ? d->lowValue : 0.0,
+            d ? d->highValue : 1.0,
+            d ? d->min : 0.0,
+            d ? d->max : 1.0,
+            n->uiSize, canvas, theme, availableWidth
+        );
+    };
+
+    node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
+        const auto* d = n->As<RangeSliderData>();
+        if (!d) return;
+        RangeSlider::Render(
+            canvas, n->computedRect, d->lowValue, d->highValue, d->min, d->max,
+            d->opts, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused, d->activeThumb
+        );
+    };
+
+    ctx.AdaptChildToContainer(node);
+    if (pushedTheme) {
+        ctx.PopTheme();
+    }
+    return res;
+}
+
+Vec2 RangeSlider::Measure(
+    const RangeSliderOptions& opts,
+    double lowValue,
+    double highValue,
+    double min,
+    double max,
+    UiSize size,
+    ICanvas* canvas,
+    const UiTheme& theme,
+    float availableWidth
+) {
+    const double rangeMin = std::min(min, max);
+    const double rangeMax = std::max(min, max);
+    const bool isIntStep = opts.step.has_value() && *opts.step >= 1.0 &&
+                           std::abs(*opts.step - std::round(*opts.step)) < 0.0001;
+    char valBuf[96];
+    FormatRangeSliderPair(valBuf, sizeof(valBuf), lowValue, highValue, isIntStep, opts.valueFormat.text);
+    char maxSpanBuf[96];
+    FormatRangeSliderPair(maxSpanBuf, sizeof(maxSpanBuf), rangeMin, rangeMax, isIntStep, opts.valueFormat.text);
+    const std::string_view maxSpanView(maxSpanBuf);
+
+    const SliderControlMetrics cm = ComputeSliderControlMetrics(
+        opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
+        opts.showValue, opts.valuePlacement, opts.stretch, opts.width,
+        0.0f, size, canvas, theme,
+        std::span<const std::string_view>(&maxSpanView, 1)
+    );
+    const ElementSpec spec = MakeRangeSliderElementSpec(opts, size, opts.disabled, theme);
+    return Element::Measure(cm.intrinsicControlSize, spec, canvas, theme, availableWidth);
+}
+
+Vec2 RangeSlider::Measure(
+    const RangeSliderOptions& opts,
+    double lowValue,
+    double highValue,
+    double min,
+    double max,
+    UiSize size,
+    ICanvas* canvas,
+    float availableWidth
+) {
+    static const UiTheme defaultTheme = UiTheme::Dark();
+    return Measure(opts, lowValue, highValue, min, max, size, canvas, defaultTheme, availableWidth);
+}
+
+void RangeSlider::Render(
+    ICanvas& canvas,
+    Rect bounds,
+    double lowValue,
+    double highValue,
+    double min,
+    double max,
+    const RangeSliderOptions& opts,
+    UiSize size,
+    bool hovered,
+    bool active,
+    bool disabled,
+    const UiTheme& theme,
+    bool focused,
+    uint8_t activeThumb
+) {
+    if (bounds.w <= 0.0f || bounds.h <= 0.0f) return;
+
+    const SliderMetrics& m = theme.GetSlider(size);
+    const auto& pal = theme.palette;
+    const VariantColors& variantCol = theme.GetVariant(opts.variant);
+    const double rangeMin = std::min(min, max);
+    const double rangeMax = std::max(min, max);
+    const bool isIntStep = opts.step.has_value() && *opts.step >= 1.0 &&
+                           std::abs(*opts.step - std::round(*opts.step)) < 0.0001;
+
+    char valBuf[96];
+    FormatRangeSliderPair(valBuf, sizeof(valBuf), lowValue, highValue, isIntStep, opts.valueFormat.text);
+    char maxSpanBuf[96];
+    FormatRangeSliderPair(maxSpanBuf, sizeof(maxSpanBuf), rangeMin, rangeMax, isIntStep, opts.valueFormat.text);
+    const std::string_view maxSpanView(maxSpanBuf);
+
+    const SliderControlMetrics cm = ComputeSliderControlMetrics(
+        opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
+        opts.showValue, opts.valuePlacement, opts.stretch, opts.width,
+        0.0f, size, &canvas, theme,
+        std::span<const std::string_view>(&maxSpanView, 1)
+    );
+    const ElementSpec spec = MakeRangeSliderElementSpec(opts, size, disabled, theme);
+    const ElementGeometry geom = Element::Resolve(bounds, cm.intrinsicControlSize, spec, &canvas, theme);
+    Element::RenderText(canvas, geom, spec, theme);
+
+    const float halfThumb = m.thumbSize * 0.5f;
+    const float trackRegionX = geom.controlRect.x + cm.leftGutterW;
+    const float trackRegionW = std::max(m.thumbSize, geom.controlRect.w - cm.leftGutterW - cm.rightGutterW);
+    const float trackStartX = trackRegionX + halfThumb;
+    const float trackWidth = std::max(0.0f, trackRegionW - m.thumbSize);
+    const float trackRowY = geom.controlRect.y + cm.topValH;
+    const float centerY = trackRowY + cm.trackRowH * 0.5f;
+
+    const double range = rangeMax - rangeMin;
+    const float lowRatio = (range > 0.0) ? static_cast<float>(std::clamp((lowValue - rangeMin) / range, 0.0, 1.0)) : 0.0f;
+    const float highRatio = (range > 0.0) ? static_cast<float>(std::clamp((highValue - rangeMin) / range, 0.0, 1.0)) : 1.0f;
+    const float lowThumbX = trackStartX + std::min(lowRatio, highRatio) * trackWidth;
+    const float highThumbX = trackStartX + std::max(lowRatio, highRatio) * trackWidth;
+    const float midCenterX = (lowThumbX + highThumbX) * 0.5f;
+
+    // 0. Draw companion textLeft / textRight and value readout
+    RenderSliderCompanionTexts(
+        canvas, geom.controlRect, trackRegionX, trackRegionW, trackRowY, midCenterX,
+        cm, opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
+        opts.showValue, opts.valuePlacement, disabled, theme
+    );
+
+    // 1. Draw inactive background track
+    const Rect trackBgRect(trackStartX, centerY - m.trackHeight * 0.5f, trackWidth, m.trackHeight);
+    const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
+    const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
+    canvas.DrawRoundRect(trackBgRect, m.trackHeight * 0.5f, trackBg, trackBorder, 1.0f);
+
+    // 2. Draw active filled interval [lowThumbX .. highThumbX]
+    const float fillW = std::max(0.0f, highThumbX - lowThumbX);
+    if (fillW > 0.0f) {
+        const Rect fillRect(lowThumbX, centerY - m.trackHeight * 0.5f, fillW, m.trackHeight);
+        const Color baseFill = (opts.variant == UiVariant::Ghost) ? pal.borderHover : variantCol.bg;
+        const Color fillCol = disabled ? baseFill.WithAlphaF(0.4f) : baseFill;
+        canvas.DrawRoundRect(fillRect, m.trackHeight * 0.5f, fillCol);
+    }
+
+    // 3. Draw low and high thumb knobs
+    auto drawThumb = [&](float thumbX, bool isFocusedThumb) {
+        const Rect thumbRect(thumbX - halfThumb, centerY - halfThumb, m.thumbSize, m.thumbSize);
+        const Color thumbBg = disabled ? pal.surface.WithAlphaF(0.5f) :
+                              (active && isFocusedThumb) ? variantCol.bgActive : pal.surface;
+        const Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
+                                  (focused && isFocusedThumb) ? pal.focusRing :
+                                  (active || hovered) ? pal.accent : pal.borderHover;
+        const float thumbBorderW = (active || hovered || (focused && isFocusedThumb)) ? 2.5f : 2.0f;
+        canvas.DrawRoundRect(thumbRect, halfThumb, thumbBg, thumbBorder, thumbBorderW);
+    };
+
+    drawThumb(lowThumbX, activeThumb == 0);
+    drawThumb(highThumbX, activeThumb == 1);
+}
+
+// ============================================================================
+// ProgressBar (Continuous Progress Bar & Segmented LED / VU LevelMeter)
+// ============================================================================
+
+Response ProgressBar::Run(
+    Context& ctx,
+    double value,
+    double min,
+    double max,
+    const ProgressBarOptions& opts,
+    std::source_location loc
+) {
+    const Id id = ctx.MakeChildId(loc);
+    const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
+    const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
+    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+
+    const double rangeMin = std::min(min, max);
+    const double rangeMax = std::max(min, max);
+    const double clampedVal = std::clamp(value, rangeMin, rangeMax);
+
+    Response res = ctx.Interact(id);
+    res.clicked = false;
+    res.pressed = false;
+    if (effectiveDisabled) {
+        res.hovered = false;
+    } else if (res.hovered && !opts.tooltip.empty()) {
+        ctx.SetTooltip(opts.tooltip, ctx.GetPrevFrameBounds(id));
+    }
+
+    Node* node = ctx.CreateNode(NodeType::ProgressBar, id);
+    node->theme = pushedTheme;
+    node->uiSize = activeSize;
+    node->disabled = effectiveDisabled;
+    node->hovered = res.hovered;
+    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
+    node->heightMode = SizeMode::Fit;
+
+    auto* data = ctx.AllocPayload<ProgressBarData>();
+    data->opts = opts;
+    data->opts.label = ctx.AllocText(opts.label);
+    data->opts.badge = ctx.AllocText(opts.badge);
+    data->opts.textLeft = ctx.AllocText(opts.textLeft);
+    data->opts.textRight = ctx.AllocText(opts.textRight);
+    data->opts.description = ctx.AllocText(opts.description);
+    data->opts.tooltip = ctx.AllocText(opts.tooltip);
+    data->opts.valueFormat = ctx.AllocText(opts.valueFormat);
+    node->text = data->opts.label.text;
+    data->value = clampedVal;
+    data->min = rangeMin;
+    data->max = rangeMax;
+    node->SetPayload(data);
+
+    uint64_t valBits = 0;
+    std::memcpy(&valBits, &clampedVal, sizeof(double));
+    const double peakVal = opts.peakHoldValue.value_or(-1e9);
+    uint64_t peakBits = 0;
+    std::memcpy(&peakBits, &peakVal, sizeof(double));
+
+    node->visualHash = detail::HashArgs(
+        valBits,
+        peakBits,
+        opts.segments,
+        opts.multiZoneColor,
+        opts.warningRatio,
+        opts.dangerRatio,
+        opts.trackHeight.value_or(0.0f),
+        opts.variant,
+        static_cast<uint8_t>(opts.stretch),
+        static_cast<uint8_t>(opts.layout),
+        static_cast<uint8_t>(opts.inlineOrder),
+        static_cast<uint8_t>(opts.elementAlign),
+        static_cast<uint8_t>(opts.valuePlacement),
+        static_cast<uint8_t>(opts.divider),
+        static_cast<uint8_t>(opts.dividerStyle),
+        opts.width.value_or(0.0f),
+        opts.showValue,
+        data->opts.label,
+        data->opts.badge,
+        data->opts.icon,
+        data->opts.textLeft,
+        data->opts.textRight,
+        data->opts.description,
+        data->opts.valueFormat
+    );
+
+    node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
+        const auto* d = n->As<ProgressBarData>();
+        return ProgressBar::Measure(
+            d ? d->opts : ProgressBarOptions{},
+            d ? d->value : 0.0,
+            d ? d->min : 0.0,
+            d ? d->max : 100.0,
+            n->uiSize, canvas, theme, availableWidth
+        );
+    };
+
+    node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
+        const auto* d = n->As<ProgressBarData>();
+        if (!d) return;
+        ProgressBar::Render(
+            canvas, n->computedRect, d->value, d->min, d->max,
+            d->opts, n->uiSize, n->hovered, n->disabled, theme
+        );
+    };
+
+    ctx.AdaptChildToContainer(node);
+    if (pushedTheme) {
+        ctx.PopTheme();
+    }
+    return res;
+}
+
+Vec2 ProgressBar::Measure(
+    const ProgressBarOptions& opts,
+    double value,
+    double min,
+    double max,
+    UiSize size,
+    ICanvas* canvas,
+    const UiTheme& theme,
+    float availableWidth
+) {
+    const double rangeMin = std::min(min, max);
+    const double rangeMax = std::max(min, max);
+    const std::string_view fmt = opts.valueFormat.text.empty() ? "%.0f %%" : opts.valueFormat.text;
+    char valBuf[64];
+    FormatSliderValue(valBuf, sizeof(valBuf), value, false, fmt);
+
+    UiText fmtText = opts.valueFormat;
+    if (fmtText.text.empty()) {
+        fmtText.text = fmt;
+    }
+
+    SliderControlMetrics cm = ComputeSliderControlMetrics(
+        opts.textLeft, opts.textRight, fmtText, valBuf,
+        opts.showValue, opts.valuePlacement, opts.stretch, opts.width,
+        0.0f, size, canvas, theme,
+        {}, true, rangeMin, rangeMax, false
+    );
+    if (opts.trackHeight.has_value()) {
+        const float minRowH = theme.Scale(*opts.trackHeight) + 4.0f;
+        if (minRowH > cm.trackRowH) {
+            cm.intrinsicControlSize.y += (minRowH - cm.trackRowH);
+            cm.trackRowH = minRowH;
+        }
+    }
+    const ElementSpec spec = MakeProgressBarElementSpec(opts, size, opts.disabled, theme);
+    return Element::Measure(cm.intrinsicControlSize, spec, canvas, theme, availableWidth);
+}
+
+Vec2 ProgressBar::Measure(
+    const ProgressBarOptions& opts,
+    double value,
+    double min,
+    double max,
+    UiSize size,
+    ICanvas* canvas,
+    float availableWidth
+) {
+    static const UiTheme defaultTheme = UiTheme::Dark();
+    return Measure(opts, value, min, max, size, canvas, defaultTheme, availableWidth);
+}
+
+void ProgressBar::Render(
+    ICanvas& canvas,
+    Rect bounds,
+    double value,
+    double min,
+    double max,
+    const ProgressBarOptions& opts,
+    UiSize size,
+    bool /*hovered*/,
+    bool disabled,
+    const UiTheme& theme
+) {
+    if (bounds.w <= 0.0f || bounds.h <= 0.0f) return;
+
+    const SliderMetrics& m = theme.GetSlider(size);
+    const auto& pal = theme.palette;
+    const double rangeMin = std::min(min, max);
+    const double rangeMax = std::max(min, max);
+    const std::string_view fmt = opts.valueFormat.text.empty() ? "%.0f %%" : opts.valueFormat.text;
+
+    char valBuf[64];
+    FormatSliderValue(valBuf, sizeof(valBuf), value, false, fmt);
+
+    UiText fmtText = opts.valueFormat;
+    if (fmtText.text.empty()) {
+        fmtText.text = fmt;
+    }
+
+    SliderControlMetrics cm = ComputeSliderControlMetrics(
+        opts.textLeft, opts.textRight, fmtText, valBuf,
+        opts.showValue, opts.valuePlacement, opts.stretch, opts.width,
+        0.0f, size, &canvas, theme,
+        {}, true, rangeMin, rangeMax, false
+    );
+    const float barH = opts.trackHeight.has_value()
+        ? theme.Scale(*opts.trackHeight)
+        : std::max(m.trackHeight * 1.55f, 8.0f);
+    if (barH + 4.0f > cm.trackRowH) {
+        cm.intrinsicControlSize.y += ((barH + 4.0f) - cm.trackRowH);
+        cm.trackRowH = barH + 4.0f;
+    }
+
+    const ElementSpec spec = MakeProgressBarElementSpec(opts, size, disabled, theme);
+    const ElementGeometry geom = Element::Resolve(bounds, cm.intrinsicControlSize, spec, &canvas, theme);
+    Element::RenderText(canvas, geom, spec, theme);
+
+    const float trackRegionX = geom.controlRect.x + cm.leftGutterW;
+    const float trackRegionW = std::max(12.0f, geom.controlRect.w - cm.leftGutterW - cm.rightGutterW);
+    const float trackRowY = geom.controlRect.y + cm.topValH;
+    const float centerY = trackRowY + cm.trackRowH * 0.5f;
+
+    const double range = rangeMax - rangeMin;
+    const float ratio = (range > 0.0) ? static_cast<float>(std::clamp((value - rangeMin) / range, 0.0, 1.0)) : 0.0f;
+    const float fillW = ratio * trackRegionW;
+    const float tipX = trackRegionX + fillW;
+
+    // 0. Draw companion textLeft / textRight and value readout
+    RenderSliderCompanionTexts(
+        canvas, geom.controlRect, trackRegionX, trackRegionW, trackRowY, tipX,
+        cm, opts.textLeft, opts.textRight, fmtText, valBuf,
+        opts.showValue, opts.valuePlacement, disabled, theme
+    );
+
+    auto resolveZoneColor = [&](float normPos) -> Color {
+        if (!opts.multiZoneColor) {
+            const VariantColors& vc = theme.GetVariant(opts.variant);
+            const Color base = (opts.variant == UiVariant::Ghost) ? pal.borderHover : vc.bg;
+            return disabled ? base.WithAlphaF(0.4f) : base;
+        }
+        UiVariant zoneVar = (opts.variant == UiVariant::Primary || opts.variant == UiVariant::Default)
+            ? UiVariant::Success
+            : opts.variant;
+        if (normPos >= opts.dangerRatio) {
+            zoneVar = UiVariant::Danger;
+        } else if (normPos >= opts.warningRatio) {
+            zoneVar = UiVariant::Warning;
+        }
+        const Color col = theme.GetVariant(zoneVar).bg;
+        return disabled ? col.WithAlphaF(0.4f) : col;
+    };
+
+    const float barY = centerY - barH * 0.5f;
+
+    if (opts.segments > 1) {
+        // Segmented LED / VU Level Meter
+        const uint32_t segCount = std::min<uint32_t>(opts.segments, 64u);
+        const float gap = (segCount > 24) ? 1.5f : 2.5f;
+        const float segW = std::max(2.0f, (trackRegionW - gap * static_cast<float>(segCount - 1)) / static_cast<float>(segCount));
+        const float segRadius = std::min(2.5f, barH * 0.25f);
+        const Color unlitBg = disabled ? pal.surfaceActive.WithAlphaF(0.35f) : pal.surfaceActive;
+        const Color unlitBorder = disabled ? pal.border.WithAlphaF(0.25f) : pal.border.WithAlphaF(0.65f);
+
+        int peakSegIdx = -1;
+        if (opts.peakHoldValue.has_value() && range > 0.0) {
+            const float peakRatio = static_cast<float>(std::clamp((*opts.peakHoldValue - rangeMin) / range, 0.0, 1.0));
+            if (peakRatio > 0.001f) {
+                peakSegIdx = std::clamp(static_cast<int>( std::ceil(peakRatio * static_cast<float>(segCount)) ) - 1, 0, static_cast<int>(segCount) - 1);
+            }
+        }
+
+        for (uint32_t i = 0; i < segCount; ++i) {
+            const float segX = trackRegionX + static_cast<float>(i) * (segW + gap);
+            const float segThreshold = static_cast<float>(i + 1) / static_cast<float>(segCount);
+            const float segMidRatio = (static_cast<float>(i) + 0.5f) / static_cast<float>(segCount);
+            const bool isLit = (ratio >= segThreshold - (0.5f / static_cast<float>(segCount))) && (ratio > 0.001f);
+            const bool isPeakSeg = (static_cast<int>(i) == peakSegIdx);
+
+            const Rect segRect(segX, barY, segW, barH);
+            if (isLit || isPeakSeg) {
+                const Color segCol = resolveZoneColor(segMidRatio);
+                canvas.DrawRoundRect(segRect, segRadius, segCol);
+            } else {
+                canvas.DrawRoundRect(segRect, segRadius, unlitBg, unlitBorder, 1.0f);
+            }
+        }
+    } else {
+        // Smooth continuous progress bar
+        const Rect trackBgRect(trackRegionX, barY, trackRegionW, barH);
+        const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
+        const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
+        canvas.DrawRoundRect(trackBgRect, barH * 0.5f, trackBg, trackBorder, 1.0f);
+
+        if (fillW > 0.5f) {
+            const Rect fillRect(trackRegionX, barY, fillW, barH);
+            const Color fillCol = resolveZoneColor(ratio);
+            canvas.DrawRoundRect(fillRect, barH * 0.5f, fillCol);
+        }
+
+        // Optional peak-hold marker tick on smooth bar
+        if (opts.peakHoldValue.has_value() && range > 0.0) {
+            const float peakRatio = static_cast<float>(std::clamp((*opts.peakHoldValue - rangeMin) / range, 0.0, 1.0));
+            if (peakRatio > 0.001f) {
+                const float peakX = trackRegionX + peakRatio * trackRegionW;
+                const Color peakCol = resolveZoneColor(peakRatio);
+                canvas.DrawRoundRect(Rect(peakX - 1.5f, barY - 2.0f, 3.0f, barH + 4.0f), 1.5f, peakCol);
+            }
+        }
+    }
+}
+
 } // namespace guikit

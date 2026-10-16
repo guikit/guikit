@@ -86,6 +86,8 @@ enum class NodeType : uint16_t {
     SignalView    = 217,
     SonarView     = 218,
     WaterfallView = 219,
+    RangeSlider   = 220,
+    ProgressBar   = 221,
 
     // --- User Extension Base (1000+) ---
     User          = 1000
@@ -260,6 +262,8 @@ struct Node {
             case NodeType::SignalView:    return "SignalView";
             case NodeType::SonarView:     return "SonarView";
             case NodeType::WaterfallView: return "WaterfallView";
+            case NodeType::RangeSlider:   return "RangeSlider";
+            case NodeType::ProgressBar:   return "ProgressBar";
             default:                      return (static_cast<uint16_t>(type) >= static_cast<uint16_t>(NodeType::User)) ? "UserWidget" : "Unknown";
         }
     }

@@ -7,35 +7,143 @@ namespace {
 struct CheckboxState {
     bool state = true;
     bool indet = false;
+    bool radio = false;
+    bool radioGroupDemo = false;
+    int selectedRadioIdx = 0;
 };
 CheckboxState s_state;
 } // namespace
 
 void RenderCheckboxInspector(guikit::Context& ui, DemoContext&) {
-    if (ui.Switch(s_state.indet, {.label = "Indeterminate Tri-State"}).changed) ui.InvalidateAll();
+    if (ui.Switch(s_state.radio, {
+        .label = "Radio Button Style",
+        .description = "Circular radio indicator vs Square checkbox"
+    }).changed) {
+        ui.InvalidateAll();
+    }
+    if (s_state.radio) {
+        if (ui.Switch(s_state.radioGroupDemo, {
+            .label = "Preview 3-Option Radio Group",
+            .description = "Test ui.RadioButton(activeVal, optionVal)"
+        }).changed) {
+            ui.InvalidateAll();
+        }
+    } else {
+        if (ui.Switch(s_state.indet, {.label = "Indeterminate Tri-State"}).changed) {
+            ui.InvalidateAll();
+        }
+    }
 }
 
 void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
-    ui.Checkbox(s_state.state, {
-        .label = ctx.elemLabel,
-        .description = ctx.GetElementDescription(),
-        .icon = ctx.GetElementIcon(),
-        .badge = ctx.GetElementBadge(),
-        .variant = ctx.btnVariant,
-        .layout = ctx.elemLayout,
-        .inlineOrder = ctx.elemInlineOrder,
-        .elementAlign = ctx.elemAlign,
-        .stretch = ctx.GetElementStretch(),
-        .width = ctx.GetElementWidth(),
-        .divider = ctx.elemDivider,
-        .dividerStyle = ctx.elemDividerStyle,
-        .disabled = ctx.elemDisabled,
-        .indeterminate = s_state.indet,
-        .size = ctx.controlsSize
-    });
+    if (s_state.radio && s_state.radioGroupDemo) {
+        if (auto col = ui.Column({.gap = 10.0f})) {
+            ui.RadioButton(s_state.selectedRadioIdx, 0, {
+                .label = ctx.elemLabel.empty() ? "Option A — Automatic Gain (AGC)" : ctx.elemLabel,
+                .description = ctx.GetElementDescription(),
+                .icon = ctx.GetElementIcon(),
+                .badge = ctx.GetElementBadge(),
+                .variant = ctx.btnVariant,
+                .layout = ctx.elemLayout,
+                .inlineOrder = ctx.elemInlineOrder,
+                .elementAlign = ctx.elemAlign,
+                .stretch = ctx.GetElementStretch(),
+                .width = ctx.GetElementWidth(),
+                .divider = ctx.elemDivider,
+                .dividerStyle = ctx.elemDividerStyle,
+                .disabled = ctx.elemDisabled,
+                .size = ctx.controlsSize
+            });
+            ui.RadioButton(s_state.selectedRadioIdx, 1, {
+                .label = "Option B — Manual Fixed Gain",
+                .description = ctx.GetElementDescription(),
+                .icon = ctx.GetElementIcon(),
+                .badge = ctx.GetElementBadge(),
+                .variant = ctx.btnVariant,
+                .layout = ctx.elemLayout,
+                .inlineOrder = ctx.elemInlineOrder,
+                .elementAlign = ctx.elemAlign,
+                .stretch = ctx.GetElementStretch(),
+                .width = ctx.GetElementWidth(),
+                .divider = ctx.elemDivider,
+                .dividerStyle = ctx.elemDividerStyle,
+                .disabled = ctx.elemDisabled,
+                .size = ctx.controlsSize
+            });
+            ui.RadioButton(s_state.selectedRadioIdx, 2, {
+                .label = "Option C — External Hardware Trigger",
+                .description = ctx.GetElementDescription(),
+                .icon = ctx.GetElementIcon(),
+                .badge = ctx.GetElementBadge(),
+                .variant = ctx.btnVariant,
+                .layout = ctx.elemLayout,
+                .inlineOrder = ctx.elemInlineOrder,
+                .elementAlign = ctx.elemAlign,
+                .stretch = ctx.GetElementStretch(),
+                .width = ctx.GetElementWidth(),
+                .divider = ctx.elemDivider,
+                .dividerStyle = ctx.elemDividerStyle,
+                .disabled = ctx.elemDisabled,
+                .size = ctx.controlsSize
+            });
+        }
+    } else {
+        ui.Checkbox(s_state.state, {
+            .label = ctx.elemLabel,
+            .description = ctx.GetElementDescription(),
+            .icon = ctx.GetElementIcon(),
+            .badge = ctx.GetElementBadge(),
+            .variant = ctx.btnVariant,
+            .layout = ctx.elemLayout,
+            .inlineOrder = ctx.elemInlineOrder,
+            .elementAlign = ctx.elemAlign,
+            .stretch = ctx.GetElementStretch(),
+            .width = ctx.GetElementWidth(),
+            .divider = ctx.elemDivider,
+            .dividerStyle = ctx.elemDividerStyle,
+            .disabled = ctx.elemDisabled,
+            .indeterminate = s_state.indet,
+            .radio = s_state.radio,
+            .size = ctx.controlsSize
+        });
+    }
 }
 
 std::string GenerateCheckboxCode(const DemoContext& ctx) {
+    if (s_state.radio && s_state.radioGroupDemo) {
+        return std::format(
+            "ui.RadioButton(selectedMode, 0, {{\n"
+            "    .label = \"{}\",\n"
+            "    .description = {},\n"
+            "    .icon = {},\n"
+            "    .badge = {},\n"
+            "    .variant = guikit::UiVariant::{},\n"
+            "    .layout = guikit::ElementLayout::{},\n"
+            "    .inlineOrder = guikit::InlineOrder::{},\n"
+            "    .elementAlign = guikit::Align::{},\n"
+            "    .stretch = guikit::StretchMode::{},\n"
+            "    .width = {},\n"
+            "    .divider = {},\n"
+            "    .dividerStyle = guikit::ElementDivider::{},\n"
+            "    .disabled = {},\n"
+            "    .size = guikit::UiSize::{}\n"
+            "}});",
+            ctx.elemLabel,
+            ctx.FormatElementDescCode(),
+            ctx.FormatElementIconCode(),
+            ctx.FormatElementBadgeCode(),
+            VariantName(ctx.btnVariant),
+            ElementLayoutEnumName(ctx.elemLayout),
+            InlineOrderEnumName(ctx.elemInlineOrder),
+            LabelAlignEnumName(ctx.elemAlign),
+            StretchModeEnumName(ctx.GetElementStretch()),
+            ctx.FormatElementWidthCode(),
+            ctx.elemDivider ? "true" : "false",
+            ctx.FormatDividerStyleCode(),
+            ctx.elemDisabled ? "true" : "false",
+            SizeName(ctx.controlsSize)
+        );
+    }
     return std::format(
         "ui.Checkbox(checkState, {{\n"
         "    .label = \"{}\",\n"
@@ -52,6 +160,7 @@ std::string GenerateCheckboxCode(const DemoContext& ctx) {
         "    .dividerStyle = guikit::ElementDivider::{},\n"
         "    .disabled = {},\n"
         "    .indeterminate = {},\n"
+        "    .radio = {},\n"
         "    .size = guikit::UiSize::{}\n"
         "}});",
         ctx.elemLabel,
@@ -68,6 +177,7 @@ std::string GenerateCheckboxCode(const DemoContext& ctx) {
         ctx.FormatDividerStyleCode(),
         ctx.elemDisabled ? "true" : "false",
         s_state.indet ? "true" : "false",
+        s_state.radio ? "true" : "false",
         SizeName(ctx.controlsSize)
     );
 }

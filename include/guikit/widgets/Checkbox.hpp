@@ -29,6 +29,7 @@ struct CheckboxOptions {
     ElementDivider dividerStyle{ElementDivider::Bottom}; ///< Element divider placement style (Bottom or Trailing)
     bool disabled{false};                          ///< Interaction suppression
     bool indeterminate{false};                     ///< Tri-state / partial check (horizontal dash)
+    bool radio{false};                             ///< Renders circular radio button indicator instead of square checkbox
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
 };
 static_assert(sizeof(CheckboxOptions) <= 232, "CheckboxOptions must stay compact");

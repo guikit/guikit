@@ -7208,6 +7208,167 @@ void TestWaterfallViewWidgetAndGpuRingBuffer() {
     std::cout << "  [PASS] TestWaterfallViewWidgetAndGpuRingBuffer completed\n";
 }
 
+void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 700;
+    const uint32_t height = 600;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    float lowFreq = 20.0f;
+    float highFreq = 60.0f;
+    float progressVal = 72.5f;
+    float vuLevel = 78.0f;
+    int spinVal = 10;
+    int radioMode = 0;
+
+    WidgetResponse rRange;
+    WidgetResponse rProg;
+    WidgetResponse rVu;
+    WidgetResponse rSpin;
+    WidgetResponse rRadio0;
+    WidgetResponse rRadio1;
+    WidgetResponse rRadio2;
+
+    auto renderUI = [&]() {
+        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+            rRange = ui.RangeSlider(lowFreq, highFreq, 0.0f, 100.0f, {
+                .label = "Passband Window",
+                .description = "Band-pass filter cutoff interval",
+                .valueFormat = "%.0f .. %.0f MHz",
+                .step = 1.0,
+                .minSpan = 5.0,
+                .layout = ElementLayout::Stacked,
+                .showValue = true
+            });
+
+            rProg = ui.ProgressBar(progressVal, 0.0f, 100.0f, {
+                .label = "Calibration Progress",
+                .valueFormat = "%.0f %%",
+                .layout = ElementLayout::Stacked,
+                .showValue = true
+            });
+
+            rVu = ui.ProgressBar(vuLevel, 0.0f, 100.0f, {
+                .label = "RF Input Level Meter",
+                .valueFormat = "%.0f dBuV",
+                .peakHoldValue = 90.0,
+                .segments = 24,
+                .layout = ElementLayout::Stacked,
+                .showValue = true,
+                .multiZoneColor = true
+            });
+
+            rSpin = ui.InputField(spinVal, {
+                .label = "Channel Index",
+                .layout = ElementLayout::Stacked,
+                .min = 0.0,
+                .max = 20.0,
+                .step = 2.0,
+                .stepButtons = true
+            });
+
+            rRadio0 = ui.RadioButton(radioMode, 0, {.label = "CW Mode"});
+            rRadio1 = ui.RadioButton(radioMode, 1, {.label = "FM Mode"});
+            rRadio2 = ui.RadioButton(radioMode, 2, {.label = "QAM Mode"});
+        }
+    };
+
+    // Frame 1 & 2: Measure & Layout
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    CHECK(rRange.rect.w > 200.0f);
+    CHECK(rProg.rect.w > 200.0f);
+    CHECK(rVu.rect.w > 200.0f);
+    CHECK(rSpin.rect.w > 100.0f);
+    CHECK(rRadio0.rect.w > 40.0f);
+    CHECK(rRadio1.rect.w > 40.0f);
+    CHECK(rRadio2.rect.w > 40.0f);
+
+    // 1. Test RadioButton selection: click rRadio2 to select mode 2
+    ui.OnMouseMove({rRadio2.rect.x + 10.0f, rRadio2.rect.y + 8.0f});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    CHECK(rRadio2.clicked);
+    CHECK(rRadio2.changed);
+    CHECK(radioMode == 2);
+
+    // 2. Test SpinBox [+] button (located at right end of rSpin input box)
+    const float spinBoxBottomY = rSpin.rect.y + rSpin.rect.h - 16.0f;
+    const float plusBtnX = rSpin.rect.x + rSpin.rect.w - 14.0f;
+    const float minusBtnX = rSpin.rect.x + rSpin.rect.w - 42.0f;
+
+    ui.OnMouseMove({plusBtnX, spinBoxBottomY});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(rSpin.changed);
+    CHECK(spinVal == 12);
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    // Click [-] button to decrement back to 10
+    ui.OnMouseMove({minusBtnX, spinBoxBottomY});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(rSpin.changed);
+    CHECK(spinVal == 10);
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    // 3. Test RangeSlider center span drag (at 40% of track width, which is inside [20%, 60%])
+    const float rangeTrackY = rRange.rect.y + rRange.rect.h - 10.0f;
+    const float spanCenterX = rRange.rect.x + rRange.rect.w * 0.40f;
+    ui.OnMouseMove({spanCenterX, rangeTrackY});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    // Drag span right by 10% of width
+    ui.OnMouseMove({spanCenterX + rRange.rect.w * 0.10f, rangeTrackY});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    CHECK(lowFreq > 25.0f);
+    CHECK(highFreq > 65.0f);
+    CHECK_NEAR(highFreq - lowFreq, 40.0f, 1.0f); // Span preserved!
+
+    std::cout << "  [PASS] TestRangeSliderProgressBarSpinBoxAndRadioButton completed\n";
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -7272,6 +7433,7 @@ int main() {
     TestSonarViewWidgetWorkflow();
     TestSonarAndSignalGpuShaderPipeline();
     TestWaterfallViewWidgetAndGpuRingBuffer();
+    TestRangeSliderProgressBarSpinBoxAndRadioButton();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

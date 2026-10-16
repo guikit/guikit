@@ -37,12 +37,13 @@ struct InputFieldOptions {
     std::optional<float> minWidth{std::nullopt};   ///< Minimum input box width constraint in points
     std::optional<double> min{std::nullopt};       ///< Optional minimum numeric value constraint
     std::optional<double> max{std::nullopt};       ///< Optional maximum numeric value constraint
-    std::optional<double> step{std::nullopt};      ///< Optional step increment for Up/Down keys and mouse wheel on numeric fields
+    std::optional<double> step{std::nullopt};      ///< Optional step increment for Up/Down keys, mouse wheel, and stepper buttons
     bool divider{false};                           ///< Whether to render an Element divider line
     ElementDivider dividerStyle{ElementDivider::Bottom}; ///< Element divider placement style (Bottom or Trailing)
     bool password{false};                          ///< Masks input characters with '*'
     bool passwordReveal{true};                     ///< Shows an interactive eye/eye-off toggle button when password is true
     bool clearable{false};                         ///< Shows an interactive clear ('X') button when non-empty and editable
+    bool stepButtons{false};                       ///< Shows interactive '-' and '+' stepper buttons inside numeric InputField
     bool disabled{false};                          ///< Interaction suppression
     bool readOnly{false};                          ///< Non-editable display mode
 };
@@ -62,6 +63,11 @@ struct InputFieldData {
     bool showRevealBtn{false};
     bool revealHovered{false};
     bool passwordRevealed{false};
+    bool showStepBtns{false};
+    bool stepMinusHovered{false};
+    bool stepPlusHovered{false};
+    bool stepMinusDisabled{false};
+    bool stepPlusDisabled{false};
 };
 
 /// Autonomous InputField widget logic (execution, measuring, and rendering).
@@ -117,7 +123,12 @@ public:
         bool clearHovered = false,
         bool showRevealBtn = false,
         bool revealHovered = false,
-        bool passwordRevealed = false
+        bool passwordRevealed = false,
+        bool showStepBtns = false,
+        bool stepMinusHovered = false,
+        bool stepPlusHovered = false,
+        bool stepMinusDisabled = false,
+        bool stepPlusDisabled = false
     );
 };
 

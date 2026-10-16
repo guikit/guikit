@@ -54,6 +54,9 @@ Vec2 MeasureInputBox(
             if (opts.clearable && !opts.readOnly) {
                 totalW += m.iconSize + 8.0f;
             }
+            if (opts.stepButtons && !opts.readOnly) {
+                totalW += (m.iconSize + 4.0f) * 2.0f + 10.0f;
+            }
             boxW = totalW;
         }
     }
@@ -115,6 +118,8 @@ struct InputBoxRects {
     Rect textRect{};
     Rect clearRect{};
     Rect revealRect{};
+    Rect stepMinusRect{};
+    Rect stepPlusRect{};
 };
 
 InputBoxRects ResolveInputBoxRects(
@@ -124,7 +129,8 @@ InputBoxRects ResolveInputBoxRects(
     ICanvas* canvas,
     const UiTheme& theme,
     bool showClearBtn,
-    bool showRevealBtn
+    bool showRevealBtn,
+    bool showStepBtns = false
 ) noexcept {
     const InputFieldMetrics& m = theme.GetInputField(size);
     const Vec2 boxDims = MeasureInputBox(opts, size, canvas, theme);
@@ -141,6 +147,19 @@ InputBoxRects ResolveInputBoxRects(
     }
 
     float rightX = boxRect.x + boxRect.w - m.paddingX;
+
+    Rect stepMinusRect{};
+    Rect stepPlusRect{};
+    if (showStepBtns) {
+        const float btnSize = m.iconSize + 4.0f;
+        const float btnY = boxRect.y + (boxRect.h - btnSize) * 0.5f;
+        rightX -= btnSize;
+        stepPlusRect = Rect(rightX, btnY, btnSize, btnSize);
+        rightX -= (2.0f + btnSize);
+        stepMinusRect = Rect(rightX, btnY, btnSize, btnSize);
+        rightX -= 6.0f;
+    }
+
     if (opts.suffix.HasContentOrReserve()) {
         const float sFont = theme.ResolveFontSize(opts.suffix.text, TextRole::LabelMedium, size);
         const float sW = TextUtil::MeasureAffixWidth(opts.suffix, sFont, m.iconSize, 4.0f, canvas);
@@ -168,7 +187,9 @@ InputBoxRects ResolveInputBoxRects(
         .boxRect = boxRect,
         .textRect = Rect(leftX, boxRect.y, availW, boxRect.h),
         .clearRect = clearRect,
-        .revealRect = revealRect
+        .revealRect = revealRect,
+        .stepMinusRect = stepMinusRect,
+        .stepPlusRect = stepPlusRect
     };
 }
 
@@ -298,12 +319,16 @@ Response InputField::Run(
 
     const bool showRevealBtn = opts.password && opts.passwordReveal && !effectiveDisabled;
     bool showClearBtn = opts.clearable && !valStr.empty() && !effectiveDisabled && !opts.readOnly;
-    InputBoxRects rects = ResolveInputBoxRects(refBounds, optsCopy, activeSize, canvas, theme, showClearBtn, showRevealBtn);
+    const bool showStepBtns = isNumeric && opts.stepButtons && !opts.readOnly && !effectiveDisabled;
+    InputBoxRects rects = ResolveInputBoxRects(refBounds, optsCopy, activeSize, canvas, theme, showClearBtn, showRevealBtn, showStepBtns);
 
     const Vec2 mousePos = ctx.GetMousePos();
     bool revealHovered = showRevealBtn && res.hovered && rects.revealRect.Contains(mousePos);
     bool clearHovered = showClearBtn && res.hovered && rects.clearRect.Contains(mousePos);
+    bool stepMinusHovered = showStepBtns && res.hovered && rects.stepMinusRect.Contains(mousePos);
+    bool stepPlusHovered = showStepBtns && res.hovered && rects.stepPlusRect.Contains(mousePos);
 
+    double stepClickDelta = 0.0;
     if (mouseJustPressed) {
         if (revealHovered) {
             state.passwordRevealed = !state.passwordRevealed;
@@ -320,24 +345,32 @@ Response InputField::Run(
             ctx.SetTextEditBuffer(id, "");
             showClearBtn = false;
             clearHovered = false;
-            rects = ResolveInputBoxRects(refBounds, optsCopy, activeSize, canvas, theme, showClearBtn, showRevealBtn);
+            rects = ResolveInputBoxRects(refBounds, optsCopy, activeSize, canvas, theme, showClearBtn, showRevealBtn, showStepBtns);
             res.changed = true;
+        } else if (stepMinusHovered) {
+            state.actionBtnDown = true;
+            stepClickDelta = -opts.step.value_or(1.0);
+        } else if (stepPlusHovered) {
+            state.actionBtnDown = true;
+            stepClickDelta = opts.step.value_or(1.0);
         }
     }
 
-    // Handle numeric Up/Down key and mouse wheel stepping when focused
-    if (isNumeric && isFocused && !opts.readOnly && !effectiveDisabled) {
-        double stepDelta = 0.0;
+    // Handle numeric Up/Down key, mouse wheel, and stepper button stepping
+    if (isNumeric && !opts.readOnly && !effectiveDisabled && (isFocused || stepClickDelta != 0.0)) {
+        double stepDelta = stepClickDelta;
         const double stepVal = opts.step.value_or(1.0);
-        if (ctx.ConsumeKey(Key::Up)) {
-            stepDelta += stepVal;
-        }
-        if (ctx.ConsumeKey(Key::Down)) {
-            stepDelta -= stepVal;
-        }
-        if (res.hovered && std::abs(ctx.GetMouseWheel().y) > 0.001f) {
-            stepDelta += (ctx.GetMouseWheel().y > 0.0f ? stepVal : -stepVal);
-            ctx.ConsumeMouseWheel();
+        if (isFocused) {
+            if (ctx.ConsumeKey(Key::Up)) {
+                stepDelta += stepVal;
+            }
+            if (ctx.ConsumeKey(Key::Down)) {
+                stepDelta -= stepVal;
+            }
+            if (res.hovered && std::abs(ctx.GetMouseWheel().y) > 0.001f) {
+                stepDelta += (ctx.GetMouseWheel().y > 0.0f ? stepVal : -stepVal);
+                ctx.ConsumeMouseWheel();
+            }
         }
 
         if (stepDelta != 0.0) {
@@ -365,7 +398,7 @@ Response InputField::Run(
     if (isFocused || ctx.HasActiveTextEdit(id)) {
         std::string_view currentEditText = ctx.EnsureTextEdit(id, valStr, /*multiline=*/false, opts.readOnly);
         showClearBtn = opts.clearable && !currentEditText.empty() && !effectiveDisabled && !opts.readOnly;
-        rects = ResolveInputBoxRects(refBounds, optsCopy, activeSize, canvas, theme, showClearBtn, showRevealBtn);
+        rects = ResolveInputBoxRects(refBounds, optsCopy, activeSize, canvas, theme, showClearBtn, showRevealBtn, showStepBtns);
         clearHovered = showClearBtn && res.hovered && rects.clearRect.Contains(mousePos);
 
         const Rect textRect = rects.textRect;
@@ -490,7 +523,7 @@ Response InputField::Run(
         }
 
         showClearBtn = opts.clearable && !displayText.empty() && !effectiveDisabled && !opts.readOnly;
-        rects = ResolveInputBoxRects(refBounds, optsCopy, activeSize, canvas, theme, showClearBtn, showRevealBtn);
+        rects = ResolveInputBoxRects(refBounds, optsCopy, activeSize, canvas, theme, showClearBtn, showRevealBtn, showStepBtns);
         clearHovered = showClearBtn && res.hovered && rects.clearRect.Contains(mousePos);
 
         // Update horizontal scrollX to keep active cursor within visible textRect
@@ -530,6 +563,16 @@ Response InputField::Run(
         renderedText = maskedFinalBuf;
     }
 
+    bool stepMinusDisabled = false;
+    bool stepPlusDisabled = false;
+    if (showStepBtns) {
+        const double curNum = (floatValue != nullptr)  ? static_cast<double>(*floatValue) :
+                              (doubleValue != nullptr) ? *doubleValue :
+                              (intValue != nullptr)    ? static_cast<double>(*intValue) : 0.0;
+        if (opts.min.has_value() && curNum <= *opts.min + 1e-6) stepMinusDisabled = true;
+        if (opts.max.has_value() && curNum >= *opts.max - 1e-6) stepPlusDisabled = true;
+    }
+
     Node* node = ctx.CreateNode(NodeType::InputField, id);
     node->text = optsCopy.label.text;
 
@@ -547,6 +590,11 @@ Response InputField::Run(
     data->showRevealBtn = showRevealBtn;
     data->revealHovered = revealHovered;
     data->passwordRevealed = state.passwordRevealed;
+    data->showStepBtns = showStepBtns;
+    data->stepMinusHovered = stepMinusHovered;
+    data->stepPlusHovered = stepPlusHovered;
+    data->stepMinusDisabled = stepMinusDisabled;
+    data->stepPlusDisabled = stepPlusDisabled;
     node->SetPayload(data);
     node->visualHash = detail::HashArgs(
         opts.variant,
@@ -562,6 +610,7 @@ Response InputField::Run(
         opts.password,
         opts.passwordReveal,
         opts.clearable,
+        opts.stepButtons,
         opts.borderRadius.value_or(-1.0f),
         data->displayText,
         data->cursor,
@@ -573,6 +622,11 @@ Response InputField::Run(
         data->showRevealBtn,
         data->revealHovered,
         data->passwordRevealed,
+        data->showStepBtns,
+        data->stepMinusHovered,
+        data->stepPlusHovered,
+        data->stepMinusDisabled,
+        data->stepPlusDisabled,
         optsCopy.prefix,
         optsCopy.suffix,
         optsCopy.placeholder,
@@ -615,7 +669,12 @@ Response InputField::Run(
             d ? d->clearHovered : false,
             d ? d->showRevealBtn : false,
             d ? d->revealHovered : false,
-            d ? d->passwordRevealed : false
+            d ? d->passwordRevealed : false,
+            d ? d->showStepBtns : false,
+            d ? d->stepMinusHovered : false,
+            d ? d->stepPlusHovered : false,
+            d ? d->stepMinusDisabled : false,
+            d ? d->stepPlusDisabled : false
         );
     };
 
@@ -677,7 +736,12 @@ void InputField::Render(
     bool clearHovered,
     bool showRevealBtn,
     bool revealHovered,
-    bool passwordRevealed
+    bool passwordRevealed,
+    bool showStepBtns,
+    bool stepMinusHovered,
+    bool stepPlusHovered,
+    bool stepMinusDisabled,
+    bool stepPlusDisabled
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
         return;
@@ -742,8 +806,58 @@ void InputField::Render(
         leftX += pW + pGap;
     }
 
-    // Right elements (suffix text/icon, password reveal button, clear button)
+    // Right elements (stepper buttons, suffix text/icon, password reveal button, clear button)
     float rightX = boxRect.x + boxRect.w - m.paddingX;
+    if (showStepBtns) {
+        const float btnSize = m.iconSize + 4.0f;
+        const float btnY = boxRect.y + (boxRect.h - btnSize) * 0.5f;
+        const float iconSz = std::max(8.0f, m.iconSize - 2.0f);
+
+        // '+' button on far right
+        rightX -= btnSize;
+        const Rect plusBtnRect(rightX, btnY, btnSize, btnSize);
+        if (stepPlusHovered && !disabled && !stepPlusDisabled) {
+            canvas.DrawRoundRect(plusBtnRect, 4.0f, pal.surfaceHover, Color::Transparent(), 0.0f);
+        }
+        const Rect plusIcRect(
+            rightX + (btnSize - iconSz) * 0.5f,
+            boxRect.y + (boxRect.h - iconSz) * 0.5f,
+            iconSz,
+            iconSz
+        );
+        const Color plusCol = (disabled || stepPlusDisabled)
+            ? unitCol.WithAlphaF(0.35f)
+            : (stepPlusHovered ? pal.textPrimary : unitCol);
+        Icon::Plus().Draw(canvas, plusIcRect, plusCol);
+
+        // '-' button to the left of '+'
+        rightX -= (2.0f + btnSize);
+        const Rect minusBtnRect(rightX, btnY, btnSize, btnSize);
+        if (stepMinusHovered && !disabled && !stepMinusDisabled) {
+            canvas.DrawRoundRect(minusBtnRect, 4.0f, pal.surfaceHover, Color::Transparent(), 0.0f);
+        }
+        const Rect minusIcRect(
+            rightX + (btnSize - iconSz) * 0.5f,
+            boxRect.y + (boxRect.h - iconSz) * 0.5f,
+            iconSz,
+            iconSz
+        );
+        const Color minusCol = (disabled || stepMinusDisabled)
+            ? unitCol.WithAlphaF(0.35f)
+            : (stepMinusHovered ? pal.textPrimary : unitCol);
+        Icon::Minus().Draw(canvas, minusIcRect, minusCol);
+
+        // Subtle vertical separator before stepper buttons
+        const float sepX = rightX - 3.0f;
+        canvas.DrawLine(
+            {sepX, boxRect.y + 5.0f},
+            {sepX, boxRect.Bottom() - 5.0f},
+            disabled ? pal.border.WithAlphaF(0.25f) : pal.border.WithAlphaF(0.65f),
+            1.0f
+        );
+        rightX -= 6.0f;
+    }
+
     if (opts.suffix.HasContentOrReserve()) {
         const float sFont = theme.ResolveFontSize(opts.suffix.text, TextRole::LabelMedium, size);
         const Color sTextCol = theme.ResolveTextColor(opts.suffix.text, UiVariant::Secondary, disabled);

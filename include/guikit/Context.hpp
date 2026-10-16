@@ -441,7 +441,7 @@ public:
 
     Response Switch(const bool*, SwitchOptions = {}, std::source_location = std::source_location::current()) = delete;
 
-    // --- Checkbox Widget ---
+    // --- Checkbox & RadioButton Widgets ---
     Response Checkbox(
         bool& value,
         CheckboxOptions opts = {},
@@ -455,6 +455,36 @@ public:
     );
 
     Response Checkbox(const bool*, CheckboxOptions = {}, std::source_location = std::source_location::current()) = delete;
+
+    template <typename T, typename U = T>
+        requires (std::equality_comparable_with<T, U>)
+    Response RadioButton(
+        T& currentValue,
+        const U& optionValue,
+        CheckboxOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        opts.radio = true;
+        const bool isSelected = (currentValue == optionValue);
+        bool state = isSelected;
+        Response r = Run<guikit::Checkbox>(&state, isSelected, opts, loc);
+        if (r.clicked && !isSelected) {
+            currentValue = static_cast<T>(optionValue);
+            r.changed = true;
+        } else {
+            r.changed = false;
+        }
+        return r;
+    }
+
+    Response RadioButton(
+        bool& checked,
+        CheckboxOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        opts.radio = true;
+        return Checkbox(checked, opts, loc);
+    }
 
 
     // --- InputField Widget ---
@@ -609,7 +639,7 @@ public:
         return SidebarMenu(activeIndex, std::span<const SidebarMenuItem>(items.begin(), items.size()), opts, loc);
     }
 
-    // --- Slider & StepSlider Widgets ---
+    // --- Slider, StepSlider, RangeSlider & ProgressBar Widgets ---
     template <SliderNumeric T>
     Response Slider(
         T& value,
@@ -630,6 +660,49 @@ public:
             }
             return res;
         }
+    }
+
+    template <SliderNumeric T>
+    Response RangeSlider(
+        T& lowValue,
+        T& highValue,
+        T min,
+        T max,
+        RangeSliderOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        if constexpr (std::is_same_v<std::decay_t<T>, double>) {
+            return Run<guikit::RangeSlider>(&lowValue, &highValue, nullptr, nullptr, nullptr, nullptr, min, max, opts, loc);
+        } else if constexpr (std::is_same_v<std::decay_t<T>, float>) {
+            return Run<guikit::RangeSlider>(nullptr, nullptr, &lowValue, &highValue, nullptr, nullptr, static_cast<double>(min), static_cast<double>(max), opts, loc);
+        } else {
+            int64_t low64 = static_cast<int64_t>(lowValue);
+            int64_t high64 = static_cast<int64_t>(highValue);
+            Response res = Run<guikit::RangeSlider>(nullptr, nullptr, nullptr, nullptr, &low64, &high64, static_cast<double>(min), static_cast<double>(max), opts, loc);
+            if (res.changed) {
+                lowValue = static_cast<T>(low64);
+                highValue = static_cast<T>(high64);
+            }
+            return res;
+        }
+    }
+
+    Response ProgressBar(
+        double value,
+        double min,
+        double max,
+        ProgressBarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::ProgressBar>(value, min, max, opts, loc);
+    }
+
+    Response ProgressBar(
+        double percent0to100,
+        ProgressBarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::ProgressBar>(percent0to100, 0.0, 100.0, opts, loc);
     }
 
     template <typename IndexT>
