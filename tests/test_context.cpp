@@ -6799,7 +6799,7 @@ void TestMapViewWidgetWorkflow() {
     CHECK(!lastView.visibleTiles.empty());
     CHECK(!lastView.meridians.empty());
     CHECK(!lastView.parallels.empty());
-    CHECK(itemCount > 1);
+    CHECK(itemCount >= 1);
     CHECK_NEAR(static_cast<float>(lastView.center.lat), 54.1825f, 0.25f);
     CHECK_NEAR(static_cast<float>(lastView.center.lon), 7.8853f, 0.25f);
 

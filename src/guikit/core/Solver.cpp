@@ -550,9 +550,8 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 const UiTheme& childTheme = (child->theme != nullptr) ? *child->theme : activeTheme;
                 float sbW = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
                 if (child->widthMode != SizeMode::Fixed && child->sidebarScrollable) {
-                    const float vpH = std::max(0.0f, availH - child->padding.Vertical());
                     const bool needSb = (child->scrollbarPolicy == VisibilityPolicy::Always) ||
-                        (child->scrollbarPolicy == VisibilityPolicy::Auto && child->scrollContentSize.y > vpH);
+                        (child->scrollbarPolicy == VisibilityPolicy::Auto && child->scrollContentSize.y > availH + 0.5f);
                     if (needSb) {
                         sbW += childTheme.GetScrollbar(child->uiSize).gutter;
                     }

@@ -844,6 +844,7 @@ public:
 
     void AdaptChildToContainer(Node* node);
     [[nodiscard]] Rect GetPrevFrameBounds(Id id) const;
+    [[nodiscard]] Rect GetPrevUnclippedBounds(Id id) const;
     [[nodiscard]] Rect GetParentPrevFrameBounds() const;
 
     // --- Internal Hierarchy & Scope Management ---
@@ -991,13 +992,13 @@ public:
 
 private:
     void RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirtyRect, const UiTheme& parentTheme);
-    void UpdateScrollAreasRecursive(Node* node);
+    bool UpdateScrollAreasRecursive(Node* node);
 
     // Widget snapshot for frame-to-frame change detection
     struct WidgetSnapshot {
         Rect rect{};
         uint64_t visualHash{0};
-        uint32_t flags{0}; // bits: 0=hovered, 1=pressed, 2=disabled, 3=checked, 4=cursorVisible, 5=activeEdit, 6=tabActive, 7=focused
+        uint32_t flags{0}; // bits: 0=hovered, 1=pressed, 2=disabled, 3=checked, 4=cursorVisible, 5=activeEdit, 6=tabActive, 7=focused, 8..11=scrollbar
         size_t cursor{0};
         size_t selectionAnchor{0};
         uint32_t bgColor{0};
@@ -1168,6 +1169,8 @@ private:
     // Previous frame widget bounds for instantaneous hit testing
     std::unordered_map<Id, Rect> m_prevFrameBounds;
     std::unordered_map<Id, Rect> m_currFrameBounds;
+    std::unordered_map<Id, Rect> m_prevUnclippedBounds;
+    std::unordered_map<Id, Rect> m_currUnclippedBounds;
     std::vector<Id> m_prevFocusableIds;
     std::vector<Id> m_currFocusableIds;
 

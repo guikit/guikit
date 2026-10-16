@@ -299,6 +299,16 @@ void ScrollArea::Update(Context& ctx, Node* node) {
     if (!node || !node->id.IsValid()) return;
 
     auto& state = ctx.GetOrCreateState<ScrollState>(node->id);
+    if (node->disabled) {
+        state.draggingY = false;
+        state.draggingX = false;
+        node->scrollbarHovered = false;
+        node->scrollbarActive = false;
+        node->scrollbarHoveredX = false;
+        node->scrollbarActiveX = false;
+        return;
+    }
+
     const UiTheme* resolvedTheme = &ctx.GetTheme();
     for (const Node* curr = node; curr != nullptr; curr = curr->parent) {
         if (curr->theme != nullptr) {
@@ -309,13 +319,19 @@ void ScrollArea::Update(Context& ctx, Node* node) {
 
     const bool allowV = (node->scrollOrientation == Orientation::Vertical || node->scrollOrientation == Orientation::Both);
     const bool allowH = (node->scrollOrientation == Orientation::Horizontal || node->scrollOrientation == Orientation::Both);
-    const bool showV = allowV && (node->scrollContentSize.y > node->computedRect.h + 0.5f);
-    const bool showH = allowH && (node->scrollContentSize.x > node->computedRect.w + 0.5f);
+    const bool showV = allowV && (
+        node->scrollbarPolicy == VisibilityPolicy::Always ||
+        (node->scrollbarPolicy == VisibilityPolicy::Auto && node->scrollContentSize.y > node->computedRect.h + 0.5f)
+    );
+    const bool showH = allowH && (
+        node->scrollbarPolicy == VisibilityPolicy::Always ||
+        (node->scrollbarPolicy == VisibilityPolicy::Auto && node->scrollContentSize.x > node->computedRect.w + 0.5f)
+    );
     const ScrollbarMetrics& m = resolvedTheme->GetScrollbar(node->uiSize);
     const float cornerReserve = (showV && showH) ? (m.trackWidth + m.margin) : 0.0f;
 
     bool hovY = false, actY = false;
-    if (allowV) {
+    if (showV) {
         UpdateAxisScrollbar(
             ctx,
             node->id,
@@ -332,6 +348,10 @@ void ScrollArea::Update(Context& ctx, Node* node) {
             *resolvedTheme,
             cornerReserve
         );
+    } else if (allowV) {
+        const float maxScrollY = std::max(0.0f, node->scrollContentSize.y - node->computedRect.h);
+        state.offset.y = std::clamp(state.offset.y, 0.0f, maxScrollY);
+        state.draggingY = false;
     } else {
         state.offset.y = 0.0f;
         state.draggingY = false;
@@ -340,7 +360,7 @@ void ScrollArea::Update(Context& ctx, Node* node) {
     node->scrollbarActive = actY;
 
     bool hovX = false, actX = false;
-    if (allowH) {
+    if (showH) {
         UpdateAxisScrollbar(
             ctx,
             node->id,
@@ -357,6 +377,10 @@ void ScrollArea::Update(Context& ctx, Node* node) {
             *resolvedTheme,
             cornerReserve
         );
+    } else if (allowH) {
+        const float maxScrollX = std::max(0.0f, node->scrollContentSize.x - node->computedRect.w);
+        state.offset.x = std::clamp(state.offset.x, 0.0f, maxScrollX);
+        state.draggingX = false;
     } else {
         state.offset.x = 0.0f;
         state.draggingX = false;
@@ -372,8 +396,8 @@ void ScrollArea::ScrollToChild(Context& ctx, Node* scrollNode, const Node* targe
     auto& state = ctx.GetOrCreateState<ScrollState>(scrollNode->id);
     const float targetTop = targetNode->computedRect.y;
     const float targetBottom = targetNode->computedRect.Bottom();
-    const float viewTop = scrollNode->computedRect.y;
-    const float viewBottom = scrollNode->computedRect.Bottom();
+    const float viewTop = scrollNode->computedRect.y + scrollNode->padding.top;
+    const float viewBottom = scrollNode->computedRect.Bottom() - scrollNode->padding.bottom;
 
     if (targetTop < viewTop) {
         state.offset.y -= (viewTop - targetTop);

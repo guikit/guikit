@@ -101,6 +101,7 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
     m_themeStack.clear();
     m_scaleStack.clear();
     m_currFrameBounds.clear();
+    m_currUnclippedBounds.clear();
 
     m_sizeStack.push_back(UiSize::Md);
     m_disabledStack.push_back(false);
@@ -190,6 +191,14 @@ Rect Context::GetPrevFrameBounds(Id id) const {
         return it->second;
     }
     return Rect{};
+}
+
+Rect Context::GetPrevUnclippedBounds(Id id) const {
+    auto it = m_prevUnclippedBounds.find(id);
+    if (it != m_prevUnclippedBounds.end()) {
+        return it->second;
+    }
+    return GetPrevFrameBounds(id);
 }
 
 Rect Context::GetParentPrevFrameBounds() const {
@@ -1510,12 +1519,21 @@ static Rect GetNodeContentClipRect(const Node* node, const UiTheme& theme) {
     return node->computedRect;
 }
 
-static void CollectBoundsRecursive(Node* node, std::unordered_map<Id, Rect>& outBounds, Rect parentClip, const UiTheme& theme) {
+static void CollectBoundsRecursive(
+    Node* node,
+    std::unordered_map<Id, Rect>& outBounds,
+    std::unordered_map<Id, Rect>& outUnclippedBounds,
+    Rect parentClip,
+    const UiTheme& theme
+) {
     if (!node) return;
 
     const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
 
     if (node->id.IsValid()) {
+        if (node->computedRect.w > 0.0f && node->computedRect.h > 0.0f) {
+            outUnclippedBounds[node->id] = node->computedRect;
+        }
         const Rect clipped = node->computedRect.Intersect(parentClip);
         if (clipped.w > 0.0f && clipped.h > 0.0f) {
             outBounds[node->id] = clipped;
@@ -1532,26 +1550,40 @@ static void CollectBoundsRecursive(Node* node, std::unordered_map<Id, Rect>& out
     }
 
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-        CollectBoundsRecursive(child, outBounds, effectiveClip, activeTheme);
+        CollectBoundsRecursive(child, outBounds, outUnclippedBounds, effectiveClip, activeTheme);
     }
 }
 
-void Context::UpdateScrollAreasRecursive(Node* node) {
-    if (!node) return;
+bool Context::UpdateScrollAreasRecursive(Node* node) {
+    if (!node) return false;
+
+    bool scrollChanged = false;
+    const Vec2 prevScroll = node->scrollOffset;
 
     if (node->type == NodeType::ScrollArea || (node->type == NodeType::Sidebar && node->sidebarScrollable)) {
         ScrollArea::Update(*this, node);
+        if (std::abs(node->scrollOffset.x - prevScroll.x) > 0.01f ||
+            std::abs(node->scrollOffset.y - prevScroll.y) > 0.01f) {
+            scrollChanged = true;
+        }
     } else if (node->type == NodeType::Scene) {
         Scene::Update(*this, node);
     } else if (node->type == NodeType::Carousel) {
         Carousel::Update(*this, node);
+        if (std::abs(node->scrollOffset.x - prevScroll.x) > 0.01f ||
+            std::abs(node->scrollOffset.y - prevScroll.y) > 0.01f) {
+            scrollChanged = true;
+        }
     } else if (node->type == NodeType::Table) {
         Table::Update(*this, node);
     }
 
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-        UpdateScrollAreasRecursive(child);
+        if (UpdateScrollAreasRecursive(child)) {
+            scrollChanged = true;
+        }
     }
+    return scrollChanged;
 }
 
 void Context::ScrollToId(Id id) {
@@ -1597,13 +1629,15 @@ void Context::EndFrame(ICanvas& canvas) {
     LayoutSolver::Measure(m_root, &canvas, m_theme);
     LayoutSolver::Arrange(m_root, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme, &canvas);
 
-    // Update interactive scroll areas and re-arrange so child positions reflect updated scroll offsets immediately
-    UpdateScrollAreasRecursive(m_root);
-    LayoutSolver::Arrange(m_root, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme, &canvas);
+    // Update interactive scrollbars; re-arrange only if a scrollbar drag or track click modified scrollOffset
+    if (UpdateScrollAreasRecursive(m_root)) {
+        LayoutSolver::Arrange(m_root, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme, &canvas);
+    }
 
     // Cache computed bounds and focusable widget list for next frame
-    CollectBoundsRecursive(m_root, m_currFrameBounds, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme);
+    CollectBoundsRecursive(m_root, m_currFrameBounds, m_currUnclippedBounds, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme);
     m_prevFrameBounds = std::move(m_currFrameBounds);
+    m_prevUnclippedBounds = std::move(m_currUnclippedBounds);
     m_prevFocusableIds = std::move(m_currFocusableIds);
 
     // Reset single-frame mouse impulse states
