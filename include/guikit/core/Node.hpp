@@ -83,6 +83,7 @@ enum class NodeType : uint16_t {
     SidebarItem = 214,
     Image       = 215,
     Markdown    = 216,
+    SignalView  = 217,
 
     // --- User Extension Base (1000+) ---
     User        = 1000
@@ -254,6 +255,7 @@ struct Node {
             case NodeType::SidebarItem: return "SidebarItem";
             case NodeType::Image:       return "Image";
             case NodeType::Markdown:    return "Markdown";
+            case NodeType::SignalView:  return "SignalView";
             default:                    return (static_cast<uint16_t>(type) >= static_cast<uint16_t>(NodeType::User)) ? "UserWidget" : "Unknown";
         }
     }

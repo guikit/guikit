@@ -90,6 +90,14 @@ public:
         float cornerRadius = 0.0f,
         uint8_t opacity = 255
     ) override;
+    bool DrawPixels(
+        const uint32_t* pixels,
+        uint32_t width,
+        uint32_t height,
+        Rect destRect,
+        float cornerRadius = 0.0f,
+        uint8_t opacity = 255
+    ) override;
 
 private:
     struct ImageCacheEntry {

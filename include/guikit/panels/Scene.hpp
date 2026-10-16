@@ -75,6 +75,7 @@ struct SceneState {
     Vec2 boxSelectCurrentWorld{0.0f, 0.0f};
     std::optional<Vec2> pendingCenterWorld{std::nullopt};
     std::optional<float> pendingCenterZoom{std::nullopt};
+    Rect lastViewport{};
     bool preUpdatedCamera{false};
     bool preUpdateHudConsumed{false};
     bool preUpdateScrollbarBusy{false};
@@ -160,6 +161,7 @@ struct SceneDrawCmd {
 struct ScenePayload {
     SceneOptions opts{};
     SceneState* state{nullptr};
+    Rect openViewport{};
     std::vector<SceneDrawCmd> drawCmds{};
     std::vector<SceneItemInfo> items{};
     int32_t activeItemIndex{-1};

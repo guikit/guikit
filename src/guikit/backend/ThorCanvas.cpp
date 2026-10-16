@@ -644,4 +644,65 @@ bool ThorCanvas::DrawImage(
     return true;
 }
 
+bool ThorCanvas::DrawPixels(
+    const uint32_t* pixels,
+    uint32_t width,
+    uint32_t height,
+    Rect destRect,
+    float cornerRadius,
+    uint8_t opacity
+) {
+    if (!pixels || width == 0 || height == 0 || opacity == 0 || destRect.w <= 0.0f || destRect.h <= 0.0f || !m_canvas) {
+        return false;
+    }
+
+    const Rect sBounds(destRect.x * m_scale, destRect.y * m_scale, destRect.w * m_scale, destRect.h * m_scale);
+    if (!m_clipStack.empty()) {
+        const Rect& cr = m_clipStack.back();
+        if (cr.w <= 0.0f || cr.h <= 0.0f || !sBounds.Intersects(cr)) {
+            return true;
+        }
+    }
+
+    auto* pic = tvg::Picture::gen();
+    if (pic->load(pixels, width, height, tvg::ColorSpace::ABGR8888S, true) != tvg::Result::Success) {
+        delete pic;
+        return false;
+    }
+
+    const float sx = sBounds.w / static_cast<float>(width);
+    const float sy = sBounds.h / static_cast<float>(height);
+    const tvg::Matrix m = {
+        sx, 0.0f, sBounds.x,
+        0.0f, sy, sBounds.y,
+        0.0f, 0.0f, 1.0f
+    };
+    pic->transform(m);
+
+    if (opacity < 255) {
+        pic->opacity(opacity);
+    }
+
+    const float sRad = std::max(0.0f, cornerRadius * m_scale);
+    if (sRad > 0.0f) {
+        Rect clipR = sBounds;
+        float effRad = sRad;
+        if (!m_clipStack.empty()) {
+            const Rect& activeClip = m_clipStack.back();
+            if (!activeClip.Contains(sBounds.Pos()) || !activeClip.Contains({sBounds.Right(), sBounds.Bottom()})) {
+                clipR = sBounds.Intersect(activeClip);
+                effRad = 0.0f;
+            }
+        }
+        auto* clipper = tvg::Shape::gen();
+        clipper->appendRect(clipR.x, clipR.y, clipR.w, clipR.h, effRad, effRad);
+        pic->clip(clipper);
+    } else {
+        ApplyClip(pic);
+    }
+
+    m_canvas->add(pic);
+    return true;
+}
+
 } // namespace guikit

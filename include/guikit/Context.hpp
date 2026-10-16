@@ -34,6 +34,7 @@
 #include "guikit/panels/Carousel.hpp"
 #include "guikit/panels/ScrollArea.hpp"
 #include "guikit/panels/Scene.hpp"
+#include "guikit/panels/MapView.hpp"
 #include "guikit/panels/Sidebar.hpp"
 #include "guikit/panels/Toolbar.hpp"
 #include "guikit/widgets/Button.hpp"
@@ -49,6 +50,7 @@
 #include "guikit/widgets/TabBar.hpp"
 #include "guikit/widgets/Text.hpp"
 #include "guikit/widgets/TextArea.hpp"
+#include "guikit/widgets/SignalView.hpp"
 
 namespace guikit {
 
@@ -309,6 +311,11 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
+    [[nodiscard]] MapViewScope MapView(
+        MapViewOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
     // --- Scale & State Scopes ---
     void PushSize(UiSize size);
     void PopSize();
@@ -390,6 +397,13 @@ public:
     MarkdownResponse Markdown(
         std::string_view markdownText,
         const MarkdownOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    // --- SignalView (Waveform + Spectrogram DAW Analyzer) Widget ---
+    SignalViewResponse SignalView(
+        std::span<const float> samples,
+        const SignalViewOptions& opts = {},
         std::source_location loc = std::source_location::current()
     );
 
@@ -713,6 +727,7 @@ public:
 
     void AdaptChildToContainer(Node* node);
     [[nodiscard]] Rect GetPrevFrameBounds(Id id) const;
+    [[nodiscard]] Rect GetParentPrevFrameBounds() const;
 
     // --- Internal Hierarchy & Scope Management ---
     void PushContainer(Node* node);

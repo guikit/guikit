@@ -189,6 +189,25 @@ Rect Context::GetPrevFrameBounds(Id id) const {
     return Rect{};
 }
 
+Rect Context::GetParentPrevFrameBounds() const {
+    for (auto it = m_containerStack.rbegin(); it != m_containerStack.rend(); ++it) {
+        const Node* parent = *it;
+        if (!parent || !parent->id.IsValid()) continue;
+        auto found = m_prevFrameBounds.find(parent->id);
+        if (found != m_prevFrameBounds.end() && found->second.w > 1.0f && found->second.h > 1.0f) {
+            Rect r = found->second;
+            r.x += parent->padding.left;
+            r.y += parent->padding.top;
+            r.w = std::max(0.0f, r.w - (parent->padding.left + parent->padding.right));
+            r.h = std::max(0.0f, r.h - (parent->padding.top + parent->padding.bottom));
+            if (r.w > 1.0f && r.h > 1.0f) {
+                return r;
+            }
+        }
+    }
+    return Rect{};
+}
+
 void Context::PushContainer(Node* node) {
     m_containerStack.push_back(node);
 }
@@ -321,6 +340,10 @@ SceneScope Context::Scene(SceneOptions opts, std::source_location loc) {
     return Open<guikit::Scene>(opts, loc);
 }
 
+MapViewScope Context::MapView(MapViewOptions opts, std::source_location loc) {
+    return Open<guikit::MapView>(opts, loc);
+}
+
 Response Context::Button(ButtonOptions opts, std::source_location loc) {
     return Run<guikit::Button>(opts, loc);
 }
@@ -359,6 +382,10 @@ Response Context::Image(ImageOptions opts, std::source_location loc) {
 
 MarkdownResponse Context::Markdown(std::string_view markdownText, const MarkdownOptions& opts, std::source_location loc) {
     return Run<guikit::Markdown>(markdownText, opts, loc);
+}
+
+SignalViewResponse Context::SignalView(std::span<const float> samples, const SignalViewOptions& opts, std::source_location loc) {
+    return Run<guikit::SignalView>(samples, opts, loc);
 }
 
 Response Context::Switch(bool& value, SwitchOptions opts, std::source_location loc) {

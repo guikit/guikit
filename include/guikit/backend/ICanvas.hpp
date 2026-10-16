@@ -134,6 +134,35 @@ public:
         return false;
     }
 
+    /// Draws an in-memory 32-bit ABGR8888 pixel buffer (`(a << 24) | (b << 16) | (g << 8) | r`) stretched to `destRect`.
+    virtual bool DrawPixels(
+        const uint32_t* pixels,
+        uint32_t width,
+        uint32_t height,
+        Rect destRect,
+        float cornerRadius = 0.0f,
+        uint8_t opacity = 255
+    ) {
+        (void)cornerRadius;
+        if (!pixels || width == 0 || height == 0 || opacity == 0 || destRect.w <= 0.0f || destRect.h <= 0.0f) {
+            return false;
+        }
+        const float cw = destRect.w / static_cast<float>(width);
+        const float ch = destRect.h / static_cast<float>(height);
+        for (uint32_t y = 0; y < height; ++y) {
+            const float ry = destRect.y + static_cast<float>(y) * ch;
+            for (uint32_t x = 0; x < width; ++x) {
+                const uint32_t px = pixels[y * width + x];
+                const uint8_t r = static_cast<uint8_t>(px & 0xFFu);
+                const uint8_t g = static_cast<uint8_t>((px >> 8) & 0xFFu);
+                const uint8_t b = static_cast<uint8_t>((px >> 16) & 0xFFu);
+                const uint8_t a = static_cast<uint8_t>(((px >> 24) & 0xFFu) * opacity / 255u);
+                DrawRect(Rect(destRect.x + static_cast<float>(x) * cw, ry, cw + 0.5f, ch + 0.5f), Color(r, g, b, a));
+            }
+        }
+        return true;
+    }
+
     /// Draws a hardware or memory texture (e.g. SDL_Texture* handle or image id).
     virtual void DrawTexture(
         uint64_t /*textureId*/,

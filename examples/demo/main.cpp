@@ -40,6 +40,7 @@ void DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
         // 4. 2D SCENES
         case NavCategory::SceneSchematic2D:  RenderSchematicInspector(ui, ctx); break;
         case NavCategory::SceneOsmMap:       RenderOsmMapInspector(ui, ctx); break;
+        case NavCategory::SceneSignalView:   RenderSignalInspector(ui, ctx); break;
 
         // 5. ASSEMBLY
         case NavCategory::AsmDashboard:      RenderDashboardInspector(ui, ctx); break;
@@ -74,6 +75,7 @@ void DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx
         // 4. 2D SCENES
         case NavCategory::SceneSchematic2D:  RenderSchematicStage(ui, ctx); break;
         case NavCategory::SceneOsmMap:       RenderOsmMapStage(ui, ctx); break;
+        case NavCategory::SceneSignalView:   RenderSignalStage(ui, ctx); break;
 
         default: break;
     }
@@ -103,6 +105,7 @@ std::string DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
         // 4. 2D SCENES
         case NavCategory::SceneSchematic2D:  return GenerateSchematicCode(ctx);
         case NavCategory::SceneOsmMap:       return GenerateOsmMapCode(ctx);
+        case NavCategory::SceneSignalView:   return GenerateSignalCode(ctx);
 
         default:                             return {};
     }
@@ -488,6 +491,7 @@ int main(int argc, char* argv[]) {
                                 menu.Section("2D SCENES");
                                 menu.Item(selectedCategory, NavCategory::SceneSchematic2D,  {.text = "Schematic 2D", .icon = guikit::Icon::Search()});
                                 menu.Item(selectedCategory, NavCategory::SceneOsmMap,       {.text = "OSM Map",      .icon = guikit::Icon::Search(), .badge = "GIS"});
+                                menu.Item(selectedCategory, NavCategory::SceneSignalView,   {.text = "Signal View",  .icon = guikit::Icon::Play(),   .badge = "DSP"});
 
                                 menu.Section("ASSEMBLY");
                                 menu.Item(selectedCategory, NavCategory::AsmDashboard,      {.text = "Dashboard",    .icon = guikit::Icon::Settings()});

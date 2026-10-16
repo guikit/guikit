@@ -878,12 +878,20 @@ SceneScope Scene::Open(
     node->minHeight = opts.height.has_value() ? theme.Scale(*opts.height) : theme.Scale(opts.minHeight);
 
     Rect prevBounds = ctx.GetPrevFrameBounds(id);
+    if (prevBounds.w <= 1.0f || prevBounds.h <= 1.0f) {
+        if (state.lastViewport.w > 1.0f && state.lastViewport.h > 1.0f) {
+            prevBounds = state.lastViewport;
+        } else {
+            prevBounds = ctx.GetParentPrevFrameBounds();
+        }
+    }
     Rect prevVp = prevBounds;
     if (prevBounds.w > 0.0f && prevBounds.h > 0.0f && hasExt) {
         const ElementSpec spec = MakeSceneSpec(opts, activeSize, theme, activeDisabled);
         const Vec2 ctrlSize = ComputeSceneControlSize(opts, theme, prevBounds.w);
         prevVp = ElementComposer::Resolve(prevBounds, ctrlSize, spec, nullptr, theme).controlRect;
     }
+    payload->openViewport = prevVp;
 
     // Eagerly update camera pan & zoom before SceneScope body runs so GetVisibleWorldRect() and GetZoom() have zero 1-frame lag!
     state.preUpdatedCamera = false;
@@ -970,9 +978,16 @@ void Scene::Update(Context& ctx, Node* node) {
     const Rect vp = GetViewportRect(node, nullptr, theme);
     if (vp.w <= 1.0f || vp.h <= 1.0f) return;
 
+    state.lastViewport = vp;
     if (!state.preUpdatedCamera) {
         UpdateSceneCameraTransform(ctx, node, payload, vp, theme);
+        ctx.InvalidateRect(node->computedRect);
+        ctx.RequestRepaint(2);
     } else {
+        if (std::abs(vp.w - payload->openViewport.w) > 1.0f || std::abs(vp.h - payload->openViewport.h) > 1.0f) {
+            ctx.InvalidateRect(node->computedRect);
+            ctx.RequestRepaint(2);
+        }
         ClampCameraToWorld(state, opts, vp, theme);
     }
 
@@ -1092,6 +1107,10 @@ void Scene::Update(Context& ctx, Node* node) {
 
     node->visualHash = detail::HashArgs(
         node->visualHash,
+        payload->openViewport.w,
+        payload->openViewport.h,
+        payload->drawCmds.size(),
+        payload->items.size(),
         state.zoom,
         state.pan.x,
         state.pan.y,

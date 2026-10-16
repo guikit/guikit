@@ -60,6 +60,7 @@ set(GUIKIT_SOURCES
     src/guikit/panels/Box.cpp
     src/guikit/panels/Card.cpp
     src/guikit/panels/Carousel.cpp
+    src/guikit/panels/MapView.cpp
     src/guikit/panels/ScrollArea.cpp
     src/guikit/panels/Scene.cpp
     src/guikit/panels/Sidebar.cpp
@@ -71,6 +72,7 @@ set(GUIKIT_SOURCES
     src/guikit/widgets/Markdown.cpp
     src/guikit/widgets/Select.cpp
     src/guikit/widgets/SidebarMenu.cpp
+    src/guikit/widgets/SignalView.cpp
     src/guikit/widgets/Slider.cpp
     src/guikit/widgets/Switch.cpp
     src/guikit/widgets/TabBar.cpp
@@ -111,6 +113,7 @@ if (GUIKIT_BUILD_DEMO)
         examples/demo/content/CodeEditorScreen.cpp
         examples/demo/scenes/SchematicScreen.cpp
         examples/demo/scenes/OsmMapScreen.cpp
+        examples/demo/scenes/SignalScreen.cpp
         examples/demo/assemblies/DashboardScreen.cpp
         examples/demo/assemblies/FormControlsScreen.cpp
         examples/demo/assemblies/FlexRibbonScreen.cpp

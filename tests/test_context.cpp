@@ -6576,6 +6576,217 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
     std::cout << "  [PASS] TestUnifiedElementHeaderDecorationsAcrossWidgets completed\n";
 }
 
+void TestSignalViewWidgetWorkflow() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+
+    const uint32_t width = 960;
+    const uint32_t height = 540;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    // Generate 240,000 samples (5.0 seconds @ 48 kHz) with a 2 kHz sine + 8 kHz harmonic
+    const size_t numSamples = 240000;
+    const float sampleRate = 48000.0f;
+    std::vector<float> samples(numSamples, 0.0f);
+    for (size_t i = 0; i < numSamples; ++i) {
+        const float t = static_cast<float>(i) / sampleRate;
+        samples[i] = 0.6f * std::sin(2.0f * 3.14159265f * 2000.0f * t) +
+                     0.25f * std::sin(2.0f * 3.14159265f * 8000.0f * t);
+    }
+
+    float splitRatio = 0.50f;
+    float waveformGain = 1.0f;
+    double playheadSec = 1.25;
+    SignalSelection selection{
+        .active = true,
+        .startTimeSec = 0.5,
+        .endTimeSec = 2.0,
+        .hasSpectralBox = true,
+        .lowFreqHz = 1000.0f,
+        .highFreqHz = 10000.0f
+    };
+    std::vector<SignalMarker> markers = {
+        {1.0, "Cue A", Color{56, 189, 248, 255}},
+        {3.5, "Cue B", Color{245, 158, 11, 255}}
+    };
+    SignalPanelOrder panelOrder = SignalPanelOrder::WaveformTop;
+    SignalViewResponse resp{};
+
+    auto renderFrame = [&]() {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        if (auto box = ui.Box({
+            .widthMode = SizeMode::Stretch,
+            .heightMode = SizeMode::Stretch,
+            .padding = Padding::All(8.0f)
+        })) {
+            resp = ui.SignalView(samples, {
+                .sampleRate = sampleRate,
+                .panelOrder = panelOrder,
+                .splitRatio = splitRatio,
+                .amplitudeScale = AmplitudeScale::dBFS,
+                .frequencyScale = FrequencyScale::Linear,
+                .colormap = SpectrogramColormap::Inferno,
+                .fftWindow = FftWindowType::Hann,
+                .fftSize = 512,
+                .splitRatioBinding = &splitRatio,
+                .waveformGainBinding = &waveformGain,
+                .playheadTimeSec = &playheadSec,
+                .selection = &selection,
+                .markers = &markers,
+                .heightMode = SizeMode::Stretch
+            });
+        }
+        ui.EndFrame(canvas);
+    };
+
+    // Frame 1 & 2: Initial layout and render
+    renderFrame();
+    renderFrame();
+
+    CHECK(resp.rect.w > 800.0f);
+    CHECK(resp.rect.h > 400.0f);
+    CHECK(resp.totalSamples == numSamples);
+    CHECK_NEAR(static_cast<float>(resp.totalDurationSec), 5.0f, 0.01f);
+    CHECK_NEAR(static_cast<float>(resp.viewStartSec), 0.0f, 0.01f);
+    CHECK_NEAR(static_cast<float>(resp.viewEndSec), 5.0f, 0.01f);
+    CHECK(resp.selectionPeakDbFs > -10.0f);
+    CHECK(resp.selectionRmsDbFs > -15.0f);
+    CHECK(resp.selectionCentroidHz > 1500.0f);
+
+    // Verify wheel zoom in on plot center
+    const Vec2 centerPt{resp.rect.x + resp.rect.w * 0.5f, resp.rect.y + resp.rect.h * 0.5f};
+    ui.OnMouseMove(centerPt);
+    ui.OnMouseWheel(0.0f, 2.0f);
+    renderFrame();
+
+    CHECK(resp.changed);
+    CHECK((resp.viewEndSec - resp.viewStartSec) < 4.5);
+    CHECK(resp.cursorInsidePlot);
+
+    // Verify panel order switch (SpectrogramTop)
+    panelOrder = SignalPanelOrder::SpectrogramTop;
+    renderFrame();
+    CHECK(resp.rect.w > 800.0f);
+
+    std::cout << "  [PASS] TestSignalViewWidgetWorkflow completed\n";
+}
+
+void TestMapViewWidgetWorkflow() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+
+    const uint32_t width = 960;
+    const uint32_t height = 540;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    MapCrs crs = MapCrs::EPSG3857_WebMercator;
+    std::optional<GeoCoord> reqCenter{};
+    std::optional<float> reqZoom{};
+    MapViewState lastView{};
+    size_t itemCount = 0;
+
+    auto renderFrame = [&]() {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        if (auto map = ui.MapView({
+            .crs = crs,
+            .coordFormat = GeoCoordFormat::NauticalDMM,
+            .initialCenter = {54.1825, 7.8853},
+            .initialTileZoom = 7.0f,
+            .requestCenterGeo = reqCenter,
+            .requestTileZoom = reqZoom,
+            .heightMode = SizeMode::Stretch
+        })) {
+            map.DrawGeoLine({53.8900, 9.1433}, {54.1825, 7.8853}, Color(232, 121, 249, 220), 1.8f);
+            map.DrawSeamark({54.1825, 7.8853}, {
+                .id = "WP-HELGOLAND",
+                .title = "Helgoland Light",
+                .category = "IALA Lighthouse"
+            });
+            lastView = map.GetViewState();
+            itemCount = map.GetItems().size();
+        }
+        reqCenter.reset();
+        reqZoom.reset();
+        ui.EndFrame(canvas);
+    };
+
+    // Frame 1 & 2: Layout and camera initialization
+    renderFrame();
+    renderFrame();
+
+    CHECK(lastView.tileZoom == 7);
+    CHECK(!lastView.visibleTiles.empty());
+    CHECK(!lastView.meridians.empty());
+    CHECK(!lastView.parallels.empty());
+    CHECK(itemCount > 1);
+    CHECK_NEAR(static_cast<float>(lastView.center.lat), 54.1825f, 0.25f);
+    CHECK_NEAR(static_cast<float>(lastView.center.lon), 7.8853f, 0.25f);
+
+    // Switch CRS to EPSG:3395 and verify geographic center is preserved
+    crs = MapCrs::EPSG3395_WorldMercator;
+    renderFrame();
+    CHECK(lastView.crs == MapCrs::EPSG3395_WorldMercator);
+    CHECK_NEAR(static_cast<float>(lastView.center.lat), 54.1825f, 0.25f);
+    CHECK_NEAR(static_cast<float>(lastView.center.lon), 7.8853f, 0.25f);
+
+    // Programmatic camera jump to Strait of Gibraltar (z=8)
+    reqCenter = GeoCoord{36.1095, -5.3453};
+    reqZoom = 8.0f;
+    renderFrame();
+    CHECK(lastView.tileZoom == 8);
+    CHECK_NEAR(static_cast<float>(lastView.center.lat), 36.1095f, 0.25f);
+    CHECK_NEAR(static_cast<float>(lastView.center.lon), -5.3453f, 0.25f);
+
+    // Tab-switching & 600-frame GC regression:
+    // Simulate a parent stage container where another tab is active for 605 frames (pruning SceneState),
+    // then switch to the MapView tab with dirty-rect tracking enabled and verify full tile grid on Frame 1.
+    ui.SetDirtyRectEnabled(true);
+    bool showMapTab = false;
+    MapViewState tabSwitchView{};
+    auto renderTabbedApp = [&]() {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        if (auto stage = ui.Box({.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch})) {
+            if (!showMapTab) {
+                ui.Text("Other Tab Content");
+            } else {
+                if (auto map = ui.MapView({
+                    .crs = MapCrs::EPSG3857_WebMercator,
+                    .coordFormat = GeoCoordFormat::NauticalDMM,
+                    .initialCenter = {54.1825, 7.8853},
+                    .initialTileZoom = 7.0f,
+                    .heightMode = SizeMode::Stretch
+                })) {
+                    tabSwitchView = map.GetViewState();
+                }
+            }
+        }
+        ui.EndFrame(canvas);
+    };
+
+    for (int i = 0; i < 605; ++i) {
+        renderTabbedApp();
+    }
+
+    // Activate MapView tab: very first frame should inherit parent stage bounds and render full z=7 tile grid
+    showMapTab = true;
+    renderTabbedApp();
+    CHECK(ui.HasDirtyDamage());
+    CHECK(tabSwitchView.tileZoom == 7);
+    CHECK(tabSwitchView.visibleTiles.size() >= 6);
+    CHECK(!tabSwitchView.meridians.empty());
+    CHECK(!tabSwitchView.parallels.empty());
+    CHECK_NEAR(static_cast<float>(tabSwitchView.center.lat), 54.1825f, 0.25f);
+    CHECK_NEAR(static_cast<float>(tabSwitchView.center.lon), 7.8853f, 0.25f);
+
+    std::cout << "  [PASS] TestMapViewWidgetWorkflow completed\n";
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -6635,6 +6846,8 @@ int main() {
     TestBaseElementsAllInOneEnhancements();
     TestImageSceneAndMarkdownWidgets();
     TestUnifiedElementHeaderDecorationsAcrossWidgets();
+    TestSignalViewWidgetWorkflow();
+    TestMapViewWidgetWorkflow();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";
