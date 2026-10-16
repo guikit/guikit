@@ -215,11 +215,13 @@ SceneItemScope SceneScope::Item(const SceneItemOptions& opts) {
     }
     // Disambiguate if another item in the same scene shares the same base string key
     uint64_t key = baseKey;
-    uint32_t dupCount = 0;
-    for (const SceneItemInfo& existing : m_payload->items) {
-        if (existing.key == key) {
-            ++dupCount;
-            key = detail::HashArgs(baseKey, dupCount);
+    if (m_payload->items.size() < 256) {
+        uint32_t dupCount = 0;
+        for (const SceneItemInfo& existing : m_payload->items) {
+            if (existing.key == key) {
+                ++dupCount;
+                key = detail::HashArgs(baseKey, dupCount);
+            }
         }
     }
 
@@ -284,6 +286,7 @@ void SceneScope::FinalizeItem(int32_t itemIndex, int32_t prevItemIndex) noexcept
 
         switch (cmd.type) {
             case SceneDrawCmd::Type::Image:
+            case SceneDrawCmd::Type::Pixels:
             case SceneDrawCmd::Type::Rect:
                 expandRect(cmd.rect);
                 break;
@@ -466,6 +469,27 @@ void SceneScope::DrawImage(
     cmd.type = SceneDrawCmd::Type::Image;
     cmd.itemIndex = m_payload->activeItemIndex;
     cmd.textOrSource = m_ctx->AllocString(source);
+    cmd.rect = worldRect;
+    cmd.radius = radius;
+    cmd.opacity = opacity;
+    m_payload->drawCmds.push_back(cmd);
+}
+
+void SceneScope::DrawPixels(
+    const uint32_t* pixels,
+    uint32_t width,
+    uint32_t height,
+    Rect worldRect,
+    float radius,
+    uint8_t opacity
+) {
+    if (!m_payload || !pixels || width == 0 || height == 0) return;
+    SceneDrawCmd cmd{};
+    cmd.type = SceneDrawCmd::Type::Pixels;
+    cmd.itemIndex = m_payload->activeItemIndex;
+    cmd.pixels = pixels;
+    cmd.pixelW = width;
+    cmd.pixelH = height;
     cmd.rect = worldRect;
     cmd.radius = radius;
     cmd.opacity = opacity;
@@ -1251,6 +1275,13 @@ void Scene::RenderBackgroundAndWorld(
                 const Rect dst = worldRectToScreen(cmd.rect);
                 if (dst.Intersects(vp)) {
                     canvas.DrawImage(cmd.textOrSource, dst, cmd.radius * state.zoom, cmd.opacity);
+                }
+                break;
+            }
+            case SceneDrawCmd::Type::Pixels: {
+                const Rect dst = worldRectToScreen(cmd.rect);
+                if (dst.Intersects(vp) && cmd.pixels && cmd.pixelW > 0 && cmd.pixelH > 0) {
+                    canvas.DrawPixels(cmd.pixels, cmd.pixelW, cmd.pixelH, dst, cmd.radius * state.zoom, cmd.opacity);
                 }
                 break;
             }

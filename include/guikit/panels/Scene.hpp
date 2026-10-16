@@ -131,6 +131,7 @@ struct SceneOptions {
 struct SceneDrawCmd {
     enum class Type : uint8_t {
         Image = 0,
+        Pixels,
         Rect,
         Line,
         Triangle,
@@ -140,6 +141,9 @@ struct SceneDrawCmd {
     Type type{Type::Rect};
     int32_t itemIndex{-1};      ///< Owning SceneItemInfo index in ScenePayload::items (-1 if unowned)
     std::string_view textOrSource{};
+    const uint32_t* pixels{nullptr};
+    uint32_t pixelW{0};
+    uint32_t pixelH{0};
     Rect rect{};
     Vec2 p1{};
     Vec2 p2{};
@@ -262,6 +266,16 @@ public:
     /// Queues a vector or raster image (SVG, PNG, JPG) in World Coordinates.
     void DrawImage(
         std::string_view source,
+        Rect worldRect,
+        float radius = 0.0f,
+        uint8_t opacity = 255
+    );
+
+    /// Queues an in-memory ABGR8888 pixel buffer in World Coordinates.
+    void DrawPixels(
+        const uint32_t* pixels,
+        uint32_t width,
+        uint32_t height,
         Rect worldRect,
         float radius = 0.0f,
         uint8_t opacity = 255
