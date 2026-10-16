@@ -51,6 +51,7 @@
 #include "guikit/widgets/Text.hpp"
 #include "guikit/widgets/TextArea.hpp"
 #include "guikit/widgets/SignalView.hpp"
+#include "guikit/widgets/SonarView.hpp"
 
 namespace guikit {
 
@@ -404,6 +405,13 @@ public:
     SignalViewResponse SignalView(
         std::span<const float> samples,
         const SignalViewOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    // --- SonarView (Polar Heatmap / Diver Detection Sonar / PPI Radar) Widget ---
+    SonarViewResponse SonarView(
+        std::span<const float> polarMatrix,
+        const SonarViewOptions& opts = {},
         std::source_location loc = std::source_location::current()
     );
 

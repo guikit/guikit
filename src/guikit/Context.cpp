@@ -388,6 +388,10 @@ SignalViewResponse Context::SignalView(std::span<const float> samples, const Sig
     return Run<guikit::SignalView>(samples, opts, loc);
 }
 
+SonarViewResponse Context::SonarView(std::span<const float> polarMatrix, const SonarViewOptions& opts, std::source_location loc) {
+    return Run<guikit::SonarView>(polarMatrix, opts, loc);
+}
+
 Response Context::Switch(bool& value, SwitchOptions opts, std::source_location loc) {
     return Run<guikit::Switch>(&value, value, opts, loc);
 }

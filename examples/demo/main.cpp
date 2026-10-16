@@ -41,6 +41,7 @@ void DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
         case NavCategory::SceneSchematic2D:  RenderSchematicInspector(ui, ctx); break;
         case NavCategory::SceneOsmMap:       RenderOsmMapInspector(ui, ctx); break;
         case NavCategory::SceneSignalView:   RenderSignalInspector(ui, ctx); break;
+        case NavCategory::SceneSonarView:    RenderSonarInspector(ui, ctx); break;
 
         // 5. ASSEMBLY
         case NavCategory::AsmDashboard:      RenderDashboardInspector(ui, ctx); break;
@@ -76,6 +77,7 @@ void DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx
         case NavCategory::SceneSchematic2D:  RenderSchematicStage(ui, ctx); break;
         case NavCategory::SceneOsmMap:       RenderOsmMapStage(ui, ctx); break;
         case NavCategory::SceneSignalView:   RenderSignalStage(ui, ctx); break;
+        case NavCategory::SceneSonarView:    RenderSonarStage(ui, ctx); break;
 
         default: break;
     }
@@ -106,6 +108,7 @@ std::string DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
         case NavCategory::SceneSchematic2D:  return GenerateSchematicCode(ctx);
         case NavCategory::SceneOsmMap:       return GenerateOsmMapCode(ctx);
         case NavCategory::SceneSignalView:   return GenerateSignalCode(ctx);
+        case NavCategory::SceneSonarView:    return GenerateSonarCode(ctx);
 
         default:                             return {};
     }
@@ -136,15 +139,22 @@ int main(int argc, char* argv[]) {
     int winWidth = 1380;
     int winHeight = 800;
 #ifdef __EMSCRIPTEN__
-    {
+    auto getCanvasPhysicalSize = [](int& outW, int& outH) -> bool {
         double cssW = 0.0, cssH = 0.0;
         if (emscripten_get_element_css_size("#canvas", &cssW, &cssH) == EMSCRIPTEN_RESULT_SUCCESS &&
             cssW >= 200.0 && cssH >= 200.0) {
-            winWidth = static_cast<int>(cssW);
-            winHeight = static_cast<int>(cssH);
+            double dpr = emscripten_get_device_pixel_ratio();
+            if (dpr <= 0.0) {
+                dpr = 1.0;
+            }
+            outW = static_cast<int>(std::lround(cssW * dpr));
+            outH = static_cast<int>(std::lround(cssH * dpr));
+            return true;
         }
-    }
-    const SDL_WindowFlags windowFlags = SDL_WINDOW_RESIZABLE;
+        return false;
+    };
+    getCanvasPhysicalSize(winWidth, winHeight);
+    const SDL_WindowFlags windowFlags = 0;
 #else
     const SDL_WindowFlags windowFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY;
 #endif
@@ -162,7 +172,11 @@ int main(int argc, char* argv[]) {
     }
 
     SDL_SetWindowMinimumSize(window, 320, 240);
+#ifdef __EMSCRIPTEN__
+    SDL_SetWindowSize(window, winWidth, winHeight);
+#else
     SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+#endif
     SDL_SetRenderVSync(renderer, 1);
     SDL_StartTextInput(window);
 
@@ -181,6 +195,7 @@ int main(int argc, char* argv[]) {
         bufWidth,
         bufHeight
     );
+    SDL_SetTextureScaleMode(screenTexture, SDL_SCALEMODE_NEAREST);
 
     bool showSidebar = true;
     bool running = true;
@@ -358,6 +373,7 @@ int main(int argc, char* argv[]) {
                 bufWidth,
                 bufHeight
             );
+            SDL_SetTextureScaleMode(screenTexture, SDL_SCALEMODE_NEAREST);
             ui.InvalidateAll();
         }
 
@@ -492,6 +508,7 @@ int main(int argc, char* argv[]) {
                                 menu.Item(selectedCategory, NavCategory::SceneSchematic2D,  {.text = "Schematic 2D", .icon = guikit::Icon::Search()});
                                 menu.Item(selectedCategory, NavCategory::SceneOsmMap,       {.text = "OSM Map",      .icon = guikit::Icon::Search(), .badge = "GIS"});
                                 menu.Item(selectedCategory, NavCategory::SceneSignalView,   {.text = "Signal View",  .icon = guikit::Icon::Play(),   .badge = "DSP"});
+                                menu.Item(selectedCategory, NavCategory::SceneSonarView,    {.text = "Sonar Radar",  .icon = guikit::Icon::Search(), .badge = "DDS"});
 
                                 menu.Section("ASSEMBLY");
                                 menu.Item(selectedCategory, NavCategory::AsmDashboard,      {.text = "Dashboard",    .icon = guikit::Icon::Settings()});
@@ -613,10 +630,23 @@ int main(int argc, char* argv[]) {
                                     demoCtx.previewInspect = !demoCtx.previewInspect;
                                     ui.InvalidateAll();
                                 }
+
+                                if (IsSandboxCategory(selectedCategory)) {
+                                    if (previewTb.ToolButton({
+                                        .label = "Code",
+                                        .icon = demoCtx.previewShowCode ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
+                                        .variant = demoCtx.previewShowCode ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+                                        .active = demoCtx.previewShowCode
+                                    })) {
+                                        demoCtx.previewShowCode = !demoCtx.previewShowCode;
+                                        ui.InvalidateAll();
+                                        ui.RequestRepaint(3);
+                                    }
+                                }
                             }
 
                             if (IsSandboxCategory(selectedCategory)) {
-                                // SANDBOX MODE: Hero Stage (50%) + C++20 Code Generator (50%)
+                                // SANDBOX MODE: Hero Stage + optional C++20 Code Generator
                                 if (auto heroCard = ui.Card({
                                     .gap = 12.0f,
                                     .padding = guikit::Padding::All(14.0f),
@@ -647,24 +677,26 @@ int main(int argc, char* argv[]) {
                                     }
                                 }
 
-                                if (auto codeCard = ui.Card({
-                                    .gap = 8.0f,
-                                    .padding = guikit::Padding::All(12.0f),
-                                    .borderRadius = 8.0f,
-                                    .heightMode = guikit::SizeMode::Stretch,
-                                    .theme = &demoCtx.shellTheme
-                                })) {
-                                    std::string snippet = DispatchCodeGenerator(selectedCategory, demoCtx);
-                                    ui.TextArea(snippet, {
-                                        .autoHeight = false,
-                                        .readOnly = true,
-                                        .showLineNumbers = true,
-                                        .showCopyButton = true,
-                                        .monospace = true,
-                                        .allowZoom = true,
-                                        .syntax = guikit::SyntaxConfig::Cpp(),
-                                        .heightMode = guikit::SizeMode::Stretch
-                                    });
+                                if (demoCtx.previewShowCode) {
+                                    if (auto codeCard = ui.Card({
+                                        .gap = 8.0f,
+                                        .padding = guikit::Padding::All(12.0f),
+                                        .borderRadius = 8.0f,
+                                        .heightMode = guikit::SizeMode::Stretch,
+                                        .theme = &demoCtx.shellTheme
+                                    })) {
+                                        std::string snippet = DispatchCodeGenerator(selectedCategory, demoCtx);
+                                        ui.TextArea(snippet, {
+                                            .autoHeight = false,
+                                            .readOnly = true,
+                                            .showLineNumbers = true,
+                                            .showCopyButton = true,
+                                            .monospace = true,
+                                            .allowZoom = true,
+                                            .syntax = guikit::SyntaxConfig::Cpp(),
+                                            .heightMode = guikit::SizeMode::Stretch
+                                        });
+                                    }
                                 }
                             } else {
                                 // ASSEMBLY MODE: Real-World Screens & Compositions
@@ -759,11 +791,10 @@ int main(int argc, char* argv[]) {
             return;
         }
 
-        double cssW = 0.0, cssH = 0.0;
-        if (emscripten_get_element_css_size("#canvas", &cssW, &cssH) == EMSCRIPTEN_RESULT_SUCCESS) {
-            const int targetW = static_cast<int>(cssW);
-            const int targetH = static_cast<int>(cssH);
-            if (targetW >= 200 && targetH >= 200 && (targetW != winWidth || targetH != winHeight)) {
+        int targetW = winWidth;
+        int targetH = winHeight;
+        if (getCanvasPhysicalSize(targetW, targetH)) {
+            if (targetW != winWidth || targetH != winHeight) {
                 SDL_SetWindowSize(window, targetW, targetH);
             }
         }

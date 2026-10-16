@@ -6787,6 +6787,118 @@ void TestMapViewWidgetWorkflow() {
     std::cout << "  [PASS] TestMapViewWidgetWorkflow completed\n";
 }
 
+void TestSonarViewWidgetWorkflow() {
+    using namespace guikit;
+    std::cout << "  - TestSonarViewWidgetWorkflow...\n";
+
+    Context ui;
+    ThorCanvas canvas;
+
+    const uint32_t width = 900;
+    const uint32_t height = 600;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    const uint32_t numBeams = 90;
+    const uint32_t numBins = 128;
+    std::vector<float> polarMatrix(numBeams * numBins, 0.25f);
+    for (size_t i = 0; i < polarMatrix.size(); ++i) {
+        polarMatrix[i] = 0.15f + 0.65f * static_cast<float>((i * 17) % 100) / 100.0f;
+    }
+
+    std::vector<SonarTarget> targets = {
+        {
+            .id = 10,
+            .callsign = "DIVER-01",
+            .classification = SonarTargetClass::Diver,
+            .rangeMeters = 180.0f,
+            .bearingDeg = 15.0f,
+            .speedMetersPerSec = 1.1f,
+            .courseDeg = 195.0f,
+            .depthMeters = 7.0f,
+            .snrDb = 20.5f
+        },
+        {
+            .id = 20,
+            .callsign = "UUV-02",
+            .classification = SonarTargetClass::UUV,
+            .rangeMeters = 240.0f,
+            .bearingDeg = 340.0f,
+            .speedMetersPerSec = 2.0f,
+            .courseDeg = 140.0f,
+            .depthMeters = 12.0f,
+            .snrDb = 24.0f
+        }
+    };
+
+    SonarDisplayMode displayMode = SonarDisplayMode::PPI_360;
+    SonarScanMode scanMode = SonarScanMode::MultibeamContinuous;
+    SonarColormap colormap = SonarColormap::SonarGold;
+    int selectedId = 10;
+    float eblBrg = 25.0f;
+    float vrmRng = 200.0f;
+    float rangeZoom = 1.0f;
+    SonarViewResponse lastResp{};
+
+    auto renderFrame = [&]() {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        lastResp = ui.SonarView(polarMatrix, {
+            .label = "Test Diver Detection Sonar",
+            .badge = "DDS",
+            .numBeams = numBeams,
+            .numRangeBins = numBins,
+            .displayMode = displayMode,
+            .scanMode = scanMode,
+            .colormap = colormap,
+            .maxRangeMeters = 400.0f,
+            .sectorApertureDeg = 120.0f,
+            .gainDb = 3.0f,
+            .tvgAmount = 0.5f,
+            .clutterThreshold = 0.12f,
+            .persistence = 0.8f,
+            .sweepAngleDeg = 45.0f,
+            .targets = targets,
+            .guardZone = {
+                .enabled = true,
+                .minRangeMeters = 100.0f,
+                .maxRangeMeters = 300.0f,
+                .startBearingDeg = 320.0f,
+                .endBearingDeg = 40.0f
+            },
+            .selectedTargetId = &selectedId,
+            .eblBearingDeg = &eblBrg,
+            .vrmRangeMeters = &vrmRng,
+            .viewRangeZoom = &rangeZoom,
+            .heightMode = SizeMode::Stretch
+        });
+        ui.EndFrame(canvas);
+    };
+
+    renderFrame();
+    renderFrame();
+
+    CHECK(lastResp.id.IsValid());
+    CHECK(lastResp.guardZoneAlarm);
+    CHECK(lastResp.guardZoneIntruderCount == 2);
+    CHECK(lastResp.selectedTargetId == 10);
+    CHECK_NEAR(lastResp.visibleMaxRangeMeters, 400.0f, 0.5f);
+
+    // Switch to SectorWedge and RotatingSweep + AcousticJet
+    displayMode = SonarDisplayMode::SectorWedge;
+    scanMode = SonarScanMode::RotatingSweep;
+    colormap = SonarColormap::AcousticJet;
+    renderFrame();
+    CHECK(lastResp.displayMode == SonarDisplayMode::SectorWedge);
+
+    // Switch to BScan
+    displayMode = SonarDisplayMode::BScan;
+    colormap = SonarColormap::PhosphorGreen;
+    renderFrame();
+    CHECK(lastResp.displayMode == SonarDisplayMode::BScan);
+
+    std::cout << "  [PASS] TestSonarViewWidgetWorkflow completed\n";
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -6848,6 +6960,7 @@ int main() {
     TestUnifiedElementHeaderDecorationsAcrossWidgets();
     TestSignalViewWidgetWorkflow();
     TestMapViewWidgetWorkflow();
+    TestSonarViewWidgetWorkflow();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

@@ -31,6 +31,7 @@ enum class NavCategory : uint8_t {
     SceneSchematic2D,
     SceneOsmMap,
     SceneSignalView,
+    SceneSonarView,
 
     // 5. ASSEMBLY (Compositions & Real-World Screens)
     AsmDashboard,
@@ -45,7 +46,7 @@ constexpr bool IsElementCategory(NavCategory cat) noexcept {
 }
 
 constexpr bool IsSandboxCategory(NavCategory cat) noexcept {
-    return cat <= NavCategory::SceneSignalView;
+    return cat <= NavCategory::SceneSonarView;
 }
 
 constexpr bool IsFullStageCategory(NavCategory cat) noexcept {
@@ -54,7 +55,8 @@ constexpr bool IsFullStageCategory(NavCategory cat) noexcept {
            cat == NavCategory::ContentCodeEditor ||
            cat == NavCategory::SceneSchematic2D ||
            cat == NavCategory::SceneOsmMap ||
-           cat == NavCategory::SceneSignalView;
+           cat == NavCategory::SceneSignalView ||
+           cat == NavCategory::SceneSonarView;
 }
 
 inline constexpr std::array<std::string_view, 3> kStretchModeNames = {"Compact", "Space", "Fill"};
@@ -165,6 +167,7 @@ struct DemoContext {
     bool previewLightMode = false;
     bool previewBounds = false;
     bool previewInspect = false;
+    bool previewShowCode = true;
 
     guikit::UiTheme shellTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
     guikit::UiTheme previewTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
@@ -529,6 +532,10 @@ std::string GenerateOsmMapCode(const DemoContext& ctx);
 void RenderSignalInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSignalStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateSignalCode(const DemoContext& ctx);
+
+void RenderSonarInspector(guikit::Context& ui, DemoContext& ctx);
+void RenderSonarStage(guikit::Context& ui, DemoContext& ctx);
+std::string GenerateSonarCode(const DemoContext& ctx);
 
 // ============================================================================
 // 5. ASSEMBLY (Compositions & Real-World Screens)

@@ -15,8 +15,9 @@ template <size_t Capacity = 64>
 class BasicUiString {
 public:
     constexpr BasicUiString() noexcept
-        : m_ptr(m_buffer.data()), m_length(0) {
+        : m_length(0) {
         m_buffer[0] = '\0';
+        m_ptr = m_buffer.data();
     }
 
     /// Constructs from a static string literal or null-terminated string with zero copy.

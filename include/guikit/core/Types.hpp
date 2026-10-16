@@ -332,7 +332,7 @@ public:
 private:
     std::span<const std::string_view> m_span{};
 };
-static_assert(sizeof(TextVariants) == 16, "TextVariants must remain 16 bytes");
+static_assert(sizeof(TextVariants) == 2 * sizeof(void*), "TextVariants must remain 2 * sizeof(void*) bytes");
 
 namespace literals {
     constexpr Dp operator""_dp(long double v) noexcept {

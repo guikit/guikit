@@ -84,6 +84,7 @@ enum class NodeType : uint16_t {
     Image       = 215,
     Markdown    = 216,
     SignalView  = 217,
+    SonarView   = 218,
 
     // --- User Extension Base (1000+) ---
     User        = 1000
