@@ -64,6 +64,7 @@ enum class NodeType : uint16_t {
     Container   = 104,  ///< General container alias for backward compatibility
     Sidebar     = 105,  ///< Dockable vertical sidebar container (Left or Right)
     Scene       = 106,  ///< Interactive 2D world camera & pan/zoom viewport
+    Table       = 107,  ///< Virtualized data grid / table container with sticky header and columns
 
     // --- Leaf Widgets (200..999): Self-rendering elements ---
     Button      = 200,
@@ -242,6 +243,7 @@ struct Node {
             case NodeType::Container:   return "Container";
             case NodeType::Sidebar:     return "Sidebar";
             case NodeType::Scene:       return "Scene";
+            case NodeType::Table:       return "Table";
             case NodeType::Button:      return "Button";
             case NodeType::InputField:  return "InputField";
             case NodeType::Select:      return "Select";

@@ -65,6 +65,7 @@ set(GUIKIT_SOURCES
     src/guikit/panels/ScrollArea.cpp
     src/guikit/panels/Scene.cpp
     src/guikit/panels/Sidebar.cpp
+    src/guikit/panels/Table.cpp
     src/guikit/panels/Toolbar.cpp
     src/guikit/widgets/Button.cpp
     src/guikit/widgets/Checkbox.cpp
@@ -111,6 +112,7 @@ if (GUIKIT_BUILD_DEMO)
         examples/demo/panels/CardScreen.cpp
         examples/demo/panels/TabBarScreen.cpp
         examples/demo/panels/SidebarScreen.cpp
+        examples/demo/panels/TableScreen.cpp
         examples/demo/content/ImageScreen.cpp
         examples/demo/content/MarkdownScreen.cpp
         examples/demo/content/CodeEditorScreen.cpp

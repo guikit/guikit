@@ -7369,6 +7369,200 @@ void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
     std::cout << "  [PASS] TestRangeSliderProgressBarSpinBoxAndRadioButton completed\n";
 }
 
+void TestTableVirtualizedDataGridWorkflow() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 800;
+    const uint32_t height = 600;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    constexpr size_t kTotalRows = 100000;
+    int selectedRow = 0;
+    int sortCol = 1;
+    TableSortDirection sortDir = TableSortDirection::Ascending;
+    bool row0Checked = false;
+    size_t visStart = 0;
+    size_t visEnd = 0;
+    bool sortChanged = false;
+    bool selChanged = false;
+    Rect row0CheckRect{};
+
+    int pendingJump = -1;
+    Rect tableBounds{};
+    Rect firstProgressRect{};
+
+    static const std::array<TableColumn, 5> cols = {{
+        {.title = "Track",  .width = 70.0f,  .align = Align::Center, .sortable = true},
+        {.title = "ID",     .width = 100.0f, .sortable = true},
+        {.title = "Signal", .flex = 1.5f,    .minWidth = 80.0f,      .sortable = true},
+        {.title = "RSSI",   .flex = 1.2f,    .minWidth = 90.0f,      .sortable = true},
+        {.title = "State",  .width = 110.0f, .align = Align::Center, .sortable = true}
+    }};
+
+    auto renderUI = [&]() {
+        if (auto col = ui.Column({.padding = Padding::All(16.0f), .widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch})) {
+            if (auto table = ui.Table(cols, {
+                .label = "Virtualized Signal Table",
+                .totalRows = kTotalRows,
+                .selectedRow = &selectedRow,
+                .sortColumn = &sortCol,
+                .sortDirection = &sortDir,
+                .showRowNumbers = true,
+                .showFooter = true,
+                .height = 360.0f
+            })) {
+                tableBounds = table.GetNode()->computedRect;
+                if (pendingJump >= 0) {
+                    table.ScrollToRow(static_cast<size_t>(pendingJump));
+                    pendingJump = -1;
+                }
+                visStart = table.FirstVisibleRow();
+                visEnd = table.EndVisibleRow();
+                sortChanged = table.SortChanged();
+                selChanged = table.SelectionChanged();
+
+                for (size_t r = visStart; r < visEnd; ++r) {
+                    if (auto row = table.Row(r)) {
+                        if (auto cell = table.Cell({.align = Align::Center})) {
+                            if (r == 0) {
+                                auto rChk = ui.Checkbox(row0Checked, {.size = UiSize::Sm});
+                                row0CheckRect = rChk.rect;
+                            } else {
+                                bool dummy = (r % 2 == 0);
+                                ui.Checkbox(dummy, {.size = UiSize::Sm});
+                            }
+                        }
+                        table.CellText(ui.Format("ID-{:06}", r));
+                        table.CellText("OFDM-64 Carrier");
+                        if (auto cell = table.Cell()) {
+                            auto rProg = ui.ProgressBar(-65.0f, -100.0f, -30.0f, {.size = UiSize::Xs});
+                            if (r == 50000) {
+                                firstProgressRect = rProg.rect;
+                            }
+                        }
+                        table.CellBadge("LOCKED", UiVariant::Success);
+                    }
+                }
+            }
+        }
+    };
+
+    // Frame 1 & 2: Measure & Layout
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    // 1. Verify O(1) virtualization: out of 100,000 rows, only ~14-20 rows are materialized
+    CHECK(visStart == 0);
+    CHECK(visEnd > 5);
+    CHECK(visEnd < 30);
+    CHECK(row0CheckRect.w > 10.0f);
+
+    // 2. Click embedded Checkbox inside Row 0 Cell 0
+    ui.OnMouseMove({row0CheckRect.x + 5.0f, row0CheckRect.y + 5.0f});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(row0Checked == true);
+
+    // 3. Click row 3 in the table body to select it
+    const float row3Y = row0CheckRect.y + 3.0f * 32.0f;
+    ui.OnMouseMove({300.0f, row3Y});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(selectedRow == 3);
+    CHECK(selChanged == true);
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    // 4. Press Key::End while table is focused -> jumps selection to row 99,999 and scrolls viewport!
+    ui.OnKeyDown(Key::End);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    CHECK(selectedRow == 99999);
+    CHECK(selChanged == true);
+
+    // Next frame: visible range reflects the new scroll position at the bottom of the 100,000-row table
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(visStart > 99970);
+    CHECK(visEnd == 100000);
+
+    // 5. Programmatic ScrollToRow(50000) updates FirstVisibleRow/EndVisibleRow on the SAME frame
+    pendingJump = 50000;
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(visStart <= 50000);
+    CHECK(visEnd > 50000);
+
+    // Settle layout for dirty-rect verification
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    // 6. Drag the right divider of Col 3 ("RSSI", preceded by flex Col 2 "Signal")
+    // Verify that Col 3's left edge stays pinned (Col 2 does not counter-shrink) and the whole Table is marked dirty.
+    const float initialProgX = firstProgressRect.x;
+    const float initialProgW = firstProgressRect.w;
+    const float col3RightDivX = firstProgressRect.Right() + 6.0f; // cellNode horizontal padding = 6.0f
+    const float headerCenterY = row0CheckRect.y - 20.0f;
+
+    ui.OnMouseMove({col3RightDivX, headerCenterY});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    // Drag divider right by +45px
+    ui.OnMouseMove({col3RightDivX + 45.0f, headerCenterY});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    // Wait one frame for child cell geometry to reflect the new column width
+    const Rect dirtyOnResize = ui.GetDirtyRect();
+    CHECK(ui.HasDirtyDamage());
+    // Entire table width must be covered by the dirty rect (not just the ProgressBar rect)
+    CHECK(dirtyOnResize.w >= tableBounds.w - 2.0f);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    // Left edge of Col 3 must remain stationary while its width grew by ~45px
+    CHECK(std::abs(firstProgressRect.x - initialProgX) < 2.0f);
+    CHECK(std::abs(firstProgressRect.w - (initialProgW + 45.0f)) < 3.0f);
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    std::cout << "  [PASS] TestTableVirtualizedDataGridWorkflow completed\n";
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -7434,6 +7628,7 @@ int main() {
     TestSonarAndSignalGpuShaderPipeline();
     TestWaterfallViewWidgetAndGpuRingBuffer();
     TestRangeSliderProgressBarSpinBoxAndRadioButton();
+    TestTableVirtualizedDataGridWorkflow();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

@@ -1146,6 +1146,9 @@ static Rect GetNodeContentClipRect(const Node* node, const UiTheme& theme) {
     if (node->type == NodeType::Carousel) {
         return Carousel::GetContentClipRect(node);
     }
+    if (node->type == NodeType::Table) {
+        return Table::GetBodyClipRect(node, theme);
+    }
     return node->computedRect;
 }
 
@@ -1184,6 +1187,8 @@ void Context::UpdateScrollAreasRecursive(Node* node) {
         Scene::Update(*this, node);
     } else if (node->type == NodeType::Carousel) {
         Carousel::Update(*this, node);
+    } else if (node->type == NodeType::Table) {
+        Table::Update(*this, node);
     }
 
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
@@ -1263,8 +1268,10 @@ void Context::EndFrame(ICanvas& canvas) {
     bool anyDebugBounds = m_debugBoundsEnabled;
     bool anyInspectMode = m_inspectModeEnabled;
 
-    std::function<void(Node*)> collectSnapshots = [&](Node* n) {
+    std::function<void(Node*, Rect, const UiTheme&)> collectSnapshots =
+        [&](Node* n, Rect parentClip, const UiTheme& parentTheme) {
         if (!n) return;
+        const UiTheme& activeTheme = (n->theme != nullptr) ? *n->theme : parentTheme;
         if (n->debugBoundsOverride.value_or(false)) {
             anyDebugBounds = true;
         }
@@ -1273,7 +1280,7 @@ void Context::EndFrame(ICanvas& canvas) {
         }
         if (n->id.IsValid()) {
             WidgetSnapshot snap;
-            snap.rect = n->computedRect;
+            snap.rect = n->computedRect.Intersect(parentClip);
             snap.flags = (n->hovered ? 1u : 0u) |
                          (n->pressed ? 2u : 0u) |
                          (n->disabled ? 4u : 0u) |
@@ -1295,7 +1302,15 @@ void Context::EndFrame(ICanvas& canvas) {
             auto it = m_prevSnapshots.find(n->id);
             if (it != m_prevSnapshots.end()) {
                 if (it->second != snap) {
-                    addDamage(snap.rect.Union(it->second.rect));
+                    const bool curValid = (snap.rect.w > 0.0f && snap.rect.h > 0.0f);
+                    const bool prevValid = (it->second.rect.w > 0.0f && it->second.rect.h > 0.0f);
+                    if (curValid && prevValid) {
+                        addDamage(snap.rect.Union(it->second.rect));
+                    } else if (curValid) {
+                        addDamage(snap.rect);
+                    } else if (prevValid) {
+                        addDamage(it->second.rect);
+                    }
                 }
             } else {
                 addDamage(snap.rect);
@@ -1304,12 +1319,17 @@ void Context::EndFrame(ICanvas& canvas) {
             currSnapshots.emplace(n->id, snap);
         }
 
+        Rect effectiveClip = parentClip;
+        if (n->clipChildren) {
+            effectiveClip = parentClip.Intersect(GetNodeContentClipRect(n, activeTheme));
+        }
+
         for (Node* c = n->firstChild; c != nullptr; c = c->nextSibling) {
-            collectSnapshots(c);
+            collectSnapshots(c, effectiveClip, activeTheme);
         }
     };
 
-    collectSnapshots(m_root);
+    collectSnapshots(m_root, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme);
     m_anyScopedInspectActive = anyInspectMode;
 
     // Detect removed widgets

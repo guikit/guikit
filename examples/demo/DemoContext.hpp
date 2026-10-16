@@ -21,6 +21,7 @@ enum class NavCategory : uint8_t {
     PanelCard,
     PanelTabBar,
     PanelSidebar,
+    PanelTable,
 
     // 3. CONTENT & MEDIA (Documents, Editors, Graphics)
     ContentImage,
@@ -52,6 +53,7 @@ constexpr bool IsSandboxCategory(NavCategory cat) noexcept {
 
 constexpr bool IsFullStageCategory(NavCategory cat) noexcept {
     return cat == NavCategory::PanelSidebar ||
+           cat == NavCategory::PanelTable ||
            cat == NavCategory::ContentMarkdown ||
            cat == NavCategory::ContentCodeEditor ||
            cat == NavCategory::SceneSchematic2D ||
@@ -504,6 +506,10 @@ std::string GenerateTabBarCode(const DemoContext& ctx);
 void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateSidebarCode(const DemoContext& ctx);
+
+void RenderTableInspector(guikit::Context& ui, DemoContext& ctx);
+void RenderTableStage(guikit::Context& ui, DemoContext& ctx);
+std::string GenerateTableCode(const DemoContext& ctx);
 
 // ============================================================================
 // 3. CONTENT & MEDIA (Documents, Editors, Graphics)

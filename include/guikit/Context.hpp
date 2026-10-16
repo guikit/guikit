@@ -36,6 +36,7 @@
 #include "guikit/panels/Scene.hpp"
 #include "guikit/panels/MapView.hpp"
 #include "guikit/panels/Sidebar.hpp"
+#include "guikit/panels/Table.hpp"
 #include "guikit/panels/Toolbar.hpp"
 #include "guikit/widgets/Button.hpp"
 #include "guikit/widgets/Checkbox.hpp"
@@ -320,6 +321,22 @@ public:
         MapViewOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
+
+    [[nodiscard]] TableScope Table(
+        std::span<const TableColumn> columns,
+        const TableOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return guikit::Table::Open(*this, columns, opts, loc);
+    }
+
+    [[nodiscard]] TableScope Table(
+        std::initializer_list<TableColumn> columns,
+        const TableOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return guikit::Table::Open(*this, std::span<const TableColumn>(columns.begin(), columns.size()), opts, loc);
+    }
 
     // --- Scale & State Scopes ---
     void PushSize(UiSize size);
