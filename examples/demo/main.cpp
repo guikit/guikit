@@ -355,11 +355,21 @@ int main(int argc, char* argv[]) {
                     case SDLK_DOWN:      key = guikit::Key::Down; break;
                     case SDLK_HOME:      key = guikit::Key::Home; break;
                     case SDLK_END:       key = guikit::Key::End; break;
+                    case SDLK_PAGEUP:    key = guikit::Key::PageUp; break;
+                    case SDLK_PAGEDOWN:  key = guikit::Key::PageDown; break;
                     case SDLK_A:         if (ctrl) key = guikit::Key::A; break;
                     case SDLK_C:         if (ctrl) key = guikit::Key::C; break;
+                    case SDLK_D:         if (ctrl) key = guikit::Key::D; break;
+                    case SDLK_F:         if (ctrl) key = guikit::Key::F; break;
+                    case SDLK_G:         if (ctrl) key = guikit::Key::G; break;
+                    case SDLK_H:         if (ctrl) key = guikit::Key::H; break;
+                    case SDLK_K:         if (ctrl) key = guikit::Key::K; break;
                     case SDLK_V:         if (ctrl) key = guikit::Key::V; break;
                     case SDLK_X:         if (ctrl) key = guikit::Key::X; break;
+                    case SDLK_Y:         if (ctrl) key = guikit::Key::Y; break;
                     case SDLK_Z:         if (ctrl) key = guikit::Key::Z; break;
+                    case SDLK_SLASH:
+                    case SDLK_KP_DIVIDE: if (ctrl) key = guikit::Key::Slash; break;
                     case SDLK_EQUALS:
                     case SDLK_PLUS:
                     case SDLK_KP_PLUS:   if (ctrl) key = guikit::Key::Plus; break;
@@ -367,6 +377,11 @@ int main(int argc, char* argv[]) {
                     case SDLK_KP_MINUS:  if (ctrl) key = guikit::Key::Minus; break;
                     case SDLK_0:
                     case SDLK_KP_0:      if (ctrl) key = guikit::Key::Zero; break;
+                    case SDLK_F3:        key = guikit::Key::F3; break;
+                    case SDLK_F5:        key = guikit::Key::F5; break;
+                    case SDLK_F9:        key = guikit::Key::F9; break;
+                    case SDLK_F10:       key = guikit::Key::F10; break;
+                    case SDLK_F11:       key = guikit::Key::F11; break;
                     default: break;
                 }
                 if (key != guikit::Key::None) {

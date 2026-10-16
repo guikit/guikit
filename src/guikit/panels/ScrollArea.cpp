@@ -137,6 +137,7 @@ void ScrollArea::UpdateAxisScrollbar(
     outHovered = false;
     outActive = false;
 
+    const float prevOffset = ioScrollOffset;
     const ScrollbarMetrics& m = theme.GetScrollbar(size);
     const float viewLen = isHorizontal ? viewportRect.w : viewportRect.h;
     const float maxScroll = std::max(0.0f, contentLength - viewLen);
@@ -154,26 +155,33 @@ void ScrollArea::UpdateAxisScrollbar(
 
     Rect trackRect{};
     Rect thumbRect{};
+    Rect hitTrackRect{};
+    Rect hitThumbRect{};
+    const float hitExpand = m.margin + 2.0f;
     if (isHorizontal) {
         const float trackX = viewportRect.x + m.margin;
         const float trackY = viewportRect.Bottom() - m.trackWidth - m.margin;
         const float thumbX = trackX + ratio * travel;
         trackRect = Rect(trackX, trackY, trackLen, m.trackWidth);
         thumbRect = Rect(thumbX, trackY, thumbLen, m.trackWidth);
+        hitTrackRect = Rect(trackX, trackY - hitExpand, trackLen, m.trackWidth + hitExpand * 2.0f);
+        hitThumbRect = Rect(thumbX, trackY - hitExpand, thumbLen, m.trackWidth + hitExpand * 2.0f);
     } else {
         const float trackX = viewportRect.Right() - m.trackWidth - m.margin;
         const float trackY = viewportRect.y + m.margin;
         const float thumbY = trackY + ratio * travel;
         trackRect = Rect(trackX, trackY, m.trackWidth, trackLen);
         thumbRect = Rect(trackX, thumbY, m.trackWidth, thumbLen);
+        hitTrackRect = Rect(trackX - hitExpand, trackY, m.trackWidth + hitExpand * 2.0f, trackLen);
+        hitThumbRect = Rect(trackX - hitExpand, thumbY, m.trackWidth + hitExpand * 2.0f, thumbLen);
     }
 
     const Vec2 mousePos = ctx.GetMousePos();
     const bool mouseClicked = ctx.IsMouseClicked();
     const bool mouseDown = ctx.IsMouseDown();
 
-    const bool hoverThumb = thumbRect.Contains(mousePos);
-    const bool hoverTrack = trackRect.Contains(mousePos);
+    const bool hoverThumb = hitThumbRect.Contains(mousePos);
+    const bool hoverTrack = hitTrackRect.Contains(mousePos);
     outHovered = hoverThumb || hoverTrack;
 
     if (hoverThumb && mouseClicked) {
@@ -204,6 +212,10 @@ void ScrollArea::UpdateAxisScrollbar(
                 ctx.SetActiveId(Id::Null());
             }
         }
+    }
+
+    if (ioDragging || std::abs(ioScrollOffset - prevOffset) > 0.01f) {
+        ctx.RequestRepaint(2);
     }
 }
 

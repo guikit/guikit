@@ -231,10 +231,18 @@ enum class Key : uint16_t {
     End,
     Up,
     Down,
-    A, C, V, X, Z,
+    PageUp,
+    PageDown,
+    A, C, D, F, G, H, K, V, X, Y, Z,
+    Slash,
     Plus,
     Minus,
-    Zero
+    Zero,
+    F3,
+    F5,
+    F9,
+    F10,
+    F11
 };
 
 /// Keyboard modifier flags.

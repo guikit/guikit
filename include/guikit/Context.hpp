@@ -537,7 +537,7 @@ public:
     );
 
     // --- TextArea Widget ---
-    Response TextArea(
+    TextAreaResponse TextArea(
         std::string& value,
         const TextAreaOptions& opts = {},
         std::source_location loc = std::source_location::current()
@@ -545,7 +545,7 @@ public:
         return Run<guikit::TextArea>(&value, std::string_view{}, opts, loc);
     }
 
-    Response TextArea(
+    TextAreaResponse TextArea(
         std::string_view value,
         const TextAreaOptions& opts = {},
         std::source_location loc = std::source_location::current()
@@ -905,6 +905,11 @@ public:
 
     void SetTextEditBuffer(Id id, std::string_view text);
     void SetTextEditCursor(Id id, size_t cursor, size_t selectionAnchor) noexcept;
+    void SetTextEditAutoClose(Id id, bool enabled) noexcept;
+    void ApplyTextEditChange(Id id, std::string_view newText, size_t newCursor, size_t newSelectionAnchor);
+    bool UndoTextEdit(Id id);
+    bool RedoTextEdit(Id id);
+    void SetSuspendDirectEditInput(bool suspend) noexcept { m_suspendDirectEditInput = suspend; }
     [[nodiscard]] bool GetTextEditSelection(Id id, size_t& outStart, size_t& outEnd) const noexcept;
     [[nodiscard]] size_t GetTextEditAnchor(Id id) const noexcept {
         return (m_editState.id == id && id.IsValid()) ? m_editState.selectionAnchor : 0;
@@ -954,6 +959,9 @@ public:
     }
     void ConsumeMouseWheel() noexcept { m_mouseWheel = {0.0f, 0.0f}; }
     bool ConsumeKey(Key key);
+    bool ConsumeKey(Key key, KeyModifiers& outMods);
+    bool ConsumeShortcut(Key key, bool ctrl, bool shift = false, bool alt = false);
+    [[nodiscard]] std::vector<std::string> ConsumePendingTextInput();
     void ScrollToId(Id id);
 
     // --- Generic Persistent State Storage ---
@@ -1063,16 +1071,24 @@ private:
 
     // Active text edit state
     struct ActiveEditState {
+        struct EditSnapshot {
+            std::string text;
+            size_t cursor{0};
+            size_t selectionAnchor{0};
+        };
+
         Id id{Id::Null()};
         std::string text;
         size_t cursor{0};
         size_t selectionAnchor{0};
-        std::string undoText;
-        size_t undoCursor{0};
+        std::vector<EditSnapshot> undoStack;
+        std::vector<EditSnapshot> redoStack;
+        std::optional<size_t> preferredColumn;
         bool changed{false};
         bool submitted{false};
         bool multiline{false};
         bool readOnly{false};
+        bool autoCloseBrackets{false};
 
         [[nodiscard]] bool HasSelection() const noexcept { return cursor != selectionAnchor; }
         [[nodiscard]] size_t SelectionStart() const noexcept { return std::min(cursor, selectionAnchor); }
@@ -1086,13 +1102,53 @@ private:
         }
 
         void SaveUndo() {
-            undoText = text;
-            undoCursor = cursor;
+            if (undoStack.empty() || undoStack.back().text != text) {
+                if (undoStack.size() >= 128) {
+                    undoStack.erase(undoStack.begin());
+                }
+                undoStack.push_back(EditSnapshot{text, cursor, selectionAnchor});
+                redoStack.clear();
+            }
+        }
+
+        bool Undo() {
+            while (!undoStack.empty()) {
+                EditSnapshot snap = std::move(undoStack.back());
+                undoStack.pop_back();
+                if (snap.text != text) {
+                    redoStack.push_back(EditSnapshot{text, cursor, selectionAnchor});
+                    text = std::move(snap.text);
+                    cursor = std::min(snap.cursor, text.size());
+                    selectionAnchor = std::min(snap.selectionAnchor, text.size());
+                    preferredColumn.reset();
+                    changed = true;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        bool Redo() {
+            while (!redoStack.empty()) {
+                EditSnapshot snap = std::move(redoStack.back());
+                redoStack.pop_back();
+                if (snap.text != text) {
+                    undoStack.push_back(EditSnapshot{text, cursor, selectionAnchor});
+                    text = std::move(snap.text);
+                    cursor = std::min(snap.cursor, text.size());
+                    selectionAnchor = std::min(snap.selectionAnchor, text.size());
+                    preferredColumn.reset();
+                    changed = true;
+                    return true;
+                }
+            }
+            return false;
         }
 
         void SelectAll() noexcept {
             selectionAnchor = 0;
             cursor = text.size();
+            preferredColumn.reset();
         }
 
         bool DeleteSelection();
@@ -1100,6 +1156,7 @@ private:
         bool HandleKey(Context& ctx, Key key, KeyModifiers mods, bool& outLostFocus);
     };
     ActiveEditState m_editState;
+    bool m_suspendDirectEditInput{false};
 
     struct QueuedKeyEvent {
         Key key;

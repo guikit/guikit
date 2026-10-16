@@ -1746,6 +1746,81 @@ void TestScrollAreaImmediateMode() {
         }
     }
     ui.EndFrame(canvas);
+
+    // Regression test: ScrollArea containing a single tall Markdown widget
+    // Verify both mouse wheel and scrollbar thumb drag produce dirty damage and update child position immediately
+    {
+        static constexpr std::string_view kTallMd =
+            "# Section 1\n\nParagraph 1.\n\n"
+            "## Section 2\n\nParagraph 2.\n\n"
+            "## Section 3\n\nParagraph 3.\n\n"
+            "```cpp\nint a = 1;\nint b = 2;\nint c = 3;\nint d = 4;\nint e = 5;\n```\n\n"
+            "## Section 4\n\nParagraph 4.\n\n"
+            "## Section 5\n\nParagraph 5.\n\n"
+            "## Section 6\n\nParagraph 6.\n";
+
+        Node* scrollNode = nullptr;
+        auto renderMdScroll = [&]() {
+            if (auto sc = ui.ScrollArea({.padding = Padding::All(8.0f)})) {
+                scrollNode = sc.GetNode();
+                ui.Markdown(kTallMd);
+            }
+        };
+
+        // Settle initial frames in a 600x220 viewport so Markdown (~500px tall) overflows vertically
+        for (int i = 0; i < 3; ++i) {
+            ui.BeginFrame({600.0f, 220.0f});
+            renderMdScroll();
+            ui.EndFrame(canvas);
+        }
+        CHECK(!ui.HasDirtyDamage());
+        CHECK(scrollNode != nullptr);
+        CHECK(scrollNode->scrollContentSize.y > 220.0f);
+        CHECK_NEAR(scrollNode->scrollOffset.y, 0.0f, 0.01f);
+
+        // 1. Mouse wheel scroll over Markdown must scroll and produce dirty damage
+        ui.OnMouseMove({200.0f, 100.0f});
+        ui.OnMouseWheel(0.0f, -2.0f);
+        ui.BeginFrame({600.0f, 220.0f});
+        renderMdScroll();
+        ui.EndFrame(canvas);
+
+        CHECK(ui.HasDirtyDamage());
+        CHECK(scrollNode->scrollOffset.y > 10.0f);
+        const float wheelScrollY = scrollNode->scrollOffset.y;
+
+        // 2. Drag vertical scrollbar thumb further down -> must update scrollOffset and child computedRect in same frame
+        const float sbX = 600.0f - sm.margin - sm.trackWidth * 0.5f;
+        const float trackLen = 220.0f - 2.0f * sm.margin;
+        const float maxScroll = scrollNode->scrollContentSize.y - 220.0f;
+        const float thumbLen = std::clamp((220.0f / scrollNode->scrollContentSize.y) * trackLen, sm.minThumbLength, trackLen);
+        const float travel = std::max(0.0f, trackLen - thumbLen);
+        const float thumbY = sm.margin + (wheelScrollY / maxScroll) * travel + thumbLen * 0.5f;
+
+        ui.OnMouseMove({sbX, thumbY});
+        ui.OnMouseDown(1);
+        ui.BeginFrame({600.0f, 220.0f});
+        renderMdScroll();
+        ui.EndFrame(canvas);
+        CHECK(scrollNode->scrollbarActive);
+
+        ui.OnMouseMove({sbX, thumbY + 40.0f});
+        ui.BeginFrame({600.0f, 220.0f});
+        renderMdScroll();
+        ui.EndFrame(canvas);
+
+        CHECK(ui.HasDirtyDamage());
+        CHECK(scrollNode->scrollOffset.y > wheelScrollY + 10.0f);
+        CHECK(scrollNode->firstChild != nullptr);
+        if (scrollNode->firstChild) {
+            CHECK_NEAR(scrollNode->firstChild->computedRect.y, 8.0f - scrollNode->scrollOffset.y, 0.5f);
+        }
+
+        ui.OnMouseUp(1);
+        ui.BeginFrame({600.0f, 220.0f});
+        renderMdScroll();
+        ui.EndFrame(canvas);
+    }
 }
 
 void TestReactiveEventLoop() {
@@ -7563,6 +7638,204 @@ void TestTableVirtualizedDataGridWorkflow() {
     std::cout << "  [PASS] TestTableVirtualizedDataGridWorkflow completed\n";
 }
 
+void TestCodeEditorIdeAndDebuggerWorkflow() {
+    using namespace guikit;
+    std::cout << "[TEST] Running TestCodeEditorIdeAndDebuggerWorkflow...\n";
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 900;
+    const uint32_t height = 650;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    // 1. Verify built-in multi-language presets
+    const auto cppSyn = SyntaxConfig::Cpp();
+    const auto matSyn = SyntaxConfig::Matlab();
+    const auto jsonSyn = SyntaxConfig::Json();
+    const auto pySyn = SyntaxConfig::Python();
+
+    CHECK(cppSyn.enabled && cppSyn.languageName == "C++20");
+    CHECK(matSyn.enabled && matSyn.languageName == "MATLAB" && matSyn.transposeApostrophe);
+    CHECK(jsonSyn.enabled && jsonSyn.languageName == "JSON" && jsonSyn.highlightJsonKeys);
+    CHECK(pySyn.enabled && pySyn.languageName == "Python");
+
+    // 1b. Verify built-in SyntaxPalette color scheme presets
+    const auto vsPal = SyntaxPalette::VsCodeDark();
+    const auto monoPal = SyntaxPalette::Monokai();
+    const auto dracPal = SyntaxPalette::Dracula();
+    const auto onePal = SyntaxPalette::OneDark();
+    const auto matPal = SyntaxPalette::MatlabClassic();
+    const auto solPal = SyntaxPalette::Solarized();
+    const auto ghPal = SyntaxPalette::GitHubLight();
+    CHECK(vsPal.keyword != monoPal.keyword);
+    CHECK(dracPal.keyword != matPal.keyword);
+    CHECK(onePal.string != solPal.string);
+    CHECK(ghPal.comment != vsPal.comment);
+
+    // 2. Render MATLAB editor with IDE & Debugger features enabled (including showWhitespace & custom SyntaxPalette)
+    std::string code =
+        "%% Spectral Section\n"
+        "function y = filterSig(x)\n"
+        "\tw = hann(64, 'periodic');\n"
+        "    y = (x') * w;\n"
+        "end\n";
+    std::vector<size_t> breakpoints = {3};
+    std::vector<CodeDiagnostic> diagnostics = {
+        {3, 4, 8, DiagnosticSeverity::Warning, "Test warning", "W01"}
+    };
+    std::vector<CodeInlineValue> inlineValues = {
+        {3, "w = 64x1 double"}
+    };
+    std::vector<CodeDebugVar> debugVars = {
+        {"w", "[0.0 .. 1.0]", "double (64x1)"}
+    };
+    size_t execLine = 3;
+    TextAreaResponse lastResp{};
+
+    auto renderIde = [&]() {
+        lastResp = ui.TextArea(code, {
+            .label = "MATLAB IDE",
+            .fixedHeight = 420.0f,
+            .autoHeight = false,
+            .showLineNumbers = true,
+            .syntax = matSyn,
+            .syntaxPalette = monoPal,
+            .showMinimap = true,
+            .showStatusBar = true,
+            .showIndentGuides = true,
+            .showWhitespace = true,
+            .codeFolding = true,
+            .enableBreakpoints = true,
+            .breakpoints = &breakpoints,
+            .executionLine = execLine,
+            .showDebugToolbar = true,
+            .diagnostics = diagnostics,
+            .inlineValues = inlineValues,
+            .debugVariables = debugVars
+        });
+    };
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+
+    CHECK(lastResp.rect.w > 200.0f);
+    CHECK(lastResp.rect.h > 200.0f);
+
+    // Click inside editor to focus it
+    const Vec2 editorCenter(lastResp.rect.x + 180.0f, lastResp.rect.y + 90.0f);
+    ui.OnMouseMove(editorCenter);
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+    ui.OnMouseUp(1);
+
+    // 3. Test multi-step Undo (Ctrl+Z) & Redo (Ctrl+Y) and auto-closing brackets at EOL
+    ui.OnKeyDown(Key::End, {});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+
+    const std::string initialCode = code;
+    ui.OnTextInput("A");
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+    const std::string afterA = code;
+    CHECK(afterA != initialCode);
+
+    ui.OnTextInput("(");
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+    const std::string afterParen = code;
+    // Auto-close should have inserted "()" at EOL
+    CHECK(afterParen.size() == afterA.size() + 2);
+
+    // Undo once -> back to afterA
+    ui.OnKeyDown(Key::Z, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+    CHECK(code == afterA);
+
+    // Undo second time -> back to initialCode
+    ui.OnKeyDown(Key::Z, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+    CHECK(code == initialCode);
+
+    // Redo (Ctrl+Y) -> back to afterA
+    ui.OnKeyDown(Key::Y, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+    CHECK(code == afterA);
+
+    // Undo back to initialCode
+    ui.OnKeyDown(Key::Z, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+    CHECK(code == initialCode);
+
+    // 4. Test F9 Breakpoint toggle on active cursor line
+    const size_t bpCountBefore = breakpoints.size();
+    ui.OnKeyDown(Key::F9, {});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+    CHECK(lastResp.toggledBreakpointLine > 0);
+    CHECK(breakpoints.size() != bpCountBefore);
+
+    // 5. Test Debugger Keyboard Shortcuts (F10 StepOver, F5 Continue, Shift+F5 Stop)
+    ui.OnKeyDown(Key::F10, {});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+    CHECK(lastResp.debugAction == CodeDebugAction::StepOver);
+
+    ui.OnKeyDown(Key::F5, {});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+    CHECK(lastResp.debugAction == CodeDebugAction::Continue);
+
+    ui.OnKeyDown(Key::F5, {.shift = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+    CHECK(lastResp.debugAction == CodeDebugAction::Stop);
+
+    // 6. Test Ctrl+F Find overlay opening and searching without modifying code buffer
+    ui.OnKeyDown(Key::F, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+
+    ui.OnTextInput("hann");
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+    // Code buffer must remain untouched while typing in Find overlay!
+    CHECK(code == initialCode);
+
+    // Close Find overlay with Escape
+    ui.OnKeyDown(Key::Escape, {});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+
+    std::cout << "  [PASS] TestCodeEditorIdeAndDebuggerWorkflow completed\n";
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -7629,6 +7902,7 @@ int main() {
     TestWaterfallViewWidgetAndGpuRingBuffer();
     TestRangeSliderProgressBarSpinBoxAndRadioButton();
     TestTableVirtualizedDataGridWorkflow();
+    TestCodeEditorIdeAndDebuggerWorkflow();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

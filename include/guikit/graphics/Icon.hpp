@@ -45,7 +45,15 @@ enum class IconId : uint16_t {
     Info,
     Warning,
     Flash,
-    Error
+    Error,
+
+    // IDE & Debugger
+    DebugContinue,
+    StepOver,
+    StepInto,
+    StepOut,
+    Replace,
+    ReplaceAll
 };
 
 /// First-class Value Object representing an icon (procedural vector, asset file, or texture).
@@ -84,35 +92,41 @@ public:
     }
 
     // Ergonomic static helpers for built-in vector icons
-    [[nodiscard]] static constexpr Icon Play()         noexcept { return Icon(IconId::Play); }
-    [[nodiscard]] static constexpr Icon Pause()        noexcept { return Icon(IconId::Pause); }
-    [[nodiscard]] static constexpr Icon Stop()         noexcept { return Icon(IconId::Stop); }
-    [[nodiscard]] static constexpr Icon Refresh()      noexcept { return Icon(IconId::Refresh); }
-    [[nodiscard]] static constexpr Icon Close()        noexcept { return Icon(IconId::Close); }
-    [[nodiscard]] static constexpr Icon Check()        noexcept { return Icon(IconId::Check); }
-    [[nodiscard]] static constexpr Icon Plus()         noexcept { return Icon(IconId::Plus); }
-    [[nodiscard]] static constexpr Icon Minus()        noexcept { return Icon(IconId::Minus); }
-    [[nodiscard]] static constexpr Icon Settings()     noexcept { return Icon(IconId::Settings); }
-    [[nodiscard]] static constexpr Icon Search()       noexcept { return Icon(IconId::Search); }
-    [[nodiscard]] static constexpr Icon Edit()         noexcept { return Icon(IconId::Edit); }
-    [[nodiscard]] static constexpr Icon Trash()        noexcept { return Icon(IconId::Trash); }
-    [[nodiscard]] static constexpr Icon Copy()         noexcept { return Icon(IconId::Copy); }
-    [[nodiscard]] static constexpr Icon Folder()       noexcept { return Icon(IconId::Folder); }
-    [[nodiscard]] static constexpr Icon Save()         noexcept { return Icon(IconId::Save); }
-    [[nodiscard]] static constexpr Icon ArrowLeft()    noexcept { return Icon(IconId::ArrowLeft); }
-    [[nodiscard]] static constexpr Icon ArrowRight()   noexcept { return Icon(IconId::ArrowRight); }
-    [[nodiscard]] static constexpr Icon ArrowUp()      noexcept { return Icon(IconId::ArrowUp); }
-    [[nodiscard]] static constexpr Icon ArrowDown()    noexcept { return Icon(IconId::ArrowDown); }
-    [[nodiscard]] static constexpr Icon ChevronLeft()  noexcept { return Icon(IconId::ChevronLeft); }
-    [[nodiscard]] static constexpr Icon ChevronRight() noexcept { return Icon(IconId::ChevronRight); }
-    [[nodiscard]] static constexpr Icon ChevronUp()    noexcept { return Icon(IconId::ChevronUp); }
-    [[nodiscard]] static constexpr Icon ChevronDown()  noexcept { return Icon(IconId::ChevronDown); }
-    [[nodiscard]] static constexpr Icon Eye()          noexcept { return Icon(IconId::Eye); }
-    [[nodiscard]] static constexpr Icon EyeOff()       noexcept { return Icon(IconId::EyeOff); }
-    [[nodiscard]] static constexpr Icon Info()         noexcept { return Icon(IconId::Info); }
-    [[nodiscard]] static constexpr Icon Warning()      noexcept { return Icon(IconId::Warning); }
-    [[nodiscard]] static constexpr Icon Flash()        noexcept { return Icon(IconId::Flash); }
-    [[nodiscard]] static constexpr Icon Error()        noexcept { return Icon(IconId::Error); }
+    [[nodiscard]] static constexpr Icon Play()          noexcept { return Icon(IconId::Play); }
+    [[nodiscard]] static constexpr Icon Pause()         noexcept { return Icon(IconId::Pause); }
+    [[nodiscard]] static constexpr Icon Stop()          noexcept { return Icon(IconId::Stop); }
+    [[nodiscard]] static constexpr Icon Refresh()       noexcept { return Icon(IconId::Refresh); }
+    [[nodiscard]] static constexpr Icon Close()         noexcept { return Icon(IconId::Close); }
+    [[nodiscard]] static constexpr Icon Check()         noexcept { return Icon(IconId::Check); }
+    [[nodiscard]] static constexpr Icon Plus()          noexcept { return Icon(IconId::Plus); }
+    [[nodiscard]] static constexpr Icon Minus()         noexcept { return Icon(IconId::Minus); }
+    [[nodiscard]] static constexpr Icon Settings()      noexcept { return Icon(IconId::Settings); }
+    [[nodiscard]] static constexpr Icon Search()        noexcept { return Icon(IconId::Search); }
+    [[nodiscard]] static constexpr Icon Edit()          noexcept { return Icon(IconId::Edit); }
+    [[nodiscard]] static constexpr Icon Trash()         noexcept { return Icon(IconId::Trash); }
+    [[nodiscard]] static constexpr Icon Copy()          noexcept { return Icon(IconId::Copy); }
+    [[nodiscard]] static constexpr Icon Folder()        noexcept { return Icon(IconId::Folder); }
+    [[nodiscard]] static constexpr Icon Save()          noexcept { return Icon(IconId::Save); }
+    [[nodiscard]] static constexpr Icon ArrowLeft()     noexcept { return Icon(IconId::ArrowLeft); }
+    [[nodiscard]] static constexpr Icon ArrowRight()    noexcept { return Icon(IconId::ArrowRight); }
+    [[nodiscard]] static constexpr Icon ArrowUp()       noexcept { return Icon(IconId::ArrowUp); }
+    [[nodiscard]] static constexpr Icon ArrowDown()     noexcept { return Icon(IconId::ArrowDown); }
+    [[nodiscard]] static constexpr Icon ChevronLeft()   noexcept { return Icon(IconId::ChevronLeft); }
+    [[nodiscard]] static constexpr Icon ChevronRight()  noexcept { return Icon(IconId::ChevronRight); }
+    [[nodiscard]] static constexpr Icon ChevronUp()     noexcept { return Icon(IconId::ChevronUp); }
+    [[nodiscard]] static constexpr Icon ChevronDown()   noexcept { return Icon(IconId::ChevronDown); }
+    [[nodiscard]] static constexpr Icon Eye()           noexcept { return Icon(IconId::Eye); }
+    [[nodiscard]] static constexpr Icon EyeOff()        noexcept { return Icon(IconId::EyeOff); }
+    [[nodiscard]] static constexpr Icon Info()          noexcept { return Icon(IconId::Info); }
+    [[nodiscard]] static constexpr Icon Warning()       noexcept { return Icon(IconId::Warning); }
+    [[nodiscard]] static constexpr Icon Flash()         noexcept { return Icon(IconId::Flash); }
+    [[nodiscard]] static constexpr Icon Error()         noexcept { return Icon(IconId::Error); }
+    [[nodiscard]] static constexpr Icon DebugContinue() noexcept { return Icon(IconId::DebugContinue); }
+    [[nodiscard]] static constexpr Icon StepOver()      noexcept { return Icon(IconId::StepOver); }
+    [[nodiscard]] static constexpr Icon StepInto()      noexcept { return Icon(IconId::StepInto); }
+    [[nodiscard]] static constexpr Icon StepOut()       noexcept { return Icon(IconId::StepOut); }
+    [[nodiscard]] static constexpr Icon Replace()       noexcept { return Icon(IconId::Replace); }
+    [[nodiscard]] static constexpr Icon ReplaceAll()    noexcept { return Icon(IconId::ReplaceAll); }
 
     // State queries
     [[nodiscard]] constexpr bool IsEmpty() const noexcept { return m_type == SourceType::None; }

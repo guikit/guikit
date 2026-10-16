@@ -449,6 +449,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             );
             const float gutterY = needScrollbarX ? sm.gutter : 0.0f;
             const float viewportH = std::max(0.0f, fullH - gutterY);
+            const float totalViewportH = std::max(0.0f, node->computedRect.h - gutterY);
 
             // 2. Determine if vertical scrollbar is required
             bool needScrollbarY = allowV && (node->scrollbarPolicy == VisibilityPolicy::Always);
@@ -465,7 +466,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     testH += static_cast<float>(active - 1) * node->gap;
                 }
                 testH += node->padding.Vertical();
-                if (testH > viewportH) {
+                if (testH > totalViewportH + 0.5f) {
                     needScrollbarY = true;
                 }
             }
@@ -473,6 +474,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             // 3. Reserve gutter so scrollbar never overlays content
             const float activeGutterX = (needScrollbarY && allowV) ? sm.gutter : 0.0f;
             const float viewportW = std::max(0.0f, fullW - activeGutterX);
+            const float totalViewportW = std::max(0.0f, node->computedRect.w - activeGutterX);
             const float effectiveContentW = allowH ? std::max(viewportW, naturalContentW) : viewportW;
 
             float contentH = 0.0f;
@@ -494,8 +496,8 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
             node->scrollContentSize = {effectiveContentW + node->padding.Horizontal(), contentH};
 
-            const float maxScrollY = allowV ? std::max(0.0f, contentH - viewportH) : 0.0f;
-            const float maxScrollX = allowH ? std::max(0.0f, effectiveContentW - viewportW) : 0.0f;
+            const float maxScrollY = allowV ? std::max(0.0f, contentH - totalViewportH) : 0.0f;
+            const float maxScrollX = allowH ? std::max(0.0f, node->scrollContentSize.x - totalViewportW) : 0.0f;
             node->scrollOffset.y = std::clamp(node->scrollOffset.y, 0.0f, maxScrollY);
             node->scrollOffset.x = std::clamp(node->scrollOffset.x, 0.0f, maxScrollX);
 

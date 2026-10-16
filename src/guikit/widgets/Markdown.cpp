@@ -1211,6 +1211,7 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
 
 struct MarkdownState {
     int copiedBlockIndex{-1};
+    Rect lastComputedRect{};
 };
 
 struct MarkdownPayload {
@@ -1218,6 +1219,7 @@ struct MarkdownPayload {
     MarkdownOptions opts{};
     int hoveredCopyBlock{-1};
     int activeCopiedBlock{-1};
+    MarkdownState* state{nullptr};
 };
 
 ElementSpec MakeMarkdownSpec(const MarkdownOptions& opts, UiSize size, const UiTheme& theme, bool disabled) noexcept {
@@ -1262,12 +1264,16 @@ MarkdownResponse Markdown::Run(
     int hoveredCopyBlock = -1;
 
     if (baseRes.hovered && !effectiveDisabled && baseRes.rect.w > 0.0f) {
+        ICanvas* hitCanvas = ctx.GetCanvas();
+        const Rect hitBounds = (state.lastComputedRect.w > 0.0f && state.lastComputedRect.h > 0.0f)
+            ? state.lastComputedRect
+            : baseRes.rect;
         const ElementSpec spec = MakeMarkdownSpec(opts, activeSize, theme, effectiveDisabled);
-        const Vec2 ctrlSize = { baseRes.rect.w, baseRes.rect.h };
-        const Rect ctrlRect = ElementComposer::Resolve(baseRes.rect, ctrlSize, spec, nullptr, theme).controlRect;
+        const Vec2 ctrlSize = { hitBounds.w, hitBounds.h };
+        const Rect ctrlRect = ElementComposer::Resolve(hitBounds, ctrlSize, spec, hitCanvas, theme).controlRect;
 
         const MarkdownPassResult hit = ExecuteMarkdownLayoutAndRender(
-            nullptr,
+            hitCanvas,
             false,
             ctrlRect,
             doc,
@@ -1305,6 +1311,7 @@ MarkdownResponse Markdown::Run(
     payload->opts.description = ctx.AllocText(opts.description);
     payload->hoveredCopyBlock = hoveredCopyBlock;
     payload->activeCopiedBlock = state.copiedBlockIndex;
+    payload->state = &state;
     node->SetPayload(payload);
 
     node->visualHash = detail::HashArgs(
@@ -1332,6 +1339,9 @@ MarkdownResponse Markdown::Run(
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& th) noexcept {
         const auto* p = n->As<MarkdownPayload>();
         if (!p) return;
+        if (p->state) {
+            p->state->lastComputedRect = n->computedRect;
+        }
         Markdown::Render(
             canvas,
             n->computedRect,

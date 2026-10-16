@@ -45,12 +45,10 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
             }
 
             case IconId::Play: {
-                const Vec2 pTop(cx - s * 0.25f, cy - s * 0.32f);
-                const Vec2 pBot(cx - s * 0.25f, cy + s * 0.32f);
-                const Vec2 pRight(cx + s * 0.32f, cy);
-                canvas.DrawLine(pTop, pBot, tint, stroke);
-                canvas.DrawLine(pTop, pRight, tint, stroke);
-                canvas.DrawLine(pBot, pRight, tint, stroke);
+                const Vec2 pTop(cx - s * 0.24f, cy - s * 0.32f);
+                const Vec2 pBot(cx - s * 0.24f, cy + s * 0.32f);
+                const Vec2 pRight(cx + s * 0.34f, cy);
+                canvas.DrawTriangle(pTop, pBot, pRight, tint, tint, stroke * 0.65f);
                 break;
             }
 
@@ -64,15 +62,29 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
             }
 
             case IconId::Stop: {
-                const float sz = s * 0.55f;
-                canvas.DrawRoundRect(Rect(cx - sz * 0.5f, cy - sz * 0.5f, sz, sz), 2.0f, tint);
+                const float sz = s * 0.56f;
+                canvas.DrawRoundRect(Rect(cx - sz * 0.5f, cy - sz * 0.5f, sz, sz), std::max(1.5f, s * 0.10f), tint);
                 break;
             }
 
             case IconId::Refresh: {
-                const float r = s * 0.30f;
-                canvas.DrawRoundRect(Rect(cx - r, cy - r, r * 2.0f, r * 2.0f), r, Color(0, 0, 0, 0), tint, stroke);
-                canvas.DrawLine(Vec2(cx + r * 0.5f, cy - r * 1.1f), Vec2(cx + r * 1.1f, cy - r * 0.6f), tint, stroke);
+                const float r = s * 0.31f;
+                // Draw a 280-degree open circular arc (from +35 deg to +315 deg)
+                constexpr int kSegs = 12;
+                const float startAng = 0.610865f;  // 35 deg
+                const float endAng   = 5.497787f;  // 315 deg (-45 deg, top-right)
+                Vec2 prevPt(cx + r * std::cos(startAng), cy + r * std::sin(startAng));
+                for (int i = 1; i <= kSegs; ++i) {
+                    const float t = static_cast<float>(i) / static_cast<float>(kSegs);
+                    const float ang = startAng + t * (endAng - startAng);
+                    const Vec2 curPt(cx + r * std::cos(ang), cy + r * std::sin(ang));
+                    canvas.DrawLine(prevPt, curPt, tint, stroke);
+                    prevPt = curPt;
+                }
+                // Crisp arrowhead at endAng (top-right, pointing clockwise / down-right)
+                const float wing = s * 0.19f;
+                canvas.DrawLine(prevPt, Vec2(prevPt.x - wing, prevPt.y - wing * 0.15f), tint, stroke);
+                canvas.DrawLine(prevPt, Vec2(prevPt.x + wing * 0.12f, prevPt.y - wing), tint, stroke);
                 break;
             }
 
@@ -251,6 +263,87 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
                 canvas.DrawRoundRect(Rect(cx - r, cy - r, r * 2.0f, r * 2.0f), r, Color(0, 0, 0, 0), tint, stroke);
                 canvas.DrawLine(Vec2(cx, cy - s * 0.22f), Vec2(cx, cy + s * 0.06f), tint, stroke * 1.2f);
                 canvas.DrawRoundRect(Rect(cx - stroke * 0.6f, cy + s * 0.16f, stroke * 1.2f, stroke * 1.2f), stroke * 0.6f, tint);
+                break;
+            }
+
+            case IconId::DebugContinue: {
+                // VS Code Continue: Left vertical bar + Right filled play triangle
+                const float barW = std::max(1.8f, stroke * 1.15f);
+                const float barH = s * 0.60f;
+                canvas.DrawRoundRect(Rect(cx - s * 0.36f, cy - barH * 0.5f, barW, barH), barW * 0.5f, tint);
+                const Vec2 pTop(cx - s * 0.12f, cy - s * 0.30f);
+                const Vec2 pBot(cx - s * 0.12f, cy + s * 0.30f);
+                const Vec2 pRight(cx + s * 0.36f, cy);
+                canvas.DrawTriangle(pTop, pBot, pRight, tint, tint, stroke * 0.55f);
+                break;
+            }
+
+            case IconId::StepOver: {
+                // VS Code Step Over: Bottom dot + curved arc jumping over the dot with arrowhead on the right
+                const float dotR = std::max(1.6f, s * 0.11f);
+                canvas.DrawRoundRect(Rect(cx - dotR, cy + s * 0.24f - dotR, dotR * 2.0f, dotR * 2.0f), dotR, tint);
+
+                const float arcCy = cy + s * 0.08f;
+                const float arcR = s * 0.33f;
+                constexpr int kSegs = 8;
+                const float startAng = -2.65f; // ~ -152 deg (left-bottom)
+                const float endAng   = -0.49f; // ~ -28 deg (right-bottom)
+                Vec2 prevPt(cx + arcR * std::cos(startAng), arcCy + arcR * std::sin(startAng));
+                for (int i = 1; i <= kSegs; ++i) {
+                    const float t = static_cast<float>(i) / static_cast<float>(kSegs);
+                    const float ang = startAng + t * (endAng - startAng);
+                    const Vec2 curPt(cx + arcR * std::cos(ang), arcCy + arcR * std::sin(ang));
+                    canvas.DrawLine(prevPt, curPt, tint, stroke);
+                    prevPt = curPt;
+                }
+                const float wing = s * 0.19f;
+                canvas.DrawLine(prevPt, Vec2(prevPt.x - wing, prevPt.y - wing * 0.10f), tint, stroke);
+                canvas.DrawLine(prevPt, Vec2(prevPt.x + wing * 0.08f, prevPt.y - wing), tint, stroke);
+                break;
+            }
+
+            case IconId::StepInto: {
+                // VS Code Step Into: Vertical arrow pointing down toward a bottom dot
+                const float dotR = std::max(1.6f, s * 0.11f);
+                canvas.DrawRoundRect(Rect(cx - dotR, cy + s * 0.27f - dotR, dotR * 2.0f, dotR * 2.0f), dotR, tint);
+
+                const Vec2 tip(cx, cy + s * 0.07f);
+                canvas.DrawLine(Vec2(cx, cy - s * 0.35f), tip, tint, stroke);
+                canvas.DrawLine(Vec2(cx - s * 0.21f, cy - s * 0.12f), tip, tint, stroke);
+                canvas.DrawLine(Vec2(cx + s * 0.21f, cy - s * 0.12f), tip, tint, stroke);
+                break;
+            }
+
+            case IconId::StepOut: {
+                // VS Code Step Out: Vertical arrow pointing up away from a bottom dot
+                const float dotR = std::max(1.6f, s * 0.11f);
+                canvas.DrawRoundRect(Rect(cx - dotR, cy + s * 0.27f - dotR, dotR * 2.0f, dotR * 2.0f), dotR, tint);
+
+                const Vec2 tip(cx, cy - s * 0.35f);
+                canvas.DrawLine(Vec2(cx, cy + s * 0.07f), tip, tint, stroke);
+                canvas.DrawLine(Vec2(cx - s * 0.21f, cy - s * 0.15f), tip, tint, stroke);
+                canvas.DrawLine(Vec2(cx + s * 0.21f, cy - s * 0.15f), tip, tint, stroke);
+                break;
+            }
+
+            case IconId::Replace: {
+                // Replace single: Top-left box + curved arrow pointing to bottom-right box
+                canvas.DrawRoundRect(Rect(cx - s * 0.36f, cy - s * 0.34f, s * 0.34f, s * 0.24f), 1.5f, Color(0, 0, 0, 0), tint, stroke * 0.9f);
+                canvas.DrawRoundRect(Rect(cx + s * 0.02f, cy + s * 0.10f, s * 0.34f, s * 0.24f), 1.5f, Color(0, 0, 0, 0), tint, stroke * 0.9f);
+                canvas.DrawLine(Vec2(cx + s * 0.06f, cy - s * 0.22f), Vec2(cx + s * 0.22f, cy - s * 0.22f), tint, stroke * 0.9f);
+                canvas.DrawLine(Vec2(cx + s * 0.22f, cy - s * 0.22f), Vec2(cx + s * 0.22f, cy + s * 0.02f), tint, stroke * 0.9f);
+                canvas.DrawLine(Vec2(cx + s * 0.12f, cy - s * 0.08f), Vec2(cx + s * 0.22f, cy + s * 0.02f), tint, stroke * 0.9f);
+                canvas.DrawLine(Vec2(cx + s * 0.32f, cy - s * 0.08f), Vec2(cx + s * 0.22f, cy + s * 0.02f), tint, stroke * 0.9f);
+                break;
+            }
+
+            case IconId::ReplaceAll: {
+                // Replace All: Stacked double boxes + arrow
+                canvas.DrawRoundRect(Rect(cx - s * 0.36f, cy - s * 0.34f, s * 0.30f, s * 0.22f), 1.5f, Color(0, 0, 0, 0), tint, stroke * 0.85f);
+                canvas.DrawRoundRect(Rect(cx - s * 0.02f, cy + s * 0.06f, s * 0.30f, s * 0.22f), 1.5f, Color(0, 0, 0, 0), tint, stroke * 0.85f);
+                canvas.DrawRoundRect(Rect(cx + s * 0.08f, cy + s * 0.14f, s * 0.30f, s * 0.22f), 1.5f, Color(0, 0, 0, 0), tint, stroke * 0.85f);
+                canvas.DrawLine(Vec2(cx + s * 0.02f, cy - s * 0.22f), Vec2(cx + s * 0.18f, cy - s * 0.22f), tint, stroke * 0.85f);
+                canvas.DrawLine(Vec2(cx + s * 0.18f, cy - s * 0.22f), Vec2(cx + s * 0.18f, cy - s * 0.02f), tint, stroke * 0.85f);
                 break;
             }
 

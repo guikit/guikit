@@ -570,6 +570,141 @@ struct SyntaxPalette {
     Color identifier;     ///< Default identifiers and plain code text
     Color lineHighlight;  ///< Subtle background tint for the active cursor line
     Color selectionBg;    ///< Background fill for selected text ranges
+    Color editorBg{0, 0, 0, 0}; ///< Optional editor canvas background (alpha > 0 overrides theme inputBackground)
+    Color gutterBg{0, 0, 0, 0}; ///< Optional gutter, minimap & status bar surface (alpha > 0 overrides theme default)
+
+    /// VS Code Dark+ Modern color scheme.
+    [[nodiscard]] static constexpr SyntaxPalette VsCodeDark() noexcept {
+        return SyntaxPalette{
+            .keyword       = Color(197, 134, 192), // #C586C0 Orchid Purple
+            .type          = Color(78, 201, 176),  // #4EC9B0 Teal Cyan
+            .function      = Color(220, 220, 170), // #DCDCAA Soft Yellow
+            .string        = Color(206, 145, 120), // #CE9178 Terracotta Orange
+            .number        = Color(181, 206, 168), // #B5CEA8 Sage Green
+            .comment       = Color(106, 153, 85),  // #6A9955 Olive Green
+            .preprocessor  = Color(86, 156, 214),  // #569CD6 VS Code Blue
+            .punctuation   = Color(212, 212, 212), // #D4D4D4 Light Silver
+            .identifier    = Color(156, 220, 254), // #9CDCFE Ice Blue
+            .lineHighlight = Color(255, 255, 255, 16),
+            .selectionBg   = Color(38, 79, 120, 170),
+            .editorBg      = Color(30, 30, 30),    // #1E1E1E VS Code Dark+ Editor
+            .gutterBg      = Color(23, 23, 23)     // #171717 VS Code Dark+ Gutter
+        };
+    }
+
+    /// Monokai Pro color scheme.
+    [[nodiscard]] static constexpr SyntaxPalette Monokai() noexcept {
+        return SyntaxPalette{
+            .keyword       = Color(255, 97, 136),  // #FF6188 Monokai Pink/Red
+            .type          = Color(120, 220, 232), // #78DCE8 Cyan
+            .function      = Color(169, 220, 118), // #A9DC76 Lime Green
+            .string        = Color(255, 216, 102), // #FFD866 Warm Yellow
+            .number        = Color(171, 157, 242), // #AB9DF2 Lavender Purple
+            .comment       = Color(114, 112, 114), // #727072 Warm Grey
+            .preprocessor  = Color(252, 152, 103), // #FC9867 Coral Orange
+            .punctuation   = Color(147, 146, 147), // #939293 Muted Silver
+            .identifier    = Color(252, 252, 250), // #FCFCFA Warm White
+            .lineHighlight = Color(255, 255, 255, 16),
+            .selectionBg   = Color(255, 97, 136, 65),
+            .editorBg      = Color(39, 40, 34),    // #272822 Authentic Monokai Olive-Charcoal
+            .gutterBg      = Color(31, 32, 27)     // #1F201B Monokai Gutter
+        };
+    }
+
+    /// Dracula color scheme.
+    [[nodiscard]] static constexpr SyntaxPalette Dracula() noexcept {
+        return SyntaxPalette{
+            .keyword       = Color(255, 121, 198), // #FF79C6 Neon Pink
+            .type          = Color(139, 233, 253), // #8BE9FD Cyan
+            .function      = Color(80, 250, 123),  // #50FA7B Emerald Green
+            .string        = Color(241, 250, 140), // #F1FA8C Pale Yellow
+            .number        = Color(189, 147, 249), // #BD93F9 Violet
+            .comment       = Color(98, 114, 164),  // #6272A4 Slate Blue-Grey
+            .preprocessor  = Color(255, 184, 108), // #FFB86C Pastel Orange
+            .punctuation   = Color(248, 248, 242), // #F8F8F2 Foreground
+            .identifier    = Color(248, 248, 242), // #F8F8F2 Foreground
+            .lineHighlight = Color(68, 71, 90, 95),
+            .selectionBg   = Color(68, 71, 90, 185),
+            .editorBg      = Color(40, 42, 54),    // #282A36 Authentic Dracula Background
+            .gutterBg      = Color(33, 34, 44)     // #21222C Dracula Gutter
+        };
+    }
+
+    /// Atom One Dark Pro color scheme.
+    [[nodiscard]] static constexpr SyntaxPalette OneDark() noexcept {
+        return SyntaxPalette{
+            .keyword       = Color(198, 120, 221), // #C678DD Purple
+            .type          = Color(229, 192, 123), // #E5C07B Gold
+            .function      = Color(97, 175, 239),  // #61AFEF Blue
+            .string        = Color(152, 195, 121), // #98C379 Green
+            .number        = Color(209, 154, 102), // #D19A66 Orange
+            .comment       = Color(92, 99, 112),   // #5C6370 Cool Grey
+            .preprocessor  = Color(224, 108, 117), // #E06C75 Crimson Red
+            .punctuation   = Color(171, 178, 191), // #ABB2BF Light Grey
+            .identifier    = Color(224, 108, 117), // #E06C75 Coral Identifier
+            .lineHighlight = Color(44, 49, 60, 120),
+            .selectionBg   = Color(62, 68, 81, 185),
+            .editorBg      = Color(40, 44, 52),    // #282C34 Authentic One Dark Background
+            .gutterBg      = Color(33, 37, 43)     // #21252B One Dark Gutter
+        };
+    }
+
+    /// MATLAB Editor Classic color scheme (authentic light desktop editor).
+    [[nodiscard]] static constexpr SyntaxPalette MatlabClassic() noexcept {
+        return SyntaxPalette{
+            .keyword       = Color(0, 0, 255),     // #0000FF Classic MATLAB Blue
+            .type          = Color(0, 114, 189),   // #0072BD MATLAB Ocean Blue
+            .function      = Color(15, 23, 42),    // #0F172A Crisp Dark Function Call
+            .string        = Color(160, 32, 240),  // #A020F0 Classic MATLAB Purple ('string')
+            .number        = Color(180, 83, 9),    // #B45309 Deep Amber Numeric
+            .comment       = Color(34, 139, 34),   // #228B22 Classic MATLAB Forest Green (% comment)
+            .preprocessor  = Color(161, 98, 7),    // #A16207 Section Header (%%)
+            .punctuation   = Color(51, 65, 85),    // #334155 Slate Operators
+            .identifier    = Color(15, 23, 42),    // #0F172A Crisp Black/Charcoal
+            .lineHighlight = Color(254, 249, 195, 160), // Subtle MATLAB warm section/line tint
+            .selectionBg   = Color(0, 114, 189, 55),
+            .editorBg      = Color(255, 255, 255), // #FFFFFF Classic MATLAB White Canvas
+            .gutterBg      = Color(240, 242, 245)  // #F0F2F5 Classic MATLAB Light Grey Gutter
+        };
+    }
+
+    /// Solarized Dark color scheme.
+    [[nodiscard]] static constexpr SyntaxPalette Solarized() noexcept {
+        return SyntaxPalette{
+            .keyword       = Color(133, 153, 0),   // #859900 Solarized Green
+            .type          = Color(181, 137, 0),   // #B58900 Solarized Yellow
+            .function      = Color(38, 139, 210),  // #268BD2 Solarized Blue
+            .string        = Color(42, 161, 152),  // #2AA198 Solarized Cyan
+            .number        = Color(211, 54, 130),  // #D33682 Solarized Magenta
+            .comment       = Color(88, 110, 117),  // #586E75 Base01
+            .preprocessor  = Color(203, 75, 22),   // #CB4B16 Solarized Orange
+            .punctuation   = Color(147, 161, 161), // #93A1A1 Base1
+            .identifier    = Color(131, 148, 150), // #839496 Base0
+            .lineHighlight = Color(7, 54, 66, 180),
+            .selectionBg   = Color(38, 139, 210, 80),
+            .editorBg      = Color(0, 43, 54),     // #002B36 Authentic Solarized Base03
+            .gutterBg      = Color(7, 54, 66)      // #073642 Authentic Solarized Base02
+        };
+    }
+
+    /// GitHub Light high-contrast color scheme.
+    [[nodiscard]] static constexpr SyntaxPalette GitHubLight() noexcept {
+        return SyntaxPalette{
+            .keyword       = Color(207, 34, 46),   // #CF222E Crimson
+            .type          = Color(149, 56, 0),    // #953800 Rust Orange
+            .function      = Color(130, 80, 223),  // #8250DF Royal Purple
+            .string        = Color(10, 48, 105),   // #0A3069 Deep Navy
+            .number        = Color(5, 80, 174),    // #0550AE Cobalt Blue
+            .comment       = Color(110, 119, 129), // #6E7781 Slate Grey
+            .preprocessor  = Color(130, 80, 223),  // #8250DF Purple
+            .punctuation   = Color(36, 41, 47),    // #24292F Charcoal
+            .identifier    = Color(36, 41, 47),    // #24292F Charcoal
+            .lineHighlight = Color(234, 245, 255, 190),
+            .selectionBg   = Color(9, 105, 218, 55),
+            .editorBg      = Color(255, 255, 255), // #FFFFFF GitHub Light Canvas
+            .gutterBg      = Color(246, 248, 250)  // #F6F8FA GitHub Light Subtle Gutter
+        };
+    }
 };
 
 } // namespace guikit
