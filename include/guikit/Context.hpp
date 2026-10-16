@@ -52,6 +52,7 @@
 #include "guikit/widgets/TextArea.hpp"
 #include "guikit/widgets/SignalView.hpp"
 #include "guikit/widgets/SonarView.hpp"
+#include "guikit/widgets/WaterfallView.hpp"
 
 namespace guikit {
 
@@ -415,6 +416,13 @@ public:
     SonarViewResponse SonarView(
         std::span<const float> polarMatrix,
         const SonarViewOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    // --- WaterfallView (RTSA Spectrum Analyzer & DOA / BTR Target Tracker) Widget ---
+    WaterfallViewResponse WaterfallView(
+        std::span<const float> latestSliceDb,
+        const WaterfallViewOptions& opts = {},
         std::source_location loc = std::source_location::current()
     );
 

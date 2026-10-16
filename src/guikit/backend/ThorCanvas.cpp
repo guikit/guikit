@@ -164,6 +164,7 @@ void ThorCanvas::Clear(Color color, std::optional<Rect> rect) {
     if (!rect.has_value()) {
         m_sonarGpuPasses.clear();
         m_spectrogramGpuPasses.clear();
+        m_waterfallGpuPasses.clear();
         for (uint32_t y = 0; y < m_height; ++y) {
             std::fill_n(m_targetBuffer + y * m_stride, m_width, rawColor);
         }
@@ -173,6 +174,9 @@ void ThorCanvas::Clear(Color color, std::optional<Rect> rect) {
             return p.plotRect.Intersects(sClear);
         });
         std::erase_if(m_spectrogramGpuPasses, [&](const SpectrogramGpuFieldDesc& p) {
+            return p.plotRect.Intersects(sClear);
+        });
+        std::erase_if(m_waterfallGpuPasses, [&](const WaterfallGpuFieldDesc& p) {
             return p.plotRect.Intersects(sClear);
         });
 
@@ -825,6 +829,31 @@ bool ThorCanvas::DrawSpectrogramGpuField(const SpectrogramGpuFieldDesc& desc, bo
         }
     }
     m_spectrogramGpuPasses.push_back(scaled);
+    return true;
+}
+
+bool ThorCanvas::DrawWaterfallGpuField(const WaterfallGpuFieldDesc& desc, bool punchHole) {
+    if (!m_gpuShadersEnabled || !desc.ringBufferDb || desc.texWidth == 0 || desc.texHeight == 0 ||
+        desc.plotRect.w <= 0.0f || desc.plotRect.h <= 0.0f) {
+        return false;
+    }
+
+    if (punchHole) {
+        PunchHole(desc.plotRect);
+    }
+
+    WaterfallGpuFieldDesc scaled = desc;
+    scaled.plotRect = Rect(desc.plotRect.x * m_scale, desc.plotRect.y * m_scale,
+                           desc.plotRect.w * m_scale, desc.plotRect.h * m_scale);
+    scaled.clipRect = m_gpuClipStack.empty() ? scaled.plotRect : scaled.plotRect.Intersect(m_gpuClipStack.back());
+
+    for (auto& existing : m_waterfallGpuPasses) {
+        if (existing.widgetId == scaled.widgetId) {
+            existing = scaled;
+            return true;
+        }
+    }
+    m_waterfallGpuPasses.push_back(scaled);
     return true;
 }
 

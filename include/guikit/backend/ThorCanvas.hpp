@@ -104,18 +104,21 @@ public:
         if (!enabled) {
             m_sonarGpuPasses.clear();
             m_spectrogramGpuPasses.clear();
+            m_waterfallGpuPasses.clear();
         }
     }
     [[nodiscard]] bool SupportsGpuShaders() const noexcept override { return m_gpuShadersEnabled; }
     bool DrawSonarGpuField(const SonarGpuFieldDesc& desc, bool punchHole = true) override;
     bool DrawSpectrogramGpuField(const SpectrogramGpuFieldDesc& desc, bool punchHole = true) override;
+    bool DrawWaterfallGpuField(const WaterfallGpuFieldDesc& desc, bool punchHole = true) override;
     bool CaptureRegion(Rect rect, std::vector<uint32_t>& outPixels, uint32_t& outW, uint32_t& outH) override;
     bool RestoreRegion(Rect rect, const std::vector<uint32_t>& inPixels, uint32_t inW, uint32_t inH) override;
 
     [[nodiscard]] const std::vector<SonarGpuFieldDesc>& GetSonarGpuPasses() const noexcept { return m_sonarGpuPasses; }
     [[nodiscard]] const std::vector<SpectrogramGpuFieldDesc>& GetSpectrogramGpuPasses() const noexcept { return m_spectrogramGpuPasses; }
+    [[nodiscard]] const std::vector<WaterfallGpuFieldDesc>& GetWaterfallGpuPasses() const noexcept { return m_waterfallGpuPasses; }
     [[nodiscard]] bool HasActiveGpuPasses() const noexcept {
-        return m_gpuShadersEnabled && (!m_sonarGpuPasses.empty() || !m_spectrogramGpuPasses.empty());
+        return m_gpuShadersEnabled && (!m_sonarGpuPasses.empty() || !m_spectrogramGpuPasses.empty() || !m_waterfallGpuPasses.empty());
     }
 
 private:
@@ -142,6 +145,7 @@ private:
 
     std::vector<SonarGpuFieldDesc> m_sonarGpuPasses;
     std::vector<SpectrogramGpuFieldDesc> m_spectrogramGpuPasses;
+    std::vector<WaterfallGpuFieldDesc> m_waterfallGpuPasses;
 
     std::vector<Rect> m_clipStack;
     std::vector<Rect> m_gpuClipStack;

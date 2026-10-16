@@ -392,6 +392,10 @@ SonarViewResponse Context::SonarView(std::span<const float> polarMatrix, const S
     return Run<guikit::SonarView>(polarMatrix, opts, loc);
 }
 
+WaterfallViewResponse Context::WaterfallView(std::span<const float> latestSliceDb, const WaterfallViewOptions& opts, std::source_location loc) {
+    return Run<guikit::WaterfallView>(latestSliceDb, opts, loc);
+}
+
 Response Context::Switch(bool& value, SwitchOptions opts, std::source_location loc) {
     return Run<guikit::Switch>(&value, value, opts, loc);
 }

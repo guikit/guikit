@@ -59,8 +59,21 @@ private:
         uint64_t lastUsedFrame{0};
     };
 
+    struct WaterfallTextureCache {
+        uint32_t dataTex{0};
+        uint32_t lutTex{0};
+        uint32_t width{0};
+        uint32_t height{0};
+        uint64_t uploadedFullGen{0};
+        uint64_t uploadedSliceGen{0};
+        uint32_t uploadedHeadRow{0};
+        uint8_t uploadedColormapId{255};
+        uint64_t lastUsedFrame{0};
+    };
+
     void RenderSonarPass(const ICanvas::SonarGpuFieldDesc& pass, uint32_t viewportW, uint32_t viewportH);
     void RenderSpectrogramPass(const ICanvas::SpectrogramGpuFieldDesc& pass, uint32_t viewportW, uint32_t viewportH);
+    void RenderWaterfallPass(const ICanvas::WaterfallGpuFieldDesc& pass, uint32_t viewportW, uint32_t viewportH);
     void PruneStaleTextures();
 
     SDL_Renderer* m_renderer{nullptr};
@@ -95,8 +108,22 @@ private:
     int m_uSpecDbTex{-1};
     int m_uSpecLutTex{-1};
 
+    // Circular Ring-Buffer Waterfall (RTSA Spectrum & DOA/BTR) shader program & uniform locations
+    uint32_t m_waterfallProgram{0};
+    int m_uWfViewport{-1};
+    int m_uWfPlotRect{-1};
+    int m_uWfDbParams{-1};         // (dbFloor, dbCeil)
+    int m_uWfDspParams{-1};        // (gainDb, thresholdGateDb, gateSuppression, gamma)
+    int m_uWfGridDims{-1};         // (texWidth, texHeight)
+    int m_uWfRingParams{-1};       // (headRow, validRows, invertTimeAxis, 0)
+    int m_uWfXViewNorm{-1};        // (xMinNorm, xMaxNorm)
+    int m_uWfBgColor{-1};
+    int m_uWfDbTex{-1};
+    int m_uWfLutTex{-1};
+
     std::unordered_map<uint64_t, SonarTextureCache> m_sonarCaches;
     std::unordered_map<uint64_t, SpectrogramTextureCache> m_specCaches;
+    std::unordered_map<uint64_t, WaterfallTextureCache> m_waterfallCaches;
     std::vector<uint32_t> m_uploadScratch;
 };
 

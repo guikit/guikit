@@ -83,11 +83,12 @@ enum class NodeType : uint16_t {
     SidebarItem = 214,
     Image       = 215,
     Markdown    = 216,
-    SignalView  = 217,
-    SonarView   = 218,
+    SignalView    = 217,
+    SonarView     = 218,
+    WaterfallView = 219,
 
     // --- User Extension Base (1000+) ---
-    User        = 1000
+    User          = 1000
 };
 
 /// Lightweight, intrusive node in the per-frame layout graph allocated from BumpAllocator.
@@ -256,8 +257,10 @@ struct Node {
             case NodeType::SidebarItem: return "SidebarItem";
             case NodeType::Image:       return "Image";
             case NodeType::Markdown:    return "Markdown";
-            case NodeType::SignalView:  return "SignalView";
-            default:                    return (static_cast<uint16_t>(type) >= static_cast<uint16_t>(NodeType::User)) ? "UserWidget" : "Unknown";
+            case NodeType::SignalView:    return "SignalView";
+            case NodeType::SonarView:     return "SonarView";
+            case NodeType::WaterfallView: return "WaterfallView";
+            default:                      return (static_cast<uint16_t>(type) >= static_cast<uint16_t>(NodeType::User)) ? "UserWidget" : "Unknown";
         }
     }
 

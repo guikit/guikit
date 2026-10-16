@@ -75,6 +75,7 @@ set(GUIKIT_SOURCES
     src/guikit/widgets/SidebarMenu.cpp
     src/guikit/widgets/SignalView.cpp
     src/guikit/widgets/SonarView.cpp
+    src/guikit/widgets/WaterfallView.cpp
     src/guikit/widgets/Slider.cpp
     src/guikit/widgets/Switch.cpp
     src/guikit/widgets/TabBar.cpp
@@ -117,6 +118,7 @@ if (GUIKIT_BUILD_DEMO)
         examples/demo/scenes/OsmMapScreen.cpp
         examples/demo/scenes/SignalScreen.cpp
         examples/demo/scenes/SonarScreen.cpp
+        examples/demo/scenes/WaterfallScreen.cpp
         examples/demo/assemblies/DashboardScreen.cpp
         examples/demo/assemblies/FormControlsScreen.cpp
         examples/demo/assemblies/FlexRibbonScreen.cpp

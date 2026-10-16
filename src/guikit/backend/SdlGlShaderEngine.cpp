@@ -422,6 +422,81 @@ void main() {
 }
 )";
 
+// Hardware Circular Ring-Buffer Waterfall Fragment Shader (O(1) single-row upload + 4-Tap Modulo Bilinear + Zoom/Pan + Gate + Gamma + LUT)
+constexpr const char* kWaterfallFragSrc = R"(
+#ifdef GL_ES
+precision highp float;
+#endif
+varying vec2 v_uv;
+
+uniform vec2 u_dbParams;    // x=dbFloor, y=dbCeil
+uniform vec4 u_dspParams;   // x=gainDb, y=thresholdGateDb, z=gateSuppression, w=gamma
+uniform vec2 u_gridDims;    // x=texWidth (bins), y=texHeight (historyRows)
+uniform vec4 u_ringParams;  // x=headRow, y=validRows, z=invertTimeAxis, w=unused
+uniform vec2 u_xViewNorm;   // x=xMinNorm, y=xMaxNorm
+uniform vec3 u_bgColor;
+uniform sampler2D u_dbTex;
+uniform sampler2D u_lutTex;
+
+float decodeRG16(vec4 texel) {
+    return (texel.r * 65280.0 + texel.g * 255.0) / 65535.0;
+}
+
+float sampleRingDbTexel(float xIdx, float rowIdx) {
+    vec2 uv = vec2((xIdx + 0.5) / u_gridDims.x, (rowIdx + 0.5) / u_gridDims.y);
+    return -140.0 + decodeRG16(texture2D(u_dbTex, uv)) * 160.0;
+}
+
+void main() {
+    float timeUv = (u_ringParams.z > 0.5) ? (1.0 - v_uv.y) : v_uv.y;
+    float ageFloat = clamp(timeUv * max(1.0, u_gridDims.y - 1.0), 0.0, max(0.0, u_gridDims.y - 1.0));
+    if (ageFloat > (u_ringParams.y - 0.5)) {
+        gl_FragColor = vec4(u_bgColor, 1.0);
+        return;
+    }
+
+    float uNorm = mix(u_xViewNorm.x, u_xViewNorm.y, v_uv.x);
+    float xFloat = clamp(uNorm * u_gridDims.x - 0.5, 0.0, max(0.0, u_gridDims.x - 1.0));
+
+    float x0 = floor(xFloat);
+    float x1 = min(u_gridDims.x - 1.0, x0 + 1.0);
+    float fx = xFloat - x0;
+
+    float age0 = floor(ageFloat);
+    float age1 = min(max(0.0, u_ringParams.y - 1.0), age0 + 1.0);
+    float fy = ageFloat - age0;
+
+    float row0 = mod(u_ringParams.x - age0 + u_gridDims.y * 4.0, u_gridDims.y);
+    float row1 = mod(u_ringParams.x - age1 + u_gridDims.y * 4.0, u_gridDims.y);
+
+    float v00 = sampleRingDbTexel(x0, row0);
+    float v10 = sampleRingDbTexel(x1, row0);
+    float v01 = sampleRingDbTexel(x0, row1);
+    float v11 = sampleRingDbTexel(x1, row1);
+
+    float v0 = v00 + fx * (v10 - v00);
+    float v1 = v01 + fx * (v11 - v01);
+    float dbVal = (v0 + fy * (v1 - v0)) + u_dspParams.x;
+
+    float dbFloor = u_dbParams.x;
+    float dbCeil = u_dbParams.y;
+    float norm = clamp((dbVal - dbFloor) / max(1.0, dbCeil - dbFloor), 0.0, 1.0);
+
+    float threshDb = u_dspParams.y;
+    float gateSupp = clamp(u_dspParams.z, 0.0, 1.0);
+    if (gateSupp > 0.001 && dbVal < threshDb) {
+        float soft = clamp((dbVal - (threshDb - 10.0)) / 10.0, 0.0, 1.0);
+        norm *= mix(1.0, soft * 0.25, gateSupp);
+    }
+
+    float gamma = max(0.25, u_dspParams.w);
+    norm = pow(clamp(norm, 0.0, 1.0), gamma);
+
+    vec4 mapped = texture2D(u_lutTex, vec2((norm * 255.0 + 0.5) / 256.0, 0.5));
+    gl_FragColor = vec4(mapped.rgb, 1.0);
+}
+)";
+
 [[nodiscard]] inline uint32_t PackRG16Norm(float normVal) noexcept {
     const float clamped = std::clamp(normVal, 0.0f, 1.0f);
     const uint32_t q = static_cast<uint32_t>(std::lround(clamped * 65535.0f));
@@ -466,11 +541,14 @@ bool SdlGlShaderEngine::Initialize(SDL_Renderer* renderer) {
 
     m_sonarProgram = BuildGlProgram(kSharedVertSrc, kSonarFragSrc);
     m_specProgram = BuildGlProgram(kSharedVertSrc, kSpecFragSrc);
-    if (!m_sonarProgram || !m_specProgram) {
+    m_waterfallProgram = BuildGlProgram(kSharedVertSrc, kWaterfallFragSrc);
+    if (!m_sonarProgram || !m_specProgram || !m_waterfallProgram) {
         if (m_sonarProgram) g_gl.DeleteProgram(m_sonarProgram);
         if (m_specProgram) g_gl.DeleteProgram(m_specProgram);
+        if (m_waterfallProgram) g_gl.DeleteProgram(m_waterfallProgram);
         m_sonarProgram = 0;
         m_specProgram = 0;
+        m_waterfallProgram = 0;
         m_backendSummary = "Unavailable (GLSL compilation failed)";
         return false;
     }
@@ -497,6 +575,18 @@ bool SdlGlShaderEngine::Initialize(SDL_Renderer* renderer) {
     m_uSpecBgColor        = g_gl.GetUniformLocation(m_specProgram, "u_bgColor");
     m_uSpecDbTex          = g_gl.GetUniformLocation(m_specProgram, "u_dbTex");
     m_uSpecLutTex         = g_gl.GetUniformLocation(m_specProgram, "u_lutTex");
+
+    // Resolve Waterfall uniform locations
+    m_uWfViewport         = g_gl.GetUniformLocation(m_waterfallProgram, "u_viewport");
+    m_uWfPlotRect         = g_gl.GetUniformLocation(m_waterfallProgram, "u_plotRect");
+    m_uWfDbParams         = g_gl.GetUniformLocation(m_waterfallProgram, "u_dbParams");
+    m_uWfDspParams        = g_gl.GetUniformLocation(m_waterfallProgram, "u_dspParams");
+    m_uWfGridDims         = g_gl.GetUniformLocation(m_waterfallProgram, "u_gridDims");
+    m_uWfRingParams       = g_gl.GetUniformLocation(m_waterfallProgram, "u_ringParams");
+    m_uWfXViewNorm        = g_gl.GetUniformLocation(m_waterfallProgram, "u_xViewNorm");
+    m_uWfBgColor          = g_gl.GetUniformLocation(m_waterfallProgram, "u_bgColor");
+    m_uWfDbTex            = g_gl.GetUniformLocation(m_waterfallProgram, "u_dbTex");
+    m_uWfLutTex           = g_gl.GetUniformLocation(m_waterfallProgram, "u_lutTex");
 
     // Create static unit quad VBO (2 triangles covering [0..1]x[0..1])
     constexpr float kQuadVerts[12] = {
@@ -533,6 +623,10 @@ void SdlGlShaderEngine::Shutdown() {
             if (entry.dataTex) g_gl.DeleteTextures(1, &entry.dataTex);
             if (entry.lutTex) g_gl.DeleteTextures(1, &entry.lutTex);
         }
+        for (auto& [_, entry] : m_waterfallCaches) {
+            if (entry.dataTex) g_gl.DeleteTextures(1, &entry.dataTex);
+            if (entry.lutTex) g_gl.DeleteTextures(1, &entry.lutTex);
+        }
         if (m_quadVbo) {
             g_gl.DeleteBuffers(1, &m_quadVbo);
             m_quadVbo = 0;
@@ -545,9 +639,14 @@ void SdlGlShaderEngine::Shutdown() {
             g_gl.DeleteProgram(m_specProgram);
             m_specProgram = 0;
         }
+        if (m_waterfallProgram) {
+            g_gl.DeleteProgram(m_waterfallProgram);
+            m_waterfallProgram = 0;
+        }
     }
     m_sonarCaches.clear();
     m_specCaches.clear();
+    m_waterfallCaches.clear();
     m_renderer = nullptr;
     m_available = false;
     m_backendSummary = "Disabled";
@@ -564,6 +663,14 @@ void SdlGlShaderEngine::PruneStaleTextures() {
         return false;
     });
     std::erase_if(m_specCaches, [&](auto& kv) {
+        if (m_frameCounter - kv.second.lastUsedFrame > kMaxIdleFrames) {
+            if (kv.second.dataTex) g_gl.DeleteTextures(1, &kv.second.dataTex);
+            if (kv.second.lutTex) g_gl.DeleteTextures(1, &kv.second.lutTex);
+            return true;
+        }
+        return false;
+    });
+    std::erase_if(m_waterfallCaches, [&](auto& kv) {
         if (m_frameCounter - kv.second.lastUsedFrame > kMaxIdleFrames) {
             if (kv.second.dataTex) g_gl.DeleteTextures(1, &kv.second.dataTex);
             if (kv.second.lutTex) g_gl.DeleteTextures(1, &kv.second.lutTex);
@@ -789,6 +896,140 @@ void SdlGlShaderEngine::RenderSpectrogramPass(
     g_gl.DrawArrays(kGL_TRIANGLES, 0, 6);
 }
 
+void SdlGlShaderEngine::RenderWaterfallPass(
+    const ICanvas::WaterfallGpuFieldDesc& pass,
+    uint32_t viewportW,
+    uint32_t viewportH
+) {
+    if (pass.clipRect.w <= 0.5f || pass.clipRect.h <= 0.5f ||
+        pass.texWidth == 0 || pass.texHeight == 0) {
+        return;
+    }
+
+    auto& cache = m_waterfallCaches[pass.widgetId];
+    cache.lastUsedFrame = m_frameCounter;
+
+    // 1. Ensure 256x1 Colormap LUT texture is created & up to date
+    g_gl.ActiveTexture(kGL_TEXTURE1);
+    if (!cache.lutTex) {
+        g_gl.GenTextures(1, &cache.lutTex);
+        g_gl.BindTexture(kGL_TEXTURE_2D, cache.lutTex);
+        g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_MIN_FILTER, static_cast<int>(kGL_LINEAR));
+        g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_MAG_FILTER, static_cast<int>(kGL_LINEAR));
+        g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_WRAP_S, static_cast<int>(kGL_CLAMP_TO_EDGE));
+        g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_WRAP_T, static_cast<int>(kGL_CLAMP_TO_EDGE));
+        g_gl.TexImage2D(kGL_TEXTURE_2D, 0, static_cast<int>(kGL_RGBA), 256, 1, 0, kGL_RGBA, kGL_UNSIGNED_BYTE, pass.colormapAbgr);
+        cache.uploadedColormapId = pass.colormapId;
+    } else {
+        g_gl.BindTexture(kGL_TEXTURE_2D, cache.lutTex);
+        if (cache.uploadedColormapId != pass.colormapId) {
+            g_gl.TexSubImage2D(kGL_TEXTURE_2D, 0, 0, 0, 256, 1, kGL_RGBA, kGL_UNSIGNED_BYTE, pass.colormapAbgr);
+            cache.uploadedColormapId = pass.colormapId;
+        }
+    }
+
+    // 2. Ensure Circular Ring-Buffer Texture (texWidth x texHeight) is up to date
+    g_gl.ActiveTexture(kGL_TEXTURE0);
+    const bool dimsChanged = (!cache.dataTex || cache.width != pass.texWidth || cache.height != pass.texHeight);
+    if (dimsChanged) {
+        if (!cache.dataTex) {
+            g_gl.GenTextures(1, &cache.dataTex);
+        }
+        cache.width = pass.texWidth;
+        cache.height = pass.texHeight;
+        cache.uploadedFullGen = 0;
+        cache.uploadedSliceGen = 0;
+
+        g_gl.BindTexture(kGL_TEXTURE_2D, cache.dataTex);
+        g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_MIN_FILTER, static_cast<int>(kGL_NEAREST));
+        g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_MAG_FILTER, static_cast<int>(kGL_NEAREST));
+        g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_WRAP_S, static_cast<int>(kGL_CLAMP_TO_EDGE));
+        g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_WRAP_T, static_cast<int>(kGL_CLAMP_TO_EDGE));
+    } else {
+        g_gl.BindTexture(kGL_TEXTURE_2D, cache.dataTex);
+    }
+
+    if (pass.ringBufferDb) {
+        const bool needFullUpload = dimsChanged || (cache.uploadedFullGen != pass.fullGeneration);
+        const uint64_t deltaSlices = (pass.sliceGeneration >= cache.uploadedSliceGen)
+            ? (pass.sliceGeneration - cache.uploadedSliceGen)
+            : pass.texHeight;
+
+        if (needFullUpload || deltaSlices >= pass.texHeight) {
+            const size_t total = static_cast<size_t>(pass.texWidth) * pass.texHeight;
+            m_uploadScratch.resize(total);
+            for (size_t i = 0; i < total; ++i) {
+                const float normDb = (pass.ringBufferDb[i] - (-140.0f)) / 160.0f;
+                m_uploadScratch[i] = PackRG16Norm(normDb);
+            }
+            if (dimsChanged) {
+                g_gl.TexImage2D(kGL_TEXTURE_2D, 0, static_cast<int>(kGL_RGBA),
+                                static_cast<int>(pass.texWidth), static_cast<int>(pass.texHeight),
+                                0, kGL_RGBA, kGL_UNSIGNED_BYTE, m_uploadScratch.data());
+            } else {
+                g_gl.TexSubImage2D(kGL_TEXTURE_2D, 0, 0, 0,
+                                   static_cast<int>(pass.texWidth), static_cast<int>(pass.texHeight),
+                                   kGL_RGBA, kGL_UNSIGNED_BYTE, m_uploadScratch.data());
+            }
+            cache.uploadedFullGen = pass.fullGeneration;
+            cache.uploadedSliceGen = pass.sliceGeneration;
+            cache.uploadedHeadRow = pass.headRow;
+        } else if (deltaSlices > 0) {
+            // O(1) Ring-Buffer Update: upload only the newly written row(s) via glTexSubImage2D!
+            m_uploadScratch.resize(pass.texWidth);
+            for (uint64_t s = 0; s < deltaSlices; ++s) {
+                const uint32_t rowIdx = static_cast<uint32_t>(
+                    (static_cast<uint64_t>(pass.headRow) + static_cast<uint64_t>(pass.texHeight) * 4ULL - s) % pass.texHeight
+                );
+                const float* rowSrc = pass.ringBufferDb + static_cast<size_t>(rowIdx) * pass.texWidth;
+                for (uint32_t x = 0; x < pass.texWidth; ++x) {
+                    const float normDb = (rowSrc[x] - (-140.0f)) / 160.0f;
+                    m_uploadScratch[x] = PackRG16Norm(normDb);
+                }
+                g_gl.TexSubImage2D(kGL_TEXTURE_2D, 0, 0, static_cast<int>(rowIdx),
+                                   static_cast<int>(pass.texWidth), 1,
+                                   kGL_RGBA, kGL_UNSIGNED_BYTE, m_uploadScratch.data());
+            }
+            cache.uploadedSliceGen = pass.sliceGeneration;
+            cache.uploadedHeadRow = pass.headRow;
+        }
+    }
+
+    // 3. Configure Scissor Box
+    const int scX = std::max(0, static_cast<int>(std::floor(pass.clipRect.x)));
+    const int scTop = std::max(0, static_cast<int>(std::floor(pass.clipRect.y)));
+    const int scRight = std::min(static_cast<int>(viewportW), static_cast<int>(std::ceil(pass.clipRect.Right())));
+    const int scBottom = std::min(static_cast<int>(viewportH), static_cast<int>(std::ceil(pass.clipRect.Bottom())));
+    const int scW = scRight - scX;
+    const int scH = scBottom - scTop;
+    if (scW <= 0 || scH <= 0) return;
+
+    const int glScY = static_cast<int>(viewportH) - scBottom;
+    g_gl.Scissor(scX, glScY, scW, scH);
+
+    // 4. Bind Waterfall Shader Program & Uniforms
+    g_gl.UseProgram(m_waterfallProgram);
+    g_gl.Uniform2f(m_uWfViewport, static_cast<float>(viewportW), static_cast<float>(viewportH));
+    g_gl.Uniform4f(m_uWfPlotRect, pass.plotRect.x, pass.plotRect.y, pass.plotRect.w, pass.plotRect.h);
+    g_gl.Uniform2f(m_uWfDbParams, pass.dbFloor, pass.dbCeil);
+    g_gl.Uniform4f(m_uWfDspParams, pass.gainDb, pass.thresholdGateDb, pass.gateSuppression, pass.gamma);
+    g_gl.Uniform2f(m_uWfGridDims, static_cast<float>(pass.texWidth), static_cast<float>(pass.texHeight));
+    g_gl.Uniform4f(m_uWfRingParams,
+                   static_cast<float>(pass.headRow % pass.texHeight),
+                   static_cast<float>(std::min(pass.validRows, pass.texHeight)),
+                   pass.invertTimeAxis ? 1.0f : 0.0f,
+                   0.0f);
+    g_gl.Uniform2f(m_uWfXViewNorm, pass.xMinNorm, pass.xMaxNorm);
+    g_gl.Uniform3f(m_uWfBgColor,
+                   static_cast<float>(pass.bgColor.r) / 255.0f,
+                   static_cast<float>(pass.bgColor.g) / 255.0f,
+                   static_cast<float>(pass.bgColor.b) / 255.0f);
+    g_gl.Uniform1i(m_uWfDbTex, 0);
+    g_gl.Uniform1i(m_uWfLutTex, 1);
+
+    g_gl.DrawArrays(kGL_TRIANGLES, 0, 6);
+}
+
 void SdlGlShaderEngine::RenderUnderlays(
     const ThorCanvas& canvas,
     uint32_t viewportWidth,
@@ -857,6 +1098,10 @@ void SdlGlShaderEngine::RenderUnderlays(
 
     for (const auto& specPass : canvas.GetSpectrogramGpuPasses()) {
         RenderSpectrogramPass(specPass, viewportWidth, viewportHeight);
+    }
+
+    for (const auto& wfPass : canvas.GetWaterfallGpuPasses()) {
+        RenderWaterfallPass(wfPass, viewportWidth, viewportHeight);
     }
 
     if ((m_frameCounter & 63u) == 0u) {

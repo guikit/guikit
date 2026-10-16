@@ -216,6 +216,32 @@ public:
         Color bgColor{8, 6, 22, 255};
     };
 
+    /// Declarative descriptor for hardware GPU ring-buffer shader rendering of a scrolling Waterfall (RTSA Spectrum or DOA/BTR).
+    struct WaterfallGpuFieldDesc {
+        uint64_t widgetId{0};
+        uint64_t fullGeneration{0};         ///< Incremented when the entire ring buffer is reset, resized, or bulk-loaded
+        uint64_t sliceGeneration{0};        ///< Incremented each time a new row is written at `headRow`
+        const float* ringBufferDb{nullptr}; ///< Row-major [texHeight * texWidth] circular buffer of dB values
+        uint32_t texWidth{0};               ///< Number of X bins (frequency bins or azimuth beams)
+        uint32_t texHeight{0};              ///< Number of history rows in the circular buffer
+        uint32_t headRow{0};                ///< Index [0 .. texHeight-1] of the most recently written row (t = 0s)
+        uint32_t validRows{0};              ///< Number of populated rows (1 .. texHeight)
+        uint8_t colormapId{0};
+        uint32_t colormapAbgr[256]{};
+        Rect plotRect{};
+        Rect clipRect{};
+        float xMinNorm{0.0f};               ///< Visible X start normalized [0..1] for hardware zoom/pan
+        float xMaxNorm{1.0f};               ///< Visible X end normalized [0..1] for hardware zoom/pan
+        float dbFloor{-110.0f};
+        float dbCeil{0.0f};
+        float gainDb{0.0f};
+        float thresholdGateDb{-140.0f};     ///< Noise gate threshold in dB
+        float gateSuppression{0.0f};        ///< [0..1] suppression factor below thresholdGateDb
+        float gamma{1.0f};                  ///< Contrast gamma exponent
+        bool invertTimeAxis{false};         ///< false = newest at top flowing down; true = newest at bottom flowing up
+        Color bgColor{6, 9, 18, 255};
+    };
+
     /// Returns true if GPU shader field rendering is active on this canvas.
     [[nodiscard]] virtual bool SupportsGpuShaders() const noexcept { return false; }
 
@@ -226,6 +252,10 @@ public:
     /// Queues a GPU shader pass for an STFT spectrogram heatmap and optionally punches a transparent window in the CPU layer.
     /// Returns true if handled by GPU, or false if the caller should fall back to CPU rasterization.
     virtual bool DrawSpectrogramGpuField(const SpectrogramGpuFieldDesc& /*desc*/, bool /*punchHole*/ = true) { return false; }
+
+    /// Queues a GPU ring-buffer shader pass for a scrolling Waterfall (RTSA or DOA/BTR) and optionally punches a transparent window in the CPU layer.
+    /// Returns true if handled by GPU, or false if the caller should fall back to CPU rasterization.
+    virtual bool DrawWaterfallGpuField(const WaterfallGpuFieldDesc& /*desc*/, bool /*punchHole*/ = true) { return false; }
 
     /// Flushes pending draw commands and captures a physical pixel snapshot of `rect` for retained base-layer caching.
     virtual bool CaptureRegion(Rect /*rect*/, std::vector<uint32_t>& /*outPixels*/, uint32_t& /*outW*/, uint32_t& /*outH*/) {

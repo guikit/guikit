@@ -7086,6 +7086,128 @@ void TestSonarAndSignalGpuShaderPipeline() {
     std::cout << "  [PASS] TestSonarAndSignalGpuShaderPipeline completed\n";
 }
 
+void TestWaterfallViewWidgetAndGpuRingBuffer() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+    canvas.SetGpuShadersEnabled(true);
+
+    const uint32_t width = 960;
+    const uint32_t height = 640;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    constexpr uint32_t kBins = 256;
+    std::vector<float> specSlice(kBins, -95.0f);
+    std::vector<float> doaSlice(181, -85.0f);
+
+    // Inject synthetic peaks
+    for (uint32_t i = 0; i < kBins; ++i) {
+        const float d1 = (static_cast<float>(i) - 64.0f) / 3.0f;
+        const float d2 = (static_cast<float>(i) - 128.0f) / 4.0f;
+        specSlice[i] = -95.0f + 65.0f * std::exp(-0.5f * d1 * d1) + 48.0f * std::exp(-0.5f * d2 * d2);
+    }
+    for (size_t i = 0; i < doaSlice.size(); ++i) {
+        const float deg = -90.0f + static_cast<float>(i);
+        const float b1 = (deg + 25.0f) / 3.5f;
+        const float b2 = (deg - 32.0f) / 4.0f;
+        doaSlice[i] = -85.0f + 58.0f * std::exp(-0.5f * b1 * b1) + 46.0f * std::exp(-0.5f * b2 * b2);
+    }
+
+    WaterfallTrack tracks[2] = {
+        {.id = 101, .callsign = "TGT-A", .status = WaterfallTrackStatus::Tracking, .currentX = -25.0f, .driftRatePerSec = 0.45f, .levelDb = -27.0f, .snrDb = 24.5f, .gateWidth = 6.0f},
+        {.id = 102, .callsign = "TGT-B", .status = WaterfallTrackStatus::Tracking, .currentX = 32.0f, .driftRatePerSec = -0.20f, .levelDb = -39.0f, .snrDb = 17.2f, .gateWidth = 6.0f}
+    };
+
+    uint64_t seq = 1;
+    float f0 = 250.0f;
+    WaterfallViewResponse respSpec;
+    WaterfallViewResponse respDoa;
+
+    auto renderUI = [&]() {
+        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(12.0f)})) {
+            respSpec = ui.WaterfallView(specSlice, {
+                .label = "RTSA Spectrum",
+                .mode = WaterfallMode::SpectrumRtsa,
+                .viewLayout = WaterfallLayout::SplitTraceAndWaterfall,
+                .colormap = WaterfallColormap::TurboJet,
+                .numBins = kBins,
+                .historyRows = 128,
+                .historyDurationSec = 10.0f,
+                .minX = 0.0f,
+                .maxX = 1000.0f,
+                .sliceSequence = seq,
+                .dbFloor = -110.0f,
+                .dbCeil = -10.0f,
+                .thresholdGateDb = -65.0f,
+                .showLiveTrace = true,
+                .showPeakHold = true,
+                .showAverageTrace = true,
+                .showThresholdGate = true,
+                .showPeakMarkers = true,
+                .showHarmonicComb = true,
+                .harmonicFundamentalX = &f0,
+                .height = 250.0f
+            });
+
+            respDoa = ui.WaterfallView(doaSlice, {
+                .label = "DOA BTR Tracker",
+                .mode = WaterfallMode::DoaBtr,
+                .viewLayout = WaterfallLayout::SplitTraceAndWaterfall,
+                .colormap = WaterfallColormap::SonarBlue,
+                .numBins = static_cast<uint32_t>(doaSlice.size()),
+                .historyRows = 128,
+                .historyDurationSec = 15.0f,
+                .minX = -90.0f,
+                .maxX = 90.0f,
+                .sliceSequence = seq,
+                .dbFloor = -100.0f,
+                .dbCeil = -15.0f,
+                .thresholdGateDb = -60.0f,
+                .tracks = tracks,
+                .height = 250.0f
+            });
+        }
+    };
+
+    // Frame 1..3: Layout and ingest first 3 slices
+    for (int f = 0; f < 3; ++f) {
+        seq = static_cast<uint64_t>(f + 1);
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        renderUI();
+        ui.EndFrame(canvas);
+    }
+
+    CHECK(respSpec.rect.w > 200.0f);
+    CHECK(respSpec.rect.h > 200.0f);
+    CHECK(respDoa.rect.w > 200.0f);
+    CHECK(respDoa.rect.h > 200.0f);
+    CHECK(respSpec.populatedRows >= 3);
+    CHECK(respDoa.populatedRows >= 3);
+    CHECK(respSpec.dominantPeakDb > -40.0f);
+    CHECK(respDoa.dominantPeakDb > -40.0f);
+    CHECK(canvas.GetWaterfallGpuPasses().size() == 2);
+
+    // Pause ingestion (keep seq constant) and test mouse crosshair movement over WaterfallView uses StaticBaseLayerCache
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    const Rect wfRect = canvas.GetWaterfallGpuPasses()[0].plotRect;
+    ui.OnMouseMove({wfRect.x + 40.0f, wfRect.y + 30.0f});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    CHECK(respSpec.hovered);
+    CHECK(respSpec.cursorInside);
+    CHECK(!ui.IsFullRepaint());
+    CHECK(canvas.GetWaterfallGpuPasses().size() == 2);
+
+    std::cout << "  [PASS] TestWaterfallViewWidgetAndGpuRingBuffer completed\n";
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -7149,6 +7271,7 @@ int main() {
     TestMapViewWidgetWorkflow();
     TestSonarViewWidgetWorkflow();
     TestSonarAndSignalGpuShaderPipeline();
+    TestWaterfallViewWidgetAndGpuRingBuffer();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";
