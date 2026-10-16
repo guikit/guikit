@@ -320,7 +320,9 @@ public:
     [[nodiscard]] MapViewScope MapView(
         MapViewOptions opts = {},
         std::source_location loc = std::source_location::current()
-    );
+    ) {
+        return Open<guikit::MapView>(opts, loc);
+    }
 
     [[nodiscard]] TableScope Table(
         std::span<const TableColumn> columns,
@@ -427,21 +429,27 @@ public:
         std::span<const float> samples,
         const SignalViewOptions& opts = {},
         std::source_location loc = std::source_location::current()
-    );
+    ) {
+        return Run<guikit::SignalView>(samples, opts, loc);
+    }
 
     // --- SonarView (Polar Heatmap / Diver Detection Sonar / PPI Radar) Widget ---
     SonarViewResponse SonarView(
         std::span<const float> polarMatrix,
         const SonarViewOptions& opts = {},
         std::source_location loc = std::source_location::current()
-    );
+    ) {
+        return Run<guikit::SonarView>(polarMatrix, opts, loc);
+    }
 
     // --- WaterfallView (RTSA Spectrum Analyzer & DOA / BTR Target Tracker) Widget ---
     WaterfallViewResponse WaterfallView(
         std::span<const float> latestSliceDb,
         const WaterfallViewOptions& opts = {},
         std::source_location loc = std::source_location::current()
-    );
+    ) {
+        return Run<guikit::WaterfallView>(latestSliceDb, opts, loc);
+    }
 
     // --- Switch Widget ---
     Response Switch(

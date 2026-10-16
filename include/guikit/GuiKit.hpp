@@ -1,10 +1,8 @@
 #pragma once
 
 // ==============================================================================
-// GuiKit - Autonomous Immediate Mode Vector GUI Library
+// GuiKit - Autonomous Immediate Mode Vector GUI Library (Umbrella Header)
 // ==============================================================================
 
-#include "guikit/Context.hpp"
-#include "guikit/core/FrameMetrics.hpp"
-#include "guikit/core/Theme.hpp"
-#include "guikit/geo/MapGrid.hpp"
+#include "guikit/Core.hpp"
+#include "guikit/Scenes.hpp"

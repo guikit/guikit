@@ -15,33 +15,24 @@ if (MSVC)
     add_compile_options(/utf-8 /Zc:__cplusplus /MP)
 endif()
 
-# --- SDL3 (Submodule or System Package) ---
-if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/SDL/CMakeLists.txt")
-    set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
-    set(SDL_TESTS OFF CACHE BOOL "" FORCE)
-    set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
-    set(SDL_INSTALL OFF CACHE BOOL "" FORCE)
-    set(SDL_SHARED OFF CACHE BOOL "" FORCE)
-    set(SDL_STATIC ON CACHE BOOL "" FORCE)
-    add_subdirectory(third_party/SDL EXCLUDE_FROM_ALL)
-else()
-    find_package(SDL3 REQUIRED CONFIG)
-endif()
-
-# --- ThorVG (Submodule or System Package) ---
-if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/thorvg/inc/thorvg.h")
-    include(cmake/ThorVG.cmake)
-else()
-    find_package(thorvg REQUIRED)
-endif()
+# --- Module Build Options ---
+option(GUIKIT_BUILD_SCENES "Build GuiKit scientific/DSP/GIS 2D scene modules (SignalView, SonarView, WaterfallView, MapView)" ON)
+option(GUIKIT_BUILD_BACKEND_THORVG "Build GuiKit ThorVG software/vector rasterizer backend" ON)
+option(GUIKIT_BUILD_BACKEND_SDL3 "Build GuiKit SDL3 + OpenGL ES3/WebGL2 backend" ON)
+option(GUIKIT_BUILD_DEMO "Build GuiKit interactive demo" ON)
+option(GUIKIT_BUILD_TESTS "Build GuiKit unit tests" ON)
 
 # --- Threads (Cross-Platform) ---
 if (NOT EMSCRIPTEN)
     find_package(Threads REQUIRED)
 endif()
 
-# --- GuiKit Autonomous Vector GUI Library ---
-set(GUIKIT_SOURCES
+# ==============================================================================
+# 1. Module: guikit::core
+#    Context, LayoutSolver, Element, Theme, ICanvas, Base Widgets & Panels
+#    Zero external OS / Windowing / GPU dependencies (Pure C++20)
+# ==============================================================================
+set(GUIKIT_CORE_SOURCES
     src/guikit/Context.cpp
     src/guikit/core/ContainerScope.cpp
     src/guikit/core/Response.cpp
@@ -49,9 +40,6 @@ set(GUIKIT_SOURCES
     src/guikit/core/TextUtil.cpp
     src/guikit/core/Element.cpp
     src/guikit/core/Solver.cpp
-    src/guikit/backend/ThorCanvas.cpp
-    src/guikit/backend/SdlGlShaderEngine.cpp
-    src/guikit/backend/SdlCanvas.cpp
     src/guikit/graphics/Icon.cpp
     src/guikit/layout/Row.cpp
     src/guikit/layout/Column.cpp
@@ -61,7 +49,6 @@ set(GUIKIT_SOURCES
     src/guikit/panels/Box.cpp
     src/guikit/panels/Card.cpp
     src/guikit/panels/Carousel.cpp
-    src/guikit/panels/MapView.cpp
     src/guikit/panels/ScrollArea.cpp
     src/guikit/panels/Scene.cpp
     src/guikit/panels/Sidebar.cpp
@@ -74,9 +61,6 @@ set(GUIKIT_SOURCES
     src/guikit/widgets/Markdown.cpp
     src/guikit/widgets/Select.cpp
     src/guikit/widgets/SidebarMenu.cpp
-    src/guikit/widgets/SignalView.cpp
-    src/guikit/widgets/SonarView.cpp
-    src/guikit/widgets/WaterfallView.cpp
     src/guikit/widgets/Slider.cpp
     src/guikit/widgets/Switch.cpp
     src/guikit/widgets/TabBar.cpp
@@ -84,21 +68,106 @@ set(GUIKIT_SOURCES
     src/guikit/widgets/TextArea.cpp
 )
 
-add_library(guikit STATIC ${GUIKIT_SOURCES})
-add_library(guikit::guikit ALIAS guikit)
+add_library(guikit_core STATIC ${GUIKIT_CORE_SOURCES})
+add_library(guikit::core ALIAS guikit_core)
 
-target_compile_features(guikit PUBLIC cxx_std_20)
-target_include_directories(guikit PUBLIC
+target_compile_features(guikit_core PUBLIC cxx_std_20)
+target_include_directories(guikit_core PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
-target_link_libraries(guikit PUBLIC thorvg SDL3::SDL3-static)
-if (NOT EMSCRIPTEN)
-    target_link_libraries(guikit PUBLIC Threads::Threads)
+
+# ==============================================================================
+# 2. Module: guikit::scenes
+#    Scientific / DSP / GIS 2D Views (SignalView, SonarView, WaterfallView, MapView)
+# ==============================================================================
+if (GUIKIT_BUILD_SCENES)
+    set(GUIKIT_SCENES_SOURCES
+        src/guikit/panels/MapView.cpp
+        src/guikit/widgets/SignalView.cpp
+        src/guikit/widgets/SonarView.cpp
+        src/guikit/widgets/WaterfallView.cpp
+    )
+
+    add_library(guikit_scenes STATIC ${GUIKIT_SCENES_SOURCES})
+    add_library(guikit::scenes ALIAS guikit_scenes)
+
+    target_compile_features(guikit_scenes PUBLIC cxx_std_20)
+    target_link_libraries(guikit_scenes PUBLIC guikit::core)
+    if (NOT EMSCRIPTEN)
+        target_link_libraries(guikit_scenes PUBLIC Threads::Threads)
+    endif()
+endif()
+
+# ==============================================================================
+# 3. Module: guikit::backend_thorvg
+#    CPU / Headless Vector Rasterizer Backend (ThorCanvas)
+# ==============================================================================
+if (GUIKIT_BUILD_BACKEND_THORVG)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/thorvg/inc/thorvg.h")
+        include(cmake/ThorVG.cmake)
+    else()
+        find_package(thorvg REQUIRED)
+    endif()
+
+    add_library(guikit_backend_thorvg STATIC
+        src/guikit/backend/ThorCanvas.cpp
+    )
+    add_library(guikit::backend_thorvg ALIAS guikit_backend_thorvg)
+
+    target_compile_features(guikit_backend_thorvg PUBLIC cxx_std_20)
+    target_link_libraries(guikit_backend_thorvg PUBLIC guikit::core thorvg)
+    if (NOT EMSCRIPTEN)
+        target_link_libraries(guikit_backend_thorvg PUBLIC Threads::Threads)
+    endif()
+endif()
+
+# ==============================================================================
+# 4. Module: guikit::backend_sdl3
+#    Windowing & Hardware GPU Shader Backend (SdlCanvas, SdlGlShaderEngine)
+# ==============================================================================
+if (GUIKIT_BUILD_BACKEND_SDL3)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/SDL/CMakeLists.txt")
+        set(SDL_TEST_LIBRARY OFF CACHE BOOL "" FORCE)
+        set(SDL_TESTS OFF CACHE BOOL "" FORCE)
+        set(SDL_EXAMPLES OFF CACHE BOOL "" FORCE)
+        set(SDL_INSTALL OFF CACHE BOOL "" FORCE)
+        set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+        set(SDL_STATIC ON CACHE BOOL "" FORCE)
+        add_subdirectory(third_party/SDL EXCLUDE_FROM_ALL)
+    else()
+        find_package(SDL3 REQUIRED CONFIG)
+    endif()
+
+    add_library(guikit_backend_sdl3 STATIC
+        src/guikit/backend/SdlCanvas.cpp
+        src/guikit/backend/SdlGlShaderEngine.cpp
+    )
+    add_library(guikit::backend_sdl3 ALIAS guikit_backend_sdl3)
+
+    target_compile_features(guikit_backend_sdl3 PUBLIC cxx_std_20)
+    target_link_libraries(guikit_backend_sdl3 PUBLIC guikit::core SDL3::SDL3-static)
+endif()
+
+# ==============================================================================
+# 5. Umbrella Target: guikit::guikit (INTERFACE)
+#    Aggregates all enabled GuiKit modules for one-line integration
+# ==============================================================================
+add_library(guikit INTERFACE)
+add_library(guikit::guikit ALIAS guikit)
+
+target_link_libraries(guikit INTERFACE guikit::core)
+if (TARGET guikit::scenes)
+    target_link_libraries(guikit INTERFACE guikit::scenes)
+endif()
+if (TARGET guikit::backend_thorvg)
+    target_link_libraries(guikit INTERFACE guikit::backend_thorvg)
+endif()
+if (TARGET guikit::backend_sdl3)
+    target_link_libraries(guikit INTERFACE guikit::backend_sdl3)
 endif()
 
 # --- Interactive Showcase Demo ---
-option(GUIKIT_BUILD_DEMO "Build GuiKit interactive demo" ON)
 if (GUIKIT_BUILD_DEMO)
     add_executable(guikit_demo
         examples/demo/main.cpp
@@ -127,7 +196,7 @@ if (GUIKIT_BUILD_DEMO)
         examples/demo/assemblies/DiagnosticsScreen.cpp
         examples/demo/assemblies/ThemeStudioScreen.cpp
     )
-    target_link_libraries(guikit_demo PRIVATE guikit SDL3::SDL3-static)
+    target_link_libraries(guikit_demo PRIVATE guikit::guikit)
     if (EMSCRIPTEN)
         set_target_properties(guikit_demo PROPERTIES SUFFIX ".html")
         target_link_options(guikit_demo PRIVATE
@@ -143,25 +212,25 @@ if (GUIKIT_BUILD_DEMO)
 endif()
 
 # --- Unit Tests ---
-option(GUIKIT_BUILD_TESTS "Build GuiKit unit tests" ON)
 if (GUIKIT_BUILD_TESTS)
     enable_testing()
 
+    # test_core & test_layout link ONLY against guikit::core (zero external dependencies)
     add_executable(test_core
         tests/test_core.cpp
     )
-    target_link_libraries(test_core PRIVATE guikit)
+    target_link_libraries(test_core PRIVATE guikit::core)
     add_test(NAME core COMMAND test_core)
 
     add_executable(test_layout
         tests/test_layout.cpp
     )
-    target_link_libraries(test_layout PRIVATE guikit)
+    target_link_libraries(test_layout PRIVATE guikit::core)
     add_test(NAME layout COMMAND test_layout)
 
     add_executable(test_context
         tests/test_context.cpp
     )
-    target_link_libraries(test_context PRIVATE guikit)
+    target_link_libraries(test_context PRIVATE guikit::guikit)
     add_test(NAME context COMMAND test_context)
 endif()

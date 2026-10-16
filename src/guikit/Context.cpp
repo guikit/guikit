@@ -340,10 +340,6 @@ SceneScope Context::Scene(SceneOptions opts, std::source_location loc) {
     return Open<guikit::Scene>(opts, loc);
 }
 
-MapViewScope Context::MapView(MapViewOptions opts, std::source_location loc) {
-    return Open<guikit::MapView>(opts, loc);
-}
-
 Response Context::Button(ButtonOptions opts, std::source_location loc) {
     return Run<guikit::Button>(opts, loc);
 }
@@ -382,18 +378,6 @@ Response Context::Image(ImageOptions opts, std::source_location loc) {
 
 MarkdownResponse Context::Markdown(std::string_view markdownText, const MarkdownOptions& opts, std::source_location loc) {
     return Run<guikit::Markdown>(markdownText, opts, loc);
-}
-
-SignalViewResponse Context::SignalView(std::span<const float> samples, const SignalViewOptions& opts, std::source_location loc) {
-    return Run<guikit::SignalView>(samples, opts, loc);
-}
-
-SonarViewResponse Context::SonarView(std::span<const float> polarMatrix, const SonarViewOptions& opts, std::source_location loc) {
-    return Run<guikit::SonarView>(polarMatrix, opts, loc);
-}
-
-WaterfallViewResponse Context::WaterfallView(std::span<const float> latestSliceDb, const WaterfallViewOptions& opts, std::source_location loc) {
-    return Run<guikit::WaterfallView>(latestSliceDb, opts, loc);
 }
 
 Response Context::Switch(bool& value, SwitchOptions opts, std::source_location loc) {

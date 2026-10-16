@@ -1,13 +1,6 @@
 #include <iostream>
 #include <unordered_set>
-#include "guikit/core/Allocator.hpp"
-#include "guikit/core/FrameMetrics.hpp"
-#include "guikit/core/Id.hpp"
-#include "guikit/core/Response.hpp"
-#include "guikit/core/Theme.hpp"
-#include "guikit/core/Types.hpp"
-#include "guikit/core/Node.hpp"
-#include "guikit/core/TextUtil.hpp"
+#include "guikit/Core.hpp"
 #include "guikit/geo/MapGrid.hpp"
 
 static int g_failures = 0;
@@ -445,6 +438,65 @@ void TestTextWrapForceSplitLastWord() {
     }
 }
 
+void TestStandaloneCoreModuleZeroDependencies() {
+    using namespace guikit;
+
+    class NullCanvas final : public ICanvas {
+    public:
+        void Begin(uint32_t, uint32_t, float scale = 1.0f) override { m_scale = scale; }
+        void End() override {}
+        [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
+        void SetScale(float scale) override { m_scale = scale; }
+        [[nodiscard]] std::string_view GetBackendName() const noexcept override { return "NullCanvas (Zero-Dep)"; }
+        void Clear(Color, std::optional<Rect> = std::nullopt) override {}
+        void PushClip(Rect) override {}
+        void PopClip() override {}
+        void DrawRect(Rect, Color) override { ++drawCount; }
+        void DrawRoundRect(Rect, float, Color, Color = Color(0, 0, 0, 0), float = 0.0f) override { ++drawCount; }
+        Vec2 MeasureText(std::string_view text, float fontSize) override {
+            return {static_cast<float>(text.size()) * fontSize * 0.55f, fontSize * 1.2f};
+        }
+        [[nodiscard]] float GetLineHeight(float fontSize) override { return fontSize * 1.25f; }
+        void DrawText(std::string_view, Vec2, float, Color) override { ++drawCount; }
+        void DrawTextBox(std::string_view, Rect, float, Color, float = 0.0f, float = 0.5f) override { ++drawCount; }
+        void DrawLine(Vec2, Vec2, Color, float = 1.0f) override { ++drawCount; }
+
+        float m_scale{1.0f};
+        size_t drawCount{0};
+    };
+
+    Context ui;
+    NullCanvas canvas;
+
+    float sliderVal = 0.5f;
+    bool switchVal = true;
+    int selectedRow = 0;
+
+    static constexpr std::array<TableColumn, 2> cols = {{
+        {.title = "Key",   .width = 120.0f},
+        {.title = "Value", .flex = 1.0f}
+    }};
+
+    ui.BeginFrame({640.0f, 480.0f});
+    if (auto card = ui.Card({.padding = Padding::All(12.0f)})) {
+        ui.Heading({.title = "Standalone Core Module"});
+        ui.Button({.label = "Action"});
+        ui.Slider(sliderVal, 0.0f, 1.0f);
+        ui.Switch(switchVal, {.label = "Toggle"});
+        if (auto table = ui.Table(cols, {.totalRows = 10, .selectedRow = &selectedRow, .height = 180.0f})) {
+            for (size_t r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {
+                if (auto row = table.Row(r)) {
+                    table.CellText(ui.Format("K-{:02}", r));
+                    table.CellBadge("OK", UiVariant::Success);
+                }
+            }
+        }
+    }
+    ui.EndFrame(canvas);
+
+    CHECK(canvas.drawCount > 0);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Core Foundation...\n";
 
@@ -459,6 +511,7 @@ int main() {
     TestComputeBoxFit();
     TestMapGridAndProjections();
     TestTextWrapForceSplitLastWord();
+    TestStandaloneCoreModuleZeroDependencies();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Core tests passed successfully!\n";
