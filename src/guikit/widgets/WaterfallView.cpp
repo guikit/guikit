@@ -105,21 +105,6 @@ struct WaterfallViewPayload {
     WaterfallViewState* state{nullptr};
 };
 
-[[nodiscard]] constexpr Colormap ToUnifiedColormap(WaterfallColormap cmap) noexcept {
-    switch (cmap) {
-        case WaterfallColormap::TurboJet:      return Colormap::Turbo;
-        case WaterfallColormap::Inferno:       return Colormap::Inferno;
-        case WaterfallColormap::Viridis:       return Colormap::Viridis;
-        case WaterfallColormap::SonarBlue:     return Colormap::SonarBlue;
-        case WaterfallColormap::PhosphorGreen: return Colormap::PhosphorGreen;
-    }
-    return Colormap::Turbo;
-}
-
-[[nodiscard]] const std::array<Color, 256>& BuildWaterfallColormapLut(WaterfallColormap cmap) noexcept {
-    return GetColormapLut(ToUnifiedColormap(cmap));
-}
-
 struct WaterfallGeometry {
     Rect outerRect{};
     Rect traceRect{};
@@ -352,8 +337,6 @@ void DrawWaterfallViewNode(const Node* node, ICanvas& canvas, const UiTheme& the
     const float xMinNorm = std::clamp((geom.viewMinX - geom.domainMinX) / domainSpan, 0.0f, 1.0f);
     const float xMaxNorm = std::clamp((geom.viewMaxX - geom.domainMinX) / domainSpan, 0.0f, 1.0f);
 
-    const auto lutColors = BuildWaterfallColormapLut(opts.colormap);
-
     auto buildGpuDesc = [&]() noexcept -> ICanvas::WaterfallGpuFieldDesc {
         ICanvas::WaterfallGpuFieldDesc desc{};
         desc.widgetId = static_cast<uint64_t>(node->id.value);
@@ -365,9 +348,7 @@ void DrawWaterfallViewNode(const Node* node, ICanvas& canvas, const UiTheme& the
         desc.headRow = state.headRow;
         desc.validRows = state.validRows;
         desc.colormapId = static_cast<uint8_t>(opts.colormap);
-        for (size_t i = 0; i < 256; ++i) {
-            desc.colormapAbgr[i] = PackAbgr(lutColors[i]);
-        }
+        CopyColormapLutAbgr(opts.colormap, desc.colormapAbgr);
         desc.plotRect = geom.wfRect;
         desc.clipRect = geom.wfRect;
         desc.xMinNorm = xMinNorm;
@@ -442,6 +423,7 @@ void DrawWaterfallViewNode(const Node* node, ICanvas& canvas, const UiTheme& the
                 canvas.DrawRect(geom.wfRect, bgPanel);
                 // CPU Software Fallback when GPU switch is disabled
                 if (!state.ringBufferDb.empty() && state.numBins > 0 && state.historyRows > 0) {
+                    const auto& lutAbgr = GetColormapLutAbgr(opts.colormap);
                     const uint32_t fbW = std::clamp(static_cast<uint32_t>(geom.wfRect.w * 0.5f), 64u, 320u);
                     const uint32_t fbH = std::clamp(static_cast<uint32_t>(geom.wfRect.h * 0.5f), 48u, 200u);
                     state.cpuFallbackPixels.resize(static_cast<size_t>(fbW) * fbH);
@@ -469,7 +451,7 @@ void DrawWaterfallViewNode(const Node* node, ICanvas& canvas, const UiTheme& the
                             }
                             norm = std::pow(norm, gamma);
                             const size_t lutIdx = static_cast<size_t>(std::clamp(norm * 255.0f, 0.0f, 255.0f));
-                            dstRow[px] = PackAbgr(lutColors[lutIdx]);
+                            dstRow[px] = lutAbgr[lutIdx];
                         }
                     }
                     canvas.DrawPixels(state.cpuFallbackPixels.data(), fbW, fbH, geom.wfRect);
@@ -535,16 +517,7 @@ void DrawWaterfallViewNode(const Node* node, ICanvas& canvas, const UiTheme& the
 
             const Rect barStrip(geom.colorbarRect.x + 7.0f, geom.colorbarRect.y + 20.0f,
                                 11.0f, std::max(24.0f, geom.colorbarRect.h - 32.0f));
-            constexpr int kSteps = 36;
-            for (int i = 0; i < kSteps; ++i) {
-                const float t0 = static_cast<float>(i) / kSteps;
-                const float t1 = static_cast<float>(i + 1) / kSteps;
-                const float val = 1.0f - (t0 + t1) * 0.5f;
-                const size_t lutIdx = static_cast<size_t>(std::clamp(val * 255.0f, 0.0f, 255.0f));
-                const Rect seg(barStrip.x, barStrip.y + t0 * barStrip.h, barStrip.w, (t1 - t0) * barStrip.h + 1.0f);
-                canvas.DrawRect(seg, lutColors[lutIdx]);
-            }
-            canvas.DrawRoundRect(barStrip, 2.0f, Color::Transparent(), Color(148, 163, 184, 120), 1.0f);
+            DrawColormapBar(canvas, barStrip, opts.colormap, true, false, 2.0f, Color(148, 163, 184, 120));
 
             canvas.DrawText("dB", {geom.colorbarRect.x + 7.0f, geom.colorbarRect.y + 4.0f}, 9.5f, accentTextCol);
             for (int i = 0; i <= 4; ++i) {

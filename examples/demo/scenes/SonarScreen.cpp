@@ -39,7 +39,7 @@ struct SonarDemoState {
     int scenarioIndex{0};           // 0 = Harbor Defense DDS, 1 = FLS Shipwreck Inspection, 2 = Offshore Rig 360 Sweep
     int displayModeIndex{0};        // 0 = PPI_360, 1 = SectorWedge, 2 = BScan
     int scanModeIndex{0};           // 0 = MultibeamContinuous, 1 = RotatingSweep
-    int colormapIndex{0};           // 0 = SonarGold, 1 = AcousticJet, 2 = PhosphorGreen, 3 = Inferno, 4 = NightRed
+    Colormap colormap{Colormap::SonarGold};
 
     float maxRangeMeters{500.0f};
     float headingDeg{0.0f};
@@ -166,7 +166,7 @@ void ApplyScenarioPreset(SonarDemoState& st, int presetIdx) {
         // 0: Harbor Defense DDS (360 PPI or Sector)
         st.displayModeIndex = 0; // PPI_360
         st.scanModeIndex = 0;    // MultibeamContinuous
-        st.colormapIndex = 0;    // SonarGold
+        st.colormap = Colormap::SonarGold;
         st.maxRangeMeters = 500.0f;
         st.headingDeg = 0.0f;
         st.sectorApertureDeg = 120.0f;
@@ -183,7 +183,7 @@ void ApplyScenarioPreset(SonarDemoState& st, int presetIdx) {
         // 1: Forward-Looking Multibeam Sector Wedge (DDS / FLS)
         st.displayModeIndex = 1; // SectorWedge
         st.scanModeIndex = 0;    // MultibeamContinuous
-        st.colormapIndex = 1;    // AcousticJet
+        st.colormap = Colormap::Jet;
         st.maxRangeMeters = 400.0f;
         st.headingDeg = 8.0f;
         st.sectorApertureDeg = 120.0f;
@@ -200,7 +200,7 @@ void ApplyScenarioPreset(SonarDemoState& st, int presetIdx) {
         // 2: Offshore Platform 360 Rotating Radar / Sonar Sweep
         st.displayModeIndex = 0; // PPI_360
         st.scanModeIndex = 1;    // RotatingSweep
-        st.colormapIndex = 2;    // PhosphorGreen
+        st.colormap = Colormap::PhosphorGreen;
         st.maxRangeMeters = 500.0f;
         st.headingDeg = 0.0f;
         st.sectorApertureDeg = 120.0f;
@@ -419,13 +419,6 @@ void RenderSonarInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         "Multibeam",
         "Rotating Sweep"
     };
-    static constexpr std::array<std::string_view, 5> kColormapItems = {
-        "Sonar Gold",
-        "Acoustic Jet",
-        "Phosphor Green",
-        "Inferno",
-        "Night Red"
-    };
 
     ui.Switch(s_sonar.liveSimulation, {
         .label = "Live Simulation",
@@ -444,11 +437,14 @@ void RenderSonarInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         .size = guikit::UiSize::Sm
     });
 
-    ui.Select(s_sonar.colormapIndex, kColormapItems, {
+    int cmapIdx = static_cast<int>(s_sonar.colormap);
+    if (ui.Select(cmapIdx, guikit::GetAllColormapNames(), {
         .label = "Colormap",
         .layout = guikit::ElementLayout::Top,
         .size = guikit::UiSize::Sm
-    });
+    }).changed) {
+        s_sonar.colormap = static_cast<guikit::Colormap>(cmapIdx);
+    }
 
     ui.Heading({.title = "Processing", .size = guikit::UiSize::Xs, .divider = true});
 
@@ -586,7 +582,7 @@ void RenderSonarStage(guikit::Context& ui, DemoContext& /*ctx*/) {
             .numRangeBins = s_sonar.numRangeBins,
             .displayMode = static_cast<guikit::SonarDisplayMode>(s_sonar.displayModeIndex),
             .scanMode = static_cast<guikit::SonarScanMode>(s_sonar.scanModeIndex),
-            .colormap = static_cast<guikit::SonarColormap>(s_sonar.colormapIndex),
+            .colormap = s_sonar.colormap,
             .maxRangeMeters = s_sonar.maxRangeMeters,
             .headingDeg = s_sonar.headingDeg,
             .sectorApertureDeg = s_sonar.sectorApertureDeg,
@@ -634,13 +630,7 @@ std::string GenerateSonarCode(const DemoContext& /*ctx*/) {
         "SonarScanMode::MultibeamContinuous",
         "SonarScanMode::RotatingSweep"
     };
-    static constexpr std::array<const char*, 5> kCmapEnums = {
-        "SonarColormap::SonarGold",
-        "SonarColormap::AcousticJet",
-        "SonarColormap::PhosphorGreen",
-        "SonarColormap::Inferno",
-        "SonarColormap::NightRed"
-    };
+    const std::string_view cmapName = guikit::GetColormapName(s_sonar.colormap);
 
     char buf[2048];
     std::snprintf(
@@ -653,7 +643,7 @@ std::string GenerateSonarCode(const DemoContext& /*ctx*/) {
         "    .numRangeBins     = %u,\n"
         "    .displayMode      = guikit::%s,\n"
         "    .scanMode         = guikit::%s,\n"
-        "    .colormap         = guikit::%s,\n"
+        "    .colormap         = guikit::Colormap::%.*s,\n"
         "    .maxRangeMeters   = %.1ff,\n"
         "    .sectorApertureDeg= %.1ff,\n"
         "    .gainDb           = %.1ff,\n"
@@ -680,7 +670,8 @@ std::string GenerateSonarCode(const DemoContext& /*ctx*/) {
         s_sonar.numRangeBins,
         kModeEnums[std::clamp(s_sonar.displayModeIndex, 0, 2)],
         kScanEnums[std::clamp(s_sonar.scanModeIndex, 0, 1)],
-        kCmapEnums[std::clamp(s_sonar.colormapIndex, 0, 4)],
+        static_cast<int>(cmapName.size()),
+        cmapName.data(),
         s_sonar.maxRangeMeters,
         s_sonar.sectorApertureDeg,
         s_sonar.gainDb,

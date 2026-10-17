@@ -6739,7 +6739,7 @@ void TestSignalViewWidgetWorkflow() {
                 .splitRatio = splitRatio,
                 .amplitudeScale = AmplitudeScale::dBFS,
                 .frequencyScale = FrequencyScale::Linear,
-                .colormap = SpectrogramColormap::Inferno,
+                .colormap = Colormap::Inferno,
                 .fftWindow = FftWindowType::Hann,
                 .fftSize = 512,
                 .splitRatioBinding = &splitRatio,
@@ -6944,7 +6944,7 @@ void TestSonarViewWidgetWorkflow() {
 
     SonarDisplayMode displayMode = SonarDisplayMode::PPI_360;
     SonarScanMode scanMode = SonarScanMode::MultibeamContinuous;
-    SonarColormap colormap = SonarColormap::SonarGold;
+    Colormap colormap = Colormap::SonarGold;
     int selectedId = 10;
     float eblBrg = 25.0f;
     float vrmRng = 200.0f;
@@ -6994,16 +6994,16 @@ void TestSonarViewWidgetWorkflow() {
     CHECK(lastResp.selectedTargetId == 10);
     CHECK_NEAR(lastResp.visibleMaxRangeMeters, 400.0f, 0.5f);
 
-    // Switch to SectorWedge and RotatingSweep + AcousticJet
+    // Switch to SectorWedge and RotatingSweep + Jet
     displayMode = SonarDisplayMode::SectorWedge;
     scanMode = SonarScanMode::RotatingSweep;
-    colormap = SonarColormap::AcousticJet;
+    colormap = Colormap::Jet;
     renderFrame();
     CHECK(lastResp.displayMode == SonarDisplayMode::SectorWedge);
 
     // Switch to BScan
     displayMode = SonarDisplayMode::BScan;
-    colormap = SonarColormap::PhosphorGreen;
+    colormap = Colormap::PhosphorGreen;
     renderFrame();
     CHECK(lastResp.displayMode == SonarDisplayMode::BScan);
 
@@ -7242,7 +7242,7 @@ void TestWaterfallViewWidgetAndGpuRingBuffer() {
                 .label = "RTSA Spectrum",
                 .mode = WaterfallMode::SpectrumRtsa,
                 .viewLayout = WaterfallLayout::SplitTraceAndWaterfall,
-                .colormap = WaterfallColormap::TurboJet,
+                .colormap = Colormap::Turbo,
                 .numBins = kBins,
                 .historyRows = 128,
                 .historyDurationSec = 10.0f,
@@ -7266,7 +7266,7 @@ void TestWaterfallViewWidgetAndGpuRingBuffer() {
                 .label = "DOA BTR Tracker",
                 .mode = WaterfallMode::DoaBtr,
                 .viewLayout = WaterfallLayout::SplitTraceAndWaterfall,
-                .colormap = WaterfallColormap::SonarBlue,
+                .colormap = Colormap::SonarBlue,
                 .numBins = static_cast<uint32_t>(doaSlice.size()),
                 .historyRows = 128,
                 .historyDurationSec = 15.0f,
@@ -8039,7 +8039,12 @@ void TestUnifiedColormapHistogramAndImageView() {
     using namespace guikit;
     std::cout << "  -> TestUnifiedColormapHistogramAndImageView...\n";
 
-    // 1. Verify unified Colormap LUTs & inversion symmetry
+    // 1. Verify unified Colormap LUTs & inversion symmetry across all 4 scientific widgets
+    static_assert(std::is_same_v<decltype(SignalViewOptions::colormap), Colormap>);
+    static_assert(std::is_same_v<decltype(SonarViewOptions::colormap), Colormap>);
+    static_assert(std::is_same_v<decltype(WaterfallViewOptions::colormap), Colormap>);
+    static_assert(std::is_same_v<decltype(ImageViewParams::colormap), Colormap>);
+
     const auto allNames = GetAllColormapNames();
     CHECK(allNames.size() == static_cast<size_t>(Colormap::Count));
     CHECK(GetColormapName(Colormap::Grayscale) == "Grayscale");
@@ -8408,6 +8413,8 @@ void TestAttitudeViewWidgetWorkflow() {
 }
 
 int main() {
+    std::cout << std::unitbuf;
+    std::cerr << std::unitbuf;
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
     TestTextWrappingAndBackendIndependence();

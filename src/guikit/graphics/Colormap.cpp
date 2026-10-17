@@ -287,16 +287,13 @@ void DrawColormapBar(
     if (rect.w <= 0.0f || rect.h <= 0.0f) {
         return;
     }
-    const auto& lut = GetColormapLutAbgr(map, invert);
     if (!vertical) {
-        // Horizontal 256x1 pixel strip stretched smoothly by DrawPixels
+        // Horizontal 256x1 pixel strip stretched smoothly by DrawPixels (left = 0.0, right = 1.0)
+        const auto& lut = GetColormapLutAbgr(map, invert);
         canvas.DrawPixels(lut.data(), 256, 1, rect, cornerRadius, 255);
     } else {
-        // Vertical 1x256 pixel strip (top = 1.0, bottom = 0.0)
-        std::array<uint32_t, 256> vertLut{};
-        for (size_t i = 0; i < 256; ++i) {
-            vertLut[i] = lut[255 - i];
-        }
+        // Vertical 1x256 pixel strip (top = 1.0, bottom = 0.0) backed by static LUT cache
+        const auto& vertLut = GetColormapLutAbgr(map, !invert);
         canvas.DrawPixels(vertLut.data(), 1, 256, rect, cornerRadius, 255);
     }
     if (borderColor.a > 0) {

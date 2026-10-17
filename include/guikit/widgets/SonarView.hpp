@@ -11,6 +11,7 @@
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
+#include "guikit/graphics/Colormap.hpp"
 #include "guikit/graphics/Icon.hpp"
 
 namespace guikit {
@@ -29,15 +30,6 @@ enum class SonarDisplayMode : uint8_t {
 enum class SonarScanMode : uint8_t {
     MultibeamContinuous = 0, ///< Full-sector electronic multibeam ping update with smooth persistence
     RotatingSweep            ///< Rotating or sector-sweeping beam with exponential phosphor afterglow
-};
-
-/// Color palette mapping acoustic backscatter / radar echo intensity (dB) to RGBA pixels.
-enum class SonarColormap : uint8_t {
-    SonarGold = 0,      ///< Kongsberg / BlueView high-frequency imaging sonar: abyssal black -> bronze -> copper -> bright gold
-    AcousticJet,        ///< Hydroacoustic thermal: deep navy -> cyan -> emerald -> yellow -> crimson peak
-    PhosphorGreen,      ///< Classic naval PPI radar / tactical sonar: dark phosphor -> emerald -> neon green -> white-green
-    Inferno,            ///< Perceptually uniform black -> purple -> red -> orange -> bright yellow
-    NightRed            ///< Bridge night-watch monochrome red: black -> maroon -> crimson -> bright scarlet
 };
 
 /// Classification of a tracked underwater or surface contact (ARPA / Diver Detection tracker).
@@ -97,7 +89,7 @@ struct SonarViewOptions {
     uint32_t numRangeBins{256};                     ///< Number of range bins (columns) per beam in `polarMatrix`
     SonarDisplayMode displayMode{SonarDisplayMode::PPI_360};
     SonarScanMode scanMode{SonarScanMode::MultibeamContinuous};
-    SonarColormap colormap{SonarColormap::SonarGold};
+    Colormap colormap{Colormap::SonarGold};
 
     float maxRangeMeters{500.0f};                   ///< Full-scale acoustic/radar range corresponding to bin `numRangeBins - 1`
     float minRangeMeters{0.0f};                     ///< Minimum blind-zone range in meters

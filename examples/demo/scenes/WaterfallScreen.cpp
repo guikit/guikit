@@ -20,7 +20,7 @@ struct WaterfallDemoState {
     int scenarioIndex{0};       // 0 = RF SDR Spectrum, 1 = LOFAR/DEMON Harmonics, 2 = Sonar Towed-Array DOA/BTR, 3 = RF MUSIC DOA
     int modeIndex{0};           // 0 = SpectrumRtsa, 1 = DoaBtr
     int layoutIndex{0};         // 0 = SplitTraceAndWaterfall, 1 = WaterfallOnly, 2 = TraceOnly
-    int colormapIndex{0};       // 0 = TurboJet, 1 = Inferno, 2 = Viridis, 3 = SonarBlue, 4 = PhosphorGreen
+    Colormap colormap{Colormap::Turbo};
 
     uint32_t numBins{512};
     uint32_t historyRows{240};
@@ -327,7 +327,7 @@ void LoadWaterfallScenario(WaterfallDemoState& st, int scenarioIdx) {
     if (st.scenarioIndex == 0) {
         // RF SDR Wideband Spectrum RTSA
         st.modeIndex = 0;
-        st.colormapIndex = 0; // TurboJet
+        st.colormap = Colormap::Turbo;
         st.minX = 0.0f;
         st.maxX = 24000.0f;
         st.dbFloor = -108.0f;
@@ -338,7 +338,7 @@ void LoadWaterfallScenario(WaterfallDemoState& st, int scenarioIdx) {
     } else if (st.scenarioIndex == 1) {
         // Hydroacoustic LOFAR / DEMON Harmonic Analyzer
         st.modeIndex = 0;
-        st.colormapIndex = 1; // Inferno
+        st.colormap = Colormap::Inferno;
         st.minX = 0.0f;
         st.maxX = 12000.0f;
         st.dbFloor = -106.0f;
@@ -350,7 +350,7 @@ void LoadWaterfallScenario(WaterfallDemoState& st, int scenarioIdx) {
     } else if (st.scenarioIndex == 2) {
         // Towed-Array Sonar DOA / BTR Tracker
         st.modeIndex = 1;
-        st.colormapIndex = 3; // SonarBlue
+        st.colormap = Colormap::SonarBlue;
         st.minX = -180.0f;
         st.maxX = +180.0f;
         st.dbFloor = -102.0f;
@@ -361,7 +361,7 @@ void LoadWaterfallScenario(WaterfallDemoState& st, int scenarioIdx) {
     } else {
         // RF MUSIC Super-Resolution DOA Tracker
         st.modeIndex = 1;
-        st.colormapIndex = 4; // PhosphorGreen
+        st.colormap = Colormap::PhosphorGreen;
         st.minX = -180.0f;
         st.maxX = +180.0f;
         st.dbFloor = -104.0f;
@@ -452,18 +452,14 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         .size = guikit::UiSize::Sm
     });
 
-    static constexpr std::array<std::string_view, 5> kColormaps = {
-        "Turbo / Jet (SDR#)",
-        "Inferno (Thermal)",
-        "Viridis (Scientific)",
-        "Sonar Blue (BTR)",
-        "Phosphor Green (CRT)"
-    };
-    ui.Select(s_wf.colormapIndex, kColormaps, {
+    int cmapIdx = static_cast<int>(s_wf.colormap);
+    if (ui.Select(cmapIdx, guikit::GetAllColormapNames(), {
         .label = "GPU Colormap LUT",
         .layout = guikit::ElementLayout::Top,
         .size = guikit::UiSize::Sm
-    });
+    }).changed) {
+        s_wf.colormap = static_cast<guikit::Colormap>(cmapIdx);
+    }
 
     ui.Heading({.title = "GPU Ring-Buffer & Conditioning", .size = guikit::UiSize::Xs, .divider = true});
 
@@ -625,7 +621,7 @@ void RenderWaterfallStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         s_wf.lastResp = ui.WaterfallView(s_wf.currentSliceDb, {
             .mode = static_cast<guikit::WaterfallMode>(s_wf.modeIndex),
             .viewLayout = static_cast<guikit::WaterfallLayout>(s_wf.layoutIndex),
-            .colormap = static_cast<guikit::WaterfallColormap>(s_wf.colormapIndex),
+            .colormap = s_wf.colormap,
             .numBins = s_wf.numBins,
             .historyRows = s_wf.historyRows,
             .historyDurationSec = s_wf.historyDurationSec,
@@ -680,13 +676,7 @@ std::string GenerateWaterfallCode(const DemoContext& /*ctx*/) {
         "WaterfallLayout::WaterfallOnly",
         "WaterfallLayout::TraceOnly"
     };
-    static constexpr std::array<const char*, 5> kCmapEnums = {
-        "WaterfallColormap::TurboJet",
-        "WaterfallColormap::Inferno",
-        "WaterfallColormap::Viridis",
-        "WaterfallColormap::SonarBlue",
-        "WaterfallColormap::PhosphorGreen"
-    };
+    const std::string_view cmapName = guikit::GetColormapName(s_wf.colormap);
 
     char buf[2048];
     std::snprintf(
@@ -697,7 +687,7 @@ std::string GenerateWaterfallCode(const DemoContext& /*ctx*/) {
         "auto resp = ui.WaterfallView(latestSliceDb, {\n"
         "    .mode               = guikit::%s,\n"
         "    .viewLayout         = guikit::%s,\n"
-        "    .colormap           = guikit::%s,\n"
+        "    .colormap           = guikit::Colormap::%.*s,\n"
         "    .numBins            = %u,\n"
         "    .historyRows        = %u,\n"
         "    .historyDurationSec = %.1ff,\n"
@@ -722,7 +712,8 @@ std::string GenerateWaterfallCode(const DemoContext& /*ctx*/) {
         "});\n",
         kModeEnums[std::clamp(s_wf.modeIndex, 0, 1)],
         kLayoutEnums[std::clamp(s_wf.layoutIndex, 0, 2)],
-        kCmapEnums[std::clamp(s_wf.colormapIndex, 0, 4)],
+        static_cast<int>(cmapName.size()),
+        cmapName.data(),
         s_wf.numBins,
         s_wf.historyRows,
         s_wf.historyDurationSec,

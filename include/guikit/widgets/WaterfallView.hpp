@@ -11,6 +11,7 @@
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
+#include "guikit/graphics/Colormap.hpp"
 #include "guikit/graphics/Icon.hpp"
 
 namespace guikit {
@@ -29,15 +30,6 @@ enum class WaterfallLayout : uint8_t {
     SplitTraceAndWaterfall = 0, ///< Upper instantaneous trace (Live + Peak Hold + Avg + Gate) + Lower scrolling Waterfall
     WaterfallOnly,              ///< Full-height scrolling Waterfall heatmap
     TraceOnly                   ///< Full-height instantaneous Spectrum / DOA Spatial Response trace plot
-};
-
-/// Color palette mapping signal intensity (dB) to RGBA texels in hardware.
-enum class WaterfallColormap : uint8_t {
-    TurboJet = 0,       ///< Classic RTSA / SDR# high-contrast: Deep Navy -> Cyan -> Emerald -> Yellow -> Crimson -> White
-    Inferno,            ///< Perceptually uniform black -> purple -> crimson -> orange -> bright yellow
-    Viridis,            ///< Scientific dark indigo -> blue -> teal -> green -> yellow
-    SonarBlue,          ///< Hydroacoustic BTR console: Abyssal Black -> Deep Blue -> Electric Cyan -> Ice White
-    PhosphorGreen       ///< Tactical radar/sonar CRT phosphor: Dark Green -> Emerald -> Neon Green -> White-Green
 };
 
 /// Tracking state of an automated DOA contact or frequency-agile emitter track.
@@ -84,7 +76,7 @@ struct WaterfallViewOptions {
     // --- Domain Mode, Layout & Ring-Buffer Geometry ---
     WaterfallMode mode{WaterfallMode::SpectrumRtsa};
     WaterfallLayout viewLayout{WaterfallLayout::SplitTraceAndWaterfall};
-    WaterfallColormap colormap{WaterfallColormap::TurboJet};
+    Colormap colormap{Colormap::Turbo};
 
     uint32_t numBins{512};                          ///< Number of X bins per slice (frequency bins or azimuth beams)
     uint32_t historyRows{300};                      ///< Circular ring-buffer capacity in rows (e.g. 180..1024)

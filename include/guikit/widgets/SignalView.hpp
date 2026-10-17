@@ -11,6 +11,7 @@
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
+#include "guikit/graphics/Colormap.hpp"
 #include "guikit/graphics/Icon.hpp"
 
 namespace guikit {
@@ -42,15 +43,6 @@ enum class FftWindowType : uint8_t {
     Hamming,            ///< Hamming window (suppressed nearest sidelobe)
     BlackmanHarris,     ///< 4-term Blackman-Harris window (>92 dB sidelobe suppression for high dynamic range)
     Rectangular         ///< Unwindowed rectangular frame (maximum narrow main-lobe, highest spectral leakage)
-};
-
-/// Color palette mapping spectral power (dB) to RGB pixel intensities.
-enum class SpectrogramColormap : uint8_t {
-    Inferno = 0,        ///< Perceptually uniform black -> purple -> red -> orange -> bright yellow
-    Magma,              ///< Perceptually uniform black -> indigo -> magenta -> warm cream
-    Viridis,            ///< Perceptually uniform deep navy -> teal -> emerald -> yellow
-    CyanHot,            ///< Spectral repair DAW palette: deep navy -> cyan -> electric blue -> orange -> white
-    Grayscale           ///< Classic acoustic monochrome black -> white
 };
 
 /// Interactive timeline cue marker displayed on the time ruler and across signal panels.
@@ -109,7 +101,7 @@ struct SignalViewOptions {
     float splitRatio{0.46f};                        ///< Fraction of plot height assigned to top panel [0.0 .. 1.0]
     AmplitudeScale amplitudeScale{AmplitudeScale::dBFS};
     FrequencyScale frequencyScale{FrequencyScale::Linear};
-    SpectrogramColormap colormap{SpectrogramColormap::Inferno};
+    Colormap colormap{Colormap::Inferno};
     FftWindowType fftWindow{FftWindowType::Hann};
     uint32_t fftSize{512};                          ///< Radix-2 FFT size (256, 512, 1024, 2048)
     float dbFloor{-90.0f};                          ///< Spectrogram minimum power floor in dBFS

@@ -107,21 +107,6 @@ struct SonarViewPayload {
     return b >= s || b <= e;
 }
 
-[[nodiscard]] constexpr Colormap ToUnifiedColormap(SonarColormap cmap) noexcept {
-    switch (cmap) {
-        case SonarColormap::SonarGold:     return Colormap::SonarGold;
-        case SonarColormap::AcousticJet:   return Colormap::Jet;
-        case SonarColormap::PhosphorGreen: return Colormap::PhosphorGreen;
-        case SonarColormap::Inferno:       return Colormap::Inferno;
-        case SonarColormap::NightRed:      return Colormap::NightRed;
-    }
-    return Colormap::SonarGold;
-}
-
-[[nodiscard]] const std::array<Color, 256>& BuildSonarColormapLut(SonarColormap cmap) noexcept {
-    return GetColormapLut(ToUnifiedColormap(cmap));
-}
-
 /// Geometry helper for mapping between polar (rangeMeters, bearingDeg) and screen (x, y).
 struct SonarPlotGeometry {
     Rect plotRect{};
@@ -516,7 +501,6 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
     const SonarPlotGeometry geom = SonarPlotGeometry::Compute(plotRect, opts, resp.rangeZoom);
 
     auto makeSonarGpuDesc = [&](SonarViewState& state) {
-        const auto lut = BuildSonarColormapLut(opts.colormap);
         ICanvas::SonarGpuFieldDesc gpuDesc{};
         gpuDesc.widgetId = node->id.value;
         gpuDesc.dataGeneration = state.gridGeneration;
@@ -524,9 +508,7 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
         gpuDesc.numBeams = state.numBeams;
         gpuDesc.numRangeBins = state.numRangeBins;
         gpuDesc.colormapId = static_cast<uint8_t>(opts.colormap);
-        for (size_t i = 0; i < 256; ++i) {
-            gpuDesc.colormapAbgr[i] = PackAbgr(lut[i]);
-        }
+        CopyColormapLutAbgr(opts.colormap, gpuDesc.colormapAbgr);
         gpuDesc.plotRect = plotRect;
         gpuDesc.origin = geom.origin;
         gpuDesc.maxRadiusPx = geom.maxRadiusPx;
@@ -599,7 +581,7 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
             SonarViewState& state = *payload->state;
             const auto gpuDesc = makeSonarGpuDesc(state);
             if (!canvas.DrawSonarGpuField(gpuDesc, true)) {
-                const auto lut = BuildSonarColormapLut(opts.colormap);
+                const auto& lutAbgr = GetColormapLutAbgr(opts.colormap);
                 const float resScale = std::min({
                     0.80f,
                     560.0f / std::max(1.0f, plotRect.w),
@@ -625,7 +607,7 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
                         if (geom.ScreenToPolar({sx, sy}, rMeters, brgDeg)) {
                             const float echo = SampleProcessedEcho(state, opts, rMeters, brgDeg);
                             const size_t idx = static_cast<size_t>(std::clamp(echo * 255.0f, 0.0f, 255.0f));
-                            rowPtr[px] = PackAbgr(lut[idx]);
+                            rowPtr[px] = lutAbgr[idx];
                         } else {
                             rowPtr[px] = bgAbgr;
                         }
@@ -836,18 +818,8 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
             canvas.DrawRect(colorbarRect, Color(9, 13, 24, 255));
             canvas.DrawLine({colorbarRect.x, colorbarRect.y}, {colorbarRect.x, colorbarRect.Bottom()}, borderCol, 1.0f);
 
-            const auto lut = BuildSonarColormapLut(opts.colormap);
             const Rect barStrip(colorbarRect.x + 8.0f, colorbarRect.y + 24.0f, 12.0f, std::max(24.0f, colorbarRect.h - 48.0f));
-            constexpr int kSteps = 32;
-            for (int i = 0; i < kSteps; ++i) {
-                const float t0 = static_cast<float>(i) / kSteps;
-                const float t1 = static_cast<float>(i + 1) / kSteps;
-                const float val = 1.0f - (t0 + t1) * 0.5f;
-                const size_t lutIdx = static_cast<size_t>(std::clamp(val * 255.0f, 0.0f, 255.0f));
-                const Rect seg(barStrip.x, barStrip.y + t0 * barStrip.h, barStrip.w, (t1 - t0) * barStrip.h + 1.0f);
-                canvas.DrawRect(seg, lut[lutIdx]);
-            }
-            canvas.DrawRoundRect(barStrip, 2.0f, Color::Transparent(), Color(148, 163, 184, 120), 1.0f);
+            DrawColormapBar(canvas, barStrip, opts.colormap, true, false, 2.0f, Color(148, 163, 184, 120));
 
             const float threshY = barStrip.Bottom() - std::clamp(opts.clutterThreshold, 0.0f, 0.85f) * barStrip.h;
             canvas.DrawLine({barStrip.x - 3.0f, threshY}, {barStrip.Right() + 3.0f, threshY}, Color(244, 63, 94, 230), 1.8f);
@@ -881,7 +853,7 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
     // 4. Active Rotating Sweep Line
     if (opts.scanMode == SonarScanMode::RotatingSweep) {
         const Vec2 sweepTip = geom.PolarToScreen(geom.visibleMaxRange, opts.sweepAngleDeg);
-        const Color sweepCol = (opts.colormap == SonarColormap::PhosphorGreen)
+        const Color sweepCol = (opts.colormap == Colormap::PhosphorGreen)
             ? Color(74, 222, 128, 235)
             : Color(56, 189, 248, 230);
         if (geom.mode != SonarDisplayMode::BScan) {

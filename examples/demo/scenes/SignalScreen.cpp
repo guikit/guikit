@@ -29,7 +29,7 @@ struct SignalDemoState {
     float splitRatio = 0.45f;
     guikit::AmplitudeScale amplitudeScale = guikit::AmplitudeScale::dBFS;
     guikit::FrequencyScale frequencyScale = guikit::FrequencyScale::Linear;
-    guikit::SpectrogramColormap colormap = guikit::SpectrogramColormap::Inferno;
+    guikit::Colormap colormap = guikit::Colormap::Inferno;
     guikit::FftWindowType fftWindow = guikit::FftWindowType::Hann;
     size_t fftSizeIdx = 1; // 0=256, 1=512, 2=1024, 3=2048
     float dbFloor = -92.0f;
@@ -69,10 +69,6 @@ struct SignalDemoState {
 
     static constexpr std::array<std::string_view, 2> freqScaleNames = {
         "Linear Hz", "Log Hz"
-    };
-
-    static constexpr std::array<std::string_view, 5> colormapNames = {
-        "Inferno", "Magma", "Viridis", "CyanHot", "Gray"
     };
 
     static constexpr std::array<std::string_view, 4> windowNames = {
@@ -405,12 +401,10 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
     }
 
     size_t cmapIdx = static_cast<size_t>(s_sig.colormap);
-    if (ui.StepSlider(cmapIdx, SignalDemoState::colormapNames, {
-        .label = "Spectrogram Colormap",
-        .showTicks = true,
-        .showLabels = true
+    if (ui.Select(cmapIdx, guikit::GetAllColormapNames(), {
+        .label = "Spectrogram Colormap"
     }).changed) {
-        s_sig.colormap = static_cast<guikit::SpectrogramColormap>(cmapIdx);
+        s_sig.colormap = static_cast<guikit::Colormap>(cmapIdx);
     }
 
     ui.StepSlider(s_sig.fftSizeIdx, SignalDemoState::fftSizeNames, {
@@ -642,9 +636,6 @@ std::string GenerateSignalCode(const DemoContext&) {
     static constexpr std::array<std::string_view, 2> freqEnums = {
         "Linear", "Logarithmic"
     };
-    static constexpr std::array<std::string_view, 5> cmapEnums = {
-        "Inferno", "Magma", "Viridis", "CyanHot", "Grayscale"
-    };
     static constexpr std::array<std::string_view, 4> winEnums = {
         "Hann", "Hamming", "BlackmanHarris", "Rectangular"
     };
@@ -658,7 +649,7 @@ std::string GenerateSignalCode(const DemoContext&) {
         "    .splitRatio = {:.2f}f,\n"
         "    .amplitudeScale = guikit::AmplitudeScale::{},\n"
         "    .frequencyScale = guikit::FrequencyScale::{},\n"
-        "    .colormap = guikit::SpectrogramColormap::{},\n"
+        "    .colormap = guikit::Colormap::{},\n"
         "    .fftWindow = guikit::FftWindowType::{},\n"
         "    .fftSize = {}u,\n"
         "    .dbFloor = {:.1f}f,\n"
@@ -680,7 +671,7 @@ std::string GenerateSignalCode(const DemoContext&) {
         s_sig.splitRatio,
         ampEnums[static_cast<size_t>(s_sig.amplitudeScale)],
         freqEnums[static_cast<size_t>(s_sig.frequencyScale)],
-        cmapEnums[static_cast<size_t>(s_sig.colormap)],
+        guikit::GetColormapName(s_sig.colormap),
         winEnums[static_cast<size_t>(s_sig.fftWindow)],
         fftSize,
         s_sig.dbFloor,

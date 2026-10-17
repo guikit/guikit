@@ -181,21 +181,6 @@ struct WaveformPyramid {
     return h;
 }
 
-[[nodiscard]] constexpr Colormap ToUnifiedColormap(SpectrogramColormap cmap) noexcept {
-    switch (cmap) {
-        case SpectrogramColormap::Inferno:   return Colormap::Inferno;
-        case SpectrogramColormap::Magma:     return Colormap::Magma;
-        case SpectrogramColormap::Viridis:   return Colormap::Viridis;
-        case SpectrogramColormap::CyanHot:   return Colormap::CyanHot;
-        case SpectrogramColormap::Grayscale: return Colormap::Grayscale;
-    }
-    return Colormap::Inferno;
-}
-
-[[nodiscard]] Color EvaluateColormap(SpectrogramColormap cmap, float norm) noexcept {
-    return SampleColormap(ToUnifiedColormap(cmap), norm);
-}
-
 // In-place iterative Cooley-Tukey Radix-2 FFT
 void Radix2Fft(std::vector<float>& re, std::vector<float>& im) noexcept {
     const size_t n = re.size();
@@ -325,7 +310,7 @@ struct SpectrogramCache {
     uint32_t fftSize{0};
     FftWindowType windowType{FftWindowType::Hann};
     FrequencyScale freqScale{FrequencyScale::Linear};
-    SpectrogramColormap colormap{SpectrogramColormap::Inferno};
+    Colormap colormap{Colormap::Inferno};
     float dbFloor{0.0f};
     float dbCeil{0.0f};
     uint64_t dbGridGeneration{1};
@@ -355,7 +340,7 @@ struct SpectrogramCache {
         uint32_t reqFftSize,
         FftWindowType reqWin,
         FrequencyScale reqScale,
-        SpectrogramColormap reqCmap,
+        Colormap reqCmap,
         float reqFloor,
         float reqCeil,
         bool skipCpuPixels = false
@@ -412,7 +397,7 @@ struct SpectrogramCache {
             std::fill(dbGrid.begin(), dbGrid.end(), -120.0f);
             if (!skipCpuPixels) {
                 pixels.resize(static_cast<size_t>(kTexW * kTexH));
-                const uint32_t bgPx = PackAbgr(EvaluateColormap(colormap, 0.0f));
+                const uint32_t bgPx = SampleColormapAbgr(colormap, 0.0f);
                 std::fill(pixels.begin(), pixels.end(), bgPx);
                 pixelsValid = true;
             } else {
@@ -493,7 +478,7 @@ struct SpectrogramCache {
 
         // Map dbGrid to ABGR8888 pixels using [dbFloor, dbCeil] and active colormap
         pixels.resize(static_cast<size_t>(kTexW * kTexH));
-        const auto& lutAbgr = GetColormapLutAbgr(ToUnifiedColormap(colormap));
+        const auto& lutAbgr = GetColormapLutAbgr(colormap);
         const float invRange = 255.0f / std::max(1.0f, safeCeil - safeFloor);
         for (size_t i = 0; i < dbGrid.size(); ++i) {
             const size_t lutIdx = static_cast<size_t>(std::clamp((dbGrid[i] - safeFloor) * invRange, 0.0f, 255.0f));
@@ -1798,7 +1783,7 @@ SignalViewResponse SignalView::Run(
             gpuDesc.texWidth = SpectrogramCache::kTexW;
             gpuDesc.texHeight = SpectrogramCache::kTexH;
             gpuDesc.colormapId = static_cast<uint8_t>(o.colormap);
-            CopyColormapLutAbgr(ToUnifiedColormap(o.colormap), gpuDesc.colormapAbgr);
+            CopyColormapLutAbgr(o.colormap, gpuDesc.colormapAbgr);
             gpuDesc.plotRect = g.specPlotRect;
             gpuDesc.dbFloor = s.specCache.dbFloor;
             gpuDesc.dbCeil = s.specCache.dbCeil;
@@ -2086,14 +2071,7 @@ SignalViewResponse SignalView::Run(
                     c.PushClip(cb);
                     c.DrawLine({cb.x, cb.y}, {cb.x, cb.Bottom()}, borderCol, 1.0f);
                     const Rect barStrip(cb.x + 5.0f * scale, cb.y + 6.0f * scale, 8.0f * scale, std::max(8.0f, cb.h - 12.0f * scale));
-                    const int gradSteps = 24;
-                    const float stepH = barStrip.h / static_cast<float>(gradSteps);
-                    for (int i = 0; i < gradSteps; ++i) {
-                        const float norm = 1.0f - (static_cast<float>(i) + 0.5f) / static_cast<float>(gradSteps);
-                        c.DrawRect(Rect(barStrip.x, barStrip.y + static_cast<float>(i) * stepH, barStrip.w, stepH + 0.5f),
-                                   EvaluateColormap(o.colormap, norm));
-                    }
-                    c.DrawRoundRect(barStrip, 2.0f * scale, Color::Transparent(), borderCol, 1.0f);
+                    DrawColormapBar(c, barStrip, o.colormap, true, false, 2.0f * scale, borderCol);
 
                     const int dbTicks = std::max(2, static_cast<int>(std::floor(barStrip.h / (28.0f * scale))));
                     for (int i = 0; i <= dbTicks; ++i) {
