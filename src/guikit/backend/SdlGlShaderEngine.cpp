@@ -50,6 +50,7 @@ constexpr uint32_t kGL_VERTEX_SHADER          = 0x8B31;
 constexpr uint32_t kGL_COMPILE_STATUS         = 0x8B81;
 constexpr uint32_t kGL_LINK_STATUS            = 0x8B82;
 constexpr uint32_t kGL_CURRENT_PROGRAM        = 0x8B8D;
+constexpr uint32_t kGL_VERTEX_ATTRIB_ARRAY_ENABLED = 0x8622;
 
 // Dynamically resolved OpenGL 2.0 / ES 2.0 function table
 struct GlProcs {
@@ -93,6 +94,7 @@ struct GlProcs {
     void     (GUIKIT_GL_APIENTRY* Uniform4f)(int location, float v0, float v1, float v2, float v3) = nullptr;
     void     (GUIKIT_GL_APIENTRY* EnableVertexAttribArray)(uint32_t index) = nullptr;
     void     (GUIKIT_GL_APIENTRY* DisableVertexAttribArray)(uint32_t index) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* GetVertexAttribiv)(uint32_t index, uint32_t pname, int* params) = nullptr;
     void     (GUIKIT_GL_APIENTRY* VertexAttribPointer)(uint32_t index, int size, uint32_t type, uint8_t normalized, int stride, const void* pointer) = nullptr;
     void     (GUIKIT_GL_APIENTRY* DrawArrays)(uint32_t mode, int first, int count) = nullptr;
 };
@@ -147,6 +149,7 @@ bool LoadAllGlProcs() noexcept {
     ok &= LoadProc(g_gl.Uniform4f, "glUniform4f");
     ok &= LoadProc(g_gl.EnableVertexAttribArray, "glEnableVertexAttribArray");
     ok &= LoadProc(g_gl.DisableVertexAttribArray, "glDisableVertexAttribArray");
+    ok &= LoadProc(g_gl.GetVertexAttribiv, "glGetVertexAttribiv");
     ok &= LoadProc(g_gl.VertexAttribPointer, "glVertexAttribPointer");
     ok &= LoadProc(g_gl.DrawArrays, "glDrawArrays");
     return ok;
@@ -1052,6 +1055,7 @@ void SdlGlShaderEngine::RenderUnderlays(
     int prevViewport[4] = {0, 0, 0, 0};
     int prevScissorBox[4] = {0, 0, 0, 0};
     int prevUnpackAlign = 4;
+    int prevAttrEnabled[3] = {0, 0, 0};
 #ifndef __EMSCRIPTEN__
     int prevUnpackRowLength = 0;
     int prevUnpackSkipRows = 0;
@@ -1066,6 +1070,9 @@ void SdlGlShaderEngine::RenderUnderlays(
     g_gl.GetIntegerv(kGL_VIEWPORT, prevViewport);
     g_gl.GetIntegerv(kGL_SCISSOR_BOX, prevScissorBox);
     g_gl.GetIntegerv(kGL_UNPACK_ALIGNMENT, &prevUnpackAlign);
+    for (uint32_t i = 0; i < 3; ++i) {
+        g_gl.GetVertexAttribiv(i, kGL_VERTEX_ATTRIB_ARRAY_ENABLED, &prevAttrEnabled[i]);
+    }
 #ifndef __EMSCRIPTEN__
     g_gl.GetIntegerv(kGL_UNPACK_ROW_LENGTH, &prevUnpackRowLength);
     g_gl.GetIntegerv(kGL_UNPACK_SKIP_ROWS, &prevUnpackSkipRows);
@@ -1090,6 +1097,8 @@ void SdlGlShaderEngine::RenderUnderlays(
 
     g_gl.BindBuffer(kGL_ARRAY_BUFFER, m_quadVbo);
     g_gl.EnableVertexAttribArray(0);
+    g_gl.DisableVertexAttribArray(1);
+    g_gl.DisableVertexAttribArray(2);
     g_gl.VertexAttribPointer(0, 2, kGL_FLOAT, kGL_FALSE, 2 * sizeof(float), nullptr);
 
     for (const auto& sonarPass : canvas.GetSonarGpuPasses()) {
@@ -1108,8 +1117,14 @@ void SdlGlShaderEngine::RenderUnderlays(
         PruneStaleTextures();
     }
 
-    // Restore OpenGL state cleanly so SDL_Renderer can composite the UI layer without interference
-    g_gl.DisableVertexAttribArray(0);
+    // Restore OpenGL state cleanly so SDL_Renderer (including opengles2/WebGL) can composite the UI layer without interference
+    for (uint32_t i = 0; i < 3; ++i) {
+        if (prevAttrEnabled[i]) {
+            g_gl.EnableVertexAttribArray(i);
+        } else {
+            g_gl.DisableVertexAttribArray(i);
+        }
+    }
     g_gl.BindBuffer(kGL_ARRAY_BUFFER, static_cast<uint32_t>(prevVbo));
     g_gl.UseProgram(static_cast<uint32_t>(prevProgram));
 
