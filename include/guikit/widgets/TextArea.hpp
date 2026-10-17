@@ -69,6 +69,9 @@ struct SyntaxConfig {
     /// Built-in Python 3 syntax preset.
     [[nodiscard]] static SyntaxConfig Python() noexcept;
 
+    /// Resolves a Markdown / language identifier tag (e.g. "cpp", "matlab", "json", "py") to a SyntaxConfig preset.
+    [[nodiscard]] static SyntaxConfig ForLanguage(std::string_view langTag) noexcept;
+
     /// Plain text (no syntax highlighting).
     [[nodiscard]] static constexpr SyntaxConfig Plain() noexcept { return SyntaxConfig{.enabled = false}; }
 };

@@ -7836,6 +7836,169 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
     std::cout << "  [PASS] TestCodeEditorIdeAndDebuggerWorkflow completed\n";
 }
 
+void TestKeymapAndMarkdownTopTierFeatures() {
+    std::cout << "  [RUN] TestKeymapAndMarkdownTopTierFeatures...\n";
+    using namespace guikit;
+
+    // 1. Verify centralized Keymap & KeyAction (and Action alias)
+    Keymap km = Keymap::Default();
+    CHECK(km.Matches(Action::Copy, Key::C, {.ctrl = true}));
+    CHECK(km.Matches(Action::Cut, Key::X, {.ctrl = true}));
+    CHECK(km.Matches(Action::Paste, Key::V, {.ctrl = true}));
+    CHECK(km.Matches(Action::SelectAll, Key::A, {.ctrl = true}));
+    CHECK(km.Matches(Action::Find, Key::F, {.ctrl = true}));
+    CHECK(km.Matches(Action::MoveLeft, Key::Left, {}));
+    CHECK(km.Matches(Action::SelectRight, Key::Right, {.shift = true}));
+    CHECK(km.Matches(Action::MoveWordLeft, Key::Left, {.ctrl = true}));
+    CHECK(km.Matches(Action::SelectWordRight, Key::Right, {.ctrl = true, .shift = true}));
+    CHECK(km.Matches(Action::ZoomIn, Key::Plus, {.ctrl = true}));
+    CHECK(km.Matches(Action::ZoomOut, Key::Minus, {.ctrl = true}));
+
+    // Verify custom rebinding
+    km.Bind(Action::Copy, KeyChord{Key::K, {.ctrl = true, .alt = true}});
+    CHECK(!km.Matches(Action::Copy, Key::C, {.ctrl = true}));
+    CHECK(km.Matches(Action::Copy, Key::K, {.ctrl = true, .alt = true}));
+
+    // 2. Verify SyntaxConfig::ForLanguage
+    CHECK(SyntaxConfig::ForLanguage("cpp").keywords.size() > 10);
+    CHECK(SyntaxConfig::ForLanguage("matlab").lineComment == "%");
+    CHECK(SyntaxConfig::ForLanguage("json").preprocessorPrefix == '\0');
+    CHECK(SyntaxConfig::ForLanguage("python").lineComment == "#");
+    CHECK(SyntaxConfig::ForLanguage("plain").keywords.empty());
+
+    // 3. Verify Markdown Smooth Zoom, Selection, Cursor Navigation, Copy, Search & Task Lists
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 640;
+    const uint32_t height = 480;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    std::string clipboardText;
+    ui.SetClipboardCallbacks(
+        [&]() -> std::string { return clipboardText; },
+        [&](std::string_view s) { clipboardText = std::string(s); }
+    );
+
+    const std::string_view mdDoc =
+        "# Title Heading\n\n"
+        "Paragraph with **bold** and `code` tokens.\n\n"
+        "- [ ] First interactive task\n"
+        "- [x] Second completed task\n\n"
+        "```matlab\n"
+        "% MATLAB block\n"
+        "y = fft(x);\n"
+        "```\n";
+
+    float zoom = 1.0f;
+    std::string searchQuery;
+    MarkdownResponse mdRes{};
+    Id scrollId = Id::Null();
+
+    auto renderMd = [&]() {
+        if (auto sa = ui.ScrollArea({.padding = Padding::All(4.0f)})) {
+            scrollId = sa.GetNode()->id;
+            mdRes = ui.Markdown(mdDoc, {
+                .allowZoom = true,
+                .zoom = &zoom,
+                .bodyFontSize = 14.0f,
+                .headingScale = 1.1f,
+                .codeFontSize = 13.0f,
+                .lineHeightScale = 1.2f,
+                .documentPadding = 8.0f,
+                .blockGap = 12.0f,
+                .paragraphIndent = 8.0f,
+                .listIndent = 20.0f,
+                .blockPadding = 12.0f,
+                .blockRadius = 6.0f,
+                .codeShowWhitespace = true,
+                .codeIndentGuides = true,
+                .codePalette = SyntaxPalette::Dracula(),
+                .enableSelection = true,
+                .enableSearch = true,
+                .interactiveTasks = true,
+                .searchQuery = searchQuery
+            });
+        }
+    };
+
+    // Frame 1 & 2: Initial layout
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderMd();
+    ui.EndFrame(canvas);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderMd();
+    ui.EndFrame(canvas);
+    CHECK_NEAR(mdRes.currentZoom, 1.0f, 0.001f);
+
+    // Test Ctrl + MouseWheel zooms Markdown WITHOUT scrolling the parent ScrollArea!
+    ui.OnMouseMove({200.0f, 120.0f});
+    ui.SetKeyModifiers({.ctrl = true});
+    ui.OnMouseWheel(0.0f, 1.0f);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderMd();
+    ui.EndFrame(canvas);
+    ui.SetKeyModifiers({});
+    CHECK_NEAR(zoom, 1.1f, 0.001f);
+    CHECK_NEAR(mdRes.currentZoom, 1.1f, 0.001f);
+    const auto* saState = ui.FindState<ScrollState>(scrollId);
+    CHECK(saState != nullptr);
+    CHECK_NEAR(saState->offset.y, 0.0f, 0.001f);
+
+    // Click inside Markdown to focus it, then test SelectAll (Ctrl+A) and Copy (Ctrl+C) via KeyAction
+    ui.OnMouseMove({100.0f, 40.0f});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderMd();
+    ui.EndFrame(canvas);
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderMd();
+    ui.EndFrame(canvas);
+    CHECK(ui.GetFocusedId() == mdRes.id);
+
+    // SelectAll via KeyAction::SelectAll (Ctrl+A)
+    ui.OnKeyDown(Key::A, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderMd();
+    ui.EndFrame(canvas);
+    CHECK(!mdRes.selectedText.empty());
+    CHECK(mdRes.selectedText.find("Title Heading") != std::string_view::npos);
+    CHECK(mdRes.selectedText.find("y = fft(x);") != std::string_view::npos);
+
+    // Copy via KeyAction::Copy (Ctrl+C)
+    ui.OnKeyDown(Key::C, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderMd();
+    ui.EndFrame(canvas);
+    CHECK(!clipboardText.empty());
+    CHECK(clipboardText.find("Title Heading") != std::string::npos);
+
+    // Test keyboard cursor & selection movement (MoveDocStart -> SelectWordRight -> Copy)
+    ui.OnKeyDown(Key::Home, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderMd();
+    ui.EndFrame(canvas);
+    CHECK(mdRes.selectedText.empty());
+
+    ui.OnKeyDown(Key::Right, {.ctrl = true, .shift = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderMd();
+    ui.EndFrame(canvas);
+    CHECK(mdRes.selectedText == "Title");
+
+    // Test Search match counting
+    searchQuery = "task";
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderMd();
+    ui.EndFrame(canvas);
+    CHECK(mdRes.searchMatchCount == 2);
+    CHECK(mdRes.activeSearchMatch == 0);
+
+    std::cout << "  [PASS] TestKeymapAndMarkdownTopTierFeatures completed\n";
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -7903,6 +8066,7 @@ int main() {
     TestRangeSliderProgressBarSpinBoxAndRadioButton();
     TestTableVirtualizedDataGridWorkflow();
     TestCodeEditorIdeAndDebuggerWorkflow();
+    TestKeymapAndMarkdownTopTierFeatures();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

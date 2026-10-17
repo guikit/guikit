@@ -250,6 +250,264 @@ struct KeyModifiers {
     bool ctrl{false};
     bool shift{false};
     bool alt{false};
+
+    [[nodiscard]] constexpr bool operator==(const KeyModifiers& other) const noexcept {
+        return ctrl == other.ctrl && shift == other.shift && alt == other.alt;
+    }
+    [[nodiscard]] constexpr bool operator!=(const KeyModifiers& other) const noexcept {
+        return !(*this == other);
+    }
+};
+
+/// Semantic keyboard actions decoupled from physical key codes.
+/// Widgets react to KeyAction rather than hardcoded Key + KeyModifiers combinations.
+enum class KeyAction : uint8_t {
+    None = 0,
+
+    // Clipboard & Selection
+    Copy,               ///< Copy selection to clipboard (default: Ctrl+C)
+    Cut,                ///< Cut selection to clipboard (default: Ctrl+X)
+    Paste,              ///< Paste from clipboard (default: Ctrl+V)
+    SelectAll,          ///< Select all content (default: Ctrl+A)
+
+    // Undo / Redo History
+    Undo,               ///< Undo last edit (default: Ctrl+Z)
+    Redo,               ///< Redo last undone edit (default: Ctrl+Y or Ctrl+Shift+Z)
+
+    // Cursor Movement
+    MoveLeft,           ///< Move cursor left by 1 character (default: Left)
+    MoveRight,          ///< Move cursor right by 1 character (default: Right)
+    MoveUp,             ///< Move cursor up by 1 line (default: Up)
+    MoveDown,           ///< Move cursor down by 1 line (default: Down)
+    MoveWordLeft,       ///< Move cursor to previous word boundary (default: Ctrl+Left)
+    MoveWordRight,      ///< Move cursor to next word boundary (default: Ctrl+Right)
+    MoveLineStart,      ///< Move cursor to start of line (default: Home)
+    MoveLineEnd,        ///< Move cursor to end of line (default: End)
+    MoveDocStart,       ///< Move cursor to start of document (default: Ctrl+Home)
+    MoveDocEnd,         ///< Move cursor to end of document (default: Ctrl+End)
+    MovePageUp,         ///< Move cursor / viewport up by 1 page (default: PageUp)
+    MovePageDown,       ///< Move cursor / viewport down by 1 page (default: PageDown)
+
+    // Cursor Selection Extension (Shift + Movement)
+    SelectLeft,         ///< Extend selection left by 1 character (default: Shift+Left)
+    SelectRight,        ///< Extend selection right by 1 character (default: Shift+Right)
+    SelectUp,           ///< Extend selection up by 1 line (default: Shift+Up)
+    SelectDown,         ///< Extend selection down by 1 line (default: Shift+Down)
+    SelectWordLeft,     ///< Extend selection to previous word boundary (default: Ctrl+Shift+Left)
+    SelectWordRight,    ///< Extend selection to next word boundary (default: Ctrl+Shift+Right)
+    SelectLineStart,    ///< Extend selection to start of line (default: Shift+Home)
+    SelectLineEnd,      ///< Extend selection to end of line (default: Shift+End)
+    SelectDocStart,     ///< Extend selection to start of document (default: Ctrl+Shift+Home)
+    SelectDocEnd,       ///< Extend selection to end of document (default: Ctrl+Shift+End)
+    SelectPageUp,       ///< Extend selection up by 1 page (default: Shift+PageUp)
+    SelectPageDown,     ///< Extend selection down by 1 page (default: Shift+PageDown)
+
+    // Deletion & Editing Primitives
+    DeletePrevChar,     ///< Delete character before cursor (default: Backspace)
+    DeleteNextChar,     ///< Delete character after cursor (default: Delete)
+    DeletePrevWord,     ///< Delete word before cursor (default: Ctrl+Backspace)
+    DeleteNextWord,     ///< Delete word after cursor (default: Ctrl+Delete)
+    Confirm,            ///< Confirm / Submit / Newline (default: Enter)
+    Cancel,             ///< Cancel / Close overlay / Clear selection (default: Escape)
+    Indent,             ///< Indent line/selection or focus next (default: Tab)
+    Unindent,           ///< Unindent line/selection or focus prev (default: Shift+Tab)
+
+    // Code Editor Line Operations
+    DuplicateLine,      ///< Duplicate current line or select next occurrence (default: Ctrl+D)
+    DeleteLine,         ///< Delete entire current line (default: Ctrl+Shift+K)
+    ToggleComment,      ///< Toggle line comment on selection (default: Ctrl+/)
+    MoveLineUp,         ///< Swap current line with line above (default: Alt+Up)
+    MoveLineDown,       ///< Swap current line with line below (default: Alt+Down)
+
+    // Search & Navigation
+    Find,               ///< Open Find bar (default: Ctrl+F)
+    Replace,            ///< Open Find & Replace bar (default: Ctrl+H)
+    FindNext,           ///< Jump to next search match (default: F3)
+    FindPrev,           ///< Jump to previous search match (default: Shift+F3)
+    GoToLine,           ///< Open Go to Line dialog (default: Ctrl+G)
+
+    // Viewport & Typography Zoom
+    ZoomIn,             ///< Increase zoom level (default: Ctrl+Plus)
+    ZoomOut,            ///< Decrease zoom level (default: Ctrl+Minus)
+    ZoomReset,          ///< Reset zoom level to 100% (default: Ctrl+0)
+
+    // Debugger Controls
+    DebugContinue,      ///< Continue execution (default: F5)
+    DebugStop,          ///< Stop debugging session (default: Shift+F5)
+    DebugStepOver,      ///< Step over current line (default: F10)
+    DebugStepInto,      ///< Step into function call (default: F11)
+    DebugStepOut,       ///< Step out of current function (default: Shift+F11)
+    ToggleBreakpoint,   ///< Toggle breakpoint on current line (default: F9)
+
+    Count
+};
+
+/// Type alias for semantic action enum.
+using Action = KeyAction;
+
+/// Represents a single keyboard shortcut chord (Key + exact KeyModifiers).
+struct KeyChord {
+    Key key{Key::None};
+    KeyModifiers mods{};
+
+    constexpr KeyChord() noexcept = default;
+    constexpr KeyChord(Key k, KeyModifiers m = {}) noexcept : key(k), mods(m) {}
+    constexpr KeyChord(Key k, bool ctrl, bool shift = false, bool alt = false) noexcept
+        : key(k), mods{ctrl, shift, alt} {}
+
+    [[nodiscard]] constexpr bool IsValid() const noexcept { return key != Key::None; }
+
+    [[nodiscard]] constexpr bool Matches(Key k, KeyModifiers m) const noexcept {
+        return key != Key::None && key == k && mods == m;
+    }
+
+    [[nodiscard]] constexpr bool operator==(const KeyChord& other) const noexcept {
+        return key == other.key && mods == other.mods;
+    }
+    [[nodiscard]] constexpr bool operator!=(const KeyChord& other) const noexcept {
+        return !(*this == other);
+    }
+};
+
+/// Primary and optional secondary key chords bound to a semantic KeyAction.
+struct KeyBinding {
+    KeyChord primary{};
+    KeyChord secondary{};
+
+    [[nodiscard]] constexpr bool Matches(Key k, KeyModifiers m) const noexcept {
+        return primary.Matches(k, m) || secondary.Matches(k, m);
+    }
+};
+
+/// Centralized, user-configurable keybinding table mapping KeyAction to KeyChords.
+class Keymap {
+public:
+    static constexpr size_t kActionCount = static_cast<size_t>(KeyAction::Count);
+
+    constexpr Keymap() noexcept = default;
+
+    /// Returns the standard desktop keymap with all default bindings populated.
+    [[nodiscard]] static constexpr Keymap Default() noexcept {
+        Keymap km;
+        // Clipboard & Selection
+        km.Bind(KeyAction::Copy,            KeyChord(Key::C, true, false, false));
+        km.Bind(KeyAction::Cut,             KeyChord(Key::X, true, false, false));
+        km.Bind(KeyAction::Paste,           KeyChord(Key::V, true, false, false));
+        km.Bind(KeyAction::SelectAll,       KeyChord(Key::A, true, false, false));
+
+        // Undo / Redo
+        km.Bind(KeyAction::Undo,            KeyChord(Key::Z, true, false, false));
+        km.Bind(KeyAction::Redo,            KeyChord(Key::Y, true, false, false), KeyChord(Key::Z, true, true, false));
+
+        // Cursor Movement
+        km.Bind(KeyAction::MoveLeft,        KeyChord(Key::Left, false, false, false));
+        km.Bind(KeyAction::MoveRight,       KeyChord(Key::Right, false, false, false));
+        km.Bind(KeyAction::MoveUp,          KeyChord(Key::Up, false, false, false));
+        km.Bind(KeyAction::MoveDown,        KeyChord(Key::Down, false, false, false));
+        km.Bind(KeyAction::MoveWordLeft,    KeyChord(Key::Left, true, false, false));
+        km.Bind(KeyAction::MoveWordRight,   KeyChord(Key::Right, true, false, false));
+        km.Bind(KeyAction::MoveLineStart,   KeyChord(Key::Home, false, false, false));
+        km.Bind(KeyAction::MoveLineEnd,     KeyChord(Key::End, false, false, false));
+        km.Bind(KeyAction::MoveDocStart,    KeyChord(Key::Home, true, false, false));
+        km.Bind(KeyAction::MoveDocEnd,      KeyChord(Key::End, true, false, false));
+        km.Bind(KeyAction::MovePageUp,      KeyChord(Key::PageUp, false, false, false));
+        km.Bind(KeyAction::MovePageDown,    KeyChord(Key::PageDown, false, false, false));
+
+        // Cursor Selection Extension
+        km.Bind(KeyAction::SelectLeft,      KeyChord(Key::Left, false, true, false));
+        km.Bind(KeyAction::SelectRight,     KeyChord(Key::Right, false, true, false));
+        km.Bind(KeyAction::SelectUp,        KeyChord(Key::Up, false, true, false));
+        km.Bind(KeyAction::SelectDown,      KeyChord(Key::Down, false, true, false));
+        km.Bind(KeyAction::SelectWordLeft,  KeyChord(Key::Left, true, true, false));
+        km.Bind(KeyAction::SelectWordRight, KeyChord(Key::Right, true, true, false));
+        km.Bind(KeyAction::SelectLineStart, KeyChord(Key::Home, false, true, false));
+        km.Bind(KeyAction::SelectLineEnd,   KeyChord(Key::End, false, true, false));
+        km.Bind(KeyAction::SelectDocStart,  KeyChord(Key::Home, true, true, false));
+        km.Bind(KeyAction::SelectDocEnd,    KeyChord(Key::End, true, true, false));
+        km.Bind(KeyAction::SelectPageUp,    KeyChord(Key::PageUp, false, true, false));
+        km.Bind(KeyAction::SelectPageDown,  KeyChord(Key::PageDown, false, true, false));
+
+        // Deletion & Editing Primitives
+        km.Bind(KeyAction::DeletePrevChar,  KeyChord(Key::Backspace, false, false, false));
+        km.Bind(KeyAction::DeleteNextChar,  KeyChord(Key::Delete, false, false, false));
+        km.Bind(KeyAction::DeletePrevWord,  KeyChord(Key::Backspace, true, false, false));
+        km.Bind(KeyAction::DeleteNextWord,  KeyChord(Key::Delete, true, false, false));
+        km.Bind(KeyAction::Confirm,         KeyChord(Key::Enter, false, false, false));
+        km.Bind(KeyAction::Cancel,          KeyChord(Key::Escape, false, false, false));
+        km.Bind(KeyAction::Indent,          KeyChord(Key::Tab, false, false, false));
+        km.Bind(KeyAction::Unindent,        KeyChord(Key::Tab, false, true, false));
+
+        // Code Editor Line Operations
+        km.Bind(KeyAction::DuplicateLine,   KeyChord(Key::D, true, false, false));
+        km.Bind(KeyAction::DeleteLine,      KeyChord(Key::K, true, true, false));
+        km.Bind(KeyAction::ToggleComment,   KeyChord(Key::Slash, true, false, false));
+        km.Bind(KeyAction::MoveLineUp,      KeyChord(Key::Up, false, false, true));
+        km.Bind(KeyAction::MoveLineDown,    KeyChord(Key::Down, false, false, true));
+
+        // Search & Navigation
+        km.Bind(KeyAction::Find,            KeyChord(Key::F, true, false, false));
+        km.Bind(KeyAction::Replace,         KeyChord(Key::H, true, false, false));
+        km.Bind(KeyAction::FindNext,        KeyChord(Key::F3, false, false, false));
+        km.Bind(KeyAction::FindPrev,        KeyChord(Key::F3, false, true, false));
+        km.Bind(KeyAction::GoToLine,        KeyChord(Key::G, true, false, false));
+
+        // Zoom
+        km.Bind(KeyAction::ZoomIn,          KeyChord(Key::Plus, true, false, false), KeyChord(Key::Plus, true, true, false));
+        km.Bind(KeyAction::ZoomOut,         KeyChord(Key::Minus, true, false, false), KeyChord(Key::Minus, true, true, false));
+        km.Bind(KeyAction::ZoomReset,       KeyChord(Key::Zero, true, false, false));
+
+        // Debugger
+        km.Bind(KeyAction::DebugContinue,    KeyChord(Key::F5, false, false, false));
+        km.Bind(KeyAction::DebugStop,        KeyChord(Key::F5, false, true, false));
+        km.Bind(KeyAction::DebugStepOver,    KeyChord(Key::F10, false, false, false));
+        km.Bind(KeyAction::DebugStepInto,    KeyChord(Key::F11, false, false, false));
+        km.Bind(KeyAction::DebugStepOut,     KeyChord(Key::F11, false, true, false));
+        km.Bind(KeyAction::ToggleBreakpoint, KeyChord(Key::F9, false, false, false));
+
+        return km;
+    }
+
+    /// Binds a semantic action to a primary (and optional secondary) key chord.
+    constexpr void Bind(KeyAction action, KeyChord primary, KeyChord secondary = {}) noexcept {
+        const size_t idx = static_cast<size_t>(action);
+        if (idx > 0 && idx < kActionCount) {
+            m_bindings[idx] = KeyBinding{primary, secondary};
+        }
+    }
+
+    /// Removes all key bindings for the specified action.
+    constexpr void Unbind(KeyAction action) noexcept {
+        const size_t idx = static_cast<size_t>(action);
+        if (idx > 0 && idx < kActionCount) {
+            m_bindings[idx] = KeyBinding{};
+        }
+    }
+
+    /// Returns the current binding for the specified action.
+    [[nodiscard]] constexpr KeyBinding GetBinding(KeyAction action) const noexcept {
+        const size_t idx = static_cast<size_t>(action);
+        return (idx > 0 && idx < kActionCount) ? m_bindings[idx] : KeyBinding{};
+    }
+
+    /// Returns true if the given (key, mods) event matches the specified semantic action.
+    [[nodiscard]] constexpr bool Matches(KeyAction action, Key key, KeyModifiers mods) const noexcept {
+        const size_t idx = static_cast<size_t>(action);
+        return (idx > 0 && idx < kActionCount) && m_bindings[idx].Matches(key, mods);
+    }
+
+    /// Resolves a physical (key, mods) event into its bound KeyAction, or KeyAction::None if unbound.
+    [[nodiscard]] constexpr KeyAction Resolve(Key key, KeyModifiers mods) const noexcept {
+        if (key == Key::None) return KeyAction::None;
+        for (size_t i = 1; i < kActionCount; ++i) {
+            if (m_bindings[i].Matches(key, mods)) {
+                return static_cast<KeyAction>(i);
+            }
+        }
+        return KeyAction::None;
+    }
+
+private:
+    std::array<KeyBinding, kActionCount> m_bindings{};
 };
 
 /// Visual blinking mode for input caret / cursor.

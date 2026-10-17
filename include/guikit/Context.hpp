@@ -962,6 +962,22 @@ public:
     bool ConsumeKey(Key key);
     bool ConsumeKey(Key key, KeyModifiers& outMods);
     bool ConsumeShortcut(Key key, bool ctrl, bool shift = false, bool alt = false);
+
+    // --- Semantic Keymap & Action Routing ---
+    [[nodiscard]] Keymap& GetKeymap() noexcept { return m_keymap; }
+    [[nodiscard]] const Keymap& GetKeymap() const noexcept { return m_keymap; }
+    void SetKeymap(const Keymap& keymap) noexcept { m_keymap = keymap; }
+    void BindAction(KeyAction action, KeyChord primary, KeyChord secondary = {}) noexcept {
+        m_keymap.Bind(action, primary, secondary);
+    }
+    [[nodiscard]] bool MatchesAction(KeyAction action, Key key, KeyModifiers mods) const noexcept {
+        return m_keymap.Matches(action, key, mods);
+    }
+    [[nodiscard]] KeyAction ResolveAction(Key key, KeyModifiers mods) const noexcept {
+        return m_keymap.Resolve(key, mods);
+    }
+    bool ConsumeAction(KeyAction action);
+
     [[nodiscard]] std::vector<std::string> ConsumePendingTextInput();
     void ScrollToId(Id id);
 
@@ -1058,6 +1074,7 @@ private:
     bool m_mouseClicked{false};
     bool m_mouseReleased{false};
     KeyModifiers m_keyMods{};
+    Keymap m_keymap{Keymap::Default()};
     int m_repaintFrames{3};
     int m_idleHeartbeatMs{500};
 

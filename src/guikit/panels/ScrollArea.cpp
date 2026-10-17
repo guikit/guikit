@@ -41,7 +41,7 @@ ContainerScope ScrollArea::Open(
     Rect prevBounds = ctx.GetPrevFrameBounds(id);
     if (prevBounds.w > 0.0f && prevBounds.h > 0.0f && !node->disabled) {
         Vec2 wheel = ctx.GetMouseWheel();
-        if (prevBounds.Contains(ctx.GetMousePos()) && (wheel.x != 0.0f || wheel.y != 0.0f)) {
+        if (prevBounds.Contains(ctx.GetMousePos()) && (wheel.x != 0.0f || wheel.y != 0.0f) && !ctx.GetKeyModifiers().ctrl) {
             const ScrollbarMetrics& m = ctx.GetTheme().GetScrollbar(activeSize);
             if (opts.orientation == Orientation::Horizontal ||
                 (opts.orientation == Orientation::Both && ctx.GetKeyModifiers().shift && wheel.x == 0.0f)) {

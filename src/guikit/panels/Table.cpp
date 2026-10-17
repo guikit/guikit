@@ -896,14 +896,20 @@ TableScope Table::Open(
         // 4. Keyboard navigation when table is focused or hovered
         if ((ctx.GetFocusedId() == id || data->frameRect.Contains(mousePos)) && knownTotalRows > 0) {
             int nextSel = state.selectedRow;
-            if (ctx.ConsumeKey(Key::Down)) {
+            if (ctx.ConsumeAction(KeyAction::MoveDown)) {
                 nextSel = std::clamp(nextSel + 1, 0, static_cast<int>(knownTotalRows) - 1);
-            } else if (ctx.ConsumeKey(Key::Up)) {
+            } else if (ctx.ConsumeAction(KeyAction::MoveUp)) {
                 nextSel = std::clamp((nextSel < 0 ? 0 : nextSel - 1), 0, static_cast<int>(knownTotalRows) - 1);
-            } else if (ctx.ConsumeKey(Key::Home)) {
+            } else if (ctx.ConsumeAction(KeyAction::MoveLineStart) || ctx.ConsumeAction(KeyAction::MoveDocStart)) {
                 nextSel = 0;
-            } else if (ctx.ConsumeKey(Key::End)) {
+            } else if (ctx.ConsumeAction(KeyAction::MoveLineEnd) || ctx.ConsumeAction(KeyAction::MoveDocEnd)) {
                 nextSel = static_cast<int>(knownTotalRows) - 1;
+            } else if (ctx.ConsumeAction(KeyAction::MovePageDown)) {
+                const int pageStep = std::max(1, static_cast<int>(state.lastViewportHeight / std::max(1.0f, data->rowHeight)));
+                nextSel = std::clamp((nextSel < 0 ? 0 : nextSel) + pageStep, 0, static_cast<int>(knownTotalRows) - 1);
+            } else if (ctx.ConsumeAction(KeyAction::MovePageUp)) {
+                const int pageStep = std::max(1, static_cast<int>(state.lastViewportHeight / std::max(1.0f, data->rowHeight)));
+                nextSel = std::clamp((nextSel < 0 ? 0 : nextSel) - pageStep, 0, static_cast<int>(knownTotalRows) - 1);
             }
 
             if (nextSel != state.selectedRow && nextSel >= 0) {

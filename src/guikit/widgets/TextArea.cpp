@@ -1202,6 +1202,29 @@ SyntaxConfig SyntaxConfig::Python() noexcept {
     };
 }
 
+SyntaxConfig SyntaxConfig::ForLanguage(std::string_view langTag) noexcept {
+    std::string lower;
+    lower.reserve(langTag.size());
+    for (char c : langTag) {
+        if (c != ' ' && c != '\t' && c != '\r' && c != '\n') {
+            lower.push_back(ToLowerAscii(c));
+        }
+    }
+    if (lower == "matlab" || lower == "m" || lower == "octave") {
+        return Matlab();
+    }
+    if (lower == "json" || lower == "jsonc") {
+        return Json();
+    }
+    if (lower == "py" || lower == "python" || lower == "python3") {
+        return Python();
+    }
+    if (lower == "plain" || lower == "text" || lower == "txt" || lower == "none") {
+        return Plain();
+    }
+    return Cpp();
+}
+
 void TextArea::HighlightLine(
     std::string_view lineText,
     size_t /*lineIndex*/,
@@ -1480,12 +1503,12 @@ TextAreaResponse TextArea::Run(
     }
     state.zoom = std::clamp(state.zoom, 0.5f, 3.0f);
 
-    if (opts.allowZoom && !effectiveDisabled && (isFocused || res.hovered) && ctx.GetKeyModifiers().ctrl) {
-        if (ctx.ConsumeKey(Key::Plus)) {
+    if (opts.allowZoom && !effectiveDisabled && (isFocused || res.hovered)) {
+        if (ctx.ConsumeAction(KeyAction::ZoomIn)) {
             state.zoom = std::clamp(state.zoom + 0.10f, 0.5f, 3.0f);
-        } else if (ctx.ConsumeKey(Key::Minus)) {
+        } else if (ctx.ConsumeAction(KeyAction::ZoomOut)) {
             state.zoom = std::clamp(state.zoom - 0.10f, 0.5f, 3.0f);
-        } else if (ctx.ConsumeKey(Key::Zero)) {
+        } else if (ctx.ConsumeAction(KeyAction::ZoomReset)) {
             state.zoom = 1.0f;
         }
     }
@@ -1619,8 +1642,8 @@ TextAreaResponse TextArea::Run(
     // --- Handle IDE & Debugger Keyboard Shortcuts when focused ---
     bool modifiedByIdeCommand = false;
     if (isFocused && !effectiveDisabled) {
-        // Ctrl+F: Find
-        if (opts.enableSearch && ctx.ConsumeShortcut(Key::F, true, false, false)) {
+        // KeyAction::Find (default Ctrl+F)
+        if (opts.enableSearch && ctx.ConsumeAction(KeyAction::Find)) {
             state.searchOpen = true;
             state.gotoOpen = false;
             state.overlayFocus = 1;
@@ -1632,8 +1655,8 @@ TextAreaResponse TextArea::Run(
                 }
             }
         }
-        // Ctrl+H: Find & Replace
-        if (opts.enableSearch && !opts.readOnly && ctx.ConsumeShortcut(Key::H, true, false, false)) {
+        // KeyAction::Replace (default Ctrl+H)
+        if (opts.enableSearch && !opts.readOnly && ctx.ConsumeAction(KeyAction::Replace)) {
             state.searchOpen = true;
             state.replaceOpen = true;
             state.gotoOpen = false;
@@ -1646,15 +1669,15 @@ TextAreaResponse TextArea::Run(
                 }
             }
         }
-        // Ctrl+G: Go to Line
-        if (opts.enableSearch && ctx.ConsumeShortcut(Key::G, true, false, false)) {
+        // KeyAction::GoToLine (default Ctrl+G)
+        if (opts.enableSearch && ctx.ConsumeAction(KeyAction::GoToLine)) {
             state.gotoOpen = true;
             state.searchOpen = false;
             state.overlayFocus = 3;
             state.gotoQuery.clear();
         }
-        // Ctrl+/: Toggle Line Comment
-        if (!opts.readOnly && ctx.ConsumeShortcut(Key::Slash, true, false, false)) {
+        // KeyAction::ToggleComment (default Ctrl+/)
+        if (!opts.readOnly && ctx.ConsumeAction(KeyAction::ToggleComment)) {
             const std::string_view cmtPrefix = (opts.syntax.has_value() && !opts.syntax->lineComment.empty())
                 ? opts.syntax->lineComment
                 : "//";
@@ -1716,20 +1739,23 @@ TextAreaResponse TextArea::Run(
             modifiedByIdeCommand = true;
         }
 
-        // Debugger hotkeys: F9 (Toggle Breakpoint), F5 (Continue), Shift+F5 (Stop), F10 (Step Over), F11 (Step Into), Shift+F11 (Step Out)
-        KeyModifiers fMods{};
-        if ((opts.breakpoints != nullptr || opts.enableBreakpoints) && ctx.ConsumeKey(Key::F9, fMods)) {
+        // Debugger actions: ToggleBreakpoint (F9), DebugContinue (F5), DebugStop (Shift+F5), DebugStepOver (F10), DebugStepInto (F11), DebugStepOut (Shift+F11)
+        if ((opts.breakpoints != nullptr || opts.enableBreakpoints) && ctx.ConsumeAction(KeyAction::ToggleBreakpoint)) {
             const size_t curLine0 = FindLogicalLineForOffset(logicalLines, state.cursor);
             toggleBreakpointAtLine(curLine0 + 1);
         }
-        if (ctx.ConsumeKey(Key::F5, fMods)) {
-            res.debugAction = fMods.shift ? CodeDebugAction::Stop : CodeDebugAction::Continue;
+        if (ctx.ConsumeAction(KeyAction::DebugContinue)) {
+            res.debugAction = CodeDebugAction::Continue;
+        } else if (ctx.ConsumeAction(KeyAction::DebugStop)) {
+            res.debugAction = CodeDebugAction::Stop;
         }
-        if (ctx.ConsumeKey(Key::F10, fMods)) {
+        if (ctx.ConsumeAction(KeyAction::DebugStepOver)) {
             res.debugAction = CodeDebugAction::StepOver;
         }
-        if (ctx.ConsumeKey(Key::F11, fMods)) {
-            res.debugAction = fMods.shift ? CodeDebugAction::StepOut : CodeDebugAction::StepInto;
+        if (ctx.ConsumeAction(KeyAction::DebugStepInto)) {
+            res.debugAction = CodeDebugAction::StepInto;
+        } else if (ctx.ConsumeAction(KeyAction::DebugStepOut)) {
+            res.debugAction = CodeDebugAction::StepOut;
         }
     }
 
@@ -1794,16 +1820,17 @@ TextAreaResponse TextArea::Run(
         modifiedByIdeCommand = true;
     };
 
-    // F3 / Shift+F3: Find Next / Previous even when focus is in code editor
+    // FindNext / FindPrev (default F3 / Shift+F3): Find Next / Previous even when focus is in code editor
     if (isFocused && !effectiveDisabled) {
-        KeyModifiers f3Mods{};
-        if (ctx.ConsumeKey(Key::F3, f3Mods)) {
+        const bool findNext = ctx.ConsumeAction(KeyAction::FindNext);
+        const bool findPrev = !findNext && ctx.ConsumeAction(KeyAction::FindPrev);
+        if (findNext || findPrev) {
             if (!state.searchOpen) {
                 state.searchOpen = true;
             }
             if (!searchMatches.empty()) {
                 const size_t n = searchMatches.size();
-                const size_t nextIdx = f3Mods.shift ? ((state.activeMatchIdx + n - 1) % n) : ((state.activeMatchIdx + 1) % n);
+                const size_t nextIdx = findPrev ? ((state.activeMatchIdx + n - 1) % n) : ((state.activeMatchIdx + 1) % n);
                 jumpToSearchMatch(nextIdx);
             }
         }
@@ -1829,22 +1856,23 @@ TextAreaResponse TextArea::Run(
             }
         }
 
-        KeyModifiers kMods{};
-        while (ctx.ConsumeKey(Key::Backspace, kMods)) {
+        while (ctx.ConsumeAction(KeyAction::DeletePrevWord)) {
             if (!targetStr->empty()) {
-                if (kMods.ctrl) {
-                    targetStr->clear();
-                } else {
-                    targetStr->pop_back();
-                }
+                targetStr->clear();
                 queryEdited = true;
             }
         }
-        while (ctx.ConsumeKey(Key::Delete, kMods)) {
+        while (ctx.ConsumeAction(KeyAction::DeletePrevChar)) {
+            if (!targetStr->empty()) {
+                targetStr->pop_back();
+                queryEdited = true;
+            }
+        }
+        while (ctx.ConsumeAction(KeyAction::DeleteNextChar) || ctx.ConsumeAction(KeyAction::DeleteNextWord)) {
             targetStr->clear();
             queryEdited = true;
         }
-        if (ctx.ConsumeKey(Key::Tab, kMods)) {
+        if (ctx.ConsumeAction(KeyAction::Indent) || ctx.ConsumeAction(KeyAction::Unindent)) {
             if (state.searchOpen) {
                 if (!state.replaceOpen && !opts.readOnly) {
                     state.replaceOpen = true;
@@ -1854,12 +1882,13 @@ TextAreaResponse TextArea::Run(
                 }
             }
         }
-        if (ctx.ConsumeKey(Key::Escape, kMods)) {
+        if (ctx.ConsumeAction(KeyAction::Cancel)) {
             state.searchOpen = false;
             state.gotoOpen = false;
             state.overlayFocus = 0;
         }
-        if (ctx.ConsumeKey(Key::Enter, kMods)) {
+        KeyModifiers kMods{};
+        if (ctx.ConsumeAction(KeyAction::Confirm) || ctx.ConsumeKey(Key::Enter, kMods)) {
             if (state.overlayFocus == 1) {
                 if (!searchMatches.empty()) {
                     const size_t n = searchMatches.size();
@@ -1904,8 +1933,8 @@ TextAreaResponse TextArea::Run(
             }
         }
     } else if (isFocused && !effectiveDisabled && (state.searchOpen || state.gotoOpen)) {
-        // Pressing Escape while in editor with search/goto bar open closes the bar without losing focus
-        if (ctx.ConsumeShortcut(Key::Escape, false, false, false)) {
+        // Pressing Cancel (Escape) while in editor with search/goto bar open closes the bar without losing focus
+        if (ctx.ConsumeAction(KeyAction::Cancel)) {
             state.searchOpen = false;
             state.gotoOpen = false;
             state.overlayFocus = 0;
