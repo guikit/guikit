@@ -4,7 +4,7 @@
 
 ## 👉 [Live Interactive Demo (WebAssembly): https://guikit.github.io/demo/](https://guikit.github.io/demo/)
 
-| **Workspace & Rich Markdown Engine** | **S-52 / Navionics Marine GIS Vector Chart** |
+| **Workspace & Rich Markdown Engine** | **S-52 / ENC Marine GIS Vector Chart** |
 | :---: | :---: |
 | ![Workspace & Rich Markdown](docs/screenshots/markdown_workspace.png) | ![Marine GIS Chart](docs/screenshots/gis_chart.png) |
 | **PPI 360° Sonar Radar (`SonarView`)** | **Waveform + STFT Spectrogram (`SignalView`)** |
@@ -48,7 +48,7 @@
 - **Rich Content**: `Markdown` viewer (GFM tables, alerts, task lists, code blocks, embedded assets) & `CodeEditor` (syntax highlighting, breakpoints, folding, minimap)
 
 ### 3. Specialized 2D Scenes & Domain Workstations (`guikit_scenes`)
-- **GIS / Marine Chart (`MapView` + `GisRenderEngine`)**: S-57 / Navionics vector Electronic Navigational Chart (`.geojson` / `.nv2`) with S-52 Day/Dusk/Night palettes, safety contour isobaths, spot soundings, IALA seamarks, 256×256 vector tile caching, and 7 geodetic projections (`EPSG:3857`, `EPSG:3395`, `EPSG:4326`, `UTM 36N`, `GSK-2011`, `SK-42`, `Arctic Polar`)
+- **GIS / Marine Chart (`MapView` + `GisRenderEngine`)**: S-57 / ENC vector Electronic Navigational Chart (`.geojson`) with S-52 Day/Dusk/Night palettes, safety contour isobaths, spot soundings, IALA seamarks, 256×256 vector tile caching, and 7 geodetic projections (`EPSG:3857`, `EPSG:3395`, `EPSG:4326`, `UTM 36N`, `GSK-2011`, `SK-42`, `Arctic Polar`)
 - **Signal View (`SignalView`)**: Dual waveform + STFT spectrogram analyzer with GPU shader acceleration and harmonic cursor readouts
 - **Sonar Radar (`SonarView`)**: Polar PPI 360°, Sector Wedge, and B-Scan sonar/radar display with TVG, clutter gating, and target tracking
 - **Waterfall (`WaterfallView`)**: Hardware circular ring-buffer RTSA spectrum waterfall & DOA target tracker

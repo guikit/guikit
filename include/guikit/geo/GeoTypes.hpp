@@ -102,7 +102,7 @@ enum class GeometryType : uint8_t {
     return "Unknown";
 }
 
-/// Maritime S-57 / Navionics / general GIS feature classification.
+/// Maritime S-57 / ENC / general GIS feature classification.
 enum class GisFeatureClass : uint8_t {
     Generic = 0,
     LandArea,       ///< LNDARE - Land mass polygon
@@ -183,7 +183,7 @@ struct GeoFeature {
     std::vector<std::vector<GeoPoint>> lines;
     std::vector<GeoPolygonRings> polygons;
 
-    // Hydrographic / Bathymetric numeric attributes (parsed for fast S-52 / Navionics color shading)
+    // Hydrographic / Bathymetric numeric attributes (parsed for fast S-52 / ENC color shading)
     std::optional<double> depthMinMeters;   ///< DRVAL1 (minimum depth of depth area)
     std::optional<double> depthMaxMeters;   ///< DRVAL2 (maximum depth of depth area)
     std::optional<double> contourDepthMeters; ///< VALDCO / VALSOU / depth value

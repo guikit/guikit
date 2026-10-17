@@ -49,7 +49,7 @@ public:
         bool prettyPrint = true
     );
 
-    /// Builds a rich multi-layer hydrographic ENC / Navionics chart dataset (Bathymetry DEPARE,
+    /// Builds a rich multi-layer hydrographic ENC / S-57 chart dataset (Bathymetry DEPARE,
     /// Isobaths DEPCNT, Land LNDARE, Coastline COALNE, Soundings SOUNDG, IALA Seamarks, Fairways,
     /// Restricted Areas, Submarine Cables, and Underwater Hazards) for immediate GIS inspection.
     [[nodiscard]] static std::vector<GeoLayer> BuildDefaultHydrographicChart();

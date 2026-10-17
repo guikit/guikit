@@ -39,7 +39,7 @@ struct BathymetryPalette {
 
 [[nodiscard]] BathymetryPalette GetPaletteColors(GisColorPalette p) noexcept {
     switch (p) {
-        case GisColorPalette::NavionicsDay:
+        case GisColorPalette::MarineDay:
             return {
                 .deepWater       = Color::Rgba(212, 238, 255, 255),
                 .mediumDeepWater = Color::Rgba(168, 220, 252, 255),
@@ -55,7 +55,7 @@ struct BathymetryPalette {
                 .soundingDeep    = Color::Rgba( 48,  92, 134, 245),
                 .soundingHalo    = Color::Rgba(255, 255, 255, 200)
             };
-        case GisColorPalette::NavionicsDusk:
+        case GisColorPalette::MarineDusk:
             return {
                 .deepWater       = Color::Rgba( 18,  38,  64, 255),
                 .mediumDeepWater = Color::Rgba( 24,  54,  88, 255),
@@ -71,7 +71,7 @@ struct BathymetryPalette {
                 .soundingDeep    = Color::Rgba(125, 178, 218, 240),
                 .soundingHalo    = Color::Rgba( 10,  22,  38, 210)
             };
-        case GisColorPalette::NavionicsNight:
+        case GisColorPalette::MarineNight:
             return {
                 .deepWater       = Color::Rgba(  8,  13,  22, 255),
                 .mediumDeepWater = Color::Rgba( 12,  22,  36, 255),
@@ -104,7 +104,7 @@ struct BathymetryPalette {
                 .soundingHalo    = Color::Rgba( 15,  23,  42, 210)
             };
     }
-    return GetPaletteColors(GisColorPalette::NavionicsDay);
+    return GetPaletteColors(GisColorPalette::MarineDay);
 }
 
 [[nodiscard]] Color ResolveDepthAreaFill(
@@ -784,7 +784,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
                     const float boxH = 14.0f * invZ;
                     const Rect lblRect(centerW.x - boxW * 0.5f, centerW.y - boxH * 0.5f, boxW, boxH);
                     if (visWorld.Intersects(lblRect) && canPlaceLabelWorld(lblRect)) {
-                        const Color textCol = (settings.palette == GisColorPalette::NavionicsDay)
+                        const Color textCol = (settings.palette == GisColorPalette::MarineDay)
                             ? Color::Rgba(45, 36, 22, 235)
                             : Color::Rgba(226, 232, 240, 235);
                         scene.DrawText(
@@ -875,7 +875,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
                 }
 
                 if (feat.featureClass == GisFeatureClass::Sounding) {
-                    // S-52 / Navionics Spot Sounding: whole meters + subscript tenths
+                    // S-52 / ENC Spot Sounding: whole meters + subscript tenths
                     const double depth = gp.hasZ ? gp.z : feat.contourDepthMeters.value_or(0.0);
                     const Rect sndRect(wPos.x - 15.0f * invZ, wPos.y - 8.0f * invZ, 30.0f * invZ, 16.0f * invZ);
                     if (!isSelected && !canPlaceLabelWorld(sndRect)) {
@@ -992,7 +992,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
                         if (isSelected || canPlaceLabelWorld(lblRect)) {
                             const Color txtCol = isSelected
                                 ? Color::Rgba(56, 189, 248, 255)
-                                : ((settings.palette == GisColorPalette::NavionicsDay)
+                                : ((settings.palette == GisColorPalette::MarineDay)
                                     ? Color::Rgba(30, 58, 95, 235)
                                     : Color::Rgba(226, 232, 240, 235));
                             scene.DrawText(feat.name, {lblRect.x, lblRect.y}, 11.0f, txtCol, FontStyle::Bold, false);

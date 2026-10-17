@@ -49,9 +49,9 @@ struct GisScreenState {
     bool requestResetView{false};
 
     static constexpr std::array<std::string_view, 4> paletteNames = {
-        "Navionics Day (S-52 Bright)",
-        "Navionics Dusk (Twilight)",
-        "Navionics Night (Bridge Dark)",
+        "S-52 Marine Day (Bright)",
+        "S-52 Marine Dusk (Twilight)",
+        "S-52 Marine Night (Bridge Dark)",
         "Classic Vector GIS"
     };
 
@@ -147,10 +147,10 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    // 2. S-52 / Navionics Palette & Bathymetry Safety Thresholds
+    // 2. S-52 / ENC Palette & Bathymetry Safety Thresholds
     size_t palIdx = static_cast<size_t>(s_state.renderSettings.palette);
     if (ui.Select(palIdx, GisScreenState::paletteNames, {
-        .label = "Chart Color Palette (S-52 / Navionics)"
+        .label = "Chart Color Palette (S-52 / ENC)"
     }).changed) {
         s_state.renderSettings.palette = static_cast<guikit::GisColorPalette>(palIdx);
         ui.InvalidateAll();
@@ -379,14 +379,14 @@ std::string GenerateOsmMapCode(const DemoContext&) {
         "GaussKruger_Meters"
     };
     static constexpr std::array<std::string_view, 4> palEnumNames = {
-        "NavionicsDay",
-        "NavionicsDusk",
-        "NavionicsNight",
+        "MarineDay",
+        "MarineDusk",
+        "MarineNight",
         "ClassicGis"
     };
 
     return std::format(
-        "// Load embedded or disk S-57 / Navionics GeoJSON chart (Native + WebAssembly):\n"
+        "// Load embedded or disk S-57 / ENC GeoJSON chart (Native + WebAssembly):\n"
         "auto chart = guikit::GeoJsonIO::LoadFromFile(\"assets/geo/demo_bay.geojson\");\n\n"
         "if (auto map = ui.MapView({{\n"
         "    .crs = guikit::MapCrs::{},\n"

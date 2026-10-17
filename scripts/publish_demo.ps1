@@ -107,7 +107,7 @@ Live WebAssembly build of **GuiKit** (`guikit_demo`), compiled with Emscripten +
 
 - **Live Demo (GitHub Pages)**: [https://guikit.github.io/demo/](https://guikit.github.io/demo/)
 - **Source Repository**: `guikit/guikit` (`@$SourceCommit`)
-- **Bundle Size**: `guikit_demo.wasm` ($WasmSizeMb MB uncompressed, embedded fonts + images + S-57/Navionics GeoJSON chart)
+- **Bundle Size**: `guikit_demo.wasm` ($WasmSizeMb MB uncompressed, embedded fonts + images + S-57/ENC GeoJSON chart)
 - **Last Published**: $UtcNow
 "@
 Set-Content -Path (Join-Path $StageDir "README.md") -Value $ReadmeContent -Encoding UTF8

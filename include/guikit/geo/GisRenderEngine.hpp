@@ -10,27 +10,27 @@
 
 namespace guikit {
 
-/// Hydrographic / GIS Chart Color Scheme (S-52 / Navionics style).
+/// Hydrographic / GIS Chart Color Scheme (S-52 / ENC style).
 enum class GisColorPalette : uint8_t {
-    NavionicsDay = 0,   ///< Bright high-contrast marine chart (warm land, 4-zone blue bathymetry)
-    NavionicsDusk = 1,  ///< Twilight marine chart (muted amber land, deep navy bathymetry)
-    NavionicsNight = 2, ///< Bridge night-vision mode (dark red/slate land, black-blue water)
-    ClassicGis = 3      ///< Topographic / Vector GIS palette
+    MarineDay = 0,   ///< Bright high-contrast marine chart (warm land, 4-zone blue bathymetry)
+    MarineDusk = 1,  ///< Twilight marine chart (muted amber land, deep navy bathymetry)
+    MarineNight = 2, ///< Bridge night-vision mode (dark red/slate land, black-blue water)
+    ClassicGis = 3   ///< Topographic / Vector GIS palette
 };
 
 [[nodiscard]] constexpr std::string_view GisColorPaletteName(GisColorPalette p) noexcept {
     switch (p) {
-        case GisColorPalette::NavionicsDay:   return "Navionics Day (S-52 Bright)";
-        case GisColorPalette::NavionicsDusk:  return "Navionics Dusk (Twilight)";
-        case GisColorPalette::NavionicsNight: return "Navionics Night (Bridge Dark)";
-        case GisColorPalette::ClassicGis:     return "Classic Vector GIS";
+        case GisColorPalette::MarineDay:   return "S-52 Marine Day (Bright)";
+        case GisColorPalette::MarineDusk:  return "S-52 Marine Dusk (Twilight)";
+        case GisColorPalette::MarineNight: return "S-52 Marine Night (Bridge Dark)";
+        case GisColorPalette::ClassicGis:  return "Classic Vector GIS";
     }
-    return "Navionics Day";
+    return "S-52 Marine Day";
 }
 
 /// Interactive rendering & filtering settings for the GIS chart viewport.
 struct GisRenderSettings {
-    GisColorPalette palette{GisColorPalette::NavionicsDay};
+    GisColorPalette palette{GisColorPalette::MarineDay};
     float safetyContourMeters{5.0f};   ///< S-52 Safety Depth Contour (highlights shallower water)
     float shallowContourMeters{2.0f};  ///< Very shallow water threshold
     float deepContourMeters{10.0f};    ///< Deep water threshold
@@ -62,7 +62,7 @@ struct GisRenderStats {
 };
 
 /// Renders thematic `GeoLayer`s onto a `guikit::MapViewScope` with frustum culling,
-/// S-52 / Navionics bathymetric shading, spot sounding typography, and spatial hit-testing.
+/// S-52 / ENC bathymetric shading, spot sounding typography, and spatial hit-testing.
 class GisRenderEngine {
 public:
     static GisRenderStats RenderLayers(
