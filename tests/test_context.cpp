@@ -8306,6 +8306,107 @@ void TestElementOuterFrameAndControlWellFrame() {
     CHECK(rBtnFramed.rect.h > 0.0f);
 }
 
+void TestAttitudeViewWidgetWorkflow() {
+    using namespace guikit;
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 900;
+    const uint32_t height = 650;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    float fovPitch = 50.0f;
+    AttitudeDisplayMode mode = AttitudeDisplayMode::FullPFD;
+    HorizonReferenceMode refMode = HorizonReferenceMode::WesternMovingHorizon;
+    AttitudeColorScheme scheme = AttitudeColorScheme::GlassCockpit;
+    float roll = 28.0f;
+    float pitch = 12.5f;
+    AttitudeViewResponse resp{};
+
+    auto renderFrame = [&]() {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        if (auto col = ui.Column({
+            .padding = Padding::All(12.0f),
+            .widthMode = SizeMode::Stretch,
+            .heightMode = SizeMode::Stretch
+        })) {
+            resp = ui.AttitudeView({
+                .label = "Primary Flight Display",
+                .description = "Avionics ADI & Air Data Tapes",
+                .badge = UiText("PFD", UiVariant::Info),
+                .displayMode = mode,
+                .referenceMode = refMode,
+                .colorScheme = scheme,
+                .flightDirectorStyle = FlightDirectorStyle::SingleCueVBar,
+                .aircraftSymbol = AircraftSymbolStyle::GullWing,
+                .rollDeg = roll,
+                .pitchDeg = pitch,
+                .headingDeg = 135.0f,
+                .airspeedKnots = 265.0f,
+                .machNumber = 0.76f,
+                .altitudeFeet = 18400.0f,
+                .verticalSpeedFpm = 1450.0f,
+                .slipSkid = -0.25f,
+                .gLoad = 1.35f,
+                .radioAltitudeFeet = 1200.0f,
+                .showFlightPathVector = true,
+                .showIlsDiamonds = true,
+                .locDeviationDots = 0.6f,
+                .gsDeviationDots = -0.4f,
+                .showMouseStickOverlay = true,
+                .fieldOfViewPitchDeg = fovPitch,
+                .fovPitchDegPtr = &fovPitch,
+                .heightMode = SizeMode::Stretch
+            });
+        }
+        ui.EndFrame(canvas);
+    };
+
+    // Frame 1 & 2: Establish layout and verify ADI sphere geometry
+    renderFrame();
+    renderFrame();
+    CHECK(resp.rect.w > 600.0f);
+    CHECK(resp.rect.h > 400.0f);
+    CHECK(resp.adiRect.w > 200.0f);
+    CHECK(resp.adiRadius > 100.0f);
+    CHECK_NEAR(resp.visibleFovPitchDeg, 50.0f, 0.01f);
+
+    // Frame 3: Move mouse inside ADI sphere (right and up from center -> positive roll, positive pitch)
+    const Vec2 hoverPt{resp.adiCenter.x + resp.adiRadius * 0.5f, resp.adiCenter.y - resp.adiRadius * 0.5f};
+    ui.OnMouseMove(hoverPt);
+    renderFrame();
+    CHECK(resp.hovered);
+    CHECK(resp.cursorInside);
+    CHECK(resp.cursorInsideAdi);
+    CHECK(resp.cursorNorm.x > 0.45f);
+    CHECK(resp.cursorNorm.y < -0.45f);
+    CHECK(resp.cursorRollDeg > 25.0f);
+    CHECK(resp.cursorPitchDeg > 15.0f);
+
+    // Frame 4: Mouse wheel zoom changes pitch FOV
+    ui.OnMouseWheel(0.0f, 2.0f);
+    renderFrame();
+    CHECK(resp.changed);
+    CHECK_NEAR(fovPitch, 42.0f, 0.01f);
+
+    // Frame 5: Test CompactADI + Russian KPPI Reference Mode + Inverted Flight (roll = 175 deg, pitch = -45 deg)
+    mode = AttitudeDisplayMode::CompactADI;
+    refMode = HorizonReferenceMode::EasternMovingAircraft;
+    scheme = AttitudeColorScheme::TacticalDark;
+    roll = 175.0f;
+    pitch = -45.0f;
+    renderFrame();
+    CHECK(resp.displayMode == AttitudeDisplayMode::CompactADI);
+
+    // Frame 6: Test HudOverlay mode + HudGreen color scheme
+    mode = AttitudeDisplayMode::HudOverlay;
+    scheme = AttitudeColorScheme::HudGreen;
+    roll = -62.0f;
+    pitch = 38.0f;
+    renderFrame();
+    CHECK(resp.displayMode == AttitudeDisplayMode::HudOverlay);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -8377,6 +8478,7 @@ int main() {
     TestUnifiedColormapHistogramAndImageView();
     TestUnifiedElementExplicitHeight();
     TestElementOuterFrameAndControlWellFrame();
+    TestAttitudeViewWidgetWorkflow();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

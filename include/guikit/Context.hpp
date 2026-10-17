@@ -57,6 +57,7 @@
 #include "guikit/graphics/Colormap.hpp"
 #include "guikit/widgets/Histogram.hpp"
 #include "guikit/widgets/ImageView.hpp"
+#include "guikit/widgets/AttitudeView.hpp"
 
 namespace guikit {
 
@@ -480,6 +481,14 @@ public:
         std::source_location loc = std::source_location::current()
     ) {
         return Run<guikit::ImageView>(data, opts, loc);
+    }
+
+    // --- AttitudeView (Avionics Artificial Horizon & Primary Flight Display) Widget ---
+    AttitudeViewResponse AttitudeView(
+        const AttitudeViewOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::AttitudeView>(opts, loc);
     }
 
     // --- Switch Widget ---

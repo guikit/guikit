@@ -46,6 +46,7 @@ void DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
         case NavCategory::SceneSonarView:     RenderSonarInspector(ui, ctx); break;
         case NavCategory::SceneWaterfallView: RenderWaterfallInspector(ui, ctx); break;
         case NavCategory::SceneImageView:     RenderImageViewInspector(ui, ctx); break;
+        case NavCategory::SceneAttitudeView:  RenderAttitudeInspector(ui, ctx); break;
 
         // 5. ASSEMBLY
         case NavCategory::AsmDashboard:      RenderDashboardInspector(ui, ctx); break;
@@ -85,6 +86,7 @@ void DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx
         case NavCategory::SceneSonarView:     RenderSonarStage(ui, ctx); break;
         case NavCategory::SceneWaterfallView: RenderWaterfallStage(ui, ctx); break;
         case NavCategory::SceneImageView:     RenderImageViewStage(ui, ctx); break;
+        case NavCategory::SceneAttitudeView:  RenderAttitudeStage(ui, ctx); break;
 
         default: break;
     }
@@ -119,6 +121,7 @@ std::string DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
         case NavCategory::SceneSonarView:     return GenerateSonarCode(ctx);
         case NavCategory::SceneWaterfallView: return GenerateWaterfallCode(ctx);
         case NavCategory::SceneImageView:     return GenerateImageViewCode(ctx);
+        case NavCategory::SceneAttitudeView:  return GenerateAttitudeCode(ctx);
 
         default:                             return {};
     }
@@ -566,6 +569,7 @@ int main(int argc, char* argv[]) {
                                 menu.Item(selectedCategory, NavCategory::SceneSonarView,     {.text = "Sonar Radar",  .icon = guikit::Icon::Search(), .badge = "DDS"});
                                 menu.Item(selectedCategory, NavCategory::SceneWaterfallView, {.text = "Waterfall",    .icon = guikit::Icon::Play(),   .badge = "DOA"});
                                 menu.Item(selectedCategory, NavCategory::SceneImageView,     {.text = "Image View",   .icon = guikit::Icon::Eye(),    .badge = "16b/RGB"});
+                                menu.Item(selectedCategory, NavCategory::SceneAttitudeView,  {.text = "Attitude PFD", .icon = guikit::Icon::Play(),   .badge = "ADI"});
 
                                 menu.Section("ASSEMBLY");
                                 menu.Item(selectedCategory, NavCategory::AsmDashboard,      {.text = "Dashboard",    .icon = guikit::Icon::Settings()});

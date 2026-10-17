@@ -88,6 +88,7 @@ target_include_directories(guikit_core PUBLIC
 if (GUIKIT_BUILD_SCENES)
     set(GUIKIT_SCENES_SOURCES
         src/guikit/panels/MapView.cpp
+        src/guikit/widgets/AttitudeView.cpp
         src/guikit/widgets/SignalView.cpp
         src/guikit/widgets/SonarView.cpp
         src/guikit/widgets/WaterfallView.cpp
@@ -195,6 +196,7 @@ if (GUIKIT_BUILD_DEMO)
         examples/demo/scenes/SonarScreen.cpp
         examples/demo/scenes/WaterfallScreen.cpp
         examples/demo/scenes/ImageViewScreen.cpp
+        examples/demo/scenes/AttitudeScreen.cpp
         examples/demo/assemblies/DashboardScreen.cpp
         examples/demo/assemblies/FormControlsScreen.cpp
         examples/demo/assemblies/FlexRibbonScreen.cpp
