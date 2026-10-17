@@ -66,6 +66,24 @@ struct CodeEditorState {
         return ownedStrings.back();
     }
 
+    size_t FindLineContaining(std::string_view needle, size_t fallbackLine) const {
+        if (needle.empty()) return fallbackLine;
+        size_t lineNum = 1;
+        size_t pos = 0;
+        while (pos <= editorBuffer.size()) {
+            const size_t nextNl = editorBuffer.find('\n', pos);
+            const size_t len = (nextNl == std::string::npos) ? (editorBuffer.size() - pos) : (nextNl - pos);
+            const std::string_view lineView(editorBuffer.data() + pos, len);
+            if (lineView.find(needle) != std::string_view::npos) {
+                return lineNum;
+            }
+            if (nextNl == std::string::npos) break;
+            pos = nextNl + 1;
+            ++lineNum;
+        }
+        return fallbackLine;
+    }
+
     void RebuildDynamicDebugData() {
         ownedStrings.clear();
         ownedStrings.reserve(32);
@@ -81,7 +99,8 @@ struct CodeEditorState {
                     .endCol = 28,
                     .severity = DiagnosticSeverity::Warning,
                     .message = "narrowing conversion from 'double' to 'float' [-Wnarrowing]",
-                    .code = "C4244"
+                    .code = "C4244",
+                    .anchor = "coeffs[k] * gain"
                 });
                 diagnostics.push_back({
                     .line = 23,
@@ -89,19 +108,22 @@ struct CodeEditorState {
                     .endCol = 20,
                     .severity = DiagnosticSeverity::Info,
                     .message = "Consider constexpr evaluation for filter normalization",
-                    .code = "modernize-constexpr"
+                    .code = "modernize-constexpr",
+                    .anchor = "static_cast<float>"
                 });
             }
             if (showInlineValues && executionLine > 0) {
                 const float gainVal = 1.85f + 0.05f * static_cast<float>(stepCounter % 5);
                 const float rmsVal = 0.707f * gainVal;
-                inlineValues.push_back({11, "sampleRate = 48000.0 Hz, nyquist = 24000.0 Hz", UiVariant::Info});
-                inlineValues.push_back({14, StoreString(std::format("gain = {:.2f}, cutoffHz = 2400.0f", gainVal)), UiVariant::Success});
-                if (executionLine >= 16) {
-                    inlineValues.push_back({16, StoreString(std::format("k = {}, omega = {:.4f} rad", stepCounter % 4, 0.3142f * ((stepCounter % 4) + 1))), UiVariant::Info});
+                const size_t loopLine = FindLineContaining("for (size_t k", 16);
+                const size_t accLine = FindLineContaining("float weighted", 18);
+                inlineValues.push_back({11, "sampleRate = 48000.0 Hz, nyquist = 24000.0 Hz", UiVariant::Info, "nyquist"});
+                inlineValues.push_back({14, StoreString(std::format("gain = {:.2f}, cutoffHz = 2400.0f", gainVal)), UiVariant::Success, "energyAcc = 0.0"});
+                if (executionLine >= loopLine) {
+                    inlineValues.push_back({16, StoreString(std::format("k = {}, omega = {:.4f} rad", stepCounter % 4, 0.3142f * ((stepCounter % 4) + 1))), UiVariant::Info, "for (size_t k"});
                 }
-                if (executionLine >= 18) {
-                    inlineValues.push_back({18, StoreString(std::format("energyAcc = {:.4f}, rms = {:.3f}", rmsVal * 4.0f, rmsVal)), UiVariant::Warning});
+                if (executionLine >= accLine) {
+                    inlineValues.push_back({18, StoreString(std::format("energyAcc = {:.4f}, rms = {:.3f}", rmsVal * 4.0f, rmsVal)), UiVariant::Warning, "float weighted"});
                 }
             }
             if (showHoverDataTips) {
@@ -123,17 +145,20 @@ struct CodeEditorState {
                     .endCol = 15,
                     .severity = DiagnosticSeverity::Warning,
                     .message = "Preallocate 'P_dB' before loop for faster MATLAB execution",
-                    .code = "MLINT-AGROW"
+                    .code = "MLINT-AGROW",
+                    .anchor = "P_dB(k)"
                 });
             }
             if (showInlineValues && executionLine > 0) {
-                inlineValues.push_back({9, "Fs = 10000, N = 1024, f0 = 1250", UiVariant::Info});
-                inlineValues.push_back({13, "w = 1024x1 double [hann window]", UiVariant::Success});
-                if (executionLine >= 15) {
-                    inlineValues.push_back({15, StoreString(std::format("H = 1024x1 complex, peakBin = {}", 128 + (stepCounter % 3))), UiVariant::Info});
+                const size_t fftLine = FindLineContaining("H = fft(", 15);
+                const size_t snrLine = FindLineContaining("snr_dB = max(", 20);
+                inlineValues.push_back({9, "Fs = 10000, N = 1024, f0 = 1250", UiVariant::Info, "N = length(x)"});
+                inlineValues.push_back({13, "w = 1024x1 double [hann window]", UiVariant::Success, "w = hann("});
+                if (executionLine >= fftLine) {
+                    inlineValues.push_back({15, StoreString(std::format("H = 1024x1 complex, peakBin = {}", 128 + (stepCounter % 3))), UiVariant::Info, "H = fft("});
                 }
-                if (executionLine >= 20) {
-                    inlineValues.push_back({20, "snr_dB = +28.42 dB, peakFreq = 1250.0 Hz", UiVariant::Success});
+                if (executionLine >= snrLine) {
+                    inlineValues.push_back({20, "snr_dB = +28.42 dB, peakFreq = 1250.0 Hz", UiVariant::Success, "snr_dB = max("});
                 }
             }
             if (showHoverDataTips) {
@@ -156,12 +181,13 @@ struct CodeEditorState {
                     .endCol = 20,
                     .severity = DiagnosticSeverity::Info,
                     .message = "Schema hint: maxThreads > 16 enables NUMA pool allocation",
-                    .code = "JSON-SCHEMA"
+                    .code = "JSON-SCHEMA",
+                    .anchor = "\"maxThreads\""
                 });
             }
             if (showInlineValues && executionLine > 0) {
-                inlineValues.push_back({2, "schema = \"guikit.ide.v2\"", UiVariant::Info});
-                inlineValues.push_back({15, "maxThreads = 32 (active)", UiVariant::Success});
+                inlineValues.push_back({2, "schema = \"guikit.ide.v2\"", UiVariant::Info, "\"schema\""});
+                inlineValues.push_back({15, "maxThreads = 32 (active)", UiVariant::Success, "\"maxThreads\""});
             }
             if (showHoverDataTips) {
                 debugVariables = {
@@ -179,12 +205,13 @@ struct CodeEditorState {
                     .endCol = 24,
                     .severity = DiagnosticSeverity::Warning,
                     .message = "Type hint expected 'float', got 'np.float64'",
-                    .code = "mypy-type"
+                    .code = "mypy-type",
+                    .anchor = "math.sin("
                 });
             }
             if (showInlineValues && executionLine > 0) {
-                inlineValues.push_back({6, "epochs = 12, lr = 0.0015", UiVariant::Info});
-                inlineValues.push_back({11, StoreString(std::format("idx = {}, loss = {:.5f}", (stepCounter % 12), 0.42f / ((stepCounter % 6) + 1))), UiVariant::Success});
+                inlineValues.push_back({6, "epochs = 12, lr = 0.0015", UiVariant::Info, "self.epochs"});
+                inlineValues.push_back({11, StoreString(std::format("idx = {}, loss = {:.5f}", (stepCounter % 12), 0.42f / ((stepCounter % 6) + 1))), UiVariant::Success, "for idx, w"});
             }
             if (showHoverDataTips) {
                 debugVariables = {
@@ -497,11 +524,16 @@ void RenderCodeEditorStage(guikit::Context& ui, DemoContext& ctx) {
         .enableBreakpoints = true,
         .breakpoints = &s_state.breakpoints,
         .executionLine = s_state.executionLine,
+        .executionLinePtr = &s_state.executionLine,
         .showDebugToolbar = s_state.showDebugToolbar,
         .diagnostics = s_state.diagnostics,
         .inlineValues = s_state.inlineValues,
         .debugVariables = s_state.debugVariables
     });
+
+    if (resp.lineDelta != 0) {
+        s_state.RebuildDynamicDebugData();
+    }
 
     if (resp.debugAction != guikit::CodeDebugAction::None &&
         resp.debugAction != guikit::CodeDebugAction::ToggleBreakpoint) {

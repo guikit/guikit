@@ -58,6 +58,7 @@
 #include "guikit/widgets/Histogram.hpp"
 #include "guikit/widgets/ImageView.hpp"
 #include "guikit/widgets/AttitudeView.hpp"
+#include "guikit/widgets/CarClusterView.hpp"
 
 namespace guikit {
 
@@ -489,6 +490,14 @@ public:
         std::source_location loc = std::source_location::current()
     ) {
         return Run<guikit::AttitudeView>(opts, loc);
+    }
+
+    // --- CarClusterView (Automotive Digital Instrument Cluster & ADAS Cockpit) Widget ---
+    CarClusterViewResponse CarClusterView(
+        const CarClusterViewOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::CarClusterView>(opts, loc);
     }
 
     // --- Switch Widget ---

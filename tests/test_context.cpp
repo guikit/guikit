@@ -7745,6 +7745,7 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
             .enableBreakpoints = true,
             .breakpoints = &breakpoints,
             .executionLine = execLine,
+            .executionLinePtr = &execLine,
             .showDebugToolbar = true,
             .diagnostics = diagnostics,
             .inlineValues = inlineValues,
@@ -7830,6 +7831,74 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
     ui.EndFrame(canvas);
     CHECK(lastResp.toggledBreakpointLine > 0);
     CHECK(breakpoints.size() != bpCountBefore);
+
+    // Toggle F9 again to restore original breakpoint on line 3
+    ui.OnKeyDown(Key::F9, {});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+    breakpoints = {3};
+    execLine = 3;
+
+    // 4b. Test automatic line-shift tracking for breakpoints, executionLine, inlineValues, and diagnostics
+    ui.OnKeyDown(Key::Home, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+
+    // Press Enter at start of line 1 -> shifts line 3 down to line 4
+    ui.OnKeyDown(Key::Enter, {});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+    CHECK(lastResp.lineDelta == 1);
+    CHECK(execLine == 4);
+    CHECK(!breakpoints.empty() && breakpoints[0] == 4);
+    if (const auto* st = ui.FindState<TextAreaState>(lastResp.id)) {
+        CHECK(st->resolvedInlineValues.size() == 1);
+        CHECK(st->resolvedInlineValues[0].line == 4);
+        CHECK(st->resolvedDiagnostics.size() == 1);
+        CHECK(st->resolvedDiagnostics[0].line == 4);
+    }
+
+    // Undo Enter -> shifts line 4 back to line 3
+    ui.OnKeyDown(Key::Z, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+    CHECK(lastResp.lineDelta == -1);
+    CHECK(execLine == 3);
+    CHECK(!breakpoints.empty() && breakpoints[0] == 3);
+    if (const auto* st = ui.FindState<TextAreaState>(lastResp.id)) {
+        CHECK(st->resolvedInlineValues.size() == 1);
+        CHECK(st->resolvedInlineValues[0].line == 3);
+    }
+
+    // Move to line 3 (Down twice from line 1) and toggle comment (Ctrl+/) -> inline value badge must hide on comment line
+    ui.OnKeyDown(Key::Down, {});
+    ui.OnKeyDown(Key::Down, {});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+    CHECK(lastResp.cursorLine == 3);
+
+    ui.OnKeyDown(Key::Slash, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+    if (const auto* st = ui.FindState<TextAreaState>(lastResp.id)) {
+        CHECK(st->resolvedInlineValues.empty());
+    }
+
+    // Uncomment line 3 (Ctrl+/) -> inline value badge reappears on line 3
+    ui.OnKeyDown(Key::Slash, {.ctrl = true});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIde();
+    ui.EndFrame(canvas);
+    if (const auto* st = ui.FindState<TextAreaState>(lastResp.id)) {
+        CHECK(st->resolvedInlineValues.size() == 1);
+        CHECK(st->resolvedInlineValues[0].line == 3);
+    }
 
     // 5. Test Debugger Keyboard Shortcuts (F10 StepOver, F5 Continue, Shift+F5 Stop)
     ui.OnKeyDown(Key::F10, {});
@@ -8416,6 +8485,110 @@ void TestAttitudeViewWidgetWorkflow() {
     CHECK(resp.displayMode == AttitudeDisplayMode::HudOverlay);
 }
 
+void TestCarClusterViewWidgetWorkflow() {
+    using namespace guikit;
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 960;
+    const uint32_t height = 560;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    ClusterLayoutMode layoutMode = ClusterLayoutMode::DualDial;
+    PowertrainMode powertrain = PowertrainMode::IceTurbo;
+    ClusterDriveTheme driveTheme = ClusterDriveTheme::ComfortCyan;
+    ClusterCenterMfd centerMfd = ClusterCenterMfd::AdasLaneRadar;
+    SpeedUnit speedUnit = SpeedUnit::Kmh;
+    int gear = 4;
+    CarClusterViewResponse resp{};
+
+    auto renderFrame = [&]() {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        if (auto col = ui.Column({
+            .padding = Padding::All(12.0f),
+            .widthMode = SizeMode::Stretch,
+            .heightMode = SizeMode::Stretch
+        })) {
+            resp = ui.CarClusterView({
+                .label = "Digital Instrument Cluster",
+                .description = "OEM Cockpit & ADAS Telemetry",
+                .badge = UiText("AUTO", UiVariant::Primary),
+                .layoutMode = layoutMode,
+                .powertrain = powertrain,
+                .driveTheme = driveTheme,
+                .centerMfd = centerMfd,
+                .speedUnit = speedUnit,
+                .gearSelector = GearSelector::Sport,
+                .speedKmh = 148.0f,
+                .rpm = 5800.0f,
+                .currentGear = gear,
+                .evPowerKw = 185.0f,
+                .throttlePct = 64.0f,
+                .brakePct = 0.0f,
+                .steeringAngleDeg = 14.0f,
+                .boostBar = 1.15f,
+                .fuelOrSocPct = 72.0f,
+                .latG = 0.68f,
+                .lonG = 0.42f,
+                .showMouseDriveOverlay = true,
+                .manualGearPtr = &gear,
+                .centerMfdPtr = &centerMfd,
+                .heightMode = SizeMode::Stretch
+            });
+        }
+        ui.EndFrame(canvas);
+    };
+
+    // Frame 1 & 2: Establish layout and verify DualDial sub-rectangles
+    renderFrame();
+    renderFrame();
+    CHECK(resp.rect.w > 600.0f);
+    CHECK(resp.rect.h > 300.0f);
+    CHECK(resp.clusterRect.w > 500.0f);
+    CHECK(resp.leftGaugeRect.w > 100.0f);
+    CHECK(resp.centerMfdRect.w > 80.0f);
+    CHECK(resp.rightGaugeRect.w > 100.0f);
+
+    // Frame 3: Hover mouse in upper-right quadrant -> positive steering, positive throttle
+    const Vec2 clusterCenter = resp.clusterRect.Center();
+    ui.OnMouseMove({clusterCenter.x + resp.clusterRect.w * 0.25f, clusterCenter.y - resp.clusterRect.h * 0.25f});
+    renderFrame();
+    CHECK(resp.hovered);
+    CHECK(resp.cursorInside);
+    CHECK(resp.cursorSteerDeg > 15.0f);
+    CHECK(resp.cursorThrottlePct > 40.0f);
+    CHECK_NEAR(resp.cursorBrakePct, 0.0f, 0.01f);
+
+    // Frame 4: Mouse wheel scroll upshifts manualGearPtr (4 -> 5)
+    ui.OnMouseWheel(0.0f, 1.0f);
+    renderFrame();
+    CHECK(resp.changed);
+    CHECK(gear == 5);
+
+    // Frame 5: Click inside Center MFD cycles centerMfdPtr (AdasLaneRadar -> TpmsChassis)
+    ui.OnMouseMove(resp.centerMfdRect.Center());
+    ui.OnMouseDown(1);
+    renderFrame();
+    ui.OnMouseUp(1);
+    renderFrame();
+    CHECK(centerMfd == ClusterCenterMfd::TpmsChassis);
+
+    // Frame 6: Test TrackCentral layout + ElectricDualMotor + GForceDynamics + Imperial mph
+    layoutMode = ClusterLayoutMode::TrackCentral;
+    powertrain = PowertrainMode::ElectricDualMotor;
+    driveTheme = ClusterDriveTheme::SportCrimson;
+    centerMfd = ClusterCenterMfd::GForceDynamics;
+    speedUnit = SpeedUnit::Mph;
+    renderFrame();
+    CHECK(resp.layoutMode == ClusterLayoutMode::TrackCentral);
+
+    // Frame 7: Test ModernWide layout + TrackGold theme
+    layoutMode = ClusterLayoutMode::ModernWide;
+    driveTheme = ClusterDriveTheme::TrackGold;
+    renderFrame();
+    CHECK(resp.layoutMode == ClusterLayoutMode::ModernWide);
+}
+
 int main() {
     std::cout << std::unitbuf;
     std::cerr << std::unitbuf;
@@ -8490,6 +8663,7 @@ int main() {
     TestUnifiedElementExplicitHeight();
     TestElementOuterFrameAndControlWellFrame();
     TestAttitudeViewWidgetWorkflow();
+    TestCarClusterViewWidgetWorkflow();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

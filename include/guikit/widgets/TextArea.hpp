@@ -91,6 +91,7 @@ struct CodeDiagnostic {
     DiagnosticSeverity severity{DiagnosticSeverity::Error};     ///< Diagnostic severity (Error, Warning, Info)
     std::string_view message{};                                 ///< Diagnostic message displayed in hover tooltip & status bar
     std::string_view code{};                                    ///< Optional diagnostic identifier (e.g. "C2065", "MLINT")
+    std::string_view anchor{};                                  ///< Optional source code substring anchor for automatic line/column tracking
 };
 
 /// Represents an inline debugger variable value annotation rendered at the end of a source line.
@@ -98,6 +99,7 @@ struct CodeInlineValue {
     size_t line{1};                                             ///< 1-based line number
     std::string_view text{};                                    ///< Inline readout text (e.g. "N = 1024 | snr = +24.8 dB")
     UiVariant variant{UiVariant::Info};                         ///< Semantic accent variant for the inline readout
+    std::string_view anchor{};                                  ///< Optional source code substring anchor for automatic line tracking
 };
 
 /// Represents a live variable in the debugger scope for interactive hover DataTip inspection.
@@ -129,6 +131,8 @@ struct TextAreaResponse : Response {
     CodeDebugAction debugAction{CodeDebugAction::None};         ///< Debugger action triggered during this frame
     size_t toggledBreakpointLine{0};                            ///< 1-based line number where breakpoint was toggled (0 if none)
     std::string_view hoveredWord{};                             ///< Identifier token currently under the mouse cursor
+    int lineDelta{0};                                           ///< Net number of lines inserted (+N) or deleted (-N) during this frame
+    size_t editLine{0};                                         ///< 1-based line number where line insertion/deletion occurred (0 if none)
 };
 
 /// Clean configuration options for TextArea / Code Editor widget.
@@ -184,6 +188,7 @@ struct TextAreaOptions {
     bool enableBreakpoints{false};                      ///< Enable gutter breakpoint toggling even if breakpoints == nullptr
     std::vector<size_t>* breakpoints{nullptr};          ///< Optional external 1-based breakpoint line numbers
     size_t executionLine{0};                            ///< Active debugger instruction pointer (1-based line, 0 = none)
+    size_t* executionLinePtr{nullptr};                  ///< Optional pointer to external executionLine shifted automatically on edits
     bool showDebugToolbar{false};                       ///< Show floating debugger toolbar (Continue, Step Over/Into/Out, Stop)
     std::optional<UiSize> toolbarSize{std::nullopt};    ///< Optional UiSize override for floating debug/search/action toolbars (nullopt = inherit editor size)
     std::span<const CodeDiagnostic> diagnostics{};      ///< Inline compiler/linter diagnostics (wavy squiggles + tooltips)
@@ -234,6 +239,14 @@ struct TextAreaState {
     std::vector<size_t> foldedLines{};       ///< 0-based start line indices of folded blocks
     std::vector<size_t> internalBreakpoints{}; ///< 1-based breakpoint lines when opts.breakpoints == nullptr
     size_t prevExecutionLine{0};
+
+    // Line-shift & statement-anchor tracking state
+    bool baselineInitialized{false};
+    std::string prevDocumentText{};
+    std::vector<size_t> baselineToCurrentLine{};
+    std::vector<std::string> baselineSignatures{};
+    std::vector<CodeInlineValue> resolvedInlineValues{};
+    std::vector<CodeDiagnostic> resolvedDiagnostics{};
 };
 
 /// Internal runtime state allocated in frame arena for TextArea nodes.

@@ -36,6 +36,7 @@ enum class NavCategory : uint8_t {
     SceneWaterfallView,
     SceneImageView,
     SceneAttitudeView,
+    SceneCarDashboard,
 
     // 5. ASSEMBLY (Compositions & Real-World Screens)
     AsmDashboard,
@@ -50,7 +51,7 @@ constexpr bool IsElementCategory(NavCategory cat) noexcept {
 }
 
 constexpr bool IsSandboxCategory(NavCategory cat) noexcept {
-    return cat <= NavCategory::SceneAttitudeView;
+    return cat <= NavCategory::SceneCarDashboard;
 }
 
 constexpr bool IsFullStageCategory(NavCategory cat) noexcept {
@@ -64,7 +65,8 @@ constexpr bool IsFullStageCategory(NavCategory cat) noexcept {
            cat == NavCategory::SceneSonarView ||
            cat == NavCategory::SceneWaterfallView ||
            cat == NavCategory::SceneImageView ||
-           cat == NavCategory::SceneAttitudeView;
+           cat == NavCategory::SceneAttitudeView ||
+           cat == NavCategory::SceneCarDashboard;
 }
 
 inline constexpr std::array<std::string_view, 3> kStretchModeNames = {"Compact", "Space", "Fill"};
@@ -658,6 +660,10 @@ std::string GenerateImageViewCode(const DemoContext& ctx);
 void RenderAttitudeInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderAttitudeStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateAttitudeCode(const DemoContext& ctx);
+
+void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& ctx);
+void RenderCarDashboardStage(guikit::Context& ui, DemoContext& ctx);
+std::string GenerateCarDashboardCode(const DemoContext& ctx);
 
 // ============================================================================
 // 5. ASSEMBLY (Compositions & Real-World Screens)

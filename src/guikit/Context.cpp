@@ -2102,8 +2102,23 @@ void Context::RenderDebugBoundsRecursive(Node* node, ICanvas& canvas, bool inher
         }
     }
 
+    if (node->clipChildren) {
+        const UiTheme* resolvedTheme = &m_theme;
+        for (const Node* curr = node; curr != nullptr; curr = curr->parent) {
+            if (curr->theme != nullptr) {
+                resolvedTheme = curr->theme;
+                break;
+            }
+        }
+        canvas.PushClip(GetNodeContentClipRect(node, *resolvedTheme));
+    }
+
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
         RenderDebugBoundsRecursive(child, canvas, activeDebug);
+    }
+
+    if (node->clipChildren) {
+        canvas.PopClip();
     }
 }
 
@@ -2154,6 +2169,22 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
     }
     if (!inspectActive) return;
 
+    // Intersect ancestor clipChildren rects so inspected scrolled children don't bleed outside ScrollArea
+    Rect ancestorClip(0.0f, 0.0f, logicalSize.x, logicalSize.y);
+    for (const Node* p = target->parent; p != nullptr; p = p->parent) {
+        if (p->clipChildren) {
+            const UiTheme* resolvedTheme = &m_theme;
+            for (const Node* curr = p; curr != nullptr; curr = curr->parent) {
+                if (curr->theme != nullptr) {
+                    resolvedTheme = curr->theme;
+                    break;
+                }
+            }
+            ancestorClip = ancestorClip.Intersect(GetNodeContentClipRect(p, *resolvedTheme));
+        }
+    }
+    canvas.PushClip(ancestorClip);
+
     // 1. Highlight inspected target with Chrome DevTools Box Model styling
     // Content box: translucent blue (#6FA8DC, ~40% opacity)
     const Rect contentRect(
@@ -2194,6 +2225,7 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
 
     // Outer 2px solid cyan boundary
     canvas.DrawRoundRect(target->computedRect, 0.0f, Color(0, 0, 0, 0), Color(56, 189, 248, 255), 2.0f);
+    canvas.PopClip();
 
     // 2. Build DevTools floating info badge
     std::string typeStr;

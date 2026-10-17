@@ -587,6 +587,263 @@ std::string_view ExtractWordAtOffset(std::string_view text, size_t offset, size_
     return text.substr(s, e - s);
 }
 
+std::string_view ExtractCodeWithoutLineComment(
+    std::string_view lineText,
+    std::string_view commentPrefix
+) noexcept {
+    size_t start = 0;
+    while (start < lineText.size() && (lineText[start] == ' ' || lineText[start] == '\t' || lineText[start] == '\r')) {
+        ++start;
+    }
+    if (start >= lineText.size()) {
+        return {};
+    }
+    const std::string_view sub = lineText.substr(start);
+    if (sub.starts_with("/*") || sub.starts_with("*/") || sub.starts_with("%{") || sub.starts_with("%}")) {
+        return {};
+    }
+
+    bool inQuotes = false;
+    char quoteChar = '\0';
+    size_t codeLen = sub.size();
+    for (size_t i = 0; i < sub.size(); ++i) {
+        const char c = sub[i];
+        if (inQuotes) {
+            if (c == '\\' && i + 1 < sub.size()) {
+                ++i;
+                continue;
+            }
+            if (c == quoteChar) {
+                inQuotes = false;
+            }
+            continue;
+        }
+        if (c == '"' || c == '\'') {
+            inQuotes = true;
+            quoteChar = c;
+            continue;
+        }
+        if (!commentPrefix.empty() && sub.substr(i).starts_with(commentPrefix)) {
+            codeLen = i;
+            break;
+        }
+        if (commentPrefix.empty() && sub.substr(i).starts_with("//")) {
+            codeLen = i;
+            break;
+        }
+    }
+
+    std::string_view code = sub.substr(0, codeLen);
+    while (!code.empty() && (code.back() == ' ' || code.back() == '\t' || code.back() == '\r')) {
+        code.remove_suffix(1);
+    }
+    if (code == "{" || code == "}" || code == "};" || code == "}," || code == ";" || code == ")" || code == "]") {
+        return {};
+    }
+    return code;
+}
+
+bool HasCodeBeforeOffsetOnLine(
+    std::string_view docText,
+    const LogicalLine& ll,
+    size_t cursorOffset
+) noexcept {
+    if (cursorOffset <= ll.startOffset) {
+        return false;
+    }
+    const size_t len = std::min(cursorOffset - ll.startOffset, ll.length);
+    const std::string_view prefix = docText.substr(ll.startOffset, len);
+    for (char c : prefix) {
+        if (c != ' ' && c != '\t' && c != '\r') {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::string_view ExtractLeadingIdentifierOrKey(std::string_view code) noexcept {
+    size_t i = 0;
+    while (i < code.size() && (code[i] == ' ' || code[i] == '\t' || code[i] == '(' || code[i] == '[' || code[i] == '*' || code[i] == '&')) {
+        ++i;
+    }
+    if (i >= code.size()) {
+        return {};
+    }
+    if (code[i] == '"') {
+        const size_t start = i++;
+        while (i < code.size() && code[i] != '"') {
+            if (code[i] == '\\' && i + 1 < code.size()) ++i;
+            ++i;
+        }
+        if (i < code.size()) ++i;
+        return code.substr(start, i - start);
+    }
+    if (IsIdentStart(code[i])) {
+        const size_t start = i++;
+        while (i < code.size() && IsIdentChar(code[i])) {
+            ++i;
+        }
+        return code.substr(start, i - start);
+    }
+    return {};
+}
+
+std::string_view ExtractAssignedTargetIdentifier(std::string_view code) noexcept {
+    const std::string_view lead = ExtractLeadingIdentifierOrKey(code);
+    if (lead == "for" || lead == "while" || lead == "if" || lead == "elif" ||
+        lead == "else" || lead == "switch" || lead == "return" || lead == "function" ||
+        lead == "def" || lead == "class" || lead == "rule" || lead == "when" ||
+        lead == "emit" || lead == "alert") {
+        return {};
+    }
+
+    int parenDepth = 0;
+    size_t eqPos = std::string_view::npos;
+    for (size_t i = 0; i < code.size(); ++i) {
+        const char c = code[i];
+        if (c == '(' || c == '[') {
+            ++parenDepth;
+        } else if (c == ')' || c == ']') {
+            if (parenDepth > 0) --parenDepth;
+        } else if (c == '=' && parenDepth == 0) {
+            const char prev = (i > 0) ? code[i - 1] : '\0';
+            const char next = (i + 1 < code.size()) ? code[i + 1] : '\0';
+            if (prev != '=' && prev != '!' && prev != '<' && prev != '>' && next != '=') {
+                eqPos = i;
+                break;
+            }
+        }
+    }
+    if (eqPos == std::string_view::npos || eqPos == 0) {
+        return {};
+    }
+
+    size_t p = eqPos;
+    if (p > 0 && (code[p - 1] == '+' || code[p - 1] == '-' || code[p - 1] == '*' ||
+                  code[p - 1] == '/' || code[p - 1] == '|' || code[p - 1] == '&' || code[p - 1] == '^')) {
+        --p;
+    }
+    while (p > 0 && (code[p - 1] == ' ' || code[p - 1] == '\t')) {
+        --p;
+    }
+    if (p > 0 && (code[p - 1] == ')' || code[p - 1] == ']')) {
+        const char closeBr = code[p - 1];
+        const char openBr = (closeBr == ')') ? '(' : '[';
+        int depth = 0;
+        while (p > 0) {
+            --p;
+            if (code[p] == closeBr) ++depth;
+            else if (code[p] == openBr) {
+                --depth;
+                if (depth == 0) break;
+            }
+        }
+        while (p > 0 && (code[p - 1] == ' ' || code[p - 1] == '\t')) {
+            --p;
+        }
+    }
+    const size_t endIdent = p;
+    while (p > 0 && IsIdentChar(code[p - 1])) {
+        --p;
+    }
+    if (endIdent > p && IsIdentStart(code[p])) {
+        return code.substr(p, endIdent - p);
+    }
+    return {};
+}
+
+bool DoesLineMatchBaselineSignature(
+    std::string_view currentCode,
+    std::string_view baselineCode
+) noexcept {
+    if (currentCode.empty()) {
+        return false;
+    }
+    if (baselineCode.empty()) {
+        return true;
+    }
+    if (currentCode == baselineCode) {
+        return true;
+    }
+    const std::string_view baseTarget = ExtractAssignedTargetIdentifier(baselineCode);
+    if (!baseTarget.empty()) {
+        const std::string_view curTarget = ExtractAssignedTargetIdentifier(currentCode);
+        if (curTarget == baseTarget) {
+            return true;
+        }
+        return false;
+    }
+    const std::string_view baseLead = ExtractLeadingIdentifierOrKey(baselineCode);
+    const std::string_view curLead = ExtractLeadingIdentifierOrKey(currentCode);
+    return !baseLead.empty() && (curLead == baseLead);
+}
+
+size_t ResolveTrackedCodeLine(
+    std::string_view docText,
+    std::span<const LogicalLine> logicalLines,
+    size_t requestedLine1,
+    std::string_view explicitAnchor,
+    std::span<const size_t> baselineToCurrentLine,
+    std::span<const std::string> baselineSignatures,
+    std::string_view commentPrefix
+) noexcept {
+    if (logicalLines.empty() || requestedLine1 == 0) {
+        return 0;
+    }
+    auto getLineCode = [&](size_t line1) noexcept -> std::string_view {
+        if (line1 < 1 || line1 > logicalLines.size()) {
+            return {};
+        }
+        const LogicalLine& ll = logicalLines[line1 - 1];
+        return ExtractCodeWithoutLineComment(docText.substr(ll.startOffset, ll.length), commentPrefix);
+    };
+
+    const size_t mappedLine1 = (requestedLine1 < baselineToCurrentLine.size() && baselineToCurrentLine[requestedLine1] > 0)
+        ? baselineToCurrentLine[requestedLine1]
+        : requestedLine1;
+    const std::string_view baseSig = (requestedLine1 < baselineSignatures.size())
+        ? std::string_view(baselineSignatures[requestedLine1])
+        : std::string_view{};
+
+    if (!explicitAnchor.empty()) {
+        const std::string_view mappedCode = getLineCode(mappedLine1);
+        if (!mappedCode.empty() && (mappedCode.find(explicitAnchor) != std::string_view::npos || DoesLineMatchBaselineSignature(mappedCode, baseSig))) {
+            return mappedLine1;
+        }
+        for (size_t delta = 1; delta <= logicalLines.size(); ++delta) {
+            if (mappedLine1 + delta <= logicalLines.size()) {
+                const std::string_view c = getLineCode(mappedLine1 + delta);
+                if (!c.empty() && c.find(explicitAnchor) != std::string_view::npos) {
+                    return mappedLine1 + delta;
+                }
+            }
+            if (mappedLine1 > delta) {
+                const std::string_view c = getLineCode(mappedLine1 - delta);
+                if (!c.empty() && c.find(explicitAnchor) != std::string_view::npos) {
+                    return mappedLine1 - delta;
+                }
+            }
+        }
+        return 0;
+    }
+
+    const std::string_view mappedCode = getLineCode(mappedLine1);
+    if (DoesLineMatchBaselineSignature(mappedCode, baseSig)) {
+        return mappedLine1;
+    }
+    if (!baseSig.empty()) {
+        for (size_t delta = 1; delta <= 2; ++delta) {
+            if (mappedLine1 + delta <= logicalLines.size() && getLineCode(mappedLine1 + delta) == baseSig) {
+                return mappedLine1 + delta;
+            }
+            if (mappedLine1 > delta && getLineCode(mappedLine1 - delta) == baseSig) {
+                return mappedLine1 - delta;
+            }
+        }
+    }
+    return 0;
+}
+
 ElementSpec MakeTextAreaElementSpec(
     const TextAreaOptions& opts,
     UiSize size,
@@ -895,10 +1152,20 @@ EditorLayoutRects ComputeEditorLayout(
 
     L.maxLineW = 0.0f;
     if (!opts.wordWrap) {
-        for (const LogicalLine& ll : logicalLines) {
+        for (size_t li = 0; li < logicalLines.size(); ++li) {
+            const LogicalLine& ll = logicalLines[li];
             if (ll.length == 0) continue;
             const std::string_view ls = text.substr(ll.startOffset, ll.length);
-            L.maxLineW = std::max(L.maxLineW, MeasureSegmentWidth(canvas, ls, L.fontSize, textStyle));
+            float lineW = MeasureSegmentWidth(canvas, ls, L.fontSize, textStyle);
+            if (!opts.inlineValues.empty()) {
+                for (const CodeInlineValue& iv : opts.inlineValues) {
+                    if (iv.line == li + 1 && !iv.text.empty()) {
+                        const float ivFs = L.fontSize * 0.88f;
+                        lineW += L.metrics.spaceAdvance * 2.2f + MeasureChunkNoTabs(canvas, iv.text, ivFs, FontStyle::Monospace) + theme.Scale(12.0f);
+                    }
+                }
+            }
+            L.maxLineW = std::max(L.maxLineW, lineW);
         }
     }
 
@@ -1522,12 +1789,37 @@ TextAreaResponse TextArea::Run(
     optsCopy.placeholder = ctx.AllocString(opts.placeholder);
     optsCopy.tooltip = ctx.AllocString(opts.tooltip);
 
-    std::string_view valStr = (stringValue != nullptr) ? std::string_view(*stringValue) : displayFallback;
+    const std::string_view callerText = (stringValue != nullptr) ? std::string_view(*stringValue) : displayFallback;
+    std::string_view valStr = callerText;
+    const std::string_view lineCmtPrefix = (opts.syntax.has_value() && !opts.syntax->lineComment.empty())
+        ? opts.syntax->lineComment
+        : "//";
 
     auto& state = ctx.GetOrCreateState<TextAreaState>(id);
     if (!isFocused) {
         state.overlayFocus = 0;
         ctx.SetSuspendDirectEditInput(false);
+    }
+
+    // Initialize or reset baseline line-tracking table when document is first loaded or externally replaced
+    if (!state.baselineInitialized || callerText != state.prevDocumentText) {
+        if (state.baselineInitialized && ctx.HasActiveTextEdit(id)) {
+            ctx.SetTextEditBuffer(id, callerText);
+        }
+        std::vector<LogicalLine> initLines;
+        SplitLogicalLines(callerText, initLines);
+        state.baselineToCurrentLine.assign(initLines.size() + 1, 0);
+        state.baselineSignatures.assign(initLines.size() + 1, std::string{});
+        for (size_t i = 0; i < initLines.size(); ++i) {
+            state.baselineToCurrentLine[i + 1] = i + 1;
+            const std::string_view rawLine = callerText.substr(initLines[i].startOffset, initLines[i].length);
+            state.baselineSignatures[i + 1] = std::string(ExtractCodeWithoutLineComment(rawLine, lineCmtPrefix));
+        }
+        state.prevDocumentText.assign(callerText);
+        state.prevCursor = std::min(state.cursor, callerText.size());
+        state.prevTextSize = callerText.size();
+        state.prevLineCount = initLines.size();
+        state.baselineInitialized = true;
     }
 
     const float reqZoom = std::clamp(opts.zoom, 0.5f, 3.0f);
@@ -1590,6 +1882,66 @@ TextAreaResponse TextArea::Run(
     std::vector<LogicalLine> logicalLines;
     SplitLogicalLines(valStr, logicalLines);
 
+    auto resolveDebugAndDiagnosticMarkers = [&](std::string_view curDoc) {
+        if (opts.executionLinePtr != nullptr) {
+            optsCopy.executionLine = *opts.executionLinePtr;
+        } else if (opts.executionLine > 0 && opts.executionLine < state.baselineToCurrentLine.size() && state.baselineToCurrentLine[opts.executionLine] > 0) {
+            optsCopy.executionLine = state.baselineToCurrentLine[opts.executionLine];
+        } else {
+            optsCopy.executionLine = opts.executionLine;
+        }
+        if (optsCopy.executionLine > logicalLines.size()) {
+            optsCopy.executionLine = logicalLines.empty() ? 0 : logicalLines.size();
+        }
+
+        state.resolvedInlineValues.clear();
+        state.resolvedInlineValues.reserve(opts.inlineValues.size());
+        for (const CodeInlineValue& iv : opts.inlineValues) {
+            if (iv.text.empty()) continue;
+            const size_t resolvedLine = ResolveTrackedCodeLine(
+                curDoc, logicalLines, iv.line, iv.anchor,
+                state.baselineToCurrentLine, state.baselineSignatures, lineCmtPrefix
+            );
+            if (resolvedLine >= 1 && resolvedLine <= logicalLines.size()) {
+                state.resolvedInlineValues.push_back(CodeInlineValue{
+                    .line = resolvedLine,
+                    .text = ctx.AllocString(iv.text),
+                    .variant = iv.variant,
+                    .anchor = ctx.AllocString(iv.anchor)
+                });
+            }
+        }
+        optsCopy.inlineValues = state.resolvedInlineValues;
+
+        state.resolvedDiagnostics.clear();
+        state.resolvedDiagnostics.reserve(opts.diagnostics.size());
+        for (const CodeDiagnostic& diag : opts.diagnostics) {
+            const size_t resolvedLine = ResolveTrackedCodeLine(
+                curDoc, logicalLines, diag.line, diag.anchor,
+                state.baselineToCurrentLine, state.baselineSignatures, lineCmtPrefix
+            );
+            if (resolvedLine >= 1 && resolvedLine <= logicalLines.size()) {
+                CodeDiagnostic d = diag;
+                d.line = resolvedLine;
+                d.message = ctx.AllocString(diag.message);
+                d.code = ctx.AllocString(diag.code);
+                d.anchor = ctx.AllocString(diag.anchor);
+                if (!diag.anchor.empty()) {
+                    const LogicalLine& ll = logicalLines[resolvedLine - 1];
+                    const std::string_view fullLine = curDoc.substr(ll.startOffset, ll.length);
+                    if (const size_t anchorPos = fullLine.find(diag.anchor); anchorPos != std::string_view::npos) {
+                        d.startCol = static_cast<uint32_t>(anchorPos);
+                        d.endCol = static_cast<uint32_t>(anchorPos + diag.anchor.size());
+                    }
+                }
+                state.resolvedDiagnostics.push_back(d);
+            }
+        }
+        optsCopy.diagnostics = state.resolvedDiagnostics;
+    };
+
+    resolveDebugAndDiagnosticMarkers(valStr);
+
     std::vector<FoldRegion> foldRegions;
     if (opts.codeFolding) {
         ComputeFoldRegions(valStr, logicalLines, opts.syntax.has_value() ? &*opts.syntax : nullptr, foldRegions);
@@ -1635,8 +1987,8 @@ TextAreaResponse TextArea::Run(
     };
 
     // Unfold if debugger executionLine stepped into a folded block
-    if (opts.executionLine > 0 && opts.executionLine != state.prevExecutionLine) {
-        ensureLineUnfolded(opts.executionLine - 1);
+    if (optsCopy.executionLine > 0 && optsCopy.executionLine != state.prevExecutionLine) {
+        ensureLineUnfolded(optsCopy.executionLine - 1);
     }
 
     std::vector<VisualLine> visualLines;
@@ -1666,10 +2018,10 @@ TextAreaResponse TextArea::Run(
         }
     };
 
-    if (opts.executionLine > 0 && opts.executionLine != state.prevExecutionLine) {
-        scrollLogicalLineIntoView(opts.executionLine - 1);
-        state.prevExecutionLine = opts.executionLine;
-    } else if (opts.executionLine == 0) {
+    if (optsCopy.executionLine > 0 && optsCopy.executionLine != state.prevExecutionLine) {
+        scrollLogicalLineIntoView(optsCopy.executionLine - 1);
+        state.prevExecutionLine = optsCopy.executionLine;
+    } else if (optsCopy.executionLine == 0) {
         state.prevExecutionLine = 0;
     }
 
@@ -2286,28 +2638,77 @@ TextAreaResponse TextArea::Run(
         bool changed = false;
         bool submitted = false;
         displayText = ctx.GetOrStartTextEdit(id, valStr, cursor, selAnchor, changed, submitted, /*multiline=*/true, opts.readOnly);
-        changed = changed || modifiedByIdeCommand;
+        changed = changed || modifiedByIdeCommand || (displayText != state.prevDocumentText);
 
         if (changed && !opts.readOnly) {
             if (stringValue != nullptr) {
                 *stringValue = displayText;
             }
             res.changed = true;
-            const size_t oldLineCount = logicalLines.size();
+            std::vector<LogicalLine> oldLogicalLines;
+            SplitLogicalLines(state.prevDocumentText, oldLogicalLines);
             SplitLogicalLines(displayText, logicalLines);
+            const size_t oldLineCount = oldLogicalLines.size();
             const size_t newLineCount = logicalLines.size();
 
-            // Automatically shift breakpoints below cursor when lines are inserted/deleted
-            if (newLineCount != oldLineCount && !activeBreakpoints.empty()) {
-                const size_t editLine1 = FindLogicalLineForOffset(logicalLines, cursor) + 1;
+            // Automatically shift breakpoints, executionLine, and baseline line mapping when lines are inserted/deleted
+            if (newLineCount != oldLineCount) {
                 const ptrdiff_t diff = static_cast<ptrdiff_t>(newLineCount) - static_cast<ptrdiff_t>(oldLineCount);
-                for (size_t& bp : activeBreakpoints) {
-                    if (bp >= editLine1) {
-                        const ptrdiff_t shifted = static_cast<ptrdiff_t>(bp) + diff;
-                        bp = static_cast<size_t>(std::max<ptrdiff_t>(1, shifted));
-                    }
+                const size_t safePreCur = std::min(state.prevCursor, state.prevDocumentText.size());
+                const size_t oldEditLine0 = FindLogicalLineForOffset(oldLogicalLines, safePreCur);
+                const size_t oldEditLine1 = oldEditLine0 + 1;
+                const size_t safePostCur = std::min(cursor, displayText.size());
+                const size_t newEditLine0 = FindLogicalLineForOffset(logicalLines, safePostCur);
+                const size_t newEditLine1 = newEditLine0 + 1;
+
+                size_t shiftStartLine1 = oldEditLine1;
+                if (diff > 0) {
+                    const bool hasCodeBefore = HasCodeBeforeOffsetOnLine(
+                        state.prevDocumentText,
+                        oldLogicalLines[oldEditLine0],
+                        safePreCur
+                    );
+                    shiftStartLine1 = hasCodeBefore ? (oldEditLine1 + 1) : oldEditLine1;
+                } else {
+                    shiftStartLine1 = newEditLine1 + 1;
                 }
+
+                const ptrdiff_t minTargetLine = (diff < 0) ? static_cast<ptrdiff_t>(newEditLine1) : 1;
+                auto shiftLineNum = [&](size_t& lineNum) {
+                    if (lineNum == 0) return;
+                    if (lineNum >= shiftStartLine1) {
+                        const ptrdiff_t shifted = std::max<ptrdiff_t>(minTargetLine, static_cast<ptrdiff_t>(lineNum) + diff);
+                        lineNum = std::min<size_t>(static_cast<size_t>(shifted), newLineCount);
+                    } else if (lineNum > newLineCount) {
+                        lineNum = newLineCount;
+                    }
+                };
+
+                for (size_t& bp : activeBreakpoints) {
+                    shiftLineNum(bp);
+                }
+                if (activeBreakpoints.size() > 1) {
+                    std::sort(activeBreakpoints.begin(), activeBreakpoints.end());
+                    activeBreakpoints.erase(std::unique(activeBreakpoints.begin(), activeBreakpoints.end()), activeBreakpoints.end());
+                }
+
+                for (size_t b = 1; b < state.baselineToCurrentLine.size(); ++b) {
+                    shiftLineNum(state.baselineToCurrentLine[b]);
+                }
+
+                if (opts.executionLinePtr != nullptr && *opts.executionLinePtr > 0) {
+                    shiftLineNum(*opts.executionLinePtr);
+                    optsCopy.executionLine = *opts.executionLinePtr;
+                    state.prevExecutionLine = *opts.executionLinePtr;
+                }
+
+                res.lineDelta = static_cast<int>(diff);
+                res.editLine = (diff > 0) ? oldEditLine1 : newEditLine1;
             }
+
+            state.prevDocumentText.assign(displayText);
+            state.prevLineCount = newLineCount;
+            resolveDebugAndDiagnosticMarkers(displayText);
 
             if (opts.codeFolding) {
                 ComputeFoldRegions(displayText, logicalLines, opts.syntax.has_value() ? &*opts.syntax : nullptr, foldRegions);
@@ -2422,7 +2823,7 @@ TextAreaResponse TextArea::Run(
             }
 
             // Check if hovering over a diagnostic on this line
-            for (const CodeDiagnostic& diag : opts.diagnostics) {
+            for (const CodeDiagnostic& diag : optsCopy.diagnostics) {
                 if (diag.line == vl.logicalLine + 1 && !diag.message.empty()) {
                     const size_t col0 = vl.startCol + colInSub;
                     const size_t dStart = diag.startCol;
@@ -2494,6 +2895,18 @@ TextAreaResponse TextArea::Run(
         data->hoveredWordCol = hoveredWordCol;
     }
     node->SetPayload(data);
+
+    uint64_t markersHash = detail::HashArgs(optsCopy.diagnostics.size(), optsCopy.inlineValues.size(), activeBreakpoints.size());
+    for (const CodeInlineValue& iv : optsCopy.inlineValues) {
+        markersHash = detail::HashArgs(markersHash, iv.line, iv.text, static_cast<uint8_t>(iv.variant));
+    }
+    for (const CodeDiagnostic& d : optsCopy.diagnostics) {
+        markersHash = detail::HashArgs(markersHash, d.line, d.startCol, d.endCol, static_cast<uint8_t>(d.severity), d.message);
+    }
+    for (size_t bp : activeBreakpoints) {
+        markersHash = detail::HashArgs(markersHash, bp);
+    }
+
     node->visualHash = detail::HashArgs(
         data ? data->text : displayText,
         optsCopy.label.text,
@@ -2526,9 +2939,7 @@ TextAreaResponse TextArea::Run(
         optsCopy.executionLine,
         optsCopy.showDebugToolbar,
         optsCopy.toolbarSize.value_or(activeSize),
-        optsCopy.diagnostics.size(),
-        optsCopy.inlineValues.size(),
-        activeBreakpoints.size(),
+        markersHash,
         state.foldedLines.size(),
         state.searchOpen,
         state.replaceOpen,
@@ -3202,7 +3613,8 @@ void TextArea::Render(
         }
 
         // Folded block summary pill "[...]" at end of line
-        if (opts.codeFolding && vl.isFirstSubLine && IsLineFoldedStart(foldedLines, vl.logicalLine)) {
+        const bool isFoldedStart = opts.codeFolding && vl.isFirstSubLine && IsLineFoldedStart(foldedLines, vl.logicalLine);
+        if (isFoldedStart) {
             const float pillX = curX + L.metrics.spaceAdvance * 0.8f;
             const float pillW = L.metrics.spaceAdvance * 4.2f;
             const float pillH = L.lineHeight - theme.Scale(4.0f);
@@ -3213,18 +3625,33 @@ void TextArea::Render(
         }
 
         // Inline Debugger Variable Readouts (e.g. "N = 1024 | peak = +18.4 dB")
-        if (vl.isFirstSubLine && !opts.inlineValues.empty()) {
-            for (const CodeInlineValue& iv : opts.inlineValues) {
-                if (iv.line == vl.logicalLine + 1 && !iv.text.empty()) {
-                    const float ivFs = L.fontSize * 0.88f;
-                    const float ivW = MeasureChunkNoTabs(&canvas, iv.text, ivFs, FontStyle::Monospace) + theme.Scale(12.0f);
-                    const float ivX = curX + L.metrics.spaceAdvance * 2.2f;
-                    const float ivH = L.lineHeight - theme.Scale(3.0f);
-                    const Rect ivRect(ivX, lineY + theme.Scale(1.5f), ivW, ivH);
-                    const Color accent = theme.GetTextColor(iv.variant);
-                    canvas.DrawRoundRect(ivRect, theme.Scale(3.5f), accent.WithAlphaF(0.13f), accent.WithAlphaF(0.32f), 1.0f);
-                    canvas.DrawTextStyled(iv.text, Vec2{ivX + theme.Scale(6.0f), textY + theme.Scale(0.8f)}, ivFs, accent.WithAlphaF(0.92f), FontStyle::Monospace);
-                    curX = ivRect.Right();
+        // Attached to the end of the logical line (last visual sub-line, or folded block header)
+        const bool isLastSubLine = (vl.startCol + vl.length >= ll.length) || isFoldedStart;
+        if (isLastSubLine && !opts.inlineValues.empty()) {
+            const std::string_view cmtPrefix = (opts.syntax.has_value() && !opts.syntax->lineComment.empty())
+                ? opts.syntax->lineComment
+                : "//";
+            if (!ExtractCodeWithoutLineComment(fullLineStr, cmtPrefix).empty()) {
+                for (const CodeInlineValue& iv : opts.inlineValues) {
+                    if (iv.line == vl.logicalLine + 1 && !iv.text.empty()) {
+                        const float ivFs = L.fontSize * 0.88f;
+                        const float ivW = MeasureChunkNoTabs(&canvas, iv.text, ivFs, FontStyle::Monospace) + theme.Scale(12.0f);
+                        float ivX = curX + L.metrics.spaceAdvance * 2.2f;
+                        bool clampedRight = false;
+                        if (opts.wordWrap && ivX + ivW > textViewport.Right() - theme.Scale(4.0f)) {
+                            ivX = std::max(textViewport.x + theme.Scale(4.0f), textViewport.Right() - theme.Scale(4.0f) - ivW);
+                            clampedRight = true;
+                        }
+                        const float ivH = L.lineHeight - theme.Scale(3.0f);
+                        const Rect ivRect(ivX, lineY + theme.Scale(1.5f), ivW, ivH);
+                        const Color accent = theme.GetTextColor(iv.variant);
+                        if (clampedRight) {
+                            canvas.DrawRoundRect(ivRect, theme.Scale(3.5f), editorBgCol.WithAlphaF(0.92f), Color::Transparent(), 0.0f);
+                        }
+                        canvas.DrawRoundRect(ivRect, theme.Scale(3.5f), accent.WithAlphaF(0.14f), accent.WithAlphaF(0.34f), 1.0f);
+                        canvas.DrawTextStyled(iv.text, Vec2{ivX + theme.Scale(6.0f), textY + theme.Scale(0.8f)}, ivFs, accent.WithAlphaF(0.94f), FontStyle::Monospace);
+                        curX = ivRect.Right();
+                    }
                 }
             }
         }

@@ -89,9 +89,10 @@ enum class NodeType : uint16_t {
     WaterfallView = 219,
     RangeSlider   = 220,
     ProgressBar   = 221,
-    Histogram     = 222,
-    ImageView     = 223,
-    AttitudeView  = 224,
+    Histogram      = 222,
+    ImageView      = 223,
+    AttitudeView   = 224,
+    CarClusterView = 225,
 
     // --- User Extension Base (1000+) ---
     User          = 1000
@@ -270,9 +271,10 @@ struct Node {
             case NodeType::RangeSlider:   return "RangeSlider";
             case NodeType::ProgressBar:   return "ProgressBar";
             case NodeType::Histogram:     return "Histogram";
-            case NodeType::ImageView:     return "ImageView";
-            case NodeType::AttitudeView:  return "AttitudeView";
-            default:                      return (static_cast<uint16_t>(type) >= static_cast<uint16_t>(NodeType::User)) ? "UserWidget" : "Unknown";
+            case NodeType::ImageView:      return "ImageView";
+            case NodeType::AttitudeView:   return "AttitudeView";
+            case NodeType::CarClusterView: return "CarClusterView";
+            default:                       return (static_cast<uint16_t>(type) >= static_cast<uint16_t>(NodeType::User)) ? "UserWidget" : "Unknown";
         }
     }
 
