@@ -1,30 +1,62 @@
+<div align="center">
+
 # GuiKit
 
-**GuiKit** is a modern, autonomous immediate-mode vector GUI engine written in C++20. Powered by **ThorVG** for hardware-accelerated vector graphics and **SDL3** for cross-platform windowing and event handling.
+**Modern, Autonomous C++20 Immediate-Mode Vector GUI & 2D Visualization Engine**  
+*Powered by **ThorVG** + **SDL3** + **WebGL2 / OpenGL GLSL** — Native Desktop & WebAssembly*
 
-Designed for high-performance desktop tools, embedded displays, and design-system-driven applications requiring pixel-crisp rendering at arbitrary display scales.
+[![Live WebAssembly Demo](https://img.shields.io/badge/%F0%9F%9A%80_LIVE_WEBASSEMBLY_DEMO-guikit.github.io%2Fdemo-2563eb?style=for-the-badge&logo=webassembly&logoColor=white)](https://guikit.github.io/demo/)
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?style=for-the-badge&logo=c%2B%2B&logoColor=white)](https://en.cppreference.com/w/cpp/20)
+[![License: MIT](https://img.shields.io/badge/License-MIT-10b981?style=for-the-badge)](LICENSE)
+
+### 👉 **[Launch Interactive Live Demo in Browser (WebAssembly)](https://guikit.github.io/demo/)** 👈
+
+*Explore all UI elements, virtualized 100k-row data grids, S-52/Navionics marine GIS charts, DSP spectrograms, sonar radar, avionics PFD, automotive cluster, and BPMN 2.0 modeler directly in your browser with live C++20 code generation.*
+
+</div>
 
 ---
 
 ## Key Highlights
 
-- **Pure Vector Rendering**: Razor-sharp UI at any DPI and resolution with smooth anti-aliased curves via ThorVG, plus a fast fallback `SdlCanvas` backend.
-- **Autonomous Architecture**: 100% standalone with zero dependency on Dear ImGui.
-- **Modern C++20 Immediate Mode**: Clean syntax with designated initializers, frame allocators, and reactive state:
+- **Pure Vector Rendering & GLSL Underlays**: Razor-sharp UI at any DPI and scale via **ThorVG**, combined with hardware-accelerated **OpenGL / WebGL2 GLSL** shader underlays (`SdlGlShaderEngine`) for real-time DSP, sonar, and waterfall displays.
+- **100% Autonomous C++20 Immediate Mode**: Zero dependency on Dear ImGui. Clean, ergonomic C++20 API using designated initializers, RAII container scopes, and reactive dirty-rectangle damage tracking:
   ```cpp
-  if (ui.Button({.label = "Save Project", .variant = UiVariant::Primary, .size = UiSize::Lg})) {
-      Save();
+  if (auto card = ui.Card({.gap = 8.0f, .padding = Padding::All(12.0f)})) {
+      ui.Heading({.title = "Mission Control", .size = UiSize::Md});
+      if (ui.Button({.label = "Engage Autopilot", .variant = UiVariant::Primary})) {
+          EngageAutopilot();
+      }
   }
   ```
-- **Flexbox & 12-Column Responsive Grid**: Built-in `LayoutSolver` supporting rows, columns, wrapping, intrinsic sizing, and responsive grid collapse.
-- **Component Palette**:
-  - **Layout**: `Row`, `Column`, `Wrap`, `Grid`, `Spacer`
-  - **Panels & Surfaces**: `Box`, `Card`, `ScrollArea`, `Carousel`
-  - **Inputs**: `InputField` (text & numeric), `Select` (dropdowns), `Switch`, `Checkbox`
-  - **Navigation**: `TabBar` (with responsive carousel overflow), `Toolbar`
-  - **Typography & Display**: `Heading` (H1-H4), `Text`, `Icon` (vector icons)
-- **Token-Driven Design System**: `UiStyle`, `UiVariant` (Default, Primary, Success, Warning, Danger, Info, Ghost), `UiSize`, and `UiDensity` presets.
-- **High Performance**: Zero runtime heap churn in render loops using an internal `Allocator`.
+- **Zero-File Embedded Assets (Native + WebAssembly)**: Automatic build-time asset embedding (`guikit::Assets`) compiles fonts, images, and GeoJSON charts directly into the binary so both Native `.exe` and `.wasm` builds run as self-contained bundles.
+- **Reactive Event Loop & Dirty Rect Tracking**: Sleeps at 0% CPU when idle and repaints only damaged screen regions at sub-millisecond frame times.
+
+---
+
+## Component & Scene Suite
+
+### 1. Core Elements & Inputs
+- **Typography & Display**: `Heading` (H1–H4, subtitles, dividers), `Text` (semantic roles & variants), `Image` (PNG/JPG/SVG with object-fit & rounding), procedural vector `Icon` library
+- **Buttons & Toggles**: `Button`, `Switch`, `Checkbox`, `RadioButton`
+- **Numeric & Selection**: `Slider`, `RangeSlider`, `StepSlider`, `SpinBox`, `ProgressBar`, `InputField` (text & numeric), `Select` (searchable/scrollable popups with badges & icons)
+
+### 2. Layouts, Panels & Navigation
+- **Layout Solver**: `Row`, `Column`, `Wrap`, `Grid` (12-column responsive layout), `Spacer`
+- **Panels & Containers**: `Box`, `Card`, `ScrollArea`, `Sidebar`, `Carousel`
+- **Navigation**: `TabBar` (with automatic carousel overflow), `Toolbar`, `SidebarMenu`
+- **Virtualized Data Grid**: `Table` — smooth 60+ FPS scrolling, sorting, filtering, and row selection over **100,000+ rows**
+- **Rich Content**: `Markdown` viewer (GFM tables, alerts, task lists, code blocks, embedded assets) & `CodeEditor` (syntax highlighting, breakpoints, folding, minimap)
+
+### 3. Specialized 2D Scenes & Domain Workstations (`guikit_scenes`)
+- **GIS / Marine Chart (`MapView` + `GisRenderEngine`)**: S-57 / Navionics vector Electronic Navigational Chart (`.geojson` / `.nv2`) with S-52 Day/Dusk/Night palettes, safety contour isobaths, spot soundings, IALA seamarks, 256×256 vector tile caching, and 7 geodetic projections (`EPSG:3857`, `EPSG:3395`, `EPSG:4326`, `UTM 36N`, `GSK-2011`, `SK-42`, `Arctic Polar`)
+- **Signal View (`SignalView`)**: Dual waveform + STFT spectrogram analyzer with GPU shader acceleration and harmonic cursor readouts
+- **Sonar Radar (`SonarView`)**: Polar PPI 360°, Sector Wedge, and B-Scan sonar/radar display with TVG, clutter gating, and target tracking
+- **Waterfall (`WaterfallView`)**: Hardware circular ring-buffer RTSA spectrum waterfall & DOA target tracker
+- **Image View (`ImageView` + `Histogram`)**: 16-bit scientific & multi-channel RGB workstation with interactive Window/Level transfer functions and pixel-value loupe
+- **Attitude PFD (`AttitudeView`)**: Avionics Primary Flight Display with artificial horizon, pitch ladder, airspeed/altitude tapes, and compass rose
+- **Car Cluster (`CarClusterView`)**: Digital automotive instrument cluster & ADAS cockpit
+- **BPMN 2.0 Modeler (`BpmnEditor`)**: Full interactive BPMN 2.0 diagram editor (`bpmn-js` parity) with context pad, palette, orthogonal Manhattan waypoint routing, swimlanes, and live token simulation
 
 ---
 
@@ -32,56 +64,67 @@ Designed for high-performance desktop tools, embedded displays, and design-syste
 
 ```text
 guikit/
-├── include/guikit/      # Canonical public C++20 headers
-│   ├── backend/         # Hardware abstraction (ThorCanvas, SdlCanvas, ICanvas)
-│   ├── core/            # Tokens, Types, Allocator, Id, FrameMetrics, ContainerScope
-│   ├── graphics/        # Vector Icon definitions and rendering
-│   ├── layout/          # Flexbox & Grid solver (Solver, Node, Row, Column, Grid...)
-│   ├── panels/          # Surface frames & viewports (Box, Card, ScrollArea, Carousel)
-│   ├── widgets/         # Immediate-mode UI widgets
-│   ├── Context.hpp      # Main UI Context
-│   └── GuiKit.hpp       # Umbrella master include
+├── include/guikit/      # Public C++20 headers
+│   ├── backend/         # Canvas & GPU shader abstractions (ThorCanvas, SdlCanvas, SdlGlShaderEngine)
+│   ├── core/            # Tokens, Theme, Types, Assets, Allocator, Id, FrameMetrics
+│   ├── geo/             # Geodesy projections (MapGrid), GeoJSON parser, S-52 GIS render engine
+│   ├── graphics/        # Procedural vector Icons & Colormaps
+│   ├── layout/          # Flexbox & 12-column Grid solver (Row, Column, Wrap, Grid, Spacer)
+│   ├── panels/          # Containers & viewports (Box, Card, ScrollArea, Scene, MapView, Table...)
+│   ├── widgets/         # Autonomous immediate-mode widgets & domain instruments
+│   ├── Context.hpp      # Primary immediate-mode UI Context
+│   ├── Core.hpp         # Lightweight core + widgets header
+│   ├── Scenes.hpp       # Domain scenes & GIS header
+│   └── GuiKit.hpp       # Master umbrella include
 ├── src/guikit/          # Implementation units (.cpp)
-├── examples/            # Interactive component showcase
-├── tests/               # Automated unit tests (core, layout, context)
-├── assets/              # Typography assets and branding
-└── third_party/         # SDL3 and ThorVG git submodules
+├── examples/demo/       # Interactive showcase application (Desktop + WebAssembly)
+├── assets/              # Embedded fonts, images (lena.png), and GIS chart (demo_bay.geojson)
+├── scripts/             # Build, local server, and GitHub Pages deployment scripts
+├── tests/               # Automated unit test suites (test_core, test_layout, test_context)
+└── third_party/         # SDL3 and ThorVG submodules
 ```
 
 ---
 
-## Building from Source
+## Quick Start & Building
 
 ### Prerequisites
-
-- C++20 compliant compiler (MSVC 2022+, GCC 12+, Clang 15+)
-- CMake 3.20+
+- C++20 compiler (MSVC 2022+, Clang 15+, GCC 12+, or Emscripten for WebAssembly)
+- CMake 3.24+
 - Git
 
-### Cloning with Submodules
-
+### 1. Clone with Submodules
 ```bash
 git clone --recursive https://github.com/guikit/guikit.git
 cd guikit
 ```
 
-### Build (Windows)
-
+### 2. Desktop Build & Run (Windows)
 ```cmd
-scripts\windows\build.cmd Release
+:: Configure & build Release
+scripts\windows\desktop-build.cmd
+
+:: Build & launch the interactive demo
+scripts\windows\desktop-run.cmd
 ```
 
 Or via standard CMake:
-
 ```cmd
 cmake -B build -S .
 cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
 ```
 
-### Run Tests
-
+### 3. WebAssembly Build, Local Run & GitHub Pages Deploy
 ```cmd
-ctest -C Release --output-on-failure --test-dir build
+:: Build WebAssembly bundle (auto-installs local .emsdk if needed)
+scripts\windows\web-build.cmd
+
+:: Build, start local HTTP server, and open in browser
+scripts\windows\web-run.cmd
+
+:: Build and publish to GitHub Pages (https://guikit.github.io/demo/)
+scripts\windows\web-publish.cmd
 ```
 
 ---
