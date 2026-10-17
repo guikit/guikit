@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <optional>
+#include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 #include "guikit/core/Types.hpp"
@@ -17,10 +19,111 @@ enum class FontStyle : uint8_t {
     Monospace
 };
 
+/// Native 32-bit pixel format written by software/hybrid vector canvases into target memory.
+enum class SurfacePixelFormat : uint8_t {
+    ABGR8888_Premul = 0, ///< 0xAABBGGRR premultiplied alpha (SDL_PIXELFORMAT_ABGR8888 on little-endian)
+    ARGB8888_Premul = 1  ///< 0xAARRGGBB premultiplied alpha (SDL_PIXELFORMAT_ARGB8888 / Blend2D PRGB32)
+};
+
+/// Path command verbs for engine-agnostic 2D vector paths.
+/// Values match standard vector rasterizer command encodings (Close=0, MoveTo=1, LineTo=2, CubicTo=3).
+enum class PathVerb : uint8_t {
+    Close   = 0,
+    MoveTo  = 1,
+    LineTo  = 2,
+    CubicTo = 3
+};
+
+/// Polygon interior winding rule (IHO S-52 / SVG / OGC standard).
+enum class FillRule : uint8_t {
+    NonZero = 0, ///< Non-zero winding rule (exterior polygons without holes)
+    EvenOdd = 1  ///< Even-odd alternating rule (polygons with interior island holes)
+};
+
+/// Engine-agnostic flat contiguous 2D vector path buffer.
+/// Zero virtual call overhead during vertex assembly; reusable across frames via Clear().
+struct VectorPath {
+    std::vector<PathVerb> verbs;
+    std::vector<Vec2> points;
+
+    void Clear() noexcept {
+        verbs.clear();
+        points.clear();
+    }
+
+    void Reserve(size_t verbCap, size_t ptCap) {
+        verbs.reserve(verbCap);
+        points.reserve(ptCap);
+    }
+
+    void MoveTo(Vec2 p) {
+        verbs.push_back(PathVerb::MoveTo);
+        points.push_back(p);
+    }
+
+    void LineTo(Vec2 p) {
+        verbs.push_back(PathVerb::LineTo);
+        points.push_back(p);
+    }
+
+    void CubicTo(Vec2 c1, Vec2 c2, Vec2 p) {
+        verbs.push_back(PathVerb::CubicTo);
+        points.push_back(c1);
+        points.push_back(c2);
+        points.push_back(p);
+    }
+
+    void Close() {
+        verbs.push_back(PathVerb::Close);
+    }
+
+    void AddClosedRing(std::span<const Vec2> ring) {
+        if (ring.size() < 3) return;
+        verbs.push_back(PathVerb::MoveTo);
+        points.push_back(ring[0]);
+        for (size_t i = 1; i < ring.size(); ++i) {
+            verbs.push_back(PathVerb::LineTo);
+            points.push_back(ring[i]);
+        }
+        verbs.push_back(PathVerb::Close);
+    }
+
+    [[nodiscard]] bool Empty() const noexcept {
+        return verbs.empty() || points.empty();
+    }
+};
+
+/// Declarative fill and stroke style for ICanvas::DrawPath.
+struct PathPaint {
+    Color fillColor{0, 0, 0, 0};
+    Color strokeColor{0, 0, 0, 0};
+    float strokeWidthPx{1.0f};
+    FillRule fillRule{FillRule::NonZero};
+    bool renderFill{false};
+    bool renderStroke{false};
+    bool dashed{false};
+    float dashOnPx{5.0f};
+    float dashOffPx{4.0f};
+};
+
 /// Abstract interface for vector graphics rendering backends.
 class ICanvas {
 public:
     virtual ~ICanvas() = default;
+
+    /// Returns the native 32-bit pixel format written by this canvas into its target buffer.
+    [[nodiscard]] virtual SurfacePixelFormat GetPixelFormat() const noexcept {
+        return SurfacePixelFormat::ABGR8888_Premul;
+    }
+
+    /// Binds an in-memory 32-bit pixel buffer as the rendering target.
+    virtual void SetTarget(uint32_t* /*buffer*/, uint32_t /*width*/, uint32_t /*height*/, uint32_t /*stride*/) {}
+
+    /// Loads a primary TrueType/OpenType font from file for text rendering.
+    virtual bool LoadFontFile(const std::string& /*path*/) { return false; }
+
+    /// Loads a TrueType/OpenType monospace font from file for FontStyle::Monospace rendering.
+    virtual bool LoadMonospaceFontFile(const std::string& /*path*/) { return false; }
 
     /// Prepares the canvas for a new frame with dimensions and optional DPI / UI scale factor.
     virtual void Begin(uint32_t width, uint32_t height, float scale = 1.0f) = 0;
@@ -34,7 +137,7 @@ public:
     /// Sets or overrides the current canvas scale factor.
     virtual void SetScale(float scale) = 0;
 
-    /// Human-readable backend identifier name (e.g. "ThorVG (Vector Software)", "SDL3 (Direct GPU)").
+    /// Human-readable backend identifier name (e.g. "ThorVG (Vector Software)", "Blend2D (JIT SIMD)", "SDL3 (Direct GPU)").
     [[nodiscard]] virtual std::string_view GetBackendName() const noexcept = 0;
 
     /// Clears the entire canvas surface or a targeted sub-rectangle to a specified background color.
@@ -115,6 +218,58 @@ public:
             DrawLine(p1, p2, stroke, strokeWidth);
             DrawLine(p2, p3, stroke, strokeWidth);
             DrawLine(p3, p1, stroke, strokeWidth);
+        }
+    }
+
+    /// Draws an arbitrary 2D vector path (polygons with interior holes, compound polylines, Bezier curves).
+    virtual void DrawPath(const VectorPath& path, const PathPaint& paint) {
+        if (path.Empty()) return;
+        const Color col = (paint.renderStroke && paint.strokeColor.a > 0) ? paint.strokeColor : paint.fillColor;
+        const float sw = (paint.renderStroke && paint.strokeWidthPx > 0.0f) ? paint.strokeWidthPx : 1.0f;
+        if (col.a == 0) return;
+
+        Vec2 startPt{};
+        Vec2 curPt{};
+        bool hasSubpath = false;
+        size_t ptIdx = 0;
+        const size_t numPts = path.points.size();
+        for (PathVerb verb : path.verbs) {
+            switch (verb) {
+                case PathVerb::MoveTo:
+                    if (ptIdx < numPts) {
+                        startPt = path.points[ptIdx++];
+                        curPt = startPt;
+                        hasSubpath = true;
+                    }
+                    break;
+                case PathVerb::LineTo:
+                    if (ptIdx < numPts) {
+                        const Vec2 nextPt = path.points[ptIdx++];
+                        if (hasSubpath) {
+                            DrawLine(curPt, nextPt, col, sw);
+                        }
+                        curPt = nextPt;
+                        hasSubpath = true;
+                    }
+                    break;
+                case PathVerb::CubicTo:
+                    if (ptIdx + 2 < numPts) {
+                        const Vec2 endPt = path.points[ptIdx + 2];
+                        ptIdx += 3;
+                        if (hasSubpath) {
+                            DrawLine(curPt, endPt, col, sw);
+                        }
+                        curPt = endPt;
+                        hasSubpath = true;
+                    }
+                    break;
+                case PathVerb::Close:
+                    if (hasSubpath) {
+                        DrawLine(curPt, startPt, col, sw);
+                        curPt = startPt;
+                    }
+                    break;
+            }
         }
     }
 
@@ -242,8 +397,32 @@ public:
         Color bgColor{6, 9, 18, 255};
     };
 
+    /// Enables or disables GPU shader underlay pass recording on this canvas.
+    virtual void SetGpuShadersEnabled(bool /*enabled*/) noexcept {}
+
     /// Returns true if GPU shader field rendering is active on this canvas.
     [[nodiscard]] virtual bool SupportsGpuShaders() const noexcept { return false; }
+
+    /// Returns true if one or more GPU shader underlay passes were recorded in the current frame.
+    [[nodiscard]] virtual bool HasActiveGpuPasses() const noexcept { return false; }
+
+    /// Returns recorded Sonar GPU shader passes for the current frame.
+    [[nodiscard]] virtual const std::vector<SonarGpuFieldDesc>& GetSonarGpuPasses() const noexcept {
+        static const std::vector<SonarGpuFieldDesc> kEmpty;
+        return kEmpty;
+    }
+
+    /// Returns recorded Spectrogram GPU shader passes for the current frame.
+    [[nodiscard]] virtual const std::vector<SpectrogramGpuFieldDesc>& GetSpectrogramGpuPasses() const noexcept {
+        static const std::vector<SpectrogramGpuFieldDesc> kEmpty;
+        return kEmpty;
+    }
+
+    /// Returns recorded Waterfall GPU shader passes for the current frame.
+    [[nodiscard]] virtual const std::vector<WaterfallGpuFieldDesc>& GetWaterfallGpuPasses() const noexcept {
+        static const std::vector<WaterfallGpuFieldDesc> kEmpty;
+        return kEmpty;
+    }
 
     /// Queues a GPU shader pass for a sonar/radar polar heatmap and optionally punches a transparent window in the CPU layer.
     /// Returns true if handled by GPU, or false if the caller should fall back to CPU rasterization.
@@ -269,4 +448,3 @@ public:
 };
 
 } // namespace guikit
-

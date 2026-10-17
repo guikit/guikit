@@ -278,16 +278,52 @@ void MapViewScope::RenderForegroundOverlays() {
         const float vx0 = std::clamp(visWorld.x, 0.0f, m_opts.worldSize);
         const float vx1 = std::clamp(visWorld.Right(), 0.0f, m_opts.worldSize);
 
-        for (const GraticuleLine& m : m_view.meridians) {
-            const Color col = m.isZero ? gratZeroCol : (m.isMajor ? gratMajorCol : gratMinorCol);
-            const float w = (m.isZero ? 1.8f : (m.isMajor ? 1.25f : 0.85f)) * invZ;
-            m_scene.DrawLine({m.worldPos, vy0}, {m.worldPos, vy1}, col, w);
-        }
+        if (MapGrid::IsCylindricalCrs(m_opts.crs)) {
+            for (const GraticuleLine& m : m_view.meridians) {
+                const Color col = m.isZero ? gratZeroCol : (m.isMajor ? gratMajorCol : gratMinorCol);
+                const float w = (m.isZero ? 1.8f : (m.isMajor ? 1.25f : 0.85f)) * invZ;
+                m_scene.DrawLine({m.worldPos, vy0}, {m.worldPos, vy1}, col, w);
+            }
 
-        for (const GraticuleLine& p : m_view.parallels) {
-            const Color col = p.isZero ? gratZeroCol : (p.isMajor ? gratMajorCol : gratMinorCol);
-            const float w = (p.isZero ? 1.8f : (p.isMajor ? 1.25f : 0.85f)) * invZ;
-            m_scene.DrawLine({vx0, p.worldPos}, {vx1, p.worldPos}, col, w);
+            for (const GraticuleLine& p : m_view.parallels) {
+                const Color col = p.isZero ? gratZeroCol : (p.isMajor ? gratMajorCol : gratMinorCol);
+                const float w = (p.isZero ? 1.8f : (p.isMajor ? 1.25f : 0.85f)) * invZ;
+                m_scene.DrawLine({vx0, p.worldPos}, {vx1, p.worldPos}, col, w);
+            }
+        } else {
+            // Curved / converging meridians & parallels for Transverse Mercator (UTM / GSK-2011 / SK-42) and Polar Stereographic
+            const double minLat = std::clamp(m_view.visibleBounds.se.lat, -89.9, 89.9);
+            const double maxLat = std::clamp(m_view.visibleBounds.nw.lat, -89.9, 89.9);
+            const double minLon = std::clamp(m_view.visibleBounds.nw.lon, -180.0, 180.0);
+            const double maxLon = std::clamp(m_view.visibleBounds.se.lon, -180.0, 180.0);
+            constexpr int kMeridianSegs = 12;
+            constexpr int kParallelSegs = 18;
+
+            for (const GraticuleLine& m : m_view.meridians) {
+                const Color col = m.isZero ? gratZeroCol : (m.isMajor ? gratMajorCol : gratMinorCol);
+                const float w = (m.isZero ? 1.8f : (m.isMajor ? 1.25f : 0.85f)) * invZ;
+                Vec2 prevW = GeoToWorld({minLat, m.degrees});
+                for (int s = 1; s <= kMeridianSegs; ++s) {
+                    const double t = static_cast<double>(s) / static_cast<double>(kMeridianSegs);
+                    const double lat = minLat + t * (maxLat - minLat);
+                    const Vec2 currW = GeoToWorld({lat, m.degrees});
+                    m_scene.DrawLine(prevW, currW, col, w);
+                    prevW = currW;
+                }
+            }
+
+            for (const GraticuleLine& p : m_view.parallels) {
+                const Color col = p.isZero ? gratZeroCol : (p.isMajor ? gratMajorCol : gratMinorCol);
+                const float w = (p.isZero ? 1.8f : (p.isMajor ? 1.25f : 0.85f)) * invZ;
+                Vec2 prevW = GeoToWorld({p.degrees, minLon});
+                for (int s = 1; s <= kParallelSegs; ++s) {
+                    const double t = static_cast<double>(s) / static_cast<double>(kParallelSegs);
+                    const double lon = minLon + t * (maxLon - minLon);
+                    const Vec2 currW = GeoToWorld({p.degrees, lon});
+                    m_scene.DrawLine(prevW, currW, col, w);
+                    prevW = currW;
+                }
+            }
         }
     }
 
@@ -340,7 +376,7 @@ void MapViewScope::RenderForegroundOverlays() {
                     /*scaleWithZoom=*/false
                 );
 
-                const std::string nwText = MapGrid::FormatCoord(cell.geoBounds.nw, m_opts.coordFormat);
+                const std::string nwText = MapGrid::FormatCoord(cell.geoBounds.nw, m_opts.coordFormat, m_opts.crs);
                 m_scene.DrawText(
                     nwText,
                     {r.x + 6.0f * invZ, r.y + 6.0f * invZ},
@@ -366,12 +402,13 @@ void MapViewScope::RenderForegroundOverlays() {
         const Color tickAccent  = m_lightMode ? Color::Rgba(13, 148, 136, 220)  : Color::Rgba(45, 212, 191, 220);
 
         const Rect topBar(topRulerStartX, visWorld.y, std::max(0.0f, visWorld.w - leftBarW), rulerThick);
+        const Rect leftBar(visWorld.x, leftRulerStartY, leftBarW, std::max(0.0f, visWorld.h - rulerThick));
         m_scene.DrawRect(topBar, rulerBg);
-        m_scene.DrawLine({topRulerStartX, visWorld.y + rulerThick}, {visWorld.Right(), visWorld.y + rulerThick}, rulerBorder, 1.0f * invZ);
+        m_scene.DrawRect(leftBar, rulerBg);
 
-        for (size_t i = 0; i < m_view.meridians.size(); ++i) {
+        for (size_t i = 0; i + 1 < m_view.meridians.size(); ++i) {
             const GraticuleLine& m = m_view.meridians[i];
-            if (i + 1 < m_view.meridians.size() && ((std::abs(m.stepIndex) & 1) == 0)) {
+            if ((std::abs(m.stepIndex) & 1) == 0) {
                 const float nextX = m_view.meridians[i + 1].worldPos;
                 const float x0 = std::max(topRulerStartX, std::min(m.worldPos, nextX));
                 const float x1 = std::min(visWorld.Right(), std::max(m.worldPos, nextX));
@@ -382,22 +419,11 @@ void MapViewScope::RenderForegroundOverlays() {
                     );
                 }
             }
-            if (m.worldPos >= topRulerStartX && m.worldPos <= visWorld.Right()) {
-                m_scene.DrawLine({m.worldPos, visWorld.y}, {m.worldPos, visWorld.y + rulerThick}, tickAccent, 1.3f * invZ);
-                if (m.worldPos + 44.0f * invZ <= visWorld.Right()) {
-                    const std::string lbl = MapGrid::FormatGraticuleTick(m.degrees, /*isLat=*/false, m_view.graticuleStepArcMin);
-                    m_scene.DrawText(lbl, {m.worldPos + 4.0f * invZ, visWorld.y + 3.0f * invZ}, 10.0f, rulerText, FontStyle::Monospace, false);
-                }
-            }
         }
 
-        const Rect leftBar(visWorld.x, leftRulerStartY, leftBarW, std::max(0.0f, visWorld.h - rulerThick));
-        m_scene.DrawRect(leftBar, rulerBg);
-        m_scene.DrawLine({leftBar.Right(), leftBar.y}, {leftBar.Right(), leftBar.Bottom()}, rulerBorder, 1.0f * invZ);
-
-        for (size_t i = 0; i < m_view.parallels.size(); ++i) {
+        for (size_t i = 0; i + 1 < m_view.parallels.size(); ++i) {
             const GraticuleLine& p = m_view.parallels[i];
-            if (i + 1 < m_view.parallels.size() && ((std::abs(p.stepIndex) & 1) == 0)) {
+            if ((std::abs(p.stepIndex) & 1) == 0) {
                 const float nextY = m_view.parallels[i + 1].worldPos;
                 const float y0 = std::max(leftRulerStartY, std::min(p.worldPos, nextY));
                 const float y1 = std::min(visWorld.Bottom(), std::max(p.worldPos, nextY));
@@ -408,12 +434,34 @@ void MapViewScope::RenderForegroundOverlays() {
                     );
                 }
             }
+        }
+
+        m_scene.DrawLine({topRulerStartX, visWorld.y + rulerThick}, {visWorld.Right(), visWorld.y + rulerThick}, rulerBorder, 1.0f * invZ);
+        m_scene.DrawLine({leftBar.Right(), leftBar.y}, {leftBar.Right(), leftBar.Bottom()}, rulerBorder, 1.0f * invZ);
+
+        for (const GraticuleLine& m : m_view.meridians) {
+            if (m.worldPos >= topRulerStartX && m.worldPos <= visWorld.Right()) {
+                m_scene.DrawLine({m.worldPos, visWorld.y}, {m.worldPos, visWorld.y + rulerThick}, tickAccent, 1.3f * invZ);
+            }
+        }
+        for (const GraticuleLine& p : m_view.parallels) {
             if (p.worldPos >= leftRulerStartY && p.worldPos <= visWorld.Bottom()) {
                 m_scene.DrawLine({leftBar.x, p.worldPos}, {leftBar.Right(), p.worldPos}, tickAccent, 1.3f * invZ);
-                if (p.worldPos >= leftRulerStartY + 14.0f * invZ) {
-                    const std::string lbl = MapGrid::FormatGraticuleTick(p.degrees, /*isLat=*/true, m_view.graticuleStepArcMin);
-                    m_scene.DrawText(lbl, {leftBar.x + 4.0f * invZ, p.worldPos - 13.0f * invZ}, 10.0f, rulerText, FontStyle::Monospace, false);
-                }
+            }
+        }
+
+        m_scene.DrawRect(Rect(visWorld.x, visWorld.y, leftBarW, rulerThick), rulerBg, 0.0f, rulerBorder, 1.0f * invZ);
+
+        for (const GraticuleLine& m : m_view.meridians) {
+            if (m.worldPos >= topRulerStartX && m.worldPos + 44.0f * invZ <= visWorld.Right()) {
+                const std::string lbl = MapGrid::FormatGraticuleTick(m.degrees, /*isLat=*/false, m_view.graticuleStepArcMin);
+                m_scene.DrawText(lbl, {m.worldPos + 4.0f * invZ, visWorld.y + 3.0f * invZ}, 10.0f, rulerText, FontStyle::Monospace, false);
+            }
+        }
+        for (const GraticuleLine& p : m_view.parallels) {
+            if (p.worldPos >= leftRulerStartY + 14.0f * invZ && p.worldPos <= visWorld.Bottom()) {
+                const std::string lbl = MapGrid::FormatGraticuleTick(p.degrees, /*isLat=*/true, m_view.graticuleStepArcMin);
+                m_scene.DrawText(lbl, {leftBar.x + 4.0f * invZ, p.worldPos - 13.0f * invZ}, 10.0f, rulerText, FontStyle::Monospace, false);
             }
         }
 
@@ -423,7 +471,6 @@ void MapViewScope::RenderForegroundOverlays() {
         } else {
             std::snprintf(stepBuf, sizeof(stepBuf), "Grid %.1f' NM", m_view.graticuleStepArcMin);
         }
-        m_scene.DrawRect(Rect(visWorld.x, visWorld.y, leftBarW, rulerThick), rulerBg, 0.0f, rulerBorder, 1.0f * invZ);
         m_scene.DrawText(stepBuf, {visWorld.x + 4.0f * invZ, visWorld.y + 3.0f * invZ}, 10.0f, tickAccent, FontStyle::Bold, false);
     }
 

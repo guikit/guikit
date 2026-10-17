@@ -18,20 +18,24 @@ namespace guikit {
 /// ThorVG-based vector graphics canvas implementation.
 class ThorCanvas : public ICanvas {
 public:
-    ThorCanvas();
+    explicit ThorCanvas(bool loadDefaultFonts = true);
     ~ThorCanvas() override;
 
     ThorCanvas(const ThorCanvas&) = delete;
     ThorCanvas& operator=(const ThorCanvas&) = delete;
 
-    /// Configures the render target buffer (ARGB8888 / ABGR8888).
-    void SetTarget(uint32_t* buffer, uint32_t width, uint32_t height, uint32_t stride);
+    [[nodiscard]] SurfacePixelFormat GetPixelFormat() const noexcept override {
+        return SurfacePixelFormat::ABGR8888_Premul;
+    }
+
+    /// Configures the render target buffer (ABGR8888 premultiplied).
+    void SetTarget(uint32_t* buffer, uint32_t width, uint32_t height, uint32_t stride) override;
 
     /// Loads a TrueType/OpenType font from file for text rendering.
-    bool LoadFontFile(const std::string& path);
+    bool LoadFontFile(const std::string& path) override;
 
     /// Loads a TrueType/OpenType monospace font from file for FontStyle::Monospace rendering.
-    bool LoadMonospaceFontFile(const std::string& path);
+    bool LoadMonospaceFontFile(const std::string& path) override;
 
     // ICanvas implementation
     void Begin(uint32_t width, uint32_t height, float scale = 1.0f) override;
@@ -82,6 +86,7 @@ public:
         Color stroke = Color(0, 0, 0, 0),
         float strokeWidth = 0.0f
     ) override;
+    void DrawPath(const VectorPath& path, const PathPaint& paint) override;
 
     Vec2 GetImageSize(std::string_view source) override;
     bool DrawImage(
@@ -99,7 +104,7 @@ public:
         uint8_t opacity = 255
     ) override;
 
-    void SetGpuShadersEnabled(bool enabled) noexcept {
+    void SetGpuShadersEnabled(bool enabled) noexcept override {
         m_gpuShadersEnabled = enabled;
         if (!enabled) {
             m_sonarGpuPasses.clear();
@@ -114,10 +119,10 @@ public:
     bool CaptureRegion(Rect rect, std::vector<uint32_t>& outPixels, uint32_t& outW, uint32_t& outH) override;
     bool RestoreRegion(Rect rect, const std::vector<uint32_t>& inPixels, uint32_t inW, uint32_t inH) override;
 
-    [[nodiscard]] const std::vector<SonarGpuFieldDesc>& GetSonarGpuPasses() const noexcept { return m_sonarGpuPasses; }
-    [[nodiscard]] const std::vector<SpectrogramGpuFieldDesc>& GetSpectrogramGpuPasses() const noexcept { return m_spectrogramGpuPasses; }
-    [[nodiscard]] const std::vector<WaterfallGpuFieldDesc>& GetWaterfallGpuPasses() const noexcept { return m_waterfallGpuPasses; }
-    [[nodiscard]] bool HasActiveGpuPasses() const noexcept {
+    [[nodiscard]] const std::vector<SonarGpuFieldDesc>& GetSonarGpuPasses() const noexcept override { return m_sonarGpuPasses; }
+    [[nodiscard]] const std::vector<SpectrogramGpuFieldDesc>& GetSpectrogramGpuPasses() const noexcept override { return m_spectrogramGpuPasses; }
+    [[nodiscard]] const std::vector<WaterfallGpuFieldDesc>& GetWaterfallGpuPasses() const noexcept override { return m_waterfallGpuPasses; }
+    [[nodiscard]] bool HasActiveGpuPasses() const noexcept override {
         return m_gpuShadersEnabled && (!m_sonarGpuPasses.empty() || !m_spectrogramGpuPasses.empty() || !m_waterfallGpuPasses.empty());
     }
 
@@ -131,14 +136,21 @@ private:
         bool isInlineSvg{false};
         bool isEmbedded{false};
         bool valid{false};
+        uint32_t cachedRasterW{0};
+        uint32_t cachedRasterH{0};
+        std::vector<uint32_t> cachedPixels;
     };
 
-    const ImageCacheEntry& ResolveImageEntry(std::string_view source);
+    ImageCacheEntry& ResolveImageEntry(std::string_view source);
     void ApplyClip(tvg::Paint* paint, std::optional<Rect> bounds = std::nullopt);
     void ApplyFont(tvg::Text* txt, FontStyle style) const;
     void PunchHole(Rect rect);
+    void FlushCanvas();
+    void SyncViewportClip();
 
     tvg::SwCanvas* m_canvas{nullptr};
+    tvg::SwCanvas* m_stampCanvas{nullptr};
+    std::vector<uint32_t> m_stampScratch;
     tvg::Text* m_measureText{nullptr};
     uint32_t* m_targetBuffer{nullptr};
     uint32_t m_width{0};
@@ -146,6 +158,7 @@ private:
     uint32_t m_stride{0};
     float m_scale{1.0f};
     bool m_gpuShadersEnabled{false};
+    bool m_hasPendingPaints{false};
 
     std::vector<SonarGpuFieldDesc> m_sonarGpuPasses;
     std::vector<SpectrogramGpuFieldDesc> m_spectrogramGpuPasses;
@@ -178,7 +191,93 @@ private:
         }
     };
 
+    struct TextStampKey {
+        uint64_t textHash{0};
+        uint32_t fontSizeBits{0};
+        uint32_t colorRgba{0};
+        uint16_t textLen{0};
+        uint8_t style{0};
+
+        bool operator==(const TextStampKey& o) const noexcept {
+            return textHash == o.textHash &&
+                   fontSizeBits == o.fontSizeBits &&
+                   colorRgba == o.colorRgba &&
+                   textLen == o.textLen &&
+                   style == o.style;
+        }
+    };
+
+    struct TextStampKeyHash {
+        size_t operator()(const TextStampKey& k) const noexcept {
+            uint64_t h = k.textHash;
+            h ^= static_cast<uint64_t>(k.fontSizeBits) * 0x9e3779b97f4a7c15ULL;
+            h ^= static_cast<uint64_t>(k.colorRgba) * 0xbf58476d1ce4e5b9ULL;
+            h ^= (static_cast<uint64_t>(k.textLen) << 8 | k.style) * 0x94d049bb133111ebULL;
+            return static_cast<size_t>(h);
+        }
+    };
+
+    struct TextStampEntry {
+        std::vector<uint32_t> pixels;
+        uint16_t width{0};
+        uint16_t height{0};
+        int16_t offsetX{0};
+        int16_t offsetY{0};
+        bool empty{false};
+    };
+
+    struct ShapeStampKey {
+        uint32_t fillRgba{0};
+        uint32_t strokeRgba{0};
+        uint16_t qW{0};
+        uint16_t qH{0};
+        uint16_t qRad{0};
+        uint16_t qStrokeW{0};
+
+        bool operator==(const ShapeStampKey& o) const noexcept {
+            return fillRgba == o.fillRgba &&
+                   strokeRgba == o.strokeRgba &&
+                   qW == o.qW &&
+                   qH == o.qH &&
+                   qRad == o.qRad &&
+                   qStrokeW == o.qStrokeW;
+        }
+    };
+
+    struct ShapeStampKeyHash {
+        size_t operator()(const ShapeStampKey& k) const noexcept {
+            uint64_t h = static_cast<uint64_t>(k.fillRgba) | (static_cast<uint64_t>(k.strokeRgba) << 32);
+            h ^= (static_cast<uint64_t>(k.qW) | (static_cast<uint64_t>(k.qH) << 16) |
+                  (static_cast<uint64_t>(k.qRad) << 32) | (static_cast<uint64_t>(k.qStrokeW) << 48)) * 0x9e3779b97f4a7c15ULL;
+            h ^= h >> 33;
+            return static_cast<size_t>(h * 0xff51afd7ed558ccdULL);
+        }
+    };
+
+    const TextStampEntry& ResolveTextStamp(
+        std::string_view text,
+        float scaledFontSize,
+        Color color,
+        FontStyle style
+    );
+    const TextStampEntry& ResolveShapeStamp(
+        float scaledW,
+        float scaledH,
+        float scaledRadius,
+        Color fill,
+        Color stroke,
+        float scaledStrokeWidth
+    );
+    void BlitTextStamp(
+        const TextStampEntry& stamp,
+        int dstX,
+        int dstY,
+        std::optional<Rect> extraClip = std::nullopt
+    );
+
     std::unordered_map<TextMeasureKey, Vec2, TextMeasureKeyHash> m_textMeasureCache;
+    std::unordered_map<TextStampKey, TextStampEntry, TextStampKeyHash> m_textStampCache;
+    std::unordered_map<ShapeStampKey, TextStampEntry, ShapeStampKeyHash> m_shapeStampCache;
     std::unordered_map<std::string, ImageCacheEntry> m_imageCache;
 };
 

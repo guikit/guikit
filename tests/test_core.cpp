@@ -506,8 +506,16 @@ void TestEmbeddedAndRuntimeAssets() {
     CHECK(Assets::Exists("images/lena.png"));
     CHECK(Assets::Exists("assets\\images\\lena.png"));
     CHECK(Assets::Exists("assets/fonts/Roboto-Regular.ttf"));
+    CHECK(Assets::Exists("assets/geo/demo_bay.geojson"));
     CHECK(!Assets::Exists("assets/images/architecture.svg"));
     CHECK(!Assets::Exists("assets/images/circuit.svg"));
+
+    const auto demoBay = Assets::Find("assets/geo/demo_bay.geojson");
+    CHECK(demoBay.has_value());
+    if (demoBay.has_value()) {
+        CHECK(!demoBay->Empty());
+        CHECK(demoBay->size > 800000u);
+    }
 
     const auto lena = Assets::Find("assets/images/lena.png");
     CHECK(lena.has_value());

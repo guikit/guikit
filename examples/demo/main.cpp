@@ -221,15 +221,29 @@ int main(int argc, char* argv[]) {
 
     int bufWidth = winWidth;
     int bufHeight = winHeight;
-    std::vector<uint32_t> pixelBuffer(static_cast<size_t>(bufWidth) * static_cast<size_t>(bufHeight), 0);
+    int texCapWidth = std::max(winWidth, 1920);
+    int texCapHeight = std::max(winHeight, 1080);
+#ifndef __EMSCRIPTEN__
+    {
+        SDL_Rect dispBounds{};
+        const SDL_DisplayID dispId = SDL_GetDisplayForWindow(window);
+        if (dispId != 0 && SDL_GetDisplayBounds(dispId, &dispBounds)) {
+            const float dispScale = SDL_GetWindowPixelDensity(window);
+            const float effScale = (dispScale > 0.0f) ? dispScale : 1.0f;
+            texCapWidth = std::max(texCapWidth, static_cast<int>(std::ceil(dispBounds.w * effScale)));
+            texCapHeight = std::max(texCapHeight, static_cast<int>(std::ceil(dispBounds.h * effScale)));
+        }
+    }
+#endif
+    std::vector<uint32_t> pixelBuffer(static_cast<size_t>(texCapWidth) * static_cast<size_t>(texCapHeight), 0);
     canvas.SetTarget(pixelBuffer.data(), bufWidth, bufHeight, bufWidth);
 
     SDL_Texture* screenTexture = SDL_CreateTexture(
         renderer,
         SDL_PIXELFORMAT_ABGR8888,
         SDL_TEXTUREACCESS_STREAMING,
-        bufWidth,
-        bufHeight
+        texCapWidth,
+        texCapHeight
     );
     SDL_SetTextureScaleMode(screenTexture, SDL_SCALEMODE_NEAREST);
     SDL_SetTextureBlendMode(screenTexture, SDL_BLENDMODE_BLEND_PREMULTIPLIED);
@@ -238,6 +252,7 @@ int main(int argc, char* argv[]) {
     bool running = true;
     bool vsyncEnabled = true;
     bool reactiveMode = true;
+    bool inRenderFrame = false;
 
     size_t heartbeatIndex = 2; // Default: 500 ms (2 Hz)
     const std::vector<int> heartbeatMsValues = {-1, 250, 500, 1000, 2000};
@@ -281,17 +296,42 @@ int main(int argc, char* argv[]) {
         }
     );
 
+    auto syncWindowPixelSize = [&]() -> bool {
+        int pxW = 0;
+        int pxH = 0;
+        if (SDL_GetWindowSizeInPixels(window, &pxW, &pxH) && pxW > 0 && pxH > 0) {
+            if (pxW != winWidth || pxH != winHeight) {
+                winWidth = pxW;
+                winHeight = pxH;
+                ui.InvalidateAll();
+                ui.RequestRepaint(2);
+                return true;
+            }
+        }
+        return false;
+    };
+
     auto handleEvent = [&](const SDL_Event& event) {
         switch (event.type) {
             case SDL_EVENT_QUIT:
                 running = false;
                 break;
-            case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: {
-                if (event.window.data1 > 0 && event.window.data2 > 0) {
-                    winWidth = event.window.data1;
-                    winHeight = event.window.data2;
+            case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+            case SDL_EVENT_WINDOW_RESIZED:
+            case SDL_EVENT_WINDOW_MAXIMIZED:
+            case SDL_EVENT_WINDOW_RESTORED:
+            case SDL_EVENT_WINDOW_EXPOSED: {
+                if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED &&
+                    event.window.data1 > 0 && event.window.data2 > 0) {
+                    if (winWidth != event.window.data1 || winHeight != event.window.data2) {
+                        winWidth = event.window.data1;
+                        winHeight = event.window.data2;
+                        ui.InvalidateAll();
+                        ui.RequestRepaint(2);
+                    }
+                } else if (!syncWindowPixelSize() && event.type == SDL_EVENT_WINDOW_EXPOSED) {
                     ui.InvalidateAll();
-                    ui.RequestRepaint(3);
+                    ui.RequestRepaint(1);
                 }
                 break;
             }
@@ -407,26 +447,36 @@ int main(int argc, char* argv[]) {
     };
 
     auto renderFrame = [&]() {
-        if (winWidth <= 0 || winHeight <= 0) {
+        if (inRenderFrame || winWidth <= 0 || winHeight <= 0) {
             return;
         }
+        inRenderFrame = true;
+        struct FrameGuard {
+            bool& flag;
+            ~FrameGuard() { flag = false; }
+        } frameGuard{inRenderFrame};
+
         if (winWidth != bufWidth || winHeight != bufHeight) {
             bufWidth = winWidth;
             bufHeight = winHeight;
-            pixelBuffer.assign(static_cast<size_t>(bufWidth) * static_cast<size_t>(bufHeight), 0);
-            canvas.SetTarget(pixelBuffer.data(), bufWidth, bufHeight, bufWidth);
-            if (screenTexture) {
-                SDL_DestroyTexture(screenTexture);
+            if (bufWidth > texCapWidth || bufHeight > texCapHeight) {
+                texCapWidth = std::max(texCapWidth, bufWidth);
+                texCapHeight = std::max(texCapHeight, bufHeight);
+                pixelBuffer.resize(static_cast<size_t>(texCapWidth) * static_cast<size_t>(texCapHeight));
+                if (screenTexture) {
+                    SDL_DestroyTexture(screenTexture);
+                }
+                screenTexture = SDL_CreateTexture(
+                    renderer,
+                    SDL_PIXELFORMAT_ABGR8888,
+                    SDL_TEXTUREACCESS_STREAMING,
+                    texCapWidth,
+                    texCapHeight
+                );
+                SDL_SetTextureScaleMode(screenTexture, SDL_SCALEMODE_NEAREST);
+                SDL_SetTextureBlendMode(screenTexture, SDL_BLENDMODE_BLEND_PREMULTIPLIED);
             }
-            screenTexture = SDL_CreateTexture(
-                renderer,
-                SDL_PIXELFORMAT_ABGR8888,
-                SDL_TEXTUREACCESS_STREAMING,
-                bufWidth,
-                bufHeight
-            );
-            SDL_SetTextureScaleMode(screenTexture, SDL_SCALEMODE_NEAREST);
-            SDL_SetTextureBlendMode(screenTexture, SDL_BLENDMODE_BLEND_PREMULTIPLIED);
+            canvas.SetTarget(pixelBuffer.data(), bufWidth, bufHeight, bufWidth);
             ui.InvalidateAll();
         }
 
@@ -570,7 +620,7 @@ int main(int argc, char* argv[]) {
 
                                 menu.Section("2D SCENES");
                                 menu.Item(selectedCategory, NavCategory::SceneSchematic2D,   {.text = "Schematic 2D", .icon = guikit::Icon::Search()});
-                                menu.Item(selectedCategory, NavCategory::SceneOsmMap,        {.text = "OSM Map",      .icon = guikit::Icon::Search(), .badge = "GIS"});
+                                menu.Item(selectedCategory, NavCategory::SceneOsmMap,        {.text = "GIS",          .icon = guikit::Icon::Search(), .badge = "ENC"});
                                 menu.Item(selectedCategory, NavCategory::SceneSignalView,    {.text = "Signal View",  .icon = guikit::Icon::Play(),   .badge = "DSP"});
                                 menu.Item(selectedCategory, NavCategory::SceneSonarView,     {.text = "Sonar Radar",  .icon = guikit::Icon::Search(), .badge = "DDS"});
                                 menu.Item(selectedCategory, NavCategory::SceneWaterfallView, {.text = "Waterfall",    .icon = guikit::Icon::Play(),   .badge = "DOA"});
@@ -839,7 +889,8 @@ int main(int argc, char* argv[]) {
             metrics.MarkGpuStart();
             if (ui.HasDirtyDamage()) {
                 if (ui.IsFullRepaint()) {
-                    SDL_UpdateTexture(screenTexture, nullptr, pixelBuffer.data(), winWidth * sizeof(uint32_t));
+                    const SDL_Rect fullRect = {0, 0, winWidth, winHeight};
+                    SDL_UpdateTexture(screenTexture, &fullRect, pixelBuffer.data(), winWidth * sizeof(uint32_t));
                 } else {
                     const float dpiScale = ui.GetDpiScale();
                     for (const guikit::Rect& dr : ui.GetDirtyRects()) {
@@ -859,7 +910,8 @@ int main(int argc, char* argv[]) {
             if (canvas.HasActiveGpuPasses()) {
                 gpuShaderEngine.RenderUnderlays(canvas, static_cast<uint32_t>(winWidth), static_cast<uint32_t>(winHeight));
             }
-            SDL_RenderTexture(renderer, screenTexture, nullptr, nullptr);
+            const SDL_FRect srcFRect = {0.0f, 0.0f, static_cast<float>(winWidth), static_cast<float>(winHeight)};
+            SDL_RenderTexture(renderer, screenTexture, &srcFRect, nullptr);
             metrics.MarkGpuDone();
 
             SDL_RenderPresent(renderer);
@@ -867,13 +919,12 @@ int main(int argc, char* argv[]) {
         }
 
 #ifndef __EMSCRIPTEN__
-        const auto frameEnd = std::chrono::steady_clock::now();
-        const double frameElapsedMs = std::chrono::duration<double, std::milli>(frameEnd - frameWorkStart).count();
-        const double targetFrameMs = 1000.0 / 60.0;
-        if (frameElapsedMs + 1.0 < targetFrameMs) {
-            const double remainingMs = targetFrameMs - frameElapsedMs;
-            if (!vsyncEnabled || !shouldPresent || reactiveMode) {
-                SDL_Delay(static_cast<uint32_t>(remainingMs));
+        if (!vsyncEnabled && !reactiveMode) {
+            const auto frameEnd = std::chrono::steady_clock::now();
+            const double frameElapsedMs = std::chrono::duration<double, std::milli>(frameEnd - frameWorkStart).count();
+            const double targetFrameMs = 1000.0 / 60.0;
+            if (frameElapsedMs + 1.0 < targetFrameMs) {
+                SDL_Delay(static_cast<uint32_t>(targetFrameMs - frameElapsedMs));
             }
         }
 #else
@@ -929,7 +980,29 @@ int main(int argc, char* argv[]) {
         true
     );
 #else
+    auto liveResizeWatch = [&](SDL_Event* event) -> bool {
+        if (!running || inRenderFrame || !event) {
+            return true;
+        }
+        if (event->type == SDL_EVENT_WINDOW_EXPOSED ||
+            event->type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED ||
+            event->type == SDL_EVENT_WINDOW_RESIZED ||
+            event->type == SDL_EVENT_WINDOW_MAXIMIZED ||
+            event->type == SDL_EVENT_WINDOW_RESTORED) {
+            if (syncWindowPixelSize() || event->type == SDL_EVENT_WINDOW_EXPOSED) {
+                ui.InvalidateAll();
+                renderFrame();
+            }
+        }
+        return true;
+    };
+    SDL_EventFilter watchCallback = [](void* userdata, SDL_Event* event) -> bool {
+        return (*static_cast<decltype(liveResizeWatch)*>(userdata))(event);
+    };
+    SDL_AddEventWatch(watchCallback, &liveResizeWatch);
+
     while (running) {
+        syncWindowPixelSize();
         if (reactiveMode && !ui.NeedsRepaint()) {
             const int timeoutMs = ui.GetRecommendedSleepTimeoutMs();
             SDL_Event event;
@@ -939,7 +1012,7 @@ int main(int argc, char* argv[]) {
                     handleEvent(event);
                 }
             } else {
-                if (timeoutMs <= 0 && !ui.NeedsRepaint()) {
+                if (timeoutMs <= 0 && !syncWindowPixelSize() && !ui.NeedsRepaint()) {
                     continue;
                 }
             }
@@ -956,6 +1029,8 @@ int main(int argc, char* argv[]) {
 
         renderFrame();
     }
+
+    SDL_RemoveEventWatch(watchCallback, &liveResizeWatch);
 #endif
 
     gpuShaderEngine.Shutdown();

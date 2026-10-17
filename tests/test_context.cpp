@@ -7,6 +7,8 @@
 #include "guikit/backend/SdlCanvas.hpp"
 #include "guikit/backend/SdlGlShaderEngine.hpp"
 #include "guikit/backend/ThorCanvas.hpp"
+#include "guikit/geo/GeoJsonIO.hpp"
+#include "guikit/geo/GisRenderEngine.hpp"
 #include "thorvg.h"
 
 static int g_failures = 0;
@@ -6895,6 +6897,37 @@ void TestMapViewWidgetWorkflow() {
     CHECK_NEAR(static_cast<float>(tabSwitchView.center.lat), 54.1825f, 0.25f);
     CHECK_NEAR(static_cast<float>(tabSwitchView.center.lon), 7.8853f, 0.25f);
 
+    // Verify embedded GIS chart loading (assets/geo/demo_bay.geojson) and GisRenderEngine rasterization
+    const auto chart = GeoJsonIO::LoadFromFile("assets/geo/demo_bay.geojson", true);
+    CHECK(chart.ok);
+    CHECK(!chart.layers.empty());
+    CHECK(chart.totalFeatures >= 400);
+    CHECK(chart.totalBounds.IsValid());
+
+    GisRenderStats gisStats{};
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    if (auto map = ui.MapView({
+        .crs = MapCrs::EPSG3857_WebMercator,
+        .coordFormat = GeoCoordFormat::NauticalDMM,
+        .initialCenter = chart.totalBounds.Center(),
+        .initialTileZoom = 13.0f,
+        .requestResetView = true,
+        .heightMode = SizeMode::Stretch
+    })) {
+        gisStats = GisRenderEngine::RenderLayers(
+            map,
+            chart.layers,
+            GisRenderSettings{},
+            std::nullopt,
+            {480.0f, 270.0f},
+            false
+        );
+    }
+    ui.EndFrame(canvas);
+    CHECK(gisStats.layersRendered == chart.layers.size());
+    CHECK(gisStats.featuresTotal == chart.totalFeatures);
+    CHECK(gisStats.featuresRendered > 0);
+
     std::cout << "  [PASS] TestMapViewWidgetWorkflow completed\n";
 }
 
@@ -8771,6 +8804,51 @@ void TestBpmnEditorWidgetWorkflow() {
     CHECK(diagram.FindNode(nStart)->tokenExecutionCount >= 1);
 }
 
+void TestGisDemoBayGeoJsonAndRenderEngine() {
+    using namespace guikit;
+
+    auto res = GeoJsonIO::LoadFromFile("assets/geo/demo_bay.geojson", /*splitByThematicClass=*/true);
+    CHECK(res.ok);
+    CHECK(res.layers.size() >= 5);
+    CHECK(res.totalFeatures > 100);
+    CHECK(res.totalVertices > 5000);
+    CHECK(res.totalBounds.IsValid());
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 800;
+    const uint32_t height = 600;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    GisRenderSettings settings{};
+    GisRenderStats stats{};
+
+    for (int f = 0; f < 2; ++f) {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        if (auto map = ui.MapView({
+            .crs = MapCrs::EPSG3857_WebMercator,
+            .initialCenter = res.totalBounds.Center(),
+            .initialTileZoom = 13.4f,
+            .heightMode = SizeMode::Stretch
+        })) {
+            stats = GisRenderEngine::RenderLayers(
+                map,
+                res.layers,
+                settings,
+                std::nullopt,
+                ui.GetMousePos(),
+                false
+            );
+        }
+        ui.EndFrame(canvas);
+    }
+
+    CHECK(stats.featuresTotal == res.totalFeatures);
+    CHECK(stats.featuresRendered > 0);
+    CHECK(stats.pointsSubmitted > 0);
+}
+
 int main() {
     std::cout << std::unitbuf;
     std::cerr << std::unitbuf;
@@ -8847,6 +8925,7 @@ int main() {
     TestAttitudeViewWidgetWorkflow();
     TestCarClusterViewWidgetWorkflow();
     TestBpmnEditorWidgetWorkflow();
+    TestGisDemoBayGeoJsonAndRenderEngine();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

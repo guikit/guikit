@@ -109,6 +109,10 @@ target_include_directories(guikit_core PUBLIC
 # ==============================================================================
 if (GUIKIT_BUILD_SCENES)
     set(GUIKIT_SCENES_SOURCES
+        src/guikit/geo/GeoJsonIO.cpp
+        src/guikit/geo/GeoTypes.cpp
+        src/guikit/geo/GisRenderEngine.cpp
+        src/guikit/geo/PolygonTriangulator.cpp
         src/guikit/panels/MapView.cpp
         src/guikit/widgets/AttitudeView.cpp
         src/guikit/widgets/BpmnEditor.cpp
@@ -148,6 +152,9 @@ if (GUIKIT_BUILD_BACKEND_THORVG)
     target_link_libraries(guikit_backend_thorvg PUBLIC guikit::core thorvg)
     if (NOT EMSCRIPTEN)
         target_link_libraries(guikit_backend_thorvg PUBLIC Threads::Threads)
+    endif()
+    if (TARGET guikit_scenes)
+        target_link_libraries(guikit_scenes PUBLIC guikit::backend_thorvg)
     endif()
 endif()
 
