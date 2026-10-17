@@ -1004,6 +1004,9 @@ struct SearchOverlayRects {
 
 struct DebugToolbarRects {
     Rect panelRect{};
+    Rect gripRect{};
+    float minBarX{0.0f};
+    float maxBarX{0.0f};
     std::array<Rect, 6> btnRects{}; ///< Continue, StepOver, StepInto, StepOut, Restart, Stop
 };
 
@@ -1060,7 +1063,8 @@ EditorLayoutRects ComputeEditorLayout(
     bool gotoOpen,
     std::span<const FoldRegion> foldRegions,
     std::span<const size_t> foldedLines,
-    std::vector<VisualLine>& outVisualLines
+    std::vector<VisualLine>& outVisualLines,
+    float debugToolbarRatio = -1.0f
 ) {
     EditorLayoutRects L{};
     L.toolbarSize = opts.toolbarSize.value_or(size);
@@ -1100,6 +1104,15 @@ EditorLayoutRects ComputeEditorLayout(
     L.gutterWidth = opts.showLineNumbers
         ? (L.bpColWidth + static_cast<float>(digits) * L.metrics.digitAdvance + gutterPadX * 2.0f + L.foldColWidth)
         : (L.bpColWidth + L.foldColWidth);
+
+    // Unzoomed (100%) gutter width for zoom-invariant floating toolbar track bounds
+    const EditorFontMetrics baseMetrics = ResolveEditorFontMetrics(canvas, theme, baseFontSize, 1.0f, textStyle);
+    const float baseBpColW = hasBpGutter ? std::max(theme.Scale(28.0f), baseMetrics.spaceAdvance * 3.4f) : 0.0f;
+    const float baseFoldColW = opts.codeFolding ? std::max(theme.Scale(14.0f), baseMetrics.spaceAdvance * 1.85f) : 0.0f;
+    const float baseGutterPadX = baseMetrics.spaceAdvance * 1.25f;
+    const float baseGutterW = opts.showLineNumbers
+        ? (baseBpColW + static_cast<float>(digits) * baseMetrics.digitAdvance + baseGutterPadX * 2.0f + baseFoldColW)
+        : (baseBpColW + baseFoldColW);
 
     const Rect fullInner(
         L.editorBox.x + 1.0f,
@@ -1234,6 +1247,15 @@ EditorLayoutRects ComputeEditorLayout(
     const float overlayTop = L.innerBounds.y + overlayMargin;
     float rightCursor = overlayRight;
 
+    float stableCopyReserve = 0.0f;
+    if (opts.showCopyButton && L.innerBounds.w > tbCm.defaultWidth * 1.5f) {
+        ButtonOptions stableCopyOpts{};
+        stableCopyOpts.label = "Copy";
+        stableCopyOpts.icon = Icon::Copy();
+        stableCopyOpts.size = L.toolbarSize;
+        stableCopyReserve = Button::Measure(stableCopyOpts, L.toolbarSize, canvas, theme).x + tbGap * 0.75f;
+    }
+
     if (!searchOpen && !gotoOpen) {
         if (opts.showCopyButton && L.innerBounds.w > tbCm.defaultWidth * 1.5f) {
             ButtonOptions copyOpts{};
@@ -1335,8 +1357,8 @@ EditorLayoutRects ComputeEditorLayout(
         }
     }
 
-    // Floating Debug Toolbar at top-center of textViewport — sized purely via UiSize & Button::Measure
-    if (opts.showDebugToolbar && L.textViewport.w > tbCm.defaultHeight * 6.5f) {
+    // Floating Debug Toolbar at top of editor — zoom-invariant horizontal track with Left/Center/Right & grip drag
+    if (opts.showDebugToolbar && L.innerBounds.w > tbCm.defaultHeight * 6.5f) {
         ButtonOptions dbgBtnOpts{};
         dbgBtnOpts.icon = Icon::DebugContinue();
         dbgBtnOpts.square = true;
@@ -1350,11 +1372,42 @@ EditorLayoutRects ComputeEditorLayout(
         const float gripW = tbCm.iconSize * 1.15f;
         const float sepExtra = tbGap; // Group separator slot before Restart & Stop
         const float barW = gripW + 6.0f * btnW + 5.0f * gap + sepExtra + pad * 2.0f;
-        float barX = L.textViewport.x + (L.textViewport.w - barW) * 0.5f;
+
+        // Zoom-invariant horizontal track bounds [minBarX, maxBarX]
+        const float fixedVBarReserve = (!opts.autoHeight && sm.trackWidth > 0.0f) ? (sm.trackWidth + sm.margin * 2.0f) : 0.0f;
+        const float fixedRightLimit = L.innerBounds.Right() - fixedVBarReserve - L.minimapWidth - overlayMargin - stableCopyReserve;
+        const float minBarX = L.innerBounds.x + baseGutterW + padX;
+        const float maxBarX = std::max(minBarX, fixedRightLimit - barW);
+        L.debugToolbar.minBarX = minBarX;
+        L.debugToolbar.maxBarX = maxBarX;
+
+        float barX = minBarX;
+        if (debugToolbarRatio >= 0.0f) {
+            barX = minBarX + std::clamp(debugToolbarRatio, 0.0f, 1.0f) * std::max(0.0f, maxBarX - minBarX);
+        } else if (opts.debugToolbarAlign == Align::Start) {
+            barX = minBarX;
+        } else if (opts.debugToolbarAlign == Align::End) {
+            barX = maxBarX;
+        } else {
+            // Align::Center — centered within zoom-invariant track [minBarX, maxBarX]
+            barX = std::clamp(L.innerBounds.x + (L.innerBounds.w - barW) * 0.5f, minBarX, maxBarX);
+        }
+
         if (L.searchOverlay.panelRect.w > 0.0f && barX + barW > L.searchOverlay.panelRect.x - tbGap) {
-            barX = std::max(L.textViewport.x + pad, L.searchOverlay.panelRect.x - barW - tbGap);
+            barX = std::max(minBarX, L.searchOverlay.panelRect.x - barW - tbGap);
         }
         L.debugToolbar.panelRect = Rect(barX, overlayTop, barW, btnH2 + pad * 2.0f);
+        L.debugToolbar.gripRect = Rect(barX, overlayTop, pad + gripW, btnH2 + pad * 2.0f);
+
+        // If the zoom % badge is visible and overlaps the debug toolbar, shift the zoom badge to the left of the debug toolbar
+        if (L.zoomBtnRect.w > 0.0f) {
+            const float overlapPad = tbGap * 0.75f;
+            if (L.debugToolbar.panelRect.Right() + overlapPad > L.zoomBtnRect.x &&
+                L.debugToolbar.panelRect.x < L.zoomBtnRect.Right() + overlapPad) {
+                L.zoomBtnRect.x = L.debugToolbar.panelRect.x - overlapPad - L.zoomBtnRect.w;
+            }
+        }
+
         float bx = barX + pad + gripW;
         for (size_t i = 0; i < 6; ++i) {
             if (i == 4) {
@@ -1829,6 +1882,11 @@ TextAreaResponse TextArea::Run(
     }
     state.zoom = std::clamp(state.zoom, 0.5f, 3.0f);
 
+    if (opts.debugToolbarAlign != state.lastDebugToolbarAlign) {
+        state.lastDebugToolbarAlign = opts.debugToolbarAlign;
+        state.debugToolbarRatio = -1.0f;
+    }
+
     if (opts.allowZoom && !effectiveDisabled && (isFocused || res.hovered)) {
         if (ctx.ConsumeAction(KeyAction::ZoomIn)) {
             state.zoom = std::clamp(state.zoom + 0.10f, 0.5f, 3.0f);
@@ -1857,6 +1915,7 @@ TextAreaResponse TextArea::Run(
         state.draggingVThumb = false;
         state.draggingHThumb = false;
         state.draggingMinimap = false;
+        state.draggingDebugToolbar = false;
     }
 
     const double now = ctx.GetCurrentTime();
@@ -1996,7 +2055,8 @@ TextAreaResponse TextArea::Run(
         refBounds, valStr, logicalLines, optsCopy, activeSize, canvas, theme,
         state.zoom, state.scrollX, state.scrollY, copyFeedbackActive,
         state.searchOpen, state.replaceOpen, state.gotoOpen,
-        foldRegions, state.foldedLines, visualLines
+        foldRegions, state.foldedLines, visualLines,
+        state.debugToolbarRatio
     );
 
     auto scrollLogicalLineIntoView = [&](size_t line0Based) {
@@ -2335,7 +2395,8 @@ TextAreaResponse TextArea::Run(
         refBounds, valStr, logicalLines, optsCopy, activeSize, canvas, theme,
         state.zoom, state.scrollX, state.scrollY, copyFeedbackActive,
         state.searchOpen, state.replaceOpen, state.gotoOpen,
-        foldRegions, state.foldedLines, visualLines
+        foldRegions, state.foldedLines, visualLines,
+        state.debugToolbarRatio
     );
 
     const Vec2 mousePos = ctx.GetMousePos();
@@ -2364,7 +2425,7 @@ TextAreaResponse TextArea::Run(
         else hoveredOverlayBtn = 99;
     }
 
-    // Hit-test Debug Toolbar buttons
+    // Hit-test Debug Toolbar buttons & 6-dot drag grip handle
     int hoveredDebugBtn = -1;
     if (opts.showDebugToolbar && res.hovered && L.debugToolbar.panelRect.w > 0.0f && L.debugToolbar.panelRect.Contains(mousePos)) {
         for (int i = 0; i < 6; ++i) {
@@ -2373,7 +2434,9 @@ TextAreaResponse TextArea::Run(
                 break;
             }
         }
-        if (hoveredDebugBtn < 0) hoveredDebugBtn = 99;
+        if (hoveredDebugBtn < 0) {
+            hoveredDebugBtn = L.debugToolbar.gripRect.Contains(mousePos) ? 98 : 99;
+        }
     }
 
     // Hit-test Gutter (Breakpoints & Code Folding chevrons)
@@ -2408,7 +2471,8 @@ TextAreaResponse TextArea::Run(
                         refBounds, valStr, logicalLines, optsCopy, activeSize, canvas, theme,
                         state.zoom, state.scrollX, state.scrollY, copyFeedbackActive,
                         state.searchOpen, state.replaceOpen, state.gotoOpen,
-                        foldRegions, state.foldedLines, visualLines
+                        foldRegions, state.foldedLines, visualLines,
+                        state.debugToolbarRatio
                     );
                 }
                 ctx.ConsumeMouseWheel();
@@ -2464,6 +2528,25 @@ TextAreaResponse TextArea::Run(
             else if (hoveredDebugBtn == 3) res.debugAction = CodeDebugAction::StepOut;
             else if (hoveredDebugBtn == 4) res.debugAction = CodeDebugAction::Restart;
             else if (hoveredDebugBtn == 5) res.debugAction = CodeDebugAction::Stop;
+            else if (hoveredDebugBtn == 98 || hoveredDebugBtn == 99) {
+                const float dist = (mousePos - state.lastClickPos).Length();
+                if ((now - state.lastClickTime) <= 0.35 && dist <= 6.0f) {
+                    state.debugToolbarRatio = -1.0f;
+                    state.draggingDebugToolbar = false;
+                    L = ComputeEditorLayout(
+                        refBounds, valStr, logicalLines, optsCopy, activeSize, canvas, theme,
+                        state.zoom, state.scrollX, state.scrollY, copyFeedbackActive,
+                        state.searchOpen, state.replaceOpen, state.gotoOpen,
+                        foldRegions, state.foldedLines, visualLines,
+                        state.debugToolbarRatio
+                    );
+                } else {
+                    state.draggingDebugToolbar = true;
+                    state.debugToolbarGrabOffset = mousePos.x - L.debugToolbar.panelRect.x;
+                }
+                state.lastClickTime = now;
+                state.lastClickPos = mousePos;
+            }
         } else if (hoveredFoldLine >= 0) {
             consumedByChrome = true;
             const size_t fl = static_cast<size_t>(hoveredFoldLine);
@@ -2477,7 +2560,8 @@ TextAreaResponse TextArea::Run(
                 refBounds, valStr, logicalLines, optsCopy, activeSize, canvas, theme,
                 state.zoom, state.scrollX, state.scrollY, copyFeedbackActive,
                 state.searchOpen, state.replaceOpen, state.gotoOpen,
-                foldRegions, state.foldedLines, visualLines
+                foldRegions, state.foldedLines, visualLines,
+                state.debugToolbarRatio
             );
         } else if (hoveredGutterLine >= 0) {
             consumedByChrome = true;
@@ -2498,7 +2582,8 @@ TextAreaResponse TextArea::Run(
                 refBounds, valStr, logicalLines, optsCopy, activeSize, canvas, theme,
                 state.zoom, state.scrollX, state.scrollY, copyFeedbackActive,
                 state.searchOpen, state.replaceOpen, state.gotoOpen,
-                foldRegions, state.foldedLines, visualLines
+                foldRegions, state.foldedLines, visualLines,
+                state.debugToolbarRatio
             );
         } else if (minimapHovered) {
             consumedByChrome = true;
@@ -2533,6 +2618,21 @@ TextAreaResponse TextArea::Run(
         }
     }
 
+    if (state.draggingDebugToolbar && ctx.IsMouseDown() && opts.showDebugToolbar && L.debugToolbar.panelRect.w > 0.0f) {
+        hoveredDebugBtn = 98;
+        const float travel = L.debugToolbar.maxBarX - L.debugToolbar.minBarX;
+        if (travel > 0.5f) {
+            const float targetX = mousePos.x - state.debugToolbarGrabOffset;
+            state.debugToolbarRatio = std::clamp((targetX - L.debugToolbar.minBarX) / travel, 0.0f, 1.0f);
+            L = ComputeEditorLayout(
+                refBounds, valStr, logicalLines, optsCopy, activeSize, canvas, theme,
+                state.zoom, state.scrollX, state.scrollY, copyFeedbackActive,
+                state.searchOpen, state.replaceOpen, state.gotoOpen,
+                foldRegions, state.foldedLines, visualLines,
+                state.debugToolbarRatio
+            );
+        }
+    }
     if (state.draggingMinimap && ctx.IsMouseDown() && L.hasMinimap && L.minimapRect.h > 0.0f) {
         const float microStep = theme.Scale(3.0f);
         const float totalMiniH = std::max(1.0f, static_cast<float>(visualLines.size()) * microStep);
@@ -2717,7 +2817,8 @@ TextAreaResponse TextArea::Run(
                 refBounds, displayText, logicalLines, optsCopy, activeSize, canvas, theme,
                 state.zoom, state.scrollX, state.scrollY, copyFeedbackActive,
                 state.searchOpen, state.replaceOpen, state.gotoOpen,
-                foldRegions, state.foldedLines, visualLines
+                foldRegions, state.foldedLines, visualLines,
+                state.debugToolbarRatio
             );
         }
 
@@ -2733,7 +2834,8 @@ TextAreaResponse TextArea::Run(
                 refBounds, displayText, logicalLines, optsCopy, activeSize, canvas, theme,
                 state.zoom, state.scrollX, state.scrollY, copyFeedbackActive,
                 state.searchOpen, state.replaceOpen, state.gotoOpen,
-                foldRegions, state.foldedLines, visualLines
+                foldRegions, state.foldedLines, visualLines,
+                state.debugToolbarRatio
             );
         }
 
@@ -2786,6 +2888,8 @@ TextAreaResponse TextArea::Run(
             "Stop Debugging (Shift+F5)"
         };
         ctx.SetTooltip(kDbgTips[static_cast<size_t>(hoveredDebugBtn)], L.debugToolbar.btnRects[static_cast<size_t>(hoveredDebugBtn)]);
+    } else if (hoveredDebugBtn == 98 && !state.draggingDebugToolbar) {
+        ctx.SetTooltip("Drag to move Debug Toolbar (Double-click to reset)", L.debugToolbar.gripRect);
     } else if (hoveredOverlayBtn >= 0) {
         static constexpr std::array<std::string_view, 8> kOverlayTips = {
             "Toggle Replace (Ctrl+H)",
@@ -2873,6 +2977,8 @@ TextAreaResponse TextArea::Run(
         data->hThumbDragging = state.draggingHThumb;
         data->minimapHovered = minimapHovered;
         data->minimapDragging = state.draggingMinimap;
+        data->debugToolbarDragging = state.draggingDebugToolbar;
+        data->debugToolbarRatio = state.debugToolbarRatio;
         data->searchOpen = state.searchOpen;
         data->replaceOpen = state.replaceOpen;
         data->gotoOpen = state.gotoOpen;
@@ -2938,6 +3044,9 @@ TextAreaResponse TextArea::Run(
         optsCopy.codeFolding,
         optsCopy.executionLine,
         optsCopy.showDebugToolbar,
+        static_cast<uint8_t>(optsCopy.debugToolbarAlign),
+        state.debugToolbarRatio,
+        state.draggingDebugToolbar,
         optsCopy.toolbarSize.value_or(activeSize),
         markersHash,
         state.foldedLines.size(),
@@ -3115,7 +3224,8 @@ void TextArea::Render(
         effZoom, effScrollX, effScrollY,
         extData ? extData->copyFeedbackActive : false,
         searchOpen, replaceOpen, gotoOpen,
-        foldRegions, foldedLines, visualLines
+        foldRegions, foldedLines, visualLines,
+        extData ? extData->debugToolbarRatio : -1.0f
     );
 
     // 1. Render external Element header, icon, badge, description, and divider
@@ -3838,7 +3948,10 @@ void TextArea::Render(
     const float btnRad = tbCm.cornerRadius;
     if (opts.showDebugToolbar && L.debugToolbar.panelRect.w > 0.0f) {
         const auto& DT = L.debugToolbar;
-        canvas.DrawRoundRect(DT.panelRect, btnRad + theme.Scale(3.0f), pal.surfaceElevated.WithAlphaF(0.97f), pal.borderHover, theme.Scale(1.2f));
+        const bool gripDragging = extData && extData->debugToolbarDragging;
+        const bool gripHovered = extData && (extData->hoveredDebugBtn == 98 || gripDragging);
+        const Color dtBorderCol = gripDragging ? pal.focusRing : (gripHovered ? pal.textSecondary : pal.borderHover);
+        canvas.DrawRoundRect(DT.panelRect, btnRad + theme.Scale(3.0f), pal.surfaceElevated.WithAlphaF(0.97f), dtBorderCol, theme.Scale(gripDragging ? 1.5f : 1.2f));
 
         // Draw VS Code-style 6-dot drag grip on the left side of the floating debug toolbar
         const float gripSlotW = DT.btnRects[0].x - DT.panelRect.x;
@@ -3847,7 +3960,7 @@ void TextArea::Render(
         const float dotStepX = tbCm.iconSize * 0.28f;
         const float gripX = DT.panelRect.x + (gripSlotW - dotStepX - dotSz) * 0.5f;
         const float gripCy = DT.panelRect.y + DT.panelRect.h * 0.5f;
-        const Color gripCol = pal.textMuted.WithAlphaF(0.70f);
+        const Color gripCol = gripDragging ? pal.focusRing : (gripHovered ? pal.textPrimary : pal.textMuted.WithAlphaF(0.75f));
         for (int r = -1; r <= 1; ++r) {
             const float dy = gripCy + static_cast<float>(r) * dotStepY - dotSz * 0.5f;
             canvas.DrawRoundRect(Rect(gripX, dy, dotSz, dotSz), dotSz * 0.5f, gripCol);

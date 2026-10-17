@@ -45,6 +45,10 @@ struct CodeEditorState {
     };
     static constexpr std::array<std::string_view, 5> customKeywords = {"rule", "when", "then", "emit", "alert"};
     static constexpr std::array<std::string_view, 4> customTypes = {"Sensor", "Signal", "Threshold", "Millis"};
+    size_t debugToolbarAlignIdx = 1; // 0 = Left (Start), 1 = Center, 2 = Right (End)
+    static constexpr std::array<std::string_view, 3> debugToolbarAlignLabels = {
+        "Left", "Center", "Right"
+    };
 
     std::string editorBuffer;
     std::vector<size_t> breakpoints;
@@ -440,6 +444,15 @@ void RenderCodeEditorInspector(guikit::Context& ui, DemoContext&) {
     if (ui.Switch(s_state.showIndentGuides, {.label = "Show Indent Guides"}).changed) ui.InvalidateAll();
     if (ui.Switch(s_state.showStatusBar, {.label = "Show IDE Status Bar"}).changed) ui.InvalidateAll();
     if (ui.Switch(s_state.showDebugToolbar, {.label = "Floating Debug Toolbar"}).changed) ui.InvalidateAll();
+    if (s_state.showDebugToolbar) {
+        if (ui.StepSlider(s_state.debugToolbarAlignIdx, CodeEditorState::debugToolbarAlignLabels, {
+            .label = "Debug Toolbar Position",
+            .showTicks = true,
+            .showLabels = true
+        }).changed) {
+            ui.InvalidateAll();
+        }
+    }
     if (ui.Switch(s_state.showInlineValues, {.label = "Inline Debug Values"}).changed) {
         s_state.RebuildDynamicDebugData();
         ui.InvalidateAll();
@@ -497,6 +510,10 @@ void RenderCodeEditorStage(guikit::Context& ui, DemoContext& ctx) {
         default: break;
     }
 
+    const guikit::Align dbgAlign = (s_state.debugToolbarAlignIdx == 0)
+        ? guikit::Align::Start
+        : ((s_state.debugToolbarAlignIdx == 2) ? guikit::Align::End : guikit::Align::Center);
+
     auto resp = ui.TextArea(s_state.editorBuffer, {
         .label = s_state.showLabel ? "Code Editor & Debugger" : "",
         .description = s_state.showDesc ? std::string_view(s_state.lastDebugEvent) : std::string_view{},
@@ -526,6 +543,7 @@ void RenderCodeEditorStage(guikit::Context& ui, DemoContext& ctx) {
         .executionLine = s_state.executionLine,
         .executionLinePtr = &s_state.executionLine,
         .showDebugToolbar = s_state.showDebugToolbar,
+        .debugToolbarAlign = dbgAlign,
         .diagnostics = s_state.diagnostics,
         .inlineValues = s_state.inlineValues,
         .debugVariables = s_state.debugVariables
@@ -558,6 +576,10 @@ std::string GenerateCodeEditorCode(const DemoContext& ctx) {
     else if (s_state.colorScheme == 6) palLine = "guikit::SyntaxPalette::Solarized()";
     else if (s_state.colorScheme == 7) palLine = "guikit::SyntaxPalette::GitHubLight()";
 
+    const std::string_view dbgAlignStr = (s_state.debugToolbarAlignIdx == 0)
+        ? "guikit::Align::Start"
+        : ((s_state.debugToolbarAlignIdx == 2) ? "guikit::Align::End" : "guikit::Align::Center");
+
     return std::format(
         "auto resp = ui.TextArea(sourceBuffer, {{\n"
         "    .size = guikit::UiSize::{},\n"
@@ -568,6 +590,7 @@ std::string GenerateCodeEditorCode(const DemoContext& ctx) {
         "    .codeFolding = {},\n"
         "    .showIndentGuides = {},\n"
         "    .showDebugToolbar = {},\n"
+        "    .debugToolbarAlign = {},\n"
         "    .breakpoints = &breakpoints,\n"
         "    .executionLine = debugExecLine,\n"
         "    .diagnostics = diagnostics,\n"
@@ -588,6 +611,7 @@ std::string GenerateCodeEditorCode(const DemoContext& ctx) {
         s_state.codeFolding ? "true" : "false",
         s_state.showIndentGuides ? "true" : "false",
         s_state.showDebugToolbar ? "true" : "false",
+        dbgAlignStr,
         synLine,
         palLine
     );

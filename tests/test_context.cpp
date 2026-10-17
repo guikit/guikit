@@ -7938,6 +7938,88 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
     renderIde();
     ui.EndFrame(canvas);
 
+    // 7. Test Debug Toolbar grip dragging and debugToolbarAlign presets (Start / Center / End)
+    Align dbgAlign = Align::Start;
+    auto renderIdeAligned = [&]() {
+        lastResp = ui.TextArea(code, {
+            .label = "MATLAB IDE",
+            .fixedHeight = 420.0f,
+            .autoHeight = false,
+            .showLineNumbers = true,
+            .syntax = matSyn,
+            .syntaxPalette = monoPal,
+            .showMinimap = true,
+            .showStatusBar = true,
+            .showIndentGuides = true,
+            .showWhitespace = true,
+            .codeFolding = true,
+            .enableBreakpoints = true,
+            .breakpoints = &breakpoints,
+            .executionLine = execLine,
+            .executionLinePtr = &execLine,
+            .showDebugToolbar = true,
+            .debugToolbarAlign = dbgAlign,
+            .diagnostics = diagnostics,
+            .inlineValues = inlineValues,
+            .debugVariables = debugVars
+        });
+    };
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIdeAligned();
+    ui.EndFrame(canvas);
+    if (const auto* st = ui.FindState<TextAreaState>(lastResp.id)) {
+        CHECK(st->lastDebugToolbarAlign == Align::Start);
+        CHECK(st->debugToolbarRatio < 0.0f);
+    }
+
+    // Switch alignment to Center and grab the 6-dot grip handle on the left of the centered debug toolbar
+    dbgAlign = Align::Center;
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIdeAligned();
+    ui.EndFrame(canvas);
+
+    // The centered debug toolbar's left grip is near the horizontal center minus half the toolbar width (~95px)
+    const float gripX = lastResp.rect.x + lastResp.rect.w * 0.5f - 88.0f;
+    const float gripY = lastResp.rect.y + 42.0f;
+    ui.OnMouseMove({gripX, gripY});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIdeAligned();
+    ui.EndFrame(canvas);
+    if (const auto* st = ui.FindState<TextAreaState>(lastResp.id)) {
+        CHECK(st->draggingDebugToolbar);
+    }
+
+    // Drag the toolbar grip 120px to the right
+    ui.OnMouseMove({gripX + 120.0f, gripY});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIdeAligned();
+    ui.EndFrame(canvas);
+    if (const auto* st = ui.FindState<TextAreaState>(lastResp.id)) {
+        CHECK(st->draggingDebugToolbar);
+        CHECK(st->debugToolbarRatio > 0.5f);
+    }
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIdeAligned();
+    ui.EndFrame(canvas);
+    if (const auto* st = ui.FindState<TextAreaState>(lastResp.id)) {
+        CHECK(!st->draggingDebugToolbar);
+        CHECK(st->debugToolbarRatio > 0.5f);
+    }
+
+    // Changing debugToolbarAlign to Align::End resets custom ratio back to preset
+    dbgAlign = Align::End;
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderIdeAligned();
+    ui.EndFrame(canvas);
+    if (const auto* st = ui.FindState<TextAreaState>(lastResp.id)) {
+        CHECK(st->lastDebugToolbarAlign == Align::End);
+        CHECK(st->debugToolbarRatio < 0.0f);
+    }
+
     std::cout << "  [PASS] TestCodeEditorIdeAndDebuggerWorkflow completed\n";
 }
 

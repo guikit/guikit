@@ -190,6 +190,7 @@ struct TextAreaOptions {
     size_t executionLine{0};                            ///< Active debugger instruction pointer (1-based line, 0 = none)
     size_t* executionLinePtr{nullptr};                  ///< Optional pointer to external executionLine shifted automatically on edits
     bool showDebugToolbar{false};                       ///< Show floating debugger toolbar (Continue, Step Over/Into/Out, Stop)
+    Align debugToolbarAlign{Align::Center};             ///< Horizontal placement of floating debug toolbar (Start=Left, Center, End=Right)
     std::optional<UiSize> toolbarSize{std::nullopt};    ///< Optional UiSize override for floating debug/search/action toolbars (nullopt = inherit editor size)
     std::span<const CodeDiagnostic> diagnostics{};      ///< Inline compiler/linter diagnostics (wavy squiggles + tooltips)
     std::span<const CodeInlineValue> inlineValues{};    ///< Live debugger inline variable values at end of lines
@@ -216,7 +217,11 @@ struct TextAreaState {
     bool draggingVThumb{false};
     bool draggingHThumb{false};
     bool draggingMinimap{false};
+    bool draggingDebugToolbar{false};
     float dragGrabOffset{0.0f};
+    float debugToolbarGrabOffset{0.0f};
+    float debugToolbarRatio{-1.0f}; ///< Custom horizontal ratio [0..1] when dragged (-1 = use debugToolbarAlign)
+    Align lastDebugToolbarAlign{Align::Center};
     double lastClickTime{-10.0};
     Vec2 lastClickPos{-1000.0f, -1000.0f};
     int clickCount{0};
@@ -270,6 +275,8 @@ struct TextAreaData {
     bool hThumbDragging{false};
     bool minimapHovered{false};
     bool minimapDragging{false};
+    bool debugToolbarDragging{false};
+    float debugToolbarRatio{-1.0f};
 
     // Search & Replace overlay snapshot
     bool searchOpen{false};
@@ -290,7 +297,7 @@ struct TextAreaData {
     std::span<const size_t> breakpoints{};
     int hoveredGutterLine{-1};      ///< 0-based line hovered in breakpoint gutter
     int hoveredFoldLine{-1};        ///< 0-based line hovered in folding chevron area
-    int hoveredDebugBtn{-1};        ///< Hovered button index in floating debug toolbar
+    int hoveredDebugBtn{-1};        ///< Hovered button index in floating debug toolbar (0..5 = buttons, 98 = grip)
     std::string_view hoveredWord{}; ///< Identifier currently under mouse cursor
     size_t hoveredWordLine{0};      ///< 0-based line of hoveredWord
     size_t hoveredWordCol{0};       ///< 0-based start col of hoveredWord
