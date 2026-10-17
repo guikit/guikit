@@ -93,6 +93,7 @@ enum class NodeType : uint16_t {
     ImageView      = 223,
     AttitudeView   = 224,
     CarClusterView = 225,
+    BpmnEditor     = 226,
 
     // --- User Extension Base (1000+) ---
     User          = 1000

@@ -58,6 +58,7 @@
 #include "guikit/widgets/Histogram.hpp"
 #include "guikit/widgets/ImageView.hpp"
 #include "guikit/widgets/AttitudeView.hpp"
+#include "guikit/widgets/BpmnEditor.hpp"
 #include "guikit/widgets/CarClusterView.hpp"
 
 namespace guikit {
@@ -498,6 +499,15 @@ public:
         std::source_location loc = std::source_location::current()
     ) {
         return Run<guikit::CarClusterView>(opts, loc);
+    }
+
+    // --- BpmnEditor (BPMN 2.0 Diagram Modeler & Token Simulation) Widget ---
+    BpmnEditorResponse BpmnEditor(
+        BpmnDiagram& diagram,
+        const BpmnEditorOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::BpmnEditor>(diagram, opts, loc);
     }
 
     // --- Switch Widget ---

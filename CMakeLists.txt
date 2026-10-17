@@ -37,6 +37,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/core/ContainerScope.cpp
     src/guikit/core/Response.cpp
     src/guikit/core/Theme.cpp
+    src/guikit/core/Assets.cpp
     src/guikit/core/TextUtil.cpp
     src/guikit/core/Control.cpp
     src/guikit/core/Element.cpp
@@ -72,7 +73,28 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/widgets/TextArea.cpp
 )
 
-add_library(guikit_core STATIC ${GUIKIT_CORE_SOURCES})
+file(GLOB_RECURSE GUIKIT_EMBEDDED_ASSET_FILES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/assets/*"
+)
+set(GUIKIT_GENERATED_ASSETS_CPP "${CMAKE_CURRENT_BINARY_DIR}/generated/EmbeddedAssets.cpp")
+
+add_custom_command(
+    OUTPUT "${GUIKIT_GENERATED_ASSETS_CPP}"
+    COMMAND "${CMAKE_COMMAND}"
+        "-DASSETS_DIR=${CMAKE_CURRENT_SOURCE_DIR}/assets"
+        "-DOUTPUT_FILE=${GUIKIT_GENERATED_ASSETS_CPP}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenerateEmbeddedAssets.cmake"
+    DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenerateEmbeddedAssets.cmake"
+        ${GUIKIT_EMBEDDED_ASSET_FILES}
+    COMMENT "Embedding GuiKit assets into C++ binary (Native + WASM)"
+    VERBATIM
+)
+
+add_library(guikit_core STATIC
+    ${GUIKIT_CORE_SOURCES}
+    "${GUIKIT_GENERATED_ASSETS_CPP}"
+)
 add_library(guikit::core ALIAS guikit_core)
 
 target_compile_features(guikit_core PUBLIC cxx_std_20)
@@ -89,6 +111,7 @@ if (GUIKIT_BUILD_SCENES)
     set(GUIKIT_SCENES_SOURCES
         src/guikit/panels/MapView.cpp
         src/guikit/widgets/AttitudeView.cpp
+        src/guikit/widgets/BpmnEditor.cpp
         src/guikit/widgets/CarClusterView.cpp
         src/guikit/widgets/SignalView.cpp
         src/guikit/widgets/SonarView.cpp
@@ -199,6 +222,7 @@ if (GUIKIT_BUILD_DEMO)
         examples/demo/scenes/ImageViewScreen.cpp
         examples/demo/scenes/AttitudeScreen.cpp
         examples/demo/scenes/CarDashboardScreen.cpp
+        examples/demo/scenes/BpmnScreen.cpp
         examples/demo/assemblies/DashboardScreen.cpp
         examples/demo/assemblies/FormControlsScreen.cpp
         examples/demo/assemblies/FlexRibbonScreen.cpp
@@ -214,7 +238,7 @@ if (GUIKIT_BUILD_DEMO)
             "-sMAX_WEBGL_VERSION=2"
             "-sMIN_WEBGL_VERSION=1"
             "-sEXIT_RUNTIME=0"
-            "--preload-file" "${CMAKE_CURRENT_SOURCE_DIR}/assets@assets"
+            "--embed-file" "${CMAKE_CURRENT_SOURCE_DIR}/assets@assets"
             "--shell-file" "${CMAKE_CURRENT_SOURCE_DIR}/examples/demo/shell.html"
         )
     endif()

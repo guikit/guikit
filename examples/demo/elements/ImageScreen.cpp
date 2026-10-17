@@ -9,14 +9,12 @@ namespace {
 
 struct ImageState {
     size_t sourceIdx = 0;
-    static constexpr std::array<std::string_view, 3> sources = {
-        "assets/images/architecture.svg",
-        "assets/images/circuit.svg",
-        "assets/images/missing_preview.svg"
+    static constexpr std::array<std::string_view, 2> sources = {
+        "assets/images/lena.png",
+        "assets/images/missing_preview.png"
     };
-    static constexpr std::array<std::string_view, 3> sourceNames = {
-        "Architecture Diagram (SVG)",
-        "Circuit Schematic (SVG)",
+    static constexpr std::array<std::string_view, 2> sourceNames = {
+        "Lena (assets/images/lena.png)",
         "Missing Asset (Alt Fallback)"
     };
     std::string altText = "Fallback: asset unavailable";

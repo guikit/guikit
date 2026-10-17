@@ -124,8 +124,12 @@ public:
 private:
     struct ImageCacheEntry {
         std::string resolvedDataOrPath;
+        const uint8_t* embeddedData{nullptr};
+        size_t embeddedSize{0};
+        std::string embeddedMimeType;
         Vec2 size{0.0f, 0.0f};
         bool isInlineSvg{false};
+        bool isEmbedded{false};
         bool valid{false};
     };
 

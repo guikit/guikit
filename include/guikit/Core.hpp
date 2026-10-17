@@ -8,6 +8,7 @@
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Allocator.hpp"
+#include "guikit/core/Assets.hpp"
 #include "guikit/core/ContainerScope.hpp"
 #include "guikit/core/Control.hpp"
 #include "guikit/core/Element.hpp"

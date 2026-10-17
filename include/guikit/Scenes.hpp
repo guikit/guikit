@@ -8,6 +8,7 @@
 #include "guikit/panels/MapView.hpp"
 #include "guikit/panels/Scene.hpp"
 #include "guikit/widgets/AttitudeView.hpp"
+#include "guikit/widgets/BpmnEditor.hpp"
 #include "guikit/widgets/CarClusterView.hpp"
 #include "guikit/widgets/SignalView.hpp"
 #include "guikit/widgets/SonarView.hpp"

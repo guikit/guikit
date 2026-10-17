@@ -3,6 +3,7 @@
 #include <cmath>
 #include <iostream>
 #include <thread>
+#include "guikit/core/Assets.hpp"
 #include "guikit/core/TextUtil.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "thorvg.h"
@@ -29,7 +30,7 @@ ThorCanvas::ThorCanvas() {
     tvg::Initializer::init(0);
     m_canvas = tvg::SwCanvas::gen(tvg::EngineOption::None);
 
-    // Auto-detect default fonts across common asset and system locations
+    // Auto-detect default fonts across embedded assets and system locations
     const char* defaultFontCandidates[] = {
         "assets/fonts/Roboto-Regular.ttf",
         "../assets/fonts/Roboto-Regular.ttf",
@@ -90,6 +91,24 @@ void ThorCanvas::SetTarget(uint32_t* buffer, uint32_t width, uint32_t height, ui
 
 bool ThorCanvas::LoadFontFile(const std::string& path) {
     if (path.empty()) return false;
+
+    if (auto asset = Assets::Find(path); asset && !asset->Empty()) {
+        const std::string fontName = ExtractFontName(path);
+        const char* mime = asset->mimeType.empty() ? "ttf" : asset->mimeType.data();
+        if (tvg::Text::load(
+                fontName.c_str(),
+                reinterpret_cast<const char*>(asset->data),
+                static_cast<uint32_t>(asset->size),
+                mime,
+                false) == tvg::Result::Success) {
+            m_defaultFontPath = Assets::NormalizePath(path);
+            m_defaultFontName = fontName;
+            m_fontLoaded = true;
+            m_textMeasureCache.clear();
+            return true;
+        }
+    }
+
     tvg::Result res = tvg::Text::load(path.c_str());
     if (res == tvg::Result::Success) {
         m_defaultFontPath = path;
@@ -103,6 +122,24 @@ bool ThorCanvas::LoadFontFile(const std::string& path) {
 
 bool ThorCanvas::LoadMonospaceFontFile(const std::string& path) {
     if (path.empty()) return false;
+
+    if (auto asset = Assets::Find(path); asset && !asset->Empty()) {
+        const std::string fontName = ExtractFontName(path);
+        const char* mime = asset->mimeType.empty() ? "ttf" : asset->mimeType.data();
+        if (tvg::Text::load(
+                fontName.c_str(),
+                reinterpret_cast<const char*>(asset->data),
+                static_cast<uint32_t>(asset->size),
+                mime,
+                false) == tvg::Result::Success) {
+            m_monoFontPath = Assets::NormalizePath(path);
+            m_monoFontName = fontName;
+            m_monoFontLoaded = true;
+            m_textMeasureCache.clear();
+            return true;
+        }
+    }
+
     tvg::Result res = tvg::Text::load(path.c_str());
     if (res == tvg::Result::Success) {
         m_monoFontPath = path;
@@ -587,7 +624,28 @@ const ThorCanvas::ImageCacheEntry& ThorCanvas::ResolveImageEntry(std::string_vie
                 entry.valid = true;
             }
         }
-    } else {
+    } else if (auto asset = Assets::Find(key); asset && !asset->Empty()) {
+        const std::string mimeStr(asset->mimeType);
+        const char* mime = mimeStr.empty() ? nullptr : mimeStr.c_str();
+        if (probe->load(reinterpret_cast<const char*>(asset->data),
+                        static_cast<uint32_t>(asset->size),
+                        mime,
+                        nullptr,
+                        false) == tvg::Result::Success) {
+            float w = 0.0f, h = 0.0f;
+            probe->size(&w, &h);
+            if (w > 0.0f && h > 0.0f) {
+                entry.embeddedData = asset->data;
+                entry.embeddedSize = asset->size;
+                entry.embeddedMimeType = mimeStr;
+                entry.isEmbedded = true;
+                entry.size = {w, h};
+                entry.valid = true;
+            }
+        }
+    }
+
+    if (!entry.valid && !entry.isInlineSvg) {
         const char* prefixes[] = {"", "../", "../../", "../../../"};
         for (const char* prefix : prefixes) {
             std::string candidate = std::string(prefix) + key;
@@ -643,6 +701,13 @@ bool ThorCanvas::DrawImage(
         res = pic->load(entry.resolvedDataOrPath.data(),
                         static_cast<uint32_t>(entry.resolvedDataOrPath.size()),
                         "svg",
+                        nullptr,
+                        false);
+    } else if (entry.isEmbedded) {
+        const char* mime = entry.embeddedMimeType.empty() ? nullptr : entry.embeddedMimeType.c_str();
+        res = pic->load(reinterpret_cast<const char*>(entry.embeddedData),
+                        static_cast<uint32_t>(entry.embeddedSize),
+                        mime,
                         nullptr,
                         false);
     } else {

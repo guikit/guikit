@@ -96,16 +96,16 @@ Welcome to **GuiKit's** native vector `ui.Markdown` viewer! Everything is parsed
 > [!TIP]
 > Hold **Ctrl + MouseWheel** (or press `Ctrl+=` / `Ctrl+-` / `Ctrl+0`) to smoothly zoom, click and drag to **select text** across blocks, press `Ctrl+C` to copy, or press `Ctrl+F` to search!
 
-## 1. Architecture Diagram (`assets/images/architecture.svg`)
+## 1. Embedded Image Asset (`assets/images/lena.png`)
 
-![GuiKit 4-Layer Architecture: Solver -> Scene -> ThorVG](assets/images/architecture.svg)
+![Lena Standard Test Image (512x512 PNG — Embedded Native & WASM Asset)](assets/images/lena.png)
 
 ## 2. Multi-Language Code Blocks (Shared `CodeEditor` Highlighter)
 
 ```cpp
-// C++20: Autonomous 2D World Camera & Rich Markdown
+// C++20: Autonomous 2D World Camera & Embedded Assets
 if (auto scene = ui.Scene({.worldSize = {1600.0f, 1000.0f}})) {
-    scene.DrawImage("assets/images/circuit.svg", {0, 0, 800, 500});
+    scene.DrawImage("assets/images/lena.png", {0, 0, 512, 512});
     const guikit::Rect visible = scene.GetVisibleWorldRect();
 }
 ```

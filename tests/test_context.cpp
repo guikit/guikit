@@ -101,10 +101,10 @@ void TestThorCanvasTextRendering() {
     canvas.SetTarget(pixels.data(), width, height, width);
 
     bool fontOk = canvas.LoadFontFile("assets/fonts/Roboto-Regular.ttf");
-    if (!fontOk) {
-        fontOk = canvas.LoadFontFile("../assets/fonts/Roboto-Regular.ttf");
-    }
     CHECK(fontOk);
+
+    const Vec2 lenaSize = canvas.GetImageSize("assets/images/lena.png");
+    CHECK(lenaSize.x > 0.0f && lenaSize.y > 0.0f);
 
     std::fill(pixels.begin(), pixels.end(), 0);
     canvas.Begin(width, height);
@@ -8671,6 +8671,106 @@ void TestCarClusterViewWidgetWorkflow() {
     CHECK(resp.layoutMode == ClusterLayoutMode::ModernWide);
 }
 
+void TestBpmnEditorWidgetWorkflow() {
+    std::cout << "  -> TestBpmnEditorWidgetWorkflow\n";
+    Context ui;
+    ThorCanvas canvas;
+    std::vector<uint32_t> pixels(960 * 600, 0);
+    canvas.SetTarget(pixels.data(), 960, 600, 960);
+
+    BpmnDiagram diagram;
+    diagram.name = "Unit Test BPMN Process";
+    const uint32_t laneId = diagram.AddLane("Test Pool", "Main Lane", Rect(40.0f, 40.0f, 800.0f, 220.0f));
+    const uint32_t nStart = diagram.AddNode({
+        .type = BpmnNodeType::StartEvent,
+        .label = "Start",
+        .pos = {100.0f, 120.0f},
+        .eventDef = BpmnEventDefinition::Message,
+        .laneId = laneId
+    });
+    const uint32_t nTask = diagram.AddNode({
+        .type = BpmnNodeType::Task,
+        .label = "Process Order",
+        .pos = {220.0f, 106.0f},
+        .taskType = BpmnTaskType::Service,
+        .laneId = laneId,
+        .slaDurationMs = 300.0f
+    });
+    const uint32_t nBoundary = diagram.AddNode({
+        .type = BpmnNodeType::BoundaryEvent,
+        .label = "Timeout",
+        .eventDef = BpmnEventDefinition::Timer,
+        .attachedToNodeId = nTask,
+        .boundaryRatioX = 0.70f,
+        .laneId = laneId
+    });
+    const uint32_t nEnd = diagram.AddNode({
+        .type = BpmnNodeType::EndEvent,
+        .label = "Done",
+        .pos = {440.0f, 120.0f},
+        .laneId = laneId
+    });
+    const uint32_t e1 = diagram.AddEdge(nStart, nTask, BpmnFlowType::SequenceFlow);
+    const uint32_t e2 = diagram.AddEdge(nTask, nEnd, BpmnFlowType::DefaultFlow, "OK");
+    (void)nBoundary;
+    CHECK(e1 != 0);
+    CHECK(e2 != 0);
+    CHECK(diagram.nodes.size() == 4);
+    CHECK(diagram.edges.size() == 2);
+
+    // Verify BoundaryEvent snapped to bottom border of nTask
+    const BpmnNode* boundPtr = diagram.FindNode(nBoundary);
+    const BpmnNode* taskPtr = diagram.FindNode(nTask);
+    CHECK(boundPtr != nullptr);
+    CHECK(taskPtr != nullptr);
+    CHECK_NEAR(boundPtr->pos.y + boundPtr->size.y * 0.5f, taskPtr->pos.y + taskPtr->size.y, 0.5f);
+
+    bool tokenSim = false;
+    BpmnRoutingMode routing = BpmnRoutingMode::Orthogonal;
+    uint32_t selNode = 0;
+    BpmnEditorResponse resp{};
+
+    auto renderFrame = [&]() {
+        ui.BeginFrame({960.0f, 600.0f});
+        resp = ui.BpmnEditor(diagram, {
+            .routingMode = routing,
+            .themePreset = BpmnThemePreset::BpmnIoClassic,
+            .tokenSimulation = tokenSim,
+            .autoSpawnTokens = true,
+            .simulationSpeed = 2.0f,
+            .showSlaHeatmap = true,
+            .tokenSimulationPtr = &tokenSim,
+            .routingModePtr = &routing,
+            .selectedNodeIdPtr = &selNode
+        });
+        ui.EndFrame(canvas);
+    };
+
+    ui.SetCurrentTime(1.0);
+    renderFrame();
+    renderFrame();
+    CHECK(resp.canvasRect.w > 700.0f);
+    CHECK(resp.canvasRect.h > 400.0f);
+
+    // Programmatically select nTask via two-way binding and verify response
+    selNode = nTask;
+    renderFrame();
+    CHECK(resp.selectedNodeId == nTask);
+
+    // Enable Token Simulation and step time so autoSpawnTokens spawns a token
+    tokenSim = true;
+    ui.AdvanceTime(0.05);
+    renderFrame();
+    CHECK(resp.simulationActive);
+    CHECK(resp.activeTokenCount >= 1);
+
+    // Step simulation forward and switch to Bezier routing
+    routing = BpmnRoutingMode::Bezier;
+    ui.AdvanceTime(0.5);
+    renderFrame();
+    CHECK(diagram.FindNode(nStart)->tokenExecutionCount >= 1);
+}
+
 int main() {
     std::cout << std::unitbuf;
     std::cerr << std::unitbuf;
@@ -8746,6 +8846,7 @@ int main() {
     TestElementOuterFrameAndControlWellFrame();
     TestAttitudeViewWidgetWorkflow();
     TestCarClusterViewWidgetWorkflow();
+    TestBpmnEditorWidgetWorkflow();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";
