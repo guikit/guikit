@@ -11,6 +11,19 @@ namespace guikit {
 
 namespace {
 
+ControlSpec EffectiveControlSpec(const ElementSpec& spec) noexcept {
+    ControlSpec c = spec.control;
+    if (!c.width.has_value() && spec.width.has_value()) {
+        c.width = spec.width;
+    }
+    if (!c.height.has_value() && spec.height.has_value()) {
+        c.height = spec.height;
+    }
+    c.stretchable = spec.stretchableControl;
+    c.stretchHeightWhenStandalone = spec.stretchHeightWhenStandalone;
+    return c;
+}
+
 float ResolveLabelFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept {
     if (spec.label.role.has_value()) {
         return theme.GetTypography(*spec.label.role).fontSize;
@@ -84,6 +97,19 @@ float ComputeBottomDividerSpace(const ElementSpec& spec, const UiTheme& theme) n
 
 } // namespace
 
+float Element::ComputeOuterPadding(
+    const ElementSpec& spec,
+    const UiTheme& theme
+) noexcept {
+    if (!HasOuterFrame(spec)) {
+        return 0.0f;
+    }
+    const ComponentMetrics& cm = theme.GetMetrics(spec.widgetSize);
+    const float basePad = std::max(theme.Scale(8.0f), cm.paddingX * 0.75f);
+    const float strokePad = (spec.borderWidth > 0.0f) ? theme.Scale(spec.borderWidth) : 0.0f;
+    return basePad + strokePad;
+}
+
 ElementSpec Element::MakeSpec(
     const ElementOptions& opts,
     UiSize activeSize,
@@ -106,6 +132,10 @@ ElementSpec Element::MakeSpec(
         .elementAlign = opts.elementAlign,
         .stretch = opts.stretch,
         .width = opts.width,
+        .height = opts.height,
+        .background = opts.background,
+        .borderWidth = opts.borderWidth,
+        .borderRadius = opts.borderRadius,
         .widgetSize = activeSize,
         .labelGap = m.lineGap,
         .descGap = m.lineGap,
@@ -152,6 +182,10 @@ Response Element::Run(
         static_cast<uint8_t>(opts.elementAlign),
         static_cast<uint8_t>(opts.stretch),
         opts.width.value_or(0.0f),
+        opts.height.value_or(0.0f),
+        opts.background,
+        opts.borderWidth,
+        opts.borderRadius.value_or(-1.0f),
         eOpts->EffectiveTitle(),
         eOpts->EffectiveSubtitle(),
         eOpts->badge,
@@ -201,25 +235,40 @@ Vec2 Element::Measure(
 ) noexcept {
     const float labelFontSize = ResolveLabelFontSize(spec, theme);
     const float descFontSize = ResolveDescFontSize(spec, theme);
+    const float outerPad = ComputeOuterPadding(spec, theme);
 
-    if (!spec.hasControl) {
-        intrinsicControlSize = MeasureLabelBar(spec, labelFontSize, canvas, theme);
+    if (availableWidth > 0.0f && outerPad > 0.0f) {
+        availableWidth = std::max(0.0f, availableWidth - outerPad * 2.0f);
     }
 
-    const bool stretchableCtrl = spec.hasControl ? spec.stretchableControl : false;
+    const ControlSpec ctrlSpec = EffectiveControlSpec(spec);
+    if (!spec.hasControl) {
+        intrinsicControlSize = MeasureLabelBar(spec, labelFontSize, canvas, theme);
+        if (ctrlSpec.height.has_value() && *ctrlSpec.height > 0.0f) {
+            intrinsicControlSize.y = std::max(intrinsicControlSize.y, theme.Scale(*ctrlSpec.height));
+        }
+    } else {
+        intrinsicControlSize = Control::Measure(intrinsicControlSize, ctrlSpec, spec.stretch, spec.widgetSize, theme);
+    }
 
-    if (!stretchableCtrl && spec.width.has_value() && spec.stretch == StretchMode::Fill && availableWidth > 0.0f) {
-        const float pct = std::clamp(*spec.width, 0.0f, 100.0f);
+    const bool stretchableCtrl = spec.hasControl ? ctrlSpec.stretchable : false;
+
+    if (!stretchableCtrl && ctrlSpec.width.has_value() && spec.stretch == StretchMode::Fill && availableWidth > 0.0f) {
+        const float pct = std::clamp(*ctrlSpec.width, 0.0f, 100.0f);
         availableWidth *= (pct * 0.01f);
     }
 
     const float bottomDivSpace = ComputeBottomDividerSpace(spec, theme);
 
     const auto applyFixedWidthAndDiv = [&](Vec2 measured) noexcept -> Vec2 {
-        if (!stretchableCtrl && spec.width.has_value() && spec.stretch != StretchMode::Fill) {
-            measured.x = std::max(measured.x, theme.Scale(*spec.width));
+        if (!stretchableCtrl && ctrlSpec.width.has_value() && spec.stretch != StretchMode::Fill) {
+            measured.x = std::max(measured.x, theme.Scale(*ctrlSpec.width));
         }
         measured.y += bottomDivSpace;
+        if (outerPad > 0.0f) {
+            measured.x += outerPad * 2.0f;
+            measured.y += outerPad * 2.0f;
+        }
         return measured;
     };
 
@@ -248,15 +297,15 @@ Vec2 Element::Measure(
     }
 
     float textWrapW = availableWidth;
-    if (!stretchableCtrl && spec.width.has_value() && spec.stretch != StretchMode::Fill) {
-        const float fixedW = theme.Scale(*spec.width);
+    if (!stretchableCtrl && ctrlSpec.width.has_value() && spec.stretch != StretchMode::Fill) {
+        const float fixedW = theme.Scale(*ctrlSpec.width);
         textWrapW = (availableWidth > 0.0f) ? std::min(availableWidth, fixedW) : fixedW;
     }
     if (spec.layout == ElementLayout::Inline) {
         if (textWrapW > 0.0f) {
             float ctrlW = std::min(textWrapW, intrinsicControlSize.x);
-            if (stretchableCtrl && spec.stretch == StretchMode::Fill && spec.width.has_value()) {
-                const float pct = std::clamp(*spec.width, 0.0f, 100.0f);
+            if (stretchableCtrl && spec.stretch == StretchMode::Fill && ctrlSpec.width.has_value()) {
+                const float pct = std::clamp(*ctrlSpec.width, 0.0f, 100.0f);
                 ctrlW = textWrapW * (pct * 0.01f);
             }
             textWrapW = std::max(0.0f, textWrapW - ctrlW - spec.inlineGap);
@@ -334,8 +383,19 @@ ElementGeometry Element::Resolve(
     geom.labelFontSize = ResolveLabelFontSize(spec, theme);
     geom.descFontSize = ResolveDescFontSize(spec, theme);
 
+    const float outerPad = ComputeOuterPadding(spec, theme);
+    if (outerPad > 0.0f) {
+        bounds = bounds.Inset(outerPad);
+    }
+
+    const ControlSpec ctrlSpec = EffectiveControlSpec(spec);
     if (!spec.hasControl) {
         intrinsicControlSize = MeasureLabelBar(spec, geom.labelFontSize, canvas, theme);
+        if (ctrlSpec.height.has_value() && *ctrlSpec.height > 0.0f) {
+            intrinsicControlSize.y = std::max(intrinsicControlSize.y, theme.Scale(*ctrlSpec.height));
+        }
+    } else {
+        intrinsicControlSize = Control::Measure(intrinsicControlSize, ctrlSpec, spec.stretch, spec.widgetSize, theme);
     }
 
     const float bottomDivSpace = ComputeBottomDividerSpace(spec, theme);
@@ -343,8 +403,8 @@ ElementGeometry Element::Resolve(
         bounds.h = std::max(0.0f, bounds.h - bottomDivSpace);
     }
 
-    const bool stretchableCtrl = spec.hasControl ? spec.stretchableControl : false;
-    const bool stretchStandaloneH = spec.hasControl ? spec.stretchHeightWhenStandalone : false;
+    const bool stretchableCtrl = spec.hasControl ? ctrlSpec.stretchable : false;
+    const bool stretchStandaloneH = spec.hasControl ? ctrlSpec.stretchHeightWhenStandalone : false;
 
     geom.hasLabel = spec.hasControl && HasLabelBar(spec);
     geom.hasDesc = spec.description.HasContentOrReserve();
@@ -352,8 +412,8 @@ ElementGeometry Element::Resolve(
 
     const float alignFactor = (spec.elementAlign == Align::End) ? 1.0f : ((spec.elementAlign == Align::Center) ? 0.5f : 0.0f);
 
-    if (!stretchableCtrl && spec.stretch == StretchMode::Fill && spec.width.has_value()) {
-        const float pct = std::clamp(*spec.width, 0.0f, 100.0f);
+    if (!stretchableCtrl && spec.stretch == StretchMode::Fill && ctrlSpec.width.has_value()) {
+        const float pct = std::clamp(*ctrlSpec.width, 0.0f, 100.0f);
         const float effW = bounds.w * (pct * 0.01f);
         bounds.x += (bounds.w - effW) * alignFactor;
         bounds.w = effW;
@@ -361,8 +421,8 @@ ElementGeometry Element::Resolve(
 
     float ctrlW = std::min(bounds.w, intrinsicControlSize.x);
     if (stretchableCtrl && spec.stretch == StretchMode::Fill) {
-        if (!geom.hasExternal || spec.layout != ElementLayout::Inline || spec.width.has_value()) {
-            const float pct = std::clamp(spec.width.value_or(100.0f), 0.0f, 100.0f);
+        if (!geom.hasExternal || spec.layout != ElementLayout::Inline || ctrlSpec.width.has_value()) {
+            const float pct = std::clamp(ctrlSpec.width.value_or(100.0f), 0.0f, 100.0f);
             ctrlW = bounds.w * (pct * 0.01f);
         }
     }
@@ -372,6 +432,9 @@ ElementGeometry Element::Resolve(
         const float ctrlH = stretchStandaloneH ? bounds.h : std::min(intrinsicControlSize.y, bounds.h);
         const float ctrlY = stretchStandaloneH ? bounds.y : (bounds.y + (bounds.h - ctrlH) * 0.5f);
         geom.controlRect = Rect(ctrlX, ctrlY, ctrlW, ctrlH);
+        geom.innerControlRect = spec.hasControl
+            ? Control::ResolveInnerRect(geom.controlRect, ctrlSpec, spec.widgetSize, theme)
+            : geom.controlRect;
         return geom;
     }
 
@@ -404,7 +467,7 @@ ElementGeometry Element::Resolve(
     }
 
     const float measuredTextW = std::max(effLabelW, effDescW);
-    const bool compactNaturalBlock = (spec.stretch == StretchMode::Compact) && (stretchableCtrl || !spec.width.has_value());
+    const bool compactNaturalBlock = (spec.stretch == StretchMode::Compact) && (stretchableCtrl || !ctrlSpec.width.has_value());
 
     const auto resolveLabelH = [&](float availW) noexcept -> float {
         if (!geom.hasLabel) return 0.0f;
@@ -482,7 +545,7 @@ ElementGeometry Element::Resolve(
         }
     } else { // ElementLayout::Inline
         const float gap = spec.inlineGap;
-        if (stretchableCtrl && spec.stretch == StretchMode::Fill && !spec.width.has_value()) {
+        if (stretchableCtrl && spec.stretch == StretchMode::Fill && !ctrlSpec.width.has_value()) {
             ctrlW = std::max(0.0f, bounds.w - measuredTextW - gap);
         }
         const float availTextW = std::max(0.0f, bounds.w - ctrlW - gap);
@@ -533,7 +596,56 @@ ElementGeometry Element::Resolve(
         }
     }
 
+    geom.innerControlRect = spec.hasControl
+        ? Control::ResolveInnerRect(geom.controlRect, ctrlSpec, spec.widgetSize, theme)
+        : geom.controlRect;
     return geom;
+}
+
+void Element::RenderFrame(
+    ICanvas& canvas,
+    const ElementGeometry& geom,
+    const ElementSpec& spec,
+    const UiTheme& theme
+) noexcept {
+    if (!HasOuterFrame(spec) || geom.outerBounds.w <= 0.0f || geom.outerBounds.h <= 0.0f) {
+        return;
+    }
+
+    const ComponentMetrics& cm = theme.GetMetrics(spec.widgetSize);
+    const float radius = spec.borderRadius.has_value()
+        ? theme.Scale(*spec.borderRadius)
+        : cm.cornerRadius;
+
+    Color bg = Color::Transparent();
+    if (spec.background) {
+        bg = theme.palette.surface;
+        if (spec.variant != UiVariant::Default && spec.variant != UiVariant::Ghost && spec.variant != UiVariant::Muted) {
+            const Color accent = theme.GetVariant(spec.variant).bg;
+            bg = Color(
+                static_cast<uint8_t>((static_cast<int>(bg.r) * 90 + static_cast<int>(accent.r) * 10) / 100),
+                static_cast<uint8_t>((static_cast<int>(bg.g) * 90 + static_cast<int>(accent.g) * 10) / 100),
+                static_cast<uint8_t>((static_cast<int>(bg.b) * 90 + static_cast<int>(accent.b) * 10) / 100),
+                255
+            );
+        }
+        if (spec.disabled) {
+            bg = bg.WithAlphaF(0.40f);
+        }
+    }
+
+    const float strokeW = (spec.borderWidth > 0.0f) ? theme.Scale(spec.borderWidth) : 0.0f;
+    Color borderCol = Color::Transparent();
+    if (strokeW > 0.0f) {
+        borderCol = (spec.variant != UiVariant::Default && spec.variant != UiVariant::Ghost && spec.variant != UiVariant::Muted)
+            ? theme.GetVariant(spec.variant).bg.WithAlphaF(0.55f)
+            : theme.palette.borderSubtle;
+        if (spec.disabled) {
+            borderCol = borderCol.WithAlphaF(0.40f);
+        }
+    }
+
+    canvas.DrawRoundRect(geom.outerBounds, radius, bg, borderCol, strokeW);
 }
 
 void Element::RenderText(
@@ -542,6 +654,13 @@ void Element::RenderText(
     const ElementSpec& spec,
     const UiTheme& theme
 ) noexcept {
+    RenderFrame(canvas, geom, spec, theme);
+
+    const ControlSpec ctrlSpec = EffectiveControlSpec(spec);
+    if (spec.hasControl) {
+        Control::RenderFrame(canvas, geom.controlRect, ctrlSpec, spec.variant, spec.widgetSize, spec.disabled, theme);
+    }
+
     const float alignFactor = (spec.elementAlign == Align::End) ? 1.0f : ((spec.elementAlign == Align::Center) ? 0.5f : 0.0f);
     const UiVariant defaultLabelVar = (!spec.hasControl && spec.variant != UiVariant::Default) ? spec.variant : UiVariant::Default;
     const UiVariant defaultDescVar = spec.headingTypography ? UiVariant::Secondary : UiVariant::Muted;
@@ -639,11 +758,12 @@ void Element::RenderText(
             divColor = divColor.WithAlphaF(0.40f);
         }
 
-        const Rect outer = geom.outerBounds;
+        const float outerPad = ComputeOuterPadding(spec, theme);
+        const Rect outer = geom.outerBounds.Inset(outerPad);
         float spanX = outer.x;
         float spanW = outer.w;
-        if (spec.stretch == StretchMode::Fill && spec.width.has_value()) {
-            const float pct = std::clamp(*spec.width, 0.0f, 100.0f);
+        if (spec.stretch == StretchMode::Fill && ctrlSpec.width.has_value()) {
+            const float pct = std::clamp(*ctrlSpec.width, 0.0f, 100.0f);
             spanW = outer.w * (pct * 0.01f);
             spanX = outer.x + (outer.w - spanW) * alignFactor;
         } else if (spec.stretch == StretchMode::Compact) {
@@ -652,8 +772,8 @@ void Element::RenderText(
                 geom.hasLabel ? geom.labelRect.w : 0.0f,
                 geom.hasDesc ? geom.descRect.w : 0.0f
             });
-            const float natSpanW = spec.width.has_value()
-                ? std::min(outer.w, theme.Scale(*spec.width))
+            const float natSpanW = ctrlSpec.width.has_value()
+                ? std::min(outer.w, theme.Scale(*ctrlSpec.width))
                 : std::min(outer.w, maxElemW);
             spanW = natSpanW;
             spanX = outer.x + (outer.w - spanW) * alignFactor;

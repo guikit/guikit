@@ -4,6 +4,7 @@
 #include <optional>
 #include <source_location>
 #include <string_view>
+#include "guikit/core/Control.hpp"
 #include "guikit/core/Response.hpp"
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Tokens.hpp"
@@ -35,13 +36,13 @@ struct ImageOptions {
     std::optional<float> height{std::nullopt};          ///< Explicit height in px (nullopt = auto from aspect ratio)
     std::optional<float> maxHeight{std::nullopt};       ///< Optional maximum height cap in px
     SizeMode heightMode{SizeMode::Fit};                 ///< Fit (auto/fixed) or Stretch (expand to fill parent height)
-    std::optional<float> borderRadius{6.0f};            ///< Corner radius in px
-    float borderWidth{0.0f};                            ///< Optional frame border thickness in px
-    Color borderColor{0, 0, 0, 0};                      ///< Optional frame border color (0 = theme.palette.borderSubtle)
+    bool background{false};                             ///< Whether to render a surface backdrop around the outer Element
+    float borderWidth{0.0f};                            ///< Outer Element border thickness in points (0.0f = no border)
+    std::optional<float> borderRadius{std::nullopt};    ///< Outer Element corner radius in points
+    ControlSpec control{};                              ///< Inner Control slot configuration (width, height, align, background, borderWidth, borderRadius)
+    Color borderColor{0, 0, 0, 0};                      ///< Optional image frame border color (0 = semantic variant or borderSubtle)
     Color backgroundColor{0, 0, 0, 0};                  ///< Optional background fill color behind image
     bool checkerboard{false};                           ///< Render transparency checkerboard pattern behind image
-    bool divider{false};                                ///< Whether to render an Element divider line
-    ElementDivider dividerStyle{ElementDivider::Bottom};///< Element divider placement style (Bottom or Trailing)
     uint8_t opacity{255};                               ///< Image opacity [0..255]
     std::optional<UiSize> size{std::nullopt};           ///< Local size token override
     bool disabled{false};
@@ -53,7 +54,7 @@ struct ImagePayload {
     ImageOptions opts{};
 };
 
-/// Stateless leaf widget for rendering vector (SVG) and raster (PNG, JPG) images.
+/// Stateless leaf Element widget for rendering vector (SVG) and raster (PNG, JPG) images.
 class Image {
 public:
     /// Immediate mode entry point for Image widget.
@@ -64,13 +65,20 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
-    /// Measures total dimensions of the composite Image widget given constrained available width.
+    /// Measures total dimensions of the composite Image Element given constrained available width.
     static Vec2 Measure(
         std::string_view source,
         const ImageOptions& opts,
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
+        float availableWidth = 0.0f
+    );
+    static Vec2 Measure(
+        std::string_view source,
+        const ImageOptions& opts,
+        UiSize size,
+        ICanvas* canvas = nullptr,
         float availableWidth = 0.0f
     );
 

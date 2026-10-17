@@ -9,6 +9,23 @@ namespace guikit {
 
 namespace {
 
+ControlSpec EffectiveCheckboxControl(const CheckboxOptions& opts) noexcept {
+    ControlSpec ctrl = opts.control;
+    if (!ctrl.width.has_value() && opts.width.has_value()) {
+        ctrl.width = opts.width;
+    }
+    if (!ctrl.height.has_value() && opts.height.has_value()) {
+        ctrl.height = opts.height;
+    }
+    if (!ctrl.background.has_value()) {
+        ctrl.background = false;
+    }
+    ctrl.stretchable = false;
+    ctrl.stretchHeightWhenStandalone = false;
+    ctrl.hasIntrinsicBox = false;
+    return ctrl;
+}
+
 ElementSpec MakeCheckboxElementSpec(
     const CheckboxOptions& opts,
     UiSize size,
@@ -16,6 +33,7 @@ ElementSpec MakeCheckboxElementSpec(
     const UiTheme& theme
 ) noexcept {
     const CheckboxMetrics& m = theme.GetCheckbox(size);
+    const ControlSpec ctrl = EffectiveCheckboxControl(opts);
     return ElementSpec{
         .label = opts.label,
         .description = opts.description,
@@ -26,13 +44,16 @@ ElementSpec MakeCheckboxElementSpec(
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
         .stretch = opts.stretch,
-        .width = opts.width,
+        .width = ctrl.width,
+        .height = ctrl.height,
+        .control = ctrl,
+        .background = opts.background,
+        .borderWidth = opts.borderWidth,
+        .borderRadius = opts.borderRadius,
         .widgetSize = size,
         .labelGap = m.descGap,
         .descGap = m.descGap,
         .inlineGap = m.gap,
-        .divider = opts.divider,
-        .dividerStyle = opts.dividerStyle,
         .stretchableControl = false,
         .stretchHeightWhenStandalone = false,
         .disabled = disabled
@@ -84,6 +105,7 @@ Response Checkbox::Run(
         res.changed = true;
     }
 
+    const ControlSpec ctrl = EffectiveCheckboxControl(opts);
     Node* node = ctx.CreateNode(NodeType::Checkbox, id);
     CheckboxOptions optsCopy = opts;
     optsCopy.label = ctx.AllocText(opts.label);
@@ -100,9 +122,15 @@ Response Checkbox::Run(
         opts.indeterminate,
         opts.radio,
         static_cast<uint8_t>(opts.stretch),
-        opts.width.value_or(0.0f),
-        opts.divider,
-        static_cast<uint8_t>(opts.dividerStyle),
+        ctrl.width.value_or(0.0f),
+        ctrl.height.value_or(0.0f),
+        static_cast<uint8_t>(ctrl.align),
+        opts.background,
+        opts.borderWidth,
+        opts.borderRadius.value_or(-1.0f),
+        ctrl.HasBackground(false),
+        ctrl.borderWidth,
+        ctrl.borderRadius.value_or(-1.0f),
         static_cast<uint8_t>(opts.icon.GetType()),
         static_cast<uint8_t>(opts.icon.GetId()),
         opts.icon.GetPath(),
@@ -186,7 +214,13 @@ void Checkbox::Render(
     const ElementSpec spec = MakeCheckboxElementSpec(opts, size, disabled, theme);
     const ElementGeometry geom = Element::Resolve(bounds, {m.boxSize, m.boxSize}, spec, &canvas, theme);
     Element::RenderText(canvas, geom, spec, theme);
-    const Rect boxRect = geom.controlRect;
+    const Rect& ctrlRect = geom.innerControlRect;
+    const Rect boxRect(
+        ctrlRect.x + (ctrlRect.w - m.boxSize) * 0.5f,
+        ctrlRect.y + (ctrlRect.h - m.boxSize) * 0.5f,
+        m.boxSize,
+        m.boxSize
+    );
 
     // Determine colors
     const auto& pal = theme.palette;

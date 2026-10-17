@@ -715,8 +715,8 @@ void TestAutonomousTextWidgetAndTypographyRoles() {
 void TestSwitchAndCheckboxWidgets() {
     using namespace guikit;
 
-    static_assert(sizeof(SwitchOptions) <= 312);
-    static_assert(sizeof(CheckboxOptions) <= 224);
+    static_assert(sizeof(SwitchOptions) <= 400);
+    static_assert(sizeof(CheckboxOptions) <= 320);
 
     const auto theme = UiTheme::Dark();
     // 1. Test measurement
@@ -4314,25 +4314,22 @@ void TestButtonAlignmentAndProceduralIcons() {
         .label = "Action Label",
         .text = "Click Action",
         .layout = ElementLayout::Stacked,
-        .controlAlign = Align::Start,
         .stretch = StretchMode::Compact,
-        .width = 150.0f
+        .control = {.width = 150.0f, .align = Align::Start}
     };
     ButtonOptions bCenter{
         .label = "Action Label",
         .text = "Click Action",
         .layout = ElementLayout::Stacked,
-        .controlAlign = Align::Center,
         .stretch = StretchMode::Compact,
-        .width = 150.0f
+        .control = {.width = 150.0f, .align = Align::Center}
     };
     ButtonOptions bEnd{
         .label = "Action Label",
         .text = "Click Action",
         .layout = ElementLayout::Stacked,
-        .controlAlign = Align::End,
         .stretch = StretchMode::Compact,
-        .width = 150.0f
+        .control = {.width = 150.0f, .align = Align::End}
     };
 
     Button::Render(recCanvas, widgetBounds, bStart, UiSize::Md, false, false, false, darkTheme);
@@ -4378,9 +4375,9 @@ void TestWidgetRadiusOverride() {
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
     if (auto col = ui.Column({.gap = 8.0f})) {
         auto btnDefault = ui.Button({.label = "Default Radius"});
-        auto btnCustom = ui.Button({.label = "Custom Radius", .borderRadius = 16.0f});
+        auto btnCustom = ui.Button({.label = "Custom Radius", .control = {.borderRadius = 16.0f}});
         auto inputDefault = ui.InputField(inputText, {.label = "Default Radius Input"});
-        auto inputCustom = ui.InputField(inputText, {.label = "Custom Radius Input", .borderRadius = 14.0f});
+        auto inputCustom = ui.InputField(inputText, {.label = "Custom Radius Input", .control = {.borderRadius = 14.0f}});
 
         CHECK(btnDefault.id.IsValid());
         CHECK(btnCustom.id.IsValid());
@@ -4469,7 +4466,7 @@ void TestButtonExternalLabelDescriptionAndPlacement() {
             .label = "Select Header",
             .description = "Choose option",
             .layout = ElementLayout::Stacked,
-            .borderRadius = 12.0f
+            .control = {.borderRadius = 12.0f}
         });
 
         CHECK(bStacked.id.IsValid());
@@ -6552,22 +6549,43 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
     std::vector<uint32_t> pixels(800 * 900, 0);
     canvas.SetTarget(pixels.data(), 800, 900, 800);
 
-    // 1. Verify that adding icon, badge, and divider to widgets increases measured width/height appropriately
+    // 1. Verify that adding icon, badge, and Element/Control frame to widgets increases measured width/height appropriately
     const UiTheme& theme = ui.GetTheme();
     {
         ButtonOptions baseBtn{.label = "A button", .text = "Click me", .description = "This is a button"};
         ButtonOptions decBtn = baseBtn;
         decBtn.labelIcon = Icon::Edit();
         decBtn.badge = {"v1.0", UiVariant::Info};
-        decBtn.divider = true;
+        decBtn.background = true;
+        decBtn.borderWidth = 1.0f;
 
         const Vec2 szBase = Button::Measure(baseBtn, UiSize::Md, &canvas, theme);
         const Vec2 szDec  = Button::Measure(decBtn, UiSize::Md, &canvas, theme);
         CHECK(szDec.x > szBase.x);
         CHECK(szDec.y > szBase.y);
     }
+    {
+        // Verify Control well frame increases measured size for non-intrinsic-box controls (Slider, Switch, Checkbox)
+        SliderOptions baseSld{.label = "Gain"};
+        SliderOptions wellSld = baseSld;
+        wellSld.control.background = true;
+        wellSld.control.borderWidth = 1.0f;
+        const Vec2 sBase = Slider::Measure(baseSld, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
+        const Vec2 sWell = Slider::Measure(wellSld, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
+        CHECK(sWell.x > sBase.x);
+        CHECK(sWell.y > sBase.y);
 
-    // 2. Render all Element-based widgets with icon/badge/divider in a live frame
+        SwitchOptions baseSw{.label = "Power"};
+        SwitchOptions wellSw = baseSw;
+        wellSw.control.background = true;
+        wellSw.control.borderWidth = 1.0f;
+        const Vec2 swBase = Switch::Measure(baseSw, UiSize::Md, &canvas, theme);
+        const Vec2 swWell = Switch::Measure(wellSw, UiSize::Md, &canvas, theme);
+        CHECK(swWell.x > swBase.x);
+        CHECK(swWell.y > swBase.y);
+    }
+
+    // 2. Render all Element-based widgets with icon/badge and Element/Control frames in a live frame
     float sliderVal = 42.0f;
     size_t stepIdx = 1;
     std::string inputVal = "hello";
@@ -6584,6 +6602,8 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
                 .subtitle = "This is a heading",
                 .icon = Icon::Edit(),
                 .badge = {"v2.4", UiVariant::Info},
+                .background = true,
+                .borderWidth = 1.0f,
                 .divider = true
             });
             ui.Element({
@@ -6591,6 +6611,8 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
                 .description = "This is an element",
                 .icon = Icon::Settings(),
                 .badge = "Core",
+                .background = true,
+                .borderWidth = 1.0f,
                 .divider = true
             });
             ui.Button({
@@ -6600,49 +6622,63 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
                 .icon = Icon::Play(),
                 .labelIcon = Icon::Edit(),
                 .badge = "Action",
-                .divider = true
+                .background = true,
+                .borderWidth = 1.0f,
+                .control = {.background = true, .borderWidth = 1.5f}
             });
             ui.Slider(sliderVal, 0.0f, 100.0f, {
                 .label = "A slider",
                 .description = "This is a slider",
                 .icon = Icon::Settings(),
                 .badge = "dB",
-                .divider = true
+                .background = true,
+                .borderWidth = 1.0f,
+                .control = {.background = true, .borderWidth = 1.0f}
             });
             ui.StepSlider(stepIdx, items, {
                 .label = "A step slider",
                 .description = "This is a step slider",
                 .icon = Icon::Settings(),
                 .badge = "3-step",
-                .divider = true
+                .background = true,
+                .borderWidth = 1.0f,
+                .control = {.background = true, .borderWidth = 1.0f}
             });
             ui.InputField(inputVal, {
                 .label = "A text input",
                 .description = "This is a text input",
                 .icon = Icon::Edit(),
                 .badge = "UTF-8",
-                .divider = true
+                .background = true,
+                .borderWidth = 1.0f,
+                .control = {.background = true, .borderWidth = 1.5f}
             });
             ui.Select(selectIdx, items, {
                 .label = "A select",
                 .description = "This is a select",
                 .icon = Icon::Plus(),
                 .badge = "Menu",
-                .divider = true
+                .background = true,
+                .borderWidth = 1.0f,
+                .control = {.background = true, .borderWidth = 1.5f}
             });
             ui.Switch(swVal, {
                 .label = "A switch",
                 .description = "This is a switch",
                 .icon = Icon::Refresh(),
                 .badge = "Toggle",
-                .divider = true
+                .background = true,
+                .borderWidth = 1.0f,
+                .control = {.background = true, .borderWidth = 1.0f}
             });
             ui.Checkbox(cbVal, {
                 .label = "A checkbox",
                 .description = "This is a checkbox",
                 .icon = Icon::Check(),
                 .badge = "Bool",
-                .divider = true
+                .background = true,
+                .borderWidth = 1.0f,
+                .control = {.background = true, .borderWidth = 1.0f}
             });
         }
         ui.EndFrame(canvas);
@@ -7999,6 +8035,277 @@ void TestKeymapAndMarkdownTopTierFeatures() {
     std::cout << "  [PASS] TestKeymapAndMarkdownTopTierFeatures completed\n";
 }
 
+void TestUnifiedColormapHistogramAndImageView() {
+    using namespace guikit;
+    std::cout << "  -> TestUnifiedColormapHistogramAndImageView...\n";
+
+    // 1. Verify unified Colormap LUTs & inversion symmetry
+    const auto allNames = GetAllColormapNames();
+    CHECK(allNames.size() == static_cast<size_t>(Colormap::Count));
+    CHECK(GetColormapName(Colormap::Grayscale) == "Grayscale");
+    CHECK(GetColormapName(Colormap::Bone) == "Bone");
+    CHECK(GetColormapName(Colormap::Inferno) == "Inferno");
+    CHECK(GetColormapName(Colormap::Turbo) == "Turbo");
+
+    for (size_t m = 0; m < static_cast<size_t>(Colormap::Count); ++m) {
+        const auto cmap = static_cast<Colormap>(m);
+        const auto& lutNorm = GetColormapLut(cmap, false);
+        const auto& lutInv  = GetColormapLut(cmap, true);
+        const auto& abgrNorm = GetColormapLutAbgr(cmap, false);
+        const auto& abgrInv  = GetColormapLutAbgr(cmap, true);
+        CHECK(lutNorm[0].r == lutInv[255].r);
+        CHECK(lutNorm[0].g == lutInv[255].g);
+        CHECK(lutNorm[0].b == lutInv[255].b);
+        CHECK(abgrNorm[0] == abgrInv[255]);
+        CHECK(abgrNorm[255] == abgrInv[0]);
+    }
+
+    // 2. Verify Quantile Auto Window on a synthetic 256-bin distribution
+    std::array<uint32_t, 256> testBins{};
+    for (size_t i = 20; i <= 200; ++i) {
+        testBins[i] = 100;
+    }
+    ChannelTransferParams tp{};
+    tp.ResetToRange(0.0f, 65535.0f);
+    ImageView::ApplyQuantileAutoWindow(testBins, 0.0f, 65535.0f, AutoWindowTarget::All, AutoWindowStrength::Medium, tp);
+    CHECK(tp.Low() > 4000.0f);
+    CHECK(tp.High() < 55000.0f);
+    CHECK(tp.window < 60000.0f);
+
+    // 3. Test standalone multi-channel Histogram & 16-bit / RGB ImageView rendering and interaction
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t W = 1000;
+    const uint32_t H = 700;
+    std::vector<uint32_t> framePixels(W * H, 0);
+    canvas.SetTarget(framePixels.data(), W, H, W);
+
+    // Prepare 64x48 16-bit single-channel test image and 64x48 3-channel RGB test image
+    constexpr uint32_t imgW = 64;
+    constexpr uint32_t imgH = 48;
+    std::vector<uint16_t> mono16(imgW * imgH, 0);
+    std::vector<float> rgbFloat(imgW * imgH * 3, 0.0f);
+    for (uint32_t y = 0; y < imgH; ++y) {
+        for (uint32_t x = 0; x < imgW; ++y) {
+            break;
+        }
+        for (uint32_t x = 0; x < imgW; ++x) {
+            mono16[y * imgW + x] = static_cast<uint16_t>((x * 1000 + y * 500) % 65536);
+            const size_t base = (y * imgW + x) * 3;
+            rgbFloat[base + 0] = static_cast<float>(x * 4);
+            rgbFloat[base + 1] = static_cast<float>(y * 5);
+            rgbFloat[base + 2] = static_cast<float>((x + y) * 2);
+        }
+    }
+
+    ImageViewParams monoParams{};
+    ImageViewParams rgbParams{};
+    ImageViewResponse monoResp{};
+    ImageViewResponse rgbResp{};
+
+    auto renderFrame = [&](bool useRgb) {
+        if (useRgb) {
+            const auto d = ImageViewData::FromFloat(rgbFloat, imgW, imgH, 3, 11);
+            rgbResp = ui.ImageView(d, rgbParams, {.height = 500.0f, .showSidebar = true});
+        } else {
+            const auto d = ImageViewData::FromU16(mono16, imgW, imgH, 1, 10);
+            monoResp = ui.ImageView(d, monoParams, {.height = 500.0f, .showSidebar = true});
+        }
+    };
+
+    // Frame 1: Initialize 16-bit mono ImageView
+    ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+    renderFrame(false);
+    ui.EndFrame(canvas);
+
+    CHECK(monoParams.initialized);
+    CHECK(monoResp.dataMax > monoResp.dataMin);
+    CHECK(monoParams.channels[0].window > 1000.0f);
+
+    // Frame 2: Switch colormap to Inferno and rotate 90 deg
+    monoParams.colormap = Colormap::Inferno;
+    monoParams.rotation = ImageRotation::deg90;
+    ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+    renderFrame(false);
+    ui.EndFrame(canvas);
+    CHECK(monoResp.zoom > 0.05f);
+
+    // Frame 3: Initialize 3-channel RGB ImageView
+    ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+    renderFrame(true);
+    ui.EndFrame(canvas);
+    CHECK(rgbParams.initialized);
+    CHECK(rgbResp.dataMax > rgbResp.dataMin);
+
+    // Frame 4: Test RMB Line Profile drag on the RGB viewport (x=600, y=250 -> x=700, y=300)
+    ui.OnMouseMove({600.0f, 250.0f});
+    ui.OnMouseDown(3); // RMB
+    ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+    renderFrame(true);
+    ui.EndFrame(canvas);
+
+    ui.OnMouseMove({700.0f, 300.0f});
+    ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+    renderFrame(true);
+    ui.EndFrame(canvas);
+    CHECK(rgbResp.profileActive);
+    CHECK(rgbResp.profileSampleCount >= 2u);
+
+    ui.OnMouseUp(3);
+    ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
+    renderFrame(true);
+    ui.EndFrame(canvas);
+    CHECK(rgbResp.profileActive);
+}
+
+void TestUnifiedElementExplicitHeight() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 600;
+    const uint32_t height = 800;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    std::string inputVal = "Test";
+    size_t selectIdx = 0;
+    static constexpr std::array<std::string_view, 2> selectItems = {"A", "B"};
+    float sliderVal = 50.0f;
+    bool switchVal = false;
+    bool checkVal = true;
+
+    Response rBtn, rInput, rSelect, rSlider, rSwitch, rCheck, rImg;
+
+    auto renderFrame = [&]() {
+        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(16.0f)})) {
+            rBtn = ui.Button({.text = "Tall Button", .height = 64.0f});
+            rInput = ui.InputField(inputVal, {.height = 56.0f});
+            rSelect = ui.Select(selectIdx, selectItems, {.height = 52.0f});
+            rSlider = ui.Slider(sliderVal, 0.0f, 100.0f, {.height = 60.0f});
+            rSwitch = ui.Switch(switchVal, {.height = 48.0f});
+            rCheck = ui.Checkbox(checkVal, {.height = 44.0f});
+            rImg = ui.Image("assets/images/missing_preview.svg", {.width = 120.0f, .height = 90.0f});
+        }
+    };
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderFrame();
+    ui.EndFrame(canvas);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderFrame();
+    ui.EndFrame(canvas);
+
+    CHECK(std::abs(rBtn.rect.h - 64.0f) < 1.0f);
+    CHECK(std::abs(rInput.rect.h - 56.0f) < 1.0f);
+    CHECK(std::abs(rSelect.rect.h - 52.0f) < 1.0f);
+    CHECK(std::abs(rSlider.rect.h - 60.0f) < 1.0f);
+    CHECK(std::abs(rSwitch.rect.h - 48.0f) < 1.0f);
+    CHECK(std::abs(rCheck.rect.h - 44.0f) < 1.0f);
+    CHECK(std::abs(rImg.rect.h - 90.0f) < 1.0f);
+}
+
+void TestElementOuterFrameAndControlWellFrame() {
+    using namespace guikit;
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 800;
+    const uint32_t height = 600;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    const UiTheme& theme = ui.GetTheme();
+
+    // 1. Verify Control::Measure & Control::ResolveInnerRect for hasIntrinsicBox = false (well frame) vs true
+    ControlSpec wellSpec{
+        .background = true,
+        .borderWidth = 2.0f,
+        .borderRadius = 6.0f,
+        .hasIntrinsicBox = false
+    };
+    const float wellPad = Control::ComputeWellPadding(wellSpec, UiSize::Md, theme);
+    CHECK(wellPad > 0.0f);
+
+    const Vec2 rawTrackSize{180.0f, 24.0f};
+    const Vec2 measuredWell = Control::Measure(rawTrackSize, wellSpec, StretchMode::Compact, UiSize::Md, theme);
+    CHECK_NEAR(measuredWell.x, rawTrackSize.x + wellPad * 2.0f, 0.01f);
+    CHECK_NEAR(measuredWell.y, rawTrackSize.y + wellPad * 2.0f, 0.01f);
+
+    const Rect outerCtrlRect{10.0f, 20.0f, measuredWell.x, measuredWell.y};
+    const Rect innerCtrlRect = Control::ResolveInnerRect(outerCtrlRect, wellSpec, UiSize::Md, theme);
+    CHECK_NEAR(innerCtrlRect.x, outerCtrlRect.x + wellPad, 0.01f);
+    CHECK_NEAR(innerCtrlRect.y, outerCtrlRect.y + wellPad, 0.01f);
+    CHECK_NEAR(innerCtrlRect.w, rawTrackSize.x, 0.01f);
+    CHECK_NEAR(innerCtrlRect.h, rawTrackSize.y, 0.01f);
+
+    ControlSpec intrinsicBoxSpec = wellSpec;
+    intrinsicBoxSpec.hasIntrinsicBox = true;
+    CHECK_NEAR(Control::ComputeWellPadding(intrinsicBoxSpec, UiSize::Md, theme), 0.0f, 0.001f);
+
+    // 2. Verify Element outer frame padding and Control well frame in full immediate-mode frame
+    float sliderVal = 0.5f;
+    bool switchVal = true;
+    bool checkVal = false;
+    Response rSliderPlain, rSliderFramed, rSwitchWell, rCheckWell, rBtnFramed;
+
+    auto renderFrame = [&]() {
+        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f)})) {
+            rSliderPlain = ui.Slider(sliderVal, 0.0f, 1.0f, {.label = "Plain Slider"});
+            rSliderFramed = ui.Slider(sliderVal, 0.0f, 1.0f, {
+                .label = "Framed Slider",
+                .background = true,
+                .borderWidth = 1.5f,
+                .borderRadius = 8.0f,
+                .control = {
+                    .background = true,
+                    .borderWidth = 1.0f,
+                    .borderRadius = 6.0f
+                }
+            });
+            rSwitchWell = ui.Switch(switchVal, {
+                .label = "Switch With Well",
+                .background = true,
+                .control = {
+                    .background = true,
+                    .borderWidth = 1.0f
+                }
+            });
+            rCheckWell = ui.Checkbox(checkVal, {
+                .label = "Checkbox With Well",
+                .control = {
+                    .background = true,
+                    .borderWidth = 1.0f
+                }
+            });
+            rBtnFramed = ui.Button({
+                .label = "Outer Framed Button",
+                .text = "Click",
+                .background = true,
+                .borderWidth = 1.0f,
+                .control = {
+                    .background = false,
+                    .borderWidth = 2.0f
+                }
+            });
+        }
+    };
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderFrame();
+    ui.EndFrame(canvas);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderFrame();
+    ui.EndFrame(canvas);
+
+    // Framed slider must be taller than plain slider due to both outer Element frame and inner Control well
+    CHECK(rSliderFramed.rect.h > rSliderPlain.rect.h + 12.0f);
+    CHECK(rSwitchWell.rect.h > 0.0f);
+    CHECK(rCheckWell.rect.h > 0.0f);
+    CHECK(rBtnFramed.rect.h > 0.0f);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Context & Immediate Mode API...\n";
 
@@ -8067,6 +8374,9 @@ int main() {
     TestTableVirtualizedDataGridWorkflow();
     TestCodeEditorIdeAndDebuggerWorkflow();
     TestKeymapAndMarkdownTopTierFeatures();
+    TestUnifiedColormapHistogramAndImageView();
+    TestUnifiedElementExplicitHeight();
+    TestElementOuterFrameAndControlWellFrame();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

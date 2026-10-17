@@ -10,6 +10,7 @@
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
+#include "guikit/graphics/Colormap.hpp"
 
 namespace guikit {
 
@@ -106,91 +107,19 @@ struct SonarViewPayload {
     return b >= s || b <= e;
 }
 
-[[nodiscard]] constexpr uint32_t PackAbgr(Color c) noexcept {
-    return (static_cast<uint32_t>(c.a) << 24u) |
-           (static_cast<uint32_t>(c.b) << 16u) |
-           (static_cast<uint32_t>(c.g) << 8u)  |
-           static_cast<uint32_t>(c.r);
-}
-
-struct RgbaStop {
-    float t;
-    uint8_t r, g, b;
-};
-
-[[nodiscard]] Color SampleGradient(std::span<const RgbaStop> stops, float t) noexcept {
-    t = std::clamp(t, 0.0f, 1.0f);
-    for (size_t i = 0; i + 1 < stops.size(); ++i) {
-        if (t >= stops[i].t && t <= stops[i + 1].t) {
-            const float span = std::max(1e-5f, stops[i + 1].t - stops[i].t);
-            const float u = (t - stops[i].t) / span;
-            return Color(
-                static_cast<uint8_t>(std::clamp(stops[i].r + u * (stops[i + 1].r - stops[i].r), 0.0f, 255.0f)),
-                static_cast<uint8_t>(std::clamp(stops[i].g + u * (stops[i + 1].g - stops[i].g), 0.0f, 255.0f)),
-                static_cast<uint8_t>(std::clamp(stops[i].b + u * (stops[i + 1].b - stops[i].b), 0.0f, 255.0f)),
-                255
-            );
-        }
-    }
-    const auto& last = stops.back();
-    return Color(last.r, last.g, last.b, 255);
-}
-
-[[nodiscard]] std::array<Color, 256> BuildSonarColormapLut(SonarColormap cmap) noexcept {
-    static constexpr RgbaStop kSonarGold[] = {
-        {0.00f,   5,   8,  15},
-        {0.15f,  24,  16,  12},
-        {0.38f,  82,  42,  14},
-        {0.62f, 168,  88,  20},
-        {0.84f, 238, 168,  42},
-        {1.00f, 255, 246, 195}
-    };
-    static constexpr RgbaStop kAcousticJet[] = {
-        {0.00f,   5,   9,  20},
-        {0.18f,  10,  38,  98},
-        {0.40f,   8, 135, 175},
-        {0.62f,  34, 197,  94},
-        {0.82f, 250, 204,  21},
-        {1.00f, 244,  63,  94}
-    };
-    static constexpr RgbaStop kPhosphorGreen[] = {
-        {0.00f,   4,  11,   8},
-        {0.20f,   8,  38,  20},
-        {0.48f,  16, 112,  48},
-        {0.76f,  34, 212,  84},
-        {0.92f, 134, 248, 158},
-        {1.00f, 232, 255, 238}
-    };
-    static constexpr RgbaStop kInferno[] = {
-        {0.00f,   6,   6,  16},
-        {0.22f,  58,  15,  90},
-        {0.48f, 145,  32,  86},
-        {0.72f, 224,  82,  36},
-        {0.90f, 250, 178,  42},
-        {1.00f, 252, 250, 168}
-    };
-    static constexpr RgbaStop kNightRed[] = {
-        {0.00f,   8,   4,   6},
-        {0.25f,  48,   8,  14},
-        {0.55f, 128,  18,  24},
-        {0.82f, 220,  48,  38},
-        {1.00f, 255, 165, 120}
-    };
-
-    std::span<const RgbaStop> stops = kSonarGold;
+[[nodiscard]] constexpr Colormap ToUnifiedColormap(SonarColormap cmap) noexcept {
     switch (cmap) {
-        case SonarColormap::SonarGold:     stops = kSonarGold; break;
-        case SonarColormap::AcousticJet:   stops = kAcousticJet; break;
-        case SonarColormap::PhosphorGreen: stops = kPhosphorGreen; break;
-        case SonarColormap::Inferno:       stops = kInferno; break;
-        case SonarColormap::NightRed:      stops = kNightRed; break;
+        case SonarColormap::SonarGold:     return Colormap::SonarGold;
+        case SonarColormap::AcousticJet:   return Colormap::Jet;
+        case SonarColormap::PhosphorGreen: return Colormap::PhosphorGreen;
+        case SonarColormap::Inferno:       return Colormap::Inferno;
+        case SonarColormap::NightRed:      return Colormap::NightRed;
     }
+    return Colormap::SonarGold;
+}
 
-    std::array<Color, 256> lut{};
-    for (size_t i = 0; i < 256; ++i) {
-        lut[i] = SampleGradient(stops, static_cast<float>(i) / 255.0f);
-    }
-    return lut;
+[[nodiscard]] const std::array<Color, 256>& BuildSonarColormapLut(SonarColormap cmap) noexcept {
+    return GetColormapLut(ToUnifiedColormap(cmap));
 }
 
 /// Geometry helper for mapping between polar (rangeMeters, bearingDeg) and screen (x, y).

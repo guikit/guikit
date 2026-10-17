@@ -48,9 +48,10 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
                 .inlineOrder = ctx.elemInlineOrder,
                 .elementAlign = ctx.elemAlign,
                 .stretch = ctx.GetElementStretch(),
-                .width = ctx.GetElementWidth(),
-                .divider = ctx.elemDivider,
-                .dividerStyle = ctx.elemDividerStyle,
+                .background = ctx.elemBackground,
+                .borderWidth = ctx.elemBorderWidth,
+                .borderRadius = ctx.GetElemBorderRadius(),
+                .control = ctx.GetControlSpec(NavCategory::ElemCheckbox),
                 .disabled = ctx.elemDisabled,
                 .size = ctx.controlsSize
             });
@@ -64,9 +65,10 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
                 .inlineOrder = ctx.elemInlineOrder,
                 .elementAlign = ctx.elemAlign,
                 .stretch = ctx.GetElementStretch(),
-                .width = ctx.GetElementWidth(),
-                .divider = ctx.elemDivider,
-                .dividerStyle = ctx.elemDividerStyle,
+                .background = ctx.elemBackground,
+                .borderWidth = ctx.elemBorderWidth,
+                .borderRadius = ctx.GetElemBorderRadius(),
+                .control = ctx.GetControlSpec(NavCategory::ElemCheckbox),
                 .disabled = ctx.elemDisabled,
                 .size = ctx.controlsSize
             });
@@ -80,9 +82,10 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
                 .inlineOrder = ctx.elemInlineOrder,
                 .elementAlign = ctx.elemAlign,
                 .stretch = ctx.GetElementStretch(),
-                .width = ctx.GetElementWidth(),
-                .divider = ctx.elemDivider,
-                .dividerStyle = ctx.elemDividerStyle,
+                .background = ctx.elemBackground,
+                .borderWidth = ctx.elemBorderWidth,
+                .borderRadius = ctx.GetElemBorderRadius(),
+                .control = ctx.GetControlSpec(NavCategory::ElemCheckbox),
                 .disabled = ctx.elemDisabled,
                 .size = ctx.controlsSize
             });
@@ -98,9 +101,10 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
             .inlineOrder = ctx.elemInlineOrder,
             .elementAlign = ctx.elemAlign,
             .stretch = ctx.GetElementStretch(),
-            .width = ctx.GetElementWidth(),
-            .divider = ctx.elemDivider,
-            .dividerStyle = ctx.elemDividerStyle,
+            .background = ctx.elemBackground,
+            .borderWidth = ctx.elemBorderWidth,
+            .borderRadius = ctx.GetElemBorderRadius(),
+            .control = ctx.GetControlSpec(NavCategory::ElemCheckbox),
             .disabled = ctx.elemDisabled,
             .indeterminate = s_state.indet,
             .radio = s_state.radio,
@@ -122,9 +126,10 @@ std::string GenerateCheckboxCode(const DemoContext& ctx) {
             "    .inlineOrder = guikit::InlineOrder::{},\n"
             "    .elementAlign = guikit::Align::{},\n"
             "    .stretch = guikit::StretchMode::{},\n"
-            "    .width = {},\n"
-            "    .divider = {},\n"
-            "    .dividerStyle = guikit::ElementDivider::{},\n"
+            "    .background = {},\n"
+            "    .borderWidth = {:.1f}f,\n"
+            "    .borderRadius = {},\n"
+            "    .control = {},\n"
             "    .disabled = {},\n"
             "    .size = guikit::UiSize::{}\n"
             "}});",
@@ -137,9 +142,10 @@ std::string GenerateCheckboxCode(const DemoContext& ctx) {
             InlineOrderEnumName(ctx.elemInlineOrder),
             LabelAlignEnumName(ctx.elemAlign),
             StretchModeEnumName(ctx.GetElementStretch()),
-            ctx.FormatElementWidthCode(),
-            ctx.elemDivider ? "true" : "false",
-            ctx.FormatDividerStyleCode(),
+            ctx.elemBackground ? "true" : "false",
+            ctx.elemBorderWidth,
+            ctx.FormatElemBorderRadiusCode(),
+            ctx.FormatControlSpecCode(NavCategory::ElemCheckbox),
             ctx.elemDisabled ? "true" : "false",
             SizeName(ctx.controlsSize)
         );
@@ -155,9 +161,10 @@ std::string GenerateCheckboxCode(const DemoContext& ctx) {
         "    .inlineOrder = guikit::InlineOrder::{},\n"
         "    .elementAlign = guikit::Align::{},\n"
         "    .stretch = guikit::StretchMode::{},\n"
-        "    .width = {},\n"
-        "    .divider = {},\n"
-        "    .dividerStyle = guikit::ElementDivider::{},\n"
+        "    .background = {},\n"
+        "    .borderWidth = {:.1f}f,\n"
+        "    .borderRadius = {},\n"
+        "    .control = {},\n"
         "    .disabled = {},\n"
         "    .indeterminate = {},\n"
         "    .radio = {},\n"
@@ -172,9 +179,10 @@ std::string GenerateCheckboxCode(const DemoContext& ctx) {
         InlineOrderEnumName(ctx.elemInlineOrder),
         LabelAlignEnumName(ctx.elemAlign),
         StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElementWidthCode(),
-        ctx.elemDivider ? "true" : "false",
-        ctx.FormatDividerStyleCode(),
+        ctx.elemBackground ? "true" : "false",
+        ctx.elemBorderWidth,
+        ctx.FormatElemBorderRadiusCode(),
+        ctx.FormatControlSpecCode(NavCategory::ElemCheckbox),
         ctx.elemDisabled ? "true" : "false",
         s_state.indet ? "true" : "false",
         s_state.radio ? "true" : "false",

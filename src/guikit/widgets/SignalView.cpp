@@ -11,6 +11,7 @@
 #include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
+#include "guikit/graphics/Colormap.hpp"
 
 namespace guikit {
 
@@ -180,76 +181,19 @@ struct WaveformPyramid {
     return h;
 }
 
-[[nodiscard]] uint32_t PackAbgr(Color c) noexcept {
-    return (static_cast<uint32_t>(c.a) << 24) |
-           (static_cast<uint32_t>(c.b) << 16) |
-           (static_cast<uint32_t>(c.g) << 8)  |
-           static_cast<uint32_t>(c.r);
-}
-
-[[nodiscard]] Color SampleColormapStop(std::span<const Color> stops, float t) noexcept {
-    t = std::clamp(t, 0.0f, 1.0f);
-    if (stops.empty()) return Color(0, 0, 0, 255);
-    if (stops.size() == 1) return stops[0];
-    const float scaled = t * static_cast<float>(stops.size() - 1);
-    const size_t idx = std::min(stops.size() - 2, static_cast<size_t>(scaled));
-    const float frac = scaled - static_cast<float>(idx);
-    return Color::Lerp(stops[idx], stops[idx + 1], frac);
+[[nodiscard]] constexpr Colormap ToUnifiedColormap(SpectrogramColormap cmap) noexcept {
+    switch (cmap) {
+        case SpectrogramColormap::Inferno:   return Colormap::Inferno;
+        case SpectrogramColormap::Magma:     return Colormap::Magma;
+        case SpectrogramColormap::Viridis:   return Colormap::Viridis;
+        case SpectrogramColormap::CyanHot:   return Colormap::CyanHot;
+        case SpectrogramColormap::Grayscale: return Colormap::Grayscale;
+    }
+    return Colormap::Inferno;
 }
 
 [[nodiscard]] Color EvaluateColormap(SpectrogramColormap cmap, float norm) noexcept {
-    norm = std::clamp(norm, 0.0f, 1.0f);
-    switch (cmap) {
-        case SpectrogramColormap::Inferno: {
-            static constexpr std::array<Color, 6> kStops = {{
-                {8,   6,  22, 255},
-                {52,  15, 98, 255},
-                {138, 34, 106, 255},
-                {214, 75, 42, 255},
-                {250, 164, 18, 255},
-                {252, 250, 164, 255}
-            }};
-            return SampleColormapStop(kStops, norm);
-        }
-        case SpectrogramColormap::Magma: {
-            static constexpr std::array<Color, 6> kStops = {{
-                {8,   6,  24, 255},
-                {48,  18, 96, 255},
-                {126, 36, 130, 255},
-                {204, 68, 108, 255},
-                {248, 138, 98, 255},
-                {252, 244, 196, 255}
-            }};
-            return SampleColormapStop(kStops, norm);
-        }
-        case SpectrogramColormap::Viridis: {
-            static constexpr std::array<Color, 6> kStops = {{
-                {18,  12, 48, 255},
-                {49,  68, 126, 255},
-                {38, 118, 142, 255},
-                {34, 164, 128, 255},
-                {118, 208, 76, 255},
-                {253, 231, 37, 255}
-            }};
-            return SampleColormapStop(kStops, norm);
-        }
-        case SpectrogramColormap::CyanHot: {
-            static constexpr std::array<Color, 6> kStops = {{
-                {7,   11, 24, 255},
-                {14,  52, 112, 255},
-                {14, 158, 218, 255},
-                {72, 226, 210, 255},
-                {249, 152, 36, 255},
-                {255, 250, 230, 255}
-            }};
-            return SampleColormapStop(kStops, norm);
-        }
-        case SpectrogramColormap::Grayscale: {
-            const uint8_t v = static_cast<uint8_t>(std::round(norm * 255.0f));
-            return Color(v, v, v, 255);
-        }
-    }
-    return Color(0, 0, 0, 255);
+    return SampleColormap(ToUnifiedColormap(cmap), norm);
 }
 
 // In-place iterative Cooley-Tukey Radix-2 FFT
@@ -549,10 +493,11 @@ struct SpectrogramCache {
 
         // Map dbGrid to ABGR8888 pixels using [dbFloor, dbCeil] and active colormap
         pixels.resize(static_cast<size_t>(kTexW * kTexH));
-        const float invRange = 1.0f / std::max(1.0f, safeCeil - safeFloor);
+        const auto& lutAbgr = GetColormapLutAbgr(ToUnifiedColormap(colormap));
+        const float invRange = 255.0f / std::max(1.0f, safeCeil - safeFloor);
         for (size_t i = 0; i < dbGrid.size(); ++i) {
-            const float norm = std::clamp((dbGrid[i] - safeFloor) * invRange, 0.0f, 1.0f);
-            pixels[i] = PackAbgr(EvaluateColormap(colormap, norm));
+            const size_t lutIdx = static_cast<size_t>(std::clamp((dbGrid[i] - safeFloor) * invRange, 0.0f, 255.0f));
+            pixels[i] = lutAbgr[lutIdx];
         }
         pixelsValid = true;
     }
@@ -1853,9 +1798,7 @@ SignalViewResponse SignalView::Run(
             gpuDesc.texWidth = SpectrogramCache::kTexW;
             gpuDesc.texHeight = SpectrogramCache::kTexH;
             gpuDesc.colormapId = static_cast<uint8_t>(o.colormap);
-            for (size_t i = 0; i < 256; ++i) {
-                gpuDesc.colormapAbgr[i] = PackAbgr(EvaluateColormap(o.colormap, static_cast<float>(i) / 255.0f));
-            }
+            CopyColormapLutAbgr(ToUnifiedColormap(o.colormap), gpuDesc.colormapAbgr);
             gpuDesc.plotRect = g.specPlotRect;
             gpuDesc.dbFloor = s.specCache.dbFloor;
             gpuDesc.dbCeil = s.specCache.dbCeil;

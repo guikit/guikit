@@ -122,12 +122,12 @@ void RenderTableInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         ui.InvalidateAll();
     }
 
-    if (ui.Switch(g_tableDemo.striped, {.label = "Zebra Striped Rows", .divider = true}).changed) ui.InvalidateAll();
-    if (ui.Switch(g_tableDemo.gridLines, {.label = "Cell Grid Lines", .divider = true}).changed) ui.InvalidateAll();
-    if (ui.Switch(g_tableDemo.stickyHeader, {.label = "Sticky Header", .divider = true}).changed) ui.InvalidateAll();
-    if (ui.Switch(g_tableDemo.resizableColumns, {.label = "Resizable Columns", .divider = true}).changed) ui.InvalidateAll();
-    if (ui.Switch(g_tableDemo.showRowNumbers, {.label = "Show Row Numbers (#)", .divider = true}).changed) ui.InvalidateAll();
-    if (ui.Switch(g_tableDemo.showFooter, {.label = "Show Summary Footer", .divider = true}).changed) ui.InvalidateAll();
+    if (ui.Switch(g_tableDemo.striped, {.label = "Zebra Striped Rows"}).changed) ui.InvalidateAll();
+    if (ui.Switch(g_tableDemo.gridLines, {.label = "Cell Grid Lines"}).changed) ui.InvalidateAll();
+    if (ui.Switch(g_tableDemo.stickyHeader, {.label = "Sticky Header"}).changed) ui.InvalidateAll();
+    if (ui.Switch(g_tableDemo.resizableColumns, {.label = "Resizable Columns"}).changed) ui.InvalidateAll();
+    if (ui.Switch(g_tableDemo.showRowNumbers, {.label = "Show Row Numbers (#)"}).changed) ui.InvalidateAll();
+    if (ui.Switch(g_tableDemo.showFooter, {.label = "Show Summary Footer"}).changed) ui.InvalidateAll();
 
     if (g_tableDemo.datasetMode == 0) {
         if (ui.Switch(g_tableDemo.liveTelemetry, {

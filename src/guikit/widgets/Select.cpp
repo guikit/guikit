@@ -11,11 +11,23 @@ namespace guikit {
 
 namespace {
 
+ControlSpec EffectiveSelectControl(const SelectOptions& opts) noexcept {
+    ControlSpec c = opts.control;
+    if (!c.width.has_value() && opts.width.has_value()) c.width = opts.width;
+    if (!c.height.has_value() && opts.height.has_value()) c.height = opts.height;
+    if (!c.minWidth.has_value() && opts.minWidth.has_value()) c.minWidth = opts.minWidth;
+    c.stretchable = true;
+    c.stretchHeightWhenStandalone = false;
+    c.hasIntrinsicBox = true;
+    return c;
+}
+
 Vec2 MeasureSelectBox(const SelectOptions& opts, UiSize size, const UiTheme& theme) noexcept {
     const SelectMetrics& m = theme.GetSelect(size);
-    float boxW = (opts.stretch != StretchMode::Fill && opts.width.has_value()) ? theme.Scale(*opts.width) : m.defaultWidth;
-    if (opts.minWidth.has_value()) {
-        boxW = std::max(theme.Scale(*opts.minWidth), boxW);
+    const ControlSpec ctrl = EffectiveSelectControl(opts);
+    float boxW = (opts.stretch != StretchMode::Fill && ctrl.width.has_value()) ? theme.Scale(*ctrl.width) : m.defaultWidth;
+    if (ctrl.minWidth.has_value()) {
+        boxW = std::max(theme.Scale(*ctrl.minWidth), boxW);
     } else {
         boxW = std::max(m.minWidth, boxW);
     }
@@ -29,6 +41,7 @@ ElementSpec MakeSelectElementSpec(
     const UiTheme& theme
 ) noexcept {
     const SelectMetrics& m = theme.GetSelect(size);
+    const ControlSpec ctrl = EffectiveSelectControl(opts);
     return ElementSpec{
         .label = opts.label,
         .description = opts.description,
@@ -39,13 +52,16 @@ ElementSpec MakeSelectElementSpec(
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
         .stretch = opts.stretch,
-        .width = opts.width,
+        .width = ctrl.width,
+        .height = ctrl.height,
+        .control = ctrl,
+        .background = opts.background,
+        .borderWidth = opts.borderWidth,
+        .borderRadius = opts.borderRadius,
         .widgetSize = size,
         .labelGap = m.labelGap,
         .descGap = m.descGap,
         .inlineGap = m.paddingX,
-        .divider = opts.divider,
-        .dividerStyle = opts.dividerStyle,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = false,
         .disabled = disabled
@@ -198,19 +214,20 @@ Response Select::Run(
         && *opts.maxVisibleItems > 0
         && items.size() > static_cast<size_t>(*opts.maxVisibleItems);
 
+    const ControlSpec ctrl = EffectiveSelectControl(opts);
     float intrinsicW = maxRowW + m.paddingX * 2.0f + m.iconSize + 8.0f + (exceedsVisibleItems ? sm.gutter : 0.0f);
-    if (opts.minWidth.has_value()) {
-        intrinsicW = std::max(theme.Scale(*opts.minWidth), intrinsicW);
+    if (ctrl.minWidth.has_value()) {
+        intrinsicW = std::max(theme.Scale(*ctrl.minWidth), intrinsicW);
     } else {
         intrinsicW = std::max(m.minWidth, intrinsicW);
     }
-    if (opts.stretch != StretchMode::Fill && opts.width.has_value()) {
-        intrinsicW = theme.Scale(*opts.width);
+    if (opts.stretch != StretchMode::Fill && ctrl.width.has_value()) {
+        intrinsicW = theme.Scale(*ctrl.width);
     }
 
     const float unscaledIntrinsicW = (theme.scale > 0.0f) ? (intrinsicW / theme.scale) : intrinsicW;
     SelectOptions runOpts = opts;
-    if (opts.stretch != StretchMode::Fill && !runOpts.width.has_value()) {
+    if (opts.stretch != StretchMode::Fill && !ctrl.width.has_value()) {
         runOpts.width = unscaledIntrinsicW;
     }
 
@@ -509,7 +526,7 @@ Response Select::Run(
     optsCopy.prefix = ctx.AllocAffix(activePrefix);
     optsCopy.suffix = ctx.AllocAffix(activeSuffix);
     node->text = optsCopy.label.text;
-    if (opts.stretch != StretchMode::Fill && !optsCopy.width.has_value()) optsCopy.width = unscaledIntrinsicW;
+    if (opts.stretch != StretchMode::Fill && !ctrl.width.has_value()) optsCopy.width = unscaledIntrinsicW;
 
     auto* data = ctx.AllocPayload<SelectData>();
     data->opts = optsCopy;
@@ -519,6 +536,7 @@ Response Select::Run(
         opts.variant,
         static_cast<uint8_t>(opts.stretch),
         optsCopy.width.value_or(0.0f),
+        opts.height.value_or(0.0f),
         opts.minWidth.value_or(0.0f),
         optsCopy.label,
         optsCopy.badge,
@@ -531,9 +549,15 @@ Response Select::Run(
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
         static_cast<uint8_t>(opts.elementAlign),
-        static_cast<uint8_t>(opts.divider),
-        static_cast<uint8_t>(opts.dividerStyle),
-        opts.borderRadius.value_or(-1.0f)
+        opts.background,
+        opts.borderWidth,
+        opts.borderRadius.value_or(-1.0f),
+        opts.control.width.value_or(0.0f),
+        opts.control.height.value_or(0.0f),
+        opts.control.minWidth.value_or(0.0f),
+        opts.control.HasBackground(true),
+        opts.control.borderWidth,
+        opts.control.borderRadius.value_or(-1.0f)
     );
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<SelectData>();
@@ -585,6 +609,7 @@ void Select::Render(
     }
 
     const SelectMetrics& m = theme.GetSelect(size);
+    const ControlSpec ctrl = EffectiveSelectControl(opts);
     const Vec2 boxDims = MeasureSelectBox(opts, size, theme);
     const ElementSpec spec = MakeSelectElementSpec(opts, size, disabled, theme);
     const ElementGeometry geom = Element::Resolve(bounds, boxDims, spec, &canvas, theme);
@@ -593,14 +618,16 @@ void Select::Render(
 
     // Determine colors
     const auto& pal = theme.palette;
-    Color boxBg = (hovered && !disabled) ? pal.surface : pal.inputBackground;
+    Color boxBg = ctrl.HasBackground(true)
+        ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
+        : Color::Transparent();
     Color boxBorder;
-    float strokeW = m.strokeWidth;
+    float strokeW = (ctrl.borderWidth > 0.0f) ? theme.Scale(ctrl.borderWidth) : m.strokeWidth;
 
     const VariantColors& v = theme.GetVariant(opts.variant);
     if ((open || focused) && !disabled) {
         boxBorder = (opts.variant == UiVariant::Default || opts.variant == UiVariant::Ghost) ? pal.focusRing : v.bg;
-        strokeW += 0.5f;
+        if (ctrl.borderWidth > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
     } else if (hovered && !disabled) {
         boxBorder = (opts.variant == UiVariant::Default || opts.variant == UiVariant::Ghost) ? pal.borderHover : v.bgHover;
     } else {
@@ -625,7 +652,7 @@ void Select::Render(
     }
 
     // Draw box background and border
-    const float radius = opts.borderRadius.has_value() ? theme.Scale(*opts.borderRadius) : m.cornerRadius;
+    const float radius = ctrl.borderRadius.has_value() ? theme.Scale(*ctrl.borderRadius) : m.cornerRadius;
     canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
     // Left elements (prefix icon and/or text)

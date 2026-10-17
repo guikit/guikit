@@ -10,7 +10,6 @@ struct SelectState {
     std::vector<std::string_view> items = {"Option Alpha", "Option Beta", "Option Gamma", "Option Delta", "Option Epsilon"};
     std::string placeholder = "Select...";
     uint32_t maxItems = 4;
-    float cornerRadius = 6.0f;
     bool hasPrefix = false;
 };
 SelectState s_state;
@@ -22,9 +21,6 @@ void RenderSelectInspector(guikit::Context& ui, DemoContext&) {
         .placeholder = "Select...",
         .clearable = true
     }).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.cornerRadius, 0.0f, 24.0f, {.label = "Border Radius", .valueFormat = "%.0f px"}).changed) {
-        ui.InvalidateAll();
-    }
     float maxItemsFloat = static_cast<float>(s_state.maxItems);
     if (ui.Slider(maxItemsFloat, 2.0f, 8.0f, {.label = "Max Visible Menu Items", .valueFormat = "%.0f items", .step = 1.0f}).changed) {
         s_state.maxItems = static_cast<uint32_t>(maxItemsFloat);
@@ -47,11 +43,11 @@ void RenderSelectStage(guikit::Context& ui, DemoContext& ctx) {
         .elementAlign = ctx.elemAlign,
         .maxVisibleItems = s_state.maxItems,
         .size = ctx.controlsSize,
-        .borderRadius = s_state.cornerRadius,
         .stretch = ctx.GetElementStretch(),
-        .width = ctx.GetElementWidth(),
-        .divider = ctx.elemDivider,
-        .dividerStyle = ctx.elemDividerStyle,
+        .background = ctx.elemBackground,
+        .borderWidth = ctx.elemBorderWidth,
+        .borderRadius = ctx.GetElemBorderRadius(),
+        .control = ctx.GetControlSpec(NavCategory::ElemSelect),
         .disabled = ctx.elemDisabled
     });
 }
@@ -71,11 +67,11 @@ std::string GenerateSelectCode(const DemoContext& ctx) {
         "    .elementAlign = guikit::Align::{},\n"
         "    .maxVisibleItems = {},\n"
         "    .size = guikit::UiSize::{},\n"
-        "    .borderRadius = {:.1f}f,\n"
         "    .stretch = guikit::StretchMode::{},\n"
-        "    .width = {},\n"
-        "    .divider = {},\n"
-        "    .dividerStyle = guikit::ElementDivider::{},\n"
+        "    .background = {},\n"
+        "    .borderWidth = {:.1f}f,\n"
+        "    .borderRadius = {},\n"
+        "    .control = {},\n"
         "    .disabled = {}\n"
         "}});",
         ctx.elemLabel,
@@ -90,11 +86,11 @@ std::string GenerateSelectCode(const DemoContext& ctx) {
         LabelAlignEnumName(ctx.elemAlign),
         s_state.maxItems,
         SizeName(ctx.controlsSize),
-        s_state.cornerRadius,
         StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElementWidthCode(),
-        ctx.elemDivider ? "true" : "false",
-        ctx.FormatDividerStyleCode(),
+        ctx.elemBackground ? "true" : "false",
+        ctx.elemBorderWidth,
+        ctx.FormatElemBorderRadiusCode(),
+        ctx.FormatControlSpecCode(NavCategory::ElemSelect),
         ctx.elemDisabled ? "true" : "false"
     );
 }

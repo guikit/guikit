@@ -12,6 +12,8 @@
 #include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
+#include "guikit/panels/Toolbar.hpp"
+#include "guikit/widgets/Button.hpp"
 
 namespace guikit {
 
@@ -765,6 +767,7 @@ struct EditorLayoutRects {
     Rect zoomBtnRect{};
     SearchOverlayRects searchOverlay{};
     DebugToolbarRects debugToolbar{};
+    UiSize toolbarSize{UiSize::Sm};
     EditorFontMetrics metrics{};
     float fontSize{13.0f};
     float glyphBoxH{18.0f};
@@ -803,7 +806,10 @@ EditorLayoutRects ComputeEditorLayout(
     std::vector<VisualLine>& outVisualLines
 ) {
     EditorLayoutRects L{};
+    L.toolbarSize = opts.toolbarSize.value_or(size);
     const ComponentMetrics& cm = theme.GetMetrics(size);
+    const ComponentMetrics& tbCm = theme.GetMetrics(L.toolbarSize);
+    const float tbGap = theme.GetGap(L.toolbarSize);
     const ScrollbarMetrics& sm = theme.GetScrollbar(size);
     const FontStyle textStyle = opts.monospace ? FontStyle::Monospace : FontStyle::Regular;
 
@@ -955,39 +961,50 @@ EditorLayoutRects ComputeEditorLayout(
         }
     }
 
-    // Top-right quick buttons (Copy, Search, Zoom %) when Search overlay is closed
-    const float overlayRight = L.innerBounds.Right() - finalVBarReserve - L.minimapWidth - theme.Scale(6.0f);
-    const float overlayTop = L.innerBounds.y + theme.Scale(6.0f);
-    const float badgeFs = theme.GetFontSize(TextRole::LabelSmall, size);
-    const float btnH = std::max(theme.Scale(22.0f), badgeFs + theme.Scale(8.0f));
+    // Top-right quick buttons (Copy, Search, Zoom %) when Search overlay is closed — sized via UiSize & Button::Measure
+    const float overlayMargin = std::max(theme.Scale(4.0f), tbGap * 0.75f);
+    const float overlayRight = L.innerBounds.Right() - finalVBarReserve - L.minimapWidth - overlayMargin;
+    const float overlayTop = L.innerBounds.y + overlayMargin;
     float rightCursor = overlayRight;
 
     if (!searchOpen && !gotoOpen) {
-        if (opts.showCopyButton && L.innerBounds.w > theme.Scale(120.0f)) {
-            const std::string_view copyLbl = copyFeedbackActive ? "Copied" : "Copy";
-            const float lblW = TextUtil::MeasureWidth(copyLbl, badgeFs, canvas);
-            const float iconSz = theme.Scale(11.0f);
-            const float btnW = lblW + iconSz + theme.Scale(16.0f);
-            L.copyBtnRect = Rect(rightCursor - btnW, overlayTop, btnW, btnH);
-            rightCursor -= (btnW + theme.Scale(6.0f));
+        if (opts.showCopyButton && L.innerBounds.w > tbCm.defaultWidth * 1.5f) {
+            ButtonOptions copyOpts{};
+            copyOpts.label = copyFeedbackActive ? "Copied" : "Copy";
+            copyOpts.icon = copyFeedbackActive ? Icon::Check() : Icon::Copy();
+            copyOpts.size = L.toolbarSize;
+            const Vec2 copySz = Button::Measure(copyOpts, L.toolbarSize, canvas, theme);
+            L.copyBtnRect = Rect(rightCursor - copySz.x, overlayTop, copySz.x, copySz.y);
+            rightCursor -= (copySz.x + tbGap * 0.75f);
         }
 
-        if (opts.allowZoom && std::abs(effZoom - 1.0f) > 0.01f && L.innerBounds.w > theme.Scale(140.0f)) {
+        if (opts.allowZoom && std::abs(effZoom - 1.0f) > 0.01f && L.innerBounds.w > tbCm.defaultWidth * 1.75f) {
             char zBuf[16]{};
             std::snprintf(zBuf, sizeof(zBuf), "%d%%", static_cast<int>(std::lround(effZoom * 100.0f)));
-            const float zW = TextUtil::MeasureWidth(zBuf, badgeFs, canvas) + theme.Scale(12.0f);
-            L.zoomBtnRect = Rect(rightCursor - zW, overlayTop, zW, btnH);
-            rightCursor -= (zW + theme.Scale(6.0f));
+            ButtonOptions zoomOpts{};
+            zoomOpts.label = zBuf;
+            zoomOpts.size = L.toolbarSize;
+            const Vec2 zSz = Button::Measure(zoomOpts, L.toolbarSize, canvas, theme);
+            L.zoomBtnRect = Rect(rightCursor - zSz.x, overlayTop, zSz.x, zSz.y);
+            rightCursor -= (zSz.x + tbGap * 0.75f);
         }
     }
 
-    // Search & Replace / GoToLine floating overlay geometry
-    if ((searchOpen || gotoOpen) && L.innerBounds.w > theme.Scale(200.0f)) {
-        const float rowH = theme.Scale(28.0f);
-        const float pad = theme.Scale(5.0f);
-        const float gap = theme.Scale(4.0f);
+    // Search & Replace / GoToLine floating overlay geometry — sized via UiSize & Button::Measure
+    if ((searchOpen || gotoOpen) && L.innerBounds.w > tbCm.defaultHeight * 6.0f) {
+        ButtonOptions sqOpts{};
+        sqOpts.icon = Icon::Close();
+        sqOpts.square = true;
+        sqOpts.size = L.toolbarSize;
+        const Vec2 sqSz = Button::Measure(sqOpts, L.toolbarSize, canvas, theme);
+        const float rowH = sqSz.y;
+        const float sqBtn = sqSz.x;
+        const float pad = std::max(theme.Scale(4.0f), tbGap * 0.65f);
+        const float gap = std::max(theme.Scale(3.0f), tbGap * 0.50f);
         const bool showRep = searchOpen && replaceOpen && !opts.readOnly;
-        const float panelW = std::min(theme.Scale(368.0f), std::max(theme.Scale(180.0f), L.textViewport.w - theme.Scale(8.0f)));
+        const float countW = tbCm.defaultHeight * 2.0f;
+        const float maxPanelW = tbCm.defaultHeight * 13.5f;
+        const float panelW = std::min(maxPanelW, std::max(tbCm.defaultHeight * 6.5f, L.textViewport.w - tbGap));
         const float panelH = showRep ? (rowH * 2.0f + pad * 2.0f + gap) : (rowH + pad * 2.0f);
         const float panelX = overlayRight - panelW;
         const float panelY = overlayTop;
@@ -995,29 +1012,29 @@ EditorLayoutRects ComputeEditorLayout(
         SearchOverlayRects& S = L.searchOverlay;
         S.panelRect = Rect(panelX, panelY, panelW, panelH);
 
-        const float sqBtn = rowH;
         const float y1 = panelY + pad;
         float x = panelX + pad;
 
         if (searchOpen && !opts.readOnly) {
-            S.toggleReplaceBtn = Rect(x, y1, theme.Scale(20.0f), rowH);
-            x += theme.Scale(20.0f) + gap;
+            S.toggleReplaceBtn = Rect(x, y1, sqBtn, rowH);
+            x += sqBtn + gap;
         }
 
         const float rightControlsW = searchOpen
-            ? (sqBtn * 3.0f + theme.Scale(58.0f) + gap * 4.0f)
+            ? (sqBtn * 3.0f + countW + gap * 4.0f)
             : (sqBtn + gap);
-        const float findTotalW = std::max(theme.Scale(60.0f), (panelX + panelW - pad) - x - rightControlsW);
+        const float findTotalW = std::max(tbCm.defaultHeight * 2.0f, (panelX + panelW - pad) - x - rightControlsW);
         S.findInputRect = Rect(x, y1, findTotalW, rowH);
 
         if (searchOpen) {
-            const float toggleW = theme.Scale(22.0f);
-            S.wordBtnRect = Rect(S.findInputRect.Right() - toggleW - theme.Scale(2.0f), y1 + theme.Scale(2.0f), toggleW, rowH - theme.Scale(4.0f));
-            S.caseBtnRect = Rect(S.wordBtnRect.x - toggleW - theme.Scale(2.0f), y1 + theme.Scale(2.0f), toggleW, rowH - theme.Scale(4.0f));
+            const float inset = std::max(theme.Scale(2.0f), pad * 0.45f);
+            const float toggleSz = std::max(theme.Scale(16.0f), rowH - inset * 2.0f);
+            S.wordBtnRect = Rect(S.findInputRect.Right() - toggleSz - inset, y1 + inset, toggleSz, toggleSz);
+            S.caseBtnRect = Rect(S.wordBtnRect.x - toggleSz - inset * 0.75f, y1 + inset, toggleSz, toggleSz);
 
             float rx = S.findInputRect.Right() + gap;
-            S.countRect = Rect(rx, y1, theme.Scale(58.0f), rowH);
-            rx += theme.Scale(58.0f) + gap;
+            S.countRect = Rect(rx, y1, countW, rowH);
+            rx += countW + gap;
             S.prevBtnRect = Rect(rx, y1, sqBtn, rowH);
             rx += sqBtn + gap;
             S.nextBtnRect = Rect(rx, y1, sqBtn, rowH);
@@ -1031,27 +1048,44 @@ EditorLayoutRects ComputeEditorLayout(
         if (showRep) {
             const float y2 = y1 + rowH + gap;
             const float repX = S.findInputRect.x;
-            const float actionBtnW = theme.Scale(44.0f);
+            ButtonOptions rep1Opts{};
+            rep1Opts.label = "1";
+            rep1Opts.icon = Icon::Replace();
+            rep1Opts.size = L.toolbarSize;
+            const float w1 = Button::Measure(rep1Opts, L.toolbarSize, canvas, theme).x;
+
+            ButtonOptions repAllOpts{};
+            repAllOpts.label = "All";
+            repAllOpts.icon = Icon::ReplaceAll();
+            repAllOpts.size = L.toolbarSize;
+            const float w2 = Button::Measure(repAllOpts, L.toolbarSize, canvas, theme).x;
+
             S.replaceInputRect = Rect(repX, y2, S.findInputRect.w, rowH);
             float rx = S.replaceInputRect.Right() + gap;
-            S.replaceOneBtnRect = Rect(rx, y2, actionBtnW, rowH);
-            rx += actionBtnW + gap;
-            S.replaceAllBtnRect = Rect(rx, y2, actionBtnW, rowH);
+            S.replaceOneBtnRect = Rect(rx, y2, w1, rowH);
+            rx += w1 + gap;
+            S.replaceAllBtnRect = Rect(rx, y2, w2, rowH);
         }
     }
 
-    // Floating Debug Toolbar at top-center of textViewport
-    if (opts.showDebugToolbar && L.textViewport.w > theme.Scale(200.0f)) {
-        const float gripW = theme.Scale(18.0f);
-        const float btnW = theme.Scale(34.0f);
-        const float btnH2 = theme.Scale(30.0f);
-        const float gap = theme.Scale(4.0f);
-        const float sepExtra = theme.Scale(6.0f); // Extra visual separator space before Restart/Stop
-        const float pad = theme.Scale(5.0f);
+    // Floating Debug Toolbar at top-center of textViewport — sized purely via UiSize & Button::Measure
+    if (opts.showDebugToolbar && L.textViewport.w > tbCm.defaultHeight * 6.5f) {
+        ButtonOptions dbgBtnOpts{};
+        dbgBtnOpts.icon = Icon::DebugContinue();
+        dbgBtnOpts.square = true;
+        dbgBtnOpts.variant = UiVariant::Ghost;
+        dbgBtnOpts.size = L.toolbarSize;
+        const Vec2 btnSz = Button::Measure(dbgBtnOpts, L.toolbarSize, canvas, theme);
+        const float btnW = btnSz.x;
+        const float btnH2 = btnSz.y;
+        const float gap = std::max(theme.Scale(2.0f), tbGap * 0.50f);
+        const float pad = std::max(theme.Scale(4.0f), tbGap * 0.65f);
+        const float gripW = tbCm.iconSize * 1.15f;
+        const float sepExtra = tbGap; // Group separator slot before Restart & Stop
         const float barW = gripW + 6.0f * btnW + 5.0f * gap + sepExtra + pad * 2.0f;
         float barX = L.textViewport.x + (L.textViewport.w - barW) * 0.5f;
-        if (L.searchOverlay.panelRect.w > 0.0f && barX + barW > L.searchOverlay.panelRect.x - theme.Scale(6.0f)) {
-            barX = std::max(L.textViewport.x + theme.Scale(4.0f), L.searchOverlay.panelRect.x - barW - theme.Scale(6.0f));
+        if (L.searchOverlay.panelRect.w > 0.0f && barX + barW > L.searchOverlay.panelRect.x - tbGap) {
+            barX = std::max(L.textViewport.x + pad, L.searchOverlay.panelRect.x - barW - tbGap);
         }
         L.debugToolbar.panelRect = Rect(barX, overlayTop, barW, btnH2 + pad * 2.0f);
         float bx = barX + pad + gripW;
@@ -2491,6 +2525,7 @@ TextAreaResponse TextArea::Run(
         optsCopy.codeFolding,
         optsCopy.executionLine,
         optsCopy.showDebugToolbar,
+        optsCopy.toolbarSize.value_or(activeSize),
         optsCopy.diagnostics.size(),
         optsCopy.inlineValues.size(),
         activeBreakpoints.size(),
@@ -3369,19 +3404,22 @@ void TextArea::Render(
         }
     }
 
-    // 9. Render Floating Debug Toolbar (Continue, Step Over, Step Into, Step Out, Restart, Stop)
-    const float badgeFs = theme.GetFontSize(TextRole::LabelSmall, size);
-    const float btnRad = theme.GetRadius(UiSize::Sm);
+    // 9. Render Floating Debug Toolbar (Continue, Step Over, Step Into, Step Out, Restart, Stop) — via UiSize & Button::Render
+    const UiSize tbSize = L.toolbarSize;
+    const ComponentMetrics& tbCm = theme.GetMetrics(tbSize);
+    const float badgeFs = tbCm.companionFontSize;
+    const float btnRad = tbCm.cornerRadius;
     if (opts.showDebugToolbar && L.debugToolbar.panelRect.w > 0.0f) {
         const auto& DT = L.debugToolbar;
-        canvas.DrawRoundRect(DT.panelRect, btnRad + 3.0f, pal.surfaceElevated.WithAlphaF(0.97f), pal.borderHover, theme.Scale(1.2f));
+        canvas.DrawRoundRect(DT.panelRect, btnRad + theme.Scale(3.0f), pal.surfaceElevated.WithAlphaF(0.97f), pal.borderHover, theme.Scale(1.2f));
 
         // Draw VS Code-style 6-dot drag grip on the left side of the floating debug toolbar
-        const float gripX = DT.panelRect.x + theme.Scale(7.5f);
+        const float gripSlotW = DT.btnRects[0].x - DT.panelRect.x;
+        const float dotSz = std::max(2.0f, tbCm.iconSize * 0.14f);
+        const float dotStepY = tbCm.iconSize * 0.32f;
+        const float dotStepX = tbCm.iconSize * 0.28f;
+        const float gripX = DT.panelRect.x + (gripSlotW - dotStepX - dotSz) * 0.5f;
         const float gripCy = DT.panelRect.y + DT.panelRect.h * 0.5f;
-        const float dotSz = std::max(2.0f, theme.Scale(2.2f));
-        const float dotStepY = theme.Scale(5.2f);
-        const float dotStepX = theme.Scale(4.5f);
         const Color gripCol = pal.textMuted.WithAlphaF(0.70f);
         for (int r = -1; r <= 1; ++r) {
             const float dy = gripCy + static_cast<float>(r) * dotStepY - dotSz * 0.5f;
@@ -3389,14 +3427,14 @@ void TextArea::Render(
             canvas.DrawRoundRect(Rect(gripX + dotStepX, dy, dotSz, dotSz), dotSz * 0.5f, gripCol);
         }
 
-        // Draw vertical divider between Step Out (btn 3) and Restart (btn 4)
-        const float sepX = (DT.btnRects[3].Right() + DT.btnRects[4].x) * 0.5f;
-        canvas.DrawLine(
-            {sepX, DT.panelRect.y + theme.Scale(7.0f)},
-            {sepX, DT.panelRect.Bottom() - theme.Scale(7.0f)},
-            pal.borderSubtle,
-            1.0f
+        // Draw vertical divider between Step Out (btn 3) and Restart (btn 4) via Toolbar::RenderSeparator
+        const Rect sepRect(
+            DT.btnRects[3].Right(),
+            DT.panelRect.y,
+            std::max(1.0f, DT.btnRects[4].x - DT.btnRects[3].Right()),
+            DT.panelRect.h
         );
+        Toolbar::RenderSeparator(canvas, sepRect, pal.borderSubtle, theme);
 
         static constexpr std::array<IconId, 6> kDbgIcons = {
             IconId::DebugContinue, // Continue (F5)
@@ -3418,52 +3456,44 @@ void TextArea::Render(
             const Rect br = DT.btnRects[static_cast<size_t>(i)];
             const bool bHov = extData && (extData->hoveredDebugBtn == i);
             const Color baseCol = dbgColors[static_cast<size_t>(i)];
-            if (bHov) {
-                canvas.DrawRoundRect(br, btnRad, baseCol.WithAlphaF(0.24f), baseCol, 1.0f);
-            } else {
-                canvas.DrawRoundRect(br, btnRad, pal.surfaceHover.WithAlphaF(0.32f));
-            }
-            const float icoSz = std::min(br.w, br.h) * 0.68f;
-            const Rect icoRect(
-                br.x + (br.w - icoSz) * 0.5f,
-                br.y + (br.h - icoSz) * 0.5f,
-                icoSz,
-                icoSz
-            );
-            Icon(kDbgIcons[static_cast<size_t>(i)]).Draw(canvas, icoRect, bHov ? baseCol : baseCol.WithAlphaF(0.95f));
+
+            ButtonOptions bOpts{};
+            bOpts.icon = Icon(kDbgIcons[static_cast<size_t>(i)]);
+            bOpts.square = true;
+            bOpts.variant = UiVariant::Ghost;
+            bOpts.iconColor = bHov ? baseCol : baseCol.WithAlphaF(0.95f);
+            bOpts.size = tbSize;
+            bOpts.stretch = StretchMode::Fill;
+            Button::Render(canvas, br, bOpts, tbSize, bHov, false, disabled, theme, false);
         }
     }
 
-    // 10. Render Floating Find & Replace / Go to Line Overlay
+    // 10. Render Floating Find & Replace / Go to Line Overlay — via UiSize & Button::Render
     if ((searchOpen || gotoOpen) && L.searchOverlay.panelRect.w > 0.0f && extData) {
         const auto& S = L.searchOverlay;
-        canvas.DrawRoundRect(S.panelRect, btnRad + 2.0f, pal.surfaceElevated.WithAlphaF(0.97f), pal.borderHover, 1.0f);
+        canvas.DrawRoundRect(S.panelRect, btnRad + theme.Scale(2.0f), pal.surfaceElevated.WithAlphaF(0.97f), pal.borderHover, 1.0f);
 
         const int hovBtn = extData->hoveredOverlayBtn;
-        auto drawBtnChrome = [&](Rect rBtn, bool activeToggle, int btnIdx) -> Color {
-            const bool isHov = (hovBtn == btnIdx);
-            const Color bBg = activeToggle ? pal.focusRing.WithAlphaF(0.28f) : (isHov ? pal.surfaceHover : Color(0, 0, 0, 0));
-            const Color bBorder = activeToggle ? pal.focusRing : (isHov ? pal.borderHover : Color(0, 0, 0, 0));
-            if (bBg.a > 0 || bBorder.a > 0) {
-                canvas.DrawRoundRect(rBtn, theme.Scale(3.0f), bBg, bBorder, 1.0f);
-            }
-            return activeToggle ? pal.textPrimary : (isHov ? pal.textPrimary : pal.textSecondary);
+        auto renderSquareToolBtn = [&](Rect rBtn, IconId iconId, bool activeToggle, int btnIdx) {
+            if (rBtn.w <= 0.0f) return;
+            ButtonOptions bOpts{};
+            bOpts.icon = Icon(iconId);
+            bOpts.square = true;
+            bOpts.variant = activeToggle ? UiVariant::Primary : UiVariant::Ghost;
+            bOpts.active = activeToggle;
+            bOpts.size = tbSize;
+            bOpts.stretch = StretchMode::Fill;
+            Button::Render(canvas, rBtn, bOpts, tbSize, hovBtn == btnIdx, false, disabled, theme, false);
         };
 
-        auto drawIconBtn = [&](Rect rBtn, IconId iconId, bool activeToggle, int btnIdx, float scaleRatio = 0.56f) {
-            if (rBtn.w <= 0.0f) return;
-            const Color fg = drawBtnChrome(rBtn, activeToggle, btnIdx);
-            const float sz = std::min(rBtn.w, rBtn.h) * scaleRatio;
-            const Rect ir(rBtn.x + (rBtn.w - sz) * 0.5f, rBtn.y + (rBtn.h - sz) * 0.5f, sz, sz);
-            Icon(iconId).Draw(canvas, ir, fg);
-        };
+        const float inputPadX = std::max(theme.Scale(6.0f), tbCm.paddingX * 0.55f);
 
         if (searchOpen) {
-            drawIconBtn(S.toggleReplaceBtn, replaceOpen ? IconId::ChevronDown : IconId::ChevronRight, replaceOpen, 0, 0.58f);
+            renderSquareToolBtn(S.toggleReplaceBtn, replaceOpen ? IconId::ChevronDown : IconId::ChevronRight, replaceOpen, 0);
 
             const bool findFocused = (extData->overlayFocus == 1);
-            canvas.DrawRoundRect(S.findInputRect, theme.Scale(3.5f), pal.inputBackground, findFocused ? pal.focusRing : pal.inputBorder, 1.0f);
-            const Rect findTextRect(S.findInputRect.x + theme.Scale(6.0f), S.findInputRect.y, std::max(10.0f, S.caseBtnRect.x - S.findInputRect.x - theme.Scale(8.0f)), S.findInputRect.h);
+            canvas.DrawRoundRect(S.findInputRect, btnRad, pal.inputBackground, findFocused ? pal.focusRing : pal.inputBorder, 1.0f);
+            const Rect findTextRect(S.findInputRect.x + inputPadX, S.findInputRect.y, std::max(10.0f, S.caseBtnRect.x - S.findInputRect.x - inputPadX * 1.3f), S.findInputRect.h);
             if (extData->searchQuery.empty() && !findFocused) {
                 canvas.DrawTextBox("Find...", findTextRect, badgeFs, pal.textMuted, 0.0f, 0.5f);
             } else {
@@ -3471,24 +3501,38 @@ void TextArea::Render(
                 if (findFocused && cursorVisible) {
                     const float qW = TextUtil::MeasureWidth(extData->searchQuery, badgeFs, &canvas);
                     const float cx = std::min(findTextRect.Right() - 2.0f, findTextRect.x + qW + 1.0f);
-                    canvas.DrawRect(Rect(cx, S.findInputRect.y + 4.0f, 1.5f, S.findInputRect.h - 8.0f), pal.caret);
+                    const float caretPad = std::max(3.0f, S.findInputRect.h * 0.16f);
+                    canvas.DrawRect(Rect(cx, S.findInputRect.y + caretPad, 1.5f, S.findInputRect.h - caretPad * 2.0f), pal.caret);
                 }
             }
 
-            // Match Case ("Aa") toggle button
+            // Match Case ("Aa") square toggle button
             {
-                const Color fg = drawBtnChrome(S.caseBtnRect, extData->matchCase, 1);
-                canvas.DrawTextBox("Aa", S.caseBtnRect, badgeFs * 0.92f, fg, 0.5f, 0.5f);
+                ButtonOptions caseOpts{};
+                caseOpts.label = "Aa";
+                caseOpts.square = true;
+                caseOpts.variant = extData->matchCase ? UiVariant::Primary : UiVariant::Ghost;
+                caseOpts.active = extData->matchCase;
+                caseOpts.size = tbSize;
+                caseOpts.stretch = StretchMode::Fill;
+                Button::Render(canvas, S.caseBtnRect, caseOpts, tbSize, hovBtn == 1, false, disabled, theme, false);
             }
-            // Match Whole Word ("ab" with bottom bracket underline) toggle button
+            // Match Whole Word ("ab" with bottom bracket underline) square toggle button
             {
-                const Color fg = drawBtnChrome(S.wordBtnRect, extData->wholeWord, 2);
-                const Rect abRect(S.wordBtnRect.x, S.wordBtnRect.y - theme.Scale(1.5f), S.wordBtnRect.w, S.wordBtnRect.h);
-                canvas.DrawTextBox("ab", abRect, badgeFs * 0.88f, fg, 0.5f, 0.45f);
-                const float bx1 = S.wordBtnRect.x + theme.Scale(3.5f);
-                const float bx2 = S.wordBtnRect.Right() - theme.Scale(3.5f);
-                const float by = S.wordBtnRect.Bottom() - theme.Scale(2.8f);
-                const float bh = theme.Scale(2.2f);
+                ButtonOptions wordOpts{};
+                wordOpts.label = "ab";
+                wordOpts.square = true;
+                wordOpts.variant = extData->wholeWord ? UiVariant::Primary : UiVariant::Ghost;
+                wordOpts.active = extData->wholeWord;
+                wordOpts.size = tbSize;
+                wordOpts.stretch = StretchMode::Fill;
+                Button::Render(canvas, S.wordBtnRect, wordOpts, tbSize, hovBtn == 2, false, disabled, theme, false);
+
+                const Color fg = extData->wholeWord ? theme.GetVariant(UiVariant::Primary).text : ((hovBtn == 2) ? pal.textPrimary : pal.textSecondary);
+                const float bx1 = S.wordBtnRect.x + S.wordBtnRect.w * 0.20f;
+                const float bx2 = S.wordBtnRect.Right() - S.wordBtnRect.w * 0.20f;
+                const float by = S.wordBtnRect.Bottom() - S.wordBtnRect.h * 0.14f;
+                const float bh = std::max(1.8f, S.wordBtnRect.h * 0.10f);
                 canvas.DrawLine({bx1, by - bh}, {bx1, by}, fg, 1.2f);
                 canvas.DrawLine({bx1, by}, {bx2, by}, fg, 1.2f);
                 canvas.DrawLine({bx2, by - bh}, {bx2, by}, fg, 1.2f);
@@ -3508,14 +3552,14 @@ void TextArea::Render(
             canvas.DrawTextBox(cntBuf, S.countRect, badgeFs, cntCol, 0.5f, 0.5f);
 
             // Previous Match (ArrowUp), Next Match (ArrowDown), Close (Close)
-            drawIconBtn(S.prevBtnRect, IconId::ArrowUp, false, 3, 0.54f);
-            drawIconBtn(S.nextBtnRect, IconId::ArrowDown, false, 4, 0.54f);
-            drawIconBtn(S.closeBtnRect, IconId::Close, false, 5, 0.52f);
+            renderSquareToolBtn(S.prevBtnRect, IconId::ArrowUp, false, 3);
+            renderSquareToolBtn(S.nextBtnRect, IconId::ArrowDown, false, 4);
+            renderSquareToolBtn(S.closeBtnRect, IconId::Close, false, 5);
 
             if (replaceOpen && S.replaceInputRect.w > 0.0f) {
                 const bool repFocused = (extData->overlayFocus == 2);
-                canvas.DrawRoundRect(S.replaceInputRect, theme.Scale(3.5f), pal.inputBackground, repFocused ? pal.focusRing : pal.inputBorder, 1.0f);
-                const Rect repTextRect(S.replaceInputRect.x + theme.Scale(6.0f), S.replaceInputRect.y, S.replaceInputRect.w - theme.Scale(12.0f), S.replaceInputRect.h);
+                canvas.DrawRoundRect(S.replaceInputRect, btnRad, pal.inputBackground, repFocused ? pal.focusRing : pal.inputBorder, 1.0f);
+                const Rect repTextRect(S.replaceInputRect.x + inputPadX, S.replaceInputRect.y, S.replaceInputRect.w - inputPadX * 2.0f, S.replaceInputRect.h);
                 if (extData->replaceQuery.empty() && !repFocused) {
                     canvas.DrawTextBox("Replace...", repTextRect, badgeFs, pal.textMuted, 0.0f, 0.5f);
                 } else {
@@ -3523,29 +3567,34 @@ void TextArea::Render(
                     if (repFocused && cursorVisible) {
                         const float qW = TextUtil::MeasureWidth(extData->replaceQuery, badgeFs, &canvas);
                         const float cx = std::min(repTextRect.Right() - 2.0f, repTextRect.x + qW + 1.0f);
-                        canvas.DrawRect(Rect(cx, S.replaceInputRect.y + 4.0f, 1.5f, S.replaceInputRect.h - 8.0f), pal.caret);
+                        const float caretPad = std::max(3.0f, S.replaceInputRect.h * 0.16f);
+                        canvas.DrawRect(Rect(cx, S.replaceInputRect.y + caretPad, 1.5f, S.replaceInputRect.h - caretPad * 2.0f), pal.caret);
                     }
                 }
-                // Replace One & Replace All buttons with vector icons + labels
+                // Replace One & Replace All buttons via Button::Render
                 {
-                    const Color fg1 = drawBtnChrome(S.replaceOneBtnRect, false, 6);
-                    const float iSz = theme.Scale(12.0f);
-                    const Rect ir1(S.replaceOneBtnRect.x + theme.Scale(4.0f), S.replaceOneBtnRect.y + (S.replaceOneBtnRect.h - iSz) * 0.5f, iSz, iSz);
-                    Icon::Replace().Draw(canvas, ir1, fg1);
-                    canvas.DrawTextBox("1", Rect(ir1.Right() + 1.0f, S.replaceOneBtnRect.y, S.replaceOneBtnRect.Right() - ir1.Right() - 2.0f, S.replaceOneBtnRect.h), badgeFs * 0.88f, fg1, 0.5f, 0.5f);
+                    ButtonOptions rep1Opts{};
+                    rep1Opts.label = "1";
+                    rep1Opts.icon = Icon::Replace();
+                    rep1Opts.variant = UiVariant::Ghost;
+                    rep1Opts.size = tbSize;
+                    rep1Opts.stretch = StretchMode::Fill;
+                    Button::Render(canvas, S.replaceOneBtnRect, rep1Opts, tbSize, hovBtn == 6, false, disabled, theme, false);
                 }
                 {
-                    const Color fg2 = drawBtnChrome(S.replaceAllBtnRect, false, 7);
-                    const float iSz = theme.Scale(12.0f);
-                    const Rect ir2(S.replaceAllBtnRect.x + theme.Scale(3.0f), S.replaceAllBtnRect.y + (S.replaceAllBtnRect.h - iSz) * 0.5f, iSz, iSz);
-                    Icon::ReplaceAll().Draw(canvas, ir2, fg2);
-                    canvas.DrawTextBox("All", Rect(ir2.Right() + 1.0f, S.replaceAllBtnRect.y, S.replaceAllBtnRect.Right() - ir2.Right() - 2.0f, S.replaceAllBtnRect.h), badgeFs * 0.85f, fg2, 0.5f, 0.5f);
+                    ButtonOptions repAllOpts{};
+                    repAllOpts.label = "All";
+                    repAllOpts.icon = Icon::ReplaceAll();
+                    repAllOpts.variant = UiVariant::Ghost;
+                    repAllOpts.size = tbSize;
+                    repAllOpts.stretch = StretchMode::Fill;
+                    Button::Render(canvas, S.replaceAllBtnRect, repAllOpts, tbSize, hovBtn == 7, false, disabled, theme, false);
                 }
             }
         } else if (gotoOpen) {
             const bool gotoFocused = (extData->overlayFocus == 3);
-            canvas.DrawRoundRect(S.findInputRect, theme.Scale(3.5f), pal.inputBackground, gotoFocused ? pal.focusRing : pal.inputBorder, 1.0f);
-            const Rect gTextRect(S.findInputRect.x + theme.Scale(6.0f), S.findInputRect.y, S.findInputRect.w - theme.Scale(12.0f), S.findInputRect.h);
+            canvas.DrawRoundRect(S.findInputRect, btnRad, pal.inputBackground, gotoFocused ? pal.focusRing : pal.inputBorder, 1.0f);
+            const Rect gTextRect(S.findInputRect.x + inputPadX, S.findInputRect.y, S.findInputRect.w - inputPadX * 2.0f, S.findInputRect.h);
             if (extData->gotoQuery.empty()) {
                 char ph[48]{};
                 std::snprintf(ph, sizeof(ph), "Go to Line (1..%zu)...", logicalLines.size());
@@ -3553,55 +3602,34 @@ void TextArea::Render(
             } else {
                 canvas.DrawTextBox(extData->gotoQuery, gTextRect, badgeFs, pal.textPrimary, 0.0f, 0.5f);
             }
-            drawIconBtn(S.closeBtnRect, IconId::Close, false, 5, 0.52f);
+            renderSquareToolBtn(S.closeBtnRect, IconId::Close, false, 5);
         }
     }
 
-    // 11. Render top-right quick overlays: Copy button & Zoom % reset badge
+    // 11. Render top-right quick overlays: Copy button & Zoom % reset button — via UiSize & Button::Render
     if (L.copyBtnRect.w > 0.0f) {
         const bool copyHov = extData && extData->copyHovered;
         const bool copied = extData && extData->copyFeedbackActive;
-        const Color btnBg = copied
-            ? theme.GetVariant(UiVariant::Success).bg.WithAlphaF(0.22f)
-            : (copyHov ? pal.surfaceActive : pal.surface.WithAlphaF(0.88f));
-        const Color btnBorder = copied
-            ? theme.GetVariant(UiVariant::Success).bg
-            : (copyHov ? pal.borderHover : pal.borderSubtle);
-        const Color btnFg = copied
-            ? theme.GetTextColor(UiVariant::Success)
-            : (copyHov ? pal.textPrimary : pal.textSecondary);
-
-        canvas.DrawRoundRect(L.copyBtnRect, btnRad, btnBg, btnBorder, 1.0f);
-        const float iconSz = theme.Scale(11.0f);
-        const Rect iconRect(
-            L.copyBtnRect.x + theme.Scale(5.0f),
-            L.copyBtnRect.y + (L.copyBtnRect.h - iconSz) * 0.5f,
-            iconSz,
-            iconSz
-        );
-        const Icon ico = copied ? Icon::Check() : Icon::Copy();
-        ico.Draw(canvas, iconRect, btnFg);
-
-        const std::string_view copyLbl = copied ? "Copied" : "Copy";
-        const Rect lblRect(
-            iconRect.Right() + theme.Scale(4.0f),
-            L.copyBtnRect.y,
-            L.copyBtnRect.Right() - (iconRect.Right() + theme.Scale(4.0f)),
-            L.copyBtnRect.h
-        );
-        canvas.DrawTextBox(copyLbl, lblRect, badgeFs, btnFg, 0.0f, 0.5f);
+        ButtonOptions copyOpts{};
+        copyOpts.label = copied ? "Copied" : "Copy";
+        copyOpts.icon = copied ? Icon::Check() : Icon::Copy();
+        copyOpts.variant = copied ? UiVariant::Success : UiVariant::Secondary;
+        copyOpts.active = copied;
+        copyOpts.size = tbSize;
+        copyOpts.stretch = StretchMode::Fill;
+        Button::Render(canvas, L.copyBtnRect, copyOpts, tbSize, copyHov, false, disabled, theme, false);
     }
 
     if (L.zoomBtnRect.w > 0.0f) {
         const bool zHov = extData && extData->zoomBadgeHovered;
-        const Color zBg = zHov ? pal.surfaceActive : pal.surface.WithAlphaF(0.88f);
-        const Color zBorder = zHov ? pal.borderHover : pal.borderSubtle;
-        const Color zFg = zHov ? pal.textPrimary : pal.textSecondary;
-        canvas.DrawRoundRect(L.zoomBtnRect, btnRad, zBg, zBorder, 1.0f);
-
         char zBuf[16]{};
         std::snprintf(zBuf, sizeof(zBuf), "%d%%", static_cast<int>(std::lround(effZoom * 100.0f)));
-        canvas.DrawTextBox(zBuf, L.zoomBtnRect, badgeFs, zFg, 0.5f, 0.5f);
+        ButtonOptions zoomOpts{};
+        zoomOpts.label = zBuf;
+        zoomOpts.variant = UiVariant::Secondary;
+        zoomOpts.size = tbSize;
+        zoomOpts.stretch = StretchMode::Fill;
+        Button::Render(canvas, L.zoomBtnRect, zoomOpts, tbSize, zHov, false, disabled, theme, false);
     }
 
     canvas.PopClip();

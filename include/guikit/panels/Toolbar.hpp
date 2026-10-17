@@ -28,6 +28,8 @@ struct ToolButtonOptions {
     std::optional<float> minWidth{std::nullopt};    ///< Minimum capsule width in pixels
     bool disabled{false};
     bool active{false};         ///< Toggle active/selected highlight state
+    bool square{false};         ///< Force square (defaultHeight x defaultHeight) button geometry
+    std::optional<Color> iconColor{std::nullopt}; ///< Optional custom icon tint override
     std::optional<UiSize> size{std::nullopt}; ///< Local size override (nullopt = inherit toolbar size)
 };
 

@@ -11,6 +11,7 @@
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
+#include "guikit/graphics/Colormap.hpp"
 
 namespace guikit {
 
@@ -104,91 +105,19 @@ struct WaterfallViewPayload {
     WaterfallViewState* state{nullptr};
 };
 
-[[nodiscard]] constexpr uint32_t PackAbgr(Color c) noexcept {
-    return (static_cast<uint32_t>(c.a) << 24u) |
-           (static_cast<uint32_t>(c.b) << 16u) |
-           (static_cast<uint32_t>(c.g) << 8u)  |
-           static_cast<uint32_t>(c.r);
-}
-
-struct RgbaStop {
-    float t;
-    uint8_t r, g, b;
-};
-
-[[nodiscard]] Color SampleGradient(std::span<const RgbaStop> stops, float t) noexcept {
-    t = std::clamp(t, 0.0f, 1.0f);
-    for (size_t i = 0; i + 1 < stops.size(); ++i) {
-        if (t >= stops[i].t && t <= stops[i + 1].t) {
-            const float span = std::max(1e-5f, stops[i + 1].t - stops[i].t);
-            const float u = (t - stops[i].t) / span;
-            return Color(
-                static_cast<uint8_t>(std::clamp(stops[i].r + u * (stops[i + 1].r - stops[i].r), 0.0f, 255.0f)),
-                static_cast<uint8_t>(std::clamp(stops[i].g + u * (stops[i + 1].g - stops[i].g), 0.0f, 255.0f)),
-                static_cast<uint8_t>(std::clamp(stops[i].b + u * (stops[i + 1].b - stops[i].b), 0.0f, 255.0f)),
-                255
-            );
-        }
-    }
-    const auto& last = stops.back();
-    return Color(last.r, last.g, last.b, 255);
-}
-
-[[nodiscard]] std::array<Color, 256> BuildWaterfallColormapLut(WaterfallColormap cmap) noexcept {
-    static constexpr RgbaStop kTurboJet[] = {
-        {0.00f,   5,   8,  22},
-        {0.16f,  12,  36, 108},
-        {0.36f,   6, 148, 196},
-        {0.56f,  34, 197,  94},
-        {0.76f, 250, 204,  21},
-        {0.92f, 244,  63,  94},
-        {1.00f, 255, 245, 245}
-    };
-    static constexpr RgbaStop kInferno[] = {
-        {0.00f,   6,   5,  18},
-        {0.22f,  48,  11,  84},
-        {0.48f, 132,  32, 107},
-        {0.72f, 218,  78,  44},
-        {0.90f, 250, 178,  22},
-        {1.00f, 252, 254, 164}
-    };
-    static constexpr RgbaStop kViridis[] = {
-        {0.00f,  18,   8,  42},
-        {0.24f,  49,  54, 114},
-        {0.50f,  33, 145, 140},
-        {0.76f,  94, 201,  98},
-        {1.00f, 253, 231,  37}
-    };
-    static constexpr RgbaStop kSonarBlue[] = {
-        {0.00f,   4,   8,  18},
-        {0.22f,   8,  28,  68},
-        {0.48f,  14,  82, 158},
-        {0.74f,  38, 178, 238},
-        {0.92f, 145, 232, 255},
-        {1.00f, 240, 252, 255}
-    };
-    static constexpr RgbaStop kPhosphorGreen[] = {
-        {0.00f,   4,  10,   7},
-        {0.22f,   8,  40,  20},
-        {0.50f,  16, 118,  52},
-        {0.78f,  42, 218,  92},
-        {1.00f, 216, 255, 226}
-    };
-
-    std::span<const RgbaStop> stops = kTurboJet;
+[[nodiscard]] constexpr Colormap ToUnifiedColormap(WaterfallColormap cmap) noexcept {
     switch (cmap) {
-        case WaterfallColormap::TurboJet:      stops = kTurboJet; break;
-        case WaterfallColormap::Inferno:       stops = kInferno; break;
-        case WaterfallColormap::Viridis:       stops = kViridis; break;
-        case WaterfallColormap::SonarBlue:     stops = kSonarBlue; break;
-        case WaterfallColormap::PhosphorGreen: stops = kPhosphorGreen; break;
+        case WaterfallColormap::TurboJet:      return Colormap::Turbo;
+        case WaterfallColormap::Inferno:       return Colormap::Inferno;
+        case WaterfallColormap::Viridis:       return Colormap::Viridis;
+        case WaterfallColormap::SonarBlue:     return Colormap::SonarBlue;
+        case WaterfallColormap::PhosphorGreen: return Colormap::PhosphorGreen;
     }
+    return Colormap::Turbo;
+}
 
-    std::array<Color, 256> lut{};
-    for (size_t i = 0; i < 256; ++i) {
-        lut[i] = SampleGradient(stops, static_cast<float>(i) / 255.0f);
-    }
-    return lut;
+[[nodiscard]] const std::array<Color, 256>& BuildWaterfallColormapLut(WaterfallColormap cmap) noexcept {
+    return GetColormapLut(ToUnifiedColormap(cmap));
 }
 
 struct WaterfallGeometry {

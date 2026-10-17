@@ -54,6 +54,9 @@
 #include "guikit/widgets/SignalView.hpp"
 #include "guikit/widgets/SonarView.hpp"
 #include "guikit/widgets/WaterfallView.hpp"
+#include "guikit/graphics/Colormap.hpp"
+#include "guikit/widgets/Histogram.hpp"
+#include "guikit/widgets/ImageView.hpp"
 
 namespace guikit {
 
@@ -449,6 +452,34 @@ public:
         std::source_location loc = std::source_location::current()
     ) {
         return Run<guikit::WaterfallView>(latestSliceDb, opts, loc);
+    }
+
+    // --- Histogram (Single-Channel & Multi-Channel RGB+Lum Window/Level) Widget ---
+    HistogramResponse Histogram(
+        const HistogramData& data,
+        ChannelTransferParams& transfer,
+        const HistogramOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::Histogram>(data, transfer, opts, loc);
+    }
+
+    // --- ImageView (Single-Channel 16-bit/Float & Multi-Channel RGB Workstation) Widget ---
+    ImageViewResponse ImageView(
+        const ImageViewData& data,
+        ImageViewParams& params,
+        const ImageViewOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::ImageView>(data, params, opts, loc);
+    }
+
+    ImageViewResponse ImageView(
+        const ImageViewData& data,
+        const ImageViewOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::ImageView>(data, opts, loc);
     }
 
     // --- Switch Widget ---
@@ -942,7 +973,13 @@ public:
     [[nodiscard]] bool IsMouseDown() const noexcept { return m_mouseDown; }
     [[nodiscard]] bool IsMouseClicked() const noexcept { return m_mouseClicked; }
     [[nodiscard]] bool IsMouseReleased() const noexcept { return m_mouseReleased; }
-    void ConsumeMouseClick() noexcept { m_mouseClicked = false; m_mouseReleased = false; }
+    [[nodiscard]] bool IsRightMouseDown() const noexcept { return m_rightMouseDown; }
+    [[nodiscard]] bool IsRightMouseClicked() const noexcept { return m_rightMouseClicked; }
+    [[nodiscard]] bool IsRightMouseReleased() const noexcept { return m_rightMouseReleased; }
+    [[nodiscard]] bool IsMiddleMouseDown() const noexcept { return m_middleMouseDown; }
+    [[nodiscard]] bool IsMiddleMouseClicked() const noexcept { return m_middleMouseClicked; }
+    [[nodiscard]] bool IsMiddleMouseReleased() const noexcept { return m_middleMouseReleased; }
+    void ConsumeMouseClick() noexcept { m_mouseClicked = false; m_mouseReleased = false; m_rightMouseClicked = false; m_rightMouseReleased = false; }
     void SetKeyModifiers(KeyModifiers mods) noexcept { m_keyMods = mods; }
     [[nodiscard]] KeyModifiers GetKeyModifiers() const noexcept { return m_keyMods; }
     [[nodiscard]] Vec2 GetViewportSize() const noexcept { return m_viewportSize; }
@@ -1073,6 +1110,15 @@ private:
     bool m_mouseDown{false};
     bool m_mouseClicked{false};
     bool m_mouseReleased{false};
+    bool m_mouseDoubleClicked{false};
+    double m_lastClickTimeSec{-1.0};
+    Vec2 m_lastClickPos{-10000.0f, -10000.0f};
+    bool m_rightMouseDown{false};
+    bool m_rightMouseClicked{false};
+    bool m_rightMouseReleased{false};
+    bool m_middleMouseDown{false};
+    bool m_middleMouseClicked{false};
+    bool m_middleMouseReleased{false};
     KeyModifiers m_keyMods{};
     Keymap m_keymap{Keymap::Default()};
     int m_repaintFrames{3};

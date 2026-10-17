@@ -162,6 +162,12 @@ Response Context::Interact(Id id) {
         if (m_mouseClicked) {
             m_activeId = id;
         }
+        if (m_mouseDoubleClicked) {
+            res.doubleClicked = true;
+        }
+        if (m_rightMouseClicked) {
+            res.rightClicked = true;
+        }
     }
 
     res.pressed = (m_activeId == id && m_mouseDown);
@@ -1180,7 +1186,7 @@ void Context::RequestRepaint(int frames) noexcept {
 
 bool Context::NeedsRepaint() const noexcept {
     if (m_repaintFrames > 0) return true;
-    if (m_mouseDown) return true;
+    if (m_mouseDown || m_rightMouseDown || m_middleMouseDown) return true;
     if (m_activeId.IsValid()) return true;
     if (m_openPopupId.IsValid()) return true;
     return false;
@@ -1213,7 +1219,25 @@ void Context::OnMouseDown(int button) {
     if (button == 1) { // Left mouse button
         m_mouseDown = true;
         m_mouseClicked = true;
+        const double now = m_currentTimeSec;
+        const float dx = m_mousePos.x - m_lastClickPos.x;
+        const float dy = m_mousePos.y - m_lastClickPos.y;
+        if (m_lastClickTimeSec >= 0.0 && (now - m_lastClickTimeSec) <= 0.36 && (dx * dx + dy * dy) <= 64.0f) {
+            m_mouseDoubleClicked = true;
+            m_lastClickTimeSec = -1.0;
+        } else {
+            m_lastClickTimeSec = now;
+            m_lastClickPos = m_mousePos;
+        }
         ResetCursorBlink();
+        RequestRepaint(3);
+    } else if (button == 2) { // Middle mouse button
+        m_middleMouseDown = true;
+        m_middleMouseClicked = true;
+        RequestRepaint(3);
+    } else if (button == 3) { // Right mouse button
+        m_rightMouseDown = true;
+        m_rightMouseClicked = true;
         RequestRepaint(3);
     }
 }
@@ -1222,6 +1246,14 @@ void Context::OnMouseUp(int button) {
     if (button == 1) { // Left mouse button
         m_mouseDown = false;
         m_mouseReleased = true;
+        RequestRepaint(3);
+    } else if (button == 2) { // Middle mouse button
+        m_middleMouseDown = false;
+        m_middleMouseReleased = true;
+        RequestRepaint(3);
+    } else if (button == 3) { // Right mouse button
+        m_rightMouseDown = false;
+        m_rightMouseReleased = true;
         RequestRepaint(3);
     }
 }
@@ -1693,6 +1725,11 @@ void Context::EndFrame(ICanvas& canvas) {
     // Reset single-frame mouse impulse states
     m_mouseClicked = false;
     m_mouseReleased = false;
+    m_mouseDoubleClicked = false;
+    m_rightMouseClicked = false;
+    m_rightMouseReleased = false;
+    m_middleMouseClicked = false;
+    m_middleMouseReleased = false;
     m_mouseWheel = {0.0f, 0.0f};
 
     // Calculate dirty damage regions by snapshot diffing

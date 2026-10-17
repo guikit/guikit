@@ -27,6 +27,7 @@ void DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
         case NavCategory::ElemSelect:        RenderSelectInspector(ui, ctx); break;
         case NavCategory::ElemSwitch:        RenderSwitchInspector(ui, ctx); break;
         case NavCategory::ElemCheckbox:      RenderCheckboxInspector(ui, ctx); break;
+        case NavCategory::ElemImage:         RenderImageInspector(ui, ctx); break;
 
         // 2. PANELS & NAV
         case NavCategory::PanelCard:         RenderCardInspector(ui, ctx); break;
@@ -35,7 +36,6 @@ void DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
         case NavCategory::PanelTable:        RenderTableInspector(ui, ctx); break;
 
         // 3. CONTENT & MEDIA
-        case NavCategory::ContentImage:      RenderImageInspector(ui, ctx); break;
         case NavCategory::ContentMarkdown:   RenderMarkdownInspector(ui, ctx); break;
         case NavCategory::ContentCodeEditor: RenderCodeEditorInspector(ui, ctx); break;
 
@@ -45,6 +45,7 @@ void DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
         case NavCategory::SceneSignalView:    RenderSignalInspector(ui, ctx); break;
         case NavCategory::SceneSonarView:     RenderSonarInspector(ui, ctx); break;
         case NavCategory::SceneWaterfallView: RenderWaterfallInspector(ui, ctx); break;
+        case NavCategory::SceneImageView:     RenderImageViewInspector(ui, ctx); break;
 
         // 5. ASSEMBLY
         case NavCategory::AsmDashboard:      RenderDashboardInspector(ui, ctx); break;
@@ -65,6 +66,7 @@ void DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx
         case NavCategory::ElemSelect:        RenderSelectStage(ui, ctx); break;
         case NavCategory::ElemSwitch:        RenderSwitchStage(ui, ctx); break;
         case NavCategory::ElemCheckbox:      RenderCheckboxStage(ui, ctx); break;
+        case NavCategory::ElemImage:         RenderImageStage(ui, ctx); break;
 
         // 2. PANELS & NAV
         case NavCategory::PanelCard:         RenderCardStage(ui, ctx); break;
@@ -73,7 +75,6 @@ void DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx
         case NavCategory::PanelTable:        RenderTableStage(ui, ctx); break;
 
         // 3. CONTENT & MEDIA
-        case NavCategory::ContentImage:      RenderImageStage(ui, ctx); break;
         case NavCategory::ContentMarkdown:   RenderMarkdownStage(ui, ctx); break;
         case NavCategory::ContentCodeEditor: RenderCodeEditorStage(ui, ctx); break;
 
@@ -83,6 +84,7 @@ void DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx
         case NavCategory::SceneSignalView:    RenderSignalStage(ui, ctx); break;
         case NavCategory::SceneSonarView:     RenderSonarStage(ui, ctx); break;
         case NavCategory::SceneWaterfallView: RenderWaterfallStage(ui, ctx); break;
+        case NavCategory::SceneImageView:     RenderImageViewStage(ui, ctx); break;
 
         default: break;
     }
@@ -98,6 +100,7 @@ std::string DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
         case NavCategory::ElemSelect:        return GenerateSelectCode(ctx);
         case NavCategory::ElemSwitch:        return GenerateSwitchCode(ctx);
         case NavCategory::ElemCheckbox:      return GenerateCheckboxCode(ctx);
+        case NavCategory::ElemImage:         return GenerateImageCode(ctx);
 
         // 2. PANELS & NAV
         case NavCategory::PanelCard:         return GenerateCardCode(ctx);
@@ -106,7 +109,6 @@ std::string DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
         case NavCategory::PanelTable:        return GenerateTableCode(ctx);
 
         // 3. CONTENT & MEDIA
-        case NavCategory::ContentImage:      return GenerateImageCode(ctx);
         case NavCategory::ContentMarkdown:   return GenerateMarkdownCode(ctx);
         case NavCategory::ContentCodeEditor: return GenerateCodeEditorCode(ctx);
 
@@ -116,6 +118,7 @@ std::string DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
         case NavCategory::SceneSignalView:    return GenerateSignalCode(ctx);
         case NavCategory::SceneSonarView:     return GenerateSonarCode(ctx);
         case NavCategory::SceneWaterfallView: return GenerateWaterfallCode(ctx);
+        case NavCategory::SceneImageView:     return GenerateImageViewCode(ctx);
 
         default:                             return {};
     }
@@ -544,6 +547,7 @@ int main(int argc, char* argv[]) {
                                 menu.Item(selectedCategory, NavCategory::ElemSelect,        {.text = "Select",       .icon = guikit::Icon::Plus()});
                                 menu.Item(selectedCategory, NavCategory::ElemSwitch,        {.text = "Switch",       .icon = guikit::Icon::Refresh()});
                                 menu.Item(selectedCategory, NavCategory::ElemCheckbox,      {.text = "Checkbox",     .icon = guikit::Icon::Check()});
+                                menu.Item(selectedCategory, NavCategory::ElemImage,         {.text = "Image",        .icon = guikit::Icon::Eye()});
 
                                 menu.Section("PANELS & NAV");
                                 menu.Item(selectedCategory, NavCategory::PanelCard,         {.text = "Card",         .icon = guikit::Icon::Copy()});
@@ -552,7 +556,6 @@ int main(int argc, char* argv[]) {
                                 menu.Item(selectedCategory, NavCategory::PanelTable,        {.text = "Table / Grid", .icon = guikit::Icon::Copy(),   .badge = "100k"});
 
                                 menu.Section("CONTENT & MEDIA");
-                                menu.Item(selectedCategory, NavCategory::ContentImage,      {.text = "Image",        .icon = guikit::Icon::Eye()});
                                 menu.Item(selectedCategory, NavCategory::ContentMarkdown,   {.text = "Markdown",     .icon = guikit::Icon::Edit()});
                                 menu.Item(selectedCategory, NavCategory::ContentCodeEditor, {.text = "Code Editor",  .icon = guikit::Icon::Edit()});
 
@@ -562,6 +565,7 @@ int main(int argc, char* argv[]) {
                                 menu.Item(selectedCategory, NavCategory::SceneSignalView,    {.text = "Signal View",  .icon = guikit::Icon::Play(),   .badge = "DSP"});
                                 menu.Item(selectedCategory, NavCategory::SceneSonarView,     {.text = "Sonar Radar",  .icon = guikit::Icon::Search(), .badge = "DDS"});
                                 menu.Item(selectedCategory, NavCategory::SceneWaterfallView, {.text = "Waterfall",    .icon = guikit::Icon::Play(),   .badge = "DOA"});
+                                menu.Item(selectedCategory, NavCategory::SceneImageView,     {.text = "Image View",   .icon = guikit::Icon::Eye(),    .badge = "16b/RGB"});
 
                                 menu.Section("ASSEMBLY");
                                 menu.Item(selectedCategory, NavCategory::AsmDashboard,      {.text = "Dashboard",    .icon = guikit::Icon::Settings()});
@@ -586,16 +590,36 @@ int main(int argc, char* argv[]) {
                                 demoCtx.RenderElementInspector(ui);
                             }
 
-                            // 3. Level 3: Control-Specific Inspector Sidebar (for interactive Element controls)
-                            if (selectedCategory != NavCategory::ElemHeading) {
-                                if (auto ctrlSidebar = ui.Sidebar({
-                                    .side = guikit::SidebarSide::Left,
-                                    .width = 260.0f,
-                                    .gap = 8.0f,
-                                    .padding = guikit::Padding::All(12.0f)
-                                })) {
+                            // 3. Level 3: Control & Widget-Specific Inspector Sidebar
+                            if (auto ctrlSidebar = ui.Sidebar({
+                                .side = guikit::SidebarSide::Left,
+                                .width = 270.0f,
+                                .gap = 8.0f,
+                                .padding = guikit::Padding::All(12.0f)
+                            })) {
+                                if (selectedCategory == NavCategory::ElemHeading) {
                                     ui.Heading({
-                                        .title = "CONTROL",
+                                        .title = "HEADING",
+                                        .size = guikit::UiSize::Xs,
+                                        .divider = true
+                                    });
+                                    DispatchInspector(ui, selectedCategory, demoCtx);
+                                } else {
+                                    demoCtx.RenderControlInspector(ui, selectedCategory);
+
+                                    std::string_view specificTitle = "WIDGET";
+                                    switch (selectedCategory) {
+                                        case NavCategory::ElemButton:     specificTitle = "BUTTON"; break;
+                                        case NavCategory::ElemSlider:     specificTitle = "SLIDER"; break;
+                                        case NavCategory::ElemInputField: specificTitle = "INPUT FIELD"; break;
+                                        case NavCategory::ElemSelect:     specificTitle = "SELECT"; break;
+                                        case NavCategory::ElemSwitch:     specificTitle = "SWITCH"; break;
+                                        case NavCategory::ElemCheckbox:   specificTitle = "CHECKBOX"; break;
+                                        case NavCategory::ElemImage:      specificTitle = "IMAGE"; break;
+                                        default: break;
+                                    }
+                                    ui.Heading({
+                                        .title = specificTitle,
                                         .size = guikit::UiSize::Xs,
                                         .divider = true
                                     });

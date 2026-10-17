@@ -38,8 +38,10 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/core/Response.cpp
     src/guikit/core/Theme.cpp
     src/guikit/core/TextUtil.cpp
+    src/guikit/core/Control.cpp
     src/guikit/core/Element.cpp
     src/guikit/core/Solver.cpp
+    src/guikit/graphics/Colormap.cpp
     src/guikit/graphics/Icon.cpp
     src/guikit/layout/Row.cpp
     src/guikit/layout/Column.cpp
@@ -56,7 +58,9 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/panels/Toolbar.cpp
     src/guikit/widgets/Button.cpp
     src/guikit/widgets/Checkbox.cpp
+    src/guikit/widgets/Histogram.cpp
     src/guikit/widgets/Image.cpp
+    src/guikit/widgets/ImageView.cpp
     src/guikit/widgets/InputField.cpp
     src/guikit/widgets/Markdown.cpp
     src/guikit/widgets/Select.cpp
@@ -178,11 +182,11 @@ if (GUIKIT_BUILD_DEMO)
         examples/demo/elements/SelectScreen.cpp
         examples/demo/elements/SwitchScreen.cpp
         examples/demo/elements/CheckboxScreen.cpp
+        examples/demo/elements/ImageScreen.cpp
         examples/demo/panels/CardScreen.cpp
         examples/demo/panels/TabBarScreen.cpp
         examples/demo/panels/SidebarScreen.cpp
         examples/demo/panels/TableScreen.cpp
-        examples/demo/content/ImageScreen.cpp
         examples/demo/content/MarkdownScreen.cpp
         examples/demo/content/CodeEditorScreen.cpp
         examples/demo/scenes/SchematicScreen.cpp
@@ -190,6 +194,7 @@ if (GUIKIT_BUILD_DEMO)
         examples/demo/scenes/SignalScreen.cpp
         examples/demo/scenes/SonarScreen.cpp
         examples/demo/scenes/WaterfallScreen.cpp
+        examples/demo/scenes/ImageViewScreen.cpp
         examples/demo/assemblies/DashboardScreen.cpp
         examples/demo/assemblies/FormControlsScreen.cpp
         examples/demo/assemblies/FlexRibbonScreen.cpp

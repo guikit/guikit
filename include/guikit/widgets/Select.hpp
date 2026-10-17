@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "guikit/core/Control.hpp"
 #include "guikit/core/Response.hpp"
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
@@ -40,12 +41,14 @@ struct SelectOptions {
     Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
     std::optional<uint32_t> maxVisibleItems{std::nullopt}; ///< Optional limit on visible items count before scrolling
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
-    std::optional<float> borderRadius{std::nullopt}; ///< Local corner radius override (nullopt = inherit from size metrics)
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};      ///< Select box width: in points for Compact/Space (nullopt = auto from items), or % of bounds (0..100) for Fill (nullopt = 100%)
+    std::optional<float> height{std::nullopt};     ///< Explicit select box height in points (nullopt = inherit defaultHeight from UiSize)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum select box width constraint in points
-    bool divider{false};                           ///< Whether to render an Element divider line
-    ElementDivider dividerStyle{ElementDivider::Bottom}; ///< Element divider placement style (Bottom or Trailing)
+    bool background{false};                        ///< Whether to render a surface backdrop around the outer Element
+    float borderWidth{0.0f};                       ///< Outer Element border thickness in points (0.0f = no border)
+    std::optional<float> borderRadius{std::nullopt}; ///< Outer Element corner radius in points
+    ControlSpec control{};                         ///< Inner Control slot configuration (width, height, minWidth, background, borderWidth, borderRadius)
     bool disabled{false};                          ///< Interaction suppression
 };
 

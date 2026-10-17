@@ -14,6 +14,17 @@ namespace guikit {
 
 namespace {
 
+ControlSpec EffectiveInputControl(const InputFieldOptions& opts) noexcept {
+    ControlSpec c = opts.control;
+    if (!c.width.has_value() && opts.width.has_value()) c.width = opts.width;
+    if (!c.height.has_value() && opts.height.has_value()) c.height = opts.height;
+    if (!c.minWidth.has_value() && opts.minWidth.has_value()) c.minWidth = opts.minWidth;
+    c.stretchable = true;
+    c.stretchHeightWhenStandalone = false;
+    c.hasIntrinsicBox = true;
+    return c;
+}
+
 Vec2 MeasureInputBox(
     const InputFieldOptions& opts,
     UiSize size,
@@ -21,12 +32,13 @@ Vec2 MeasureInputBox(
     const UiTheme& theme
 ) noexcept {
     const InputFieldMetrics& m = theme.GetInputField(size);
+    const ControlSpec ctrl = EffectiveInputControl(opts);
     const bool hasVariants = !opts.valueFormat.variants.empty();
 
     float boxW = m.defaultWidth;
     if (opts.stretch != StretchMode::Fill) {
-        if (opts.width.has_value()) {
-            boxW = theme.Scale(*opts.width);
+        if (ctrl.width.has_value()) {
+            boxW = theme.Scale(*ctrl.width);
         } else if (hasVariants) {
             const float inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);
             float contentW = 0.0f;
@@ -61,9 +73,9 @@ Vec2 MeasureInputBox(
         }
     }
 
-    if (opts.minWidth.has_value()) {
-        boxW = std::max(theme.Scale(*opts.minWidth), boxW);
-    } else if (hasVariants && opts.stretch != StretchMode::Fill && !opts.width.has_value()) {
+    if (ctrl.minWidth.has_value()) {
+        boxW = std::max(theme.Scale(*ctrl.minWidth), boxW);
+    } else if (hasVariants && opts.stretch != StretchMode::Fill && !ctrl.width.has_value()) {
         boxW = std::max(m.defaultHeight, boxW);
     } else {
         boxW = std::max(m.minWidth, boxW);
@@ -78,6 +90,7 @@ ElementSpec MakeInputFieldElementSpec(
     const UiTheme& theme
 ) noexcept {
     const InputFieldMetrics& m = theme.GetInputField(size);
+    const ControlSpec ctrl = EffectiveInputControl(opts);
     return ElementSpec{
         .label = opts.label,
         .description = opts.description,
@@ -88,13 +101,16 @@ ElementSpec MakeInputFieldElementSpec(
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
         .stretch = opts.stretch,
-        .width = opts.width,
+        .width = ctrl.width,
+        .height = ctrl.height,
+        .control = ctrl,
+        .background = opts.background,
+        .borderWidth = opts.borderWidth,
+        .borderRadius = opts.borderRadius,
         .widgetSize = size,
         .labelGap = m.labelGap,
         .descGap = m.descGap,
         .inlineGap = m.paddingX,
-        .divider = opts.divider,
-        .dividerStyle = opts.dividerStyle,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = false,
         .disabled = disabled
@@ -602,16 +618,23 @@ Response InputField::Run(
         static_cast<uint8_t>(opts.inlineOrder),
         static_cast<uint8_t>(opts.elementAlign),
         static_cast<uint8_t>(opts.stretch),
-        static_cast<uint8_t>(opts.divider),
-        static_cast<uint8_t>(opts.dividerStyle),
+        opts.background,
+        opts.borderWidth,
+        opts.borderRadius.value_or(-1.0f),
+        opts.control.width.value_or(0.0f),
+        opts.control.height.value_or(0.0f),
+        opts.control.minWidth.value_or(0.0f),
+        opts.control.HasBackground(true),
+        opts.control.borderWidth,
+        opts.control.borderRadius.value_or(-1.0f),
         opts.width.value_or(0.0f),
+        opts.height.value_or(0.0f),
         opts.minWidth.value_or(0.0f),
         opts.readOnly,
         opts.password,
         opts.passwordReveal,
         opts.clearable,
         opts.stepButtons,
-        opts.borderRadius.value_or(-1.0f),
         data->displayText,
         data->cursor,
         data->selStart,
@@ -748,6 +771,7 @@ void InputField::Render(
     }
 
     const InputFieldMetrics& m = theme.GetInputField(size);
+    const ControlSpec ctrl = EffectiveInputControl(opts);
     const Vec2 boxDims = MeasureInputBox(opts, size, &canvas, theme);
     const ElementSpec spec = MakeInputFieldElementSpec(opts, size, disabled, theme);
     const ElementGeometry geom = Element::Resolve(bounds, boxDims, spec, &canvas, theme);
@@ -756,14 +780,16 @@ void InputField::Render(
 
     // Determine colors
     const auto& pal = theme.palette;
-    Color boxBg = (hovered && !disabled) ? pal.surface : pal.inputBackground;
+    Color boxBg = ctrl.HasBackground(true)
+        ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
+        : Color::Transparent();
     Color boxBorder;
-    float strokeW = m.strokeWidth;
+    float strokeW = (ctrl.borderWidth > 0.0f) ? theme.Scale(ctrl.borderWidth) : m.strokeWidth;
 
     const VariantColors& v = theme.GetVariant(opts.variant);
     if (focused && !disabled) {
         boxBorder = (opts.variant == UiVariant::Default || opts.variant == UiVariant::Ghost) ? pal.focusRing : v.bg;
-        strokeW += 0.5f;
+        if (ctrl.borderWidth > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
     } else if (hovered && !disabled) {
         boxBorder = (opts.variant == UiVariant::Default || opts.variant == UiVariant::Ghost) ? pal.borderHover : v.bgHover;
     } else {
@@ -789,7 +815,7 @@ void InputField::Render(
     }
 
     // Draw box background and border
-    const float radius = opts.borderRadius.has_value() ? theme.Scale(*opts.borderRadius) : m.cornerRadius;
+    const float radius = ctrl.borderRadius.has_value() ? theme.Scale(*ctrl.borderRadius) : m.cornerRadius;
     canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
     const float inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);

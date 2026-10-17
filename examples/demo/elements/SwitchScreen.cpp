@@ -41,9 +41,10 @@ void RenderSwitchStage(guikit::Context& ui, DemoContext& ctx) {
         .elementAlign = ctx.elemAlign,
         .symmetric = s_state.symmetric,
         .stretch = ctx.GetElementStretch(),
-        .width = ctx.GetElementWidth(),
-        .divider = ctx.elemDivider,
-        .dividerStyle = ctx.elemDividerStyle,
+        .background = ctx.elemBackground,
+        .borderWidth = ctx.elemBorderWidth,
+        .borderRadius = ctx.GetElemBorderRadius(),
+        .control = ctx.GetControlSpec(NavCategory::ElemSwitch),
         .disabled = ctx.elemDisabled,
         .size = ctx.controlsSize
     });
@@ -64,9 +65,10 @@ std::string GenerateSwitchCode(const DemoContext& ctx) {
         "    .elementAlign = guikit::Align::{},\n"
         "    .symmetric = {},\n"
         "    .stretch = guikit::StretchMode::{},\n"
-        "    .width = {},\n"
-        "    .divider = {},\n"
-        "    .dividerStyle = guikit::ElementDivider::{},\n"
+        "    .background = {},\n"
+        "    .borderWidth = {:.1f}f,\n"
+        "    .borderRadius = {},\n"
+        "    .control = {},\n"
         "    .disabled = {},\n"
         "    .size = guikit::UiSize::{}\n"
         "}});",
@@ -82,9 +84,10 @@ std::string GenerateSwitchCode(const DemoContext& ctx) {
         LabelAlignEnumName(ctx.elemAlign),
         s_state.symmetric ? "true" : "false",
         StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElementWidthCode(),
-        ctx.elemDivider ? "true" : "false",
-        ctx.FormatDividerStyleCode(),
+        ctx.elemBackground ? "true" : "false",
+        ctx.elemBorderWidth,
+        ctx.FormatElemBorderRadiusCode(),
+        ctx.FormatControlSpecCode(NavCategory::ElemSwitch),
         ctx.elemDisabled ? "true" : "false",
         SizeName(ctx.controlsSize)
     );

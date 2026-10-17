@@ -3,6 +3,7 @@
 #include <optional>
 #include <source_location>
 #include <string_view>
+#include "guikit/core/Control.hpp"
 #include "guikit/core/Response.hpp"
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Tokens.hpp"
@@ -28,8 +29,12 @@ struct ElementOptions {
     InlineOrder inlineOrder{InlineOrder::ControlFirst};   ///< Sequencing order in Inline layout (ControlFirst = Label first, LabelFirst = Description first)
     Align elementAlign{Align::Start};                     ///< Horizontal alignment (Start, Center, End)
     StretchMode stretch{StretchMode::Fill};               ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};             ///< Explicit width in points (Compact/Space) or % 0..100 (Fill)
-    bool divider{false};                                  ///< Whether to render a horizontal divider line
+    std::optional<float> width{std::nullopt};             ///< Explicit element width in points (Compact/Space) or % 0..100 (Fill)
+    std::optional<float> height{std::nullopt};            ///< Explicit element height in points (nullopt = auto from UiSize)
+    bool background{false};                               ///< Whether to render a surface backdrop around outerBounds
+    float borderWidth{0.0f};                              ///< Outer element border thickness in points (0.0f = no border)
+    std::optional<float> borderRadius{std::nullopt};      ///< Outer element corner radius in points (nullopt = theme radius)
+    bool divider{false};                                  ///< Whether to render a horizontal section divider line (Heading)
     ElementDivider dividerStyle{ElementDivider::Bottom};  ///< Divider placement style (Bottom or Trailing)
     bool wordWrap{false};                                 ///< Whether description wraps into multiple lines when space is constrained
     bool headingTypography{false};                        ///< True when styled as a Heading (uses HeadingMetrics scale and Secondary subtitle variant)
@@ -49,7 +54,7 @@ using HeadingOptions = ElementOptions;
 /// Low-level layout, typography, and decoration specification for `Element`.
 /// By default (`hasControl = false`), `Element` represents a standalone header/caption element (`Heading`).
 /// Widgets with interactive or visual controls (`Button`, `Checkbox`, `Switch`, `Slider`, `InputField`, `Select`, `Image`, `Scene`)
-/// set `hasControl = true` and pass their `intrinsicControlSize` into `Element::Measure` / `Element::Resolve`.
+/// set `hasControl = true` and configure their control slot via `control` (`ControlSpec`).
 struct ElementSpec {
     UiText label{};                                       ///< Primary label or heading title
     UiText description{};                                 ///< Optional secondary description or subtitle
@@ -60,14 +65,19 @@ struct ElementSpec {
     InlineOrder inlineOrder{InlineOrder::LabelFirst};     ///< Sequencing order in Inline layout
     Align elementAlign{Align::Start};                     ///< Horizontal alignment (Start, Center, End)
     StretchMode stretch{StretchMode::Compact};            ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};             ///< Width in points for Compact/Space, or % (0..100) for Fill
+    std::optional<float> width{std::nullopt};             ///< Explicit control/element width in points for Compact/Space, or % (0..100) for Fill
+    std::optional<float> height{std::nullopt};            ///< Explicit control/element height in points (nullopt = intrinsic height)
+    ControlSpec control{};                                ///< Specification for the inner control slot (`controlRect`)
+    bool background{false};                               ///< Whether to render a surface backdrop around outerBounds
+    float borderWidth{0.0f};                              ///< Outer element border thickness in points (0.0f = no border)
+    std::optional<float> borderRadius{std::nullopt};      ///< Outer element corner radius in points (nullopt = theme radius)
     UiSize widgetSize{UiSize::Md};                        ///< Active UiSize token
     float labelGap{6.0f};                                 ///< Vertical gap between label bar and control/description
     float descGap{4.0f};                                  ///< Vertical gap between control/label and description
     float inlineGap{10.0f};                               ///< Horizontal gap in Inline layout
     bool hasControl{true};                                ///< False for control-less elements (Element / Heading); true when a widget control is present
     bool headingTypography{false};                        ///< True to use HeadingMetrics typography scale; false for standard control LabelLarge/LabelSmall
-    bool divider{false};                                  ///< Whether to render a horizontal divider line
+    bool divider{false};                                  ///< Whether to render a horizontal divider line (Heading)
     ElementDivider dividerStyle{ElementDivider::Bottom};  ///< Divider placement style (Bottom or Trailing)
     bool stretchableControl{true};                        ///< True for Button/InputField/Select/Slider/Image; false for fixed-size controls
     bool stretchHeightWhenStandalone{false};              ///< True to stretch control height when standalone
@@ -78,6 +88,7 @@ struct ElementSpec {
 struct ElementGeometry {
     Rect outerBounds{};
     Rect controlRect{};
+    Rect innerControlRect{};
     Rect labelRect{};
     Rect descRect{};
     float measuredLabelW{0.0f};
@@ -91,9 +102,20 @@ struct ElementGeometry {
 
 /// Foundational UI Element class.
 /// Serves both as a standalone immediate-mode element (`Element::Run` / `Heading::Run` when `hasControl == false`)
-/// and as the shared layout & text composition engine for all control-bearing widgets (`hasControl == true`).
+/// and as the shared outer envelope & text composition engine for all control-bearing widgets (`hasControl == true`).
 class Element {
 public:
+    /// Returns true when the outer `Element` envelope (`outerBounds`) has a visible background or border.
+    [[nodiscard]] static constexpr bool HasOuterFrame(const ElementSpec& spec) noexcept {
+        return spec.background || spec.borderWidth > 0.0f;
+    }
+
+    /// Computes internal padding inside `outerBounds` when `HasOuterFrame(spec)` is true.
+    [[nodiscard]] static float ComputeOuterPadding(
+        const ElementSpec& spec,
+        const UiTheme& theme
+    ) noexcept;
+
     /// Converts `ElementOptions` into an `ElementSpec` for measurement and rendering.
     [[nodiscard]] static ElementSpec MakeSpec(
         const ElementOptions& opts,
@@ -158,7 +180,15 @@ public:
         return Resolve(bounds, {0.0f, 0.0f}, spec, canvas, theme);
     }
 
-    /// Renders the element's text, icon, badge, and divider according to resolved geometry.
+    /// Renders the outer `Element` frame (`outerBounds`) background and border when enabled.
+    static void RenderFrame(
+        ICanvas& canvas,
+        const ElementGeometry& geom,
+        const ElementSpec& spec,
+        const UiTheme& theme
+    ) noexcept;
+
+    /// Renders the element's outer frame, control well frame, text, icon, badge, and divider according to resolved geometry.
     static void RenderText(
         ICanvas& canvas,
         const ElementGeometry& geom,

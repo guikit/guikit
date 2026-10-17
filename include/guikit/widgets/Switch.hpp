@@ -3,6 +3,7 @@
 #include <optional>
 #include <source_location>
 #include <string_view>
+#include "guikit/core/Control.hpp"
 #include "guikit/core/Response.hpp"
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Types.hpp"
@@ -27,13 +28,16 @@ struct SwitchOptions {
     Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
     bool symmetric{false};                         ///< Neutral/symmetric track style (highlights active side label)
     StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Element width: in points for Compact/Space (nullopt = auto), or % of bounds (0..100) for Fill (nullopt = 100%)
-    bool divider{false};                           ///< Whether to render an Element divider line
-    ElementDivider dividerStyle{ElementDivider::Bottom}; ///< Element divider placement style (Bottom or Trailing)
+    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = auto), or % of bounds (0..100) for Fill (nullopt = 100%)
+    std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = auto from UiSize)
+    bool background{false};                        ///< Whether to render a surface backdrop around the outer Element
+    float borderWidth{0.0f};                       ///< Outer Element border thickness in points (0.0f = no border)
+    std::optional<float> borderRadius{std::nullopt}; ///< Outer Element corner radius in points
+    ControlSpec control{};                         ///< Inner Control slot configuration (width, height, align, background, borderWidth, borderRadius)
     bool disabled{false};                          ///< Interaction suppression
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
 };
-static_assert(sizeof(SwitchOptions) <= 320, "SwitchOptions must stay compact");
+static_assert(sizeof(SwitchOptions) <= 400, "SwitchOptions must stay compact");
 
 /// Autonomous Switch widget logic (execution, measuring, and rendering).
 class Switch {

@@ -3,7 +3,26 @@
 
 namespace guikit::demo {
 
-void RenderHeadingInspector(guikit::Context&, DemoContext&) {
+void RenderHeadingInspector(guikit::Context& ui, DemoContext& ctx) {
+    if (ctx.elemStretchIdx == 2) {
+        if (ui.Slider(ctx.elemFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
+    } else {
+        if (ui.Slider(ctx.elemWidth, 0.0f, 400.0f, {.label = "Explicit Width", .valueFormat = {(ctx.elemWidth > 0.0f) ? "%.0f px" : "Auto", {"Auto", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
+    }
+    if (ui.Slider(ctx.elemHeight, 0.0f, 320.0f, {.label = "Explicit Height", .valueFormat = {(ctx.elemHeight > 0.0f) ? "%.0f px" : "Auto", {"Auto", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
+
+    if (ui.Switch(ctx.elemDivider, {.label = "Show Divider Line"}).changed) ui.InvalidateAll();
+    static constexpr std::array<std::string_view, 2> divStyles = {"Bottom", "Trailing"};
+    size_t divStyleIdx = (ctx.elemDividerStyle == guikit::ElementDivider::Trailing) ? 1 : 0;
+    if (ui.StepSlider(divStyleIdx, divStyles, {
+        .label = "Divider Placement",
+        .showTicks = true,
+        .showLabels = true,
+        .disabled = !ctx.elemDivider
+    }).changed) {
+        ctx.elemDividerStyle = (divStyleIdx == 1) ? guikit::ElementDivider::Trailing : guikit::ElementDivider::Bottom;
+        ui.InvalidateAll();
+    }
 }
 
 void RenderHeadingStage(guikit::Context& ui, DemoContext& ctx) {
@@ -21,6 +40,10 @@ void RenderHeadingStage(guikit::Context& ui, DemoContext& ctx) {
         .elementAlign = ctx.elemAlign,
         .stretch = ctx.GetElementStretch(),
         .width = ctx.GetElementWidth(),
+        .height = ctx.GetElementHeight(),
+        .background = ctx.elemBackground,
+        .borderWidth = ctx.elemBorderWidth,
+        .borderRadius = ctx.GetElemBorderRadius(),
         .divider = ctx.elemDivider,
         .dividerStyle = ctx.elemDividerStyle,
         .wordWrap = ctx.elemWordWrap,
@@ -47,6 +70,10 @@ std::string GenerateHeadingCode(const DemoContext& ctx) {
         "    .elementAlign = guikit::Align::{},\n"
         "    .stretch = guikit::StretchMode::{},\n"
         "    .width = {},\n"
+        "    .height = {},\n"
+        "    .background = {},\n"
+        "    .borderWidth = {:.1f}f,\n"
+        "    .borderRadius = {},\n"
         "    .divider = {},\n"
         "    .dividerStyle = guikit::ElementDivider::{},\n"
         "    .wordWrap = {},\n"
@@ -63,6 +90,10 @@ std::string GenerateHeadingCode(const DemoContext& ctx) {
         LabelAlignEnumName(ctx.elemAlign),
         StretchModeEnumName(ctx.GetElementStretch()),
         ctx.FormatElementWidthCode(),
+        ctx.FormatElementHeightCode(),
+        ctx.elemBackground ? "true" : "false",
+        ctx.elemBorderWidth,
+        ctx.FormatElemBorderRadiusCode(),
         ctx.elemDivider ? "true" : "false",
         ctx.FormatDividerStyleCode(),
         ctx.elemWordWrap ? "true" : "false",

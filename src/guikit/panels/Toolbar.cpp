@@ -151,6 +151,8 @@ Response Toolbar::ToolButton(
     bOpts.minWidth = opts.minWidth;
     bOpts.disabled = effectiveDisabled;
     bOpts.active = opts.active;
+    bOpts.square = opts.square;
+    bOpts.iconColor = opts.iconColor;
     bOpts.size = activeSize;
 
     node->SetPayload(ctx.AllocPayload<ButtonOptions>(bOpts));
@@ -158,6 +160,8 @@ Response Toolbar::ToolButton(
         opts.variant,
         opts.iconPlacement,
         opts.active,
+        opts.square,
+        opts.iconColor.value_or(Color::Transparent()),
         static_cast<uint8_t>(opts.stretch),
         opts.size.value_or(activeSize),
         static_cast<uint8_t>(opts.icon.GetType()),

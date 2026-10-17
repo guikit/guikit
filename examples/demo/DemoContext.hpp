@@ -16,6 +16,7 @@ enum class NavCategory : uint8_t {
     ElemSelect,
     ElemSwitch,
     ElemCheckbox,
+    ElemImage,
 
     // 2. PANELS & NAV (Containers & Navigation)
     PanelCard,
@@ -24,7 +25,6 @@ enum class NavCategory : uint8_t {
     PanelTable,
 
     // 3. CONTENT & MEDIA (Documents, Editors, Graphics)
-    ContentImage,
     ContentMarkdown,
     ContentCodeEditor,
 
@@ -34,6 +34,7 @@ enum class NavCategory : uint8_t {
     SceneSignalView,
     SceneSonarView,
     SceneWaterfallView,
+    SceneImageView,
 
     // 5. ASSEMBLY (Compositions & Real-World Screens)
     AsmDashboard,
@@ -44,11 +45,11 @@ enum class NavCategory : uint8_t {
 };
 
 constexpr bool IsElementCategory(NavCategory cat) noexcept {
-    return cat <= NavCategory::ElemCheckbox;
+    return cat <= NavCategory::ElemImage;
 }
 
 constexpr bool IsSandboxCategory(NavCategory cat) noexcept {
-    return cat <= NavCategory::SceneWaterfallView;
+    return cat <= NavCategory::SceneImageView;
 }
 
 constexpr bool IsFullStageCategory(NavCategory cat) noexcept {
@@ -60,7 +61,8 @@ constexpr bool IsFullStageCategory(NavCategory cat) noexcept {
            cat == NavCategory::SceneOsmMap ||
            cat == NavCategory::SceneSignalView ||
            cat == NavCategory::SceneSonarView ||
-           cat == NavCategory::SceneWaterfallView;
+           cat == NavCategory::SceneWaterfallView ||
+           cat == NavCategory::SceneImageView;
 }
 
 inline constexpr std::array<std::string_view, 3> kStretchModeNames = {"Compact", "Space", "Fill"};
@@ -176,7 +178,7 @@ struct DemoContext {
     guikit::UiTheme shellTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
     guikit::UiTheme previewTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
 
-    // Shared Element tokens (synchronized across all 7 ELEMENTS screens)
+    // Shared Element tokens (synchronized across all 8 ELEMENTS screens)
     guikit::UiSize controlsSize = guikit::UiSize::Md;
     guikit::UiVariant btnVariant = guikit::UiVariant::Primary;
     std::string elemLabel = "Element Label";
@@ -192,7 +194,14 @@ struct DemoContext {
     size_t elemStretchIdx = 2; // 0 = Compact, 1 = Space, 2 = Fill
     float elemWidth = 0.0f;    // 0 = Auto (px in Compact/Space)
     float elemFillPct = 50.0f; // % in Fill mode
-    bool elemDivider = false;
+    float elemHeight = 0.0f;   // 0 = Auto (px)
+    bool elemBackground = false;
+    float elemBorderWidth = 0.0f;
+    float elemBorderRadius = 8.0f;
+    std::array<bool, 8> ctrlBackgroundByCat = {false, true, false, true, true, false, false, false};
+    float ctrlBorderWidth = 0.0f;
+    float ctrlBorderRadius = 6.0f;
+    bool elemDivider = true;
     guikit::ElementDivider elemDividerStyle = guikit::ElementDivider::Bottom;
     bool elemDisabled = false;
 
@@ -239,6 +248,34 @@ struct DemoContext {
         return (elemWidth > 0.0f) ? std::optional<float>(elemWidth) : std::nullopt;
     }
 
+    std::optional<float> GetElementHeight() const noexcept {
+        return (elemHeight > 0.0f) ? std::optional<float>(elemHeight) : std::nullopt;
+    }
+
+    bool GetControlBackground(NavCategory cat) const noexcept {
+        const size_t idx = static_cast<size_t>(cat);
+        return (idx < ctrlBackgroundByCat.size()) ? ctrlBackgroundByCat[idx] : false;
+    }
+
+    std::optional<float> GetOptionalControlBorderWidth() const noexcept {
+        return (ctrlBorderWidth > 0.0f) ? std::optional<float>(ctrlBorderWidth) : std::nullopt;
+    }
+
+    std::optional<float> GetElemBorderRadius() const noexcept {
+        return (elemBackground || elemBorderWidth > 0.0f) ? std::optional<float>(elemBorderRadius) : std::nullopt;
+    }
+
+    guikit::ControlSpec GetControlSpec(NavCategory cat, guikit::Align align = guikit::Align::Center) const noexcept {
+        return guikit::ControlSpec{
+            .width = GetElementWidth(),
+            .height = GetElementHeight(),
+            .align = align,
+            .background = GetControlBackground(cat),
+            .borderWidth = ctrlBorderWidth,
+            .borderRadius = ctrlBorderRadius
+        };
+    }
+
     std::string FormatElementDescCode() const {
         return FormatDesc(!elemDesc.empty(), elemDesc, elemDescVariant);
     }
@@ -268,6 +305,42 @@ struct DemoContext {
             return buf;
         }
         return "std::nullopt";
+    }
+
+    std::string FormatElementHeightCode() const {
+        if (elemHeight > 0.0f) {
+            char buf[32];
+            std::snprintf(buf, sizeof(buf), "%.1ff", elemHeight);
+            return buf;
+        }
+        return "std::nullopt";
+    }
+
+    std::string FormatElemBorderRadiusCode() const {
+        if (elemBackground || elemBorderWidth > 0.0f) {
+            char buf[32];
+            std::snprintf(buf, sizeof(buf), "%.1ff", elemBorderRadius);
+            return buf;
+        }
+        return "std::nullopt";
+    }
+
+    std::string FormatControlSpecCode(NavCategory cat, std::optional<guikit::Align> alignOpt = std::nullopt) const {
+        char bwBuf[32];
+        char brBuf[32];
+        std::snprintf(bwBuf, sizeof(bwBuf), "%.1ff", ctrlBorderWidth);
+        std::snprintf(brBuf, sizeof(brBuf), "%.1ff", ctrlBorderRadius);
+        std::string res = "{\n";
+        res += "        .width = " + FormatElementWidthCode() + ",\n";
+        res += "        .height = " + FormatElementHeightCode() + ",\n";
+        if (alignOpt.has_value()) {
+            res += "        .align = guikit::Align::" + std::string(AlignName(*alignOpt)) + ",\n";
+        }
+        res += "        .background = " + std::string(GetControlBackground(cat) ? "true" : "false") + ",\n";
+        res += "        .borderWidth = " + std::string(bwBuf) + ",\n";
+        res += "        .borderRadius = " + std::string(brBuf) + "\n";
+        res += "    }";
+        return res;
     }
 
     guikit::CardOptions MakeCard() const noexcept {
@@ -389,11 +462,6 @@ struct DemoContext {
         }
 
         RenderElementLayoutControls(ui, HasElementExternal(), elemLayout, elemInlineOrder, elemAlign, elemStretchIdx);
-        if (elemStretchIdx == 2) {
-            if (ui.Slider(elemFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
-        } else {
-            if (ui.Slider(elemWidth, 0.0f, 400.0f, {.label = "Explicit Width", .valueFormat = {(elemWidth > 0.0f) ? "%.0f px" : "Auto", {"Auto", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
-        }
 
         if (ui.Switch(elemShowIcon, {.label = "Show Leading Icon"}).changed) ui.InvalidateAll();
 
@@ -414,20 +482,52 @@ struct DemoContext {
             ui.InvalidateAll();
         }
 
-        if (ui.Switch(elemDivider, {.label = "Show Divider Line"}).changed) ui.InvalidateAll();
-        static constexpr std::array<std::string_view, 2> divStyles = {"Bottom", "Trailing"};
-        size_t divStyleIdx = (elemDividerStyle == guikit::ElementDivider::Trailing) ? 1 : 0;
-        if (ui.StepSlider(divStyleIdx, divStyles, {
-            .label = "Divider Placement",
-            .showTicks = true,
-            .showLabels = true,
-            .disabled = !elemDivider
-        }).changed) {
-            elemDividerStyle = (divStyleIdx == 1) ? guikit::ElementDivider::Trailing : guikit::ElementDivider::Bottom;
-            ui.InvalidateAll();
-        }
+        if (ui.Switch(elemBackground, {.label = "Element Background"}).changed) ui.InvalidateAll();
+        if (ui.Slider(elemBorderWidth, 0.0f, 4.0f, {
+            .label = "Element Border Width",
+            .valueFormat = "%.1f px",
+            .step = 0.5f
+        }).changed) ui.InvalidateAll();
+        if (ui.Slider(elemBorderRadius, 0.0f, 24.0f, {
+            .label = "Element Border Radius",
+            .valueFormat = "%.0f px",
+            .step = 1.0f,
+            .disabled = (!elemBackground && elemBorderWidth <= 0.0f)
+        }).changed) ui.InvalidateAll();
 
         if (ui.Switch(elemDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
+    }
+
+    void RenderControlInspector(guikit::Context& ui, NavCategory cat) {
+        ui.Heading({
+            .title = "CONTROL",
+            .size = guikit::UiSize::Xs,
+            .divider = true
+        });
+        if (elemStretchIdx == 2) {
+            if (ui.Slider(elemFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
+        } else {
+            if (ui.Slider(elemWidth, 0.0f, 400.0f, {.label = "Explicit Width", .valueFormat = {(elemWidth > 0.0f) ? "%.0f px" : "Auto", {"Auto", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
+        }
+        if (ui.Slider(elemHeight, 0.0f, 320.0f, {.label = "Explicit Height", .valueFormat = {(elemHeight > 0.0f) ? "%.0f px" : "Auto", {"Auto", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
+
+        bool& ctrlBg = ctrlBackgroundByCat[static_cast<size_t>(cat)];
+        if (ui.Switch(ctrlBg, {.label = "Control Background"}).changed) ui.InvalidateAll();
+
+        const bool hasIntrinsicBorder = (cat == NavCategory::ElemButton || cat == NavCategory::ElemInputField || cat == NavCategory::ElemSelect);
+        if (ui.Slider(ctrlBorderWidth, 0.0f, 4.0f, {
+            .label = "Control Border Width",
+            .valueFormat = (hasIntrinsicBorder && ctrlBorderWidth <= 0.0f)
+                ? guikit::UiText{"Default", {"Default", "%.1f px"}}
+                : guikit::UiText{"%.1f px", {"Default", "%.1f px"}},
+            .step = 0.5f
+        }).changed) ui.InvalidateAll();
+
+        if (ui.Slider(ctrlBorderRadius, 0.0f, 24.0f, {
+            .label = "Control Border Radius",
+            .valueFormat = "%.0f px",
+            .step = 1.0f
+        }).changed) ui.InvalidateAll();
     }
 
     void RenderAssemblyCommonInspector(guikit::Context& ui) {
@@ -548,6 +648,10 @@ std::string GenerateSonarCode(const DemoContext& ctx);
 void RenderWaterfallInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderWaterfallStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateWaterfallCode(const DemoContext& ctx);
+
+void RenderImageViewInspector(guikit::Context& ui, DemoContext& ctx);
+void RenderImageViewStage(guikit::Context& ui, DemoContext& ctx);
+std::string GenerateImageViewCode(const DemoContext& ctx);
 
 // ============================================================================
 // 5. ASSEMBLY (Compositions & Real-World Screens)

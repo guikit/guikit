@@ -39,6 +39,23 @@ Vec2 MeasureSwitchControl(
     return {ctrlW, ctrlH};
 }
 
+ControlSpec EffectiveSwitchControl(const SwitchOptions& opts) noexcept {
+    ControlSpec ctrl = opts.control;
+    if (!ctrl.width.has_value() && opts.width.has_value()) {
+        ctrl.width = opts.width;
+    }
+    if (!ctrl.height.has_value() && opts.height.has_value()) {
+        ctrl.height = opts.height;
+    }
+    if (!ctrl.background.has_value()) {
+        ctrl.background = false;
+    }
+    ctrl.stretchable = false;
+    ctrl.stretchHeightWhenStandalone = false;
+    ctrl.hasIntrinsicBox = false;
+    return ctrl;
+}
+
 ElementSpec MakeSwitchElementSpec(
     const SwitchOptions& opts,
     UiSize size,
@@ -46,6 +63,7 @@ ElementSpec MakeSwitchElementSpec(
     const UiTheme& theme
 ) noexcept {
     const SwitchMetrics& m = theme.GetSwitch(size);
+    const ControlSpec ctrl = EffectiveSwitchControl(opts);
     return ElementSpec{
         .label = opts.label,
         .description = opts.description,
@@ -56,13 +74,16 @@ ElementSpec MakeSwitchElementSpec(
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
         .stretch = opts.stretch,
-        .width = opts.width,
+        .width = ctrl.width,
+        .height = ctrl.height,
+        .control = ctrl,
+        .background = opts.background,
+        .borderWidth = opts.borderWidth,
+        .borderRadius = opts.borderRadius,
         .widgetSize = size,
         .labelGap = m.descGap,
         .descGap = m.descGap,
         .inlineGap = m.gap,
-        .divider = opts.divider,
-        .dividerStyle = opts.dividerStyle,
         .stretchableControl = false,
         .stretchHeightWhenStandalone = false,
         .disabled = disabled
@@ -114,6 +135,7 @@ Response Switch::Run(
         res.changed = true;
     }
 
+    const ControlSpec ctrl = EffectiveSwitchControl(opts);
     Node* node = ctx.CreateNode(NodeType::Switch, id);
     SwitchOptions optsCopy = opts;
     optsCopy.label = ctx.AllocText(opts.label);
@@ -131,9 +153,15 @@ Response Switch::Run(
         static_cast<uint8_t>(opts.elementAlign),
         opts.symmetric,
         static_cast<uint8_t>(opts.stretch),
-        opts.width.value_or(0.0f),
-        opts.divider,
-        static_cast<uint8_t>(opts.dividerStyle),
+        ctrl.width.value_or(0.0f),
+        ctrl.height.value_or(0.0f),
+        static_cast<uint8_t>(ctrl.align),
+        opts.background,
+        opts.borderWidth,
+        opts.borderRadius.value_or(-1.0f),
+        ctrl.HasBackground(false),
+        ctrl.borderWidth,
+        ctrl.borderRadius.value_or(-1.0f),
         static_cast<uint8_t>(opts.icon.GetType()),
         static_cast<uint8_t>(opts.icon.GetId()),
         opts.icon.GetPath(),
@@ -223,7 +251,8 @@ void Switch::Render(
     const ElementGeometry geom = Element::Resolve(bounds, ctrlDims, spec, &canvas, theme);
     Element::RenderText(canvas, geom, spec, theme);
 
-    float curX = geom.controlRect.x;
+    const Rect& ctrlRect = geom.innerControlRect;
+    float curX = ctrlRect.x + std::max(0.0f, (ctrlRect.w - ctrlDims.x) * 0.5f);
     if (!opts.textLeft.empty() || !opts.textLeft.variants.empty()) {
         const float leftFont = theme.ResolveFontSize(opts.textLeft, TextRole::LabelMedium, size);
         const float leftW = TextUtil::MeasureWidth(opts.textLeft, leftFont, &canvas);
@@ -232,7 +261,7 @@ void Switch::Render(
             const Color leftCol = theme.ResolveTextColor(opts.textLeft, defaultLeftVar, disabled);
             canvas.DrawTextBox(
                 opts.textLeft.text,
-                Rect(curX, geom.controlRect.y, leftW, geom.controlRect.h),
+                Rect(curX, ctrlRect.y, leftW, ctrlRect.h),
                 leftFont,
                 leftCol,
                 1.0f,
@@ -242,7 +271,7 @@ void Switch::Render(
         curX += leftW + m.gap;
     }
 
-    const float trackY = geom.controlRect.y + (geom.controlRect.h - m.trackSize.y) * 0.5f;
+    const float trackY = ctrlRect.y + (ctrlRect.h - m.trackSize.y) * 0.5f;
     const Rect trackRect(curX, trackY, m.trackSize.x, m.trackSize.y);
     curX += m.trackSize.x;
 
@@ -255,7 +284,7 @@ void Switch::Render(
             const Color rightCol = theme.ResolveTextColor(opts.textRight, defaultRightVar, disabled);
             canvas.DrawTextBox(
                 opts.textRight.text,
-                Rect(curX, geom.controlRect.y, rightW, geom.controlRect.h),
+                Rect(curX, ctrlRect.y, rightW, ctrlRect.h),
                 rightFont,
                 rightCol,
                 0.0f,

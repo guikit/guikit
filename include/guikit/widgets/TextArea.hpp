@@ -185,6 +185,7 @@ struct TextAreaOptions {
     std::vector<size_t>* breakpoints{nullptr};          ///< Optional external 1-based breakpoint line numbers
     size_t executionLine{0};                            ///< Active debugger instruction pointer (1-based line, 0 = none)
     bool showDebugToolbar{false};                       ///< Show floating debugger toolbar (Continue, Step Over/Into/Out, Stop)
+    std::optional<UiSize> toolbarSize{std::nullopt};    ///< Optional UiSize override for floating debug/search/action toolbars (nullopt = inherit editor size)
     std::span<const CodeDiagnostic> diagnostics{};      ///< Inline compiler/linter diagnostics (wavy squiggles + tooltips)
     std::span<const CodeInlineValue> inlineValues{};    ///< Live debugger inline variable values at end of lines
     std::span<const CodeDebugVar> debugVariables{};     ///< Live variables for hover DataTip inspection over identifiers

@@ -139,9 +139,10 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
             .variant = ctx.btnVariant,
             .size = ctx.controlsSize,
             .stretch = ctx.GetElementStretch(),
-            .width = ctx.GetElementWidth(),
-            .divider = ctx.elemDivider,
-            .dividerStyle = ctx.elemDividerStyle,
+            .background = ctx.elemBackground,
+            .borderWidth = ctx.elemBorderWidth,
+            .borderRadius = ctx.GetElemBorderRadius(),
+            .control = ctx.GetControlSpec(NavCategory::ElemSlider),
             .disabled = ctx.elemDisabled
         });
     } else if (s_state.modeIdx == 1) {
@@ -163,9 +164,10 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
             .variant = ctx.btnVariant,
             .size = ctx.controlsSize,
             .stretch = ctx.GetElementStretch(),
-            .width = ctx.GetElementWidth(),
-            .divider = ctx.elemDivider,
-            .dividerStyle = ctx.elemDividerStyle,
+            .background = ctx.elemBackground,
+            .borderWidth = ctx.elemBorderWidth,
+            .borderRadius = ctx.GetElemBorderRadius(),
+            .control = ctx.GetControlSpec(NavCategory::ElemSlider),
             .disabled = ctx.elemDisabled
         });
     } else if (s_state.modeIdx == 2) {
@@ -187,9 +189,10 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
             .variant = ctx.btnVariant,
             .size = ctx.controlsSize,
             .stretch = ctx.GetElementStretch(),
-            .width = ctx.GetElementWidth(),
-            .divider = ctx.elemDivider,
-            .dividerStyle = ctx.elemDividerStyle,
+            .background = ctx.elemBackground,
+            .borderWidth = ctx.elemBorderWidth,
+            .borderRadius = ctx.GetElemBorderRadius(),
+            .control = ctx.GetControlSpec(NavCategory::ElemSlider),
             .disabled = ctx.elemDisabled
         });
     } else {
@@ -212,10 +215,11 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
             .variant = ctx.btnVariant,
             .size = ctx.controlsSize,
             .stretch = ctx.GetElementStretch(),
-            .width = ctx.GetElementWidth(),
             .multiZoneColor = s_state.progressMultiZone,
-            .divider = ctx.elemDivider,
-            .dividerStyle = ctx.elemDividerStyle,
+            .background = ctx.elemBackground,
+            .borderWidth = ctx.elemBorderWidth,
+            .borderRadius = ctx.GetElemBorderRadius(),
+            .control = ctx.GetControlSpec(NavCategory::ElemSlider),
             .disabled = ctx.elemDisabled
         });
     }
@@ -241,9 +245,10 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             "    .variant = guikit::UiVariant::{},\n"
             "    .size = guikit::UiSize::{},\n"
             "    .stretch = guikit::StretchMode::{},\n"
-            "    .width = {},\n"
-            "    .divider = {},\n"
-            "    .dividerStyle = guikit::ElementDivider::{},\n"
+            "    .background = {},\n"
+            "    .borderWidth = {:.1f}f,\n"
+            "    .borderRadius = {},\n"
+            "    .control = {},\n"
             "    .disabled = {}\n"
             "}});",
             ctx.elemLabel,
@@ -261,9 +266,10 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             VariantName(ctx.btnVariant),
             SizeName(ctx.controlsSize),
             StretchModeEnumName(ctx.GetElementStretch()),
-            ctx.FormatElementWidthCode(),
-            ctx.elemDivider ? "true" : "false",
-            ctx.FormatDividerStyleCode(),
+            ctx.elemBackground ? "true" : "false",
+            ctx.elemBorderWidth,
+            ctx.FormatElemBorderRadiusCode(),
+            ctx.FormatControlSpecCode(NavCategory::ElemSlider),
             ctx.elemDisabled ? "true" : "false"
         );
     }
@@ -287,9 +293,10 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             "    .variant = guikit::UiVariant::{},\n"
             "    .size = guikit::UiSize::{},\n"
             "    .stretch = guikit::StretchMode::{},\n"
-            "    .width = {},\n"
-            "    .divider = {},\n"
-            "    .dividerStyle = guikit::ElementDivider::{},\n"
+            "    .background = {},\n"
+            "    .borderWidth = {:.1f}f,\n"
+            "    .borderRadius = {},\n"
+            "    .control = {},\n"
             "    .disabled = {}\n"
             "}});",
             ctx.elemLabel,
@@ -308,9 +315,10 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             VariantName(ctx.btnVariant),
             SizeName(ctx.controlsSize),
             StretchModeEnumName(ctx.GetElementStretch()),
-            ctx.FormatElementWidthCode(),
-            ctx.elemDivider ? "true" : "false",
-            ctx.FormatDividerStyleCode(),
+            ctx.elemBackground ? "true" : "false",
+            ctx.elemBorderWidth,
+            ctx.FormatElemBorderRadiusCode(),
+            ctx.FormatControlSpecCode(NavCategory::ElemSlider),
             ctx.elemDisabled ? "true" : "false"
         );
     }
@@ -334,9 +342,10 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             "    .variant = guikit::UiVariant::{},\n"
             "    .size = guikit::UiSize::{},\n"
             "    .stretch = guikit::StretchMode::{},\n"
-            "    .width = {},\n"
-            "    .divider = {},\n"
-            "    .dividerStyle = guikit::ElementDivider::{},\n"
+            "    .background = {},\n"
+            "    .borderWidth = {:.1f}f,\n"
+            "    .borderRadius = {},\n"
+            "    .control = {},\n"
             "    .disabled = {}\n"
             "}});",
             ctx.elemLabel,
@@ -355,9 +364,10 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             VariantName(ctx.btnVariant),
             SizeName(ctx.controlsSize),
             StretchModeEnumName(ctx.GetElementStretch()),
-            ctx.FormatElementWidthCode(),
-            ctx.elemDivider ? "true" : "false",
-            ctx.FormatDividerStyleCode(),
+            ctx.elemBackground ? "true" : "false",
+            ctx.elemBorderWidth,
+            ctx.FormatElemBorderRadiusCode(),
+            ctx.FormatControlSpecCode(NavCategory::ElemSlider),
             ctx.elemDisabled ? "true" : "false"
         );
     }
@@ -381,10 +391,11 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
         "    .variant = guikit::UiVariant::{},\n"
         "    .size = guikit::UiSize::{},\n"
         "    .stretch = guikit::StretchMode::{},\n"
-        "    .width = {},\n"
         "    .multiZoneColor = {},\n"
-        "    .divider = {},\n"
-        "    .dividerStyle = guikit::ElementDivider::{},\n"
+        "    .background = {},\n"
+        "    .borderWidth = {:.1f}f,\n"
+        "    .borderRadius = {},\n"
+        "    .control = {},\n"
         "    .disabled = {}\n"
         "}});",
         ctx.elemLabel,
@@ -404,10 +415,11 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
         VariantName(ctx.btnVariant),
         SizeName(ctx.controlsSize),
         StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElementWidthCode(),
         s_state.progressMultiZone ? "true" : "false",
-        ctx.elemDivider ? "true" : "false",
-        ctx.FormatDividerStyleCode(),
+        ctx.elemBackground ? "true" : "false",
+        ctx.elemBorderWidth,
+        ctx.FormatElemBorderRadiusCode(),
+        ctx.FormatControlSpecCode(NavCategory::ElemSlider),
         ctx.elemDisabled ? "true" : "false"
     );
 }

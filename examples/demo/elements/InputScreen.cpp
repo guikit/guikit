@@ -20,7 +20,6 @@ struct InputState {
     bool password = false;
     bool clearable = true;
     bool readOnly = false;
-    float cornerRadius = 6.0f;
 };
 InputState s_state;
 } // namespace
@@ -57,10 +56,6 @@ void RenderInputInspector(guikit::Context& ui, DemoContext&) {
         if (ui.Switch(s_state.password, {.label = "Password Mask & Reveal"}).changed) ui.InvalidateAll();
     }
 
-    if (ui.Slider(s_state.cornerRadius, 0.0f, 24.0f, {.label = "Border Radius", .valueFormat = "%.0f px"}).changed) {
-        ui.InvalidateAll();
-    }
-
     static constexpr std::array<std::string_view, 3> cursorModes = {"Blinking", "Solid", "Hidden"};
     size_t curIdx = (s_state.cursorMode == guikit::CursorBlinkMode::Solid) ? 1 : ((s_state.cursorMode == guikit::CursorBlinkMode::Hidden) ? 2 : 0);
     if (ui.StepSlider(curIdx, cursorModes, {.label = "Cursor Blink Mode", .showTicks = true, .showLabels = true}).changed) {
@@ -85,14 +80,14 @@ void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
             .elementAlign = ctx.elemAlign,
             .cursorMode = s_state.cursorMode,
             .size = ctx.controlsSize,
-            .borderRadius = s_state.cornerRadius,
             .stretch = ctx.GetElementStretch(),
-            .width = ctx.GetElementWidth(),
+            .background = ctx.elemBackground,
+            .borderWidth = ctx.elemBorderWidth,
+            .borderRadius = ctx.GetElemBorderRadius(),
+            .control = ctx.GetControlSpec(NavCategory::ElemInputField),
             .min = static_cast<double>(s_state.numMin),
             .max = static_cast<double>(s_state.numMax),
             .step = static_cast<double>(s_state.numStep),
-            .divider = ctx.elemDivider,
-            .dividerStyle = ctx.elemDividerStyle,
             .stepButtons = s_state.stepButtons,
             .disabled = ctx.elemDisabled,
             .readOnly = s_state.readOnly
@@ -113,11 +108,11 @@ void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
             .elementAlign = ctx.elemAlign,
             .cursorMode = s_state.cursorMode,
             .size = ctx.controlsSize,
-            .borderRadius = s_state.cornerRadius,
             .stretch = ctx.GetElementStretch(),
-            .width = ctx.GetElementWidth(),
-            .divider = ctx.elemDivider,
-            .dividerStyle = ctx.elemDividerStyle,
+            .background = ctx.elemBackground,
+            .borderWidth = ctx.elemBorderWidth,
+            .borderRadius = ctx.GetElemBorderRadius(),
+            .control = ctx.GetControlSpec(NavCategory::ElemInputField),
             .password = s_state.password,
             .clearable = s_state.clearable,
             .disabled = ctx.elemDisabled,
@@ -142,14 +137,14 @@ std::string GenerateInputCode(const DemoContext& ctx) {
             "    .elementAlign = guikit::Align::{},\n"
             "    .cursorMode = guikit::CursorBlinkMode::{},\n"
             "    .size = guikit::UiSize::{},\n"
-            "    .borderRadius = {:.1f}f,\n"
             "    .stretch = guikit::StretchMode::{},\n"
-            "    .width = {},\n"
+            "    .background = {},\n"
+            "    .borderWidth = {:.1f}f,\n"
+            "    .borderRadius = {},\n"
+            "    .control = {},\n"
             "    .min = {:.1f},\n"
             "    .max = {:.1f},\n"
             "    .step = {:.1f},\n"
-            "    .divider = {},\n"
-            "    .dividerStyle = guikit::ElementDivider::{},\n"
             "    .stepButtons = {},\n"
             "    .disabled = {},\n"
             "    .readOnly = {}\n"
@@ -165,14 +160,14 @@ std::string GenerateInputCode(const DemoContext& ctx) {
             LabelAlignEnumName(ctx.elemAlign),
             CursorModeName(s_state.cursorMode),
             SizeName(ctx.controlsSize),
-            s_state.cornerRadius,
             StretchModeEnumName(ctx.GetElementStretch()),
-            ctx.FormatElementWidthCode(),
+            ctx.elemBackground ? "true" : "false",
+            ctx.elemBorderWidth,
+            ctx.FormatElemBorderRadiusCode(),
+            ctx.FormatControlSpecCode(NavCategory::ElemInputField),
             s_state.numMin,
             s_state.numMax,
             s_state.numStep,
-            ctx.elemDivider ? "true" : "false",
-            ctx.FormatDividerStyleCode(),
             s_state.stepButtons ? "true" : "false",
             ctx.elemDisabled ? "true" : "false",
             s_state.readOnly ? "true" : "false"
@@ -194,11 +189,11 @@ std::string GenerateInputCode(const DemoContext& ctx) {
         "    .elementAlign = guikit::Align::{},\n"
         "    .cursorMode = guikit::CursorBlinkMode::{},\n"
         "    .size = guikit::UiSize::{},\n"
-        "    .borderRadius = {:.1f}f,\n"
         "    .stretch = guikit::StretchMode::{},\n"
-        "    .width = {},\n"
-        "    .divider = {},\n"
-        "    .dividerStyle = guikit::ElementDivider::{},\n"
+        "    .background = {},\n"
+        "    .borderWidth = {:.1f}f,\n"
+        "    .borderRadius = {},\n"
+        "    .control = {},\n"
         "    .password = {},\n"
         "    .clearable = {},\n"
         "    .disabled = {},\n"
@@ -217,11 +212,11 @@ std::string GenerateInputCode(const DemoContext& ctx) {
         LabelAlignEnumName(ctx.elemAlign),
         CursorModeName(s_state.cursorMode),
         SizeName(ctx.controlsSize),
-        s_state.cornerRadius,
         StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.FormatElementWidthCode(),
-        ctx.elemDivider ? "true" : "false",
-        ctx.FormatDividerStyleCode(),
+        ctx.elemBackground ? "true" : "false",
+        ctx.elemBorderWidth,
+        ctx.FormatElemBorderRadiusCode(),
+        ctx.FormatControlSpecCode(NavCategory::ElemInputField),
         s_state.password ? "true" : "false",
         s_state.clearable ? "true" : "false",
         ctx.elemDisabled ? "true" : "false",
