@@ -24,10 +24,10 @@ enum class Colormap : uint8_t {
     Jet,                ///< Classic acoustic / thermal rainbow (Navy -> Cyan -> Green -> Yellow -> Crimson)
     CyanHot,            ///< Spectral repair palette: deep navy -> cyan -> electric blue -> orange -> white
     Hot,                ///< Thermal blackbody radiation: black -> crimson -> orange -> yellow -> white
-    SonarGold,          ///< High-frequency imaging sonar: abyssal black -> bronze -> copper -> bright gold
-    SonarBlue,          ///< Hydroacoustic BTR console: abyssal black -> deep blue -> electric cyan -> ice white
-    PhosphorGreen,      ///< Tactical radar/sonar CRT phosphor: dark green -> emerald -> neon green -> white-green
-    NightRed,           ///< Bridge night-watch monochrome red: black -> maroon -> crimson -> bright scarlet
+    Red,                ///< Monochrome red luminance: black -> maroon -> crimson -> bright scarlet
+    Green,              ///< Monochrome green luminance: dark green -> emerald -> neon green -> white-green
+    Blue,               ///< Monochrome blue luminance: abyssal black -> deep blue -> electric cyan -> ice white
+    Gold,               ///< Monochrome gold luminance: abyssal black -> bronze -> copper -> bright gold
     Count
 };
 

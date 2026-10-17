@@ -89,7 +89,7 @@ struct SonarViewOptions {
     uint32_t numRangeBins{256};                     ///< Number of range bins (columns) per beam in `polarMatrix`
     SonarDisplayMode displayMode{SonarDisplayMode::PPI_360};
     SonarScanMode scanMode{SonarScanMode::MultibeamContinuous};
-    Colormap colormap{Colormap::SonarGold};
+    Colormap colormap{Colormap::Gold};
 
     float maxRangeMeters{500.0f};                   ///< Full-scale acoustic/radar range corresponding to bin `numRangeBins - 1`
     float minRangeMeters{0.0f};                     ///< Minimum blind-zone range in meters

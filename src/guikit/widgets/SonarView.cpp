@@ -853,7 +853,7 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
     // 4. Active Rotating Sweep Line
     if (opts.scanMode == SonarScanMode::RotatingSweep) {
         const Vec2 sweepTip = geom.PolarToScreen(geom.visibleMaxRange, opts.sweepAngleDeg);
-        const Color sweepCol = (opts.colormap == Colormap::PhosphorGreen)
+        const Color sweepCol = (opts.colormap == Colormap::Green)
             ? Color(74, 222, 128, 235)
             : Color(56, 189, 248, 230);
         if (geom.mode != SonarDisplayMode::BScan) {

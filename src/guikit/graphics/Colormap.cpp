@@ -125,23 +125,14 @@ struct RgbaStop {
         {0.90f, 255, 240,  90},
         {1.00f, 255, 255, 255}
     };
-    static constexpr RgbaStop kSonarGold[] = {
-        {0.00f,   5,   8,  15},
-        {0.15f,  24,  16,  12},
-        {0.38f,  82,  42,  14},
-        {0.62f, 168,  88,  20},
-        {0.84f, 238, 168,  42},
-        {1.00f, 255, 246, 195}
+    static constexpr RgbaStop kRed[] = {
+        {0.00f,   8,   4,   6},
+        {0.25f,  48,   8,  14},
+        {0.55f, 128,  18,  24},
+        {0.82f, 220,  48,  38},
+        {1.00f, 255, 165, 120}
     };
-    static constexpr RgbaStop kSonarBlue[] = {
-        {0.00f,   4,   8,  18},
-        {0.22f,   8,  28,  68},
-        {0.48f,  14,  82, 158},
-        {0.74f,  38, 178, 238},
-        {0.92f, 145, 232, 255},
-        {1.00f, 240, 252, 255}
-    };
-    static constexpr RgbaStop kPhosphorGreen[] = {
+    static constexpr RgbaStop kGreen[] = {
         {0.00f,   4,  11,   8},
         {0.20f,   8,  38,  20},
         {0.48f,  16, 112,  48},
@@ -149,32 +140,41 @@ struct RgbaStop {
         {0.92f, 134, 248, 158},
         {1.00f, 232, 255, 238}
     };
-    static constexpr RgbaStop kNightRed[] = {
-        {0.00f,   8,   4,   6},
-        {0.25f,  48,   8,  14},
-        {0.55f, 128,  18,  24},
-        {0.82f, 220,  48,  38},
-        {1.00f, 255, 165, 120}
+    static constexpr RgbaStop kBlue[] = {
+        {0.00f,   4,   8,  18},
+        {0.22f,   8,  28,  68},
+        {0.48f,  14,  82, 158},
+        {0.74f,  38, 178, 238},
+        {0.92f, 145, 232, 255},
+        {1.00f, 240, 252, 255}
+    };
+    static constexpr RgbaStop kGold[] = {
+        {0.00f,   5,   8,  15},
+        {0.15f,  24,  16,  12},
+        {0.38f,  82,  42,  14},
+        {0.62f, 168,  88,  20},
+        {0.84f, 238, 168,  42},
+        {1.00f, 255, 246, 195}
     };
 
     switch (map) {
-        case Colormap::Grayscale:     return kGrayscale;
-        case Colormap::Bone:          return kBone;
-        case Colormap::Amber:         return kAmber;
-        case Colormap::Inferno:       return kInferno;
-        case Colormap::Magma:         return kMagma;
-        case Colormap::Viridis:       return kViridis;
-        case Colormap::Plasma:        return kPlasma;
-        case Colormap::Cividis:       return kCividis;
-        case Colormap::Turbo:         return kTurbo;
-        case Colormap::Jet:           return kJet;
-        case Colormap::CyanHot:       return kCyanHot;
-        case Colormap::Hot:           return kHot;
-        case Colormap::SonarGold:     return kSonarGold;
-        case Colormap::SonarBlue:     return kSonarBlue;
-        case Colormap::PhosphorGreen: return kPhosphorGreen;
-        case Colormap::NightRed:      return kNightRed;
-        case Colormap::Count:         break;
+        case Colormap::Grayscale: return kGrayscale;
+        case Colormap::Bone:      return kBone;
+        case Colormap::Amber:     return kAmber;
+        case Colormap::Inferno:   return kInferno;
+        case Colormap::Magma:     return kMagma;
+        case Colormap::Viridis:   return kViridis;
+        case Colormap::Plasma:    return kPlasma;
+        case Colormap::Cividis:   return kCividis;
+        case Colormap::Turbo:     return kTurbo;
+        case Colormap::Jet:       return kJet;
+        case Colormap::CyanHot:   return kCyanHot;
+        case Colormap::Hot:       return kHot;
+        case Colormap::Red:       return kRed;
+        case Colormap::Green:     return kGreen;
+        case Colormap::Blue:      return kBlue;
+        case Colormap::Gold:      return kGold;
+        case Colormap::Count:     break;
     }
     return kGrayscale;
 }
@@ -267,10 +267,10 @@ std::span<const std::string_view> GetAllColormapNames() noexcept {
         "Jet",
         "CyanHot",
         "Hot",
-        "SonarGold",
-        "SonarBlue",
-        "PhosphorGreen",
-        "NightRed"
+        "Red",
+        "Green",
+        "Blue",
+        "Gold"
     }};
     return kNames;
 }

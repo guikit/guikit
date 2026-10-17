@@ -39,7 +39,7 @@ struct SonarDemoState {
     int scenarioIndex{0};           // 0 = Harbor Defense DDS, 1 = FLS Shipwreck Inspection, 2 = Offshore Rig 360 Sweep
     int displayModeIndex{0};        // 0 = PPI_360, 1 = SectorWedge, 2 = BScan
     int scanModeIndex{0};           // 0 = MultibeamContinuous, 1 = RotatingSweep
-    Colormap colormap{Colormap::SonarGold};
+    Colormap colormap{Colormap::Gold};
 
     float maxRangeMeters{500.0f};
     float headingDeg{0.0f};
@@ -166,7 +166,7 @@ void ApplyScenarioPreset(SonarDemoState& st, int presetIdx) {
         // 0: Harbor Defense DDS (360 PPI or Sector)
         st.displayModeIndex = 0; // PPI_360
         st.scanModeIndex = 0;    // MultibeamContinuous
-        st.colormap = Colormap::SonarGold;
+        st.colormap = Colormap::Gold;
         st.maxRangeMeters = 500.0f;
         st.headingDeg = 0.0f;
         st.sectorApertureDeg = 120.0f;
@@ -200,7 +200,7 @@ void ApplyScenarioPreset(SonarDemoState& st, int presetIdx) {
         // 2: Offshore Platform 360 Rotating Radar / Sonar Sweep
         st.displayModeIndex = 0; // PPI_360
         st.scanModeIndex = 1;    // RotatingSweep
-        st.colormap = Colormap::PhosphorGreen;
+        st.colormap = Colormap::Green;
         st.maxRangeMeters = 500.0f;
         st.headingDeg = 0.0f;
         st.sectorApertureDeg = 120.0f;

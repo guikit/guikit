@@ -6944,7 +6944,7 @@ void TestSonarViewWidgetWorkflow() {
 
     SonarDisplayMode displayMode = SonarDisplayMode::PPI_360;
     SonarScanMode scanMode = SonarScanMode::MultibeamContinuous;
-    Colormap colormap = Colormap::SonarGold;
+    Colormap colormap = Colormap::Gold;
     int selectedId = 10;
     float eblBrg = 25.0f;
     float vrmRng = 200.0f;
@@ -7003,7 +7003,7 @@ void TestSonarViewWidgetWorkflow() {
 
     // Switch to BScan
     displayMode = SonarDisplayMode::BScan;
-    colormap = Colormap::PhosphorGreen;
+    colormap = Colormap::Green;
     renderFrame();
     CHECK(lastResp.displayMode == SonarDisplayMode::BScan);
 
@@ -7266,7 +7266,7 @@ void TestWaterfallViewWidgetAndGpuRingBuffer() {
                 .label = "DOA BTR Tracker",
                 .mode = WaterfallMode::DoaBtr,
                 .viewLayout = WaterfallLayout::SplitTraceAndWaterfall,
-                .colormap = Colormap::SonarBlue,
+                .colormap = Colormap::Blue,
                 .numBins = static_cast<uint32_t>(doaSlice.size()),
                 .historyRows = 128,
                 .historyDurationSec = 15.0f,
@@ -8051,6 +8051,10 @@ void TestUnifiedColormapHistogramAndImageView() {
     CHECK(GetColormapName(Colormap::Bone) == "Bone");
     CHECK(GetColormapName(Colormap::Inferno) == "Inferno");
     CHECK(GetColormapName(Colormap::Turbo) == "Turbo");
+    CHECK(GetColormapName(Colormap::Red) == "Red");
+    CHECK(GetColormapName(Colormap::Green) == "Green");
+    CHECK(GetColormapName(Colormap::Blue) == "Blue");
+    CHECK(GetColormapName(Colormap::Gold) == "Gold");
 
     for (size_t m = 0; m < static_cast<size_t>(Colormap::Count); ++m) {
         const auto cmap = static_cast<Colormap>(m);

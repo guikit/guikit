@@ -350,7 +350,7 @@ void LoadWaterfallScenario(WaterfallDemoState& st, int scenarioIdx) {
     } else if (st.scenarioIndex == 2) {
         // Towed-Array Sonar DOA / BTR Tracker
         st.modeIndex = 1;
-        st.colormap = Colormap::SonarBlue;
+        st.colormap = Colormap::Blue;
         st.minX = -180.0f;
         st.maxX = +180.0f;
         st.dbFloor = -102.0f;
@@ -361,7 +361,7 @@ void LoadWaterfallScenario(WaterfallDemoState& st, int scenarioIdx) {
     } else {
         // RF MUSIC Super-Resolution DOA Tracker
         st.modeIndex = 1;
-        st.colormap = Colormap::PhosphorGreen;
+        st.colormap = Colormap::Green;
         st.minX = -180.0f;
         st.maxX = +180.0f;
         st.dbFloor = -104.0f;
