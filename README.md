@@ -1,19 +1,10 @@
-<div align="center">
-
 # GuiKit
 
-**Modern, Autonomous C++20 Immediate-Mode Vector GUI & 2D Visualization Engine**  
-*Powered by **ThorVG** + **SDL3** + **WebGL2 / OpenGL GLSL** — Native Desktop & WebAssembly*
+**GuiKit** is a modern, autonomous C++20 immediate-mode vector GUI and 2D visualization engine powered by **ThorVG**, **SDL3**, and **WebGL2 / OpenGL GLSL** for both Native Desktop and WebAssembly.
 
-[![Live WebAssembly Demo](https://img.shields.io/badge/%F0%9F%9A%80_LIVE_WEBASSEMBLY_DEMO-guikit.github.io%2Fdemo-2563eb?style=for-the-badge&logo=webassembly&logoColor=white)](https://guikit.github.io/demo/)
-[![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?style=for-the-badge&logo=c%2B%2B&logoColor=white)](https://en.cppreference.com/w/cpp/20)
-[![License: MIT](https://img.shields.io/badge/License-MIT-10b981?style=for-the-badge)](LICENSE)
+## 👉 [Live Interactive Demo (WebAssembly): https://guikit.github.io/demo/](https://guikit.github.io/demo/)
 
-### 👉 **[Launch Interactive Live Demo in Browser (WebAssembly)](https://guikit.github.io/demo/)** 👈
-
-*Explore all UI elements, virtualized 100k-row data grids, S-52/Navionics marine GIS charts, DSP spectrograms, sonar radar, avionics PFD, automotive cluster, and BPMN 2.0 modeler directly in your browser with live C++20 code generation.*
-
-</div>
+Explore all UI elements, virtualized 100k-row data grids, S-52/Navionics marine GIS charts, DSP spectrograms, sonar radar, avionics PFD, automotive cluster, and BPMN 2.0 modeler directly in your browser with live C++20 code generation.
 
 ---
 
