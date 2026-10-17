@@ -4,7 +4,15 @@
 
 ## 👉 [Live Interactive Demo (WebAssembly): https://guikit.github.io/demo/](https://guikit.github.io/demo/)
 
-Explore all UI elements, virtualized 100k-row data grids, S-52/Navionics marine GIS charts, DSP spectrograms, sonar radar, avionics PFD, automotive cluster, and BPMN 2.0 modeler directly in your browser with live C++20 code generation.
+| **Workspace & Rich Markdown Engine** | **S-52 / Navionics Marine GIS Vector Chart** |
+| :---: | :---: |
+| ![Workspace & Rich Markdown](docs/screenshots/markdown_workspace.png) | ![Marine GIS Chart](docs/screenshots/gis_chart.png) |
+| **PPI 360° Sonar Radar (`SonarView`)** | **Waveform + STFT Spectrogram (`SignalView`)** |
+| ![Sonar Radar](docs/screenshots/sonar_radar.png) | ![Signal View](docs/screenshots/signal_view.png) |
+| **RTSA Spectral Waterfall (`WaterfallView`)** | **Avionics Primary Flight Display (`AttitudeView`)** |
+| ![Spectral Waterfall](docs/screenshots/waterfall_view.png) | ![Attitude PFD](docs/screenshots/attitude_pfd.png) |
+| **Automotive Cockpit & ADAS (`CarClusterView`)** | **BPMN 2.0 Modeler & Token Sim (`BpmnEditor`)** |
+| ![Car Cluster](docs/screenshots/car_cluster.png) | ![BPMN 2.0 Modeler](docs/screenshots/bpmn_modeler.png) |
 
 ---
 
