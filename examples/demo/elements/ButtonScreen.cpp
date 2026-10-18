@@ -54,7 +54,7 @@ void RenderButtonStage(guikit::Context& ui, DemoContext& ctx) {
     std::string btnText = (s_state.clicks > 0 && !s_state.text.empty())
         ? std::format("{} ({}x)", s_state.text, s_state.clicks)
         : s_state.text;
-    if (auto el = ui.Element({
+    if (auto el = ui.Size(ctx.elemSize).Element({
         .label = ctx.GetElementLabel(),
         .description = ctx.GetElementDescription(),
         .icon = ctx.GetElementIcon(),
@@ -65,10 +65,9 @@ void RenderButtonStage(guikit::Context& ui, DemoContext& ctx) {
         .stretch = ctx.GetElementStretch(),
         .background = ctx.elemBackground,
         .border = ctx.GetElemBorder(),
-        .size = ctx.controlsSize,
         .disabled = ctx.elemDisabled
     })) {
-        if (ui.Button({
+        if (ui.Size(ctx.controlsSize).Button({
             .text = btnText,
             .icon = s_state.hasIcon ? guikit::Icon::Play() : guikit::Icon{},
             .color = ctx.GetControlColor(),
@@ -80,8 +79,7 @@ void RenderButtonStage(guikit::Context& ui, DemoContext& ctx) {
             .background = ctx.GetControlBackground(NavCategory::ElemButton),
             .border = ctx.GetCtrlBorder(),
             .disabled = ctx.elemDisabled,
-            .square = s_state.square,
-            .size = ctx.controlsSize
+            .square = s_state.square
         })) {
             ++s_state.clicks;
             ui.InvalidateAll();
@@ -91,7 +89,7 @@ void RenderButtonStage(guikit::Context& ui, DemoContext& ctx) {
 
 std::string GenerateButtonCode(const DemoContext& ctx) {
     return std::format(
-        "if (auto el = ui.Element({{\n"
+        "if (auto el = ui.Size(guikit::UiSize::{}).Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"
         "    .icon = {},\n"
@@ -102,10 +100,9 @@ std::string GenerateButtonCode(const DemoContext& ctx) {
         "    .stretch = guikit::StretchMode::{},\n"
         "    .background = {},\n"
         "    .border = {},\n"
-        "    .size = guikit::UiSize::{},\n"
         "    .disabled = {}\n"
         "}})) {{\n"
-        "    if (ui.Button({{\n"
+        "    if (ui.Size(guikit::UiSize::{}).Button({{\n"
         "        .text = \"{}\",\n"
         "        .icon = {},\n"
         "        .color = {},\n"
@@ -117,12 +114,12 @@ std::string GenerateButtonCode(const DemoContext& ctx) {
         "        .background = {},\n"
         "        .border = {},\n"
         "        .disabled = {},\n"
-        "        .square = {},\n"
-        "        .size = guikit::UiSize::{}\n"
+        "        .square = {}\n"
         "    }})) {{\n"
         "        // On click handler\n"
         "    }}\n"
         "}}",
+        SizeName(ctx.elemSize),
         ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
@@ -133,8 +130,8 @@ std::string GenerateButtonCode(const DemoContext& ctx) {
         StretchModeEnumName(ctx.GetElementStretch()),
         ctx.FormatElemBackgroundCode(),
         ctx.FormatElemBorderCode(),
-        SizeName(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false",
+        SizeName(ctx.controlsSize),
         s_state.text,
         s_state.hasIcon ? "guikit::Icon::Play()" : "{}",
         ctx.FormatControlColorCode(),
@@ -146,8 +143,7 @@ std::string GenerateButtonCode(const DemoContext& ctx) {
         ctx.FormatControlBackgroundCode(NavCategory::ElemButton),
         ctx.FormatCtrlBorderCode(),
         ctx.elemDisabled ? "true" : "false",
-        s_state.square ? "true" : "false",
-        SizeName(ctx.controlsSize)
+        s_state.square ? "true" : "false"
     );
 }
 

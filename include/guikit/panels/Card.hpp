@@ -24,7 +24,6 @@ struct CardOptions {
     bool clipChildren{true};                        ///< Clip children to prevent content bleeding outside rounded card
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Fit};
-    std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

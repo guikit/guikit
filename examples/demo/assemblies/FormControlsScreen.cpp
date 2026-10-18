@@ -31,10 +31,9 @@ void RenderFormControlsInspector(guikit::Context& ui, DemoContext& ctx) {
 
 void RenderFormControlsScreen(guikit::Context& ui, DemoContext& ctx) {
     if (auto card = ui.Card(ctx.MakeCard())) {
-        ui.Heading({
+        ui.Size(ctx.headingSize).Heading({
             .label = "Interactive Reactive State",
-            .description = "Pure immediate mode with zero external widget IDs and instant response.",
-            .size = ctx.headingSize
+            .description = "Pure immediate mode with zero external widget IDs and instant response."
         });
 
         if (auto actionRow = ui.Wrap({.gap = ctx.rowGap, .runGap = ctx.colGap, .align = guikit::Alignment::Center})) {
@@ -70,11 +69,10 @@ void RenderFormControlsScreen(guikit::Context& ui, DemoContext& ctx) {
         }
 
         if (s_state.showTelemetry) {
-            ui.Heading({
+            ui.Size(ctx.headingSize).Heading({
                 .label = {"Telemetry Stream", guikit::StateColor::Success()},
                 .description = "1000 samples/sec | Jitter < 0.2ms | Hardware loop nominal",
-                .icon = guikit::Icon::Check(),
-                .size = ctx.headingSize
+                .icon = guikit::Icon::Check()
             });
         }
 
@@ -124,11 +122,10 @@ void RenderFormControlsScreen(guikit::Context& ui, DemoContext& ctx) {
             }
         }
 
-        ui.Heading({
+        ui.Size(ctx.headingSize).Heading({
             .label = "Precision Continuous & Stepped Sliders",
             .description = "Immediate-mode numeric sliders with wheel scrubbing, ticks, and step presets",
-            .icon = guikit::Icon::Settings(),
-            .size = ctx.headingSize
+            .icon = guikit::Icon::Settings()
         });
 
         if (auto sliderGrid = ui.Grid(ctx.MakeGrid())) {

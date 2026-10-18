@@ -165,7 +165,6 @@ struct ImageViewOptions {
     float height{620.0f};
     float minHeight{360.0f};
     SizeMode heightMode{SizeMode::Fit};
-    std::optional<UiSize> size{std::nullopt};
     std::optional<float> borderRadius{std::nullopt};
 
     // --- Workstation Layout & Features ---

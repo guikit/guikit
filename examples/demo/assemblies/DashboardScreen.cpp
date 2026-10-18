@@ -40,7 +40,7 @@ void RenderDashboardScreen(guikit::Context& ui, DemoContext& ctx) {
         // Left Column
         if (auto colLeft = dashboardGrid.Cell6({.gap = ctx.colGap})) {
             if (auto card1 = ui.Card(ctx.MakeCard())) {
-                ui.Heading({.label = "Primary Stop Conditions", .description = "Sensory tripwire thresholds & limits", .size = ctx.headingSize});
+                ui.Size(ctx.headingSize).Heading({.label = "Primary Stop Conditions", .description = "Sensory tripwire thresholds & limits"});
                 if (auto grid1 = ui.Grid(ctx.MakeGrid())) {
                     if (auto c = grid1.Cell12()) {
                         if (auto el = ui.Element({
@@ -77,7 +77,7 @@ void RenderDashboardScreen(guikit::Context& ui, DemoContext& ctx) {
             }
 
             if (auto card2 = ui.Card(ctx.MakeCard())) {
-                ui.Heading({.label = {"Emergency Interlocks", guikit::StateColor::Danger()}, .description = "Hardware line supervision & failsafes", .size = ctx.headingSize});
+                ui.Size(ctx.headingSize).Heading({.label = {"Emergency Interlocks", guikit::StateColor::Danger()}, .description = "Hardware line supervision & failsafes"});
                 if (auto grid2 = ui.Grid(ctx.MakeGrid())) {
                     if (auto c = grid2.Cell12()) {
                         if (auto el = ui.Element({
@@ -110,7 +110,7 @@ void RenderDashboardScreen(guikit::Context& ui, DemoContext& ctx) {
         // Right Column
         if (auto colRight = dashboardGrid.Cell6({.gap = ctx.colGap})) {
             if (auto card3 = ui.Card(ctx.MakeCard())) {
-                ui.Heading({.label = "Secondary Criteria & PID", .description = "Dynamic closed-loop feedback parameters", .size = ctx.headingSize});
+                ui.Size(ctx.headingSize).Heading({.label = "Secondary Criteria & PID", .description = "Dynamic closed-loop feedback parameters"});
                 if (auto grid3 = ui.Grid(ctx.MakeGrid())) {
                     if (auto c = grid3.Cell6()) {
                         if (auto el = ui.Element({.label = "Force Drop Limit"})) {
@@ -151,11 +151,10 @@ void RenderDashboardScreen(guikit::Context& ui, DemoContext& ctx) {
     }
 
     if (auto cardAudit = ui.Card(ctx.MakeCard())) {
-        ui.Heading({
+        ui.Size(ctx.headingSize).Heading({
             .label = {"Supervisor Hardware Loop Diagnostics", guikit::StateColor::Success()},
             .description = "Live bus performance telemetry and continuous line supervision",
-            .icon = guikit::Icon::Check(),
-            .size = ctx.headingSize
+            .icon = guikit::Icon::Check()
         });
         if (auto g = ui.Grid(ctx.MakeGrid())) {
             if (auto c1 = g.Cell4()) {

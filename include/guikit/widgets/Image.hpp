@@ -33,7 +33,6 @@ struct ImageOptions {
     Border border{};                                    ///< Image control box border stroke & corner radius configuration
     bool checkerboard{false};                           ///< Render transparency checkerboard pattern behind image
     uint8_t opacity{255};                               ///< Image opacity [0..255]
-    std::optional<UiSize> size{std::nullopt};           ///< Local size token override
     bool disabled{false};
 };
 

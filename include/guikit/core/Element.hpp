@@ -32,7 +32,6 @@ struct ElementOptions {
     std::optional<float> height{std::nullopt};                ///< Explicit element/control height in points (nullopt = auto from UiSize)
     StateColor background{};                                  ///< Per-state outer surface backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                                          ///< Outer element border thickness, corner radius, and per-state color
-    std::optional<UiSize> size{std::nullopt};                 ///< Local size override (nullopt = inherit container size)
     bool disabled{false};                                     ///< Whether the element and its child control are rendered in a disabled state
     const UiTheme* theme{nullptr};                            ///< Optional scoped theme override
     std::optional<float> scale{std::nullopt};                 ///< Optional local UI scale factor override

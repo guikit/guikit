@@ -65,6 +65,7 @@
 namespace guikit {
 
 class Context;
+class SizeScope;
 
 /// C++20 concept for any autonomous widget providing a static Run method.
 template <typename T, typename... Args>
@@ -386,7 +387,21 @@ public:
     // --- Scale & State Scopes ---
     void PushSize(UiSize size);
     void PopSize();
+    void ReplaceTopSize(UiSize size) noexcept {
+        if (!m_sizeStack.empty()) {
+            m_sizeStack.back() = size;
+        }
+    }
     [[nodiscard]] UiSize GetCurrentSize() const;
+
+    [[nodiscard]] SizeScope Size(UiSize size) noexcept;
+
+    template<typename Fn>
+    void Size(UiSize size, Fn&& fn) {
+        PushSize(size);
+        fn();
+        PopSize();
+    }
 
     void PushDisabled(bool disabled = true);
     void PopDisabled();
@@ -1321,5 +1336,655 @@ private:
     Node* FindDeepestNodeAt(Node* root, Vec2 pos, Rect clipRect);
     void RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize);
 };
+
+/// Scoped UI size modifier returned by `ui.Size(...)`.
+/// Supports both single-call chaining (`ui.Size(UiSize::Lg).Element({...})`, `ui.Size(UiSize::Sm).Button({...})`)
+/// and RAII block scoping (`if (auto s = ui.Size(UiSize::Sm)) { ... }`).
+class SizeScope {
+public:
+    SizeScope() noexcept = default;
+
+    SizeScope(Context* ctx, UiSize size) noexcept
+        : m_ctx(ctx)
+        , m_prevSize(ctx ? ctx->GetCurrentSize() : UiSize::Md)
+        , m_size(size) {
+        if (m_ctx) {
+            m_ctx->PushSize(m_size);
+        }
+    }
+
+    ~SizeScope() noexcept {
+        if (m_ctx) {
+            m_ctx->PopSize();
+        }
+    }
+
+    SizeScope(const SizeScope&) = delete;
+    SizeScope& operator=(const SizeScope&) = delete;
+
+    SizeScope(SizeScope&& other) noexcept
+        : m_ctx(other.m_ctx)
+        , m_prevSize(other.m_prevSize)
+        , m_size(other.m_size) {
+        other.m_ctx = nullptr;
+    }
+
+    SizeScope& operator=(SizeScope&& other) noexcept {
+        if (this != &other) {
+            if (m_ctx) {
+                m_ctx->PopSize();
+            }
+            m_ctx = other.m_ctx;
+            m_prevSize = other.m_prevSize;
+            m_size = other.m_size;
+            other.m_ctx = nullptr;
+        }
+        return *this;
+    }
+
+    [[nodiscard]] explicit constexpr operator bool() const noexcept {
+        return m_ctx != nullptr;
+    }
+
+    // --- Generic Autonomous Widget & Container Dispatch ---
+    template <typename WidgetT, typename... Args>
+        requires WidgetRunnable<WidgetT, Args...>
+    decltype(auto) Run(Args&&... args) {
+        return m_ctx->Run<WidgetT>(std::forward<Args>(args)...);
+    }
+
+    template <typename ContainerT, typename... Args>
+        requires ContainerOpenable<ContainerT, Args...>
+    [[nodiscard]] decltype(auto) Open(Args&&... args) {
+        Context* ctx = m_ctx;
+        auto scope = ctx->Open<ContainerT>(std::forward<Args>(args)...);
+        ctx->PopSize();
+        m_ctx = nullptr;
+        if constexpr (std::is_same_v<ContainerT, guikit::Element>) {
+            ctx->ReplaceTopSize(m_prevSize);
+        }
+        return scope;
+    }
+
+    // --- Element (applies size ONLY to Element; restores previous size for child Control) ---
+    ElementScope Element(
+        ElementOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        Context* ctx = m_ctx;
+        ElementScope scope = ctx->Element(std::move(opts), loc);
+        ctx->PopSize();
+        m_ctx = nullptr;
+        ctx->ReplaceTopSize(m_prevSize);
+        return scope;
+    }
+
+    // --- Accordion (applies size to Accordion header; restores previous size for body children) ---
+    [[nodiscard]] AccordionScope Accordion(
+        AccordionOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        Context* ctx = m_ctx;
+        AccordionScope scope = ctx->Accordion(opts, loc);
+        RestoreAccordionBodySize(ctx, scope, opts);
+        return scope;
+    }
+
+    [[nodiscard]] AccordionScope Accordion(
+        std::string_view label,
+        AccordionOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        Context* ctx = m_ctx;
+        AccordionScope scope = ctx->Accordion(label, opts, loc);
+        RestoreAccordionBodySize(ctx, scope, opts);
+        return scope;
+    }
+
+    [[nodiscard]] AccordionScope Accordion(
+        bool& open,
+        AccordionOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        Context* ctx = m_ctx;
+        AccordionScope scope = ctx->Accordion(open, opts, loc);
+        RestoreAccordionBodySize(ctx, scope, opts);
+        return scope;
+    }
+
+    template <typename T, typename U>
+        requires (!std::is_same_v<std::decay_t<T>, bool> && requires(T& a, const U& b) {
+            { a == b } -> std::convertible_to<bool>;
+            a = static_cast<T>(b);
+        })
+    [[nodiscard]] AccordionScope Accordion(
+        T& activeValue,
+        const U& sectionValue,
+        AccordionOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        Context* ctx = m_ctx;
+        AccordionScope scope = ctx->Accordion(activeValue, sectionValue, opts, loc);
+        RestoreAccordionBodySize(ctx, scope, opts);
+        return scope;
+    }
+
+    // --- Layout & Panel Containers (children inherit m_size) ---
+    [[nodiscard]] ContainerScope Row(
+        RowOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->Row(std::move(opts), loc));
+    }
+
+    [[nodiscard]] ContainerScope Column(
+        ColumnOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->Column(std::move(opts), loc));
+    }
+
+    [[nodiscard]] ContainerScope Wrap(
+        WrapOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->Wrap(std::move(opts), loc));
+    }
+
+    [[nodiscard]] GridScope Grid(
+        GridOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->Grid(std::move(opts), loc));
+    }
+
+    [[nodiscard]] ContainerScope Box(
+        BoxOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->Box(std::move(opts), loc));
+    }
+
+    [[nodiscard]] ContainerScope Card(
+        CardOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->Card(std::move(opts), loc));
+    }
+
+    [[nodiscard]] ContainerScope ScrollArea(
+        ScrollAreaOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->ScrollArea(std::move(opts), loc));
+    }
+
+    [[nodiscard]] ContainerScope Carousel(
+        CarouselOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->Carousel(std::move(opts), loc));
+    }
+
+    [[nodiscard]] ContainerScope Sidebar(
+        SidebarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->Sidebar(std::move(opts), loc));
+    }
+
+    [[nodiscard]] SceneScope Scene(
+        SceneOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->Scene(std::move(opts), loc));
+    }
+
+    [[nodiscard]] MapViewScope MapView(
+        MapViewOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->MapView(std::move(opts), loc));
+    }
+
+    [[nodiscard]] TableScope Table(
+        std::span<const TableColumn> columns,
+        const TableOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->Table(columns, opts, loc));
+    }
+
+    [[nodiscard]] TableScope Table(
+        std::initializer_list<TableColumn> columns,
+        const TableOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->Table(columns, opts, loc));
+    }
+
+    [[nodiscard]] ToolbarScope Toolbar(
+        ToolbarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->Toolbar(std::move(opts), loc));
+    }
+
+    [[nodiscard]] SidebarMenuScope SidebarMenu(
+        SidebarMenuOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->SidebarMenu(std::move(opts), loc));
+    }
+
+    // --- Leaf Widgets & Controls ---
+    Response Heading(
+        HeadingOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Heading(std::move(opts), loc);
+    }
+
+    Response Button(
+        ButtonOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Button(std::move(opts), loc);
+    }
+
+    Response ToolButton(
+        ToolButtonOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ToolButton(std::move(opts), loc);
+    }
+
+    Response Text(
+        UiText label,
+        TextOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Text(std::move(label), std::move(opts), loc);
+    }
+
+    Response Image(
+        std::string_view source,
+        ImageOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Image(source, std::move(opts), loc);
+    }
+
+    Response Image(
+        ImageOptions opts,
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Image(std::move(opts), loc);
+    }
+
+    MarkdownResponse Markdown(
+        std::string_view markdownText,
+        const MarkdownOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Markdown(markdownText, opts, loc);
+    }
+
+    SignalViewResponse SignalView(
+        std::span<const float> samples,
+        const SignalViewOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->SignalView(samples, opts, loc);
+    }
+
+    SonarViewResponse SonarView(
+        std::span<const float> polarMatrix,
+        const SonarViewOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->SonarView(polarMatrix, opts, loc);
+    }
+
+    WaterfallViewResponse WaterfallView(
+        std::span<const float> latestSliceDb,
+        const WaterfallViewOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->WaterfallView(latestSliceDb, opts, loc);
+    }
+
+    HistogramResponse Histogram(
+        const HistogramData& data,
+        ChannelTransferParams& transfer,
+        const HistogramOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Histogram(data, transfer, opts, loc);
+    }
+
+    ImageViewResponse ImageView(
+        const ImageViewData& data,
+        ImageViewParams& params,
+        const ImageViewOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ImageView(data, params, opts, loc);
+    }
+
+    ImageViewResponse ImageView(
+        const ImageViewData& data,
+        const ImageViewOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ImageView(data, opts, loc);
+    }
+
+    AttitudeViewResponse AttitudeView(
+        const AttitudeViewOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->AttitudeView(opts, loc);
+    }
+
+    CarClusterViewResponse CarClusterView(
+        const CarClusterViewOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->CarClusterView(opts, loc);
+    }
+
+    BpmnEditorResponse BpmnEditor(
+        BpmnDiagram& diagram,
+        const BpmnEditorOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->BpmnEditor(diagram, opts, loc);
+    }
+
+    Response Switch(
+        bool& value,
+        SwitchOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Switch(value, std::move(opts), loc);
+    }
+
+    Response Switch(
+        const bool& checked,
+        SwitchOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Switch(checked, std::move(opts), loc);
+    }
+
+    Response Checkbox(
+        bool& value,
+        CheckboxOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Checkbox(value, std::move(opts), loc);
+    }
+
+    Response Checkbox(
+        const bool& checked,
+        CheckboxOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Checkbox(checked, std::move(opts), loc);
+    }
+
+    template <typename T, typename U = T>
+        requires (std::equality_comparable_with<T, U>)
+    Response RadioButton(
+        T& currentValue,
+        const U& optionValue,
+        CheckboxOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->RadioButton(currentValue, optionValue, std::move(opts), loc);
+    }
+
+    Response RadioButton(
+        bool& checked,
+        CheckboxOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->RadioButton(checked, std::move(opts), loc);
+    }
+
+    template <InputFieldEditable T>
+    Response InputField(
+        T& value,
+        InputFieldOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->InputField(value, std::move(opts), loc);
+    }
+
+    Response InputField(
+        std::string_view value,
+        InputFieldOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->InputField(value, std::move(opts), loc);
+    }
+
+    TextAreaResponse TextArea(
+        std::string& value,
+        const TextAreaOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->TextArea(value, opts, loc);
+    }
+
+    TextAreaResponse TextArea(
+        std::string_view value,
+        const TextAreaOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->TextArea(value, opts, loc);
+    }
+
+    template <SelectTarget T>
+    Response Select(
+        T& selected,
+        std::span<const SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Select(selected, items, std::move(opts), loc);
+    }
+
+    template <SelectTarget T>
+    Response Select(
+        T& selected,
+        std::initializer_list<SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Select(selected, items, std::move(opts), loc);
+    }
+
+    template <SelectTarget T>
+    Response Select(
+        T& selected,
+        std::span<const std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Select(selected, items, std::move(opts), loc);
+    }
+
+    template <SelectTarget T>
+    Response Select(
+        T& selected,
+        std::initializer_list<std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Select(selected, items, std::move(opts), loc);
+    }
+
+    template <typename IndexT>
+    Response TabBar(
+        IndexT& activeIndex,
+        std::span<const TabItem> tabs,
+        TabBarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT>) {
+        return m_ctx->TabBar(activeIndex, tabs, std::move(opts), loc);
+    }
+
+    template <typename IndexT>
+    Response TabBar(
+        IndexT& activeIndex,
+        std::initializer_list<TabItem> tabs,
+        TabBarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT>) {
+        return m_ctx->TabBar(activeIndex, tabs, std::move(opts), loc);
+    }
+
+    template <typename IndexT>
+    Response SidebarMenu(
+        IndexT& activeIndex,
+        std::span<const SidebarMenuItem> items,
+        SidebarMenuOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+        return m_ctx->SidebarMenu(activeIndex, items, std::move(opts), loc);
+    }
+
+    template <typename IndexT>
+    Response SidebarMenu(
+        IndexT& activeIndex,
+        std::initializer_list<SidebarMenuItem> items,
+        SidebarMenuOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+        return m_ctx->SidebarMenu(activeIndex, items, std::move(opts), loc);
+    }
+
+    template <SliderNumeric T>
+    Response Slider(
+        T& value,
+        T min,
+        T max,
+        SliderOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Slider(value, min, max, std::move(opts), loc);
+    }
+
+    template <SliderNumeric T>
+    Response RangeSlider(
+        T& lowValue,
+        T& highValue,
+        T min,
+        T max,
+        RangeSliderOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->RangeSlider(lowValue, highValue, min, max, std::move(opts), loc);
+    }
+
+    Response ProgressBar(
+        double value,
+        double min,
+        double max,
+        ProgressBarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ProgressBar(value, min, max, std::move(opts), loc);
+    }
+
+    Response ProgressBar(
+        double percent0to100,
+        ProgressBarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ProgressBar(percent0to100, std::move(opts), loc);
+    }
+
+    template <typename IndexT>
+    Response StepSlider(
+        IndexT& index,
+        size_t totalSteps,
+        StepSliderOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT>) {
+        return m_ctx->StepSlider(index, totalSteps, std::move(opts), loc);
+    }
+
+    template <typename IndexT>
+    Response StepSlider(
+        IndexT& index,
+        std::span<const std::string_view> labels,
+        StepSliderOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT>) {
+        return m_ctx->StepSlider(index, labels, std::move(opts), loc);
+    }
+
+    template <typename IndexT>
+    Response StepSlider(
+        IndexT& index,
+        std::initializer_list<std::string_view> labels,
+        StepSliderOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT>) {
+        return m_ctx->StepSlider(index, labels, std::move(opts), loc);
+    }
+
+    Response StepSlider(
+        UiSize& size,
+        StepSliderOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->StepSlider(size, std::move(opts), loc);
+    }
+
+    Response StepSlider(
+        UiVariant& variant,
+        StepSliderOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->StepSlider(variant, std::move(opts), loc);
+    }
+
+private:
+    template <typename ScopeT>
+    ScopeT TransferToContainer(ScopeT&& scope) noexcept {
+        if (m_ctx) {
+            m_ctx->PopSize();
+            m_ctx = nullptr;
+        }
+        return std::move(scope);
+    }
+
+    void RestoreAccordionBodySize(Context* ctx, AccordionScope& scope, const AccordionOptions& opts) noexcept {
+        if (ctx) {
+            ctx->PopSize();
+            m_ctx = nullptr;
+            if (Node* bodyNode = scope.GetNode()) {
+                ctx->ReplaceTopSize(m_prevSize);
+                bodyNode->uiSize = m_prevSize;
+                bodyNode->gap = ctx->GetTheme().ResolveGap(opts.gap, m_prevSize);
+                if (opts.padding.has_value()) {
+                    bodyNode->padding = ctx->GetTheme().ResolvePadding(*opts.padding, m_prevSize);
+                }
+            }
+        }
+    }
+
+    Context* m_ctx{nullptr};
+    UiSize m_prevSize{UiSize::Md};
+    UiSize m_size{UiSize::Md};
+};
+
+inline SizeScope Context::Size(UiSize size) noexcept {
+    return SizeScope(this, size);
+}
 
 } // namespace guikit

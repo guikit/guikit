@@ -86,7 +86,6 @@ struct TableOptions {
 
     // --- Sizing & Theme ---
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};
-    std::optional<UiSize> size{std::nullopt};
     std::optional<float> width{std::nullopt};
     std::optional<float> height{std::nullopt};      ///< Explicit height in points (nullopt = Stretch in flex parent or fit rows)
     StretchMode stretch{StretchMode::Fill};

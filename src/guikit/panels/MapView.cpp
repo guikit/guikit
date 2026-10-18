@@ -562,7 +562,6 @@ MapViewScope MapView::Open(
         .clampToWorld = opts.clampToWorld,
         .borderRadius = opts.borderRadius,
         .borderWidth = opts.borderWidth,
-        .size = opts.size,
         .disabled = opts.disabled,
         .theme = opts.theme,
         .scale = opts.scale,

@@ -242,7 +242,7 @@ ElementScope Element::Open(
     std::source_location loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
+    const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
 
     Response res = ctx.Interact(id);

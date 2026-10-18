@@ -467,10 +467,10 @@ void TestBoxSlotWithUiSizeToken() {
 
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = 12.0f})) {
-            if (auto slotLg = ui.Box({.size = UiSize::Lg})) {
+            if (auto slotLg = ui.Size(UiSize::Lg).Box()) {
                 btnLarge = ui.Button({.text = "Large Action", .color = StateColor::Primary(), .stretch = StretchMode::Fill});
             }
-            if (auto slotSquare = ui.Box({.fixedWidth = 32.0f, .size = UiSize::Sm})) {
+            if (auto slotSquare = ui.Size(UiSize::Sm).Box({.fixedWidth = 32.0f})) {
                 btnSquareIcon = ui.Button({.icon = Icon::Close()});
             }
         }
@@ -2320,7 +2320,7 @@ void TestToolbarWidgetWorkflow() {
     bool toolSettingsActive = false;
 
     auto renderToolbar = [&]() {
-        if (auto tb = ui.Toolbar({.size = UiSize::Md, .padding = UiSize::Sm})) {
+        if (auto tb = ui.Size(UiSize::Md).Toolbar({.padding = UiSize::Sm})) {
             btnNew = tb.ToolButton({.label = "New", .icon = Icon::Plus()});
             btnSave = tb.ToolButton({.label = "Save", .icon = Icon::Check(), .disabled = true});
             tb.Separator();
@@ -2480,7 +2480,7 @@ void TestContainerSizeInheritanceAndWidgetStretch() {
     Response swLg, swSm, cbLg, cbSm, inLg, inSm, selLg, selSm;
 
     auto renderSizeTest = [&](UiSize sz, bool isLarge) {
-        if (auto col = ui.Column({.size = sz})) {
+        if (auto col = ui.Size(sz).Column()) {
             if (isLarge) {
                 btnLg = ui.Button({.text = "Large Action"});
                 swLg = ui.Switch(switchVal);
@@ -2677,43 +2677,43 @@ void TestLeafWidgetSizeOverrides() {
             // Buttons: Inherited (Md), Local override Xl, Local override Xs
             if (auto r1 = ui.Row()) {
                 btnInherit = ui.Button({.text = "Inherit"});
-                btnXl = ui.Button({.text = "Large", .size = UiSize::Xl});
-                btnXs = ui.Button({.text = "Small", .size = UiSize::Xs});
+                btnXl = ui.Size(UiSize::Xl).Button({.text = "Large"});
+                btnXs = ui.Size(UiSize::Xs).Button({.text = "Small"});
             }
 
             // Switches: Inherited (Md), Local override Xl, Local override Xs
             if (auto r2 = ui.Row()) {
                 swInherit = ui.Switch(swVal);
-                swXl = ui.Switch(swVal, {.size = UiSize::Xl});
-                swXs = ui.Switch(swVal, {.size = UiSize::Xs});
+                swXl = ui.Size(UiSize::Xl).Switch(swVal);
+                swXs = ui.Size(UiSize::Xs).Switch(swVal);
             }
 
             // Checkboxes: Inherited (Md), Local override Xl, Local override Xs
             if (auto r3 = ui.Row()) {
                 cbInherit = ui.Checkbox(cbVal);
-                cbXl = ui.Checkbox(cbVal, {.size = UiSize::Xl});
-                cbXs = ui.Checkbox(cbVal, {.size = UiSize::Xs});
+                cbXl = ui.Size(UiSize::Xl).Checkbox(cbVal);
+                cbXs = ui.Size(UiSize::Xs).Checkbox(cbVal);
             }
 
             // InputFields: Inherited (Md), Local override Xl, Local override Xs
             if (auto r4 = ui.Row()) {
                 inInherit = ui.InputField(inVal);
-                inXl = ui.InputField(inVal, {.size = UiSize::Xl});
-                inXs = ui.InputField(inVal, {.size = UiSize::Xs});
+                inXl = ui.Size(UiSize::Xl).InputField(inVal);
+                inXs = ui.Size(UiSize::Xs).InputField(inVal);
             }
 
             // Selects: Inherited (Md), Local override Xl, Local override Xs
             if (auto r5 = ui.Row()) {
                 selInherit = ui.Select(selIdx, selItems);
-                selXl = ui.Select(selIdx, selItems, {.size = UiSize::Xl});
-                selXs = ui.Select(selIdx, selItems, {.size = UiSize::Xs});
+                selXl = ui.Size(UiSize::Xl).Select(selIdx, selItems);
+                selXs = ui.Size(UiSize::Xs).Select(selIdx, selItems);
             }
 
             // Toolbar ToolButtons: Inherited (Md), Local override Xl, Local override Xs
             if (auto tb = ui.Toolbar()) {
                 toolInherit = tb.ToolButton({.label = "Inherit", .icon = Icon::Play()});
-                toolXl = tb.ToolButton({.label = "Large", .icon = Icon::Play(), .size = UiSize::Xl});
-                toolXs = tb.ToolButton({.label = "Small", .icon = Icon::Play(), .size = UiSize::Xs});
+                toolXl = ui.Size(UiSize::Xl).ToolButton({.label = "Large", .icon = Icon::Play()});
+                toolXs = ui.Size(UiSize::Xs).ToolButton({.label = "Small", .icon = Icon::Play()});
             }
         }
     };
@@ -3938,7 +3938,7 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
         }
 
         // 3. Fallback to theme defaults when gap / radius are omitted (nullopt)
-        if (auto defaultCard = ui.Card({.size = UiSize::Lg})) {
+        if (auto defaultCard = ui.Size(UiSize::Lg).Card()) {
             Node* n = defaultCard.GetNode();
             CHECK(n != nullptr);
             CHECK_NEAR(n->gap, ui.GetTheme().GetGap(UiSize::Lg), 0.001f);
@@ -3949,7 +3949,7 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
             btnLg = ui.Button({.text = "Inherited Lg"});
 
             // Explicit override to UiSize::Sm height (32px)
-            btnSm = ui.Button({.text = "Explicit Sm", .size = UiSize::Sm});
+            btnSm = ui.Size(UiSize::Sm).Button({.text = "Explicit Sm"});
         }
     };
 
@@ -5655,10 +5655,9 @@ void TestSidebarAndSidebarMenuWorkflow() {
         if (auto workspace = ui.Row({.gap = 8.0f, .heightMode = SizeMode::Stretch})) {
             if (auto sb = ui.Sidebar({.side = SidebarSide::Left})) {
                 fitSidebarId = sb.GetNode()->id;
-                if (auto menu = ui.SidebarMenu({
+                if (auto menu = ui.Size(UiSize::Sm).SidebarMenu({
                     .style = SidebarMenuStyle::Indicator,
-                    .collapsed = menuCollapsed,
-                    .size = UiSize::Sm
+                    .collapsed = menuCollapsed
                 })) {
                     menu.Section("NAVIGATION");
                     item0Res = menu.Item(activeMenuVal, 0, {.text = "Dashboard", .icon = Icon::Settings(), .badge = "4"});
@@ -7878,17 +7877,17 @@ void TestTableVirtualizedDataGridWorkflow() {
                     if (auto row = table.Row(r)) {
                         if (auto cell = table.Cell({.align = Align::Center})) {
                             if (r == 0) {
-                                auto rChk = ui.Checkbox(row0Checked, {.size = UiSize::Sm});
+                                auto rChk = ui.Size(UiSize::Sm).Checkbox(row0Checked);
                                 row0CheckRect = rChk.rect;
                             } else {
                                 bool dummy = (r % 2 == 0);
-                                ui.Checkbox(dummy, {.size = UiSize::Sm});
+                                ui.Size(UiSize::Sm).Checkbox(dummy);
                             }
                         }
                         table.CellText(ui.Format("ID-{:06}", r));
                         table.CellText("OFDM-64 Carrier");
                         if (auto cell = table.Cell()) {
-                            auto rProg = ui.ProgressBar(-65.0f, -100.0f, -30.0f, {.size = UiSize::Xs});
+                            auto rProg = ui.Size(UiSize::Xs).ProgressBar(-65.0f, -100.0f, -30.0f);
                             if (r == 50000) {
                                 firstProgressRect = rProg.rect;
                             }
@@ -9311,6 +9310,57 @@ void TestAccordionWidgetWorkflow() {
     CHECK(bodyExecutedCount2 == 1);
 }
 
+void TestSizeScopeChainingAndIsolation() {
+    using namespace guikit;
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 600;
+    const uint32_t height = 500;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    Response btnDefaultInsideXlElement{};
+    Response btnSmInsideXlElement{};
+    Response btnInsideSmScope{};
+    Response btnAfterSmScope{};
+
+    auto renderUI = [&]() {
+        if (auto col = ui.Column({.gap = 8.0f})) {
+            // 1. Element with Xl size should NOT leak Xl into child Control (default Md = 40px)
+            if (auto el = ui.Size(UiSize::Xl).Element({.label = "XL Element Header"})) {
+                btnDefaultInsideXlElement = ui.Button({.text = "Inherits Md (40px)"});
+            }
+
+            // 2. Element with Xl size + Control with explicit Sm size (32px)
+            if (auto el = ui.Size(UiSize::Xl).Element({.label = "XL Element + SM Control"})) {
+                btnSmInsideXlElement = ui.Size(UiSize::Sm).Button({.text = "Explicit Sm (32px)"});
+            }
+
+            // 3. Block RAII SizeScope applies Sm to everything inside, then restores Md outside
+            if (auto s = ui.Size(UiSize::Sm)) {
+                if (auto el = ui.Element({.label = "Element in Sm Scope"})) {
+                    btnInsideSmScope = ui.Button({.text = "Sm Scope Button"});
+                }
+            }
+
+            btnAfterSmScope = ui.Button({.text = "Restored Md Button"});
+        }
+    };
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    CHECK_NEAR(btnDefaultInsideXlElement.rect.h, 40.0f, 0.5f);
+    CHECK_NEAR(btnSmInsideXlElement.rect.h, 32.0f, 0.5f);
+    CHECK_NEAR(btnInsideSmScope.rect.h, 32.0f, 0.5f);
+    CHECK_NEAR(btnAfterSmScope.rect.h, 40.0f, 0.5f);
+}
+
 int main() {
     std::cout << std::unitbuf;
     std::cerr << std::unitbuf;
@@ -9389,6 +9439,7 @@ int main() {
     TestBpmnEditorWidgetWorkflow();
     TestGisDemoBayGeoJsonAndRenderEngine();
     TestAccordionWidgetWorkflow();
+    TestSizeScopeChainingAndIsolation();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

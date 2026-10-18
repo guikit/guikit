@@ -49,12 +49,11 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
         .height = ctx.GetElementHeight(),
         .background = ctx.GetControlBackground(NavCategory::ElemCheckbox),
         .border = ctx.GetCtrlBorder(),
-        .disabled = ctx.elemDisabled,
-        .size = ctx.controlsSize
+        .disabled = ctx.elemDisabled
     };
     if (s_state.radio && s_state.radioGroupDemo) {
         if (auto col = ui.Column({.gap = 10.0f})) {
-            if (auto el = ui.Element({
+            if (auto el = ui.Size(ctx.elemSize).Element({
                 .label = guikit::UiText{ctx.elemLabel.empty() ? "Option A — Automatic Gain (AGC)" : ctx.elemLabel, ctx.elemLabelVariant},
                 .description = ctx.GetElementDescription(),
                 .icon = ctx.GetElementIcon(),
@@ -65,12 +64,11 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
                 .stretch = ctx.GetElementStretch(),
                 .background = ctx.elemBackground,
                 .border = ctx.GetElemBorder(),
-                .size = ctx.controlsSize,
                 .disabled = ctx.elemDisabled
             })) {
-                ui.RadioButton(s_state.selectedRadioIdx, 0, ctrlOpts);
+                ui.Size(ctx.controlsSize).RadioButton(s_state.selectedRadioIdx, 0, ctrlOpts);
             }
-            if (auto el = ui.Element({
+            if (auto el = ui.Size(ctx.elemSize).Element({
                 .label = guikit::UiText{"Option B — Manual Fixed Gain", ctx.elemLabelVariant},
                 .description = ctx.GetElementDescription(),
                 .icon = ctx.GetElementIcon(),
@@ -81,12 +79,11 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
                 .stretch = ctx.GetElementStretch(),
                 .background = ctx.elemBackground,
                 .border = ctx.GetElemBorder(),
-                .size = ctx.controlsSize,
                 .disabled = ctx.elemDisabled
             })) {
-                ui.RadioButton(s_state.selectedRadioIdx, 1, ctrlOpts);
+                ui.Size(ctx.controlsSize).RadioButton(s_state.selectedRadioIdx, 1, ctrlOpts);
             }
-            if (auto el = ui.Element({
+            if (auto el = ui.Size(ctx.elemSize).Element({
                 .label = guikit::UiText{"Option C — External Hardware Trigger", ctx.elemLabelVariant},
                 .description = ctx.GetElementDescription(),
                 .icon = ctx.GetElementIcon(),
@@ -97,14 +94,13 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
                 .stretch = ctx.GetElementStretch(),
                 .background = ctx.elemBackground,
                 .border = ctx.GetElemBorder(),
-                .size = ctx.controlsSize,
                 .disabled = ctx.elemDisabled
             })) {
-                ui.RadioButton(s_state.selectedRadioIdx, 2, ctrlOpts);
+                ui.Size(ctx.controlsSize).RadioButton(s_state.selectedRadioIdx, 2, ctrlOpts);
             }
         }
     } else {
-        if (auto el = ui.Element({
+        if (auto el = ui.Size(ctx.elemSize).Element({
             .label = ctx.GetElementLabel(),
             .description = ctx.GetElementDescription(),
             .icon = ctx.GetElementIcon(),
@@ -115,10 +111,9 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
             .stretch = ctx.GetElementStretch(),
             .background = ctx.elemBackground,
             .border = ctx.GetElemBorder(),
-            .size = ctx.controlsSize,
             .disabled = ctx.elemDisabled
         })) {
-            ui.Checkbox(s_state.state, {
+            ui.Size(ctx.controlsSize).Checkbox(s_state.state, {
                 .color = ctx.GetControlColor(),
                 .stretch = ctx.GetElementStretch(),
                 .width = ctx.GetElementWidth(),
@@ -127,8 +122,7 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
                 .border = ctx.GetCtrlBorder(),
                 .disabled = ctx.elemDisabled,
                 .indeterminate = s_state.indet,
-                .radio = s_state.radio,
-                .size = ctx.controlsSize
+                .radio = s_state.radio
             });
         }
     }
@@ -137,7 +131,7 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
 std::string GenerateCheckboxCode(const DemoContext& ctx) {
     if (s_state.radio && s_state.radioGroupDemo) {
         return std::format(
-            "if (auto el = ui.Element({{\n"
+            "if (auto el = ui.Size(guikit::UiSize::{}).Element({{\n"
             "    .label = {},\n"
             "    .description = {},\n"
             "    .icon = {},\n"
@@ -148,20 +142,19 @@ std::string GenerateCheckboxCode(const DemoContext& ctx) {
             "    .stretch = guikit::StretchMode::{},\n"
             "    .background = {},\n"
             "    .border = {},\n"
-            "    .size = guikit::UiSize::{},\n"
             "    .disabled = {}\n"
             "}})) {{\n"
-            "    ui.RadioButton(selectedMode, 0, {{\n"
+            "    ui.Size(guikit::UiSize::{}).RadioButton(selectedMode, 0, {{\n"
             "        .color = {},\n"
             "        .stretch = guikit::StretchMode::{},\n"
             "        .width = {},\n"
             "        .height = {},\n"
             "        .background = {},\n"
             "        .border = {},\n"
-            "        .disabled = {},\n"
-            "        .size = guikit::UiSize::{}\n"
+            "        .disabled = {}\n"
             "    }});\n"
             "}}",
+            SizeName(ctx.elemSize),
             ctx.FormatElementLabelCode(),
             ctx.FormatElementDescCode(),
             ctx.FormatElementIconCode(),
@@ -172,20 +165,19 @@ std::string GenerateCheckboxCode(const DemoContext& ctx) {
             StretchModeEnumName(ctx.GetElementStretch()),
             ctx.FormatElemBackgroundCode(),
             ctx.FormatElemBorderCode(),
-            SizeName(ctx.controlsSize),
             ctx.elemDisabled ? "true" : "false",
+            SizeName(ctx.controlsSize),
             ctx.FormatControlColorCode(),
             StretchModeEnumName(ctx.GetElementStretch()),
             ctx.FormatElementWidthCode(),
             ctx.FormatElementHeightCode(),
             ctx.FormatControlBackgroundCode(NavCategory::ElemCheckbox),
             ctx.FormatCtrlBorderCode(),
-            ctx.elemDisabled ? "true" : "false",
-            SizeName(ctx.controlsSize)
+            ctx.elemDisabled ? "true" : "false"
         );
     }
     return std::format(
-        "if (auto el = ui.Element({{\n"
+        "if (auto el = ui.Size(guikit::UiSize::{}).Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"
         "    .icon = {},\n"
@@ -196,10 +188,9 @@ std::string GenerateCheckboxCode(const DemoContext& ctx) {
         "    .stretch = guikit::StretchMode::{},\n"
         "    .background = {},\n"
         "    .border = {},\n"
-        "    .size = guikit::UiSize::{},\n"
         "    .disabled = {}\n"
         "}})) {{\n"
-        "    ui.Checkbox(checkState, {{\n"
+        "    ui.Size(guikit::UiSize::{}).Checkbox(checkState, {{\n"
         "        .color = {},\n"
         "        .stretch = guikit::StretchMode::{},\n"
         "        .width = {},\n"
@@ -208,10 +199,10 @@ std::string GenerateCheckboxCode(const DemoContext& ctx) {
         "        .border = {},\n"
         "        .disabled = {},\n"
         "        .indeterminate = {},\n"
-        "        .radio = {},\n"
-        "        .size = guikit::UiSize::{}\n"
+        "        .radio = {}\n"
         "    }});\n"
         "}}",
+        SizeName(ctx.elemSize),
         ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
@@ -222,8 +213,8 @@ std::string GenerateCheckboxCode(const DemoContext& ctx) {
         StretchModeEnumName(ctx.GetElementStretch()),
         ctx.FormatElemBackgroundCode(),
         ctx.FormatElemBorderCode(),
-        SizeName(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false",
+        SizeName(ctx.controlsSize),
         ctx.FormatControlColorCode(),
         StretchModeEnumName(ctx.GetElementStretch()),
         ctx.FormatElementWidthCode(),
@@ -232,8 +223,7 @@ std::string GenerateCheckboxCode(const DemoContext& ctx) {
         ctx.FormatCtrlBorderCode(),
         ctx.elemDisabled ? "true" : "false",
         s_state.indet ? "true" : "false",
-        s_state.radio ? "true" : "false",
-        SizeName(ctx.controlsSize)
+        s_state.radio ? "true" : "false"
     );
 }
 

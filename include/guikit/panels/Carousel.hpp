@@ -21,7 +21,6 @@ struct CarouselOptions {
     Alignment align{Alignment::Center};             ///< Vertical alignment of items
     Justify justify{Justify::Start};                ///< Horizontal item distribution
     bool scrollWheel{true};                         ///< Enable horizontal mouse wheel scrolling
-    std::optional<UiSize> size{std::nullopt};       ///< Size token determining arrow sizes and baseline height
     bool disabled{false};                           ///< Interaction suppression
     const UiTheme* theme{nullptr};                  ///< Optional scoped theme override
     std::optional<float> scale{std::nullopt};       ///< Optional scoped scale factor override

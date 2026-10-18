@@ -230,6 +230,7 @@ struct DemoContext {
     guikit::UiTheme previewTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
 
     // Shared Element tokens (synchronized across all 8 ELEMENTS screens)
+    guikit::UiSize elemSize = guikit::UiSize::Md;
     guikit::UiSize controlsSize = guikit::UiSize::Md;
     guikit::UiVariant btnVariant = guikit::UiVariant::Primary;
     std::string elemLabel = "Element Label";
@@ -570,7 +571,7 @@ struct DemoContext {
 
     void RenderElementInspector(guikit::Context& ui, NavCategory cat = NavCategory::ElemHeading) {
         if (auto el = ui.Element({.label = "Element Size"})) {
-            if (ui.StepSlider(controlsSize, {.showTicks = true, .showLabels = true}).changed) {
+            if (ui.StepSlider(elemSize, {.showTicks = true, .showLabels = true}).changed) {
                 ui.InvalidateAll();
             }
         }
@@ -669,6 +670,11 @@ struct DemoContext {
     }
 
     void RenderControlInspector(guikit::Context& ui, NavCategory cat) {
+        if (auto el = ui.Element({.label = "Control Size"})) {
+            if (ui.StepSlider(controlsSize, {.showTicks = true, .showLabels = true}).changed) {
+                ui.InvalidateAll();
+            }
+        }
         const bool hasControlVariant = (
             cat == NavCategory::ElemButton ||
             cat == NavCategory::ElemSlider ||

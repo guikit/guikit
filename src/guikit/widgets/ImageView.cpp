@@ -572,7 +572,6 @@ struct ViewportLayoutGeom {
                 } else {
                     bOpts.text = kToolLabels[i];
                 }
-                bOpts.size = g.toolbarSize;
                 const Vec2 bSz = Button::Measure(bOpts, g.toolbarSize, canvas, theme);
                 g.toolBtnRects[i] = Rect(bx, by, bSz.x, bSz.y);
                 bx += bSz.x + gap * 0.75f;
@@ -661,7 +660,7 @@ ImageViewResponse RunViewportNode(
     bool standaloneElement
 ) {
     const UiTheme& theme = ctx.GetTheme();
-    const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
+    const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const float scale = theme.Scale(1.0f);
 
@@ -1038,7 +1037,6 @@ ImageViewResponse RunViewportNode(
                 }
                 bOpts.color = activeToggle ? StateColor::Primary() : StateColor::Secondary();
                 bOpts.active = activeToggle;
-                bOpts.size = vg.toolbarSize;
                 bOpts.stretch = StretchMode::Fill;
                 Button::Render(c, br, bOpts, vg.toolbarSize, isHovered, false, n->disabled, th, false);
             }

@@ -21,7 +21,6 @@ struct HeadingOptions {
     std::optional<float> height{std::nullopt};            ///< Explicit heading height in points (nullopt = auto from UiSize)
     StateColor background{};                              ///< Per-state outer surface backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                                      ///< Outer border thickness, corner radius, and per-state border/divider color
-    std::optional<UiSize> size{std::nullopt};             ///< Local size override (nullopt = inherit container size)
     bool divider{false};                                  ///< Whether to render a horizontal section divider line
     HeadingDivider dividerStyle{HeadingDivider::Bottom};  ///< Divider placement style (Bottom or Trailing)
     bool disabled{false};                                 ///< Whether the heading is rendered in a disabled state

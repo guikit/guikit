@@ -19,7 +19,7 @@ AccordionScope Accordion::Open(
     const Id idBody = Id{detail::HashArgs(idOuter, 0xACC0'B0D1'0002ULL)};
 
     const UiSize parentSize = ctx.GetCurrentSize();
-    const UiSize headerSize = opts.size.value_or(parentSize);
+    const UiSize headerSize = parentSize;
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
     const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);

@@ -24,7 +24,6 @@ struct BoxOptions {
     float borderWidth{0.0f};
     std::optional<float> borderRadius{std::nullopt}; ///< Corner radius in pixels (nullopt = zero / sharp)
     bool clipChildren{false};
-    std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

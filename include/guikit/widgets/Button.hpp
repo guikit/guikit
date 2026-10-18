@@ -32,7 +32,6 @@ struct ButtonOptions {
     bool active{false};
     bool square{false};                            ///< Force square (defaultHeight x defaultHeight) button geometry
     std::optional<Color> iconColor{std::nullopt};  ///< Optional custom icon tint override
-    std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
 };
 
 /// Type alias for button response.

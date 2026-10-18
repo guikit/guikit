@@ -1249,7 +1249,6 @@ EditorLayoutRects ComputeEditorLayout(
         ButtonOptions stableCopyOpts{};
         stableCopyOpts.text = "Copy";
         stableCopyOpts.icon = Icon::Copy();
-        stableCopyOpts.size = L.toolbarSize;
         stableCopyReserve = Button::Measure(stableCopyOpts, L.toolbarSize, canvas, theme).x + tbGap * 0.75f;
     }
 
@@ -1258,7 +1257,6 @@ EditorLayoutRects ComputeEditorLayout(
             ButtonOptions copyOpts{};
             copyOpts.text = copyFeedbackActive ? "Copied" : "Copy";
             copyOpts.icon = copyFeedbackActive ? Icon::Check() : Icon::Copy();
-            copyOpts.size = L.toolbarSize;
             const Vec2 copySz = Button::Measure(copyOpts, L.toolbarSize, canvas, theme);
             L.copyBtnRect = Rect(rightCursor - copySz.x, overlayTop, copySz.x, copySz.y);
             rightCursor -= (copySz.x + tbGap * 0.75f);
@@ -1269,7 +1267,6 @@ EditorLayoutRects ComputeEditorLayout(
             std::snprintf(zBuf, sizeof(zBuf), "%d%%", static_cast<int>(std::lround(effZoom * 100.0f)));
             ButtonOptions zoomOpts{};
             zoomOpts.text = zBuf;
-            zoomOpts.size = L.toolbarSize;
             const Vec2 zSz = Button::Measure(zoomOpts, L.toolbarSize, canvas, theme);
             L.zoomBtnRect = Rect(rightCursor - zSz.x, overlayTop, zSz.x, zSz.y);
             rightCursor -= (zSz.x + tbGap * 0.75f);
@@ -1281,7 +1278,6 @@ EditorLayoutRects ComputeEditorLayout(
         ButtonOptions sqOpts{};
         sqOpts.icon = Icon::Close();
         sqOpts.square = true;
-        sqOpts.size = L.toolbarSize;
         const Vec2 sqSz = Button::Measure(sqOpts, L.toolbarSize, canvas, theme);
         const float rowH = sqSz.y;
         const float sqBtn = sqSz.x;
@@ -1337,13 +1333,11 @@ EditorLayoutRects ComputeEditorLayout(
             ButtonOptions rep1Opts{};
             rep1Opts.text = "1";
             rep1Opts.icon = Icon::Replace();
-            rep1Opts.size = L.toolbarSize;
             const float w1 = Button::Measure(rep1Opts, L.toolbarSize, canvas, theme).x;
 
             ButtonOptions repAllOpts{};
             repAllOpts.text = "All";
             repAllOpts.icon = Icon::ReplaceAll();
-            repAllOpts.size = L.toolbarSize;
             const float w2 = Button::Measure(repAllOpts, L.toolbarSize, canvas, theme).x;
 
             S.replaceInputRect = Rect(repX, y2, S.findInputRect.w, rowH);
@@ -1360,7 +1354,6 @@ EditorLayoutRects ComputeEditorLayout(
         dbgBtnOpts.icon = Icon::DebugContinue();
         dbgBtnOpts.square = true;
         dbgBtnOpts.color = StateColor::Ghost();
-        dbgBtnOpts.size = L.toolbarSize;
         const Vec2 btnSz = Button::Measure(dbgBtnOpts, L.toolbarSize, canvas, theme);
         const float btnW = btnSz.x;
         const float btnH2 = btnSz.y;
@@ -1805,7 +1798,7 @@ TextAreaResponse TextArea::Run(
     const auto scopedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
 
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
+    const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const bool wasFocused = ctx.IsFocused(id) && !effectiveDisabled;
 
@@ -3997,7 +3990,6 @@ void TextArea::Render(
             bOpts.square = true;
             bOpts.color = StateColor::Ghost();
             bOpts.iconColor = bHov ? baseCol : baseCol.WithAlphaF(0.95f);
-            bOpts.size = tbSize;
             bOpts.stretch = StretchMode::Fill;
             Button::Render(canvas, br, bOpts, tbSize, bHov, false, disabled, theme, false);
         }
@@ -4016,7 +4008,6 @@ void TextArea::Render(
             bOpts.square = true;
             bOpts.color = activeToggle ? StateColor::Primary() : StateColor::Ghost();
             bOpts.active = activeToggle;
-            bOpts.size = tbSize;
             bOpts.stretch = StretchMode::Fill;
             Button::Render(canvas, rBtn, bOpts, tbSize, hovBtn == btnIdx, false, disabled, theme, false);
         };
@@ -4048,7 +4039,6 @@ void TextArea::Render(
                 caseOpts.square = true;
                 caseOpts.color = extData->matchCase ? StateColor::Primary() : StateColor::Ghost();
                 caseOpts.active = extData->matchCase;
-                caseOpts.size = tbSize;
                 caseOpts.stretch = StretchMode::Fill;
                 Button::Render(canvas, S.caseBtnRect, caseOpts, tbSize, hovBtn == 1, false, disabled, theme, false);
             }
@@ -4059,7 +4049,6 @@ void TextArea::Render(
                 wordOpts.square = true;
                 wordOpts.color = extData->wholeWord ? StateColor::Primary() : StateColor::Ghost();
                 wordOpts.active = extData->wholeWord;
-                wordOpts.size = tbSize;
                 wordOpts.stretch = StretchMode::Fill;
                 Button::Render(canvas, S.wordBtnRect, wordOpts, tbSize, hovBtn == 2, false, disabled, theme, false);
 
@@ -4112,7 +4101,6 @@ void TextArea::Render(
                     rep1Opts.text = "1";
                     rep1Opts.icon = Icon::Replace();
                     rep1Opts.color = StateColor::Ghost();
-                    rep1Opts.size = tbSize;
                     rep1Opts.stretch = StretchMode::Fill;
                     Button::Render(canvas, S.replaceOneBtnRect, rep1Opts, tbSize, hovBtn == 6, false, disabled, theme, false);
                 }
@@ -4121,7 +4109,6 @@ void TextArea::Render(
                     repAllOpts.text = "All";
                     repAllOpts.icon = Icon::ReplaceAll();
                     repAllOpts.color = StateColor::Ghost();
-                    repAllOpts.size = tbSize;
                     repAllOpts.stretch = StretchMode::Fill;
                     Button::Render(canvas, S.replaceAllBtnRect, repAllOpts, tbSize, hovBtn == 7, false, disabled, theme, false);
                 }
@@ -4150,7 +4137,6 @@ void TextArea::Render(
         copyOpts.icon = copied ? Icon::Check() : Icon::Copy();
         copyOpts.color = copied ? StateColor::Success() : StateColor::Secondary();
         copyOpts.active = copied;
-        copyOpts.size = tbSize;
         copyOpts.stretch = StretchMode::Fill;
         Button::Render(canvas, L.copyBtnRect, copyOpts, tbSize, copyHov, false, disabled, theme, false);
     }
@@ -4162,7 +4148,6 @@ void TextArea::Render(
         ButtonOptions zoomOpts{};
         zoomOpts.text = zBuf;
         zoomOpts.color = StateColor::Secondary();
-        zoomOpts.size = tbSize;
         zoomOpts.stretch = StretchMode::Fill;
         Button::Render(canvas, L.zoomBtnRect, zoomOpts, tbSize, zHov, false, disabled, theme, false);
     }

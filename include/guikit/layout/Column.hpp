@@ -19,7 +19,6 @@ struct ColumnOptions {
     Justify justify{Justify::Start};
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Stretch};
-    std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

@@ -45,7 +45,6 @@ struct TabBarOptions {
     Color borderColor{Color::Transparent()};     ///< Optional border color for the tab bar
     float borderWidth{0.0f};                     ///< Optional border width in pixels
     Color activeColor{Color::Transparent()}; ///< Optional custom accent color override
-    std::optional<UiSize> size{std::nullopt}; ///< Local size override (nullopt = inherit container size)
     const UiTheme* theme{nullptr};            ///< Optional scoped theme override
     std::optional<float> scale{std::nullopt}; ///< Optional scoped scale factor override
 };

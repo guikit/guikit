@@ -9,16 +9,15 @@ void RenderThemeStudioInspector(guikit::Context& ui, DemoContext& ctx) {
 void RenderThemeStudioScreen(guikit::Context& ui, DemoContext& ctx) {
     auto& th = ctx.previewTheme;
     if (auto card = ui.Card(ctx.MakeCard())) {
-        ui.Heading({
+        ui.Size(ctx.headingSize).Heading({
             .label = "Theme & Palette Studio",
-            .description = "Live token tweaking and contrast validation",
-            .size = ctx.headingSize
+            .description = "Live token tweaking and contrast validation"
         });
 
-        ui.Heading({.label = "Quick Accent Color Presets", .size = guikit::UiSize::Sm});
+        ui.Size(guikit::UiSize::Sm).Heading({.label = "Quick Accent Color Presets"});
         if (auto accentRow = ui.Wrap({.gap = 8.0f, .runGap = 8.0f})) {
             auto makePreset = [&](std::string_view name, guikit::Color col) {
-                if (ui.Button({.text = name, .size = guikit::UiSize::Sm})) {
+                if (ui.Size(guikit::UiSize::Sm).Button({.text = name})) {
                     th.palette.accent = col;
                     th.GetVariant(guikit::UiVariant::Primary).bg = col;
                     th.palette.focusRing = col;
@@ -33,7 +32,7 @@ void RenderThemeStudioScreen(guikit::Context& ui, DemoContext& ctx) {
             makePreset("Amber", guikit::Color(245, 158, 11));
         }
 
-        ui.Heading({.label = "Base Palette Tokens", .size = guikit::UiSize::Sm});
+        ui.Size(guikit::UiSize::Sm).Heading({.label = "Base Palette Tokens"});
         auto makeColorSliders = [&](std::string_view title, guikit::Color& c) {
             float r = c.r, g = c.g, b = c.b;
             bool changed = false;

@@ -25,7 +25,6 @@ struct SliderOptions {
     bool showValue{true};                          ///< Whether to display current formatted value text inside control
     Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     StateColor color{};                            ///< Per-state accent fill color for active track and thumb
-    std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
@@ -50,7 +49,6 @@ struct StepSliderOptions {
     UiText valueText{};                            ///< Optional custom display text/style for current value
     bool includeNone{false};                       ///< For UiSize overload: if true, range includes UiSize::None (None..Xl)
     StateColor color{};                            ///< Per-state accent fill color for active track and thumb
-    std::optional<UiSize> size{std::nullopt};      ///< Local size override
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
@@ -73,7 +71,6 @@ struct RangeSliderOptions {
     bool showValue{true};                          ///< Whether to display current formatted range text inside control
     Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     StateColor color{};                            ///< Per-state accent fill color for active interval and thumbs
-    std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
@@ -99,7 +96,6 @@ struct ProgressBarOptions {
     bool showValue{true};                          ///< Whether to display current formatted value text inside control
     Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     StateColor color{};                            ///< Per-state accent fill color for active bar (or base zone when multiZoneColor is true)
-    std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill

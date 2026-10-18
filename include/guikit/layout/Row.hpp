@@ -18,7 +18,6 @@ struct RowOptions {
     Alignment align{Alignment::Stretch};
     Justify justify{Justify::Start};
     SizeMode heightMode{SizeMode::Fit};
-    std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

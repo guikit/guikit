@@ -27,7 +27,6 @@ struct SwitchOptions {
     StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Interaction suppression
-    std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
 };
 static_assert(sizeof(SwitchOptions) <= 512, "SwitchOptions must stay compact");
 

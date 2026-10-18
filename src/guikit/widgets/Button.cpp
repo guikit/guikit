@@ -81,7 +81,7 @@ Vec2 MeasureButtonCapsule(
 Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_location loc) {
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
+    const UiSize activeSize = ctx.GetCurrentSize();
 
     ctx.RegisterFocusable(id, effectiveDisabled);
 
@@ -130,7 +130,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
         bOpts->width.value_or(0.0f),
         bOpts->height.value_or(0.0f),
         bOpts->minWidth.value_or(0.0f),
-        bOpts->size.value_or(activeSize),
+        activeSize,
         bOpts->background,
         bOpts->border,
         static_cast<uint8_t>(bOpts->icon.GetType()),

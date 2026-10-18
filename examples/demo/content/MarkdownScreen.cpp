@@ -257,7 +257,7 @@ void RenderMarkdownStage(guikit::Context& ui, DemoContext& ctx) {
     if (auto mdScroll = ui.ScrollArea({
         .padding = guikit::Padding::All(8.0f)
     })) {
-        const auto mdRes = ui.Markdown(kDemoMarkdownDoc, {
+        const auto mdRes = ui.Size(ctx.controlsSize).Markdown(kDemoMarkdownDoc, {
             .allowZoom = true,
             .zoom = &s_state.zoom,
             .bodyFontSize = s_state.bodyFontSize,
@@ -285,8 +285,7 @@ void RenderMarkdownStage(guikit::Context& ui, DemoContext& ctx) {
             .enableSelection = s_state.enableSelection,
             .enableSearch = true,
             .interactiveTasks = s_state.interactiveTasks,
-            .searchQuery = s_state.searchQuery,
-            .size = ctx.controlsSize
+            .searchQuery = s_state.searchQuery
         });
         s_state.searchMatches = mdRes.searchMatchCount;
         if (!mdRes.clickedLink.empty()) {
@@ -307,7 +306,7 @@ std::string GenerateMarkdownCode(const DemoContext& ctx) {
 
     return std::format(
         "if (auto scroll = ui.ScrollArea({{.padding = guikit::Padding::All(8.0f)}})) {{\n"
-        "    auto res = ui.Markdown(markdownSource, {{\n"
+        "    auto res = ui.Size(guikit::UiSize::{}).Markdown(markdownSource, {{\n"
         "        .allowZoom = true,\n"
         "        .zoom = &zoomFactor, // {:.2f}x\n"
         "        .bodyFontSize = {:.1f}f,\n"
@@ -335,11 +334,11 @@ std::string GenerateMarkdownCode(const DemoContext& ctx) {
         "        .enableSelection = {},\n"
         "        .enableSearch = true,\n"
         "        .interactiveTasks = {},\n"
-        "        .searchQuery = \"{}\",\n"
-        "        .size = guikit::UiSize::{}\n"
+        "        .searchQuery = \"{}\"\n"
         "    }});\n"
         "    if (!res.clickedLink.empty()) SDL_OpenURL(std::string(res.clickedLink).c_str());\n"
         "}}",
+        SizeName(ctx.controlsSize),
         s_state.zoom,
         s_state.bodyFontSize,
         s_state.headingScale,
@@ -365,8 +364,7 @@ std::string GenerateMarkdownCode(const DemoContext& ctx) {
         s_state.imageRadius,
         s_state.enableSelection ? "true" : "false",
         s_state.interactiveTasks ? "true" : "false",
-        s_state.searchQuery,
-        SizeName(ctx.controlsSize)
+        s_state.searchQuery
     );
 }
 

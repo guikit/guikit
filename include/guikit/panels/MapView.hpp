@@ -77,7 +77,6 @@ struct MapViewOptions {
     bool clampToWorld{true};
     std::optional<float> borderRadius{8.0f};
     float borderWidth{1.0f};
-    std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

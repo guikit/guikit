@@ -1859,7 +1859,7 @@ MarkdownResponse Markdown::Run(
 ) {
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
+    const UiSize activeSize = ctx.GetCurrentSize();
     const UiTheme& theme = ctx.GetTheme();
 
     auto& state = ctx.GetOrCreateState<MarkdownState>(id);

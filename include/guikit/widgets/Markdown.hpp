@@ -71,7 +71,6 @@ struct MarkdownOptions {
     std::function<void(std::string_view)> onLinkClick{};    ///< Optional callback invoked when a link [text](url) is clicked
     std::function<void(int, bool)> onTaskToggle{};          ///< Optional callback invoked when a task checkbox is toggled (taskIndex, checked)
 
-    std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
 };
 

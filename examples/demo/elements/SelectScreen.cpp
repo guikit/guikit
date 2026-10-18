@@ -35,7 +35,7 @@ void RenderSelectInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderSelectStage(guikit::Context& ui, DemoContext& ctx) {
-    if (auto el = ui.Element({
+    if (auto el = ui.Size(ctx.elemSize).Element({
         .label = ctx.GetElementLabel(),
         .description = ctx.GetElementDescription(),
         .icon = ctx.GetElementIcon(),
@@ -46,14 +46,12 @@ void RenderSelectStage(guikit::Context& ui, DemoContext& ctx) {
         .stretch = ctx.GetElementStretch(),
         .background = ctx.elemBackground,
         .border = ctx.GetElemBorder(),
-        .size = ctx.controlsSize,
         .disabled = ctx.elemDisabled
     })) {
-        ui.Select(s_state.idx, s_state.items, {
+        ui.Size(ctx.controlsSize).Select(s_state.idx, s_state.items, {
             .placeholder = s_state.placeholder,
             .prefix = s_state.hasPrefix ? guikit::Icon::Settings() : guikit::Icon{},
             .maxVisibleItems = s_state.maxItems,
-            .size = ctx.controlsSize,
             .stretch = ctx.GetElementStretch(),
             .width = ctx.GetElementWidth(),
             .height = ctx.GetElementHeight(),
@@ -66,7 +64,7 @@ void RenderSelectStage(guikit::Context& ui, DemoContext& ctx) {
 
 std::string GenerateSelectCode(const DemoContext& ctx) {
     return std::format(
-        "if (auto el = ui.Element({{\n"
+        "if (auto el = ui.Size(guikit::UiSize::{}).Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"
         "    .icon = {},\n"
@@ -77,14 +75,12 @@ std::string GenerateSelectCode(const DemoContext& ctx) {
         "    .stretch = guikit::StretchMode::{},\n"
         "    .background = {},\n"
         "    .border = {},\n"
-        "    .size = guikit::UiSize::{},\n"
         "    .disabled = {}\n"
         "}})) {{\n"
-        "    ui.Select(presetIndex, itemsList, {{\n"
+        "    ui.Size(guikit::UiSize::{}).Select(presetIndex, itemsList, {{\n"
         "        .placeholder = \"{}\",\n"
         "        .prefix = {},\n"
         "        .maxVisibleItems = {},\n"
-        "        .size = guikit::UiSize::{},\n"
         "        .stretch = guikit::StretchMode::{},\n"
         "        .width = {},\n"
         "        .height = {},\n"
@@ -93,6 +89,7 @@ std::string GenerateSelectCode(const DemoContext& ctx) {
         "        .disabled = {}\n"
         "    }});\n"
         "}}",
+        SizeName(ctx.elemSize),
         ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
@@ -103,12 +100,11 @@ std::string GenerateSelectCode(const DemoContext& ctx) {
         StretchModeEnumName(ctx.GetElementStretch()),
         ctx.FormatElemBackgroundCode(),
         ctx.FormatElemBorderCode(),
-        SizeName(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false",
+        SizeName(ctx.controlsSize),
         s_state.placeholder,
         s_state.hasPrefix ? "guikit::Icon::Settings()" : "{}",
         s_state.maxItems,
-        SizeName(ctx.controlsSize),
         StretchModeEnumName(ctx.GetElementStretch()),
         ctx.FormatElementWidthCode(),
         ctx.FormatElementHeightCode(),

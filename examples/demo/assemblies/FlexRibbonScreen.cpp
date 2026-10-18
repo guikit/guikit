@@ -15,10 +15,9 @@ void RenderFlexRibbonInspector(guikit::Context& ui, DemoContext& ctx) {
 
 void RenderFlexRibbonScreen(guikit::Context& ui, DemoContext& ctx) {
     if (auto card = ui.Card(ctx.MakeCard())) {
-        ui.Heading({
+        ui.Size(ctx.headingSize).Heading({
             .label = "Dynamic 3-Way Equal Stretch Layout",
-            .description = "Each button automatically receives exactly 33.3% available width via stretch = StretchMode::Fill.",
-            .size = ctx.headingSize
+            .description = "Each button automatically receives exactly 33.3% available width via stretch = StretchMode::Fill."
         });
 
         if (auto stretchRow = ui.Row({.gap = ctx.rowGap})) {
@@ -27,10 +26,9 @@ void RenderFlexRibbonScreen(guikit::Context& ui, DemoContext& ctx) {
             ui.Button({.text = "Col 3 (Stretch)", .stretch = guikit::StretchMode::Fill});
         }
 
-        ui.Heading({
+        ui.Size(ctx.headingSize).Heading({
             .label = "Horizontal Carousel Ribbon",
-            .description = "Autonomous scroll container with navigation arrows and mouse wheel support.",
-            .size = ctx.headingSize
+            .description = "Autonomous scroll container with navigation arrows and mouse wheel support."
         });
         if (auto ribbon = ui.Carousel({.gap = s_carouselGap})) {
             for (int k = 1; k <= 10; ++k) {

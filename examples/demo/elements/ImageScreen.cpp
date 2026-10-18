@@ -100,7 +100,7 @@ void RenderImageInspector(guikit::Context& ui, DemoContext&) {
 
 void RenderImageStage(guikit::Context& ui, DemoContext& ctx) {
     const uint8_t alpha = static_cast<uint8_t>(std::clamp(std::lround(s_state.opacityPct * 2.55f), 0l, 255l));
-    if (auto el = ui.Element({
+    if (auto el = ui.Size(ctx.elemSize).Element({
         .label = ctx.GetElementLabel(),
         .description = ctx.GetElementDescription(),
         .icon = ctx.GetElementIcon(),
@@ -111,10 +111,9 @@ void RenderImageStage(guikit::Context& ui, DemoContext& ctx) {
         .stretch = ctx.GetElementStretch(),
         .background = ctx.elemBackground,
         .border = ctx.GetElemBorder(),
-        .size = ctx.controlsSize,
         .disabled = ctx.elemDisabled
     })) {
-        ui.Image(ImageState::sources[s_state.sourceIdx % ImageState::sources.size()], {
+        ui.Size(ctx.controlsSize).Image(ImageState::sources[s_state.sourceIdx % ImageState::sources.size()], {
             .alt = s_state.altText,
             .fit = s_state.fit,
             .alignX = s_state.alignX,
@@ -126,7 +125,6 @@ void RenderImageStage(guikit::Context& ui, DemoContext& ctx) {
             .border = ctx.GetCtrlBorder(),
             .checkerboard = s_state.checkerboard,
             .opacity = alpha,
-            .size = ctx.controlsSize,
             .disabled = ctx.elemDisabled
         });
     }
@@ -136,7 +134,7 @@ std::string GenerateImageCode(const DemoContext& ctx) {
     const int alpha = static_cast<int>(std::clamp(std::lround(s_state.opacityPct * 2.55f), 0l, 255l));
 
     return std::format(
-        "if (auto el = ui.Element({{\n"
+        "if (auto el = ui.Size(guikit::UiSize::{}).Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"
         "    .icon = {},\n"
@@ -147,10 +145,9 @@ std::string GenerateImageCode(const DemoContext& ctx) {
         "    .stretch = guikit::StretchMode::{},\n"
         "    .background = {},\n"
         "    .border = {},\n"
-        "    .size = guikit::UiSize::{},\n"
         "    .disabled = {}\n"
         "}})) {{\n"
-        "    ui.Image(\"{}\", {{\n"
+        "    ui.Size(guikit::UiSize::{}).Image(\"{}\", {{\n"
         "        .alt = \"{}\",\n"
         "        .fit = guikit::ObjectFit::{},\n"
         "        .alignX = guikit::Align::{},\n"
@@ -162,10 +159,10 @@ std::string GenerateImageCode(const DemoContext& ctx) {
         "        .border = {},\n"
         "        .checkerboard = {},\n"
         "        .opacity = {},\n"
-        "        .size = guikit::UiSize::{},\n"
         "        .disabled = {}\n"
         "    }});\n"
         "}}",
+        SizeName(ctx.elemSize),
         ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
@@ -176,8 +173,8 @@ std::string GenerateImageCode(const DemoContext& ctx) {
         StretchModeEnumName(ctx.GetElementStretch()),
         ctx.FormatElemBackgroundCode(),
         ctx.FormatElemBorderCode(),
-        SizeName(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false",
+        SizeName(ctx.controlsSize),
         ImageState::sources[s_state.sourceIdx % ImageState::sources.size()],
         s_state.altText,
         ImageState::fitModeNames[static_cast<size_t>(s_state.fit)],
@@ -190,7 +187,6 @@ std::string GenerateImageCode(const DemoContext& ctx) {
         ctx.FormatCtrlBorderCode(),
         s_state.checkerboard ? "true" : "false",
         alpha,
-        SizeName(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false"
     );
 }

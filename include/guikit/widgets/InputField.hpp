@@ -24,7 +24,6 @@ struct InputFieldOptions {
     UiText valueFormat{"%.2f"};                    ///< Format string for numeric values and/or candidate width variants
     Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     std::optional<CursorBlinkMode> cursorMode{std::nullopt}; ///< Cursor blink override (inherits context config if nullopt)
-    std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};      ///< Input box width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> height{std::nullopt};     ///< Explicit input box height in points (nullopt = inherit defaultHeight from UiSize)

@@ -158,7 +158,6 @@ struct CarClusterViewOptions {
     std::optional<float> width{std::nullopt};
     std::optional<float> height{std::nullopt};
     SizeMode heightMode{SizeMode::Stretch};
-    std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
     std::string_view tooltip{};
 };

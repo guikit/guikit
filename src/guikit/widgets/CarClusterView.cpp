@@ -1523,7 +1523,7 @@ CarClusterViewResponse CarClusterView::Run(
 ) {
     const Id id = ctx.MakeChildId(loc);
     const bool isDisabled = opts.disabled || ctx.IsDisabled();
-    const UiSize effectiveSize = opts.size.value_or(ctx.GetCurrentSize());
+    const UiSize effectiveSize = ctx.GetCurrentSize();
     const UiTheme& theme = ctx.GetTheme();
     const float s = theme.Scale(1.0f);
     ICanvas* canvas = ctx.GetCanvas();

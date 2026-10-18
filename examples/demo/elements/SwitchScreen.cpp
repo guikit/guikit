@@ -32,7 +32,7 @@ void RenderSwitchInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderSwitchStage(guikit::Context& ui, DemoContext& ctx) {
-    if (auto el = ui.Element({
+    if (auto el = ui.Size(ctx.elemSize).Element({
         .label = ctx.GetElementLabel(),
         .description = ctx.GetElementDescription(),
         .icon = ctx.GetElementIcon(),
@@ -43,10 +43,9 @@ void RenderSwitchStage(guikit::Context& ui, DemoContext& ctx) {
         .stretch = ctx.GetElementStretch(),
         .background = ctx.elemBackground,
         .border = ctx.GetElemBorder(),
-        .size = ctx.controlsSize,
         .disabled = ctx.elemDisabled
     })) {
-        ui.Switch(s_state.state, {
+        ui.Size(ctx.controlsSize).Switch(s_state.state, {
             .textLeft = s_state.textLeft,
             .textRight = s_state.textRight,
             .color = ctx.GetControlColor(),
@@ -56,15 +55,14 @@ void RenderSwitchStage(guikit::Context& ui, DemoContext& ctx) {
             .height = ctx.GetElementHeight(),
             .background = ctx.GetControlBackground(NavCategory::ElemSwitch),
             .border = ctx.GetCtrlBorder(),
-            .disabled = ctx.elemDisabled,
-            .size = ctx.controlsSize
+            .disabled = ctx.elemDisabled
         });
     }
 }
 
 std::string GenerateSwitchCode(const DemoContext& ctx) {
     return std::format(
-        "if (auto el = ui.Element({{\n"
+        "if (auto el = ui.Size(guikit::UiSize::{}).Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"
         "    .icon = {},\n"
@@ -75,10 +73,9 @@ std::string GenerateSwitchCode(const DemoContext& ctx) {
         "    .stretch = guikit::StretchMode::{},\n"
         "    .background = {},\n"
         "    .border = {},\n"
-        "    .size = guikit::UiSize::{},\n"
         "    .disabled = {}\n"
         "}})) {{\n"
-        "    ui.Switch(switchState, {{\n"
+        "    ui.Size(guikit::UiSize::{}).Switch(switchState, {{\n"
         "        .textLeft = \"{}\",\n"
         "        .textRight = \"{}\",\n"
         "        .color = {},\n"
@@ -88,10 +85,10 @@ std::string GenerateSwitchCode(const DemoContext& ctx) {
         "        .height = {},\n"
         "        .background = {},\n"
         "        .border = {},\n"
-        "        .disabled = {},\n"
-        "        .size = guikit::UiSize::{}\n"
+        "        .disabled = {}\n"
         "    }});\n"
         "}}",
+        SizeName(ctx.elemSize),
         ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
@@ -102,8 +99,8 @@ std::string GenerateSwitchCode(const DemoContext& ctx) {
         StretchModeEnumName(ctx.GetElementStretch()),
         ctx.FormatElemBackgroundCode(),
         ctx.FormatElemBorderCode(),
-        SizeName(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false",
+        SizeName(ctx.controlsSize),
         s_state.textLeft,
         s_state.textRight,
         ctx.FormatControlColorCode(),
@@ -113,8 +110,7 @@ std::string GenerateSwitchCode(const DemoContext& ctx) {
         ctx.FormatElementHeightCode(),
         ctx.FormatControlBackgroundCode(NavCategory::ElemSwitch),
         ctx.FormatCtrlBorderCode(),
-        ctx.elemDisabled ? "true" : "false",
-        SizeName(ctx.controlsSize)
+        ctx.elemDisabled ? "true" : "false"
     );
 }
 

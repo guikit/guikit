@@ -542,7 +542,7 @@ void RenderCodeEditorStage(guikit::Context& ui, DemoContext& ctx) {
         ? guikit::Align::Start
         : ((s_state.debugToolbarAlignIdx == 2) ? guikit::Align::End : guikit::Align::Center);
 
-    auto resp = ui.TextArea(s_state.editorBuffer, {
+    auto resp = ui.Size(ctx.controlsSize).TextArea(s_state.editorBuffer, {
         .label = s_state.showLabel ? "Code Editor & Debugger" : "",
         .description = s_state.showDesc ? std::string_view(s_state.lastDebugEvent) : std::string_view{},
         .autoHeight = false,
@@ -556,7 +556,6 @@ void RenderCodeEditorStage(guikit::Context& ui, DemoContext& ctx) {
         .syntax = synCfg,
         .syntaxPalette = synPalette,
         .heightMode = guikit::SizeMode::Stretch,
-        .size = ctx.controlsSize,
         .showMinimap = s_state.showMinimap,
         .showStatusBar = s_state.showStatusBar,
         .showIndentGuides = s_state.showIndentGuides,
@@ -609,8 +608,7 @@ std::string GenerateCodeEditorCode(const DemoContext& ctx) {
         : ((s_state.debugToolbarAlignIdx == 2) ? "guikit::Align::End" : "guikit::Align::Center");
 
     return std::format(
-        "auto resp = ui.TextArea(sourceBuffer, {{\n"
-        "    .size = guikit::UiSize::{},\n"
+        "auto resp = ui.Size(guikit::UiSize::{}).TextArea(sourceBuffer, {{\n"
         "    .showLineNumbers = {},\n"
         "    .showWhitespace = {},\n"
         "    .showMinimap = {},\n"

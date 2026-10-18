@@ -31,7 +31,6 @@ struct SidebarOptions {
     float borderWidth{1.0f};
     std::optional<float> borderRadius{std::nullopt}; ///< Corner radius in pixels (nullopt = auto from theme)
     bool clipChildren{true};
-    std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

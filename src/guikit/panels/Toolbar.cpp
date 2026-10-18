@@ -54,7 +54,7 @@ ToolbarScope Toolbar::Open(
     std::source_location loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
+    const UiSize activeSize = ctx.GetCurrentSize();
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
@@ -114,7 +114,7 @@ Response Toolbar::ToolButton(
 ) {
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
-    const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
+    const UiSize activeSize = ctx.GetCurrentSize();
 
     ctx.RegisterFocusable(id, effectiveDisabled);
 
@@ -153,7 +153,6 @@ Response Toolbar::ToolButton(
     bOpts.active = opts.active;
     bOpts.square = opts.square;
     bOpts.iconColor = opts.iconColor;
-    bOpts.size = activeSize;
 
     node->SetPayload(ctx.AllocPayload<ButtonOptions>(bOpts));
     node->visualHash = detail::HashArgs(
@@ -163,7 +162,7 @@ Response Toolbar::ToolButton(
         opts.square,
         opts.iconColor.value_or(Color::Transparent()),
         static_cast<uint8_t>(opts.stretch),
-        opts.size.value_or(activeSize),
+        activeSize,
         static_cast<uint8_t>(opts.icon.GetType()),
         static_cast<uint8_t>(opts.icon.GetId()),
         opts.icon.GetPath(),

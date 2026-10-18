@@ -346,7 +346,7 @@ void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         }
     }
 
-    ui.Heading({.label = "VEHICLE TELEMETRY", .size = guikit::UiSize::Xs, .divider = true});
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "VEHICLE TELEMETRY", .divider = true});
 
     if (auto el = ui.Element({.label = "Ground Speed"})) {
         if (ui.Slider(s_car.speedKmh, 0.0f, s_car.maxSpeedKmh, {.valueFormat = "%.0f km/h"}).changed) {
@@ -382,7 +382,7 @@ void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         ui.Slider(s_car.adasLeadDistanceM, 8.0f, 100.0f, {.valueFormat = "%.0f m"});
     }
 
-    ui.Heading({.label = "TELLTALES & OVERLAYS", .size = guikit::UiSize::Xs, .divider = true});
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "TELLTALES & OVERLAYS", .divider = true});
     if (auto el = ui.Element({.label = "Top Shift-Lights LED Bar"})) {
         ui.Checkbox(s_car.showShiftLights);
     }

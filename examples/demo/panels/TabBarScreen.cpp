@@ -77,7 +77,7 @@ void RenderTabBarStage(guikit::Context& ui, DemoContext& ctx) {
 
 std::string GenerateTabBarCode(const DemoContext& ctx) {
     return std::format(
-        "ui.TabBar(activeTab, tabItems, {{\n"
+        "ui.Size(guikit::UiSize::{}).TabBar(activeTab, tabItems, {{\n"
         "    .style = guikit::TabBarStyle::{},\n"
         "    .showSeparator = {},\n"
         "    .fullWidth = {},\n"
@@ -89,10 +89,10 @@ std::string GenerateTabBarCode(const DemoContext& ctx) {
         "    .borderColor = {},\n"
         "    .borderWidth = {:.1f}f,\n"
         "    .activeColor = guikit::Color::Transparent(),\n"
-        "    .size = guikit::UiSize::{},\n"
         "    .theme = nullptr,\n"
         "    .scale = std::nullopt\n"
         "}});",
+        SizeName(ctx.controlsSize),
         s_state.style == guikit::TabBarStyle::Pill ? "Pill" : "Underline",
         s_state.showSep ? "true" : "false",
         s_state.fullWidth ? "true" : "false",
@@ -102,8 +102,7 @@ std::string GenerateTabBarCode(const DemoContext& ctx) {
         s_state.hasBg ? s_state.radius : 0.0f,
         s_state.hasBg ? "theme.palette.surfaceElevated" : "guikit::Color::Transparent()",
         s_state.hasBg ? "theme.palette.borderSubtle" : "guikit::Color::Transparent()",
-        s_state.hasBg ? s_state.borderWidth : 0.0f,
-        SizeName(ctx.controlsSize)
+        s_state.hasBg ? s_state.borderWidth : 0.0f
     );
 }
 

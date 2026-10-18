@@ -30,12 +30,10 @@ struct ToolButtonOptions {
     bool active{false};         ///< Toggle active/selected highlight state
     bool square{false};         ///< Force square (defaultHeight x defaultHeight) button geometry
     std::optional<Color> iconColor{std::nullopt}; ///< Optional custom icon tint override
-    std::optional<UiSize> size{std::nullopt}; ///< Local size override (nullopt = inherit toolbar size)
 };
 
 /// Configuration options for Toolbar container.
 struct ToolbarOptions {
-    std::optional<UiSize> size{std::nullopt};       ///< Size token determining height, icon scale, and density
     std::optional<float> gap{std::nullopt};        ///< Gap between toolbar items (nullopt = inherit size)
     std::optional<Padding> padding{std::nullopt};   ///< Internal toolbar padding token or explicit insets (nullopt = standard symmetric padding)
     std::optional<float> borderRadius{std::nullopt}; ///< Corner radius in pixels (nullopt = inherit size)

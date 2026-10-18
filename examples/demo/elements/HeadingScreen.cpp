@@ -35,7 +35,7 @@ void RenderHeadingInspector(guikit::Context& ui, DemoContext& ctx) {
 }
 
 void RenderHeadingStage(guikit::Context& ui, DemoContext& ctx) {
-    ui.Heading({
+    ui.Size(ctx.elemSize).Heading({
         .label = ctx.GetElementLabel(),
         .description = ctx.GetElementDescription(),
         .icon = ctx.GetElementIcon(),
@@ -48,7 +48,6 @@ void RenderHeadingStage(guikit::Context& ui, DemoContext& ctx) {
         .height = ctx.GetElementHeight(),
         .background = ctx.elemBackground,
         .border = ctx.GetElemBorder(),
-        .size = ctx.controlsSize,
         .divider = ctx.elemDivider,
         .dividerStyle = ctx.elemDividerStyle,
         .disabled = ctx.elemDisabled
@@ -57,7 +56,7 @@ void RenderHeadingStage(guikit::Context& ui, DemoContext& ctx) {
 
 std::string GenerateHeadingCode(const DemoContext& ctx) {
     return std::format(
-        "ui.Heading({{\n"
+        "ui.Size(guikit::UiSize::{}).Heading({{\n"
         "    .label = {},\n"
         "    .description = {},\n"
         "    .icon = {},\n"
@@ -70,11 +69,11 @@ std::string GenerateHeadingCode(const DemoContext& ctx) {
         "    .height = {},\n"
         "    .background = {},\n"
         "    .border = {},\n"
-        "    .size = guikit::UiSize::{},\n"
         "    .divider = {},\n"
         "    .dividerStyle = guikit::HeadingDivider::{},\n"
         "    .disabled = {}\n"
         "}});",
+        SizeName(ctx.elemSize),
         ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
@@ -87,7 +86,6 @@ std::string GenerateHeadingCode(const DemoContext& ctx) {
         ctx.FormatElementHeightCode(),
         ctx.FormatElemBackgroundCode(),
         ctx.FormatElemBorderCode(),
-        SizeName(ctx.controlsSize),
         ctx.elemDivider ? "true" : "false",
         ctx.FormatDividerStyleCode(),
         ctx.elemDisabled ? "true" : "false"

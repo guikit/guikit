@@ -11,7 +11,7 @@ GridScope Grid::Open(
     std::source_location loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
+    const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
     const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
@@ -43,7 +43,7 @@ ContainerScope GridScope::Cell(int span, CellOptions opts, std::source_location 
     if (!m_ctx) return ContainerScope(nullptr, nullptr);
 
     const Id id = m_ctx->MakeChildId(loc);
-    const UiSize activeSize = opts.size.value_or(m_ctx->GetCurrentSize());
+    const UiSize activeSize = m_ctx->GetCurrentSize();
     const bool activeDisabled = opts.disabled || m_ctx->IsDisabled();
     const float activeScale = opts.scale.value_or(m_ctx->GetCurrentScale());
     UiTheme* pushedTheme = m_ctx->PushScopedTheme(opts.theme, opts.scale);

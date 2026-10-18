@@ -199,7 +199,7 @@ ImageViewDemoState s_imgDemo{};
 void RenderImageViewInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     s_imgDemo.EnsureGenerated();
 
-    ui.Heading({.label = "DATASET & CHANNELS", .size = UiSize::Xs, .divider = true});
+    ui.Size(UiSize::Xs).Heading({.label = "DATASET & CHANNELS", .divider = true});
     static constexpr std::array<std::string_view, 2> kDatasetNames = {
         "16-bit Radiograph Phantom (1ch)",
         "Multispectral Fluorescence (3ch RGB)"
@@ -221,7 +221,7 @@ void RenderImageViewInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         }
     }
 
-    ui.Heading({.label = "WORKSTATION LAYOUT", .size = UiSize::Xs, .divider = true});
+    ui.Size(UiSize::Xs).Heading({.label = "WORKSTATION LAYOUT", .divider = true});
     if (auto el = ui.Element({.label = "Show Built-in Sidebar"})) {
         if (ui.Switch(s_imgDemo.viewOpts.showSidebar).changed) ui.InvalidateAll();
     }

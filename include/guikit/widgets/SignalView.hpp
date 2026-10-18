@@ -137,7 +137,6 @@ struct SignalViewOptions {
     std::optional<float> height{std::nullopt};
     SizeMode heightMode{SizeMode::Stretch};
     std::optional<float> borderRadius{std::nullopt};
-    std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
     std::string_view tooltip{};
 };

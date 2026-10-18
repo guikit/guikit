@@ -1037,7 +1037,7 @@ SonarViewResponse SonarView::Run(
 ) {
     const Id id = ctx.MakeChildId(loc);
     const bool isDisabled = opts.disabled || ctx.IsDisabled();
-    const UiSize effectiveSize = opts.size.value_or(ctx.GetCurrentSize());
+    const UiSize effectiveSize = ctx.GetCurrentSize();
     const UiTheme& theme = ctx.GetTheme();
     ICanvas* canvas = ctx.GetCanvas();
 

@@ -28,7 +28,6 @@ struct AccordionOptions {
     std::optional<Padding> padding{std::nullopt};   ///< Padding around expanded body children (nullopt = default top/bottom spacing)
     StateColor background{};                        ///< Per-state header backdrop color (Default = subtle surface bar, None = transparent, Surface/Primary/... = custom)
     Border border{};                                ///< Header border stroke & corner radius
-    std::optional<UiSize> size{std::nullopt};       ///< Header size token (nullopt = inherit container size)
     bool disabled{false};                           ///< Whether the accordion header and its children are disabled
     const UiTheme* theme{nullptr};                  ///< Optional scoped theme override
     std::optional<float> scale{std::nullopt};       ///< Optional local UI scale factor override

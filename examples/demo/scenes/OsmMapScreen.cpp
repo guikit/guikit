@@ -124,22 +124,20 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
 
     // 1. Camera & Dataset Header Actions
     if (auto row = ui.Row({.gap = 6.0f})) {
-        if (ui.Button({
+        if (ui.Size(guikit::UiSize::Sm).Button({
             .text = "Fit Chart Bounds",
             .icon = guikit::Icon::Search(),
             .color = guikit::StateColor::Primary(),
-            .stretch = guikit::StretchMode::Fill,
-            .size = guikit::UiSize::Sm
+            .stretch = guikit::StretchMode::Fill
         }).clicked) {
             s_state.pendingCenterGeo = s_state.initialCenter;
             s_state.pendingTileZoom = s_state.initialTileZoom;
             ui.InvalidateAll();
         }
-        if (ui.Button({
+        if (ui.Size(guikit::UiSize::Sm).Button({
             .text = "Clear Sel",
             .color = guikit::StateColor::Secondary(),
-            .disabled = !s_state.selectedFeatureId.has_value(),
-            .size = guikit::UiSize::Sm
+            .disabled = !s_state.selectedFeatureId.has_value()
         }).clicked) {
             s_state.selectedFeatureId.reset();
             s_state.selectedLayerId.reset();
@@ -183,7 +181,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
     }
 
     // 4. S-52 Vector Display Filters
-    ui.Heading({.label = "S-52 DISPLAY FILTERS", .size = guikit::UiSize::Xs, .divider = true});
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "S-52 DISPLAY FILTERS", .divider = true});
     if (auto el = ui.Element({.label = "Filled Polygons (LNDARE / DEPARE)"})) {
         if (ui.Switch(s_state.renderSettings.showFilledPolygons).changed) ui.InvalidateAll();
     }
@@ -212,7 +210,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
     }
 
     // 5. Cartographic Grid & HUD Overlays
-    ui.Heading({.label = "CARTOGRAPHIC OVERLAYS", .size = guikit::UiSize::Xs, .divider = true});
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "CARTOGRAPHIC OVERLAYS", .divider = true});
     if (auto el = ui.Element({.label = "Nautical Graticule (1' = 1 NM)"})) {
         if (ui.Switch(s_state.showNauticalGraticule).changed) ui.InvalidateAll();
     }
@@ -228,11 +226,11 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
 
     // 6. Thematic Layers from demo_bay.geojson
     if (!s_state.layers.empty()) {
-        ui.Heading({.label = "THEMATIC ENC LAYERS", .size = guikit::UiSize::Xs, .divider = true});
+        ui.Size(guikit::UiSize::Xs).Heading({.label = "THEMATIC ENC LAYERS", .divider = true});
         for (auto& layer : s_state.layers) {
             const std::string lbl = std::format("{} ({})", layer.name, layer.features.size());
-            if (auto el = ui.Element({.label = lbl, .size = guikit::UiSize::Sm})) {
-                if (ui.Checkbox(layer.visible, {.size = guikit::UiSize::Sm}).changed) {
+            if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = lbl})) {
+                if (ui.Size(guikit::UiSize::Sm).Checkbox(layer.visible).changed) {
                     ui.InvalidateAll();
                 }
             }
@@ -248,9 +246,8 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
     }
 
     if (inspectFeat != nullptr) {
-        ui.Heading({
+        ui.Size(guikit::UiSize::Xs).Heading({
             .label = isHoverInspect ? "HOVERED FEATURE" : "SELECTED FEATURE",
-            .size = guikit::UiSize::Xs,
             .divider = true
         });
         if (auto featCard = ui.Card({

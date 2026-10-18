@@ -22,7 +22,6 @@ struct GridOptions {
     Justify justify{Justify::Start};
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Fit};
-    std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};
@@ -36,7 +35,6 @@ struct CellOptions {
     Alignment align{Alignment::Stretch};
     Justify justify{Justify::Start};
     SizeMode heightMode{SizeMode::Fit};
-    std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
     bool clipChildren{false};                       ///< Clip cell children to cell boundaries (default: false)
     const UiTheme* theme{nullptr};

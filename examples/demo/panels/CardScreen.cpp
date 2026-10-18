@@ -23,65 +23,59 @@ void RenderCardInspector(guikit::Context& ui, DemoContext& ctx) {
 }
 
 void RenderCardStage(guikit::Context& ui, DemoContext& ctx) {
-    if (auto c = ui.Card({
+    if (auto c = ui.Size(ctx.controlsSize).Card({
         .gap = ctx.cardGap,
         .padding = guikit::Padding(ctx.cardPadding),
         .borderWidth = ctx.cardBorderWidth,
-        .borderRadius = ctx.cardRadius,
-        .size = ctx.controlsSize
+        .borderRadius = ctx.cardRadius
     })) {
-        ui.Heading({
+        ui.Size(ctx.controlsSize).Heading({
             .label = "Card Surface Component",
             .description = "Configurable padding, radius and spacing tokens",
             .icon = guikit::Icon::Copy(),
-            .size = ctx.controlsSize,
             .divider = true
         });
-        if (ui.Button({
+        if (ui.Size(ctx.controlsSize).Button({
             .text = "Inner Action",
             .icon = guikit::Icon::Play(),
-            .color = ctx.GetControlColor(),
-            .size = ctx.controlsSize
+            .color = ctx.GetControlColor()
         })) {}
     }
 }
 
 std::string GenerateCardCode(const DemoContext& ctx) {
     return std::format(
-        "if (auto card = ui.Card({{\n"
+        "if (auto card = ui.Size(guikit::UiSize::{}).Card({{\n"
         "    .gap = {:.1f}f,\n"
         "    .padding = guikit::Padding({:.1f}f),\n"
         "    .borderWidth = {:.1f}f,\n"
         "    .borderRadius = {:.1f}f,\n"
         "    .clipChildren = true,\n"
         "    .widthMode = guikit::SizeMode::Stretch,\n"
-        "    .heightMode = guikit::SizeMode::Fit,\n"
-        "    .size = guikit::UiSize::{}\n"
+        "    .heightMode = guikit::SizeMode::Fit\n"
         "}})) {{\n"
-        "    ui.Heading({{\n"
+        "    ui.Size(guikit::UiSize::{}).Heading({{\n"
         "        .label = \"Card Surface Component\",\n"
         "        .description = \"Configurable padding, radius and spacing tokens\",\n"
         "        .icon = guikit::Icon::Copy(),\n"
-        "        .size = guikit::UiSize::{},\n"
         "        .divider = true\n"
         "    }});\n"
-        "    if (ui.Button({{\n"
+        "    if (ui.Size(guikit::UiSize::{}).Button({{\n"
         "        .text = \"Inner Action\",\n"
         "        .icon = guikit::Icon::Play(),\n"
-        "        .color = {},\n"
-        "        .size = guikit::UiSize::{}\n"
+        "        .color = {}\n"
         "    }})) {{\n"
         "        // On click handler\n"
         "    }}\n"
         "}}",
+        SizeName(ctx.controlsSize),
         ctx.cardGap,
         ctx.cardPadding,
         ctx.cardBorderWidth,
         ctx.cardRadius,
         SizeName(ctx.controlsSize),
         SizeName(ctx.controlsSize),
-        ctx.FormatControlColorCode(),
-        SizeName(ctx.controlsSize)
+        ctx.FormatControlColorCode()
     );
 }
 

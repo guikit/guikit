@@ -18,7 +18,7 @@ Response TabBar::Run(
     Response res;
     if (tabs.empty()) return res;
 
-    const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
+    const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = ctx.IsDisabled();
     const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
 
@@ -27,7 +27,6 @@ Response TabBar::Run(
 
     if (opts.scrollable && !opts.fullWidth) {
         CarouselOptions cOpts;
-        cOpts.size = activeSize;
         cOpts.scrollWheel = true;
         cOpts.disabled = activeDisabled;
         cOpts.theme = opts.theme;

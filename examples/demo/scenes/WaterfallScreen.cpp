@@ -433,14 +433,11 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         "DOA/BTR: RF MUSIC Direction Finder"
     };
     int scenIdx = s_wf.scenarioIndex;
-    if (auto el = ui.Element({
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Preset Scenario",
-        .layout = guikit::ElementLayout::Top,
-        .size = guikit::UiSize::Sm
+        .layout = guikit::ElementLayout::Top
     })) {
-        if (ui.Select(scenIdx, kScenarios, {
-            .size = guikit::UiSize::Sm
-        }).changed) {
+        if (ui.Size(guikit::UiSize::Sm).Select(scenIdx, kScenarios).changed) {
             LoadWaterfallScenario(s_wf, scenIdx);
         }
     }
@@ -450,133 +447,113 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         "Waterfall Only",
         "Live Trace Only"
     };
-    if (auto el = ui.Element({
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Viewport Layout",
-        .layout = guikit::ElementLayout::Top,
-        .size = guikit::UiSize::Sm
+        .layout = guikit::ElementLayout::Top
     })) {
-        ui.Select(s_wf.layoutIndex, kLayouts, {
-            .size = guikit::UiSize::Sm
-        });
+        ui.Size(guikit::UiSize::Sm).Select(s_wf.layoutIndex, kLayouts);
     }
 
     int cmapIdx = static_cast<int>(s_wf.colormap);
-    if (auto el = ui.Element({
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "GPU Colormap LUT",
-        .layout = guikit::ElementLayout::Top,
-        .size = guikit::UiSize::Sm
+        .layout = guikit::ElementLayout::Top
     })) {
-        if (ui.Select(cmapIdx, guikit::GetAllColormapNames(), {
-            .size = guikit::UiSize::Sm
-        }).changed) {
+        if (ui.Size(guikit::UiSize::Sm).Select(cmapIdx, guikit::GetAllColormapNames()).changed) {
             s_wf.colormap = static_cast<guikit::Colormap>(cmapIdx);
         }
     }
 
-    ui.Heading({.label = "GPU Ring-Buffer & Conditioning", .size = guikit::UiSize::Xs, .divider = true});
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "GPU Ring-Buffer & Conditioning", .divider = true});
 
-    if (auto el = ui.Element({
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Digital Gain",
-        .layout = guikit::ElementLayout::Top,
-        .size = guikit::UiSize::Sm
+        .layout = guikit::ElementLayout::Top
     })) {
-        ui.Slider(s_wf.gainDb, -20.0f, 20.0f, {
-            .valueFormat = "%+.1f dB",
-            .size = guikit::UiSize::Sm
+        ui.Size(guikit::UiSize::Sm).Slider(s_wf.gainDb, -20.0f, 20.0f, {
+            .valueFormat = "%+.1f dB"
         });
     }
 
-    if (auto el = ui.Element({
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Dynamic Range Floor",
-        .layout = guikit::ElementLayout::Top,
-        .size = guikit::UiSize::Sm
+        .layout = guikit::ElementLayout::Top
     })) {
-        ui.Slider(s_wf.dbFloor, -130.0f, -45.0f, {
-            .valueFormat = "%.0f dB",
-            .size = guikit::UiSize::Sm
+        ui.Size(guikit::UiSize::Sm).Slider(s_wf.dbFloor, -130.0f, -45.0f, {
+            .valueFormat = "%.0f dB"
         });
     }
 
-    if (auto el = ui.Element({
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Dynamic Range Ceiling",
-        .layout = guikit::ElementLayout::Top,
-        .size = guikit::UiSize::Sm
+        .layout = guikit::ElementLayout::Top
     })) {
-        ui.Slider(s_wf.dbCeil, -40.0f, 10.0f, {
-            .valueFormat = "%.0f dB",
-            .size = guikit::UiSize::Sm
+        ui.Size(guikit::UiSize::Sm).Slider(s_wf.dbCeil, -40.0f, 10.0f, {
+            .valueFormat = "%.0f dB"
         });
     }
 
-    if (auto el = ui.Element({
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Detection Gate",
-        .layout = guikit::ElementLayout::Top,
-        .size = guikit::UiSize::Sm
+        .layout = guikit::ElementLayout::Top
     })) {
-        ui.Slider(s_wf.thresholdGateDb, s_wf.dbFloor + 5.0f, s_wf.dbCeil - 5.0f, {
-            .valueFormat = "%+.0f dB",
-            .size = guikit::UiSize::Sm
+        ui.Size(guikit::UiSize::Sm).Slider(s_wf.thresholdGateDb, s_wf.dbFloor + 5.0f, s_wf.dbCeil - 5.0f, {
+            .valueFormat = "%+.0f dB"
         });
     }
 
-    if (auto el = ui.Element({
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Noise Gate Suppression",
-        .layout = guikit::ElementLayout::Top,
-        .size = guikit::UiSize::Sm
+        .layout = guikit::ElementLayout::Top
     })) {
-        ui.Slider(s_wf.gateSuppression, 0.0f, 1.0f, {
-            .valueFormat = "%.2f",
-            .size = guikit::UiSize::Sm
+        ui.Size(guikit::UiSize::Sm).Slider(s_wf.gateSuppression, 0.0f, 1.0f, {
+            .valueFormat = "%.2f"
         });
     }
 
-    if (auto el = ui.Element({
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Contrast Gamma",
-        .layout = guikit::ElementLayout::Top,
-        .size = guikit::UiSize::Sm
+        .layout = guikit::ElementLayout::Top
     })) {
-        ui.Slider(s_wf.gamma, 0.45f, 2.0f, {
-            .valueFormat = "%.2f",
-            .size = guikit::UiSize::Sm
+        ui.Size(guikit::UiSize::Sm).Slider(s_wf.gamma, 0.45f, 2.0f, {
+            .valueFormat = "%.2f"
         });
     }
 
-    if (auto el = ui.Element({
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Scroll Rate (Slices/sec)",
-        .layout = guikit::ElementLayout::Top,
-        .size = guikit::UiSize::Sm
+        .layout = guikit::ElementLayout::Top
     })) {
-        ui.Slider(s_wf.updateRateHz, 5.0f, 60.0f, {
-            .valueFormat = "%.0f Hz",
-            .size = guikit::UiSize::Sm
+        ui.Size(guikit::UiSize::Sm).Slider(s_wf.updateRateHz, 5.0f, 60.0f, {
+            .valueFormat = "%.0f Hz"
         });
     }
 
-    ui.Heading({.label = "Traces & Tracking Overlays", .size = guikit::UiSize::Xs, .divider = true});
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "Traces & Tracking Overlays", .divider = true});
 
-    if (auto el = ui.Element({.label = "Live Instantaneous Trace", .size = guikit::UiSize::Sm})) {
-        ui.Checkbox(s_wf.showLiveTrace, {.size = guikit::UiSize::Sm});
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Live Instantaneous Trace"})) {
+        ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.showLiveTrace);
     }
-    if (auto el = ui.Element({.label = "Peak Hold Envelope", .size = guikit::UiSize::Sm})) {
-        ui.Checkbox(s_wf.showPeakHold, {.size = guikit::UiSize::Sm});
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Peak Hold Envelope"})) {
+        ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.showPeakHold);
     }
-    if (auto el = ui.Element({.label = "RMS Exponential Average", .size = guikit::UiSize::Sm})) {
-        ui.Checkbox(s_wf.showAverageTrace, {.size = guikit::UiSize::Sm});
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "RMS Exponential Average"})) {
+        ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.showAverageTrace);
     }
-    if (auto el = ui.Element({.label = "Auto Peak / DOA Callouts", .size = guikit::UiSize::Sm})) {
-        ui.Checkbox(s_wf.showPeakMarkers, {.size = guikit::UiSize::Sm});
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Auto Peak / DOA Callouts"})) {
+        ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.showPeakMarkers);
     }
-    if (auto el = ui.Element({.label = "DOA / Emitter Target Tracks", .size = guikit::UiSize::Sm})) {
-        ui.Checkbox(s_wf.showTracks, {.size = guikit::UiSize::Sm});
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "DOA / Emitter Target Tracks"})) {
+        ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.showTracks);
     }
-    if (auto el = ui.Element({.label = "Track Association Gates", .size = guikit::UiSize::Sm})) {
-        ui.Checkbox(s_wf.showTrackGates, {.size = guikit::UiSize::Sm});
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Track Association Gates"})) {
+        ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.showTrackGates);
     }
-    if (auto el = ui.Element({.label = "Harmonic Comb (f0..6f0)", .size = guikit::UiSize::Sm})) {
-        ui.Checkbox(s_wf.showHarmonicComb, {.size = guikit::UiSize::Sm});
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Harmonic Comb (f0..6f0)"})) {
+        ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.showHarmonicComb);
     }
-    if (auto el = ui.Element({.label = "Invert Time Flow (Bottom-Up)", .size = guikit::UiSize::Sm})) {
-        ui.Checkbox(s_wf.invertTimeAxis, {.size = guikit::UiSize::Sm});
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Invert Time Flow (Bottom-Up)"})) {
+        ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.invertTimeAxis);
     }
 }
 
@@ -592,7 +569,7 @@ void RenderWaterfallStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         .heightMode = guikit::SizeMode::Stretch
     })) {
         // Top Operator Console Toolbar
-        if (auto tb = ui.Toolbar({.size = guikit::UiSize::Sm})) {
+        if (auto tb = ui.Size(guikit::UiSize::Sm).Toolbar()) {
             if (tb.ToolButton({
                 .label = s_wf.liveStream ? "STREAMING" : "FROZEN",
                 .icon = s_wf.liveStream ? guikit::Icon::Pause() : guikit::Icon::Play(),

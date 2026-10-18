@@ -121,7 +121,6 @@ struct SceneOptions {
     float borderWidth{1.0f};
     Color backgroundColor{0, 0, 0, 0};
     Color borderColor{0, 0, 0, 0};
-    std::optional<UiSize> size{std::nullopt};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

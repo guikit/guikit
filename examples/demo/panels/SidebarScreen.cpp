@@ -71,11 +71,10 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
             .scrollable = true
         })) {
             const int prevIdx = s_state.menuIdx;
-            if (auto menu = ui.SidebarMenu({
+            if (auto menu = ui.Size(ctx.controlsSize).SidebarMenu({
                 .style = s_state.menuStyle,
                 .collapsed = s_state.collapsed,
-                .variant = ctx.btnVariant,
-                .size = ctx.controlsSize
+                .variant = ctx.btnVariant
             })) {
                 if (s_state.showSections) {
                     menu.Section("WORKSPACE");
@@ -116,10 +115,9 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
             static constexpr std::array<std::string_view, 4> pageTitles = {
                 "Overview Dashboard", "Real-Time Analytics", "Active Deployments", "System Settings"
             };
-            ui.Heading({
+            ui.Size(guikit::UiSize::Sm).Heading({
                 .label = pageTitles[static_cast<size_t>(std::clamp(s_state.menuIdx, 0, 3))],
                 .description = "Docked Sidebar + SidebarMenu container arrangement",
-                .size = guikit::UiSize::Sm,
                 .divider = true
             });
             ui.Text("Remaining workspace automatically stretches around docked Left/Right Sidebars.", {
@@ -136,11 +134,10 @@ std::string GenerateSidebarCode(const DemoContext& ctx) {
         "    .width = {},\n"
         "    .scrollable = true\n"
         "}})) {{\n"
-        "    if (auto menu = ui.SidebarMenu({{\n"
+        "    if (auto menu = ui.Size(guikit::UiSize::{}).SidebarMenu({{\n"
         "        .style = guikit::SidebarMenuStyle::{},\n"
         "        .collapsed = {},\n"
-        "        .variant = guikit::UiVariant::{},\n"
-        "        .size = guikit::UiSize::{}\n"
+        "        .variant = guikit::UiVariant::{}\n"
         "    }})) {{\n"
         "        menu.Section(\"WORKSPACE\");\n"
         "        menu.Item(selected, 0, {{.text = \"Overview\", .icon = guikit::Icon::Folder(){}}});\n"
@@ -149,10 +146,10 @@ std::string GenerateSidebarCode(const DemoContext& ctx) {
         "}}",
         s_state.side == guikit::SidebarSide::Right ? "Right" : "Left",
         (s_state.collapsed || s_state.autoWidth) ? "std::nullopt" : std::format("{:.1f}f", s_state.fixedWidth),
+        SizeName(ctx.controlsSize),
         s_state.menuStyle == guikit::SidebarMenuStyle::Indicator ? "Indicator" : "Pill",
         s_state.collapsed ? "true" : "false",
         VariantName(ctx.btnVariant),
-        SizeName(ctx.controlsSize),
         s_state.showBadges ? ", .badge = \"3\"" : "",
         s_state.showBadges ? ", .badge = \"New\"" : ""
     );

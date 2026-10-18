@@ -85,7 +85,7 @@ void RenderInputInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
-    if (auto el = ui.Element({
+    if (auto el = ui.Size(ctx.elemSize).Element({
         .label = ctx.GetElementLabel(),
         .description = ctx.GetElementDescription(),
         .icon = ctx.GetElementIcon(),
@@ -96,15 +96,13 @@ void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
         .stretch = ctx.GetElementStretch(),
         .background = ctx.elemBackground,
         .border = ctx.GetElemBorder(),
-        .size = ctx.controlsSize,
         .disabled = ctx.elemDisabled
     })) {
         if (s_state.numericMode) {
-            ui.InputField(s_state.numVal, {
+            ui.Size(ctx.controlsSize).InputField(s_state.numVal, {
                 .suffix = s_state.numSuffix,
                 .valueFormat = {"%.1f", {"0.0", "500.0"}},
                 .cursorMode = s_state.cursorMode,
-                .size = ctx.controlsSize,
                 .stretch = ctx.GetElementStretch(),
                 .width = ctx.GetElementWidth(),
                 .height = ctx.GetElementHeight(),
@@ -118,13 +116,12 @@ void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
                 .readOnly = s_state.readOnly
             });
         } else {
-            ui.InputField(s_state.text, {
+            ui.Size(ctx.controlsSize).InputField(s_state.text, {
                 .placeholder = s_state.placeholder,
                 .prefix = s_state.prefix,
                 .suffix = s_state.suffix,
                 .valueFormat = {{"guikit.dev", "api.guikit.dev"}},
                 .cursorMode = s_state.cursorMode,
-                .size = ctx.controlsSize,
                 .stretch = ctx.GetElementStretch(),
                 .width = ctx.GetElementWidth(),
                 .height = ctx.GetElementHeight(),
@@ -142,7 +139,7 @@ void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
 std::string GenerateInputCode(const DemoContext& ctx) {
     if (s_state.numericMode) {
         return std::format(
-            "if (auto el = ui.Element({{\n"
+            "if (auto el = ui.Size(guikit::UiSize::{}).Element({{\n"
             "    .label = {},\n"
             "    .description = {},\n"
             "    .icon = {},\n"
@@ -153,14 +150,12 @@ std::string GenerateInputCode(const DemoContext& ctx) {
             "    .stretch = guikit::StretchMode::{},\n"
             "    .background = {},\n"
             "    .border = {},\n"
-            "    .size = guikit::UiSize::{},\n"
             "    .disabled = {}\n"
             "}})) {{\n"
-            "    ui.InputField(centerFreqMhz, {{\n"
+            "    ui.Size(guikit::UiSize::{}).InputField(centerFreqMhz, {{\n"
             "        .suffix = \"{}\",\n"
             "        .valueFormat = \"%.1f\",\n"
             "        .cursorMode = guikit::CursorBlinkMode::{},\n"
-            "        .size = guikit::UiSize::{},\n"
             "        .stretch = guikit::StretchMode::{},\n"
             "        .width = {},\n"
             "        .height = {},\n"
@@ -174,6 +169,7 @@ std::string GenerateInputCode(const DemoContext& ctx) {
             "        .readOnly = {}\n"
             "    }});\n"
             "}}",
+            SizeName(ctx.elemSize),
             ctx.FormatElementLabelCode(),
             ctx.FormatElementDescCode(),
             ctx.FormatElementIconCode(),
@@ -184,11 +180,10 @@ std::string GenerateInputCode(const DemoContext& ctx) {
             StretchModeEnumName(ctx.GetElementStretch()),
             ctx.FormatElemBackgroundCode(),
             ctx.FormatElemBorderCode(),
-            SizeName(ctx.controlsSize),
             ctx.elemDisabled ? "true" : "false",
+            SizeName(ctx.controlsSize),
             s_state.numSuffix,
             CursorModeName(s_state.cursorMode),
-            SizeName(ctx.controlsSize),
             StretchModeEnumName(ctx.GetElementStretch()),
             ctx.FormatElementWidthCode(),
             ctx.FormatElementHeightCode(),
@@ -203,7 +198,7 @@ std::string GenerateInputCode(const DemoContext& ctx) {
         );
     }
     return std::format(
-        "if (auto el = ui.Element({{\n"
+        "if (auto el = ui.Size(guikit::UiSize::{}).Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"
         "    .icon = {},\n"
@@ -214,16 +209,14 @@ std::string GenerateInputCode(const DemoContext& ctx) {
         "    .stretch = guikit::StretchMode::{},\n"
         "    .background = {},\n"
         "    .border = {},\n"
-        "    .size = guikit::UiSize::{},\n"
         "    .disabled = {}\n"
         "}})) {{\n"
-        "    ui.InputField(serverEndpoint, {{\n"
+        "    ui.Size(guikit::UiSize::{}).InputField(serverEndpoint, {{\n"
         "        .placeholder = \"{}\",\n"
         "        .prefix = \"{}\",\n"
         "        .suffix = \"{}\",\n"
         "        .valueFormat = {{{{\"guikit.dev\", \"api.guikit.dev\"}}}},\n"
         "        .cursorMode = guikit::CursorBlinkMode::{},\n"
-        "        .size = guikit::UiSize::{},\n"
         "        .stretch = guikit::StretchMode::{},\n"
         "        .width = {},\n"
         "        .height = {},\n"
@@ -235,6 +228,7 @@ std::string GenerateInputCode(const DemoContext& ctx) {
         "        .readOnly = {}\n"
         "    }});\n"
         "}}",
+        SizeName(ctx.elemSize),
         ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
@@ -245,13 +239,12 @@ std::string GenerateInputCode(const DemoContext& ctx) {
         StretchModeEnumName(ctx.GetElementStretch()),
         ctx.FormatElemBackgroundCode(),
         ctx.FormatElemBorderCode(),
-        SizeName(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false",
+        SizeName(ctx.controlsSize),
         s_state.placeholder,
         s_state.prefix,
         s_state.suffix,
         CursorModeName(s_state.cursorMode),
-        SizeName(ctx.controlsSize),
         StretchModeEnumName(ctx.GetElementStretch()),
         ctx.FormatElementWidthCode(),
         ctx.FormatElementHeightCode(),

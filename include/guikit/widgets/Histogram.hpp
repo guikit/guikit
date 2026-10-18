@@ -143,7 +143,6 @@ struct HistogramOptions {
     float height{136.0f};
     float minHeight{96.0f};
     SizeMode heightMode{SizeMode::Fit};
-    std::optional<UiSize> size{std::nullopt};
     std::optional<float> borderRadius{std::nullopt};
 
     // --- Histogram Visualization & Interaction ---

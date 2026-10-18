@@ -154,15 +154,15 @@ void RenderTableInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
             }
         }
     } else {
-        ui.Heading({.label = "VIRTUAL JUMP (100,000 ROWS)", .size = UiSize::Xs, .divider = true});
+        ui.Size(UiSize::Xs).Heading({.label = "VIRTUAL JUMP (100,000 ROWS)", .divider = true});
         if (auto row = ui.Row({.gap = 6.0f})) {
-            if (ui.Button({.text = "Top (#1)", .color = StateColor::Secondary(), .stretch = StretchMode::Fill, .size = UiSize::Sm})) {
+            if (ui.Size(UiSize::Sm).Button({.text = "Top (#1)", .color = StateColor::Secondary(), .stretch = StretchMode::Fill})) {
                 g_tableDemo.pendingJumpRow = 0;
             }
-            if (ui.Button({.text = "Mid (#50k)", .color = StateColor::Secondary(), .stretch = StretchMode::Fill, .size = UiSize::Sm})) {
+            if (ui.Size(UiSize::Sm).Button({.text = "Mid (#50k)", .color = StateColor::Secondary(), .stretch = StretchMode::Fill})) {
                 g_tableDemo.pendingJumpRow = 49999;
             }
-            if (ui.Button({.text = "End (#100k)", .color = StateColor::Primary(), .stretch = StretchMode::Fill, .size = UiSize::Sm})) {
+            if (ui.Size(UiSize::Sm).Button({.text = "End (#100k)", .color = StateColor::Primary(), .stretch = StretchMode::Fill})) {
                 g_tableDemo.pendingJumpRow = 99999;
             }
         }
@@ -195,22 +195,20 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
 
             // Top Filter & Action Bar
             if (auto topBar = ui.Row({.gap = 10.0f, .align = Alignment::Center})) {
-                if (ui.InputField(g_tableDemo.filterQuery, {
+                if (ui.Size(UiSize::Sm).InputField(g_tableDemo.filterQuery, {
                     .placeholder = "Filter by callsign or modulation (e.g. OFDM, SAT, QPSK)...",
                     .prefix = Icon::Search(),
-                    .size = UiSize::Sm,
                     .stretch = StretchMode::Fill,
                     .clearable = true
                 }).changed) {
                     g_tableDemo.selectedRow = 0;
                 }
 
-                if (ui.Button({
+                if (ui.Size(UiSize::Sm).Button({
                     .text = "Sort by SNR",
                     .icon = Icon::Play(),
                     .color = StateColor::Secondary(),
-                    .stretch = StretchMode::Compact,
-                    .size = UiSize::Sm
+                    .stretch = StretchMode::Compact
                 })) {
                     g_tableDemo.sortCol = 6;
                     g_tableDemo.sortDir = TableSortDirection::Descending;
@@ -253,7 +251,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                     : "None"
             );
 
-            if (auto table = ui.Table(kSignalCols, {
+            if (auto table = ui.Size(g_tableDemo.tableSize).Table(kSignalCols, {
                 .label = "RF & Acoustic Target Acquisition Table",
                 .description = "Click column headers to sort, drag header dividers to resize, use Up/Down/PgUp/PgDn keys",
                 .icon = Icon::Search(),
@@ -268,8 +266,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                 .resizableColumns = g_tableDemo.resizableColumns,
                 .showRowNumbers = g_tableDemo.showRowNumbers,
                 .showFooter = g_tableDemo.showFooter,
-                .footerText = footerBuf,
-                .size = g_tableDemo.tableSize
+                .footerText = footerBuf
             })) {
                 if (table.SortChanged()) {
                     g_tableDemo.SortRows();
@@ -287,7 +284,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                     if (auto row = table.Row(visRow, rowOpts)) {
                         // Col 0: Embedded Checkbox widget
                         if (auto cell = table.Cell({.align = Align::Center})) {
-                            ui.Checkbox(item.tracked, {.color = StateColor::Primary(), .size = UiSize::Sm});
+                            ui.Size(UiSize::Sm).Checkbox(item.tracked, {.color = StateColor::Primary()});
                         }
 
                         // Col 1: Target ID
@@ -310,10 +307,9 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
 
                         // Col 6: Embedded Segmented VU ProgressBar widget
                         if (auto cell = table.Cell()) {
-                            ui.ProgressBar(item.snrDb, 0.0f, 40.0f, {
+                            ui.Size(UiSize::Sm).ProgressBar(item.snrDb, 0.0f, 40.0f, {
                                 .valueFormat = "%.1f dB",
                                 .segments = 12,
-                                .size = UiSize::Sm,
                                 .multiZoneColor = true
                             });
                         }
@@ -348,7 +344,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                 g_tableDemo.lastVisibleCount
             );
 
-            if (auto table = ui.Table(kVirtualCols, {
+            if (auto table = ui.Size(g_tableDemo.tableSize).Table(kVirtualCols, {
                 .label = "100,000-Row Virtualized Telemetry Stream",
                 .description = "Only ~20 visible rows are evaluated and rasterized per frame (O(1) memory & CPU cost)",
                 .icon = Icon::Copy(),
@@ -363,8 +359,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                 .resizableColumns = g_tableDemo.resizableColumns,
                 .showRowNumbers = g_tableDemo.showRowNumbers,
                 .showFooter = g_tableDemo.showFooter,
-                .footerText = ftrBuf,
-                .size = g_tableDemo.tableSize
+                .footerText = ftrBuf
             })) {
                 if (g_tableDemo.pendingJumpRow >= 0) {
                     g_tableDemo.virtualSelectedRow = g_tableDemo.pendingJumpRow;
@@ -399,10 +394,9 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
 
                         const float rssi = -95.0f + static_cast<float>((logicalIdx * 17) % 65);
                         if (auto cell = table.Cell()) {
-                            ui.ProgressBar(rssi, -100.0f, -30.0f, {
+                            ui.Size(UiSize::Xs).ProgressBar(rssi, -100.0f, -30.0f, {
                                 .valueFormat = "%.0f dBm",
                                 .segments = 10,
-                                .size = UiSize::Xs,
                                 .multiZoneColor = true
                             });
                         }
@@ -425,7 +419,7 @@ std::string GenerateTableCode(const DemoContext& /*ctx*/) {
         << "    {.title = \"SNR Level\", .flex = 1.4f,    .sortable = true},\n"
         << "    {.title = \"Status\",    .width = 100.0f, .align = guikit::Align::Center, .sortable = true}\n"
         << "}};\n\n"
-        << "if (auto table = ui.Table(cols, {\n"
+        << "if (auto table = ui.Size(guikit::UiSize::" << SizeName(g_tableDemo.tableSize) << ").Table(cols, {\n"
         << "    .label = \"RF & Acoustic Target Table\",\n"
         << "    .totalRows = rows.size(),\n"
         << "    .selectedRow = &selectedRow,\n"
@@ -436,8 +430,7 @@ std::string GenerateTableCode(const DemoContext& /*ctx*/) {
         << "    .gridLines = " << (g_tableDemo.gridLines ? "true" : "false") << ",\n"
         << "    .resizableColumns = " << (g_tableDemo.resizableColumns ? "true" : "false") << ",\n"
         << "    .showRowNumbers = " << (g_tableDemo.showRowNumbers ? "true" : "false") << ",\n"
-        << "    .showFooter = " << (g_tableDemo.showFooter ? "true" : "false") << ",\n"
-        << "    .size = guikit::UiSize::" << SizeName(g_tableDemo.tableSize) << "\n"
+        << "    .showFooter = " << (g_tableDemo.showFooter ? "true" : "false") << "\n"
         << "})) {\n"
         << "    for (size_t r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {\n"
         << "        if (auto row = table.Row(r)) {\n"

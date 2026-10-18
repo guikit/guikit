@@ -882,7 +882,7 @@ WaterfallViewResponse WaterfallView::Run(
 ) {
     const Id id = ctx.MakeChildId(loc);
     const UiTheme& theme = ctx.GetTheme();
-    const UiSize size = opts.size.value_or(ctx.GetCurrentSize());
+    const UiSize size = ctx.GetCurrentSize();
     const bool effDisabled = opts.disabled || ctx.IsDisabled();
 
     Node* node = ctx.CreateNode(NodeType::WaterfallView, id);

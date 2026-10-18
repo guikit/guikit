@@ -504,16 +504,15 @@ int main(int argc, char* argv[]) {
                     tb.Separator();
 
                     if (auto scaleBox = ui.Box({.fixedWidth = 92.0f})) {
-                        if (ui.Select(shellScaleIndex, scaleLabels, {.size = guikit::UiSize::Sm}).changed) {
+                        if (ui.Size(guikit::UiSize::Sm).Select(shellScaleIndex, scaleLabels).changed) {
                             ui.InvalidateAll();
                         }
                     }
 
-                    if (ui.Switch(demoCtx.shellLightMode, {
+                    if (ui.Size(guikit::UiSize::Md).Switch(demoCtx.shellLightMode, {
                         .textLeft = "Dark",
                         .textRight = "Light",
-                        .symmetric = true,
-                        .size = guikit::UiSize::Md
+                        .symmetric = true
                     }).changed) {
                         demoCtx.shellTheme = demoCtx.shellLightMode
                             ? guikit::UiTheme::Light(demoCtx.shellTheme.density)
@@ -545,14 +544,12 @@ int main(int argc, char* argv[]) {
 
                     tb.Separator();
 
-                    if (auto el = ui.Element({
+                    if (auto el = ui.Size(guikit::UiSize::Md).Element({
                         .label = "GPU",
-                        .size = guikit::UiSize::Md,
                         .disabled = !gpuShaderEngine.IsAvailable()
                     })) {
-                        if (ui.Switch(gpuShadersEnabled, {
-                            .disabled = !gpuShaderEngine.IsAvailable(),
-                            .size = guikit::UiSize::Md
+                        if (ui.Size(guikit::UiSize::Md).Switch(gpuShadersEnabled, {
+                            .disabled = !gpuShaderEngine.IsAvailable()
                         }).changed) {
                             canvas.SetGpuShadersEnabled(gpuShadersEnabled && gpuShaderEngine.IsAvailable());
                             ui.InvalidateAll();
@@ -560,14 +557,14 @@ int main(int argc, char* argv[]) {
                         }
                     }
 
-                    if (auto el = ui.Element({.label = "VSync", .size = guikit::UiSize::Md})) {
-                        if (ui.Switch(vsyncEnabled, {.size = guikit::UiSize::Md}).changed) {
+                    if (auto el = ui.Size(guikit::UiSize::Md).Element({.label = "VSync"})) {
+                        if (ui.Size(guikit::UiSize::Md).Switch(vsyncEnabled).changed) {
                             SDL_SetRenderVSync(renderer, vsyncEnabled ? 1 : 0);
                         }
                     }
 
-                    if (auto el = ui.Element({.label = "React", .size = guikit::UiSize::Md})) {
-                        if (ui.Switch(reactiveMode, {.size = guikit::UiSize::Md}).changed) {
+                    if (auto el = ui.Size(guikit::UiSize::Md).Element({.label = "React"})) {
+                        if (ui.Size(guikit::UiSize::Md).Switch(reactiveMode).changed) {
                             if (!reactiveMode) {
                                 ui.InvalidateAll();
                             }
@@ -575,8 +572,8 @@ int main(int argc, char* argv[]) {
                     }
 
                     bool dirtyActive = ui.IsDirtyRectEnabled();
-                    if (auto el = ui.Element({.label = "Dirty", .size = guikit::UiSize::Md})) {
-                        if (ui.Switch(dirtyActive, {.size = guikit::UiSize::Md}).changed) {
+                    if (auto el = ui.Size(guikit::UiSize::Md).Element({.label = "Dirty"})) {
+                        if (ui.Size(guikit::UiSize::Md).Switch(dirtyActive).changed) {
                             ui.SetDirtyRectEnabled(dirtyActive);
                             if (!dirtyActive) {
                                 ui.InvalidateAll();
@@ -608,7 +605,7 @@ int main(int argc, char* argv[]) {
                             .minWidth = 156.0f
                         })) {
                             const NavCategory prevCat = selectedCategory;
-                            if (auto menu = ui.SidebarMenu({.size = guikit::UiSize::Sm})) {
+                            if (auto menu = ui.Size(guikit::UiSize::Sm).SidebarMenu()) {
                                 menu.Section("ELEMENTS");
                                 menu.Item(selectedCategory, NavCategory::ElemHeading,       {.text = "Heading",      .icon = guikit::Icon::Edit()});
                                 menu.Item(selectedCategory, NavCategory::ElemButton,        {.text = "Button",       .icon = guikit::Icon::Play()});
@@ -660,28 +657,25 @@ int main(int argc, char* argv[]) {
                                 .gap = 8.0f,
                                 .padding = guikit::Padding::All(12.0f)
                             })) {
-                                if (auto elemAcc = ui.Accordion({
+                                if (auto elemAcc = ui.Size(guikit::UiSize::Sm).Accordion({
                                     .label = "ELEMENT",
-                                    .defaultOpen = true,
-                                    .size = guikit::UiSize::Sm
+                                    .defaultOpen = true
                                 })) {
                                     demoCtx.RenderElementInspector(ui, selectedCategory);
                                 }
 
                                 if (selectedCategory == NavCategory::ElemHeading) {
                                     bool ctrlOpen = false;
-                                    if (auto ctrlAcc = ui.Accordion(ctrlOpen, {
+                                    if (auto ctrlAcc = ui.Size(guikit::UiSize::Sm).Accordion(ctrlOpen, {
                                         .label = "CONTROL",
                                         .badge = {"N/A", guikit::StateColor::Muted()},
-                                        .size = guikit::UiSize::Sm,
                                         .disabled = true
                                     })) {
                                     }
                                 } else {
-                                    if (auto ctrlAcc = ui.Accordion({
+                                    if (auto ctrlAcc = ui.Size(guikit::UiSize::Sm).Accordion({
                                         .label = "CONTROL",
-                                        .defaultOpen = true,
-                                        .size = guikit::UiSize::Sm
+                                        .defaultOpen = true
                                     })) {
                                         demoCtx.RenderControlInspector(ui, selectedCategory);
                                     }
@@ -699,10 +693,9 @@ int main(int argc, char* argv[]) {
                                     case NavCategory::ElemImage:      specificTitle = "IMAGE"; break;
                                     default: break;
                                 }
-                                if (auto specAcc = ui.Accordion({
+                                if (auto specAcc = ui.Size(guikit::UiSize::Sm).Accordion({
                                     .label = specificTitle,
-                                    .defaultOpen = true,
-                                    .size = guikit::UiSize::Sm
+                                    .defaultOpen = true
                                 })) {
                                     DispatchInspector(ui, selectedCategory, demoCtx);
                                 }
@@ -715,9 +708,8 @@ int main(int argc, char* argv[]) {
                                 .gap = 8.0f,
                                 .padding = guikit::Padding::All(12.0f)
                             })) {
-                                ui.Heading({
+                                ui.Size(guikit::UiSize::Xs).Heading({
                                     .label = "INSPECTOR",
-                                    .size = guikit::UiSize::Xs,
                                     .divider = true
                                 });
                                 DispatchInspector(ui, selectedCategory, demoCtx);
@@ -747,16 +739,15 @@ int main(int argc, char* argv[]) {
                                 previewTb.Separator();
 
                                 if (auto pScaleBox = ui.Box({.fixedWidth = 92.0f})) {
-                                    if (ui.Select(previewScaleIndex, scaleLabels, {.size = guikit::UiSize::Sm}).changed) {
+                                    if (ui.Size(guikit::UiSize::Sm).Select(previewScaleIndex, scaleLabels).changed) {
                                         ui.InvalidateAll();
                                     }
                                 }
 
-                                if (ui.Switch(demoCtx.previewLightMode, {
+                                if (ui.Size(guikit::UiSize::Md).Switch(demoCtx.previewLightMode, {
                                     .textLeft = "Dark",
                                     .textRight = "Light",
-                                    .symmetric = true,
-                                    .size = guikit::UiSize::Md
+                                    .symmetric = true
                                 }).changed) {
                                     demoCtx.previewDarkMode = !demoCtx.previewLightMode;
                                     const auto defTheme = demoCtx.previewDarkMode
