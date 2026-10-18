@@ -139,13 +139,13 @@ void RenderTableInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     } else {
         ui.Heading({.title = "VIRTUAL JUMP (100,000 ROWS)", .size = UiSize::Xs, .divider = true});
         if (auto row = ui.Row({.gap = 6.0f})) {
-            if (ui.Button({.label = "Top (#1)", .variant = UiVariant::Secondary, .stretch = StretchMode::Fill, .size = UiSize::Sm})) {
+            if (ui.Button({.label = "Top (#1)", .color = StateColor::Secondary(), .stretch = StretchMode::Fill, .size = UiSize::Sm})) {
                 g_tableDemo.pendingJumpRow = 0;
             }
-            if (ui.Button({.label = "Mid (#50k)", .variant = UiVariant::Secondary, .stretch = StretchMode::Fill, .size = UiSize::Sm})) {
+            if (ui.Button({.label = "Mid (#50k)", .color = StateColor::Secondary(), .stretch = StretchMode::Fill, .size = UiSize::Sm})) {
                 g_tableDemo.pendingJumpRow = 49999;
             }
-            if (ui.Button({.label = "End (#100k)", .variant = UiVariant::Primary, .stretch = StretchMode::Fill, .size = UiSize::Sm})) {
+            if (ui.Button({.label = "End (#100k)", .color = StateColor::Primary(), .stretch = StretchMode::Fill, .size = UiSize::Sm})) {
                 g_tableDemo.pendingJumpRow = 99999;
             }
         }
@@ -191,7 +191,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                 if (ui.Button({
                     .label = "Sort by SNR",
                     .icon = Icon::Play(),
-                    .variant = UiVariant::Secondary,
+                    .color = StateColor::Secondary(),
                     .stretch = StretchMode::Compact,
                     .size = UiSize::Sm
                 })) {
@@ -270,7 +270,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                     if (auto row = table.Row(visRow, rowOpts)) {
                         // Col 0: Embedded Checkbox widget
                         if (auto cell = table.Cell({.align = Align::Center})) {
-                            ui.Checkbox(item.tracked, {.variant = UiVariant::Primary, .size = UiSize::Sm});
+                            ui.Checkbox(item.tracked, {.color = StateColor::Primary(), .size = UiSize::Sm});
                         }
 
                         // Col 1: Target ID

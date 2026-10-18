@@ -52,7 +52,7 @@ void RenderButtonStage(guikit::Context& ui, DemoContext& ctx) {
         .icon = s_state.hasIcon ? guikit::Icon::Play() : guikit::Icon{},
         .labelIcon = ctx.GetElementIcon(),
         .badge = ctx.GetElementBadge(),
-        .variant = ctx.btnVariant,
+        .color = ctx.GetControlColor(),
         .iconPlacement = s_state.iconPlacement,
         .layout = ctx.elemLayout,
         .inlineOrder = ctx.elemInlineOrder,
@@ -81,7 +81,7 @@ std::string GenerateButtonCode(const DemoContext& ctx) {
         "    .icon = {},\n"
         "    .labelIcon = {},\n"
         "    .badge = {},\n"
-        "    .variant = guikit::UiVariant::{},\n"
+        "    .color = {},\n"
         "    .iconPlacement = guikit::Placement::{},\n"
         "    .layout = guikit::ElementLayout::{},\n"
         "    .inlineOrder = guikit::InlineOrder::{},\n"
@@ -104,7 +104,7 @@ std::string GenerateButtonCode(const DemoContext& ctx) {
         s_state.hasIcon ? "guikit::Icon::Play()" : "{}",
         ctx.FormatElementIconCode(),
         ctx.FormatElementBadgeCode(),
-        VariantName(ctx.btnVariant),
+        ctx.FormatControlColorCode(),
         PlacementName(s_state.iconPlacement),
         ElementLayoutEnumName(ctx.elemLayout),
         InlineOrderEnumName(ctx.elemInlineOrder),

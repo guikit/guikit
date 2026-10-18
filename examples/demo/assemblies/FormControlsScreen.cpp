@@ -35,13 +35,13 @@ void RenderFormControlsScreen(guikit::Context& ui, DemoContext& ctx) {
         });
 
         if (auto actionRow = ui.Wrap({.gap = ctx.rowGap, .runGap = ctx.colGap, .align = guikit::Alignment::Center})) {
-            if (ui.Button({.label = "Increment (+1)", .icon = guikit::Icon::Plus(), .variant = guikit::UiVariant::Success})) {
+            if (ui.Button({.label = "Increment (+1)", .icon = guikit::Icon::Plus(), .color = guikit::StateColor::Success()})) {
                 ++s_state.counter;
             }
-            if (ui.Button({.label = "Decrement (-1)", .icon = guikit::Icon::Minus(), .variant = guikit::UiVariant::Warning})) {
+            if (ui.Button({.label = "Decrement (-1)", .icon = guikit::Icon::Minus(), .color = guikit::StateColor::Warning()})) {
                 --s_state.counter;
             }
-            if (ui.Button({.label = "Reset", .icon = guikit::Icon::Refresh(), .variant = guikit::UiVariant::Danger})) {
+            if (ui.Button({.label = "Reset", .icon = guikit::Icon::Refresh(), .color = guikit::StateColor::Danger()})) {
                 s_state.counter = 0;
             }
 
@@ -49,7 +49,7 @@ void RenderFormControlsScreen(guikit::Context& ui, DemoContext& ctx) {
         }
 
         if (auto togglesRow = ui.Wrap({.gap = ctx.rowGap, .runGap = ctx.colGap, .align = guikit::Alignment::Center})) {
-            ui.Checkbox(s_state.showTelemetry, {.label = "Show Telemetry", .variant = guikit::UiVariant::Info});
+            ui.Checkbox(s_state.showTelemetry, {.label = "Show Telemetry", .color = guikit::StateColor::Info()});
             if (ui.Switch(s_state.formMode, {
                 .label = "Form Mode",
                 .description = "Toggle stacked vs default label layout",
@@ -62,11 +62,10 @@ void RenderFormControlsScreen(guikit::Context& ui, DemoContext& ctx) {
 
         if (s_state.showTelemetry) {
             ui.Heading({
-                .title = "Telemetry Stream",
+                .title = {"Telemetry Stream", guikit::StateColor::Success()},
                 .subtitle = "1000 samples/sec | Jitter < 0.2ms | Hardware loop nominal",
                 .icon = guikit::Icon::Check(),
-                .badge = "ACTIVE",
-                .variant = guikit::UiVariant::Success,
+                .badge = {"ACTIVE", guikit::StateColor::Success()},
                 .size = ctx.headingSize,
                 .wordWrap = ctx.headingWordWrap
             });

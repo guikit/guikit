@@ -337,6 +337,30 @@ ControlSpec EffectiveSliderControl(const Opts& opts) noexcept {
     return c;
 }
 
+Color ResolveSliderTrackColor(const StateColor& color, bool disabled, const UiTheme& theme) noexcept {
+    const auto& pal = theme.palette;
+    const VariantColors& primary = theme.GetVariant(UiVariant::Primary);
+    if (!color.HasAny()) {
+        return disabled ? primary.bg.WithAlphaF(0.4f) : primary.bg;
+    }
+    if (color.normal.has_value() && color.normal->a == 0) {
+        return disabled ? pal.borderHover.WithAlphaF(0.4f) : pal.borderHover;
+    }
+    const Color base = color.normal.value_or(primary.bg);
+    return disabled ? color.disabled.value_or(base.WithAlphaF(0.4f)) : base;
+}
+
+Color ResolveSliderActiveThumbColor(const StateColor& color, const UiTheme& theme) noexcept {
+    const VariantColors& primary = theme.GetVariant(UiVariant::Primary);
+    if (!color.HasAny()) {
+        return primary.bgActive;
+    }
+    if (color.normal.has_value() && color.normal->a == 0) {
+        return theme.GetVariant(UiVariant::Ghost).bgActive;
+    }
+    return color.active.value_or(color.normal.has_value() ? StateColor::DarkenColor(*color.normal) : primary.bgActive);
+}
+
 ElementSpec MakeSliderElementSpec(
     const SliderOptions& opts,
     UiSize size,
@@ -352,7 +376,6 @@ ElementSpec MakeSliderElementSpec(
         .description = opts.description,
         .icon = opts.icon,
         .badge = opts.badge,
-        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -392,7 +415,6 @@ ElementSpec MakeStepSliderElementSpec(
         .description = opts.description,
         .icon = opts.icon,
         .badge = opts.badge,
-        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -596,7 +618,7 @@ Response Slider::Run(
     std::memcpy(&valBits, &currentVal, sizeof(double));
     node->visualHash = detail::HashArgs(
         valBits,
-        opts.variant,
+        opts.color,
         static_cast<uint8_t>(opts.stretch),
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
@@ -709,7 +731,6 @@ void Slider::Render(
 
     const SliderMetrics& m = theme.GetSlider(size);
     const auto& pal = theme.palette;
-    const VariantColors& variantCol = theme.GetVariant(opts.variant);
     const double rangeMin = std::min(min, max);
     const double rangeMax = std::max(min, max);
     const bool isIntStep = opts.step.has_value() && *opts.step >= 1.0 &&
@@ -761,15 +782,14 @@ void Slider::Render(
     // 2. Draw active filled track segment
     if (fillW > 0.0f) {
         const Rect fillRect(trackStartX, centerY - m.trackHeight * 0.5f, fillW, m.trackHeight);
-        Color baseFill = (opts.variant == UiVariant::Ghost) ? pal.borderHover : variantCol.bg;
-        Color fillCol = disabled ? baseFill.WithAlphaF(0.4f) : baseFill;
+        Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
         canvas.DrawRoundRect(fillRect, m.trackHeight * 0.5f, fillCol);
     }
 
     // 3. Draw thumb knob
     const Rect thumbRect(thumbCenterX - halfThumb, centerY - halfThumb, m.thumbSize, m.thumbSize);
     Color thumbBg = disabled ? pal.surface.WithAlphaF(0.5f) :
-                    active   ? variantCol.bgActive :
+                    active   ? ResolveSliderActiveThumbColor(opts.color, theme) :
                     hovered  ? pal.surface : pal.surface;
     Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
                         focused  ? pal.focusRing :
@@ -937,7 +957,7 @@ Response StepSlider::Run(
     node->visualHash = detail::HashArgs(
         curIdx,
         totalSteps,
-        opts.variant,
+        opts.color,
         static_cast<uint8_t>(opts.stretch),
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
@@ -1050,7 +1070,6 @@ void StepSlider::Render(
     const SliderMetrics& m = theme.GetSlider(size);
     const float tickFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
     const auto& pal = theme.palette;
-    const VariantColors& variantCol = theme.GetVariant(opts.variant);
 
     const std::string_view stepStr = !opts.valueText.empty()
         ? opts.valueText.text
@@ -1098,8 +1117,7 @@ void StepSlider::Render(
     // 2. Draw active filled track segment
     if (fillW > 0.0f) {
         const Rect fillRect(trackStartX, centerY - m.trackHeight * 0.5f, fillW, m.trackHeight);
-        Color baseFill = (opts.variant == UiVariant::Ghost) ? pal.borderHover : variantCol.bg;
-        Color fillCol = disabled ? baseFill.WithAlphaF(0.4f) : baseFill;
+        Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
         canvas.DrawRoundRect(fillRect, m.trackHeight * 0.5f, fillCol);
     }
 
@@ -1119,7 +1137,7 @@ void StepSlider::Render(
     // 4. Draw thumb knob
     const Rect thumbRect(thumbCenterX - halfThumb, centerY - halfThumb, m.thumbSize, m.thumbSize);
     Color thumbBg = disabled ? pal.surface.WithAlphaF(0.5f) :
-                    active   ? variantCol.bgActive :
+                    active   ? ResolveSliderActiveThumbColor(opts.color, theme) :
                     hovered  ? pal.surface : pal.surface;
     Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
                         focused  ? pal.focusRing :
@@ -1195,7 +1213,6 @@ ElementSpec MakeRangeSliderElementSpec(
         .description = opts.description,
         .icon = opts.icon,
         .badge = opts.badge,
-        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -1235,7 +1252,6 @@ ElementSpec MakeProgressBarElementSpec(
         .description = opts.description,
         .icon = opts.icon,
         .badge = opts.badge,
-        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -1536,7 +1552,7 @@ Response RangeSlider::Run(
         lowBits,
         highBits,
         state.activeThumb,
-        opts.variant,
+        opts.color,
         static_cast<uint8_t>(opts.stretch),
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
@@ -1660,7 +1676,6 @@ void RangeSlider::Render(
 
     const SliderMetrics& m = theme.GetSlider(size);
     const auto& pal = theme.palette;
-    const VariantColors& variantCol = theme.GetVariant(opts.variant);
     const double rangeMin = std::min(min, max);
     const double rangeMax = std::max(min, max);
     const bool isIntStep = opts.step.has_value() && *opts.step >= 1.0 &&
@@ -1717,8 +1732,7 @@ void RangeSlider::Render(
     const float fillW = std::max(0.0f, highThumbX - lowThumbX);
     if (fillW > 0.0f) {
         const Rect fillRect(lowThumbX, centerY - m.trackHeight * 0.5f, fillW, m.trackHeight);
-        const Color baseFill = (opts.variant == UiVariant::Ghost) ? pal.borderHover : variantCol.bg;
-        const Color fillCol = disabled ? baseFill.WithAlphaF(0.4f) : baseFill;
+        const Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
         canvas.DrawRoundRect(fillRect, m.trackHeight * 0.5f, fillCol);
     }
 
@@ -1726,7 +1740,7 @@ void RangeSlider::Render(
     auto drawThumb = [&](float thumbX, bool isFocusedThumb) {
         const Rect thumbRect(thumbX - halfThumb, centerY - halfThumb, m.thumbSize, m.thumbSize);
         const Color thumbBg = disabled ? pal.surface.WithAlphaF(0.5f) :
-                              (active && isFocusedThumb) ? variantCol.bgActive : pal.surface;
+                              (active && isFocusedThumb) ? ResolveSliderActiveThumbColor(opts.color, theme) : pal.surface;
         const Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
                                   (focused && isFocusedThumb) ? pal.focusRing :
                                   (active || hovered) ? pal.accent : pal.borderHover;
@@ -1805,7 +1819,7 @@ Response ProgressBar::Run(
         opts.warningRatio,
         opts.dangerRatio,
         opts.trackHeight.value_or(0.0f),
-        opts.variant,
+        opts.color,
         static_cast<uint8_t>(opts.stretch),
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
@@ -1982,19 +1996,20 @@ void ProgressBar::Render(
 
     auto resolveZoneColor = [&](float normPos) -> Color {
         if (!opts.multiZoneColor) {
-            const VariantColors& vc = theme.GetVariant(opts.variant);
-            const Color base = (opts.variant == UiVariant::Ghost) ? pal.borderHover : vc.bg;
-            return disabled ? base.WithAlphaF(0.4f) : base;
+            return ResolveSliderTrackColor(opts.color, disabled, theme);
         }
-        UiVariant zoneVar = (opts.variant == UiVariant::Primary || opts.variant == UiVariant::Default)
-            ? UiVariant::Success
-            : opts.variant;
+        Color col;
         if (normPos >= opts.dangerRatio) {
-            zoneVar = UiVariant::Danger;
+            col = theme.GetVariant(UiVariant::Danger).bg;
         } else if (normPos >= opts.warningRatio) {
-            zoneVar = UiVariant::Warning;
+            col = theme.GetVariant(UiVariant::Warning).bg;
+        } else if (!opts.color.HasAny() || opts.color == StateColor::Primary()) {
+            col = theme.GetVariant(UiVariant::Success).bg;
+        } else if (opts.color.normal.has_value() && opts.color.normal->a == 0) {
+            col = pal.borderHover;
+        } else {
+            col = opts.color.normal.value_or(theme.GetVariant(UiVariant::Success).bg);
         }
-        const Color col = theme.GetVariant(zoneVar).bg;
         return disabled ? col.WithAlphaF(0.4f) : col;
     };
 

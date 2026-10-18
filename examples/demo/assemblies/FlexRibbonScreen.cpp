@@ -36,7 +36,7 @@ void RenderFlexRibbonScreen(guikit::Context& ui, DemoContext& ctx) {
             for (int k = 1; k <= 10; ++k) {
                 ui.Button({
                     .label = ui.Format("Module #{:02d}", k),
-                    .variant = (k % 3 == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Default
+                    .color = (k % 3 == 0) ? guikit::StateColor::Primary() : guikit::StateColor::Default()
                 });
             }
         }

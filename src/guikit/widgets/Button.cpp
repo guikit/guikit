@@ -45,7 +45,7 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
     node->text = bOpts->label.text;
     node->SetPayload(bOpts);
     node->visualHash = detail::HashArgs(
-        opts.variant,
+        opts.color,
         opts.iconPlacement,
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
@@ -184,7 +184,6 @@ ElementSpec MakeButtonElementSpec(
         .description = opts.description,
         .icon = opts.labelIcon,
         .badge = opts.badge,
-        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -260,39 +259,69 @@ void Button::Render(
     Element::RenderText(canvas, geom, spec, theme);
     const Rect capsuleRect = geom.controlRect;
 
-    const VariantColors& colors = theme.GetVariant(opts.variant);
     const bool hasCtrlBg = ctrl.HasBackground(true);
+    const StateColor& effColor = ctrl.bgColor.HasAny() ? ctrl.bgColor : opts.color;
 
-    Color bg = hasCtrlBg ? colors.bg : Color::Transparent();
-    Color textCol = effectiveCapsuleText.color.HasAny()
-        ? effectiveCapsuleText.color.Resolve(hovered, pressed || opts.active, disabled, colors.text)
-        : (disabled ? colors.text.WithAlphaF(0.40f) : colors.text);
-    Color borderCol = colors.border;
-    float borderW = (ctrl.borderWidth > 0.0f) ? theme.Scale(ctrl.borderWidth) : colors.borderWidth;
-    if (ctrl.borderWidth > 0.0f && borderCol.a == 0) {
-        borderCol = (opts.variant != UiVariant::Default && opts.variant != UiVariant::Ghost)
-            ? colors.text.WithAlphaF(0.65f)
-            : theme.palette.border;
-    }
+    Color bg = Color::Transparent();
+    Color defaultText = theme.palette.textPrimary;
+    Color borderCol = Color::Transparent();
+    float borderW = (ctrl.borderWidth > 0.0f) ? theme.Scale(ctrl.borderWidth) : 0.0f;
 
-    if (disabled) {
-        bg = bg.WithAlphaF(0.40f);
-        borderCol = borderCol.WithAlphaF(0.40f);
-    } else if (pressed) {
-        if (hasCtrlBg) bg = colors.bgActive;
-    } else if (opts.active) {
-        if (hasCtrlBg) bg = hovered ? colors.bgHover : colors.bgActive;
-        if (opts.variant == UiVariant::Ghost) {
+    if (!effColor.HasAny() || effColor == StateColor::Secondary()) {
+        const VariantColors& colors = theme.GetVariant(UiVariant::Secondary);
+        defaultText = colors.text;
+        borderCol = colors.border;
+        if (ctrl.borderWidth <= 0.0f) borderW = colors.borderWidth;
+        if (hasCtrlBg) {
+            if (pressed) bg = colors.bgActive;
+            else if (opts.active) bg = hovered ? colors.bgHover : colors.bgActive;
+            else if (hovered) bg = colors.bgHover;
+            else bg = colors.bg;
+        }
+        if (disabled) {
+            bg = bg.WithAlphaF(0.40f);
+            borderCol = borderCol.WithAlphaF(0.40f);
+        }
+    } else if (effColor.normal.has_value() && effColor.normal->a == 0) {
+        const VariantColors& colors = theme.GetVariant(UiVariant::Ghost);
+        defaultText = colors.text;
+        borderCol = (ctrl.borderWidth > 0.0f) ? theme.palette.border : colors.border;
+        if (hasCtrlBg) {
+            if (pressed) bg = effColor.active.value_or(colors.bgActive);
+            else if (opts.active) bg = hovered ? effColor.hover.value_or(colors.bgHover) : effColor.active.value_or(colors.bgActive);
+            else if (hovered) bg = effColor.hover.value_or(colors.bgHover);
+            else bg = Color::Transparent();
+        }
+        if (!disabled && opts.active) {
             borderCol = colors.text.WithAlphaF(0.35f);
             borderW = std::max(borderW, 1.0f);
         }
-    } else if (hovered) {
-        if (hasCtrlBg) bg = colors.bgHover;
+        if (disabled) {
+            bg = bg.WithAlphaF(0.40f);
+            borderCol = borderCol.WithAlphaF(0.40f);
+        }
+    } else {
+        const VariantColors& fallback = theme.GetVariant(UiVariant::Primary);
+        defaultText = (effColor == StateColor::Warning() && theme.mode == ThemeMode::Dark)
+            ? Color::Hex(0x0F172AFF)
+            : Color::Hex(0xFFFFFFFF);
+        if (hasCtrlBg) {
+            if (opts.active && !pressed && hovered && !disabled) {
+                bg = effColor.hover.value_or(effColor.normal.value_or(fallback.bgHover));
+            } else {
+                bg = effColor.Resolve(hovered, pressed || opts.active, disabled, fallback.bg, fallback.bgHover, fallback.bgActive, fallback.bg.WithAlphaF(0.40f));
+            }
+        }
+        if (ctrl.borderWidth > 0.0f) {
+            borderCol = defaultText.WithAlphaF(0.65f);
+            if (disabled) borderCol = borderCol.WithAlphaF(0.40f);
+        }
     }
 
-    if (hasCtrlBg && ctrl.bgColor.HasAny()) {
-        bg = ctrl.bgColor.Resolve(hovered, pressed || opts.active, disabled, bg);
-    }
+    Color textCol = effectiveCapsuleText.color.HasAny()
+        ? effectiveCapsuleText.color.Resolve(hovered, pressed || opts.active, disabled, defaultText)
+        : (disabled ? defaultText.WithAlphaF(0.40f) : defaultText);
+
     if (ctrl.borderColor.HasAny()) {
         borderCol = ctrl.borderColor.Resolve(hovered, pressed || opts.active || focused, disabled, borderCol);
     }

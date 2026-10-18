@@ -447,7 +447,7 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
         if (ui.Button({
             .text = "Zoom Selection",
             .icon = guikit::Icon::Search(),
-            .variant = guikit::UiVariant::Primary,
+            .color = guikit::StateColor::Primary(),
             .stretch = guikit::StretchMode::Fill,
             .disabled = !s_sig.selection.active || s_sig.selection.DurationSec() <= 1e-5,
             .size = guikit::UiSize::Sm
@@ -461,7 +461,7 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
         if (ui.Button({
             .text = "Reset View",
             .icon = guikit::Icon::Refresh(),
-            .variant = guikit::UiVariant::Secondary,
+            .color = guikit::StateColor::Secondary(),
             .stretch = guikit::StretchMode::Fill,
             .size = guikit::UiSize::Sm
         })) {

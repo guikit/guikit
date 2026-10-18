@@ -71,7 +71,6 @@ ElementSpec MakeSwitchElementSpec(
         .description = opts.description,
         .icon = opts.icon,
         .badge = opts.badge,
-        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -153,7 +152,7 @@ Response Switch::Run(
     node->text = optsCopy.label.text;
     node->SetPayload(ctx.AllocPayload<SwitchOptions>(optsCopy));
     node->visualHash = detail::HashArgs(
-        opts.variant,
+        opts.color,
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
         static_cast<uint8_t>(opts.elementAlign),
@@ -315,16 +314,21 @@ void Switch::Render(
         strokeWidth = 1.0f;
         knobFill = pal.controlKnobActive;
     } else if (checked) {
-        const VariantColors& v = theme.GetVariant(opts.variant);
-        if (opts.variant == UiVariant::Ghost) {
-            trackFill = (hovered && !disabled) ? v.bgHover : Color::Transparent();
+        const VariantColors& v = theme.GetVariant(UiVariant::Primary);
+        if (!opts.color.HasAny()) {
+            trackFill = (hovered && !disabled) ? v.bgHover : v.bg;
+            trackStroke = (v.borderWidth > 0.0f) ? v.border : Color::Transparent();
+            strokeWidth = v.borderWidth;
+            knobFill = pal.controlKnobActive;
+        } else if (opts.color.normal.has_value() && opts.color.normal->a == 0) {
+            trackFill = (hovered && !disabled) ? opts.color.hover.value_or(theme.GetVariant(UiVariant::Ghost).bgHover) : Color::Transparent();
             trackStroke = (hovered && !disabled) ? pal.borderHover : pal.border;
             strokeWidth = 1.0f;
             knobFill = pal.controlKnobActive;
         } else {
-            trackFill = (hovered && !disabled) ? v.bgHover : v.bg;
-            trackStroke = (v.borderWidth > 0.0f) ? v.border : Color::Transparent();
-            strokeWidth = v.borderWidth;
+            trackFill = opts.color.Resolve(hovered && !disabled, pressed && !disabled, false, v.bg, v.bgHover, v.bgActive, v.bg);
+            trackStroke = Color::Transparent();
+            strokeWidth = 0.0f;
             knobFill = pal.controlKnobActive;
         }
     } else {

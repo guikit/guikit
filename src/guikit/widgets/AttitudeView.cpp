@@ -40,7 +40,6 @@ constexpr float kDegToRad = kPi / 180.0f;
         .description = opts.description,
         .icon = opts.icon,
         .badge = opts.badge,
-        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,

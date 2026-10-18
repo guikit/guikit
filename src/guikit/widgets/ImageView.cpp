@@ -636,7 +636,6 @@ struct ImageViewViewportPayload {
         .description = opts.description,
         .icon = opts.icon,
         .badge = opts.badge,
-        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -1039,7 +1038,7 @@ ImageViewResponse RunViewportNode(
                 } else {
                     bOpts.label = ViewportLayoutGeom::kToolLabels[i];
                 }
-                bOpts.variant = activeToggle ? UiVariant::Primary : UiVariant::Secondary;
+                bOpts.color = activeToggle ? StateColor::Primary() : StateColor::Secondary();
                 bOpts.active = activeToggle;
                 bOpts.size = vg.toolbarSize;
                 bOpts.stretch = StretchMode::Fill;
@@ -1464,7 +1463,7 @@ ImageViewResponse ImageView::Run(
                     sidebarChangedParams = true;
                 }
                 ctx.Spacer();
-                if (ctx.Button({.label = "Reset W/L", .variant = UiVariant::Secondary}).clicked) {
+                if (ctx.Button({.label = "Reset W/L", .color = StateColor::Secondary()}).clicked) {
                     for (auto& ch : params.channels) {
                         ch.ResetToRange(st.dataMin, st.dataMax);
                     }
@@ -1511,7 +1510,7 @@ ImageViewResponse ImageView::Run(
                     const bool isSel = (params.autoStrength == sMode);
                     if (ctx.Button({
                         .label = kStrengthNames[i],
-                        .variant = isSel ? UiVariant::Primary : UiVariant::Secondary,
+                        .color = isSel ? StateColor::Primary() : StateColor::Secondary(),
                         .stretch = StretchMode::Fill
                     }).clicked) {
                         params.autoStrength = sMode;
@@ -1530,7 +1529,7 @@ ImageViewResponse ImageView::Run(
             if (data.channels >= 3) {
                 if (ctx.Button({
                     .label = "Auto White Balance (Per-Channel R/G/B)",
-                    .variant = UiVariant::Secondary,
+                    .color = StateColor::Secondary(),
                     .stretch = StretchMode::Fill
                 }).clicked) {
                     params.channels[0].ResetToRange(st.dataMin, st.dataMax);
@@ -1547,10 +1546,10 @@ ImageViewResponse ImageView::Run(
             // --- Section 4: Transform & View ---
             ctx.Text("Transform & View", {.role = TextRole::LabelLarge});
             if (auto zRow = ctx.Row({.gap = 6.0f, .align = Alignment::Center})) {
-                if (ctx.Button({.label = "Fit", .variant = UiVariant::Secondary, .stretch = StretchMode::Fill}).clicked) {
+                if (ctx.Button({.label = "Fit", .color = StateColor::Secondary(), .stretch = StretchMode::Fill}).clicked) {
                     st.fitPending = true;
                 }
-                if (ctx.Button({.label = "100%", .variant = UiVariant::Secondary, .stretch = StretchMode::Fill}).clicked) {
+                if (ctx.Button({.label = "100%", .color = StateColor::Secondary(), .stretch = StretchMode::Fill}).clicked) {
                     st.zoom = 1.0f;
                     st.fitPending = false;
                 }
@@ -1567,7 +1566,7 @@ ImageViewResponse ImageView::Run(
             if (auto flipRow = ctx.Row({.gap = 6.0f})) {
                 if (ctx.Button({
                     .label = "Flip H",
-                    .variant = params.flipHorizontal ? UiVariant::Primary : UiVariant::Secondary,
+                    .color = params.flipHorizontal ? StateColor::Primary() : StateColor::Secondary(),
                     .stretch = StretchMode::Fill
                 }).clicked) {
                     params.flipHorizontal = !params.flipHorizontal;
@@ -1575,7 +1574,7 @@ ImageViewResponse ImageView::Run(
                 }
                 if (ctx.Button({
                     .label = "Flip V",
-                    .variant = params.flipVertical ? UiVariant::Primary : UiVariant::Secondary,
+                    .color = params.flipVertical ? StateColor::Primary() : StateColor::Secondary(),
                     .stretch = StretchMode::Fill
                 }).clicked) {
                     params.flipVertical = !params.flipVertical;

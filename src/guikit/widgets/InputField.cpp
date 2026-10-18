@@ -98,7 +98,6 @@ ElementSpec MakeInputFieldElementSpec(
         .description = opts.description,
         .icon = opts.icon,
         .badge = opts.badge,
-        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -619,7 +618,6 @@ Response InputField::Run(
     data->stepPlusDisabled = stepPlusDisabled;
     node->SetPayload(data);
     node->visualHash = detail::HashArgs(
-        opts.variant,
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
         static_cast<uint8_t>(opts.elementAlign),
@@ -796,20 +794,13 @@ void InputField::Render(
     Color boxBorder;
     float strokeW = (ctrl.borderWidth > 0.0f) ? theme.Scale(ctrl.borderWidth) : m.strokeWidth;
 
-    const VariantColors& v = theme.GetVariant(opts.variant);
     if (focused && !disabled) {
-        boxBorder = (opts.variant == UiVariant::Default || opts.variant == UiVariant::Ghost) ? pal.focusRing : v.bg;
+        boxBorder = pal.focusRing;
         if (ctrl.borderWidth > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
     } else if (hovered && !disabled) {
-        boxBorder = (opts.variant == UiVariant::Default || opts.variant == UiVariant::Ghost) ? pal.borderHover : v.bgHover;
+        boxBorder = pal.borderHover;
     } else {
-        if (opts.variant == UiVariant::Default) {
-            boxBorder = pal.inputBorder;
-        } else if (opts.variant == UiVariant::Ghost) {
-            boxBorder = pal.border;
-        } else {
-            boxBorder = (v.border.a > 0) ? v.border : v.bg;
-        }
+        boxBorder = pal.inputBorder;
     }
 
     Color textCol = opts.valueFormat.color.HasAny()

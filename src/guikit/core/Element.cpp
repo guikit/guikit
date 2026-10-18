@@ -139,7 +139,6 @@ ElementSpec Element::MakeSpec(
         .description = subSpec,
         .icon = opts.icon,
         .badge = opts.badge,
-        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -193,7 +192,6 @@ Response Element::Run(
     node->text = eOpts->EffectiveTitle().text;
     node->SetPayload(eOpts);
     node->visualHash = detail::HashArgs(
-        opts.variant,
         static_cast<uint8_t>(opts.layout),
         static_cast<uint8_t>(opts.inlineOrder),
         static_cast<uint8_t>(opts.elementAlign),
@@ -639,33 +637,15 @@ void Element::RenderFrame(
         : cm.cornerRadius;
 
     const auto& pal = theme.palette;
-    const bool hasLegacyHeadingVar = !spec.hasControl &&
-        !spec.borderColor.HasAny() &&
-        spec.variant != UiVariant::Default &&
-        spec.variant != UiVariant::Ghost &&
-        spec.variant != UiVariant::Muted;
-
-    const Color resolvedBorderAccent = spec.borderColor.HasAny()
-        ? spec.borderColor.Resolve(
-              spec.hovered,
-              spec.active,
-              spec.disabled,
-              pal.borderSubtle,
-              pal.borderHover,
-              pal.focusRing,
-              pal.borderSubtle.WithAlphaF(0.40f))
-        : (hasLegacyHeadingVar
-              ? (spec.disabled
-                    ? theme.GetVariant(spec.variant).bg.WithAlphaF(0.22f)
-                    : theme.GetVariant(spec.variant).bg.WithAlphaF(0.55f))
-              : StateColor{}.Resolve(
-                    spec.hovered,
-                    spec.active,
-                    spec.disabled,
-                    pal.borderSubtle,
-                    pal.borderHover,
-                    pal.focusRing,
-                    pal.borderSubtle.WithAlphaF(0.40f)));
+    const Color resolvedBorderAccent = spec.borderColor.Resolve(
+        spec.hovered,
+        spec.active,
+        spec.disabled,
+        pal.borderSubtle,
+        pal.borderHover,
+        pal.focusRing,
+        pal.borderSubtle.WithAlphaF(0.40f)
+    );
 
     Color bg = Color::Transparent();
     if (spec.background) {
@@ -681,14 +661,11 @@ void Element::RenderFrame(
             );
         } else {
             bg = pal.surface;
-            if (spec.borderColor.HasAny() || hasLegacyHeadingVar) {
-                const Color tint = spec.borderColor.HasAny()
-                    ? resolvedBorderAccent
-                    : theme.GetVariant(spec.variant).bg;
+            if (spec.borderColor.HasAny()) {
                 bg = Color(
-                    static_cast<uint8_t>((static_cast<int>(bg.r) * 90 + static_cast<int>(tint.r) * 10) / 100),
-                    static_cast<uint8_t>((static_cast<int>(bg.g) * 90 + static_cast<int>(tint.g) * 10) / 100),
-                    static_cast<uint8_t>((static_cast<int>(bg.b) * 90 + static_cast<int>(tint.b) * 10) / 100),
+                    static_cast<uint8_t>((static_cast<int>(bg.r) * 90 + static_cast<int>(resolvedBorderAccent.r) * 10) / 100),
+                    static_cast<uint8_t>((static_cast<int>(bg.g) * 90 + static_cast<int>(resolvedBorderAccent.g) * 10) / 100),
+                    static_cast<uint8_t>((static_cast<int>(bg.b) * 90 + static_cast<int>(resolvedBorderAccent.b) * 10) / 100),
                     255
                 );
             }
@@ -717,11 +694,11 @@ void Element::RenderText(
 
     const ControlSpec ctrlSpec = EffectiveControlSpec(spec);
     if (spec.hasControl) {
-        Control::RenderFrame(canvas, geom.controlRect, ctrlSpec, spec.variant, spec.widgetSize, spec.disabled, theme, spec.hovered, spec.active);
+        Control::RenderFrame(canvas, geom.controlRect, ctrlSpec, spec.widgetSize, spec.disabled, theme, spec.hovered, spec.active);
     }
 
     const float alignFactor = (spec.elementAlign == Align::End) ? 1.0f : ((spec.elementAlign == Align::Center) ? 0.5f : 0.0f);
-    const UiVariant defaultLabelVar = (!spec.hasControl && spec.variant != UiVariant::Default) ? spec.variant : UiVariant::Default;
+    const UiVariant defaultLabelVar = UiVariant::Default;
     const UiVariant defaultDescVar = spec.headingTypography ? UiVariant::Secondary : UiVariant::Muted;
 
     const Color labelCol = theme.ResolveTextColor(spec.label, defaultLabelVar, spec.disabled, spec.hovered, spec.active);
@@ -794,13 +771,6 @@ void Element::RenderText(
                 const Color resolvedBadge = spec.badge.color.Resolve(spec.hovered, spec.active, spec.disabled, pal.textPrimary);
                 badgeBg = resolvedBadge.WithAlphaF(spec.disabled ? 0.12f : 0.22f);
                 badgeTextCol = resolvedBadge;
-            } else if (!spec.hasControl && spec.variant != UiVariant::Default) {
-                badgeBg = theme.GetVariant(spec.variant).bgActive;
-                badgeTextCol = theme.GetVariant(spec.variant).text;
-                if (spec.disabled) {
-                    badgeBg = badgeBg.WithAlphaF(0.40f);
-                    badgeTextCol = badgeTextCol.WithAlphaF(0.40f);
-                }
             } else if (spec.disabled) {
                 badgeBg = badgeBg.WithAlphaF(0.40f);
                 badgeTextCol = badgeTextCol.WithAlphaF(0.40f);
@@ -819,21 +789,15 @@ void Element::RenderText(
     }
 
     if (spec.divider) {
-        Color divColor = spec.borderColor.HasAny()
-            ? spec.borderColor.Resolve(
-                  spec.hovered,
-                  spec.active,
-                  spec.disabled,
-                  pal.borderSubtle,
-                  pal.borderHover,
-                  pal.focusRing,
-                  pal.borderSubtle.WithAlphaF(0.40f))
-            : ((spec.variant != UiVariant::Default)
-                  ? theme.GetVariant(spec.variant).border
-                  : pal.borderSubtle);
-        if (spec.disabled && !spec.borderColor.HasAny()) {
-            divColor = divColor.WithAlphaF(0.40f);
-        }
+        const Color divColor = spec.borderColor.Resolve(
+            spec.hovered,
+            spec.active,
+            spec.disabled,
+            pal.borderSubtle,
+            pal.borderHover,
+            pal.focusRing,
+            pal.borderSubtle.WithAlphaF(0.40f)
+        );
 
         const float outerPad = ComputeOuterPadding(spec, theme);
         const Rect outer = geom.outerBounds.Inset(outerPad);

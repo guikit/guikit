@@ -125,7 +125,6 @@ ElementSpec BuildTableElementSpec(
         .description = opts.description,
         .icon = opts.icon,
         .badge = opts.badge,
-        .variant = UiVariant::Default,
         .layout = ElementLayout::Top,
         .inlineOrder = InlineOrder::LabelFirst,
         .elementAlign = Align::Start,

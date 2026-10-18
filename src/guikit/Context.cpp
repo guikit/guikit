@@ -490,7 +490,9 @@ Response Context::StepSlider(
     if (!opts.valueText.color.HasAny() && variant != UiVariant::Default) {
         opts.valueText.color = StateColor::FromTextVariant(variant);
     }
-    opts.variant = variant;
+    if (!opts.color.HasAny() && variant != UiVariant::Default) {
+        opts.color = StateColor::FromTextVariant(variant);
+    }
 
     Response res = StepSlider(idx, opts.stepLabels.size(), opts, loc);
     if (res.changed && idx < kVariants.size()) {

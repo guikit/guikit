@@ -355,6 +355,14 @@ struct DemoContext {
         return "std::nullopt";
     }
 
+    guikit::StateColor GetControlColor() const noexcept {
+        return guikit::StateColor::FromVariant(btnVariant);
+    }
+
+    std::string FormatControlColorCode() const {
+        return std::string("guikit::StateColor::") + std::string(VariantName(btnVariant)) + "()";
+    }
+
     std::string FormatElemBorderColorCode() const {
         return std::string("guikit::StateColor::") + std::string(VariantName(elemBorderVariant)) + "()";
     }
@@ -428,7 +436,7 @@ struct DemoContext {
             .showLabels = true,
             .showValue = true,
             .valueText = {VariantName(descVar), (descVar == guikit::UiVariant::Muted) ? guikit::UiVariant::Secondary : descVar, descVarFull},
-            .variant = (descVar == guikit::UiVariant::Muted) ? guikit::UiVariant::Secondary : descVar,
+            .color = guikit::StateColor::FromVariant((descVar == guikit::UiVariant::Muted) ? guikit::UiVariant::Secondary : descVar),
             .disabled = !enabled
         }).changed) {
             descVar = descVars[descVarIdx];
@@ -545,7 +553,7 @@ struct DemoContext {
         );
         if (hasControlVariant) {
             if (ui.StepSlider(btnVariant, {
-                .label = "Control Variant",
+                .label = "Control Color",
                 .showTicks = true,
                 .showLabels = true,
                 .showValue = true

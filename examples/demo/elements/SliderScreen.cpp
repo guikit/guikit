@@ -136,7 +136,7 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
             .elementAlign = ctx.elemAlign,
             .showValue = s_state.showValue,
             .valuePlacement = s_state.valuePlacement,
-            .variant = ctx.btnVariant,
+            .color = ctx.GetControlColor(),
             .size = ctx.controlsSize,
             .stretch = ctx.GetElementStretch(),
             .background = ctx.elemBackground,
@@ -162,7 +162,7 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
             .showLabels = s_state.showLabels,
             .showValue = s_state.showValue,
             .valuePlacement = s_state.valuePlacement,
-            .variant = ctx.btnVariant,
+            .color = ctx.GetControlColor(),
             .size = ctx.controlsSize,
             .stretch = ctx.GetElementStretch(),
             .background = ctx.elemBackground,
@@ -188,7 +188,7 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
             .elementAlign = ctx.elemAlign,
             .showValue = s_state.showValue,
             .valuePlacement = s_state.valuePlacement,
-            .variant = ctx.btnVariant,
+            .color = ctx.GetControlColor(),
             .size = ctx.controlsSize,
             .stretch = ctx.GetElementStretch(),
             .background = ctx.elemBackground,
@@ -215,7 +215,7 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
             .elementAlign = ctx.elemAlign,
             .showValue = s_state.showValue,
             .valuePlacement = s_state.valuePlacement,
-            .variant = ctx.btnVariant,
+            .color = ctx.GetControlColor(),
             .size = ctx.controlsSize,
             .stretch = ctx.GetElementStretch(),
             .multiZoneColor = s_state.progressMultiZone,
@@ -246,7 +246,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             "    .elementAlign = guikit::Align::{},\n"
             "    .showValue = {},\n"
             "    .valuePlacement = guikit::Placement::{},\n"
-            "    .variant = guikit::UiVariant::{},\n"
+            "    .color = {},\n"
             "    .size = guikit::UiSize::{},\n"
             "    .stretch = guikit::StretchMode::{},\n"
             "    .background = {},\n"
@@ -268,7 +268,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             LabelAlignEnumName(ctx.elemAlign),
             s_state.showValue ? "true" : "false",
             PlacementName(s_state.valuePlacement),
-            VariantName(ctx.btnVariant),
+            ctx.FormatControlColorCode(),
             SizeName(ctx.controlsSize),
             StretchModeEnumName(ctx.GetElementStretch()),
             ctx.elemBackground ? "true" : "false",
@@ -296,7 +296,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             "    .showLabels = {},\n"
             "    .showValue = {},\n"
             "    .valuePlacement = guikit::Placement::{},\n"
-            "    .variant = guikit::UiVariant::{},\n"
+            "    .color = {},\n"
             "    .size = guikit::UiSize::{},\n"
             "    .stretch = guikit::StretchMode::{},\n"
             "    .background = {},\n"
@@ -319,7 +319,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             s_state.showLabels ? "true" : "false",
             s_state.showValue ? "true" : "false",
             PlacementName(s_state.valuePlacement),
-            VariantName(ctx.btnVariant),
+            ctx.FormatControlColorCode(),
             SizeName(ctx.controlsSize),
             StretchModeEnumName(ctx.GetElementStretch()),
             ctx.elemBackground ? "true" : "false",
@@ -347,7 +347,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             "    .elementAlign = guikit::Align::{},\n"
             "    .showValue = {},\n"
             "    .valuePlacement = guikit::Placement::{},\n"
-            "    .variant = guikit::UiVariant::{},\n"
+            "    .color = {},\n"
             "    .size = guikit::UiSize::{},\n"
             "    .stretch = guikit::StretchMode::{},\n"
             "    .background = {},\n"
@@ -370,7 +370,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             LabelAlignEnumName(ctx.elemAlign),
             s_state.showValue ? "true" : "false",
             PlacementName(s_state.valuePlacement),
-            VariantName(ctx.btnVariant),
+            ctx.FormatControlColorCode(),
             SizeName(ctx.controlsSize),
             StretchModeEnumName(ctx.GetElementStretch()),
             ctx.elemBackground ? "true" : "false",
@@ -398,7 +398,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
         "    .elementAlign = guikit::Align::{},\n"
         "    .showValue = {},\n"
         "    .valuePlacement = guikit::Placement::{},\n"
-        "    .variant = guikit::UiVariant::{},\n"
+        "    .color = {},\n"
         "    .size = guikit::UiSize::{},\n"
         "    .stretch = guikit::StretchMode::{},\n"
         "    .multiZoneColor = {},\n"
@@ -423,7 +423,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
         LabelAlignEnumName(ctx.elemAlign),
         s_state.showValue ? "true" : "false",
         PlacementName(s_state.valuePlacement),
-        VariantName(ctx.btnVariant),
+        ctx.FormatControlColorCode(),
         SizeName(ctx.controlsSize),
         StretchModeEnumName(ctx.GetElementStretch()),
         s_state.progressMultiZone ? "true" : "false",

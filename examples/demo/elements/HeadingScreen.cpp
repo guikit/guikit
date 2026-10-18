@@ -56,7 +56,6 @@ void RenderHeadingStage(guikit::Context& ui, DemoContext& ctx) {
         .subtitle = ctx.GetElementDescription(),
         .icon = ctx.GetElementIcon(),
         .badge = ctx.GetElementBadge(),
-        .variant = ctx.elemLabelVariant,
         .size = ctx.controlsSize,
         .layout = ctx.elemLayout,
         .inlineOrder = ctx.elemInlineOrder,
@@ -82,7 +81,6 @@ std::string GenerateHeadingCode(const DemoContext& ctx) {
         "    .subtitle = {},\n"
         "    .icon = {},\n"
         "    .badge = {},\n"
-        "    .variant = guikit::UiVariant::{},\n"
         "    .size = guikit::UiSize::{},\n"
         "    .layout = guikit::ElementLayout::{},\n"
         "    .inlineOrder = guikit::InlineOrder::{},\n"
@@ -103,7 +101,6 @@ std::string GenerateHeadingCode(const DemoContext& ctx) {
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
         ctx.FormatElementBadgeCode(),
-        VariantName(ctx.elemLabelVariant),
         SizeName(ctx.controlsSize),
         ElementLayoutEnumName(ctx.elemLayout),
         InlineOrderEnumName(ctx.elemInlineOrder),

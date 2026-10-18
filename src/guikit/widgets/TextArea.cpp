@@ -856,7 +856,6 @@ ElementSpec MakeTextAreaElementSpec(
         .description = opts.description,
         .icon = opts.icon,
         .badge = opts.badge,
-        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -1362,7 +1361,7 @@ EditorLayoutRects ComputeEditorLayout(
         ButtonOptions dbgBtnOpts{};
         dbgBtnOpts.icon = Icon::DebugContinue();
         dbgBtnOpts.square = true;
-        dbgBtnOpts.variant = UiVariant::Ghost;
+        dbgBtnOpts.color = StateColor::Ghost();
         dbgBtnOpts.size = L.toolbarSize;
         const Vec2 btnSz = Button::Measure(dbgBtnOpts, L.toolbarSize, canvas, theme);
         const float btnW = btnSz.x;
@@ -4000,7 +3999,7 @@ void TextArea::Render(
             ButtonOptions bOpts{};
             bOpts.icon = Icon(kDbgIcons[static_cast<size_t>(i)]);
             bOpts.square = true;
-            bOpts.variant = UiVariant::Ghost;
+            bOpts.color = StateColor::Ghost();
             bOpts.iconColor = bHov ? baseCol : baseCol.WithAlphaF(0.95f);
             bOpts.size = tbSize;
             bOpts.stretch = StretchMode::Fill;
@@ -4019,7 +4018,7 @@ void TextArea::Render(
             ButtonOptions bOpts{};
             bOpts.icon = Icon(iconId);
             bOpts.square = true;
-            bOpts.variant = activeToggle ? UiVariant::Primary : UiVariant::Ghost;
+            bOpts.color = activeToggle ? StateColor::Primary() : StateColor::Ghost();
             bOpts.active = activeToggle;
             bOpts.size = tbSize;
             bOpts.stretch = StretchMode::Fill;
@@ -4051,7 +4050,7 @@ void TextArea::Render(
                 ButtonOptions caseOpts{};
                 caseOpts.label = "Aa";
                 caseOpts.square = true;
-                caseOpts.variant = extData->matchCase ? UiVariant::Primary : UiVariant::Ghost;
+                caseOpts.color = extData->matchCase ? StateColor::Primary() : StateColor::Ghost();
                 caseOpts.active = extData->matchCase;
                 caseOpts.size = tbSize;
                 caseOpts.stretch = StretchMode::Fill;
@@ -4062,7 +4061,7 @@ void TextArea::Render(
                 ButtonOptions wordOpts{};
                 wordOpts.label = "ab";
                 wordOpts.square = true;
-                wordOpts.variant = extData->wholeWord ? UiVariant::Primary : UiVariant::Ghost;
+                wordOpts.color = extData->wholeWord ? StateColor::Primary() : StateColor::Ghost();
                 wordOpts.active = extData->wholeWord;
                 wordOpts.size = tbSize;
                 wordOpts.stretch = StretchMode::Fill;
@@ -4116,7 +4115,7 @@ void TextArea::Render(
                     ButtonOptions rep1Opts{};
                     rep1Opts.label = "1";
                     rep1Opts.icon = Icon::Replace();
-                    rep1Opts.variant = UiVariant::Ghost;
+                    rep1Opts.color = StateColor::Ghost();
                     rep1Opts.size = tbSize;
                     rep1Opts.stretch = StretchMode::Fill;
                     Button::Render(canvas, S.replaceOneBtnRect, rep1Opts, tbSize, hovBtn == 6, false, disabled, theme, false);
@@ -4125,7 +4124,7 @@ void TextArea::Render(
                     ButtonOptions repAllOpts{};
                     repAllOpts.label = "All";
                     repAllOpts.icon = Icon::ReplaceAll();
-                    repAllOpts.variant = UiVariant::Ghost;
+                    repAllOpts.color = StateColor::Ghost();
                     repAllOpts.size = tbSize;
                     repAllOpts.stretch = StretchMode::Fill;
                     Button::Render(canvas, S.replaceAllBtnRect, repAllOpts, tbSize, hovBtn == 7, false, disabled, theme, false);
@@ -4153,7 +4152,7 @@ void TextArea::Render(
         ButtonOptions copyOpts{};
         copyOpts.label = copied ? "Copied" : "Copy";
         copyOpts.icon = copied ? Icon::Check() : Icon::Copy();
-        copyOpts.variant = copied ? UiVariant::Success : UiVariant::Secondary;
+        copyOpts.color = copied ? StateColor::Success() : StateColor::Secondary();
         copyOpts.active = copied;
         copyOpts.size = tbSize;
         copyOpts.stretch = StretchMode::Fill;
@@ -4166,7 +4165,7 @@ void TextArea::Render(
         std::snprintf(zBuf, sizeof(zBuf), "%d%%", static_cast<int>(std::lround(effZoom * 100.0f)));
         ButtonOptions zoomOpts{};
         zoomOpts.label = zBuf;
-        zoomOpts.variant = UiVariant::Secondary;
+        zoomOpts.color = StateColor::Secondary();
         zoomOpts.size = tbSize;
         zoomOpts.stretch = StretchMode::Fill;
         Button::Render(canvas, L.zoomBtnRect, zoomOpts, tbSize, zHov, false, disabled, theme, false);

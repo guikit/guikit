@@ -22,7 +22,6 @@ struct ImageOptions {
     UiText description{};                               ///< Optional external caption/description
     Icon icon{};                                        ///< Optional leading icon in external Element label bar
     UiText badge{};                                     ///< Optional trailing pill badge in external Element label bar
-    UiVariant variant{UiVariant::Default};              ///< Semantic variant for external Element label bar / divider
     UiText alt{};                                       ///< Fallback text when image is missing or fails to load
     std::string_view tooltip{};                         ///< Optional hover tooltip text
     ObjectFit fit{ObjectFit::Contain};                  ///< Fitting policy inside the control box

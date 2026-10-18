@@ -95,7 +95,6 @@ ElementSpec MakeImageSpec(
         .description = opts.description,
         .icon = opts.icon,
         .badge = opts.badge,
-        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -216,7 +215,6 @@ Response Image::Run(
         payload->opts.description,
         payload->opts.badge,
         payload->opts.alt,
-        opts.variant,
         opts.background,
         opts.borderWidth,
         opts.borderRadius.value_or(-1.0f),
@@ -415,14 +413,6 @@ void Image::Render(
         Color bCol = disabled ? theme.palette.borderSubtle.WithAlphaF(0.40f) : theme.palette.borderSubtle;
         if (ctrl.borderColor.HasAny()) {
             bCol = ctrl.borderColor.Resolve(hovered, false, disabled, bCol);
-        } else if (opts.variant != UiVariant::Default &&
-                   opts.variant != UiVariant::Secondary &&
-                   opts.variant != UiVariant::Muted &&
-                   opts.variant != UiVariant::Ghost) {
-            bCol = theme.GetVariant(opts.variant).bg.WithAlphaF(0.75f);
-            if (disabled) {
-                bCol = bCol.WithAlphaF(0.40f);
-            }
         }
         canvas.DrawRoundRect(box, rad, Color::Transparent(), bCol, theme.Scale(ctrl.borderWidth));
     }

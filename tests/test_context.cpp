@@ -468,7 +468,7 @@ void TestBoxSlotWithUiSizeToken() {
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = 12.0f})) {
             if (auto slotLg = ui.Box({.size = UiSize::Lg})) {
-                btnLarge = ui.Button({.label = "Large Action", .variant = UiVariant::Primary, .stretch = StretchMode::Fill});
+                btnLarge = ui.Button({.label = "Large Action", .color = StateColor::Primary(), .stretch = StretchMode::Fill});
             }
             if (auto slotSquare = ui.Box({.fixedWidth = 32.0f, .size = UiSize::Sm})) {
                 btnSquareIcon = ui.Button({.icon = Icon::Close()});
@@ -511,7 +511,7 @@ void TestButtonWidgetRunAndResponseChaining() {
             btn1 = ui.Button({
                 .label = "Next",
                 .icon = Icon::ChevronRight(),
-                .variant = UiVariant::Primary,
+                .color = StateColor::Primary(),
                 .iconPlacement = Placement::Trailing
             });
 
@@ -519,7 +519,7 @@ void TestButtonWidgetRunAndResponseChaining() {
             btn2 = Button::Run(ui, {
                 .label = "Prev",
                 .icon = Icon::ChevronLeft(),
-                .variant = UiVariant::Secondary,
+                .color = StateColor::Secondary(),
                 .iconPlacement = Placement::Leading
             });
         }
@@ -717,8 +717,8 @@ void TestAutonomousTextWidgetAndTypographyRoles() {
 void TestSwitchAndCheckboxWidgets() {
     using namespace guikit;
 
-    static_assert(sizeof(SwitchOptions) <= 840);
-    static_assert(sizeof(CheckboxOptions) <= 720);
+    static_assert(sizeof(SwitchOptions) <= 880);
+    static_assert(sizeof(CheckboxOptions) <= 760);
 
     const auto theme = UiTheme::Dark();
     // 1. Test measurement
@@ -2760,11 +2760,10 @@ void TestHeadingWidgetWorkflow() {
         if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
             head1 = ui.Heading({.title = "System Overview", .subtitle = dynamicSubtitle});
             head2 = ui.Heading({
-                .title = "Telemetry Stream",
+                .title = {"Telemetry Stream", StateColor::Success()},
                 .subtitle = "1000 samples/sec",
                 .icon = Icon::Check(),
-                .badge = "ACTIVE",
-                .variant = UiVariant::Success
+                .badge = {"ACTIVE", StateColor::Success()}
             });
             head3 = ui.Heading({.title = "Section Divider", .divider = true});
             head4 = ui.Heading({.title = "Trailing Divider", .divider = true, .dividerStyle = HeadingDivider::Trailing});
@@ -2990,13 +2989,13 @@ void TestIndustrialDashboardNoBlackLines() {
                                 }
 
                                 if (auto card2 = ui.Card()) {
-                                    ui.Heading({.title = "Emergency Interlocks", .subtitle = "Hardware line supervision & failsafes", .variant = UiVariant::Danger});
+                                    ui.Heading({.title = {"Emergency Interlocks", StateColor::Danger()}, .subtitle = "Hardware line supervision & failsafes"});
                                     if (auto grid2 = ui.Grid()) {
                                         if (auto c = grid2.Cell12()) {
                                             ui.Switch(hwEstop, {
                                                 .label = "Hardware E-Stop Line",
                                                 .description = "Continuous 24V loop monitoring",
-                                                .variant = UiVariant::Danger
+                                                .color = StateColor::Danger()
                                             });
                                         }
                                         if (auto c = grid2.Cell6()) {
@@ -5258,7 +5257,7 @@ void TestUiTextAndControlCompanionText() {
             .layout = ElementLayout::Stacked,
             .showValue = true,
             .valuePlacement = vp,
-            .variant = UiVariant::Danger // Even with Danger variant, value readout defaults to neutral Secondary!
+            .color = StateColor::Danger() // Even with Danger color, value readout defaults to neutral Secondary!
         };
 
         Vec2 measured = Slider::Measure(opts, 50.0, 0.0, 100.0, UiSize::Md, &recCanvas, darkTheme);

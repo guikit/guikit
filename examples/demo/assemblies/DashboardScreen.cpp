@@ -23,7 +23,7 @@ DashboardState s_state;
 
 void RenderDashboardInspector(guikit::Context& ui, DemoContext& ctx) {
     ctx.RenderAssemblyCommonInspector(ui);
-    if (ui.Switch(s_state.hwEstop, {.label = "Hardware E-Stop Line", .variant = guikit::UiVariant::Danger}).changed) ui.InvalidateAll();
+    if (ui.Switch(s_state.hwEstop, {.label = "Hardware E-Stop Line", .color = guikit::StateColor::Danger()}).changed) ui.InvalidateAll();
     if (ui.Switch(s_state.enableSensors, {.label = "Sensor Drop Limits"}).changed) ui.InvalidateAll();
     if (ui.Switch(s_state.diagLogging, {.label = "High-Speed Flash Logging"}).changed) ui.InvalidateAll();
 }
@@ -63,13 +63,13 @@ void RenderDashboardScreen(guikit::Context& ui, DemoContext& ctx) {
             }
 
             if (auto card2 = ui.Card(ctx.MakeCard())) {
-                ui.Heading({.title = "Emergency Interlocks", .subtitle = "Hardware line supervision & failsafes", .variant = guikit::UiVariant::Danger, .size = ctx.headingSize, .wordWrap = ctx.headingWordWrap});
+                ui.Heading({.title = {"Emergency Interlocks", guikit::StateColor::Danger()}, .subtitle = "Hardware line supervision & failsafes", .size = ctx.headingSize, .wordWrap = ctx.headingWordWrap});
                 if (auto grid2 = ui.Grid(ctx.MakeGrid())) {
                     if (auto c = grid2.Cell12()) {
                         ui.Switch(s_state.hwEstop, {
                             .label = "Hardware E-Stop Line",
                             .description = "Continuous 24V loop monitoring",
-                            .variant = guikit::UiVariant::Danger
+                            .color = guikit::StateColor::Danger()
                         });
                     }
                     if (auto c = grid2.Cell6()) {
@@ -121,10 +121,9 @@ void RenderDashboardScreen(guikit::Context& ui, DemoContext& ctx) {
 
     if (auto cardAudit = ui.Card(ctx.MakeCard())) {
         ui.Heading({
-            .title = "Supervisor Hardware Loop Diagnostics",
+            .title = {"Supervisor Hardware Loop Diagnostics", guikit::StateColor::Success()},
             .subtitle = "Live bus performance telemetry and continuous line supervision",
             .icon = guikit::Icon::Check(),
-            .variant = guikit::UiVariant::Success,
             .size = ctx.headingSize,
             .wordWrap = ctx.headingWordWrap
         });

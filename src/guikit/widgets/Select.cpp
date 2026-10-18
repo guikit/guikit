@@ -49,7 +49,6 @@ ElementSpec MakeSelectElementSpec(
         .description = opts.description,
         .icon = opts.icon,
         .badge = opts.badge,
-        .variant = opts.variant,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
         .elementAlign = opts.elementAlign,
@@ -539,7 +538,6 @@ Response Select::Run(
     data->displayText = ctx.AllocText(currentDisplayText);
     node->SetPayload(data);
     node->visualHash = detail::HashArgs(
-        opts.variant,
         static_cast<uint8_t>(opts.stretch),
         optsCopy.width.value_or(0.0f),
         opts.height.value_or(0.0f),
@@ -634,20 +632,13 @@ void Select::Render(
     Color boxBorder;
     float strokeW = (ctrl.borderWidth > 0.0f) ? theme.Scale(ctrl.borderWidth) : m.strokeWidth;
 
-    const VariantColors& v = theme.GetVariant(opts.variant);
     if ((open || focused) && !disabled) {
-        boxBorder = (opts.variant == UiVariant::Default || opts.variant == UiVariant::Ghost) ? pal.focusRing : v.bg;
+        boxBorder = pal.focusRing;
         if (ctrl.borderWidth > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
     } else if (hovered && !disabled) {
-        boxBorder = (opts.variant == UiVariant::Default || opts.variant == UiVariant::Ghost) ? pal.borderHover : v.bgHover;
+        boxBorder = pal.borderHover;
     } else {
-        if (opts.variant == UiVariant::Default) {
-            boxBorder = pal.inputBorder;
-        } else if (opts.variant == UiVariant::Ghost) {
-            boxBorder = pal.border;
-        } else {
-            boxBorder = (v.border.a > 0) ? v.border : v.bg;
-        }
+        boxBorder = pal.inputBorder;
     }
 
     Color placeholderCol = theme.ResolveTextColor(opts.placeholder, UiVariant::Secondary, disabled);

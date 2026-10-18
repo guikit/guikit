@@ -143,7 +143,7 @@ Response Toolbar::ToolButton(
     bOpts.tooltip = ctx.AllocText(opts.tooltip);
     node->text = bOpts.label.text;
     bOpts.icon = opts.icon;
-    bOpts.variant = opts.variant;
+    bOpts.color = StateColor::FromVariant(opts.variant);
     bOpts.iconPlacement = opts.iconPlacement;
     bOpts.controlAlign = opts.controlAlign;
     bOpts.stretch = opts.stretch;

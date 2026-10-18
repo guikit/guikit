@@ -127,7 +127,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
         if (ui.Button({
             .label = "Fit Chart Bounds",
             .icon = guikit::Icon::Search(),
-            .variant = guikit::UiVariant::Primary,
+            .color = guikit::StateColor::Primary(),
             .stretch = guikit::StretchMode::Fill,
             .size = guikit::UiSize::Sm
         }).clicked) {
@@ -137,7 +137,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
         }
         if (ui.Button({
             .label = "Clear Sel",
-            .variant = guikit::UiVariant::Secondary,
+            .color = guikit::StateColor::Secondary(),
             .disabled = !s_state.selectedFeatureId.has_value(),
             .size = guikit::UiSize::Sm
         }).clicked) {

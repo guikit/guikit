@@ -20,7 +20,7 @@ struct CheckboxOptions {
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     Icon icon{};                                   ///< Optional leading icon in external Element label bar
     UiText badge{};                                ///< Optional trailing pill badge in external Element label bar
-    UiVariant variant{UiVariant::Primary};          ///< Accent fill color when checked
+    StateColor color{};                            ///< Per-state accent fill color when checked
     ElementLayout layout{ElementLayout::Inline};     ///< Layout geometry: Stacked, Top, Bottom, Inline
     InlineOrder inlineOrder{InlineOrder::ControlFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
     Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
@@ -38,7 +38,7 @@ struct CheckboxOptions {
     bool radio{false};                             ///< Renders circular radio button indicator instead of square checkbox
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
 };
-static_assert(sizeof(CheckboxOptions) <= 720, "CheckboxOptions must stay compact");
+static_assert(sizeof(CheckboxOptions) <= 760, "CheckboxOptions must stay compact");
 
 /// Autonomous Checkbox widget logic (execution, measuring, and rendering).
 class Checkbox {

@@ -30,7 +30,7 @@ void RenderCardStage(guikit::Context& ui, DemoContext& ctx) {
         if (ui.Button({
             .text = "Inner Action",
             .icon = guikit::Icon::Play(),
-            .variant = ctx.btnVariant,
+            .color = ctx.GetControlColor(),
             .size = ctx.controlsSize
         })) {}
     }
@@ -58,7 +58,7 @@ std::string GenerateCardCode(const DemoContext& ctx) {
         "    if (ui.Button({{\n"
         "        .text = \"Inner Action\",\n"
         "        .icon = guikit::Icon::Play(),\n"
-        "        .variant = guikit::UiVariant::{},\n"
+        "        .color = {},\n"
         "        .size = guikit::UiSize::{}\n"
         "    }})) {{\n"
         "        // On click handler\n"
@@ -70,7 +70,7 @@ std::string GenerateCardCode(const DemoContext& ctx) {
         ctx.cardRadius,
         SizeName(ctx.controlsSize),
         SizeName(ctx.controlsSize),
-        VariantName(ctx.btnVariant),
+        ctx.FormatControlColorCode(),
         SizeName(ctx.controlsSize)
     );
 }

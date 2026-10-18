@@ -35,7 +35,7 @@ void RenderSwitchStage(guikit::Context& ui, DemoContext& ctx) {
         .description = ctx.GetElementDescription(),
         .icon = ctx.GetElementIcon(),
         .badge = ctx.GetElementBadge(),
-        .variant = ctx.btnVariant,
+        .color = ctx.GetControlColor(),
         .layout = ctx.elemLayout,
         .inlineOrder = ctx.elemInlineOrder,
         .elementAlign = ctx.elemAlign,
@@ -60,7 +60,7 @@ std::string GenerateSwitchCode(const DemoContext& ctx) {
         "    .description = {},\n"
         "    .icon = {},\n"
         "    .badge = {},\n"
-        "    .variant = guikit::UiVariant::{},\n"
+        "    .color = {},\n"
         "    .layout = guikit::ElementLayout::{},\n"
         "    .inlineOrder = guikit::InlineOrder::{},\n"
         "    .elementAlign = guikit::Align::{},\n"
@@ -80,7 +80,7 @@ std::string GenerateSwitchCode(const DemoContext& ctx) {
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
         ctx.FormatElementBadgeCode(),
-        VariantName(ctx.btnVariant),
+        ctx.FormatControlColorCode(),
         ElementLayoutEnumName(ctx.elemLayout),
         InlineOrderEnumName(ctx.elemInlineOrder),
         LabelAlignEnumName(ctx.elemAlign),

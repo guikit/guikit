@@ -23,7 +23,7 @@ struct ButtonOptions {
     Icon icon{};                                   ///< Icon inside the button capsule
     Icon labelIcon{};                              ///< Optional leading icon in external Element label bar
     UiText badge{};                                ///< Optional trailing pill badge in external Element label bar
-    UiVariant variant{UiVariant::Secondary};
+    StateColor color{};                            ///< Per-state capsule fill color (normal, hover, active, disabled)
     Placement iconPlacement{Placement::Leading};
     ElementLayout layout{ElementLayout::Stacked};     ///< Layout geometry: Stacked, Top, Bottom, Inline
     InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst

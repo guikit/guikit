@@ -54,7 +54,6 @@ void Control::RenderFrame(
     ICanvas& canvas,
     Rect controlRect,
     const ControlSpec& spec,
-    UiVariant /*variant*/,
     UiSize size,
     bool disabled,
     const UiTheme& theme,

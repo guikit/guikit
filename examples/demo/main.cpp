@@ -875,7 +875,7 @@ int main(int argc, char* argv[]) {
                         ui.Text("|  GPU Shaders: CPU Fallback", {.role = guikit::TextRole::LabelMedium, .variant = guikit::UiVariant::Warning});
                     }
                     ui.Spacer();
-                    if (ui.Button({.label = "Exit", .icon = guikit::Icon::Close(), .variant = guikit::UiVariant::Ghost})) {
+                    if (ui.Button({.label = "Exit", .icon = guikit::Icon::Close(), .color = guikit::StateColor::Ghost()})) {
                         running = false;
                     }
                 }

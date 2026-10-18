@@ -22,8 +22,7 @@ struct ElementOptions {
     UiText label{};                                       ///< Primary label or heading title text
     UiText description{};                                 ///< Optional secondary description or subtitle text
     Icon icon{};                                          ///< Optional vector icon before label
-    UiText badge{};                                       ///< Optional pill badge after label (supports independent UiVariant)
-    UiVariant variant{UiVariant::Default};                ///< Accent color variant
+    UiText badge{};                                       ///< Optional pill badge after label (supports independent StateColor)
     std::optional<UiSize> size{std::nullopt};             ///< Local size override (nullopt = inherit container size)
     ElementLayout layout{ElementLayout::Stacked};         ///< Text placement: Stacked/Bottom (below), Top (above), Inline (beside)
     InlineOrder inlineOrder{InlineOrder::ControlFirst};   ///< Sequencing order in Inline layout (ControlFirst = Label first, LabelFirst = Description first)
@@ -61,8 +60,7 @@ struct ElementSpec {
     UiText label{};                                       ///< Primary label or heading title
     UiText description{};                                 ///< Optional secondary description or subtitle
     Icon icon{};                                          ///< Optional vector icon before label
-    UiText badge{};                                       ///< Optional trailing pill badge after label (supports independent UiVariant)
-    UiVariant variant{UiVariant::Default};                ///< Semantic color variant for icon, badge, divider, and default title
+    UiText badge{};                                       ///< Optional trailing pill badge after label (supports independent StateColor)
     ElementLayout layout{ElementLayout::Stacked};         ///< Placement of text relative to control (or description relative to label bar)
     InlineOrder inlineOrder{InlineOrder::LabelFirst};     ///< Sequencing order in Inline layout
     Align elementAlign{Align::Start};                     ///< Horizontal alignment (Start, Center, End)

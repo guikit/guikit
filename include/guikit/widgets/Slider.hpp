@@ -23,14 +23,14 @@ struct SliderOptions {
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     Icon icon{};                                   ///< Optional leading icon in external Element label bar
     UiText badge{};                                ///< Optional trailing pill badge in external Element label bar
-    UiText valueFormat{};                          ///< Format string and style for value (e.g. "%.1f %%", {"%.1f dB", UiVariant::Info}, or static text; empty text = default numeric format)
+    UiText valueFormat{};                          ///< Format string and style for value (e.g. "%.1f %%", {"%.1f dB", StateColor::Info()}, or static text; empty text = default numeric format)
     std::optional<double> step{std::nullopt};      ///< Step quantization (defaults to 1.0 for integers, continuous for float)
     ElementLayout layout{ElementLayout::Stacked};    ///< Widget layout (Stacked, Inline, Top, Bottom)
     InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout (LabelFirst = text first, ControlFirst = control first)
     Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
     bool showValue{true};                          ///< Whether to display current formatted value text inside control
     Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
-    UiVariant variant{UiVariant::Primary};         ///< Accent fill color for active track and thumb
+    StateColor color{};                            ///< Per-state accent fill color for active track and thumb
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
@@ -65,7 +65,7 @@ struct StepSliderOptions {
     Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     UiText valueText{};                            ///< Optional custom display text/style for current value
     bool includeNone{false};                       ///< For UiSize overload: if true, range includes UiSize::None (None..Xl)
-    UiVariant variant{UiVariant::Primary};         ///< Accent fill color for active track and thumb
+    StateColor color{};                            ///< Per-state accent fill color for active track and thumb
     std::optional<UiSize> size{std::nullopt};      ///< Local size override
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
@@ -98,7 +98,7 @@ struct RangeSliderOptions {
     Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
     bool showValue{true};                          ///< Whether to display current formatted range text inside control
     Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
-    UiVariant variant{UiVariant::Primary};         ///< Accent fill color for active interval and thumbs
+    StateColor color{};                            ///< Per-state accent fill color for active interval and thumbs
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
@@ -134,7 +134,7 @@ struct ProgressBarOptions {
     Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
     bool showValue{true};                          ///< Whether to display current formatted value text inside control
     Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
-    UiVariant variant{UiVariant::Primary};         ///< Accent fill color for active bar (or base zone when multiZoneColor is true)
+    StateColor color{};                            ///< Per-state accent fill color for active bar (or base zone when multiZoneColor is true)
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
