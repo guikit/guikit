@@ -39,6 +39,7 @@
 #include "guikit/panels/Sidebar.hpp"
 #include "guikit/panels/Table.hpp"
 #include "guikit/panels/Toolbar.hpp"
+#include "guikit/panels/TreeView.hpp"
 #include "guikit/widgets/Button.hpp"
 #include "guikit/widgets/Checkbox.hpp"
 #include "guikit/widgets/Heading.hpp"
@@ -383,6 +384,53 @@ public:
     ) {
         return guikit::Table::Open(*this, std::span<const TableColumn>(columns.begin(), columns.size()), opts, loc);
     }
+
+    [[nodiscard]] TreeViewScope TreeView(
+        TreeViewOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    [[nodiscard]] TreeViewScope TreeView(
+        std::span<const TableColumn> columns,
+        TreeViewOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        opts.columns = columns;
+        return TreeView(std::move(opts), loc);
+    }
+
+    [[nodiscard]] TreeViewScope TreeView(
+        std::initializer_list<TableColumn> columns,
+        TreeViewOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        opts.columns = std::span<const TableColumn>(columns.begin(), columns.size());
+        return TreeView(std::move(opts), loc);
+    }
+
+    [[nodiscard]] TreeItemScope TreeItem(
+        TreeItemOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    [[nodiscard]] TreeItemScope TreeItem(
+        std::string_view label,
+        TreeItemOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    [[nodiscard]] TreeItemScope TreeItem(
+        bool& open,
+        TreeItemOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    [[nodiscard]] TreeItemScope TreeItem(
+        bool& open,
+        std::string_view label,
+        TreeItemOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
 
     // --- Scale & State Scopes ---
     void PushSize(UiSize size);
@@ -1563,6 +1611,61 @@ public:
         std::source_location loc = std::source_location::current()
     ) {
         return TransferToContainer(m_ctx->SidebarMenu(std::move(opts), loc));
+    }
+
+    [[nodiscard]] TreeViewScope TreeView(
+        TreeViewOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->TreeView(std::move(opts), loc));
+    }
+
+    [[nodiscard]] TreeViewScope TreeView(
+        std::span<const TableColumn> columns,
+        TreeViewOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->TreeView(columns, std::move(opts), loc));
+    }
+
+    [[nodiscard]] TreeViewScope TreeView(
+        std::initializer_list<TableColumn> columns,
+        TreeViewOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->TreeView(columns, std::move(opts), loc));
+    }
+
+    [[nodiscard]] TreeItemScope TreeItem(
+        TreeItemOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->TreeItem(std::move(opts), loc));
+    }
+
+    [[nodiscard]] TreeItemScope TreeItem(
+        std::string_view label,
+        TreeItemOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->TreeItem(label, std::move(opts), loc));
+    }
+
+    [[nodiscard]] TreeItemScope TreeItem(
+        bool& open,
+        TreeItemOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->TreeItem(open, std::move(opts), loc));
+    }
+
+    [[nodiscard]] TreeItemScope TreeItem(
+        bool& open,
+        std::string_view label,
+        TreeItemOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->TreeItem(open, label, std::move(opts), loc));
     }
 
     // --- Leaf Widgets & Controls ---

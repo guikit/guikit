@@ -58,6 +58,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/panels/Sidebar.cpp
     src/guikit/panels/Table.cpp
     src/guikit/panels/Toolbar.cpp
+    src/guikit/panels/TreeView.cpp
     src/guikit/widgets/Button.cpp
     src/guikit/widgets/Checkbox.cpp
     src/guikit/widgets/Heading.cpp
@@ -220,6 +221,7 @@ if (GUIKIT_BUILD_DEMO)
         examples/demo/panels/CardScreen.cpp
         examples/demo/panels/TabBarScreen.cpp
         examples/demo/panels/SidebarScreen.cpp
+        examples/demo/panels/TreeViewScreen.cpp
         examples/demo/panels/TableScreen.cpp
         examples/demo/content/MarkdownScreen.cpp
         examples/demo/content/CodeEditorScreen.cpp

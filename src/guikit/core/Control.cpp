@@ -233,6 +233,31 @@ void Control::SetupNode(
         return;
     }
 
+    if (parent && (parent->type == NodeType::TreeItem ||
+                   (parent->parent && parent->parent->type == NodeType::TreeItem))) {
+        node->widthMode = SizeMode::Fit;
+        node->heightMode = SizeMode::Fit;
+        node->arrangeFn = nullptr;
+        node->ctrlStretchable = spec.stretchable;
+        node->ctrlStretchH = spec.stretchHeightWhenStandalone;
+        node->fixedWidth = spec.width.value_or(0.0f);
+        node->fixedHeight = spec.height.value_or(0.0f);
+        node->align = (standaloneAlign == Align::End)
+            ? Alignment::End
+            : ((standaloneAlign == Align::Center) ? Alignment::Center : Alignment::Start);
+        parent->visualHash = detail::HashArgs(
+            parent->visualHash,
+            node->visualHash,
+            spec.width.value_or(0.0f),
+            spec.height.value_or(0.0f),
+            spec.stretchable
+        );
+        if (parent->parent && parent->parent->type == NodeType::TreeItem) {
+            parent->parent->visualHash = detail::HashArgs(parent->parent->visualHash, parent->visualHash);
+        }
+        return;
+    }
+
     node->widthMode = (stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->ctrlStretchable = spec.stretchable;
     node->ctrlStretchH = spec.stretchHeightWhenStandalone;

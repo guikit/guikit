@@ -9368,6 +9368,265 @@ void TestSizeScopeChainingAndIsolation() {
     CHECK_NEAR(btnAfterSmScope.rect.h, 40.0f, 0.5f);
 }
 
+void TestTreeViewAndTreeItemWorkflow() {
+    using namespace guikit;
+    std::cout << "[TEST] Running TestTreeViewAndTreeItemWorkflow...\n";
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 700;
+    const uint32_t height = 500;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    int selectedIndex = -1;
+    Id selectedId = Id::Null();
+    std::string filterQuery;
+    bool rootOpen = true;
+    bool collapsedBranchOpen = false;
+    bool chkRoot = true;
+    bool chkLeafA = true;
+    bool rootSwitch = false;
+    bool collapsedBranchSwitch = false;
+    float leafSlider = 0.5f;
+
+    Response rootRowRes{};
+    Response leafARowRes{};
+    Response collapsedBranchRowRes{};
+    Response leafInsideCollapsedRes{};
+    Response rootSwitchRes{};
+    Response collapsedSwitchRes{};
+    int visibleCount = 0;
+    bool checkChangedFlag = false;
+
+    auto renderUI = [&]() {
+        leafInsideCollapsedRes = Response{};
+        checkChangedFlag = false;
+        if (auto col = ui.Column({.padding = Padding::All(12.0f)})) {
+            if (auto tree = ui.TreeView({
+                .title = "TEST TREE",
+                .guides = TreeGuides::Connected,
+                .searchable = true,
+                .filterText = &filterQuery,
+                .showToolbar = true,
+                .selectedIndex = &selectedIndex,
+                .selectedId = &selectedId
+            })) {
+                if (auto r1 = ui.TreeItem(rootOpen, {
+                    .label = "Root Branch",
+                    .icon = Icon::Folder(),
+                    .checked = &chkRoot
+                })) {
+                    rootRowRes = r1.response;
+                    if (r1.checkChanged) {
+                        checkChangedFlag = true;
+                    }
+                    rootSwitchRes = ui.Switch(rootSwitch);
+
+                    if (auto c1 = ui.TreeItem("Alpha Leaf", {
+                        .detail = "12 KB",
+                        .badge = "OK",
+                        .checked = &chkLeafA
+                    })) {
+                        leafARowRes = c1.response;
+                        ui.Slider(leafSlider, 0.0f, 1.0f, {.width = 100.0f});
+                    }
+                }
+
+                // Collapsed branch: its embedded Switch must STILL be laid out & interactive,
+                // while its child TreeItem is not instantiated (yet auto-detected as a branch!)
+                if (auto r2 = ui.TreeItem(collapsedBranchOpen, {
+                    .label = "Collapsed Branch",
+                    .icon = Icon::Folder()
+                })) {
+                    collapsedBranchRowRes = r2.response;
+                    collapsedSwitchRes = ui.Switch(collapsedBranchSwitch);
+
+                    if (auto hiddenChild = ui.TreeItem("Deep Hidden Target")) {
+                        leafInsideCollapsedRes = hiddenChild.response;
+                    }
+                }
+
+                visibleCount = tree.VisibleItemCount();
+            }
+        }
+    };
+
+    // Frame 1 & 2: settle layout and state
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    // Verify 3 visible items: Root Branch, Alpha Leaf, Collapsed Branch (Deep Hidden Target is collapsed)
+    CHECK(visibleCount == 3);
+    CHECK(rootRowRes.rect.w > 200.0f);
+    CHECK(leafARowRes.rect.y > rootRowRes.rect.y);
+    CHECK(collapsedBranchRowRes.rect.y > leafARowRes.rect.y);
+    CHECK(leafInsideCollapsedRes.rect.w == 0.0f);
+
+    // Embedded Switch on collapsed branch must still be visible and laid out inside the row!
+    CHECK(collapsedSwitchRes.rect.w > 20.0f);
+    CHECK(collapsedSwitchRes.rect.h > 10.0f);
+    CHECK(collapsedSwitchRes.rect.x > collapsedBranchRowRes.rect.x + 100.0f);
+
+    // 1. Click the embedded Switch on the collapsed branch -> toggles collapsedBranchSwitch WITHOUT selecting the row
+    const Vec2 swCenter = {
+        collapsedSwitchRes.rect.x + collapsedSwitchRes.rect.w * 0.5f,
+        collapsedSwitchRes.rect.y + collapsedSwitchRes.rect.h * 0.5f
+    };
+    ui.OnMouseMove(swCenter);
+    ui.OnMouseDown(1);
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    CHECK(collapsedBranchSwitch == true);
+    CHECK(selectedIndex == -1);
+    CHECK(collapsedBranchOpen == false);
+
+    // 2. Click the row body of "Alpha Leaf" -> selects row index 1
+    const Vec2 leafBodyPos = {
+        leafARowRes.rect.x + 90.0f,
+        leafARowRes.rect.y + leafARowRes.rect.h * 0.5f
+    };
+    ui.OnMouseMove(leafBodyPos);
+    ui.OnMouseDown(1);
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    CHECK(selectedIndex == 1);
+    CHECK(selectedId.IsValid());
+
+    // 3. Click the checkbox on "Root Branch" -> toggles chkRoot
+    // Settle one frame so st.checkboxRect is up to date, then click checkbox area
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    // Checkbox on depth-0 row is right after padX + chevronSlotW + gap
+    const Vec2 rootCheckboxPos = {
+        rootRowRes.rect.x + 34.0f,
+        rootRowRes.rect.y + rootRowRes.rect.h * 0.5f
+    };
+    ui.OnMouseMove(rootCheckboxPos);
+    ui.OnMouseDown(1);
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    CHECK(chkRoot == false);
+    CHECK(checkChangedFlag == true);
+
+    // 4. Filter by "Deep Hidden" -> automatically expands collapsed branch and shows ancestor + matching leaf (2 items)
+    filterQuery = "Deep Hidden";
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    CHECK(leafInsideCollapsedRes.rect.w > 100.0f);
+
+    // Clear filter -> returns to normal open/closed states
+    filterQuery.clear();
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(visibleCount == 3);
+
+    // 5. Multi-column TreeView (TreeTable) with direct controls, CellText, CellBadge, and multi-widget item.Cell()
+    bool cellSwitchVal = false;
+    bool cellBtnClicked = false;
+    Rect cellSwRect{};
+    Rect cellBtnRect{};
+    Response multiColRowRes{};
+    int multiColSelected = -1;
+
+    auto renderMultiColTree = [&]() {
+        if (auto tree = ui.TreeView({
+            {.title = "Node",      .flex = 2.0f, .minWidth = 140.0f},
+            {.title = "Status",    .width = 90.0f,  .align = Align::Center},
+            {.title = "Controls",  .width = 160.0f, .align = Align::End},
+        }, {
+            .stickyHeader = true,
+            .resizableColumns = true,
+            .gridLines = true,
+            .selectedIndex = &multiColSelected,
+        })) {
+            if (auto item = ui.TreeItem({.label = "Row With Multi-Widget Cell"})) {
+                item.CellBadge("ACTIVE");
+                if (auto cell = item.Cell()) {
+                    cellSwRect = ui.Switch(cellSwitchVal).rect;
+                    auto btn = ui.Button({.text = "Act"});
+                    cellBtnRect = btn.rect;
+                    if (btn.clicked) cellBtnClicked = true;
+                }
+                multiColRowRes = item.response;
+            }
+        }
+    };
+
+    for (int f = 0; f < 2; ++f) {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        renderMultiColTree();
+        ui.EndFrame(canvas);
+    }
+
+    CHECK(multiColRowRes.rect.w > 200.0f);
+    CHECK(cellSwRect.w > 10.0f);
+    CHECK(cellBtnRect.w > 10.0f);
+    // Switch and Button inside item.Cell() should be arranged horizontally inside the 3rd column
+    CHECK(cellBtnRect.x > cellSwRect.x);
+    CHECK(cellSwRect.x > multiColRowRes.rect.x + 150.0f);
+
+    // Clicking the Switch inside item.Cell() should toggle cellSwitchVal WITHOUT selecting the row
+    const Vec2 cellSwPos = {cellSwRect.x + cellSwRect.w * 0.5f, cellSwRect.y + cellSwRect.h * 0.5f};
+    ui.OnMouseMove(cellSwPos);
+    ui.OnMouseDown(1);
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderMultiColTree();
+    ui.EndFrame(canvas);
+
+    CHECK(cellSwitchVal == true);
+    CHECK(multiColSelected == -1);
+
+    // Clicking the Button inside item.Cell() should fire clicked WITHOUT selecting the row
+    const Vec2 cellBtnPos = {cellBtnRect.x + cellBtnRect.w * 0.5f, cellBtnRect.y + cellBtnRect.h * 0.5f};
+    ui.OnMouseMove(cellBtnPos);
+    ui.OnMouseDown(1);
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderMultiColTree();
+    ui.EndFrame(canvas);
+
+    CHECK(cellBtnClicked == true);
+    CHECK(multiColSelected == -1);
+
+    // Clicking the CellBadge in column 1 (non-interactive) SHOULD select the row
+    const Vec2 badgeColPos = {multiColRowRes.rect.x + 260.0f, multiColRowRes.rect.y + multiColRowRes.rect.h * 0.5f};
+    ui.OnMouseMove(badgeColPos);
+    ui.OnMouseDown(1);
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderMultiColTree();
+    ui.EndFrame(canvas);
+
+    CHECK(multiColSelected == 0);
+
+    std::cout << "  [PASS] TestTreeViewAndTreeItemWorkflow completed\n";
+}
+
 int main() {
     std::cout << std::unitbuf;
     std::cerr << std::unitbuf;
@@ -9447,6 +9706,7 @@ int main() {
     TestGisDemoBayGeoJsonAndRenderEngine();
     TestAccordionWidgetWorkflow();
     TestSizeScopeChainingAndIsolation();
+    TestTreeViewAndTreeItemWorkflow();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

@@ -65,6 +65,8 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     w = std::max(w, node->minWidth);
                 }
                 node->intrinsicSize = {w, totalHeight};
+            } else if (node->heightMode == SizeMode::Fit) {
+                node->intrinsicSize = {contentW, totalHeight};
             } else {
                 node->intrinsicSize = {0.0f, 0.0f};
             }
@@ -181,7 +183,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             availableWidth = (availableWidth > 0.0f) ? std::min(availableWidth, node->fixedWidth) : node->fixedWidth;
         }
         const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
-        if ((node->type == NodeType::Element || node->type == NodeType::Scene) && node->measureFn) {
+        if ((node->type == NodeType::Element || node->type == NodeType::TreeItem || node->type == NodeType::Scene) && node->measureFn) {
             return std::max(node->minHeight, node->measureFn(node, availableWidth, canvas, activeTheme).y);
         }
         if (node->childCount == 0) {

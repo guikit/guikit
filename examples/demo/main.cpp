@@ -33,6 +33,7 @@ void DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
         case NavCategory::PanelCard:         RenderCardInspector(ui, ctx); break;
         case NavCategory::PanelTabBar:       RenderTabBarInspector(ui, ctx); break;
         case NavCategory::PanelSidebar:      RenderSidebarInspector(ui, ctx); break;
+        case NavCategory::PanelTreeView:     RenderTreeViewInspector(ui, ctx); break;
         case NavCategory::PanelTable:        RenderTableInspector(ui, ctx); break;
 
         // 3. CONTENT & MEDIA
@@ -75,6 +76,7 @@ void DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx
         case NavCategory::PanelCard:         RenderCardStage(ui, ctx); break;
         case NavCategory::PanelTabBar:       RenderTabBarStage(ui, ctx); break;
         case NavCategory::PanelSidebar:      RenderSidebarStage(ui, ctx); break;
+        case NavCategory::PanelTreeView:     RenderTreeViewStage(ui, ctx); break;
         case NavCategory::PanelTable:        RenderTableStage(ui, ctx); break;
 
         // 3. CONTENT & MEDIA
@@ -112,6 +114,7 @@ std::string DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
         case NavCategory::PanelCard:         return GenerateCardCode(ctx);
         case NavCategory::PanelTabBar:       return GenerateTabBarCode(ctx);
         case NavCategory::PanelSidebar:      return GenerateSidebarCode(ctx);
+        case NavCategory::PanelTreeView:     return GenerateTreeViewCode(ctx);
         case NavCategory::PanelTable:        return GenerateTableCode(ctx);
 
         // 3. CONTENT & MEDIA
@@ -620,6 +623,7 @@ int main(int argc, char* argv[]) {
                                 menu.Item(selectedCategory, NavCategory::PanelCard,         {.text = "Card",         .icon = guikit::Icon::Copy()});
                                 menu.Item(selectedCategory, NavCategory::PanelTabBar,       {.text = "TabBar",       .icon = guikit::Icon::Folder()});
                                 menu.Item(selectedCategory, NavCategory::PanelSidebar,      {.text = "Sidebar",      .icon = guikit::Icon::Folder()});
+                                menu.Item(selectedCategory, NavCategory::PanelTreeView,     {.text = "TreeView",     .icon = guikit::Icon::Folder()});
                                 menu.Item(selectedCategory, NavCategory::PanelTable,        {.text = "Table / Grid", .icon = guikit::Icon::Copy(),   .badge = "100k"});
 
                                 menu.Section("CONTENT & MEDIA");

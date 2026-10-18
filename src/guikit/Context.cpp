@@ -374,6 +374,28 @@ SceneScope Context::Scene(SceneOptions opts, std::source_location loc) {
     return Open<guikit::Scene>(opts, loc);
 }
 
+TreeViewScope Context::TreeView(TreeViewOptions opts, std::source_location loc) {
+    return Open<guikit::TreeView>(opts, loc);
+}
+
+TreeItemScope Context::TreeItem(TreeItemOptions opts, std::source_location loc) {
+    return guikit::TreeView::OpenItem(*this, nullptr, opts, loc);
+}
+
+TreeItemScope Context::TreeItem(std::string_view label, TreeItemOptions opts, std::source_location loc) {
+    opts.label.text = label;
+    return guikit::TreeView::OpenItem(*this, nullptr, opts, loc);
+}
+
+TreeItemScope Context::TreeItem(bool& open, TreeItemOptions opts, std::source_location loc) {
+    return guikit::TreeView::OpenItem(*this, &open, opts, loc);
+}
+
+TreeItemScope Context::TreeItem(bool& open, std::string_view label, TreeItemOptions opts, std::source_location loc) {
+    opts.label.text = label;
+    return guikit::TreeView::OpenItem(*this, &open, opts, loc);
+}
+
 Response Context::Button(ButtonOptions opts, std::source_location loc) {
     return Run<guikit::Button>(opts, loc);
 }

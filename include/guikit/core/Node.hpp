@@ -67,6 +67,9 @@ enum class NodeType : uint16_t {
     Table       = 107,  ///< Virtualized data grid / table container with sticky header and columns
     Element     = 108,  ///< Outer label/description/frame wrapper around a Control (or standalone)
     Accordion   = 109,  ///< Collapsible accordion section container
+    TreeView    = 110,  ///< Hierarchical tree view container
+    TreeItem    = 111,  ///< Individual interactive tree item row container (hosts optional trailing controls)
+    TreeBranch  = 112,  ///< Vertical column wrapper grouping a TreeItem row and its expanded child TreeBranches
 
     // --- Leaf Widgets (200..999): Self-rendering elements ---
     Button      = 200,
@@ -256,6 +259,9 @@ struct Node {
             case NodeType::Table:       return "Table";
             case NodeType::Element:     return "Element";
             case NodeType::Accordion:   return "Accordion";
+            case NodeType::TreeView:    return "TreeView";
+            case NodeType::TreeItem:    return "TreeItem";
+            case NodeType::TreeBranch:  return "TreeBranch";
             case NodeType::Button:      return "Button";
             case NodeType::InputField:  return "InputField";
             case NodeType::Select:      return "Select";
@@ -301,6 +307,33 @@ struct Node {
         } else {
             lastChild->nextSibling = child;
             lastChild = child;
+        }
+    }
+
+    /// Removes a direct child node from this container.
+    void RemoveChild(Node* child) noexcept {
+        if (!child || !firstChild) return;
+        if (firstChild == child) {
+            firstChild = child->nextSibling;
+            if (lastChild == child) {
+                lastChild = nullptr;
+            }
+            if (childCount > 0) --childCount;
+            child->parent = nullptr;
+            child->nextSibling = nullptr;
+            return;
+        }
+        for (Node* prev = firstChild; prev != nullptr; prev = prev->nextSibling) {
+            if (prev->nextSibling == child) {
+                prev->nextSibling = child->nextSibling;
+                if (lastChild == child) {
+                    lastChild = prev;
+                }
+                if (childCount > 0) --childCount;
+                child->parent = nullptr;
+                child->nextSibling = nullptr;
+                return;
+            }
         }
     }
 };
