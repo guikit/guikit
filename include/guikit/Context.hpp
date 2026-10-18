@@ -29,6 +29,7 @@
 #include "guikit/layout/Wrap.hpp"
 #include "guikit/layout/Grid.hpp"
 #include "guikit/layout/Spacer.hpp"
+#include "guikit/panels/Accordion.hpp"
 #include "guikit/panels/Box.hpp"
 #include "guikit/panels/Card.hpp"
 #include "guikit/panels/Carousel.hpp"
@@ -293,6 +294,42 @@ public:
     );
 
     // --- Panel Scopes ---
+    [[nodiscard]] AccordionScope Accordion(
+        AccordionOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    [[nodiscard]] AccordionScope Accordion(
+        std::string_view label,
+        AccordionOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    [[nodiscard]] AccordionScope Accordion(
+        bool& open,
+        AccordionOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    template <typename T, typename U>
+        requires (!std::is_same_v<std::decay_t<T>, bool> && requires(T& a, const U& b) {
+            { a == b } -> std::convertible_to<bool>;
+            a = static_cast<T>(b);
+        })
+    [[nodiscard]] AccordionScope Accordion(
+        T& activeValue,
+        const U& sectionValue,
+        AccordionOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        bool isOpen = (activeValue == sectionValue);
+        auto scope = guikit::Accordion::Open(*this, &isOpen, opts, loc);
+        if (scope.response.changed && isOpen) {
+            activeValue = static_cast<T>(sectionValue);
+        }
+        return scope;
+    }
+
     [[nodiscard]] ContainerScope Box(
         BoxOptions opts = {},
         std::source_location loc = std::source_location::current()

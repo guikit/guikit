@@ -337,6 +337,19 @@ void Context::Spacer(float flex, std::source_location loc) {
     Run<guikit::Spacer>(flex, loc);
 }
 
+AccordionScope Context::Accordion(AccordionOptions opts, std::source_location loc) {
+    return guikit::Accordion::Open(*this, nullptr, opts, loc);
+}
+
+AccordionScope Context::Accordion(std::string_view label, AccordionOptions opts, std::source_location loc) {
+    opts.label.text = label;
+    return guikit::Accordion::Open(*this, nullptr, opts, loc);
+}
+
+AccordionScope Context::Accordion(bool& open, AccordionOptions opts, std::source_location loc) {
+    return guikit::Accordion::Open(*this, &open, opts, loc);
+}
+
 ContainerScope Context::Box(BoxOptions opts, std::source_location loc) {
     return Open<guikit::Box>(opts, loc);
 }

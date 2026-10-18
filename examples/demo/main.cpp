@@ -653,49 +653,57 @@ int main(int argc, char* argv[]) {
                         }
 
                         if (IsElementCategory(selectedCategory)) {
-                            // 2. Level 2: Shared Element Inspector Sidebar
-                            if (auto elemSidebar = ui.Sidebar({
+                            // 2. Level 2: Unified Element Inspector Sidebar with 3 Accordions (Element, Control, Specific)
+                            if (auto inspectorSidebar = ui.Sidebar({
                                 .side = guikit::SidebarSide::Left,
-                                .width = 280.0f,
+                                .width = 320.0f,
                                 .gap = 8.0f,
                                 .padding = guikit::Padding::All(12.0f)
                             })) {
-                                demoCtx.RenderElementInspector(ui, selectedCategory);
-                            }
+                                if (auto elemAcc = ui.Accordion({
+                                    .label = "ELEMENT",
+                                    .defaultOpen = true,
+                                    .size = guikit::UiSize::Sm
+                                })) {
+                                    demoCtx.RenderElementInspector(ui, selectedCategory);
+                                }
 
-                            // 3. Level 3: Control & Widget-Specific Inspector Sidebar
-                            if (auto ctrlSidebar = ui.Sidebar({
-                                .side = guikit::SidebarSide::Left,
-                                .width = 270.0f,
-                                .gap = 8.0f,
-                                .padding = guikit::Padding::All(12.0f)
-                            })) {
                                 if (selectedCategory == NavCategory::ElemHeading) {
-                                    ui.Heading({
-                                        .label = "HEADING",
-                                        .size = guikit::UiSize::Xs,
-                                        .divider = true
-                                    });
-                                    DispatchInspector(ui, selectedCategory, demoCtx);
-                                } else {
-                                    demoCtx.RenderControlInspector(ui, selectedCategory);
-
-                                    std::string_view specificTitle = "WIDGET";
-                                    switch (selectedCategory) {
-                                        case NavCategory::ElemButton:     specificTitle = "BUTTON"; break;
-                                        case NavCategory::ElemSlider:     specificTitle = "SLIDER"; break;
-                                        case NavCategory::ElemInputField: specificTitle = "INPUT FIELD"; break;
-                                        case NavCategory::ElemSelect:     specificTitle = "SELECT"; break;
-                                        case NavCategory::ElemSwitch:     specificTitle = "SWITCH"; break;
-                                        case NavCategory::ElemCheckbox:   specificTitle = "CHECKBOX"; break;
-                                        case NavCategory::ElemImage:      specificTitle = "IMAGE"; break;
-                                        default: break;
+                                    bool ctrlOpen = false;
+                                    if (auto ctrlAcc = ui.Accordion(ctrlOpen, {
+                                        .label = "CONTROL",
+                                        .badge = {"N/A", guikit::StateColor::Muted()},
+                                        .size = guikit::UiSize::Sm,
+                                        .disabled = true
+                                    })) {
                                     }
-                                    ui.Heading({
-                                        .label = specificTitle,
-                                        .size = guikit::UiSize::Xs,
-                                        .divider = true
-                                    });
+                                } else {
+                                    if (auto ctrlAcc = ui.Accordion({
+                                        .label = "CONTROL",
+                                        .defaultOpen = true,
+                                        .size = guikit::UiSize::Sm
+                                    })) {
+                                        demoCtx.RenderControlInspector(ui, selectedCategory);
+                                    }
+                                }
+
+                                std::string_view specificTitle = "HEADING";
+                                switch (selectedCategory) {
+                                    case NavCategory::ElemHeading:    specificTitle = "HEADING"; break;
+                                    case NavCategory::ElemButton:     specificTitle = "BUTTON"; break;
+                                    case NavCategory::ElemSlider:     specificTitle = "SLIDER"; break;
+                                    case NavCategory::ElemInputField: specificTitle = "INPUT FIELD"; break;
+                                    case NavCategory::ElemSelect:     specificTitle = "SELECT"; break;
+                                    case NavCategory::ElemSwitch:     specificTitle = "SWITCH"; break;
+                                    case NavCategory::ElemCheckbox:   specificTitle = "CHECKBOX"; break;
+                                    case NavCategory::ElemImage:      specificTitle = "IMAGE"; break;
+                                    default: break;
+                                }
+                                if (auto specAcc = ui.Accordion({
+                                    .label = specificTitle,
+                                    .defaultOpen = true,
+                                    .size = guikit::UiSize::Sm
+                                })) {
                                     DispatchInspector(ui, selectedCategory, demoCtx);
                                 }
                             }

@@ -569,11 +569,6 @@ struct DemoContext {
     }
 
     void RenderElementInspector(guikit::Context& ui, NavCategory cat = NavCategory::ElemHeading) {
-        ui.Heading({
-            .label = "ELEMENT",
-            .size = guikit::UiSize::Xs,
-            .divider = true
-        });
         if (auto el = ui.Element({.label = "Element Size"})) {
             if (ui.StepSlider(controlsSize, {.showTicks = true, .showLabels = true}).changed) {
                 ui.InvalidateAll();
@@ -674,11 +669,6 @@ struct DemoContext {
     }
 
     void RenderControlInspector(guikit::Context& ui, NavCategory cat) {
-        ui.Heading({
-            .label = "CONTROL",
-            .size = guikit::UiSize::Xs,
-            .divider = true
-        });
         const bool hasControlVariant = (
             cat == NavCategory::ElemButton ||
             cat == NavCategory::ElemSlider ||

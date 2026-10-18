@@ -9211,6 +9211,106 @@ void TestGisDemoBayGeoJsonAndRenderEngine() {
     CHECK(stats.pointsSubmitted > 0);
 }
 
+void TestAccordionWidgetWorkflow() {
+    using namespace guikit;
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 600;
+    const uint32_t height = 500;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    int bodyExecutedCount1 = 0;
+    int bodyExecutedCount2 = 0;
+    bool externalOpen = false;
+    Response acc1Res{};
+    Response acc2Res{};
+
+    auto renderAccordions = [&]() {
+        if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f), .widthMode = SizeMode::Stretch})) {
+            if (auto acc1 = ui.Accordion({
+                .label = "ELEMENT",
+                .description = "Shared element properties",
+                .icon = Icon::Settings(),
+                .badge = {"8", StateColor::Info()},
+                .defaultOpen = true
+            })) {
+                acc1Res = acc1.response;
+                ++bodyExecutedCount1;
+                ui.Button({.text = "Inside Element Accordion"});
+            } else {
+                acc1Res = acc1.response;
+            }
+
+            if (auto acc2 = ui.Accordion(externalOpen, {
+                .label = "CONTROL",
+                .chevronPlacement = Placement::Trailing
+            })) {
+                acc2Res = acc2.response;
+                ++bodyExecutedCount2;
+                ui.Button({.text = "Inside Control Accordion"});
+            } else {
+                acc2Res = acc2.response;
+            }
+        }
+    };
+
+    // Frame 1: acc1 is open (defaultOpen = true), acc2 is closed (externalOpen = false)
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderAccordions();
+    ui.EndFrame(canvas);
+
+    CHECK(bodyExecutedCount1 == 1);
+    CHECK(bodyExecutedCount2 == 0);
+    const Rect r1 = ui.GetPrevFrameBounds(acc1Res.id);
+    const Rect r2 = ui.GetPrevFrameBounds(acc2Res.id);
+    CHECK(r1.w > 100.0f);
+    CHECK(r1.h > 20.0f);
+    CHECK(r2.w > 100.0f);
+    CHECK(r2.h > 20.0f);
+
+    // Frame 2: Click on acc1 header to collapse it
+    ui.OnMouseMove({r1.x + r1.w * 0.5f, r1.y + r1.h * 0.5f});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderAccordions();
+    ui.EndFrame(canvas);
+
+    bodyExecutedCount1 = 0;
+    bodyExecutedCount2 = 0;
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderAccordions();
+    ui.EndFrame(canvas);
+
+    CHECK(acc1Res.clicked);
+    CHECK(acc1Res.changed);
+    CHECK(bodyExecutedCount1 == 0); // Collapsed immediately on toggle frame!
+    CHECK(bodyExecutedCount2 == 0);
+
+    // Frame 3: Click on acc2 header (which moved up after acc1 collapsed) to expand it
+    const Rect r2AfterCollapse = ui.GetPrevFrameBounds(acc2Res.id);
+    CHECK(r2AfterCollapse.y < r2.y);
+    ui.OnMouseMove({r2AfterCollapse.x + r2AfterCollapse.w * 0.5f, r2AfterCollapse.y + r2AfterCollapse.h * 0.5f});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderAccordions();
+    ui.EndFrame(canvas);
+
+    bodyExecutedCount1 = 0;
+    bodyExecutedCount2 = 0;
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderAccordions();
+    ui.EndFrame(canvas);
+
+    CHECK(acc2Res.clicked);
+    CHECK(acc2Res.changed);
+    CHECK(externalOpen);
+    CHECK(bodyExecutedCount1 == 0);
+    CHECK(bodyExecutedCount2 == 1);
+}
+
 int main() {
     std::cout << std::unitbuf;
     std::cerr << std::unitbuf;
@@ -9288,6 +9388,7 @@ int main() {
     TestCarClusterViewWidgetWorkflow();
     TestBpmnEditorWidgetWorkflow();
     TestGisDemoBayGeoJsonAndRenderEngine();
+    TestAccordionWidgetWorkflow();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

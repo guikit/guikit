@@ -66,6 +66,7 @@ enum class NodeType : uint16_t {
     Scene       = 106,  ///< Interactive 2D world camera & pan/zoom viewport
     Table       = 107,  ///< Virtualized data grid / table container with sticky header and columns
     Element     = 108,  ///< Outer label/description/frame wrapper around a Control (or standalone)
+    Accordion   = 109,  ///< Collapsible accordion section container
 
     // --- Leaf Widgets (200..999): Self-rendering elements ---
     Button      = 200,
@@ -95,6 +96,7 @@ enum class NodeType : uint16_t {
     AttitudeView   = 224,
     CarClusterView = 225,
     BpmnEditor     = 226,
+    AccordionHeader = 227,
 
     // --- User Extension Base (1000+) ---
     User          = 1000
@@ -253,6 +255,7 @@ struct Node {
             case NodeType::Scene:       return "Scene";
             case NodeType::Table:       return "Table";
             case NodeType::Element:     return "Element";
+            case NodeType::Accordion:   return "Accordion";
             case NodeType::Button:      return "Button";
             case NodeType::InputField:  return "InputField";
             case NodeType::Select:      return "Select";
@@ -279,7 +282,8 @@ struct Node {
             case NodeType::ImageView:      return "ImageView";
             case NodeType::AttitudeView:   return "AttitudeView";
             case NodeType::CarClusterView: return "CarClusterView";
-            case NodeType::BpmnEditor:     return "BpmnEditor";
+            case NodeType::BpmnEditor:      return "BpmnEditor";
+            case NodeType::AccordionHeader: return "AccordionHeader";
             default:                       return (static_cast<uint16_t>(type) >= static_cast<uint16_t>(NodeType::User)) ? "UserWidget" : "Unknown";
         }
     }
