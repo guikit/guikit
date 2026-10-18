@@ -54,8 +54,8 @@ void TestRowEqualStretch() {
     c3->heightMode = SizeMode::Stretch;
     row->AddChild(c3);
 
-    LayoutSolver::Measure(row);
-    LayoutSolver::Arrange(row, Rect(0.0f, 0.0f, 620.0f, 100.0f));
+    Solver::Measure(row);
+    Solver::Arrange(row, Rect(0.0f, 0.0f, 620.0f, 100.0f));
 
     // Available width = 620, 2 gaps of 10 = 20, remaining = 600 / 3 = 200 each
     CHECK_NEAR(c1->computedRect.x, 0.0f, 0.001f);
@@ -95,8 +95,8 @@ void TestRowWithSpacer() {
     right->fixedWidth = 100.0f;
     row->AddChild(right);
 
-    LayoutSolver::Measure(row);
-    LayoutSolver::Arrange(row, Rect(0.0f, 0.0f, 800.0f, 50.0f));
+    Solver::Measure(row);
+    Solver::Arrange(row, Rect(0.0f, 0.0f, 800.0f, 50.0f));
 
     CHECK_NEAR(left->computedRect.x, 0.0f, 0.001f);
     CHECK_NEAR(left->computedRect.w, 100.0f, 0.001f);
@@ -138,8 +138,8 @@ void TestColumnStickyFooter() {
     footer->fixedHeight = 40.0f;
     col->AddChild(footer);
 
-    LayoutSolver::Measure(col);
-    LayoutSolver::Arrange(col, Rect(0.0f, 0.0f, 400.0f, 600.0f));
+    Solver::Measure(col);
+    Solver::Arrange(col, Rect(0.0f, 0.0f, 400.0f, 600.0f));
 
     CHECK_NEAR(header->computedRect.y, 0.0f, 0.001f);
     CHECK_NEAR(header->computedRect.h, 50.0f, 0.001f);
@@ -201,8 +201,8 @@ void TestNestedHierarchy() {
     footerBtn->widthMode = SizeMode::Stretch;
     footer->AddChild(footerBtn);
 
-    LayoutSolver::Measure(root);
-    LayoutSolver::Arrange(root, Rect(0.0f, 0.0f, 810.0f, 600.0f));
+    Solver::Measure(root);
+    Solver::Arrange(root, Rect(0.0f, 0.0f, 810.0f, 600.0f));
 
     // Row 1: width 810, gap 10 -> each button gets 400
     CHECK_NEAR(row1->computedRect.y, 0.0f, 0.001f);
@@ -263,10 +263,10 @@ void TestColumnDeficitNoSquishAndCrop() {
     footer->fixedHeight = 40.0f;
     root->AddChild(footer);
 
-    LayoutSolver::Measure(root);
+    Solver::Measure(root);
 
     // 1. With ample height (400px): spacer absorbs remaining space, footer sticks to bottom
-    LayoutSolver::Arrange(root, Rect(0.0f, 0.0f, 300.0f, 400.0f));
+    Solver::Arrange(root, Rect(0.0f, 0.0f, 300.0f, 400.0f));
     CHECK_NEAR(header->computedRect.y, 0.0f, 0.001f);
     CHECK_NEAR(header->computedRect.h, 50.0f, 0.001f);
     CHECK_NEAR(card->computedRect.y, 60.0f, 0.001f);
@@ -277,7 +277,7 @@ void TestColumnDeficitNoSquishAndCrop() {
 
     // 2. In severe height deficit (100px < 210px):
     // Spacer shrinks to 0; no non-spacer widgets squish below intrinsic size; zero overlap.
-    LayoutSolver::Arrange(root, Rect(0.0f, 0.0f, 300.0f, 100.0f));
+    Solver::Arrange(root, Rect(0.0f, 0.0f, 300.0f, 100.0f));
     CHECK_NEAR(header->computedRect.y, 0.0f, 0.001f);
     CHECK_NEAR(header->computedRect.h, 50.0f, 0.001f);
     CHECK_NEAR(card->computedRect.y, 60.0f, 0.001f);
@@ -312,14 +312,14 @@ void TestWrapContainer() {
         wrap->AddChild(items[i]);
     }
 
-    LayoutSolver::Measure(wrap);
+    Solver::Measure(wrap);
 
     // Intrinsic unconstrained width: 4 * 80 + 3 * 10 = 350, height = 30
     CHECK_NEAR(wrap->intrinsicSize.x, 350.0f, 0.001f);
     CHECK_NEAR(wrap->intrinsicSize.y, 30.0f, 0.001f);
 
     // Case 1: Wide viewport (400px >= 350px): all 4 items fit on 1 line
-    LayoutSolver::Arrange(wrap, Rect(0.0f, 0.0f, 400.0f, 100.0f));
+    Solver::Arrange(wrap, Rect(0.0f, 0.0f, 400.0f, 100.0f));
     CHECK_NEAR(wrap->computedRect.h, 30.0f, 0.001f);
     CHECK_NEAR(items[0]->computedRect.x, 0.0f, 0.001f);
     CHECK_NEAR(items[0]->computedRect.y, 0.0f, 0.001f);
@@ -334,7 +334,7 @@ void TestWrapContainer() {
     // Line 1: items[0], items[1] at y = 0
     // Line 2: items[2], items[3] at y = 30 + 12 = 42
     // Total wrap container height = 30 + 12 + 30 = 72
-    LayoutSolver::Arrange(wrap, Rect(0.0f, 0.0f, 200.0f, 100.0f));
+    Solver::Arrange(wrap, Rect(0.0f, 0.0f, 200.0f, 100.0f));
     CHECK_NEAR(wrap->computedRect.h, 72.0f, 0.001f);
     CHECK_NEAR(items[0]->computedRect.x, 0.0f, 0.001f);
     CHECK_NEAR(items[0]->computedRect.y, 0.0f, 0.001f);
@@ -347,7 +347,7 @@ void TestWrapContainer() {
 
     // Case 3: Narrow viewport (100px): 1 item per line (80 <= 100, 80 + 10 + 80 = 170 > 100)
     // 4 lines! Height = 4 * 30 + 3 * 12 = 120 + 36 = 156
-    LayoutSolver::Arrange(wrap, Rect(0.0f, 0.0f, 100.0f, 200.0f));
+    Solver::Arrange(wrap, Rect(0.0f, 0.0f, 100.0f, 200.0f));
     CHECK_NEAR(wrap->computedRect.h, 156.0f, 0.001f);
     for (int i = 0; i < 4; ++i) {
         CHECK_NEAR(items[i]->computedRect.x, 0.0f, 0.001f);
@@ -395,14 +395,14 @@ void TestWrapInColumnWithSpacer() {
     footer->fixedHeight = 30.0f;
     col->AddChild(footer);
 
-    LayoutSolver::Measure(col);
+    Solver::Measure(col);
     // At width 200, Wrap wraps into 2 lines (height 72)
     // Total column height = 300
     // non-spacer baseSum = 72 + 30 = 102
     // gaps = 2 * 10 = 20
     // spacer freeSpace = 300 - 20 - 102 = 178
     // footer y = 72 + 10 + 178 + 10 = 270 (Bottom() == 300)
-    LayoutSolver::Arrange(col, Rect(0.0f, 0.0f, 200.0f, 300.0f));
+    Solver::Arrange(col, Rect(0.0f, 0.0f, 200.0f, 300.0f));
 
     CHECK_NEAR(wrap->computedRect.h, 72.0f, 0.001f);
     CHECK_NEAR(spacer->computedRect.h, 178.0f, 0.001f);
@@ -464,8 +464,8 @@ void TestGridLayoutSolver() {
     c6->fixedHeight = 60.0f;
     grid->AddChild(c6);
 
-    LayoutSolver::Measure(grid);
-    LayoutSolver::Arrange(grid, Rect(0.0f, 0.0f, 600.0f, 0.0f));
+    Solver::Measure(grid);
+    Solver::Arrange(grid, Rect(0.0f, 0.0f, 600.0f, 0.0f));
 
     // Row 1 checks: W(6) = (6/12)*(600+12) - 12 = 306 - 12 = 294
     CHECK_NEAR(c1->computedRect.x, 0.0f, 0.001f);
@@ -537,8 +537,8 @@ void TestGridResponsiveWrapAndExpand() {
     grid->AddChild(c2);
 
     // Case 1: Constrained space (width 400 < 2 * 250) -> wrap and expand to 100% width
-    LayoutSolver::Measure(grid);
-    LayoutSolver::Arrange(grid, Rect(0.0f, 0.0f, 400.0f, 0.0f));
+    Solver::Measure(grid);
+    Solver::Arrange(grid, Rect(0.0f, 0.0f, 400.0f, 0.0f));
 
     CHECK_NEAR(c1->computedRect.x, 0.0f, 0.001f);
     CHECK_NEAR(c1->computedRect.y, 0.0f, 0.001f);
@@ -553,8 +553,8 @@ void TestGridResponsiveWrapAndExpand() {
 
     // Case 2: Sufficient space (width 600 >= 2 * 250) -> fit side by side
     grid->fixedWidth = 600.0f;
-    LayoutSolver::Measure(grid);
-    LayoutSolver::Arrange(grid, Rect(0.0f, 0.0f, 600.0f, 0.0f));
+    Solver::Measure(grid);
+    Solver::Arrange(grid, Rect(0.0f, 0.0f, 600.0f, 0.0f));
 
     // W(6) = (6/12)*(600+10) - 10 = 305 - 10 = 295
     CHECK_NEAR(c1->computedRect.x, 0.0f, 0.001f);
@@ -599,8 +599,8 @@ void TestScrollAreaLayoutSolver() {
     c3->fixedHeight = 150.0f;
     scroll->AddChild(c3);
 
-    LayoutSolver::Measure(scroll);
-    LayoutSolver::Arrange(scroll, Rect(0.0f, 0.0f, 400.0f, 300.0f));
+    Solver::Measure(scroll);
+    Solver::Arrange(scroll, Rect(0.0f, 0.0f, 400.0f, 300.0f));
 
     // ScrollArea viewport dimensions remain strictly bounded
     CHECK_NEAR(scroll->computedRect.w, 400.0f, 0.001f);
@@ -619,7 +619,7 @@ void TestScrollAreaLayoutSolver() {
 
     // Verify over-scroll clamping (offset 500 clamped to max 450 - 300 = 150)
     scroll->scrollOffset = {0.0f, 500.0f};
-    LayoutSolver::Arrange(scroll, Rect(0.0f, 0.0f, 400.0f, 300.0f));
+    Solver::Arrange(scroll, Rect(0.0f, 0.0f, 400.0f, 300.0f));
 
     CHECK_NEAR(scroll->scrollOffset.y, 150.0f, 0.001f);
     CHECK_NEAR(c1->computedRect.y, -150.0f, 0.001f);
@@ -628,7 +628,7 @@ void TestScrollAreaLayoutSolver() {
 
     // Verify that when scrollbar policy is Never, no gutter is reserved and children occupy full 400px
     scroll->scrollbarPolicy = VisibilityPolicy::Never;
-    LayoutSolver::Arrange(scroll, Rect(0.0f, 0.0f, 400.0f, 300.0f));
+    Solver::Arrange(scroll, Rect(0.0f, 0.0f, 400.0f, 300.0f));
     CHECK_NEAR(scroll->scrollContentSize.x, 400.0f, 0.001f);
     CHECK_NEAR(c1->computedRect.w, 400.0f, 0.001f);
 }
@@ -644,7 +644,7 @@ void TestCustomMeasureAndArrangeDelegates() {
         return {123.0f, 45.0f};
     };
 
-    LayoutSolver::Measure(customLeaf);
+    Solver::Measure(customLeaf);
     CHECK_NEAR(customLeaf->intrinsicSize.x, 123.0f, 0.001f);
     CHECK_NEAR(customLeaf->intrinsicSize.y, 45.0f, 0.001f);
 
@@ -660,7 +660,7 @@ void TestCustomMeasureAndArrangeDelegates() {
         }
     };
 
-    LayoutSolver::Arrange(customContainer, Rect(100.0f, 100.0f, 300.0f, 200.0f));
+    Solver::Arrange(customContainer, Rect(100.0f, 100.0f, 300.0f, 200.0f));
     CHECK_NEAR(customContainer->computedRect.x, 100.0f, 0.001f);
     CHECK_NEAR(customContainer->computedRect.w, 300.0f, 0.001f);
     CHECK_NEAR(child->computedRect.x, 110.0f, 0.001f);
@@ -745,8 +745,8 @@ void TestStretchColumnInConstrainedRowWithHugeContent() {
 
     contentCol->AddChild(grid);
 
-    LayoutSolver::Measure(row);
-    LayoutSolver::Arrange(row, Rect(0.0f, 0.0f, 1000.0f, 600.0f));
+    Solver::Measure(row);
+    Solver::Arrange(row, Rect(0.0f, 0.0f, 1000.0f, 600.0f));
 
     // 1. Sidebar takes exactly 300px
     CHECK_NEAR(sidebar->computedRect.x, 0.0f, 0.001f);
@@ -802,8 +802,8 @@ void TestCarouselArrowScaling() {
     }
 
     UiTheme theme1 = UiTheme::Dark();
-    LayoutSolver::Measure(c1, nullptr, theme1);
-    LayoutSolver::Arrange(c1, Rect(0.0f, 0.0f, 300.0f, 36.0f), theme1);
+    Solver::Measure(c1, nullptr, theme1);
+    Solver::Arrange(c1, Rect(0.0f, 0.0f, 300.0f, 36.0f), theme1);
 
     CHECK(d1->showRightArrow == true);
     const float h1 = d1->rightArrowRect.h;
@@ -831,8 +831,8 @@ void TestCarouselArrowScaling() {
     }
 
     UiTheme theme2 = UiTheme::Dark().Scaled(2.0f);
-    LayoutSolver::Measure(c2, nullptr, theme2);
-    LayoutSolver::Arrange(c2, Rect(0.0f, 0.0f, 300.0f, 72.0f), theme2);
+    Solver::Measure(c2, nullptr, theme2);
+    Solver::Arrange(c2, Rect(0.0f, 0.0f, 300.0f, 72.0f), theme2);
 
     CHECK(d2->showRightArrow == true);
     const float h2 = d2->rightArrowRect.h;
@@ -871,8 +871,8 @@ void TestAspectRatioMinHeightAndStretchFallback() {
     sceneNode->minHeight = 240.0f;
     col->AddChild(sceneNode);
 
-    LayoutSolver::Measure(col);
-    LayoutSolver::Arrange(col, Rect(0.0f, 0.0f, 400.0f, 0.0f));
+    Solver::Measure(col);
+    Solver::Arrange(col, Rect(0.0f, 0.0f, 400.0f, 0.0f));
 
     CHECK_NEAR(imgNode->computedRect.w, 400.0f, 0.001f);
     CHECK_NEAR(imgNode->computedRect.h, 200.0f, 0.001f);

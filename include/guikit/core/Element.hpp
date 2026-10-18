@@ -3,6 +3,7 @@
 #include <optional>
 #include <source_location>
 #include <string_view>
+#include "guikit/core/ContainerScope.hpp"
 #include "guikit/core/Control.hpp"
 #include "guikit/core/Response.hpp"
 #include "guikit/core/Theme.hpp"
@@ -14,48 +15,60 @@ namespace guikit {
 
 class Context;
 class ICanvas;
+struct Node;
 
-/// Clean configuration options for a standalone `Element` or `Heading`.
+/// Configuration options for an `Element` wrapper (or standalone control-less `Element`).
 struct ElementOptions {
-    UiText title{};                                       ///< Primary heading/element title text (alias for label)
-    UiText subtitle{};                                    ///< Optional secondary subtitle text (alias for description)
-    UiText label{};                                       ///< Primary label or heading title text
-    UiText description{};                                 ///< Optional secondary description or subtitle text
-    Icon icon{};                                          ///< Optional vector icon before label
-    UiText badge{};                                       ///< Optional pill badge after label (supports independent StateColor)
-    std::optional<UiSize> size{std::nullopt};             ///< Local size override (nullopt = inherit container size)
-    ElementLayout layout{ElementLayout::Stacked};         ///< Text placement: Stacked/Bottom (below), Top (above), Inline (beside)
-    InlineOrder inlineOrder{InlineOrder::ControlFirst};   ///< Sequencing order in Inline layout (ControlFirst = Label first, LabelFirst = Description first)
-    Align elementAlign{Align::Start};                     ///< Horizontal alignment (Start, Center, End)
-    StretchMode stretch{StretchMode::Fill};               ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};             ///< Explicit element width in points (Compact/Space) or % 0..100 (Fill)
-    std::optional<float> height{std::nullopt};            ///< Explicit element height in points (nullopt = auto from UiSize)
-    bool background{false};                               ///< Whether to render a surface backdrop around outerBounds
-    float borderWidth{0.0f};                              ///< Outer element border thickness in points (0.0f = no border)
-    std::optional<float> borderRadius{std::nullopt};      ///< Outer element corner radius in points (nullopt = theme radius)
-    StateColor borderColor{};                             ///< Per-state outer border color (normal, hover, active, disabled)
-    StateColor bgColor{};                                 ///< Per-state outer background color (normal, hover, active, disabled)
-    bool divider{false};                                  ///< Whether to render a horizontal section divider line (Heading)
-    ElementDivider dividerStyle{ElementDivider::Bottom};  ///< Divider placement style (Bottom or Trailing)
-    bool wordWrap{false};                                 ///< Whether description wraps into multiple lines when space is constrained
-    bool headingTypography{false};                        ///< True when styled as a Heading (uses HeadingMetrics scale and Secondary subtitle variant)
-    bool disabled{false};                                 ///< Whether the element is rendered in a disabled state
-
-    [[nodiscard]] const UiText& EffectiveTitle() const noexcept {
-        return title.HasContentOrReserve() ? title : label;
-    }
-
-    [[nodiscard]] const UiText& EffectiveSubtitle() const noexcept {
-        return subtitle.HasContentOrReserve() ? subtitle : description;
-    }
+    UiText label{};                                           ///< Primary label text
+    UiText description{};                                     ///< Optional secondary description text
+    UiText tooltip{};                                         ///< Optional hover tooltip text
+    Icon icon{};                                              ///< Optional vector icon before label
+    UiText badge{};                                           ///< Optional pill badge after label (supports independent StateColor)
+    std::optional<ElementLayout> layout{std::nullopt};        ///< Text placement relative to control: Stacked, Top, Bottom, Inline (nullopt = control default)
+    std::optional<InlineOrder> inlineOrder{std::nullopt};     ///< Sequencing order in Inline layout (nullopt = control default)
+    Align align{Align::Start};                                ///< Horizontal alignment (Start, Center, End)
+    std::optional<StretchMode> stretch{std::nullopt};         ///< Sizing behavior: Compact, Space, Fill (nullopt = inherit from child control or Fill when standalone)
+    std::optional<float> width{std::nullopt};                 ///< Explicit element/control width in points (Compact/Space) or % 0..100 (Fill)
+    std::optional<float> height{std::nullopt};                ///< Explicit element/control height in points (nullopt = auto from UiSize)
+    Background background{false};                             ///< Outer surface backdrop configuration (false, true, Color, or StateColor)
+    Border border{};                                          ///< Outer element border thickness, corner radius, and per-state color
+    std::optional<UiSize> size{std::nullopt};                 ///< Local size override (nullopt = inherit container size)
+    bool disabled{false};                                     ///< Whether the element and its child control are rendered in a disabled state
+    const UiTheme* theme{nullptr};                            ///< Optional scoped theme override
+    std::optional<float> scale{std::nullopt};                 ///< Optional local UI scale factor override
+    std::optional<bool> debugBounds{std::nullopt};            ///< Scoped debug bounding box overlay override
+    std::optional<bool> inspectMode{std::nullopt};            ///< Scoped interactive DevTools inspector override
 };
 
-using HeadingOptions = ElementOptions;
+/// RAII scope returned by `ui.Element(...)`.
+/// Supports both scoped wrapping (`if (auto el = ui.Element({...})) { ui.Slider(...); }`)
+/// and standalone invocation (`ui.Element({...});` or `Response r = ui.Element({...});`).
+class ElementScope : public ContainerScope {
+public:
+    Response response{};
+
+    ElementScope() noexcept = default;
+    ElementScope(Context* ctx, Node* node, Response res) noexcept
+        : ContainerScope(ctx, node), response(res) {}
+
+    ElementScope(ElementScope&&) noexcept = default;
+    ElementScope& operator=(ElementScope&&) noexcept = default;
+
+    explicit operator bool() const noexcept { return m_node != nullptr; }
+    operator Response() const noexcept { return response; }
+    [[nodiscard]] const Response* operator->() const noexcept { return &response; }
+};
+
+/// Internal per-frame arena payload for `NodeType::Element`.
+struct ElementPayload {
+    ElementOptions opts{};
+    ControlSpec childControlSpec{};
+    Response interactionRes{};
+    mutable ICanvas* lastCanvas{nullptr};
+    bool hasChildControl{false};
+};
 
 /// Low-level layout, typography, and decoration specification for `Element`.
-/// By default (`hasControl = false`), `Element` represents a standalone header/caption element (`Heading`).
-/// Widgets with interactive or visual controls (`Button`, `Checkbox`, `Switch`, `Slider`, `InputField`, `Select`, `Image`, `Scene`)
-/// set `hasControl = true` and configure their control slot via `control` (`ControlSpec`).
 struct ElementSpec {
     UiText label{};                                       ///< Primary label or heading title
     UiText description{};                                 ///< Optional secondary description or subtitle
@@ -63,27 +76,22 @@ struct ElementSpec {
     UiText badge{};                                       ///< Optional trailing pill badge after label (supports independent StateColor)
     ElementLayout layout{ElementLayout::Stacked};         ///< Placement of text relative to control (or description relative to label bar)
     InlineOrder inlineOrder{InlineOrder::LabelFirst};     ///< Sequencing order in Inline layout
-    Align elementAlign{Align::Start};                     ///< Horizontal alignment (Start, Center, End)
+    Align align{Align::Start};                            ///< Horizontal alignment (Start, Center, End)
     StretchMode stretch{StretchMode::Compact};            ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};             ///< Explicit control/element width in points for Compact/Space, or % (0..100) for Fill
     std::optional<float> height{std::nullopt};            ///< Explicit control/element height in points (nullopt = intrinsic height)
     ControlSpec control{};                                ///< Specification for the inner control slot (`controlRect`)
-    bool background{false};                               ///< Whether to render a surface backdrop around outerBounds
-    float borderWidth{0.0f};                              ///< Outer element border thickness in points (0.0f = no border)
-    std::optional<float> borderRadius{std::nullopt};      ///< Outer element corner radius in points (nullopt = theme radius)
-    StateColor borderColor{};                             ///< Per-state outer border color (normal, hover, active, disabled)
-    StateColor bgColor{};                                 ///< Per-state outer background color (normal, hover, active, disabled)
+    Background background{false};                         ///< Outer surface backdrop configuration (false, true, Color, or StateColor)
+    Border border{};                                      ///< Outer element border thickness, corner radius, and per-state color
     UiSize widgetSize{UiSize::Md};                        ///< Active UiSize token
     float labelGap{6.0f};                                 ///< Vertical gap between label bar and control/description
     float descGap{4.0f};                                  ///< Vertical gap between control/label and description
     float inlineGap{10.0f};                               ///< Horizontal gap in Inline layout
     bool hasControl{true};                                ///< False for control-less elements (Element / Heading); true when a widget control is present
     bool headingTypography{false};                        ///< True to use HeadingMetrics typography scale; false for standard control LabelLarge/LabelSmall
-    bool divider{false};                                  ///< Whether to render a horizontal divider line (Heading)
-    ElementDivider dividerStyle{ElementDivider::Bottom};  ///< Divider placement style (Bottom or Trailing)
     bool stretchableControl{true};                        ///< True for Button/InputField/Select/Slider/Image; false for fixed-size controls
     bool stretchHeightWhenStandalone{false};              ///< True to stretch control height when standalone
-    bool disabled{false};                                 ///< Whether the element is disabled (dims text, icon, badge, and divider)
+    bool disabled{false};                                 ///< Whether the element is disabled (dims text, icon, and badge)
     bool hovered{false};                                  ///< Whether the element is currently hovered
     bool active{false};                                   ///< Whether the element/control is currently active (pressed or focused)
 };
@@ -105,13 +113,13 @@ struct ElementGeometry {
 };
 
 /// Foundational UI Element class.
-/// Serves both as a standalone immediate-mode element (`Element::Run` / `Heading::Run` when `hasControl == false`)
-/// and as the shared outer envelope & text composition engine for all control-bearing widgets (`hasControl == true`).
+/// Serves as an outer wrapper over any `Control` (or as a standalone label/description element when empty),
+/// and as the base class for `Heading`.
 class Element {
 public:
     /// Returns true when the outer `Element` envelope (`outerBounds`) has a visible background or border.
     [[nodiscard]] static constexpr bool HasOuterFrame(const ElementSpec& spec) noexcept {
-        return spec.background || spec.borderWidth > 0.0f;
+        return spec.background.IsEnabled(false) || spec.border.width > 0.0f;
     }
 
     /// Computes internal padding inside `outerBounds` when `HasOuterFrame(spec)` is true.
@@ -120,7 +128,7 @@ public:
         const UiTheme& theme
     ) noexcept;
 
-    /// Converts `ElementOptions` into an `ElementSpec` for measurement and rendering.
+    /// Converts `ElementOptions` into a control-less `ElementSpec` for standalone measurement and rendering.
     [[nodiscard]] static ElementSpec MakeSpec(
         const ElementOptions& opts,
         UiSize activeSize,
@@ -130,12 +138,28 @@ public:
         bool isActive = false
     ) noexcept;
 
-    /// Immediate mode entry point for a standalone control-less `Element` (or `Heading` when `opts.headingTypography == true`).
-    static Response Run(
+    /// Opens an `Element` scope that can wrap a child `Control` or act as a standalone element.
+    static ElementScope Open(
         Context& ctx,
-        const ElementOptions& opts,
+        const ElementOptions& opts = {},
         std::source_location loc = std::source_location::current()
     );
+
+    /// Immediate mode entry point for a standalone control-less `Element`.
+    static Response Run(
+        Context& ctx,
+        const ElementOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Open(ctx, opts, loc).response;
+    }
+
+    /// Arrangement delegate for `NodeType::Element` nodes.
+    static void Arrange(
+        Node* node,
+        const Rect& availableRect,
+        const UiTheme& theme
+    ) noexcept;
 
     /// Measures intrinsic dimensions of the element given `intrinsicControlSize` (ignored when `spec.hasControl == false`).
     static Vec2 Measure(
@@ -194,7 +218,7 @@ public:
         const UiTheme& theme
     ) noexcept;
 
-    /// Renders the element's outer frame, control well frame, text, icon, badge, and divider according to resolved geometry.
+    /// Renders the element's outer frame, text, icon, and badge according to resolved geometry.
     static void RenderText(
         ICanvas& canvas,
         const ElementGeometry& geom,
@@ -227,8 +251,16 @@ public:
     ) noexcept {
         Render(canvas, bounds, MakeSpec(opts, size, disabled || opts.disabled, theme, hovered, active), theme);
     }
-};
 
-using ElementComposer = Element;
+protected:
+    [[nodiscard]] static float ResolveLabelFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept;
+    [[nodiscard]] static float ResolveDescFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept;
+    [[nodiscard]] static Vec2 MeasureLabelBar(
+        const ElementSpec& spec,
+        float labelFontSize,
+        ICanvas* canvas,
+        const UiTheme& theme
+    ) noexcept;
+};
 
 } // namespace guikit

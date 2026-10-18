@@ -104,48 +104,66 @@ void RenderTableInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     g_tableDemo.EnsureInitialized();
 
     static constexpr std::array<std::string_view, 2> kModeLabels = {"Rich DataGrid", "100k Virtual"};
-    if (ui.StepSlider(g_tableDemo.datasetMode, kModeLabels, {
+    if (auto el = ui.Element({
         .label = "Table Mode",
-        .description = "Switch between Rich Widget DataGrid (48 targets) and 100,000-row O(1) virtualized log",
-        .showTicks = true,
-        .showLabels = true
-    }).changed) {
-        ui.InvalidateAll();
-    }
-
-    if (ui.StepSlider(g_tableDemo.tableSize, {
-        .label = "Row & Header Size",
-        .showTicks = true,
-        .showLabels = true,
-        .showValue = true
-    }).changed) {
-        ui.InvalidateAll();
-    }
-
-    if (ui.Switch(g_tableDemo.striped, {.label = "Zebra Striped Rows"}).changed) ui.InvalidateAll();
-    if (ui.Switch(g_tableDemo.gridLines, {.label = "Cell Grid Lines"}).changed) ui.InvalidateAll();
-    if (ui.Switch(g_tableDemo.stickyHeader, {.label = "Sticky Header"}).changed) ui.InvalidateAll();
-    if (ui.Switch(g_tableDemo.resizableColumns, {.label = "Resizable Columns"}).changed) ui.InvalidateAll();
-    if (ui.Switch(g_tableDemo.showRowNumbers, {.label = "Show Row Numbers (#)"}).changed) ui.InvalidateAll();
-    if (ui.Switch(g_tableDemo.showFooter, {.label = "Show Summary Footer"}).changed) ui.InvalidateAll();
-
-    if (g_tableDemo.datasetMode == 0) {
-        if (ui.Switch(g_tableDemo.liveTelemetry, {
-            .label = "Live Signal Telemetry",
-            .description = "Animate SNR level meters and bearings in real time"
+        .description = "Switch between Rich Widget DataGrid (48 targets) and 100,000-row O(1) virtualized log"
+    })) {
+        if (ui.StepSlider(g_tableDemo.datasetMode, kModeLabels, {
+            .showTicks = true,
+            .showLabels = true
         }).changed) {
             ui.InvalidateAll();
         }
+    }
+
+    if (auto el = ui.Element({.label = "Row & Header Size"})) {
+        if (ui.StepSlider(g_tableDemo.tableSize, {
+            .showTicks = true,
+            .showLabels = true,
+            .showValue = true
+        }).changed) {
+            ui.InvalidateAll();
+        }
+    }
+
+    if (auto el = ui.Element({.label = "Zebra Striped Rows"})) {
+        if (ui.Switch(g_tableDemo.striped).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Cell Grid Lines"})) {
+        if (ui.Switch(g_tableDemo.gridLines).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Sticky Header"})) {
+        if (ui.Switch(g_tableDemo.stickyHeader).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Resizable Columns"})) {
+        if (ui.Switch(g_tableDemo.resizableColumns).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Show Row Numbers (#)"})) {
+        if (ui.Switch(g_tableDemo.showRowNumbers).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Show Summary Footer"})) {
+        if (ui.Switch(g_tableDemo.showFooter).changed) ui.InvalidateAll();
+    }
+
+    if (g_tableDemo.datasetMode == 0) {
+        if (auto el = ui.Element({
+            .label = "Live Signal Telemetry",
+            .description = "Animate SNR level meters and bearings in real time"
+        })) {
+            if (ui.Switch(g_tableDemo.liveTelemetry).changed) {
+                ui.InvalidateAll();
+            }
+        }
     } else {
-        ui.Heading({.title = "VIRTUAL JUMP (100,000 ROWS)", .size = UiSize::Xs, .divider = true});
+        ui.Heading({.label = "VIRTUAL JUMP (100,000 ROWS)", .size = UiSize::Xs, .divider = true});
         if (auto row = ui.Row({.gap = 6.0f})) {
-            if (ui.Button({.label = "Top (#1)", .color = StateColor::Secondary(), .stretch = StretchMode::Fill, .size = UiSize::Sm})) {
+            if (ui.Button({.text = "Top (#1)", .color = StateColor::Secondary(), .stretch = StretchMode::Fill, .size = UiSize::Sm})) {
                 g_tableDemo.pendingJumpRow = 0;
             }
-            if (ui.Button({.label = "Mid (#50k)", .color = StateColor::Secondary(), .stretch = StretchMode::Fill, .size = UiSize::Sm})) {
+            if (ui.Button({.text = "Mid (#50k)", .color = StateColor::Secondary(), .stretch = StretchMode::Fill, .size = UiSize::Sm})) {
                 g_tableDemo.pendingJumpRow = 49999;
             }
-            if (ui.Button({.label = "End (#100k)", .color = StateColor::Primary(), .stretch = StretchMode::Fill, .size = UiSize::Sm})) {
+            if (ui.Button({.text = "End (#100k)", .color = StateColor::Primary(), .stretch = StretchMode::Fill, .size = UiSize::Sm})) {
                 g_tableDemo.pendingJumpRow = 99999;
             }
         }
@@ -189,7 +207,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                 }
 
                 if (ui.Button({
-                    .label = "Sort by SNR",
+                    .text = "Sort by SNR",
                     .icon = Icon::Play(),
                     .color = StateColor::Secondary(),
                     .stretch = StretchMode::Compact,

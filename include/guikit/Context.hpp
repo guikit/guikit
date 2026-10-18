@@ -401,7 +401,7 @@ public:
 
 
     // --- Element / Heading Widgets ---
-    Response Element(
+    ElementScope Element(
         ElementOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
@@ -909,6 +909,9 @@ public:
     // --- Internal Hierarchy & Scope Management ---
     void PushContainer(Node* node);
     void PopContainer(Node* node);
+    [[nodiscard]] Node* GetCurrentContainer() const noexcept {
+        return m_containerStack.empty() ? nullptr : m_containerStack.back();
+    }
 
     // Imperative actions requested from Response
     void RequestFocus(Id id);

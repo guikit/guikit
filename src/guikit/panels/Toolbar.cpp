@@ -139,13 +139,13 @@ Response Toolbar::ToolButton(
     Node* node = ctx.CreateNode(NodeType::Button, id);
 
     ButtonOptions bOpts;
-    bOpts.label = ctx.AllocText(opts.label);
+    bOpts.text = ctx.AllocText(opts.label);
     bOpts.tooltip = ctx.AllocText(opts.tooltip);
-    node->text = bOpts.label.text;
+    node->text = bOpts.text.text;
     bOpts.icon = opts.icon;
     bOpts.color = StateColor::FromVariant(opts.variant);
     bOpts.iconPlacement = opts.iconPlacement;
-    bOpts.controlAlign = opts.controlAlign;
+    bOpts.align = opts.controlAlign;
     bOpts.stretch = opts.stretch;
     bOpts.width = opts.width;
     bOpts.minWidth = opts.minWidth;
@@ -167,7 +167,7 @@ Response Toolbar::ToolButton(
         static_cast<uint8_t>(opts.icon.GetType()),
         static_cast<uint8_t>(opts.icon.GetId()),
         opts.icon.GetPath(),
-        bOpts.label
+        bOpts.text
     );
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* b = n->As<ButtonOptions>();

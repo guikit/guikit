@@ -125,7 +125,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
     // 1. Camera & Dataset Header Actions
     if (auto row = ui.Row({.gap = 6.0f})) {
         if (ui.Button({
-            .label = "Fit Chart Bounds",
+            .text = "Fit Chart Bounds",
             .icon = guikit::Icon::Search(),
             .color = guikit::StateColor::Primary(),
             .stretch = guikit::StretchMode::Fill,
@@ -136,7 +136,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
             ui.InvalidateAll();
         }
         if (ui.Button({
-            .label = "Clear Sel",
+            .text = "Clear Sel",
             .color = guikit::StateColor::Secondary(),
             .disabled = !s_state.selectedFeatureId.has_value(),
             .size = guikit::UiSize::Sm
@@ -149,65 +149,92 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
 
     // 2. S-52 / ENC Palette & Bathymetry Safety Thresholds
     size_t palIdx = static_cast<size_t>(s_state.renderSettings.palette);
-    if (ui.Select(palIdx, GisScreenState::paletteNames, {
-        .label = "Chart Color Palette (S-52 / ENC)"
-    }).changed) {
-        s_state.renderSettings.palette = static_cast<guikit::GisColorPalette>(palIdx);
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Chart Color Palette (S-52 / ENC)"})) {
+        if (ui.Select(palIdx, GisScreenState::paletteNames).changed) {
+            s_state.renderSettings.palette = static_cast<guikit::GisColorPalette>(palIdx);
+            ui.InvalidateAll();
+        }
     }
 
-    if (ui.Slider(s_state.renderSettings.safetyContourMeters, 1.0f, 20.0f, {
-        .label = "Safety Contour Depth (m)",
-        .valueFormat = "%.1f m",
-        .step = 0.5
-    }).changed) {
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Safety Contour Depth (m)"})) {
+        if (ui.Slider(s_state.renderSettings.safetyContourMeters, 1.0f, 20.0f, {
+            .valueFormat = "%.1f m",
+            .step = 0.5
+        }).changed) {
+            ui.InvalidateAll();
+        }
     }
 
     // 3. Projection (CRS) & Coordinate Readout Format
     size_t crsIdx = static_cast<size_t>(s_state.crs);
-    if (ui.Select(crsIdx, GisScreenState::crsNames, {
-        .label = "Projection (CRS)"
-    }).changed) {
-        s_state.crs = static_cast<guikit::MapCrs>(crsIdx);
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Projection (CRS)"})) {
+        if (ui.Select(crsIdx, GisScreenState::crsNames).changed) {
+            s_state.crs = static_cast<guikit::MapCrs>(crsIdx);
+            ui.InvalidateAll();
+        }
     }
 
     size_t fmtIdx = static_cast<size_t>(s_state.coordFormat);
-    if (ui.Select(fmtIdx, GisScreenState::coordFormatNames, {
-        .label = "Coordinate Format"
-    }).changed) {
-        s_state.coordFormat = static_cast<guikit::GeoCoordFormat>(fmtIdx);
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Coordinate Format"})) {
+        if (ui.Select(fmtIdx, GisScreenState::coordFormatNames).changed) {
+            s_state.coordFormat = static_cast<guikit::GeoCoordFormat>(fmtIdx);
+            ui.InvalidateAll();
+        }
     }
 
     // 4. S-52 Vector Display Filters
-    ui.Heading({.title = "S-52 DISPLAY FILTERS", .size = guikit::UiSize::Xs, .divider = true});
-    if (ui.Switch(s_state.renderSettings.showFilledPolygons, {.label = "Filled Polygons (LNDARE / DEPARE)"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.renderSettings.showPolygonOutlines, {.label = "Polygon Outlines (COALNE)"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.renderSettings.showDepthContours, {.label = "Depth Contours (DEPCNT)"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.renderSettings.highlightSafetyContour, {
+    ui.Heading({.label = "S-52 DISPLAY FILTERS", .size = guikit::UiSize::Xs, .divider = true});
+    if (auto el = ui.Element({.label = "Filled Polygons (LNDARE / DEPARE)"})) {
+        if (ui.Switch(s_state.renderSettings.showFilledPolygons).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Polygon Outlines (COALNE)"})) {
+        if (ui.Switch(s_state.renderSettings.showPolygonOutlines).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Depth Contours (DEPCNT)"})) {
+        if (ui.Switch(s_state.renderSettings.showDepthContours).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({
         .label = "Highlight Safety Isobath",
         .disabled = !s_state.renderSettings.showDepthContours
-    }).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.renderSettings.showSoundings, {.label = "Spot Soundings (SOUNDG)"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.renderSettings.showSeamarks, {.label = "IALA Seamarks & Lights"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.renderSettings.showFeatureLabels, {.label = "Cartographic Labels"}).changed) ui.InvalidateAll();
+    })) {
+        if (ui.Switch(s_state.renderSettings.highlightSafetyContour, {
+            .disabled = !s_state.renderSettings.showDepthContours
+        }).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Spot Soundings (SOUNDG)"})) {
+        if (ui.Switch(s_state.renderSettings.showSoundings).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "IALA Seamarks & Lights"})) {
+        if (ui.Switch(s_state.renderSettings.showSeamarks).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Cartographic Labels"})) {
+        if (ui.Switch(s_state.renderSettings.showFeatureLabels).changed) ui.InvalidateAll();
+    }
 
     // 5. Cartographic Grid & HUD Overlays
-    ui.Heading({.title = "CARTOGRAPHIC OVERLAYS", .size = guikit::UiSize::Xs, .divider = true});
-    if (ui.Switch(s_state.showNauticalGraticule, {.label = "Nautical Graticule (1' = 1 NM)"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.showBorderRulers, {.label = "Border Lat/Lon Zebra Rulers"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.showScaleBarOverlay, {.label = "Dual Scale Bar (NM + km)"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.showTileGrid, {.label = "Vector Tile Grid [z/x/y]"}).changed) ui.InvalidateAll();
+    ui.Heading({.label = "CARTOGRAPHIC OVERLAYS", .size = guikit::UiSize::Xs, .divider = true});
+    if (auto el = ui.Element({.label = "Nautical Graticule (1' = 1 NM)"})) {
+        if (ui.Switch(s_state.showNauticalGraticule).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Border Lat/Lon Zebra Rulers"})) {
+        if (ui.Switch(s_state.showBorderRulers).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Dual Scale Bar (NM + km)"})) {
+        if (ui.Switch(s_state.showScaleBarOverlay).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Vector Tile Grid [z/x/y]"})) {
+        if (ui.Switch(s_state.showTileGrid).changed) ui.InvalidateAll();
+    }
 
     // 6. Thematic Layers from demo_bay.geojson
     if (!s_state.layers.empty()) {
-        ui.Heading({.title = "THEMATIC ENC LAYERS", .size = guikit::UiSize::Xs, .divider = true});
+        ui.Heading({.label = "THEMATIC ENC LAYERS", .size = guikit::UiSize::Xs, .divider = true});
         for (auto& layer : s_state.layers) {
             const std::string lbl = std::format("{} ({})", layer.name, layer.features.size());
-            if (ui.Checkbox(layer.visible, {.label = lbl, .size = guikit::UiSize::Sm}).changed) {
-                ui.InvalidateAll();
+            if (auto el = ui.Element({.label = lbl, .size = guikit::UiSize::Sm})) {
+                if (ui.Checkbox(layer.visible, {.size = guikit::UiSize::Sm}).changed) {
+                    ui.InvalidateAll();
+                }
             }
         }
     }
@@ -222,7 +249,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
 
     if (inspectFeat != nullptr) {
         ui.Heading({
-            .title = isHoverInspect ? "HOVERED FEATURE" : "SELECTED FEATURE",
+            .label = isHoverInspect ? "HOVERED FEATURE" : "SELECTED FEATURE",
             .size = guikit::UiSize::Xs,
             .divider = true
         });

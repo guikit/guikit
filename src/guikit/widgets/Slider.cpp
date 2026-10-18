@@ -5,7 +5,6 @@
 #include <cstring>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 
@@ -327,10 +326,19 @@ void RenderSliderCompanionTexts(
 }
 
 template <typename Opts>
-ControlSpec EffectiveSliderControl(const Opts& opts) noexcept {
-    ControlSpec c = opts.control;
-    if (!c.width.has_value() && opts.width.has_value()) c.width = opts.width;
-    if (!c.height.has_value() && opts.height.has_value()) c.height = opts.height;
+ControlSpec EffectiveSliderControl(const Opts& opts, UiSize size, const UiTheme& theme) noexcept {
+    const SliderMetrics& m = theme.GetSlider(size);
+    ControlSpec c{};
+    c.width = opts.width;
+    c.height = opts.height;
+    c.align = opts.align;
+    c.background = opts.background;
+    c.border = opts.border;
+    c.defaultLayout = ElementLayout::Stacked;
+    c.defaultInlineOrder = InlineOrder::LabelFirst;
+    c.labelGap = m.labelGap;
+    c.descGap = m.descGap;
+    c.inlineGap = 12.0f;
     c.stretchable = true;
     c.stretchHeightWhenStandalone = false;
     c.hasIntrinsicBox = false;
@@ -361,84 +369,6 @@ Color ResolveSliderActiveThumbColor(const StateColor& color, const UiTheme& them
     return color.active.value_or(color.normal.has_value() ? StateColor::DarkenColor(*color.normal) : primary.bgActive);
 }
 
-ElementSpec MakeSliderElementSpec(
-    const SliderOptions& opts,
-    UiSize size,
-    bool disabled,
-    const UiTheme& theme,
-    bool hovered = false,
-    bool active = false
-) noexcept {
-    const SliderMetrics& m = theme.GetSlider(size);
-    const ControlSpec ctrl = EffectiveSliderControl(opts);
-    return ElementSpec{
-        .label = opts.label,
-        .description = opts.description,
-        .icon = opts.icon,
-        .badge = opts.badge,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .elementAlign = opts.elementAlign,
-        .stretch = opts.stretch,
-        .width = ctrl.width,
-        .height = ctrl.height,
-        .control = ctrl,
-        .background = opts.background,
-        .borderWidth = opts.borderWidth,
-        .borderRadius = opts.borderRadius,
-        .borderColor = opts.borderColor,
-        .bgColor = opts.bgColor,
-        .widgetSize = size,
-        .labelGap = m.labelGap,
-        .descGap = m.descGap,
-        .inlineGap = 12.0f,
-        .stretchableControl = true,
-        .stretchHeightWhenStandalone = false,
-        .disabled = disabled,
-        .hovered = hovered,
-        .active = active
-    };
-}
-
-ElementSpec MakeStepSliderElementSpec(
-    const StepSliderOptions& opts,
-    UiSize size,
-    bool disabled,
-    const UiTheme& theme,
-    bool hovered = false,
-    bool active = false
-) noexcept {
-    const SliderMetrics& m = theme.GetSlider(size);
-    const ControlSpec ctrl = EffectiveSliderControl(opts);
-    return ElementSpec{
-        .label = opts.label,
-        .description = opts.description,
-        .icon = opts.icon,
-        .badge = opts.badge,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .elementAlign = opts.elementAlign,
-        .stretch = opts.stretch,
-        .width = ctrl.width,
-        .height = ctrl.height,
-        .control = ctrl,
-        .background = opts.background,
-        .borderWidth = opts.borderWidth,
-        .borderRadius = opts.borderRadius,
-        .borderColor = opts.borderColor,
-        .bgColor = opts.bgColor,
-        .widgetSize = size,
-        .labelGap = m.labelGap,
-        .descGap = m.descGap,
-        .inlineGap = 12.0f,
-        .stretchableControl = true,
-        .stretchHeightWhenStandalone = false,
-        .disabled = disabled,
-        .hovered = hovered,
-        .active = active
-    };
-}
-
 } // namespace
 
 // ============================================================================
@@ -461,6 +391,9 @@ Response Slider::Run(
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     const UiTheme& activeTheme = ctx.GetTheme();
 
+    SliderOptions optsCopy = opts;
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+
     const SliderMetrics& m = activeTheme.GetSlider(activeSize);
     const double rangeMin = std::min(min, max);
     const double rangeMax = std::max(min, max);
@@ -471,17 +404,18 @@ Response Slider::Run(
 
     currentVal = std::clamp(currentVal, rangeMin, rangeMax);
 
-    const double effectiveStep = (opts.step.has_value() && *opts.step > 0.0) ? *opts.step :
+    const double effectiveStep = (optsCopy.step.has_value() && *optsCopy.step > 0.0) ? *optsCopy.step :
                                  (valInt != nullptr) ? 1.0 : 0.0;
 
     char initValBuf[64];
-    FormatSliderValue(initValBuf, sizeof(initValBuf), currentVal, valInt != nullptr, opts.valueFormat.text);
+    FormatSliderValue(initValBuf, sizeof(initValBuf), currentVal, valInt != nullptr, optsCopy.valueFormat.text);
 
     Rect prevBounds = ctx.GetPrevFrameBounds(id);
     auto& state = ctx.GetOrCreateState<SliderState>(id);
 
     ctx.RegisterFocusable(id, effectiveDisabled);
 
+    const ControlSpec ctrl = EffectiveSliderControl(optsCopy, activeSize, activeTheme);
     Response res = ctx.Interact(id);
     if (effectiveDisabled) {
         res.clicked = false;
@@ -490,16 +424,13 @@ Response Slider::Run(
         state.dragging = false;
     } else {
         const float halfThumb = m.thumbSize * 0.5f;
-        const ControlSpec ctrl = EffectiveSliderControl(opts);
         const SliderControlMetrics cm = ComputeSliderControlMetrics(
-            opts.textLeft, opts.textRight, opts.valueFormat, initValBuf,
-            opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
+            optsCopy.textLeft, optsCopy.textRight, optsCopy.valueFormat, initValBuf,
+            optsCopy.showValue, optsCopy.valuePlacement, optsCopy.stretch, ctrl.width,
             0.0f, activeSize, nullptr, activeTheme,
             {}, true, rangeMin, rangeMax, valInt != nullptr
         );
-        const ElementSpec spec = MakeSliderElementSpec(opts, activeSize, effectiveDisabled, activeTheme);
-        const ElementGeometry geom = Element::Resolve(prevBounds, cm.intrinsicControlSize, spec, nullptr, activeTheme);
-        const Rect& ctrlRect = geom.innerControlRect;
+        const Rect ctrlRect = Control::ResolveInnerRect(prevBounds, ctrl, activeSize, activeTheme);
         const float trackRegionX = ctrlRect.x + cm.leftGutterW;
         const float trackRegionW = std::max(m.thumbSize, ctrlRect.w - cm.leftGutterW - cm.rightGutterW);
         const float trackStartX = trackRegionX + halfThumb;
@@ -573,8 +504,8 @@ Response Slider::Run(
         }
     }
 
-    if (res.hovered && !opts.tooltip.empty()) {
-        ctx.SetTooltip(opts.tooltip, prevBounds);
+    if (res.hovered && !optsCopy.tooltip.empty()) {
+        ctx.SetTooltip(optsCopy.tooltip, prevBounds);
     }
 
     // Write back updated value
@@ -584,7 +515,7 @@ Response Slider::Run(
 
     // Format current value string
     char valBuf[64];
-    FormatSliderValue(valBuf, sizeof(valBuf), currentVal, valInt != nullptr, opts.valueFormat.text);
+    FormatSliderValue(valBuf, sizeof(valBuf), currentVal, valInt != nullptr, optsCopy.valueFormat.text);
     const std::string_view formattedStr = ctx.AllocString(valBuf);
 
     Node* node = ctx.CreateNode(NodeType::Slider, id);
@@ -594,19 +525,16 @@ Response Slider::Run(
     node->hovered = res.hovered;
     node->pressed = res.pressed || state.dragging;
     node->focused = ctx.IsFocused(id);
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
+    node->widthMode = (optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
 
     auto* data = ctx.AllocPayload<SliderData>();
-    data->opts = opts;
-    data->opts.label = ctx.AllocText(opts.label);
-    data->opts.badge = ctx.AllocText(opts.badge);
-    data->opts.textLeft = ctx.AllocText(opts.textLeft);
-    data->opts.textRight = ctx.AllocText(opts.textRight);
-    data->opts.description = ctx.AllocText(opts.description);
-    data->opts.tooltip = ctx.AllocText(opts.tooltip);
-    data->opts.valueFormat = ctx.AllocText(opts.valueFormat);
-    node->text = data->opts.label.text;
+    data->opts = optsCopy;
+    data->opts.textLeft = ctx.AllocText(optsCopy.textLeft);
+    data->opts.textRight = ctx.AllocText(optsCopy.textRight);
+    data->opts.tooltip = ctx.AllocText(optsCopy.tooltip);
+    data->opts.valueFormat = ctx.AllocText(optsCopy.valueFormat);
+    node->text = formattedStr;
     data->value = currentVal;
     data->min = rangeMin;
     data->max = rangeMax;
@@ -618,33 +546,17 @@ Response Slider::Run(
     std::memcpy(&valBits, &currentVal, sizeof(double));
     node->visualHash = detail::HashArgs(
         valBits,
-        opts.color,
-        static_cast<uint8_t>(opts.stretch),
-        static_cast<uint8_t>(opts.layout),
-        static_cast<uint8_t>(opts.inlineOrder),
-        static_cast<uint8_t>(opts.elementAlign),
-        static_cast<uint8_t>(opts.valuePlacement),
-        opts.background,
-        opts.borderWidth,
-        opts.borderRadius.value_or(-1.0f),
-        opts.borderColor,
-        opts.bgColor,
-        opts.control.width.value_or(0.0f),
-        opts.control.height.value_or(0.0f),
-        opts.control.HasBackground(false),
-        opts.control.borderWidth,
-        opts.control.borderRadius.value_or(-1.0f),
-        opts.control.borderColor,
-        opts.control.bgColor,
-        opts.width.value_or(0.0f),
-        opts.height.value_or(0.0f),
-        opts.showValue,
-        data->opts.label,
-        data->opts.badge,
-        data->opts.icon,
+        data->opts.color,
+        static_cast<uint8_t>(data->opts.stretch),
+        static_cast<uint8_t>(data->opts.align),
+        static_cast<uint8_t>(data->opts.valuePlacement),
+        data->opts.background,
+        data->opts.border,
+        data->opts.width.value_or(0.0f),
+        data->opts.height.value_or(0.0f),
+        data->opts.showValue,
         data->opts.textLeft,
         data->opts.textRight,
-        data->opts.description,
         data->opts.valueFormat,
         data->formattedValue
     );
@@ -665,6 +577,7 @@ Response Slider::Run(
                        d->opts, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused);
     };
 
+    Control::SetupNode(ctx, node, ctrl, data->opts.stretch, data->opts.align);
     ctx.AdaptChildToContainer(node);
     if (pushedTheme) {
         ctx.PopTheme();
@@ -680,7 +593,7 @@ Vec2 Slider::Measure(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    float availableWidth
+    float /*availableWidth*/
 ) {
     const double rangeMin = std::min(min, max);
     const double rangeMax = std::max(min, max);
@@ -689,15 +602,14 @@ Vec2 Slider::Measure(
                            std::abs(rangeMin - std::round(rangeMin)) < 0.0001;
     char valBuf[64];
     FormatSliderValue(valBuf, sizeof(valBuf), value, isIntStep, opts.valueFormat.text);
-    const ControlSpec ctrl = EffectiveSliderControl(opts);
+    const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
         opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
         0.0f, size, canvas, theme,
         {}, true, rangeMin, rangeMax, isIntStep
     );
-    const ElementSpec spec = MakeSliderElementSpec(opts, size, opts.disabled, theme);
-    return Element::Measure(cm.intrinsicControlSize, spec, canvas, theme, availableWidth);
+    return Control::Measure(cm.intrinsicControlSize, ctrl, opts.stretch, size, theme);
 }
 
 Vec2 Slider::Measure(
@@ -740,18 +652,16 @@ void Slider::Render(
     char valBuf[64];
     FormatSliderValue(valBuf, sizeof(valBuf), value, isIntStep, opts.valueFormat.text);
 
-    const ControlSpec ctrl = EffectiveSliderControl(opts);
+    const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
         opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
         0.0f, size, &canvas, theme,
         {}, true, rangeMin, rangeMax, isIntStep
     );
-    const ElementSpec spec = MakeSliderElementSpec(opts, size, disabled, theme, hovered, active || focused);
-    const ElementGeometry geom = Element::Resolve(bounds, cm.intrinsicControlSize, spec, &canvas, theme);
-    Element::RenderText(canvas, geom, spec, theme);
+    Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, hovered, active || focused);
 
-    const Rect& ctrlRect = geom.innerControlRect;
+    const Rect ctrlRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
     const float halfThumb = m.thumbSize * 0.5f;
     const float trackRegionX = ctrlRect.x + cm.leftGutterW;
     const float trackRegionW = std::max(m.thumbSize, ctrlRect.w - cm.leftGutterW - cm.rightGutterW);
@@ -816,27 +726,31 @@ Response StepSlider::Run(
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     const UiTheme& activeTheme = ctx.GetTheme();
 
+    StepSliderOptions optsCopy = opts;
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+
     const SliderMetrics& m = activeTheme.GetSlider(activeSize);
 
     if (totalSteps == 0) {
-        totalSteps = opts.stepLabels.empty() ? 1 : opts.stepLabels.size();
+        totalSteps = optsCopy.stepLabels.empty() ? 1 : optsCopy.stepLabels.size();
     }
 
     size_t curIdx = (indexSizeT != nullptr) ? *indexSizeT :
                     (indexInt != nullptr)   ? static_cast<size_t>(std::max(0, *indexInt)) : 0;
     curIdx = std::min(curIdx, totalSteps - 1);
 
-    const std::string_view initStepStr = !opts.valueText.empty()
-        ? opts.valueText.text
-        : ((curIdx < opts.stepLabels.size()) ? opts.stepLabels[curIdx] : std::string_view{});
+    const std::string_view initStepStr = !optsCopy.valueText.empty()
+        ? optsCopy.valueText.text
+        : ((curIdx < optsCopy.stepLabels.size()) ? optsCopy.stepLabels[curIdx] : std::string_view{});
     const float tickFont = activeTheme.ResolveFontSize(TextRole::LabelSmall, activeSize);
-    const float extraLabelsH = (opts.showLabels && !opts.stepLabels.empty() && totalSteps > 1) ? (m.tickGap + tickFont * 1.3f) : 0.0f;
+    const float extraLabelsH = (optsCopy.showLabels && !optsCopy.stepLabels.empty() && totalSteps > 1) ? (m.tickGap + tickFont * 1.3f) : 0.0f;
 
     Rect prevBounds = ctx.GetPrevFrameBounds(id);
     auto& state = ctx.GetOrCreateState<SliderState>(id);
 
     ctx.RegisterFocusable(id, effectiveDisabled);
 
+    const ControlSpec ctrl = EffectiveSliderControl(optsCopy, activeSize, activeTheme);
     Response res = ctx.Interact(id);
     if (effectiveDisabled) {
         res.clicked = false;
@@ -845,16 +759,13 @@ Response StepSlider::Run(
         state.dragging = false;
     } else {
         const float halfThumb = m.thumbSize * 0.5f;
-        const ControlSpec ctrl = EffectiveSliderControl(opts);
         const SliderControlMetrics cm = ComputeSliderControlMetrics(
-            opts.textLeft, opts.textRight, opts.valueText, initStepStr,
-            opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
+            optsCopy.textLeft, optsCopy.textRight, optsCopy.valueText, initStepStr,
+            optsCopy.showValue, optsCopy.valuePlacement, optsCopy.stretch, ctrl.width,
             extraLabelsH, activeSize, nullptr, activeTheme,
-            opts.stepLabels
+            optsCopy.stepLabels
         );
-        const ElementSpec spec = MakeStepSliderElementSpec(opts, activeSize, effectiveDisabled, activeTheme);
-        const ElementGeometry geom = Element::Resolve(prevBounds, cm.intrinsicControlSize, spec, nullptr, activeTheme);
-        const Rect& ctrlRect = geom.innerControlRect;
+        const Rect ctrlRect = Control::ResolveInnerRect(prevBounds, ctrl, activeSize, activeTheme);
         const float trackRegionX = ctrlRect.x + cm.leftGutterW;
         const float trackRegionW = std::max(m.thumbSize, ctrlRect.w - cm.leftGutterW - cm.rightGutterW);
         const float trackStartX = trackRegionX + halfThumb;
@@ -923,8 +834,8 @@ Response StepSlider::Run(
         }
     }
 
-    if (res.hovered && !opts.tooltip.empty()) {
-        ctx.SetTooltip(opts.tooltip, prevBounds);
+    if (res.hovered && !optsCopy.tooltip.empty()) {
+        ctx.SetTooltip(optsCopy.tooltip, prevBounds);
     }
 
     if (indexSizeT != nullptr) *indexSizeT = curIdx;
@@ -937,19 +848,16 @@ Response StepSlider::Run(
     node->hovered = res.hovered;
     node->pressed = res.pressed || state.dragging;
     node->focused = ctx.IsFocused(id);
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
+    node->widthMode = (optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
 
     auto* data = ctx.AllocPayload<StepSliderData>();
-    data->opts = opts;
-    data->opts.label = ctx.AllocText(opts.label);
-    data->opts.badge = ctx.AllocText(opts.badge);
-    data->opts.textLeft = ctx.AllocText(opts.textLeft);
-    data->opts.textRight = ctx.AllocText(opts.textRight);
-    data->opts.description = ctx.AllocText(opts.description);
-    data->opts.tooltip = ctx.AllocText(opts.tooltip);
-    data->opts.valueText = ctx.AllocText(opts.valueText);
-    node->text = data->opts.label.text;
+    data->opts = optsCopy;
+    data->opts.textLeft = ctx.AllocText(optsCopy.textLeft);
+    data->opts.textRight = ctx.AllocText(optsCopy.textRight);
+    data->opts.tooltip = ctx.AllocText(optsCopy.tooltip);
+    data->opts.valueText = ctx.AllocText(optsCopy.valueText);
+    node->text = initStepStr;
     data->index = curIdx;
     data->totalSteps = totalSteps;
     node->SetPayload(data);
@@ -957,35 +865,19 @@ Response StepSlider::Run(
     node->visualHash = detail::HashArgs(
         curIdx,
         totalSteps,
-        opts.color,
-        static_cast<uint8_t>(opts.stretch),
-        static_cast<uint8_t>(opts.layout),
-        static_cast<uint8_t>(opts.inlineOrder),
-        static_cast<uint8_t>(opts.elementAlign),
-        static_cast<uint8_t>(opts.valuePlacement),
-        opts.background,
-        opts.borderWidth,
-        opts.borderRadius.value_or(-1.0f),
-        opts.borderColor,
-        opts.bgColor,
-        opts.control.width.value_or(0.0f),
-        opts.control.height.value_or(0.0f),
-        opts.control.HasBackground(false),
-        opts.control.borderWidth,
-        opts.control.borderRadius.value_or(-1.0f),
-        opts.control.borderColor,
-        opts.control.bgColor,
-        opts.width.value_or(0.0f),
-        opts.height.value_or(0.0f),
-        opts.showTicks,
-        opts.showLabels,
-        opts.showValue,
-        data->opts.label,
-        data->opts.badge,
-        data->opts.icon,
+        data->opts.color,
+        static_cast<uint8_t>(data->opts.stretch),
+        static_cast<uint8_t>(data->opts.align),
+        static_cast<uint8_t>(data->opts.valuePlacement),
+        data->opts.background,
+        data->opts.border,
+        data->opts.width.value_or(0.0f),
+        data->opts.height.value_or(0.0f),
+        data->opts.showTicks,
+        data->opts.showLabels,
+        data->opts.showValue,
         data->opts.textLeft,
         data->opts.textRight,
-        data->opts.description,
         data->opts.valueText
     );
 
@@ -1004,6 +896,7 @@ Response StepSlider::Run(
                            d->opts, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused);
     };
 
+    Control::SetupNode(ctx, node, ctrl, data->opts.stretch, data->opts.align);
     ctx.AdaptChildToContainer(node);
     if (pushedTheme) {
         ctx.PopTheme();
@@ -1018,7 +911,7 @@ Vec2 StepSlider::Measure(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    float availableWidth
+    float /*availableWidth*/
 ) {
     if (totalSteps == 0) {
         totalSteps = opts.stepLabels.empty() ? 1 : opts.stepLabels.size();
@@ -1029,15 +922,14 @@ Vec2 StepSlider::Measure(
     const std::string_view stepStr = !opts.valueText.empty()
         ? opts.valueText.text
         : ((index < opts.stepLabels.size()) ? opts.stepLabels[index] : std::string_view{});
-    const ControlSpec ctrl = EffectiveSliderControl(opts);
+    const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, opts.valueText, stepStr,
         opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
         extraLabelsH, size, canvas, theme,
         opts.stepLabels
     );
-    const ElementSpec spec = MakeStepSliderElementSpec(opts, size, opts.disabled, theme);
-    return Element::Measure(cm.intrinsicControlSize, spec, canvas, theme, availableWidth);
+    return Control::Measure(cm.intrinsicControlSize, ctrl, opts.stretch, size, theme);
 }
 
 Vec2 StepSlider::Measure(
@@ -1076,18 +968,16 @@ void StepSlider::Render(
         : ((index < opts.stepLabels.size()) ? opts.stepLabels[index] : std::string_view{});
     const float extraLabelsH = (opts.showLabels && !opts.stepLabels.empty() && totalSteps > 1) ? (m.tickGap + tickFont * 1.3f) : 0.0f;
 
-    const ControlSpec ctrl = EffectiveSliderControl(opts);
+    const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, opts.valueText, stepStr,
         opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
         extraLabelsH, size, &canvas, theme,
         opts.stepLabels
     );
-    const ElementSpec spec = MakeStepSliderElementSpec(opts, size, disabled, theme, hovered, active || focused);
-    const ElementGeometry geom = Element::Resolve(bounds, cm.intrinsicControlSize, spec, &canvas, theme);
-    Element::RenderText(canvas, geom, spec, theme);
+    Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, hovered, active || focused);
 
-    const Rect& ctrlRect = geom.innerControlRect;
+    const Rect ctrlRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
     const float halfThumb = m.thumbSize * 0.5f;
     const float trackRegionX = ctrlRect.x + cm.leftGutterW;
     const float trackRegionW = std::max(m.thumbSize, ctrlRect.w - cm.leftGutterW - cm.rightGutterW);
@@ -1198,84 +1088,6 @@ struct ProgressBarData {
     double max{100.0};
 };
 
-ElementSpec MakeRangeSliderElementSpec(
-    const RangeSliderOptions& opts,
-    UiSize size,
-    bool disabled,
-    const UiTheme& theme,
-    bool hovered = false,
-    bool active = false
-) noexcept {
-    const SliderMetrics& m = theme.GetSlider(size);
-    const ControlSpec ctrl = EffectiveSliderControl(opts);
-    return ElementSpec{
-        .label = opts.label,
-        .description = opts.description,
-        .icon = opts.icon,
-        .badge = opts.badge,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .elementAlign = opts.elementAlign,
-        .stretch = opts.stretch,
-        .width = ctrl.width,
-        .height = ctrl.height,
-        .control = ctrl,
-        .background = opts.background,
-        .borderWidth = opts.borderWidth,
-        .borderRadius = opts.borderRadius,
-        .borderColor = opts.borderColor,
-        .bgColor = opts.bgColor,
-        .widgetSize = size,
-        .labelGap = m.labelGap,
-        .descGap = m.descGap,
-        .inlineGap = 12.0f,
-        .stretchableControl = true,
-        .stretchHeightWhenStandalone = false,
-        .disabled = disabled,
-        .hovered = hovered,
-        .active = active
-    };
-}
-
-ElementSpec MakeProgressBarElementSpec(
-    const ProgressBarOptions& opts,
-    UiSize size,
-    bool disabled,
-    const UiTheme& theme,
-    bool hovered = false,
-    bool active = false
-) noexcept {
-    const SliderMetrics& m = theme.GetSlider(size);
-    const ControlSpec ctrl = EffectiveSliderControl(opts);
-    return ElementSpec{
-        .label = opts.label,
-        .description = opts.description,
-        .icon = opts.icon,
-        .badge = opts.badge,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .elementAlign = opts.elementAlign,
-        .stretch = opts.stretch,
-        .width = ctrl.width,
-        .height = ctrl.height,
-        .control = ctrl,
-        .background = opts.background,
-        .borderWidth = opts.borderWidth,
-        .borderRadius = opts.borderRadius,
-        .borderColor = opts.borderColor,
-        .bgColor = opts.bgColor,
-        .widgetSize = size,
-        .labelGap = m.labelGap,
-        .descGap = m.descGap,
-        .inlineGap = 12.0f,
-        .stretchableControl = true,
-        .stretchHeightWhenStandalone = false,
-        .disabled = disabled,
-        .hovered = hovered,
-        .active = active
-    };
-}
-
 void FormatRangeSliderPair(
     char* outBuf,
     size_t bufSize,
@@ -1338,12 +1150,15 @@ Response RangeSlider::Run(
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     const UiTheme& activeTheme = ctx.GetTheme();
 
+    RangeSliderOptions optsCopy = opts;
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+
     const SliderMetrics& m = activeTheme.GetSlider(activeSize);
     const double rangeMin = std::min(min, max);
     const double rangeMax = std::max(min, max);
     const bool isInt = (lowInt != nullptr || highInt != nullptr);
-    const double effectiveStep = (opts.step.has_value() && *opts.step > 0.0) ? *opts.step : (isInt ? 1.0 : 0.0);
-    const double minSpan = std::clamp(std::max(0.0, opts.minSpan), 0.0, rangeMax - rangeMin);
+    const double effectiveStep = (optsCopy.step.has_value() && *optsCopy.step > 0.0) ? *optsCopy.step : (isInt ? 1.0 : 0.0);
+    const double minSpan = std::clamp(std::max(0.0, optsCopy.minSpan), 0.0, rangeMax - rangeMin);
 
     double curLow = (lowDouble != nullptr) ? *lowDouble :
                     (lowFloat != nullptr)  ? static_cast<double>(*lowFloat) :
@@ -1360,9 +1175,9 @@ Response RangeSlider::Run(
     }
 
     char initValBuf[96];
-    FormatRangeSliderPair(initValBuf, sizeof(initValBuf), curLow, curHigh, isInt, opts.valueFormat.text);
+    FormatRangeSliderPair(initValBuf, sizeof(initValBuf), curLow, curHigh, isInt, optsCopy.valueFormat.text);
     char maxSpanBuf[96];
-    FormatRangeSliderPair(maxSpanBuf, sizeof(maxSpanBuf), rangeMin, rangeMax, isInt, opts.valueFormat.text);
+    FormatRangeSliderPair(maxSpanBuf, sizeof(maxSpanBuf), rangeMin, rangeMax, isInt, optsCopy.valueFormat.text);
     const std::string_view maxSpanView(maxSpanBuf);
 
     Rect prevBounds = ctx.GetPrevFrameBounds(id);
@@ -1370,6 +1185,7 @@ Response RangeSlider::Run(
 
     ctx.RegisterFocusable(id, effectiveDisabled);
 
+    const ControlSpec ctrl = EffectiveSliderControl(optsCopy, activeSize, activeTheme);
     Response res = ctx.Interact(id);
     if (effectiveDisabled) {
         res.clicked = false;
@@ -1378,16 +1194,13 @@ Response RangeSlider::Run(
         state.dragMode = RangeDragMode::None;
     } else {
         const float halfThumb = m.thumbSize * 0.5f;
-        const ControlSpec ctrl = EffectiveSliderControl(opts);
         const SliderControlMetrics cm = ComputeSliderControlMetrics(
-            opts.textLeft, opts.textRight, opts.valueFormat, initValBuf,
-            opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
+            optsCopy.textLeft, optsCopy.textRight, optsCopy.valueFormat, initValBuf,
+            optsCopy.showValue, optsCopy.valuePlacement, optsCopy.stretch, ctrl.width,
             0.0f, activeSize, nullptr, activeTheme,
             std::span<const std::string_view>(&maxSpanView, 1)
         );
-        const ElementSpec spec = MakeRangeSliderElementSpec(opts, activeSize, effectiveDisabled, activeTheme);
-        const ElementGeometry geom = Element::Resolve(prevBounds, cm.intrinsicControlSize, spec, nullptr, activeTheme);
-        const Rect& ctrlRect = geom.innerControlRect;
+        const Rect ctrlRect = Control::ResolveInnerRect(prevBounds, ctrl, activeSize, activeTheme);
         const float trackRegionX = ctrlRect.x + cm.leftGutterW;
         const float trackRegionW = std::max(m.thumbSize, ctrlRect.w - cm.leftGutterW - cm.rightGutterW);
         const float trackStartX = trackRegionX + halfThumb;
@@ -1507,8 +1320,8 @@ Response RangeSlider::Run(
         }
     }
 
-    if (res.hovered && !opts.tooltip.empty()) {
-        ctx.SetTooltip(opts.tooltip, prevBounds);
+    if (res.hovered && !optsCopy.tooltip.empty()) {
+        ctx.SetTooltip(optsCopy.tooltip, prevBounds);
     }
 
     if (lowDouble != nullptr)  *lowDouble = curLow;
@@ -1525,19 +1338,16 @@ Response RangeSlider::Run(
     node->hovered = res.hovered;
     node->pressed = res.pressed || (state.dragMode != RangeDragMode::None);
     node->focused = ctx.IsFocused(id);
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
+    node->widthMode = (optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
 
     auto* data = ctx.AllocPayload<RangeSliderData>();
-    data->opts = opts;
-    data->opts.label = ctx.AllocText(opts.label);
-    data->opts.badge = ctx.AllocText(opts.badge);
-    data->opts.textLeft = ctx.AllocText(opts.textLeft);
-    data->opts.textRight = ctx.AllocText(opts.textRight);
-    data->opts.description = ctx.AllocText(opts.description);
-    data->opts.tooltip = ctx.AllocText(opts.tooltip);
-    data->opts.valueFormat = ctx.AllocText(opts.valueFormat);
-    node->text = data->opts.label.text;
+    data->opts = optsCopy;
+    data->opts.textLeft = ctx.AllocText(optsCopy.textLeft);
+    data->opts.textRight = ctx.AllocText(optsCopy.textRight);
+    data->opts.tooltip = ctx.AllocText(optsCopy.tooltip);
+    data->opts.valueFormat = ctx.AllocText(optsCopy.valueFormat);
+    node->text = ctx.AllocString(initValBuf);
     data->lowValue = curLow;
     data->highValue = curHigh;
     data->min = rangeMin;
@@ -1552,33 +1362,17 @@ Response RangeSlider::Run(
         lowBits,
         highBits,
         state.activeThumb,
-        opts.color,
-        static_cast<uint8_t>(opts.stretch),
-        static_cast<uint8_t>(opts.layout),
-        static_cast<uint8_t>(opts.inlineOrder),
-        static_cast<uint8_t>(opts.elementAlign),
-        static_cast<uint8_t>(opts.valuePlacement),
-        opts.background,
-        opts.borderWidth,
-        opts.borderRadius.value_or(-1.0f),
-        opts.borderColor,
-        opts.bgColor,
-        opts.control.width.value_or(0.0f),
-        opts.control.height.value_or(0.0f),
-        opts.control.HasBackground(false),
-        opts.control.borderWidth,
-        opts.control.borderRadius.value_or(-1.0f),
-        opts.control.borderColor,
-        opts.control.bgColor,
-        opts.width.value_or(0.0f),
-        opts.height.value_or(0.0f),
-        opts.showValue,
-        data->opts.label,
-        data->opts.badge,
-        data->opts.icon,
+        data->opts.color,
+        static_cast<uint8_t>(data->opts.stretch),
+        static_cast<uint8_t>(data->opts.align),
+        static_cast<uint8_t>(data->opts.valuePlacement),
+        data->opts.background,
+        data->opts.border,
+        data->opts.width.value_or(0.0f),
+        data->opts.height.value_or(0.0f),
+        data->opts.showValue,
         data->opts.textLeft,
         data->opts.textRight,
-        data->opts.description,
         data->opts.valueFormat
     );
 
@@ -1603,6 +1397,7 @@ Response RangeSlider::Run(
         );
     };
 
+    Control::SetupNode(ctx, node, ctrl, data->opts.stretch, data->opts.align);
     ctx.AdaptChildToContainer(node);
     if (pushedTheme) {
         ctx.PopTheme();
@@ -1619,7 +1414,7 @@ Vec2 RangeSlider::Measure(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    float availableWidth
+    float /*availableWidth*/
 ) {
     const double rangeMin = std::min(min, max);
     const double rangeMax = std::max(min, max);
@@ -1631,15 +1426,14 @@ Vec2 RangeSlider::Measure(
     FormatRangeSliderPair(maxSpanBuf, sizeof(maxSpanBuf), rangeMin, rangeMax, isIntStep, opts.valueFormat.text);
     const std::string_view maxSpanView(maxSpanBuf);
 
-    const ControlSpec ctrl = EffectiveSliderControl(opts);
+    const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
         opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
         0.0f, size, canvas, theme,
         std::span<const std::string_view>(&maxSpanView, 1)
     );
-    const ElementSpec spec = MakeRangeSliderElementSpec(opts, size, opts.disabled, theme);
-    return Element::Measure(cm.intrinsicControlSize, spec, canvas, theme, availableWidth);
+    return Control::Measure(cm.intrinsicControlSize, ctrl, opts.stretch, size, theme);
 }
 
 Vec2 RangeSlider::Measure(
@@ -1687,18 +1481,16 @@ void RangeSlider::Render(
     FormatRangeSliderPair(maxSpanBuf, sizeof(maxSpanBuf), rangeMin, rangeMax, isIntStep, opts.valueFormat.text);
     const std::string_view maxSpanView(maxSpanBuf);
 
-    const ControlSpec ctrl = EffectiveSliderControl(opts);
+    const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
         opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
         0.0f, size, &canvas, theme,
         std::span<const std::string_view>(&maxSpanView, 1)
     );
-    const ElementSpec spec = MakeRangeSliderElementSpec(opts, size, disabled, theme, hovered, active || focused);
-    const ElementGeometry geom = Element::Resolve(bounds, cm.intrinsicControlSize, spec, &canvas, theme);
-    Element::RenderText(canvas, geom, spec, theme);
+    Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, hovered, active || focused);
 
-    const Rect& ctrlRect = geom.innerControlRect;
+    const Rect ctrlRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
     const float halfThumb = m.thumbSize * 0.5f;
     const float trackRegionX = ctrlRect.x + cm.leftGutterW;
     const float trackRegionW = std::max(m.thumbSize, ctrlRect.w - cm.leftGutterW - cm.rightGutterW);
@@ -1768,6 +1560,10 @@ Response ProgressBar::Run(
     const UiSize activeSize = opts.size.value_or(ctx.GetCurrentSize());
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    const UiTheme& activeTheme = ctx.GetTheme();
+
+    ProgressBarOptions optsCopy = opts;
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
 
     const double rangeMin = std::min(min, max);
     const double rangeMax = std::max(min, max);
@@ -1778,28 +1574,25 @@ Response ProgressBar::Run(
     res.pressed = false;
     if (effectiveDisabled) {
         res.hovered = false;
-    } else if (res.hovered && !opts.tooltip.empty()) {
-        ctx.SetTooltip(opts.tooltip, ctx.GetPrevFrameBounds(id));
+    } else if (res.hovered && !optsCopy.tooltip.empty()) {
+        ctx.SetTooltip(optsCopy.tooltip, ctx.GetPrevFrameBounds(id));
     }
 
+    const ControlSpec ctrl = EffectiveSliderControl(optsCopy, activeSize, activeTheme);
     Node* node = ctx.CreateNode(NodeType::ProgressBar, id);
     node->theme = pushedTheme;
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
+    node->widthMode = (optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
 
     auto* data = ctx.AllocPayload<ProgressBarData>();
-    data->opts = opts;
-    data->opts.label = ctx.AllocText(opts.label);
-    data->opts.badge = ctx.AllocText(opts.badge);
-    data->opts.textLeft = ctx.AllocText(opts.textLeft);
-    data->opts.textRight = ctx.AllocText(opts.textRight);
-    data->opts.description = ctx.AllocText(opts.description);
-    data->opts.tooltip = ctx.AllocText(opts.tooltip);
-    data->opts.valueFormat = ctx.AllocText(opts.valueFormat);
-    node->text = data->opts.label.text;
+    data->opts = optsCopy;
+    data->opts.textLeft = ctx.AllocText(optsCopy.textLeft);
+    data->opts.textRight = ctx.AllocText(optsCopy.textRight);
+    data->opts.tooltip = ctx.AllocText(optsCopy.tooltip);
+    data->opts.valueFormat = ctx.AllocText(optsCopy.valueFormat);
     data->value = clampedVal;
     data->min = rangeMin;
     data->max = rangeMax;
@@ -1807,45 +1600,29 @@ Response ProgressBar::Run(
 
     uint64_t valBits = 0;
     std::memcpy(&valBits, &clampedVal, sizeof(double));
-    const double peakVal = opts.peakHoldValue.value_or(-1e9);
+    const double peakVal = data->opts.peakHoldValue.value_or(-1e9);
     uint64_t peakBits = 0;
     std::memcpy(&peakBits, &peakVal, sizeof(double));
 
     node->visualHash = detail::HashArgs(
         valBits,
         peakBits,
-        opts.segments,
-        opts.multiZoneColor,
-        opts.warningRatio,
-        opts.dangerRatio,
-        opts.trackHeight.value_or(0.0f),
-        opts.color,
-        static_cast<uint8_t>(opts.stretch),
-        static_cast<uint8_t>(opts.layout),
-        static_cast<uint8_t>(opts.inlineOrder),
-        static_cast<uint8_t>(opts.elementAlign),
-        static_cast<uint8_t>(opts.valuePlacement),
-        opts.background,
-        opts.borderWidth,
-        opts.borderRadius.value_or(-1.0f),
-        opts.borderColor,
-        opts.bgColor,
-        opts.control.width.value_or(0.0f),
-        opts.control.height.value_or(0.0f),
-        opts.control.HasBackground(false),
-        opts.control.borderWidth,
-        opts.control.borderRadius.value_or(-1.0f),
-        opts.control.borderColor,
-        opts.control.bgColor,
-        opts.width.value_or(0.0f),
-        opts.height.value_or(0.0f),
-        opts.showValue,
-        data->opts.label,
-        data->opts.badge,
-        data->opts.icon,
+        data->opts.segments,
+        data->opts.multiZoneColor,
+        data->opts.warningRatio,
+        data->opts.dangerRatio,
+        data->opts.trackHeight.value_or(0.0f),
+        data->opts.color,
+        static_cast<uint8_t>(data->opts.stretch),
+        static_cast<uint8_t>(data->opts.align),
+        static_cast<uint8_t>(data->opts.valuePlacement),
+        data->opts.background,
+        data->opts.border,
+        data->opts.width.value_or(0.0f),
+        data->opts.height.value_or(0.0f),
+        data->opts.showValue,
         data->opts.textLeft,
         data->opts.textRight,
-        data->opts.description,
         data->opts.valueFormat
     );
 
@@ -1869,6 +1646,7 @@ Response ProgressBar::Run(
         );
     };
 
+    Control::SetupNode(ctx, node, ctrl, data->opts.stretch, data->opts.align);
     ctx.AdaptChildToContainer(node);
     if (pushedTheme) {
         ctx.PopTheme();
@@ -1884,7 +1662,7 @@ Vec2 ProgressBar::Measure(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    float availableWidth
+    float /*availableWidth*/
 ) {
     const double rangeMin = std::min(min, max);
     const double rangeMax = std::max(min, max);
@@ -1897,7 +1675,7 @@ Vec2 ProgressBar::Measure(
         fmtText.text = fmt;
     }
 
-    const ControlSpec ctrl = EffectiveSliderControl(opts);
+    const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, fmtText, valBuf,
         opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
@@ -1911,8 +1689,7 @@ Vec2 ProgressBar::Measure(
             cm.trackRowH = minRowH;
         }
     }
-    const ElementSpec spec = MakeProgressBarElementSpec(opts, size, opts.disabled, theme);
-    return Element::Measure(cm.intrinsicControlSize, spec, canvas, theme, availableWidth);
+    return Control::Measure(cm.intrinsicControlSize, ctrl, opts.stretch, size, theme);
 }
 
 Vec2 ProgressBar::Measure(
@@ -1956,7 +1733,7 @@ void ProgressBar::Render(
         fmtText.text = fmt;
     }
 
-    const ControlSpec ctrl = EffectiveSliderControl(opts);
+    const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, fmtText, valBuf,
         opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
@@ -1971,11 +1748,8 @@ void ProgressBar::Render(
         cm.trackRowH = barH + 4.0f;
     }
 
-    const ElementSpec spec = MakeProgressBarElementSpec(opts, size, disabled, theme, hovered, false);
-    const ElementGeometry geom = Element::Resolve(bounds, cm.intrinsicControlSize, spec, &canvas, theme);
-    Element::RenderText(canvas, geom, spec, theme);
-
-    const Rect& ctrlRect = geom.innerControlRect;
+    Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, hovered, false);
+    const Rect ctrlRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
     const float trackRegionX = ctrlRect.x + cm.leftGutterW;
     const float trackRegionW = std::max(12.0f, ctrlRect.w - cm.leftGutterW - cm.rightGutterW);
     const float contentOffsetY = std::max(0.0f, (ctrlRect.h - cm.intrinsicControlSize.y) * 0.5f);

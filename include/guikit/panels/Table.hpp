@@ -90,8 +90,6 @@ struct TableOptions {
     std::optional<float> width{std::nullopt};
     std::optional<float> height{std::nullopt};      ///< Explicit height in points (nullopt = Stretch in flex parent or fit rows)
     StretchMode stretch{StretchMode::Fill};
-    bool divider{false};
-    ElementDivider dividerStyle{ElementDivider::Bottom};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

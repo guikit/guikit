@@ -48,9 +48,9 @@ void TestImmediateApiWorkflow() {
 
     auto renderUI = [&]() {
         if (auto row = ui.Row()) {
-            b1 = ui.Button({.label = "Button A"});
+            b1 = ui.Button({.text = "Button A"});
             ui.Spacer();
-            b2 = ui.Button({.label = "Button B"});
+            b2 = ui.Button({.text = "Button B"});
         }
     };
 
@@ -162,10 +162,10 @@ void TestHeaderRowTextMetricsAndNoOverlap() {
     auto renderRow = [&]() {
         if (auto row = ui.Row({.gap = 8.0f})) {
             if (auto b1 = ui.Box({.fixedWidth = 120.0f})) {
-                bOverview = ui.Button({.label = "Overview", .stretch = StretchMode::Fill});
+                bOverview = ui.Button({.text = "Overview", .stretch = StretchMode::Fill});
             }
             if (auto b2 = ui.Box({.fixedWidth = 150.0f})) {
-                bFlex = ui.Button({.label = "Flexbox Demo", .stretch = StretchMode::Fill});
+                bFlex = ui.Button({.text = "Flexbox Demo", .stretch = StretchMode::Fill});
             }
         }
     };
@@ -214,7 +214,7 @@ void TestFooterExitButtonStaysVisibleInNarrowWindow() {
                 ui.Text("Zero heap allocations per frame | 0% idle CPU", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
                 ui.Spacer();
                 if (auto b = ui.Box({.fixedWidth = 80.0f})) {
-                    exitBtn = ui.Button({.label = "Exit", .stretch = StretchMode::Fill});
+                    exitBtn = ui.Button({.text = "Exit", .stretch = StretchMode::Fill});
                 }
             }
         }
@@ -260,13 +260,13 @@ void TestWrapContainerInContextApi() {
             // b3 wraps to Line 2! (y = 20 + 36 + 10 = 66)
             if (auto wrap = ui.Wrap({.gap = 10.0f, .runGap = 10.0f})) {
                 if (auto box1 = ui.Box({.fixedWidth = 120.0f, .fixedHeight = 36.0f})) {
-                    b1 = ui.Button({.label = "Button 1", .stretch = StretchMode::Fill});
+                    b1 = ui.Button({.text = "Button 1", .stretch = StretchMode::Fill});
                 }
                 if (auto box2 = ui.Box({.fixedWidth = 120.0f, .fixedHeight = 36.0f})) {
-                    b2 = ui.Button({.label = "Button 2", .stretch = StretchMode::Fill});
+                    b2 = ui.Button({.text = "Button 2", .stretch = StretchMode::Fill});
                 }
                 if (auto box3 = ui.Box({.fixedWidth = 120.0f, .fixedHeight = 36.0f})) {
-                    b3 = ui.Button({.label = "Button 3", .stretch = StretchMode::Fill});
+                    b3 = ui.Button({.text = "Button 3", .stretch = StretchMode::Fill});
                 }
             }
         }
@@ -311,14 +311,14 @@ void TestFooterExitButtonPushedToBottomWithCardAndWrap() {
             }
             if (auto navRow = ui.Row({.gap = 8.0f})) {
                 if (auto box = ui.Box({.fixedWidth = 120.0f})) {
-                    ui.Button({.label = "Overview"});
+                    ui.Button({.text = "Overview"});
                 }
             }
             if (auto card = ui.Box({.gap = 16.0f, .padding = Padding::All(20.0f)})) {
                 ui.Text("Card title", {.role = TextRole::HeadlineMedium});
                 if (auto wrap = ui.Wrap({.gap = 12.0f, .runGap = 8.0f})) {
-                    ui.Button({.label = "Btn 1"});
-                    ui.Button({.label = "Btn 2"});
+                    ui.Button({.text = "Btn 1"});
+                    ui.Button({.text = "Btn 2"});
                 }
             }
             ui.Spacer();
@@ -326,7 +326,7 @@ void TestFooterExitButtonPushedToBottomWithCardAndWrap() {
                 ui.Text("Footer text", {.role = TextRole::LabelMedium, .variant = UiVariant::Muted});
                 ui.Spacer();
                 if (auto box = ui.Box({.fixedWidth = 80.0f})) {
-                    exitBtn = ui.Button({.label = "Exit"});
+                    exitBtn = ui.Button({.text = "Exit"});
                 }
             }
         }
@@ -401,11 +401,11 @@ void TestTwoLevelDisabledWorkflow() {
 
     auto renderUI = [&]() {
         if (auto row = ui.Row()) {
-            btnEnabled = ui.Button({.label = "Active"});
-            btnDirectDisabled = ui.Button({.label = "Local Disabled", .disabled = true});
+            btnEnabled = ui.Button({.text = "Active"});
+            btnDirectDisabled = ui.Button({.text = "Local Disabled", .disabled = true});
 
             ui.Disabled(true, [&] {
-                btnScopedDisabled = ui.Button({.label = "Scope Disabled"});
+                btnScopedDisabled = ui.Button({.text = "Scope Disabled"});
             });
         }
     };
@@ -468,7 +468,7 @@ void TestBoxSlotWithUiSizeToken() {
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = 12.0f})) {
             if (auto slotLg = ui.Box({.size = UiSize::Lg})) {
-                btnLarge = ui.Button({.label = "Large Action", .color = StateColor::Primary(), .stretch = StretchMode::Fill});
+                btnLarge = ui.Button({.text = "Large Action", .color = StateColor::Primary(), .stretch = StretchMode::Fill});
             }
             if (auto slotSquare = ui.Box({.fixedWidth = 32.0f, .size = UiSize::Sm})) {
                 btnSquareIcon = ui.Button({.icon = Icon::Close()});
@@ -509,7 +509,7 @@ void TestButtonWidgetRunAndResponseChaining() {
         if (auto row = ui.Row({.gap = 8.0f})) {
             // Autonomous Button::Run via ui.Button
             btn1 = ui.Button({
-                .label = "Next",
+                .text = "Next",
                 .icon = Icon::ChevronRight(),
                 .color = StateColor::Primary(),
                 .iconPlacement = Placement::Trailing
@@ -517,7 +517,7 @@ void TestButtonWidgetRunAndResponseChaining() {
 
             // Direct call to Button::Run
             btn2 = Button::Run(ui, {
-                .label = "Prev",
+                .text = "Prev",
                 .icon = Icon::ChevronLeft(),
                 .color = StateColor::Secondary(),
                 .iconPlacement = Placement::Leading
@@ -577,14 +577,14 @@ void TestUiStringAndContextFormatting() {
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     if (auto col = ui.Column({.gap = 8.0f})) {
         ui.Text(ui.Format("Value: {}", 99));
-        ui.Button({.label = ui.String("Action")});
+        ui.Button({.text = ui.String("Action")});
     }
     ui.EndFrame(canvas);
 
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     if (auto col = ui.Column({.gap = 8.0f})) {
         ui.Text(ui.Format("Value: {}", 100));
-        ui.Button({.label = ui.String("Action")});
+        ui.Button({.text = ui.String("Action")});
     }
     ui.EndFrame(canvas);
 }
@@ -603,8 +603,8 @@ void TestBoxContainerGapSpacing() {
 
     auto renderUI = [&]() {
         if (auto card = ui.Box({.gap = 16.0f, .padding = Padding::All(10.0f)})) {
-            b1 = ui.Button({.label = "First Item"});
-            b2 = ui.Button({.label = "Second Item"});
+            b1 = ui.Button({.text = "First Item"});
+            b2 = ui.Button({.text = "Second Item"});
         }
     };
 
@@ -727,10 +727,10 @@ void TestSwitchAndCheckboxWidgets() {
     CHECK(sMeasNoLabel.x == sm.trackSize.x);
     CHECK(sMeasNoLabel.y == sm.trackSize.y);
 
-    Vec2 sMeasWithLabel = Switch::Measure({.label = "Enable"}, UiSize::Md);
+    Vec2 sMeasWithLabel = Element::Measure(sMeasNoLabel, ElementSpec{.label = "Enable", .layout = ElementLayout::Inline, .inlineOrder = InlineOrder::ControlFirst, .stretchableControl = false}, nullptr, theme);
     CHECK(sMeasWithLabel.x > sm.trackSize.x);
 
-    Vec2 sMeasWithDesc = Switch::Measure({.label = "Enable", .description = "Details"}, UiSize::Md);
+    Vec2 sMeasWithDesc = Element::Measure(sMeasNoLabel, ElementSpec{.label = "Enable", .description = "Details", .layout = ElementLayout::Inline, .inlineOrder = InlineOrder::ControlFirst, .stretchableControl = false}, nullptr, theme);
     CHECK(sMeasWithDesc.y > sMeasWithLabel.y);
 
     Vec2 sMeasBoth = Switch::Measure({
@@ -740,13 +740,13 @@ void TestSwitchAndCheckboxWidgets() {
     }, UiSize::Md);
     CHECK(sMeasBoth.x > sMeasWithLabel.x);
 
-    Vec2 sMeasBothDesc = Switch::Measure({
+    Vec2 sMeasBothDesc = Element::Measure(sMeasBoth, ElementSpec{
         .label = "Theme",
-        .textLeft = "Dark",
-        .textRight = "Light",
         .description = "Switch theme",
-        .symmetric = true
-    }, UiSize::Md);
+        .layout = ElementLayout::Inline,
+        .inlineOrder = InlineOrder::ControlFirst,
+        .stretchableControl = false
+    }, nullptr, theme);
     CHECK(sMeasBothDesc.y > sMeasBoth.y);
 
     const CheckboxMetrics cm = theme.GetCheckbox(UiSize::Md);
@@ -754,10 +754,10 @@ void TestSwitchAndCheckboxWidgets() {
     CHECK(cMeasNoLabel.x == cm.boxSize);
     CHECK(cMeasNoLabel.y == cm.boxSize);
 
-    Vec2 cMeasWithLabel = Checkbox::Measure({.label = "Enable"}, UiSize::Md);
+    Vec2 cMeasWithLabel = Element::Measure(cMeasNoLabel, ElementSpec{.label = "Enable", .layout = ElementLayout::Inline, .inlineOrder = InlineOrder::ControlFirst, .stretchableControl = false}, nullptr, theme);
     CHECK(cMeasWithLabel.x > cm.boxSize);
 
-    Vec2 cMeasWithDesc = Checkbox::Measure({.label = "Enable", .description = "Details"}, UiSize::Md);
+    Vec2 cMeasWithDesc = Element::Measure(cMeasNoLabel, ElementSpec{.label = "Enable", .description = "Details", .layout = ElementLayout::Inline, .inlineOrder = InlineOrder::ControlFirst, .stretchableControl = false}, nullptr, theme);
     CHECK(cMeasWithDesc.y > cMeasWithLabel.y);
 
     // 2. Interactive mutation test
@@ -786,30 +786,49 @@ void TestSwitchAndCheckboxWidgets() {
     Response rBoth;
     Response rOptSwitch;
     Response rOptCheck;
+    Response elSwitch, elDesc, elStacked;
 
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
-            rSwitch = ui.Switch(switchState, {.label = "Dark Mode"});
-            rCheck = ui.Checkbox(checkState, {.label = "VSync"});
-            rToggle = ui.Switch(toggleState, {.label = "Turbo Mode", .inlineOrder = InlineOrder::LabelFirst});
-            rIndeterminate = ui.Checkbox(false, {.label = "Select All", .indeterminate = true});
-            rDesc = ui.Switch(descState, {
+            if (auto el = ui.Element({.label = "Dark Mode"})) {
+                elSwitch = el.response;
+                rSwitch = ui.Switch(switchState);
+            }
+            if (auto el = ui.Element({.label = "VSync"})) {
+                rCheck = ui.Checkbox(checkState);
+            }
+            if (auto el = ui.Element({.label = "Turbo Mode", .inlineOrder = InlineOrder::LabelFirst})) {
+                rToggle = ui.Switch(toggleState);
+            }
+            if (auto el = ui.Element({.label = "Select All"})) {
+                rIndeterminate = ui.Checkbox(false, {.indeterminate = true});
+            }
+            if (auto el = ui.Element({
                 .label = "Auto Breakdown",
                 .description = "Automatic stop of testing on load drop"
-            });
-            rStacked = ui.Switch(stackedState, {
+            })) {
+                elDesc = el.response;
+                rDesc = ui.Switch(descState);
+            }
+            if (auto el = ui.Element({
                 .label = "Stacked Mode",
                 .description = "Description below switch control",
                 .layout = ElementLayout::Stacked
-            });
+            })) {
+                elStacked = el.response;
+                rStacked = ui.Switch(stackedState);
+            }
             rBoth = ui.Switch(bothState, {
                 .textLeft = "Dark",
                 .textRight = "Light",
-                .layout = ElementLayout::Inline,
                 .symmetric = true
             });
-            rOptSwitch = ui.Switch(optSwitchState, {.label = "Option Switch"});
-            rOptCheck = ui.Checkbox(optCheckState, {.label = "Option Checkbox"});
+            if (auto el = ui.Element({.label = "Option Switch"})) {
+                rOptSwitch = ui.Switch(optSwitchState);
+            }
+            if (auto el = ui.Element({.label = "Option Checkbox"})) {
+                rOptCheck = ui.Checkbox(optCheckState);
+            }
         }
     };
 
@@ -828,9 +847,9 @@ void TestSwitchAndCheckboxWidgets() {
     CHECK(rToggle.rect.w > 0.0f);
     CHECK(rIndeterminate.rect.w > 0.0f);
     CHECK(rDesc.rect.w > 0.0f);
-    CHECK(rDesc.rect.h > rSwitch.rect.h);
+    CHECK(elDesc.rect.h > elSwitch.rect.h);
     CHECK(rStacked.rect.w > 0.0f);
-    CHECK(rStacked.rect.h > rSwitch.rect.h);
+    CHECK(elStacked.rect.h > elSwitch.rect.h);
     CHECK(rBoth.rect.w > 0.0f);
     CHECK(!switchState);
     CHECK(!checkState);
@@ -910,7 +929,7 @@ void TestSwitchAndCheckboxWidgets() {
     CHECK(static_cast<bool>(rStacked) == true);
     CHECK(stackedState == true);
 
-    // 7. Click Option Switch (label configured via SwitchOptions)
+    // 7. Click Option Switch (label configured via Element)
     CHECK(rOptSwitch.rect.w > 0.0f);
     CHECK(!optSwitchState);
     ui.OnMouseMove({rOptSwitch.rect.x + 5.0f, rOptSwitch.rect.y + 5.0f});
@@ -926,7 +945,7 @@ void TestSwitchAndCheckboxWidgets() {
     CHECK(optSwitchState == true);
     CHECK(rOptSwitch.changed);
 
-    // 8. Click Option Checkbox (label configured via CheckboxOptions)
+    // 8. Click Option Checkbox (label configured via Element)
     CHECK(rOptCheck.rect.w > 0.0f);
     CHECK(!optCheckState);
     ui.OnMouseMove({rOptCheck.rect.x + 5.0f, rOptCheck.rect.y + 5.0f});
@@ -963,38 +982,54 @@ void TestInputFieldWidget() {
     Response rCount;
     Response rName;
     Response rOptInput;
+    Response elSpeed;
+    Response elOptInput;
 
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = 16.0f, .padding = Padding::All(20.0f)})) {
             // Numeric field with unit and description (as in user screenshot)
-            rSpeed = ui.InputField(speedDrop, {
+            if (auto el = ui.Element({
                 .label = "Speed Drop dF/dt",
                 .description = "Automatic stop of testing on load drop",
-                .suffix = "%",
-                .valueFormat = "%.0f",
                 .layout = ElementLayout::Stacked
-            });
+            })) {
+                elSpeed = el.response;
+                rSpeed = ui.InputField(speedDrop, {
+                    .suffix = "%",
+                    .valueFormat = "%.0f"
+                });
+            }
 
             // Integer count with unit suffix
-            rCount = ui.InputField(count, {
+            if (auto el = ui.Element({
                 .label = "Cycle Count",
-                .suffix = "cycles",
                 .layout = ElementLayout::Stacked
-            });
+            })) {
+                rCount = ui.InputField(count, {
+                    .suffix = "cycles"
+                });
+            }
 
             // Text input with placeholder
-            rName = ui.InputField(sampleName, {
+            if (auto el = ui.Element({
                 .label = "Sample ID",
-                .placeholder = "Enter identifier...",
                 .layout = ElementLayout::Stacked
-            });
+            })) {
+                rName = ui.InputField(sampleName, {
+                    .placeholder = "Enter identifier..."
+                });
+            }
 
-            // Field with label set exclusively via InputFieldOptions
-            rOptInput = ui.InputField(optInputVal, {
+            // Field with label set via ElementOptions
+            if (auto el = ui.Element({
                 .label = "Tolerance Margin",
-                .suffix = "mm",
                 .layout = ElementLayout::Stacked
-            });
+            })) {
+                elOptInput = el.response;
+                rOptInput = ui.InputField(optInputVal, {
+                    .suffix = "mm"
+                });
+            }
         }
     };
 
@@ -1009,15 +1044,15 @@ void TestInputFieldWidget() {
     ui.EndFrame(canvas);
 
     CHECK(rSpeed.rect.w > 0.0f);
-    CHECK(rSpeed.rect.h > 36.0f); // Default box is 36px, stacked adds label and description
+    CHECK(elSpeed.rect.h > 36.0f); // Default box is 36px, stacked adds label and description
     CHECK(rCount.rect.w > 0.0f);
     CHECK(rName.rect.w > 0.0f);
     CHECK(rOptInput.rect.w > 0.0f);
-    CHECK(rOptInput.rect.h > 36.0f);
+    CHECK(elOptInput.rect.h > 36.0f);
     CHECK(!rSpeed.focused);
 
     // 1. Click speed field to focus (click past end of "50" so cursor is placed at end)
-    ui.OnMouseMove({rSpeed.rect.x + 100.0f, rSpeed.rect.y + 25.0f});
+    ui.OnMouseMove({rSpeed.rect.x + 100.0f, rSpeed.rect.y + 18.0f});
     ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
@@ -1052,7 +1087,7 @@ void TestInputFieldWidget() {
     CHECK(!ui.IsFocused(rSpeed.id));
 
     // 4. Click name field (past end of "Specimen-A") and edit string
-    ui.OnMouseMove({rName.rect.x + 150.0f, rName.rect.y + 25.0f});
+    ui.OnMouseMove({rName.rect.x + 150.0f, rName.rect.y + 18.0f});
     ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
@@ -1074,7 +1109,7 @@ void TestInputFieldWidget() {
     CHECK(sampleName == "Specimen-A-X");
 
     // 4a. LMB click at the very start of the text (x + 12.0f -> index 0) and insert prefix
-    ui.OnMouseMove({rName.rect.x + 12.0f, rName.rect.y + 25.0f});
+    ui.OnMouseMove({rName.rect.x + 12.0f, rName.rect.y + 18.0f});
     ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
@@ -1136,13 +1171,13 @@ void TestInputFieldWidget() {
     CHECK(sampleName == "ID:Specimen-A-X");
 
     // 4c. LMB drag selection: press at start (x + 12) and drag to right (x + 200) to select all, then replace
-    ui.OnMouseMove({rName.rect.x + 12.0f, rName.rect.y + 25.0f});
+    ui.OnMouseMove({rName.rect.x + 12.0f, rName.rect.y + 18.0f});
     ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
-    ui.OnMouseMove({rName.rect.x + 200.0f, rName.rect.y + 25.0f});
+    ui.OnMouseMove({rName.rect.x + 200.0f, rName.rect.y + 18.0f});
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
     ui.EndFrame(canvas);
@@ -1161,7 +1196,7 @@ void TestInputFieldWidget() {
 
     // 4d. Double-click word selection on "Specimen" (near start at x + 20.0f)
     ui.SetCurrentTime(10.0);
-    ui.OnMouseMove({rName.rect.x + 20.0f, rName.rect.y + 25.0f});
+    ui.OnMouseMove({rName.rect.x + 20.0f, rName.rect.y + 18.0f});
     ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
@@ -1194,7 +1229,7 @@ void TestInputFieldWidget() {
 
     // Focus and place cursor at end of "Привет мир"
     ui.AdvanceTime(1.0);
-    ui.OnMouseMove({rName.rect.x + 200.0f, rName.rect.y + 25.0f});
+    ui.OnMouseMove({rName.rect.x + 200.0f, rName.rect.y + 18.0f});
     ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
@@ -1253,23 +1288,31 @@ void TestSelectWidget() {
     WidgetResponse rBaud;
     WidgetResponse rMode;
     WidgetResponse rProfile;
+    Response elBaud;
 
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(20.0f)})) {
-            rBaud = ui.Select(baudIndex, {"9600", "19200", "38400", "115200"}, {
+            if (auto el = ui.Element({
                 .label = "Baud Rate",
                 .description = "Serial bus communication speed",
                 .layout = ElementLayout::Stacked
-            });
+            })) {
+                elBaud = el.response;
+                rBaud = ui.Select(baudIndex, {"9600", "19200", "38400", "115200"});
+            }
 
-            rMode = ui.Select(modeIndex, {"Auto", "Manual", "Direct"}, {
+            if (auto el = ui.Element({
                 .label = "Control Mode",
                 .disabled = disabledMode
-            });
+            })) {
+                rMode = ui.Select(modeIndex, {"Auto", "Manual", "Direct"}, {
+                    .disabled = disabledMode
+                });
+            }
 
-            rProfile = ui.Select(profile, {"Eco", "Standard", "Performance", "Extreme"}, {
-                .label = "Profile"
-            });
+            if (auto el = ui.Element({.label = "Profile"})) {
+                rProfile = ui.Select(profile, {"Eco", "Standard", "Performance", "Extreme"});
+            }
         }
     };
 
@@ -1284,7 +1327,7 @@ void TestSelectWidget() {
     ui.EndFrame(canvas);
 
     CHECK(rBaud.rect.w > 0.0f);
-    CHECK(rBaud.rect.h > 36.0f); // Stacked adds label and description
+    CHECK(elBaud.rect.h > 36.0f); // Stacked adds label and description
     CHECK(rMode.rect.w > 0.0f);
     CHECK(rProfile.rect.w > 0.0f);
     CHECK(!ui.IsPopupOpen(rBaud.id));
@@ -1292,7 +1335,7 @@ void TestSelectWidget() {
     CHECK(!ui.IsPopupOpen(rProfile.id));
 
     // 1. Click Baud Rate select box to open dropdown popup
-    ui.OnMouseMove({rBaud.rect.x + 20.0f, rBaud.rect.y + 25.0f});
+    ui.OnMouseMove({rBaud.rect.x + 20.0f, rBaud.rect.y + 18.0f});
     ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
@@ -1327,7 +1370,7 @@ void TestSelectWidget() {
     CHECK(!ui.IsPopupOpen(rBaud.id)); // Popup is now closed
 
     // 3. Toggle open and close on clicking the select box again
-    ui.OnMouseMove({rBaud.rect.x + 20.0f, rBaud.rect.y + 25.0f});
+    ui.OnMouseMove({rBaud.rect.x + 20.0f, rBaud.rect.y + 18.0f});
     ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
@@ -1395,7 +1438,7 @@ void TestSelectWidget() {
     CHECK(!ui.IsPopupOpen(rBaud.id)); // Closed on outside click
 
     // 6. Keyboard navigation with Down / Up / Enter
-    ui.OnMouseMove({rBaud.rect.x + 20.0f, rBaud.rect.y + 25.0f});
+    ui.OnMouseMove({rBaud.rect.x + 20.0f, rBaud.rect.y + 18.0f});
     ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
@@ -1475,11 +1518,16 @@ void TestSelectWidget() {
     size_t limIdx = 0;
     WidgetResponse rLim;
     auto renderLimited = [&]() {
-        rLim = ui.Select(limIdx, {"Item 1", "Item 2", "Item 3", "Item 4", "Item 5"}, {
-            .label = "Limited Dropdown",
-            .maxVisibleItems = 2
-        });
+        if (auto el = ui.Element({.label = "Limited Dropdown"})) {
+            rLim = ui.Select(limIdx, {"Item 1", "Item 2", "Item 3", "Item 4", "Item 5"}, {
+                .maxVisibleItems = 2
+            });
+        }
     };
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderLimited();
+    ui.EndFrame(canvas);
 
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderLimited();
@@ -1572,25 +1620,33 @@ void TestGridAndCardLayout() {
         // 1. Standalone Grid with 12-column slots
         if (auto grid = ui.Grid({.gap = 12.0f})) {
             if (auto c1 = grid.Cell6()) {
-                sw1Res = ui.Switch(switchVal1, {.label = "Sensor A"});
+                if (auto el = ui.Element({.label = "Sensor A"})) {
+                    sw1Res = ui.Switch(switchVal1);
+                }
             }
             if (auto c2 = grid.Cell6()) {
-                sw2Res = ui.Switch(switchVal2, {.label = "Sensor B"});
+                if (auto el = ui.Element({.label = "Sensor B"})) {
+                    sw2Res = ui.Switch(switchVal2);
+                }
             }
             if (auto c3 = grid.Cell12()) {
-                inp1Res = ui.InputField(speedVal, {.label = "Speed Target"});
+                if (auto el = ui.Element({.label = "Speed Target"})) {
+                    inp1Res = ui.InputField(speedVal);
+                }
             }
         }
 
         // 2. High-level Card surface containing an explicit Grid layout
         if (auto card = ui.Card()) {
-            ui.Heading({.title = "Motion Controller", .subtitle = "Direct axis tuning"});
+            ui.Heading({.label = "Motion Controller", .description = "Direct axis tuning"});
             if (auto grid = ui.Grid()) {
                 if (auto c1 = grid.Cell6()) {
-                    inp2Res = ui.InputField(nameVal, {.label = "Device Name"});
+                    if (auto el = ui.Element({.label = "Device Name"})) {
+                        inp2Res = ui.InputField(nameVal);
+                    }
                 }
                 if (auto c2 = grid.Cell6()) {
-                    ui.Button({.label = "Calibrate Zero"});
+                    ui.Button({.text = "Calibrate Zero"});
                 }
             }
         }
@@ -1669,13 +1725,13 @@ void TestScrollAreaImmediateMode() {
     auto renderUI = [&]() {
         if (auto scroll = ui.ScrollArea()) {
             if (auto box1 = ui.Box({.heightMode = SizeMode::Fixed, .fixedHeight = 200.0f})) {
-                btn1Res = ui.Button({.label = "Top Item", .stretch = StretchMode::Fill});
+                btn1Res = ui.Button({.text = "Top Item", .stretch = StretchMode::Fill});
             }
             if (auto box2 = ui.Box({.heightMode = SizeMode::Fixed, .fixedHeight = 200.0f})) {
-                btn2Res = ui.Button({.label = "Middle Item"});
+                btn2Res = ui.Button({.text = "Middle Item"});
             }
             if (auto box3 = ui.Box({.heightMode = SizeMode::Fixed, .fixedHeight = 200.0f})) {
-                btn3Res = ui.Button({.label = "Bottom Item"});
+                btn3Res = ui.Button({.text = "Bottom Item"});
             }
         }
     };
@@ -1925,7 +1981,7 @@ void TestDirtyRectDamageTracking() {
     auto renderUI = [&](std::string* editVal = nullptr) {
         if (auto row = ui.Row()) {
             if (auto b = ui.Box({.fixedWidth = 120.0f})) {
-                ui.Button({.label = "Test Button"});
+                ui.Button({.text = "Test Button"});
             }
             if (editVal) {
                 if (auto b = ui.Box({.fixedWidth = 200.0f})) {
@@ -2331,7 +2387,7 @@ void TestLabelVariantsStableSizing() {
     auto render = [&]() {
         if (auto row = ui.Row({.gap = 8.0f})) {
             btn = ui.Button({
-                .label = {state ? "VSync: ON" : "VSync: OFF", {"VSync: ON", "VSync: OFF"}}
+                .text = {state ? "VSync: ON" : "VSync: OFF", {"VSync: ON", "VSync: OFF"}}
             });
         }
     };
@@ -2426,17 +2482,17 @@ void TestContainerSizeInheritanceAndWidgetStretch() {
     auto renderSizeTest = [&](UiSize sz, bool isLarge) {
         if (auto col = ui.Column({.size = sz})) {
             if (isLarge) {
-                btnLg = ui.Button({.label = "Large Action"});
-                swLg = ui.Switch(switchVal, {.label = "Large Switch"});
-                cbLg = ui.Checkbox(checkVal, {.label = "Large Checkbox"});
-                inLg = ui.InputField(inputVal, {.label = "Large Input"});
-                selLg = ui.Select(selectIdx, {"One", "Two"}, {.label = "Large Select"});
+                btnLg = ui.Button({.text = "Large Action"});
+                swLg = ui.Switch(switchVal);
+                cbLg = ui.Checkbox(checkVal);
+                inLg = ui.InputField(inputVal);
+                selLg = ui.Select(selectIdx, {"One", "Two"});
             } else {
-                btnSm = ui.Button({.label = "Small Action"});
-                swSm = ui.Switch(switchVal, {.label = "Small Switch"});
-                cbSm = ui.Checkbox(checkVal, {.label = "Small Checkbox"});
-                inSm = ui.InputField(inputVal, {.label = "Small Input"});
-                selSm = ui.Select(selectIdx, {"One", "Two"}, {.label = "Small Select"});
+                btnSm = ui.Button({.text = "Small Action"});
+                swSm = ui.Switch(switchVal);
+                cbSm = ui.Checkbox(checkVal);
+                inSm = ui.InputField(inputVal);
+                selSm = ui.Select(selectIdx, {"One", "Two"});
             }
         }
     };
@@ -2480,9 +2536,9 @@ void TestContainerSizeInheritanceAndWidgetStretch() {
     Response btnCompact, btnStretch1, btnStretch2;
     auto renderStretchRow = [&]() {
         if (auto row = ui.Row()) {
-            btnCompact = ui.Button({.label = "Compact", .stretch = StretchMode::Compact});
-            btnStretch1 = ui.Button({.label = "Stretch", .stretch = StretchMode::Fill});
-            btnStretch2 = ui.Button({.label = "Stretch", .stretch = StretchMode::Fill});
+            btnCompact = ui.Button({.text = "Compact", .stretch = StretchMode::Compact});
+            btnStretch1 = ui.Button({.text = "Stretch", .stretch = StretchMode::Fill});
+            btnStretch2 = ui.Button({.text = "Stretch", .stretch = StretchMode::Fill});
         }
     };
 
@@ -2539,8 +2595,8 @@ void TestUiStyleAndDensityScaling() {
 
     auto render = [&]() {
         if (auto col = ui.Column()) {
-            b1 = ui.Button({.label = "First"});
-            b2 = ui.Button({.label = "Second"});
+            b1 = ui.Button({.text = "First"});
+            b2 = ui.Button({.text = "Second"});
         }
     };
 
@@ -2620,37 +2676,37 @@ void TestLeafWidgetSizeOverrides() {
         if (auto col = ui.Column()) {
             // Buttons: Inherited (Md), Local override Xl, Local override Xs
             if (auto r1 = ui.Row()) {
-                btnInherit = ui.Button({.label = "Inherit"});
-                btnXl = ui.Button({.label = "Large", .size = UiSize::Xl});
-                btnXs = ui.Button({.label = "Small", .size = UiSize::Xs});
+                btnInherit = ui.Button({.text = "Inherit"});
+                btnXl = ui.Button({.text = "Large", .size = UiSize::Xl});
+                btnXs = ui.Button({.text = "Small", .size = UiSize::Xs});
             }
 
             // Switches: Inherited (Md), Local override Xl, Local override Xs
             if (auto r2 = ui.Row()) {
-                swInherit = ui.Switch(swVal, {.label = "Inherit"});
-                swXl = ui.Switch(swVal, {.label = "Large", .size = UiSize::Xl});
-                swXs = ui.Switch(swVal, {.label = "Small", .size = UiSize::Xs});
+                swInherit = ui.Switch(swVal);
+                swXl = ui.Switch(swVal, {.size = UiSize::Xl});
+                swXs = ui.Switch(swVal, {.size = UiSize::Xs});
             }
 
             // Checkboxes: Inherited (Md), Local override Xl, Local override Xs
             if (auto r3 = ui.Row()) {
-                cbInherit = ui.Checkbox(cbVal, {.label = "Inherit"});
-                cbXl = ui.Checkbox(cbVal, {.label = "Large", .size = UiSize::Xl});
-                cbXs = ui.Checkbox(cbVal, {.label = "Small", .size = UiSize::Xs});
+                cbInherit = ui.Checkbox(cbVal);
+                cbXl = ui.Checkbox(cbVal, {.size = UiSize::Xl});
+                cbXs = ui.Checkbox(cbVal, {.size = UiSize::Xs});
             }
 
             // InputFields: Inherited (Md), Local override Xl, Local override Xs
             if (auto r4 = ui.Row()) {
-                inInherit = ui.InputField(inVal, {.label = "Inherit"});
-                inXl = ui.InputField(inVal, {.label = "Large", .size = UiSize::Xl});
-                inXs = ui.InputField(inVal, {.label = "Small", .size = UiSize::Xs});
+                inInherit = ui.InputField(inVal);
+                inXl = ui.InputField(inVal, {.size = UiSize::Xl});
+                inXs = ui.InputField(inVal, {.size = UiSize::Xs});
             }
 
             // Selects: Inherited (Md), Local override Xl, Local override Xs
             if (auto r5 = ui.Row()) {
-                selInherit = ui.Select(selIdx, selItems, {.label = "Inherit"});
-                selXl = ui.Select(selIdx, selItems, {.label = "Large", .size = UiSize::Xl});
-                selXs = ui.Select(selIdx, selItems, {.label = "Small", .size = UiSize::Xs});
+                selInherit = ui.Select(selIdx, selItems);
+                selXl = ui.Select(selIdx, selItems, {.size = UiSize::Xl});
+                selXs = ui.Select(selIdx, selItems, {.size = UiSize::Xs});
             }
 
             // Toolbar ToolButtons: Inherited (Md), Local override Xl, Local override Xs
@@ -2717,20 +2773,20 @@ void TestHeadingWidgetWorkflow() {
     using namespace guikit;
 
     // 1. Standalone Heading::Measure tests
-    HeadingOptions optsTitleOnly{.title = "System Configuration"};
+    HeadingOptions optsTitleOnly{.label = "System Configuration"};
     Vec2 sizeTitleOnly = Heading::Measure(optsTitleOnly, UiSize::Md);
     CHECK(sizeTitleOnly.x > 0.0f);
     CHECK(sizeTitleOnly.y > 0.0f);
 
-    HeadingOptions optsWithSub{.title = "System Configuration", .subtitle = "Hardware line supervision & failsafes"};
+    HeadingOptions optsWithSub{.label = "System Configuration", .description = "Hardware line supervision & failsafes"};
     Vec2 sizeWithSub = Heading::Measure(optsWithSub, UiSize::Md);
     CHECK(sizeWithSub.x >= sizeTitleOnly.x);
     // Heading with subtitle must be taller than title-only
     CHECK(sizeWithSub.y > sizeTitleOnly.y);
 
     HeadingOptions optsWithBadgeIcon{
-        .title = "Telemetry Stream",
-        .subtitle = "1000 samples/sec",
+        .label = "Telemetry Stream",
+        .description = "1000 samples/sec",
         .icon = Icon::Check(),
         .badge = "ACTIVE"
     };
@@ -2758,15 +2814,15 @@ void TestHeadingWidgetWorkflow() {
     std::string dynamicSubtitle = "Initial Subtitle";
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
-            head1 = ui.Heading({.title = "System Overview", .subtitle = dynamicSubtitle});
+            head1 = ui.Heading({.label = "System Overview", .description = dynamicSubtitle});
             head2 = ui.Heading({
-                .title = {"Telemetry Stream", StateColor::Success()},
-                .subtitle = "1000 samples/sec",
+                .label = {"Telemetry Stream", StateColor::Success()},
+                .description = "1000 samples/sec",
                 .icon = Icon::Check(),
                 .badge = {"ACTIVE", StateColor::Success()}
             });
-            head3 = ui.Heading({.title = "Section Divider", .divider = true});
-            head4 = ui.Heading({.title = "Trailing Divider", .divider = true, .dividerStyle = HeadingDivider::Trailing});
+            head3 = ui.Heading({.label = "Section Divider", .divider = true});
+            head4 = ui.Heading({.label = "Trailing Divider", .divider = true, .dividerStyle = HeadingDivider::Trailing});
         }
     };
 
@@ -2839,7 +2895,7 @@ void TestDpiScalingAndBackendMetadata() {
     CHECK_NEAR(ui.GetLogicalViewport().x, 1200.0f, 0.01f);
     CHECK_NEAR(ui.GetLogicalViewport().y, 900.0f, 0.01f);
     CHECK_NEAR(ui.GetDpiScale(), 1.0f, 0.01f);
-    ui.Button({.label = "TestBtn"});
+    ui.Button({.text = "TestBtn"});
     ui.EndFrame(canvas);
     CHECK_NEAR(canvas.GetScale(), 1.0f, 0.01f);
 
@@ -2856,7 +2912,7 @@ void TestDpiScalingAndBackendMetadata() {
     CHECK_NEAR(ui.GetMousePos().y, 20.0f, 0.01f);
 
     // Render button and test layout
-    ui.Button({.label = "TestBtn"});
+    ui.Button({.text = "TestBtn"});
     ui.EndFrame(canvas);
 
     // Canvas should receive 1.5x scale
@@ -2902,7 +2958,7 @@ void TestSdlCanvasBackendInterface() {
     // Verify Context renders into SdlCanvas via ICanvas polymorphism
     Context ui;
     ui.BeginFrame({800.0f, 600.0f}, 1.25f);
-    ui.Button({.label = "GPU Button"});
+    ui.Button({.text = "GPU Button"});
     ui.EndFrame(canvas);
 }
 
@@ -2960,55 +3016,66 @@ void TestIndustrialDashboardNoBlackLines() {
                             if (auto colLeft = dashboardGrid.Cell6()) {
                                 if (auto card1 = ui.Card()) {
                                     cardId = card1.GetNode()->id;
-                                    ui.Heading({.title = "Primary Stop Conditions", .subtitle = "Sensory tripwire thresholds & limits"});
+                                    ui.Heading({.label = "Primary Stop Conditions", .description = "Sensory tripwire thresholds & limits"});
                                     if (auto grid1 = ui.Grid()) {
                                         if (auto c = grid1.Cell12()) {
-                                            ui.Switch(enableSensors, {
+                                            if (auto el = ui.Element({
                                                 .label = "Enable Sensor Drop Limits",
                                                 .description = "Immediate stop on threshold breach"
-                                            });
+                                            })) {
+                                                ui.Switch(enableSensors);
+                                            }
                                         }
                                         if (auto c = grid1.Cell6()) {
-                                            ui.InputField(maxTravel, {.label = "Max Travel", .suffix = "mm", .valueFormat = "%.1f"});
+                                            if (auto el = ui.Element({.label = "Max Travel"})) {
+                                                ui.InputField(maxTravel, {.suffix = "mm", .valueFormat = "%.1f"});
+                                            }
                                         }
                                         if (auto c = grid1.Cell6()) {
-                                            ui.InputField(maxVelocity, {.label = "Max Velocity", .suffix = "mm/s", .valueFormat = "%.1f"});
+                                            if (auto el = ui.Element({.label = "Max Velocity"})) {
+                                                ui.InputField(maxVelocity, {.suffix = "mm/s", .valueFormat = "%.1f"});
+                                            }
                                         }
                                         if (auto c = grid1.Cell12()) {
-                                            ui.Select(sensorChannel, {
-                                                "Channel A (Load Cell 50kN)",
-                                                "Channel B (Optical Extensometer)",
-                                                "Channel C (Laser Interferometer)"
-                                            }, {
+                                            if (auto el = ui.Element({
                                                 .label = "Primary Sensor Channel",
                                                 .description = "Active physical transducer bus",
                                                 .layout = ElementLayout::Stacked
-                                            });
+                                            })) {
+                                                ui.Select(sensorChannel, {
+                                                    "Channel A (Load Cell 50kN)",
+                                                    "Channel B (Optical Extensometer)",
+                                                    "Channel C (Laser Interferometer)"
+                                                });
+                                            }
                                         }
                                     }
                                 }
 
                                 if (auto card2 = ui.Card()) {
-                                    ui.Heading({.title = {"Emergency Interlocks", StateColor::Danger()}, .subtitle = "Hardware line supervision & failsafes"});
+                                    ui.Heading({.label = {"Emergency Interlocks", StateColor::Danger()}, .description = "Hardware line supervision & failsafes"});
                                     if (auto grid2 = ui.Grid()) {
                                         if (auto c = grid2.Cell12()) {
-                                            ui.Switch(hwEstop, {
+                                            if (auto el = ui.Element({
                                                 .label = "Hardware E-Stop Line",
-                                                .description = "Continuous 24V loop monitoring",
-                                                .color = StateColor::Danger()
-                                            });
+                                                .description = "Continuous 24V loop monitoring"
+                                            })) {
+                                                ui.Switch(hwEstop, {.color = StateColor::Danger()});
+                                            }
                                         }
                                         if (auto c = grid2.Cell6()) {
-                                            ui.Select(interlockMode, {
-                                                "Immediate Cutoff",
-                                                "Controlled Ramp-down",
-                                                "Hold Position"
-                                            }, {
-                                                .label = "Interlock Action"
-                                            });
+                                            if (auto el = ui.Element({.label = "Interlock Action"})) {
+                                                ui.Select(interlockMode, {
+                                                    "Immediate Cutoff",
+                                                    "Controlled Ramp-down",
+                                                    "Hold Position"
+                                                });
+                                            }
                                         }
                                         if (auto c = grid2.Cell6()) {
-                                            ui.InputField(rampDown, {.label = "Ramp Duration", .suffix = "ms", .valueFormat = "%.0f"});
+                                            if (auto el = ui.Element({.label = "Ramp Duration"})) {
+                                                ui.InputField(rampDown, {.suffix = "ms", .valueFormat = "%.0f"});
+                                            }
                                         }
                                     }
                                 }
@@ -3094,11 +3161,11 @@ void TestCarouselWidgetAndTabBarOverflow() {
     auto renderCarousel = [&]() {
         if (auto c = ui.Carousel({.gap = 8.0f})) {
             carouselNode = c.GetNode();
-            b1 = ui.Button({.label = "Button 1"});
-            b2 = ui.Button({.label = "Button 2"});
-            b3 = ui.Button({.label = "Button 3"});
-            ui.Button({.label = "Button 4"});
-            ui.Button({.label = "Button 5"});
+            b1 = ui.Button({.text = "Button 1"});
+            b2 = ui.Button({.text = "Button 2"});
+            b3 = ui.Button({.text = "Button 3"});
+            ui.Button({.text = "Button 4"});
+            ui.Button({.text = "Button 5"});
         }
     };
 
@@ -3238,9 +3305,11 @@ void TestDebugBoundsAndInspectMode() {
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f)})) {
         if (auto row = ui.Row({.gap = 12.0f})) {
-            ui.Button({.label = "Inspect Me"});
+            ui.Button({.text = "Inspect Me"});
             ui.Spacer();
-            ui.Switch(false, {.label = "Toggle Switch"});
+            if (auto el = ui.Element({.label = "Toggle Switch"})) {
+                ui.Switch(false);
+            }
         }
         if (auto card = ui.Card()) {
             ui.Text("Card Inner Text");
@@ -3294,7 +3363,7 @@ void TestPostRenderDelegateWorkflow() {
             };
         }
 
-        ui.Button({.label = "Child Button"});
+        ui.Button({.text = "Child Button"});
         Node* childNode = containerNode ? containerNode->firstChild : nullptr;
         CHECK(childNode != nullptr);
         if (childNode) {
@@ -3331,12 +3400,12 @@ void TestContainersAndLayoutsReorganization() {
     // 1. Layouts: Row, Column, Wrap, Grid
     if (auto col = ui.Column({.gap = 12.0f})) {
         if (auto row = ui.Row({.gap = 8.0f, .align = Alignment::Center})) {
-            ui.Button({.label = "Btn 1"});
-            ui.Button({.label = "Btn 2"});
+            ui.Button({.text = "Btn 1"});
+            ui.Button({.text = "Btn 2"});
         }
         if (auto wrap = ui.Wrap({.gap = 4.0f, .runGap = 8.0f})) {
-            ui.Button({.label = "W1"});
-            ui.Button({.label = "W2"});
+            ui.Button({.text = "W1"});
+            ui.Button({.text = "W2"});
         }
         if (auto grid = ui.Grid({.columns = 12, .gap = 12.0f})) {
             if (auto c6 = grid.Cell6()) {
@@ -3377,7 +3446,7 @@ void TestContainersAndLayoutsReorganization() {
         CHECK(node != nullptr);
         CHECK(node->padding.left == 12.0f);
         CHECK(node->gap == 8.0f);
-        ui.Button({.label = "Scroll Item 1"});
+        ui.Button({.text = "Scroll Item 1"});
     }
 
     if (auto carousel = ui.Carousel({.gap = 16.0f, .padding = Padding::All(6.0f), .align = Alignment::End, .justify = Justify::Center})) {
@@ -3387,18 +3456,18 @@ void TestContainersAndLayoutsReorganization() {
         CHECK(node->justify == Justify::Center);
         CHECK(node->padding.left == 6.0f);
         CHECK(node->gap == 16.0f);
-        ui.Button({.label = "Carousel Item 1"});
+        ui.Button({.text = "Carousel Item 1"});
     }
 
     // 3. Static layout facades: Row::Open, Column::Open, Wrap::Open, Grid::Open, Spacer::Run
     if (auto col2 = Column::Open(ui, {.gap = 8.0f})) {
         if (auto row2 = Row::Open(ui)) {
-            ui.Button({.label = "Static Row Btn"});
+            ui.Button({.text = "Static Row Btn"});
             Spacer::Run(ui);
-            ui.Button({.label = "Static Row Btn 2"});
+            ui.Button({.text = "Static Row Btn 2"});
         }
         if (auto wrap2 = Wrap::Open(ui)) {
-            ui.Button({.label = "Static Wrap Btn"});
+            ui.Button({.text = "Static Wrap Btn"});
         }
         if (auto grid2 = Grid::Open(ui)) {
             if (auto cell = grid2.Cell()) {
@@ -3466,7 +3535,7 @@ void TestGenericTemplateFacade() {
         CHECK(panel.GetNode()->minWidth == 150.0f);
         auto badge = ui.Run<MyCustomBadge>("LIVE STATUS", UiVariant::Success);
         CHECK(badge.id.IsValid());
-        auto btn = ui.Run<Button>(ButtonOptions{.label = "Generic Button"});
+        auto btn = ui.Run<Button>(ButtonOptions{.text = "Generic Button"});
         CHECK(btn.id.IsValid());
     }
     ui.EndFrame(canvas);
@@ -3688,7 +3757,7 @@ void TestScopedThemeAndScaleOverrides() {
         CHECK_NEAR(selCompact.x, 220.0f, 0.001f);
 
         // StretchMode::Fill treats .width as percentage (0..100%), which must NOT be multiplied by scale
-        const Rect fillBox = Select::GetBoxRect(Rect(0.0f, 0.0f, 400.0f, 60.0f), SelectOptions{.label = "Mode", .layout = ElementLayout::Inline, .stretch = StretchMode::Fill, .width = 50.0f}, UiSize::Md, &canvas, ui.GetTheme());
+        const Rect fillBox = Select::GetBoxRect(Rect(0.0f, 0.0f, 400.0f, 60.0f), SelectOptions{.stretch = StretchMode::Fill, .width = 50.0f}, UiSize::Md, &canvas, ui.GetTheme());
         CHECK_NEAR(fillBox.w, 200.0f, 0.01f);
     }
 
@@ -3717,11 +3786,21 @@ void TestSliderAndStepSliderWidgets() {
     Response r1, r2, r3, r4, r5;
     auto renderUI = [&]() {
         if (auto col = ui.Column()) {
-            r1 = ui.Slider(floatVal, 0.0f, 10.0f, {.label = "Gain", .valueFormat = "%.1f dB"});
-            r2 = ui.Slider(intVal, 1, 8, {.label = "Columns", .valueFormat = "%d ch"});
-            r3 = ui.StepSlider(stepIndex, stepLabels, {.label = "Preset"});
-            r4 = ui.StepSlider(activeSize, {.label = "Size"});
-            r5 = ui.StepSlider(activeRadius, {.label = "Radius", .includeNone = true});
+            if (auto el = ui.Element({.label = "Gain"})) {
+                r1 = ui.Slider(floatVal, 0.0f, 10.0f, {.valueFormat = "%.1f dB"});
+            }
+            if (auto el = ui.Element({.label = "Columns"})) {
+                r2 = ui.Slider(intVal, 1, 8, {.valueFormat = "%d ch"});
+            }
+            if (auto el = ui.Element({.label = "Preset"})) {
+                r3 = ui.StepSlider(stepIndex, stepLabels);
+            }
+            if (auto el = ui.Element({.label = "Size"})) {
+                r4 = ui.StepSlider(activeSize);
+            }
+            if (auto el = ui.Element({.label = "Radius"})) {
+                r5 = ui.StepSlider(activeRadius, {.includeNone = true});
+            }
         }
     };
 
@@ -3869,10 +3948,10 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
             CHECK_NEAR(n->padding.left, ui.GetTheme().GetPadding(UiSize::Lg).left, 0.001f);
 
             // Child inherits UiSize::Lg height (48px)
-            btnLg = ui.Button({.label = "Inherited Lg"});
+            btnLg = ui.Button({.text = "Inherited Lg"});
 
             // Explicit override to UiSize::Sm height (32px)
-            btnSm = ui.Button({.label = "Explicit Sm", .size = UiSize::Sm});
+            btnSm = ui.Button({.text = "Explicit Sm", .size = UiSize::Sm});
         }
     };
 
@@ -3917,14 +3996,12 @@ void TestTextWrappingAndBackendIndependence() {
 
     // 2. Heading wordWrap test: single-line vs multi-line height resolution
     HeadingOptions optsWrap{
-        .title = "Primary Stop Conditions",
-        .subtitle = "Sensory tripwire thresholds & limits for automated closed-loop machinery",
-        .wordWrap = true
+        .label = "Primary Stop Conditions",
+        .description = {"Sensory tripwire thresholds & limits for automated closed-loop machinery", TextWrap::Word()}
     };
     HeadingOptions optsNoWrap{
-        .title = "Primary Stop Conditions",
-        .subtitle = "Sensory tripwire thresholds & limits for automated closed-loop machinery",
-        .wordWrap = false
+        .label = "Primary Stop Conditions",
+        .description = {"Sensory tripwire thresholds & limits for automated closed-loop machinery", TextWrap::SingleLine()}
     };
 
     const float hNoWrap = Heading::Measure(optsNoWrap, UiSize::Md, 150.0f).y;
@@ -3943,9 +4020,9 @@ void TestTextWrappingAndBackendIndependence() {
     if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(10.0f)})) {
         headResp = ui.Heading(optsWrap);
         if (auto row = ui.Row({.gap = 8.0f})) {
-            btn1Resp = ui.Button({.label = "Col 1 (Stretch)", .stretch = StretchMode::Fill});
-            btn2Resp = ui.Button({.label = "Col 2 (Stretch)", .stretch = StretchMode::Fill});
-            btn3Resp = ui.Button({.label = "Col 3 (Stretch)", .stretch = StretchMode::Fill});
+            btn1Resp = ui.Button({.text = "Col 1 (Stretch)", .stretch = StretchMode::Fill});
+            btn2Resp = ui.Button({.text = "Col 2 (Stretch)", .stretch = StretchMode::Fill});
+            btn3Resp = ui.Button({.text = "Col 3 (Stretch)", .stretch = StretchMode::Fill});
         }
     }
     ui.EndFrame(sdlCanvas);
@@ -4243,45 +4320,45 @@ void TestButtonAlignmentAndProceduralIcons() {
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
     if (auto col = ui.Column({.gap = 4.0f})) {
         ui.Button({
-            .label = "Button",
+            .text = "Button",
             .icon = Icon::Play(),
-            .controlAlign = Align::Start,
+            .align = Align::Start,
             .stretch = StretchMode::Fill
         });
         ui.Button({
-            .label = "Input",
+            .text = "Input",
             .icon = Icon::Edit(),
-            .controlAlign = Align::Start,
+            .align = Align::Start,
             .stretch = StretchMode::Fill
         });
         ui.Button({
-            .label = "Containers",
+            .text = "Containers",
             .icon = Icon::Copy(),
-            .controlAlign = Align::Start,
+            .align = Align::Start,
             .stretch = StretchMode::Fill
         });
         ui.Button({
-            .label = "End-Aligned",
+            .text = "End-Aligned",
             .icon = Icon::Settings(),
-            .controlAlign = Align::End,
+            .align = Align::End,
             .stretch = StretchMode::Fill
         });
         ui.Button({
-            .label = "Center-Aligned",
+            .text = "Center-Aligned",
             .icon = Icon::Folder(),
-            .controlAlign = Align::Center,
+            .align = Align::Center,
             .stretch = StretchMode::Fill
         });
         // Label only left-aligned
         ui.Button({
-            .label = "Label Only Left",
-            .controlAlign = Align::Start,
+            .text = "Label Only Left",
+            .align = Align::Start,
             .stretch = StretchMode::Fill
         });
         // Icon only left-aligned
         ui.Button({
             .icon = Icon::Plus(),
-            .controlAlign = Align::Start,
+            .align = Align::Start,
             .stretch = StretchMode::Fill
         });
     }
@@ -4311,37 +4388,43 @@ void TestButtonAlignmentAndProceduralIcons() {
     const UiTheme& darkTheme = UiTheme::Dark();
     const Rect widgetBounds(50.0f, 100.0f, 400.0f, 80.0f);
 
-    ButtonOptions bStart{
+    ElementSpec elSpec{
         .label = "Action Label",
-        .text = "Click Action",
         .layout = ElementLayout::Stacked,
         .stretch = StretchMode::Compact,
-        .control = {.width = 150.0f, .align = Align::Start}
+        .width = 150.0f
+    };
+    ButtonOptions bStart{
+        .text = "Click Action",
+        .align = Align::Start,
+        .stretch = StretchMode::Compact,
+        .width = 150.0f
     };
     ButtonOptions bCenter{
-        .label = "Action Label",
         .text = "Click Action",
-        .layout = ElementLayout::Stacked,
+        .align = Align::Center,
         .stretch = StretchMode::Compact,
-        .control = {.width = 150.0f, .align = Align::Center}
+        .width = 150.0f
     };
     ButtonOptions bEnd{
-        .label = "Action Label",
         .text = "Click Action",
-        .layout = ElementLayout::Stacked,
+        .align = Align::End,
         .stretch = StretchMode::Compact,
-        .control = {.width = 150.0f, .align = Align::End}
+        .width = 150.0f
     };
 
-    Button::Render(recCanvas, widgetBounds, bStart, UiSize::Md, false, false, false, darkTheme);
+    const Vec2 bIntrinsic = Button::Measure(bStart, UiSize::Md, &recCanvas, darkTheme);
+    const ElementGeometry geom = Element::Resolve(widgetBounds, bIntrinsic, elSpec, &recCanvas, darkTheme);
+
+    Button::Render(recCanvas, geom.innerControlRect, bStart, UiSize::Md, false, false, false, darkTheme);
     const Rect capStart = recCanvas.lastCapsuleRect;
     const float alignXStart = recCanvas.lastAlignX;
 
-    Button::Render(recCanvas, widgetBounds, bCenter, UiSize::Md, false, false, false, darkTheme);
+    Button::Render(recCanvas, geom.innerControlRect, bCenter, UiSize::Md, false, false, false, darkTheme);
     const Rect capCenter = recCanvas.lastCapsuleRect;
     const float alignXCenter = recCanvas.lastAlignX;
 
-    Button::Render(recCanvas, widgetBounds, bEnd, UiSize::Md, false, false, false, darkTheme);
+    Button::Render(recCanvas, geom.innerControlRect, bEnd, UiSize::Md, false, false, false, darkTheme);
     const Rect capEnd = recCanvas.lastCapsuleRect;
     const float alignXEnd = recCanvas.lastAlignX;
 
@@ -4375,10 +4458,15 @@ void TestWidgetRadiusOverride() {
 
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
     if (auto col = ui.Column({.gap = 8.0f})) {
-        auto btnDefault = ui.Button({.label = "Default Radius"});
-        auto btnCustom = ui.Button({.label = "Custom Radius", .control = {.borderRadius = 16.0f}});
-        auto inputDefault = ui.InputField(inputText, {.label = "Default Radius Input"});
-        auto inputCustom = ui.InputField(inputText, {.label = "Custom Radius Input", .control = {.borderRadius = 14.0f}});
+        auto btnDefault = ui.Button({.text = "Default Radius"});
+        auto btnCustom = ui.Button({.text = "Custom Radius", .border = Border::Rounded(16.0f)});
+        Response inputDefault, inputCustom;
+        if (auto el = ui.Element({.label = "Default Radius Input"})) {
+            inputDefault = ui.InputField(inputText);
+        }
+        if (auto el = ui.Element({.label = "Custom Radius Input"})) {
+            inputCustom = ui.InputField(inputText, {.border = {.radius = 14.0f}});
+        }
 
         CHECK(btnDefault.id.IsValid());
         CHECK(btnCustom.id.IsValid());
@@ -4403,20 +4491,18 @@ void TestButtonExternalLabelDescriptionAndPlacement() {
 
     // 1. Measure comparisons
     const UiTheme& theme = UiTheme::Dark();
-    const Vec2 plainSize = Button::Measure({.label = "Deploy"}, UiSize::Md, &canvas, theme);
-    const Vec2 stackedSize = Button::Measure({
+    const Vec2 plainSize = Button::Measure({.text = "Deploy"}, UiSize::Md, &canvas, theme);
+    const Vec2 stackedSize = Element::Measure(plainSize, ElementSpec{
         .label = "Deployment Action",
-        .text = "Deploy",
         .description = "Immediate canary release",
         .layout = ElementLayout::Stacked
-    }, UiSize::Md, &canvas, theme);
-    const Vec2 leadingSize = Button::Measure({
+    }, &canvas, theme);
+    const Vec2 leadingSize = Element::Measure(plainSize, ElementSpec{
         .label = "Deployment Action",
-        .text = "Deploy",
         .description = "Immediate canary release",
         .layout = ElementLayout::Inline,
         .inlineOrder = InlineOrder::LabelFirst
-    }, UiSize::Md, &canvas, theme);
+    }, &canvas, theme);
 
     // Stacked height must be strictly taller than plain button due to external label and description
     CHECK(stackedSize.y > plainSize.y);
@@ -4429,46 +4515,53 @@ void TestButtonExternalLabelDescriptionAndPlacement() {
 
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)}, 1.0f);
     if (auto col = ui.Column({.gap = 8.0f})) {
-        auto bStacked = ui.Button({
+        Response bStacked, bLeading, bTrailing, bTop, bBottom, selRes;
+        if (auto el = ui.Element({
             .label = "Action Header",
-            .text = "Click Stacked",
             .description = "Helper info stacked",
             .layout = ElementLayout::Stacked
-        });
-        auto bLeading = ui.Button({
+        })) {
+            bStacked = ui.Button({.text = "Click Stacked"});
+        }
+        if (auto el = ui.Element({
             .label = "Action Header",
-            .text = "Click Leading",
             .description = "Helper info leading",
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::LabelFirst
-        });
-        auto bTrailing = ui.Button({
+        })) {
+            bLeading = ui.Button({.text = "Click Leading"});
+        }
+        if (auto el = ui.Element({
             .label = "Action Header",
-            .text = "Click Trailing",
             .description = "Helper info trailing",
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::ControlFirst
-        });
-        auto bTop = ui.Button({
+        })) {
+            bTrailing = ui.Button({.text = "Click Trailing"});
+        }
+        if (auto el = ui.Element({
             .label = "Action Header",
-            .text = "Click Top",
             .description = "Helper info top",
             .layout = ElementLayout::Top
-        });
-        auto bBottom = ui.Button({
+        })) {
+            bTop = ui.Button({.text = "Click Top"});
+        }
+        if (auto el = ui.Element({
             .label = "Action Header",
-            .text = "Click Bottom",
             .description = "Helper info bottom",
             .layout = ElementLayout::Bottom
-        });
+        })) {
+            bBottom = ui.Button({.text = "Click Bottom"});
+        }
 
         // Select with custom radius override
-        auto selRes = ui.Select(selIdx, items, {
+        if (auto el = ui.Element({
             .label = "Select Header",
             .description = "Choose option",
-            .layout = ElementLayout::Stacked,
-            .control = {.borderRadius = 12.0f}
-        });
+            .layout = ElementLayout::Stacked
+        })) {
+            selRes = ui.Select(selIdx, items, {.border = {.radius = 12.0f}});
+        }
 
         CHECK(bStacked.id.IsValid());
         CHECK(bLeading.id.IsValid());
@@ -4578,76 +4671,106 @@ void TestWidgetStretchModesAndExplicitWidth() {
         if (auto col = ui.Column({.widthMode = SizeMode::Stretch})) {
             // Button Row: Compact vs Fill
             if (auto r1 = ui.Row({.gap = 10.0f})) {
-                btnCompact = ui.Button({.label = "Compact", .stretch = StretchMode::Compact});
-                btnFill1 = ui.Button({.label = "Fill 1", .stretch = StretchMode::Fill});
-                btnFill2 = ui.Button({.label = "Fill 2", .stretch = StretchMode::Fill});
+                btnCompact = ui.Button({.text = "Compact", .stretch = StretchMode::Compact});
+                btnFill1 = ui.Button({.text = "Fill 1", .stretch = StretchMode::Fill});
+                btnFill2 = ui.Button({.text = "Fill 2", .stretch = StretchMode::Fill});
             }
 
             // Switch in InlineOrder::LabelFirst: Compact vs Space
-            swCompact = ui.Switch(swVal, {
+            if (auto el = ui.Element({
                 .label = "Switch Compact",
                 .inlineOrder = InlineOrder::LabelFirst,
                 .stretch = StretchMode::Compact
-            });
-            swBetween = ui.Switch(swVal, {
+            })) {
+                swCompact = el.response;
+                ui.Switch(swVal);
+            }
+            if (auto el = ui.Element({
                 .label = "Switch Space",
                 .inlineOrder = InlineOrder::LabelFirst,
                 .stretch = StretchMode::Space
-            });
+            })) {
+                swBetween = el.response;
+                ui.Switch(swVal);
+            }
 
             // Checkbox in InlineOrder::LabelFirst: Compact vs Space
-            cbCompact = ui.Checkbox(cbVal, {
+            if (auto el = ui.Element({
                 .label = "Checkbox Compact",
                 .inlineOrder = InlineOrder::LabelFirst,
                 .stretch = StretchMode::Compact
-            });
-            cbBetween = ui.Checkbox(cbVal, {
+            })) {
+                cbCompact = el.response;
+                ui.Checkbox(cbVal);
+            }
+            if (auto el = ui.Element({
                 .label = "Checkbox Space",
                 .inlineOrder = InlineOrder::LabelFirst,
                 .stretch = StretchMode::Space
-            });
+            })) {
+                cbBetween = el.response;
+                ui.Checkbox(cbVal);
+            }
 
             // Slider: Compact vs Space
-            slCompact = ui.Slider(slVal, 0.0f, 100.0f, {
+            if (auto el = ui.Element({
                 .label = "Slider Compact",
                 .layout = ElementLayout::Inline,
                 .inlineOrder = InlineOrder::LabelFirst,
                 .stretch = StretchMode::Compact
-            });
-            slBetween = ui.Slider(slVal, 0.0f, 100.0f, {
+            })) {
+                slCompact = el.response;
+                ui.Slider(slVal, 0.0f, 100.0f);
+            }
+            if (auto el = ui.Element({
                 .label = "Slider Space",
                 .layout = ElementLayout::Inline,
                 .inlineOrder = InlineOrder::LabelFirst,
                 .stretch = StretchMode::Space
-            });
+            })) {
+                slBetween = el.response;
+                ui.Slider(slVal, 0.0f, 100.0f);
+            }
 
             // Select: Compact vs Space
-            selCompact = ui.Select(selIdx, selOpts, {
+            if (auto el = ui.Element({
                 .label = "Select Compact",
                 .layout = ElementLayout::Inline,
                 .inlineOrder = InlineOrder::LabelFirst,
                 .stretch = StretchMode::Compact
-            });
-            selBetween = ui.Select(selIdx, selOpts, {
+            })) {
+                selCompact = el.response;
+                ui.Select(selIdx, selOpts);
+            }
+            if (auto el = ui.Element({
                 .label = "Select Space",
                 .layout = ElementLayout::Inline,
                 .inlineOrder = InlineOrder::LabelFirst,
                 .stretch = StretchMode::Space
-            });
+            })) {
+                selBetween = el.response;
+                ui.Select(selIdx, selOpts);
+            }
 
             // InputField: Compact vs Space
-            inCompact = ui.InputField(inText, {
+            if (auto el = ui.Element({
                 .label = "Input Compact",
                 .layout = ElementLayout::Inline,
                 .inlineOrder = InlineOrder::LabelFirst,
                 .stretch = StretchMode::Compact
-            });
-            inBetween = ui.InputField(inText, {
+            })) {
+                inCompact = el.response;
+                ui.InputField(inText);
+            }
+            if (auto el = ui.Element({
                 .label = "Input Space",
                 .layout = ElementLayout::Inline,
                 .inlineOrder = InlineOrder::LabelFirst,
                 .stretch = StretchMode::Space
-            });
+            })) {
+                inBetween = el.response;
+                ui.InputField(inText);
+            }
         }
     };
 
@@ -4695,38 +4818,32 @@ void TestWidgetStretchModesAndExplicitWidth() {
 
     // 6. Test Button in Placement::Stacked with StretchMode::Space vs Fill
     Response btnStBetween, btnStFill;
+    auto renderStackedBtns = [&]() {
+        if (auto col = ui.Column()) {
+            if (auto el = ui.Element({
+                .label = "Header",
+                .layout = ElementLayout::Stacked,
+                .stretch = StretchMode::Space
+            })) {
+                btnStBetween = el.response;
+                ui.Button({.text = "Action"});
+            }
+            if (auto el = ui.Element({
+                .label = "Header",
+                .layout = ElementLayout::Stacked,
+                .stretch = StretchMode::Fill
+            })) {
+                btnStFill = el.response;
+                ui.Button({.text = "Action"});
+            }
+        }
+    };
     ui.BeginFrame({800.0f, 600.0f});
-    if (auto col = ui.Column()) {
-        btnStBetween = ui.Button({
-            .label = "Header",
-            .text = "Action",
-            .layout = ElementLayout::Stacked,
-            .stretch = StretchMode::Space
-        });
-        btnStFill = ui.Button({
-            .label = "Header",
-            .text = "Action",
-            .layout = ElementLayout::Stacked,
-            .stretch = StretchMode::Fill
-        });
-    }
+    renderStackedBtns();
     ui.EndFrame(canvas);
 
     ui.BeginFrame({800.0f, 600.0f});
-    if (auto col = ui.Column()) {
-        btnStBetween = ui.Button({
-            .label = "Header",
-            .text = "Action",
-            .layout = ElementLayout::Stacked,
-            .stretch = StretchMode::Space
-        });
-        btnStFill = ui.Button({
-            .label = "Header",
-            .text = "Action",
-            .layout = ElementLayout::Stacked,
-            .stretch = StretchMode::Fill
-        });
-    }
+    renderStackedBtns();
     ui.EndFrame(canvas);
 
     const Rect rStBetween = ui.GetPrevFrameBounds(btnStBetween.id);
@@ -4736,56 +4853,43 @@ void TestWidgetStretchModesAndExplicitWidth() {
 
     // 7. Test Button in InlineOrder::ControlFirst with StretchMode::Compact, Space, Fill
     Response btnTrCompact, btnTrBetween, btnTrFill;
+    auto renderTrailingBtns = [&]() {
+        if (auto col = ui.Column()) {
+            if (auto el = ui.Element({
+                .label = "Trailing Label",
+                .layout = ElementLayout::Inline,
+                .inlineOrder = InlineOrder::ControlFirst,
+                .stretch = StretchMode::Compact
+            })) {
+                btnTrCompact = el.response;
+                ui.Button({.text = "Action"});
+            }
+            if (auto el = ui.Element({
+                .label = "Trailing Label",
+                .layout = ElementLayout::Inline,
+                .inlineOrder = InlineOrder::ControlFirst,
+                .stretch = StretchMode::Space
+            })) {
+                btnTrBetween = el.response;
+                ui.Button({.text = "Action"});
+            }
+            if (auto el = ui.Element({
+                .label = "Trailing Label",
+                .layout = ElementLayout::Inline,
+                .inlineOrder = InlineOrder::ControlFirst,
+                .stretch = StretchMode::Fill
+            })) {
+                btnTrFill = el.response;
+                ui.Button({.text = "Action"});
+            }
+        }
+    };
     ui.BeginFrame({800.0f, 600.0f});
-    if (auto col = ui.Column()) {
-        btnTrCompact = ui.Button({
-            .label = "Trailing Label",
-            .text = "Action",
-            .layout = ElementLayout::Inline,
-            .inlineOrder = InlineOrder::ControlFirst,
-            .stretch = StretchMode::Compact
-        });
-        btnTrBetween = ui.Button({
-            .label = "Trailing Label",
-            .text = "Action",
-            .layout = ElementLayout::Inline,
-            .inlineOrder = InlineOrder::ControlFirst,
-            .stretch = StretchMode::Space
-        });
-        btnTrFill = ui.Button({
-            .label = "Trailing Label",
-            .text = "Action",
-            .layout = ElementLayout::Inline,
-            .inlineOrder = InlineOrder::ControlFirst,
-            .stretch = StretchMode::Fill
-        });
-    }
+    renderTrailingBtns();
     ui.EndFrame(canvas);
 
     ui.BeginFrame({800.0f, 600.0f});
-    if (auto col = ui.Column()) {
-        btnTrCompact = ui.Button({
-            .label = "Trailing Label",
-            .text = "Action",
-            .layout = ElementLayout::Inline,
-            .inlineOrder = InlineOrder::ControlFirst,
-            .stretch = StretchMode::Compact
-        });
-        btnTrBetween = ui.Button({
-            .label = "Trailing Label",
-            .text = "Action",
-            .layout = ElementLayout::Inline,
-            .inlineOrder = InlineOrder::ControlFirst,
-            .stretch = StretchMode::Space
-        });
-        btnTrFill = ui.Button({
-            .label = "Trailing Label",
-            .text = "Action",
-            .layout = ElementLayout::Inline,
-            .inlineOrder = InlineOrder::ControlFirst,
-            .stretch = StretchMode::Fill
-        });
-    }
+    renderTrailingBtns();
     ui.EndFrame(canvas);
 
     const Rect rTrCompact = ui.GetPrevFrameBounds(btnTrCompact.id);
@@ -4844,16 +4948,24 @@ void TestLabelAlignmentGeometryOptionA() {
     // Label block width must be tied to control width (150px) rather than whole container (800px)
     {
         recCanvas.Reset();
-        ButtonOptions opts{
+        ElementSpec elSpec{
             .label = "Header Label",
-            .text = "Click Me",
             .description = {"Warning helper", UiVariant::Warning},
             .layout = ElementLayout::Top,
-            .elementAlign = Align::Center,
+            .align = Align::Center,
             .stretch = StretchMode::Compact,
             .width = 150.0f
         };
-        Button::Render(recCanvas, widgetBounds, opts, UiSize::Md, false, false, false, darkTheme);
+        ButtonOptions opts{
+            .text = "Click Me",
+            .stretch = StretchMode::Compact,
+            .width = 150.0f
+        };
+        const Vec2 cSize = Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        Button::Render(recCanvas, geom.innerControlRect, opts, UiSize::Md, false, false, false, darkTheme);
+
         const auto* call = recCanvas.FindTextBox("Header Label");
         CHECK(call != nullptr);
         if (call) {
@@ -4873,14 +4985,21 @@ void TestLabelAlignmentGeometryOptionA() {
     // Label block width spans entire container (800px)
     {
         recCanvas.Reset();
-        ButtonOptions opts{
+        ElementSpec elSpec{
             .label = "Header Label",
-            .text = "Click Me",
             .layout = ElementLayout::Top,
-            .elementAlign = Align::End,
+            .align = Align::End,
             .stretch = StretchMode::Fill
         };
-        Button::Render(recCanvas, widgetBounds, opts, UiSize::Md, false, false, false, darkTheme);
+        ButtonOptions opts{
+            .text = "Click Me",
+            .stretch = StretchMode::Fill
+        };
+        const Vec2 cSize = Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        Button::Render(recCanvas, geom.innerControlRect, opts, UiSize::Md, false, false, false, darkTheme);
+
         const auto* call = recCanvas.FindTextBox("Header Label");
         CHECK(call != nullptr);
         if (call) {
@@ -4890,19 +5009,27 @@ void TestLabelAlignmentGeometryOptionA() {
         }
     }
 
-    // 2b. Button in Top layout with Space stretch and elementAlign = End:
+    // 2b. Button in Top layout with Space stretch and align = End:
     // Both Label and compact Button capsule (150px) align to the right edge of the 800px row
     {
         recCanvas.Reset();
-        ButtonOptions opts{
+        ElementSpec elSpec{
             .label = "Header Label",
-            .text = "Click Me",
             .layout = ElementLayout::Top,
-            .elementAlign = Align::End,
+            .align = Align::End,
             .stretch = StretchMode::Space,
             .width = 150.0f
         };
-        Button::Render(recCanvas, widgetBounds, opts, UiSize::Md, false, false, false, darkTheme);
+        ButtonOptions opts{
+            .text = "Click Me",
+            .stretch = StretchMode::Space,
+            .width = 150.0f
+        };
+        const Vec2 cSize = Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        Button::Render(recCanvas, geom.innerControlRect, opts, UiSize::Md, false, false, false, darkTheme);
+
         const auto* call = recCanvas.FindTextBox("Header Label");
         CHECK(call != nullptr);
         if (call) {
@@ -4918,16 +5045,24 @@ void TestLabelAlignmentGeometryOptionA() {
     // Label is docked at left edge (50px), Button capsule is docked at right edge (700px)
     {
         recCanvas.Reset();
-        ButtonOptions opts{
+        ElementSpec elSpec{
             .label = "Setting Title",
-            .text = "Action",
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::LabelFirst,
-            .elementAlign = Align::End,
+            .align = Align::End,
             .stretch = StretchMode::Space,
             .width = 150.0f
         };
-        Button::Render(recCanvas, widgetBounds, opts, UiSize::Md, false, false, false, darkTheme);
+        ButtonOptions opts{
+            .text = "Action",
+            .stretch = StretchMode::Space,
+            .width = 150.0f
+        };
+        const Vec2 cSize = Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        Button::Render(recCanvas, geom.innerControlRect, opts, UiSize::Md, false, false, false, darkTheme);
+
         const auto* call = recCanvas.FindTextBox("Setting Title");
         CHECK(call != nullptr);
         if (call) {
@@ -4944,15 +5079,23 @@ void TestLabelAlignmentGeometryOptionA() {
     // 3b. Button in Top layout with StretchMode::Fill & .width = 50.0f (50% of 800px = 400px) & Align::Center:
     {
         recCanvas.Reset();
-        ButtonOptions opts{
+        ElementSpec elSpec{
             .label = "Header Label",
-            .text = "Action",
             .layout = ElementLayout::Top,
-            .elementAlign = Align::Center,
+            .align = Align::Center,
             .stretch = StretchMode::Fill,
             .width = 50.0f
         };
-        Button::Render(recCanvas, widgetBounds, opts, UiSize::Md, false, false, false, darkTheme);
+        ButtonOptions opts{
+            .text = "Action",
+            .stretch = StretchMode::Fill,
+            .width = 50.0f
+        };
+        const Vec2 cSize = Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        Button::Render(recCanvas, geom.innerControlRect, opts, UiSize::Md, false, false, false, darkTheme);
+
         CHECK_NEAR(recCanvas.lastRoundRect.w, 400.0f, 0.01f);
         CHECK_NEAR(recCanvas.lastRoundRect.x, 250.0f, 0.01f); // 50 + (800 - 400) * 0.5
     }
@@ -4961,15 +5104,23 @@ void TestLabelAlignmentGeometryOptionA() {
     // Long label must be cropped with "..." to fit inside remaining width (800 - 720 - gap)
     {
         recCanvas.Reset();
-        ButtonOptions opts{
+        ElementSpec elSpec{
             .label = "Very Long Setting Title That Exceeds Available Remaining Width",
-            .text = "Action",
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::LabelFirst,
             .stretch = StretchMode::Fill,
             .width = 90.0f
         };
-        Button::Render(recCanvas, widgetBounds, opts, UiSize::Md, false, false, false, darkTheme);
+        ButtonOptions opts{
+            .text = "Action",
+            .stretch = StretchMode::Fill,
+            .width = 90.0f
+        };
+        const Vec2 cSize = Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        Button::Render(recCanvas, geom.innerControlRect, opts, UiSize::Md, false, false, false, darkTheme);
+
         CHECK_NEAR(recCanvas.lastRoundRect.w, 720.0f, 0.01f);
         CHECK_NEAR(recCanvas.lastRoundRect.x, 130.0f, 0.01f); // 50 + 800 - 720
         CHECK(!recCanvas.textBoxCalls.empty());
@@ -4984,15 +5135,23 @@ void TestLabelAlignmentGeometryOptionA() {
     // Control box is docked at left edge (50px), Label is docked at far right edge (850 - measuredW)
     {
         recCanvas.Reset();
-        InputFieldOptions opts{
+        ElementSpec elSpec{
             .label = "Trailing Field Info",
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::ControlFirst,
-            .elementAlign = Align::Center,
+            .align = Align::Center,
             .stretch = StretchMode::Space,
             .width = 200.0f
         };
-        InputField::Render(recCanvas, widgetBounds, "text", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
+        InputFieldOptions opts{
+            .stretch = StretchMode::Space,
+            .width = 200.0f
+        };
+        const Vec2 cSize = InputField::Measure("text", opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        InputField::Render(recCanvas, geom.innerControlRect, "text", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
+
         const auto* call = recCanvas.FindTextBox("Trailing Field Info");
         CHECK(call != nullptr);
         if (call) {
@@ -5007,15 +5166,23 @@ void TestLabelAlignmentGeometryOptionA() {
     // 4b. InputField in Stacked layout with StretchMode::Fill & .width = 50.0f (50% of 800px = 400px) & Align::End:
     {
         recCanvas.Reset();
-        InputFieldOptions opts{
+        ElementSpec elSpec{
             .label = "Endpoint",
             .description = {"Primary host", UiVariant::Warning},
             .layout = ElementLayout::Stacked,
-            .elementAlign = Align::End,
+            .align = Align::End,
             .stretch = StretchMode::Fill,
             .width = 50.0f
         };
-        InputField::Render(recCanvas, widgetBounds, "text", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
+        InputFieldOptions opts{
+            .stretch = StretchMode::Fill,
+            .width = 50.0f
+        };
+        const Vec2 cSize = InputField::Measure("text", opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        InputField::Render(recCanvas, geom.innerControlRect, "text", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
+
         CHECK_NEAR(recCanvas.lastRoundRect.w, 400.0f, 0.01f);
         CHECK_NEAR(recCanvas.lastRoundRect.x, 450.0f, 0.01f); // 50 + (800 - 400) * 1.0
         const auto* descCall = recCanvas.FindTextBox("Primary host");
@@ -5029,15 +5196,23 @@ void TestLabelAlignmentGeometryOptionA() {
     // Long label must be cropped with "..." to fit inside remaining width (800 - 720 - gap)
     {
         recCanvas.Reset();
-        SelectOptions opts{
+        ElementSpec elSpec{
             .label = "Very Long Dropdown Setting Title That Exceeds Available Remaining Width",
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::LabelFirst,
             .stretch = StretchMode::Fill,
             .width = 90.0f
         };
-        Select::Render(recCanvas, widgetBounds, "Option A", opts, UiSize::Md, false, false, false, darkTheme);
-        const Rect boxRect = Select::GetBoxRect(widgetBounds, opts, UiSize::Md, &recCanvas, darkTheme);
+        SelectOptions opts{
+            .stretch = StretchMode::Fill,
+            .width = 90.0f
+        };
+        const Vec2 cSize = Select::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        Select::Render(recCanvas, geom.innerControlRect, "Option A", opts, UiSize::Md, false, false, false, darkTheme);
+
+        const Rect boxRect = geom.innerControlRect;
         CHECK_NEAR(boxRect.w, 720.0f, 0.01f);
         CHECK_NEAR(boxRect.x, 130.0f, 0.01f); // 50 + 800 - 720
         CHECK(!recCanvas.textBoxCalls.empty());
@@ -5052,13 +5227,21 @@ void TestLabelAlignmentGeometryOptionA() {
     // Label block width is max(trackSize.x, measuredTextW)
     {
         recCanvas.Reset();
-        SwitchOptions opts{
+        ElementSpec elSpec{
             .label = "Short",
             .layout = ElementLayout::Top,
-            .elementAlign = Align::Center,
+            .align = Align::Center,
+            .stretch = StretchMode::Compact,
+            .stretchableControl = false
+        };
+        SwitchOptions opts{
             .stretch = StretchMode::Compact
         };
-        Switch::Render(recCanvas, widgetBounds, false, opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = Switch::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        Switch::Render(recCanvas, geom.innerControlRect, false, opts, UiSize::Md, false, false, false, darkTheme);
+
         const auto* call = recCanvas.FindTextBox("Short");
         CHECK(call != nullptr);
         if (call) {
@@ -5073,13 +5256,21 @@ void TestLabelAlignmentGeometryOptionA() {
     // Track is at bounds.x (50px), Label is docked at far right edge
     {
         recCanvas.Reset();
-        SwitchOptions opts{
+        ElementSpec elSpec{
             .label = "Power Switch",
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::ControlFirst,
+            .stretch = StretchMode::Space,
+            .stretchableControl = false
+        };
+        SwitchOptions opts{
             .stretch = StretchMode::Space
         };
-        Switch::Render(recCanvas, widgetBounds, false, opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = Switch::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        Switch::Render(recCanvas, geom.innerControlRect, false, opts, UiSize::Md, false, false, false, darkTheme);
+
         const auto* call = recCanvas.FindTextBox("Power Switch");
         CHECK(call != nullptr);
         if (call) {
@@ -5094,13 +5285,21 @@ void TestLabelAlignmentGeometryOptionA() {
     // Checkbox is at bounds.x (50px), Label is docked at far right edge
     {
         recCanvas.Reset();
-        CheckboxOptions opts{
+        ElementSpec elSpec{
             .label = "Enable Feature",
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::ControlFirst,
+            .stretch = StretchMode::Space,
+            .stretchableControl = false
+        };
+        CheckboxOptions opts{
             .stretch = StretchMode::Space
         };
-        Checkbox::Render(recCanvas, widgetBounds, false, opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = Checkbox::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        Checkbox::Render(recCanvas, geom.innerControlRect, false, opts, UiSize::Md, false, false, false, darkTheme);
+
         const auto* call = recCanvas.FindTextBox("Enable Feature");
         CHECK(call != nullptr);
         if (call) {
@@ -5115,15 +5314,23 @@ void TestLabelAlignmentGeometryOptionA() {
     // Control is at bounds.x (50px), Header is docked at far right edge
     {
         recCanvas.Reset();
-        SliderOptions opts{
+        ElementSpec elSpec{
             .label = "Volume Level",
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::ControlFirst,
+            .stretch = StretchMode::Space,
+            .width = 150.0f
+        };
+        SliderOptions opts{
             .showValue = false,
             .stretch = StretchMode::Space,
             .width = 150.0f
         };
-        Slider::Render(recCanvas, widgetBounds, 0.5f, 0.0f, 1.0f, opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = Slider::Measure(opts, 0.5, 0.0, 1.0, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        Slider::Render(recCanvas, geom.innerControlRect, 0.5f, 0.0f, 1.0f, opts, UiSize::Md, false, false, false, darkTheme);
+
         const auto* call = recCanvas.FindTextBox("Volume Level");
         CHECK(call != nullptr);
         if (call) {
@@ -5138,15 +5345,23 @@ void TestLabelAlignmentGeometryOptionA() {
     // Long label must be cropped with "..." to fit inside remaining width
     {
         recCanvas.Reset();
-        SliderOptions opts{
+        ElementSpec elSpec{
             .label = "Very Long Slider Label That Exceeds Remaining Inline Space",
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::LabelFirst,
+            .stretch = StretchMode::Fill,
+            .width = 85.0f
+        };
+        SliderOptions opts{
             .showValue = false,
             .stretch = StretchMode::Fill,
             .width = 85.0f
         };
-        Slider::Render(recCanvas, widgetBounds, 0.5f, 0.0f, 1.0f, opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = Slider::Measure(opts, 0.5, 0.0, 1.0, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        Slider::Render(recCanvas, geom.innerControlRect, 0.5f, 0.0f, 1.0f, opts, UiSize::Md, false, false, false, darkTheme);
+
         CHECK(!recCanvas.textBoxCalls.empty());
         if (!recCanvas.textBoxCalls.empty()) {
             const auto& firstCall = recCanvas.textBoxCalls.front();
@@ -5213,15 +5428,21 @@ void TestUiTextAndControlCompanionText() {
     // 2. Switch with external .label + internal .textLeft / .textRight + .description
     {
         recCanvas.Reset();
-        SwitchOptions opts{
+        ElementSpec elSpec{
             .label = "System Theme",
-            .textLeft = "Dark",
-            .textRight = {"Light", UiVariant::Info},
             .description = {"Applies globally", UiVariant::Warning},
             .layout = ElementLayout::Top,
+            .stretchableControl = false
+        };
+        SwitchOptions opts{
+            .textLeft = "Dark",
+            .textRight = {"Light", UiVariant::Info},
             .symmetric = true
         };
-        Switch::Render(recCanvas, widgetBounds, true, opts, UiSize::Md, false, false, false, darkTheme);
+        const Vec2 cSize = Switch::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
+        const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
+        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        Switch::Render(recCanvas, geom.innerControlRect, true, opts, UiSize::Md, false, false, false, darkTheme);
 
         const auto* lblCall = recCanvas.FindTextBox("System Theme");
         const auto* leftCall = recCanvas.FindTextBox("Dark");
@@ -5248,23 +5469,28 @@ void TestUiTextAndControlCompanionText() {
     // 3. Slider with .textLeft, .textRight, .valueFormat, and all 5 .valuePlacement positions
     for (Placement vp : {Placement::Leading, Placement::Trailing, Placement::Top, Placement::Bottom, Placement::Thumb}) {
         recCanvas.Reset();
-        SliderOptions opts{
+        ElementSpec elSpec{
             .label = "Master Gain",
+            .description = "Preamp level",
+            .layout = ElementLayout::Stacked
+        };
+        SliderOptions opts{
             .textLeft = "0%",
             .textRight = "100%",
-            .description = "Preamp level",
             .valueFormat = "%.0f%%",
-            .layout = ElementLayout::Stacked,
             .showValue = true,
             .valuePlacement = vp,
             .color = StateColor::Danger() // Even with Danger color, value readout defaults to neutral Secondary!
         };
 
-        Vec2 measured = Slider::Measure(opts, 50.0, 0.0, 100.0, UiSize::Md, &recCanvas, darkTheme);
+        Vec2 ctrlMeasured = Slider::Measure(opts, 50.0, 0.0, 100.0, UiSize::Md, &recCanvas, darkTheme);
+        Vec2 measured = Element::Measure(ctrlMeasured, elSpec, &recCanvas, darkTheme);
         CHECK(measured.x > 0.0f);
         CHECK(measured.y > 0.0f);
 
-        Slider::Render(recCanvas, Rect(20.0f, 20.0f, 400.0f, measured.y), 50.0, 0.0, 100.0, opts, UiSize::Md, false, false, false, darkTheme);
+        const ElementGeometry geom = Element::Resolve(Rect(20.0f, 20.0f, 400.0f, measured.y), ctrlMeasured, elSpec, &recCanvas, darkTheme);
+        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
+        Slider::Render(recCanvas, geom.innerControlRect, 50.0, 0.0, 100.0, opts, UiSize::Md, false, false, false, darkTheme);
 
         const auto* lblCall = recCanvas.FindTextBox("Master Gain");
         const auto* leftCall = recCanvas.FindTextBox("0%");
@@ -5298,7 +5524,6 @@ void TestUiTextAndControlCompanionText() {
     {
         recCanvas.Reset();
         SliderOptions opts{
-            .label = "Temperature",
             .valueFormat = {"%.1f C", UiVariant::Warning},
             .showValue = true
         };
@@ -5314,7 +5539,6 @@ void TestUiTextAndControlCompanionText() {
     {
         recCanvas.Reset();
         InputFieldOptions opts{
-            .label = "Endpoint",
             .prefix = {"https://", UiVariant::Info},
             .suffix = ":443"
         };
@@ -5531,13 +5755,15 @@ void TestUiTextModesAndVerticalSpaceReservation() {
     // 1. Single-line truncation with "..." when text exceeds bounds
     {
         recCanvas.Reset();
-        InputFieldOptions opts{
+        ElementSpec elSpec{
             .label = "Very long field label that should be truncated with ellipsis in a narrow box",
             .description = "Very long description text that should also be cropped on a single line",
             .layout = ElementLayout::Stacked
         };
-        const Vec2 m = InputField::Measure("", opts, UiSize::Md, &recCanvas, darkTheme, 120.0f);
-        InputField::Render(recCanvas, Rect(10.0f, 10.0f, 120.0f, m.y), "", opts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
+        const Vec2 cSize = InputField::Measure("", InputFieldOptions{}, UiSize::Md, &recCanvas, darkTheme);
+        const Vec2 m = Element::Measure(cSize, elSpec, &recCanvas, darkTheme, 120.0f);
+        const ElementGeometry geom = Element::Resolve(Rect(10.0f, 10.0f, 120.0f, m.y), cSize, elSpec, &recCanvas, darkTheme);
+        Element::RenderText(recCanvas, geom, elSpec, darkTheme);
 
         CHECK(recCanvas.textBoxCalls.size() == 2);
         if (recCanvas.textBoxCalls.size() == 2) {
@@ -5549,12 +5775,12 @@ void TestUiTextModesAndVerticalSpaceReservation() {
     // 2. Multi-line word wrapping (TextWrap::Word) + Max lines truncation (TextWrap::Max(2))
     {
         recCanvas.Reset();
-        InputFieldOptions singleOpts{
+        ElementSpec singleSpec{
             .label = "Username",
             .description = {"Single line description", TextWrap::SingleLine()},
             .layout = ElementLayout::Stacked
         };
-        InputFieldOptions multiOpts{
+        ElementSpec multiSpec{
             .label = "Username",
             .description = {
                 "This validation description is intentionally long so that it wraps across multiple lines in a narrow container",
@@ -5564,15 +5790,17 @@ void TestUiTextModesAndVerticalSpaceReservation() {
             .layout = ElementLayout::Stacked
         };
 
-        const Vec2 singleM = InputField::Measure("", singleOpts, UiSize::Md, &recCanvas, darkTheme, 140.0f);
-        const Vec2 multiM = InputField::Measure("", multiOpts, UiSize::Md, &recCanvas, darkTheme, 140.0f);
-        const float descFontSize = darkTheme.ResolveFontSize(multiOpts.description, TextRole::LabelSmall, UiSize::Md);
+        const Vec2 cSize = InputField::Measure("", InputFieldOptions{}, UiSize::Md, &recCanvas, darkTheme);
+        const Vec2 singleM = Element::Measure(cSize, singleSpec, &recCanvas, darkTheme, 140.0f);
+        const Vec2 multiM = Element::Measure(cSize, multiSpec, &recCanvas, darkTheme, 140.0f);
+        const float descFontSize = darkTheme.ResolveFontSize(multiSpec.description, TextRole::LabelSmall, UiSize::Md);
         const float descLineH = descFontSize * kDefaultLineHeightMultiplier;
 
         // Multi-line with Max(2) must be exactly 1 description line taller than single-line
         CHECK_NEAR(multiM.y - singleM.y, descLineH, 0.01f);
 
-        InputField::Render(recCanvas, Rect(10.0f, 10.0f, 140.0f, multiM.y), "", multiOpts, UiSize::Md, false, false, 0, false, false, 1.5f, darkTheme);
+        const ElementGeometry geom = Element::Resolve(Rect(10.0f, 10.0f, 140.0f, multiM.y), cSize, multiSpec, &recCanvas, darkTheme);
+        Element::RenderText(recCanvas, geom, multiSpec, darkTheme);
         // 1 call for "Username" + 2 calls for the 2 wrapped lines of description
         CHECK(recCanvas.textBoxCalls.size() == 3);
         if (recCanvas.textBoxCalls.size() == 3) {
@@ -5591,14 +5819,17 @@ void TestUiTextModesAndVerticalSpaceReservation() {
 
         auto renderForm = [&]() {
             if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
-                inputRes = ui.InputField(email, {
+                if (auto el = ui.Element({
                     .label = "Email",
                     .description = {
                         hasError ? "Invalid email address format" : "",
                         UiVariant::Danger,
                         TextWrap::Reserve(1)
                     }
-                });
+                })) {
+                    inputRes = el.response;
+                    ui.InputField(email);
+                }
                 submitBtnRes = ui.Button({.text = "Submit"});
             }
         };
@@ -5646,14 +5877,16 @@ void TestUiTextModesAndVerticalSpaceReservation() {
             }
 
             if (auto col = ui.Column({.gap = 10.0f, .padding = Padding::All(12.0f)})) {
-                ui.InputField(password, {
+                if (auto el = ui.Element({
                     .label = "Password",
                     .description = {
                         errText,
                         UiVariant::Danger,
                         TextWrap{.minLines = 2, .maxLines = 2}
                     }
-                });
+                })) {
+                    ui.InputField(password);
+                }
                 submitBtnRes = ui.Button({.text = "Continue"});
             }
         };
@@ -5730,7 +5963,6 @@ void TestSelectItemsAndUnifiedAffixes() {
     {
         recCanvas.Reset();
         InputFieldOptions opts{
-            .label = "Endpoint",
             .prefix = {Icon::Search(), "https://", UiVariant::Info},
             .suffix = {"Verified", Icon::Check(), UiVariant::Success}
         };
@@ -5772,10 +6004,9 @@ void TestSelectItemsAndUnifiedAffixes() {
 
         auto renderSelect = [&]() {
             if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(16.0f)})) {
-                selRes = ui.Select(selectedIdx, items, {
-                    .label = "Resolution",
-                    .stretch = StretchMode::Compact
-                });
+                if (auto el = ui.Element({.label = "Resolution", .stretch = StretchMode::Compact})) {
+                    selRes = ui.Select(selectedIdx, items, {.stretch = StretchMode::Compact});
+                }
             }
         };
 
@@ -5930,13 +6161,14 @@ void TestSelectPopupScrollingWithMaxVisibleItems() {
         auto renderScene = [&]() {
             if (auto sa = ui.ScrollArea()) {
                 if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
-                    selRes = ui.Select(selectedIdx, std::span<const SelectItem>(items), {
-                        .label = "Scrollable Select",
-                        .maxVisibleItems = 3
-                    });
+                    if (auto el = ui.Element({.label = "Scrollable Select"})) {
+                        selRes = ui.Select(selectedIdx, std::span<const SelectItem>(items), {
+                            .maxVisibleItems = 3
+                        });
+                    }
                     // Extra tall content so parent ScrollArea is scrollable if it receives wheel events
                     for (int i = 0; i < 15; ++i) {
-                        ui.Button({.label = "Background Filler Row"});
+                        ui.Button({.text = "Background Filler Row"});
                     }
                 }
             }
@@ -6082,7 +6314,7 @@ void TestBaseElementsAllInOneEnhancements() {
     // 1. Type-safe Node::SetPayload<T> and Node::As<T>() verification
     {
         Node n;
-        ButtonOptions bOpts{.label = "Test"};
+        ButtonOptions bOpts{.text = "Test"};
         n.SetPayload(&bOpts);
         CHECK(n.As<ButtonOptions>() == &bOpts);
         CHECK(n.As<SwitchOptions>() == nullptr);
@@ -6098,10 +6330,10 @@ void TestBaseElementsAllInOneEnhancements() {
 
         auto renderWidths = [&]() {
             if (auto col = ui.Column({.gap = 8.0f})) {
-                swCompact = ui.Switch(sw, {.label = "Sw", .stretch = StretchMode::Compact});
-                swWide = ui.Switch(sw, {.label = "Sw", .stretch = StretchMode::Compact, .width = 240.0f});
-                cbFill50 = ui.Checkbox(cb, {.label = "Cb", .stretch = StretchMode::Fill, .width = 50.0f});
-                cbFill100 = ui.Checkbox(cb, {.label = "Cb", .stretch = StretchMode::Fill, .width = 100.0f});
+                swCompact = ui.Switch(sw, {.stretch = StretchMode::Compact});
+                swWide = ui.Switch(sw, {.stretch = StretchMode::Compact, .width = 240.0f});
+                cbFill50 = ui.Checkbox(cb, {.stretch = StretchMode::Fill, .width = 50.0f});
+                cbFill100 = ui.Checkbox(cb, {.stretch = StretchMode::Fill, .width = 100.0f});
             }
         };
 
@@ -6128,11 +6360,17 @@ void TestBaseElementsAllInOneEnhancements() {
 
         auto renderFocusScene = [&]() {
             if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(16.0f)})) {
-                btnRes = ui.Button({.label = "FirstBtn", .tooltip = "Action Tooltip Text"});
+                btnRes = ui.Button({.text = "FirstBtn", .tooltip = "Action Tooltip Text"});
                 if (btnRes.clicked) ++btnClicks;
-                cbRes = ui.Checkbox(cbChecked, {.label = "SecondCb"});
-                swRes = ui.Switch(swState, {.label = "ThirdSw"});
-                slRes = ui.Slider(sliderVal, 0.0f, 100.0f, {.label = "FourthSl", .step = 10.0});
+                if (auto el = ui.Element({.label = "SecondCb"})) {
+                    cbRes = ui.Checkbox(cbChecked);
+                }
+                if (auto el = ui.Element({.label = "ThirdSw"})) {
+                    swRes = ui.Switch(swState);
+                }
+                if (auto el = ui.Element({.label = "FourthSl"})) {
+                    slRes = ui.Slider(sliderVal, 0.0f, 100.0f, {.step = 10.0});
+                }
             }
         };
 
@@ -6214,21 +6452,24 @@ void TestBaseElementsAllInOneEnhancements() {
 
         auto renderInputs = [&]() {
             if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
-                pwdRes = ui.InputField(pwdText, {
-                    .label = "Password",
-                    .password = true,
-                    .passwordReveal = true
-                });
-                searchRes = ui.InputField(searchText, {
-                    .label = "Search",
-                    .clearable = true
-                });
-                numRes = ui.InputField(numVal, {
-                    .label = "Count",
-                    .min = 0.0,
-                    .max = 15.0,
-                    .step = 5.0
-                });
+                if (auto el = ui.Element({.label = "Password"})) {
+                    pwdRes = ui.InputField(pwdText, {
+                        .password = true,
+                        .passwordReveal = true
+                    });
+                }
+                if (auto el = ui.Element({.label = "Search"})) {
+                    searchRes = ui.InputField(searchText, {
+                        .clearable = true
+                    });
+                }
+                if (auto el = ui.Element({.label = "Count"})) {
+                    numRes = ui.InputField(numVal, {
+                        .min = 0.0,
+                        .max = 15.0,
+                        .step = 5.0
+                    });
+                }
             }
         };
 
@@ -6296,7 +6537,7 @@ void TestBaseElementsAllInOneEnhancements() {
         CHECK(numVal == 0); // Clamped to min = 0
     }
 
-    // 5. Heading unified ElementComposer model (.label / .description aliases, ElementLayout, Align, StretchMode & width)
+    // 5. Heading unified Element model (.label / .description, ElementLayout, Align, StretchMode & width)
     {
         Context ui;
         Response hLeft, hCenter, hRight, hTop, hInline, hCompact;
@@ -6305,19 +6546,19 @@ void TestBaseElementsAllInOneEnhancements() {
                 hLeft = ui.Heading({
                     .label = "LeftH",
                     .description = "SubLeft",
-                    .elementAlign = Align::Start
+                    .align = Align::Start
                 });
                 hCenter = ui.Heading({
                     .label = "CenterH",
                     .description = "SubCenter",
-                    .elementAlign = Align::Center,
+                    .align = Align::Center,
                     .divider = true,
                     .dividerStyle = HeadingDivider::Trailing
                 });
                 hRight = ui.Heading({
                     .label = "RightH",
                     .description = "SubRight",
-                    .elementAlign = Align::End
+                    .align = Align::End
                 });
                 hTop = ui.Heading({
                     .label = "TitleBottom",
@@ -6419,12 +6660,18 @@ void TestImageSceneAndMarkdownWidgets() {
 
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
-            imgRes = ui.Image(kInlineSvg, {
+            if (auto el = ui.Element({
                 .label = "Inline Vector SVG",
                 .stretch = StretchMode::Fill,
-                .width = 50.0f,
-                .checkerboard = true
-            });
+                .width = 50.0f
+            })) {
+                imgRes = el.response;
+                ui.Image(kInlineSvg, {
+                    .stretch = StretchMode::Fill,
+                    .width = 50.0f,
+                    .checkerboard = true
+                });
+            }
 
             if (auto scene = ui.Scene({
                 .worldSize = Vec2{1000.0f, 800.0f},
@@ -6531,14 +6778,20 @@ void TestImageSceneAndMarkdownWidgets() {
                     .justify = Justify::Center,
                     .heightMode = SizeMode::Stretch
                 })) {
-                    stageImgRes = ui.Image(kInlineSvg, {
+                    if (auto el = ui.Element({
                         .label = "A vector image",
                         .description = "This is a vector image",
-                        .fit = ObjectFit::Contain,
                         .stretch = StretchMode::Fill,
-                        .width = 85.0f,
-                        .checkerboard = true
-                    });
+                        .width = 85.0f
+                    })) {
+                        stageImgRes = el.response;
+                        ui.Image(kInlineSvg, {
+                            .fit = ObjectFit::Contain,
+                            .stretch = StretchMode::Fill,
+                            .width = 85.0f,
+                            .checkerboard = true
+                        });
+                    }
                 }
             }
             ui.EndFrame(canvas);
@@ -6563,33 +6816,35 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
     // 1. Verify that adding icon, badge, and Element/Control frame to widgets increases measured width/height appropriately
     const UiTheme& theme = ui.GetTheme();
     {
-        ButtonOptions baseBtn{.label = "A button", .text = "Click me", .description = "This is a button"};
-        ButtonOptions decBtn = baseBtn;
-        decBtn.labelIcon = Icon::Edit();
-        decBtn.badge = {"v1.0", UiVariant::Info};
-        decBtn.background = true;
-        decBtn.borderWidth = 1.0f;
+        ButtonOptions baseBtn{.text = "Click me"};
+        const Vec2 ctrlSz = Button::Measure(baseBtn, UiSize::Md, &canvas, theme);
+        ElementSpec baseSpec{.label = "A button", .description = "This is a button"};
+        ElementSpec decSpec = baseSpec;
+        decSpec.icon = Icon::Edit();
+        decSpec.badge = {"v1.0", UiVariant::Info};
+        decSpec.background = true;
+        decSpec.border.width = 1.0f;
 
-        const Vec2 szBase = Button::Measure(baseBtn, UiSize::Md, &canvas, theme);
-        const Vec2 szDec  = Button::Measure(decBtn, UiSize::Md, &canvas, theme);
+        const Vec2 szBase = Element::Measure(ctrlSz, baseSpec, &canvas, theme);
+        const Vec2 szDec  = Element::Measure(ctrlSz, decSpec, &canvas, theme);
         CHECK(szDec.x > szBase.x);
         CHECK(szDec.y > szBase.y);
     }
     {
         // Verify Control well frame increases measured size for non-intrinsic-box controls (Slider, Switch, Checkbox)
-        SliderOptions baseSld{.label = "Gain"};
+        SliderOptions baseSld{};
         SliderOptions wellSld = baseSld;
-        wellSld.control.background = true;
-        wellSld.control.borderWidth = 1.0f;
+        wellSld.background = true;
+        wellSld.border.width = 1.0f;
         const Vec2 sBase = Slider::Measure(baseSld, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
         const Vec2 sWell = Slider::Measure(wellSld, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
         CHECK(sWell.x > sBase.x);
         CHECK(sWell.y > sBase.y);
 
-        SwitchOptions baseSw{.label = "Power"};
+        SwitchOptions baseSw{};
         SwitchOptions wellSw = baseSw;
-        wellSw.control.background = true;
-        wellSw.control.borderWidth = 1.0f;
+        wellSw.background = true;
+        wellSw.border.width = 1.0f;
         const Vec2 swBase = Switch::Measure(baseSw, UiSize::Md, &canvas, theme);
         const Vec2 swWell = Switch::Measure(wellSw, UiSize::Md, &canvas, theme);
         CHECK(swWell.x > swBase.x);
@@ -6609,12 +6864,12 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
         ui.BeginFrame({800.0f, 900.0f});
         if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f)})) {
             ui.Heading({
-                .title = "A heading",
-                .subtitle = "This is a heading",
+                .label = "A heading",
+                .description = "This is a heading",
                 .icon = Icon::Edit(),
                 .badge = {"v2.4", UiVariant::Info},
                 .background = true,
-                .borderWidth = 1.0f,
+                .border = {.width = 1.0f},
                 .divider = true
             });
             ui.Element({
@@ -6623,74 +6878,101 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
                 .icon = Icon::Settings(),
                 .badge = "Core",
                 .background = true,
-                .borderWidth = 1.0f,
-                .divider = true
+                .border = {.width = 1.0f}
             });
-            ui.Button({
+            if (auto el = ui.Element({
                 .label = "A button",
-                .text = "Click me",
                 .description = "This is a button",
-                .icon = Icon::Play(),
-                .labelIcon = Icon::Edit(),
+                .icon = Icon::Edit(),
                 .badge = "Action",
                 .background = true,
-                .borderWidth = 1.0f,
-                .control = {.background = true, .borderWidth = 1.5f}
-            });
-            ui.Slider(sliderVal, 0.0f, 100.0f, {
+                .border = {.width = 1.0f}
+            })) {
+                ui.Button({
+                    .text = "Click me",
+                    .icon = Icon::Play(),
+                    .background = true,
+                    .border = {.width = 1.5f}
+                });
+            }
+            if (auto el = ui.Element({
                 .label = "A slider",
                 .description = "This is a slider",
                 .icon = Icon::Settings(),
                 .badge = "dB",
                 .background = true,
-                .borderWidth = 1.0f,
-                .control = {.background = true, .borderWidth = 1.0f}
-            });
-            ui.StepSlider(stepIdx, items, {
+                .border = {.width = 1.0f}
+            })) {
+                ui.Slider(sliderVal, 0.0f, 100.0f, {
+                    .background = true,
+                    .border = {.width = 1.0f}
+                });
+            }
+            if (auto el = ui.Element({
                 .label = "A step slider",
                 .description = "This is a step slider",
                 .icon = Icon::Settings(),
                 .badge = "3-step",
                 .background = true,
-                .borderWidth = 1.0f,
-                .control = {.background = true, .borderWidth = 1.0f}
-            });
-            ui.InputField(inputVal, {
+                .border = {.width = 1.0f}
+            })) {
+                ui.StepSlider(stepIdx, items, {
+                    .background = true,
+                    .border = {.width = 1.0f}
+                });
+            }
+            if (auto el = ui.Element({
                 .label = "A text input",
                 .description = "This is a text input",
                 .icon = Icon::Edit(),
                 .badge = "UTF-8",
                 .background = true,
-                .borderWidth = 1.0f,
-                .control = {.background = true, .borderWidth = 1.5f}
-            });
-            ui.Select(selectIdx, items, {
+                .border = {.width = 1.0f}
+            })) {
+                ui.InputField(inputVal, {
+                    .background = true,
+                    .border = {.width = 1.5f}
+                });
+            }
+            if (auto el = ui.Element({
                 .label = "A select",
                 .description = "This is a select",
                 .icon = Icon::Plus(),
                 .badge = "Menu",
                 .background = true,
-                .borderWidth = 1.0f,
-                .control = {.background = true, .borderWidth = 1.5f}
-            });
-            ui.Switch(swVal, {
+                .border = {.width = 1.0f}
+            })) {
+                ui.Select(selectIdx, items, {
+                    .background = true,
+                    .border = {.width = 1.5f}
+                });
+            }
+            if (auto el = ui.Element({
                 .label = "A switch",
                 .description = "This is a switch",
                 .icon = Icon::Refresh(),
                 .badge = "Toggle",
                 .background = true,
-                .borderWidth = 1.0f,
-                .control = {.background = true, .borderWidth = 1.0f}
-            });
-            ui.Checkbox(cbVal, {
+                .border = {.width = 1.0f}
+            })) {
+                ui.Switch(swVal, {
+                    .background = true,
+                    .border = {.width = 1.0f}
+                });
+            }
+            if (auto el = ui.Element({
                 .label = "A checkbox",
                 .description = "This is a checkbox",
                 .icon = Icon::Check(),
                 .badge = "Bool",
                 .background = true,
-                .borderWidth = 1.0f,
-                .control = {.background = true, .borderWidth = 1.0f}
-            });
+                .border = {.width = 1.0f}
+            })) {
+                ui.Checkbox(cbVal, {
+                    .background = true,
+                    .border = {.width = 1.0f}
+                });
+            }
         }
         ui.EndFrame(canvas);
     }
@@ -7072,7 +7354,7 @@ void TestSonarAndSignalGpuShaderPipeline() {
     bool btnToggle = false;
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(8.0f)})) {
-            if (ui.Button({.label = btnToggle ? "Mode B" : "Mode A"})) {
+            if (ui.Button({.text = btnToggle ? "Mode B" : "Mode A"})) {
                 btnToggle = !btnToggle;
             }
             ui.SonarView(sonarMatrix, {
@@ -7388,45 +7670,63 @@ void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
 
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
-            rRange = ui.RangeSlider(lowFreq, highFreq, 0.0f, 100.0f, {
+            if (auto el = ui.Element({
                 .label = "Passband Window",
                 .description = "Band-pass filter cutoff interval",
-                .valueFormat = "%.0f .. %.0f MHz",
-                .step = 1.0,
-                .minSpan = 5.0,
-                .layout = ElementLayout::Stacked,
-                .showValue = true
-            });
+                .layout = ElementLayout::Stacked
+            })) {
+                rRange = ui.RangeSlider(lowFreq, highFreq, 0.0f, 100.0f, {
+                    .valueFormat = "%.0f .. %.0f MHz",
+                    .step = 1.0,
+                    .minSpan = 5.0,
+                    .showValue = true
+                });
+            }
 
-            rProg = ui.ProgressBar(progressVal, 0.0f, 100.0f, {
+            if (auto el = ui.Element({
                 .label = "Calibration Progress",
-                .valueFormat = "%.0f %%",
-                .layout = ElementLayout::Stacked,
-                .showValue = true
-            });
+                .layout = ElementLayout::Stacked
+            })) {
+                rProg = ui.ProgressBar(progressVal, 0.0f, 100.0f, {
+                    .valueFormat = "%.0f %%",
+                    .showValue = true
+                });
+            }
 
-            rVu = ui.ProgressBar(vuLevel, 0.0f, 100.0f, {
+            if (auto el = ui.Element({
                 .label = "RF Input Level Meter",
-                .valueFormat = "%.0f dBuV",
-                .peakHoldValue = 90.0,
-                .segments = 24,
-                .layout = ElementLayout::Stacked,
-                .showValue = true,
-                .multiZoneColor = true
-            });
+                .layout = ElementLayout::Stacked
+            })) {
+                rVu = ui.ProgressBar(vuLevel, 0.0f, 100.0f, {
+                    .valueFormat = "%.0f dBuV",
+                    .peakHoldValue = 90.0,
+                    .segments = 24,
+                    .showValue = true,
+                    .multiZoneColor = true
+                });
+            }
 
-            rSpin = ui.InputField(spinVal, {
+            if (auto el = ui.Element({
                 .label = "Channel Index",
-                .layout = ElementLayout::Stacked,
-                .min = 0.0,
-                .max = 20.0,
-                .step = 2.0,
-                .stepButtons = true
-            });
+                .layout = ElementLayout::Stacked
+            })) {
+                rSpin = ui.InputField(spinVal, {
+                    .min = 0.0,
+                    .max = 20.0,
+                    .step = 2.0,
+                    .stepButtons = true
+                });
+            }
 
-            rRadio0 = ui.RadioButton(radioMode, 0, {.label = "CW Mode"});
-            rRadio1 = ui.RadioButton(radioMode, 1, {.label = "FM Mode"});
-            rRadio2 = ui.RadioButton(radioMode, 2, {.label = "QAM Mode"});
+            if (auto el = ui.Element({.label = "CW Mode"})) {
+                rRadio0 = ui.RadioButton(radioMode, 0);
+            }
+            if (auto el = ui.Element({.label = "FM Mode"})) {
+                rRadio1 = ui.RadioButton(radioMode, 1);
+            }
+            if (auto el = ui.Element({.label = "QAM Mode"})) {
+                rRadio2 = ui.RadioButton(radioMode, 2);
+            }
         }
     };
 
@@ -7443,9 +7743,9 @@ void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
     CHECK(rProg.rect.w > 200.0f);
     CHECK(rVu.rect.w > 200.0f);
     CHECK(rSpin.rect.w > 100.0f);
-    CHECK(rRadio0.rect.w > 40.0f);
-    CHECK(rRadio1.rect.w > 40.0f);
-    CHECK(rRadio2.rect.w > 40.0f);
+    CHECK(rRadio0.rect.w > 10.0f);
+    CHECK(rRadio1.rect.w > 10.0f);
+    CHECK(rRadio2.rect.w > 10.0f);
 
     // 1. Test RadioButton selection: click rRadio2 to select mode 2
     ui.OnMouseMove({rRadio2.rect.x + 10.0f, rRadio2.rect.y + 8.0f});
@@ -8422,8 +8722,7 @@ void TestElementOuterFrameAndControlWellFrame() {
     // 1. Verify Control::Measure & Control::ResolveInnerRect for hasIntrinsicBox = false (well frame) vs true
     ControlSpec wellSpec{
         .background = true,
-        .borderWidth = 2.0f,
-        .borderRadius = 6.0f,
+        .border = {.width = 2.0f, .radius = 6.0f},
         .hasIntrinsicBox = false
     };
     const float wellPad = Control::ComputeWellPadding(wellSpec, UiSize::Md, theme);
@@ -8453,51 +8752,77 @@ void TestElementOuterFrameAndControlWellFrame() {
 
     auto renderFrame = [&]() {
         if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f)})) {
-            rSliderPlain = ui.Slider(sliderVal, 0.0f, 1.0f, {.label = "Plain Slider"});
-            rSliderFramed = ui.Slider(sliderVal, 0.0f, 1.0f, {
+            if (auto el = ui.Element({.label = "Plain Slider"})) {
+                rSliderPlain = el.response;
+                ui.Slider(sliderVal, 0.0f, 1.0f);
+            }
+            if (auto el = ui.Element({
                 .label = "Framed Slider",
                 .background = true,
-                .borderWidth = 1.5f,
-                .borderRadius = 8.0f,
-                .control = {
+                .border = {.width = 1.5f, .radius = 8.0f}
+            })) {
+                rSliderFramed = el.response;
+                ui.Slider(sliderVal, 0.0f, 1.0f, {
                     .background = true,
-                    .borderWidth = 1.0f,
-                    .borderRadius = 6.0f
-                }
-            });
-            rSwitchWell = ui.Switch(switchVal, {
+                    .border = {.width = 1.0f, .radius = 6.0f}
+                });
+            }
+            if (auto el = ui.Element({
                 .label = "Switch With Well",
-                .background = true,
-                .control = {
+                .background = true
+            })) {
+                rSwitchWell = ui.Switch(switchVal, {
                     .background = true,
-                    .borderWidth = 1.0f
-                }
-            });
-            rCheckWell = ui.Checkbox(checkVal, {
-                .label = "Checkbox With Well",
-                .control = {
+                    .border = Border::Solid(1.0f)
+                });
+            }
+            if (auto el = ui.Element({
+                .label = "Checkbox With Well"
+            })) {
+                rCheckWell = ui.Checkbox(checkVal, {
                     .background = true,
-                    .borderWidth = 1.0f
-                }
-            });
-            rBtnFramed = ui.Button({
+                    .border = {.width = 1.0f}
+                });
+            }
+            if (auto el = ui.Element({
                 .label = "Outer Framed Button",
-                .text = "Click",
-                .background = true,
-                .borderWidth = 1.0f,
-                .borderColor = StateColor::Warning(),
-                .bgColor = {
-                    .normal = Color::Hex(0x1E293BFF),
-                    .hover = Color::Hex(0x334155FF)
-                },
-                .control = {
+                .background = {Color::Hex(0x1E293BFF), Color::Hex(0x334155FF)},
+                .border = Border::Solid(1.0f, StateColor::Warning())
+            })) {
+                rBtnFramed = ui.Button({
+                    .text = "Click",
                     .background = false,
-                    .borderWidth = 2.0f,
-                    .borderColor = StateColor::Danger()
-                }
-            });
+                    .border = Border::Solid(2.0f, StateColor::Danger())
+                });
+            }
         }
     };
+
+    // Verify Background implicit conversions and resolution
+    constexpr Background bgDefault{};
+    static_assert(!bgDefault.IsEnabled(false));
+    static_assert(bgDefault.IsEnabled(true));
+    constexpr Background bgBoolTrue = true;
+    static_assert(bgBoolTrue.IsEnabled(false));
+    constexpr Background bgBoolFalse = false;
+    static_assert(!bgBoolFalse.IsEnabled(true));
+    constexpr Background bgColorOnly = Color::Hex(0x1E293BFF);
+    static_assert(bgColorOnly.IsEnabled(false));
+    static_assert(bgColorOnly.HasColor());
+    constexpr Background bgStatePair = {Color::Hex(0x1E293BFF), Color::Hex(0x334155FF)};
+    static_assert(bgStatePair.IsEnabled(false));
+    static_assert(bgStatePair.color.hover.has_value());
+
+    // Verify Border aggregate initialization and factory presets
+    constexpr Border noneBorder = Border::None();
+    static_assert(!noneBorder.HasStroke());
+    static_assert(!noneBorder.HasAny());
+    constexpr Border solidBorder = Border::Solid(1.5f, StateColor::Info(), 8.0f);
+    static_assert(solidBorder.HasStroke());
+    static_assert(solidBorder.HasAny());
+    constexpr Border roundedBorder = Border::Rounded(12.0f);
+    static_assert(!roundedBorder.HasStroke());
+    static_assert(roundedBorder.HasAny());
 
     // Verify StateColor aggregate initialization, presets, and 4-state resolution
     constexpr StateColor defCol = StateColor::Default();

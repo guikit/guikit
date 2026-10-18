@@ -33,134 +33,161 @@ ImageState s_state;
 } // namespace
 
 void RenderImageInspector(guikit::Context& ui, DemoContext&) {
-    if (ui.Select(s_state.sourceIdx, ImageState::sourceNames, {.label = "Image Source"}).changed) {
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Image Source"})) {
+        if (ui.Select(s_state.sourceIdx, ImageState::sourceNames).changed) {
+            ui.InvalidateAll();
+        }
     }
 
-    if (ui.InputField(s_state.altText, {
-        .label = "Alt Fallback Text",
-        .placeholder = "Fallback text when missing...",
-        .clearable = true
-    }).changed) {
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Alt Fallback Text"})) {
+        if (ui.InputField(s_state.altText, {
+            .placeholder = "Fallback text when missing...",
+            .clearable = true
+        }).changed) {
+            ui.InvalidateAll();
+        }
     }
 
     size_t fitIdx = static_cast<size_t>(s_state.fit);
-    if (ui.StepSlider(fitIdx, ImageState::fitModeNames, {
-        .label = "ObjectFit Policy",
-        .showTicks = true,
-        .showLabels = true
-    }).changed) {
-        s_state.fit = static_cast<guikit::ObjectFit>(fitIdx);
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "ObjectFit Policy"})) {
+        if (ui.StepSlider(fitIdx, ImageState::fitModeNames, {
+            .showTicks = true,
+            .showLabels = true
+        }).changed) {
+            s_state.fit = static_cast<guikit::ObjectFit>(fitIdx);
+            ui.InvalidateAll();
+        }
     }
 
     static constexpr std::array<std::string_view, 3> alignNames = {"Start", "Center", "End"};
     size_t axIdx = static_cast<size_t>(s_state.alignX);
-    if (ui.StepSlider(axIdx, alignNames, {
-        .label = "Horizontal Fit Align",
-        .showTicks = true,
-        .showLabels = true
-    }).changed) {
-        s_state.alignX = static_cast<guikit::Align>(axIdx);
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Horizontal Fit Align"})) {
+        if (ui.StepSlider(axIdx, alignNames, {
+            .showTicks = true,
+            .showLabels = true
+        }).changed) {
+            s_state.alignX = static_cast<guikit::Align>(axIdx);
+            ui.InvalidateAll();
+        }
     }
 
     size_t ayIdx = static_cast<size_t>(s_state.alignY);
-    if (ui.StepSlider(ayIdx, alignNames, {
-        .label = "Vertical Fit Align",
-        .showTicks = true,
-        .showLabels = true
-    }).changed) {
-        s_state.alignY = static_cast<guikit::Align>(ayIdx);
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Vertical Fit Align"})) {
+        if (ui.StepSlider(ayIdx, alignNames, {
+            .showTicks = true,
+            .showLabels = true
+        }).changed) {
+            s_state.alignY = static_cast<guikit::Align>(ayIdx);
+            ui.InvalidateAll();
+        }
     }
 
-    if (ui.Slider(s_state.opacityPct, 10.0f, 100.0f, {
-        .label = "Opacity",
-        .valueFormat = "%.0f %%",
-        .step = 5.0f
-    }).changed) {
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Opacity"})) {
+        if (ui.Slider(s_state.opacityPct, 10.0f, 100.0f, {
+            .valueFormat = "%.0f %%",
+            .step = 5.0f
+        }).changed) {
+            ui.InvalidateAll();
+        }
     }
 
-    if (ui.Switch(s_state.checkerboard, {.label = "Checkerboard Backdrop"}).changed) {
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Checkerboard Backdrop"})) {
+        if (ui.Switch(s_state.checkerboard).changed) {
+            ui.InvalidateAll();
+        }
     }
 }
 
 void RenderImageStage(guikit::Context& ui, DemoContext& ctx) {
     const uint8_t alpha = static_cast<uint8_t>(std::clamp(std::lround(s_state.opacityPct * 2.55f), 0l, 255l));
-    ui.Image(ImageState::sources[s_state.sourceIdx % ImageState::sources.size()], {
+    if (auto el = ui.Element({
         .label = ctx.GetElementLabel(),
         .description = ctx.GetElementDescription(),
         .icon = ctx.GetElementIcon(),
         .badge = ctx.GetElementBadge(),
-        .alt = s_state.altText,
-        .fit = s_state.fit,
         .layout = ctx.elemLayout,
         .inlineOrder = ctx.elemInlineOrder,
-        .elementAlign = ctx.elemAlign,
-        .alignX = s_state.alignX,
-        .alignY = s_state.alignY,
+        .align = ctx.elemAlign,
         .stretch = ctx.GetElementStretch(),
         .background = ctx.elemBackground,
-        .borderWidth = ctx.elemBorderWidth,
-        .borderRadius = ctx.GetElemBorderRadius(),
-        .borderColor = ctx.GetElemBorderColor(),
-        .control = ctx.GetControlSpec(NavCategory::ElemImage),
-        .checkerboard = s_state.checkerboard,
-        .opacity = alpha,
+        .border = ctx.GetElemBorder(),
         .size = ctx.controlsSize,
         .disabled = ctx.elemDisabled
-    });
+    })) {
+        ui.Image(ImageState::sources[s_state.sourceIdx % ImageState::sources.size()], {
+            .alt = s_state.altText,
+            .fit = s_state.fit,
+            .alignX = s_state.alignX,
+            .alignY = s_state.alignY,
+            .stretch = ctx.GetElementStretch(),
+            .width = ctx.GetElementWidth(),
+            .height = ctx.GetElementHeight(),
+            .background = ctx.GetControlBackground(NavCategory::ElemImage),
+            .border = ctx.GetCtrlBorder(),
+            .checkerboard = s_state.checkerboard,
+            .opacity = alpha,
+            .size = ctx.controlsSize,
+            .disabled = ctx.elemDisabled
+        });
+    }
 }
 
 std::string GenerateImageCode(const DemoContext& ctx) {
     const int alpha = static_cast<int>(std::clamp(std::lround(s_state.opacityPct * 2.55f), 0l, 255l));
 
     return std::format(
-        "ui.Image(\"{}\", {{\n"
+        "if (auto el = ui.Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"
         "    .icon = {},\n"
         "    .badge = {},\n"
-        "    .alt = \"{}\",\n"
-        "    .fit = guikit::ObjectFit::{},\n"
         "    .layout = guikit::ElementLayout::{},\n"
         "    .inlineOrder = guikit::InlineOrder::{},\n"
-        "    .elementAlign = guikit::Align::{},\n"
-        "    .alignX = guikit::Align::{},\n"
-        "    .alignY = guikit::Align::{},\n"
+        "    .align = guikit::Align::{},\n"
         "    .stretch = guikit::StretchMode::{},\n"
         "    .background = {},\n"
-        "    .borderWidth = {:.1f}f,\n"
-        "    .borderRadius = {},\n"
-        "    .borderColor = {},\n"
-        "    .control = {},\n"
-        "    .checkerboard = {},\n"
-        "    .opacity = {},\n"
+        "    .border = {},\n"
         "    .size = guikit::UiSize::{},\n"
         "    .disabled = {}\n"
-        "}});",
-        ImageState::sources[s_state.sourceIdx % ImageState::sources.size()],
+        "}})) {{\n"
+        "    ui.Image(\"{}\", {{\n"
+        "        .alt = \"{}\",\n"
+        "        .fit = guikit::ObjectFit::{},\n"
+        "        .alignX = guikit::Align::{},\n"
+        "        .alignY = guikit::Align::{},\n"
+        "        .stretch = guikit::StretchMode::{},\n"
+        "        .width = {},\n"
+        "        .height = {},\n"
+        "        .background = {},\n"
+        "        .border = {},\n"
+        "        .checkerboard = {},\n"
+        "        .opacity = {},\n"
+        "        .size = guikit::UiSize::{},\n"
+        "        .disabled = {}\n"
+        "    }});\n"
+        "}}",
         ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
         ctx.FormatElementBadgeCode(),
-        s_state.altText,
-        ImageState::fitModeNames[static_cast<size_t>(s_state.fit)],
         ElementLayoutEnumName(ctx.elemLayout),
         InlineOrderEnumName(ctx.elemInlineOrder),
         LabelAlignEnumName(ctx.elemAlign),
+        StretchModeEnumName(ctx.GetElementStretch()),
+        ctx.elemBackground ? "true" : "false",
+        ctx.FormatElemBorderCode(),
+        SizeName(ctx.controlsSize),
+        ctx.elemDisabled ? "true" : "false",
+        ImageState::sources[s_state.sourceIdx % ImageState::sources.size()],
+        s_state.altText,
+        ImageState::fitModeNames[static_cast<size_t>(s_state.fit)],
         AlignName(s_state.alignX),
         AlignName(s_state.alignY),
         StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.elemBackground ? "true" : "false",
-        ctx.elemBorderWidth,
-        ctx.FormatElemBorderRadiusCode(),
-        ctx.FormatElemBorderColorCode(),
-        ctx.FormatControlSpecCode(NavCategory::ElemImage),
+        ctx.FormatElementWidthCode(),
+        ctx.FormatElementHeightCode(),
+        ctx.GetControlBackground(NavCategory::ElemImage) ? "true" : "false",
+        ctx.FormatCtrlBorderCode(),
         s_state.checkerboard ? "true" : "false",
         alpha,
         SizeName(ctx.controlsSize),

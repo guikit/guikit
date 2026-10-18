@@ -15,19 +15,13 @@ namespace guikit {
 class Context;
 class ICanvas;
 
-/// Configuration options for the stateless leaf Image widget.
+/// Configuration options for the stateless leaf Image control widget.
 struct ImageOptions {
     std::string_view source{};                          ///< Image file path (.svg, .png, .jpg) or inline <svg>
-    UiText label{};                                     ///< Optional external heading/label
-    UiText description{};                               ///< Optional external caption/description
-    Icon icon{};                                        ///< Optional leading icon in external Element label bar
-    UiText badge{};                                     ///< Optional trailing pill badge in external Element label bar
     UiText alt{};                                       ///< Fallback text when image is missing or fails to load
     std::string_view tooltip{};                         ///< Optional hover tooltip text
     ObjectFit fit{ObjectFit::Contain};                  ///< Fitting policy inside the control box
-    ElementLayout layout{ElementLayout::Stacked};       ///< Compound layout: Stacked, Top, Bottom, or Inline
-    InlineOrder inlineOrder{InlineOrder::LabelFirst};   ///< Sequencing order when layout == ElementLayout::Inline
-    Align elementAlign{Align::Start};                   ///< Horizontal alignment of external texts & compact control
+    Align align{Align::Start};                          ///< Standalone horizontal alignment of compact image control
     Align alignX{Align::Center};                        ///< Horizontal alignment of fitted image inside control box
     Align alignY{Align::Center};                        ///< Vertical alignment of fitted image inside control box
     StretchMode stretch{StretchMode::Compact};          ///< Compact (natural/explicit size), Space, or Fill
@@ -35,13 +29,8 @@ struct ImageOptions {
     std::optional<float> height{std::nullopt};          ///< Explicit height in px (nullopt = auto from aspect ratio)
     std::optional<float> maxHeight{std::nullopt};       ///< Optional maximum height cap in px
     SizeMode heightMode{SizeMode::Fit};                 ///< Fit (auto/fixed) or Stretch (expand to fill parent height)
-    bool background{false};                             ///< Whether to render a surface backdrop around the outer Element
-    float borderWidth{0.0f};                            ///< Outer Element border thickness in points (0.0f = no border)
-    std::optional<float> borderRadius{std::nullopt};    ///< Outer Element corner radius in points
-    StateColor borderColor{};                           ///< Per-state outer Element border color (normal, hover, active, disabled)
-    StateColor bgColor{};                               ///< Per-state outer Element background color (normal, hover, active, disabled)
-    ControlSpec control{};                              ///< Inner Control slot configuration (width, height, align, background, borderWidth, borderRadius, borderColor, bgColor)
-    Color backgroundColor{0, 0, 0, 0};                  ///< Optional background fill color behind image
+    Background background{false};                       ///< Image control box backdrop configuration (false, true, Color, or StateColor)
+    Border border{};                                    ///< Image control box border stroke & corner radius configuration
     bool checkerboard{false};                           ///< Render transparency checkerboard pattern behind image
     uint8_t opacity{255};                               ///< Image opacity [0..255]
     std::optional<UiSize> size{std::nullopt};           ///< Local size token override
@@ -52,9 +41,10 @@ struct ImageOptions {
 struct ImagePayload {
     std::string_view source{};
     ImageOptions opts{};
+    mutable ICanvas* lastCanvas{nullptr};
 };
 
-/// Stateless leaf Element widget for rendering vector (SVG) and raster (PNG, JPG) images.
+/// Stateless leaf Control widget for rendering vector (SVG) and raster (PNG, JPG) images.
 class Image {
 public:
     /// Immediate mode entry point for Image widget.

@@ -22,18 +22,36 @@ TabBarState s_state;
 void RenderTabBarInspector(guikit::Context& ui, DemoContext&) {
     static constexpr std::array<std::string_view, 2> styleNames = {"Underline", "Pill"};
     size_t styleIdx = (s_state.style == guikit::TabBarStyle::Pill) ? 1 : 0;
-    if (ui.StepSlider(styleIdx, styleNames, {.label = "TabBar Style", .showTicks = true, .showLabels = true}).changed) {
-        s_state.style = (styleIdx == 1) ? guikit::TabBarStyle::Pill : guikit::TabBarStyle::Underline;
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "TabBar Style"})) {
+        if (ui.StepSlider(styleIdx, styleNames, {.showTicks = true, .showLabels = true}).changed) {
+            s_state.style = (styleIdx == 1) ? guikit::TabBarStyle::Pill : guikit::TabBarStyle::Underline;
+            ui.InvalidateAll();
+        }
     }
-    if (ui.Switch(s_state.hasBg, {.label = "Container Background Fill"}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.radius, 0.0f, 24.0f, {.label = "Container Corner Radius", .valueFormat = "%.0f px", .disabled = !s_state.hasBg}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.padding, 0.0f, 12.0f, {.label = "Container Internal Padding", .valueFormat = "%.0f px", .disabled = !s_state.hasBg}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.borderWidth, 0.0f, 4.0f, {.label = "Container Border Width", .valueFormat = "%.1f px", .disabled = !s_state.hasBg}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.gap, 0.0f, 24.0f, {.label = "Tab Spacing (Gap)", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.showSep, {.label = "Baseline Separator"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.fullWidth, {.label = "Full Width Stretch"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.scrollable, {.label = "Scrollable Ribbon"}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Container Background Fill"})) {
+        if (ui.Switch(s_state.hasBg).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Container Corner Radius", .disabled = !s_state.hasBg})) {
+        if (ui.Slider(s_state.radius, 0.0f, 24.0f, {.valueFormat = "%.0f px", .disabled = !s_state.hasBg}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Container Internal Padding", .disabled = !s_state.hasBg})) {
+        if (ui.Slider(s_state.padding, 0.0f, 12.0f, {.valueFormat = "%.0f px", .disabled = !s_state.hasBg}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Container Border Width", .disabled = !s_state.hasBg})) {
+        if (ui.Slider(s_state.borderWidth, 0.0f, 4.0f, {.valueFormat = "%.1f px", .disabled = !s_state.hasBg}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Tab Spacing (Gap)"})) {
+        if (ui.Slider(s_state.gap, 0.0f, 24.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Baseline Separator"})) {
+        if (ui.Switch(s_state.showSep).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Full Width Stretch"})) {
+        if (ui.Switch(s_state.fullWidth).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Scrollable Ribbon"})) {
+        if (ui.Switch(s_state.scrollable).changed) ui.InvalidateAll();
+    }
 }
 
 void RenderTabBarStage(guikit::Context& ui, DemoContext& ctx) {

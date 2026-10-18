@@ -858,15 +858,13 @@ ElementSpec MakeTextAreaElementSpec(
         .badge = opts.badge,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
-        .elementAlign = opts.elementAlign,
+        .align = opts.align,
         .stretch = opts.stretch,
         .width = opts.width,
         .widgetSize = size,
         .labelGap = im.labelGap,
         .descGap = im.descGap,
         .inlineGap = im.paddingX,
-        .divider = opts.divider,
-        .dividerStyle = opts.dividerStyle,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = !opts.autoHeight,
         .disabled = disabled
@@ -1249,7 +1247,7 @@ EditorLayoutRects ComputeEditorLayout(
     float stableCopyReserve = 0.0f;
     if (opts.showCopyButton && L.innerBounds.w > tbCm.defaultWidth * 1.5f) {
         ButtonOptions stableCopyOpts{};
-        stableCopyOpts.label = "Copy";
+        stableCopyOpts.text = "Copy";
         stableCopyOpts.icon = Icon::Copy();
         stableCopyOpts.size = L.toolbarSize;
         stableCopyReserve = Button::Measure(stableCopyOpts, L.toolbarSize, canvas, theme).x + tbGap * 0.75f;
@@ -1258,7 +1256,7 @@ EditorLayoutRects ComputeEditorLayout(
     if (!searchOpen && !gotoOpen) {
         if (opts.showCopyButton && L.innerBounds.w > tbCm.defaultWidth * 1.5f) {
             ButtonOptions copyOpts{};
-            copyOpts.label = copyFeedbackActive ? "Copied" : "Copy";
+            copyOpts.text = copyFeedbackActive ? "Copied" : "Copy";
             copyOpts.icon = copyFeedbackActive ? Icon::Check() : Icon::Copy();
             copyOpts.size = L.toolbarSize;
             const Vec2 copySz = Button::Measure(copyOpts, L.toolbarSize, canvas, theme);
@@ -1270,7 +1268,7 @@ EditorLayoutRects ComputeEditorLayout(
             char zBuf[16]{};
             std::snprintf(zBuf, sizeof(zBuf), "%d%%", static_cast<int>(std::lround(effZoom * 100.0f)));
             ButtonOptions zoomOpts{};
-            zoomOpts.label = zBuf;
+            zoomOpts.text = zBuf;
             zoomOpts.size = L.toolbarSize;
             const Vec2 zSz = Button::Measure(zoomOpts, L.toolbarSize, canvas, theme);
             L.zoomBtnRect = Rect(rightCursor - zSz.x, overlayTop, zSz.x, zSz.y);
@@ -1337,13 +1335,13 @@ EditorLayoutRects ComputeEditorLayout(
             const float y2 = y1 + rowH + gap;
             const float repX = S.findInputRect.x;
             ButtonOptions rep1Opts{};
-            rep1Opts.label = "1";
+            rep1Opts.text = "1";
             rep1Opts.icon = Icon::Replace();
             rep1Opts.size = L.toolbarSize;
             const float w1 = Button::Measure(rep1Opts, L.toolbarSize, canvas, theme).x;
 
             ButtonOptions repAllOpts{};
-            repAllOpts.label = "All";
+            repAllOpts.text = "All";
             repAllOpts.icon = Icon::ReplaceAll();
             repAllOpts.size = L.toolbarSize;
             const float w2 = Button::Measure(repAllOpts, L.toolbarSize, canvas, theme).x;
@@ -3021,11 +3019,9 @@ TextAreaResponse TextArea::Run(
         static_cast<uint8_t>(optsCopy.variant),
         static_cast<uint8_t>(optsCopy.layout),
         static_cast<uint8_t>(optsCopy.inlineOrder),
-        static_cast<uint8_t>(optsCopy.elementAlign),
+        static_cast<uint8_t>(optsCopy.align),
         static_cast<uint8_t>(optsCopy.stretch),
         optsCopy.width.value_or(-1.0f),
-        optsCopy.divider,
-        static_cast<uint8_t>(optsCopy.dividerStyle),
         optsCopy.readOnly,
         optsCopy.showLineNumbers,
         optsCopy.showCopyButton,
@@ -3122,7 +3118,7 @@ TextAreaResponse TextArea::Run(
     node->theme = scopedTheme;
     node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = opts.heightMode;
-    if (opts.fixedHeight.has_value() && !opts.label.HasContentOrReserve() && !opts.description.HasContentOrReserve() && !opts.divider) {
+    if (opts.fixedHeight.has_value() && !opts.label.HasContentOrReserve() && !opts.description.HasContentOrReserve()) {
         node->heightMode = SizeMode::Fixed;
         node->fixedHeight = theme.Scale(*opts.fixedHeight);
     }
@@ -4048,7 +4044,7 @@ void TextArea::Render(
             // Match Case ("Aa") square toggle button
             {
                 ButtonOptions caseOpts{};
-                caseOpts.label = "Aa";
+                caseOpts.text = "Aa";
                 caseOpts.square = true;
                 caseOpts.color = extData->matchCase ? StateColor::Primary() : StateColor::Ghost();
                 caseOpts.active = extData->matchCase;
@@ -4059,7 +4055,7 @@ void TextArea::Render(
             // Match Whole Word ("ab" with bottom bracket underline) square toggle button
             {
                 ButtonOptions wordOpts{};
-                wordOpts.label = "ab";
+                wordOpts.text = "ab";
                 wordOpts.square = true;
                 wordOpts.color = extData->wholeWord ? StateColor::Primary() : StateColor::Ghost();
                 wordOpts.active = extData->wholeWord;
@@ -4113,7 +4109,7 @@ void TextArea::Render(
                 // Replace One & Replace All buttons via Button::Render
                 {
                     ButtonOptions rep1Opts{};
-                    rep1Opts.label = "1";
+                    rep1Opts.text = "1";
                     rep1Opts.icon = Icon::Replace();
                     rep1Opts.color = StateColor::Ghost();
                     rep1Opts.size = tbSize;
@@ -4122,7 +4118,7 @@ void TextArea::Render(
                 }
                 {
                     ButtonOptions repAllOpts{};
-                    repAllOpts.label = "All";
+                    repAllOpts.text = "All";
                     repAllOpts.icon = Icon::ReplaceAll();
                     repAllOpts.color = StateColor::Ghost();
                     repAllOpts.size = tbSize;
@@ -4150,7 +4146,7 @@ void TextArea::Render(
         const bool copyHov = extData && extData->copyHovered;
         const bool copied = extData && extData->copyFeedbackActive;
         ButtonOptions copyOpts{};
-        copyOpts.label = copied ? "Copied" : "Copy";
+        copyOpts.text = copied ? "Copied" : "Copy";
         copyOpts.icon = copied ? Icon::Check() : Icon::Copy();
         copyOpts.color = copied ? StateColor::Success() : StateColor::Secondary();
         copyOpts.active = copied;
@@ -4164,7 +4160,7 @@ void TextArea::Render(
         char zBuf[16]{};
         std::snprintf(zBuf, sizeof(zBuf), "%d%%", static_cast<int>(std::lround(effZoom * 100.0f)));
         ButtonOptions zoomOpts{};
-        zoomOpts.label = zBuf;
+        zoomOpts.text = zBuf;
         zoomOpts.color = StateColor::Secondary();
         zoomOpts.size = tbSize;
         zoomOpts.stretch = StretchMode::Fill;

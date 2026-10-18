@@ -545,31 +545,42 @@ int main(int argc, char* argv[]) {
 
                     tb.Separator();
 
-                    if (ui.Switch(gpuShadersEnabled, {
+                    if (auto el = ui.Element({
                         .label = "GPU",
-                        .disabled = !gpuShaderEngine.IsAvailable(),
-                        .size = guikit::UiSize::Md
-                    }).changed) {
-                        canvas.SetGpuShadersEnabled(gpuShadersEnabled && gpuShaderEngine.IsAvailable());
-                        ui.InvalidateAll();
-                        ui.RequestRepaint(2);
-                    }
-
-                    if (ui.Switch(vsyncEnabled, {.label = "VSync", .size = guikit::UiSize::Md}).changed) {
-                        SDL_SetRenderVSync(renderer, vsyncEnabled ? 1 : 0);
-                    }
-
-                    if (ui.Switch(reactiveMode, {.label = "React", .size = guikit::UiSize::Md}).changed) {
-                        if (!reactiveMode) {
+                        .size = guikit::UiSize::Md,
+                        .disabled = !gpuShaderEngine.IsAvailable()
+                    })) {
+                        if (ui.Switch(gpuShadersEnabled, {
+                            .disabled = !gpuShaderEngine.IsAvailable(),
+                            .size = guikit::UiSize::Md
+                        }).changed) {
+                            canvas.SetGpuShadersEnabled(gpuShadersEnabled && gpuShaderEngine.IsAvailable());
                             ui.InvalidateAll();
+                            ui.RequestRepaint(2);
+                        }
+                    }
+
+                    if (auto el = ui.Element({.label = "VSync", .size = guikit::UiSize::Md})) {
+                        if (ui.Switch(vsyncEnabled, {.size = guikit::UiSize::Md}).changed) {
+                            SDL_SetRenderVSync(renderer, vsyncEnabled ? 1 : 0);
+                        }
+                    }
+
+                    if (auto el = ui.Element({.label = "React", .size = guikit::UiSize::Md})) {
+                        if (ui.Switch(reactiveMode, {.size = guikit::UiSize::Md}).changed) {
+                            if (!reactiveMode) {
+                                ui.InvalidateAll();
+                            }
                         }
                     }
 
                     bool dirtyActive = ui.IsDirtyRectEnabled();
-                    if (ui.Switch(dirtyActive, {.label = "Dirty", .size = guikit::UiSize::Md}).changed) {
-                        ui.SetDirtyRectEnabled(dirtyActive);
-                        if (!dirtyActive) {
-                            ui.InvalidateAll();
+                    if (auto el = ui.Element({.label = "Dirty", .size = guikit::UiSize::Md})) {
+                        if (ui.Switch(dirtyActive, {.size = guikit::UiSize::Md}).changed) {
+                            ui.SetDirtyRectEnabled(dirtyActive);
+                            if (!dirtyActive) {
+                                ui.InvalidateAll();
+                            }
                         }
                     }
 
@@ -661,7 +672,7 @@ int main(int argc, char* argv[]) {
                             })) {
                                 if (selectedCategory == NavCategory::ElemHeading) {
                                     ui.Heading({
-                                        .title = "HEADING",
+                                        .label = "HEADING",
                                         .size = guikit::UiSize::Xs,
                                         .divider = true
                                     });
@@ -681,7 +692,7 @@ int main(int argc, char* argv[]) {
                                         default: break;
                                     }
                                     ui.Heading({
-                                        .title = specificTitle,
+                                        .label = specificTitle,
                                         .size = guikit::UiSize::Xs,
                                         .divider = true
                                     });
@@ -697,7 +708,7 @@ int main(int argc, char* argv[]) {
                                 .padding = guikit::Padding::All(12.0f)
                             })) {
                                 ui.Heading({
-                                    .title = "INSPECTOR",
+                                    .label = "INSPECTOR",
                                     .size = guikit::UiSize::Xs,
                                     .divider = true
                                 });
@@ -875,7 +886,7 @@ int main(int argc, char* argv[]) {
                         ui.Text("|  GPU Shaders: CPU Fallback", {.role = guikit::TextRole::LabelMedium, .variant = guikit::UiVariant::Warning});
                     }
                     ui.Spacer();
-                    if (ui.Button({.label = "Exit", .icon = guikit::Icon::Close(), .color = guikit::StateColor::Ghost()})) {
+                    if (ui.Button({.text = "Exit", .icon = guikit::Icon::Close(), .color = guikit::StateColor::Ghost()})) {
                         running = false;
                     }
                 }

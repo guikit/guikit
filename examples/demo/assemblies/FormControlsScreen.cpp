@@ -21,27 +21,30 @@ FormControlsState s_state;
 
 void RenderFormControlsInspector(guikit::Context& ui, DemoContext& ctx) {
     ctx.RenderAssemblyCommonInspector(ui);
-    if (ui.Switch(s_state.formMode, {.label = "Stacked Labels Mode"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.showTelemetry, {.label = "Show Telemetry Banner"}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Stacked Labels Mode"})) {
+        if (ui.Switch(s_state.formMode).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Show Telemetry Banner"})) {
+        if (ui.Switch(s_state.showTelemetry).changed) ui.InvalidateAll();
+    }
 }
 
 void RenderFormControlsScreen(guikit::Context& ui, DemoContext& ctx) {
     if (auto card = ui.Card(ctx.MakeCard())) {
         ui.Heading({
-            .title = "Interactive Reactive State",
-            .subtitle = "Pure immediate mode with zero external widget IDs and instant response.",
-            .size = ctx.headingSize,
-            .wordWrap = ctx.headingWordWrap
+            .label = "Interactive Reactive State",
+            .description = "Pure immediate mode with zero external widget IDs and instant response.",
+            .size = ctx.headingSize
         });
 
         if (auto actionRow = ui.Wrap({.gap = ctx.rowGap, .runGap = ctx.colGap, .align = guikit::Alignment::Center})) {
-            if (ui.Button({.label = "Increment (+1)", .icon = guikit::Icon::Plus(), .color = guikit::StateColor::Success()})) {
+            if (ui.Button({.text = "Increment (+1)", .icon = guikit::Icon::Plus(), .color = guikit::StateColor::Success()})) {
                 ++s_state.counter;
             }
-            if (ui.Button({.label = "Decrement (-1)", .icon = guikit::Icon::Minus(), .color = guikit::StateColor::Warning()})) {
+            if (ui.Button({.text = "Decrement (-1)", .icon = guikit::Icon::Minus(), .color = guikit::StateColor::Warning()})) {
                 --s_state.counter;
             }
-            if (ui.Button({.label = "Reset", .icon = guikit::Icon::Refresh(), .color = guikit::StateColor::Danger()})) {
+            if (ui.Button({.text = "Reset", .icon = guikit::Icon::Refresh(), .color = guikit::StateColor::Danger()})) {
                 s_state.counter = 0;
             }
 
@@ -49,25 +52,30 @@ void RenderFormControlsScreen(guikit::Context& ui, DemoContext& ctx) {
         }
 
         if (auto togglesRow = ui.Wrap({.gap = ctx.rowGap, .runGap = ctx.colGap, .align = guikit::Alignment::Center})) {
-            ui.Checkbox(s_state.showTelemetry, {.label = "Show Telemetry", .color = guikit::StateColor::Info()});
-            if (ui.Switch(s_state.formMode, {
+            if (auto el = ui.Element({.label = "Show Telemetry"})) {
+                ui.Checkbox(s_state.showTelemetry, {.color = guikit::StateColor::Info()});
+            }
+            if (auto el = ui.Element({
                 .label = "Form Mode",
                 .description = "Toggle stacked vs default label layout",
                 .layout = guikit::ElementLayout::Stacked
-            }).changed) {
-                ui.InvalidateAll();
+            })) {
+                if (ui.Switch(s_state.formMode).changed) {
+                    ui.InvalidateAll();
+                }
             }
-            ui.Checkbox(true, {.label = "Auto-Scale", .disabled = true});
+            if (auto el = ui.Element({.label = "Auto-Scale", .disabled = true})) {
+                ui.Checkbox(true, {.disabled = true});
+            }
         }
 
         if (s_state.showTelemetry) {
             ui.Heading({
-                .title = {"Telemetry Stream", guikit::StateColor::Success()},
-                .subtitle = "1000 samples/sec | Jitter < 0.2ms | Hardware loop nominal",
+                .label = {"Telemetry Stream", guikit::StateColor::Success()},
+                .description = "1000 samples/sec | Jitter < 0.2ms | Hardware loop nominal",
                 .icon = guikit::Icon::Check(),
                 .badge = {"ACTIVE", guikit::StateColor::Success()},
-                .size = ctx.headingSize,
-                .wordWrap = ctx.headingWordWrap
+                .size = ctx.headingSize
             });
         }
 
@@ -75,66 +83,78 @@ void RenderFormControlsScreen(guikit::Context& ui, DemoContext& ctx) {
 
         if (auto fieldsGrid = ui.Grid(ctx.MakeGrid())) {
             if (auto c1 = fieldsGrid.Cell3()) {
-                ui.InputField(s_state.speedDrop, {
+                if (auto el = ui.Element({
                     .label = "Speed Drop dF/dt",
                     .description = "Automatic stop of testing on load drop",
-                    .suffix = "%",
-                    .valueFormat = "%.0f",
                     .layout = activeLayout
-                });
+                })) {
+                    ui.InputField(s_state.speedDrop, {
+                        .suffix = "%",
+                        .valueFormat = "%.0f"
+                    });
+                }
             }
             if (auto c2 = fieldsGrid.Cell3()) {
-                ui.InputField(s_state.sampleId, {
+                if (auto el = ui.Element({
                     .label = "Sample Identifier",
                     .description = "Unique test specimen code",
-                    .placeholder = "Enter sample code...",
                     .layout = activeLayout
-                });
+                })) {
+                    ui.InputField(s_state.sampleId, {
+                        .placeholder = "Enter sample code..."
+                    });
+                }
             }
             if (auto c3 = fieldsGrid.Cell3()) {
-                ui.Select(s_state.baudIndex, {"9600 bps", "19200 bps", "38400 bps", "115200 bps"}, {
+                if (auto el = ui.Element({
                     .label = "Baud Rate",
                     .description = "Serial communication bus rate",
                     .layout = activeLayout
-                });
+                })) {
+                    ui.Select(s_state.baudIndex, {"9600 bps", "19200 bps", "38400 bps", "115200 bps"});
+                }
             }
             if (auto c4 = fieldsGrid.Cell3()) {
-                ui.Select(s_state.profileMode, {"Eco Saver", "Standard Performance", "Industrial High-Speed", "Extreme Calibration"}, {
+                if (auto el = ui.Element({
                     .label = "Operation Profile",
                     .description = "Active runtime sensor & compute profile",
                     .layout = activeLayout
-                });
+                })) {
+                    ui.Select(s_state.profileMode, {"Eco Saver", "Standard Performance", "Industrial High-Speed", "Extreme Calibration"});
+                }
             }
         }
 
         ui.Heading({
-            .title = "Precision Continuous & Stepped Sliders",
-            .subtitle = "Immediate-mode numeric sliders with wheel scrubbing, ticks, and step presets",
+            .label = "Precision Continuous & Stepped Sliders",
+            .description = "Immediate-mode numeric sliders with wheel scrubbing, ticks, and step presets",
             .icon = guikit::Icon::Settings(),
-            .size = ctx.headingSize,
-            .wordWrap = ctx.headingWordWrap
+            .size = ctx.headingSize
         });
 
         if (auto sliderGrid = ui.Grid(ctx.MakeGrid())) {
             if (auto c1 = sliderGrid.Cell4()) {
-                ui.Slider(s_state.masterGain, 0.0f, 100.0f, {
-                    .label = "Master Analog Gain",
-                    .valueFormat = "%.1f dB"
-                });
+                if (auto el = ui.Element({.label = "Master Analog Gain"})) {
+                    ui.Slider(s_state.masterGain, 0.0f, 100.0f, {
+                        .valueFormat = "%.1f dB"
+                    });
+                }
             }
             if (auto c2 = sliderGrid.Cell4()) {
-                ui.Slider(s_state.channelCount, 1, 8, {
-                    .label = "ADC Active Channels",
-                    .valueFormat = "%d ch",
-                    .step = 1.0f
-                });
+                if (auto el = ui.Element({.label = "ADC Active Channels"})) {
+                    ui.Slider(s_state.channelCount, 1, 8, {
+                        .valueFormat = "%d ch",
+                        .step = 1.0f
+                    });
+                }
             }
             if (auto c3 = sliderGrid.Cell4()) {
-                ui.StepSlider(s_state.filterPreset, FormControlsState::filterLabels, {
-                    .label = "DSP Filter Mode",
-                    .showTicks = true,
-                    .showLabels = true
-                });
+                if (auto el = ui.Element({.label = "DSP Filter Mode"})) {
+                    ui.StepSlider(s_state.filterPreset, FormControlsState::filterLabels, {
+                        .showTicks = true,
+                        .showLabels = true
+                    });
+                }
             }
         }
     }

@@ -1836,7 +1836,7 @@ ElementSpec MakeMarkdownSpec(const MarkdownOptions& opts, UiSize size, const UiT
         .description = opts.description,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
-        .elementAlign = opts.elementAlign,
+        .align = opts.align,
         .stretch = opts.stretch,
         .width = opts.width,
         .widgetSize = size,
@@ -1922,7 +1922,7 @@ MarkdownResponse Markdown::Run(
         hitBounds = Rect(0.0f, 0.0f, theme.Scale(520.0f), theme.Scale(400.0f));
     }
     const ElementSpec spec = MakeMarkdownSpec(opts, activeSize, theme, effectiveDisabled);
-    const Rect ctrlRect = ElementComposer::Resolve(hitBounds, {hitBounds.w, hitBounds.h}, spec, hitCanvas, theme).controlRect;
+    const Rect ctrlRect = Element::Resolve(hitBounds, {hitBounds.w, hitBounds.h}, spec, hitCanvas, theme).controlRect;
 
     DocumentTextMap textMap{};
     RenderOverlayState hitOverlay{};
@@ -2288,14 +2288,14 @@ MarkdownResponse Markdown::Run(
             nullptr
         );
 
-        const ElementGeometry geom = ElementComposer::Resolve(
+        const ElementGeometry geom = Element::Resolve(
             n->computedRect,
             {n->computedRect.w, mRes.totalHeight},
             elSpec,
             &canvas,
             th
         );
-        ElementComposer::RenderText(canvas, geom, elSpec, th);
+        Element::RenderText(canvas, geom, elSpec, th);
 
         DocumentTextMap renderMap{};
         RenderOverlayState overlay{};
@@ -2437,7 +2437,7 @@ Vec2 Markdown::Measure(
     );
 
     const Vec2 ctrlSize = { std::max(ctrlW, res.totalWidth), res.totalHeight };
-    return ElementComposer::Measure(ctrlSize, spec, canvas, theme, availableWidth);
+    return Element::Measure(ctrlSize, spec, canvas, theme, availableWidth);
 }
 
 void Markdown::Render(
@@ -2472,14 +2472,14 @@ void Markdown::Render(
         disabled
     );
 
-    const ElementGeometry geom = ElementComposer::Resolve(
+    const ElementGeometry geom = Element::Resolve(
         bounds,
         {bounds.w, mRes.totalHeight},
         spec,
         &canvas,
         theme
     );
-    ElementComposer::RenderText(canvas, geom, spec, theme);
+    Element::RenderText(canvas, geom, spec, theme);
 
     ExecuteMarkdownLayoutAndRender(
         &canvas,

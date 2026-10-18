@@ -38,7 +38,7 @@ void SidebarMenuScope::Section(
     }
 
     Heading::Run(*m_ctx, HeadingOptions{
-        .title = title,
+        .label = title,
         .size = UiSize::Xs,
         .divider = divider
     }, loc);

@@ -7,37 +7,42 @@
 
 namespace guikit {
 
+class Context;
 class ICanvas;
+struct Node;
+struct Response;
 
-/// Specification for the interactive or visual control slot (`controlRect`) inside an `Element`.
+/// Specification for an interactive or visual `Control` (either standalone or inside an `Element`).
 struct ControlSpec {
-    std::optional<float> width{std::nullopt};        ///< Explicit control width in points (Compact/Space) or % 0..100 (Fill)
-    std::optional<float> height{std::nullopt};       ///< Explicit control height in points (nullopt = auto from UiSize / aspect)
-    std::optional<float> minWidth{std::nullopt};     ///< Minimum control width in points
-    Align align{Align::Center};                      ///< Horizontal alignment of content inside the control slot
-    std::optional<bool> background{std::nullopt};    ///< Whether to render a control backdrop / well inside controlRect (nullopt = widget default)
-    float borderWidth{0.0f};                         ///< Explicit border thickness around controlRect (0.0f = default / none)
-    std::optional<float> borderRadius{std::nullopt}; ///< Explicit corner radius for controlRect
-    StateColor borderColor{};                        ///< Per-state border color for controlRect (normal, hover, active, disabled)
-    StateColor bgColor{};                            ///< Per-state background/well color for controlRect (normal, hover, active, disabled)
-    bool stretchable{true};                          ///< True when control stretches horizontally in StretchMode::Fill
-    bool stretchHeightWhenStandalone{false};         ///< True when control stretches vertically when standalone
-    bool hasIntrinsicBox{true};                      ///< True for Button/InputField/Select/Image; false for Slider/Switch/Checkbox
+    std::optional<float> width{std::nullopt};                ///< Explicit control width in points (Compact/Space) or % 0..100 (Fill)
+    std::optional<float> height{std::nullopt};               ///< Explicit control height in points (nullopt = auto from UiSize / aspect)
+    std::optional<float> minWidth{std::nullopt};             ///< Minimum control width in points
+    Align align{Align::Center};                              ///< Horizontal alignment of content inside the control slot
+    Background background{};                                 ///< Control backdrop / well fill configuration (false, true, Color, or StateColor)
+    Border border{};                                         ///< Border thickness, corner radius, and per-state color for controlRect
+    ElementLayout defaultLayout{ElementLayout::Stacked};     ///< Default parent Element layout when wrapped (Inline for Switch/Checkbox, Stacked for others)
+    InlineOrder defaultInlineOrder{InlineOrder::LabelFirst}; ///< Default parent Element inlineOrder when wrapped (ControlFirst for Switch/Checkbox, LabelFirst for others)
+    float labelGap{0.0f};                                    ///< Preferred vertical gap between parent Element label and control
+    float descGap{0.0f};                                     ///< Preferred vertical gap between control and parent Element description
+    float inlineGap{0.0f};                                   ///< Preferred horizontal gap in Inline layout
+    bool stretchable{true};                                  ///< True when control stretches horizontally in StretchMode::Fill
+    bool stretchHeightWhenStandalone{false};                 ///< True when control stretches vertically when standalone
+    bool hasIntrinsicBox{true};                              ///< True for Button/InputField/Select/Image; false for Slider/Switch/Checkbox
 
-    /// Resolves whether the control background is enabled, falling back to `defaultValue` when `background` is `std::nullopt`.
+    /// Resolves whether the control background is enabled, falling back to `defaultValue` when `background.enabled` is `std::nullopt`.
     [[nodiscard]] constexpr bool HasBackground(bool defaultValue = false) const noexcept {
-        return background.value_or(defaultValue);
+        return background.IsEnabled(defaultValue);
     }
 };
 
-/// Foundational Control slot engine.
-/// Manages explicit sizing, well/backdrop padding, inner content bounds, and frame rendering
-/// for the interactive/visual control region (`geom.controlRect`) inside an `Element`.
+/// Foundational Control engine.
+/// Manages explicit sizing, well/backdrop padding, inner content bounds, frame rendering,
+/// standalone node arrangement, and seamless binding when placed inside an `Element`.
 class Control {
 public:
     /// Returns true when the control requires an outer well backdrop or border drawn by `Control::RenderFrame`.
     [[nodiscard]] static constexpr bool HasWellFrame(const ControlSpec& spec) noexcept {
-        return !spec.hasIntrinsicBox && (spec.HasBackground(false) || spec.borderWidth > 0.0f);
+        return !spec.hasIntrinsicBox && (spec.HasBackground(false) || spec.border.width > 0.0f);
     }
 
     /// Computes internal padding added around controls without an intrinsic box (Slider, Switch, Checkbox)
@@ -76,6 +81,39 @@ public:
         const UiTheme& theme,
         bool hovered = false,
         bool active = false
+    ) noexcept;
+
+    /// Inherits `stretch`, `width`, and `height` from an enclosing `NodeType::Element` container when present.
+    static void InheritElementSizing(
+        Context& ctx,
+        StretchMode& ioStretch,
+        std::optional<float>& ioWidth,
+        std::optional<float>& ioHeight,
+        bool inheritWidth = true
+    ) noexcept;
+
+    /// Forwards hover, press, and click interactions from an enclosing `NodeType::Element` container
+    /// (e.g. clicking the label or description text) to toggle controls such as `Switch` and `Checkbox`.
+    static void ForwardParentElementInteraction(
+        Context& ctx,
+        bool disabled,
+        Response& ioRes
+    ) noexcept;
+
+    /// Configures layout and arrangement for a control `node` (either standalone or wrapped inside `NodeType::Element`).
+    static void SetupNode(
+        Context& ctx,
+        Node* node,
+        const ControlSpec& spec,
+        StretchMode stretch,
+        Align standaloneAlign = Align::Start
+    ) noexcept;
+
+    /// Arrangement delegate for a standalone `Control` node (resolving `StretchMode::Fill`, `Space`, and `Compact`).
+    static void ArrangeStandaloneNode(
+        Node* node,
+        const Rect& availableRect,
+        const UiTheme& theme
     ) noexcept;
 };
 

@@ -1,25 +1,63 @@
 #pragma once
 
+#include <optional>
 #include <source_location>
 #include "guikit/core/Element.hpp"
 
 namespace guikit {
 
-/// Heading is a standalone `Element` configured with Heading typography (`headingTypography = true`).
+/// Configuration options for a `Heading` element (inherits `Element` layout/styling + exclusive `divider` support).
+struct HeadingOptions {
+    UiText label{};                                       ///< Primary heading title text
+    UiText description{};                                 ///< Optional secondary subtitle text
+    UiText tooltip{};                                     ///< Optional hover tooltip text
+    Icon icon{};                                          ///< Optional vector icon before label
+    UiText badge{};                                       ///< Optional pill badge after label (supports independent StateColor)
+    ElementLayout layout{ElementLayout::Stacked};         ///< Subtitle placement relative to title bar (Stacked/Bottom, Top, Inline)
+    InlineOrder inlineOrder{InlineOrder::ControlFirst};   ///< Sequencing order in Inline layout (ControlFirst = Label first, LabelFirst = Description first)
+    Align align{Align::Start};                            ///< Horizontal alignment (Start, Center, End)
+    StretchMode stretch{StretchMode::Fill};               ///< Sizing behavior: Compact, Space, Fill
+    std::optional<float> width{std::nullopt};             ///< Explicit heading width in points (Compact/Space) or % 0..100 (Fill)
+    std::optional<float> height{std::nullopt};            ///< Explicit heading height in points (nullopt = auto from UiSize)
+    Background background{false};                         ///< Outer surface backdrop configuration (false, true, Color, or StateColor)
+    Border border{};                                      ///< Outer border thickness, corner radius, and per-state border/divider color
+    std::optional<UiSize> size{std::nullopt};             ///< Local size override (nullopt = inherit container size)
+    bool divider{false};                                  ///< Whether to render a horizontal section divider line
+    HeadingDivider dividerStyle{HeadingDivider::Bottom};  ///< Divider placement style (Bottom or Trailing)
+    bool disabled{false};                                 ///< Whether the heading is rendered in a disabled state
+    const UiTheme* theme{nullptr};                        ///< Optional scoped theme override
+    std::optional<float> scale{std::nullopt};             ///< Optional local UI scale factor override
+    std::optional<bool> debugBounds{std::nullopt};        ///< Scoped debug bounding box overlay override
+    std::optional<bool> inspectMode{std::nullopt};        ///< Scoped interactive DevTools inspector override
+};
+
+/// `Heading` inherits from `Element`, uses `HeadingMetrics` typography (`headingTypography = true`),
+/// and exclusively owns section `divider` / `dividerStyle` rendering.
 class Heading : public Element {
 public:
-    [[nodiscard]] static ElementOptions WithHeadingStyle(ElementOptions opts) noexcept {
-        opts.headingTypography = true;
-        return opts;
-    }
+    using Element::Measure;
+    using Element::Render;
+
+    [[nodiscard]] static ElementSpec MakeSpec(
+        const HeadingOptions& opts,
+        UiSize activeSize,
+        bool isDisabled,
+        const UiTheme& theme,
+        bool isHovered = false,
+        bool isActive = false
+    ) noexcept;
+
+    [[nodiscard]] static float ComputeBottomDividerSpace(
+        const HeadingOptions& opts,
+        UiSize size,
+        const UiTheme& theme
+    ) noexcept;
 
     static Response Run(
         Context& ctx,
-        const HeadingOptions& opts,
+        const HeadingOptions& opts = {},
         std::source_location loc = std::source_location::current()
-    ) {
-        return Element::Run(ctx, WithHeadingStyle(opts), loc);
-    }
+    );
 
     static Vec2 Measure(
         const HeadingOptions& opts,
@@ -27,9 +65,7 @@ public:
         ICanvas* canvas,
         const UiTheme& theme,
         float availableWidth = 0.0f
-    ) noexcept {
-        return Element::Measure(WithHeadingStyle(opts), size, canvas, theme, availableWidth);
-    }
+    ) noexcept;
 
     static Vec2 Measure(
         const HeadingOptions& opts,
@@ -38,7 +74,7 @@ public:
         ICanvas* canvas,
         const UiTheme& theme
     ) noexcept {
-        return Element::Measure(WithHeadingStyle(opts), size, canvas, theme, availableWidth);
+        return Measure(opts, size, canvas, theme, availableWidth);
     }
 
     static Vec2 Measure(
@@ -47,7 +83,7 @@ public:
         float availableWidth = 0.0f,
         ICanvas* canvas = nullptr
     ) noexcept {
-        return Element::Measure(WithHeadingStyle(opts), size, canvas, UiTheme::Dark(), availableWidth);
+        return Measure(opts, size, canvas, UiTheme::Dark(), availableWidth);
     }
 
     static float ResolveHeight(
@@ -66,10 +102,10 @@ public:
         const HeadingOptions& opts,
         UiSize size,
         const UiTheme& theme,
-        bool disabled = false
-    ) noexcept {
-        Element::Render(canvas, bounds, WithHeadingStyle(opts), size, theme, disabled);
-    }
+        bool disabled = false,
+        bool hovered = false,
+        bool active = false
+    ) noexcept;
 };
 
 } // namespace guikit

@@ -211,7 +211,7 @@ struct DemoContext {
     guikit::UiVariant ctrlBorderVariant = guikit::UiVariant::Default;
     float ctrlBorderRadius = 6.0f;
     bool elemDivider = true;
-    guikit::ElementDivider elemDividerStyle = guikit::ElementDivider::Bottom;
+    guikit::HeadingDivider elemDividerStyle = guikit::HeadingDivider::Bottom;
     bool elemDisabled = false;
 
     // Shared assembly & container layout tokens
@@ -286,15 +286,29 @@ struct DemoContext {
         return guikit::StateColor::FromVariant(ctrlBorderVariant);
     }
 
+    guikit::Border GetElemBorder() const noexcept {
+        return guikit::Border{
+            .width = elemBorderWidth,
+            .radius = GetElemBorderRadius(),
+            .color = GetElemBorderColor()
+        };
+    }
+
+    guikit::Border GetCtrlBorder() const noexcept {
+        return guikit::Border{
+            .width = ctrlBorderWidth,
+            .radius = ctrlBorderRadius,
+            .color = GetCtrlBorderColor()
+        };
+    }
+
     guikit::ControlSpec GetControlSpec(NavCategory cat, guikit::Align align = guikit::Align::Center) const noexcept {
         return guikit::ControlSpec{
             .width = GetElementWidth(),
             .height = GetElementHeight(),
             .align = align,
             .background = GetControlBackground(cat),
-            .borderWidth = ctrlBorderWidth,
-            .borderRadius = ctrlBorderRadius,
-            .borderColor = GetCtrlBorderColor()
+            .border = GetCtrlBorder()
         };
     }
 
@@ -320,7 +334,7 @@ struct DemoContext {
     }
 
     std::string_view FormatDividerStyleCode() const noexcept {
-        return (elemDividerStyle == guikit::ElementDivider::Trailing) ? "Trailing" : "Bottom";
+        return (elemDividerStyle == guikit::HeadingDivider::Trailing) ? "Trailing" : "Bottom";
     }
 
     std::string FormatElementWidthCode() const {
@@ -371,11 +385,25 @@ struct DemoContext {
         return std::string("guikit::StateColor::") + std::string(VariantName(ctrlBorderVariant)) + "()";
     }
 
-    std::string FormatControlSpecCode(NavCategory cat, std::optional<guikit::Align> alignOpt = std::nullopt) const {
+    std::string FormatElemBorderCode() const {
+        char bwBuf[32];
+        std::snprintf(bwBuf, sizeof(bwBuf), "%.1ff", elemBorderWidth);
+        return "{.width = " + std::string(bwBuf) +
+               ", .radius = " + FormatElemBorderRadiusCode() +
+               ", .color = " + FormatElemBorderColorCode() + "}";
+    }
+
+    std::string FormatCtrlBorderCode() const {
         char bwBuf[32];
         char brBuf[32];
         std::snprintf(bwBuf, sizeof(bwBuf), "%.1ff", ctrlBorderWidth);
         std::snprintf(brBuf, sizeof(brBuf), "%.1ff", ctrlBorderRadius);
+        return "{.width = " + std::string(bwBuf) +
+               ", .radius = " + std::string(brBuf) +
+               ", .color = " + FormatCtrlBorderColorCode() + "}";
+    }
+
+    std::string FormatControlSpecCode(NavCategory cat, std::optional<guikit::Align> alignOpt = std::nullopt) const {
         std::string res = "{\n";
         res += "        .width = " + FormatElementWidthCode() + ",\n";
         res += "        .height = " + FormatElementHeightCode() + ",\n";
@@ -383,9 +411,7 @@ struct DemoContext {
             res += "        .align = guikit::Align::" + std::string(AlignName(*alignOpt)) + ",\n";
         }
         res += "        .background = " + std::string(GetControlBackground(cat) ? "true" : "false") + ",\n";
-        res += "        .borderWidth = " + std::string(bwBuf) + ",\n";
-        res += "        .borderRadius = " + std::string(brBuf) + ",\n";
-        res += "        .borderColor = " + FormatCtrlBorderColorCode() + "\n";
+        res += "        .border = " + FormatCtrlBorderCode() + "\n";
         res += "    }";
         return res;
     }
@@ -406,13 +432,14 @@ struct DemoContext {
     }
 
     void RenderVariantPicker(guikit::Context& ui) {
-        if (ui.StepSlider(btnVariant, {
-            .label = "Semantic Variant",
-            .showTicks = true,
-            .showLabels = true,
-            .showValue = true
-        }).changed) {
-            ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Semantic Variant"})) {
+            if (ui.StepSlider(btnVariant, {
+                .showTicks = true,
+                .showLabels = true,
+                .showValue = true
+            }).changed) {
+                ui.InvalidateAll();
+            }
         }
     }
 
@@ -430,17 +457,18 @@ struct DemoContext {
                 break;
             }
         }
-        if (ui.StepSlider(descVarIdx, descVarShort, {
-            .label = "Subtitle Color",
-            .showTicks = true,
-            .showLabels = true,
-            .showValue = true,
-            .valueText = {VariantName(descVar), (descVar == guikit::UiVariant::Muted) ? guikit::UiVariant::Secondary : descVar, descVarFull},
-            .color = guikit::StateColor::FromVariant((descVar == guikit::UiVariant::Muted) ? guikit::UiVariant::Secondary : descVar),
-            .disabled = !enabled
-        }).changed) {
-            descVar = descVars[descVarIdx];
-            ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Subtitle Color", .disabled = !enabled})) {
+            if (ui.StepSlider(descVarIdx, descVarShort, {
+                .showTicks = true,
+                .showLabels = true,
+                .showValue = true,
+                .valueText = {VariantName(descVar), (descVar == guikit::UiVariant::Muted) ? guikit::UiVariant::Secondary : descVar, descVarFull},
+                .color = guikit::StateColor::FromVariant((descVar == guikit::UiVariant::Muted) ? guikit::UiVariant::Secondary : descVar),
+                .disabled = !enabled
+            }).changed) {
+                descVar = descVars[descVarIdx];
+                ui.InvalidateAll();
+            }
         }
     }
 
@@ -453,95 +481,117 @@ struct DemoContext {
         size_t& stretchIdx
     ) {
         size_t layoutIdx = static_cast<size_t>(layout);
-        if (ui.StepSlider(layoutIdx, kElementLayoutNames, {.label = "Element Layout", .showTicks = true, .showLabels = true, .disabled = !hasExternal}).changed) {
-            layout = static_cast<guikit::ElementLayout>(layoutIdx);
-            ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Element Layout", .disabled = !hasExternal})) {
+            if (ui.StepSlider(layoutIdx, kElementLayoutNames, {.showTicks = true, .showLabels = true, .disabled = !hasExternal}).changed) {
+                layout = static_cast<guikit::ElementLayout>(layoutIdx);
+                ui.InvalidateAll();
+            }
         }
 
         size_t orderIdx = static_cast<size_t>(inlineOrder);
-        if (ui.StepSlider(orderIdx, kInlineOrderNames, {.label = "Inline Order", .showTicks = true, .showLabels = true, .disabled = (!hasExternal || layout != guikit::ElementLayout::Inline)}).changed) {
-            inlineOrder = static_cast<guikit::InlineOrder>(orderIdx);
-            ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Inline Order", .disabled = (!hasExternal || layout != guikit::ElementLayout::Inline)})) {
+            if (ui.StepSlider(orderIdx, kInlineOrderNames, {.showTicks = true, .showLabels = true, .disabled = (!hasExternal || layout != guikit::ElementLayout::Inline)}).changed) {
+                inlineOrder = static_cast<guikit::InlineOrder>(orderIdx);
+                ui.InvalidateAll();
+            }
         }
 
         size_t alignIdx = static_cast<size_t>(elementAlign);
-        if (ui.StepSlider(alignIdx, kLabelAlignNames, {.label = "Element Alignment", .showTicks = true, .showLabels = true, .disabled = (!hasExternal && stretchIdx == 0)}).changed) {
-            elementAlign = static_cast<guikit::Align>(alignIdx);
-            ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Element Alignment", .disabled = (!hasExternal && stretchIdx == 0)})) {
+            if (ui.StepSlider(alignIdx, kLabelAlignNames, {.showTicks = true, .showLabels = true, .disabled = (!hasExternal && stretchIdx == 0)}).changed) {
+                elementAlign = static_cast<guikit::Align>(alignIdx);
+                ui.InvalidateAll();
+            }
         }
 
-        if (ui.StepSlider(stretchIdx, kStretchModeNames, {.label = "Stretch Mode", .showTicks = true, .showLabels = true}).changed) {
-            ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Stretch Mode"})) {
+            if (ui.StepSlider(stretchIdx, kStretchModeNames, {.showTicks = true, .showLabels = true}).changed) {
+                ui.InvalidateAll();
+            }
         }
     }
 
     void RenderElementInspector(guikit::Context& ui, NavCategory cat = NavCategory::ElemHeading) {
         ui.Heading({
-            .title = "ELEMENT",
+            .label = "ELEMENT",
             .size = guikit::UiSize::Xs,
             .divider = true
         });
-        if (ui.StepSlider(controlsSize, {.label = "Element Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) {
-            ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Element Size"})) {
+            if (ui.StepSlider(controlsSize, {.showTicks = true, .showLabels = true, .showValue = true}).changed) {
+                ui.InvalidateAll();
+            }
         }
 
-        if (ui.InputField(elemLabel, {
-            .label = "Label Text",
-            .placeholder = "No label...",
-            .clearable = true
-        }).changed) {
-            ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Label Text"})) {
+            if (ui.InputField(elemLabel, {
+                .placeholder = "No label...",
+                .clearable = true
+            }).changed) {
+                ui.InvalidateAll();
+            }
         }
 
-        if (ui.InputField(elemDesc, {
-            .label = "Description Text",
-            .placeholder = "No description...",
-            .clearable = true
-        }).changed) {
-            ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Description Text"})) {
+            if (ui.InputField(elemDesc, {
+                .placeholder = "No description...",
+                .clearable = true
+            }).changed) {
+                ui.InvalidateAll();
+            }
         }
 
         RenderElementLayoutControls(ui, HasElementExternal(), elemLayout, elemInlineOrder, elemAlign, elemStretchIdx);
 
-        if (ui.Switch(elemShowIcon, {.label = "Show Leading Icon"}).changed) ui.InvalidateAll();
-
-        if (ui.InputField(elemBadge, {
-            .label = "Badge Text",
-            .placeholder = "No badge (e.g. v2.4)...",
-            .clearable = true
-        }).changed) {
-            ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Show Leading Icon"})) {
+            if (ui.Switch(elemShowIcon).changed) ui.InvalidateAll();
         }
 
-        if (ui.Switch(elemBackground, {.label = "Element Background"}).changed) ui.InvalidateAll();
-        if (ui.Slider(elemBorderWidth, 0.0f, 4.0f, {
-            .label = "Element Border Width",
-            .valueFormat = "%.1f px",
-            .step = 0.5f
-        }).changed) ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Badge Text"})) {
+            if (ui.InputField(elemBadge, {
+                .placeholder = "No badge (e.g. v2.4)...",
+                .clearable = true
+            }).changed) {
+                ui.InvalidateAll();
+            }
+        }
+
+        if (auto el = ui.Element({.label = "Element Background"})) {
+            if (ui.Switch(elemBackground).changed) ui.InvalidateAll();
+        }
+        if (auto el = ui.Element({.label = "Element Border Width"})) {
+            if (ui.Slider(elemBorderWidth, 0.0f, 4.0f, {
+                .valueFormat = "%.1f px",
+                .step = 0.5f
+            }).changed) ui.InvalidateAll();
+        }
         const bool hasElemBorderOrDivider = (elemBorderWidth > 0.0f) || (cat == NavCategory::ElemHeading && elemDivider);
-        if (ui.StepSlider(elemBorderVariant, {
-            .label = "Element Border Color",
-            .showTicks = true,
-            .showLabels = true,
-            .showValue = true,
-            .disabled = !hasElemBorderOrDivider
-        }).changed) {
-            ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Element Border Color", .disabled = !hasElemBorderOrDivider})) {
+            if (ui.StepSlider(elemBorderVariant, {
+                .showTicks = true,
+                .showLabels = true,
+                .showValue = true,
+                .disabled = !hasElemBorderOrDivider
+            }).changed) {
+                ui.InvalidateAll();
+            }
         }
-        if (ui.Slider(elemBorderRadius, 0.0f, 24.0f, {
-            .label = "Element Border Radius",
-            .valueFormat = "%.0f px",
-            .step = 1.0f,
-            .disabled = (!elemBackground && elemBorderWidth <= 0.0f)
-        }).changed) ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Element Border Radius", .disabled = (!elemBackground && elemBorderWidth <= 0.0f)})) {
+            if (ui.Slider(elemBorderRadius, 0.0f, 24.0f, {
+                .valueFormat = "%.0f px",
+                .step = 1.0f,
+                .disabled = (!elemBackground && elemBorderWidth <= 0.0f)
+            }).changed) ui.InvalidateAll();
+        }
 
-        if (ui.Switch(elemDisabled, {.label = "Disabled State"}).changed) ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Disabled State"})) {
+            if (ui.Switch(elemDisabled).changed) ui.InvalidateAll();
+        }
     }
 
     void RenderControlInspector(guikit::Context& ui, NavCategory cat) {
         ui.Heading({
-            .title = "CONTROL",
+            .label = "CONTROL",
             .size = guikit::UiSize::Xs,
             .divider = true
         });
@@ -552,84 +602,110 @@ struct DemoContext {
             cat == NavCategory::ElemCheckbox
         );
         if (hasControlVariant) {
-            if (ui.StepSlider(btnVariant, {
-                .label = "Control Color",
-                .showTicks = true,
-                .showLabels = true,
-                .showValue = true
-            }).changed) {
-                ui.InvalidateAll();
+            if (auto el = ui.Element({.label = "Control Color"})) {
+                if (ui.StepSlider(btnVariant, {
+                    .showTicks = true,
+                    .showLabels = true,
+                    .showValue = true
+                }).changed) {
+                    ui.InvalidateAll();
+                }
             }
         }
         if (elemStretchIdx == 2) {
-            if (ui.Slider(elemFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
+            if (auto el = ui.Element({.label = "Explicit Width"})) {
+                if (ui.Slider(elemFillPct, 10.0f, 100.0f, {.valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
+            }
         } else {
-            if (ui.Slider(elemWidth, 0.0f, 400.0f, {.label = "Explicit Width", .valueFormat = {(elemWidth > 0.0f) ? "%.0f px" : "Auto", {"Auto", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
+            if (auto el = ui.Element({.label = "Explicit Width"})) {
+                if (ui.Slider(elemWidth, 0.0f, 400.0f, {.valueFormat = {(elemWidth > 0.0f) ? "%.0f px" : "Auto", {"Auto", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
+            }
         }
-        if (ui.Slider(elemHeight, 0.0f, 320.0f, {.label = "Explicit Height", .valueFormat = {(elemHeight > 0.0f) ? "%.0f px" : "Auto", {"Auto", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Explicit Height"})) {
+            if (ui.Slider(elemHeight, 0.0f, 320.0f, {.valueFormat = {(elemHeight > 0.0f) ? "%.0f px" : "Auto", {"Auto", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
+        }
 
         bool& ctrlBg = ctrlBackgroundByCat[static_cast<size_t>(cat)];
-        if (ui.Switch(ctrlBg, {.label = "Control Background"}).changed) ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Control Background"})) {
+            if (ui.Switch(ctrlBg).changed) ui.InvalidateAll();
+        }
 
         const bool hasIntrinsicBorder = (cat == NavCategory::ElemButton || cat == NavCategory::ElemInputField || cat == NavCategory::ElemSelect);
-        if (ui.Slider(ctrlBorderWidth, 0.0f, 4.0f, {
-            .label = "Control Border Width",
-            .valueFormat = (hasIntrinsicBorder && ctrlBorderWidth <= 0.0f)
-                ? guikit::UiText{"Default", {"Default", "%.1f px"}}
-                : guikit::UiText{"%.1f px", {"Default", "%.1f px"}},
-            .step = 0.5f
-        }).changed) ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Control Border Width"})) {
+            if (ui.Slider(ctrlBorderWidth, 0.0f, 4.0f, {
+                .valueFormat = (hasIntrinsicBorder && ctrlBorderWidth <= 0.0f)
+                    ? guikit::UiText{"Default", {"Default", "%.1f px"}}
+                    : guikit::UiText{"%.1f px", {"Default", "%.1f px"}},
+                .step = 0.5f
+            }).changed) ui.InvalidateAll();
+        }
 
         const bool hasVisibleCtrlBorder =
             (ctrlBorderWidth > 0.0f) ||
             (cat == NavCategory::ElemInputField) ||
             (cat == NavCategory::ElemSelect) ||
             (cat == NavCategory::ElemButton && (btnVariant == guikit::UiVariant::Default || btnVariant == guikit::UiVariant::Secondary));
-        if (ui.StepSlider(ctrlBorderVariant, {
-            .label = "Control Border Color",
-            .showTicks = true,
-            .showLabels = true,
-            .showValue = true,
-            .disabled = !hasVisibleCtrlBorder
-        }).changed) {
-            ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Control Border Color", .disabled = !hasVisibleCtrlBorder})) {
+            if (ui.StepSlider(ctrlBorderVariant, {
+                .showTicks = true,
+                .showLabels = true,
+                .showValue = true,
+                .disabled = !hasVisibleCtrlBorder
+            }).changed) {
+                ui.InvalidateAll();
+            }
         }
 
-        if (ui.Slider(ctrlBorderRadius, 0.0f, 24.0f, {
-            .label = "Control Border Radius",
-            .valueFormat = "%.0f px",
-            .step = 1.0f
-        }).changed) ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Control Border Radius"})) {
+            if (ui.Slider(ctrlBorderRadius, 0.0f, 24.0f, {
+                .valueFormat = "%.0f px",
+                .step = 1.0f
+            }).changed) ui.InvalidateAll();
+        }
     }
 
     void RenderAssemblyCommonInspector(guikit::Context& ui) {
-        if (ui.Switch(previewDarkMode, {
+        if (auto el = ui.Element({
             .label = "Preview Dark Mode",
             .description = "Switch preview between Dark and Light palette"
-        }).changed) {
-            previewLightMode = !previewDarkMode;
-            const auto defTheme = previewDarkMode ? guikit::UiTheme::Dark(previewTheme.density) : guikit::UiTheme::Light(previewTheme.density);
-            previewTheme.palette = defTheme.palette;
-            previewTheme.variants = defTheme.variants;
-            previewTheme.syntax = defTheme.syntax;
-            previewTheme.mode = previewDarkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
-            ui.InvalidateAll();
+        })) {
+            if (ui.Switch(previewDarkMode).changed) {
+                previewLightMode = !previewDarkMode;
+                const auto defTheme = previewDarkMode ? guikit::UiTheme::Dark(previewTheme.density) : guikit::UiTheme::Light(previewTheme.density);
+                previewTheme.palette = defTheme.palette;
+                previewTheme.variants = defTheme.variants;
+                previewTheme.syntax = defTheme.syntax;
+                previewTheme.mode = previewDarkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
+                ui.InvalidateAll();
+            }
         }
 
         static constexpr std::array<std::string_view, 3> asmDensityLabels = {"Compact", "Standard", "Touch"};
         size_t dIdx = (previewTheme.density == guikit::Density::Compact) ? 0 : ((previewTheme.density == guikit::Density::Touch) ? 2 : 1);
-        if (ui.StepSlider(dIdx, asmDensityLabels, {.label = "Layout Density", .showTicks = true, .showLabels = true}).changed) {
-            previewTheme.density = (dIdx == 0) ? guikit::Density::Compact : ((dIdx == 2) ? guikit::Density::Touch : guikit::Density::Standard);
-            previewTheme.SetDensity(previewTheme.density);
-            ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Layout Density"})) {
+            if (ui.StepSlider(dIdx, asmDensityLabels, {.showTicks = true, .showLabels = true}).changed) {
+                previewTheme.density = (dIdx == 0) ? guikit::Density::Compact : ((dIdx == 2) ? guikit::Density::Touch : guikit::Density::Standard);
+                previewTheme.SetDensity(previewTheme.density);
+                ui.InvalidateAll();
+            }
         }
 
-        if (ui.Slider(gridColGap, 0.0f, 32.0f, {.label = "Horizontal Gap (Columns)", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-        if (ui.Slider(gridRowGap, 0.0f, 32.0f, {.label = "Vertical Gap (Rows)", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Horizontal Gap (Columns)"})) {
+            if (ui.Slider(gridColGap, 0.0f, 32.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+        }
+        if (auto el = ui.Element({.label = "Vertical Gap (Rows)"})) {
+            if (ui.Slider(gridRowGap, 0.0f, 32.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+        }
 
-        if (ui.Slider(cardRadius, 0.0f, 24.0f, {.label = "Card Corner Radius", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-        if (ui.Slider(cardPadding, 4.0f, 32.0f, {.label = "Card Padding", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-        if (ui.Slider(cardBorderWidth, 0.0f, 4.0f, {.label = "Card Border Width", .valueFormat = "%.1f px"}).changed) ui.InvalidateAll();
+        if (auto el = ui.Element({.label = "Card Corner Radius"})) {
+            if (ui.Slider(cardRadius, 0.0f, 24.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+        }
+        if (auto el = ui.Element({.label = "Card Padding"})) {
+            if (ui.Slider(cardPadding, 4.0f, 32.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+        }
+        if (auto el = ui.Element({.label = "Card Border Width"})) {
+            if (ui.Slider(cardBorderWidth, 0.0f, 4.0f, {.valueFormat = "%.1f px"}).changed) ui.InvalidateAll();
+        }
     }
 };
 

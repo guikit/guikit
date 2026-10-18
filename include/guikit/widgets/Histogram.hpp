@@ -135,10 +135,8 @@ struct HistogramOptions {
     UiVariant variant{UiVariant::Default};
     ElementLayout layout{ElementLayout::Stacked};
     InlineOrder inlineOrder{InlineOrder::LabelFirst};
-    Align elementAlign{Align::Start};
+    Align align{Align::Start};
     StretchMode stretch{StretchMode::Fill};
-    bool divider{false};
-    ElementDivider dividerStyle{ElementDivider::Bottom};
 
     // --- Sizing & Geometry ---
     std::optional<float> width{std::nullopt};

@@ -22,7 +22,7 @@ ElementSpec MakeSceneSpec(const SceneOptions& opts, UiSize size, const UiTheme& 
         .description = opts.description,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
-        .elementAlign = opts.elementAlign,
+        .align = opts.align,
         .stretch = opts.stretch,
         .width = opts.width,
         .widgetSize = size,
@@ -918,7 +918,7 @@ SceneScope Scene::Open(
     if (prevBounds.w > 0.0f && prevBounds.h > 0.0f && hasExt) {
         const ElementSpec spec = MakeSceneSpec(opts, activeSize, theme, activeDisabled);
         const Vec2 ctrlSize = ComputeSceneControlSize(opts, theme, prevBounds.w);
-        prevVp = ElementComposer::Resolve(prevBounds, ctrlSize, spec, nullptr, theme).controlRect;
+        prevVp = Element::Resolve(prevBounds, ctrlSize, spec, nullptr, theme).controlRect;
     }
     payload->openViewport = prevVp;
 
@@ -972,7 +972,7 @@ Rect Scene::GetViewportRect(const Node* node, ICanvas* canvas, const UiTheme& th
 
     const ElementSpec spec = MakeSceneSpec(payload->opts, node->uiSize, theme, node->disabled);
     const Vec2 ctrlSize = ComputeSceneControlSize(payload->opts, theme, node->computedRect.w);
-    return ElementComposer::Resolve(node->computedRect, ctrlSize, spec, canvas, theme).controlRect;
+    return Element::Resolve(node->computedRect, ctrlSize, spec, canvas, theme).controlRect;
 }
 
 Vec2 Scene::Measure(
@@ -984,7 +984,7 @@ Vec2 Scene::Measure(
 ) {
     const ElementSpec spec = MakeSceneSpec(opts, size, theme, opts.disabled);
     const Vec2 ctrlSize = ComputeSceneControlSize(opts, theme, availableWidth);
-    return ElementComposer::Measure(ctrlSize, spec, canvas, theme, availableWidth);
+    return Element::Measure(ctrlSize, spec, canvas, theme, availableWidth);
 }
 
 void Scene::Update(Context& ctx, Node* node) {
@@ -1169,8 +1169,8 @@ void Scene::RenderBackgroundAndWorld(
 
     const ElementSpec spec = MakeSceneSpec(opts, node->uiSize, theme, node->disabled);
     const Vec2 ctrlSize = ComputeSceneControlSize(opts, theme, node->computedRect.w);
-    const ElementGeometry geom = ElementComposer::Resolve(node->computedRect, ctrlSize, spec, &canvas, theme);
-    ElementComposer::RenderText(canvas, geom, spec, theme);
+    const ElementGeometry geom = Element::Resolve(node->computedRect, ctrlSize, spec, &canvas, theme);
+    Element::RenderText(canvas, geom, spec, theme);
 
     const Rect vp = geom.controlRect;
     if (vp.w <= 0.0f || vp.h <= 0.0f) return;

@@ -23,7 +23,7 @@ struct MarkdownOptions {
     UiText description{};                                   ///< Optional external caption/description
     ElementLayout layout{ElementLayout::Stacked};
     InlineOrder inlineOrder{InlineOrder::LabelFirst};
-    Align elementAlign{Align::Start};
+    Align align{Align::Start};
     StretchMode stretch{StretchMode::Fill};
     std::optional<float> width{std::nullopt};               ///< Explicit width in px or % (in Fill mode)
 

@@ -97,6 +97,17 @@ constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexc
         hashOptCol(val.active);
         hashOptCol(val.disabled);
         return hash;
+    } else if constexpr (requires { val.width; val.radius; val.color; }) {
+        hash = HashBytes(&val.width, sizeof(val.width), hash);
+        const float r = val.radius.value_or(-1.0f);
+        hash = HashBytes(&r, sizeof(r), hash);
+        hash = HashVal(val.color, hash);
+        return hash;
+    } else if constexpr (requires { val.enabled; val.color; }) {
+        const uint8_t en = val.enabled.has_value() ? (*val.enabled ? 2u : 1u) : 0u;
+        hash = HashBytes(&en, sizeof(en), hash);
+        hash = HashVal(val.color, hash);
+        return hash;
     } else if constexpr (std::is_enum_v<CleanT>) {
         auto underlying = static_cast<std::underlying_type_t<CleanT>>(val);
         return HashBytes(&underlying, sizeof(underlying), hash);

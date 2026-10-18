@@ -91,9 +91,7 @@ struct SignalViewOptions {
     UiVariant variant{UiVariant::Default};
     ElementLayout layout{ElementLayout::Stacked};
     InlineOrder inlineOrder{InlineOrder::LabelFirst};
-    Align elementAlign{Align::Start};
-    bool divider{false};
-    ElementDivider dividerStyle{ElementDivider::Bottom};
+    Align align{Align::Start};
 
     // --- Signal & DSP Parameters ---
     float sampleRate{48000.0f};

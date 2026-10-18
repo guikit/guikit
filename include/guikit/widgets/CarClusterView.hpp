@@ -90,12 +90,10 @@ struct CarClusterViewOptions {
     UiVariant variant{UiVariant::Default};
     ElementLayout layout{ElementLayout::Stacked};
     InlineOrder inlineOrder{InlineOrder::LabelFirst};
-    Align elementAlign{Align::Start};
+    Align align{Align::Start};
     bool background{false};
     float borderWidth{0.0f};
     std::optional<float> borderRadius{std::nullopt};
-    bool divider{false};
-    ElementDivider dividerStyle{ElementDivider::Bottom};
 
     // --- Inner Control Slot Configuration ---
     ControlSpec control{};

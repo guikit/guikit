@@ -479,10 +479,12 @@ void TestStandaloneCoreModuleZeroDependencies() {
 
     ui.BeginFrame({640.0f, 480.0f});
     if (auto card = ui.Card({.padding = Padding::All(12.0f)})) {
-        ui.Heading({.title = "Standalone Core Module"});
-        ui.Button({.label = "Action"});
+        ui.Heading({.label = "Standalone Core Module"});
+        ui.Button({.text = "Action"});
         ui.Slider(sliderVal, 0.0f, 1.0f);
-        ui.Switch(switchVal, {.label = "Toggle"});
+        if (auto el = ui.Element({.label = "Toggle"})) {
+            ui.Switch(switchVal);
+        }
         if (auto table = ui.Table(cols, {.totalRows = 10, .selectedRow = &selectedRow, .height = 180.0f})) {
             for (size_t r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {
                 if (auto row = table.Row(r)) {

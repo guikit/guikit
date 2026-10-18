@@ -40,20 +40,17 @@ constexpr float kBarToPsi = 14.5037738f;
         .badge = opts.badge,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
-        .elementAlign = opts.elementAlign,
+        .align = opts.align,
         .stretch = opts.stretch,
         .width = ctrlSpec.width,
         .height = ctrlSpec.height,
         .control = ctrlSpec,
         .background = opts.background,
-        .borderWidth = opts.borderWidth,
-        .borderRadius = opts.borderRadius,
+        .border = {.width = opts.borderWidth, .radius = opts.borderRadius},
         .widgetSize = size,
         .labelGap = theme.Scale(6.0f),
         .descGap = theme.Scale(4.0f),
         .inlineGap = theme.Scale(12.0f),
-        .divider = opts.divider,
-        .dividerStyle = opts.dividerStyle,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = (opts.heightMode == SizeMode::Stretch),
         .disabled = disabled
@@ -1427,8 +1424,8 @@ void RenderCarClusterViewNode(const Node* node, ICanvas& canvas, const UiTheme& 
 
     const float s = theme.Scale(1.0f);
     const ClusterPalette pal = ResolveClusterPalette(opts.driveTheme);
-    const float outerRadius = spec.control.borderRadius.has_value()
-        ? theme.Scale(*spec.control.borderRadius)
+    const float outerRadius = spec.control.border.radius.has_value()
+        ? theme.Scale(*spec.control.border.radius)
         : (14.0f * s);
 
     // Outer automotive binnacle frame
@@ -1665,7 +1662,7 @@ CarClusterViewResponse CarClusterView::Run(
         opts.background,
         opts.borderWidth,
         elemSpec.control.HasBackground(false),
-        elemSpec.control.borderWidth,
+        elemSpec.control.border,
         ctrlRect.w,
         ctrlRect.h,
         effectiveSize,

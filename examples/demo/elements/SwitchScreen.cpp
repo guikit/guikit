@@ -14,83 +14,105 @@ SwitchState s_state;
 } // namespace
 
 void RenderSwitchInspector(guikit::Context& ui, DemoContext&) {
-    if (ui.InputField(s_state.textLeft, {
-        .label = "Text Left (Off)",
-        .placeholder = "e.g. Off",
-        .clearable = true
-    }).changed) ui.InvalidateAll();
-    if (ui.InputField(s_state.textRight, {
-        .label = "Text Right (On)",
-        .placeholder = "e.g. On",
-        .clearable = true
-    }).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.symmetric, {.label = "Symmetric (Neutral Track)"}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Text Left (Off)"})) {
+        if (ui.InputField(s_state.textLeft, {
+            .placeholder = "e.g. Off",
+            .clearable = true
+        }).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Text Right (On)"})) {
+        if (ui.InputField(s_state.textRight, {
+            .placeholder = "e.g. On",
+            .clearable = true
+        }).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Symmetric (Neutral Track)"})) {
+        if (ui.Switch(s_state.symmetric).changed) ui.InvalidateAll();
+    }
 }
 
 void RenderSwitchStage(guikit::Context& ui, DemoContext& ctx) {
-    ui.Switch(s_state.state, {
+    if (auto el = ui.Element({
         .label = ctx.GetElementLabel(),
-        .textLeft = s_state.textLeft,
-        .textRight = s_state.textRight,
         .description = ctx.GetElementDescription(),
         .icon = ctx.GetElementIcon(),
         .badge = ctx.GetElementBadge(),
-        .color = ctx.GetControlColor(),
         .layout = ctx.elemLayout,
         .inlineOrder = ctx.elemInlineOrder,
-        .elementAlign = ctx.elemAlign,
-        .symmetric = s_state.symmetric,
+        .align = ctx.elemAlign,
         .stretch = ctx.GetElementStretch(),
         .background = ctx.elemBackground,
-        .borderWidth = ctx.elemBorderWidth,
-        .borderRadius = ctx.GetElemBorderRadius(),
-        .borderColor = ctx.GetElemBorderColor(),
-        .control = ctx.GetControlSpec(NavCategory::ElemSwitch),
-        .disabled = ctx.elemDisabled,
-        .size = ctx.controlsSize
-    });
+        .border = ctx.GetElemBorder(),
+        .size = ctx.controlsSize,
+        .disabled = ctx.elemDisabled
+    })) {
+        ui.Switch(s_state.state, {
+            .textLeft = s_state.textLeft,
+            .textRight = s_state.textRight,
+            .color = ctx.GetControlColor(),
+            .symmetric = s_state.symmetric,
+            .stretch = ctx.GetElementStretch(),
+            .width = ctx.GetElementWidth(),
+            .height = ctx.GetElementHeight(),
+            .background = ctx.GetControlBackground(NavCategory::ElemSwitch),
+            .border = ctx.GetCtrlBorder(),
+            .disabled = ctx.elemDisabled,
+            .size = ctx.controlsSize
+        });
+    }
 }
 
 std::string GenerateSwitchCode(const DemoContext& ctx) {
     return std::format(
-        "ui.Switch(switchState, {{\n"
+        "if (auto el = ui.Element({{\n"
         "    .label = {},\n"
-        "    .textLeft = \"{}\",\n"
-        "    .textRight = \"{}\",\n"
         "    .description = {},\n"
         "    .icon = {},\n"
         "    .badge = {},\n"
-        "    .color = {},\n"
         "    .layout = guikit::ElementLayout::{},\n"
         "    .inlineOrder = guikit::InlineOrder::{},\n"
-        "    .elementAlign = guikit::Align::{},\n"
-        "    .symmetric = {},\n"
+        "    .align = guikit::Align::{},\n"
         "    .stretch = guikit::StretchMode::{},\n"
         "    .background = {},\n"
-        "    .borderWidth = {:.1f}f,\n"
-        "    .borderRadius = {},\n"
-        "    .borderColor = {},\n"
-        "    .control = {},\n"
-        "    .disabled = {},\n"
-        "    .size = guikit::UiSize::{}\n"
-        "}});",
+        "    .border = {},\n"
+        "    .size = guikit::UiSize::{},\n"
+        "    .disabled = {}\n"
+        "}})) {{\n"
+        "    ui.Switch(switchState, {{\n"
+        "        .textLeft = \"{}\",\n"
+        "        .textRight = \"{}\",\n"
+        "        .color = {},\n"
+        "        .symmetric = {},\n"
+        "        .stretch = guikit::StretchMode::{},\n"
+        "        .width = {},\n"
+        "        .height = {},\n"
+        "        .background = {},\n"
+        "        .border = {},\n"
+        "        .disabled = {},\n"
+        "        .size = guikit::UiSize::{}\n"
+        "    }});\n"
+        "}}",
         ctx.FormatElementLabelCode(),
-        s_state.textLeft,
-        s_state.textRight,
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
         ctx.FormatElementBadgeCode(),
-        ctx.FormatControlColorCode(),
         ElementLayoutEnumName(ctx.elemLayout),
         InlineOrderEnumName(ctx.elemInlineOrder),
         LabelAlignEnumName(ctx.elemAlign),
-        s_state.symmetric ? "true" : "false",
         StretchModeEnumName(ctx.GetElementStretch()),
         ctx.elemBackground ? "true" : "false",
-        ctx.elemBorderWidth,
-        ctx.FormatElemBorderRadiusCode(),
-        ctx.FormatElemBorderColorCode(),
-        ctx.FormatControlSpecCode(NavCategory::ElemSwitch),
+        ctx.FormatElemBorderCode(),
+        SizeName(ctx.controlsSize),
+        ctx.elemDisabled ? "true" : "false",
+        s_state.textLeft,
+        s_state.textRight,
+        ctx.FormatControlColorCode(),
+        s_state.symmetric ? "true" : "false",
+        StretchModeEnumName(ctx.GetElementStretch()),
+        ctx.FormatElementWidthCode(),
+        ctx.FormatElementHeightCode(),
+        ctx.GetControlBackground(NavCategory::ElemSwitch) ? "true" : "false",
+        ctx.FormatCtrlBorderCode(),
         ctx.elemDisabled ? "true" : "false",
         SizeName(ctx.controlsSize)
     );

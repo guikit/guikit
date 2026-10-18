@@ -9,11 +9,10 @@ void RenderDiagnosticsInspector(guikit::Context& ui, DemoContext& ctx) {
 void RenderDiagnosticsScreen(guikit::Context& ui, DemoContext& ctx) {
     if (auto card = ui.Card(ctx.MakeCard())) {
         ui.Heading({
-            .title = "System Diagnostics & Network Audit",
-            .subtitle = "Operational module telemetry stream and live system diagnostics.",
+            .label = "System Diagnostics & Network Audit",
+            .description = "Operational module telemetry stream and live system diagnostics.",
             .icon = guikit::Icon::Check(),
-            .size = ctx.headingSize,
-            .wordWrap = ctx.headingWordWrap
+            .size = ctx.headingSize
         });
         if (auto grid = ui.Grid(ctx.MakeGrid())) {
             if (auto c1 = grid.Cell6()) {

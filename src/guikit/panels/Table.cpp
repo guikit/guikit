@@ -127,7 +127,7 @@ ElementSpec BuildTableElementSpec(
         .badge = opts.badge,
         .layout = ElementLayout::Top,
         .inlineOrder = InlineOrder::LabelFirst,
-        .elementAlign = Align::Start,
+        .align = Align::Start,
         .stretch = opts.stretch,
         .width = opts.width,
         .widgetSize = size,
@@ -135,9 +135,6 @@ ElementSpec BuildTableElementSpec(
         .descGap = hm.lineGap,
         .inlineGap = hm.gap * 1.5f,
         .hasControl = true,
-        .headingTypography = false,
-        .divider = opts.divider,
-        .dividerStyle = opts.dividerStyle,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = true,
         .disabled = disabled

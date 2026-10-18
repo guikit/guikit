@@ -24,7 +24,4 @@ public:
     static void Arrange(Node* root, Rect availableRect);
 };
 
-/// Type alias for backward compatibility.
-using LayoutSolver = Solver;
-
 } // namespace guikit

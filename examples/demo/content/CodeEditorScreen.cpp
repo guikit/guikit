@@ -423,52 +423,80 @@ CodeEditorState s_state;
 } // namespace
 
 void RenderCodeEditorInspector(guikit::Context& ui, DemoContext&) {
-    if (ui.StepSlider(s_state.syntaxMode, CodeEditorState::syntaxLabels, {
-        .label = "Language Preset",
-        .showTicks = true,
-        .showLabels = true
-    }).changed) {
-        s_state.LoadPreset(s_state.syntaxMode);
-        ui.InvalidateAll();
-    }
-
-    if (ui.Select(s_state.colorScheme, CodeEditorState::colorSchemeLabels, {
-        .label = "Syntax Color Scheme"
-    }).changed) {
-        ui.InvalidateAll();
-    }
-
-    if (ui.Switch(s_state.showWhitespace, {.label = "Show Hidden Whitespace"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.showMinimap, {.label = "Show Code Minimap"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.codeFolding, {.label = "Code Folding (Gutter)"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.showIndentGuides, {.label = "Show Indent Guides"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.showStatusBar, {.label = "Show IDE Status Bar"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.showDebugToolbar, {.label = "Floating Debug Toolbar"}).changed) ui.InvalidateAll();
-    if (s_state.showDebugToolbar) {
-        if (ui.StepSlider(s_state.debugToolbarAlignIdx, CodeEditorState::debugToolbarAlignLabels, {
-            .label = "Debug Toolbar Position",
+    if (auto el = ui.Element({.label = "Language Preset"})) {
+        if (ui.StepSlider(s_state.syntaxMode, CodeEditorState::syntaxLabels, {
             .showTicks = true,
             .showLabels = true
         }).changed) {
+            s_state.LoadPreset(s_state.syntaxMode);
             ui.InvalidateAll();
         }
     }
-    if (ui.Switch(s_state.showInlineValues, {.label = "Inline Debug Values"}).changed) {
-        s_state.RebuildDynamicDebugData();
-        ui.InvalidateAll();
+
+    if (auto el = ui.Element({.label = "Syntax Color Scheme"})) {
+        if (ui.Select(s_state.colorScheme, CodeEditorState::colorSchemeLabels).changed) {
+            ui.InvalidateAll();
+        }
     }
-    if (ui.Switch(s_state.showHoverDataTips, {.label = "Hover Variable DataTips"}).changed) {
-        s_state.RebuildDynamicDebugData();
-        ui.InvalidateAll();
+
+    if (auto el = ui.Element({.label = "Show Hidden Whitespace"})) {
+        if (ui.Switch(s_state.showWhitespace).changed) ui.InvalidateAll();
     }
-    if (ui.Switch(s_state.showDiagnostics, {.label = "Diagnostic Squiggles"}).changed) {
-        s_state.RebuildDynamicDebugData();
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Show Code Minimap"})) {
+        if (ui.Switch(s_state.showMinimap).changed) ui.InvalidateAll();
     }
-    if (ui.Switch(s_state.lineNumbers, {.label = "Line Numbers Gutter"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.wordWrap, {.label = "Word Wrap"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.readOnly, {.label = "Read-Only Mode"}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.zoom, 0.5f, 2.5f, {.label = "Editor Zoom", .valueFormat = "%.2fx"}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Code Folding (Gutter)"})) {
+        if (ui.Switch(s_state.codeFolding).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Show Indent Guides"})) {
+        if (ui.Switch(s_state.showIndentGuides).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Show IDE Status Bar"})) {
+        if (ui.Switch(s_state.showStatusBar).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Floating Debug Toolbar"})) {
+        if (ui.Switch(s_state.showDebugToolbar).changed) ui.InvalidateAll();
+    }
+    if (s_state.showDebugToolbar) {
+        if (auto el = ui.Element({.label = "Debug Toolbar Position"})) {
+            if (ui.StepSlider(s_state.debugToolbarAlignIdx, CodeEditorState::debugToolbarAlignLabels, {
+                .showTicks = true,
+                .showLabels = true
+            }).changed) {
+                ui.InvalidateAll();
+            }
+        }
+    }
+    if (auto el = ui.Element({.label = "Inline Debug Values"})) {
+        if (ui.Switch(s_state.showInlineValues).changed) {
+            s_state.RebuildDynamicDebugData();
+            ui.InvalidateAll();
+        }
+    }
+    if (auto el = ui.Element({.label = "Hover Variable DataTips"})) {
+        if (ui.Switch(s_state.showHoverDataTips).changed) {
+            s_state.RebuildDynamicDebugData();
+            ui.InvalidateAll();
+        }
+    }
+    if (auto el = ui.Element({.label = "Diagnostic Squiggles"})) {
+        if (ui.Switch(s_state.showDiagnostics).changed) {
+            s_state.RebuildDynamicDebugData();
+            ui.InvalidateAll();
+        }
+    }
+    if (auto el = ui.Element({.label = "Line Numbers Gutter"})) {
+        if (ui.Switch(s_state.lineNumbers).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Word Wrap"})) {
+        if (ui.Switch(s_state.wordWrap).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Read-Only Mode"})) {
+        if (ui.Switch(s_state.readOnly).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Editor Zoom"})) {
+        if (ui.Slider(s_state.zoom, 0.5f, 2.5f, {.valueFormat = "%.2fx"}).changed) ui.InvalidateAll();
+    }
 }
 
 void RenderCodeEditorStage(guikit::Context& ui, DemoContext& ctx) {

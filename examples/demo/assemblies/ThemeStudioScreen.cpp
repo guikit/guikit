@@ -10,16 +10,15 @@ void RenderThemeStudioScreen(guikit::Context& ui, DemoContext& ctx) {
     auto& th = ctx.previewTheme;
     if (auto card = ui.Card(ctx.MakeCard())) {
         ui.Heading({
-            .title = "Theme & Palette Studio",
-            .subtitle = "Live token tweaking and contrast validation",
-            .size = ctx.headingSize,
-            .wordWrap = ctx.headingWordWrap
+            .label = "Theme & Palette Studio",
+            .description = "Live token tweaking and contrast validation",
+            .size = ctx.headingSize
         });
 
-        ui.Heading({.title = "Quick Accent Color Presets", .size = guikit::UiSize::Sm});
+        ui.Heading({.label = "Quick Accent Color Presets", .size = guikit::UiSize::Sm});
         if (auto accentRow = ui.Wrap({.gap = 8.0f, .runGap = 8.0f})) {
             auto makePreset = [&](std::string_view name, guikit::Color col) {
-                if (ui.Button({.label = name, .size = guikit::UiSize::Sm})) {
+                if (ui.Button({.text = name, .size = guikit::UiSize::Sm})) {
                     th.palette.accent = col;
                     th.GetVariant(guikit::UiVariant::Primary).bg = col;
                     th.palette.focusRing = col;
@@ -34,15 +33,27 @@ void RenderThemeStudioScreen(guikit::Context& ui, DemoContext& ctx) {
             makePreset("Amber", guikit::Color(245, 158, 11));
         }
 
-        ui.Heading({.title = "Base Palette Tokens", .size = guikit::UiSize::Sm});
+        ui.Heading({.label = "Base Palette Tokens", .size = guikit::UiSize::Sm});
         auto makeColorSliders = [&](std::string_view title, guikit::Color& c) {
             float r = c.r, g = c.g, b = c.b;
             bool changed = false;
             ui.Text(title, {.role = guikit::TextRole::LabelMedium});
             if (auto g_row = ui.Grid({.gap = 8.0f})) {
-                if (auto c1 = g_row.Cell4()) { if (ui.Slider(r, 0.0f, 255.0f, {.label = "R", .valueFormat = "%.0f"}).changed) changed = true; }
-                if (auto c2 = g_row.Cell4()) { if (ui.Slider(g, 0.0f, 255.0f, {.label = "G", .valueFormat = "%.0f"}).changed) changed = true; }
-                if (auto c3 = g_row.Cell4()) { if (ui.Slider(b, 0.0f, 255.0f, {.label = "B", .valueFormat = "%.0f"}).changed) changed = true; }
+                if (auto c1 = g_row.Cell4()) {
+                    if (auto el = ui.Element({.label = "R"})) {
+                        if (ui.Slider(r, 0.0f, 255.0f, {.valueFormat = "%.0f"}).changed) changed = true;
+                    }
+                }
+                if (auto c2 = g_row.Cell4()) {
+                    if (auto el = ui.Element({.label = "G"})) {
+                        if (ui.Slider(g, 0.0f, 255.0f, {.valueFormat = "%.0f"}).changed) changed = true;
+                    }
+                }
+                if (auto c3 = g_row.Cell4()) {
+                    if (auto el = ui.Element({.label = "B"})) {
+                        if (ui.Slider(b, 0.0f, 255.0f, {.valueFormat = "%.0f"}).changed) changed = true;
+                    }
+                }
             }
             if (changed) {
                 c = guikit::Color(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), c.a);

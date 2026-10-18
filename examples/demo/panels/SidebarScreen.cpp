@@ -19,28 +19,44 @@ SidebarState s_state;
 } // namespace
 
 void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
-    if (ui.StepSlider(ctx.controlsSize, {.label = "Menu Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Menu Size"})) {
+        if (ui.StepSlider(ctx.controlsSize, {.showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
+    }
     ctx.RenderVariantPicker(ui);
 
     static constexpr std::array<std::string_view, 2> sbMenuStyleNames = {"Pill", "Indicator"};
     size_t sbStyleIdx = (s_state.menuStyle == guikit::SidebarMenuStyle::Indicator) ? 1 : 0;
-    if (ui.StepSlider(sbStyleIdx, sbMenuStyleNames, {.label = "Menu Style", .showTicks = true, .showLabels = true}).changed) {
-        s_state.menuStyle = (sbStyleIdx == 1) ? guikit::SidebarMenuStyle::Indicator : guikit::SidebarMenuStyle::Pill;
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Menu Style"})) {
+        if (ui.StepSlider(sbStyleIdx, sbMenuStyleNames, {.showTicks = true, .showLabels = true}).changed) {
+            s_state.menuStyle = (sbStyleIdx == 1) ? guikit::SidebarMenuStyle::Indicator : guikit::SidebarMenuStyle::Pill;
+            ui.InvalidateAll();
+        }
     }
 
     static constexpr std::array<std::string_view, 2> sbSideNames = {"Left", "Right"};
     size_t sbSideIdx = (s_state.side == guikit::SidebarSide::Right) ? 1 : 0;
-    if (ui.StepSlider(sbSideIdx, sbSideNames, {.label = "Dock Side", .showTicks = true, .showLabels = true}).changed) {
-        s_state.side = (sbSideIdx == 1) ? guikit::SidebarSide::Right : guikit::SidebarSide::Left;
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Dock Side"})) {
+        if (ui.StepSlider(sbSideIdx, sbSideNames, {.showTicks = true, .showLabels = true}).changed) {
+            s_state.side = (sbSideIdx == 1) ? guikit::SidebarSide::Right : guikit::SidebarSide::Left;
+            ui.InvalidateAll();
+        }
     }
 
-    if (ui.Switch(s_state.collapsed, {.label = "Collapsed Rail (Icons Only)"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.showSections, {.label = "Show Section Headers"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.showBadges, {.label = "Show Trailing Badges"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.autoWidth, {.label = "Auto-Fit Width", .disabled = s_state.collapsed}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.fixedWidth, 120.0f, 300.0f, {.label = "Explicit Width", .valueFormat = "%.0f px", .disabled = s_state.collapsed || s_state.autoWidth}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Collapsed Rail (Icons Only)"})) {
+        if (ui.Switch(s_state.collapsed).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Show Section Headers"})) {
+        if (ui.Switch(s_state.showSections).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Show Trailing Badges"})) {
+        if (ui.Switch(s_state.showBadges).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Auto-Fit Width", .disabled = s_state.collapsed})) {
+        if (ui.Switch(s_state.autoWidth, {.disabled = s_state.collapsed}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Explicit Width", .disabled = s_state.collapsed || s_state.autoWidth})) {
+        if (ui.Slider(s_state.fixedWidth, 120.0f, 300.0f, {.valueFormat = "%.0f px", .disabled = s_state.collapsed || s_state.autoWidth}).changed) ui.InvalidateAll();
+    }
 }
 
 void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
@@ -101,8 +117,8 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
                 "Overview Dashboard", "Real-Time Analytics", "Active Deployments", "System Settings"
             };
             ui.Heading({
-                .title = pageTitles[static_cast<size_t>(std::clamp(s_state.menuIdx, 0, 3))],
-                .subtitle = "Docked Sidebar + SidebarMenu container arrangement",
+                .label = pageTitles[static_cast<size_t>(std::clamp(s_state.menuIdx, 0, 3))],
+                .description = "Docked Sidebar + SidebarMenu container arrangement",
                 .size = guikit::UiSize::Sm,
                 .divider = true
             });

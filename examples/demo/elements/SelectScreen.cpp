@@ -16,81 +16,104 @@ SelectState s_state;
 } // namespace
 
 void RenderSelectInspector(guikit::Context& ui, DemoContext&) {
-    if (ui.InputField(s_state.placeholder, {
-        .label = "Placeholder",
-        .placeholder = "Select...",
-        .clearable = true
-    }).changed) ui.InvalidateAll();
-    float maxItemsFloat = static_cast<float>(s_state.maxItems);
-    if (ui.Slider(maxItemsFloat, 2.0f, 8.0f, {.label = "Max Visible Menu Items", .valueFormat = "%.0f items", .step = 1.0f}).changed) {
-        s_state.maxItems = static_cast<uint32_t>(maxItemsFloat);
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Placeholder"})) {
+        if (ui.InputField(s_state.placeholder, {
+            .placeholder = "Select...",
+            .clearable = true
+        }).changed) ui.InvalidateAll();
     }
-    if (ui.Switch(s_state.hasPrefix, {.label = "Prefix Icon"}).changed) ui.InvalidateAll();
+    float maxItemsFloat = static_cast<float>(s_state.maxItems);
+    if (auto el = ui.Element({.label = "Max Visible Menu Items"})) {
+        if (ui.Slider(maxItemsFloat, 2.0f, 8.0f, {.valueFormat = "%.0f items", .step = 1.0f}).changed) {
+            s_state.maxItems = static_cast<uint32_t>(maxItemsFloat);
+            ui.InvalidateAll();
+        }
+    }
+    if (auto el = ui.Element({.label = "Prefix Icon"})) {
+        if (ui.Switch(s_state.hasPrefix).changed) ui.InvalidateAll();
+    }
 }
 
 void RenderSelectStage(guikit::Context& ui, DemoContext& ctx) {
-    ui.Select(s_state.idx, s_state.items, {
+    if (auto el = ui.Element({
         .label = ctx.GetElementLabel(),
         .description = ctx.GetElementDescription(),
-        .placeholder = s_state.placeholder,
         .icon = ctx.GetElementIcon(),
         .badge = ctx.GetElementBadge(),
-        .prefix = s_state.hasPrefix ? guikit::Icon::Settings() : guikit::Icon{},
         .layout = ctx.elemLayout,
         .inlineOrder = ctx.elemInlineOrder,
-        .elementAlign = ctx.elemAlign,
-        .maxVisibleItems = s_state.maxItems,
-        .size = ctx.controlsSize,
+        .align = ctx.elemAlign,
         .stretch = ctx.GetElementStretch(),
         .background = ctx.elemBackground,
-        .borderWidth = ctx.elemBorderWidth,
-        .borderRadius = ctx.GetElemBorderRadius(),
-        .borderColor = ctx.GetElemBorderColor(),
-        .control = ctx.GetControlSpec(NavCategory::ElemSelect),
+        .border = ctx.GetElemBorder(),
+        .size = ctx.controlsSize,
         .disabled = ctx.elemDisabled
-    });
+    })) {
+        ui.Select(s_state.idx, s_state.items, {
+            .placeholder = s_state.placeholder,
+            .prefix = s_state.hasPrefix ? guikit::Icon::Settings() : guikit::Icon{},
+            .maxVisibleItems = s_state.maxItems,
+            .size = ctx.controlsSize,
+            .stretch = ctx.GetElementStretch(),
+            .width = ctx.GetElementWidth(),
+            .height = ctx.GetElementHeight(),
+            .background = ctx.GetControlBackground(NavCategory::ElemSelect),
+            .border = ctx.GetCtrlBorder(),
+            .disabled = ctx.elemDisabled
+        });
+    }
 }
 
 std::string GenerateSelectCode(const DemoContext& ctx) {
     return std::format(
-        "ui.Select(presetIndex, itemsList, {{\n"
+        "if (auto el = ui.Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"
-        "    .placeholder = \"{}\",\n"
         "    .icon = {},\n"
         "    .badge = {},\n"
-        "    .prefix = {},\n"
         "    .layout = guikit::ElementLayout::{},\n"
         "    .inlineOrder = guikit::InlineOrder::{},\n"
-        "    .elementAlign = guikit::Align::{},\n"
-        "    .maxVisibleItems = {},\n"
-        "    .size = guikit::UiSize::{},\n"
+        "    .align = guikit::Align::{},\n"
         "    .stretch = guikit::StretchMode::{},\n"
         "    .background = {},\n"
-        "    .borderWidth = {:.1f}f,\n"
-        "    .borderRadius = {},\n"
-        "    .borderColor = {},\n"
-        "    .control = {},\n"
+        "    .border = {},\n"
+        "    .size = guikit::UiSize::{},\n"
         "    .disabled = {}\n"
-        "}});",
+        "}})) {{\n"
+        "    ui.Select(presetIndex, itemsList, {{\n"
+        "        .placeholder = \"{}\",\n"
+        "        .prefix = {},\n"
+        "        .maxVisibleItems = {},\n"
+        "        .size = guikit::UiSize::{},\n"
+        "        .stretch = guikit::StretchMode::{},\n"
+        "        .width = {},\n"
+        "        .height = {},\n"
+        "        .background = {},\n"
+        "        .border = {},\n"
+        "        .disabled = {}\n"
+        "    }});\n"
+        "}}",
         ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
-        s_state.placeholder,
         ctx.FormatElementIconCode(),
         ctx.FormatElementBadgeCode(),
-        s_state.hasPrefix ? "guikit::Icon::Settings()" : "{}",
         ElementLayoutEnumName(ctx.elemLayout),
         InlineOrderEnumName(ctx.elemInlineOrder),
         LabelAlignEnumName(ctx.elemAlign),
+        StretchModeEnumName(ctx.GetElementStretch()),
+        ctx.elemBackground ? "true" : "false",
+        ctx.FormatElemBorderCode(),
+        SizeName(ctx.controlsSize),
+        ctx.elemDisabled ? "true" : "false",
+        s_state.placeholder,
+        s_state.hasPrefix ? "guikit::Icon::Settings()" : "{}",
         s_state.maxItems,
         SizeName(ctx.controlsSize),
         StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.elemBackground ? "true" : "false",
-        ctx.elemBorderWidth,
-        ctx.FormatElemBorderRadiusCode(),
-        ctx.FormatElemBorderColorCode(),
-        ctx.FormatControlSpecCode(NavCategory::ElemSelect),
+        ctx.FormatElementWidthCode(),
+        ctx.FormatElementHeightCode(),
+        ctx.GetControlBackground(NavCategory::ElemSelect) ? "true" : "false",
+        ctx.FormatCtrlBorderCode(),
         ctx.elemDisabled ? "true" : "false"
     );
 }

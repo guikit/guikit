@@ -59,7 +59,7 @@ struct MapViewOptions {
     // --- Layout & Viewport Controls ---
     ElementLayout layout{ElementLayout::Stacked};
     InlineOrder inlineOrder{InlineOrder::LabelFirst};
-    Align elementAlign{Align::Start};
+    Align align{Align::Start};
     StretchMode stretch{StretchMode::Fill};
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Stretch};

@@ -24,7 +24,63 @@ ControlSpec EffectiveControlSpec(const ElementSpec& spec) noexcept {
     return c;
 }
 
-float ResolveLabelFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept {
+bool HasLabelBar(const ElementSpec& spec) noexcept {
+    return spec.icon.IsValid() || spec.label.HasContentOrReserve() || spec.badge.HasContentOrReserve();
+}
+
+ElementSpec MakeSpecFromPayload(
+    const Node* n,
+    const ElementPayload& ep,
+    const UiTheme& theme
+) noexcept {
+    const bool isHovered = n->hovered;
+    const bool isActive = n->pressed || n->focused || n->active;
+    if (!ep.hasChildControl) {
+        return Element::MakeSpec(ep.opts, n->uiSize, n->disabled, theme, isHovered, isActive);
+    }
+
+    const ComponentMetrics& cm = theme.GetMetrics(n->uiSize);
+    const InputFieldMetrics& im = theme.GetInputField(n->uiSize);
+    ControlSpec ctrl = ep.childControlSpec;
+    // The child Control node already measures and renders its own well frame via Control::Measure / Control::RenderFrame.
+    ctrl.hasIntrinsicBox = true;
+
+    const std::optional<float> effWidth = ctrl.width.has_value() ? ctrl.width : ep.opts.width;
+    const std::optional<float> effHeight = ctrl.height.has_value() ? ctrl.height : ep.opts.height;
+    ctrl.width = effWidth;
+    ctrl.height = effHeight;
+
+    return ElementSpec{
+        .label = ep.opts.label,
+        .description = ep.opts.description,
+        .icon = ep.opts.icon,
+        .badge = ep.opts.badge,
+        .layout = ep.opts.layout.value_or(ctrl.defaultLayout),
+        .inlineOrder = ep.opts.inlineOrder.value_or(ctrl.defaultInlineOrder),
+        .align = ep.opts.align,
+        .stretch = ep.opts.stretch.value_or(StretchMode::Compact),
+        .width = effWidth,
+        .height = effHeight,
+        .control = ctrl,
+        .background = ep.opts.background,
+        .border = ep.opts.border,
+        .widgetSize = n->uiSize,
+        .labelGap = (ctrl.labelGap > 0.0f) ? ctrl.labelGap : im.labelGap,
+        .descGap = (ctrl.descGap > 0.0f) ? ctrl.descGap : im.descGap,
+        .inlineGap = (ctrl.inlineGap > 0.0f) ? ctrl.inlineGap : cm.paddingX,
+        .hasControl = true,
+        .headingTypography = false,
+        .stretchableControl = ctrl.stretchable,
+        .stretchHeightWhenStandalone = ctrl.stretchHeightWhenStandalone && !ep.opts.background.IsEnabled(false) && ep.opts.border.width <= 0.0f,
+        .disabled = n->disabled,
+        .hovered = isHovered,
+        .active = isActive
+    };
+}
+
+} // namespace
+
+float Element::ResolveLabelFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept {
     if (spec.label.size.px > 0.0f) {
         return spec.label.size.px;
     }
@@ -38,7 +94,7 @@ float ResolveLabelFontSize(const ElementSpec& spec, const UiTheme& theme) noexce
     return theme.ResolveFontSize(spec.label, TextRole::LabelLarge, spec.widgetSize);
 }
 
-float ResolveDescFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept {
+float Element::ResolveDescFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept {
     if (spec.description.size.px > 0.0f) {
         return spec.description.size.px;
     }
@@ -52,11 +108,7 @@ float ResolveDescFontSize(const ElementSpec& spec, const UiTheme& theme) noexcep
     return theme.ResolveFontSize(spec.description, TextRole::LabelSmall, spec.widgetSize);
 }
 
-bool HasLabelBar(const ElementSpec& spec) noexcept {
-    return spec.icon.IsValid() || spec.label.HasContentOrReserve() || spec.badge.HasContentOrReserve();
-}
-
-Vec2 MeasureLabelBar(
+Vec2 Element::MeasureLabelBar(
     const ElementSpec& spec,
     float labelFontSize,
     ICanvas* canvas,
@@ -97,13 +149,40 @@ Vec2 MeasureLabelBar(
     return {barW, barH};
 }
 
-float ComputeBottomDividerSpace(const ElementSpec& spec, const UiTheme& theme) noexcept {
-    if (spec.divider && spec.dividerStyle == ElementDivider::Bottom) {
-        const HeadingMetrics& m = theme.GetHeading(spec.widgetSize);
-        const float divPad = std::max(4.0f, m.gap * 0.75f);
-        return divPad + 1.0f + divPad * 0.5f;
+namespace {
+
+float ResolveChildAvailableWidth(
+    const ElementSpec& spec,
+    float availableWidth,
+    ICanvas* canvas,
+    const UiTheme& theme,
+    float labelFontSize,
+    float descFontSize,
+    Vec2 measuredLabelBar
+) noexcept {
+    if (availableWidth <= 0.0f) {
+        return 0.0f;
     }
-    return 0.0f;
+    const float outerPad = Element::ComputeOuterPadding(spec, theme);
+    float availW = std::max(0.0f, availableWidth - outerPad * 2.0f);
+    if (spec.layout != ElementLayout::Inline) {
+        return availW;
+    }
+    const bool hasLabel = HasLabelBar(spec);
+    const bool hasDesc = spec.description.HasContentOrReserve();
+    if (!hasLabel && !hasDesc) {
+        return availW;
+    }
+    const ControlSpec ctrl = EffectiveControlSpec(spec);
+    if (spec.stretch == StretchMode::Fill && ctrl.width.has_value()) {
+        return availW;
+    }
+    if (spec.stretch == StretchMode::Fill && !ctrl.width.has_value()) {
+        const float descW = hasDesc ? TextUtil::MeasureWidth(spec.description, descFontSize, canvas) : 0.0f;
+        const float textW = std::max(measuredLabelBar.x, descW);
+        return std::max(theme.GetMetrics(spec.widgetSize).defaultHeight, availW - textW - spec.inlineGap);
+    }
+    return availW;
 }
 
 } // namespace
@@ -117,7 +196,7 @@ float Element::ComputeOuterPadding(
     }
     const ComponentMetrics& cm = theme.GetMetrics(spec.widgetSize);
     const float basePad = std::max(theme.Scale(8.0f), cm.paddingX * 0.75f);
-    const float strokePad = (spec.borderWidth > 0.0f) ? theme.Scale(spec.borderWidth) : 0.0f;
+    const float strokePad = (spec.border.width > 0.0f) ? theme.Scale(spec.border.width) : 0.0f;
     return basePad + strokePad;
 }
 
@@ -130,34 +209,25 @@ ElementSpec Element::MakeSpec(
     bool isActive
 ) noexcept {
     const HeadingMetrics& m = theme.GetHeading(activeSize);
-    UiText subSpec = opts.EffectiveSubtitle();
-    if (opts.wordWrap && subSpec.HasContentOrReserve() && !subSpec.wrap.IsWordWrap()) {
-        subSpec.wrap.maxLines = 0;
-    }
     return ElementSpec{
-        .label = opts.EffectiveTitle(),
-        .description = subSpec,
+        .label = opts.label,
+        .description = opts.description,
         .icon = opts.icon,
         .badge = opts.badge,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .elementAlign = opts.elementAlign,
-        .stretch = opts.stretch,
+        .layout = opts.layout.value_or(ElementLayout::Stacked),
+        .inlineOrder = opts.inlineOrder.value_or(InlineOrder::ControlFirst),
+        .align = opts.align,
+        .stretch = opts.stretch.value_or(StretchMode::Fill),
         .width = opts.width,
         .height = opts.height,
         .background = opts.background,
-        .borderWidth = opts.borderWidth,
-        .borderRadius = opts.borderRadius,
-        .borderColor = opts.borderColor,
-        .bgColor = opts.bgColor,
+        .border = opts.border,
         .widgetSize = activeSize,
         .labelGap = m.lineGap,
         .descGap = m.lineGap,
         .inlineGap = m.gap * 1.5f,
         .hasControl = false,
-        .headingTypography = opts.headingTypography,
-        .divider = opts.divider,
-        .dividerStyle = opts.dividerStyle,
+        .headingTypography = false,
         .stretchableControl = false,
         .stretchHeightWhenStandalone = false,
         .disabled = isDisabled,
@@ -166,7 +236,7 @@ ElementSpec Element::MakeSpec(
     };
 }
 
-Response Element::Run(
+ElementScope Element::Open(
     Context& ctx,
     const ElementOptions& opts,
     std::source_location loc
@@ -180,69 +250,144 @@ Response Element::Run(
         res.clicked = false;
         res.hovered = false;
         res.pressed = false;
+        res.doubleClicked = false;
+        res.rightClicked = false;
     }
 
-    Node* node = ctx.CreateNode(NodeType::Heading, id);
-    auto* eOpts = ctx.AllocPayload<ElementOptions>(opts);
-    eOpts->title = ctx.AllocText(opts.title);
-    eOpts->subtitle = ctx.AllocText(opts.subtitle);
-    eOpts->label = ctx.AllocText(opts.label);
-    eOpts->description = ctx.AllocText(opts.description);
-    eOpts->badge = ctx.AllocText(opts.badge);
-    node->text = eOpts->EffectiveTitle().text;
-    node->SetPayload(eOpts);
+    if (res.hovered && !opts.tooltip.empty()) {
+        ctx.SetTooltip(opts.tooltip, res.rect);
+    }
+
+    Node* node = ctx.CreateNode(NodeType::Element, id);
+    node->theme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    ctx.PushScale(opts.scale.value_or(ctx.GetCurrentScale()));
+    ctx.PushSize(activeSize);
+    ctx.PushDisabled(effectiveDisabled);
+
+    auto* payload = ctx.AllocPayload<ElementPayload>();
+    payload->opts = opts;
+    payload->opts.label = ctx.AllocText(opts.label);
+    payload->opts.description = ctx.AllocText(opts.description);
+    payload->opts.badge = ctx.AllocText(opts.badge);
+    payload->opts.tooltip = ctx.AllocText(opts.tooltip);
+    if (!opts.icon.GetPath().empty()) {
+        payload->opts.icon = Icon::File(ctx.AllocString(opts.icon.GetPath()));
+    }
+    payload->interactionRes = res;
+
+    node->text = payload->opts.label.text;
+    node->SetPayload(payload);
+    node->debugBoundsOverride = opts.debugBounds;
+    node->inspectModeOverride = opts.inspectMode;
+
+    const StretchMode initStretch = opts.stretch.value_or(StretchMode::Fill);
     node->visualHash = detail::HashArgs(
-        static_cast<uint8_t>(opts.layout),
-        static_cast<uint8_t>(opts.inlineOrder),
-        static_cast<uint8_t>(opts.elementAlign),
-        static_cast<uint8_t>(opts.stretch),
+        static_cast<uint8_t>(opts.layout.value_or(ElementLayout::Stacked)),
+        opts.layout.has_value(),
+        static_cast<uint8_t>(opts.inlineOrder.value_or(InlineOrder::ControlFirst)),
+        opts.inlineOrder.has_value(),
+        static_cast<uint8_t>(opts.align),
+        static_cast<uint8_t>(initStretch),
+        opts.stretch.has_value(),
         opts.width.value_or(0.0f),
         opts.height.value_or(0.0f),
         opts.background,
-        opts.borderWidth,
-        opts.borderRadius.value_or(-1.0f),
-        opts.borderColor,
-        opts.bgColor,
-        eOpts->EffectiveTitle(),
-        eOpts->EffectiveSubtitle(),
-        eOpts->badge,
-        opts.divider,
-        static_cast<uint8_t>(opts.dividerStyle),
-        opts.wordWrap,
-        opts.headingTypography,
+        opts.border,
+        payload->opts.label,
+        payload->opts.description,
+        payload->opts.badge,
         effectiveDisabled,
         static_cast<uint8_t>(opts.icon.GetType()),
         static_cast<uint8_t>(opts.icon.GetId()),
-        opts.icon.GetPath()
+        payload->opts.icon.GetPath()
     );
+
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
-        const auto* opts = n->As<ElementOptions>();
-        return Element::Measure(opts ? *opts : ElementOptions{}, n->uiSize, canvas, theme, availableWidth);
+        const auto* ep = n->As<ElementPayload>();
+        if (!ep) return {0.0f, 0.0f};
+        ep->lastCanvas = canvas;
+        const ElementSpec spec = MakeSpecFromPayload(n, *ep, theme);
+        Vec2 childIntrinsic{0.0f, 0.0f};
+        if (ep->hasChildControl && n->firstChild) {
+            const Node* child = n->firstChild;
+            const UiTheme& childTheme = (child->theme != nullptr) ? *child->theme : theme;
+            const float labelFs = ResolveLabelFontSize(spec, theme);
+            const float descFs = ResolveDescFontSize(spec, theme);
+            const Vec2 rawBar = HasLabelBar(spec) ? MeasureLabelBar(spec, labelFs, canvas, theme) : Vec2{0.0f, 0.0f};
+            const float childAvailW = ResolveChildAvailableWidth(spec, availableWidth, canvas, theme, labelFs, descFs, rawBar);
+            childIntrinsic = child->measureFn
+                ? child->measureFn(child, childAvailW, canvas, childTheme)
+                : child->intrinsicSize;
+        }
+        return Element::Measure(childIntrinsic, spec, canvas, theme, availableWidth);
     };
+
+    node->arrangeFn = &Element::Arrange;
+
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
-        const auto* opts = n->As<ElementOptions>();
-        Element::Render(
-            canvas,
-            n->computedRect,
-            opts ? *opts : ElementOptions{},
-            n->uiSize,
-            theme,
-            n->disabled,
-            n->hovered,
-            n->pressed || n->focused
-        );
+        const auto* ep = n->As<ElementPayload>();
+        if (!ep) return;
+        const ElementSpec spec = MakeSpecFromPayload(n, *ep, theme);
+        if (!ep->hasChildControl || !n->firstChild) {
+            Element::Render(canvas, n->computedRect, spec, theme);
+            return;
+        }
+        const Node* child = n->firstChild;
+        const UiTheme& childTheme = (child->theme != nullptr) ? *child->theme : theme;
+        const float labelFs = ResolveLabelFontSize(spec, theme);
+        const float descFs = ResolveDescFontSize(spec, theme);
+        const Vec2 rawBar = HasLabelBar(spec) ? MeasureLabelBar(spec, labelFs, &canvas, theme) : Vec2{0.0f, 0.0f};
+        const float childAvailW = ResolveChildAvailableWidth(spec, n->computedRect.w, &canvas, theme, labelFs, descFs, rawBar);
+        const Vec2 childIntrinsic = child->measureFn
+            ? child->measureFn(child, childAvailW, &canvas, childTheme)
+            : child->intrinsicSize;
+        const ElementGeometry geom = Element::Resolve(n->computedRect, childIntrinsic, spec, &canvas, theme);
+        Element::RenderText(canvas, geom, spec, theme);
     };
 
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed;
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
+    node->widthMode = (initStretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
 
     ctx.AdaptChildToContainer(node);
+    ctx.PushContainer(node);
 
-    return res;
+    return ElementScope(&ctx, node, res);
+}
+
+void Element::Arrange(
+    Node* node,
+    const Rect& availableRect,
+    const UiTheme& theme
+) noexcept {
+    if (!node) return;
+    Rect bounds = availableRect;
+    if (node->parent == nullptr) {
+        if (node->widthMode == SizeMode::Fit) bounds.w = node->intrinsicSize.x;
+        if (node->heightMode == SizeMode::Fit) bounds.h = node->intrinsicSize.y;
+    }
+    node->computedRect = bounds;
+
+    const auto* ep = node->As<ElementPayload>();
+    if (!ep || !ep->hasChildControl || !node->firstChild) {
+        return;
+    }
+
+    Node* child = node->firstChild;
+    const UiTheme& childTheme = (child->theme != nullptr) ? *child->theme : theme;
+    const ElementSpec spec = MakeSpecFromPayload(node, *ep, theme);
+    const float labelFs = ResolveLabelFontSize(spec, theme);
+    const float descFs = ResolveDescFontSize(spec, theme);
+    const Vec2 rawBar = HasLabelBar(spec) ? MeasureLabelBar(spec, labelFs, ep->lastCanvas, theme) : Vec2{0.0f, 0.0f};
+    const float childAvailW = ResolveChildAvailableWidth(spec, bounds.w, ep->lastCanvas, theme, labelFs, descFs, rawBar);
+    const Vec2 childIntrinsic = child->measureFn
+        ? child->measureFn(child, childAvailW, ep->lastCanvas, childTheme)
+        : child->intrinsicSize;
+    const ElementGeometry geom = Element::Resolve(bounds, childIntrinsic, spec, ep->lastCanvas, theme);
+    child->computedRect = geom.controlRect;
 }
 
 Vec2 Element::Measure(
@@ -277,13 +422,10 @@ Vec2 Element::Measure(
         availableWidth *= (pct * 0.01f);
     }
 
-    const float bottomDivSpace = ComputeBottomDividerSpace(spec, theme);
-
-    const auto applyFixedWidthAndDiv = [&](Vec2 measured) noexcept -> Vec2 {
+    const auto applyFixedWidthAndOuterPad = [&](Vec2 measured) noexcept -> Vec2 {
         if (!stretchableCtrl && ctrlSpec.width.has_value() && spec.stretch != StretchMode::Fill) {
             measured.x = std::max(measured.x, theme.Scale(*ctrlSpec.width));
         }
-        measured.y += bottomDivSpace;
         if (outerPad > 0.0f) {
             measured.x += outerPad * 2.0f;
             measured.y += outerPad * 2.0f;
@@ -296,7 +438,7 @@ Vec2 Element::Measure(
     const bool hasExternal = hasLabel || hasDesc;
 
     if (!hasExternal) {
-        return applyFixedWidthAndDiv(intrinsicControlSize);
+        return applyFixedWidthAndOuterPad(intrinsicControlSize);
     }
 
     const Vec2 rawLabelBar = hasLabel ? MeasureLabelBar(spec, labelFontSize, canvas, theme) : Vec2{0.0f, 0.0f};
@@ -355,7 +497,7 @@ Vec2 Element::Measure(
         float totalH = intrinsicControlSize.y;
         if (hasLabel) totalH += labelDims.y + spec.labelGap;
         if (hasDesc)  totalH += spec.descGap + descDims.y;
-        return applyFixedWidthAndDiv({totalW, totalH});
+        return applyFixedWidthAndOuterPad({totalW, totalH});
     }
 
     if (spec.layout == ElementLayout::Top) {
@@ -363,7 +505,7 @@ Vec2 Element::Measure(
         float textH = 0.0f;
         if (hasLabel) textH += labelDims.y;
         if (hasDesc)  textH += (hasLabel ? spec.descGap : 0.0f) + descDims.y;
-        return applyFixedWidthAndDiv({totalW, textH + spec.labelGap + intrinsicControlSize.y});
+        return applyFixedWidthAndOuterPad({totalW, textH + spec.labelGap + intrinsicControlSize.y});
     }
 
     if (spec.layout == ElementLayout::Bottom) {
@@ -371,7 +513,7 @@ Vec2 Element::Measure(
         float textH = 0.0f;
         if (hasLabel) textH += labelDims.y;
         if (hasDesc)  textH += (hasLabel ? spec.descGap : 0.0f) + descDims.y;
-        return applyFixedWidthAndDiv({totalW, intrinsicControlSize.y + spec.descGap + textH});
+        return applyFixedWidthAndOuterPad({totalW, intrinsicControlSize.y + spec.descGap + textH});
     }
 
     // ElementLayout::Inline
@@ -387,7 +529,7 @@ Vec2 Element::Measure(
     }
     const float totalW = intrinsicControlSize.x + (hasAnyText && textW > 0.0f ? spec.inlineGap + textW : 0.0f);
     const float totalH = std::max(intrinsicControlSize.y, textH);
-    return applyFixedWidthAndDiv({totalW, totalH});
+    return applyFixedWidthAndOuterPad({totalW, totalH});
 }
 
 ElementGeometry Element::Resolve(
@@ -417,11 +559,6 @@ ElementGeometry Element::Resolve(
         intrinsicControlSize = Control::Measure(intrinsicControlSize, ctrlSpec, spec.stretch, spec.widgetSize, theme);
     }
 
-    const float bottomDivSpace = ComputeBottomDividerSpace(spec, theme);
-    if (bottomDivSpace > 0.0f) {
-        bounds.h = std::max(0.0f, bounds.h - bottomDivSpace);
-    }
-
     const bool stretchableCtrl = spec.hasControl ? ctrlSpec.stretchable : false;
     const bool stretchStandaloneH = spec.hasControl ? ctrlSpec.stretchHeightWhenStandalone : false;
 
@@ -429,7 +566,7 @@ ElementGeometry Element::Resolve(
     geom.hasDesc = spec.description.HasContentOrReserve();
     geom.hasExternal = geom.hasLabel || geom.hasDesc;
 
-    const float alignFactor = (spec.elementAlign == Align::End) ? 1.0f : ((spec.elementAlign == Align::Center) ? 0.5f : 0.0f);
+    const float alignFactor = (spec.align == Align::End) ? 1.0f : ((spec.align == Align::Center) ? 0.5f : 0.0f);
 
     if (!stretchableCtrl && spec.stretch == StretchMode::Fill && ctrlSpec.width.has_value()) {
         const float pct = std::clamp(*ctrlSpec.width, 0.0f, 100.0f);
@@ -632,12 +769,12 @@ void Element::RenderFrame(
     }
 
     const ComponentMetrics& cm = theme.GetMetrics(spec.widgetSize);
-    const float radius = spec.borderRadius.has_value()
-        ? theme.Scale(*spec.borderRadius)
+    const float radius = spec.border.radius.has_value()
+        ? theme.Scale(*spec.border.radius)
         : cm.cornerRadius;
 
     const auto& pal = theme.palette;
-    const Color resolvedBorderAccent = spec.borderColor.Resolve(
+    const Color resolvedBorderAccent = spec.border.color.Resolve(
         spec.hovered,
         spec.active,
         spec.disabled,
@@ -648,9 +785,9 @@ void Element::RenderFrame(
     );
 
     Color bg = Color::Transparent();
-    if (spec.background) {
-        if (spec.bgColor.HasAny()) {
-            bg = spec.bgColor.Resolve(
+    if (spec.background.IsEnabled(false)) {
+        if (spec.background.color.HasAny()) {
+            bg = spec.background.color.Resolve(
                 spec.hovered,
                 spec.active,
                 spec.disabled,
@@ -661,7 +798,7 @@ void Element::RenderFrame(
             );
         } else {
             bg = pal.surface;
-            if (spec.borderColor.HasAny()) {
+            if (spec.border.color.HasAny()) {
                 bg = Color(
                     static_cast<uint8_t>((static_cast<int>(bg.r) * 90 + static_cast<int>(resolvedBorderAccent.r) * 10) / 100),
                     static_cast<uint8_t>((static_cast<int>(bg.g) * 90 + static_cast<int>(resolvedBorderAccent.g) * 10) / 100),
@@ -675,7 +812,7 @@ void Element::RenderFrame(
         }
     }
 
-    const float strokeW = (spec.borderWidth > 0.0f) ? theme.Scale(spec.borderWidth) : 0.0f;
+    const float strokeW = (spec.border.width > 0.0f) ? theme.Scale(spec.border.width) : 0.0f;
     Color borderCol = Color::Transparent();
     if (strokeW > 0.0f) {
         borderCol = resolvedBorderAccent;
@@ -692,12 +829,7 @@ void Element::RenderText(
 ) noexcept {
     RenderFrame(canvas, geom, spec, theme);
 
-    const ControlSpec ctrlSpec = EffectiveControlSpec(spec);
-    if (spec.hasControl) {
-        Control::RenderFrame(canvas, geom.controlRect, ctrlSpec, spec.widgetSize, spec.disabled, theme, spec.hovered, spec.active);
-    }
-
-    const float alignFactor = (spec.elementAlign == Align::End) ? 1.0f : ((spec.elementAlign == Align::Center) ? 0.5f : 0.0f);
+    const float alignFactor = (spec.align == Align::End) ? 1.0f : ((spec.align == Align::Center) ? 0.5f : 0.0f);
     const UiVariant defaultLabelVar = UiVariant::Default;
     const UiVariant defaultDescVar = spec.headingTypography ? UiVariant::Secondary : UiVariant::Muted;
 
@@ -714,8 +846,6 @@ void Element::RenderText(
 
     const bool hasDecoratedLabelBar = !spec.hasControl || spec.icon.IsValid() || !spec.badge.empty();
     const Rect labelBarRect = spec.hasControl ? geom.labelRect : geom.controlRect;
-    float barLeftX = labelBarRect.x;
-    float barRightX = labelBarRect.x;
     const float topY = labelBarRect.y;
     const float titleLineH = labelBarRect.h;
 
@@ -723,15 +853,12 @@ void Element::RenderText(
         if (!spec.label.empty() && geom.labelRect.w > 0.0f && geom.labelRect.h > 0.0f) {
             const float lineH = canvas.GetLineHeight(geom.labelFontSize);
             TextUtil::DrawUiText(canvas, spec.label, geom.labelRect, geom.labelFontSize, lineH, labelCol, alignFactor, 0.5f);
-            const float textW = std::min(geom.labelRect.w, canvas.MeasureText(spec.label.text, geom.labelFontSize).x);
-            barLeftX = geom.labelRect.x + (geom.labelRect.w - textW) * alignFactor;
-            barRightX = barLeftX + textW;
         }
     } else if ((!spec.hasControl || geom.hasLabel) && labelBarRect.w > 0.0f && labelBarRect.h > 0.0f) {
         const Vec2 rawBar = MeasureLabelBar(spec, geom.labelFontSize, &canvas, theme);
         const float barW = std::min(labelBarRect.w, rawBar.x);
         float curX = labelBarRect.x + std::max(0.0f, labelBarRect.w - barW) * alignFactor;
-        barLeftX = curX;
+        const float barLeftX = curX;
 
         if (spec.icon.IsValid()) {
             const float iconY = topY + (titleLineH - m.iconSize) * 0.5f;
@@ -780,71 +907,11 @@ void Element::RenderText(
             canvas.DrawTextBox(spec.badge.text, Rect(curX, badgeY, badgeW, badgeH), badgeFont, badgeTextCol, 0.5f, 0.5f);
             curX += badgeW;
         }
-        barRightX = curX;
     }
 
     if (geom.hasDesc && !spec.description.empty() && geom.descRect.w > 0.0f && geom.descRect.h > 0.0f) {
         const float lineH = canvas.GetLineHeight(geom.descFontSize);
         TextUtil::DrawUiText(canvas, spec.description, geom.descRect, geom.descFontSize, lineH, descCol, alignFactor, 0.5f);
-    }
-
-    if (spec.divider) {
-        const Color divColor = spec.borderColor.Resolve(
-            spec.hovered,
-            spec.active,
-            spec.disabled,
-            pal.borderSubtle,
-            pal.borderHover,
-            pal.focusRing,
-            pal.borderSubtle.WithAlphaF(0.40f)
-        );
-
-        const float outerPad = ComputeOuterPadding(spec, theme);
-        const Rect outer = geom.outerBounds.Inset(outerPad);
-        float spanX = outer.x;
-        float spanW = outer.w;
-        if (spec.stretch == StretchMode::Fill && ctrlSpec.width.has_value()) {
-            const float pct = std::clamp(*ctrlSpec.width, 0.0f, 100.0f);
-            spanW = outer.w * (pct * 0.01f);
-            spanX = outer.x + (outer.w - spanW) * alignFactor;
-        } else if (spec.stretch == StretchMode::Compact) {
-            const float maxElemW = std::max({
-                geom.controlRect.w,
-                geom.hasLabel ? geom.labelRect.w : 0.0f,
-                geom.hasDesc ? geom.descRect.w : 0.0f
-            });
-            const float natSpanW = ctrlSpec.width.has_value()
-                ? std::min(outer.w, theme.Scale(*ctrlSpec.width))
-                : std::min(outer.w, maxElemW);
-            spanW = natSpanW;
-            spanX = outer.x + (outer.w - spanW) * alignFactor;
-        }
-
-        if (spec.dividerStyle == ElementDivider::Bottom) {
-            const float divPad = std::max(4.0f, m.gap * 0.75f);
-            float contentBottom = geom.controlRect.Bottom();
-            if (geom.hasLabel) contentBottom = std::max(contentBottom, geom.labelRect.Bottom());
-            if (geom.hasDesc)  contentBottom = std::max(contentBottom, geom.descRect.Bottom());
-            const float divY = std::floor(contentBottom + divPad) + 0.5f;
-            canvas.DrawLine(
-                Vec2(spanX, divY),
-                Vec2(spanX + spanW, divY),
-                divColor,
-                1.0f
-            );
-        } else if (spec.dividerStyle == ElementDivider::Trailing && labelBarRect.h > 0.0f) {
-            const float lineY = std::floor(topY + titleLineH * 0.5f) + 0.5f;
-            const float leftEnd = barLeftX - m.gap;
-            const float rightStart = barRightX + m.gap;
-            const float spanRight = spanX + spanW;
-
-            if (leftEnd > spanX + 4.0f) {
-                canvas.DrawLine(Vec2(spanX, lineY), Vec2(leftEnd, lineY), divColor, 1.0f);
-            }
-            if (spanRight > rightStart + 4.0f) {
-                canvas.DrawLine(Vec2(rightStart, lineY), Vec2(spanRight, lineY), divColor, 1.0f);
-            }
-        }
     }
 }
 

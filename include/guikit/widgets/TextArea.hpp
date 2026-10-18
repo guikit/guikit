@@ -160,12 +160,10 @@ struct TextAreaOptions {
     UiVariant variant{UiVariant::Default};              ///< Visual variant styling
     ElementLayout layout{ElementLayout::Stacked};       ///< Placement of external label and description
     InlineOrder inlineOrder{InlineOrder::LabelFirst};   ///< Horizontal ordering when layout == ElementLayout::Inline
-    Align elementAlign{Align::Start};                   ///< Horizontal alignment of external label and description
+    Align align{Align::Start};                          ///< Horizontal alignment of external label and description
     StretchMode stretch{StretchMode::Fill};             ///< Horizontal sizing behavior (Compact, Space, Fill)
     std::optional<float> width{std::nullopt};           ///< Explicit width (dp in Compact/Space, 0..100% in Fill)
     SizeMode heightMode{SizeMode::Fit};                 ///< Vertical sizing behavior in layout (Fit or Stretch)
-    bool divider{false};                                ///< Draw a structural divider line under header/widget
-    ElementDivider dividerStyle{ElementDivider::Bottom};///< Divider placement (Bottom or Trailing)
     std::optional<float> borderRadius{std::nullopt};    ///< Optional corner radius override
     std::optional<UiSize> size{std::nullopt};           ///< Local size override
     std::optional<float> scale{std::nullopt};           ///< Optional local UI scale factor override

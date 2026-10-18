@@ -570,7 +570,7 @@ struct ViewportLayoutGeom {
                     bOpts.icon = Icon::Plus();
                     bOpts.square = true;
                 } else {
-                    bOpts.label = kToolLabels[i];
+                    bOpts.text = kToolLabels[i];
                 }
                 bOpts.size = g.toolbarSize;
                 const Vec2 bSz = Button::Measure(bOpts, g.toolbarSize, canvas, theme);
@@ -638,15 +638,13 @@ struct ImageViewViewportPayload {
         .badge = opts.badge,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
-        .elementAlign = opts.elementAlign,
+        .align = opts.align,
         .stretch = opts.stretch,
         .width = opts.width,
         .widgetSize = size,
         .labelGap = theme.Scale(6.0f),
         .descGap = theme.Scale(4.0f),
         .inlineGap = theme.Scale(12.0f),
-        .divider = opts.divider,
-        .dividerStyle = opts.dividerStyle,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = (opts.heightMode == SizeMode::Stretch),
         .disabled = disabled
@@ -1036,7 +1034,7 @@ ImageViewResponse RunViewportNode(
                     bOpts.icon = Icon::Plus();
                     bOpts.square = true;
                 } else {
-                    bOpts.label = ViewportLayoutGeom::kToolLabels[i];
+                    bOpts.text = ViewportLayoutGeom::kToolLabels[i];
                 }
                 bOpts.color = activeToggle ? StateColor::Primary() : StateColor::Secondary();
                 bOpts.active = activeToggle;
@@ -1415,13 +1413,15 @@ ImageViewResponse ImageView::Run(
                     "Isolate Luminance"
                 };
                 int dispChIdx = static_cast<int>(params.displayChannel);
-                if (ctx.Select(dispChIdx, kDispChNames, {.label = "View Mode"}).changed) {
-                    params.displayChannel = static_cast<ImageDisplayChannel>(dispChIdx);
-                    if (params.displayChannel == ImageDisplayChannel::RedOnly) params.activeHistChannel = HistogramChannel::Red;
-                    else if (params.displayChannel == ImageDisplayChannel::GreenOnly) params.activeHistChannel = HistogramChannel::Green;
-                    else if (params.displayChannel == ImageDisplayChannel::BlueOnly) params.activeHistChannel = HistogramChannel::Blue;
-                    else params.activeHistChannel = HistogramChannel::Master;
-                    sidebarChangedParams = true;
+                if (auto el = ctx.Element({.label = "View Mode"})) {
+                    if (ctx.Select(dispChIdx, kDispChNames).changed) {
+                        params.displayChannel = static_cast<ImageDisplayChannel>(dispChIdx);
+                        if (params.displayChannel == ImageDisplayChannel::RedOnly) params.activeHistChannel = HistogramChannel::Red;
+                        else if (params.displayChannel == ImageDisplayChannel::GreenOnly) params.activeHistChannel = HistogramChannel::Green;
+                        else if (params.displayChannel == ImageDisplayChannel::BlueOnly) params.activeHistChannel = HistogramChannel::Blue;
+                        else params.activeHistChannel = HistogramChannel::Master;
+                        sidebarChangedParams = true;
+                    }
                 }
             }
 
@@ -1431,39 +1431,44 @@ ImageViewResponse ImageView::Run(
             ChannelTransferParams& curTp = params.channels[static_cast<size_t>((data.channels >= 3) ? params.activeHistChannel : HistogramChannel::Master)];
             const std::string_view wlFmt = (span >= 50.0f) ? "%.0f" : "%.2f";
 
-            if (ctx.Slider(curTp.window, minW, span * 1.5f, {
-                .label = "W (Window)",
-                .valueFormat = wlFmt,
-                .showValue = true
-            }).changed) {
-                params.autoStrength = AutoWindowStrength::Off;
-                sidebarChangedParams = true;
+            if (auto el = ctx.Element({.label = "W (Window)"})) {
+                if (ctx.Slider(curTp.window, minW, span * 1.5f, {
+                    .valueFormat = wlFmt,
+                    .showValue = true
+                }).changed) {
+                    params.autoStrength = AutoWindowStrength::Off;
+                    sidebarChangedParams = true;
+                }
             }
 
-            if (ctx.Slider(curTp.level, st.dataMin, st.dataMax, {
-                .label = "L (Level)",
-                .valueFormat = wlFmt,
-                .showValue = true
-            }).changed) {
-                params.autoStrength = AutoWindowStrength::Off;
-                sidebarChangedParams = true;
+            if (auto el = ctx.Element({.label = "L (Level)"})) {
+                if (ctx.Slider(curTp.level, st.dataMin, st.dataMax, {
+                    .valueFormat = wlFmt,
+                    .showValue = true
+                }).changed) {
+                    params.autoStrength = AutoWindowStrength::Off;
+                    sidebarChangedParams = true;
+                }
             }
 
-            if (ctx.Slider(curTp.gamma, 0.15f, 4.0f, {
-                .label = "Gamma",
-                .valueFormat = "%.2f",
-                .step = 0.05,
-                .showValue = true
-            }).changed) {
-                sidebarChangedParams = true;
+            if (auto el = ctx.Element({.label = "Gamma"})) {
+                if (ctx.Slider(curTp.gamma, 0.15f, 4.0f, {
+                    .valueFormat = "%.2f",
+                    .step = 0.05,
+                    .showValue = true
+                }).changed) {
+                    sidebarChangedParams = true;
+                }
             }
 
             if (auto invRow = ctx.Row({.gap = 8.0f, .align = Alignment::Center})) {
-                if (ctx.Checkbox(curTp.invert, {.label = "Invert"}).changed) {
-                    sidebarChangedParams = true;
+                if (auto el = ctx.Element({.label = "Invert"})) {
+                    if (ctx.Checkbox(curTp.invert).changed) {
+                        sidebarChangedParams = true;
+                    }
                 }
                 ctx.Spacer();
-                if (ctx.Button({.label = "Reset W/L", .color = StateColor::Secondary()}).clicked) {
+                if (ctx.Button({.text = "Reset W/L", .color = StateColor::Secondary()}).clicked) {
                     for (auto& ch : params.channels) {
                         ch.ResetToRange(st.dataMin, st.dataMax);
                     }
@@ -1476,12 +1481,14 @@ ImageViewResponse ImageView::Run(
             const bool canUseColormap = (data.channels == 1) || (params.displayChannel != ImageDisplayChannel::CompositeRgb);
             ctx.Disabled(!canUseColormap, [&]() {
                 int cmapIdx = static_cast<int>(params.colormap);
-                if (ctx.Select(cmapIdx, GetAllColormapNames(), {
+                if (auto el = ctx.Element({
                     .label = "Colormap",
                     .description = canUseColormap ? std::string_view{} : "Select an isolated channel to apply Colormap"
-                }).changed) {
-                    params.colormap = static_cast<Colormap>(cmapIdx);
-                    sidebarChangedParams = true;
+                })) {
+                    if (ctx.Select(cmapIdx, GetAllColormapNames()).changed) {
+                        params.colormap = static_cast<Colormap>(cmapIdx);
+                        sidebarChangedParams = true;
+                    }
                 }
             });
 
@@ -1509,7 +1516,7 @@ ImageViewResponse ImageView::Run(
                     const auto sMode = static_cast<AutoWindowStrength>(i);
                     const bool isSel = (params.autoStrength == sMode);
                     if (ctx.Button({
-                        .label = kStrengthNames[i],
+                        .text = kStrengthNames[i],
                         .color = isSel ? StateColor::Primary() : StateColor::Secondary(),
                         .stretch = StretchMode::Fill
                     }).clicked) {
@@ -1528,7 +1535,7 @@ ImageViewResponse ImageView::Run(
 
             if (data.channels >= 3) {
                 if (ctx.Button({
-                    .label = "Auto White Balance (Per-Channel R/G/B)",
+                    .text = "Auto White Balance (Per-Channel R/G/B)",
                     .color = StateColor::Secondary(),
                     .stretch = StretchMode::Fill
                 }).clicked) {
@@ -1546,10 +1553,10 @@ ImageViewResponse ImageView::Run(
             // --- Section 4: Transform & View ---
             ctx.Text("Transform & View", {.role = TextRole::LabelLarge});
             if (auto zRow = ctx.Row({.gap = 6.0f, .align = Alignment::Center})) {
-                if (ctx.Button({.label = "Fit", .color = StateColor::Secondary(), .stretch = StretchMode::Fill}).clicked) {
+                if (ctx.Button({.text = "Fit", .color = StateColor::Secondary(), .stretch = StretchMode::Fill}).clicked) {
                     st.fitPending = true;
                 }
-                if (ctx.Button({.label = "100%", .color = StateColor::Secondary(), .stretch = StretchMode::Fill}).clicked) {
+                if (ctx.Button({.text = "100%", .color = StateColor::Secondary(), .stretch = StretchMode::Fill}).clicked) {
                     st.zoom = 1.0f;
                     st.fitPending = false;
                 }
@@ -1557,15 +1564,17 @@ ImageViewResponse ImageView::Run(
 
             static constexpr std::array<std::string_view, 4> kRotLabels = {"0\xC2\xB0", "90\xC2\xB0", "180\xC2\xB0", "270\xC2\xB0"};
             int rotIdx = static_cast<int>(params.rotation);
-            if (ctx.StepSlider(rotIdx, kRotLabels, {.label = "Rotate", .showValue = false}).changed) {
-                params.rotation = static_cast<ImageRotation>(rotIdx);
-                st.fitPending = true;
-                sidebarChangedParams = true;
+            if (auto el = ctx.Element({.label = "Rotate"})) {
+                if (ctx.StepSlider(rotIdx, kRotLabels, {.showValue = false}).changed) {
+                    params.rotation = static_cast<ImageRotation>(rotIdx);
+                    st.fitPending = true;
+                    sidebarChangedParams = true;
+                }
             }
 
             if (auto flipRow = ctx.Row({.gap = 6.0f})) {
                 if (ctx.Button({
-                    .label = "Flip H",
+                    .text = "Flip H",
                     .color = params.flipHorizontal ? StateColor::Primary() : StateColor::Secondary(),
                     .stretch = StretchMode::Fill
                 }).clicked) {
@@ -1573,7 +1582,7 @@ ImageViewResponse ImageView::Run(
                     sidebarChangedParams = true;
                 }
                 if (ctx.Button({
-                    .label = "Flip V",
+                    .text = "Flip V",
                     .color = params.flipVertical ? StateColor::Primary() : StateColor::Secondary(),
                     .stretch = StretchMode::Fill
                 }).clicked) {

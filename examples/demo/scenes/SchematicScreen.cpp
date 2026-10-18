@@ -21,15 +21,27 @@ SchematicState s_state;
 
 void RenderSchematicInspector(guikit::Context& ui, DemoContext&) {
     size_t bgIdx = static_cast<size_t>(s_state.bg);
-    if (ui.StepSlider(bgIdx, SchematicState::bgNames, {.label = "Canvas Backdrop", .showTicks = true, .showLabels = true}).changed) {
-        s_state.bg = static_cast<guikit::SceneBackground>(bgIdx);
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Canvas Backdrop"})) {
+        if (ui.StepSlider(bgIdx, SchematicState::bgNames, {.showTicks = true, .showLabels = true}).changed) {
+            s_state.bg = static_cast<guikit::SceneBackground>(bgIdx);
+            ui.InvalidateAll();
+        }
     }
-    if (ui.Switch(s_state.selectableItems, {.label = "Interactive Item Selection"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.showControls, {.label = "Floating Zoom & Inspector HUD"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.showScrollbars, {.label = "2D Scrollbars (H + V)"}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.radius, 0.0f, 20.0f, {.label = "Viewport Radius", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.gridStep, 12.0f, 64.0f, {.label = "Grid Step", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Interactive Item Selection"})) {
+        if (ui.Switch(s_state.selectableItems).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Floating Zoom & Inspector HUD"})) {
+        if (ui.Switch(s_state.showControls).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "2D Scrollbars (H + V)"})) {
+        if (ui.Switch(s_state.showScrollbars).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Viewport Radius"})) {
+        if (ui.Slider(s_state.radius, 0.0f, 20.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Grid Step"})) {
+        if (ui.Slider(s_state.gridStep, 12.0f, 64.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+    }
 }
 
 void RenderSchematicStage(guikit::Context& ui, DemoContext& ctx) {

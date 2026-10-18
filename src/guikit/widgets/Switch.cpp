@@ -2,7 +2,6 @@
 #include <algorithm>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 
@@ -39,60 +38,23 @@ Vec2 MeasureSwitchControl(
     return {ctrlW, ctrlH};
 }
 
-ControlSpec EffectiveSwitchControl(const SwitchOptions& opts) noexcept {
-    ControlSpec ctrl = opts.control;
-    if (!ctrl.width.has_value() && opts.width.has_value()) {
-        ctrl.width = opts.width;
-    }
-    if (!ctrl.height.has_value() && opts.height.has_value()) {
-        ctrl.height = opts.height;
-    }
-    if (!ctrl.background.has_value()) {
-        ctrl.background = false;
-    }
+ControlSpec EffectiveSwitchControl(const SwitchOptions& opts, UiSize size, const UiTheme& theme) noexcept {
+    const SwitchMetrics& m = theme.GetSwitch(size);
+    ControlSpec ctrl{};
+    ctrl.width = opts.width;
+    ctrl.height = opts.height;
+    ctrl.align = opts.align;
+    ctrl.background = opts.background;
+    ctrl.border = opts.border;
+    ctrl.defaultLayout = ElementLayout::Inline;
+    ctrl.defaultInlineOrder = InlineOrder::ControlFirst;
+    ctrl.labelGap = m.descGap;
+    ctrl.descGap = m.descGap;
+    ctrl.inlineGap = m.gap;
     ctrl.stretchable = false;
     ctrl.stretchHeightWhenStandalone = false;
     ctrl.hasIntrinsicBox = false;
     return ctrl;
-}
-
-ElementSpec MakeSwitchElementSpec(
-    const SwitchOptions& opts,
-    UiSize size,
-    bool disabled,
-    const UiTheme& theme,
-    bool hovered = false,
-    bool active = false
-) noexcept {
-    const SwitchMetrics& m = theme.GetSwitch(size);
-    const ControlSpec ctrl = EffectiveSwitchControl(opts);
-    return ElementSpec{
-        .label = opts.label,
-        .description = opts.description,
-        .icon = opts.icon,
-        .badge = opts.badge,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .elementAlign = opts.elementAlign,
-        .stretch = opts.stretch,
-        .width = ctrl.width,
-        .height = ctrl.height,
-        .control = ctrl,
-        .background = opts.background,
-        .borderWidth = opts.borderWidth,
-        .borderRadius = opts.borderRadius,
-        .borderColor = opts.borderColor,
-        .bgColor = opts.bgColor,
-        .widgetSize = size,
-        .labelGap = m.descGap,
-        .descGap = m.descGap,
-        .inlineGap = m.gap,
-        .stretchableControl = false,
-        .stretchHeightWhenStandalone = false,
-        .disabled = disabled,
-        .hovered = hovered,
-        .active = active
-    };
 }
 
 } // namespace
@@ -111,6 +73,7 @@ Response Switch::Run(
     ctx.RegisterFocusable(id, effectiveDisabled);
 
     Response res = ctx.Interact(id);
+    Control::ForwardParentElementInteraction(ctx, effectiveDisabled, res);
     if (effectiveDisabled) {
         res.clicked = false;
         res.hovered = false;
@@ -140,46 +103,28 @@ Response Switch::Run(
         res.changed = true;
     }
 
-    const ControlSpec ctrl = EffectiveSwitchControl(opts);
-    Node* node = ctx.CreateNode(NodeType::Switch, id);
     SwitchOptions optsCopy = opts;
-    optsCopy.label = ctx.AllocText(opts.label);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
     optsCopy.textLeft = ctx.AllocText(opts.textLeft);
     optsCopy.textRight = ctx.AllocText(opts.textRight);
-    optsCopy.description = ctx.AllocText(opts.description);
-    optsCopy.badge = ctx.AllocText(opts.badge);
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
-    node->text = optsCopy.label.text;
+
+    const ControlSpec ctrl = EffectiveSwitchControl(optsCopy, activeSize, ctx.GetTheme());
+    Node* node = ctx.CreateNode(NodeType::Switch, id);
+    node->text = !optsCopy.textRight.empty() ? optsCopy.textRight.text : optsCopy.textLeft.text;
     node->SetPayload(ctx.AllocPayload<SwitchOptions>(optsCopy));
     node->visualHash = detail::HashArgs(
-        opts.color,
-        static_cast<uint8_t>(opts.layout),
-        static_cast<uint8_t>(opts.inlineOrder),
-        static_cast<uint8_t>(opts.elementAlign),
-        opts.symmetric,
-        static_cast<uint8_t>(opts.stretch),
-        ctrl.width.value_or(0.0f),
-        ctrl.height.value_or(0.0f),
-        static_cast<uint8_t>(ctrl.align),
-        opts.background,
-        opts.borderWidth,
-        opts.borderRadius.value_or(-1.0f),
-        opts.borderColor,
-        opts.bgColor,
-        ctrl.HasBackground(false),
-        ctrl.borderWidth,
-        ctrl.borderRadius.value_or(-1.0f),
-        ctrl.borderColor,
-        ctrl.bgColor,
-        static_cast<uint8_t>(opts.icon.GetType()),
-        static_cast<uint8_t>(opts.icon.GetId()),
-        opts.icon.GetPath(),
+        optsCopy.color,
+        static_cast<uint8_t>(optsCopy.align),
+        optsCopy.symmetric,
+        static_cast<uint8_t>(optsCopy.stretch),
+        optsCopy.width.value_or(0.0f),
+        optsCopy.height.value_or(0.0f),
+        optsCopy.background,
+        optsCopy.border,
         currentChecked,
-        optsCopy.label,
         optsCopy.textLeft,
-        optsCopy.textRight,
-        optsCopy.description,
-        optsCopy.badge
+        optsCopy.textRight
     );
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* opts = n->As<SwitchOptions>();
@@ -206,9 +151,10 @@ Response Switch::Run(
     node->hovered = res.hovered;
     node->pressed = res.pressed;
     node->focused = ctx.IsFocused(id);
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
+    node->widthMode = (optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
 
+    Control::SetupNode(ctx, node, ctrl, optsCopy.stretch, optsCopy.align);
     ctx.AdaptChildToContainer(node);
 
     return res;
@@ -219,11 +165,11 @@ Vec2 Switch::Measure(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    float availableWidth
+    float /*availableWidth*/
 ) {
     const Vec2 ctrlDims = MeasureSwitchControl(opts, size, canvas, theme);
-    const ElementSpec spec = MakeSwitchElementSpec(opts, size, opts.disabled, theme);
-    return Element::Measure(ctrlDims, spec, canvas, theme, availableWidth);
+    const ControlSpec ctrl = EffectiveSwitchControl(opts, size, theme);
+    return Control::Measure(ctrlDims, ctrl, opts.stretch, size, theme);
 }
 
 Vec2 Switch::Measure(
@@ -256,11 +202,10 @@ void Switch::Render(
     const auto& pal = theme.palette;
 
     const Vec2 ctrlDims = MeasureSwitchControl(opts, size, &canvas, theme);
-    const ElementSpec spec = MakeSwitchElementSpec(opts, size, disabled, theme, hovered, pressed || focused);
-    const ElementGeometry geom = Element::Resolve(bounds, ctrlDims, spec, &canvas, theme);
-    Element::RenderText(canvas, geom, spec, theme);
+    const ControlSpec ctrl = EffectiveSwitchControl(opts, size, theme);
+    Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, hovered, pressed || focused);
 
-    const Rect& ctrlRect = geom.innerControlRect;
+    const Rect ctrlRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
     float curX = ctrlRect.x + std::max(0.0f, (ctrlRect.w - ctrlDims.x) * 0.5f);
     if (!opts.textLeft.empty() || !opts.textLeft.variants.empty()) {
         const float leftFont = theme.ResolveFontSize(opts.textLeft, TextRole::LabelMedium, size);

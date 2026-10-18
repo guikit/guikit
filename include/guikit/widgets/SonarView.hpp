@@ -80,9 +80,7 @@ struct SonarViewOptions {
     UiVariant variant{UiVariant::Default};
     ElementLayout layout{ElementLayout::Stacked};
     InlineOrder inlineOrder{InlineOrder::LabelFirst};
-    Align elementAlign{Align::Start};
-    bool divider{false};
-    ElementDivider dividerStyle{ElementDivider::Bottom};
+    Align align{Align::Start};
 
     // --- Polar Matrix Dimensions & Geometry ---
     uint32_t numBeams{180};                         ///< Number of angular beams (rows) in `polarMatrix`

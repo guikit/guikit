@@ -48,14 +48,12 @@ enum class InlineOrder : uint8_t {
     ControlFirst   ///< Control first (left / start), label/text second (right / end)
 };
 
-/// Divider placement style for Element, Heading, and composite widgets.
-enum class ElementDivider : uint8_t {
+/// Divider placement style for Heading.
+enum class HeadingDivider : uint8_t {
     None = 0,
-    Bottom,   ///< Horizontal divider line underneath the element
+    Bottom,   ///< Horizontal divider line underneath the heading
     Trailing  ///< Inline horizontal divider line flanking/trailing the label bar
 };
-
-using HeadingDivider = ElementDivider;
 
 /// 6x3 Typographic Role Matrix (Material 3 scale extended for desktop/engineering).
 enum class TextRole : uint8_t {
@@ -281,6 +279,99 @@ struct StateColor {
     }
 
     [[nodiscard]] constexpr bool operator==(const StateColor& other) const noexcept = default;
+};
+
+/// Smart background fill specification for Elements, Headings, and Controls.
+/// Implicitly constructible from `bool` (`true` = default theme surface, `false` = no background),
+/// `Color` (explicit fill color, automatically enables background when alpha > 0),
+/// and `StateColor` (per-state fill color, automatically enables background).
+struct Background {
+    std::optional<bool> enabled{std::nullopt}; ///< Whether background fill is enabled (nullopt = widget default)
+    StateColor color{};                        ///< Optional per-state background color override
+
+    constexpr Background() noexcept = default;
+
+    constexpr Background(bool on) noexcept
+        : enabled(on), color{} {}
+
+    constexpr Background(Color c) noexcept
+        : enabled(c.a > 0), color{.normal = c, .hover = c, .active = c, .disabled = c.WithAlphaF(0.40f)} {}
+
+    constexpr Background(StateColor sc) noexcept
+        : enabled(true), color(sc) {}
+
+    constexpr Background(
+        Color normalCol,
+        Color hoverCol,
+        std::optional<Color> activeCol = std::nullopt,
+        std::optional<Color> disabledCol = std::nullopt
+    ) noexcept
+        : enabled(true), color{.normal = normalCol, .hover = hoverCol, .active = activeCol, .disabled = disabledCol} {}
+
+    constexpr Background(bool on, StateColor sc) noexcept
+        : enabled(on), color(sc) {}
+
+    /// Resolves whether background rendering is active, falling back to `defaultEnabled` when `enabled` is `std::nullopt`
+    /// (unless an explicit `color` was provided, which automatically enables the background unless `enabled` is `false`).
+    [[nodiscard]] constexpr bool IsEnabled(bool defaultEnabled = false) const noexcept {
+        if (enabled.has_value()) {
+            return *enabled;
+        }
+        return color.HasAny() ? true : defaultEnabled;
+    }
+
+    [[nodiscard]] constexpr bool HasColor() const noexcept {
+        return color.HasAny();
+    }
+
+    [[nodiscard]] constexpr explicit operator bool() const noexcept {
+        return IsEnabled(false);
+    }
+
+    [[nodiscard]] static constexpr Background None() noexcept {
+        return Background(false);
+    }
+
+    [[nodiscard]] static constexpr Background Surface() noexcept {
+        return Background(true);
+    }
+
+    [[nodiscard]] constexpr bool operator==(const Background& other) const noexcept = default;
+};
+
+/// Unified border and corner radius specification for Elements, Headings, and Controls.
+/// Pure C++20 aggregate supporting designated initializers (`{.width = 1.0f, .radius = 8.0f, .color = StateColor::Danger()}`)
+/// as well as concise positional initialization (`{1.0f}`) and static factory presets.
+struct Border {
+    float width{0.0f};                         ///< Stroke thickness in points (0.0f = none / theme default)
+    std::optional<float> radius{std::nullopt}; ///< Corner radius override in points (nullopt = theme radius)
+    StateColor color{};                        ///< Per-state border stroke color (normal, hover, active, disabled)
+
+    [[nodiscard]] constexpr bool HasStroke() const noexcept {
+        return width > 0.0f;
+    }
+
+    [[nodiscard]] constexpr bool HasAny() const noexcept {
+        return width > 0.0f || radius.has_value() || color.HasAny();
+    }
+
+    [[nodiscard]] static constexpr Border None() noexcept {
+        return {};
+    }
+
+    [[nodiscard]] static constexpr Border Solid(
+        float w = 1.0f,
+        StateColor col = {},
+        std::optional<float> r = std::nullopt
+    ) noexcept {
+        return {w, r, col};
+    }
+
+    [[nodiscard]] static constexpr Border Rounded(float r) noexcept {
+        return {0.0f, r, {}};
+    }
+
+    [[nodiscard]] constexpr bool operator==(const Border& other) const noexcept = default;
 };
 
 /// Unified font size specification for UiText.

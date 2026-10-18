@@ -292,78 +292,124 @@ void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     };
 
     size_t ctrlIdx = static_cast<size_t>(std::clamp(s_car.controlModeIndex, 0, 3));
-    if (ui.Select(ctrlIdx, kControlModes, {.label = "Control / Simulation Mode"}).changed) {
-        s_car.controlModeIndex = static_cast<int>(ctrlIdx);
-        if (s_car.controlModeIndex == 2) {
-            s_car.driveThemeIndex = 1; // SportCrimson
-            s_car.gearSelectorIndex = 4; // Sport
+    if (auto el = ui.Element({.label = "Control / Simulation Mode"})) {
+        if (ui.Select(ctrlIdx, kControlModes).changed) {
+            s_car.controlModeIndex = static_cast<int>(ctrlIdx);
+            if (s_car.controlModeIndex == 2) {
+                s_car.driveThemeIndex = 1; // SportCrimson
+                s_car.gearSelectorIndex = 4; // Sport
+            }
         }
     }
 
     size_t layIdx = static_cast<size_t>(std::clamp(s_car.layoutModeIndex, 0, 2));
-    if (ui.Select(layIdx, kLayoutModes, {.label = "Cluster Architecture"}).changed) {
-        s_car.layoutModeIndex = static_cast<int>(layIdx);
+    if (auto el = ui.Element({.label = "Cluster Architecture"})) {
+        if (ui.Select(layIdx, kLayoutModes).changed) {
+            s_car.layoutModeIndex = static_cast<int>(layIdx);
+        }
     }
 
     size_t ptIdx = static_cast<size_t>(std::clamp(s_car.powertrainIndex, 0, 1));
-    if (ui.Select(ptIdx, kPowertrains, {.label = "Powertrain Mode"}).changed) {
-        s_car.powertrainIndex = static_cast<int>(ptIdx);
-        s_car.avgConsumption = (s_car.powertrainIndex == 1) ? 18.4f : 9.2f;
-        s_car.coolantOrBattTempC = (s_car.powertrainIndex == 1) ? 31.0f : 90.0f;
+    if (auto el = ui.Element({.label = "Powertrain Mode"})) {
+        if (ui.Select(ptIdx, kPowertrains).changed) {
+            s_car.powertrainIndex = static_cast<int>(ptIdx);
+            s_car.avgConsumption = (s_car.powertrainIndex == 1) ? 18.4f : 9.2f;
+            s_car.coolantOrBattTempC = (s_car.powertrainIndex == 1) ? 31.0f : 90.0f;
+        }
     }
 
     size_t thmIdx = static_cast<size_t>(std::clamp(s_car.driveThemeIndex, 0, 3));
-    if (ui.Select(thmIdx, kDriveThemes, {.label = "Drive Mode Theme"}).changed) {
-        s_car.driveThemeIndex = static_cast<int>(thmIdx);
+    if (auto el = ui.Element({.label = "Drive Mode Theme"})) {
+        if (ui.Select(thmIdx, kDriveThemes).changed) {
+            s_car.driveThemeIndex = static_cast<int>(thmIdx);
+        }
     }
 
     size_t mfdIdx = static_cast<size_t>(s_car.centerMfd);
-    if (ui.Select(mfdIdx, kMfdPages, {.label = "Center MFD Screen"}).changed) {
-        s_car.centerMfd = static_cast<guikit::ClusterCenterMfd>(mfdIdx);
+    if (auto el = ui.Element({.label = "Center MFD Screen"})) {
+        if (ui.Select(mfdIdx, kMfdPages).changed) {
+            s_car.centerMfd = static_cast<guikit::ClusterCenterMfd>(mfdIdx);
+        }
     }
 
     size_t unitIdx = static_cast<size_t>(std::clamp(s_car.speedUnitIndex, 0, 1));
-    if (ui.Select(unitIdx, kSpeedUnits, {.label = "Measurement Units"}).changed) {
-        s_car.speedUnitIndex = static_cast<int>(unitIdx);
+    if (auto el = ui.Element({.label = "Measurement Units"})) {
+        if (ui.Select(unitIdx, kSpeedUnits).changed) {
+            s_car.speedUnitIndex = static_cast<int>(unitIdx);
+        }
     }
 
     size_t gearSelIdx = static_cast<size_t>(std::clamp(s_car.gearSelectorIndex, 0, 5));
-    if (ui.Select(gearSelIdx, kGearSelectors, {.label = "Transmission Selector"}).changed) {
-        s_car.gearSelectorIndex = static_cast<int>(gearSelIdx);
+    if (auto el = ui.Element({.label = "Transmission Selector"})) {
+        if (ui.Select(gearSelIdx, kGearSelectors).changed) {
+            s_car.gearSelectorIndex = static_cast<int>(gearSelIdx);
+        }
     }
 
-    ui.Heading({.title = "VEHICLE TELEMETRY", .size = guikit::UiSize::Xs, .divider = true});
+    ui.Heading({.label = "VEHICLE TELEMETRY", .size = guikit::UiSize::Xs, .divider = true});
 
-    if (ui.Slider(s_car.speedKmh, 0.0f, s_car.maxSpeedKmh, {.label = "Ground Speed", .valueFormat = "%.0f km/h"}).changed) {
-        s_car.controlModeIndex = 3;
+    if (auto el = ui.Element({.label = "Ground Speed"})) {
+        if (ui.Slider(s_car.speedKmh, 0.0f, s_car.maxSpeedKmh, {.valueFormat = "%.0f km/h"}).changed) {
+            s_car.controlModeIndex = 3;
+        }
     }
     if (s_car.powertrainIndex == 0) {
-        if (ui.Slider(s_car.rpm, 0.0f, s_car.maxRpm, {.label = "Engine RPM", .valueFormat = "%.0f RPM"}).changed) {
-            s_car.controlModeIndex = 3;
+        if (auto el = ui.Element({.label = "Engine RPM"})) {
+            if (ui.Slider(s_car.rpm, 0.0f, s_car.maxRpm, {.valueFormat = "%.0f RPM"}).changed) {
+                s_car.controlModeIndex = 3;
+            }
         }
     } else {
-        if (ui.Slider(s_car.evPowerKw, -150.0f, 450.0f, {.label = "EV Motor Power / Regen", .valueFormat = "%+.0f kW"}).changed) {
-            s_car.controlModeIndex = 3;
+        if (auto el = ui.Element({.label = "EV Motor Power / Regen"})) {
+            if (ui.Slider(s_car.evPowerKw, -150.0f, 450.0f, {.valueFormat = "%+.0f kW"}).changed) {
+                s_car.controlModeIndex = 3;
+            }
         }
     }
 
-    ui.Slider(s_car.cruiseTargetKmh, 30.0f, 250.0f, {.label = "ACC Cruise Target", .valueFormat = "%.0f km/h"});
-    if (ui.Slider(s_car.steeringAngleDeg, -45.0f, 45.0f, {.label = "Steering Wheel Angle", .valueFormat = "%+.1f deg"}).changed) {
-        s_car.controlModeIndex = 3;
+    if (auto el = ui.Element({.label = "ACC Cruise Target"})) {
+        ui.Slider(s_car.cruiseTargetKmh, 30.0f, 250.0f, {.valueFormat = "%.0f km/h"});
     }
-    ui.Slider(s_car.fuelOrSocPct, 0.0f, 100.0f, {.label = "Fuel / Battery SoC", .valueFormat = "%.0f %%"});
-    ui.Slider(s_car.adasLeadDistanceM, 8.0f, 100.0f, {.label = "Radar Lead Car Distance", .valueFormat = "%.0f m"});
+    if (auto el = ui.Element({.label = "Steering Wheel Angle"})) {
+        if (ui.Slider(s_car.steeringAngleDeg, -45.0f, 45.0f, {.valueFormat = "%+.1f deg"}).changed) {
+            s_car.controlModeIndex = 3;
+        }
+    }
+    if (auto el = ui.Element({.label = "Fuel / Battery SoC"})) {
+        ui.Slider(s_car.fuelOrSocPct, 0.0f, 100.0f, {.valueFormat = "%.0f %%"});
+    }
+    if (auto el = ui.Element({.label = "Radar Lead Car Distance"})) {
+        ui.Slider(s_car.adasLeadDistanceM, 8.0f, 100.0f, {.valueFormat = "%.0f m"});
+    }
 
-    ui.Heading({.title = "TELLTALES & OVERLAYS", .size = guikit::UiSize::Xs, .divider = true});
-    ui.Checkbox(s_car.showShiftLights,       {.label = "Top Shift-Lights LED Bar"});
-    ui.Checkbox(s_car.showTelltaleBar,       {.label = "ISO Telltale Status Ribbon"});
-    ui.Checkbox(s_car.showBottomTripBar,     {.label = "Bottom PRNDSM & Trip Bar"});
-    ui.Checkbox(s_car.showMouseDriveOverlay, {.label = "Interactive Mouse Drive Reticle"});
-    ui.Checkbox(s_car.ttLeftTurn,            {.label = "Left Turn Signal"});
-    ui.Checkbox(s_car.ttRightTurn,           {.label = "Right Turn Signal"});
-    ui.Checkbox(s_car.ttHazard,              {.label = "Hazard Warning Flashers"});
-    ui.Checkbox(s_car.ttHighBeam,            {.label = "High Beam Headlights"});
-    ui.Checkbox(s_car.ttTpmsWarning,         {.label = "TPMS Tire Alert"});
+    ui.Heading({.label = "TELLTALES & OVERLAYS", .size = guikit::UiSize::Xs, .divider = true});
+    if (auto el = ui.Element({.label = "Top Shift-Lights LED Bar"})) {
+        ui.Checkbox(s_car.showShiftLights);
+    }
+    if (auto el = ui.Element({.label = "ISO Telltale Status Ribbon"})) {
+        ui.Checkbox(s_car.showTelltaleBar);
+    }
+    if (auto el = ui.Element({.label = "Bottom PRNDSM & Trip Bar"})) {
+        ui.Checkbox(s_car.showBottomTripBar);
+    }
+    if (auto el = ui.Element({.label = "Interactive Mouse Drive Reticle"})) {
+        ui.Checkbox(s_car.showMouseDriveOverlay);
+    }
+    if (auto el = ui.Element({.label = "Left Turn Signal"})) {
+        ui.Checkbox(s_car.ttLeftTurn);
+    }
+    if (auto el = ui.Element({.label = "Right Turn Signal"})) {
+        ui.Checkbox(s_car.ttRightTurn);
+    }
+    if (auto el = ui.Element({.label = "Hazard Warning Flashers"})) {
+        ui.Checkbox(s_car.ttHazard);
+    }
+    if (auto el = ui.Element({.label = "High Beam Headlights"})) {
+        ui.Checkbox(s_car.ttHighBeam);
+    }
+    if (auto el = ui.Element({.label = "TPMS Tire Alert"})) {
+        ui.Checkbox(s_car.ttTpmsWarning);
+    }
 }
 
 void RenderCarDashboardStage(guikit::Context& ui, DemoContext& /*ctx*/) {

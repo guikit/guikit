@@ -181,8 +181,9 @@ Response Context::Interact(Id id) {
 }
 
 void Context::AdaptChildToContainer(Node* node) {
-    if (!node || m_containerStack.empty()) return;
-    Node* parent = m_containerStack.back();
+    if (!node) return;
+    Node* parent = node->parent ? node->parent : (m_containerStack.empty() ? nullptr : m_containerStack.back());
+    if (!parent) return;
     if (parent->direction == FlexDirection::Column || parent->direction == FlexDirection::Grid) {
         if (node->widthMode != SizeMode::Fit && node->widthMode != SizeMode::Fixed) {
             node->widthMode = SizeMode::Stretch;
@@ -380,8 +381,8 @@ Response Context::Text(UiText label, TextOptions opts, std::source_location loc)
     return Run<guikit::Text>(label, opts, loc);
 }
 
-Response Context::Element(ElementOptions opts, std::source_location loc) {
-    return Run<guikit::Element>(opts, loc);
+ElementScope Context::Element(ElementOptions opts, std::source_location loc) {
+    return Open<guikit::Element>(opts, loc);
 }
 
 Response Context::Heading(HeadingOptions opts, std::source_location loc) {
@@ -1710,12 +1711,12 @@ void Context::EndFrame(ICanvas& canvas) {
     const Vec2 logicalSize = m_viewportSize / ((m_dpiScale > 0.0f) ? m_dpiScale : 1.0f);
 
     // Resolve geometry using canvas font metrics
-    LayoutSolver::Measure(m_root, &canvas, m_theme);
-    LayoutSolver::Arrange(m_root, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme, &canvas);
+    Solver::Measure(m_root, &canvas, m_theme);
+    Solver::Arrange(m_root, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme, &canvas);
 
     // Update interactive scrollbars; re-arrange only if a scrollbar drag or track click modified scrollOffset
     if (UpdateScrollAreasRecursive(m_root)) {
-        LayoutSolver::Arrange(m_root, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme, &canvas);
+        Solver::Arrange(m_root, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme, &canvas);
     }
 
     // Cache computed bounds and focusable widget list for next frame
@@ -2242,8 +2243,8 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
         labelStr = std::string(target->text.substr(0, 24));
     } else if (target->type == NodeType::Heading) {
         if (const auto* h = target->As<HeadingOptions>()) {
-            if (!h->title.empty()) {
-                labelStr = std::string(h->title.text.substr(0, 24));
+            if (!h->label.empty()) {
+                labelStr = std::string(h->label.text.substr(0, 24));
             }
         }
     }

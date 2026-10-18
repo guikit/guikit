@@ -2,11 +2,81 @@
 #include <algorithm>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 
 namespace guikit {
+
+namespace {
+
+ControlSpec EffectiveButtonControl(const ButtonOptions& opts, UiSize size, const UiTheme& theme) noexcept {
+    const ComponentMetrics& m = theme.GetMetrics(size);
+    const auto& inputMetrics = theme.GetInputField(size);
+    ControlSpec c{};
+    c.width = opts.width;
+    c.height = opts.height;
+    c.minWidth = opts.minWidth;
+    c.align = opts.align;
+    c.background = opts.background;
+    c.border = opts.border;
+    c.defaultLayout = ElementLayout::Stacked;
+    c.defaultInlineOrder = InlineOrder::LabelFirst;
+    c.labelGap = inputMetrics.labelGap;
+    c.descGap = inputMetrics.descGap;
+    c.inlineGap = m.paddingX;
+    c.stretchable = true;
+    c.stretchHeightWhenStandalone = true;
+    c.hasIntrinsicBox = true;
+    return c;
+}
+
+Vec2 MeasureButtonCapsule(
+    const ButtonOptions& opts,
+    const ControlSpec& ctrl,
+    UiSize size,
+    ICanvas* canvas,
+    const UiTheme& theme
+) {
+    const ComponentMetrics& m = theme.GetMetrics(size);
+    const float capFontSize = theme.ResolveFontSize(opts.text, TextRole::LabelLarge, size);
+    const bool hasIcon = opts.icon.IsValid();
+    const bool hasCapsuleText = !opts.text.empty();
+    const float baseH = (ctrl.height.has_value() && *ctrl.height > 0.0f) ? theme.Scale(*ctrl.height) : m.defaultHeight;
+
+    // Explicit square button or icon-only button with no text variants defaults to square
+    if (opts.square || (hasIcon && !hasCapsuleText && opts.text.variants.empty())) {
+        const float w = (opts.stretch != StretchMode::Fill && ctrl.width.has_value()) ? theme.Scale(*ctrl.width) : baseH;
+        return {w, baseH};
+    }
+
+    const float maxTextW = TextUtil::MeasureWidth(opts.text, capFontSize, canvas);
+
+    float contentW = 0.0f;
+    float contentH = baseH;
+    if (hasIcon && maxTextW > 0.0f) {
+        if (opts.iconPlacement == Placement::Top || opts.iconPlacement == Placement::Bottom) {
+            contentW = std::max(m.iconSize, maxTextW);
+            contentH = std::max(baseH, m.iconSize + theme.Scale(4.0f) + capFontSize + m.paddingY * 2.0f);
+        } else {
+            const float gap = std::max(theme.Scale(4.0f), m.paddingX * 0.55f);
+            contentW = m.iconSize + gap + maxTextW;
+        }
+    } else if (maxTextW > 0.0f) {
+        contentW = maxTextW;
+    }
+
+    float totalW = contentW + m.paddingX * 2.0f;
+    if (opts.stretch != StretchMode::Fill && ctrl.width.has_value()) {
+        totalW = theme.Scale(*ctrl.width);
+    } else if (ctrl.minWidth.has_value()) {
+        totalW = std::max({m.defaultHeight, theme.Scale(*ctrl.minWidth), totalW});
+    } else {
+        totalW = std::max(m.defaultHeight, totalW);
+    }
+    return {totalW, contentH};
+}
+
+} // namespace
 
 Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_location loc) {
     const Id id = ctx.MakeChildId(loc);
@@ -35,54 +105,38 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
         ctx.SetTooltip(opts.tooltip, res.rect);
     }
 
+    ButtonOptions optsCopy = opts;
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+    optsCopy.text = ctx.AllocText(opts.text);
+    optsCopy.tooltip = ctx.AllocText(opts.tooltip);
+    if (!opts.icon.GetPath().empty()) {
+        optsCopy.icon = Icon::File(ctx.AllocString(opts.icon.GetPath()));
+    }
+
     Node* node = ctx.CreateNode(NodeType::Button, id);
-    auto* bOpts = ctx.AllocPayload<ButtonOptions>(opts);
-    bOpts->label = ctx.AllocText(opts.label);
-    bOpts->text = ctx.AllocText(opts.text);
-    bOpts->description = ctx.AllocText(opts.description);
-    bOpts->badge = ctx.AllocText(opts.badge);
-    bOpts->tooltip = ctx.AllocText(opts.tooltip);
-    node->text = bOpts->label.text;
+    auto* bOpts = ctx.AllocPayload<ButtonOptions>(optsCopy);
+    node->text = bOpts->text.text;
     node->SetPayload(bOpts);
+
+    const ControlSpec ctrl = EffectiveButtonControl(*bOpts, activeSize, ctx.GetTheme());
     node->visualHash = detail::HashArgs(
-        opts.color,
-        opts.iconPlacement,
-        static_cast<uint8_t>(opts.layout),
-        static_cast<uint8_t>(opts.inlineOrder),
-        static_cast<uint8_t>(opts.elementAlign),
-        opts.controlAlign,
-        opts.active,
-        opts.square,
-        opts.iconColor.value_or(Color::Transparent()),
-        static_cast<uint8_t>(opts.stretch),
-        opts.width.value_or(0.0f),
-        opts.height.value_or(0.0f),
-        opts.minWidth.value_or(0.0f),
-        opts.size.value_or(activeSize),
-        opts.background,
-        opts.borderWidth,
-        opts.borderRadius.value_or(-1.0f),
-        opts.borderColor,
-        opts.bgColor,
-        opts.control.width.value_or(0.0f),
-        opts.control.height.value_or(0.0f),
-        opts.control.minWidth.value_or(0.0f),
-        static_cast<uint8_t>(opts.control.align),
-        opts.control.HasBackground(true),
-        opts.control.borderWidth,
-        opts.control.borderRadius.value_or(-1.0f),
-        opts.control.borderColor,
-        opts.control.bgColor,
-        static_cast<uint8_t>(opts.icon.GetType()),
-        static_cast<uint8_t>(opts.icon.GetId()),
-        opts.icon.GetPath(),
-        static_cast<uint8_t>(opts.labelIcon.GetType()),
-        static_cast<uint8_t>(opts.labelIcon.GetId()),
-        opts.labelIcon.GetPath(),
-        bOpts->label,
-        bOpts->text,
-        bOpts->description,
-        bOpts->badge
+        bOpts->color,
+        bOpts->iconPlacement,
+        static_cast<uint8_t>(bOpts->align),
+        bOpts->active,
+        bOpts->square,
+        bOpts->iconColor.value_or(Color::Transparent()),
+        static_cast<uint8_t>(bOpts->stretch),
+        bOpts->width.value_or(0.0f),
+        bOpts->height.value_or(0.0f),
+        bOpts->minWidth.value_or(0.0f),
+        bOpts->size.value_or(activeSize),
+        bOpts->background,
+        bOpts->border,
+        static_cast<uint8_t>(bOpts->icon.GetType()),
+        static_cast<uint8_t>(bOpts->icon.GetId()),
+        bOpts->icon.GetPath(),
+        bOpts->text
     );
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* b = n->As<ButtonOptions>();
@@ -97,129 +151,20 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
     node->hovered = res.hovered;
     node->pressed = res.pressed;
     node->focused = ctx.IsFocused(id);
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
+    node->widthMode = (bOpts->stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
     node->minWidth = ctx.GetTheme().GetMetrics(activeSize).defaultHeight;
 
+    Control::SetupNode(ctx, node, ctrl, bOpts->stretch, Align::Start);
     ctx.AdaptChildToContainer(node);
 
     return res;
 }
 
-namespace {
-
-ControlSpec EffectiveButtonControl(const ButtonOptions& opts) noexcept {
-    ControlSpec c = opts.control;
-    if (!c.width.has_value() && opts.width.has_value()) c.width = opts.width;
-    if (!c.height.has_value() && opts.height.has_value()) c.height = opts.height;
-    if (!c.minWidth.has_value() && opts.minWidth.has_value()) c.minWidth = opts.minWidth;
-    if (c.align == Align::Center && opts.controlAlign != Align::Center) c.align = opts.controlAlign;
-    c.stretchable = true;
-    c.stretchHeightWhenStandalone = (!opts.background && opts.borderWidth <= 0.0f);
-    c.hasIntrinsicBox = true;
-    return c;
-}
-
-Vec2 MeasureButtonCapsule(
-    const ButtonOptions& opts,
-    const ControlSpec& ctrl,
-    const UiText& effectiveCapsuleText,
-    UiSize size,
-    ICanvas* canvas,
-    const UiTheme& theme
-) {
-    const ComponentMetrics& m = theme.GetMetrics(size);
-    const float capFontSize = theme.ResolveFontSize(effectiveCapsuleText, TextRole::LabelLarge, size);
-    const bool hasIcon = opts.icon.IsValid();
-    const bool hasCapsuleText = !effectiveCapsuleText.empty();
-    const float baseH = (ctrl.height.has_value() && *ctrl.height > 0.0f) ? theme.Scale(*ctrl.height) : m.defaultHeight;
-
-    // Explicit square button or icon-only button with no text variants defaults to square
-    if (opts.square || (hasIcon && !hasCapsuleText && effectiveCapsuleText.variants.empty())) {
-        const float w = (opts.stretch != StretchMode::Fill && ctrl.width.has_value()) ? theme.Scale(*ctrl.width) : baseH;
-        return {w, baseH};
-    }
-
-    const float maxTextW = TextUtil::MeasureWidth(effectiveCapsuleText, capFontSize, canvas);
-
-    float contentW = 0.0f;
-    float contentH = baseH;
-    if (hasIcon && maxTextW > 0.0f) {
-        if (opts.iconPlacement == Placement::Top || opts.iconPlacement == Placement::Bottom) {
-            contentW = std::max(m.iconSize, maxTextW);
-            contentH = std::max(baseH, m.iconSize + theme.Scale(4.0f) + capFontSize + m.paddingY * 2.0f);
-        } else {
-            const float gap = std::max(theme.Scale(4.0f), m.paddingX * 0.55f);
-            contentW = m.iconSize + gap + maxTextW;
-        }
-    } else if (maxTextW > 0.0f) {
-        contentW = maxTextW;
-    }
-
-    float totalW = contentW + m.paddingX * 2.0f;
-    if (opts.stretch != StretchMode::Fill && ctrl.width.has_value()) {
-        totalW = theme.Scale(*ctrl.width);
-    } else if (ctrl.minWidth.has_value()) {
-        totalW = std::max({m.defaultHeight, theme.Scale(*ctrl.minWidth), totalW});
-    } else {
-        totalW = std::max(m.defaultHeight, totalW);
-    }
-    return {totalW, contentH};
-}
-
-ElementSpec MakeButtonElementSpec(
-    const ButtonOptions& opts,
-    const ControlSpec& ctrl,
-    const UiText& effectiveExternalLabel,
-    UiSize size,
-    bool disabled,
-    const UiTheme& theme,
-    bool hovered = false,
-    bool active = false
-) noexcept {
-    const ComponentMetrics& m = theme.GetMetrics(size);
-    const auto& inputMetrics = theme.GetInputField(size);
-    return ElementSpec{
-        .label = effectiveExternalLabel,
-        .description = opts.description,
-        .icon = opts.labelIcon,
-        .badge = opts.badge,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .elementAlign = opts.elementAlign,
-        .stretch = opts.stretch,
-        .width = ctrl.width,
-        .height = ctrl.height,
-        .control = ctrl,
-        .background = opts.background,
-        .borderWidth = opts.borderWidth,
-        .borderRadius = opts.borderRadius,
-        .borderColor = opts.borderColor,
-        .bgColor = opts.bgColor,
-        .widgetSize = size,
-        .labelGap = inputMetrics.labelGap,
-        .descGap = inputMetrics.descGap,
-        .inlineGap = m.paddingX,
-        .stretchableControl = true,
-        .stretchHeightWhenStandalone = ctrl.stretchHeightWhenStandalone,
-        .disabled = disabled,
-        .hovered = hovered,
-        .active = active
-    };
-}
-
-} // namespace
-
-Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme, float availableWidth) {
-    const bool hasExplicitText = !opts.text.empty() || !opts.text.variants.empty();
-    const bool hasExplicitDesc = opts.description.HasContentOrReserve() || opts.labelIcon.IsValid() || opts.badge.HasContentOrReserve();
-    const UiText effectiveCapsuleText = hasExplicitText ? opts.text : (!hasExplicitDesc ? opts.label : UiText{});
-    const UiText effectiveExternalLabel = hasExplicitText ? opts.label : (hasExplicitDesc ? opts.label : UiText{});
-
-    const ControlSpec ctrl = EffectiveButtonControl(opts);
-    const Vec2 capsuleDims = MeasureButtonCapsule(opts, ctrl, effectiveCapsuleText, size, canvas, theme);
-    const ElementSpec spec = MakeButtonElementSpec(opts, ctrl, effectiveExternalLabel, size, opts.disabled, theme);
-    return Element::Measure(capsuleDims, spec, canvas, theme, availableWidth);
+Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, const UiTheme& theme, float /*availableWidth*/) {
+    const ControlSpec ctrl = EffectiveButtonControl(opts, size, theme);
+    const Vec2 capsuleDims = MeasureButtonCapsule(opts, ctrl, size, canvas, theme);
+    return Control::Measure(capsuleDims, ctrl, opts.stretch, size, theme);
 }
 
 Vec2 Button::Measure(const ButtonOptions& opts, UiSize size, ICanvas* canvas, float availableWidth) {
@@ -243,35 +188,25 @@ void Button::Render(
     }
 
     const ComponentMetrics& m = theme.GetMetrics(size);
-
-    const bool hasExplicitText = !opts.text.empty() || !opts.text.variants.empty();
-    const bool hasExplicitDesc = opts.description.HasContentOrReserve() || opts.labelIcon.IsValid() || opts.badge.HasContentOrReserve();
-    const UiText effectiveCapsuleText = hasExplicitText ? opts.text : (!hasExplicitDesc ? opts.label : UiText{});
-    const UiText effectiveExternalLabel = hasExplicitText ? opts.label : (hasExplicitDesc ? opts.label : UiText{});
+    const UiText& effectiveCapsuleText = opts.text;
     const float capFontSize = theme.ResolveFontSize(effectiveCapsuleText, TextRole::LabelLarge, size);
 
-    const ControlSpec ctrl = EffectiveButtonControl(opts);
-    const Vec2 capSize = MeasureButtonCapsule(opts, ctrl, effectiveCapsuleText, size, &canvas, theme);
-    const ElementSpec spec = MakeButtonElementSpec(
-        opts, ctrl, effectiveExternalLabel, size, disabled, theme, hovered, pressed || opts.active || focused
-    );
-    const ElementGeometry geom = Element::Resolve(bounds, capSize, spec, &canvas, theme);
-    Element::RenderText(canvas, geom, spec, theme);
-    const Rect capsuleRect = geom.controlRect;
+    const ControlSpec ctrl = EffectiveButtonControl(opts, size, theme);
+    const Rect capsuleRect = bounds;
 
     const bool hasCtrlBg = ctrl.HasBackground(true);
-    const StateColor& effColor = ctrl.bgColor.HasAny() ? ctrl.bgColor : opts.color;
+    const StateColor& effColor = ctrl.background.color.HasAny() ? ctrl.background.color : opts.color;
 
     Color bg = Color::Transparent();
     Color defaultText = theme.palette.textPrimary;
     Color borderCol = Color::Transparent();
-    float borderW = (ctrl.borderWidth > 0.0f) ? theme.Scale(ctrl.borderWidth) : 0.0f;
+    float borderW = (ctrl.border.width > 0.0f) ? theme.Scale(ctrl.border.width) : 0.0f;
 
     if (!effColor.HasAny() || effColor == StateColor::Secondary()) {
         const VariantColors& colors = theme.GetVariant(UiVariant::Secondary);
         defaultText = colors.text;
         borderCol = colors.border;
-        if (ctrl.borderWidth <= 0.0f) borderW = colors.borderWidth;
+        if (ctrl.border.width <= 0.0f) borderW = colors.borderWidth;
         if (hasCtrlBg) {
             if (pressed) bg = colors.bgActive;
             else if (opts.active) bg = hovered ? colors.bgHover : colors.bgActive;
@@ -285,7 +220,7 @@ void Button::Render(
     } else if (effColor.normal.has_value() && effColor.normal->a == 0) {
         const VariantColors& colors = theme.GetVariant(UiVariant::Ghost);
         defaultText = colors.text;
-        borderCol = (ctrl.borderWidth > 0.0f) ? theme.palette.border : colors.border;
+        borderCol = (ctrl.border.width > 0.0f) ? theme.palette.border : colors.border;
         if (hasCtrlBg) {
             if (pressed) bg = effColor.active.value_or(colors.bgActive);
             else if (opts.active) bg = hovered ? effColor.hover.value_or(colors.bgHover) : effColor.active.value_or(colors.bgActive);
@@ -312,7 +247,7 @@ void Button::Render(
                 bg = effColor.Resolve(hovered, pressed || opts.active, disabled, fallback.bg, fallback.bgHover, fallback.bgActive, fallback.bg.WithAlphaF(0.40f));
             }
         }
-        if (ctrl.borderWidth > 0.0f) {
+        if (ctrl.border.width > 0.0f) {
             borderCol = defaultText.WithAlphaF(0.65f);
             if (disabled) borderCol = borderCol.WithAlphaF(0.40f);
         }
@@ -322,12 +257,12 @@ void Button::Render(
         ? effectiveCapsuleText.color.Resolve(hovered, pressed || opts.active, disabled, defaultText)
         : (disabled ? defaultText.WithAlphaF(0.40f) : defaultText);
 
-    if (ctrl.borderColor.HasAny()) {
-        borderCol = ctrl.borderColor.Resolve(hovered, pressed || opts.active || focused, disabled, borderCol);
+    if (ctrl.border.color.HasAny()) {
+        borderCol = ctrl.border.color.Resolve(hovered, pressed || opts.active || focused, disabled, borderCol);
     }
 
     if (focused && !disabled) {
-        if (!ctrl.borderColor.active.has_value()) {
+        if (!ctrl.border.color.active.has_value()) {
             borderCol = theme.palette.focusRing;
         }
         borderW = std::max(borderW, 2.0f);
@@ -337,7 +272,7 @@ void Button::Render(
     canvas.PushClip(capsuleRect);
 
     // Background & border
-    const float radius = ctrl.borderRadius.has_value() ? theme.Scale(*ctrl.borderRadius) : m.cornerRadius;
+    const float radius = ctrl.border.radius.has_value() ? theme.Scale(*ctrl.border.radius) : m.cornerRadius;
     canvas.DrawRoundRect(capsuleRect, radius, bg, borderCol, borderW);
 
     const bool hasIcon = opts.icon.IsValid();

@@ -16,34 +16,23 @@ class ICanvas;
 
 /// Clean configuration options for a Button widget.
 struct ButtonOptions {
-    UiText label{};                                ///< Primary external caption text (or fallback capsule text if text & description are empty)
     UiText text{};                                 ///< Text inside the button capsule
-    UiText description{};                          ///< Optional external helper text below/beside button
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     Icon icon{};                                   ///< Icon inside the button capsule
-    Icon labelIcon{};                              ///< Optional leading icon in external Element label bar
-    UiText badge{};                                ///< Optional trailing pill badge in external Element label bar
     StateColor color{};                            ///< Per-state capsule fill color (normal, hover, active, disabled)
     Placement iconPlacement{Placement::Leading};
-    ElementLayout layout{ElementLayout::Stacked};     ///< Layout geometry: Stacked, Top, Bottom, Inline
-    InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
-    Align elementAlign{Align::Start};                 ///< Element composition and label alignment (Start, Center, End)
-    Align controlAlign{Align::Center};                ///< Content horizontal alignment inside button capsule (Start, Center, End)
-    StretchMode stretch{StretchMode::Compact};        ///< Sizing behavior: Compact, Space, Fill
+    Align align{Align::Center};                    ///< Content horizontal alignment inside button capsule (Start, Center, End)
+    StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};      ///< Capsule width: in points for Compact/Space (nullopt = auto), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> height{std::nullopt};     ///< Explicit capsule height in points (nullopt = inherit defaultHeight from UiSize)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum capsule width constraint in points
-    bool background{false};                        ///< Whether to render a surface backdrop around the outer Element
-    float borderWidth{0.0f};                       ///< Outer Element border thickness in points (0.0f = no border)
-    std::optional<float> borderRadius{std::nullopt}; ///< Outer Element corner radius in points
-    StateColor borderColor{};                      ///< Per-state outer Element border color (normal, hover, active, disabled)
-    StateColor bgColor{};                          ///< Per-state outer Element background color (normal, hover, active, disabled)
-    ControlSpec control{};                         ///< Inner Control slot configuration (width, height, minWidth, align, background, borderWidth, borderRadius, borderColor, bgColor)
+    Background background{true};                   ///< Capsule surface fill configuration (true, false, Color, or StateColor)
+    Border border{};                               ///< Capsule border stroke & corner radius configuration
     bool disabled{false};
     bool active{false};
     bool square{false};                            ///< Force square (defaultHeight x defaultHeight) button geometry
     std::optional<Color> iconColor{std::nullopt};  ///< Optional custom icon tint override
-    std::optional<UiSize> size{std::nullopt}; ///< Local size override (nullopt = inherit container size)
+    std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
 };
 
 /// Type alias for button response.

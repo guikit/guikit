@@ -69,9 +69,7 @@ struct WaterfallViewOptions {
     UiVariant variant{UiVariant::Default};
     ElementLayout layout{ElementLayout::Stacked};
     InlineOrder inlineOrder{InlineOrder::LabelFirst};
-    Align elementAlign{Align::Start};
-    bool divider{false};
-    ElementDivider dividerStyle{ElementDivider::Bottom};
+    Align align{Align::Start};
 
     // --- Domain Mode, Layout & Ring-Buffer Geometry ---
     WaterfallMode mode{WaterfallMode::SpectrumRtsa};

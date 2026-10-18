@@ -23,9 +23,15 @@ DashboardState s_state;
 
 void RenderDashboardInspector(guikit::Context& ui, DemoContext& ctx) {
     ctx.RenderAssemblyCommonInspector(ui);
-    if (ui.Switch(s_state.hwEstop, {.label = "Hardware E-Stop Line", .color = guikit::StateColor::Danger()}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.enableSensors, {.label = "Sensor Drop Limits"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.diagLogging, {.label = "High-Speed Flash Logging"}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Hardware E-Stop Line"})) {
+        if (ui.Switch(s_state.hwEstop, {.color = guikit::StateColor::Danger()}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Sensor Drop Limits"})) {
+        if (ui.Switch(s_state.enableSensors).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "High-Speed Flash Logging"})) {
+        if (ui.Switch(s_state.diagLogging).changed) ui.InvalidateAll();
+    }
 }
 
 void RenderDashboardScreen(guikit::Context& ui, DemoContext& ctx) {
@@ -34,55 +40,68 @@ void RenderDashboardScreen(guikit::Context& ui, DemoContext& ctx) {
         // Left Column
         if (auto colLeft = dashboardGrid.Cell6({.gap = ctx.colGap})) {
             if (auto card1 = ui.Card(ctx.MakeCard())) {
-                ui.Heading({.title = "Primary Stop Conditions", .subtitle = "Sensory tripwire thresholds & limits", .size = ctx.headingSize, .wordWrap = ctx.headingWordWrap});
+                ui.Heading({.label = "Primary Stop Conditions", .description = "Sensory tripwire thresholds & limits", .size = ctx.headingSize});
                 if (auto grid1 = ui.Grid(ctx.MakeGrid())) {
                     if (auto c = grid1.Cell12()) {
-                        ui.Switch(s_state.enableSensors, {
+                        if (auto el = ui.Element({
                             .label = "Enable Sensor Drop Limits",
                             .description = "Immediate stop on threshold breach"
-                        });
+                        })) {
+                            ui.Switch(s_state.enableSensors);
+                        }
                     }
                     if (auto c = grid1.Cell6()) {
-                        ui.InputField(s_state.maxTravel, {.label = "Max Travel", .suffix = "mm", .valueFormat = "%.1f"});
+                        if (auto el = ui.Element({.label = "Max Travel"})) {
+                            ui.InputField(s_state.maxTravel, {.suffix = "mm", .valueFormat = "%.1f"});
+                        }
                     }
                     if (auto c = grid1.Cell6()) {
-                        ui.InputField(s_state.maxVelocity, {.label = "Max Velocity", .suffix = "mm/s", .valueFormat = "%.1f"});
+                        if (auto el = ui.Element({.label = "Max Velocity"})) {
+                            ui.InputField(s_state.maxVelocity, {.suffix = "mm/s", .valueFormat = "%.1f"});
+                        }
                     }
                     if (auto c = grid1.Cell12()) {
-                        ui.Select(s_state.sensorChannel, {
-                            "Channel A (Load Cell 50kN)",
-                            "Channel B (Optical Extensometer)",
-                            "Channel C (Laser Interferometer)"
-                        }, {
+                        if (auto el = ui.Element({
                             .label = "Primary Sensor Channel",
                             .description = "Active physical transducer bus",
                             .layout = guikit::ElementLayout::Stacked
-                        });
+                        })) {
+                            ui.Select(s_state.sensorChannel, {
+                                "Channel A (Load Cell 50kN)",
+                                "Channel B (Optical Extensometer)",
+                                "Channel C (Laser Interferometer)"
+                            });
+                        }
                     }
                 }
             }
 
             if (auto card2 = ui.Card(ctx.MakeCard())) {
-                ui.Heading({.title = {"Emergency Interlocks", guikit::StateColor::Danger()}, .subtitle = "Hardware line supervision & failsafes", .size = ctx.headingSize, .wordWrap = ctx.headingWordWrap});
+                ui.Heading({.label = {"Emergency Interlocks", guikit::StateColor::Danger()}, .description = "Hardware line supervision & failsafes", .size = ctx.headingSize});
                 if (auto grid2 = ui.Grid(ctx.MakeGrid())) {
                     if (auto c = grid2.Cell12()) {
-                        ui.Switch(s_state.hwEstop, {
+                        if (auto el = ui.Element({
                             .label = "Hardware E-Stop Line",
-                            .description = "Continuous 24V loop monitoring",
-                            .color = guikit::StateColor::Danger()
-                        });
+                            .description = "Continuous 24V loop monitoring"
+                        })) {
+                            ui.Switch(s_state.hwEstop, {
+                                .color = guikit::StateColor::Danger()
+                            });
+                        }
                     }
                     if (auto c = grid2.Cell6()) {
-                        ui.Select(s_state.interlockMode, {
-                            "Immediate Cutoff",
-                            "Controlled Ramp-down",
-                            "Hold Position"
-                        }, {
-                            .label = "Interlock Action"
-                        });
+                        if (auto el = ui.Element({.label = "Interlock Action"})) {
+                            ui.Select(s_state.interlockMode, {
+                                "Immediate Cutoff",
+                                "Controlled Ramp-down",
+                                "Hold Position"
+                            });
+                        }
                     }
                     if (auto c = grid2.Cell6()) {
-                        ui.InputField(s_state.rampDown, {.label = "Ramp Duration", .suffix = "ms", .valueFormat = "%.0f"});
+                        if (auto el = ui.Element({.label = "Ramp Duration"})) {
+                            ui.InputField(s_state.rampDown, {.suffix = "ms", .valueFormat = "%.0f"});
+                        }
                     }
                 }
             }
@@ -91,28 +110,40 @@ void RenderDashboardScreen(guikit::Context& ui, DemoContext& ctx) {
         // Right Column
         if (auto colRight = dashboardGrid.Cell6({.gap = ctx.colGap})) {
             if (auto card3 = ui.Card(ctx.MakeCard())) {
-                ui.Heading({.title = "Secondary Criteria & PID", .subtitle = "Dynamic closed-loop feedback parameters", .size = ctx.headingSize, .wordWrap = ctx.headingWordWrap});
+                ui.Heading({.label = "Secondary Criteria & PID", .description = "Dynamic closed-loop feedback parameters", .size = ctx.headingSize});
                 if (auto grid3 = ui.Grid(ctx.MakeGrid())) {
                     if (auto c = grid3.Cell6()) {
-                        ui.InputField(s_state.forceLimit, {.label = "Force Drop Limit", .suffix = "%", .valueFormat = "%.1f"});
+                        if (auto el = ui.Element({.label = "Force Drop Limit"})) {
+                            ui.InputField(s_state.forceLimit, {.suffix = "%", .valueFormat = "%.1f"});
+                        }
                     }
                     if (auto c = grid3.Cell6()) {
-                        ui.InputField(s_state.yieldRatio, {.label = "Yield Ratio", .suffix = "%", .valueFormat = "%.2f"});
+                        if (auto el = ui.Element({.label = "Yield Ratio"})) {
+                            ui.InputField(s_state.yieldRatio, {.suffix = "%", .valueFormat = "%.2f"});
+                        }
                     }
                     if (auto c = grid3.Cell4()) {
-                        ui.InputField(s_state.pGain, {.label = "P-Gain", .valueFormat = "%.2f"});
+                        if (auto el = ui.Element({.label = "P-Gain"})) {
+                            ui.InputField(s_state.pGain, {.valueFormat = "%.2f"});
+                        }
                     }
                     if (auto c = grid3.Cell4()) {
-                        ui.InputField(s_state.iGain, {.label = "I-Gain", .valueFormat = "%.3f"});
+                        if (auto el = ui.Element({.label = "I-Gain"})) {
+                            ui.InputField(s_state.iGain, {.valueFormat = "%.3f"});
+                        }
                     }
                     if (auto c = grid3.Cell4()) {
-                        ui.InputField(s_state.dGain, {.label = "D-Gain", .valueFormat = "%.3f"});
+                        if (auto el = ui.Element({.label = "D-Gain"})) {
+                            ui.InputField(s_state.dGain, {.valueFormat = "%.3f"});
+                        }
                     }
                     if (auto c = grid3.Cell12()) {
-                        ui.Switch(s_state.diagLogging, {
+                        if (auto el = ui.Element({
                             .label = "Log High-Speed Telemetry",
                             .description = "Record 10 kHz buffer to internal flash"
-                        });
+                        })) {
+                            ui.Switch(s_state.diagLogging);
+                        }
                     }
                 }
             }
@@ -121,11 +152,10 @@ void RenderDashboardScreen(guikit::Context& ui, DemoContext& ctx) {
 
     if (auto cardAudit = ui.Card(ctx.MakeCard())) {
         ui.Heading({
-            .title = {"Supervisor Hardware Loop Diagnostics", guikit::StateColor::Success()},
-            .subtitle = "Live bus performance telemetry and continuous line supervision",
+            .label = {"Supervisor Hardware Loop Diagnostics", guikit::StateColor::Success()},
+            .description = "Live bus performance telemetry and continuous line supervision",
             .icon = guikit::Icon::Check(),
-            .size = ctx.headingSize,
-            .wordWrap = ctx.headingWordWrap
+            .size = ctx.headingSize
         });
         if (auto g = ui.Grid(ctx.MakeGrid())) {
             if (auto c1 = g.Cell4()) {

@@ -59,6 +59,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/panels/Toolbar.cpp
     src/guikit/widgets/Button.cpp
     src/guikit/widgets/Checkbox.cpp
+    src/guikit/widgets/Heading.cpp
     src/guikit/widgets/Histogram.cpp
     src/guikit/widgets/Image.cpp
     src/guikit/widgets/ImageView.cpp

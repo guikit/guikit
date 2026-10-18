@@ -16,18 +16,12 @@ class ICanvas;
 
 /// Clean configuration options for continuous numeric Slider widget.
 struct SliderOptions {
-    UiText label{};                                ///< External primary caption text above or beside control
     UiText textLeft{};                             ///< Optional companion text inside control on the left of the track
     UiText textRight{};                            ///< Optional companion text inside control on the right of the track
-    UiText description{};                          ///< Optional external explanation text
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
-    Icon icon{};                                   ///< Optional leading icon in external Element label bar
-    UiText badge{};                                ///< Optional trailing pill badge in external Element label bar
     UiText valueFormat{};                          ///< Format string and style for value (e.g. "%.1f %%", {"%.1f dB", StateColor::Info()}, or static text; empty text = default numeric format)
     std::optional<double> step{std::nullopt};      ///< Step quantization (defaults to 1.0 for integers, continuous for float)
-    ElementLayout layout{ElementLayout::Stacked};    ///< Widget layout (Stacked, Inline, Top, Bottom)
-    InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout (LabelFirst = text first, ControlFirst = control first)
-    Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
+    Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     bool showValue{true};                          ///< Whether to display current formatted value text inside control
     Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     StateColor color{};                            ///< Per-state accent fill color for active track and thumb
@@ -37,28 +31,18 @@ struct SliderOptions {
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
-    bool background{false};                        ///< Whether to render a surface backdrop around the outer Element
-    float borderWidth{0.0f};                       ///< Outer Element border thickness in points (0.0f = no border)
-    std::optional<float> borderRadius{std::nullopt}; ///< Outer Element corner radius in points
-    StateColor borderColor{};                      ///< Per-state outer Element border color (normal, hover, active, disabled)
-    StateColor bgColor{};                          ///< Per-state outer Element background color (normal, hover, active, disabled)
-    ControlSpec control{};                         ///< Inner Control slot configuration (width, height, background, borderWidth, borderRadius, borderColor, bgColor)
+    Background background{false};                  ///< Control well backdrop configuration (false, true, Color, or StateColor)
+    Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Interaction suppression
 };
 
 /// Clean configuration options for discrete N-position StepSlider widget.
 struct StepSliderOptions {
-    UiText label{};                                ///< External primary caption text above or beside control
     UiText textLeft{};                             ///< Optional companion text inside control on the left of the track
     UiText textRight{};                            ///< Optional companion text inside control on the right of the track
-    UiText description{};                          ///< Optional external explanation text
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
-    Icon icon{};                                   ///< Optional leading icon in external Element label bar
-    UiText badge{};                                ///< Optional trailing pill badge in external Element label bar
     std::span<const std::string_view> stepLabels{};///< Optional text labels for each discrete step
-    ElementLayout layout{ElementLayout::Stacked};    ///< Widget layout (Stacked, Inline, Top, Bottom)
-    InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout (LabelFirst = text first, ControlFirst = control first)
-    Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
+    Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     bool showTicks{true};                          ///< Whether to render tick marks at each step
     bool showLabels{true};                         ///< Whether to render stepLabels below ticks
     bool showValue{false};                         ///< Whether to display currently selected label/value inside control
@@ -72,30 +56,20 @@ struct StepSliderOptions {
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
-    bool background{false};                        ///< Whether to render a surface backdrop around the outer Element
-    float borderWidth{0.0f};                       ///< Outer Element border thickness in points (0.0f = no border)
-    std::optional<float> borderRadius{std::nullopt}; ///< Outer Element corner radius in points
-    StateColor borderColor{};                      ///< Per-state outer Element border color (normal, hover, active, disabled)
-    StateColor bgColor{};                          ///< Per-state outer Element background color (normal, hover, active, disabled)
-    ControlSpec control{};                         ///< Inner Control slot configuration (width, height, background, borderWidth, borderRadius, borderColor, bgColor)
+    Background background{false};                  ///< Control well backdrop configuration (false, true, Color, or StateColor)
+    Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Interaction suppression
 };
 
 /// Clean configuration options for two-thumb continuous/stepped RangeSlider widget.
 struct RangeSliderOptions {
-    UiText label{};                                ///< External primary caption text above or beside control
     UiText textLeft{};                             ///< Optional companion text inside control on the left of the track
     UiText textRight{};                            ///< Optional companion text inside control on the right of the track
-    UiText description{};                          ///< Optional external explanation text
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
-    Icon icon{};                                   ///< Optional leading icon in external Element label bar
-    UiText badge{};                                ///< Optional trailing pill badge in external Element label bar
     UiText valueFormat{};                          ///< Format string for range values (e.g. "%.0f .. %.0f Hz" or "%.1f %%")
     std::optional<double> step{std::nullopt};      ///< Step quantization (defaults to 1.0 for integers, continuous for float)
     double minSpan{0.0};                           ///< Minimum separation between low and high values
-    ElementLayout layout{ElementLayout::Stacked};    ///< Widget layout (Stacked, Inline, Top, Bottom)
-    InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout (LabelFirst = text first, ControlFirst = control first)
-    Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
+    Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     bool showValue{true};                          ///< Whether to display current formatted range text inside control
     Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     StateColor color{};                            ///< Per-state accent fill color for active interval and thumbs
@@ -105,33 +79,23 @@ struct RangeSliderOptions {
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
-    bool background{false};                        ///< Whether to render a surface backdrop around the outer Element
-    float borderWidth{0.0f};                       ///< Outer Element border thickness in points (0.0f = no border)
-    std::optional<float> borderRadius{std::nullopt}; ///< Outer Element corner radius in points
-    StateColor borderColor{};                      ///< Per-state outer Element border color (normal, hover, active, disabled)
-    StateColor bgColor{};                          ///< Per-state outer Element background color (normal, hover, active, disabled)
-    ControlSpec control{};                         ///< Inner Control slot configuration (width, height, background, borderWidth, borderRadius, borderColor, bgColor)
+    Background background{false};                  ///< Control well backdrop configuration (false, true, Color, or StateColor)
+    Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Interaction suppression
 };
 
 /// Clean configuration options for continuous ProgressBar & Segmented LED / VU LevelMeter widget.
 struct ProgressBarOptions {
-    UiText label{};                                ///< External primary caption text above or beside control
     UiText textLeft{};                             ///< Optional companion text inside control on the left of the track
     UiText textRight{};                            ///< Optional companion text inside control on the right of the track
-    UiText description{};                          ///< Optional external explanation text
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
-    Icon icon{};                                   ///< Optional leading icon in external Element label bar
-    UiText badge{};                                ///< Optional trailing pill badge in external Element label bar
     UiText valueFormat{};                          ///< Format string for value (e.g. "%.0f %%", "%.1f dB"; empty = default numeric format)
     std::optional<double> peakHoldValue{std::nullopt}; ///< Optional peak-hold marker value on the track (for VU/dB level meters)
     uint32_t segments{0};                          ///< 0 = smooth continuous bar; >0 = segmented LED/VU level meter (e.g. 20 segments)
     float warningRatio{0.70f};                     ///< Normalized threshold [0..1] for Warning zone when multiZoneColor is true
     float dangerRatio{0.90f};                      ///< Normalized threshold [0..1] for Danger zone when multiZoneColor is true
     std::optional<float> trackHeight{std::nullopt};///< Optional bar thickness override in points
-    ElementLayout layout{ElementLayout::Stacked};    ///< Widget layout (Stacked, Inline, Top, Bottom)
-    InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout (LabelFirst = text first, ControlFirst = control first)
-    Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
+    Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     bool showValue{true};                          ///< Whether to display current formatted value text inside control
     Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     StateColor color{};                            ///< Per-state accent fill color for active bar (or base zone when multiZoneColor is true)
@@ -142,12 +106,8 @@ struct ProgressBarOptions {
     std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
     bool multiZoneColor{false};                    ///< Color bar/segments across 3 zones (Variant/Success -> Warning -> Danger)
-    bool background{false};                        ///< Whether to render a surface backdrop around the outer Element
-    float borderWidth{0.0f};                       ///< Outer Element border thickness in points (0.0f = no border)
-    std::optional<float> borderRadius{std::nullopt}; ///< Outer Element corner radius in points
-    StateColor borderColor{};                      ///< Per-state outer Element border color (normal, hover, active, disabled)
-    StateColor bgColor{};                          ///< Per-state outer Element background color (normal, hover, active, disabled)
-    ControlSpec control{};                         ///< Inner Control slot configuration (width, height, background, borderWidth, borderRadius, borderColor, bgColor)
+    Background background{false};                  ///< Control well backdrop configuration (false, true, Color, or StateColor)
+    Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Dimmed disabled state
 };
 

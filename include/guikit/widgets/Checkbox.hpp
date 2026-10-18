@@ -15,30 +15,20 @@ class ICanvas;
 
 /// Clean configuration options for Checkbox widget.
 struct CheckboxOptions {
-    UiText label{};                                ///< Primary caption text
-    UiText description{};                          ///< Optional explanation text below label
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
-    Icon icon{};                                   ///< Optional leading icon in external Element label bar
-    UiText badge{};                                ///< Optional trailing pill badge in external Element label bar
     StateColor color{};                            ///< Per-state accent fill color when checked
-    ElementLayout layout{ElementLayout::Inline};     ///< Layout geometry: Stacked, Top, Bottom, Inline
-    InlineOrder inlineOrder{InlineOrder::ControlFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
-    Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
+    Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = auto), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = auto from UiSize)
-    bool background{false};                        ///< Whether to render a surface backdrop around the outer Element
-    float borderWidth{0.0f};                       ///< Outer Element border thickness in points (0.0f = no border)
-    std::optional<float> borderRadius{std::nullopt}; ///< Outer Element corner radius in points
-    StateColor borderColor{};                      ///< Per-state outer Element border color (normal, hover, active, disabled)
-    StateColor bgColor{};                          ///< Per-state outer Element background color (normal, hover, active, disabled)
-    ControlSpec control{};                         ///< Inner Control slot configuration (width, height, align, background, borderWidth, borderRadius, borderColor, bgColor)
+    Background background{false};                  ///< Control well backdrop configuration (false, true, Color, or StateColor)
+    Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Interaction suppression
     bool indeterminate{false};                     ///< Tri-state / partial check (horizontal dash)
     bool radio{false};                             ///< Renders circular radio button indicator instead of square checkbox
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
 };
-static_assert(sizeof(CheckboxOptions) <= 760, "CheckboxOptions must stay compact");
+static_assert(sizeof(CheckboxOptions) <= 384, "CheckboxOptions must stay compact");
 
 /// Autonomous Checkbox widget logic (execution, measuring, and rendering).
 class Checkbox {

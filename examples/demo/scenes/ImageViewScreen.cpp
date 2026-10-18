@@ -199,52 +199,80 @@ ImageViewDemoState s_imgDemo{};
 void RenderImageViewInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     s_imgDemo.EnsureGenerated();
 
-    ui.Heading({.title = "DATASET & CHANNELS", .size = UiSize::Xs, .divider = true});
+    ui.Heading({.label = "DATASET & CHANNELS", .size = UiSize::Xs, .divider = true});
     static constexpr std::array<std::string_view, 2> kDatasetNames = {
         "16-bit Radiograph Phantom (1ch)",
         "Multispectral Fluorescence (3ch RGB)"
     };
-    if (ui.Select(s_imgDemo.datasetIndex, kDatasetNames, {.label = "Synthetic Dataset"}).changed) {
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Synthetic Dataset"})) {
+        if (ui.Select(s_imgDemo.datasetIndex, kDatasetNames).changed) {
+            ui.InvalidateAll();
+        }
     }
 
     ImageViewParams& activeParams = (s_imgDemo.datasetIndex == 0) ? s_imgDemo.paramsMono : s_imgDemo.paramsRgb;
 
     static constexpr std::array<std::string_view, 3> kHistScales = {"Sqrt", "Log", "Linear"};
     int scaleIdx = static_cast<int>(activeParams.histScaleMode);
-    if (ui.StepSlider(scaleIdx, kHistScales, {.label = "Histogram Scale", .showValue = false}).changed) {
-        activeParams.histScaleMode = static_cast<HistogramScaleMode>(scaleIdx);
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Histogram Scale"})) {
+        if (ui.StepSlider(scaleIdx, kHistScales, {.showValue = false}).changed) {
+            activeParams.histScaleMode = static_cast<HistogramScaleMode>(scaleIdx);
+            ui.InvalidateAll();
+        }
     }
 
-    ui.Heading({.title = "WORKSTATION LAYOUT", .size = UiSize::Xs, .divider = true});
-    if (ui.Switch(s_imgDemo.viewOpts.showSidebar, {.label = "Show Built-in Sidebar"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_imgDemo.viewOpts.sidebarOnRight, {
+    ui.Heading({.label = "WORKSTATION LAYOUT", .size = UiSize::Xs, .divider = true});
+    if (auto el = ui.Element({.label = "Show Built-in Sidebar"})) {
+        if (ui.Switch(s_imgDemo.viewOpts.showSidebar).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({
         .label = "Sidebar on Right",
         .disabled = !s_imgDemo.viewOpts.showSidebar
-    }).changed) {
-        ui.InvalidateAll();
+    })) {
+        if (ui.Switch(s_imgDemo.viewOpts.sidebarOnRight, {
+            .disabled = !s_imgDemo.viewOpts.showSidebar
+        }).changed) {
+            ui.InvalidateAll();
+        }
     }
-    if (ui.Slider(s_imgDemo.viewOpts.sidebarWidth, 240.0f, 380.0f, {
+    if (auto el = ui.Element({
         .label = "Sidebar Width",
-        .valueFormat = "%.0f px",
         .disabled = !s_imgDemo.viewOpts.showSidebar
-    }).changed) {
-        ui.InvalidateAll();
+    })) {
+        if (ui.Slider(s_imgDemo.viewOpts.sidebarWidth, 240.0f, 380.0f, {
+            .valueFormat = "%.0f px",
+            .disabled = !s_imgDemo.viewOpts.showSidebar
+        }).changed) {
+            ui.InvalidateAll();
+        }
     }
-    if (ui.Switch(s_imgDemo.viewOpts.showTopToolbar, {.label = "Show Top Quick Toolbar"}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Show Top Quick Toolbar"})) {
+        if (ui.Switch(s_imgDemo.viewOpts.showTopToolbar).changed) ui.InvalidateAll();
+    }
     UiSize tbSize = s_imgDemo.viewOpts.toolbarSize.value_or(UiSize::Md);
-    if (ui.StepSlider(tbSize, {
+    if (auto el = ui.Element({
         .label = "Toolbar Size",
         .disabled = !s_imgDemo.viewOpts.showTopToolbar
-    }).changed) {
-        s_imgDemo.viewOpts.toolbarSize = tbSize;
-        ui.InvalidateAll();
+    })) {
+        if (ui.StepSlider(tbSize, {
+            .disabled = !s_imgDemo.viewOpts.showTopToolbar
+        }).changed) {
+            s_imgDemo.viewOpts.toolbarSize = tbSize;
+            ui.InvalidateAll();
+        }
     }
-    if (ui.Switch(s_imgDemo.viewOpts.showStatusBar, {.label = "Show Bottom Status Bar"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_imgDemo.viewOpts.showPixelGridAtHighZoom, {.label = "High-Zoom Pixel Grid (>=12x)"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_imgDemo.viewOpts.enableLineProfile, {.label = "Enable RMB Line Profile"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_imgDemo.viewOpts.enableCtrlWlDrag, {.label = "Enable Ctrl+LMB W/L Drag"}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Show Bottom Status Bar"})) {
+        if (ui.Switch(s_imgDemo.viewOpts.showStatusBar).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "High-Zoom Pixel Grid (>=12x)"})) {
+        if (ui.Switch(s_imgDemo.viewOpts.showPixelGridAtHighZoom).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Enable RMB Line Profile"})) {
+        if (ui.Switch(s_imgDemo.viewOpts.enableLineProfile).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Enable Ctrl+LMB W/L Drag"})) {
+        if (ui.Switch(s_imgDemo.viewOpts.enableCtrlWlDrag).changed) ui.InvalidateAll();
+    }
 }
 
 void RenderImageViewStage(guikit::Context& ui, DemoContext& /*ctx*/) {

@@ -25,31 +25,21 @@ struct SelectItem {
     bool disabled{false};    ///< Whether this item is non-selectable and dimmed
 };
 
-/// Clean configuration options for Select (dropdown combo box) widget.
+/// Clean configuration options for Select (dropdown combo box) control widget.
 struct SelectOptions {
-    UiText label{};                                ///< Primary caption text
-    UiText description{};                          ///< Optional helper text below select box
     UiText placeholder{"Select..."};               ///< Placeholder text when no item is selected or items list is empty
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
-    Icon icon{};                                   ///< Optional leading icon in external Element label bar
-    UiText badge{};                                ///< Optional trailing pill badge in external Element label bar
     UiAffix prefix{};                              ///< Optional default leading icon/text inside closed field
     UiAffix suffix{};                              ///< Optional default trailing text/icon inside closed field
-    ElementLayout layout{ElementLayout::Stacked};    ///< Layout geometry: Stacked, Top, Bottom, Inline
-    InlineOrder inlineOrder{InlineOrder::LabelFirst}; ///< Sequencing order in Inline layout: LabelFirst, ControlFirst
-    Align elementAlign{Align::Start};                ///< Element composition and label alignment (Start, Center, End)
     std::optional<uint32_t> maxVisibleItems{std::nullopt}; ///< Optional limit on visible items count before scrolling
     std::optional<UiSize> size{std::nullopt};      ///< Local size override (nullopt = inherit container size)
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
+    Align align{Align::Start};                     ///< Standalone horizontal control alignment (Start, Center, End)
     std::optional<float> width{std::nullopt};      ///< Select box width: in points for Compact/Space (nullopt = auto from items), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> height{std::nullopt};     ///< Explicit select box height in points (nullopt = inherit defaultHeight from UiSize)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum select box width constraint in points
-    bool background{false};                        ///< Whether to render a surface backdrop around the outer Element
-    float borderWidth{0.0f};                       ///< Outer Element border thickness in points (0.0f = no border)
-    std::optional<float> borderRadius{std::nullopt}; ///< Outer Element corner radius in points
-    StateColor borderColor{};                      ///< Per-state outer Element border color (normal, hover, active, disabled)
-    StateColor bgColor{};                          ///< Per-state outer Element background color (normal, hover, active, disabled)
-    ControlSpec control{};                         ///< Inner Control slot configuration (width, height, minWidth, background, borderWidth, borderRadius, borderColor, bgColor)
+    Background background{true};                   ///< Select box surface fill configuration (true, false, Color, or StateColor)
+    Border border{};                               ///< Select box border stroke & corner radius configuration
     bool disabled{false};                          ///< Interaction suppression
 };
 

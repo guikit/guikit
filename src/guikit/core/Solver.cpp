@@ -181,6 +181,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             availableWidth = (availableWidth > 0.0f) ? std::min(availableWidth, node->fixedWidth) : node->fixedWidth;
         }
         const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
+        if ((node->type == NodeType::Element || node->type == NodeType::Scene) && node->measureFn) {
+            return std::max(node->minHeight, node->measureFn(node, availableWidth, canvas, activeTheme).y);
+        }
         if (node->childCount == 0) {
             float h = node->intrinsicSize.y;
             if (node->measureFn) {
@@ -667,7 +670,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (!child->isSpacer && child->minHeight > 0.0f) {
                 childH = std::max(childH, child->minHeight);
             }
-            if ((node->heightMode == SizeMode::Stretch || child->type == NodeType::Image) && contentRect.h > 0.0f) {
+            if (node->heightMode == SizeMode::Stretch && contentRect.h > 0.0f) {
                 childH = std::min(childH, contentRect.h);
             }
 
@@ -827,9 +830,6 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 childH = child->fixedHeight;
             } else if (!child->isSpacer) { // SizeMode::Fit or Stretch inside Fit/ScrollArea parent
                 childH = ResolveNodeHeight(child, contentRect.w, canvas, theme);
-                if (parentHasDefiniteHeight && child->type == NodeType::Image && contentRect.h > 0.0f) {
-                    childH = std::min(childH, std::max(0.0f, contentRect.Bottom() - currentY));
-                }
             }
 
             float childW = contentRect.w;

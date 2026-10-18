@@ -3,7 +3,6 @@
 #include <cmath>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 
@@ -24,17 +23,20 @@ Vec2 ResolveNaturalImageSize(std::string_view source, ICanvas* canvas) noexcept 
     return {kDefaultFallbackWidth, kDefaultFallbackHeight};
 }
 
-ControlSpec EffectiveImageControl(const ImageOptions& opts) noexcept {
-    ControlSpec ctrl = opts.control;
-    if (!ctrl.width.has_value() && opts.width.has_value()) {
-        ctrl.width = opts.width;
-    }
-    if (!ctrl.height.has_value() && opts.height.has_value()) {
-        ctrl.height = opts.height;
-    }
-    if (!ctrl.background.has_value()) {
-        ctrl.background = false;
-    }
+ControlSpec EffectiveImageControl(const ImageOptions& opts, UiSize size, const UiTheme& theme) noexcept {
+    const ComponentMetrics& m = theme.GetMetrics(size);
+    const InputFieldMetrics& inputMetrics = theme.GetInputField(size);
+    ControlSpec ctrl{};
+    ctrl.width = opts.width;
+    ctrl.height = opts.height;
+    ctrl.align = opts.align;
+    ctrl.background = opts.background;
+    ctrl.border = opts.border;
+    ctrl.defaultLayout = ElementLayout::Stacked;
+    ctrl.defaultInlineOrder = InlineOrder::LabelFirst;
+    ctrl.labelGap = inputMetrics.labelGap;
+    ctrl.descGap = inputMetrics.descGap;
+    ctrl.inlineGap = m.paddingX;
     ctrl.stretchable = true;
     ctrl.stretchHeightWhenStandalone = (opts.heightMode == SizeMode::Stretch);
     ctrl.hasIntrinsicBox = true;
@@ -47,25 +49,24 @@ Vec2 ComputeControlBoxSize(
     const UiTheme& theme,
     float availableWidth
 ) noexcept {
-    const ControlSpec ctrl = EffectiveImageControl(opts);
     const float natW = std::max(1.0f, theme.Scale(naturalSize.x));
     const float natH = std::max(1.0f, theme.Scale(naturalSize.y));
     const float aspect = natW / natH;
 
     float ctrlW = natW;
     if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
-        const float pct = std::clamp(ctrl.width.value_or(100.0f), 1.0f, 100.0f);
+        const float pct = std::clamp(opts.width.value_or(100.0f), 1.0f, 100.0f);
         ctrlW = availableWidth * (pct * 0.01f);
-    } else if (ctrl.width.has_value() && *ctrl.width > 0.0f) {
-        ctrlW = theme.Scale(*ctrl.width);
+    } else if (opts.width.has_value() && *opts.width > 0.0f) {
+        ctrlW = theme.Scale(*opts.width);
     }
     if (availableWidth > 0.0f) {
         ctrlW = std::min(ctrlW, availableWidth);
     }
 
     float ctrlH = natH;
-    if (ctrl.height.has_value() && *ctrl.height > 0.0f) {
-        ctrlH = theme.Scale(*ctrl.height);
+    if (opts.height.has_value() && *opts.height > 0.0f) {
+        ctrlH = theme.Scale(*opts.height);
     } else if (opts.fit == ObjectFit::Original) {
         ctrlH = natH;
     } else if (aspect > 0.0f) {
@@ -77,97 +78,6 @@ Vec2 ComputeControlBoxSize(
     }
 
     return { std::max(1.0f, ctrlW), std::max(1.0f, ctrlH) };
-}
-
-ElementSpec MakeImageSpec(
-    const ImageOptions& opts,
-    UiSize size,
-    const UiTheme& theme,
-    bool disabled,
-    bool hovered = false,
-    bool active = false
-) noexcept {
-    const ComponentMetrics& m = theme.GetMetrics(size);
-    const InputFieldMetrics& inputMetrics = theme.GetInputField(size);
-    const ControlSpec ctrl = EffectiveImageControl(opts);
-    return ElementSpec{
-        .label = opts.label,
-        .description = opts.description,
-        .icon = opts.icon,
-        .badge = opts.badge,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .elementAlign = opts.elementAlign,
-        .stretch = opts.stretch,
-        .width = ctrl.width,
-        .height = ctrl.height,
-        .control = ctrl,
-        .background = opts.background,
-        .borderWidth = opts.borderWidth,
-        .borderRadius = opts.borderRadius,
-        .borderColor = opts.borderColor,
-        .bgColor = opts.bgColor,
-        .widgetSize = size,
-        .labelGap = inputMetrics.labelGap,
-        .descGap = inputMetrics.descGap,
-        .inlineGap = m.paddingX,
-        .stretchableControl = true,
-        .stretchHeightWhenStandalone = (opts.heightMode == SizeMode::Stretch),
-        .disabled = disabled,
-        .hovered = hovered,
-        .active = active
-    };
-}
-
-float ResolveInlineControlAvailableWidth(
-    const ImageOptions& opts,
-    const ElementSpec& spec,
-    UiSize size,
-    ICanvas* canvas,
-    const UiTheme& theme,
-    float availableWidth
-) noexcept {
-    if (availableWidth <= 0.0f || opts.layout != ElementLayout::Inline) {
-        return availableWidth;
-    }
-    const bool hasLabel = opts.icon.IsValid() || opts.label.HasContentOrReserve() || opts.badge.HasContentOrReserve();
-    const bool hasDesc = opts.description.HasContentOrReserve();
-    if (!hasLabel && !hasDesc) {
-        return availableWidth;
-    }
-    const ControlSpec& ctrl = spec.control;
-    // When Fill mode has an explicit percentage width, Element::Resolve applies that percentage directly to bounds.w
-    if (opts.stretch == StretchMode::Fill && ctrl.width.has_value()) {
-        return availableWidth;
-    }
-    // When Fill mode has no explicit width in Inline layout, Element::Resolve subtracts measuredTextW + inlineGap
-    if (opts.stretch == StretchMode::Fill && !ctrl.width.has_value()) {
-        const HeadingMetrics& hm = theme.GetHeading(size);
-        const float labelFs = theme.ResolveFontSize(opts.label, TextRole::LabelLarge, size);
-        const float descFs = theme.ResolveFontSize(opts.description, TextRole::LabelSmall, size);
-        float labelBarW = 0.0f;
-        if (opts.icon.IsValid()) {
-            labelBarW += hm.iconSize;
-        }
-        if (opts.label.HasContentOrReserve()) {
-            if (labelBarW > 0.0f) labelBarW += hm.gap;
-            labelBarW += TextUtil::MeasureWidth(opts.label, labelFs, canvas);
-        }
-        if (opts.badge.HasContentOrReserve()) {
-            if (labelBarW > 0.0f) labelBarW += hm.badgeGap;
-            const UiSize badgeSz = (opts.badge.size.preset != UiSize::None) ? opts.badge.size.preset : size;
-            const float badgeFs = (opts.badge.size.px > 0.0f)
-                ? opts.badge.size.px
-                : (opts.badge.size.role.has_value()
-                    ? theme.GetTypography(*opts.badge.size.role).fontSize
-                    : theme.GetHeading(badgeSz).badgeFontSize);
-            labelBarW += TextUtil::MeasureWidth(opts.badge, badgeFs, canvas) + 12.0f;
-        }
-        const float descW = hasDesc ? TextUtil::MeasureWidth(opts.description, descFs, canvas) : 0.0f;
-        const float textW = std::max(labelBarW, descW);
-        return std::max(theme.GetMetrics(size).defaultHeight, availableWidth - textW - spec.inlineGap);
-    }
-    return availableWidth;
 }
 
 } // namespace
@@ -196,52 +106,36 @@ Response Image::Run(
         ctx.SetTooltip(opts.tooltip, res.rect);
     }
 
-    const ControlSpec ctrl = EffectiveImageControl(opts);
+    ImageOptions optsCopy = opts;
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+
+    const ControlSpec ctrl = EffectiveImageControl(optsCopy, activeSize, theme);
     Node* node = ctx.CreateNode(NodeType::Image, id);
     auto* payload = ctx.AllocPayload<ImagePayload>();
     payload->source = ctx.AllocString(source);
-    payload->opts = opts;
-    payload->opts.label = ctx.AllocText(opts.label);
-    payload->opts.description = ctx.AllocText(opts.description);
-    payload->opts.badge = ctx.AllocText(opts.badge);
-    payload->opts.alt = ctx.AllocText(opts.alt);
-    payload->opts.tooltip = ctx.AllocString(opts.tooltip);
-    node->text = payload->opts.label.text.empty() ? payload->source : payload->opts.label.text;
+    payload->opts = optsCopy;
+    payload->opts.alt = ctx.AllocText(optsCopy.alt);
+    payload->opts.tooltip = ctx.AllocString(optsCopy.tooltip);
+    payload->lastCanvas = ctx.GetCanvas();
+    node->text = payload->source;
     node->SetPayload(payload);
 
     node->visualHash = detail::HashArgs(
         payload->source,
-        payload->opts.label,
-        payload->opts.description,
-        payload->opts.badge,
         payload->opts.alt,
-        opts.background,
-        opts.borderWidth,
-        opts.borderRadius.value_or(-1.0f),
-        opts.borderColor,
-        opts.bgColor,
-        ctrl.HasBackground(false),
-        ctrl.borderColor,
-        ctrl.bgColor,
-        static_cast<uint8_t>(opts.icon.GetType()),
-        static_cast<uint8_t>(opts.icon.GetId()),
-        opts.icon.GetPath(),
-        static_cast<uint8_t>(opts.fit),
-        static_cast<uint8_t>(opts.layout),
-        static_cast<uint8_t>(opts.inlineOrder),
-        static_cast<uint8_t>(opts.elementAlign),
-        static_cast<uint8_t>(opts.alignX),
-        static_cast<uint8_t>(opts.alignY),
-        static_cast<uint8_t>(opts.stretch),
-        static_cast<uint8_t>(opts.heightMode),
-        ctrl.width.value_or(0.0f),
-        ctrl.height.value_or(0.0f),
-        opts.maxHeight.value_or(0.0f),
-        ctrl.borderRadius.value_or(-1.0f),
-        ctrl.borderWidth,
-        opts.backgroundColor.ToUint32(),
-        opts.checkerboard,
-        opts.opacity,
+        optsCopy.background,
+        optsCopy.border,
+        static_cast<uint8_t>(optsCopy.fit),
+        static_cast<uint8_t>(optsCopy.align),
+        static_cast<uint8_t>(optsCopy.alignX),
+        static_cast<uint8_t>(optsCopy.alignY),
+        static_cast<uint8_t>(optsCopy.stretch),
+        static_cast<uint8_t>(optsCopy.heightMode),
+        optsCopy.width.value_or(0.0f),
+        optsCopy.height.value_or(0.0f),
+        optsCopy.maxHeight.value_or(0.0f),
+        optsCopy.checkerboard,
+        optsCopy.opacity,
         activeSize,
         effectiveDisabled
     );
@@ -249,7 +143,10 @@ Response Image::Run(
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& th) noexcept -> Vec2 {
         const auto* p = n->As<ImagePayload>();
         if (!p) return {0.0f, 0.0f};
-        return Image::Measure(p->source, p->opts, n->uiSize, canvas, th, availableWidth);
+        if (canvas) {
+            p->lastCanvas = canvas;
+        }
+        return Image::Measure(p->source, p->opts, n->uiSize, canvas ? canvas : p->lastCanvas, th, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& th) noexcept {
         const auto* p = n->As<ImagePayload>();
@@ -261,18 +158,17 @@ Response Image::Run(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed;
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-    node->heightMode = opts.heightMode;
-    const bool hasExternal = opts.icon.IsValid() || opts.label.HasContentOrReserve() ||
-                             opts.description.HasContentOrReserve() || opts.badge.HasContentOrReserve();
-    if (ctrl.height.has_value() && *ctrl.height > 0.0f && !hasExternal && !opts.background && opts.borderWidth <= 0.0f) {
+
+    Control::SetupNode(ctx, node, ctrl, optsCopy.stretch, optsCopy.align);
+    node->heightMode = optsCopy.heightMode;
+    if (ctrl.height.has_value() && *ctrl.height > 0.0f) {
         node->heightMode = SizeMode::Fixed;
         node->fixedHeight = theme.Scale(*ctrl.height);
     }
     node->minHeight = ctrl.height.has_value() ? theme.Scale(*ctrl.height) : theme.GetMetrics(activeSize).defaultHeight;
 
     ctx.AdaptChildToContainer(node);
-    if (opts.heightMode == SizeMode::Fit && node->heightMode == SizeMode::Stretch) {
+    if (optsCopy.heightMode == SizeMode::Fit && node->heightMode == SizeMode::Stretch) {
         node->heightMode = SizeMode::Fit;
     }
 
@@ -288,10 +184,9 @@ Vec2 Image::Measure(
     float availableWidth
 ) {
     const Vec2 naturalSize = ResolveNaturalImageSize(source, canvas);
-    const ElementSpec spec = MakeImageSpec(opts, size, theme, opts.disabled);
-    const float ctrlAvailW = ResolveInlineControlAvailableWidth(opts, spec, size, canvas, theme, availableWidth);
-    const Vec2 ctrlSize = ComputeControlBoxSize(naturalSize, opts, theme, ctrlAvailW);
-    return Element::Measure(ctrlSize, spec, canvas, theme, availableWidth);
+    const Vec2 ctrlSize = ComputeControlBoxSize(naturalSize, opts, theme, availableWidth);
+    const ControlSpec ctrl = EffectiveImageControl(opts, size, theme);
+    return Control::Measure(ctrlSize, ctrl, opts.stretch, size, theme);
 }
 
 Vec2 Image::Measure(
@@ -354,28 +249,19 @@ void Image::Render(
 
     const ComponentMetrics& cm = theme.GetMetrics(size);
     const Vec2 naturalSize = ResolveNaturalImageSize(source, &canvas);
-    const ElementSpec spec = MakeImageSpec(opts, size, theme, disabled, hovered, false);
-    const float ctrlAvailW = ResolveInlineControlAvailableWidth(opts, spec, size, &canvas, theme, bounds.w);
-    const Vec2 ctrlSize = ComputeControlBoxSize(naturalSize, opts, theme, ctrlAvailW);
-    const ElementGeometry geom = Element::Resolve(bounds, ctrlSize, spec, &canvas, theme);
-    Element::RenderText(canvas, geom, spec, theme);
+    const ControlSpec ctrl = EffectiveImageControl(opts, size, theme);
 
-    const Rect box = geom.controlRect;
+    const Rect box = bounds;
     if (box.w <= 0.0f || box.h <= 0.0f) return;
 
-    const ControlSpec& ctrl = spec.control;
-    const float rad = ctrl.borderRadius.has_value() ? theme.Scale(*ctrl.borderRadius) : cm.cornerRadius;
+    const float rad = ctrl.border.radius.has_value() ? theme.Scale(*ctrl.border.radius) : cm.cornerRadius;
     if (opts.checkerboard) {
         DrawCheckerboard(canvas, box, rad, theme);
-    } else if (ctrl.bgColor.HasAny() && ctrl.HasBackground(true)) {
-        const Color defaultBg = (opts.backgroundColor.a > 0) ? opts.backgroundColor : theme.palette.surfaceElevated;
-        const Color bg = ctrl.bgColor.Resolve(hovered, false, disabled, disabled ? defaultBg.WithAlphaF(0.40f) : defaultBg);
-        canvas.DrawRoundRect(box, rad, bg);
-    } else if (opts.backgroundColor.a > 0) {
-        const Color bg = disabled ? opts.backgroundColor.WithAlphaF(0.40f) : opts.backgroundColor;
-        canvas.DrawRoundRect(box, rad, bg);
     } else if (ctrl.HasBackground(false)) {
-        const Color bg = disabled ? theme.palette.surfaceElevated.WithAlphaF(0.40f) : theme.palette.surfaceElevated;
+        const Color defaultBg = disabled ? theme.palette.surfaceElevated.WithAlphaF(0.40f) : theme.palette.surfaceElevated;
+        const Color bg = ctrl.background.color.HasAny()
+            ? ctrl.background.color.Resolve(hovered, false, disabled, defaultBg)
+            : defaultBg;
         canvas.DrawRoundRect(box, rad, bg);
     }
 
@@ -400,21 +286,24 @@ void Image::Render(
 
     if (!drawn) {
         // Clean vector placeholder card when image is missing or empty
-        const Color bg = (opts.backgroundColor.a > 0) ? opts.backgroundColor : theme.palette.surfaceElevated;
+        const Color defaultBg = disabled ? theme.palette.surfaceElevated.WithAlphaF(0.40f) : theme.palette.surfaceElevated;
+        const Color bg = ctrl.background.color.HasAny()
+            ? ctrl.background.color.Resolve(hovered, false, disabled, defaultBg)
+            : defaultBg;
         const Color border = theme.palette.borderSubtle;
-        canvas.DrawRoundRect(box, rad, disabled ? bg.WithAlphaF(0.40f) : bg, disabled ? border.WithAlphaF(0.40f) : border, 1.0f);
+        canvas.DrawRoundRect(box, rad, bg, disabled ? border.WithAlphaF(0.40f) : border, 1.0f);
 
         const float fs = cm.companionFontSize;
         std::string_view fallbackText = !opts.alt.empty() ? opts.alt.text : (!source.empty() ? source : "Image Placeholder");
         canvas.DrawTextBox(fallbackText, box.Inset(cm.paddingX), fs, disabled ? theme.palette.textDisabled : theme.palette.textMuted, 0.5f, 0.5f);
     }
 
-    if (ctrl.borderWidth > 0.0f) {
+    if (ctrl.border.width > 0.0f) {
         Color bCol = disabled ? theme.palette.borderSubtle.WithAlphaF(0.40f) : theme.palette.borderSubtle;
-        if (ctrl.borderColor.HasAny()) {
-            bCol = ctrl.borderColor.Resolve(hovered, false, disabled, bCol);
+        if (ctrl.border.color.HasAny()) {
+            bCol = ctrl.border.color.Resolve(hovered, false, disabled, bCol);
         }
-        canvas.DrawRoundRect(box, rad, Color::Transparent(), bCol, theme.Scale(ctrl.borderWidth));
+        canvas.DrawRoundRect(box, rad, Color::Transparent(), bCol, theme.Scale(ctrl.border.width));
     }
 }
 

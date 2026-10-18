@@ -4,12 +4,22 @@
 namespace guikit::demo {
 
 void RenderCardInspector(guikit::Context& ui, DemoContext& ctx) {
-    if (ui.StepSlider(ctx.controlsSize, {.label = "Controls Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Controls Size"})) {
+        if (ui.StepSlider(ctx.controlsSize, {.showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
+    }
     ctx.RenderVariantPicker(ui);
-    if (ui.Slider(ctx.cardRadius, 0.0f, 24.0f, {.label = "Corner Radius", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-    if (ui.Slider(ctx.cardPadding, 0.0f, 32.0f, {.label = "Internal Padding", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-    if (ui.Slider(ctx.cardGap, 0.0f, 24.0f, {.label = "Content Spacing (Gap)", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-    if (ui.Slider(ctx.cardBorderWidth, 0.0f, 4.0f, {.label = "Border Width", .valueFormat = "%.1f px"}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Corner Radius"})) {
+        if (ui.Slider(ctx.cardRadius, 0.0f, 24.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Internal Padding"})) {
+        if (ui.Slider(ctx.cardPadding, 0.0f, 32.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Content Spacing (Gap)"})) {
+        if (ui.Slider(ctx.cardGap, 0.0f, 24.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Border Width"})) {
+        if (ui.Slider(ctx.cardBorderWidth, 0.0f, 4.0f, {.valueFormat = "%.1f px"}).changed) ui.InvalidateAll();
+    }
 }
 
 void RenderCardStage(guikit::Context& ui, DemoContext& ctx) {
@@ -21,8 +31,8 @@ void RenderCardStage(guikit::Context& ui, DemoContext& ctx) {
         .size = ctx.controlsSize
     })) {
         ui.Heading({
-            .title = "Card Surface Component",
-            .subtitle = "Configurable padding, radius and spacing tokens",
+            .label = "Card Surface Component",
+            .description = "Configurable padding, radius and spacing tokens",
             .icon = guikit::Icon::Copy(),
             .size = ctx.controlsSize,
             .divider = true
@@ -49,8 +59,8 @@ std::string GenerateCardCode(const DemoContext& ctx) {
         "    .size = guikit::UiSize::{}\n"
         "}})) {{\n"
         "    ui.Heading({{\n"
-        "        .title = \"Card Surface Component\",\n"
-        "        .subtitle = \"Configurable padding, radius and spacing tokens\",\n"
+        "        .label = \"Card Surface Component\",\n"
+        "        .description = \"Configurable padding, radius and spacing tokens\",\n"
         "        .icon = guikit::Icon::Copy(),\n"
         "        .size = guikit::UiSize::{},\n"
         "        .divider = true\n"

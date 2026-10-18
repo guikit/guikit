@@ -544,7 +544,7 @@ MapViewScope MapView::Open(
         .background = SceneBackground::Solid,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
-        .elementAlign = opts.elementAlign,
+        .align = opts.align,
         .stretch = opts.stretch,
         .widthMode = opts.widthMode,
         .heightMode = opts.heightMode,

@@ -42,20 +42,17 @@ constexpr float kDegToRad = kPi / 180.0f;
         .badge = opts.badge,
         .layout = opts.layout,
         .inlineOrder = opts.inlineOrder,
-        .elementAlign = opts.elementAlign,
+        .align = opts.align,
         .stretch = opts.stretch,
         .width = ctrlSpec.width,
         .height = ctrlSpec.height,
         .control = ctrlSpec,
         .background = opts.background,
-        .borderWidth = opts.borderWidth,
-        .borderRadius = opts.borderRadius,
+        .border = {.width = opts.borderWidth, .radius = opts.borderRadius},
         .widgetSize = size,
         .labelGap = theme.Scale(6.0f),
         .descGap = theme.Scale(4.0f),
         .inlineGap = theme.Scale(12.0f),
-        .divider = opts.divider,
-        .dividerStyle = opts.dividerStyle,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = (opts.heightMode == SizeMode::Stretch),
         .disabled = disabled
@@ -1136,10 +1133,10 @@ void RenderAttitudeViewNode(const Node* node, ICanvas& canvas, const UiTheme& th
     if (r.w <= 16.0f || r.h <= 16.0f) return;
 
     const AttitudePalette pal = BuildPalette(opts.colorScheme, opts.displayMode);
-    const float radius = spec.control.borderRadius.has_value()
-        ? theme.Scale(*spec.control.borderRadius)
+    const float radius = spec.control.border.radius.has_value()
+        ? theme.Scale(*spec.control.border.radius)
         : theme.GetRadius(node->uiSize);
-    const float borderW = (spec.control.borderWidth > 0.0f) ? theme.Scale(spec.control.borderWidth) : 1.0f;
+    const float borderW = (spec.control.border.width > 0.0f) ? theme.Scale(spec.control.border.width) : 1.0f;
 
     canvas.DrawRoundRect(r, radius, pal.bgConsole, theme.palette.borderSubtle, borderW);
     canvas.PushClip(r);
@@ -1479,8 +1476,7 @@ AttitudeViewResponse AttitudeView::Run(
         opts.borderWidth,
         opts.borderRadius.value_or(-1.0f),
         elemSpec.control.HasBackground(false),
-        elemSpec.control.borderWidth,
-        elemSpec.control.borderRadius.value_or(-1.0f),
+        elemSpec.control.border,
         static_cast<uint8_t>(opts.displayMode),
         static_cast<uint8_t>(opts.referenceMode),
         static_cast<uint8_t>(opts.colorScheme),

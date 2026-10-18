@@ -16,105 +16,135 @@ ButtonState s_state;
 } // namespace
 
 void RenderButtonInspector(guikit::Context& ui, DemoContext&) {
-    if (ui.InputField(s_state.text, {
-        .label = "Capsule Text",
-        .placeholder = "Icon-only...",
-        .clearable = true
-    }).changed) {
-        s_state.clicks = 0;
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Capsule Text"})) {
+        if (ui.InputField(s_state.text, {
+            .placeholder = "Icon-only...",
+            .clearable = true
+        }).changed) {
+            s_state.clicks = 0;
+            ui.InvalidateAll();
+        }
     }
 
     static constexpr std::array<std::string_view, 3> alignNames = {"Start (Left)", "Center", "End (Right)"};
     size_t alignIdx = (s_state.controlAlign == guikit::Align::Start) ? 0 : ((s_state.controlAlign == guikit::Align::End) ? 2 : 1);
-    if (ui.StepSlider(alignIdx, alignNames, {.label = "Content Alignment", .showTicks = true, .showLabels = true}).changed) {
-        s_state.controlAlign = (alignIdx == 0) ? guikit::Align::Start : ((alignIdx == 2) ? guikit::Align::End : guikit::Align::Center);
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Content Alignment"})) {
+        if (ui.StepSlider(alignIdx, alignNames, {.showTicks = true, .showLabels = true}).changed) {
+            s_state.controlAlign = (alignIdx == 0) ? guikit::Align::Start : ((alignIdx == 2) ? guikit::Align::End : guikit::Align::Center);
+            ui.InvalidateAll();
+        }
     }
-    if (ui.Switch(s_state.hasIcon, {.label = "Show Capsule Icon"}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Show Capsule Icon"})) {
+        if (ui.Switch(s_state.hasIcon).changed) ui.InvalidateAll();
+    }
     static constexpr std::array<std::string_view, 4> placeNames = {"Leading", "Trailing", "Top", "Bottom"};
     size_t placeIdx = (s_state.iconPlacement == guikit::Placement::Trailing) ? 1 : ((s_state.iconPlacement == guikit::Placement::Top) ? 2 : ((s_state.iconPlacement == guikit::Placement::Bottom) ? 3 : 0));
-    if (ui.StepSlider(placeIdx, placeNames, {.label = "Icon Placement", .showTicks = true, .showLabels = true, .disabled = !s_state.hasIcon}).changed) {
-        s_state.iconPlacement = (placeIdx == 1) ? guikit::Placement::Trailing : ((placeIdx == 2) ? guikit::Placement::Top : ((placeIdx == 3) ? guikit::Placement::Bottom : guikit::Placement::Leading));
-        ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Icon Placement", .disabled = !s_state.hasIcon})) {
+        if (ui.StepSlider(placeIdx, placeNames, {.showTicks = true, .showLabels = true, .disabled = !s_state.hasIcon}).changed) {
+            s_state.iconPlacement = (placeIdx == 1) ? guikit::Placement::Trailing : ((placeIdx == 2) ? guikit::Placement::Top : ((placeIdx == 3) ? guikit::Placement::Bottom : guikit::Placement::Leading));
+            ui.InvalidateAll();
+        }
     }
-    if (ui.Switch(s_state.square, {.label = "Square ToolButton"}) .changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Square ToolButton"})) {
+        if (ui.Switch(s_state.square).changed) ui.InvalidateAll();
+    }
 }
 
 void RenderButtonStage(guikit::Context& ui, DemoContext& ctx) {
     std::string btnText = (s_state.clicks > 0 && !s_state.text.empty())
         ? std::format("{} ({}x)", s_state.text, s_state.clicks)
         : s_state.text;
-    if (ui.Button({
+    if (auto el = ui.Element({
         .label = ctx.GetElementLabel(),
-        .text = btnText,
         .description = ctx.GetElementDescription(),
-        .icon = s_state.hasIcon ? guikit::Icon::Play() : guikit::Icon{},
-        .labelIcon = ctx.GetElementIcon(),
+        .icon = ctx.GetElementIcon(),
         .badge = ctx.GetElementBadge(),
-        .color = ctx.GetControlColor(),
-        .iconPlacement = s_state.iconPlacement,
         .layout = ctx.elemLayout,
         .inlineOrder = ctx.elemInlineOrder,
-        .elementAlign = ctx.elemAlign,
+        .align = ctx.elemAlign,
         .stretch = ctx.GetElementStretch(),
         .background = ctx.elemBackground,
-        .borderWidth = ctx.elemBorderWidth,
-        .borderRadius = ctx.GetElemBorderRadius(),
-        .borderColor = ctx.GetElemBorderColor(),
-        .control = ctx.GetControlSpec(NavCategory::ElemButton, s_state.controlAlign),
-        .disabled = ctx.elemDisabled,
-        .square = s_state.square,
-        .size = ctx.controlsSize
+        .border = ctx.GetElemBorder(),
+        .size = ctx.controlsSize,
+        .disabled = ctx.elemDisabled
     })) {
-        ++s_state.clicks;
-        ui.InvalidateAll();
+        if (ui.Button({
+            .text = btnText,
+            .icon = s_state.hasIcon ? guikit::Icon::Play() : guikit::Icon{},
+            .color = ctx.GetControlColor(),
+            .iconPlacement = s_state.iconPlacement,
+            .align = s_state.controlAlign,
+            .stretch = ctx.GetElementStretch(),
+            .width = ctx.GetElementWidth(),
+            .height = ctx.GetElementHeight(),
+            .background = ctx.GetControlBackground(NavCategory::ElemButton),
+            .border = ctx.GetCtrlBorder(),
+            .disabled = ctx.elemDisabled,
+            .square = s_state.square,
+            .size = ctx.controlsSize
+        })) {
+            ++s_state.clicks;
+            ui.InvalidateAll();
+        }
     }
 }
 
 std::string GenerateButtonCode(const DemoContext& ctx) {
     return std::format(
-        "if (ui.Button({{\n"
+        "if (auto el = ui.Element({{\n"
         "    .label = {},\n"
-        "    .text = \"{}\",\n"
         "    .description = {},\n"
         "    .icon = {},\n"
-        "    .labelIcon = {},\n"
         "    .badge = {},\n"
-        "    .color = {},\n"
-        "    .iconPlacement = guikit::Placement::{},\n"
         "    .layout = guikit::ElementLayout::{},\n"
         "    .inlineOrder = guikit::InlineOrder::{},\n"
-        "    .elementAlign = guikit::Align::{},\n"
+        "    .align = guikit::Align::{},\n"
         "    .stretch = guikit::StretchMode::{},\n"
         "    .background = {},\n"
-        "    .borderWidth = {:.1f}f,\n"
-        "    .borderRadius = {},\n"
-        "    .borderColor = {},\n"
-        "    .control = {},\n"
-        "    .disabled = {},\n"
-        "    .square = {},\n"
-        "    .size = guikit::UiSize::{}\n"
+        "    .border = {},\n"
+        "    .size = guikit::UiSize::{},\n"
+        "    .disabled = {}\n"
         "}})) {{\n"
-        "    // On click handler\n"
+        "    if (ui.Button({{\n"
+        "        .text = \"{}\",\n"
+        "        .icon = {},\n"
+        "        .color = {},\n"
+        "        .iconPlacement = guikit::Placement::{},\n"
+        "        .align = guikit::Align::{},\n"
+        "        .stretch = guikit::StretchMode::{},\n"
+        "        .width = {},\n"
+        "        .height = {},\n"
+        "        .background = {},\n"
+        "        .border = {},\n"
+        "        .disabled = {},\n"
+        "        .square = {},\n"
+        "        .size = guikit::UiSize::{}\n"
+        "    }})) {{\n"
+        "        // On click handler\n"
+        "    }}\n"
         "}}",
         ctx.FormatElementLabelCode(),
-        s_state.text,
         ctx.FormatElementDescCode(),
-        s_state.hasIcon ? "guikit::Icon::Play()" : "{}",
         ctx.FormatElementIconCode(),
         ctx.FormatElementBadgeCode(),
-        ctx.FormatControlColorCode(),
-        PlacementName(s_state.iconPlacement),
         ElementLayoutEnumName(ctx.elemLayout),
         InlineOrderEnumName(ctx.elemInlineOrder),
         LabelAlignEnumName(ctx.elemAlign),
         StretchModeEnumName(ctx.GetElementStretch()),
         ctx.elemBackground ? "true" : "false",
-        ctx.elemBorderWidth,
-        ctx.FormatElemBorderRadiusCode(),
-        ctx.FormatElemBorderColorCode(),
-        ctx.FormatControlSpecCode(NavCategory::ElemButton, s_state.controlAlign),
+        ctx.FormatElemBorderCode(),
+        SizeName(ctx.controlsSize),
+        ctx.elemDisabled ? "true" : "false",
+        s_state.text,
+        s_state.hasIcon ? "guikit::Icon::Play()" : "{}",
+        ctx.FormatControlColorCode(),
+        PlacementName(s_state.iconPlacement),
+        AlignName(s_state.controlAlign),
+        StretchModeEnumName(ctx.GetElementStretch()),
+        ctx.FormatElementWidthCode(),
+        ctx.FormatElementHeightCode(),
+        ctx.GetControlBackground(NavCategory::ElemButton) ? "true" : "false",
+        ctx.FormatCtrlBorderCode(),
         ctx.elemDisabled ? "true" : "false",
         s_state.square ? "true" : "false",
         SizeName(ctx.controlsSize)

@@ -150,43 +150,97 @@ end
 
 void RenderMarkdownInspector(guikit::Context& ui, DemoContext&) {
     ui.Text("Zoom, Selection & Search", {.role = guikit::TextRole::LabelMedium, .variant = guikit::UiVariant::Primary});
-    if (ui.Slider(s_state.zoom, 0.5f, 2.5f, {.label = "Document Zoom (Ctrl+Wheel)", .valueFormat = "%.2fx"}).changed) ui.InvalidateAll();
-    if (ui.InputField(s_state.searchQuery, {.label = "Highlight Search Query (Ctrl+F)", .placeholder = "Type to highlight matches..."}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.enableSelection, {.label = "Text Selection & Cursor (Ctrl+C)"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.interactiveTasks, {.label = "Interactive Task Checkboxes"}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Document Zoom (Ctrl+Wheel)"})) {
+        if (ui.Slider(s_state.zoom, 0.5f, 2.5f, {.valueFormat = "%.2fx"}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Highlight Search Query (Ctrl+F)"})) {
+        if (ui.InputField(s_state.searchQuery, {.placeholder = "Type to highlight matches..."}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Text Selection & Cursor (Ctrl+C)"})) {
+        if (ui.Switch(s_state.enableSelection).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Interactive Task Checkboxes"})) {
+        if (ui.Switch(s_state.interactiveTasks).changed) ui.InvalidateAll();
+    }
 
     ui.Text("Typography & Font Sizing", {.role = guikit::TextRole::LabelMedium, .variant = guikit::UiVariant::Primary});
-    if (ui.Slider(s_state.bodyFontSize, 10.0f, 22.0f, {.label = "Body Font Size", .valueFormat = "%.1f pt"}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.headingScale, 0.7f, 1.6f, {.label = "Heading Scale (H1..H6)", .valueFormat = "%.2fx"}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.inlineCodeFontSize, 9.0f, 20.0f, {.label = "Inline Code Font Size (`code`)", .valueFormat = "%.1f pt"}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.codeFontSize, 9.0f, 20.0f, {.label = "Display Code Font Size (```)", .valueFormat = "%.1f pt"}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.lineHeightScale, 0.9f, 1.8f, {.label = "Line Height Multiplier", .valueFormat = "%.2fx"}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Body Font Size"})) {
+        if (ui.Slider(s_state.bodyFontSize, 10.0f, 22.0f, {.valueFormat = "%.1f pt"}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Heading Scale (H1..H6)"})) {
+        if (ui.Slider(s_state.headingScale, 0.7f, 1.6f, {.valueFormat = "%.2fx"}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Inline Code Font Size (`code`)"})) {
+        if (ui.Slider(s_state.inlineCodeFontSize, 9.0f, 20.0f, {.valueFormat = "%.1f pt"}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Display Code Font Size (```)"})) {
+        if (ui.Slider(s_state.codeFontSize, 9.0f, 20.0f, {.valueFormat = "%.1f pt"}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Line Height Multiplier"})) {
+        if (ui.Slider(s_state.lineHeightScale, 0.9f, 1.8f, {.valueFormat = "%.2fx"}).changed) ui.InvalidateAll();
+    }
 
     ui.Text("Page Layout, Indents & Spacing", {.role = guikit::TextRole::LabelMedium, .variant = guikit::UiVariant::Primary});
-    if (ui.Slider(s_state.documentPadding, 0.0f, 40.0f, {.label = "Document Padding", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.constrainContentWidth, {.label = "Constrain Reading Column Width"}).changed) ui.InvalidateAll();
-    if (s_state.constrainContentWidth) {
-        if (ui.Slider(s_state.maxContentWidth, 420.0f, 960.0f, {.label = "Max Content Width", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Document Padding"})) {
+        if (ui.Slider(s_state.documentPadding, 0.0f, 40.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
     }
-    if (ui.Slider(s_state.blockGap, 4.0f, 28.0f, {.label = "Block Vertical Gap", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.paragraphIndent, 0.0f, 36.0f, {.label = "Paragraph First-Line Indent", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.listIndent, 10.0f, 36.0f, {.label = "List Level Indent", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.blockPadding, 6.0f, 24.0f, {.label = "Callout / Code Inner Padding", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.blockRadius, 0.0f, 16.0f, {.label = "Block Corner Radius", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.headingDividers, {.label = "H1 / H2 Divider Lines"}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Constrain Reading Column Width"})) {
+        if (ui.Switch(s_state.constrainContentWidth).changed) ui.InvalidateAll();
+    }
+    if (s_state.constrainContentWidth) {
+        if (auto el = ui.Element({.label = "Max Content Width"})) {
+            if (ui.Slider(s_state.maxContentWidth, 420.0f, 960.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+        }
+    }
+    if (auto el = ui.Element({.label = "Block Vertical Gap"})) {
+        if (ui.Slider(s_state.blockGap, 4.0f, 28.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Paragraph First-Line Indent"})) {
+        if (ui.Slider(s_state.paragraphIndent, 0.0f, 36.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "List Level Indent"})) {
+        if (ui.Slider(s_state.listIndent, 10.0f, 36.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Callout / Code Inner Padding"})) {
+        if (ui.Slider(s_state.blockPadding, 6.0f, 24.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Block Corner Radius"})) {
+        if (ui.Slider(s_state.blockRadius, 0.0f, 16.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "H1 / H2 Divider Lines"})) {
+        if (ui.Switch(s_state.headingDividers).changed) ui.InvalidateAll();
+    }
 
     ui.Text("Code Blocks (Shared CodeEditor Engine)", {.role = guikit::TextRole::LabelMedium, .variant = guikit::UiVariant::Primary});
-    if (ui.Select(s_state.codeSchemeIdx, MarkdownDemoState::codeSchemeLabels, {.label = "Code Color Scheme"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.syntaxHighlight, {.label = "Multi-Language Syntax Highlight"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.codeLineNumbers, {.label = "Line Numbers Gutter"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.codeShowWhitespace, {.label = "Show Hidden Whitespace (Space/Tab)"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.codeIndentGuides, {.label = "Show Indentation Guides"}).changed) ui.InvalidateAll();
-    if (ui.Switch(s_state.showCopyButton, {.label = "Interactive Copy Button"}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Code Color Scheme"})) {
+        if (ui.Select(s_state.codeSchemeIdx, MarkdownDemoState::codeSchemeLabels).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Multi-Language Syntax Highlight"})) {
+        if (ui.Switch(s_state.syntaxHighlight).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Line Numbers Gutter"})) {
+        if (ui.Switch(s_state.codeLineNumbers).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Show Hidden Whitespace (Space/Tab)"})) {
+        if (ui.Switch(s_state.codeShowWhitespace).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Show Indentation Guides"})) {
+        if (ui.Switch(s_state.codeIndentGuides).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Interactive Copy Button"})) {
+        if (ui.Switch(s_state.showCopyButton).changed) ui.InvalidateAll();
+    }
 
     ui.Text("Embedded Images", {.role = guikit::TextRole::LabelMedium, .variant = guikit::UiVariant::Primary});
-    if (ui.Switch(s_state.imageCheckerboard, {.label = "Embedded Image Checkerboard"}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.imageMaxHeight, 100.0f, 320.0f, {.label = "Image Max Height", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
-    if (ui.Slider(s_state.imageRadius, 0.0f, 20.0f, {.label = "Image Corner Radius", .valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Embedded Image Checkerboard"})) {
+        if (ui.Switch(s_state.imageCheckerboard).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Image Max Height"})) {
+        if (ui.Slider(s_state.imageMaxHeight, 100.0f, 320.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Image Corner Radius"})) {
+        if (ui.Slider(s_state.imageRadius, 0.0f, 20.0f, {.valueFormat = "%.0f px"}).changed) ui.InvalidateAll();
+    }
 
     if (!s_state.lastClickedLink.empty()) {
         ui.Text(ui.Format("Clicked link: {}", s_state.lastClickedLink), {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Info});

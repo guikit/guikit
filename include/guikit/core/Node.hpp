@@ -65,6 +65,7 @@ enum class NodeType : uint16_t {
     Sidebar     = 105,  ///< Dockable vertical sidebar container (Left or Right)
     Scene       = 106,  ///< Interactive 2D world camera & pan/zoom viewport
     Table       = 107,  ///< Virtualized data grid / table container with sticky header and columns
+    Element     = 108,  ///< Outer label/description/frame wrapper around a Control (or standalone)
 
     // --- Leaf Widgets (200..999): Self-rendering elements ---
     Button      = 200,
@@ -144,6 +145,8 @@ struct Node {
     bool active : 1 {false};
     bool sidebarRight : 1 {false};
     bool sidebarScrollable : 1 {true};
+    bool ctrlStretchable : 1 {true};
+    bool ctrlStretchH : 1 {false};
     uint16_t payloadTypeId{0};  ///< Runtime type tag for safe Node::As<T>() casting
 
     float fixedWidth{0.0f};
@@ -249,6 +252,7 @@ struct Node {
             case NodeType::Sidebar:     return "Sidebar";
             case NodeType::Scene:       return "Scene";
             case NodeType::Table:       return "Table";
+            case NodeType::Element:     return "Element";
             case NodeType::Button:      return "Button";
             case NodeType::InputField:  return "InputField";
             case NodeType::Select:      return "Select";
@@ -275,6 +279,7 @@ struct Node {
             case NodeType::ImageView:      return "ImageView";
             case NodeType::AttitudeView:   return "AttitudeView";
             case NodeType::CarClusterView: return "CarClusterView";
+            case NodeType::BpmnEditor:     return "BpmnEditor";
             default:                       return (static_cast<uint16_t>(type) >= static_cast<uint16_t>(NodeType::User)) ? "UserWidget" : "Unknown";
         }
     }

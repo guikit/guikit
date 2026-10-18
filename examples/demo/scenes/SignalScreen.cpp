@@ -351,97 +351,124 @@ void StepSignalPlayback(SignalDemoState& st) {
 void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
     EnsureSignalInitialized();
 
-    ui.Switch(s_sig.livePlayhead, {
+    if (auto el = ui.Element({
         .label = "Live Playhead Sweep",
         .description = "Animate playhead at 60 Hz across active viewport"
-    });
+    })) {
+        ui.Switch(s_sig.livePlayhead);
+    }
 
-    if (ui.Select(s_sig.presetIdx, SignalDemoState::presetNames, {
-        .label = "Test Signal Generator",
-        .prefix = guikit::Icon::Play()
-    }).changed) {
-        BuildSignalPreset(s_sig, s_sig.presetIdx);
-        s_sig.requestResetView = true;
+    if (auto el = ui.Element({.label = "Test Signal Generator"})) {
+        if (ui.Select(s_sig.presetIdx, SignalDemoState::presetNames, {
+            .prefix = guikit::Icon::Play()
+        }).changed) {
+            BuildSignalPreset(s_sig, s_sig.presetIdx);
+            s_sig.requestResetView = true;
+        }
     }
 
     size_t orderIdx = static_cast<size_t>(s_sig.panelOrder);
-    if (ui.StepSlider(orderIdx, SignalDemoState::panelOrderNames, {
-        .label = "Panel Stack Order",
-        .showTicks = true,
-        .showLabels = true
-    }).changed) {
-        s_sig.panelOrder = static_cast<guikit::SignalPanelOrder>(orderIdx);
+    if (auto el = ui.Element({.label = "Panel Stack Order"})) {
+        if (ui.StepSlider(orderIdx, SignalDemoState::panelOrderNames, {
+            .showTicks = true,
+            .showLabels = true
+        }).changed) {
+            s_sig.panelOrder = static_cast<guikit::SignalPanelOrder>(orderIdx);
+        }
     }
 
     float splitPct = s_sig.splitRatio * 100.0f;
-    if (ui.Slider(splitPct, 0.0f, 100.0f, {
-        .label = "Top / Bottom Split Ratio",
-        .valueFormat = "%.0f %%",
-        .step = 1.0f
-    }).changed) {
-        s_sig.splitRatio = splitPct / 100.0f;
+    if (auto el = ui.Element({.label = "Top / Bottom Split Ratio"})) {
+        if (ui.Slider(splitPct, 0.0f, 100.0f, {
+            .valueFormat = "%.0f %%",
+            .step = 1.0f
+        }).changed) {
+            s_sig.splitRatio = splitPct / 100.0f;
+        }
     }
 
     size_t ampIdx = static_cast<size_t>(s_sig.amplitudeScale);
-    if (ui.StepSlider(ampIdx, SignalDemoState::ampScaleNames, {
-        .label = "Waveform Amplitude Scale",
-        .showTicks = true,
-        .showLabels = true
-    }).changed) {
-        s_sig.amplitudeScale = static_cast<guikit::AmplitudeScale>(ampIdx);
+    if (auto el = ui.Element({.label = "Waveform Amplitude Scale"})) {
+        if (ui.StepSlider(ampIdx, SignalDemoState::ampScaleNames, {
+            .showTicks = true,
+            .showLabels = true
+        }).changed) {
+            s_sig.amplitudeScale = static_cast<guikit::AmplitudeScale>(ampIdx);
+        }
     }
 
     size_t freqIdx = static_cast<size_t>(s_sig.frequencyScale);
-    if (ui.StepSlider(freqIdx, SignalDemoState::freqScaleNames, {
-        .label = "Spectrogram Frequency Scale",
-        .showTicks = true,
-        .showLabels = true
-    }).changed) {
-        s_sig.frequencyScale = static_cast<guikit::FrequencyScale>(freqIdx);
+    if (auto el = ui.Element({.label = "Spectrogram Frequency Scale"})) {
+        if (ui.StepSlider(freqIdx, SignalDemoState::freqScaleNames, {
+            .showTicks = true,
+            .showLabels = true
+        }).changed) {
+            s_sig.frequencyScale = static_cast<guikit::FrequencyScale>(freqIdx);
+        }
     }
 
     size_t cmapIdx = static_cast<size_t>(s_sig.colormap);
-    if (ui.Select(cmapIdx, guikit::GetAllColormapNames(), {
-        .label = "Spectrogram Colormap"
-    }).changed) {
-        s_sig.colormap = static_cast<guikit::Colormap>(cmapIdx);
+    if (auto el = ui.Element({.label = "Spectrogram Colormap"})) {
+        if (ui.Select(cmapIdx, guikit::GetAllColormapNames()).changed) {
+            s_sig.colormap = static_cast<guikit::Colormap>(cmapIdx);
+        }
     }
 
-    ui.StepSlider(s_sig.fftSizeIdx, SignalDemoState::fftSizeNames, {
-        .label = "STFT Window Size (Bins)",
-        .showTicks = true,
-        .showLabels = true
-    });
+    if (auto el = ui.Element({.label = "STFT Window Size (Bins)"})) {
+        ui.StepSlider(s_sig.fftSizeIdx, SignalDemoState::fftSizeNames, {
+            .showTicks = true,
+            .showLabels = true
+        });
+    }
 
     size_t winIdx = static_cast<size_t>(s_sig.fftWindow);
-    if (ui.StepSlider(winIdx, SignalDemoState::windowNames, {
-        .label = "FFT Window Function",
-        .showTicks = true,
-        .showLabels = true
-    }).changed) {
-        s_sig.fftWindow = static_cast<guikit::FftWindowType>(winIdx);
+    if (auto el = ui.Element({.label = "FFT Window Function"})) {
+        if (ui.StepSlider(winIdx, SignalDemoState::windowNames, {
+            .showTicks = true,
+            .showLabels = true
+        }).changed) {
+            s_sig.fftWindow = static_cast<guikit::FftWindowType>(winIdx);
+        }
     }
 
-    ui.Slider(s_sig.dbFloor, -120.0f, -36.0f, {
-        .label = "Spectrogram Noise Floor",
-        .valueFormat = "%.0f dBFS",
-        .step = 2.0f
-    });
+    if (auto el = ui.Element({.label = "Spectrogram Noise Floor"})) {
+        ui.Slider(s_sig.dbFloor, -120.0f, -36.0f, {
+            .valueFormat = "%.0f dBFS",
+            .step = 2.0f
+        });
+    }
 
-    ui.Slider(s_sig.waveformGain, 0.25f, 8.0f, {
-        .label = "Waveform Vertical Gain",
-        .valueFormat = "%.2fx",
-        .step = 0.05f
-    });
+    if (auto el = ui.Element({.label = "Waveform Vertical Gain"})) {
+        ui.Slider(s_sig.waveformGain, 0.25f, 8.0f, {
+            .valueFormat = "%.2fx",
+            .step = 0.05f
+        });
+    }
 
-    ui.Switch(s_sig.showOverviewBar, {.label = "Overview Minimap Navigator"});
-    ui.Switch(s_sig.showTimeRuler, {.label = "Adaptive Time & Cue Ruler"});
-    ui.Switch(s_sig.showAmplitudeRuler, {.label = "Waveform Amplitude Ruler"});
-    ui.Switch(s_sig.showFrequencyRuler, {.label = "Spectrogram Frequency Ruler"});
-    ui.Switch(s_sig.showColorbar, {.label = "Right dBFS Heatmap Legend"});
-    ui.Switch(s_sig.showRms, {.label = "Dual Peak + RMS Envelope"});
-    ui.Switch(s_sig.showGrid, {.label = "Synchronized Overlay Grid"});
-    ui.Switch(s_sig.showCrosshair, {.label = "Crosshair & Live Readout HUD"});
+    if (auto el = ui.Element({.label = "Overview Minimap Navigator"})) {
+        ui.Switch(s_sig.showOverviewBar);
+    }
+    if (auto el = ui.Element({.label = "Adaptive Time & Cue Ruler"})) {
+        ui.Switch(s_sig.showTimeRuler);
+    }
+    if (auto el = ui.Element({.label = "Waveform Amplitude Ruler"})) {
+        ui.Switch(s_sig.showAmplitudeRuler);
+    }
+    if (auto el = ui.Element({.label = "Spectrogram Frequency Ruler"})) {
+        ui.Switch(s_sig.showFrequencyRuler);
+    }
+    if (auto el = ui.Element({.label = "Right dBFS Heatmap Legend"})) {
+        ui.Switch(s_sig.showColorbar);
+    }
+    if (auto el = ui.Element({.label = "Dual Peak + RMS Envelope"})) {
+        ui.Switch(s_sig.showRms);
+    }
+    if (auto el = ui.Element({.label = "Synchronized Overlay Grid"})) {
+        ui.Switch(s_sig.showGrid);
+    }
+    if (auto el = ui.Element({.label = "Crosshair & Live Readout HUD"})) {
+        ui.Switch(s_sig.showCrosshair);
+    }
 
     if (auto btnRow = ui.Row({.gap = 8.0f})) {
         if (ui.Button({

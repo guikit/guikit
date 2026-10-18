@@ -196,7 +196,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
                 childY += (fullH - childH);
             }
             child->computedRect = Rect(curX, childY, childW, childH);
-            LayoutSolver::Arrange(child, child->computedRect, theme);
+            Solver::Arrange(child, child->computedRect, theme);
             curX += childW + node->gap;
         }
         return;
@@ -277,7 +277,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
             childY += (fullH - childH);
         }
         child->computedRect = Rect(curX, childY, childW, childH);
-        LayoutSolver::Arrange(child, child->computedRect, theme);
+        Solver::Arrange(child, child->computedRect, theme);
         curX += childW + node->gap;
     }
 }
