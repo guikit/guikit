@@ -236,7 +236,7 @@ Vec2 TabBar::MeasureTab(
     (void)opts;
     const ComponentMetrics& m = theme.GetMetrics(size);
     const float labelFont = theme.ResolveFontSize(item.label, TextRole::LabelMedium, size);
-    const float badgeFontSize = item.badge.role.has_value() ? theme.GetTypography(*item.badge.role).fontSize : (m.fontSize * 0.78f);
+    const float badgeFontSize = theme.ResolveFontSize(item.badge, m.fontSize * 0.78f);
     float contentW = 0.0f;
 
     if (item.icon.IsValid()) {
@@ -288,7 +288,7 @@ void TabBar::RenderTab(
     const ComponentMetrics& m = theme.GetMetrics(size);
     const auto& pal = theme.palette;
     const float labelFont = theme.ResolveFontSize(item.label, TextRole::LabelMedium, size);
-    const float badgeFontSize = item.badge.role.has_value() ? theme.GetTypography(*item.badge.role).fontSize : (m.fontSize * 0.78f);
+    const float badgeFontSize = theme.ResolveFontSize(item.badge, m.fontSize * 0.78f);
 
     canvas.PushClip(bounds);
 
@@ -358,10 +358,10 @@ void TabBar::RenderTab(
 
     // Determine foreground colors for text and icon
     Color fgCol;
-    if (disabled) {
+    if (item.label.color.HasAny()) {
+        fgCol = item.label.color.Resolve(hovered, active, disabled, pal.textSecondary, pal.textPrimary, pal.textPrimary, pal.textDisabled);
+    } else if (disabled) {
         fgCol = pal.textDisabled;
-    } else if (item.label.variant.has_value()) {
-        fgCol = theme.GetTextColor(*item.label.variant);
     } else if (active || hovered) {
         fgCol = pal.textPrimary;
     } else {
@@ -419,10 +419,10 @@ void TabBar::RenderTab(
         Color badgeBg = active ? pal.accent.WithAlphaF(0.25f) : pal.surfaceHover;
         Color badgeText = active ? pal.accent : pal.textSecondary;
 
-        if (item.badge.variant.has_value()) {
-            const VariantColors vc = theme.GetVariant(*item.badge.variant);
-            badgeBg = vc.bg.WithAlphaF(0.5f);
-            badgeText = vc.text;
+        if (item.badge.color.HasAny()) {
+            const Color resolved = item.badge.color.Resolve(hovered, active, disabled, badgeText);
+            badgeBg = resolved.WithAlphaF(0.25f);
+            badgeText = resolved;
         } else if (item.badge.text == "Live") {
             const VariantColors success = theme.GetVariant(UiVariant::Success);
             badgeBg = success.bg.WithAlphaF(0.5f);

@@ -31,13 +31,12 @@ void RenderSelectInspector(guikit::Context& ui, DemoContext&) {
 
 void RenderSelectStage(guikit::Context& ui, DemoContext& ctx) {
     ui.Select(s_state.idx, s_state.items, {
-        .label = ctx.elemLabel,
+        .label = ctx.GetElementLabel(),
         .description = ctx.GetElementDescription(),
         .placeholder = s_state.placeholder,
         .icon = ctx.GetElementIcon(),
         .badge = ctx.GetElementBadge(),
         .prefix = s_state.hasPrefix ? guikit::Icon::Settings() : guikit::Icon{},
-        .variant = ctx.btnVariant,
         .layout = ctx.elemLayout,
         .inlineOrder = ctx.elemInlineOrder,
         .elementAlign = ctx.elemAlign,
@@ -47,6 +46,7 @@ void RenderSelectStage(guikit::Context& ui, DemoContext& ctx) {
         .background = ctx.elemBackground,
         .borderWidth = ctx.elemBorderWidth,
         .borderRadius = ctx.GetElemBorderRadius(),
+        .borderColor = ctx.GetElemBorderColor(),
         .control = ctx.GetControlSpec(NavCategory::ElemSelect),
         .disabled = ctx.elemDisabled
     });
@@ -55,13 +55,12 @@ void RenderSelectStage(guikit::Context& ui, DemoContext& ctx) {
 std::string GenerateSelectCode(const DemoContext& ctx) {
     return std::format(
         "ui.Select(presetIndex, itemsList, {{\n"
-        "    .label = \"{}\",\n"
+        "    .label = {},\n"
         "    .description = {},\n"
         "    .placeholder = \"{}\",\n"
         "    .icon = {},\n"
         "    .badge = {},\n"
         "    .prefix = {},\n"
-        "    .variant = guikit::UiVariant::{},\n"
         "    .layout = guikit::ElementLayout::{},\n"
         "    .inlineOrder = guikit::InlineOrder::{},\n"
         "    .elementAlign = guikit::Align::{},\n"
@@ -71,16 +70,16 @@ std::string GenerateSelectCode(const DemoContext& ctx) {
         "    .background = {},\n"
         "    .borderWidth = {:.1f}f,\n"
         "    .borderRadius = {},\n"
+        "    .borderColor = {},\n"
         "    .control = {},\n"
         "    .disabled = {}\n"
         "}});",
-        ctx.elemLabel,
+        ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         s_state.placeholder,
         ctx.FormatElementIconCode(),
         ctx.FormatElementBadgeCode(),
         s_state.hasPrefix ? "guikit::Icon::Settings()" : "{}",
-        VariantName(ctx.btnVariant),
         ElementLayoutEnumName(ctx.elemLayout),
         InlineOrderEnumName(ctx.elemInlineOrder),
         LabelAlignEnumName(ctx.elemAlign),
@@ -90,6 +89,7 @@ std::string GenerateSelectCode(const DemoContext& ctx) {
         ctx.elemBackground ? "true" : "false",
         ctx.elemBorderWidth,
         ctx.FormatElemBorderRadiusCode(),
+        ctx.FormatElemBorderColorCode(),
         ctx.FormatControlSpecCode(NavCategory::ElemSelect),
         ctx.elemDisabled ? "true" : "false"
     );

@@ -4,6 +4,31 @@
 namespace guikit::demo {
 
 void RenderHeadingInspector(guikit::Context& ui, DemoContext& ctx) {
+    if (ui.StepSlider(ctx.elemLabelVariant, {
+        .label = "Title Color",
+        .showTicks = true,
+        .showLabels = true,
+        .showValue = true,
+        .disabled = (ctx.elemLabel.empty() && !ctx.elemShowIcon)
+    }).changed) {
+        ui.InvalidateAll();
+    }
+
+    ctx.RenderDescVariantPicker(ui, ctx.elemDescVariant, !ctx.elemDesc.empty());
+    if (ui.Switch(ctx.elemWordWrap, {.label = "Subtitle Word Wrap", .disabled = ctx.elemDesc.empty()}).changed) {
+        ui.InvalidateAll();
+    }
+
+    if (ui.StepSlider(ctx.elemBadgeVariant, {
+        .label = "Badge Color",
+        .showTicks = true,
+        .showLabels = true,
+        .showValue = true,
+        .disabled = ctx.elemBadge.empty()
+    }).changed) {
+        ui.InvalidateAll();
+    }
+
     if (ctx.elemStretchIdx == 2) {
         if (ui.Slider(ctx.elemFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
     } else {
@@ -27,13 +52,11 @@ void RenderHeadingInspector(guikit::Context& ui, DemoContext& ctx) {
 
 void RenderHeadingStage(guikit::Context& ui, DemoContext& ctx) {
     ui.Heading({
-        .title = !ctx.elemLabel.empty()
-            ? guikit::UiText{ctx.elemLabel, ctx.btnVariant}
-            : guikit::UiText{},
+        .title = ctx.GetElementLabel(),
         .subtitle = ctx.GetElementDescription(),
         .icon = ctx.GetElementIcon(),
         .badge = ctx.GetElementBadge(),
-        .variant = ctx.btnVariant,
+        .variant = ctx.elemLabelVariant,
         .size = ctx.controlsSize,
         .layout = ctx.elemLayout,
         .inlineOrder = ctx.elemInlineOrder,
@@ -44,6 +67,7 @@ void RenderHeadingStage(guikit::Context& ui, DemoContext& ctx) {
         .background = ctx.elemBackground,
         .borderWidth = ctx.elemBorderWidth,
         .borderRadius = ctx.GetElemBorderRadius(),
+        .borderColor = ctx.GetElemBorderColor(),
         .divider = ctx.elemDivider,
         .dividerStyle = ctx.elemDividerStyle,
         .wordWrap = ctx.elemWordWrap,
@@ -52,11 +76,6 @@ void RenderHeadingStage(guikit::Context& ui, DemoContext& ctx) {
 }
 
 std::string GenerateHeadingCode(const DemoContext& ctx) {
-    const std::string titleExpr = ctx.elemLabel.empty()
-        ? "\"\""
-        : ((ctx.btnVariant == guikit::UiVariant::Default)
-            ? std::format("\"{}\"", ctx.elemLabel)
-            : std::format("{{\"{}\", guikit::UiVariant::{}}}", ctx.elemLabel, VariantName(ctx.btnVariant)));
     return std::format(
         "ui.Heading({{\n"
         "    .title = {},\n"
@@ -74,16 +93,17 @@ std::string GenerateHeadingCode(const DemoContext& ctx) {
         "    .background = {},\n"
         "    .borderWidth = {:.1f}f,\n"
         "    .borderRadius = {},\n"
+        "    .borderColor = {},\n"
         "    .divider = {},\n"
         "    .dividerStyle = guikit::ElementDivider::{},\n"
         "    .wordWrap = {},\n"
         "    .disabled = {}\n"
         "}});",
-        titleExpr,
+        ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
         ctx.FormatElementBadgeCode(),
-        VariantName(ctx.btnVariant),
+        VariantName(ctx.elemLabelVariant),
         SizeName(ctx.controlsSize),
         ElementLayoutEnumName(ctx.elemLayout),
         InlineOrderEnumName(ctx.elemInlineOrder),
@@ -94,6 +114,7 @@ std::string GenerateHeadingCode(const DemoContext& ctx) {
         ctx.elemBackground ? "true" : "false",
         ctx.elemBorderWidth,
         ctx.FormatElemBorderRadiusCode(),
+        ctx.FormatElemBorderColorCode(),
         ctx.elemDivider ? "true" : "false",
         ctx.FormatDividerStyleCode(),
         ctx.elemWordWrap ? "true" : "false",

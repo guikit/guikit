@@ -120,26 +120,60 @@ struct UiTheme {
         return ResolveFontSize(role, widgetSize);
     }
 
-    /// Resolves font size for a UiText: uses explicit TextRole if set, or resolves defaultRole for widgetSize.
+    /// Resolves font size for a UiText: checks explicit px, preset UiSize, or TextRole, falling back to defaultRole at widgetSize.
     [[nodiscard]] constexpr float ResolveFontSize(
         const UiText& text,
         TextRole defaultRole,
         UiSize widgetSize = UiSize::Md
     ) const noexcept {
-        if (text.role.has_value()) {
-            return GetTypography(*text.role).fontSize;
+        if (text.size.px > 0.0f) {
+            return text.size.px;
         }
-        return ResolveFontSize(defaultRole, widgetSize);
+        const UiSize effectiveSize = (text.size.preset != UiSize::None) ? text.size.preset : widgetSize;
+        if (text.size.role.has_value()) {
+            return GetTypography(*text.size.role).fontSize;
+        }
+        return ResolveFontSize(defaultRole, effectiveSize);
     }
 
-    /// Resolves text color for a UiText: uses explicit UiVariant if set, or defaultVariant, applying disabled alpha.
+    /// Resolves font size for a UiText with an explicit fallback pixel size.
+    [[nodiscard]] constexpr float ResolveFontSize(
+        const UiText& text,
+        float fallbackFontSize
+    ) const noexcept {
+        if (text.size.px > 0.0f) {
+            return text.size.px;
+        }
+        if (text.size.role.has_value()) {
+            return GetTypography(*text.size.role).fontSize;
+        }
+        if (text.size.preset != UiSize::None) {
+            return GetMetrics(text.size.preset).companionFontSize;
+        }
+        return fallbackFontSize;
+    }
+
+    /// Resolves text color for a UiText: uses explicit StateColor if set, or defaultVariant across interaction states.
     [[nodiscard]] constexpr Color ResolveTextColor(
         const UiText& text,
         UiVariant defaultVariant,
-        bool disabled = false
+        bool disabled = false,
+        bool hovered = false,
+        bool active = false
     ) const noexcept {
-        const Color col = GetTextColor(text.VariantOr(defaultVariant));
-        return disabled ? col.WithAlphaF(0.40f) : col;
+        const Color fallback = GetTextColor(defaultVariant);
+        return text.color.Resolve(hovered, active, disabled, fallback);
+    }
+
+    /// Resolves text color for a UiText with an explicit fallback Color across interaction states.
+    [[nodiscard]] constexpr Color ResolveTextColor(
+        const UiText& text,
+        Color fallbackColor,
+        bool disabled = false,
+        bool hovered = false,
+        bool active = false
+    ) const noexcept {
+        return text.color.Resolve(hovered, active, disabled, fallbackColor);
     }
 
     [[nodiscard]] constexpr const ScrollbarMetrics& GetScrollbar(UiSize size) const noexcept {

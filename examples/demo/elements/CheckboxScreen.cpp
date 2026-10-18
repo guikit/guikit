@@ -39,7 +39,7 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
     if (s_state.radio && s_state.radioGroupDemo) {
         if (auto col = ui.Column({.gap = 10.0f})) {
             ui.RadioButton(s_state.selectedRadioIdx, 0, {
-                .label = ctx.elemLabel.empty() ? "Option A — Automatic Gain (AGC)" : ctx.elemLabel,
+                .label = guikit::UiText{ctx.elemLabel.empty() ? "Option A — Automatic Gain (AGC)" : ctx.elemLabel, ctx.elemLabelVariant},
                 .description = ctx.GetElementDescription(),
                 .icon = ctx.GetElementIcon(),
                 .badge = ctx.GetElementBadge(),
@@ -51,12 +51,13 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
                 .background = ctx.elemBackground,
                 .borderWidth = ctx.elemBorderWidth,
                 .borderRadius = ctx.GetElemBorderRadius(),
+                .borderColor = ctx.GetElemBorderColor(),
                 .control = ctx.GetControlSpec(NavCategory::ElemCheckbox),
                 .disabled = ctx.elemDisabled,
                 .size = ctx.controlsSize
             });
             ui.RadioButton(s_state.selectedRadioIdx, 1, {
-                .label = "Option B — Manual Fixed Gain",
+                .label = guikit::UiText{"Option B — Manual Fixed Gain", ctx.elemLabelVariant},
                 .description = ctx.GetElementDescription(),
                 .icon = ctx.GetElementIcon(),
                 .badge = ctx.GetElementBadge(),
@@ -68,12 +69,13 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
                 .background = ctx.elemBackground,
                 .borderWidth = ctx.elemBorderWidth,
                 .borderRadius = ctx.GetElemBorderRadius(),
+                .borderColor = ctx.GetElemBorderColor(),
                 .control = ctx.GetControlSpec(NavCategory::ElemCheckbox),
                 .disabled = ctx.elemDisabled,
                 .size = ctx.controlsSize
             });
             ui.RadioButton(s_state.selectedRadioIdx, 2, {
-                .label = "Option C — External Hardware Trigger",
+                .label = guikit::UiText{"Option C — External Hardware Trigger", ctx.elemLabelVariant},
                 .description = ctx.GetElementDescription(),
                 .icon = ctx.GetElementIcon(),
                 .badge = ctx.GetElementBadge(),
@@ -85,6 +87,7 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
                 .background = ctx.elemBackground,
                 .borderWidth = ctx.elemBorderWidth,
                 .borderRadius = ctx.GetElemBorderRadius(),
+                .borderColor = ctx.GetElemBorderColor(),
                 .control = ctx.GetControlSpec(NavCategory::ElemCheckbox),
                 .disabled = ctx.elemDisabled,
                 .size = ctx.controlsSize
@@ -92,7 +95,7 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
         }
     } else {
         ui.Checkbox(s_state.state, {
-            .label = ctx.elemLabel,
+            .label = ctx.GetElementLabel(),
             .description = ctx.GetElementDescription(),
             .icon = ctx.GetElementIcon(),
             .badge = ctx.GetElementBadge(),
@@ -104,6 +107,7 @@ void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx) {
             .background = ctx.elemBackground,
             .borderWidth = ctx.elemBorderWidth,
             .borderRadius = ctx.GetElemBorderRadius(),
+            .borderColor = ctx.GetElemBorderColor(),
             .control = ctx.GetControlSpec(NavCategory::ElemCheckbox),
             .disabled = ctx.elemDisabled,
             .indeterminate = s_state.indet,
@@ -117,7 +121,7 @@ std::string GenerateCheckboxCode(const DemoContext& ctx) {
     if (s_state.radio && s_state.radioGroupDemo) {
         return std::format(
             "ui.RadioButton(selectedMode, 0, {{\n"
-            "    .label = \"{}\",\n"
+            "    .label = {},\n"
             "    .description = {},\n"
             "    .icon = {},\n"
             "    .badge = {},\n"
@@ -129,11 +133,12 @@ std::string GenerateCheckboxCode(const DemoContext& ctx) {
             "    .background = {},\n"
             "    .borderWidth = {:.1f}f,\n"
             "    .borderRadius = {},\n"
+            "    .borderColor = {},\n"
             "    .control = {},\n"
             "    .disabled = {},\n"
             "    .size = guikit::UiSize::{}\n"
             "}});",
-            ctx.elemLabel,
+            ctx.FormatElementLabelCode(),
             ctx.FormatElementDescCode(),
             ctx.FormatElementIconCode(),
             ctx.FormatElementBadgeCode(),
@@ -145,6 +150,7 @@ std::string GenerateCheckboxCode(const DemoContext& ctx) {
             ctx.elemBackground ? "true" : "false",
             ctx.elemBorderWidth,
             ctx.FormatElemBorderRadiusCode(),
+            ctx.FormatElemBorderColorCode(),
             ctx.FormatControlSpecCode(NavCategory::ElemCheckbox),
             ctx.elemDisabled ? "true" : "false",
             SizeName(ctx.controlsSize)
@@ -152,7 +158,7 @@ std::string GenerateCheckboxCode(const DemoContext& ctx) {
     }
     return std::format(
         "ui.Checkbox(checkState, {{\n"
-        "    .label = \"{}\",\n"
+        "    .label = {},\n"
         "    .description = {},\n"
         "    .icon = {},\n"
         "    .badge = {},\n"
@@ -164,13 +170,14 @@ std::string GenerateCheckboxCode(const DemoContext& ctx) {
         "    .background = {},\n"
         "    .borderWidth = {:.1f}f,\n"
         "    .borderRadius = {},\n"
+        "    .borderColor = {},\n"
         "    .control = {},\n"
         "    .disabled = {},\n"
         "    .indeterminate = {},\n"
         "    .radio = {},\n"
         "    .size = guikit::UiSize::{}\n"
         "}});",
-        ctx.elemLabel,
+        ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
         ctx.FormatElementBadgeCode(),
@@ -182,6 +189,7 @@ std::string GenerateCheckboxCode(const DemoContext& ctx) {
         ctx.elemBackground ? "true" : "false",
         ctx.elemBorderWidth,
         ctx.FormatElemBorderRadiusCode(),
+        ctx.FormatElemBorderColorCode(),
         ctx.FormatControlSpecCode(NavCategory::ElemCheckbox),
         ctx.elemDisabled ? "true" : "false",
         s_state.indet ? "true" : "false",

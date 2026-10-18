@@ -54,10 +54,12 @@ void Control::RenderFrame(
     ICanvas& canvas,
     Rect controlRect,
     const ControlSpec& spec,
-    UiVariant variant,
+    UiVariant /*variant*/,
     UiSize size,
     bool disabled,
-    const UiTheme& theme
+    const UiTheme& theme,
+    bool hovered,
+    bool active
 ) noexcept {
     if (!HasWellFrame(spec) || controlRect.w <= 0.0f || controlRect.h <= 0.0f) {
         return;
@@ -68,32 +70,49 @@ void Control::RenderFrame(
         ? theme.Scale(*spec.borderRadius)
         : cm.cornerRadius;
 
+    const auto& pal = theme.palette;
+    const Color resolvedBorderAccent = spec.borderColor.Resolve(
+        hovered,
+        active,
+        disabled,
+        pal.border,
+        pal.borderHover,
+        pal.focusRing,
+        pal.border.WithAlphaF(0.40f)
+    );
+
     Color bg = Color::Transparent();
     if (spec.HasBackground(false)) {
-        bg = theme.palette.surface;
-        if (variant != UiVariant::Default && variant != UiVariant::Ghost && variant != UiVariant::Muted) {
-            const Color accent = theme.GetVariant(variant).bg;
-            bg = Color(
-                static_cast<uint8_t>((static_cast<int>(bg.r) * 86 + static_cast<int>(accent.r) * 14) / 100),
-                static_cast<uint8_t>((static_cast<int>(bg.g) * 86 + static_cast<int>(accent.g) * 14) / 100),
-                static_cast<uint8_t>((static_cast<int>(bg.b) * 86 + static_cast<int>(accent.b) * 14) / 100),
-                255
+        if (spec.bgColor.HasAny()) {
+            bg = spec.bgColor.Resolve(
+                hovered,
+                active,
+                disabled,
+                pal.surface,
+                pal.surfaceHover,
+                pal.surfaceActive,
+                pal.surface.WithAlphaF(0.40f)
             );
-        }
-        if (disabled) {
-            bg = bg.WithAlphaF(0.40f);
+        } else {
+            bg = pal.surface;
+            if (spec.borderColor.HasAny()) {
+                bg = Color(
+                    static_cast<uint8_t>((static_cast<int>(bg.r) * 86 + static_cast<int>(resolvedBorderAccent.r) * 14) / 100),
+                    static_cast<uint8_t>((static_cast<int>(bg.g) * 86 + static_cast<int>(resolvedBorderAccent.g) * 14) / 100),
+                    static_cast<uint8_t>((static_cast<int>(bg.b) * 86 + static_cast<int>(resolvedBorderAccent.b) * 14) / 100),
+                    255
+                );
+            }
+            if (disabled) {
+                bg = bg.WithAlphaF(0.40f);
+            }
         }
     }
 
     const float strokeW = (spec.borderWidth > 0.0f) ? theme.Scale(spec.borderWidth) : 0.0f;
     Color borderCol = Color::Transparent();
     if (strokeW > 0.0f) {
-        borderCol = (variant != UiVariant::Default && variant != UiVariant::Ghost && variant != UiVariant::Muted)
-            ? theme.GetVariant(variant).bg.WithAlphaF(0.65f)
-            : theme.palette.border;
-        if (disabled) {
-            borderCol = borderCol.WithAlphaF(0.40f);
-        }
+        borderCol = resolvedBorderAccent;
     }
 
     canvas.DrawRoundRect(controlRect, radius, bg, borderCol, strokeW);

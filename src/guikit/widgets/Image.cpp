@@ -79,7 +79,14 @@ Vec2 ComputeControlBoxSize(
     return { std::max(1.0f, ctrlW), std::max(1.0f, ctrlH) };
 }
 
-ElementSpec MakeImageSpec(const ImageOptions& opts, UiSize size, const UiTheme& theme, bool disabled) noexcept {
+ElementSpec MakeImageSpec(
+    const ImageOptions& opts,
+    UiSize size,
+    const UiTheme& theme,
+    bool disabled,
+    bool hovered = false,
+    bool active = false
+) noexcept {
     const ComponentMetrics& m = theme.GetMetrics(size);
     const InputFieldMetrics& inputMetrics = theme.GetInputField(size);
     const ControlSpec ctrl = EffectiveImageControl(opts);
@@ -99,13 +106,17 @@ ElementSpec MakeImageSpec(const ImageOptions& opts, UiSize size, const UiTheme& 
         .background = opts.background,
         .borderWidth = opts.borderWidth,
         .borderRadius = opts.borderRadius,
+        .borderColor = opts.borderColor,
+        .bgColor = opts.bgColor,
         .widgetSize = size,
         .labelGap = inputMetrics.labelGap,
         .descGap = inputMetrics.descGap,
         .inlineGap = m.paddingX,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = (opts.heightMode == SizeMode::Stretch),
-        .disabled = disabled
+        .disabled = disabled,
+        .hovered = hovered,
+        .active = active
     };
 }
 
@@ -145,9 +156,12 @@ float ResolveInlineControlAvailableWidth(
         }
         if (opts.badge.HasContentOrReserve()) {
             if (labelBarW > 0.0f) labelBarW += hm.badgeGap;
-            const float badgeFs = opts.badge.role.has_value()
-                ? theme.GetTypography(*opts.badge.role).fontSize
-                : hm.badgeFontSize;
+            const UiSize badgeSz = (opts.badge.size.preset != UiSize::None) ? opts.badge.size.preset : size;
+            const float badgeFs = (opts.badge.size.px > 0.0f)
+                ? opts.badge.size.px
+                : (opts.badge.size.role.has_value()
+                    ? theme.GetTypography(*opts.badge.size.role).fontSize
+                    : theme.GetHeading(badgeSz).badgeFontSize);
             labelBarW += TextUtil::MeasureWidth(opts.badge, badgeFs, canvas) + 12.0f;
         }
         const float descW = hasDesc ? TextUtil::MeasureWidth(opts.description, descFs, canvas) : 0.0f;
@@ -206,7 +220,11 @@ Response Image::Run(
         opts.background,
         opts.borderWidth,
         opts.borderRadius.value_or(-1.0f),
+        opts.borderColor,
+        opts.bgColor,
         ctrl.HasBackground(false),
+        ctrl.borderColor,
+        ctrl.bgColor,
         static_cast<uint8_t>(opts.icon.GetType()),
         static_cast<uint8_t>(opts.icon.GetId()),
         opts.icon.GetPath(),
@@ -223,7 +241,6 @@ Response Image::Run(
         opts.maxHeight.value_or(0.0f),
         ctrl.borderRadius.value_or(-1.0f),
         ctrl.borderWidth,
-        opts.borderColor.ToUint32(),
         opts.backgroundColor.ToUint32(),
         opts.checkerboard,
         opts.opacity,
@@ -331,7 +348,7 @@ void Image::Render(
     std::string_view source,
     const ImageOptions& opts,
     UiSize size,
-    bool /*hovered*/,
+    bool hovered,
     bool disabled,
     const UiTheme& theme
 ) {
@@ -339,7 +356,7 @@ void Image::Render(
 
     const ComponentMetrics& cm = theme.GetMetrics(size);
     const Vec2 naturalSize = ResolveNaturalImageSize(source, &canvas);
-    const ElementSpec spec = MakeImageSpec(opts, size, theme, disabled);
+    const ElementSpec spec = MakeImageSpec(opts, size, theme, disabled, hovered, false);
     const float ctrlAvailW = ResolveInlineControlAvailableWidth(opts, spec, size, &canvas, theme, bounds.w);
     const Vec2 ctrlSize = ComputeControlBoxSize(naturalSize, opts, theme, ctrlAvailW);
     const ElementGeometry geom = Element::Resolve(bounds, ctrlSize, spec, &canvas, theme);
@@ -352,6 +369,10 @@ void Image::Render(
     const float rad = ctrl.borderRadius.has_value() ? theme.Scale(*ctrl.borderRadius) : cm.cornerRadius;
     if (opts.checkerboard) {
         DrawCheckerboard(canvas, box, rad, theme);
+    } else if (ctrl.bgColor.HasAny() && ctrl.HasBackground(true)) {
+        const Color defaultBg = (opts.backgroundColor.a > 0) ? opts.backgroundColor : theme.palette.surfaceElevated;
+        const Color bg = ctrl.bgColor.Resolve(hovered, false, disabled, disabled ? defaultBg.WithAlphaF(0.40f) : defaultBg);
+        canvas.DrawRoundRect(box, rad, bg);
     } else if (opts.backgroundColor.a > 0) {
         const Color bg = disabled ? opts.backgroundColor.WithAlphaF(0.40f) : opts.backgroundColor;
         canvas.DrawRoundRect(box, rad, bg);
@@ -391,17 +412,17 @@ void Image::Render(
     }
 
     if (ctrl.borderWidth > 0.0f) {
-        Color bCol = theme.palette.borderSubtle;
-        if (opts.borderColor.a > 0) {
-            bCol = opts.borderColor;
+        Color bCol = disabled ? theme.palette.borderSubtle.WithAlphaF(0.40f) : theme.palette.borderSubtle;
+        if (ctrl.borderColor.HasAny()) {
+            bCol = ctrl.borderColor.Resolve(hovered, false, disabled, bCol);
         } else if (opts.variant != UiVariant::Default &&
                    opts.variant != UiVariant::Secondary &&
                    opts.variant != UiVariant::Muted &&
                    opts.variant != UiVariant::Ghost) {
             bCol = theme.GetVariant(opts.variant).bg.WithAlphaF(0.75f);
-        }
-        if (disabled) {
-            bCol = bCol.WithAlphaF(0.40f);
+            if (disabled) {
+                bCol = bCol.WithAlphaF(0.40f);
+            }
         }
         canvas.DrawRoundRect(box, rad, Color::Transparent(), bCol, theme.Scale(ctrl.borderWidth));
     }

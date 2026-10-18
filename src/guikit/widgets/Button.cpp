@@ -62,6 +62,8 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
         opts.background,
         opts.borderWidth,
         opts.borderRadius.value_or(-1.0f),
+        opts.borderColor,
+        opts.bgColor,
         opts.control.width.value_or(0.0f),
         opts.control.height.value_or(0.0f),
         opts.control.minWidth.value_or(0.0f),
@@ -69,6 +71,8 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, std::source_locati
         opts.control.HasBackground(true),
         opts.control.borderWidth,
         opts.control.borderRadius.value_or(-1.0f),
+        opts.control.borderColor,
+        opts.control.bgColor,
         static_cast<uint8_t>(opts.icon.GetType()),
         static_cast<uint8_t>(opts.icon.GetId()),
         opts.icon.GetPath(),
@@ -169,7 +173,9 @@ ElementSpec MakeButtonElementSpec(
     const UiText& effectiveExternalLabel,
     UiSize size,
     bool disabled,
-    const UiTheme& theme
+    const UiTheme& theme,
+    bool hovered = false,
+    bool active = false
 ) noexcept {
     const ComponentMetrics& m = theme.GetMetrics(size);
     const auto& inputMetrics = theme.GetInputField(size);
@@ -189,13 +195,17 @@ ElementSpec MakeButtonElementSpec(
         .background = opts.background,
         .borderWidth = opts.borderWidth,
         .borderRadius = opts.borderRadius,
+        .borderColor = opts.borderColor,
+        .bgColor = opts.bgColor,
         .widgetSize = size,
         .labelGap = inputMetrics.labelGap,
         .descGap = inputMetrics.descGap,
         .inlineGap = m.paddingX,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = ctrl.stretchHeightWhenStandalone,
-        .disabled = disabled
+        .disabled = disabled,
+        .hovered = hovered,
+        .active = active
     };
 }
 
@@ -243,7 +253,9 @@ void Button::Render(
 
     const ControlSpec ctrl = EffectiveButtonControl(opts);
     const Vec2 capSize = MeasureButtonCapsule(opts, ctrl, effectiveCapsuleText, size, &canvas, theme);
-    const ElementSpec spec = MakeButtonElementSpec(opts, ctrl, effectiveExternalLabel, size, disabled, theme);
+    const ElementSpec spec = MakeButtonElementSpec(
+        opts, ctrl, effectiveExternalLabel, size, disabled, theme, hovered, pressed || opts.active || focused
+    );
     const ElementGeometry geom = Element::Resolve(bounds, capSize, spec, &canvas, theme);
     Element::RenderText(canvas, geom, spec, theme);
     const Rect capsuleRect = geom.controlRect;
@@ -252,9 +264,9 @@ void Button::Render(
     const bool hasCtrlBg = ctrl.HasBackground(true);
 
     Color bg = hasCtrlBg ? colors.bg : Color::Transparent();
-    Color textCol = effectiveCapsuleText.variant.has_value()
-        ? theme.GetTextColor(*effectiveCapsuleText.variant)
-        : colors.text;
+    Color textCol = effectiveCapsuleText.color.HasAny()
+        ? effectiveCapsuleText.color.Resolve(hovered, pressed || opts.active, disabled, colors.text)
+        : (disabled ? colors.text.WithAlphaF(0.40f) : colors.text);
     Color borderCol = colors.border;
     float borderW = (ctrl.borderWidth > 0.0f) ? theme.Scale(ctrl.borderWidth) : colors.borderWidth;
     if (ctrl.borderWidth > 0.0f && borderCol.a == 0) {
@@ -265,7 +277,6 @@ void Button::Render(
 
     if (disabled) {
         bg = bg.WithAlphaF(0.40f);
-        textCol = textCol.WithAlphaF(0.40f);
         borderCol = borderCol.WithAlphaF(0.40f);
     } else if (pressed) {
         if (hasCtrlBg) bg = colors.bgActive;
@@ -279,8 +290,17 @@ void Button::Render(
         if (hasCtrlBg) bg = colors.bgHover;
     }
 
+    if (hasCtrlBg && ctrl.bgColor.HasAny()) {
+        bg = ctrl.bgColor.Resolve(hovered, pressed || opts.active, disabled, bg);
+    }
+    if (ctrl.borderColor.HasAny()) {
+        borderCol = ctrl.borderColor.Resolve(hovered, pressed || opts.active || focused, disabled, borderCol);
+    }
+
     if (focused && !disabled) {
-        borderCol = theme.palette.focusRing;
+        if (!ctrl.borderColor.active.has_value()) {
+            borderCol = theme.palette.focusRing;
+        }
         borderW = std::max(borderW, 2.0f);
     }
 

@@ -245,9 +245,9 @@ float TextUtil::MeasureUiTextHeight(
         return 0.0f;
     }
 
-    size_t linesCount = std::max<size_t>(1, text.minLines);
+    size_t linesCount = std::max<size_t>(1, text.wrap.minLines);
 
-    if (text.wrap == TextWrap::Word && text.maxLines != 1) {
+    if (text.wrap.IsWordWrap()) {
         auto countLinesFor = [&](std::string_view sv) -> size_t {
             if (sv.empty()) {
                 return 0;
@@ -270,9 +270,9 @@ float TextUtil::MeasureUiTextHeight(
             linesCount = std::max(linesCount, countLinesFor(var));
         }
 
-        if (text.maxLines > 0) {
-            linesCount = std::min<size_t>(linesCount, text.maxLines);
-            linesCount = std::max<size_t>(linesCount, text.minLines);
+        if (text.wrap.maxLines > 0) {
+            linesCount = std::min<size_t>(linesCount, text.wrap.maxLines);
+            linesCount = std::max<size_t>(linesCount, text.wrap.minLines);
         }
     }
 
@@ -295,11 +295,11 @@ void TextUtil::DrawUiText(
 
     const float lh = (lineHeight > 0.0f) ? lineHeight : (fontSize * kDefaultLineHeightMultiplier);
 
-    if (text.wrap == TextWrap::SingleLine || text.maxLines == 1) {
-        const Rect drawRect = (text.minLines > 1 && bounds.h > lh + kTextSubpixelTolerance)
+    if (!text.wrap.IsWordWrap()) {
+        const Rect drawRect = (text.wrap.minLines > 1 && bounds.h > lh + kTextSubpixelTolerance)
             ? Rect(bounds.x, bounds.y, bounds.w, lh)
             : bounds;
-        const float effAlignY = (text.minLines > 1 && bounds.h > lh + kTextSubpixelTolerance)
+        const float effAlignY = (text.wrap.minLines > 1 && bounds.h > lh + kTextSubpixelTolerance)
             ? 0.5f
             : singleLineAlignY;
 
@@ -341,8 +341,8 @@ void TextUtil::DrawUiText(
     const size_t heightFitLines = (lh > 0.0f)
         ? static_cast<size_t>(std::max(1.0f, std::floor((bounds.h + kTextSubpixelTolerance) / lh)))
         : lines.size();
-    const size_t maxAllowedLines = (text.maxLines > 0)
-        ? std::min<size_t>(text.maxLines, heightFitLines)
+    const size_t maxAllowedLines = (text.wrap.maxLines > 0)
+        ? std::min<size_t>(text.wrap.maxLines, heightFitLines)
         : heightFitLines;
     const size_t visibleCount = std::min(lines.size(), maxAllowedLines);
 

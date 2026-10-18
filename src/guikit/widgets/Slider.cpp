@@ -341,7 +341,9 @@ ElementSpec MakeSliderElementSpec(
     const SliderOptions& opts,
     UiSize size,
     bool disabled,
-    const UiTheme& theme
+    const UiTheme& theme,
+    bool hovered = false,
+    bool active = false
 ) noexcept {
     const SliderMetrics& m = theme.GetSlider(size);
     const ControlSpec ctrl = EffectiveSliderControl(opts);
@@ -361,13 +363,17 @@ ElementSpec MakeSliderElementSpec(
         .background = opts.background,
         .borderWidth = opts.borderWidth,
         .borderRadius = opts.borderRadius,
+        .borderColor = opts.borderColor,
+        .bgColor = opts.bgColor,
         .widgetSize = size,
         .labelGap = m.labelGap,
         .descGap = m.descGap,
         .inlineGap = 12.0f,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = false,
-        .disabled = disabled
+        .disabled = disabled,
+        .hovered = hovered,
+        .active = active
     };
 }
 
@@ -375,7 +381,9 @@ ElementSpec MakeStepSliderElementSpec(
     const StepSliderOptions& opts,
     UiSize size,
     bool disabled,
-    const UiTheme& theme
+    const UiTheme& theme,
+    bool hovered = false,
+    bool active = false
 ) noexcept {
     const SliderMetrics& m = theme.GetSlider(size);
     const ControlSpec ctrl = EffectiveSliderControl(opts);
@@ -395,13 +403,17 @@ ElementSpec MakeStepSliderElementSpec(
         .background = opts.background,
         .borderWidth = opts.borderWidth,
         .borderRadius = opts.borderRadius,
+        .borderColor = opts.borderColor,
+        .bgColor = opts.bgColor,
         .widgetSize = size,
         .labelGap = m.labelGap,
         .descGap = m.descGap,
         .inlineGap = 12.0f,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = false,
-        .disabled = disabled
+        .disabled = disabled,
+        .hovered = hovered,
+        .active = active
     };
 }
 
@@ -593,11 +605,15 @@ Response Slider::Run(
         opts.background,
         opts.borderWidth,
         opts.borderRadius.value_or(-1.0f),
+        opts.borderColor,
+        opts.bgColor,
         opts.control.width.value_or(0.0f),
         opts.control.height.value_or(0.0f),
         opts.control.HasBackground(false),
         opts.control.borderWidth,
         opts.control.borderRadius.value_or(-1.0f),
+        opts.control.borderColor,
+        opts.control.bgColor,
         opts.width.value_or(0.0f),
         opts.height.value_or(0.0f),
         opts.showValue,
@@ -710,7 +726,7 @@ void Slider::Render(
         0.0f, size, &canvas, theme,
         {}, true, rangeMin, rangeMax, isIntStep
     );
-    const ElementSpec spec = MakeSliderElementSpec(opts, size, disabled, theme);
+    const ElementSpec spec = MakeSliderElementSpec(opts, size, disabled, theme, hovered, active || focused);
     const ElementGeometry geom = Element::Resolve(bounds, cm.intrinsicControlSize, spec, &canvas, theme);
     Element::RenderText(canvas, geom, spec, theme);
 
@@ -930,11 +946,15 @@ Response StepSlider::Run(
         opts.background,
         opts.borderWidth,
         opts.borderRadius.value_or(-1.0f),
+        opts.borderColor,
+        opts.bgColor,
         opts.control.width.value_or(0.0f),
         opts.control.height.value_or(0.0f),
         opts.control.HasBackground(false),
         opts.control.borderWidth,
         opts.control.borderRadius.value_or(-1.0f),
+        opts.control.borderColor,
+        opts.control.bgColor,
         opts.width.value_or(0.0f),
         opts.height.value_or(0.0f),
         opts.showTicks,
@@ -1044,7 +1064,7 @@ void StepSlider::Render(
         extraLabelsH, size, &canvas, theme,
         opts.stepLabels
     );
-    const ElementSpec spec = MakeStepSliderElementSpec(opts, size, disabled, theme);
+    const ElementSpec spec = MakeStepSliderElementSpec(opts, size, disabled, theme, hovered, active || focused);
     const ElementGeometry geom = Element::Resolve(bounds, cm.intrinsicControlSize, spec, &canvas, theme);
     Element::RenderText(canvas, geom, spec, theme);
 
@@ -1164,7 +1184,9 @@ ElementSpec MakeRangeSliderElementSpec(
     const RangeSliderOptions& opts,
     UiSize size,
     bool disabled,
-    const UiTheme& theme
+    const UiTheme& theme,
+    bool hovered = false,
+    bool active = false
 ) noexcept {
     const SliderMetrics& m = theme.GetSlider(size);
     const ControlSpec ctrl = EffectiveSliderControl(opts);
@@ -1184,13 +1206,17 @@ ElementSpec MakeRangeSliderElementSpec(
         .background = opts.background,
         .borderWidth = opts.borderWidth,
         .borderRadius = opts.borderRadius,
+        .borderColor = opts.borderColor,
+        .bgColor = opts.bgColor,
         .widgetSize = size,
         .labelGap = m.labelGap,
         .descGap = m.descGap,
         .inlineGap = 12.0f,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = false,
-        .disabled = disabled
+        .disabled = disabled,
+        .hovered = hovered,
+        .active = active
     };
 }
 
@@ -1198,7 +1224,9 @@ ElementSpec MakeProgressBarElementSpec(
     const ProgressBarOptions& opts,
     UiSize size,
     bool disabled,
-    const UiTheme& theme
+    const UiTheme& theme,
+    bool hovered = false,
+    bool active = false
 ) noexcept {
     const SliderMetrics& m = theme.GetSlider(size);
     const ControlSpec ctrl = EffectiveSliderControl(opts);
@@ -1218,13 +1246,17 @@ ElementSpec MakeProgressBarElementSpec(
         .background = opts.background,
         .borderWidth = opts.borderWidth,
         .borderRadius = opts.borderRadius,
+        .borderColor = opts.borderColor,
+        .bgColor = opts.bgColor,
         .widgetSize = size,
         .labelGap = m.labelGap,
         .descGap = m.descGap,
         .inlineGap = 12.0f,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = false,
-        .disabled = disabled
+        .disabled = disabled,
+        .hovered = hovered,
+        .active = active
     };
 }
 
@@ -1513,11 +1545,15 @@ Response RangeSlider::Run(
         opts.background,
         opts.borderWidth,
         opts.borderRadius.value_or(-1.0f),
+        opts.borderColor,
+        opts.bgColor,
         opts.control.width.value_or(0.0f),
         opts.control.height.value_or(0.0f),
         opts.control.HasBackground(false),
         opts.control.borderWidth,
         opts.control.borderRadius.value_or(-1.0f),
+        opts.control.borderColor,
+        opts.control.bgColor,
         opts.width.value_or(0.0f),
         opts.height.value_or(0.0f),
         opts.showValue,
@@ -1643,7 +1679,7 @@ void RangeSlider::Render(
         0.0f, size, &canvas, theme,
         std::span<const std::string_view>(&maxSpanView, 1)
     );
-    const ElementSpec spec = MakeRangeSliderElementSpec(opts, size, disabled, theme);
+    const ElementSpec spec = MakeRangeSliderElementSpec(opts, size, disabled, theme, hovered, active || focused);
     const ElementGeometry geom = Element::Resolve(bounds, cm.intrinsicControlSize, spec, &canvas, theme);
     Element::RenderText(canvas, geom, spec, theme);
 
@@ -1778,11 +1814,15 @@ Response ProgressBar::Run(
         opts.background,
         opts.borderWidth,
         opts.borderRadius.value_or(-1.0f),
+        opts.borderColor,
+        opts.bgColor,
         opts.control.width.value_or(0.0f),
         opts.control.height.value_or(0.0f),
         opts.control.HasBackground(false),
         opts.control.borderWidth,
         opts.control.borderRadius.value_or(-1.0f),
+        opts.control.borderColor,
+        opts.control.bgColor,
         opts.width.value_or(0.0f),
         opts.height.value_or(0.0f),
         opts.showValue,
@@ -1882,7 +1922,7 @@ void ProgressBar::Render(
     double max,
     const ProgressBarOptions& opts,
     UiSize size,
-    bool /*hovered*/,
+    bool hovered,
     bool disabled,
     const UiTheme& theme
 ) {
@@ -1917,7 +1957,7 @@ void ProgressBar::Render(
         cm.trackRowH = barH + 4.0f;
     }
 
-    const ElementSpec spec = MakeProgressBarElementSpec(opts, size, disabled, theme);
+    const ElementSpec spec = MakeProgressBarElementSpec(opts, size, disabled, theme, hovered, false);
     const ElementGeometry geom = Element::Resolve(bounds, cm.intrinsicControlSize, spec, &canvas, theme);
     Element::RenderText(canvas, geom, spec, theme);
 

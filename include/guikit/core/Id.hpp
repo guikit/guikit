@@ -67,27 +67,35 @@ constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexc
         hash = HashStringView(val.icon.GetPath(), hash);
         hash = HashBytes(&icPlace, sizeof(icPlace), hash);
         return hash;
-    } else if constexpr (requires { val.text; val.role; val.variant; }) {
+    } else if constexpr (requires { val.text; val.size; val.color; val.wrap; }) {
         hash = HashStringView(val.text, hash);
-        const uint8_t hasRole = val.role.has_value() ? 1u : 0u;
-        const uint8_t roleVal = val.role.has_value() ? static_cast<uint8_t>(*val.role) : 0u;
-        const uint8_t hasVar = val.variant.has_value() ? 1u : 0u;
-        const uint8_t varVal = val.variant.has_value() ? static_cast<uint8_t>(*val.variant) : 0u;
+        hash = HashBytes(&val.size.px, sizeof(val.size.px), hash);
+        const uint8_t presetVal = static_cast<uint8_t>(val.size.preset);
+        const uint8_t hasRole = val.size.role.has_value() ? 1u : 0u;
+        const uint8_t roleVal = val.size.role.has_value() ? static_cast<uint8_t>(*val.size.role) : 0u;
+        hash = HashBytes(&presetVal, sizeof(presetVal), hash);
         hash = HashBytes(&hasRole, sizeof(hasRole), hash);
         hash = HashBytes(&roleVal, sizeof(roleVal), hash);
-        hash = HashBytes(&hasVar, sizeof(hasVar), hash);
-        hash = HashBytes(&varVal, sizeof(varVal), hash);
-        if constexpr (requires { val.wrap; val.minLines; val.maxLines; }) {
-            const uint8_t wrapVal = static_cast<uint8_t>(val.wrap);
-            hash = HashBytes(&wrapVal, sizeof(wrapVal), hash);
-            hash = HashBytes(&val.minLines, sizeof(val.minLines), hash);
-            hash = HashBytes(&val.maxLines, sizeof(val.maxLines), hash);
-        }
+        hash = HashVal(val.color, hash);
+        hash = HashBytes(&val.wrap.minLines, sizeof(val.wrap.minLines), hash);
+        hash = HashBytes(&val.wrap.maxLines, sizeof(val.wrap.maxLines), hash);
         if constexpr (requires { val.variants; }) {
             for (std::string_view v : val.variants) {
                 hash = HashStringView(v, hash);
             }
         }
+        return hash;
+    } else if constexpr (requires { val.normal; val.hover; val.active; val.disabled; }) {
+        auto hashOptCol = [&](const auto& opt) noexcept {
+            const uint8_t has = opt.has_value() ? 1u : 0u;
+            const uint32_t rgba = opt.has_value() ? opt->ToUint32() : 0u;
+            hash = HashBytes(&has, sizeof(has), hash);
+            hash = HashBytes(&rgba, sizeof(rgba), hash);
+        };
+        hashOptCol(val.normal);
+        hashOptCol(val.hover);
+        hashOptCol(val.active);
+        hashOptCol(val.disabled);
         return hash;
     } else if constexpr (std::is_enum_v<CleanT>) {
         auto underlying = static_cast<std::underlying_type_t<CleanT>>(val);

@@ -18,6 +18,8 @@ struct ControlSpec {
     std::optional<bool> background{std::nullopt};    ///< Whether to render a control backdrop / well inside controlRect (nullopt = widget default)
     float borderWidth{0.0f};                         ///< Explicit border thickness around controlRect (0.0f = default / none)
     std::optional<float> borderRadius{std::nullopt}; ///< Explicit corner radius for controlRect
+    StateColor borderColor{};                        ///< Per-state border color for controlRect (normal, hover, active, disabled)
+    StateColor bgColor{};                            ///< Per-state background/well color for controlRect (normal, hover, active, disabled)
     bool stretchable{true};                          ///< True when control stretches horizontally in StretchMode::Fill
     bool stretchHeightWhenStandalone{false};         ///< True when control stretches vertically when standalone
     bool hasIntrinsicBox{true};                      ///< True for Button/InputField/Select/Image; false for Slider/Switch/Checkbox
@@ -72,7 +74,9 @@ public:
         UiVariant variant,
         UiSize size,
         bool disabled,
-        const UiTheme& theme
+        const UiTheme& theme,
+        bool hovered = false,
+        bool active = false
     ) noexcept;
 };
 

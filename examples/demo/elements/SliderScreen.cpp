@@ -123,7 +123,7 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
     const std::optional<double> stepOpt = s_state.quantizeStep ? std::optional<double>(5.0) : std::nullopt;
     if (s_state.modeIdx == 0) {
         ui.Slider(s_state.val, 0.0f, 100.0f, {
-            .label = ctx.elemLabel,
+            .label = ctx.GetElementLabel(),
             .textLeft = s_state.textLeft,
             .textRight = s_state.textRight,
             .description = ctx.GetElementDescription(),
@@ -142,13 +142,14 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
             .background = ctx.elemBackground,
             .borderWidth = ctx.elemBorderWidth,
             .borderRadius = ctx.GetElemBorderRadius(),
+            .borderColor = ctx.GetElemBorderColor(),
             .control = ctx.GetControlSpec(NavCategory::ElemSlider),
             .disabled = ctx.elemDisabled
         });
     } else if (s_state.modeIdx == 1) {
         static constexpr std::array<std::string_view, 5> stepItems = {"Off", "Low", "Mid", "High", "Max"};
         ui.StepSlider(s_state.stepIdx, stepItems, {
-            .label = ctx.elemLabel,
+            .label = ctx.GetElementLabel(),
             .textLeft = s_state.textLeft,
             .textRight = s_state.textRight,
             .description = ctx.GetElementDescription(),
@@ -167,12 +168,13 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
             .background = ctx.elemBackground,
             .borderWidth = ctx.elemBorderWidth,
             .borderRadius = ctx.GetElemBorderRadius(),
+            .borderColor = ctx.GetElemBorderColor(),
             .control = ctx.GetControlSpec(NavCategory::ElemSlider),
             .disabled = ctx.elemDisabled
         });
     } else if (s_state.modeIdx == 2) {
         ui.RangeSlider(s_state.rangeLow, s_state.rangeHigh, 0.0f, 100.0f, {
-            .label = ctx.elemLabel,
+            .label = ctx.GetElementLabel(),
             .textLeft = s_state.textLeft,
             .textRight = s_state.textRight,
             .description = ctx.GetElementDescription(),
@@ -192,12 +194,13 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
             .background = ctx.elemBackground,
             .borderWidth = ctx.elemBorderWidth,
             .borderRadius = ctx.GetElemBorderRadius(),
+            .borderColor = ctx.GetElemBorderColor(),
             .control = ctx.GetControlSpec(NavCategory::ElemSlider),
             .disabled = ctx.elemDisabled
         });
     } else {
         ui.ProgressBar(s_state.val, 0.0, 100.0, {
-            .label = ctx.elemLabel,
+            .label = ctx.GetElementLabel(),
             .textLeft = s_state.textLeft,
             .textRight = s_state.textRight,
             .description = ctx.GetElementDescription(),
@@ -219,6 +222,7 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
             .background = ctx.elemBackground,
             .borderWidth = ctx.elemBorderWidth,
             .borderRadius = ctx.GetElemBorderRadius(),
+            .borderColor = ctx.GetElemBorderColor(),
             .control = ctx.GetControlSpec(NavCategory::ElemSlider),
             .disabled = ctx.elemDisabled
         });
@@ -229,7 +233,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
     if (s_state.modeIdx == 0) {
         return std::format(
             "ui.Slider(gainValue, 0.0f, 100.0f, {{\n"
-            "    .label = \"{}\",\n"
+            "    .label = {},\n"
             "    .textLeft = \"{}\",\n"
             "    .textRight = \"{}\",\n"
             "    .description = {},\n"
@@ -248,10 +252,11 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             "    .background = {},\n"
             "    .borderWidth = {:.1f}f,\n"
             "    .borderRadius = {},\n"
+            "    .borderColor = {},\n"
             "    .control = {},\n"
             "    .disabled = {}\n"
             "}});",
-            ctx.elemLabel,
+            ctx.FormatElementLabelCode(),
             s_state.textLeft,
             s_state.textRight,
             ctx.FormatElementDescCode(),
@@ -269,6 +274,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             ctx.elemBackground ? "true" : "false",
             ctx.elemBorderWidth,
             ctx.FormatElemBorderRadiusCode(),
+            ctx.FormatElemBorderColorCode(),
             ctx.FormatControlSpecCode(NavCategory::ElemSlider),
             ctx.elemDisabled ? "true" : "false"
         );
@@ -277,7 +283,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
         return std::format(
             "static constexpr std::array<std::string_view, 5> stepItems = {{\"Off\", \"Low\", \"Mid\", \"High\", \"Max\"}};\n"
             "ui.StepSlider(presetIndex, stepItems, {{\n"
-            "    .label = \"{}\",\n"
+            "    .label = {},\n"
             "    .textLeft = \"{}\",\n"
             "    .textRight = \"{}\",\n"
             "    .description = {},\n"
@@ -296,10 +302,11 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             "    .background = {},\n"
             "    .borderWidth = {:.1f}f,\n"
             "    .borderRadius = {},\n"
+            "    .borderColor = {},\n"
             "    .control = {},\n"
             "    .disabled = {}\n"
             "}});",
-            ctx.elemLabel,
+            ctx.FormatElementLabelCode(),
             s_state.textLeft,
             s_state.textRight,
             ctx.FormatElementDescCode(),
@@ -318,6 +325,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             ctx.elemBackground ? "true" : "false",
             ctx.elemBorderWidth,
             ctx.FormatElemBorderRadiusCode(),
+            ctx.FormatElemBorderColorCode(),
             ctx.FormatControlSpecCode(NavCategory::ElemSlider),
             ctx.elemDisabled ? "true" : "false"
         );
@@ -325,7 +333,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
     if (s_state.modeIdx == 2) {
         return std::format(
             "ui.RangeSlider(bandLow, bandHigh, 0.0f, 100.0f, {{\n"
-            "    .label = \"{}\",\n"
+            "    .label = {},\n"
             "    .textLeft = \"{}\",\n"
             "    .textRight = \"{}\",\n"
             "    .description = {},\n"
@@ -345,10 +353,11 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             "    .background = {},\n"
             "    .borderWidth = {:.1f}f,\n"
             "    .borderRadius = {},\n"
+            "    .borderColor = {},\n"
             "    .control = {},\n"
             "    .disabled = {}\n"
             "}});",
-            ctx.elemLabel,
+            ctx.FormatElementLabelCode(),
             s_state.textLeft,
             s_state.textRight,
             ctx.FormatElementDescCode(),
@@ -367,13 +376,14 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             ctx.elemBackground ? "true" : "false",
             ctx.elemBorderWidth,
             ctx.FormatElemBorderRadiusCode(),
+            ctx.FormatElemBorderColorCode(),
             ctx.FormatControlSpecCode(NavCategory::ElemSlider),
             ctx.elemDisabled ? "true" : "false"
         );
     }
     return std::format(
         "ui.ProgressBar(signalLevel, 0.0, 100.0, {{\n"
-        "    .label = \"{}\",\n"
+        "    .label = {},\n"
         "    .textLeft = \"{}\",\n"
         "    .textRight = \"{}\",\n"
         "    .description = {},\n"
@@ -395,10 +405,11 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
         "    .background = {},\n"
         "    .borderWidth = {:.1f}f,\n"
         "    .borderRadius = {},\n"
+        "    .borderColor = {},\n"
         "    .control = {},\n"
         "    .disabled = {}\n"
         "}});",
-        ctx.elemLabel,
+        ctx.FormatElementLabelCode(),
         s_state.textLeft,
         s_state.textRight,
         ctx.FormatElementDescCode(),
@@ -419,6 +430,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
         ctx.elemBackground ? "true" : "false",
         ctx.elemBorderWidth,
         ctx.FormatElemBorderRadiusCode(),
+        ctx.FormatElemBorderColorCode(),
         ctx.FormatControlSpecCode(NavCategory::ElemSlider),
         ctx.elemDisabled ? "true" : "false"
     );

@@ -60,7 +60,9 @@ ElementSpec MakeSwitchElementSpec(
     const SwitchOptions& opts,
     UiSize size,
     bool disabled,
-    const UiTheme& theme
+    const UiTheme& theme,
+    bool hovered = false,
+    bool active = false
 ) noexcept {
     const SwitchMetrics& m = theme.GetSwitch(size);
     const ControlSpec ctrl = EffectiveSwitchControl(opts);
@@ -80,13 +82,17 @@ ElementSpec MakeSwitchElementSpec(
         .background = opts.background,
         .borderWidth = opts.borderWidth,
         .borderRadius = opts.borderRadius,
+        .borderColor = opts.borderColor,
+        .bgColor = opts.bgColor,
         .widgetSize = size,
         .labelGap = m.descGap,
         .descGap = m.descGap,
         .inlineGap = m.gap,
         .stretchableControl = false,
         .stretchHeightWhenStandalone = false,
-        .disabled = disabled
+        .disabled = disabled,
+        .hovered = hovered,
+        .active = active
     };
 }
 
@@ -159,9 +165,13 @@ Response Switch::Run(
         opts.background,
         opts.borderWidth,
         opts.borderRadius.value_or(-1.0f),
+        opts.borderColor,
+        opts.bgColor,
         ctrl.HasBackground(false),
         ctrl.borderWidth,
         ctrl.borderRadius.value_or(-1.0f),
+        ctrl.borderColor,
+        ctrl.bgColor,
         static_cast<uint8_t>(opts.icon.GetType()),
         static_cast<uint8_t>(opts.icon.GetId()),
         opts.icon.GetPath(),
@@ -234,7 +244,7 @@ void Switch::Render(
     const SwitchOptions& opts,
     UiSize size,
     bool hovered,
-    bool /*pressed*/,
+    bool pressed,
     bool disabled,
     const UiTheme& theme,
     bool focused
@@ -247,7 +257,7 @@ void Switch::Render(
     const auto& pal = theme.palette;
 
     const Vec2 ctrlDims = MeasureSwitchControl(opts, size, &canvas, theme);
-    const ElementSpec spec = MakeSwitchElementSpec(opts, size, disabled, theme);
+    const ElementSpec spec = MakeSwitchElementSpec(opts, size, disabled, theme, hovered, pressed || focused);
     const ElementGeometry geom = Element::Resolve(bounds, ctrlDims, spec, &canvas, theme);
     Element::RenderText(canvas, geom, spec, theme);
 

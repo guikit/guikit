@@ -63,7 +63,7 @@ Response Text::Run(
     node->disabled = effectiveDisabled;
     node->hovered = res.hovered;
     node->pressed = res.pressed;
-    node->widthMode = (opts.align != Alignment::Start || label.wrap == TextWrap::Word)
+    node->widthMode = (opts.align != Alignment::Start || label.wrap.IsWordWrap())
         ? SizeMode::Stretch
         : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
@@ -85,17 +85,23 @@ Vec2 Text::Measure(
     }
     const TextRole effectiveRole = (opts.role != TextRole::BodyMedium)
         ? opts.role
-        : label.role.value_or(opts.role);
+        : label.size.role.value_or(opts.role);
     const TypographyMetrics& m = theme.GetTypography(effectiveRole);
+    const float fontSize = (label.size.px > 0.0f)
+        ? label.size.px
+        : (label.size.preset != UiSize::None ? theme.ResolveFontSize(effectiveRole, label.size.preset) : m.fontSize);
+    const float lineHeight = (label.size.px > 0.0f || label.size.preset != UiSize::None)
+        ? theme.GetLineHeight(fontSize)
+        : m.lineHeight;
 
     auto measureSingleLineW = [&](std::string_view sv) -> float {
         if (sv.empty()) {
             return 0.0f;
         }
         if (canvas) {
-            return canvas->MeasureText(sv, m.fontSize).x;
+            return canvas->MeasureText(sv, fontSize).x;
         }
-        return static_cast<float>(sv.length()) * (m.fontSize * (m.isMonospace ? kMonospaceCharAdvanceRatio : kDefaultCharAdvanceRatio));
+        return static_cast<float>(sv.length()) * (fontSize * (m.isMonospace ? kMonospaceCharAdvanceRatio : kDefaultCharAdvanceRatio));
     };
 
     float w = measureSingleLineW(label.text);
@@ -103,9 +109,9 @@ Vec2 Text::Measure(
         w = std::max(w, measureSingleLineW(var));
     }
 
-    float h = TextUtil::MeasureUiTextHeight(label, availableWidth, m.fontSize, m.lineHeight, canvas);
-    if (canvas && !label.text.empty() && (label.wrap == TextWrap::SingleLine || label.maxLines == 1) && label.minLines <= 1) {
-        h = std::max(h, canvas->MeasureText(label.text, m.fontSize).y);
+    float h = TextUtil::MeasureUiTextHeight(label, availableWidth, fontSize, lineHeight, canvas);
+    if (canvas && !label.text.empty() && !label.wrap.IsWordWrap() && label.wrap.minLines <= 1) {
+        h = std::max(h, canvas->MeasureText(label.text, fontSize).y);
     }
     return {w, h};
 }
@@ -134,21 +140,30 @@ void Text::Render(
     }
     const TextRole effectiveRole = (opts.role != TextRole::BodyMedium)
         ? opts.role
-        : label.role.value_or(opts.role);
-    const UiVariant effectiveVariant = (opts.variant != UiVariant::Default)
-        ? opts.variant
-        : label.variant.value_or(opts.variant);
+        : label.size.role.value_or(opts.role);
     const TypographyMetrics& m = theme.GetTypography(effectiveRole);
+    const float fontSize = (label.size.px > 0.0f)
+        ? label.size.px
+        : (label.size.preset != UiSize::None ? theme.ResolveFontSize(effectiveRole, label.size.preset) : m.fontSize);
+    const float lineHeight = (label.size.px > 0.0f || label.size.preset != UiSize::None)
+        ? theme.GetLineHeight(fontSize)
+        : m.lineHeight;
     const auto& pal = theme.palette;
-    Color color = theme.GetTextColor(effectiveVariant);
 
-    if (disabled) {
-        color = color.WithAlphaF(0.40f);
-    } else if (hovered) {
-        if (effectiveVariant == UiVariant::Default || effectiveVariant == UiVariant::Secondary || effectiveVariant == UiVariant::Muted || effectiveVariant == UiVariant::Ghost) {
-            color = pal.textPrimary;
-        } else {
-            color = theme.GetVariant(effectiveVariant).bgHover;
+    Color color;
+    if (label.color.HasAny()) {
+        const Color fallback = theme.GetTextColor(opts.variant);
+        color = label.color.Resolve(hovered, false, disabled, fallback, pal.textPrimary, pal.textPrimary, fallback.WithAlphaF(0.40f));
+    } else {
+        color = theme.GetTextColor(opts.variant);
+        if (disabled) {
+            color = color.WithAlphaF(0.40f);
+        } else if (hovered) {
+            if (opts.variant == UiVariant::Default || opts.variant == UiVariant::Secondary || opts.variant == UiVariant::Muted || opts.variant == UiVariant::Ghost) {
+                color = pal.textPrimary;
+            } else {
+                color = theme.GetVariant(opts.variant).bgHover;
+            }
         }
     }
 
@@ -159,7 +174,7 @@ void Text::Render(
         alignFactor = 1.0f;
     }
 
-    TextUtil::DrawUiText(canvas, label, bounds, m.fontSize, m.lineHeight, color, alignFactor, 0.5f);
+    TextUtil::DrawUiText(canvas, label, bounds, fontSize, lineHeight, color, alignFactor, 0.5f);
 }
 
 } // namespace guikit

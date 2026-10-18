@@ -487,8 +487,8 @@ Response Context::StepSlider(
     if (opts.valueText.variants.empty()) {
         opts.valueText.variants = kVariantFullNames;
     }
-    if (!opts.valueText.variant.has_value() && variant != UiVariant::Default) {
-        opts.valueText.variant = variant;
+    if (!opts.valueText.color.HasAny() && variant != UiVariant::Default) {
+        opts.valueText.color = StateColor::FromTextVariant(variant);
     }
     opts.variant = variant;
 
@@ -2329,10 +2329,7 @@ void Context::RenderTooltipOverlay(ICanvas& canvas, Vec2 logicalSize) {
     canvas.DrawRoundRect(Rect(bx, by + 2.0f, boxW, boxH), 6.0f, Color(0, 0, 0, 60), Color::Transparent(), 0.0f);
     canvas.DrawRoundRect(boxRect, 6.0f, Color(15, 23, 42, 245), Color(71, 85, 105, 220), 1.0f);
 
-    Color textColor(248, 250, 252, 255);
-    if (m_activeTooltip.variant.has_value()) {
-        textColor = m_theme.GetTextColor(*m_activeTooltip.variant);
-    }
+    const Color textColor = m_theme.ResolveTextColor(m_activeTooltip, Color(248, 250, 252, 255));
 
     TextUtil::DrawUiText(
         canvas, m_activeTooltip,

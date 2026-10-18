@@ -92,11 +92,10 @@ void RenderImageInspector(guikit::Context& ui, DemoContext&) {
 void RenderImageStage(guikit::Context& ui, DemoContext& ctx) {
     const uint8_t alpha = static_cast<uint8_t>(std::clamp(std::lround(s_state.opacityPct * 2.55f), 0l, 255l));
     ui.Image(ImageState::sources[s_state.sourceIdx % ImageState::sources.size()], {
-        .label = ctx.elemLabel,
+        .label = ctx.GetElementLabel(),
         .description = ctx.GetElementDescription(),
         .icon = ctx.GetElementIcon(),
         .badge = ctx.GetElementBadge(),
-        .variant = ctx.btnVariant,
         .alt = s_state.altText,
         .fit = s_state.fit,
         .layout = ctx.elemLayout,
@@ -108,6 +107,7 @@ void RenderImageStage(guikit::Context& ui, DemoContext& ctx) {
         .background = ctx.elemBackground,
         .borderWidth = ctx.elemBorderWidth,
         .borderRadius = ctx.GetElemBorderRadius(),
+        .borderColor = ctx.GetElemBorderColor(),
         .control = ctx.GetControlSpec(NavCategory::ElemImage),
         .checkerboard = s_state.checkerboard,
         .opacity = alpha,
@@ -121,11 +121,10 @@ std::string GenerateImageCode(const DemoContext& ctx) {
 
     return std::format(
         "ui.Image(\"{}\", {{\n"
-        "    .label = \"{}\",\n"
+        "    .label = {},\n"
         "    .description = {},\n"
         "    .icon = {},\n"
         "    .badge = {},\n"
-        "    .variant = guikit::UiVariant::{},\n"
         "    .alt = \"{}\",\n"
         "    .fit = guikit::ObjectFit::{},\n"
         "    .layout = guikit::ElementLayout::{},\n"
@@ -137,6 +136,7 @@ std::string GenerateImageCode(const DemoContext& ctx) {
         "    .background = {},\n"
         "    .borderWidth = {:.1f}f,\n"
         "    .borderRadius = {},\n"
+        "    .borderColor = {},\n"
         "    .control = {},\n"
         "    .checkerboard = {},\n"
         "    .opacity = {},\n"
@@ -144,11 +144,10 @@ std::string GenerateImageCode(const DemoContext& ctx) {
         "    .disabled = {}\n"
         "}});",
         ImageState::sources[s_state.sourceIdx % ImageState::sources.size()],
-        ctx.elemLabel,
+        ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
         ctx.FormatElementBadgeCode(),
-        VariantName(ctx.btnVariant),
         s_state.altText,
         ImageState::fitModeNames[static_cast<size_t>(s_state.fit)],
         ElementLayoutEnumName(ctx.elemLayout),
@@ -160,6 +159,7 @@ std::string GenerateImageCode(const DemoContext& ctx) {
         ctx.elemBackground ? "true" : "false",
         ctx.elemBorderWidth,
         ctx.FormatElemBorderRadiusCode(),
+        ctx.FormatElemBorderColorCode(),
         ctx.FormatControlSpecCode(NavCategory::ElemImage),
         s_state.checkerboard ? "true" : "false",
         alpha,

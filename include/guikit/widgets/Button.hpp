@@ -36,7 +36,9 @@ struct ButtonOptions {
     bool background{false};                        ///< Whether to render a surface backdrop around the outer Element
     float borderWidth{0.0f};                       ///< Outer Element border thickness in points (0.0f = no border)
     std::optional<float> borderRadius{std::nullopt}; ///< Outer Element corner radius in points
-    ControlSpec control{};                         ///< Inner Control slot configuration (width, height, minWidth, align, background, borderWidth, borderRadius)
+    StateColor borderColor{};                      ///< Per-state outer Element border color (normal, hover, active, disabled)
+    StateColor bgColor{};                          ///< Per-state outer Element background color (normal, hover, active, disabled)
+    ControlSpec control{};                         ///< Inner Control slot configuration (width, height, minWidth, align, background, borderWidth, borderRadius, borderColor, bgColor)
     bool disabled{false};
     bool active{false};
     bool square{false};                            ///< Force square (defaultHeight x defaultHeight) button geometry

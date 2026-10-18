@@ -25,21 +25,29 @@ ControlSpec EffectiveControlSpec(const ElementSpec& spec) noexcept {
 }
 
 float ResolveLabelFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept {
-    if (spec.label.role.has_value()) {
-        return theme.GetTypography(*spec.label.role).fontSize;
+    if (spec.label.size.px > 0.0f) {
+        return spec.label.size.px;
+    }
+    if (spec.label.size.role.has_value()) {
+        return theme.GetTypography(*spec.label.size.role).fontSize;
     }
     if (spec.headingTypography) {
-        return theme.GetHeading(spec.widgetSize).titleFontSize;
+        const UiSize effSize = (spec.label.size.preset != UiSize::None) ? spec.label.size.preset : spec.widgetSize;
+        return theme.GetHeading(effSize).titleFontSize;
     }
     return theme.ResolveFontSize(spec.label, TextRole::LabelLarge, spec.widgetSize);
 }
 
 float ResolveDescFontSize(const ElementSpec& spec, const UiTheme& theme) noexcept {
-    if (spec.description.role.has_value()) {
-        return theme.GetTypography(*spec.description.role).fontSize;
+    if (spec.description.size.px > 0.0f) {
+        return spec.description.size.px;
+    }
+    if (spec.description.size.role.has_value()) {
+        return theme.GetTypography(*spec.description.size.role).fontSize;
     }
     if (spec.headingTypography) {
-        return theme.GetHeading(spec.widgetSize).subtitleFontSize;
+        const UiSize effSize = (spec.description.size.preset != UiSize::None) ? spec.description.size.preset : spec.widgetSize;
+        return theme.GetHeading(effSize).subtitleFontSize;
     }
     return theme.ResolveFontSize(spec.description, TextRole::LabelSmall, spec.widgetSize);
 }
@@ -55,9 +63,12 @@ Vec2 MeasureLabelBar(
     const UiTheme& theme
 ) noexcept {
     const HeadingMetrics& m = theme.GetHeading(spec.widgetSize);
-    const float badgeFont = spec.badge.role.has_value()
-        ? theme.GetTypography(*spec.badge.role).fontSize
-        : m.badgeFontSize;
+    const UiSize badgeSize = (spec.badge.size.preset != UiSize::None) ? spec.badge.size.preset : spec.widgetSize;
+    const float badgeFont = (spec.badge.size.px > 0.0f)
+        ? spec.badge.size.px
+        : (spec.badge.size.role.has_value()
+            ? theme.GetTypography(*spec.badge.size.role).fontSize
+            : theme.GetHeading(badgeSize).badgeFontSize);
 
     float barW = 0.0f;
     float barH = 0.0f;
@@ -114,12 +125,14 @@ ElementSpec Element::MakeSpec(
     const ElementOptions& opts,
     UiSize activeSize,
     bool isDisabled,
-    const UiTheme& theme
+    const UiTheme& theme,
+    bool isHovered,
+    bool isActive
 ) noexcept {
     const HeadingMetrics& m = theme.GetHeading(activeSize);
     UiText subSpec = opts.EffectiveSubtitle();
-    if (opts.wordWrap && subSpec.HasContentOrReserve()) {
-        subSpec.wrap = TextWrap::Word;
+    if (opts.wordWrap && subSpec.HasContentOrReserve() && !subSpec.wrap.IsWordWrap()) {
+        subSpec.wrap.maxLines = 0;
     }
     return ElementSpec{
         .label = opts.EffectiveTitle(),
@@ -136,6 +149,8 @@ ElementSpec Element::MakeSpec(
         .background = opts.background,
         .borderWidth = opts.borderWidth,
         .borderRadius = opts.borderRadius,
+        .borderColor = opts.borderColor,
+        .bgColor = opts.bgColor,
         .widgetSize = activeSize,
         .labelGap = m.lineGap,
         .descGap = m.lineGap,
@@ -146,7 +161,9 @@ ElementSpec Element::MakeSpec(
         .dividerStyle = opts.dividerStyle,
         .stretchableControl = false,
         .stretchHeightWhenStandalone = false,
-        .disabled = isDisabled
+        .disabled = isDisabled,
+        .hovered = isHovered,
+        .active = isActive
     };
 }
 
@@ -186,6 +203,8 @@ Response Element::Run(
         opts.background,
         opts.borderWidth,
         opts.borderRadius.value_or(-1.0f),
+        opts.borderColor,
+        opts.bgColor,
         eOpts->EffectiveTitle(),
         eOpts->EffectiveSubtitle(),
         eOpts->badge,
@@ -210,7 +229,9 @@ Response Element::Run(
             opts ? *opts : ElementOptions{},
             n->uiSize,
             theme,
-            n->disabled
+            n->disabled,
+            n->hovered,
+            n->pressed || n->focused
         );
     };
 
@@ -287,11 +308,11 @@ Vec2 Element::Measure(
     float effLabelW = rawLabelW;
     float effDescW = rawDescW;
     if (spec.layout != ElementLayout::Inline && spec.stretch == StretchMode::Compact && stretchableCtrl) {
-        if (spec.label.wrap == TextWrap::Word) {
+        if (spec.label.wrap.IsWordWrap()) {
             effLabelW = std::min(rawLabelW, intrinsicControlSize.x);
         }
         const float baseW = std::max(intrinsicControlSize.x, effLabelW);
-        if (spec.description.wrap == TextWrap::Word) {
+        if (spec.description.wrap.IsWordWrap()) {
             effDescW = std::min(rawDescW, baseW);
         }
     }
@@ -457,11 +478,11 @@ ElementGeometry Element::Resolve(
     float effLabelW = geom.measuredLabelW;
     float effDescW = geom.measuredDescW;
     if (spec.layout != ElementLayout::Inline && spec.stretch == StretchMode::Compact && stretchableCtrl) {
-        if (spec.label.wrap == TextWrap::Word) {
+        if (spec.label.wrap.IsWordWrap()) {
             effLabelW = std::min(effLabelW, ctrlW);
         }
         const float baseW = std::max(ctrlW, effLabelW);
-        if (spec.description.wrap == TextWrap::Word) {
+        if (spec.description.wrap.IsWordWrap()) {
             effDescW = std::min(effDescW, baseW);
         }
     }
@@ -549,7 +570,7 @@ ElementGeometry Element::Resolve(
             ctrlW = std::max(0.0f, bounds.w - measuredTextW - gap);
         }
         const float availTextW = std::max(0.0f, bounds.w - ctrlW - gap);
-        const float textBlockW = (spec.label.wrap == TextWrap::Word || spec.description.wrap == TextWrap::Word)
+        const float textBlockW = (spec.label.wrap.IsWordWrap() || spec.description.wrap.IsWordWrap())
             ? (compactNaturalBlock ? std::min(measuredTextW, availTextW) : availTextW)
             : std::min(measuredTextW, availTextW);
 
@@ -617,32 +638,70 @@ void Element::RenderFrame(
         ? theme.Scale(*spec.borderRadius)
         : cm.cornerRadius;
 
+    const auto& pal = theme.palette;
+    const bool hasLegacyHeadingVar = !spec.hasControl &&
+        !spec.borderColor.HasAny() &&
+        spec.variant != UiVariant::Default &&
+        spec.variant != UiVariant::Ghost &&
+        spec.variant != UiVariant::Muted;
+
+    const Color resolvedBorderAccent = spec.borderColor.HasAny()
+        ? spec.borderColor.Resolve(
+              spec.hovered,
+              spec.active,
+              spec.disabled,
+              pal.borderSubtle,
+              pal.borderHover,
+              pal.focusRing,
+              pal.borderSubtle.WithAlphaF(0.40f))
+        : (hasLegacyHeadingVar
+              ? (spec.disabled
+                    ? theme.GetVariant(spec.variant).bg.WithAlphaF(0.22f)
+                    : theme.GetVariant(spec.variant).bg.WithAlphaF(0.55f))
+              : StateColor{}.Resolve(
+                    spec.hovered,
+                    spec.active,
+                    spec.disabled,
+                    pal.borderSubtle,
+                    pal.borderHover,
+                    pal.focusRing,
+                    pal.borderSubtle.WithAlphaF(0.40f)));
+
     Color bg = Color::Transparent();
     if (spec.background) {
-        bg = theme.palette.surface;
-        if (spec.variant != UiVariant::Default && spec.variant != UiVariant::Ghost && spec.variant != UiVariant::Muted) {
-            const Color accent = theme.GetVariant(spec.variant).bg;
-            bg = Color(
-                static_cast<uint8_t>((static_cast<int>(bg.r) * 90 + static_cast<int>(accent.r) * 10) / 100),
-                static_cast<uint8_t>((static_cast<int>(bg.g) * 90 + static_cast<int>(accent.g) * 10) / 100),
-                static_cast<uint8_t>((static_cast<int>(bg.b) * 90 + static_cast<int>(accent.b) * 10) / 100),
-                255
+        if (spec.bgColor.HasAny()) {
+            bg = spec.bgColor.Resolve(
+                spec.hovered,
+                spec.active,
+                spec.disabled,
+                pal.surface,
+                pal.surfaceHover,
+                pal.surfaceActive,
+                pal.surface.WithAlphaF(0.40f)
             );
-        }
-        if (spec.disabled) {
-            bg = bg.WithAlphaF(0.40f);
+        } else {
+            bg = pal.surface;
+            if (spec.borderColor.HasAny() || hasLegacyHeadingVar) {
+                const Color tint = spec.borderColor.HasAny()
+                    ? resolvedBorderAccent
+                    : theme.GetVariant(spec.variant).bg;
+                bg = Color(
+                    static_cast<uint8_t>((static_cast<int>(bg.r) * 90 + static_cast<int>(tint.r) * 10) / 100),
+                    static_cast<uint8_t>((static_cast<int>(bg.g) * 90 + static_cast<int>(tint.g) * 10) / 100),
+                    static_cast<uint8_t>((static_cast<int>(bg.b) * 90 + static_cast<int>(tint.b) * 10) / 100),
+                    255
+                );
+            }
+            if (spec.disabled) {
+                bg = bg.WithAlphaF(0.40f);
+            }
         }
     }
 
     const float strokeW = (spec.borderWidth > 0.0f) ? theme.Scale(spec.borderWidth) : 0.0f;
     Color borderCol = Color::Transparent();
     if (strokeW > 0.0f) {
-        borderCol = (spec.variant != UiVariant::Default && spec.variant != UiVariant::Ghost && spec.variant != UiVariant::Muted)
-            ? theme.GetVariant(spec.variant).bg.WithAlphaF(0.55f)
-            : theme.palette.borderSubtle;
-        if (spec.disabled) {
-            borderCol = borderCol.WithAlphaF(0.40f);
-        }
+        borderCol = resolvedBorderAccent;
     }
 
     canvas.DrawRoundRect(geom.outerBounds, radius, bg, borderCol, strokeW);
@@ -658,20 +717,23 @@ void Element::RenderText(
 
     const ControlSpec ctrlSpec = EffectiveControlSpec(spec);
     if (spec.hasControl) {
-        Control::RenderFrame(canvas, geom.controlRect, ctrlSpec, spec.variant, spec.widgetSize, spec.disabled, theme);
+        Control::RenderFrame(canvas, geom.controlRect, ctrlSpec, spec.variant, spec.widgetSize, spec.disabled, theme, spec.hovered, spec.active);
     }
 
     const float alignFactor = (spec.elementAlign == Align::End) ? 1.0f : ((spec.elementAlign == Align::Center) ? 0.5f : 0.0f);
     const UiVariant defaultLabelVar = (!spec.hasControl && spec.variant != UiVariant::Default) ? spec.variant : UiVariant::Default;
     const UiVariant defaultDescVar = spec.headingTypography ? UiVariant::Secondary : UiVariant::Muted;
 
-    const Color labelCol = theme.ResolveTextColor(spec.label, defaultLabelVar, spec.disabled);
-    const Color descCol = theme.ResolveTextColor(spec.description, defaultDescVar, spec.disabled);
+    const Color labelCol = theme.ResolveTextColor(spec.label, defaultLabelVar, spec.disabled, spec.hovered, spec.active);
+    const Color descCol = theme.ResolveTextColor(spec.description, defaultDescVar, spec.disabled, spec.hovered, spec.active);
     const HeadingMetrics& m = theme.GetHeading(spec.widgetSize);
     const auto& pal = theme.palette;
-    const float badgeFont = spec.badge.role.has_value()
-        ? theme.GetTypography(*spec.badge.role).fontSize
-        : m.badgeFontSize;
+    const UiSize badgeSize = (spec.badge.size.preset != UiSize::None) ? spec.badge.size.preset : spec.widgetSize;
+    const float badgeFont = (spec.badge.size.px > 0.0f)
+        ? spec.badge.size.px
+        : (spec.badge.size.role.has_value()
+            ? theme.GetTypography(*spec.badge.size.role).fontSize
+            : theme.GetHeading(badgeSize).badgeFontSize);
 
     const bool hasDecoratedLabelBar = !spec.hasControl || spec.icon.IsValid() || !spec.badge.empty();
     const Rect labelBarRect = spec.hasControl ? geom.labelRect : geom.controlRect;
@@ -726,14 +788,20 @@ void Element::RenderText(
             const float badgeH = badgeFont + 4.0f;
             const float badgeY = topY + (titleLineH - badgeH) * 0.5f;
 
-            const UiVariant badgeVar = spec.badge.variant.value_or(spec.variant);
-            Color badgeBg = (badgeVar != UiVariant::Default)
-                ? theme.GetVariant(badgeVar).bgActive
-                : pal.surfaceHover;
-            Color badgeTextCol = (badgeVar != UiVariant::Default)
-                ? theme.GetVariant(badgeVar).text
-                : pal.textPrimary;
-            if (spec.disabled) {
+            Color badgeBg = pal.surfaceHover;
+            Color badgeTextCol = pal.textPrimary;
+            if (spec.badge.color.HasAny()) {
+                const Color resolvedBadge = spec.badge.color.Resolve(spec.hovered, spec.active, spec.disabled, pal.textPrimary);
+                badgeBg = resolvedBadge.WithAlphaF(spec.disabled ? 0.12f : 0.22f);
+                badgeTextCol = resolvedBadge;
+            } else if (!spec.hasControl && spec.variant != UiVariant::Default) {
+                badgeBg = theme.GetVariant(spec.variant).bgActive;
+                badgeTextCol = theme.GetVariant(spec.variant).text;
+                if (spec.disabled) {
+                    badgeBg = badgeBg.WithAlphaF(0.40f);
+                    badgeTextCol = badgeTextCol.WithAlphaF(0.40f);
+                }
+            } else if (spec.disabled) {
                 badgeBg = badgeBg.WithAlphaF(0.40f);
                 badgeTextCol = badgeTextCol.WithAlphaF(0.40f);
             }
@@ -751,10 +819,19 @@ void Element::RenderText(
     }
 
     if (spec.divider) {
-        Color divColor = (spec.variant != UiVariant::Default)
-            ? theme.GetVariant(spec.variant).border
-            : pal.borderSubtle;
-        if (spec.disabled) {
+        Color divColor = spec.borderColor.HasAny()
+            ? spec.borderColor.Resolve(
+                  spec.hovered,
+                  spec.active,
+                  spec.disabled,
+                  pal.borderSubtle,
+                  pal.borderHover,
+                  pal.focusRing,
+                  pal.borderSubtle.WithAlphaF(0.40f))
+            : ((spec.variant != UiVariant::Default)
+                  ? theme.GetVariant(spec.variant).border
+                  : pal.borderSubtle);
+        if (spec.disabled && !spec.borderColor.HasAny()) {
             divColor = divColor.WithAlphaF(0.40f);
         }
 

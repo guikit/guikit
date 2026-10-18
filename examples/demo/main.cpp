@@ -649,7 +649,7 @@ int main(int argc, char* argv[]) {
                                 .gap = 8.0f,
                                 .padding = guikit::Padding::All(12.0f)
                             })) {
-                                demoCtx.RenderElementInspector(ui);
+                                demoCtx.RenderElementInspector(ui, selectedCategory);
                             }
 
                             // 3. Level 3: Control & Widget-Specific Inspector Sidebar

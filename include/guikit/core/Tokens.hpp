@@ -90,43 +90,277 @@ enum class TextRole : uint8_t {
     CodeSmall       ///< 11px / LH 15px
 };
 
-/// Text wrapping and overflow behavior for UiText elements (labels, descriptions, and standalone text).
-enum class TextWrap : uint8_t {
-    SingleLine = 0, ///< Single line; truncated with trailing "..." if it exceeds available width (default)
-    Word            ///< Multi-line word wrapping; breaks by words/characters to fit available width
+/// Per-state color specification for frames, borders, backgrounds, controls, and text.
+/// Pure C++20 aggregate supporting designated initializers (`{.normal = ..., .hover = ...}`)
+/// as well as semantic preset constants (`StateColor::Danger()`, `StateColor::Warning()`, etc.).
+struct StateColor {
+    std::optional<Color> normal{std::nullopt};   ///< Idle / resting / unchecked state color
+    std::optional<Color> hover{std::nullopt};    ///< Mouse-hovered state color
+    std::optional<Color> active{std::nullopt};   ///< Pressed / checked / focused / filled state color
+    std::optional<Color> disabled{std::nullopt}; ///< Disabled state color
+
+    [[nodiscard]] constexpr bool HasAny() const noexcept {
+        return normal.has_value() || hover.has_value() || active.has_value() || disabled.has_value();
+    }
+
+    [[nodiscard]] static constexpr Color BrightenColor(Color c) noexcept {
+        return Color(
+            static_cast<uint8_t>(std::min(255, static_cast<int>(c.r) + (255 - static_cast<int>(c.r)) / 5)),
+            static_cast<uint8_t>(std::min(255, static_cast<int>(c.g) + (255 - static_cast<int>(c.g)) / 5)),
+            static_cast<uint8_t>(std::min(255, static_cast<int>(c.b) + (255 - static_cast<int>(c.b)) / 5)),
+            c.a
+        );
+    }
+
+    [[nodiscard]] static constexpr Color DarkenColor(Color c) noexcept {
+        return Color(
+            static_cast<uint8_t>((static_cast<int>(c.r) * 82) / 100),
+            static_cast<uint8_t>((static_cast<int>(c.g) * 82) / 100),
+            static_cast<uint8_t>((static_cast<int>(c.b) * 82) / 100),
+            c.a
+        );
+    }
+
+    /// Resolves the effective color for the given interaction state, falling back to `fallback*` colors when a state is nullopt.
+    [[nodiscard]] constexpr Color Resolve(
+        bool isHovered,
+        bool isActive,
+        bool isDisabled,
+        Color fallbackNormal,
+        Color fallbackHover,
+        Color fallbackActive,
+        Color fallbackDisabled
+    ) const noexcept {
+        if (isDisabled) {
+            if (disabled.has_value()) return *disabled;
+            if (normal.has_value()) return normal->WithAlphaF(0.40f);
+            return fallbackDisabled;
+        }
+        if (isActive) {
+            if (active.has_value()) return *active;
+            if (hover.has_value()) return *hover;
+            if (normal.has_value()) return DarkenColor(*normal);
+            return fallbackActive;
+        }
+        if (isHovered) {
+            if (hover.has_value()) return *hover;
+            if (normal.has_value()) return BrightenColor(*normal);
+            return fallbackHover;
+        }
+        return normal.value_or(fallbackNormal);
+    }
+
+    [[nodiscard]] constexpr Color Resolve(
+        bool isHovered,
+        bool isActive,
+        bool isDisabled,
+        Color fallback
+    ) const noexcept {
+        return Resolve(
+            isHovered,
+            isActive,
+            isDisabled,
+            fallback,
+            fallback,
+            fallback,
+            fallback.WithAlphaF(0.40f)
+        );
+    }
+
+    // --- Semantic Preset Constants ---
+    [[nodiscard]] static constexpr StateColor Default() noexcept {
+        return {};
+    }
+    [[nodiscard]] static constexpr StateColor FromColor(Color base) noexcept {
+        return {
+            .normal   = base,
+            .hover    = BrightenColor(base),
+            .active   = DarkenColor(base),
+            .disabled = base.WithAlphaF(0.40f)
+        };
+    }
+    [[nodiscard]] static constexpr StateColor Primary() noexcept {
+        return {
+            .normal   = Color::Hex(0x3B82F6FF), // Blue-500
+            .hover    = Color::Hex(0x60A5FAFF), // Blue-400
+            .active   = Color::Hex(0x2563EBFF), // Blue-600
+            .disabled = Color::Hex(0x3B82F666)
+        };
+    }
+    [[nodiscard]] static constexpr StateColor Secondary() noexcept {
+        return {
+            .normal   = Color::Hex(0x475569FF), // Slate-600
+            .hover    = Color::Hex(0x64748BFF), // Slate-500
+            .active   = Color::Hex(0x334155FF), // Slate-700
+            .disabled = Color::Hex(0x47556966)
+        };
+    }
+    [[nodiscard]] static constexpr StateColor Success() noexcept {
+        return {
+            .normal   = Color::Hex(0x10B981FF), // Emerald-500
+            .hover    = Color::Hex(0x34D399FF), // Emerald-400
+            .active   = Color::Hex(0x059669FF), // Emerald-600
+            .disabled = Color::Hex(0x10B98166)
+        };
+    }
+    [[nodiscard]] static constexpr StateColor Warning() noexcept {
+        return {
+            .normal   = Color::Hex(0xF59E0BFF), // Amber-500
+            .hover    = Color::Hex(0xFBBF24FF), // Amber-400
+            .active   = Color::Hex(0xD97706FF), // Amber-600
+            .disabled = Color::Hex(0xF59E0B66)
+        };
+    }
+    [[nodiscard]] static constexpr StateColor Danger() noexcept {
+        return {
+            .normal   = Color::Hex(0xEF4444FF), // Red-500
+            .hover    = Color::Hex(0xF87171FF), // Red-400
+            .active   = Color::Hex(0xDC2626FF), // Red-600
+            .disabled = Color::Hex(0xEF444466)
+        };
+    }
+    [[nodiscard]] static constexpr StateColor Info() noexcept {
+        return {
+            .normal   = Color::Hex(0x06B6D4FF), // Cyan-500
+            .hover    = Color::Hex(0x22D3EEFF), // Cyan-400
+            .active   = Color::Hex(0x0891B2FF), // Cyan-600
+            .disabled = Color::Hex(0x06B6D466)
+        };
+    }
+    [[nodiscard]] static constexpr StateColor Ghost() noexcept {
+        return {
+            .normal   = Color::Hex(0x00000000),
+            .hover    = Color::Hex(0x64748B38),
+            .active   = Color::Hex(0x64748B58),
+            .disabled = Color::Hex(0x00000000)
+        };
+    }
+    [[nodiscard]] static constexpr StateColor Muted() noexcept {
+        return {
+            .normal   = Color::Hex(0x64748BFF), // Slate-500
+            .hover    = Color::Hex(0x94A3B8FF), // Slate-400
+            .active   = Color::Hex(0x475569FF), // Slate-600
+            .disabled = Color::Hex(0x64748B66)
+        };
+    }
+    [[nodiscard]] static constexpr StateColor TextSecondary() noexcept {
+        return {
+            .normal   = Color::Hex(0x94A3B8FF), // Slate-400
+            .hover    = Color::Hex(0xCBD5E1FF), // Slate-300
+            .active   = Color::Hex(0x64748BFF), // Slate-500
+            .disabled = Color::Hex(0x94A3B866)
+        };
+    }
+    [[nodiscard]] static constexpr StateColor FromVariant(UiVariant v) noexcept {
+        switch (v) {
+            case UiVariant::Default:   return Default();
+            case UiVariant::Primary:   return Primary();
+            case UiVariant::Secondary: return Secondary();
+            case UiVariant::Success:   return Success();
+            case UiVariant::Warning:   return Warning();
+            case UiVariant::Danger:    return Danger();
+            case UiVariant::Info:      return Info();
+            case UiVariant::Ghost:     return Ghost();
+            case UiVariant::Muted:     return Muted();
+        }
+        return Default();
+    }
+    [[nodiscard]] static constexpr StateColor FromTextVariant(UiVariant v) noexcept {
+        switch (v) {
+            case UiVariant::Default:   return Default();
+            case UiVariant::Primary:   return Primary();
+            case UiVariant::Secondary:
+            case UiVariant::Muted:     return TextSecondary();
+            case UiVariant::Success:   return Success();
+            case UiVariant::Warning:   return Warning();
+            case UiVariant::Danger:    return Danger();
+            case UiVariant::Info:      return Info();
+            case UiVariant::Ghost:     return Muted();
+        }
+        return Default();
+    }
+
+    [[nodiscard]] constexpr bool operator==(const StateColor& other) const noexcept = default;
 };
 
-/// Line count constraints and vertical space reservation policy for UiText.
-struct TextLines {
-    uint8_t minLines{0}; ///< Minimum reserved vertical lines (0 = collapse when empty, >=1 = always reserve height)
-    uint8_t maxLines{0}; ///< Maximum visible lines before "..." truncation (0 = unlimited when Word, 1 when SingleLine)
-    TextWrap wrap{TextWrap::SingleLine};
+/// Unified font size specification for UiText.
+/// Supports:
+/// - Auto (`{}`): inherits the widget slot's default typographic size from `UiTheme`
+/// - Explicit pixels (`TextSize::Px(14.0f)` or `14.0f` in `UiText`)
+/// - Scale presets (`TextSize::Xs()`, `Sm()`, `Md()`, `Lg()`, `Xl()`, or `UiSize` in `UiText`)
+/// - Typographic role (`TextRole::HeadlineSmall`, `TextRole::CodeSmall`, etc.)
+struct TextSize {
+    float px{0.0f};                             ///< Explicit pixel size (> 0.0f overrides theme scale)
+    UiSize preset{UiSize::None};                ///< Relative scale preset (Xs, Sm, Md, Lg, Xl) resolved via UiTheme
+    std::optional<TextRole> role{std::nullopt}; ///< Optional typographic role (Display, Headline, Title, Body, Label, Code)
 
-    constexpr TextLines() noexcept = default;
-    constexpr TextLines(uint8_t inMin, uint8_t inMax, TextWrap inWrap = TextWrap::Word) noexcept
-        : minLines(inMin)
-        , maxLines(inMax)
-        , wrap((inMax == 1) ? TextWrap::SingleLine : inWrap) {}
+    constexpr TextSize() noexcept = default;
+    constexpr TextSize(float inPx) noexcept : px(inPx) {}
+    constexpr TextSize(UiSize s) noexcept : preset(s) {}
+    constexpr TextSize(TextRole r) noexcept : role(r) {}
+    constexpr TextSize(TextRole r, UiSize s) noexcept : preset(s), role(r) {}
+
+    [[nodiscard]] static constexpr TextSize Auto() noexcept { return {}; }
+    [[nodiscard]] static constexpr TextSize Px(float inPx) noexcept { return TextSize(inPx); }
+    [[nodiscard]] static constexpr TextSize Xs() noexcept { return TextSize(UiSize::Xs); }
+    [[nodiscard]] static constexpr TextSize Sm() noexcept { return TextSize(UiSize::Sm); }
+    [[nodiscard]] static constexpr TextSize Md() noexcept { return TextSize(UiSize::Md); }
+    [[nodiscard]] static constexpr TextSize Lg() noexcept { return TextSize(UiSize::Lg); }
+    [[nodiscard]] static constexpr TextSize Xl() noexcept { return TextSize(UiSize::Xl); }
+
+    [[nodiscard]] constexpr bool IsAuto() const noexcept {
+        return px <= 0.0f && preset == UiSize::None && !role.has_value();
+    }
+    [[nodiscard]] constexpr bool HasValue() const noexcept {
+        return !IsAuto();
+    }
+
+    [[nodiscard]] constexpr bool operator==(const TextSize& other) const noexcept = default;
+};
+
+/// Text wrapping, line count constraints, and vertical space reservation policy for UiText.
+/// Pure C++20 aggregate supporting designated initializers (`{.minLines = 1, .maxLines = 2}`)
+/// as well as semantic factory presets (`TextWrap::SingleLine()`, `TextWrap::Word()`, `TextWrap::Reserve(n)`, etc.).
+struct TextWrap {
+    uint8_t minLines{0}; ///< Minimum reserved vertical lines (0 = collapse when empty, >=1 = always reserve height)
+    uint8_t maxLines{1}; ///< Maximum visible lines (1 = single-line with "...", 0 = unlimited word-wrap, >1 = word-wrap capped at maxLines)
+
+    /// Returns true if multi-line word wrapping is active (`maxLines == 0` unlimited or `maxLines > 1`).
+    [[nodiscard]] constexpr bool IsWordWrap() const noexcept {
+        return maxLines != 1;
+    }
+
+    /// Single-line mode with "..." truncation on overflow. Optionally reserves `reserveLines` when empty.
+    [[nodiscard]] static constexpr TextWrap SingleLine(uint8_t reserveLines = 0) noexcept {
+        return {.minLines = reserveLines, .maxLines = 1};
+    }
+
+    /// Multi-line word-wrapping mode (`maxLines = 0` means unlimited lines).
+    [[nodiscard]] static constexpr TextWrap Word(uint8_t minReserved = 0, uint8_t maxVisible = 0) noexcept {
+        return {.minLines = minReserved, .maxLines = maxVisible};
+    }
 
     /// Reserves vertical height for at least `n` lines even when the text is empty (prevents vertical layout shift).
     /// When `n == 1`, defaults to single-line mode with "..." truncation. When `n > 1`, enables word wrapping.
-    [[nodiscard]] static constexpr TextLines Reserve(uint8_t n = 1) noexcept {
-        return TextLines(n, (n == 1) ? 1 : 0, (n > 1) ? TextWrap::Word : TextWrap::SingleLine);
+    [[nodiscard]] static constexpr TextWrap Reserve(uint8_t n = 1) noexcept {
+        return {.minLines = n, .maxLines = (n == 1) ? uint8_t(1) : uint8_t(0)};
     }
 
     /// Limits multi-line word wrapping to at most `n` lines (truncating the last visible line with "..."),
     /// while collapsing to 0 height when the text is empty.
-    [[nodiscard]] static constexpr TextLines Max(uint8_t n) noexcept {
-        return TextLines(0, n, (n == 1) ? TextWrap::SingleLine : TextWrap::Word);
+    [[nodiscard]] static constexpr TextWrap Max(uint8_t n) noexcept {
+        return {.minLines = 0, .maxLines = n};
     }
 
     /// Reserves and caps height at exactly `n` lines (`minLines = n`, `maxLines = n`).
-    [[nodiscard]] static constexpr TextLines Fixed(uint8_t n = 1) noexcept {
-        return TextLines(n, n, (n > 1) ? TextWrap::Word : TextWrap::SingleLine);
+    [[nodiscard]] static constexpr TextWrap Fixed(uint8_t n = 1) noexcept {
+        return {.minLines = n, .maxLines = n};
     }
 
-    [[nodiscard]] constexpr bool operator==(const TextLines& other) const noexcept = default;
+    [[nodiscard]] constexpr bool operator==(const TextWrap& other) const noexcept = default;
 };
+
+using TextLines = TextWrap;
 
 struct UiText;
 
@@ -150,33 +384,42 @@ template <typename S>
 
 template <typename T>
 concept UiTextModifier =
+    std::is_same_v<std::decay_t<T>, TextSize> ||
+    std::is_same_v<std::decay_t<T>, float> ||
+    std::is_same_v<std::decay_t<T>, UiSize> ||
     std::is_same_v<std::decay_t<T>, TextRole> ||
+    std::is_same_v<std::decay_t<T>, StateColor> ||
+    std::is_same_v<std::decay_t<T>, Color> ||
     std::is_same_v<std::decay_t<T>, UiVariant> ||
     std::is_same_v<std::decay_t<T>, TextVariants> ||
-    std::is_same_v<std::decay_t<T>, TextWrap> ||
-    std::is_same_v<std::decay_t<T>, TextLines>;
+    std::is_same_v<std::decay_t<T>, TextWrap>;
 } // namespace detail
 
-/// Styled text wrapper combining text content with optional typographic role, color variant,
-/// wrapping/line reservation policy, and candidate width/height variants.
+/// Styled text wrapper combining text content with font size (`TextSize`), per-state color (`StateColor`),
+/// wrapping/line reservation policy (`TextWrap`), and candidate width/height variants (`TextVariants`).
 /// Implicitly constructible from string literals, std::string_view, std::string, and BasicUiString (ui.Format).
 struct UiText {
     std::string_view text{};
-    std::optional<TextRole> role{std::nullopt};
-    std::optional<UiVariant> variant{std::nullopt};
-    TextWrap wrap{TextWrap::SingleLine};
-    uint8_t minLines{0};
-    uint8_t maxLines{0};
+    TextSize size{};
+    StateColor color{};
+    TextWrap wrap{};
     TextVariants variants{};
 
-    constexpr void ApplyModifier(TextRole r) noexcept { role = r; }
-    constexpr void ApplyModifier(UiVariant v) noexcept { variant = v; }
+    constexpr void ApplyModifier(TextSize s) noexcept {
+        if (s.px > 0.0f) size.px = s.px;
+        if (s.preset != UiSize::None) size.preset = s.preset;
+        if (s.role.has_value()) size.role = s.role;
+    }
+    constexpr void ApplyModifier(float px) noexcept { size.px = px; }
+    constexpr void ApplyModifier(UiSize s) noexcept { size.preset = s; }
+    constexpr void ApplyModifier(TextRole r) noexcept { size.role = r; }
+    constexpr void ApplyModifier(StateColor c) noexcept { color = c; }
+    constexpr void ApplyModifier(Color c) noexcept { color = StateColor::FromColor(c); }
+    constexpr void ApplyModifier(UiVariant v) noexcept { color = StateColor::FromTextVariant(v); }
     constexpr void ApplyModifier(TextVariants vars) noexcept { variants = vars; }
-    constexpr void ApplyModifier(TextWrap w) noexcept { wrap = w; }
-    constexpr void ApplyModifier(TextLines l) noexcept {
-        minLines = l.minLines;
-        maxLines = l.maxLines;
-        wrap = l.wrap;
+    constexpr void ApplyModifier(TextWrap w) noexcept {
+        if (w.minLines > 0) wrap.minLines = w.minLines;
+        wrap.maxLines = w.maxLines;
     }
 
     constexpr UiText() noexcept = default;
@@ -200,39 +443,45 @@ struct UiText {
 
     // Explicit TextVariants constructors for braced-initializer-list deduction (e.g. {"text", {"A", "B"}})
     constexpr UiText(TextVariants vars) noexcept : variants(vars) {}
-    constexpr UiText(UiVariant v, TextVariants vars) noexcept : variant(v), variants(vars) {}
-    constexpr UiText(TextRole r, TextVariants vars) noexcept : role(r), variants(vars) {}
-    constexpr UiText(TextRole r, UiVariant v, TextVariants vars) noexcept : role(r), variant(v), variants(vars) {}
-    constexpr UiText(UiVariant v, TextRole r, TextVariants vars) noexcept : role(r), variant(v), variants(vars) {}
+    constexpr UiText(UiVariant v, TextVariants vars) noexcept : color(StateColor::FromTextVariant(v)), variants(vars) {}
+    constexpr UiText(StateColor c, TextVariants vars) noexcept : color(c), variants(vars) {}
+    constexpr UiText(TextSize s, TextVariants vars) noexcept : size(s), variants(vars) {}
+    constexpr UiText(TextRole r, TextVariants vars) noexcept : size(r), variants(vars) {}
+    constexpr UiText(TextRole r, UiVariant v, TextVariants vars) noexcept : size(r), color(StateColor::FromTextVariant(v)), variants(vars) {}
+    constexpr UiText(UiVariant v, TextRole r, TextVariants vars) noexcept : size(r), color(StateColor::FromTextVariant(v)), variants(vars) {}
     constexpr UiText(TextWrap w, TextVariants vars) noexcept : wrap(w), variants(vars) {}
-    constexpr UiText(UiVariant v, TextWrap w, TextVariants vars) noexcept : variant(v), wrap(w), variants(vars) {}
-    constexpr UiText(TextLines l, TextVariants vars) noexcept
-        : wrap(l.wrap), minLines(l.minLines), maxLines(l.maxLines), variants(vars) {}
-    constexpr UiText(UiVariant v, TextLines l, TextVariants vars) noexcept
-        : variant(v), wrap(l.wrap), minLines(l.minLines), maxLines(l.maxLines), variants(vars) {}
+    constexpr UiText(UiVariant v, TextWrap w, TextVariants vars) noexcept : color(StateColor::FromTextVariant(v)), wrap(w), variants(vars) {}
 
     constexpr UiText(std::string_view s, TextVariants vars) noexcept : text(s), variants(vars) {}
-    constexpr UiText(std::string_view s, UiVariant v, TextVariants vars) noexcept : text(s), variant(v), variants(vars) {}
-    constexpr UiText(std::string_view s, TextVariants vars, UiVariant v) noexcept : text(s), variant(v), variants(vars) {}
-    constexpr UiText(std::string_view s, TextRole r, TextVariants vars) noexcept : text(s), role(r), variants(vars) {}
-    constexpr UiText(std::string_view s, TextVariants vars, TextRole r) noexcept : text(s), role(r), variants(vars) {}
-    constexpr UiText(std::string_view s, TextRole r, UiVariant v, TextVariants vars) noexcept : text(s), role(r), variant(v), variants(vars) {}
-    constexpr UiText(std::string_view s, UiVariant v, TextRole r, TextVariants vars) noexcept : text(s), role(r), variant(v), variants(vars) {}
+    constexpr UiText(std::string_view s, UiVariant v, TextVariants vars) noexcept : text(s), color(StateColor::FromTextVariant(v)), variants(vars) {}
+    constexpr UiText(std::string_view s, StateColor c, TextVariants vars) noexcept : text(s), color(c), variants(vars) {}
+    constexpr UiText(std::string_view s, TextVariants vars, UiVariant v) noexcept : text(s), color(StateColor::FromTextVariant(v)), variants(vars) {}
+    constexpr UiText(std::string_view s, TextSize sz, TextVariants vars) noexcept : text(s), size(sz), variants(vars) {}
+    constexpr UiText(std::string_view s, TextRole r, TextVariants vars) noexcept : text(s), size(r), variants(vars) {}
+    constexpr UiText(std::string_view s, TextVariants vars, TextRole r) noexcept : text(s), size(r), variants(vars) {}
+    constexpr UiText(std::string_view s, TextRole r, UiVariant v, TextVariants vars) noexcept : text(s), size(r), color(StateColor::FromTextVariant(v)), variants(vars) {}
+    constexpr UiText(std::string_view s, UiVariant v, TextRole r, TextVariants vars) noexcept : text(s), size(r), color(StateColor::FromTextVariant(v)), variants(vars) {}
     constexpr UiText(std::string_view s, TextWrap w, TextVariants vars) noexcept : text(s), wrap(w), variants(vars) {}
-    constexpr UiText(std::string_view s, UiVariant v, TextWrap w, TextVariants vars) noexcept : text(s), variant(v), wrap(w), variants(vars) {}
-    constexpr UiText(std::string_view s, TextLines l, TextVariants vars) noexcept
-        : text(s), wrap(l.wrap), minLines(l.minLines), maxLines(l.maxLines), variants(vars) {}
-    constexpr UiText(std::string_view s, UiVariant v, TextLines l, TextVariants vars) noexcept
-        : text(s), variant(v), wrap(l.wrap), minLines(l.minLines), maxLines(l.maxLines), variants(vars) {}
+    constexpr UiText(std::string_view s, UiVariant v, TextWrap w, TextVariants vars) noexcept : text(s), color(StateColor::FromTextVariant(v)), wrap(w), variants(vars) {}
 
+    [[nodiscard]] constexpr UiText WithSize(TextSize s) const noexcept {
+        UiText copy = *this;
+        copy.size = s;
+        return copy;
+    }
     [[nodiscard]] constexpr UiText WithRole(TextRole r) const noexcept {
         UiText copy = *this;
-        copy.role = r;
+        copy.size.role = r;
+        return copy;
+    }
+    [[nodiscard]] constexpr UiText WithColor(StateColor c) const noexcept {
+        UiText copy = *this;
+        copy.color = c;
         return copy;
     }
     [[nodiscard]] constexpr UiText WithVariant(UiVariant v) const noexcept {
         UiText copy = *this;
-        copy.variant = v;
+        copy.color = StateColor::FromTextVariant(v);
         return copy;
     }
     [[nodiscard]] constexpr UiText WithWrap(TextWrap w) const noexcept {
@@ -240,37 +489,33 @@ struct UiText {
         copy.wrap = w;
         return copy;
     }
-    [[nodiscard]] constexpr UiText WithLines(TextLines l) const noexcept {
+    [[nodiscard]] constexpr UiText WithLines(TextWrap w) const noexcept {
         UiText copy = *this;
-        copy.ApplyModifier(l);
+        copy.wrap = w;
         return copy;
     }
     [[nodiscard]] constexpr UiText Reserve(uint8_t n = 1) const noexcept {
-        return WithLines(TextLines::Reserve(n));
+        return WithWrap(TextWrap::Reserve(n));
     }
 
     [[nodiscard]] constexpr bool empty() const noexcept { return text.empty(); }
     /// Returns true if the text has visible characters, width/height candidate variants, or reserved minimum lines.
     [[nodiscard]] constexpr bool HasContentOrReserve() const noexcept {
-        return !text.empty() || !variants.empty() || minLines > 0;
+        return !text.empty() || !variants.empty() || wrap.minLines > 0;
     }
     [[nodiscard]] constexpr size_t length() const noexcept { return text.length(); }
-    [[nodiscard]] constexpr size_t size() const noexcept { return text.size(); }
     [[nodiscard]] constexpr const char* data() const noexcept { return text.data(); }
     [[nodiscard]] constexpr operator std::string_view() const noexcept { return text; }
 
     [[nodiscard]] constexpr TextRole RoleOr(TextRole fallback) const noexcept {
-        return role.value_or(fallback);
-    }
-    [[nodiscard]] constexpr UiVariant VariantOr(UiVariant fallback) const noexcept {
-        return variant.value_or(fallback);
+        return size.role.value_or(fallback);
     }
 
     [[nodiscard]] constexpr bool operator==(const UiText& other) const noexcept = default;
     [[nodiscard]] constexpr bool operator==(std::string_view sv) const noexcept { return text == sv; }
     [[nodiscard]] constexpr bool operator==(const char* s) const noexcept { return text == (s ? std::string_view(s) : std::string_view{}); }
 };
-static_assert(sizeof(UiText) <= 40, "UiText must remain compact (<= 40 bytes)");
+static_assert(sizeof(UiText) <= 80, "UiText must remain compact (<= 80 bytes)");
 
 /// Unified value token for leading/trailing affixes (.prefix and .suffix) supporting text, icon, or both.
 struct UiAffix {
@@ -336,14 +581,24 @@ struct UiAffix {
         copy.text = t;
         return copy;
     }
+    [[nodiscard]] constexpr UiAffix WithColor(StateColor c) const noexcept {
+        UiAffix copy = *this;
+        copy.text.color = c;
+        return copy;
+    }
     [[nodiscard]] constexpr UiAffix WithVariant(UiVariant v) const noexcept {
         UiAffix copy = *this;
-        copy.text.variant = v;
+        copy.text.color = StateColor::FromTextVariant(v);
+        return copy;
+    }
+    [[nodiscard]] constexpr UiAffix WithSize(TextSize s) const noexcept {
+        UiAffix copy = *this;
+        copy.text.size = s;
         return copy;
     }
     [[nodiscard]] constexpr UiAffix WithRole(TextRole r) const noexcept {
         UiAffix copy = *this;
-        copy.text.role = r;
+        copy.text.size.role = r;
         return copy;
     }
 

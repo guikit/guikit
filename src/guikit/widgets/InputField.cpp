@@ -87,7 +87,9 @@ ElementSpec MakeInputFieldElementSpec(
     const InputFieldOptions& opts,
     UiSize size,
     bool disabled,
-    const UiTheme& theme
+    const UiTheme& theme,
+    bool hovered = false,
+    bool active = false
 ) noexcept {
     const InputFieldMetrics& m = theme.GetInputField(size);
     const ControlSpec ctrl = EffectiveInputControl(opts);
@@ -107,13 +109,17 @@ ElementSpec MakeInputFieldElementSpec(
         .background = opts.background,
         .borderWidth = opts.borderWidth,
         .borderRadius = opts.borderRadius,
+        .borderColor = opts.borderColor,
+        .bgColor = opts.bgColor,
         .widgetSize = size,
         .labelGap = m.labelGap,
         .descGap = m.descGap,
         .inlineGap = m.paddingX,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = false,
-        .disabled = disabled
+        .disabled = disabled,
+        .hovered = hovered,
+        .active = active
     };
 }
 
@@ -621,12 +627,16 @@ Response InputField::Run(
         opts.background,
         opts.borderWidth,
         opts.borderRadius.value_or(-1.0f),
+        opts.borderColor,
+        opts.bgColor,
         opts.control.width.value_or(0.0f),
         opts.control.height.value_or(0.0f),
         opts.control.minWidth.value_or(0.0f),
         opts.control.HasBackground(true),
         opts.control.borderWidth,
         opts.control.borderRadius.value_or(-1.0f),
+        opts.control.borderColor,
+        opts.control.bgColor,
         opts.width.value_or(0.0f),
         opts.height.value_or(0.0f),
         opts.minWidth.value_or(0.0f),
@@ -773,7 +783,7 @@ void InputField::Render(
     const InputFieldMetrics& m = theme.GetInputField(size);
     const ControlSpec ctrl = EffectiveInputControl(opts);
     const Vec2 boxDims = MeasureInputBox(opts, size, &canvas, theme);
-    const ElementSpec spec = MakeInputFieldElementSpec(opts, size, disabled, theme);
+    const ElementSpec spec = MakeInputFieldElementSpec(opts, size, disabled, theme, hovered, focused);
     const ElementGeometry geom = Element::Resolve(bounds, boxDims, spec, &canvas, theme);
     Element::RenderText(canvas, geom, spec, theme);
     const Rect boxRect = geom.controlRect;
@@ -802,16 +812,23 @@ void InputField::Render(
         }
     }
 
-    Color textCol = opts.valueFormat.variant.has_value()
-        ? theme.ResolveTextColor(opts.valueFormat, UiVariant::Default, disabled)
+    Color textCol = opts.valueFormat.color.HasAny()
+        ? theme.ResolveTextColor(opts.valueFormat, UiVariant::Default, disabled, hovered, focused)
         : (disabled ? pal.textPrimary.WithAlphaF(0.40f) : pal.textPrimary);
-    Color placeholderCol = theme.ResolveTextColor(opts.placeholder, UiVariant::Secondary, disabled);
+    Color placeholderCol = theme.ResolveTextColor(opts.placeholder, UiVariant::Secondary, disabled, hovered, focused);
     Color unitCol = pal.textSecondary;
 
     if (disabled) {
         boxBg = boxBg.WithAlphaF(0.40f);
         boxBorder = boxBorder.WithAlphaF(0.40f);
         unitCol = unitCol.WithAlphaF(0.40f);
+    }
+
+    if (ctrl.HasBackground(true) && ctrl.bgColor.HasAny()) {
+        boxBg = ctrl.bgColor.Resolve(hovered, focused, disabled, boxBg);
+    }
+    if (ctrl.borderColor.HasAny()) {
+        boxBorder = ctrl.borderColor.Resolve(hovered, focused, disabled, boxBorder);
     }
 
     // Draw box background and border
@@ -824,8 +841,8 @@ void InputField::Render(
     float leftX = boxRect.x + m.paddingX;
     if (opts.prefix.HasContentOrReserve()) {
         const float pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
-        const Color pTextCol = theme.ResolveTextColor(opts.prefix.text, UiVariant::Secondary, disabled);
-        const Color pIconCol = opts.prefix.text.variant.has_value() ? pTextCol : unitCol;
+        const Color pTextCol = theme.ResolveTextColor(opts.prefix.text, UiVariant::Secondary, disabled, hovered, focused);
+        const Color pIconCol = opts.prefix.text.color.HasAny() ? pTextCol : unitCol;
         const float pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, &canvas);
         TextUtil::DrawAffix(canvas, opts.prefix, Rect(leftX, boxRect.y, pW, boxRect.h), pFont, m.iconSize, pTextCol, pIconCol, 4.0f);
         const float pGap = (opts.prefix.HasIcon() && !opts.prefix.HasText()) ? 6.0f : 4.0f;
@@ -886,8 +903,8 @@ void InputField::Render(
 
     if (opts.suffix.HasContentOrReserve()) {
         const float sFont = theme.ResolveFontSize(opts.suffix.text, TextRole::LabelMedium, size);
-        const Color sTextCol = theme.ResolveTextColor(opts.suffix.text, UiVariant::Secondary, disabled);
-        const Color sIconCol = opts.suffix.text.variant.has_value() ? sTextCol : unitCol;
+        const Color sTextCol = theme.ResolveTextColor(opts.suffix.text, UiVariant::Secondary, disabled, hovered, focused);
+        const Color sIconCol = opts.suffix.text.color.HasAny() ? sTextCol : unitCol;
         const float sW = TextUtil::MeasureAffixWidth(opts.suffix, sFont, m.iconSize, 4.0f, &canvas);
         rightX -= sW;
         TextUtil::DrawAffix(canvas, opts.suffix, Rect(rightX, boxRect.y, sW, boxRect.h), sFont, m.iconSize, sTextCol, sIconCol, 4.0f);
@@ -947,7 +964,7 @@ void InputField::Render(
     }
 
     if (displayText.empty() && !opts.placeholder.empty() && !focused) {
-        const float phFont = opts.placeholder.role.has_value()
+        const float phFont = !opts.placeholder.size.IsAuto()
             ? theme.ResolveFontSize(opts.placeholder, TextRole::LabelMedium, size)
             : inputFont;
         canvas.DrawTextBox(opts.placeholder.text, textRect, phFont, placeholderCol, 0.0f, 0.5f);

@@ -68,13 +68,12 @@ void RenderInputInspector(guikit::Context& ui, DemoContext&) {
 void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
     if (s_state.numericMode) {
         ui.InputField(s_state.numVal, {
-            .label = ctx.elemLabel,
+            .label = ctx.GetElementLabel(),
             .description = ctx.GetElementDescription(),
             .icon = ctx.GetElementIcon(),
             .badge = ctx.GetElementBadge(),
             .suffix = s_state.numSuffix,
             .valueFormat = {"%.1f", {"0.0", "500.0"}},
-            .variant = ctx.btnVariant,
             .layout = ctx.elemLayout,
             .inlineOrder = ctx.elemInlineOrder,
             .elementAlign = ctx.elemAlign,
@@ -84,6 +83,7 @@ void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
             .background = ctx.elemBackground,
             .borderWidth = ctx.elemBorderWidth,
             .borderRadius = ctx.GetElemBorderRadius(),
+            .borderColor = ctx.GetElemBorderColor(),
             .control = ctx.GetControlSpec(NavCategory::ElemInputField),
             .min = static_cast<double>(s_state.numMin),
             .max = static_cast<double>(s_state.numMax),
@@ -94,7 +94,7 @@ void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
         });
     } else {
         ui.InputField(s_state.text, {
-            .label = ctx.elemLabel,
+            .label = ctx.GetElementLabel(),
             .description = ctx.GetElementDescription(),
             .placeholder = s_state.placeholder,
             .icon = ctx.GetElementIcon(),
@@ -102,7 +102,6 @@ void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
             .prefix = s_state.prefix,
             .suffix = s_state.suffix,
             .valueFormat = {{"guikit.dev", "api.guikit.dev"}},
-            .variant = ctx.btnVariant,
             .layout = ctx.elemLayout,
             .inlineOrder = ctx.elemInlineOrder,
             .elementAlign = ctx.elemAlign,
@@ -112,6 +111,7 @@ void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
             .background = ctx.elemBackground,
             .borderWidth = ctx.elemBorderWidth,
             .borderRadius = ctx.GetElemBorderRadius(),
+            .borderColor = ctx.GetElemBorderColor(),
             .control = ctx.GetControlSpec(NavCategory::ElemInputField),
             .password = s_state.password,
             .clearable = s_state.clearable,
@@ -125,13 +125,12 @@ std::string GenerateInputCode(const DemoContext& ctx) {
     if (s_state.numericMode) {
         return std::format(
             "ui.InputField(centerFreqMhz, {{\n"
-            "    .label = \"{}\",\n"
+            "    .label = {},\n"
             "    .description = {},\n"
             "    .icon = {},\n"
             "    .badge = {},\n"
             "    .suffix = \"{}\",\n"
             "    .valueFormat = \"%.1f\",\n"
-            "    .variant = guikit::UiVariant::{},\n"
             "    .layout = guikit::ElementLayout::{},\n"
             "    .inlineOrder = guikit::InlineOrder::{},\n"
             "    .elementAlign = guikit::Align::{},\n"
@@ -141,6 +140,7 @@ std::string GenerateInputCode(const DemoContext& ctx) {
             "    .background = {},\n"
             "    .borderWidth = {:.1f}f,\n"
             "    .borderRadius = {},\n"
+            "    .borderColor = {},\n"
             "    .control = {},\n"
             "    .min = {:.1f},\n"
             "    .max = {:.1f},\n"
@@ -149,12 +149,11 @@ std::string GenerateInputCode(const DemoContext& ctx) {
             "    .disabled = {},\n"
             "    .readOnly = {}\n"
             "}});",
-            ctx.elemLabel,
+            ctx.FormatElementLabelCode(),
             ctx.FormatElementDescCode(),
             ctx.FormatElementIconCode(),
             ctx.FormatElementBadgeCode(),
             s_state.numSuffix,
-            VariantName(ctx.btnVariant),
             ElementLayoutEnumName(ctx.elemLayout),
             InlineOrderEnumName(ctx.elemInlineOrder),
             LabelAlignEnumName(ctx.elemAlign),
@@ -164,6 +163,7 @@ std::string GenerateInputCode(const DemoContext& ctx) {
             ctx.elemBackground ? "true" : "false",
             ctx.elemBorderWidth,
             ctx.FormatElemBorderRadiusCode(),
+            ctx.FormatElemBorderColorCode(),
             ctx.FormatControlSpecCode(NavCategory::ElemInputField),
             s_state.numMin,
             s_state.numMax,
@@ -175,7 +175,7 @@ std::string GenerateInputCode(const DemoContext& ctx) {
     }
     return std::format(
         "ui.InputField(serverEndpoint, {{\n"
-        "    .label = \"{}\",\n"
+        "    .label = {},\n"
         "    .description = {},\n"
         "    .placeholder = \"{}\",\n"
         "    .icon = {},\n"
@@ -183,7 +183,6 @@ std::string GenerateInputCode(const DemoContext& ctx) {
         "    .prefix = \"{}\",\n"
         "    .suffix = \"{}\",\n"
         "    .valueFormat = {{{{\"guikit.dev\", \"api.guikit.dev\"}}}},\n"
-        "    .variant = guikit::UiVariant::{},\n"
         "    .layout = guikit::ElementLayout::{},\n"
         "    .inlineOrder = guikit::InlineOrder::{},\n"
         "    .elementAlign = guikit::Align::{},\n"
@@ -193,20 +192,20 @@ std::string GenerateInputCode(const DemoContext& ctx) {
         "    .background = {},\n"
         "    .borderWidth = {:.1f}f,\n"
         "    .borderRadius = {},\n"
+        "    .borderColor = {},\n"
         "    .control = {},\n"
         "    .password = {},\n"
         "    .clearable = {},\n"
         "    .disabled = {},\n"
         "    .readOnly = {}\n"
         "}});",
-        ctx.elemLabel,
+        ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         s_state.placeholder,
         ctx.FormatElementIconCode(),
         ctx.FormatElementBadgeCode(),
         s_state.prefix,
         s_state.suffix,
-        VariantName(ctx.btnVariant),
         ElementLayoutEnumName(ctx.elemLayout),
         InlineOrderEnumName(ctx.elemInlineOrder),
         LabelAlignEnumName(ctx.elemAlign),
@@ -216,6 +215,7 @@ std::string GenerateInputCode(const DemoContext& ctx) {
         ctx.elemBackground ? "true" : "false",
         ctx.elemBorderWidth,
         ctx.FormatElemBorderRadiusCode(),
+        ctx.FormatElemBorderColorCode(),
         ctx.FormatControlSpecCode(NavCategory::ElemInputField),
         s_state.password ? "true" : "false",
         s_state.clearable ? "true" : "false",

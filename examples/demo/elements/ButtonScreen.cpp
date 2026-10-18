@@ -46,7 +46,7 @@ void RenderButtonStage(guikit::Context& ui, DemoContext& ctx) {
         ? std::format("{} ({}x)", s_state.text, s_state.clicks)
         : s_state.text;
     if (ui.Button({
-        .label = ctx.elemLabel,
+        .label = ctx.GetElementLabel(),
         .text = btnText,
         .description = ctx.GetElementDescription(),
         .icon = s_state.hasIcon ? guikit::Icon::Play() : guikit::Icon{},
@@ -61,6 +61,7 @@ void RenderButtonStage(guikit::Context& ui, DemoContext& ctx) {
         .background = ctx.elemBackground,
         .borderWidth = ctx.elemBorderWidth,
         .borderRadius = ctx.GetElemBorderRadius(),
+        .borderColor = ctx.GetElemBorderColor(),
         .control = ctx.GetControlSpec(NavCategory::ElemButton, s_state.controlAlign),
         .disabled = ctx.elemDisabled,
         .square = s_state.square,
@@ -74,7 +75,7 @@ void RenderButtonStage(guikit::Context& ui, DemoContext& ctx) {
 std::string GenerateButtonCode(const DemoContext& ctx) {
     return std::format(
         "if (ui.Button({{\n"
-        "    .label = \"{}\",\n"
+        "    .label = {},\n"
         "    .text = \"{}\",\n"
         "    .description = {},\n"
         "    .icon = {},\n"
@@ -89,6 +90,7 @@ std::string GenerateButtonCode(const DemoContext& ctx) {
         "    .background = {},\n"
         "    .borderWidth = {:.1f}f,\n"
         "    .borderRadius = {},\n"
+        "    .borderColor = {},\n"
         "    .control = {},\n"
         "    .disabled = {},\n"
         "    .square = {},\n"
@@ -96,7 +98,7 @@ std::string GenerateButtonCode(const DemoContext& ctx) {
         "}})) {{\n"
         "    // On click handler\n"
         "}}",
-        ctx.elemLabel,
+        ctx.FormatElementLabelCode(),
         s_state.text,
         ctx.FormatElementDescCode(),
         s_state.hasIcon ? "guikit::Icon::Play()" : "{}",
@@ -111,6 +113,7 @@ std::string GenerateButtonCode(const DemoContext& ctx) {
         ctx.elemBackground ? "true" : "false",
         ctx.elemBorderWidth,
         ctx.FormatElemBorderRadiusCode(),
+        ctx.FormatElemBorderColorCode(),
         ctx.FormatControlSpecCode(NavCategory::ElemButton, s_state.controlAlign),
         ctx.elemDisabled ? "true" : "false",
         s_state.square ? "true" : "false",

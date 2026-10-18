@@ -38,7 +38,9 @@ ElementSpec MakeSelectElementSpec(
     const SelectOptions& opts,
     UiSize size,
     bool disabled,
-    const UiTheme& theme
+    const UiTheme& theme,
+    bool hovered = false,
+    bool active = false
 ) noexcept {
     const SelectMetrics& m = theme.GetSelect(size);
     const ControlSpec ctrl = EffectiveSelectControl(opts);
@@ -58,13 +60,17 @@ ElementSpec MakeSelectElementSpec(
         .background = opts.background,
         .borderWidth = opts.borderWidth,
         .borderRadius = opts.borderRadius,
+        .borderColor = opts.borderColor,
+        .bgColor = opts.bgColor,
         .widgetSize = size,
         .labelGap = m.labelGap,
         .descGap = m.descGap,
         .inlineGap = m.paddingX,
         .stretchableControl = true,
         .stretchHeightWhenStandalone = false,
-        .disabled = disabled
+        .disabled = disabled,
+        .hovered = hovered,
+        .active = active
     };
 }
 
@@ -552,12 +558,16 @@ Response Select::Run(
         opts.background,
         opts.borderWidth,
         opts.borderRadius.value_or(-1.0f),
+        opts.borderColor,
+        opts.bgColor,
         opts.control.width.value_or(0.0f),
         opts.control.height.value_or(0.0f),
         opts.control.minWidth.value_or(0.0f),
         opts.control.HasBackground(true),
         opts.control.borderWidth,
-        opts.control.borderRadius.value_or(-1.0f)
+        opts.control.borderRadius.value_or(-1.0f),
+        opts.control.borderColor,
+        opts.control.bgColor
     );
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
         const auto* d = n->As<SelectData>();
@@ -611,7 +621,7 @@ void Select::Render(
     const SelectMetrics& m = theme.GetSelect(size);
     const ControlSpec ctrl = EffectiveSelectControl(opts);
     const Vec2 boxDims = MeasureSelectBox(opts, size, theme);
-    const ElementSpec spec = MakeSelectElementSpec(opts, size, disabled, theme);
+    const ElementSpec spec = MakeSelectElementSpec(opts, size, disabled, theme, hovered, open || focused);
     const ElementGeometry geom = Element::Resolve(bounds, boxDims, spec, &canvas, theme);
     Element::RenderText(canvas, geom, spec, theme);
     const Rect boxRect = geom.controlRect;
@@ -651,6 +661,13 @@ void Select::Render(
         unitCol = unitCol.WithAlphaF(0.40f);
     }
 
+    if (ctrl.HasBackground(true) && ctrl.bgColor.HasAny()) {
+        boxBg = ctrl.bgColor.Resolve(hovered, open || focused, disabled, boxBg);
+    }
+    if (ctrl.borderColor.HasAny()) {
+        boxBorder = ctrl.borderColor.Resolve(hovered, open || focused, disabled, boxBorder);
+    }
+
     // Draw box background and border
     const float radius = ctrl.borderRadius.has_value() ? theme.Scale(*ctrl.borderRadius) : m.cornerRadius;
     canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
@@ -659,8 +676,8 @@ void Select::Render(
     float leftX = boxRect.x + m.paddingX;
     if (opts.prefix.HasContentOrReserve()) {
         const float pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
-        const Color pTextCol = theme.ResolveTextColor(opts.prefix.text, UiVariant::Secondary, disabled);
-        const Color pIconCol = opts.prefix.text.variant.has_value() ? pTextCol : chevronCol;
+        const Color pTextCol = theme.ResolveTextColor(opts.prefix.text, UiVariant::Secondary, disabled, hovered, open || focused);
+        const Color pIconCol = opts.prefix.text.color.HasAny() ? pTextCol : chevronCol;
         const float pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, &canvas);
         TextUtil::DrawAffix(canvas, opts.prefix, Rect(leftX, boxRect.y, pW, boxRect.h), pFont, m.iconSize, pTextCol, pIconCol, 4.0f);
         leftX += pW + 6.0f;
@@ -675,8 +692,8 @@ void Select::Render(
 
     if (opts.suffix.HasContentOrReserve()) {
         const float sFont = theme.ResolveFontSize(opts.suffix.text, TextRole::LabelMedium, size);
-        const Color sTextCol = theme.ResolveTextColor(opts.suffix.text, UiVariant::Muted, disabled);
-        const Color sIconCol = opts.suffix.text.variant.has_value() ? sTextCol : unitCol;
+        const Color sTextCol = theme.ResolveTextColor(opts.suffix.text, UiVariant::Muted, disabled, hovered, open || focused);
+        const Color sIconCol = opts.suffix.text.color.HasAny() ? sTextCol : unitCol;
         const float sW = TextUtil::MeasureAffixWidth(opts.suffix, sFont, m.iconSize, 4.0f, &canvas);
         rightX -= sW;
         TextUtil::DrawAffix(canvas, opts.suffix, Rect(rightX, boxRect.y, sW, boxRect.h), sFont, m.iconSize, sTextCol, sIconCol, 4.0f);
@@ -688,11 +705,11 @@ void Select::Render(
     const Rect textRect(leftX, boxRect.y, availW, boxRect.h);
     canvas.PushClip(textRect);
 
-    const bool isPlaceholder = currentText.empty() || (!currentText.variant.has_value() && currentText.text == opts.placeholder.text);
+    const bool isPlaceholder = currentText.empty() || (!currentText.color.HasAny() && currentText.text == opts.placeholder.text);
     const float selFont = theme.ResolveFontSize(currentText, TextRole::LabelMedium, size);
     const Color mainCol = isPlaceholder
         ? placeholderCol
-        : theme.ResolveTextColor(currentText, UiVariant::Default, disabled);
+        : theme.ResolveTextColor(currentText, UiVariant::Default, disabled, hovered, open || focused);
     TextUtil::DrawUiText(canvas, currentText, textRect, selFont, boxRect.h, mainCol, 0.0f, 0.5f);
 
     canvas.PopClip();
@@ -787,8 +804,8 @@ void Select::RenderPopup(
         }
 
         // Colors for item text and checkmark
-        Color itemTextCol = item.text.variant.has_value()
-            ? theme.ResolveTextColor(item.text, UiVariant::Default, itemDisabled)
+        Color itemTextCol = item.text.color.HasAny()
+            ? theme.ResolveTextColor(item.text, UiVariant::Default, itemDisabled, isHovered, isSelected)
             : (isSelected ? (itemDisabled ? pal.accent.WithAlphaF(0.40f) : pal.accent)
                           : (itemDisabled ? pal.textPrimary.WithAlphaF(0.40f) : pal.textPrimary));
 

@@ -717,8 +717,8 @@ void TestAutonomousTextWidgetAndTypographyRoles() {
 void TestSwitchAndCheckboxWidgets() {
     using namespace guikit;
 
-    static_assert(sizeof(SwitchOptions) <= 400);
-    static_assert(sizeof(CheckboxOptions) <= 320);
+    static_assert(sizeof(SwitchOptions) <= 840);
+    static_assert(sizeof(CheckboxOptions) <= 720);
 
     const auto theme = UiTheme::Dark();
     // 1. Test measurement
@@ -5163,7 +5163,7 @@ void TestUiTextAndControlCompanionText() {
     using namespace guikit;
     std::cout << "  - TestUiTextAndControlCompanionText...\n";
 
-    static_assert(sizeof(UiText) <= 40);
+    static_assert(sizeof(UiText) <= 80);
 
     const UiTheme& darkTheme = UiTheme::Dark();
     LabelRecordingCanvas recCanvas;
@@ -5175,8 +5175,11 @@ void TestUiTextAndControlCompanionText() {
     {
         UiText plain = "Plain";
         CHECK(plain.text == "Plain");
-        CHECK(!plain.role.has_value());
-        CHECK(!plain.variant.has_value());
+        CHECK(plain.size.IsAuto());
+        CHECK(!plain.color.HasAny());
+        CHECK(!plain.wrap.IsWordWrap());
+        CHECK(plain.wrap.minLines == 0);
+        CHECK(plain.wrap.maxLines == 1);
 
         // Default role/color resolution:
         // Label -> LabelLarge (14px at Md), Default (textPrimary)
@@ -5196,6 +5199,16 @@ void TestUiTextAndControlCompanionText() {
         CHECK_NEAR(darkTheme.ResolveFontSize(custom, TextRole::LabelSmall, UiSize::Md),
                    darkTheme.GetTypography(TextRole::TitleMedium).fontSize, 0.01f);
         CHECK(darkTheme.ResolveTextColor(custom, UiVariant::Muted) == darkTheme.GetTextColor(UiVariant::Danger));
+
+        // Explicit pixel size, scale preset (TextSize::Lg()), and per-state StateColor
+        UiText pxText = {"Custom Px", 19.5f, StateColor{.normal = Color::Hex(0x123456FF), .hover = Color::Hex(0x654321FF)}};
+        CHECK_NEAR(darkTheme.ResolveFontSize(pxText, TextRole::LabelSmall, UiSize::Md), 19.5f, 0.01f);
+        CHECK(darkTheme.ResolveTextColor(pxText, UiVariant::Default, false, false, false) == Color::Hex(0x123456FF));
+        CHECK(darkTheme.ResolveTextColor(pxText, UiVariant::Default, false, true, false) == Color::Hex(0x654321FF));
+
+        UiText presetText = {"Scale Preset", TextSize::Lg(), StateColor::Warning()};
+        CHECK_NEAR(darkTheme.ResolveFontSize(presetText, TextRole::LabelLarge, UiSize::Sm), 16.0f, 0.01f);
+        CHECK(darkTheme.ResolveTextColor(presetText, UiVariant::Default) == darkTheme.GetTextColor(UiVariant::Warning));
     }
 
     // 2. Switch with external .label + internal .textLeft / .textRight + .description
@@ -5534,12 +5547,12 @@ void TestUiTextModesAndVerticalSpaceReservation() {
         }
     }
 
-    // 2. Multi-line word wrapping (TextWrap::Word) + Max lines truncation (TextLines::Max(2))
+    // 2. Multi-line word wrapping (TextWrap::Word) + Max lines truncation (TextWrap::Max(2))
     {
         recCanvas.Reset();
         InputFieldOptions singleOpts{
             .label = "Username",
-            .description = {"Single line description", TextWrap::SingleLine},
+            .description = {"Single line description", TextWrap::SingleLine()},
             .layout = ElementLayout::Stacked
         };
         InputFieldOptions multiOpts{
@@ -5547,8 +5560,7 @@ void TestUiTextModesAndVerticalSpaceReservation() {
             .description = {
                 "This validation description is intentionally long so that it wraps across multiple lines in a narrow container",
                 UiVariant::Danger,
-                TextWrap::Word,
-                TextLines::Max(2)
+                TextWrap{.minLines = 0, .maxLines = 2}
             },
             .layout = ElementLayout::Stacked
         };
@@ -5570,7 +5582,7 @@ void TestUiTextModesAndVerticalSpaceReservation() {
         }
     }
 
-    // 3. Zero vertical layout shift when conditional error description appears/disappears (TextLines::Reserve(1))
+    // 3. Zero vertical layout shift when conditional error description appears/disappears (TextWrap::Reserve(1))
     {
         Context ui;
         std::string email = "user@";
@@ -5585,7 +5597,7 @@ void TestUiTextModesAndVerticalSpaceReservation() {
                     .description = {
                         hasError ? "Invalid email address format" : "",
                         UiVariant::Danger,
-                        TextLines::Reserve(1)
+                        TextWrap::Reserve(1)
                     }
                 });
                 submitBtnRes = ui.Button({.text = "Submit"});
@@ -5619,7 +5631,7 @@ void TestUiTextModesAndVerticalSpaceReservation() {
         CHECK_NEAR(btnRectNoError.y, btnRectWithError.y, 0.001f);
     }
 
-    // 4. Zero vertical shift for multi-line fixed reservation (TextWrap::Word + TextLines::Fixed(2))
+    // 4. Zero vertical shift for multi-line fixed reservation (TextWrap::Fixed(2))
     {
         Context ui;
         std::string password;
@@ -5640,8 +5652,7 @@ void TestUiTextModesAndVerticalSpaceReservation() {
                     .description = {
                         errText,
                         UiVariant::Danger,
-                        TextWrap::Word,
-                        TextLines::Fixed(2)
+                        TextWrap{.minLines = 2, .maxLines = 2}
                     }
                 });
                 submitBtnRes = ui.Button({.text = "Continue"});
@@ -5670,7 +5681,7 @@ void TestUiTextModesAndVerticalSpaceReservation() {
         CHECK_NEAR(btnYStage0, btnYStage2, 0.001f);
     }
 
-    // 5. Standalone ui.Text with TextWrap::Word and TextLines::Reserve
+    // 5. Standalone ui.Text with TextWrap::Fixed(2)
     {
         Context ui;
         bool showNotice = false;
@@ -5681,8 +5692,7 @@ void TestUiTextModesAndVerticalSpaceReservation() {
                 ui.Text({
                     showNotice ? "This standalone text widget wraps across two lines cleanly" : "",
                     UiVariant::Secondary,
-                    TextWrap::Word,
-                    TextLines::Fixed(2)
+                    TextWrap::Fixed(2)
                 });
                 belowBtn = ui.Button({.text = "OK"});
             }
@@ -8476,13 +8486,43 @@ void TestElementOuterFrameAndControlWellFrame() {
                 .text = "Click",
                 .background = true,
                 .borderWidth = 1.0f,
+                .borderColor = StateColor::Warning(),
+                .bgColor = {
+                    .normal = Color::Hex(0x1E293BFF),
+                    .hover = Color::Hex(0x334155FF)
+                },
                 .control = {
                     .background = false,
-                    .borderWidth = 2.0f
+                    .borderWidth = 2.0f,
+                    .borderColor = StateColor::Danger()
                 }
             });
         }
     };
+
+    // Verify StateColor aggregate initialization, presets, and 4-state resolution
+    constexpr StateColor defCol = StateColor::Default();
+    static_assert(!defCol.HasAny());
+
+    constexpr StateColor dgrCol = StateColor::Danger();
+    static_assert(dgrCol.HasAny());
+    static_assert(dgrCol.normal.has_value());
+    static_assert(dgrCol.hover.has_value());
+    static_assert(dgrCol.active.has_value());
+    static_assert(dgrCol.disabled.has_value());
+    static_assert(dgrCol == StateColor::FromVariant(UiVariant::Danger));
+
+    constexpr StateColor customCol{
+        .normal = Color(100, 120, 140, 255),
+        .hover = Color(150, 170, 190, 255)
+    };
+    const Color fb(10, 20, 30, 255);
+    CHECK(customCol.Resolve(false, false, false, fb) == Color(100, 120, 140, 255));
+    CHECK(customCol.Resolve(true, false, false, fb) == Color(150, 170, 190, 255));
+    // Active falls back to hover when active is nullopt and hover is set
+    CHECK(customCol.Resolve(false, true, false, fb) == Color(150, 170, 190, 255));
+    // Disabled falls back to normal with 40% alpha when disabled is nullopt
+    CHECK(customCol.Resolve(false, false, true, fb) == Color(100, 120, 140, 255).WithAlphaF(0.40f));
 
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderFrame();

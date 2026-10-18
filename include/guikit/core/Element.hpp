@@ -34,6 +34,8 @@ struct ElementOptions {
     bool background{false};                               ///< Whether to render a surface backdrop around outerBounds
     float borderWidth{0.0f};                              ///< Outer element border thickness in points (0.0f = no border)
     std::optional<float> borderRadius{std::nullopt};      ///< Outer element corner radius in points (nullopt = theme radius)
+    StateColor borderColor{};                             ///< Per-state outer border color (normal, hover, active, disabled)
+    StateColor bgColor{};                                 ///< Per-state outer background color (normal, hover, active, disabled)
     bool divider{false};                                  ///< Whether to render a horizontal section divider line (Heading)
     ElementDivider dividerStyle{ElementDivider::Bottom};  ///< Divider placement style (Bottom or Trailing)
     bool wordWrap{false};                                 ///< Whether description wraps into multiple lines when space is constrained
@@ -59,7 +61,7 @@ struct ElementSpec {
     UiText label{};                                       ///< Primary label or heading title
     UiText description{};                                 ///< Optional secondary description or subtitle
     Icon icon{};                                          ///< Optional vector icon before label
-    UiText badge{};                                       ///< Optional pill badge after label (supports independent UiVariant)
+    UiText badge{};                                       ///< Optional trailing pill badge after label (supports independent UiVariant)
     UiVariant variant{UiVariant::Default};                ///< Semantic color variant for icon, badge, divider, and default title
     ElementLayout layout{ElementLayout::Stacked};         ///< Placement of text relative to control (or description relative to label bar)
     InlineOrder inlineOrder{InlineOrder::LabelFirst};     ///< Sequencing order in Inline layout
@@ -71,6 +73,8 @@ struct ElementSpec {
     bool background{false};                               ///< Whether to render a surface backdrop around outerBounds
     float borderWidth{0.0f};                              ///< Outer element border thickness in points (0.0f = no border)
     std::optional<float> borderRadius{std::nullopt};      ///< Outer element corner radius in points (nullopt = theme radius)
+    StateColor borderColor{};                             ///< Per-state outer border color (normal, hover, active, disabled)
+    StateColor bgColor{};                                 ///< Per-state outer background color (normal, hover, active, disabled)
     UiSize widgetSize{UiSize::Md};                        ///< Active UiSize token
     float labelGap{6.0f};                                 ///< Vertical gap between label bar and control/description
     float descGap{4.0f};                                  ///< Vertical gap between control/label and description
@@ -82,6 +86,8 @@ struct ElementSpec {
     bool stretchableControl{true};                        ///< True for Button/InputField/Select/Slider/Image; false for fixed-size controls
     bool stretchHeightWhenStandalone{false};              ///< True to stretch control height when standalone
     bool disabled{false};                                 ///< Whether the element is disabled (dims text, icon, badge, and divider)
+    bool hovered{false};                                  ///< Whether the element is currently hovered
+    bool active{false};                                   ///< Whether the element/control is currently active (pressed or focused)
 };
 
 /// Resolved bounding rectangles for a composite UI element.
@@ -121,7 +127,9 @@ public:
         const ElementOptions& opts,
         UiSize activeSize,
         bool isDisabled,
-        const UiTheme& theme
+        const UiTheme& theme,
+        bool isHovered = false,
+        bool isActive = false
     ) noexcept;
 
     /// Immediate mode entry point for a standalone control-less `Element` (or `Heading` when `opts.headingTypography == true`).
@@ -215,9 +223,11 @@ public:
         const ElementOptions& opts,
         UiSize size,
         const UiTheme& theme,
-        bool disabled = false
+        bool disabled = false,
+        bool hovered = false,
+        bool active = false
     ) noexcept {
-        Render(canvas, bounds, MakeSpec(opts, size, disabled || opts.disabled, theme), theme);
+        Render(canvas, bounds, MakeSpec(opts, size, disabled || opts.disabled, theme, hovered, active), theme);
     }
 };
 

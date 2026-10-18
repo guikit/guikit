@@ -29,7 +29,7 @@ void RenderSwitchInspector(guikit::Context& ui, DemoContext&) {
 
 void RenderSwitchStage(guikit::Context& ui, DemoContext& ctx) {
     ui.Switch(s_state.state, {
-        .label = ctx.elemLabel,
+        .label = ctx.GetElementLabel(),
         .textLeft = s_state.textLeft,
         .textRight = s_state.textRight,
         .description = ctx.GetElementDescription(),
@@ -44,6 +44,7 @@ void RenderSwitchStage(guikit::Context& ui, DemoContext& ctx) {
         .background = ctx.elemBackground,
         .borderWidth = ctx.elemBorderWidth,
         .borderRadius = ctx.GetElemBorderRadius(),
+        .borderColor = ctx.GetElemBorderColor(),
         .control = ctx.GetControlSpec(NavCategory::ElemSwitch),
         .disabled = ctx.elemDisabled,
         .size = ctx.controlsSize
@@ -53,7 +54,7 @@ void RenderSwitchStage(guikit::Context& ui, DemoContext& ctx) {
 std::string GenerateSwitchCode(const DemoContext& ctx) {
     return std::format(
         "ui.Switch(switchState, {{\n"
-        "    .label = \"{}\",\n"
+        "    .label = {},\n"
         "    .textLeft = \"{}\",\n"
         "    .textRight = \"{}\",\n"
         "    .description = {},\n"
@@ -68,11 +69,12 @@ std::string GenerateSwitchCode(const DemoContext& ctx) {
         "    .background = {},\n"
         "    .borderWidth = {:.1f}f,\n"
         "    .borderRadius = {},\n"
+        "    .borderColor = {},\n"
         "    .control = {},\n"
         "    .disabled = {},\n"
         "    .size = guikit::UiSize::{}\n"
         "}});",
-        ctx.elemLabel,
+        ctx.FormatElementLabelCode(),
         s_state.textLeft,
         s_state.textRight,
         ctx.FormatElementDescCode(),
@@ -87,6 +89,7 @@ std::string GenerateSwitchCode(const DemoContext& ctx) {
         ctx.elemBackground ? "true" : "false",
         ctx.elemBorderWidth,
         ctx.FormatElemBorderRadiusCode(),
+        ctx.FormatElemBorderColorCode(),
         ctx.FormatControlSpecCode(NavCategory::ElemSwitch),
         ctx.elemDisabled ? "true" : "false",
         SizeName(ctx.controlsSize)

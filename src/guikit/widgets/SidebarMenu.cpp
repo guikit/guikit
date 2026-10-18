@@ -318,15 +318,17 @@ void SidebarMenu::RenderItem(
     Color bg = Color::Transparent();
     Color borderCol = Color::Transparent();
     float borderW = 0.0f;
-    Color textCol = item.text.variant.has_value()
-        ? theme.GetTextColor(*item.text.variant)
+    Color textCol = item.text.color.HasAny()
+        ? item.text.color.Resolve(hovered, pressed || item.active, disabled, pal.textPrimary)
         : pal.textPrimary;
     Color iconCol = pal.textSecondary;
 
     if (opts.style == SidebarMenuStyle::Pill) {
         if (item.active) {
             bg = pressed ? v.bgActive : (hovered ? v.bgHover : v.bg);
-            textCol = item.text.variant.has_value() ? theme.GetTextColor(*item.text.variant) : v.text;
+            textCol = item.text.color.HasAny()
+                ? item.text.color.Resolve(hovered, true, disabled, v.text)
+                : v.text;
             iconCol = textCol;
         } else if (pressed) {
             bg = pal.surfaceActive;
@@ -338,7 +340,9 @@ void SidebarMenu::RenderItem(
     } else { // SidebarMenuStyle::Indicator
         if (item.active) {
             bg = pressed ? v.bg.WithAlphaF(0.28f) : (hovered ? v.bg.WithAlphaF(0.22f) : v.bg.WithAlphaF(0.16f));
-            textCol = item.text.variant.has_value() ? theme.GetTextColor(*item.text.variant) : pal.textPrimary;
+            textCol = item.text.color.HasAny()
+                ? item.text.color.Resolve(hovered, true, disabled, pal.textPrimary)
+                : pal.textPrimary;
             iconCol = v.bg;
         } else if (pressed) {
             bg = pal.surfaceActive;
@@ -351,7 +355,9 @@ void SidebarMenu::RenderItem(
 
     if (disabled) {
         bg = bg.WithAlphaF(0.40f);
-        textCol = textCol.WithAlphaF(0.40f);
+        if (!item.text.color.HasAny()) {
+            textCol = textCol.WithAlphaF(0.40f);
+        }
         iconCol = iconCol.WithAlphaF(0.40f);
     } else if (focused) {
         borderCol = pal.focusRing;
@@ -420,9 +426,10 @@ void SidebarMenu::RenderItem(
         Color badgeBg = item.active && opts.style == SidebarMenuStyle::Pill
             ? Color(255, 255, 255, 45)
             : pal.surfaceActive;
-        Color badgeTextCol = item.badge.variant.has_value()
-            ? theme.ResolveTextColor(item.badge, *item.badge.variant, disabled)
-            : (item.active && opts.style == SidebarMenuStyle::Pill ? textCol : pal.textSecondary);
+        const Color defaultBadgeTextCol = (item.active && opts.style == SidebarMenuStyle::Pill) ? textCol : pal.textSecondary;
+        Color badgeTextCol = item.badge.color.HasAny()
+            ? item.badge.color.Resolve(hovered, item.active, disabled, defaultBadgeTextCol)
+            : (disabled ? defaultBadgeTextCol.WithAlphaF(0.40f) : defaultBadgeTextCol);
         if (disabled) {
             badgeBg = badgeBg.WithAlphaF(0.40f);
         }

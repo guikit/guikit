@@ -188,6 +188,7 @@ struct DemoContext {
     guikit::UiSize controlsSize = guikit::UiSize::Md;
     guikit::UiVariant btnVariant = guikit::UiVariant::Primary;
     std::string elemLabel = "Element Label";
+    guikit::UiVariant elemLabelVariant = guikit::UiVariant::Default;
     std::string elemDesc = "Secondary description text";
     guikit::UiVariant elemDescVariant = guikit::UiVariant::Muted;
     bool elemWordWrap = true;
@@ -203,9 +204,11 @@ struct DemoContext {
     float elemHeight = 0.0f;   // 0 = Auto (px)
     bool elemBackground = false;
     float elemBorderWidth = 0.0f;
+    guikit::UiVariant elemBorderVariant = guikit::UiVariant::Default;
     float elemBorderRadius = 8.0f;
     std::array<bool, 8> ctrlBackgroundByCat = {false, true, false, true, true, false, false, false};
     float ctrlBorderWidth = 0.0f;
+    guikit::UiVariant ctrlBorderVariant = guikit::UiVariant::Default;
     float ctrlBorderRadius = 6.0f;
     bool elemDivider = true;
     guikit::ElementDivider elemDividerStyle = guikit::ElementDivider::Bottom;
@@ -227,12 +230,16 @@ struct DemoContext {
         return !elemLabel.empty() || !elemDesc.empty() || elemShowIcon || !elemBadge.empty();
     }
 
+    guikit::UiText GetElementLabel() const noexcept {
+        return guikit::UiText{elemLabel, elemLabelVariant};
+    }
+
     guikit::UiText GetElementDescription() const noexcept {
         if (elemDesc.empty()) return {};
         return guikit::UiText{
             elemDesc,
             elemDescVariant,
-            elemWordWrap ? guikit::TextWrap::Word : guikit::TextWrap::SingleLine
+            elemWordWrap ? guikit::TextWrap::Word() : guikit::TextWrap::SingleLine()
         };
     }
 
@@ -271,6 +278,14 @@ struct DemoContext {
         return (elemBackground || elemBorderWidth > 0.0f) ? std::optional<float>(elemBorderRadius) : std::nullopt;
     }
 
+    guikit::StateColor GetElemBorderColor() const noexcept {
+        return guikit::StateColor::FromVariant(elemBorderVariant);
+    }
+
+    guikit::StateColor GetCtrlBorderColor() const noexcept {
+        return guikit::StateColor::FromVariant(ctrlBorderVariant);
+    }
+
     guikit::ControlSpec GetControlSpec(NavCategory cat, guikit::Align align = guikit::Align::Center) const noexcept {
         return guikit::ControlSpec{
             .width = GetElementWidth(),
@@ -278,8 +293,17 @@ struct DemoContext {
             .align = align,
             .background = GetControlBackground(cat),
             .borderWidth = ctrlBorderWidth,
-            .borderRadius = ctrlBorderRadius
+            .borderRadius = ctrlBorderRadius,
+            .borderColor = GetCtrlBorderColor()
         };
+    }
+
+    std::string FormatElementLabelCode() const {
+        if (elemLabel.empty()) return "\"\"";
+        if (elemLabelVariant == guikit::UiVariant::Default) {
+            return std::string("\"") + elemLabel + "\"";
+        }
+        return std::string("{\"") + elemLabel + "\", guikit::StateColor::" + std::string(VariantName(elemLabelVariant)) + "()}";
     }
 
     std::string FormatElementDescCode() const {
@@ -292,7 +316,7 @@ struct DemoContext {
 
     std::string FormatElementBadgeCode() const {
         if (elemBadge.empty()) return "\"\"";
-        return std::string("{\"") + elemBadge + "\", guikit::UiVariant::" + std::string(VariantName(elemBadgeVariant)) + "}";
+        return std::string("{\"") + elemBadge + "\", guikit::StateColor::" + std::string(VariantName(elemBadgeVariant)) + "()}";
     }
 
     std::string_view FormatDividerStyleCode() const noexcept {
@@ -331,6 +355,14 @@ struct DemoContext {
         return "std::nullopt";
     }
 
+    std::string FormatElemBorderColorCode() const {
+        return std::string("guikit::StateColor::") + std::string(VariantName(elemBorderVariant)) + "()";
+    }
+
+    std::string FormatCtrlBorderColorCode() const {
+        return std::string("guikit::StateColor::") + std::string(VariantName(ctrlBorderVariant)) + "()";
+    }
+
     std::string FormatControlSpecCode(NavCategory cat, std::optional<guikit::Align> alignOpt = std::nullopt) const {
         char bwBuf[32];
         char brBuf[32];
@@ -344,7 +376,8 @@ struct DemoContext {
         }
         res += "        .background = " + std::string(GetControlBackground(cat) ? "true" : "false") + ",\n";
         res += "        .borderWidth = " + std::string(bwBuf) + ",\n";
-        res += "        .borderRadius = " + std::string(brBuf) + "\n";
+        res += "        .borderRadius = " + std::string(brBuf) + ",\n";
+        res += "        .borderColor = " + FormatCtrlBorderColorCode() + "\n";
         res += "    }";
         return res;
     }
@@ -390,7 +423,7 @@ struct DemoContext {
             }
         }
         if (ui.StepSlider(descVarIdx, descVarShort, {
-            .label = "Description Variant",
+            .label = "Subtitle Color",
             .showTicks = true,
             .showLabels = true,
             .showValue = true,
@@ -434,7 +467,7 @@ struct DemoContext {
         }
     }
 
-    void RenderElementInspector(guikit::Context& ui) {
+    void RenderElementInspector(guikit::Context& ui, NavCategory cat = NavCategory::ElemHeading) {
         ui.Heading({
             .title = "ELEMENT",
             .size = guikit::UiSize::Xs,
@@ -443,8 +476,6 @@ struct DemoContext {
         if (ui.StepSlider(controlsSize, {.label = "Element Size", .showTicks = true, .showLabels = true, .showValue = true}).changed) {
             ui.InvalidateAll();
         }
-
-        RenderVariantPicker(ui);
 
         if (ui.InputField(elemLabel, {
             .label = "Label Text",
@@ -462,11 +493,6 @@ struct DemoContext {
             ui.InvalidateAll();
         }
 
-        RenderDescVariantPicker(ui, elemDescVariant, !elemDesc.empty());
-        if (ui.Switch(elemWordWrap, {.label = "Description Word Wrap", .disabled = elemDesc.empty()}).changed) {
-            ui.InvalidateAll();
-        }
-
         RenderElementLayoutControls(ui, HasElementExternal(), elemLayout, elemInlineOrder, elemAlign, elemStretchIdx);
 
         if (ui.Switch(elemShowIcon, {.label = "Show Leading Icon"}).changed) ui.InvalidateAll();
@@ -478,15 +504,6 @@ struct DemoContext {
         }).changed) {
             ui.InvalidateAll();
         }
-        if (ui.StepSlider(elemBadgeVariant, {
-            .label = "Badge Variant",
-            .showTicks = true,
-            .showLabels = true,
-            .showValue = true,
-            .disabled = elemBadge.empty()
-        }).changed) {
-            ui.InvalidateAll();
-        }
 
         if (ui.Switch(elemBackground, {.label = "Element Background"}).changed) ui.InvalidateAll();
         if (ui.Slider(elemBorderWidth, 0.0f, 4.0f, {
@@ -494,6 +511,16 @@ struct DemoContext {
             .valueFormat = "%.1f px",
             .step = 0.5f
         }).changed) ui.InvalidateAll();
+        const bool hasElemBorderOrDivider = (elemBorderWidth > 0.0f) || (cat == NavCategory::ElemHeading && elemDivider);
+        if (ui.StepSlider(elemBorderVariant, {
+            .label = "Element Border Color",
+            .showTicks = true,
+            .showLabels = true,
+            .showValue = true,
+            .disabled = !hasElemBorderOrDivider
+        }).changed) {
+            ui.InvalidateAll();
+        }
         if (ui.Slider(elemBorderRadius, 0.0f, 24.0f, {
             .label = "Element Border Radius",
             .valueFormat = "%.0f px",
@@ -510,6 +537,22 @@ struct DemoContext {
             .size = guikit::UiSize::Xs,
             .divider = true
         });
+        const bool hasControlVariant = (
+            cat == NavCategory::ElemButton ||
+            cat == NavCategory::ElemSlider ||
+            cat == NavCategory::ElemSwitch ||
+            cat == NavCategory::ElemCheckbox
+        );
+        if (hasControlVariant) {
+            if (ui.StepSlider(btnVariant, {
+                .label = "Control Variant",
+                .showTicks = true,
+                .showLabels = true,
+                .showValue = true
+            }).changed) {
+                ui.InvalidateAll();
+            }
+        }
         if (elemStretchIdx == 2) {
             if (ui.Slider(elemFillPct, 10.0f, 100.0f, {.label = "Explicit Width", .valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
         } else {
@@ -528,6 +571,21 @@ struct DemoContext {
                 : guikit::UiText{"%.1f px", {"Default", "%.1f px"}},
             .step = 0.5f
         }).changed) ui.InvalidateAll();
+
+        const bool hasVisibleCtrlBorder =
+            (ctrlBorderWidth > 0.0f) ||
+            (cat == NavCategory::ElemInputField) ||
+            (cat == NavCategory::ElemSelect) ||
+            (cat == NavCategory::ElemButton && (btnVariant == guikit::UiVariant::Default || btnVariant == guikit::UiVariant::Secondary));
+        if (ui.StepSlider(ctrlBorderVariant, {
+            .label = "Control Border Color",
+            .showTicks = true,
+            .showLabels = true,
+            .showValue = true,
+            .disabled = !hasVisibleCtrlBorder
+        }).changed) {
+            ui.InvalidateAll();
+        }
 
         if (ui.Slider(ctrlBorderRadius, 0.0f, 24.0f, {
             .label = "Control Border Radius",
