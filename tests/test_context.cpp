@@ -9319,24 +9319,30 @@ void TestSizeScopeChainingAndIsolation() {
     std::vector<uint32_t> pixels(width * height, 0);
     canvas.SetTarget(pixels.data(), width, height, width);
 
-    Response btnDefaultInsideXlElement{};
+    Response btnInheritedInsideXlElement{};
+    Response btnNoneInsideXlElement{};
     Response btnSmInsideXlElement{};
     Response btnInsideSmScope{};
     Response btnAfterSmScope{};
 
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = 8.0f})) {
-            // 1. Element with Xl size should NOT leak Xl into child Control (default Md = 40px)
+            // 1. Element with Xl size propagates Xl (56px) to its child Control when no explicit size is given
             if (auto el = ui.Size(UiSize::Xl).Element({.label = "XL Element Header"})) {
-                btnDefaultInsideXlElement = ui.Button({.text = "Inherits Md (40px)"});
+                btnInheritedInsideXlElement = ui.Button({.text = "Inherits Xl (56px)"});
             }
 
-            // 2. Element with Xl size + Control with explicit Sm size (32px)
+            // 2. Element with Xl size + Control with UiSize::None also inherits Xl (56px)
+            if (auto el = ui.Size(UiSize::Xl).Element({.label = "XL Element + None Control"})) {
+                btnNoneInsideXlElement = ui.Size(UiSize::None).Button({.text = "None Inherits Xl (56px)"});
+            }
+
+            // 3. Element with Xl size + Control with explicit Sm size overrides to Sm (32px)
             if (auto el = ui.Size(UiSize::Xl).Element({.label = "XL Element + SM Control"})) {
                 btnSmInsideXlElement = ui.Size(UiSize::Sm).Button({.text = "Explicit Sm (32px)"});
             }
 
-            // 3. Block RAII SizeScope applies Sm to everything inside, then restores Md outside
+            // 4. Block RAII SizeScope applies Sm to everything inside, then restores Md outside
             if (auto s = ui.Size(UiSize::Sm)) {
                 if (auto el = ui.Element({.label = "Element in Sm Scope"})) {
                     btnInsideSmScope = ui.Button({.text = "Sm Scope Button"});
@@ -9355,7 +9361,8 @@ void TestSizeScopeChainingAndIsolation() {
     renderUI();
     ui.EndFrame(canvas);
 
-    CHECK_NEAR(btnDefaultInsideXlElement.rect.h, 40.0f, 0.5f);
+    CHECK_NEAR(btnInheritedInsideXlElement.rect.h, 56.0f, 0.5f);
+    CHECK_NEAR(btnNoneInsideXlElement.rect.h, 56.0f, 0.5f);
     CHECK_NEAR(btnSmInsideXlElement.rect.h, 32.0f, 0.5f);
     CHECK_NEAR(btnInsideSmScope.rect.h, 32.0f, 0.5f);
     CHECK_NEAR(btnAfterSmScope.rect.h, 40.0f, 0.5f);

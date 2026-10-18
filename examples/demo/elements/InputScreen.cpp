@@ -139,7 +139,7 @@ void RenderInputStage(guikit::Context& ui, DemoContext& ctx) {
 std::string GenerateInputCode(const DemoContext& ctx) {
     if (s_state.numericMode) {
         return std::format(
-            "if (auto el = ui.Size(guikit::UiSize::{}).Element({{\n"
+            "if (auto el = ui.{}Element({{\n"
             "    .label = {},\n"
             "    .description = {},\n"
             "    .icon = {},\n"
@@ -152,7 +152,7 @@ std::string GenerateInputCode(const DemoContext& ctx) {
             "    .border = {},\n"
             "    .disabled = {}\n"
             "}})) {{\n"
-            "    ui.Size(guikit::UiSize::{}).InputField(centerFreqMhz, {{\n"
+            "    ui.{}InputField(centerFreqMhz, {{\n"
             "        .suffix = \"{}\",\n"
             "        .valueFormat = \"%.1f\",\n"
             "        .cursorMode = guikit::CursorBlinkMode::{},\n"
@@ -169,7 +169,7 @@ std::string GenerateInputCode(const DemoContext& ctx) {
             "        .readOnly = {}\n"
             "    }});\n"
             "}}",
-            SizeName(ctx.elemSize),
+            FormatUiSizePrefix(ctx.elemSize),
             ctx.FormatElementLabelCode(),
             ctx.FormatElementDescCode(),
             ctx.FormatElementIconCode(),
@@ -181,7 +181,7 @@ std::string GenerateInputCode(const DemoContext& ctx) {
             ctx.FormatElemBackgroundCode(),
             ctx.FormatElemBorderCode(),
             ctx.elemDisabled ? "true" : "false",
-            SizeName(ctx.controlsSize),
+            FormatUiSizePrefix(ctx.controlsSize),
             s_state.numSuffix,
             CursorModeName(s_state.cursorMode),
             StretchModeEnumName(ctx.GetElementStretch()),
@@ -198,7 +198,7 @@ std::string GenerateInputCode(const DemoContext& ctx) {
         );
     }
     return std::format(
-        "if (auto el = ui.Size(guikit::UiSize::{}).Element({{\n"
+        "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"
         "    .icon = {},\n"
@@ -211,7 +211,7 @@ std::string GenerateInputCode(const DemoContext& ctx) {
         "    .border = {},\n"
         "    .disabled = {}\n"
         "}})) {{\n"
-        "    ui.Size(guikit::UiSize::{}).InputField(serverEndpoint, {{\n"
+        "    ui.{}InputField(serverEndpoint, {{\n"
         "        .placeholder = \"{}\",\n"
         "        .prefix = \"{}\",\n"
         "        .suffix = \"{}\",\n"
@@ -228,7 +228,7 @@ std::string GenerateInputCode(const DemoContext& ctx) {
         "        .readOnly = {}\n"
         "    }});\n"
         "}}",
-        SizeName(ctx.elemSize),
+        FormatUiSizePrefix(ctx.elemSize),
         ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
@@ -240,7 +240,7 @@ std::string GenerateInputCode(const DemoContext& ctx) {
         ctx.FormatElemBackgroundCode(),
         ctx.FormatElemBorderCode(),
         ctx.elemDisabled ? "true" : "false",
-        SizeName(ctx.controlsSize),
+        FormatUiSizePrefix(ctx.controlsSize),
         s_state.placeholder,
         s_state.prefix,
         s_state.suffix,

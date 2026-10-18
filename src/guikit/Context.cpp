@@ -288,7 +288,7 @@ void Context::PopScale() {
 }
 
 void Context::PushSize(UiSize size) {
-    m_sizeStack.push_back(size);
+    m_sizeStack.push_back(size == UiSize::None ? GetCurrentSize() : size);
 }
 
 void Context::PopSize() {

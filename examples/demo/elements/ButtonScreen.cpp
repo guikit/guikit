@@ -89,7 +89,7 @@ void RenderButtonStage(guikit::Context& ui, DemoContext& ctx) {
 
 std::string GenerateButtonCode(const DemoContext& ctx) {
     return std::format(
-        "if (auto el = ui.Size(guikit::UiSize::{}).Element({{\n"
+        "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"
         "    .icon = {},\n"
@@ -102,7 +102,7 @@ std::string GenerateButtonCode(const DemoContext& ctx) {
         "    .border = {},\n"
         "    .disabled = {}\n"
         "}})) {{\n"
-        "    if (ui.Size(guikit::UiSize::{}).Button({{\n"
+        "    if (ui.{}Button({{\n"
         "        .text = \"{}\",\n"
         "        .icon = {},\n"
         "        .color = {},\n"
@@ -119,7 +119,7 @@ std::string GenerateButtonCode(const DemoContext& ctx) {
         "        // On click handler\n"
         "    }}\n"
         "}}",
-        SizeName(ctx.elemSize),
+        FormatUiSizePrefix(ctx.elemSize),
         ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
@@ -131,7 +131,7 @@ std::string GenerateButtonCode(const DemoContext& ctx) {
         ctx.FormatElemBackgroundCode(),
         ctx.FormatElemBorderCode(),
         ctx.elemDisabled ? "true" : "false",
-        SizeName(ctx.controlsSize),
+        FormatUiSizePrefix(ctx.controlsSize),
         s_state.text,
         s_state.hasIcon ? "guikit::Icon::Play()" : "{}",
         ctx.FormatControlColorCode(),

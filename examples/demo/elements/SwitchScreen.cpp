@@ -62,7 +62,7 @@ void RenderSwitchStage(guikit::Context& ui, DemoContext& ctx) {
 
 std::string GenerateSwitchCode(const DemoContext& ctx) {
     return std::format(
-        "if (auto el = ui.Size(guikit::UiSize::{}).Element({{\n"
+        "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"
         "    .icon = {},\n"
@@ -75,7 +75,7 @@ std::string GenerateSwitchCode(const DemoContext& ctx) {
         "    .border = {},\n"
         "    .disabled = {}\n"
         "}})) {{\n"
-        "    ui.Size(guikit::UiSize::{}).Switch(switchState, {{\n"
+        "    ui.{}Switch(switchState, {{\n"
         "        .textLeft = \"{}\",\n"
         "        .textRight = \"{}\",\n"
         "        .color = {},\n"
@@ -88,7 +88,7 @@ std::string GenerateSwitchCode(const DemoContext& ctx) {
         "        .disabled = {}\n"
         "    }});\n"
         "}}",
-        SizeName(ctx.elemSize),
+        FormatUiSizePrefix(ctx.elemSize),
         ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
@@ -100,7 +100,7 @@ std::string GenerateSwitchCode(const DemoContext& ctx) {
         ctx.FormatElemBackgroundCode(),
         ctx.FormatElemBorderCode(),
         ctx.elemDisabled ? "true" : "false",
-        SizeName(ctx.controlsSize),
+        FormatUiSizePrefix(ctx.controlsSize),
         s_state.textLeft,
         s_state.textRight,
         ctx.FormatControlColorCode(),

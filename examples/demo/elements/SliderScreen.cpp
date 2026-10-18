@@ -231,7 +231,7 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
 std::string GenerateSliderCode(const DemoContext& ctx) {
     if (s_state.modeIdx == 0) {
         return std::format(
-            "if (auto el = ui.Size(guikit::UiSize::{}).Element({{\n"
+            "if (auto el = ui.{}Element({{\n"
             "    .label = {},\n"
             "    .description = {},\n"
             "    .icon = {},\n"
@@ -244,7 +244,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             "    .border = {},\n"
             "    .disabled = {}\n"
             "}})) {{\n"
-            "    ui.Size(guikit::UiSize::{}).Slider(gainValue, 0.0f, 100.0f, {{\n"
+            "    ui.{}Slider(gainValue, 0.0f, 100.0f, {{\n"
             "        .textLeft = \"{}\",\n"
             "        .textRight = \"{}\",\n"
             "        .valueFormat = \"%.1f %%\",\n"
@@ -260,7 +260,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             "        .disabled = {}\n"
             "    }});\n"
             "}}",
-            SizeName(ctx.elemSize),
+            FormatUiSizePrefix(ctx.elemSize),
             ctx.FormatElementLabelCode(),
             ctx.FormatElementDescCode(),
             ctx.FormatElementIconCode(),
@@ -272,7 +272,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             ctx.FormatElemBackgroundCode(),
             ctx.FormatElemBorderCode(),
             ctx.elemDisabled ? "true" : "false",
-            SizeName(ctx.controlsSize),
+            FormatUiSizePrefix(ctx.controlsSize),
             s_state.textLeft,
             s_state.textRight,
             s_state.quantizeStep ? "5.0" : "std::nullopt",
@@ -290,7 +290,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
     if (s_state.modeIdx == 1) {
         return std::format(
             "static constexpr std::array<std::string_view, 5> stepItems = {{\"Off\", \"Low\", \"Mid\", \"High\", \"Max\"}};\n"
-            "if (auto el = ui.Size(guikit::UiSize::{}).Element({{\n"
+            "if (auto el = ui.{}Element({{\n"
             "    .label = {},\n"
             "    .description = {},\n"
             "    .icon = {},\n"
@@ -303,7 +303,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             "    .border = {},\n"
             "    .disabled = {}\n"
             "}})) {{\n"
-            "    ui.Size(guikit::UiSize::{}).StepSlider(presetIndex, stepItems, {{\n"
+            "    ui.{}StepSlider(presetIndex, stepItems, {{\n"
             "        .textLeft = \"{}\",\n"
             "        .textRight = \"{}\",\n"
             "        .showTicks = {},\n"
@@ -319,7 +319,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             "        .disabled = {}\n"
             "    }});\n"
             "}}",
-            SizeName(ctx.elemSize),
+            FormatUiSizePrefix(ctx.elemSize),
             ctx.FormatElementLabelCode(),
             ctx.FormatElementDescCode(),
             ctx.FormatElementIconCode(),
@@ -331,7 +331,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             ctx.FormatElemBackgroundCode(),
             ctx.FormatElemBorderCode(),
             ctx.elemDisabled ? "true" : "false",
-            SizeName(ctx.controlsSize),
+            FormatUiSizePrefix(ctx.controlsSize),
             s_state.textLeft,
             s_state.textRight,
             s_state.showTicks ? "true" : "false",
@@ -349,7 +349,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
     }
     if (s_state.modeIdx == 2) {
         return std::format(
-            "if (auto el = ui.Size(guikit::UiSize::{}).Element({{\n"
+            "if (auto el = ui.{}Element({{\n"
             "    .label = {},\n"
             "    .description = {},\n"
             "    .icon = {},\n"
@@ -362,7 +362,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             "    .border = {},\n"
             "    .disabled = {}\n"
             "}})) {{\n"
-            "    ui.Size(guikit::UiSize::{}).RangeSlider(bandLow, bandHigh, 0.0f, 100.0f, {{\n"
+            "    ui.{}RangeSlider(bandLow, bandHigh, 0.0f, 100.0f, {{\n"
             "        .textLeft = \"{}\",\n"
             "        .textRight = \"{}\",\n"
             "        .valueFormat = \"%.0f %%\",\n"
@@ -379,7 +379,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             "        .disabled = {}\n"
             "    }});\n"
             "}}",
-            SizeName(ctx.elemSize),
+            FormatUiSizePrefix(ctx.elemSize),
             ctx.FormatElementLabelCode(),
             ctx.FormatElementDescCode(),
             ctx.FormatElementIconCode(),
@@ -391,7 +391,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             ctx.FormatElemBackgroundCode(),
             ctx.FormatElemBorderCode(),
             ctx.elemDisabled ? "true" : "false",
-            SizeName(ctx.controlsSize),
+            FormatUiSizePrefix(ctx.controlsSize),
             s_state.textLeft,
             s_state.textRight,
             s_state.quantizeStep ? "5.0" : "std::nullopt",
@@ -408,7 +408,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
         );
     }
     return std::format(
-        "if (auto el = ui.Size(guikit::UiSize::{}).Element({{\n"
+        "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"
         "    .icon = {},\n"
@@ -421,7 +421,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
         "    .border = {},\n"
         "    .disabled = {}\n"
         "}})) {{\n"
-        "    ui.Size(guikit::UiSize::{}).ProgressBar(signalLevel, 0.0, 100.0, {{\n"
+        "    ui.{}ProgressBar(signalLevel, 0.0, 100.0, {{\n"
         "        .textLeft = \"{}\",\n"
         "        .textRight = \"{}\",\n"
         "        .valueFormat = \"%.1f %%\",\n"
@@ -440,7 +440,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
         "        .disabled = {}\n"
         "    }});\n"
         "}}",
-        SizeName(ctx.elemSize),
+        FormatUiSizePrefix(ctx.elemSize),
         ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
@@ -452,7 +452,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
         ctx.FormatElemBackgroundCode(),
         ctx.FormatElemBorderCode(),
         ctx.elemDisabled ? "true" : "false",
-        SizeName(ctx.controlsSize),
+        FormatUiSizePrefix(ctx.controlsSize),
         s_state.textLeft,
         s_state.textRight,
         s_state.progressShowPeak ? std::format("{:.1f}", s_state.progressPeakVal) : "std::nullopt",

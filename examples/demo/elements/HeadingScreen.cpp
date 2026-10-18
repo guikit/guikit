@@ -56,7 +56,7 @@ void RenderHeadingStage(guikit::Context& ui, DemoContext& ctx) {
 
 std::string GenerateHeadingCode(const DemoContext& ctx) {
     return std::format(
-        "ui.Size(guikit::UiSize::{}).Heading({{\n"
+        "ui.{}Heading({{\n"
         "    .label = {},\n"
         "    .description = {},\n"
         "    .icon = {},\n"
@@ -73,7 +73,7 @@ std::string GenerateHeadingCode(const DemoContext& ctx) {
         "    .dividerStyle = guikit::HeadingDivider::{},\n"
         "    .disabled = {}\n"
         "}});",
-        SizeName(ctx.elemSize),
+        FormatUiSizePrefix(ctx.elemSize),
         ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),

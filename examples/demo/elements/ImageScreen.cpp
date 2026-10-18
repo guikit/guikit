@@ -134,7 +134,7 @@ std::string GenerateImageCode(const DemoContext& ctx) {
     const int alpha = static_cast<int>(std::clamp(std::lround(s_state.opacityPct * 2.55f), 0l, 255l));
 
     return std::format(
-        "if (auto el = ui.Size(guikit::UiSize::{}).Element({{\n"
+        "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"
         "    .icon = {},\n"
@@ -147,7 +147,7 @@ std::string GenerateImageCode(const DemoContext& ctx) {
         "    .border = {},\n"
         "    .disabled = {}\n"
         "}})) {{\n"
-        "    ui.Size(guikit::UiSize::{}).Image(\"{}\", {{\n"
+        "    ui.{}Image(\"{}\", {{\n"
         "        .alt = \"{}\",\n"
         "        .fit = guikit::ObjectFit::{},\n"
         "        .alignX = guikit::Align::{},\n"
@@ -162,7 +162,7 @@ std::string GenerateImageCode(const DemoContext& ctx) {
         "        .disabled = {}\n"
         "    }});\n"
         "}}",
-        SizeName(ctx.elemSize),
+        FormatUiSizePrefix(ctx.elemSize),
         ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
@@ -174,7 +174,7 @@ std::string GenerateImageCode(const DemoContext& ctx) {
         ctx.FormatElemBackgroundCode(),
         ctx.FormatElemBorderCode(),
         ctx.elemDisabled ? "true" : "false",
-        SizeName(ctx.controlsSize),
+        FormatUiSizePrefix(ctx.controlsSize),
         ImageState::sources[s_state.sourceIdx % ImageState::sources.size()],
         s_state.altText,
         ImageState::fitModeNames[static_cast<size_t>(s_state.fit)],

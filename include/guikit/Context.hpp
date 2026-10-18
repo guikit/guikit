@@ -1396,27 +1396,15 @@ public:
     template <typename ContainerT, typename... Args>
         requires ContainerOpenable<ContainerT, Args...>
     [[nodiscard]] decltype(auto) Open(Args&&... args) {
-        Context* ctx = m_ctx;
-        auto scope = ctx->Open<ContainerT>(std::forward<Args>(args)...);
-        ctx->PopSize();
-        m_ctx = nullptr;
-        if constexpr (std::is_same_v<ContainerT, guikit::Element>) {
-            ctx->ReplaceTopSize(m_prevSize);
-        }
-        return scope;
+        return TransferToContainer(m_ctx->Open<ContainerT>(std::forward<Args>(args)...));
     }
 
-    // --- Element (applies size ONLY to Element; restores previous size for child Control) ---
+    // --- Element (propagates its size to its child Control unless overridden) ---
     ElementScope Element(
         ElementOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
-        Context* ctx = m_ctx;
-        ElementScope scope = ctx->Element(std::move(opts), loc);
-        ctx->PopSize();
-        m_ctx = nullptr;
-        ctx->ReplaceTopSize(m_prevSize);
-        return scope;
+        return TransferToContainer(m_ctx->Element(std::move(opts), loc));
     }
 
     // --- Accordion (applies size to Accordion header; restores previous size for body children) ---

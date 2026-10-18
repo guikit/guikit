@@ -64,7 +64,7 @@ void RenderSelectStage(guikit::Context& ui, DemoContext& ctx) {
 
 std::string GenerateSelectCode(const DemoContext& ctx) {
     return std::format(
-        "if (auto el = ui.Size(guikit::UiSize::{}).Element({{\n"
+        "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
         "    .description = {},\n"
         "    .icon = {},\n"
@@ -77,7 +77,7 @@ std::string GenerateSelectCode(const DemoContext& ctx) {
         "    .border = {},\n"
         "    .disabled = {}\n"
         "}})) {{\n"
-        "    ui.Size(guikit::UiSize::{}).Select(presetIndex, itemsList, {{\n"
+        "    ui.{}Select(presetIndex, itemsList, {{\n"
         "        .placeholder = \"{}\",\n"
         "        .prefix = {},\n"
         "        .maxVisibleItems = {},\n"
@@ -89,7 +89,7 @@ std::string GenerateSelectCode(const DemoContext& ctx) {
         "        .disabled = {}\n"
         "    }});\n"
         "}}",
-        SizeName(ctx.elemSize),
+        FormatUiSizePrefix(ctx.elemSize),
         ctx.FormatElementLabelCode(),
         ctx.FormatElementDescCode(),
         ctx.FormatElementIconCode(),
@@ -101,7 +101,7 @@ std::string GenerateSelectCode(const DemoContext& ctx) {
         ctx.FormatElemBackgroundCode(),
         ctx.FormatElemBorderCode(),
         ctx.elemDisabled ? "true" : "false",
-        SizeName(ctx.controlsSize),
+        FormatUiSizePrefix(ctx.controlsSize),
         s_state.placeholder,
         s_state.hasPrefix ? "guikit::Icon::Settings()" : "{}",
         s_state.maxItems,
