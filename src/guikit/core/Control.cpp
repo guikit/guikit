@@ -88,8 +88,8 @@ void Control::RenderFrame(
 
     Color bg = Color::Transparent();
     if (spec.HasBackground(false)) {
-        if (spec.background.color.HasAny()) {
-            bg = spec.background.color.Resolve(
+        if (spec.background.HasAny() && !spec.background.IsSurface()) {
+            bg = spec.background.Resolve(
                 hovered,
                 active,
                 disabled,

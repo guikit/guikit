@@ -760,8 +760,8 @@ void InputField::Render(
         unitCol = unitCol.WithAlphaF(0.40f);
     }
 
-    if (ctrl.HasBackground(true) && ctrl.background.color.HasAny()) {
-        boxBg = ctrl.background.color.Resolve(hovered, focused, disabled, boxBg);
+    if (ctrl.HasBackground(true) && ctrl.background.HasAny() && !ctrl.background.IsSurface()) {
+        boxBg = ctrl.background.Resolve(hovered, focused, disabled, boxBg);
     }
     if (ctrl.border.color.HasAny()) {
         boxBorder = ctrl.border.color.Resolve(hovered, focused, disabled, boxBorder);

@@ -170,7 +170,52 @@ inline std::string FormatDesc(bool show, std::string_view text, guikit::UiVarian
     if (v == guikit::UiVariant::Muted) {
         return std::string("\"") + std::string(text) + "\"";
     }
-    return std::string("{\"") + std::string(text) + "\", guikit::UiVariant::" + std::string(VariantName(v)) + "}";
+    return std::string("{\"") + std::string(text) + "\", guikit::StateColor::" + std::string(VariantName(v)) + "()}";
+}
+
+inline constexpr std::array<std::string_view, 9> kBgPresetShort = {"Off", "Srf", "Pri", "Sec", "Suc", "Wrn", "Dgr", "Inf", "Gho"};
+
+constexpr guikit::StateColor BgPresetToStateColor(size_t idx, bool defaultEnabled) noexcept {
+    switch (idx) {
+        case 0:  return defaultEnabled ? guikit::StateColor::None() : guikit::StateColor::Default();
+        case 1:  return guikit::StateColor::Surface();
+        case 2:  return guikit::StateColor::Primary();
+        case 3:  return guikit::StateColor::Secondary();
+        case 4:  return guikit::StateColor::Success();
+        case 5:  return guikit::StateColor::Warning();
+        case 6:  return guikit::StateColor::Danger();
+        case 7:  return guikit::StateColor::Info();
+        case 8:  return guikit::StateColor::Ghost();
+        default: return defaultEnabled ? guikit::StateColor::Surface() : guikit::StateColor::Default();
+    }
+}
+
+constexpr guikit::StateColor BgPresetToTrackColor(size_t idx) noexcept {
+    switch (idx) {
+        case 2:  return guikit::StateColor::FromTextVariant(guikit::UiVariant::Primary);
+        case 3:  return guikit::StateColor::FromTextVariant(guikit::UiVariant::Secondary);
+        case 4:  return guikit::StateColor::FromTextVariant(guikit::UiVariant::Success);
+        case 5:  return guikit::StateColor::FromTextVariant(guikit::UiVariant::Warning);
+        case 6:  return guikit::StateColor::FromTextVariant(guikit::UiVariant::Danger);
+        case 7:  return guikit::StateColor::FromTextVariant(guikit::UiVariant::Info);
+        case 8:  return guikit::StateColor::FromTextVariant(guikit::UiVariant::Ghost);
+        default: return {};
+    }
+}
+
+inline std::string BgPresetToCode(size_t idx, bool defaultEnabled) {
+    switch (idx) {
+        case 0:  return defaultEnabled ? "guikit::StateColor::None()" : "guikit::StateColor::Default()";
+        case 1:  return "guikit::StateColor::Surface()";
+        case 2:  return "guikit::StateColor::Primary()";
+        case 3:  return "guikit::StateColor::Secondary()";
+        case 4:  return "guikit::StateColor::Success()";
+        case 5:  return "guikit::StateColor::Warning()";
+        case 6:  return "guikit::StateColor::Danger()";
+        case 7:  return "guikit::StateColor::Info()";
+        case 8:  return "guikit::StateColor::Ghost()";
+        default: return defaultEnabled ? "guikit::StateColor::Surface()" : "guikit::StateColor::Default()";
+    }
 }
 
 struct DemoContext {
@@ -202,11 +247,12 @@ struct DemoContext {
     float elemWidth = 0.0f;    // 0 = Auto (px in Compact/Space)
     float elemFillPct = 50.0f; // % in Fill mode
     float elemHeight = 0.0f;   // 0 = Auto (px)
-    bool elemBackground = false;
+    size_t elemBgIdx = 0;      // 0 = None (Default), 1 = Surface, 2..8 = Primary..Ghost
+    guikit::StateColor elemBackground = guikit::StateColor::Default();
     float elemBorderWidth = 0.0f;
     guikit::UiVariant elemBorderVariant = guikit::UiVariant::Default;
     float elemBorderRadius = 8.0f;
-    std::array<bool, 8> ctrlBackgroundByCat = {false, true, false, true, true, false, false, false};
+    std::array<size_t, 8> ctrlBgIdxByCat = {0, 1, 0, 1, 1, 0, 0, 0};
     float ctrlBorderWidth = 0.0f;
     guikit::UiVariant ctrlBorderVariant = guikit::UiVariant::Default;
     float ctrlBorderRadius = 6.0f;
@@ -265,9 +311,24 @@ struct DemoContext {
         return (elemHeight > 0.0f) ? std::optional<float>(elemHeight) : std::nullopt;
     }
 
-    bool GetControlBackground(NavCategory cat) const noexcept {
+    static constexpr bool IsCtrlBgDefaultEnabled(NavCategory cat) noexcept {
+        return cat == NavCategory::ElemButton || cat == NavCategory::ElemInputField || cat == NavCategory::ElemSelect;
+    }
+
+    guikit::StateColor GetControlBackground(NavCategory cat) const noexcept {
         const size_t idx = static_cast<size_t>(cat);
-        return (idx < ctrlBackgroundByCat.size()) ? ctrlBackgroundByCat[idx] : false;
+        const size_t bgIdx = (idx < ctrlBgIdxByCat.size()) ? ctrlBgIdxByCat[idx] : 0;
+        return BgPresetToStateColor(bgIdx, IsCtrlBgDefaultEnabled(cat));
+    }
+
+    std::string FormatElemBackgroundCode() const {
+        return BgPresetToCode(elemBgIdx, false);
+    }
+
+    std::string FormatControlBackgroundCode(NavCategory cat) const {
+        const size_t idx = static_cast<size_t>(cat);
+        const size_t bgIdx = (idx < ctrlBgIdxByCat.size()) ? ctrlBgIdxByCat[idx] : 0;
+        return BgPresetToCode(bgIdx, IsCtrlBgDefaultEnabled(cat));
     }
 
     std::optional<float> GetOptionalControlBorderWidth() const noexcept {
@@ -275,7 +336,7 @@ struct DemoContext {
     }
 
     std::optional<float> GetElemBorderRadius() const noexcept {
-        return (elemBackground || elemBorderWidth > 0.0f) ? std::optional<float>(elemBorderRadius) : std::nullopt;
+        return (elemBackground.IsBackgroundEnabled(false) || elemBorderWidth > 0.0f) ? std::optional<float>(elemBorderRadius) : std::nullopt;
     }
 
     guikit::StateColor GetElemBorderColor() const noexcept {
@@ -361,7 +422,7 @@ struct DemoContext {
     }
 
     std::string FormatElemBorderRadiusCode() const {
-        if (elemBackground || elemBorderWidth > 0.0f) {
+        if (elemBackground.IsBackgroundEnabled(false) || elemBorderWidth > 0.0f) {
             char buf[32];
             std::snprintf(buf, sizeof(buf), "%.1ff", elemBorderRadius);
             return buf;
@@ -410,7 +471,7 @@ struct DemoContext {
         if (alignOpt.has_value()) {
             res += "        .align = guikit::Align::" + std::string(AlignName(*alignOpt)) + ",\n";
         }
-        res += "        .background = " + std::string(GetControlBackground(cat) ? "true" : "false") + ",\n";
+        res += "        .background = " + FormatControlBackgroundCode(cat) + ",\n";
         res += "        .border = " + FormatCtrlBorderCode() + "\n";
         res += "    }";
         return res;
@@ -435,8 +496,7 @@ struct DemoContext {
         if (auto el = ui.Element({.label = "Semantic Variant"})) {
             if (ui.StepSlider(btnVariant, {
                 .showTicks = true,
-                .showLabels = true,
-                .showValue = true
+                .showLabels = true
             }).changed) {
                 ui.InvalidateAll();
             }
@@ -445,7 +505,6 @@ struct DemoContext {
 
     void RenderDescVariantPicker(guikit::Context& ui, guikit::UiVariant& descVar, bool enabled) {
         static constexpr std::array<std::string_view, 7> descVarShort = {"Mut", "Def", "Pri", "Suc", "Wrn", "Dgr", "Inf"};
-        static constexpr std::array<std::string_view, 7> descVarFull = {"Muted", "Default", "Primary", "Success", "Warning", "Danger", "Info"};
         static constexpr std::array<guikit::UiVariant, 7> descVars = {
             guikit::UiVariant::Muted, guikit::UiVariant::Default, guikit::UiVariant::Primary,
             guikit::UiVariant::Success, guikit::UiVariant::Warning, guikit::UiVariant::Danger, guikit::UiVariant::Info
@@ -457,12 +516,10 @@ struct DemoContext {
                 break;
             }
         }
-        if (auto el = ui.Element({.label = "Subtitle Color", .disabled = !enabled})) {
+        if (auto el = ui.Element({.label = "Description Color", .disabled = !enabled})) {
             if (ui.StepSlider(descVarIdx, descVarShort, {
                 .showTicks = true,
                 .showLabels = true,
-                .showValue = true,
-                .valueText = {VariantName(descVar), (descVar == guikit::UiVariant::Muted) ? guikit::UiVariant::Secondary : descVar, descVarFull},
                 .color = guikit::StateColor::FromVariant((descVar == guikit::UiVariant::Muted) ? guikit::UiVariant::Secondary : descVar),
                 .disabled = !enabled
             }).changed) {
@@ -518,7 +575,7 @@ struct DemoContext {
             .divider = true
         });
         if (auto el = ui.Element({.label = "Element Size"})) {
-            if (ui.StepSlider(controlsSize, {.showTicks = true, .showLabels = true, .showValue = true}).changed) {
+            if (ui.StepSlider(controlsSize, {.showTicks = true, .showLabels = true}).changed) {
                 ui.InvalidateAll();
             }
         }
@@ -527,6 +584,16 @@ struct DemoContext {
             if (ui.InputField(elemLabel, {
                 .placeholder = "No label...",
                 .clearable = true
+            }).changed) {
+                ui.InvalidateAll();
+            }
+        }
+        const bool labelDisabled = (elemLabel.empty() && !elemShowIcon);
+        if (auto el = ui.Element({.label = "Label Color", .disabled = labelDisabled})) {
+            if (ui.StepSlider(elemLabelVariant, {
+                .showTicks = true,
+                .showLabels = true,
+                .disabled = labelDisabled
             }).changed) {
                 ui.InvalidateAll();
             }
@@ -540,6 +607,7 @@ struct DemoContext {
                 ui.InvalidateAll();
             }
         }
+        RenderDescVariantPicker(ui, elemDescVariant, !elemDesc.empty());
 
         RenderElementLayoutControls(ui, HasElementExternal(), elemLayout, elemInlineOrder, elemAlign, elemStretchIdx);
 
@@ -555,10 +623,27 @@ struct DemoContext {
                 ui.InvalidateAll();
             }
         }
+        if (auto el = ui.Element({.label = "Badge Color", .disabled = elemBadge.empty()})) {
+            if (ui.StepSlider(elemBadgeVariant, {
+                .showTicks = true,
+                .showLabels = true,
+                .disabled = elemBadge.empty()
+            }).changed) {
+                ui.InvalidateAll();
+            }
+        }
 
         if (auto el = ui.Element({.label = "Element Background"})) {
-            if (ui.Switch(elemBackground).changed) ui.InvalidateAll();
+            if (ui.StepSlider(elemBgIdx, kBgPresetShort, {
+                .showTicks = true,
+                .showLabels = true,
+                .color = BgPresetToTrackColor(elemBgIdx)
+            }).changed) {
+                elemBackground = BgPresetToStateColor(elemBgIdx, false);
+                ui.InvalidateAll();
+            }
         }
+        const bool hasElemFrame = elemBackground.IsBackgroundEnabled(false) || elemBorderWidth > 0.0f;
         if (auto el = ui.Element({.label = "Element Border Width"})) {
             if (ui.Slider(elemBorderWidth, 0.0f, 4.0f, {
                 .valueFormat = "%.1f px",
@@ -570,17 +655,16 @@ struct DemoContext {
             if (ui.StepSlider(elemBorderVariant, {
                 .showTicks = true,
                 .showLabels = true,
-                .showValue = true,
                 .disabled = !hasElemBorderOrDivider
             }).changed) {
                 ui.InvalidateAll();
             }
         }
-        if (auto el = ui.Element({.label = "Element Border Radius", .disabled = (!elemBackground && elemBorderWidth <= 0.0f)})) {
+        if (auto el = ui.Element({.label = "Element Border Radius", .disabled = !hasElemFrame})) {
             if (ui.Slider(elemBorderRadius, 0.0f, 24.0f, {
                 .valueFormat = "%.0f px",
                 .step = 1.0f,
-                .disabled = (!elemBackground && elemBorderWidth <= 0.0f)
+                .disabled = !hasElemFrame
             }).changed) ui.InvalidateAll();
         }
 
@@ -605,8 +689,7 @@ struct DemoContext {
             if (auto el = ui.Element({.label = "Control Color"})) {
                 if (ui.StepSlider(btnVariant, {
                     .showTicks = true,
-                    .showLabels = true,
-                    .showValue = true
+                    .showLabels = true
                 }).changed) {
                     ui.InvalidateAll();
                 }
@@ -625,9 +708,13 @@ struct DemoContext {
             if (ui.Slider(elemHeight, 0.0f, 320.0f, {.valueFormat = {(elemHeight > 0.0f) ? "%.0f px" : "Auto", {"Auto", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
         }
 
-        bool& ctrlBg = ctrlBackgroundByCat[static_cast<size_t>(cat)];
+        size_t& ctrlBgIdx = ctrlBgIdxByCat[static_cast<size_t>(cat)];
         if (auto el = ui.Element({.label = "Control Background"})) {
-            if (ui.Switch(ctrlBg).changed) ui.InvalidateAll();
+            if (ui.StepSlider(ctrlBgIdx, kBgPresetShort, {
+                .showTicks = true,
+                .showLabels = true,
+                .color = BgPresetToTrackColor(ctrlBgIdx)
+            }).changed) ui.InvalidateAll();
         }
 
         const bool hasIntrinsicBorder = (cat == NavCategory::ElemButton || cat == NavCategory::ElemInputField || cat == NavCategory::ElemSelect);
@@ -649,7 +736,6 @@ struct DemoContext {
             if (ui.StepSlider(ctrlBorderVariant, {
                 .showTicks = true,
                 .showLabels = true,
-                .showValue = true,
                 .disabled = !hasVisibleCtrlBorder
             }).changed) {
                 ui.InvalidateAll();

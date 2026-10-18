@@ -461,7 +461,7 @@ Response Context::StepSlider(
     std::source_location loc
 ) {
     static constexpr std::array<std::string_view, 8> kVariantLabels = {
-        "Def", "Pri", "Sec", "Suc", "Wrn", "Dgr", "Inf", "Ghst"
+        "Def", "Pri", "Sec", "Suc", "Wrn", "Dgr", "Inf", "Gho"
     };
     static constexpr std::array<std::string_view, 8> kVariantFullNames = {
         "Default", "Primary", "Secondary", "Success", "Warning", "Danger", "Info", "Ghost"

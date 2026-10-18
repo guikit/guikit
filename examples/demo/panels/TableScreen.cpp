@@ -119,8 +119,7 @@ void RenderTableInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     if (auto el = ui.Element({.label = "Row & Header Size"})) {
         if (ui.StepSlider(g_tableDemo.tableSize, {
             .showTicks = true,
-            .showLabels = true,
-            .showValue = true
+            .showLabels = true
         }).changed) {
             ui.InvalidateAll();
         }

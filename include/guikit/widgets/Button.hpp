@@ -26,7 +26,7 @@ struct ButtonOptions {
     std::optional<float> width{std::nullopt};      ///< Capsule width: in points for Compact/Space (nullopt = auto), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> height{std::nullopt};     ///< Explicit capsule height in points (nullopt = inherit defaultHeight from UiSize)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum capsule width constraint in points
-    Background background{true};                   ///< Capsule surface fill configuration (true, false, Color, or StateColor)
+    StateColor background{StateColor::Surface()};  ///< Capsule surface fill configuration (Surface/Default = on, None = off, or custom StateColor)
     Border border{};                               ///< Capsule border stroke & corner radius configuration
     bool disabled{false};
     bool active{false};

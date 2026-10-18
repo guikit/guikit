@@ -259,8 +259,8 @@ void Image::Render(
         DrawCheckerboard(canvas, box, rad, theme);
     } else if (ctrl.HasBackground(false)) {
         const Color defaultBg = disabled ? theme.palette.surfaceElevated.WithAlphaF(0.40f) : theme.palette.surfaceElevated;
-        const Color bg = ctrl.background.color.HasAny()
-            ? ctrl.background.color.Resolve(hovered, false, disabled, defaultBg)
+        const Color bg = (ctrl.background.HasAny() && !ctrl.background.IsSurface())
+            ? ctrl.background.Resolve(hovered, false, disabled, defaultBg)
             : defaultBg;
         canvas.DrawRoundRect(box, rad, bg);
     }
@@ -287,8 +287,8 @@ void Image::Render(
     if (!drawn) {
         // Clean vector placeholder card when image is missing or empty
         const Color defaultBg = disabled ? theme.palette.surfaceElevated.WithAlphaF(0.40f) : theme.palette.surfaceElevated;
-        const Color bg = ctrl.background.color.HasAny()
-            ? ctrl.background.color.Resolve(hovered, false, disabled, defaultBg)
+        const Color bg = (ctrl.background.HasAny() && !ctrl.background.IsSurface())
+            ? ctrl.background.Resolve(hovered, false, disabled, defaultBg)
             : defaultBg;
         const Color border = theme.palette.borderSubtle;
         canvas.DrawRoundRect(box, rad, bg, disabled ? border.WithAlphaF(0.40f) : border, 1.0f);

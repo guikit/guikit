@@ -74,7 +74,6 @@ void RenderFormControlsScreen(guikit::Context& ui, DemoContext& ctx) {
                 .label = {"Telemetry Stream", guikit::StateColor::Success()},
                 .description = "1000 samples/sec | Jitter < 0.2ms | Hardware loop nominal",
                 .icon = guikit::Icon::Check(),
-                .badge = {"ACTIVE", guikit::StateColor::Success()},
                 .size = ctx.headingSize
             });
         }

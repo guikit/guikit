@@ -4,36 +4,6 @@
 namespace guikit::demo {
 
 void RenderHeadingInspector(guikit::Context& ui, DemoContext& ctx) {
-    const bool labelDisabled = (ctx.elemLabel.empty() && !ctx.elemShowIcon);
-    if (auto el = ui.Element({.label = "Title Color", .disabled = labelDisabled})) {
-        if (ui.StepSlider(ctx.elemLabelVariant, {
-            .showTicks = true,
-            .showLabels = true,
-            .showValue = true,
-            .disabled = labelDisabled
-        }).changed) {
-            ui.InvalidateAll();
-        }
-    }
-
-    ctx.RenderDescVariantPicker(ui, ctx.elemDescVariant, !ctx.elemDesc.empty());
-    if (auto el = ui.Element({.label = "Subtitle Word Wrap", .disabled = ctx.elemDesc.empty()})) {
-        if (ui.Switch(ctx.elemWordWrap, {.disabled = ctx.elemDesc.empty()}).changed) {
-            ui.InvalidateAll();
-        }
-    }
-
-    if (auto el = ui.Element({.label = "Badge Color", .disabled = ctx.elemBadge.empty()})) {
-        if (ui.StepSlider(ctx.elemBadgeVariant, {
-            .showTicks = true,
-            .showLabels = true,
-            .showValue = true,
-            .disabled = ctx.elemBadge.empty()
-        }).changed) {
-            ui.InvalidateAll();
-        }
-    }
-
     if (ctx.elemStretchIdx == 2) {
         if (auto el = ui.Element({.label = "Explicit Width"})) {
             if (ui.Slider(ctx.elemFillPct, 10.0f, 100.0f, {.valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
@@ -115,7 +85,7 @@ std::string GenerateHeadingCode(const DemoContext& ctx) {
         StretchModeEnumName(ctx.GetElementStretch()),
         ctx.FormatElementWidthCode(),
         ctx.FormatElementHeightCode(),
-        ctx.elemBackground ? "true" : "false",
+        ctx.FormatElemBackgroundCode(),
         ctx.FormatElemBorderCode(),
         SizeName(ctx.controlsSize),
         ctx.elemDivider ? "true" : "false",

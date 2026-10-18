@@ -275,7 +275,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             InlineOrderEnumName(ctx.elemInlineOrder),
             LabelAlignEnumName(ctx.elemAlign),
             StretchModeEnumName(ctx.GetElementStretch()),
-            ctx.elemBackground ? "true" : "false",
+            ctx.FormatElemBackgroundCode(),
             ctx.FormatElemBorderCode(),
             SizeName(ctx.controlsSize),
             ctx.elemDisabled ? "true" : "false",
@@ -289,7 +289,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             StretchModeEnumName(ctx.GetElementStretch()),
             ctx.FormatElementWidthCode(),
             ctx.FormatElementHeightCode(),
-            ctx.GetControlBackground(NavCategory::ElemSlider) ? "true" : "false",
+            ctx.FormatControlBackgroundCode(NavCategory::ElemSlider),
             ctx.FormatCtrlBorderCode(),
             ctx.elemDisabled ? "true" : "false"
         );
@@ -336,7 +336,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             InlineOrderEnumName(ctx.elemInlineOrder),
             LabelAlignEnumName(ctx.elemAlign),
             StretchModeEnumName(ctx.GetElementStretch()),
-            ctx.elemBackground ? "true" : "false",
+            ctx.FormatElemBackgroundCode(),
             ctx.FormatElemBorderCode(),
             SizeName(ctx.controlsSize),
             ctx.elemDisabled ? "true" : "false",
@@ -351,7 +351,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             StretchModeEnumName(ctx.GetElementStretch()),
             ctx.FormatElementWidthCode(),
             ctx.FormatElementHeightCode(),
-            ctx.GetControlBackground(NavCategory::ElemSlider) ? "true" : "false",
+            ctx.FormatControlBackgroundCode(NavCategory::ElemSlider),
             ctx.FormatCtrlBorderCode(),
             ctx.elemDisabled ? "true" : "false"
         );
@@ -398,7 +398,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             InlineOrderEnumName(ctx.elemInlineOrder),
             LabelAlignEnumName(ctx.elemAlign),
             StretchModeEnumName(ctx.GetElementStretch()),
-            ctx.elemBackground ? "true" : "false",
+            ctx.FormatElemBackgroundCode(),
             ctx.FormatElemBorderCode(),
             SizeName(ctx.controlsSize),
             ctx.elemDisabled ? "true" : "false",
@@ -413,7 +413,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             StretchModeEnumName(ctx.GetElementStretch()),
             ctx.FormatElementWidthCode(),
             ctx.FormatElementHeightCode(),
-            ctx.GetControlBackground(NavCategory::ElemSlider) ? "true" : "false",
+            ctx.FormatControlBackgroundCode(NavCategory::ElemSlider),
             ctx.FormatCtrlBorderCode(),
             ctx.elemDisabled ? "true" : "false"
         );
@@ -461,7 +461,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
         InlineOrderEnumName(ctx.elemInlineOrder),
         LabelAlignEnumName(ctx.elemAlign),
         StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.elemBackground ? "true" : "false",
+        ctx.FormatElemBackgroundCode(),
         ctx.FormatElemBorderCode(),
         SizeName(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false",
@@ -478,7 +478,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
         ctx.FormatElementWidthCode(),
         ctx.FormatElementHeightCode(),
         s_state.progressMultiZone ? "true" : "false",
-        ctx.GetControlBackground(NavCategory::ElemSlider) ? "true" : "false",
+        ctx.FormatControlBackgroundCode(NavCategory::ElemSlider),
         ctx.FormatCtrlBorderCode(),
         ctx.elemDisabled ? "true" : "false"
     );

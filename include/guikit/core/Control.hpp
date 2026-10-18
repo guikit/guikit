@@ -18,7 +18,7 @@ struct ControlSpec {
     std::optional<float> height{std::nullopt};               ///< Explicit control height in points (nullopt = auto from UiSize / aspect)
     std::optional<float> minWidth{std::nullopt};             ///< Minimum control width in points
     Align align{Align::Center};                              ///< Horizontal alignment of content inside the control slot
-    Background background{};                                 ///< Control backdrop / well fill configuration (false, true, Color, or StateColor)
+    StateColor background{};                                 ///< Per-state control backdrop / well fill color (Default/None/Surface/Primary/etc.)
     Border border{};                                         ///< Border thickness, corner radius, and per-state color for controlRect
     ElementLayout defaultLayout{ElementLayout::Stacked};     ///< Default parent Element layout when wrapped (Inline for Switch/Checkbox, Stacked for others)
     InlineOrder defaultInlineOrder{InlineOrder::LabelFirst}; ///< Default parent Element inlineOrder when wrapped (ControlFirst for Switch/Checkbox, LabelFirst for others)
@@ -29,9 +29,9 @@ struct ControlSpec {
     bool stretchHeightWhenStandalone{false};                 ///< True when control stretches vertically when standalone
     bool hasIntrinsicBox{true};                              ///< True for Button/InputField/Select/Image; false for Slider/Switch/Checkbox
 
-    /// Resolves whether the control background is enabled, falling back to `defaultValue` when `background.enabled` is `std::nullopt`.
+    /// Resolves whether the control background is enabled, falling back to `defaultValue` when `background` is `StateColor::Default()`.
     [[nodiscard]] constexpr bool HasBackground(bool defaultValue = false) const noexcept {
-        return background.IsEnabled(defaultValue);
+        return background.IsBackgroundEnabled(defaultValue);
     }
 };
 

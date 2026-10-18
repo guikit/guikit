@@ -195,7 +195,9 @@ void Button::Render(
     const Rect capsuleRect = bounds;
 
     const bool hasCtrlBg = ctrl.HasBackground(true);
-    const StateColor& effColor = ctrl.background.color.HasAny() ? ctrl.background.color : opts.color;
+    const StateColor& effColor = (ctrl.background.HasAny() && !ctrl.background.IsSurface() && !ctrl.background.IsNone())
+        ? ctrl.background
+        : opts.color;
 
     Color bg = Color::Transparent();
     Color defaultText = theme.palette.textPrimary;

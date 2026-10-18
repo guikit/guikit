@@ -278,65 +278,49 @@ struct StateColor {
         return Default();
     }
 
-    [[nodiscard]] constexpr bool operator==(const StateColor& other) const noexcept = default;
-};
+    [[nodiscard]] constexpr bool IsNone() const noexcept {
+        if (!HasAny()) return false;
+        if (normal.has_value() && normal->a > 0) return false;
+        if (hover.has_value() && hover->a > 0) return false;
+        if (active.has_value() && active->a > 0) return false;
+        if (disabled.has_value() && disabled->a > 0) return false;
+        return true;
+    }
 
-/// Smart background fill specification for Elements, Headings, and Controls.
-/// Implicitly constructible from `bool` (`true` = default theme surface, `false` = no background),
-/// `Color` (explicit fill color, automatically enables background when alpha > 0),
-/// and `StateColor` (per-state fill color, automatically enables background).
-struct Background {
-    std::optional<bool> enabled{std::nullopt}; ///< Whether background fill is enabled (nullopt = widget default)
-    StateColor color{};                        ///< Optional per-state background color override
+    [[nodiscard]] constexpr bool IsSurface() const noexcept {
+        return *this == Surface();
+    }
 
-    constexpr Background() noexcept = default;
-
-    constexpr Background(bool on) noexcept
-        : enabled(on), color{} {}
-
-    constexpr Background(Color c) noexcept
-        : enabled(c.a > 0), color{.normal = c, .hover = c, .active = c, .disabled = c.WithAlphaF(0.40f)} {}
-
-    constexpr Background(StateColor sc) noexcept
-        : enabled(true), color(sc) {}
-
-    constexpr Background(
-        Color normalCol,
-        Color hoverCol,
-        std::optional<Color> activeCol = std::nullopt,
-        std::optional<Color> disabledCol = std::nullopt
-    ) noexcept
-        : enabled(true), color{.normal = normalCol, .hover = hoverCol, .active = activeCol, .disabled = disabledCol} {}
-
-    constexpr Background(bool on, StateColor sc) noexcept
-        : enabled(on), color(sc) {}
-
-    /// Resolves whether background rendering is active, falling back to `defaultEnabled` when `enabled` is `std::nullopt`
-    /// (unless an explicit `color` was provided, which automatically enables the background unless `enabled` is `false`).
-    [[nodiscard]] constexpr bool IsEnabled(bool defaultEnabled = false) const noexcept {
-        if (enabled.has_value()) {
-            return *enabled;
+    /// Resolves whether a background fill is enabled for a widget whose default background state is `defaultEnabled`.
+    /// - `StateColor::None()` (all specified states transparent) -> `false`
+    /// - `StateColor::Default()` (`{}`) -> `defaultEnabled`
+    /// - `StateColor::Surface()` or any custom/semantic color -> `true`
+    [[nodiscard]] constexpr bool IsBackgroundEnabled(bool defaultEnabled = false) const noexcept {
+        if (!HasAny()) {
+            return defaultEnabled;
         }
-        return color.HasAny() ? true : defaultEnabled;
+        return !IsNone();
     }
 
-    [[nodiscard]] constexpr bool HasColor() const noexcept {
-        return color.HasAny();
+    [[nodiscard]] static constexpr StateColor None() noexcept {
+        return {
+            .normal   = Color::Transparent(),
+            .hover    = Color::Transparent(),
+            .active   = Color::Transparent(),
+            .disabled = Color::Transparent()
+        };
     }
 
-    [[nodiscard]] constexpr explicit operator bool() const noexcept {
-        return IsEnabled(false);
+    [[nodiscard]] static constexpr StateColor Surface() noexcept {
+        return {
+            .normal   = Color::Hex(0x111722FF),
+            .hover    = Color::Hex(0x1A2232FF),
+            .active   = Color::Hex(0x232E42FF),
+            .disabled = Color::Hex(0x11172266)
+        };
     }
 
-    [[nodiscard]] static constexpr Background None() noexcept {
-        return Background(false);
-    }
-
-    [[nodiscard]] static constexpr Background Surface() noexcept {
-        return Background(true);
-    }
-
-    [[nodiscard]] constexpr bool operator==(const Background& other) const noexcept = default;
+    [[nodiscard]] constexpr bool operator==(const StateColor& other) const noexcept = default;
 };
 
 /// Unified border and corner radius specification for Elements, Headings, and Controls.

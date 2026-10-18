@@ -21,7 +21,7 @@ struct CheckboxOptions {
     StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = auto), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = auto from UiSize)
-    Background background{false};                  ///< Control well backdrop configuration (false, true, Color, or StateColor)
+    StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Interaction suppression
     bool indeterminate{false};                     ///< Tri-state / partial check (horizontal dash)

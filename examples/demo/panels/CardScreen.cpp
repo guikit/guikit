@@ -5,7 +5,7 @@ namespace guikit::demo {
 
 void RenderCardInspector(guikit::Context& ui, DemoContext& ctx) {
     if (auto el = ui.Element({.label = "Controls Size"})) {
-        if (ui.StepSlider(ctx.controlsSize, {.showTicks = true, .showLabels = true, .showValue = true}).changed) ui.InvalidateAll();
+        if (ui.StepSlider(ctx.controlsSize, {.showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
     }
     ctx.RenderVariantPicker(ui);
     if (auto el = ui.Element({.label = "Corner Radius"})) {

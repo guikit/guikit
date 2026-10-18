@@ -71,7 +71,7 @@ ElementSpec MakeSpecFromPayload(
         .hasControl = true,
         .headingTypography = false,
         .stretchableControl = ctrl.stretchable,
-        .stretchHeightWhenStandalone = ctrl.stretchHeightWhenStandalone && !ep.opts.background.IsEnabled(false) && ep.opts.border.width <= 0.0f,
+        .stretchHeightWhenStandalone = ctrl.stretchHeightWhenStandalone && !ep.opts.background.IsBackgroundEnabled(false) && ep.opts.border.width <= 0.0f,
         .disabled = n->disabled,
         .hovered = isHovered,
         .active = isActive
@@ -785,9 +785,9 @@ void Element::RenderFrame(
     );
 
     Color bg = Color::Transparent();
-    if (spec.background.IsEnabled(false)) {
-        if (spec.background.color.HasAny()) {
-            bg = spec.background.color.Resolve(
+    if (spec.background.IsBackgroundEnabled(false)) {
+        if (spec.background.HasAny() && !spec.background.IsSurface()) {
+            bg = spec.background.Resolve(
                 spec.hovered,
                 spec.active,
                 spec.disabled,

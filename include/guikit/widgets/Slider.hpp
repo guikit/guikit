@@ -31,7 +31,7 @@ struct SliderOptions {
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
-    Background background{false};                  ///< Control well backdrop configuration (false, true, Color, or StateColor)
+    StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Interaction suppression
 };
@@ -56,7 +56,7 @@ struct StepSliderOptions {
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
-    Background background{false};                  ///< Control well backdrop configuration (false, true, Color, or StateColor)
+    StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Interaction suppression
 };
@@ -79,7 +79,7 @@ struct RangeSliderOptions {
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
-    Background background{false};                  ///< Control well backdrop configuration (false, true, Color, or StateColor)
+    StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Interaction suppression
 };
@@ -106,7 +106,7 @@ struct ProgressBarOptions {
     std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
     bool multiZoneColor{false};                    ///< Color bar/segments across 3 zones (Variant/Success -> Warning -> Danger)
-    Background background{false};                  ///< Control well backdrop configuration (false, true, Color, or StateColor)
+    StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Dimmed disabled state
 };

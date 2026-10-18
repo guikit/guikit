@@ -30,7 +30,7 @@ struct ElementOptions {
     std::optional<StretchMode> stretch{std::nullopt};         ///< Sizing behavior: Compact, Space, Fill (nullopt = inherit from child control or Fill when standalone)
     std::optional<float> width{std::nullopt};                 ///< Explicit element/control width in points (Compact/Space) or % 0..100 (Fill)
     std::optional<float> height{std::nullopt};                ///< Explicit element/control height in points (nullopt = auto from UiSize)
-    Background background{false};                             ///< Outer surface backdrop configuration (false, true, Color, or StateColor)
+    StateColor background{};                                  ///< Per-state outer surface backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                                          ///< Outer element border thickness, corner radius, and per-state color
     std::optional<UiSize> size{std::nullopt};                 ///< Local size override (nullopt = inherit container size)
     bool disabled{false};                                     ///< Whether the element and its child control are rendered in a disabled state
@@ -81,7 +81,7 @@ struct ElementSpec {
     std::optional<float> width{std::nullopt};             ///< Explicit control/element width in points for Compact/Space, or % (0..100) for Fill
     std::optional<float> height{std::nullopt};            ///< Explicit control/element height in points (nullopt = intrinsic height)
     ControlSpec control{};                                ///< Specification for the inner control slot (`controlRect`)
-    Background background{false};                         ///< Outer surface backdrop configuration (false, true, Color, or StateColor)
+    StateColor background{};                              ///< Per-state outer surface backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                                      ///< Outer element border thickness, corner radius, and per-state color
     UiSize widgetSize{UiSize::Md};                        ///< Active UiSize token
     float labelGap{6.0f};                                 ///< Vertical gap between label bar and control/description
@@ -119,7 +119,7 @@ class Element {
 public:
     /// Returns true when the outer `Element` envelope (`outerBounds`) has a visible background or border.
     [[nodiscard]] static constexpr bool HasOuterFrame(const ElementSpec& spec) noexcept {
-        return spec.background.IsEnabled(false) || spec.border.width > 0.0f;
+        return spec.background.IsBackgroundEnabled(false) || spec.border.width > 0.0f;
     }
 
     /// Computes internal padding inside `outerBounds` when `HasOuterFrame(spec)` is true.

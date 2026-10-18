@@ -91,7 +91,7 @@ struct CarClusterViewOptions {
     ElementLayout layout{ElementLayout::Stacked};
     InlineOrder inlineOrder{InlineOrder::LabelFirst};
     Align align{Align::Start};
-    bool background{false};
+    StateColor background{};
     float borderWidth{0.0f};
     std::optional<float> borderRadius{std::nullopt};
 

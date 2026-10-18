@@ -12,14 +12,14 @@ struct HeadingOptions {
     UiText description{};                                 ///< Optional secondary subtitle text
     UiText tooltip{};                                     ///< Optional hover tooltip text
     Icon icon{};                                          ///< Optional vector icon before label
-    UiText badge{};                                       ///< Optional pill badge after label (supports independent StateColor)
+    UiText badge{};                                       ///< Optional pill badge after label (inherited from Element)
     ElementLayout layout{ElementLayout::Stacked};         ///< Subtitle placement relative to title bar (Stacked/Bottom, Top, Inline)
     InlineOrder inlineOrder{InlineOrder::ControlFirst};   ///< Sequencing order in Inline layout (ControlFirst = Label first, LabelFirst = Description first)
     Align align{Align::Start};                            ///< Horizontal alignment (Start, Center, End)
     StretchMode stretch{StretchMode::Fill};               ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};             ///< Explicit heading width in points (Compact/Space) or % 0..100 (Fill)
     std::optional<float> height{std::nullopt};            ///< Explicit heading height in points (nullopt = auto from UiSize)
-    Background background{false};                         ///< Outer surface backdrop configuration (false, true, Color, or StateColor)
+    StateColor background{};                              ///< Per-state outer surface backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                                      ///< Outer border thickness, corner radius, and per-state border/divider color
     std::optional<UiSize> size{std::nullopt};             ///< Local size override (nullopt = inherit container size)
     bool divider{false};                                  ///< Whether to render a horizontal section divider line

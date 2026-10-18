@@ -29,7 +29,7 @@ struct InputFieldOptions {
     std::optional<float> width{std::nullopt};      ///< Input box width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
     std::optional<float> height{std::nullopt};     ///< Explicit input box height in points (nullopt = inherit defaultHeight from UiSize)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum input box width constraint in points
-    Background background{true};                   ///< Input box surface fill configuration (true, false, Color, or StateColor)
+    StateColor background{StateColor::Surface()};  ///< Input box surface fill color (Surface/Default = on, None = off, or custom StateColor)
     Border border{};                               ///< Input box border stroke & corner radius configuration
     std::optional<double> min{std::nullopt};       ///< Optional minimum numeric value constraint
     std::optional<double> max{std::nullopt};       ///< Optional maximum numeric value constraint

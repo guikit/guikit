@@ -101,7 +101,7 @@ std::string GenerateSelectCode(const DemoContext& ctx) {
         InlineOrderEnumName(ctx.elemInlineOrder),
         LabelAlignEnumName(ctx.elemAlign),
         StretchModeEnumName(ctx.GetElementStretch()),
-        ctx.elemBackground ? "true" : "false",
+        ctx.FormatElemBackgroundCode(),
         ctx.FormatElemBorderCode(),
         SizeName(ctx.controlsSize),
         ctx.elemDisabled ? "true" : "false",
@@ -112,7 +112,7 @@ std::string GenerateSelectCode(const DemoContext& ctx) {
         StretchModeEnumName(ctx.GetElementStretch()),
         ctx.FormatElementWidthCode(),
         ctx.FormatElementHeightCode(),
-        ctx.GetControlBackground(NavCategory::ElemSelect) ? "true" : "false",
+        ctx.FormatControlBackgroundCode(NavCategory::ElemSelect),
         ctx.FormatCtrlBorderCode(),
         ctx.elemDisabled ? "true" : "false"
     );

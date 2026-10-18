@@ -2785,10 +2785,9 @@ void TestHeadingWidgetWorkflow() {
     CHECK(sizeWithSub.y > sizeTitleOnly.y);
 
     HeadingOptions optsWithBadgeIcon{
-        .label = "Telemetry Stream",
+        .label = "System Configuration",
         .description = "1000 samples/sec",
-        .icon = Icon::Check(),
-        .badge = "ACTIVE"
+        .icon = Icon::Check()
     };
     Vec2 sizeWithBadgeIcon = Heading::Measure(optsWithBadgeIcon, UiSize::Md);
     CHECK(sizeWithBadgeIcon.x > sizeTitleOnly.x);
@@ -2818,8 +2817,7 @@ void TestHeadingWidgetWorkflow() {
             head2 = ui.Heading({
                 .label = {"Telemetry Stream", StateColor::Success()},
                 .description = "1000 samples/sec",
-                .icon = Icon::Check(),
-                .badge = {"ACTIVE", StateColor::Success()}
+                .icon = Icon::Check()
             });
             head3 = ui.Heading({.label = "Section Divider", .divider = true});
             head4 = ui.Heading({.label = "Trailing Divider", .divider = true, .dividerStyle = HeadingDivider::Trailing});
@@ -6822,7 +6820,7 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
         ElementSpec decSpec = baseSpec;
         decSpec.icon = Icon::Edit();
         decSpec.badge = {"v1.0", UiVariant::Info};
-        decSpec.background = true;
+        decSpec.background = StateColor::Surface();
         decSpec.border.width = 1.0f;
 
         const Vec2 szBase = Element::Measure(ctrlSz, baseSpec, &canvas, theme);
@@ -6834,7 +6832,7 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
         // Verify Control well frame increases measured size for non-intrinsic-box controls (Slider, Switch, Checkbox)
         SliderOptions baseSld{};
         SliderOptions wellSld = baseSld;
-        wellSld.background = true;
+        wellSld.background = StateColor::Surface();
         wellSld.border.width = 1.0f;
         const Vec2 sBase = Slider::Measure(baseSld, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
         const Vec2 sWell = Slider::Measure(wellSld, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
@@ -6843,7 +6841,7 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
 
         SwitchOptions baseSw{};
         SwitchOptions wellSw = baseSw;
-        wellSw.background = true;
+        wellSw.background = StateColor::Surface();
         wellSw.border.width = 1.0f;
         const Vec2 swBase = Switch::Measure(baseSw, UiSize::Md, &canvas, theme);
         const Vec2 swWell = Switch::Measure(wellSw, UiSize::Md, &canvas, theme);
@@ -6867,8 +6865,7 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
                 .label = "A heading",
                 .description = "This is a heading",
                 .icon = Icon::Edit(),
-                .badge = {"v2.4", UiVariant::Info},
-                .background = true,
+                .background = StateColor::Surface(),
                 .border = {.width = 1.0f},
                 .divider = true
             });
@@ -6877,7 +6874,7 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
                 .description = "This is an element",
                 .icon = Icon::Settings(),
                 .badge = "Core",
-                .background = true,
+                .background = StateColor::Surface(),
                 .border = {.width = 1.0f}
             });
             if (auto el = ui.Element({
@@ -6885,13 +6882,13 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
                 .description = "This is a button",
                 .icon = Icon::Edit(),
                 .badge = "Action",
-                .background = true,
+                .background = StateColor::Surface(),
                 .border = {.width = 1.0f}
             })) {
                 ui.Button({
                     .text = "Click me",
                     .icon = Icon::Play(),
-                    .background = true,
+                    .background = StateColor::Surface(),
                     .border = {.width = 1.5f}
                 });
             }
@@ -6900,11 +6897,11 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
                 .description = "This is a slider",
                 .icon = Icon::Settings(),
                 .badge = "dB",
-                .background = true,
+                .background = StateColor::Surface(),
                 .border = {.width = 1.0f}
             })) {
                 ui.Slider(sliderVal, 0.0f, 100.0f, {
-                    .background = true,
+                    .background = StateColor::Surface(),
                     .border = {.width = 1.0f}
                 });
             }
@@ -6913,11 +6910,11 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
                 .description = "This is a step slider",
                 .icon = Icon::Settings(),
                 .badge = "3-step",
-                .background = true,
+                .background = StateColor::Surface(),
                 .border = {.width = 1.0f}
             })) {
                 ui.StepSlider(stepIdx, items, {
-                    .background = true,
+                    .background = StateColor::Surface(),
                     .border = {.width = 1.0f}
                 });
             }
@@ -6926,11 +6923,11 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
                 .description = "This is a text input",
                 .icon = Icon::Edit(),
                 .badge = "UTF-8",
-                .background = true,
+                .background = StateColor::Surface(),
                 .border = {.width = 1.0f}
             })) {
                 ui.InputField(inputVal, {
-                    .background = true,
+                    .background = StateColor::Surface(),
                     .border = {.width = 1.5f}
                 });
             }
@@ -6939,11 +6936,11 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
                 .description = "This is a select",
                 .icon = Icon::Plus(),
                 .badge = "Menu",
-                .background = true,
+                .background = StateColor::Surface(),
                 .border = {.width = 1.0f}
             })) {
                 ui.Select(selectIdx, items, {
-                    .background = true,
+                    .background = StateColor::Surface(),
                     .border = {.width = 1.5f}
                 });
             }
@@ -6952,11 +6949,11 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
                 .description = "This is a switch",
                 .icon = Icon::Refresh(),
                 .badge = "Toggle",
-                .background = true,
+                .background = StateColor::Surface(),
                 .border = {.width = 1.0f}
             })) {
                 ui.Switch(swVal, {
-                    .background = true,
+                    .background = StateColor::Surface(),
                     .border = {.width = 1.0f}
                 });
             }
@@ -6965,11 +6962,11 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
                 .description = "This is a checkbox",
                 .icon = Icon::Check(),
                 .badge = "Bool",
-                .background = true,
+                .background = StateColor::Surface(),
                 .border = {.width = 1.0f}
             })) {
                 ui.Checkbox(cbVal, {
-                    .background = true,
+                    .background = StateColor::Surface(),
                     .border = {.width = 1.0f}
                 });
             }
@@ -8721,7 +8718,7 @@ void TestElementOuterFrameAndControlWellFrame() {
 
     // 1. Verify Control::Measure & Control::ResolveInnerRect for hasIntrinsicBox = false (well frame) vs true
     ControlSpec wellSpec{
-        .background = true,
+        .background = StateColor::Surface(),
         .border = {.width = 2.0f, .radius = 6.0f},
         .hasIntrinsicBox = false
     };
@@ -8758,21 +8755,21 @@ void TestElementOuterFrameAndControlWellFrame() {
             }
             if (auto el = ui.Element({
                 .label = "Framed Slider",
-                .background = true,
+                .background = StateColor::Surface(),
                 .border = {.width = 1.5f, .radius = 8.0f}
             })) {
                 rSliderFramed = el.response;
                 ui.Slider(sliderVal, 0.0f, 1.0f, {
-                    .background = true,
+                    .background = StateColor::Surface(),
                     .border = {.width = 1.0f, .radius = 6.0f}
                 });
             }
             if (auto el = ui.Element({
                 .label = "Switch With Well",
-                .background = true
+                .background = StateColor::Surface()
             })) {
                 rSwitchWell = ui.Switch(switchVal, {
-                    .background = true,
+                    .background = StateColor::Surface(),
                     .border = Border::Solid(1.0f)
                 });
             }
@@ -8780,7 +8777,7 @@ void TestElementOuterFrameAndControlWellFrame() {
                 .label = "Checkbox With Well"
             })) {
                 rCheckWell = ui.Checkbox(checkVal, {
-                    .background = true,
+                    .background = StateColor::Surface(),
                     .border = {.width = 1.0f}
                 });
             }
@@ -8791,27 +8788,28 @@ void TestElementOuterFrameAndControlWellFrame() {
             })) {
                 rBtnFramed = ui.Button({
                     .text = "Click",
-                    .background = false,
+                    .background = StateColor::None(),
                     .border = Border::Solid(2.0f, StateColor::Danger())
                 });
             }
         }
     };
 
-    // Verify Background implicit conversions and resolution
-    constexpr Background bgDefault{};
-    static_assert(!bgDefault.IsEnabled(false));
-    static_assert(bgDefault.IsEnabled(true));
-    constexpr Background bgBoolTrue = true;
-    static_assert(bgBoolTrue.IsEnabled(false));
-    constexpr Background bgBoolFalse = false;
-    static_assert(!bgBoolFalse.IsEnabled(true));
-    constexpr Background bgColorOnly = Color::Hex(0x1E293BFF);
-    static_assert(bgColorOnly.IsEnabled(false));
-    static_assert(bgColorOnly.HasColor());
-    constexpr Background bgStatePair = {Color::Hex(0x1E293BFF), Color::Hex(0x334155FF)};
-    static_assert(bgStatePair.IsEnabled(false));
-    static_assert(bgStatePair.color.hover.has_value());
+    // Verify StateColor background presets and resolution
+    constexpr StateColor bgDefault{};
+    static_assert(!bgDefault.IsBackgroundEnabled(false));
+    static_assert(bgDefault.IsBackgroundEnabled(true));
+    constexpr StateColor bgSurface = StateColor::Surface();
+    static_assert(bgSurface.IsSurface());
+    static_assert(bgSurface.IsBackgroundEnabled(false));
+    constexpr StateColor bgNone = StateColor::None();
+    static_assert(bgNone.IsNone());
+    static_assert(!bgNone.IsBackgroundEnabled(true));
+    constexpr StateColor bgColorOnly = {Color::Hex(0x1E293BFF)};
+    static_assert(bgColorOnly.IsBackgroundEnabled(false));
+    constexpr StateColor bgStatePair = {Color::Hex(0x1E293BFF), Color::Hex(0x334155FF)};
+    static_assert(bgStatePair.IsBackgroundEnabled(false));
+    static_assert(bgStatePair.hover.has_value());
 
     // Verify Border aggregate initialization and factory presets
     constexpr Border noneBorder = Border::None();
