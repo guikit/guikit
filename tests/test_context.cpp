@@ -10061,6 +10061,182 @@ void TestSidebarResizableCompactAndCollapsedModes() {
     std::cout << "  [PASS] TestSidebarResizableCompactAndCollapsedModes completed\n";
 }
 
+void TestModalContextMenuAndToastWorkflow() {
+    using namespace guikit;
+    std::cout << "[TEST] Running TestModalContextMenuAndToastWorkflow...\n";
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 800;
+    const uint32_t height = 600;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    bool modalOpen = false;
+    bool bgClicked = false;
+    bool modalConfirmClicked = false;
+    bool modalBodyExecuted = false;
+    Rect bgBtnRect{};
+    Rect modalConfirmRect{};
+    Rect modalDialogRect{};
+    ContextMenuResponse ctxResp{};
+
+    const std::vector<ContextMenuItem> menuItems = {
+        {.label = "Inspect Packet", .shortcut = "Enter", .icon = Icon::Search()},
+        {.label = "Copy Frame HEX", .shortcut = "Ctrl+C", .icon = Icon::Copy(), .separatorAfter = true},
+        {.label = "Disabled Action", .disabled = true},
+        {.label = "Drop Stream", .icon = Icon::Trash(), .variant = UiVariant::Danger}
+    };
+
+    auto renderScene = [&]() {
+        bgClicked = false;
+        modalConfirmClicked = false;
+        modalBodyExecuted = false;
+
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        if (auto root = ui.Column({.gap = 12.0f, .padding = Padding::All(20.0f)})) {
+            auto bgBtn = ui.Button({.text = "Background Action"});
+            bgBtnRect = bgBtn.rect;
+            if (bgBtn.clicked) {
+                bgClicked = true;
+            }
+
+            ctxResp = ui.ContextMenu(bgBtn.rect, menuItems, {
+                .trigger = ContextMenuTrigger::RightClick
+            });
+
+            if (auto modal = ui.Modal(modalOpen, {
+                .title = "Confirm Reset",
+                .subtitle = "Reset all DSP channels",
+                .icon = Icon::Warning(),
+                .variant = UiVariant::Warning,
+                .width = 360.0f,
+                .closeOnBackdrop = true,
+                .closeOnEscape = true
+            })) {
+                modalBodyExecuted = true;
+                modalDialogRect = modal.response.rect;
+                ui.Text("Are you sure you want to reset?");
+                auto confirmBtn = ui.Button({.text = "Confirm", .color = StateColor::Primary()});
+                modalConfirmRect = confirmBtn.rect;
+                if (confirmBtn.clicked) {
+                    modalConfirmClicked = true;
+                    modalOpen = false;
+                }
+            }
+        }
+        ui.EndFrame(canvas);
+    };
+
+    ui.SetCurrentTime(0.0);
+
+    // 1. Initial closed state: modal body is not executed, background button works
+    renderScene();
+    renderScene();
+    CHECK(modalBodyExecuted == false);
+    CHECK(bgBtnRect.w > 20.0f);
+
+    ui.OnMouseMove(bgBtnRect.Center());
+    ui.OnMouseDown(1);
+    renderScene();
+    ui.OnMouseUp(1);
+    renderScene();
+    CHECK(bgClicked == true);
+
+    // 2. Right-click (button 3) on background button to open ContextMenu
+    ui.OnMouseMove(bgBtnRect.Center());
+    ui.OnMouseDown(3);
+    renderScene();
+    ui.OnMouseUp(3);
+    renderScene();
+    CHECK(ctxResp.isOpen == true);
+
+    // Move mouse away from menu items so hover doesn't override keyboard selection, then press Down + Enter
+    ui.OnMouseMove({2.0f, 2.0f});
+    ui.OnKeyDown(Key::Down);
+    renderScene();
+    ui.OnKeyDown(Key::Enter);
+    renderScene();
+    CHECK(ctxResp.clicked == true);
+    CHECK(ctxResp.clickedIndex == 0);
+    CHECK(ctxResp.isOpen == false);
+
+    // 3. Open Modal: verify modal body executes and background button click is blocked by modal isolation
+    modalOpen = true;
+    renderScene();
+    renderScene();
+    CHECK(modalBodyExecuted == true);
+    CHECK(modalDialogRect.w >= 300.0f);
+    CHECK(modalConfirmRect.w > 20.0f);
+
+    // Try clicking background button (at top-left 20,20, outside centered modal dialog)
+    ui.OnMouseMove({bgBtnRect.x + 5.0f, bgBtnRect.y + 5.0f});
+    ui.OnMouseDown(1);
+    renderScene();
+    CHECK(bgClicked == false);
+    CHECK(modalOpen == false);
+    ui.OnMouseUp(1);
+    renderScene();
+
+    // 4. Re-open Modal and click the Confirm button inside the modal body
+    modalOpen = true;
+    renderScene();
+    renderScene();
+    CHECK(modalOpen == true);
+    CHECK(modalConfirmRect.w > 20.0f);
+
+    ui.OnMouseMove(modalConfirmRect.Center());
+    ui.OnMouseDown(1);
+    renderScene();
+    ui.OnMouseUp(1);
+    renderScene();
+    CHECK(modalConfirmClicked == true);
+    CHECK(modalOpen == false);
+
+    // 5. Re-open Modal and press Escape -> closes modal
+    modalOpen = true;
+    renderScene();
+    renderScene();
+    CHECK(modalOpen == true);
+
+    ui.OnKeyDown(Key::Escape);
+    renderScene();
+    CHECK(modalOpen == false);
+
+    // 6. Toast notification lifecycle: ShowToast, timer countdown, and ClearToasts
+    ui.ClearToasts();
+    CHECK(ui.GetActiveToastCount() == 0);
+
+    const uint64_t toastId = ui.ShowToast({
+        .title = "Capture Saved",
+        .message = "Written 128 KB to capture.iq",
+        .variant = UiVariant::Success,
+        .duration = 2.0f
+    });
+    CHECK(toastId != 0);
+    CHECK(ui.GetActiveToastCount() == 1);
+
+    // Advance 1.0s (toast still active)
+    ui.OnMouseMove({10.0f, 10.0f}); // away from BottomRight toast stack
+    ui.AdvanceTime(1.0);
+    renderScene();
+    CHECK(ui.GetActiveToastCount() == 1);
+
+    // Advance another 1.5s (total 2.5s > 2.0s duration -> auto-dismissed!)
+    ui.AdvanceTime(1.5);
+    renderScene();
+    CHECK(ui.GetActiveToastCount() == 0);
+
+    // Queue two persistent toasts and clear them
+    ui.ShowToast({.title = "Persistent 1", .duration = 0.0f});
+    ui.ShowToast({.title = "Persistent 2", .duration = 0.0f});
+    CHECK(ui.GetActiveToastCount() == 2);
+    ui.ClearToasts();
+    CHECK(ui.GetActiveToastCount() == 0);
+
+    std::cout << "  [PASS] TestModalContextMenuAndToastWorkflow completed\n";
+}
+
 int main() {
     std::cout << std::unitbuf;
     std::cerr << std::unitbuf;
@@ -10144,6 +10320,7 @@ int main() {
     TestKnobSpinBoxAndRadioElements();
     TestSegmentedAndColorPickerElements();
     TestSidebarResizableCompactAndCollapsedModes();
+    TestModalContextMenuAndToastWorkflow();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

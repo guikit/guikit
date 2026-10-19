@@ -36,6 +36,8 @@
 #include "guikit/panels/ScrollArea.hpp"
 #include "guikit/panels/Scene.hpp"
 #include "guikit/panels/MapView.hpp"
+#include "guikit/panels/ContextMenu.hpp"
+#include "guikit/panels/Modal.hpp"
 #include "guikit/panels/Sidebar.hpp"
 #include "guikit/panels/Table.hpp"
 #include "guikit/panels/Toolbar.hpp"
@@ -58,6 +60,7 @@
 #include "guikit/widgets/TabBar.hpp"
 #include "guikit/widgets/Text.hpp"
 #include "guikit/widgets/TextArea.hpp"
+#include "guikit/widgets/Toast.hpp"
 #include "guikit/widgets/SignalView.hpp"
 #include "guikit/widgets/SonarView.hpp"
 #include "guikit/widgets/WaterfallView.hpp"
@@ -1123,6 +1126,124 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
+    // --- Modal Dialog Container ---
+    [[nodiscard]] ModalScope Modal(
+        bool& open,
+        const ModalOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return guikit::Modal::Open(*this, open, opts, loc);
+    }
+
+    // --- ContextMenu Popup Component ---
+    ContextMenuResponse ContextMenu(
+        const Response& triggerTarget,
+        std::span<const ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return guikit::ContextMenu::Run(*this, nullptr, std::nullopt, triggerTarget.rect, items, opts, loc);
+    }
+
+    ContextMenuResponse ContextMenu(
+        const Response& triggerTarget,
+        std::initializer_list<ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return ContextMenu(triggerTarget, std::span<const ContextMenuItem>(items.begin(), items.size()), opts, loc);
+    }
+
+    ContextMenuResponse ContextMenu(
+        Rect triggerRect,
+        std::span<const ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return guikit::ContextMenu::Run(*this, nullptr, std::nullopt, triggerRect, items, opts, loc);
+    }
+
+    ContextMenuResponse ContextMenu(
+        Rect triggerRect,
+        std::initializer_list<ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return ContextMenu(triggerRect, std::span<const ContextMenuItem>(items.begin(), items.size()), opts, loc);
+    }
+
+    ContextMenuResponse ContextMenu(
+        std::span<const ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back()->id;
+        const Rect parentRect = GetPrevFrameBounds(parentId);
+        return guikit::ContextMenu::Run(*this, nullptr, std::nullopt, parentRect, items, opts, loc);
+    }
+
+    ContextMenuResponse ContextMenu(
+        std::initializer_list<ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return ContextMenu(std::span<const ContextMenuItem>(items.begin(), items.size()), opts, loc);
+    }
+
+    ContextMenuResponse ContextMenu(
+        bool& open,
+        std::span<const ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back()->id;
+        const Rect parentRect = GetPrevFrameBounds(parentId);
+        return guikit::ContextMenu::Run(*this, &open, std::nullopt, parentRect, items, opts, loc);
+    }
+
+    ContextMenuResponse ContextMenu(
+        bool& open,
+        std::initializer_list<ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return ContextMenu(open, std::span<const ContextMenuItem>(items.begin(), items.size()), opts, loc);
+    }
+
+    ContextMenuResponse ContextMenu(
+        bool& open,
+        Vec2 anchorPos,
+        std::span<const ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return guikit::ContextMenu::Run(*this, &open, anchorPos, Rect{}, items, opts, loc);
+    }
+
+    ContextMenuResponse ContextMenu(
+        bool& open,
+        Vec2 anchorPos,
+        std::initializer_list<ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return ContextMenu(open, anchorPos, std::span<const ContextMenuItem>(items.begin(), items.size()), opts, loc);
+    }
+
+    // --- Toast Notification System ---
+    uint64_t ShowToast(ToastOptions opts);
+    void DismissToast(uint64_t id) noexcept;
+    void ClearToasts() noexcept;
+    [[nodiscard]] size_t GetActiveToastCount() const noexcept { return m_toasts.size(); }
+    [[nodiscard]] std::vector<ToastEntry>& GetToastEntries() noexcept { return m_toasts; }
+    [[nodiscard]] const std::vector<ToastEntry>& GetToastEntries() const noexcept { return m_toasts; }
+    void MarkToastHostVisited() noexcept { m_toastHostVisitedThisFrame = true; }
+    void SetToastHostOptions(const ToastHostOptions& opts) noexcept { m_defaultToastHostOpts = opts; }
+    [[nodiscard]] const ToastHostOptions& GetToastHostOptions() const noexcept { return m_defaultToastHostOpts; }
+    void ToastHost(const ToastHostOptions& opts = {}) {
+        guikit::Toast::RunHost(*this, opts);
+    }
+
     // --- String & Formatting Services ---
     [[nodiscard]] UiString String(std::string_view text);
     [[nodiscard]] std::string_view AllocString(std::string_view text);
@@ -1187,7 +1308,12 @@ public:
     // Imperative actions requested from Response
     void RequestFocus(Id id);
     [[nodiscard]] Id GetFocusedId() const noexcept { return m_focusedId; }
-    [[nodiscard]] bool IsFocused(Id id) const noexcept { return m_focusedId == id && id.IsValid(); }
+    [[nodiscard]] bool IsFocused(Id id) const noexcept {
+        if (!id.IsValid() || m_focusedId != id) return false;
+        if (m_openPopupId.IsValid() && m_openPopupId != id) return false;
+        if (m_modalScopeDepth == 0 && (m_currFrameModalId.IsValid() || m_prevFrameModalId.IsValid())) return false;
+        return true;
+    }
     [[nodiscard]] bool HasActiveTextEdit(Id id) const noexcept { return m_editState.id == id && id.IsValid(); }
     void ClearFocus() noexcept {
         if (m_editState.id == m_focusedId) {
@@ -1260,7 +1386,7 @@ public:
     void AdvanceTime(double deltaSeconds) noexcept;
     [[nodiscard]] double GetCurrentTime() const noexcept { return m_currentTimeSec; }
 
-    // --- Popup, Tooltip & Overlay Management ---
+    // --- Popup, Tooltip, Modal & Overlay Management ---
     void OpenPopup(Id id, Rect bounds);
     void ClosePopup();
     [[nodiscard]] bool IsPopupOpen(Id id) const noexcept { return m_openPopupId == id && id.IsValid(); }
@@ -1269,6 +1395,38 @@ public:
     void RegisterOverlay(std::function<void(ICanvas&)> drawFn);
     void SetTooltip(UiText tooltip, Rect anchorRect);
     void RegisterFocusable(Id id, bool disabled = false);
+
+    void BeginModalScope(Id id, Rect backdropRect) noexcept {
+        ++m_modalScopeDepth;
+        m_currFrameModalId = id;
+        m_currFrameModalBackdropRect = backdropRect;
+    }
+
+    void EndModalScope(bool stillOpen = true) noexcept {
+        if (m_modalScopeDepth > 0) {
+            --m_modalScopeDepth;
+        }
+        if (!stillOpen && m_modalScopeDepth == 0) {
+            ClearModalBlock();
+        }
+    }
+
+    void ClearModalBlock() noexcept {
+        m_currFrameModalId = Id::Null();
+        m_currFrameModalBackdropRect = Rect{};
+        m_prevFrameModalId = Id::Null();
+        m_prevFrameModalBackdropRect = Rect{};
+    }
+
+    [[nodiscard]] bool IsInModalScope() const noexcept { return m_modalScopeDepth > 0; }
+    [[nodiscard]] Id GetPrevFrameModalId() const noexcept { return m_prevFrameModalId; }
+
+    [[nodiscard]] bool IsModalBlocking(Vec2 pos) const noexcept {
+        if (m_modalScopeDepth > 0) return false;
+        if (m_currFrameModalId.IsValid() && m_currFrameModalBackdropRect.Contains(pos)) return true;
+        if (m_prevFrameModalId.IsValid() && m_prevFrameModalBackdropRect.Contains(pos)) return true;
+        return false;
+    }
 
     // --- Input Queries & Consumption ---
     [[nodiscard]] Vec2 GetMousePos() const noexcept { return m_mousePos; }
@@ -1288,6 +1446,9 @@ public:
     [[nodiscard]] Vec2 GetViewportSize() const noexcept { return m_viewportSize; }
     [[nodiscard]] Vec2 GetMouseWheel() const noexcept {
         if (m_openPopupId.IsValid() && m_openPopupRect.Contains(m_mousePos)) {
+            return {0.0f, 0.0f};
+        }
+        if (IsModalBlocking(m_mousePos)) {
             return {0.0f, 0.0f};
         }
         return m_mouseWheel;
@@ -1348,6 +1509,7 @@ public:
 
 private:
     void RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirtyRect, const UiTheme& parentTheme);
+    void RenderModalsRecursive(Node* node, ICanvas& canvas, const Rect& dirtyRect, const UiTheme& parentTheme);
     bool UpdateScrollAreasRecursive(Node* node);
 
     // Widget snapshot for frame-to-frame change detection
@@ -1539,13 +1701,25 @@ private:
     std::unordered_map<Id, Rect> m_currUnclippedBounds;
     std::vector<Id> m_prevFocusableIds;
     std::vector<Id> m_currFocusableIds;
+    std::vector<Id> m_prevModalFocusableIds;
+    std::vector<Id> m_currModalFocusableIds;
 
-    // Floating popup, tooltip & overlay state
+    // Floating popup, tooltip, modal & toast overlay state
     Id m_openPopupId{Id::Null()};
     Rect m_openPopupRect{0.0f, 0.0f, 0.0f, 0.0f};
+    Id m_prevFrameModalId{Id::Null()};
+    Rect m_prevFrameModalBackdropRect{0.0f, 0.0f, 0.0f, 0.0f};
+    Id m_currFrameModalId{Id::Null()};
+    Rect m_currFrameModalBackdropRect{0.0f, 0.0f, 0.0f, 0.0f};
+    int m_modalScopeDepth{0};
     UiText m_activeTooltip{};
     Rect m_activeTooltipAnchor{0.0f, 0.0f, 0.0f, 0.0f};
     bool m_hadTooltipLastFrame{false};
+    std::vector<ToastEntry> m_toasts;
+    ToastHostOptions m_defaultToastHostOpts{};
+    uint64_t m_nextToastId{0};
+    bool m_toastHostVisitedThisFrame{false};
+    bool m_hadToastsLastFrame{false};
     std::vector<std::function<void(ICanvas&)>> m_overlayPasses;
     Vec2 m_mouseWheel{0.0f, 0.0f};
     std::unordered_map<detail::StateKey, detail::StoredState, detail::StateKeyHash> m_customStates;
@@ -2360,6 +2534,104 @@ public:
         std::source_location loc = std::source_location::current()
     ) {
         return m_ctx->ColorPicker(value, std::move(opts), loc);
+    }
+
+    [[nodiscard]] ModalScope Modal(
+        bool& open,
+        const ModalOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->Modal(open, opts, loc));
+    }
+
+    ContextMenuResponse ContextMenu(
+        const Response& triggerTarget,
+        std::span<const ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ContextMenu(triggerTarget, items, opts, loc);
+    }
+
+    ContextMenuResponse ContextMenu(
+        const Response& triggerTarget,
+        std::initializer_list<ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ContextMenu(triggerTarget, items, opts, loc);
+    }
+
+    ContextMenuResponse ContextMenu(
+        Rect triggerRect,
+        std::span<const ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ContextMenu(triggerRect, items, opts, loc);
+    }
+
+    ContextMenuResponse ContextMenu(
+        Rect triggerRect,
+        std::initializer_list<ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ContextMenu(triggerRect, items, opts, loc);
+    }
+
+    ContextMenuResponse ContextMenu(
+        std::span<const ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ContextMenu(items, opts, loc);
+    }
+
+    ContextMenuResponse ContextMenu(
+        std::initializer_list<ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ContextMenu(items, opts, loc);
+    }
+
+    ContextMenuResponse ContextMenu(
+        bool& open,
+        std::span<const ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ContextMenu(open, items, opts, loc);
+    }
+
+    ContextMenuResponse ContextMenu(
+        bool& open,
+        std::initializer_list<ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ContextMenu(open, items, opts, loc);
+    }
+
+    ContextMenuResponse ContextMenu(
+        bool& open,
+        Vec2 anchorPos,
+        std::span<const ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ContextMenu(open, anchorPos, items, opts, loc);
+    }
+
+    ContextMenuResponse ContextMenu(
+        bool& open,
+        Vec2 anchorPos,
+        std::initializer_list<ContextMenuItem> items,
+        const ContextMenuOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ContextMenu(open, anchorPos, items, opts, loc);
     }
 
 private:

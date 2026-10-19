@@ -70,6 +70,7 @@ enum class NodeType : uint16_t {
     TreeView    = 110,  ///< Hierarchical tree view container
     TreeItem    = 111,  ///< Individual interactive tree item row container (hosts optional trailing controls)
     TreeBranch  = 112,  ///< Vertical column wrapper grouping a TreeItem row and its expanded child TreeBranches
+    Modal       = 113,  ///< Out-of-flow floating modal dialog container with backdrop overlay
 
     // --- Leaf Widgets (200..999): Self-rendering elements ---
     Button      = 200,
@@ -269,6 +270,7 @@ struct Node {
             case NodeType::TreeView:    return "TreeView";
             case NodeType::TreeItem:    return "TreeItem";
             case NodeType::TreeBranch:  return "TreeBranch";
+            case NodeType::Modal:       return "Modal";
             case NodeType::Button:      return "Button";
             case NodeType::InputField:  return "InputField";
             case NodeType::Select:      return "Select";

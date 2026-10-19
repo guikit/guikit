@@ -29,6 +29,7 @@ enum class NavCategory : uint8_t {
     PanelSidebar,
     PanelTreeView,
     PanelTable,
+    PanelOverlays,
 
     // 3. CONTENT & MEDIA (Documents, Editors, Graphics)
     ContentMarkdown,
@@ -65,6 +66,7 @@ constexpr bool IsFullStageCategory(NavCategory cat) noexcept {
     return cat == NavCategory::PanelSidebar ||
            cat == NavCategory::PanelTreeView ||
            cat == NavCategory::PanelTable ||
+           cat == NavCategory::PanelOverlays ||
            cat == NavCategory::ContentMarkdown ||
            cat == NavCategory::ContentCodeEditor ||
            cat == NavCategory::SceneSchematic2D ||
@@ -897,6 +899,10 @@ std::string GenerateTreeViewCode(const DemoContext& ctx);
 void RenderTableInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderTableStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateTableCode(const DemoContext& ctx);
+
+void RenderOverlaysInspector(guikit::Context& ui, DemoContext& ctx);
+void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx);
+std::string GenerateOverlaysCode(const DemoContext& ctx);
 
 // ============================================================================
 // 3. CONTENT & MEDIA (Documents, Editors, Graphics)

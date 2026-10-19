@@ -53,6 +53,8 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/panels/Box.cpp
     src/guikit/panels/Card.cpp
     src/guikit/panels/Carousel.cpp
+    src/guikit/panels/ContextMenu.cpp
+    src/guikit/panels/Modal.cpp
     src/guikit/panels/ScrollArea.cpp
     src/guikit/panels/Scene.cpp
     src/guikit/panels/Sidebar.cpp
@@ -79,6 +81,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/widgets/TabBar.cpp
     src/guikit/widgets/Text.cpp
     src/guikit/widgets/TextArea.cpp
+    src/guikit/widgets/Toast.cpp
 )
 
 file(GLOB_RECURSE GUIKIT_EMBEDDED_ASSET_FILES CONFIGURE_DEPENDS
@@ -233,6 +236,7 @@ if (GUIKIT_BUILD_DEMO)
         examples/demo/panels/SidebarScreen.cpp
         examples/demo/panels/TreeViewScreen.cpp
         examples/demo/panels/TableScreen.cpp
+        examples/demo/panels/OverlaysScreen.cpp
         examples/demo/content/MarkdownScreen.cpp
         examples/demo/content/CodeEditorScreen.cpp
         examples/demo/scenes/SchematicScreen.cpp

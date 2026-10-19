@@ -30,10 +30,19 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
 
     m_overlayPasses.clear();
     m_currFocusableIds.clear();
+    m_currModalFocusableIds.clear();
+    m_currFrameModalId = Id::Null();
+    m_currFrameModalBackdropRect = Rect{};
+    m_modalScopeDepth = 0;
+    m_toastHostVisitedThisFrame = false;
     m_activeTooltip = {};
     m_activeTooltipAnchor = {};
 
-    if (!m_openPopupId.IsValid() && !m_prevFocusableIds.empty()) {
+    const auto& activeFocusables = (m_prevFrameModalId.IsValid() && !m_prevModalFocusableIds.empty())
+        ? m_prevModalFocusableIds
+        : m_prevFocusableIds;
+
+    if (!m_openPopupId.IsValid() && !activeFocusables.empty()) {
         const bool multilineEditorFocused =
             m_focusedId.IsValid() &&
             m_editState.id == m_focusedId &&
@@ -45,15 +54,15 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
             if ((isIndent || isUnindent) && !multilineEditorFocused) {
                 const bool reverse = isUnindent;
                 it = m_pendingKeyEvents.erase(it);
-                auto curIt = std::find(m_prevFocusableIds.begin(), m_prevFocusableIds.end(), m_focusedId);
+                auto curIt = std::find(activeFocusables.begin(), activeFocusables.end(), m_focusedId);
                 Id nextId = Id::Null();
-                if (curIt == m_prevFocusableIds.end()) {
-                    nextId = reverse ? m_prevFocusableIds.back() : m_prevFocusableIds.front();
+                if (curIt == activeFocusables.end()) {
+                    nextId = reverse ? activeFocusables.back() : activeFocusables.front();
                 } else {
-                    const size_t idx = static_cast<size_t>(std::distance(m_prevFocusableIds.begin(), curIt));
-                    const size_t n = m_prevFocusableIds.size();
+                    const size_t idx = static_cast<size_t>(std::distance(activeFocusables.begin(), curIt));
+                    const size_t n = activeFocusables.size();
                     const size_t nextIdx = reverse ? ((idx + n - 1) % n) : ((idx + 1) % n);
-                    nextId = m_prevFocusableIds[nextIdx];
+                    nextId = activeFocusables[nextIdx];
                 }
                 if (m_editState.id.IsValid() && m_editState.id != nextId) {
                     m_editState.id = Id::Null();
@@ -148,6 +157,11 @@ Response Context::Interact(Id id) {
 
     // Suppress interaction on background widgets occluded by a floating overlay popup
     if (m_openPopupId.IsValid() && id != m_openPopupId && m_openPopupRect.Contains(m_mousePos)) {
+        return res;
+    }
+
+    // Suppress interaction on background widgets outside an active modal scope
+    if (IsModalBlocking(m_mousePos)) {
         return res;
     }
 
@@ -579,6 +593,41 @@ SidebarMenuScope Context::SidebarMenu(
     std::source_location loc
 ) {
     return Open<guikit::SidebarMenu>(opts, loc);
+}
+
+uint64_t Context::ShowToast(ToastOptions opts) {
+    const uint64_t id = ++m_nextToastId;
+    ToastEntry entry{};
+    entry.id = id;
+    entry.title = std::string(opts.title.text);
+    entry.message = std::string(opts.message.text);
+    entry.variant = opts.variant;
+    entry.icon = opts.icon;
+    entry.duration = opts.duration;
+    entry.showProgress = opts.showProgress;
+    entry.closable = opts.closable;
+    entry.elapsedSec = 0.0;
+    entry.lastTickSec = m_currentTimeSec;
+    m_toasts.push_back(std::move(entry));
+    InvalidateAll();
+    return id;
+}
+
+void Context::DismissToast(uint64_t id) noexcept {
+    for (auto it = m_toasts.begin(); it != m_toasts.end(); ++it) {
+        if (it->id == id) {
+            m_toasts.erase(it);
+            InvalidateAll();
+            return;
+        }
+    }
+}
+
+void Context::ClearToasts() noexcept {
+    if (!m_toasts.empty()) {
+        m_toasts.clear();
+        InvalidateAll();
+    }
 }
 
 void Context::RequestFocus(Id id) {
@@ -1250,6 +1299,9 @@ bool Context::NeedsRepaint() const noexcept {
     if (m_mouseDown || m_rightMouseDown || m_middleMouseDown) return true;
     if (m_activeId.IsValid()) return true;
     if (m_openPopupId.IsValid()) return true;
+    for (const auto& t : m_toasts) {
+        if (t.duration > 0.0f) return true;
+    }
     return false;
 }
 
@@ -1384,7 +1436,7 @@ void Context::RegisterOverlay(std::function<void(ICanvas&)> drawFn) {
 }
 
 void Context::SetTooltip(UiText tooltip, Rect anchorRect) {
-    if (tooltip.empty() || m_openPopupId.IsValid()) {
+    if (tooltip.empty() || m_openPopupId.IsValid() || IsModalBlocking(m_mousePos)) {
         return;
     }
     m_activeTooltip = AllocText(tooltip);
@@ -1393,6 +1445,9 @@ void Context::SetTooltip(UiText tooltip, Rect anchorRect) {
 
 void Context::RegisterFocusable(Id id, bool disabled) {
     if (!disabled && id.IsValid()) {
+        if (m_modalScopeDepth > 0) {
+            m_currModalFocusableIds.push_back(id);
+        }
         m_currFocusableIds.push_back(id);
     }
 }
@@ -1659,6 +1714,9 @@ static Rect GetNodeContentClipRect(const Node* node, const UiTheme& theme) {
     if (node->type == NodeType::Table) {
         return Table::GetBodyClipRect(node, theme);
     }
+    if (node->type == NodeType::Modal) {
+        return Modal::GetBodyClipRect(node);
+    }
     return node->computedRect;
 }
 
@@ -1672,6 +1730,11 @@ static void CollectBoundsRecursive(
     if (!node) return;
 
     const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
+
+    // Out-of-flow modals are rendered at top level above ancestor ScrollAreas/clips
+    if (node->type == NodeType::Modal) {
+        parentClip = node->computedRect;
+    }
 
     if (node->id.IsValid()) {
         if ((node->computedRect.w > 0.0f || node->type == NodeType::Sidebar) && node->computedRect.h > 0.0f) {
@@ -1700,6 +1763,11 @@ static void CollectBoundsRecursive(
 bool Context::UpdateScrollAreasRecursive(Node* node) {
     if (!node) return false;
 
+    const bool isModal = (node->type == NodeType::Modal);
+    if (isModal) {
+        ++m_modalScopeDepth;
+    }
+
     bool scrollChanged = false;
     const Vec2 prevScroll = node->scrollOffset;
 
@@ -1725,6 +1793,10 @@ bool Context::UpdateScrollAreasRecursive(Node* node) {
         if (UpdateScrollAreasRecursive(child)) {
             scrollChanged = true;
         }
+    }
+
+    if (isModal && m_modalScopeDepth > 0) {
+        --m_modalScopeDepth;
     }
     return scrollChanged;
 }
@@ -1765,6 +1837,7 @@ void Context::EndFrame(ICanvas& canvas) {
     while (m_containerStack.size() > 1) {
         m_containerStack.pop_back();
     }
+    m_modalScopeDepth = 0;
 
     const Vec2 logicalSize = m_viewportSize / ((m_dpiScale > 0.0f) ? m_dpiScale : 1.0f);
 
@@ -1777,11 +1850,17 @@ void Context::EndFrame(ICanvas& canvas) {
         Solver::Arrange(m_root, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme, &canvas);
     }
 
+    // Automatically run ToastHost if there are active toasts and user didn't call ui.ToastHost() explicitly
+    if (!m_toastHostVisitedThisFrame && !m_toasts.empty()) {
+        Toast::RunHost(*this, m_defaultToastHostOpts);
+    }
+
     // Cache computed bounds and focusable widget list for next frame
     CollectBoundsRecursive(m_root, m_currFrameBounds, m_currUnclippedBounds, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme);
     m_prevFrameBounds = std::move(m_currFrameBounds);
     m_prevUnclippedBounds = std::move(m_currUnclippedBounds);
     m_prevFocusableIds = std::move(m_currFocusableIds);
+    m_prevModalFocusableIds = std::move(m_currModalFocusableIds);
 
     // Reset single-frame mouse impulse states
     m_mouseClicked = false;
@@ -1813,6 +1892,9 @@ void Context::EndFrame(ICanvas& canvas) {
         [&](Node* n, Rect parentClip, const UiTheme& parentTheme) {
         if (!n) return;
         const UiTheme& activeTheme = (n->theme != nullptr) ? *n->theme : parentTheme;
+        if (n->type == NodeType::Modal) {
+            parentClip = Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y);
+        }
         if (n->debugBoundsOverride.value_or(false)) {
             anyDebugBounds = true;
         }
@@ -1894,11 +1976,14 @@ void Context::EndFrame(ICanvas& canvas) {
     }
 
     const bool hasTooltip = !m_activeTooltip.empty();
+    const bool hasModal = m_currFrameModalId.IsValid() || m_prevFrameModalId.IsValid();
+    const bool hasToasts = !m_toasts.empty();
 
     // Determine whether full repaint or partial dirty rect is required
     m_dirtyRects.clear();
     const float totalViewportArea = logicalSize.x * logicalSize.y;
     if (!m_dirtyRectEnabled || m_forceFullRepaint || m_prevSnapshots.empty() || m_openPopupId.IsValid() ||
+        hasModal || hasToasts || m_hadToastsLastFrame ||
         hasTooltip || m_hadTooltipLastFrame || anyDebugBounds || anyInspectMode) {
         m_isFullRepaint = true;
         m_hasDirtyDamage = true;
@@ -1962,6 +2047,9 @@ void Context::EndFrame(ICanvas& canvas) {
 
     m_forceFullRepaint = false;
     m_hadTooltipLastFrame = hasTooltip;
+    m_hadToastsLastFrame = hasToasts;
+    m_prevFrameModalId = m_currFrameModalId;
+    m_prevFrameModalBackdropRect = m_currFrameModalBackdropRect;
     m_prevSnapshots = std::move(currSnapshots);
 
     // If damage exists, clear target buffer and rasterize scene graph
@@ -1972,6 +2060,7 @@ void Context::EndFrame(ICanvas& canvas) {
             canvas.PushClip(m_dirtyRect);
             canvas.Clear(m_clearColor);
             RenderNodeRecursive(m_root, canvas, m_dirtyRect, m_theme);
+            RenderModalsRecursive(m_root, canvas, m_dirtyRect, m_theme);
 
             for (const auto& overlayFn : m_overlayPasses) {
                 overlayFn(canvas);
@@ -1993,6 +2082,7 @@ void Context::EndFrame(ICanvas& canvas) {
                 canvas.PushClip(dr);
                 canvas.Clear(m_clearColor, dr);
                 RenderNodeRecursive(m_root, canvas, dr, m_theme);
+                RenderModalsRecursive(m_root, canvas, dr, m_theme);
                 for (const auto& overlayFn : m_overlayPasses) {
                     overlayFn(canvas);
                 }
@@ -2026,12 +2116,12 @@ void Context::EndFrame(ICanvas& canvas) {
 void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirtyRect, const UiTheme& parentTheme) {
     if (!node) return;
     if (node->computedRect.w <= 0.0f || node->computedRect.h <= 0.0f) return;
-    if (!node->computedRect.Intersects(dirtyRect)) return;
+    if (node->type != NodeType::Modal && !node->computedRect.Intersects(dirtyRect)) return;
 
     const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : parentTheme;
 
-    // Render background / border if present (skip for self-rendering leaf widgets)
-    if (!node->IsLeaf()) {
+    // Render background / border if present (skip for self-rendering leaf widgets and Modal)
+    if (!node->IsLeaf() && node->type != NodeType::Modal) {
         if (node->backgroundColor.a > 0 || (node->borderColor.a > 0 && node->borderWidth > 0.0f)) {
             if (node->cornerRadius > 0.0f) {
                 canvas.DrawRoundRect(
@@ -2056,8 +2146,9 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
         canvas.PushClip(GetNodeContentClipRect(node, activeTheme));
     }
 
-    // Recurse on children
+    // Recurse on children (skip NodeType::Modal during normal tree walk; modals render in RenderModalsRecursive)
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+        if (child->type == NodeType::Modal) continue;
         RenderNodeRecursive(child, canvas, dirtyRect, activeTheme);
     }
 
@@ -2068,6 +2159,18 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
     // Render post-pass overlay contents (after children and outside clip)
     if (node->postRenderFn) {
         node->postRenderFn(node, canvas, activeTheme);
+    }
+}
+
+void Context::RenderModalsRecursive(Node* node, ICanvas& canvas, const Rect& dirtyRect, const UiTheme& parentTheme) {
+    if (!node) return;
+    const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : parentTheme;
+
+    for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+        if (child->type == NodeType::Modal) {
+            RenderNodeRecursive(child, canvas, dirtyRect, activeTheme);
+        }
+        RenderModalsRecursive(child, canvas, dirtyRect, activeTheme);
     }
 }
 

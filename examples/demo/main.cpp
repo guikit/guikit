@@ -40,6 +40,7 @@ void DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
         case NavCategory::PanelSidebar:      RenderSidebarInspector(ui, ctx); break;
         case NavCategory::PanelTreeView:     RenderTreeViewInspector(ui, ctx); break;
         case NavCategory::PanelTable:        RenderTableInspector(ui, ctx); break;
+        case NavCategory::PanelOverlays:     RenderOverlaysInspector(ui, ctx); break;
 
         // 3. CONTENT & MEDIA
         case NavCategory::ContentMarkdown:   RenderMarkdownInspector(ui, ctx); break;
@@ -88,6 +89,7 @@ void DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx
         case NavCategory::PanelSidebar:      RenderSidebarStage(ui, ctx); break;
         case NavCategory::PanelTreeView:     RenderTreeViewStage(ui, ctx); break;
         case NavCategory::PanelTable:        RenderTableStage(ui, ctx); break;
+        case NavCategory::PanelOverlays:     RenderOverlaysStage(ui, ctx); break;
 
         // 3. CONTENT & MEDIA
         case NavCategory::ContentMarkdown:   RenderMarkdownStage(ui, ctx); break;
@@ -131,6 +133,7 @@ std::string DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
         case NavCategory::PanelSidebar:      return GenerateSidebarCode(ctx);
         case NavCategory::PanelTreeView:     return GenerateTreeViewCode(ctx);
         case NavCategory::PanelTable:        return GenerateTableCode(ctx);
+        case NavCategory::PanelOverlays:     return GenerateOverlaysCode(ctx);
 
         // 3. CONTENT & MEDIA
         case NavCategory::ContentMarkdown:   return GenerateMarkdownCode(ctx);
@@ -688,6 +691,7 @@ int main(int argc, char* argv[]) {
                             menu.Item(selectedCategory, NavCategory::PanelSidebar,      {.text = "Sidebar",      .icon = guikit::Icon::Folder()});
                             menu.Item(selectedCategory, NavCategory::PanelTreeView,     {.text = "TreeView",     .icon = guikit::Icon::Folder()});
                             menu.Item(selectedCategory, NavCategory::PanelTable,        {.text = "Table / Grid", .icon = guikit::Icon::Copy(),   .badge = "100k"});
+                            menu.Item(selectedCategory, NavCategory::PanelOverlays,     {.text = "Overlays",     .icon = guikit::Icon::Flash(),  .badge = "New"});
 
                             menu.Section("CONTENT & MEDIA");
                             menu.Item(selectedCategory, NavCategory::ContentMarkdown,   {.text = "Markdown",     .icon = guikit::Icon::Edit()});
