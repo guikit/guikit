@@ -1,15 +1,12 @@
+#include "guikit/backend/VectorBackend.hpp"
 #include "guikit/geo/ChartDataSource.hpp"
 #include "guikit/geo/GisRenderEngine.hpp"
 #include "guikit/net/NetClient.hpp"
-#include "tvgLodePng.h"
 
 #include <algorithm>
 #include <atomic>
-#include <bit>
 #include <chrono>
 #include <cmath>
-#include <cstdlib>
-#include <cstring>
 #include <filesystem>
 #include <format>
 #include <fstream>
@@ -20,122 +17,57 @@
 
 namespace guikit::geo {
 
-namespace {
-
-struct LodePngStateGuard {
-    LodePNGState state{};
-    LodePngStateGuard() noexcept { lodepng_state_init(&state); }
-    ~LodePngStateGuard() noexcept { lodepng_state_cleanup(&state); }
-    LodePngStateGuard(const LodePngStateGuard&) = delete;
-    LodePngStateGuard& operator=(const LodePngStateGuard&) = delete;
-};
-
-struct FreeDeleter {
-    void operator()(unsigned char* p) const noexcept {
-        if (p) std::free(p);
-    }
-};
-
-} // namespace
-
 bool DecodePngAndScaleToRgba(
     std::span<const uint8_t> pngBytes,
     uint32_t targetSizePx,
     std::vector<uint32_t>& outRgba
 ) {
-    // Minimum valid PNG is 67 bytes (8-byte signature + IHDR + IDAT + IEND)
-    if (pngBytes.size() < 32 || targetSizePx == 0 || targetSizePx > 4096) {
+    if (pngBytes.size() < 8 || targetSizePx == 0 || targetSizePx > 4096) {
         return false;
     }
 
-    // Verify PNG magic signature: 89 50 4E 47 0D 0A 1A 0A
-    static constexpr uint8_t kPngSignature[8] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
-    if (std::memcmp(pngBytes.data(), kPngSignature, sizeof(kPngSignature)) != 0) {
+    uint32_t srcW = 0;
+    uint32_t srcH = 0;
+    std::vector<uint32_t> srcRgba;
+    if (!guikit::DecodeImageFromMemory(pngBytes, srcW, srcH, srcRgba) ||
+        srcW == 0 || srcH == 0 || srcRgba.size() != static_cast<size_t>(srcW) * srcH) {
         return false;
     }
-
-    // 1. Inspect IHDR dimensions first to guard against decompression bombs
-    {
-        LodePngStateGuard inspectGuard;
-        unsigned inspectW = 0;
-        unsigned inspectH = 0;
-        if (lodepng_inspect(&inspectW, &inspectH, &inspectGuard.state, pngBytes.data(), pngBytes.size()) != 0 ||
-            inspectW == 0 || inspectH == 0 || inspectW > 4096 || inspectH > 4096) {
-            return false;
-        }
-    }
-
-    // 2. Decode into 8-bit RGBA (R, G, B, A byte order) with RAII cleanup
-    LodePngStateGuard decodeGuard;
-    decodeGuard.state.info_raw.colortype = LCT_RGBA;
-    decodeGuard.state.info_raw.bitdepth = 8;
-
-    unsigned char* rawPtr = nullptr;
-    unsigned srcW = 0;
-    unsigned srcH = 0;
-    const unsigned err = lodepng_decode(
-        &rawPtr,
-        &srcW,
-        &srcH,
-        &decodeGuard.state,
-        pngBytes.data(),
-        pngBytes.size()
-    );
-    std::unique_ptr<unsigned char, FreeDeleter> decodedBytes(rawPtr);
-
-    if (err != 0 || !decodedBytes || srcW == 0 || srcH == 0 || srcW > 4096 || srcH > 4096) {
-        return false;
-    }
-
-    if (decodeGuard.state.info_png.iccp_defined) {
-        lodepng_toSrgb(decodedBytes.get(), decodedBytes.get(), srcW, srcH, &decodeGuard.state);
-    }
-
-    outRgba.resize(static_cast<size_t>(targetSizePx) * targetSizePx);
-    const unsigned char* srcBuf = decodedBytes.get();
 
     // Fast path: 1:1 native tile resolution (e.g. 256x256 -> 256x256)
     if (srcW == targetSizePx && srcH == targetSizePx) {
-        if constexpr (std::endian::native == std::endian::little) {
-            std::memcpy(
-                outRgba.data(),
-                srcBuf,
-                static_cast<size_t>(targetSizePx) * targetSizePx * sizeof(uint32_t)
-            );
-        } else {
-            const size_t totalPx = static_cast<size_t>(targetSizePx) * targetSizePx;
-            for (size_t i = 0; i < totalPx; ++i) {
-                const size_t b = i * 4u;
-                outRgba[i] = (static_cast<uint32_t>(srcBuf[b + 3]) << 24u) |
-                             (static_cast<uint32_t>(srcBuf[b + 2]) << 16u) |
-                             (static_cast<uint32_t>(srcBuf[b + 1]) << 8u) |
-                             static_cast<uint32_t>(srcBuf[b + 0]);
-            }
-        }
+        outRgba = std::move(srcRgba);
         return true;
     }
+
+    outRgba.resize(static_cast<size_t>(targetSizePx) * targetSizePx);
 
     // Fast 2x2 box filter path when downscaling by exact 2x (e.g. 256x256 -> 128x128)
     if (srcW == targetSizePx * 2u && srcH == targetSizePx * 2u) {
         for (uint32_t dy = 0; dy < targetSizePx; ++dy) {
             const uint32_t sy0 = dy * 2u;
             const uint32_t sy1 = sy0 + 1u;
-            const unsigned char* row0 = srcBuf + (static_cast<size_t>(sy0) * srcW * 4u);
-            const unsigned char* row1 = srcBuf + (static_cast<size_t>(sy1) * srcW * 4u);
+            const uint32_t* row0 = srcRgba.data() + static_cast<size_t>(sy0) * srcW;
+            const uint32_t* row1 = srcRgba.data() + static_cast<size_t>(sy1) * srcW;
             uint32_t* dstRow = outRgba.data() + static_cast<size_t>(dy) * targetSizePx;
 
             for (uint32_t dx = 0; dx < targetSizePx; ++dx) {
-                const size_t sx0 = static_cast<size_t>(dx) * 8u;
-                const size_t sx1 = sx0 + 4u;
+                const uint32_t sx0 = dx * 2u;
+                const uint32_t sx1 = sx0 + 1u;
 
-                const uint32_t r = (static_cast<uint32_t>(row0[sx0 + 0]) + row0[sx1 + 0] +
-                                    row1[sx0 + 0] + row1[sx1 + 0] + 2u) >> 2u;
-                const uint32_t g = (static_cast<uint32_t>(row0[sx0 + 1]) + row0[sx1 + 1] +
-                                    row1[sx0 + 1] + row1[sx1 + 1] + 2u) >> 2u;
-                const uint32_t b = (static_cast<uint32_t>(row0[sx0 + 2]) + row0[sx1 + 2] +
-                                    row1[sx0 + 2] + row1[sx1 + 2] + 2u) >> 2u;
-                const uint32_t a = (static_cast<uint32_t>(row0[sx0 + 3]) + row0[sx1 + 3] +
-                                    row1[sx0 + 3] + row1[sx1 + 3] + 2u) >> 2u;
+                const uint32_t p00 = row0[sx0];
+                const uint32_t p10 = row0[sx1];
+                const uint32_t p01 = row1[sx0];
+                const uint32_t p11 = row1[sx1];
+
+                const uint32_t r = (((p00 >>  0u) & 0xFFu) + ((p10 >>  0u) & 0xFFu) +
+                                    ((p01 >>  0u) & 0xFFu) + ((p11 >>  0u) & 0xFFu) + 2u) >> 2u;
+                const uint32_t g = (((p00 >>  8u) & 0xFFu) + ((p10 >>  8u) & 0xFFu) +
+                                    ((p01 >>  8u) & 0xFFu) + ((p11 >>  8u) & 0xFFu) + 2u) >> 2u;
+                const uint32_t b = (((p00 >> 16u) & 0xFFu) + ((p10 >> 16u) & 0xFFu) +
+                                    ((p01 >> 16u) & 0xFFu) + ((p11 >> 16u) & 0xFFu) + 2u) >> 2u;
+                const uint32_t a = (((p00 >> 24u) & 0xFFu) + ((p10 >> 24u) & 0xFFu) +
+                                    ((p01 >> 24u) & 0xFFu) + ((p11 >> 24u) & 0xFFu) + 2u) >> 2u;
 
                 dstRow[dx] = (a << 24u) | (b << 16u) | (g << 8u) | r;
             }
@@ -154,8 +86,8 @@ bool DecodePngAndScaleToRgba(
         const float fy = std::clamp(srcYf - static_cast<float>(y0), 0.0f, 1.0f);
         const float invFy = 1.0f - fy;
 
-        const unsigned char* row0 = srcBuf + (static_cast<size_t>(y0) * srcW * 4u);
-        const unsigned char* row1 = srcBuf + (static_cast<size_t>(y1) * srcW * 4u);
+        const uint32_t* row0 = srcRgba.data() + static_cast<size_t>(y0) * srcW;
+        const uint32_t* row1 = srcRgba.data() + static_cast<size_t>(y1) * srcW;
         uint32_t* dstRow = outRgba.data() + static_cast<size_t>(dy) * targetSizePx;
 
         for (uint32_t dx = 0; dx < targetSizePx; ++dx) {
@@ -170,21 +102,23 @@ bool DecodePngAndScaleToRgba(
             const float w01 = invFx * fy;
             const float w11 = fx * fy;
 
-            const size_t idx0 = static_cast<size_t>(x0) * 4u;
-            const size_t idx1 = static_cast<size_t>(x1) * 4u;
+            const uint32_t p00 = row0[x0];
+            const uint32_t p10 = row0[x1];
+            const uint32_t p01 = row1[x0];
+            const uint32_t p11 = row1[x1];
 
-            const auto sampleChannel = [&](size_t ch) noexcept -> uint32_t {
-                const float val = w00 * static_cast<float>(row0[idx0 + ch]) +
-                                  w10 * static_cast<float>(row0[idx1 + ch]) +
-                                  w01 * static_cast<float>(row1[idx0 + ch]) +
-                                  w11 * static_cast<float>(row1[idx1 + ch]);
+            const auto sampleChannel = [&](uint32_t shift) noexcept -> uint32_t {
+                const float val = w00 * static_cast<float>((p00 >> shift) & 0xFFu) +
+                                  w10 * static_cast<float>((p10 >> shift) & 0xFFu) +
+                                  w01 * static_cast<float>((p01 >> shift) & 0xFFu) +
+                                  w11 * static_cast<float>((p11 >> shift) & 0xFFu);
                 return static_cast<uint32_t>(std::clamp(static_cast<int>(val + 0.5f), 0, 255));
             };
 
-            const uint32_t r = sampleChannel(0);
-            const uint32_t g = sampleChannel(1);
-            const uint32_t b = sampleChannel(2);
-            const uint32_t a = sampleChannel(3);
+            const uint32_t r = sampleChannel(0u);
+            const uint32_t g = sampleChannel(8u);
+            const uint32_t b = sampleChannel(16u);
+            const uint32_t a = sampleChannel(24u);
 
             dstRow[dx] = (a << 24u) | (b << 16u) | (g << 8u) | r;
         }

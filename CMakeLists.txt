@@ -131,9 +131,6 @@ if (GUIKIT_BUILD_SCENES)
     add_library(guikit::scenes ALIAS guikit_scenes)
 
     target_compile_features(guikit_scenes PUBLIC cxx_std_20)
-    target_include_directories(guikit_scenes PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/thorvg/src/loaders/png"
-    )
     target_link_libraries(guikit_scenes PUBLIC guikit::core)
     if (WIN32)
         target_link_libraries(guikit_scenes PUBLIC winhttp)
@@ -168,6 +165,11 @@ if (GUIKIT_BUILD_BACKEND_THORVG)
     add_library(guikit::backend_thorvg ALIAS guikit_backend_thorvg)
 
     target_compile_features(guikit_backend_thorvg PUBLIC cxx_std_20)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/thorvg/src/loaders/png/tvgLodePng.h")
+        target_include_directories(guikit_backend_thorvg PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/third_party/thorvg/src/loaders/png"
+        )
+    endif()
     target_link_libraries(guikit_backend_thorvg PUBLIC guikit::core thorvg)
     if (NOT EMSCRIPTEN)
         target_link_libraries(guikit_backend_thorvg PUBLIC Threads::Threads)
