@@ -12,10 +12,13 @@ enum class NavCategory : uint8_t {
     ElemHeading = 0,
     ElemButton,
     ElemSlider,
+    ElemKnob,
+    ElemSpinBox,
     ElemInputField,
     ElemSelect,
     ElemSwitch,
     ElemCheckbox,
+    ElemRadio,
     ElemImage,
 
     // 2. PANELS & NAV (Containers & Navigation)
@@ -262,7 +265,7 @@ struct DemoContext {
     float elemBorderWidth = 0.0f;
     guikit::UiVariant elemBorderVariant = guikit::UiVariant::Default;
     float elemBorderRadius = 8.0f;
-    std::array<size_t, 8> ctrlBgIdxByCat = {0, 1, 0, 1, 1, 0, 0, 0};
+    std::array<size_t, 11> ctrlBgIdxByCat = {0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0};
     float ctrlBorderWidth = 0.0f;
     guikit::UiVariant ctrlBorderVariant = guikit::UiVariant::Default;
     float ctrlBorderRadius = 6.0f;
@@ -322,7 +325,10 @@ struct DemoContext {
     }
 
     static constexpr bool IsCtrlBgDefaultEnabled(NavCategory cat) noexcept {
-        return cat == NavCategory::ElemButton || cat == NavCategory::ElemInputField || cat == NavCategory::ElemSelect;
+        return cat == NavCategory::ElemButton ||
+               cat == NavCategory::ElemSpinBox ||
+               cat == NavCategory::ElemInputField ||
+               cat == NavCategory::ElemSelect;
     }
 
     guikit::StateColor GetControlBackground(NavCategory cat) const noexcept {
@@ -687,8 +693,11 @@ struct DemoContext {
         const bool hasControlVariant = (
             cat == NavCategory::ElemButton ||
             cat == NavCategory::ElemSlider ||
+            cat == NavCategory::ElemKnob ||
+            cat == NavCategory::ElemSpinBox ||
             cat == NavCategory::ElemSwitch ||
-            cat == NavCategory::ElemCheckbox
+            cat == NavCategory::ElemCheckbox ||
+            cat == NavCategory::ElemRadio
         );
         if (hasControlVariant) {
             if (auto el = ui.Element({.label = "Control Color"})) {
@@ -722,7 +731,12 @@ struct DemoContext {
             }).changed) ui.InvalidateAll();
         }
 
-        const bool hasIntrinsicBorder = (cat == NavCategory::ElemButton || cat == NavCategory::ElemInputField || cat == NavCategory::ElemSelect);
+        const bool hasIntrinsicBorder = (
+            cat == NavCategory::ElemButton ||
+            cat == NavCategory::ElemSpinBox ||
+            cat == NavCategory::ElemInputField ||
+            cat == NavCategory::ElemSelect
+        );
         if (auto el = ui.Element({.label = "Control Border Width"})) {
             if (ui.Slider(ctrlBorderWidth, 0.0f, 4.0f, {
                 .valueFormat = (hasIntrinsicBorder && ctrlBorderWidth <= 0.0f)
@@ -734,6 +748,7 @@ struct DemoContext {
 
         const bool hasVisibleCtrlBorder =
             (ctrlBorderWidth > 0.0f) ||
+            (cat == NavCategory::ElemSpinBox) ||
             (cat == NavCategory::ElemInputField) ||
             (cat == NavCategory::ElemSelect) ||
             (cat == NavCategory::ElemButton && (btnVariant == guikit::UiVariant::Default || btnVariant == guikit::UiVariant::Secondary));
@@ -815,6 +830,14 @@ void RenderSliderInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSliderStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateSliderCode(const DemoContext& ctx);
 
+void RenderKnobInspector(guikit::Context& ui, DemoContext& ctx);
+void RenderKnobStage(guikit::Context& ui, DemoContext& ctx);
+std::string GenerateKnobCode(const DemoContext& ctx);
+
+void RenderSpinBoxInspector(guikit::Context& ui, DemoContext& ctx);
+void RenderSpinBoxStage(guikit::Context& ui, DemoContext& ctx);
+std::string GenerateSpinBoxCode(const DemoContext& ctx);
+
 void RenderInputInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderInputStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateInputCode(const DemoContext& ctx);
@@ -830,6 +853,10 @@ std::string GenerateSwitchCode(const DemoContext& ctx);
 void RenderCheckboxInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderCheckboxStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateCheckboxCode(const DemoContext& ctx);
+
+void RenderRadioInspector(guikit::Context& ui, DemoContext& ctx);
+void RenderRadioStage(guikit::Context& ui, DemoContext& ctx);
+std::string GenerateRadioCode(const DemoContext& ctx);
 
 // ============================================================================
 // 2. PANELS & NAV (Containers & Navigation)

@@ -52,12 +52,12 @@ void RenderDashboardScreen(guikit::Context& ui, DemoContext& ctx) {
                     }
                     if (auto c = grid1.Cell6()) {
                         if (auto el = ui.Element({.label = "Max Travel"})) {
-                            ui.InputField(s_state.maxTravel, {.suffix = "mm", .valueFormat = "%.1f"});
+                            ui.SpinBox(s_state.maxTravel, {.suffix = "mm", .valueFormat = "%.1f", .min = 0.0, .max = 500.0, .step = 1.0});
                         }
                     }
                     if (auto c = grid1.Cell6()) {
                         if (auto el = ui.Element({.label = "Max Velocity"})) {
-                            ui.InputField(s_state.maxVelocity, {.suffix = "mm/s", .valueFormat = "%.1f"});
+                            ui.SpinBox(s_state.maxVelocity, {.suffix = "mm/s", .valueFormat = "%.1f", .min = 0.0, .max = 200.0, .step = 0.5});
                         }
                     }
                     if (auto c = grid1.Cell12()) {
@@ -100,7 +100,7 @@ void RenderDashboardScreen(guikit::Context& ui, DemoContext& ctx) {
                     }
                     if (auto c = grid2.Cell6()) {
                         if (auto el = ui.Element({.label = "Ramp Duration"})) {
-                            ui.InputField(s_state.rampDown, {.suffix = "ms", .valueFormat = "%.0f"});
+                            ui.SpinBox(s_state.rampDown, {.suffix = "ms", .valueFormat = "%.0f", .min = 0.0, .max = 5000.0, .step = 10.0});
                         }
                     }
                 }
@@ -114,27 +114,27 @@ void RenderDashboardScreen(guikit::Context& ui, DemoContext& ctx) {
                 if (auto grid3 = ui.Grid(ctx.MakeGrid())) {
                     if (auto c = grid3.Cell6()) {
                         if (auto el = ui.Element({.label = "Force Drop Limit"})) {
-                            ui.InputField(s_state.forceLimit, {.suffix = "%", .valueFormat = "%.1f"});
+                            ui.SpinBox(s_state.forceLimit, {.suffix = "%", .valueFormat = "%.1f", .min = 0.0, .max = 100.0, .step = 1.0});
                         }
                     }
                     if (auto c = grid3.Cell6()) {
                         if (auto el = ui.Element({.label = "Yield Ratio"})) {
-                            ui.InputField(s_state.yieldRatio, {.suffix = "%", .valueFormat = "%.2f"});
+                            ui.SpinBox(s_state.yieldRatio, {.suffix = "%", .valueFormat = "%.2f", .min = 0.0, .max = 10.0, .step = 0.05});
                         }
                     }
                     if (auto c = grid3.Cell4()) {
                         if (auto el = ui.Element({.label = "P-Gain"})) {
-                            ui.InputField(s_state.pGain, {.valueFormat = "%.2f"});
+                            ui.SpinBox(s_state.pGain, {.valueFormat = "%.2f", .min = 0.0, .max = 20.0, .step = 0.05});
                         }
                     }
                     if (auto c = grid3.Cell4()) {
                         if (auto el = ui.Element({.label = "I-Gain"})) {
-                            ui.InputField(s_state.iGain, {.valueFormat = "%.3f"});
+                            ui.SpinBox(s_state.iGain, {.valueFormat = "%.3f", .min = 0.0, .max = 5.0, .step = 0.005});
                         }
                     }
                     if (auto c = grid3.Cell4()) {
                         if (auto el = ui.Element({.label = "D-Gain"})) {
-                            ui.InputField(s_state.dGain, {.valueFormat = "%.3f"});
+                            ui.SpinBox(s_state.dGain, {.valueFormat = "%.3f", .min = 0.0, .max = 5.0, .step = 0.001});
                         }
                     }
                     if (auto c = grid3.Cell12()) {

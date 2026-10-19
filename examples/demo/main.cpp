@@ -23,10 +23,13 @@ void DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
         case NavCategory::ElemHeading:       RenderHeadingInspector(ui, ctx); break;
         case NavCategory::ElemButton:        RenderButtonInspector(ui, ctx); break;
         case NavCategory::ElemSlider:        RenderSliderInspector(ui, ctx); break;
+        case NavCategory::ElemKnob:          RenderKnobInspector(ui, ctx); break;
+        case NavCategory::ElemSpinBox:       RenderSpinBoxInspector(ui, ctx); break;
         case NavCategory::ElemInputField:    RenderInputInspector(ui, ctx); break;
         case NavCategory::ElemSelect:        RenderSelectInspector(ui, ctx); break;
         case NavCategory::ElemSwitch:        RenderSwitchInspector(ui, ctx); break;
         case NavCategory::ElemCheckbox:      RenderCheckboxInspector(ui, ctx); break;
+        case NavCategory::ElemRadio:         RenderRadioInspector(ui, ctx); break;
         case NavCategory::ElemImage:         RenderImageInspector(ui, ctx); break;
 
         // 2. PANELS & NAV
@@ -66,10 +69,13 @@ void DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx
         case NavCategory::ElemHeading:       RenderHeadingStage(ui, ctx); break;
         case NavCategory::ElemButton:        RenderButtonStage(ui, ctx); break;
         case NavCategory::ElemSlider:        RenderSliderStage(ui, ctx); break;
+        case NavCategory::ElemKnob:          RenderKnobStage(ui, ctx); break;
+        case NavCategory::ElemSpinBox:       RenderSpinBoxStage(ui, ctx); break;
         case NavCategory::ElemInputField:    RenderInputStage(ui, ctx); break;
         case NavCategory::ElemSelect:        RenderSelectStage(ui, ctx); break;
         case NavCategory::ElemSwitch:        RenderSwitchStage(ui, ctx); break;
         case NavCategory::ElemCheckbox:      RenderCheckboxStage(ui, ctx); break;
+        case NavCategory::ElemRadio:         RenderRadioStage(ui, ctx); break;
         case NavCategory::ElemImage:         RenderImageStage(ui, ctx); break;
 
         // 2. PANELS & NAV
@@ -104,10 +110,13 @@ std::string DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
         case NavCategory::ElemHeading:       return GenerateHeadingCode(ctx);
         case NavCategory::ElemButton:        return GenerateButtonCode(ctx);
         case NavCategory::ElemSlider:        return GenerateSliderCode(ctx);
+        case NavCategory::ElemKnob:          return GenerateKnobCode(ctx);
+        case NavCategory::ElemSpinBox:       return GenerateSpinBoxCode(ctx);
         case NavCategory::ElemInputField:    return GenerateInputCode(ctx);
         case NavCategory::ElemSelect:        return GenerateSelectCode(ctx);
         case NavCategory::ElemSwitch:        return GenerateSwitchCode(ctx);
         case NavCategory::ElemCheckbox:      return GenerateCheckboxCode(ctx);
+        case NavCategory::ElemRadio:         return GenerateRadioCode(ctx);
         case NavCategory::ElemImage:         return GenerateImageCode(ctx);
 
         // 2. PANELS & NAV
@@ -613,10 +622,13 @@ int main(int argc, char* argv[]) {
                                 menu.Item(selectedCategory, NavCategory::ElemHeading,       {.text = "Heading",      .icon = guikit::Icon::Edit()});
                                 menu.Item(selectedCategory, NavCategory::ElemButton,        {.text = "Button",       .icon = guikit::Icon::Play()});
                                 menu.Item(selectedCategory, NavCategory::ElemSlider,        {.text = "Slider",       .icon = guikit::Icon::Settings()});
+                                menu.Item(selectedCategory, NavCategory::ElemKnob,          {.text = "Knob",         .icon = guikit::Icon::Refresh()});
+                                menu.Item(selectedCategory, NavCategory::ElemSpinBox,       {.text = "SpinBox",      .icon = guikit::Icon::Plus()});
                                 menu.Item(selectedCategory, NavCategory::ElemInputField,    {.text = "Input",        .icon = guikit::Icon::Edit()});
                                 menu.Item(selectedCategory, NavCategory::ElemSelect,        {.text = "Select",       .icon = guikit::Icon::Plus()});
                                 menu.Item(selectedCategory, NavCategory::ElemSwitch,        {.text = "Switch",       .icon = guikit::Icon::Refresh()});
                                 menu.Item(selectedCategory, NavCategory::ElemCheckbox,      {.text = "Checkbox",     .icon = guikit::Icon::Check()});
+                                menu.Item(selectedCategory, NavCategory::ElemRadio,         {.text = "Radio",        .icon = guikit::Icon::Check()});
                                 menu.Item(selectedCategory, NavCategory::ElemImage,         {.text = "Image",        .icon = guikit::Icon::Eye()});
 
                                 menu.Section("PANELS & NAV");
@@ -690,10 +702,13 @@ int main(int argc, char* argv[]) {
                                     case NavCategory::ElemHeading:    specificTitle = "HEADING"; break;
                                     case NavCategory::ElemButton:     specificTitle = "BUTTON"; break;
                                     case NavCategory::ElemSlider:     specificTitle = "SLIDER"; break;
+                                    case NavCategory::ElemKnob:       specificTitle = "KNOB"; break;
+                                    case NavCategory::ElemSpinBox:    specificTitle = "SPINBOX"; break;
                                     case NavCategory::ElemInputField: specificTitle = "INPUT FIELD"; break;
                                     case NavCategory::ElemSelect:     specificTitle = "SELECT"; break;
                                     case NavCategory::ElemSwitch:     specificTitle = "SWITCH"; break;
                                     case NavCategory::ElemCheckbox:   specificTitle = "CHECKBOX"; break;
+                                    case NavCategory::ElemRadio:      specificTitle = "RADIO"; break;
                                     case NavCategory::ElemImage:      specificTitle = "IMAGE"; break;
                                     default: break;
                                 }

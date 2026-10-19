@@ -15,13 +15,13 @@ namespace guikit {
 class Context;
 class ICanvas;
 
-/// Clean configuration options for InputField widget.
+/// Clean configuration options for text InputField widget.
 struct InputFieldOptions {
     UiText placeholder{};                          ///< Placeholder text when empty (e.g. "Enter value...")
     UiText tooltip{};                              ///< Optional floating tooltip shown on hover
     UiAffix prefix{};                              ///< Leading icon and/or symbol/text inside field on left (e.g. "$", Icon::Search(), {Icon::Search(), "https://"})
-    UiAffix suffix{};                              ///< Trailing unit/symbol/text and/or icon inside field on right (e.g. "%", "mm", {"MB/s", Icon::Check()})
-    UiText valueFormat{"%.2f"};                    ///< Format string for numeric values and/or candidate width variants
+    UiAffix suffix{};                              ///< Trailing symbol/text and/or icon inside field on right (e.g. ":443", {"UTF-8", Icon::Check()})
+    UiText valueFormat{};                          ///< Optional text styling and/or candidate width variants
     Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     std::optional<CursorBlinkMode> cursorMode{std::nullopt}; ///< Cursor blink override (inherits context config if nullopt)
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
@@ -30,13 +30,9 @@ struct InputFieldOptions {
     std::optional<float> minWidth{std::nullopt};   ///< Minimum input box width constraint in points
     StateColor background{StateColor::Surface()};  ///< Input box surface fill color (Surface/Default = on, None = off, or custom StateColor)
     Border border{};                               ///< Input box border stroke & corner radius configuration
-    std::optional<double> min{std::nullopt};       ///< Optional minimum numeric value constraint
-    std::optional<double> max{std::nullopt};       ///< Optional maximum numeric value constraint
-    std::optional<double> step{std::nullopt};      ///< Optional step increment for Up/Down keys, mouse wheel, and stepper buttons
     bool password{false};                          ///< Masks input characters with '*'
     bool passwordReveal{true};                     ///< Shows an interactive eye/eye-off toggle button when password is true
     bool clearable{false};                         ///< Shows an interactive clear ('X') button when non-empty and editable
-    bool stepButtons{false};                       ///< Shows interactive '-' and '+' stepper buttons inside numeric InputField
     bool disabled{false};                          ///< Interaction suppression
     bool readOnly{false};                          ///< Non-editable display mode
 };
@@ -56,29 +52,21 @@ struct InputFieldData {
     bool showRevealBtn{false};
     bool revealHovered{false};
     bool passwordRevealed{false};
-    bool showStepBtns{false};
-    bool stepMinusHovered{false};
-    bool stepPlusHovered{false};
-    bool stepMinusDisabled{false};
-    bool stepPlusDisabled{false};
 };
 
-/// Autonomous InputField widget logic (execution, measuring, and rendering).
+/// Autonomous text InputField widget logic (execution, measuring, and rendering).
 class InputField {
 public:
-    /// Primary immediate mode entry point for InputField with editable value pointers.
+    /// Primary immediate mode entry point for InputField with editable string pointer or display fallback.
     static Response Run(
         Context& ctx,
         std::string* stringValue,
-        float* floatValue,
-        double* doubleValue,
-        int* intValue,
         std::string_view displayFallback,
         const InputFieldOptions& opts = {},
         std::source_location loc = std::source_location::current()
     );
 
-    /// Measures intrinsic dimensions based on content, label, suffix, and placement.
+    /// Measures intrinsic dimensions based on content, prefix, suffix, and sizing mode.
     static Vec2 Measure(
         std::string_view displayText,
         const InputFieldOptions& opts,
@@ -95,7 +83,7 @@ public:
         float availableWidth = 0.0f
     );
 
-    /// Renders the input frame, label, prefix, suffix/unit, text/placeholder, selection highlight, and cursor.
+    /// Renders the input frame, prefix, suffix, text/placeholder, selection highlight, and cursor.
     static void Render(
         ICanvas& canvas,
         Rect bounds,
@@ -116,12 +104,7 @@ public:
         bool clearHovered = false,
         bool showRevealBtn = false,
         bool revealHovered = false,
-        bool passwordRevealed = false,
-        bool showStepBtns = false,
-        bool stepMinusHovered = false,
-        bool stepPlusHovered = false,
-        bool stepMinusDisabled = false,
-        bool stepPlusDisabled = false
+        bool passwordRevealed = false
     );
 };
 

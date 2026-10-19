@@ -452,8 +452,20 @@ Response Context::Checkbox(const bool& checked, CheckboxOptions opts, std::sourc
     return Run<guikit::Checkbox>(nullptr, checked, opts, loc);
 }
 
+Response Context::Radio(bool& value, RadioOptions opts, std::source_location loc) {
+    return Run<guikit::Radio>(&value, value, opts, loc);
+}
+
+Response Context::Radio(const bool& checked, RadioOptions opts, std::source_location loc) {
+    return Run<guikit::Radio>(nullptr, checked, opts, loc);
+}
+
+Response Context::InputField(std::string& value, InputFieldOptions opts, std::source_location loc) {
+    return Run<guikit::InputField>(&value, std::string_view{}, opts, loc);
+}
+
 Response Context::InputField(std::string_view value, InputFieldOptions opts, std::source_location loc) {
-    return Run<guikit::InputField>(nullptr, nullptr, nullptr, nullptr, value, opts, loc);
+    return Run<guikit::InputField>(nullptr, value, opts, loc);
 }
 
 Response Context::StepSlider(

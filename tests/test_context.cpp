@@ -994,9 +994,10 @@ void TestInputFieldWidget() {
                 .layout = ElementLayout::Stacked
             })) {
                 elSpeed = el.response;
-                rSpeed = ui.InputField(speedDrop, {
+                rSpeed = ui.SpinBox(speedDrop, {
                     .suffix = "%",
-                    .valueFormat = "%.0f"
+                    .valueFormat = "%.0f",
+                    .stepButtons = false
                 });
             }
 
@@ -1005,8 +1006,9 @@ void TestInputFieldWidget() {
                 .label = "Cycle Count",
                 .layout = ElementLayout::Stacked
             })) {
-                rCount = ui.InputField(count, {
-                    .suffix = "cycles"
+                rCount = ui.SpinBox(count, {
+                    .suffix = "cycles",
+                    .stepButtons = false
                 });
             }
 
@@ -1026,8 +1028,9 @@ void TestInputFieldWidget() {
                 .layout = ElementLayout::Stacked
             })) {
                 elOptInput = el.response;
-                rOptInput = ui.InputField(optInputVal, {
-                    .suffix = "mm"
+                rOptInput = ui.SpinBox(optInputVal, {
+                    .suffix = "mm",
+                    .stepButtons = false
                 });
             }
         }
@@ -1631,7 +1634,7 @@ void TestGridAndCardLayout() {
             }
             if (auto c3 = grid.Cell12()) {
                 if (auto el = ui.Element({.label = "Speed Target"})) {
-                    inp1Res = ui.InputField(speedVal);
+                    inp1Res = ui.SpinBox(speedVal);
                 }
             }
         }
@@ -3026,12 +3029,12 @@ void TestIndustrialDashboardNoBlackLines() {
                                         }
                                         if (auto c = grid1.Cell6()) {
                                             if (auto el = ui.Element({.label = "Max Travel"})) {
-                                                ui.InputField(maxTravel, {.suffix = "mm", .valueFormat = "%.1f"});
+                                                ui.SpinBox(maxTravel, {.suffix = "mm", .valueFormat = "%.1f"});
                                             }
                                         }
                                         if (auto c = grid1.Cell6()) {
                                             if (auto el = ui.Element({.label = "Max Velocity"})) {
-                                                ui.InputField(maxVelocity, {.suffix = "mm/s", .valueFormat = "%.1f"});
+                                                ui.SpinBox(maxVelocity, {.suffix = "mm/s", .valueFormat = "%.1f"});
                                             }
                                         }
                                         if (auto c = grid1.Cell12()) {
@@ -3072,7 +3075,7 @@ void TestIndustrialDashboardNoBlackLines() {
                                         }
                                         if (auto c = grid2.Cell6()) {
                                             if (auto el = ui.Element({.label = "Ramp Duration"})) {
-                                                ui.InputField(rampDown, {.suffix = "ms", .valueFormat = "%.0f"});
+                                                ui.SpinBox(rampDown, {.suffix = "ms", .valueFormat = "%.0f"});
                                             }
                                         }
                                     }
@@ -6461,7 +6464,7 @@ void TestBaseElementsAllInOneEnhancements() {
                     });
                 }
                 if (auto el = ui.Element({.label = "Count"})) {
-                    numRes = ui.InputField(numVal, {
+                    numRes = ui.SpinBox(numVal, {
                         .min = 0.0,
                         .max = 15.0,
                         .step = 5.0
@@ -7708,7 +7711,7 @@ void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
                 .label = "Channel Index",
                 .layout = ElementLayout::Stacked
             })) {
-                rSpin = ui.InputField(spinVal, {
+                rSpin = ui.SpinBox(spinVal, {
                     .min = 0.0,
                     .max = 20.0,
                     .step = 2.0,
@@ -7717,13 +7720,13 @@ void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
             }
 
             if (auto el = ui.Element({.label = "CW Mode"})) {
-                rRadio0 = ui.RadioButton(radioMode, 0);
+                rRadio0 = ui.Radio(radioMode, 0);
             }
             if (auto el = ui.Element({.label = "FM Mode"})) {
-                rRadio1 = ui.RadioButton(radioMode, 1);
+                rRadio1 = ui.Radio(radioMode, 1);
             }
             if (auto el = ui.Element({.label = "QAM Mode"})) {
-                rRadio2 = ui.RadioButton(radioMode, 2);
+                rRadio2 = ui.Radio(radioMode, 2);
             }
         }
     };
@@ -9630,6 +9633,178 @@ void TestTreeViewAndTreeItemWorkflow() {
     std::cout << "  [PASS] TestTreeViewAndTreeItemWorkflow completed\n";
 }
 
+void TestKnobSpinBoxAndRadioElements() {
+    const uint32_t width = 640;
+    const uint32_t height = 600;
+    std::vector<uint32_t> pixelBuffer(width * height, 0);
+    ThorCanvas canvas;
+    canvas.SetTarget(pixelBuffer.data(), width, height, width);
+
+    Context ui;
+    float knobGain = 50.0f;
+    float knobPan = 0.0f;
+    float spinFreq = 100.0f;
+    int radioGroup = 1;
+    bool singleRadio = false;
+
+    Response rKnobGain{};
+    Response rKnobPan{};
+    Response rSpinFreq{};
+    Response rRadio0{};
+    Response rRadio1{};
+    Response rSingleRadio{};
+
+    auto renderScene = [&]() {
+        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+            if (auto row = ui.Row({.gap = 16.0f})) {
+                if (auto el = ui.Element({.label = "Rotary Gain", .layout = ElementLayout::Top, .stretch = StretchMode::Compact})) {
+                    rKnobGain = ui.Knob(knobGain, 0.0f, 100.0f, {
+                        .valueFormat = "%.1f %%",
+                        .step = 5.0,
+                        .defaultValue = 25.0,
+                        .tickCount = 11,
+                        .showValue = true,
+                        .showTicks = true,
+                        .showArc = true,
+                        .bipolar = false,
+                        .valuePlacement = Placement::Bottom
+                    });
+                }
+                if (auto el = ui.Element({.label = "Stereo Pan", .layout = ElementLayout::Top, .stretch = StretchMode::Compact})) {
+                    rKnobPan = ui.Knob(knobPan, -50.0f, 50.0f, {
+                        .valueFormat = "%+.0f",
+                        .step = 2.0,
+                        .defaultValue = 0.0,
+                        .bipolar = true,
+                        .valuePlacement = Placement::Thumb
+                    });
+                }
+            }
+
+            if (auto el = ui.Element({.label = "Center Frequency"})) {
+                rSpinFreq = ui.SpinBox(spinFreq, {
+                    .suffix = "MHz",
+                    .valueFormat = "%.1f",
+                    .min = 0.0,
+                    .max = 500.0,
+                    .step = 10.0,
+                    .stepButtons = true,
+                    .dragScrub = true,
+                    .showFillBar = true
+                });
+            }
+
+            if (auto el = ui.Element({.label = "Mode A"})) {
+                rRadio0 = ui.Radio(radioGroup, 0);
+            }
+            if (auto el = ui.Element({.label = "Mode B"})) {
+                rRadio1 = ui.Radio(radioGroup, 1);
+            }
+            if (auto el = ui.Element({.label = "Single Radio"})) {
+                rSingleRadio = ui.Radio(singleRadio);
+            }
+        }
+    };
+
+    // Frame 1 & 2: Measure & Layout
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    CHECK(rKnobGain.rect.w >= 48.0f);
+    CHECK(rKnobGain.rect.h >= 60.0f);
+    CHECK(rKnobPan.rect.w >= 48.0f);
+    CHECK(rSpinFreq.rect.w >= 100.0f);
+    CHECK(rRadio0.rect.w >= 14.0f);
+    CHECK(rRadio1.rect.w >= 14.0f);
+
+    // 1. Test Knob vertical drag: press at center, drag upward by 45px -> value increases
+    const Vec2 knobCenter = {rKnobGain.rect.x + rKnobGain.rect.w * 0.5f, rKnobGain.rect.y + 24.0f};
+    ui.OnMouseMove(knobCenter);
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    ui.OnMouseMove({knobCenter.x, knobCenter.y - 45.0f});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    CHECK(rKnobGain.changed);
+    CHECK(knobGain > 60.0f);
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    // 2. Test Knob mouse wheel increment on bipolar knob
+    const Vec2 panCenter = {rKnobPan.rect.x + rKnobPan.rect.w * 0.5f, rKnobPan.rect.y + rKnobPan.rect.h * 0.5f};
+    ui.OnMouseMove(panCenter);
+    ui.OnMouseWheel(0.0f, 1.0f);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    CHECK(rKnobPan.changed);
+    CHECK(std::abs(knobPan - 2.0f) < 0.01f);
+
+    // 3. Test SpinBox horizontal drag-to-scrub on center value region
+    const Vec2 spinCenter = {rSpinFreq.rect.x + rSpinFreq.rect.w * 0.5f, rSpinFreq.rect.y + rSpinFreq.rect.h * 0.5f};
+    ui.OnMouseMove(spinCenter);
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    ui.OnMouseMove({spinCenter.x + 24.0f, spinCenter.y});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    CHECK(rSpinFreq.changed);
+    CHECK(spinFreq > 100.0f);
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    // 4. Test standalone Radio group and single Radio toggle
+    ui.OnMouseMove({rRadio0.rect.x + 8.0f, rRadio0.rect.y + 8.0f});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    CHECK(rRadio0.changed);
+    CHECK(radioGroup == 0);
+
+    ui.OnMouseMove({rSingleRadio.rect.x + 8.0f, rSingleRadio.rect.y + 8.0f});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    CHECK(rSingleRadio.changed);
+    CHECK(singleRadio == true);
+
+    std::cout << "  [PASS] TestKnobSpinBoxAndRadioElements completed\n";
+}
+
 int main() {
     std::cout << std::unitbuf;
     std::cerr << std::unitbuf;
@@ -9710,6 +9885,7 @@ int main() {
     TestAccordionWidgetWorkflow();
     TestSizeScopeChainingAndIsolation();
     TestTreeViewAndTreeItemWorkflow();
+    TestKnobSpinBoxAndRadioElements();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

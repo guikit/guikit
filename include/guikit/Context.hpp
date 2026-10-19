@@ -45,10 +45,13 @@
 #include "guikit/widgets/Heading.hpp"
 #include "guikit/widgets/Image.hpp"
 #include "guikit/widgets/InputField.hpp"
+#include "guikit/widgets/Knob.hpp"
 #include "guikit/widgets/Markdown.hpp"
+#include "guikit/widgets/Radio.hpp"
 #include "guikit/widgets/Select.hpp"
 #include "guikit/widgets/SidebarMenu.hpp"
 #include "guikit/widgets/Slider.hpp"
+#include "guikit/widgets/SpinBox.hpp"
 #include "guikit/widgets/Switch.hpp"
 #include "guikit/widgets/TabBar.hpp"
 #include "guikit/widgets/Text.hpp"
@@ -81,8 +84,7 @@ concept ContainerOpenable = requires(Context& ctx, Args&&... args) {
 };
 
 template <typename T>
-concept InputFieldEditable =
-    std::is_same_v<std::decay_t<T>, std::string> ||
+concept SpinBoxNumeric =
     std::is_same_v<std::decay_t<T>, float> ||
     std::is_same_v<std::decay_t<T>, double> ||
     std::is_same_v<std::decay_t<T>, int>;
@@ -625,7 +627,7 @@ public:
 
     Response Switch(const bool*, SwitchOptions = {}, std::source_location = std::source_location::current()) = delete;
 
-    // --- Checkbox & RadioButton Widgets ---
+    // --- Checkbox & Radio Widgets ---
     Response Checkbox(
         bool& value,
         CheckboxOptions opts = {},
@@ -642,16 +644,15 @@ public:
 
     template <typename T, typename U = T>
         requires (std::equality_comparable_with<T, U>)
-    Response RadioButton(
+    Response Radio(
         T& currentValue,
         const U& optionValue,
-        CheckboxOptions opts = {},
+        RadioOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
-        opts.radio = true;
         const bool isSelected = (currentValue == optionValue);
         bool state = isSelected;
-        Response r = Run<guikit::Checkbox>(&state, isSelected, opts, loc);
+        Response r = Run<guikit::Radio>(&state, isSelected, opts, loc);
         if (r.clicked && !isSelected) {
             currentValue = static_cast<T>(optionValue);
             r.changed = true;
@@ -661,39 +662,66 @@ public:
         return r;
     }
 
+    Response Radio(
+        bool& value,
+        RadioOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    Response Radio(
+        const bool& checked,
+        RadioOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    Response Radio(const bool*, RadioOptions = {}, std::source_location = std::source_location::current()) = delete;
+
+    template <typename T, typename U = T>
+        requires (std::equality_comparable_with<T, U>)
+    Response RadioButton(
+        T& currentValue,
+        const U& optionValue,
+        RadioOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Radio(currentValue, optionValue, std::move(opts), loc);
+    }
+
     Response RadioButton(
         bool& checked,
-        CheckboxOptions opts = {},
+        RadioOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
-        opts.radio = true;
-        return Checkbox(checked, opts, loc);
+        return Radio(checked, std::move(opts), loc);
     }
 
-
-    // --- InputField Widget ---
-    template <InputFieldEditable T>
+    // --- InputField & SpinBox Widgets ---
     Response InputField(
-        T& value,
+        std::string& value,
         InputFieldOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) {
-        if constexpr (std::is_same_v<std::decay_t<T>, std::string>) {
-            return Run<guikit::InputField>(&value, nullptr, nullptr, nullptr, std::string_view{}, opts, loc);
-        } else if constexpr (std::is_same_v<std::decay_t<T>, float>) {
-            return Run<guikit::InputField>(nullptr, &value, nullptr, nullptr, std::string_view{}, opts, loc);
-        } else if constexpr (std::is_same_v<std::decay_t<T>, double>) {
-            return Run<guikit::InputField>(nullptr, nullptr, &value, nullptr, std::string_view{}, opts, loc);
-        } else if constexpr (std::is_same_v<std::decay_t<T>, int>) {
-            return Run<guikit::InputField>(nullptr, nullptr, nullptr, &value, std::string_view{}, opts, loc);
-        }
-    }
+    );
 
     Response InputField(
         std::string_view value,
         InputFieldOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
+
+    template <SpinBoxNumeric T>
+    Response SpinBox(
+        T& value,
+        SpinBoxOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        if constexpr (std::is_same_v<std::decay_t<T>, float>) {
+            return Run<guikit::SpinBox>(&value, nullptr, nullptr, opts, loc);
+        } else if constexpr (std::is_same_v<std::decay_t<T>, double>) {
+            return Run<guikit::SpinBox>(nullptr, &value, nullptr, opts, loc);
+        } else if constexpr (std::is_same_v<std::decay_t<T>, int>) {
+            return Run<guikit::SpinBox>(nullptr, nullptr, &value, opts, loc);
+        }
+    }
 
     // --- TextArea Widget ---
     TextAreaResponse TextArea(
@@ -942,6 +970,29 @@ public:
         StepSliderOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
+
+    // --- Knob Widget ---
+    template <SliderNumeric T>
+    Response Knob(
+        T& value,
+        T min,
+        T max,
+        KnobOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        if constexpr (std::is_same_v<std::decay_t<T>, double>) {
+            return Run<guikit::Knob>(&value, nullptr, nullptr, min, max, opts, loc);
+        } else if constexpr (std::is_same_v<std::decay_t<T>, float>) {
+            return Run<guikit::Knob>(nullptr, &value, nullptr, static_cast<double>(min), static_cast<double>(max), opts, loc);
+        } else {
+            int64_t val64 = static_cast<int64_t>(value);
+            Response res = Run<guikit::Knob>(nullptr, nullptr, &val64, static_cast<double>(min), static_cast<double>(max), opts, loc);
+            if (res.changed) {
+                value = static_cast<T>(val64);
+            }
+            return res;
+        }
+    }
 
     // --- Toolbar Component ---
     [[nodiscard]] ToolbarScope Toolbar(
@@ -1827,10 +1878,37 @@ public:
 
     template <typename T, typename U = T>
         requires (std::equality_comparable_with<T, U>)
+    Response Radio(
+        T& currentValue,
+        const U& optionValue,
+        RadioOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Radio(currentValue, optionValue, std::move(opts), loc);
+    }
+
+    Response Radio(
+        bool& value,
+        RadioOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Radio(value, std::move(opts), loc);
+    }
+
+    Response Radio(
+        const bool& checked,
+        RadioOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Radio(checked, std::move(opts), loc);
+    }
+
+    template <typename T, typename U = T>
+        requires (std::equality_comparable_with<T, U>)
     Response RadioButton(
         T& currentValue,
         const U& optionValue,
-        CheckboxOptions opts = {},
+        RadioOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
         return m_ctx->RadioButton(currentValue, optionValue, std::move(opts), loc);
@@ -1838,15 +1916,14 @@ public:
 
     Response RadioButton(
         bool& checked,
-        CheckboxOptions opts = {},
+        RadioOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
         return m_ctx->RadioButton(checked, std::move(opts), loc);
     }
 
-    template <InputFieldEditable T>
     Response InputField(
-        T& value,
+        std::string& value,
         InputFieldOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
@@ -1859,6 +1936,15 @@ public:
         std::source_location loc = std::source_location::current()
     ) {
         return m_ctx->InputField(value, std::move(opts), loc);
+    }
+
+    template <SpinBoxNumeric T>
+    Response SpinBox(
+        T& value,
+        SpinBoxOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->SpinBox(value, std::move(opts), loc);
     }
 
     TextAreaResponse TextArea(
@@ -2042,6 +2128,17 @@ public:
         std::source_location loc = std::source_location::current()
     ) {
         return m_ctx->StepSlider(variant, std::move(opts), loc);
+    }
+
+    template <SliderNumeric T>
+    Response Knob(
+        T& value,
+        T min,
+        T max,
+        KnobOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Knob(value, min, max, std::move(opts), loc);
     }
 
 private:

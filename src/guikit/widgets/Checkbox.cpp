@@ -84,7 +84,6 @@ Response Checkbox::Run(
         optsCopy.color,
         static_cast<uint8_t>(optsCopy.align),
         optsCopy.indeterminate,
-        optsCopy.radio,
         static_cast<uint8_t>(optsCopy.stretch),
         optsCopy.width.value_or(0.0f),
         optsCopy.height.value_or(0.0f),
@@ -217,27 +216,11 @@ void Checkbox::Render(
         strokeWidth = std::max(strokeWidth, 2.0f);
     }
 
-    // Draw box or radio circle
-    const float outerRadius = opts.radio ? (boxRect.w * 0.5f) : m.cornerRadius;
-    canvas.DrawRoundRect(boxRect, outerRadius, boxFill, boxStroke, strokeWidth);
+    // Draw box
+    canvas.DrawRoundRect(boxRect, m.cornerRadius, boxFill, boxStroke, strokeWidth);
 
-    // Draw checkmark, radio inner dot, or indeterminate dash
-    if (opts.radio) {
-        if (checked) {
-            const float dotDia = std::max(4.0f, boxRect.w * 0.44f);
-            const Rect dotRect(
-                boxRect.x + (boxRect.w - dotDia) * 0.5f,
-                boxRect.y + (boxRect.h - dotDia) * 0.5f,
-                dotDia,
-                dotDia
-            );
-            canvas.DrawRoundRect(dotRect, dotDia * 0.5f, markColor);
-        } else if (opts.indeterminate) {
-            const Vec2 p1(boxRect.x + boxRect.w * 0.28f, boxRect.y + boxRect.h * 0.50f);
-            const Vec2 p2(boxRect.x + boxRect.w * 0.72f, boxRect.y + boxRect.h * 0.50f);
-            canvas.DrawLine(p1, p2, markColor, m.strokeWidth);
-        }
-    } else if (checked) {
+    // Draw checkmark or indeterminate dash
+    if (checked) {
         const Vec2 p1(boxRect.x + boxRect.w * 0.22f, boxRect.y + boxRect.h * 0.52f);
         const Vec2 p2(boxRect.x + boxRect.w * 0.42f, boxRect.y + boxRect.h * 0.74f);
         const Vec2 p3(boxRect.x + boxRect.w * 0.78f, boxRect.y + boxRect.h * 0.26f);

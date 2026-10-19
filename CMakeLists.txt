@@ -66,10 +66,13 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/widgets/Image.cpp
     src/guikit/widgets/ImageView.cpp
     src/guikit/widgets/InputField.cpp
+    src/guikit/widgets/Knob.cpp
     src/guikit/widgets/Markdown.cpp
+    src/guikit/widgets/Radio.cpp
     src/guikit/widgets/Select.cpp
     src/guikit/widgets/SidebarMenu.cpp
     src/guikit/widgets/Slider.cpp
+    src/guikit/widgets/SpinBox.cpp
     src/guikit/widgets/Switch.cpp
     src/guikit/widgets/TabBar.cpp
     src/guikit/widgets/Text.cpp
@@ -213,10 +216,13 @@ if (GUIKIT_BUILD_DEMO)
         examples/demo/elements/HeadingScreen.cpp
         examples/demo/elements/ButtonScreen.cpp
         examples/demo/elements/SliderScreen.cpp
+        examples/demo/elements/KnobScreen.cpp
+        examples/demo/elements/SpinBoxScreen.cpp
         examples/demo/elements/InputScreen.cpp
         examples/demo/elements/SelectScreen.cpp
         examples/demo/elements/SwitchScreen.cpp
         examples/demo/elements/CheckboxScreen.cpp
+        examples/demo/elements/RadioScreen.cpp
         examples/demo/elements/ImageScreen.cpp
         examples/demo/panels/CardScreen.cpp
         examples/demo/panels/TabBarScreen.cpp

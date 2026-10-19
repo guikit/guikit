@@ -85,9 +85,12 @@ void RenderFormControlsScreen(guikit::Context& ui, DemoContext& ctx) {
                     .description = "Automatic stop of testing on load drop",
                     .layout = activeLayout
                 })) {
-                    ui.InputField(s_state.speedDrop, {
+                    ui.SpinBox(s_state.speedDrop, {
                         .suffix = "%",
-                        .valueFormat = "%.0f"
+                        .valueFormat = "%.0f",
+                        .min = 0.0,
+                        .max = 100.0,
+                        .step = 1.0
                     });
                 }
             }

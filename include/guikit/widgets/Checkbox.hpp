@@ -25,7 +25,6 @@ struct CheckboxOptions {
     Border border{};                               ///< Control well border stroke & corner radius configuration
     bool disabled{false};                          ///< Interaction suppression
     bool indeterminate{false};                     ///< Tri-state / partial check (horizontal dash)
-    bool radio{false};                             ///< Renders circular radio button indicator instead of square checkbox
 };
 static_assert(sizeof(CheckboxOptions) <= 384, "CheckboxOptions must stay compact");
 
