@@ -12,6 +12,7 @@ namespace {
 
 struct ContextMenuPersistState {
     Vec2 anchorPos{0.0f, 0.0f};
+    Rect triggerRect{0.0f, 0.0f, 0.0f, 0.0f};
     int keyboardIndex{-1};
     bool wasExternalOpen{false};
 };
@@ -38,6 +39,11 @@ ContextMenuResponse ContextMenu::Run(
     }
 
     auto& state = ctx.GetOrCreateState<ContextMenuPersistState>(id);
+    if (triggerRect.w > 0.0f || triggerRect.h > 0.0f) {
+        state.triggerRect = triggerRect;
+    } else if (state.triggerRect.w > 0.0f || state.triggerRect.h > 0.0f) {
+        triggerRect = state.triggerRect;
+    }
     const bool wasPopupOpen = ctx.IsPopupOpen(id);
 
     ContextMenuResponse res{};

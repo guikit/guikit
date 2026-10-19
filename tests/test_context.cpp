@@ -2373,6 +2373,55 @@ void TestToolbarWidgetWorkflow() {
     CHECK(!btnSave.clicked);
     CHECK(!btnSave.hovered);
     ui.EndFrame(canvas);
+
+    // 5. Test Toolbar Toggle(), Item() radio group, and Floating / Vertical Toolbar styles
+    int activeTool = 0;
+    bool snapActive = false;
+    Rect item1Rect{};
+    Rect toggleRect{};
+    Id floatingTbId{};
+
+    auto renderAdvancedToolbar = [&]() {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        if (auto tb = ui.Toolbar({.style = ToolbarStyle::Floating})) {
+            floatingTbId = tb.response.id;
+            tb.Item(activeTool, 0, {.label = "Select"});
+            item1Rect = tb.Item(activeTool, 1, {.label = "Pan", .badge = "2"}).rect;
+            tb.Separator();
+            toggleRect = tb.Toggle(snapActive, {.label = "Snap"}).rect;
+        }
+        if (auto vtb = ui.Toolbar({.style = ToolbarStyle::Surface, .orientation = Orientation::Vertical})) {
+            vtb.Item(activeTool, 0, {.label = "V0", .square = true});
+            vtb.Separator();
+            vtb.Spacer();
+            vtb.Action({.label = "V1", .square = true});
+        }
+        ui.EndFrame(canvas);
+    };
+
+    renderAdvancedToolbar();
+    renderAdvancedToolbar();
+
+    // Floating toolbar shrinks to fit its items rather than stretching across all 800px
+    const Rect floatBounds = ui.GetPrevFrameBounds(floatingTbId);
+    CHECK(floatBounds.w > 80.0f);
+    CHECK(floatBounds.w < 400.0f);
+
+    // Click item1 ("Pan") -> activeTool changes to 1
+    ui.OnMouseMove(item1Rect.Center());
+    ui.OnMouseDown(1);
+    renderAdvancedToolbar();
+    ui.OnMouseUp(1);
+    renderAdvancedToolbar();
+    CHECK(activeTool == 1);
+
+    // Click toggle ("Snap") -> snapActive flips to true
+    ui.OnMouseMove(toggleRect.Center());
+    ui.OnMouseDown(1);
+    renderAdvancedToolbar();
+    ui.OnMouseUp(1);
+    renderAdvancedToolbar();
+    CHECK(snapActive == true);
 }
 
 void TestLabelVariantsStableSizing() {
@@ -10237,6 +10286,333 @@ void TestModalContextMenuAndToastWorkflow() {
     std::cout << "  [PASS] TestModalContextMenuAndToastWorkflow completed\n";
 }
 
+void TestActivityBarAndLinkedSidebarWorkflow() {
+    using namespace guikit;
+    std::cout << "[TEST] Running TestActivityBarAndLinkedSidebarWorkflow...\n";
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 900;
+    const uint32_t height = 600;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    int activeTool = 0;
+    SidebarMode sbMode = SidebarMode::Expanded;
+    bool actionClicked = false;
+    Id barId{};
+    Id sbId{};
+    Rect item0Rect{};
+    Rect item1Rect{};
+    Rect actionRect{};
+
+    auto renderWorkbench = [&]() {
+        actionClicked = false;
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        if (auto workspace = ui.Box({
+            .gap = 12.0f,
+            .widthMode = SizeMode::Stretch,
+            .heightMode = SizeMode::Stretch,
+            .padding = Padding::All(0.0f)
+        })) {
+            if (auto bar = ui.ActivityBar(sbMode, {
+                .side = SidebarSide::Left,
+                .style = ActivityBarStyle::Indicator
+            })) {
+                barId = bar.response.id;
+                item0Rect = bar.Item(activeTool, 0, {
+                    .icon = Icon::Folder(),
+                    .label = "Explorer"
+                }).rect;
+                item1Rect = bar.Item(activeTool, 1, {
+                    .icon = Icon::Search(),
+                    .label = "Search",
+                    .badge = "5"
+                }).rect;
+                bar.Spacer();
+                bar.Separator();
+                auto actRes = bar.Action({
+                    .icon = Icon::Settings(),
+                    .label = "Settings"
+                });
+                actionRect = actRes.rect;
+                if (actRes.clicked) {
+                    actionClicked = true;
+                }
+            }
+
+            if (auto sb = ui.Sidebar(sbMode, {
+                .side = SidebarSide::Left,
+                .width = 200.0f,
+                .resizable = true,
+                .allowCollapse = true
+            })) {
+                sbId = sb.response.id;
+                ui.Text("Sidebar Content");
+            }
+
+            if (auto mainCard = ui.Card({
+                .widthMode = SizeMode::Stretch,
+                .heightMode = SizeMode::Stretch
+            })) {
+                ui.Text("Main Stage");
+            }
+        }
+        ui.EndFrame(canvas);
+    };
+
+    renderWorkbench();
+    renderWorkbench();
+
+    // 1. Verify ActivityBar and Sidebar dock flush together (0px gap between ActivityBar and Sidebar),
+    //    and bottom Action is pushed to the bottom via Spacer
+    const Rect barRect = ui.GetPrevFrameBounds(barId);
+    const Rect sbRect = ui.GetPrevFrameBounds(sbId);
+    CHECK(barRect.w > 36.0f);
+    CHECK_NEAR(sbRect.x, barRect.Right(), 0.01f);
+    CHECK_NEAR(sbRect.w, 200.0f, 0.01f);
+    CHECK(item0Rect.w > 24.0f);
+    CHECK(item1Rect.w > 24.0f);
+    CHECK(actionRect.y > 400.0f); // Pushed to bottom of 600px rail by Spacer()
+
+    // 2. Click already-active item0 (Explorer) -> toggles linked Sidebar from Expanded to Collapsed!
+    ui.OnMouseMove(item0Rect.Center());
+    ui.OnMouseDown(1);
+    renderWorkbench();
+    ui.OnMouseUp(1);
+    renderWorkbench();
+    CHECK(activeTool == 0);
+    CHECK(sbMode == SidebarMode::Collapsed);
+
+    // 3. Click active item0 (Explorer) again while Sidebar is Collapsed -> expands Sidebar back to Expanded!
+    ui.OnMouseMove(item0Rect.Center());
+    ui.OnMouseDown(1);
+    renderWorkbench();
+    ui.OnMouseUp(1);
+    renderWorkbench();
+    CHECK(activeTool == 0);
+    CHECK(sbMode == SidebarMode::Expanded);
+
+    // 4. Collapse Sidebar again, then click inactive item1 (Search) -> switches activeTool to 1 AND auto-expands Sidebar!
+    sbMode = SidebarMode::Collapsed;
+    renderWorkbench();
+    ui.OnMouseMove(item1Rect.Center());
+    ui.OnMouseDown(1);
+    renderWorkbench();
+    ui.OnMouseUp(1);
+    renderWorkbench();
+    CHECK(activeTool == 1);
+    CHECK(sbMode == SidebarMode::Expanded);
+
+    // 5. Click stateless bottom Action button (Settings) -> triggers actionClicked without altering activeTool or sbMode
+    ui.OnMouseMove(actionRect.Center());
+    ui.OnMouseDown(1);
+    renderWorkbench();
+    ui.OnMouseUp(1);
+    renderWorkbench();
+    CHECK(actionClicked == true);
+    CHECK(activeTool == 1);
+    CHECK(sbMode == SidebarMode::Expanded);
+
+    std::cout << "  [PASS] TestActivityBarAndLinkedSidebarWorkflow completed\n";
+}
+
+void TestBottomPanelAndStatusBarWorkflow() {
+    using namespace guikit;
+    std::cout << "[TEST] Running TestBottomPanelAndStatusBarWorkflow...\n";
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 800;
+    const uint32_t height = 600;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    bool showPanel = true;
+    int activeTab = 0;
+    bool statusActionClicked = false;
+    Rect panelRect{};
+    Rect statusRect{};
+    Rect statusActionRect{};
+    float reportedPanelH = 0.0f;
+
+    auto renderWorkbench = [&]() {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        if (auto root = ui.Column({
+            .gap = 0.0f,
+            .widthMode = SizeMode::Stretch,
+            .heightMode = SizeMode::Stretch
+        })) {
+            if (auto mainBox = ui.Box({
+                .widthMode = SizeMode::Stretch,
+                .heightMode = SizeMode::Stretch
+            })) {
+                ui.Text("Main Canvas");
+            }
+
+            if (auto bp = ui.BottomPanel(showPanel, {
+                .height = 180.0f,
+                .minHeight = 90.0f,
+                .maxHeight = 320.0f,
+                .resizable = true,
+                .allowCollapse = true
+            })) {
+                reportedPanelH = bp.Height();
+                if (auto tb = ui.Toolbar({.style = ToolbarStyle::Header})) {
+                    tb.Item(activeTab, 0, {.label = "Output"});
+                    tb.Item(activeTab, 1, {.label = "Slice 2D"});
+                }
+                ui.Text("Bottom Panel Body");
+                panelRect = bp.response.rect;
+            } else {
+                reportedPanelH = bp.Height();
+                panelRect = bp.response.rect;
+            }
+
+            if (auto sb = ui.StatusBar({.style = StatusBarStyle::Surface})) {
+                sb.Item({.text = "CUDA Ready", .dotColor = Color(34, 197, 94, 255), .badge = "GPU"});
+                sb.Separator();
+                sb.Spacer();
+                Response act = sb.Action({
+                    .text = "Toggle Panel",
+                    .icon = Icon::ChevronUp(),
+                    .active = showPanel
+                });
+                statusActionRect = act.rect;
+                if (act.clicked) {
+                    statusActionClicked = true;
+                    showPanel = !showPanel;
+                }
+                statusRect = sb.response.rect;
+            }
+        }
+        ui.EndFrame(canvas);
+    };
+
+    // Frame 1 & 2: settle initial layout
+    renderWorkbench();
+    renderWorkbench();
+
+    CHECK(showPanel == true);
+    CHECK(std::abs(panelRect.h - 180.0f) < 1.0f);
+    CHECK(std::abs(reportedPanelH - 180.0f) < 1.0f);
+    CHECK(std::abs(statusRect.h - 26.0f) < 1.0f);
+    CHECK(std::abs(panelRect.Bottom() - statusRect.y) < 1.0f);
+
+    // 1. Drag top sash of BottomPanel UP by 60px -> height increases from 180px to 240px
+    const Vec2 sashPos(panelRect.Center().x, panelRect.y);
+    ui.OnMouseMove(sashPos);
+    ui.OnMouseDown(1);
+    renderWorkbench();
+    ui.OnMouseMove({sashPos.x, sashPos.y - 60.0f});
+    renderWorkbench();
+    ui.OnMouseUp(1);
+    renderWorkbench();
+
+    CHECK(showPanel == true);
+    CHECK(std::abs(panelRect.h - 240.0f) < 1.5f);
+    CHECK(std::abs(reportedPanelH - 240.0f) < 1.5f);
+
+    // 2. Drag top sash all the way DOWN past collapse threshold -> snaps to Collapsed (showPanel == false, height == 0)
+    const Vec2 sashPos2(panelRect.Center().x, panelRect.y);
+    ui.OnMouseMove(sashPos2);
+    ui.OnMouseDown(1);
+    renderWorkbench();
+    ui.OnMouseMove({sashPos2.x, sashPos2.y + 230.0f});
+    renderWorkbench();
+    ui.OnMouseUp(1);
+    renderWorkbench();
+
+    CHECK(showPanel == false);
+    CHECK(reportedPanelH == 0.0f);
+    CHECK(panelRect.w > 100.0f);
+    CHECK(!ui.GetActiveId().IsValid());
+
+    // 3. Drag the collapsed BottomPanel edge UP by 150px -> pulls panel open to 150px
+    const Vec2 collapsedEdgePos(panelRect.Center().x, panelRect.y - 2.0f);
+    ui.OnMouseMove(collapsedEdgePos);
+    ui.OnMouseDown(1);
+    renderWorkbench();
+    ui.OnMouseMove({collapsedEdgePos.x, collapsedEdgePos.y - 150.0f});
+    renderWorkbench();
+    ui.OnMouseUp(1);
+    renderWorkbench();
+    renderWorkbench();
+
+    CHECK(showPanel == true);
+    CHECK(std::abs(reportedPanelH - 150.0f) < 1.5f);
+    CHECK(std::abs(panelRect.h - 150.0f) < 1.5f);
+
+    // 4. Click StatusBar Action ("Toggle Panel") -> collapses and then re-opens BottomPanel
+    ui.OnMouseMove(statusActionRect.Center());
+    ui.OnMouseDown(1);
+    renderWorkbench();
+    ui.OnMouseUp(1);
+    renderWorkbench();
+    CHECK(statusActionClicked == true);
+    CHECK(showPanel == false);
+
+    ui.OnMouseMove(statusActionRect.Center());
+    ui.OnMouseDown(1);
+    renderWorkbench();
+    ui.OnMouseUp(1);
+    renderWorkbench();
+    CHECK(showPanel == true);
+
+    renderWorkbench();
+    CHECK(std::abs(reportedPanelH - 150.0f) < 1.5f);
+
+    renderWorkbench();
+    CHECK(std::abs(panelRect.h - 150.0f) < 1.5f);
+
+    // 5. Right-edge LeftClick ContextMenu stability when hovering inside popup (no X-position oscillation)
+    Rect btnRect{};
+    ContextMenuResponse menuResp{};
+    const ContextMenuItem items[] = {
+        { .label = "Action One", .shortcut = "Ctrl+1" },
+        { .label = "Action Two", .shortcut = "Ctrl+2" }
+    };
+    auto renderRightMenu = [&]() {
+        ui.BeginFrame({800.0f, 600.0f});
+        if (auto row = ui.Row({ .padding = 12.0f })) {
+            ui.Spacer();
+            auto btn = ui.Button({ .text = "Quick Actions" });
+            btnRect = btn.rect;
+            menuResp = ui.ContextMenu(btn, items, {
+                .trigger = ContextMenuTrigger::LeftClick,
+                .minWidth = 220.0f
+            });
+        }
+        ui.EndFrame(canvas);
+    };
+
+    renderRightMenu();
+    renderRightMenu();
+    CHECK(btnRect.w > 50.0f);
+    CHECK(btnRect.x > 600.0f);
+
+    // Click button to open menu
+    ui.OnMouseMove(btnRect.Center());
+    ui.OnMouseDown(1);
+    renderRightMenu();
+    ui.OnMouseUp(1);
+    CHECK(menuResp.isOpen == true);
+    const Rect openRectFrame1 = menuResp.rect;
+    CHECK(openRectFrame1.w >= 220.0f);
+
+    // Move mouse inside the opened popup and run several frames -> rect must remain identical
+    ui.OnMouseMove(openRectFrame1.Center());
+    for (int f = 0; f < 5; ++f) {
+        renderRightMenu();
+        CHECK(menuResp.isOpen == true);
+        CHECK(std::abs(menuResp.rect.x - openRectFrame1.x) < 0.5f);
+        CHECK(std::abs(menuResp.rect.y - openRectFrame1.y) < 0.5f);
+        CHECK(std::abs(btnRect.w) > 50.0f);
+    }
+
+    std::cout << "  [PASS] TestBottomPanelAndStatusBarWorkflow completed\n";
+}
+
 int main() {
     std::cout << std::unitbuf;
     std::cerr << std::unitbuf;
@@ -10321,6 +10697,8 @@ int main() {
     TestSegmentedAndColorPickerElements();
     TestSidebarResizableCompactAndCollapsedModes();
     TestModalContextMenuAndToastWorkflow();
+    TestActivityBarAndLinkedSidebarWorkflow();
+    TestBottomPanelAndStatusBarWorkflow();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

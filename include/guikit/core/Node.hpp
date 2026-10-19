@@ -71,6 +71,9 @@ enum class NodeType : uint16_t {
     TreeItem    = 111,  ///< Individual interactive tree item row container (hosts optional trailing controls)
     TreeBranch  = 112,  ///< Vertical column wrapper grouping a TreeItem row and its expanded child TreeBranches
     Modal       = 113,  ///< Out-of-flow floating modal dialog container with backdrop overlay
+    BottomPanel = 114,  ///< Dockable bottom panel container with top-edge resize sash and collapse
+    StatusBar   = 115,  ///< Compact single-line status bar container docked at the bottom edge
+    Toolbar     = 116,  ///< Horizontal or vertical command toolbar container
 
     // --- Leaf Widgets (200..999): Self-rendering elements ---
     Button      = 200,
@@ -160,7 +163,8 @@ struct Node {
     bool ctrlStretchH : 1 {false};
     uint16_t sidebarCompact : 1 {0};
     uint16_t sidebarCollapsed : 1 {0};
-    uint16_t payloadTypeId : 14 {0}; ///< Runtime type tag for safe Node::As<T>() casting
+    uint16_t sidebarFlush : 1 {0};
+    uint16_t payloadTypeId : 13 {0}; ///< Runtime type tag for safe Node::As<T>() casting
 
     float fixedWidth{0.0f};
     float fixedHeight{0.0f};
@@ -271,6 +275,9 @@ struct Node {
             case NodeType::TreeItem:    return "TreeItem";
             case NodeType::TreeBranch:  return "TreeBranch";
             case NodeType::Modal:       return "Modal";
+            case NodeType::BottomPanel: return "BottomPanel";
+            case NodeType::StatusBar:   return "StatusBar";
+            case NodeType::Toolbar:     return "Toolbar";
             case NodeType::Button:      return "Button";
             case NodeType::InputField:  return "InputField";
             case NodeType::Select:      return "Select";

@@ -26,6 +26,7 @@ enum class NavCategory : uint8_t {
     // 2. PANELS & NAV (Containers & Navigation)
     PanelCard,
     PanelTabBar,
+    PanelToolbar,
     PanelSidebar,
     PanelTreeView,
     PanelTable,
@@ -63,7 +64,8 @@ constexpr bool IsSandboxCategory(NavCategory cat) noexcept {
 }
 
 constexpr bool IsFullStageCategory(NavCategory cat) noexcept {
-    return cat == NavCategory::PanelSidebar ||
+    return cat == NavCategory::PanelToolbar ||
+           cat == NavCategory::PanelSidebar ||
            cat == NavCategory::PanelTreeView ||
            cat == NavCategory::PanelTable ||
            cat == NavCategory::PanelOverlays ||
@@ -903,6 +905,10 @@ std::string GenerateTableCode(const DemoContext& ctx);
 void RenderOverlaysInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateOverlaysCode(const DemoContext& ctx);
+
+void RenderToolbarInspector(guikit::Context& ui, DemoContext& ctx);
+void RenderToolbarStage(guikit::Context& ui, DemoContext& ctx);
+std::string GenerateToolbarCode(const DemoContext& ctx);
 
 // ============================================================================
 // 3. CONTENT & MEDIA (Documents, Editors, Graphics)

@@ -155,6 +155,11 @@ Response Context::Interact(Id id) {
     res.id = id;
     res.ctx = this;
 
+    auto it = m_prevFrameBounds.find(id);
+    if (it != m_prevFrameBounds.end()) {
+        res.rect = it->second;
+    }
+
     // Suppress interaction on background widgets occluded by a floating overlay popup
     if (m_openPopupId.IsValid() && id != m_openPopupId && m_openPopupRect.Contains(m_mousePos)) {
         return res;
@@ -165,9 +170,7 @@ Response Context::Interact(Id id) {
         return res;
     }
 
-    auto it = m_prevFrameBounds.find(id);
     if (it != m_prevFrameBounds.end()) {
-        res.rect = it->second;
         res.hovered = res.rect.Contains(m_mousePos);
     }
 
@@ -1702,7 +1705,7 @@ bool Context::IsCursorVisible(std::optional<CursorBlinkMode> modeOverride) const
 
 static Rect GetNodeContentClipRect(const Node* node, const UiTheme& theme) {
     if (!node) return Rect();
-    if (node->type == NodeType::ScrollArea || (node->type == NodeType::Sidebar && node->sidebarScrollable)) {
+    if (node->type == NodeType::ScrollArea || ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && node->sidebarScrollable)) {
         return ScrollArea::GetContentClipRect(node, theme);
     }
     if (node->type == NodeType::Scene) {
@@ -1737,11 +1740,13 @@ static void CollectBoundsRecursive(
     }
 
     if (node->id.IsValid()) {
-        if ((node->computedRect.w > 0.0f || node->type == NodeType::Sidebar) && node->computedRect.h > 0.0f) {
+        if ((node->computedRect.w > 0.0f || node->type == NodeType::Sidebar) &&
+            (node->computedRect.h > 0.0f || node->type == NodeType::BottomPanel)) {
             outUnclippedBounds[node->id] = node->computedRect;
         }
         const Rect clipped = node->computedRect.Intersect(parentClip);
-        if ((clipped.w > 0.0f || node->type == NodeType::Sidebar) && clipped.h > 0.0f) {
+        if ((clipped.w > 0.0f || node->type == NodeType::Sidebar) &&
+            (clipped.h > 0.0f || node->type == NodeType::BottomPanel)) {
             outBounds[node->id] = clipped;
         }
 
@@ -1771,7 +1776,7 @@ bool Context::UpdateScrollAreasRecursive(Node* node) {
     bool scrollChanged = false;
     const Vec2 prevScroll = node->scrollOffset;
 
-    if (node->type == NodeType::ScrollArea || (node->type == NodeType::Sidebar && node->sidebarScrollable)) {
+    if (node->type == NodeType::ScrollArea || ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && node->sidebarScrollable)) {
         ScrollArea::Update(*this, node);
         if (std::abs(node->scrollOffset.x - prevScroll.x) > 0.01f ||
             std::abs(node->scrollOffset.y - prevScroll.y) > 0.01f) {
@@ -1820,7 +1825,7 @@ void Context::ScrollToId(Id id) {
     if (!target) return;
 
     for (Node* p = target->parent; p != nullptr; p = p->parent) {
-        if ((p->type == NodeType::ScrollArea || (p->type == NodeType::Sidebar && p->sidebarScrollable)) && p->id.IsValid()) {
+        if ((p->type == NodeType::ScrollArea || ((p->type == NodeType::Sidebar || p->type == NodeType::BottomPanel) && p->sidebarScrollable)) && p->id.IsValid()) {
             ScrollArea::ScrollToChild(*this, p, target);
             break;
         } else if (p->type == NodeType::Carousel && p->id.IsValid()) {

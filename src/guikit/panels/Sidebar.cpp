@@ -91,7 +91,7 @@ SidebarScope Sidebar::Open(
     if (const Node* parent = ctx.GetCurrentContainer()) {
         const bool isRight = (opts.side == SidebarSide::Right);
         for (const Node* c = parent->firstChild; c != nullptr; c = c->nextSibling) {
-            if (c->type == NodeType::Sidebar && c->sidebarRight == isRight) {
+            if (c->type == NodeType::Sidebar && c->sidebarRight == isRight && !c->sidebarFlush) {
                 ++sameSideIndex;
             }
         }
@@ -137,6 +137,8 @@ SidebarScope Sidebar::Open(
     bool widthChanged = false;
     const bool prevSashHovered = state.sashHovered;
     const bool prevToggleHovered = state.toggleHovered;
+    const bool prevDraggingSash = state.draggingSash;
+    const bool prevTogglePressed = state.togglePressed;
     state.sashHovered = false;
     state.toggleHovered = false;
 
@@ -227,7 +229,16 @@ SidebarScope Sidebar::Open(
         if (state.togglePressed) {
             if (ctx.IsMouseDown()) {
                 res.pressed = true;
-                if (opts.resizable && std::abs(mouse.x - state.dragStartMouseX) > 4.0f * activeScale) {
+                const float openDeltaX = (opts.side == SidebarSide::Left)
+                    ? (mouse.x - state.dragStartMouseX)
+                    : (state.dragStartMouseX - mouse.x);
+                const float dragDeltaX = (state.dragStartMode == SidebarMode::Collapsed)
+                    ? openDeltaX
+                    : std::abs(mouse.x - state.dragStartMouseX);
+                const float dragThreshold = (state.dragStartMode == SidebarMode::Collapsed)
+                    ? (12.0f * activeScale)
+                    : (4.0f * activeScale);
+                if (opts.resizable && dragDeltaX > dragThreshold) {
                     state.draggingSash = true;
                     state.togglePressed = false;
                 }
@@ -237,7 +248,8 @@ SidebarScope Sidebar::Open(
                     ctx.SetActiveId(Id::Null());
                 }
                 const bool hitTarget = (canToggle && toggleRect.Contains(mouse)) ||
-                    (state.dragStartMode == SidebarMode::Collapsed && sashRect.Contains(mouse));
+                    (state.dragStartMode == SidebarMode::Collapsed &&
+                     (sashRect.Contains(mouse) || std::abs(mouse.x - state.dragStartMouseX) <= 12.0f * activeScale));
                 if (hitTarget) {
                     const SidebarMode nextM = NextSidebarMode(state.mode, opts.allowCompact, opts.allowCollapse);
                     if (nextM != state.mode) {
@@ -263,7 +275,9 @@ SidebarScope Sidebar::Open(
                 const float effMaxW = std::max(effMinW, opts.maxWidth);
                 const float compactW = 54.0f;
                 const float compactSnapW = (effMinW + compactW) * 0.5f;
-                const float collapseSnapW = opts.allowCompact ? 24.0f : (effMinW * 0.45f);
+                const float collapseSnapW = (state.dragStartMode == SidebarMode::Collapsed)
+                    ? 12.0f
+                    : (opts.allowCompact ? 24.0f : (effMinW * 0.45f));
 
                 if (opts.allowCollapse && rawLogicalW < collapseSnapW) {
                     if (state.mode != SidebarMode::Collapsed) {
@@ -306,6 +320,9 @@ SidebarScope Sidebar::Open(
     } else {
         state.draggingSash = false;
         state.togglePressed = false;
+        if (ctx.GetActiveId() == sashId) {
+            ctx.SetActiveId(Id::Null());
+        }
     }
 
     if (externalMode != nullptr) {
@@ -315,7 +332,12 @@ SidebarScope Sidebar::Open(
     if (modeChanged || widthChanged) {
         res.changed = true;
         ctx.InvalidateAll();
-    } else if (state.sashHovered != prevSashHovered || state.toggleHovered != prevToggleHovered || state.draggingSash || state.togglePressed) {
+    } else if (state.sashHovered != prevSashHovered ||
+               state.toggleHovered != prevToggleHovered ||
+               state.draggingSash != prevDraggingSash ||
+               state.togglePressed != prevTogglePressed ||
+               state.draggingSash ||
+               state.togglePressed) {
         ctx.InvalidateAll();
     }
 

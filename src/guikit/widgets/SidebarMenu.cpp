@@ -402,6 +402,24 @@ void SidebarMenu::RenderItem(
             const float fontSize = theme.ResolveFontSize(item.text, TextRole::LabelLarge, size);
             canvas.DrawTextBox(item.text.text.substr(0, 1), bounds, fontSize, textCol, 0.5f, 0.5f);
         }
+        if (!item.badge.empty()) {
+            const float badgeFont = std::max(9.0f, theme.ResolveFontSize(item.badge, TextRole::LabelSmall, size) - 1.5f);
+            const Vec2 badgeDims = canvas.MeasureText(item.badge.text, badgeFont);
+            const float badgeH = std::min(bounds.h * 0.48f, std::max(13.0f, badgeFont + 3.0f));
+            const float badgeW = std::min(bounds.w - 4.0f, std::max(badgeH, badgeDims.x + 6.0f));
+            const Rect badgeRect(
+                bounds.Right() - badgeW - 2.0f,
+                bounds.Bottom() - badgeH - 2.0f,
+                badgeW,
+                badgeH
+            );
+            Color badgeBg = disabled ? v.bg.WithAlphaF(0.45f) : v.bg;
+            Color badgeTextCol = item.badge.color.HasAny()
+                ? item.badge.color.Resolve(hovered, item.active, disabled, v.text)
+                : (disabled ? v.text.WithAlphaF(0.55f) : v.text);
+            canvas.DrawRoundRect(badgeRect, badgeH * 0.5f, badgeBg, pal.surface, 1.5f);
+            canvas.DrawTextBox(item.badge.text, badgeRect, badgeFont, badgeTextCol, 0.5f, 0.5f);
+        }
         canvas.PopClip();
         return;
     }

@@ -131,7 +131,21 @@ void Control::InheritElementSizing(
     bool inheritWidth
 ) noexcept {
     Node* parent = ctx.GetCurrentContainer();
-    if (!parent || parent->type != NodeType::Element) {
+    if (!parent) {
+        return;
+    }
+    if (parent->type == NodeType::Toolbar && parent->direction == FlexDirection::Row) {
+        ioStretch = StretchMode::Compact;
+        return;
+    }
+    if (parent->type == NodeType::TreeItem ||
+        (parent->parent && parent->parent->type == NodeType::TreeItem)) {
+        if (ioWidth.has_value()) {
+            ioStretch = StretchMode::Compact;
+        }
+        return;
+    }
+    if (parent->type != NodeType::Element) {
         return;
     }
     auto* ep = parent->As<ElementPayload>();

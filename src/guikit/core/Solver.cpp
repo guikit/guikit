@@ -42,8 +42,8 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             return;
         }
 
-        if (node->type == NodeType::ScrollArea || node->type == NodeType::Sidebar) {
-            if (node->type == NodeType::Sidebar && node->sidebarCollapsed) {
+        if (node->type == NodeType::ScrollArea || node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) {
+            if ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && node->sidebarCollapsed) {
                 node->scrollContentSize = {0.0f, 0.0f};
                 node->intrinsicSize = {0.0f, 0.0f};
                 return;
@@ -72,6 +72,12 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     w = std::max(w, node->minWidth);
                 }
                 node->intrinsicSize = {w, totalHeight};
+            } else if (node->type == NodeType::BottomPanel) {
+                float h = (node->heightMode == SizeMode::Fixed) ? node->fixedHeight : totalHeight;
+                if (node->minHeight > 0.0f) {
+                    h = std::max(h, node->minHeight);
+                }
+                node->intrinsicSize = {contentW, h};
             } else if (node->heightMode == SizeMode::Fit) {
                 node->intrinsicSize = {contentW, totalHeight};
             } else {
@@ -165,6 +171,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->type == NodeType::Modal) continue;
+                if (child->type == NodeType::BottomPanel && child->sidebarCollapsed) continue;
                 const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
                 const float ch = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight : child->intrinsicSize.y;
                 totalHeight += ch;
@@ -304,6 +311,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->isSpacer || child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
+                if (child->type == NodeType::BottomPanel && child->sidebarCollapsed) continue;
                 const float ch = ResolveNodeHeight(child, childAvailW, canvas, activeTheme);
                 sumH += ch;
                 ++activeChildren;
@@ -440,7 +448,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
         }
 
-        if (node->type == NodeType::ScrollArea || (node->type == NodeType::Sidebar && node->sidebarScrollable)) {
+        if (node->type == NodeType::ScrollArea || ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && node->sidebarScrollable)) {
             const ScrollbarMetrics& sm = activeTheme.GetScrollbar(node->uiSize);
             const float fullW = std::max(0.0f, node->computedRect.w - node->padding.Horizontal());
             const float fullH = std::max(0.0f, node->computedRect.h - node->padding.Vertical());
@@ -572,6 +580,8 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             const float availH = contentRect.h;
             uint32_t leftSidebarCount = 0;
             uint32_t rightSidebarCount = 0;
+            bool prevLeftFlush = false;
+            bool prevRightFlush = false;
 
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->type != NodeType::Sidebar) continue;
@@ -596,20 +606,22 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 }
 
                 if (!child->sidebarRight) {
-                    if (leftSidebarCount > 0) {
+                    if (leftSidebarCount > 0 && !prevLeftFlush) {
                         leftX += node->gap;
                     }
                     sbW = std::min(sbW, std::max(0.0f, rightX - leftX));
                     ArrangeNode(child, Rect(leftX, topY, sbW, availH), activeTheme, canvas);
                     leftX += sbW;
+                    prevLeftFlush = (child->sidebarFlush != 0);
                     ++leftSidebarCount;
                 } else {
-                    if (rightSidebarCount > 0) {
+                    if (rightSidebarCount > 0 && !prevRightFlush) {
                         rightX -= node->gap;
                     }
                     sbW = std::min(sbW, std::max(0.0f, rightX - leftX));
                     ArrangeNode(child, Rect(rightX - sbW, topY, sbW, availH), activeTheme, canvas);
                     rightX -= sbW;
+                    prevRightFlush = (child->sidebarFlush != 0);
                     ++rightSidebarCount;
                 }
             }
@@ -812,7 +824,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
     static void ArrangeColumn(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas) {
         const bool parentHasDefiniteHeight = (node->heightMode != SizeMode::Fit) &&
             (node->type != NodeType::ScrollArea) &&
-            !(node->type == NodeType::Sidebar && node->sidebarScrollable);
+            !((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && node->sidebarScrollable);
 
         uint32_t flowChildCount = 0;
         float baseSum = 0.0f;
@@ -821,6 +833,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
             if (child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
+            if (child->type == NodeType::BottomPanel && child->sidebarCollapsed) continue;
             ++flowChildCount;
             if (child->isSpacer || (child->heightMode == SizeMode::Stretch && parentHasDefiniteHeight)) {
                 totalFlexGrow += std::max(0.01f, child->flexGrow);
@@ -850,6 +863,13 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
             if (child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
+            if (child->type == NodeType::BottomPanel && child->sidebarCollapsed) {
+                const float edgeY = (currentY > contentRect.y)
+                    ? std::clamp(currentY - node->gap, contentRect.y, contentRect.Bottom())
+                    : contentRect.Bottom();
+                child->computedRect = Rect(contentRect.x, edgeY, contentRect.w, 0.0f);
+                continue;
+            }
             float childH = 0.0f;
             if (child->isSpacer || (child->heightMode == SizeMode::Stretch && parentHasDefiniteHeight)) {
                 childH = (totalFlexGrow > 0.0f)

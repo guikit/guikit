@@ -50,6 +50,8 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/layout/Grid.cpp
     src/guikit/layout/Spacer.cpp
     src/guikit/panels/Accordion.cpp
+    src/guikit/panels/ActivityBar.cpp
+    src/guikit/panels/BottomPanel.cpp
     src/guikit/panels/Box.cpp
     src/guikit/panels/Card.cpp
     src/guikit/panels/Carousel.cpp
@@ -58,6 +60,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/panels/ScrollArea.cpp
     src/guikit/panels/Scene.cpp
     src/guikit/panels/Sidebar.cpp
+    src/guikit/panels/StatusBar.cpp
     src/guikit/panels/Table.cpp
     src/guikit/panels/Toolbar.cpp
     src/guikit/panels/TreeView.cpp
@@ -233,6 +236,7 @@ if (GUIKIT_BUILD_DEMO)
         examples/demo/elements/ImageScreen.cpp
         examples/demo/panels/CardScreen.cpp
         examples/demo/panels/TabBarScreen.cpp
+        examples/demo/panels/ToolbarScreen.cpp
         examples/demo/panels/SidebarScreen.cpp
         examples/demo/panels/TreeViewScreen.cpp
         examples/demo/panels/TableScreen.cpp

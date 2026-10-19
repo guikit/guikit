@@ -30,6 +30,8 @@
 #include "guikit/layout/Grid.hpp"
 #include "guikit/layout/Spacer.hpp"
 #include "guikit/panels/Accordion.hpp"
+#include "guikit/panels/ActivityBar.hpp"
+#include "guikit/panels/BottomPanel.hpp"
 #include "guikit/panels/Box.hpp"
 #include "guikit/panels/Card.hpp"
 #include "guikit/panels/Carousel.hpp"
@@ -39,6 +41,7 @@
 #include "guikit/panels/ContextMenu.hpp"
 #include "guikit/panels/Modal.hpp"
 #include "guikit/panels/Sidebar.hpp"
+#include "guikit/panels/StatusBar.hpp"
 #include "guikit/panels/Table.hpp"
 #include "guikit/panels/Toolbar.hpp"
 #include "guikit/panels/TreeView.hpp"
@@ -375,6 +378,85 @@ public:
         SidebarOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
+
+    [[nodiscard]] ActivityBarScope ActivityBar(
+        ActivityBarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return guikit::ActivityBar::Open(*this, opts, loc);
+    }
+
+    [[nodiscard]] ActivityBarScope ActivityBar(
+        SidebarMode& linkedSidebarMode,
+        ActivityBarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return guikit::ActivityBar::Open(*this, linkedSidebarMode, std::move(opts), loc);
+    }
+
+    Response ActivityBar(
+        int& activeIndex,
+        std::span<const ActivityBarItem> items,
+        ActivityBarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return guikit::ActivityBar::Run(*this, activeIndex, items, opts, loc);
+    }
+
+    Response ActivityBar(
+        int& activeIndex,
+        std::initializer_list<ActivityBarItem> items,
+        ActivityBarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return ActivityBar(activeIndex, std::span<const ActivityBarItem>(items.begin(), items.size()), std::move(opts), loc);
+    }
+
+    [[nodiscard]] BottomPanelScope BottomPanel(
+        BottomPanelOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return guikit::BottomPanel::Open(*this, opts, loc);
+    }
+
+    [[nodiscard]] BottomPanelScope BottomPanel(
+        BottomPanelMode& mode,
+        BottomPanelOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return guikit::BottomPanel::Open(*this, &mode, opts, loc);
+    }
+
+    [[nodiscard]] BottomPanelScope BottomPanel(
+        BottomPanelMode* mode,
+        BottomPanelOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return guikit::BottomPanel::Open(*this, mode, opts, loc);
+    }
+
+    [[nodiscard]] BottomPanelScope BottomPanel(
+        bool& open,
+        BottomPanelOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return guikit::BottomPanel::Open(*this, &open, opts, loc);
+    }
+
+    [[nodiscard]] BottomPanelScope BottomPanel(
+        bool* open,
+        BottomPanelOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return guikit::BottomPanel::Open(*this, open, opts, loc);
+    }
+
+    [[nodiscard]] StatusBarScope StatusBar(
+        StatusBarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return guikit::StatusBar::Open(*this, opts, loc);
+    }
 
     [[nodiscard]] SceneScope Scene(
         SceneOptions opts = {},
@@ -1929,6 +2011,85 @@ public:
         std::source_location loc = std::source_location::current()
     ) {
         return TransferToContainer(m_ctx->Sidebar(open, std::move(opts), loc));
+    }
+
+    [[nodiscard]] ActivityBarScope ActivityBar(
+        ActivityBarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->ActivityBar(std::move(opts), loc));
+    }
+
+    [[nodiscard]] ActivityBarScope ActivityBar(
+        SidebarMode& linkedSidebarMode,
+        ActivityBarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->ActivityBar(linkedSidebarMode, std::move(opts), loc));
+    }
+
+    Response ActivityBar(
+        int& activeIndex,
+        std::span<const ActivityBarItem> items,
+        ActivityBarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ActivityBar(activeIndex, items, std::move(opts), loc);
+    }
+
+    Response ActivityBar(
+        int& activeIndex,
+        std::initializer_list<ActivityBarItem> items,
+        ActivityBarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ActivityBar(activeIndex, items, std::move(opts), loc);
+    }
+
+    [[nodiscard]] BottomPanelScope BottomPanel(
+        BottomPanelOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->BottomPanel(std::move(opts), loc));
+    }
+
+    [[nodiscard]] BottomPanelScope BottomPanel(
+        BottomPanelMode& mode,
+        BottomPanelOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->BottomPanel(mode, std::move(opts), loc));
+    }
+
+    [[nodiscard]] BottomPanelScope BottomPanel(
+        BottomPanelMode* mode,
+        BottomPanelOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->BottomPanel(mode, std::move(opts), loc));
+    }
+
+    [[nodiscard]] BottomPanelScope BottomPanel(
+        bool& open,
+        BottomPanelOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->BottomPanel(open, std::move(opts), loc));
+    }
+
+    [[nodiscard]] BottomPanelScope BottomPanel(
+        bool* open,
+        BottomPanelOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->BottomPanel(open, std::move(opts), loc));
+    }
+
+    [[nodiscard]] StatusBarScope StatusBar(
+        StatusBarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->StatusBar(std::move(opts), loc));
     }
 
     [[nodiscard]] SceneScope Scene(

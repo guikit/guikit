@@ -37,6 +37,7 @@ void DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
         // 2. PANELS & NAV
         case NavCategory::PanelCard:         RenderCardInspector(ui, ctx); break;
         case NavCategory::PanelTabBar:       RenderTabBarInspector(ui, ctx); break;
+        case NavCategory::PanelToolbar:      RenderToolbarInspector(ui, ctx); break;
         case NavCategory::PanelSidebar:      RenderSidebarInspector(ui, ctx); break;
         case NavCategory::PanelTreeView:     RenderTreeViewInspector(ui, ctx); break;
         case NavCategory::PanelTable:        RenderTableInspector(ui, ctx); break;
@@ -86,6 +87,7 @@ void DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx
         // 2. PANELS & NAV
         case NavCategory::PanelCard:         RenderCardStage(ui, ctx); break;
         case NavCategory::PanelTabBar:       RenderTabBarStage(ui, ctx); break;
+        case NavCategory::PanelToolbar:      RenderToolbarStage(ui, ctx); break;
         case NavCategory::PanelSidebar:      RenderSidebarStage(ui, ctx); break;
         case NavCategory::PanelTreeView:     RenderTreeViewStage(ui, ctx); break;
         case NavCategory::PanelTable:        RenderTableStage(ui, ctx); break;
@@ -130,6 +132,7 @@ std::string DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
         // 2. PANELS & NAV
         case NavCategory::PanelCard:         return GenerateCardCode(ctx);
         case NavCategory::PanelTabBar:       return GenerateTabBarCode(ctx);
+        case NavCategory::PanelToolbar:      return GenerateToolbarCode(ctx);
         case NavCategory::PanelSidebar:      return GenerateSidebarCode(ctx);
         case NavCategory::PanelTreeView:     return GenerateTreeViewCode(ctx);
         case NavCategory::PanelTable:        return GenerateTableCode(ctx);
@@ -546,28 +549,25 @@ int main(int argc, char* argv[]) {
                         ui.InvalidateAll();
                     }
 
-                    const bool inspectorVisible = (inspectorSidebarMode != guikit::SidebarMode::Collapsed);
-                    if (tb.ToolButton({
+                    bool inspectorVisible = (inspectorSidebarMode != guikit::SidebarMode::Collapsed);
+                    if (tb.Toggle(inspectorVisible, {
                         .label = "Inspector",
                         .tooltip = inspectorVisible
                             ? "Inspector Sidebar: Expanded (Click to Collapse)"
                             : "Inspector Sidebar: Collapsed (Click to Expand)",
                         .icon = guikit::Icon::Settings(),
-                        .variant = inspectorVisible ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                        .active = inspectorVisible
-                    })) {
+                        .variant = guikit::UiVariant::Primary
+                    }).changed) {
                         inspectorSidebarMode = inspectorVisible
-                            ? guikit::SidebarMode::Collapsed
-                            : guikit::SidebarMode::Expanded;
+                            ? guikit::SidebarMode::Expanded
+                            : guikit::SidebarMode::Collapsed;
                         ui.InvalidateAll();
                     }
 
                     tb.Separator();
 
-                    if (auto scaleBox = ui.Box({.fixedWidth = 92.0f})) {
-                        if (ui.Size(guikit::UiSize::Sm).Select(shellScaleIndex, scaleLabels).changed) {
-                            ui.InvalidateAll();
-                        }
+                    if (ui.Size(guikit::UiSize::Sm).Select(shellScaleIndex, scaleLabels, {.width = 92.0f}).changed) {
+                        ui.InvalidateAll();
                     }
 
                     if (ui.Size(guikit::UiSize::Md).Switch(demoCtx.shellLightMode, {
@@ -583,66 +583,69 @@ int main(int argc, char* argv[]) {
                         ui.InvalidateAll();
                     }
 
-                    const bool boundsActive = ui.IsDebugBounds();
-                    if (tb.ToolButton({
+                    bool boundsActive = ui.IsDebugBounds();
+                    if (tb.Toggle(boundsActive, {
                         .label = "Bounds",
                         .icon = boundsActive ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
-                        .variant = boundsActive ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
-                        .active = boundsActive
-                    })) {
-                        ui.SetDebugBounds(!boundsActive);
+                        .variant = guikit::UiVariant::Info
+                    }).changed) {
+                        ui.SetDebugBounds(boundsActive);
                     }
 
-                    const bool inspectActive = ui.IsInspectMode();
-                    if (tb.ToolButton({
+                    bool inspectActive = ui.IsInspectMode();
+                    if (tb.Toggle(inspectActive, {
                         .label = "Inspect",
                         .icon = guikit::Icon::Search(),
-                        .variant = inspectActive ? guikit::UiVariant::Warning : guikit::UiVariant::Ghost,
-                        .active = inspectActive
-                    })) {
-                        ui.SetInspectMode(!inspectActive);
+                        .variant = guikit::UiVariant::Warning
+                    }).changed) {
+                        ui.SetInspectMode(inspectActive);
                     }
 
                     tb.Separator();
 
-                    if (auto el = ui.Size(guikit::UiSize::Md).Element({
+                    if (tb.Toggle(gpuShadersEnabled, {
                         .label = "GPU",
+                        .tooltip = "Toggle OpenGL ES3 Shader Acceleration",
+                        .icon = guikit::Icon::Flash(),
+                        .variant = guikit::UiVariant::Success,
                         .disabled = !gpuShaderEngine.IsAvailable()
-                    })) {
-                        if (ui.Size(guikit::UiSize::Md).Switch(gpuShadersEnabled, {
-                            .disabled = !gpuShaderEngine.IsAvailable()
-                        }).changed) {
-                            canvas.SetGpuShadersEnabled(gpuShadersEnabled && gpuShaderEngine.IsAvailable());
+                    }).changed) {
+                        canvas.SetGpuShadersEnabled(gpuShadersEnabled && gpuShaderEngine.IsAvailable());
+                        ui.InvalidateAll();
+                        ui.RequestRepaint(2);
+                    }
+
+                    if (tb.Toggle(vsyncEnabled, {
+                        .label = "VSync",
+                        .tooltip = "Toggle Vertical Sync",
+                        .variant = guikit::UiVariant::Info
+                    }).changed) {
+                        SDL_SetRenderVSync(renderer, vsyncEnabled ? 1 : 0);
+                    }
+
+                    if (tb.Toggle(reactiveMode, {
+                        .label = "React",
+                        .tooltip = "Toggle Event-Driven Reactive Sleep Loop",
+                        .variant = guikit::UiVariant::Primary
+                    }).changed) {
+                        if (!reactiveMode) {
                             ui.InvalidateAll();
-                            ui.RequestRepaint(2);
-                        }
-                    }
-
-                    if (auto el = ui.Size(guikit::UiSize::Md).Element({.label = "VSync"})) {
-                        if (ui.Size(guikit::UiSize::Md).Switch(vsyncEnabled).changed) {
-                            SDL_SetRenderVSync(renderer, vsyncEnabled ? 1 : 0);
-                        }
-                    }
-
-                    if (auto el = ui.Size(guikit::UiSize::Md).Element({.label = "React"})) {
-                        if (ui.Size(guikit::UiSize::Md).Switch(reactiveMode).changed) {
-                            if (!reactiveMode) {
-                                ui.InvalidateAll();
-                            }
                         }
                     }
 
                     bool dirtyActive = ui.IsDirtyRectEnabled();
-                    if (auto el = ui.Size(guikit::UiSize::Md).Element({.label = "Dirty"})) {
-                        if (ui.Size(guikit::UiSize::Md).Switch(dirtyActive).changed) {
-                            ui.SetDirtyRectEnabled(dirtyActive);
-                            if (!dirtyActive) {
-                                ui.InvalidateAll();
-                            }
+                    if (tb.Toggle(dirtyActive, {
+                        .label = "Dirty",
+                        .tooltip = "Toggle Disjoint Dirty-Rect Partial Rasterization",
+                        .variant = guikit::UiVariant::Success
+                    }).changed) {
+                        ui.SetDirtyRectEnabled(dirtyActive);
+                        if (!dirtyActive) {
+                            ui.InvalidateAll();
                         }
                     }
 
-                    if (tb.ToolButton({
+                    if (tb.Action({
                         .label = {heartbeatLabels[heartbeatIndex], heartbeatLabels},
                         .icon = guikit::Icon::Refresh(),
                         .disabled = !reactiveMode
@@ -688,6 +691,7 @@ int main(int argc, char* argv[]) {
                             menu.Section("PANELS & NAV");
                             menu.Item(selectedCategory, NavCategory::PanelCard,         {.text = "Card",         .icon = guikit::Icon::Copy()});
                             menu.Item(selectedCategory, NavCategory::PanelTabBar,       {.text = "TabBar",       .icon = guikit::Icon::Folder()});
+                            menu.Item(selectedCategory, NavCategory::PanelToolbar,      {.text = "Toolbar",      .icon = guikit::Icon::Settings()});
                             menu.Item(selectedCategory, NavCategory::PanelSidebar,      {.text = "Sidebar",      .icon = guikit::Icon::Folder()});
                             menu.Item(selectedCategory, NavCategory::PanelTreeView,     {.text = "TreeView",     .icon = guikit::Icon::Folder()});
                             menu.Item(selectedCategory, NavCategory::PanelTable,        {.text = "Table / Grid", .icon = guikit::Icon::Copy(),   .badge = "100k"});
@@ -809,10 +813,8 @@ int main(int argc, char* argv[]) {
                                 ui.Text("PREVIEW", {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Muted});
                                 previewTb.Separator();
 
-                                if (auto pScaleBox = ui.Box({.fixedWidth = 92.0f})) {
-                                    if (ui.Size(guikit::UiSize::Sm).Select(previewScaleIndex, scaleLabels).changed) {
-                                        ui.InvalidateAll();
-                                    }
+                                if (ui.Size(guikit::UiSize::Sm).Select(previewScaleIndex, scaleLabels, {.width = 92.0f}).changed) {
+                                    ui.InvalidateAll();
                                 }
 
                                 if (ui.Size(guikit::UiSize::Md).Switch(demoCtx.previewLightMode, {
@@ -831,35 +833,24 @@ int main(int argc, char* argv[]) {
                                     ui.InvalidateAll();
                                 }
 
-                                if (previewTb.ToolButton({
+                                previewTb.Toggle(demoCtx.previewBounds, {
                                     .label = "Bounds",
                                     .icon = demoCtx.previewBounds ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
-                                    .variant = demoCtx.previewBounds ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
-                                    .active = demoCtx.previewBounds
-                                })) {
-                                    demoCtx.previewBounds = !demoCtx.previewBounds;
-                                    ui.InvalidateAll();
-                                }
+                                    .variant = guikit::UiVariant::Info
+                                });
 
-                                if (previewTb.ToolButton({
+                                previewTb.Toggle(demoCtx.previewInspect, {
                                     .label = "Inspect",
                                     .icon = guikit::Icon::Search(),
-                                    .variant = demoCtx.previewInspect ? guikit::UiVariant::Warning : guikit::UiVariant::Ghost,
-                                    .active = demoCtx.previewInspect
-                                })) {
-                                    demoCtx.previewInspect = !demoCtx.previewInspect;
-                                    ui.InvalidateAll();
-                                }
+                                    .variant = guikit::UiVariant::Warning
+                                });
 
                                 if (IsSandboxCategory(selectedCategory)) {
-                                    if (previewTb.ToolButton({
+                                    if (previewTb.Toggle(demoCtx.previewShowCode, {
                                         .label = "Code",
                                         .icon = demoCtx.previewShowCode ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
-                                        .variant = demoCtx.previewShowCode ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                                        .active = demoCtx.previewShowCode
-                                    })) {
-                                        demoCtx.previewShowCode = !demoCtx.previewShowCode;
-                                        ui.InvalidateAll();
+                                        .variant = guikit::UiVariant::Primary
+                                    }).changed) {
                                         ui.RequestRepaint(3);
                                     }
                                 }
@@ -897,26 +888,46 @@ int main(int argc, char* argv[]) {
                                     }
                                 }
 
-                                if (demoCtx.previewShowCode) {
-                                    if (auto codeCard = ui.Card({
-                                        .gap = 8.0f,
-                                        .padding = guikit::Padding::All(12.0f),
-                                        .borderRadius = 8.0f,
-                                        .heightMode = guikit::SizeMode::Stretch,
-                                        .theme = &demoCtx.shellTheme
+                                if (auto codePanel = ui.BottomPanel(demoCtx.previewShowCode, {
+                                    .height = 240.0f,
+                                    .minHeight = 110.0f,
+                                    .maxHeight = 520.0f,
+                                    .resizable = true,
+                                    .allowCollapse = true,
+                                    .borderRadius = 8.0f,
+                                    .theme = &demoCtx.shellTheme
+                                })) {
+                                    if (auto codeTb = ui.Size(guikit::UiSize::Sm).Toolbar({
+                                        .style = guikit::ToolbarStyle::Header
                                     })) {
-                                        std::string snippet = DispatchCodeGenerator(selectedCategory, demoCtx);
-                                        ui.TextArea(snippet, {
-                                            .autoHeight = false,
-                                            .readOnly = true,
-                                            .showLineNumbers = true,
-                                            .showCopyButton = true,
-                                            .monospace = true,
-                                            .allowZoom = true,
-                                            .syntax = guikit::SyntaxConfig::Cpp(),
-                                            .heightMode = guikit::SizeMode::Stretch
+                                        ui.Text("GENERATED C++20 CODE", {
+                                            .role = guikit::TextRole::LabelSmall,
+                                            .variant = guikit::UiVariant::Secondary
                                         });
+                                        codeTb.Spacer();
+                                        if (codeTb.Action({
+                                            .label = "Close",
+                                            .tooltip = "Close Code Panel",
+                                            .icon = guikit::Icon::Close(),
+                                            .square = true
+                                        }).clicked) {
+                                            demoCtx.previewShowCode = false;
+                                            ui.InvalidateAll();
+                                        }
                                     }
+
+                                    std::string snippet = DispatchCodeGenerator(selectedCategory, demoCtx);
+                                    ui.TextArea(snippet, {
+                                        .autoHeight = false,
+                                        .readOnly = true,
+                                        .showLineNumbers = true,
+                                        .showCopyButton = true,
+                                        .monospace = true,
+                                        .allowZoom = true,
+                                        .syntax = guikit::SyntaxConfig::Cpp(),
+                                        .heightMode = guikit::SizeMode::Stretch,
+                                        .borderRadius = 0.0f
+                                    });
                                 }
                             } else {
                                 // ASSEMBLY MODE: Real-World Screens & Compositions
@@ -943,20 +954,53 @@ int main(int argc, char* argv[]) {
                     }
                 }
 
-                // Sticky Footer Bar
-                if (auto footer = ui.Row({.gap = 8.0f, .align = guikit::Alignment::Center})) {
-                    ui.Text(metrics.GetStatusString(), {.role = guikit::TextRole::LabelMedium, .variant = guikit::UiVariant::Muted});
+                // Application StatusBar
+                if (auto sb = ui.StatusBar({.borderRadius = 6.0f})) {
                     const bool isGpuScene = (selectedCategory == NavCategory::SceneSonarView || selectedCategory == NavCategory::SceneSignalView);
                     if (gpuShaderEngine.IsAvailable()) {
-                        ui.Text(
-                            isGpuScene ? "|  GPU Shaders: GLSL Underlay Active" : "|  GPU Shaders: GLSL Ready",
-                            {.role = guikit::TextRole::LabelMedium, .variant = isGpuScene ? guikit::UiVariant::Success : guikit::UiVariant::Info}
-                        );
+                        sb.Item({
+                            .text = isGpuScene ? "GPU Shaders: GLSL Underlay Active" : "GPU Shaders: GLSL Ready",
+                            .dotColor = isGpuScene
+                                ? demoCtx.shellTheme.GetVariant(guikit::UiVariant::Success).bg
+                                : demoCtx.shellTheme.GetVariant(guikit::UiVariant::Info).bg,
+                            .variant = isGpuScene ? guikit::UiVariant::Success : guikit::UiVariant::Info,
+                            .badge = gpuShadersEnabled ? "GLSL" : "OFF"
+                        });
                     } else {
-                        ui.Text("|  GPU Shaders: CPU Fallback", {.role = guikit::TextRole::LabelMedium, .variant = guikit::UiVariant::Warning});
+                        sb.Item({
+                            .text = "GPU Shaders: CPU Fallback",
+                            .dotColor = demoCtx.shellTheme.GetVariant(guikit::UiVariant::Warning).bg,
+                            .variant = guikit::UiVariant::Warning
+                        });
                     }
-                    ui.Spacer();
-                    if (ui.Button({.text = "Exit", .icon = guikit::Icon::Close(), .color = guikit::StateColor::Ghost()})) {
+
+                    sb.Separator();
+                    sb.Item({
+                        .text = metrics.GetStatusString(),
+                        .variant = guikit::UiVariant::Secondary
+                    });
+
+                    sb.Spacer();
+
+                    if (IsSandboxCategory(selectedCategory)) {
+                        if (sb.Action({
+                            .text = "C++ Code",
+                            .icon = demoCtx.previewShowCode ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
+                            .tooltip = "Toggle BottomPanel C++20 Code Generator",
+                            .active = demoCtx.previewShowCode
+                        }).clicked) {
+                            demoCtx.previewShowCode = !demoCtx.previewShowCode;
+                            ui.InvalidateAll();
+                        }
+                        sb.Separator();
+                    }
+
+                    if (sb.Action({
+                        .text = "Exit",
+                        .icon = guikit::Icon::Close(),
+                        .variant = guikit::UiVariant::Danger,
+                        .tooltip = "Quit Application"
+                    }).clicked) {
                         running = false;
                     }
                 }
