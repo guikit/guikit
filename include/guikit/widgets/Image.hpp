@@ -25,7 +25,7 @@ struct ImageOptions {
     Align alignX{Align::Center};                        ///< Horizontal alignment of fitted image inside control box
     Align alignY{Align::Center};                        ///< Vertical alignment of fitted image inside control box
     StretchMode stretch{StretchMode::Compact};          ///< Compact (natural/explicit size), Space, or Fill
-    std::optional<float> width{std::nullopt};           ///< Explicit width in px (Compact/Space) or % 0..100 (Fill)
+    std::optional<float> width{std::nullopt};           ///< Explicit width in px (Compact/Space) or ratio 0.0..1.0 (Fill)
     std::optional<float> height{std::nullopt};          ///< Explicit height in px (nullopt = auto from aspect ratio)
     std::optional<float> maxHeight{std::nullopt};       ///< Optional maximum height cap in px
     SizeMode heightMode{SizeMode::Fit};                 ///< Fit (auto/fixed) or Stretch (expand to fill parent height)

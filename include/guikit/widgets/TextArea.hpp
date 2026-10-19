@@ -162,7 +162,7 @@ struct TextAreaOptions {
     InlineOrder inlineOrder{InlineOrder::LabelFirst};   ///< Horizontal ordering when layout == ElementLayout::Inline
     Align align{Align::Start};                          ///< Horizontal alignment of external label and description
     StretchMode stretch{StretchMode::Fill};             ///< Horizontal sizing behavior (Compact, Space, Fill)
-    std::optional<float> width{std::nullopt};           ///< Explicit width (dp in Compact/Space, 0..100% in Fill)
+    std::optional<float> width{std::nullopt};           ///< Explicit width (dp in Compact/Space, ratio 0.0..1.0 in Fill)
     SizeMode heightMode{SizeMode::Fit};                 ///< Vertical sizing behavior in layout (Fit or Stretch)
     std::optional<float> borderRadius{std::nullopt};    ///< Optional corner radius override
     std::optional<float> scale{std::nullopt};           ///< Optional local UI scale factor override

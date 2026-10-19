@@ -63,7 +63,7 @@ struct TreeViewOptions {
     Id* selectedId{nullptr};                                        ///< Optional bound Id of the selected item
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};             ///< Scrollbar visibility policy
     StretchMode stretch{StretchMode::Fill};                         ///< Horizontal sizing mode
-    std::optional<float> width{std::nullopt};                       ///< Optional explicit width (px in Compact/Space, % in Fill)
+    std::optional<float> width{std::nullopt};                       ///< Optional explicit width (px in Compact/Space, ratio 0.0..1.0 in Fill)
     std::optional<float> height{std::nullopt};                      ///< Optional explicit height in points
     StateColor background{};                                        ///< Panel background color (Default = surface, None = transparent)
     Border border{.width = 1.0f};                                   ///< Outer frame border stroke & corner radius

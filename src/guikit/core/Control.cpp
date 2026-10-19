@@ -278,7 +278,7 @@ void Control::SetupNode(
     node->align = (standaloneAlign == Align::End)
         ? Alignment::End
         : ((standaloneAlign == Align::Center) ? Alignment::Center : Alignment::Start);
-    node->fixedWidth = (stretch == StretchMode::Fill) ? spec.width.value_or(100.0f) : -1.0f;
+    node->fixedWidth = (stretch == StretchMode::Fill) ? spec.width.value_or(1.0f) : -1.0f;
     node->arrangeFn = &Control::ArrangeStandaloneNode;
     ctx.AdaptChildToContainer(node);
 }
@@ -311,17 +311,17 @@ void Control::ArrangeStandaloneNode(
         ? 1.0f
         : ((node->align == Alignment::Center) ? 0.5f : 0.0f);
 
-    if (!node->ctrlStretchable && isFill && node->fixedWidth < 100.0f) {
-        const float pct = std::clamp(node->fixedWidth, 0.0f, 100.0f);
-        const float effW = bounds.w * (pct * 0.01f);
+    if (!node->ctrlStretchable && isFill && node->fixedWidth < 1.0f) {
+        const float ratio = std::clamp(node->fixedWidth, 0.0f, 1.0f);
+        const float effW = bounds.w * ratio;
         bounds.x += (bounds.w - effW) * alignFactor;
         bounds.w = effW;
     }
 
     float ctrlW = std::min(bounds.w, intrinsic.x);
     if (node->ctrlStretchable && isFill) {
-        const float pct = std::clamp(node->fixedWidth, 0.0f, 100.0f);
-        ctrlW = bounds.w * (pct * 0.01f);
+        const float ratio = std::clamp(node->fixedWidth, 0.0f, 1.0f);
+        ctrlW = bounds.w * ratio;
     }
 
     const float ctrlX = bounds.x + (bounds.w - ctrlW) * alignFactor;

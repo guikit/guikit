@@ -6,7 +6,7 @@ namespace guikit::demo {
 void RenderHeadingInspector(guikit::Context& ui, DemoContext& ctx) {
     if (ctx.elemStretchIdx == 2) {
         if (auto el = ui.Element({.label = "Explicit Width"})) {
-            if (ui.Slider(ctx.elemFillPct, 10.0f, 100.0f, {.valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
+            if (ui.Slider(ctx.elemFillRatio, 0.10f, 1.00f, {.valueFormat = "%.2f", .step = 0.05f}).changed) ui.InvalidateAll();
         }
     } else {
         if (auto el = ui.Element({.label = "Explicit Width"})) {

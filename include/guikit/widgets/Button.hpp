@@ -23,7 +23,7 @@ struct ButtonOptions {
     Placement iconPlacement{Placement::Leading};
     Align align{Align::Center};                    ///< Content horizontal alignment inside button capsule (Start, Center, End)
     StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Capsule width: in points for Compact/Space (nullopt = auto), or % of bounds (0..100) for Fill (nullopt = 100%)
+    std::optional<float> width{std::nullopt};      ///< Capsule width: in points for Compact/Space (nullopt = auto), or ratio of bounds (0.0..1.0) for Fill (nullopt = 1.0)
     std::optional<float> height{std::nullopt};     ///< Explicit capsule height in points (nullopt = inherit defaultHeight from UiSize)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum capsule width constraint in points
     StateColor background{StateColor::Surface()};  ///< Capsule surface fill configuration (Surface/Default = on, None = off, or custom StateColor)

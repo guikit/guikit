@@ -2416,8 +2416,8 @@ Vec2 Markdown::Measure(
 
     float ctrlW = (availableWidth > 0.0f) ? availableWidth : theme.Scale(520.0f);
     if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f && opts.width.has_value()) {
-        const float pct = std::clamp(*opts.width, 10.0f, 100.0f);
-        ctrlW = availableWidth * (pct * 0.01f);
+        const float ratio = std::clamp(*opts.width, 0.1f, 1.0f);
+        ctrlW = availableWidth * ratio;
     } else if (opts.width.has_value() && *opts.width > 0.0f) {
         ctrlW = theme.Scale(*opts.width);
     }

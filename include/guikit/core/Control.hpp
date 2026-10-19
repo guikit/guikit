@@ -14,7 +14,7 @@ struct Response;
 
 /// Specification for an interactive or visual `Control` (either standalone or inside an `Element`).
 struct ControlSpec {
-    std::optional<float> width{std::nullopt};                ///< Explicit control width in points (Compact/Space) or % 0..100 (Fill)
+    std::optional<float> width{std::nullopt};                ///< Explicit control width in points (Compact/Space) or normalized ratio 0.0..1.0 (Fill)
     std::optional<float> height{std::nullopt};               ///< Explicit control height in points (nullopt = auto from UiSize / aspect)
     std::optional<float> minWidth{std::nullopt};             ///< Minimum control width in points
     Align align{Align::Center};                              ///< Horizontal alignment of content inside the control slot

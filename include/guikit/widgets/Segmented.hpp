@@ -31,7 +31,7 @@ struct SegmentedOptions {
     StateColor color{};                            ///< Active segment pill fill color (Default/None = elevated surface + accent border, or Primary/Success/etc.)
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
     Align align{Align::Start};                     ///< Standalone horizontal control alignment (Start, Center, End)
-    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = auto from items), or % of bounds (0..100) for Fill (nullopt = 100%)
+    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = auto from items), or ratio of bounds (0.0..1.0) for Fill (nullopt = 1.0)
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = inherit defaultHeight from UiSize)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum control width constraint in points
     StateColor background{StateColor::Surface()};  ///< Outer capsule/track surface fill color

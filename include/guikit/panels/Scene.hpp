@@ -105,7 +105,7 @@ struct SceneOptions {
     StretchMode stretch{StretchMode::Fill};
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Stretch};
-    std::optional<float> width{std::nullopt};           ///< Explicit width in px or % (in Fill mode)
+    std::optional<float> width{std::nullopt};           ///< Explicit width in px or ratio 0.0..1.0 (in Fill mode)
     std::optional<float> height{std::nullopt};          ///< Explicit height in px
     float minHeight{220.0f};                            ///< Minimum fallback height when placed inside a Fit/ScrollArea container
     float minZoom{0.1f};

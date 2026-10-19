@@ -17,7 +17,7 @@ struct HeadingOptions {
     InlineOrder inlineOrder{InlineOrder::ControlFirst};   ///< Sequencing order in Inline layout (ControlFirst = Label first, LabelFirst = Description first)
     Align align{Align::Start};                            ///< Horizontal alignment (Start, Center, End)
     StretchMode stretch{StretchMode::Fill};               ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};             ///< Explicit heading width in points (Compact/Space) or % 0..100 (Fill)
+    std::optional<float> width{std::nullopt};             ///< Explicit heading width in points (Compact/Space) or ratio 0.0..1.0 (Fill)
     std::optional<float> height{std::nullopt};            ///< Explicit heading height in points (nullopt = auto from UiSize)
     StateColor background{};                              ///< Per-state outer surface backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                                      ///< Outer border thickness, corner radius, and per-state border/divider color

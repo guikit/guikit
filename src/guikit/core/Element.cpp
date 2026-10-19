@@ -418,8 +418,8 @@ Vec2 Element::Measure(
     const bool stretchableCtrl = spec.hasControl ? ctrlSpec.stretchable : false;
 
     if (!stretchableCtrl && ctrlSpec.width.has_value() && spec.stretch == StretchMode::Fill && availableWidth > 0.0f) {
-        const float pct = std::clamp(*ctrlSpec.width, 0.0f, 100.0f);
-        availableWidth *= (pct * 0.01f);
+        const float ratio = std::clamp(*ctrlSpec.width, 0.0f, 1.0f);
+        availableWidth *= ratio;
     }
 
     const auto applyFixedWidthAndOuterPad = [&](Vec2 measured) noexcept -> Vec2 {
@@ -466,8 +466,8 @@ Vec2 Element::Measure(
         if (textWrapW > 0.0f) {
             float ctrlW = std::min(textWrapW, intrinsicControlSize.x);
             if (stretchableCtrl && spec.stretch == StretchMode::Fill && ctrlSpec.width.has_value()) {
-                const float pct = std::clamp(*ctrlSpec.width, 0.0f, 100.0f);
-                ctrlW = textWrapW * (pct * 0.01f);
+                const float ratio = std::clamp(*ctrlSpec.width, 0.0f, 1.0f);
+                ctrlW = textWrapW * ratio;
             }
             textWrapW = std::max(0.0f, textWrapW - ctrlW - spec.inlineGap);
         }
@@ -569,8 +569,8 @@ ElementGeometry Element::Resolve(
     const float alignFactor = (spec.align == Align::End) ? 1.0f : ((spec.align == Align::Center) ? 0.5f : 0.0f);
 
     if (!stretchableCtrl && spec.stretch == StretchMode::Fill && ctrlSpec.width.has_value()) {
-        const float pct = std::clamp(*ctrlSpec.width, 0.0f, 100.0f);
-        const float effW = bounds.w * (pct * 0.01f);
+        const float ratio = std::clamp(*ctrlSpec.width, 0.0f, 1.0f);
+        const float effW = bounds.w * ratio;
         bounds.x += (bounds.w - effW) * alignFactor;
         bounds.w = effW;
     }
@@ -578,8 +578,8 @@ ElementGeometry Element::Resolve(
     float ctrlW = std::min(bounds.w, intrinsicControlSize.x);
     if (stretchableCtrl && spec.stretch == StretchMode::Fill) {
         if (!geom.hasExternal || spec.layout != ElementLayout::Inline || ctrlSpec.width.has_value()) {
-            const float pct = std::clamp(ctrlSpec.width.value_or(100.0f), 0.0f, 100.0f);
-            ctrlW = bounds.w * (pct * 0.01f);
+            const float ratio = std::clamp(ctrlSpec.width.value_or(1.0f), 0.0f, 1.0f);
+            ctrlW = bounds.w * ratio;
         }
     }
 

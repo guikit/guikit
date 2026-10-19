@@ -264,7 +264,7 @@ struct DemoContext {
     guikit::Align elemAlign = guikit::Align::Start;
     size_t elemStretchIdx = 2; // 0 = Compact, 1 = Space, 2 = Fill
     float elemWidth = 0.0f;    // 0 = Auto (px in Compact/Space)
-    float elemFillPct = 50.0f; // % in Fill mode
+    float elemFillRatio = 0.5f; // 0.0..1.0 ratio in Fill mode
     float elemHeight = 0.0f;   // 0 = Auto (px)
     size_t elemBgIdx = 0;      // 0 = None (Default), 1 = Surface, 2..8 = Primary..Ghost
     guikit::StateColor elemBackground = guikit::StateColor::Default();
@@ -322,7 +322,7 @@ struct DemoContext {
     }
 
     std::optional<float> GetElementWidth() const noexcept {
-        if (elemStretchIdx == 2) return elemFillPct;
+        if (elemStretchIdx == 2) return elemFillRatio;
         return (elemWidth > 0.0f) ? std::optional<float>(elemWidth) : std::nullopt;
     }
 
@@ -425,7 +425,7 @@ struct DemoContext {
     std::string FormatElementWidthCode() const {
         if (elemStretchIdx == 2) {
             char buf[32];
-            std::snprintf(buf, sizeof(buf), "%.1ff", elemFillPct);
+            std::snprintf(buf, sizeof(buf), "%.2ff", elemFillRatio);
             return buf;
         }
         if (elemWidth > 0.0f) {
@@ -720,7 +720,7 @@ struct DemoContext {
         }
         if (elemStretchIdx == 2) {
             if (auto el = ui.Element({.label = "Explicit Width"})) {
-                if (ui.Slider(elemFillPct, 10.0f, 100.0f, {.valueFormat = "%.0f %%", .step = 5.0f}).changed) ui.InvalidateAll();
+                if (ui.Slider(elemFillRatio, 0.10f, 1.00f, {.valueFormat = "%.2f", .step = 0.05f}).changed) ui.InvalidateAll();
             }
         } else {
             if (auto el = ui.Element({.label = "Explicit Width"})) {

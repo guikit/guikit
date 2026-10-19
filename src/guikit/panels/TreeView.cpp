@@ -738,7 +738,7 @@ TreeViewScope TreeView::Open(
     outerNode->inspectModeOverride = opts.inspectMode;
 
     if (opts.width.has_value() && *opts.width > 0.0f) {
-        if (opts.stretch == StretchMode::Fill && *opts.width <= 100.0f) {
+        if (opts.stretch == StretchMode::Fill && *opts.width <= 1.0f) {
             outerNode->widthMode = SizeMode::Stretch;
         } else {
             outerNode->widthMode = SizeMode::Fixed;

@@ -22,7 +22,7 @@ struct SwitchOptions {
     Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     bool symmetric{false};                         ///< Neutral/symmetric track style (highlights active side label)
     StretchMode stretch{StretchMode::Compact};     ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = auto), or % of bounds (0..100) for Fill (nullopt = 100%)
+    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = auto), or ratio of bounds (0.0..1.0) for Fill (nullopt = 1.0)
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = auto from UiSize)
     StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration

@@ -28,7 +28,7 @@ struct ElementOptions {
     std::optional<InlineOrder> inlineOrder{std::nullopt};     ///< Sequencing order in Inline layout (nullopt = control default)
     Align align{Align::Start};                                ///< Horizontal alignment (Start, Center, End)
     std::optional<StretchMode> stretch{std::nullopt};         ///< Sizing behavior: Compact, Space, Fill (nullopt = inherit from child control or Fill when standalone)
-    std::optional<float> width{std::nullopt};                 ///< Explicit element/control width in points (Compact/Space) or % 0..100 (Fill)
+    std::optional<float> width{std::nullopt};                 ///< Explicit element/control width in points (Compact/Space) or normalized ratio 0.0..1.0 (Fill)
     std::optional<float> height{std::nullopt};                ///< Explicit element/control height in points (nullopt = auto from UiSize)
     StateColor background{};                                  ///< Per-state outer surface backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                                          ///< Outer element border thickness, corner radius, and per-state color
@@ -77,7 +77,7 @@ struct ElementSpec {
     InlineOrder inlineOrder{InlineOrder::LabelFirst};     ///< Sequencing order in Inline layout
     Align align{Align::Start};                            ///< Horizontal alignment (Start, Center, End)
     StretchMode stretch{StretchMode::Compact};            ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};             ///< Explicit control/element width in points for Compact/Space, or % (0..100) for Fill
+    std::optional<float> width{std::nullopt};             ///< Explicit control/element width in points for Compact/Space, or normalized ratio 0.0..1.0 for Fill
     std::optional<float> height{std::nullopt};            ///< Explicit control/element height in points (nullopt = intrinsic height)
     ControlSpec control{};                                ///< Specification for the inner control slot (`controlRect`)
     StateColor background{};                              ///< Per-state outer surface backdrop color (Default/None = off, Surface/Primary/etc. = on)

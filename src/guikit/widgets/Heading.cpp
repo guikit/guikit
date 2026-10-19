@@ -209,8 +209,8 @@ void Heading::Render(
     float spanX = outer.x;
     float spanW = outer.w;
     if (opts.stretch == StretchMode::Fill && opts.width.has_value()) {
-        const float pct = std::clamp(*opts.width, 0.0f, 100.0f);
-        spanW = outer.w * (pct * 0.01f);
+        const float ratio = std::clamp(*opts.width, 0.0f, 1.0f);
+        spanW = outer.w * ratio;
         spanX = outer.x + (outer.w - spanW) * alignFactor;
     } else if (opts.stretch == StretchMode::Compact) {
         const float maxElemW = std::max({

@@ -3806,8 +3806,8 @@ void TestScopedThemeAndScaleOverrides() {
         const Vec2 selCompact = Select::Measure(SelectOptions{.stretch = StretchMode::Compact, .width = 110.0f}, UiSize::Md, &canvas, ui.GetTheme());
         CHECK_NEAR(selCompact.x, 220.0f, 0.001f);
 
-        // StretchMode::Fill treats .width as percentage (0..100%), which must NOT be multiplied by scale
-        const Rect fillBox = Select::GetBoxRect(Rect(0.0f, 0.0f, 400.0f, 60.0f), SelectOptions{.stretch = StretchMode::Fill, .width = 50.0f}, UiSize::Md, &canvas, ui.GetTheme());
+        // StretchMode::Fill treats .width as normalized ratio (0.0..1.0), which must NOT be multiplied by scale
+        const Rect fillBox = Select::GetBoxRect(Rect(0.0f, 0.0f, 400.0f, 60.0f), SelectOptions{.stretch = StretchMode::Fill, .width = 0.5f}, UiSize::Md, &canvas, ui.GetTheme());
         CHECK_NEAR(fillBox.w, 200.0f, 0.01f);
     }
 
@@ -5126,7 +5126,7 @@ void TestLabelAlignmentGeometryOptionA() {
         }
     }
 
-    // 3b. Button in Top layout with StretchMode::Fill & .width = 50.0f (50% of 800px = 400px) & Align::Center:
+    // 3b. Button in Top layout with StretchMode::Fill & .width = 0.5f (50% of 800px = 400px) & Align::Center:
     {
         recCanvas.Reset();
         ElementSpec elSpec{
@@ -5134,12 +5134,12 @@ void TestLabelAlignmentGeometryOptionA() {
             .layout = ElementLayout::Top,
             .align = Align::Center,
             .stretch = StretchMode::Fill,
-            .width = 50.0f
+            .width = 0.5f
         };
         ButtonOptions opts{
             .text = "Action",
             .stretch = StretchMode::Fill,
-            .width = 50.0f
+            .width = 0.5f
         };
         const Vec2 cSize = Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
         const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
@@ -5150,7 +5150,7 @@ void TestLabelAlignmentGeometryOptionA() {
         CHECK_NEAR(recCanvas.lastRoundRect.x, 250.0f, 0.01f); // 50 + (800 - 400) * 0.5
     }
 
-    // 3c. Button in Inline layout with StretchMode::Fill & .width = 90.0f (90% of 800px = 720px):
+    // 3c. Button in Inline layout with StretchMode::Fill & .width = 0.9f (90% of 800px = 720px):
     // Long label must be cropped with "..." to fit inside remaining width (800 - 720 - gap)
     {
         recCanvas.Reset();
@@ -5159,12 +5159,12 @@ void TestLabelAlignmentGeometryOptionA() {
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::LabelFirst,
             .stretch = StretchMode::Fill,
-            .width = 90.0f
+            .width = 0.9f
         };
         ButtonOptions opts{
             .text = "Action",
             .stretch = StretchMode::Fill,
-            .width = 90.0f
+            .width = 0.9f
         };
         const Vec2 cSize = Button::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
         const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
@@ -5213,7 +5213,7 @@ void TestLabelAlignmentGeometryOptionA() {
         }
     }
 
-    // 4b. InputField in Stacked layout with StretchMode::Fill & .width = 50.0f (50% of 800px = 400px) & Align::End:
+    // 4b. InputField in Stacked layout with StretchMode::Fill & .width = 0.5f (50% of 800px = 400px) & Align::End:
     {
         recCanvas.Reset();
         ElementSpec elSpec{
@@ -5222,11 +5222,11 @@ void TestLabelAlignmentGeometryOptionA() {
             .layout = ElementLayout::Stacked,
             .align = Align::End,
             .stretch = StretchMode::Fill,
-            .width = 50.0f
+            .width = 0.5f
         };
         InputFieldOptions opts{
             .stretch = StretchMode::Fill,
-            .width = 50.0f
+            .width = 0.5f
         };
         const Vec2 cSize = InputField::Measure("text", opts, UiSize::Md, &recCanvas, darkTheme);
         const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
@@ -5242,7 +5242,7 @@ void TestLabelAlignmentGeometryOptionA() {
         }
     }
 
-    // 4c. Select in Inline layout with StretchMode::Fill & .width = 90.0f (90% of 800px = 720px):
+    // 4c. Select in Inline layout with StretchMode::Fill & .width = 0.9f (90% of 800px = 720px):
     // Long label must be cropped with "..." to fit inside remaining width (800 - 720 - gap)
     {
         recCanvas.Reset();
@@ -5251,11 +5251,11 @@ void TestLabelAlignmentGeometryOptionA() {
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::LabelFirst,
             .stretch = StretchMode::Fill,
-            .width = 90.0f
+            .width = 0.9f
         };
         SelectOptions opts{
             .stretch = StretchMode::Fill,
-            .width = 90.0f
+            .width = 0.9f
         };
         const Vec2 cSize = Select::Measure(opts, UiSize::Md, &recCanvas, darkTheme);
         const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
@@ -5391,7 +5391,7 @@ void TestLabelAlignmentGeometryOptionA() {
         }
     }
 
-    // 8b. Slider in Inline layout with StretchMode::Fill & .width = 85.0f (85% of 800px = 680px):
+    // 8b. Slider in Inline layout with StretchMode::Fill & .width = 0.85f (85% of 800px = 680px):
     // Long label must be cropped with "..." to fit inside remaining width
     {
         recCanvas.Reset();
@@ -5400,12 +5400,12 @@ void TestLabelAlignmentGeometryOptionA() {
             .layout = ElementLayout::Inline,
             .inlineOrder = InlineOrder::LabelFirst,
             .stretch = StretchMode::Fill,
-            .width = 85.0f
+            .width = 0.85f
         };
         SliderOptions opts{
             .showValue = false,
             .stretch = StretchMode::Fill,
-            .width = 85.0f
+            .width = 0.85f
         };
         const Vec2 cSize = Slider::Measure(opts, 0.5, 0.0, 1.0, UiSize::Md, &recCanvas, darkTheme);
         const ElementGeometry geom = Element::Resolve(widgetBounds, cSize, elSpec, &recCanvas, darkTheme);
@@ -6370,7 +6370,7 @@ void TestBaseElementsAllInOneEnhancements() {
         CHECK(n.As<InputFieldData>() == nullptr);
     }
 
-    // 2. SwitchOptions::width and CheckboxOptions::width (Compact px width & Fill percentage width)
+    // 2. SwitchOptions::width and CheckboxOptions::width (Compact px width & Fill ratio width)
     {
         Context ui;
         bool sw = true;
@@ -6381,8 +6381,8 @@ void TestBaseElementsAllInOneEnhancements() {
             if (auto col = ui.Column({.gap = 8.0f})) {
                 swCompact = ui.Switch(sw, {.stretch = StretchMode::Compact});
                 swWide = ui.Switch(sw, {.stretch = StretchMode::Compact, .width = 240.0f});
-                cbFill50 = ui.Checkbox(cb, {.stretch = StretchMode::Fill, .width = 50.0f});
-                cbFill100 = ui.Checkbox(cb, {.stretch = StretchMode::Fill, .width = 100.0f});
+                cbFill50 = ui.Checkbox(cb, {.stretch = StretchMode::Fill, .width = 0.5f});
+                cbFill100 = ui.Checkbox(cb, {.stretch = StretchMode::Fill, .width = 1.0f});
             }
         };
 
@@ -6712,12 +6712,12 @@ void TestImageSceneAndMarkdownWidgets() {
             if (auto el = ui.Element({
                 .label = "Inline Vector SVG",
                 .stretch = StretchMode::Fill,
-                .width = 50.0f
+                .width = 0.5f
             })) {
                 imgRes = el.response;
                 ui.Image(kInlineSvg, {
                     .stretch = StretchMode::Fill,
-                    .width = 50.0f,
+                    .width = 0.5f,
                     .checkerboard = true
                 });
             }
@@ -6831,13 +6831,13 @@ void TestImageSceneAndMarkdownWidgets() {
                         .label = "A vector image",
                         .description = "This is a vector image",
                         .stretch = StretchMode::Fill,
-                        .width = 85.0f
+                        .width = 0.85f
                     })) {
                         stageImgRes = el.response;
                         ui.Image(kInlineSvg, {
                             .fit = ObjectFit::Contain,
                             .stretch = StretchMode::Fill,
-                            .width = 85.0f,
+                            .width = 0.85f,
                             .checkerboard = true
                         });
                     }

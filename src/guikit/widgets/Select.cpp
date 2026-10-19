@@ -55,8 +55,8 @@ Rect Select::GetBoxRect(
     const float alignFactor = (opts.align == Align::End) ? 1.0f : ((opts.align == Align::Center) ? 0.5f : 0.0f);
     float ctrlW = std::min(bounds.w, boxDims.x);
     if (opts.stretch == StretchMode::Fill) {
-        const float pct = std::clamp(opts.width.value_or(100.0f), 0.0f, 100.0f);
-        ctrlW = bounds.w * (pct * 0.01f);
+        const float ratio = std::clamp(opts.width.value_or(1.0f), 0.0f, 1.0f);
+        ctrlW = bounds.w * ratio;
     }
     const float ctrlX = bounds.x + (bounds.w - ctrlW) * alignFactor;
     const float ctrlH = std::min(boxDims.y, bounds.h);

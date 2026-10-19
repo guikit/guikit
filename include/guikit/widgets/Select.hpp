@@ -34,7 +34,7 @@ struct SelectOptions {
     std::optional<uint32_t> maxVisibleItems{std::nullopt}; ///< Optional limit on visible items count before scrolling
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
     Align align{Align::Start};                     ///< Standalone horizontal control alignment (Start, Center, End)
-    std::optional<float> width{std::nullopt};      ///< Select box width: in points for Compact/Space (nullopt = auto from items), or % of bounds (0..100) for Fill (nullopt = 100%)
+    std::optional<float> width{std::nullopt};      ///< Select box width: in points for Compact/Space (nullopt = auto from items), or ratio of bounds (0.0..1.0) for Fill (nullopt = 1.0)
     std::optional<float> height{std::nullopt};     ///< Explicit select box height in points (nullopt = inherit defaultHeight from UiSize)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum select box width constraint in points
     StateColor background{StateColor::Surface()};  ///< Select box surface fill color (Surface/Default = on, None = off, or custom StateColor)

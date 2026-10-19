@@ -28,7 +28,7 @@ struct SliderOptions {
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
+    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or ratio of bounds (0.0..1.0) for Fill (nullopt = 1.0)
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
     StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
@@ -52,7 +52,7 @@ struct StepSliderOptions {
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
+    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or ratio of bounds (0.0..1.0) for Fill (nullopt = 1.0)
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
     StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
@@ -74,7 +74,7 @@ struct RangeSliderOptions {
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
+    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or ratio of bounds (0.0..1.0) for Fill (nullopt = 1.0)
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
     StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                               ///< Control well border stroke & corner radius configuration
@@ -99,7 +99,7 @@ struct ProgressBarOptions {
     std::optional<float> scale{std::nullopt};      ///< Local scale override
     const UiTheme* theme{nullptr};                 ///< Scoped theme override
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
+    std::optional<float> width{std::nullopt};      ///< Control width: in points for Compact/Space (nullopt = from theme), or ratio of bounds (0.0..1.0) for Fill (nullopt = 1.0)
     std::optional<float> height{std::nullopt};     ///< Explicit control height in points (nullopt = intrinsic height from UiSize)
     bool multiZoneColor{false};                    ///< Color bar/segments across 3 zones (Variant/Success -> Warning -> Danger)
     StateColor background{};                       ///< Per-state control well backdrop color (Default/None = off, Surface/Primary/etc. = on)

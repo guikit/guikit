@@ -25,7 +25,7 @@ struct MarkdownOptions {
     InlineOrder inlineOrder{InlineOrder::LabelFirst};
     Align align{Align::Start};
     StretchMode stretch{StretchMode::Fill};
-    std::optional<float> width{std::nullopt};               ///< Explicit width in px or % (in Fill mode)
+    std::optional<float> width{std::nullopt};               ///< Explicit width in px or ratio 0.0..1.0 (in Fill mode)
 
     // --- Smooth Zooming ---
     bool allowZoom{true};                                   ///< Allow Ctrl+MouseWheel & ZoomIn/ZoomOut/ZoomReset actions (0.5x .. 3.0x)

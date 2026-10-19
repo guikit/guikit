@@ -25,7 +25,7 @@ struct SpinBoxOptions {
     std::optional<CursorBlinkMode> cursorMode{std::nullopt}; ///< Cursor blink override when editing text
     StateColor color{};                            ///< Per-state accent color for active stepper buttons and optional progress fill bar
     StretchMode stretch{StretchMode::Fill};        ///< Sizing behavior: Compact, Space, Fill
-    std::optional<float> width{std::nullopt};      ///< SpinBox width: in points for Compact/Space (nullopt = from theme), or % of bounds (0..100) for Fill (nullopt = 100%)
+    std::optional<float> width{std::nullopt};      ///< SpinBox width: in points for Compact/Space (nullopt = from theme), or ratio of bounds (0.0..1.0) for Fill (nullopt = 1.0)
     std::optional<float> height{std::nullopt};     ///< Explicit SpinBox height in points (nullopt = inherit defaultHeight from UiSize)
     std::optional<float> minWidth{std::nullopt};   ///< Minimum SpinBox width constraint in points
     StateColor background{StateColor::Surface()};  ///< SpinBox surface fill color (Surface/Default = on, None = off, or custom StateColor)

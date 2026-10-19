@@ -46,8 +46,8 @@ Vec2 ComputeSceneControlSize(
 
     float ctrlW = defW;
     if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
-        const float pct = std::clamp(opts.width.value_or(100.0f), 1.0f, 100.0f);
-        ctrlW = availableWidth * (pct * 0.01f);
+        const float ratio = std::clamp(opts.width.value_or(1.0f), 0.01f, 1.0f);
+        ctrlW = availableWidth * ratio;
     } else if (opts.width.has_value() && *opts.width > 0.0f) {
         ctrlW = theme.Scale(*opts.width);
     }
