@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <memory>
+#include <span>
+#include <vector>
 #include "guikit/backend/ICanvas.hpp"
 
 namespace guikit {
@@ -22,6 +24,16 @@ enum class VectorBackendType : uint8_t {
 /// optimized for vector tile rasterization and headless offscreen surfaces.
 [[nodiscard]] std::unique_ptr<ICanvas> CreateOffscreenVectorCanvas(
     VectorBackendType type = VectorBackendType::Auto
+);
+
+/// Backend-agnostic image decoder: decodes an encoded raster image (PNG / JPEG / WebP) from memory
+/// into 32-bit RGBA8888 pixels (`(A << 24) | (B << 16) | (G << 8) | R`).
+/// Thread-safe and safe to invoke from background worker threads.
+[[nodiscard]] bool DecodeImageFromMemory(
+    std::span<const uint8_t> encodedBytes,
+    uint32_t& outWidth,
+    uint32_t& outHeight,
+    std::vector<uint32_t>& outRgbaPixels
 );
 
 } // namespace guikit

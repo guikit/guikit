@@ -9,6 +9,7 @@
 #include "guikit/backend/ThorCanvas.hpp"
 #include "guikit/geo/GeoJsonIO.hpp"
 #include "guikit/geo/GisRenderEngine.hpp"
+#include "guikit/net/NetClient.hpp"
 #include "thorvg.h"
 
 static int g_failures = 0;
@@ -10699,6 +10700,40 @@ int main() {
     TestModalContextMenuAndToastWorkflow();
     TestActivityBarAndLinkedSidebarWorkflow();
     TestBottomPanelAndStatusBarWorkflow();
+
+    // Cross-platform guikit::net (URL parser, HttpClient, WebSocketClient) + LodePNG raster tile decoder
+    {
+        const auto parsedHttps = guikit::net::ParseUrl("https://tile.openstreetmap.org/14/9532/5841.png");
+        CHECK(parsedHttps.valid && parsedHttps.isSecure && !parsedHttps.isWebSocket);
+        CHECK(parsedHttps.host == "tile.openstreetmap.org" && parsedHttps.port == 443);
+        CHECK(parsedHttps.pathAndQuery == "/14/9532/5841.png");
+
+        const auto parsedWss = guikit::net::ParseUrl("wss://ais.stream.local:8443/live?v=2");
+        CHECK(parsedWss.valid && parsedWss.isSecure && parsedWss.isWebSocket);
+        CHECK(parsedWss.host == "ais.stream.local" && parsedWss.port == 8443);
+        CHECK(parsedWss.pathAndQuery == "/live?v=2");
+
+        guikit::net::HttpClient http("GuiKit-Test/1.0");
+        CHECK(!guikit::net::HttpClient::BackendName().empty());
+
+        guikit::net::WebSocketClient ws;
+        CHECK(ws.GetState() == guikit::net::WebSocketState::Disconnected);
+
+        static constexpr uint8_t kSample1x1Png[] = {
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+            0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+            0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53,
+            0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41,
+            0x54, 0x08, 0xD7, 0x63, 0xF8, 0xCF, 0xC0, 0x00,
+            0x00, 0x03, 0x01, 0x01, 0x00, 0x18, 0xDD, 0x8D,
+            0xB0, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E,
+            0x44, 0xAE, 0x42, 0x60, 0x82
+        };
+        std::vector<uint32_t> rgba;
+        CHECK(guikit::geo::DecodePngAndScaleToRgba(kSample1x1Png, 256, rgba));
+        CHECK(rgba.size() == 256u * 256u);
+    }
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

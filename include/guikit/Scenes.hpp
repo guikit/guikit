@@ -9,6 +9,7 @@
 #include "guikit/geo/GisRenderEngine.hpp"
 #include "guikit/geo/MapGrid.hpp"
 #include "guikit/geo/PolygonTriangulator.hpp"
+#include "guikit/net/NetClient.hpp"
 #include "guikit/panels/MapView.hpp"
 #include "guikit/panels/Scene.hpp"
 #include "guikit/widgets/AttitudeView.hpp"

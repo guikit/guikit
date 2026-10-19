@@ -1,13 +1,20 @@
 #include "guikit/backend/ThorCanvas.hpp"
 #include "guikit/backend/VectorBackend.hpp"
 #include <algorithm>
+#include <bit>
 #include <cmath>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <thread>
 #include "guikit/core/Assets.hpp"
 #include "guikit/core/TextUtil.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "thorvg.h"
+#if __has_include("tvgLodePng.h")
+#include "tvgLodePng.h"
+#define GUIKIT_THORVG_HAS_INTERNAL_LODEPNG 1
+#endif
 
 namespace guikit {
 
@@ -1690,6 +1697,157 @@ std::unique_ptr<ICanvas> CreateVectorCanvas(VectorBackendType /*type*/, bool loa
 
 std::unique_ptr<ICanvas> CreateOffscreenVectorCanvas(VectorBackendType type) {
     return CreateVectorCanvas(type, /*loadDefaultFonts=*/false);
+}
+
+namespace {
+
+#ifdef GUIKIT_THORVG_HAS_INTERNAL_LODEPNG
+struct LodePngStateGuard {
+    LodePNGState state{};
+    LodePngStateGuard() noexcept { lodepng_state_init(&state); }
+    ~LodePngStateGuard() noexcept { lodepng_state_cleanup(&state); }
+    LodePngStateGuard(const LodePngStateGuard&) = delete;
+    LodePngStateGuard& operator=(const LodePngStateGuard&) = delete;
+};
+
+struct FreeDeleter {
+    void operator()(unsigned char* p) const noexcept {
+        if (p) std::free(p);
+    }
+};
+#endif
+
+} // namespace
+
+bool DecodeImageFromMemory(
+    std::span<const uint8_t> encodedBytes,
+    uint32_t& outWidth,
+    uint32_t& outHeight,
+    std::vector<uint32_t>& outRgbaPixels
+) {
+    outWidth = 0;
+    outHeight = 0;
+    if (encodedBytes.size() < 8) {
+        return false;
+    }
+
+#ifdef GUIKIT_THORVG_HAS_INTERNAL_LODEPNG
+    static constexpr uint8_t kPngSignature[8] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+    if (encodedBytes.size() >= 32 && std::memcmp(encodedBytes.data(), kPngSignature, sizeof(kPngSignature)) == 0) {
+        // 1. Inspect IHDR dimensions first to guard against decompression bombs
+        {
+            LodePngStateGuard inspectGuard;
+            unsigned inspectW = 0;
+            unsigned inspectH = 0;
+            if (lodepng_inspect(&inspectW, &inspectH, &inspectGuard.state, encodedBytes.data(), encodedBytes.size()) != 0 ||
+                inspectW == 0 || inspectH == 0 || inspectW > 4096 || inspectH > 4096) {
+                return false;
+            }
+        }
+
+        // 2. Decode into 8-bit RGBA with RAII cleanup
+        LodePngStateGuard decodeGuard;
+        decodeGuard.state.info_raw.colortype = LCT_RGBA;
+        decodeGuard.state.info_raw.bitdepth = 8;
+
+        unsigned char* rawPtr = nullptr;
+        unsigned srcW = 0;
+        unsigned srcH = 0;
+        const unsigned err = lodepng_decode(
+            &rawPtr,
+            &srcW,
+            &srcH,
+            &decodeGuard.state,
+            encodedBytes.data(),
+            encodedBytes.size()
+        );
+        std::unique_ptr<unsigned char, FreeDeleter> decodedBytes(rawPtr);
+
+        if (err != 0 || !decodedBytes || srcW == 0 || srcH == 0 || srcW > 4096 || srcH > 4096) {
+            return false;
+        }
+
+        if (decodeGuard.state.info_png.iccp_defined) {
+            lodepng_toSrgb(decodedBytes.get(), decodedBytes.get(), srcW, srcH, &decodeGuard.state);
+        }
+
+        outWidth = srcW;
+        outHeight = srcH;
+        const size_t totalPx = static_cast<size_t>(srcW) * srcH;
+        outRgbaPixels.resize(totalPx);
+        const unsigned char* srcBuf = decodedBytes.get();
+
+        if constexpr (std::endian::native == std::endian::little) {
+            std::memcpy(outRgbaPixels.data(), srcBuf, totalPx * sizeof(uint32_t));
+        } else {
+            for (size_t i = 0; i < totalPx; ++i) {
+                const size_t b = i * 4u;
+                outRgbaPixels[i] = (static_cast<uint32_t>(srcBuf[b + 3]) << 24u) |
+                                   (static_cast<uint32_t>(srcBuf[b + 2]) << 16u) |
+                                   (static_cast<uint32_t>(srcBuf[b + 1]) << 8u) |
+                                   static_cast<uint32_t>(srcBuf[b + 0]);
+            }
+        }
+        return true;
+    }
+#endif
+
+    // Generic ThorVG public API fallback (supports PNG, JPEG, WebP, SVG)
+    struct TvgInitScope {
+        TvgInitScope() noexcept { tvg::Initializer::init(0); }
+        ~TvgInitScope() noexcept { tvg::Initializer::term(); }
+    } initScope;
+
+    auto* pic = tvg::Picture::gen();
+    if (!pic) return false;
+
+    const char* mime = "png";
+    if (encodedBytes.size() >= 3 && encodedBytes[0] == 0xFF && encodedBytes[1] == 0xD8) {
+        mime = "jpg";
+    } else if (encodedBytes.size() >= 12 && std::memcmp(encodedBytes.data(), "RIFF", 4) == 0 &&
+               std::memcmp(encodedBytes.data() + 8, "WEBP", 4) == 0) {
+        mime = "webp";
+    }
+
+    if (pic->load(
+            reinterpret_cast<const char*>(encodedBytes.data()),
+            static_cast<uint32_t>(encodedBytes.size()),
+            mime,
+            nullptr,
+            false) != tvg::Result::Success) {
+        delete pic;
+        return false;
+    }
+
+    float wf = 0.0f;
+    float hf = 0.0f;
+    pic->size(&wf, &hf);
+    const uint32_t w = static_cast<uint32_t>(std::round(wf));
+    const uint32_t h = static_cast<uint32_t>(std::round(hf));
+    if (w == 0 || h == 0 || w > 4096 || h > 4096) {
+        delete pic;
+        return false;
+    }
+
+    outWidth = w;
+    outHeight = h;
+    outRgbaPixels.assign(static_cast<size_t>(w) * h, 0u);
+
+    auto* swCanvas = tvg::SwCanvas::gen();
+    if (!swCanvas) {
+        delete pic;
+        return false;
+    }
+    if (swCanvas->target(outRgbaPixels.data(), w, w, h, tvg::ColorSpace::ABGR8888S) != tvg::Result::Success) {
+        delete pic;
+        delete swCanvas;
+        return false;
+    }
+    swCanvas->add(pic);
+    swCanvas->draw(true);
+    swCanvas->sync();
+    delete swCanvas;
+    return true;
 }
 
 } // namespace guikit
