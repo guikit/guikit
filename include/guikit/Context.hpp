@@ -42,12 +42,14 @@
 #include "guikit/panels/TreeView.hpp"
 #include "guikit/widgets/Button.hpp"
 #include "guikit/widgets/Checkbox.hpp"
+#include "guikit/widgets/ColorPicker.hpp"
 #include "guikit/widgets/Heading.hpp"
 #include "guikit/widgets/Image.hpp"
 #include "guikit/widgets/InputField.hpp"
 #include "guikit/widgets/Knob.hpp"
 #include "guikit/widgets/Markdown.hpp"
 #include "guikit/widgets/Radio.hpp"
+#include "guikit/widgets/Segmented.hpp"
 #include "guikit/widgets/Select.hpp"
 #include "guikit/widgets/SidebarMenu.hpp"
 #include "guikit/widgets/Slider.hpp"
@@ -354,7 +356,19 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
-    [[nodiscard]] ContainerScope Sidebar(
+    [[nodiscard]] SidebarScope Sidebar(
+        SidebarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    [[nodiscard]] SidebarScope Sidebar(
+        SidebarMode& mode,
+        SidebarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    [[nodiscard]] SidebarScope Sidebar(
+        bool& open,
         SidebarOptions opts = {},
         std::source_location loc = std::source_location::current()
     );
@@ -985,13 +999,117 @@ public:
         } else if constexpr (std::is_same_v<std::decay_t<T>, float>) {
             return Run<guikit::Knob>(nullptr, &value, nullptr, static_cast<double>(min), static_cast<double>(max), opts, loc);
         } else {
-            int64_t val64 = static_cast<int64_t>(value);
-            Response res = Run<guikit::Knob>(nullptr, nullptr, &val64, static_cast<double>(min), static_cast<double>(max), opts, loc);
+            int valInt = static_cast<int>(value);
+            Response res = Run<guikit::Knob>(nullptr, nullptr, &valInt, static_cast<double>(min), static_cast<double>(max), opts, loc);
             if (res.changed) {
-                value = static_cast<T>(val64);
+                value = static_cast<T>(valInt);
             }
             return res;
         }
+    }
+
+    // --- Segmented Control Widget ---
+    template <typename IndexT>
+    Response Segmented(
+        IndexT& selectedIndex,
+        std::span<const SegmentedItem> items,
+        SegmentedOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+        if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
+            return Run<guikit::Segmented>(&selectedIndex, nullptr, nullptr, items, opts, loc);
+        } else {
+            int idx = static_cast<int>(selectedIndex);
+            Response r = Run<guikit::Segmented>(nullptr, &idx, nullptr, items, opts, loc);
+            if (r.changed && idx >= 0) {
+                selectedIndex = static_cast<IndexT>(idx);
+            }
+            return r;
+        }
+    }
+
+    template <typename IndexT>
+    Response Segmented(
+        IndexT& selectedIndex,
+        std::initializer_list<SegmentedItem> items,
+        SegmentedOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+        return Segmented(selectedIndex, std::span<const SegmentedItem>(items.begin(), items.size()), std::move(opts), loc);
+    }
+
+    template <typename IndexT>
+    Response Segmented(
+        IndexT& selectedIndex,
+        std::span<const std::string_view> items,
+        SegmentedOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+        if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
+            return Run<guikit::Segmented>(&selectedIndex, nullptr, nullptr, items, opts, loc);
+        } else {
+            int idx = static_cast<int>(selectedIndex);
+            Response r = Run<guikit::Segmented>(nullptr, &idx, nullptr, items, opts, loc);
+            if (r.changed && idx >= 0) {
+                selectedIndex = static_cast<IndexT>(idx);
+            }
+            return r;
+        }
+    }
+
+    template <typename IndexT>
+    Response Segmented(
+        IndexT& selectedIndex,
+        std::initializer_list<std::string_view> items,
+        SegmentedOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+        return Segmented(selectedIndex, std::span<const std::string_view>(items.begin(), items.size()), std::move(opts), loc);
+    }
+
+    Response SegmentedMask(
+        uint32_t& selectedMask,
+        std::span<const SegmentedItem> items,
+        SegmentedOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::Segmented>(nullptr, nullptr, &selectedMask, items, opts, loc);
+    }
+
+    Response SegmentedMask(
+        uint32_t& selectedMask,
+        std::initializer_list<SegmentedItem> items,
+        SegmentedOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return SegmentedMask(selectedMask, std::span<const SegmentedItem>(items.begin(), items.size()), std::move(opts), loc);
+    }
+
+    Response SegmentedMask(
+        uint32_t& selectedMask,
+        std::span<const std::string_view> items,
+        SegmentedOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::Segmented>(nullptr, nullptr, &selectedMask, items, opts, loc);
+    }
+
+    Response SegmentedMask(
+        uint32_t& selectedMask,
+        std::initializer_list<std::string_view> items,
+        SegmentedOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return SegmentedMask(selectedMask, std::span<const std::string_view>(items.begin(), items.size()), std::move(opts), loc);
+    }
+
+    // --- ColorPicker Widget ---
+    Response ColorPicker(
+        Color& value,
+        ColorPickerOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::ColorPicker>(value, opts, loc);
     }
 
     // --- Toolbar Component ---
@@ -1051,6 +1169,8 @@ public:
     [[nodiscard]] T* AllocPayload(Args&&... args) {
         return m_arena.Allocate<T>(std::forward<Args>(args)...);
     }
+
+    [[nodiscard]] BumpAllocator& GetArena() noexcept { return m_arena; }
 
     void AdaptChildToContainer(Node* node);
     [[nodiscard]] Rect GetPrevFrameBounds(Id id) const;
@@ -1155,13 +1275,14 @@ public:
     [[nodiscard]] bool IsMouseDown() const noexcept { return m_mouseDown; }
     [[nodiscard]] bool IsMouseClicked() const noexcept { return m_mouseClicked; }
     [[nodiscard]] bool IsMouseReleased() const noexcept { return m_mouseReleased; }
+    [[nodiscard]] bool IsMouseDoubleClicked() const noexcept { return m_mouseDoubleClicked; }
     [[nodiscard]] bool IsRightMouseDown() const noexcept { return m_rightMouseDown; }
     [[nodiscard]] bool IsRightMouseClicked() const noexcept { return m_rightMouseClicked; }
     [[nodiscard]] bool IsRightMouseReleased() const noexcept { return m_rightMouseReleased; }
     [[nodiscard]] bool IsMiddleMouseDown() const noexcept { return m_middleMouseDown; }
     [[nodiscard]] bool IsMiddleMouseClicked() const noexcept { return m_middleMouseClicked; }
     [[nodiscard]] bool IsMiddleMouseReleased() const noexcept { return m_middleMouseReleased; }
-    void ConsumeMouseClick() noexcept { m_mouseClicked = false; m_mouseReleased = false; m_rightMouseClicked = false; m_rightMouseReleased = false; }
+    void ConsumeMouseClick() noexcept { m_mouseClicked = false; m_mouseReleased = false; m_mouseDoubleClicked = false; m_rightMouseClicked = false; m_rightMouseReleased = false; }
     void SetKeyModifiers(KeyModifiers mods) noexcept { m_keyMods = mods; }
     [[nodiscard]] KeyModifiers GetKeyModifiers() const noexcept { return m_keyMods; }
     [[nodiscard]] Vec2 GetViewportSize() const noexcept { return m_viewportSize; }
@@ -1613,11 +1734,27 @@ public:
         return TransferToContainer(m_ctx->Carousel(std::move(opts), loc));
     }
 
-    [[nodiscard]] ContainerScope Sidebar(
+    [[nodiscard]] SidebarScope Sidebar(
         SidebarOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
         return TransferToContainer(m_ctx->Sidebar(std::move(opts), loc));
+    }
+
+    [[nodiscard]] SidebarScope Sidebar(
+        SidebarMode& mode,
+        SidebarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->Sidebar(mode, std::move(opts), loc));
+    }
+
+    [[nodiscard]] SidebarScope Sidebar(
+        bool& open,
+        SidebarOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->Sidebar(open, std::move(opts), loc));
     }
 
     [[nodiscard]] SceneScope Scene(
@@ -2139,6 +2276,90 @@ public:
         std::source_location loc = std::source_location::current()
     ) {
         return m_ctx->Knob(value, min, max, std::move(opts), loc);
+    }
+
+    template <typename IndexT>
+    Response Segmented(
+        IndexT& selectedIndex,
+        std::span<const SegmentedItem> items,
+        SegmentedOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+        return m_ctx->Segmented(selectedIndex, items, std::move(opts), loc);
+    }
+
+    template <typename IndexT>
+    Response Segmented(
+        IndexT& selectedIndex,
+        std::initializer_list<SegmentedItem> items,
+        SegmentedOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+        return m_ctx->Segmented(selectedIndex, items, std::move(opts), loc);
+    }
+
+    template <typename IndexT>
+    Response Segmented(
+        IndexT& selectedIndex,
+        std::span<const std::string_view> items,
+        SegmentedOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+        return m_ctx->Segmented(selectedIndex, items, std::move(opts), loc);
+    }
+
+    template <typename IndexT>
+    Response Segmented(
+        IndexT& selectedIndex,
+        std::initializer_list<std::string_view> items,
+        SegmentedOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+        return m_ctx->Segmented(selectedIndex, items, std::move(opts), loc);
+    }
+
+    Response SegmentedMask(
+        uint32_t& selectedMask,
+        std::span<const SegmentedItem> items,
+        SegmentedOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->SegmentedMask(selectedMask, items, std::move(opts), loc);
+    }
+
+    Response SegmentedMask(
+        uint32_t& selectedMask,
+        std::initializer_list<SegmentedItem> items,
+        SegmentedOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->SegmentedMask(selectedMask, items, std::move(opts), loc);
+    }
+
+    Response SegmentedMask(
+        uint32_t& selectedMask,
+        std::span<const std::string_view> items,
+        SegmentedOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->SegmentedMask(selectedMask, items, std::move(opts), loc);
+    }
+
+    Response SegmentedMask(
+        uint32_t& selectedMask,
+        std::initializer_list<std::string_view> items,
+        SegmentedOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->SegmentedMask(selectedMask, items, std::move(opts), loc);
+    }
+
+    Response ColorPicker(
+        Color& value,
+        ColorPickerOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ColorPicker(value, std::move(opts), loc);
     }
 
 private:

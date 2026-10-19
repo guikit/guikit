@@ -16,6 +16,8 @@ enum class NavCategory : uint8_t {
     ElemSpinBox,
     ElemInputField,
     ElemSelect,
+    ElemSegmented,
+    ElemColorPicker,
     ElemSwitch,
     ElemCheckbox,
     ElemRadio,
@@ -265,7 +267,7 @@ struct DemoContext {
     float elemBorderWidth = 0.0f;
     guikit::UiVariant elemBorderVariant = guikit::UiVariant::Default;
     float elemBorderRadius = 8.0f;
-    std::array<size_t, 11> ctrlBgIdxByCat = {0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0};
+    std::array<size_t, 13> ctrlBgIdxByCat = {0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0};
     float ctrlBorderWidth = 0.0f;
     guikit::UiVariant ctrlBorderVariant = guikit::UiVariant::Default;
     float ctrlBorderRadius = 6.0f;
@@ -328,7 +330,9 @@ struct DemoContext {
         return cat == NavCategory::ElemButton ||
                cat == NavCategory::ElemSpinBox ||
                cat == NavCategory::ElemInputField ||
-               cat == NavCategory::ElemSelect;
+               cat == NavCategory::ElemSelect ||
+               cat == NavCategory::ElemSegmented ||
+               cat == NavCategory::ElemColorPicker;
     }
 
     guikit::StateColor GetControlBackground(NavCategory cat) const noexcept {
@@ -695,6 +699,7 @@ struct DemoContext {
             cat == NavCategory::ElemSlider ||
             cat == NavCategory::ElemKnob ||
             cat == NavCategory::ElemSpinBox ||
+            cat == NavCategory::ElemSegmented ||
             cat == NavCategory::ElemSwitch ||
             cat == NavCategory::ElemCheckbox ||
             cat == NavCategory::ElemRadio
@@ -735,7 +740,9 @@ struct DemoContext {
             cat == NavCategory::ElemButton ||
             cat == NavCategory::ElemSpinBox ||
             cat == NavCategory::ElemInputField ||
-            cat == NavCategory::ElemSelect
+            cat == NavCategory::ElemSelect ||
+            cat == NavCategory::ElemSegmented ||
+            cat == NavCategory::ElemColorPicker
         );
         if (auto el = ui.Element({.label = "Control Border Width"})) {
             if (ui.Slider(ctrlBorderWidth, 0.0f, 4.0f, {
@@ -751,6 +758,8 @@ struct DemoContext {
             (cat == NavCategory::ElemSpinBox) ||
             (cat == NavCategory::ElemInputField) ||
             (cat == NavCategory::ElemSelect) ||
+            (cat == NavCategory::ElemSegmented) ||
+            (cat == NavCategory::ElemColorPicker) ||
             (cat == NavCategory::ElemButton && (btnVariant == guikit::UiVariant::Default || btnVariant == guikit::UiVariant::Secondary));
         if (auto el = ui.Element({.label = "Control Border Color", .disabled = !hasVisibleCtrlBorder})) {
             if (ui.StepSlider(ctrlBorderVariant, {
@@ -845,6 +854,14 @@ std::string GenerateInputCode(const DemoContext& ctx);
 void RenderSelectInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSelectStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateSelectCode(const DemoContext& ctx);
+
+void RenderSegmentedInspector(guikit::Context& ui, DemoContext& ctx);
+void RenderSegmentedStage(guikit::Context& ui, DemoContext& ctx);
+std::string GenerateSegmentedCode(const DemoContext& ctx);
+
+void RenderColorPickerInspector(guikit::Context& ui, DemoContext& ctx);
+void RenderColorPickerStage(guikit::Context& ui, DemoContext& ctx);
+std::string GenerateColorPickerCode(const DemoContext& ctx);
 
 void RenderSwitchInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSwitchStage(guikit::Context& ui, DemoContext& ctx);

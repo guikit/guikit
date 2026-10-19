@@ -27,6 +27,8 @@ void DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
         case NavCategory::ElemSpinBox:       RenderSpinBoxInspector(ui, ctx); break;
         case NavCategory::ElemInputField:    RenderInputInspector(ui, ctx); break;
         case NavCategory::ElemSelect:        RenderSelectInspector(ui, ctx); break;
+        case NavCategory::ElemSegmented:     RenderSegmentedInspector(ui, ctx); break;
+        case NavCategory::ElemColorPicker:   RenderColorPickerInspector(ui, ctx); break;
         case NavCategory::ElemSwitch:        RenderSwitchInspector(ui, ctx); break;
         case NavCategory::ElemCheckbox:      RenderCheckboxInspector(ui, ctx); break;
         case NavCategory::ElemRadio:         RenderRadioInspector(ui, ctx); break;
@@ -73,6 +75,8 @@ void DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx
         case NavCategory::ElemSpinBox:       RenderSpinBoxStage(ui, ctx); break;
         case NavCategory::ElemInputField:    RenderInputStage(ui, ctx); break;
         case NavCategory::ElemSelect:        RenderSelectStage(ui, ctx); break;
+        case NavCategory::ElemSegmented:     RenderSegmentedStage(ui, ctx); break;
+        case NavCategory::ElemColorPicker:   RenderColorPickerStage(ui, ctx); break;
         case NavCategory::ElemSwitch:        RenderSwitchStage(ui, ctx); break;
         case NavCategory::ElemCheckbox:      RenderCheckboxStage(ui, ctx); break;
         case NavCategory::ElemRadio:         RenderRadioStage(ui, ctx); break;
@@ -114,6 +118,8 @@ std::string DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
         case NavCategory::ElemSpinBox:       return GenerateSpinBoxCode(ctx);
         case NavCategory::ElemInputField:    return GenerateInputCode(ctx);
         case NavCategory::ElemSelect:        return GenerateSelectCode(ctx);
+        case NavCategory::ElemSegmented:     return GenerateSegmentedCode(ctx);
+        case NavCategory::ElemColorPicker:   return GenerateColorPickerCode(ctx);
         case NavCategory::ElemSwitch:        return GenerateSwitchCode(ctx);
         case NavCategory::ElemCheckbox:      return GenerateCheckboxCode(ctx);
         case NavCategory::ElemRadio:         return GenerateRadioCode(ctx);
@@ -260,7 +266,8 @@ int main(int argc, char* argv[]) {
     SDL_SetTextureScaleMode(screenTexture, SDL_SCALEMODE_NEAREST);
     SDL_SetTextureBlendMode(screenTexture, SDL_BLENDMODE_BLEND_PREMULTIPLIED);
 
-    bool showSidebar = true;
+    guikit::SidebarMode navSidebarMode = guikit::SidebarMode::Expanded;
+    guikit::SidebarMode inspectorSidebarMode = guikit::SidebarMode::Expanded;
     bool running = true;
     bool vsyncEnabled = true;
     bool reactiveMode = true;
@@ -503,13 +510,52 @@ int main(int argc, char* argv[]) {
             if (auto mainCol = ui.Column({.theme = &demoCtx.shellTheme, .scale = shellScale})) {
                 // Engine HUD Toolbar
                 if (auto tb = ui.Toolbar()) {
+                    const guikit::UiVariant navVariant = (navSidebarMode == guikit::SidebarMode::Expanded)
+                        ? guikit::UiVariant::Primary
+                        : (navSidebarMode == guikit::SidebarMode::Compact)
+                            ? guikit::UiVariant::Info
+                            : guikit::UiVariant::Ghost;
+                    const std::string_view navTooltip = (navSidebarMode == guikit::SidebarMode::Expanded)
+                        ? "Navigation Sidebar: Expanded (Click for Compact Icons, Right-click to Collapse)"
+                        : (navSidebarMode == guikit::SidebarMode::Compact)
+                            ? "Navigation Sidebar: Compact Icons (Click to Collapse, Right-click to Expand)"
+                            : "Navigation Sidebar: Collapsed (Click to Expand)";
+                    const auto navBtn = tb.ToolButton({
+                        .label = "Nav",
+                        .tooltip = navTooltip,
+                        .icon = guikit::Icon::Folder(),
+                        .variant = navVariant,
+                        .active = (navSidebarMode != guikit::SidebarMode::Collapsed)
+                    });
+                    if (navBtn.clicked) {
+                        if (navSidebarMode == guikit::SidebarMode::Expanded) {
+                            navSidebarMode = guikit::SidebarMode::Compact;
+                        } else if (navSidebarMode == guikit::SidebarMode::Compact) {
+                            navSidebarMode = guikit::SidebarMode::Collapsed;
+                        } else {
+                            navSidebarMode = guikit::SidebarMode::Expanded;
+                        }
+                        ui.InvalidateAll();
+                    } else if (navBtn.rightClicked) {
+                        navSidebarMode = (navSidebarMode == guikit::SidebarMode::Collapsed)
+                            ? guikit::SidebarMode::Expanded
+                            : guikit::SidebarMode::Collapsed;
+                        ui.InvalidateAll();
+                    }
+
+                    const bool inspectorVisible = (inspectorSidebarMode != guikit::SidebarMode::Collapsed);
                     if (tb.ToolButton({
-                        .label = "Sidebar",
+                        .label = "Inspector",
+                        .tooltip = inspectorVisible
+                            ? "Inspector Sidebar: Expanded (Click to Collapse)"
+                            : "Inspector Sidebar: Collapsed (Click to Expand)",
                         .icon = guikit::Icon::Settings(),
-                        .variant = showSidebar ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                        .active = showSidebar
+                        .variant = inspectorVisible ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+                        .active = inspectorVisible
                     })) {
-                        showSidebar = !showSidebar;
+                        inspectorSidebarMode = inspectorVisible
+                            ? guikit::SidebarMode::Collapsed
+                            : guikit::SidebarMode::Expanded;
                         ui.InvalidateAll();
                     }
 
@@ -610,129 +656,131 @@ int main(int argc, char* argv[]) {
 
                 // Workspace Row containing Sidebar (left) and Content Area (right)
                 if (auto workspaceRow = ui.Row({.gap = 12.0f, .heightMode = guikit::SizeMode::Stretch})) {
-                    if (showSidebar) {
-                        // 1. Level 1: 5-Section Catalog Rail
-                        if (auto railSidebar = ui.Sidebar({
-                            .side = guikit::SidebarSide::Left,
-                            .minWidth = 156.0f
-                        })) {
-                            const NavCategory prevCat = selectedCategory;
-                            if (auto menu = ui.Size(guikit::UiSize::Sm).SidebarMenu()) {
-                                menu.Section("ELEMENTS");
-                                menu.Item(selectedCategory, NavCategory::ElemHeading,       {.text = "Heading",      .icon = guikit::Icon::Edit()});
-                                menu.Item(selectedCategory, NavCategory::ElemButton,        {.text = "Button",       .icon = guikit::Icon::Play()});
-                                menu.Item(selectedCategory, NavCategory::ElemSlider,        {.text = "Slider",       .icon = guikit::Icon::Settings()});
-                                menu.Item(selectedCategory, NavCategory::ElemKnob,          {.text = "Knob",         .icon = guikit::Icon::Refresh()});
-                                menu.Item(selectedCategory, NavCategory::ElemSpinBox,       {.text = "SpinBox",      .icon = guikit::Icon::Plus()});
-                                menu.Item(selectedCategory, NavCategory::ElemInputField,    {.text = "Input",        .icon = guikit::Icon::Edit()});
-                                menu.Item(selectedCategory, NavCategory::ElemSelect,        {.text = "Select",       .icon = guikit::Icon::Plus()});
-                                menu.Item(selectedCategory, NavCategory::ElemSwitch,        {.text = "Switch",       .icon = guikit::Icon::Refresh()});
-                                menu.Item(selectedCategory, NavCategory::ElemCheckbox,      {.text = "Checkbox",     .icon = guikit::Icon::Check()});
-                                menu.Item(selectedCategory, NavCategory::ElemRadio,         {.text = "Radio",        .icon = guikit::Icon::Check()});
-                                menu.Item(selectedCategory, NavCategory::ElemImage,         {.text = "Image",        .icon = guikit::Icon::Eye()});
+                    // 1. Level 1: 5-Section Catalog Rail
+                    if (auto railSidebar = ui.Sidebar(navSidebarMode, {
+                        .side = guikit::SidebarSide::Left,
+                        .minWidth = 156.0f,
+                        .maxWidth = 340.0f,
+                        .resizable = true,
+                        .allowCompact = true,
+                        .allowCollapse = true
+                    })) {
+                        const NavCategory prevCat = selectedCategory;
+                        if (auto menu = ui.Size(guikit::UiSize::Sm).SidebarMenu()) {
+                            menu.Section("ELEMENTS");
+                            menu.Item(selectedCategory, NavCategory::ElemHeading,       {.text = "Heading",      .icon = guikit::Icon::Edit()});
+                            menu.Item(selectedCategory, NavCategory::ElemButton,        {.text = "Button",       .icon = guikit::Icon::Play()});
+                            menu.Item(selectedCategory, NavCategory::ElemSlider,        {.text = "Slider",       .icon = guikit::Icon::Settings()});
+                            menu.Item(selectedCategory, NavCategory::ElemKnob,          {.text = "Knob",         .icon = guikit::Icon::Refresh()});
+                            menu.Item(selectedCategory, NavCategory::ElemSpinBox,       {.text = "SpinBox",      .icon = guikit::Icon::Plus()});
+                            menu.Item(selectedCategory, NavCategory::ElemInputField,    {.text = "Input",        .icon = guikit::Icon::Edit()});
+                            menu.Item(selectedCategory, NavCategory::ElemSelect,        {.text = "Select",       .icon = guikit::Icon::Plus()});
+                            menu.Item(selectedCategory, NavCategory::ElemSegmented,     {.text = "Segmented",    .icon = guikit::Icon::Settings()});
+                            menu.Item(selectedCategory, NavCategory::ElemColorPicker,   {.text = "ColorPicker",  .icon = guikit::Icon::Eye()});
+                            menu.Item(selectedCategory, NavCategory::ElemSwitch,        {.text = "Switch",       .icon = guikit::Icon::Refresh()});
+                            menu.Item(selectedCategory, NavCategory::ElemCheckbox,      {.text = "Checkbox",     .icon = guikit::Icon::Check()});
+                            menu.Item(selectedCategory, NavCategory::ElemRadio,         {.text = "Radio",        .icon = guikit::Icon::Check()});
+                            menu.Item(selectedCategory, NavCategory::ElemImage,         {.text = "Image",        .icon = guikit::Icon::Eye()});
 
-                                menu.Section("PANELS & NAV");
-                                menu.Item(selectedCategory, NavCategory::PanelCard,         {.text = "Card",         .icon = guikit::Icon::Copy()});
-                                menu.Item(selectedCategory, NavCategory::PanelTabBar,       {.text = "TabBar",       .icon = guikit::Icon::Folder()});
-                                menu.Item(selectedCategory, NavCategory::PanelSidebar,      {.text = "Sidebar",      .icon = guikit::Icon::Folder()});
-                                menu.Item(selectedCategory, NavCategory::PanelTreeView,     {.text = "TreeView",     .icon = guikit::Icon::Folder()});
-                                menu.Item(selectedCategory, NavCategory::PanelTable,        {.text = "Table / Grid", .icon = guikit::Icon::Copy(),   .badge = "100k"});
+                            menu.Section("PANELS & NAV");
+                            menu.Item(selectedCategory, NavCategory::PanelCard,         {.text = "Card",         .icon = guikit::Icon::Copy()});
+                            menu.Item(selectedCategory, NavCategory::PanelTabBar,       {.text = "TabBar",       .icon = guikit::Icon::Folder()});
+                            menu.Item(selectedCategory, NavCategory::PanelSidebar,      {.text = "Sidebar",      .icon = guikit::Icon::Folder()});
+                            menu.Item(selectedCategory, NavCategory::PanelTreeView,     {.text = "TreeView",     .icon = guikit::Icon::Folder()});
+                            menu.Item(selectedCategory, NavCategory::PanelTable,        {.text = "Table / Grid", .icon = guikit::Icon::Copy(),   .badge = "100k"});
 
-                                menu.Section("CONTENT & MEDIA");
-                                menu.Item(selectedCategory, NavCategory::ContentMarkdown,   {.text = "Markdown",     .icon = guikit::Icon::Edit()});
-                                menu.Item(selectedCategory, NavCategory::ContentCodeEditor, {.text = "Code Editor",  .icon = guikit::Icon::Edit()});
+                            menu.Section("CONTENT & MEDIA");
+                            menu.Item(selectedCategory, NavCategory::ContentMarkdown,   {.text = "Markdown",     .icon = guikit::Icon::Edit()});
+                            menu.Item(selectedCategory, NavCategory::ContentCodeEditor, {.text = "Code Editor",  .icon = guikit::Icon::Edit()});
 
-                                menu.Section("2D SCENES");
-                                menu.Item(selectedCategory, NavCategory::SceneSchematic2D,   {.text = "Schematic 2D", .icon = guikit::Icon::Search()});
-                                menu.Item(selectedCategory, NavCategory::SceneOsmMap,        {.text = "GIS",          .icon = guikit::Icon::Search(), .badge = "ENC"});
-                                menu.Item(selectedCategory, NavCategory::SceneSignalView,    {.text = "Signal View",  .icon = guikit::Icon::Play(),   .badge = "DSP"});
-                                menu.Item(selectedCategory, NavCategory::SceneSonarView,     {.text = "Sonar Radar",  .icon = guikit::Icon::Search(), .badge = "DDS"});
-                                menu.Item(selectedCategory, NavCategory::SceneWaterfallView, {.text = "Waterfall",    .icon = guikit::Icon::Play(),   .badge = "DOA"});
-                                menu.Item(selectedCategory, NavCategory::SceneImageView,     {.text = "Image View",   .icon = guikit::Icon::Eye(),    .badge = "16b/RGB"});
-                                menu.Item(selectedCategory, NavCategory::SceneAttitudeView,  {.text = "Attitude PFD", .icon = guikit::Icon::Play(),   .badge = "ADI"});
-                                menu.Item(selectedCategory, NavCategory::SceneCarDashboard,  {.text = "Car Cluster",  .icon = guikit::Icon::Play(),   .badge = "AUTO"});
-                                menu.Item(selectedCategory, NavCategory::SceneBpmnEditor,    {.text = "BPMN Modeler", .icon = guikit::Icon::Edit(),   .badge = "2.0"});
+                            menu.Section("2D SCENES");
+                            menu.Item(selectedCategory, NavCategory::SceneSchematic2D,   {.text = "Schematic 2D", .icon = guikit::Icon::Search()});
+                            menu.Item(selectedCategory, NavCategory::SceneOsmMap,        {.text = "GIS",          .icon = guikit::Icon::Search(), .badge = "ENC"});
+                            menu.Item(selectedCategory, NavCategory::SceneSignalView,    {.text = "Signal View",  .icon = guikit::Icon::Play(),   .badge = "DSP"});
+                            menu.Item(selectedCategory, NavCategory::SceneSonarView,     {.text = "Sonar Radar",  .icon = guikit::Icon::Search(), .badge = "DDS"});
+                            menu.Item(selectedCategory, NavCategory::SceneWaterfallView, {.text = "Waterfall",    .icon = guikit::Icon::Play(),   .badge = "DOA"});
+                            menu.Item(selectedCategory, NavCategory::SceneImageView,     {.text = "Image View",   .icon = guikit::Icon::Eye(),    .badge = "16b/RGB"});
+                            menu.Item(selectedCategory, NavCategory::SceneAttitudeView,  {.text = "Attitude PFD", .icon = guikit::Icon::Play(),   .badge = "ADI"});
+                            menu.Item(selectedCategory, NavCategory::SceneCarDashboard,  {.text = "Car Cluster",  .icon = guikit::Icon::Play(),   .badge = "AUTO"});
+                            menu.Item(selectedCategory, NavCategory::SceneBpmnEditor,    {.text = "BPMN Modeler", .icon = guikit::Icon::Edit(),   .badge = "2.0"});
 
-                                menu.Section("ASSEMBLY");
-                                menu.Item(selectedCategory, NavCategory::AsmDashboard,      {.text = "Dashboard",    .icon = guikit::Icon::Settings()});
-                                menu.Item(selectedCategory, NavCategory::AsmFormControls,   {.text = "Form Demo",    .icon = guikit::Icon::Edit()});
-                                menu.Item(selectedCategory, NavCategory::AsmFlexRibbon,     {.text = "Flex Ribbon",  .icon = guikit::Icon::Folder()});
-                                menu.Item(selectedCategory, NavCategory::AsmDiagnostics,    {.text = "Diagnostics",  .icon = guikit::Icon::Eye()});
-                                menu.Item(selectedCategory, NavCategory::AsmThemeStudio,    {.text = "Theme Studio", .icon = guikit::Icon::Refresh()});
-                            }
-                            if (selectedCategory != prevCat) {
-                                ui.InvalidateAll();
-                            }
+                            menu.Section("ASSEMBLY");
+                            menu.Item(selectedCategory, NavCategory::AsmDashboard,      {.text = "Dashboard",    .icon = guikit::Icon::Settings()});
+                            menu.Item(selectedCategory, NavCategory::AsmFormControls,   {.text = "Form Demo",    .icon = guikit::Icon::Edit()});
+                            menu.Item(selectedCategory, NavCategory::AsmFlexRibbon,     {.text = "Flex Ribbon",  .icon = guikit::Icon::Folder()});
+                            menu.Item(selectedCategory, NavCategory::AsmDiagnostics,    {.text = "Diagnostics",  .icon = guikit::Icon::Eye()});
+                            menu.Item(selectedCategory, NavCategory::AsmThemeStudio,    {.text = "Theme Studio", .icon = guikit::Icon::Refresh()});
                         }
+                        if (selectedCategory != prevCat) {
+                            ui.InvalidateAll();
+                        }
+                    }
 
+                    // 2. Level 2: Inspector Panel (Resizable & Collapsible)
+                    if (auto inspectorSidebar = ui.Sidebar(inspectorSidebarMode, {
+                        .side = guikit::SidebarSide::Left,
+                        .width = 320.0f,
+                        .minWidth = 220.0f,
+                        .maxWidth = 520.0f,
+                        .resizable = true,
+                        .allowCollapse = true,
+                        .gap = 8.0f,
+                        .padding = guikit::Padding::All(12.0f)
+                    })) {
                         if (IsElementCategory(selectedCategory)) {
-                            // 2. Level 2: Unified Element Inspector Sidebar with 3 Accordions (Element, Control, Specific)
-                            if (auto inspectorSidebar = ui.Sidebar({
-                                .side = guikit::SidebarSide::Left,
-                                .width = 320.0f,
-                                .gap = 8.0f,
-                                .padding = guikit::Padding::All(12.0f)
+                            if (auto elemAcc = ui.Size(guikit::UiSize::Sm).Accordion({
+                                .label = "ELEMENT",
+                                .defaultOpen = false
                             })) {
-                                if (auto elemAcc = ui.Size(guikit::UiSize::Sm).Accordion({
-                                    .label = "ELEMENT",
-                                    .defaultOpen = true
-                                })) {
-                                    demoCtx.RenderElementInspector(ui, selectedCategory);
-                                }
+                                demoCtx.RenderElementInspector(ui, selectedCategory);
+                            }
 
-                                if (selectedCategory == NavCategory::ElemHeading) {
-                                    bool ctrlOpen = false;
-                                    if (auto ctrlAcc = ui.Size(guikit::UiSize::Sm).Accordion(ctrlOpen, {
-                                        .label = "CONTROL",
-                                        .badge = {"N/A", guikit::StateColor::Muted()},
-                                        .disabled = true
-                                    })) {
-                                    }
-                                } else {
-                                    if (auto ctrlAcc = ui.Size(guikit::UiSize::Sm).Accordion({
-                                        .label = "CONTROL",
-                                        .defaultOpen = true
-                                    })) {
-                                        demoCtx.RenderControlInspector(ui, selectedCategory);
-                                    }
-                                }
-
-                                std::string_view specificTitle = "HEADING";
-                                switch (selectedCategory) {
-                                    case NavCategory::ElemHeading:    specificTitle = "HEADING"; break;
-                                    case NavCategory::ElemButton:     specificTitle = "BUTTON"; break;
-                                    case NavCategory::ElemSlider:     specificTitle = "SLIDER"; break;
-                                    case NavCategory::ElemKnob:       specificTitle = "KNOB"; break;
-                                    case NavCategory::ElemSpinBox:    specificTitle = "SPINBOX"; break;
-                                    case NavCategory::ElemInputField: specificTitle = "INPUT FIELD"; break;
-                                    case NavCategory::ElemSelect:     specificTitle = "SELECT"; break;
-                                    case NavCategory::ElemSwitch:     specificTitle = "SWITCH"; break;
-                                    case NavCategory::ElemCheckbox:   specificTitle = "CHECKBOX"; break;
-                                    case NavCategory::ElemRadio:      specificTitle = "RADIO"; break;
-                                    case NavCategory::ElemImage:      specificTitle = "IMAGE"; break;
-                                    default: break;
-                                }
-                                if (auto specAcc = ui.Size(guikit::UiSize::Sm).Accordion({
-                                    .label = specificTitle,
-                                    .defaultOpen = true
+                            if (selectedCategory == NavCategory::ElemHeading) {
+                                bool ctrlOpen = false;
+                                if (auto ctrlAcc = ui.Size(guikit::UiSize::Sm).Accordion(ctrlOpen, {
+                                    .label = "CONTROL",
+                                    .badge = {"N/A", guikit::StateColor::Muted()},
+                                    .disabled = true
                                 })) {
-                                    DispatchInspector(ui, selectedCategory, demoCtx);
+                                }
+                            } else {
+                                if (auto ctrlAcc = ui.Size(guikit::UiSize::Sm).Accordion({
+                                    .label = "CONTROL",
+                                    .defaultOpen = false
+                                })) {
+                                    demoCtx.RenderControlInspector(ui, selectedCategory);
                                 }
                             }
-                        } else {
-                            // 2. Level 2: Inspector Panel
-                            if (auto inspectorSidebar = ui.Sidebar({
-                                .side = guikit::SidebarSide::Left,
-                                .width = 320.0f,
-                                .gap = 8.0f,
-                                .padding = guikit::Padding::All(12.0f)
+
+                            std::string_view specificTitle = "HEADING";
+                            switch (selectedCategory) {
+                                case NavCategory::ElemHeading:     specificTitle = "HEADING"; break;
+                                case NavCategory::ElemButton:      specificTitle = "BUTTON"; break;
+                                case NavCategory::ElemSlider:      specificTitle = "SLIDER"; break;
+                                case NavCategory::ElemKnob:        specificTitle = "KNOB"; break;
+                                case NavCategory::ElemSpinBox:     specificTitle = "SPINBOX"; break;
+                                case NavCategory::ElemInputField:  specificTitle = "INPUT FIELD"; break;
+                                case NavCategory::ElemSelect:      specificTitle = "SELECT"; break;
+                                case NavCategory::ElemSegmented:   specificTitle = "SEGMENTED"; break;
+                                case NavCategory::ElemColorPicker: specificTitle = "COLOR PICKER"; break;
+                                case NavCategory::ElemSwitch:      specificTitle = "SWITCH"; break;
+                                case NavCategory::ElemCheckbox:    specificTitle = "CHECKBOX"; break;
+                                case NavCategory::ElemRadio:       specificTitle = "RADIO"; break;
+                                case NavCategory::ElemImage:       specificTitle = "IMAGE"; break;
+                                default: break;
+                            }
+                            if (auto specAcc = ui.Size(guikit::UiSize::Sm).Accordion({
+                                .label = specificTitle,
+                                .defaultOpen = true
                             })) {
-                                ui.Size(guikit::UiSize::Xs).Heading({
-                                    .label = "INSPECTOR",
-                                    .divider = true
-                                });
                                 DispatchInspector(ui, selectedCategory, demoCtx);
                             }
+                        } else {
+                            ui.Size(guikit::UiSize::Xs).Heading({
+                                .label = "INSPECTOR",
+                                .divider = true
+                            });
+                            DispatchInspector(ui, selectedCategory, demoCtx);
                         }
                     }
 

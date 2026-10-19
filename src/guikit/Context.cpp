@@ -366,8 +366,19 @@ ContainerScope Context::Carousel(CarouselOptions opts, std::source_location loc)
     return Open<guikit::Carousel>(opts, loc);
 }
 
-ContainerScope Context::Sidebar(SidebarOptions opts, std::source_location loc) {
-    return Open<guikit::Sidebar>(opts, loc);
+SidebarScope Context::Sidebar(SidebarOptions opts, std::source_location loc) {
+    return guikit::Sidebar::Open(*this, nullptr, opts, loc);
+}
+
+SidebarScope Context::Sidebar(SidebarMode& mode, SidebarOptions opts, std::source_location loc) {
+    return guikit::Sidebar::Open(*this, &mode, opts, loc);
+}
+
+SidebarScope Context::Sidebar(bool& open, SidebarOptions opts, std::source_location loc) {
+    SidebarMode mode = open ? SidebarMode::Expanded : SidebarMode::Collapsed;
+    SidebarScope scope = guikit::Sidebar::Open(*this, &mode, opts, loc);
+    open = (mode != SidebarMode::Collapsed);
+    return scope;
 }
 
 SceneScope Context::Scene(SceneOptions opts, std::source_location loc) {
@@ -1663,11 +1674,11 @@ static void CollectBoundsRecursive(
     const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
 
     if (node->id.IsValid()) {
-        if (node->computedRect.w > 0.0f && node->computedRect.h > 0.0f) {
+        if ((node->computedRect.w > 0.0f || node->type == NodeType::Sidebar) && node->computedRect.h > 0.0f) {
             outUnclippedBounds[node->id] = node->computedRect;
         }
         const Rect clipped = node->computedRect.Intersect(parentClip);
-        if (clipped.w > 0.0f && clipped.h > 0.0f) {
+        if ((clipped.w > 0.0f || node->type == NodeType::Sidebar) && clipped.h > 0.0f) {
             outBounds[node->id] = clipped;
         }
 

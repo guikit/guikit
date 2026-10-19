@@ -7,18 +7,35 @@ namespace guikit::demo {
 namespace {
 struct SidebarState {
     int menuIdx = 0;
+    guikit::SidebarMode mode = guikit::SidebarMode::Expanded;
     guikit::SidebarMenuStyle menuStyle = guikit::SidebarMenuStyle::Pill;
     guikit::SidebarSide side = guikit::SidebarSide::Left;
-    bool collapsed = false;
+    bool resizable = true;
+    bool allowCompact = true;
+    bool allowCollapse = true;
     bool showBadges = true;
     bool showSections = true;
-    bool autoWidth = true;
-    float fixedWidth = 200.0f;
+    bool autoWidth = false;
+    float fixedWidth = 210.0f;
 };
 SidebarState s_state;
+
+constexpr std::string_view ModeEnumName(guikit::SidebarMode m) noexcept {
+    switch (m) {
+        case guikit::SidebarMode::Compact:   return "Compact";
+        case guikit::SidebarMode::Collapsed: return "Collapsed";
+        default:                             return "Expanded";
+    }
+}
 } // namespace
 
 void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
+    if (auto el = ui.Element({.label = "Sidebar Mode", .layout = guikit::ElementLayout::Stacked})) {
+        if (ui.Segmented(s_state.mode, {"Expanded", "Compact", "Collapsed"}).changed) {
+            ui.InvalidateAll();
+        }
+    }
+
     if (auto el = ui.Element({.label = "Menu Size"})) {
         if (ui.StepSlider(ctx.controlsSize, {.showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
     }
@@ -42,8 +59,23 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
         }
     }
 
-    if (auto el = ui.Element({.label = "Collapsed Rail (Icons Only)"})) {
-        if (ui.Switch(s_state.collapsed).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({
+        .label = "Mouse Resizable (Sash)",
+        .description = "Drag inner border to resize or snap"
+    })) {
+        if (ui.Switch(s_state.resizable).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({
+        .label = "Allow Compact (Icons)",
+        .description = "Snap/toggle to icons-only rail"
+    })) {
+        if (ui.Switch(s_state.allowCompact).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({
+        .label = "Allow Collapse (0px)",
+        .description = "Snap/toggle to completely minimized"
+    })) {
+        if (ui.Switch(s_state.allowCollapse).changed) ui.InvalidateAll();
     }
     if (auto el = ui.Element({.label = "Show Section Headers"})) {
         if (ui.Switch(s_state.showSections).changed) ui.InvalidateAll();
@@ -51,11 +83,14 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
     if (auto el = ui.Element({.label = "Show Trailing Badges"})) {
         if (ui.Switch(s_state.showBadges).changed) ui.InvalidateAll();
     }
-    if (auto el = ui.Element({.label = "Auto-Fit Width", .disabled = s_state.collapsed})) {
-        if (ui.Switch(s_state.autoWidth, {.disabled = s_state.collapsed}).changed) ui.InvalidateAll();
+    const bool notExpanded = (s_state.mode != guikit::SidebarMode::Expanded);
+    if (auto el = ui.Element({.label = "Auto-Fit Width", .disabled = notExpanded})) {
+        if (ui.Switch(s_state.autoWidth, {.disabled = notExpanded}).changed) ui.InvalidateAll();
     }
-    if (auto el = ui.Element({.label = "Explicit Width", .disabled = s_state.collapsed || s_state.autoWidth})) {
-        if (ui.Slider(s_state.fixedWidth, 120.0f, 300.0f, {.valueFormat = "%.0f px", .disabled = s_state.collapsed || s_state.autoWidth}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Default Width", .disabled = notExpanded || s_state.autoWidth})) {
+        if (ui.Slider(s_state.fixedWidth, 140.0f, 320.0f, {.valueFormat = "%.0f px", .disabled = notExpanded || s_state.autoWidth}).changed) {
+            ui.InvalidateAll();
+        }
     }
 }
 
@@ -65,15 +100,19 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
         .widthMode = guikit::SizeMode::Stretch,
         .heightMode = guikit::SizeMode::Stretch
     })) {
-        if (auto sb = ui.Sidebar({
+        if (auto sb = ui.Sidebar(s_state.mode, {
             .side = s_state.side,
-            .width = (s_state.collapsed || s_state.autoWidth) ? std::nullopt : std::optional<float>(s_state.fixedWidth),
+            .width = s_state.autoWidth ? std::nullopt : std::optional<float>(s_state.fixedWidth),
+            .minWidth = 140.0f,
+            .maxWidth = 360.0f,
+            .resizable = s_state.resizable,
+            .allowCompact = s_state.allowCompact,
+            .allowCollapse = s_state.allowCollapse,
             .scrollable = true
         })) {
             const int prevIdx = s_state.menuIdx;
             if (auto menu = ui.Size(ctx.controlsSize).SidebarMenu({
                 .style = s_state.menuStyle,
-                .collapsed = s_state.collapsed,
                 .variant = ctx.btnVariant
             })) {
                 if (s_state.showSections) {
@@ -107,7 +146,7 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
         }
 
         if (auto mainPane = ui.Card({
-            .gap = 6.0f,
+            .gap = 8.0f,
             .padding = guikit::Padding::All(16.0f),
             .widthMode = guikit::SizeMode::Stretch,
             .heightMode = guikit::SizeMode::Stretch
@@ -117,10 +156,10 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
             };
             ui.Size(guikit::UiSize::Sm).Heading({
                 .label = pageTitles[static_cast<size_t>(std::clamp(s_state.menuIdx, 0, 3))],
-                .description = "Docked Sidebar + SidebarMenu container arrangement",
+                .description = ui.Format("Mode: {}  |  Drag the sidebar border or click the edge button to toggle", ModeEnumName(s_state.mode)),
                 .divider = true
             });
-            ui.Text("Remaining workspace automatically stretches around docked Left/Right Sidebars.", {
+            ui.Text("Remaining workspace automatically stretches around docked Left/Right Sidebars. Dragging the inner border past the minimum threshold snaps into Compact (icons-only) or Collapsed (0px) mode.", {
                 .variant = guikit::UiVariant::Secondary
             });
         }
@@ -129,14 +168,18 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
 
 std::string GenerateSidebarCode(const DemoContext& ctx) {
     return std::format(
-        "if (auto sb = ui.Sidebar({{\n"
+        "if (auto sb = ui.Sidebar(sidebarMode, {{\n"
         "    .side = guikit::SidebarSide::{},\n"
         "    .width = {},\n"
+        "    .minWidth = 140.0f,\n"
+        "    .maxWidth = 360.0f,\n"
+        "    .resizable = {},\n"
+        "    .allowCompact = {},\n"
+        "    .allowCollapse = {},\n"
         "    .scrollable = true\n"
         "}})) {{\n"
         "    if (auto menu = ui.Size(guikit::UiSize::{}).SidebarMenu({{\n"
         "        .style = guikit::SidebarMenuStyle::{},\n"
-        "        .collapsed = {},\n"
         "        .variant = guikit::UiVariant::{}\n"
         "    }})) {{\n"
         "        menu.Section(\"WORKSPACE\");\n"
@@ -145,10 +188,12 @@ std::string GenerateSidebarCode(const DemoContext& ctx) {
         "    }}\n"
         "}}",
         s_state.side == guikit::SidebarSide::Right ? "Right" : "Left",
-        (s_state.collapsed || s_state.autoWidth) ? "std::nullopt" : std::format("{:.1f}f", s_state.fixedWidth),
+        s_state.autoWidth ? "std::nullopt" : std::format("{:.1f}f", s_state.fixedWidth),
+        s_state.resizable ? "true" : "false",
+        s_state.allowCompact ? "true" : "false",
+        s_state.allowCollapse ? "true" : "false",
         SizeName(ctx.controlsSize),
         s_state.menuStyle == guikit::SidebarMenuStyle::Indicator ? "Indicator" : "Pill",
-        s_state.collapsed ? "true" : "false",
         VariantName(ctx.btnVariant),
         s_state.showBadges ? ", .badge = \"3\"" : "",
         s_state.showBadges ? ", .badge = \"New\"" : ""

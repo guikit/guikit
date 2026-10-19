@@ -42,6 +42,11 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         }
 
         if (node->type == NodeType::ScrollArea || node->type == NodeType::Sidebar) {
+            if (node->type == NodeType::Sidebar && node->sidebarCollapsed) {
+                node->scrollContentSize = {0.0f, 0.0f};
+                node->intrinsicSize = {0.0f, 0.0f};
+                return;
+            }
             float totalHeight = node->padding.Vertical();
             float maxWidth = 0.0f;
             uint32_t activeChildren = 0;
@@ -551,6 +556,12 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->type != NodeType::Sidebar) continue;
+
+                if (child->sidebarCollapsed) {
+                    const float edgeX = !child->sidebarRight ? leftX : rightX;
+                    child->computedRect = Rect(edgeX, topY, 0.0f, availH);
+                    continue;
+                }
 
                 const UiTheme& childTheme = (child->theme != nullptr) ? *child->theme : activeTheme;
                 float sbW = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;

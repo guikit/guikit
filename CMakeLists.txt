@@ -61,6 +61,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/panels/TreeView.cpp
     src/guikit/widgets/Button.cpp
     src/guikit/widgets/Checkbox.cpp
+    src/guikit/widgets/ColorPicker.cpp
     src/guikit/widgets/Heading.cpp
     src/guikit/widgets/Histogram.cpp
     src/guikit/widgets/Image.cpp
@@ -69,6 +70,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/widgets/Knob.cpp
     src/guikit/widgets/Markdown.cpp
     src/guikit/widgets/Radio.cpp
+    src/guikit/widgets/Segmented.cpp
     src/guikit/widgets/Select.cpp
     src/guikit/widgets/SidebarMenu.cpp
     src/guikit/widgets/Slider.cpp
@@ -220,6 +222,8 @@ if (GUIKIT_BUILD_DEMO)
         examples/demo/elements/SpinBoxScreen.cpp
         examples/demo/elements/InputScreen.cpp
         examples/demo/elements/SelectScreen.cpp
+        examples/demo/elements/SegmentedScreen.cpp
+        examples/demo/elements/ColorPickerScreen.cpp
         examples/demo/elements/SwitchScreen.cpp
         examples/demo/elements/CheckboxScreen.cpp
         examples/demo/elements/RadioScreen.cpp

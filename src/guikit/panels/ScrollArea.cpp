@@ -172,8 +172,10 @@ void ScrollArea::UpdateAxisScrollbar(
         const float thumbY = trackY + ratio * travel;
         trackRect = Rect(trackX, trackY, m.trackWidth, trackLen);
         thumbRect = Rect(trackX, thumbY, m.trackWidth, thumbLen);
-        hitTrackRect = Rect(trackX - hitExpand, trackY, m.trackWidth + hitExpand * 2.0f, trackLen);
-        hitThumbRect = Rect(trackX - hitExpand, thumbY, m.trackWidth + hitExpand * 2.0f, thumbLen);
+        const float hitX = trackX - hitExpand;
+        const float hitW = std::max(0.0f, (viewportRect.Right() - 1.5f) - hitX);
+        hitTrackRect = Rect(hitX, trackY, hitW, trackLen);
+        hitThumbRect = Rect(hitX, thumbY, hitW, thumbLen);
     }
 
     const Vec2 mousePos = ctx.GetMousePos();

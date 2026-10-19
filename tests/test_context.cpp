@@ -9805,6 +9805,262 @@ void TestKnobSpinBoxAndRadioElements() {
     std::cout << "  [PASS] TestKnobSpinBoxAndRadioElements completed\n";
 }
 
+void TestSegmentedAndColorPickerElements() {
+    using namespace guikit;
+    std::cout << "  -> TestSegmentedAndColorPickerElements...\n";
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 640;
+    const uint32_t height = 560;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    size_t segIndex = 0;
+    uint32_t segMask = 0b0001u;
+    Color pickedColor(59, 130, 246, 255);
+    Color inlineColor(16, 185, 129, 255);
+
+    Response rSeg{};
+    Response rSegMask{};
+    Response rColorBtn{};
+    Response rColorInline{};
+
+    auto renderScene = [&]() {
+        if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(16.0f)})) {
+            if (auto el = ui.Element({.label = "Waveform Mode"})) {
+                rSeg = ui.Segmented(segIndex, {
+                    {.text = "Sine", .icon = Icon::Refresh()},
+                    {.text = "Square", .icon = Icon::Settings()},
+                    {.text = "Saw", .icon = Icon::Play()},
+                    {.text = "Noise", .icon = Icon::Warning()}
+                });
+            }
+            if (auto el = ui.Element({.label = "Active Channels"})) {
+                rSegMask = ui.SegmentedMask(segMask, {"CH1", "CH2", "CH3", "CH4"});
+            }
+            if (auto el = ui.Element({.label = "Trace Color"})) {
+                rColorBtn = ui.ColorPicker(pickedColor, {
+                    .showHex = true,
+                    .showAlpha = true,
+                    .showSwatches = true
+                });
+            }
+            if (auto el = ui.Element({.label = "Inline Palette"})) {
+                rColorInline = ui.ColorPicker(inlineColor, {
+                    .showAlpha = true,
+                    .showSwatches = true,
+                    .inlinePanel = true
+                });
+            }
+        }
+    };
+
+    // Frame 1 & 2: Measure & Layout
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    CHECK(rSeg.rect.w > 200.0f);
+    CHECK(rSegMask.rect.w > 200.0f);
+    CHECK(rColorBtn.rect.w > 120.0f);
+    CHECK(rColorInline.rect.h >= 190.0f);
+
+    // 1. Click 3rd segment ("Saw", index 2) of single-select Segmented control
+    const float seg2X = rSeg.rect.x + rSeg.rect.w * 0.625f;
+    const float seg2Y = rSeg.rect.y + rSeg.rect.h * 0.5f;
+    ui.OnMouseMove({seg2X, seg2Y});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    CHECK(rSeg.changed);
+    CHECK(segIndex == 2);
+
+    // 2. Click 2nd segment ("CH2", bit 1) of multi-select SegmentedMask control
+    const float mask1X = rSegMask.rect.x + rSegMask.rect.w * 0.375f;
+    const float mask1Y = rSegMask.rect.y + rSegMask.rect.h * 0.5f;
+    ui.OnMouseMove({mask1X, mask1Y});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    CHECK(rSegMask.changed);
+    CHECK(segMask == 0b0011u);
+
+    // 3. Test HSV <-> RGB round-trip conversion
+    float h = 0.0f, s = 0.0f, v = 0.0f;
+    ColorPicker::RgbToHsv(Color(239, 68, 68, 200), h, s, v);
+    const Color roundTrip = ColorPicker::HsvToRgb(h, s, v, 200);
+    CHECK(std::abs(int(roundTrip.r) - 239) <= 1);
+    CHECK(std::abs(int(roundTrip.g) - 68) <= 1);
+    CHECK(std::abs(int(roundTrip.b) - 68) <= 1);
+    CHECK(roundTrip.a == 200);
+
+    // 4. Drag inside inline ColorPicker SV square to change color
+    const Vec2 svPt = {rColorInline.rect.x + 40.0f, rColorInline.rect.y + 30.0f};
+    ui.OnMouseMove(svPt);
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    ui.OnMouseMove({svPt.x + 80.0f, svPt.y + 20.0f});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    CHECK(rColorInline.changed);
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    std::cout << "  [PASS] TestSegmentedAndColorPickerElements completed\n";
+}
+
+void TestSidebarResizableCompactAndCollapsedModes() {
+    using namespace guikit;
+    std::cout << "  -> TestSidebarResizableCompactAndCollapsedModes...\n";
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 800;
+    const uint32_t height = 500;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    SidebarMode sbMode = SidebarMode::Expanded;
+    int selectedNav = 0;
+    bool bodyExecuted = false;
+    Id sbId = Id::Null();
+    Node* sbNode = nullptr;
+
+    auto renderScene = [&]() {
+        bodyExecuted = false;
+        if (auto root = ui.Row({.gap = 8.0f, .heightMode = SizeMode::Stretch})) {
+            if (auto sb = ui.Sidebar(sbMode, {
+                .side = SidebarSide::Left,
+                .width = 200.0f,
+                .minWidth = 140.0f,
+                .maxWidth = 360.0f,
+                .resizable = true,
+                .allowCompact = true,
+                .allowCollapse = true
+            })) {
+                bodyExecuted = true;
+                sbId = sb.response.id;
+                sbNode = sb.GetNode();
+                if (auto menu = ui.SidebarMenu()) {
+                    menu.Section("MAIN");
+                    menu.Item(selectedNav, 0, {.text = "Dashboard", .icon = Icon::Folder()});
+                    menu.Item(selectedNav, 1, {.text = "Settings", .icon = Icon::Settings()});
+                }
+            }
+            if (auto content = ui.Box({.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch})) {
+                ui.Text("Workspace");
+            }
+        }
+    };
+
+    // Frame 1 & 2: Initial Expanded layout (width = 200px)
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    CHECK(bodyExecuted == true);
+    CHECK(sbMode == SidebarMode::Expanded);
+    CHECK(sbNode != nullptr);
+    CHECK(std::abs(sbNode->computedRect.w - 200.0f) < 1.0f);
+
+    // 1. Drag inner sash at x=200, y=100 (above center toggle button) to x=280 -> expands width to 280px
+    ui.OnMouseMove({200.0f, 100.0f});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    ui.OnMouseMove({280.0f, 100.0f});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    CHECK(sbMode == SidebarMode::Expanded);
+    CHECK(std::abs(sbNode->computedRect.w - 280.0f) < 1.0f);
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    // 2. Drag sash from 280px inward to x=60 -> snaps to Compact (icons only), preserving 280px as lastExpandedWidth
+    ui.OnMouseMove({280.0f, 100.0f});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    ui.OnMouseMove({60.0f, 100.0f});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    CHECK(sbMode == SidebarMode::Compact);
+    CHECK(bodyExecuted == true);
+    CHECK(sbNode->computedRect.w > 30.0f && sbNode->computedRect.w < 80.0f);
+
+    // 3. Continue dragging sash to x=10 (below collapseSnapW 24px) -> snaps to Collapsed (0px)
+    ui.OnMouseMove({10.0f, 100.0f});
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    CHECK(sbMode == SidebarMode::Collapsed);
+    CHECK(bodyExecuted == false);
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    // 4. Click edge toggle button at x=6, y=250 -> restores to Expanded with the 280px width preserved!
+    ui.OnMouseMove({6.0f, 250.0f});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    CHECK(sbMode == SidebarMode::Expanded);
+    CHECK(bodyExecuted == true);
+    CHECK(std::abs(sbNode->computedRect.w - 280.0f) < 1.0f);
+
+    std::cout << "  [PASS] TestSidebarResizableCompactAndCollapsedModes completed\n";
+}
+
 int main() {
     std::cout << std::unitbuf;
     std::cerr << std::unitbuf;
@@ -9886,6 +10142,8 @@ int main() {
     TestSizeScopeChainingAndIsolation();
     TestTreeViewAndTreeItemWorkflow();
     TestKnobSpinBoxAndRadioElements();
+    TestSegmentedAndColorPickerElements();
+    TestSidebarResizableCompactAndCollapsedModes();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";

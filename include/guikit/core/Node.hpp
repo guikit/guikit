@@ -103,6 +103,8 @@ enum class NodeType : uint16_t {
     Radio           = 228,
     SpinBox         = 229,
     Knob            = 230,
+    Segmented       = 231,
+    ColorPicker     = 232,
 
     // --- User Extension Base (1000+) ---
     User          = 1000
@@ -155,7 +157,9 @@ struct Node {
     bool sidebarScrollable : 1 {true};
     bool ctrlStretchable : 1 {true};
     bool ctrlStretchH : 1 {false};
-    uint16_t payloadTypeId{0};  ///< Runtime type tag for safe Node::As<T>() casting
+    uint16_t sidebarCompact : 1 {0};
+    uint16_t sidebarCollapsed : 1 {0};
+    uint16_t payloadTypeId : 14 {0}; ///< Runtime type tag for safe Node::As<T>() casting
 
     float fixedWidth{0.0f};
     float fixedHeight{0.0f};
@@ -296,6 +300,8 @@ struct Node {
             case NodeType::Radio:           return "Radio";
             case NodeType::SpinBox:         return "SpinBox";
             case NodeType::Knob:            return "Knob";
+            case NodeType::Segmented:       return "Segmented";
+            case NodeType::ColorPicker:     return "ColorPicker";
             default:                       return (static_cast<uint16_t>(type) >= static_cast<uint16_t>(NodeType::User)) ? "UserWidget" : "Unknown";
         }
     }

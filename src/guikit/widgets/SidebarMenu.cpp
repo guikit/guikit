@@ -107,16 +107,26 @@ SidebarMenuScope SidebarMenu::Open(
     node->justify = Justify::Start;
     node->gap = opts.gap.has_value() ? theme.Scale(*opts.gap) : (4.0f * activeScale);
 
-    if (opts.collapsed) {
+    SidebarMenuOptions effectiveOpts = opts;
+    for (Node* p = node->parent; p != nullptr; p = p->parent) {
+        if (p->type == NodeType::Sidebar) {
+            if (p->sidebarCompact) {
+                effectiveOpts.collapsed = true;
+            }
+            break;
+        }
+    }
+
+    if (effectiveOpts.collapsed) {
         node->widthMode = SizeMode::Fit;
         if (node->parent && node->parent->type == NodeType::Sidebar) {
             node->parent->widthMode = SizeMode::Fit;
             node->parent->fixedWidth = 0.0f;
             node->parent->minWidth = 0.0f;
         }
-    } else if (opts.width.has_value()) {
+    } else if (effectiveOpts.width.has_value()) {
         node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = theme.Scale(*opts.width);
+        node->fixedWidth = theme.Scale(*effectiveOpts.width);
     } else {
         node->widthMode = SizeMode::Stretch;
     }
@@ -129,7 +139,7 @@ SidebarMenuScope SidebarMenu::Open(
     ctx.PushDisabled(activeDisabled);
     ctx.PushContainer(node);
 
-    return SidebarMenuScope(&ctx, node, opts);
+    return SidebarMenuScope(&ctx, node, effectiveOpts);
 }
 
 Response SidebarMenu::Run(
@@ -443,7 +453,9 @@ void SidebarMenu::RenderItem(
     if (!item.text.empty() && rightX > leftX) {
         const float fontSize = theme.ResolveFontSize(item.text, TextRole::LabelLarge, size);
         const Rect textRect(leftX, bounds.y, rightX - leftX, bounds.h);
+        canvas.PushClip(textRect);
         canvas.DrawTextBox(item.text.text, textRect, fontSize, textCol, 0.0f, 0.5f);
+        canvas.PopClip();
     }
 
     canvas.PopClip();
