@@ -2671,8 +2671,8 @@ PerLayerTileCacheManager& GetTileCache() {
         if (auto defaultProv = GisRenderEngine::GetDefaultBasemapProvider()) {
             return defaultProv;
         }
-        static std::shared_ptr<geo::IRasterTileProvider> s_fallbackProvider = geo::CreateCartographicBasemapTileProvider();
-        return s_fallbackProvider;
+        static std::shared_ptr<geo::IRasterTileProvider> s_defaultOsmProvider = geo::CreateOsmRasterTileProvider();
+        return s_defaultOsmProvider;
     }
     return nullptr;
 }

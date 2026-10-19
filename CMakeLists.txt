@@ -115,7 +115,9 @@ if (GUIKIT_BUILD_SCENES)
         src/guikit/geo/GeoJsonIO.cpp
         src/guikit/geo/GeoTypes.cpp
         src/guikit/geo/GisRenderEngine.cpp
+        src/guikit/geo/OsmRasterTileProvider.cpp
         src/guikit/geo/PolygonTriangulator.cpp
+        src/guikit/net/NetClient.cpp
         src/guikit/panels/MapView.cpp
         src/guikit/widgets/AttitudeView.cpp
         src/guikit/widgets/BpmnEditor.cpp
@@ -129,7 +131,21 @@ if (GUIKIT_BUILD_SCENES)
     add_library(guikit::scenes ALIAS guikit_scenes)
 
     target_compile_features(guikit_scenes PUBLIC cxx_std_20)
+    target_include_directories(guikit_scenes PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/thorvg/src/loaders/png"
+    )
     target_link_libraries(guikit_scenes PUBLIC guikit::core)
+    if (WIN32)
+        target_link_libraries(guikit_scenes PUBLIC winhttp)
+    elseif (EMSCRIPTEN)
+        target_link_options(guikit_scenes PUBLIC "SHELL:-s FETCH=1" "-lwebsocket.js")
+    else()
+        find_package(CURL QUIET)
+        if (CURL_FOUND)
+            target_link_libraries(guikit_scenes PRIVATE CURL::libcurl)
+            target_compile_definitions(guikit_scenes PRIVATE GUIKIT_HAS_CURL=1)
+        endif()
+    endif()
     if (NOT EMSCRIPTEN)
         target_link_libraries(guikit_scenes PUBLIC Threads::Threads)
     endif()
