@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <bit>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
@@ -13,64 +14,104 @@
 #include <format>
 #include <fstream>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <unordered_map>
 
 namespace guikit::geo {
+
+namespace {
+
+struct LodePngStateGuard {
+    LodePNGState state{};
+    LodePngStateGuard() noexcept { lodepng_state_init(&state); }
+    ~LodePngStateGuard() noexcept { lodepng_state_cleanup(&state); }
+    LodePngStateGuard(const LodePngStateGuard&) = delete;
+    LodePngStateGuard& operator=(const LodePngStateGuard&) = delete;
+};
+
+struct FreeDeleter {
+    void operator()(unsigned char* p) const noexcept {
+        if (p) std::free(p);
+    }
+};
+
+} // namespace
 
 bool DecodePngAndScaleToRgba(
     std::span<const uint8_t> pngBytes,
     uint32_t targetSizePx,
     std::vector<uint32_t>& outRgba
 ) {
-    if (pngBytes.size() < 8 || targetSizePx == 0 || targetSizePx > 4096) {
+    // Minimum valid PNG is 67 bytes (8-byte signature + IHDR + IDAT + IEND)
+    if (pngBytes.size() < 32 || targetSizePx == 0 || targetSizePx > 4096) {
         return false;
     }
 
     // Verify PNG magic signature: 89 50 4E 47 0D 0A 1A 0A
-    if (pngBytes[0] != 0x89 || pngBytes[1] != 'P' || pngBytes[2] != 'N' || pngBytes[3] != 'G') {
+    static constexpr uint8_t kPngSignature[8] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+    if (std::memcmp(pngBytes.data(), kPngSignature, sizeof(kPngSignature)) != 0) {
         return false;
     }
 
-    LodePNGState state{};
-    lodepng_state_init(&state);
-    state.info_raw.colortype = LCT_RGBA;
-    state.info_raw.bitdepth = 8;
+    // 1. Inspect IHDR dimensions first to guard against decompression bombs
+    {
+        LodePngStateGuard inspectGuard;
+        unsigned inspectW = 0;
+        unsigned inspectH = 0;
+        if (lodepng_inspect(&inspectW, &inspectH, &inspectGuard.state, pngBytes.data(), pngBytes.size()) != 0 ||
+            inspectW == 0 || inspectH == 0 || inspectW > 4096 || inspectH > 4096) {
+            return false;
+        }
+    }
 
-    unsigned char* decodedBytes = nullptr;
+    // 2. Decode into 8-bit RGBA (R, G, B, A byte order) with RAII cleanup
+    LodePngStateGuard decodeGuard;
+    decodeGuard.state.info_raw.colortype = LCT_RGBA;
+    decodeGuard.state.info_raw.bitdepth = 8;
+
+    unsigned char* rawPtr = nullptr;
     unsigned srcW = 0;
     unsigned srcH = 0;
     const unsigned err = lodepng_decode(
-        &decodedBytes,
+        &rawPtr,
         &srcW,
         &srcH,
-        &state,
+        &decodeGuard.state,
         pngBytes.data(),
         pngBytes.size()
     );
+    std::unique_ptr<unsigned char, FreeDeleter> decodedBytes(rawPtr);
 
-    if (err == 0 && decodedBytes && state.info_png.iccp_defined) {
-        lodepng_toSrgb(decodedBytes, decodedBytes, srcW, srcH, &state);
-    }
-    lodepng_state_cleanup(&state);
-
-    if (err != 0 || !decodedBytes || srcW == 0 || srcH == 0) {
-        if (decodedBytes) {
-            std::free(decodedBytes);
-        }
+    if (err != 0 || !decodedBytes || srcW == 0 || srcH == 0 || srcW > 4096 || srcH > 4096) {
         return false;
     }
 
+    if (decodeGuard.state.info_png.iccp_defined) {
+        lodepng_toSrgb(decodedBytes.get(), decodedBytes.get(), srcW, srcH, &decodeGuard.state);
+    }
+
     outRgba.resize(static_cast<size_t>(targetSizePx) * targetSizePx);
+    const unsigned char* srcBuf = decodedBytes.get();
 
     // Fast path: 1:1 native tile resolution (e.g. 256x256 -> 256x256)
     if (srcW == targetSizePx && srcH == targetSizePx) {
-        std::memcpy(
-            outRgba.data(),
-            decodedBytes,
-            static_cast<size_t>(targetSizePx) * targetSizePx * sizeof(uint32_t)
-        );
-        std::free(decodedBytes);
+        if constexpr (std::endian::native == std::endian::little) {
+            std::memcpy(
+                outRgba.data(),
+                srcBuf,
+                static_cast<size_t>(targetSizePx) * targetSizePx * sizeof(uint32_t)
+            );
+        } else {
+            const size_t totalPx = static_cast<size_t>(targetSizePx) * targetSizePx;
+            for (size_t i = 0; i < totalPx; ++i) {
+                const size_t b = i * 4u;
+                outRgba[i] = (static_cast<uint32_t>(srcBuf[b + 3]) << 24u) |
+                             (static_cast<uint32_t>(srcBuf[b + 2]) << 16u) |
+                             (static_cast<uint32_t>(srcBuf[b + 1]) << 8u) |
+                             static_cast<uint32_t>(srcBuf[b + 0]);
+            }
+        }
         return true;
     }
 
@@ -79,8 +120,8 @@ bool DecodePngAndScaleToRgba(
         for (uint32_t dy = 0; dy < targetSizePx; ++dy) {
             const uint32_t sy0 = dy * 2u;
             const uint32_t sy1 = sy0 + 1u;
-            const unsigned char* row0 = decodedBytes + (static_cast<size_t>(sy0) * srcW * 4u);
-            const unsigned char* row1 = decodedBytes + (static_cast<size_t>(sy1) * srcW * 4u);
+            const unsigned char* row0 = srcBuf + (static_cast<size_t>(sy0) * srcW * 4u);
+            const unsigned char* row1 = srcBuf + (static_cast<size_t>(sy1) * srcW * 4u);
             uint32_t* dstRow = outRgba.data() + static_cast<size_t>(dy) * targetSizePx;
 
             for (uint32_t dx = 0; dx < targetSizePx; ++dx) {
@@ -99,7 +140,6 @@ bool DecodePngAndScaleToRgba(
                 dstRow[dx] = (a << 24u) | (b << 16u) | (g << 8u) | r;
             }
         }
-        std::free(decodedBytes);
         return true;
     }
 
@@ -114,8 +154,8 @@ bool DecodePngAndScaleToRgba(
         const float fy = std::clamp(srcYf - static_cast<float>(y0), 0.0f, 1.0f);
         const float invFy = 1.0f - fy;
 
-        const unsigned char* row0 = decodedBytes + (static_cast<size_t>(y0) * srcW * 4u);
-        const unsigned char* row1 = decodedBytes + (static_cast<size_t>(y1) * srcW * 4u);
+        const unsigned char* row0 = srcBuf + (static_cast<size_t>(y0) * srcW * 4u);
+        const unsigned char* row1 = srcBuf + (static_cast<size_t>(y1) * srcW * 4u);
         uint32_t* dstRow = outRgba.data() + static_cast<size_t>(dy) * targetSizePx;
 
         for (uint32_t dx = 0; dx < targetSizePx; ++dx) {
@@ -150,7 +190,6 @@ bool DecodePngAndScaleToRgba(
         }
     }
 
-    std::free(decodedBytes);
     return true;
 }
 
@@ -183,9 +222,18 @@ public:
         const SlippyTileKey normKey = NormalizeKey(key);
         std::lock_guard<std::mutex> lk(m_mutex);
         auto it = m_ramCache.find(normKey);
-        if (it == m_ramCache.end()) {
+        if (it == m_ramCache.end() || !it->second.image) {
             return nullptr;
         }
+
+        // If this entry was synthesized while offline, expire it once the 15s circuit breaker window elapses
+        if (it->second.isFallback) {
+            const int64_t nowMs = NowSteadyMs();
+            if ((nowMs - it->second.createdAtMs) >= kOfflineRetryIntervalMs) {
+                return nullptr;
+            }
+        }
+
         it->second.lastAccess = m_accessCounter.fetch_add(1u, std::memory_order_relaxed);
         return it->second.image;
     }
@@ -213,13 +261,16 @@ public:
         }
 
         // 2. Clean cartographic fallback if offline or in headless test environment without internet
-        if (!decoded || tileImg->rgbaPixels.size() != static_cast<size_t>(normKey.tileSizePx) * normKey.tileSizePx) {
+        const bool isFallback =
+            !decoded || tileImg->rgbaPixels.size() != static_cast<size_t>(normKey.tileSizePx) * normKey.tileSizePx;
+        if (isFallback) {
             SynthesizeCartographicFallbackTile(normKey, tileImg->rgbaPixels);
         }
 
+        const int64_t nowMs = NowSteadyMs();
         {
             std::lock_guard<std::mutex> lk(m_mutex);
-            if (m_ramCache.size() >= 512) {
+            if (m_ramCache.size() >= 512 && m_ramCache.find(normKey) == m_ramCache.end()) {
                 uint64_t oldestTick = std::numeric_limits<uint64_t>::max();
                 SlippyTileKey oldestKey{};
                 bool foundOldest = false;
@@ -236,7 +287,9 @@ public:
             }
             m_ramCache[normKey] = CacheEntry{
                 .image = tileImg,
-                .lastAccess = m_accessCounter.fetch_add(1u, std::memory_order_relaxed)
+                .lastAccess = m_accessCounter.fetch_add(1u, std::memory_order_relaxed),
+                .createdAtMs = nowMs,
+                .isFallback = isFallback
             };
         }
 
@@ -249,10 +302,19 @@ public:
     }
 
 private:
+    static constexpr int64_t kOfflineRetryIntervalMs = 15000;
+
     struct CacheEntry {
         std::shared_ptr<const RasterTileImage> image{};
         uint64_t lastAccess{0};
+        int64_t createdAtMs{0};
+        bool isFallback{false};
     };
+
+    [[nodiscard]] static int64_t NowSteadyMs() noexcept {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+    }
 
     [[nodiscard]] static SlippyTileKey NormalizeKey(const SlippyTileKey& k) noexcept {
         const int z = std::clamp(k.z, 0, 19);
@@ -264,7 +326,7 @@ private:
     }
 
     [[nodiscard]] std::vector<uint8_t> LoadOrFetchOsmPng(int z, int x, int y) const {
-        std::filesystem::path diskPath =
+        const std::filesystem::path diskPath =
             std::filesystem::path(m_cacheDir) / std::to_string(z) / std::to_string(x) / (std::to_string(y) + ".png");
 
         std::error_code ec;
@@ -272,7 +334,7 @@ private:
             std::ifstream in(diskPath, std::ios::binary | std::ios::ate);
             if (in) {
                 const auto fileSize = in.tellg();
-                if (fileSize > 64 && fileSize < 4 * 1024 * 1024) {
+                if (fileSize > 32 && fileSize < 4 * 1024 * 1024) {
                     std::vector<uint8_t> buf(static_cast<size_t>(fileSize));
                     in.seekg(0, std::ios::beg);
                     if (in.read(reinterpret_cast<char*>(buf.data()), fileSize)) {
@@ -285,10 +347,9 @@ private:
         }
 
         // Circuit breaker: if network failed in the last 15 seconds, avoid blocking worker threads
-        const int64_t nowMs = std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now().time_since_epoch()).count();
+        const int64_t nowMs = NowSteadyMs();
         const int64_t lastFailMs = m_lastNetworkFailureMs.load(std::memory_order_relaxed);
-        if (lastFailMs > 0 && (nowMs - lastFailMs) < 15000) {
+        if (lastFailMs > 0 && (nowMs - lastFailMs) < kOfflineRetryIntervalMs) {
             return {};
         }
 
@@ -302,15 +363,27 @@ private:
         req.maxResponseBytes = 4u * 1024u * 1024u;
 
         const guikit::net::HttpResponse resp = m_httpClient.Execute(req);
-        if (resp.Succeeded() && resp.body.size() >= 8 &&
+        if (resp.Succeeded() && resp.body.size() >= 32 &&
             resp.body[0] == 0x89 && resp.body[1] == 'P' && resp.body[2] == 'N' && resp.body[3] == 'G') {
             std::filesystem::create_directories(diskPath.parent_path(), ec);
-            std::ofstream out(diskPath, std::ios::binary | std::ios::trunc);
-            if (out) {
-                out.write(
-                    reinterpret_cast<const char*>(resp.body.data()),
-                    static_cast<std::streamsize>(resp.body.size())
-                );
+
+            // Atomic write via temporary file + rename so concurrent readers never observe partial PNGs
+            const uint64_t tmpId = m_accessCounter.fetch_add(1u, std::memory_order_relaxed);
+            const std::filesystem::path tmpPath =
+                diskPath.parent_path() / std::format("{}.tmp.{}.png", y, tmpId);
+            {
+                std::ofstream out(tmpPath, std::ios::binary | std::ios::trunc);
+                if (out) {
+                    out.write(
+                        reinterpret_cast<const char*>(resp.body.data()),
+                        static_cast<std::streamsize>(resp.body.size())
+                    );
+                    out.flush();
+                }
+            }
+            std::filesystem::rename(tmpPath, diskPath, ec);
+            if (ec) {
+                std::filesystem::remove(tmpPath, ec);
             }
             return resp.body;
         }
