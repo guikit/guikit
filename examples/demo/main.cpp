@@ -861,8 +861,10 @@ int main(int argc, char* argv[]) {
                                 .debugBounds = demoCtx.previewBounds,
                                 .inspectMode = demoCtx.previewInspect
                             })) {
-                                if (auto centerRow = ui.Row({
-                                    .align = isFullStage ? guikit::Alignment::Stretch : guikit::Alignment::Center,
+                                if (isFullStage) {
+                                    DispatchSandboxStage(ui, selectedCategory, demoCtx);
+                                } else if (auto centerRow = ui.Row({
+                                    .align = guikit::Alignment::Center,
                                     .justify = guikit::Justify::Center,
                                     .heightMode = guikit::SizeMode::Stretch
                                 })) {
@@ -896,24 +898,18 @@ int main(int argc, char* argv[]) {
                                     }
                                 }
 
-                                if (auto codeBody = ui.Box({
-                                    .widthMode = guikit::SizeMode::Stretch,
+                                std::string snippet = DispatchCodeGenerator(selectedCategory, demoCtx);
+                                ui.TextArea(snippet, {
+                                    .autoHeight = false,
+                                    .readOnly = true,
+                                    .showLineNumbers = true,
+                                    .showCopyButton = true,
+                                    .monospace = true,
+                                    .allowZoom = true,
+                                    .syntax = guikit::SyntaxConfig::Cpp(),
                                     .heightMode = guikit::SizeMode::Stretch,
-                                    .padding = guikit::Padding::All(6.0f)
-                                })) {
-                                    std::string snippet = DispatchCodeGenerator(selectedCategory, demoCtx);
-                                    ui.TextArea(snippet, {
-                                        .autoHeight = false,
-                                        .readOnly = true,
-                                        .showLineNumbers = true,
-                                        .showCopyButton = true,
-                                        .monospace = true,
-                                        .allowZoom = true,
-                                        .syntax = guikit::SyntaxConfig::Cpp(),
-                                        .heightMode = guikit::SizeMode::Stretch,
-                                        .borderRadius = 6.0f
-                                    });
-                                }
+                                    .borderRadius = 0.0f
+                                });
                             }
                         } else {
                             // ASSEMBLY MODE: Real-World Screens & Compositions

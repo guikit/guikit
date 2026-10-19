@@ -540,115 +540,109 @@ void RenderSignalStage(guikit::Context& ui, DemoContext&) {
         ui.RequestRepaint(2);
     }
 
-    if (auto col = ui.Column({
-        .gap = 8.0f,
-        .widthMode = guikit::SizeMode::Stretch,
-        .heightMode = guikit::SizeMode::Stretch
-    })) {
-        if (auto tb = ui.Size(guikit::UiSize::Sm).Toolbar()) {
-            if (tb.ToolButton({
-                .label = s_sig.livePlayhead ? "LIVE PLAY" : "PAUSED",
-                .icon = s_sig.livePlayhead ? guikit::Icon::Play() : guikit::Icon::Pause(),
-                .variant = s_sig.livePlayhead ? guikit::UiVariant::Success : guikit::UiVariant::Warning,
-                .active = s_sig.livePlayhead
-            })) {
-                s_sig.livePlayhead = !s_sig.livePlayhead;
-            }
-
-            tb.Separator();
-
-            if (tb.ToolButton({
-                .label = "Wave Top",
-                .variant = (s_sig.panelOrder == guikit::SignalPanelOrder::WaveformTop) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                .active = (s_sig.panelOrder == guikit::SignalPanelOrder::WaveformTop)
-            })) {
-                s_sig.panelOrder = guikit::SignalPanelOrder::WaveformTop;
-            }
-            if (tb.ToolButton({
-                .label = "Spec Top",
-                .variant = (s_sig.panelOrder == guikit::SignalPanelOrder::SpectrogramTop) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                .active = (s_sig.panelOrder == guikit::SignalPanelOrder::SpectrogramTop)
-            })) {
-                s_sig.panelOrder = guikit::SignalPanelOrder::SpectrogramTop;
-            }
-
-            tb.Separator();
-
-            if (tb.ToolButton({
-                .label = "Linear Hz",
-                .variant = (s_sig.frequencyScale == guikit::FrequencyScale::Linear) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
-                .active = (s_sig.frequencyScale == guikit::FrequencyScale::Linear)
-            })) {
-                s_sig.frequencyScale = guikit::FrequencyScale::Linear;
-            }
-            if (tb.ToolButton({
-                .label = "Log Hz",
-                .variant = (s_sig.frequencyScale == guikit::FrequencyScale::Logarithmic) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
-                .active = (s_sig.frequencyScale == guikit::FrequencyScale::Logarithmic)
-            })) {
-                s_sig.frequencyScale = guikit::FrequencyScale::Logarithmic;
-            }
-
-            tb.Spacer();
-
-            if (tb.ToolButton({
-                .label = "Zoom Selection",
-                .icon = guikit::Icon::Search(),
-                .disabled = !s_sig.selection.active || s_sig.selection.DurationSec() <= 1e-5
-            })) {
-                s_sig.requestViewStartSec = s_sig.selection.MinTimeSec();
-                s_sig.requestViewEndSec = s_sig.selection.MaxTimeSec();
-                if (s_sig.selection.hasSpectralBox && s_sig.selection.BandwidthHz() >= 50.0f) {
-                    s_sig.requestFreqRangeHz = guikit::Vec2{s_sig.selection.MinFreqHz(), s_sig.selection.MaxFreqHz()};
-                }
-            }
-            if (tb.ToolButton({
-                .label = "Reset View",
-                .icon = guikit::Icon::Refresh()
-            })) {
-                s_sig.requestResetView = true;
-                s_sig.waveformGain = 1.0f;
-            }
+    if (auto tb = ui.Size(guikit::UiSize::Sm).Toolbar()) {
+        if (tb.ToolButton({
+            .label = s_sig.livePlayhead ? "LIVE PLAY" : "PAUSED",
+            .icon = s_sig.livePlayhead ? guikit::Icon::Play() : guikit::Icon::Pause(),
+            .variant = s_sig.livePlayhead ? guikit::UiVariant::Success : guikit::UiVariant::Warning,
+            .active = s_sig.livePlayhead
+        })) {
+            s_sig.livePlayhead = !s_sig.livePlayhead;
         }
 
-        const uint32_t fftSize = SignalDemoState::fftSizeValues[s_sig.fftSizeIdx];
-        s_sig.lastResp = ui.SignalView(s_sig.samples, {
-            .sampleRate = s_sig.sampleRate,
-            .panelOrder = s_sig.panelOrder,
-            .splitRatio = s_sig.splitRatio,
-            .amplitudeScale = s_sig.amplitudeScale,
-            .frequencyScale = s_sig.frequencyScale,
-            .colormap = s_sig.colormap,
-            .fftWindow = s_sig.fftWindow,
-            .fftSize = fftSize,
-            .dbFloor = s_sig.dbFloor,
-            .dbCeil = 0.0f,
-            .waveformGain = s_sig.waveformGain,
-            .showOverviewBar = s_sig.showOverviewBar,
-            .showTimeRuler = s_sig.showTimeRuler,
-            .showAmplitudeRuler = s_sig.showAmplitudeRuler,
-            .showFrequencyRuler = s_sig.showFrequencyRuler,
-            .showColorbar = s_sig.showColorbar,
-            .showGrid = s_sig.showGrid,
-            .showRms = s_sig.showRms,
-            .showCrosshair = s_sig.showCrosshair,
-            .splitRatioBinding = &s_sig.splitRatio,
-            .waveformGainBinding = &s_sig.waveformGain,
-            .playheadTimeSec = &s_sig.playheadSec,
-            .selection = &s_sig.selection,
-            .markers = &s_sig.markers,
-            .requestViewStartSec = s_sig.requestViewStartSec,
-            .requestViewEndSec = s_sig.requestViewEndSec,
-            .requestFreqRangeHz = s_sig.requestFreqRangeHz,
-            .requestResetView = s_sig.requestResetView,
-            .heightMode = guikit::SizeMode::Stretch
-        });
+        tb.Separator();
 
-        s_sig.requestResetView = false;
-        s_sig.requestViewStartSec.reset();
-        s_sig.requestViewEndSec.reset();
-        s_sig.requestFreqRangeHz.reset();
+        if (tb.ToolButton({
+            .label = "Wave Top",
+            .variant = (s_sig.panelOrder == guikit::SignalPanelOrder::WaveformTop) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .active = (s_sig.panelOrder == guikit::SignalPanelOrder::WaveformTop)
+        })) {
+            s_sig.panelOrder = guikit::SignalPanelOrder::WaveformTop;
+        }
+        if (tb.ToolButton({
+            .label = "Spec Top",
+            .variant = (s_sig.panelOrder == guikit::SignalPanelOrder::SpectrogramTop) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .active = (s_sig.panelOrder == guikit::SignalPanelOrder::SpectrogramTop)
+        })) {
+            s_sig.panelOrder = guikit::SignalPanelOrder::SpectrogramTop;
+        }
+
+        tb.Separator();
+
+        if (tb.ToolButton({
+            .label = "Linear Hz",
+            .variant = (s_sig.frequencyScale == guikit::FrequencyScale::Linear) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+            .active = (s_sig.frequencyScale == guikit::FrequencyScale::Linear)
+        })) {
+            s_sig.frequencyScale = guikit::FrequencyScale::Linear;
+        }
+        if (tb.ToolButton({
+            .label = "Log Hz",
+            .variant = (s_sig.frequencyScale == guikit::FrequencyScale::Logarithmic) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+            .active = (s_sig.frequencyScale == guikit::FrequencyScale::Logarithmic)
+        })) {
+            s_sig.frequencyScale = guikit::FrequencyScale::Logarithmic;
+        }
+
+        tb.Spacer();
+
+        if (tb.ToolButton({
+            .label = "Zoom Selection",
+            .icon = guikit::Icon::Search(),
+            .disabled = !s_sig.selection.active || s_sig.selection.DurationSec() <= 1e-5
+        })) {
+            s_sig.requestViewStartSec = s_sig.selection.MinTimeSec();
+            s_sig.requestViewEndSec = s_sig.selection.MaxTimeSec();
+            if (s_sig.selection.hasSpectralBox && s_sig.selection.BandwidthHz() >= 50.0f) {
+                s_sig.requestFreqRangeHz = guikit::Vec2{s_sig.selection.MinFreqHz(), s_sig.selection.MaxFreqHz()};
+            }
+        }
+        if (tb.ToolButton({
+            .label = "Reset View",
+            .icon = guikit::Icon::Refresh()
+        })) {
+            s_sig.requestResetView = true;
+            s_sig.waveformGain = 1.0f;
+        }
     }
+
+    const uint32_t fftSize = SignalDemoState::fftSizeValues[s_sig.fftSizeIdx];
+    s_sig.lastResp = ui.SignalView(s_sig.samples, {
+        .sampleRate = s_sig.sampleRate,
+        .panelOrder = s_sig.panelOrder,
+        .splitRatio = s_sig.splitRatio,
+        .amplitudeScale = s_sig.amplitudeScale,
+        .frequencyScale = s_sig.frequencyScale,
+        .colormap = s_sig.colormap,
+        .fftWindow = s_sig.fftWindow,
+        .fftSize = fftSize,
+        .dbFloor = s_sig.dbFloor,
+        .dbCeil = 0.0f,
+        .waveformGain = s_sig.waveformGain,
+        .showOverviewBar = s_sig.showOverviewBar,
+        .showTimeRuler = s_sig.showTimeRuler,
+        .showAmplitudeRuler = s_sig.showAmplitudeRuler,
+        .showFrequencyRuler = s_sig.showFrequencyRuler,
+        .showColorbar = s_sig.showColorbar,
+        .showGrid = s_sig.showGrid,
+        .showRms = s_sig.showRms,
+        .showCrosshair = s_sig.showCrosshair,
+        .splitRatioBinding = &s_sig.splitRatio,
+        .waveformGainBinding = &s_sig.waveformGain,
+        .playheadTimeSec = &s_sig.playheadSec,
+        .selection = &s_sig.selection,
+        .markers = &s_sig.markers,
+        .requestViewStartSec = s_sig.requestViewStartSec,
+        .requestViewEndSec = s_sig.requestViewEndSec,
+        .requestFreqRangeHz = s_sig.requestFreqRangeHz,
+        .requestResetView = s_sig.requestResetView,
+        .heightMode = guikit::SizeMode::Stretch
+    });
+
+    s_sig.requestResetView = false;
+    s_sig.requestViewStartSec.reset();
+    s_sig.requestViewEndSec.reset();
+    s_sig.requestFreqRangeHz.reset();
 }
 
 std::string GenerateSignalCode(const DemoContext&) {

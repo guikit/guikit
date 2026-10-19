@@ -161,9 +161,8 @@ void RenderOverlaysInspector(guikit::Context& ui, DemoContext& ctx) {
 }
 
 void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
-    if (auto stageCol = ui.Column({
-        .gap = 14.0f,
-        .widthMode = guikit::SizeMode::Stretch
+    if (auto stageScroll = ui.ScrollArea({
+        .gap = 14.0f
     })) {
         // =====================================================================
         // 1. MODAL DIALOG SHOWCASE CARD

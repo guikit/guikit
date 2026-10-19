@@ -608,7 +608,7 @@ std::string GenerateCodeEditorCode(const DemoContext& ctx) {
         : ((s_state.debugToolbarAlignIdx == 2) ? "guikit::Align::End" : "guikit::Align::Center");
 
     return std::format(
-        "auto resp = ui.Size(guikit::UiSize::{}).TextArea(sourceBuffer, {{\n"
+        "auto resp = ui.{}TextArea(sourceBuffer, {{\n"
         "    .showLineNumbers = {},\n"
         "    .showWhitespace = {},\n"
         "    .showMinimap = {},\n"
@@ -629,7 +629,7 @@ std::string GenerateCodeEditorCode(const DemoContext& ctx) {
         "if (resp.debugAction == guikit::CodeDebugAction::StepOver) {{\n"
         "    StepDebugger();\n"
         "}}",
-        SizeName(ctx.controlsSize),
+        FormatUiSizePrefix(ctx.controlsSize),
         s_state.lineNumbers ? "true" : "false",
         s_state.showWhitespace ? "true" : "false",
         s_state.showMinimap ? "true" : "false",

@@ -19,7 +19,12 @@ struct TabBarState {
 TabBarState s_state;
 } // namespace
 
-void RenderTabBarInspector(guikit::Context& ui, DemoContext&) {
+void RenderTabBarInspector(guikit::Context& ui, DemoContext& ctx) {
+    if (auto el = ui.Element({.label = "TabBar Size"})) {
+        if (ui.StepSlider(ctx.controlsSize, {.showTicks = true, .showLabels = true, .includeNone = true}).changed) {
+            ui.InvalidateAll();
+        }
+    }
     static constexpr std::array<std::string_view, 2> styleNames = {"Underline", "Pill"};
     size_t styleIdx = (s_state.style == guikit::TabBarStyle::Pill) ? 1 : 0;
     if (auto el = ui.Element({.label = "TabBar Style"})) {
@@ -61,7 +66,7 @@ void RenderTabBarStage(guikit::Context& ui, DemoContext& ctx) {
         {.label = "Third", .icon = guikit::Icon::Play()}
     }};
     auto& th = ctx.previewTheme;
-    ui.TabBar(s_state.idx, demoTabs, {
+    ui.Size(ctx.controlsSize).TabBar(s_state.idx, demoTabs, {
         .style = s_state.style,
         .showSeparator = s_state.showSep,
         .fullWidth = s_state.fullWidth,
@@ -77,7 +82,7 @@ void RenderTabBarStage(guikit::Context& ui, DemoContext& ctx) {
 
 std::string GenerateTabBarCode(const DemoContext& ctx) {
     return std::format(
-        "ui.Size(guikit::UiSize::{}).TabBar(activeTab, tabItems, {{\n"
+        "ui.{}TabBar(activeTab, tabItems, {{\n"
         "    .style = guikit::TabBarStyle::{},\n"
         "    .showSeparator = {},\n"
         "    .fullWidth = {},\n"
@@ -92,7 +97,7 @@ std::string GenerateTabBarCode(const DemoContext& ctx) {
         "    .theme = nullptr,\n"
         "    .scale = std::nullopt\n"
         "}});",
-        SizeName(ctx.controlsSize),
+        FormatUiSizePrefix(ctx.controlsSize),
         s_state.style == guikit::TabBarStyle::Pill ? "Pill" : "Underline",
         s_state.showSep ? "true" : "false",
         s_state.fullWidth ? "true" : "false",

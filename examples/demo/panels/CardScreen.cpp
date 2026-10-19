@@ -4,8 +4,8 @@
 namespace guikit::demo {
 
 void RenderCardInspector(guikit::Context& ui, DemoContext& ctx) {
-    if (auto el = ui.Element({.label = "Controls Size"})) {
-        if (ui.StepSlider(ctx.controlsSize, {.showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Card Size"})) {
+        if (ui.StepSlider(ctx.controlsSize, {.showTicks = true, .showLabels = true, .includeNone = true}).changed) ui.InvalidateAll();
     }
     ctx.RenderVariantPicker(ui);
     if (auto el = ui.Element({.label = "Corner Radius"})) {
@@ -44,8 +44,9 @@ void RenderCardStage(guikit::Context& ui, DemoContext& ctx) {
 }
 
 std::string GenerateCardCode(const DemoContext& ctx) {
+    const std::string szPrefix = FormatUiSizePrefix(ctx.controlsSize);
     return std::format(
-        "if (auto card = ui.Size(guikit::UiSize::{}).Card({{\n"
+        "if (auto card = ui.{}Card({{\n"
         "    .gap = {:.1f}f,\n"
         "    .padding = guikit::Padding({:.1f}f),\n"
         "    .borderWidth = {:.1f}f,\n"
@@ -54,13 +55,13 @@ std::string GenerateCardCode(const DemoContext& ctx) {
         "    .widthMode = guikit::SizeMode::Stretch,\n"
         "    .heightMode = guikit::SizeMode::Fit\n"
         "}})) {{\n"
-        "    ui.Size(guikit::UiSize::{}).Heading({{\n"
+        "    ui.{}Heading({{\n"
         "        .label = \"Card Surface Component\",\n"
         "        .description = \"Configurable padding, radius and spacing tokens\",\n"
         "        .icon = guikit::Icon::Copy(),\n"
         "        .divider = true\n"
         "    }});\n"
-        "    if (ui.Size(guikit::UiSize::{}).Button({{\n"
+        "    if (ui.{}Button({{\n"
         "        .text = \"Inner Action\",\n"
         "        .icon = guikit::Icon::Play(),\n"
         "        .color = {}\n"
@@ -68,13 +69,13 @@ std::string GenerateCardCode(const DemoContext& ctx) {
         "        // On click handler\n"
         "    }}\n"
         "}}",
-        SizeName(ctx.controlsSize),
+        szPrefix,
         ctx.cardGap,
         ctx.cardPadding,
         ctx.cardBorderWidth,
         ctx.cardRadius,
-        SizeName(ctx.controlsSize),
-        SizeName(ctx.controlsSize),
+        szPrefix,
+        szPrefix,
         ctx.FormatControlColorCode()
     );
 }

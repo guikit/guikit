@@ -254,9 +254,7 @@ void RenderMarkdownInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderMarkdownStage(guikit::Context& ui, DemoContext& ctx) {
-    if (auto mdScroll = ui.ScrollArea({
-        .padding = guikit::Padding::All(8.0f)
-    })) {
+    if (auto mdScroll = ui.ScrollArea()) {
         const auto mdRes = ui.Size(ctx.controlsSize).Markdown(kDemoMarkdownDoc, {
             .allowZoom = true,
             .zoom = &s_state.zoom,
@@ -305,8 +303,8 @@ std::string GenerateMarkdownCode(const DemoContext& ctx) {
         : "std::nullopt";
 
     return std::format(
-        "if (auto scroll = ui.ScrollArea({{.padding = guikit::Padding::All(8.0f)}})) {{\n"
-        "    auto res = ui.Size(guikit::UiSize::{}).Markdown(markdownSource, {{\n"
+        "if (auto scroll = ui.ScrollArea()) {{\n"
+        "    auto res = ui.{}Markdown(markdownSource, {{\n"
         "        .allowZoom = true,\n"
         "        .zoom = &zoomFactor, // {:.2f}x\n"
         "        .bodyFontSize = {:.1f}f,\n"
@@ -338,7 +336,7 @@ std::string GenerateMarkdownCode(const DemoContext& ctx) {
         "    }});\n"
         "    if (!res.clickedLink.empty()) SDL_OpenURL(std::string(res.clickedLink).c_str());\n"
         "}}",
-        SizeName(ctx.controlsSize),
+        FormatUiSizePrefix(ctx.controlsSize),
         s_state.zoom,
         s_state.bodyFontSize,
         s_state.headingScale,

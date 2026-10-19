@@ -530,122 +530,116 @@ void RenderSonarStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         ui.RequestRepaint(2);
     }
 
-    if (auto col = ui.Column({
-        .gap = 8.0f,
-        .widthMode = guikit::SizeMode::Stretch,
-        .heightMode = guikit::SizeMode::Stretch
-    })) {
-        // Top Tactical Control Strip
-        if (auto tb = ui.Size(guikit::UiSize::Sm).Toolbar()) {
-            if (tb.ToolButton({
-                .label = s_sonar.liveSimulation ? "LIVE PING" : "PAUSED",
-                .icon = s_sonar.liveSimulation ? guikit::Icon::Pause() : guikit::Icon::Play(),
-                .variant = s_sonar.liveSimulation ? guikit::UiVariant::Success : guikit::UiVariant::Warning,
-                .active = s_sonar.liveSimulation
-            })) {
-                s_sonar.liveSimulation = !s_sonar.liveSimulation;
-            }
-
-            tb.Separator();
-
-            if (tb.ToolButton({
-                .label = "PPI 360°",
-                .variant = (s_sonar.displayModeIndex == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                .active = (s_sonar.displayModeIndex == 0)
-            })) {
-                s_sonar.displayModeIndex = 0;
-            }
-            if (tb.ToolButton({
-                .label = "Sector Wedge",
-                .variant = (s_sonar.displayModeIndex == 1) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                .active = (s_sonar.displayModeIndex == 1)
-            })) {
-                s_sonar.displayModeIndex = 1;
-            }
-            if (tb.ToolButton({
-                .label = "B-Scan",
-                .variant = (s_sonar.displayModeIndex == 2) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                .active = (s_sonar.displayModeIndex == 2)
-            })) {
-                s_sonar.displayModeIndex = 2;
-            }
-
-            tb.Separator();
-
-            if (tb.ToolButton({
-                .label = "Lock Target-A",
-                .variant = (s_sonar.selectedTargetId == 1) ? guikit::UiVariant::Danger : guikit::UiVariant::Ghost,
-                .active = (s_sonar.selectedTargetId == 1)
-            })) {
-                s_sonar.selectedTargetId = 1;
-            }
-            if (tb.ToolButton({
-                .label = "Lock Target-B",
-                .variant = (s_sonar.selectedTargetId == 2) ? guikit::UiVariant::Danger : guikit::UiVariant::Ghost,
-                .active = (s_sonar.selectedTargetId == 2)
-            })) {
-                s_sonar.selectedTargetId = 2;
-            }
-            if (tb.ToolButton({
-                .label = "Lock Target-C",
-                .variant = (s_sonar.selectedTargetId == 3) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
-                .active = (s_sonar.selectedTargetId == 3)
-            })) {
-                s_sonar.selectedTargetId = 3;
-            }
-
-            tb.Spacer();
-
-            if (tb.ToolButton({
-                .label = "Reset Zoom",
-                .icon = guikit::Icon::Refresh()
-            })) {
-                s_sonar.requestResetView = true;
-            }
+    // Top Tactical Control Strip
+    if (auto tb = ui.Size(guikit::UiSize::Sm).Toolbar()) {
+        if (tb.ToolButton({
+            .label = s_sonar.liveSimulation ? "LIVE PING" : "PAUSED",
+            .icon = s_sonar.liveSimulation ? guikit::Icon::Pause() : guikit::Icon::Play(),
+            .variant = s_sonar.liveSimulation ? guikit::UiVariant::Success : guikit::UiVariant::Warning,
+            .active = s_sonar.liveSimulation
+        })) {
+            s_sonar.liveSimulation = !s_sonar.liveSimulation;
         }
 
-        // Main Autonomous SonarView Widget
-        s_sonar.lastResp = ui.SonarView(s_sonar.polarMatrix, {
-            .numBeams = s_sonar.numBeams,
-            .numRangeBins = s_sonar.numRangeBins,
-            .displayMode = static_cast<guikit::SonarDisplayMode>(s_sonar.displayModeIndex),
-            .scanMode = static_cast<guikit::SonarScanMode>(s_sonar.scanModeIndex),
-            .colormap = s_sonar.colormap,
-            .maxRangeMeters = s_sonar.maxRangeMeters,
-            .headingDeg = s_sonar.headingDeg,
-            .sectorApertureDeg = s_sonar.sectorApertureDeg,
-            .gainDb = s_sonar.gainDb,
-            .tvgAmount = s_sonar.tvgAmount,
-            .clutterThreshold = s_sonar.clutterThreshold,
-            .persistence = s_sonar.persistence,
-            .sweepAngleDeg = s_sonar.sweepAngleDeg,
-            .targets = s_sonar.targetViews,
-            .guardZone = {
-                .enabled = s_sonar.guardZoneEnabled,
-                .minRangeMeters = s_sonar.guardMinRange,
-                .maxRangeMeters = s_sonar.guardMaxRange,
-                .startBearingDeg = s_sonar.guardStartBrg,
-                .endBearingDeg = s_sonar.guardEndBrg
-            },
-            .showRangeRings = s_sonar.showRangeRings,
-            .showBearingDial = s_sonar.showBearingDial,
-            .showTargets = s_sonar.showTargets,
-            .showTargetLabels = s_sonar.showTargetLabels,
-            .showColorbar = s_sonar.showColorbar,
-            .showEblVrm = s_sonar.showEblVrm,
-            .showHudOverlay = s_sonar.showHudOverlay,
-            .selectedTargetId = &s_sonar.selectedTargetId,
-            .eblBearingDeg = &s_sonar.eblBearingDeg,
-            .vrmRangeMeters = &s_sonar.vrmRangeMeters,
-            .viewRangeZoom = &s_sonar.rangeZoom,
-            .requestResetView = s_sonar.requestResetView,
-            .requestClearPersistence = s_sonar.requestClearPersistence,
-            .heightMode = guikit::SizeMode::Stretch
-        });
+        tb.Separator();
 
-        s_sonar.requestResetView = false;
-        s_sonar.requestClearPersistence = false;
+        if (tb.ToolButton({
+            .label = "PPI 360°",
+            .variant = (s_sonar.displayModeIndex == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .active = (s_sonar.displayModeIndex == 0)
+        })) {
+            s_sonar.displayModeIndex = 0;
+        }
+        if (tb.ToolButton({
+            .label = "Sector Wedge",
+            .variant = (s_sonar.displayModeIndex == 1) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .active = (s_sonar.displayModeIndex == 1)
+        })) {
+            s_sonar.displayModeIndex = 1;
+        }
+        if (tb.ToolButton({
+            .label = "B-Scan",
+            .variant = (s_sonar.displayModeIndex == 2) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .active = (s_sonar.displayModeIndex == 2)
+        })) {
+            s_sonar.displayModeIndex = 2;
+        }
+
+        tb.Separator();
+
+        if (tb.ToolButton({
+            .label = "Lock Target-A",
+            .variant = (s_sonar.selectedTargetId == 1) ? guikit::UiVariant::Danger : guikit::UiVariant::Ghost,
+            .active = (s_sonar.selectedTargetId == 1)
+        })) {
+            s_sonar.selectedTargetId = 1;
+        }
+        if (tb.ToolButton({
+            .label = "Lock Target-B",
+            .variant = (s_sonar.selectedTargetId == 2) ? guikit::UiVariant::Danger : guikit::UiVariant::Ghost,
+            .active = (s_sonar.selectedTargetId == 2)
+        })) {
+            s_sonar.selectedTargetId = 2;
+        }
+        if (tb.ToolButton({
+            .label = "Lock Target-C",
+            .variant = (s_sonar.selectedTargetId == 3) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+            .active = (s_sonar.selectedTargetId == 3)
+        })) {
+            s_sonar.selectedTargetId = 3;
+        }
+
+        tb.Spacer();
+
+        if (tb.ToolButton({
+            .label = "Reset Zoom",
+            .icon = guikit::Icon::Refresh()
+        })) {
+            s_sonar.requestResetView = true;
+        }
     }
+
+    // Main Autonomous SonarView Widget
+    s_sonar.lastResp = ui.SonarView(s_sonar.polarMatrix, {
+        .numBeams = s_sonar.numBeams,
+        .numRangeBins = s_sonar.numRangeBins,
+        .displayMode = static_cast<guikit::SonarDisplayMode>(s_sonar.displayModeIndex),
+        .scanMode = static_cast<guikit::SonarScanMode>(s_sonar.scanModeIndex),
+        .colormap = s_sonar.colormap,
+        .maxRangeMeters = s_sonar.maxRangeMeters,
+        .headingDeg = s_sonar.headingDeg,
+        .sectorApertureDeg = s_sonar.sectorApertureDeg,
+        .gainDb = s_sonar.gainDb,
+        .tvgAmount = s_sonar.tvgAmount,
+        .clutterThreshold = s_sonar.clutterThreshold,
+        .persistence = s_sonar.persistence,
+        .sweepAngleDeg = s_sonar.sweepAngleDeg,
+        .targets = s_sonar.targetViews,
+        .guardZone = {
+            .enabled = s_sonar.guardZoneEnabled,
+            .minRangeMeters = s_sonar.guardMinRange,
+            .maxRangeMeters = s_sonar.guardMaxRange,
+            .startBearingDeg = s_sonar.guardStartBrg,
+            .endBearingDeg = s_sonar.guardEndBrg
+        },
+        .showRangeRings = s_sonar.showRangeRings,
+        .showBearingDial = s_sonar.showBearingDial,
+        .showTargets = s_sonar.showTargets,
+        .showTargetLabels = s_sonar.showTargetLabels,
+        .showColorbar = s_sonar.showColorbar,
+        .showEblVrm = s_sonar.showEblVrm,
+        .showHudOverlay = s_sonar.showHudOverlay,
+        .selectedTargetId = &s_sonar.selectedTargetId,
+        .eblBearingDeg = &s_sonar.eblBearingDeg,
+        .vrmRangeMeters = &s_sonar.vrmRangeMeters,
+        .viewRangeZoom = &s_sonar.rangeZoom,
+        .requestResetView = s_sonar.requestResetView,
+        .requestClearPersistence = s_sonar.requestClearPersistence,
+        .heightMode = guikit::SizeMode::Stretch
+    });
+
+    s_sonar.requestResetView = false;
+    s_sonar.requestClearPersistence = false;
 }
 
 std::string GenerateSonarCode(const DemoContext& /*ctx*/) {

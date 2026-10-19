@@ -133,11 +133,7 @@ void RenderTreeViewInspector(guikit::Context& ui, DemoContext& ctx) {
 }
 
 void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
-    if (auto workspace = ui.Row({
-        .gap = 12.0f,
-        .heightMode = guikit::SizeMode::Stretch
-    })) {
-        // Compute tri-state parent checkboxes from leaf states
+    // Compute tri-state parent checkboxes from leaf states
         const int envCheckedCount = (s_tree.chkSun ? 1 : 0) + (s_tree.chkFog ? 1 : 0);
         bool chkEnvAll = (envCheckedCount == 2);
         const bool indEnv = (envCheckedCount > 0 && envCheckedCount < 2);
@@ -422,7 +418,6 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                 }
             }
         }
-    }
 }
 
 std::string GenerateTreeViewCode(const DemoContext& ctx) {

@@ -352,136 +352,130 @@ void RenderAttitudeStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         ui.RequestRepaint(2);
     }
 
-    if (auto col = ui.Column({
-        .gap = 8.0f,
-        .widthMode = guikit::SizeMode::Stretch,
-        .heightMode = guikit::SizeMode::Stretch
-    })) {
-        // Top Avionics Control Strip
-        if (auto tb = ui.Size(guikit::UiSize::Sm).Toolbar()) {
-            if (tb.ToolButton({
-                .label = "Mouse Follow",
-                .icon = guikit::Icon::Play(),
-                .variant = (s_att.controlModeIndex == 0) ? guikit::UiVariant::Success : guikit::UiVariant::Ghost,
-                .active = (s_att.controlModeIndex == 0)
-            })) {
-                s_att.controlModeIndex = 0;
-            }
-            if (tb.ToolButton({
-                .label = "Virtual Stick (360°)",
-                .variant = (s_att.controlModeIndex == 1) ? guikit::UiVariant::Success : guikit::UiVariant::Ghost,
-                .active = (s_att.controlModeIndex == 1)
-            })) {
-                s_att.controlModeIndex = 1;
-            }
-            if (tb.ToolButton({
-                .label = "Autopilot Fig-8",
-                .variant = (s_att.controlModeIndex == 2) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
-                .active = (s_att.controlModeIndex == 2)
-            })) {
-                s_att.controlModeIndex = 2;
-            }
-            if (tb.ToolButton({
-                .label = "Manual",
-                .variant = (s_att.controlModeIndex == 3) ? guikit::UiVariant::Warning : guikit::UiVariant::Ghost,
-                .active = (s_att.controlModeIndex == 3)
-            })) {
-                s_att.controlModeIndex = 3;
-            }
+    // Top Avionics Control Strip
+    if (auto tb = ui.Size(guikit::UiSize::Sm).Toolbar()) {
+        if (tb.ToolButton({
+            .label = "Mouse Follow",
+            .icon = guikit::Icon::Play(),
+            .variant = (s_att.controlModeIndex == 0) ? guikit::UiVariant::Success : guikit::UiVariant::Ghost,
+            .active = (s_att.controlModeIndex == 0)
+        })) {
+            s_att.controlModeIndex = 0;
+        }
+        if (tb.ToolButton({
+            .label = "Virtual Stick (360°)",
+            .variant = (s_att.controlModeIndex == 1) ? guikit::UiVariant::Success : guikit::UiVariant::Ghost,
+            .active = (s_att.controlModeIndex == 1)
+        })) {
+            s_att.controlModeIndex = 1;
+        }
+        if (tb.ToolButton({
+            .label = "Autopilot Fig-8",
+            .variant = (s_att.controlModeIndex == 2) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+            .active = (s_att.controlModeIndex == 2)
+        })) {
+            s_att.controlModeIndex = 2;
+        }
+        if (tb.ToolButton({
+            .label = "Manual",
+            .variant = (s_att.controlModeIndex == 3) ? guikit::UiVariant::Warning : guikit::UiVariant::Ghost,
+            .active = (s_att.controlModeIndex == 3)
+        })) {
+            s_att.controlModeIndex = 3;
+        }
 
-            tb.Separator();
+        tb.Separator();
 
-            if (tb.ToolButton({
-                .label = "Full PFD",
-                .variant = (s_att.displayModeIndex == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                .active = (s_att.displayModeIndex == 0)
-            })) {
-                s_att.displayModeIndex = 0;
-            }
-            if (tb.ToolButton({
-                .label = "Compact ADI",
-                .variant = (s_att.displayModeIndex == 1) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                .active = (s_att.displayModeIndex == 1)
-            })) {
-                s_att.displayModeIndex = 1;
-            }
-            if (tb.ToolButton({
-                .label = "HUD Overlay",
-                .variant = (s_att.displayModeIndex == 2) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                .active = (s_att.displayModeIndex == 2)
-            })) {
-                s_att.displayModeIndex = 2;
-            }
+        if (tb.ToolButton({
+            .label = "Full PFD",
+            .variant = (s_att.displayModeIndex == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .active = (s_att.displayModeIndex == 0)
+        })) {
+            s_att.displayModeIndex = 0;
+        }
+        if (tb.ToolButton({
+            .label = "Compact ADI",
+            .variant = (s_att.displayModeIndex == 1) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .active = (s_att.displayModeIndex == 1)
+        })) {
+            s_att.displayModeIndex = 1;
+        }
+        if (tb.ToolButton({
+            .label = "HUD Overlay",
+            .variant = (s_att.displayModeIndex == 2) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .active = (s_att.displayModeIndex == 2)
+        })) {
+            s_att.displayModeIndex = 2;
+        }
 
-            tb.Separator();
+        tb.Separator();
 
-            if (tb.ToolButton({
-                .label = (s_att.referenceModeIndex == 0) ? "Ref: Western" : "Ref: KPPI",
-                .variant = (s_att.referenceModeIndex == 1) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
-                .active = (s_att.referenceModeIndex == 1)
-            })) {
-                s_att.referenceModeIndex = (s_att.referenceModeIndex + 1) % 2;
-                if (s_att.referenceModeIndex == 1) {
-                    s_att.aircraftSymbolIndex = 2; // Russian KPPI silhouette
-                } else if (s_att.aircraftSymbolIndex == 2) {
-                    s_att.aircraftSymbolIndex = 0;
-                }
-            }
-
-            tb.Spacer();
-
-            if (tb.ToolButton({
-                .label = "Level Wings",
-                .icon = guikit::Icon::Refresh()
-            })) {
-                s_att.rollDeg = 0.0f;
-                s_att.pitchDeg = 2.0f;
-                s_att.verticalSpeedFpm = 0.0f;
-                s_att.slipSkid = 0.0f;
+        if (tb.ToolButton({
+            .label = (s_att.referenceModeIndex == 0) ? "Ref: Western" : "Ref: KPPI",
+            .variant = (s_att.referenceModeIndex == 1) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+            .active = (s_att.referenceModeIndex == 1)
+        })) {
+            s_att.referenceModeIndex = (s_att.referenceModeIndex + 1) % 2;
+            if (s_att.referenceModeIndex == 1) {
+                s_att.aircraftSymbolIndex = 2; // Russian KPPI silhouette
+            } else if (s_att.aircraftSymbolIndex == 2) {
+                s_att.aircraftSymbolIndex = 0;
             }
         }
 
-        // Main Autonomous AttitudeView Widget
-        s_att.lastResp = ui.AttitudeView({
-            .displayMode = static_cast<guikit::AttitudeDisplayMode>(s_att.displayModeIndex),
-            .referenceMode = static_cast<guikit::HorizonReferenceMode>(s_att.referenceModeIndex),
-            .colorScheme = static_cast<guikit::AttitudeColorScheme>(s_att.colorSchemeIndex),
-            .flightDirectorStyle = static_cast<guikit::FlightDirectorStyle>(s_att.fdStyleIndex),
-            .aircraftSymbol = static_cast<guikit::AircraftSymbolStyle>(s_att.aircraftSymbolIndex),
-            .rollDeg = s_att.rollDeg,
-            .pitchDeg = s_att.pitchDeg,
-            .headingDeg = s_att.headingDeg,
-            .airspeedKnots = s_att.airspeedKnots,
-            .machNumber = s_att.machNumber,
-            .altitudeFeet = s_att.altitudeFeet,
-            .verticalSpeedFpm = s_att.verticalSpeedFpm,
-            .slipSkid = s_att.slipSkid,
-            .gLoad = s_att.gLoad,
-            .radioAltitudeFeet = s_att.radioAltitudeFeet,
-            .showFlightPathVector = s_att.showFlightPathVector,
-            .aoaDeg = s_att.aoaDeg,
-            .sideslipDeg = s_att.sideslipDeg,
-            .fdPitchDeg = s_att.fdPitchDeg,
-            .fdRollDeg = s_att.fdRollDeg,
-            .targetAirspeedBug = s_att.targetAirspeedBug,
-            .targetAltitudeBug = s_att.targetAltitudeBug,
-            .targetHeadingBug = s_att.targetHeadingBug,
-            .baroSettingInHg = s_att.baroSettingInHg,
-            .baroStd = s_att.baroStd,
-            .showIlsDiamonds = s_att.showIlsDiamonds,
-            .locDeviationDots = s_att.locDeviationDots,
-            .gsDeviationDots = s_att.gsDeviationDots,
-            .showPitchLadder = s_att.showPitchLadder,
-            .showBankScale = s_att.showBankScale,
-            .showSpeedAndAltTapes = s_att.showSpeedAndAltTapes,
-            .showHeadingTape = s_att.showHeadingTape,
-            .showFmaBar = s_att.showFmaBar,
-            .showMouseStickOverlay = s_att.showMouseStickOverlay && (s_att.controlModeIndex <= 1),
-            .fieldOfViewPitchDeg = s_att.fovPitchDeg,
-            .fovPitchDegPtr = &s_att.fovPitchDeg,
-            .heightMode = guikit::SizeMode::Stretch
-        });
+        tb.Spacer();
+
+        if (tb.ToolButton({
+            .label = "Level Wings",
+            .icon = guikit::Icon::Refresh()
+        })) {
+            s_att.rollDeg = 0.0f;
+            s_att.pitchDeg = 2.0f;
+            s_att.verticalSpeedFpm = 0.0f;
+            s_att.slipSkid = 0.0f;
+        }
     }
+
+    // Main Autonomous AttitudeView Widget
+    s_att.lastResp = ui.AttitudeView({
+        .displayMode = static_cast<guikit::AttitudeDisplayMode>(s_att.displayModeIndex),
+        .referenceMode = static_cast<guikit::HorizonReferenceMode>(s_att.referenceModeIndex),
+        .colorScheme = static_cast<guikit::AttitudeColorScheme>(s_att.colorSchemeIndex),
+        .flightDirectorStyle = static_cast<guikit::FlightDirectorStyle>(s_att.fdStyleIndex),
+        .aircraftSymbol = static_cast<guikit::AircraftSymbolStyle>(s_att.aircraftSymbolIndex),
+        .rollDeg = s_att.rollDeg,
+        .pitchDeg = s_att.pitchDeg,
+        .headingDeg = s_att.headingDeg,
+        .airspeedKnots = s_att.airspeedKnots,
+        .machNumber = s_att.machNumber,
+        .altitudeFeet = s_att.altitudeFeet,
+        .verticalSpeedFpm = s_att.verticalSpeedFpm,
+        .slipSkid = s_att.slipSkid,
+        .gLoad = s_att.gLoad,
+        .radioAltitudeFeet = s_att.radioAltitudeFeet,
+        .showFlightPathVector = s_att.showFlightPathVector,
+        .aoaDeg = s_att.aoaDeg,
+        .sideslipDeg = s_att.sideslipDeg,
+        .fdPitchDeg = s_att.fdPitchDeg,
+        .fdRollDeg = s_att.fdRollDeg,
+        .targetAirspeedBug = s_att.targetAirspeedBug,
+        .targetAltitudeBug = s_att.targetAltitudeBug,
+        .targetHeadingBug = s_att.targetHeadingBug,
+        .baroSettingInHg = s_att.baroSettingInHg,
+        .baroStd = s_att.baroStd,
+        .showIlsDiamonds = s_att.showIlsDiamonds,
+        .locDeviationDots = s_att.locDeviationDots,
+        .gsDeviationDots = s_att.gsDeviationDots,
+        .showPitchLadder = s_att.showPitchLadder,
+        .showBankScale = s_att.showBankScale,
+        .showSpeedAndAltTapes = s_att.showSpeedAndAltTapes,
+        .showHeadingTape = s_att.showHeadingTape,
+        .showFmaBar = s_att.showFmaBar,
+        .showMouseStickOverlay = s_att.showMouseStickOverlay && (s_att.controlModeIndex <= 1),
+        .fieldOfViewPitchDeg = s_att.fovPitchDeg,
+        .fovPitchDegPtr = &s_att.fovPitchDeg,
+        .heightMode = guikit::SizeMode::Stretch
+    });
 }
 
 std::string GenerateAttitudeCode(const DemoContext& /*ctx*/) {

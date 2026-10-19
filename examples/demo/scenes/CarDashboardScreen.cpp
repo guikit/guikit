@@ -419,160 +419,154 @@ void RenderCarDashboardStage(guikit::Context& ui, DemoContext& /*ctx*/) {
     const bool autoLeftTurn = (s_car.controlModeIndex <= 2) && (s_car.steeringAngleDeg < -16.0f);
     const bool autoRightTurn = (s_car.controlModeIndex <= 2) && (s_car.steeringAngleDeg > 16.0f);
 
-    if (auto stageCol = ui.Column({
-        .gap = 8.0f,
-        .widthMode = guikit::SizeMode::Stretch,
-        .heightMode = guikit::SizeMode::Stretch
-    })) {
-        // Top Interactive Cockpit Toolbar
-        if (auto tb = ui.Toolbar()) {
-            if (tb.ToolButton({
-                .label = "Mouse Drive",
-                .icon = guikit::Icon::Play(),
-                .variant = (s_car.controlModeIndex == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                .active = (s_car.controlModeIndex == 0)
-            })) {
-                s_car.controlModeIndex = 0;
-            }
-            if (tb.ToolButton({
-                .label = "Highway ADAS",
-                .variant = (s_car.controlModeIndex == 1) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
-                .active = (s_car.controlModeIndex == 1)
-            })) {
-                s_car.controlModeIndex = 1;
-            }
-            if (tb.ToolButton({
-                .label = "Track Hot Lap",
-                .variant = (s_car.controlModeIndex == 2) ? guikit::UiVariant::Danger : guikit::UiVariant::Ghost,
-                .active = (s_car.controlModeIndex == 2)
-            })) {
-                s_car.controlModeIndex = 2;
-                s_car.driveThemeIndex = 1;
-                s_car.gearSelectorIndex = 4;
-            }
-            if (tb.ToolButton({
-                .label = "Manual",
-                .variant = (s_car.controlModeIndex == 3) ? guikit::UiVariant::Warning : guikit::UiVariant::Ghost,
-                .active = (s_car.controlModeIndex == 3)
-            })) {
-                s_car.controlModeIndex = 3;
-            }
-
-            tb.Separator();
-
-            if (tb.ToolButton({
-                .label = "Dual Dial",
-                .variant = (s_car.layoutModeIndex == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                .active = (s_car.layoutModeIndex == 0)
-            })) {
-                s_car.layoutModeIndex = 0;
-            }
-            if (tb.ToolButton({
-                .label = "Track Central",
-                .variant = (s_car.layoutModeIndex == 1) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                .active = (s_car.layoutModeIndex == 1)
-            })) {
-                s_car.layoutModeIndex = 1;
-            }
-            if (tb.ToolButton({
-                .label = "Wide EV",
-                .variant = (s_car.layoutModeIndex == 2) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                .active = (s_car.layoutModeIndex == 2)
-            })) {
-                s_car.layoutModeIndex = 2;
-            }
-
-            tb.Separator();
-
-            if (tb.ToolButton({
-                .label = (s_car.powertrainIndex == 0) ? "ICE Turbo" : "EV Dual-Motor",
-                .variant = (s_car.powertrainIndex == 1) ? guikit::UiVariant::Success : guikit::UiVariant::Info,
-                .active = true
-            })) {
-                s_car.powertrainIndex = (s_car.powertrainIndex + 1) % 2;
-                s_car.avgConsumption = (s_car.powertrainIndex == 1) ? 18.4f : 9.2f;
-                s_car.coolantOrBattTempC = (s_car.powertrainIndex == 1) ? 31.0f : 90.0f;
-            }
-
-            if (tb.ToolButton({
-                .label = "Hazard",
-                .variant = s_car.ttHazard ? guikit::UiVariant::Danger : guikit::UiVariant::Ghost,
-                .active = s_car.ttHazard
-            })) {
-                s_car.ttHazard = !s_car.ttHazard;
-            }
-
-            tb.Spacer();
-
-            if (tb.ToolButton({
-                .label = "Reset Peak G",
-                .icon = guikit::Icon::Refresh()
-            })) {
-                s_car.peakG = 0.0f;
-            }
+    // Top Interactive Cockpit Toolbar
+    if (auto tb = ui.Toolbar()) {
+        if (tb.ToolButton({
+            .label = "Mouse Drive",
+            .icon = guikit::Icon::Play(),
+            .variant = (s_car.controlModeIndex == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .active = (s_car.controlModeIndex == 0)
+        })) {
+            s_car.controlModeIndex = 0;
+        }
+        if (tb.ToolButton({
+            .label = "Highway ADAS",
+            .variant = (s_car.controlModeIndex == 1) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+            .active = (s_car.controlModeIndex == 1)
+        })) {
+            s_car.controlModeIndex = 1;
+        }
+        if (tb.ToolButton({
+            .label = "Track Hot Lap",
+            .variant = (s_car.controlModeIndex == 2) ? guikit::UiVariant::Danger : guikit::UiVariant::Ghost,
+            .active = (s_car.controlModeIndex == 2)
+        })) {
+            s_car.controlModeIndex = 2;
+            s_car.driveThemeIndex = 1;
+            s_car.gearSelectorIndex = 4;
+        }
+        if (tb.ToolButton({
+            .label = "Manual",
+            .variant = (s_car.controlModeIndex == 3) ? guikit::UiVariant::Warning : guikit::UiVariant::Ghost,
+            .active = (s_car.controlModeIndex == 3)
+        })) {
+            s_car.controlModeIndex = 3;
         }
 
-        // Main Autonomous CarClusterView Widget
-        s_car.lastResp = ui.CarClusterView({
-            .layoutMode = static_cast<guikit::ClusterLayoutMode>(s_car.layoutModeIndex),
-            .powertrain = static_cast<guikit::PowertrainMode>(s_car.powertrainIndex),
-            .driveTheme = static_cast<guikit::ClusterDriveTheme>(s_car.driveThemeIndex),
-            .centerMfd = s_car.centerMfd,
-            .speedUnit = static_cast<guikit::SpeedUnit>(s_car.speedUnitIndex),
-            .gearSelector = static_cast<guikit::GearSelector>(s_car.gearSelectorIndex),
-            .speedKmh = s_car.speedKmh,
-            .maxSpeedKmh = s_car.maxSpeedKmh,
-            .cruiseTargetKmh = s_car.cruiseTargetKmh,
-            .cruiseSet = s_car.cruiseSet,
-            .rpm = s_car.rpm,
-            .redlineRpm = s_car.redlineRpm,
-            .maxRpm = s_car.maxRpm,
-            .currentGear = s_car.currentGear,
-            .evPowerKw = s_car.evPowerKw,
-            .throttlePct = s_car.throttlePct,
-            .brakePct = s_car.brakePct,
-            .steeringAngleDeg = s_car.steeringAngleDeg,
-            .boostBar = s_car.boostBar,
-            .fuelOrSocPct = s_car.fuelOrSocPct,
-            .estimatedRangeKm = s_car.estimatedRangeKm,
-            .coolantOrBattTempC = s_car.coolantOrBattTempC,
-            .oilTempC = s_car.oilTempC,
-            .outsideTempC = s_car.outsideTempC,
-            .odometerKm = s_car.odometerKm,
-            .tripDistanceKm = s_car.tripDistanceKm,
-            .avgConsumption = s_car.avgConsumption,
-            .latG = s_car.latG,
-            .lonG = s_car.lonG,
-            .peakG = s_car.peakG,
-            .frontTorquePct = s_car.frontTorquePct,
-            .adasLeadDistanceM = s_car.adasLeadDistanceM,
-            .adasLeadSpeedKmh = s_car.adasLeadSpeedKmh,
-            .adasLeadDetected = s_car.adasLeadDetected,
-            .tirePressureBar = s_car.tirePressureBar,
-            .tireTempC = s_car.tireTempC,
-            .showShiftLights = s_car.showShiftLights,
-            .showTelltaleBar = s_car.showTelltaleBar,
-            .showBottomTripBar = s_car.showBottomTripBar,
-            .showMouseDriveOverlay = s_car.showMouseDriveOverlay && (s_car.controlModeIndex == 0),
-            .telltales = {
-                .leftTurn = s_car.ttLeftTurn || autoLeftTurn,
-                .rightTurn = s_car.ttRightTurn || autoRightTurn,
-                .hazard = s_car.ttHazard,
-                .lowBeam = s_car.ttLowBeam,
-                .highBeam = s_car.ttHighBeam,
-                .fogLight = s_car.ttFogLight,
-                .parkBrake = s_car.ttParkBrake,
-                .escActive = s_car.ttEscActive,
-                .tpmsWarning = s_car.ttTpmsWarning,
-                .adasCruiseActive = s_car.ttAdasCruise,
-                .laneKeepActive = s_car.ttLaneKeep,
-                .blinkPhaseOn = blinkOn
-            },
-            .manualGearPtr = &s_car.currentGear,
-            .centerMfdPtr = &s_car.centerMfd,
-            .heightMode = guikit::SizeMode::Stretch
-        });
+        tb.Separator();
+
+        if (tb.ToolButton({
+            .label = "Dual Dial",
+            .variant = (s_car.layoutModeIndex == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .active = (s_car.layoutModeIndex == 0)
+        })) {
+            s_car.layoutModeIndex = 0;
+        }
+        if (tb.ToolButton({
+            .label = "Track Central",
+            .variant = (s_car.layoutModeIndex == 1) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .active = (s_car.layoutModeIndex == 1)
+        })) {
+            s_car.layoutModeIndex = 1;
+        }
+        if (tb.ToolButton({
+            .label = "Wide EV",
+            .variant = (s_car.layoutModeIndex == 2) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .active = (s_car.layoutModeIndex == 2)
+        })) {
+            s_car.layoutModeIndex = 2;
+        }
+
+        tb.Separator();
+
+        if (tb.ToolButton({
+            .label = (s_car.powertrainIndex == 0) ? "ICE Turbo" : "EV Dual-Motor",
+            .variant = (s_car.powertrainIndex == 1) ? guikit::UiVariant::Success : guikit::UiVariant::Info,
+            .active = true
+        })) {
+            s_car.powertrainIndex = (s_car.powertrainIndex + 1) % 2;
+            s_car.avgConsumption = (s_car.powertrainIndex == 1) ? 18.4f : 9.2f;
+            s_car.coolantOrBattTempC = (s_car.powertrainIndex == 1) ? 31.0f : 90.0f;
+        }
+
+        if (tb.ToolButton({
+            .label = "Hazard",
+            .variant = s_car.ttHazard ? guikit::UiVariant::Danger : guikit::UiVariant::Ghost,
+            .active = s_car.ttHazard
+        })) {
+            s_car.ttHazard = !s_car.ttHazard;
+        }
+
+        tb.Spacer();
+
+        if (tb.ToolButton({
+            .label = "Reset Peak G",
+            .icon = guikit::Icon::Refresh()
+        })) {
+            s_car.peakG = 0.0f;
+        }
     }
+
+    // Main Autonomous CarClusterView Widget
+    s_car.lastResp = ui.CarClusterView({
+        .layoutMode = static_cast<guikit::ClusterLayoutMode>(s_car.layoutModeIndex),
+        .powertrain = static_cast<guikit::PowertrainMode>(s_car.powertrainIndex),
+        .driveTheme = static_cast<guikit::ClusterDriveTheme>(s_car.driveThemeIndex),
+        .centerMfd = s_car.centerMfd,
+        .speedUnit = static_cast<guikit::SpeedUnit>(s_car.speedUnitIndex),
+        .gearSelector = static_cast<guikit::GearSelector>(s_car.gearSelectorIndex),
+        .speedKmh = s_car.speedKmh,
+        .maxSpeedKmh = s_car.maxSpeedKmh,
+        .cruiseTargetKmh = s_car.cruiseTargetKmh,
+        .cruiseSet = s_car.cruiseSet,
+        .rpm = s_car.rpm,
+        .redlineRpm = s_car.redlineRpm,
+        .maxRpm = s_car.maxRpm,
+        .currentGear = s_car.currentGear,
+        .evPowerKw = s_car.evPowerKw,
+        .throttlePct = s_car.throttlePct,
+        .brakePct = s_car.brakePct,
+        .steeringAngleDeg = s_car.steeringAngleDeg,
+        .boostBar = s_car.boostBar,
+        .fuelOrSocPct = s_car.fuelOrSocPct,
+        .estimatedRangeKm = s_car.estimatedRangeKm,
+        .coolantOrBattTempC = s_car.coolantOrBattTempC,
+        .oilTempC = s_car.oilTempC,
+        .outsideTempC = s_car.outsideTempC,
+        .odometerKm = s_car.odometerKm,
+        .tripDistanceKm = s_car.tripDistanceKm,
+        .avgConsumption = s_car.avgConsumption,
+        .latG = s_car.latG,
+        .lonG = s_car.lonG,
+        .peakG = s_car.peakG,
+        .frontTorquePct = s_car.frontTorquePct,
+        .adasLeadDistanceM = s_car.adasLeadDistanceM,
+        .adasLeadSpeedKmh = s_car.adasLeadSpeedKmh,
+        .adasLeadDetected = s_car.adasLeadDetected,
+        .tirePressureBar = s_car.tirePressureBar,
+        .tireTempC = s_car.tireTempC,
+        .showShiftLights = s_car.showShiftLights,
+        .showTelltaleBar = s_car.showTelltaleBar,
+        .showBottomTripBar = s_car.showBottomTripBar,
+        .showMouseDriveOverlay = s_car.showMouseDriveOverlay && (s_car.controlModeIndex == 0),
+        .telltales = {
+            .leftTurn = s_car.ttLeftTurn || autoLeftTurn,
+            .rightTurn = s_car.ttRightTurn || autoRightTurn,
+            .hazard = s_car.ttHazard,
+            .lowBeam = s_car.ttLowBeam,
+            .highBeam = s_car.ttHighBeam,
+            .fogLight = s_car.ttFogLight,
+            .parkBrake = s_car.ttParkBrake,
+            .escActive = s_car.ttEscActive,
+            .tpmsWarning = s_car.ttTpmsWarning,
+            .adasCruiseActive = s_car.ttAdasCruise,
+            .laneKeepActive = s_car.ttLaneKeep,
+            .blinkPhaseOn = blinkOn
+        },
+        .manualGearPtr = &s_car.currentGear,
+        .centerMfdPtr = &s_car.centerMfd,
+        .heightMode = guikit::SizeMode::Stretch
+    });
 }
 
 std::string GenerateCarDashboardCode(const DemoContext& /*ctx*/) {

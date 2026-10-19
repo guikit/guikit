@@ -563,140 +563,134 @@ void RenderWaterfallStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         ui.RequestRepaint(2);
     }
 
-    if (auto col = ui.Column({
-        .gap = 8.0f,
-        .widthMode = guikit::SizeMode::Stretch,
-        .heightMode = guikit::SizeMode::Stretch
-    })) {
-        // Top Operator Console Toolbar
-        if (auto tb = ui.Size(guikit::UiSize::Sm).Toolbar()) {
-            if (tb.ToolButton({
-                .label = s_wf.liveStream ? "STREAMING" : "FROZEN",
-                .icon = s_wf.liveStream ? guikit::Icon::Pause() : guikit::Icon::Play(),
-                .variant = s_wf.liveStream ? guikit::UiVariant::Success : guikit::UiVariant::Warning,
-                .active = s_wf.liveStream
-            })) {
-                s_wf.liveStream = !s_wf.liveStream;
-            }
-
-            tb.Separator();
-
-            if (tb.ToolButton({
-                .label = "Spectrum RTSA",
-                .variant = (s_wf.modeIndex == 0 && s_wf.scenarioIndex == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                .active = (s_wf.modeIndex == 0 && s_wf.scenarioIndex == 0)
-            })) {
-                LoadWaterfallScenario(s_wf, 0);
-            }
-            if (tb.ToolButton({
-                .label = "LOFAR Harmonics",
-                .variant = (s_wf.scenarioIndex == 1) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
-                .active = (s_wf.scenarioIndex == 1)
-            })) {
-                LoadWaterfallScenario(s_wf, 1);
-            }
-            if (tb.ToolButton({
-                .label = "Sonar DOA / BTR",
-                .variant = (s_wf.scenarioIndex == 2) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
-                .active = (s_wf.scenarioIndex == 2)
-            })) {
-                LoadWaterfallScenario(s_wf, 2);
-            }
-            if (tb.ToolButton({
-                .label = "MUSIC DF",
-                .variant = (s_wf.scenarioIndex == 3) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
-                .active = (s_wf.scenarioIndex == 3)
-            })) {
-                LoadWaterfallScenario(s_wf, 3);
-            }
-
-            tb.Separator();
-
-            if (tb.ToolButton({
-                .label = "Split",
-                .variant = (s_wf.layoutIndex == 0) ? guikit::UiVariant::Secondary : guikit::UiVariant::Ghost,
-                .active = (s_wf.layoutIndex == 0)
-            })) {
-                s_wf.layoutIndex = 0;
-            }
-            if (tb.ToolButton({
-                .label = "Waterfall",
-                .variant = (s_wf.layoutIndex == 1) ? guikit::UiVariant::Secondary : guikit::UiVariant::Ghost,
-                .active = (s_wf.layoutIndex == 1)
-            })) {
-                s_wf.layoutIndex = 1;
-            }
-            if (tb.ToolButton({
-                .label = "Trace",
-                .variant = (s_wf.layoutIndex == 2) ? guikit::UiVariant::Secondary : guikit::UiVariant::Ghost,
-                .active = (s_wf.layoutIndex == 2)
-            })) {
-                s_wf.layoutIndex = 2;
-            }
-
-            tb.Spacer();
-
-            if (tb.ToolButton({
-                .label = "Clear Peak",
-                .icon = guikit::Icon::Refresh()
-            })) {
-                s_wf.requestResetPeakHold = true;
-            }
-            if (tb.ToolButton({
-                .label = "Reset Zoom",
-                .icon = guikit::Icon::Search()
-            })) {
-                s_wf.requestResetZoom = true;
-            }
+    // Top Operator Console Toolbar
+    if (auto tb = ui.Size(guikit::UiSize::Sm).Toolbar()) {
+        if (tb.ToolButton({
+            .label = s_wf.liveStream ? "STREAMING" : "FROZEN",
+            .icon = s_wf.liveStream ? guikit::Icon::Pause() : guikit::Icon::Play(),
+            .variant = s_wf.liveStream ? guikit::UiVariant::Success : guikit::UiVariant::Warning,
+            .active = s_wf.liveStream
+        })) {
+            s_wf.liveStream = !s_wf.liveStream;
         }
 
-        // Main Autonomous Hardware-Accelerated WaterfallView Widget
-        s_wf.lastResp = ui.WaterfallView(s_wf.currentSliceDb, {
-            .mode = static_cast<guikit::WaterfallMode>(s_wf.modeIndex),
-            .viewLayout = static_cast<guikit::WaterfallLayout>(s_wf.layoutIndex),
-            .colormap = s_wf.colormap,
-            .numBins = s_wf.numBins,
-            .historyRows = s_wf.historyRows,
-            .historyDurationSec = s_wf.historyDurationSec,
-            .minX = s_wf.minX,
-            .maxX = s_wf.maxX,
-            .topTraceHeightRatio = s_wf.topTraceRatio,
-            .invertTimeAxis = s_wf.invertTimeAxis,
-            .sliceSequence = s_wf.sliceSequence,
-            .initialHistoryMatrix = s_wf.initialHistoryMatrix,
-            .dbFloor = s_wf.dbFloor,
-            .dbCeil = s_wf.dbCeil,
-            .gainDb = s_wf.gainDb,
-            .thresholdGateDb = s_wf.thresholdGateDb,
-            .gateSuppression = s_wf.gateSuppression,
-            .gamma = s_wf.gamma,
-            .averageAlpha = s_wf.averageAlpha,
-            .peakDecayDbPerSec = s_wf.peakDecayDbPerSec,
-            .tracks = s_wf.tracks,
-            .showLiveTrace = s_wf.showLiveTrace,
-            .showPeakHold = s_wf.showPeakHold,
-            .showAverageTrace = s_wf.showAverageTrace,
-            .showThresholdGate = s_wf.showThresholdGate,
-            .showPeakMarkers = s_wf.showPeakMarkers,
-            .showTracks = s_wf.showTracks,
-            .showTrackGates = s_wf.showTrackGates,
-            .showHarmonicComb = s_wf.showHarmonicComb,
-            .showColorbar = s_wf.showColorbar,
-            .showHudOverlay = s_wf.showHudOverlay,
-            .showGrid = s_wf.showGrid,
-            .selectedTrackId = &s_wf.selectedTrackId,
-            .harmonicFundamentalX = &s_wf.harmonicFundamentalX,
-            .thresholdGateDbPtr = &s_wf.thresholdGateDb,
-            .requestResetZoom = s_wf.requestResetZoom,
-            .requestResetPeakHold = s_wf.requestResetPeakHold,
-            .requestClearHistory = s_wf.requestClearHistory,
-            .heightMode = guikit::SizeMode::Stretch
-        });
+        tb.Separator();
 
-        s_wf.requestResetZoom = false;
-        s_wf.requestResetPeakHold = false;
-        s_wf.requestClearHistory = false;
+        if (tb.ToolButton({
+            .label = "Spectrum RTSA",
+            .variant = (s_wf.modeIndex == 0 && s_wf.scenarioIndex == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .active = (s_wf.modeIndex == 0 && s_wf.scenarioIndex == 0)
+        })) {
+            LoadWaterfallScenario(s_wf, 0);
+        }
+        if (tb.ToolButton({
+            .label = "LOFAR Harmonics",
+            .variant = (s_wf.scenarioIndex == 1) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .active = (s_wf.scenarioIndex == 1)
+        })) {
+            LoadWaterfallScenario(s_wf, 1);
+        }
+        if (tb.ToolButton({
+            .label = "Sonar DOA / BTR",
+            .variant = (s_wf.scenarioIndex == 2) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+            .active = (s_wf.scenarioIndex == 2)
+        })) {
+            LoadWaterfallScenario(s_wf, 2);
+        }
+        if (tb.ToolButton({
+            .label = "MUSIC DF",
+            .variant = (s_wf.scenarioIndex == 3) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+            .active = (s_wf.scenarioIndex == 3)
+        })) {
+            LoadWaterfallScenario(s_wf, 3);
+        }
+
+        tb.Separator();
+
+        if (tb.ToolButton({
+            .label = "Split",
+            .variant = (s_wf.layoutIndex == 0) ? guikit::UiVariant::Secondary : guikit::UiVariant::Ghost,
+            .active = (s_wf.layoutIndex == 0)
+        })) {
+            s_wf.layoutIndex = 0;
+        }
+        if (tb.ToolButton({
+            .label = "Waterfall",
+            .variant = (s_wf.layoutIndex == 1) ? guikit::UiVariant::Secondary : guikit::UiVariant::Ghost,
+            .active = (s_wf.layoutIndex == 1)
+        })) {
+            s_wf.layoutIndex = 1;
+        }
+        if (tb.ToolButton({
+            .label = "Trace",
+            .variant = (s_wf.layoutIndex == 2) ? guikit::UiVariant::Secondary : guikit::UiVariant::Ghost,
+            .active = (s_wf.layoutIndex == 2)
+        })) {
+            s_wf.layoutIndex = 2;
+        }
+
+        tb.Spacer();
+
+        if (tb.ToolButton({
+            .label = "Clear Peak",
+            .icon = guikit::Icon::Refresh()
+        })) {
+            s_wf.requestResetPeakHold = true;
+        }
+        if (tb.ToolButton({
+            .label = "Reset Zoom",
+            .icon = guikit::Icon::Search()
+        })) {
+            s_wf.requestResetZoom = true;
+        }
     }
+
+    // Main Autonomous Hardware-Accelerated WaterfallView Widget
+    s_wf.lastResp = ui.WaterfallView(s_wf.currentSliceDb, {
+        .mode = static_cast<guikit::WaterfallMode>(s_wf.modeIndex),
+        .viewLayout = static_cast<guikit::WaterfallLayout>(s_wf.layoutIndex),
+        .colormap = s_wf.colormap,
+        .numBins = s_wf.numBins,
+        .historyRows = s_wf.historyRows,
+        .historyDurationSec = s_wf.historyDurationSec,
+        .minX = s_wf.minX,
+        .maxX = s_wf.maxX,
+        .topTraceHeightRatio = s_wf.topTraceRatio,
+        .invertTimeAxis = s_wf.invertTimeAxis,
+        .sliceSequence = s_wf.sliceSequence,
+        .initialHistoryMatrix = s_wf.initialHistoryMatrix,
+        .dbFloor = s_wf.dbFloor,
+        .dbCeil = s_wf.dbCeil,
+        .gainDb = s_wf.gainDb,
+        .thresholdGateDb = s_wf.thresholdGateDb,
+        .gateSuppression = s_wf.gateSuppression,
+        .gamma = s_wf.gamma,
+        .averageAlpha = s_wf.averageAlpha,
+        .peakDecayDbPerSec = s_wf.peakDecayDbPerSec,
+        .tracks = s_wf.tracks,
+        .showLiveTrace = s_wf.showLiveTrace,
+        .showPeakHold = s_wf.showPeakHold,
+        .showAverageTrace = s_wf.showAverageTrace,
+        .showThresholdGate = s_wf.showThresholdGate,
+        .showPeakMarkers = s_wf.showPeakMarkers,
+        .showTracks = s_wf.showTracks,
+        .showTrackGates = s_wf.showTrackGates,
+        .showHarmonicComb = s_wf.showHarmonicComb,
+        .showColorbar = s_wf.showColorbar,
+        .showHudOverlay = s_wf.showHudOverlay,
+        .showGrid = s_wf.showGrid,
+        .selectedTrackId = &s_wf.selectedTrackId,
+        .harmonicFundamentalX = &s_wf.harmonicFundamentalX,
+        .thresholdGateDbPtr = &s_wf.thresholdGateDb,
+        .requestResetZoom = s_wf.requestResetZoom,
+        .requestResetPeakHold = s_wf.requestResetPeakHold,
+        .requestClearHistory = s_wf.requestClearHistory,
+        .heightMode = guikit::SizeMode::Stretch
+    });
+
+    s_wf.requestResetZoom = false;
+    s_wf.requestResetPeakHold = false;
+    s_wf.requestClearHistory = false;
 }
 
 std::string GenerateWaterfallCode(const DemoContext& /*ctx*/) {
