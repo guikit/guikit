@@ -40,10 +40,8 @@ struct TabBarOptions {
     bool scrollable{true};      ///< Enable horizontal scrolling with arrows when tabs overflow
     std::optional<float> gap{std::nullopt};   ///< Gap between consecutive tab items (nullopt = from theme)
     std::optional<Padding> padding{std::nullopt};   ///< Container padding around tabs (nullopt = auto based on style)
-    std::optional<float> borderRadius{std::nullopt}; ///< Bar corner rounding radius in pixels (nullopt = auto based on style)
-    Color backgroundColor{Color::Transparent()}; ///< Optional background fill color for the tab bar
-    Color borderColor{Color::Transparent()};     ///< Optional border color for the tab bar
-    float borderWidth{0.0f};                     ///< Optional border width in pixels
+    StateColor background{};                     ///< Optional background fill color for the tab bar
+    Border border{};                             ///< Optional border configuration (color, width, radius)
     Color activeColor{Color::Transparent()}; ///< Optional custom accent color override
     const UiTheme* theme{nullptr};            ///< Optional scoped theme override
     std::optional<float> scale{std::nullopt}; ///< Optional scoped scale factor override

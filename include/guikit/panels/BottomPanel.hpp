@@ -33,10 +33,8 @@ struct BottomPanelOptions {
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};
     std::optional<float> gap{0.0f};                         ///< Gap between direct children (0px by default so inner Toolbar docks flush)
     std::optional<Padding> padding{Padding::All(0.0f)};     ///< Internal padding (0px by default so inner Toolbar/views fill edge-to-edge)
-    Color backgroundColor{Color::Transparent()};
-    Color borderColor{Color::Transparent()};
-    float borderWidth{1.0f};
-    std::optional<float> borderRadius{0.0f};                ///< Corner radius in pixels (0px by default for docked panels)
+    StateColor background{};
+    Border border{.width = 1.0f, .radius = 0.0f};
     bool clipChildren{true};
     bool disabled{false};
     const UiTheme* theme{nullptr};

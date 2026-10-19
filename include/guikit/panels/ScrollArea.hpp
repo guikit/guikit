@@ -30,6 +30,8 @@ struct ScrollAreaOptions {
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};
     std::optional<float> gap{std::nullopt};        ///< Gap between consecutive scroll items (nullopt = zero)
     std::optional<Padding> padding{std::nullopt};   ///< Viewport content padding (nullopt = zero)
+    StateColor background{};
+    Border border{};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

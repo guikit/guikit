@@ -401,21 +401,8 @@ struct BpmnDiagram {
 
 /// Declarative configuration options for the autonomous `BpmnEditor` widget (`ui.BpmnEditor(...)`).
 struct BpmnEditorOptions {
-    // --- Element Companion Header / Footer & Outer Frame ---
-    UiText label{};
-    UiText description{};
-    Icon icon{};
-    UiText badge{};
     UiVariant variant{UiVariant::Default};
-    ElementLayout layout{ElementLayout::Stacked};
-    InlineOrder inlineOrder{InlineOrder::LabelFirst};
     Align align{Align::Start};
-    StateColor background{};
-    float borderWidth{0.0f};
-    std::optional<float> borderRadius{std::nullopt};
-
-    // --- Inner Control Slot Configuration ---
-    ControlSpec control{};
 
     // --- BPMN Modeler UX & Visual Configuration ---
     BpmnRoutingMode routingMode{BpmnRoutingMode::Orthogonal};
@@ -449,6 +436,8 @@ struct BpmnEditorOptions {
     std::optional<float> width{std::nullopt};
     std::optional<float> height{std::nullopt};
     SizeMode heightMode{SizeMode::Stretch};
+    StateColor background{};
+    Border border{};
     bool disabled{false};
     std::string_view tooltip{};
 };

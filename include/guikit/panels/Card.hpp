@@ -17,10 +17,8 @@ struct CardOptions {
     float minWidth{0.0f};                           ///< Minimum card width constraint (0 = auto content intrinsic)
     std::optional<float> gap{std::nullopt};        ///< Gap between child elements inside card (nullopt = from theme)
     std::optional<Padding> padding{std::nullopt};   ///< Card padding (nullopt = auto from theme)
-    Color backgroundColor{Color::Transparent()};
-    Color borderColor{Color::Transparent()};
-    float borderWidth{1.0f};
-    std::optional<float> borderRadius{std::nullopt}; ///< Corner radius in pixels (nullopt = auto from theme)
+    StateColor background{};
+    Border border{.width = 1.0f};
     bool clipChildren{true};                        ///< Clip children to prevent content bleeding outside rounded card
     SizeMode widthMode{SizeMode::Stretch};
     SizeMode heightMode{SizeMode::Fit};

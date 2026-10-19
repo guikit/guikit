@@ -9,39 +9,13 @@
 #include <vector>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/Element.hpp"
+#include "guikit/core/Control.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/graphics/Colormap.hpp"
 
 namespace guikit {
 
 namespace {
-
-[[nodiscard]] ElementSpec MakeWaterfallViewElementSpec(
-    const WaterfallViewOptions& opts,
-    UiSize size,
-    const UiTheme& theme,
-    bool disabled
-) noexcept {
-    return ElementSpec{
-        .label = opts.label,
-        .description = opts.description,
-        .icon = opts.icon,
-        .badge = opts.badge,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .align = opts.align,
-        .stretch = opts.stretch,
-        .width = opts.width,
-        .widgetSize = size,
-        .labelGap = theme.Scale(6.0f),
-        .descGap = theme.Scale(4.0f),
-        .inlineGap = theme.Scale(12.0f),
-        .stretchableControl = true,
-        .stretchHeightWhenStandalone = (opts.heightMode == SizeMode::Stretch),
-        .disabled = disabled
-    };
-}
 
 struct WaterfallViewState {
     uint32_t numBins{0};
@@ -279,22 +253,18 @@ void DrawWaterfallViewNode(const Node* node, ICanvas& canvas, const UiTheme& the
     const WaterfallViewResponse& resp = payload->resp;
     WaterfallViewState& state = *payload->state;
 
-    const ElementSpec spec = MakeWaterfallViewElementSpec(opts, node->uiSize, theme, node->disabled);
-    const Vec2 ctrlSize = {node->computedRect.w, node->computedRect.h};
-    const ElementGeometry elemGeom = Element::Resolve(node->computedRect, ctrlSize, spec, &canvas, theme);
-    Element::RenderText(canvas, elemGeom, spec, theme);
-
-    const Rect r = elemGeom.controlRect;
+    const Rect r = node->computedRect;
     if (r.w <= 20.0f || r.h <= 20.0f) return;
 
     const WaterfallGeometry geom = ComputeWaterfallGeometry(r, opts, resp.visibleMinX, resp.visibleMaxX);
-    const float radius = opts.borderRadius.has_value()
-        ? theme.Scale(*opts.borderRadius)
+    const float radius = opts.border.radius.has_value()
+        ? theme.Scale(*opts.border.radius)
         : theme.GetRadius(node->uiSize);
 
-    const Color bgOuter{7, 10, 19, 255};
+    const Color bgOuter = opts.background.Resolve(node->hovered, node->pressed, node->disabled, Color{7, 10, 19, 255});
     const Color bgPanel{5, 8, 16, 255};
-    const Color borderCol{30, 41, 59, 255};
+    const Color borderCol = opts.border.color.Resolve(node->hovered, node->pressed, node->disabled, Color{30, 41, 59, 255});
+    const float borderW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : 1.2f;
     const Color gridLineCol{56, 189, 248, 34};
     const Color gridMajorCol{56, 189, 248, 72};
     const Color labelTextCol{148, 163, 184, 225};
@@ -329,6 +299,10 @@ void DrawWaterfallViewNode(const Node* node, ICanvas& canvas, const UiTheme& the
     mixKey(opts.showColorbar ? 1ULL : 0ULL);
     mixKey(opts.showGrid ? 1ULL : 0ULL);
     mixKey(static_cast<uint64_t>(theme.mode));
+    mixKey(bgOuter.ToUint32());
+    mixKey(borderCol.ToUint32());
+    mixKey(packFloat(borderW));
+    mixKey(packFloat(radius));
 
     const float domainSpan = std::max(1e-5f, geom.domainMaxX - geom.domainMinX);
     const float xMinNorm = std::clamp((geom.viewMinX - geom.domainMinX) / domainSpan, 0.0f, 1.0f);
@@ -376,7 +350,7 @@ void DrawWaterfallViewNode(const Node* node, ICanvas& canvas, const UiTheme& the
         // =================================================================
         // PASS A: Static Instrument Base Layer (Rulers, Grids, Colorbar, Cutout)
         // =================================================================
-        canvas.DrawRoundRect(r, radius, bgOuter, borderCol, 1.2f);
+        canvas.DrawRoundRect(r, radius, bgOuter, borderCol, borderW);
 
         // 1. Upper Trace Panel Static Background & Graticule
         if (geom.hasTrace && geom.traceRect.h > 10.0f) {
@@ -859,27 +833,32 @@ void DrawWaterfallViewNode(const Node* node, ICanvas& canvas, const UiTheme& the
 Vec2 WaterfallView::Measure(
     std::span<const float> /*latestSliceDb*/,
     const WaterfallViewOptions& opts,
-    UiSize size,
-    ICanvas* canvas,
+    UiSize /*size*/,
+    ICanvas* /*canvas*/,
     const UiTheme& theme,
     float availableWidth
 ) {
-    const float defaultW = opts.width.has_value()
-        ? theme.Scale(*opts.width)
-        : (availableWidth > 0.0f ? availableWidth : theme.Scale(520.0f));
-    const float defaultH = opts.height.has_value()
+    float defaultW = availableWidth > 0.0f ? availableWidth : theme.Scale(520.0f);
+    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f && opts.width.has_value()) {
+        defaultW = availableWidth * std::clamp(*opts.width, 0.1f, 1.0f);
+    } else if (opts.width.has_value() && *opts.width > 0.0f) {
+        defaultW = theme.Scale(*opts.width);
+    }
+    const float defaultH = (opts.height.has_value() && *opts.height > 0.0f)
         ? theme.Scale(*opts.height)
         : theme.Scale(420.0f);
-    const ElementSpec spec = MakeWaterfallViewElementSpec(opts, size, theme, opts.disabled);
-    return Element::Measure({defaultW, defaultH}, spec, canvas, theme, availableWidth);
+    return {defaultW, defaultH};
 }
 
 WaterfallViewResponse WaterfallView::Run(
     Context& ctx,
     std::span<const float> latestSliceDb,
-    const WaterfallViewOptions& opts,
+    const WaterfallViewOptions& optsIn,
     std::source_location loc
 ) {
+    WaterfallViewOptions opts = optsIn;
+    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.height);
+
     const Id id = ctx.MakeChildId(loc);
     const UiTheme& theme = ctx.GetTheme();
     const UiSize size = ctx.GetCurrentSize();
@@ -888,12 +867,6 @@ WaterfallViewResponse WaterfallView::Run(
     Node* node = ctx.CreateNode(NodeType::WaterfallView, id);
     auto* payload = ctx.AllocPayload<WaterfallViewPayload>();
     payload->opts = opts;
-    payload->opts.label = ctx.AllocText(opts.label);
-    payload->opts.description = ctx.AllocText(opts.description);
-    payload->opts.badge = ctx.AllocText(opts.badge);
-    if (!opts.icon.GetPath().empty()) {
-        payload->opts.icon = Icon::File(ctx.AllocString(opts.icon.GetPath()));
-    }
 
     auto& state = ctx.GetOrCreateState<WaterfallViewState>(id);
     payload->state = &state;
@@ -1012,11 +985,7 @@ WaterfallViewResponse WaterfallView::Run(
     if (prevBounds.w <= 1.0f || prevBounds.h <= 1.0f) {
         prevBounds = ctx.GetParentPrevFrameBounds();
     }
-    const ElementSpec spec = MakeWaterfallViewElementSpec(payload->opts, size, theme, effDisabled);
-    const ElementGeometry prevElemGeom = Element::Resolve(prevBounds, {prevBounds.w, prevBounds.h}, spec, ctx.GetCanvas(), theme);
-    const Rect ctrlBounds = (prevElemGeom.controlRect.w > 1.0f && prevElemGeom.controlRect.h > 1.0f)
-        ? prevElemGeom.controlRect
-        : prevBounds;
+    const Rect ctrlBounds = prevBounds;
     const WaterfallGeometry geom = ComputeWaterfallGeometry(ctrlBounds, payload->opts, state.viewMinX, state.viewMaxX);
 
     const Vec2 mousePos = ctx.GetMousePos();
@@ -1259,9 +1228,13 @@ WaterfallViewResponse WaterfallView::Run(
     }
     mix(static_cast<uint64_t>(resp.selectedTrackId + 2));
     mix(static_cast<uint64_t>(resp.hoveredTrackId + 2));
+    mix(opts.background.normal.value_or(Color{}).ToUint32());
+    mix(opts.border.color.normal.value_or(Color{}).ToUint32());
+    mix(packF(opts.border.width));
+    mix(packF(opts.border.radius.value_or(-1.0f)));
     node->visualHash = h;
 
-    node->text = payload->opts.label.text.empty() ? "WaterfallView" : payload->opts.label.text;
+    node->text = "WaterfallView";
     node->SetPayload(payload);
     node->measureFn = [](const Node* n, float availW, ICanvas* c, const UiTheme& t) noexcept -> Vec2 {
         const auto* p = n->As<WaterfallViewPayload>();
@@ -1273,18 +1246,23 @@ WaterfallViewResponse WaterfallView::Run(
     node->disabled = effDisabled;
     node->hovered = baseResp.hovered;
     node->pressed = baseResp.pressed;
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = opts.heightMode;
-    if (opts.height.has_value() && *opts.height > 0.0f &&
-        !opts.label.HasContentOrReserve() && !opts.description.HasContentOrReserve()) {
-        node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(*opts.height);
-    }
-    node->minHeight = opts.height.has_value() ? theme.Scale(*opts.height) : theme.Scale(280.0f);
 
-    ctx.AdaptChildToContainer(node);
-    if (opts.heightMode == SizeMode::Fit && node->heightMode == SizeMode::Stretch) {
-        node->heightMode = SizeMode::Fit;
+    ControlSpec ctrlSpec{};
+    ctrlSpec.width = opts.width;
+    ctrlSpec.height = opts.height;
+    Control::SetupNode(ctx, node, ctrlSpec, opts.stretch, opts.align);
+    if (!node->parent || node->parent->type != NodeType::Element) {
+        node->heightMode = opts.heightMode;
+        if (opts.height.has_value() && *opts.height > 0.0f) {
+            node->heightMode = SizeMode::Fixed;
+            node->fixedHeight = theme.Scale(*opts.height);
+        }
+        node->minHeight = (opts.height.has_value() && *opts.height > 0.0f) ? theme.Scale(*opts.height) : theme.Scale(280.0f);
+        ctx.AdaptChildToContainer(node);
+        if (opts.heightMode == SizeMode::Fit && !opts.height.has_value() && node->heightMode == SizeMode::Stretch) {
+            node->heightMode = SizeMode::Fit;
+        }
     }
     if (!opts.tooltip.empty() && baseResp.hovered) {
         ctx.SetTooltip(opts.tooltip, prevBounds);

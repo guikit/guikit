@@ -189,24 +189,25 @@ ToolbarScope Toolbar::Open(
         (node->parent->cornerRadius > 0.0f) &&
         (node->parent->backgroundColor.a > 0);
 
-    if (opts.backgroundColor.a > 0) {
-        node->backgroundColor = opts.backgroundColor;
-    } else if (opts.style == ToolbarStyle::Floating) {
-        node->backgroundColor = pal.surfaceElevated;
-    } else if (insideRoundedSurface) {
+    const Color styleBg = (opts.style == ToolbarStyle::Floating)
+        ? pal.surfaceElevated
+        : (insideRoundedSurface ? Color::Transparent() : pal.surface);
+    if (!opts.background.IsBackgroundEnabled(true)) {
         node->backgroundColor = Color::Transparent();
+    } else if (opts.background.HasAny() && !opts.background.IsSurface()) {
+        node->backgroundColor = opts.background.Resolve(false, false, effectiveDisabled, pal.surface);
     } else {
-        node->backgroundColor = pal.surface;
+        node->backgroundColor = styleBg;
     }
 
-    if (opts.borderColor.a > 0) {
-        node->borderColor = opts.borderColor;
+    node->borderColor = opts.border.color.Resolve(false, false, effectiveDisabled, pal.border);
+    if (opts.border.width > 0.0f) {
+        node->borderWidth = (opts.style == ToolbarStyle::Header) ? 0.0f : theme.Scale(opts.border.width);
+    } else if (opts.border.color.HasAny()) {
         node->borderWidth = (opts.style == ToolbarStyle::Header) ? 0.0f : theme.Scale(1.0f);
     } else if (opts.style == ToolbarStyle::Floating) {
-        node->borderColor = pal.border;
         node->borderWidth = theme.Scale(1.0f);
     } else {
-        node->borderColor = pal.border;
         node->borderWidth = 0.0f;
     }
 
@@ -230,8 +231,8 @@ ToolbarScope Toolbar::Open(
         }
     }
 
-    if (opts.borderRadius.has_value()) {
-        node->cornerRadius = theme.Scale(*opts.borderRadius);
+    if (opts.border.radius.has_value()) {
+        node->cornerRadius = theme.Scale(*opts.border.radius);
     } else if (opts.style == ToolbarStyle::Header) {
         node->cornerRadius = 0.0f;
     } else if (opts.style == ToolbarStyle::Floating) {
@@ -246,7 +247,9 @@ ToolbarScope Toolbar::Open(
         static_cast<uint8_t>(opts.style),
         static_cast<uint8_t>(opts.orientation),
         node->cornerRadius,
-        node->borderWidth
+        node->borderWidth,
+        opts.background,
+        opts.border
     );
 
     ctx.PushScale(activeScale);

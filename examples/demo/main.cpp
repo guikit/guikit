@@ -851,10 +851,8 @@ int main(int argc, char* argv[]) {
                                 .widthMode = guikit::SizeMode::Stretch,
                                 .heightMode = guikit::SizeMode::Stretch,
                                 .padding = guikit::Padding::All(isFullStage ? 8.0f : 24.0f),
-                                .backgroundColor = demoCtx.previewTheme.palette.surface,
-                                .borderColor = demoCtx.previewTheme.palette.borderSubtle,
-                                .borderWidth = 1.0f,
-                                .borderRadius = 8.0f,
+                                .background = {demoCtx.previewTheme.palette.surface},
+                                .border = {.width = 1.0f, .radius = 8.0f, .color = {demoCtx.previewTheme.palette.borderSubtle}},
                                 .clipChildren = true,
                                 .theme = &demoCtx.previewTheme,
                                 .scale = previewScale,
@@ -876,7 +874,7 @@ int main(int argc, char* argv[]) {
                                 .height = 240.0f,
                                 .resizable = true,
                                 .allowCollapse = true,
-                                .borderRadius = 8.0f,
+                                .border = {.width = 1.0f, .radius = 8.0f},
                                 .theme = &demoCtx.shellTheme
                             })) {
                                 if (auto codeTb = ui.Size(guikit::UiSize::Sm).Toolbar({
@@ -908,7 +906,7 @@ int main(int argc, char* argv[]) {
                                     .allowZoom = true,
                                     .syntax = guikit::SyntaxConfig::Cpp(),
                                     .heightMode = guikit::SizeMode::Stretch,
-                                    .borderRadius = 0.0f
+                                    .border = {.radius = 0.0f}
                                 });
                             }
                         } else {
@@ -917,10 +915,8 @@ int main(int argc, char* argv[]) {
                                 .widthMode = guikit::SizeMode::Stretch,
                                 .heightMode = guikit::SizeMode::Stretch,
                                 .padding = guikit::Padding::All(8.0f),
-                                .backgroundColor = demoCtx.previewTheme.palette.background,
-                                .borderColor = demoCtx.previewTheme.palette.borderSubtle,
-                                .borderWidth = 1.0f,
-                                .borderRadius = 8.0f,
+                                .background = {demoCtx.previewTheme.palette.background},
+                                .border = {.width = 1.0f, .radius = 8.0f, .color = {demoCtx.previewTheme.palette.borderSubtle}},
                                 .clipChildren = true,
                                 .theme = &demoCtx.previewTheme,
                                 .scale = previewScale,
@@ -936,7 +932,7 @@ int main(int argc, char* argv[]) {
                 }
 
                 // Application StatusBar
-                if (auto sb = ui.StatusBar({.borderRadius = 6.0f})) {
+                if (auto sb = ui.StatusBar({.border = {.width = 1.0f, .radius = 6.0f}})) {
                     const bool isGpuScene = (selectedCategory == NavCategory::SceneSonarView || selectedCategory == NavCategory::SceneSignalView);
                     if (gpuShaderEngine.IsAvailable()) {
                         sb.Item({

@@ -369,7 +369,7 @@ SidebarScope Sidebar::Open(
     node->sidebarScrollable = opts.scrollable && !node->sidebarCollapsed;
     node->gap = theme.ResolveGap(opts.gap, activeSize);
     node->heightMode = SizeMode::Stretch;
-    node->cornerRadius = theme.ResolveRadius(opts.borderRadius, activeSize);
+    node->cornerRadius = theme.ResolveRadius(opts.border.radius, activeSize);
     node->clipChildren = opts.clipChildren;
     node->scrollOrientation = Orientation::Vertical;
     node->scrollbarPolicy = opts.scrollbar;
@@ -377,6 +377,15 @@ SidebarScope Sidebar::Open(
     node->disabled = activeDisabled;
 
     const auto& pal = theme.palette;
+    const Color resolvedBg = opts.background.IsBackgroundEnabled(true)
+        ? (opts.background.HasAny() && !opts.background.IsSurface()
+            ? opts.background.Resolve(false, false, activeDisabled, pal.surface)
+            : pal.surface)
+        : Color::Transparent();
+    const Color resolvedBorderCol = (opts.border.width > 0.0f)
+        ? opts.border.color.Resolve(false, false, activeDisabled, pal.border)
+        : Color::Transparent();
+    const float resolvedBorderW = theme.Scale(opts.border.width);
     float reportedLogicalW = 0.0f;
 
     if (node->sidebarCollapsed) {
@@ -395,9 +404,9 @@ SidebarScope Sidebar::Open(
         node->padding = opts.padding.has_value()
             ? theme.ResolvePadding(opts.padding, activeSize)
             : theme.GetPadding(UiSize::Sm);
-        node->backgroundColor = (opts.backgroundColor.a > 0) ? opts.backgroundColor : pal.surface;
-        node->borderColor = (opts.borderColor.a > 0) ? opts.borderColor : pal.border;
-        node->borderWidth = theme.Scale(opts.borderWidth);
+        node->backgroundColor = resolvedBg;
+        node->borderColor = resolvedBorderCol;
+        node->borderWidth = resolvedBorderW;
         reportedLogicalW = (prevBounds.w > 0.0f) ? (prevBounds.w / safeScale) : 52.0f;
     } else {
         node->minWidth = theme.Scale(effMinW);
@@ -420,9 +429,9 @@ SidebarScope Sidebar::Open(
             reportedLogicalW = state.lastExpandedWidth;
         }
         node->padding = theme.ResolvePadding(opts.padding, activeSize);
-        node->backgroundColor = (opts.backgroundColor.a > 0) ? opts.backgroundColor : pal.surface;
-        node->borderColor = (opts.borderColor.a > 0) ? opts.borderColor : pal.border;
-        node->borderWidth = theme.Scale(opts.borderWidth);
+        node->backgroundColor = resolvedBg;
+        node->borderColor = resolvedBorderCol;
+        node->borderWidth = resolvedBorderW;
     }
 
     node->visualHash = detail::HashArgs(
@@ -431,7 +440,9 @@ SidebarScope Sidebar::Open(
         state.sashHovered,
         state.draggingSash,
         state.toggleHovered,
-        state.togglePressed
+        state.togglePressed,
+        opts.background,
+        opts.border
     );
 
     if (node->sidebarScrollable) {

@@ -2254,10 +2254,8 @@ void TestTabBarWidgetWorkflow() {
                 .style = TabBarStyle::Pill,
                 .fullWidth = true,
                 .padding = Padding::All(4.0f),
-                .borderRadius = 10.0f,
-                .backgroundColor = barBg,
-                .borderColor = barBorder,
-                .borderWidth = 1.5f
+                .background = {barBg},
+                .border = {.width = 1.5f, .radius = 10.0f, .color = {barBorder}}
             });
         }
     };
@@ -2286,7 +2284,7 @@ void TestTabBarWidgetWorkflow() {
         if (auto col = ui.Column({.padding = Padding::All(10.0f)})) {
             ui.TabBar(styledIdx, {{"One"}, {"Two"}}, {
                 .style = TabBarStyle::Pill,
-                .backgroundColor = dynamicBg
+                .background = {dynamicBg}
             });
         }
     };
@@ -3476,7 +3474,7 @@ void TestContainersAndLayoutsReorganization() {
     }
 
     // 2. Panels: Box, Card, ScrollArea, Carousel
-    if (ContainerScope box = ui.Box({.gap = 8.0f, .padding = Padding::All(8.0f), .borderRadius = 6.0f})) {
+    if (ContainerScope box = ui.Box({.gap = 8.0f, .padding = Padding::All(8.0f), .border = {.radius = 6.0f}})) {
         Node* node = box.GetNode();
         CHECK(node != nullptr);
         CHECK(node->cornerRadius == 6.0f);
@@ -3484,7 +3482,7 @@ void TestContainersAndLayoutsReorganization() {
         ui.Text("Inside Box");
     }
 
-    if (auto card = ui.Card({.gap = 12.0f, .padding = Padding::All(16.0f), .borderRadius = 8.0f})) {
+    if (auto card = ui.Card({.gap = 12.0f, .padding = Padding::All(16.0f), .border = {.width = 1.0f, .radius = 8.0f}})) {
         Node* node = card.GetNode();
         CHECK(node != nullptr);
         CHECK(node->cornerRadius == 8.0f);
@@ -3783,7 +3781,7 @@ void TestScopedThemeAndScaleOverrides() {
         const Padding tokenPad = ui.GetTheme().ResolvePadding(Padding(UiSize::Sm));
         CHECK_NEAR(tokenPad.left, ui.GetTheme().GetPadding(UiSize::Sm).left, 0.001f);
 
-        if (auto fixedBox = ui.Box({.fixedWidth = 100.0f, .fixedHeight = 40.0f, .borderWidth = 2.0f, .borderRadius = 6.0f})) {
+        if (auto fixedBox = ui.Box({.fixedWidth = 100.0f, .fixedHeight = 40.0f, .border = {.width = 2.0f, .radius = 6.0f}})) {
             const Node* boxNode = fixedBox.GetNode();
             CHECK_NEAR(boxNode->fixedWidth, 200.0f, 0.001f);
             CHECK_NEAR(boxNode->fixedHeight, 80.0f, 0.001f);
@@ -3974,7 +3972,7 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
         }
 
         // 2. Card and Box with float radius and single float padding
-        if (auto card = ui.Card({.gap = 7.0f, .padding = 20.0f, .borderRadius = 12.5f})) {
+        if (auto card = ui.Card({.gap = 7.0f, .padding = 20.0f, .border = {.width = 1.0f, .radius = 12.5f}})) {
             Node* n = card.GetNode();
             CHECK(n != nullptr);
             CHECK_NEAR(n->gap, 7.0f, 0.001f);
@@ -3982,7 +3980,7 @@ void TestPixelGeometryAndWidgetUiSizeDecoupling() {
             CHECK_NEAR(n->cornerRadius, 12.5f, 0.001f);
         }
 
-        if (auto box = ui.Box({.gap = 16.0f, .padding = 8.0f, .borderRadius = 4.0f})) {
+        if (auto box = ui.Box({.gap = 16.0f, .padding = 8.0f, .border = {.radius = 4.0f}})) {
             Node* n = box.GetNode();
             CHECK(n != nullptr);
             CHECK_NEAR(n->gap, 16.0f, 0.001f);
@@ -4146,11 +4144,9 @@ void TestTextAreaWidgetWorkflow() {
     // 1. Measure test: autoHeight must scale with line count, Element header, and zoom
     const auto mSingle = TextArea::Measure("Single Line", {.autoHeight = true}, UiSize::Md, &canvas);
     const auto mMulti = TextArea::Measure(sampleCode, {.autoHeight = true}, UiSize::Md, &canvas);
-    const auto mWithHeader = TextArea::Measure(sampleCode, {
-        .label = "A text area",
-        .description = "This is a text area",
-        .autoHeight = true
-    }, UiSize::Md, &canvas);
+    ElementSpec headerSpec = Element::MakeSpec({.label = "A text area", .description = "This is a text area"}, UiSize::Md, false, UiTheme::Dark());
+    headerSpec.hasControl = true;
+    const auto mWithHeader = Element::Measure(mMulti, headerSpec, &canvas, UiTheme::Dark());
     CHECK(mMulti.y > mSingle.y * 2.0f);
     CHECK(mWithHeader.y > mMulti.y);
 
@@ -4206,16 +4202,16 @@ void TestTextAreaWidgetWorkflow() {
     float editorZoom = 1.0f;
     Response editRes;
     auto renderEditor = [&]() {
-        editRes = ui.TextArea(editableText, {
-            .label = "A text area",
-            .description = "This is a text area",
-            .autoHeight = true,
-            .showLineNumbers = true,
-            .showCopyButton = true,
-            .allowZoom = true,
-            .zoom = editorZoom,
-            .syntax = SyntaxConfig::Cpp()
-        });
+        if (auto el = ui.Element({.label = "A text area", .description = "This is a text area"})) {
+            editRes = ui.TextArea(editableText, {
+                .autoHeight = true,
+                .showLineNumbers = true,
+                .showCopyButton = true,
+                .allowZoom = true,
+                .zoom = editorZoom,
+                .syntax = SyntaxConfig::Cpp()
+            });
+        }
     };
 
     // Frame 1 & 2: Settle layout
@@ -4229,7 +4225,7 @@ void TestTextAreaWidgetWorkflow() {
     CHECK(heightBeforeZoom > 50.0f);
 
     // Click inside editor to focus & place cursor
-    const Vec2 clickPt(editRes.rect.x + 80.0f, editRes.rect.y + 60.0f);
+    const Vec2 clickPt(editRes.rect.x + 80.0f, editRes.rect.y + 20.0f);
     ui.OnMouseMove(clickPt);
     ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
@@ -6725,7 +6721,7 @@ void TestImageSceneAndMarkdownWidgets() {
 
             if (auto scene = ui.Scene({
                 .worldSize = Vec2{1000.0f, 800.0f},
-                .background = SceneBackground::GridDots,
+                .backgroundStyle = SceneBackground::GridDots,
                 .height = 200.0f
             })) {
                 sceneVisRect = scene.GetVisibleWorldRect();
@@ -7329,8 +7325,6 @@ void TestSonarViewWidgetWorkflow() {
     auto renderFrame = [&]() {
         ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
         lastResp = ui.SonarView(polarMatrix, {
-            .label = "Test Diver Detection Sonar",
-            .badge = "DDS",
             .numBeams = numBeams,
             .numRangeBins = numBins,
             .displayMode = displayMode,
@@ -7409,13 +7403,11 @@ void TestSonarAndSignalGpuShaderPipeline() {
                 btnToggle = !btnToggle;
             }
             ui.SonarView(sonarMatrix, {
-                .label = "GPU Sonar Test",
                 .numBeams = 90,
                 .numRangeBins = 128,
                 .height = 220.0f
             });
             ui.SignalView(audioSamples, {
-                .label = "GPU Signal Test",
                 .sampleRate = 48000.0f,
                 .height = 220.0f
             });
@@ -7614,7 +7606,6 @@ void TestWaterfallViewWidgetAndGpuRingBuffer() {
     auto renderUI = [&]() {
         if (auto col = ui.Column({.gap = 12.0f, .padding = Padding::All(12.0f)})) {
             respSpec = ui.WaterfallView(specSlice, {
-                .label = "RTSA Spectrum",
                 .mode = WaterfallMode::SpectrumRtsa,
                 .viewLayout = WaterfallLayout::SplitTraceAndWaterfall,
                 .colormap = Colormap::Turbo,
@@ -7638,7 +7629,6 @@ void TestWaterfallViewWidgetAndGpuRingBuffer() {
             });
 
             respDoa = ui.WaterfallView(doaSlice, {
-                .label = "DOA BTR Tracker",
                 .mode = WaterfallMode::DoaBtr,
                 .viewLayout = WaterfallLayout::SplitTraceAndWaterfall,
                 .colormap = Colormap::Blue,
@@ -7909,7 +7899,6 @@ void TestTableVirtualizedDataGridWorkflow() {
     auto renderUI = [&]() {
         if (auto col = ui.Column({.padding = Padding::All(16.0f), .widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch})) {
             if (auto table = ui.Table(cols, {
-                .label = "Virtualized Signal Table",
                 .totalRows = kTotalRows,
                 .selectedRow = &selectedRow,
                 .sortColumn = &sortCol,
@@ -8124,12 +8113,11 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
 
     auto renderIde = [&]() {
         lastResp = ui.TextArea(code, {
-            .label = "MATLAB IDE",
-            .fixedHeight = 420.0f,
             .autoHeight = false,
             .showLineNumbers = true,
             .syntax = matSyn,
             .syntaxPalette = monoPal,
+            .height = 420.0f,
             .showMinimap = true,
             .showStatusBar = true,
             .showIndentGuides = true,
@@ -8335,12 +8323,11 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
     Align dbgAlign = Align::Start;
     auto renderIdeAligned = [&]() {
         lastResp = ui.TextArea(code, {
-            .label = "MATLAB IDE",
-            .fixedHeight = 420.0f,
             .autoHeight = false,
             .showLineNumbers = true,
             .syntax = matSyn,
             .syntaxPalette = monoPal,
+            .height = 420.0f,
             .showMinimap = true,
             .showStatusBar = true,
             .showIndentGuides = true,
@@ -8374,7 +8361,7 @@ void TestCodeEditorIdeAndDebuggerWorkflow() {
 
     // The centered debug toolbar's left grip is near the horizontal center minus half the toolbar width (~95px)
     const float gripX = lastResp.rect.x + lastResp.rect.w * 0.5f - 88.0f;
-    const float gripY = lastResp.rect.y + 42.0f;
+    const float gripY = lastResp.rect.y + 18.0f;
     ui.OnMouseMove({gripX, gripY});
     ui.OnMouseDown(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
@@ -8940,9 +8927,6 @@ void TestAttitudeViewWidgetWorkflow() {
             .heightMode = SizeMode::Stretch
         })) {
             resp = ui.AttitudeView({
-                .label = "Primary Flight Display",
-                .description = "Avionics ADI & Air Data Tapes",
-                .badge = UiText("PFD", UiVariant::Info),
                 .displayMode = mode,
                 .referenceMode = refMode,
                 .colorScheme = scheme,
@@ -9041,9 +9025,6 @@ void TestCarClusterViewWidgetWorkflow() {
             .heightMode = SizeMode::Stretch
         })) {
             resp = ui.CarClusterView({
-                .label = "Digital Instrument Cluster",
-                .description = "OEM Cockpit & ADAS Telemetry",
-                .badge = UiText("AUTO", UiVariant::Primary),
                 .layoutMode = layoutMode,
                 .powertrain = powertrain,
                 .driveTheme = driveTheme,

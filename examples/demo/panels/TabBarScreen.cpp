@@ -73,10 +73,12 @@ void RenderTabBarStage(guikit::Context& ui, DemoContext& ctx) {
         .scrollable = s_state.scrollable,
         .gap = s_state.gap,
         .padding = s_state.hasBg ? guikit::Padding::All(s_state.padding) : guikit::Padding{},
-        .borderRadius = s_state.hasBg ? s_state.radius : 0.0f,
-        .backgroundColor = s_state.hasBg ? th.palette.surfaceElevated : guikit::Color::Transparent(),
-        .borderColor = s_state.hasBg ? th.palette.borderSubtle : guikit::Color::Transparent(),
-        .borderWidth = s_state.hasBg ? s_state.borderWidth : 0.0f
+        .background = s_state.hasBg ? guikit::StateColor{th.palette.surfaceElevated} : guikit::StateColor::None(),
+        .border = {
+            .width = s_state.hasBg ? s_state.borderWidth : 0.0f,
+            .radius = s_state.hasBg ? s_state.radius : 0.0f,
+            .color = s_state.hasBg ? guikit::StateColor{th.palette.borderSubtle} : guikit::StateColor{}
+        }
     });
 }
 
@@ -89,10 +91,8 @@ std::string GenerateTabBarCode(const DemoContext& ctx) {
         "    .scrollable = {},\n"
         "    .gap = {:.1f}f,\n"
         "    .padding = guikit::Padding::All({:.1f}f),\n"
-        "    .borderRadius = {:.1f}f,\n"
-        "    .backgroundColor = {},\n"
-        "    .borderColor = {},\n"
-        "    .borderWidth = {:.1f}f,\n"
+        "    .background = {},\n"
+        "    .border = {{.width = {:.1f}f, .radius = {:.1f}f, .color = {}}},\n"
         "    .activeColor = guikit::Color::Transparent(),\n"
         "    .theme = nullptr,\n"
         "    .scale = std::nullopt\n"
@@ -104,10 +104,10 @@ std::string GenerateTabBarCode(const DemoContext& ctx) {
         s_state.scrollable ? "true" : "false",
         s_state.gap,
         s_state.hasBg ? s_state.padding : 0.0f,
+        s_state.hasBg ? "guikit::StateColor{theme.palette.surfaceElevated}" : "guikit::StateColor::None()",
+        s_state.hasBg ? s_state.borderWidth : 0.0f,
         s_state.hasBg ? s_state.radius : 0.0f,
-        s_state.hasBg ? "theme.palette.surfaceElevated" : "guikit::Color::Transparent()",
-        s_state.hasBg ? "theme.palette.borderSubtle" : "guikit::Color::Transparent()",
-        s_state.hasBg ? s_state.borderWidth : 0.0f
+        s_state.hasBg ? "guikit::StateColor{theme.palette.borderSubtle}" : "guikit::StateColor{}"
     );
 }
 

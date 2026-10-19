@@ -8,7 +8,6 @@
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Control.hpp"
-#include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
 
 namespace guikit {
@@ -17,47 +16,6 @@ namespace {
 
 constexpr float kPi = std::numbers::pi_v<float>;
 constexpr float kDegToRad = kPi / 180.0f;
-
-[[nodiscard]] ControlSpec MakeAttitudeViewControlSpec(const AttitudeViewOptions& opts) noexcept {
-    ControlSpec c = opts.control;
-    if (!c.width.has_value()) c.width = opts.width;
-    if (!c.height.has_value()) c.height = opts.height;
-    c.stretchable = true;
-    c.stretchHeightWhenStandalone = (opts.heightMode == SizeMode::Stretch);
-    c.hasIntrinsicBox = true;
-    return c;
-}
-
-[[nodiscard]] ElementSpec MakeAttitudeViewElementSpec(
-    const AttitudeViewOptions& opts,
-    UiSize size,
-    const UiTheme& theme,
-    bool disabled
-) noexcept {
-    const ControlSpec ctrlSpec = MakeAttitudeViewControlSpec(opts);
-    return ElementSpec{
-        .label = opts.label,
-        .description = opts.description,
-        .icon = opts.icon,
-        .badge = opts.badge,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .align = opts.align,
-        .stretch = opts.stretch,
-        .width = ctrlSpec.width,
-        .height = ctrlSpec.height,
-        .control = ctrlSpec,
-        .background = opts.background,
-        .border = {.width = opts.borderWidth, .radius = opts.borderRadius},
-        .widgetSize = size,
-        .labelGap = theme.Scale(6.0f),
-        .descGap = theme.Scale(4.0f),
-        .inlineGap = theme.Scale(12.0f),
-        .stretchableControl = true,
-        .stretchHeightWhenStandalone = (opts.heightMode == SizeMode::Stretch),
-        .disabled = disabled
-    };
-}
 
 struct AttitudeViewState {
     float fovPitchDeg{50.0f};
@@ -1124,21 +1082,18 @@ void RenderAttitudeViewNode(const Node* node, ICanvas& canvas, const UiTheme& th
     const AttitudeViewOptions& opts = payload->opts;
     const AttitudeViewResponse& resp = payload->resp;
 
-    const ElementSpec spec = MakeAttitudeViewElementSpec(opts, node->uiSize, theme, node->disabled);
-    const Vec2 ctrlSize = {node->computedRect.w, node->computedRect.h};
-    const ElementGeometry elemGeom = Element::Resolve(node->computedRect, ctrlSize, spec, &canvas, theme);
-    Element::RenderText(canvas, elemGeom, spec, theme);
-
-    const Rect r = elemGeom.innerControlRect;
+    const Rect r = node->computedRect;
     if (r.w <= 16.0f || r.h <= 16.0f) return;
 
     const AttitudePalette pal = BuildPalette(opts.colorScheme, opts.displayMode);
-    const float radius = spec.control.border.radius.has_value()
-        ? theme.Scale(*spec.control.border.radius)
+    const float radius = opts.border.radius.has_value()
+        ? theme.Scale(*opts.border.radius)
         : theme.GetRadius(node->uiSize);
-    const float borderW = (spec.control.border.width > 0.0f) ? theme.Scale(spec.control.border.width) : 1.0f;
+    const Color bgConsole = opts.background.Resolve(node->hovered, node->pressed, node->disabled, pal.bgConsole);
+    const Color borderCol = opts.border.color.Resolve(node->hovered, node->pressed, node->disabled, theme.palette.borderSubtle);
+    const float borderW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : 1.0f;
 
-    canvas.DrawRoundRect(r, radius, pal.bgConsole, theme.palette.borderSubtle, borderW);
+    canvas.DrawRoundRect(r, radius, bgConsole, borderCol, borderW);
     canvas.PushClip(r);
 
     // Compute sub-instrument rectangles inside `r`
@@ -1341,32 +1296,35 @@ void RenderAttitudeViewNode(const Node* node, ICanvas& canvas, const UiTheme& th
 
 Vec2 AttitudeView::Measure(
     const AttitudeViewOptions& opts,
-    UiSize size,
-    ICanvas* canvas,
+    UiSize /*size*/,
+    ICanvas* /*canvas*/,
     const UiTheme& theme,
     float availableWidth
 ) {
-    const ElementSpec spec = MakeAttitudeViewElementSpec(opts, size, theme, opts.disabled);
-    const float defaultW = spec.control.width.has_value()
-        ? theme.Scale(*spec.control.width)
-        : (availableWidth > 0.0f ? availableWidth : theme.Scale(520.0f));
-    const float defaultH = spec.control.height.has_value()
-        ? theme.Scale(*spec.control.height)
+    float defaultW = availableWidth > 0.0f ? availableWidth : theme.Scale(520.0f);
+    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f && opts.width.has_value()) {
+        defaultW = availableWidth * std::clamp(*opts.width, 0.1f, 1.0f);
+    } else if (opts.width.has_value() && *opts.width > 0.0f) {
+        defaultW = theme.Scale(*opts.width);
+    }
+    const float defaultH = (opts.height.has_value() && *opts.height > 0.0f)
+        ? theme.Scale(*opts.height)
         : theme.Scale(420.0f);
-    const Vec2 ctrlSize = Control::Measure({defaultW, defaultH}, spec.control, opts.stretch, size, theme);
-    return Element::Measure(ctrlSize, spec, canvas, theme, availableWidth);
+    return {defaultW, defaultH};
 }
 
 AttitudeViewResponse AttitudeView::Run(
     Context& ctx,
-    const AttitudeViewOptions& opts,
+    const AttitudeViewOptions& optsIn,
     std::source_location loc
 ) {
+    AttitudeViewOptions opts = optsIn;
+    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.height);
+
     const Id id = ctx.MakeChildId(loc);
     const bool isDisabled = opts.disabled || ctx.IsDisabled();
     const UiSize effectiveSize = ctx.GetCurrentSize();
     const UiTheme& theme = ctx.GetTheme();
-    ICanvas* canvas = ctx.GetCanvas();
 
     Response baseRes = ctx.Interact(id);
     AttitudeViewResponse resp{};
@@ -1377,11 +1335,7 @@ AttitudeViewResponse AttitudeView::Run(
     if (prevBounds.w <= 1.0f || prevBounds.h <= 1.0f) {
         prevBounds = ctx.GetParentPrevFrameBounds();
     }
-    const ElementSpec elemSpec = MakeAttitudeViewElementSpec(opts, effectiveSize, theme, isDisabled);
-    const ElementGeometry prevElemGeom = Element::Resolve(prevBounds, {prevBounds.w, prevBounds.h}, elemSpec, canvas, theme);
-    const Rect activeRect = (prevElemGeom.innerControlRect.w > 1.0f && prevElemGeom.innerControlRect.h > 1.0f)
-        ? prevElemGeom.innerControlRect
-        : prevBounds;
+    const Rect activeRect = prevBounds;
 
     auto& state = ctx.GetOrCreateState<AttitudeViewState>(id);
     if (!state.initialized) {
@@ -1459,24 +1413,15 @@ AttitudeViewResponse AttitudeView::Run(
     Node* node = ctx.CreateNode(NodeType::AttitudeView, id);
     auto* payload = ctx.AllocPayload<AttitudeViewPayload>();
     payload->opts = opts;
-    payload->opts.label = ctx.AllocText(opts.label);
-    payload->opts.description = ctx.AllocText(opts.description);
-    payload->opts.badge = ctx.AllocText(opts.badge);
     payload->opts.tooltip = ctx.AllocString(opts.tooltip);
     payload->resp = resp;
 
-    node->text = payload->opts.label.text.empty() ? "AttitudeView" : payload->opts.label.text;
+    node->text = "AttitudeView";
     node->SetPayload(payload);
 
     node->visualHash = detail::HashArgs(
-        payload->opts.label,
-        payload->opts.description,
-        payload->opts.badge,
         opts.background,
-        opts.borderWidth,
-        opts.borderRadius.value_or(-1.0f),
-        elemSpec.control.HasBackground(false),
-        elemSpec.control.border,
+        opts.border,
         static_cast<uint8_t>(opts.displayMode),
         static_cast<uint8_t>(opts.referenceMode),
         static_cast<uint8_t>(opts.colorScheme),
@@ -1530,18 +1475,23 @@ AttitudeViewResponse AttitudeView::Run(
     node->disabled = isDisabled;
     node->hovered = hovered;
     node->pressed = baseRes.pressed;
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = opts.heightMode;
-    if (elemSpec.control.height.has_value() && *elemSpec.control.height > 0.0f &&
-        !opts.label.HasContentOrReserve() && !opts.description.HasContentOrReserve() && !Element::HasOuterFrame(elemSpec)) {
-        node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(*elemSpec.control.height);
-    }
-    node->minHeight = elemSpec.control.height.has_value() ? theme.Scale(*elemSpec.control.height) : theme.Scale(260.0f);
 
-    ctx.AdaptChildToContainer(node);
-    if (opts.heightMode == SizeMode::Fit && node->heightMode == SizeMode::Stretch) {
-        node->heightMode = SizeMode::Fit;
+    ControlSpec ctrlSpec{};
+    ctrlSpec.width = opts.width;
+    ctrlSpec.height = opts.height;
+    Control::SetupNode(ctx, node, ctrlSpec, opts.stretch, opts.align);
+    if (!node->parent || node->parent->type != NodeType::Element) {
+        node->heightMode = opts.heightMode;
+        if (opts.height.has_value() && *opts.height > 0.0f) {
+            node->heightMode = SizeMode::Fixed;
+            node->fixedHeight = theme.Scale(*opts.height);
+        }
+        node->minHeight = (opts.height.has_value() && *opts.height > 0.0f) ? theme.Scale(*opts.height) : theme.Scale(260.0f);
+        ctx.AdaptChildToContainer(node);
+        if (opts.heightMode == SizeMode::Fit && !opts.height.has_value() && node->heightMode == SizeMode::Stretch) {
+            node->heightMode = SizeMode::Fit;
+        }
     }
 
     return resp;

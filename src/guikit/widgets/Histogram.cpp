@@ -5,7 +5,7 @@
 #include <cstdio>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/Element.hpp"
+#include "guikit/core/Control.hpp"
 #include "guikit/core/Node.hpp"
 
 namespace guikit {
@@ -40,32 +40,6 @@ struct HistogramGeometry {
     bool hasPills{false};
     bool hasColorbar{false};
 };
-
-[[nodiscard]] ElementSpec MakeHistogramElementSpec(
-    const HistogramOptions& opts,
-    UiSize size,
-    const UiTheme& theme,
-    bool disabled
-) noexcept {
-    return ElementSpec{
-        .label = opts.label,
-        .description = opts.description,
-        .icon = opts.icon,
-        .badge = opts.badge,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .align = opts.align,
-        .stretch = opts.stretch,
-        .width = opts.width,
-        .widgetSize = size,
-        .labelGap = theme.Scale(6.0f),
-        .descGap = theme.Scale(4.0f),
-        .inlineGap = theme.Scale(12.0f),
-        .stretchableControl = true,
-        .stretchHeightWhenStandalone = (opts.heightMode == SizeMode::Stretch),
-        .disabled = disabled
-    };
-}
 
 [[nodiscard]] HistogramGeometry ComputeHistogramGeometry(
     const Rect& box,
@@ -244,15 +218,20 @@ struct HistogramPayload {
 Vec2 Histogram::Measure(
     const HistogramData& /*data*/,
     const HistogramOptions& opts,
-    UiSize size,
-    ICanvas* canvas,
+    UiSize /*size*/,
+    ICanvas* /*canvas*/,
     const UiTheme& theme,
     float availableWidth
 ) noexcept {
-    const float w = (opts.width.has_value() && *opts.width > 0.0f) ? theme.Scale(*opts.width) : 240.0f * theme.Scale(1.0f);
+    float w = 240.0f * theme.Scale(1.0f);
+    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
+        const float ratio = opts.width.has_value() ? std::clamp(*opts.width, 0.1f, 1.0f) : 1.0f;
+        w = availableWidth * ratio;
+    } else if (opts.width.has_value() && *opts.width > 0.0f) {
+        w = theme.Scale(*opts.width);
+    }
     const float h = std::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
-    const ElementSpec spec = MakeHistogramElementSpec(opts, size, theme, opts.disabled);
-    return Element::Measure({w, h}, spec, canvas, theme, availableWidth);
+    return {w, h};
 }
 
 HistogramResponse Histogram::Run(
@@ -268,21 +247,22 @@ HistogramResponse Histogram::Run(
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const float scale = theme.Scale(1.0f);
 
+    HistogramOptions optsCopy = opts;
+    std::optional<float> inheritedH{};
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, inheritedH);
+    if (inheritedH.has_value() && *inheritedH > 0.0f) {
+        optsCopy.height = *inheritedH;
+    }
+
     auto& st = ctx.GetOrCreateState<HistogramInternalState>(id);
     Response baseRes = ctx.Interact(id);
 
     HistogramResponse res{};
     static_cast<Response&>(res) = baseRes;
-    res.activeChannel = opts.activeChannel;
+    res.activeChannel = optsCopy.activeChannel;
 
-    const ElementSpec elemSpec = MakeHistogramElementSpec(opts, activeSize, theme, effectiveDisabled);
-    const Vec2 fallbackCtrl = {
-        (opts.width.has_value() && *opts.width > 0.0f) ? theme.Scale(*opts.width) : 240.0f * scale,
-        std::max(theme.Scale(opts.minHeight), theme.Scale(opts.height))
-    };
-    const ElementGeometry prevElem = Element::Resolve(baseRes.rect, fallbackCtrl, elemSpec, ctx.GetCanvas(), theme);
-    const Rect ctrlRect = prevElem.controlRect.w > 4.0f ? prevElem.controlRect : baseRes.rect;
-    const HistogramGeometry geom = ComputeHistogramGeometry(ctrlRect, data, opts, scale);
+    const Rect ctrlRect = baseRes.rect;
+    const HistogramGeometry geom = ComputeHistogramGeometry(ctrlRect, data, optsCopy, scale);
 
     const float minVal = data.minValue;
     const float maxVal = std::max(minVal + 1e-4f, data.maxValue);
@@ -310,7 +290,7 @@ HistogramResponse Histogram::Run(
     }
 
     // 2. Interactive W/L handle & band dragging on plotRect
-    if (!effectiveDisabled && opts.interactive && !clickedPill && geom.plotRect.w > 8.0f) {
+    if (!effectiveDisabled && optsCopy.interactive && !clickedPill && geom.plotRect.w > 8.0f) {
         const float xlo = geom.plotRect.x + std::clamp((transfer.Low() - minVal) / domainSpan, 0.0f, 1.0f) * geom.plotRect.w;
         const float xhi = geom.plotRect.x + std::clamp((transfer.High() - minVal) / domainSpan, 0.0f, 1.0f) * geom.plotRect.w;
         const float grabRadius = 7.0f * scale;
@@ -406,8 +386,8 @@ HistogramResponse Histogram::Run(
     res.lowValue = transfer.Low();
     res.highValue = transfer.High();
 
-    if (baseRes.hovered && !opts.tooltip.empty()) {
-        ctx.SetTooltip(opts.tooltip, baseRes.rect);
+    if (baseRes.hovered && !optsCopy.tooltip.empty()) {
+        ctx.SetTooltip(optsCopy.tooltip, baseRes.rect);
     }
 
     // Create Node & Payload
@@ -415,11 +395,8 @@ HistogramResponse Histogram::Run(
     auto* payload = ctx.AllocPayload<HistogramPayload>();
     payload->data = data;
     payload->transfer = transfer;
-    payload->opts = opts;
+    payload->opts = optsCopy;
     payload->opts.activeChannel = res.activeChannel;
-    payload->opts.label = ctx.AllocText(opts.label);
-    payload->opts.description = ctx.AllocText(opts.description);
-    payload->opts.badge = ctx.AllocText(opts.badge);
     payload->resp = res;
     payload->state = &st;
     node->SetPayload(payload);
@@ -429,15 +406,25 @@ HistogramResponse Histogram::Run(
     node->hovered = baseRes.hovered;
     node->active = res.pressed;
     node->focused = baseRes.focused;
+    node->heightMode = optsCopy.heightMode;
+    node->minHeight = std::max(theme.Scale(optsCopy.minHeight), theme.Scale(optsCopy.height));
 
-    if (opts.width.has_value() && *opts.width > 0.0f) {
-        node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = theme.Scale(*opts.width);
-    } else {
-        node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
+    ControlSpec ctrlSpec{};
+    ctrlSpec.width = optsCopy.width;
+    ctrlSpec.height = inheritedH;
+    Control::SetupNode(ctx, node, ctrlSpec, optsCopy.stretch, optsCopy.align);
+    if (!node->parent || node->parent->type != NodeType::Element) {
+        node->heightMode = optsCopy.heightMode;
+        if (inheritedH.has_value() && *inheritedH > 0.0f) {
+            node->heightMode = SizeMode::Fixed;
+            node->fixedHeight = theme.Scale(*inheritedH);
+        }
+        node->minHeight = std::max(theme.Scale(optsCopy.minHeight), theme.Scale(optsCopy.height));
+        ctx.AdaptChildToContainer(node);
+        if (optsCopy.heightMode == SizeMode::Fit && !inheritedH.has_value() && node->heightMode == SizeMode::Stretch) {
+            node->heightMode = SizeMode::Fit;
+        }
     }
-    node->heightMode = opts.heightMode;
-    node->minHeight = std::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
 
     // Visual hash for damage tracking
     uint64_t binsFp = data.binsLum.size();
@@ -465,13 +452,15 @@ HistogramResponse Histogram::Run(
         transfer.level,
         transfer.gamma,
         transfer.invert,
-        static_cast<uint8_t>(opts.scaleMode),
+        static_cast<uint8_t>(optsCopy.scaleMode),
         static_cast<uint8_t>(res.activeChannel),
-        static_cast<uint8_t>(opts.colormap),
-        opts.showColorbar,
-        opts.showTransferCurve,
-        opts.showChannelPills,
-        opts.showRangeReadout,
+        static_cast<uint8_t>(optsCopy.colormap),
+        optsCopy.showColorbar,
+        optsCopy.showTransferCurve,
+        optsCopy.showChannelPills,
+        optsCopy.showRangeReadout,
+        optsCopy.background,
+        optsCopy.border,
         res.hoveredBin,
         static_cast<uint8_t>(st.dragMode),
         activeSize,
@@ -494,22 +483,19 @@ HistogramResponse Histogram::Run(
         const HistogramResponse& resp = p->resp;
         const float scale = th.Scale(1.0f);
 
-        const ElementSpec spec = MakeHistogramElementSpec(o, n->uiSize, th, n->disabled);
-        const Vec2 ctrlSize = {n->computedRect.w, n->computedRect.h};
-        const ElementGeometry elemGeom = Element::Resolve(n->computedRect, ctrlSize, spec, &c, th);
-        Element::RenderText(c, elemGeom, spec, th);
-
-        const Rect box = elemGeom.controlRect;
+        const Rect box = n->computedRect;
         if (box.w <= 8.0f || box.h <= 8.0f) return;
 
         const bool isDark = (th.mode == ThemeMode::Dark);
-        const float rad = o.borderRadius.has_value() ? th.Scale(*o.borderRadius) : th.GetRadius(n->uiSize);
-        const Color bgSurface = isDark ? Color(15, 20, 30, 255) : Color(245, 248, 252, 255);
+        const float rad = o.border.radius.has_value() ? th.Scale(*o.border.radius) : th.GetRadius(n->uiSize);
+        const Color defaultBgSurface = isDark ? Color(15, 20, 30, 255) : Color(245, 248, 252, 255);
+        const Color bgSurface = o.background.Resolve(n->hovered, n->active, n->disabled, defaultBgSurface);
         const Color plotBg    = isDark ? Color(10, 14, 22, 255) : Color(255, 255, 255, 255);
-        const Color borderCol = th.palette.borderSubtle;
+        const Color borderCol = o.border.color.Resolve(n->hovered, n->active, n->disabled, th.palette.borderSubtle);
+        const float borderW   = (o.border.width > 0.0f) ? th.Scale(o.border.width) : 1.0f;
         const Color gridCol   = isDark ? Color(51, 65, 85, 70) : Color(203, 213, 225, 110);
 
-        c.DrawRoundRect(box, rad, bgSurface, borderCol, 1.0f);
+        c.DrawRoundRect(box, rad, bgSurface, borderCol, borderW);
 
         const HistogramGeometry g = ComputeHistogramGeometry(box, d, o, scale);
         const float minVal = d.minValue;
@@ -691,7 +677,6 @@ HistogramResponse Histogram::Run(
         }
     };
 
-    ctx.AdaptChildToContainer(node);
     return res;
 }
 

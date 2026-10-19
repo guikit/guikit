@@ -6,54 +6,13 @@
 #include <cstdio>
 #include <format>
 #include "guikit/Context.hpp"
-#include "guikit/core/Element.hpp"
+#include "guikit/core/Control.hpp"
 
 namespace guikit {
 
 namespace {
 
 constexpr float kPi = 3.14159265358979323846f;
-
-[[nodiscard]] ControlSpec MakeBpmnControlSpec(const BpmnEditorOptions& opts) noexcept {
-    ControlSpec c = opts.control;
-    if (!c.width.has_value()) c.width = opts.width;
-    if (!c.height.has_value()) c.height = opts.height;
-    c.stretchable = true;
-    c.stretchHeightWhenStandalone = (opts.heightMode == SizeMode::Stretch);
-    c.hasIntrinsicBox = true;
-    return c;
-}
-
-[[nodiscard]] ElementSpec MakeBpmnElementSpec(
-    const BpmnEditorOptions& opts,
-    UiSize size,
-    const UiTheme& theme,
-    bool disabled
-) noexcept {
-    const ControlSpec ctrlSpec = MakeBpmnControlSpec(opts);
-    return ElementSpec{
-        .label = opts.label,
-        .description = opts.description,
-        .icon = opts.icon,
-        .badge = opts.badge,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .align = opts.align,
-        .stretch = opts.stretch,
-        .width = ctrlSpec.width,
-        .height = ctrlSpec.height,
-        .control = ctrlSpec,
-        .background = opts.background,
-        .border = {.width = opts.borderWidth, .radius = opts.borderRadius},
-        .widgetSize = size,
-        .labelGap = theme.Scale(6.0f),
-        .descGap = theme.Scale(4.0f),
-        .inlineGap = theme.Scale(12.0f),
-        .stretchableControl = true,
-        .stretchHeightWhenStandalone = (opts.heightMode == SizeMode::Stretch),
-        .disabled = disabled
-    };
-}
 
 struct BpmnPalette {
     Color canvasBg{};
@@ -2464,21 +2423,17 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
     const BpmnEditorState& state = payload->stateSnapshot;
     const float s = theme.Scale(1.0f);
 
-    const ElementSpec elemSpec = MakeBpmnElementSpec(opts, node->uiSize, theme, node->disabled);
-    const Vec2 rawSize = {node->computedRect.w, node->computedRect.h};
-    const ElementGeometry elemGeom = Element::Resolve(node->computedRect, rawSize, elemSpec, &canvas, theme);
-    Element::RenderText(canvas, elemGeom, elemSpec, theme);
-
-    const Rect viewRect = (elemGeom.innerControlRect.w > 1.0f && elemGeom.innerControlRect.h > 1.0f)
-        ? elemGeom.innerControlRect
-        : node->computedRect;
+    const Rect viewRect = node->computedRect;
     if (viewRect.w <= 2.0f || viewRect.h <= 2.0f) return;
 
     const BpmnPalette pal = ResolveBpmnPalette(opts.themePreset, theme);
-    const float radius = opts.borderRadius.value_or(8.0f) * s;
+    const float radius = opts.border.radius.value_or(8.0f) * s;
+    const Color canvasBg = opts.background.Resolve(node->hovered, node->pressed, node->disabled, pal.canvasBg);
+    const Color canvasBorder = opts.border.color.Resolve(node->hovered, node->pressed, node->disabled, pal.canvasBorder);
+    const float borderW = (opts.border.width > 0.0f) ? std::max(1.0f, opts.border.width * s) : (1.0f * s);
 
     // 1. Canvas Background & Border
-    canvas.DrawRoundRect(viewRect, radius, pal.canvasBg, pal.canvasBorder, std::max(1.0f, opts.borderWidth > 0.0f ? opts.borderWidth * s : 1.0f * s));
+    canvas.DrawRoundRect(viewRect, radius, canvasBg, canvasBorder, borderW);
     canvas.PushClip(viewRect);
 
     const Vec2 pan = state.pan;
@@ -3089,28 +3044,32 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
 
 Vec2 BpmnEditor::Measure(
     const BpmnEditorOptions& opts,
-    UiSize size,
-    ICanvas* canvas,
+    UiSize /*size*/,
+    ICanvas* /*canvas*/,
     const UiTheme& theme,
     float availableWidth
 ) {
-    const ElementSpec spec = MakeBpmnElementSpec(opts, size, theme, opts.disabled);
-    const float defaultW = spec.control.width.has_value()
-        ? theme.Scale(*spec.control.width)
-        : (availableWidth > 0.0f ? availableWidth : theme.Scale(880.0f));
-    const float defaultH = spec.control.height.has_value()
-        ? theme.Scale(*spec.control.height)
+    float defaultW = availableWidth > 0.0f ? availableWidth : theme.Scale(880.0f);
+    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f && opts.width.has_value()) {
+        defaultW = availableWidth * std::clamp(*opts.width, 0.1f, 1.0f);
+    } else if (opts.width.has_value() && *opts.width > 0.0f) {
+        defaultW = theme.Scale(*opts.width);
+    }
+    const float defaultH = (opts.height.has_value() && *opts.height > 0.0f)
+        ? theme.Scale(*opts.height)
         : theme.Scale(520.0f);
-    const Vec2 ctrlSize = Control::Measure({defaultW, defaultH}, spec.control, opts.stretch, size, theme);
-    return Element::Measure(ctrlSize, spec, canvas, theme, availableWidth);
+    return {defaultW, defaultH};
 }
 
 BpmnEditorResponse BpmnEditor::Run(
     Context& ctx,
     BpmnDiagram& diagram,
-    const BpmnEditorOptions& opts,
+    const BpmnEditorOptions& optsIn,
     std::source_location loc
 ) {
+    BpmnEditorOptions opts = optsIn;
+    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.height);
+
     const Id id = ctx.MakeChildId(loc);
     const bool isDisabled = opts.disabled || ctx.IsDisabled();
     const UiSize effectiveSize = ctx.GetCurrentSize();
@@ -3141,11 +3100,7 @@ BpmnEditorResponse BpmnEditor::Run(
     if (prevBounds.w <= 1.0f || prevBounds.h <= 1.0f) {
         prevBounds = ctx.GetParentPrevFrameBounds();
     }
-    const ElementSpec elemSpec = MakeBpmnElementSpec(effOpts, effectiveSize, theme, isDisabled);
-    const ElementGeometry prevElemGeom = Element::Resolve(prevBounds, {prevBounds.w, prevBounds.h}, elemSpec, canvas, theme);
-    const Rect viewRect = (prevElemGeom.innerControlRect.w > 1.0f && prevElemGeom.innerControlRect.h > 1.0f)
-        ? prevElemGeom.innerControlRect
-        : prevBounds;
+    const Rect viewRect = prevBounds;
     resp.canvasRect = viewRect;
 
     const uint32_t firstNodeId = diagram.nodes.empty() ? 0 : diagram.nodes.front().id;
@@ -4649,9 +4604,6 @@ BpmnEditorResponse BpmnEditor::Run(
     Node* node = ctx.CreateNode(NodeType::BpmnEditor, id);
     auto* payload = ctx.AllocPayload<BpmnEditorPayload>();
     payload->opts = effOpts;
-    payload->opts.label = ctx.AllocText(opts.label);
-    payload->opts.description = ctx.AllocText(opts.description);
-    payload->opts.badge = ctx.AllocText(opts.badge);
     payload->opts.tooltip = ctx.AllocString(opts.tooltip);
     payload->resp = resp;
     payload->diagramSnapshot = diagram;
@@ -4661,7 +4613,7 @@ BpmnEditorResponse BpmnEditor::Run(
     payload->cursorBlinkOn = ctx.IsCursorVisible();
     payload->animPhase = static_cast<float>(std::fmod(nowSec * 0.85, 1.0));
 
-    node->text = payload->opts.label.text.empty() ? "BpmnEditor" : payload->opts.label.text;
+    node->text = "BpmnEditor";
     node->SetPayload(payload);
 
     uint64_t graphHash = detail::HashArgs(
@@ -4699,9 +4651,6 @@ BpmnEditorResponse BpmnEditor::Run(
 
     node->visualHash = detail::HashArgs(
         graphHash,
-        payload->opts.label,
-        payload->opts.description,
-        payload->opts.badge,
         static_cast<uint8_t>(payload->opts.routingMode),
         static_cast<uint8_t>(payload->opts.themePreset),
         payload->opts.showLeftPalette,
@@ -4713,6 +4662,8 @@ BpmnEditorResponse BpmnEditor::Run(
         payload->opts.gridStep,
         payload->opts.tokenSimulation,
         payload->opts.showSlaHeatmap,
+        payload->opts.background,
+        payload->opts.border,
         state.pan.x,
         state.pan.y,
         state.zoom,
@@ -4767,14 +4718,24 @@ BpmnEditorResponse BpmnEditor::Run(
     node->disabled = isDisabled;
     node->hovered = resp.hovered;
     node->pressed = baseRes.pressed;
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = opts.heightMode;
-    if (elemSpec.control.height.has_value() && *elemSpec.control.height > 0.0f &&
-        !opts.label.HasContentOrReserve() && !opts.description.HasContentOrReserve() && !Element::HasOuterFrame(elemSpec)) {
-        node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(*elemSpec.control.height);
+
+    ControlSpec ctrlSpec{};
+    ctrlSpec.width = opts.width;
+    ctrlSpec.height = opts.height;
+    Control::SetupNode(ctx, node, ctrlSpec, opts.stretch, opts.align);
+    if (!node->parent || node->parent->type != NodeType::Element) {
+        node->heightMode = opts.heightMode;
+        if (opts.height.has_value() && *opts.height > 0.0f) {
+            node->heightMode = SizeMode::Fixed;
+            node->fixedHeight = theme.Scale(*opts.height);
+        }
+        node->minHeight = (opts.height.has_value() && *opts.height > 0.0f) ? theme.Scale(*opts.height) : theme.Scale(320.0f);
+        ctx.AdaptChildToContainer(node);
+        if (opts.heightMode == SizeMode::Fit && !opts.height.has_value() && node->heightMode == SizeMode::Stretch) {
+            node->heightMode = SizeMode::Fit;
+        }
     }
-    node->minHeight = elemSpec.control.height.has_value() ? theme.Scale(*elemSpec.control.height) : theme.Scale(320.0f);
 
     return resp;
 }

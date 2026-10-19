@@ -42,10 +42,8 @@ struct SidebarOptions {
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};
     std::optional<float> gap{std::nullopt};             ///< Gap between child elements inside sidebar (nullopt = from theme)
     std::optional<Padding> padding{std::nullopt};       ///< Sidebar internal padding (nullopt = auto from theme)
-    Color backgroundColor{Color::Transparent()};
-    Color borderColor{Color::Transparent()};
-    float borderWidth{1.0f};
-    std::optional<float> borderRadius{std::nullopt};    ///< Corner radius in pixels (nullopt = auto from theme)
+    StateColor background{};
+    Border border{.width = 1.0f};
     bool clipChildren{true};
     bool disabled{false};
     const UiTheme* theme{nullptr};

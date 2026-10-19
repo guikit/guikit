@@ -248,7 +248,7 @@ void RenderOsmMapStage(guikit::Context& ui, DemoContext& ctx) {
         .selectableItems = true,
         .showScrollbars = s_state.showScrollbars,
         .showControls = s_state.showControls,
-        .borderRadius = s_state.radius
+        .border = {.width = 1.0f, .radius = s_state.radius}
     })) {
         s_state.lastStats = guikit::GisRenderEngine::RenderLayers(
             map,

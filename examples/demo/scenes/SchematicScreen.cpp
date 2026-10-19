@@ -50,13 +50,13 @@ void RenderSchematicStage(guikit::Context& ui, DemoContext& ctx) {
         : SchematicPalette::DarkCad();
     if (auto scene = ui.Scene({
         .worldSize = guikit::Vec2{2200.0f, 920.0f},
-        .background = s_state.bg,
+        .backgroundStyle = s_state.bg,
         .gridStep = s_state.gridStep,
         .heightMode = guikit::SizeMode::Stretch,
         .selectableItems = s_state.selectableItems,
         .showScrollbars = s_state.showScrollbars,
         .showControls = s_state.showControls,
-        .borderRadius = s_state.radius
+        .border = {.width = 1.0f, .radius = s_state.radius}
     })) {
         RenderQuad303Schematic(scene, schemPal);
     }
@@ -66,13 +66,13 @@ std::string GenerateSchematicCode(const DemoContext& ctx) {
     return std::format(
         "if (auto scene = ui.Scene({{\n"
         "    .worldSize = guikit::Vec2{{2200.0f, 920.0f}},\n"
-        "    .background = guikit::SceneBackground::{},\n"
+        "    .backgroundStyle = guikit::SceneBackground::{},\n"
         "    .gridStep = {:.1f}f,\n"
         "    .heightMode = guikit::SizeMode::Stretch,\n"
         "    .selectableItems = {},\n"
         "    .showScrollbars = {},\n"
         "    .showControls = {},\n"
-        "    .borderRadius = {:.1f}f\n"
+        "    .border = {{.width = 1.0f, .radius = {:.1f}f}}\n"
         "}})) {{\n"
         "    // Interactive BS 3939 Vector Schematic Primitives via scene.Item(...)\n"
         "    const auto pal = guikit::demo::SchematicPalette::{}();\n"

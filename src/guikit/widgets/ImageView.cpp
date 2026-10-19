@@ -7,7 +7,7 @@
 #include <vector>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/Element.hpp"
+#include "guikit/core/Control.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/layout/Column.hpp"
 #include "guikit/layout/Grid.hpp"
@@ -624,32 +624,6 @@ struct ImageViewViewportPayload {
     int hoveredToolBtn{-1};
 };
 
-[[nodiscard]] ElementSpec MakeImageViewElementSpec(
-    const ImageViewOptions& opts,
-    UiSize size,
-    const UiTheme& theme,
-    bool disabled
-) noexcept {
-    return ElementSpec{
-        .label = opts.label,
-        .description = opts.description,
-        .icon = opts.icon,
-        .badge = opts.badge,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .align = opts.align,
-        .stretch = opts.stretch,
-        .width = opts.width,
-        .widgetSize = size,
-        .labelGap = theme.Scale(6.0f),
-        .descGap = theme.Scale(4.0f),
-        .inlineGap = theme.Scale(12.0f),
-        .stretchableControl = true,
-        .stretchHeightWhenStandalone = (opts.heightMode == SizeMode::Stretch),
-        .disabled = disabled
-    };
-}
-
 ImageViewResponse RunViewportNode(
     Context& ctx,
     Id id,
@@ -657,7 +631,8 @@ ImageViewResponse RunViewportNode(
     ImageViewParams& params,
     ImageViewInternalState& st,
     const ImageViewOptions& opts,
-    bool standaloneElement
+    bool standaloneElement,
+    std::optional<float> inheritedH = std::nullopt
 ) {
     const UiTheme& theme = ctx.GetTheme();
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -668,18 +643,7 @@ ImageViewResponse RunViewportNode(
     ImageViewResponse res{};
     static_cast<Response&>(res) = baseRes;
 
-    Rect boxRect = baseRes.rect;
-    if (standaloneElement) {
-        const ElementSpec spec = MakeImageViewElementSpec(opts, activeSize, theme, effectiveDisabled);
-        const Vec2 fallbackCtrl = {
-            (opts.width.has_value() && *opts.width > 0.0f) ? theme.Scale(*opts.width) : 640.0f * scale,
-            std::max(theme.Scale(opts.minHeight), theme.Scale(opts.height))
-        };
-        const ElementGeometry prevElem = Element::Resolve(baseRes.rect, fallbackCtrl, spec, ctx.GetCanvas(), theme);
-        if (prevElem.controlRect.w > 4.0f) {
-            boxRect = prevElem.controlRect;
-        }
-    }
+    const Rect boxRect = baseRes.rect;
 
     const ViewportLayoutGeom vgeom = ViewportLayoutGeom::Compute(boxRect, opts, activeSize, ctx.GetCanvas(), theme);
     const Rect cr = vgeom.canvasRect;
@@ -915,15 +879,6 @@ ImageViewResponse RunViewportNode(
     payload->data = data;
     payload->params = params;
     payload->opts = opts;
-    if (standaloneElement) {
-        payload->opts.label = ctx.AllocText(opts.label);
-        payload->opts.description = ctx.AllocText(opts.description);
-        payload->opts.badge = ctx.AllocText(opts.badge);
-    } else {
-        payload->opts.label = {};
-        payload->opts.description = {};
-        payload->opts.badge = {};
-    }
     payload->resp = res;
     payload->state = &st;
     payload->hoveredToolBtn = hoveredToolBtn;
@@ -935,15 +890,32 @@ ImageViewResponse RunViewportNode(
     node->active = res.pressed;
     node->focused = baseRes.focused;
 
-    if (standaloneElement && opts.width.has_value() && *opts.width > 0.0f) {
-        node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = theme.Scale(*opts.width);
+    if (standaloneElement) {
+        node->heightMode = opts.heightMode;
+        node->minHeight = std::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
+        ControlSpec ctrlSpec{};
+        ctrlSpec.width = opts.width;
+        ctrlSpec.height = inheritedH;
+        Control::SetupNode(ctx, node, ctrlSpec, opts.stretch, opts.align);
+        if (!node->parent || node->parent->type != NodeType::Element) {
+            node->heightMode = opts.heightMode;
+            if (inheritedH.has_value() && *inheritedH > 0.0f) {
+                node->heightMode = SizeMode::Fixed;
+                node->fixedHeight = theme.Scale(*inheritedH);
+            }
+            node->minHeight = std::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
+            ctx.AdaptChildToContainer(node);
+            if (opts.heightMode == SizeMode::Fit && !inheritedH.has_value() && node->heightMode == SizeMode::Stretch) {
+                node->heightMode = SizeMode::Fit;
+            }
+        }
     } else {
         node->widthMode = SizeMode::Stretch;
         node->flexGrow = 1.0f;
+        node->heightMode = SizeMode::Stretch;
+        node->minHeight = std::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
+        ctx.AdaptChildToContainer(node);
     }
-    node->heightMode = standaloneElement ? opts.heightMode : SizeMode::Stretch;
-    node->minHeight = std::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
 
     node->visualHash = detail::HashArgs(
         node->type,
@@ -963,6 +935,8 @@ ImageViewResponse RunViewportNode(
         vgeom.toolbarSize,
         opts.showTopToolbar,
         opts.showStatusBar,
+        opts.background,
+        opts.border,
         activeSize,
         effectiveDisabled
     );
@@ -984,24 +958,20 @@ ImageViewResponse RunViewportNode(
         ImageViewInternalState& s = *p->state;
         const float scale = th.Scale(1.0f);
 
-        Rect box = n->computedRect;
-        if (!o.label.empty() || !o.description.empty() || !o.badge.empty()) {
-            const ElementSpec spec = MakeImageViewElementSpec(o, n->uiSize, th, n->disabled);
-            const ElementGeometry elemGeom = Element::Resolve(n->computedRect, {n->computedRect.w, n->computedRect.h}, spec, &c, th);
-            Element::RenderText(c, elemGeom, spec, th);
-            box = elemGeom.controlRect;
-        }
+        const Rect box = n->computedRect;
         if (box.w <= 8.0f || box.h <= 8.0f) return;
 
         const bool isDark = (th.mode == ThemeMode::Dark);
-        const float rad = o.borderRadius.has_value() ? th.Scale(*o.borderRadius) : th.GetRadius(n->uiSize);
-        const Color bgOuter   = isDark ? Color(12, 16, 24, 255) : Color(241, 245, 249, 255);
+        const float rad = o.border.radius.has_value() ? th.Scale(*o.border.radius) : th.GetRadius(n->uiSize);
+        const Color defaultBgOuter = isDark ? Color(12, 16, 24, 255) : Color(241, 245, 249, 255);
+        const Color bgOuter   = o.background.Resolve(n->hovered, n->active, n->disabled, defaultBgOuter);
         const Color bgCanvas  = isDark ? Color(8, 10, 16, 255)  : Color(226, 232, 240, 255);
         const Color barBg     = isDark ? Color(17, 24, 39, 255) : Color(248, 250, 252, 255);
-        const Color borderCol = th.palette.borderSubtle;
+        const Color borderCol = o.border.color.Resolve(n->hovered, n->active, n->disabled, th.palette.borderSubtle);
+        const float borderW   = (o.border.width > 0.0f) ? th.Scale(o.border.width) : 1.0f;
         const float smallFs = th.GetFontSize(TextRole::LabelSmall) * 0.92f;
 
-        c.DrawRoundRect(box, rad, bgOuter, borderCol, 1.0f);
+        c.DrawRoundRect(box, rad, bgOuter, borderCol, borderW);
 
         const ViewportLayoutGeom vg = ViewportLayoutGeom::Compute(box, o, n->uiSize, &c, th);
         const ComponentMetrics& tbCm = th.GetMetrics(vg.toolbarSize);
@@ -1255,7 +1225,6 @@ ImageViewResponse RunViewportNode(
         }
     };
 
-    ctx.AdaptChildToContainer(node);
     return res;
 }
 
@@ -1316,15 +1285,20 @@ void ImageView::ApplyQuantileAutoWindow(
 Vec2 ImageView::Measure(
     const ImageViewData& /*data*/,
     const ImageViewOptions& opts,
-    UiSize size,
-    ICanvas* canvas,
+    UiSize /*size*/,
+    ICanvas* /*canvas*/,
     const UiTheme& theme,
     float availableWidth
 ) noexcept {
-    const float w = (opts.width.has_value() && *opts.width > 0.0f) ? theme.Scale(*opts.width) : 780.0f * theme.Scale(1.0f);
+    float w = 780.0f * theme.Scale(1.0f);
+    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
+        const float ratio = opts.width.has_value() ? std::clamp(*opts.width, 0.1f, 1.0f) : 1.0f;
+        w = availableWidth * ratio;
+    } else if (opts.width.has_value() && *opts.width > 0.0f) {
+        w = theme.Scale(*opts.width);
+    }
     const float h = std::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
-    const ElementSpec spec = MakeImageViewElementSpec(opts, size, theme, opts.disabled);
-    return Element::Measure({w, h}, spec, canvas, theme, availableWidth);
+    return {w, h};
 }
 
 ImageViewResponse ImageView::Run(
@@ -1348,12 +1322,19 @@ ImageViewResponse ImageView::Run(
     const Id rootId = ctx.MakeChildId(loc);
     auto& st = ctx.GetOrCreateState<ImageViewInternalState>(rootId);
 
+    ImageViewOptions optsCopy = opts;
+    std::optional<float> inheritedH{};
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, inheritedH);
+    if (inheritedH.has_value() && *inheritedH > 0.0f) {
+        optsCopy.height = *inheritedH;
+    }
+
     // 1. Update cached statistics, 256-bin histograms, and display pixel buffer
     st.EnsureStatsAndHistogram(data, params);
     st.EnsureDisplayPixels(data, params);
 
-    if (!opts.showSidebar) {
-        return RunViewportNode(ctx, rootId, data, params, st, opts, true);
+    if (!optsCopy.showSidebar) {
+        return RunViewportNode(ctx, rootId, data, params, st, optsCopy, true, inheritedH);
     }
 
     // 2. Integrated Workstation Layout (Sidebar + Interactive Viewport)
@@ -1362,12 +1343,12 @@ ImageViewResponse ImageView::Run(
 
     auto renderSidebar = [&]() {
         if (auto sidePanel = ctx.Sidebar({
-            .side = opts.sidebarOnRight ? SidebarSide::Right : SidebarSide::Left,
-            .width = opts.sidebarWidth,
+            .side = optsCopy.sidebarOnRight ? SidebarSide::Right : SidebarSide::Left,
+            .width = optsCopy.sidebarWidth,
             .scrollable = true,
             .gap = 8.0f,
             .padding = Padding::All(10.0f),
-            .borderRadius = 6.0f
+            .border = {.radius = 6.0f}
         })) {
             ctx.PushSize(UiSize::Sm);
 
@@ -1596,29 +1577,35 @@ ImageViewResponse ImageView::Run(
     if (auto outerRow = ctx.Row({
         .gap = 8.0f,
         .align = Alignment::Stretch,
-        .heightMode = opts.heightMode
+        .heightMode = optsCopy.heightMode
     }, loc)) {
         if (Node* rNode = outerRow.GetNode()) {
             const UiTheme& th = ctx.GetTheme();
-            if (opts.width.has_value() && *opts.width > 0.0f) {
-                rNode->widthMode = SizeMode::Fixed;
-                rNode->fixedWidth = th.Scale(*opts.width);
-            }
-            rNode->minHeight = std::max(th.Scale(opts.minHeight), th.Scale(opts.height));
-            if (opts.heightMode == SizeMode::Fixed) {
-                rNode->fixedHeight = std::max(th.Scale(opts.minHeight), th.Scale(opts.height));
+            if (rNode->parent && rNode->parent->type == NodeType::Element) {
+                rNode->widthMode = SizeMode::Stretch;
+                rNode->heightMode = SizeMode::Stretch;
+            } else {
+                if (optsCopy.width.has_value() && *optsCopy.width > 0.0f) {
+                    rNode->widthMode = SizeMode::Fixed;
+                    rNode->fixedWidth = th.Scale(*optsCopy.width);
+                }
+                rNode->minHeight = std::max(th.Scale(optsCopy.minHeight), th.Scale(optsCopy.height));
+                if (optsCopy.heightMode == SizeMode::Fixed || inheritedH.has_value()) {
+                    rNode->heightMode = SizeMode::Fixed;
+                    rNode->fixedHeight = std::max(th.Scale(optsCopy.minHeight), th.Scale(optsCopy.height));
+                }
             }
         }
 
         const Id vpId = ctx.MakeChildId(loc);
-        if (!opts.sidebarOnRight) {
+        if (!optsCopy.sidebarOnRight) {
             renderSidebar();
             if (sidebarChangedParams) {
                 st.EnsureDisplayPixels(data, params);
             }
-            viewportRes = RunViewportNode(ctx, vpId, data, params, st, opts, false);
+            viewportRes = RunViewportNode(ctx, vpId, data, params, st, optsCopy, false, inheritedH);
         } else {
-            viewportRes = RunViewportNode(ctx, vpId, data, params, st, opts, false);
+            viewportRes = RunViewportNode(ctx, vpId, data, params, st, optsCopy, false, inheritedH);
             renderSidebar();
             if (sidebarChangedParams) {
                 st.EnsureDisplayPixels(data, params);

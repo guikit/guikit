@@ -5,7 +5,7 @@
 #include <cmath>
 #include <cstdio>
 #include "guikit/Context.hpp"
-#include "guikit/core/Element.hpp"
+#include "guikit/core/Control.hpp"
 
 namespace guikit {
 
@@ -15,47 +15,6 @@ constexpr float kPi = 3.14159265358979323846f;
 constexpr float kDegToRad = kPi / 180.0f;
 constexpr float kKmhToMph = 0.62137119f;
 constexpr float kBarToPsi = 14.5037738f;
-
-[[nodiscard]] ControlSpec MakeCarClusterControlSpec(const CarClusterViewOptions& opts) noexcept {
-    ControlSpec c = opts.control;
-    if (!c.width.has_value()) c.width = opts.width;
-    if (!c.height.has_value()) c.height = opts.height;
-    c.stretchable = true;
-    c.stretchHeightWhenStandalone = (opts.heightMode == SizeMode::Stretch);
-    c.hasIntrinsicBox = true;
-    return c;
-}
-
-[[nodiscard]] ElementSpec MakeCarClusterElementSpec(
-    const CarClusterViewOptions& opts,
-    UiSize size,
-    const UiTheme& theme,
-    bool disabled
-) noexcept {
-    const ControlSpec ctrlSpec = MakeCarClusterControlSpec(opts);
-    return ElementSpec{
-        .label = opts.label,
-        .description = opts.description,
-        .icon = opts.icon,
-        .badge = opts.badge,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .align = opts.align,
-        .stretch = opts.stretch,
-        .width = ctrlSpec.width,
-        .height = ctrlSpec.height,
-        .control = ctrlSpec,
-        .background = opts.background,
-        .border = {.width = opts.borderWidth, .radius = opts.borderRadius},
-        .widgetSize = size,
-        .labelGap = theme.Scale(6.0f),
-        .descGap = theme.Scale(4.0f),
-        .inlineGap = theme.Scale(12.0f),
-        .stretchableControl = true,
-        .stretchHeightWhenStandalone = (opts.heightMode == SizeMode::Stretch),
-        .disabled = disabled
-    };
-}
 
 struct CarClusterViewState {
     float lastSpeedKmh{0.0f};
@@ -1414,23 +1373,21 @@ void RenderCarClusterViewNode(const Node* node, ICanvas& canvas, const UiTheme& 
     const CarClusterViewOptions& opts = payload->opts;
     const CarClusterViewResponse& resp = payload->resp;
 
-    const ElementSpec spec = MakeCarClusterElementSpec(opts, node->uiSize, theme, node->disabled);
-    const Vec2 rawSize = {node->computedRect.w, node->computedRect.h};
-    const ElementGeometry geom = Element::Resolve(node->computedRect, rawSize, spec, &canvas, theme);
-    Element::RenderText(canvas, geom, spec, theme);
-
-    const Rect ctrlRect = geom.innerControlRect;
+    const Rect ctrlRect = node->computedRect;
     if (ctrlRect.w <= 16.0f || ctrlRect.h <= 16.0f) return;
 
     const float s = theme.Scale(1.0f);
     const ClusterPalette pal = ResolveClusterPalette(opts.driveTheme);
-    const float outerRadius = spec.control.border.radius.has_value()
-        ? theme.Scale(*spec.control.border.radius)
+    const float outerRadius = opts.border.radius.has_value()
+        ? theme.Scale(*opts.border.radius)
         : (14.0f * s);
+    const Color binnacleBg = opts.background.Resolve(node->hovered, node->pressed, node->disabled, pal.binnacleBg);
+    const Color binnacleBorder = opts.border.color.Resolve(node->hovered, node->pressed, node->disabled, pal.binnacleBorder);
+    const float borderW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : (1.5f * s);
 
     // Outer automotive binnacle frame
-    canvas.DrawRoundRect(ctrlRect, outerRadius, pal.binnacleBg, pal.binnacleBorder, 1.5f * s);
-    canvas.PushClip(ctrlRect.Inset(1.5f * s));
+    canvas.DrawRoundRect(ctrlRect, outerRadius, binnacleBg, binnacleBorder, borderW);
+    canvas.PushClip(ctrlRect.Inset(std::max(1.0f, borderW)));
 
     float topY = ctrlRect.y + 6.0f * s;
     float botY = ctrlRect.Bottom() - 6.0f * s;
@@ -1500,33 +1457,36 @@ void RenderCarClusterViewNode(const Node* node, ICanvas& canvas, const UiTheme& 
 
 Vec2 CarClusterView::Measure(
     const CarClusterViewOptions& opts,
-    UiSize size,
-    ICanvas* canvas,
+    UiSize /*size*/,
+    ICanvas* /*canvas*/,
     const UiTheme& theme,
     float availableWidth
 ) {
-    const ElementSpec spec = MakeCarClusterElementSpec(opts, size, theme, opts.disabled);
-    const float defaultW = spec.control.width.has_value()
-        ? theme.Scale(*spec.control.width)
-        : (availableWidth > 0.0f ? availableWidth : theme.Scale(760.0f));
-    const float defaultH = spec.control.height.has_value()
-        ? theme.Scale(*spec.control.height)
+    float defaultW = availableWidth > 0.0f ? availableWidth : theme.Scale(760.0f);
+    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f && opts.width.has_value()) {
+        defaultW = availableWidth * std::clamp(*opts.width, 0.1f, 1.0f);
+    } else if (opts.width.has_value() && *opts.width > 0.0f) {
+        defaultW = theme.Scale(*opts.width);
+    }
+    const float defaultH = (opts.height.has_value() && *opts.height > 0.0f)
+        ? theme.Scale(*opts.height)
         : theme.Scale(340.0f);
-    const Vec2 ctrlSize = Control::Measure({defaultW, defaultH}, spec.control, opts.stretch, size, theme);
-    return Element::Measure(ctrlSize, spec, canvas, theme, availableWidth);
+    return {defaultW, defaultH};
 }
 
 CarClusterViewResponse CarClusterView::Run(
     Context& ctx,
-    const CarClusterViewOptions& opts,
+    const CarClusterViewOptions& optsIn,
     std::source_location loc
 ) {
+    CarClusterViewOptions opts = optsIn;
+    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.height);
+
     const Id id = ctx.MakeChildId(loc);
     const bool isDisabled = opts.disabled || ctx.IsDisabled();
     const UiSize effectiveSize = ctx.GetCurrentSize();
     const UiTheme& theme = ctx.GetTheme();
     const float s = theme.Scale(1.0f);
-    ICanvas* canvas = ctx.GetCanvas();
 
     Response baseRes = ctx.Interact(id);
     CarClusterViewResponse resp{};
@@ -1543,11 +1503,7 @@ CarClusterViewResponse CarClusterView::Run(
     if (prevBounds.w <= 1.0f || prevBounds.h <= 1.0f) {
         prevBounds = ctx.GetParentPrevFrameBounds();
     }
-    const ElementSpec elemSpec = MakeCarClusterElementSpec(opts, effectiveSize, theme, isDisabled);
-    const ElementGeometry prevElemGeom = Element::Resolve(prevBounds, {prevBounds.w, prevBounds.h}, elemSpec, canvas, theme);
-    const Rect ctrlRect = (prevElemGeom.innerControlRect.w > 1.0f && prevElemGeom.innerControlRect.h > 1.0f)
-        ? prevElemGeom.innerControlRect
-        : prevBounds;
+    const Rect ctrlRect = prevBounds;
     resp.clusterRect = ctrlRect;
 
     if (ctrlRect.w > 1.0f && ctrlRect.h > 1.0f) {
@@ -1612,9 +1568,6 @@ CarClusterViewResponse CarClusterView::Run(
     Node* node = ctx.CreateNode(NodeType::CarClusterView, id);
     auto* payload = ctx.AllocPayload<CarClusterViewPayload>();
     payload->opts = opts;
-    payload->opts.label = ctx.AllocText(opts.label);
-    payload->opts.description = ctx.AllocText(opts.description);
-    payload->opts.badge = ctx.AllocText(opts.badge);
     payload->opts.tooltip = ctx.AllocString(opts.tooltip);
     if (opts.centerMfdPtr) {
         payload->opts.centerMfd = *opts.centerMfdPtr;
@@ -1625,13 +1578,10 @@ CarClusterViewResponse CarClusterView::Run(
     payload->resp = resp;
     payload->roadPhase = static_cast<float>(state.roadScrollPhase);
 
-    node->text = payload->opts.label.text.empty() ? "CarClusterView" : payload->opts.label.text;
+    node->text = "CarClusterView";
     node->SetPayload(payload);
 
     node->visualHash = detail::HashArgs(
-        payload->opts.label,
-        payload->opts.description,
-        payload->opts.badge,
         static_cast<uint8_t>(payload->opts.layoutMode),
         static_cast<uint8_t>(payload->opts.powertrain),
         static_cast<uint8_t>(payload->opts.driveTheme),
@@ -1660,9 +1610,7 @@ CarClusterViewResponse CarClusterView::Run(
         resp.cursorNorm.x,
         resp.cursorNorm.y,
         opts.background,
-        opts.borderWidth,
-        elemSpec.control.HasBackground(false),
-        elemSpec.control.border,
+        opts.border,
         ctrlRect.w,
         ctrlRect.h,
         effectiveSize,
@@ -1680,14 +1628,24 @@ CarClusterViewResponse CarClusterView::Run(
     node->disabled = isDisabled;
     node->hovered = resp.hovered;
     node->pressed = baseRes.pressed;
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = opts.heightMode;
-    if (elemSpec.control.height.has_value() && *elemSpec.control.height > 0.0f &&
-        !opts.label.HasContentOrReserve() && !opts.description.HasContentOrReserve() && !Element::HasOuterFrame(elemSpec)) {
-        node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(*elemSpec.control.height);
+
+    ControlSpec ctrlSpec{};
+    ctrlSpec.width = opts.width;
+    ctrlSpec.height = opts.height;
+    Control::SetupNode(ctx, node, ctrlSpec, opts.stretch, opts.align);
+    if (!node->parent || node->parent->type != NodeType::Element) {
+        node->heightMode = opts.heightMode;
+        if (opts.height.has_value() && *opts.height > 0.0f) {
+            node->heightMode = SizeMode::Fixed;
+            node->fixedHeight = theme.Scale(*opts.height);
+        }
+        node->minHeight = (opts.height.has_value() && *opts.height > 0.0f) ? theme.Scale(*opts.height) : theme.Scale(260.0f);
+        ctx.AdaptChildToContainer(node);
+        if (opts.heightMode == SizeMode::Fit && !opts.height.has_value() && node->heightMode == SizeMode::Stretch) {
+            node->heightMode = SizeMode::Fit;
+        }
     }
-    node->minHeight = elemSpec.control.height.has_value() ? theme.Scale(*elemSpec.control.height) : theme.Scale(260.0f);
 
     return resp;
 }

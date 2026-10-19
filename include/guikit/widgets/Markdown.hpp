@@ -19,13 +19,12 @@ class ICanvas;
 
 /// Configuration options for the Markdown document viewer widget.
 struct MarkdownOptions {
-    UiText label{};                                         ///< Optional external heading/label
-    UiText description{};                                   ///< Optional external caption/description
-    ElementLayout layout{ElementLayout::Stacked};
-    InlineOrder inlineOrder{InlineOrder::LabelFirst};
     Align align{Align::Start};
     StretchMode stretch{StretchMode::Fill};
     std::optional<float> width{std::nullopt};               ///< Explicit width in px or ratio 0.0..1.0 (in Fill mode)
+    std::optional<float> height{std::nullopt};              ///< Optional explicit height override
+    StateColor background{};                                ///< Optional background fill color
+    Border border{};                                        ///< Optional border configuration (color, width, radius)
 
     // --- Smooth Zooming ---
     bool allowZoom{true};                                   ///< Allow Ctrl+MouseWheel & ZoomIn/ZoomOut/ZoomReset actions (0.5x .. 3.0x)

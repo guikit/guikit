@@ -56,12 +56,7 @@ struct TableRowOptions {
 
 /// Configuration options for the Table / DataGrid container.
 struct TableOptions {
-    // --- Optional External Element Header ---
-    UiText label{};                                 ///< External title above table
-    UiText description{};                           ///< Optional subtitle/description
     UiText tooltip{};                               ///< Optional tooltip when hovering header
-    Icon icon{};                                    ///< Optional leading icon in external Element header
-    UiText badge{};                                 ///< Optional trailing pill badge in external Element header
 
     // --- Virtualization & Row Metrics ---
     size_t totalRows{0};                            ///< Total row count (0 = auto-count; >0 enables O(1) virtualized scrolling)
@@ -77,7 +72,8 @@ struct TableOptions {
     bool stickyHeader{true};                        ///< Pin column header bar at top of viewport
     bool striped{true};                             ///< Alternating zebra row background shading
     bool gridLines{true};                           ///< Draw vertical column & horizontal row grid lines
-    bool border{true};                              ///< Draw outer rounded frame border
+    StateColor background{};
+    Border border{.width = 1.0f};
     bool hoverableRows{true};                       ///< Highlight row under mouse cursor
     bool resizableColumns{true};                    ///< Allow dragging column dividers in header to resize
     bool showRowNumbers{false};                     ///< Prepend an automatic '#' row index column on the left

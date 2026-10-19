@@ -50,9 +50,8 @@ struct ToolbarOptions {
     Orientation orientation{Orientation::Horizontal};   ///< Horizontal bar or Vertical tool palette
     std::optional<float> gap{std::nullopt};             ///< Gap between toolbar items (nullopt = inherit size)
     std::optional<Padding> padding{std::nullopt};       ///< Internal toolbar padding token or explicit insets
-    std::optional<float> borderRadius{std::nullopt};    ///< Corner radius in pixels (nullopt = inherit style/size)
-    Color backgroundColor{Color::Transparent()};
-    Color borderColor{Color::Transparent()};
+    StateColor background{};
+    Border border{};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

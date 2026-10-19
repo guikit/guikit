@@ -498,7 +498,7 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
     if (auto telCard = ui.Card({
         .gap = 4.0f,
         .padding = guikit::Padding::All(8.0f),
-        .borderRadius = 6.0f
+        .border = {.radius = 6.0f}
     })) {
         ui.Text(
             ui.Format("Signal: {:L} smp ({:.2f} s @ {:.0f} Hz)",

@@ -52,21 +52,8 @@ enum class AircraftSymbolStyle : uint8_t {
 
 /// Configuration options for the autonomous AttitudeView (Artificial Horizon / PFD) widget.
 struct AttitudeViewOptions {
-    // --- Element Companion Header / Footer & Outer Frame ---
-    UiText label{};
-    UiText description{};
-    Icon icon{};
-    UiText badge{};
     UiVariant variant{UiVariant::Default};
-    ElementLayout layout{ElementLayout::Stacked};
-    InlineOrder inlineOrder{InlineOrder::LabelFirst};
     Align align{Align::Start};
-    StateColor background{};
-    float borderWidth{0.0f};
-    std::optional<float> borderRadius{std::nullopt};
-
-    // --- Inner Control Slot Configuration ---
-    ControlSpec control{};
 
     // --- Display Mode, Reference Frame & Visual Theme ---
     AttitudeDisplayMode displayMode{AttitudeDisplayMode::FullPFD};
@@ -121,6 +108,8 @@ struct AttitudeViewOptions {
     std::optional<float> width{std::nullopt};
     std::optional<float> height{std::nullopt};
     SizeMode heightMode{SizeMode::Stretch};
+    StateColor background{};
+    Border border{};
     bool disabled{false};
     std::string_view tooltip{};
 };

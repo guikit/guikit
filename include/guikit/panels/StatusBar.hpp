@@ -27,10 +27,8 @@ struct StatusBarOptions {
     std::optional<float> height{std::nullopt};          ///< Explicit height in pixels (nullopt = auto compact height from theme, ~26px in Md)
     std::optional<float> gap{std::nullopt};             ///< Horizontal gap between status items (nullopt = auto compact gap)
     std::optional<Padding> padding{std::nullopt};       ///< Internal bar padding (nullopt = auto compact padding)
-    Color backgroundColor{Color::Transparent()};        ///< Optional background color override
-    Color borderColor{Color::Transparent()};            ///< Optional top border color override
-    float borderWidth{1.0f};                            ///< Top border thickness in pixels
-    std::optional<float> borderRadius{0.0f};            ///< Corner radius in pixels (0px by default for docked status bars)
+    StateColor background{};
+    Border border{.width = 1.0f, .radius = 0.0f};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

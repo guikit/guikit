@@ -295,10 +295,8 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                     .gap = 6.0f,
                     .widthMode = guikit::SizeMode::Stretch,
                     .padding = guikit::Padding::Symmetric(16.0f, 14.0f),
-                    .backgroundColor = ui.GetTheme().palette.surfaceHover.WithAlphaF(0.45f),
-                    .borderColor = ui.GetTheme().palette.borderHover,
-                    .borderWidth = 1.0f,
-                    .borderRadius = 8.0f
+                    .background = {ui.GetTheme().palette.surfaceHover.WithAlphaF(0.45f)},
+                    .border = {.width = 1.0f, .radius = 8.0f, .color = {ui.GetTheme().palette.borderHover}}
                 })) {
                     const char* trigText = (s_ov.triggerModeIdx == 0)
                         ? "Right-Click anywhere inside this interactive zone to open ContextMenu at cursor"

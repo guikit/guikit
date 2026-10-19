@@ -27,10 +27,6 @@ struct MapSeamarkOptions {
 
 /// Configuration options for the autonomous MapView (Slippy Map / OpenSeaMap GIS viewport) container.
 struct MapViewOptions {
-    // --- Element Companion Header / Footer ---
-    UiText label{};
-    UiText description{};
-
     // --- Cartographic & Projection Parameters ---
     MapCrs crs{MapCrs::EPSG3857_WebMercator};
     GeoCoordFormat coordFormat{GeoCoordFormat::NauticalDMM};
@@ -57,8 +53,6 @@ struct MapViewOptions {
     bool showScaleBarOverlay{true};             ///< Render dual Nautical (NM / cab) + Metric (km / m) scale bars
 
     // --- Layout & Viewport Controls ---
-    ElementLayout layout{ElementLayout::Stacked};
-    InlineOrder inlineOrder{InlineOrder::LabelFirst};
     Align align{Align::Start};
     StretchMode stretch{StretchMode::Fill};
     SizeMode widthMode{SizeMode::Stretch};
@@ -75,8 +69,8 @@ struct MapViewOptions {
     bool showScrollbars{true};
     bool showControls{true};
     bool clampToWorld{true};
-    std::optional<float> borderRadius{8.0f};
-    float borderWidth{1.0f};
+    StateColor background{};
+    Border border{.width = 1.0f, .radius = 8.0f};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

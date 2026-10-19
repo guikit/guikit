@@ -137,13 +137,8 @@ struct TextAreaResponse : Response {
 
 /// Clean configuration options for TextArea / Code Editor widget.
 struct TextAreaOptions {
-    UiText label{};                                     ///< Optional external caption text above/beside area
-    UiText description{};                               ///< Optional secondary description / helper text
-    Icon icon{};                                        ///< Optional leading icon in the external header
-    UiText badge{};                                     ///< Optional badge pill in the external header
     std::string_view placeholder{};                     ///< Placeholder text when empty
     std::optional<uint32_t> rows{std::nullopt};         ///< Visible height expressed in rows/lines
-    std::optional<float> fixedHeight{std::nullopt};     ///< Explicit height of the editor box in points/pixels
     bool autoHeight{false};                             ///< Automatically fit height to content line count
     bool readOnly{false};                               ///< Non-editable display mode (still allows selection & copy)
     bool showLineNumbers{true};                         ///< Toggleable line numbers gutter (1, 2, 3...)
@@ -158,13 +153,13 @@ struct TextAreaOptions {
     void* highlighterUserData{nullptr};                 ///< User data passed to syntaxHighlighter
     std::optional<CursorBlinkMode> cursorMode{std::nullopt}; ///< Caret visibility and blinking behavior
     UiVariant variant{UiVariant::Default};              ///< Visual variant styling
-    ElementLayout layout{ElementLayout::Stacked};       ///< Placement of external label and description
-    InlineOrder inlineOrder{InlineOrder::LabelFirst};   ///< Horizontal ordering when layout == ElementLayout::Inline
-    Align align{Align::Start};                          ///< Horizontal alignment of external label and description
+    Align align{Align::Start};                          ///< Horizontal alignment in parent container
     StretchMode stretch{StretchMode::Fill};             ///< Horizontal sizing behavior (Compact, Space, Fill)
     std::optional<float> width{std::nullopt};           ///< Explicit width (dp in Compact/Space, ratio 0.0..1.0 in Fill)
+    std::optional<float> height{std::nullopt};          ///< Explicit height of the editor box in points/pixels
     SizeMode heightMode{SizeMode::Fit};                 ///< Vertical sizing behavior in layout (Fit or Stretch)
-    std::optional<float> borderRadius{std::nullopt};    ///< Optional corner radius override
+    StateColor background{};                            ///< Optional background fill color override
+    Border border{};                                    ///< Optional border configuration (color, width, radius)
     std::optional<float> scale{std::nullopt};           ///< Optional local UI scale factor override
     const UiTheme* theme{nullptr};                      ///< Optional local theme override
     std::string_view tooltip{};                         ///< Optional hover tooltip text

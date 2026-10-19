@@ -82,7 +82,7 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
     const std::optional<double> stepOpt = s_state.quantizeStep ? std::optional<double>(5.0) : std::nullopt;
 
     if (s_state.rackDemo) {
-        if (auto card = ui.Card({.gap = 16.0f, .padding = guikit::Padding::All(18.0f), .borderRadius = 10.0f})) {
+        if (auto card = ui.Card({.gap = 16.0f, .padding = guikit::Padding::All(18.0f), .border = {.width = 1.0f, .radius = 10.0f}})) {
             ui.Size(guikit::UiSize::Sm).Heading({
                 .label = "PARAMETRIC CHANNEL STRIP — VFO / EQ",
                 .description = "Drag vertically/horizontally (Shift = fine, Wheel = step, Double-Click = reset)",

@@ -292,26 +292,23 @@ StatusBarScope StatusBar::Open(
     node->fixedHeight = barH;
 
     const auto& pal = theme.palette;
-    if (opts.backgroundColor.a > 0) {
-        node->backgroundColor = opts.backgroundColor;
-    } else if (opts.style == StatusBarStyle::Accent) {
-        node->backgroundColor = pal.accent;
-    } else if (opts.style == StatusBarStyle::Header) {
-        node->backgroundColor = pal.surfaceElevated;
+    const Color styleBg = (opts.style == StatusBarStyle::Accent)
+        ? pal.accent
+        : ((opts.style == StatusBarStyle::Header) ? pal.surfaceElevated : pal.surface);
+    if (!opts.background.IsBackgroundEnabled(true)) {
+        node->backgroundColor = Color::Transparent();
+    } else if (opts.background.HasAny() && !opts.background.IsSurface()) {
+        node->backgroundColor = opts.background.Resolve(false, false, effectiveDisabled, styleBg);
     } else {
-        node->backgroundColor = pal.surface;
+        node->backgroundColor = styleBg;
     }
 
-    if (opts.borderColor.a > 0) {
-        node->borderColor = opts.borderColor;
-    } else {
-        node->borderColor = pal.border;
-    }
-    node->borderWidth = (opts.style == StatusBarStyle::Accent && opts.borderColor.a == 0)
+    node->borderColor = opts.border.color.Resolve(false, false, effectiveDisabled, pal.border);
+    node->borderWidth = (opts.style == StatusBarStyle::Accent && !opts.border.color.HasAny())
         ? 0.0f
-        : theme.Scale(opts.borderWidth);
-    node->cornerRadius = opts.borderRadius.has_value()
-        ? theme.Scale(*opts.borderRadius)
+        : theme.Scale(opts.border.width);
+    node->cornerRadius = opts.border.radius.has_value()
+        ? theme.Scale(*opts.border.radius)
         : 0.0f;
 
     node->uiSize = activeSize;
@@ -319,8 +316,8 @@ StatusBarScope StatusBar::Open(
     node->visualHash = detail::HashArgs(
         static_cast<uint8_t>(opts.style),
         node->fixedHeight,
-        node->borderWidth,
-        node->backgroundColor
+        opts.background,
+        opts.border
     );
 
     ctx.PushScale(activeScale);

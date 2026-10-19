@@ -962,7 +962,7 @@ TreeViewScope TreeView::Open(
             .widthMode = SizeMode::Stretch,
             .heightMode = SizeMode::Fixed,
             .fixedHeight = 1.0f,
-            .backgroundColor = pal.borderSubtle
+            .background = {pal.borderSubtle}
         })) {}
     }
 

@@ -93,14 +93,10 @@ struct SceneState {
 
 /// Configuration options for a 2D Scene camera viewport.
 struct SceneOptions {
-    UiText label{};                                     ///< Optional external heading/label
-    UiText description{};                               ///< Optional external caption/description
     std::optional<Vec2> worldSize{std::nullopt};        ///< Bounded world dimensions (0..W, 0..H), or nullopt for infinite world (OSM maps, graphs)
     ObjectFit initialFit{ObjectFit::Contain};           ///< Initial camera framing when worldSize is set
-    SceneBackground background{SceneBackground::Checkerboard};
+    SceneBackground backgroundStyle{SceneBackground::Checkerboard};
     float gridStep{32.0f};                              ///< Base world-space step in units for GridDots / GridLines
-    ElementLayout layout{ElementLayout::Stacked};
-    InlineOrder inlineOrder{InlineOrder::LabelFirst};
     Align align{Align::Start};
     StretchMode stretch{StretchMode::Fill};
     SizeMode widthMode{SizeMode::Stretch};
@@ -117,10 +113,8 @@ struct SceneOptions {
     bool showScrollbars{true};                          ///< Render 2D (X/Y) scrollbars when worldSize overflows viewport
     bool showControls{true};                            ///< Render floating Zoom HUD (-, Fit, 100%, +)
     bool clampToWorld{true};                            ///< Clamp panning to worldSize bounds when worldSize is finite
-    std::optional<float> borderRadius{6.0f};
-    float borderWidth{1.0f};
-    Color backgroundColor{0, 0, 0, 0};
-    Color borderColor{0, 0, 0, 0};
+    StateColor background{};
+    Border border{.width = 1.0f, .radius = 6.0f};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

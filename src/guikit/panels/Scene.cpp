@@ -5,7 +5,7 @@
 #include <format>
 #include <string>
 #include "guikit/Context.hpp"
-#include "guikit/core/Element.hpp"
+#include "guikit/core/Control.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 #include "guikit/panels/ScrollArea.hpp"
@@ -14,26 +14,6 @@
 namespace guikit {
 
 namespace {
-
-ElementSpec MakeSceneSpec(const SceneOptions& opts, UiSize size, const UiTheme& theme, bool disabled) noexcept {
-    const bool stretchH = (opts.heightMode == SizeMode::Stretch) && !opts.height.has_value();
-    return ElementSpec{
-        .label = opts.label,
-        .description = opts.description,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .align = opts.align,
-        .stretch = opts.stretch,
-        .width = opts.width,
-        .widgetSize = size,
-        .labelGap = theme.Scale(6.0f),
-        .descGap = theme.Scale(4.0f),
-        .inlineGap = theme.Scale(12.0f),
-        .stretchableControl = true,
-        .stretchHeightWhenStandalone = stretchH,
-        .disabled = disabled
-    };
-}
 
 Vec2 ComputeSceneControlSize(
     const SceneOptions& opts,
@@ -860,28 +840,29 @@ SceneScope Scene::Open(
     const SceneOptions& opts,
     std::source_location loc
 ) {
+    SceneOptions optsCopy = opts;
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+
     const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
-    const bool activeDisabled = opts.disabled || ctx.IsDisabled();
-    const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    const bool activeDisabled = optsCopy.disabled || ctx.IsDisabled();
+    const float activeScale = optsCopy.scale.value_or(ctx.GetCurrentScale());
+    UiTheme* pushedTheme = ctx.PushScopedTheme(optsCopy.theme, optsCopy.scale);
 
     const UiTheme& theme = ctx.GetTheme();
     auto& state = ctx.GetOrCreateState<SceneState>(id);
 
     Node* node = ctx.CreateNode(NodeType::Scene, id);
     node->theme = pushedTheme;
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
+    node->debugBoundsOverride = optsCopy.debugBounds;
+    node->inspectModeOverride = optsCopy.inspectMode;
     node->direction = FlexDirection::Column;
     node->clipChildren = true;
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
 
     auto* payload = ctx.AllocPayload<ScenePayload>();
-    payload->opts = opts;
-    payload->opts.label = ctx.AllocText(opts.label);
-    payload->opts.description = ctx.AllocText(opts.description);
+    payload->opts = optsCopy;
     payload->state = &state;
     node->SetPayload(payload);
 
@@ -893,18 +874,35 @@ SceneScope Scene::Open(
     node->renderFn = &Scene::RenderBackgroundAndWorld;
     node->postRenderFn = &Scene::RenderOverlays;
 
-    const bool hasExt = opts.label.HasContentOrReserve() || opts.description.HasContentOrReserve();
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : opts.widthMode;
-    node->heightMode = opts.heightMode;
-    if (opts.width.has_value() && opts.stretch != StretchMode::Fill && !hasExt) {
+    node->widthMode = (optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : optsCopy.widthMode;
+    node->heightMode = optsCopy.heightMode;
+    if (optsCopy.width.has_value() && optsCopy.stretch != StretchMode::Fill) {
         node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = theme.Scale(*opts.width);
+        node->fixedWidth = theme.Scale(*optsCopy.width);
     }
-    if (opts.height.has_value() && *opts.height > 0.0f && !hasExt) {
+    if (optsCopy.height.has_value() && *optsCopy.height > 0.0f) {
         node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(*opts.height);
+        node->fixedHeight = theme.Scale(*optsCopy.height);
     }
-    node->minHeight = opts.height.has_value() ? theme.Scale(*opts.height) : theme.Scale(opts.minHeight);
+    node->minHeight = optsCopy.height.has_value() ? theme.Scale(*optsCopy.height) : theme.Scale(optsCopy.minHeight);
+
+    if (node->parent && node->parent->type == NodeType::Element) {
+        const bool stretchH = (optsCopy.heightMode == SizeMode::Stretch) && !optsCopy.height.has_value();
+        Control::SetupNode(
+            ctx,
+            node,
+            ControlSpec{
+                .width = optsCopy.width,
+                .height = optsCopy.height,
+                .defaultLayout = ElementLayout::Stacked,
+                .stretchable = true,
+                .stretchHeightWhenStandalone = stretchH,
+                .hasIntrinsicBox = true
+            },
+            optsCopy.stretch,
+            optsCopy.align
+        );
+    }
 
     Rect prevBounds = ctx.GetPrevFrameBounds(id);
     if (prevBounds.w <= 1.0f || prevBounds.h <= 1.0f) {
@@ -914,12 +912,7 @@ SceneScope Scene::Open(
             prevBounds = ctx.GetParentPrevFrameBounds();
         }
     }
-    Rect prevVp = prevBounds;
-    if (prevBounds.w > 0.0f && prevBounds.h > 0.0f && hasExt) {
-        const ElementSpec spec = MakeSceneSpec(opts, activeSize, theme, activeDisabled);
-        const Vec2 ctrlSize = ComputeSceneControlSize(opts, theme, prevBounds.w);
-        prevVp = Element::Resolve(prevBounds, ctrlSize, spec, nullptr, theme).controlRect;
-    }
+    const Rect prevVp = prevBounds;
     payload->openViewport = prevVp;
 
     // Eagerly update camera pan & zoom before SceneScope body runs so GetVisibleWorldRect() and GetZoom() have zero 1-frame lag!
@@ -930,21 +923,19 @@ SceneScope Scene::Open(
     }
 
     node->visualHash = detail::HashArgs(
-        payload->opts.label,
-        payload->opts.description,
-        opts.worldSize.has_value() ? opts.worldSize->x : 0.0f,
-        opts.worldSize.has_value() ? opts.worldSize->y : 0.0f,
-        static_cast<uint8_t>(opts.initialFit),
-        static_cast<uint8_t>(opts.background),
-        opts.gridStep,
-        opts.backgroundColor.ToUint32(),
-        static_cast<uint8_t>(opts.layout),
-        static_cast<uint8_t>(opts.stretch),
-        static_cast<uint8_t>(opts.heightMode),
-        opts.width.value_or(0.0f),
-        opts.height.value_or(0.0f),
-        opts.showScrollbars,
-        opts.showControls,
+        optsCopy.worldSize.has_value() ? optsCopy.worldSize->x : 0.0f,
+        optsCopy.worldSize.has_value() ? optsCopy.worldSize->y : 0.0f,
+        static_cast<uint8_t>(optsCopy.initialFit),
+        static_cast<uint8_t>(optsCopy.backgroundStyle),
+        optsCopy.gridStep,
+        optsCopy.background,
+        optsCopy.border,
+        static_cast<uint8_t>(optsCopy.stretch),
+        static_cast<uint8_t>(optsCopy.heightMode),
+        optsCopy.width.value_or(0.0f),
+        optsCopy.height.value_or(0.0f),
+        optsCopy.showScrollbars,
+        optsCopy.showControls,
         state.zoom,
         state.pan.x,
         state.pan.y,
@@ -965,26 +956,19 @@ SceneScope Scene::Open(
     return SceneScope(&ctx, node, payload, prevVp);
 }
 
-Rect Scene::GetViewportRect(const Node* node, ICanvas* canvas, const UiTheme& theme) noexcept {
+Rect Scene::GetViewportRect(const Node* node, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept {
     if (!node) return {};
-    const auto* payload = node->As<ScenePayload>();
-    if (!payload) return node->computedRect;
-
-    const ElementSpec spec = MakeSceneSpec(payload->opts, node->uiSize, theme, node->disabled);
-    const Vec2 ctrlSize = ComputeSceneControlSize(payload->opts, theme, node->computedRect.w);
-    return Element::Resolve(node->computedRect, ctrlSize, spec, canvas, theme).controlRect;
+    return node->computedRect;
 }
 
 Vec2 Scene::Measure(
     const SceneOptions& opts,
-    UiSize size,
-    ICanvas* canvas,
+    UiSize /*size*/,
+    ICanvas* /*canvas*/,
     const UiTheme& theme,
     float availableWidth
 ) {
-    const ElementSpec spec = MakeSceneSpec(opts, size, theme, opts.disabled);
-    const Vec2 ctrlSize = ComputeSceneControlSize(opts, theme, availableWidth);
-    return Element::Measure(ctrlSize, spec, canvas, theme, availableWidth);
+    return ComputeSceneControlSize(opts, theme, availableWidth);
 }
 
 void Scene::Update(Context& ctx, Node* node) {
@@ -1167,21 +1151,18 @@ void Scene::RenderBackgroundAndWorld(
     const SceneOptions& opts = payload->opts;
     const SceneState& state = *payload->state;
 
-    const ElementSpec spec = MakeSceneSpec(opts, node->uiSize, theme, node->disabled);
-    const Vec2 ctrlSize = ComputeSceneControlSize(opts, theme, node->computedRect.w);
-    const ElementGeometry geom = Element::Resolve(node->computedRect, ctrlSize, spec, &canvas, theme);
-    Element::RenderText(canvas, geom, spec, theme);
-
-    const Rect vp = geom.controlRect;
+    const Rect vp = node->computedRect;
     if (vp.w <= 0.0f || vp.h <= 0.0f) return;
 
-    const float rad = opts.borderRadius.has_value() ? theme.Scale(*opts.borderRadius) : 0.0f;
-    const Color bgCol = (opts.backgroundColor.a > 0) ? opts.backgroundColor : theme.palette.surface;
+    const float rad = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : 0.0f;
+    const Color bgCol = opts.background.IsBackgroundEnabled(true)
+        ? (opts.background.IsSurface() ? theme.palette.surface : opts.background.Resolve(false, false, node->disabled, theme.palette.surface))
+        : Color::Transparent();
 
     // 1. Render Background Pattern
-    if (opts.background == SceneBackground::Checkerboard) {
+    if (opts.backgroundStyle == SceneBackground::Checkerboard) {
         Image::DrawCheckerboard(canvas, vp, rad, theme, 12.0f);
-    } else {
+    } else if (bgCol.a > 0) {
         canvas.DrawRoundRect(vp, rad, bgCol);
     }
 
@@ -1191,7 +1172,7 @@ void Scene::RenderBackgroundAndWorld(
     const float worldScale = state.zoom * s;
 
     // Adaptive world-space coordinate grid (GridDots or GridLines)
-    if ((opts.background == SceneBackground::GridDots || opts.background == SceneBackground::GridLines) && worldScale > 0.001f) {
+    if ((opts.backgroundStyle == SceneBackground::GridDots || opts.backgroundStyle == SceneBackground::GridLines) && worldScale > 0.001f) {
         float worldStep = std::max(4.0f, opts.gridStep);
         while (worldStep * worldScale < 16.0f * s) worldStep *= 2.0f;
         while (worldStep * worldScale > 160.0f * s) worldStep *= 0.5f;
@@ -1201,7 +1182,7 @@ void Scene::RenderBackgroundAndWorld(
         const float startY = vp.y + std::fmod(state.pan.y, screenStep) - (state.pan.y < 0.0f ? 0.0f : screenStep);
         const Color gridCol = theme.palette.borderSubtle.WithAlpha(130);
 
-        if (opts.background == SceneBackground::GridLines) {
+        if (opts.backgroundStyle == SceneBackground::GridLines) {
             for (float x = startX; x <= vp.Right(); x += screenStep) {
                 if (x >= vp.x) canvas.DrawLine({x, vp.y}, {x, vp.Bottom()}, gridCol, 1.0f);
             }
@@ -1583,10 +1564,12 @@ void Scene::RenderOverlays(
     }
 
     // 3. Render Viewport Frame Border
-    if (opts.borderWidth > 0.0f) {
-        const float rad = opts.borderRadius.has_value() ? theme.Scale(*opts.borderRadius) : 0.0f;
-        const Color bCol = (opts.borderColor.a > 0) ? opts.borderColor : theme.palette.borderSubtle;
-        canvas.DrawRoundRect(vp, rad, Color::Transparent(), bCol, theme.Scale(opts.borderWidth));
+    if (opts.border.width > 0.0f) {
+        const float rad = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : 0.0f;
+        const Color bCol = opts.border.color.Resolve(false, false, node->disabled, theme.palette.borderSubtle);
+        if (bCol.a > 0) {
+            canvas.DrawRoundRect(vp, rad, Color::Transparent(), bCol, theme.Scale(opts.border.width));
+        }
     }
 }
 

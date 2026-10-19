@@ -35,13 +35,19 @@ ElementSpec MakeSpecFromPayload(
 ) noexcept {
     const bool isHovered = n->hovered;
     const bool isActive = n->pressed || n->focused || n->active;
-    if (!ep.hasChildControl) {
+    if (!ep.hasChildControl && n->firstChild == nullptr) {
         return Element::MakeSpec(ep.opts, n->uiSize, n->disabled, theme, isHovered, isActive);
     }
 
     const ComponentMetrics& cm = theme.GetMetrics(n->uiSize);
     const InputFieldMetrics& im = theme.GetInputField(n->uiSize);
-    ControlSpec ctrl = ep.childControlSpec;
+    ControlSpec ctrl = ep.hasChildControl
+        ? ep.childControlSpec
+        : ControlSpec{
+            .stretchable = true,
+            .stretchHeightWhenStandalone = (n->firstChild->heightMode == SizeMode::Stretch),
+            .hasIntrinsicBox = true
+        };
     // The child Control node already measures and renders its own well frame via Control::Measure / Control::RenderFrame.
     ctrl.hasIntrinsicBox = true;
 
@@ -58,7 +64,7 @@ ElementSpec MakeSpecFromPayload(
         .layout = ep.opts.layout.value_or(ctrl.defaultLayout),
         .inlineOrder = ep.opts.inlineOrder.value_or(ctrl.defaultInlineOrder),
         .align = ep.opts.align,
-        .stretch = ep.opts.stretch.value_or(StretchMode::Compact),
+        .stretch = ep.opts.stretch.value_or(ep.hasChildControl ? StretchMode::Compact : StretchMode::Fill),
         .width = effWidth,
         .height = effHeight,
         .control = ctrl,
@@ -71,7 +77,7 @@ ElementSpec MakeSpecFromPayload(
         .hasControl = true,
         .headingTypography = false,
         .stretchableControl = ctrl.stretchable,
-        .stretchHeightWhenStandalone = ctrl.stretchHeightWhenStandalone && !ep.opts.background.IsBackgroundEnabled(false) && ep.opts.border.width <= 0.0f,
+        .stretchHeightWhenStandalone = (ctrl.stretchHeightWhenStandalone || n->heightMode == SizeMode::Stretch) && !ep.opts.background.IsBackgroundEnabled(false) && ep.opts.border.width <= 0.0f,
         .disabled = n->disabled,
         .hovered = isHovered,
         .active = isActive
@@ -308,7 +314,7 @@ ElementScope Element::Open(
         ep->lastCanvas = canvas;
         const ElementSpec spec = MakeSpecFromPayload(n, *ep, theme);
         Vec2 childIntrinsic{0.0f, 0.0f};
-        if (ep->hasChildControl && n->firstChild) {
+        if ((ep->hasChildControl || n->firstChild != nullptr) && n->firstChild != nullptr) {
             const Node* child = n->firstChild;
             const UiTheme& childTheme = (child->theme != nullptr) ? *child->theme : theme;
             const float labelFs = ResolveLabelFontSize(spec, theme);
@@ -328,7 +334,7 @@ ElementScope Element::Open(
         const auto* ep = n->As<ElementPayload>();
         if (!ep) return;
         const ElementSpec spec = MakeSpecFromPayload(n, *ep, theme);
-        if (!ep->hasChildControl || !n->firstChild) {
+        if ((!ep->hasChildControl && n->firstChild == nullptr) || !n->firstChild) {
             Element::Render(canvas, n->computedRect, spec, theme);
             return;
         }
@@ -372,7 +378,7 @@ void Element::Arrange(
     node->computedRect = bounds;
 
     const auto* ep = node->As<ElementPayload>();
-    if (!ep || !ep->hasChildControl || !node->firstChild) {
+    if (!ep || (!ep->hasChildControl && node->firstChild == nullptr) || !node->firstChild) {
         return;
     }
 
@@ -388,6 +394,9 @@ void Element::Arrange(
         : child->intrinsicSize;
     const ElementGeometry geom = Element::Resolve(bounds, childIntrinsic, spec, ep->lastCanvas, theme);
     child->computedRect = geom.controlRect;
+    if (child->arrangeFn) {
+        child->arrangeFn(child, geom.controlRect, childTheme);
+    }
 }
 
 Vec2 Element::Measure(

@@ -82,21 +82,8 @@ struct CarTelltaleFlags {
 
 /// Declarative configuration options for the autonomous `CarClusterView` widget.
 struct CarClusterViewOptions {
-    // --- Element Companion Header / Footer & Outer Frame ---
-    UiText label{};
-    UiText description{};
-    Icon icon{};
-    UiText badge{};
     UiVariant variant{UiVariant::Default};
-    ElementLayout layout{ElementLayout::Stacked};
-    InlineOrder inlineOrder{InlineOrder::LabelFirst};
     Align align{Align::Start};
-    StateColor background{};
-    float borderWidth{0.0f};
-    std::optional<float> borderRadius{std::nullopt};
-
-    // --- Inner Control Slot Configuration ---
-    ControlSpec control{};
 
     // --- Cluster Architecture, Powertrain & Visual Theme ---
     ClusterLayoutMode layoutMode{ClusterLayoutMode::DualDial};
@@ -158,6 +145,8 @@ struct CarClusterViewOptions {
     std::optional<float> width{std::nullopt};
     std::optional<float> height{std::nullopt};
     SizeMode heightMode{SizeMode::Stretch};
+    StateColor background{};
+    Border border{};
     bool disabled{false};
     std::string_view tooltip{};
 };

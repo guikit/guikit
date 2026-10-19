@@ -8,7 +8,7 @@
 #include <vector>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/Element.hpp"
+#include "guikit/core/Control.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 #include "guikit/graphics/Colormap.hpp"
@@ -935,32 +935,6 @@ struct SignalViewGeometry {
     return mult * exp10;
 }
 
-[[nodiscard]] ElementSpec MakeSignalViewElementSpec(
-    const SignalViewOptions& opts,
-    UiSize size,
-    const UiTheme& theme,
-    bool disabled
-) noexcept {
-    return ElementSpec{
-        .label = opts.label,
-        .description = opts.description,
-        .icon = opts.icon,
-        .badge = opts.badge,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .align = opts.align,
-        .stretch = opts.stretch,
-        .width = opts.width,
-        .widgetSize = size,
-        .labelGap = theme.Scale(6.0f),
-        .descGap = theme.Scale(4.0f),
-        .inlineGap = theme.Scale(12.0f),
-        .stretchableControl = true,
-        .stretchHeightWhenStandalone = (opts.heightMode == SizeMode::Stretch),
-        .disabled = disabled
-    };
-}
-
 struct SignalViewPayload {
     std::span<const float> samples{};
     SignalViewOptions opts{};
@@ -974,27 +948,32 @@ struct SignalViewPayload {
 Vec2 SignalView::Measure(
     std::span<const float> /*samples*/,
     const SignalViewOptions& opts,
-    UiSize size,
-    ICanvas* canvas,
+    UiSize /*size*/,
+    ICanvas* /*canvas*/,
     const UiTheme& theme,
     float availableWidth
 ) {
-    const float defaultW = opts.width.has_value()
-        ? theme.Scale(*opts.width)
-        : (availableWidth > 0.0f ? availableWidth : theme.Scale(560.0f));
-    const float defaultH = opts.height.has_value()
+    float defaultW = availableWidth > 0.0f ? availableWidth : theme.Scale(560.0f);
+    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f && opts.width.has_value()) {
+        defaultW = availableWidth * std::clamp(*opts.width, 0.1f, 1.0f);
+    } else if (opts.width.has_value() && *opts.width > 0.0f) {
+        defaultW = theme.Scale(*opts.width);
+    }
+    const float defaultH = (opts.height.has_value() && *opts.height > 0.0f)
         ? theme.Scale(*opts.height)
         : theme.Scale(340.0f);
-    const ElementSpec spec = MakeSignalViewElementSpec(opts, size, theme, opts.disabled);
-    return Element::Measure({defaultW, defaultH}, spec, canvas, theme, availableWidth);
+    return {defaultW, defaultH};
 }
 
 SignalViewResponse SignalView::Run(
     Context& ctx,
     std::span<const float> samples,
-    const SignalViewOptions& opts,
+    const SignalViewOptions& optsIn,
     std::source_location loc
 ) {
+    SignalViewOptions opts = optsIn;
+    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.height);
+
     const Id id = ctx.MakeChildId(loc);
     const bool effectiveDisabled = opts.disabled || ctx.IsDisabled();
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -1087,10 +1066,7 @@ SignalViewResponse SignalView::Run(
     static_cast<Response&>(res) = baseRes;
 
     const Rect prevBounds = baseRes.rect;
-    const ElementSpec elemSpec = MakeSignalViewElementSpec(opts, activeSize, theme, effectiveDisabled);
-    const Vec2 prevCtrlSize = {prevBounds.w, prevBounds.h};
-    const ElementGeometry prevElemGeom = Element::Resolve(prevBounds, prevCtrlSize, elemSpec, canvas, theme);
-    const SignalViewGeometry geom = ComputeSignalGeometry(prevElemGeom.controlRect, opts, st.splitRatio, theme);
+    const SignalViewGeometry geom = ComputeSignalGeometry(prevBounds, opts, st.splitRatio, theme);
 
     const Vec2 mouse = ctx.GetMousePos();
     const bool mouseDown = ctx.IsMouseDown();
@@ -1632,15 +1608,12 @@ SignalViewResponse SignalView::Run(
     auto* payload = ctx.AllocPayload<SignalViewPayload>();
     payload->samples = samples;
     payload->opts = opts;
-    payload->opts.label = ctx.AllocText(opts.label);
-    payload->opts.description = ctx.AllocText(opts.description);
-    payload->opts.badge = ctx.AllocText(opts.badge);
     payload->opts.tooltip = ctx.AllocString(opts.tooltip);
     payload->state = &st;
     payload->mousePos = mouse;
     payload->isHovered = baseRes.hovered;
 
-    node->text = payload->opts.label.text.empty() ? "SignalView" : payload->opts.label.text;
+    node->text = "SignalView";
     node->SetPayload(payload);
 
     uint64_t markerFp = markerList.size();
@@ -1650,9 +1623,6 @@ SignalViewResponse SignalView::Run(
 
     node->visualHash = detail::HashArgs(
         fp,
-        payload->opts.label,
-        payload->opts.description,
-        payload->opts.badge,
         static_cast<uint8_t>(opts.panelOrder),
         static_cast<uint8_t>(opts.amplitudeScale),
         static_cast<uint8_t>(opts.frequencyScale),
@@ -1688,7 +1658,9 @@ SignalViewResponse SignalView::Run(
         static_cast<uint8_t>(st.dragMode),
         activeSize,
         effectiveDisabled,
-        gpuShadersActive
+        gpuShadersActive,
+        opts.background,
+        opts.border
     );
 
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* c, const UiTheme& th) noexcept -> Vec2 {
@@ -1704,21 +1676,19 @@ SignalViewResponse SignalView::Run(
         const SignalViewOptions& o = p->opts;
         SignalViewInternalState& s = *p->state;
         const float scale = th.Scale(1.0f);
-        const ElementSpec spec = MakeSignalViewElementSpec(o, n->uiSize, th, n->disabled);
-        const Vec2 ctrlSize = {n->computedRect.w, n->computedRect.h};
-        const ElementGeometry elemGeom = Element::Resolve(n->computedRect, ctrlSize, spec, &c, th);
-        Element::RenderText(c, elemGeom, spec, th);
 
-        const Rect box = elemGeom.controlRect;
+        const Rect box = n->computedRect;
         if (box.w <= 4.0f || box.h <= 4.0f) return;
 
-        const float rad = o.borderRadius.has_value() ? th.Scale(*o.borderRadius) : th.GetRadius(n->uiSize);
+        const float rad = o.border.radius.has_value() ? th.Scale(*o.border.radius) : th.GetRadius(n->uiSize);
         const bool isDark = (th.mode == ThemeMode::Dark);
-        const Color bgSurface = isDark ? Color(11, 15, 25, 255) : Color(248, 250, 252, 255);
+        const Color defaultBgSurface = isDark ? Color(11, 15, 25, 255) : Color(248, 250, 252, 255);
+        const Color bgSurface = o.background.Resolve(n->hovered, n->pressed, n->disabled, defaultBgSurface);
         const Color rulerBg   = isDark ? Color(17, 24, 39, 255) : Color(238, 242, 247, 255);
         const Color gridCol   = isDark ? Color(51, 65, 85, 95)  : Color(203, 213, 225, 140);
         const Color subGridCol = isDark ? Color(30, 41, 59, 90) : Color(226, 232, 240, 120);
-        const Color borderCol = th.palette.borderSubtle;
+        const Color borderCol = o.border.color.Resolve(n->hovered, n->pressed, n->disabled, th.palette.borderSubtle);
+        const float borderW   = (o.border.width > 0.0f) ? th.Scale(o.border.width) : 1.0f;
         const Color textMuted = th.palette.textMuted;
         const Color textSec   = th.palette.textSecondary;
 
@@ -1769,7 +1739,11 @@ SignalViewResponse SignalView::Run(
             s.waveformGain,
             s.viewMinFreqHz,
             s.viewMaxFreqHz,
-            markerFp
+            markerFp,
+            bgSurface.ToUint32(),
+            borderCol.ToUint32(),
+            borderW,
+            rad
         );
 
         auto makeSpecGpuDesc = [&]() {
@@ -1805,8 +1779,8 @@ SignalViewResponse SignalView::Run(
             // =====================================================================
             // PASS A: Render Static Base Layer (Overview, Rulers, Waveform, Spec Grid, Markers)
             // =====================================================================
-            c.DrawRoundRect(box, rad, bgSurface, borderCol, 1.0f);
-            c.PushClip(box.Inset(1.0f));
+            c.DrawRoundRect(box, rad, bgSurface, borderCol, borderW);
+            c.PushClip(box.Inset(std::max(1.0f, borderW)));
 
             // 1. Overview Minimap Bar (Static part)
             if (o.showOverviewBar && g.overviewRect.w > 0.0f && g.overviewRect.h > 0.0f) {
@@ -2112,7 +2086,7 @@ SignalViewResponse SignalView::Run(
         // =====================================================================
         // PASS B: Dynamic Overlay Layer (Selection, Playhead, Splitter Hover, Crosshair HUD)
         // =====================================================================
-        c.PushClip(box.Inset(1.0f));
+        c.PushClip(box.Inset(std::max(1.0f, borderW)));
 
         // 1. Overview dynamic overlays (Selection + Playhead)
         if (o.showOverviewBar && g.overviewRect.w > 0.0f && g.overviewRect.h > 0.0f) {
@@ -2277,18 +2251,23 @@ SignalViewResponse SignalView::Run(
     node->disabled = effectiveDisabled;
     node->hovered = baseRes.hovered;
     node->pressed = baseRes.pressed;
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = opts.heightMode;
-    if (opts.height.has_value() && *opts.height > 0.0f &&
-        !opts.label.HasContentOrReserve() && !opts.description.HasContentOrReserve()) {
-        node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(*opts.height);
-    }
-    node->minHeight = opts.height.has_value() ? theme.Scale(*opts.height) : theme.Scale(220.0f);
 
-    ctx.AdaptChildToContainer(node);
-    if (opts.heightMode == SizeMode::Fit && node->heightMode == SizeMode::Stretch) {
-        node->heightMode = SizeMode::Fit;
+    ControlSpec ctrlSpec{};
+    ctrlSpec.width = opts.width;
+    ctrlSpec.height = opts.height;
+    Control::SetupNode(ctx, node, ctrlSpec, opts.stretch, opts.align);
+    if (!node->parent || node->parent->type != NodeType::Element) {
+        node->heightMode = opts.heightMode;
+        if (opts.height.has_value() && *opts.height > 0.0f) {
+            node->heightMode = SizeMode::Fixed;
+            node->fixedHeight = theme.Scale(*opts.height);
+        }
+        node->minHeight = (opts.height.has_value() && *opts.height > 0.0f) ? theme.Scale(*opts.height) : theme.Scale(220.0f);
+        ctx.AdaptChildToContainer(node);
+        if (opts.heightMode == SizeMode::Fit && !opts.height.has_value() && node->heightMode == SizeMode::Stretch) {
+            node->heightMode = SizeMode::Fit;
+        }
     }
 
     return res;

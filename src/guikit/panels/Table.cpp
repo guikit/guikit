@@ -7,7 +7,7 @@
 #include <vector>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/Element.hpp"
+#include "guikit/core/Control.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 #include "guikit/panels/ScrollArea.hpp"
@@ -113,34 +113,6 @@ float AlignToFactor(Align align) noexcept {
     }
 }
 
-ElementSpec BuildTableElementSpec(
-    const TableOptions& opts,
-    UiSize size,
-    bool disabled,
-    const UiTheme& theme
-) noexcept {
-    const HeadingMetrics& hm = theme.GetHeading(size);
-    return ElementSpec{
-        .label = opts.label,
-        .description = opts.description,
-        .icon = opts.icon,
-        .badge = opts.badge,
-        .layout = ElementLayout::Top,
-        .inlineOrder = InlineOrder::LabelFirst,
-        .align = Align::Start,
-        .stretch = opts.stretch,
-        .width = opts.width,
-        .widgetSize = size,
-        .labelGap = hm.lineGap,
-        .descGap = hm.lineGap,
-        .inlineGap = hm.gap * 1.5f,
-        .hasControl = true,
-        .stretchableControl = true,
-        .stretchHeightWhenStandalone = true,
-        .disabled = disabled
-    };
-}
-
 } // namespace
 
 struct TableData {
@@ -243,11 +215,7 @@ void ComputeTableRegions(
     const Rect& outerBounds,
     const UiTheme& theme
 ) noexcept {
-    const ElementSpec spec = BuildTableElementSpec(data.opts, node->uiSize, node->disabled, theme);
-    const Vec2 dummyCtrl(outerBounds.w, outerBounds.h);
-    const ElementGeometry geom = Element::Resolve(outerBounds, dummyCtrl, spec, nullptr, theme);
-
-    data.frameRect = geom.controlRect;
+    data.frameRect = outerBounds;
     data.headerHeight = data.opts.stickyHeader
         ? (data.opts.headerHeight.has_value()
             ? theme.Scale(*data.opts.headerHeight)
@@ -576,30 +544,33 @@ TableScope Table::Open(
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
     const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
-    UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
+    TableOptions optsCopy = opts;
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+
+    UiTheme* pushedTheme = ctx.PushScopedTheme(optsCopy.theme, optsCopy.scale);
     const UiTheme& theme = ctx.GetTheme();
 
     Node* node = ctx.CreateNode(NodeType::Table, id);
     node->theme = pushedTheme;
-    node->debugBoundsOverride = opts.debugBounds;
-    node->inspectModeOverride = opts.inspectMode;
+    node->debugBoundsOverride = optsCopy.debugBounds;
+    node->inspectModeOverride = optsCopy.inspectMode;
     node->direction = FlexDirection::Column;
     node->clipChildren = true;
     node->scrollOrientation = Orientation::Both;
-    node->scrollbarPolicy = opts.scrollbar;
+    node->scrollbarPolicy = optsCopy.scrollbar;
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
 
-    if (opts.width.has_value() && opts.stretch != StretchMode::Fill) {
+    if (optsCopy.width.has_value() && optsCopy.stretch != StretchMode::Fill) {
         node->widthMode = SizeMode::Fixed;
-        node->fixedWidth = theme.Scale(*opts.width);
+        node->fixedWidth = theme.Scale(*optsCopy.width);
     } else {
-        node->widthMode = (opts.stretch == StretchMode::Fill) ? SizeMode::Stretch : SizeMode::Fit;
+        node->widthMode = (optsCopy.stretch == StretchMode::Fill) ? SizeMode::Stretch : SizeMode::Fit;
     }
 
-    if (opts.height.has_value()) {
+    if (optsCopy.height.has_value()) {
         node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(*opts.height);
+        node->fixedHeight = theme.Scale(*optsCopy.height);
     } else {
         node->heightMode = SizeMode::Stretch;
         node->flexGrow = 1.0f;
@@ -618,23 +589,20 @@ TableScope Table::Open(
     }
 
     // Sync external bindings into persistent state
-    if (opts.selectedRow) {
-        state.selectedRow = *opts.selectedRow;
+    if (optsCopy.selectedRow) {
+        state.selectedRow = *optsCopy.selectedRow;
     }
-    if (opts.sortColumn) {
-        state.sortColumn = *opts.sortColumn;
+    if (optsCopy.sortColumn) {
+        state.sortColumn = *optsCopy.sortColumn;
     }
-    if (opts.sortDirection) {
-        state.sortDirection = *opts.sortDirection;
+    if (optsCopy.sortDirection) {
+        state.sortDirection = *optsCopy.sortDirection;
     }
 
     auto* data = ctx.AllocPayload<TableData>();
-    data->opts = opts;
-    data->opts.label = ctx.AllocText(opts.label);
-    data->opts.description = ctx.AllocText(opts.description);
-    data->opts.tooltip = ctx.AllocText(opts.tooltip);
-    data->opts.badge = ctx.AllocText(opts.badge);
-    data->opts.footerText = ctx.AllocText(opts.footerText);
+    data->opts = optsCopy;
+    data->opts.tooltip = ctx.AllocText(optsCopy.tooltip);
+    data->opts.footerText = ctx.AllocText(optsCopy.footerText);
     data->state = &state;
 
     data->columnCount = colCount;
@@ -653,7 +621,7 @@ TableScope Table::Open(
     }
     const Rect estBounds = (prevBounds.w > 0.0f && prevBounds.h > 0.0f)
         ? prevBounds
-        : Rect(0.0f, 0.0f, opts.width.value_or(640.0f), opts.height.value_or(320.0f));
+        : Rect(0.0f, 0.0f, optsCopy.width.value_or(640.0f), optsCopy.height.value_or(320.0f));
 
     ComputeTableRegions(node, *data, estBounds, theme);
     ResolveColumnWidths(*data, data->frameRect.w, theme);
@@ -662,7 +630,7 @@ TableScope Table::Open(
         state.lastViewportHeight = data->bodyViewportRect.h;
     }
 
-    const size_t knownTotalRows = (opts.totalRows > 0) ? opts.totalRows : state.prevTotalRows;
+    const size_t knownTotalRows = (optsCopy.totalRows > 0) ? optsCopy.totalRows : state.prevTotalRows;
     const float estContentH = static_cast<float>(knownTotalRows) * data->rowHeight;
     const float maxScrollY = std::max(0.0f, estContentH - state.lastViewportHeight);
     const float maxScrollX = std::max(0.0f, data->totalColumnsW - data->bodyViewportRect.w);
@@ -778,11 +746,11 @@ TableScope Table::Open(
                 ctx.InvalidateRect(data->frameRect);
                 ctx.RequestRepaint(2);
             }
-        } else if (!interactingScrollbar && opts.stickyHeader && headerHitRect.Contains(mousePos)) {
+        } else if (!interactingScrollbar && optsCopy.stickyHeader && headerHitRect.Contains(mousePos)) {
             const float localHeaderX = mousePos.x - data->headerRect.x + state.scrollOffset.x;
 
             // Check column divider grips first
-            if (opts.resizableColumns) {
+            if (optsCopy.resizableColumns) {
                 for (uint16_t i = 0; i < data->columnCount; ++i) {
                     if (!data->columns[i].resizable) continue;
                     const float divX = data->resolvedColX[i] + data->resolvedColW[i];
@@ -839,8 +807,8 @@ TableScope Table::Open(
                                 state.sortDirection = TableSortDirection::Ascending;
                             }
                             data->sortChanged = true;
-                            if (opts.sortColumn) *opts.sortColumn = state.sortColumn;
-                            if (opts.sortDirection) *opts.sortDirection = state.sortDirection;
+                            if (optsCopy.sortColumn) *optsCopy.sortColumn = state.sortColumn;
+                            if (optsCopy.sortDirection) *optsCopy.sortDirection = state.sortDirection;
                             ctx.InvalidateRect(data->frameRect);
                             ctx.RequestRepaint(2);
                         }
@@ -878,8 +846,8 @@ TableScope Table::Open(
                         if (state.selectedRow != static_cast<int>(hitRow)) {
                             state.selectedRow = static_cast<int>(hitRow);
                             data->selectionChanged = true;
-                            if (opts.selectedRow) {
-                                *opts.selectedRow = state.selectedRow;
+                            if (optsCopy.selectedRow) {
+                                *optsCopy.selectedRow = state.selectedRow;
                             }
                             ctx.InvalidateRect(data->frameRect);
                         }
@@ -911,8 +879,8 @@ TableScope Table::Open(
             if (nextSel != state.selectedRow && nextSel >= 0) {
                 state.selectedRow = nextSel;
                 data->selectionChanged = true;
-                if (opts.selectedRow) {
-                    *opts.selectedRow = state.selectedRow;
+                if (optsCopy.selectedRow) {
+                    *optsCopy.selectedRow = state.selectedRow;
                 }
                 // Keep newly selected row in view
                 const float rTop = static_cast<float>(nextSel) * data->rowHeight;
@@ -947,16 +915,14 @@ TableScope Table::Open(
     node->scrollOffset = state.scrollOffset;
     node->SetPayload(data);
     node->visualHash = detail::HashArgs(
-        opts.striped,
-        opts.gridLines,
-        opts.border,
-        opts.stickyHeader,
-        opts.showRowNumbers,
-        opts.showFooter,
-        opts.label.text,
-        opts.description.text,
-        opts.badge.text,
-        opts.footerText.text,
+        optsCopy.striped,
+        optsCopy.gridLines,
+        optsCopy.background,
+        optsCopy.border,
+        optsCopy.stickyHeader,
+        optsCopy.showRowNumbers,
+        optsCopy.showFooter,
+        optsCopy.footerText.text,
         data->columnCount,
         activeDisabled
     );
@@ -965,7 +931,24 @@ TableScope Table::Open(
     node->renderFn = &Table::RenderBody;
     node->postRenderFn = &Table::RenderChromeAndScrollbars;
 
-    ctx.AdaptChildToContainer(node);
+    if (node->parent && node->parent->type == NodeType::Element) {
+        Control::SetupNode(
+            ctx,
+            node,
+            ControlSpec{
+                .width = optsCopy.width,
+                .height = optsCopy.height,
+                .defaultLayout = ElementLayout::Top,
+                .stretchable = true,
+                .stretchHeightWhenStandalone = !optsCopy.height.has_value(),
+                .hasIntrinsicBox = true
+            },
+            optsCopy.stretch,
+            Align::Start
+        );
+    } else {
+        ctx.AdaptChildToContainer(node);
+    }
 
     ctx.PushScale(activeScale);
     ctx.PushSize(activeSize);
@@ -982,7 +965,7 @@ TableScope Table::Open(
 Vec2 Table::Measure(
     const Node* node,
     float availableWidth,
-    ICanvas* canvas,
+    ICanvas* /*canvas*/,
     const UiTheme& theme
 ) {
     const auto* data = node ? node->As<TableData>() : nullptr;
@@ -1011,7 +994,9 @@ Vec2 Table::Measure(
             : theme.Scale(std::max(80.0f, data->columns[i].minWidth));
         naturalW += colW;
     }
-    if (availableWidth > 0.0f && data->opts.stretch == StretchMode::Fill) {
+    if (data->opts.width.has_value() && data->opts.stretch != StretchMode::Fill && *data->opts.width > 0.0f) {
+        naturalW = theme.Scale(*data->opts.width);
+    } else if (availableWidth > 0.0f && data->opts.stretch == StretchMode::Fill) {
         naturalW = std::max(naturalW, availableWidth);
     }
 
@@ -1020,8 +1005,7 @@ Vec2 Table::Measure(
         ? theme.Scale(*data->opts.height)
         : (headerH + static_cast<float>(fitRows) * rowH + footerH);
 
-    const ElementSpec spec = BuildTableElementSpec(data->opts, node->uiSize, node->disabled, theme);
-    return Element::Measure(Vec2(naturalW, naturalTableH), spec, canvas, theme, availableWidth);
+    return {naturalW, naturalTableH};
 }
 
 void Table::Arrange(
@@ -1162,21 +1146,19 @@ void Table::RenderBody(
 
     const auto& pal = theme.palette;
     const float scale = theme.scale;
-    const float radius = theme.Scale(6.0f);
+    const float radius = data->opts.border.radius.has_value()
+        ? theme.Scale(*data->opts.border.radius)
+        : theme.GetRadius(node->uiSize);
 
-    // 1. Render optional external Element header (label, description, icon, badge, divider)
-    const ElementSpec spec = BuildTableElementSpec(data->opts, node->uiSize, node->disabled, theme);
-    const ElementGeometry geom = Element::Resolve(
-        node->computedRect,
-        data->frameRect.Size(),
-        spec,
-        &canvas,
-        theme
-    );
-    Element::RenderText(canvas, geom, spec, theme);
-
-    // 2. Draw outer table surface background
-    canvas.DrawRoundRect(data->frameRect, radius, pal.surface);
+    // 1. Draw outer table surface background
+    if (data->opts.background.IsBackgroundEnabled(true)) {
+        const Color bgCol = data->opts.background.IsSurface()
+            ? pal.surface
+            : data->opts.background.Resolve(false, false, node->disabled, pal.surface);
+        if (bgCol.a > 0) {
+            canvas.DrawRoundRect(data->frameRect, radius, bgCol);
+        }
+    }
 
     // 3. Render virtualized rows & fast cells clipped to bodyViewportRect
     if (data->bodyViewportRect.w > 0.0f && data->bodyViewportRect.h > 0.0f) {
@@ -1369,7 +1351,9 @@ void Table::RenderChromeAndScrollbars(
 
     const auto& pal = theme.palette;
     const float scale = theme.scale;
-    const float radius = theme.Scale(6.0f);
+    const float radius = data->opts.border.radius.has_value()
+        ? theme.Scale(*data->opts.border.radius)
+        : theme.GetRadius(node->uiSize);
     const float cellPadX = 8.0f * scale;
 
     // 1. Render sticky column header bar
@@ -1602,9 +1586,14 @@ void Table::RenderChromeAndScrollbars(
     }
 
     // 4. Outer rounded frame border
-    if (data->opts.border) {
-        const Color borderCol = (data->state->resizingCol >= 0) ? pal.accent : pal.border;
-        canvas.DrawRoundRect(data->frameRect, radius, Color::Transparent(), borderCol, 1.0f);
+    const float bw = (data->opts.border.width > 0.0f) ? theme.Scale(data->opts.border.width) : 0.0f;
+    if (bw > 0.0f) {
+        const Color borderCol = (data->state->resizingCol >= 0)
+            ? pal.accent
+            : data->opts.border.color.Resolve(false, false, node->disabled, pal.border);
+        if (borderCol.a > 0) {
+            canvas.DrawRoundRect(data->frameRect, radius, Color::Transparent(), borderCol, bw);
+        }
     }
 }
 

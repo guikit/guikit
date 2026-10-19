@@ -207,7 +207,9 @@ void Control::SetupNode(
         const bool childWantsStretchH = (node->heightMode == SizeMode::Stretch);
         node->widthMode = SizeMode::Fit;
         node->heightMode = SizeMode::Fit;
-        node->arrangeFn = nullptr;
+        if (node->arrangeFn == &Control::ArrangeStandaloneNode) {
+            node->arrangeFn = nullptr;
+        }
         if (auto* ep = parent->As<ElementPayload>()) {
             ep->hasChildControl = true;
             ep->childControlSpec = spec;
@@ -274,7 +276,7 @@ void Control::SetupNode(
 
     node->widthMode = (stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->ctrlStretchable = spec.stretchable;
-    node->ctrlStretchH = spec.stretchHeightWhenStandalone;
+    node->ctrlStretchH = spec.stretchHeightWhenStandalone || (node->heightMode == SizeMode::Stretch);
     node->align = (standaloneAlign == Align::End)
         ? Alignment::End
         : ((standaloneAlign == Align::Center) ? Alignment::Center : Alignment::Start);
@@ -324,9 +326,10 @@ void Control::ArrangeStandaloneNode(
         ctrlW = bounds.w * ratio;
     }
 
+    const bool stretchH = node->ctrlStretchH || (node->heightMode == SizeMode::Stretch);
     const float ctrlX = bounds.x + (bounds.w - ctrlW) * alignFactor;
-    const float ctrlH = node->ctrlStretchH ? bounds.h : std::min(intrinsic.y, bounds.h);
-    const float ctrlY = node->ctrlStretchH ? bounds.y : (bounds.y + (bounds.h - ctrlH) * 0.5f);
+    const float ctrlH = stretchH ? bounds.h : std::min(intrinsic.y, bounds.h);
+    const float ctrlY = stretchH ? bounds.y : (bounds.y + (bounds.h - ctrlH) * 0.5f);
     node->computedRect = Rect(ctrlX, ctrlY, ctrlW, ctrlH);
 }
 

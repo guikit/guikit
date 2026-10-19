@@ -9,7 +9,7 @@
 #include <vector>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/Element.hpp"
+#include "guikit/core/Control.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 #include "guikit/panels/Toolbar.hpp"
@@ -844,33 +844,6 @@ size_t ResolveTrackedCodeLine(
     return 0;
 }
 
-ElementSpec MakeTextAreaElementSpec(
-    const TextAreaOptions& opts,
-    UiSize size,
-    bool disabled,
-    const UiTheme& theme
-) noexcept {
-    const InputFieldMetrics& im = theme.GetInputField(size);
-    return ElementSpec{
-        .label = opts.label,
-        .description = opts.description,
-        .icon = opts.icon,
-        .badge = opts.badge,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .align = opts.align,
-        .stretch = opts.stretch,
-        .width = opts.width,
-        .widgetSize = size,
-        .labelGap = im.labelGap,
-        .descGap = im.descGap,
-        .inlineGap = im.paddingX,
-        .stretchableControl = true,
-        .stretchHeightWhenStandalone = !opts.autoHeight,
-        .disabled = disabled
-    };
-}
-
 struct EditorFontMetrics {
     float fontSize{13.0f};
     float glyphBoxH{18.0f};
@@ -918,7 +891,8 @@ Vec2 MeasureEditorBox(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    float effZoom
+    float effZoom,
+    float availableWidth = 0.0f
 ) noexcept {
     const ComponentMetrics& cm = theme.GetMetrics(size);
     const FontStyle textStyle = opts.monospace ? FontStyle::Monospace : FontStyle::Regular;
@@ -947,8 +921,8 @@ Vec2 MeasureEditorBox(
     maxLineChars = std::max(maxLineChars, curChars);
 
     float boxH = 0.0f;
-    if (opts.fixedHeight.has_value()) {
-        boxH = theme.Scale(*opts.fixedHeight);
+    if (opts.height.has_value()) {
+        boxH = theme.Scale(*opts.height);
     } else if (opts.autoHeight) {
         boxH = static_cast<float>(lineCount) * lineHeight + padY * 2.0f + statusH;
     } else if (opts.rows.has_value()) {
@@ -973,7 +947,10 @@ Vec2 MeasureEditorBox(
         : (bpWidth + foldWidth);
 
     float boxW = theme.Scale(280.0f);
-    if (opts.stretch != StretchMode::Fill && opts.width.has_value()) {
+    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f) {
+        const float ratio = opts.width.has_value() ? std::clamp(*opts.width, 0.1f, 1.0f) : 1.0f;
+        boxW = availableWidth * ratio;
+    } else if (opts.stretch != StretchMode::Fill && opts.width.has_value()) {
         boxW = theme.Scale(*opts.width);
     } else {
         const float charAdv = MeasureChunkNoTabs(canvas, "M", fontSize, textStyle);
@@ -1008,7 +985,6 @@ struct DebugToolbarRects {
 };
 
 struct EditorLayoutRects {
-    ElementGeometry elemGeom{};
     Rect editorBox{};
     Rect innerBounds{};
     Rect statusBarRect{};
@@ -1078,11 +1054,7 @@ EditorLayoutRects ComputeEditorLayout(
     L.fontSize = L.metrics.fontSize;
     L.glyphBoxH = L.metrics.glyphBoxH;
     L.lineHeight = L.metrics.lineHeight;
-
-    const Vec2 intrinsicBox = MeasureEditorBox(text, opts, size, canvas, theme, effZoom);
-    const ElementSpec spec = MakeTextAreaElementSpec(opts, size, opts.disabled, theme);
-    L.elemGeom = Element::Resolve(bounds, intrinsicBox, spec, canvas, theme);
-    L.editorBox = L.elemGeom.controlRect;
+    L.editorBox = bounds;
 
     const float padY = std::max(theme.Scale(8.0f), cm.paddingY);
     const float padX = std::max(theme.Scale(10.0f), cm.paddingX);
@@ -1826,9 +1798,7 @@ TextAreaResponse TextArea::Run(
     }
 
     TextAreaOptions optsCopy = opts;
-    optsCopy.label = ctx.AllocText(opts.label);
-    optsCopy.description = ctx.AllocText(opts.description);
-    optsCopy.badge = ctx.AllocText(opts.badge);
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
     optsCopy.placeholder = ctx.AllocString(opts.placeholder);
     optsCopy.tooltip = ctx.AllocString(opts.tooltip);
 
@@ -3005,13 +2975,8 @@ TextAreaResponse TextArea::Run(
 
     node->visualHash = detail::HashArgs(
         data ? data->text : displayText,
-        optsCopy.label.text,
-        optsCopy.description.text,
-        optsCopy.badge.text,
         optsCopy.placeholder,
         static_cast<uint8_t>(optsCopy.variant),
-        static_cast<uint8_t>(optsCopy.layout),
-        static_cast<uint8_t>(optsCopy.inlineOrder),
         static_cast<uint8_t>(optsCopy.align),
         static_cast<uint8_t>(optsCopy.stretch),
         optsCopy.width.value_or(-1.0f),
@@ -3022,8 +2987,9 @@ TextAreaResponse TextArea::Run(
         optsCopy.wordWrap,
         optsCopy.autoHeight,
         optsCopy.rows.value_or(0u),
-        optsCopy.fixedHeight.value_or(-1.0f),
-        optsCopy.borderRadius.value_or(-1.0f),
+        optsCopy.height.value_or(-1.0f),
+        optsCopy.background,
+        optsCopy.border,
         optsCopy.syntax.has_value() ? optsCopy.syntax->enabled : false,
         optsCopy.syntax.has_value() ? optsCopy.syntax->languageName : std::string_view{},
         optsCopy.showMinimap,
@@ -3109,14 +3075,23 @@ TextAreaResponse TextArea::Run(
     node->pressed = res.pressed;
     node->focused = isFocused;
     node->theme = scopedTheme;
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-    node->heightMode = opts.heightMode;
-    if (opts.fixedHeight.has_value() && !opts.label.HasContentOrReserve() && !opts.description.HasContentOrReserve()) {
-        node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(*opts.fixedHeight);
-    }
+    node->heightMode = optsCopy.autoHeight ? SizeMode::Fit : optsCopy.heightMode;
 
-    ctx.AdaptChildToContainer(node);
+    ControlSpec ctrlSpec{};
+    ctrlSpec.width = optsCopy.width;
+    ctrlSpec.height = optsCopy.height;
+    Control::SetupNode(ctx, node, ctrlSpec, optsCopy.stretch, optsCopy.align);
+    if (!node->parent || node->parent->type != NodeType::Element) {
+        node->heightMode = optsCopy.autoHeight ? SizeMode::Fit : optsCopy.heightMode;
+        if (optsCopy.height.has_value() && *optsCopy.height > 0.0f) {
+            node->heightMode = SizeMode::Fixed;
+            node->fixedHeight = theme.Scale(*optsCopy.height);
+        }
+        ctx.AdaptChildToContainer(node);
+        if ((optsCopy.autoHeight || optsCopy.heightMode == SizeMode::Fit) && !optsCopy.height.has_value() && node->heightMode == SizeMode::Stretch) {
+            node->heightMode = SizeMode::Fit;
+        }
+    }
     if (scopedTheme != nullptr) {
         ctx.PopTheme();
     }
@@ -3132,9 +3107,7 @@ Vec2 TextArea::Measure(
     const UiTheme& theme,
     float availableWidth
 ) {
-    const Vec2 boxDims = MeasureEditorBox(text, opts, size, canvas, theme, opts.zoom);
-    const ElementSpec spec = MakeTextAreaElementSpec(opts, size, opts.disabled, theme);
-    return Element::Measure(boxDims, spec, canvas, theme, availableWidth);
+    return MeasureEditorBox(text, opts, size, canvas, theme, opts.zoom, availableWidth);
 }
 
 Vec2 TextArea::Measure(
@@ -3216,28 +3189,27 @@ void TextArea::Render(
         extData ? extData->debugToolbarRatio : -1.0f
     );
 
-    // 1. Render external Element header, icon, badge, description, and divider
-    const ElementSpec spec = MakeTextAreaElementSpec(opts, size, disabled, theme);
-    Element::RenderText(canvas, L.elemGeom, spec, theme);
-
     const Rect editorBox = L.editorBox;
     if (editorBox.w <= 0.0f || editorBox.h <= 0.0f) return;
 
-    // 2. Render editor container frame
-    const float r = theme.ResolveRadius(opts.borderRadius, size);
-    const Color bgCol = disabled ? editorBgCol.WithAlphaF(0.45f) : editorBgCol;
-    Color borderCol = pal.inputBorder;
-    float strokeW = theme.Scale(1.0f);
+    // Render editor container frame
+    const float r = theme.ResolveRadius(opts.border.radius, size);
+    const Color defaultBg = disabled ? editorBgCol.WithAlphaF(0.45f) : editorBgCol;
+    const Color bgCol = opts.background.Resolve(hovered, false, disabled, defaultBg);
+    Color defaultBorderCol = pal.inputBorder;
+    float defaultStrokeW = theme.Scale(1.0f);
     if (!disabled) {
         if (focused) {
-            borderCol = (opts.variant == UiVariant::Default) ? pal.focusRing : theme.GetVariant(opts.variant).bg;
-            strokeW = theme.Scale(1.5f);
+            defaultBorderCol = (opts.variant == UiVariant::Default) ? pal.focusRing : theme.GetVariant(opts.variant).bg;
+            defaultStrokeW = theme.Scale(1.5f);
         } else if (hovered) {
-            borderCol = pal.borderHover;
+            defaultBorderCol = pal.borderHover;
         }
     } else {
-        borderCol = borderCol.WithAlphaF(0.45f);
+        defaultBorderCol = defaultBorderCol.WithAlphaF(0.45f);
     }
+    const Color borderCol = opts.border.color.Resolve(hovered, focused, disabled, defaultBorderCol);
+    const float strokeW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : defaultStrokeW;
 
     canvas.DrawRoundRect(editorBox, r, bgCol, borderCol, strokeW);
 

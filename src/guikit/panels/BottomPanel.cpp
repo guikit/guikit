@@ -300,7 +300,7 @@ BottomPanelScope BottomPanel::Open(
     node->sidebarScrollable = opts.scrollable && !node->sidebarCollapsed;
     node->gap = theme.ResolveGap(opts.gap, activeSize);
     node->widthMode = SizeMode::Stretch;
-    node->cornerRadius = theme.ResolveRadius(opts.borderRadius, activeSize);
+    node->cornerRadius = theme.ResolveRadius(opts.border.radius, activeSize);
     node->clipChildren = opts.clipChildren;
     node->scrollOrientation = Orientation::Vertical;
     node->scrollbarPolicy = opts.scrollbar;
@@ -340,9 +340,15 @@ BottomPanelScope BottomPanel::Open(
             reportedLogicalH = state.lastExpandedHeight;
         }
         node->padding = theme.ResolvePadding(opts.padding, activeSize);
-        node->backgroundColor = (opts.backgroundColor.a > 0) ? opts.backgroundColor : pal.surface;
-        node->borderColor = (opts.borderColor.a > 0) ? opts.borderColor : pal.border;
-        node->borderWidth = theme.Scale(opts.borderWidth);
+        node->backgroundColor = opts.background.IsBackgroundEnabled(true)
+            ? (opts.background.HasAny() && !opts.background.IsSurface()
+                ? opts.background.Resolve(false, false, activeDisabled, pal.surface)
+                : pal.surface)
+            : Color::Transparent();
+        node->borderWidth = theme.Scale(opts.border.width);
+        node->borderColor = (opts.border.width > 0.0f)
+            ? opts.border.color.Resolve(false, false, activeDisabled, pal.border)
+            : Color::Transparent();
     }
 
     node->visualHash = detail::HashArgs(
@@ -351,7 +357,9 @@ BottomPanelScope BottomPanel::Open(
         state.sashHovered,
         state.draggingSash,
         state.toggleHovered,
-        state.togglePressed
+        state.togglePressed,
+        opts.background,
+        opts.border
     );
 
     if (node->sidebarScrollable) {

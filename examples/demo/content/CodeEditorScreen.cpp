@@ -542,39 +542,43 @@ void RenderCodeEditorStage(guikit::Context& ui, DemoContext& ctx) {
         ? guikit::Align::Start
         : ((s_state.debugToolbarAlignIdx == 2) ? guikit::Align::End : guikit::Align::Center);
 
-    auto resp = ui.Size(ctx.controlsSize).TextArea(s_state.editorBuffer, {
+    guikit::TextAreaResponse resp{};
+    if (auto el = ui.Size(ctx.elemSize).Element({
         .label = s_state.showLabel ? "Code Editor & Debugger" : "",
-        .description = s_state.showDesc ? std::string_view(s_state.lastDebugEvent) : std::string_view{},
-        .autoHeight = false,
-        .readOnly = s_state.readOnly,
-        .showLineNumbers = s_state.lineNumbers,
-        .showCopyButton = s_state.copyButton,
-        .monospace = s_state.monospace,
-        .wordWrap = s_state.wordWrap,
-        .allowZoom = s_state.allowZoom,
-        .zoom = s_state.zoom,
-        .syntax = synCfg,
-        .syntaxPalette = synPalette,
-        .heightMode = guikit::SizeMode::Stretch,
-        .showMinimap = s_state.showMinimap,
-        .showStatusBar = s_state.showStatusBar,
-        .showIndentGuides = s_state.showIndentGuides,
-        .showWhitespace = s_state.showWhitespace,
-        .codeFolding = s_state.codeFolding,
-        .autoCloseBrackets = true,
-        .enableSearch = true,
-        .highlightOccurrences = true,
-        .matchBrackets = true,
-        .enableBreakpoints = true,
-        .breakpoints = &s_state.breakpoints,
-        .executionLine = s_state.executionLine,
-        .executionLinePtr = &s_state.executionLine,
-        .showDebugToolbar = s_state.showDebugToolbar,
-        .debugToolbarAlign = dbgAlign,
-        .diagnostics = s_state.diagnostics,
-        .inlineValues = s_state.inlineValues,
-        .debugVariables = s_state.debugVariables
-    });
+        .description = s_state.showDesc ? std::string_view(s_state.lastDebugEvent) : std::string_view{}
+    })) {
+        resp = ui.Size(ctx.controlsSize).TextArea(s_state.editorBuffer, {
+            .autoHeight = false,
+            .readOnly = s_state.readOnly,
+            .showLineNumbers = s_state.lineNumbers,
+            .showCopyButton = s_state.copyButton,
+            .monospace = s_state.monospace,
+            .wordWrap = s_state.wordWrap,
+            .allowZoom = s_state.allowZoom,
+            .zoom = s_state.zoom,
+            .syntax = synCfg,
+            .syntaxPalette = synPalette,
+            .heightMode = guikit::SizeMode::Stretch,
+            .showMinimap = s_state.showMinimap,
+            .showStatusBar = s_state.showStatusBar,
+            .showIndentGuides = s_state.showIndentGuides,
+            .showWhitespace = s_state.showWhitespace,
+            .codeFolding = s_state.codeFolding,
+            .autoCloseBrackets = true,
+            .enableSearch = true,
+            .highlightOccurrences = true,
+            .matchBrackets = true,
+            .enableBreakpoints = true,
+            .breakpoints = &s_state.breakpoints,
+            .executionLine = s_state.executionLine,
+            .executionLinePtr = &s_state.executionLine,
+            .showDebugToolbar = s_state.showDebugToolbar,
+            .debugToolbarAlign = dbgAlign,
+            .diagnostics = s_state.diagnostics,
+            .inlineValues = s_state.inlineValues,
+            .debugVariables = s_state.debugVariables
+        });
+    }
 
     if (resp.lineDelta != 0) {
         s_state.RebuildDynamicDebugData();

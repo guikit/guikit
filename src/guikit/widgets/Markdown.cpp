@@ -8,7 +8,7 @@
 #include <vector>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/Element.hpp"
+#include "guikit/core/Control.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 #include "guikit/graphics/Icon.hpp"
@@ -1830,25 +1830,6 @@ struct MarkdownPayload {
     const std::unordered_map<int, bool>* taskOverrides{nullptr};
 };
 
-ElementSpec MakeMarkdownSpec(const MarkdownOptions& opts, UiSize size, const UiTheme& theme, bool disabled) noexcept {
-    return ElementSpec{
-        .label = opts.label,
-        .description = opts.description,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .align = opts.align,
-        .stretch = opts.stretch,
-        .width = opts.width,
-        .widgetSize = size,
-        .labelGap = theme.Scale(6.0f),
-        .descGap = theme.Scale(4.0f),
-        .inlineGap = theme.Scale(12.0f),
-        .stretchableControl = true,
-        .stretchHeightWhenStandalone = false,
-        .disabled = disabled
-    };
-}
-
 } // namespace
 
 MarkdownResponse Markdown::Run(
@@ -1862,6 +1843,9 @@ MarkdownResponse Markdown::Run(
     const UiSize activeSize = ctx.GetCurrentSize();
     const UiTheme& theme = ctx.GetTheme();
 
+    MarkdownOptions optsCopy = opts;
+    Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
+
     auto& state = ctx.GetOrCreateState<MarkdownState>(id);
     const ParsedMarkdownDoc& doc = GetOrParseMarkdown(markdownText);
     if (state.docSourceHash != doc.sourceHash) {
@@ -1872,8 +1856,8 @@ MarkdownResponse Markdown::Run(
         state.taskOverrides.clear();
     }
 
-    if (opts.zoom != nullptr) {
-        state.zoom = std::clamp(*opts.zoom, 0.5f, 3.0f);
+    if (optsCopy.zoom != nullptr) {
+        state.zoom = std::clamp(*optsCopy.zoom, 0.5f, 3.0f);
     }
 
     Response baseRes = ctx.Interact(id);
@@ -1883,7 +1867,7 @@ MarkdownResponse Markdown::Run(
     const bool isFocused = (ctx.GetFocusedId() == id);
 
     // 1. Handle Smooth Zoom (Ctrl+Wheel & KeyAction::ZoomIn/ZoomOut/ZoomReset)
-    if (opts.allowZoom && !effectiveDisabled) {
+    if (optsCopy.allowZoom && !effectiveDisabled) {
         bool zoomChanged = false;
         if (baseRes.hovered && ctx.GetKeyModifiers().ctrl && std::abs(ctx.GetMouseWheel().y) > 0.01f) {
             const float step = (ctx.GetMouseWheel().y > 0.0f) ? 0.1f : -0.1f;
@@ -1906,8 +1890,8 @@ MarkdownResponse Markdown::Run(
             }
         }
         if (zoomChanged) {
-            if (opts.zoom != nullptr) {
-                *opts.zoom = state.zoom;
+            if (optsCopy.zoom != nullptr) {
+                *optsCopy.zoom = state.zoom;
             }
             res.changed = true;
             ctx.RequestRepaint(2);
@@ -1921,8 +1905,7 @@ MarkdownResponse Markdown::Run(
     if (hitBounds.w <= 0.0f) {
         hitBounds = Rect(0.0f, 0.0f, theme.Scale(520.0f), theme.Scale(400.0f));
     }
-    const ElementSpec spec = MakeMarkdownSpec(opts, activeSize, theme, effectiveDisabled);
-    const Rect ctrlRect = Element::Resolve(hitBounds, {hitBounds.w, hitBounds.h}, spec, hitCanvas, theme).controlRect;
+    const Rect ctrlRect = hitBounds;
 
     DocumentTextMap textMap{};
     RenderOverlayState hitOverlay{};
@@ -1933,7 +1916,7 @@ MarkdownResponse Markdown::Run(
         false,
         ctrlRect,
         doc,
-        opts,
+        optsCopy,
         theme,
         state.zoom,
         ctx.GetMousePos(),
@@ -1958,8 +1941,8 @@ MarkdownResponse Markdown::Run(
                 if (baseRes.clicked) {
                     res.clickedLink = hit.hoveredLink;
                     res.changed = true;
-                    if (opts.onLinkClick) {
-                        opts.onLinkClick(hit.hoveredLink);
+                    if (optsCopy.onLinkClick) {
+                        optsCopy.onLinkClick(hit.hoveredLink);
                     }
                 }
             } else if (hit.hoveredCopyBlock >= 0) {
@@ -1969,15 +1952,15 @@ MarkdownResponse Markdown::Run(
                     res.changed = true;
                     ctx.SetClipboardText(hit.hoveredCopyCode);
                 }
-            } else if (hit.hoveredTaskIndex >= 0 && opts.interactiveTasks) {
+            } else if (hit.hoveredTaskIndex >= 0 && optsCopy.interactiveTasks) {
                 if (baseRes.clicked) {
                     const bool nextChecked = !hit.hoveredTaskCurrentState;
                     state.taskOverrides[hit.hoveredTaskIndex] = nextChecked;
                     res.toggledTaskIndex = hit.hoveredTaskIndex;
                     res.toggledTaskChecked = nextChecked;
                     res.changed = true;
-                    if (opts.onTaskToggle) {
-                        opts.onTaskToggle(hit.hoveredTaskIndex, nextChecked);
+                    if (optsCopy.onTaskToggle) {
+                        optsCopy.onTaskToggle(hit.hoveredTaskIndex, nextChecked);
                     }
                 }
             }
@@ -1985,9 +1968,9 @@ MarkdownResponse Markdown::Run(
 
         // Mouse click / double-click / drag selection
         const bool clickedInteractiveSubElement =
-            !hit.hoveredLink.empty() || hit.hoveredCopyBlock >= 0 || (hit.hoveredTaskIndex >= 0 && opts.interactiveTasks);
+            !hit.hoveredLink.empty() || hit.hoveredCopyBlock >= 0 || (hit.hoveredTaskIndex >= 0 && optsCopy.interactiveTasks);
 
-        if (opts.enableSelection && baseRes.hovered && ctx.IsMouseClicked() && !clickedInteractiveSubElement) {
+        if (optsCopy.enableSelection && baseRes.hovered && ctx.IsMouseClicked() && !clickedInteractiveSubElement) {
             ctx.RequestFocus(id);
             const size_t hitOff = HitTestDocumentCharOffset(textMap, hitCanvas, ctx.GetMousePos());
             state.preferredCursorX = -1.0f;
@@ -2013,7 +1996,7 @@ MarkdownResponse Markdown::Run(
 
     // 4. Handle Keyboard Actions via centralized KeyAction system (Search, Copy, SelectAll, Cursor & Selection Navigation)
     if ((isFocused || baseRes.hovered) && !effectiveDisabled) {
-        if (opts.enableSearch && ctx.ConsumeAction(KeyAction::Find)) {
+        if (optsCopy.enableSearch && ctx.ConsumeAction(KeyAction::Find)) {
             state.searchBarOpen = true;
             ctx.RequestFocus(id);
             ctx.RequestRepaint(2);
@@ -2021,7 +2004,7 @@ MarkdownResponse Markdown::Run(
     }
 
     if (isFocused && !effectiveDisabled) {
-        if (state.searchBarOpen && opts.enableSearch) {
+        if (state.searchBarOpen && optsCopy.enableSearch) {
             if (ctx.ConsumeAction(KeyAction::Cancel)) {
                 state.searchBarOpen = false;
                 ctx.RequestRepaint(2);
@@ -2056,7 +2039,7 @@ MarkdownResponse Markdown::Run(
             }
         }
 
-        if (opts.enableSelection) {
+        if (optsCopy.enableSelection) {
             auto moveCursorHoriz = [&](size_t newOff, bool extendSelection) {
                 state.cursorOffset = std::min(newOff, maxOffset);
                 if (!extendSelection) {
@@ -2171,8 +2154,8 @@ MarkdownResponse Markdown::Run(
     }
 
     // 5. Compute Search Matches & Selected Text for Response
-    const std::string_view effectiveQuery = !opts.searchQuery.empty()
-        ? opts.searchQuery
+    const std::string_view effectiveQuery = !optsCopy.searchQuery.empty()
+        ? optsCopy.searchQuery
         : std::string_view(state.searchQuery);
     const auto matches = FindSearchMatches(textMap.plainText, effectiveQuery);
     res.searchMatchCount = static_cast<int>(matches.size());
@@ -2196,18 +2179,16 @@ MarkdownResponse Markdown::Run(
     Node* node = ctx.CreateNode(NodeType::Markdown, id);
     auto* payload = ctx.AllocPayload<MarkdownPayload>();
     payload->text = ctx.AllocString(markdownText);
-    payload->opts = opts;
-    payload->opts.label = ctx.AllocText(opts.label);
-    payload->opts.description = ctx.AllocText(opts.description);
+    payload->opts = optsCopy;
     payload->zoom = state.zoom;
     payload->hoveredCopyBlock = hoveredCopyBlock;
     payload->activeCopiedBlock = state.copiedBlockIndex;
-    payload->hasSelection = opts.enableSelection && state.HasSelection();
+    payload->hasSelection = optsCopy.enableSelection && state.HasSelection();
     payload->selMin = state.SelMin();
     payload->selMax = state.SelMax();
-    payload->showCaret = opts.enableSelection && isFocused;
+    payload->showCaret = optsCopy.enableSelection && isFocused;
     payload->caretOffset = state.cursorOffset;
-    payload->searchBarOpen = state.searchBarOpen && opts.enableSearch;
+    payload->searchBarOpen = state.searchBarOpen && optsCopy.enableSearch;
     payload->activeSearchQuery = ctx.AllocString(effectiveQuery);
     payload->activeSearchMatch = res.activeSearchMatch;
     payload->searchMatchCount = res.searchMatchCount;
@@ -2216,32 +2197,34 @@ MarkdownResponse Markdown::Run(
 
     node->visualHash = detail::HashArgs(
         doc.sourceHash,
-        payload->opts.label,
-        payload->opts.description,
         state.zoom,
-        opts.bodyFontSize.value_or(-1.0f),
-        opts.headingScale,
-        opts.inlineCodeFontSize.value_or(-1.0f),
-        opts.codeFontSize.value_or(-1.0f),
-        opts.lineHeightScale,
-        opts.documentPadding,
-        opts.maxContentWidth.value_or(-1.0f),
-        opts.blockGap,
-        opts.paragraphIndent,
-        opts.listIndent,
-        opts.blockPadding,
-        opts.blockRadius,
-        opts.headingDividers,
-        opts.codeLineNumbers,
-        opts.syntaxHighlight,
-        opts.showCopyButton,
-        opts.codeShowWhitespace,
-        opts.codeIndentGuides,
-        opts.codePalette.has_value() ? opts.codePalette->editorBg.ToUint32() : 0u,
-        opts.codePalette.has_value() ? opts.codePalette->keyword.ToUint32() : 0u,
-        opts.imageCheckerboard,
-        opts.imageMaxHeight,
-        opts.imageRadius,
+        optsCopy.width.value_or(-1.0f),
+        optsCopy.height.value_or(-1.0f),
+        optsCopy.background,
+        optsCopy.border,
+        optsCopy.bodyFontSize.value_or(-1.0f),
+        optsCopy.headingScale,
+        optsCopy.inlineCodeFontSize.value_or(-1.0f),
+        optsCopy.codeFontSize.value_or(-1.0f),
+        optsCopy.lineHeightScale,
+        optsCopy.documentPadding,
+        optsCopy.maxContentWidth.value_or(-1.0f),
+        optsCopy.blockGap,
+        optsCopy.paragraphIndent,
+        optsCopy.listIndent,
+        optsCopy.blockPadding,
+        optsCopy.blockRadius,
+        optsCopy.headingDividers,
+        optsCopy.codeLineNumbers,
+        optsCopy.syntaxHighlight,
+        optsCopy.showCopyButton,
+        optsCopy.codeShowWhitespace,
+        optsCopy.codeIndentGuides,
+        optsCopy.codePalette.has_value() ? optsCopy.codePalette->editorBg.ToUint32() : 0u,
+        optsCopy.codePalette.has_value() ? optsCopy.codePalette->keyword.ToUint32() : 0u,
+        optsCopy.imageCheckerboard,
+        optsCopy.imageMaxHeight,
+        optsCopy.imageRadius,
         hoveredCopyBlock,
         state.copiedBlockIndex,
         payload->hasSelection,
@@ -2269,33 +2252,18 @@ MarkdownResponse Markdown::Run(
         const auto* p = n->As<MarkdownPayload>();
         if (!p) return;
 
+        if (p->opts.background.IsBackgroundEnabled(false) || p->opts.border.color.HasAny() || p->opts.border.width > 0.0f) {
+            const Color bgCol = p->opts.background.IsBackgroundEnabled(false)
+                ? (p->opts.background.IsSurface() ? th.palette.surface : p->opts.background.Resolve(n->hovered, n->pressed, n->disabled, th.palette.surface))
+                : Color::Transparent();
+            const Color bCol = p->opts.border.color.Resolve(n->hovered, n->pressed, n->disabled, th.palette.border);
+            const float bW = (p->opts.border.width > 0.0f) ? th.Scale(p->opts.border.width) : (p->opts.border.color.HasAny() ? th.Scale(1.0f) : 0.0f);
+            const float bR = p->opts.border.radius.has_value() ? th.Scale(*p->opts.border.radius) : 0.0f;
+            canvas.DrawRoundRect(n->computedRect, bR, bgCol, bCol, bW);
+        }
+
         const ParsedMarkdownDoc& parsedDoc = GetOrParseMarkdown(p->text);
-        const ElementSpec elSpec = MakeMarkdownSpec(p->opts, n->uiSize, th, n->disabled);
-
-        const MarkdownPassResult mRes = ExecuteMarkdownLayoutAndRender(
-            &canvas,
-            false,
-            Rect(0.0f, 0.0f, n->computedRect.w, 0.0f),
-            parsedDoc,
-            p->opts,
-            th,
-            p->zoom,
-            {-1.0f, -1.0f},
-            p->hoveredCopyBlock,
-            p->activeCopiedBlock,
-            n->disabled,
-            nullptr,
-            nullptr
-        );
-
-        const ElementGeometry geom = Element::Resolve(
-            n->computedRect,
-            {n->computedRect.w, mRes.totalHeight},
-            elSpec,
-            &canvas,
-            th
-        );
-        Element::RenderText(canvas, geom, elSpec, th);
+        const Rect ctrlRect = n->computedRect;
 
         DocumentTextMap renderMap{};
         RenderOverlayState overlay{};
@@ -2313,7 +2281,7 @@ MarkdownResponse Markdown::Run(
             ExecuteMarkdownLayoutAndRender(
                 &canvas,
                 false,
-                geom.controlRect,
+                ctrlRect,
                 parsedDoc,
                 p->opts,
                 th,
@@ -2332,7 +2300,7 @@ MarkdownResponse Markdown::Run(
         ExecuteMarkdownLayoutAndRender(
             &canvas,
             true,
-            geom.controlRect,
+            ctrlRect,
             parsedDoc,
             p->opts,
             th,
@@ -2351,8 +2319,8 @@ MarkdownResponse Markdown::Run(
             const float barW = 240.0f * s;
             const float barH = 30.0f * s;
             const Rect barRect(
-                geom.controlRect.Right() - barW - 10.0f * s,
-                geom.controlRect.y + 8.0f * s,
+                ctrlRect.Right() - barW - 10.0f * s,
+                ctrlRect.y + 8.0f * s,
                 barW,
                 barH
             );
@@ -2391,12 +2359,23 @@ MarkdownResponse Markdown::Run(
     node->hovered = baseRes.hovered;
     node->pressed = baseRes.pressed;
     node->focused = isFocused;
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = SizeMode::Fit;
 
-    ctx.AdaptChildToContainer(node);
-    if (node->heightMode == SizeMode::Stretch) {
-        node->heightMode = SizeMode::Fit;
+    ControlSpec ctrlSpec{};
+    ctrlSpec.width = optsCopy.width;
+    ctrlSpec.height = optsCopy.height;
+    Control::SetupNode(ctx, node, ctrlSpec, optsCopy.stretch, optsCopy.align);
+    if (!node->parent || node->parent->type != NodeType::Element) {
+        if (optsCopy.height.has_value() && *optsCopy.height > 0.0f) {
+            node->heightMode = SizeMode::Fixed;
+            node->fixedHeight = theme.Scale(*optsCopy.height);
+        } else {
+            node->heightMode = SizeMode::Fit;
+        }
+        ctx.AdaptChildToContainer(node);
+        if (!optsCopy.height.has_value() && node->heightMode == SizeMode::Stretch) {
+            node->heightMode = SizeMode::Fit;
+        }
     }
 
     return res;
@@ -2410,8 +2389,8 @@ Vec2 Markdown::Measure(
     const UiTheme& theme,
     float availableWidth
 ) {
+    (void)size;
     const ParsedMarkdownDoc& doc = GetOrParseMarkdown(markdownText);
-    const ElementSpec spec = MakeMarkdownSpec(opts, size, theme, opts.disabled);
     const float effZoom = (opts.zoom != nullptr) ? std::clamp(*opts.zoom, 0.5f, 3.0f) : 1.0f;
 
     float ctrlW = (availableWidth > 0.0f) ? availableWidth : theme.Scale(520.0f);
@@ -2436,8 +2415,10 @@ Vec2 Markdown::Measure(
         opts.disabled
     );
 
-    const Vec2 ctrlSize = { std::max(ctrlW, res.totalWidth), res.totalHeight };
-    return Element::Measure(ctrlSize, spec, canvas, theme, availableWidth);
+    const float finalH = (opts.height.has_value() && *opts.height > 0.0f)
+        ? theme.Scale(*opts.height)
+        : res.totalHeight;
+    return { std::max(ctrlW, res.totalWidth), finalH };
 }
 
 void Markdown::Render(
@@ -2452,39 +2433,26 @@ void Markdown::Render(
     bool disabled,
     const UiTheme& theme
 ) {
+    (void)size;
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) return;
 
+    if (opts.background.IsBackgroundEnabled(false) || opts.border.color.HasAny() || opts.border.width > 0.0f) {
+        const Color bgCol = opts.background.IsBackgroundEnabled(false)
+            ? (opts.background.IsSurface() ? theme.palette.surface : opts.background.Resolve(false, false, disabled, theme.palette.surface))
+            : Color::Transparent();
+        const Color bCol = opts.border.color.Resolve(false, false, disabled, theme.palette.border);
+        const float bW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : (opts.border.color.HasAny() ? theme.Scale(1.0f) : 0.0f);
+        const float bR = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : 0.0f;
+        canvas.DrawRoundRect(bounds, bR, bgCol, bCol, bW);
+    }
+
     const ParsedMarkdownDoc& doc = GetOrParseMarkdown(markdownText);
-    const ElementSpec spec = MakeMarkdownSpec(opts, size, theme, disabled);
     const float effZoom = (opts.zoom != nullptr) ? std::clamp(*opts.zoom, 0.5f, 3.0f) : 1.0f;
-
-    const MarkdownPassResult mRes = ExecuteMarkdownLayoutAndRender(
-        &canvas,
-        false,
-        Rect(0.0f, 0.0f, bounds.w, 0.0f),
-        doc,
-        opts,
-        theme,
-        effZoom,
-        mousePos,
-        hoveredCopyBlock,
-        activeCopiedBlock,
-        disabled
-    );
-
-    const ElementGeometry geom = Element::Resolve(
-        bounds,
-        {bounds.w, mRes.totalHeight},
-        spec,
-        &canvas,
-        theme
-    );
-    Element::RenderText(canvas, geom, spec, theme);
 
     ExecuteMarkdownLayoutAndRender(
         &canvas,
         true,
-        geom.controlRect,
+        bounds,
         doc,
         opts,
         theme,

@@ -26,8 +26,7 @@ void RenderCardStage(guikit::Context& ui, DemoContext& ctx) {
     if (auto c = ui.Size(ctx.controlsSize).Card({
         .gap = ctx.cardGap,
         .padding = guikit::Padding(ctx.cardPadding),
-        .borderWidth = ctx.cardBorderWidth,
-        .borderRadius = ctx.cardRadius
+        .border = {.width = ctx.cardBorderWidth, .radius = ctx.cardRadius}
     })) {
         ui.Size(ctx.controlsSize).Heading({
             .label = "Card Surface Component",
@@ -49,8 +48,7 @@ std::string GenerateCardCode(const DemoContext& ctx) {
         "if (auto card = ui.{}Card({{\n"
         "    .gap = {:.1f}f,\n"
         "    .padding = guikit::Padding({:.1f}f),\n"
-        "    .borderWidth = {:.1f}f,\n"
-        "    .borderRadius = {:.1f}f,\n"
+        "    .border = {{.width = {:.1f}f, .radius = {:.1f}f}},\n"
         "    .clipChildren = true,\n"
         "    .widthMode = guikit::SizeMode::Stretch,\n"
         "    .heightMode = guikit::SizeMode::Fit\n"

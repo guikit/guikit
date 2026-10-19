@@ -27,15 +27,22 @@ ContainerScope Card::Open(
     outerNode->widthMode = opts.widthMode;
     outerNode->heightMode = opts.heightMode;
     outerNode->padding = theme.ResolvePadding(opts.padding, activeSize);
-    outerNode->cornerRadius = theme.ResolveRadius(opts.borderRadius, activeSize);
+    outerNode->cornerRadius = theme.ResolveRadius(opts.border.radius, activeSize);
     outerNode->clipChildren = opts.clipChildren;
     outerNode->uiSize = activeSize;
     outerNode->disabled = activeDisabled;
 
     const auto& pal = theme.palette;
-    outerNode->backgroundColor = (opts.backgroundColor.a > 0) ? opts.backgroundColor : pal.surface;
-    outerNode->borderColor = (opts.borderColor.a > 0) ? opts.borderColor : pal.border;
-    outerNode->borderWidth = theme.Scale(opts.borderWidth);
+    outerNode->backgroundColor = opts.background.IsBackgroundEnabled(true)
+        ? (opts.background.HasAny() && !opts.background.IsSurface()
+            ? opts.background.Resolve(false, false, activeDisabled, pal.surface)
+            : pal.surface)
+        : Color::Transparent();
+    outerNode->borderWidth = theme.Scale(opts.border.width);
+    outerNode->borderColor = (opts.border.width > 0.0f)
+        ? opts.border.color.Resolve(false, false, activeDisabled, pal.border)
+        : Color::Transparent();
+    outerNode->visualHash = detail::HashArgs(opts.background, opts.border);
 
     ctx.PushScale(activeScale);
     ctx.PushSize(activeSize);

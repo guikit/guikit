@@ -72,14 +72,7 @@ struct SonarGuardZone {
 
 /// Configuration options for the autonomous SonarView (Polar Heatmap / Diver Detection Sonar / PPI Radar) widget.
 struct SonarViewOptions {
-    // --- Element Companion Header / Footer ---
-    UiText label{};
-    UiText description{};
-    Icon icon{};
-    UiText badge{};
     UiVariant variant{UiVariant::Default};
-    ElementLayout layout{ElementLayout::Stacked};
-    InlineOrder inlineOrder{InlineOrder::LabelFirst};
     Align align{Align::Start};
 
     // --- Polar Matrix Dimensions & Geometry ---
@@ -131,7 +124,8 @@ struct SonarViewOptions {
     std::optional<float> width{std::nullopt};
     std::optional<float> height{std::nullopt};
     SizeMode heightMode{SizeMode::Stretch};
-    std::optional<float> borderRadius{std::nullopt};
+    StateColor background{};
+    Border border{};
     bool disabled{false};
     std::string_view tooltip{};
 };

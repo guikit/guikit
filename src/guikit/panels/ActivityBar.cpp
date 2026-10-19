@@ -102,12 +102,18 @@ ActivityBarScope ActivityBar::Open(
     node->padding = opts.padding.has_value()
         ? theme.ResolvePadding(opts.padding, activeSize)
         : theme.GetPadding(UiSize::Sm);
-    node->backgroundColor = (opts.backgroundColor.a > 0) ? opts.backgroundColor : pal.surface;
-    node->borderColor = (opts.borderColor.a > 0) ? opts.borderColor : pal.border;
-    node->borderWidth = theme.Scale(opts.borderWidth);
-    node->cornerRadius = opts.borderRadius.has_value()
-        ? theme.Scale(*opts.borderRadius)
-        : (opts.flushWithSidebar ? 0.0f : theme.ResolveRadius(opts.borderRadius, activeSize));
+    node->backgroundColor = opts.background.IsBackgroundEnabled(true)
+        ? (opts.background.HasAny() && !opts.background.IsSurface()
+            ? opts.background.Resolve(false, false, activeDisabled, pal.surface)
+            : pal.surface)
+        : Color::Transparent();
+    node->borderWidth = theme.Scale(opts.border.width);
+    node->borderColor = (opts.border.width > 0.0f)
+        ? opts.border.color.Resolve(false, false, activeDisabled, pal.border)
+        : Color::Transparent();
+    node->cornerRadius = opts.border.radius.has_value()
+        ? theme.Scale(*opts.border.radius)
+        : (opts.flushWithSidebar ? 0.0f : theme.ResolveRadius(opts.border.radius, activeSize));
     node->clipChildren = true;
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
@@ -116,7 +122,9 @@ ActivityBarScope ActivityBar::Open(
         static_cast<uint8_t>(opts.side),
         static_cast<uint8_t>(opts.style),
         static_cast<uint8_t>(opts.variant),
-        opts.flushWithSidebar
+        opts.flushWithSidebar,
+        opts.background,
+        opts.border
     );
 
     ctx.PushScale(activeScale);
@@ -362,7 +370,9 @@ void ActivityBar::RenderItem(
         const Color badgeTextCol = item.badge.color.HasAny()
             ? item.badge.color.Resolve(hovered, item.active, disabled, v.text)
             : (disabled ? v.text.WithAlphaF(0.55f) : v.text);
-        const Color cutoutCol = (opts.backgroundColor.a > 0) ? opts.backgroundColor : pal.surface;
+        const Color cutoutCol = (opts.background.HasAny() && !opts.background.IsSurface())
+            ? opts.background.Resolve(false, false, disabled, pal.surface)
+            : pal.surface;
         canvas.DrawRoundRect(badgeRect, badgeH * 0.5f, badgeBg, cutoutCol, 1.5f);
         canvas.DrawTextBox(item.badge.text, badgeRect, badgeFont, badgeTextCol, 0.5f, 0.5f);
     }

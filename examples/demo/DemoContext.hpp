@@ -505,8 +505,7 @@ struct DemoContext {
         return guikit::CardOptions{
             .gap = cardGap,
             .padding = guikit::Padding(cardPadding),
-            .borderWidth = cardBorderWidth,
-            .borderRadius = cardRadius
+            .border = {.width = cardBorderWidth, .radius = cardRadius}
         };
     }
 

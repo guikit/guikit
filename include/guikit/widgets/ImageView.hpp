@@ -149,14 +149,7 @@ struct ImageViewParams {
 
 /// Configuration options for the `ui.ImageView` widget.
 struct ImageViewOptions {
-    // --- Element Companion Header / Footer ---
-    UiText label{};
-    UiText description{};
-    Icon icon{};
-    UiText badge{};
     UiVariant variant{UiVariant::Default};
-    ElementLayout layout{ElementLayout::Stacked};
-    InlineOrder inlineOrder{InlineOrder::LabelFirst};
     Align align{Align::Start};
     StretchMode stretch{StretchMode::Fill};
 
@@ -165,7 +158,8 @@ struct ImageViewOptions {
     float height{620.0f};
     float minHeight{360.0f};
     SizeMode heightMode{SizeMode::Fit};
-    std::optional<float> borderRadius{std::nullopt};
+    StateColor background{};
+    Border border{};
 
     // --- Workstation Layout & Features ---
     bool showSidebar{true};             ///< Render built-in control sidebar (Histogram, W/L, Colormap, Auto Window, Transform)

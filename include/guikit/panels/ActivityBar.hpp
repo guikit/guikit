@@ -46,10 +46,8 @@ struct ActivityBarOptions {
     std::optional<float> width{std::nullopt};           ///< Optional explicit rail width (nullopt = auto-fit to square icon cells)
     std::optional<float> gap{4.0f};                     ///< Vertical spacing between consecutive items
     std::optional<Padding> padding{std::nullopt};       ///< Internal rail padding (nullopt = compact symmetric padding)
-    Color backgroundColor{Color::Transparent()};
-    Color borderColor{Color::Transparent()};
-    float borderWidth{1.0f};
-    std::optional<float> borderRadius{std::nullopt};    ///< Rail corner rounding radius (nullopt = from theme)
+    StateColor background{};
+    Border border{.width = 1.0f};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

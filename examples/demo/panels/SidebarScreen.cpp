@@ -309,7 +309,7 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
                 .height = 145.0f,
                 .resizable = s_state.resizable,
                 .allowCollapse = s_state.allowCollapse,
-                .borderRadius = 6.0f
+                .border = {.radius = 6.0f}
             })) {
                 if (auto bpTb = ui.Size(guikit::UiSize::Sm).Toolbar({
                     .style = guikit::ToolbarStyle::Header

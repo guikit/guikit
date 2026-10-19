@@ -538,12 +538,8 @@ MapViewScope MapView::Open(
     }
 
     const SceneOptions sceneOpts{
-        .label = opts.label,
-        .description = opts.description,
         .worldSize = Vec2{worldSize, worldSize},
-        .background = SceneBackground::Solid,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
+        .backgroundStyle = SceneBackground::Solid,
         .align = opts.align,
         .stretch = opts.stretch,
         .widthMode = opts.widthMode,
@@ -560,8 +556,8 @@ MapViewScope MapView::Open(
         .showScrollbars = opts.showScrollbars,
         .showControls = opts.showControls,
         .clampToWorld = opts.clampToWorld,
-        .borderRadius = opts.borderRadius,
-        .borderWidth = opts.borderWidth,
+        .background = opts.background,
+        .border = opts.border,
         .disabled = opts.disabled,
         .theme = opts.theme,
         .scale = opts.scale,

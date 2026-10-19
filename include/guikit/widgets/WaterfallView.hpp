@@ -61,14 +61,7 @@ struct WaterfallTrack {
 
 /// Configuration options for the autonomous WaterfallView (RTSA Spectrum & DOA/BTR Tracker) widget.
 struct WaterfallViewOptions {
-    // --- Element Companion Header / Footer ---
-    UiText label{};
-    UiText description{};
-    Icon icon{};
-    UiText badge{};
     UiVariant variant{UiVariant::Default};
-    ElementLayout layout{ElementLayout::Stacked};
-    InlineOrder inlineOrder{InlineOrder::LabelFirst};
     Align align{Align::Start};
 
     // --- Domain Mode, Layout & Ring-Buffer Geometry ---
@@ -131,7 +124,8 @@ struct WaterfallViewOptions {
     std::optional<float> width{std::nullopt};
     std::optional<float> height{std::nullopt};
     SizeMode heightMode{SizeMode::Stretch};
-    std::optional<float> borderRadius{std::nullopt};
+    StateColor background{};
+    Border border{};
     bool disabled{false};
     std::string_view tooltip{};
 };

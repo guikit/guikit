@@ -8,7 +8,7 @@
 #include <vector>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
-#include "guikit/core/Element.hpp"
+#include "guikit/core/Control.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/graphics/Colormap.hpp"
 
@@ -19,32 +19,6 @@ namespace {
 constexpr float kPi = std::numbers::pi_v<float>;
 constexpr float kDegToRad = kPi / 180.0f;
 constexpr float kRadToDeg = 180.0f / kPi;
-
-[[nodiscard]] ElementSpec MakeSonarViewElementSpec(
-    const SonarViewOptions& opts,
-    UiSize size,
-    const UiTheme& theme,
-    bool disabled
-) noexcept {
-    return ElementSpec{
-        .label = opts.label,
-        .description = opts.description,
-        .icon = opts.icon,
-        .badge = opts.badge,
-        .layout = opts.layout,
-        .inlineOrder = opts.inlineOrder,
-        .align = opts.align,
-        .stretch = opts.stretch,
-        .width = opts.width,
-        .widgetSize = size,
-        .labelGap = theme.Scale(6.0f),
-        .descGap = theme.Scale(4.0f),
-        .inlineGap = theme.Scale(12.0f),
-        .stretchableControl = true,
-        .stretchHeightWhenStandalone = (opts.heightMode == SizeMode::Stretch),
-        .disabled = disabled
-    };
-}
 
 struct SonarViewState {
     uint32_t numBeams{0};
@@ -463,19 +437,15 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
     const SonarViewOptions& opts = payload->opts;
     const SonarViewResponse& resp = payload->resp;
 
-    const ElementSpec spec = MakeSonarViewElementSpec(opts, node->uiSize, theme, node->disabled);
-    const Vec2 ctrlSize = {node->computedRect.w, node->computedRect.h};
-    const ElementGeometry elemGeom = Element::Resolve(node->computedRect, ctrlSize, spec, &canvas, theme);
-    Element::RenderText(canvas, elemGeom, spec, theme);
-
-    const Rect r = elemGeom.controlRect;
+    const Rect r = node->computedRect;
     if (r.w <= 8.0f || r.h <= 8.0f) return;
 
-    const float radius = opts.borderRadius.has_value()
-        ? theme.Scale(*opts.borderRadius)
+    const float radius = opts.border.radius.has_value()
+        ? theme.Scale(*opts.border.radius)
         : theme.GetRadius(node->uiSize);
-    const Color bgConsole{6, 10, 18, 255};
-    const Color borderCol = theme.palette.borderSubtle;
+    const Color bgConsole = opts.background.Resolve(node->hovered, node->pressed, node->disabled, Color{6, 10, 18, 255});
+    const Color borderCol = opts.border.color.Resolve(node->hovered, node->pressed, node->disabled, theme.palette.borderSubtle);
+    const float borderW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : 1.0f;
     const Color gridLineCol{56, 189, 248, 48};
     const Color gridMajorCol{56, 189, 248, 95};
     const Color labelTextCol{148, 163, 184, 225};
@@ -550,7 +520,10 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
         opts.guardZone.endBearingDeg,
         resp.guardZoneAlarm,
         resp.rangeZoom,
-        borderCol.ToUint32()
+        bgConsole.ToUint32(),
+        borderCol.ToUint32(),
+        borderW,
+        radius
     );
 
     bool restoredFromCache = false;
@@ -571,7 +544,7 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
         // =====================================================================
         // PASS A: Static Base Layer (Console frame, GPU hole, Guard Zone, Range Rings, Dial, Colorbar)
         // =====================================================================
-        canvas.DrawRoundRect(r, radius, bgConsole, borderCol, 1.0f);
+        canvas.DrawRoundRect(r, radius, bgConsole, borderCol, borderW);
         canvas.PushClip(plotRect);
 
         if (payload->state) {
@@ -1014,27 +987,32 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
 Vec2 SonarView::Measure(
     std::span<const float> /*polarMatrix*/,
     const SonarViewOptions& opts,
-    UiSize size,
-    ICanvas* canvas,
+    UiSize /*size*/,
+    ICanvas* /*canvas*/,
     const UiTheme& theme,
     float availableWidth
 ) {
-    const float defaultW = opts.width.has_value()
-        ? theme.Scale(*opts.width)
-        : (availableWidth > 0.0f ? availableWidth : theme.Scale(520.0f));
-    const float defaultH = opts.height.has_value()
+    float defaultW = availableWidth > 0.0f ? availableWidth : theme.Scale(520.0f);
+    if (opts.stretch == StretchMode::Fill && availableWidth > 0.0f && opts.width.has_value()) {
+        defaultW = availableWidth * std::clamp(*opts.width, 0.1f, 1.0f);
+    } else if (opts.width.has_value() && *opts.width > 0.0f) {
+        defaultW = theme.Scale(*opts.width);
+    }
+    const float defaultH = (opts.height.has_value() && *opts.height > 0.0f)
         ? theme.Scale(*opts.height)
         : theme.Scale(420.0f);
-    const ElementSpec spec = MakeSonarViewElementSpec(opts, size, theme, opts.disabled);
-    return Element::Measure({defaultW, defaultH}, spec, canvas, theme, availableWidth);
+    return {defaultW, defaultH};
 }
 
 SonarViewResponse SonarView::Run(
     Context& ctx,
     std::span<const float> polarMatrix,
-    const SonarViewOptions& opts,
+    const SonarViewOptions& optsIn,
     std::source_location loc
 ) {
+    SonarViewOptions opts = optsIn;
+    Control::InheritElementSizing(ctx, opts.stretch, opts.width, opts.height);
+
     const Id id = ctx.MakeChildId(loc);
     const bool isDisabled = opts.disabled || ctx.IsDisabled();
     const UiSize effectiveSize = ctx.GetCurrentSize();
@@ -1049,9 +1027,7 @@ SonarViewResponse SonarView::Run(
     if (prevBounds.w <= 1.0f || prevBounds.h <= 1.0f) {
         prevBounds = ctx.GetParentPrevFrameBounds();
     }
-    const ElementSpec elemSpec = MakeSonarViewElementSpec(opts, effectiveSize, theme, isDisabled);
-    const ElementGeometry prevElemGeom = Element::Resolve(prevBounds, {prevBounds.w, prevBounds.h}, elemSpec, canvas, theme);
-    const Rect activeRect = (prevElemGeom.controlRect.w > 1.0f && prevElemGeom.controlRect.h > 1.0f) ? prevElemGeom.controlRect : prevBounds;
+    const Rect activeRect = prevBounds;
 
     auto& state = ctx.GetOrCreateState<SonarViewState>(id);
 
@@ -1252,14 +1228,11 @@ SonarViewResponse SonarView::Run(
     Node* node = ctx.CreateNode(NodeType::SonarView, id);
     auto* payload = ctx.AllocPayload<SonarViewPayload>();
     payload->opts = opts;
-    payload->opts.label = ctx.AllocText(opts.label);
-    payload->opts.description = ctx.AllocText(opts.description);
-    payload->opts.badge = ctx.AllocText(opts.badge);
     payload->opts.tooltip = ctx.AllocString(opts.tooltip);
     payload->resp = resp;
     payload->state = &state;
 
-    node->text = payload->opts.label.text.empty() ? "SonarView" : payload->opts.label.text;
+    node->text = "SonarView";
     node->SetPayload(payload);
 
     uint64_t gridFp = 0;
@@ -1272,9 +1245,6 @@ SonarViewResponse SonarView::Run(
 
     node->visualHash = detail::HashArgs(
         gridFp,
-        payload->opts.label,
-        payload->opts.description,
-        payload->opts.badge,
         static_cast<uint8_t>(opts.displayMode),
         static_cast<uint8_t>(opts.scanMode),
         static_cast<uint8_t>(opts.colormap),
@@ -1296,7 +1266,9 @@ SonarViewResponse SonarView::Run(
         plotRect.h,
         effectiveSize,
         isDisabled,
-        canvas ? canvas->SupportsGpuShaders() : false
+        canvas ? canvas->SupportsGpuShaders() : false,
+        opts.background,
+        opts.border
     );
 
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* c, const UiTheme& th) noexcept -> Vec2 {
@@ -1311,18 +1283,23 @@ SonarViewResponse SonarView::Run(
     node->disabled = isDisabled;
     node->hovered = hovered;
     node->pressed = baseRes.pressed;
-    node->widthMode = (opts.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
     node->heightMode = opts.heightMode;
-    if (opts.height.has_value() && *opts.height > 0.0f &&
-        !opts.label.HasContentOrReserve() && !opts.description.HasContentOrReserve()) {
-        node->heightMode = SizeMode::Fixed;
-        node->fixedHeight = theme.Scale(*opts.height);
-    }
-    node->minHeight = opts.height.has_value() ? theme.Scale(*opts.height) : theme.Scale(260.0f);
 
-    ctx.AdaptChildToContainer(node);
-    if (opts.heightMode == SizeMode::Fit && node->heightMode == SizeMode::Stretch) {
-        node->heightMode = SizeMode::Fit;
+    ControlSpec ctrlSpec{};
+    ctrlSpec.width = opts.width;
+    ctrlSpec.height = opts.height;
+    Control::SetupNode(ctx, node, ctrlSpec, opts.stretch, opts.align);
+    if (!node->parent || node->parent->type != NodeType::Element) {
+        node->heightMode = opts.heightMode;
+        if (opts.height.has_value() && *opts.height > 0.0f) {
+            node->heightMode = SizeMode::Fixed;
+            node->fixedHeight = theme.Scale(*opts.height);
+        }
+        node->minHeight = (opts.height.has_value() && *opts.height > 0.0f) ? theme.Scale(*opts.height) : theme.Scale(260.0f);
+        ctx.AdaptChildToContainer(node);
+        if (opts.heightMode == SizeMode::Fit && !opts.height.has_value() && node->heightMode == SizeMode::Stretch) {
+            node->heightMode = SizeMode::Fit;
+        }
     }
 
     return resp;

@@ -19,10 +19,8 @@ struct BoxOptions {
     float fixedWidth{0.0f};
     float fixedHeight{0.0f};
     std::optional<Padding> padding{std::nullopt};   ///< Container padding (nullopt = zero)
-    Color backgroundColor{0, 0, 0, 0};
-    Color borderColor{0, 0, 0, 0};
-    float borderWidth{0.0f};
-    std::optional<float> borderRadius{std::nullopt}; ///< Corner radius in pixels (nullopt = zero / sharp)
+    StateColor background{};
+    Border border{};
     bool clipChildren{false};
     bool disabled{false};
     const UiTheme* theme{nullptr};

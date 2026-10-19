@@ -56,7 +56,13 @@ Response TabBar::Run(
     const float defaultTabGap = (activeSize <= UiSize::Sm) ? theme.GetGap(UiSize::Xs) : theme.GetGap(UiSize::Sm);
     const float activeTabGap = opts.gap.has_value() ? theme.Scale(*opts.gap) : defaultTabGap;
 
-    const bool hasCustomBgOrBorder = (opts.backgroundColor.a > 0 || opts.borderColor.a > 0);
+    const Color resolvedBg = opts.background.IsBackgroundEnabled(false)
+        ? (opts.background.IsSurface() ? theme.palette.surfaceElevated : opts.background.Resolve(false, false, activeDisabled, theme.palette.surfaceElevated))
+        : Color::Transparent();
+    const Color resolvedBorderCol = (opts.border.width > 0.0f || opts.border.color.HasAny())
+        ? opts.border.color.Resolve(false, false, activeDisabled, theme.palette.borderSubtle)
+        : Color::Transparent();
+    const bool hasCustomBgOrBorder = (resolvedBg.a > 0 || resolvedBorderCol.a > 0 || opts.border.width > 0.0f);
 
     Padding resolvedPadding{};
     if (opts.padding.has_value()) {
@@ -67,29 +73,30 @@ Response TabBar::Run(
     }
 
     float resolvedRadius = 0.0f;
-    if (opts.borderRadius.has_value()) {
-        resolvedRadius = theme.Scale(*opts.borderRadius);
+    if (opts.border.radius.has_value()) {
+        resolvedRadius = theme.Scale(*opts.border.radius);
     } else if (opts.style == TabBarStyle::Pill && hasCustomBgOrBorder) {
         resolvedRadius = m.cornerRadius + 2.0f * activeScale;
     }
 
-    const float effectiveBorderWidth = (opts.borderWidth > 0.0f) ? theme.Scale(opts.borderWidth)
-        : (opts.borderColor.a > 0 ? theme.Scale(1.0f) : 0.0f);
+    const float effectiveBorderWidth = (opts.border.width > 0.0f)
+        ? theme.Scale(opts.border.width)
+        : (resolvedBorderCol.a > 0 ? theme.Scale(1.0f) : 0.0f);
 
     barNode->gap = activeTabGap;
     barNode->padding = resolvedPadding;
     barNode->heightMode = SizeMode::Fixed;
     barNode->fixedHeight = m.defaultHeight + resolvedPadding.Vertical();
-    barNode->backgroundColor = opts.backgroundColor;
-    barNode->borderColor = opts.borderColor;
+    barNode->backgroundColor = resolvedBg;
+    barNode->borderColor = resolvedBorderCol;
     barNode->borderWidth = effectiveBorderWidth;
     barNode->cornerRadius = resolvedRadius;
     if (resolvedRadius > 0.0f) {
         barNode->clipChildren = true;
     }
     barNode->visualHash = detail::HashArgs(
-        opts.backgroundColor.ToUint32(),
-        opts.borderColor.ToUint32(),
+        resolvedBg.ToUint32(),
+        resolvedBorderCol.ToUint32(),
         effectiveBorderWidth,
         resolvedRadius,
         resolvedPadding.top,
@@ -173,7 +180,7 @@ Response TabBar::Run(
             opts.style,
             opts.showSeparator,
             opts.activeColor.ToUint32(),
-            opts.borderRadius.value_or(-1.0f),
+            opts.border.radius.value_or(-1.0f),
             item.variant,
             tData->item.badge,
             tData->item.label,
@@ -323,7 +330,7 @@ void TabBar::RenderTab(
         }
     } else {
         // Pill / Segmented style
-        const bool hasCustomBgOrBorder = (opts.backgroundColor.a > 0 || opts.borderColor.a > 0);
+        const bool hasCustomBgOrBorder = (opts.background.IsBackgroundEnabled(false) || opts.border.color.HasAny() || opts.border.width > 0.0f);
         float padTop = 0.0f;
         if (opts.padding.has_value()) {
             padTop = opts.padding->top;
@@ -332,11 +339,11 @@ void TabBar::RenderTab(
         }
 
         float pillRadius = m.cornerRadius;
-        if (opts.borderRadius.has_value()) {
-            if (*opts.borderRadius == 0.0f) {
+        if (opts.border.radius.has_value()) {
+            if (*opts.border.radius == 0.0f) {
                 pillRadius = 0.0f;
             } else {
-                pillRadius = std::max(0.0f, *opts.borderRadius - padTop);
+                pillRadius = std::max(0.0f, *opts.border.radius - padTop);
             }
         }
 
