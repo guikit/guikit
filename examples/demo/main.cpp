@@ -791,165 +791,148 @@ int main(int argc, char* argv[]) {
                     }
 
                     // Content Canvas (Center / Right Workspace)
-                    if (auto contentBox = ui.Box({
+                    if (auto contentCol = ui.Column({
+                        .gap = demoCtx.colGap,
                         .widthMode = guikit::SizeMode::Stretch,
-                        .heightMode = guikit::SizeMode::Stretch,
-                        .padding = guikit::Padding::All(8.0f),
-                        .backgroundColor = demoCtx.shellTheme.palette.background,
-                        .borderColor = demoCtx.shellTheme.palette.borderSubtle,
-                        .borderWidth = 1.0f,
-                        .borderRadius = 8.0f,
-                        .clipChildren = true
+                        .heightMode = guikit::SizeMode::Stretch
                     })) {
-                        if (auto contentCol = ui.Column({
-                            .gap = demoCtx.colGap,
-                            .widthMode = guikit::SizeMode::Stretch,
-                            .heightMode = guikit::SizeMode::Stretch
-                        })) {
-                            // Local Preview Toolbar
-                            if (auto previewTb = ui.Toolbar()) {
-                                ui.Text("PREVIEW", {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Muted});
-                                previewTb.Separator();
+                        // Local Preview Toolbar
+                        if (auto previewTb = ui.Toolbar()) {
+                            ui.Text("PREVIEW", {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Muted});
+                            previewTb.Separator();
 
-                                if (ui.Size(guikit::UiSize::Sm).Select(previewScaleIndex, scaleLabels, {.width = 92.0f}).changed) {
-                                    ui.InvalidateAll();
-                                }
+                            if (ui.Size(guikit::UiSize::Sm).Select(previewScaleIndex, scaleLabels, {.width = 92.0f}).changed) {
+                                ui.InvalidateAll();
+                            }
 
-                                if (ui.Size(guikit::UiSize::Md).Switch(demoCtx.previewLightMode, {
-                                    .textLeft = "Dark",
-                                    .textRight = "Light",
-                                    .symmetric = true
+                            if (ui.Size(guikit::UiSize::Md).Switch(demoCtx.previewLightMode, {
+                                .textLeft = "Dark",
+                                .textRight = "Light",
+                                .symmetric = true
+                            }).changed) {
+                                demoCtx.previewDarkMode = !demoCtx.previewLightMode;
+                                const auto defTheme = demoCtx.previewDarkMode
+                                    ? guikit::UiTheme::Dark(demoCtx.previewTheme.density)
+                                    : guikit::UiTheme::Light(demoCtx.previewTheme.density);
+                                demoCtx.previewTheme.palette = defTheme.palette;
+                                demoCtx.previewTheme.variants = defTheme.variants;
+                                demoCtx.previewTheme.syntax = defTheme.syntax;
+                                demoCtx.previewTheme.mode = demoCtx.previewDarkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
+                                ui.InvalidateAll();
+                            }
+
+                            previewTb.Toggle(demoCtx.previewBounds, {
+                                .label = "Bounds",
+                                .icon = demoCtx.previewBounds ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
+                                .variant = guikit::UiVariant::Info
+                            });
+
+                            previewTb.Toggle(demoCtx.previewInspect, {
+                                .label = "Inspect",
+                                .icon = guikit::Icon::Search(),
+                                .variant = guikit::UiVariant::Warning
+                            });
+
+                            if (IsSandboxCategory(selectedCategory)) {
+                                if (previewTb.Toggle(demoCtx.previewShowCode, {
+                                    .label = "Code",
+                                    .icon = demoCtx.previewShowCode ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
+                                    .variant = guikit::UiVariant::Primary
                                 }).changed) {
-                                    demoCtx.previewDarkMode = !demoCtx.previewLightMode;
-                                    const auto defTheme = demoCtx.previewDarkMode
-                                        ? guikit::UiTheme::Dark(demoCtx.previewTheme.density)
-                                        : guikit::UiTheme::Light(demoCtx.previewTheme.density);
-                                    demoCtx.previewTheme.palette = defTheme.palette;
-                                    demoCtx.previewTheme.variants = defTheme.variants;
-                                    demoCtx.previewTheme.syntax = defTheme.syntax;
-                                    demoCtx.previewTheme.mode = demoCtx.previewDarkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
-                                    ui.InvalidateAll();
+                                    ui.RequestRepaint(3);
                                 }
+                            }
+                        }
 
-                                previewTb.Toggle(demoCtx.previewBounds, {
-                                    .label = "Bounds",
-                                    .icon = demoCtx.previewBounds ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
-                                    .variant = guikit::UiVariant::Info
-                                });
-
-                                previewTb.Toggle(demoCtx.previewInspect, {
-                                    .label = "Inspect",
-                                    .icon = guikit::Icon::Search(),
-                                    .variant = guikit::UiVariant::Warning
-                                });
-
-                                if (IsSandboxCategory(selectedCategory)) {
-                                    if (previewTb.Toggle(demoCtx.previewShowCode, {
-                                        .label = "Code",
-                                        .icon = demoCtx.previewShowCode ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
-                                        .variant = guikit::UiVariant::Primary
-                                    }).changed) {
-                                        ui.RequestRepaint(3);
-                                    }
+                        if (IsSandboxCategory(selectedCategory)) {
+                            // SANDBOX MODE: Hero Stage + optional C++20 Code Generator
+                            const bool isFullStage = IsFullStageCategory(selectedCategory);
+                            if (auto stageBox = ui.Box({
+                                .widthMode = guikit::SizeMode::Stretch,
+                                .heightMode = guikit::SizeMode::Stretch,
+                                .padding = guikit::Padding::All(isFullStage ? 8.0f : 24.0f),
+                                .backgroundColor = demoCtx.previewTheme.palette.surface,
+                                .borderColor = demoCtx.previewTheme.palette.borderSubtle,
+                                .borderWidth = 1.0f,
+                                .borderRadius = 8.0f,
+                                .clipChildren = true,
+                                .theme = &demoCtx.previewTheme,
+                                .scale = previewScale,
+                                .debugBounds = demoCtx.previewBounds,
+                                .inspectMode = demoCtx.previewInspect
+                            })) {
+                                if (auto centerRow = ui.Row({
+                                    .align = isFullStage ? guikit::Alignment::Stretch : guikit::Alignment::Center,
+                                    .justify = guikit::Justify::Center,
+                                    .heightMode = guikit::SizeMode::Stretch
+                                })) {
+                                    DispatchSandboxStage(ui, selectedCategory, demoCtx);
                                 }
                             }
 
-                            if (IsSandboxCategory(selectedCategory)) {
-                                // SANDBOX MODE: Hero Stage + optional C++20 Code Generator
-                                if (auto heroCard = ui.Card({
-                                    .gap = 12.0f,
-                                    .padding = guikit::Padding::All(14.0f),
-                                    .borderRadius = 8.0f,
-                                    .heightMode = guikit::SizeMode::Stretch,
-                                    .theme = &demoCtx.previewTheme,
-                                    .scale = previewScale,
-                                    .debugBounds = demoCtx.previewBounds,
-                                    .inspectMode = demoCtx.previewInspect
+                            if (auto codePanel = ui.BottomPanel(demoCtx.previewShowCode, {
+                                .height = 240.0f,
+                                .resizable = true,
+                                .allowCollapse = true,
+                                .borderRadius = 8.0f,
+                                .theme = &demoCtx.shellTheme
+                            })) {
+                                if (auto codeTb = ui.Size(guikit::UiSize::Sm).Toolbar({
+                                    .style = guikit::ToolbarStyle::Header
                                 })) {
-                                    const bool isFullStage = IsFullStageCategory(selectedCategory);
-                                    if (auto stageBox = ui.Box({
-                                        .widthMode = guikit::SizeMode::Stretch,
-                                        .heightMode = guikit::SizeMode::Stretch,
-                                        .padding = guikit::Padding::All(isFullStage ? 8.0f : 24.0f),
-                                        .backgroundColor = demoCtx.previewTheme.palette.surfaceElevated,
-                                        .borderColor = demoCtx.previewTheme.palette.borderSubtle,
-                                        .borderWidth = 1.0f,
-                                        .borderRadius = 8.0f
-                                    })) {
-                                        if (auto centerRow = ui.Row({
-                                            .align = isFullStage ? guikit::Alignment::Stretch : guikit::Alignment::Center,
-                                            .justify = guikit::Justify::Center,
-                                            .heightMode = guikit::SizeMode::Stretch
-                                        })) {
-                                            DispatchSandboxStage(ui, selectedCategory, demoCtx);
-                                        }
+                                    ui.Text("GENERATED C++20 CODE", {
+                                        .role = guikit::TextRole::LabelSmall,
+                                        .variant = guikit::UiVariant::Secondary
+                                    });
+                                    codeTb.Spacer();
+                                    if (codeTb.Action({
+                                        .label = "Close",
+                                        .tooltip = "Close Code Panel",
+                                        .icon = guikit::Icon::Close(),
+                                        .square = true
+                                    }).clicked) {
+                                        demoCtx.previewShowCode = false;
+                                        ui.InvalidateAll();
                                     }
                                 }
 
-                                if (auto codePanel = ui.BottomPanel(demoCtx.previewShowCode, {
-                                    .height = 240.0f,
-                                    .resizable = true,
-                                    .allowCollapse = true,
-                                    .borderRadius = 8.0f,
-                                    .theme = &demoCtx.shellTheme
-                                })) {
-                                    if (auto codeTb = ui.Size(guikit::UiSize::Sm).Toolbar({
-                                        .style = guikit::ToolbarStyle::Header
-                                    })) {
-                                        ui.Text("GENERATED C++20 CODE", {
-                                            .role = guikit::TextRole::LabelSmall,
-                                            .variant = guikit::UiVariant::Secondary
-                                        });
-                                        codeTb.Spacer();
-                                        if (codeTb.Action({
-                                            .label = "Close",
-                                            .tooltip = "Close Code Panel",
-                                            .icon = guikit::Icon::Close(),
-                                            .square = true
-                                        }).clicked) {
-                                            demoCtx.previewShowCode = false;
-                                            ui.InvalidateAll();
-                                        }
-                                    }
-
-                                    if (auto codeBody = ui.Box({
-                                        .widthMode = guikit::SizeMode::Stretch,
-                                        .heightMode = guikit::SizeMode::Stretch,
-                                        .padding = guikit::Padding::All(6.0f)
-                                    })) {
-                                        std::string snippet = DispatchCodeGenerator(selectedCategory, demoCtx);
-                                        ui.TextArea(snippet, {
-                                            .autoHeight = false,
-                                            .readOnly = true,
-                                            .showLineNumbers = true,
-                                            .showCopyButton = true,
-                                            .monospace = true,
-                                            .allowZoom = true,
-                                            .syntax = guikit::SyntaxConfig::Cpp(),
-                                            .heightMode = guikit::SizeMode::Stretch,
-                                            .borderRadius = 6.0f
-                                        });
-                                    }
-                                }
-                            } else {
-                                // ASSEMBLY MODE: Real-World Screens & Compositions
-                                if (auto previewBox = ui.Box({
+                                if (auto codeBody = ui.Box({
                                     .widthMode = guikit::SizeMode::Stretch,
                                     .heightMode = guikit::SizeMode::Stretch,
-                                    .padding = guikit::Padding::All(8.0f),
-                                    .backgroundColor = demoCtx.previewTheme.palette.background,
-                                    .borderColor = demoCtx.previewTheme.palette.borderSubtle,
-                                    .borderWidth = 1.0f,
-                                    .borderRadius = 8.0f,
-                                    .clipChildren = true,
-                                    .theme = &demoCtx.previewTheme,
-                                    .scale = previewScale,
-                                    .debugBounds = demoCtx.previewBounds,
-                                    .inspectMode = demoCtx.previewInspect
+                                    .padding = guikit::Padding::All(6.0f)
                                 })) {
-                                    if (auto contentScroll = ui.ScrollArea({.gap = 12.0f})) {
-                                        DispatchAssemblyScreen(ui, selectedCategory, demoCtx);
-                                    }
+                                    std::string snippet = DispatchCodeGenerator(selectedCategory, demoCtx);
+                                    ui.TextArea(snippet, {
+                                        .autoHeight = false,
+                                        .readOnly = true,
+                                        .showLineNumbers = true,
+                                        .showCopyButton = true,
+                                        .monospace = true,
+                                        .allowZoom = true,
+                                        .syntax = guikit::SyntaxConfig::Cpp(),
+                                        .heightMode = guikit::SizeMode::Stretch,
+                                        .borderRadius = 6.0f
+                                    });
+                                }
+                            }
+                        } else {
+                            // ASSEMBLY MODE: Real-World Screens & Compositions
+                            if (auto previewBox = ui.Box({
+                                .widthMode = guikit::SizeMode::Stretch,
+                                .heightMode = guikit::SizeMode::Stretch,
+                                .padding = guikit::Padding::All(8.0f),
+                                .backgroundColor = demoCtx.previewTheme.palette.background,
+                                .borderColor = demoCtx.previewTheme.palette.borderSubtle,
+                                .borderWidth = 1.0f,
+                                .borderRadius = 8.0f,
+                                .clipChildren = true,
+                                .theme = &demoCtx.previewTheme,
+                                .scale = previewScale,
+                                .debugBounds = demoCtx.previewBounds,
+                                .inspectMode = demoCtx.previewInspect
+                            })) {
+                                if (auto contentScroll = ui.ScrollArea({.gap = 12.0f})) {
+                                    DispatchAssemblyScreen(ui, selectedCategory, demoCtx);
                                 }
                             }
                         }
