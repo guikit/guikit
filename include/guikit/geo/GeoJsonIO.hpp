@@ -1,58 +1,79 @@
 #pragma once
 
-#include "guikit/geo/GeoTypes.hpp"
-
 #include <string>
 #include <string_view>
 #include <vector>
+#include "guikit/geo/GeoTypes.hpp"
 
-namespace guikit {
+namespace guikit::geo {
 
-/// Result of parsing a GeoJSON document or string.
+/// Result of parsing a GeoJSON document into a single vector GIS layer.
+struct GeoJsonResult {
+    bool ok{false};
+    std::string error{};
+    GeoLayer layer{};
+};
+
+/// Result of parsing a GeoJSON document into one or more thematic vector GIS layers.
 struct GeoJsonLoadResult {
     bool ok{false};
-    std::string errorMessage;
-    std::vector<GeoLayer> layers;
-    GeoBBox totalBounds{};
+    std::string errorMessage{};
+    std::vector<GeoLayer> layers{};
+    guikit::GeoBounds totalBounds{};
+    bool hasValidBounds{false};
     size_t totalFeatures{0};
     size_t totalVertices{0};
 };
 
-/// Fast RFC 7946 GeoJSON Reader, Writer, and Built-in Hydrographic / Maritime Chart Generator.
+/// RFC 7946 GeoJSON Parser and Serializer (supports both disk files and embedded `guikit::Assets`).
 class GeoJsonIO {
 public:
-    /// Parses a GeoJSON string (`FeatureCollection`, `Feature`, or raw `Geometry`).
-    /// Automatically groups features into thematic layers by S-57 `OBJL` / `layer` property if present,
-    /// or places them into `defaultLayerName`.
-    [[nodiscard]] static GeoJsonLoadResult ParseFromString(
+    /// Parses a GeoJSON document from an in-memory UTF-8 string into a single `GeoLayer`.
+    [[nodiscard]] static GeoJsonResult ParseFromString(
         std::string_view jsonText,
-        std::string_view defaultLayerName = "GeoJSON Layer",
+        std::string_view defaultLayerName = "GeoJSON Layer"
+    );
+
+    /// Loads a GeoJSON file (`.geojson` / `.json`) from embedded `guikit::Assets` or disk into a single `GeoLayer`.
+    [[nodiscard]] static GeoJsonResult LoadFromFile(const std::string& filePath);
+
+    /// Parses a GeoJSON string and optionally splits features into thematic S-57 `GeoLayer`s.
+    [[nodiscard]] static GeoJsonLoadResult ParseThematicLayersFromString(
+        std::string_view jsonText,
+        std::string_view defaultLayerName,
+        bool splitByThematicClass
+    );
+
+    /// Loads a GeoJSON file from embedded `guikit::Assets` or disk into thematic S-57 `GeoLayer`s.
+    [[nodiscard]] static GeoJsonLoadResult LoadThematicLayersFromFile(
+        const std::string& filePath,
         bool splitByThematicClass = true
     );
 
-    /// Loads and parses a `.geojson` or `.json` file from embedded assets (`guikit::Assets`) or disk.
+    /// Two-argument overload returning `GeoJsonLoadResult` with thematic layer splitting.
     [[nodiscard]] static GeoJsonLoadResult LoadFromFile(
         const std::string& filePath,
-        bool splitByThematicClass = true
-    );
+        bool splitByThematicClass
+    ) {
+        return LoadThematicLayersFromFile(filePath, splitByThematicClass);
+    }
 
-    /// Serializes one or more `GeoLayer`s into an RFC 7946 `FeatureCollection` GeoJSON string.
-    [[nodiscard]] static std::string SerializeToString(
-        const std::vector<GeoLayer>& layers,
-        bool prettyPrint = true
-    );
+    /// Serializes a `GeoLayer` to an RFC 7946 compliant GeoJSON FeatureCollection string.
+    [[nodiscard]] static std::string SerializeLayer(const GeoLayer& layer, bool prettyPrint = true);
 
-    /// Saves one or more `GeoLayer`s to a `.geojson` file on disk.
+    /// Writes a `GeoLayer` to disk as a `.geojson` file.
     [[nodiscard]] static bool SaveToFile(
+        const GeoLayer& layer,
         const std::string& filePath,
-        const std::vector<GeoLayer>& layers,
-        bool prettyPrint = true
+        std::string* outError = nullptr
     );
 
-    /// Builds a rich multi-layer hydrographic ENC / S-57 chart dataset (Bathymetry DEPARE,
-    /// Isobaths DEPCNT, Land LNDARE, Coastline COALNE, Soundings SOUNDG, IALA Seamarks, Fairways,
-    /// Restricted Areas, Submarine Cables, and Underwater Hazards) for immediate GIS inspection.
+    /// Loads the built-in embedded hydrographic ENC / S-57 chart (`assets/geo/demo_bay.geojson`).
     [[nodiscard]] static std::vector<GeoLayer> BuildDefaultHydrographicChart();
 };
 
+} // namespace guikit::geo
+
+namespace guikit {
+using namespace geo;
 } // namespace guikit

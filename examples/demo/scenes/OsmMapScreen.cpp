@@ -25,7 +25,7 @@ struct GisScreenState {
 
     guikit::MapCrs crs{guikit::MapCrs::EPSG3857_WebMercator};
     guikit::GeoCoordFormat coordFormat{guikit::GeoCoordFormat::NauticalDMM};
-    guikit::GisRenderSettings renderSettings{};
+    guikit::GisRenderConfig renderConfig{};
 
     float worldSize{2048.0f};
     int baseZoom{3};
@@ -40,9 +40,7 @@ struct GisScreenState {
 
     guikit::MapViewState lastView{};
     guikit::GisRenderStats lastStats{};
-    std::optional<uint64_t> selectedFeatureId{};
-    std::optional<uint32_t> selectedLayerId{};
-    guikit::Vec2 mouseDownPos{-10000.0f, -10000.0f};
+    uint64_t selectedFeatureUid{0};
 
     std::optional<guikit::GeoCoord> pendingCenterGeo{};
     std::optional<float> pendingTileZoom{};
@@ -73,6 +71,12 @@ struct GisScreenState {
         "GOST Gauss-Krüger (X / Y m)"
     };
 
+    static constexpr std::array<std::string_view, 3> tileSizeNames = {
+        "128 px (Ultra-Fast Low Latency)",
+        "256 px (Standard Slippy Tile)",
+        "512 px (High-Density Retina)"
+    };
+
     void EnsureLoaded() {
         if (initialized) return;
         initialized = true;
@@ -96,22 +100,6 @@ struct GisScreenState {
                 );
             }
         }
-    }
-
-    [[nodiscard]] const guikit::GeoFeature* FindFeature(
-        std::optional<uint32_t> layerId,
-        std::optional<uint64_t> featureId
-    ) const noexcept {
-        if (!featureId.has_value()) return nullptr;
-        for (const auto& layer : layers) {
-            if (layerId.has_value() && layer.id != *layerId) continue;
-            for (const auto& feat : layer.features) {
-                if (feat.id == *featureId) {
-                    return &feat;
-                }
-            }
-        }
-        return nullptr;
     }
 };
 
@@ -137,25 +125,24 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
         if (ui.Size(guikit::UiSize::Sm).Button({
             .text = "Clear Sel",
             .color = guikit::StateColor::Secondary(),
-            .disabled = !s_state.selectedFeatureId.has_value()
+            .disabled = (s_state.selectedFeatureUid == 0)
         }).clicked) {
-            s_state.selectedFeatureId.reset();
-            s_state.selectedLayerId.reset();
+            s_state.selectedFeatureUid = 0;
             ui.InvalidateAll();
         }
     }
 
     // 2. S-52 / ENC Palette & Bathymetry Safety Thresholds
-    size_t palIdx = static_cast<size_t>(s_state.renderSettings.palette);
+    size_t palIdx = static_cast<size_t>(s_state.renderConfig.chartPalette);
     if (auto el = ui.Element({.label = "Chart Color Palette (S-52 / ENC)"})) {
         if (ui.Select(palIdx, GisScreenState::paletteNames).changed) {
-            s_state.renderSettings.palette = static_cast<guikit::GisColorPalette>(palIdx);
+            s_state.renderConfig.chartPalette = static_cast<guikit::ChartPalette>(palIdx);
             ui.InvalidateAll();
         }
     }
 
     if (auto el = ui.Element({.label = "Safety Contour Depth (m)"})) {
-        if (ui.Slider(s_state.renderSettings.safetyContourMeters, 1.0f, 20.0f, {
+        if (ui.Slider(s_state.renderConfig.safetyContourM, 1.0f, 20.0f, {
             .valueFormat = "%.1f m",
             .step = 0.5
         }).changed) {
@@ -163,7 +150,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    // 3. Projection (CRS) & Coordinate Readout Format
+    // 3. Projection (CRS), Coordinate Readout Format & Tile Size
     size_t crsIdx = static_cast<size_t>(s_state.crs);
     if (auto el = ui.Element({.label = "Projection (CRS)"})) {
         if (ui.Select(crsIdx, GisScreenState::crsNames).changed) {
@@ -180,33 +167,34 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    // 4. S-52 Vector Display Filters
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "S-52 DISPLAY FILTERS", .divider = true});
-    if (auto el = ui.Element({.label = "Filled Polygons (LNDARE / DEPARE)"})) {
-        if (ui.Switch(s_state.renderSettings.showFilledPolygons).changed) ui.InvalidateAll();
+    size_t tileSizeIdx = (s_state.renderConfig.tileSizePx <= 128u) ? 0u
+                       : ((s_state.renderConfig.tileSizePx >= 512u) ? 2u : 1u);
+    if (auto el = ui.Element({.label = "Tile Resolution [z/x/y]"})) {
+        if (ui.Select(tileSizeIdx, GisScreenState::tileSizeNames).changed) {
+            s_state.renderConfig.tileSizePx = (tileSizeIdx == 0u) ? 128u : ((tileSizeIdx == 2u) ? 512u : 256u);
+            ui.InvalidateAll();
+        }
     }
-    if (auto el = ui.Element({.label = "Polygon Outlines (COALNE)"})) {
-        if (ui.Switch(s_state.renderSettings.showPolygonOutlines).changed) ui.InvalidateAll();
+
+    // 4. S-52 Vector Display & Tile Engine Filters
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "S-52 & TILE ENGINE FILTERS", .divider = true});
+    if (auto el = ui.Element({.label = "Vector Tile Cache [z/x/y]"})) {
+        if (ui.Switch(s_state.renderConfig.useVectorTileCache).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Loading Tile Placeholders"})) {
+        if (ui.Switch(s_state.renderConfig.showLoadingTilePlaceholders).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Raster Basemap Underlay"})) {
+        if (ui.Switch(s_state.renderConfig.showOsmBasemap).changed) ui.InvalidateAll();
     }
     if (auto el = ui.Element({.label = "Depth Contours (DEPCNT)"})) {
-        if (ui.Switch(s_state.renderSettings.showDepthContours).changed) ui.InvalidateAll();
-    }
-    if (auto el = ui.Element({
-        .label = "Highlight Safety Isobath",
-        .disabled = !s_state.renderSettings.showDepthContours
-    })) {
-        if (ui.Switch(s_state.renderSettings.highlightSafetyContour, {
-            .disabled = !s_state.renderSettings.showDepthContours
-        }).changed) ui.InvalidateAll();
+        if (ui.Switch(s_state.renderConfig.showDepthContours).changed) ui.InvalidateAll();
     }
     if (auto el = ui.Element({.label = "Spot Soundings (SOUNDG)"})) {
-        if (ui.Switch(s_state.renderSettings.showSoundings).changed) ui.InvalidateAll();
+        if (ui.Switch(s_state.renderConfig.showSoundings).changed) ui.InvalidateAll();
     }
-    if (auto el = ui.Element({.label = "IALA Seamarks & Lights"})) {
-        if (ui.Switch(s_state.renderSettings.showSeamarks).changed) ui.InvalidateAll();
-    }
-    if (auto el = ui.Element({.label = "Cartographic Labels"})) {
-        if (ui.Switch(s_state.renderSettings.showFeatureLabels).changed) ui.InvalidateAll();
+    if (auto el = ui.Element({.label = "Cartographic Labels & Callouts"})) {
+        if (ui.Switch(s_state.renderConfig.showFeatureCallouts).changed) ui.InvalidateAll();
     }
 
     // 5. Cartographic Grid & HUD Overlays
@@ -238,10 +226,15 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
     }
 
     // 7. Selected / Hovered Feature Inspector Card
-    const guikit::GeoFeature* inspectFeat = s_state.FindFeature(s_state.selectedLayerId, s_state.selectedFeatureId);
+    const guikit::GeoLayer* inspectLayer = nullptr;
+    const guikit::GeoFeature* inspectFeat = guikit::FindFeatureByUid(
+        s_state.layers, s_state.selectedFeatureUid, &inspectLayer
+    );
     bool isHoverInspect = false;
-    if (!inspectFeat && s_state.lastStats.hoveredFeatureId.has_value()) {
-        inspectFeat = s_state.FindFeature(s_state.lastStats.hoveredLayerId, s_state.lastStats.hoveredFeatureId);
+    if (!inspectFeat && s_state.lastStats.hoveredFeatureUid != 0) {
+        inspectFeat = guikit::FindFeatureByUid(
+            s_state.layers, s_state.lastStats.hoveredFeatureUid, &inspectLayer
+        );
         isHoverInspect = (inspectFeat != nullptr);
     }
 
@@ -258,36 +251,36 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
             ui.Text(
                 ui.Format("[{}] {}",
                           inspectFeat->featureCode.empty() ? "FEAT" : inspectFeat->featureCode,
-                          inspectFeat->name.empty() ? guikit::GisFeatureClassName(inspectFeat->featureClass) : inspectFeat->name),
+                          inspectFeat->name.empty() ? guikit::ChartFeatureClassToString(inspectFeat->chartClass) : inspectFeat->name),
                 {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Primary}
             );
             ui.Text(
                 ui.Format("Geometry: {} ({} vtx)",
-                          guikit::GeometryTypeName(inspectFeat->geometryType),
+                          guikit::GeometryTypeToString(inspectFeat->type),
                           inspectFeat->TotalVertexCount()),
                 {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Info}
             );
-            if (inspectFeat->depthMinMeters.has_value() || inspectFeat->depthMaxMeters.has_value()) {
+            if (!std::isnan(inspectFeat->minDepthMeters) || !std::isnan(inspectFeat->maxDepthMeters)) {
                 ui.Text(
                     ui.Format("Depth Range: {:.1f}m .. {:.1f}m",
-                              inspectFeat->depthMinMeters.value_or(0.0),
-                              inspectFeat->depthMaxMeters.value_or(0.0)),
+                              std::isnan(inspectFeat->minDepthMeters) ? 0.0f : inspectFeat->minDepthMeters,
+                              std::isnan(inspectFeat->maxDepthMeters) ? 0.0f : inspectFeat->maxDepthMeters),
                     {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Success}
                 );
-            } else if (inspectFeat->contourDepthMeters.has_value()) {
+            } else if (!std::isnan(inspectFeat->depthMeters)) {
                 ui.Text(
-                    ui.Format("Depth: {:.1f} m", *inspectFeat->contourDepthMeters),
+                    ui.Format("Depth: {:.1f} m", inspectFeat->depthMeters),
                     {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Success}
                 );
             }
             size_t shownProps = 0;
-            for (const auto& attr : inspectFeat->attributes) {
-                if (attr.key == "tile" || attr.key == "file_type" || attr.key == "tag" ||
-                    attr.key == "scale_index" || attr.key == "scale_grid") {
+            for (const auto& [key, value] : inspectFeat->properties) {
+                if (key == "tile" || key == "file_type" || key == "tag" ||
+                    key == "scale_index" || key == "scale_grid") {
                     continue;
                 }
                 ui.Text(
-                    ui.Format("{}: {}", attr.key, attr.value),
+                    ui.Format("{}: {}", key, value.ToString()),
                     {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Secondary}
                 );
                 if (++shownProps >= 5) break;
@@ -309,15 +302,18 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
             {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Primary}
         );
         ui.Text(
-            ui.Format("Zoom: z={} ({:.2f} m/px, {} tiles)",
+            ui.Format("Zoom: z={} ({:.2f} m/px, {} tiles @ {}px)",
                       s_state.lastView.tileZoom,
                       s_state.lastView.metersPerPixel,
-                      s_state.lastView.visibleTiles.size()),
+                      s_state.lastView.visibleTiles.size(),
+                      s_state.renderConfig.tileSizePx),
             {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Info}
         );
         ui.Text(
-            ui.Format("Center: {}",
-                      guikit::MapGrid::FormatCoord(s_state.lastView.center, s_state.coordFormat, s_state.crs)),
+            ui.Format("Tile Cache: {} hit / {} new / {} pending",
+                      s_state.lastStats.cachedTilesHit,
+                      s_state.lastStats.cachedTilesRendered,
+                      s_state.lastStats.cachedTilesPending),
             {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Secondary}
         );
         ui.Text(
@@ -328,7 +324,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
     }
 }
 
-void RenderOsmMapStage(guikit::Context& ui, DemoContext&) {
+void RenderOsmMapStage(guikit::Context& ui, DemoContext& ctx) {
     s_state.EnsureLoaded();
 
     if (auto map = ui.MapView({
@@ -347,36 +343,21 @@ void RenderOsmMapStage(guikit::Context& ui, DemoContext&) {
         .showBorderRulers = s_state.showBorderRulers,
         .showScaleBarOverlay = s_state.showScaleBarOverlay,
         .heightMode = guikit::SizeMode::Stretch,
-        .selectableItems = false,
+        .selectableItems = true,
         .showScrollbars = s_state.showScrollbars,
         .showControls = s_state.showControls,
         .borderRadius = s_state.radius
     })) {
-        const guikit::Vec2 mousePos = ui.GetMousePos();
-        if (ui.IsMouseClicked()) {
-            s_state.mouseDownPos = mousePos;
-        }
-        const guikit::Rect vpRect = map.GetScene().GetViewportRect();
-        const float dragDistSq =
-            (mousePos.x - s_state.mouseDownPos.x) * (mousePos.x - s_state.mouseDownPos.x) +
-            (mousePos.y - s_state.mouseDownPos.y) * (mousePos.y - s_state.mouseDownPos.y);
-        const bool clickedInMap =
-            ui.IsMouseReleased() && !map.GetScene().IsPanning() && vpRect.Contains(mousePos) && (dragDistSq <= 36.0f);
-
         s_state.lastStats = guikit::GisRenderEngine::RenderLayers(
             map,
             s_state.layers,
-            s_state.renderSettings,
-            s_state.selectedFeatureId,
-            mousePos,
-            clickedInMap
+            s_state.renderConfig,
+            s_state.selectedFeatureUid,
+            ctx.previewLightMode
         );
-
-        if (clickedInMap) {
-            s_state.selectedFeatureId = s_state.lastStats.clickedFeatureId;
-            s_state.selectedLayerId = s_state.lastStats.clickedLayerId;
+        if (s_state.lastStats.cachedTilesPending > 0) {
+            ui.InvalidateAll();
         }
-
         s_state.lastView = map.GetViewState();
     }
 
@@ -411,7 +392,7 @@ std::string GenerateOsmMapCode(const DemoContext&) {
 
     return std::format(
         "// Load embedded or disk S-57 / ENC GeoJSON chart (Native + WebAssembly):\n"
-        "auto chart = guikit::GeoJsonIO::LoadFromFile(\"assets/geo/demo_bay.geojson\");\n\n"
+        "auto chart = guikit::GeoJsonIO::LoadFromFile(\"assets/geo/demo_bay.geojson\", true);\n\n"
         "if (auto map = ui.MapView({{\n"
         "    .crs = guikit::MapCrs::{},\n"
         "    .coordFormat = guikit::GeoCoordFormat::{},\n"
@@ -423,13 +404,15 @@ std::string GenerateOsmMapCode(const DemoContext&) {
         "    .showTileGrid = {}\n"
         "}})) {{\n"
         "    guikit::GisRenderEngine::RenderLayers(map, chart.layers, {{\n"
-        "        .palette = guikit::GisColorPalette::{},\n"
-        "        .safetyContourMeters = {:.1f}f,\n"
+        "        .chartPalette = guikit::ChartPalette::{},\n"
+        "        .safetyContourM = {:.1f}f,\n"
+        "        .tileSizePx = {},\n"
+        "        .showLoadingTilePlaceholders = {},\n"
+        "        .showOsmBasemap = {},\n"
         "        .showDepthContours = {},\n"
         "        .showSoundings = {},\n"
-        "        .showSeamarks = {},\n"
-        "        .showFeatureLabels = {}\n"
-        "    }}, selectedFeatureId, ui.GetMousePos(), clickedInMap);\n"
+        "        .showFeatureCallouts = {}\n"
+        "    }}, selectedFeatureUid);\n"
         "}}",
         crsEnumNames[static_cast<size_t>(s_state.crs)],
         fmtEnumNames[static_cast<size_t>(s_state.coordFormat)],
@@ -438,12 +421,14 @@ std::string GenerateOsmMapCode(const DemoContext&) {
         s_state.showBorderRulers ? "true" : "false",
         s_state.showScaleBarOverlay ? "true" : "false",
         s_state.showTileGrid ? "true" : "false",
-        palEnumNames[static_cast<size_t>(s_state.renderSettings.palette)],
-        s_state.renderSettings.safetyContourMeters,
-        s_state.renderSettings.showDepthContours ? "true" : "false",
-        s_state.renderSettings.showSoundings ? "true" : "false",
-        s_state.renderSettings.showSeamarks ? "true" : "false",
-        s_state.renderSettings.showFeatureLabels ? "true" : "false"
+        palEnumNames[static_cast<size_t>(s_state.renderConfig.chartPalette)],
+        s_state.renderConfig.safetyContourM,
+        s_state.renderConfig.tileSizePx,
+        s_state.renderConfig.showLoadingTilePlaceholders ? "true" : "false",
+        s_state.renderConfig.showOsmBasemap ? "true" : "false",
+        s_state.renderConfig.showDepthContours ? "true" : "false",
+        s_state.renderConfig.showSoundings ? "true" : "false",
+        s_state.renderConfig.showFeatureCallouts ? "true" : "false"
     );
 }
 

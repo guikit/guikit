@@ -1,220 +1,294 @@
 #include "guikit/geo/GeoJsonIO.hpp"
+#include "guikit/geo/PolygonTriangulator.hpp"
 #include "guikit/core/Assets.hpp"
-
 #include <algorithm>
 #include <cctype>
 #include <charconv>
 #include <cmath>
 #include <cstdio>
+#include <filesystem>
+#include <format>
 #include <fstream>
 #include <map>
-#include <numbers>
 #include <sstream>
+#include <variant>
 
-namespace guikit {
+namespace guikit::geo {
 
 namespace {
 
 // ============================================================================
-// Lightweight Zero-Dependency Recursive-Descent JSON DOM for RFC 7946 GeoJSON
+// Self-Contained RFC 8259 JSON DOM for GeoJSON Parsing
 // ============================================================================
-enum class JsonType : uint8_t {
-    Null = 0,
-    Bool,
-    Number,
-    String,
-    Array,
-    Object
+
+struct RawCoordsSlice {
+    std::string_view text{};
 };
 
-struct JsonValue {
-    JsonType type{JsonType::Null};
-    bool boolVal{false};
-    double numVal{0.0};
-    std::string strVal;
-    std::vector<JsonValue> arrVal;
-    std::vector<std::pair<std::string, JsonValue>> objVal;
+struct JsonValue;
+using JsonArray = std::vector<JsonValue>;
+using JsonObject = std::vector<std::pair<std::string, JsonValue>>;
 
-    [[nodiscard]] const JsonValue* Find(std::string_view key) const noexcept {
-        if (type != JsonType::Object) return nullptr;
-        for (const auto& kv : objVal) {
-            if (kv.first == key) return &kv.second;
-        }
-        return nullptr;
+struct JsonValue {
+    using Storage = std::variant<
+        std::monostate,
+        bool,
+        int64_t,
+        double,
+        std::string,
+        JsonArray,
+        JsonObject,
+        RawCoordsSlice
+    >;
+    Storage data{std::monostate{}};
+
+    [[nodiscard]] bool IsNull() const noexcept   { return std::holds_alternative<std::monostate>(data); }
+    [[nodiscard]] bool IsBool() const noexcept   { return std::holds_alternative<bool>(data); }
+    [[nodiscard]] bool IsInt() const noexcept    { return std::holds_alternative<int64_t>(data); }
+    [[nodiscard]] bool IsDouble() const noexcept { return std::holds_alternative<double>(data); }
+    [[nodiscard]] bool IsNumber() const noexcept { return IsInt() || IsDouble(); }
+    [[nodiscard]] bool IsString() const noexcept { return std::holds_alternative<std::string>(data); }
+    [[nodiscard]] bool IsArray() const noexcept  { return std::holds_alternative<JsonArray>(data); }
+    [[nodiscard]] bool IsObject() const noexcept { return std::holds_alternative<JsonObject>(data); }
+    [[nodiscard]] bool IsCoordsSlice() const noexcept { return std::holds_alternative<RawCoordsSlice>(data); }
+
+    [[nodiscard]] double AsDouble(double fallback = 0.0) const noexcept {
+        if (const auto* d = std::get_if<double>(&data)) return *d;
+        if (const auto* i = std::get_if<int64_t>(&data)) return static_cast<double>(*i);
+        return fallback;
     }
 
     [[nodiscard]] std::string_view AsString(std::string_view fallback = {}) const noexcept {
-        return (type == JsonType::String) ? std::string_view(strVal) : fallback;
+        if (const auto* s = std::get_if<std::string>(&data)) return *s;
+        return fallback;
     }
 
-    [[nodiscard]] double AsNumber(double fallback = 0.0) const noexcept {
-        return (type == JsonType::Number) ? numVal : fallback;
+    [[nodiscard]] const JsonArray* AsArray() const noexcept {
+        return std::get_if<JsonArray>(&data);
     }
 
-    [[nodiscard]] std::string ToAttributeString() const {
-        char buf[64]{};
-        switch (type) {
-            case JsonType::Null:   return "";
-            case JsonType::Bool:   return boolVal ? "true" : "false";
-            case JsonType::Number: {
-                if (std::abs(numVal - std::round(numVal)) < 1e-9 && std::abs(numVal) < 1e12) {
-                    std::snprintf(buf, sizeof(buf), "%.0f", numVal);
-                } else {
-                    std::snprintf(buf, sizeof(buf), "%.4g", numVal);
-                }
-                return std::string(buf);
-            }
-            case JsonType::String: return strVal;
-            case JsonType::Array:  return "[...]";
-            case JsonType::Object: return "{...}";
+    [[nodiscard]] const JsonObject* AsObject() const noexcept {
+        return std::get_if<JsonObject>(&data);
+    }
+
+    [[nodiscard]] std::string_view AsCoordsSlice() const noexcept {
+        if (const auto* cs = std::get_if<RawCoordsSlice>(&data)) return cs->text;
+        return {};
+    }
+
+    [[nodiscard]] const JsonValue* Find(std::string_view key) const noexcept {
+        const auto* obj = AsObject();
+        if (!obj) return nullptr;
+        for (const auto& [k, v] : *obj) {
+            if (k == key) return &v;
         }
-        return "";
+        return nullptr;
     }
 };
 
+void AppendUtf8Codepoint(std::string& out, uint32_t cp) {
+    if (cp <= 0x7Fu) {
+        out.push_back(static_cast<char>(cp));
+    } else if (cp <= 0x7FFu) {
+        out.push_back(static_cast<char>(0xC0u | ((cp >> 6) & 0x1Fu)));
+        out.push_back(static_cast<char>(0x80u | (cp & 0x3Fu)));
+    } else if (cp <= 0xFFFFu) {
+        out.push_back(static_cast<char>(0xE0u | ((cp >> 12) & 0x0Fu)));
+        out.push_back(static_cast<char>(0x80u | ((cp >> 6) & 0x3Fu)));
+        out.push_back(static_cast<char>(0x80u | (cp & 0x3Fu)));
+    } else if (cp <= 0x10FFFFu) {
+        out.push_back(static_cast<char>(0xF0u | ((cp >> 18) & 0x07u)));
+        out.push_back(static_cast<char>(0x80u | ((cp >> 12) & 0x3Fu)));
+        out.push_back(static_cast<char>(0x80u | ((cp >> 6) & 0x3Fu)));
+        out.push_back(static_cast<char>(0x80u | (cp & 0x3Fu)));
+    }
+}
+
 class JsonParser {
 public:
-    explicit JsonParser(std::string_view src) noexcept : m_src(src) {}
-
-    [[nodiscard]] bool ParseRoot(JsonValue& out, std::string& err) {
-        SkipWhitespace();
-        if (m_pos >= m_src.size()) {
-            err = "Empty JSON document";
-            return false;
-        }
-        if (!ParseValue(out, err)) {
-            return false;
-        }
-        return true;
-    }
-
-private:
-    void SkipWhitespace() noexcept {
-        // Also skip UTF-8 BOM if at start
-        if (m_pos == 0 && m_src.size() >= 3 &&
+    explicit JsonParser(std::string_view src) : m_src(src) {
+        // Skip UTF-8 BOM if present
+        if (m_src.size() >= 3 &&
             static_cast<uint8_t>(m_src[0]) == 0xEF &&
             static_cast<uint8_t>(m_src[1]) == 0xBB &&
             static_cast<uint8_t>(m_src[2]) == 0xBF) {
             m_pos = 3;
         }
+    }
+
+    bool ParseRoot(JsonValue& outRoot, std::string& outError) {
+        SkipWhitespace();
+        if (AtEnd()) {
+            outError = "Empty JSON document";
+            return false;
+        }
+        if (!ParseValue(outRoot, 0)) {
+            outError = m_error;
+            return false;
+        }
+        SkipWhitespace();
+        return true;
+    }
+
+private:
+    static constexpr int kMaxDepth = 128;
+
+    [[nodiscard]] bool AtEnd() const noexcept { return m_pos >= m_src.size(); }
+    [[nodiscard]] char Peek() const noexcept { return AtEnd() ? '\0' : m_src[m_pos]; }
+    char Advance() noexcept {
+        char c = Peek();
+        if (!AtEnd()) {
+            ++m_pos;
+            if (c == '\n') {
+                ++m_line;
+                m_col = 1;
+            } else {
+                ++m_col;
+            }
+        }
+        return c;
+    }
+
+    void SkipWhitespace() noexcept {
         while (m_pos < m_src.size()) {
-            const unsigned char c = static_cast<unsigned char>(m_src[m_pos]);
-            if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
+            const char c = m_src[m_pos];
+            if (c == ' ' || c == '\t' || c == '\r') {
                 ++m_pos;
+                ++m_col;
+            } else if (c == '\n') {
+                ++m_pos;
+                ++m_line;
+                m_col = 1;
             } else {
                 break;
             }
         }
     }
 
-    [[nodiscard]] bool ParseValue(JsonValue& out, std::string& err) {
-        SkipWhitespace();
-        if (m_pos >= m_src.size()) {
-            err = "Unexpected end of JSON input";
-            return false;
+    bool Fail(std::string_view msg) {
+        if (m_error.empty()) {
+            m_error = std::format("JSON parse error at line {}, col {}: {}", m_line, m_col, msg);
         }
-        const char c = m_src[m_pos];
-        if (c == '{') return ParseObject(out, err);
-        if (c == '[') return ParseArray(out, err);
-        if (c == '"') {
-            out.type = JsonType::String;
-            return ParseString(out.strVal, err);
-        }
-        if (c == 't' || c == 'f') return ParseBool(out, err);
-        if (c == 'n') return ParseNull(out, err);
-        if (c == '-' || (c >= '0' && c <= '9')) return ParseNumber(out, err);
-
-        err = std::string("Unexpected character in JSON: '") + c + "'";
         return false;
     }
 
-    [[nodiscard]] bool ParseObject(JsonValue& out, std::string& err) {
-        out.type = JsonType::Object;
-        ++m_pos; // skip '{'
+    // Fast zero-allocation scanner for balanced `[...]` coordinate arrays
+    bool ParseRawBracketSlice(JsonValue& out) {
         SkipWhitespace();
-        if (m_pos < m_src.size() && m_src[m_pos] == '}') {
-            ++m_pos;
-            return true;
-        }
-        while (m_pos < m_src.size()) {
-            SkipWhitespace();
-            if (m_pos >= m_src.size() || m_src[m_pos] != '"') {
-                err = "Expected string key in JSON object";
-                return false;
-            }
-            std::string key;
-            if (!ParseString(key, err)) return false;
+        if (Peek() != '[') return Fail("Expected '[' for coordinates array");
+        const size_t startPos = m_pos;
+        int bracketDepth = 0;
+        bool inString = false;
 
-            SkipWhitespace();
-            if (m_pos >= m_src.size() || m_src[m_pos] != ':') {
-                err = "Expected ':' after key in JSON object";
-                return false;
-            }
-            ++m_pos;
-
-            JsonValue val;
-            if (!ParseValue(val, err)) return false;
-            out.objVal.emplace_back(std::move(key), std::move(val));
-
-            SkipWhitespace();
-            if (m_pos < m_src.size() && m_src[m_pos] == ',') {
-                ++m_pos;
-                continue;
-            }
-            if (m_pos < m_src.size() && m_src[m_pos] == '}') {
-                ++m_pos;
-                return true;
-            }
-            err = "Expected ',' or '}' in JSON object";
-            return false;
-        }
-        err = "Unterminated JSON object";
-        return false;
-    }
-
-    [[nodiscard]] bool ParseArray(JsonValue& out, std::string& err) {
-        out.type = JsonType::Array;
-        ++m_pos; // skip '['
-        SkipWhitespace();
-        if (m_pos < m_src.size() && m_src[m_pos] == ']') {
-            ++m_pos;
-            return true;
-        }
-        while (m_pos < m_src.size()) {
-            JsonValue elem;
-            if (!ParseValue(elem, err)) return false;
-            out.arrVal.push_back(std::move(elem));
-
-            SkipWhitespace();
-            if (m_pos < m_src.size() && m_src[m_pos] == ',') {
-                ++m_pos;
-                continue;
-            }
-            if (m_pos < m_src.size() && m_src[m_pos] == ']') {
-                ++m_pos;
-                return true;
-            }
-            err = "Expected ',' or ']' in JSON array";
-            return false;
-        }
-        err = "Unterminated JSON array";
-        return false;
-    }
-
-    [[nodiscard]] bool ParseString(std::string& out, std::string& err) {
-        ++m_pos; // skip '"'
-        out.clear();
         while (m_pos < m_src.size()) {
             const char c = m_src[m_pos++];
+            if (c == '\n') {
+                ++m_line;
+                m_col = 1;
+            } else {
+                ++m_col;
+            }
+            if (inString) {
+                if (c == '\\' && m_pos < m_src.size()) {
+                    ++m_pos;
+                    ++m_col;
+                } else if (c == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+            if (c == '"') {
+                inString = true;
+            } else if (c == '[') {
+                ++bracketDepth;
+            } else if (c == ']') {
+                --bracketDepth;
+                if (bracketDepth == 0) {
+                    out.data = RawCoordsSlice{m_src.substr(startPos, m_pos - startPos)};
+                    return true;
+                }
+            }
+        }
+        return Fail("Unterminated '[' in coordinates array");
+    }
+
+    bool ParseValue(JsonValue& out, int depth) {
+        if (depth > kMaxDepth) {
+            return Fail("Maximum nesting depth exceeded");
+        }
+        SkipWhitespace();
+        if (AtEnd()) {
+            return Fail("Unexpected end of input");
+        }
+
+        const char c = Peek();
+        switch (c) {
+            case '{': return ParseObject(out, depth + 1);
+            case '[': return ParseArray(out, depth + 1);
+            case '"': {
+                std::string s;
+                if (!ParseString(s)) return false;
+                out.data = std::move(s);
+                return true;
+            }
+            case 't': return ParseLiteral("true", true, out);
+            case 'f': return ParseLiteral("false", false, out);
+            case 'n': return ParseNull(out);
+            default:
+                if (c == '-' || (c >= '0' && c <= '9')) {
+                    return ParseNumber(out);
+                }
+                return Fail(std::format("Unexpected character '{}'", c));
+        }
+    }
+
+    bool ParseLiteral(std::string_view lit, bool val, JsonValue& out) {
+        if (m_src.substr(m_pos, lit.size()) != lit) {
+            return Fail(std::format("Expected '{}'", lit));
+        }
+        for (size_t i = 0; i < lit.size(); ++i) Advance();
+        out.data = val;
+        return true;
+    }
+
+    bool ParseNull(JsonValue& out) {
+        if (m_src.substr(m_pos, 4) != "null") {
+            return Fail("Expected 'null'");
+        }
+        for (int i = 0; i < 4; ++i) Advance();
+        out.data = std::monostate{};
+        return true;
+    }
+
+    bool ParseHex4(uint32_t& outVal) {
+        if (m_pos + 4 > m_src.size()) {
+            return Fail("Incomplete \\uXXXX escape");
+        }
+        uint32_t val = 0;
+        for (int i = 0; i < 4; ++i) {
+            const char c = Advance();
+            val <<= 4;
+            if (c >= '0' && c <= '9') val |= static_cast<uint32_t>(c - '0');
+            else if (c >= 'a' && c <= 'f') val |= static_cast<uint32_t>(c - 'a' + 10);
+            else if (c >= 'A' && c <= 'F') val |= static_cast<uint32_t>(c - 'A' + 10);
+            else return Fail("Invalid hex digit in \\uXXXX escape");
+        }
+        outVal = val;
+        return true;
+    }
+
+    bool ParseString(std::string& out) {
+        if (Advance() != '"') return Fail("Expected '\"'");
+        out.clear();
+
+        while (!AtEnd()) {
+            const char c = Advance();
             if (c == '"') {
                 return true;
             }
             if (c == '\\') {
-                if (m_pos >= m_src.size()) {
-                    err = "Unterminated escape sequence in JSON string";
-                    return false;
-                }
-                const char esc = m_src[m_pos++];
+                if (AtEnd()) return Fail("Unterminated escape sequence");
+                const char esc = Advance();
                 switch (esc) {
                     case '"':  out.push_back('"'); break;
                     case '\\': out.push_back('\\'); break;
@@ -225,671 +299,999 @@ private:
                     case 'r':  out.push_back('\r'); break;
                     case 't':  out.push_back('\t'); break;
                     case 'u': {
-                        if (m_pos + 4 <= m_src.size()) {
-                            uint32_t cp = 0;
-                            for (int i = 0; i < 4; ++i) {
-                                const char hc = m_src[m_pos + i];
-                                cp <<= 4;
-                                if (hc >= '0' && hc <= '9') cp |= static_cast<uint32_t>(hc - '0');
-                                else if (hc >= 'a' && hc <= 'f') cp |= static_cast<uint32_t>(hc - 'a' + 10);
-                                else if (hc >= 'A' && hc <= 'F') cp |= static_cast<uint32_t>(hc - 'A' + 10);
-                            }
-                            m_pos += 4;
-                            if (cp < 0x80) {
-                                out.push_back(static_cast<char>(cp));
-                            } else if (cp < 0x800) {
-                                out.push_back(static_cast<char>(0xC0 | (cp >> 6)));
-                                out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
-                            } else {
-                                out.push_back(static_cast<char>(0xE0 | (cp >> 12)));
-                                out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
-                                out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+                        uint32_t cp = 0;
+                        if (!ParseHex4(cp)) return false;
+                        // Handle UTF-16 surrogate pair
+                        if (cp >= 0xD800u && cp <= 0xDBFFu) {
+                            if (m_pos + 2 <= m_src.size() && m_src[m_pos] == '\\' && m_src[m_pos + 1] == 'u') {
+                                Advance();
+                                Advance();
+                                uint32_t low = 0;
+                                if (!ParseHex4(low)) return false;
+                                if (low >= 0xDC00u && low <= 0xDFFFu) {
+                                    cp = 0x10000u + (((cp - 0xD800u) << 10) | (low - 0xDC00u));
+                                }
                             }
                         }
+                        AppendUtf8Codepoint(out, cp);
                         break;
                     }
-                    default: out.push_back(esc); break;
+                    default:
+                        out.push_back(esc);
+                        break;
                 }
             } else {
                 out.push_back(c);
             }
         }
-        err = "Unterminated JSON string";
-        return false;
+        return Fail("Unterminated string literal");
     }
 
-    [[nodiscard]] bool ParseBool(JsonValue& out, std::string& err) {
-        if (m_src.substr(m_pos, 4) == "true") {
-            out.type = JsonType::Bool;
-            out.boolVal = true;
-            m_pos += 4;
-            return true;
-        }
-        if (m_src.substr(m_pos, 5) == "false") {
-            out.type = JsonType::Bool;
-            out.boolVal = false;
-            m_pos += 5;
-            return true;
-        }
-        err = "Invalid boolean literal in JSON";
-        return false;
-    }
-
-    [[nodiscard]] bool ParseNull(JsonValue& out, std::string& err) {
-        if (m_src.substr(m_pos, 4) == "null") {
-            out.type = JsonType::Null;
-            m_pos += 4;
-            return true;
-        }
-        err = "Invalid null literal in JSON";
-        return false;
-    }
-
-    [[nodiscard]] bool ParseNumber(JsonValue& out, std::string& err) {
+    bool ParseNumber(JsonValue& out) {
         const size_t start = m_pos;
-        if (m_src[m_pos] == '-') ++m_pos;
-        while (m_pos < m_src.size() && std::isdigit(static_cast<unsigned char>(m_src[m_pos]))) ++m_pos;
-        if (m_pos < m_src.size() && m_src[m_pos] == '.') {
-            ++m_pos;
-            while (m_pos < m_src.size() && std::isdigit(static_cast<unsigned char>(m_src[m_pos]))) ++m_pos;
-        }
-        if (m_pos < m_src.size() && (m_src[m_pos] == 'e' || m_src[m_pos] == 'E')) {
-            ++m_pos;
-            if (m_pos < m_src.size() && (m_src[m_pos] == '+' || m_src[m_pos] == '-')) ++m_pos;
-            while (m_pos < m_src.size() && std::isdigit(static_cast<unsigned char>(m_src[m_pos]))) ++m_pos;
+        bool isFloat = false;
+
+        if (Peek() == '-') Advance();
+        if (AtEnd()) return Fail("Incomplete number");
+
+        if (Peek() == '0') {
+            Advance();
+        } else if (Peek() >= '1' && Peek() <= '9') {
+            while (Peek() >= '0' && Peek() <= '9') Advance();
+        } else {
+            return Fail("Invalid number format");
         }
 
-        double val = 0.0;
-        const auto [ptr, ec] = std::from_chars(m_src.data() + start, m_src.data() + m_pos, val);
-        if (ec != std::errc{}) {
-            err = "Invalid numeric literal in JSON";
-            return false;
+        if (Peek() == '.') {
+            isFloat = true;
+            Advance();
+            if (!(Peek() >= '0' && Peek() <= '9')) {
+                return Fail("Expected digit after decimal point");
+            }
+            while (Peek() >= '0' && Peek() <= '9') Advance();
         }
-        out.type = JsonType::Number;
-        out.numVal = val;
+
+        if (Peek() == 'e' || Peek() == 'E') {
+            isFloat = true;
+            Advance();
+            if (Peek() == '+' || Peek() == '-') Advance();
+            if (!(Peek() >= '0' && Peek() <= '9')) {
+                return Fail("Expected digit in exponent");
+            }
+            while (Peek() >= '0' && Peek() <= '9') Advance();
+        }
+
+        const std::string_view token = m_src.substr(start, m_pos - start);
+        if (!isFloat) {
+            int64_t iVal = 0;
+            const auto [ptr, ec] = std::from_chars(token.data(), token.data() + token.size(), iVal);
+            if (ec == std::errc{} && ptr == token.data() + token.size()) {
+                out.data = iVal;
+                return true;
+            }
+        }
+
+        double dVal = 0.0;
+        const auto [ptr, ec] = std::from_chars(token.data(), token.data() + token.size(), dVal);
+        if (ec == std::errc{} && ptr == token.data() + token.size()) {
+            out.data = dVal;
+            return true;
+        }
+
+        return Fail("Invalid numeric literal");
+    }
+
+    bool ParseArray(JsonValue& out, int depth) {
+        if (Advance() != '[') return Fail("Expected '['");
+        JsonArray arr;
+        SkipWhitespace();
+        if (Peek() == ']') {
+            Advance();
+            out.data = std::move(arr);
+            return true;
+        }
+
+        while (true) {
+            JsonValue elem;
+            if (!ParseValue(elem, depth)) return false;
+            arr.push_back(std::move(elem));
+
+            SkipWhitespace();
+            const char c = Peek();
+            if (c == ',') {
+                Advance();
+                SkipWhitespace();
+                if (Peek() == ']') {
+                    Advance();
+                    break;
+                }
+            } else if (c == ']') {
+                Advance();
+                break;
+            } else {
+                return Fail("Expected ',' or ']' in array");
+            }
+        }
+
+        out.data = std::move(arr);
+        return true;
+    }
+
+    bool ParseObject(JsonValue& out, int depth) {
+        if (Advance() != '{') return Fail("Expected '{'");
+        JsonObject obj;
+        SkipWhitespace();
+        if (Peek() == '}') {
+            Advance();
+            out.data = std::move(obj);
+            return true;
+        }
+
+        while (true) {
+            SkipWhitespace();
+            if (Peek() != '"') {
+                return Fail("Expected string key in object");
+            }
+            std::string key;
+            if (!ParseString(key)) return false;
+
+            SkipWhitespace();
+            if (Advance() != ':') {
+                return Fail("Expected ':' after object key");
+            }
+
+            SkipWhitespace();
+            JsonValue val;
+            if (key == "coordinates" && Peek() == '[') {
+                if (!ParseRawBracketSlice(val)) return false;
+            } else {
+                if (!ParseValue(val, depth)) return false;
+            }
+            obj.emplace_back(std::move(key), std::move(val));
+
+            SkipWhitespace();
+            const char c = Peek();
+            if (c == ',') {
+                Advance();
+                SkipWhitespace();
+                if (Peek() == '}') {
+                    Advance();
+                    break;
+                }
+            } else if (c == '}') {
+                Advance();
+                break;
+            } else {
+                return Fail("Expected ',' or '}' in object");
+            }
+        }
+
+        out.data = std::move(obj);
         return true;
     }
 
     std::string_view m_src;
     size_t m_pos{0};
+    size_t m_line{1};
+    size_t m_col{1};
+    std::string m_error{};
 };
 
 // ============================================================================
-// Coordinate & Geometry Extraction Helpers
+// Direct Streaming Coordinate Slice Reader (Zero-DOM Allocation)
 // ============================================================================
-[[nodiscard]] bool ExtractPointCoord(const JsonValue& arr, GeoPoint& outPt) noexcept {
-    if (arr.type != JsonType::Array || arr.arrVal.size() < 2) return false;
-    if (arr.arrVal[0].type != JsonType::Number || arr.arrVal[1].type != JsonType::Number) return false;
-    outPt.lon = arr.arrVal[0].numVal;
-    outPt.lat = arr.arrVal[1].numVal;
-    if (arr.arrVal.size() >= 3 && arr.arrVal[2].type == JsonType::Number) {
-        outPt.z = arr.arrVal[2].numVal;
-        outPt.hasZ = true;
-    } else {
-        outPt.z = 0.0;
-        outPt.hasZ = false;
-    }
-    return true;
-}
 
-[[nodiscard]] std::vector<GeoPoint> ExtractPointList(const JsonValue& arr) {
-    std::vector<GeoPoint> pts;
-    if (arr.type != JsonType::Array) return pts;
-    pts.reserve(arr.arrVal.size());
-    for (const auto& item : arr.arrVal) {
-        GeoPoint pt{};
-        if (ExtractPointCoord(item, pt)) {
-            pts.push_back(pt);
-        }
-    }
-    return pts;
-}
+class CoordSliceReader {
+public:
+    explicit CoordSliceReader(std::string_view sv, int srsId) noexcept
+        : m_sv(sv), m_srsId(srsId) {}
 
-[[nodiscard]] GeoPolygonRings ExtractPolygonRings(const JsonValue& ringsArr) {
-    GeoPolygonRings poly{};
-    if (ringsArr.type != JsonType::Array || ringsArr.arrVal.empty()) return poly;
-    poly.exterior = ExtractPointList(ringsArr.arrVal[0]);
-    for (size_t i = 1; i < ringsArr.arrVal.size(); ++i) {
-        auto hole = ExtractPointList(ringsArr.arrVal[i]);
-        if (hole.size() >= 3) {
-            poly.holes.push_back(std::move(hole));
-        }
-    }
-    return poly;
-}
-
-[[nodiscard]] std::optional<double> TryGetNumericAttr(const GeoFeature& f, std::initializer_list<std::string_view> keys) noexcept {
-    for (std::string_view k : keys) {
-        const std::string_view sv = f.GetAttribute(k);
-        if (!sv.empty()) {
-            double v = 0.0;
-            const auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), v);
-            if (ec == std::errc{}) return v;
-        }
-    }
-    return std::nullopt;
-}
-
-void PopulateFeatureHydroAttributes(GeoFeature& f) {
-    if (f.featureCode.empty()) {
-        for (std::string_view k : {"feature_code", "OBJL", "acronym", "s57_class", "feature_type", "layer", "type", "class"}) {
-            const std::string_view v = f.GetAttribute(k);
-            if (!v.empty()) {
-                f.featureCode = std::string(v);
-                break;
-            }
-        }
-    }
-    if (f.name.empty()) {
-        for (std::string_view k : {"OBJNAM", "name", "NOBJNM", "label_en", "label_ru", "buoy_name_en", "buoy_name_ru", "title", "label", "seamark:name", "id"}) {
-            const std::string_view v = f.GetAttribute(k);
-            if (!v.empty()) {
-                f.name = std::string(v);
+    void SkipWs() noexcept {
+        while (m_pos < m_sv.size()) {
+            const char c = m_sv[m_pos];
+            if (c == ' ' || c == '\t' || c == '\r' || c == '\n') {
+                ++m_pos;
+            } else {
                 break;
             }
         }
     }
 
-    f.depthMinMeters = TryGetNumericAttr(f, {"DRVAL1", "min_depth_m", "depth_min", "min_depth", "drval1"});
-    f.depthMaxMeters = TryGetNumericAttr(f, {"DRVAL2", "max_depth_m", "depth_max", "max_depth", "drval2"});
-    f.contourDepthMeters = TryGetNumericAttr(f, {"VALDCO", "VALSOU", "depth_m", "depth", "elevation", "valdco", "valsou", "value"});
-
-    if (!f.contourDepthMeters.has_value() && !f.points.empty() && f.points.front().hasZ) {
-        f.contourDepthMeters = f.points.front().z;
+    [[nodiscard]] char Peek() noexcept {
+        SkipWs();
+        return (m_pos < m_sv.size()) ? m_sv[m_pos] : '\0';
     }
 
-    f.featureClass = ClassifyFeatureFromAttributes(f);
-    f.RecomputeBBox();
+    [[nodiscard]] bool Consume(char expected) noexcept {
+        SkipWs();
+        if (m_pos < m_sv.size() && m_sv[m_pos] == expected) {
+            ++m_pos;
+            return true;
+        }
+        return false;
+    }
+
+    [[nodiscard]] bool ReadDouble(double& out) noexcept {
+        SkipWs();
+        if (m_pos >= m_sv.size()) return false;
+        const char* begin = m_sv.data() + m_pos;
+        const char* end = m_sv.data() + m_sv.size();
+        const auto [ptr, ec] = std::from_chars(begin, end, out);
+        if (ec != std::errc{} || ptr == begin) return false;
+        m_pos = static_cast<size_t>(ptr - m_sv.data());
+        return true;
+    }
+
+    // Reads `[lon, lat, ...]` (and optional 3rd Z/depth value)
+    [[nodiscard]] bool ReadCoordPair(guikit::GeoCoord& out, double* outOptionalZ = nullptr) noexcept {
+        if (!Consume('[')) return false;
+        double x = 0.0, y = 0.0;
+        if (!ReadDouble(x)) return false;
+        if (!Consume(',')) return false;
+        if (!ReadDouble(y)) return false;
+        bool firstExtra = true;
+        while (Peek() == ',') {
+            ++m_pos;
+            double extra = 0.0;
+            if (!ReadDouble(extra)) break;
+            if (firstExtra && outOptionalZ) {
+                *outOptionalZ = extra;
+                firstExtra = false;
+            }
+        }
+        if (!Consume(']')) return false;
+        out = SrsTransform::ToWgs84(x, y, m_srsId);
+        return true;
+    }
+
+    // Reads `[[lon, lat], [lon, lat], ...]`
+    [[nodiscard]] bool ReadCoordRing(std::vector<guikit::GeoCoord>& outRing) {
+        if (!Consume('[')) return false;
+        outRing.clear();
+        if (Consume(']')) return true;
+        while (true) {
+            guikit::GeoCoord pt{};
+            if (!ReadCoordPair(pt)) return false;
+            outRing.push_back(pt);
+            if (Consume(',')) {
+                if (Consume(']')) break;
+            } else if (Consume(']')) {
+                break;
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Reads `[[[lon, lat], ...], ...]` into LineStrings
+    [[nodiscard]] bool ReadMultiLineRings(std::vector<std::vector<guikit::GeoCoord>>& outLines) {
+        if (!Consume('[')) return false;
+        if (Consume(']')) return true;
+        size_t added = 0;
+        while (true) {
+            std::vector<guikit::GeoCoord> line;
+            if (!ReadCoordRing(line)) return false;
+            if (line.size() >= 2) {
+                outLines.push_back(std::move(line));
+                ++added;
+            }
+            if (Consume(',')) {
+                if (Consume(']')) break;
+            } else if (Consume(']')) {
+                break;
+            } else {
+                return false;
+            }
+        }
+        return added > 0;
+    }
+
+    // Reads `[[[lon, lat], ...], ...]` into one GeoPolygon (exterior + interior holes)
+    [[nodiscard]] bool ReadPolygonRings(std::vector<GeoPolygon>& outPolys) {
+        if (!Consume('[')) return false;
+        if (Consume(']')) return true;
+
+        GeoPolygon poly;
+        if (!ReadCoordRing(poly.exteriorRing)) return false;
+
+        while (Consume(',')) {
+            if (Consume(']')) {
+                if (poly.exteriorRing.size() >= 3) {
+                    outPolys.push_back(std::move(poly));
+                    return true;
+                }
+                return false;
+            }
+            std::vector<guikit::GeoCoord> hole;
+            if (!ReadCoordRing(hole)) return false;
+            if (hole.size() >= 3) {
+                poly.interiorRings.push_back(std::move(hole));
+            }
+        }
+
+        if (!Consume(']')) return false;
+        if (poly.exteriorRing.size() >= 3) {
+            outPolys.push_back(std::move(poly));
+            return true;
+        }
+        return false;
+    }
+
+    // Reads `[[[[lon, lat], ...], ...], ...]` into multiple GeoPolygons
+    [[nodiscard]] bool ReadMultiPolygonRings(std::vector<GeoPolygon>& outPolys) {
+        if (!Consume('[')) return false;
+        if (Consume(']')) return false;
+        const size_t before = outPolys.size();
+        while (true) {
+            (void)ReadPolygonRings(outPolys);
+            if (Consume(',')) {
+                if (Consume(']')) break;
+            } else if (Consume(']')) {
+                break;
+            } else {
+                return false;
+            }
+        }
+        return outPolys.size() > before;
+    }
+
+private:
+    std::string_view m_sv;
+    int m_srsId{4326};
+    size_t m_pos{0};
+};
+
+// ============================================================================
+// GeoJSON Geometry & Attribute Extraction Helpers
+// ============================================================================
+
+[[nodiscard]] std::string CompactJsonValueToString(const JsonValue& v) {
+    if (v.IsNull()) return "null";
+    if (const auto* b = std::get_if<bool>(&v.data)) return *b ? "true" : "false";
+    if (const auto* i = std::get_if<int64_t>(&v.data)) return std::to_string(*i);
+    if (const auto* d = std::get_if<double>(&v.data)) {
+        char buf[64]{};
+        std::snprintf(buf, sizeof(buf), "%.6g", *d);
+        return std::string(buf);
+    }
+    if (const auto* s = std::get_if<std::string>(&v.data)) return *s;
+    if (const auto* cs = std::get_if<RawCoordsSlice>(&v.data)) return std::string(cs->text);
+    if (const auto* arr = v.AsArray()) {
+        std::string out = "[";
+        for (size_t i = 0; i < arr->size(); ++i) {
+            if (i > 0) out += ", ";
+            out += CompactJsonValueToString((*arr)[i]);
+        }
+        out += "]";
+        return out;
+    }
+    if (const auto* obj = v.AsObject()) {
+        std::string out = "{";
+        for (size_t i = 0; i < obj->size(); ++i) {
+            if (i > 0) out += ", ";
+            out += (*obj)[i].first + ": " + CompactJsonValueToString((*obj)[i].second);
+        }
+        out += "}";
+        return out;
+    }
+    return {};
 }
 
-void ExtractFeaturesFromGeometryNode(
-    const JsonValue& geomNode,
-    const std::vector<GeoAttribute>& props,
-    std::string_view explicitId,
-    uint64_t& nextFeatureId,
-    std::vector<GeoFeature>& outFeatures
-) {
-    if (geomNode.type != JsonType::Object) return;
-    const JsonValue* typeNode = geomNode.Find("type");
-    if (!typeNode || typeNode->type != JsonType::String) return;
-    const std::string_view gType = typeNode->strVal;
+[[nodiscard]] AttributeValue JsonToAttributeValue(const JsonValue& v) {
+    if (v.IsNull()) return AttributeValue(nullptr);
+    if (const auto* b = std::get_if<bool>(&v.data)) return AttributeValue(*b);
+    if (const auto* i = std::get_if<int64_t>(&v.data)) return AttributeValue(*i);
+    if (const auto* d = std::get_if<double>(&v.data)) return AttributeValue(*d);
+    if (const auto* s = std::get_if<std::string>(&v.data)) return AttributeValue(*s);
+    return AttributeValue(CompactJsonValueToString(v));
+}
+
+bool ParseGeometryObject(const JsonValue& geomObj, int srsId, GeoFeature& feat, bool isTopLevel = true) {
+    if (geomObj.IsNull()) return false;
+    const auto* typeVal = geomObj.Find("type");
+    if (!typeVal || !typeVal->IsString()) return false;
+
+    const std::string_view gType = typeVal->AsString();
 
     if (gType == "GeometryCollection") {
-        const JsonValue* geoms = geomNode.Find("geometries");
-        if (geoms && geoms->type == JsonType::Array) {
-            for (const auto& sub : geoms->arrVal) {
-                ExtractFeaturesFromGeometryNode(sub, props, explicitId, nextFeatureId, outFeatures);
-            }
+        if (isTopLevel) {
+            feat.type = GeometryType::GeometryCollection;
         }
-        return;
+        const auto* geomsVal = geomObj.Find("geometries");
+        if (geomsVal && geomsVal->IsArray()) {
+            bool anyOk = false;
+            for (const JsonValue& subGeom : *geomsVal->AsArray()) {
+                if (ParseGeometryObject(subGeom, srsId, feat, false)) {
+                    anyOk = true;
+                }
+            }
+            return anyOk;
+        }
+        return false;
     }
 
-    const JsonValue* coords = geomNode.Find("coordinates");
-    if (!coords || coords->type != JsonType::Array) return;
+    const auto* coordsVal = geomObj.Find("coordinates");
+    if (!coordsVal) return false;
+    const std::string_view coordsSlice = coordsVal->AsCoordsSlice();
+    if (coordsSlice.empty()) return false;
 
-    GeoFeature feat{};
-    feat.id = nextFeatureId++;
-    feat.attributes = props;
-    if (!explicitId.empty()) {
-        feat.name = std::string(explicitId);
-    }
+    CoordSliceReader reader(coordsSlice, srsId);
 
     if (gType == "Point") {
-        feat.geometryType = GeometryType::Point;
-        GeoPoint pt{};
-        if (ExtractPointCoord(*coords, pt)) {
+        if (isTopLevel) feat.type = GeometryType::Point;
+        guikit::GeoCoord pt{};
+        double optZ = std::numeric_limits<double>::quiet_NaN();
+        if (reader.ReadCoordPair(pt, &optZ)) {
             feat.points.push_back(pt);
+            if (!std::isnan(optZ) && std::isnan(feat.depthMeters)) {
+                feat.depthMeters = static_cast<float>(optZ);
+            }
+            return true;
         }
-    } else if (gType == "MultiPoint") {
-        feat.geometryType = GeometryType::MultiPoint;
-        feat.points = ExtractPointList(*coords);
-    } else if (gType == "LineString") {
-        feat.geometryType = GeometryType::LineString;
-        auto line = ExtractPointList(*coords);
-        if (line.size() >= 2) {
+        return false;
+    }
+
+    if (gType == "MultiPoint") {
+        if (isTopLevel) feat.type = GeometryType::MultiPoint;
+        std::vector<guikit::GeoCoord> pts;
+        if (reader.ReadCoordRing(pts) && !pts.empty()) {
+            for (const auto& pt : pts) {
+                feat.points.push_back(pt);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    if (gType == "LineString") {
+        if (isTopLevel) feat.type = GeometryType::LineString;
+        std::vector<guikit::GeoCoord> line;
+        if (reader.ReadCoordRing(line) && line.size() >= 2) {
             feat.lines.push_back(std::move(line));
+            return true;
         }
-    } else if (gType == "MultiLineString") {
-        feat.geometryType = GeometryType::MultiLineString;
-        for (const auto& lineNode : coords->arrVal) {
-            auto line = ExtractPointList(lineNode);
-            if (line.size() >= 2) {
-                feat.lines.push_back(std::move(line));
-            }
-        }
-    } else if (gType == "Polygon") {
-        feat.geometryType = GeometryType::Polygon;
-        auto poly = ExtractPolygonRings(*coords);
-        if (poly.exterior.size() >= 3) {
-            feat.polygons.push_back(std::move(poly));
-        }
-    } else if (gType == "MultiPolygon") {
-        feat.geometryType = GeometryType::MultiPolygon;
-        for (const auto& polyNode : coords->arrVal) {
-            auto poly = ExtractPolygonRings(polyNode);
-            if (poly.exterior.size() >= 3) {
-                feat.polygons.push_back(std::move(poly));
-            }
-        }
-    } else {
-        return;
+        return false;
     }
 
-    if (feat.points.empty() && feat.lines.empty() && feat.polygons.empty()) {
-        return;
+    if (gType == "MultiLineString") {
+        if (isTopLevel) feat.type = GeometryType::MultiLineString;
+        return reader.ReadMultiLineRings(feat.lines);
     }
 
-    PopulateFeatureHydroAttributes(feat);
-    outFeatures.push_back(std::move(feat));
+    if (gType == "Polygon") {
+        if (isTopLevel) feat.type = GeometryType::Polygon;
+        return reader.ReadPolygonRings(feat.polygons);
+    }
+
+    if (gType == "MultiPolygon") {
+        if (isTopLevel) feat.type = GeometryType::MultiPolygon;
+        return reader.ReadMultiPolygonRings(feat.polygons);
+    }
+
+    return false;
 }
 
-[[nodiscard]] GisFeatureStyle DefaultStyleForClass(GisFeatureClass cls) noexcept {
-    GisFeatureStyle s{};
+int DetectGeoJsonSrsId(const JsonValue& rootObj) {
+    const auto* crsVal = rootObj.Find("crs");
+    if (!crsVal || !crsVal->IsObject()) return 4326;
+    const auto* propsVal = crsVal->Find("properties");
+    if (!propsVal || !propsVal->IsObject()) return 4326;
+    const auto* nameVal = propsVal->Find("name");
+    if (!nameVal || !nameVal->IsString()) return 4326;
+
+    const std::string_view crsName = nameVal->AsString();
+    if (crsName.find("3857") != std::string_view::npos || crsName.find("900913") != std::string_view::npos) {
+        return 3857;
+    }
+    if (crsName.find("3395") != std::string_view::npos) {
+        return 3395;
+    }
+    return 4326;
+}
+
+void ParseFeatureObject(const JsonValue& featObj, int srsId, std::vector<GeoFeature>& outFeatures) {
+    if (!featObj.IsObject()) return;
+
+    GeoFeature feat;
+
+    if (const auto* idVal = featObj.Find("id")) {
+        if (idVal->IsString()) {
+            feat.displayId = std::string(idVal->AsString());
+        } else if (const auto* i = std::get_if<int64_t>(&idVal->data)) {
+            feat.displayId = std::to_string(*i);
+        } else if (const auto* d = std::get_if<double>(&idVal->data)) {
+            feat.displayId = std::format("{}", *d);
+        }
+    }
+
+    if (const auto* propsVal = featObj.Find("properties")) {
+        if (const auto* propsObj = propsVal->AsObject()) {
+            feat.properties.reserve(propsObj->size());
+            for (const auto& [k, v] : *propsObj) {
+                if (v.IsNull()) continue;
+                feat.properties.emplace_back(k, JsonToAttributeValue(v));
+            }
+        }
+    }
+
+    if (const auto* geomVal = featObj.Find("geometry")) {
+        if (ParseGeometryObject(*geomVal, srsId, feat, true)) {
+            outFeatures.push_back(std::move(feat));
+        }
+    }
+}
+
+void EscapeJsonString(std::string& out, std::string_view sv) {
+    out.push_back('"');
+    for (char c : sv) {
+        switch (c) {
+            case '"':  out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\b': out += "\\b"; break;
+            case '\f': out += "\\f"; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default:
+                if (static_cast<unsigned char>(c) < 0x20u) {
+                    char buf[8]{};
+                    std::snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned int>(static_cast<unsigned char>(c)));
+                    out += buf;
+                } else {
+                    out.push_back(c);
+                }
+                break;
+        }
+    }
+    out.push_back('"');
+}
+
+void AppendRingJson(std::string& out, const std::vector<guikit::GeoCoord>& ring, bool closeRing) {
+    out.push_back('[');
+    for (size_t i = 0; i < ring.size(); ++i) {
+        if (i > 0) out += ", ";
+        char buf[64]{};
+        std::snprintf(buf, sizeof(buf), "[%.6f, %.6f]", ring[i].lon, ring[i].lat);
+        out += buf;
+    }
+    if (closeRing && !ring.empty()) {
+        const auto& f = ring.front();
+        const auto& b = ring.back();
+        if (std::abs(f.lon - b.lon) > 1e-9 || std::abs(f.lat - b.lat) > 1e-9) {
+            char buf[64]{};
+            std::snprintf(buf, sizeof(buf), ", [%.6f, %.6f]", f.lon, f.lat);
+            out += buf;
+        }
+    }
+    out.push_back(']');
+}
+
+[[nodiscard]] int CartographicSortRank(ChartFeatureClass cls) noexcept {
     switch (cls) {
-        case GisFeatureClass::DepthArea:
-            s.fillColor = Color::Rgba(120, 200, 240, 220);
-            s.strokeColor = Color::Rgba(85, 165, 215, 110);
-            s.strokeWidthPx = 0.8f;
+        case ChartFeatureClass::CoverageMask:       return 5;
+        case ChartFeatureClass::DepthArea:          return 10;
+        case ChartFeatureClass::SeabedOrMarineArea: return 20;
+        case ChartFeatureClass::FairwayArea:        return 25;
+        case ChartFeatureClass::LandArea:           return 30;
+        case ChartFeatureClass::BuiltUpOrStructure: return 40;
+        case ChartFeatureClass::SubmarineCablePipe: return 50;
+        case ChartFeatureClass::DepthContour:       return 55;
+        case ChartFeatureClass::Coastline:          return 60;
+        case ChartFeatureClass::NavigationLine:     return 65;
+        case ChartFeatureClass::Generic:            return 70;
+        case ChartFeatureClass::Sounding:           return 80;
+        case ChartFeatureClass::UnderwaterHazard:   return 85;
+        case ChartFeatureClass::BuoyOrBeacon:       return 90;
+        case ChartFeatureClass::TextLabel:          return 95;
+    }
+    return 70;
+}
+
+[[nodiscard]] LayerStyle DefaultStyleForChartClass(ChartFeatureClass cls, size_t idx) noexcept {
+    LayerStyle s{};
+    s.primaryColor = SrsTransform::DefaultLayerColor(idx);
+    switch (cls) {
+        case ChartFeatureClass::DepthArea:
+            s.primaryColor = guikit::Color(56, 189, 248, 255);
+            s.fillOpacity = 1.0f;
+            s.renderStroke = false;
+            s.showLabels = false;
             break;
-        case GisFeatureClass::LandArea:
-            s.fillColor = Color::Rgba(218, 202, 158, 245);
-            s.strokeColor = Color::Rgba(120, 102, 68, 220);
+        case ChartFeatureClass::LandArea:
+            s.primaryColor = guikit::Color(214, 197, 152, 255);
+            s.fillOpacity = 1.0f;
             s.strokeWidthPx = 1.4f;
             break;
-        case GisFeatureClass::UrbanBuilding:
-            s.fillColor = Color::Rgba(192, 175, 140, 235);
-            s.strokeColor = Color::Rgba(110, 95, 70, 235);
-            s.strokeWidthPx = 1.2f;
-            break;
-        case GisFeatureClass::RoadRailway:
-            s.fillColor = Color::Transparent();
-            s.strokeColor = Color::Rgba(145, 125, 95, 210);
-            s.strokeWidthPx = 1.6f;
-            s.filled = false;
-            break;
-        case GisFeatureClass::Coastline:
-            s.fillColor = Color::Transparent();
-            s.strokeColor = Color::Rgba(75, 62, 42, 245);
+        case ChartFeatureClass::Coastline:
+            s.primaryColor = guikit::Color(92, 76, 52, 255);
+            s.renderFill = false;
             s.strokeWidthPx = 2.0f;
-            s.filled = false;
             break;
-        case GisFeatureClass::DepthContour:
-            s.fillColor = Color::Transparent();
-            s.strokeColor = Color::Rgba(42, 128, 185, 210);
+        case ChartFeatureClass::DepthContour:
+            s.primaryColor = guikit::Color(14, 116, 144, 255);
+            s.renderFill = false;
             s.strokeWidthPx = 1.2f;
-            s.filled = false;
             break;
-        case GisFeatureClass::Sounding:
-            s.fillColor = Color::Rgba(30, 64, 98, 245);
-            s.strokeColor = Color::Rgba(255, 255, 255, 210);
-            s.pointRadiusPx = 3.0f;
+        case ChartFeatureClass::Sounding:
+            s.primaryColor = guikit::Color(3, 105, 161, 255);
+            s.pointRadiusPx = 3.5f;
             break;
-        case GisFeatureClass::Seamark:
-            s.fillColor = Color::Rgba(217, 70, 239, 235);
-            s.strokeColor = Color::Rgba(134, 25, 143, 250);
+        case ChartFeatureClass::BuoyOrBeacon:
+            s.primaryColor = guikit::Color(232, 121, 249, 255);
             s.pointRadiusPx = 6.5f;
+            s.renderAsSeamark = true;
             break;
-        case GisFeatureClass::Light:
-            s.fillColor = Color::Rgba(250, 204, 21, 240);
-            s.strokeColor = Color::Rgba(217, 119, 6, 250);
-            s.pointRadiusPx = 7.0f;
-            break;
-        case GisFeatureClass::UnderwaterHazard:
-            s.fillColor = Color::Rgba(239, 68, 68, 220);
-            s.strokeColor = Color::Rgba(153, 27, 27, 250);
+        case ChartFeatureClass::UnderwaterHazard:
+            s.primaryColor = guikit::Color(239, 68, 68, 255);
             s.pointRadiusPx = 6.0f;
+            s.renderAsSeamark = true;
             break;
-        case GisFeatureClass::RestrictedArea:
-            s.fillColor = Color::Rgba(192, 38, 211, 35);
-            s.strokeColor = Color::Rgba(192, 38, 211, 200);
-            s.strokeWidthPx = 1.6f;
-            s.dashed = true;
-            break;
-        case GisFeatureClass::Fairway:
-            s.fillColor = Color::Rgba(16, 185, 129, 28);
-            s.strokeColor = Color::Rgba(16, 185, 129, 210);
-            s.strokeWidthPx = 1.8f;
-            s.dashed = true;
-            break;
-        case GisFeatureClass::CablePipeline:
-            s.fillColor = Color::Transparent();
-            s.strokeColor = Color::Rgba(168, 85, 247, 215);
-            s.strokeWidthPx = 1.5f;
-            s.dashed = true;
-            s.filled = false;
-            break;
-        case GisFeatureClass::Generic:
-            s.fillColor = Color::Rgba(56, 189, 248, 75);
-            s.strokeColor = Color::Rgba(2, 132, 199, 230);
-            s.strokeWidthPx = 1.6f;
+        default:
             break;
     }
     return s;
 }
 
-[[nodiscard]] std::string EscapeJsonString(std::string_view s) {
-    std::string out;
-    out.reserve(s.size() + 4);
-    for (char c : s) {
-        switch (c) {
-            case '"':  out += "\\\""; break;
-            case '\\': out += "\\\\"; break;
-            case '\n': out += "\\n"; break;
-            case '\r': out += "\\r"; break;
-            case '\t': out += "\\t"; break;
-            default:   out.push_back(c); break;
-        }
+bool TryReadTextFromAssetsOrDisk(
+    const std::string& filePath,
+    std::string& outContent,
+    std::string& outResolvedPath,
+    std::string& outError
+) {
+    if (filePath.empty()) {
+        outError = "Empty file path";
+        return false;
     }
-    return out;
+
+    // 1. Check embedded assets first (Native + WebAssembly)
+    if (auto asset = guikit::Assets::Find(filePath); asset && !asset->Empty()) {
+        outContent = std::string(asset->AsStringView());
+        outResolvedPath = guikit::Assets::NormalizePath(filePath);
+        return true;
+    }
+
+    // 2. Check disk (direct path first, then relative parent prefixes for demo working directories)
+    const char* prefixes[] = {"", "../", "../../", "../../../"};
+    for (const char* prefix : prefixes) {
+        const std::string candidate = std::string(prefix) + filePath;
+        std::ifstream ifs(std::filesystem::u8path(candidate), std::ios::binary | std::ios::ate);
+        if (!ifs) continue;
+
+        const auto endPos = ifs.tellg();
+        outContent.clear();
+        if (endPos > 0) {
+            outContent.resize(static_cast<size_t>(endPos));
+            ifs.seekg(0, std::ios::beg);
+            ifs.read(outContent.data(), static_cast<std::streamsize>(outContent.size()));
+        }
+        outResolvedPath = candidate;
+        return true;
+    }
+
+    outError = std::format("Cannot open GeoJSON file: {}", filePath);
+    return false;
 }
 
 } // namespace
 
-GeoJsonLoadResult GeoJsonIO::ParseFromString(
+GeoJsonResult GeoJsonIO::ParseFromString(std::string_view jsonText, std::string_view defaultLayerName) {
+    GeoJsonResult res;
+    JsonValue root;
+    JsonParser parser(jsonText);
+    if (!parser.ParseRoot(root, res.error)) {
+        return res;
+    }
+
+    if (!root.IsObject()) {
+        res.error = "GeoJSON root must be a JSON object";
+        return res;
+    }
+
+    res.layer.name = std::string(defaultLayerName);
+    res.layer.format = "GeoJSON";
+    res.layer.srsId = DetectGeoJsonSrsId(root);
+
+    if (const auto* nameVal = root.Find("name"); nameVal && nameVal->IsString()) {
+        const std::string_view docName = nameVal->AsString();
+        if (!docName.empty()) {
+            res.layer.name = std::string(docName);
+        }
+    }
+
+    const auto* typeVal = root.Find("type");
+    if (!typeVal || !typeVal->IsString()) {
+        res.error = "Missing 'type' property on GeoJSON root object";
+        return res;
+    }
+
+    const std::string_view rootType = typeVal->AsString();
+    if (rootType == "FeatureCollection") {
+        const auto* featsVal = root.Find("features");
+        if (!featsVal || !featsVal->IsArray()) {
+            res.error = "FeatureCollection is missing 'features' array";
+            return res;
+        }
+        const auto* featsArr = featsVal->AsArray();
+        res.layer.features.reserve(featsArr->size());
+        for (const JsonValue& featVal : *featsArr) {
+            ParseFeatureObject(featVal, res.layer.srsId, res.layer.features);
+        }
+    } else if (rootType == "Feature") {
+        ParseFeatureObject(root, res.layer.srsId, res.layer.features);
+    } else {
+        GeoFeature singleFeat;
+        if (ParseGeometryObject(root, res.layer.srsId, singleFeat, true)) {
+            res.layer.features.push_back(std::move(singleFeat));
+        } else {
+            res.error = std::format("Unsupported or empty GeoJSON root type '{}'", rootType);
+            return res;
+        }
+    }
+
+    res.layer.FinalizeLayer(1);
+    res.ok = true;
+    return res;
+}
+
+GeoJsonResult GeoJsonIO::LoadFromFile(const std::string& filePath) {
+    GeoJsonResult res;
+    std::string content;
+    std::string resolvedPath;
+    if (!TryReadTextFromAssetsOrDisk(filePath, content, resolvedPath, res.error)) {
+        return res;
+    }
+
+    std::string stem = std::filesystem::u8path(filePath).stem().string();
+    if (stem.empty()) stem = "GeoJSON Layer";
+
+    res = ParseFromString(content, stem);
+    res.layer.sourcePath = resolvedPath;
+    return res;
+}
+
+GeoJsonLoadResult GeoJsonIO::ParseThematicLayersFromString(
     std::string_view jsonText,
     std::string_view defaultLayerName,
     bool splitByThematicClass
 ) {
     GeoJsonLoadResult res{};
-    JsonValue root;
-    JsonParser parser(jsonText);
-    if (!parser.ParseRoot(root, res.errorMessage)) {
+    GeoJsonResult singleRes = ParseFromString(jsonText, defaultLayerName);
+    if (!singleRes.ok) {
+        res.errorMessage = singleRes.error;
         return res;
     }
 
-    if (root.type != JsonType::Object) {
-        res.errorMessage = "GeoJSON root must be a JSON Object";
-        return res;
-    }
-
-    std::vector<GeoFeature> allFeatures;
-    uint64_t nextFeatureId = 1;
-
-    auto processFeatureObject = [&](const JsonValue& featObj) {
-        if (featObj.type != JsonType::Object) return;
-        std::vector<GeoAttribute> props;
-        if (const JsonValue* propNode = featObj.Find("properties"); propNode && propNode->type == JsonType::Object) {
-            props.reserve(propNode->objVal.size());
-            for (const auto& kv : propNode->objVal) {
-                if (kv.second.type != JsonType::Null) {
-                    props.push_back(GeoAttribute{kv.first, kv.second.ToAttributeString()});
-                }
-            }
-        }
-        std::string explicitId;
-        if (const JsonValue* idNode = featObj.Find("id"); idNode && idNode->type != JsonType::Null) {
-            explicitId = idNode->ToAttributeString();
-        }
-        if (const JsonValue* geomNode = featObj.Find("geometry"); geomNode && geomNode->type == JsonType::Object) {
-            ExtractFeaturesFromGeometryNode(*geomNode, props, explicitId, nextFeatureId, allFeatures);
-        }
-    };
-
-    const std::string_view rootType = root.Find("type") ? root.Find("type")->AsString() : "";
-    if (rootType == "FeatureCollection") {
-        if (const JsonValue* feats = root.Find("features"); feats && feats->type == JsonType::Array) {
-            allFeatures.reserve(feats->arrVal.size());
-            for (const auto& fNode : feats->arrVal) {
-                processFeatureObject(fNode);
-            }
-        }
-    } else if (rootType == "Feature") {
-        processFeatureObject(root);
-    } else {
-        // Bare Geometry object
-        ExtractFeaturesFromGeometryNode(root, {}, {}, nextFeatureId, allFeatures);
-    }
-
-    if (allFeatures.empty()) {
+    if (singleRes.layer.features.empty()) {
         res.errorMessage = "No valid geographic features found in GeoJSON";
         return res;
     }
 
-    uint32_t nextLayerId = 1;
-    if (splitByThematicClass) {
-        std::map<GisFeatureClass, GeoLayer> grouped;
-        for (auto& feat : allFeatures) {
-            auto it = grouped.find(feat.featureClass);
-            if (it == grouped.end()) {
-                GeoLayer layer{};
-                layer.id = nextLayerId++;
-                layer.name = std::string(GisFeatureClassName(feat.featureClass));
-                layer.dominantClass = feat.featureClass;
-                layer.zOrder = DefaultZOrderForClass(feat.featureClass);
-                layer.defaultStyle = DefaultStyleForClass(feat.featureClass);
-                it = grouped.emplace(feat.featureClass, std::move(layer)).first;
-            }
-            it->second.features.push_back(std::move(feat));
-        }
-
-        for (auto& [cls, layer] : grouped) {
-            layer.RecomputeBBox();
-            res.totalBounds.Expand(layer.bbox);
-            res.totalFeatures += layer.features.size();
-            res.totalVertices += layer.TotalVertexCount();
-            res.layers.push_back(std::move(layer));
-        }
-    } else {
-        GeoLayer single{};
-        single.id = nextLayerId++;
-        single.name = std::string(defaultLayerName);
-        single.dominantClass = allFeatures.front().featureClass;
-        single.zOrder = DefaultZOrderForClass(single.dominantClass);
-        single.defaultStyle = DefaultStyleForClass(single.dominantClass);
-        single.features = std::move(allFeatures);
-        single.RecomputeBBox();
-
-        res.totalBounds = single.bbox;
-        res.totalFeatures = single.features.size();
-        res.totalVertices = single.TotalVertexCount();
-        res.layers.push_back(std::move(single));
+    if (!splitByThematicClass) {
+        singleRes.layer.style = DefaultStyleForChartClass(singleRes.layer.dominantChartClass, 0);
+        res.totalBounds = singleRes.layer.bounds;
+        res.hasValidBounds = singleRes.layer.hasValidBounds;
+        res.totalFeatures = singleRes.layer.features.size();
+        res.totalVertices = singleRes.layer.totalVertices;
+        res.layers.push_back(std::move(singleRes.layer));
+        res.ok = true;
+        return res;
     }
 
-    std::sort(res.layers.begin(), res.layers.end(), [](const GeoLayer& a, const GeoLayer& b) {
-        return a.zOrder < b.zOrder;
-    });
+    std::map<int, GeoLayer> grouped;
+    for (GeoFeature& feat : singleRes.layer.features) {
+        const int key = CartographicSortRank(feat.chartClass) * 100 + static_cast<int>(feat.chartClass);
+        auto it = grouped.find(key);
+        if (it == grouped.end()) {
+            GeoLayer lyr{};
+            lyr.name = std::string(ChartFeatureClassToString(feat.chartClass));
+            lyr.format = "GeoJSON";
+            lyr.srsId = singleRes.layer.srsId;
+            lyr.dominantChartClass = feat.chartClass;
+            it = grouped.emplace(key, std::move(lyr)).first;
+        }
+        it->second.features.push_back(std::move(feat));
+    }
+
+    uint64_t nextLayerUid = 1;
+    size_t styleIdx = 0;
+    for (auto& [rankKey, layer] : grouped) {
+        layer.style = DefaultStyleForChartClass(layer.dominantChartClass, styleIdx++);
+        layer.FinalizeLayer(nextLayerUid++);
+        if (layer.hasValidBounds) {
+            SrsTransform::UnionBounds(res.totalBounds, res.hasValidBounds, layer.bounds);
+        }
+        res.totalFeatures += layer.features.size();
+        res.totalVertices += layer.totalVertices;
+        res.layers.push_back(std::move(layer));
+    }
 
     res.ok = true;
     return res;
 }
 
-GeoJsonLoadResult GeoJsonIO::LoadFromFile(
+GeoJsonLoadResult GeoJsonIO::LoadThematicLayersFromFile(
     const std::string& filePath,
     bool splitByThematicClass
 ) {
     GeoJsonLoadResult res{};
-    if (filePath.empty()) {
-        res.errorMessage = "Empty file path";
+    std::string content;
+    std::string resolvedPath;
+    if (!TryReadTextFromAssetsOrDisk(filePath, content, resolvedPath, res.errorMessage)) {
         return res;
     }
 
-    // Extract filename stem as default layer name
-    std::string defaultName = filePath;
-    if (const size_t slash = defaultName.find_last_of("/\\"); slash != std::string::npos) {
-        defaultName = defaultName.substr(slash + 1);
-    }
+    std::string stem = std::filesystem::u8path(filePath).stem().string();
+    if (stem.empty()) stem = "GeoJSON Layer";
 
-    // 1. Check embedded assets first (works on both Native and WebAssembly!)
-    if (auto asset = Assets::Find(filePath); asset && !asset->Empty()) {
-        res = ParseFromString(asset->AsStringView(), defaultName, splitByThematicClass);
-        const std::string normPath = Assets::NormalizePath(filePath);
-        for (auto& layer : res.layers) {
-            layer.sourcePath = normPath;
-        }
-        return res;
-    }
-
-    // 2. Fallback to disk file (checking common relative prefixes)
-    std::ifstream ifs;
-    std::string resolvedPath = filePath;
-    const char* prefixes[] = {"", "../", "../../", "../../../"};
-    for (const char* prefix : prefixes) {
-        std::string candidate = std::string(prefix) + filePath;
-        ifs.open(candidate, std::ios::binary);
-        if (ifs.is_open()) {
-            resolvedPath = std::move(candidate);
-            break;
-        }
-        ifs.clear();
-    }
-
-    if (!ifs.is_open()) {
-        res.errorMessage = "Cannot open file: " + filePath;
-        return res;
-    }
-
-    std::ostringstream oss;
-    oss << ifs.rdbuf();
-    const std::string content = oss.str();
-
-    res = ParseFromString(content, defaultName, splitByThematicClass);
+    res = ParseThematicLayersFromString(content, stem, splitByThematicClass);
     for (auto& layer : res.layers) {
         layer.sourcePath = resolvedPath;
     }
     return res;
 }
 
-std::string GeoJsonIO::SerializeToString(
-    const std::vector<GeoLayer>& layers,
-    bool prettyPrint
-) {
-    std::ostringstream out;
-    const char* nl = prettyPrint ? "\n" : "";
-    const char* sp = prettyPrint ? "  " : "";
+std::string GeoJsonIO::SerializeLayer(const GeoLayer& layer, bool prettyPrint) {
+    const std::string_view nl = prettyPrint ? "\n" : "";
+    const std::string_view ind1 = prettyPrint ? "  " : "";
+    const std::string_view ind2 = prettyPrint ? "    " : "";
+    const std::string_view ind3 = prettyPrint ? "      " : "";
 
-    out << "{" << nl;
-    out << sp << "\"type\": \"FeatureCollection\"," << nl;
-    out << sp << "\"features\": [" << nl;
+    std::string out;
+    out.reserve(layer.features.size() * 256 + 128);
+    out += "{";
+    out += nl;
+    out += ind1;
+    out += "\"type\": \"FeatureCollection\",";
+    out += nl;
+    out += ind1;
+    out += "\"name\": ";
+    EscapeJsonString(out, layer.name);
+    out += ",";
+    out += nl;
+    out += ind1;
+    out += "\"features\": [";
+    out += nl;
 
-    bool firstFeature = true;
-    char coordBuf[96]{};
+    for (size_t fi = 0; fi < layer.features.size(); ++fi) {
+        const GeoFeature& feat = layer.features[fi];
+        (void)feat.EnsureGeometryLoaded();
+        (void)feat.EnsurePropertiesLoaded();
+        out += ind2;
+        out += "{";
+        out += nl;
+        out += ind3;
+        out += "\"type\": \"Feature\",";
+        out += nl;
 
-    auto writePoint = [&](const GeoPoint& pt) {
-        if (pt.hasZ) {
-            std::snprintf(coordBuf, sizeof(coordBuf), "[%.6f, %.6f, %.2f]", pt.lon, pt.lat, pt.z);
+        if (!feat.displayId.empty()) {
+            out += ind3;
+            out += "\"id\": ";
+            EscapeJsonString(out, feat.displayId);
+            out += ",";
+            out += nl;
+        }
+
+        // Properties
+        out += ind3;
+        out += "\"properties\": {";
+        for (size_t pi = 0; pi < feat.properties.size(); ++pi) {
+            if (pi > 0) out += ", ";
+            const auto& [k, v] = feat.properties[pi];
+            EscapeJsonString(out, k);
+            out += ": ";
+            if (v.IsNull()) {
+                out += "null";
+            } else if (const auto* b = std::get_if<bool>(&v.value)) {
+                out += (*b ? "true" : "false");
+            } else if (const auto* i = std::get_if<int64_t>(&v.value)) {
+                out += std::to_string(*i);
+            } else if (const auto* d = std::get_if<double>(&v.value)) {
+                char buf[64]{};
+                std::snprintf(buf, sizeof(buf), "%.6g", *d);
+                out += buf;
+            } else if (const auto* s = std::get_if<std::string>(&v.value)) {
+                EscapeJsonString(out, *s);
+            }
+        }
+        out += "},";
+        out += nl;
+
+        // Geometry
+        out += ind3;
+        out += "\"geometry\": ";
+        if (!feat.polygons.empty()) {
+            if (feat.polygons.size() == 1 && feat.type != GeometryType::MultiPolygon) {
+                out += "{\"type\": \"Polygon\", \"coordinates\": [";
+                AppendRingJson(out, feat.polygons[0].exteriorRing, true);
+                for (const auto& hole : feat.polygons[0].interiorRings) {
+                    out += ", ";
+                    AppendRingJson(out, hole, true);
+                }
+                out += "]}";
+            } else {
+                out += "{\"type\": \"MultiPolygon\", \"coordinates\": [";
+                for (size_t p = 0; p < feat.polygons.size(); ++p) {
+                    if (p > 0) out += ", ";
+                    out += "[";
+                    AppendRingJson(out, feat.polygons[p].exteriorRing, true);
+                    for (const auto& hole : feat.polygons[p].interiorRings) {
+                        out += ", ";
+                        AppendRingJson(out, hole, true);
+                    }
+                    out += "]";
+                }
+                out += "]}";
+            }
+        } else if (!feat.lines.empty()) {
+            if (feat.lines.size() == 1 && feat.type != GeometryType::MultiLineString) {
+                out += "{\"type\": \"LineString\", \"coordinates\": ";
+                AppendRingJson(out, feat.lines[0], false);
+                out += "}";
+            } else {
+                out += "{\"type\": \"MultiLineString\", \"coordinates\": [";
+                for (size_t l = 0; l < feat.lines.size(); ++l) {
+                    if (l > 0) out += ", ";
+                    AppendRingJson(out, feat.lines[l], false);
+                }
+                out += "]}";
+            }
+        } else if (!feat.points.empty()) {
+            if (feat.points.size() == 1 && feat.type != GeometryType::MultiPoint) {
+                char buf[96]{};
+                std::snprintf(
+                    buf,
+                    sizeof(buf),
+                    "{\"type\": \"Point\", \"coordinates\": [%.6f, %.6f]}",
+                    feat.points[0].lon,
+                    feat.points[0].lat
+                );
+                out += buf;
+            } else {
+                out += "{\"type\": \"MultiPoint\", \"coordinates\": ";
+                AppendRingJson(out, feat.points, false);
+                out += "}";
+            }
         } else {
-            std::snprintf(coordBuf, sizeof(coordBuf), "[%.6f, %.6f]", pt.lon, pt.lat);
+            out += "null";
         }
-        out << coordBuf;
-    };
 
-    auto writeRing = [&](const std::vector<GeoPoint>& ring, bool closeLoop) {
-        out << "[";
-        for (size_t i = 0; i < ring.size(); ++i) {
-            if (i > 0) out << ", ";
-            writePoint(ring[i]);
+        out += nl;
+        out += ind2;
+        out += "}";
+        if (fi + 1 < layer.features.size()) {
+            out += ",";
         }
-        if (closeLoop && ring.size() >= 3) {
-            const auto& f = ring.front();
-            const auto& b = ring.back();
-            if (std::abs(f.lon - b.lon) > 1e-9 || std::abs(f.lat - b.lat) > 1e-9) {
-                out << ", ";
-                writePoint(f);
-            }
-        }
-        out << "]";
-    };
-
-    for (const auto& layer : layers) {
-        for (const auto& feat : layer.features) {
-            if (!firstFeature) out << "," << nl;
-            firstFeature = false;
-
-            out << sp << sp << "{" << nl;
-            out << sp << sp << sp << "\"type\": \"Feature\"," << nl;
-
-            // Properties
-            out << sp << sp << sp << "\"properties\": {";
-            bool firstProp = true;
-            auto emitKV = [&](std::string_view k, std::string_view v) {
-                if (!firstProp) out << ", ";
-                firstProp = false;
-                out << "\"" << EscapeJsonString(k) << "\": \"" << EscapeJsonString(v) << "\"";
-            };
-            if (!feat.featureCode.empty()) emitKV("OBJL", feat.featureCode);
-            if (!feat.name.empty()) emitKV("name", feat.name);
-            for (const auto& attr : feat.attributes) {
-                if (attr.key == "OBJL" || attr.key == "name") continue;
-                emitKV(attr.key, attr.value);
-            }
-            out << "}," << nl;
-
-            // Geometry
-            out << sp << sp << sp << "\"geometry\": { \"type\": \"" << GeometryTypeName(feat.geometryType) << "\", \"coordinates\": ";
-            switch (feat.geometryType) {
-                case GeometryType::Point:
-                    if (!feat.points.empty()) writePoint(feat.points.front());
-                    else out << "[0, 0]";
-                    break;
-                case GeometryType::MultiPoint:
-                    writeRing(feat.points, false);
-                    break;
-                case GeometryType::LineString:
-                    if (!feat.lines.empty()) writeRing(feat.lines.front(), false);
-                    else out << "[]";
-                    break;
-                case GeometryType::MultiLineString:
-                    out << "[";
-                    for (size_t i = 0; i < feat.lines.size(); ++i) {
-                        if (i > 0) out << ", ";
-                        writeRing(feat.lines[i], false);
-                    }
-                    out << "]";
-                    break;
-                case GeometryType::Polygon:
-                    out << "[";
-                    if (!feat.polygons.empty()) {
-                        writeRing(feat.polygons.front().exterior, true);
-                        for (const auto& h : feat.polygons.front().holes) {
-                            out << ", ";
-                            writeRing(h, true);
-                        }
-                    }
-                    out << "]";
-                    break;
-                case GeometryType::MultiPolygon:
-                    out << "[";
-                    for (size_t p = 0; p < feat.polygons.size(); ++p) {
-                        if (p > 0) out << ", ";
-                        out << "[";
-                        writeRing(feat.polygons[p].exterior, true);
-                        for (const auto& h : feat.polygons[p].holes) {
-                            out << ", ";
-                            writeRing(h, true);
-                        }
-                        out << "]";
-                    }
-                    out << "]";
-                    break;
-            }
-            out << " }" << nl;
-            out << sp << sp << "}";
-        }
+        out += nl;
     }
 
-    out << nl << sp << "]" << nl << "}" << nl;
-    return out.str();
+    out += ind1;
+    out += "]";
+    out += nl;
+    out += "}";
+    out += nl;
+    return out;
 }
 
-bool GeoJsonIO::SaveToFile(
-    const std::string& filePath,
-    const std::vector<GeoLayer>& layers,
-    bool prettyPrint
-) {
-    std::ofstream ofs(filePath, std::ios::binary);
-    if (!ofs) return false;
-    const std::string s = SerializeToString(layers, prettyPrint);
-    ofs.write(s.data(), static_cast<std::streamsize>(s.size()));
+bool GeoJsonIO::SaveToFile(const GeoLayer& layer, const std::string& filePath, std::string* outError) {
+    std::ofstream ofs(std::filesystem::u8path(filePath), std::ios::binary | std::ios::trunc);
+    if (!ofs) {
+        if (outError) {
+            *outError = std::format("Cannot open file for writing: {}", filePath);
+        }
+        return false;
+    }
+    const std::string json = SerializeLayer(layer, true);
+    ofs.write(json.data(), static_cast<std::streamsize>(json.size()));
     return ofs.good();
 }
 
 std::vector<GeoLayer> GeoJsonIO::BuildDefaultHydrographicChart() {
-    // Load the embedded/disk demo_bay.geojson if available
-    auto loaded = LoadFromFile("assets/geo/demo_bay.geojson", true);
+    auto loaded = LoadThematicLayersFromFile("assets/geo/demo_bay.geojson", true);
     if (loaded.ok && !loaded.layers.empty()) {
         return std::move(loaded.layers);
     }
     return {};
 }
 
-} // namespace guikit
+} // namespace guikit::geo

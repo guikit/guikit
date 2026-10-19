@@ -1,29 +1,25 @@
 #pragma once
 
+#include <vector>
 #include "guikit/geo/GeoTypes.hpp"
 
-#include <span>
-#include <vector>
+namespace guikit::geo {
 
-namespace guikit {
-
-/// 2D Polygon Triangulator (Ear-Clipping with Hole Bridge Merging) and Point-in-Polygon hit testing.
+/// Robust 2D Polygon Triangulator using Eberly's Hole-Bridging + Ear-Clipping algorithm.
+/// Supports convex and concave polygons with arbitrary interior hole rings.
 class PolygonTriangulator {
 public:
-    /// Triangulates a simple or concave exterior ring into a flat list of triangle vertices (size = 3 * numTriangles).
-    [[nodiscard]] static std::vector<GeoPoint> TriangulateRing(std::span<const GeoPoint> ring);
+    /// Triangulates a single polygon (exterior ring + interior hole rings) into `poly.triangles`
+    /// and updates `poly.bounds`.
+    static void TriangulatePolygon(GeoPolygon& poly);
 
-    /// Triangulates a polygon with an exterior ring and optional interior holes into a flat list of triangle vertices.
-    [[nodiscard]] static std::vector<GeoPoint> Triangulate(const GeoPolygonRings& poly);
-
-    /// Ray-casting point-in-ring test in (lon, lat) space.
-    [[nodiscard]] static bool PointInRing(double lon, double lat, std::span<const GeoPoint> ring) noexcept;
-
-    /// Point-in-polygon test accounting for exterior boundary and interior holes.
-    [[nodiscard]] static bool PointInPolygon(double lon, double lat, const GeoPolygonRings& poly) noexcept;
-
-    /// Signed area of a ring in (lon, lat) degrees^2 (> 0 for counter-clockwise, < 0 for clockwise).
-    [[nodiscard]] static double SignedArea(std::span<const GeoPoint> ring) noexcept;
+    /// Computes signed area of a closed ring in (lon, lat) coordinates.
+    /// Positive = Counter-Clockwise (CCW), Negative = Clockwise (CW).
+    [[nodiscard]] static double SignedAreaLonLat(const std::vector<guikit::GeoCoord>& ring) noexcept;
 };
 
+} // namespace guikit::geo
+
+namespace guikit {
+using namespace geo;
 } // namespace guikit

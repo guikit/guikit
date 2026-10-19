@@ -7192,6 +7192,9 @@ void TestMapViewWidgetWorkflow() {
     CHECK(chart.totalBounds.IsValid());
 
     GisRenderStats gisStats{};
+    uint64_t selUid = 0;
+    GisRenderConfig gisCfg{};
+    gisCfg.asyncBackgroundStreaming = false;
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     if (auto map = ui.MapView({
         .crs = MapCrs::EPSG3857_WebMercator,
@@ -7204,16 +7207,15 @@ void TestMapViewWidgetWorkflow() {
         gisStats = GisRenderEngine::RenderLayers(
             map,
             chart.layers,
-            GisRenderSettings{},
-            std::nullopt,
-            {480.0f, 270.0f},
-            false
+            gisCfg,
+            selUid,
+            true
         );
     }
     ui.EndFrame(canvas);
-    CHECK(gisStats.layersRendered == chart.layers.size());
-    CHECK(gisStats.featuresTotal == chart.totalFeatures);
-    CHECK(gisStats.featuresRendered > 0);
+    CHECK(gisStats.visibleLayers == chart.layers.size());
+    CHECK(gisStats.totalFeatures == chart.totalFeatures);
+    CHECK(gisStats.renderedFeatures > 0 || gisStats.cachedTilesRendered > 0 || gisStats.cachedTilesHit > 0);
 
     std::cout << "  [PASS] TestMapViewWidgetWorkflow completed\n";
 }
@@ -9182,8 +9184,10 @@ void TestGisDemoBayGeoJsonAndRenderEngine() {
     std::vector<uint32_t> pixels(width * height, 0);
     canvas.SetTarget(pixels.data(), width, height, width);
 
-    GisRenderSettings settings{};
+    GisRenderConfig settings{};
+    settings.asyncBackgroundStreaming = false;
     GisRenderStats stats{};
+    uint64_t selectedUid = 0;
 
     for (int f = 0; f < 2; ++f) {
         ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
@@ -9197,17 +9201,16 @@ void TestGisDemoBayGeoJsonAndRenderEngine() {
                 map,
                 res.layers,
                 settings,
-                std::nullopt,
-                ui.GetMousePos(),
-                false
+                selectedUid,
+                true
             );
         }
         ui.EndFrame(canvas);
     }
 
-    CHECK(stats.featuresTotal == res.totalFeatures);
-    CHECK(stats.featuresRendered > 0);
-    CHECK(stats.pointsSubmitted > 0);
+    CHECK(stats.totalFeatures == res.totalFeatures);
+    CHECK(stats.renderedFeatures > 0 || stats.cachedTilesHit > 0 || stats.cachedTilesRendered > 0);
+    CHECK(stats.renderedVertices > 0);
 }
 
 void TestAccordionWidgetWorkflow() {

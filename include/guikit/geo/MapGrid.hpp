@@ -103,7 +103,18 @@ struct GeoBounds {
 
     [[nodiscard]] constexpr double WidthLon() const noexcept { return se.lon - nw.lon; }
     [[nodiscard]] constexpr double HeightLat() const noexcept { return nw.lat - se.lat; }
+    [[nodiscard]] constexpr double SpanLon() const noexcept { return se.lon >= nw.lon ? (se.lon - nw.lon) : (nw.lon - se.lon); }
+    [[nodiscard]] constexpr double SpanLat() const noexcept { return nw.lat >= se.lat ? (nw.lat - se.lat) : (se.lat - nw.lat); }
+    [[nodiscard]] constexpr GeoCoord Center() const noexcept {
+        return {(nw.lat + se.lat) * 0.5, (nw.lon + se.lon) * 0.5};
+    }
+    [[nodiscard]] constexpr bool IsValid() const noexcept {
+        return (nw.lat != 0.0 || nw.lon != 0.0 || se.lat != 0.0 || se.lon != 0.0) &&
+               (nw.lat >= se.lat) && (se.lon >= nw.lon);
+    }
 };
+
+using GeoBBox = GeoBounds;
 
 /// Slippy Map tile pyramid address [z/x/y].
 struct OsmTileId {
