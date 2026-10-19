@@ -68,21 +68,40 @@ BottomPanelScope BottomPanel::Open(
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
 
     const UiTheme& theme = ctx.GetTheme();
+    const float safeScale = (activeScale > 0.0f) ? activeScale : 1.0f;
+    const ComponentMetrics& m = theme.GetMetrics(activeSize);
+    const float metricMinH = (m.defaultHeight / safeScale) * 2.5f;
+    const Rect parentBounds = ctx.GetParentPrevFrameBounds();
+    const float clampedRatio = std::clamp(opts.maxRatio, 0.15f, 0.95f);
+
     auto& state = ctx.GetOrCreateState<BottomPanelPersistState>(id);
     if (!state.initialized) {
         state.initialized = true;
         state.mode = opts.defaultMode;
         if (opts.height.has_value() && *opts.height > 0.0f) {
             state.lastExpandedHeight = *opts.height;
-        } else if (opts.minHeight > 0.0f) {
-            state.lastExpandedHeight = opts.minHeight;
+        } else if (opts.minHeight.has_value() && *opts.minHeight > 0.0f) {
+            state.lastExpandedHeight = *opts.minHeight;
+        } else {
+            state.lastExpandedHeight = metricMinH;
         }
     }
+
+    const float baseH = opts.height.value_or(state.lastExpandedHeight > 0.0f ? state.lastExpandedHeight : 200.0f);
+    const float effMinH = (opts.minHeight.has_value() && *opts.minHeight > 0.0f)
+        ? *opts.minHeight
+        : (opts.resizable ? std::min(baseH, metricMinH) : 0.0f);
+    const float parentMaxH = (parentBounds.h > 1.0f)
+        ? std::max(effMinH, (parentBounds.h / safeScale) * clampedRatio)
+        : std::max(effMinH, 560.0f);
+    const float effMaxH = (opts.maxHeight.has_value() && *opts.maxHeight > 0.0f)
+        ? std::max(effMinH, (parentBounds.h > 1.0f) ? std::min(*opts.maxHeight, parentMaxH) : *opts.maxHeight)
+        : parentMaxH;
 
     const Rect prevBounds = ctx.GetPrevUnclippedBounds(id);
     const bool hasPrevGeometry = (prevBounds.w > 1.0f);
     if (hasPrevGeometry && state.mode == BottomPanelMode::Expanded && prevBounds.h > 1.0f && !state.draggingSash && !state.togglePressed) {
-        state.lastExpandedHeight = prevBounds.h / activeScale;
+        state.lastExpandedHeight = prevBounds.h / safeScale;
     }
     if (externalMode != nullptr) {
         state.mode = *externalMode;
@@ -213,11 +232,8 @@ BottomPanelScope BottomPanel::Open(
                 res.pressed = true;
                 // Moving mouse UP (smaller mouse.y) increases the BottomPanel height
                 const float deltaY = state.dragStartMouseY - mouse.y;
-                const float rawLogicalH = state.dragStartHeight + (deltaY / activeScale);
+                const float rawLogicalH = state.dragStartHeight + (deltaY / safeScale);
 
-                const float baseH = opts.height.value_or(state.lastExpandedHeight > 0.0f ? state.lastExpandedHeight : 200.0f);
-                const float effMinH = (opts.minHeight > 0.0f) ? opts.minHeight : std::min(baseH, 96.0f);
-                const float effMaxH = std::max(effMinH, opts.maxHeight);
                 const float collapseSnapH = (state.dragStartMode == BottomPanelMode::Collapsed)
                     ? 12.0f
                     : (effMinH * 0.45f);
@@ -304,16 +320,21 @@ BottomPanelScope BottomPanel::Open(
         node->borderWidth = 0.0f;
         reportedLogicalH = 0.0f;
     } else {
-        const float effMinH = (opts.minHeight > 0.0f) ? opts.minHeight : (opts.resizable ? 96.0f : 0.0f);
         node->minHeight = theme.Scale(effMinH);
         if (state.customHeight > 0.0f) {
+            const float effH = (parentBounds.h > 1.0f)
+                ? std::clamp(state.customHeight, effMinH, effMaxH)
+                : state.customHeight;
             node->heightMode = SizeMode::Fixed;
-            node->fixedHeight = theme.Scale(state.customHeight);
-            reportedLogicalH = state.customHeight;
+            node->fixedHeight = theme.Scale(effH);
+            reportedLogicalH = effH;
         } else if (opts.height.has_value()) {
+            const float effH = (parentBounds.h > 1.0f)
+                ? std::clamp(*opts.height, effMinH, effMaxH)
+                : *opts.height;
             node->heightMode = SizeMode::Fixed;
-            node->fixedHeight = theme.Scale(*opts.height);
-            reportedLogicalH = *opts.height;
+            node->fixedHeight = theme.Scale(effH);
+            reportedLogicalH = effH;
         } else {
             node->heightMode = SizeMode::Fit;
             reportedLogicalH = state.lastExpandedHeight;

@@ -31,8 +31,9 @@ struct SidebarOptions {
     SidebarSide side{SidebarSide::Left};                ///< Docking side (Left by default, or Right)
     SidebarMode defaultMode{SidebarMode::Expanded};     ///< Initial mode when managed by Context
     std::optional<float> width{std::nullopt};           ///< Explicit sidebar width in Expanded mode (nullopt = Fit to content)
-    float minWidth{0.0f};                               ///< Minimum sidebar width constraint in pixels
-    float maxWidth{560.0f};                             ///< Maximum sidebar width when resizing via mouse drag
+    std::optional<float> minWidth{std::nullopt};        ///< Optional minimum width in logical dp (nullopt = auto from theme metrics)
+    std::optional<float> maxWidth{std::nullopt};        ///< Optional maximum width in logical dp (nullopt = auto from parent width * maxRatio)
+    float maxRatio{0.65f};                              ///< Maximum fraction of parent container width the sidebar can occupy (0.15 .. 0.90)
     bool resizable{false};                              ///< Allow dragging the inner border (sash) to resize or snap-collapse
     bool allowCompact{false};                           ///< Support Compact (icons-only rail) mode via drag-snap or toggle button
     bool allowCollapse{false};                          ///< Support Collapsed (completely minimized 0px) mode via drag-snap or toggle

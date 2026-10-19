@@ -665,8 +665,7 @@ int main(int argc, char* argv[]) {
                     // 1. Level 1: 5-Section Catalog Rail
                     if (auto railSidebar = ui.Sidebar(navSidebarMode, {
                         .side = guikit::SidebarSide::Left,
-                        .minWidth = 156.0f,
-                        .maxWidth = 340.0f,
+                        .maxRatio = 0.35f,
                         .resizable = true,
                         .allowCompact = true,
                         .allowCollapse = true
@@ -728,8 +727,7 @@ int main(int argc, char* argv[]) {
                     if (auto inspectorSidebar = ui.Sidebar(inspectorSidebarMode, {
                         .side = guikit::SidebarSide::Left,
                         .width = 320.0f,
-                        .minWidth = 220.0f,
-                        .maxWidth = 520.0f,
+                        .maxRatio = 0.45f,
                         .resizable = true,
                         .allowCollapse = true,
                         .gap = 8.0f,
@@ -890,8 +888,6 @@ int main(int argc, char* argv[]) {
 
                                 if (auto codePanel = ui.BottomPanel(demoCtx.previewShowCode, {
                                     .height = 240.0f,
-                                    .minHeight = 110.0f,
-                                    .maxHeight = 520.0f,
                                     .resizable = true,
                                     .allowCollapse = true,
                                     .borderRadius = 8.0f,

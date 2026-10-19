@@ -105,20 +105,40 @@ SidebarScope Sidebar::Open(
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
 
     const UiTheme& theme = ctx.GetTheme();
+    const float safeScale = (activeScale > 0.0f) ? activeScale : 1.0f;
+    const ComponentMetrics& m = theme.GetMetrics(activeSize);
+    const float metricMinW = (m.defaultHeight / safeScale) * 3.8f;
+    const Rect parentBounds = ctx.GetParentPrevFrameBounds();
+    const float clampedRatio = std::clamp(opts.maxRatio, 0.15f, 0.90f);
+
     auto& state = ctx.GetOrCreateState<SidebarPersistState>(id);
     if (!state.initialized) {
         state.initialized = true;
         state.mode = opts.defaultMode;
         if (opts.width.has_value() && *opts.width > 0.0f) {
             state.lastExpandedWidth = *opts.width;
-        } else if (opts.minWidth > 0.0f) {
-            state.lastExpandedWidth = opts.minWidth;
+        } else if (opts.minWidth.has_value() && *opts.minWidth > 0.0f) {
+            state.lastExpandedWidth = *opts.minWidth;
+        } else {
+            state.lastExpandedWidth = metricMinW;
         }
     }
+
+    const float baseW = opts.width.value_or(state.lastExpandedWidth > 0.0f ? state.lastExpandedWidth : 180.0f);
+    const float effMinW = (opts.minWidth.has_value() && *opts.minWidth > 0.0f)
+        ? *opts.minWidth
+        : (opts.resizable ? std::min(baseW, metricMinW) : 0.0f);
+    const float parentMaxW = (parentBounds.w > 1.0f)
+        ? std::max(effMinW, (parentBounds.w / safeScale) * clampedRatio)
+        : std::max(effMinW, 560.0f);
+    const float effMaxW = (opts.maxWidth.has_value() && *opts.maxWidth > 0.0f)
+        ? std::max(effMinW, (parentBounds.w > 1.0f) ? std::min(*opts.maxWidth, parentMaxW) : *opts.maxWidth)
+        : parentMaxW;
+
     const Rect prevBounds = ctx.GetPrevUnclippedBounds(id);
     const bool hasPrevGeometry = (prevBounds.h > 1.0f);
     if (hasPrevGeometry && state.mode == SidebarMode::Expanded && prevBounds.w > 1.0f && !state.draggingSash && !state.togglePressed) {
-        state.lastExpandedWidth = prevBounds.w / activeScale;
+        state.lastExpandedWidth = prevBounds.w / safeScale;
     }
     if (externalMode != nullptr) {
         state.mode = *externalMode;
@@ -268,12 +288,9 @@ SidebarScope Sidebar::Open(
                 const float deltaX = (opts.side == SidebarSide::Left)
                     ? (mouse.x - state.dragStartMouseX)
                     : (state.dragStartMouseX - mouse.x);
-                const float rawLogicalW = state.dragStartWidth + (deltaX / activeScale);
+                const float rawLogicalW = state.dragStartWidth + (deltaX / safeScale);
 
-                const float baseW = opts.width.value_or(state.lastExpandedWidth > 0.0f ? state.lastExpandedWidth : 180.0f);
-                const float effMinW = (opts.minWidth > 0.0f) ? opts.minWidth : std::min(baseW, 136.0f);
-                const float effMaxW = std::max(effMinW, opts.maxWidth);
-                const float compactW = 54.0f;
+                const float compactW = (m.defaultHeight / safeScale) * 1.5f;
                 const float compactSnapW = (effMinW + compactW) * 0.5f;
                 const float collapseSnapW = (state.dragStartMode == SidebarMode::Collapsed)
                     ? 12.0f
@@ -381,18 +398,23 @@ SidebarScope Sidebar::Open(
         node->backgroundColor = (opts.backgroundColor.a > 0) ? opts.backgroundColor : pal.surface;
         node->borderColor = (opts.borderColor.a > 0) ? opts.borderColor : pal.border;
         node->borderWidth = theme.Scale(opts.borderWidth);
-        reportedLogicalW = (prevBounds.w > 0.0f) ? (prevBounds.w / activeScale) : 52.0f;
+        reportedLogicalW = (prevBounds.w > 0.0f) ? (prevBounds.w / safeScale) : 52.0f;
     } else {
-        const float effMinW = (opts.minWidth > 0.0f) ? opts.minWidth : (opts.resizable ? 136.0f : 0.0f);
         node->minWidth = theme.Scale(effMinW);
         if (state.customWidth > 0.0f) {
+            const float effW = (parentBounds.w > 1.0f)
+                ? std::clamp(state.customWidth, effMinW, effMaxW)
+                : state.customWidth;
             node->widthMode = SizeMode::Fixed;
-            node->fixedWidth = theme.Scale(state.customWidth);
-            reportedLogicalW = state.customWidth;
+            node->fixedWidth = theme.Scale(effW);
+            reportedLogicalW = effW;
         } else if (opts.width.has_value()) {
+            const float effW = (parentBounds.w > 1.0f)
+                ? std::clamp(*opts.width, effMinW, effMaxW)
+                : *opts.width;
             node->widthMode = SizeMode::Fixed;
-            node->fixedWidth = theme.Scale(*opts.width);
-            reportedLogicalW = *opts.width;
+            node->fixedWidth = theme.Scale(effW);
+            reportedLogicalW = effW;
         } else {
             node->widthMode = SizeMode::Fit;
             reportedLogicalW = state.lastExpandedWidth;

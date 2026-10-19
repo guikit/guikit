@@ -23,8 +23,9 @@ enum class BottomPanelMode : uint8_t {
 struct BottomPanelOptions {
     BottomPanelMode defaultMode{BottomPanelMode::Expanded}; ///< Initial mode when managed by Context
     std::optional<float> height{220.0f};                    ///< Explicit panel height in Expanded mode (nullopt = Fit to content)
-    float minHeight{100.0f};                                ///< Minimum panel height constraint in pixels
-    float maxHeight{560.0f};                                ///< Maximum panel height when resizing via mouse drag
+    std::optional<float> minHeight{std::nullopt};           ///< Optional minimum height in logical dp (nullopt = auto from theme metrics)
+    std::optional<float> maxHeight{std::nullopt};           ///< Optional maximum height in logical dp (nullopt = auto from parent height * maxRatio)
+    float maxRatio{0.75f};                                  ///< Maximum fraction of parent container height the panel can occupy (0.15 .. 0.95)
     bool resizable{true};                                   ///< Allow dragging the top border (sash) up/down to resize or snap-collapse
     bool allowCollapse{true};                               ///< Support Collapsed (completely minimized 0px) mode via drag-snap or toggle
     bool showToggleButton{false};                           ///< Optional floating edge pill button on the top border

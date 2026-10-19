@@ -232,8 +232,6 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
             if (auto sb = ui.Sidebar(s_state.mode, {
                 .side = s_state.side,
                 .width = s_state.autoWidth ? std::nullopt : std::optional<float>(s_state.fixedWidth),
-                .minWidth = 140.0f,
-                .maxWidth = 360.0f,
                 .resizable = s_state.resizable,
                 .allowCompact = s_state.allowCompact,
                 .allowCollapse = s_state.allowCollapse,
@@ -309,8 +307,6 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
             // 4. Resizable & Collapsible BottomPanel (docked below Main Pane)
             if (auto bp = ui.BottomPanel(s_state.showBottomPanel, {
                 .height = 145.0f,
-                .minHeight = 90.0f,
-                .maxHeight = 280.0f,
                 .resizable = s_state.resizable,
                 .allowCollapse = s_state.allowCollapse,
                 .borderRadius = 6.0f
@@ -420,8 +416,6 @@ std::string GenerateSidebarCode(const DemoContext& ctx) {
         bpCode = std::format(
             "\n\nif (auto bp = ui.BottomPanel(showBottomPanel, {{\n"
             "    .height = 180.0f,\n"
-            "    .minHeight = 90.0f,\n"
-            "    .maxHeight = 360.0f,\n"
             "    .resizable = {},\n"
             "    .allowCollapse = {}\n"
             "}})) {{\n"
@@ -455,8 +449,6 @@ std::string GenerateSidebarCode(const DemoContext& ctx) {
         "if (auto sb = ui.Sidebar(sidebarMode, {{\n"
         "    .side = guikit::SidebarSide::{},\n"
         "    .width = {},\n"
-        "    .minWidth = 140.0f,\n"
-        "    .maxWidth = 360.0f,\n"
         "    .resizable = {},\n"
         "    .allowCompact = {},\n"
         "    .allowCollapse = {},\n"
