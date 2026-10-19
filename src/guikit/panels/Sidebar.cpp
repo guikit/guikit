@@ -449,10 +449,12 @@ SidebarScope Sidebar::Open(
 
             // 1. Draw interactive splitter (sash) highlight when hovered or actively dragged
             if (sashHov || sashDrag) {
+                const float cornerInset = std::max(2.0f * activeScale, node->cornerRadius);
                 const float glowW = 6.0f * activeScale;
                 const float lineW = (sashDrag ? 2.5f : 2.0f) * activeScale;
-                const Rect glowRect(curEdgeX - glowW * 0.5f, r.y + 2.0f, glowW, std::max(0.0f, r.h - 4.0f));
-                const Rect lineRect(curEdgeX - lineW * 0.5f, r.y + 2.0f, lineW, std::max(0.0f, r.h - 4.0f));
+                const float spanH = std::max(0.0f, r.h - cornerInset * 2.0f);
+                const Rect glowRect(curEdgeX - glowW * 0.5f, r.y + cornerInset, glowW, spanH);
+                const Rect lineRect(curEdgeX - lineW * 0.5f, r.y + cornerInset, lineW, spanH);
                 canvas.DrawRect(glowRect, p.accent.WithAlphaF(sashDrag ? 0.25f : 0.14f));
                 canvas.DrawRoundRect(lineRect, lineW * 0.5f, sashDrag ? p.accent : p.accent.WithAlphaF(0.85f));
 

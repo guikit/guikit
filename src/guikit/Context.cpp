@@ -2125,20 +2125,20 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
 
     const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : parentTheme;
 
-    // Render background / border if present (skip for self-rendering leaf widgets and Modal)
-    if (!node->IsLeaf() && node->type != NodeType::Modal) {
-        if (node->backgroundColor.a > 0 || (node->borderColor.a > 0 && node->borderWidth > 0.0f)) {
-            if (node->cornerRadius > 0.0f) {
-                canvas.DrawRoundRect(
-                    node->computedRect,
-                    node->cornerRadius,
-                    node->backgroundColor,
-                    node->borderColor,
-                    node->borderWidth
-                );
-            } else {
-                canvas.DrawRect(node->computedRect, node->backgroundColor);
-            }
+    // 1. Render container background fill before children (skip for self-rendering leaf widgets and Modal)
+    const bool isContainerSurface = (!node->IsLeaf() && node->type != NodeType::Modal);
+    const bool hasContainerBorder = isContainerSurface && (node->borderColor.a > 0 && node->borderWidth > 0.0f);
+    if (isContainerSurface && node->backgroundColor.a > 0) {
+        if (node->cornerRadius > 0.0f) {
+            canvas.DrawRoundRect(
+                node->computedRect,
+                node->cornerRadius,
+                node->backgroundColor,
+                Color::Transparent(),
+                0.0f
+            );
+        } else {
+            canvas.DrawRect(node->computedRect, node->backgroundColor);
         }
     }
 
@@ -2159,6 +2159,17 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
 
     if (node->clipChildren) {
         canvas.PopClip();
+    }
+
+    // 2. Render container border stroke on top of children (after PopClip) so children never overwrite parent border
+    if (hasContainerBorder) {
+        canvas.DrawRoundRect(
+            node->computedRect,
+            node->cornerRadius,
+            Color::Transparent(),
+            node->borderColor,
+            node->borderWidth
+        );
     }
 
     // Render post-pass overlay contents (after children and outside clip)

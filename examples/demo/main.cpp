@@ -916,18 +916,24 @@ int main(int argc, char* argv[]) {
                                         }
                                     }
 
-                                    std::string snippet = DispatchCodeGenerator(selectedCategory, demoCtx);
-                                    ui.TextArea(snippet, {
-                                        .autoHeight = false,
-                                        .readOnly = true,
-                                        .showLineNumbers = true,
-                                        .showCopyButton = true,
-                                        .monospace = true,
-                                        .allowZoom = true,
-                                        .syntax = guikit::SyntaxConfig::Cpp(),
+                                    if (auto codeBody = ui.Box({
+                                        .widthMode = guikit::SizeMode::Stretch,
                                         .heightMode = guikit::SizeMode::Stretch,
-                                        .borderRadius = 0.0f
-                                    });
+                                        .padding = guikit::Padding::All(6.0f)
+                                    })) {
+                                        std::string snippet = DispatchCodeGenerator(selectedCategory, demoCtx);
+                                        ui.TextArea(snippet, {
+                                            .autoHeight = false,
+                                            .readOnly = true,
+                                            .showLineNumbers = true,
+                                            .showCopyButton = true,
+                                            .monospace = true,
+                                            .allowZoom = true,
+                                            .syntax = guikit::SyntaxConfig::Cpp(),
+                                            .heightMode = guikit::SizeMode::Stretch,
+                                            .borderRadius = 6.0f
+                                        });
+                                    }
                                 }
                             } else {
                                 // ASSEMBLY MODE: Real-World Screens & Compositions

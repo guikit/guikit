@@ -367,10 +367,12 @@ BottomPanelScope BottomPanel::Open(
 
             // 1. Draw interactive top splitter (sash) highlight when hovered or actively dragged
             if (sashHov || sashDrag) {
+                const float cornerInset = std::max(2.0f * activeScale, node->cornerRadius);
                 const float glowH = 6.0f * activeScale;
                 const float lineH = (sashDrag ? 2.5f : 2.0f) * activeScale;
-                const Rect glowRect(r.x + 2.0f, curEdgeY - glowH * 0.5f, std::max(0.0f, r.w - 4.0f), glowH);
-                const Rect lineRect(r.x + 2.0f, curEdgeY - lineH * 0.5f, std::max(0.0f, r.w - 4.0f), lineH);
+                const float spanW = std::max(0.0f, r.w - cornerInset * 2.0f);
+                const Rect glowRect(r.x + cornerInset, curEdgeY - glowH * 0.5f, spanW, glowH);
+                const Rect lineRect(r.x + cornerInset, curEdgeY - lineH * 0.5f, spanW, lineH);
                 canvas.DrawRect(glowRect, p.accent.WithAlphaF(sashDrag ? 0.25f : 0.14f));
                 canvas.DrawRoundRect(lineRect, lineH * 0.5f, sashDrag ? p.accent : p.accent.WithAlphaF(0.85f));
 

@@ -183,23 +183,51 @@ ToolbarScope Toolbar::Open(
     }
 
     const auto& pal = theme.palette;
+    const bool insideRoundedSurface =
+        (opts.style == ToolbarStyle::Header) &&
+        (node->parent != nullptr) &&
+        (node->parent->cornerRadius > 0.0f) &&
+        (node->parent->backgroundColor.a > 0);
+
     if (opts.backgroundColor.a > 0) {
         node->backgroundColor = opts.backgroundColor;
     } else if (opts.style == ToolbarStyle::Floating) {
         node->backgroundColor = pal.surfaceElevated;
+    } else if (insideRoundedSurface) {
+        node->backgroundColor = Color::Transparent();
     } else {
         node->backgroundColor = pal.surface;
     }
 
     if (opts.borderColor.a > 0) {
         node->borderColor = opts.borderColor;
-        node->borderWidth = theme.Scale(1.0f);
-    } else if (opts.style == ToolbarStyle::Floating || opts.style == ToolbarStyle::Header) {
+        node->borderWidth = (opts.style == ToolbarStyle::Header) ? 0.0f : theme.Scale(1.0f);
+    } else if (opts.style == ToolbarStyle::Floating) {
         node->borderColor = pal.border;
         node->borderWidth = theme.Scale(1.0f);
     } else {
         node->borderColor = pal.border;
         node->borderWidth = 0.0f;
+    }
+
+    if (opts.style == ToolbarStyle::Header) {
+        if (isVertical) {
+            node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& t) noexcept {
+                const float divW = t.Scale(1.0f);
+                const Rect& r = n->computedRect;
+                if (r.w > divW && r.h > 0.0f && n->borderColor.a > 0) {
+                    canvas.DrawRect(Rect(r.Right() - divW, r.y, divW, r.h), n->borderColor);
+                }
+            };
+        } else {
+            node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& t) noexcept {
+                const float divW = t.Scale(1.0f);
+                const Rect& r = n->computedRect;
+                if (r.w > 0.0f && r.h > divW && n->borderColor.a > 0) {
+                    canvas.DrawRect(Rect(r.x, r.Bottom() - divW, r.w, divW), n->borderColor);
+                }
+            };
+        }
     }
 
     if (opts.borderRadius.has_value()) {
