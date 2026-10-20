@@ -11059,6 +11059,128 @@ int main() {
         CHECK_NEAR(valSplit, 45.0f, 0.01f);
     }
 
+    // ComboBox (searchable dropdown) & Autocomplete (editable free-form + suggestions)
+    {
+        guikit::Context ui;
+        guikit::ThorCanvas canvas;
+        std::vector<uint32_t> pixels(800 * 400, 0);
+        canvas.SetTarget(pixels.data(), 800, 400, 800);
+
+        size_t comboIdx = 0; // "Alpha"
+        std::string autoVal = "";
+        guikit::Response rCombo{};
+        guikit::Response rAuto{};
+
+        const std::vector<std::string_view> items = {
+            "Alpha",
+            "Beta",
+            "Gamma",
+            "Delta",
+            "Epsilon"
+        };
+
+        auto renderComboUI = [&]() {
+            if (auto col = ui.Column({.gap = 12.0f, .padding = guikit::Padding::All(20.0f)})) {
+                rCombo = ui.ComboBox(comboIdx, items, {.clearable = true});
+                rAuto = ui.Autocomplete(autoVal, items, {.placeholder = "Type or pick...", .clearable = true});
+            }
+        };
+
+        for (int f = 0; f < 2; ++f) {
+            ui.BeginFrame({800.0f, 400.0f});
+            renderComboUI();
+            ui.EndFrame(canvas);
+        }
+
+        // 1. Click ComboBox to open searchable popup
+        ui.OnMouseMove({rCombo.rect.x + 20.0f, rCombo.rect.Center().y});
+        ui.OnMouseDown(1);
+        ui.BeginFrame({800.0f, 400.0f});
+        renderComboUI();
+        ui.EndFrame(canvas);
+        ui.OnMouseUp(1);
+        ui.BeginFrame({800.0f, 400.0f});
+        renderComboUI();
+        ui.EndFrame(canvas);
+        CHECK(ui.IsPopupOpen(rCombo.id));
+
+        // Type "gam" to filter down to "Gamma" (index 2) and press Enter to commit
+        ui.OnTextInput("gam");
+        ui.BeginFrame({800.0f, 400.0f});
+        renderComboUI();
+        ui.EndFrame(canvas);
+        CHECK(ui.IsPopupOpen(rCombo.id));
+
+        ui.OnKeyDown(guikit::Key::Enter);
+        ui.BeginFrame({800.0f, 400.0f});
+        renderComboUI();
+        ui.EndFrame(canvas);
+        CHECK(!ui.IsPopupOpen(rCombo.id));
+        CHECK(rCombo.changed);
+        CHECK(rCombo.submitted);
+        CHECK(comboIdx == 2);
+
+        // 2. Click clear (X) button on ComboBox to clear selection to size_t(-1)
+        const guikit::SelectMetrics& sm = ui.GetTheme().GetSelect(guikit::UiSize::Md);
+        const float clearBtnCenterX = rCombo.rect.Right() - sm.paddingX - sm.iconSize - 6.0f - (sm.iconSize + 4.0f) * 0.5f;
+        ui.OnMouseMove({clearBtnCenterX, rCombo.rect.Center().y});
+        ui.OnMouseDown(1);
+        ui.BeginFrame({800.0f, 400.0f});
+        renderComboUI();
+        ui.EndFrame(canvas);
+        CHECK(rCombo.changed);
+        CHECK(comboIdx == size_t(-1));
+        ui.OnMouseUp(1);
+        ui.BeginFrame({800.0f, 400.0f});
+        renderComboUI();
+        ui.EndFrame(canvas);
+
+        // 3. Focus Autocomplete, type "del" -> filters to "Delta", press Enter to autocomplete "Delta"
+        ui.OnMouseMove({rAuto.rect.x + 20.0f, rAuto.rect.Center().y});
+        ui.OnMouseDown(1);
+        ui.BeginFrame({800.0f, 400.0f});
+        renderComboUI();
+        ui.EndFrame(canvas);
+        ui.OnMouseUp(1);
+        ui.BeginFrame({800.0f, 400.0f});
+        renderComboUI();
+        ui.EndFrame(canvas);
+        CHECK(ui.IsPopupOpen(rAuto.id));
+
+        ui.OnTextInput("del");
+        ui.BeginFrame({800.0f, 400.0f});
+        renderComboUI();
+        ui.EndFrame(canvas);
+        CHECK(rAuto.changed);
+        CHECK(autoVal == "del");
+        CHECK(ui.IsPopupOpen(rAuto.id));
+
+        ui.OnKeyDown(guikit::Key::Enter);
+        ui.BeginFrame({800.0f, 400.0f});
+        renderComboUI();
+        ui.EndFrame(canvas);
+        CHECK(rAuto.changed);
+        CHECK(rAuto.submitted);
+        CHECK(autoVal == "Delta");
+        CHECK(!ui.IsPopupOpen(rAuto.id));
+
+        // 4. Type a custom string in Autocomplete that doesn't match any preset and press Enter
+        ui.OnKeyDown(guikit::Key::A, {.ctrl = true});
+        ui.OnTextInput("CustomDSP");
+        ui.BeginFrame({800.0f, 400.0f});
+        renderComboUI();
+        ui.EndFrame(canvas);
+        CHECK(autoVal == "CustomDSP");
+        CHECK(ui.IsPopupOpen(rAuto.id));
+
+        ui.OnKeyDown(guikit::Key::Enter);
+        ui.BeginFrame({800.0f, 400.0f});
+        renderComboUI();
+        ui.EndFrame(canvas);
+        CHECK(!ui.IsPopupOpen(rAuto.id));
+        CHECK(autoVal == "CustomDSP");
+    }
+
     // Cross-platform guikit::net (URL parser, HttpClient, WebSocketClient) + LodePNG raster tile decoder
     {
         const auto parsedHttps = guikit::net::ParseUrl("https://tile.openstreetmap.org/14/9532/5841.png");

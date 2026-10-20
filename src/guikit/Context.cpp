@@ -88,21 +88,24 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
     }
 
     if (m_mouseClicked && m_focusedId.IsValid()) {
-        auto it = m_prevFrameBounds.find(m_focusedId);
-        if (it != m_prevFrameBounds.end()) {
-            if (!it->second.Contains(m_mousePos)) {
+        const bool overOwnPopup = (m_openPopupId == m_focusedId) && m_openPopupRect.Contains(m_mousePos);
+        if (!overOwnPopup) {
+            auto it = m_prevFrameBounds.find(m_focusedId);
+            if (it != m_prevFrameBounds.end()) {
+                if (!it->second.Contains(m_mousePos)) {
+                    if (m_editState.id == m_focusedId) {
+                        m_editState.id = Id::Null();
+                    }
+                    m_focusedId = Id::Null();
+                    m_suspendDirectEditInput = false;
+                }
+            } else {
                 if (m_editState.id == m_focusedId) {
                     m_editState.id = Id::Null();
                 }
                 m_focusedId = Id::Null();
                 m_suspendDirectEditInput = false;
             }
-        } else {
-            if (m_editState.id == m_focusedId) {
-                m_editState.id = Id::Null();
-            }
-            m_focusedId = Id::Null();
-            m_suspendDirectEditInput = false;
         }
     }
 

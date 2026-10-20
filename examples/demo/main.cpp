@@ -947,16 +947,6 @@ int main(int argc, char* argv[]) {
                             demoCtx.previewShowCode = !demoCtx.previewShowCode;
                             ui.InvalidateAll();
                         }
-                        sb.Separator();
-                    }
-
-                    if (sb.Action({
-                        .text = "Exit",
-                        .icon = guikit::Icon::Close(),
-                        .variant = guikit::UiVariant::Danger,
-                        .tooltip = "Quit Application"
-                    }).clicked) {
-                        running = false;
                     }
                 }
             }

@@ -915,6 +915,95 @@ public:
         return Select(selected, std::span<const std::string_view>(items.begin(), items.size()), opts, loc);
     }
 
+    // --- ComboBox (Searchable Dropdown) & Autocomplete Widgets ---
+    template <SelectTarget T>
+    Response ComboBox(
+        T& selected,
+        std::span<const SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        opts.searchable = true;
+        return Select(selected, items, std::move(opts), loc);
+    }
+
+    template <SelectTarget T>
+    Response ComboBox(
+        T& selected,
+        std::initializer_list<SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        opts.searchable = true;
+        return Select(selected, items, std::move(opts), loc);
+    }
+
+    template <SelectTarget T>
+    Response ComboBox(
+        T& selected,
+        std::span<const std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        opts.searchable = true;
+        return Select(selected, items, std::move(opts), loc);
+    }
+
+    template <SelectTarget T>
+    Response ComboBox(
+        T& selected,
+        std::initializer_list<std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        opts.searchable = true;
+        return Select(selected, items, std::move(opts), loc);
+    }
+
+    Response Autocomplete(
+        std::string& value,
+        std::span<const SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        opts.searchable = true;
+        opts.editable = true;
+        return Select(value, items, std::move(opts), loc);
+    }
+
+    Response Autocomplete(
+        std::string& value,
+        std::initializer_list<SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        opts.searchable = true;
+        opts.editable = true;
+        return Select(value, items, std::move(opts), loc);
+    }
+
+    Response Autocomplete(
+        std::string& value,
+        std::span<const std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        opts.searchable = true;
+        opts.editable = true;
+        return Select(value, items, std::move(opts), loc);
+    }
+
+    Response Autocomplete(
+        std::string& value,
+        std::initializer_list<std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        opts.searchable = true;
+        opts.editable = true;
+        return Select(value, items, std::move(opts), loc);
+    }
+
     // --- TabBar Component ---
     template <typename IndexT>
     Response TabBar(
@@ -2539,6 +2628,82 @@ public:
         std::source_location loc = std::source_location::current()
     ) {
         return m_ctx->Select(selected, items, std::move(opts), loc);
+    }
+
+    template <SelectTarget T>
+    Response ComboBox(
+        T& selected,
+        std::span<const SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ComboBox(selected, items, std::move(opts), loc);
+    }
+
+    template <SelectTarget T>
+    Response ComboBox(
+        T& selected,
+        std::initializer_list<SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ComboBox(selected, items, std::move(opts), loc);
+    }
+
+    template <SelectTarget T>
+    Response ComboBox(
+        T& selected,
+        std::span<const std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ComboBox(selected, items, std::move(opts), loc);
+    }
+
+    template <SelectTarget T>
+    Response ComboBox(
+        T& selected,
+        std::initializer_list<std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->ComboBox(selected, items, std::move(opts), loc);
+    }
+
+    Response Autocomplete(
+        std::string& value,
+        std::span<const SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Autocomplete(value, items, std::move(opts), loc);
+    }
+
+    Response Autocomplete(
+        std::string& value,
+        std::initializer_list<SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Autocomplete(value, items, std::move(opts), loc);
+    }
+
+    Response Autocomplete(
+        std::string& value,
+        std::span<const std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Autocomplete(value, items, std::move(opts), loc);
+    }
+
+    Response Autocomplete(
+        std::string& value,
+        std::initializer_list<std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->Autocomplete(value, items, std::move(opts), loc);
     }
 
     template <typename IndexT>

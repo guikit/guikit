@@ -25,9 +25,10 @@ struct SelectItem {
     bool disabled{false};    ///< Whether this item is non-selectable and dimmed
 };
 
-/// Clean configuration options for Select (dropdown combo box) control widget.
+/// Clean configuration options for Select, ComboBox, and Autocomplete control widgets.
 struct SelectOptions {
-    UiText placeholder{"Select..."};               ///< Placeholder text when no item is selected or items list is empty
+    UiText placeholder{"Select..."};               ///< Placeholder text when no item is selected or input is empty
+    UiText emptyText{"No matching items"};         ///< Text displayed inside popup when search filter yields no matches
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     UiAffix prefix{};                              ///< Optional default leading icon/text inside closed field
     UiAffix suffix{};                              ///< Optional default trailing text/icon inside closed field
@@ -39,13 +40,27 @@ struct SelectOptions {
     std::optional<float> minWidth{std::nullopt};   ///< Minimum select box width constraint in points
     StateColor background{StateColor::Surface()};  ///< Select box surface fill color (Surface/Default = on, None = off, or custom StateColor)
     Border border{};                               ///< Select box border stroke & corner radius configuration
+    bool searchable{false};                        ///< Enable live keyboard search/filtering of dropdown items (ComboBox mode)
+    bool editable{false};                          ///< Enable free-form text input with dropdown suggestions (Autocomplete mode)
+    bool clearable{false};                         ///< Show interactive clear (X) button when a selection or text is present
+    std::optional<CursorBlinkMode> cursorMode{std::nullopt}; ///< Optional override for text cursor blink mode in searchable/editable modes
     bool disabled{false};                          ///< Interaction suppression
 };
 
-/// Internal runtime state allocated in frame arena for Select nodes.
+/// Internal runtime state allocated in frame arena for Select / ComboBox / Autocomplete nodes.
 struct SelectData {
     SelectOptions opts{};
     UiText displayText{};
+    size_t cursor{0};
+    size_t selStart{0};
+    size_t selEnd{0};
+    float scrollX{0.0f};
+    float cursorWidth{1.5f};
+    bool isEditing{false};
+    bool cursorVisible{false};
+    bool showClearBtn{false};
+    bool clearHovered{false};
+    bool chevronHovered{false};
 };
 
 /// Autonomous Select (dropdown combo box) widget logic.
@@ -99,7 +114,7 @@ public:
         const UiTheme& theme = UiTheme::Dark()
     );
 
-    /// Renders the closed select frame with active text, prefix/suffix affixes, and chevron.
+    /// Renders the closed select frame with active text, prefix/suffix affixes, clear button, and chevron.
     static void Render(
         ICanvas& canvas,
         Rect bounds,
@@ -110,7 +125,17 @@ public:
         bool open = false,
         bool disabled = false,
         const UiTheme& theme = UiTheme::Dark(),
-        bool focused = false
+        bool focused = false,
+        bool isEditing = false,
+        size_t cursor = 0,
+        bool cursorVisible = false,
+        float cursorWidth = 1.5f,
+        size_t selStart = 0,
+        size_t selEnd = 0,
+        float scrollX = 0.0f,
+        bool showClearBtn = false,
+        bool clearHovered = false,
+        bool chevronHovered = false
     );
 
     /// Renders the floating popup menu containing rich SelectItem dropdown items.
@@ -125,7 +150,8 @@ public:
         const UiTheme& theme = UiTheme::Dark(),
         float scrollY = 0.0f,
         bool scrollbarHovered = false,
-        bool scrollbarActive = false
+        bool scrollbarActive = false,
+        std::string_view highlightQuery = {}
     );
 
     /// Convenience overload rendering popup menu from plain string_view items.
@@ -140,7 +166,8 @@ public:
         const UiTheme& theme = UiTheme::Dark(),
         float scrollY = 0.0f,
         bool scrollbarHovered = false,
-        bool scrollbarActive = false
+        bool scrollbarActive = false,
+        std::string_view highlightQuery = {}
     );
 };
 

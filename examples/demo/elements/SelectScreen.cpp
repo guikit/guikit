@@ -6,16 +6,52 @@ namespace guikit::demo {
 
 namespace {
 struct SelectState {
+    int mode = 1; // 0 = Select, 1 = ComboBox (Searchable), 2 = Autocomplete (Editable)
     size_t idx = 0;
-    std::vector<std::string_view> items = {"Option Alpha", "Option Beta", "Option Gamma", "Option Delta", "Option Epsilon"};
-    std::string placeholder = "Select...";
-    uint32_t maxItems = 4;
+    std::string customText = "Option Alpha";
+    std::vector<std::string_view> plainItems = {
+        "Option Alpha",
+        "Option Beta",
+        "Option Gamma",
+        "Option Delta",
+        "Option Epsilon",
+        "Signal Harmonic",
+        "Sonar Beamformer",
+        "Waterfall Spectrum"
+    };
+    std::string placeholder = "Select or search...";
+    uint32_t maxItems = 5;
+    bool clearable = true;
+    bool richItems = true;
     bool hasPrefix = false;
 };
 SelectState s_state;
+
+std::vector<guikit::SelectItem> BuildRichSelectItems() {
+    return {
+        {.text = "Option Alpha",       .prefix = guikit::Icon::Play(),     .suffix = "100 Hz"},
+        {.text = "Option Beta",        .prefix = guikit::Icon::Settings(), .suffix = "250 Hz"},
+        {.text = "Option Gamma",       .prefix = guikit::Icon::Flash(),    .suffix = "500 Hz"},
+        {.text = "Option Delta",       .prefix = guikit::Icon::Search(),   .suffix = "1.0 kHz"},
+        {.text = "Option Epsilon",     .prefix = guikit::Icon::Eye(),      .suffix = "2.4 kHz"},
+        {.text = "Signal Harmonic",    .prefix = guikit::Icon::Refresh(),  .suffix = "DSP"},
+        {.text = "Sonar Beamformer",   .prefix = guikit::Icon::Folder(),   .suffix = "DDS"},
+        {.text = "Waterfall Spectrum", .prefix = guikit::Icon::Check(),    .suffix = "RTSA"}
+    };
+}
 } // namespace
 
 void RenderSelectInspector(guikit::Context& ui, DemoContext&) {
+    if (auto el = ui.Element({.label = "Control Mode"})) {
+        if (ui.Segmented(s_state.mode, {"Select", "ComboBox", "Autocomplete"}, {
+            .stretch = guikit::StretchMode::Fill
+        }).changed) {
+            if (s_state.mode == 2 && s_state.customText.empty() && s_state.idx < s_state.plainItems.size()) {
+                s_state.customText = std::string(s_state.plainItems[s_state.idx]);
+            }
+            ui.InvalidateAll();
+        }
+    }
     if (auto el = ui.Element({.label = "Placeholder"})) {
         if (ui.InputField(s_state.placeholder, {
             .placeholder = "Select...",
@@ -29,7 +65,13 @@ void RenderSelectInspector(guikit::Context& ui, DemoContext&) {
             ui.InvalidateAll();
         }
     }
-    if (auto el = ui.Element({.label = "Prefix Icon"})) {
+    if (auto el = ui.Element({.label = "Clearable (X Button)"})) {
+        if (ui.Switch(s_state.clearable).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Rich Items (Icons & Units)"})) {
+        if (ui.Switch(s_state.richItems).changed) ui.InvalidateAll();
+    }
+    if (auto el = ui.Element({.label = "Default Prefix Icon"})) {
         if (ui.Switch(s_state.hasPrefix).changed) ui.InvalidateAll();
     }
 }
@@ -48,21 +90,46 @@ void RenderSelectStage(guikit::Context& ui, DemoContext& ctx) {
         .border = ctx.GetElemBorder(),
         .disabled = ctx.elemDisabled
     })) {
-        ui.Size(ctx.controlsSize).Select(s_state.idx, s_state.items, {
+        guikit::SelectOptions opts{
             .placeholder = s_state.placeholder,
-            .prefix = s_state.hasPrefix ? guikit::Icon::Settings() : guikit::Icon{},
+            .prefix = s_state.hasPrefix ? guikit::Icon::Search() : guikit::Icon{},
             .maxVisibleItems = s_state.maxItems,
             .stretch = ctx.GetElementStretch(),
             .width = ctx.GetElementWidth(),
             .height = ctx.GetElementHeight(),
             .background = ctx.GetControlBackground(NavCategory::ElemSelect),
             .border = ctx.GetCtrlBorder(),
+            .clearable = s_state.clearable,
             .disabled = ctx.elemDisabled
-        });
+        };
+
+        const auto richList = BuildRichSelectItems();
+        if (s_state.mode == 0) {
+            if (s_state.richItems) {
+                ui.Size(ctx.controlsSize).Select(s_state.idx, richList, opts);
+            } else {
+                ui.Size(ctx.controlsSize).Select(s_state.idx, s_state.plainItems, opts);
+            }
+        } else if (s_state.mode == 1) {
+            if (s_state.richItems) {
+                ui.Size(ctx.controlsSize).ComboBox(s_state.idx, richList, opts);
+            } else {
+                ui.Size(ctx.controlsSize).ComboBox(s_state.idx, s_state.plainItems, opts);
+            }
+        } else {
+            if (s_state.richItems) {
+                ui.Size(ctx.controlsSize).Autocomplete(s_state.customText, richList, opts);
+            } else {
+                ui.Size(ctx.controlsSize).Autocomplete(s_state.customText, s_state.plainItems, opts);
+            }
+        }
     }
 }
 
 std::string GenerateSelectCode(const DemoContext& ctx) {
+    const std::string_view widgetCall = (s_state.mode == 0)
+        ? "Select(presetIndex"
+        : ((s_state.mode == 1) ? "ComboBox(presetIndex" : "Autocomplete(customText");
     return std::format(
         "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
@@ -77,7 +144,7 @@ std::string GenerateSelectCode(const DemoContext& ctx) {
         "    .border = {},\n"
         "    .disabled = {}\n"
         "}})) {{\n"
-        "    ui.{}Select(presetIndex, itemsList, {{\n"
+        "    ui.{}{}, itemsList, {{\n"
         "        .placeholder = \"{}\",\n"
         "        .prefix = {},\n"
         "        .maxVisibleItems = {},\n"
@@ -86,6 +153,7 @@ std::string GenerateSelectCode(const DemoContext& ctx) {
         "        .height = {},\n"
         "        .background = {},\n"
         "        .border = {},\n"
+        "        .clearable = {},\n"
         "        .disabled = {}\n"
         "    }});\n"
         "}}",
@@ -102,14 +170,16 @@ std::string GenerateSelectCode(const DemoContext& ctx) {
         ctx.FormatElemBorderCode(),
         ctx.elemDisabled ? "true" : "false",
         FormatUiSizePrefix(ctx.controlsSize),
+        widgetCall,
         s_state.placeholder,
-        s_state.hasPrefix ? "guikit::Icon::Settings()" : "{}",
+        s_state.hasPrefix ? "guikit::Icon::Search()" : "{}",
         s_state.maxItems,
         StretchModeEnumName(ctx.GetElementStretch()),
         ctx.FormatElementWidthCode(),
         ctx.FormatElementHeightCode(),
         ctx.FormatControlBackgroundCode(NavCategory::ElemSelect),
         ctx.FormatCtrlBorderCode(),
+        s_state.clearable ? "true" : "false",
         ctx.elemDisabled ? "true" : "false"
     );
 }
