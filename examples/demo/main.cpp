@@ -473,21 +473,21 @@ int main(int argc, char* argv[]) {
             if (auto mainCol = ui.Column({.theme = &demoCtx.shellTheme, .scale = shellScale})) {
                 // Engine HUD Toolbar
                 if (auto tb = ui.Toolbar()) {
-                    const guikit::UiVariant navVariant = (navSidebarMode == guikit::SidebarMode::Expanded)
-                        ? guikit::UiVariant::Primary
+                    const guikit::StateColor navColor = (navSidebarMode == guikit::SidebarMode::Expanded)
+                        ? guikit::StateColor::Primary()
                         : (navSidebarMode == guikit::SidebarMode::Compact)
-                            ? guikit::UiVariant::Info
-                            : guikit::UiVariant::Ghost;
+                            ? guikit::StateColor::Info()
+                            : guikit::StateColor::Ghost();
                     const std::string_view navTooltip = (navSidebarMode == guikit::SidebarMode::Expanded)
                         ? "Navigation Sidebar: Expanded (Click for Compact Icons, Right-click to Collapse)"
                         : (navSidebarMode == guikit::SidebarMode::Compact)
                             ? "Navigation Sidebar: Compact Icons (Click to Collapse, Right-click to Expand)"
                             : "Navigation Sidebar: Collapsed (Click to Expand)";
                     const auto navBtn = tb.ToolButton({
-                        .label = "Nav",
+                        .text = "Nav",
                         .tooltip = navTooltip,
                         .icon = guikit::Icon::Folder(),
-                        .variant = navVariant,
+                        .color = navColor,
                         .active = (navSidebarMode != guikit::SidebarMode::Collapsed)
                     });
                     if (navBtn.clicked) {
@@ -508,12 +508,12 @@ int main(int argc, char* argv[]) {
 
                     bool inspectorVisible = (inspectorSidebarMode != guikit::SidebarMode::Collapsed);
                     if (tb.Toggle(inspectorVisible, {
-                        .label = "Inspector",
+                        .text = "Inspector",
                         .tooltip = inspectorVisible
                             ? "Inspector Sidebar: Expanded (Click to Collapse)"
                             : "Inspector Sidebar: Collapsed (Click to Expand)",
                         .icon = guikit::Icon::Settings(),
-                        .variant = guikit::UiVariant::Primary
+                        .color = guikit::StateColor::Primary()
                     }).changed) {
                         inspectorSidebarMode = inspectorVisible
                             ? guikit::SidebarMode::Expanded
@@ -543,18 +543,18 @@ int main(int argc, char* argv[]) {
                     if (auto debugGroup = ui.Row({.equalWidths = true})) {
                         bool boundsActive = ui.IsDebugBounds();
                         if (tb.Toggle(boundsActive, {
-                            .label = "Bounds",
+                            .text = "Bounds",
                             .icon = boundsActive ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
-                            .variant = guikit::UiVariant::Info
+                            .color = guikit::StateColor::Info()
                         }).changed) {
                             ui.SetDebugBounds(boundsActive);
                         }
 
                         bool inspectActive = ui.IsInspectMode();
                         if (tb.Toggle(inspectActive, {
-                            .label = "Inspect",
+                            .text = "Inspect",
                             .icon = guikit::Icon::Search(),
-                            .variant = guikit::UiVariant::Warning
+                            .color = guikit::StateColor::Warning()
                         }).changed) {
                             ui.SetInspectMode(inspectActive);
                         }
@@ -564,10 +564,10 @@ int main(int argc, char* argv[]) {
 
                     if (auto engineGroup = ui.Row({.equalWidths = true})) {
                         if (tb.Toggle(gpuShadersEnabled, {
-                            .label = "GPU",
+                            .text = "GPU",
                             .tooltip = "Toggle OpenGL ES3 Shader Acceleration",
                             .icon = guikit::Icon::Flash(),
-                            .variant = guikit::UiVariant::Success,
+                            .color = guikit::StateColor::Success(),
                             .disabled = !gpuShaderEngine.IsAvailable()
                         }).changed) {
                             canvas.SetGpuShadersEnabled(gpuShadersEnabled && gpuShaderEngine.IsAvailable());
@@ -576,17 +576,17 @@ int main(int argc, char* argv[]) {
                         }
 
                         if (tb.Toggle(vsyncEnabled, {
-                            .label = "VSync",
+                            .text = "VSync",
                             .tooltip = "Toggle Vertical Sync",
-                            .variant = guikit::UiVariant::Info
+                            .color = guikit::StateColor::Info()
                         }).changed) {
                             SDL_SetRenderVSync(renderer, vsyncEnabled ? 1 : 0);
                         }
 
                         if (tb.Toggle(reactiveMode, {
-                            .label = "React",
+                            .text = "React",
                             .tooltip = "Toggle Event-Driven Reactive Sleep Loop",
-                            .variant = guikit::UiVariant::Primary
+                            .color = guikit::StateColor::Primary()
                         }).changed) {
                             if (!reactiveMode) {
                                 ui.InvalidateAll();
@@ -595,9 +595,9 @@ int main(int argc, char* argv[]) {
 
                         bool dirtyActive = ui.IsDirtyRectEnabled();
                         if (tb.Toggle(dirtyActive, {
-                            .label = "Dirty",
+                            .text = "Dirty",
                             .tooltip = "Toggle Disjoint Dirty-Rect Partial Rasterization",
-                            .variant = guikit::UiVariant::Success
+                            .color = guikit::StateColor::Success()
                         }).changed) {
                             ui.SetDirtyRectEnabled(dirtyActive);
                             if (!dirtyActive) {
@@ -607,18 +607,18 @@ int main(int argc, char* argv[]) {
 
                         bool liveResizeActive = ui.IsLiveResizeEnabled();
                         if (tb.Toggle(liveResizeActive, {
-                            .label = "Live",
+                            .text = "Live",
                             .tooltip = liveResizeActive
                                 ? "Live Window Resize: Smooth 60 FPS reflow while dragging window border"
                                 : "Deferred Window Resize: Reflow after window resize step completes",
-                            .variant = guikit::UiVariant::Info
+                            .color = guikit::StateColor::Info()
                         }).changed) {
                             ui.SetLiveResize(liveResizeActive);
                         }
                     }
 
                     if (tb.Action({
-                        .label = {heartbeatLabels[heartbeatIndex], heartbeatLabels},
+                        .text = {heartbeatLabels[heartbeatIndex], heartbeatLabels},
                         .icon = guikit::Icon::Refresh(),
                         .disabled = !reactiveMode
                     })) {
@@ -776,22 +776,22 @@ int main(int argc, char* argv[]) {
                             }
 
                             previewTb.Toggle(demoCtx.previewBounds, {
-                                .label = "Bounds",
+                                .text = "Bounds",
                                 .icon = demoCtx.previewBounds ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
-                                .variant = guikit::UiVariant::Info
+                                .color = guikit::StateColor::Info()
                             });
 
                             previewTb.Toggle(demoCtx.previewInspect, {
-                                .label = "Inspect",
+                                .text = "Inspect",
                                 .icon = guikit::Icon::Search(),
-                                .variant = guikit::UiVariant::Warning
+                                .color = guikit::StateColor::Warning()
                             });
 
                             if (IsSandboxCategory(selectedCategory)) {
                                 if (previewTb.Toggle(demoCtx.previewShowCode, {
-                                    .label = "Code",
+                                    .text = "Code",
                                     .icon = demoCtx.previewShowCode ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
-                                    .variant = guikit::UiVariant::Primary
+                                    .color = guikit::StateColor::Primary()
                                 }).changed) {
                                     ui.RequestRepaint(3);
                                 }
@@ -840,7 +840,7 @@ int main(int argc, char* argv[]) {
                                     });
                                     codeTb.Spacer();
                                     if (codeTb.Action({
-                                        .label = "Close",
+                                        .text = "Close",
                                         .tooltip = "Close Code Panel",
                                         .icon = guikit::Icon::Close(),
                                         .square = true
@@ -879,21 +879,21 @@ int main(int argc, char* argv[]) {
                             .dotColor = isGpuScene
                                 ? demoCtx.shellTheme.GetVariant(guikit::UiVariant::Success).bg
                                 : demoCtx.shellTheme.GetVariant(guikit::UiVariant::Info).bg,
-                            .variant = isGpuScene ? guikit::UiVariant::Success : guikit::UiVariant::Info,
+                            .color = isGpuScene ? guikit::StateColor::Success() : guikit::StateColor::Info(),
                             .badge = gpuShadersEnabled ? "GLSL" : "OFF"
                         });
                     } else {
                         sb.Item({
                             .text = "GPU Shaders: CPU Fallback",
                             .dotColor = demoCtx.shellTheme.GetVariant(guikit::UiVariant::Warning).bg,
-                            .variant = guikit::UiVariant::Warning
+                            .color = guikit::StateColor::Warning()
                         });
                     }
 
                     sb.Separator();
                     sb.Item({
                         .text = metrics.GetStatusString(),
-                        .variant = guikit::UiVariant::Secondary
+                        .color = guikit::StateColor::Secondary()
                     });
 
                     sb.Spacer();

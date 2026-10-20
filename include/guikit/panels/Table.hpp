@@ -40,12 +40,9 @@ struct TableColumn {
     bool resizable{true};                   ///< Whether the right border of this column can be dragged to resize
 };
 
-/// Per-cell visual & alignment overrides.
+/// Per-cell alignment override when using `table.Cell(...)`.
 struct TableCellOptions {
     std::optional<Align> align{std::nullopt}; ///< Override horizontal alignment (nullopt = inherit from TableColumn)
-    UiVariant variant{UiVariant::Default};    ///< Semantic text/badge color variant
-    Icon icon{};                              ///< Optional leading icon inside cell
-    bool bold{false};                         ///< Slightly heavier font weight / emphasis
 };
 
 /// Per-row visual & interaction options.
@@ -202,14 +199,9 @@ public:
         return Row(m_nextAutoRow++, opts);
     }
 
-    /// Emits a fast, zero-node text cell in the current column of the active row.
-    void CellText(const UiText& text, const TableCellOptions& opts = {});
-
-    /// Emits a fast, zero-node pill badge cell in the current column of the active row.
-    void CellBadge(std::string_view text, UiVariant variant = UiVariant::Primary, const TableCellOptions& opts = {});
-
-    /// Opens a widget container cell (`NodeType::Cell`) in the current column of the active row
-    /// for embedding arbitrary GuiKit widgets (`Checkbox`, `Button`, `ProgressBar`, `Select`, etc.).
+    /// Opens an explicit multi-widget container cell (`NodeType::Cell`) in the current column of the active row.
+    /// Note: Single widgets (`ui.Text`, `ui.Element`, `ui.Checkbox`, `ui.ProgressBar`, `ui.Button`, etc.)
+    /// placed directly inside `if (auto row = table.Row(r))` automatically occupy sequential columns without needing `table.Cell()`.
     [[nodiscard]] ContainerScope Cell(const TableCellOptions& opts = {});
 
     /// Programmatically scrolls the table viewport so `rowIndex` is visible.

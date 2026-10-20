@@ -41,8 +41,7 @@ struct StatusItemOptions {
     UiText text{};                                      ///< Segment text label
     Icon icon{};                                        ///< Optional leading vector icon
     Color dotColor{Color::Transparent()};               ///< Optional leading status LED dot color
-    Color textColor{Color::Transparent()};              ///< Optional explicit text/icon color override
-    UiVariant variant{UiVariant::Secondary};            ///< Semantic color variant when textColor is not specified
+    StateColor color{};                                 ///< Optional text/icon color override (Default = Secondary)
     UiText badge{};                                     ///< Optional trailing pill badge text
     UiText tooltip{};                                   ///< Optional hover tooltip
     bool active{false};                                 ///< Highlight state for toggleable status actions

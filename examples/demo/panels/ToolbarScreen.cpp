@@ -82,24 +82,24 @@ void RenderToolbarStage(guikit::Context& ui, DemoContext& ctx) {
     })) {
         // Mutually exclusive tool group via tb.Item(...)
         tb.Item(s_tb.activeTool, 0, {
-            .label = "Select",
+            .text = "Select",
             .tooltip = "Select Tool (V)",
             .icon = guikit::Icon::Check(),
-            .variant = ctx.btnVariant,
+            .color = ctx.ResolveControlColor(),
             .square = s_tb.squareIcons
         });
         tb.Item(s_tb.activeTool, 1, {
-            .label = "Pan",
+            .text = "Pan",
             .tooltip = "Pan Viewport (H)",
             .icon = guikit::Icon::Folder(),
-            .variant = ctx.btnVariant,
+            .color = ctx.ResolveControlColor(),
             .square = s_tb.squareIcons
         });
         tb.Item(s_tb.activeTool, 2, {
-            .label = "Measure",
+            .text = "Measure",
             .tooltip = "Ruler & Harmonic Cursor (M)",
             .icon = guikit::Icon::Search(),
-            .variant = ctx.btnVariant,
+            .color = ctx.ResolveControlColor(),
             .square = s_tb.squareIcons
         });
 
@@ -107,17 +107,17 @@ void RenderToolbarStage(guikit::Context& ui, DemoContext& ctx) {
 
         // Stateful boolean toggles via tb.Toggle(...)
         tb.Toggle(s_tb.snapToGrid, {
-            .label = "Snap",
+            .text = "Snap",
             .tooltip = "Toggle Grid Snapping (Ctrl+G)",
             .icon = guikit::Icon::Settings(),
-            .variant = guikit::UiVariant::Info,
+            .color = guikit::StateColor::Info(),
             .square = s_tb.squareIcons
         });
         tb.Toggle(s_tb.liveCapture, {
-            .label = s_tb.liveCapture ? "Recording" : "Capture",
+            .text = s_tb.liveCapture ? "Recording" : "Capture",
             .tooltip = "Toggle Live Stream Capture",
             .icon = s_tb.liveCapture ? guikit::Icon::Pause() : guikit::Icon::Play(),
-            .variant = s_tb.liveCapture ? guikit::UiVariant::Success : guikit::UiVariant::Warning,
+            .color = s_tb.liveCapture ? guikit::StateColor::Success() : guikit::StateColor::Warning(),
             .square = s_tb.squareIcons,
             .badge = (s_tb.showBadges && s_tb.liveCapture) ? "REC" : ""
         });
@@ -126,7 +126,7 @@ void RenderToolbarStage(guikit::Context& ui, DemoContext& ctx) {
 
         // Dropdown menu button via tb.Dropdown(...)
         const auto exportMenu = tb.Dropdown({
-            .label = "Export",
+            .text = "Export",
             .tooltip = "Export Snapshot or Telemetry",
             .badge = s_tb.showBadges ? "3" : ""
         }, {
@@ -174,33 +174,33 @@ void RenderToolbarStage(guikit::Context& ui, DemoContext& ctx) {
                 .orientation = guikit::Orientation::Vertical
             })) {
                 vtb.Item(s_tb.activeTool, 0, {
-                    .label = "Select Tool",
+                    .text = "Select Tool",
                     .icon = guikit::Icon::Check(),
-                    .variant = ctx.btnVariant,
+                    .color = ctx.ResolveControlColor(),
                     .square = true
                 });
                 vtb.Item(s_tb.activeTool, 1, {
-                    .label = "Pan Viewport",
+                    .text = "Pan Viewport",
                     .icon = guikit::Icon::Folder(),
-                    .variant = ctx.btnVariant,
+                    .color = ctx.ResolveControlColor(),
                     .square = true
                 });
                 vtb.Item(s_tb.activeTool, 2, {
-                    .label = "Measure Cursor",
+                    .text = "Measure Cursor",
                     .icon = guikit::Icon::Search(),
-                    .variant = ctx.btnVariant,
+                    .color = ctx.ResolveControlColor(),
                     .square = true
                 });
                 vtb.Separator();
                 vtb.Toggle(s_tb.showCrosshair, {
-                    .label = "Crosshair Overlay",
+                    .text = "Crosshair Overlay",
                     .icon = guikit::Icon::Eye(),
-                    .variant = guikit::UiVariant::Info,
+                    .color = guikit::StateColor::Info(),
                     .square = true
                 });
                 vtb.Spacer();
                 if (vtb.Action({
-                    .label = "Reset View",
+                    .text = "Reset View",
                     .icon = guikit::Icon::Refresh(),
                     .square = true
                 }).clicked) {
@@ -241,14 +241,14 @@ void RenderToolbarStage(guikit::Context& ui, DemoContext& ctx) {
                     if (auto hud = ui.Size(guikit::UiSize::Sm).Toolbar({
                         .style = guikit::ToolbarStyle::Floating
                     })) {
-                        hud.Item(s_tb.zoomPresetIdx, 0, {.label = "50%"});
-                        hud.Item(s_tb.zoomPresetIdx, 1, {.label = "100%"});
-                        hud.Item(s_tb.zoomPresetIdx, 2, {.label = "200%"});
+                        hud.Item(s_tb.zoomPresetIdx, 0, {.text = "50%"});
+                        hud.Item(s_tb.zoomPresetIdx, 1, {.text = "100%"});
+                        hud.Item(s_tb.zoomPresetIdx, 2, {.text = "200%"});
                         hud.Separator();
                         hud.Toggle(s_tb.showCrosshair, {
-                            .label = "Crosshair",
+                            .text = "Crosshair",
                             .icon = guikit::Icon::Eye(),
-                            .variant = guikit::UiVariant::Info
+                            .color = guikit::StateColor::Info()
                         });
                     }
                 }
@@ -263,16 +263,16 @@ std::string GenerateToolbarCode(const DemoContext& ctx) {
         "    .style = guikit::ToolbarStyle::{}\n"
         "}})) {{\n"
         "    // Exclusive tool group\n"
-        "    tb.Item(activeTool, 0, {{.label = \"Select\",  .icon = guikit::Icon::Check(),  .variant = guikit::UiVariant::{}}});\n"
-        "    tb.Item(activeTool, 1, {{.label = \"Pan\",     .icon = guikit::Icon::Folder(), .variant = guikit::UiVariant::{}}});\n"
-        "    tb.Item(activeTool, 2, {{.label = \"Measure\", .icon = guikit::Icon::Search(), .variant = guikit::UiVariant::{}}});\n"
+        "    tb.Item(activeTool, 0, {{.text = \"Select\",  .icon = guikit::Icon::Check(),  .color = guikit::StateColor::{}()}});\n"
+        "    tb.Item(activeTool, 1, {{.text = \"Pan\",     .icon = guikit::Icon::Folder(), .color = guikit::StateColor::{}()}});\n"
+        "    tb.Item(activeTool, 2, {{.text = \"Measure\", .icon = guikit::Icon::Search(), .color = guikit::StateColor::{}()}});\n"
         "    tb.Separator();\n\n"
         "    // Stateful boolean toggles\n"
-        "    tb.Toggle(snapToGrid,  {{.label = \"Snap\",    .icon = guikit::Icon::Settings(), .variant = guikit::UiVariant::Info}});\n"
-        "    tb.Toggle(liveCapture, {{.label = \"Capture\", .icon = guikit::Icon::Play(),     .variant = guikit::UiVariant::Success}});\n"
+        "    tb.Toggle(snapToGrid,  {{.text = \"Snap\",    .icon = guikit::Icon::Settings(), .color = guikit::StateColor::Info()}});\n"
+        "    tb.Toggle(liveCapture, {{.text = \"Capture\", .icon = guikit::Icon::Play(),     .color = guikit::StateColor::Success()}});\n"
         "    tb.Separator();\n\n"
         "    // Dropdown menu button\n"
-        "    auto menu = tb.Dropdown({{.label = \"Export\"{}}}, {{\n"
+        "    auto menu = tb.Dropdown({{.text = \"Export\"{}}}, {{\n"
         "        {{.label = \"Export Vector SVG...\", .shortcut = \"Ctrl+E\", .icon = guikit::Icon::Download()}},\n"
         "        {{.label = \"Copy Summary\",         .shortcut = \"Ctrl+C\", .icon = guikit::Icon::Check()}}\n"
         "    }});\n"

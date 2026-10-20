@@ -488,8 +488,8 @@ void TestStandaloneCoreModuleZeroDependencies() {
         if (auto table = ui.Table(cols, {.totalRows = 10, .selectedRow = &selectedRow, .height = 180.0f})) {
             for (size_t r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {
                 if (auto row = table.Row(r)) {
-                    table.CellText(ui.Format("K-{:02}", r));
-                    table.CellBadge("OK", UiVariant::Success);
+                    ui.Text(ui.Format("K-{:02}", r));
+                    ui.Element({.badge = {"OK", UiVariant::Success}, .stretch = StretchMode::Compact});
                 }
             }
         }

@@ -4,6 +4,7 @@
 #include <cmath>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
+#include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 #include "guikit/panels/ScrollArea.hpp"
@@ -33,10 +34,6 @@ struct TreeViewPayload {
 };
 
 struct TreeCellPayload {
-    bool isContainer{false};
-    bool isBadge{false};
-    UiText text{};
-    UiVariant variant{UiVariant::Default};
     TableCellOptions opts{};
     Align resolvedAlign{Align::Start};
 };
@@ -206,97 +203,6 @@ RowMetrics ComputeRowMetrics(
     return rm;
 }
 
-Vec2 MeasureLeafTreeCell(
-    const Node* cellNode,
-    float /*availableWidth*/,
-    ICanvas* canvas,
-    const UiTheme& theme
-) noexcept {
-    if (!cellNode) return {0.0f, 0.0f};
-    const auto* cp = cellNode->As<TreeCellPayload>();
-    if (!cp || cp->isContainer) return {0.0f, 0.0f};
-
-    if (cp->isBadge) {
-        const float font = theme.ResolveFontSize(cp->text, TextRole::LabelSmall, cellNode->uiSize);
-        const float padX = std::max(theme.Scale(6.0f), font * 0.50f);
-        const float w = TextUtil::MeasureWidth(cp->text, font, canvas) + padX * 2.0f;
-        const float h = std::max(theme.Scale(16.0f), font + theme.Scale(4.0f));
-        return {w, h};
-    }
-
-    const float font = theme.ResolveFontSize(cp->text, TextRole::LabelMedium, cellNode->uiSize);
-    float w = TextUtil::MeasureWidth(cp->text, font, canvas);
-    if (cp->opts.icon.IsValid()) {
-        w += std::max(theme.Scale(13.0f), font) + theme.Scale(5.0f);
-    }
-    const float h = canvas ? canvas->GetLineHeight(font) : (font * 1.25f);
-    return {w, h};
-}
-
-void RenderLeafTreeCell(
-    const Node* cellNode,
-    ICanvas& canvas,
-    const UiTheme& theme
-) noexcept {
-    if (!cellNode) return;
-    const Rect r = cellNode->computedRect;
-    if (r.w <= 0.0f || r.h <= 0.0f) return;
-
-    const auto* cp = cellNode->As<TreeCellPayload>();
-    if (!cp || cp->isContainer) return;
-
-    const Align align = cp->opts.align.value_or(cp->resolvedAlign);
-    const float hAlign = AlignToFactor(align);
-    const bool disabled = cellNode->disabled;
-
-    if (cp->isBadge) {
-        const float font = theme.ResolveFontSize(cp->text, TextRole::LabelSmall, cellNode->uiSize);
-        const float padX = std::max(theme.Scale(6.0f), font * 0.50f);
-        const float textW = TextUtil::MeasureWidth(cp->text, font, &canvas);
-        const float pillW = std::min(r.w, textW + padX * 2.0f);
-        const float pillH = std::min(r.h - theme.Scale(2.0f), std::max(theme.Scale(16.0f), font + theme.Scale(4.0f)));
-        const float pillX = r.x + (r.w - pillW) * hAlign;
-        const float pillY = r.y + (r.h - pillH) * 0.5f;
-        const Rect pillRect(pillX, pillY, pillW, pillH);
-
-        const VariantColors vc = theme.GetVariant(cp->variant);
-        Color bg = vc.bg.WithAlpha(disabled ? 28 : 48);
-        Color border = vc.border.WithAlpha(disabled ? 70 : 140);
-        Color fg = disabled ? vc.bg.WithAlphaF(0.45f) : vc.bg;
-        if (cp->text.color.HasAny()) {
-            fg = cp->text.color.Resolve(false, false, disabled, vc.bg);
-            bg = fg.WithAlpha(disabled ? 28 : 48);
-            border = fg.WithAlpha(disabled ? 70 : 140);
-        }
-        canvas.DrawRoundRect(pillRect, pillH * 0.5f, bg, border, 1.0f);
-        canvas.DrawTextBox(cp->text.text, pillRect, font, fg, 0.5f, 0.5f);
-        return;
-    }
-
-    const float font = theme.ResolveFontSize(cp->text, TextRole::LabelMedium, cellNode->uiSize);
-    Color textCol = (cp->variant != UiVariant::Default)
-        ? theme.GetVariant(cp->variant).bg
-        : theme.ResolveTextColor(cp->text, UiVariant::Default, disabled);
-    if (disabled && cp->variant != UiVariant::Default) {
-        textCol = textCol.WithAlphaF(0.45f);
-    }
-
-    Rect textRect = r;
-    if (cp->opts.icon.IsValid()) {
-        const float iconSz = std::min(std::max(theme.Scale(13.0f), font), r.h * 0.65f);
-        const Rect iconRect(textRect.x, r.y + (r.h - iconSz) * 0.5f, iconSz, iconSz);
-        cp->opts.icon.Draw(canvas, iconRect, textCol);
-        const float adv = iconSz + theme.Scale(5.0f);
-        textRect.x += adv;
-        textRect.w = std::max(0.0f, textRect.w - adv);
-    }
-
-    if (!cp->text.empty() && textRect.w > 2.0f) {
-        const std::string truncated = TextUtil::TruncateWithEllipsis(cp->text.text, textRect.w, font, &canvas);
-        canvas.DrawTextBox(truncated, textRect, font, textCol, hAlign, 0.5f);
-    }
-}
-
 Vec2 MeasureEmbeddedChild(
     const Node* child,
     float availRowWidth,
@@ -348,12 +254,13 @@ Vec2 MeasureEmbeddedChild(
         intr.y = childTheme.Scale(child->fixedHeight);
     }
 
+    const bool isPlainOrBadgeElement = (child->type == NodeType::Element && child->firstChild == nullptr);
     float cw = intr.x;
     if (rowControlWidth.has_value() && *rowControlWidth > 0.0f && singleChildInRow) {
         cw = theme.Scale(*rowControlWidth);
     } else if (child->fixedWidth > 0.0f) {
         cw = childTheme.Scale(child->fixedWidth);
-    } else if (child->ctrlStretchable) {
+    } else if (child->ctrlStretchable && !isPlainOrBadgeElement) {
         cw = std::max(intr.x, theme.Scale(130.0f));
         if (availRowWidth > 0.0f) {
             cw = std::min(cw, availRowWidth * 0.42f);
@@ -491,7 +398,6 @@ ContainerScope TreeItemScope::Cell(
     cellNode->disabled = activeDisabled;
 
     auto* cp = m_ctx->AllocPayload<TreeCellPayload>();
-    cp->isContainer = true;
     cp->opts = opts;
     cellNode->SetPayload(cp);
 
@@ -502,99 +408,6 @@ ContainerScope TreeItemScope::Cell(
     return ContainerScope(m_ctx, cellNode);
 }
 
-void TreeItemScope::CellText(
-    UiText text,
-    const TableCellOptions& opts,
-    std::source_location loc
-) {
-    if (!m_visible || !m_ctx || !m_node) {
-        return;
-    }
-    const Id cellId = m_ctx->MakeChildId(loc);
-    Node* cellNode = m_ctx->CreateNode(NodeType::Cell, cellId);
-    cellNode->uiSize = m_ctx->GetCurrentSize();
-    cellNode->disabled = m_ctx->IsDisabled();
-    cellNode->widthMode = SizeMode::Fit;
-    cellNode->heightMode = SizeMode::Fit;
-
-    auto* cp = m_ctx->AllocPayload<TreeCellPayload>();
-    cp->isContainer = false;
-    cp->isBadge = false;
-    cp->text = m_ctx->AllocText(text);
-    cp->variant = opts.variant;
-    cp->opts = opts;
-    if (!opts.icon.GetPath().empty()) {
-        cp->opts.icon = Icon::File(m_ctx->AllocString(opts.icon.GetPath()));
-    }
-    cellNode->SetPayload(cp);
-    cellNode->text = cp->text.text;
-    cellNode->measureFn = &MeasureLeafTreeCell;
-    cellNode->renderFn = &RenderLeafTreeCell;
-    cellNode->visualHash = detail::HashArgs(
-        cp->text,
-        static_cast<uint8_t>(cp->variant),
-        opts.align.has_value() ? static_cast<int>(*opts.align) : -1,
-        static_cast<uint8_t>(opts.icon.GetType()),
-        static_cast<uint8_t>(opts.icon.GetId()),
-        cellNode->disabled
-    );
-    m_node->visualHash = detail::HashArgs(m_node->visualHash, cellNode->visualHash);
-
-    if (m_payload && m_payload->tree && !m_payload->tree->activeFilter.empty()) {
-        if (ContainsIgnoreCase(cp->text.text, m_payload->tree->activeFilter)) {
-            m_payload->matchesFilter = true;
-            for (TreeItemPayload* anc = m_payload->parentItem; anc != nullptr; anc = anc->parentItem) {
-                anc->matchesFilter = true;
-            }
-        }
-    }
-}
-
-void TreeItemScope::CellBadge(
-    UiText text,
-    UiVariant variant,
-    const TableCellOptions& opts,
-    std::source_location loc
-) {
-    if (!m_visible || !m_ctx || !m_node) {
-        return;
-    }
-    const Id cellId = m_ctx->MakeChildId(loc);
-    Node* cellNode = m_ctx->CreateNode(NodeType::Cell, cellId);
-    cellNode->uiSize = m_ctx->GetCurrentSize();
-    cellNode->disabled = m_ctx->IsDisabled();
-    cellNode->widthMode = SizeMode::Fit;
-    cellNode->heightMode = SizeMode::Fit;
-
-    auto* cp = m_ctx->AllocPayload<TreeCellPayload>();
-    cp->isContainer = false;
-    cp->isBadge = true;
-    cp->text = m_ctx->AllocText(text);
-    cp->variant = variant;
-    cp->opts = opts;
-    cellNode->SetPayload(cp);
-    cellNode->text = cp->text.text;
-    cellNode->measureFn = &MeasureLeafTreeCell;
-    cellNode->renderFn = &RenderLeafTreeCell;
-    cellNode->visualHash = detail::HashArgs(
-        cp->text,
-        static_cast<uint8_t>(cp->variant),
-        opts.align.has_value() ? static_cast<int>(*opts.align) : -1,
-        true,
-        cellNode->disabled
-    );
-    m_node->visualHash = detail::HashArgs(m_node->visualHash, cellNode->visualHash);
-
-    if (m_payload && m_payload->tree && !m_payload->tree->activeFilter.empty()) {
-        if (ContainsIgnoreCase(cp->text.text, m_payload->tree->activeFilter)) {
-            m_payload->matchesFilter = true;
-            for (TreeItemPayload* anc = m_payload->parentItem; anc != nullptr; anc = anc->parentItem) {
-                anc->matchesFilter = true;
-            }
-        }
-    }
-}
-
 void TreeItemScope::Finalize() noexcept {
     if (!m_payload) {
         return;
@@ -603,7 +416,14 @@ void TreeItemScope::Finalize() noexcept {
     m_payload = nullptr;
 
     if (p->rowNode) {
-        p->rowNode->visualHash = detail::HashArgs(p->rowNode->visualHash, p->hasChildItems);
+        uint64_t h = detail::HashArgs(p->rowNode->visualHash, p->hasChildItems);
+        for (const Node* ch = p->rowNode->firstChild; ch != nullptr; ch = ch->nextSibling) {
+            h = detail::HashArgs(h, ch->id.value, ch->visualHash, ch->hovered, ch->pressed, ch->checked);
+            for (const Node* gc = ch->firstChild; gc != nullptr; gc = gc->nextSibling) {
+                h = detail::HashArgs(h, gc->id.value, gc->visualHash, gc->hovered, gc->pressed, gc->checked);
+            }
+        }
+        p->rowNode->visualHash = h;
     }
 
     if (p->tree && p->visibleEntryIdx < p->tree->currVisibleItems.size()) {
@@ -611,6 +431,42 @@ void TreeItemScope::Finalize() noexcept {
     }
 
     const bool filterActive = (p->tree != nullptr && !p->tree->activeFilter.empty());
+    if (filterActive && !p->matchesFilter && p->rowNode) {
+        const std::string_view q = p->tree->activeFilter;
+        auto nodeMatches = [&](const Node* n) noexcept -> bool {
+            if (!n) return false;
+            if (!n->text.empty() && ContainsIgnoreCase(n->text, q)) return true;
+            if (n->type == NodeType::Element) {
+                if (const auto* ep = n->As<ElementPayload>()) {
+                    if (ContainsIgnoreCase(ep->opts.label.text, q) ||
+                        ContainsIgnoreCase(ep->opts.description.text, q) ||
+                        ContainsIgnoreCase(ep->opts.badge.text, q)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+        for (const Node* ch = p->rowNode->firstChild; ch != nullptr && !p->matchesFilter; ch = ch->nextSibling) {
+            if (nodeMatches(ch)) {
+                p->matchesFilter = true;
+            } else if (ch->type == NodeType::Cell || ch->type == NodeType::Row ||
+                       ch->type == NodeType::Column || ch->type == NodeType::Box) {
+                for (const Node* gc = ch->firstChild; gc != nullptr; gc = gc->nextSibling) {
+                    if (nodeMatches(gc)) {
+                        p->matchesFilter = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if (p->matchesFilter) {
+            for (TreeItemPayload* anc = p->parentItem; anc != nullptr; anc = anc->parentItem) {
+                anc->matchesFilter = true;
+            }
+        }
+    }
+
     if (filterActive && !p->matchesFilter) {
         if (p->branchNode && p->branchNode->parent) {
             p->branchNode->parent->RemoveChild(p->branchNode);
@@ -1300,8 +1156,9 @@ TreeItemScope TreeView::OpenItem(
         static_cast<uint8_t>(opts.icon.GetId()),
         static_cast<uint8_t>(opts.openIcon.GetType()),
         static_cast<uint8_t>(opts.openIcon.GetId()),
+        opts.color,
         treePayload ? static_cast<uint8_t>(treePayload->opts.selectionStyle) : uint8_t{0},
-        treePayload ? static_cast<uint8_t>(treePayload->opts.variant) : uint8_t{0},
+        treePayload ? treePayload->opts.color : StateColor{},
         treePayload ? treePayload->opts.striped : false,
         treePayload ? treePayload->opts.gridLines : false,
         treePayload ? treePayload->columnCount : uint16_t{0},
@@ -1392,9 +1249,9 @@ namespace {
 bool IsInteractiveEmbeddedLeaf(const Node* node) noexcept {
     if (!node || node->isSpacer) return false;
     if (node->type == NodeType::Text) return false;
+    if (node->type == NodeType::Element && node->firstChild == nullptr) return false;
     if (node->type == NodeType::Cell) {
-        const auto* cp = node->As<TreeCellPayload>();
-        return cp && cp->isContainer;
+        return node->firstChild != nullptr;
     }
     return true;
 }
@@ -1580,11 +1437,7 @@ void TreeView::ArrangeRow(
                 continue;
             }
 
-            // Leaf CellText / CellBadge
             if (child->type == NodeType::Cell) {
-                if (auto* cp = child->As<TreeCellPayload>()) {
-                    cp->resolvedAlign = colAlign;
-                }
                 child->computedRect = innerRect;
                 continue;
             }
@@ -1600,16 +1453,27 @@ void TreeView::ArrangeRow(
                 intr.y = childTheme.Scale(child->fixedHeight);
             }
 
-            // Non-interactive Text node inside a column
-            if (child->type == NodeType::Text) {
+            // Non-interactive Text or standalone Element (icon+label / pill badge) inside a column
+            const bool isPlainOrBadgeElement = (child->type == NodeType::Element && child->firstChild == nullptr);
+            if (child->type == NodeType::Text || isPlainOrBadgeElement) {
                 const float tw = std::min(innerRect.w, intr.x);
                 const float th = std::min(innerRect.h, intr.y);
-                const Align effAlign = (child->align == Alignment::End)
-                    ? Align::End
-                    : ((child->align == Alignment::Center) ? Align::Center : colAlign);
+                Align effAlign = colAlign;
+                if (child->type == NodeType::Text && child->align != Alignment::Start) {
+                    effAlign = child->align;
+                } else if (isPlainOrBadgeElement) {
+                    if (const auto* ep = child->As<ElementPayload>(); ep && ep->opts.align != Align::Start) {
+                        effAlign = ep->opts.align;
+                    }
+                }
                 const float tx = innerRect.x + (innerRect.w - tw) * AlignToFactor(effAlign);
                 const float ty = innerRect.y + (innerRect.h - th) * 0.5f;
-                child->computedRect = Rect(tx, ty, tw, th);
+                const Rect tRect(tx, ty, tw, th);
+                if (child->arrangeFn) {
+                    child->arrangeFn(child, tRect, childTheme);
+                } else {
+                    child->computedRect = tRect;
+                }
                 continue;
             }
 
@@ -1710,21 +1574,22 @@ void TreeView::RenderRow(
 
     const auto& pal = theme.palette;
     const RowMetrics rm = ComputeRowMetrics(*p, rowNode->uiSize, theme);
-    const UiVariant accentVar = p->opts.variant.value_or(
-        p->tree ? p->tree->opts.variant : UiVariant::Primary
-    );
-    const TreeSelectionStyle selStyle = p->tree ? p->tree->opts.selectionStyle : TreeSelectionStyle::Indicator;
-    const Color accentCol = theme.GetVariant(accentVar).bg;
-    const bool hasGridLines = (p->tree != nullptr && p->tree->opts.gridLines);
-    const float radius = p->opts.border.radius.has_value()
-        ? theme.Scale(*p->opts.border.radius)
-        : (hasGridLines ? 0.0f : std::max(theme.Scale(4.0f), theme.GetRadius(rowNode->uiSize) * 0.70f));
-
     const bool hovered = rowNode->hovered;
     const bool pressed = rowNode->pressed;
     const bool disabled = rowNode->disabled;
     const bool selected = p->selected;
     const bool isBranch = p->hasChildItems || p->opts.forceBranch;
+
+    const TreeSelectionStyle selStyle = p->tree ? p->tree->opts.selectionStyle : TreeSelectionStyle::Indicator;
+    const Color accentCol = p->opts.color.HasAny()
+        ? p->opts.color.Resolve(hovered, selected, disabled, pal.accent)
+        : ((p->tree && p->tree->opts.color.HasAny())
+            ? p->tree->opts.color.Resolve(hovered, selected, disabled, pal.accent)
+            : pal.accent);
+    const bool hasGridLines = (p->tree != nullptr && p->tree->opts.gridLines);
+    const float radius = p->opts.border.radius.has_value()
+        ? theme.Scale(*p->opts.border.radius)
+        : (hasGridLines ? 0.0f : std::max(theme.Scale(4.0f), theme.GetRadius(rowNode->uiSize) * 0.70f));
 
     // 1. Row background (zebra stripe, custom background, hover, selection)
     Color rowBg = Color::Transparent();
@@ -2104,9 +1969,13 @@ void TreeView::RenderBranchGuides(
     if (!lastChildRow) return;
 
     const auto& pal = theme.palette;
-    const UiVariant accentVar = p->opts.variant.value_or(p->tree ? p->tree->opts.variant : UiVariant::Primary);
+    const Color accentCol = p->opts.color.HasAny()
+        ? p->opts.color.Resolve(false, p->selected, parentRow->disabled, pal.accent)
+        : ((p->tree && p->tree->opts.color.HasAny())
+            ? p->tree->opts.color.Resolve(false, p->selected, parentRow->disabled, pal.accent)
+            : pal.accent);
     const Color guideCol = p->selected
-        ? theme.GetVariant(accentVar).bg.WithAlphaF(0.55f)
+        ? accentCol.WithAlphaF(0.55f)
         : pal.border.WithAlphaF(0.65f);
 
     const float endY = (guides == TreeGuides::Connected)

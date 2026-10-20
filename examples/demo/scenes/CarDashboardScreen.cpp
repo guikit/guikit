@@ -422,23 +422,23 @@ void RenderCarDashboardStage(guikit::Context& ui, DemoContext& /*ctx*/) {
     // Top Interactive Cockpit Toolbar
     if (auto tb = ui.Toolbar()) {
         if (tb.ToolButton({
-            .label = "Mouse Drive",
+            .text = "Mouse Drive",
             .icon = guikit::Icon::Play(),
-            .variant = (s_car.controlModeIndex == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .color = (s_car.controlModeIndex == 0) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
             .active = (s_car.controlModeIndex == 0)
         })) {
             s_car.controlModeIndex = 0;
         }
         if (tb.ToolButton({
-            .label = "Highway ADAS",
-            .variant = (s_car.controlModeIndex == 1) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+            .text = "Highway ADAS",
+            .color = (s_car.controlModeIndex == 1) ? guikit::StateColor::Info() : guikit::StateColor::Ghost(),
             .active = (s_car.controlModeIndex == 1)
         })) {
             s_car.controlModeIndex = 1;
         }
         if (tb.ToolButton({
-            .label = "Track Hot Lap",
-            .variant = (s_car.controlModeIndex == 2) ? guikit::UiVariant::Danger : guikit::UiVariant::Ghost,
+            .text = "Track Hot Lap",
+            .color = (s_car.controlModeIndex == 2) ? guikit::StateColor::Danger() : guikit::StateColor::Ghost(),
             .active = (s_car.controlModeIndex == 2)
         })) {
             s_car.controlModeIndex = 2;
@@ -446,8 +446,8 @@ void RenderCarDashboardStage(guikit::Context& ui, DemoContext& /*ctx*/) {
             s_car.gearSelectorIndex = 4;
         }
         if (tb.ToolButton({
-            .label = "Manual",
-            .variant = (s_car.controlModeIndex == 3) ? guikit::UiVariant::Warning : guikit::UiVariant::Ghost,
+            .text = "Manual",
+            .color = (s_car.controlModeIndex == 3) ? guikit::StateColor::Warning() : guikit::StateColor::Ghost(),
             .active = (s_car.controlModeIndex == 3)
         })) {
             s_car.controlModeIndex = 3;
@@ -456,22 +456,22 @@ void RenderCarDashboardStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         tb.Separator();
 
         if (tb.ToolButton({
-            .label = "Dual Dial",
-            .variant = (s_car.layoutModeIndex == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .text = "Dual Dial",
+            .color = (s_car.layoutModeIndex == 0) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
             .active = (s_car.layoutModeIndex == 0)
         })) {
             s_car.layoutModeIndex = 0;
         }
         if (tb.ToolButton({
-            .label = "Track Central",
-            .variant = (s_car.layoutModeIndex == 1) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .text = "Track Central",
+            .color = (s_car.layoutModeIndex == 1) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
             .active = (s_car.layoutModeIndex == 1)
         })) {
             s_car.layoutModeIndex = 1;
         }
         if (tb.ToolButton({
-            .label = "Wide EV",
-            .variant = (s_car.layoutModeIndex == 2) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .text = "Wide EV",
+            .color = (s_car.layoutModeIndex == 2) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
             .active = (s_car.layoutModeIndex == 2)
         })) {
             s_car.layoutModeIndex = 2;
@@ -480,8 +480,8 @@ void RenderCarDashboardStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         tb.Separator();
 
         if (tb.ToolButton({
-            .label = (s_car.powertrainIndex == 0) ? "ICE Turbo" : "EV Dual-Motor",
-            .variant = (s_car.powertrainIndex == 1) ? guikit::UiVariant::Success : guikit::UiVariant::Info,
+            .text = (s_car.powertrainIndex == 0) ? "ICE Turbo" : "EV Dual-Motor",
+            .color = (s_car.powertrainIndex == 1) ? guikit::StateColor::Success() : guikit::StateColor::Info(),
             .active = true
         })) {
             s_car.powertrainIndex = (s_car.powertrainIndex + 1) % 2;
@@ -490,8 +490,8 @@ void RenderCarDashboardStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         }
 
         if (tb.ToolButton({
-            .label = "Hazard",
-            .variant = s_car.ttHazard ? guikit::UiVariant::Danger : guikit::UiVariant::Ghost,
+            .text = "Hazard",
+            .color = s_car.ttHazard ? guikit::StateColor::Danger() : guikit::StateColor::Ghost(),
             .active = s_car.ttHazard
         })) {
             s_car.ttHazard = !s_car.ttHazard;
@@ -500,7 +500,7 @@ void RenderCarDashboardStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         tb.Spacer();
 
         if (tb.ToolButton({
-            .label = "Reset Peak G",
+            .text = "Reset Peak G",
             .icon = guikit::Icon::Refresh()
         })) {
             s_car.peakG = 0.0f;

@@ -298,6 +298,10 @@ struct DemoContext {
         return !elemLabel.empty() || !elemDesc.empty() || elemShowIcon || !elemBadge.empty();
     }
 
+    constexpr guikit::StateColor ResolveControlColor() const noexcept {
+        return guikit::StateColor::FromVariant(btnVariant);
+    }
+
     guikit::UiText GetElementLabel() const noexcept {
         return guikit::UiText{elemLabel, elemLabelVariant};
     }

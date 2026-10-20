@@ -325,6 +325,11 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
+    void Separator(
+        float extentRatio = 0.0f,
+        std::source_location loc = std::source_location::current()
+    );
+
     // --- Panel Scopes ---
     [[nodiscard]] AccordionScope Accordion(
         AccordionOptions opts = {},
@@ -2325,6 +2330,20 @@ public:
         std::source_location loc = std::source_location::current()
     ) {
         return TransferToContainer(m_ctx->Grid(std::move(opts), loc));
+    }
+
+    void Spacer(
+        float flex = 1.0f,
+        std::source_location loc = std::source_location::current()
+    ) {
+        m_ctx->Spacer(flex, loc);
+    }
+
+    void Separator(
+        float extentRatio = 0.0f,
+        std::source_location loc = std::source_location::current()
+    ) {
+        m_ctx->Separator(extentRatio, loc);
     }
 
     [[nodiscard]] ContainerScope Box(

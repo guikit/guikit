@@ -566,9 +566,9 @@ void RenderWaterfallStage(guikit::Context& ui, DemoContext& /*ctx*/) {
     // Top Operator Console Toolbar
     if (auto tb = ui.Size(guikit::UiSize::Sm).Toolbar()) {
         if (tb.ToolButton({
-            .label = s_wf.liveStream ? "STREAMING" : "FROZEN",
+            .text = s_wf.liveStream ? "STREAMING" : "FROZEN",
             .icon = s_wf.liveStream ? guikit::Icon::Pause() : guikit::Icon::Play(),
-            .variant = s_wf.liveStream ? guikit::UiVariant::Success : guikit::UiVariant::Warning,
+            .color = s_wf.liveStream ? guikit::StateColor::Success() : guikit::StateColor::Warning(),
             .active = s_wf.liveStream
         })) {
             s_wf.liveStream = !s_wf.liveStream;
@@ -577,29 +577,29 @@ void RenderWaterfallStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         tb.Separator();
 
         if (tb.ToolButton({
-            .label = "Spectrum RTSA",
-            .variant = (s_wf.modeIndex == 0 && s_wf.scenarioIndex == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .text = "Spectrum RTSA",
+            .color = (s_wf.modeIndex == 0 && s_wf.scenarioIndex == 0) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
             .active = (s_wf.modeIndex == 0 && s_wf.scenarioIndex == 0)
         })) {
             LoadWaterfallScenario(s_wf, 0);
         }
         if (tb.ToolButton({
-            .label = "LOFAR Harmonics",
-            .variant = (s_wf.scenarioIndex == 1) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .text = "LOFAR Harmonics",
+            .color = (s_wf.scenarioIndex == 1) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
             .active = (s_wf.scenarioIndex == 1)
         })) {
             LoadWaterfallScenario(s_wf, 1);
         }
         if (tb.ToolButton({
-            .label = "Sonar DOA / BTR",
-            .variant = (s_wf.scenarioIndex == 2) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+            .text = "Sonar DOA / BTR",
+            .color = (s_wf.scenarioIndex == 2) ? guikit::StateColor::Info() : guikit::StateColor::Ghost(),
             .active = (s_wf.scenarioIndex == 2)
         })) {
             LoadWaterfallScenario(s_wf, 2);
         }
         if (tb.ToolButton({
-            .label = "MUSIC DF",
-            .variant = (s_wf.scenarioIndex == 3) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+            .text = "MUSIC DF",
+            .color = (s_wf.scenarioIndex == 3) ? guikit::StateColor::Info() : guikit::StateColor::Ghost(),
             .active = (s_wf.scenarioIndex == 3)
         })) {
             LoadWaterfallScenario(s_wf, 3);
@@ -608,22 +608,22 @@ void RenderWaterfallStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         tb.Separator();
 
         if (tb.ToolButton({
-            .label = "Split",
-            .variant = (s_wf.layoutIndex == 0) ? guikit::UiVariant::Secondary : guikit::UiVariant::Ghost,
+            .text = "Split",
+            .color = (s_wf.layoutIndex == 0) ? guikit::StateColor::Secondary() : guikit::StateColor::Ghost(),
             .active = (s_wf.layoutIndex == 0)
         })) {
             s_wf.layoutIndex = 0;
         }
         if (tb.ToolButton({
-            .label = "Waterfall",
-            .variant = (s_wf.layoutIndex == 1) ? guikit::UiVariant::Secondary : guikit::UiVariant::Ghost,
+            .text = "Waterfall",
+            .color = (s_wf.layoutIndex == 1) ? guikit::StateColor::Secondary() : guikit::StateColor::Ghost(),
             .active = (s_wf.layoutIndex == 1)
         })) {
             s_wf.layoutIndex = 1;
         }
         if (tb.ToolButton({
-            .label = "Trace",
-            .variant = (s_wf.layoutIndex == 2) ? guikit::UiVariant::Secondary : guikit::UiVariant::Ghost,
+            .text = "Trace",
+            .color = (s_wf.layoutIndex == 2) ? guikit::StateColor::Secondary() : guikit::StateColor::Ghost(),
             .active = (s_wf.layoutIndex == 2)
         })) {
             s_wf.layoutIndex = 2;
@@ -632,13 +632,13 @@ void RenderWaterfallStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         tb.Spacer();
 
         if (tb.ToolButton({
-            .label = "Clear Peak",
+            .text = "Clear Peak",
             .icon = guikit::Icon::Refresh()
         })) {
             s_wf.requestResetPeakHold = true;
         }
         if (tb.ToolButton({
-            .label = "Reset Zoom",
+            .text = "Reset Zoom",
             .icon = guikit::Icon::Search()
         })) {
             s_wf.requestResetZoom = true;

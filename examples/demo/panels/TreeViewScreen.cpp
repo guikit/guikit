@@ -170,7 +170,7 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
             .gridLines = useCols && s_tree.gridLines,
             .guides = s_tree.guides,
             .selectionStyle = s_tree.selectionStyle,
-            .variant = ctx.btnVariant,
+            .color = ctx.ResolveControlColor(),
             .indent = s_tree.indent,
             .striped = s_tree.striped,
             .expandOnSelect = s_tree.expandOnSelect,
@@ -194,8 +194,8 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                     s_tree.chkSun = s_tree.chkFog = s_tree.chkSonar = s_tree.chkWaterfall = s_tree.chkImu = chkSceneAll;
                 }
                 if (useCols) {
-                    sceneItem.CellText("Viewport", {.variant = guikit::UiVariant::Secondary});
-                    sceneItem.CellBadge("5 nodes", guikit::UiVariant::Primary);
+                    ui.Text("Viewport", {.variant = guikit::UiVariant::Secondary});
+                    ui.Element({.badge = {"5 nodes", guikit::UiVariant::Primary}, .stretch = guikit::StretchMode::Compact});
                 }
                 if (s_tree.showEmbeddedControls) {
                     ui.Switch(s_tree.sceneActive);
@@ -214,8 +214,8 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                         s_tree.chkSun = s_tree.chkFog = chkEnvAll;
                     }
                     if (useCols) {
-                        envItem.CellText("PBR Group", {.variant = guikit::UiVariant::Secondary});
-                        envItem.CellBadge("2 passes", guikit::UiVariant::Info);
+                        ui.Text("PBR Group", {.variant = guikit::UiVariant::Secondary});
+                        ui.Element({.badge = {"2 passes", guikit::UiVariant::Info}, .stretch = guikit::StretchMode::Compact});
                     }
                     if (s_tree.showEmbeddedControls) {
                         ui.Slider(s_tree.envExposure, 0.0f, 2.5f, {
@@ -233,8 +233,8 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                         .checked = s_tree.showCheckboxes ? &s_tree.chkSun : nullptr
                     })) {
                         if (useCols) {
-                            sunItem.CellText("6500K", {.variant = guikit::UiVariant::Secondary});
-                            sunItem.CellBadge("HDR", guikit::UiVariant::Warning);
+                            ui.Text("6500K", {.variant = guikit::UiVariant::Secondary});
+                            ui.Element({.badge = {"HDR", guikit::UiVariant::Warning}, .stretch = guikit::StretchMode::Compact});
                         }
                         if (s_tree.showEmbeddedControls) {
                             ui.Switch(s_tree.sunEnabled);
@@ -249,8 +249,8 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                         .checked = s_tree.showCheckboxes ? &s_tree.chkFog : nullptr
                     })) {
                         if (useCols) {
-                            fogItem.CellText("Raymarched", {.variant = guikit::UiVariant::Secondary});
-                            fogItem.CellBadge("Froxel", guikit::UiVariant::Default);
+                            ui.Text("Raymarched", {.variant = guikit::UiVariant::Secondary});
+                            ui.Element({.badge = {"Froxel", guikit::UiVariant::Default}, .stretch = guikit::StretchMode::Compact});
                         }
                         if (s_tree.showEmbeddedControls) {
                             ui.Slider(s_tree.fogDensity, 0.0f, 100.0f, {
@@ -275,8 +275,8 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                         s_tree.chkSonar = s_tree.chkWaterfall = s_tree.chkImu = chkSensorsAll;
                     }
                     if (useCols) {
-                        sensorsItem.CellText("DSP Bus", {.variant = guikit::UiVariant::Secondary});
-                        sensorsItem.CellBadge("3 ch", guikit::UiVariant::Info);
+                        ui.Text("DSP Bus", {.variant = guikit::UiVariant::Secondary});
+                        ui.Element({.badge = {"3 ch", guikit::UiVariant::Info}, .stretch = guikit::StretchMode::Compact});
                     }
 
                     static constexpr std::array<std::string_view, 3> kSonarModes = {"Active", "Passive", "CW"};
@@ -288,8 +288,8 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                         .checked = s_tree.showCheckboxes ? &s_tree.chkSonar : nullptr
                     })) {
                         if (useCols) {
-                            sonarItem.CellText("750 kHz", {.variant = guikit::UiVariant::Secondary});
-                            sonarItem.CellBadge("128-Beam", guikit::UiVariant::Primary);
+                            ui.Text("750 kHz", {.variant = guikit::UiVariant::Secondary});
+                            ui.Element({.badge = {"128-Beam", guikit::UiVariant::Primary}, .stretch = guikit::StretchMode::Compact});
                         }
                         if (s_tree.showEmbeddedControls) {
                             ui.Select(s_tree.sonarModeIdx, kSonarModes, {
@@ -307,8 +307,8 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                         .checked = s_tree.showCheckboxes ? &s_tree.chkWaterfall : nullptr
                     })) {
                         if (useCols) {
-                            wfItem.CellText("2.4 GHz", {.variant = guikit::UiVariant::Secondary});
-                            wfItem.CellBadge("LIVE", guikit::UiVariant::Success);
+                            ui.Text("2.4 GHz", {.variant = guikit::UiVariant::Secondary});
+                            ui.Element({.badge = {"LIVE", guikit::UiVariant::Success}, .stretch = guikit::StretchMode::Compact});
                         }
                         if (s_tree.showEmbeddedControls) {
                             // Multi-widget cell: Switch + Button grouped inside a single column cell
@@ -332,8 +332,8 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                         .checked = s_tree.showCheckboxes ? &s_tree.chkImu : nullptr
                     })) {
                         if (useCols) {
-                            imuItem.CellText("400 Hz", {.variant = guikit::UiVariant::Secondary});
-                            imuItem.CellBadge("6-DOF", guikit::UiVariant::Default);
+                            ui.Text("400 Hz", {.variant = guikit::UiVariant::Secondary});
+                            ui.Element({.badge = {"6-DOF", guikit::UiVariant::Default}, .stretch = guikit::StretchMode::Compact});
                         }
                         if (s_tree.showEmbeddedControls) {
                             ui.Switch(s_tree.imuEnabled);
@@ -356,8 +356,8 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                     s_tree.chkShaderSonar = s_tree.chkShaderWaterfall = s_tree.chkThemeJson = chkAssetsAll;
                 }
                 if (useCols) {
-                    assetsItem.CellText("14.2 MB", {.variant = guikit::UiVariant::Secondary});
-                    assetsItem.CellBadge("Bundle", guikit::UiVariant::Default);
+                    ui.Text("14.2 MB", {.variant = guikit::UiVariant::Secondary});
+                    ui.Element({.badge = {"Bundle", guikit::UiVariant::Default}, .stretch = guikit::StretchMode::Compact});
                 }
 
                 if (auto shadersItem = ui.TreeItem({
@@ -373,8 +373,8 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                         s_tree.chkShaderSonar = s_tree.chkShaderWaterfall = chkShadersAll;
                     }
                     if (useCols) {
-                        shadersItem.CellText("GLSL 330", {.variant = guikit::UiVariant::Secondary});
-                        shadersItem.CellBadge("2 files", guikit::UiVariant::Secondary);
+                        ui.Text("GLSL 330", {.variant = guikit::UiVariant::Secondary});
+                        ui.Element({.badge = {"2 files", guikit::UiVariant::Secondary}, .stretch = guikit::StretchMode::Compact});
                     }
 
                     if (auto s1 = ui.TreeItem({
@@ -385,8 +385,8 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                         .checked = s_tree.showCheckboxes ? &s_tree.chkShaderSonar : nullptr
                     })) {
                         if (useCols) {
-                            s1.CellText("4.8 KB", {.variant = guikit::UiVariant::Secondary});
-                            s1.CellBadge("OK", guikit::UiVariant::Success);
+                            ui.Text("4.8 KB", {.variant = guikit::UiVariant::Secondary});
+                            ui.Element({.badge = {"OK", guikit::UiVariant::Success}, .stretch = guikit::StretchMode::Compact});
                         }
                     }
 
@@ -398,8 +398,8 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                         .checked = s_tree.showCheckboxes ? &s_tree.chkShaderWaterfall : nullptr
                     })) {
                         if (useCols) {
-                            s2.CellText("6.1 KB", {.variant = guikit::UiVariant::Secondary});
-                            s2.CellBadge("OK", guikit::UiVariant::Success);
+                            ui.Text("6.1 KB", {.variant = guikit::UiVariant::Secondary});
+                            ui.Element({.badge = {"OK", guikit::UiVariant::Success}, .stretch = guikit::StretchMode::Compact});
                         }
                     }
                 }
@@ -412,8 +412,8 @@ void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
                     .checked = s_tree.showCheckboxes ? &s_tree.chkThemeJson : nullptr
                 })) {
                     if (useCols) {
-                        themeItem.CellText("2.1 KB", {.variant = guikit::UiVariant::Secondary});
-                        themeItem.CellBadge("JSON", guikit::UiVariant::Info);
+                        ui.Text("2.1 KB", {.variant = guikit::UiVariant::Secondary});
+                        ui.Element({.badge = {"JSON", guikit::UiVariant::Info}, .stretch = guikit::StretchMode::Compact});
                     }
                 }
             }
@@ -450,7 +450,7 @@ std::string GenerateTreeViewCode(const DemoContext& ctx) {
     out += std::format(
         "    .guides = guikit::TreeGuides::{},\n"
         "    .selectionStyle = guikit::TreeSelectionStyle::{},\n"
-        "    .variant = guikit::UiVariant::{},\n"
+        "    .color = guikit::StateColor::{}(),\n"
         "    .indent = {:.1f}f,\n"
         "    .striped = {},\n"
         "    .expandOnSelect = {},\n"
@@ -519,8 +519,8 @@ std::string GenerateTreeViewCode(const DemoContext& ctx) {
                "        }\n";
     }
     if (useCols) {
-        out += "        sceneItem.CellText(\"Viewport\", {.variant = guikit::UiVariant::Secondary});\n"
-               "        sceneItem.CellBadge(\"5 nodes\", guikit::UiVariant::Primary);\n";
+        out += "        ui.Text(\"Viewport\", {.variant = guikit::UiVariant::Secondary});\n"
+               "        ui.Element({.badge = {\"5 nodes\", guikit::UiVariant::Primary}, .stretch = guikit::StretchMode::Compact});\n";
     }
     if (s_tree.showEmbeddedControls) {
         out += "        ui.Switch(sceneActive);\n";
@@ -539,8 +539,8 @@ std::string GenerateTreeViewCode(const DemoContext& ctx) {
                "            }\n";
     }
     if (useCols) {
-        out += "            envItem.CellText(\"PBR Group\", {.variant = guikit::UiVariant::Secondary});\n"
-               "            envItem.CellBadge(\"2 passes\", guikit::UiVariant::Info);\n";
+        out += "            ui.Text(\"PBR Group\", {.variant = guikit::UiVariant::Secondary});\n"
+               "            ui.Element({.badge = {\"2 passes\", guikit::UiVariant::Info}, .stretch = guikit::StretchMode::Compact});\n";
     }
     if (s_tree.showEmbeddedControls) {
         out += useCols
@@ -556,8 +556,8 @@ std::string GenerateTreeViewCode(const DemoContext& ctx) {
         "guikit::Icon::Eye()", false, "chkSun", ""
     );
     if (useCols) {
-        out += "                sunItem.CellText(\"6500K\", {.variant = guikit::UiVariant::Secondary});\n"
-               "                sunItem.CellBadge(\"HDR\", guikit::UiVariant::Warning);\n";
+        out += "                ui.Text(\"6500K\", {.variant = guikit::UiVariant::Secondary});\n"
+               "                ui.Element({.badge = {\"HDR\", guikit::UiVariant::Warning}, .stretch = guikit::StretchMode::Compact});\n";
     }
     if (s_tree.showEmbeddedControls) {
         out += "                ui.Switch(sunEnabled);\n";
@@ -570,8 +570,8 @@ std::string GenerateTreeViewCode(const DemoContext& ctx) {
         "guikit::Icon::Eye()", false, "chkFog", ""
     );
     if (useCols) {
-        out += "                fogItem.CellText(\"Raymarched\", {.variant = guikit::UiVariant::Secondary});\n"
-               "                fogItem.CellBadge(\"Froxel\", guikit::UiVariant::Default);\n";
+        out += "                ui.Text(\"Raymarched\", {.variant = guikit::UiVariant::Secondary});\n"
+               "                ui.Element({.badge = {\"Froxel\", guikit::UiVariant::Default}, .stretch = guikit::StretchMode::Compact});\n";
     }
     if (s_tree.showEmbeddedControls) {
         out += useCols
@@ -594,8 +594,8 @@ std::string GenerateTreeViewCode(const DemoContext& ctx) {
                "            }\n";
     }
     if (useCols) {
-        out += "            sensorsItem.CellText(\"DSP Bus\", {.variant = guikit::UiVariant::Secondary});\n"
-               "            sensorsItem.CellBadge(\"3 ch\", guikit::UiVariant::Info);\n";
+        out += "            ui.Text(\"DSP Bus\", {.variant = guikit::UiVariant::Secondary});\n"
+               "            ui.Element({.badge = {\"3 ch\", guikit::UiVariant::Info}, .stretch = guikit::StretchMode::Compact});\n";
     }
 
     appendItemOpts(
@@ -604,8 +604,8 @@ std::string GenerateTreeViewCode(const DemoContext& ctx) {
         "guikit::Icon::Play()", false, "chkSonar", ""
     );
     if (useCols) {
-        out += "                sonarItem.CellText(\"750 kHz\", {.variant = guikit::UiVariant::Secondary});\n"
-               "                sonarItem.CellBadge(\"128-Beam\", guikit::UiVariant::Primary);\n";
+        out += "                ui.Text(\"750 kHz\", {.variant = guikit::UiVariant::Secondary});\n"
+               "                ui.Element({.badge = {\"128-Beam\", guikit::UiVariant::Primary}, .stretch = guikit::StretchMode::Compact});\n";
     }
     if (s_tree.showEmbeddedControls) {
         out += useCols
@@ -621,8 +621,8 @@ std::string GenerateTreeViewCode(const DemoContext& ctx) {
         "guikit::Icon::Play()", false, "chkWaterfall", ""
     );
     if (useCols) {
-        out += "                wfItem.CellText(\"2.4 GHz\", {.variant = guikit::UiVariant::Secondary});\n"
-               "                wfItem.CellBadge(\"LIVE\", guikit::UiVariant::Success);\n";
+        out += "                ui.Text(\"2.4 GHz\", {.variant = guikit::UiVariant::Secondary});\n"
+               "                ui.Element({.badge = {\"LIVE\", guikit::UiVariant::Success}, .stretch = guikit::StretchMode::Compact});\n";
     }
     if (s_tree.showEmbeddedControls) {
         out += "                // Multi-widget cell: Switch + Button inside a single column cell\n"
@@ -641,8 +641,8 @@ std::string GenerateTreeViewCode(const DemoContext& ctx) {
         "guikit::Icon::Settings()", false, "chkImu", ""
     );
     if (useCols) {
-        out += "                imuItem.CellText(\"400 Hz\", {.variant = guikit::UiVariant::Secondary});\n"
-               "                imuItem.CellBadge(\"6-DOF\", guikit::UiVariant::Default);\n";
+        out += "                ui.Text(\"400 Hz\", {.variant = guikit::UiVariant::Secondary});\n"
+               "                ui.Element({.badge = {\"6-DOF\", guikit::UiVariant::Default}, .stretch = guikit::StretchMode::Compact});\n";
     }
     if (s_tree.showEmbeddedControls) {
         out += "                ui.Switch(imuEnabled);\n";
@@ -663,8 +663,8 @@ std::string GenerateTreeViewCode(const DemoContext& ctx) {
                "        }\n";
     }
     if (useCols) {
-        out += "        assetsItem.CellText(\"14.2 MB\", {.variant = guikit::UiVariant::Secondary});\n"
-               "        assetsItem.CellBadge(\"Bundle\", guikit::UiVariant::Default);\n";
+        out += "        ui.Text(\"14.2 MB\", {.variant = guikit::UiVariant::Secondary});\n"
+               "        ui.Element({.badge = {\"Bundle\", guikit::UiVariant::Default}, .stretch = guikit::StretchMode::Compact});\n";
     }
 
     appendItemOpts(
@@ -679,8 +679,8 @@ std::string GenerateTreeViewCode(const DemoContext& ctx) {
                "            }\n";
     }
     if (useCols) {
-        out += "            shadersItem.CellText(\"GLSL 330\", {.variant = guikit::UiVariant::Secondary});\n"
-               "            shadersItem.CellBadge(\"2 files\", guikit::UiVariant::Secondary);\n";
+        out += "            ui.Text(\"GLSL 330\", {.variant = guikit::UiVariant::Secondary});\n"
+               "            ui.Element({.badge = {\"2 files\", guikit::UiVariant::Secondary}, .stretch = guikit::StretchMode::Compact});\n";
     }
 
     appendItemOpts(
@@ -689,8 +689,8 @@ std::string GenerateTreeViewCode(const DemoContext& ctx) {
         "guikit::Icon::Edit()", false, "chkShaderSonar", ""
     );
     if (useCols) {
-        out += "                s1.CellText(\"4.8 KB\", {.variant = guikit::UiVariant::Secondary});\n"
-               "                s1.CellBadge(\"OK\", guikit::UiVariant::Success);\n";
+        out += "                ui.Text(\"4.8 KB\", {.variant = guikit::UiVariant::Secondary});\n"
+               "                ui.Element({.badge = {\"OK\", guikit::UiVariant::Success}, .stretch = guikit::StretchMode::Compact});\n";
     }
     out += "            }\n\n";
 
@@ -700,8 +700,8 @@ std::string GenerateTreeViewCode(const DemoContext& ctx) {
         "guikit::Icon::Edit()", false, "chkShaderWaterfall", ""
     );
     if (useCols) {
-        out += "                s2.CellText(\"6.1 KB\", {.variant = guikit::UiVariant::Secondary});\n"
-               "                s2.CellBadge(\"OK\", guikit::UiVariant::Success);\n";
+        out += "                ui.Text(\"6.1 KB\", {.variant = guikit::UiVariant::Secondary});\n"
+               "                ui.Element({.badge = {\"OK\", guikit::UiVariant::Success}, .stretch = guikit::StretchMode::Compact});\n";
     }
     out += "            }\n";
     out += "        }\n\n";
@@ -712,8 +712,8 @@ std::string GenerateTreeViewCode(const DemoContext& ctx) {
         "guikit::Icon::Settings()", false, "chkThemeJson", ""
     );
     if (useCols) {
-        out += "            themeItem.CellText(\"2.1 KB\", {.variant = guikit::UiVariant::Secondary});\n"
-               "            themeItem.CellBadge(\"JSON\", guikit::UiVariant::Info);\n";
+        out += "            ui.Text(\"2.1 KB\", {.variant = guikit::UiVariant::Secondary});\n"
+               "            ui.Element({.badge = {\"JSON\", guikit::UiVariant::Info}, .stretch = guikit::StretchMode::Compact});\n";
     }
     out += "        }\n";
     out += "    }\n";

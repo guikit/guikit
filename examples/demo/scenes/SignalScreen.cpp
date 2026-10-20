@@ -542,9 +542,9 @@ void RenderSignalStage(guikit::Context& ui, DemoContext&) {
 
     if (auto tb = ui.Size(guikit::UiSize::Sm).Toolbar()) {
         if (tb.ToolButton({
-            .label = s_sig.livePlayhead ? "LIVE PLAY" : "PAUSED",
+            .text = s_sig.livePlayhead ? "LIVE PLAY" : "PAUSED",
             .icon = s_sig.livePlayhead ? guikit::Icon::Play() : guikit::Icon::Pause(),
-            .variant = s_sig.livePlayhead ? guikit::UiVariant::Success : guikit::UiVariant::Warning,
+            .color = s_sig.livePlayhead ? guikit::StateColor::Success() : guikit::StateColor::Warning(),
             .active = s_sig.livePlayhead
         })) {
             s_sig.livePlayhead = !s_sig.livePlayhead;
@@ -553,15 +553,15 @@ void RenderSignalStage(guikit::Context& ui, DemoContext&) {
         tb.Separator();
 
         if (tb.ToolButton({
-            .label = "Wave Top",
-            .variant = (s_sig.panelOrder == guikit::SignalPanelOrder::WaveformTop) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .text = "Wave Top",
+            .color = (s_sig.panelOrder == guikit::SignalPanelOrder::WaveformTop) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
             .active = (s_sig.panelOrder == guikit::SignalPanelOrder::WaveformTop)
         })) {
             s_sig.panelOrder = guikit::SignalPanelOrder::WaveformTop;
         }
         if (tb.ToolButton({
-            .label = "Spec Top",
-            .variant = (s_sig.panelOrder == guikit::SignalPanelOrder::SpectrogramTop) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .text = "Spec Top",
+            .color = (s_sig.panelOrder == guikit::SignalPanelOrder::SpectrogramTop) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
             .active = (s_sig.panelOrder == guikit::SignalPanelOrder::SpectrogramTop)
         })) {
             s_sig.panelOrder = guikit::SignalPanelOrder::SpectrogramTop;
@@ -570,15 +570,15 @@ void RenderSignalStage(guikit::Context& ui, DemoContext&) {
         tb.Separator();
 
         if (tb.ToolButton({
-            .label = "Linear Hz",
-            .variant = (s_sig.frequencyScale == guikit::FrequencyScale::Linear) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+            .text = "Linear Hz",
+            .color = (s_sig.frequencyScale == guikit::FrequencyScale::Linear) ? guikit::StateColor::Info() : guikit::StateColor::Ghost(),
             .active = (s_sig.frequencyScale == guikit::FrequencyScale::Linear)
         })) {
             s_sig.frequencyScale = guikit::FrequencyScale::Linear;
         }
         if (tb.ToolButton({
-            .label = "Log Hz",
-            .variant = (s_sig.frequencyScale == guikit::FrequencyScale::Logarithmic) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+            .text = "Log Hz",
+            .color = (s_sig.frequencyScale == guikit::FrequencyScale::Logarithmic) ? guikit::StateColor::Info() : guikit::StateColor::Ghost(),
             .active = (s_sig.frequencyScale == guikit::FrequencyScale::Logarithmic)
         })) {
             s_sig.frequencyScale = guikit::FrequencyScale::Logarithmic;
@@ -587,7 +587,7 @@ void RenderSignalStage(guikit::Context& ui, DemoContext&) {
         tb.Spacer();
 
         if (tb.ToolButton({
-            .label = "Zoom Selection",
+            .text = "Zoom Selection",
             .icon = guikit::Icon::Search(),
             .disabled = !s_sig.selection.active || s_sig.selection.DurationSec() <= 1e-5
         })) {
@@ -598,7 +598,7 @@ void RenderSignalStage(guikit::Context& ui, DemoContext&) {
             }
         }
         if (tb.ToolButton({
-            .label = "Reset View",
+            .text = "Reset View",
             .icon = guikit::Icon::Refresh()
         })) {
             s_sig.requestResetView = true;

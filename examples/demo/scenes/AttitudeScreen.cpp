@@ -355,30 +355,30 @@ void RenderAttitudeStage(guikit::Context& ui, DemoContext& /*ctx*/) {
     // Top Avionics Control Strip
     if (auto tb = ui.Size(guikit::UiSize::Sm).Toolbar()) {
         if (tb.ToolButton({
-            .label = "Mouse Follow",
+            .text = "Mouse Follow",
             .icon = guikit::Icon::Play(),
-            .variant = (s_att.controlModeIndex == 0) ? guikit::UiVariant::Success : guikit::UiVariant::Ghost,
+            .color = (s_att.controlModeIndex == 0) ? guikit::StateColor::Success() : guikit::StateColor::Ghost(),
             .active = (s_att.controlModeIndex == 0)
         })) {
             s_att.controlModeIndex = 0;
         }
         if (tb.ToolButton({
-            .label = "Virtual Stick (360°)",
-            .variant = (s_att.controlModeIndex == 1) ? guikit::UiVariant::Success : guikit::UiVariant::Ghost,
+            .text = "Virtual Stick (360°)",
+            .color = (s_att.controlModeIndex == 1) ? guikit::StateColor::Success() : guikit::StateColor::Ghost(),
             .active = (s_att.controlModeIndex == 1)
         })) {
             s_att.controlModeIndex = 1;
         }
         if (tb.ToolButton({
-            .label = "Autopilot Fig-8",
-            .variant = (s_att.controlModeIndex == 2) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+            .text = "Autopilot Fig-8",
+            .color = (s_att.controlModeIndex == 2) ? guikit::StateColor::Info() : guikit::StateColor::Ghost(),
             .active = (s_att.controlModeIndex == 2)
         })) {
             s_att.controlModeIndex = 2;
         }
         if (tb.ToolButton({
-            .label = "Manual",
-            .variant = (s_att.controlModeIndex == 3) ? guikit::UiVariant::Warning : guikit::UiVariant::Ghost,
+            .text = "Manual",
+            .color = (s_att.controlModeIndex == 3) ? guikit::StateColor::Warning() : guikit::StateColor::Ghost(),
             .active = (s_att.controlModeIndex == 3)
         })) {
             s_att.controlModeIndex = 3;
@@ -387,22 +387,22 @@ void RenderAttitudeStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         tb.Separator();
 
         if (tb.ToolButton({
-            .label = "Full PFD",
-            .variant = (s_att.displayModeIndex == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .text = "Full PFD",
+            .color = (s_att.displayModeIndex == 0) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
             .active = (s_att.displayModeIndex == 0)
         })) {
             s_att.displayModeIndex = 0;
         }
         if (tb.ToolButton({
-            .label = "Compact ADI",
-            .variant = (s_att.displayModeIndex == 1) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .text = "Compact ADI",
+            .color = (s_att.displayModeIndex == 1) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
             .active = (s_att.displayModeIndex == 1)
         })) {
             s_att.displayModeIndex = 1;
         }
         if (tb.ToolButton({
-            .label = "HUD Overlay",
-            .variant = (s_att.displayModeIndex == 2) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .text = "HUD Overlay",
+            .color = (s_att.displayModeIndex == 2) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
             .active = (s_att.displayModeIndex == 2)
         })) {
             s_att.displayModeIndex = 2;
@@ -411,8 +411,8 @@ void RenderAttitudeStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         tb.Separator();
 
         if (tb.ToolButton({
-            .label = (s_att.referenceModeIndex == 0) ? "Ref: Western" : "Ref: KPPI",
-            .variant = (s_att.referenceModeIndex == 1) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+            .text = (s_att.referenceModeIndex == 0) ? "Ref: Western" : "Ref: KPPI",
+            .color = (s_att.referenceModeIndex == 1) ? guikit::StateColor::Info() : guikit::StateColor::Ghost(),
             .active = (s_att.referenceModeIndex == 1)
         })) {
             s_att.referenceModeIndex = (s_att.referenceModeIndex + 1) % 2;
@@ -426,7 +426,7 @@ void RenderAttitudeStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         tb.Spacer();
 
         if (tb.ToolButton({
-            .label = "Level Wings",
+            .text = "Level Wings",
             .icon = guikit::Icon::Refresh()
         })) {
             s_att.rollDeg = 0.0f;

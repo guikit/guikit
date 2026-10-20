@@ -361,6 +361,67 @@ void Context::Spacer(float flex, std::source_location loc) {
     Run<guikit::Spacer>(flex, loc);
 }
 
+void Context::Separator(float extentRatio, std::source_location loc) {
+    const Id id = MakeChildId(loc);
+    const float scale = GetCurrentScale();
+    Node* parent = GetCurrentContainer();
+    const bool isHorizontalContainer = (parent != nullptr && parent->direction == FlexDirection::Row);
+
+    Node* sep = CreateNode(NodeType::Separator, id);
+    sep->borderColor = (parent != nullptr && parent->borderColor.a > 0)
+        ? parent->borderColor
+        : GetTheme().palette.borderSubtle;
+
+    if (isHorizontalContainer) {
+        const bool isStatusBar = (parent->type == NodeType::StatusBar);
+        sep->widthMode = SizeMode::Fixed;
+        sep->fixedWidth = (isStatusBar ? 8.0f : 10.0f) * scale;
+        if (parent->fixedHeight > 0.0f || extentRatio > 0.0f) {
+            const float ratio = (extentRatio > 0.0f) ? std::clamp(extentRatio, 0.1f, 1.0f) : 0.55f;
+            const float parentH = (parent->fixedHeight > 0.0f)
+                ? parent->fixedHeight
+                : ((isStatusBar ? 26.0f : 32.0f) * scale);
+            sep->heightMode = SizeMode::Fixed;
+            sep->fixedHeight = parentH * ratio;
+        } else {
+            sep->heightMode = SizeMode::Stretch;
+        }
+        sep->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept -> Vec2 {
+            return {
+                n->fixedWidth > 0.0f ? n->fixedWidth : 10.0f,
+                n->fixedHeight > 0.0f ? n->fixedHeight : 20.0f
+            };
+        };
+        sep->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
+            Toolbar::RenderSeparator(canvas, n->computedRect, n->borderColor, theme, Orientation::Horizontal);
+        };
+    } else {
+        sep->widthMode = SizeMode::Stretch;
+        sep->heightMode = SizeMode::Fixed;
+        sep->fixedHeight = 8.0f * scale;
+        sep->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept -> Vec2 {
+            const bool inToolbar = (n->parent != nullptr && n->parent->type == NodeType::Toolbar);
+            return {
+                inToolbar ? 20.0f : 0.0f,
+                n->fixedHeight > 0.0f ? n->fixedHeight : 8.0f
+            };
+        };
+        sep->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
+            const float y = std::floor(n->computedRect.Center().y) + 0.5f;
+            const Color stroke = n->borderColor.a > 0 ? n->borderColor : theme.palette.borderSubtle;
+            const float padX = (n->parent && n->parent->type == NodeType::Toolbar)
+                ? std::max(2.0f, n->computedRect.w * 0.18f)
+                : 2.0f;
+            canvas.DrawLine(
+                {n->computedRect.x + padX, y},
+                {n->computedRect.Right() - padX, y},
+                stroke,
+                1.0f
+            );
+        };
+    }
+}
+
 AccordionScope Context::Accordion(AccordionOptions opts, std::source_location loc) {
     return guikit::Accordion::Open(*this, nullptr, opts, loc);
 }

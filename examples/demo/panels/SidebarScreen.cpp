@@ -167,7 +167,7 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
                 if (auto bar = ui.Size(ctx.controlsSize).ActivityBar(s_state.mode, {
                     .side = s_state.side,
                     .style = s_state.activityStyle,
-                    .variant = ctx.btnVariant
+                    .color = ctx.ResolveControlColor()
                 })) {
                     if (bar.Item(s_state.activityIdx, 0, {
                         .icon = guikit::Icon::Folder(),
@@ -240,7 +240,7 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
                 const int prevIdx = s_state.menuIdx;
                 if (auto menu = ui.Size(ctx.controlsSize).SidebarMenu({
                     .style = s_state.menuStyle,
-                    .variant = ctx.btnVariant
+                    .color = ctx.ResolveControlColor()
                 })) {
                     static constexpr std::array<std::string_view, 3> actHeaders = {
                         "EXPLORER", "ANALYTICS", "PIPELINES"
@@ -314,20 +314,20 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
                 if (auto bpTb = ui.Size(guikit::UiSize::Sm).Toolbar({
                     .style = guikit::ToolbarStyle::Header
                 })) {
-                    bpTb.Item(s_state.bottomTabIdx, 0, {.label = "Output", .icon = guikit::Icon::Play()});
+                    bpTb.Item(s_state.bottomTabIdx, 0, {.text = "Output", .icon = guikit::Icon::Play()});
                     bpTb.Item(s_state.bottomTabIdx, 1, {
-                        .label = "Diagnostics",
+                        .text = "Diagnostics",
                         .icon = guikit::Icon::Warning(),
                         .badge = s_state.showBadges ? "2" : ""
                     });
-                    bpTb.Item(s_state.bottomTabIdx, 2, {.label = "Cross-Section 2D", .icon = guikit::Icon::Eye()});
+                    bpTb.Item(s_state.bottomTabIdx, 2, {.text = "Cross-Section 2D", .icon = guikit::Icon::Eye()});
                     bpTb.Spacer();
                     ui.Text(ui.Format("H: {:.0f}px", bp.Height()), {
                         .role = guikit::TextRole::LabelSmall,
                         .variant = guikit::UiVariant::Muted
                     });
                     if (bpTb.Action({
-                        .label = "Close",
+                        .text = "Close",
                         .tooltip = "Collapse BottomPanel",
                         .icon = guikit::Icon::Close(),
                         .square = true
@@ -364,7 +364,7 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
                 sb.Item({
                     .text = "Workbench Ready",
                     .dotColor = ctx.previewTheme.GetVariant(guikit::UiVariant::Success).bg,
-                    .variant = guikit::UiVariant::Success,
+                    .color = guikit::StateColor::Success(),
                     .badge = s_state.showBadges ? "GPU" : ""
                 });
                 sb.Separator();
@@ -395,7 +395,7 @@ std::string GenerateSidebarCode(const DemoContext& ctx) {
             "if (auto bar = ui.Size(guikit::UiSize::{}).ActivityBar(sidebarMode, {{\n"
             "    .side = guikit::SidebarSide::{},\n"
             "    .style = guikit::ActivityBarStyle::{},\n"
-            "    .variant = guikit::UiVariant::{}\n"
+            "    .color = guikit::StateColor::{}()\n"
             "}})) {{\n"
             "    bar.Item(activeTool, 0, {{.icon = guikit::Icon::Folder(), .tooltip = \"Explorer\"}});\n"
             "    bar.Item(activeTool, 1, {{.icon = guikit::Icon::Search(), .tooltip = \"Analytics\"{}}});\n"
@@ -420,7 +420,7 @@ std::string GenerateSidebarCode(const DemoContext& ctx) {
             "    .allowCollapse = {}\n"
             "}})) {{\n"
             "    if (auto tb = ui.Toolbar({{.style = guikit::ToolbarStyle::Header}})) {{\n"
-            "        tb.Item(activeTab, 0, {{.label = \"Output\", .icon = guikit::Icon::Play()}});\n"
+            "        tb.Item(activeTab, 0, {{.text = \"Output\", .icon = guikit::Icon::Play()}});\n"
             "        tb.Spacer();\n"
             "        if (tb.Action({{.icon = guikit::Icon::Close(), .square = true}}).clicked) showBottomPanel = false;\n"
             "    }}\n"
@@ -456,7 +456,7 @@ std::string GenerateSidebarCode(const DemoContext& ctx) {
         "}})) {{\n"
         "    if (auto menu = ui.Size(guikit::UiSize::{}).SidebarMenu({{\n"
         "        .style = guikit::SidebarMenuStyle::{},\n"
-        "        .variant = guikit::UiVariant::{}\n"
+        "        .color = guikit::StateColor::{}()\n"
         "    }})) {{\n"
         "        menu.Section(\"WORKSPACE\");\n"
         "        menu.Item(selected, 0, {{.text = \"Overview\", .icon = guikit::Icon::Folder(){}}});\n"

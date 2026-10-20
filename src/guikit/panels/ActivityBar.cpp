@@ -121,7 +121,7 @@ ActivityBarScope ActivityBar::Open(
     node->visualHash = detail::HashArgs(
         static_cast<uint8_t>(opts.side),
         static_cast<uint8_t>(opts.style),
-        static_cast<uint8_t>(opts.variant),
+        opts.color,
         opts.flushWithSidebar,
         opts.background,
         opts.border
@@ -221,7 +221,7 @@ Response ActivityBar::Item(
     node->visualHash = detail::HashArgs(
         static_cast<uint8_t>(barOpts.side),
         static_cast<uint8_t>(barOpts.style),
-        item.variant.value_or(barOpts.variant),
+        item.color.HasAny() ? item.color : barOpts.color,
         item.active,
         effectiveDisabled,
         static_cast<uint8_t>(item.icon.GetType()),
@@ -273,8 +273,14 @@ void ActivityBar::RenderItem(
 
     const ComponentMetrics& m = theme.GetMetrics(size);
     const auto& pal = theme.palette;
-    const UiVariant effectiveVariant = item.variant.value_or(opts.variant);
-    const VariantColors& v = theme.GetVariant(effectiveVariant);
+    const StateColor& effColor = item.color.HasAny() ? item.color : opts.color;
+    const VariantColors& vDefault = theme.GetVariant(UiVariant::Primary);
+    VariantColors v = vDefault;
+    if (effColor.HasAny()) {
+        v.bg = effColor.Resolve(false, false, false, vDefault.bg);
+        v.bgHover = effColor.hover.has_value() ? *effColor.hover : v.bg.WithAlphaF(0.85f);
+        v.bgActive = effColor.active.has_value() ? *effColor.active : v.bg.WithAlphaF(0.75f);
+    }
     const float radius = m.cornerRadius;
 
     Color bg = Color::Transparent();

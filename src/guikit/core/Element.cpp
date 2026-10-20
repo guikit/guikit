@@ -903,16 +903,20 @@ void Element::RenderText(
 
             Color badgeBg = pal.surfaceHover;
             Color badgeTextCol = pal.textPrimary;
+            Color badgeBorderCol = Color::Transparent();
+            float badgeBorderW = 0.0f;
             if (spec.badge.color.HasAny()) {
                 const Color resolvedBadge = spec.badge.color.Resolve(spec.hovered, spec.active, spec.disabled, pal.textPrimary);
                 badgeBg = resolvedBadge.WithAlphaF(spec.disabled ? 0.12f : 0.22f);
                 badgeTextCol = resolvedBadge;
+                badgeBorderCol = resolvedBadge.WithAlphaF(spec.disabled ? 0.25f : 0.50f);
+                badgeBorderW = 1.0f;
             } else if (spec.disabled) {
                 badgeBg = badgeBg.WithAlphaF(0.40f);
                 badgeTextCol = badgeTextCol.WithAlphaF(0.40f);
             }
 
-            canvas.DrawRoundRect(Rect(curX, badgeY, badgeW, badgeH), badgeH * 0.5f, badgeBg);
+            canvas.DrawRoundRect(Rect(curX, badgeY, badgeW, badgeH), badgeH * 0.5f, badgeBg, badgeBorderCol, badgeBorderW);
             canvas.DrawTextBox(spec.badge.text, Rect(curX, badgeY, badgeW, badgeH), badgeFont, badgeTextCol, 0.5f, 0.5f);
             curX += badgeW;
         }

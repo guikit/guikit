@@ -11,7 +11,7 @@ namespace {
 struct ToolButtonPayload {
     ButtonOptions btn{};
     UiText badge{};
-    UiVariant variant{UiVariant::Ghost};
+    StateColor badgeColor{};
 };
 } // namespace
 
@@ -90,10 +90,10 @@ Response ToolbarScope::Toggle(
 ) {
     if (!m_ctx) return Response{};
     opts.active = active;
-    if (active && opts.variant == UiVariant::Ghost) {
-        opts.variant = UiVariant::Primary;
+    if (active && (!opts.color.HasAny() || opts.color == StateColor::Ghost())) {
+        opts.color = StateColor::Primary();
     } else if (!active) {
-        opts.variant = UiVariant::Ghost;
+        opts.color = StateColor::Ghost();
     }
     Response res = Toolbar::ToolButton(*m_ctx, opts, loc);
     if (res.clicked) {
@@ -288,7 +288,7 @@ Response Toolbar::ToolButton(
     if (res.hovered) {
         const UiText effTooltip = !opts.tooltip.empty()
             ? opts.tooltip
-            : (opts.square && !opts.label.empty() ? opts.label : UiText{});
+            : (opts.square && !opts.text.empty() ? opts.text : UiText{});
         if (!effTooltip.empty()) {
             ctx.SetTooltip(effTooltip, res.rect);
         }
@@ -297,13 +297,13 @@ Response Toolbar::ToolButton(
     Node* node = ctx.CreateNode(NodeType::Button, id);
 
     auto* payload = ctx.AllocPayload<ToolButtonPayload>();
-    payload->btn.text = opts.square ? UiText{} : ctx.AllocText(opts.label);
+    payload->btn.text = opts.square ? UiText{} : ctx.AllocText(opts.text);
     payload->btn.tooltip = ctx.AllocText(opts.tooltip);
     node->text = payload->btn.text.text;
     payload->btn.icon = opts.icon;
-    payload->btn.color = StateColor::FromVariant(opts.variant);
+    payload->btn.color = opts.color.HasAny() ? opts.color : StateColor::Ghost();
     payload->btn.iconPlacement = opts.iconPlacement;
-    payload->btn.align = opts.controlAlign;
+    payload->btn.align = opts.align;
     payload->btn.stretch = opts.stretch;
     payload->btn.width = opts.width;
     payload->btn.minWidth = opts.minWidth;
@@ -312,11 +312,13 @@ Response Toolbar::ToolButton(
     payload->btn.square = opts.square;
     payload->btn.iconColor = opts.iconColor;
     payload->badge = ctx.AllocText(opts.badge);
-    payload->variant = (opts.variant == UiVariant::Ghost) ? UiVariant::Primary : opts.variant;
+    payload->badgeColor = ( !opts.color.HasAny() || opts.color == StateColor::Ghost() )
+        ? StateColor::Primary()
+        : opts.color;
 
     node->SetPayload(payload);
     node->visualHash = detail::HashArgs(
-        opts.variant,
+        opts.color,
         opts.iconPlacement,
         opts.active,
         opts.square,
@@ -338,7 +340,10 @@ Response Toolbar::ToolButton(
         Button::Render(canvas, n->computedRect, p ? p->btn : ButtonOptions{}, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused);
         if (p && !p->badge.empty()) {
             const auto& pal = theme.palette;
-            const VariantColors& v = theme.GetVariant(p->variant);
+            const VariantColors& v = theme.GetVariant(UiVariant::Primary);
+            const Color resolvedBg = p->badge.color.HasAny()
+                ? p->badge.color.Resolve(n->hovered, n->pressed, n->disabled, v.bg)
+                : p->badgeColor.Resolve(n->hovered, n->pressed, n->disabled, v.bg);
             const float badgeFont = std::max(9.0f, theme.ResolveFontSize(p->badge, TextRole::LabelSmall, n->uiSize) - 1.5f);
             const Vec2 badgeDims = canvas.MeasureText(p->badge.text, badgeFont);
             const float badgeH = std::min(n->computedRect.h * 0.48f, std::max(13.0f, badgeFont + 3.0f));
@@ -349,7 +354,7 @@ Response Toolbar::ToolButton(
                 badgeW,
                 badgeH
             );
-            const Color badgeBg = n->disabled ? v.bg.WithAlphaF(0.45f) : v.bg;
+            const Color badgeBg = n->disabled ? resolvedBg.WithAlphaF(0.45f) : resolvedBg;
             const Color badgeTextCol = n->disabled ? v.text.WithAlphaF(0.55f) : v.text;
             canvas.DrawRoundRect(badgeRect, badgeH * 0.5f, badgeBg, pal.surface, 1.5f);
             canvas.DrawTextBox(p->badge.text, badgeRect, badgeFont, badgeTextCol, 0.5f, 0.5f);

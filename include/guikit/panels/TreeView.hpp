@@ -49,7 +49,7 @@ struct TreeViewOptions {
     bool gridLines{false};                                          ///< Draw vertical column & horizontal row grid lines
     TreeGuides guides{TreeGuides::Connected};                       ///< Hierarchy guide line style
     TreeSelectionStyle selectionStyle{TreeSelectionStyle::Indicator}; ///< Selection highlight style
-    UiVariant variant{UiVariant::Primary};                          ///< Accent color variant for selection, guides, and badges
+    StateColor color{};                                             ///< Accent color override for selection, guides, and checkboxes (Default = theme accent)
     std::optional<float> indent{std::nullopt};                      ///< Per-level indentation in points (nullopt = derived from UiSize)
     std::optional<float> rowGap{2.0f};                              ///< Vertical gap between consecutive tree rows
     std::optional<Padding> padding{std::nullopt};                   ///< Internal viewport padding around tree items
@@ -83,7 +83,7 @@ struct TreeItemOptions {
     UiText tooltip{};                               ///< Optional floating tooltip on hover
     Icon icon{};                                    ///< Optional leading icon (used when collapsed or leaf)
     Icon openIcon{};                                ///< Optional leading icon when expanded (falls back to icon if invalid)
-    std::optional<UiVariant> variant{std::nullopt}; ///< Optional per-item accent variant override
+    StateColor color{};                             ///< Optional per-item accent color override
     bool defaultOpen{true};                         ///< Initial open state for branch nodes when managed by Context
     bool selected{false};                           ///< Explicit selection state override
     bool* checked{nullptr};                         ///< Optional bound boolean checkbox state (renders interactive checkbox when non-null)
@@ -270,23 +270,9 @@ public:
     [[nodiscard]] const Response* operator->() const noexcept { return &response; }
 
     /// Opens a multi-widget cell container for the next column (`Col 1`, `Col 2`, ...) on this TreeItem row.
-    /// Any number of widgets emitted inside `if (auto cell = item.Cell()) { ... }` are grouped into that single column.
+    /// Note: Single widgets (`ui.Text`, `ui.Element`, `ui.Checkbox`, `ui.ProgressBar`, `ui.Button`, etc.)
+    /// placed directly inside `if (auto item = ui.TreeItem(...))` automatically occupy `Col 1..N-1` without needing `item.Cell()`.
     [[nodiscard]] ContainerScope Cell(
-        const TableCellOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    /// Emits a text cell in the next column (`Col 1`, `Col 2`, ...) on this TreeItem row.
-    void CellText(
-        UiText text,
-        const TableCellOptions& opts = {},
-        std::source_location loc = std::source_location::current()
-    );
-
-    /// Emits a rounded pill badge in the next column (`Col 1`, `Col 2`, ...) on this TreeItem row.
-    void CellBadge(
-        UiText text,
-        UiVariant variant = UiVariant::Default,
         const TableCellOptions& opts = {},
         std::source_location loc = std::source_location::current()
     );

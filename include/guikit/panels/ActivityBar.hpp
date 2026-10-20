@@ -31,7 +31,7 @@ struct ActivityBarItem {
     UiText label{};                                     ///< Item name (used as fallback monogram and default tooltip)
     UiText tooltip{};                                   ///< Explicit floating tooltip override (defaults to label)
     UiText badge{};                                     ///< Optional corner badge counter/status (e.g. "3", "9+", "!")
-    std::optional<UiVariant> variant{std::nullopt};     ///< Optional per-item accent variant override
+    StateColor color{};                                 ///< Optional per-item accent color override
     bool active{false};                                 ///< Whether this item is currently active/selected
     bool disabled{false};
 };
@@ -40,7 +40,7 @@ struct ActivityBarItem {
 struct ActivityBarOptions {
     SidebarSide side{SidebarSide::Left};                ///< Docking edge (Left or Right)
     ActivityBarStyle style{ActivityBarStyle::Indicator}; ///< Active item indicator style
-    UiVariant variant{UiVariant::Primary};              ///< Default accent variant for active items and badges
+    StateColor color{};                                 ///< Default accent color for active items and badges (Default = theme accent)
     SidebarMode* linkedSidebarMode{nullptr};            ///< Optional companion Sidebar mode for VS Code click-to-toggle/expand behavior
     bool flushWithSidebar{true};                        ///< Dock adjacent same-side Sidebar flush (0px gap) against this rail
     std::optional<float> width{std::nullopt};           ///< Optional explicit rail width (nullopt = auto-fit to square icon cells)

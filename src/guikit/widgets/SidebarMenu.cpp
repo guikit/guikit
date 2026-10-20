@@ -235,7 +235,7 @@ Response SidebarMenu::Item(
         static_cast<uint8_t>(menuOpts.style),
         menuOpts.collapsed,
         menuOpts.borderRadius.value_or(-1.0f),
-        item.variant.value_or(menuOpts.variant),
+        item.color.HasAny() ? item.color : menuOpts.color,
         item.active,
         effectiveDisabled,
         static_cast<uint8_t>(item.icon.GetType()),
@@ -322,8 +322,14 @@ void SidebarMenu::RenderItem(
 
     const ComponentMetrics& m = theme.GetMetrics(size);
     const auto& pal = theme.palette;
-    const UiVariant effectiveVariant = item.variant.value_or(opts.variant);
-    const VariantColors& v = theme.GetVariant(effectiveVariant);
+    const StateColor& effColor = item.color.HasAny() ? item.color : opts.color;
+    const VariantColors& vDefault = theme.GetVariant(UiVariant::Primary);
+    VariantColors v = vDefault;
+    if (effColor.HasAny()) {
+        v.bg = effColor.Resolve(false, false, false, vDefault.bg);
+        v.bgHover = effColor.hover.has_value() ? *effColor.hover : v.bg.WithAlphaF(0.85f);
+        v.bgActive = effColor.active.has_value() ? *effColor.active : v.bg.WithAlphaF(0.75f);
+    }
     const float radius = opts.borderRadius.value_or(m.cornerRadius);
 
     Color bg = Color::Transparent();

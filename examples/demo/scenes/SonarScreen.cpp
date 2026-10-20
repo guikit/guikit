@@ -533,9 +533,9 @@ void RenderSonarStage(guikit::Context& ui, DemoContext& /*ctx*/) {
     // Top Tactical Control Strip
     if (auto tb = ui.Size(guikit::UiSize::Sm).Toolbar()) {
         if (tb.ToolButton({
-            .label = s_sonar.liveSimulation ? "LIVE PING" : "PAUSED",
+            .text = s_sonar.liveSimulation ? "LIVE PING" : "PAUSED",
             .icon = s_sonar.liveSimulation ? guikit::Icon::Pause() : guikit::Icon::Play(),
-            .variant = s_sonar.liveSimulation ? guikit::UiVariant::Success : guikit::UiVariant::Warning,
+            .color = s_sonar.liveSimulation ? guikit::StateColor::Success() : guikit::StateColor::Warning(),
             .active = s_sonar.liveSimulation
         })) {
             s_sonar.liveSimulation = !s_sonar.liveSimulation;
@@ -544,22 +544,22 @@ void RenderSonarStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         tb.Separator();
 
         if (tb.ToolButton({
-            .label = "PPI 360°",
-            .variant = (s_sonar.displayModeIndex == 0) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .text = "PPI 360°",
+            .color = (s_sonar.displayModeIndex == 0) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
             .active = (s_sonar.displayModeIndex == 0)
         })) {
             s_sonar.displayModeIndex = 0;
         }
         if (tb.ToolButton({
-            .label = "Sector Wedge",
-            .variant = (s_sonar.displayModeIndex == 1) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .text = "Sector Wedge",
+            .color = (s_sonar.displayModeIndex == 1) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
             .active = (s_sonar.displayModeIndex == 1)
         })) {
             s_sonar.displayModeIndex = 1;
         }
         if (tb.ToolButton({
-            .label = "B-Scan",
-            .variant = (s_sonar.displayModeIndex == 2) ? guikit::UiVariant::Primary : guikit::UiVariant::Ghost,
+            .text = "B-Scan",
+            .color = (s_sonar.displayModeIndex == 2) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
             .active = (s_sonar.displayModeIndex == 2)
         })) {
             s_sonar.displayModeIndex = 2;
@@ -568,22 +568,22 @@ void RenderSonarStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         tb.Separator();
 
         if (tb.ToolButton({
-            .label = "Lock Target-A",
-            .variant = (s_sonar.selectedTargetId == 1) ? guikit::UiVariant::Danger : guikit::UiVariant::Ghost,
+            .text = "Lock Target-A",
+            .color = (s_sonar.selectedTargetId == 1) ? guikit::StateColor::Danger() : guikit::StateColor::Ghost(),
             .active = (s_sonar.selectedTargetId == 1)
         })) {
             s_sonar.selectedTargetId = 1;
         }
         if (tb.ToolButton({
-            .label = "Lock Target-B",
-            .variant = (s_sonar.selectedTargetId == 2) ? guikit::UiVariant::Danger : guikit::UiVariant::Ghost,
+            .text = "Lock Target-B",
+            .color = (s_sonar.selectedTargetId == 2) ? guikit::StateColor::Danger() : guikit::StateColor::Ghost(),
             .active = (s_sonar.selectedTargetId == 2)
         })) {
             s_sonar.selectedTargetId = 2;
         }
         if (tb.ToolButton({
-            .label = "Lock Target-C",
-            .variant = (s_sonar.selectedTargetId == 3) ? guikit::UiVariant::Info : guikit::UiVariant::Ghost,
+            .text = "Lock Target-C",
+            .color = (s_sonar.selectedTargetId == 3) ? guikit::StateColor::Info() : guikit::StateColor::Ghost(),
             .active = (s_sonar.selectedTargetId == 3)
         })) {
             s_sonar.selectedTargetId = 3;
@@ -592,7 +592,7 @@ void RenderSonarStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         tb.Spacer();
 
         if (tb.ToolButton({
-            .label = "Reset Zoom",
+            .text = "Reset Zoom",
             .icon = guikit::Icon::Refresh()
         })) {
             s_sonar.requestResetView = true;

@@ -280,36 +280,32 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
 
                     if (auto row = table.Row(visRow, rowOpts)) {
                         // Col 0: Embedded Checkbox widget
-                        if (auto cell = table.Cell({.align = Align::Center})) {
-                            ui.Size(UiSize::Sm).Checkbox(item.tracked, {.color = StateColor::Primary()});
-                        }
+                        ui.Size(UiSize::Sm).Checkbox(item.tracked, {.color = StateColor::Primary()});
 
                         // Col 1: Target ID
-                        table.CellText(ui.Format("T-{:04d}", item.id), {.variant = UiVariant::Secondary});
+                        ui.Text(ui.Format("T-{:04d}", item.id), {.variant = UiVariant::Secondary});
 
                         // Col 2: Callsign with leading icon
-                        table.CellText(item.callsign, {.icon = Icon::Play()});
+                        ui.Element({.label = item.callsign, .icon = Icon::Play(), .stretch = StretchMode::Compact});
 
                         // Col 3: Modulation badge
-                        table.CellBadge(item.modulation, UiVariant::Info);
+                        ui.Element({.badge = {item.modulation, UiVariant::Info}, .stretch = StretchMode::Compact});
 
                         // Col 4: Frequency
-                        table.CellText(ui.Format("{:.3f} MHz", item.freqMhz));
+                        ui.Text(ui.Format("{:.3f} MHz", item.freqMhz));
 
                         // Col 5: Azimuth bearing
-                        table.CellText(
+                        ui.Text(
                             ui.Format("{:+05.1f} deg", item.bearingDeg),
                             {.variant = (std::abs(item.bearingDeg) < 25.0f) ? UiVariant::Success : UiVariant::Default}
                         );
 
                         // Col 6: Embedded Segmented VU ProgressBar widget
-                        if (auto cell = table.Cell()) {
-                            ui.Size(UiSize::Sm).ProgressBar(item.snrDb, 0.0f, 40.0f, {
-                                .valueFormat = "%.1f dB",
-                                .segments = 12,
-                                .multiZoneColor = true
-                            });
-                        }
+                        ui.Size(UiSize::Sm).ProgressBar(item.snrDb, 0.0f, 40.0f, {
+                            .valueFormat = "%.1f dB",
+                            .segments = 12,
+                            .multiZoneColor = true
+                        });
 
                         // Col 7: Status pill badge
                         static constexpr std::array<const char*, 4> kStatusLabels = {"LOCKED", "TRACKING", "SCANNING", "OVERLOAD"};
@@ -317,7 +313,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                             UiVariant::Success, UiVariant::Primary, UiVariant::Warning, UiVariant::Danger
                         };
                         const size_t stIdx = static_cast<size_t>(std::clamp(item.status, 0, 3));
-                        table.CellBadge(kStatusLabels[stIdx], kStatusVars[stIdx]);
+                        ui.Element({.badge = {kStatusLabels[stIdx], kStatusVars[stIdx]}, .stretch = StretchMode::Compact});
                     }
                 }
             }
@@ -377,33 +373,34 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                 for (size_t r = firstRow; r < endRow; ++r) {
                     const size_t logicalIdx = desc ? (kTotalVirtualRows - 1 - r) : r;
                     if (auto row = table.Row(r)) {
-                        table.CellText(ui.Format("PKT-{:06}", logicalIdx + 1), {.variant = UiVariant::Secondary});
+                        ui.Text(ui.Format("PKT-{:06}", logicalIdx + 1), {.variant = UiVariant::Secondary});
 
                         const uint32_t mins = static_cast<uint32_t>((logicalIdx / 600) % 60);
                         const uint32_t secs = static_cast<uint32_t>((logicalIdx / 10) % 60);
                         const uint32_t tenths = static_cast<uint32_t>(logicalIdx % 10);
-                        table.CellText(ui.Format("12:{:02}:{:02}.{}00", mins, secs, tenths));
+                        ui.Text(ui.Format("12:{:02}:{:02}.{}00", mins, secs, tenths));
 
                         static constexpr std::array<const char*, 6> kNodes = {
                             "ARRAY-NORTH-A1", "ARRAY-EAST-B4", "HYDROPHONE-C2",
                             "SDR-RECEIVER-09", "BEAMFORMER-DSP", "SATCOM-GATEWAY"
                         };
-                        table.CellText(kNodes[logicalIdx % kNodes.size()]);
+                        ui.Text(kNodes[logicalIdx % kNodes.size()]);
 
                         const float freq = 430.000f + static_cast<float>(logicalIdx % 250) * 0.025f;
-                        table.CellText(ui.Format("{:.3f} MHz", freq));
+                        ui.Text(ui.Format("{:.3f} MHz", freq));
 
                         const float rssi = -95.0f + static_cast<float>((logicalIdx * 17) % 65);
-                        if (auto cell = table.Cell()) {
-                            ui.Size(UiSize::Xs).ProgressBar(rssi, -100.0f, -30.0f, {
-                                .valueFormat = "%.0f dBm",
-                                .segments = 10,
-                                .multiZoneColor = true
-                            });
-                        }
+                        ui.Size(UiSize::Xs).ProgressBar(rssi, -100.0f, -30.0f, {
+                            .valueFormat = "%.0f dBm",
+                            .segments = 10,
+                            .multiZoneColor = true
+                        });
 
                         const bool crcOk = (logicalIdx % 19 != 0);
-                        table.CellBadge(crcOk ? "CRC OK" : "RETRANSMIT", crcOk ? UiVariant::Success : UiVariant::Warning);
+                        ui.Element({
+                            .badge = {crcOk ? "CRC OK" : "RETRANSMIT", crcOk ? UiVariant::Success : UiVariant::Warning},
+                            .stretch = StretchMode::Compact
+                        });
                     }
                 }
             }
@@ -434,13 +431,11 @@ std::string GenerateTableCode(const DemoContext& /*ctx*/) {
         << "})) {\n"
         << "    for (size_t r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {\n"
         << "        if (auto row = table.Row(r)) {\n"
-        << "            table.CellText(ui.Format(\"T-{:04d}\", rows[r].id));\n"
-        << "            table.CellText(rows[r].callsign);\n"
-        << "            table.CellText(ui.Format(\"{:.3f} MHz\", rows[r].freqMhz));\n"
-        << "            if (auto cell = table.Cell()) {\n"
-        << "                ui.ProgressBar(rows[r].snrDb, 0.0f, 40.0f, {.segments = 12, .multiZoneColor = true});\n"
-        << "            }\n"
-        << "            table.CellBadge(\"LOCKED\", guikit::UiVariant::Success);\n"
+        << "            ui.Text(ui.Format(\"T-{:04d}\", rows[r].id));\n"
+        << "            ui.Text(rows[r].callsign);\n"
+        << "            ui.Text(ui.Format(\"{:.3f} MHz\", rows[r].freqMhz));\n"
+        << "            ui.ProgressBar(rows[r].snrDb, 0.0f, 40.0f, {.segments = 12, .multiZoneColor = true});\n"
+        << "            ui.Element({.badge = {\"LOCKED\", guikit::UiVariant::Success}, .stretch = guikit::StretchMode::Compact});\n"
         << "        }\n"
         << "    }\n"
         << "}";

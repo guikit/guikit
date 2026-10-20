@@ -28,12 +28,12 @@ enum class ToolbarStyle : uint8_t {
 
 /// Configuration options for a ToolButton / Toolbar item.
 struct ToolButtonOptions {
-    UiText label{};
+    UiText text{};
     UiText tooltip{};
     Icon icon{};
-    UiVariant variant{UiVariant::Ghost};
+    StateColor color{StateColor::Ghost()};
     Placement iconPlacement{Placement::Leading};
-    Align controlAlign{Align::Center};          ///< Content horizontal alignment (Start = left, Center, End = right)
+    Align align{Align::Center};                 ///< Content horizontal alignment (Start = left, Center, End = right)
     StretchMode stretch{StretchMode::Compact};  ///< Sizing behavior: Compact, Space, Fill
     std::optional<float> width{std::nullopt};   ///< Explicit capsule width in pixels
     std::optional<float> minWidth{std::nullopt};///< Minimum capsule width in pixels
@@ -105,10 +105,10 @@ public:
     ) {
         const bool isSelected = (selectedValue == itemValue);
         opts.active = isSelected;
-        if (isSelected && opts.variant == UiVariant::Ghost) {
-            opts.variant = UiVariant::Primary;
+        if (isSelected && (!opts.color.HasAny() || opts.color == StateColor::Ghost())) {
+            opts.color = StateColor::Primary();
         } else if (!isSelected) {
-            opts.variant = UiVariant::Ghost;
+            opts.color = StateColor::Ghost();
         }
         Response res = ToolButton(std::move(opts), loc);
         if (res.clicked && !isSelected) {

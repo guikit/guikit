@@ -33,24 +33,17 @@ Color ResolveSegmentTextColor(
     const UiTheme& theme,
     bool hovered
 ) noexcept {
-    if (opts.textColor.a > 0) {
-        return opts.textColor;
-    }
-    if (barStyle == StatusBarStyle::Accent) {
-        return theme.palette.accentText;
-    }
     const auto& p = theme.palette;
-    switch (opts.variant) {
-        case UiVariant::Primary:   return p.accent;
-        case UiVariant::Success:   return theme.GetVariant(UiVariant::Success).bg;
-        case UiVariant::Warning:   return theme.GetVariant(UiVariant::Warning).bg;
-        case UiVariant::Danger:    return theme.GetVariant(UiVariant::Danger).bg;
-        case UiVariant::Info:      return theme.GetVariant(UiVariant::Info).bg;
-        case UiVariant::Muted:     return hovered ? p.textSecondary : p.textMuted;
-        case UiVariant::Secondary:
-        case UiVariant::Ghost:
-        default:                   return hovered ? p.textPrimary : p.textSecondary;
+    const Color fallback = (barStyle == StatusBarStyle::Accent)
+        ? p.accentText
+        : (hovered ? p.textPrimary : p.textSecondary);
+    if (opts.color.HasAny()) {
+        return opts.color.Resolve(hovered, opts.active, opts.disabled, fallback);
     }
+    if (opts.text.color.HasAny()) {
+        return opts.text.color.Resolve(hovered, opts.active, opts.disabled, fallback);
+    }
+    return fallback;
 }
 
 Vec2 MeasureStatusSegment(
@@ -146,7 +139,7 @@ void RenderStatusSegment(
     const float centerY = r.Center().y;
 
     Color fg = ResolveSegmentTextColor(o, payload->barStyle, theme, node->hovered || o.active);
-    if (o.active && payload->barStyle != StatusBarStyle::Accent && o.textColor.a == 0) {
+    if (o.active && payload->barStyle != StatusBarStyle::Accent && !o.color.HasAny() && !o.text.color.HasAny()) {
         fg = p.accent;
     }
     fg = fg.WithAlphaF(alphaMul);
@@ -391,8 +384,7 @@ Response StatusBar::RenderSegment(
         static_cast<uint8_t>(payload->opts.icon.GetId()),
         payload->opts.icon.GetPath(),
         payload->opts.dotColor,
-        payload->opts.textColor,
-        static_cast<uint8_t>(payload->opts.variant),
+        payload->opts.color,
         static_cast<uint8_t>(barStyle),
         interactive,
         opts.active,

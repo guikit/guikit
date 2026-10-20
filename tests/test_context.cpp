@@ -2323,12 +2323,12 @@ void TestToolbarWidgetWorkflow() {
 
     auto renderToolbar = [&]() {
         if (auto tb = ui.Size(UiSize::Md).Toolbar({.padding = UiSize::Sm})) {
-            btnNew = tb.ToolButton({.label = "New", .icon = Icon::Plus()});
-            btnSave = tb.ToolButton({.label = "Save", .icon = Icon::Check(), .disabled = true});
+            btnNew = tb.ToolButton({.text = "New", .icon = Icon::Plus()});
+            btnSave = tb.ToolButton({.text = "Save", .icon = Icon::Check(), .disabled = true});
             tb.Separator();
             btnSettings = tb.ToolButton({.icon = Icon::Settings(), .active = toolSettingsActive});
             tb.Spacer();
-            tb.ToolButton({.label = "Status", .icon = Icon::Eye()});
+            tb.ToolButton({.text = "Status", .icon = Icon::Eye()});
         }
     };
 
@@ -2384,16 +2384,16 @@ void TestToolbarWidgetWorkflow() {
         ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
         if (auto tb = ui.Toolbar({.style = ToolbarStyle::Floating})) {
             floatingTbId = tb.response.id;
-            tb.Item(activeTool, 0, {.label = "Select"});
-            item1Rect = tb.Item(activeTool, 1, {.label = "Pan", .badge = "2"}).rect;
+            tb.Item(activeTool, 0, {.text = "Select"});
+            item1Rect = tb.Item(activeTool, 1, {.text = "Pan", .badge = "2"}).rect;
             tb.Separator();
-            toggleRect = tb.Toggle(snapActive, {.label = "Snap"}).rect;
+            toggleRect = tb.Toggle(snapActive, {.text = "Snap"}).rect;
         }
         if (auto vtb = ui.Toolbar({.style = ToolbarStyle::Surface, .orientation = Orientation::Vertical})) {
-            vtb.Item(activeTool, 0, {.label = "V0", .square = true});
+            vtb.Item(activeTool, 0, {.text = "V0", .square = true});
             vtb.Separator();
             vtb.Spacer();
-            vtb.Action({.label = "V1", .square = true});
+            vtb.Action({.text = "V1", .square = true});
         }
         ui.EndFrame(canvas);
     };
@@ -2762,9 +2762,9 @@ void TestLeafWidgetSizeOverrides() {
 
             // Toolbar ToolButtons: Inherited (Md), Local override Xl, Local override Xs
             if (auto tb = ui.Toolbar()) {
-                toolInherit = tb.ToolButton({.label = "Inherit", .icon = Icon::Play()});
-                toolXl = ui.Size(UiSize::Xl).ToolButton({.label = "Large", .icon = Icon::Play()});
-                toolXs = ui.Size(UiSize::Xs).ToolButton({.label = "Small", .icon = Icon::Play()});
+                toolInherit = tb.ToolButton({.text = "Inherit", .icon = Icon::Play()});
+                toolXl = ui.Size(UiSize::Xl).ToolButton({.text = "Large", .icon = Icon::Play()});
+                toolXs = ui.Size(UiSize::Xs).ToolButton({.text = "Small", .icon = Icon::Play()});
             }
         }
     };
@@ -3045,11 +3045,11 @@ void TestIndustrialDashboardNoBlackLines() {
                 }
 
                 if (auto tb = ui.Toolbar()) {
-                    tb.ToolButton({.label = "Density: Standard"});
+                    tb.ToolButton({.text = "Density: Standard"});
                     tb.Separator();
-                    tb.ToolButton({.label = "Scale: 100%"});
+                    tb.ToolButton({.text = "Scale: 100%"});
                     tb.Separator();
-                    tb.ToolButton({.label = "Theme: Dark"});
+                    tb.ToolButton({.text = "Theme: Dark"});
                 }
 
                 const std::vector<TabItem> navTabs = {
@@ -3738,7 +3738,7 @@ void TestScopedThemeAndScaleOverrides() {
     if (auto shellCol = ui.Column({.scale = 1.5f})) {
         CHECK_NEAR(ui.GetCurrentScale(), 1.5f, 0.001f);
         if (auto tb = ui.Toolbar()) {
-            tb.ToolButton({.label = "Action"});
+            tb.ToolButton({.text = "Action"});
         }
         // Scale must still be 1.5f after ToolbarScope destructor runs
         CHECK_NEAR(ui.GetCurrentScale(), 1.5f, 0.001f);
@@ -7919,24 +7919,20 @@ void TestTableVirtualizedDataGridWorkflow() {
 
                 for (size_t r = visStart; r < visEnd; ++r) {
                     if (auto row = table.Row(r)) {
-                        if (auto cell = table.Cell({.align = Align::Center})) {
-                            if (r == 0) {
-                                auto rChk = ui.Size(UiSize::Sm).Checkbox(row0Checked);
-                                row0CheckRect = rChk.rect;
-                            } else {
-                                bool dummy = (r % 2 == 0);
-                                ui.Size(UiSize::Sm).Checkbox(dummy);
-                            }
+                        if (r == 0) {
+                            auto rChk = ui.Size(UiSize::Sm).Checkbox(row0Checked);
+                            row0CheckRect = rChk.rect;
+                        } else {
+                            bool dummy = (r % 2 == 0);
+                            ui.Size(UiSize::Sm).Checkbox(dummy);
                         }
-                        table.CellText(ui.Format("ID-{:06}", r));
-                        table.CellText("OFDM-64 Carrier");
-                        if (auto cell = table.Cell()) {
-                            auto rProg = ui.Size(UiSize::Xs).ProgressBar(-65.0f, -100.0f, -30.0f);
-                            if (r == 50000) {
-                                firstProgressRect = rProg.rect;
-                            }
+                        ui.Text(ui.Format("ID-{:06}", r));
+                        ui.Text("OFDM-64 Carrier");
+                        auto rProg = ui.Size(UiSize::Xs).ProgressBar(-65.0f, -100.0f, -30.0f);
+                        if (r == 50000) {
+                            firstProgressRect = rProg.rect;
                         }
-                        table.CellBadge("LOCKED", UiVariant::Success);
+                        ui.Element({.badge = {"LOCKED", UiVariant::Success}, .stretch = StretchMode::Compact});
                     }
                 }
             }
@@ -9601,7 +9597,7 @@ void TestTreeViewAndTreeItemWorkflow() {
             .selectedIndex = &multiColSelected,
         })) {
             if (auto item = ui.TreeItem({.label = "Row With Multi-Widget Cell"})) {
-                item.CellBadge("ACTIVE");
+                ui.Element({.badge = "ACTIVE", .stretch = StretchMode::Compact});
                 if (auto cell = item.Cell()) {
                     cellSwRect = ui.Switch(cellSwitchVal).rect;
                     auto btn = ui.Button({.text = "Act"});
@@ -10311,8 +10307,8 @@ void TestActivityBarAndLinkedSidebarWorkflow() {
                     .label = "Search",
                     .badge = "5"
                 }).rect;
-                bar.Spacer();
-                bar.Separator();
+                ui.Spacer();
+                ui.Separator();
                 auto actRes = bar.Action({
                     .icon = Icon::Settings(),
                     .label = "Settings"
@@ -10441,8 +10437,8 @@ void TestBottomPanelAndStatusBarWorkflow() {
             })) {
                 reportedPanelH = bp.Height();
                 if (auto tb = ui.Toolbar({.style = ToolbarStyle::Header})) {
-                    tb.Item(activeTab, 0, {.label = "Output"});
-                    tb.Item(activeTab, 1, {.label = "Slice 2D"});
+                    tb.Item(activeTab, 0, {.text = "Output"});
+                    tb.Item(activeTab, 1, {.text = "Slice 2D"});
                 }
                 ui.Text("Bottom Panel Body");
                 panelRect = bp.response.rect;
@@ -10453,8 +10449,8 @@ void TestBottomPanelAndStatusBarWorkflow() {
 
             if (auto sb = ui.StatusBar({.style = StatusBarStyle::Surface})) {
                 sb.Item({.text = "CUDA Ready", .dotColor = Color(34, 197, 94, 255), .badge = "GPU"});
-                sb.Separator();
-                sb.Spacer();
+                ui.Separator();
+                ui.Spacer();
                 Response act = sb.Action({
                     .text = "Toggle Panel",
                     .icon = Icon::ChevronUp(),
@@ -10960,11 +10956,11 @@ int main() {
             ui.BeginFrame({800.0f, 200.0f});
             if (auto tb = ui.Toolbar()) {
                 if (auto grp = ui.Row({.equalWidths = true})) {
-                    r1 = tb.Toggle(t1, {.label = "GPU", .icon = guikit::Icon::Flash()});
-                    r2 = tb.Toggle(t2, {.label = "VSync"});
-                    r3 = tb.Toggle(t3, {.label = "React"});
-                    r4 = tb.Toggle(t4, {.label = "Dirty"});
-                    r5 = tb.Toggle(t5, {.label = "Live"});
+                    r1 = tb.Toggle(t1, {.text = "GPU", .icon = guikit::Icon::Flash()});
+                    r2 = tb.Toggle(t2, {.text = "VSync"});
+                    r3 = tb.Toggle(t3, {.text = "React"});
+                    r4 = tb.Toggle(t4, {.text = "Dirty"});
+                    r5 = tb.Toggle(t5, {.text = "Live"});
                 }
             }
             if (auto fitRow = ui.Row({.widthMode = guikit::SizeMode::Fit, .equalWidths = true})) {

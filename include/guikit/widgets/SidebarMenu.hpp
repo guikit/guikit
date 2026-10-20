@@ -32,7 +32,7 @@ struct SidebarMenuItem {
     UiText badge{};                                     ///< Optional trailing badge/counter (default role: LabelSmall)
     UiText section{};                                   ///< Optional section heading above this item (used in span overload)
     UiText tooltip{};                                   ///< Optional floating tooltip (defaults to item.text when menu is collapsed)
-    std::optional<UiVariant> variant{std::nullopt};     ///< Optional per-item highlight variant override (nullopt = inherit menu variant)
+    StateColor color{};                                 ///< Optional per-item highlight color override (empty = inherit menu color)
     bool active{false};                                 ///< Whether this item is currently selected/active
     bool disabled{false};
 };
@@ -41,7 +41,7 @@ struct SidebarMenuItem {
 struct SidebarMenuOptions {
     SidebarMenuStyle style{SidebarMenuStyle::Pill};
     bool collapsed{false};                          ///< Compact icon-only rail mode (hides text, badges, and section titles)
-    UiVariant variant{UiVariant::Primary};          ///< Default highlight variant for active items
+    StateColor color{};                             ///< Default highlight color for active items (Default = theme Primary)
     std::optional<float> gap{4.0f};                 ///< Vertical gap between consecutive menu items
     float sectionGap{8.0f};                         ///< Extra top spacing before a non-first Section header
     std::optional<float> width{std::nullopt};       ///< Optional explicit menu width (nullopt = Fit/Stretch to container)

@@ -8,6 +8,7 @@
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Control.hpp"
+#include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
 #include "guikit/panels/ScrollArea.hpp"
@@ -17,14 +18,6 @@ namespace guikit {
 namespace {
 
 constexpr size_t kMaxTableColumns = 16;
-
-struct TableFastCell {
-    size_t rowIndex{0};
-    uint16_t colIndex{0};
-    bool isBadge{false};
-    UiText text{};
-    TableCellOptions opts{};
-};
 
 struct TableRowRecord {
     size_t rowIndex{0};
@@ -62,7 +55,6 @@ struct TableState {
 
     // Persistent frame buffers (cleared each frame, zero heap allocation after warmup)
     std::vector<TableRowRecord> visibleRows{};
-    std::vector<TableFastCell> fastCells{};
 };
 
 float ResolveDefaultRowHeight(UiSize size, const UiTheme& theme) noexcept {
@@ -137,6 +129,8 @@ struct TableData {
     bool hasActiveRow{false};
     size_t activeRowIndex{0};
     uint16_t activeColCursor{0};
+    Node* activeRowPrevLastChild{nullptr};
+    mutable ICanvas* lastCanvas{nullptr};
 
     int hoveredHeaderCol{-1};
     int hoveredDividerCol{-1};
@@ -291,8 +285,15 @@ TableScope::~TableScope() noexcept {
             static_cast<float>(totalRows) * m_data->rowHeight
         );
 
+        // Recompute actual childCount of m_node after virtualized row ID seeding
+        uint32_t actualChildren = 0;
+        for (const Node* c = m_node->firstChild; c != nullptr; c = c->nextSibling) {
+            ++actualChildren;
+        }
+        m_node->childCount = actualChildren;
+
         // Compute comprehensive visualHash from scroll offsets, column geometry,
-        // visible cells, and embedded child widgets so dirty-tracking always
+        // visible rows, and direct/cell child widgets so dirty-tracking always
         // repaints the entire Table coherently.
         uint64_t h = m_node->visualHash;
         if (m_data->state) {
@@ -315,8 +316,7 @@ TableScope::~TableScope() noexcept {
                 m_data->hoveredDividerCol,
                 m_data->firstVisibleRow,
                 m_data->endVisibleRow,
-                m_data->state->visibleRows.size(),
-                m_data->state->fastCells.size()
+                m_data->state->visibleRows.size()
             );
             for (uint16_t i = 0; i < m_data->columnCount; ++i) {
                 h = detail::HashArgs(h, m_data->resolvedColX[i], m_data->resolvedColW[i]);
@@ -330,18 +330,17 @@ TableScope::~TableScope() noexcept {
                     static_cast<uint8_t>(rowRec.opts.tint.value_or(UiVariant::Default))
                 );
             }
-            for (const auto& cell : m_data->state->fastCells) {
+            for (const Node* c = m_node->firstChild; c != nullptr; c = c->nextSibling) {
                 h = detail::HashArgs(
                     h,
-                    cell.rowIndex,
-                    cell.colIndex,
-                    cell.isBadge,
-                    cell.text.text,
-                    static_cast<uint8_t>(cell.opts.variant)
+                    c->id.value,
+                    c->visualHash,
+                    c->hovered,
+                    c->pressed,
+                    c->checked,
+                    c->colSpan,
+                    c->childIndex
                 );
-            }
-            for (const Node* c = m_node->firstChild; c != nullptr; c = c->nextSibling) {
-                h = detail::HashArgs(h, c->id.value, c->colSpan, c->childIndex);
                 for (const Node* gc = c->firstChild; gc != nullptr; gc = gc->nextSibling) {
                     h = detail::HashArgs(
                         h,
@@ -418,6 +417,11 @@ TableRowScope TableScope::Row(size_t rowIndex, const TableRowOptions& opts) {
     m_data->hasActiveRow = true;
     m_data->activeRowIndex = rowIndex;
     m_data->activeColCursor = 0;
+    m_data->activeRowPrevLastChild = m_node ? m_node->lastChild : nullptr;
+    if (m_node) {
+        m_node->childCount = static_cast<uint32_t>(rowIndex * 64);
+    }
+    m_ctx->PushDisabled(opts.disabled || m_ctx->IsDisabled());
 
     m_data->state->visibleRows.push_back(TableRowRecord{
         .rowIndex = rowIndex,
@@ -435,45 +439,32 @@ TableRowScope TableScope::Row(size_t rowIndex, const TableRowOptions& opts) {
 
 void TableScope::EndActiveRow() noexcept {
     if (!m_data || !m_data->hasActiveRow) return;
+    if (m_ctx) {
+        m_ctx->PopDisabled();
+    }
+    if (m_node) {
+        Node* startChild = m_data->activeRowPrevLastChild
+            ? m_data->activeRowPrevLastChild->nextSibling
+            : m_node->firstChild;
+        uint16_t colIdx = 0;
+        for (Node* c = startChild; c != nullptr; c = c->nextSibling) {
+            c->colSpan = static_cast<uint8_t>(std::min<uint16_t>(colIdx++, 255));
+            c->childIndex = static_cast<uint32_t>(m_data->activeRowIndex);
+        }
+    }
     m_data->hasActiveRow = false;
-}
-
-void TableScope::CellText(const UiText& text, const TableCellOptions& opts) {
-    if (!m_ctx || !m_data || !m_data->state || !m_data->hasActiveRow) return;
-    const uint16_t colIdx = m_data->activeColCursor++;
-    if (colIdx >= m_data->columnCount) return;
-
-    m_data->state->fastCells.push_back(TableFastCell{
-        .rowIndex = m_data->activeRowIndex,
-        .colIndex = colIdx,
-        .isBadge = false,
-        .text = m_ctx->AllocText(text),
-        .opts = opts
-    });
-}
-
-void TableScope::CellBadge(std::string_view text, UiVariant variant, const TableCellOptions& opts) {
-    if (!m_ctx || !m_data || !m_data->state || !m_data->hasActiveRow) return;
-    const uint16_t colIdx = m_data->activeColCursor++;
-    if (colIdx >= m_data->columnCount) return;
-
-    TableCellOptions badgeOpts = opts;
-    badgeOpts.variant = variant;
-
-    m_data->state->fastCells.push_back(TableFastCell{
-        .rowIndex = m_data->activeRowIndex,
-        .colIndex = colIdx,
-        .isBadge = true,
-        .text = m_ctx->AllocText(UiText(text)),
-        .opts = badgeOpts
-    });
 }
 
 ContainerScope TableScope::Cell(const TableCellOptions& opts) {
     if (!m_ctx || !m_node || !m_data || !m_data->hasActiveRow) {
         return ContainerScope(nullptr, nullptr);
     }
-    const uint16_t colIdx = m_data->activeColCursor++;
+    uint16_t colIdx = 0;
+    for (const Node* c = m_data->activeRowPrevLastChild ? m_data->activeRowPrevLastChild->nextSibling : m_node->firstChild;
+         c != nullptr;
+         c = c->nextSibling) {
+        ++colIdx;
+    }
     if (colIdx >= m_data->columnCount) {
         return ContainerScope(nullptr, nullptr);
     }
@@ -578,7 +569,6 @@ TableScope Table::Open(
 
     auto& state = ctx.GetOrCreateState<TableState>(id);
     state.visibleRows.clear();
-    state.fastCells.clear();
 
     const uint16_t colCount = static_cast<uint16_t>(std::min(columns.size(), kMaxTableColumns));
     if (state.userColCount != colCount) {
@@ -852,7 +842,12 @@ TableScope Table::Open(
                             }
                             ctx.InvalidateRect(data->frameRect);
                         }
-                        ctx.RequestFocus(id);
+                        const Id focusedId = ctx.GetFocusedId();
+                        const bool clickedFocusedChild = focusedId.IsValid() && focusedId != id &&
+                            ctx.GetPrevFrameBounds(focusedId).Contains(mousePos);
+                        if (!clickedFocusedChild) {
+                            ctx.RequestFocus(id);
+                        }
                     }
                 }
             }
@@ -911,7 +906,6 @@ TableScope Table::Open(
 
     const size_t cap = std::min<size_t>(visibleCount + 2, 128);
     state.visibleRows.reserve(cap);
-    state.fastCells.reserve(cap * std::max<size_t>(1, data->columnCount));
 
     node->scrollOffset = state.scrollOffset;
     node->SetPayload(data);
@@ -966,11 +960,12 @@ TableScope Table::Open(
 Vec2 Table::Measure(
     const Node* node,
     float availableWidth,
-    ICanvas* /*canvas*/,
+    ICanvas* canvas,
     const UiTheme& theme
 ) {
     const auto* data = node ? node->As<TableData>() : nullptr;
     if (!data) return {200.0f, 160.0f};
+    data->lastCanvas = canvas;
 
     const float headerH = data->opts.stickyHeader
         ? (data->opts.headerHeight.has_value()
@@ -1029,11 +1024,14 @@ void Table::Arrange(
         }
     }
 
-    // Position all widget Cell children (NodeType::Cell) inside the virtualized body viewport
+    // Position all cell children (both direct widgets and explicit NodeType::Cell containers)
+    // inside the virtualized body viewport
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-        if (child->type != NodeType::Cell) continue;
         const uint16_t colIdx = child->colSpan;
-        if (colIdx >= data->columnCount) continue;
+        if (colIdx >= data->columnCount) {
+            child->computedRect = Rect(0.0f, 0.0f, 0.0f, 0.0f);
+            continue;
+        }
 
         const size_t rowIndex = static_cast<size_t>(child->childIndex);
         const float cellX = data->bodyViewportRect.x + data->resolvedColX[colIdx] - node->scrollOffset.x;
@@ -1041,52 +1039,103 @@ void Table::Arrange(
         const float cellW = data->resolvedColW[colIdx];
         const float cellH = data->rowHeight;
 
-        child->computedRect = Rect(cellX, cellY, cellW, cellH);
+        if (child->type == NodeType::Cell) {
+            child->computedRect = Rect(cellX, cellY, cellW, cellH);
 
-        // Arrange widgets inside the cell using standard horizontal flex layout
-        const Padding pad = child->padding;
-        const Rect inner(
-            cellX + pad.left,
-            cellY + pad.top,
-            std::max(0.0f, cellW - pad.Horizontal()),
-            std::max(0.0f, cellH - pad.Vertical())
-        );
+            // Arrange widgets inside the cell using standard horizontal flex layout
+            const Padding pad = child->padding;
+            const Rect inner(
+                cellX + pad.left,
+                cellY + pad.top,
+                std::max(0.0f, cellW - pad.Horizontal()),
+                std::max(0.0f, cellH - pad.Vertical())
+            );
 
-        // Count and measure cell children
-        float totalChildrenW = 0.0f;
-        uint32_t numGrandChildren = 0;
-        for (Node* gc = child->firstChild; gc != nullptr; gc = gc->nextSibling) {
-            const Vec2 m = gc->measureFn
-                ? gc->measureFn(gc, inner.w, nullptr, theme)
-                : Vec2(gc->fixedWidth, gc->fixedHeight);
-            gc->intrinsicSize = m;
-            totalChildrenW += (gc->widthMode == SizeMode::Stretch) ? inner.w : m.x;
-            ++numGrandChildren;
-        }
-        if (numGrandChildren > 1) {
-            totalChildrenW += child->gap * static_cast<float>(numGrandChildren - 1);
-        }
-
-        float curX = inner.x;
-        if (child->justify == Justify::Center && totalChildrenW < inner.w) {
-            curX += (inner.w - totalChildrenW) * 0.5f;
-        } else if (child->justify == Justify::End && totalChildrenW < inner.w) {
-            curX += (inner.w - totalChildrenW);
-        }
-
-        for (Node* gc = child->firstChild; gc != nullptr; gc = gc->nextSibling) {
-            const float w = (gc->widthMode == SizeMode::Stretch)
-                ? std::max(0.0f, inner.Right() - curX)
-                : std::min(gc->intrinsicSize.x, std::max(0.0f, inner.Right() - curX));
-            const float h = (gc->heightMode == SizeMode::Stretch)
-                ? inner.h
-                : std::min(gc->intrinsicSize.y, inner.h);
-            const float y = inner.y + (inner.h - h) * 0.5f;
-            gc->computedRect = Rect(curX, y, w, h);
-            if (gc->arrangeFn) {
-                gc->arrangeFn(gc, gc->computedRect, theme);
+            float totalChildrenW = 0.0f;
+            uint32_t numGrandChildren = 0;
+            for (Node* gc = child->firstChild; gc != nullptr; gc = gc->nextSibling) {
+                const UiTheme& gcTheme = gc->theme ? *gc->theme : theme;
+                const Vec2 m = gc->measureFn
+                    ? gc->measureFn(gc, inner.w, data->lastCanvas, gcTheme)
+                    : Vec2(gc->fixedWidth, gc->fixedHeight);
+                gc->intrinsicSize = m;
+                totalChildrenW += (gc->widthMode == SizeMode::Stretch) ? inner.w : m.x;
+                ++numGrandChildren;
             }
-            curX += w + child->gap;
+            if (numGrandChildren > 1) {
+                totalChildrenW += child->gap * static_cast<float>(numGrandChildren - 1);
+            }
+
+            float curX = inner.x;
+            if (child->justify == Justify::Center && totalChildrenW < inner.w) {
+                curX += (inner.w - totalChildrenW) * 0.5f;
+            } else if (child->justify == Justify::End && totalChildrenW < inner.w) {
+                curX += (inner.w - totalChildrenW);
+            }
+
+            for (Node* gc = child->firstChild; gc != nullptr; gc = gc->nextSibling) {
+                const UiTheme& gcTheme = gc->theme ? *gc->theme : theme;
+                const float w = (gc->widthMode == SizeMode::Stretch)
+                    ? std::max(0.0f, inner.Right() - curX)
+                    : std::min(gc->intrinsicSize.x, std::max(0.0f, inner.Right() - curX));
+                const float h = (gc->heightMode == SizeMode::Stretch)
+                    ? inner.h
+                    : std::min(gc->intrinsicSize.y, inner.h);
+                const float y = inner.y + (inner.h - h) * 0.5f;
+                gc->computedRect = Rect(curX, y, w, h);
+                if (gc->arrangeFn) {
+                    gc->arrangeFn(gc, gc->computedRect, gcTheme);
+                }
+                curX += w + child->gap;
+            }
+        } else {
+            // Direct widget cell (Text, Element, Checkbox, ProgressBar, Button, InputField, Select, etc.)
+            const UiTheme& childTheme = child->theme ? *child->theme : theme;
+            const bool isPlainOrBadgeElement = (child->type == NodeType::Element && child->firstChild == nullptr);
+            const bool isTextOrBadge = (child->type == NodeType::Text) || isPlainOrBadgeElement;
+            const float padX = theme.Scale(isTextOrBadge ? 8.0f : 6.0f);
+            const float padY = theme.Scale(isTextOrBadge ? 0.0f : 2.0f);
+            const Rect inner(
+                cellX + padX,
+                cellY + padY,
+                std::max(0.0f, cellW - padX * 2.0f),
+                std::max(0.0f, cellH - padY * 2.0f)
+            );
+
+            const Vec2 m = child->measureFn
+                ? child->measureFn(child, inner.w, data->lastCanvas, childTheme)
+                : Vec2(child->fixedWidth, child->fixedHeight);
+            child->intrinsicSize = m;
+
+            Align effAlign = data->columns[colIdx].align;
+            if (child->type == NodeType::Text && child->align != Alignment::Start) {
+                effAlign = child->align;
+            } else if (isPlainOrBadgeElement) {
+                if (const auto* ep = child->As<ElementPayload>(); ep && ep->opts.align != Align::Start) {
+                    effAlign = ep->opts.align;
+                }
+            }
+
+            float w = m.x;
+            if (isTextOrBadge) {
+                w = std::min(inner.w, m.x);
+            } else if (child->fixedWidth > 0.0f && !child->ctrlStretchable) {
+                w = std::min(inner.w, child->fixedWidth);
+            } else if (child->widthMode == SizeMode::Stretch || child->ctrlStretchable) {
+                w = inner.w;
+            } else {
+                w = std::min(inner.w, m.x);
+            }
+
+            const float h = (child->heightMode == SizeMode::Stretch)
+                ? inner.h
+                : std::min(m.y, inner.h);
+            const float x = inner.x + (inner.w - w) * AlignToFactor(effAlign);
+            const float y = inner.y + (inner.h - h) * 0.5f;
+            child->computedRect = Rect(x, y, w, h);
+            if (child->arrangeFn) {
+                child->arrangeFn(child, child->computedRect, childTheme);
+            }
         }
     }
 }
@@ -1221,69 +1270,6 @@ void Table::RenderBody(
                     pal.borderSubtle.WithAlpha(95),
                     1.0f
                 );
-            }
-        }
-
-        // Draw fast zero-node cells (CellText & CellBadge)
-        for (const auto& cell : data->state->fastCells) {
-            if (cell.colIndex >= data->columnCount) continue;
-            const float cellX = data->bodyViewportRect.x + data->resolvedColX[cell.colIndex] - node->scrollOffset.x;
-            const float cellY = data->bodyViewportRect.y + static_cast<float>(cell.rowIndex) * data->rowHeight - node->scrollOffset.y;
-            const float cellW = data->resolvedColW[cell.colIndex];
-            const float cellH = data->rowHeight;
-            const Rect cellRect(cellX, cellY, cellW, cellH);
-
-            if (!cellRect.Intersects(data->bodyViewportRect)) continue;
-
-            const Align align = cell.opts.align.value_or(data->columns[cell.colIndex].align);
-            const float hAlign = AlignToFactor(align);
-
-            if (cell.isBadge) {
-                const float badgeFontSize = ResolveTableFontSize(node->uiSize, theme, true);
-                const Vec2 textSz = canvas.MeasureText(cell.text.text, badgeFontSize);
-                const float pillPadX = 7.0f * scale;
-                const float pillH = std::min(cellH - 6.0f * scale, std::max(16.0f * scale, textSz.y + 4.0f * scale));
-                const float pillW = std::min(std::max(0.0f, cellW - cellPadX * 2.0f), textSz.x + pillPadX * 2.0f);
-
-                const float innerX = cellX + cellPadX;
-                const float innerW = std::max(0.0f, cellW - cellPadX * 2.0f);
-                const float pillX = innerX + (innerW - pillW) * hAlign;
-                const float pillY = cellY + (cellH - pillH) * 0.5f;
-                const Rect pillRect(pillX, pillY, pillW, pillH);
-
-                const VariantColors vc = theme.GetVariant(cell.opts.variant);
-                canvas.DrawRoundRect(pillRect, pillH * 0.5f, vc.bg.WithAlpha(48), vc.border.WithAlpha(140), 1.0f);
-                canvas.DrawTextBox(cell.text.text, pillRect, badgeFontSize, vc.bg, 0.5f, 0.5f);
-            } else {
-                Rect textRect(
-                    cellX + cellPadX,
-                    cellY,
-                    std::max(0.0f, cellW - cellPadX * 2.0f),
-                    cellH
-                );
-
-                Color textCol = (cell.opts.variant != UiVariant::Default)
-                    ? theme.GetVariant(cell.opts.variant).bg
-                    : theme.ResolveTextColor(cell.text, UiVariant::Default, node->disabled);
-
-                if (cell.opts.icon.IsValid()) {
-                    const float iconSz = std::min(14.0f * scale, cellH * 0.55f);
-                    const Rect iconRect(textRect.x, cellY + (cellH - iconSz) * 0.5f, iconSz, iconSz);
-                    cell.opts.icon.Draw(canvas, iconRect, textCol);
-                    const float advance = iconSz + 5.0f * scale;
-                    textRect.x += advance;
-                    textRect.w = std::max(0.0f, textRect.w - advance);
-                }
-
-                if (!cell.text.empty() && textRect.w > 2.0f) {
-                    const std::string truncated = TextUtil::TruncateWithEllipsis(
-                        cell.text.text,
-                        textRect.w,
-                        bodyFontSize,
-                        &canvas
-                    );
-                    canvas.DrawTextBox(truncated, textRect, bodyFontSize, textCol, hAlign, 0.5f);
-                }
             }
         }
 
