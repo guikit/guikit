@@ -180,6 +180,14 @@ public:
     /// Returns whether dirty damage rect tracking is currently enabled.
     [[nodiscard]] bool IsDirtyRectEnabled() const noexcept { return m_dirtyRectEnabled; }
 
+    // --- Window Live Resize Policy ---
+    /// Enables or disables live UI reflow and redraw during interactive OS window border dragging (enabled by default).
+    /// When false (deferred resize), the UI updates after the OS resize gesture step completes.
+    void SetLiveResize(bool enabled) noexcept { m_liveResizeEnabled = enabled; }
+
+    /// Returns whether live window resize is currently enabled.
+    [[nodiscard]] bool IsLiveResizeEnabled() const noexcept { return m_liveResizeEnabled; }
+
     /// Sets the active color theme mode (Dark or Light) and adapts clear color & palette.
     void SetThemeMode(ThemeMode mode) noexcept;
 
@@ -1499,6 +1507,7 @@ public:
     [[nodiscard]] bool IsPopupOpen(Id id) const noexcept { return m_openPopupId == id && id.IsValid(); }
     [[nodiscard]] Id GetOpenPopupId() const noexcept { return m_openPopupId; }
     [[nodiscard]] Rect GetOpenPopupRect() const noexcept { return m_openPopupRect; }
+    void SetOpenPopupVisualHash(uint64_t hash) noexcept { m_openPopupVisualHash = hash; }
     void RegisterOverlay(std::function<void(ICanvas&)> drawFn);
     void RegisterOverlayHitRegion(Id id, Rect rect);
     void RegisterOverlayHitBuilder(std::function<void()> builderFn);
@@ -1663,6 +1672,7 @@ private:
     bool m_isFullRepaint{true};
     bool m_forceFullRepaint{true};
     bool m_dirtyRectEnabled{true};
+    bool m_liveResizeEnabled{true};
     bool m_debugBoundsEnabled{false};
     bool m_inspectModeEnabled{false};
     bool m_anyScopedInspectActive{false};
@@ -1841,6 +1851,10 @@ private:
     // Floating popup, tooltip, modal & toast overlay state
     Id m_openPopupId{Id::Null()};
     Rect m_openPopupRect{0.0f, 0.0f, 0.0f, 0.0f};
+    uint64_t m_openPopupVisualHash{0};
+    Id m_prevOpenPopupId{Id::Null()};
+    Rect m_prevOpenPopupRect{0.0f, 0.0f, 0.0f, 0.0f};
+    uint64_t m_prevOpenPopupVisualHash{0};
     Id m_prevFrameModalId{Id::Null()};
     Rect m_prevFrameModalBackdropRect{0.0f, 0.0f, 0.0f, 0.0f};
     Id m_currFrameModalId{Id::Null()};

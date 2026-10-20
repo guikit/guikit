@@ -36,6 +36,7 @@ public:
         m_lastProcessCpuSec = QueryProcessCpuSeconds();
         m_lastDisplayUpdateTime = m_lastCpuCheckTime;
         m_lastFrameTime = m_lastCpuCheckTime;
+        m_lastFrameEnd = m_lastCpuCheckTime;
         m_lastPresentedTime = m_lastCpuCheckTime;
         m_fpsWindowStart = m_lastCpuCheckTime;
     }
@@ -43,6 +44,13 @@ public:
     /// Call at the very beginning of CPU frame work.
     void BeginFrame() noexcept {
         const auto now = std::chrono::steady_clock::now();
+        if (m_hasPreviousFrame) {
+            const auto betweenFrames = now - m_lastFrameEnd;
+            if (std::chrono::duration<float>(betweenFrames).count() > 0.035f) {
+                // Exclude reactive event-loop sleep (SDL_WaitEventTimeout) from active FPS window
+                m_fpsWindowStart += betweenFrames;
+            }
+        }
         m_frameStart = now;
         m_lastFrameTime = now;
         m_hasPreviousFrame = true;
@@ -87,6 +95,7 @@ public:
     /// Call at the end of the frame (after present / delay).
     void EndFrame(float targetFps = 60.0f) noexcept {
         const auto now = std::chrono::steady_clock::now();
+        m_lastFrameEnd = now;
 
         // Evaluate idle status based on time elapsed since the last physically presented frame
         if (m_hasPresentedFrames) {
@@ -219,6 +228,7 @@ private:
     std::chrono::steady_clock::time_point m_gpuStart{};
     std::chrono::steady_clock::time_point m_gpuDone{};
     std::chrono::steady_clock::time_point m_lastFrameTime{};
+    std::chrono::steady_clock::time_point m_lastFrameEnd{};
     std::chrono::steady_clock::time_point m_lastPresentedTime{};
     std::chrono::steady_clock::time_point m_lastCpuCheckTime{};
     std::chrono::steady_clock::time_point m_lastDisplayUpdateTime{};

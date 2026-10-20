@@ -1964,8 +1964,10 @@ public:
         if (m_activeBasemapSourceId != basemapSourceId) {
             m_activeBasemapSourceId = std::string(basemapSourceId);
             m_basemapTiles.clear();
+            ++m_basemapGeneration;
             for (auto& [k, comp] : m_compositeTiles) {
                 comp.isComplete = false;
+                comp.compositeSignature = 0ULL;
             }
         }
         m_maxLayerTiles = std::clamp<size_t>(cfg.maxLayerTiles, 64u, 2048u);
@@ -2004,6 +2006,7 @@ public:
             ++store.lastWindowUpdateFrame;
             for (auto& [tileKey, comp] : m_compositeTiles) {
                 comp.isComplete = false;
+                comp.compositeSignature = 0ULL;
             }
         }
         return store;
@@ -2035,6 +2038,7 @@ public:
                     auto cIt = m_compositeTiles.find(it->first);
                     if (cIt != m_compositeTiles.end()) {
                         cIt->second.isComplete = false;
+                        cIt->second.compositeSignature = 0ULL;
                     }
                     it = store.tiles.erase(it);
                     ++invalidatedCount;
@@ -2047,12 +2051,14 @@ public:
             if (!comp.isComplete) continue;
             if (dirtiedNormBoxes.empty() && frameTick > 0) {
                 comp.isComplete = false;
+                comp.compositeSignature = 0ULL;
                 ++invalidatedCount;
                 continue;
             }
             for (const guikit::Rect& dirtyBox : dirtiedNormBoxes) {
                 if (comp.normQueryBox.w <= 0.0f || comp.normQueryBox.Intersects(dirtyBox)) {
                     comp.isComplete = false;
+                    comp.compositeSignature = 0ULL;
                     ++invalidatedCount;
                     break;
                 }
@@ -2121,12 +2127,17 @@ public:
         auto cIt = m_compositeTiles.find(key);
         if (cIt != m_compositeTiles.end()) {
             cIt->second.isComplete = false;
+            cIt->second.compositeSignature = 0ULL;
         }
         return true;
     }
 
     [[nodiscard]] bool HasBasemapTile(const TileCoordKey& key) const noexcept {
         return m_basemapTiles.find(key) != m_basemapTiles.end();
+    }
+
+    [[nodiscard]] uint64_t GetBasemapGeneration() const noexcept {
+        return m_basemapGeneration;
     }
 
     bool StoreBasemapTile(
@@ -2142,10 +2153,12 @@ public:
         }
         const TileCoordKey key{tileKey.z, tileKey.x, tileKey.y};
         m_basemapTiles[key] = std::move(img);
+        ++m_basemapGeneration;
 
         auto cIt = m_compositeTiles.find(key);
         if (cIt != m_compositeTiles.end()) {
             cIt->second.isComplete = false;
+            cIt->second.compositeSignature = 0ULL;
         }
         return true;
     }
@@ -2642,6 +2655,7 @@ private:
     uint32_t m_tileSizePx{256};
     guikit::MapCrs m_activeCrs{guikit::MapCrs::EPSG3857_WebMercator};
     std::string m_activeBasemapSourceId;
+    uint64_t m_basemapGeneration{1};
     size_t m_maxLayerTiles{256};
     size_t m_maxCompositeTiles{384};
     std::unordered_map<uint64_t, LayerTileStore> m_layerStores;
@@ -4163,7 +4177,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
     // ========================================================================
     EmitRenderBreadcrumb("GisRenderEngine::Stage1_CursorHitTest", static_cast<int>(s_frameCounter), tileZoom);
     HitTestMatch hoveredMatch{};
-    if (!isPanning && scene.IsHovered() && activeWindowFeatures > 0) {
+    if (cfg.enableFeaturePicking && !isPanning && scene.IsHovered() && activeWindowFeatures > 0) {
         const guikit::Vec2 mouseWorld = scene.GetMouseWorldPos();
         const guikit::GeoCoord cursorGeo = map.WorldToGeo(mouseWorld);
         const guikit::Vec2 cursorNorm = guikit::MapGrid::GeoToNormalized(cursorGeo, guikit::MapCrs::EPSG3857_WebMercator);
@@ -4199,7 +4213,9 @@ GisRenderStats GisRenderEngine::RenderLayers(
 
     // Locate currently selected feature in O(1) via packed (layerUid << 32 | idx)
     const geo::GeoLayer* selectedLayer = nullptr;
-    const geo::GeoFeature* selectedFeat = geo::FindFeatureByUid(layers, ioSelectedFeatureUid, &selectedLayer);
+    const geo::GeoFeature* selectedFeat = cfg.enableFeaturePicking
+        ? geo::FindFeatureByUid(layers, ioSelectedFeatureUid, &selectedLayer)
+        : nullptr;
     if (selectedLayer && !selectedLayer->visible) {
         selectedLayer = nullptr;
         selectedFeat = nullptr;
@@ -4241,7 +4257,9 @@ GisRenderStats GisRenderEngine::RenderLayers(
             std::vector<AsyncBasemapResult> completedBasemapTiles;
             GetAsyncStreamer().DrainCompletedBasemapTiles(completedBasemapTiles);
             for (AsyncBasemapResult& bm : completedBasemapTiles) {
-                (void)cache.StoreBasemapTile(bm.sourceId, bm.tileKey, std::move(bm.image));
+                if (cache.StoreBasemapTile(bm.sourceId, bm.tileKey, std::move(bm.image))) {
+                    ++stats.cachedTilesRendered;
+                }
             }
         }
 
@@ -4327,6 +4345,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
         if (useBasemapOverlay) {
             HashCombineBytes(compositeSignature, basemapSourceId.data(), basemapSourceId.size());
             HashCombineVal(compositeSignature, basemapOpacityByte);
+            HashCombineVal(compositeSignature, cache.GetBasemapGeneration());
         }
 
         std::vector<PerLayerTileCacheManager::CompositeLayerRef> compositeRefs;
@@ -4366,7 +4385,9 @@ GisRenderStats GisRenderEngine::RenderLayers(
                 const geo::SlippyTileKey bmKey{cell.id.z, cell.id.x, cell.id.y, tileSizePx};
                 auto cachedBm = activeBasemapProvider->TryGetCachedTile(bmKey);
                 if (cachedBm && cachedBm->IsValid()) {
-                    (void)cache.StoreBasemapTile(basemapSourceId, bmKey, std::move(cachedBm));
+                    if (cache.StoreBasemapTile(basemapSourceId, bmKey, std::move(cachedBm))) {
+                        ++stats.cachedTilesRendered;
+                    }
                 } else {
                     GetAsyncStreamer().EnqueueBasemapTileJob(activeBasemapProvider, bmKey, cellDistSq);
                 }
@@ -4414,10 +4435,12 @@ GisRenderStats GisRenderEngine::RenderLayers(
 
             // Fast-path 2: All Tier-1 layer tiles are already cached (e.g. live fillOpacity change, basemap arrival, or layer toggle)
             if (!anyLayerNeedsRaster) {
-                (void)cache.BuildCompositeTile(
-                    key, cellQueryBox, compositeSignature, bgPx, compositeRefs,
-                    s_frameCounter, useBasemapOverlay, basemapOpacityByte
-                );
+                if (!comp || comp->pixels.empty() || comp->compositeSignature != compositeSignature) {
+                    (void)cache.BuildCompositeTile(
+                        key, cellQueryBox, compositeSignature, bgPx, compositeRefs,
+                        s_frameCounter, useBasemapOverlay, basemapOpacityByte
+                    );
+                }
                 ++stats.cachedTilesHit;
                 continue;
             }

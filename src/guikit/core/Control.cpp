@@ -214,7 +214,10 @@ void Control::SetupNode(
             ep->hasChildControl = true;
             ep->childControlSpec = spec;
             if (!ep->opts.stretch.has_value()) {
-                ep->opts.stretch = stretch;
+                const bool inEqualRow = (parent->parent != nullptr &&
+                                         parent->parent->direction == FlexDirection::Row &&
+                                         parent->parent->equalWidths);
+                ep->opts.stretch = (inEqualRow && spec.stretchable) ? StretchMode::Fill : stretch;
             }
             const StretchMode effStretch = ep->opts.stretch.value_or(stretch);
             parent->widthMode = (effStretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
@@ -308,22 +311,24 @@ void Control::ArrangeStandaloneNode(
         }
     }
 
-    const bool isFill = (node->widthMode == SizeMode::Stretch && node->fixedWidth >= 0.0f);
+    const bool inEqualRow = (node->parent != nullptr &&
+                             node->parent->direction == FlexDirection::Row &&
+                             node->parent->equalWidths);
+    const bool isFill = (node->widthMode == SizeMode::Stretch && node->fixedWidth >= 0.0f) || inEqualRow;
+    const float fillRatio = (node->fixedWidth >= 0.0f) ? std::clamp(node->fixedWidth, 0.0f, 1.0f) : 1.0f;
     const float alignFactor = (node->align == Alignment::End)
         ? 1.0f
         : ((node->align == Alignment::Center) ? 0.5f : 0.0f);
 
-    if (!node->ctrlStretchable && isFill && node->fixedWidth < 1.0f) {
-        const float ratio = std::clamp(node->fixedWidth, 0.0f, 1.0f);
-        const float effW = bounds.w * ratio;
+    if (!node->ctrlStretchable && isFill && fillRatio < 1.0f) {
+        const float effW = bounds.w * fillRatio;
         bounds.x += (bounds.w - effW) * alignFactor;
         bounds.w = effW;
     }
 
     float ctrlW = std::min(bounds.w, intrinsic.x);
     if (node->ctrlStretchable && isFill) {
-        const float ratio = std::clamp(node->fixedWidth, 0.0f, 1.0f);
-        ctrlW = bounds.w * ratio;
+        ctrlW = bounds.w * fillRatio;
     }
 
     const bool stretchH = node->ctrlStretchH || (node->heightMode == SizeMode::Stretch);

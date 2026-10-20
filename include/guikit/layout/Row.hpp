@@ -17,7 +17,9 @@ struct RowOptions {
     std::optional<Padding> padding{std::nullopt};
     Alignment align{Alignment::Stretch};
     Justify justify{Justify::Start};
+    std::optional<SizeMode> widthMode{std::nullopt};
     SizeMode heightMode{SizeMode::Fit};
+    bool equalWidths{false};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

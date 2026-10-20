@@ -245,29 +245,15 @@ int main(int argc, char* argv[]) {
 
     int bufWidth = winWidth;
     int bufHeight = winHeight;
-    int texCapWidth = std::max(winWidth, 1920);
-    int texCapHeight = std::max(winHeight, 1080);
-#ifndef __EMSCRIPTEN__
-    {
-        SDL_Rect dispBounds{};
-        const SDL_DisplayID dispId = SDL_GetDisplayForWindow(window);
-        if (dispId != 0 && SDL_GetDisplayBounds(dispId, &dispBounds)) {
-            const float dispScale = SDL_GetWindowPixelDensity(window);
-            const float effScale = (dispScale > 0.0f) ? dispScale : 1.0f;
-            texCapWidth = std::max(texCapWidth, static_cast<int>(std::ceil(dispBounds.w * effScale)));
-            texCapHeight = std::max(texCapHeight, static_cast<int>(std::ceil(dispBounds.h * effScale)));
-        }
-    }
-#endif
-    std::vector<uint32_t> pixelBuffer(static_cast<size_t>(texCapWidth) * static_cast<size_t>(texCapHeight), 0);
+    std::vector<uint32_t> pixelBuffer(static_cast<size_t>(bufWidth) * static_cast<size_t>(bufHeight), 0);
     canvas.SetTarget(pixelBuffer.data(), bufWidth, bufHeight, bufWidth);
 
     SDL_Texture* screenTexture = SDL_CreateTexture(
         renderer,
         SDL_PIXELFORMAT_ABGR8888,
         SDL_TEXTUREACCESS_STREAMING,
-        texCapWidth,
-        texCapHeight
+        bufWidth,
+        bufHeight
     );
     SDL_SetTextureScaleMode(screenTexture, SDL_SCALEMODE_NEAREST);
     SDL_SetTextureBlendMode(screenTexture, SDL_BLENDMODE_BLEND_PREMULTIPLIED);
@@ -278,6 +264,10 @@ int main(int argc, char* argv[]) {
     bool vsyncEnabled = true;
     bool reactiveMode = true;
     bool inRenderFrame = false;
+    bool isLiveResizeFrame = false;
+    auto lastLiveResizeTime = std::chrono::steady_clock::now();
+    std::string cachedCodeSnippet;
+    NavCategory cachedCodeCategory = NavCategory::ElemHeading;
 
     size_t heartbeatIndex = 2; // Default: 500 ms (2 Hz)
     const std::vector<int> heartbeatMsValues = {-1, 250, 500, 1000, 2000};
@@ -321,45 +311,19 @@ int main(int argc, char* argv[]) {
         }
     );
 
-    auto syncWindowPixelSize = [&]() -> bool {
-        int pxW = 0;
-        int pxH = 0;
-        if (SDL_GetWindowSizeInPixels(window, &pxW, &pxH) && pxW > 0 && pxH > 0) {
-            if (pxW != winWidth || pxH != winHeight) {
-                winWidth = pxW;
-                winHeight = pxH;
-                ui.InvalidateAll();
-                ui.RequestRepaint(2);
-                return true;
-            }
-        }
-        return false;
-    };
-
     auto handleEvent = [&](const SDL_Event& event) {
         switch (event.type) {
             case SDL_EVENT_QUIT:
                 running = false;
                 break;
             case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-            case SDL_EVENT_WINDOW_RESIZED:
-            case SDL_EVENT_WINDOW_MAXIMIZED:
-            case SDL_EVENT_WINDOW_RESTORED:
-            case SDL_EVENT_WINDOW_EXPOSED: {
-                if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED &&
-                    event.window.data1 > 0 && event.window.data2 > 0) {
-                    if (winWidth != event.window.data1 || winHeight != event.window.data2) {
-                        winWidth = event.window.data1;
-                        winHeight = event.window.data2;
-                        ui.InvalidateAll();
-                        ui.RequestRepaint(2);
-                    }
-                } else if (!syncWindowPixelSize() && event.type == SDL_EVENT_WINDOW_EXPOSED) {
+                if (event.window.data1 > 0 && event.window.data2 > 0) {
+                    winWidth = event.window.data1;
+                    winHeight = event.window.data2;
                     ui.InvalidateAll();
-                    ui.RequestRepaint(1);
+                    ui.RequestRepaint(3);
                 }
                 break;
-            }
             case SDL_EVENT_MOUSE_MOTION:
                 ui.OnMouseMove({event.motion.x, event.motion.y});
                 break;
@@ -484,24 +448,20 @@ int main(int argc, char* argv[]) {
         if (winWidth != bufWidth || winHeight != bufHeight) {
             bufWidth = winWidth;
             bufHeight = winHeight;
-            if (bufWidth > texCapWidth || bufHeight > texCapHeight) {
-                texCapWidth = std::max(texCapWidth, bufWidth);
-                texCapHeight = std::max(texCapHeight, bufHeight);
-                pixelBuffer.resize(static_cast<size_t>(texCapWidth) * static_cast<size_t>(texCapHeight));
-                if (screenTexture) {
-                    SDL_DestroyTexture(screenTexture);
-                }
-                screenTexture = SDL_CreateTexture(
-                    renderer,
-                    SDL_PIXELFORMAT_ABGR8888,
-                    SDL_TEXTUREACCESS_STREAMING,
-                    texCapWidth,
-                    texCapHeight
-                );
-                SDL_SetTextureScaleMode(screenTexture, SDL_SCALEMODE_NEAREST);
-                SDL_SetTextureBlendMode(screenTexture, SDL_BLENDMODE_BLEND_PREMULTIPLIED);
-            }
+            pixelBuffer.assign(static_cast<size_t>(bufWidth) * static_cast<size_t>(bufHeight), 0);
             canvas.SetTarget(pixelBuffer.data(), bufWidth, bufHeight, bufWidth);
+            if (screenTexture) {
+                SDL_DestroyTexture(screenTexture);
+            }
+            screenTexture = SDL_CreateTexture(
+                renderer,
+                SDL_PIXELFORMAT_ABGR8888,
+                SDL_TEXTUREACCESS_STREAMING,
+                bufWidth,
+                bufHeight
+            );
+            SDL_SetTextureScaleMode(screenTexture, SDL_SCALEMODE_NEAREST);
+            SDL_SetTextureBlendMode(screenTexture, SDL_BLENDMODE_BLEND_PREMULTIPLIED);
             ui.InvalidateAll();
         }
 
@@ -583,65 +543,80 @@ int main(int argc, char* argv[]) {
                         ui.InvalidateAll();
                     }
 
-                    bool boundsActive = ui.IsDebugBounds();
-                    if (tb.Toggle(boundsActive, {
-                        .label = "Bounds",
-                        .icon = boundsActive ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
-                        .variant = guikit::UiVariant::Info
-                    }).changed) {
-                        ui.SetDebugBounds(boundsActive);
-                    }
+                    if (auto debugGroup = ui.Row({.equalWidths = true})) {
+                        bool boundsActive = ui.IsDebugBounds();
+                        if (tb.Toggle(boundsActive, {
+                            .label = "Bounds",
+                            .icon = boundsActive ? guikit::Icon::Eye() : guikit::Icon::EyeOff(),
+                            .variant = guikit::UiVariant::Info
+                        }).changed) {
+                            ui.SetDebugBounds(boundsActive);
+                        }
 
-                    bool inspectActive = ui.IsInspectMode();
-                    if (tb.Toggle(inspectActive, {
-                        .label = "Inspect",
-                        .icon = guikit::Icon::Search(),
-                        .variant = guikit::UiVariant::Warning
-                    }).changed) {
-                        ui.SetInspectMode(inspectActive);
+                        bool inspectActive = ui.IsInspectMode();
+                        if (tb.Toggle(inspectActive, {
+                            .label = "Inspect",
+                            .icon = guikit::Icon::Search(),
+                            .variant = guikit::UiVariant::Warning
+                        }).changed) {
+                            ui.SetInspectMode(inspectActive);
+                        }
                     }
 
                     tb.Separator();
 
-                    if (tb.Toggle(gpuShadersEnabled, {
-                        .label = "GPU",
-                        .tooltip = "Toggle OpenGL ES3 Shader Acceleration",
-                        .icon = guikit::Icon::Flash(),
-                        .variant = guikit::UiVariant::Success,
-                        .disabled = !gpuShaderEngine.IsAvailable()
-                    }).changed) {
-                        canvas.SetGpuShadersEnabled(gpuShadersEnabled && gpuShaderEngine.IsAvailable());
-                        ui.InvalidateAll();
-                        ui.RequestRepaint(2);
-                    }
-
-                    if (tb.Toggle(vsyncEnabled, {
-                        .label = "VSync",
-                        .tooltip = "Toggle Vertical Sync",
-                        .variant = guikit::UiVariant::Info
-                    }).changed) {
-                        SDL_SetRenderVSync(renderer, vsyncEnabled ? 1 : 0);
-                    }
-
-                    if (tb.Toggle(reactiveMode, {
-                        .label = "React",
-                        .tooltip = "Toggle Event-Driven Reactive Sleep Loop",
-                        .variant = guikit::UiVariant::Primary
-                    }).changed) {
-                        if (!reactiveMode) {
+                    if (auto engineGroup = ui.Row({.equalWidths = true})) {
+                        if (tb.Toggle(gpuShadersEnabled, {
+                            .label = "GPU",
+                            .tooltip = "Toggle OpenGL ES3 Shader Acceleration",
+                            .icon = guikit::Icon::Flash(),
+                            .variant = guikit::UiVariant::Success,
+                            .disabled = !gpuShaderEngine.IsAvailable()
+                        }).changed) {
+                            canvas.SetGpuShadersEnabled(gpuShadersEnabled && gpuShaderEngine.IsAvailable());
                             ui.InvalidateAll();
+                            ui.RequestRepaint(2);
                         }
-                    }
 
-                    bool dirtyActive = ui.IsDirtyRectEnabled();
-                    if (tb.Toggle(dirtyActive, {
-                        .label = "Dirty",
-                        .tooltip = "Toggle Disjoint Dirty-Rect Partial Rasterization",
-                        .variant = guikit::UiVariant::Success
-                    }).changed) {
-                        ui.SetDirtyRectEnabled(dirtyActive);
-                        if (!dirtyActive) {
-                            ui.InvalidateAll();
+                        if (tb.Toggle(vsyncEnabled, {
+                            .label = "VSync",
+                            .tooltip = "Toggle Vertical Sync",
+                            .variant = guikit::UiVariant::Info
+                        }).changed) {
+                            SDL_SetRenderVSync(renderer, vsyncEnabled ? 1 : 0);
+                        }
+
+                        if (tb.Toggle(reactiveMode, {
+                            .label = "React",
+                            .tooltip = "Toggle Event-Driven Reactive Sleep Loop",
+                            .variant = guikit::UiVariant::Primary
+                        }).changed) {
+                            if (!reactiveMode) {
+                                ui.InvalidateAll();
+                            }
+                        }
+
+                        bool dirtyActive = ui.IsDirtyRectEnabled();
+                        if (tb.Toggle(dirtyActive, {
+                            .label = "Dirty",
+                            .tooltip = "Toggle Disjoint Dirty-Rect Partial Rasterization",
+                            .variant = guikit::UiVariant::Success
+                        }).changed) {
+                            ui.SetDirtyRectEnabled(dirtyActive);
+                            if (!dirtyActive) {
+                                ui.InvalidateAll();
+                            }
+                        }
+
+                        bool liveResizeActive = ui.IsLiveResizeEnabled();
+                        if (tb.Toggle(liveResizeActive, {
+                            .label = "Live",
+                            .tooltip = liveResizeActive
+                                ? "Live Window Resize: Smooth 60 FPS reflow while dragging window border"
+                                : "Deferred Window Resize: Reflow after window resize step completes",
+                            .variant = guikit::UiVariant::Info
+                        }).changed) {
+                            ui.SetLiveResize(liveResizeActive);
                         }
                     }
 
@@ -896,8 +871,11 @@ int main(int argc, char* argv[]) {
                                     }
                                 }
 
-                                std::string snippet = DispatchCodeGenerator(selectedCategory, demoCtx);
-                                ui.TextArea(snippet, {
+                                if (!isLiveResizeFrame || cachedCodeSnippet.empty() || cachedCodeCategory != selectedCategory) {
+                                    cachedCodeSnippet = DispatchCodeGenerator(selectedCategory, demoCtx);
+                                    cachedCodeCategory = selectedCategory;
+                                }
+                                ui.TextArea(cachedCodeSnippet, {
                                     .autoHeight = false,
                                     .readOnly = true,
                                     .showLineNumbers = true,
@@ -991,8 +969,7 @@ int main(int argc, char* argv[]) {
             metrics.MarkGpuStart();
             if (ui.HasDirtyDamage()) {
                 if (ui.IsFullRepaint()) {
-                    const SDL_Rect fullRect = {0, 0, winWidth, winHeight};
-                    SDL_UpdateTexture(screenTexture, &fullRect, pixelBuffer.data(), winWidth * sizeof(uint32_t));
+                    SDL_UpdateTexture(screenTexture, nullptr, pixelBuffer.data(), winWidth * sizeof(uint32_t));
                 } else {
                     const float dpiScale = ui.GetDpiScale();
                     for (const guikit::Rect& dr : ui.GetDirtyRects()) {
@@ -1012,8 +989,7 @@ int main(int argc, char* argv[]) {
             if (canvas.HasActiveGpuPasses()) {
                 gpuShaderEngine.RenderUnderlays(canvas, static_cast<uint32_t>(winWidth), static_cast<uint32_t>(winHeight));
             }
-            const SDL_FRect srcFRect = {0.0f, 0.0f, static_cast<float>(winWidth), static_cast<float>(winHeight)};
-            SDL_RenderTexture(renderer, screenTexture, &srcFRect, nullptr);
+            SDL_RenderTexture(renderer, screenTexture, nullptr, nullptr);
             metrics.MarkGpuDone();
 
             SDL_RenderPresent(renderer);
@@ -1021,12 +997,15 @@ int main(int argc, char* argv[]) {
         }
 
 #ifndef __EMSCRIPTEN__
-        if (!vsyncEnabled && !reactiveMode) {
+        if (!shouldPresent || (!vsyncEnabled && !reactiveMode)) {
             const auto frameEnd = std::chrono::steady_clock::now();
             const double frameElapsedMs = std::chrono::duration<double, std::milli>(frameEnd - frameWorkStart).count();
             const double targetFrameMs = 1000.0 / 60.0;
             if (frameElapsedMs + 1.0 < targetFrameMs) {
-                SDL_Delay(static_cast<uint32_t>(targetFrameMs - frameElapsedMs));
+                const double sleepMs = shouldPresent
+                    ? (targetFrameMs - frameElapsedMs)
+                    : std::min(4.0, targetFrameMs - frameElapsedMs);
+                SDL_Delay(static_cast<uint32_t>(sleepMs));
             }
         }
 #else
@@ -1083,17 +1062,30 @@ int main(int argc, char* argv[]) {
     );
 #else
     auto liveResizeWatch = [&](SDL_Event* event) -> bool {
-        if (!running || inRenderFrame || !event) {
+        if (!running || inRenderFrame || !event || !ui.IsLiveResizeEnabled()) {
             return true;
         }
-        if (event->type == SDL_EVENT_WINDOW_EXPOSED ||
-            event->type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED ||
-            event->type == SDL_EVENT_WINDOW_RESIZED ||
-            event->type == SDL_EVENT_WINDOW_MAXIMIZED ||
-            event->type == SDL_EVENT_WINDOW_RESTORED) {
-            if (syncWindowPixelSize() || event->type == SDL_EVENT_WINDOW_EXPOSED) {
+        if (event->type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) {
+            if (event->window.data1 > 0 && event->window.data2 > 0) {
+                winWidth = event->window.data1;
+                winHeight = event->window.data2;
                 ui.InvalidateAll();
+                ui.RequestRepaint(3);
+            }
+            return true;
+        }
+        // Only render on SDL_EVENT_WINDOW_EXPOSED (which fires on WM_PAINT / live-resize timer
+        // AFTER DefWindowProc(WM_WINDOWPOSCHANGED) and WM_SIZE have updated the OpenGL backbuffer)
+        // when the window pixel dimensions actually differ from the last rendered buffer.
+        if (event->type == SDL_EVENT_WINDOW_EXPOSED &&
+            (winWidth != bufWidth || winHeight != bufHeight)) {
+            const auto now = std::chrono::steady_clock::now();
+            const double elapsedMs = std::chrono::duration<double, std::milli>(now - lastLiveResizeTime).count();
+            if (elapsedMs >= 16.0) {
+                lastLiveResizeTime = now;
+                isLiveResizeFrame = true;
                 renderFrame();
+                isLiveResizeFrame = false;
             }
         }
         return true;
@@ -1104,7 +1096,6 @@ int main(int argc, char* argv[]) {
     SDL_AddEventWatch(watchCallback, &liveResizeWatch);
 
     while (running) {
-        syncWindowPixelSize();
         if (reactiveMode && !ui.NeedsRepaint()) {
             const int timeoutMs = ui.GetRecommendedSleepTimeoutMs();
             SDL_Event event;
@@ -1114,7 +1105,7 @@ int main(int argc, char* argv[]) {
                     handleEvent(event);
                 }
             } else {
-                if (timeoutMs <= 0 && !syncWindowPixelSize() && !ui.NeedsRepaint()) {
+                if (timeoutMs <= 0 && !ui.NeedsRepaint()) {
                     continue;
                 }
             }

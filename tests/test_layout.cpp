@@ -882,6 +882,76 @@ void TestAspectRatioMinHeightAndStretchFallback() {
     CHECK_NEAR(col->computedRect.h, 450.0f, 0.001f); // 200 + 10 + 240
 }
 
+void TestRowEqualWidthsFitAndStretch() {
+    using namespace guikit;
+
+    BumpAllocator arena;
+
+    // 1. Fit Row with equalWidths = true: all items adopt the widest child's intrinsic width (80px)
+    Node* fitRow = arena.Allocate<Node>();
+    fitRow->direction = FlexDirection::Row;
+    fitRow->widthMode = SizeMode::Fit;
+    fitRow->heightMode = SizeMode::Fit;
+    fitRow->equalWidths = true;
+    fitRow->gap = 8.0f;
+
+    const float widths[5] = {80.0f, 62.0f, 60.0f, 56.0f, 52.0f};
+    Node* items[5]{};
+    for (int i = 0; i < 5; ++i) {
+        Node* n = arena.Allocate<Node>();
+        n->widthMode = SizeMode::Fit;
+        n->heightMode = SizeMode::Fixed;
+        n->fixedHeight = 32.0f;
+        const float w = widths[i];
+        n->measureFn = (w == 80.0f)
+            ? +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {80.0f, 32.0f}; }
+            : (w == 62.0f)
+                ? +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {62.0f, 32.0f}; }
+                : (w == 60.0f)
+                    ? +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {60.0f, 32.0f}; }
+                    : (w == 56.0f)
+                        ? +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {56.0f, 32.0f}; }
+                        : +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {52.0f, 32.0f}; };
+        fitRow->AddChild(n);
+        items[i] = n;
+    }
+
+    Solver::Measure(fitRow);
+    // Intrinsic width = 5 * 80 + 4 * 8 = 432
+    CHECK_NEAR(fitRow->intrinsicSize.x, 432.0f, 0.001f);
+
+    Solver::Arrange(fitRow, Rect(0.0f, 0.0f, 1000.0f, 40.0f));
+    CHECK_NEAR(fitRow->computedRect.w, 432.0f, 0.001f);
+    for (int i = 0; i < 5; ++i) {
+        CHECK_NEAR(items[i]->computedRect.w, 80.0f, 0.001f);
+        CHECK_NEAR(items[i]->computedRect.x, static_cast<float>(i) * 88.0f, 0.001f);
+    }
+
+    // 2. Stretch Row with equalWidths = true: items divide row width equally
+    Node* stretchRow = arena.Allocate<Node>();
+    stretchRow->direction = FlexDirection::Row;
+    stretchRow->widthMode = SizeMode::Stretch;
+    stretchRow->heightMode = SizeMode::Fit;
+    stretchRow->equalWidths = true;
+    stretchRow->gap = 10.0f;
+
+    Node* s1 = arena.Allocate<Node>();
+    s1->widthMode = SizeMode::Fit;
+    s1->measureFn = +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {50.0f, 32.0f}; };
+    stretchRow->AddChild(s1);
+
+    Node* s2 = arena.Allocate<Node>();
+    s2->widthMode = SizeMode::Fit;
+    s2->measureFn = +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {110.0f, 32.0f}; };
+    stretchRow->AddChild(s2);
+
+    Solver::Measure(stretchRow);
+    Solver::Arrange(stretchRow, Rect(0.0f, 0.0f, 410.0f, 32.0f));
+    CHECK_NEAR(s1->computedRect.w, 200.0f, 0.001f);
+    CHECK_NEAR(s2->computedRect.w, 200.0f, 0.001f);
+    CHECK_NEAR(s2->computedRect.x, 210.0f, 0.001f);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Layout Solver...\n";
 
@@ -899,6 +969,7 @@ int main() {
     TestStretchColumnInConstrainedRowWithHugeContent();
     TestCarouselArrowScaling();
     TestAspectRatioMinHeightAndStretchFallback();
+    TestRowEqualWidthsFitAndStretch();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Layout tests passed successfully!\n";

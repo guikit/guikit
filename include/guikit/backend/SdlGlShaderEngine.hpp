@@ -6,6 +6,13 @@
 #include <vector>
 #include "guikit/backend/ThorCanvas.hpp"
 
+#if defined(_WIN32) && defined(_MSC_VER)
+// Automatically export high-performance discrete GPU selection symbols (NVIDIA Optimus & AMD PowerXpress)
+// from any Windows executable linking guikit::backend_sdl3 so OpenGL never falls back to Intel iGPU OpenGL-on-D3D12.
+#pragma comment(linker, "/INCLUDE:NvOptimusEnablement")
+#pragma comment(linker, "/INCLUDE:AmdPowerXpressRequestHighPerformance")
+#endif
+
 struct SDL_Renderer;
 
 namespace guikit {

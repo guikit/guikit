@@ -60,6 +60,7 @@ struct GisRenderConfig {
     bool frustumCulling{true};               ///< Cull features via R-Tree spatial index outside visible viewport
     bool lodSimplification{true};            ///< Use multi-zoom LOD rings and skip sub-pixel segments
     float lodPixelTolerance{1.25f};          ///< Minimum screen-space pixel distance between consecutive vertices
+    bool enableFeaturePicking{true};         ///< Enable interactive hover hit-testing and click selection highlight on map features
     bool showVertexDotsOnSelect{true};       ///< Render vertex control handles on the currently selected feature
     bool showFeatureCallouts{true};          ///< Render labels, soundings, and seamark callouts
     bool useVectorTileCache{true};           ///< Rasterize static polygons/lines into [z/x/y] offscreen ICanvas vector tiles

@@ -483,6 +483,18 @@ Response Select::Run(
         const float popupScrollY = popupState.scrollY;
         const bool sbHovered = popupState.scrollbarHovered;
         const bool sbActive = popupState.scrollbarActive;
+        ctx.SetOpenPopupVisualHash(detail::HashArgs(
+            currentPopupRect.x,
+            currentPopupRect.y,
+            currentPopupRect.w,
+            currentPopupRect.h,
+            currIndex,
+            hoveredItem,
+            popupScrollY,
+            sbHovered,
+            sbActive,
+            items.size()
+        ));
         std::vector<SelectItem> itemsVec;
         itemsVec.reserve(items.size());
         for (const SelectItem& it : items) {

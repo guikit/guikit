@@ -947,19 +947,21 @@ void ThorCanvas::DrawTextBox(
 
 void ThorCanvas::DrawLine(Vec2 p1, Vec2 p2, Color color, float strokeWidth) {
     if (color.a == 0 || strokeWidth <= 0.0f || !m_canvas) return;
-    if (std::abs(p1.y - p2.y) <= 0.05f) {
-        const float x0 = std::min(p1.x, p2.x);
-        const float x1 = std::max(p1.x, p2.x);
-        const float hw = strokeWidth * 0.5f;
-        DrawRect(Rect(x0 - hw, p1.y - hw, (x1 - x0) + strokeWidth, strokeWidth), color);
-        return;
-    }
-    if (std::abs(p1.x - p2.x) <= 0.05f) {
-        const float y0 = std::min(p1.y, p2.y);
-        const float y1 = std::max(p1.y, p2.y);
-        const float hw = strokeWidth * 0.5f;
-        DrawRect(Rect(p1.x - hw, y0 - hw, strokeWidth, (y1 - y0) + strokeWidth), color);
-        return;
+    if (!m_hasPendingPaints) {
+        if (std::abs(p1.y - p2.y) <= 0.05f) {
+            const float x0 = std::min(p1.x, p2.x);
+            const float x1 = std::max(p1.x, p2.x);
+            const float hw = strokeWidth * 0.5f;
+            DrawRect(Rect(x0 - hw, p1.y - hw, (x1 - x0) + strokeWidth, strokeWidth), color);
+            return;
+        }
+        if (std::abs(p1.x - p2.x) <= 0.05f) {
+            const float y0 = std::min(p1.y, p2.y);
+            const float y1 = std::max(p1.y, p2.y);
+            const float hw = strokeWidth * 0.5f;
+            DrawRect(Rect(p1.x - hw, y0 - hw, strokeWidth, (y1 - y0) + strokeWidth), color);
+            return;
+        }
     }
     Vec2 sp1(p1.x * m_scale, p1.y * m_scale);
     Vec2 sp2(p2.x * m_scale, p2.y * m_scale);

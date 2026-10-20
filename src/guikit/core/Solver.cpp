@@ -91,13 +91,43 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             float maxHeight = 0.0f;
             uint32_t activeChildren = 0;
 
-            for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-                if (child->type == NodeType::Modal) continue;
-                const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
-                const float ch = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight : child->intrinsicSize.y;
-                totalWidth += cw;
-                maxHeight = std::max(maxHeight, ch);
-                ++activeChildren;
+            if (node->direction == FlexDirection::Row && (node->equalWidths || node->widthMode == SizeMode::Fit)) {
+                float nonStretchSum = 0.0f;
+                float stretchFlexSum = 0.0f;
+                float maxUnitFlexWidth = 0.0f;
+
+                for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+                    if (child->type == NodeType::Modal) continue;
+                    const float ch = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight : child->intrinsicSize.y;
+                    maxHeight = std::max(maxHeight, ch);
+                    ++activeChildren;
+
+                    if (child->isSpacer) {
+                        continue;
+                    }
+                    const bool isEqualTrack = node->equalWidths && (child->widthMode != SizeMode::Fixed) && (child->type != NodeType::Sidebar);
+                    if (isEqualTrack || child->widthMode == SizeMode::Stretch) {
+                        const float fg = isEqualTrack ? 1.0f : std::max(0.01f, child->flexGrow);
+                        const float cw = std::max(child->minWidth, child->intrinsicSize.x);
+                        stretchFlexSum += fg;
+                        maxUnitFlexWidth = std::max(maxUnitFlexWidth, cw / fg);
+                    } else {
+                        const float cw = (child->widthMode == SizeMode::Fixed)
+                            ? child->fixedWidth
+                            : std::max(child->minWidth, child->intrinsicSize.x);
+                        nonStretchSum += cw;
+                    }
+                }
+                totalWidth += nonStretchSum + stretchFlexSum * maxUnitFlexWidth;
+            } else {
+                for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+                    if (child->type == NodeType::Modal) continue;
+                    const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
+                    const float ch = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight : child->intrinsicSize.y;
+                    totalWidth += cw;
+                    maxHeight = std::max(maxHeight, ch);
+                    ++activeChildren;
+                }
             }
 
             if (activeChildren > 1) {
@@ -656,14 +686,35 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         float totalFlexGrow = 0.0f;
         uint32_t flexCount = 0;
 
+        float maxEqualTrackW = 0.0f;
+        uint32_t spacerCount = 0;
+        if (node->equalWidths) {
+            for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+                if (child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
+                if (child->isSpacer) {
+                    ++spacerCount;
+                } else if (child->widthMode != SizeMode::Fixed) {
+                    maxEqualTrackW = std::max(maxEqualTrackW, std::max(child->minWidth, child->intrinsicSize.x));
+                }
+            }
+        }
+        const bool stretchEqualTracks = node->equalWidths &&
+            (node->widthMode != SizeMode::Fit) &&
+            (spacerCount == 0) &&
+            (node->justify == Justify::Start);
+
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
             if (child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
             ++flowChildCount;
-            if (child->isSpacer || child->widthMode == SizeMode::Stretch) {
-                totalFlexGrow += std::max(0.01f, child->flexGrow);
+            const bool isEqualTrack = node->equalWidths && !child->isSpacer && (child->widthMode != SizeMode::Fixed);
+            if (child->isSpacer || (isEqualTrack && stretchEqualTracks) || (!node->equalWidths && child->widthMode == SizeMode::Stretch)) {
+                const float fg = (isEqualTrack && stretchEqualTracks) ? 1.0f : std::max(0.01f, child->flexGrow);
+                totalFlexGrow += fg;
                 ++flexCount;
             } else if (child->widthMode == SizeMode::Fixed) {
                 baseSum += child->fixedWidth;
+            } else if (isEqualTrack) {
+                baseSum += maxEqualTrackW;
             } else { // SizeMode::Fit
                 baseSum += child->intrinsicSize.x;
             }
@@ -688,12 +739,16 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
             if (child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
             float childW = 0.0f;
-            if (child->isSpacer || child->widthMode == SizeMode::Stretch) {
+            const bool isEqualTrack = node->equalWidths && !child->isSpacer && (child->widthMode != SizeMode::Fixed);
+            if (child->isSpacer || (isEqualTrack && stretchEqualTracks) || (!node->equalWidths && child->widthMode == SizeMode::Stretch)) {
+                const float fg = (isEqualTrack && stretchEqualTracks) ? 1.0f : std::max(0.01f, child->flexGrow);
                 childW = (totalFlexGrow > 0.0f)
-                    ? (freeSpace * (std::max(0.01f, child->flexGrow) / totalFlexGrow))
+                    ? (freeSpace * (fg / totalFlexGrow))
                     : 0.0f;
             } else if (child->widthMode == SizeMode::Fixed) {
                 childW = child->fixedWidth;
+            } else if (isEqualTrack) {
+                childW = maxEqualTrackW;
             } else { // SizeMode::Fit
                 childW = child->intrinsicSize.x;
                 if (node->widthMode != SizeMode::Fit && contentRect.w > 0.0f && flowChildCount == 1) {

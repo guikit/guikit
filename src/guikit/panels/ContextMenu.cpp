@@ -392,6 +392,16 @@ ContextMenuResponse ContextMenu::Run(
         ? theme.Scale(*opts.borderRadius)
         : theme.ResolveRadius(std::nullopt, activeSize);
 
+    ctx.SetOpenPopupVisualHash(detail::HashArgs(
+        popupRect.x,
+        popupRect.y,
+        popupRect.w,
+        popupRect.h,
+        hoveredIdx,
+        state.keyboardIndex,
+        items.size()
+    ));
+
     ctx.RegisterOverlay([popupRect, radius, s, padX, iconSlotW, anyLeadingSlot, labelFont, shortcutFont, theme, drawItems = std::move(drawItems)](ICanvas& c) {
         const auto& pal = theme.palette;
 

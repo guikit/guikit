@@ -33,6 +33,13 @@ ControlSpec EffectiveSpinBoxControl(const SpinBoxOptions& opts, UiSize size, con
     return c;
 }
 
+SpinBoxStepStyle ResolveEffectiveStepStyle(const SpinBoxOptions& opts) noexcept {
+    if (!opts.stepButtons || opts.readOnly) {
+        return SpinBoxStepStyle::None;
+    }
+    return opts.stepStyle;
+}
+
 Vec2 MeasureSpinBox(
     const SpinBoxOptions& opts,
     UiSize size,
@@ -42,8 +49,14 @@ Vec2 MeasureSpinBox(
     const InputFieldMetrics& m = theme.GetInputField(size);
     const ControlSpec ctrl = EffectiveSpinBoxControl(opts, size, theme);
     const bool hasVariants = !opts.valueFormat.variants.empty();
+    const SpinBoxStepStyle effStyle = ResolveEffectiveStepStyle(opts);
+    const float boxH = (ctrl.height.has_value() && *ctrl.height > 0.0f) ? theme.Scale(*ctrl.height) : m.defaultHeight;
+    const float extGap = theme.Scale(4.0f);
+    const float extBtnsW = (effStyle == SpinBoxStepStyle::Detached || effStyle == SpinBoxStepStyle::Split)
+        ? (boxH + extGap) * 2.0f
+        : 0.0f;
 
-    float boxW = m.defaultWidth;
+    float boxW = m.defaultWidth + extBtnsW;
     if (opts.stretch != StretchMode::Fill) {
         if (ctrl.width.has_value()) {
             boxW = theme.Scale(*ctrl.width);
@@ -68,8 +81,10 @@ Vec2 MeasureSpinBox(
                 const float sW = TextUtil::MeasureAffixWidth(opts.suffix, sFont, m.iconSize, 4.0f, canvas);
                 totalW += sW + 6.0f;
             }
-            if (opts.stepButtons && !opts.readOnly) {
+            if (effStyle == SpinBoxStepStyle::Inline) {
                 totalW += (m.iconSize + 4.0f) * 2.0f + 10.0f;
+            } else if (effStyle == SpinBoxStepStyle::Detached || effStyle == SpinBoxStepStyle::Split) {
+                totalW += extBtnsW;
             }
             boxW = totalW;
         }
@@ -78,11 +93,11 @@ Vec2 MeasureSpinBox(
     if (ctrl.minWidth.has_value()) {
         boxW = std::max(theme.Scale(*ctrl.minWidth), boxW);
     } else if (hasVariants && opts.stretch != StretchMode::Fill && !ctrl.width.has_value()) {
-        boxW = std::max(m.defaultHeight, boxW);
+        boxW = std::max(boxH + extBtnsW, boxW);
     } else {
-        boxW = std::max(m.minWidth, boxW);
+        boxW = std::max(m.minWidth + extBtnsW, boxW);
     }
-    return {boxW, m.defaultHeight};
+    return {boxW, boxH};
 }
 
 struct SpinBoxState {
@@ -94,6 +109,8 @@ struct SpinBoxState {
     size_t wordDragStart{0};
     size_t wordDragEnd{0};
     bool actionBtnDown{false};
+    bool minusBtnDown{false};
+    bool plusBtnDown{false};
     bool wasFocusedOnPress{false};
     bool scrubbing{false};
     Vec2 scrubStartPos{};
@@ -116,7 +133,27 @@ SpinBoxRects ResolveSpinBoxRects(
     bool showStepBtns
 ) noexcept {
     const InputFieldMetrics& m = theme.GetInputField(size);
-    const Rect boxRect = bounds;
+    const SpinBoxStepStyle effStyle = showStepBtns ? ResolveEffectiveStepStyle(opts) : SpinBoxStepStyle::None;
+    const float extGap = theme.Scale(4.0f);
+
+    Rect boxRect = bounds;
+    Rect stepMinusRect{};
+    Rect stepPlusRect{};
+
+    if (effStyle == SpinBoxStepStyle::Detached) {
+        const float btnH = bounds.h;
+        const float btnW = std::min(btnH, std::max(0.0f, (bounds.w - extGap * 2.0f) * 0.30f));
+        stepPlusRect = Rect(bounds.Right() - btnW, bounds.y, btnW, btnH);
+        stepMinusRect = Rect(stepPlusRect.x - extGap - btnW, bounds.y, btnW, btnH);
+        boxRect = Rect(bounds.x, bounds.y, std::max(0.0f, stepMinusRect.x - extGap - bounds.x), bounds.h);
+    } else if (effStyle == SpinBoxStepStyle::Split) {
+        const float btnH = bounds.h;
+        const float btnW = std::min(btnH, std::max(0.0f, (bounds.w - extGap * 2.0f) * 0.30f));
+        stepMinusRect = Rect(bounds.x, bounds.y, btnW, btnH);
+        stepPlusRect = Rect(bounds.Right() - btnW, bounds.y, btnW, btnH);
+        const float boxX = stepMinusRect.Right() + extGap;
+        boxRect = Rect(boxX, bounds.y, std::max(0.0f, stepPlusRect.x - extGap - boxX), bounds.h);
+    }
 
     float leftX = boxRect.x + m.paddingX;
     if (opts.prefix.HasContentOrReserve()) {
@@ -128,9 +165,7 @@ SpinBoxRects ResolveSpinBoxRects(
 
     float rightX = boxRect.x + boxRect.w - m.paddingX;
 
-    Rect stepMinusRect{};
-    Rect stepPlusRect{};
-    if (showStepBtns) {
+    if (effStyle == SpinBoxStepStyle::Inline) {
         const float btnSize = m.iconSize + 4.0f;
         const float btnY = boxRect.y + (boxRect.h - btnSize) * 0.5f;
         rightX -= btnSize;
@@ -274,6 +309,8 @@ Response SpinBox::Run(
     auto& state = ctx.GetOrCreateState<SpinBoxState>(id);
     if (!res.pressed && !mouseJustPressed) {
         state.actionBtnDown = false;
+        state.minusBtnDown = false;
+        state.plusBtnDown = false;
         state.scrubbing = false;
     }
 
@@ -283,12 +320,13 @@ Response SpinBox::Run(
         ? res.rect
         : Rect({0.0f, 0.0f}, SpinBox::Measure(valStr, optsCopy, activeSize, canvas, theme));
 
-    const bool showStepBtns = opts.stepButtons && !opts.readOnly && !effectiveDisabled;
+    const SpinBoxStepStyle effStepStyle = ResolveEffectiveStepStyle(optsCopy);
+    const bool showStepBtns = (effStepStyle != SpinBoxStepStyle::None);
     SpinBoxRects rects = ResolveSpinBoxRects(refBounds, optsCopy, activeSize, canvas, theme, showStepBtns);
 
     const Vec2 mousePos = ctx.GetMousePos();
-    const bool stepMinusHovered = showStepBtns && res.hovered && rects.stepMinusRect.Contains(mousePos);
-    const bool stepPlusHovered = showStepBtns && res.hovered && rects.stepPlusRect.Contains(mousePos);
+    const bool stepMinusHovered = showStepBtns && !effectiveDisabled && res.hovered && rects.stepMinusRect.Contains(mousePos);
+    const bool stepPlusHovered = showStepBtns && !effectiveDisabled && res.hovered && rects.stepPlusRect.Contains(mousePos);
 
     double stepClickDelta = 0.0;
     const double stepVal = opts.step.value_or(1.0);
@@ -297,12 +335,16 @@ Response SpinBox::Run(
         state.scrubbing = false;
         state.scrubStartPos = mousePos;
         state.scrubStartValue = ReadNumericValue(floatValue, doubleValue, intValue);
+        state.minusBtnDown = false;
+        state.plusBtnDown = false;
 
         if (stepMinusHovered) {
             state.actionBtnDown = true;
+            state.minusBtnDown = true;
             stepClickDelta = -stepVal;
         } else if (stepPlusHovered) {
             state.actionBtnDown = true;
+            state.plusBtnDown = true;
             stepClickDelta = stepVal;
         }
     }
@@ -529,6 +571,8 @@ Response SpinBox::Run(
     data->showStepBtns = showStepBtns;
     data->stepMinusHovered = stepMinusHovered;
     data->stepPlusHovered = stepPlusHovered;
+    data->stepMinusPressed = state.minusBtnDown && res.pressed;
+    data->stepPlusPressed = state.plusBtnDown && res.pressed;
     data->stepMinusDisabled = stepMinusDisabled;
     data->stepPlusDisabled = stepPlusDisabled;
     data->scrubbing = state.scrubbing;
@@ -536,6 +580,7 @@ Response SpinBox::Run(
     node->visualHash = detail::HashArgs(
         static_cast<uint8_t>(optsCopy.align),
         static_cast<uint8_t>(optsCopy.stretch),
+        static_cast<uint8_t>(optsCopy.stepStyle),
         optsCopy.color,
         optsCopy.background,
         optsCopy.border,
@@ -554,6 +599,8 @@ Response SpinBox::Run(
         data->showStepBtns,
         data->stepMinusHovered,
         data->stepPlusHovered,
+        data->stepMinusPressed,
+        data->stepPlusPressed,
         data->stepMinusDisabled,
         data->stepPlusDisabled,
         data->scrubbing,
@@ -596,7 +643,9 @@ Response SpinBox::Run(
             d ? d->stepMinusDisabled : false,
             d ? d->stepPlusDisabled : false,
             d ? d->fillRatio : 0.0f,
-            d ? d->scrubbing : false
+            d ? d->scrubbing : false,
+            d ? d->stepMinusPressed : false,
+            d ? d->stepPlusPressed : false
         );
     };
 
@@ -661,7 +710,9 @@ void SpinBox::Render(
     bool stepMinusDisabled,
     bool stepPlusDisabled,
     float fillRatio,
-    bool scrubbing
+    bool scrubbing,
+    bool stepMinusPressed,
+    bool stepPlusPressed
 ) {
     if (bounds.w <= 0.0f || bounds.h <= 0.0f) {
         return;
@@ -669,11 +720,15 @@ void SpinBox::Render(
 
     const InputFieldMetrics& m = theme.GetInputField(size);
     const ControlSpec ctrl = EffectiveSpinBoxControl(opts, size, theme);
-    const Rect boxRect = bounds;
+    const SpinBoxStepStyle effStyle = showStepBtns ? ResolveEffectiveStepStyle(opts) : SpinBoxStepStyle::None;
+    const SpinBoxRects rects = ResolveSpinBoxRects(bounds, opts, size, &canvas, theme, showStepBtns);
+    const Rect boxRect = rects.boxRect;
+    const bool isExternalStepBtns = (effStyle == SpinBoxStepStyle::Detached || effStyle == SpinBoxStepStyle::Split);
+    const bool inputHovered = hovered && (!isExternalStepBtns || (!stepMinusHovered && !stepPlusHovered));
 
     const auto& pal = theme.palette;
     Color boxBg = ctrl.HasBackground(true)
-        ? ((hovered && !disabled) ? pal.surface : pal.inputBackground)
+        ? ((inputHovered && !disabled) ? pal.surface : pal.inputBackground)
         : Color::Transparent();
     Color boxBorder;
     float strokeW = (ctrl.border.width > 0.0f) ? theme.Scale(ctrl.border.width) : m.strokeWidth;
@@ -686,14 +741,14 @@ void SpinBox::Render(
     if ((focused || scrubbing) && !disabled) {
         boxBorder = opts.color.HasAny() ? accentCol : pal.focusRing;
         if (ctrl.border.width > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
-    } else if (hovered && !disabled) {
+    } else if (inputHovered && !disabled) {
         boxBorder = pal.borderHover;
     } else {
         boxBorder = pal.inputBorder;
     }
 
     Color textCol = opts.valueFormat.color.HasAny()
-        ? theme.ResolveTextColor(opts.valueFormat, UiVariant::Default, disabled, hovered, focused)
+        ? theme.ResolveTextColor(opts.valueFormat, UiVariant::Default, disabled, inputHovered, focused)
         : (disabled ? pal.textPrimary.WithAlphaF(0.40f) : pal.textPrimary);
     Color unitCol = pal.textSecondary;
 
@@ -704,16 +759,16 @@ void SpinBox::Render(
     }
 
     if (ctrl.HasBackground(true) && ctrl.background.HasAny() && !ctrl.background.IsSurface()) {
-        boxBg = ctrl.background.Resolve(hovered, focused, disabled, boxBg);
+        boxBg = ctrl.background.Resolve(inputHovered, focused, disabled, boxBg);
     }
     if (ctrl.border.color.HasAny()) {
-        boxBorder = ctrl.border.color.Resolve(hovered, focused, disabled, boxBorder);
+        boxBorder = ctrl.border.color.Resolve(inputHovered, focused, disabled, boxBorder);
     }
 
     const float radius = ctrl.border.radius.has_value() ? theme.Scale(*ctrl.border.radius) : m.cornerRadius;
     canvas.DrawRoundRect(boxRect, radius, boxBg, boxBorder, strokeW);
 
-    // Optional fill bar along the bottom inside the SpinBox
+    // Optional fill bar along the bottom inside the SpinBox input field
     if (opts.showFillBar && fillRatio > 0.001f) {
         const float barH = std::max(2.0f, theme.Scale(3.0f));
         const float padX = std::max(2.0f, radius * 0.35f);
@@ -726,12 +781,63 @@ void SpinBox::Render(
         }
     }
 
+    // External square (H x H) stepper buttons for Detached / Split styles
+    if (isExternalStepBtns) {
+        const float baseStrokeW = (ctrl.border.width > 0.0f) ? theme.Scale(ctrl.border.width) : m.strokeWidth;
+        const float iconSz = std::max(8.0f, m.iconSize);
+        auto drawSquareStepBtn = [&](const Rect& btnRect, const Icon& ic, bool btnHov, bool btnPress, bool btnDis) {
+            if (btnRect.w <= 0.0f || btnRect.h <= 0.0f) return;
+            const bool effDis = disabled || btnDis;
+            Color btnBg = ctrl.HasBackground(true) ? pal.inputBackground : Color::Transparent();
+            if (ctrl.HasBackground(true) && ctrl.background.HasAny() && !ctrl.background.IsSurface()) {
+                btnBg = ctrl.background.Resolve(btnHov && !effDis, btnPress && !effDis, effDis, btnBg);
+            } else if (!effDis) {
+                if (btnPress) {
+                    btnBg = accentCol.WithAlphaF(0.28f);
+                } else if (btnHov) {
+                    btnBg = pal.surfaceHover;
+                }
+            }
+
+            Color btnBorder = pal.inputBorder;
+            if (!effDis) {
+                if (btnPress) {
+                    btnBorder = accentCol;
+                } else if (btnHov) {
+                    btnBorder = opts.color.HasAny() ? accentCol.WithAlphaF(0.75f) : pal.borderHover;
+                }
+            }
+            if (ctrl.border.color.HasAny()) {
+                btnBorder = ctrl.border.color.Resolve(btnHov && !effDis, btnPress && !effDis, effDis, btnBorder);
+            }
+            if (effDis) {
+                btnBg = btnBg.WithAlphaF(0.40f);
+                btnBorder = btnBorder.WithAlphaF(0.40f);
+            }
+
+            canvas.DrawRoundRect(btnRect, radius, btnBg, btnBorder, baseStrokeW);
+            const Rect icRect(
+                btnRect.x + (btnRect.w - iconSz) * 0.5f,
+                btnRect.y + (btnRect.h - iconSz) * 0.5f,
+                iconSz,
+                iconSz
+            );
+            const Color icCol = effDis
+                ? unitCol.WithAlphaF(0.35f)
+                : ((btnHov || btnPress) ? (opts.color.HasAny() ? accentCol : pal.textPrimary) : pal.textPrimary);
+            ic.Draw(canvas, icRect, icCol);
+        };
+
+        drawSquareStepBtn(rects.stepMinusRect, Icon::Minus(), stepMinusHovered, stepMinusPressed, stepMinusDisabled);
+        drawSquareStepBtn(rects.stepPlusRect, Icon::Plus(), stepPlusHovered, stepPlusPressed, stepPlusDisabled);
+    }
+
     const float inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);
 
     float leftX = boxRect.x + m.paddingX;
     if (opts.prefix.HasContentOrReserve()) {
         const float pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
-        const Color pTextCol = theme.ResolveTextColor(opts.prefix.text, UiVariant::Secondary, disabled, hovered, focused);
+        const Color pTextCol = theme.ResolveTextColor(opts.prefix.text, UiVariant::Secondary, disabled, inputHovered, focused);
         const Color pIconCol = opts.prefix.text.color.HasAny() ? pTextCol : unitCol;
         const float pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, &canvas);
         TextUtil::DrawAffix(canvas, opts.prefix, Rect(leftX, boxRect.y, pW, boxRect.h), pFont, m.iconSize, pTextCol, pIconCol, 4.0f);
@@ -740,7 +846,7 @@ void SpinBox::Render(
     }
 
     float rightX = boxRect.x + boxRect.w - m.paddingX;
-    if (showStepBtns) {
+    if (effStyle == SpinBoxStepStyle::Inline) {
         const float btnSize = m.iconSize + 4.0f;
         const float btnY = boxRect.y + (boxRect.h - btnSize) * 0.5f;
         const float iconSz = std::max(8.0f, m.iconSize - 2.0f);
@@ -748,8 +854,9 @@ void SpinBox::Render(
         // '+' button on far right
         rightX -= btnSize;
         const Rect plusBtnRect(rightX, btnY, btnSize, btnSize);
-        if (stepPlusHovered && !disabled && !stepPlusDisabled) {
-            canvas.DrawRoundRect(plusBtnRect, 4.0f, pal.surfaceHover, Color::Transparent(), 0.0f);
+        if ((stepPlusHovered || stepPlusPressed) && !disabled && !stepPlusDisabled) {
+            const Color hovBg = stepPlusPressed ? accentCol.WithAlphaF(0.28f) : pal.surfaceHover;
+            canvas.DrawRoundRect(plusBtnRect, 4.0f, hovBg, Color::Transparent(), 0.0f);
         }
         const Rect plusIcRect(
             rightX + (btnSize - iconSz) * 0.5f,
@@ -759,14 +866,15 @@ void SpinBox::Render(
         );
         const Color plusCol = (disabled || stepPlusDisabled)
             ? unitCol.WithAlphaF(0.35f)
-            : (stepPlusHovered ? (opts.color.HasAny() ? accentCol : pal.textPrimary) : unitCol);
+            : ((stepPlusHovered || stepPlusPressed) ? (opts.color.HasAny() ? accentCol : pal.textPrimary) : unitCol);
         Icon::Plus().Draw(canvas, plusIcRect, plusCol);
 
         // '-' button to the left of '+'
         rightX -= (2.0f + btnSize);
         const Rect minusBtnRect(rightX, btnY, btnSize, btnSize);
-        if (stepMinusHovered && !disabled && !stepMinusDisabled) {
-            canvas.DrawRoundRect(minusBtnRect, 4.0f, pal.surfaceHover, Color::Transparent(), 0.0f);
+        if ((stepMinusHovered || stepMinusPressed) && !disabled && !stepMinusDisabled) {
+            const Color hovBg = stepMinusPressed ? accentCol.WithAlphaF(0.28f) : pal.surfaceHover;
+            canvas.DrawRoundRect(minusBtnRect, 4.0f, hovBg, Color::Transparent(), 0.0f);
         }
         const Rect minusIcRect(
             rightX + (btnSize - iconSz) * 0.5f,
@@ -776,7 +884,7 @@ void SpinBox::Render(
         );
         const Color minusCol = (disabled || stepMinusDisabled)
             ? unitCol.WithAlphaF(0.35f)
-            : (stepMinusHovered ? (opts.color.HasAny() ? accentCol : pal.textPrimary) : unitCol);
+            : ((stepMinusHovered || stepMinusPressed) ? (opts.color.HasAny() ? accentCol : pal.textPrimary) : unitCol);
         Icon::Minus().Draw(canvas, minusIcRect, minusCol);
 
         // Subtle vertical separator before stepper buttons

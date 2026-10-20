@@ -161,10 +161,11 @@ struct Node {
     bool sidebarScrollable : 1 {true};
     bool ctrlStretchable : 1 {true};
     bool ctrlStretchH : 1 {false};
+    uint16_t equalWidths : 1 {0};
     uint16_t sidebarCompact : 1 {0};
     uint16_t sidebarCollapsed : 1 {0};
     uint16_t sidebarFlush : 1 {0};
-    uint16_t payloadTypeId : 13 {0}; ///< Runtime type tag for safe Node::As<T>() casting
+    uint16_t payloadTypeId : 12 {0}; ///< Runtime type tag for safe Node::As<T>() casting
 
     float fixedWidth{0.0f};
     float fixedHeight{0.0f};

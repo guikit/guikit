@@ -257,7 +257,7 @@ void RenderOsmMapStage(guikit::Context& ui, DemoContext& ctx) {
             s_state.selectedFeatureUid,
             ctx.previewLightMode
         );
-        if (s_state.lastStats.cachedTilesPending > 0) {
+        if (s_state.lastStats.cachedTilesPending > 0 || s_state.lastStats.cachedTilesRendered > 0) {
             ui.InvalidateAll();
         }
         s_state.lastView = map.GetViewState();

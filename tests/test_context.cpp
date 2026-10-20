@@ -10935,6 +10935,130 @@ int main() {
     TestBottomPanelAndStatusBarWorkflow();
     TestPanelSashAndBodyOcclusionOverMapViewAndScene();
 
+    // Live-Resize policy toggle (Variant 1: Deferred vs Variant 2: Live 60 FPS)
+    {
+        guikit::Context ui;
+        CHECK(ui.IsLiveResizeEnabled());
+        ui.SetLiveResize(false);
+        CHECK(!ui.IsLiveResizeEnabled());
+        ui.SetLiveResize(true);
+        CHECK(ui.IsLiveResizeEnabled());
+    }
+
+    // Equal-width button group via ui.Row({.equalWidths = true}) in Toolbar and Column
+    {
+        guikit::Context ui;
+        guikit::ThorCanvas canvas;
+        std::vector<uint32_t> pixels(800 * 200, 0);
+        canvas.SetTarget(pixels.data(), 800, 200, 800);
+
+        bool t1 = true, t2 = false, t3 = true, t4 = true, t5 = true;
+        guikit::Response r1{}, r2{}, r3{}, r4{}, r5{};
+        guikit::Response bShort{}, bLong{};
+
+        for (int f = 0; f < 2; ++f) {
+            ui.BeginFrame({800.0f, 200.0f});
+            if (auto tb = ui.Toolbar()) {
+                if (auto grp = ui.Row({.equalWidths = true})) {
+                    r1 = tb.Toggle(t1, {.label = "GPU", .icon = guikit::Icon::Flash()});
+                    r2 = tb.Toggle(t2, {.label = "VSync"});
+                    r3 = tb.Toggle(t3, {.label = "React"});
+                    r4 = tb.Toggle(t4, {.label = "Dirty"});
+                    r5 = tb.Toggle(t5, {.label = "Live"});
+                }
+            }
+            if (auto fitRow = ui.Row({.widthMode = guikit::SizeMode::Fit, .equalWidths = true})) {
+                bShort = ui.Button({.text = "OK"});
+                bLong = ui.Button({.text = "Confirm Action"});
+            }
+            ui.EndFrame(canvas);
+        }
+
+        CHECK(r1.rect.w > 50.0f);
+        CHECK_NEAR(r1.rect.w, r2.rect.w, 0.01f);
+        CHECK_NEAR(r1.rect.w, r3.rect.w, 0.01f);
+        CHECK_NEAR(r1.rect.w, r4.rect.w, 0.01f);
+        CHECK_NEAR(r1.rect.w, r5.rect.w, 0.01f);
+
+        CHECK(bLong.rect.w > 80.0f);
+        CHECK_NEAR(bShort.rect.w, bLong.rect.w, 0.01f);
+    }
+
+    // SpinBox external square stepper styles (Detached and Split)
+    {
+        guikit::Context ui;
+        guikit::ThorCanvas canvas;
+        std::vector<uint32_t> pixels(600 * 240, 0);
+        canvas.SetTarget(pixels.data(), 600, 240, 600);
+
+        float valDetached = 129.0f;
+        float valSplit = 50.0f;
+        guikit::Response rDetached{};
+        guikit::Response rSplit{};
+
+        auto renderSpin = [&]() {
+            if (auto col = ui.Column({.gap = 8.0f, .padding = guikit::Padding::All(12.0f)})) {
+                rDetached = ui.SpinBox(valDetached, {
+                    .suffix = "MHz",
+                    .step = 2.5,
+                    .stepStyle = guikit::SpinBoxStepStyle::Detached
+                });
+                rSplit = ui.SpinBox(valSplit, {
+                    .step = 5.0,
+                    .stepStyle = guikit::SpinBoxStepStyle::Split
+                });
+            }
+        };
+
+        for (int f = 0; f < 2; ++f) {
+            ui.BeginFrame({600.0f, 240.0f});
+            renderSpin();
+            ui.EndFrame(canvas);
+        }
+
+        // In Detached mode, the '+' square button (H x H) is at the right edge of rDetached.rect,
+        // and the '-' square button (H x H) is immediately to its left (offset by 4px gap + H)
+        const float h = rDetached.rect.h;
+        CHECK(h >= 32.0f);
+        const guikit::Vec2 plusPt{rDetached.rect.Right() - h * 0.5f, rDetached.rect.Center().y};
+        const guikit::Vec2 minusPt{rDetached.rect.Right() - h - 4.0f - h * 0.5f, rDetached.rect.Center().y};
+
+        ui.OnMouseMove(plusPt);
+        ui.OnMouseDown(1);
+        ui.BeginFrame({600.0f, 240.0f});
+        renderSpin();
+        ui.EndFrame(canvas);
+        CHECK(rDetached.changed);
+        CHECK_NEAR(valDetached, 131.5f, 0.01f);
+        ui.OnMouseUp(1);
+        ui.BeginFrame({600.0f, 240.0f});
+        renderSpin();
+        ui.EndFrame(canvas);
+
+        ui.OnMouseMove(minusPt);
+        ui.OnMouseDown(1);
+        ui.BeginFrame({600.0f, 240.0f});
+        renderSpin();
+        ui.EndFrame(canvas);
+        CHECK(rDetached.changed);
+        CHECK_NEAR(valDetached, 129.0f, 0.01f);
+        ui.OnMouseUp(1);
+        ui.BeginFrame({600.0f, 240.0f});
+        renderSpin();
+        ui.EndFrame(canvas);
+
+        // In Split mode, the '-' square button is at the left edge of rSplit.rect,
+        // and the '+' square button is at the right edge of rSplit.rect
+        const guikit::Vec2 splitMinusPt{rSplit.rect.x + rSplit.rect.h * 0.5f, rSplit.rect.Center().y};
+        ui.OnMouseMove(splitMinusPt);
+        ui.OnMouseDown(1);
+        ui.BeginFrame({600.0f, 240.0f});
+        renderSpin();
+        ui.EndFrame(canvas);
+        CHECK(rSplit.changed);
+        CHECK_NEAR(valSplit, 45.0f, 0.01f);
+    }
+
     // Cross-platform guikit::net (URL parser, HttpClient, WebSocketClient) + LodePNG raster tile decoder
     {
         const auto parsedHttps = guikit::net::ParseUrl("https://tile.openstreetmap.org/14/9532/5841.png");

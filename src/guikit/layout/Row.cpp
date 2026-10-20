@@ -18,12 +18,20 @@ ContainerScope Row::Open(
     Node* node = ctx.CreateNode(NodeType::Row, id);
     node->theme = pushedTheme;
     node->direction = FlexDirection::Row;
-    node->gap = ctx.GetTheme().ResolveGap(opts.gap, activeSize);
+    if (!opts.gap.has_value() && node->parent != nullptr && node->parent->type == NodeType::Toolbar) {
+        node->gap = node->parent->gap;
+    } else {
+        node->gap = ctx.GetTheme().ResolveGap(opts.gap, activeSize);
+    }
     node->padding = ctx.GetTheme().ResolvePadding(opts.padding);
     node->align = opts.align;
     node->justify = opts.justify;
     node->heightMode = opts.heightMode;
-    node->widthMode = SizeMode::Stretch;
+    const bool inHorizontalParent = (node->parent != nullptr) &&
+        (node->parent->type == NodeType::Toolbar ||
+         (opts.equalWidths && node->parent->direction == FlexDirection::Row));
+    node->widthMode = opts.widthMode.value_or(inHorizontalParent ? SizeMode::Fit : SizeMode::Stretch);
+    node->equalWidths = opts.equalWidths;
     node->uiSize = activeSize;
     node->disabled = activeDisabled;
 

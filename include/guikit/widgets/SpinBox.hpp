@@ -15,6 +15,14 @@ namespace guikit {
 class Context;
 class ICanvas;
 
+/// Visual layout style for SpinBox decrement/increment ('-' / '+') buttons.
+enum class SpinBoxStepStyle : uint8_t {
+    None,       ///< No stepper buttons (keyboard Up/Down, mouse wheel, or drag-scrub only)
+    Inline,     ///< Compact '-' and '+' buttons integrated inside the right side of the input well
+    Detached,   ///< Two square (H x H) '-' and '+' buttons placed outside to the right of the input field
+    Split       ///< Square (H x H) '-' button on the left and '+' button on the right of the input field
+};
+
 /// Clean configuration options for numeric SpinBox widget.
 struct SpinBoxOptions {
     UiText tooltip{};                              ///< Optional floating tooltip shown on hover
@@ -33,7 +41,8 @@ struct SpinBoxOptions {
     std::optional<double> min{std::nullopt};       ///< Optional minimum numeric value constraint
     std::optional<double> max{std::nullopt};       ///< Optional maximum numeric value constraint
     std::optional<double> step{std::nullopt};      ///< Step increment for +/- buttons, Up/Down keys, mouse wheel, and drag-scrub (defaults to 1.0)
-    bool stepButtons{true};                        ///< Shows interactive '-' and '+' stepper buttons inside SpinBox
+    SpinBoxStepStyle stepStyle{SpinBoxStepStyle::Inline}; ///< Layout style for '-' and '+' stepper buttons
+    bool stepButtons{true};                        ///< Shows interactive '-' and '+' stepper buttons (false forces SpinBoxStepStyle::None)
     bool dragScrub{true};                          ///< Allows horizontal mouse drag on the value area to scrub the number
     bool showFillBar{false};                       ///< Renders an accent progress bar along the bottom edge when min & max are set
     bool disabled{false};                          ///< Interaction suppression
@@ -54,6 +63,8 @@ struct SpinBoxData {
     bool showStepBtns{true};
     bool stepMinusHovered{false};
     bool stepPlusHovered{false};
+    bool stepMinusPressed{false};
+    bool stepPlusPressed{false};
     bool stepMinusDisabled{false};
     bool stepPlusDisabled{false};
     bool scrubbing{false};
@@ -112,7 +123,9 @@ public:
         bool stepMinusDisabled = false,
         bool stepPlusDisabled = false,
         float fillRatio = 0.0f,
-        bool scrubbing = false
+        bool scrubbing = false,
+        bool stepMinusPressed = false,
+        bool stepPlusPressed = false
     );
 };
 

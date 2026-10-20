@@ -29,6 +29,7 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
     }
 
     m_overlayPasses.clear();
+    m_openPopupVisualHash = 0;
     m_currFocusableIds.clear();
     m_currModalFocusableIds.clear();
     m_currFrameModalId = Id::Null();
@@ -1304,7 +1305,6 @@ bool Context::NeedsRepaint() const noexcept {
     if (m_repaintFrames > 0) return true;
     if (m_mouseDown || m_rightMouseDown || m_middleMouseDown) return true;
     if (m_activeId.IsValid()) return true;
-    if (m_openPopupId.IsValid()) return true;
     for (const auto& t : m_toasts) {
         if (t.duration > 0.0f) return true;
     }
@@ -1413,16 +1413,32 @@ void Context::OnKeyDown(Key key, KeyModifiers mods) {
     m_pendingKeyEvents.push_back({key, mods});
 }
 
+static Rect ExpandPopupDamageRect(Rect r) noexcept {
+    if (r.w <= 0.0f || r.h <= 0.0f) return Rect{};
+    return Rect(r.x - 6.0f, r.y - 6.0f, r.w + 12.0f, r.h + 14.0f);
+}
+
 void Context::OpenPopup(Id id, Rect bounds) {
-    m_openPopupId = id;
-    m_openPopupRect = bounds;
-    InvalidateAll();
+    if (m_openPopupId != id || m_openPopupRect != bounds) {
+        if (m_openPopupId.IsValid() && m_openPopupRect.w > 0.0f && m_openPopupRect.h > 0.0f) {
+            InvalidateRect(ExpandPopupDamageRect(m_openPopupRect));
+        }
+        m_openPopupId = id;
+        m_openPopupRect = bounds;
+        InvalidateRect(ExpandPopupDamageRect(m_openPopupRect));
+    }
 }
 
 void Context::ClosePopup() {
-    m_openPopupId = Id::Null();
-    m_openPopupRect = Rect{};
-    InvalidateAll();
+    if (m_openPopupId.IsValid()) {
+        if (m_openPopupRect.w > 0.0f && m_openPopupRect.h > 0.0f) {
+            InvalidateRect(ExpandPopupDamageRect(m_openPopupRect));
+        }
+        m_openPopupId = Id::Null();
+        m_openPopupRect = Rect{};
+        m_openPopupVisualHash = 0;
+        RequestRepaint(2);
+    }
 }
 
 void Context::InvalidateAll() noexcept {
@@ -2221,8 +2237,10 @@ void Context::EndFrame(ICanvas& canvas) {
         }
         if (n->id.IsValid()) {
             WidgetSnapshot snap;
-            snap.rect = n->computedRect.Intersect(parentClip);
-            snap.flags = (n->hovered ? 1u : 0u) |
+            const Rect paddedNodeRect = n->IsLeaf() ? n->computedRect.Inset(-2.0f) : n->computedRect;
+            snap.rect = paddedNodeRect.Intersect(parentClip);
+            const bool trackHoverFlag = n->IsLeaf() || n->type == NodeType::TreeItem || n->type == NodeType::Element;
+            snap.flags = ((trackHoverFlag && n->hovered) ? 1u : 0u) |
                          (n->pressed ? 2u : 0u) |
                          (n->disabled ? 4u : 0u) |
                          (n->checked ? 8u : 0u) |
@@ -2274,7 +2292,8 @@ void Context::EndFrame(ICanvas& canvas) {
         }
 
         Rect effectiveClip = parentClip;
-        if (n->clipChildren) {
+        if (n->clipChildren || n->type == NodeType::StatusBar || n->type == NodeType::Toolbar ||
+            n->type == NodeType::Sidebar || n->type == NodeType::BottomPanel) {
             effectiveClip = parentClip.Intersect(GetNodeContentClipRect(n, activeTheme));
         }
 
@@ -2293,6 +2312,20 @@ void Context::EndFrame(ICanvas& canvas) {
         }
     }
 
+    if (m_openPopupId != m_prevOpenPopupId ||
+        m_openPopupRect != m_prevOpenPopupRect ||
+        (m_openPopupId.IsValid() && m_openPopupVisualHash != m_prevOpenPopupVisualHash)) {
+        if (m_prevOpenPopupId.IsValid() && m_prevOpenPopupRect.w > 0.0f && m_prevOpenPopupRect.h > 0.0f) {
+            addDamage(ExpandPopupDamageRect(m_prevOpenPopupRect));
+        }
+        if (m_openPopupId.IsValid() && m_openPopupRect.w > 0.0f && m_openPopupRect.h > 0.0f) {
+            addDamage(ExpandPopupDamageRect(m_openPopupRect));
+        }
+    }
+    m_prevOpenPopupId = m_openPopupId;
+    m_prevOpenPopupRect = m_openPopupRect;
+    m_prevOpenPopupVisualHash = m_openPopupVisualHash;
+
     const bool hasTooltip = !m_activeTooltip.empty();
     const bool hasModal = m_currFrameModalId.IsValid() || m_prevFrameModalId.IsValid();
     const bool hasToasts = !m_toasts.empty();
@@ -2300,7 +2333,7 @@ void Context::EndFrame(ICanvas& canvas) {
     // Determine whether full repaint or partial dirty rect is required
     m_dirtyRects.clear();
     const float totalViewportArea = logicalSize.x * logicalSize.y;
-    if (!m_dirtyRectEnabled || m_forceFullRepaint || m_prevSnapshots.empty() || m_openPopupId.IsValid() ||
+    if (!m_dirtyRectEnabled || m_forceFullRepaint || m_prevSnapshots.empty() ||
         hasModal || hasToasts || m_hadToastsLastFrame ||
         hasTooltip || m_hadTooltipLastFrame || anyDebugBounds || anyInspectMode) {
         m_isFullRepaint = true;
@@ -2312,13 +2345,12 @@ void Context::EndFrame(ICanvas& canvas) {
         m_hasDirtyDamage = false;
         m_dirtyRect = Rect{0.0f, 0.0f, 0.0f, 0.0f};
     } else {
-        // Expand each damage rect by 2.0px margin to cover anti-aliasing edges and coalesce overlapping regions
-        const float pad = 2.0f;
+        // Snap each damage rect to integer logical pixel bounds and coalesce overlapping regions
         for (const Rect& raw : damageRects) {
-            const float x1 = std::max(0.0f, std::floor(raw.x - pad));
-            const float y1 = std::max(0.0f, std::floor(raw.y - pad));
-            const float x2 = std::min(logicalSize.x, std::ceil(raw.Right() + pad));
-            const float y2 = std::min(logicalSize.y, std::ceil(raw.Bottom() + pad));
+            const float x1 = std::max(0.0f, std::floor(raw.x));
+            const float y1 = std::max(0.0f, std::floor(raw.y));
+            const float x2 = std::min(logicalSize.x, std::ceil(raw.Right()));
+            const float y2 = std::min(logicalSize.y, std::ceil(raw.Bottom()));
             if (x2 > x1 && y2 > y1) {
                 m_dirtyRects.emplace_back(x1, y1, x2 - x1, y2 - y1);
             }

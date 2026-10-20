@@ -454,6 +454,17 @@ Response ColorPicker::Run(
         const float curS = state.s;
         const float curV = state.v;
         const int hovSwatch = state.hoveredSwatch;
+        ctx.SetOpenPopupVisualHash(detail::HashArgs(
+            popRect.x,
+            popRect.y,
+            popRect.w,
+            popRect.h,
+            curVal.ToUint32(),
+            curH,
+            curS,
+            curV,
+            hovSwatch
+        ));
         std::vector<Color> presetsVec(optsCopy.presets.begin(), optsCopy.presets.end());
         ctx.RegisterOverlay([popRect, curVal, curH, curS, curV, hexView, hovSwatch, optsCopy, presetsVec = std::move(presetsVec), activeSize, effectiveDisabled, theme](ICanvas& c) {
             ColorPickerOptions popOpts = optsCopy;

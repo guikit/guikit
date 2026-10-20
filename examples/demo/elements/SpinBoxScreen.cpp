@@ -9,7 +9,7 @@ struct SpinBoxState {
     float minVal = 0.0f;
     float maxVal = 500.0f;
     float step = 2.5f;
-    bool stepButtons = true;
+    guikit::SpinBoxStepStyle stepStyle = guikit::SpinBoxStepStyle::Detached;
     bool dragScrub = true;
     bool showFillBar = true;
     std::string prefix = "";
@@ -18,14 +18,29 @@ struct SpinBoxState {
     bool readOnly = false;
 };
 SpinBoxState s_state;
+
+constexpr std::string_view StepStyleEnumName(guikit::SpinBoxStepStyle style) noexcept {
+    switch (style) {
+        case guikit::SpinBoxStepStyle::None:     return "None";
+        case guikit::SpinBoxStepStyle::Inline:   return "Inline";
+        case guikit::SpinBoxStepStyle::Detached: return "Detached";
+        case guikit::SpinBoxStepStyle::Split:    return "Split";
+    }
+    return "Inline";
+}
 } // namespace
 
 void RenderSpinBoxInspector(guikit::Context& ui, DemoContext&) {
+    static constexpr std::array<std::string_view, 4> stepStyleLabels = {"None", "Inline", "Detached", "Split"};
+    int styleIdx = static_cast<int>(s_state.stepStyle);
     if (auto el = ui.Element({
-        .label = "Stepper Buttons (- / +)",
-        .description = "Show decrement and increment buttons"
+        .label = "Stepper Style (- / +)",
+        .description = "None, Inline inside box, Detached square buttons after box, or Split sides"
     })) {
-        if (ui.Switch(s_state.stepButtons).changed) ui.InvalidateAll();
+        if (ui.Segmented(styleIdx, stepStyleLabels).changed) {
+            s_state.stepStyle = static_cast<guikit::SpinBoxStepStyle>(std::clamp(styleIdx, 0, 3));
+            ui.InvalidateAll();
+        }
     }
     if (auto el = ui.Element({
         .label = "Drag-to-Scrub",
@@ -90,7 +105,7 @@ void RenderSpinBoxStage(guikit::Context& ui, DemoContext& ctx) {
             .min = static_cast<double>(s_state.minVal),
             .max = static_cast<double>(s_state.maxVal),
             .step = static_cast<double>(s_state.step),
-            .stepButtons = s_state.stepButtons,
+            .stepStyle = s_state.stepStyle,
             .dragScrub = s_state.dragScrub,
             .showFillBar = s_state.showFillBar,
             .disabled = ctx.elemDisabled,
@@ -128,7 +143,7 @@ std::string GenerateSpinBoxCode(const DemoContext& ctx) {
         "        .min = {:.1f},\n"
         "        .max = {:.1f},\n"
         "        .step = {:.1f},\n"
-        "        .stepButtons = {},\n"
+        "        .stepStyle = guikit::SpinBoxStepStyle::{},\n"
         "        .dragScrub = {},\n"
         "        .showFillBar = {},\n"
         "        .disabled = {},\n"
@@ -160,7 +175,7 @@ std::string GenerateSpinBoxCode(const DemoContext& ctx) {
         s_state.minVal,
         s_state.maxVal,
         s_state.step,
-        s_state.stepButtons ? "true" : "false",
+        StepStyleEnumName(s_state.stepStyle),
         s_state.dragScrub ? "true" : "false",
         s_state.showFillBar ? "true" : "false",
         ctx.elemDisabled ? "true" : "false",
