@@ -401,7 +401,6 @@ struct BpmnDiagram {
 
 /// Declarative configuration options for the autonomous `BpmnEditor` widget (`ui.BpmnEditor(...)`).
 struct BpmnEditorOptions {
-    UiVariant variant{UiVariant::Default};
     Align align{Align::Start};
 
     // --- BPMN Modeler UX & Visual Configuration ---

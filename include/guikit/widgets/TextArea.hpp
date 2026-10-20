@@ -152,7 +152,7 @@ struct TextAreaOptions {
     SyntaxHighlighter syntaxHighlighter{nullptr};       ///< Optional custom syntax highlighting callback
     void* highlighterUserData{nullptr};                 ///< User data passed to syntaxHighlighter
     std::optional<CursorBlinkMode> cursorMode{std::nullopt}; ///< Caret visibility and blinking behavior
-    UiVariant variant{UiVariant::Default};              ///< Visual variant styling
+    StateColor color{};                                 ///< Optional focus ring / accent color override
     Align align{Align::Start};                          ///< Horizontal alignment in parent container
     StretchMode stretch{StretchMode::Fill};             ///< Horizontal sizing behavior (Compact, Space, Fill)
     std::optional<float> width{std::nullopt};           ///< Explicit width (dp in Compact/Space, ratio 0.0..1.0 in Fill)

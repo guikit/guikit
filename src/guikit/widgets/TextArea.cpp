@@ -2976,7 +2976,7 @@ TextAreaResponse TextArea::Run(
     node->visualHash = detail::HashArgs(
         data ? data->text : displayText,
         optsCopy.placeholder,
-        static_cast<uint8_t>(optsCopy.variant),
+        optsCopy.color,
         static_cast<uint8_t>(optsCopy.align),
         static_cast<uint8_t>(optsCopy.stretch),
         optsCopy.width.value_or(-1.0f),
@@ -3200,7 +3200,7 @@ void TextArea::Render(
     float defaultStrokeW = theme.Scale(1.0f);
     if (!disabled) {
         if (focused) {
-            defaultBorderCol = (opts.variant == UiVariant::Default) ? pal.focusRing : theme.GetVariant(opts.variant).bg;
+            defaultBorderCol = opts.color.Resolve(false, false, false, pal.focusRing);
             defaultStrokeW = theme.Scale(1.5f);
         } else if (hovered) {
             defaultBorderCol = pal.borderHover;

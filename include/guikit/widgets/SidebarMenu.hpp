@@ -45,7 +45,7 @@ struct SidebarMenuOptions {
     std::optional<float> gap{4.0f};                 ///< Vertical gap between consecutive menu items
     float sectionGap{8.0f};                         ///< Extra top spacing before a non-first Section header
     std::optional<float> width{std::nullopt};       ///< Optional explicit menu width (nullopt = Fit/Stretch to container)
-    std::optional<float> borderRadius{std::nullopt}; ///< Item corner rounding radius override
+    Border border{};                                ///< Optional item border / corner rounding radius override
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

@@ -47,7 +47,8 @@ struct ContextMenuOptions {
     ContextMenuTrigger trigger{ContextMenuTrigger::RightClick};
     std::optional<float> minWidth{188.0f};
     std::optional<float> width{std::nullopt};
-    std::optional<float> borderRadius{8.0f};
+    StateColor background{};
+    Border border{.width = 1.0f, .radius = 8.0f};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

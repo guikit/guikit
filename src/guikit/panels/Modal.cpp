@@ -242,8 +242,8 @@ ModalScope Modal::Open(
         bodyPad.right,
         bodyPad.bottom
     );
-    node->cornerRadius = opts.borderRadius.has_value()
-        ? theme.Scale(*opts.borderRadius)
+    node->cornerRadius = opts.border.radius.has_value()
+        ? theme.Scale(*opts.border.radius)
         : theme.ResolveRadius(std::nullopt, activeSize);
     node->clipChildren = true;
     node->uiSize = activeSize;
@@ -395,17 +395,25 @@ void Modal::Render(
     );
 
     // 3. Render elevated dialog surface & crisp border
-    const Color surfaceBg = (theme.mode == ThemeMode::Dark)
+    const Color defaultSurfaceBg = (theme.mode == ThemeMode::Dark)
         ? Color(19, 26, 41, 255)
         : Color(255, 255, 255, 255);
-    Color borderCol = pal.borderHover;
+    const Color surfaceBg = opts.background.IsBackgroundEnabled(true)
+        ? (opts.background.HasAny() && !opts.background.IsSurface()
+            ? opts.background.Resolve(false, false, false, defaultSurfaceBg)
+            : defaultSurfaceBg)
+        : Color::Transparent();
+    const float borderW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : 0.0f;
+    const Color borderCol = (borderW > 0.0f)
+        ? opts.border.color.Resolve(false, false, false, pal.borderHover)
+        : Color::Transparent();
     Color accentCol = pal.accent;
     bool hasSemanticVariant = (opts.variant != UiVariant::Default && opts.variant != UiVariant::Ghost && opts.variant != UiVariant::Secondary);
     if (hasSemanticVariant) {
         accentCol = theme.GetVariant(opts.variant).bg;
     }
 
-    canvas.DrawRoundRect(dialogRect, r, surfaceBg, borderCol, 1.0f);
+    canvas.DrawRoundRect(dialogRect, r, surfaceBg, borderCol, borderW);
 
     // Optional top semantic accent bar clipped inside dialog top corners
     if (hasSemanticVariant) {

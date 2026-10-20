@@ -127,7 +127,6 @@ struct HistogramData {
 
 /// Configuration options for the interactive `ui.Histogram` widget.
 struct HistogramOptions {
-    UiVariant variant{UiVariant::Default};
     Align align{Align::Start};
     StretchMode stretch{StretchMode::Fill};
 

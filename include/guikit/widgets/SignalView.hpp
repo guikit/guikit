@@ -83,7 +83,6 @@ struct SignalSelection {
 
 /// Configuration options for the autonomous SignalView (Waveform + Spectrogram DAW analyzer) widget.
 struct SignalViewOptions {
-    UiVariant variant{UiVariant::Default};
     Align align{Align::Start};
 
     // --- Signal & DSP Parameters ---

@@ -149,7 +149,6 @@ struct ImageViewParams {
 
 /// Configuration options for the `ui.ImageView` widget.
 struct ImageViewOptions {
-    UiVariant variant{UiVariant::Default};
     Align align{Align::Start};
     StretchMode stretch{StretchMode::Fill};
 

@@ -26,7 +26,8 @@ struct ModalOptions {
     float maxHeightRatio{0.88f};                   ///< Maximum height as fraction of backdrop height
     std::optional<float> gap{std::nullopt};        ///< Vertical gap between body child widgets
     std::optional<Padding> padding{std::nullopt};  ///< Body padding (nullopt = standard spacious dialog padding)
-    std::optional<float> borderRadius{12.0f};      ///< Dialog corner radius in logical pixels
+    StateColor background{};                       ///< Optional dialog surface background color override
+    Border border{.width = 1.0f, .radius = 12.0f}; ///< Dialog border width, corner radius, and color
     float backdropOpacity{0.55f};                  ///< Dimmed backdrop alpha (0.0..1.0)
     bool closeOnBackdrop{true};                    ///< Dismiss modal when clicking outside the dialog box
     bool closeOnEscape{true};                      ///< Dismiss modal when pressing Escape

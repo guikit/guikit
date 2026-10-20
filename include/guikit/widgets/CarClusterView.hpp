@@ -82,7 +82,6 @@ struct CarTelltaleFlags {
 
 /// Declarative configuration options for the autonomous `CarClusterView` widget.
 struct CarClusterViewOptions {
-    UiVariant variant{UiVariant::Default};
     Align align{Align::Start};
 
     // --- Cluster Architecture, Powertrain & Visual Theme ---

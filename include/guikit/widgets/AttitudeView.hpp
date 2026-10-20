@@ -52,7 +52,6 @@ enum class AircraftSymbolStyle : uint8_t {
 
 /// Configuration options for the autonomous AttitudeView (Artificial Horizon / PFD) widget.
 struct AttitudeViewOptions {
-    UiVariant variant{UiVariant::Default};
     Align align{Align::Start};
 
     // --- Display Mode, Reference Frame & Visual Theme ---

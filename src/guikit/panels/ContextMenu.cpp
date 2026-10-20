@@ -388,8 +388,8 @@ ContextMenuResponse ContextMenu::Run(
         });
     }
 
-    const float radius = opts.borderRadius.has_value()
-        ? theme.Scale(*opts.borderRadius)
+    const float radius = opts.border.radius.has_value()
+        ? theme.Scale(*opts.border.radius)
         : theme.ResolveRadius(std::nullopt, activeSize);
 
     ctx.SetOpenPopupVisualHash(detail::HashArgs(
@@ -402,7 +402,7 @@ ContextMenuResponse ContextMenu::Run(
         items.size()
     ));
 
-    ctx.RegisterOverlay([popupRect, radius, s, padX, iconSlotW, anyLeadingSlot, labelFont, shortcutFont, theme, drawItems = std::move(drawItems)](ICanvas& c) {
+    ctx.RegisterOverlay([popupRect, radius, s, padX, iconSlotW, anyLeadingSlot, labelFont, shortcutFont, theme, opts, drawItems = std::move(drawItems)](ICanvas& c) {
         const auto& pal = theme.palette;
 
         // Soft drop shadow
@@ -414,10 +414,19 @@ ContextMenuResponse ContextMenu::Run(
             0.0f
         );
 
-        const Color surfaceBg = (theme.mode == ThemeMode::Dark)
+        const Color defaultSurfaceBg = (theme.mode == ThemeMode::Dark)
             ? Color(19, 26, 41, 250)
             : Color(255, 255, 255, 252);
-        c.DrawRoundRect(popupRect, radius, surfaceBg, pal.borderHover, 1.0f);
+        const Color surfaceBg = opts.background.IsBackgroundEnabled(true)
+            ? (opts.background.HasAny() && !opts.background.IsSurface()
+                ? opts.background.Resolve(false, false, false, defaultSurfaceBg)
+                : defaultSurfaceBg)
+            : Color::Transparent();
+        const float borderW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : 0.0f;
+        const Color borderCol = (borderW > 0.0f)
+            ? opts.border.color.Resolve(false, false, false, pal.borderHover)
+            : Color::Transparent();
+        c.DrawRoundRect(popupRect, radius, surfaceBg, borderCol, borderW);
 
         c.PushClip(popupRect);
         for (const auto& it : drawItems) {

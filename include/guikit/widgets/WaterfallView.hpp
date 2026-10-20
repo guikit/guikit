@@ -61,7 +61,6 @@ struct WaterfallTrack {
 
 /// Configuration options for the autonomous WaterfallView (RTSA Spectrum & DOA/BTR Tracker) widget.
 struct WaterfallViewOptions {
-    UiVariant variant{UiVariant::Default};
     Align align{Align::Start};
 
     // --- Domain Mode, Layout & Ring-Buffer Geometry ---
