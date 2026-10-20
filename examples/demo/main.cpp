@@ -708,6 +708,11 @@ int main(int argc, char* argv[]) {
                         .gap = 8.0f,
                         .padding = guikit::Padding::All(12.0f)
                     })) {
+                        ui.Size(guikit::UiSize::Xs).Heading({
+                            .label = "INSPECTOR",
+                            .divider = true
+                        });
+
                         if (IsElementCategory(selectedCategory)) {
                             if (auto elemAcc = ui.Size(guikit::UiSize::Sm).Accordion({
                                 .label = "ELEMENT",
@@ -733,34 +738,13 @@ int main(int argc, char* argv[]) {
                                 }
                             }
 
-                            std::string_view specificTitle = "HEADING";
-                            switch (selectedCategory) {
-                                case NavCategory::ElemHeading:     specificTitle = "HEADING"; break;
-                                case NavCategory::ElemButton:      specificTitle = "BUTTON"; break;
-                                case NavCategory::ElemSlider:      specificTitle = "SLIDER"; break;
-                                case NavCategory::ElemKnob:        specificTitle = "KNOB"; break;
-                                case NavCategory::ElemSpinBox:     specificTitle = "SPINBOX"; break;
-                                case NavCategory::ElemInputField:  specificTitle = "INPUT FIELD"; break;
-                                case NavCategory::ElemSelect:      specificTitle = "SELECT"; break;
-                                case NavCategory::ElemSegmented:   specificTitle = "SEGMENTED"; break;
-                                case NavCategory::ElemColorPicker: specificTitle = "COLOR PICKER"; break;
-                                case NavCategory::ElemSwitch:      specificTitle = "SWITCH"; break;
-                                case NavCategory::ElemCheckbox:    specificTitle = "CHECKBOX"; break;
-                                case NavCategory::ElemRadio:       specificTitle = "RADIO"; break;
-                                case NavCategory::ElemImage:       specificTitle = "IMAGE"; break;
-                                default: break;
-                            }
                             if (auto specAcc = ui.Size(guikit::UiSize::Sm).Accordion({
-                                .label = specificTitle,
+                                .label = "SPECIFIC",
                                 .defaultOpen = true
                             })) {
                                 DispatchInspector(ui, selectedCategory, demoCtx);
                             }
                         } else {
-                            ui.Size(guikit::UiSize::Xs).Heading({
-                                .label = "INSPECTOR",
-                                .divider = true
-                            });
                             DispatchInspector(ui, selectedCategory, demoCtx);
                         }
                     }
