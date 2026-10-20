@@ -12,9 +12,11 @@ enum class NavCategory : uint8_t {
     ElemHeading = 0,
     ElemButton,
     ElemSlider,
+    ElemLevelMeter,
     ElemKnob,
     ElemSpinBox,
     ElemInputField,
+    ElemTagInput,
     ElemSelect,
     ElemSegmented,
     ElemColorPicker,
@@ -276,7 +278,7 @@ struct DemoContext {
     float elemBorderWidth = 0.0f;
     guikit::UiVariant elemBorderVariant = guikit::UiVariant::Default;
     float elemBorderRadius = 8.0f;
-    std::array<size_t, 14> ctrlBgIdxByCat = {0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0};
+    std::array<size_t, 16> ctrlBgIdxByCat = {0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0};
     float ctrlBorderWidth = 0.0f;
     guikit::UiVariant ctrlBorderVariant = guikit::UiVariant::Default;
     float ctrlBorderRadius = 6.0f;
@@ -339,6 +341,7 @@ struct DemoContext {
         return cat == NavCategory::ElemButton ||
                cat == NavCategory::ElemSpinBox ||
                cat == NavCategory::ElemInputField ||
+               cat == NavCategory::ElemTagInput ||
                cat == NavCategory::ElemSelect ||
                cat == NavCategory::ElemSegmented ||
                cat == NavCategory::ElemColorPicker ||
@@ -852,6 +855,10 @@ void RenderSliderInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSliderStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateSliderCode(const DemoContext& ctx);
 
+void RenderLevelMeterInspector(guikit::Context& ui, DemoContext& ctx);
+void RenderLevelMeterStage(guikit::Context& ui, DemoContext& ctx);
+std::string GenerateLevelMeterCode(const DemoContext& ctx);
+
 void RenderKnobInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderKnobStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateKnobCode(const DemoContext& ctx);
@@ -863,6 +870,10 @@ std::string GenerateSpinBoxCode(const DemoContext& ctx);
 void RenderInputInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderInputStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateInputCode(const DemoContext& ctx);
+
+void RenderTagInputInspector(guikit::Context& ui, DemoContext& ctx);
+void RenderTagInputStage(guikit::Context& ui, DemoContext& ctx);
+std::string GenerateTagInputCode(const DemoContext& ctx);
 
 void RenderSelectInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSelectStage(guikit::Context& ui, DemoContext& ctx);

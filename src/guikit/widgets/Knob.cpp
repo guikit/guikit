@@ -280,6 +280,22 @@ Response Knob::Run(
     char valBuf[64]{};
     if (optsCopy.showValue) {
         FormatKnobValue(valBuf, sizeof(valBuf), currentVal, isInt, optsCopy);
+        if (optsCopy.valueFormat.variants.empty()) {
+            char minBuf[64]{};
+            char maxBuf[64]{};
+            char midBuf[64]{};
+            FormatKnobValue(minBuf, sizeof(minBuf), minVal, isInt, optsCopy);
+            FormatKnobValue(maxBuf, sizeof(maxBuf), maxVal, isInt, optsCopy);
+            FormatKnobValue(midBuf, sizeof(midBuf), minVal + span * 0.888, isInt, optsCopy);
+
+            auto* varArr = static_cast<std::string_view*>(
+                ctx.GetArena().AllocateRaw(sizeof(std::string_view) * 3, alignof(std::string_view))
+            );
+            varArr[0] = ctx.AllocString(minBuf);
+            varArr[1] = ctx.AllocString(maxBuf);
+            varArr[2] = ctx.AllocString(midBuf);
+            optsCopy.valueFormat.variants = std::span<const std::string_view>(varArr, 3);
+        }
     }
 
     const float normVal = static_cast<float>(std::clamp((currentVal - minVal) / span, 0.0, 1.0));
@@ -456,7 +472,7 @@ void Knob::Render(
 
     if (hasValText && opts.valuePlacement != Placement::Thumb) {
         const float textH = valFont * 1.25f;
-        const float gap = theme.Scale(3.0f);
+        const float gap = theme.Scale(4.0f);
         if (opts.valuePlacement == Placement::Bottom) {
             const float dialH = std::max(16.0f, innerRect.h - textH - gap);
             dialArea = Rect(innerRect.x, innerRect.y, innerRect.w, dialH);
@@ -470,6 +486,7 @@ void Knob::Render(
             for (std::string_view v : opts.valueFormat.variants) {
                 if (!v.empty()) textW = std::max(textW, TextUtil::MeasureWidth(v, valFont, &canvas) + theme.Scale(4.0f));
             }
+            textW = std::max(textW, theme.Scale(32.0f));
             const float dialW = std::max(16.0f, innerRect.w - textW - gap);
             valRect = Rect(innerRect.x, innerRect.y, textW, innerRect.h);
             dialArea = Rect(innerRect.x + textW + gap, innerRect.y, dialW, innerRect.h);
@@ -478,13 +495,17 @@ void Knob::Render(
             for (std::string_view v : opts.valueFormat.variants) {
                 if (!v.empty()) textW = std::max(textW, TextUtil::MeasureWidth(v, valFont, &canvas) + theme.Scale(4.0f));
             }
+            textW = std::max(textW, theme.Scale(32.0f));
             const float dialW = std::max(16.0f, innerRect.w - textW - gap);
             dialArea = Rect(innerRect.x, innerRect.y, dialW, innerRect.h);
             valRect = Rect(innerRect.x + dialW + gap, innerRect.y, textW, innerRect.h);
         }
     }
 
-    const float dialDiameter = std::min(dialArea.w, dialArea.h);
+    const float defaultDia = GetDefaultKnobDiameter(size, theme);
+    const float dialDiameter = (opts.width.has_value() || opts.height.has_value())
+        ? std::min(dialArea.w, dialArea.h)
+        : std::min({dialArea.w, dialArea.h, defaultDia});
     const Vec2 center(
         dialArea.x + dialArea.w * 0.5f,
         dialArea.y + dialArea.h * 0.5f

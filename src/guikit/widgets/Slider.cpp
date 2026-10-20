@@ -1787,14 +1787,17 @@ void ProgressBar::Render(
         return disabled ? col.WithAlphaF(0.4f) : col;
     };
 
-    const float barY = centerY - barH * 0.5f;
+    const float barY = std::round(centerY - barH * 0.5f);
+    const float barHInt = std::max(2.0f, std::round(barH));
 
     if (opts.segments > 1) {
-        // Segmented LED / VU Level Meter
+        // Segmented LED / VU Level Meter (integer pixel-snapped cells & gaps)
         const uint32_t segCount = std::min<uint32_t>(opts.segments, 64u);
-        const float gap = (segCount > 24) ? 1.5f : 2.5f;
-        const float segW = std::max(2.0f, (trackRegionW - gap * static_cast<float>(segCount - 1)) / static_cast<float>(segCount));
-        const float segRadius = std::min(2.5f, barH * 0.25f);
+        const float gap = (segCount > 28) ? 1.0f : 2.0f;
+        const float totalGaps = gap * static_cast<float>(segCount - 1);
+        const float segW = std::max(2.0f, std::floor((std::round(trackRegionW) - totalGaps) / static_cast<float>(segCount)));
+        const float startX = std::round(trackRegionX);
+        const bool useRound = (std::min(segW, barHInt) >= 8.0f);
         const Color unlitBg = disabled ? pal.surfaceActive.WithAlphaF(0.35f) : pal.surfaceActive;
         const Color unlitBorder = disabled ? pal.border.WithAlphaF(0.25f) : pal.border.WithAlphaF(0.65f);
 
@@ -1807,18 +1810,26 @@ void ProgressBar::Render(
         }
 
         for (uint32_t i = 0; i < segCount; ++i) {
-            const float segX = trackRegionX + static_cast<float>(i) * (segW + gap);
+            const float segX = startX + static_cast<float>(i) * (segW + gap);
             const float segThreshold = static_cast<float>(i + 1) / static_cast<float>(segCount);
             const float segMidRatio = (static_cast<float>(i) + 0.5f) / static_cast<float>(segCount);
             const bool isLit = (ratio >= segThreshold - (0.5f / static_cast<float>(segCount))) && (ratio > 0.001f);
             const bool isPeakSeg = (static_cast<int>(i) == peakSegIdx);
 
-            const Rect segRect(segX, barY, segW, barH);
+            const Rect segRect(segX, barY, segW, barHInt);
             if (isLit || isPeakSeg) {
                 const Color segCol = resolveZoneColor(segMidRatio);
-                canvas.DrawRoundRect(segRect, segRadius, segCol);
+                if (useRound) {
+                    canvas.DrawRoundRect(segRect, 1.0f, segCol);
+                } else {
+                    canvas.DrawRect(segRect, segCol);
+                }
             } else {
-                canvas.DrawRoundRect(segRect, segRadius, unlitBg, unlitBorder, 1.0f);
+                if (useRound) {
+                    canvas.DrawRoundRect(segRect, 1.0f, unlitBg, unlitBorder, 1.0f);
+                } else {
+                    canvas.DrawRect(segRect, unlitBg);
+                }
             }
         }
     } else {

@@ -56,6 +56,7 @@
 #include "guikit/widgets/Image.hpp"
 #include "guikit/widgets/InputField.hpp"
 #include "guikit/widgets/Knob.hpp"
+#include "guikit/widgets/LevelMeter.hpp"
 #include "guikit/widgets/Markdown.hpp"
 #include "guikit/widgets/Pagination.hpp"
 #include "guikit/widgets/Radio.hpp"
@@ -66,6 +67,7 @@
 #include "guikit/widgets/SpinBox.hpp"
 #include "guikit/widgets/Switch.hpp"
 #include "guikit/widgets/TabBar.hpp"
+#include "guikit/widgets/TagInput.hpp"
 #include "guikit/widgets/Text.hpp"
 #include "guikit/widgets/TextArea.hpp"
 #include "guikit/widgets/Toast.hpp"
@@ -1389,6 +1391,44 @@ public:
         return Run<guikit::DatePicker>(value, opts, loc);
     }
 
+    // --- LevelMeter Widget ---
+    Response LevelMeter(
+        double value,
+        double min = -60.0,
+        double max = 0.0,
+        LevelMeterOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::LevelMeter>(value, min, max, opts, loc);
+    }
+
+    Response LevelMeter(
+        std::span<const float> channelValues,
+        float min = -60.0f,
+        float max = 0.0f,
+        LevelMeterOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::LevelMeter>(channelValues, min, max, opts, loc);
+    }
+
+    // --- TagInput Widget ---
+    Response TagInput(
+        std::vector<std::string>& tags,
+        TagInputOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::TagInput>(tags, opts, loc);
+    }
+
+    Response TagInput(
+        std::vector<TagItem>& tags,
+        TagInputOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::TagInput>(tags, opts, loc);
+    }
+
     // --- Breadcrumb & Pagination Navigation Widgets ---
     template <typename IndexT>
     Response Breadcrumb(
@@ -1746,10 +1786,14 @@ public:
     [[nodiscard]] bool IsCursorVisible(std::optional<CursorBlinkMode> modeOverride = std::nullopt) const noexcept;
     void ResetCursorBlink() noexcept;
 
+#ifdef GetCurrentTime
+#undef GetCurrentTime
+#endif
     // --- Deterministic Time Control (for unit tests / animations) ---
     void SetCurrentTime(double timeSeconds) noexcept;
     void AdvanceTime(double deltaSeconds) noexcept;
     [[nodiscard]] double GetCurrentTime() const noexcept { return m_currentTimeSec; }
+    [[nodiscard]] double GetCurrentTimeSec() const noexcept { return m_currentTimeSec; }
 
     // --- Popup, Tooltip, Modal & Overlay Management ---
     struct OverlayHitRegion {
@@ -3151,6 +3195,42 @@ public:
         std::source_location loc = std::source_location::current()
     ) {
         return m_ctx->DatePicker(value, std::move(opts), loc);
+    }
+
+    Response LevelMeter(
+        double value,
+        double min = -60.0,
+        double max = 0.0,
+        LevelMeterOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->LevelMeter(value, min, max, std::move(opts), loc);
+    }
+
+    Response LevelMeter(
+        std::span<const float> channelValues,
+        float min = -60.0f,
+        float max = 0.0f,
+        LevelMeterOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->LevelMeter(channelValues, min, max, std::move(opts), loc);
+    }
+
+    Response TagInput(
+        std::vector<std::string>& tags,
+        TagInputOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->TagInput(tags, std::move(opts), loc);
+    }
+
+    Response TagInput(
+        std::vector<TagItem>& tags,
+        TagInputOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->TagInput(tags, std::move(opts), loc);
     }
 
     template <typename IndexT>

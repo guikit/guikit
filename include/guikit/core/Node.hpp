@@ -114,6 +114,8 @@ enum class NodeType : uint16_t {
     Breadcrumb      = 234,
     Pagination      = 235,
     CommandPalette  = 236,
+    LevelMeter      = 237,
+    TagInput        = 238,
 
     // --- User Extension Base (1000+) ---
     User          = 1000

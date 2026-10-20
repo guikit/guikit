@@ -11303,6 +11303,113 @@ int main() {
         CHECK(rCmd.selectedIndex == 1);
     }
 
+    // LevelMeter (Single & Stereo, Segmented LEDs, Peak-Hold, Clip Reset) & TagInput (Editable Chips, Delimiter Split, Backspace)
+    {
+        guikit::Context ui;
+        guikit::ThorCanvas canvas;
+        std::vector<uint32_t> pixels(800 * 600, 0);
+        canvas.SetTarget(pixels.data(), 800, 600, 800);
+
+        double dbLevel = -12.0;
+        std::array<float, 2> stereoLevels = {-6.0f, 0.0f}; // R channel at 0.0 dB -> triggers clip latch
+        static constexpr std::array<std::string_view, 2> kStereoCh = {"L", "R"};
+        std::vector<std::string> tags = {"dsp", "radar"};
+
+        guikit::Response rMono{};
+        guikit::Response rStereo{};
+        guikit::Response rTags{};
+
+        auto renderMetersAndTags = [&]() {
+            if (auto col = ui.Column({.gap = 8.0f, .padding = guikit::Padding::All(12.0f)})) {
+                rMono = ui.LevelMeter(dbLevel, -60.0, 0.0, {
+                    .segments = 24,
+                    .multiZoneColor = true,
+                    .autoPeakHold = true,
+                    .showClipLed = true,
+                    .showScale = true
+                });
+                rStereo = ui.LevelMeter(stereoLevels, -60.0f, 0.0f, {
+                    .orientation = guikit::Orientation::Vertical,
+                    .segments = 16,
+                    .channelLabels = kStereoCh,
+                    .height = 140.0f
+                });
+                rTags = ui.TagInput(tags, {
+                    .placeholder = "Add tag...",
+                    .maxTags = 6,
+                    .allowDuplicates = false,
+                    .splitOnComma = true,
+                    .clearable = true,
+                    .showCounter = true
+                });
+            }
+        };
+
+        ui.BeginFrame({800.0f, 600.0f});
+        renderMetersAndTags();
+        ui.EndFrame(canvas);
+        ui.BeginFrame({800.0f, 600.0f});
+        renderMetersAndTags();
+        ui.EndFrame(canvas);
+
+        CHECK(rMono.rect.w > 100.0f && rMono.rect.h > 16.0f);
+        CHECK(rStereo.rect.w > 30.0f && rStereo.rect.h >= 140.0f);
+        CHECK(rTags.rect.w > 100.0f && rTags.rect.h > 20.0f);
+
+        // Click stereo LevelMeter to reset peak/clip latch
+        ui.OnMouseMove(rStereo.rect.Center());
+        ui.OnMouseDown(1);
+        ui.BeginFrame({800.0f, 600.0f});
+        renderMetersAndTags();
+        ui.EndFrame(canvas);
+        ui.OnMouseUp(1);
+        ui.BeginFrame({800.0f, 600.0f});
+        renderMetersAndTags();
+        ui.EndFrame(canvas);
+        CHECK(rStereo.clicked);
+
+        // Focus TagInput by clicking inside it (away from chip 'x' and clear button)
+        ui.OnMouseMove({rTags.rect.Center().x, rTags.rect.Center().y});
+        ui.OnMouseDown(1);
+        ui.BeginFrame({800.0f, 600.0f});
+        renderMetersAndTags();
+        ui.EndFrame(canvas);
+        ui.OnMouseUp(1);
+        ui.BeginFrame({800.0f, 600.0f});
+        renderMetersAndTags();
+        ui.EndFrame(canvas);
+        CHECK(ui.IsFocused(rTags.id));
+
+        // Type comma-separated tags "sonar, lidar," -> adds both "sonar" and "lidar"
+        ui.OnTextInput("sonar, lidar,");
+        ui.BeginFrame({800.0f, 600.0f});
+        renderMetersAndTags();
+        ui.EndFrame(canvas);
+        CHECK(rTags.changed);
+        CHECK(tags.size() == 4);
+        CHECK(tags[2] == "sonar" && tags[3] == "lidar");
+
+        // Type duplicate "dsp" and press Enter -> ignored because allowDuplicates == false
+        ui.OnTextInput("dsp");
+        ui.BeginFrame({800.0f, 600.0f});
+        renderMetersAndTags();
+        ui.EndFrame(canvas);
+        ui.OnKeyDown(guikit::Key::Enter);
+        ui.BeginFrame({800.0f, 600.0f});
+        renderMetersAndTags();
+        ui.EndFrame(canvas);
+        CHECK(tags.size() == 4);
+
+        // Press Backspace when inline buffer is empty -> pops last tag ("lidar")
+        ui.OnKeyDown(guikit::Key::Backspace);
+        ui.BeginFrame({800.0f, 600.0f});
+        renderMetersAndTags();
+        ui.EndFrame(canvas);
+        CHECK(rTags.changed);
+        CHECK(tags.size() == 3);
+        CHECK(tags.back() == "sonar");
+    }
+
     // Cross-platform guikit::net (URL parser, HttpClient, WebSocketClient) + LodePNG raster tile decoder
     {
         const auto parsedHttps = guikit::net::ParseUrl("https://tile.openstreetmap.org/14/9532/5841.png");

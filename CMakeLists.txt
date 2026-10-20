@@ -59,7 +59,9 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/panels/SplitView.cpp
     src/guikit/widgets/Breadcrumb.cpp
     src/guikit/widgets/DatePicker.cpp
+    src/guikit/widgets/LevelMeter.cpp
     src/guikit/widgets/Pagination.cpp
+    src/guikit/widgets/TagInput.cpp
     src/guikit/panels/ContextMenu.cpp
     src/guikit/panels/Modal.cpp
     src/guikit/panels/ScrollArea.cpp
@@ -254,6 +256,8 @@ if (GUIKIT_BUILD_DEMO)
         examples/demo/elements/SegmentedScreen.cpp
         examples/demo/elements/ColorPickerScreen.cpp
         examples/demo/elements/DatePickerScreen.cpp
+        examples/demo/elements/LevelMeterScreen.cpp
+        examples/demo/elements/TagInputScreen.cpp
         examples/demo/panels/SplitViewScreen.cpp
         examples/demo/panels/NavigationScreen.cpp
         examples/demo/elements/SwitchScreen.cpp

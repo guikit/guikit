@@ -23,9 +23,11 @@ void DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
         case NavCategory::ElemHeading:       RenderHeadingInspector(ui, ctx); break;
         case NavCategory::ElemButton:        RenderButtonInspector(ui, ctx); break;
         case NavCategory::ElemSlider:        RenderSliderInspector(ui, ctx); break;
+        case NavCategory::ElemLevelMeter:    RenderLevelMeterInspector(ui, ctx); break;
         case NavCategory::ElemKnob:          RenderKnobInspector(ui, ctx); break;
         case NavCategory::ElemSpinBox:       RenderSpinBoxInspector(ui, ctx); break;
         case NavCategory::ElemInputField:    RenderInputInspector(ui, ctx); break;
+        case NavCategory::ElemTagInput:      RenderTagInputInspector(ui, ctx); break;
         case NavCategory::ElemSelect:        RenderSelectInspector(ui, ctx); break;
         case NavCategory::ElemSegmented:     RenderSegmentedInspector(ui, ctx); break;
         case NavCategory::ElemColorPicker:   RenderColorPickerInspector(ui, ctx); break;
@@ -76,9 +78,11 @@ void DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx
         case NavCategory::ElemHeading:       RenderHeadingStage(ui, ctx); break;
         case NavCategory::ElemButton:        RenderButtonStage(ui, ctx); break;
         case NavCategory::ElemSlider:        RenderSliderStage(ui, ctx); break;
+        case NavCategory::ElemLevelMeter:    RenderLevelMeterStage(ui, ctx); break;
         case NavCategory::ElemKnob:          RenderKnobStage(ui, ctx); break;
         case NavCategory::ElemSpinBox:       RenderSpinBoxStage(ui, ctx); break;
         case NavCategory::ElemInputField:    RenderInputStage(ui, ctx); break;
+        case NavCategory::ElemTagInput:      RenderTagInputStage(ui, ctx); break;
         case NavCategory::ElemSelect:        RenderSelectStage(ui, ctx); break;
         case NavCategory::ElemSegmented:     RenderSegmentedStage(ui, ctx); break;
         case NavCategory::ElemColorPicker:   RenderColorPickerStage(ui, ctx); break;
@@ -124,9 +128,11 @@ std::string DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
         case NavCategory::ElemHeading:       return GenerateHeadingCode(ctx);
         case NavCategory::ElemButton:        return GenerateButtonCode(ctx);
         case NavCategory::ElemSlider:        return GenerateSliderCode(ctx);
+        case NavCategory::ElemLevelMeter:    return GenerateLevelMeterCode(ctx);
         case NavCategory::ElemKnob:          return GenerateKnobCode(ctx);
         case NavCategory::ElemSpinBox:       return GenerateSpinBoxCode(ctx);
         case NavCategory::ElemInputField:    return GenerateInputCode(ctx);
+        case NavCategory::ElemTagInput:      return GenerateTagInputCode(ctx);
         case NavCategory::ElemSelect:        return GenerateSelectCode(ctx);
         case NavCategory::ElemSegmented:     return GenerateSegmentedCode(ctx);
         case NavCategory::ElemColorPicker:   return GenerateColorPickerCode(ctx);
@@ -660,9 +666,11 @@ int main(int argc, char* argv[]) {
                             menu.Item(selectedCategory, NavCategory::ElemHeading,       {.text = "Heading",      .icon = guikit::Icon::Edit()});
                             menu.Item(selectedCategory, NavCategory::ElemButton,        {.text = "Button",       .icon = guikit::Icon::Play()});
                             menu.Item(selectedCategory, NavCategory::ElemSlider,        {.text = "Slider",       .icon = guikit::Icon::Settings()});
+                            menu.Item(selectedCategory, NavCategory::ElemLevelMeter,    {.text = "LevelMeter",   .icon = guikit::Icon::Play()});
                             menu.Item(selectedCategory, NavCategory::ElemKnob,          {.text = "Knob",         .icon = guikit::Icon::Refresh()});
                             menu.Item(selectedCategory, NavCategory::ElemSpinBox,       {.text = "SpinBox",      .icon = guikit::Icon::Plus()});
                             menu.Item(selectedCategory, NavCategory::ElemInputField,    {.text = "Input",        .icon = guikit::Icon::Edit()});
+                            menu.Item(selectedCategory, NavCategory::ElemTagInput,      {.text = "TagInput",     .icon = guikit::Icon::Edit()});
                             menu.Item(selectedCategory, NavCategory::ElemSelect,        {.text = "Select",       .icon = guikit::Icon::Plus()});
                             menu.Item(selectedCategory, NavCategory::ElemSegmented,     {.text = "Segmented",    .icon = guikit::Icon::Settings()});
                             menu.Item(selectedCategory, NavCategory::ElemColorPicker,   {.text = "ColorPicker",  .icon = guikit::Icon::Eye()});
@@ -961,6 +969,8 @@ int main(int argc, char* argv[]) {
                     }
 
                     static const std::vector<guikit::CommandPaletteItem> kGlobalCommands = {
+                        {.label = "Go to LevelMeter / Segmented VU Meter", .category = "Elements",  .description = "LED dB meters, peak-hold & clip LED", .icon = guikit::Icon::Play()},
+                        {.label = "Go to TagInput Editable Chips",         .category = "Elements",  .description = "Editable tag pills & delimiter split",.icon = guikit::Icon::Edit()},
                         {.label = "Go to Select / MultiSelect / ComboBox", .category = "Elements",  .description = "Dropdown, live filter & tag chips",   .icon = guikit::Icon::Plus()},
                         {.label = "Go to DatePicker & TimePicker",         .category = "Elements",  .description = "Calendar grid & time stepper",        .icon = guikit::Icon::Edit()},
                         {.label = "Go to SpinBox Numeric Stepper",         .category = "Elements",  .description = "Inline, Detached & Split steppers",   .icon = guikit::Icon::Plus()},
@@ -980,18 +990,20 @@ int main(int argc, char* argv[]) {
                     });
                     if (cmdResp.changed && cmdResp.selectedIndex >= 0) {
                         switch (cmdResp.selectedIndex) {
-                            case 0: selectedCategory = NavCategory::ElemSelect; break;
-                            case 1: selectedCategory = NavCategory::ElemDatePicker; break;
-                            case 2: selectedCategory = NavCategory::ElemSpinBox; break;
-                            case 3: selectedCategory = NavCategory::ElemColorPicker; break;
-                            case 4: selectedCategory = NavCategory::PanelSplitView; break;
-                            case 5: selectedCategory = NavCategory::PanelNavigation; break;
-                            case 6: selectedCategory = NavCategory::PanelOverlays; break;
-                            case 7: selectedCategory = NavCategory::PanelTable; break;
-                            case 8: selectedCategory = NavCategory::SceneSignalView; break;
-                            case 9: selectedCategory = NavCategory::SceneSonarView; break;
-                            case 10: selectedCategory = NavCategory::SceneBpmnEditor; break;
-                            case 11:
+                            case 0: selectedCategory = NavCategory::ElemLevelMeter; break;
+                            case 1: selectedCategory = NavCategory::ElemTagInput; break;
+                            case 2: selectedCategory = NavCategory::ElemSelect; break;
+                            case 3: selectedCategory = NavCategory::ElemDatePicker; break;
+                            case 4: selectedCategory = NavCategory::ElemSpinBox; break;
+                            case 5: selectedCategory = NavCategory::ElemColorPicker; break;
+                            case 6: selectedCategory = NavCategory::PanelSplitView; break;
+                            case 7: selectedCategory = NavCategory::PanelNavigation; break;
+                            case 8: selectedCategory = NavCategory::PanelOverlays; break;
+                            case 9: selectedCategory = NavCategory::PanelTable; break;
+                            case 10: selectedCategory = NavCategory::SceneSignalView; break;
+                            case 11: selectedCategory = NavCategory::SceneSonarView; break;
+                            case 12: selectedCategory = NavCategory::SceneBpmnEditor; break;
+                            case 13:
                                 demoCtx.previewLightMode = !demoCtx.previewLightMode;
                                 demoCtx.previewDarkMode = !demoCtx.previewLightMode;
                                 {
@@ -1004,7 +1016,7 @@ int main(int argc, char* argv[]) {
                                     demoCtx.previewTheme.mode = demoCtx.previewDarkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
                                 }
                                 break;
-                            case 12:
+                            case 14:
                                 demoCtx.previewShowCode = !demoCtx.previewShowCode;
                                 break;
                             default: break;
