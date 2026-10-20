@@ -282,11 +282,6 @@ if (GUIKIT_BUILD_DEMO)
         examples/demo/scenes/AttitudeScreen.cpp
         examples/demo/scenes/CarDashboardScreen.cpp
         examples/demo/scenes/BpmnScreen.cpp
-        examples/demo/assemblies/DashboardScreen.cpp
-        examples/demo/assemblies/FormControlsScreen.cpp
-        examples/demo/assemblies/FlexRibbonScreen.cpp
-        examples/demo/assemblies/DiagnosticsScreen.cpp
-        examples/demo/assemblies/ThemeStudioScreen.cpp
     )
     target_link_libraries(guikit_demo PRIVATE guikit::guikit)
     if (EMSCRIPTEN)

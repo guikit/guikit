@@ -62,13 +62,6 @@ void DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
         case NavCategory::SceneAttitudeView:  RenderAttitudeInspector(ui, ctx); break;
         case NavCategory::SceneCarDashboard:  RenderCarDashboardInspector(ui, ctx); break;
         case NavCategory::SceneBpmnEditor:    RenderBpmnInspector(ui, ctx); break;
-
-        // 5. ASSEMBLY
-        case NavCategory::AsmDashboard:      RenderDashboardInspector(ui, ctx); break;
-        case NavCategory::AsmFormControls:   RenderFormControlsInspector(ui, ctx); break;
-        case NavCategory::AsmFlexRibbon:     RenderFlexRibbonInspector(ui, ctx); break;
-        case NavCategory::AsmDiagnostics:    RenderDiagnosticsInspector(ui, ctx); break;
-        case NavCategory::AsmThemeStudio:    RenderThemeStudioInspector(ui, ctx); break;
     }
 }
 
@@ -169,17 +162,6 @@ std::string DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
         case NavCategory::SceneBpmnEditor:    return GenerateBpmnCode(ctx);
 
         default:                             return {};
-    }
-}
-
-void DispatchAssemblyScreen(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
-    switch (cat) {
-        case NavCategory::AsmDashboard:    RenderDashboardScreen(ui, ctx); break;
-        case NavCategory::AsmFormControls: RenderFormControlsScreen(ui, ctx); break;
-        case NavCategory::AsmFlexRibbon:   RenderFlexRibbonScreen(ui, ctx); break;
-        case NavCategory::AsmDiagnostics:  RenderDiagnosticsScreen(ui, ctx); break;
-        case NavCategory::AsmThemeStudio:  RenderThemeStudioScreen(ui, ctx); break;
-        default: break;
     }
 }
 
@@ -705,13 +687,6 @@ int main(int argc, char* argv[]) {
                             menu.Item(selectedCategory, NavCategory::SceneAttitudeView,  {.text = "Attitude PFD", .icon = guikit::Icon::Play(),   .badge = "ADI"});
                             menu.Item(selectedCategory, NavCategory::SceneCarDashboard,  {.text = "Car Cluster",  .icon = guikit::Icon::Play(),   .badge = "AUTO"});
                             menu.Item(selectedCategory, NavCategory::SceneBpmnEditor,    {.text = "BPMN Modeler", .icon = guikit::Icon::Edit(),   .badge = "2.0"});
-
-                            menu.Section("ASSEMBLY");
-                            menu.Item(selectedCategory, NavCategory::AsmDashboard,      {.text = "Dashboard",    .icon = guikit::Icon::Settings()});
-                            menu.Item(selectedCategory, NavCategory::AsmFormControls,   {.text = "Form Demo",    .icon = guikit::Icon::Edit()});
-                            menu.Item(selectedCategory, NavCategory::AsmFlexRibbon,     {.text = "Flex Ribbon",  .icon = guikit::Icon::Folder()});
-                            menu.Item(selectedCategory, NavCategory::AsmDiagnostics,    {.text = "Diagnostics",  .icon = guikit::Icon::Eye()});
-                            menu.Item(selectedCategory, NavCategory::AsmThemeStudio,    {.text = "Theme Studio", .icon = guikit::Icon::Refresh()});
                         }
                         if (selectedCategory != prevCat) {
                             ui.InvalidateAll();
@@ -890,24 +865,6 @@ int main(int argc, char* argv[]) {
                                     .heightMode = guikit::SizeMode::Stretch,
                                     .border = {.radius = 0.0f}
                                 });
-                            }
-                        } else {
-                            // ASSEMBLY MODE: Real-World Screens & Compositions
-                            if (auto previewBox = ui.Box({
-                                .widthMode = guikit::SizeMode::Stretch,
-                                .heightMode = guikit::SizeMode::Stretch,
-                                .padding = guikit::Padding::All(8.0f),
-                                .background = {demoCtx.previewTheme.palette.background},
-                                .border = {.width = 1.0f, .radius = 8.0f, .color = {demoCtx.previewTheme.palette.borderSubtle}},
-                                .clipChildren = true,
-                                .theme = &demoCtx.previewTheme,
-                                .scale = previewScale,
-                                .debugBounds = demoCtx.previewBounds,
-                                .inspectMode = demoCtx.previewInspect
-                            })) {
-                                if (auto contentScroll = ui.ScrollArea({.gap = 12.0f})) {
-                                    DispatchAssemblyScreen(ui, selectedCategory, demoCtx);
-                                }
                             }
                         }
                     }

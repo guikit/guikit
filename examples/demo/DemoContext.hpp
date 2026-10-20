@@ -50,14 +50,7 @@ enum class NavCategory : uint8_t {
     SceneImageView,
     SceneAttitudeView,
     SceneCarDashboard,
-    SceneBpmnEditor,
-
-    // 5. ASSEMBLY (Compositions & Real-World Screens)
-    AsmDashboard,
-    AsmFormControls,
-    AsmFlexRibbon,
-    AsmDiagnostics,
-    AsmThemeStudio
+    SceneBpmnEditor
 };
 
 constexpr bool IsElementCategory(NavCategory cat) noexcept {
@@ -69,7 +62,8 @@ constexpr bool IsSandboxCategory(NavCategory cat) noexcept {
 }
 
 constexpr bool IsFullStageCategory(NavCategory cat) noexcept {
-    return cat == NavCategory::PanelSplitView ||
+    return cat == NavCategory::PanelCard ||
+           cat == NavCategory::PanelSplitView ||
            cat == NavCategory::PanelNavigation ||
            cat == NavCategory::PanelToolbar ||
            cat == NavCategory::PanelSidebar ||
@@ -995,23 +989,5 @@ std::string GenerateCarDashboardCode(const DemoContext& ctx);
 void RenderBpmnInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderBpmnStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateBpmnCode(const DemoContext& ctx);
-
-// ============================================================================
-// 5. ASSEMBLY (Compositions & Real-World Screens)
-// ============================================================================
-void RenderDashboardInspector(guikit::Context& ui, DemoContext& ctx);
-void RenderDashboardScreen(guikit::Context& ui, DemoContext& ctx);
-
-void RenderFormControlsInspector(guikit::Context& ui, DemoContext& ctx);
-void RenderFormControlsScreen(guikit::Context& ui, DemoContext& ctx);
-
-void RenderFlexRibbonInspector(guikit::Context& ui, DemoContext& ctx);
-void RenderFlexRibbonScreen(guikit::Context& ui, DemoContext& ctx);
-
-void RenderDiagnosticsInspector(guikit::Context& ui, DemoContext& ctx);
-void RenderDiagnosticsScreen(guikit::Context& ui, DemoContext& ctx);
-
-void RenderThemeStudioInspector(guikit::Context& ui, DemoContext& ctx);
-void RenderThemeStudioScreen(guikit::Context& ui, DemoContext& ctx);
 
 } // namespace guikit::demo
