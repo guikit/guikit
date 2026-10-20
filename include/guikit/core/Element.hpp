@@ -46,7 +46,7 @@ class ElementScope : public ContainerScope {
 public:
     Response response{};
 
-    ElementScope() noexcept = default;
+    ElementScope() noexcept : ContainerScope(nullptr, nullptr) {}
     ElementScope(Context* ctx, Node* node, Response res) noexcept
         : ContainerScope(ctx, node), response(res) {}
 

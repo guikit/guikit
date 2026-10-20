@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.20)
-project(guikit CXX C)
+cmake_minimum_required(VERSION 3.21)
+project(guikit VERSION 1.0.0 LANGUAGES CXX C)
 
 # Uniform C++20 standard across the project
 set(CMAKE_CXX_STANDARD 20)
@@ -19,8 +19,9 @@ endif()
 option(GUIKIT_BUILD_SCENES "Build GuiKit scientific/DSP/GIS 2D scene modules (SignalView, SonarView, WaterfallView, MapView)" ON)
 option(GUIKIT_BUILD_BACKEND_THORVG "Build GuiKit ThorVG software/vector rasterizer backend" ON)
 option(GUIKIT_BUILD_BACKEND_SDL3 "Build GuiKit SDL3 + OpenGL ES3/WebGL2 backend" ON)
-option(GUIKIT_BUILD_DEMO "Build GuiKit interactive demo" ON)
-option(GUIKIT_BUILD_TESTS "Build GuiKit unit tests" ON)
+option(GUIKIT_BUILD_DEMO "Build GuiKit interactive demo and examples" ${PROJECT_IS_TOP_LEVEL})
+option(GUIKIT_BUILD_TESTS "Build GuiKit unit tests" ${PROJECT_IS_TOP_LEVEL})
+option(GUIKIT_INSTALL "Enable CMake install targets for GuiKit" ${PROJECT_IS_TOP_LEVEL})
 
 # --- Threads (Cross-Platform) ---
 if (NOT EMSCRIPTEN)
@@ -295,7 +296,20 @@ if (GUIKIT_BUILD_DEMO)
             "--embed-file" "${CMAKE_CURRENT_SOURCE_DIR}/assets@assets"
             "--shell-file" "${CMAKE_CURRENT_SOURCE_DIR}/examples/demo/shell.html"
         )
+    else()
+        add_executable(guikit_minimal
+            examples/minimal/main.cpp
+        )
+        target_link_libraries(guikit_minimal PRIVATE guikit::guikit)
     endif()
+endif()
+
+# --- CMake Install Rules ---
+if (GUIKIT_INSTALL)
+    include(GNUInstallDirs)
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/guikit"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+    )
 endif()
 
 # --- Unit Tests ---

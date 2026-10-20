@@ -116,18 +116,20 @@ constexpr std::string_view InlineOrderEnumName(guikit::InlineOrder o) noexcept {
 
 constexpr std::string_view LabelAlignEnumName(guikit::Align a) noexcept {
     switch (a) {
-        case guikit::Align::Start:  return "Start";
-        case guikit::Align::Center: return "Center";
-        case guikit::Align::End:    return "End";
+        case guikit::Align::Start:   return "Start";
+        case guikit::Align::Center:  return "Center";
+        case guikit::Align::End:     return "End";
+        case guikit::Align::Stretch: return "Stretch";
     }
     return "Start";
 }
 
 constexpr std::string_view AlignName(guikit::Align a) noexcept {
     switch (a) {
-        case guikit::Align::Start:  return "Start";
-        case guikit::Align::Center: return "Center";
-        case guikit::Align::End:    return "End";
+        case guikit::Align::Start:   return "Start";
+        case guikit::Align::Center:  return "Center";
+        case guikit::Align::End:     return "End";
+        case guikit::Align::Stretch: return "Stretch";
     }
     return "Center";
 }

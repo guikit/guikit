@@ -19,11 +19,27 @@
 ## Key Highlights
 
 - **Pure Vector Rendering & GLSL Underlays**: Razor-sharp UI at any DPI and scale via **ThorVG**, combined with hardware-accelerated **OpenGL / WebGL2 GLSL** shader underlays (`SdlGlShaderEngine`) for real-time DSP, sonar, and waterfall displays.
-- **100% Autonomous C++20 Immediate Mode**: Zero dependency on Dear ImGui. Clean, ergonomic C++20 API using designated initializers, RAII container scopes, and reactive dirty-rectangle damage tracking:
+- **100% Autonomous C++20 Immediate Mode**: Zero dependency on Dear ImGui. Clean, composable `Element` + `Control` architecture using designated initializers, RAII container scopes, `ui.Size(...)` scoping, and reactive dirty-rectangle damage tracking:
   ```cpp
-  if (auto card = ui.Card({.gap = 8.0f, .padding = Padding::All(12.0f)})) {
-      ui.Heading({.title = "Mission Control", .size = UiSize::Md});
-      if (ui.Button({.label = "Engage Autopilot", .variant = UiVariant::Primary})) {
+  if (auto card = ui.Card({
+      .gap = 12.0f,
+      .padding = guikit::Padding::All(16.0f),
+      .border = {.width = 1.0f, .radius = 8.0f}
+  })) {
+      ui.Size(guikit::UiSize::Md).Heading({
+          .label = "Mission Control",
+          .description = "Closed-loop attitude & thruster telemetry",
+          .icon = guikit::Icon::Play(),
+          .divider = true
+      });
+      if (auto el = ui.Element({.label = "Main Thruster Output"})) {
+          ui.Slider(thrustPct, 0.0f, 100.0f, {.valueFormat = "%.1f %%"});
+      }
+      if (ui.Button({
+          .text = "Engage Autopilot",
+          .icon = guikit::Icon::Flash(),
+          .color = guikit::StateColor::Primary()
+      })) {
           EngageAutopilot();
       }
   }
@@ -35,19 +51,23 @@
 
 ## Component & Scene Suite
 
-### 1. Core Elements & Inputs
-- **Typography & Display**: `Heading` (H1–H4, subtitles, dividers), `Text` (semantic roles & variants), `Image` (PNG/JPG/SVG with object-fit & rounding), procedural vector `Icon` library
-- **Buttons & Toggles**: `Button`, `Switch`, `Checkbox`, `RadioButton`
-- **Numeric & Selection**: `Slider`, `RangeSlider`, `StepSlider`, `SpinBox`, `ProgressBar`, `InputField` (text & numeric), `Select` (searchable/scrollable popups with badges & icons)
+### 1. Core Elements & Inputs (`guikit::core`)
+- **Structure & Display**: `Element` (universal label / description / icon / badge / frame wrapper for any control), `Heading` (H1–H4 titles, subtitles, bottom & trailing dividers), `Text` (semantic roles & variants), `Image` (PNG/JPG/SVG with `ImageFit` & rounding), procedural vector `Icon` library
+- **Buttons & Toggles**: `Button`, `Switch`, `Checkbox`, `Radio`, `Segmented` (single-select & multi-select bitmask `SegmentedMask`)
+- **Numeric, Metering & Steppers**: `Slider`, `RangeSlider`, `StepSlider`, `ProgressBar` (smooth, discrete LED segments & indeterminate), `LevelMeter` (single/multi-channel dB VU meter with 3-zone coloring, auto peak-hold & clip LED), `Knob` (rotary dial with bipolar mode, radial ticks & arc), `SpinBox` (inline, detached & split steppers with drag-to-scrub)
+- **Text, Tags & Selection**: `InputField` (text, password & numeric with validation), `TagInput` (editable multi-tag chips with delimiter splitting & backspace-pop), `Select`, `ComboBox`, `Autocomplete`, `MultiSelect` (multi-chip tag trigger + checkbox dropdown)
+- **Pickers**: `ColorPicker` (interactive 2D HSV canvas, hue/alpha sliders, HEX input & preset swatches), `DatePicker` (`Date`, `DateTime`, and `Time` modes with calendar popover & time steppers)
 
-### 2. Layouts, Panels & Navigation
+### 2. Layouts, Panels, Navigation & Overlays (`guikit::core`)
 - **Layout Solver**: `Row`, `Column`, `Wrap`, `Grid` (12-column responsive layout), `Spacer`
-- **Panels & Containers**: `Box`, `Card`, `ScrollArea`, `Sidebar`, `Carousel`
-- **Navigation**: `TabBar` (with automatic carousel overflow), `Toolbar`, `SidebarMenu`
-- **Virtualized Data Grid**: `Table` — smooth 60+ FPS scrolling, sorting, filtering, and row selection over **100,000+ rows**
-- **Rich Content**: `Markdown` viewer (GFM tables, alerts, task lists, code blocks, embedded assets) & `CodeEditor` (syntax highlighting, breakpoints, folding, minimap)
+- **Panels & Containers**: `Box`, `Card`, `SplitView` (horizontal, vertical & nested resizable panes with double-click reset & collapse), `Accordion` (collapsible sections), `ScrollArea`, `Sidebar`, `ActivityBar`, `BottomPanel`, `StatusBar`, `Carousel`
+- **Navigation**: `TabBar` (with automatic carousel overflow & closable tabs), `Breadcrumb` (chevron/slash/arrow/dot separators & interactive `...` overflow collapse), `Pagination` (smart ellipsis windowing & keyboard navigation), `Toolbar`, `SidebarMenu`
+- **Hierarchical & Virtualized Data**: `TreeView` (expandable nodes, guide lines, search filter & multi-column cells), `Table` (virtualized data grid with 60+ FPS scrolling, sorting, filtering & row selection over **100,000+ rows**)
+- **Overlays & Notifications**: `Modal` (dialog with backdrop), `Popover` (anchored floating card), `ContextMenu` (right-click menu with shortcuts & check items), `CommandPalette` (`Ctrl+K` fuzzy command launcher with substring highlighting), `Toast` (non-blocking corner notifications with progress bars)
+- **Rich Content**: `Markdown` viewer (GFM tables, alerts, task lists, code blocks, embedded assets) & `TextArea` / `CodeEditor` (syntax highlighting, breakpoints, code folding, minimap & find/replace bar)
 
-### 3. Specialized 2D Scenes & Domain Workstations (`guikit_scenes`)
+### 3. Specialized 2D Scenes & Domain Workstations (`guikit::scenes`)
+- **Schematic 2D (`Scene`)**: Infinite pan/zoom vector viewport with grid/checkerboard backgrounds and coordinate rulers
 - **GIS / Marine Chart (`MapView` + `GisRenderEngine`)**: S-57 / ENC vector Electronic Navigational Chart (`.geojson`) with S-52 Day/Dusk/Night palettes, safety contour isobaths, spot soundings, IALA seamarks, 256×256 vector tile caching, and 7 geodetic projections (`EPSG:3857`, `EPSG:3395`, `EPSG:4326`, `UTM 36N`, `GSK-2011`, `SK-42`, `Arctic Polar`)
 - **Signal View (`SignalView`)**: Dual waveform + STFT spectrogram analyzer with GPU shader acceleration and harmonic cursor readouts
 - **Sonar Radar (`SonarView`)**: Polar PPI 360°, Sector Wedge, and B-Scan sonar/radar display with TVG, clutter gating, and target tracking
@@ -65,18 +85,20 @@
 guikit/
 ├── include/guikit/      # Public C++20 headers
 │   ├── backend/         # Canvas & GPU shader abstractions (ThorCanvas, SdlCanvas, SdlGlShaderEngine)
-│   ├── core/            # Tokens, Theme, Types, Assets, Allocator, Id, FrameMetrics
+│   ├── core/            # Tokens, Theme, Types, Control, Element, Assets, Allocator, Id, FrameMetrics
 │   ├── geo/             # Geodesy projections (MapGrid), GeoJSON parser, S-52 GIS render engine
 │   ├── graphics/        # Procedural vector Icons & Colormaps
 │   ├── layout/          # Flexbox & 12-column Grid solver (Row, Column, Wrap, Grid, Spacer)
-│   ├── panels/          # Containers & viewports (Box, Card, ScrollArea, Scene, MapView, Table...)
+│   ├── panels/          # Containers, splitters, overlays & viewports (Box, Card, SplitView, Table...)
 │   ├── widgets/         # Autonomous immediate-mode widgets & domain instruments
 │   ├── Context.hpp      # Primary immediate-mode UI Context
 │   ├── Core.hpp         # Lightweight core + widgets header
 │   ├── Scenes.hpp       # Domain scenes & GIS header
-│   └── GuiKit.hpp       # Master umbrella include
+│   └── GuiKit.hpp       # Master umbrella include & version macros
 ├── src/guikit/          # Implementation units (.cpp)
-├── examples/demo/       # Interactive showcase application (Desktop + WebAssembly)
+├── examples/
+│   ├── minimal/         # Single-file ~100-line quickstart application (examples/minimal/main.cpp)
+│   └── demo/            # Full interactive showcase & C++20 code generator (Desktop + WebAssembly)
 ├── assets/              # Embedded fonts, images (lena.png), and GIS chart (demo_bay.geojson)
 ├── scripts/             # Build, local server, and GitHub Pages deployment scripts
 ├── tests/               # Automated unit test suites (test_core, test_layout, test_context)
@@ -89,7 +111,7 @@ guikit/
 
 ### Prerequisites
 - C++20 compiler (MSVC 2022+, Clang 15+, GCC 12+, or Emscripten for WebAssembly)
-- CMake 3.24+
+- CMake 3.21+
 - Git
 
 ### 1. Clone with Submodules
@@ -125,6 +147,28 @@ scripts\windows\web-run.cmd
 :: Build and publish to GitHub Pages (https://guikit.github.io/demo/)
 scripts\windows\web-publish.cmd
 ```
+
+---
+
+## Integrating GuiKit into Your CMake Project
+
+Add GuiKit via `add_subdirectory` or `FetchContent` and link against `guikit::guikit` (umbrella target) or `guikit::core` (zero-dependency pure C++20 UI core):
+
+```cmake
+include(FetchContent)
+FetchContent_Declare(
+    guikit
+    GIT_REPOSITORY https://github.com/guikit/guikit.git
+    GIT_TAG        main
+    GIT_SHALLOW    TRUE
+)
+FetchContent_MakeAvailable(guikit)
+
+add_executable(my_app main.cpp)
+target_link_libraries(my_app PRIVATE guikit::guikit)
+```
+
+See [`examples/minimal/main.cpp`](examples/minimal/main.cpp) for a complete single-file starter template.
 
 ---
 
