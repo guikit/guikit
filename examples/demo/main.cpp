@@ -29,6 +29,7 @@ void DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
         case NavCategory::ElemSelect:        RenderSelectInspector(ui, ctx); break;
         case NavCategory::ElemSegmented:     RenderSegmentedInspector(ui, ctx); break;
         case NavCategory::ElemColorPicker:   RenderColorPickerInspector(ui, ctx); break;
+        case NavCategory::ElemDatePicker:    RenderDatePickerInspector(ui, ctx); break;
         case NavCategory::ElemSwitch:        RenderSwitchInspector(ui, ctx); break;
         case NavCategory::ElemCheckbox:      RenderCheckboxInspector(ui, ctx); break;
         case NavCategory::ElemRadio:         RenderRadioInspector(ui, ctx); break;
@@ -36,7 +37,9 @@ void DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
 
         // 2. PANELS & NAV
         case NavCategory::PanelCard:         RenderCardInspector(ui, ctx); break;
+        case NavCategory::PanelSplitView:    RenderSplitViewInspector(ui, ctx); break;
         case NavCategory::PanelTabBar:       RenderTabBarInspector(ui, ctx); break;
+        case NavCategory::PanelNavigation:   RenderNavigationInspector(ui, ctx); break;
         case NavCategory::PanelToolbar:      RenderToolbarInspector(ui, ctx); break;
         case NavCategory::PanelSidebar:      RenderSidebarInspector(ui, ctx); break;
         case NavCategory::PanelTreeView:     RenderTreeViewInspector(ui, ctx); break;
@@ -79,6 +82,7 @@ void DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx
         case NavCategory::ElemSelect:        RenderSelectStage(ui, ctx); break;
         case NavCategory::ElemSegmented:     RenderSegmentedStage(ui, ctx); break;
         case NavCategory::ElemColorPicker:   RenderColorPickerStage(ui, ctx); break;
+        case NavCategory::ElemDatePicker:    RenderDatePickerStage(ui, ctx); break;
         case NavCategory::ElemSwitch:        RenderSwitchStage(ui, ctx); break;
         case NavCategory::ElemCheckbox:      RenderCheckboxStage(ui, ctx); break;
         case NavCategory::ElemRadio:         RenderRadioStage(ui, ctx); break;
@@ -86,7 +90,9 @@ void DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx
 
         // 2. PANELS & NAV
         case NavCategory::PanelCard:         RenderCardStage(ui, ctx); break;
+        case NavCategory::PanelSplitView:    RenderSplitViewStage(ui, ctx); break;
         case NavCategory::PanelTabBar:       RenderTabBarStage(ui, ctx); break;
+        case NavCategory::PanelNavigation:   RenderNavigationStage(ui, ctx); break;
         case NavCategory::PanelToolbar:      RenderToolbarStage(ui, ctx); break;
         case NavCategory::PanelSidebar:      RenderSidebarStage(ui, ctx); break;
         case NavCategory::PanelTreeView:     RenderTreeViewStage(ui, ctx); break;
@@ -124,6 +130,7 @@ std::string DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
         case NavCategory::ElemSelect:        return GenerateSelectCode(ctx);
         case NavCategory::ElemSegmented:     return GenerateSegmentedCode(ctx);
         case NavCategory::ElemColorPicker:   return GenerateColorPickerCode(ctx);
+        case NavCategory::ElemDatePicker:    return GenerateDatePickerCode(ctx);
         case NavCategory::ElemSwitch:        return GenerateSwitchCode(ctx);
         case NavCategory::ElemCheckbox:      return GenerateCheckboxCode(ctx);
         case NavCategory::ElemRadio:         return GenerateRadioCode(ctx);
@@ -131,7 +138,9 @@ std::string DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
 
         // 2. PANELS & NAV
         case NavCategory::PanelCard:         return GenerateCardCode(ctx);
+        case NavCategory::PanelSplitView:    return GenerateSplitViewCode(ctx);
         case NavCategory::PanelTabBar:       return GenerateTabBarCode(ctx);
+        case NavCategory::PanelNavigation:   return GenerateNavigationCode(ctx);
         case NavCategory::PanelToolbar:      return GenerateToolbarCode(ctx);
         case NavCategory::PanelSidebar:      return GenerateSidebarCode(ctx);
         case NavCategory::PanelTreeView:     return GenerateTreeViewCode(ctx);
@@ -657,6 +666,7 @@ int main(int argc, char* argv[]) {
                             menu.Item(selectedCategory, NavCategory::ElemSelect,        {.text = "Select",       .icon = guikit::Icon::Plus()});
                             menu.Item(selectedCategory, NavCategory::ElemSegmented,     {.text = "Segmented",    .icon = guikit::Icon::Settings()});
                             menu.Item(selectedCategory, NavCategory::ElemColorPicker,   {.text = "ColorPicker",  .icon = guikit::Icon::Eye()});
+                            menu.Item(selectedCategory, NavCategory::ElemDatePicker,    {.text = "DatePicker",   .icon = guikit::Icon::Edit()});
                             menu.Item(selectedCategory, NavCategory::ElemSwitch,        {.text = "Switch",       .icon = guikit::Icon::Refresh()});
                             menu.Item(selectedCategory, NavCategory::ElemCheckbox,      {.text = "Checkbox",     .icon = guikit::Icon::Check()});
                             menu.Item(selectedCategory, NavCategory::ElemRadio,         {.text = "Radio",        .icon = guikit::Icon::Check()});
@@ -664,7 +674,9 @@ int main(int argc, char* argv[]) {
 
                             menu.Section("PANELS & NAV");
                             menu.Item(selectedCategory, NavCategory::PanelCard,         {.text = "Card",         .icon = guikit::Icon::Copy()});
+                            menu.Item(selectedCategory, NavCategory::PanelSplitView,    {.text = "SplitView",    .icon = guikit::Icon::Copy()});
                             menu.Item(selectedCategory, NavCategory::PanelTabBar,       {.text = "TabBar",       .icon = guikit::Icon::Folder()});
+                            menu.Item(selectedCategory, NavCategory::PanelNavigation,   {.text = "Navigation",   .icon = guikit::Icon::Folder()});
                             menu.Item(selectedCategory, NavCategory::PanelToolbar,      {.text = "Toolbar",      .icon = guikit::Icon::Settings()});
                             menu.Item(selectedCategory, NavCategory::PanelSidebar,      {.text = "Sidebar",      .icon = guikit::Icon::Folder()});
                             menu.Item(selectedCategory, NavCategory::PanelTreeView,     {.text = "TreeView",     .icon = guikit::Icon::Folder()});
@@ -921,6 +933,21 @@ int main(int argc, char* argv[]) {
 
                     sb.Spacer();
 
+                    static bool globalPaletteOpen = false;
+                    if (ui.ConsumeShortcut(guikit::Key::K, true)) {
+                        globalPaletteOpen = !globalPaletteOpen;
+                        ui.InvalidateAll();
+                    }
+                    if (sb.Action({
+                        .text = "Command Palette",
+                        .icon = guikit::Icon::Search(),
+                        .tooltip = "Open Global Command Palette (Ctrl+K)",
+                        .active = globalPaletteOpen
+                    }).clicked) {
+                        globalPaletteOpen = !globalPaletteOpen;
+                        ui.InvalidateAll();
+                    }
+
                     if (IsSandboxCategory(selectedCategory)) {
                         if (sb.Action({
                             .text = "C++ Code",
@@ -931,6 +958,58 @@ int main(int argc, char* argv[]) {
                             demoCtx.previewShowCode = !demoCtx.previewShowCode;
                             ui.InvalidateAll();
                         }
+                    }
+
+                    static const std::vector<guikit::CommandPaletteItem> kGlobalCommands = {
+                        {.label = "Go to Select / MultiSelect / ComboBox", .category = "Elements",  .description = "Dropdown, live filter & tag chips",   .icon = guikit::Icon::Plus()},
+                        {.label = "Go to DatePicker & TimePicker",         .category = "Elements",  .description = "Calendar grid & time stepper",        .icon = guikit::Icon::Edit()},
+                        {.label = "Go to SpinBox Numeric Stepper",         .category = "Elements",  .description = "Inline, Detached & Split steppers",   .icon = guikit::Icon::Plus()},
+                        {.label = "Go to ColorPicker HSV/HEX",             .category = "Elements",  .description = "2D SV canvas, hue & alpha sliders",   .icon = guikit::Icon::Eye()},
+                        {.label = "Go to SplitView Resizable Panes",       .category = "Panels",    .description = "Horizontal & Vertical splitters",     .icon = guikit::Icon::Copy()},
+                        {.label = "Go to Navigation (Breadcrumb & Page)",  .category = "Panels",    .description = "Breadcrumbs & smart pagination",      .icon = guikit::Icon::Folder()},
+                        {.label = "Go to Overlays (Modal / Toast / Cmd)",  .category = "Panels",    .description = "Modals, context menus & palettes",    .icon = guikit::Icon::Flash()},
+                        {.label = "Go to Table / Virtualized Grid",        .category = "Panels",    .description = "100,000 rows virtualized data grid",  .icon = guikit::Icon::Copy()},
+                        {.label = "Go to Signal View (DSP)",               .category = "2D Scenes", .description = "Waveform & spectrogram analyzer",     .icon = guikit::Icon::Play()},
+                        {.label = "Go to Sonar Radar (DDS)",               .category = "2D Scenes", .description = "Polar heatmap & target tracker",      .icon = guikit::Icon::Search()},
+                        {.label = "Go to BPMN 2.0 Modeler",                .category = "2D Scenes", .description = "Interactive workflow graph & XML",    .icon = guikit::Icon::Edit()},
+                        {.label = "Toggle Preview Dark / Light Theme",     .category = "Theme",     .description = "Switch stage palette mode",           .icon = guikit::Icon::Refresh()},
+                        {.label = "Toggle Generated C++20 Code Panel",     .category = "View",      .description = "Show or hide bottom code generator",  .icon = guikit::Icon::Eye()}
+                    };
+                    const auto cmdResp = ui.CommandPalette(globalPaletteOpen, kGlobalCommands, {
+                        .placeholder = "Jump to screen or run command..."
+                    });
+                    if (cmdResp.changed && cmdResp.selectedIndex >= 0) {
+                        switch (cmdResp.selectedIndex) {
+                            case 0: selectedCategory = NavCategory::ElemSelect; break;
+                            case 1: selectedCategory = NavCategory::ElemDatePicker; break;
+                            case 2: selectedCategory = NavCategory::ElemSpinBox; break;
+                            case 3: selectedCategory = NavCategory::ElemColorPicker; break;
+                            case 4: selectedCategory = NavCategory::PanelSplitView; break;
+                            case 5: selectedCategory = NavCategory::PanelNavigation; break;
+                            case 6: selectedCategory = NavCategory::PanelOverlays; break;
+                            case 7: selectedCategory = NavCategory::PanelTable; break;
+                            case 8: selectedCategory = NavCategory::SceneSignalView; break;
+                            case 9: selectedCategory = NavCategory::SceneSonarView; break;
+                            case 10: selectedCategory = NavCategory::SceneBpmnEditor; break;
+                            case 11:
+                                demoCtx.previewLightMode = !demoCtx.previewLightMode;
+                                demoCtx.previewDarkMode = !demoCtx.previewLightMode;
+                                {
+                                    const auto defTheme = demoCtx.previewDarkMode
+                                        ? guikit::UiTheme::Dark(demoCtx.previewTheme.density)
+                                        : guikit::UiTheme::Light(demoCtx.previewTheme.density);
+                                    demoCtx.previewTheme.palette = defTheme.palette;
+                                    demoCtx.previewTheme.variants = defTheme.variants;
+                                    demoCtx.previewTheme.syntax = defTheme.syntax;
+                                    demoCtx.previewTheme.mode = demoCtx.previewDarkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
+                                }
+                                break;
+                            case 12:
+                                demoCtx.previewShowCode = !demoCtx.previewShowCode;
+                                break;
+                            default: break;
+                        }
+                        ui.InvalidateAll();
                     }
                 }
             }

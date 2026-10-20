@@ -1037,6 +1037,8 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                     selectionAnchor = cursor;
                     changed = true;
                 }
+            } else {
+                return false;
             }
             return true;
         }

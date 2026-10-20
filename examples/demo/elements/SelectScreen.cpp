@@ -6,9 +6,10 @@ namespace guikit::demo {
 
 namespace {
 struct SelectState {
-    int mode = 1; // 0 = Select, 1 = ComboBox (Searchable), 2 = Autocomplete (Editable)
+    int mode = 1; // 0 = Select, 1 = ComboBox (Searchable), 2 = Autocomplete (Editable), 3 = MultiSelect
     size_t idx = 0;
     std::string customText = "Option Alpha";
+    std::vector<size_t> multiSelected = {0, 2, 5};
     std::vector<std::string_view> plainItems = {
         "Option Alpha",
         "Option Beta",
@@ -43,7 +44,7 @@ std::vector<guikit::SelectItem> BuildRichSelectItems() {
 
 void RenderSelectInspector(guikit::Context& ui, DemoContext&) {
     if (auto el = ui.Element({.label = "Control Mode"})) {
-        if (ui.Segmented(s_state.mode, {"Select", "ComboBox", "Autocomplete"}, {
+        if (ui.Segmented(s_state.mode, {"Select", "ComboBox", "Autocomplete", "MultiSelect"}, {
             .stretch = guikit::StretchMode::Fill
         }).changed) {
             if (s_state.mode == 2 && s_state.customText.empty() && s_state.idx < s_state.plainItems.size()) {
@@ -116,11 +117,18 @@ void RenderSelectStage(guikit::Context& ui, DemoContext& ctx) {
             } else {
                 ui.Size(ctx.controlsSize).ComboBox(s_state.idx, s_state.plainItems, opts);
             }
-        } else {
+        } else if (s_state.mode == 2) {
             if (s_state.richItems) {
                 ui.Size(ctx.controlsSize).Autocomplete(s_state.customText, richList, opts);
             } else {
                 ui.Size(ctx.controlsSize).Autocomplete(s_state.customText, s_state.plainItems, opts);
+            }
+        } else {
+            opts.searchable = true;
+            if (s_state.richItems) {
+                ui.Size(ctx.controlsSize).MultiSelect(s_state.multiSelected, richList, opts);
+            } else {
+                ui.Size(ctx.controlsSize).MultiSelect(s_state.multiSelected, s_state.plainItems, opts);
             }
         }
     }
@@ -129,7 +137,9 @@ void RenderSelectStage(guikit::Context& ui, DemoContext& ctx) {
 std::string GenerateSelectCode(const DemoContext& ctx) {
     const std::string_view widgetCall = (s_state.mode == 0)
         ? "Select(presetIndex"
-        : ((s_state.mode == 1) ? "ComboBox(presetIndex" : "Autocomplete(customText");
+        : ((s_state.mode == 1)
+            ? "ComboBox(presetIndex"
+            : ((s_state.mode == 2) ? "Autocomplete(customText" : "MultiSelect(selectedIndices"));
     return std::format(
         "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"

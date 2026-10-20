@@ -35,24 +35,29 @@
 #include "guikit/panels/Box.hpp"
 #include "guikit/panels/Card.hpp"
 #include "guikit/panels/Carousel.hpp"
+#include "guikit/panels/CommandPalette.hpp"
 #include "guikit/panels/ScrollArea.hpp"
 #include "guikit/panels/Scene.hpp"
 #include "guikit/panels/MapView.hpp"
 #include "guikit/panels/ContextMenu.hpp"
 #include "guikit/panels/Modal.hpp"
 #include "guikit/panels/Sidebar.hpp"
+#include "guikit/panels/SplitView.hpp"
 #include "guikit/panels/StatusBar.hpp"
 #include "guikit/panels/Table.hpp"
 #include "guikit/panels/Toolbar.hpp"
 #include "guikit/panels/TreeView.hpp"
+#include "guikit/widgets/Breadcrumb.hpp"
 #include "guikit/widgets/Button.hpp"
 #include "guikit/widgets/Checkbox.hpp"
 #include "guikit/widgets/ColorPicker.hpp"
+#include "guikit/widgets/DatePicker.hpp"
 #include "guikit/widgets/Heading.hpp"
 #include "guikit/widgets/Image.hpp"
 #include "guikit/widgets/InputField.hpp"
 #include "guikit/widgets/Knob.hpp"
 #include "guikit/widgets/Markdown.hpp"
+#include "guikit/widgets/Pagination.hpp"
 #include "guikit/widgets/Radio.hpp"
 #include "guikit/widgets/Segmented.hpp"
 #include "guikit/widgets/Select.hpp"
@@ -474,6 +479,21 @@ public:
         std::source_location loc = std::source_location::current()
     ) {
         return guikit::StatusBar::Open(*this, opts, loc);
+    }
+
+    [[nodiscard]] SplitViewScope SplitView(
+        const SplitViewOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return guikit::SplitView::Open(*this, opts, loc);
+    }
+
+    [[nodiscard]] SplitViewScope SplitView(
+        float& ratio,
+        const SplitViewOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return guikit::SplitView::Open(*this, ratio, opts, loc);
     }
 
     [[nodiscard]] SceneScope Scene(
@@ -1004,6 +1024,52 @@ public:
         return Select(value, items, std::move(opts), loc);
     }
 
+    Response MultiSelect(
+        std::vector<size_t>& selectedIndices,
+        std::span<const SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        struct ExecGuard {
+            Context& c;
+            ~ExecGuard() noexcept { c.EndWidgetExecution(); }
+        } guard{*this};
+        BeginWidgetExecution();
+        return guikit::Select::RunMulti(*this, selectedIndices, items, opts, loc);
+    }
+
+    Response MultiSelect(
+        std::vector<size_t>& selectedIndices,
+        std::initializer_list<SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return MultiSelect(selectedIndices, std::span<const SelectItem>(items.begin(), items.size()), std::move(opts), loc);
+    }
+
+    Response MultiSelect(
+        std::vector<size_t>& selectedIndices,
+        std::span<const std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        struct ExecGuard {
+            Context& c;
+            ~ExecGuard() noexcept { c.EndWidgetExecution(); }
+        } guard{*this};
+        BeginWidgetExecution();
+        return guikit::Select::RunMulti(*this, selectedIndices, items, opts, loc);
+    }
+
+    Response MultiSelect(
+        std::vector<size_t>& selectedIndices,
+        std::initializer_list<std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return MultiSelect(selectedIndices, std::span<const std::string_view>(items.begin(), items.size()), std::move(opts), loc);
+    }
+
     // --- TabBar Component ---
     template <typename IndexT>
     Response TabBar(
@@ -1312,6 +1378,106 @@ public:
         std::source_location loc = std::source_location::current()
     ) {
         return Run<guikit::ColorPicker>(value, opts, loc);
+    }
+
+    // --- DatePicker Widget ---
+    Response DatePicker(
+        DateTime& value,
+        DatePickerOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::DatePicker>(value, opts, loc);
+    }
+
+    // --- Breadcrumb & Pagination Navigation Widgets ---
+    template <typename IndexT>
+    Response Breadcrumb(
+        IndexT& activeIndex,
+        std::span<const BreadcrumbItem> items,
+        BreadcrumbOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT>) {
+        if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
+            return Run<guikit::Breadcrumb>(activeIndex, items, opts, loc);
+        } else {
+            int idx = static_cast<int>(activeIndex);
+            Response r = Run<guikit::Breadcrumb>(idx, items, opts, loc);
+            if (r.changed && idx >= 0) activeIndex = static_cast<IndexT>(idx);
+            return r;
+        }
+    }
+
+    template <typename IndexT>
+    Response Breadcrumb(
+        IndexT& activeIndex,
+        std::initializer_list<BreadcrumbItem> items,
+        BreadcrumbOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT>) {
+        return Breadcrumb(activeIndex, std::span<const BreadcrumbItem>(items.begin(), items.size()), std::move(opts), loc);
+    }
+
+    template <typename IndexT>
+    Response Breadcrumb(
+        IndexT& activeIndex,
+        std::span<const std::string_view> items,
+        BreadcrumbOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT>) {
+        if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
+            return Run<guikit::Breadcrumb>(activeIndex, items, opts, loc);
+        } else {
+            int idx = static_cast<int>(activeIndex);
+            Response r = Run<guikit::Breadcrumb>(idx, items, opts, loc);
+            if (r.changed && idx >= 0) activeIndex = static_cast<IndexT>(idx);
+            return r;
+        }
+    }
+
+    template <typename IndexT>
+    Response Breadcrumb(
+        IndexT& activeIndex,
+        std::initializer_list<std::string_view> items,
+        BreadcrumbOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT>) {
+        return Breadcrumb(activeIndex, std::span<const std::string_view>(items.begin(), items.size()), std::move(opts), loc);
+    }
+
+    template <typename IndexT, typename CountT>
+    Response Pagination(
+        IndexT& currentPage,
+        CountT totalPages,
+        PaginationOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT> && std::is_integral_v<CountT>) {
+        if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
+            return Run<guikit::Pagination>(currentPage, static_cast<size_t>(totalPages), opts, loc);
+        } else {
+            int page = static_cast<int>(currentPage);
+            Response r = Run<guikit::Pagination>(page, static_cast<int>(totalPages), opts, loc);
+            if (r.changed && page >= 0) currentPage = static_cast<IndexT>(page);
+            return r;
+        }
+    }
+
+    // --- CommandPalette Overlay Component ---
+    CommandPaletteResponse CommandPalette(
+        bool& isOpen,
+        std::span<const CommandPaletteItem> items,
+        const CommandPaletteOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return Run<guikit::CommandPalette>(isOpen, items, opts, loc);
+    }
+
+    CommandPaletteResponse CommandPalette(
+        bool& isOpen,
+        std::initializer_list<CommandPaletteItem> items,
+        const CommandPaletteOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return CommandPalette(isOpen, std::span<const CommandPaletteItem>(items.begin(), items.size()), opts, loc);
     }
 
     // --- Toolbar Component ---
@@ -2247,6 +2413,21 @@ public:
         return TransferToContainer(m_ctx->StatusBar(std::move(opts), loc));
     }
 
+    [[nodiscard]] SplitViewScope SplitView(
+        const SplitViewOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->SplitView(opts, loc));
+    }
+
+    [[nodiscard]] SplitViewScope SplitView(
+        float& ratio,
+        const SplitViewOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return TransferToContainer(m_ctx->SplitView(ratio, opts, loc));
+    }
+
     [[nodiscard]] SceneScope Scene(
         SceneOptions opts = {},
         std::source_location loc = std::source_location::current()
@@ -2706,6 +2887,42 @@ public:
         return m_ctx->Autocomplete(value, items, std::move(opts), loc);
     }
 
+    Response MultiSelect(
+        std::vector<size_t>& selectedIndices,
+        std::span<const SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->MultiSelect(selectedIndices, items, std::move(opts), loc);
+    }
+
+    Response MultiSelect(
+        std::vector<size_t>& selectedIndices,
+        std::initializer_list<SelectItem> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->MultiSelect(selectedIndices, items, std::move(opts), loc);
+    }
+
+    Response MultiSelect(
+        std::vector<size_t>& selectedIndices,
+        std::span<const std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->MultiSelect(selectedIndices, items, std::move(opts), loc);
+    }
+
+    Response MultiSelect(
+        std::vector<size_t>& selectedIndices,
+        std::initializer_list<std::string_view> items,
+        SelectOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->MultiSelect(selectedIndices, items, std::move(opts), loc);
+    }
+
     template <typename IndexT>
     Response TabBar(
         IndexT& activeIndex,
@@ -2926,6 +3143,82 @@ public:
         std::source_location loc = std::source_location::current()
     ) {
         return m_ctx->ColorPicker(value, std::move(opts), loc);
+    }
+
+    Response DatePicker(
+        DateTime& value,
+        DatePickerOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->DatePicker(value, std::move(opts), loc);
+    }
+
+    template <typename IndexT>
+    Response Breadcrumb(
+        IndexT& activeIndex,
+        std::span<const BreadcrumbItem> items,
+        BreadcrumbOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT>) {
+        return m_ctx->Breadcrumb(activeIndex, items, std::move(opts), loc);
+    }
+
+    template <typename IndexT>
+    Response Breadcrumb(
+        IndexT& activeIndex,
+        std::initializer_list<BreadcrumbItem> items,
+        BreadcrumbOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT>) {
+        return m_ctx->Breadcrumb(activeIndex, items, std::move(opts), loc);
+    }
+
+    template <typename IndexT>
+    Response Breadcrumb(
+        IndexT& activeIndex,
+        std::span<const std::string_view> items,
+        BreadcrumbOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT>) {
+        return m_ctx->Breadcrumb(activeIndex, items, std::move(opts), loc);
+    }
+
+    template <typename IndexT>
+    Response Breadcrumb(
+        IndexT& activeIndex,
+        std::initializer_list<std::string_view> items,
+        BreadcrumbOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT>) {
+        return m_ctx->Breadcrumb(activeIndex, items, std::move(opts), loc);
+    }
+
+    template <typename IndexT, typename CountT>
+    Response Pagination(
+        IndexT& currentPage,
+        CountT totalPages,
+        PaginationOptions opts = {},
+        std::source_location loc = std::source_location::current()
+    ) requires (std::is_integral_v<IndexT> && std::is_integral_v<CountT>) {
+        return m_ctx->Pagination(currentPage, totalPages, std::move(opts), loc);
+    }
+
+    CommandPaletteResponse CommandPalette(
+        bool& isOpen,
+        std::span<const CommandPaletteItem> items,
+        const CommandPaletteOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->CommandPalette(isOpen, items, opts, loc);
+    }
+
+    CommandPaletteResponse CommandPalette(
+        bool& isOpen,
+        std::initializer_list<CommandPaletteItem> items,
+        const CommandPaletteOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return m_ctx->CommandPalette(isOpen, items, opts, loc);
     }
 
     [[nodiscard]] ModalScope Modal(

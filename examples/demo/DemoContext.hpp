@@ -18,6 +18,7 @@ enum class NavCategory : uint8_t {
     ElemSelect,
     ElemSegmented,
     ElemColorPicker,
+    ElemDatePicker,
     ElemSwitch,
     ElemCheckbox,
     ElemRadio,
@@ -25,7 +26,9 @@ enum class NavCategory : uint8_t {
 
     // 2. PANELS & NAV (Containers & Navigation)
     PanelCard,
+    PanelSplitView,
     PanelTabBar,
+    PanelNavigation,
     PanelToolbar,
     PanelSidebar,
     PanelTreeView,
@@ -64,7 +67,9 @@ constexpr bool IsSandboxCategory(NavCategory cat) noexcept {
 }
 
 constexpr bool IsFullStageCategory(NavCategory cat) noexcept {
-    return cat == NavCategory::PanelToolbar ||
+    return cat == NavCategory::PanelSplitView ||
+           cat == NavCategory::PanelNavigation ||
+           cat == NavCategory::PanelToolbar ||
            cat == NavCategory::PanelSidebar ||
            cat == NavCategory::PanelTreeView ||
            cat == NavCategory::PanelTable ||
@@ -271,7 +276,7 @@ struct DemoContext {
     float elemBorderWidth = 0.0f;
     guikit::UiVariant elemBorderVariant = guikit::UiVariant::Default;
     float elemBorderRadius = 8.0f;
-    std::array<size_t, 13> ctrlBgIdxByCat = {0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0};
+    std::array<size_t, 14> ctrlBgIdxByCat = {0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0};
     float ctrlBorderWidth = 0.0f;
     guikit::UiVariant ctrlBorderVariant = guikit::UiVariant::Default;
     float ctrlBorderRadius = 6.0f;
@@ -336,7 +341,8 @@ struct DemoContext {
                cat == NavCategory::ElemInputField ||
                cat == NavCategory::ElemSelect ||
                cat == NavCategory::ElemSegmented ||
-               cat == NavCategory::ElemColorPicker;
+               cat == NavCategory::ElemColorPicker ||
+               cat == NavCategory::ElemDatePicker;
     }
 
     guikit::StateColor GetControlBackground(NavCategory cat) const noexcept {
@@ -704,6 +710,7 @@ struct DemoContext {
             cat == NavCategory::ElemKnob ||
             cat == NavCategory::ElemSpinBox ||
             cat == NavCategory::ElemSegmented ||
+            cat == NavCategory::ElemDatePicker ||
             cat == NavCategory::ElemSwitch ||
             cat == NavCategory::ElemCheckbox ||
             cat == NavCategory::ElemRadio
@@ -746,7 +753,8 @@ struct DemoContext {
             cat == NavCategory::ElemInputField ||
             cat == NavCategory::ElemSelect ||
             cat == NavCategory::ElemSegmented ||
-            cat == NavCategory::ElemColorPicker
+            cat == NavCategory::ElemColorPicker ||
+            cat == NavCategory::ElemDatePicker
         );
         if (auto el = ui.Element({.label = "Control Border Width"})) {
             if (ui.Slider(ctrlBorderWidth, 0.0f, 4.0f, {
@@ -764,6 +772,7 @@ struct DemoContext {
             (cat == NavCategory::ElemSelect) ||
             (cat == NavCategory::ElemSegmented) ||
             (cat == NavCategory::ElemColorPicker) ||
+            (cat == NavCategory::ElemDatePicker) ||
             (cat == NavCategory::ElemButton && (btnVariant == guikit::UiVariant::Default || btnVariant == guikit::UiVariant::Secondary));
         if (auto el = ui.Element({.label = "Control Border Color", .disabled = !hasVisibleCtrlBorder})) {
             if (ui.StepSlider(ctrlBorderVariant, {
@@ -867,6 +876,10 @@ void RenderColorPickerInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderColorPickerStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateColorPickerCode(const DemoContext& ctx);
 
+void RenderDatePickerInspector(guikit::Context& ui, DemoContext& ctx);
+void RenderDatePickerStage(guikit::Context& ui, DemoContext& ctx);
+std::string GenerateDatePickerCode(const DemoContext& ctx);
+
 void RenderSwitchInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSwitchStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateSwitchCode(const DemoContext& ctx);
@@ -886,9 +899,17 @@ void RenderCardInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderCardStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateCardCode(const DemoContext& ctx);
 
+void RenderSplitViewInspector(guikit::Context& ui, DemoContext& ctx);
+void RenderSplitViewStage(guikit::Context& ui, DemoContext& ctx);
+std::string GenerateSplitViewCode(const DemoContext& ctx);
+
 void RenderTabBarInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderTabBarStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateTabBarCode(const DemoContext& ctx);
+
+void RenderNavigationInspector(guikit::Context& ui, DemoContext& ctx);
+void RenderNavigationStage(guikit::Context& ui, DemoContext& ctx);
+std::string GenerateNavigationCode(const DemoContext& ctx);
 
 void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx);

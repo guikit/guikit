@@ -11181,6 +11181,128 @@ int main() {
         CHECK(autoVal == "CustomDSP");
     }
 
+    // MultiSelect, DatePicker, Breadcrumb, Pagination, SplitView & CommandPalette
+    {
+        guikit::Context ui;
+        guikit::ThorCanvas canvas;
+        std::vector<uint32_t> pixels(800 * 600, 0);
+        canvas.SetTarget(pixels.data(), 800, 600, 800);
+
+        std::vector<size_t> multiSel = {0, 2};
+        const std::vector<std::string_view> multiItems = {"Alpha", "Beta", "Gamma", "Delta"};
+        guikit::DateTime dt{2026, 10, 20, 14, 30, 0};
+        size_t crumbIdx = 1;
+        const std::vector<std::string_view> crumbItems = {"Home", "Workspaces", "DSP", "Sonar"};
+        size_t pageIdx = 2;
+        float splitRatio = 0.4f;
+        bool cmdOpen = false;
+        const std::vector<guikit::CommandPaletteItem> cmdItems = {
+            {.label = "Open Signal View", .category = "Scenes", .shortcut = "Ctrl+1"},
+            {.label = "Open Sonar View",  .category = "Scenes", .shortcut = "Ctrl+2"},
+            {.label = "Reset Layout",     .category = "Window", .shortcut = "Ctrl+R"}
+        };
+
+        guikit::Response rMulti{};
+        guikit::Response rDate{};
+        guikit::Response rCrumb{};
+        guikit::Response rPage{};
+        guikit::Rect leftPaneRect{};
+        guikit::Rect rightPaneRect{};
+        guikit::CommandPaletteResponse rCmd{};
+
+        auto renderAllFive = [&]() {
+            if (auto col = ui.Column({.gap = 8.0f, .padding = guikit::Padding::All(12.0f), .heightMode = guikit::SizeMode::Stretch})) {
+                rMulti = ui.MultiSelect(multiSel, multiItems, {.width = 320.0f, .searchable = true, .clearable = true});
+                rDate = ui.DatePicker(dt, {.mode = guikit::DatePickerMode::DateTime, .showSeconds = true, .width = 240.0f});
+                rCrumb = ui.Breadcrumb(crumbIdx, crumbItems);
+                rPage = ui.Pagination(pageIdx, 10u, {.siblingCount = 1, .showPageInfo = true});
+
+                if (auto split = ui.SplitView(splitRatio, {
+                    .orientation = guikit::Orientation::Horizontal,
+                    .defaultRatio = 0.5f,
+                    .sashSize = 6.0f,
+                    .height = 180.0f
+                })) {
+                    if (auto p1 = split.First()) {
+                        leftPaneRect = ui.Button({.text = "Left Pane", .stretch = guikit::StretchMode::Fill}).rect;
+                    }
+                    if (auto p2 = split.Second()) {
+                        rightPaneRect = ui.Button({.text = "Right Pane", .stretch = guikit::StretchMode::Fill}).rect;
+                    }
+                }
+
+                rCmd = ui.CommandPalette(cmdOpen, cmdItems);
+            }
+        };
+
+        // DatePicker static helper verification
+        CHECK(guikit::DatePicker::IsLeapYear(2024));
+        CHECK(!guikit::DatePicker::IsLeapYear(2026));
+        CHECK(guikit::DatePicker::DaysInMonth(2024, 2) == 29);
+        CHECK(guikit::DatePicker::DaysInMonth(2026, 2) == 28);
+        CHECK(guikit::DatePicker::FormatDateTime(dt, guikit::DatePickerMode::Date, false) == "2026-10-20");
+        CHECK(guikit::DatePicker::FormatDateTime(dt, guikit::DatePickerMode::DateTime, true) == "2026-10-20 14:30:00");
+
+        for (int i = 0; i < 2; ++i) {
+            ui.BeginFrame({800.0f, 600.0f});
+            renderAllFive();
+            ui.EndFrame(canvas);
+        }
+
+        CHECK(rMulti.rect.w > 200.0f);
+        CHECK(rDate.rect.w > 180.0f);
+        CHECK(rCrumb.rect.w > 100.0f);
+        CHECK(rPage.rect.w > 150.0f);
+        CHECK(leftPaneRect.w > 100.0f);
+        CHECK(rightPaneRect.w > leftPaneRect.w);
+        CHECK(rightPaneRect.x > leftPaneRect.Right());
+
+        // 1. MultiSelect: click to open popup, press Backspace when filter is empty -> removes last selected chip (2)
+        ui.OnMouseMove({rMulti.rect.Right() - 12.0f, rMulti.rect.Center().y});
+        ui.OnMouseDown(1);
+        ui.BeginFrame({800.0f, 600.0f});
+        renderAllFive();
+        ui.EndFrame(canvas);
+        ui.OnMouseUp(1);
+        ui.BeginFrame({800.0f, 600.0f});
+        renderAllFive();
+        ui.EndFrame(canvas);
+        CHECK(ui.IsPopupOpen(rMulti.id));
+
+        ui.OnKeyDown(guikit::Key::Backspace);
+        ui.BeginFrame({800.0f, 600.0f});
+        renderAllFive();
+        ui.EndFrame(canvas);
+        CHECK(rMulti.changed);
+        CHECK(multiSel.size() == 1 && multiSel[0] == 0);
+
+        ui.OnKeyDown(guikit::Key::Escape);
+        ui.BeginFrame({800.0f, 600.0f});
+        renderAllFive();
+        ui.EndFrame(canvas);
+        CHECK(!ui.IsPopupOpen(rMulti.id));
+
+        // 2. CommandPalette: open, type "sonar", press Enter -> triggers index 1 ("Open Sonar View") and closes
+        cmdOpen = true;
+        ui.BeginFrame({800.0f, 600.0f});
+        renderAllFive();
+        ui.EndFrame(canvas);
+
+        ui.OnTextInput("sonar");
+        ui.BeginFrame({800.0f, 600.0f});
+        renderAllFive();
+        ui.EndFrame(canvas);
+        CHECK(cmdOpen);
+
+        ui.OnKeyDown(guikit::Key::Enter);
+        ui.BeginFrame({800.0f, 600.0f});
+        renderAllFive();
+        ui.EndFrame(canvas);
+        CHECK(!cmdOpen);
+        CHECK(rCmd.changed);
+        CHECK(rCmd.selectedIndex == 1);
+    }
+
     // Cross-platform guikit::net (URL parser, HttpClient, WebSocketClient) + LodePNG raster tile decoder
     {
         const auto parsedHttps = guikit::net::ParseUrl("https://tile.openstreetmap.org/14/9532/5841.png");

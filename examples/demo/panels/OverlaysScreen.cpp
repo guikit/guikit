@@ -1,4 +1,5 @@
 #include "../DemoContext.hpp"
+#include "guikit/panels/CommandPalette.hpp"
 #include <array>
 #include <format>
 #include <string>
@@ -48,6 +49,13 @@ struct OverlaysDemoState {
     bool toastClosable = true;
     bool confineToastToStage = false;
     int toastCounter = 0;
+
+    // CommandPalette settings & state
+    bool commandPaletteOpen = false;
+    float paletteWidth = 520.0f;
+    int paletteMaxVisible = 7;
+    bool paletteShowFooter = true;
+    std::string lastPaletteCommand = "None (press Ctrl+K or click 'Open Command Palette...')";
 };
 
 OverlaysDemoState s_ov;
@@ -157,6 +165,25 @@ void RenderOverlaysInspector(guikit::Context& ui, DemoContext& ctx) {
     }
     if (auto el = ui.Element({.label = "Confine Toasts to Stage"})) {
         if (ui.Switch(s_ov.confineToastToStage).changed) ui.InvalidateAll();
+    }
+
+    ui.Heading({
+        .label = "Command Palette",
+        .divider = true
+    });
+
+    if (auto el = ui.Element({.label = "Palette Width"})) {
+        if (ui.Slider(s_ov.paletteWidth, 360.0f, 680.0f, {.valueFormat = "%.0f px", .step = 10.0f}).changed) {
+            ui.InvalidateAll();
+        }
+    }
+    if (auto el = ui.Element({.label = "Max Visible Rows"})) {
+        if (ui.Slider(s_ov.paletteMaxVisible, 3, 12, {.valueFormat = "%d rows", .step = 1}).changed) {
+            ui.InvalidateAll();
+        }
+    }
+    if (auto el = ui.Element({.label = "Show Footer Hints"})) {
+        if (ui.Switch(s_ov.paletteShowFooter).changed) ui.InvalidateAll();
     }
 }
 
@@ -449,6 +476,121 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
         }
 
         // =====================================================================
+        // 4. COMMAND PALETTE (CTRL+K) CARD
+        // =====================================================================
+        if (ui.ConsumeShortcut(guikit::Key::K, true)) {
+            s_ov.commandPaletteOpen = !s_ov.commandPaletteOpen;
+            ui.InvalidateAll();
+        }
+
+        if (auto card = ui.Card({
+            .gap = 12.0f,
+            .padding = guikit::Padding::All(16.0f),
+            .widthMode = guikit::SizeMode::Stretch
+        })) {
+            ui.Heading({
+                .label = "4. Command Palette (Ctrl+K)",
+                .description = "Floating quick-search command runner with substring highlight, category badges, shortcuts, and keyboard navigation.",
+                .icon = guikit::Icon::Search(),
+                .badge = {"Ctrl+K", guikit::StateColor::Primary()},
+                .divider = true
+            });
+
+            if (auto btnRow = ui.Wrap({.gap = 10.0f})) {
+                if (ui.Size(ctx.controlsSize).Button({
+                    .text = "Open Command Palette...",
+                    .icon = guikit::Icon::Search(),
+                    .color = guikit::StateColor::FromVariant(ctx.btnVariant)
+                }).clicked) {
+                    s_ov.commandPaletteOpen = true;
+                }
+            }
+
+            if (auto statusRow = ui.Row({.gap = 8.0f, .align = guikit::Alignment::Center})) {
+                ui.Text("Last Executed Command:", {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Muted});
+                ui.Text(s_ov.lastPaletteCommand, {.role = guikit::TextRole::LabelMedium, .variant = guikit::UiVariant::Primary});
+            }
+        }
+
+        static const std::array<guikit::CommandPaletteItem, 10> kPaletteCommands = {{
+            {.label = "Configure Telemetry Endpoint", .category = "Dialog",     .description = "Open station profile & security dialog", .shortcut = "Ctrl+E", .icon = guikit::Icon::Settings()},
+            {.label = "Inspect Subsystem Health",     .category = "Diagnostics",.description = "View live DSP & GPU pipeline telemetry", .shortcut = "F9",     .icon = guikit::Icon::Info()},
+            {.label = "Spawn Info Notification",      .category = "Toast",      .description = "Emit a streaming telemetry info toast",  .shortcut = "Alt+I",  .icon = guikit::Icon::Flash()},
+            {.label = "Duplicate Active Channel",     .category = "DSP",        .description = "Clone current radar channel pipeline",   .shortcut = "Ctrl+D", .icon = guikit::Icon::Plus()},
+            {.label = "Toggle Bookmark Target",       .category = "Workspace",  .description = "Pin or unpin the active target node",    .shortcut = "Ctrl+B", .icon = guikit::Icon::Check()},
+            {.label = "Toggle Grid Snap",             .category = "Canvas",     .description = "Snap scene nodes to alignment grid",     .shortcut = "Ctrl+G", .icon = guikit::Icon::Edit()},
+            {.label = "Copy Station Configuration",   .category = "Clipboard",  .description = "Serialize JSON profile to clipboard",    .shortcut = "Ctrl+C", .icon = guikit::Icon::Copy()},
+            {.label = "Export Calibration Archive",   .category = "Storage",    .description = "Save spectrogram calibration preset",    .shortcut = "Ctrl+S", .icon = guikit::Icon::Save()},
+            {.label = "Clear Active Toasts",          .category = "Toast",      .description = "Dismiss all floating notifications",     .shortcut = "Alt+X",  .icon = guikit::Icon::Close()},
+            {.label = "Delete Radar Node...",         .category = "Danger",     .description = "Permanently purge active station node",  .shortcut = "Del",    .icon = guikit::Icon::Trash()}
+        }};
+
+        auto cpRes = guikit::CommandPalette::Run(ui, s_ov.commandPaletteOpen, kPaletteCommands, {
+            .placeholder = "Type a command or search (e.g. 'telemetry', 'dsp', 'toast')...",
+            .width = s_ov.paletteWidth,
+            .maxVisibleItems = static_cast<uint32_t>(std::max(1, s_ov.paletteMaxVisible)),
+            .backdropOpacity = s_ov.backdropOpacity,
+            .closeOnBackdropClick = s_ov.closeOnBackdrop,
+            .closeOnEscape = s_ov.closeOnEscape,
+            .showFooterHints = s_ov.paletteShowFooter,
+            .confineToParent = s_ov.confineModalToStage
+        });
+
+        if (cpRes.changed && cpRes.selectedIndex >= 0 && static_cast<size_t>(cpRes.selectedIndex) < kPaletteCommands.size()) {
+            const auto& cmd = kPaletteCommands[static_cast<size_t>(cpRes.selectedIndex)];
+            s_ov.lastPaletteCommand = std::format("[{}] {}", cmd.category.View(), cmd.label.View());
+            switch (cpRes.selectedIndex) {
+                case 0:
+                    s_ov.customModalOpen = true;
+                    break;
+                case 1:
+                    s_ov.telemetryModalOpen = true;
+                    break;
+                case 2:
+                    ++s_ov.toastCounter;
+                    ui.ShowToast({
+                        .title = ui.Format("Palette Toast #{}", s_ov.toastCounter).View(),
+                        .message = "Triggered directly from the Command Palette.",
+                        .variant = guikit::UiVariant::Info,
+                        .duration = s_ov.toastDuration,
+                        .showProgress = s_ov.toastShowProgress
+                    });
+                    break;
+                case 3:
+                    ++s_ov.duplicateCount;
+                    ui.ShowToast({
+                        .title = "Channel Duplicated",
+                        .message = ui.Format("Created channel replica #{}.", s_ov.duplicateCount).View(),
+                        .variant = guikit::UiVariant::Success,
+                        .duration = s_ov.toastDuration,
+                        .showProgress = s_ov.toastShowProgress
+                    });
+                    break;
+                case 4:
+                    s_ov.itemBookmarked = !s_ov.itemBookmarked;
+                    break;
+                case 5:
+                    s_ov.itemGridSnap = !s_ov.itemGridSnap;
+                    break;
+                case 8:
+                    ui.ClearToasts();
+                    break;
+                case 9:
+                    s_ov.confirmDeleteModalOpen = true;
+                    break;
+                default:
+                    ui.ShowToast({
+                        .title = cmd.label.View(),
+                        .message = cmd.description.View(),
+                        .variant = guikit::UiVariant::Primary,
+                        .duration = s_ov.toastDuration,
+                        .showProgress = s_ov.toastShowProgress
+                    });
+                    break;
+            }
+        }
+
+        // =====================================================================
         // ACTIVE MODAL INSTANCES
         // =====================================================================
         // 1. Inspector-configured Modal with interactive form controls
@@ -668,6 +810,12 @@ std::string GenerateOverlaysCode(const DemoContext& ctx) {
         "    .width = {:.1f}f,\n"
         "    .maxVisible = {},\n"
         "    .pauseOnHover = {}\n"
+        "}});\n\n"
+        "// 4. Command Palette (Ctrl+K)\n"
+        "auto cpRes = ui.CommandPalette(isPaletteOpen, commands, {{\n"
+        "    .width = {:.1f}f,\n"
+        "    .maxVisibleItems = {},\n"
+        "    .showFooterHints = {}\n"
         "}});",
         szPrefix,
         VariantName(ctx.btnVariant),
@@ -685,7 +833,10 @@ std::string GenerateOverlaysCode(const DemoContext& ctx) {
         placementName,
         s_ov.toastWidth,
         s_ov.toastMaxVisible,
-        s_ov.toastPauseOnHover ? "true" : "false"
+        s_ov.toastPauseOnHover ? "true" : "false",
+        s_ov.paletteWidth,
+        s_ov.paletteMaxVisible,
+        s_ov.paletteShowFooter ? "true" : "false"
     );
 }
 

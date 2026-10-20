@@ -55,6 +55,11 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/panels/Box.cpp
     src/guikit/panels/Card.cpp
     src/guikit/panels/Carousel.cpp
+    src/guikit/panels/CommandPalette.cpp
+    src/guikit/panels/SplitView.cpp
+    src/guikit/widgets/Breadcrumb.cpp
+    src/guikit/widgets/DatePicker.cpp
+    src/guikit/widgets/Pagination.cpp
     src/guikit/panels/ContextMenu.cpp
     src/guikit/panels/Modal.cpp
     src/guikit/panels/ScrollArea.cpp
@@ -248,6 +253,9 @@ if (GUIKIT_BUILD_DEMO)
         examples/demo/elements/SelectScreen.cpp
         examples/demo/elements/SegmentedScreen.cpp
         examples/demo/elements/ColorPickerScreen.cpp
+        examples/demo/elements/DatePickerScreen.cpp
+        examples/demo/panels/SplitViewScreen.cpp
+        examples/demo/panels/NavigationScreen.cpp
         examples/demo/elements/SwitchScreen.cpp
         examples/demo/elements/CheckboxScreen.cpp
         examples/demo/elements/RadioScreen.cpp

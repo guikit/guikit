@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <optional>
 #include <span>
 #include <source_location>
@@ -47,8 +48,18 @@ struct SelectOptions {
     bool disabled{false};                          ///< Interaction suppression
 };
 
-/// Internal runtime state allocated in frame arena for Select / ComboBox / Autocomplete nodes.
+/// Visual chip data stored inside frame arena for MultiSelect nodes.
+struct SelectChipVisual {
+    UiText text{};
+    UiAffix prefix{};
+    size_t itemIndex{0};
+    bool removeHovered{false};
+};
+
+/// Internal runtime state allocated in frame arena for Select / ComboBox / Autocomplete / MultiSelect nodes.
 struct SelectData {
+    static constexpr size_t kMaxChips = 16;
+
     SelectOptions opts{};
     UiText displayText{};
     size_t cursor{0};
@@ -61,6 +72,10 @@ struct SelectData {
     bool showClearBtn{false};
     bool clearHovered{false};
     bool chevronHovered{false};
+    bool isMulti{false};
+    std::array<SelectChipVisual, kMaxChips> chips{};
+    size_t chipCount{0};
+    size_t totalSelectedCount{0};
 };
 
 /// Autonomous Select (dropdown combo box) widget logic.
@@ -86,6 +101,24 @@ public:
         std::string* selectedString,
         std::string_view* selectedStringView,
         std::span<const std::string_view> items,
+        const SelectOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    /// Multi-selection immediate mode entry point with plain string_view items.
+    [[nodiscard]] static Response RunMulti(
+        Context& ctx,
+        std::vector<size_t>& selectedIndices,
+        std::span<const std::string_view> items,
+        const SelectOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    /// Multi-selection immediate mode entry point with rich SelectItem elements.
+    [[nodiscard]] static Response RunMulti(
+        Context& ctx,
+        std::vector<size_t>& selectedIndices,
+        std::span<const SelectItem> items,
         const SelectOptions& opts = {},
         std::source_location loc = std::source_location::current()
     );

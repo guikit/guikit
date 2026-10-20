@@ -74,6 +74,7 @@ enum class NodeType : uint16_t {
     BottomPanel = 114,  ///< Dockable bottom panel container with top-edge resize sash and collapse
     StatusBar   = 115,  ///< Compact single-line status bar container docked at the bottom edge
     Toolbar     = 116,  ///< Horizontal or vertical command toolbar container
+    SplitView   = 117,  ///< Resizable two-pane split container with draggable sash
 
     // --- Leaf Widgets (200..999): Self-rendering elements ---
     Button      = 200,
@@ -109,6 +110,10 @@ enum class NodeType : uint16_t {
     Knob            = 230,
     Segmented       = 231,
     ColorPicker     = 232,
+    DatePicker      = 233,
+    Breadcrumb      = 234,
+    Pagination      = 235,
+    CommandPalette  = 236,
 
     // --- User Extension Base (1000+) ---
     User          = 1000
