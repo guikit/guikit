@@ -1517,7 +1517,7 @@ CarClusterViewResponse CarClusterView::Run(
         );
 
         const Vec2 mouse = ctx.GetMousePos();
-        const bool hovered = !isDisabled && ctrlRect.Contains(mouse);
+        const bool hovered = !isDisabled && ctx.IsRectHovered(id, ctrlRect);
         resp.hovered = hovered;
         resp.cursorInside = hovered;
 

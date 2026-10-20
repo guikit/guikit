@@ -13,6 +13,7 @@ struct MapViewInternalState {
     bool cameraInitialized{false};
     MapCrs lastCrs{MapCrs::EPSG3857_WebMercator};
     GeoCoord lastCenterGeo{54.1825, 7.8853};
+    std::optional<Vec2> lastMouseWorld{};
 };
 
 void RenderMapBackgroundLayers(
@@ -572,7 +573,14 @@ MapViewScope MapView::Open(
     const float z = std::max(0.0001f, scene.GetZoom());
     const Rect vp = scene.GetViewportRect();
     const Rect visWorld = scene.GetVisibleWorldRect();
-    const Vec2 mouseWorld = scene.GetMouseWorldPos();
+    Vec2 mouseWorld = scene.GetMouseWorldPos();
+    if (scene.IsHovered()) {
+        mapState.lastMouseWorld = mouseWorld;
+    } else if (mapState.lastMouseWorld.has_value()) {
+        mouseWorld = *mapState.lastMouseWorld;
+    } else {
+        mouseWorld = visWorld.Center();
+    }
 
     const MapGridConfig gridCfg{
         .crs = opts.crs,

@@ -70,7 +70,7 @@ ContainerScope Carousel::Open(
     // Handle horizontal mouse wheel scroll
     if (opts.scrollWheel && !activeDisabled) {
         Rect prevBounds = ctx.GetPrevFrameBounds(id);
-        if (prevBounds.w > 0.0f && prevBounds.h > 0.0f && prevBounds.Contains(ctx.GetMousePos())) {
+        if (prevBounds.w > 0.0f && prevBounds.h > 0.0f && ctx.IsRectHovered(id, prevBounds)) {
             Vec2 wheel = ctx.GetMouseWheel();
             const float wheelDelta = (wheel.x != 0.0f) ? wheel.x : wheel.y;
             if (wheelDelta != 0.0f) {

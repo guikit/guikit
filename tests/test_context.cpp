@@ -10595,6 +10595,258 @@ void TestBottomPanelAndStatusBarWorkflow() {
     std::cout << "  [PASS] TestBottomPanelAndStatusBarWorkflow completed\n";
 }
 
+void TestPanelSashAndBodyOcclusionOverMapViewAndScene() {
+    Context ui;
+    ThorCanvas canvas;
+    std::vector<uint32_t> pixels(800 * 600, 0);
+    canvas.SetTarget(pixels.data(), 800, 600, 800);
+
+    bool showBottom = true;
+    SidebarMode rightMode = SidebarMode::Expanded;
+    Rect mapVp{};
+    Rect bottomRect{};
+    Rect rightSidebarRect{};
+    Rect childBtnRect{};
+    bool mapRawClicked = false;
+    bool mapScopeClicked = false;
+    bool mapScopeHovered = false;
+    bool mapPanning = false;
+    bool childBtnClicked = false;
+    float mapZoom = 1.0f;
+    Vec2 isobathCenterScreen{};
+    uint64_t selectedGisUid = 0;
+    GisRenderStats gisStats{};
+    GisRenderConfig gisCfg{};
+    gisCfg.asyncBackgroundStreaming = false;
+    auto isobathLoad = GeoJsonIO::ParseThematicLayersFromString(R"({
+        "type": "FeatureCollection",
+        "features": [{
+            "type": "Feature",
+            "id": "DEPCNT-50M",
+            "properties": { "OBJL": "DEPCNT", "VALDCO": 50.0, "name": "Isobath 50m" },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [[131.8735, 43.25], [131.8735, 43.1056], [131.8735, 42.90]]
+            }
+        }]
+    })", "Bathymetry", true);
+    CHECK(isobathLoad.ok && !isobathLoad.layers.empty());
+
+    auto renderBellhopLayout = [&]() {
+        mapRawClicked = false;
+        mapScopeClicked = false;
+        mapScopeHovered = false;
+        mapPanning = false;
+        childBtnClicked = false;
+
+        ui.BeginFrame({800.0f, 600.0f});
+        if (auto root = ui.Row({ .gap = 0.0f, .padding = Padding::All(0.0f), .heightMode = SizeMode::Stretch })) {
+            if (auto leftSb = ui.Sidebar({
+                .side = SidebarSide::Left,
+                .width = 180.0f,
+                .resizable = true,
+                .padding = Padding::All(8.0f)
+            })) {
+                ui.Heading({ .label = "Acoustic Source" });
+            }
+
+            if (auto centerCol = ui.Column({
+                .gap = 0.0f,
+                .padding = Padding::All(0.0f),
+                .widthMode = SizeMode::Stretch,
+                .heightMode = SizeMode::Stretch
+            })) {
+                // MapView is evaluated BEFORE BottomPanel and Right Sidebar in the frame!
+                if (auto map = ui.MapView({
+                    .initialCenter = { 43.1056, 131.8735 },
+                    .initialTileZoom = 11.0f,
+                    .heightMode = SizeMode::Stretch
+                })) {
+                    mapVp = map.GetScene().GetViewportRect();
+                    mapScopeHovered = map.IsHovered();
+                    mapScopeClicked = map.WasClicked();
+                    mapPanning = map.GetScene().IsPanning();
+                    mapZoom = map.GetScene().GetZoom();
+                    isobathCenterScreen = map.GeoToScreen({ 43.1056, 131.8735 });
+                    if (ui.IsMouseClicked()) {
+                        mapRawClicked = true;
+                    }
+                    gisStats = GisRenderEngine::RenderLayers(
+                        map,
+                        isobathLoad.layers,
+                        gisCfg,
+                        selectedGisUid,
+                        false
+                    );
+
+                    // Floating HUD card inside MapView
+                    if (auto hudCard = ui.Card({ .padding = Padding::All(8.0f) })) {
+                        auto btn = ui.Button({ .text = "Drop Buoy" });
+                        childBtnRect = btn.rect;
+                        childBtnClicked = btn.clicked;
+                    }
+                }
+
+                if (auto bp = ui.BottomPanel(showBottom, {
+                    .height = 160.0f,
+                    .minHeight = 90.0f,
+                    .maxHeight = 360.0f,
+                    .resizable = true,
+                    .allowCollapse = true,
+                    .showToggleButton = true,
+                    .padding = Padding::All(8.0f)
+                })) {
+                    bottomRect = bp.response.rect;
+                    ui.Button({ .text = "Bellhop Profile Action" });
+                }
+            }
+
+            if (auto rightSb = ui.Sidebar(rightMode, {
+                .side = SidebarSide::Right,
+                .width = 180.0f,
+                .minWidth = 120.0f,
+                .maxWidth = 340.0f,
+                .resizable = true,
+                .padding = Padding::All(8.0f)
+            })) {
+                rightSidebarRect = rightSb.response.rect;
+                ui.Heading({ .label = "Inspector" });
+            }
+        }
+        ui.EndFrame(canvas);
+    };
+
+    renderBellhopLayout();
+    renderBellhopLayout();
+    CHECK(mapVp.w > 300.0f && mapVp.h > 300.0f);
+    CHECK(std::abs(bottomRect.y - 440.0f) < 1.5f);
+    CHECK(std::abs(bottomRect.h - 160.0f) < 1.5f);
+    CHECK(std::abs(rightSidebarRect.x - 620.0f) < 1.5f);
+    CHECK(std::abs(rightSidebarRect.w - 180.0f) < 1.5f);
+
+    // 1. Hover & Click/Drag on BottomPanel top splitter sash protruding 4px upward into MapView (y = 436.0f < 440.0f)
+    // MapView must NOT see hover or click or pan, and BottomPanel must smoothly resize from 160px to 240px!
+    ui.OnMouseMove({ 300.0f, 436.0f });
+    renderBellhopLayout();
+    CHECK(mapScopeHovered == false);
+
+    ui.OnMouseDown(1);
+    renderBellhopLayout();
+    CHECK(mapRawClicked == false);
+    CHECK(mapScopeClicked == false);
+    CHECK(mapPanning == false);
+
+    // Drag upward by 80px (y = 436 -> 356) across MapView
+    ui.OnMouseMove({ 300.0f, 356.0f });
+    renderBellhopLayout();
+    CHECK(mapRawClicked == false);
+    CHECK(mapScopeClicked == false);
+    CHECK(mapPanning == false);
+
+    ui.OnMouseUp(1);
+    renderBellhopLayout();
+    renderBellhopLayout();
+    CHECK(std::abs(bottomRect.h - 240.0f) < 2.0f);
+
+    // 2. Click inside BottomPanel body, Left Sidebar body, and Right Sidebar body -> MapView never reacts!
+    ui.OnMouseMove({ 300.0f, 500.0f }); // Inside BottomPanel
+    ui.OnMouseDown(1);
+    renderBellhopLayout();
+    CHECK(mapRawClicked == false);
+    CHECK(mapScopeClicked == false);
+    CHECK(mapScopeHovered == false);
+    ui.OnMouseUp(1);
+    renderBellhopLayout();
+
+    ui.OnMouseMove({ 80.0f, 200.0f }); // Inside Left Sidebar
+    ui.OnMouseDown(1);
+    renderBellhopLayout();
+    CHECK(mapRawClicked == false);
+    CHECK(mapScopeClicked == false);
+    CHECK(mapScopeHovered == false);
+    ui.OnMouseUp(1);
+    renderBellhopLayout();
+
+    ui.OnMouseMove({ 700.0f, 200.0f }); // Inside Right Sidebar
+    ui.OnMouseDown(1);
+    renderBellhopLayout();
+    CHECK(mapRawClicked == false);
+    CHECK(mapScopeClicked == false);
+    CHECK(mapScopeHovered == false);
+    ui.OnMouseUp(1);
+    renderBellhopLayout();
+
+    // 3. Click on Right Sidebar splitter sash protruding 4px leftward into MapView (x = 616.0f < 620.0f)
+    // MapView must NOT see click or pan, and Right Sidebar must resize from 180px to 240px!
+    ui.OnMouseMove({ 616.0f, 200.0f });
+    ui.OnMouseDown(1);
+    renderBellhopLayout();
+    CHECK(mapRawClicked == false);
+    CHECK(mapScopeClicked == false);
+    CHECK(mapPanning == false);
+
+    ui.OnMouseMove({ 556.0f, 200.0f });
+    renderBellhopLayout();
+    CHECK(mapPanning == false);
+
+    ui.OnMouseUp(1);
+    renderBellhopLayout();
+    renderBellhopLayout();
+    CHECK(std::abs(rightSidebarRect.w - 240.0f) < 2.0f);
+
+    // 4. Click on child Button inside Card inside MapView -> Button clicks, MapView canvas does NOT click!
+    CHECK(childBtnRect.w > 20.0f && childBtnRect.h > 15.0f);
+    ui.OnMouseMove(childBtnRect.Center());
+    ui.OnMouseDown(1);
+    renderBellhopLayout();
+    CHECK(mapRawClicked == false);
+    CHECK(mapScopeClicked == false);
+    CHECK(mapScopeHovered == false);
+    ui.OnMouseUp(1);
+    renderBellhopLayout();
+    CHECK(childBtnClicked == true);
+    CHECK(mapRawClicked == false);
+    CHECK(mapScopeClicked == false);
+
+    // 5. Mouse wheel over BottomPanel or Sidebar must NOT zoom MapView
+    const float zoomBefore = mapZoom;
+    ui.OnMouseMove({ 300.0f, 500.0f }); // Over BottomPanel
+    ui.OnMouseWheel(0.0f, 3.0f);
+    renderBellhopLayout();
+    CHECK(std::abs(mapZoom - zoomBefore) < 0.0001f);
+
+    // 6. Clicking on unoccluded MapView canvas DOES fire mapRawClicked and mapScopeClicked
+    ui.OnMouseMove({ 350.0f, 220.0f });
+    ui.OnMouseDown(1);
+    renderBellhopLayout();
+    CHECK(mapScopeHovered == true);
+    CHECK(mapRawClicked == true);
+    CHECK(mapScopeClicked == true);
+    ui.OnMouseUp(1);
+    renderBellhopLayout();
+
+    // 7. GIS Isobath (DEPCNT) Hover Occlusion:
+    // The 50m isobath runs vertically at lon=131.8735 across both MapView and BottomPanel.
+    // When hovering inside MapView at isobathCenterScreen, the isobath MUST highlight.
+    // When hovering directly below inside BottomPanel or on the splitter sash, the isobath MUST NOT highlight!
+    ui.OnMouseMove(isobathCenterScreen);
+    renderBellhopLayout();
+    CHECK(mapScopeHovered == true);
+    CHECK(gisStats.hoveredFeatureUid != 0);
+
+    ui.OnMouseMove({ isobathCenterScreen.x, bottomRect.Center().y }); // Inside BottomPanel over the same meridian
+    renderBellhopLayout();
+    CHECK(mapScopeHovered == false);
+    CHECK(gisStats.hoveredFeatureUid == 0);
+
+    ui.OnMouseMove({ isobathCenterScreen.x, bottomRect.y - 3.0f }); // On BottomPanel splitter sash over the same meridian
+    renderBellhopLayout();
+    CHECK(mapScopeHovered == false);
+    CHECK(gisStats.hoveredFeatureUid == 0);
+
+    std::cout << "  [PASS] TestPanelSashAndBodyOcclusionOverMapViewAndScene completed\n";
+}
+
 int main() {
     std::cout << std::unitbuf;
     std::cerr << std::unitbuf;
@@ -10681,6 +10933,7 @@ int main() {
     TestModalContextMenuAndToastWorkflow();
     TestActivityBarAndLinkedSidebarWorkflow();
     TestBottomPanelAndStatusBarWorkflow();
+    TestPanelSashAndBodyOcclusionOverMapViewAndScene();
 
     // Cross-platform guikit::net (URL parser, HttpClient, WebSocketClient) + LodePNG raster tile decoder
     {

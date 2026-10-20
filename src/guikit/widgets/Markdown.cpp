@@ -1919,7 +1919,7 @@ MarkdownResponse Markdown::Run(
         optsCopy,
         theme,
         state.zoom,
-        ctx.GetMousePos(),
+        baseRes.hovered ? ctx.GetMousePos() : Vec2{-100000.0f, -100000.0f},
         -1,
         state.copiedBlockIndex,
         effectiveDisabled,

@@ -243,6 +243,12 @@ public:
     /// Returns true if the user is actively dragging/panning the scene viewport.
     [[nodiscard]] bool IsPanning() const noexcept;
 
+    /// Returns true if the mouse cursor is currently inside the scene viewport and not occluded by any overlay, panel, or child widget.
+    [[nodiscard]] bool IsHovered() const noexcept;
+
+    /// Returns true if the given mouse button (1=Left, 2=Middle, 3=Right) was clicked on the unoccluded scene canvas in this frame.
+    [[nodiscard]] bool WasClicked(int button = 1) const noexcept;
+
     /// Returns the screen-space viewport rectangle.
     [[nodiscard]] Rect GetViewportRect() const noexcept { return m_viewport; }
 

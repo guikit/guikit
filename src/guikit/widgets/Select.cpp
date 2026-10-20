@@ -311,6 +311,7 @@ Response Select::Run(
     // Process open popup interaction, scrolling, and keyboard navigation
     int hoveredItem = -1;
     if (isOpen && wasOpen && !effectiveDisabled) {
+        ctx.BeginOverlayHitCheck(id);
         const Rect popupRect = ctx.GetOpenPopupRect();
         const Vec2 mouse = ctx.GetMousePos();
         const float viewportH = std::max(0.0f, popupRect.h - 8.0f);
@@ -448,6 +449,7 @@ Response Select::Run(
                 }
             }
         }
+        ctx.EndOverlayHitCheck();
     } else if (!isOpen) {
         popupState.draggingScrollbar = false;
         popupState.scrollbarHovered = false;

@@ -269,6 +269,11 @@ public:
     template <typename WidgetT, typename... Args>
         requires WidgetRunnable<WidgetT, Args...>
     decltype(auto) Run(Args&&... args) {
+        struct ExecGuard {
+            Context& c;
+            ~ExecGuard() noexcept { c.EndWidgetExecution(); }
+        } guard{*this};
+        BeginWidgetExecution();
         return WidgetT::Run(*this, std::forward<Args>(args)...);
     }
 
@@ -400,6 +405,11 @@ public:
         ActivityBarOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
+        struct ExecGuard {
+            Context& c;
+            ~ExecGuard() noexcept { c.EndWidgetExecution(); }
+        } guard{*this};
+        BeginWidgetExecution();
         return guikit::ActivityBar::Run(*this, activeIndex, items, opts, loc);
     }
 
@@ -905,6 +915,11 @@ public:
         TabBarOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) requires (std::is_integral_v<IndexT>) {
+        struct ExecGuard {
+            Context& c;
+            ~ExecGuard() noexcept { c.EndWidgetExecution(); }
+        } guard{*this};
+        BeginWidgetExecution();
         int idx = static_cast<int>(activeIndex);
         Response r = TabBar::Run(*this, idx, tabs, opts, loc);
         if (r.changed && idx >= 0) activeIndex = static_cast<IndexT>(idx);
@@ -934,6 +949,11 @@ public:
         SidebarMenuOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
+        struct ExecGuard {
+            Context& c;
+            ~ExecGuard() noexcept { c.EndWidgetExecution(); }
+        } guard{*this};
+        BeginWidgetExecution();
         int idx = static_cast<int>(activeIndex);
         Response r = SidebarMenu::Run(*this, idx, items, opts, loc);
         if (r.changed && idx >= 0) activeIndex = static_cast<IndexT>(idx);
@@ -1469,12 +1489,26 @@ public:
     [[nodiscard]] double GetCurrentTime() const noexcept { return m_currentTimeSec; }
 
     // --- Popup, Tooltip, Modal & Overlay Management ---
+    struct OverlayHitRegion {
+        Id id{Id::Null()};
+        Rect rect{};
+    };
+
     void OpenPopup(Id id, Rect bounds);
     void ClosePopup();
     [[nodiscard]] bool IsPopupOpen(Id id) const noexcept { return m_openPopupId == id && id.IsValid(); }
     [[nodiscard]] Id GetOpenPopupId() const noexcept { return m_openPopupId; }
     [[nodiscard]] Rect GetOpenPopupRect() const noexcept { return m_openPopupRect; }
     void RegisterOverlay(std::function<void(ICanvas&)> drawFn);
+    void RegisterOverlayHitRegion(Id id, Rect rect);
+    void RegisterOverlayHitBuilder(std::function<void()> builderFn);
+    void BeginOverlayHitCheck(Id id) noexcept { m_activeOverlayHitCheckId = id; }
+    void EndOverlayHitCheck() noexcept { m_activeOverlayHitCheckId = Id::Null(); }
+    void BeginWidgetExecution() noexcept { ++m_widgetExecDepth; }
+    void EndWidgetExecution() noexcept { if (m_widgetExecDepth > 0) --m_widgetExecDepth; }
+    [[nodiscard]] bool IsMouseOccluded(Id id, Vec2 pos) const noexcept;
+    [[nodiscard]] bool IsRectHovered(Id id, const Rect& rect) const noexcept;
+    [[nodiscard]] bool IsMouseBlockedForCurrentScope() const noexcept;
     void SetTooltip(UiText tooltip, Rect anchorRect);
     void RegisterFocusable(Id id, bool disabled = false);
 
@@ -1512,15 +1546,15 @@ public:
 
     // --- Input Queries & Consumption ---
     [[nodiscard]] Vec2 GetMousePos() const noexcept { return m_mousePos; }
-    [[nodiscard]] bool IsMouseDown() const noexcept { return m_mouseDown; }
-    [[nodiscard]] bool IsMouseClicked() const noexcept { return m_mouseClicked; }
+    [[nodiscard]] bool IsMouseDown() const noexcept { return m_mouseDown && !IsMouseBlockedForCurrentScope(); }
+    [[nodiscard]] bool IsMouseClicked() const noexcept { return m_mouseClicked && !IsMouseBlockedForCurrentScope(); }
     [[nodiscard]] bool IsMouseReleased() const noexcept { return m_mouseReleased; }
-    [[nodiscard]] bool IsMouseDoubleClicked() const noexcept { return m_mouseDoubleClicked; }
-    [[nodiscard]] bool IsRightMouseDown() const noexcept { return m_rightMouseDown; }
-    [[nodiscard]] bool IsRightMouseClicked() const noexcept { return m_rightMouseClicked; }
+    [[nodiscard]] bool IsMouseDoubleClicked() const noexcept { return m_mouseDoubleClicked && !IsMouseBlockedForCurrentScope(); }
+    [[nodiscard]] bool IsRightMouseDown() const noexcept { return m_rightMouseDown && !IsMouseBlockedForCurrentScope(); }
+    [[nodiscard]] bool IsRightMouseClicked() const noexcept { return m_rightMouseClicked && !IsMouseBlockedForCurrentScope(); }
     [[nodiscard]] bool IsRightMouseReleased() const noexcept { return m_rightMouseReleased; }
-    [[nodiscard]] bool IsMiddleMouseDown() const noexcept { return m_middleMouseDown; }
-    [[nodiscard]] bool IsMiddleMouseClicked() const noexcept { return m_middleMouseClicked; }
+    [[nodiscard]] bool IsMiddleMouseDown() const noexcept { return m_middleMouseDown && !IsMouseBlockedForCurrentScope(); }
+    [[nodiscard]] bool IsMiddleMouseClicked() const noexcept { return m_middleMouseClicked && !IsMouseBlockedForCurrentScope(); }
     [[nodiscard]] bool IsMiddleMouseReleased() const noexcept { return m_middleMouseReleased; }
     void ConsumeMouseClick() noexcept { m_mouseClicked = false; m_mouseReleased = false; m_mouseDoubleClicked = false; m_rightMouseClicked = false; m_rightMouseReleased = false; }
     void SetKeyModifiers(KeyModifiers mods) noexcept { m_keyMods = mods; }
@@ -1530,7 +1564,7 @@ public:
         if (m_openPopupId.IsValid() && m_openPopupRect.Contains(m_mousePos)) {
             return {0.0f, 0.0f};
         }
-        if (IsModalBlocking(m_mousePos)) {
+        if (IsModalBlocking(m_mousePos) || IsMouseBlockedForCurrentScope()) {
             return {0.0f, 0.0f};
         }
         return m_mouseWheel;
@@ -1777,10 +1811,28 @@ private:
     std::vector<QueuedKeyEvent> m_pendingKeyEvents;
 
     // Previous frame widget bounds for instantaneous hit testing
+    struct HitNodeRecord {
+        Id id{Id::Null()};
+        Rect rect{};
+        uint32_t preIndex{0};
+        uint32_t postIndex{0};
+        NodeType type{NodeType::Container};
+        uint8_t zLayer{0};
+        bool blocksHit{false};
+    };
+
     std::unordered_map<Id, Rect> m_prevFrameBounds;
     std::unordered_map<Id, Rect> m_currFrameBounds;
     std::unordered_map<Id, Rect> m_prevUnclippedBounds;
     std::unordered_map<Id, Rect> m_currUnclippedBounds;
+    std::vector<HitNodeRecord> m_prevHitNodes;
+    std::vector<HitNodeRecord> m_currHitNodes;
+    std::unordered_map<Id, size_t> m_prevHitNodeMap;
+    std::vector<OverlayHitRegion> m_prevOverlayHitRegions;
+    std::vector<OverlayHitRegion> m_currOverlayHitRegions;
+    std::vector<std::function<void()>> m_overlayHitBuilders;
+    Id m_activeOverlayHitCheckId{Id::Null()};
+    int m_widgetExecDepth{0};
     std::vector<Id> m_prevFocusableIds;
     std::vector<Id> m_currFocusableIds;
     std::vector<Id> m_prevModalFocusableIds;

@@ -1125,7 +1125,7 @@ SonarViewResponse SonarView::Run(
     SonarPlotGeometry geom = SonarPlotGeometry::Compute(plotRect, opts, state.rangeZoom);
 
     const Vec2 mousePos = ctx.GetMousePos();
-    const bool hovered = !isDisabled && activeRect.Contains(mousePos);
+    const bool hovered = !isDisabled && ctx.IsRectHovered(id, activeRect);
     resp.hovered = hovered;
 
     if (hovered && plotRect.Contains(mousePos)) {

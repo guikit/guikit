@@ -648,7 +648,7 @@ TreeViewScope TreeView::Open(
 
     // Handle keyboard navigation across visible tree items from previous frame
     const Rect prevTreeBounds = ctx.GetPrevFrameBounds(idTree);
-    const bool treeHovered = prevTreeBounds.w > 0.0f && prevTreeBounds.Contains(ctx.GetMousePos());
+    const bool treeHovered = prevTreeBounds.w > 0.0f && ctx.IsRectHovered(idTree, prevTreeBounds);
     bool anyRowFocused = (ctx.GetFocusedId() == idTree);
     int currentVisIdx = -1;
 
@@ -852,7 +852,7 @@ TreeViewScope TreeView::Open(
                 }
                 ctx.InvalidateAll();
             }
-        } else if (headerHitRect.Contains(mousePos)) {
+        } else if (headerHitRect.Contains(mousePos) && !ctx.IsMouseOccluded(idTree, mousePos)) {
             const float localX = mousePos.x - prevOriginX;
             for (uint16_t i = 0; i + 1 < colCount; ++i) {
                 if (!payload->columns[i].resizable) continue;

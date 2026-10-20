@@ -182,6 +182,8 @@ public:
     // --- Underlying Scene Access ---
     [[nodiscard]] SceneScope& GetScene() noexcept { return m_scene; }
     [[nodiscard]] const SceneScope& GetScene() const noexcept { return m_scene; }
+    [[nodiscard]] bool IsHovered() const noexcept { return m_scene.IsHovered(); }
+    [[nodiscard]] bool WasClicked(int button = 1) const noexcept { return m_scene.WasClicked(button); }
     [[nodiscard]] std::span<const SceneItemInfo> GetItems() const noexcept { return m_scene.GetItems(); }
     [[nodiscard]] const SceneItemInfo* GetHoveredItem() const noexcept { return m_scene.GetHoveredItem(); }
     [[nodiscard]] size_t GetSelectedCount() const noexcept { return m_scene.GetSelectedCount(); }

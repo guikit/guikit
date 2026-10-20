@@ -3173,7 +3173,7 @@ BpmnEditorResponse BpmnEditor::Run(
 
     if (viewRect.w > 1.0f && viewRect.h > 1.0f && !isDisabled) {
         const Vec2 mouse = ctx.GetMousePos();
-        const bool hovered = viewRect.Contains(mouse);
+        const bool hovered = ctx.IsRectHovered(id, viewRect);
         resp.hovered = hovered;
         resp.mouseWorldPos = ScreenToWorld(mouse, viewRect, state.pan, state.zoom);
 

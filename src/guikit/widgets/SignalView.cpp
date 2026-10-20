@@ -1080,7 +1080,7 @@ SignalViewResponse SignalView::Run(
 
     // Hit-test cue markers on time ruler
     int hoveredMarker = -1;
-    if (geom.timeRulerRect.w > 0.0f && geom.timeRulerRect.Contains(mouse)) {
+    if (baseRes.hovered && geom.timeRulerRect.w > 0.0f && geom.timeRulerRect.Contains(mouse)) {
         const double viewSpan = std::max(1e-6, st.viewEndSec - st.viewStartSec);
         for (size_t i = 0; i < markerList.size(); ++i) {
             const float mx = geom.timeRulerRect.x +
@@ -1145,7 +1145,7 @@ SignalViewResponse SignalView::Run(
 
         // 2. Initiate Drag or Double-Click Actions on Mouse Press
         const Rect splitterHitRect = geom.splitterRect.Inset(-3.0f);
-        if (mouseClicked && prevBounds.Contains(mouse)) {
+        if (baseRes.hovered && mouseClicked && prevBounds.Contains(mouse)) {
             const double nowSec = ctx.GetCurrentTime();
             const bool isDoubleClick = (nowSec - st.lastClickTimeSec < 0.32) &&
                                        (std::hypot(mouse.x - st.lastClickPos.x, mouse.y - st.lastClickPos.y) < 8.0f);

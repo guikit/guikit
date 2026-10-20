@@ -443,6 +443,26 @@ Vec2 SceneScope::GetMouseWorldPos() const noexcept {
     return ScreenToWorld(m_ctx->GetMousePos());
 }
 
+bool SceneScope::IsHovered() const noexcept {
+    if (!m_ctx || !m_node || m_node->disabled) return false;
+    if (m_viewport.w <= 1.0f || m_viewport.h <= 1.0f) return false;
+    if (!m_ctx->IsRectHovered(m_node->id, m_viewport)) return false;
+    if (m_payload && m_payload->state) {
+        if (m_payload->state->preUpdateHudConsumed || m_payload->state->preUpdateScrollbarBusy) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool SceneScope::WasClicked(int button) const noexcept {
+    if (!IsHovered() || !m_ctx) return false;
+    if (button == 1) return m_ctx->IsMouseClicked();
+    if (button == 2) return m_ctx->IsMiddleMouseClicked();
+    if (button == 3) return m_ctx->IsRightMouseClicked();
+    return false;
+}
+
 void SceneScope::DrawImage(
     std::string_view source,
     Rect worldRect,
@@ -667,8 +687,9 @@ void UpdateSceneCameraTransform(
     const float s = theme.Scale(1.0f);
     const float worldScale = std::max(0.0001f, state.zoom * s);
     const Vec2 mousePos = ctx.GetMousePos();
-    const bool insideVp = vp.Contains(mousePos);
-    const bool mouseClicked = ctx.IsMouseClicked();
+    const bool notOccluded = !ctx.IsMouseOccluded(node->id, mousePos);
+    const bool insideVp = vp.Contains(mousePos) && notOccluded;
+    const bool mouseClicked = notOccluded && ctx.IsMouseClicked();
     const bool mouseDown = ctx.IsMouseDown();
     const KeyModifiers mods = ctx.GetKeyModifiers();
 
@@ -681,7 +702,7 @@ void UpdateSceneCameraTransform(
     // 1. Floating Zoom HUD interaction
     bool hudConsumed = false;
     state.hoveredHudBtn = 0;
-    if (opts.showControls) {
+    if (opts.showControls && notOccluded) {
         const HudLayout hud = ComputeHudLayout(vp, theme, showHScroll, showVScroll, node->uiSize);
         if (hud.barRect.Contains(mousePos)) {
             hudConsumed = true;
@@ -708,6 +729,7 @@ void UpdateSceneCameraTransform(
                     state.zoom = std::clamp(state.zoom * opts.zoomStep, opts.minZoom, opts.maxZoom);
                     state.pan = centerRel - worldCenter * (state.zoom * s);
                 }
+                ctx.ConsumeMouseClick();
                 ctx.RequestRepaint(2);
             }
         }
@@ -765,7 +787,7 @@ void UpdateSceneCameraTransform(
             state.draggingScrollX = false;
         }
     }
-    node->scrollbarHovered = hovY;
+    node->scrollbarHovered = hovY || hudConsumed;
     node->scrollbarActive = actY;
     node->scrollbarHoveredX = hovX;
     node->scrollbarActiveX = actX;
@@ -1008,7 +1030,8 @@ void Scene::Update(Context& ctx, Node* node) {
 
     const float s = theme.Scale(1.0f);
     const Vec2 mousePos = ctx.GetMousePos();
-    const bool insideVp = vp.Contains(mousePos);
+    const bool notOccluded = !ctx.IsMouseOccluded(node->id, mousePos);
+    const bool insideVp = vp.Contains(mousePos) && notOccluded;
     const bool mouseDown = ctx.IsMouseDown();
     const KeyModifiers mods = ctx.GetKeyModifiers();
     const bool hudConsumed = state.preUpdateHudConsumed;

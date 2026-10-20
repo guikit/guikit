@@ -697,9 +697,10 @@ TableScope Table::Open(
         node->scrollbarActiveX = actH;
 
         const bool interactingScrollbar = state.draggingScrollbarV || state.draggingScrollbarH || hovV || hovH;
+        const bool tableHovered = ctx.IsRectHovered(id, data->frameRect);
 
         // 1. Mouse wheel scrolling inside table frame
-        if (data->frameRect.Contains(mousePos)) {
+        if (tableHovered) {
             const Vec2 wheel = ctx.GetMouseWheel();
             if (wheel.x != 0.0f || wheel.y != 0.0f) {
                 if (ctx.GetKeyModifiers().shift && wheel.x == 0.0f) {
@@ -746,7 +747,7 @@ TableScope Table::Open(
                 ctx.InvalidateRect(data->frameRect);
                 ctx.RequestRepaint(2);
             }
-        } else if (!interactingScrollbar && optsCopy.stickyHeader && headerHitRect.Contains(mousePos)) {
+        } else if (!interactingScrollbar && optsCopy.stickyHeader && headerHitRect.Contains(mousePos) && !ctx.IsMouseOccluded(id, mousePos)) {
             const float localHeaderX = mousePos.x - data->headerRect.x + state.scrollOffset.x;
 
             // Check column divider grips first
@@ -828,7 +829,7 @@ TableScope Table::Open(
             std::max(0.0f, data->bodyViewportRect.h - scrollbarGutterH)
         );
 
-        if (state.resizingCol < 0 && !interactingScrollbar && interactiveBodyRect.Contains(mousePos)) {
+        if (state.resizingCol < 0 && !interactingScrollbar && tableHovered && interactiveBodyRect.Contains(mousePos)) {
             const float contentY = (mousePos.y - data->bodyViewportRect.y) + state.scrollOffset.y;
             if (contentY >= 0.0f && data->rowHeight > 0.0f) {
                 const size_t hitRow = static_cast<size_t>(contentY / data->rowHeight);
@@ -858,7 +859,7 @@ TableScope Table::Open(
         }
 
         // 4. Keyboard navigation when table is focused or hovered
-        if ((ctx.GetFocusedId() == id || data->frameRect.Contains(mousePos)) && knownTotalRows > 0) {
+        if ((ctx.GetFocusedId() == id || tableHovered) && knownTotalRows > 0) {
             int nextSel = state.selectedRow;
             if (ctx.ConsumeAction(KeyAction::MoveDown)) {
                 nextSel = std::clamp(nextSel + 1, 0, static_cast<int>(knownTotalRows) - 1);

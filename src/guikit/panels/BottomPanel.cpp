@@ -34,7 +34,7 @@ Rect ComputeTopSashHitRect(
     if (mode == BottomPanelMode::Collapsed) {
         return Rect(bounds.x, edgeY - 8.0f * scale, bounds.w, 10.0f * scale);
     }
-    return Rect(bounds.x, edgeY - 4.0f * scale, bounds.w, 8.0f * scale);
+    return Rect(bounds.x, edgeY - 6.0f * scale, bounds.w, 10.0f * scale);
 }
 
 } // namespace
@@ -126,8 +126,10 @@ BottomPanelScope BottomPanel::Open(
     state.toggleHovered = false;
 
     if (hasInteractiveEdge) {
+        ctx.BeginOverlayHitCheck(sashId);
         const Vec2 mouse = ctx.GetMousePos();
         const bool occludedByPopup = ctx.GetOpenPopupId().IsValid() && ctx.GetOpenPopupRect().Contains(mouse);
+        const bool occludedByModal = ctx.IsModalBlocking(mouse);
         const bool otherActive = ctx.GetActiveId().IsValid() && ctx.GetActiveId() != sashId;
 
         const Rect toggleRect = ComputeTopToggleRect(prevBounds, activeScale);
@@ -135,7 +137,7 @@ BottomPanelScope BottomPanel::Open(
         const bool canToggle = showToggle;
         const bool canSash = opts.resizable || (state.mode == BottomPanelMode::Collapsed && opts.allowCollapse);
 
-        if (!occludedByPopup && !otherActive) {
+        if (!occludedByPopup && !occludedByModal && !otherActive) {
             const bool onToggle = canToggle && toggleRect.Contains(mouse);
             const bool onSash = canSash && !onToggle && sashRect.Contains(mouse);
             state.toggleHovered = onToggle;
@@ -267,6 +269,7 @@ BottomPanelScope BottomPanel::Open(
                 ctx.ConsumeMouseClick();
             }
         }
+        ctx.EndOverlayHitCheck();
     } else {
         state.draggingSash = false;
         state.togglePressed = false;
@@ -368,7 +371,7 @@ BottomPanelScope BottomPanel::Open(
         auto& scrollState = ctx.GetOrCreateState<ScrollState>(id);
         if (prevBounds.w > 0.0f && prevBounds.h > 0.0f && !node->disabled) {
             const Vec2 wheel = ctx.GetMouseWheel();
-            if (prevBounds.Contains(ctx.GetMousePos()) && wheel.y != 0.0f) {
+            if (prevBounds.Contains(ctx.GetMousePos()) && !ctx.IsMouseOccluded(id, ctx.GetMousePos()) && wheel.y != 0.0f) {
                 const ScrollbarMetrics& sm = ctx.GetTheme().GetScrollbar(activeSize);
                 scrollState.offset.y -= wheel.y * sm.scrollStep;
                 if (scrollState.offset.y < 0.0f) scrollState.offset.y = 0.0f;
@@ -384,7 +387,20 @@ BottomPanelScope BottomPanel::Open(
         const bool sashDrag = state.draggingSash;
         const bool togHov = state.toggleHovered;
         const bool togPress = state.togglePressed;
+        const bool canSash = opts.resizable || (curMode == BottomPanelMode::Collapsed && opts.allowCollapse);
         const UiTheme themeSnap = theme;
+
+        ctx.RegisterOverlayHitBuilder([&ctx, node, sashId, curMode, drawToggle, canSash, activeScale]() {
+            if (!node) return;
+            const Rect r = node->computedRect;
+            if (r.w <= 4.0f) return;
+            if (drawToggle) {
+                ctx.RegisterOverlayHitRegion(sashId, ComputeTopToggleRect(r, activeScale));
+            }
+            if (canSash) {
+                ctx.RegisterOverlayHitRegion(sashId, ComputeTopSashHitRect(r, curMode, activeScale));
+            }
+        });
 
         ctx.RegisterOverlay([node, curMode, sashHov, sashDrag, togHov, togPress, drawToggle, activeScale, themeSnap](ICanvas& canvas) {
             if (!node) return;

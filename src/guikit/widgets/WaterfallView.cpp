@@ -989,9 +989,10 @@ WaterfallViewResponse WaterfallView::Run(
     const WaterfallGeometry geom = ComputeWaterfallGeometry(ctrlBounds, payload->opts, state.viewMinX, state.viewMaxX);
 
     const Vec2 mousePos = ctx.GetMousePos();
-    const bool inTrace = geom.hasTrace && geom.traceRect.Contains(mousePos);
-    const bool inWf = geom.hasWaterfall && geom.wfRect.Contains(mousePos);
-    const bool inPlot = (inTrace || inWf) && !effDisabled;
+    const bool ctrlHovered = !effDisabled && ctx.IsRectHovered(id, ctrlBounds);
+    const bool inTrace = ctrlHovered && geom.hasTrace && geom.traceRect.Contains(mousePos);
+    const bool inWf = ctrlHovered && geom.hasWaterfall && geom.wfRect.Contains(mousePos);
+    const bool inPlot = inTrace || inWf;
 
     if (inPlot) {
         // 1. Mouse Wheel X-Axis Zoom centered on cursorX

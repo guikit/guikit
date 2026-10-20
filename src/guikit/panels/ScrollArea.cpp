@@ -53,7 +53,7 @@ ContainerScope ScrollArea::Open(
     Rect prevBounds = ctx.GetPrevFrameBounds(id);
     if (prevBounds.w > 0.0f && prevBounds.h > 0.0f && !node->disabled) {
         Vec2 wheel = ctx.GetMouseWheel();
-        if (prevBounds.Contains(ctx.GetMousePos()) && (wheel.x != 0.0f || wheel.y != 0.0f) && !ctx.GetKeyModifiers().ctrl) {
+        if (prevBounds.Contains(ctx.GetMousePos()) && !ctx.IsMouseOccluded(id, ctx.GetMousePos()) && (wheel.x != 0.0f || wheel.y != 0.0f) && !ctx.GetKeyModifiers().ctrl) {
             const ScrollbarMetrics& m = ctx.GetTheme().GetScrollbar(activeSize);
             if (opts.orientation == Orientation::Horizontal ||
                 (opts.orientation == Orientation::Both && ctx.GetKeyModifiers().shift && wheel.x == 0.0f)) {
@@ -191,11 +191,12 @@ void ScrollArea::UpdateAxisScrollbar(
     }
 
     const Vec2 mousePos = ctx.GetMousePos();
-    const bool mouseClicked = ctx.IsMouseClicked();
+    const bool occluded = ctx.IsMouseOccluded(ownerId, mousePos);
+    const bool mouseClicked = !occluded && ctx.IsMouseClicked();
     const bool mouseDown = ctx.IsMouseDown();
 
-    const bool hoverThumb = hitThumbRect.Contains(mousePos);
-    const bool hoverTrack = hitTrackRect.Contains(mousePos);
+    const bool hoverThumb = !occluded && hitThumbRect.Contains(mousePos);
+    const bool hoverTrack = !occluded && hitTrackRect.Contains(mousePos);
     outHovered = hoverThumb || hoverTrack;
 
     if (hoverThumb && mouseClicked) {

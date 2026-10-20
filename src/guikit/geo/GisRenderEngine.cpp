@@ -3530,8 +3530,8 @@ CursorHitCache& GetCursorHitCache() noexcept {
                 if (!wasLoaded && outPagedInCount) {
                     ++(*outPagedInCount);
                 }
-                const auto& lineSet = (useLodHit && !feat.normLinesLod.empty()) ? feat.normLinesLod : feat.normLines;
-                for (const auto& line : lineSet) {
+                for (size_t li = 0; li < feat.normLines.size(); ++li) {
+                    const auto& line = (useLodHit && li < feat.normLinesLod.size() && feat.normLinesLod[li].size() >= 2) ? feat.normLinesLod[li] : feat.normLines[li];
                     for (size_t i = 1; i < line.size(); ++i) {
                         const float dSq = PointToSegmentDistSq(cursorNorm, line[i - 1], line[i]);
                         if (dSq <= bestLineDistSq) {
@@ -4163,7 +4163,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
     // ========================================================================
     EmitRenderBreadcrumb("GisRenderEngine::Stage1_CursorHitTest", static_cast<int>(s_frameCounter), tileZoom);
     HitTestMatch hoveredMatch{};
-    if (!isPanning && activeWindowFeatures > 0) {
+    if (!isPanning && scene.IsHovered() && activeWindowFeatures > 0) {
         const guikit::Vec2 mouseWorld = scene.GetMouseWorldPos();
         const guikit::GeoCoord cursorGeo = map.WorldToGeo(mouseWorld);
         const guikit::Vec2 cursorNorm = guikit::MapGrid::GeoToNormalized(cursorGeo, guikit::MapCrs::EPSG3857_WebMercator);

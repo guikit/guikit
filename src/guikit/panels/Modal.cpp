@@ -148,6 +148,7 @@ ModalScope Modal::Open(
     bool closePressed = false;
 
     if (hasPrevDialog && !popupOpen) {
+        ctx.BeginOverlayHitCheck(id);
         const Rect closeRect = ComputeCloseButtonRect(prevDialogRect, activeScale);
         if (opts.showCloseButton && closeRect.Contains(mouse)) {
             closeHovered = true;
@@ -165,6 +166,7 @@ ModalScope Modal::Open(
             ctx.ClearModalBlock();
             ctx.ConsumeMouseClick();
             ctx.InvalidateAll();
+            ctx.EndOverlayHitCheck();
             return ModalScope(&ctx, nullptr, &open, res, true);
         }
 
@@ -183,11 +185,13 @@ ModalScope Modal::Open(
                     ctx.ClearModalBlock();
                     ctx.ConsumeMouseClick();
                     ctx.InvalidateAll();
+                    ctx.EndOverlayHitCheck();
                     return ModalScope(&ctx, nullptr, &open, res, true);
                 }
                 ctx.ConsumeMouseClick();
             }
         }
+        ctx.EndOverlayHitCheck();
     } else {
         state.closeArmed = false;
     }

@@ -113,6 +113,11 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
     m_scaleStack.clear();
     m_currFrameBounds.clear();
     m_currUnclippedBounds.clear();
+    m_currHitNodes.clear();
+    m_currOverlayHitRegions.clear();
+    m_overlayHitBuilders.clear();
+    m_activeOverlayHitCheckId = Id::Null();
+    m_widgetExecDepth = 0;
 
     m_sizeStack.push_back(UiSize::Md);
     m_disabledStack.push_back(false);
@@ -160,13 +165,11 @@ Response Context::Interact(Id id) {
         res.rect = it->second;
     }
 
-    // Suppress interaction on background widgets occluded by a floating overlay popup
-    if (m_openPopupId.IsValid() && id != m_openPopupId && m_openPopupRect.Contains(m_mousePos)) {
-        return res;
-    }
-
-    // Suppress interaction on background widgets outside an active modal scope
-    if (IsModalBlocking(m_mousePos)) {
+    // Suppress interaction on background widgets occluded by floating popups, modals, splitter sashes, or higher Z-layer panels
+    if (IsMouseOccluded(id, m_mousePos)) {
+        if (m_mouseReleased && m_activeId == id) {
+            m_activeId = Id::Null();
+        }
         return res;
     }
 
@@ -1438,6 +1441,196 @@ void Context::RegisterOverlay(std::function<void(ICanvas&)> drawFn) {
     m_overlayPasses.push_back(std::move(drawFn));
 }
 
+void Context::RegisterOverlayHitRegion(Id id, Rect rect) {
+    if (id.IsValid() && rect.w > 0.0f && rect.h > 0.0f) {
+        m_currOverlayHitRegions.push_back(OverlayHitRegion{id, rect});
+    }
+}
+
+void Context::RegisterOverlayHitBuilder(std::function<void()> builderFn) {
+    if (builderFn) {
+        m_overlayHitBuilders.push_back(std::move(builderFn));
+    }
+}
+
+bool Context::IsMouseOccluded(Id id, Vec2 pos) const noexcept {
+    if (m_openPopupId.IsValid() && id != m_openPopupId && m_openPopupRect.Contains(pos)) {
+        return true;
+    }
+    if (IsModalBlocking(pos)) {
+        return true;
+    }
+    if (m_activeId.IsValid() && m_activeId == id) {
+        return false;
+    }
+    for (const auto& ov : m_prevOverlayHitRegions) {
+        if (m_activeId.IsValid() && m_activeId == ov.id) {
+            return ov.id != id;
+        }
+        if (ov.rect.Contains(pos)) {
+            return ov.id != id;
+        }
+    }
+
+    auto itA = m_prevHitNodeMap.find(id);
+    if (itA != m_prevHitNodeMap.end()) {
+        const HitNodeRecord& a = m_prevHitNodes[itA->second];
+        for (const auto& b : m_prevHitNodes) {
+            if (!b.blocksHit || b.id == id || !b.rect.Contains(pos)) {
+                continue;
+            }
+            // Skip if B is an ancestor of A
+            if (b.preIndex < a.preIndex && b.postIndex >= a.postIndex) {
+                continue;
+            }
+            const bool bIsDescendantOfA = (a.preIndex < b.preIndex && b.postIndex <= a.postIndex);
+            if (bIsDescendantOfA) {
+                // Child panels/widgets placed inside a Scene/MapView occlude the Scene canvas
+                if (a.type == NodeType::Scene) {
+                    return true;
+                }
+                continue;
+            }
+            // Cross-layer occlusion (e.g. Sidebar, BottomPanel, ActivityBar, StatusBar, Modal over workspace)
+            if (b.zLayer > a.zLayer) {
+                return true;
+            }
+            // Same-layer occlusion when A is a Scene and B is rendered after A
+            if (b.zLayer == a.zLayer && a.type == NodeType::Scene && b.preIndex > a.postIndex) {
+                return true;
+            }
+        }
+    } else {
+        // Sub-part ID (e.g. AccordionHeader / TreeItemRow): check against innermost container on stack
+        for (auto sIt = m_containerStack.rbegin(); sIt != m_containerStack.rend(); ++sIt) {
+            const Node* cNode = *sIt;
+            if (!cNode || !cNode->id.IsValid()) continue;
+            auto itC = m_prevHitNodeMap.find(cNode->id);
+            if (itC != m_prevHitNodeMap.end()) {
+                const HitNodeRecord& c = m_prevHitNodes[itC->second];
+                for (const auto& b : m_prevHitNodes) {
+                    if (!b.blocksHit || b.id == c.id || !b.rect.Contains(pos)) {
+                        continue;
+                    }
+                    // Skip if B is an ancestor of C
+                    if (b.preIndex < c.preIndex && b.postIndex >= c.postIndex) {
+                        continue;
+                    }
+                    const bool bIsDescendantOfC = (c.preIndex < b.preIndex && b.postIndex <= c.postIndex);
+                    if (bIsDescendantOfC) {
+                        if (c.type == NodeType::Scene) {
+                            return true;
+                        }
+                        continue;
+                    }
+                    if (b.zLayer > c.zLayer) {
+                        return true;
+                    }
+                    if (b.zLayer == c.zLayer && c.type == NodeType::Scene && b.preIndex > c.postIndex) {
+                        return true;
+                    }
+                }
+                break;
+            }
+        }
+    }
+    return false;
+}
+
+bool Context::IsRectHovered(Id id, const Rect& rect) const noexcept {
+    if (!rect.Contains(m_mousePos)) {
+        return false;
+    }
+    if (id.IsValid()) {
+        auto it = m_prevFrameBounds.find(id);
+        if (it != m_prevFrameBounds.end() && !it->second.Contains(m_mousePos)) {
+            return false;
+        }
+    }
+    if (IsMouseOccluded(id, m_mousePos)) {
+        return false;
+    }
+    return true;
+}
+
+bool Context::IsMouseBlockedForCurrentScope() const noexcept {
+    if (m_activeOverlayHitCheckId.IsValid()) {
+        if (m_openPopupId.IsValid() && m_openPopupId != m_activeOverlayHitCheckId && m_openPopupRect.Contains(m_mousePos)) {
+            return true;
+        }
+        if (m_activeOverlayHitCheckId != m_prevFrameModalId &&
+            m_activeOverlayHitCheckId != m_currFrameModalId &&
+            IsModalBlocking(m_mousePos)) {
+            return true;
+        }
+        return false;
+    }
+
+    if (m_openPopupId.IsValid() && m_openPopupRect.Contains(m_mousePos)) {
+        return true;
+    }
+    if (IsModalBlocking(m_mousePos)) {
+        return true;
+    }
+
+    // If an overlay hit region (splitter sash / toggle pill) is currently being dragged or hovered,
+    // block all non-overlay scopes
+    for (const auto& ov : m_prevOverlayHitRegions) {
+        if (m_activeId.IsValid() && m_activeId == ov.id) {
+            return true;
+        }
+        if (ov.rect.Contains(m_mousePos)) {
+            return true;
+        }
+    }
+
+    // Determine current scope Z-layer from container stack
+    uint8_t currentZLayer = (m_modalScopeDepth > 0) ? 2 : 0;
+    for (const Node* n : m_containerStack) {
+        if (!n) continue;
+        if (n->type == NodeType::Modal) {
+            currentZLayer = std::max<uint8_t>(currentZLayer, 2);
+        } else if (n->type == NodeType::Sidebar ||
+                   n->type == NodeType::BottomPanel ||
+                   n->type == NodeType::StatusBar) {
+            currentZLayer = std::max<uint8_t>(currentZLayer, 1);
+        }
+    }
+
+    // Block workspace scopes (zLayer == 0) if the mouse is inside a higher Z-layer chrome panel (zLayer >= 1)
+    if (currentZLayer == 0) {
+        for (const auto& b : m_prevHitNodes) {
+            if (b.blocksHit && b.zLayer > currentZLayer && b.rect.Contains(m_mousePos)) {
+                return true;
+            }
+        }
+    }
+
+    // If user code is executing directly inside a Scene / MapView scope (not inside a child container or widget Run()),
+    // gate mouse queries to unoccluded points inside the Scene viewport (and not over Scene HUD/scrollbars)
+    if (m_widgetExecDepth == 0 && !m_containerStack.empty()) {
+        const Node* topContainer = m_containerStack.back();
+        if (topContainer && topContainer->type == NodeType::Scene && topContainer->id.IsValid()) {
+            const Id sceneId = topContainer->id;
+            if (IsMouseOccluded(sceneId, m_mousePos)) {
+                return true;
+            }
+            if (topContainer->scrollbarHovered || topContainer->scrollbarActive ||
+                topContainer->scrollbarHoveredX || topContainer->scrollbarActiveX) {
+                return true;
+            }
+            auto itVp = m_prevFrameBounds.find(sceneId);
+            if (itVp != m_prevFrameBounds.end() && itVp->second.w > 1.0f && itVp->second.h > 1.0f) {
+                if (!itVp->second.Contains(m_mousePos) && m_activeId != sceneId) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
 void Context::SetTooltip(UiText tooltip, Rect anchorRect) {
     if (tooltip.empty() || m_openPopupId.IsValid() || IsModalBlocking(m_mousePos)) {
         return;
@@ -1723,10 +1916,55 @@ static Rect GetNodeContentClipRect(const Node* node, const UiTheme& theme) {
     return node->computedRect;
 }
 
+static bool DoesNodeBlockHit(const Node* node) noexcept {
+    if (!node) return false;
+    switch (node->type) {
+        case NodeType::Spacer:
+        case NodeType::Text:
+        case NodeType::Heading:
+        case NodeType::Separator:
+            return false;
+        case NodeType::Sidebar:
+        case NodeType::BottomPanel:
+            return !node->sidebarCollapsed;
+        case NodeType::StatusBar:
+        case NodeType::Toolbar:
+        case NodeType::Card:
+        case NodeType::Accordion:
+        case NodeType::AccordionHeader:
+        case NodeType::Modal:
+        case NodeType::Table:
+        case NodeType::TreeView:
+        case NodeType::TreeItem:
+        case NodeType::Carousel:
+        case NodeType::Scene:
+            return true;
+        case NodeType::Row:
+        case NodeType::Column:
+        case NodeType::Wrap:
+        case NodeType::Grid:
+        case NodeType::Cell:
+        case NodeType::Container:
+        case NodeType::Box:
+        case NodeType::ScrollArea:
+        case NodeType::Element:
+        case NodeType::TreeBranch:
+            return (node->backgroundColor.a > 0) ||
+                   (node->borderWidth > 0.0f && node->borderColor.a > 0);
+        default:
+            return true;
+    }
+}
+
+template <typename HitVecT>
 static void CollectBoundsRecursive(
     Node* node,
+    const Node* rootNode,
     std::unordered_map<Id, Rect>& outBounds,
     std::unordered_map<Id, Rect>& outUnclippedBounds,
+    HitVecT& outHitNodes,
+    uint32_t& ioOrderCounter,
+    uint8_t inheritedZLayer,
     Rect parentClip,
     const UiTheme& theme
 ) {
@@ -1735,9 +1973,18 @@ static void CollectBoundsRecursive(
     const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
 
     // Out-of-flow modals are rendered at top level above ancestor ScrollAreas/clips
+    uint8_t curZLayer = inheritedZLayer;
     if (node->type == NodeType::Modal) {
         parentClip = node->computedRect;
+        curZLayer = 2;
+    } else if ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && !node->sidebarCollapsed) {
+        curZLayer = std::max<uint8_t>(curZLayer, 1);
+    } else if (node->type == NodeType::StatusBar) {
+        curZLayer = std::max<uint8_t>(curZLayer, 1);
     }
+
+    const uint32_t preIdx = ++ioOrderCounter;
+    size_t hitRecordIdx = size_t(-1);
 
     if (node->id.IsValid()) {
         if ((node->computedRect.w > 0.0f || node->type == NodeType::Sidebar) &&
@@ -1748,6 +1995,19 @@ static void CollectBoundsRecursive(
         if ((clipped.w > 0.0f || node->type == NodeType::Sidebar) &&
             (clipped.h > 0.0f || node->type == NodeType::BottomPanel)) {
             outBounds[node->id] = clipped;
+        }
+
+        if (node != rootNode && clipped.w > 0.0f && clipped.h > 0.0f) {
+            hitRecordIdx = outHitNodes.size();
+            typename HitVecT::value_type rec{};
+            rec.id = node->id;
+            rec.rect = clipped;
+            rec.preIndex = preIdx;
+            rec.postIndex = preIdx;
+            rec.type = node->type;
+            rec.zLayer = curZLayer;
+            rec.blocksHit = DoesNodeBlockHit(node);
+            outHitNodes.push_back(rec);
         }
 
         if (node->type == NodeType::Carousel) {
@@ -1761,7 +2021,21 @@ static void CollectBoundsRecursive(
     }
 
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-        CollectBoundsRecursive(child, outBounds, outUnclippedBounds, effectiveClip, activeTheme);
+        CollectBoundsRecursive(
+            child,
+            rootNode,
+            outBounds,
+            outUnclippedBounds,
+            outHitNodes,
+            ioOrderCounter,
+            curZLayer,
+            effectiveClip,
+            activeTheme
+        );
+    }
+
+    if (hitRecordIdx != size_t(-1)) {
+        outHitNodes[hitRecordIdx].postIndex = ioOrderCounter;
     }
 }
 
@@ -1773,9 +2047,15 @@ bool Context::UpdateScrollAreasRecursive(Node* node) {
         ++m_modalScopeDepth;
     }
 
+    const bool pushedToStack = (node != m_root);
+    if (pushedToStack) {
+        m_containerStack.push_back(node);
+    }
+
     bool scrollChanged = false;
     const Vec2 prevScroll = node->scrollOffset;
 
+    ++m_widgetExecDepth;
     if (node->type == NodeType::ScrollArea || ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && node->sidebarScrollable)) {
         ScrollArea::Update(*this, node);
         if (std::abs(node->scrollOffset.x - prevScroll.x) > 0.01f ||
@@ -1793,6 +2073,9 @@ bool Context::UpdateScrollAreasRecursive(Node* node) {
     } else if (node->type == NodeType::Table) {
         Table::Update(*this, node);
     }
+    if (m_widgetExecDepth > 0) {
+        --m_widgetExecDepth;
+    }
 
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
         if (UpdateScrollAreasRecursive(child)) {
@@ -1800,6 +2083,9 @@ bool Context::UpdateScrollAreasRecursive(Node* node) {
         }
     }
 
+    if (pushedToStack && !m_containerStack.empty() && m_containerStack.back() == node) {
+        m_containerStack.pop_back();
+    }
     if (isModal && m_modalScopeDepth > 0) {
         --m_modalScopeDepth;
     }
@@ -1860,8 +2146,35 @@ void Context::EndFrame(ICanvas& canvas) {
         Toast::RunHost(*this, m_defaultToastHostOpts);
     }
 
-    // Cache computed bounds and focusable widget list for next frame
-    CollectBoundsRecursive(m_root, m_currFrameBounds, m_currUnclippedBounds, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme);
+    // Cache computed bounds, Z-order hit records, overlay hit regions, and focusable widget list for next frame
+    uint32_t hitOrderCounter = 0;
+    CollectBoundsRecursive(
+        m_root,
+        m_root,
+        m_currFrameBounds,
+        m_currUnclippedBounds,
+        m_currHitNodes,
+        hitOrderCounter,
+        0,
+        Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y),
+        m_theme
+    );
+    for (const auto& builder : m_overlayHitBuilders) {
+        if (builder) {
+            builder();
+        }
+    }
+    m_overlayHitBuilders.clear();
+    m_prevOverlayHitRegions = std::move(m_currOverlayHitRegions);
+    m_currOverlayHitRegions.clear();
+    m_prevHitNodes = std::move(m_currHitNodes);
+    m_currHitNodes.clear();
+    m_prevHitNodeMap.clear();
+    m_prevHitNodeMap.reserve(m_prevHitNodes.size());
+    for (size_t i = 0; i < m_prevHitNodes.size(); ++i) {
+        m_prevHitNodeMap[m_prevHitNodes[i].id] = i;
+    }
+
     m_prevFrameBounds = std::move(m_currFrameBounds);
     m_prevUnclippedBounds = std::move(m_currUnclippedBounds);
     m_prevFocusableIds = std::move(m_currFocusableIds);

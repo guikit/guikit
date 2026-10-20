@@ -309,6 +309,9 @@ ContextMenuResponse ContextMenu::Run(
     }
 
     // Mouse click handling when already open
+    if (wasPopupOpen) {
+        ctx.BeginOverlayHitCheck(id);
+    }
     if (wasPopupOpen && (ctx.IsMouseClicked() || ctx.IsRightMouseClicked())) {
         if (popupRect.Contains(mouse)) {
             if (ctx.IsMouseClicked() && hoveredIdx >= 0 && static_cast<size_t>(hoveredIdx) < items.size()) {
@@ -338,6 +341,9 @@ ContextMenuResponse ContextMenu::Run(
             ctx.ConsumeMouseClick();
             ctx.InvalidateAll();
         }
+    }
+    if (wasPopupOpen) {
+        ctx.EndOverlayHitCheck();
     }
 
     state.wasExternalOpen = isOpen && (externalOpen != nullptr ? *externalOpen : true);
