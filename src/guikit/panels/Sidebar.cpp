@@ -402,7 +402,7 @@ SidebarScope Sidebar::Open(
     const Color resolvedBorderCol = (opts.border.width > 0.0f)
         ? opts.border.color.Resolve(false, false, activeDisabled, pal.border)
         : Color::Transparent();
-    const float resolvedBorderW = theme.Scale(opts.border.width);
+    const float resolvedBorderW = (opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : theme.Scale(opts.border.width);
     float reportedLogicalW = 0.0f;
 
     if (node->sidebarCollapsed) {

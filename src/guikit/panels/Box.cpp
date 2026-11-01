@@ -34,6 +34,7 @@ ContainerScope Box::Open(
     const float bw = (opts.border.width > 0.0f) ? opts.border.width : (opts.border.color.HasAny() ? 1.0f : 0.0f);
     node->borderWidth = theme.Scale(bw);
     node->borderColor = (bw > 0.0f) ? opts.border.color.Resolve(false, false, activeDisabled, pal.border) : Color::Transparent();
+    node->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
     node->cornerRadius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : 0.0f;
     node->clipChildren = opts.clipChildren;
     node->widthMode = opts.widthMode;

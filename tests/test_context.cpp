@@ -11493,55 +11493,63 @@ int main() {
         SidebarMode sbMode = SidebarMode::Expanded;
         bool showBp = true;
         Id tbId, barId, sbId, bpId, statusId;
-        float tbRadius = -1.0f, barRadius = -1.0f, sbRadius = -1.0f, bpRadius = -1.0f, statusRadius = -1.0f;
+        Node* tbNode = nullptr;
+        Node* barNode = nullptr;
+        Node* sbNode = nullptr;
+        Node* cardNode = nullptr;
+        Node* bpNode = nullptr;
+        Node* statusNode = nullptr;
 
         auto renderShell = [&]() {
             ui.BeginFrame({800.0f, 600.0f});
             if (auto root = ui.Column({.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch})) {
                 if (auto tb = ui.Toolbar()) {
-                    tbId = tb.GetNode()->id;
-                    tbRadius = tb.GetNode()->cornerRadius;
+                    tbNode = tb.GetNode();
+                    tbId = tbNode->id;
                     ui.Text("Top Toolbar");
                 }
                 if (auto body = ui.Box({.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch})) {
                     if (auto bar = ui.ActivityBar(sbMode)) {
-                        barId = bar.GetNode()->id;
-                        barRadius = bar.GetNode()->cornerRadius;
+                        barNode = bar.GetNode();
+                        barId = barNode->id;
                         int tool = 0;
                         bar.Item(tool, 0, {.icon = Icon::Folder(), .label = "Explorer"});
                     }
                     if (auto sb = ui.Sidebar(sbMode, {.width = 180.0f})) {
-                        sbId = sb.GetNode()->id;
-                        sbRadius = sb.GetNode()->cornerRadius;
+                        sbNode = sb.GetNode();
+                        sbId = sbNode->id;
                         ui.Text("Sidebar");
                     }
                     if (auto card = ui.Card({.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch})) {
+                        cardNode = card.GetNode();
                         ui.Text("Canvas");
                     }
                     if (auto bp = ui.BottomPanel(showBp, {.height = 120.0f})) {
-                        bpId = bp.GetNode()->id;
-                        bpRadius = bp.GetNode()->cornerRadius;
+                        bpNode = bp.GetNode();
+                        bpId = bpNode->id;
                         ui.Text("Bottom Panel");
                     }
                 }
                 if (auto st = ui.StatusBar()) {
-                    statusId = st.GetNode()->id;
-                    statusRadius = st.GetNode()->cornerRadius;
+                    statusNode = st.GetNode();
+                    statusId = statusNode->id;
                     st.Item({.text = "Ready"});
                 }
             }
             ui.EndFrame(canvas);
         };
 
-        // 1. Default Docked mode: 0px outer padding, 0px panel gap, 0px corner radius on all chrome panels
+        // 1. Default Docked mode: 0px outer padding, 0px panel gap, 0px corner radius on all chrome panels & center card
         CHECK(ui.GetTheme().GetShellStyle() == ShellStyle::Docked);
         renderShell();
         renderShell();
-        CHECK_NEAR(tbRadius, 0.0f, 0.01f);
-        CHECK_NEAR(barRadius, 0.0f, 0.01f);
-        CHECK_NEAR(sbRadius, 0.0f, 0.01f);
-        CHECK_NEAR(bpRadius, 0.0f, 0.01f);
-        CHECK_NEAR(statusRadius, 0.0f, 0.01f);
+        CHECK_NEAR(tbNode->cornerRadius, 0.0f, 0.01f);
+        CHECK_NEAR(barNode->cornerRadius, 0.0f, 0.01f);
+        CHECK_NEAR(sbNode->cornerRadius, 0.0f, 0.01f);
+        CHECK_NEAR(cardNode->cornerRadius, 0.0f, 0.01f);
+        CHECK_NEAR(cardNode->borderWidth, 0.0f, 0.01f);
+        CHECK_NEAR(bpNode->cornerRadius, 0.0f, 0.01f);
+        CHECK_NEAR(statusNode->cornerRadius, 0.0f, 0.01f);
         CHECK_NEAR(ui.GetPrevFrameBounds(tbId).x, 0.0f, 0.01f);
         CHECK_NEAR(ui.GetPrevFrameBounds(tbId).y, 0.0f, 0.01f);
         CHECK_NEAR(ui.GetPrevFrameBounds(barId).x, 0.0f, 0.01f);
@@ -11551,8 +11559,10 @@ int main() {
         // 2. Switch to Floating mode on theme: automatic windowPadding, panelGap, and rounded corners
         UiTheme floatTheme = ui.GetTheme();
         floatTheme.SetShellStyle(ShellStyle::Floating);
+        floatTheme.SetMode(ThemeMode::Light);
+        CHECK(floatTheme.GetShellStyle() == ShellStyle::Floating);
+        CHECK(floatTheme.mode == ThemeMode::Light);
         ui.SetTheme(floatTheme);
-        CHECK(ui.GetTheme().GetShellStyle() == ShellStyle::Floating);
         const float expectedGap = floatTheme.shell.panelGap;
         const float expectedRadius = floatTheme.shell.panelRadius;
         CHECK(expectedGap > 0.0f);
@@ -11560,11 +11570,13 @@ int main() {
 
         renderShell();
         renderShell();
-        CHECK_NEAR(tbRadius, expectedRadius, 0.01f);
-        CHECK_NEAR(barRadius, expectedRadius, 0.01f);
-        CHECK_NEAR(sbRadius, expectedRadius, 0.01f);
-        CHECK_NEAR(bpRadius, expectedRadius, 0.01f);
-        CHECK_NEAR(statusRadius, expectedRadius, 0.01f);
+        CHECK_NEAR(tbNode->cornerRadius, expectedRadius, 0.01f);
+        CHECK_NEAR(barNode->cornerRadius, expectedRadius, 0.01f);
+        CHECK_NEAR(sbNode->cornerRadius, expectedRadius, 0.01f);
+        CHECK_NEAR(cardNode->cornerRadius, expectedRadius, 0.01f);
+        CHECK_NEAR(cardNode->borderWidth, floatTheme.shell.panelBorderWidth, 0.01f);
+        CHECK_NEAR(bpNode->cornerRadius, expectedRadius, 0.01f);
+        CHECK_NEAR(statusNode->cornerRadius, expectedRadius, 0.01f);
         CHECK_NEAR(ui.GetPrevFrameBounds(tbId).x, expectedGap, 0.01f);
         CHECK_NEAR(ui.GetPrevFrameBounds(tbId).y, expectedGap, 0.01f);
         CHECK_NEAR(ui.GetPrevFrameBounds(barId).x, expectedGap, 0.01f);

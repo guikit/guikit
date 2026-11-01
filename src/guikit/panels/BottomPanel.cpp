@@ -350,7 +350,7 @@ BottomPanelScope BottomPanel::Open(
                 ? opts.background.Resolve(false, false, activeDisabled, pal.surface)
                 : pal.surface)
             : Color::Transparent();
-        node->borderWidth = theme.Scale(opts.border.width);
+        node->borderWidth = (opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : theme.Scale(opts.border.width);
         node->borderColor = (opts.border.width > 0.0f)
             ? opts.border.color.Resolve(false, false, activeDisabled, pal.border)
             : Color::Transparent();

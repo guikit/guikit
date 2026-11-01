@@ -200,53 +200,20 @@ ToolbarScope Toolbar::Open(
         node->backgroundColor = styleBg;
     }
 
-    const bool isShellBar = (opts.style == ToolbarStyle::Surface) &&
-        !opts.border.radius.has_value() &&
-        (node->parent != nullptr) &&
-        !node->parent->explicitPadding &&
-        !node->parent->explicitGap;
-    const bool isDockedHeader = (opts.style == ToolbarStyle::Header) ||
-        (isShellBar && theme.shellStyle == ShellStyle::Docked);
-
+    node->explicitRadius = (opts.border.radius.has_value() || opts.style != ToolbarStyle::Surface) ? 1 : 0;
     node->borderColor = opts.border.color.Resolve(false, false, effectiveDisabled, pal.border);
     if (opts.border.width > 0.0f) {
-        node->borderWidth = isDockedHeader ? 0.0f : theme.Scale(opts.border.width);
-    } else if (opts.border.color.HasAny()) {
-        node->borderWidth = isDockedHeader ? 0.0f : theme.Scale(1.0f);
-    } else if (opts.style == ToolbarStyle::Floating) {
-        node->borderWidth = theme.Scale(1.0f);
-    } else if (isShellBar && theme.shellStyle == ShellStyle::Floating) {
+        node->borderWidth = theme.Scale(opts.border.width);
+    } else if (opts.border.color.HasAny() || opts.style == ToolbarStyle::Header || opts.style == ToolbarStyle::Floating) {
         node->borderWidth = theme.shell.panelBorderWidth;
     } else {
         node->borderWidth = 0.0f;
     }
 
-    if (isDockedHeader) {
-        if (isVertical) {
-            node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& t) noexcept {
-                const float divW = t.Scale(1.0f);
-                const Rect& r = n->computedRect;
-                if (r.w > divW && r.h > 0.0f && n->borderColor.a > 0) {
-                    canvas.DrawRect(Rect(r.Right() - divW, r.y, divW, r.h), n->borderColor);
-                }
-            };
-        } else {
-            node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& t) noexcept {
-                const float divW = t.Scale(1.0f);
-                const Rect& r = n->computedRect;
-                if (r.w > 0.0f && r.h > divW && n->borderColor.a > 0) {
-                    canvas.DrawRect(Rect(r.x, r.Bottom() - divW, r.w, divW), n->borderColor);
-                }
-            };
-        }
-    }
-
     if (opts.border.radius.has_value()) {
         node->cornerRadius = theme.Scale(*opts.border.radius);
-    } else if (isDockedHeader) {
+    } else if (opts.style == ToolbarStyle::Header) {
         node->cornerRadius = 0.0f;
-    } else if (isShellBar) {
-        node->cornerRadius = theme.shell.panelRadius;
     } else if (opts.style == ToolbarStyle::Floating) {
         node->cornerRadius = theme.ResolveRadius(std::nullopt, activeSize) + 2.0f * activeScale;
     } else {

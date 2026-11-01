@@ -340,6 +340,9 @@ struct UiTheme {
     [[nodiscard]] static UiTheme Compact() noexcept { return Dark(Density::Compact); }
     [[nodiscard]] static UiTheme Touch() noexcept { return Dark(Density::Touch); }
 
+    /// Updates color palette, syntax palette, and semantic variants to Dark or Light mode while preserving density, shell style, and scale.
+    void SetMode(ThemeMode m) noexcept;
+
     /// Updates metrics, spacing, and radius to the requested density scale.
     void SetDensity(Density d) noexcept;
 

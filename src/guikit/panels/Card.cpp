@@ -27,6 +27,7 @@ ContainerScope Card::Open(
     outerNode->widthMode = opts.widthMode;
     outerNode->heightMode = opts.heightMode;
     outerNode->padding = theme.ResolvePadding(opts.padding, activeSize);
+    outerNode->explicitRadius = opts.border.radius.has_value() ? 1 : 0;
     outerNode->cornerRadius = theme.ResolveRadius(opts.border.radius, activeSize);
     outerNode->clipChildren = opts.clipChildren;
     outerNode->uiSize = activeSize;

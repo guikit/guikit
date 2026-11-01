@@ -297,7 +297,6 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
             if (auto mainPane = ui.Card({
                 .gap = 8.0f,
                 .padding = guikit::Padding::All(16.0f),
-                .border = {.width = 1.0f, .radius = stageTheme.shell.panelRadius},
                 .widthMode = guikit::SizeMode::Stretch,
                 .heightMode = guikit::SizeMode::Stretch
             })) {

@@ -283,8 +283,10 @@ UiTheme* Context::PushScopedTheme(const UiTheme* explicitTheme, std::optional<fl
     const float activeScale = explicitScale.value_or(prevScale);
     UiTheme scopedTheme = (explicitTheme != nullptr) ? *explicitTheme : GetTheme();
     if (explicitTheme != nullptr) {
-        if (activeScale > 0.0f && activeScale != 1.0f) {
-            scopedTheme = scopedTheme.Scaled(activeScale);
+        const float baseScale = (explicitTheme->scale > 0.0f) ? explicitTheme->scale : 1.0f;
+        const float relFactor = (activeScale > 0.0f) ? (activeScale / baseScale) : 1.0f;
+        if (std::abs(relFactor - 1.0f) > 0.0001f) {
+            scopedTheme = scopedTheme.Scaled(relFactor);
         }
     } else if (explicitScale.has_value() && *explicitScale > 0.0f) {
         const float relFactor = (prevScale > 0.0f) ? (*explicitScale / prevScale) : *explicitScale;
@@ -2581,6 +2583,14 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
         } else if (node->cornerRadius <= 0.0f &&
                    (node->type == NodeType::BottomPanel || node->type == NodeType::StatusBar)) {
             canvas.DrawRect(Rect(r.x, r.y, r.w, node->borderWidth), node->borderColor);
+        } else if (node->cornerRadius <= 0.0f && node->type == NodeType::Toolbar) {
+            if (node->direction == FlexDirection::Column) {
+                const float x = std::max(r.x, r.Right() - node->borderWidth);
+                canvas.DrawRect(Rect(x, r.y, node->borderWidth, r.h), node->borderColor);
+            } else {
+                const float y = std::max(r.y, r.Bottom() - node->borderWidth);
+                canvas.DrawRect(Rect(r.x, y, r.w, node->borderWidth), node->borderColor);
+            }
         } else {
             canvas.DrawRoundRect(
                 r,
@@ -2612,7 +2622,7 @@ void Context::RenderModalsRecursive(Node* node, ICanvas& canvas, const Rect& dir
 
 void Context::SetThemeMode(ThemeMode mode) noexcept {
     if (m_theme.mode != mode) {
-        m_theme = (mode == ThemeMode::Dark) ? UiTheme::Dark(m_theme.density) : UiTheme::Light(m_theme.density);
+        m_theme.SetMode(mode);
         m_clearColor = m_theme.palette.background;
         InvalidateAll();
     }

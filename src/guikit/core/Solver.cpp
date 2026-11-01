@@ -59,8 +59,28 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (!node->explicitGap) {
                 node->gap = activeTheme.shell.panelGap;
             }
-            if (node->parent == nullptr && !node->explicitPadding) {
+            const bool isTopLevelShell = (node->parent == nullptr && HasDirectShellPanel(node)) ||
+                (node->parent != nullptr && node->parent->parent == nullptr && !HasDirectShellPanel(node->parent));
+            if (isTopLevelShell && !node->explicitPadding) {
                 node->padding = activeTheme.shell.windowPadding;
+            }
+            for (Node* c = node->firstChild; c != nullptr; c = c->nextSibling) {
+                if (c->type == NodeType::Toolbar && !c->explicitRadius && c->widthMode == SizeMode::Stretch) {
+                    c->cornerRadius = activeTheme.shell.panelRadius;
+                    if (c->borderWidth <= 0.0f) {
+                        c->borderWidth = activeTheme.shell.panelBorderWidth;
+                    }
+                } else if ((c->type == NodeType::Card || c->type == NodeType::Box) &&
+                           !c->explicitRadius && c->backgroundColor.a > 0) {
+                    c->cornerRadius = activeTheme.shell.panelRadius;
+                    if (activeTheme.shellStyle == ShellStyle::Docked) {
+                        c->borderWidth = 0.0f;
+                    } else if (c->borderWidth <= 0.0f) {
+                        c->borderWidth = activeTheme.shell.panelBorderWidth;
+                        const UiTheme& ct = (c->theme != nullptr) ? *c->theme : activeTheme;
+                        c->borderColor = ct.palette.borderSubtle;
+                    }
+                }
             }
         }
 

@@ -332,6 +332,18 @@ void ApplyDensity(UiTheme& theme, Density d) {
 
 } // namespace
 
+void UiTheme::SetMode(ThemeMode m) noexcept {
+    mode = m;
+    PopulatePalette(*this, m);
+    PopulateSyntaxPalette(*this, m);
+    PopulateVariants(*this, m);
+    if (scale > 0.0f && std::abs(scale - 1.0f) > 0.0001f) {
+        for (auto& v : variants) {
+            v.borderWidth *= scale;
+        }
+    }
+}
+
 void UiTheme::SetDensity(Density d) noexcept {
     ApplyDensity(*this, d);
 }

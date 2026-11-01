@@ -299,7 +299,7 @@ StatusBarScope StatusBar::Open(
     node->borderColor = opts.border.color.Resolve(false, false, effectiveDisabled, pal.border);
     node->borderWidth = (opts.style == StatusBarStyle::Accent && !opts.border.color.HasAny())
         ? 0.0f
-        : theme.Scale(opts.border.width);
+        : ((opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : theme.Scale(opts.border.width));
     node->cornerRadius = opts.border.radius.has_value()
         ? theme.Scale(*opts.border.radius)
         : theme.shell.panelRadius;

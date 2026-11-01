@@ -543,12 +543,9 @@ int main(int argc, char* argv[]) {
                         .textRight = "Light",
                         .symmetric = true
                     }).changed) {
-                        demoCtx.shellTheme = demoCtx.shellLightMode
-                            ? guikit::UiTheme::Light(demoCtx.shellTheme.density)
-                            : guikit::UiTheme::Dark(demoCtx.shellTheme.density);
-                        demoCtx.shellTheme.SetShellStyle(demoCtx.shellFloating
-                            ? guikit::ShellStyle::Floating
-                            : guikit::ShellStyle::Docked);
+                        demoCtx.shellTheme.SetMode(demoCtx.shellLightMode
+                            ? guikit::ThemeMode::Light
+                            : guikit::ThemeMode::Dark);
                         ui.SetTheme(demoCtx.shellTheme);
                         ui.SetClearColor(demoCtx.shellTheme.palette.background);
                         ui.InvalidateAll();
@@ -786,13 +783,9 @@ int main(int argc, char* argv[]) {
                                 .symmetric = true
                             }).changed) {
                                 demoCtx.previewDarkMode = !demoCtx.previewLightMode;
-                                const auto defTheme = demoCtx.previewDarkMode
-                                    ? guikit::UiTheme::Dark(demoCtx.previewTheme.density)
-                                    : guikit::UiTheme::Light(demoCtx.previewTheme.density);
-                                demoCtx.previewTheme.palette = defTheme.palette;
-                                demoCtx.previewTheme.variants = defTheme.variants;
-                                demoCtx.previewTheme.syntax = defTheme.syntax;
-                                demoCtx.previewTheme.mode = demoCtx.previewDarkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
+                                demoCtx.previewTheme.SetMode(demoCtx.previewDarkMode
+                                    ? guikit::ThemeMode::Dark
+                                    : guikit::ThemeMode::Light);
                                 ui.InvalidateAll();
                             }
 
@@ -822,17 +815,11 @@ int main(int argc, char* argv[]) {
                         if (IsSandboxCategory(selectedCategory)) {
                             // SANDBOX MODE: Hero Stage + optional C++20 Code Generator
                             const bool isFullStage = IsFullStageCategory(selectedCategory);
-                            const float shellRadius = demoCtx.shellTheme.shell.panelRadius;
                             if (auto stageBox = ui.Box({
                                 .widthMode = guikit::SizeMode::Stretch,
                                 .heightMode = guikit::SizeMode::Stretch,
                                 .padding = guikit::Padding::All(isFullStage ? 8.0f : 24.0f),
                                 .background = {demoCtx.previewTheme.palette.surface},
-                                .border = {
-                                    .width = (shellRadius > 0.0f) ? 1.0f : 0.0f,
-                                    .radius = shellRadius,
-                                    .color = {demoCtx.previewTheme.palette.borderSubtle}
-                                },
                                 .clipChildren = true,
                                 .theme = &demoCtx.previewTheme,
                                 .scale = previewScale,
@@ -989,15 +976,9 @@ int main(int argc, char* argv[]) {
                             case 13:
                                 demoCtx.previewLightMode = !demoCtx.previewLightMode;
                                 demoCtx.previewDarkMode = !demoCtx.previewLightMode;
-                                {
-                                    const auto defTheme = demoCtx.previewDarkMode
-                                        ? guikit::UiTheme::Dark(demoCtx.previewTheme.density)
-                                        : guikit::UiTheme::Light(demoCtx.previewTheme.density);
-                                    demoCtx.previewTheme.palette = defTheme.palette;
-                                    demoCtx.previewTheme.variants = defTheme.variants;
-                                    demoCtx.previewTheme.syntax = defTheme.syntax;
-                                    demoCtx.previewTheme.mode = demoCtx.previewDarkMode ? guikit::ThemeMode::Dark : guikit::ThemeMode::Light;
-                                }
+                                demoCtx.previewTheme.SetMode(demoCtx.previewDarkMode
+                                    ? guikit::ThemeMode::Dark
+                                    : guikit::ThemeMode::Light);
                                 break;
                             case 14:
                                 demoCtx.previewShowCode = !demoCtx.previewShowCode;
