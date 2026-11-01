@@ -136,6 +136,55 @@ inline void RenderBackdropHudBadge(const guikit::Node* n, guikit::ICanvas& canva
     canvas.DrawText(n->text, {pillX + padX, pillY + (pillH - textSz.y) * 0.5f}, fontSize, pillFg);
 }
 
+inline void RenderWindowTitlebarBackground(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& /*theme*/) noexcept {
+    const guikit::Rect& r = n->computedRect;
+    if (r.w <= 2.0f || r.h <= 2.0f || n->backgroundColor.a == 0) return;
+
+    const float rad = std::clamp(n->cornerRadius, 0.0f, r.h * 0.5f);
+    if (rad > 0.5f) {
+        canvas.DrawRoundRect(r, rad, n->backgroundColor);
+        // Fill the bottom half with square corners so only the top-left & top-right corners are rounded
+        canvas.DrawRect(guikit::Rect(r.x, r.y + rad, r.w, std::max(0.0f, r.h - rad)), n->backgroundColor);
+    } else {
+        canvas.DrawRect(r, n->backgroundColor);
+    }
+}
+
+inline void RenderWindowFrameBorderOverlay(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& /*theme*/) noexcept {
+    const guikit::Rect& r = n->computedRect;
+    if (r.w <= 2.0f || r.h <= 2.0f || n->borderWidth <= 0.0f || n->borderColor.a == 0) return;
+    canvas.DrawRoundRect(r, n->cornerRadius, guikit::Color::Transparent(), n->borderColor, n->borderWidth);
+}
+
+inline void RenderDeviceScreenCornerMaskAndBorder(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& /*theme*/) noexcept {
+    const guikit::Rect& r = n->computedRect;
+    if (r.w <= 4.0f || r.h <= 4.0f) return;
+
+    const float rad = std::clamp(n->cornerRadius, 0.0f, std::min(r.w, r.h) * 0.5f);
+    if (rad > 1.0f) {
+        // Mask the 4 corner regions outside the rounded screen arc with the surrounding chassis bezel color
+        const guikit::Color bezelCol(15, 20, 28, 255);
+        const int steps = static_cast<int>(std::ceil(rad));
+        for (int i = 0; i < steps; ++i) {
+            const float dy = static_cast<float>(i);
+            const float rem = std::max(0.0f, rad - dy - 0.35f);
+            const float dx = std::max(0.0f, rad - std::sqrt(std::max(0.0f, rad * rad - rem * rem)));
+            if (dx > 0.25f) {
+                // Top-left & Top-right
+                canvas.DrawRect(guikit::Rect(r.x - 0.5f, r.y + dy, dx + 1.0f, 1.25f), bezelCol);
+                canvas.DrawRect(guikit::Rect(r.Right() - dx - 0.5f, r.y + dy, dx + 1.0f, 1.25f), bezelCol);
+                // Bottom-left & Bottom-right
+                canvas.DrawRect(guikit::Rect(r.x - 0.5f, r.Bottom() - dy - 1.0f, dx + 1.0f, 1.25f), bezelCol);
+                canvas.DrawRect(guikit::Rect(r.Right() - dx - 0.5f, r.Bottom() - dy - 1.0f, dx + 1.0f, 1.25f), bezelCol);
+            }
+        }
+    }
+
+    if (n->borderWidth > 0.0f && n->borderColor.a > 0) {
+        canvas.DrawRoundRect(r, rad, guikit::Color::Transparent(), n->borderColor, n->borderWidth);
+    }
+}
+
 inline void RenderWindowTitlebarTrafficLights(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& theme) noexcept {
     const guikit::Rect& r = n->computedRect;
     if (r.w <= 20.0f || r.h <= 4.0f) return;
@@ -244,8 +293,8 @@ inline void RenderDeviceStatusSafeArea(const guikit::Node* n, guikit::ICanvas& c
         canvas.DrawRect(guikit::Rect(bx, by, 2.2f * s, bh), fg);
     }
 
-    // Subtle 1px bottom safe-area separator
-    canvas.DrawRect(guikit::Rect(r.x, r.Bottom() - 1.0f, r.w, 1.0f), theme.palette.borderSubtle.WithAlphaF(0.45f));
+    // Subtle 1px bottom safe-area separator (inset by 1px so it never overlaps the rounded screen border)
+    canvas.DrawRect(guikit::Rect(r.x + 1.0f, r.Bottom() - 1.0f, std::max(0.0f, r.w - 2.0f), 1.0f), theme.palette.borderSubtle.WithAlphaF(0.45f));
 }
 
 inline void RenderDeviceHomeIndicatorSafeArea(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& theme) noexcept {
@@ -417,6 +466,7 @@ inline void RenderPreviewViewport(
                 .border = {.width = 1.5f, .radius = 10.0f, .color = {winBorderCol}},
                 .clipChildren = true
             })) {
+                windowFrame.GetNode()->postRenderFn = &detail::RenderWindowFrameBorderOverlay;
                 const guikit::Color titlebarBg = (demoCtx.previewTheme.mode == guikit::ThemeMode::Light)
                     ? guikit::Color(241, 245, 249, 255)
                     : guikit::Color(15, 23, 42, 255);
@@ -425,8 +475,10 @@ inline void RenderPreviewViewport(
                     .heightMode = guikit::SizeMode::Fixed,
                     .fixedHeight = 28.0f,
                     .padding = guikit::Padding::Symmetric(12.0f, 0.0f),
-                    .background = {titlebarBg}
+                    .background = {titlebarBg},
+                    .border = {.width = 0.0f, .radius = 10.0f}
                 })) {
+                    titlebar.GetNode()->renderFn = &detail::RenderWindowTitlebarBackground;
                     titlebar.GetNode()->postRenderFn = &detail::RenderWindowTitlebarTrafficLights;
                     if (auto titleRow = ui.Row({
                         .align = guikit::Alignment::Center,
@@ -452,7 +504,6 @@ inline void RenderPreviewViewport(
                     .widthMode = guikit::SizeMode::Stretch,
                     .heightMode = guikit::SizeMode::Stretch,
                     .padding = guikit::Padding::All(clientPad),
-                    .background = {demoCtx.previewTheme.palette.surface},
                     .clipChildren = true,
                     .theme = &demoCtx.previewTheme,
                     .scale = effectiveZoom,
@@ -496,12 +547,13 @@ inline void RenderPreviewViewport(
                     },
                     .clipChildren = true
                 })) {
+                    screenBox.GetNode()->postRenderFn = &detail::RenderDeviceScreenCornerMaskAndBorder;
+
                     // 1. Top Safe Area (9:41 Clock + Dynamic Island / Camera + Signal/Battery)
                     if (auto safeTop = ui.Box({
                         .widthMode = guikit::SizeMode::Stretch,
                         .heightMode = guikit::SizeMode::Fixed,
                         .fixedHeight = isPhone ? 30.0f : 24.0f,
-                        .background = {demoCtx.previewTheme.palette.surface},
                         .theme = &demoCtx.previewTheme
                     })) {
                         safeTop.GetNode()->postRenderFn = isPhone
@@ -514,7 +566,6 @@ inline void RenderPreviewViewport(
                         .widthMode = guikit::SizeMode::Stretch,
                         .heightMode = guikit::SizeMode::Stretch,
                         .padding = guikit::Padding::All(devicePad),
-                        .background = {demoCtx.previewTheme.palette.surface},
                         .clipChildren = true,
                         .theme = &demoCtx.previewTheme,
                         .scale = effectiveZoom,
@@ -529,7 +580,6 @@ inline void RenderPreviewViewport(
                         .widthMode = guikit::SizeMode::Stretch,
                         .heightMode = guikit::SizeMode::Fixed,
                         .fixedHeight = 16.0f,
-                        .background = {demoCtx.previewTheme.palette.surface},
                         .theme = &demoCtx.previewTheme
                     })) {
                         safeBottom.GetNode()->postRenderFn = &detail::RenderDeviceHomeIndicatorSafeArea;
