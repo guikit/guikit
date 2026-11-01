@@ -279,6 +279,9 @@ public:
         return m_viewportSize / (m_dpiScale > 0.0f ? m_dpiScale : 1.0f);
     }
 
+    /// Returns the active popup/overlay viewport rectangle, intersected with any enclosing clipping Box container.
+    [[nodiscard]] Rect GetPopupViewportRect() const noexcept;
+
     /// Explicitly forces the next frame to perform a full screen redraw.
     void InvalidateAll() noexcept;
 
@@ -2173,13 +2176,18 @@ private:
     int m_modalScopeDepth{0};
     UiText m_activeTooltip{};
     Rect m_activeTooltipAnchor{0.0f, 0.0f, 0.0f, 0.0f};
+    Rect m_activeTooltipViewport{0.0f, 0.0f, 0.0f, 0.0f};
     bool m_hadTooltipLastFrame{false};
     std::vector<ToastEntry> m_toasts;
     ToastHostOptions m_defaultToastHostOpts{};
     uint64_t m_nextToastId{0};
     bool m_toastHostVisitedThisFrame{false};
     bool m_hadToastsLastFrame{false};
-    std::vector<std::function<void(ICanvas&)>> m_overlayPasses;
+    struct OverlayPass {
+        std::function<void(ICanvas&)> drawFn;
+        Rect clipRect{};
+    };
+    std::vector<OverlayPass> m_overlayPasses;
     Vec2 m_mouseWheel{0.0f, 0.0f};
     std::unordered_map<detail::StateKey, detail::StoredState, detail::StateKeyHash> m_customStates;
     uint64_t m_frameIndex{0};

@@ -203,43 +203,88 @@ DatePickerPopoverLayout ComputePopoverLayout(
     Rect boxRect,
     const DatePickerOptions& opts,
     const UiTheme& theme,
-    Vec2 viewportSize
+    Rect vpRect
 ) noexcept {
     DatePickerPopoverLayout l{};
     l.hasCalendar = (opts.mode != DatePickerMode::Time);
     l.hasTime = (opts.mode == DatePickerMode::DateTime || opts.mode == DatePickerMode::Time);
 
-    const float pad = theme.Scale(10.0f);
-    const float headerH = l.hasCalendar ? theme.Scale(30.0f) : 0.0f;
-    const float weekdayH = l.hasCalendar ? theme.Scale(22.0f) : 0.0f;
-    const float cellH = l.hasCalendar ? theme.Scale(28.0f) : 0.0f;
-    const float gridH = l.hasCalendar ? (cellH * 6.0f) : 0.0f;
-    const float timeH = l.hasTime ? theme.Scale(42.0f) : 0.0f;
-    const float footerH = theme.Scale(36.0f);
+    float pad = theme.Scale(10.0f);
+    float headerH = l.hasCalendar ? theme.Scale(30.0f) : 0.0f;
+    float weekdayH = l.hasCalendar ? theme.Scale(22.0f) : 0.0f;
+    float cellH = l.hasCalendar ? theme.Scale(28.0f) : 0.0f;
+    float timeH = l.hasTime ? theme.Scale(42.0f) : 0.0f;
+    float footerH = theme.Scale(36.0f);
+    float headerGap = theme.Scale(4.0f);
+    float sectionGap = theme.Scale(6.0f);
 
-    const float popupW = l.hasCalendar
+    float popupW = l.hasCalendar
         ? theme.Scale(264.0f)
         : theme.Scale(opts.showSeconds ? 258.0f : 196.0f);
+    if (vpRect.w > 40.0f && popupW > vpRect.w - 8.0f) {
+        popupW = std::max(140.0f, vpRect.w - 8.0f);
+    }
 
+    float gridH = l.hasCalendar ? (cellH * 6.0f) : 0.0f;
     float totalH = pad * 2.0f + footerH;
     if (l.hasCalendar) {
-        totalH += headerH + theme.Scale(4.0f) + weekdayH + gridH + theme.Scale(6.0f);
+        totalH += headerH + headerGap + weekdayH + gridH + sectionGap;
     }
     if (l.hasTime) {
-        totalH += timeH + theme.Scale(6.0f);
+        totalH += timeH + sectionGap;
+    }
+
+    if (vpRect.h > 60.0f && totalH > vpRect.h - 12.0f) {
+        const float fitScale = std::clamp((vpRect.h - 12.0f) / totalH, 0.56f, 1.0f);
+        pad = std::floor(pad * fitScale);
+        headerH = std::floor(headerH * fitScale);
+        weekdayH = std::floor(weekdayH * fitScale);
+        cellH = std::floor(cellH * fitScale);
+        gridH = l.hasCalendar ? (cellH * 6.0f) : 0.0f;
+        timeH = std::floor(timeH * fitScale);
+        footerH = std::floor(footerH * fitScale);
+        headerGap = std::floor(headerGap * fitScale);
+        sectionGap = std::floor(sectionGap * fitScale);
+
+        totalH = pad * 2.0f + footerH;
+        if (l.hasCalendar) {
+            totalH += headerH + headerGap + weekdayH + gridH + sectionGap;
+        }
+        if (l.hasTime) {
+            totalH += timeH + sectionGap;
+        }
     }
 
     float popupX = boxRect.x;
     float popupY = boxRect.y + boxRect.h + 4.0f;
-    if (viewportSize.y > 0.0f) {
-        const float availDown = viewportSize.y - popupY - 8.0f;
-        const float availUp = boxRect.y - 4.0f - 8.0f;
-        if (popupY + totalH > viewportSize.y && availUp > availDown) {
-            popupY = std::max(8.0f, boxRect.y - 4.0f - totalH);
+    if (vpRect.w > 0.0f && vpRect.h > 0.0f) {
+        const float margin = 6.0f;
+        const float downY = boxRect.Bottom() + 4.0f;
+        const float upY = boxRect.y - 4.0f - totalH;
+        const bool fitsDown = (downY + totalH <= vpRect.Bottom() - margin);
+        const bool fitsUp = (upY >= vpRect.y + margin);
+
+        if (fitsDown) {
+            popupY = downY;
+        } else if (fitsUp) {
+            popupY = upY;
+        } else {
+            const float rightX = boxRect.Right() + 6.0f;
+            const float leftX = boxRect.x - 6.0f - popupW;
+            if (rightX + popupW <= vpRect.Right() - margin) {
+                popupX = rightX;
+                popupY = boxRect.y;
+            } else if (leftX >= vpRect.x + margin) {
+                popupX = leftX;
+                popupY = boxRect.y;
+            } else {
+                const float availDown = vpRect.Bottom() - downY - margin;
+                const float availUp = boxRect.y - 4.0f - (vpRect.y + margin);
+                popupY = (availUp > availDown) ? upY : downY;
+            }
         }
-    }
-    if (viewportSize.x > 0.0f) {
-        popupX = std::clamp(popupX, 4.0f, std::max(4.0f, viewportSize.x - popupW - 4.0f));
+        popupX = std::clamp(popupX, vpRect.x + 4.0f, std::max(vpRect.x + 4.0f, vpRect.Right() - popupW - 4.0f));
+        popupY = std::clamp(popupY, vpRect.y + 4.0f, std::max(vpRect.y + 4.0f, vpRect.Bottom() - totalH - 4.0f));
     }
 
     l.popupRect = Rect(popupX, popupY, popupW, totalH);
@@ -249,7 +294,7 @@ DatePickerPopoverLayout ComputePopoverLayout(
     const float innerW = popupW - pad * 2.0f;
 
     if (l.hasCalendar) {
-        const float navBtnSz = theme.Scale(26.0f);
+        const float navBtnSz = std::min(headerH, theme.Scale(26.0f));
         const float navY = curY + (headerH - navBtnSz) * 0.5f;
         l.prevYearRect = Rect(innerX, navY, navBtnSz, navBtnSz);
         l.prevMonthRect = Rect(innerX + navBtnSz + 2.0f, navY, navBtnSz, navBtnSz);
@@ -257,7 +302,7 @@ DatePickerPopoverLayout ComputePopoverLayout(
         l.nextMonthRect = Rect(innerX + innerW - (navBtnSz * 2.0f + 2.0f), navY, navBtnSz, navBtnSz);
         const float titleX = l.prevMonthRect.Right() + 4.0f;
         l.titleRect = Rect(titleX, curY, std::max(0.0f, l.nextMonthRect.x - 4.0f - titleX), headerH);
-        curY += headerH + theme.Scale(4.0f);
+        curY += headerH + headerGap;
 
         l.weekdayRowRect = Rect(innerX, curY, innerW, weekdayH);
         curY += weekdayH;
@@ -265,14 +310,14 @@ DatePickerPopoverLayout ComputePopoverLayout(
         l.cellW = innerW / 7.0f;
         l.cellH = cellH;
         l.gridRect = Rect(innerX, curY, innerW, gridH);
-        curY += gridH + theme.Scale(6.0f);
+        curY += gridH + sectionGap;
     }
 
     if (l.hasTime) {
         l.timeBarRect = Rect(innerX, curY, innerW, timeH);
         l.timeUnitCount = opts.showSeconds ? 3 : 2;
         const float unitGap = theme.Scale(8.0f);
-        const float unitH = theme.Scale(28.0f);
+        const float unitH = std::min(std::max(16.0f, timeH - 2.0f), theme.Scale(28.0f));
         const float unitY = curY + (timeH - unitH) * 0.5f;
         const float totalGap = unitGap * static_cast<float>(l.timeUnitCount - 1);
         const float unitW = (innerW - totalGap) / static_cast<float>(l.timeUnitCount);
@@ -285,12 +330,12 @@ DatePickerPopoverLayout ComputePopoverLayout(
             l.timePlusRects[static_cast<size_t>(u)] = Rect(ux + unitW - stepBtnW, unitY, stepBtnW, unitH);
             l.timeValueRects[static_cast<size_t>(u)] = Rect(ux + stepBtnW, unitY, std::max(0.0f, unitW - stepBtnW * 2.0f), unitH);
         }
-        curY += timeH + theme.Scale(6.0f);
+        curY += timeH + sectionGap;
     }
 
     l.footerRect = Rect(innerX, popupY + totalH - pad - footerH, innerW, footerH);
-    const float btnH = theme.Scale(26.0f);
-    const float btnY = l.footerRect.y + (footerH - btnH) * 0.5f + 2.0f;
+    const float btnH = std::min(std::max(16.0f, footerH - 2.0f), theme.Scale(26.0f));
+    const float btnY = l.footerRect.y + (footerH - btnH) * 0.5f + 1.0f;
     if (opts.showTodayButton) {
         l.todayBtnRect = Rect(innerX, btnY, theme.Scale(64.0f), btnH);
     }
@@ -628,7 +673,7 @@ Response DatePicker::Run(
         }
     }
 
-    const DatePickerPopoverLayout popLayout = ComputePopoverLayout(boxRect, optsCopy, theme, ctx.GetViewportSize());
+    const DatePickerPopoverLayout popLayout = ComputePopoverLayout(boxRect, optsCopy, theme, ctx.GetPopupViewportRect());
     if (isOpen) {
         ctx.OpenPopup(id, popLayout.popupRect);
         ctx.RegisterOverlayHitRegion(id, popLayout.popupRect);

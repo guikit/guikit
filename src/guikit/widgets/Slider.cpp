@@ -1035,18 +1035,45 @@ void StepSlider::Render(
     const float thumbBorderW = (active || hovered || focused) ? 2.5f : 2.0f;
     canvas.DrawRoundRect(thumbRect, halfThumb, thumbBg, thumbBorder, thumbBorderW);
 
-    // 5. Draw step labels below track
+    // 5. Draw step labels below track (with collision culling so labels never overlap at narrow widths)
     if (opts.showLabels && !opts.stepLabels.empty() && totalSteps > 1) {
         const float labelsY = centerY + halfThumb + m.tickGap;
-        for (size_t i = 0; i < std::min(totalSteps, opts.stepLabels.size()); ++i) {
+        const size_t nLabels = std::min(totalSteps, opts.stepLabels.size());
+        const float minGap = theme.Scale(4.0f);
+
+        float lastLabelLeft = trackRegionX + trackRegionW;
+        if (nLabels > 1) {
+            const Vec2 lastDims = canvas.MeasureText(opts.stepLabels[nLabels - 1], tickFont);
+            const float lastTickX = trackStartX + trackWidth;
+            lastLabelLeft = std::clamp(
+                lastTickX - lastDims.x * 0.5f,
+                trackRegionX,
+                std::max(trackRegionX, trackRegionX + trackRegionW - lastDims.x)
+            );
+        }
+
+        float prevRight = -1e9f;
+        for (size_t i = 0; i < nLabels; ++i) {
             const float t = static_cast<float>(i) / static_cast<float>(totalSteps - 1);
             const float tickX = trackStartX + t * trackWidth;
             const std::string_view lbl = opts.stepLabels[i];
             const Vec2 dims = canvas.MeasureText(lbl, tickFont);
             float lblX = tickX - dims.x * 0.5f;
             lblX = std::clamp(lblX, trackRegionX, std::max(trackRegionX, trackRegionX + trackRegionW - dims.x));
+
+            const bool isFirst = (i == 0);
+            const bool isLast = (i + 1 == nLabels);
+            if (!isFirst && !isLast) {
+                if (lblX < prevRight + minGap || lblX + dims.x + minGap > lastLabelLeft) {
+                    continue;
+                }
+            } else if (isLast && i > 0 && lblX < prevRight + minGap) {
+                continue;
+            }
+
             Color lblCol = (i == index) ? pal.accent : (disabled ? pal.textDisabled : pal.textSecondary);
             canvas.DrawText(lbl, Vec2(lblX, labelsY), tickFont, lblCol);
+            prevRight = lblX + dims.x;
         }
     }
 }

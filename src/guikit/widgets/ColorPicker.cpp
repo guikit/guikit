@@ -72,12 +72,12 @@ PanelLayout ComputePanelLayout(Rect rect, const ColorPickerOptions& opts, const 
     }
 
     L.infoRowRect = Rect(innerX, curY, innerW, infoH);
-    const float prevW = theme.Scale(32.0f);
+    const float prevW = infoH;
     L.previewSwatchRect = Rect(innerX, curY, prevW, infoH);
     const float textStartX = innerX + prevW + gap;
     const float remW = std::max(0.0f, innerW - prevW - gap);
-    L.hexTextRect = Rect(textStartX, curY, remW * 0.46f, infoH);
-    L.rgbaTextRect = Rect(textStartX + remW * 0.46f, curY, remW * 0.54f, infoH);
+    L.hexTextRect = Rect(textStartX, curY, remW * 0.45f, infoH);
+    L.rgbaTextRect = Rect(textStartX + remW * 0.45f, curY, remW * 0.55f, infoH);
     curY += infoH;
 
     if (opts.showSwatches) {
@@ -92,7 +92,7 @@ Vec2 DefaultPanelDimensions(const ColorPickerOptions& opts, const UiTheme& theme
     float h = 196.0f;
     if (opts.showAlpha) h += 20.0f;
     if (opts.showSwatches) h += 30.0f;
-    return {theme.Scale(236.0f), theme.Scale(h)};
+    return {theme.Scale(254.0f), theme.Scale(h)};
 }
 
 ControlSpec EffectiveColorPickerControl(const ColorPickerOptions& opts, UiSize size, const UiTheme& theme) noexcept {
@@ -322,18 +322,44 @@ Response ColorPicker::Run(
     }
 
     if (!optsCopy.inlinePanel && isOpen) {
-        const Vec2 popDims = DefaultPanelDimensions(optsCopy, theme);
+        Vec2 popDims = DefaultPanelDimensions(optsCopy, theme);
+        const Rect vp = ctx.GetPopupViewportRect();
+        if (vp.w > 40.0f && popDims.x > vp.w - 8.0f) {
+            popDims.x = std::max(140.0f, vp.w - 8.0f);
+        }
+        if (vp.h > 80.0f && popDims.y > vp.h - 12.0f) {
+            popDims.y = std::max(120.0f, vp.h - 12.0f);
+        }
         float popupX = ctrlRect.x;
         float popupY = ctrlRect.Bottom() + 4.0f;
-        const Vec2 vp = ctx.GetViewportSize();
-        if (vp.y > 0.0f && popupY + popDims.y > vp.y - 6.0f) {
+        if (vp.w > 0.0f && vp.h > 0.0f) {
+            const float margin = 6.0f;
+            const float downY = ctrlRect.Bottom() + 4.0f;
             const float upY = ctrlRect.y - 4.0f - popDims.y;
-            if (upY >= 6.0f) {
+            const bool fitsDown = (downY + popDims.y <= vp.Bottom() - margin);
+            const bool fitsUp = (upY >= vp.y + margin);
+
+            if (fitsDown) {
+                popupY = downY;
+            } else if (fitsUp) {
                 popupY = upY;
+            } else {
+                const float rightX = ctrlRect.Right() + 6.0f;
+                const float leftX = ctrlRect.x - 6.0f - popDims.x;
+                if (rightX + popDims.x <= vp.Right() - margin) {
+                    popupX = rightX;
+                    popupY = ctrlRect.y;
+                } else if (leftX >= vp.x + margin) {
+                    popupX = leftX;
+                    popupY = ctrlRect.y;
+                } else {
+                    const float availDown = vp.Bottom() - downY - margin;
+                    const float availUp = ctrlRect.y - 4.0f - (vp.y + margin);
+                    popupY = (availUp > availDown) ? upY : downY;
+                }
             }
-        }
-        if (vp.x > 0.0f) {
-            popupX = std::clamp(popupX, 6.0f, std::max(6.0f, vp.x - popDims.x - 6.0f));
+            popupX = std::clamp(popupX, vp.x + 4.0f, std::max(vp.x + 4.0f, vp.Right() - popDims.x - 4.0f));
+            popupY = std::clamp(popupY, vp.y + 4.0f, std::max(vp.y + 4.0f, vp.Bottom() - popDims.y - 4.0f));
         }
         const Rect popRect(popupX, popupY, popDims.x, popDims.y);
         ctx.OpenPopup(id, popRect);
@@ -636,7 +662,7 @@ void ColorPicker::Render(
         return;
     }
 
-    const float swatchW = std::min(ctrlRect.w - pad * 2.0f, std::max(swatchH * 1.25f, 22.0f));
+    const float swatchW = std::min(ctrlRect.w - pad * 2.0f, std::max(swatchH * 1.25f, theme.Scale(22.0f)));
     const Rect swatchRect(ctrlRect.x + pad, ctrlRect.y + pad, swatchW, swatchH);
     DrawCheckerboardSwatch(canvas, swatchRect, disabled ? value.WithAlphaF(0.45f) : value, swatchRadius, pal.borderHover.WithAlpha(150));
 
@@ -644,18 +670,23 @@ void ColorPicker::Render(
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
     const Color textCol = disabled ? pal.textMuted : pal.textPrimary;
     const float chevronSpace = m.iconSize + m.paddingX;
-    const float textStartX = swatchRect.Right() + 8.0f;
+    const float textStartX = swatchRect.Right() + theme.Scale(8.0f);
     const float textW = std::max(0.0f, ctrlRect.Right() - chevronSpace - textStartX);
     if (textW > 8.0f) {
-        const Rect textRect(textStartX, ctrlRect.y, textW, ctrlRect.h);
+        const float hexW = canvas.MeasureText(hexText, fontSize).x;
+        char alphaBuf[16]{};
+        const int alphaPct = static_cast<int>(std::round((static_cast<float>(value.a) / 255.0f) * 100.0f));
+        std::snprintf(alphaBuf, sizeof(alphaBuf), "%d%%", alphaPct);
+        const float alphaW = opts.showAlpha ? canvas.MeasureText(alphaBuf, fontSize * 0.9f).x : 0.0f;
+        const bool drawAlpha = opts.showAlpha && (textW >= hexW + alphaW + theme.Scale(14.0f));
+        const float hexAvailW = drawAlpha ? std::max(0.0f, textW - alphaW - theme.Scale(10.0f)) : textW;
+
+        const Rect textRect(textStartX, ctrlRect.y, hexAvailW, ctrlRect.h);
         canvas.DrawTextBox(hexText, textRect, fontSize, textCol, 0.0f, 0.5f);
 
-        const float hexW = canvas.MeasureText(hexText, fontSize).x;
-        if (opts.showAlpha && textW > hexW + theme.Scale(36.0f)) {
-            char alphaBuf[16]{};
-            const int alphaPct = static_cast<int>(std::round((static_cast<float>(value.a) / 255.0f) * 100.0f));
-            std::snprintf(alphaBuf, sizeof(alphaBuf), "%d%%", alphaPct);
-            canvas.DrawTextBox(alphaBuf, textRect.Inset(4.0f, 0.0f), fontSize * 0.9f, pal.textSecondary, 1.0f, 0.5f);
+        if (drawAlpha) {
+            const Rect alphaRect(textStartX, ctrlRect.y, textW, ctrlRect.h);
+            canvas.DrawTextBox(alphaBuf, alphaRect.Inset(theme.Scale(4.0f), 0.0f), fontSize * 0.9f, pal.textSecondary, 1.0f, 0.5f);
         }
     }
 
@@ -751,10 +782,10 @@ void ColorPicker::RenderPanel(
     );
 
     // 3. Render Alpha slider if enabled
+    constexpr uint32_t kAlphaW = 64;
+    constexpr uint32_t kAlphaH = 8;
+    std::array<uint32_t, kAlphaW * kAlphaH> alphaPixels{};
     if (opts.showAlpha) {
-        constexpr uint32_t kAlphaW = 64;
-        constexpr uint32_t kAlphaH = 8;
-        std::array<uint32_t, kAlphaW * kAlphaH> alphaPixels{};
         const Color solidRgb = HsvToRgb(h, s, v, 255);
         for (uint32_t py = 0; py < kAlphaH; ++py) {
             for (uint32_t px = 0; px < kAlphaW; ++px) {

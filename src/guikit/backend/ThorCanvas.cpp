@@ -1466,7 +1466,7 @@ bool ThorCanvas::DrawPixels(
     }
 
     auto* pic = tvg::Picture::gen();
-    if (pic->load(pixels, width, height, tvg::ColorSpace::ABGR8888S, false) != tvg::Result::Success) {
+    if (pic->load(pixels, width, height, tvg::ColorSpace::ABGR8888S, true) != tvg::Result::Success) {
         delete pic;
         return false;
     }
@@ -1816,7 +1816,7 @@ bool DecodeImageFromMemory(
             static_cast<uint32_t>(encodedBytes.size()),
             mime,
             nullptr,
-            false) != tvg::Result::Success) {
+            true) != tvg::Result::Success) {
         delete pic;
         return false;
     }

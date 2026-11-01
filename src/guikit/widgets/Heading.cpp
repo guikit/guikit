@@ -210,7 +210,12 @@ void Heading::Render(
     float spanW = outer.w;
     if (opts.stretch == StretchMode::Fill && opts.width.has_value()) {
         const float ratio = std::clamp(*opts.width, 0.0f, 1.0f);
-        spanW = outer.w * ratio;
+        const float maxElemW = std::max({
+            geom.controlRect.w,
+            geom.hasLabel ? geom.labelRect.w : 0.0f,
+            geom.hasDesc ? geom.descRect.w : 0.0f
+        });
+        spanW = std::min(outer.w, std::max(outer.w * ratio, maxElemW));
         spanX = outer.x + (outer.w - spanW) * alignFactor;
     } else if (opts.stretch == StretchMode::Compact) {
         const float maxElemW = std::max({

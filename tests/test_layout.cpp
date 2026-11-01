@@ -952,6 +952,97 @@ void TestRowEqualWidthsFitAndStretch() {
     CHECK_NEAR(s2->computedRect.x, 210.0f, 0.001f);
 }
 
+void TestRowTextDeficitShrinkAndCenterClamp() {
+    using namespace guikit;
+
+    BumpAllocator arena;
+
+    // 1. Row (300px, gap 8px) with Fixed left slot (52px), long Text (240px), and short readout Text (56px):
+    // Long text absorbs deficit first (shrinks to 176px), short readout keeps its full 56px width!
+    Node* row = arena.Allocate<Node>();
+    row->direction = FlexDirection::Row;
+    row->widthMode = SizeMode::Stretch;
+    row->heightMode = SizeMode::Fixed;
+    row->fixedHeight = 28.0f;
+    row->gap = 8.0f;
+
+    Node* leftSlot = arena.Allocate<Node>();
+    leftSlot->widthMode = SizeMode::Fixed;
+    leftSlot->fixedWidth = 52.0f;
+    leftSlot->heightMode = SizeMode::Stretch;
+    row->AddChild(leftSlot);
+
+    Node* longTitle = arena.Allocate<Node>();
+    longTitle->type = NodeType::Text;
+    longTitle->widthMode = SizeMode::Fit;
+    longTitle->measureFn = +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {240.0f, 16.0f}; };
+    row->AddChild(longTitle);
+
+    Node* shortBadge = arena.Allocate<Node>();
+    shortBadge->type = NodeType::Text;
+    shortBadge->widthMode = SizeMode::Fit;
+    shortBadge->measureFn = +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {56.0f, 14.0f}; };
+    row->AddChild(shortBadge);
+
+    Solver::Measure(row);
+    Solver::Arrange(row, Rect(0.0f, 0.0f, 300.0f, 28.0f));
+
+    CHECK_NEAR(leftSlot->computedRect.w, 52.0f, 0.001f);
+    CHECK_NEAR(longTitle->computedRect.x, 60.0f, 0.001f);
+    CHECK_NEAR(longTitle->computedRect.w, 176.0f, 0.001f);
+    CHECK_NEAR(shortBadge->computedRect.w, 56.0f, 0.001f);
+    CHECK_NEAR(shortBadge->computedRect.Right(), 300.0f, 0.001f);
+
+    // 2. Justify::Center Row (240px) with a single Fit child (320px):
+    // Child is clamped to 240px and anchored at x = 0.0f (no negative offset).
+    Node* centerRow = arena.Allocate<Node>();
+    centerRow->direction = FlexDirection::Row;
+    centerRow->justify = Justify::Center;
+    centerRow->widthMode = SizeMode::Stretch;
+    centerRow->heightMode = SizeMode::Fixed;
+    centerRow->fixedHeight = 40.0f;
+
+    Node* wideChild = arena.Allocate<Node>();
+    wideChild->widthMode = SizeMode::Fit;
+    wideChild->measureFn = +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {320.0f, 32.0f}; };
+    centerRow->AddChild(wideChild);
+
+    Solver::Measure(centerRow);
+    Solver::Arrange(centerRow, Rect(0.0f, 0.0f, 240.0f, 40.0f));
+
+    CHECK_NEAR(wideChild->computedRect.x, 0.0f, 0.001f);
+    CHECK_NEAR(wideChild->computedRect.w, 240.0f, 0.001f);
+
+    // 3. Full-stretch clipped Box inside ScrollArea stretches vertically to full viewport height
+    Node* scrollBackdrop = arena.Allocate<Node>();
+    scrollBackdrop->type = NodeType::ScrollArea;
+    scrollBackdrop->direction = FlexDirection::Column;
+    scrollBackdrop->scrollbarPolicy = VisibilityPolicy::Never;
+    scrollBackdrop->padding = Padding::All(18.0f);
+    scrollBackdrop->widthMode = SizeMode::Stretch;
+    scrollBackdrop->heightMode = SizeMode::Stretch;
+
+    Node* winFrame = arena.Allocate<Node>();
+    winFrame->type = NodeType::Box;
+    winFrame->widthMode = SizeMode::Stretch;
+    winFrame->heightMode = SizeMode::Stretch;
+    winFrame->clipChildren = true;
+    scrollBackdrop->AddChild(winFrame);
+
+    Node* titlebar = arena.Allocate<Node>();
+    titlebar->heightMode = SizeMode::Fixed;
+    titlebar->fixedHeight = 28.0f;
+    winFrame->AddChild(titlebar);
+
+    Solver::Measure(scrollBackdrop);
+    Solver::Arrange(scrollBackdrop, Rect(0.0f, 0.0f, 800.0f, 500.0f));
+
+    CHECK_NEAR(winFrame->computedRect.x, 18.0f, 0.001f);
+    CHECK_NEAR(winFrame->computedRect.y, 18.0f, 0.001f);
+    CHECK_NEAR(winFrame->computedRect.w, 764.0f, 0.001f);
+    CHECK_NEAR(winFrame->computedRect.h, 464.0f, 0.001f);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Layout Solver...\n";
 
@@ -970,6 +1061,7 @@ int main() {
     TestCarouselArrowScaling();
     TestAspectRatioMinHeightAndStretchFallback();
     TestRowEqualWidthsFitAndStretch();
+    TestRowTextDeficitShrinkAndCenterClamp();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Layout tests passed successfully!\n";

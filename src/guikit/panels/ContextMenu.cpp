@@ -112,24 +112,29 @@ ContextMenuResponse ContextMenu::Run(
     }
     const float menuH = totalH;
 
-    const Vec2 vp = ctx.GetViewportSize() / ((ctx.GetDpiScale() > 0.0f) ? ctx.GetDpiScale() : 1.0f);
+    const Rect vp = ctx.GetPopupViewportRect();
     auto clampMenuRect = [&](Vec2 anchor, bool fromTriggerBox) -> Rect {
         float x = anchor.x;
         float y = anchor.y;
-        if (vp.x > 0.0f && x + menuW > vp.x - 6.0f) {
+        if (vp.w > 0.0f && x + menuW > vp.Right() - 6.0f) {
             if (fromTriggerBox && triggerRect.w > 0.0f) {
                 x = triggerRect.Right() - menuW;
             } else {
                 x = anchor.x - menuW;
             }
-            x = std::clamp(x, 6.0f, std::max(6.0f, vp.x - menuW - 6.0f));
         }
-        if (vp.y > 0.0f && y + menuH > vp.y - 6.0f) {
-            if (fromTriggerBox && triggerRect.h > 0.0f && triggerRect.y - menuH - 4.0f >= 6.0f) {
+        if (vp.w > 0.0f) {
+            x = std::clamp(x, vp.x + 6.0f, std::max(vp.x + 6.0f, vp.Right() - menuW - 6.0f));
+        }
+        if (vp.h > 0.0f && y + menuH > vp.Bottom() - 6.0f) {
+            if (fromTriggerBox && triggerRect.h > 0.0f && triggerRect.y - menuH - 4.0f >= vp.y + 6.0f) {
                 y = triggerRect.y - menuH - 4.0f;
             } else {
-                y = std::clamp(vp.y - menuH - 6.0f, 6.0f, std::max(6.0f, vp.y - 6.0f));
+                y = vp.Bottom() - menuH - 6.0f;
             }
+        }
+        if (vp.h > 0.0f) {
+            y = std::clamp(y, vp.y + 6.0f, std::max(vp.y + 6.0f, vp.Bottom() - menuH - 6.0f));
         }
         return Rect(std::round(x), std::round(y), std::round(menuW), std::round(menuH));
     };

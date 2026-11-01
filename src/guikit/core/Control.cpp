@@ -321,14 +321,18 @@ void Control::ArrangeStandaloneNode(
         : ((node->align == Alignment::Center) ? 0.5f : 0.0f);
 
     if (!node->ctrlStretchable && isFill && fillRatio < 1.0f) {
-        const float effW = bounds.w * fillRatio;
+        const float effW = (fillRatio > 0.0f)
+            ? std::min(bounds.w, std::max(bounds.w * fillRatio, intrinsic.x))
+            : 0.0f;
         bounds.x += (bounds.w - effW) * alignFactor;
         bounds.w = effW;
     }
 
     float ctrlW = std::min(bounds.w, intrinsic.x);
     if (node->ctrlStretchable && isFill) {
-        ctrlW = bounds.w * fillRatio;
+        ctrlW = (fillRatio < 1.0f && fillRatio > 0.0f)
+            ? std::min(bounds.w, std::max(bounds.w * fillRatio, intrinsic.x))
+            : (bounds.w * fillRatio);
     }
 
     const bool stretchH = node->ctrlStretchH || (node->heightMode == SizeMode::Stretch);

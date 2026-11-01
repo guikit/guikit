@@ -787,19 +787,20 @@ Response Select::Run(
         float popupX = boxRect.x;
         float popupY = boxRect.y + boxRect.h + 4.0f;
 
-        const Vec2 vp = ctx.GetViewportSize();
-        if (vp.y > 0.0f) {
-            const float availDown = vp.y - popupY - 8.0f;
-            const float availUp = boxRect.y - 4.0f - 8.0f;
-            if (popupY + popupH > vp.y && availUp > availDown) {
-                popupY = std::max(8.0f, boxRect.y - 4.0f - popupH);
-                popupH = std::min(popupH, boxRect.y - 4.0f - popupY);
-            } else if (popupY + popupH > vp.y) {
-                popupH = std::max(m.itemHeight + 8.0f, availDown);
+        const Rect vp = ctx.GetPopupViewportRect();
+        if (vp.h > 0.0f) {
+            const float availDown = vp.Bottom() - popupY - 6.0f;
+            const float availUp = boxRect.y - 4.0f - (vp.y + 6.0f);
+            if (popupY + popupH > vp.Bottom() - 6.0f && availUp > availDown) {
+                popupY = std::max(vp.y + 6.0f, boxRect.y - 4.0f - popupH);
+                popupH = std::clamp(boxRect.y - 4.0f - popupY, std::min(m.itemHeight + 8.0f, vp.h - 8.0f), popupH);
+            } else if (popupY + popupH > vp.Bottom() - 6.0f) {
+                popupH = std::max(std::min(m.itemHeight + 8.0f, vp.h - 8.0f), availDown);
+                popupY = std::clamp(popupY, vp.y + 4.0f, std::max(vp.y + 4.0f, vp.Bottom() - popupH - 4.0f));
             }
         }
-        if (vp.x > 0.0f) {
-            popupX = std::clamp(popupX, 4.0f, std::max(4.0f, vp.x - popupW - 4.0f));
+        if (vp.w > 0.0f) {
+            popupX = std::clamp(popupX, vp.x + 4.0f, std::max(vp.x + 4.0f, vp.Right() - popupW - 4.0f));
         }
         return Rect(popupX, popupY, popupW, popupH);
     };
@@ -2521,19 +2522,20 @@ Response Select::RunMulti(
         float popupX = boxRect.x;
         float popupY = boxRect.y + boxRect.h + 4.0f;
 
-        const Vec2 vp = ctx.GetViewportSize();
-        if (vp.y > 0.0f) {
-            const float availDown = vp.y - popupY - 8.0f;
-            const float availUp = boxRect.y - 4.0f - 8.0f;
-            if (popupY + popupH > vp.y && availUp > availDown) {
-                popupY = std::max(8.0f, boxRect.y - 4.0f - popupH);
-                popupH = std::min(popupH, boxRect.y - 4.0f - popupY);
-            } else if (popupY + popupH > vp.y) {
-                popupH = std::max(m.itemHeight + 8.0f, availDown);
+        const Rect vp = ctx.GetPopupViewportRect();
+        if (vp.h > 0.0f) {
+            const float availDown = vp.Bottom() - popupY - 6.0f;
+            const float availUp = boxRect.y - 4.0f - (vp.y + 6.0f);
+            if (popupY + popupH > vp.Bottom() - 6.0f && availUp > availDown) {
+                popupY = std::max(vp.y + 6.0f, boxRect.y - 4.0f - popupH);
+                popupH = std::clamp(boxRect.y - 4.0f - popupY, std::min(m.itemHeight + 8.0f, vp.h - 8.0f), popupH);
+            } else if (popupY + popupH > vp.Bottom() - 6.0f) {
+                popupH = std::max(std::min(m.itemHeight + 8.0f, vp.h - 8.0f), availDown);
+                popupY = std::clamp(popupY, vp.y + 4.0f, std::max(vp.y + 4.0f, vp.Bottom() - popupH - 4.0f));
             }
         }
-        if (vp.x > 0.0f) {
-            popupX = std::clamp(popupX, 4.0f, std::max(4.0f, vp.x - popupW - 4.0f));
+        if (vp.w > 0.0f) {
+            popupX = std::clamp(popupX, vp.x + 4.0f, std::max(vp.x + 4.0f, vp.Right() - popupW - 4.0f));
         }
         return Rect(popupX, popupY, popupW, popupH);
     };

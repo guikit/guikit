@@ -332,8 +332,20 @@ Response Segmented::Run(
     }
 
     if (res.hovered) {
-        if (hoveredSegment >= 0 && !items[static_cast<size_t>(hoveredSegment)].tooltip.empty()) {
-            ctx.SetTooltip(items[static_cast<size_t>(hoveredSegment)].tooltip, segRects[static_cast<size_t>(hoveredSegment)]);
+        if (hoveredSegment >= 0) {
+            const size_t hIdx = static_cast<size_t>(hoveredSegment);
+            if (!items[hIdx].tooltip.empty()) {
+                ctx.SetTooltip(items[hIdx].tooltip, segRects[hIdx]);
+            } else if (!items[hIdx].text.empty()) {
+                const float natW = MeasureSegmentNaturalWidth(items[hIdx], activeSize, nullptr, theme);
+                if (segRects[hIdx].w + 1.0f < natW) {
+                    ctx.SetTooltip(items[hIdx].text, segRects[hIdx]);
+                } else if (!optsCopy.tooltip.empty()) {
+                    ctx.SetTooltip(optsCopy.tooltip, prevBounds);
+                }
+            } else if (!optsCopy.tooltip.empty()) {
+                ctx.SetTooltip(optsCopy.tooltip, prevBounds);
+            }
         } else if (!optsCopy.tooltip.empty()) {
             ctx.SetTooltip(optsCopy.tooltip, prevBounds);
         }
@@ -538,52 +550,79 @@ void Segmented::Render(
             canvas.DrawRoundRect(sr, pillRadius, hovFill);
         }
 
-        // Draw icon and/or text inside segment rect
+        // Draw icon and/or text inside segment rect (strictly clipped to segment bounds)
+        canvas.PushClip(sr);
+
         const bool hasIcon = item.icon.IsValid();
         const bool hasText = !item.text.empty();
         const float fontSize = theme.ResolveFontSize(item.text, TextRole::LabelMedium, size);
-        const float iconSz = cm.iconSize;
+        const float iconSz = std::min(cm.iconSize, std::max(8.0f, std::min(sr.w, sr.h) - 4.0f));
 
         if (hasIcon && hasText) {
-            const float textW = canvas.MeasureText(item.text.text, fontSize).x;
             if (item.iconPlacement == Placement::Top || item.iconPlacement == Placement::Bottom) {
+                const float padX = std::min(theme.Scale(3.0f), sr.w * 0.10f);
+                const float availW = std::max(0.0f, sr.w - padX * 2.0f);
                 const float gapY = 2.0f;
                 const float totalH = iconSz + gapY + fontSize;
-                const float startY = sr.y + (sr.h - totalH) * 0.5f;
-                if (item.iconPlacement == Placement::Top) {
-                    const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, startY, iconSz, iconSz);
+                if (availW < fontSize * 1.15f || sr.h < iconSz + fontSize * 0.85f) {
+                    const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, sr.y + (sr.h - iconSz) * 0.5f, iconSz, iconSz);
                     item.icon.Draw(canvas, iconRect, fgColor);
-                    const Rect textRect(sr.x, startY + iconSz + gapY, sr.w, fontSize + 2.0f);
-                    canvas.DrawTextBox(item.text.text, textRect, fontSize, fgColor, 0.5f, 0.5f);
                 } else {
-                    const Rect textRect(sr.x, startY, sr.w, fontSize + 2.0f);
-                    canvas.DrawTextBox(item.text.text, textRect, fontSize, fgColor, 0.5f, 0.5f);
-                    const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, startY + fontSize + gapY, iconSz, iconSz);
-                    item.icon.Draw(canvas, iconRect, fgColor);
+                    const float startY = sr.y + (sr.h - totalH) * 0.5f;
+                    if (item.iconPlacement == Placement::Top) {
+                        const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, startY, iconSz, iconSz);
+                        item.icon.Draw(canvas, iconRect, fgColor);
+                        const Rect textRect(sr.x + padX, startY + iconSz + gapY, availW, fontSize + 2.0f);
+                        canvas.DrawTextBox(item.text.text, textRect, fontSize, fgColor, 0.5f, 0.5f);
+                    } else {
+                        const Rect textRect(sr.x + padX, startY, availW, fontSize + 2.0f);
+                        canvas.DrawTextBox(item.text.text, textRect, fontSize, fgColor, 0.5f, 0.5f);
+                        const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, startY + fontSize + gapY, iconSz, iconSz);
+                        item.icon.Draw(canvas, iconRect, fgColor);
+                    }
                 }
             } else {
-                const float gapX = 5.0f;
-                const float totalW = iconSz + gapX + textW;
-                const float startX = sr.x + (sr.w - totalW) * 0.5f;
-                const float iconY = sr.y + (sr.h - iconSz) * 0.5f;
-                if (item.iconPlacement == Placement::Trailing) {
-                    const Rect textRect(startX, sr.y, textW + 2.0f, sr.h);
-                    canvas.DrawTextBox(item.text.text, textRect, fontSize, fgColor, 0.0f, 0.5f);
-                    const Rect iconRect(startX + textW + gapX, iconY, iconSz, iconSz);
+                const float padX = std::min(theme.Scale(4.0f), sr.w * 0.12f);
+                const float gapX = std::min(theme.Scale(5.0f), std::max(2.0f, sr.w * 0.08f));
+                const float availW = std::max(0.0f, sr.w - padX * 2.0f);
+                const float availTextW = availW - iconSz - gapX;
+
+                // When segment is too narrow to show meaningful text beside the icon, auto-collapse to centered icon
+                if (availTextW < fontSize * 1.45f) {
+                    const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, sr.y + (sr.h - iconSz) * 0.5f, iconSz, iconSz);
                     item.icon.Draw(canvas, iconRect, fgColor);
                 } else {
-                    const Rect iconRect(startX, iconY, iconSz, iconSz);
-                    item.icon.Draw(canvas, iconRect, fgColor);
-                    const Rect textRect(startX + iconSz + gapX, sr.y, textW + 2.0f, sr.h);
-                    canvas.DrawTextBox(item.text.text, textRect, fontSize, fgColor, 0.0f, 0.5f);
+                    std::string displayLabel(item.text.text);
+                    float textW = canvas.MeasureText(displayLabel, fontSize).x;
+                    if (textW > availTextW + kTextSubpixelTolerance) {
+                        displayLabel = TextUtil::TruncateWithEllipsis(item.text.text, availTextW, fontSize, &canvas);
+                        textW = std::min(availTextW, canvas.MeasureText(displayLabel, fontSize).x);
+                    }
+                    const float totalW = iconSz + gapX + textW;
+                    const float startX = sr.x + std::max(padX, (sr.w - totalW) * 0.5f);
+                    const float iconY = sr.y + (sr.h - iconSz) * 0.5f;
+                    if (item.iconPlacement == Placement::Trailing) {
+                        const Rect textRect(startX, sr.y, availTextW, sr.h);
+                        canvas.DrawTextBox(displayLabel, textRect, fontSize, fgColor, 0.0f, 0.5f);
+                        const Rect iconRect(startX + textW + gapX, iconY, iconSz, iconSz);
+                        item.icon.Draw(canvas, iconRect, fgColor);
+                    } else {
+                        const Rect iconRect(startX, iconY, iconSz, iconSz);
+                        item.icon.Draw(canvas, iconRect, fgColor);
+                        const Rect textRect(startX + iconSz + gapX, sr.y, availTextW, sr.h);
+                        canvas.DrawTextBox(displayLabel, textRect, fontSize, fgColor, 0.0f, 0.5f);
+                    }
                 }
             }
         } else if (hasIcon) {
             const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, sr.y + (sr.h - iconSz) * 0.5f, iconSz, iconSz);
             item.icon.Draw(canvas, iconRect, fgColor);
         } else if (hasText) {
-            canvas.DrawTextBox(item.text.text, sr.Inset(4.0f, 0.0f), fontSize, fgColor, 0.5f, 0.5f);
+            const float padX = std::min(theme.Scale(4.0f), sr.w * 0.12f);
+            canvas.DrawTextBox(item.text.text, sr.Inset(padX, 0.0f), fontSize, fgColor, 0.5f, 0.5f);
         }
+
+        canvas.PopClip();
     }
 }
 

@@ -891,22 +891,30 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
     const Color scaleTextCol = disabled ? pal.textMuted.WithAlphaF(0.35f) : pal.textMuted;
 
     if (opts.orientation == Orientation::Horizontal) {
-        const float leftW = (mm.labelReserveW > 0.0f) ? (mm.labelReserveW + theme.Scale(6.0f)) : 0.0f;
+        float leftW = (mm.labelReserveW > 0.0f) ? (mm.labelReserveW + theme.Scale(6.0f)) : 0.0f;
         const float clipTotalW = opts.showClipLed ? (mm.clipGap + mm.clipLedLen) : 0.0f;
-        const float rightW = opts.showValue ? (theme.Scale(8.0f) + mm.valReserveW) : 0.0f;
+        float rightW = opts.showValue ? (theme.Scale(8.0f) + mm.valReserveW) : 0.0f;
+        const bool showRightValue = opts.showValue && (ctrlRect.w >= leftW + clipTotalW + rightW + theme.Scale(42.0f));
+        if (!showRightValue) {
+            rightW = 0.0f;
+        }
+        const bool showLeftLabel = (mm.labelReserveW > 0.0f) && (ctrlRect.w >= leftW + clipTotalW + theme.Scale(32.0f));
+        if (!showLeftLabel) {
+            leftW = 0.0f;
+        }
         const float trackX = std::round(ctrlRect.x + leftW);
-        float trackW = std::max(16.0f, std::round(ctrlRect.w - leftW - clipTotalW - rightW));
+        float trackW = std::max(12.0f, std::round(ctrlRect.w - leftW - clipTotalW - rightW));
         if (opts.segments > 0) {
             const uint32_t segCount = std::clamp<uint32_t>(opts.segments, 2u, 64u);
             const float gap = (segCount > 28) ? 1.0f : 2.0f;
             const float totalGaps = gap * static_cast<float>(segCount - 1);
             const float segW = std::max(1.0f, std::floor((trackW - totalGaps) / static_cast<float>(segCount)));
-            trackW = static_cast<float>(segCount) * segW + totalGaps;
+            trackW = std::min(trackW, static_cast<float>(segCount) * segW + totalGaps);
         }
 
-        const float rowH = (numCh == 1 && opts.showValue)
+        const float rowH = (numCh == 1 && showRightValue)
             ? std::max(mm.barThick, mm.valLineH)
-            : (opts.showValue ? std::max(mm.barThick, mm.valLineH * 0.85f) : mm.barThick);
+            : (showRightValue ? std::max(mm.barThick, mm.valLineH * 0.85f) : mm.barThick);
         const float barsTotalH = static_cast<float>(numCh) * rowH + static_cast<float>(numCh - 1) * mm.channelGap;
         const float totalContentH = barsTotalH + mm.scaleRegionH;
         const float startY = ctrlRect.y + std::max(0.0f, (ctrlRect.h - totalContentH) * 0.5f);
@@ -917,7 +925,7 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
             const float barY = std::round(rowY + (rowH - std::round(mm.barThick)) * 0.5f);
 
             // 1. Channel label on the left
-            if (mm.labelReserveW > 0.0f && !cd.label.empty()) {
+            if (showLeftLabel && !cd.label.empty()) {
                 canvas.DrawTextBox(
                     cd.label,
                     Rect(ctrlRect.x, rowY, mm.labelReserveW, rowH),
@@ -940,7 +948,7 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
             );
 
             // 3. Value readout on the right
-            if (opts.showValue && !cd.formattedValue.empty()) {
+            if (showRightValue && !cd.formattedValue.empty()) {
                 const float valX = trackX + trackW + clipTotalW + theme.Scale(8.0f);
                 canvas.DrawTextBox(
                     cd.formattedValue,
@@ -953,41 +961,92 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
             }
         }
 
-        // 4. Calibrated horizontal scale ticks & labels below bars
-        if (opts.showScale && trackW >= 32.0f) {
+        // 4. Calibrated horizontal scale ticks & labels below bars (with collision culling)
+        if (opts.showScale && trackW >= theme.Scale(28.0f)) {
             const float tickTopY = std::round(startY + barsTotalH + theme.Scale(3.0f));
             const float labelTopY = tickTopY + mm.scaleTickLen + theme.Scale(1.0f);
-            constexpr int kMajorTicks = 5; // 6 positions: 0%, 20%, 40%, 60%, 80%, 100%
+            constexpr int kMajorTicks = 5; // 6 major positions: 0%, 20%, 40%, 60%, 80%, 100%
+            const bool showMinorTicks = (trackW >= theme.Scale(80.0f));
 
             for (int i = 0; i <= kMajorTicks * 2; ++i) {
+                const bool isMajor = (i % 2 == 0);
+                if (!isMajor && !showMinorTicks) continue;
                 const float t = static_cast<float>(i) / static_cast<float>(kMajorTicks * 2);
                 const float tx = std::round(trackX + t * trackW);
-                const bool isMajor = (i % 2 == 0);
                 const float tLen = isMajor ? mm.scaleTickLen : (mm.scaleTickLen * 0.6f);
                 canvas.DrawLine(Vec2(tx, tickTopY), Vec2(tx, tickTopY + tLen), scaleTickCol, 1.0f);
+            }
 
-                if (isMajor) {
-                    char sbuf[32];
-                    FormatScaleTickLabel(sbuf, sizeof(sbuf), d->min + static_cast<double>(t) * span, span);
-                    const float lblW = theme.Scale(36.0f);
-                    float lblX = tx - lblW * 0.5f;
-                    float alignX = 0.5f;
-                    if (i == 0) {
-                        lblX = tx;
-                        alignX = 0.0f;
-                    } else if (i == kMajorTicks * 2) {
-                        lblX = tx - lblW;
-                        alignX = 1.0f;
-                    }
-                    canvas.DrawTextBox(
-                        sbuf,
-                        Rect(lblX, labelTopY, lblW, mm.scaleLineH),
-                        mm.scaleFont,
-                        scaleTextCol,
-                        alignX,
-                        0.5f
-                    );
+            struct MajorTickLabel {
+                char text[32]{};
+                float tx{0.0f};
+                float tw{0.0f};
+                float leftX{0.0f};
+                float rightX{0.0f};
+                float alignX{0.5f};
+                bool visible{false};
+            };
+            std::array<MajorTickLabel, kMajorTicks + 1> majorLabels{};
+            for (int m = 0; m <= kMajorTicks; ++m) {
+                const float t = static_cast<float>(m) / static_cast<float>(kMajorTicks);
+                const float tx = std::round(trackX + t * trackW);
+                auto& ml = majorLabels[static_cast<size_t>(m)];
+                ml.tx = tx;
+                FormatScaleTickLabel(ml.text, sizeof(ml.text), d->min + static_cast<double>(t) * span, span);
+                ml.tw = std::max(theme.Scale(10.0f), TextUtil::MeasureWidth(std::string_view(ml.text), mm.scaleFont, &canvas));
+                if (m == 0) {
+                    ml.leftX = tx;
+                    ml.rightX = tx + ml.tw;
+                    ml.alignX = 0.0f;
+                } else if (m == kMajorTicks) {
+                    ml.leftX = tx - ml.tw;
+                    ml.rightX = tx;
+                    ml.alignX = 1.0f;
+                } else {
+                    ml.leftX = tx - ml.tw * 0.5f;
+                    ml.rightX = tx + ml.tw * 0.5f;
+                    ml.alignX = 0.5f;
                 }
+            }
+
+            const float minGap = theme.Scale(6.0f);
+            bool allFit = true;
+            for (int m = 0; m < kMajorTicks; ++m) {
+                if (majorLabels[static_cast<size_t>(m)].rightX + minGap > majorLabels[static_cast<size_t>(m + 1)].leftX) {
+                    allFit = false;
+                    break;
+                }
+            }
+
+            if (allFit) {
+                for (auto& ml : majorLabels) ml.visible = true;
+            } else {
+                // Always display the 0 dB / max reference endpoint; add min & midpoints if they fit without overlap
+                majorLabels[kMajorTicks].visible = true;
+                if (majorLabels[0].rightX + minGap <= majorLabels[kMajorTicks].leftX) {
+                    majorLabels[0].visible = true;
+                    if (majorLabels[2].leftX >= majorLabels[0].rightX + minGap &&
+                        majorLabels[2].rightX + minGap <= majorLabels[kMajorTicks].leftX) {
+                        majorLabels[2].visible = true;
+                    }
+                }
+            }
+
+            for (int m = 0; m <= kMajorTicks; ++m) {
+                const auto& ml = majorLabels[static_cast<size_t>(m)];
+                if (!ml.visible) continue;
+                const float boxW = std::max(ml.tw + theme.Scale(4.0f), theme.Scale(28.0f));
+                float boxX = ml.tx - boxW * 0.5f;
+                if (m == 0) boxX = ml.tx;
+                else if (m == kMajorTicks) boxX = ml.tx - boxW;
+                canvas.DrawTextBox(
+                    ml.text,
+                    Rect(boxX, labelTopY, boxW, mm.scaleLineH),
+                    mm.scaleFont,
+                    scaleTextCol,
+                    ml.alignX,
+                    0.5f
+                );
             }
         }
     } else {
@@ -1019,31 +1078,42 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
         }
         const float barsStartX = std::round(assemblyStartX + mm.scaleRegionW);
 
-        // 1. Calibrated vertical scale on the left of the bars
-        if (opts.showScale && trackH >= 32.0f) {
+        // 1. Calibrated vertical scale on the left of the bars (with vertical collision culling)
+        if (opts.showScale && trackH >= theme.Scale(28.0f)) {
             const float tickRightX = std::round(barsStartX - theme.Scale(4.0f));
             const float labelRightX = tickRightX - mm.scaleTickLen - theme.Scale(3.0f);
             const float labelW = std::max(8.0f, labelRightX - assemblyStartX);
             constexpr int kMajorTicks = 5;
+            const bool showMinorTicks = (trackH >= theme.Scale(70.0f));
+            float lastDrawnY = 1e9f;
+            const float minGapY = mm.scaleLineH * 0.95f;
+            const float topMostY = trackY;
 
             for (int i = 0; i <= kMajorTicks * 2; ++i) {
+                const bool isMajor = (i % 2 == 0);
+                if (!isMajor && !showMinorTicks) continue;
                 const float t = static_cast<float>(i) / static_cast<float>(kMajorTicks * 2);
                 const float ty = std::round(trackY + trackH - t * trackH);
-                const bool isMajor = (i % 2 == 0);
                 const float tLen = isMajor ? mm.scaleTickLen : (mm.scaleTickLen * 0.6f);
                 canvas.DrawLine(Vec2(tickRightX - tLen, ty), Vec2(tickRightX, ty), scaleTickCol, 1.0f);
 
                 if (isMajor) {
-                    char sbuf[32];
-                    FormatScaleTickLabel(sbuf, sizeof(sbuf), d->min + static_cast<double>(t) * span, span);
-                    canvas.DrawTextBox(
-                        sbuf,
-                        Rect(assemblyStartX, ty - mm.scaleLineH * 0.5f, labelW, mm.scaleLineH),
-                        mm.scaleFont,
-                        scaleTextCol,
-                        1.0f,
-                        0.5f
-                    );
+                    const bool isTopEndpoint = (i == kMajorTicks * 2);
+                    const bool fitsBelowTop = (ty - topMostY >= minGapY);
+                    const bool fitsAbovePrev = (lastDrawnY - ty >= minGapY);
+                    if (isTopEndpoint || (fitsBelowTop && fitsAbovePrev)) {
+                        char sbuf[32];
+                        FormatScaleTickLabel(sbuf, sizeof(sbuf), d->min + static_cast<double>(t) * span, span);
+                        canvas.DrawTextBox(
+                            sbuf,
+                            Rect(assemblyStartX, ty - mm.scaleLineH * 0.5f, labelW, mm.scaleLineH),
+                            mm.scaleFont,
+                            scaleTextCol,
+                            1.0f,
+                            0.5f
+                        );
+                        lastDrawnY = ty;
+                    }
                 }
             }
         }

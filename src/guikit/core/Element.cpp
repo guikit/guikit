@@ -428,7 +428,12 @@ Vec2 Element::Measure(
 
     if (!stretchableCtrl && ctrlSpec.width.has_value() && spec.stretch == StretchMode::Fill && availableWidth > 0.0f) {
         const float ratio = std::clamp(*ctrlSpec.width, 0.0f, 1.0f);
-        availableWidth *= ratio;
+        const float minBlockW = (!spec.hasControl && spec.description.HasContentOrReserve())
+            ? std::max(intrinsicControlSize.x, TextUtil::MeasureWidth(spec.description, descFontSize, canvas))
+            : intrinsicControlSize.x;
+        availableWidth = (ratio > 0.0f)
+            ? std::min(availableWidth, std::max(availableWidth * ratio, minBlockW))
+            : 0.0f;
     }
 
     const auto applyFixedWidthAndOuterPad = [&](Vec2 measured) noexcept -> Vec2 {
@@ -476,7 +481,9 @@ Vec2 Element::Measure(
             float ctrlW = std::min(textWrapW, intrinsicControlSize.x);
             if (stretchableCtrl && spec.stretch == StretchMode::Fill && ctrlSpec.width.has_value()) {
                 const float ratio = std::clamp(*ctrlSpec.width, 0.0f, 1.0f);
-                ctrlW = textWrapW * ratio;
+                ctrlW = (ratio < 1.0f && ratio > 0.0f)
+                    ? std::min(textWrapW, std::max(textWrapW * ratio, intrinsicControlSize.x))
+                    : (textWrapW * ratio);
             }
             textWrapW = std::max(0.0f, textWrapW - ctrlW - spec.inlineGap);
         }
@@ -579,7 +586,12 @@ ElementGeometry Element::Resolve(
 
     if (!stretchableCtrl && spec.stretch == StretchMode::Fill && ctrlSpec.width.has_value()) {
         const float ratio = std::clamp(*ctrlSpec.width, 0.0f, 1.0f);
-        const float effW = bounds.w * ratio;
+        const float minBlockW = (!spec.hasControl && geom.hasDesc)
+            ? std::max(intrinsicControlSize.x, TextUtil::MeasureWidth(spec.description, geom.descFontSize, canvas))
+            : intrinsicControlSize.x;
+        const float effW = (ratio > 0.0f)
+            ? std::min(bounds.w, std::max(bounds.w * ratio, minBlockW))
+            : 0.0f;
         bounds.x += (bounds.w - effW) * alignFactor;
         bounds.w = effW;
     }
@@ -588,7 +600,9 @@ ElementGeometry Element::Resolve(
     if (stretchableCtrl && spec.stretch == StretchMode::Fill) {
         if (!geom.hasExternal || spec.layout != ElementLayout::Inline || ctrlSpec.width.has_value()) {
             const float ratio = std::clamp(ctrlSpec.width.value_or(1.0f), 0.0f, 1.0f);
-            ctrlW = bounds.w * ratio;
+            ctrlW = (ratio < 1.0f && ratio > 0.0f)
+                ? std::min(bounds.w, std::max(bounds.w * ratio, intrinsicControlSize.x))
+                : (bounds.w * ratio);
         }
     }
 

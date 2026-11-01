@@ -164,24 +164,9 @@ inline void RenderBackdropHudBadge(const guikit::Node* n, guikit::ICanvas& canva
     canvas.DrawText(n->text, {pillX + padX, pillY + (pillH - textSz.y) * 0.5f}, fontSize, pillFg);
 }
 
-inline void RenderWindowTitlebarBackground(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& /*theme*/) noexcept {
+inline void RenderWindowResizeGrip(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& theme) noexcept {
     const guikit::Rect& r = n->computedRect;
-    if (r.w <= 2.0f || r.h <= 2.0f || n->backgroundColor.a == 0) return;
-
-    const float rad = std::clamp(n->cornerRadius, 0.0f, r.h * 0.5f);
-    if (rad > 0.5f) {
-        canvas.DrawRoundRect(r, rad, n->backgroundColor);
-        // Fill the bottom half with square corners so only the top-left & top-right corners are rounded
-        canvas.DrawRect(guikit::Rect(r.x, r.y + rad, r.w, std::max(0.0f, r.h - rad)), n->backgroundColor);
-    } else {
-        canvas.DrawRect(r, n->backgroundColor);
-    }
-}
-
-inline void RenderWindowFrameBorderOverlay(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& theme) noexcept {
-    const guikit::Rect& r = n->computedRect;
-    if (r.w <= 2.0f || r.h <= 2.0f || n->borderWidth <= 0.0f || n->borderColor.a == 0) return;
-    canvas.DrawRoundRect(r, n->cornerRadius, guikit::Color::Transparent(), n->borderColor, n->borderWidth);
+    if (r.w <= 20.0f || r.h <= 20.0f) return;
 
     // Subtle diagonal resize grip lines in the bottom-right corner of the window frame
     const float s = std::max(0.5f, theme.scale);
@@ -193,35 +178,6 @@ inline void RenderWindowFrameBorderOverlay(const guikit::Node* n, guikit::ICanva
     for (int i = 0; i < 3; ++i) {
         const float span = (3.5f + static_cast<float>(i) * 3.5f) * s;
         canvas.DrawLine({bx - span, by}, {bx, by - span}, gripCol, std::max(1.0f, 1.2f * s));
-    }
-}
-
-inline void RenderDeviceScreenCornerMaskAndBorder(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& /*theme*/) noexcept {
-    const guikit::Rect& r = n->computedRect;
-    if (r.w <= 4.0f || r.h <= 4.0f) return;
-
-    const float rad = std::clamp(n->cornerRadius, 0.0f, std::min(r.w, r.h) * 0.5f);
-    if (rad > 1.0f) {
-        // Mask the 4 corner regions outside the rounded screen arc with the surrounding chassis bezel color
-        const guikit::Color bezelCol(15, 20, 28, 255);
-        const int steps = static_cast<int>(std::ceil(rad));
-        for (int i = 0; i < steps; ++i) {
-            const float dy = static_cast<float>(i);
-            const float rem = std::max(0.0f, rad - dy - 0.35f);
-            const float dx = std::max(0.0f, rad - std::sqrt(std::max(0.0f, rad * rad - rem * rem)));
-            if (dx > 0.25f) {
-                // Top-left & Top-right
-                canvas.DrawRect(guikit::Rect(r.x - 0.5f, r.y + dy, dx + 1.0f, 1.25f), bezelCol);
-                canvas.DrawRect(guikit::Rect(r.Right() - dx - 0.5f, r.y + dy, dx + 1.0f, 1.25f), bezelCol);
-                // Bottom-left & Bottom-right
-                canvas.DrawRect(guikit::Rect(r.x - 0.5f, r.Bottom() - dy - 1.0f, dx + 1.0f, 1.25f), bezelCol);
-                canvas.DrawRect(guikit::Rect(r.Right() - dx - 0.5f, r.Bottom() - dy - 1.0f, dx + 1.0f, 1.25f), bezelCol);
-            }
-        }
-    }
-
-    if (n->borderWidth > 0.0f && n->borderColor.a > 0) {
-        canvas.DrawRoundRect(r, rad, guikit::Color::Transparent(), n->borderColor, n->borderWidth);
     }
 }
 
@@ -245,6 +201,7 @@ inline void RenderWindowTitlebarTrafficLights(const guikit::Node* n, guikit::ICa
     canvas.DrawRect(guikit::Rect(r.x, r.Bottom() - 1.0f, r.w, 1.0f), theme.palette.border);
 }
 
+template <bool IsPhone>
 inline void RenderDeviceChassisButtons(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& theme) noexcept {
     const guikit::Rect& r = n->computedRect;
     if (r.w <= 40.0f || r.h <= 40.0f) return;
@@ -266,6 +223,86 @@ inline void RenderDeviceChassisButtons(const guikit::Node* n, guikit::ICanvas& c
         canvas.DrawRoundRect(guikit::Rect(xBase, r.y - btnThickness, 34.0f * s, btnThickness), 1.5f * s, btnCol);
         canvas.DrawRoundRect(guikit::Rect(xBase + 42.0f * s, r.y - btnThickness, 34.0f * s, btnThickness), 1.5f * s, btnCol);
     }
+
+    // Tablet front-facing camera is embedded inside the outer hardware bezel (not inside the LCD screen)
+    if constexpr (!IsPhone) {
+        const float bezelT = 10.0f * s;
+        const float camD = std::max(3.5f, 5.2f * s);
+        const float coreD = std::max(1.8f, 2.4f * s);
+        const float cx = r.Center().x;
+        const float cy = r.y + bezelT * 0.5f;
+        canvas.DrawRoundRect(
+            guikit::Rect(cx - camD * 0.5f, cy - camD * 0.5f, camD, camD),
+            camD * 0.5f,
+            guikit::Color(6, 10, 18, 255),
+            guikit::Color(51, 65, 85, 180),
+            0.75f
+        );
+        canvas.DrawRoundRect(
+            guikit::Rect(cx - coreD * 0.5f, cy - coreD * 0.5f, coreD, coreD),
+            coreD * 0.5f,
+            guikit::Color(30, 58, 138, 170)
+        );
+    }
+}
+
+inline void RenderPhoneDynamicIsland(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& theme) noexcept {
+    const guikit::Rect& r = n->computedRect;
+    if (r.w <= 40.0f || r.h <= 40.0f) return;
+
+    const float s = std::max(0.35f, theme.scale);
+    const guikit::Color pillFill(4, 6, 11, 255);
+    const guikit::Color pillStroke(30, 41, 59, 135);
+    const guikit::Color lensHousing(13, 18, 28, 255);
+    const guikit::Color lensGlass(23, 37, 84, 195);
+    const guikit::Color lensGlint(147, 197, 253, 135);
+    const guikit::Color sensorDot(12, 16, 24, 255);
+
+    if (r.h >= r.w) {
+        // Portrait: horizontal Dynamic Island at top-center of the screen
+        const float pillW = std::min(r.w * 0.31f, 92.0f * s);
+        const float pillH = 22.0f * s;
+        const float pillX = r.Center().x - pillW * 0.5f;
+        const float pillY = r.y + 7.0f * s;
+        const float cy = pillY + pillH * 0.5f;
+
+        canvas.DrawRoundRect(guikit::Rect(pillX, pillY, pillW, pillH), pillH * 0.5f, pillFill, pillStroke, 0.75f);
+
+        // Subtle left FaceID infrared sensor housing
+        const float senD = 6.5f * s;
+        canvas.DrawRoundRect(guikit::Rect(pillX + 7.5f * s, cy - senD * 0.5f, senD, senD), senD * 0.5f, sensorDot);
+
+        // Right sapphire camera lens + inner glass + tiny specular reflection
+        const float lensD = 8.5f * s;
+        const float coreD = 4.2f * s;
+        const float glintD = std::max(1.2f, 1.6f * s);
+        const float lx = pillX + pillW - 6.5f * s - lensD * 0.5f;
+        canvas.DrawRoundRect(guikit::Rect(lx - lensD * 0.5f, cy - lensD * 0.5f, lensD, lensD), lensD * 0.5f, lensHousing);
+        canvas.DrawRoundRect(guikit::Rect(lx - coreD * 0.5f, cy - coreD * 0.5f, coreD, coreD), coreD * 0.5f, lensGlass);
+        canvas.DrawRoundRect(guikit::Rect(lx - coreD * 0.30f, cy - coreD * 0.30f, glintD, glintD), glintD * 0.5f, lensGlint);
+    } else {
+        // Landscape (90 deg CCW): vertical Dynamic Island on the physical left edge of the screen
+        const float pillW = 22.0f * s;
+        const float pillH = std::min(r.h * 0.31f, 92.0f * s);
+        const float pillX = r.x + 7.0f * s;
+        const float pillY = r.Center().y - pillH * 0.5f;
+        const float cx = pillX + pillW * 0.5f;
+
+        canvas.DrawRoundRect(guikit::Rect(pillX, pillY, pillW, pillH), pillW * 0.5f, pillFill, pillStroke, 0.75f);
+
+        // Top sapphire camera lens (rotated 90 deg CCW from right side of portrait island)
+        const float lensD = 8.5f * s;
+        const float coreD = 4.2f * s;
+        const float glintD = std::max(1.2f, 1.6f * s);
+        const float ly = pillY + 6.5f * s + lensD * 0.5f;
+        canvas.DrawRoundRect(guikit::Rect(cx - lensD * 0.5f, ly - lensD * 0.5f, lensD, lensD), lensD * 0.5f, lensHousing);
+        canvas.DrawRoundRect(guikit::Rect(cx - coreD * 0.5f, ly - coreD * 0.5f, coreD, coreD), coreD * 0.5f, lensGlass);
+        canvas.DrawRoundRect(guikit::Rect(cx - coreD * 0.30f, ly - coreD * 0.30f, glintD, glintD), glintD * 0.5f, lensGlint);
+
+        // Subtle bottom FaceID sensor housing
+        const float senD = 6.5f * s;
+        canvas.DrawRoundRect(guikit::Rect(cx - senD * 0.5f, pillY + pillH - 7.5f * s - senD, senD, senD), senD * 0.5f, sensorDot);
+    }
 }
 
 template <bool IsPhone>
@@ -280,45 +317,13 @@ inline void RenderDeviceStatusSafeArea(const guikit::Node* n, guikit::ICanvas& c
     // 1. Left: System Clock ("9:41")
     const float fontSize = std::max(7.0f, std::round(11.0f * s));
     const float textY = r.y + (r.h - fontSize) * 0.5f;
-    canvas.DrawText("9:41", {r.x + 18.0f * s, textY}, fontSize, fg);
+    const float edgeInset = IsPhone ? (22.0f * s) : (18.0f * s);
+    canvas.DrawText("9:41", {r.x + edgeInset, textY}, fontSize, fg);
 
-    // 2. Center: Dynamic Island (Phone) or Front Camera Lens (Tablet)
-    if constexpr (IsPhone) {
-        const float pillW = std::min(r.w * 0.34f, 96.0f * s);
-        const float pillH = std::min(r.h - 6.0f * s, 19.0f * s);
-        const float pillX = r.Center().x - pillW * 0.5f;
-        const float pillY = r.Center().y - pillH * 0.5f;
-        canvas.DrawRoundRect(
-            guikit::Rect(pillX, pillY, pillW, pillH),
-            pillH * 0.5f,
-            guikit::Color(6, 9, 15, 255),
-            guikit::Color(51, 65, 85, 160),
-            1.0f
-        );
-        // Subtle camera lens ring inside Dynamic Island
-        const float lensD = 7.0f * s;
-        canvas.DrawRoundRect(
-            guikit::Rect(pillX + pillW - lensD - 6.0f * s, r.Center().y - lensD * 0.5f, lensD, lensD),
-            lensD * 0.5f,
-            guikit::Color(17, 24, 39, 255),
-            guikit::Color(56, 189, 248, 120),
-            1.0f
-        );
-    } else {
-        const float camD = 7.0f * s;
-        canvas.DrawRoundRect(
-            guikit::Rect(r.Center().x - camD * 0.5f, r.Center().y - camD * 0.5f, camD, camD),
-            camD * 0.5f,
-            guikit::Color(15, 23, 42, 255),
-            guikit::Color(100, 116, 139, 180),
-            1.0f
-        );
-    }
-
-    // 3. Right: Signal Bars + Battery Icon
+    // 2. Right: Cellular Signal Bars + Battery Icon
     const float battW = 18.0f * s;
     const float battH = 9.0f * s;
-    const float battX = r.Right() - 18.0f * s - battW;
+    const float battX = r.Right() - edgeInset - battW;
     const float battY = r.Center().y - battH * 0.5f;
     canvas.DrawRoundRect(guikit::Rect(battX, battY, battW, battH), 2.5f * s, guikit::Color::Transparent(), fgMuted, 1.0f);
     canvas.DrawRect(guikit::Rect(battX + battW + 1.0f * s, r.Center().y - 2.0f * s, 1.5f * s, 4.0f * s), fgMuted);
@@ -332,9 +337,6 @@ inline void RenderDeviceStatusSafeArea(const guikit::Node* n, guikit::ICanvas& c
         const float by = battY + battH - bh;
         canvas.DrawRect(guikit::Rect(bx, by, 2.2f * s, bh), fg);
     }
-
-    // Subtle 1px bottom safe-area separator (inset by 1px so it never overlaps the rounded screen border)
-    canvas.DrawRect(guikit::Rect(r.x + 1.0f, r.Bottom() - 1.0f, std::max(0.0f, r.w - 2.0f), 1.0f), theme.palette.borderSubtle.WithAlphaF(0.45f));
 }
 
 inline void RenderDeviceHomeIndicatorSafeArea(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& theme) noexcept {
@@ -385,9 +387,9 @@ inline void RenderPreviewViewport(
         .padding = guikit::Padding::All(18.0f)
     })) {
         guikit::Node* backdropNode = backdropBox.GetNode();
-        if (!useCenteredScrollCanvas) {
-            backdropNode->type = guikit::NodeType::Box;
-        }
+        backdropNode->backgroundColor = (demoCtx.shellTheme.mode == guikit::ThemeMode::Light)
+            ? guikit::Color(222, 229, 238, 255)
+            : guikit::Color(8, 12, 20, 255);
         backdropNode->renderFn = &detail::RenderDotGridBackdrop;
         backdropNode->postRenderFn = &detail::RenderBackdropHudBadge;
 
@@ -519,7 +521,7 @@ inline void RenderPreviewViewport(
                 .scale = demoCtx.previewWindowCustomSize ? std::optional<float>(effectiveZoom) : std::nullopt
             })) {
                 guikit::Node* winNode = windowFrame.GetNode();
-                winNode->postRenderFn = &detail::RenderWindowFrameBorderOverlay;
+                winNode->postRenderFn = &detail::RenderWindowResizeGrip;
 
                 const guikit::Id winId = winNode->id;
                 const guikit::Id winResizeId(guikit::detail::HashArgs(winId.value, uint64_t(0x57494E5F52535Aull)));
@@ -598,13 +600,10 @@ inline void RenderPreviewViewport(
                                 demoCtx.previewWindowDragStartMouse = mouse;
                                 demoCtx.previewWindowDragStartW = demoCtx.previewWindowCustomSize
                                     ? demoCtx.previewWindowW
-                                    : maxFitW;
+                                    : std::clamp(std::round(winBounds.w / effectiveZoom), 320.0f, maxFitW);
                                 demoCtx.previewWindowDragStartH = demoCtx.previewWindowCustomSize
                                     ? demoCtx.previewWindowH
-                                    : maxFitH;
-                                demoCtx.previewWindowW = demoCtx.previewWindowDragStartW;
-                                demoCtx.previewWindowH = demoCtx.previewWindowDragStartH;
-                                demoCtx.previewWindowCustomSize = true;
+                                    : std::clamp(std::round(winBounds.h / effectiveZoom), 220.0f, maxFitH);
                                 ui.SetActiveId(winResizeId);
                                 ui.ConsumeMouseClick();
                                 ui.InvalidateAll();
@@ -626,20 +625,29 @@ inline void RenderPreviewViewport(
                             ui.SetActiveId(winResizeId);
                             applyEdgeCursor(demoCtx.previewWindowResizeEdge);
                             const uint8_t edge = demoCtx.previewWindowResizeEdge;
-                            // Symmetric 2x delta keeps the dragged edge locked 1:1 under the cursor while centered
-                            if (edge & 2) {
-                                const float dx = (mouse.x - demoCtx.previewWindowDragStartMouse.x) * 2.0f / effectiveZoom;
-                                demoCtx.previewWindowW = std::clamp(std::round(demoCtx.previewWindowDragStartW + dx), 320.0f, maxFitW);
-                            } else if (edge & 1) {
-                                const float dx = (demoCtx.previewWindowDragStartMouse.x - mouse.x) * 2.0f / effectiveZoom;
-                                demoCtx.previewWindowW = std::clamp(std::round(demoCtx.previewWindowDragStartW + dx), 320.0f, maxFitW);
+                            const float rawDx = mouse.x - demoCtx.previewWindowDragStartMouse.x;
+                            const float rawDy = mouse.y - demoCtx.previewWindowDragStartMouse.y;
+                            if (demoCtx.previewWindowCustomSize || std::abs(rawDx) > 1.0f || std::abs(rawDy) > 1.0f) {
+                                demoCtx.previewWindowCustomSize = true;
+                                // Symmetric 2x delta keeps the dragged edge locked 1:1 under the cursor while centered
+                                if (edge & 2) {
+                                    const float dx = rawDx * 2.0f / effectiveZoom;
+                                    demoCtx.previewWindowW = std::clamp(std::round(demoCtx.previewWindowDragStartW + dx), 320.0f, maxFitW);
+                                } else if (edge & 1) {
+                                    const float dx = -rawDx * 2.0f / effectiveZoom;
+                                    demoCtx.previewWindowW = std::clamp(std::round(demoCtx.previewWindowDragStartW + dx), 320.0f, maxFitW);
+                                } else {
+                                    demoCtx.previewWindowW = std::clamp(demoCtx.previewWindowDragStartW, 320.0f, maxFitW);
+                                }
+                                if (edge & 4) {
+                                    const float dy = rawDy * 2.0f / effectiveZoom;
+                                    demoCtx.previewWindowH = std::clamp(std::round(demoCtx.previewWindowDragStartH + dy), 220.0f, maxFitH);
+                                } else {
+                                    demoCtx.previewWindowH = std::clamp(demoCtx.previewWindowDragStartH, 220.0f, maxFitH);
+                                }
+                                ui.InvalidateAll();
+                                ui.RequestRepaint(2);
                             }
-                            if (edge & 4) {
-                                const float dy = (mouse.y - demoCtx.previewWindowDragStartMouse.y) * 2.0f / effectiveZoom;
-                                demoCtx.previewWindowH = std::clamp(std::round(demoCtx.previewWindowDragStartH + dy), 220.0f, maxFitH);
-                            }
-                            ui.InvalidateAll();
-                            ui.RequestRepaint(2);
                         } else {
                             demoCtx.previewWindowResizeEdge = 0;
                             if (demoCtx.previewWindowW >= maxFitW - 1.5f && demoCtx.previewWindowH >= maxFitH - 1.5f) {
@@ -665,15 +673,21 @@ inline void RenderPreviewViewport(
                     .fixedHeight = 28.0f,
                     .padding = guikit::Padding::Symmetric(12.0f, 0.0f),
                     .background = {titlebarBg},
-                    .border = {.width = 0.0f, .radius = 10.0f}
+                    .border = {.width = 0.0f, .radius = 0.0f}
                 })) {
-                    titlebar.GetNode()->renderFn = &detail::RenderWindowTitlebarBackground;
                     titlebar.GetNode()->postRenderFn = &detail::RenderWindowTitlebarTrafficLights;
                     if (auto titleRow = ui.Row({
+                        .gap = 8.0f,
                         .align = guikit::Alignment::Center,
                         .heightMode = guikit::SizeMode::Stretch,
                         .theme = &demoCtx.previewTheme
                     })) {
+                        // Left slot reserved for Traffic Lights (3 dots * 10px + 2 * 7px gaps = 44px + 8px breathing room)
+                        if (auto tlSlot = ui.Box({
+                            .widthMode = guikit::SizeMode::Fixed,
+                            .heightMode = guikit::SizeMode::Stretch,
+                            .fixedWidth = 52.0f
+                        })) {}
                         ui.Spacer();
                         ui.Text(CategoryDisplayTitle(selectedCategory), {
                             .role = guikit::TextRole::LabelSmall,
@@ -725,7 +739,9 @@ inline void RenderPreviewViewport(
                 },
                 .scale = effectiveZoom
             })) {
-                chassisBox.GetNode()->postRenderFn = &detail::RenderDeviceChassisButtons;
+                chassisBox.GetNode()->postRenderFn = isPhone
+                    ? &detail::RenderDeviceChassisButtons<true>
+                    : &detail::RenderDeviceChassisButtons<false>;
 
                 if (auto screenBox = ui.Box({
                     .gap = 0.0f,
@@ -740,13 +756,15 @@ inline void RenderPreviewViewport(
                     },
                     .clipChildren = true
                 })) {
-                    screenBox.GetNode()->postRenderFn = &detail::RenderDeviceScreenCornerMaskAndBorder;
+                    if (isPhone) {
+                        screenBox.GetNode()->postRenderFn = &detail::RenderPhoneDynamicIsland;
+                    }
 
-                    // 1. Top Safe Area (9:41 Clock + Dynamic Island / Camera + Signal/Battery)
+                    // 1. Top Safe Area (9:41 Clock + Signal/Battery)
                     if (auto safeTop = ui.Box({
                         .widthMode = guikit::SizeMode::Stretch,
                         .heightMode = guikit::SizeMode::Fixed,
-                        .fixedHeight = isPhone ? 30.0f : 24.0f,
+                        .fixedHeight = (isPhone && !demoCtx.previewLandscape) ? 36.0f : 24.0f,
                         .theme = &demoCtx.previewTheme
                     })) {
                         safeTop.GetNode()->postRenderFn = isPhone
@@ -754,11 +772,14 @@ inline void RenderPreviewViewport(
                             : &detail::RenderDeviceStatusSafeArea<false>;
                     }
 
-                    // 2. Isolated Application Client Area
+                    // 2. Isolated Application Client Area (includes left safe-area clearance in Phone Landscape)
+                    const guikit::Padding clientSafePad = (isPhone && demoCtx.previewLandscape)
+                        ? guikit::Padding{devicePad + 26.0f, devicePad, devicePad, devicePad}
+                        : guikit::Padding::All(devicePad);
                     if (auto clientBox = ui.Box({
                         .widthMode = guikit::SizeMode::Stretch,
                         .heightMode = guikit::SizeMode::Stretch,
-                        .padding = guikit::Padding::All(devicePad),
+                        .padding = clientSafePad,
                         .clipChildren = true,
                         .theme = &demoCtx.previewTheme,
                         .scale = effectiveZoom,

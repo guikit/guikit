@@ -184,8 +184,7 @@ CommandPaletteResponse CommandPalette::Run(
 
     // 3. Compute geometry
     const float s = (theme.scale > 0.0f) ? theme.scale : ((activeScale > 0.0f) ? activeScale : 1.0f);
-    const Vec2 logicalVp = ctx.GetLogicalViewport();
-    Rect backdropRect(0.0f, 0.0f, logicalVp.x, logicalVp.y);
+    Rect backdropRect = ctx.GetPopupViewportRect();
     if (opts.confineToParent) {
         const Rect parentRect = ctx.GetParentPrevFrameBounds();
         if (parentRect.w > 10.0f && parentRect.h > 10.0f) {

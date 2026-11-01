@@ -374,51 +374,63 @@ void TabBar::RenderTab(
         fgCol = pal.textSecondary;
     }
 
-    // Measure components to center content within tab bounds
-    float contentW = 0.0f;
-    if (item.icon.IsValid()) {
-        contentW += m.iconSize;
-    }
-    float textW = 0.0f;
-    if (item.label.HasContentOrReserve()) {
-        if (contentW > 0.0f) contentW += 6.0f;
-        textW = TextUtil::MeasureWidth(item.label, labelFont, &canvas);
-        contentW += textW;
-    }
+    // Measure components to center content within tab bounds (gracefully adapting at narrow tab widths)
+    const float padX = std::min(m.paddingX, bounds.w * 0.12f);
+    const float innerW = std::max(0.0f, bounds.w - padX * 2.0f);
+    const bool hasIcon = item.icon.IsValid();
+    const bool hasLabel = item.label.HasContentOrReserve();
     float badgeW = 0.0f;
     if (item.badge.HasContentOrReserve()) {
-        contentW += 6.0f;
         badgeW = TextUtil::MeasureWidth(item.badge, badgeFontSize, &canvas) + 12.0f;
+    }
+    const bool showBadge = !item.badge.empty() &&
+        (innerW >= (hasIcon ? m.iconSize + 6.0f : 0.0f) + badgeW + (hasLabel ? labelFont * 2.2f + 6.0f : 0.0f));
+
+    const float iconAndBadgeW = (hasIcon ? m.iconSize : 0.0f) + (showBadge ? badgeW + 6.0f : 0.0f);
+    const float availLabelW = std::max(0.0f, innerW - iconAndBadgeW - ((hasIcon && hasLabel) ? 6.0f : 0.0f));
+    const bool showLabel = !item.label.empty() && (!hasIcon || availLabelW >= labelFont * 1.35f);
+
+    std::string displayLabel(item.label.text);
+    float labelW = 0.0f;
+    if (showLabel) {
+        labelW = canvas.MeasureText(displayLabel, labelFont).x;
+        if (labelW > availLabelW + kTextSubpixelTolerance && availLabelW > 0.0f) {
+            displayLabel = TextUtil::TruncateWithEllipsis(item.label.text, availLabelW, labelFont, &canvas);
+            labelW = std::min(availLabelW, canvas.MeasureText(displayLabel, labelFont).x);
+        }
+    }
+
+    float contentW = 0.0f;
+    if (hasIcon) contentW += m.iconSize;
+    if (showLabel) {
+        if (contentW > 0.0f) contentW += 6.0f;
+        contentW += labelW;
+    }
+    if (showBadge) {
+        if (contentW > 0.0f) contentW += 6.0f;
         contentW += badgeW;
     }
 
-    float curX = bounds.x + std::max(0.0f, (bounds.w - contentW) * 0.5f);
+    float curX = bounds.x + std::max(padX, (bounds.w - contentW) * 0.5f);
     const float centerY = bounds.y + bounds.h * 0.5f;
 
     // Draw Icon
-    if (item.icon.IsValid()) {
+    if (hasIcon) {
         const Rect iconR(curX, centerY - m.iconSize * 0.5f, m.iconSize, m.iconSize);
         item.icon.Draw(canvas, iconR, fgCol);
-        curX += m.iconSize + 6.0f;
+        curX += m.iconSize + (showLabel ? 6.0f : 0.0f);
     }
 
     // Draw Label
-    if (!item.label.empty()) {
-        const float maxLabelW = std::max(0.0f, bounds.Right() - m.paddingX - curX - (item.badge.empty() ? 0.0f : (badgeW + 6.0f)));
-        float labelW = canvas.MeasureText(item.label.text, labelFont).x;
-        std::string displayLabel(item.label.text);
-        if (labelW > maxLabelW + kTextSubpixelTolerance && maxLabelW > 0.0f) {
-            displayLabel = TextUtil::TruncateWithEllipsis(item.label.text, maxLabelW, labelFont, &canvas);
-            labelW = canvas.MeasureText(displayLabel, labelFont).x;
-        }
-        const Rect textR(curX, bounds.y, maxLabelW, bounds.h);
+    if (showLabel) {
+        const Rect textR(curX, bounds.y, availLabelW, bounds.h);
         canvas.DrawTextBox(displayLabel, textR, labelFont, fgCol, 0.0f, 0.5f);
         curX += labelW;
     }
 
     // Draw Badge
-    if (!item.badge.empty()) {
-        curX += 6.0f;
+    if (showBadge) {
+        if (hasIcon || showLabel) curX += 6.0f;
         const float badgeH = badgeFontSize + 6.0f;
         const Rect badgeR(curX, centerY - badgeH * 0.5f, badgeW, badgeH);
 

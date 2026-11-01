@@ -40,8 +40,7 @@ void Toast::RunHost(
     }
 
     const float s = (theme.scale > 0.0f) ? theme.scale : activeScale;
-    const Vec2 vp = ctx.GetViewportSize() / ((ctx.GetDpiScale() > 0.0f) ? ctx.GetDpiScale() : 1.0f);
-    Rect hostBounds(0.0f, 0.0f, vp.x, vp.y);
+    Rect hostBounds = ctx.GetPopupViewportRect();
     if (opts.confineToParent) {
         const Rect parentBounds = ctx.GetParentPrevFrameBounds();
         if (parentBounds.w > 20.0f && parentBounds.h > 20.0f) {

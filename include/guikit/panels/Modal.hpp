@@ -143,6 +143,8 @@ public:
     ) noexcept;
 
     [[nodiscard]] static Rect GetBodyClipRect(const Node* node) noexcept;
+
+    [[nodiscard]] static Rect GetBackdropRect(const Node* node) noexcept;
 };
 
 } // namespace guikit

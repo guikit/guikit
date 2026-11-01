@@ -349,53 +349,61 @@ void Button::Render(
             opts.icon.Draw(canvas, Rect(iconX, startY + textH + vGap, m.iconSize, m.iconSize), icoCol);
         } else if (opts.iconPlacement == Placement::Trailing) {
             const float availTextW = std::max(0.0f, capsuleRect.w - padX * 2.0f - m.iconSize - gap);
-            float textW = canvas.MeasureText(effectiveCapsuleText.text, capFontSize).x;
-            std::string displayLabel(effectiveCapsuleText.text);
-            if (textW > availTextW + kTextSubpixelTolerance && availTextW > 0.0f) {
-                displayLabel = TextUtil::TruncateWithEllipsis(effectiveCapsuleText.text, availTextW, capFontSize, &canvas);
-                textW = canvas.MeasureText(displayLabel, capFontSize).x;
-            }
-            const float totalContentW = m.iconSize + gap + textW;
-            const float centeredStartX = capsuleRect.x + (capsuleRect.w - totalContentW) * 0.5f;
-            const float minStartX = capsuleRect.x + padX;
-            const float maxStartX = capsuleRect.x + capsuleRect.w - padX - totalContentW;
-            float startX = centeredStartX;
-            if (ctrl.align == Align::Start) {
-                startX = minStartX;
-            } else if (ctrl.align == Align::End) {
-                startX = maxStartX;
-            } else if (!effectiveCapsuleText.variants.empty() || capsuleRect.w < totalContentW + padX * 2.0f) {
-                startX = minStartX;
-            }
             const float iconY = capsuleRect.y + (capsuleRect.h - m.iconSize) * 0.5f;
-            const Rect textRect(startX, capsuleRect.y, textW, capsuleRect.h);
-            canvas.DrawTextBox(displayLabel, textRect, capFontSize, textCol, 0.0f, 0.5f);
-            opts.icon.Draw(canvas, Rect(startX + textW + gap, iconY, m.iconSize, m.iconSize), icoCol);
+            if (availTextW < capFontSize * 1.25f) {
+                opts.icon.Draw(canvas, Rect(capsuleRect.x + (capsuleRect.w - m.iconSize) * 0.5f, iconY, m.iconSize, m.iconSize), icoCol);
+            } else {
+                float textW = canvas.MeasureText(effectiveCapsuleText.text, capFontSize).x;
+                std::string displayLabel(effectiveCapsuleText.text);
+                if (textW > availTextW + kTextSubpixelTolerance && availTextW > 0.0f) {
+                    displayLabel = TextUtil::TruncateWithEllipsis(effectiveCapsuleText.text, availTextW, capFontSize, &canvas);
+                    textW = canvas.MeasureText(displayLabel, capFontSize).x;
+                }
+                const float totalContentW = m.iconSize + gap + textW;
+                const float centeredStartX = capsuleRect.x + (capsuleRect.w - totalContentW) * 0.5f;
+                const float minStartX = capsuleRect.x + padX;
+                const float maxStartX = capsuleRect.x + capsuleRect.w - padX - totalContentW;
+                float startX = centeredStartX;
+                if (ctrl.align == Align::Start) {
+                    startX = minStartX;
+                } else if (ctrl.align == Align::End) {
+                    startX = maxStartX;
+                } else if (!effectiveCapsuleText.variants.empty() || capsuleRect.w < totalContentW + padX * 2.0f) {
+                    startX = minStartX;
+                }
+                const Rect textRect(startX, capsuleRect.y, textW, capsuleRect.h);
+                canvas.DrawTextBox(displayLabel, textRect, capFontSize, textCol, 0.0f, 0.5f);
+                opts.icon.Draw(canvas, Rect(startX + textW + gap, iconY, m.iconSize, m.iconSize), icoCol);
+            }
         } else { // Leading / default
             const float availTextW = std::max(0.0f, capsuleRect.w - padX * 2.0f - m.iconSize - gap);
-            float textW = canvas.MeasureText(effectiveCapsuleText.text, capFontSize).x;
-            std::string displayLabel(effectiveCapsuleText.text);
-            if (textW > availTextW + kTextSubpixelTolerance && availTextW > 0.0f) {
-                displayLabel = TextUtil::TruncateWithEllipsis(effectiveCapsuleText.text, availTextW, capFontSize, &canvas);
-                textW = canvas.MeasureText(displayLabel, capFontSize).x;
-            }
-            const float totalContentW = m.iconSize + gap + textW;
-            const float centeredStartX = capsuleRect.x + (capsuleRect.w - totalContentW) * 0.5f;
-            const float minStartX = capsuleRect.x + padX;
-            const float maxStartX = capsuleRect.x + capsuleRect.w - padX - totalContentW;
-            float startX = centeredStartX;
-            if (ctrl.align == Align::Start) {
-                startX = minStartX;
-            } else if (ctrl.align == Align::End) {
-                startX = maxStartX;
-            } else if (!effectiveCapsuleText.variants.empty() || capsuleRect.w < totalContentW + padX * 2.0f) {
-                startX = minStartX;
-            }
             const float iconY = capsuleRect.y + (capsuleRect.h - m.iconSize) * 0.5f;
-            opts.icon.Draw(canvas, Rect(startX, iconY, m.iconSize, m.iconSize), icoCol);
-            const float remainingW = std::max(0.0f, (capsuleRect.x + capsuleRect.w - padX) - (startX + m.iconSize + gap));
-            const Rect textRect(startX + m.iconSize + gap, capsuleRect.y, remainingW, capsuleRect.h);
-            canvas.DrawTextBox(displayLabel, textRect, capFontSize, textCol, 0.0f, 0.5f);
+            if (availTextW < capFontSize * 1.25f) {
+                opts.icon.Draw(canvas, Rect(capsuleRect.x + (capsuleRect.w - m.iconSize) * 0.5f, iconY, m.iconSize, m.iconSize), icoCol);
+            } else {
+                float textW = canvas.MeasureText(effectiveCapsuleText.text, capFontSize).x;
+                std::string displayLabel(effectiveCapsuleText.text);
+                if (textW > availTextW + kTextSubpixelTolerance && availTextW > 0.0f) {
+                    displayLabel = TextUtil::TruncateWithEllipsis(effectiveCapsuleText.text, availTextW, capFontSize, &canvas);
+                    textW = canvas.MeasureText(displayLabel, capFontSize).x;
+                }
+                const float totalContentW = m.iconSize + gap + textW;
+                const float centeredStartX = capsuleRect.x + (capsuleRect.w - totalContentW) * 0.5f;
+                const float minStartX = capsuleRect.x + padX;
+                const float maxStartX = capsuleRect.x + capsuleRect.w - padX - totalContentW;
+                float startX = centeredStartX;
+                if (ctrl.align == Align::Start) {
+                    startX = minStartX;
+                } else if (ctrl.align == Align::End) {
+                    startX = maxStartX;
+                } else if (!effectiveCapsuleText.variants.empty() || capsuleRect.w < totalContentW + padX * 2.0f) {
+                    startX = minStartX;
+                }
+                opts.icon.Draw(canvas, Rect(startX, iconY, m.iconSize, m.iconSize), icoCol);
+                const float remainingW = std::max(0.0f, (capsuleRect.x + capsuleRect.w - padX) - (startX + m.iconSize + gap));
+                const Rect textRect(startX + m.iconSize + gap, capsuleRect.y, remainingW, capsuleRect.h);
+                canvas.DrawTextBox(displayLabel, textRect, capFontSize, textCol, 0.0f, 0.5f);
+            }
         }
     }
 

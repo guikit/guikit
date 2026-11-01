@@ -122,10 +122,7 @@ ModalScope Modal::Open(
     const UiSize activeSize = ctx.GetCurrentSize();
     const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
 
-    const Vec2 vp = ctx.GetViewportSize();
-    const float dpi = (ctx.GetDpiScale() > 0.0f) ? ctx.GetDpiScale() : 1.0f;
-    const Vec2 logicalVp = vp / dpi;
-    Rect backdropRect(0.0f, 0.0f, logicalVp.x, logicalVp.y);
+    Rect backdropRect = ctx.GetPopupViewportRect();
     if (opts.confineToParent) {
         const Rect parentRect = ctx.GetParentPrevFrameBounds();
         if (parentRect.w > 10.0f && parentRect.h > 10.0f) {
@@ -355,6 +352,14 @@ Rect Modal::GetBodyClipRect(const Node* node) noexcept {
         std::max(0.0f, r.w - 2.0f),
         std::max(0.0f, r.h - headerH - 1.0f)
     );
+}
+
+Rect Modal::GetBackdropRect(const Node* node) noexcept {
+    if (!node) return Rect{};
+    if (const auto* payload = node->As<ModalPayload>()) {
+        return payload->backdropRect;
+    }
+    return Rect{};
 }
 
 void Modal::Render(

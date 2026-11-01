@@ -11693,6 +11693,204 @@ int main() {
         renderCp();
     }
 
+    // -------------------------------------------------------------------------
+    // Test: Smart fractional width floor & Segmented narrow-width auto-collapse
+    // -------------------------------------------------------------------------
+    {
+        using namespace guikit;
+        const UiTheme& darkTheme = UiTheme::Dark();
+        LabelRecordingCanvas recCanvas;
+        std::vector<uint32_t> pixels(400 * 200, 0);
+        recCanvas.SetTarget(pixels.data(), 400, 200, 400);
+
+        // 1. Element::Resolve with StretchMode::Fill and .width = 0.5f in a narrow 280px container
+        // preserves a 240px intrinsic control width instead of crushing it to 140px
+        const ElementGeometry narrowGeom = Element::Resolve(
+            Rect(0.0f, 0.0f, 280.0f, 40.0f),
+            Vec2(240.0f, 32.0f),
+            ElementSpec{.stretch = StretchMode::Fill, .width = 0.5f},
+            &recCanvas,
+            darkTheme
+        );
+        CHECK_NEAR(narrowGeom.controlRect.w, 240.0f, 0.01f);
+
+        // And when the container is narrower than intrinsic (180px < 240px), it clamps cleanly to 180px
+        const ElementGeometry ultraNarrowGeom = Element::Resolve(
+            Rect(0.0f, 0.0f, 180.0f, 40.0f),
+            Vec2(240.0f, 32.0f),
+            ElementSpec{.stretch = StretchMode::Fill, .width = 0.5f},
+            &recCanvas,
+            darkTheme
+        );
+        CHECK_NEAR(ultraNarrowGeom.controlRect.w, 180.0f, 0.01f);
+
+        // 2. Segmented control at narrow width (140px for 4 icon+text items) auto-collapses to icon-only
+        recCanvas.Reset();
+        const SegmentedItem items[] = {
+            {"Sine", IconId::Refresh},
+            {"Square", IconId::Settings},
+            {"Sawtooth", IconId::Play},
+            {"Noise", IconId::Warning}
+        };
+        Segmented::Render(
+            recCanvas,
+            Rect(0.0f, 0.0f, 140.0f, 32.0f),
+            items,
+            0,
+            0u,
+            false,
+            -1,
+            -1,
+            SegmentedOptions{},
+            UiSize::Md,
+            false,
+            darkTheme
+        );
+        // Because 140px / 4 = 35px per segment is too narrow for icon + text, all 4 segments collapse to icon-only (no textBoxCalls)
+        CHECK(recCanvas.textBoxCalls.empty());
+
+        // 3. Popups (DatePicker, ColorPicker, Select) inside a clipped Box (e.g. 784x375 Phone Landscape inside 1400x900 window)
+        // stay strictly within the clipped Box bounds via GetPopupViewportRect()
+        Context ui;
+        ThorCanvas thorCanvas;
+        std::vector<uint32_t> fullPixels(1400 * 900, 0);
+        thorCanvas.SetTarget(fullPixels.data(), 1400, 900, 1400);
+
+        DateTime dt{.year = 2026, .month = 10, .day = 14};
+        Color col(59, 130, 246, 235);
+        size_t selIdx = 0;
+        Id screenBoxId = Id::Null();
+        Rect datePickerBounds{};
+        Rect colorPickerBounds{};
+        Rect selectBounds{};
+        Rect capturedPopupVp{};
+
+        auto renderSimulatedPhoneLandscape = [&](float previewZoom = 1.0f) {
+            if (auto outer = ui.Column({.padding = Padding::All(40.0f), .align = Alignment::Center, .justify = Justify::Center})) {
+                if (auto screenBox = ui.Box({
+                    .widthMode = SizeMode::Fixed,
+                    .heightMode = SizeMode::Fixed,
+                    .fixedWidth = 784.0f * previewZoom,
+                    .fixedHeight = 375.0f * previewZoom,
+                    .padding = Padding(40.0f, 32.0f, 18.0f, 20.0f),
+                    .border = {.width = 1.0f, .radius = 28.0f},
+                    .clipChildren = true,
+                    .scale = previewZoom
+                })) {
+                    screenBoxId = screenBox.GetNode()->id;
+                    capturedPopupVp = ui.GetPopupViewportRect();
+                    ui.Spacer(1.0f);
+                    datePickerBounds = ui.DatePicker(dt, {.stretch = StretchMode::Fill, .width = 0.5f}).rect;
+                    colorPickerBounds = ui.ColorPicker(col, {.stretch = StretchMode::Fill, .width = 0.5f}).rect;
+                    selectBounds = ui.Select(selIdx, {"Option 1", "Option 2", "Option 3", "Option 4", "Option 5", "Option 6", "Option 7", "Option 8"}, {.stretch = StretchMode::Fill, .width = 0.5f}).rect;
+                    ui.Spacer(1.0f);
+                }
+            }
+        };
+
+        // Frame 1 & 2: establish layout bounds
+        for (int f = 0; f < 2; ++f) {
+            ui.BeginFrame({1400.0f, 900.0f}, 1.0f);
+            renderSimulatedPhoneLandscape();
+            ui.EndFrame(thorCanvas);
+        }
+
+        const Rect boxPrev = ui.GetPrevFrameBounds(screenBoxId);
+        CHECK(boxPrev.w > 780.0f);
+        CHECK(boxPrev.h > 370.0f);
+        CHECK(capturedPopupVp.x >= boxPrev.x);
+        CHECK(capturedPopupVp.y >= boxPrev.y);
+        CHECK(capturedPopupVp.Right() <= boxPrev.Right());
+        CHECK(capturedPopupVp.Bottom() <= boxPrev.Bottom());
+
+        // Click DatePicker to open its calendar popover
+        ui.OnMouseMove(datePickerBounds.Center());
+        ui.OnMouseDown(1);
+        ui.OnMouseUp(1);
+        ui.BeginFrame({1400.0f, 900.0f}, 1.0f);
+        renderSimulatedPhoneLandscape();
+        ui.EndFrame(thorCanvas);
+
+        const Rect dpPopup = ui.GetOpenPopupRect();
+        CHECK(dpPopup.w > 200.0f);
+        CHECK(dpPopup.h > 200.0f);
+        CHECK(dpPopup.x >= boxPrev.x);
+        CHECK(dpPopup.y >= boxPrev.y);
+        CHECK(dpPopup.Right() <= boxPrev.Right());
+        CHECK(dpPopup.Bottom() <= boxPrev.Bottom());
+
+        // Click ColorPicker to open its color popover
+        ui.ClosePopup();
+        ui.OnMouseMove(colorPickerBounds.Center());
+        ui.OnMouseDown(1);
+        ui.OnMouseUp(1);
+        ui.BeginFrame({1400.0f, 900.0f}, 1.0f);
+        renderSimulatedPhoneLandscape();
+        ui.EndFrame(thorCanvas);
+
+        const Rect cpPopup = ui.GetOpenPopupRect();
+        CHECK(cpPopup.w > 200.0f);
+        CHECK(cpPopup.h > 150.0f);
+        CHECK(cpPopup.x >= boxPrev.x);
+        CHECK(cpPopup.y >= boxPrev.y);
+        CHECK(cpPopup.Right() <= boxPrev.Right());
+        CHECK(cpPopup.Bottom() <= boxPrev.Bottom());
+
+        // Click Select to open its dropdown list
+        ui.ClosePopup();
+        ui.OnMouseMove(selectBounds.Center());
+        ui.OnMouseDown(1);
+        ui.OnMouseUp(1);
+        ui.BeginFrame({1400.0f, 900.0f}, 1.0f);
+        renderSimulatedPhoneLandscape();
+        ui.EndFrame(thorCanvas);
+
+        const Rect selPopup = ui.GetOpenPopupRect();
+        CHECK(selPopup.w > 100.0f);
+        CHECK(selPopup.h > 50.0f);
+        CHECK(selPopup.x >= boxPrev.x);
+        CHECK(selPopup.y >= boxPrev.y);
+        CHECK(selPopup.Right() <= boxPrev.Right());
+        CHECK(selPopup.Bottom() <= boxPrev.Bottom());
+
+        // Regression test: ColorPicker open popover at Fit 249% (previewZoom = 2.49f) with partial dirty-rect repaints
+        // (hovering trigger button and moving across popover).
+        // Previously crashed due to ThorCanvas::DrawPixels borrowing stack-allocated svPixels/huePixels/alphaPixels
+        // with copy=false while FlushCanvas() ran after stack frame pop.
+        {
+            ui.ClosePopup();
+            std::vector<uint32_t> hiDpiPixels(2400 * 1400, 0);
+            thorCanvas.SetTarget(hiDpiPixels.data(), 2400, 1400, 2400);
+            for (int f = 0; f < 2; ++f) {
+                ui.BeginFrame({2400.0f, 1400.0f}, 1.0f);
+                renderSimulatedPhoneLandscape(2.49f);
+                ui.EndFrame(thorCanvas);
+            }
+            // Open ColorPicker at previewZoom = 2.49f
+            ui.OnMouseMove(colorPickerBounds.Center());
+            ui.OnMouseDown(1);
+            ui.OnMouseUp(1);
+            ui.BeginFrame({2400.0f, 1400.0f}, 1.0f);
+            renderSimulatedPhoneLandscape(2.49f);
+            ui.EndFrame(thorCanvas);
+
+            const Rect cpPopupHiDpi = ui.GetOpenPopupRect();
+            CHECK(cpPopupHiDpi.w > 400.0f);
+
+            // Hover trigger button on the left (triggers partial dirty rect clipping out bottom of popup)
+            ui.OnMouseMove({colorPickerBounds.x + 10.0f, colorPickerBounds.Center().y});
+            ui.BeginFrame({2400.0f, 1400.0f}, 1.0f);
+            renderSimulatedPhoneLandscape(2.49f);
+            ui.EndFrame(thorCanvas);
+
+            // Hover inside the open ColorPicker popup
+            ui.OnMouseMove(cpPopupHiDpi.Center());
+            ui.BeginFrame({2400.0f, 1400.0f}, 1.0f);
+            renderSimulatedPhoneLandscape(2.49f);
+            ui.EndFrame(thorCanvas);
+        }
+    }
+
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";
         return 0;

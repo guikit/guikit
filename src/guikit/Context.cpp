@@ -38,6 +38,7 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
     m_toastHostVisitedThisFrame = false;
     m_activeTooltip = {};
     m_activeTooltipAnchor = {};
+    m_activeTooltipViewport = {};
     m_cursor = CursorType::Default;
 
     const auto& activeFocusables = (m_prevFrameModalId.IsValid() && !m_prevModalFocusableIds.empty())
@@ -252,6 +253,28 @@ Rect Context::GetParentPrevFrameBounds() const {
         }
     }
     return Rect{};
+}
+
+Rect Context::GetPopupViewportRect() const noexcept {
+    const Vec2 logical = GetLogicalViewport();
+    Rect vp(0.0f, 0.0f, logical.x, logical.y);
+    for (const Node* n : m_containerStack) {
+        if (!n || !n->id.IsValid()) continue;
+        if (n->type == NodeType::Box && n->clipChildren) {
+            auto it = m_prevFrameBounds.find(n->id);
+            if (it != m_prevFrameBounds.end() && it->second.w > 1.0f && it->second.h > 1.0f) {
+                Rect boxRect = it->second;
+                if (n->borderWidth > 0.0f && boxRect.w > n->borderWidth * 2.0f && boxRect.h > n->borderWidth * 2.0f) {
+                    boxRect = boxRect.Inset(n->borderWidth);
+                }
+                const Rect intersected = vp.Intersect(boxRect);
+                if (intersected.w > 1.0f && intersected.h > 1.0f) {
+                    vp = intersected;
+                }
+            }
+        }
+    }
+    return vp;
 }
 
 void Context::PushContainer(Node* node) {
@@ -1500,12 +1523,15 @@ void Context::OpenPopup(Id id, Rect bounds) {
 
 void Context::ClosePopup() {
     if (m_openPopupId.IsValid()) {
+        const Id closedId = m_openPopupId;
         if (m_openPopupRect.w > 0.0f && m_openPopupRect.h > 0.0f) {
             InvalidateRect(ExpandPopupDamageRect(m_openPopupRect));
         }
         m_openPopupId = Id::Null();
         m_openPopupRect = Rect{};
         m_openPopupVisualHash = 0;
+        std::erase_if(m_prevOverlayHitRegions, [closedId](const OverlayHitRegion& r) { return r.id == closedId; });
+        std::erase_if(m_currOverlayHitRegions, [closedId](const OverlayHitRegion& r) { return r.id == closedId; });
         RequestRepaint(2);
     }
 }
@@ -1523,7 +1549,9 @@ void Context::InvalidateRect(Rect rect) noexcept {
 }
 
 void Context::RegisterOverlay(std::function<void(ICanvas&)> drawFn) {
-    m_overlayPasses.push_back(std::move(drawFn));
+    if (drawFn) {
+        m_overlayPasses.push_back(OverlayPass{std::move(drawFn), GetPopupViewportRect()});
+    }
 }
 
 void Context::RegisterOverlayHitRegion(Id id, Rect rect) {
@@ -1722,6 +1750,7 @@ void Context::SetTooltip(UiText tooltip, Rect anchorRect) {
     }
     m_activeTooltip = AllocText(tooltip);
     m_activeTooltipAnchor = anchorRect;
+    m_activeTooltipViewport = GetPopupViewportRect();
 }
 
 void Context::RegisterFocusable(Id id, bool disabled) {
@@ -2482,8 +2511,15 @@ void Context::EndFrame(ICanvas& canvas) {
             RenderNodeRecursive(m_root, canvas, m_dirtyRect, m_theme);
             RenderModalsRecursive(m_root, canvas, m_dirtyRect, m_theme);
 
-            for (const auto& overlayFn : m_overlayPasses) {
-                overlayFn(canvas);
+            for (const auto& pass : m_overlayPasses) {
+                if (pass.clipRect.w > 0.0f && pass.clipRect.h > 0.0f) {
+                    if (!pass.clipRect.Intersects(m_dirtyRect)) continue;
+                    canvas.PushClip(pass.clipRect);
+                    pass.drawFn(canvas);
+                    canvas.PopClip();
+                } else {
+                    pass.drawFn(canvas);
+                }
             }
             if (hasTooltip) {
                 RenderTooltipOverlay(canvas, logicalSize);
@@ -2503,8 +2539,16 @@ void Context::EndFrame(ICanvas& canvas) {
                 canvas.Clear(m_clearColor, dr);
                 RenderNodeRecursive(m_root, canvas, dr, m_theme);
                 RenderModalsRecursive(m_root, canvas, dr, m_theme);
-                for (const auto& overlayFn : m_overlayPasses) {
-                    overlayFn(canvas);
+                for (const auto& pass : m_overlayPasses) {
+                    if (pass.clipRect.w > 0.0f && pass.clipRect.h > 0.0f) {
+                        const Rect clip = pass.clipRect.Intersect(dr);
+                        if (clip.w <= 0.0f || clip.h <= 0.0f) continue;
+                        canvas.PushClip(clip);
+                        pass.drawFn(canvas);
+                        canvas.PopClip();
+                    } else {
+                        pass.drawFn(canvas);
+                    }
                 }
                 canvas.PopClip();
                 canvas.End();
@@ -2576,6 +2620,36 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
         canvas.PopClip();
     }
 
+    // Mask outer corner wedges when a rounded clipping container hosts children so rectangular child fills
+    // (e.g. full-bleed toolbars, titlebars, or sidebars) never bleed outside the parent's rounded corners.
+    if (isContainerSurface && node->clipChildren && node->cornerRadius > 1.5f && node->firstChild != nullptr) {
+        const Rect& r = node->computedRect;
+        const float rad = std::clamp(node->cornerRadius, 0.0f, std::min(r.w, r.h) * 0.5f);
+        if (rad > 1.5f) {
+            Color outerBg = m_clearColor;
+            for (const Node* anc = node->parent; anc != nullptr; anc = anc->parent) {
+                if (anc->backgroundColor.a == 255) {
+                    outerBg = anc->backgroundColor;
+                    break;
+                }
+            }
+            if (outerBg.a > 0) {
+                const int steps = static_cast<int>(std::ceil(rad));
+                for (int i = 0; i < steps; ++i) {
+                    const float dy = static_cast<float>(i);
+                    const float rem = std::max(0.0f, rad - dy - 0.35f);
+                    const float dx = std::max(0.0f, rad - std::sqrt(std::max(0.0f, rad * rad - rem * rem)));
+                    if (dx > 0.25f) {
+                        canvas.DrawRect(Rect(r.x - 0.5f, r.y + dy, dx + 1.0f, 1.25f), outerBg);
+                        canvas.DrawRect(Rect(r.Right() - dx - 0.5f, r.y + dy, dx + 1.0f, 1.25f), outerBg);
+                        canvas.DrawRect(Rect(r.x - 0.5f, r.Bottom() - dy - 1.0f, dx + 1.0f, 1.25f), outerBg);
+                        canvas.DrawRect(Rect(r.Right() - dx - 0.5f, r.Bottom() - dy - 1.0f, dx + 1.0f, 1.25f), outerBg);
+                    }
+                }
+            }
+        }
+    }
+
     // 2. Render container border stroke on top of children (after PopClip) so children never overwrite parent border
     if (hasContainerBorder) {
         const Rect& r = node->computedRect;
@@ -2616,7 +2690,14 @@ void Context::RenderModalsRecursive(Node* node, ICanvas& canvas, const Rect& dir
 
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
         if (child->type == NodeType::Modal) {
-            RenderNodeRecursive(child, canvas, dirtyRect, activeTheme);
+            const Rect backdropClip = Modal::GetBackdropRect(child);
+            if (backdropClip.w > 0.0f && backdropClip.h > 0.0f) {
+                canvas.PushClip(backdropClip);
+                RenderNodeRecursive(child, canvas, dirtyRect, activeTheme);
+                canvas.PopClip();
+            } else {
+                RenderNodeRecursive(child, canvas, dirtyRect, activeTheme);
+            }
         }
         RenderModalsRecursive(child, canvas, dirtyRect, activeTheme);
     }
@@ -2924,19 +3005,24 @@ void Context::RenderTooltipOverlay(ICanvas& canvas, Vec2 logicalSize) {
     const float boxW = std::max(28.0f, contentW + padX * 2.0f);
     const float boxH = std::max(24.0f, contentH + padY * 2.0f);
 
+    const Rect vp = (m_activeTooltipViewport.w > 1.0f && m_activeTooltipViewport.h > 1.0f)
+        ? m_activeTooltipViewport
+        : Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y);
+
     float bx = m_mousePos.x + 12.0f;
     float by = m_mousePos.y + 18.0f;
     if (m_activeTooltipAnchor.w > 0.0f && m_activeTooltipAnchor.h > 0.0f) {
         bx = m_activeTooltipAnchor.x + (m_activeTooltipAnchor.w - boxW) * 0.5f;
         by = m_activeTooltipAnchor.y - boxH - 6.0f;
-        if (by < 8.0f) {
+        if (by < vp.y + 6.0f) {
             by = m_activeTooltipAnchor.y + m_activeTooltipAnchor.h + 6.0f;
         }
     }
 
-    bx = std::clamp(bx, 8.0f, std::max(8.0f, logicalSize.x - boxW - 8.0f));
-    by = std::clamp(by, 8.0f, std::max(8.0f, logicalSize.y - boxH - 8.0f));
+    bx = std::clamp(bx, vp.x + 6.0f, std::max(vp.x + 6.0f, vp.Right() - boxW - 6.0f));
+    by = std::clamp(by, vp.y + 6.0f, std::max(vp.y + 6.0f, vp.Bottom() - boxH - 6.0f));
 
+    canvas.PushClip(vp);
     const Rect boxRect(bx, by, boxW, boxH);
     canvas.DrawRoundRect(Rect(bx, by + 2.0f, boxW, boxH), 6.0f, Color(0, 0, 0, 60), Color::Transparent(), 0.0f);
     canvas.DrawRoundRect(boxRect, 6.0f, Color(15, 23, 42, 245), Color(71, 85, 105, 220), 1.0f);
@@ -2947,6 +3033,7 @@ void Context::RenderTooltipOverlay(ICanvas& canvas, Vec2 logicalSize) {
         canvas, m_activeTooltip,
         Rect(bx + padX, by + padY, contentW + 2.0f, contentH),
         fontSize, lineH, textColor, 0.0f, 0.5f);
+    canvas.PopClip();
 }
 
 } // namespace guikit
