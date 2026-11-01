@@ -11339,6 +11339,135 @@ int main() {
         CHECK(!cmdOpen);
         CHECK(rCmd.changed);
         CHECK(rCmd.selectedIndex == 1);
+
+        // 3. UiString Rule-of-Zero copy safety + Breadcrumb & Pagination interactive click tests
+        {
+            static_assert(std::is_trivially_copyable_v<guikit::UiString>);
+            guikit::UiString copiedInline;
+            {
+                std::string dynamicStr = "Workspace";
+                copiedInline = guikit::UiString(std::string_view(dynamicStr));
+                guikit::UiString overwriteStack = guikit::UiString(std::string_view(""));
+                (void)overwriteStack;
+            }
+            CHECK(copiedInline.View() == "Workspace");
+            CHECK(std::string_view(copiedInline.c_str()) == "Workspace");
+
+            // Click first item ("Home") in Breadcrumb -> changes crumbIdx from 1 to 0
+            ui.OnMouseMove({rCrumb.rect.x + 18.0f, rCrumb.rect.Center().y});
+            ui.OnMouseDown(1);
+            ui.BeginFrame({800.0f, 600.0f});
+            renderAllFive();
+            ui.EndFrame(canvas);
+            ui.OnMouseUp(1);
+            ui.BeginFrame({800.0f, 600.0f});
+            renderAllFive();
+            ui.EndFrame(canvas);
+            CHECK(rCrumb.changed);
+            CHECK(crumbIdx == 0);
+
+            // Click first button ('«' First page) in Pagination -> changes pageIdx from 2 to 0
+            ui.OnMouseMove({rPage.rect.x + 12.0f, rPage.rect.Center().y});
+            ui.OnMouseDown(1);
+            ui.BeginFrame({800.0f, 600.0f});
+            renderAllFive();
+            ui.EndFrame(canvas);
+            ui.OnMouseUp(1);
+            ui.BeginFrame({800.0f, 600.0f});
+            renderAllFive();
+            ui.EndFrame(canvas);
+            CHECK(rPage.changed);
+            CHECK(pageIdx == 0);
+
+            // StepSlider(UiSize&) stable step count and 'A' (Auto) label when includeNone=true vs false
+            guikit::UiSize szAuto = guikit::UiSize::None;
+            guikit::UiSize szNoNone = guikit::UiSize::None;
+            guikit::Response rAuto{}, rNoNone{};
+            auto renderSizeSliders = [&]() {
+                if (auto col = ui.Column({.gap = 8.0f})) {
+                    rAuto = ui.StepSlider(szAuto, {.showTicks = true, .showLabels = true, .includeNone = true});
+                    rNoNone = ui.StepSlider(szNoNone, {.showTicks = true, .showLabels = true, .includeNone = false});
+                }
+            };
+            for (int f = 0; f < 2; ++f) {
+                ui.BeginFrame({800.0f, 600.0f});
+                renderSizeSliders();
+                ui.EndFrame(canvas);
+            }
+
+            // Drag rNoNone to the leftmost edge -> must land on XS (not None) without changing step count
+            ui.OnMouseMove({rNoNone.rect.x + 2.0f, rNoNone.rect.y + 8.0f});
+            ui.OnMouseDown(1);
+            ui.BeginFrame({800.0f, 600.0f});
+            renderSizeSliders();
+            ui.EndFrame(canvas);
+            ui.OnMouseUp(1);
+            ui.BeginFrame({800.0f, 600.0f});
+            renderSizeSliders();
+            ui.EndFrame(canvas);
+            CHECK(szNoNone == guikit::UiSize::Xs);
+
+            // Drag rAuto to the second tick (1/5 of track) -> Xs, then back to leftmost edge -> None ('A')
+            ui.OnMouseMove({rAuto.rect.x + rAuto.rect.w * 0.2f, rAuto.rect.y + 8.0f});
+            ui.OnMouseDown(1);
+            ui.BeginFrame({800.0f, 600.0f});
+            renderSizeSliders();
+            ui.EndFrame(canvas);
+            CHECK(szAuto == guikit::UiSize::Xs);
+
+            ui.OnMouseMove({rAuto.rect.x + 2.0f, rAuto.rect.y + 8.0f});
+            ui.BeginFrame({800.0f, 600.0f});
+            renderSizeSliders();
+            ui.EndFrame(canvas);
+            ui.OnMouseUp(1);
+            CHECK(szAuto == guikit::UiSize::None);
+
+            // Collapsed Breadcrumb '...' pill opens dropdown popup instead of inline expansion
+            size_t collapsedActive = 4;
+            guikit::Response rColBc{};
+            static constexpr std::array<std::string_view, 5> kDeepTrail = {
+                "Workspace", "Clusters", "Production", "Telemetry", "LiveStream"
+            };
+            auto renderCollapsedBc = [&]() {
+                if (auto col = ui.Column({.gap = 8.0f})) {
+                    rColBc = ui.Breadcrumb(collapsedActive, kDeepTrail, {.maxVisibleItems = 2});
+                }
+            };
+            for (int f = 0; f < 2; ++f) {
+                ui.BeginFrame({800.0f, 600.0f});
+                renderCollapsedBc();
+                ui.EndFrame(canvas);
+            }
+            const float collapsedWidthBefore = rColBc.rect.w;
+            CHECK(!ui.IsPopupOpen(rColBc.id));
+
+            // Click '...' pill (located right after first item "Workspace" + separator)
+            ui.OnMouseMove({rColBc.rect.x + rColBc.rect.w * 0.48f, rColBc.rect.Center().y});
+            ui.OnMouseDown(1);
+            ui.BeginFrame({800.0f, 600.0f});
+            renderCollapsedBc();
+            ui.EndFrame(canvas);
+            ui.OnMouseUp(1);
+            ui.BeginFrame({800.0f, 600.0f});
+            renderCollapsedBc();
+            ui.EndFrame(canvas);
+            CHECK(ui.IsPopupOpen(rColBc.id));
+            CHECK_NEAR(rColBc.rect.w, collapsedWidthBefore, 1.0f); // Trail stays compact (not expanded inline)
+
+            // Navigate down to second collapsed item ("Production", index 2) and press Enter
+            ui.OnKeyDown(guikit::Key::Down);
+            ui.BeginFrame({800.0f, 600.0f});
+            renderCollapsedBc();
+            ui.EndFrame(canvas);
+
+            ui.OnKeyDown(guikit::Key::Enter);
+            ui.BeginFrame({800.0f, 600.0f});
+            renderCollapsedBc();
+            ui.EndFrame(canvas);
+            CHECK(!ui.IsPopupOpen(rColBc.id));
+            CHECK(rColBc.changed);
+            CHECK(collapsedActive == 2);
+        }
     }
 
     // LevelMeter (Single & Stereo, Segmented LEDs, Peak-Hold, Clip Reset) & TagInput (Editable Chips, Delimiter Split, Backspace)

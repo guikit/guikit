@@ -55,7 +55,7 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
     }
 
     if (auto el = ui.Element({.label = "Menu Size"})) {
-        if (ui.StepSlider(ctx.controlsSize, {.showTicks = true, .showLabels = true}).changed) ui.InvalidateAll();
+        if (ui.StepSlider(ctx.controlsSize, {.showTicks = true, .showLabels = true, .includeNone = true}).changed) ui.InvalidateAll();
     }
     ctx.RenderVariantPicker(ui);
 

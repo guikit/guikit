@@ -37,7 +37,7 @@ struct BreadcrumbItem {
 /// Configuration options for Breadcrumb navigation widget.
 struct BreadcrumbOptions {
     BreadcrumbSeparator separator{BreadcrumbSeparator::Chevron};
-    uint32_t maxVisibleItems{0}; ///< 0 = show all; > 0 collapses middle items into an interactive "..." button when items.size() > maxVisibleItems
+    uint32_t maxVisibleItems{0}; ///< 0 = show all (auto-collapses if viewport is narrower than trail); >= 2 collapses middle items into an interactive "..." dropdown menu when items.size() > maxVisibleItems
     StateColor color{};
     StretchMode stretch{StretchMode::Compact};
     Align align{Align::Start};
@@ -58,7 +58,7 @@ struct BreadcrumbData {
     BreadcrumbOptions opts{};
     std::span<const BreadcrumbItem> items{};
     size_t activeIndex{0};
-    bool expanded{false};
+    bool popupOpen{false};
     int hoveredToken{-1};
     int pressedToken{-1};
 };

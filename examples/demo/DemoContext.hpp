@@ -30,7 +30,8 @@ enum class NavCategory : uint8_t {
     PanelCard,
     PanelSplitView,
     PanelTabBar,
-    PanelNavigation,
+    PanelBreadcrumb,
+    PanelPagination,
     PanelToolbar,
     PanelSidebar,
     PanelTreeView,
@@ -137,7 +138,8 @@ constexpr std::string_view CategoryDisplayTitle(NavCategory cat) noexcept {
         case NavCategory::PanelCard:         return "Card — Surface Container & Elevation";
         case NavCategory::PanelSplitView:    return "SplitView — Resizable Dual-Pane Sash";
         case NavCategory::PanelTabBar:       return "TabBar — Scrollable & Closable Tabs";
-        case NavCategory::PanelNavigation:   return "Navigation — Breadcrumb & Pagination";
+        case NavCategory::PanelBreadcrumb:   return "Breadcrumb — Hierarchical Path Trail";
+        case NavCategory::PanelPagination:   return "Pagination — Page Navigation & Ellipsis";
         case NavCategory::PanelToolbar:      return "Toolbar — Command Strip & Tool Palettes";
         case NavCategory::PanelSidebar:      return "Sidebar — Application Workbench Shell";
         case NavCategory::PanelTreeView:     return "TreeView — Hierarchical Node Explorer";
@@ -1008,9 +1010,13 @@ void RenderTabBarInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderTabBarStage(guikit::Context& ui, DemoContext& ctx);
 std::string GenerateTabBarCode(const DemoContext& ctx);
 
-void RenderNavigationInspector(guikit::Context& ui, DemoContext& ctx);
-void RenderNavigationStage(guikit::Context& ui, DemoContext& ctx);
-std::string GenerateNavigationCode(const DemoContext& ctx);
+void RenderBreadcrumbInspector(guikit::Context& ui, DemoContext& ctx);
+void RenderBreadcrumbStage(guikit::Context& ui, DemoContext& ctx);
+std::string GenerateBreadcrumbCode(const DemoContext& ctx);
+
+void RenderPaginationInspector(guikit::Context& ui, DemoContext& ctx);
+void RenderPaginationStage(guikit::Context& ui, DemoContext& ctx);
+std::string GeneratePaginationCode(const DemoContext& ctx);
 
 void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx);

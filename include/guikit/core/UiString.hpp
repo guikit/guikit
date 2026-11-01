@@ -6,23 +6,29 @@
 #include <cstring>
 #include <format>
 #include <string_view>
+#include <type_traits>
 
 namespace guikit {
 
 /// Zero-heap hybrid string optimized for immediate mode UI labels.
-/// Holds either a pointer to a static string literal (zero copies), or an inline fixed buffer (zero heap allocations).
+/// Holds either a pointer to a static/arena string literal (zero copies, m_ptr != nullptr),
+/// or an inline fixed buffer (zero heap allocations, m_ptr == nullptr, trivially copyable Rule of Zero).
 template <size_t Capacity = 64>
 class BasicUiString {
 public:
     constexpr BasicUiString() noexcept
-        : m_length(0) {
+        : m_ptr(nullptr), m_length(0) {
         m_buffer[0] = '\0';
-        m_ptr = m_buffer.data();
     }
 
     /// Constructs from a static string literal or null-terminated string with zero copy.
     constexpr BasicUiString(const char* literal) noexcept {
         SetStatic(literal);
+    }
+
+    /// Constructs from a null-terminated external/arena string with known length (zero copy).
+    constexpr BasicUiString(const char* externalNullTerminated, size_t len) noexcept {
+        SetStatic(externalNullTerminated, len);
     }
 
     /// Constructs from a string_view, storing characters in the inline buffer.
@@ -43,10 +49,22 @@ public:
     }
 
     /// Assigns static literal directly without copying characters.
-    void SetStatic(const char* literal) noexcept {
+    constexpr void SetStatic(const char* literal) noexcept {
         if (literal) {
             m_ptr = literal;
             m_length = static_cast<uint32_t>(std::char_traits<char>::length(literal));
+            m_buffer[0] = '\0';
+        } else {
+            Clear();
+        }
+    }
+
+    /// Assigns null-terminated external/arena buffer with known length without copying characters.
+    constexpr void SetStatic(const char* externalNullTerminated, size_t len) noexcept {
+        if (externalNullTerminated) {
+            m_ptr = externalNullTerminated;
+            m_length = static_cast<uint32_t>(len);
+            m_buffer[0] = '\0';
         } else {
             Clear();
         }
@@ -55,9 +73,11 @@ public:
     /// Copies string_view into the inline buffer.
     void Set(std::string_view sv) noexcept {
         m_length = static_cast<uint32_t>(std::min(sv.size(), Capacity - 1));
-        std::memcpy(m_buffer.data(), sv.data(), m_length);
+        if (m_length > 0) {
+            std::memcpy(m_buffer.data(), sv.data(), m_length);
+        }
         m_buffer[m_length] = '\0';
-        m_ptr = m_buffer.data();
+        m_ptr = nullptr;
     }
 
     /// Formats arguments directly into the inline buffer with zero heap allocations.
@@ -66,7 +86,7 @@ public:
         auto res = std::format_to_n(m_buffer.data(), Capacity - 1, fmt, std::forward<Args>(args)...);
         m_length = static_cast<uint32_t>(res.out - m_buffer.data());
         m_buffer[m_length] = '\0';
-        m_ptr = m_buffer.data();
+        m_ptr = nullptr;
     }
 
     /// Factory method formatting a new UiString directly in-place.
@@ -78,27 +98,27 @@ public:
     }
 
     /// Resets string to empty state.
-    void Clear() noexcept {
+    constexpr void Clear() noexcept {
         m_buffer[0] = '\0';
-        m_ptr = m_buffer.data();
+        m_ptr = nullptr;
         m_length = 0;
     }
 
     // Branchless accessors
     [[nodiscard]] constexpr operator std::string_view() const noexcept {
-        return std::string_view(m_ptr, m_length);
+        return std::string_view(data(), m_length);
     }
 
     [[nodiscard]] constexpr std::string_view View() const noexcept {
-        return std::string_view(m_ptr, m_length);
+        return std::string_view(data(), m_length);
     }
 
     [[nodiscard]] constexpr const char* c_str() const noexcept {
-        return m_ptr;
+        return m_ptr ? m_ptr : m_buffer.data();
     }
 
     [[nodiscard]] constexpr const char* data() const noexcept {
-        return m_ptr;
+        return m_ptr ? m_ptr : m_buffer.data();
     }
 
     [[nodiscard]] constexpr size_t size() const noexcept {
@@ -137,5 +157,6 @@ private:
 
 /// Primary string type for UI labels with 64-byte inline capacity.
 using UiString = BasicUiString<64>;
+static_assert(std::is_trivially_copyable_v<UiString>, "UiString must remain trivially copyable (Rule of Zero)");
 
 } // namespace guikit

@@ -260,7 +260,8 @@ if (GUIKIT_BUILD_DEMO)
         examples/demo/elements/LevelMeterScreen.cpp
         examples/demo/elements/TagInputScreen.cpp
         examples/demo/panels/SplitViewScreen.cpp
-        examples/demo/panels/NavigationScreen.cpp
+        examples/demo/panels/BreadcrumbScreen.cpp
+        examples/demo/panels/PaginationScreen.cpp
         examples/demo/elements/SwitchScreen.cpp
         examples/demo/elements/CheckboxScreen.cpp
         examples/demo/elements/RadioScreen.cpp

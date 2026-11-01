@@ -1696,7 +1696,7 @@ public:
     [[nodiscard]] UiString Format(std::format_string<Args...> fmt, Args&&... args) {
         BasicUiString<128> temp;
         temp.Format(fmt, std::forward<Args>(args)...);
-        return UiString(AllocString(temp.View()));
+        return String(temp.View());
     }
 
     // --- Core Engine Services for Widgets ---

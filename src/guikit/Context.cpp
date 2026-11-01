@@ -526,7 +526,9 @@ Response Context::Button(ButtonOptions opts, std::source_location loc) {
 }
 
 UiString Context::String(std::string_view text) {
-    return UiString(AllocString(text));
+    if (text.empty()) return UiString{};
+    const std::string_view arenaSv = AllocString(text);
+    return UiString(arenaSv.data(), arenaSv.size());
 }
 
 std::string_view Context::AllocString(std::string_view text) {
@@ -598,17 +600,17 @@ Response Context::StepSlider(
     StepSliderOptions opts,
     std::source_location loc
 ) {
-    static constexpr std::array<std::string_view, 6> kSizeLabelsWithNone = {"0", "XS", "SM", "MD", "LG", "XL"};
+    static constexpr std::array<std::string_view, 6> kSizeLabelsWithNone = {"A", "XS", "SM", "MD", "LG", "XL"};
     static constexpr std::array<UiSize, 6> kSizesWithNone = {UiSize::None, UiSize::Xs, UiSize::Sm, UiSize::Md, UiSize::Lg, UiSize::Xl};
 
     static constexpr std::array<std::string_view, 5> kSizeLabels = {"XS", "SM", "MD", "LG", "XL"};
     static constexpr std::array<UiSize, 5> kSizes = {UiSize::Xs, UiSize::Sm, UiSize::Md, UiSize::Lg, UiSize::Xl};
 
-    const bool hasNone = opts.includeNone || size == UiSize::None;
+    const bool hasNone = opts.includeNone;
     const auto sizesSpan = hasNone ? std::span<const UiSize>(kSizesWithNone) : std::span<const UiSize>(kSizes);
     const auto labelsSpan = hasNone ? std::span<const std::string_view>(kSizeLabelsWithNone) : std::span<const std::string_view>(kSizeLabels);
 
-    size_t idx = 0;
+    size_t idx = hasNone ? 0 : 2;
     for (size_t i = 0; i < sizesSpan.size(); ++i) {
         if (sizesSpan[i] == size) {
             idx = i;

@@ -245,6 +245,24 @@ void ComputePaginationLayout(
         totalW += infoGap + infoW;
     }
 
+    float effGap = gap;
+    bool showInfo = opts.showPageInfo && (infoW > 0.0f);
+    if (innerRect.w > 1.0f && totalW > innerRect.w + 0.5f) {
+        if (showInfo) {
+            totalW -= (infoGap + infoW);
+            showInfo = false;
+            infoW = 0.0f;
+        }
+        if (totalW > innerRect.w + 0.5f && !outTokens.empty()) {
+            const float ratio = innerRect.w / std::max(1.0f, totalW);
+            effGap *= ratio;
+            for (float& w : widths) {
+                w *= ratio;
+            }
+            totalW = innerRect.w;
+        }
+    }
+
     float startX = innerRect.x;
     if (opts.stretch == StretchMode::Fill && innerRect.w > totalW) {
         if (opts.align == Align::Center) {
@@ -256,12 +274,12 @@ void ComputePaginationLayout(
 
     float curX = startX;
     for (size_t i = 0; i < outTokens.size(); ++i) {
-        if (i > 0) curX += gap;
+        if (i > 0) curX += effGap;
         outTokenRects.emplace_back(curX, innerRect.y, widths[i], innerRect.h);
         curX += widths[i];
     }
 
-    if (opts.showPageInfo) {
+    if (showInfo) {
         curX += infoGap;
         outInfoRect = Rect(curX, innerRect.y, infoW, innerRect.h);
     }
@@ -334,18 +352,12 @@ Response Pagination::Run(
     PaginationOptions optsCopy = opts;
     Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
 
-    const Vec2 naturalDims = MeasurePaginationNaturalBox(curr, safeTotal, optsCopy, activeSize, canvas, theme);
-    const float unscaledW = (theme.scale > 0.0f) ? (naturalDims.x / theme.scale) : naturalDims.x;
-    if (optsCopy.stretch != StretchMode::Fill && !optsCopy.width.has_value()) {
-        optsCopy.width = unscaledW;
-    }
-
     ctx.RegisterFocusable(id, effectiveDisabled);
     Response res = ctx.Interact(id);
 
-    const ControlSpec ctrl = EffectivePaginationControl(optsCopy, activeSize, theme);
+    const ControlSpec prevCtrl = EffectivePaginationControl(optsCopy, activeSize, theme);
     const Rect prevBounds = ctx.GetPrevFrameBounds(id);
-    const Rect innerBounds = Control::ResolveInnerRect(prevBounds, ctrl, activeSize, theme);
+    const Rect innerBounds = Control::ResolveInnerRect(prevBounds, prevCtrl, activeSize, theme);
 
     std::vector<PageToken> tokens;
     std::vector<Rect> tokenRects;
@@ -384,6 +396,7 @@ Response Pagination::Run(
                     curr = tok.targetPage;
                     currentPage = curr;
                     res.changed = true;
+                    ctx.InvalidateAll();
                     ctx.RequestRepaint(3);
                 }
             }
@@ -421,6 +434,12 @@ Response Pagination::Run(
 
     if (res.hovered && !optsCopy.tooltip.empty()) {
         ctx.SetTooltip(optsCopy.tooltip.View(), prevBounds);
+    }
+
+    ControlSpec ctrl = EffectivePaginationControl(optsCopy, activeSize, theme);
+    if (optsCopy.stretch != StretchMode::Fill && !ctrl.width.has_value()) {
+        const Vec2 naturalDims = MeasurePaginationNaturalBox(curr, safeTotal, optsCopy, activeSize, canvas, theme);
+        ctrl.width = (theme.scale > 0.0f) ? (naturalDims.x / theme.scale) : naturalDims.x;
     }
 
     Node* node = ctx.CreateNode(NodeType::Pagination, id);

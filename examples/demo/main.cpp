@@ -42,7 +42,8 @@ void DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
         case NavCategory::PanelCard:         RenderCardInspector(ui, ctx); break;
         case NavCategory::PanelSplitView:    RenderSplitViewInspector(ui, ctx); break;
         case NavCategory::PanelTabBar:       RenderTabBarInspector(ui, ctx); break;
-        case NavCategory::PanelNavigation:   RenderNavigationInspector(ui, ctx); break;
+        case NavCategory::PanelBreadcrumb:   RenderBreadcrumbInspector(ui, ctx); break;
+        case NavCategory::PanelPagination:   RenderPaginationInspector(ui, ctx); break;
         case NavCategory::PanelToolbar:      RenderToolbarInspector(ui, ctx); break;
         case NavCategory::PanelSidebar:      RenderSidebarInspector(ui, ctx); break;
         case NavCategory::PanelTreeView:     RenderTreeViewInspector(ui, ctx); break;
@@ -90,7 +91,8 @@ void DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx
         case NavCategory::PanelCard:         RenderCardStage(ui, ctx); break;
         case NavCategory::PanelSplitView:    RenderSplitViewStage(ui, ctx); break;
         case NavCategory::PanelTabBar:       RenderTabBarStage(ui, ctx); break;
-        case NavCategory::PanelNavigation:   RenderNavigationStage(ui, ctx); break;
+        case NavCategory::PanelBreadcrumb:   RenderBreadcrumbStage(ui, ctx); break;
+        case NavCategory::PanelPagination:   RenderPaginationStage(ui, ctx); break;
         case NavCategory::PanelToolbar:      RenderToolbarStage(ui, ctx); break;
         case NavCategory::PanelSidebar:      RenderSidebarStage(ui, ctx); break;
         case NavCategory::PanelTreeView:     RenderTreeViewStage(ui, ctx); break;
@@ -140,7 +142,8 @@ std::string DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
         case NavCategory::PanelCard:         return GenerateCardCode(ctx);
         case NavCategory::PanelSplitView:    return GenerateSplitViewCode(ctx);
         case NavCategory::PanelTabBar:       return GenerateTabBarCode(ctx);
-        case NavCategory::PanelNavigation:   return GenerateNavigationCode(ctx);
+        case NavCategory::PanelBreadcrumb:   return GenerateBreadcrumbCode(ctx);
+        case NavCategory::PanelPagination:   return GeneratePaginationCode(ctx);
         case NavCategory::PanelToolbar:      return GenerateToolbarCode(ctx);
         case NavCategory::PanelSidebar:      return GenerateSidebarCode(ctx);
         case NavCategory::PanelTreeView:     return GenerateTreeViewCode(ctx);
@@ -686,7 +689,8 @@ int main(int argc, char* argv[]) {
                             menu.Item(selectedCategory, NavCategory::PanelCard,         {.text = "Card",         .icon = guikit::Icon::Copy()});
                             menu.Item(selectedCategory, NavCategory::PanelSplitView,    {.text = "SplitView",    .icon = guikit::Icon::Copy()});
                             menu.Item(selectedCategory, NavCategory::PanelTabBar,       {.text = "TabBar",       .icon = guikit::Icon::Folder()});
-                            menu.Item(selectedCategory, NavCategory::PanelNavigation,   {.text = "Navigation",   .icon = guikit::Icon::Folder()});
+                            menu.Item(selectedCategory, NavCategory::PanelBreadcrumb,   {.text = "Breadcrumb",   .icon = guikit::Icon::Folder()});
+                            menu.Item(selectedCategory, NavCategory::PanelPagination,   {.text = "Pagination",   .icon = guikit::Icon::ArrowRight()});
                             menu.Item(selectedCategory, NavCategory::PanelToolbar,      {.text = "Toolbar",      .icon = guikit::Icon::Settings()});
                             menu.Item(selectedCategory, NavCategory::PanelSidebar,      {.text = "Sidebar",      .icon = guikit::Icon::Folder()});
                             menu.Item(selectedCategory, NavCategory::PanelTreeView,     {.text = "TreeView",     .icon = guikit::Icon::Folder()});
@@ -986,7 +990,8 @@ int main(int argc, char* argv[]) {
                         {.label = "Go to SpinBox Numeric Stepper",         .category = "Elements",  .description = "Inline, Detached & Split steppers",   .icon = guikit::Icon::Plus()},
                         {.label = "Go to ColorPicker HSV/HEX",             .category = "Elements",  .description = "2D SV canvas, hue & alpha sliders",   .icon = guikit::Icon::Eye()},
                         {.label = "Go to SplitView Resizable Panes",       .category = "Panels",    .description = "Horizontal & Vertical splitters",     .icon = guikit::Icon::Copy()},
-                        {.label = "Go to Navigation (Breadcrumb & Page)",  .category = "Panels",    .description = "Breadcrumbs & smart pagination",      .icon = guikit::Icon::Folder()},
+                        {.label = "Go to Breadcrumb Path Navigation",      .category = "Panels",    .description = "Hierarchical path trail & collapse",  .icon = guikit::Icon::Folder()},
+                        {.label = "Go to Pagination Control",              .category = "Panels",    .description = "Page numbers & smart ellipsis jump",  .icon = guikit::Icon::ArrowRight()},
                         {.label = "Go to Overlays (Modal / Toast / Cmd)",  .category = "Panels",    .description = "Modals, context menus & palettes",    .icon = guikit::Icon::Flash()},
                         {.label = "Go to Table / Virtualized Grid",        .category = "Panels",    .description = "100,000 rows virtualized data grid",  .icon = guikit::Icon::Copy()},
                         {.label = "Go to Signal View (DSP)",               .category = "2D Scenes", .description = "Waveform & spectrogram analyzer",     .icon = guikit::Icon::Play()},
@@ -1008,23 +1013,24 @@ int main(int argc, char* argv[]) {
                             case 4: selectedCategory = NavCategory::ElemSpinBox; break;
                             case 5: selectedCategory = NavCategory::ElemColorPicker; break;
                             case 6: selectedCategory = NavCategory::PanelSplitView; break;
-                            case 7: selectedCategory = NavCategory::PanelNavigation; break;
-                            case 8: selectedCategory = NavCategory::PanelOverlays; break;
-                            case 9: selectedCategory = NavCategory::PanelTable; break;
-                            case 10: selectedCategory = NavCategory::SceneSignalView; break;
-                            case 11: selectedCategory = NavCategory::SceneSonarView; break;
-                            case 12: selectedCategory = NavCategory::SceneBpmnEditor; break;
-                            case 13:
+                            case 7: selectedCategory = NavCategory::PanelBreadcrumb; break;
+                            case 8: selectedCategory = NavCategory::PanelPagination; break;
+                            case 9: selectedCategory = NavCategory::PanelOverlays; break;
+                            case 10: selectedCategory = NavCategory::PanelTable; break;
+                            case 11: selectedCategory = NavCategory::SceneSignalView; break;
+                            case 12: selectedCategory = NavCategory::SceneSonarView; break;
+                            case 13: selectedCategory = NavCategory::SceneBpmnEditor; break;
+                            case 14:
                                 demoCtx.previewLightMode = !demoCtx.previewLightMode;
                                 demoCtx.previewDarkMode = !demoCtx.previewLightMode;
                                 demoCtx.previewTheme.SetMode(demoCtx.previewDarkMode
                                     ? guikit::ThemeMode::Dark
                                     : guikit::ThemeMode::Light);
                                 break;
-                            case 14:
+                            case 15:
                                 demoCtx.previewShowCode = !demoCtx.previewShowCode;
                                 break;
-                            case 15:
+                            case 16:
                                 demoCtx.shellFloating = !demoCtx.shellFloating;
                                 break;
                             default: break;
