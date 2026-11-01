@@ -28,6 +28,8 @@ struct ScrollState {
 struct ScrollAreaOptions {
     Orientation orientation{Orientation::Vertical};
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};
+    Alignment align{Alignment::Stretch};            ///< Cross-axis alignment inside scroll content rect
+    Justify justify{Justify::Start};                ///< Main-axis justification when content is smaller than viewport
     std::optional<float> gap{std::nullopt};        ///< Gap between consecutive scroll items (nullopt = zero)
     std::optional<Padding> padding{std::nullopt};   ///< Viewport content padding (nullopt = zero)
     StateColor background{};

@@ -11584,6 +11584,77 @@ int main() {
         CHECK_NEAR(ui.GetPrevFrameBounds(statusId).Bottom(), 600.0f - expectedGap, 0.01f);
     }
 
+    // -------------------------------------------------------------------------
+    // Test: Nested ScrollArea wheel bubbling & 2D centered ScrollArea
+    // -------------------------------------------------------------------------
+    {
+        using namespace guikit;
+        Context ui;
+        SdlCanvas canvas(nullptr);
+
+        Id outerId = Id::Null();
+        Id innerId = Id::Null();
+        Id childId = Id::Null();
+        float childW = 200.0f;
+        float childH = 150.0f;
+
+        auto render2D = [&]() {
+            ui.BeginFrame({500.0f, 400.0f});
+            if (auto outer = ui.ScrollArea({
+                .orientation = Orientation::Both,
+                .align = Alignment::Center,
+                .justify = Justify::Center
+            })) {
+                outerId = outer.GetNode()->id;
+                if (auto box = ui.Box({
+                    .widthMode = SizeMode::Fixed,
+                    .heightMode = SizeMode::Fixed,
+                    .fixedWidth = childW,
+                    .fixedHeight = childH
+                })) {
+                    childId = box.GetNode()->id;
+                    if (auto inner = ui.ScrollArea({.orientation = Orientation::Vertical})) {
+                        innerId = inner.GetNode()->id;
+                        if (auto innerContent = ui.Box({
+                            .widthMode = SizeMode::Stretch,
+                            .heightMode = SizeMode::Fixed,
+                            .fixedHeight = 900.0f
+                        })) {}
+                    }
+                }
+            }
+            ui.EndFrame(canvas);
+        };
+
+        // 1. When child (200x150) is smaller than outer ScrollArea (500x400), it is centered in 2D
+        render2D();
+        const Rect centeredRect = ui.GetPrevFrameBounds(childId);
+        CHECK_NEAR(centeredRect.x, (500.0f - 200.0f) * 0.5f, 1.0f);
+        CHECK_NEAR(centeredRect.y, (400.0f - 150.0f) * 0.5f, 1.0f);
+
+        // 2. When child (700x600) is larger than outer ScrollArea (500x400), both inner and outer can scroll
+        childW = 700.0f;
+        childH = 600.0f;
+        render2D();
+
+        // Hover inside the inner ScrollArea and scroll down: inner consumes wheel, outer stays at 0
+        ui.OnMouseMove({250.0f, 200.0f});
+        ui.OnMouseWheel(0.0f, -1.0f);
+        render2D();
+        const auto& innerState1 = ui.GetOrCreateState<ScrollState>(innerId);
+        const auto& outerState1 = ui.GetOrCreateState<ScrollState>(outerId);
+        CHECK(innerState1.offset.y > 0.0f);
+        CHECK_NEAR(outerState1.offset.y, 0.0f, 0.01f);
+
+        // Scroll inner all the way to bottom, then scroll once more: wheel bubbles up to outer ScrollArea
+        ui.OnMouseWheel(0.0f, -50.0f);
+        render2D();
+        ui.OnMouseWheel(0.0f, -1.0f);
+        render2D();
+        const auto& outerState2 = ui.GetOrCreateState<ScrollState>(outerId);
+        CHECK(outerState2.offset.y > 0.0f);
+    }
+
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";
         return 0;

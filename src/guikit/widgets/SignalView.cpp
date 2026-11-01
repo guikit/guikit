@@ -1140,6 +1140,7 @@ SignalViewResponse SignalView::Run(
                 st.viewStartSec = newT0;
                 st.viewEndSec = newT1;
                 res.changed = true;
+                ctx.ConsumeMouseWheel();
             }
         }
 

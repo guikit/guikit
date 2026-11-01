@@ -552,7 +552,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             const bool allowH = (node->scrollOrientation == Orientation::Horizontal || node->scrollOrientation == Orientation::Both);
 
             // 1. Determine if horizontal scrollbar is required
-            float naturalContentW = fullW;
+            float naturalContentW = 0.0f;
             if (allowH) {
                 if (node->direction == FlexDirection::Row) {
                     float sumW = 0.0f;
@@ -563,9 +563,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                         ++active;
                     }
                     if (active > 1) sumW += static_cast<float>(active - 1) * node->gap;
-                    naturalContentW = std::max(fullW, sumW);
+                    naturalContentW = sumW;
                 } else {
-                    float maxW = fullW;
+                    float maxW = 0.0f;
                     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                         if (child->isSpacer || child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
                         const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
@@ -586,7 +586,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             // 2. Determine if vertical scrollbar is required
             bool needScrollbarY = allowV && (node->scrollbarPolicy == VisibilityPolicy::Always);
             if (!needScrollbarY && allowV && node->scrollbarPolicy == VisibilityPolicy::Auto) {
-                const float measureW = allowH ? naturalContentW : fullW;
+                const float measureW = allowH ? std::max(fullW, naturalContentW) : fullW;
                 float testH = 0.0f;
                 uint32_t active = 0;
                 for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
@@ -633,11 +633,14 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             node->scrollOffset.y = std::clamp(node->scrollOffset.y, 0.0f, maxScrollY);
             node->scrollOffset.x = std::clamp(node->scrollOffset.x, 0.0f, maxScrollX);
 
+            const float effectiveContentH = allowV
+                ? std::max(viewportH, contentH - node->padding.Vertical())
+                : viewportH;
             const Rect scrollContentRect(
                 node->computedRect.x + node->padding.left - node->scrollOffset.x,
                 node->computedRect.y + node->padding.top - node->scrollOffset.y,
                 effectiveContentW,
-                allowV ? contentH : viewportH
+                effectiveContentH
             );
 
             if (node->direction == FlexDirection::Grid) {

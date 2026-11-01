@@ -811,6 +811,7 @@ void UpdateSceneCameraTransform(
                 state.pan = mouseRel - worldUnderMouse * (newZoom * s);
                 ctx.RequestRepaint(2);
             }
+            ctx.ConsumeMouseWheel();
         }
     }
 

@@ -102,6 +102,9 @@ inline void RenderDotGridBackdrop(const guikit::Node* n, guikit::ICanvas& canvas
 }
 
 inline void RenderBackdropHudBadge(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& theme) noexcept {
+    if (n->type == guikit::NodeType::ScrollArea) {
+        guikit::ScrollArea::RenderScrollbar(n, canvas, theme);
+    }
     if (n->text.empty()) return;
     const guikit::Rect& r = n->computedRect;
     if (r.w <= 160.0f || r.h <= 60.0f) return;
@@ -113,8 +116,10 @@ inline void RenderBackdropHudBadge(const guikit::Node* n, guikit::ICanvas& canva
     const float padY = 4.0f * s;
     const float pillW = textSz.x + padX * 2.0f;
     const float pillH = std::max(fontSize + padY * 2.0f, 20.0f * s);
-    const float pillX = r.Right() - pillW - 10.0f * s;
-    const float pillY = r.Bottom() - pillH - 8.0f * s;
+    const float extraRight = (n->type == guikit::NodeType::ScrollArea && n->scrollContentSize.y > r.h + 0.5f) ? (10.0f * s) : 0.0f;
+    const float extraBottom = (n->type == guikit::NodeType::ScrollArea && n->scrollContentSize.x > r.w + 0.5f) ? (10.0f * s) : 0.0f;
+    const float pillX = r.Right() - pillW - 10.0f * s - extraRight;
+    const float pillY = r.Bottom() - pillH - 8.0f * s - extraBottom;
 
     const bool isLight = (theme.mode == guikit::ThemeMode::Light);
     const guikit::Color pillBg = isLight
@@ -280,14 +285,18 @@ inline void RenderPreviewViewport(
     const bool isShellScreen = (selectedCategory == NavCategory::PanelSidebar);
     const float clientPad = isShellScreen ? 0.0f : (isFullStage ? 8.0f : 24.0f);
 
-    // 1. Recessed Studio Artboard Backdrop (with dot-grid pattern & generous 18px breathing room)
-    if (auto backdropBox = ui.Box({
-        .widthMode = guikit::SizeMode::Stretch,
-        .heightMode = guikit::SizeMode::Stretch,
-        .padding = guikit::Padding::All(18.0f),
-        .clipChildren = true
+    // 1. Recessed Studio Artboard Backdrop (2D ScrollArea in Device mode, Stretch Box in Window/Full mode)
+    if (auto backdropBox = ui.ScrollArea({
+        .orientation = guikit::Orientation::Both,
+        .scrollbar = isDeviceMode ? guikit::VisibilityPolicy::Auto : guikit::VisibilityPolicy::Never,
+        .align = isDeviceMode ? guikit::Alignment::Center : guikit::Alignment::Stretch,
+        .justify = isDeviceMode ? guikit::Justify::Center : guikit::Justify::Start,
+        .padding = guikit::Padding::All(18.0f)
     })) {
         guikit::Node* backdropNode = backdropBox.GetNode();
+        if (!isDeviceMode) {
+            backdropNode->type = guikit::NodeType::Box;
+        }
         backdropNode->renderFn = &detail::RenderDotGridBackdrop;
         backdropNode->postRenderFn = &detail::RenderBackdropHudBadge;
 
@@ -457,79 +466,73 @@ inline void RenderPreviewViewport(
             // Hardware Device Chassis (Tablet or Smartphone with Safe-Area Top & Bottom Bars)
             const float devicePad = isShellScreen ? 0.0f : (isFullStage ? 6.0f : 16.0f);
 
-            if (auto centerDeviceRow = ui.Row({
-                .align = guikit::Alignment::Center,
-                .justify = guikit::Justify::Center,
-                .heightMode = guikit::SizeMode::Stretch
+            if (auto chassisBox = ui.Box({
+                .gap = 0.0f,
+                .widthMode = guikit::SizeMode::Fixed,
+                .heightMode = guikit::SizeMode::Fixed,
+                .fixedWidth = targetW,
+                .fixedHeight = targetH,
+                .padding = guikit::Padding::All(10.0f),
+                .background = {guikit::Color(15, 20, 28, 255)},
+                .border = {
+                    .width = 2.0f,
+                    .radius = isPhone ? 38.0f : 24.0f,
+                    .color = {guikit::Color(100, 116, 139, 255)}
+                },
+                .scale = effectiveZoom
             })) {
-                if (auto chassisBox = ui.Box({
-                    .gap = 0.0f,
-                    .widthMode = guikit::SizeMode::Fixed,
-                    .heightMode = guikit::SizeMode::Fixed,
-                    .fixedWidth = targetW,
-                    .fixedHeight = targetH,
-                    .padding = guikit::Padding::All(10.0f),
-                    .background = {guikit::Color(15, 20, 28, 255)},
-                    .border = {
-                        .width = 2.0f,
-                        .radius = isPhone ? 38.0f : 24.0f,
-                        .color = {guikit::Color(100, 116, 139, 255)}
-                    },
-                    .scale = effectiveZoom
-                })) {
-                    chassisBox.GetNode()->postRenderFn = &detail::RenderDeviceChassisButtons;
+                chassisBox.GetNode()->postRenderFn = &detail::RenderDeviceChassisButtons;
 
-                    if (auto screenBox = ui.Box({
-                        .gap = 0.0f,
+                if (auto screenBox = ui.Box({
+                    .gap = 0.0f,
+                    .widthMode = guikit::SizeMode::Stretch,
+                    .heightMode = guikit::SizeMode::Stretch,
+                    .padding = guikit::Padding::All(0.0f),
+                    .background = {demoCtx.previewTheme.palette.surface},
+                    .border = {
+                        .width = 1.0f,
+                        .radius = isPhone ? 28.0f : 14.0f,
+                        .color = {guikit::Color(51, 65, 85, 190)}
+                    },
+                    .clipChildren = true
+                })) {
+                    // 1. Top Safe Area (9:41 Clock + Dynamic Island / Camera + Signal/Battery)
+                    if (auto safeTop = ui.Box({
+                        .widthMode = guikit::SizeMode::Stretch,
+                        .heightMode = guikit::SizeMode::Fixed,
+                        .fixedHeight = isPhone ? 30.0f : 24.0f,
+                        .background = {demoCtx.previewTheme.palette.surface},
+                        .theme = &demoCtx.previewTheme
+                    })) {
+                        safeTop.GetNode()->postRenderFn = isPhone
+                            ? &detail::RenderDeviceStatusSafeArea<true>
+                            : &detail::RenderDeviceStatusSafeArea<false>;
+                    }
+
+                    // 2. Isolated Application Client Area
+                    if (auto clientBox = ui.Box({
                         .widthMode = guikit::SizeMode::Stretch,
                         .heightMode = guikit::SizeMode::Stretch,
-                        .padding = guikit::Padding::All(0.0f),
+                        .padding = guikit::Padding::All(devicePad),
                         .background = {demoCtx.previewTheme.palette.surface},
-                        .border = {
-                            .width = 1.0f,
-                            .radius = isPhone ? 28.0f : 14.0f,
-                            .color = {guikit::Color(51, 65, 85, 190)}
-                        },
-                        .clipChildren = true
+                        .clipChildren = true,
+                        .theme = &demoCtx.previewTheme,
+                        .scale = effectiveZoom,
+                        .debugBounds = demoCtx.previewBounds,
+                        .inspectMode = demoCtx.previewInspect
                     })) {
-                        // 1. Top Safe Area (9:41 Clock + Dynamic Island / Camera + Signal/Battery)
-                        if (auto safeTop = ui.Box({
-                            .widthMode = guikit::SizeMode::Stretch,
-                            .heightMode = guikit::SizeMode::Fixed,
-                            .fixedHeight = isPhone ? 30.0f : 24.0f,
-                            .background = {demoCtx.previewTheme.palette.surface},
-                            .theme = &demoCtx.previewTheme
-                        })) {
-                            safeTop.GetNode()->postRenderFn = isPhone
-                                ? &detail::RenderDeviceStatusSafeArea<true>
-                                : &detail::RenderDeviceStatusSafeArea<false>;
-                        }
+                        invokeStageInsideClient();
+                    }
 
-                        // 2. Isolated Application Client Area
-                        if (auto clientBox = ui.Box({
-                            .widthMode = guikit::SizeMode::Stretch,
-                            .heightMode = guikit::SizeMode::Stretch,
-                            .padding = guikit::Padding::All(devicePad),
-                            .background = {demoCtx.previewTheme.palette.surface},
-                            .clipChildren = true,
-                            .theme = &demoCtx.previewTheme,
-                            .scale = effectiveZoom,
-                            .debugBounds = demoCtx.previewBounds,
-                            .inspectMode = demoCtx.previewInspect
-                        })) {
-                            invokeStageInsideClient();
-                        }
-
-                        // 3. Bottom Safe Area (Home Indicator Bar)
-                        if (auto safeBottom = ui.Box({
-                            .widthMode = guikit::SizeMode::Stretch,
-                            .heightMode = guikit::SizeMode::Fixed,
-                            .fixedHeight = 16.0f,
-                            .background = {demoCtx.previewTheme.palette.surface},
-                            .theme = &demoCtx.previewTheme
-                        })) {
-                            safeBottom.GetNode()->postRenderFn = &detail::RenderDeviceHomeIndicatorSafeArea;
-                        }
+                    // 3. Bottom Safe Area (Home Indicator Bar)
+                    if (auto safeBottom = ui.Box({
+                        .widthMode = guikit::SizeMode::Stretch,
+                        .heightMode = guikit::SizeMode::Fixed,
+                        .fixedHeight = 16.0f,
+                        .background = {demoCtx.previewTheme.palette.surface},
+                        .theme = &demoCtx.previewTheme
+                    })) {
+                        safeBottom.GetNode()->postRenderFn = &detail::RenderDeviceHomeIndicatorSafeArea;
                     }
                 }
             }

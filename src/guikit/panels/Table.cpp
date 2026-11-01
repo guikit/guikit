@@ -693,11 +693,18 @@ TableScope Table::Open(
         if (tableHovered) {
             const Vec2 wheel = ctx.GetMouseWheel();
             if (wheel.x != 0.0f || wheel.y != 0.0f) {
+                const Vec2 prevOffset = state.scrollOffset;
                 if (ctx.GetKeyModifiers().shift && wheel.x == 0.0f) {
                     state.scrollOffset.x -= wheel.y * sm.scrollStep;
                 } else {
                     state.scrollOffset.y -= wheel.y * sm.scrollStep;
                     state.scrollOffset.x -= wheel.x * sm.scrollStep;
+                }
+                state.scrollOffset.y = std::clamp(state.scrollOffset.y, 0.0f, maxScrollY);
+                state.scrollOffset.x = std::clamp(state.scrollOffset.x, 0.0f, maxScrollX);
+                if (std::abs(state.scrollOffset.x - prevOffset.x) > 0.01f ||
+                    std::abs(state.scrollOffset.y - prevOffset.y) > 0.01f) {
+                    ctx.ConsumeMouseWheel();
                 }
             }
         }

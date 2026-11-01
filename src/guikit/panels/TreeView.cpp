@@ -876,14 +876,6 @@ TreeViewScope TreeView::Open(
     scrollNode->postRenderFn = &ScrollArea::RenderScrollbar;
 
     auto& scrollState = ctx.GetOrCreateState<ScrollState>(idScroll);
-    const Rect prevScrollBounds = ctx.GetPrevFrameBounds(idScroll);
-    if (prevScrollBounds.w > 0.0f && prevScrollBounds.h > 0.0f && !activeDisabled) {
-        const Vec2 wheel = ctx.GetMouseWheel();
-        if (prevScrollBounds.Contains(ctx.GetMousePos()) && wheel.y != 0.0f && !ctx.GetKeyModifiers().ctrl) {
-            const ScrollbarMetrics& sm = theme.GetScrollbar(activeSize);
-            scrollState.offset.y = std::max(0.0f, scrollState.offset.y - wheel.y * sm.scrollStep);
-        }
-    }
     scrollNode->scrollOffset = scrollState.offset;
     payload->scrollNode = scrollNode;
 

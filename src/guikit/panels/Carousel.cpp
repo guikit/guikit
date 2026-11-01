@@ -76,6 +76,7 @@ ContainerScope Carousel::Open(
             if (wheelDelta != 0.0f) {
                 state.offset.x -= wheelDelta * (cm.scrollStep * 0.35f);
                 if (state.offset.x < 0.0f) state.offset.x = 0.0f;
+                ctx.ConsumeMouseWheel();
                 ctx.RequestRepaint(3);
             }
         }

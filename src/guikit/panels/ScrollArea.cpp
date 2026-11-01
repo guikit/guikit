@@ -22,6 +22,8 @@ ContainerScope ScrollArea::Open(
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->direction = (opts.orientation == Orientation::Horizontal) ? FlexDirection::Row : FlexDirection::Column;
+    node->align = opts.align;
+    node->justify = opts.justify;
     node->clipChildren = true;
     node->widthMode = SizeMode::Stretch;
     node->heightMode = SizeMode::Stretch;
@@ -46,28 +48,8 @@ ContainerScope ScrollArea::Open(
     node->visualHash = detail::HashArgs(opts.background, opts.border);
     node->postRenderFn = &ScrollArea::RenderScrollbar;
 
-    // Retrieve persistent scroll state
+    // Retrieve persistent scroll state (mouse wheel is handled bottom-up in ScrollArea::Update)
     auto& state = ctx.GetOrCreateState<ScrollState>(id);
-
-    // Handle immediate mouse wheel scroll if hovered on previous frame bounds
-    Rect prevBounds = ctx.GetPrevFrameBounds(id);
-    if (prevBounds.w > 0.0f && prevBounds.h > 0.0f && !node->disabled) {
-        Vec2 wheel = ctx.GetMouseWheel();
-        if (prevBounds.Contains(ctx.GetMousePos()) && !ctx.IsMouseOccluded(id, ctx.GetMousePos()) && (wheel.x != 0.0f || wheel.y != 0.0f) && !ctx.GetKeyModifiers().ctrl) {
-            const ScrollbarMetrics& m = ctx.GetTheme().GetScrollbar(activeSize);
-            if (opts.orientation == Orientation::Horizontal ||
-                (opts.orientation == Orientation::Both && ctx.GetKeyModifiers().shift && wheel.x == 0.0f)) {
-                const float delta = (wheel.x != 0.0f) ? wheel.x : wheel.y;
-                state.offset.x -= delta * m.scrollStep;
-            } else {
-                state.offset.y -= wheel.y * m.scrollStep;
-                state.offset.x -= wheel.x * m.scrollStep;
-            }
-            if (state.offset.y < 0.0f) state.offset.y = 0.0f;
-            if (state.offset.x < 0.0f) state.offset.x = 0.0f;
-        }
-    }
-
     node->scrollOffset = state.offset;
 
     ctx.PushScale(activeScale);
@@ -344,6 +326,40 @@ void ScrollArea::Update(Context& ctx, Node* node) {
     );
     const ScrollbarMetrics& m = resolvedTheme->GetScrollbar(node->uiSize);
     const float cornerReserve = (showV && showH) ? (m.trackWidth + m.margin) : 0.0f;
+
+    if (!node->disabled && node->computedRect.w > 0.0f && node->computedRect.h > 0.0f) {
+        const Vec2 wheel = ctx.GetMouseWheel();
+        const Vec2 mousePos = ctx.GetMousePos();
+        if ((wheel.x != 0.0f || wheel.y != 0.0f) &&
+            node->computedRect.Contains(mousePos) &&
+            !ctx.IsMouseOccluded(node->id, mousePos) &&
+            !ctx.GetKeyModifiers().ctrl) {
+            const float maxScrollY = allowV ? std::max(0.0f, node->scrollContentSize.y - node->computedRect.h) : 0.0f;
+            const float maxScrollX = allowH ? std::max(0.0f, node->scrollContentSize.x - node->computedRect.w) : 0.0f;
+            const Vec2 prevOffset = state.offset;
+
+            if (node->scrollOrientation == Orientation::Horizontal ||
+                (node->scrollOrientation == Orientation::Both && ctx.GetKeyModifiers().shift && wheel.x == 0.0f)) {
+                const float delta = (wheel.x != 0.0f) ? wheel.x : wheel.y;
+                if (allowH) {
+                    state.offset.x = std::clamp(state.offset.x - delta * m.scrollStep, 0.0f, maxScrollX);
+                }
+            } else {
+                if (allowV) {
+                    state.offset.y = std::clamp(state.offset.y - wheel.y * m.scrollStep, 0.0f, maxScrollY);
+                }
+                if (allowH) {
+                    state.offset.x = std::clamp(state.offset.x - wheel.x * m.scrollStep, 0.0f, maxScrollX);
+                }
+            }
+
+            if (std::abs(state.offset.x - prevOffset.x) > 0.01f ||
+                std::abs(state.offset.y - prevOffset.y) > 0.01f) {
+                ctx.ConsumeMouseWheel();
+                ctx.RequestRepaint(2);
+            }
+        }
+    }
 
     bool hovY = false, actY = false;
     if (showV) {

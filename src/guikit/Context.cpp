@@ -2137,6 +2137,13 @@ bool Context::UpdateScrollAreasRecursive(Node* node) {
     }
 
     bool scrollChanged = false;
+
+    for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+        if (UpdateScrollAreasRecursive(child)) {
+            scrollChanged = true;
+        }
+    }
+
     const Vec2 prevScroll = node->scrollOffset;
 
     ++m_widgetExecDepth;
@@ -2159,12 +2166,6 @@ bool Context::UpdateScrollAreasRecursive(Node* node) {
     }
     if (m_widgetExecDepth > 0) {
         --m_widgetExecDepth;
-    }
-
-    for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-        if (UpdateScrollAreasRecursive(child)) {
-            scrollChanged = true;
-        }
     }
 
     if (pushedToStack && !m_containerStack.empty() && m_containerStack.back() == node) {
