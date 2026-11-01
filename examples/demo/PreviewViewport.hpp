@@ -63,6 +63,34 @@ inline float QueryDisplayPixelsPerMm(SDL_Window* window) noexcept {
     return (96.0f * safeScale) / 25.4f;
 }
 
+/// Applies the requested `guikit::CursorType` to the OS hardware cursor via SDL3, caching cursor handles.
+inline void ApplySystemCursor(guikit::CursorType cursor) noexcept {
+    static guikit::CursorType s_activeCursor = guikit::CursorType::Default;
+    if (cursor == s_activeCursor) return;
+    s_activeCursor = cursor;
+
+    static SDL_Cursor* s_cursors[9] = {};
+    const size_t idx = std::min<size_t>(static_cast<size_t>(cursor), 8);
+    if (!s_cursors[idx]) {
+        SDL_SystemCursor sysId = SDL_SYSTEM_CURSOR_DEFAULT;
+        switch (cursor) {
+            case guikit::CursorType::Default:    sysId = SDL_SYSTEM_CURSOR_DEFAULT; break;
+            case guikit::CursorType::Pointer:    sysId = SDL_SYSTEM_CURSOR_POINTER; break;
+            case guikit::CursorType::Text:       sysId = SDL_SYSTEM_CURSOR_TEXT; break;
+            case guikit::CursorType::ResizeEW:   sysId = SDL_SYSTEM_CURSOR_EW_RESIZE; break;
+            case guikit::CursorType::ResizeNS:   sysId = SDL_SYSTEM_CURSOR_NS_RESIZE; break;
+            case guikit::CursorType::ResizeNWSE: sysId = SDL_SYSTEM_CURSOR_NWSE_RESIZE; break;
+            case guikit::CursorType::ResizeNESW: sysId = SDL_SYSTEM_CURSOR_NESW_RESIZE; break;
+            case guikit::CursorType::Move:       sysId = SDL_SYSTEM_CURSOR_MOVE; break;
+            case guikit::CursorType::NotAllowed: sysId = SDL_SYSTEM_CURSOR_NOT_ALLOWED; break;
+        }
+        s_cursors[idx] = SDL_CreateSystemCursor(sysId);
+    }
+    if (s_cursors[idx]) {
+        SDL_SetCursor(s_cursors[idx]);
+    }
+}
+
 namespace detail {
 
 inline void RenderDotGridBackdrop(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& theme) noexcept {
@@ -150,10 +178,22 @@ inline void RenderWindowTitlebarBackground(const guikit::Node* n, guikit::ICanva
     }
 }
 
-inline void RenderWindowFrameBorderOverlay(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& /*theme*/) noexcept {
+inline void RenderWindowFrameBorderOverlay(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& theme) noexcept {
     const guikit::Rect& r = n->computedRect;
     if (r.w <= 2.0f || r.h <= 2.0f || n->borderWidth <= 0.0f || n->borderColor.a == 0) return;
     canvas.DrawRoundRect(r, n->cornerRadius, guikit::Color::Transparent(), n->borderColor, n->borderWidth);
+
+    // Subtle diagonal resize grip lines in the bottom-right corner of the window frame
+    const float s = std::max(0.5f, theme.scale);
+    const guikit::Color gripCol = (n->scrollbarActive || n->scrollbarHovered)
+        ? theme.GetVariant(guikit::UiVariant::Primary).bg
+        : theme.palette.textSecondary.WithAlphaF(0.55f);
+    const float bx = r.Right() - 4.0f * s;
+    const float by = r.Bottom() - 4.0f * s;
+    for (int i = 0; i < 3; ++i) {
+        const float span = (3.5f + static_cast<float>(i) * 3.5f) * s;
+        canvas.DrawLine({bx - span, by}, {bx, by - span}, gripCol, std::max(1.0f, 1.2f * s));
+    }
 }
 
 inline void RenderDeviceScreenCornerMaskAndBorder(const guikit::Node* n, guikit::ICanvas& canvas, const guikit::UiTheme& /*theme*/) noexcept {
@@ -330,20 +370,22 @@ inline void RenderPreviewViewport(
     );
     const bool isDeviceMode = (formFactor == PreviewFormFactor::Tablet || formFactor == PreviewFormFactor::Phone);
     const bool isPhone = (formFactor == PreviewFormFactor::Phone);
+    const bool isResizableWindow = (formFactor == PreviewFormFactor::Window);
+    const bool useCenteredScrollCanvas = isDeviceMode || (isResizableWindow && demoCtx.previewWindowCustomSize);
     const bool isFullStage = IsFullStageCategory(selectedCategory);
     const bool isShellScreen = (selectedCategory == NavCategory::PanelSidebar);
     const float clientPad = isShellScreen ? 0.0f : (isFullStage ? 8.0f : 24.0f);
 
-    // 1. Recessed Studio Artboard Backdrop (2D ScrollArea in Device mode, Stretch Box in Window/Full mode)
+    // 1. Recessed Studio Artboard Backdrop (2D ScrollArea in Device / Custom-Sized Window mode, Stretch Box otherwise)
     if (auto backdropBox = ui.ScrollArea({
         .orientation = guikit::Orientation::Both,
-        .scrollbar = isDeviceMode ? guikit::VisibilityPolicy::Auto : guikit::VisibilityPolicy::Never,
-        .align = isDeviceMode ? guikit::Alignment::Center : guikit::Alignment::Stretch,
-        .justify = isDeviceMode ? guikit::Justify::Center : guikit::Justify::Start,
+        .scrollbar = useCenteredScrollCanvas ? guikit::VisibilityPolicy::Auto : guikit::VisibilityPolicy::Never,
+        .align = useCenteredScrollCanvas ? guikit::Alignment::Center : guikit::Alignment::Stretch,
+        .justify = useCenteredScrollCanvas ? guikit::Justify::Center : guikit::Justify::Start,
         .padding = guikit::Padding::All(18.0f)
     })) {
         guikit::Node* backdropNode = backdropBox.GetNode();
-        if (!isDeviceMode) {
+        if (!useCenteredScrollCanvas) {
             backdropNode->type = guikit::NodeType::Box;
         }
         backdropNode->renderFn = &detail::RenderDotGridBackdrop;
@@ -362,10 +404,10 @@ inline void RenderPreviewViewport(
         const float basePortraitH = isPhone ? 784.0f : 782.0f;
         const float baseMmW       = isPhone ? 71.5f  : 134.8f;
         const float baseMmH       = isPhone ? 149.6f : 195.4f;
-        const float targetW       = demoCtx.previewLandscape ? basePortraitH : basePortraitW;
-        const float targetH       = demoCtx.previewLandscape ? basePortraitW : basePortraitH;
-        const float realMmW       = demoCtx.previewLandscape ? baseMmH       : baseMmW;
-        const float realMmH       = demoCtx.previewLandscape ? baseMmW       : baseMmH;
+        const float targetW       = isDeviceMode ? (demoCtx.previewLandscape ? basePortraitH : basePortraitW) : demoCtx.previewWindowW;
+        const float targetH       = isDeviceMode ? (demoCtx.previewLandscape ? basePortraitW : basePortraitH) : demoCtx.previewWindowH;
+        const float realMmW       = isDeviceMode ? (demoCtx.previewLandscape ? baseMmH       : baseMmW)       : (targetW * 25.4f / 96.0f);
+        const float realMmH       = isDeviceMode ? (demoCtx.previewLandscape ? baseMmW       : baseMmH)       : (targetH * 25.4f / 96.0f);
 
         const PreviewZoomMode zoomMode = static_cast<PreviewZoomMode>(
             std::min<size_t>(demoCtx.previewZoomModeIdx, static_cast<size_t>(PreviewZoomMode::Custom))
@@ -375,7 +417,7 @@ inline void RenderPreviewViewport(
         float effectiveZoom = 1.0f;
         switch (zoomMode) {
             case PreviewZoomMode::Fit:
-                if (isDeviceMode) {
+                if (useCenteredScrollCanvas) {
                     effectiveZoom = std::clamp(std::min(availPxW / targetW, availPxH / targetH), 0.35f, 2.50f);
                 } else {
                     effectiveZoom = 1.0f;
@@ -415,14 +457,14 @@ inline void RenderPreviewViewport(
         demoCtx.previewEffectiveZoom = effectiveZoom;
 
         const int zoomPct = static_cast<int>(std::lround(effectiveZoom * 100.0f));
-        if (isDeviceMode) {
+        if (useCenteredScrollCanvas) {
             const std::string_view modeTag = (zoomMode == PreviewZoomMode::Real1To1)
                 ? "1:1 Physical"
                 : (zoomMode == PreviewZoomMode::Fit ? "Fit" : "Zoom");
             backdropNode->text = ui.AllocString(ui.Format(
                 "{}x{} dp  |  {:.1f}x{:.1f} mm  |  {} ({}%)",
-                static_cast<int>(targetW),
-                static_cast<int>(targetH),
+                static_cast<int>(std::lround(targetW)),
+                static_cast<int>(std::lround(targetH)),
                 realMmW,
                 realMmH,
                 modeTag,
@@ -437,7 +479,10 @@ inline void RenderPreviewViewport(
             static_cast<uint8_t>(formFactor),
             demoCtx.previewLandscape,
             demoCtx.previewZoomModeIdx,
-            zoomPct
+            zoomPct,
+            demoCtx.previewWindowCustomSize,
+            static_cast<int>(demoCtx.previewWindowW),
+            static_cast<int>(demoCtx.previewWindowH)
         );
 
         auto invokeStageInsideClient = [&]() {
@@ -453,20 +498,164 @@ inline void RenderPreviewViewport(
         };
 
         if (formFactor == PreviewFormFactor::Window) {
-            // Desktop OS Window Bezel (Traffic lights + Screen Title + Client WxH badge)
-            const guikit::Color winBorderCol = (demoCtx.shellTheme.mode == guikit::ThemeMode::Light)
-                ? guikit::Color(148, 163, 184, 255)
-                : guikit::Color(71, 85, 105, 255);
+            // Desktop OS Window Bezel (Traffic lights + Screen Title + Client WxH badge + Interactive Edge/Corner Resize)
+            const bool resizeActiveOrHovered = (demoCtx.previewWindowResizeEdge != 0 || demoCtx.previewWindowHoverEdge != 0);
+            const guikit::Color winBorderCol = resizeActiveOrHovered
+                ? demoCtx.shellTheme.GetVariant(guikit::UiVariant::Primary).bg
+                : ((demoCtx.shellTheme.mode == guikit::ThemeMode::Light)
+                    ? guikit::Color(148, 163, 184, 255)
+                    : guikit::Color(71, 85, 105, 255));
+
             if (auto windowFrame = ui.Box({
                 .gap = 0.0f,
-                .widthMode = guikit::SizeMode::Stretch,
-                .heightMode = guikit::SizeMode::Stretch,
+                .widthMode = demoCtx.previewWindowCustomSize ? guikit::SizeMode::Fixed : guikit::SizeMode::Stretch,
+                .heightMode = demoCtx.previewWindowCustomSize ? guikit::SizeMode::Fixed : guikit::SizeMode::Stretch,
+                .fixedWidth = demoCtx.previewWindowCustomSize ? demoCtx.previewWindowW : 0.0f,
+                .fixedHeight = demoCtx.previewWindowCustomSize ? demoCtx.previewWindowH : 0.0f,
                 .padding = guikit::Padding::All(0.0f),
                 .background = {demoCtx.previewTheme.palette.surface},
-                .border = {.width = 1.5f, .radius = 10.0f, .color = {winBorderCol}},
-                .clipChildren = true
+                .border = {.width = resizeActiveOrHovered ? 2.0f : 1.5f, .radius = 10.0f, .color = {winBorderCol}},
+                .clipChildren = true,
+                .scale = demoCtx.previewWindowCustomSize ? std::optional<float>(effectiveZoom) : std::nullopt
             })) {
-                windowFrame.GetNode()->postRenderFn = &detail::RenderWindowFrameBorderOverlay;
+                guikit::Node* winNode = windowFrame.GetNode();
+                winNode->postRenderFn = &detail::RenderWindowFrameBorderOverlay;
+
+                const guikit::Id winId = winNode->id;
+                const guikit::Id winResizeId(guikit::detail::HashArgs(winId.value, uint64_t(0x57494E5F52535Aull)));
+                const guikit::Rect winBounds = ui.GetPrevFrameBounds(winId);
+
+                if (winBounds.w > 40.0f && winBounds.h > 40.0f) {
+                    const guikit::Vec2 mouse = ui.GetMousePos();
+                    const float winScale = demoCtx.previewWindowCustomSize ? effectiveZoom : shellScale;
+                    const float titleH = 28.0f * winScale;
+                    const float gripThick = 7.0f * shellScale;
+                    const float cornerSpan = 16.0f * shellScale;
+
+                    const guikit::Rect brCorner(winBounds.Right() - cornerSpan, winBounds.Bottom() - cornerSpan, cornerSpan + 5.0f, cornerSpan + 5.0f);
+                    const guikit::Rect blCorner(winBounds.x - 5.0f, winBounds.Bottom() - cornerSpan, cornerSpan + 5.0f, cornerSpan + 5.0f);
+                    const guikit::Rect rEdge(winBounds.Right() - gripThick, winBounds.y + titleH, gripThick * 2.0f, std::max(0.0f, winBounds.h - titleH - cornerSpan));
+                    const guikit::Rect lEdge(winBounds.x - gripThick, winBounds.y + titleH, gripThick * 2.0f, std::max(0.0f, winBounds.h - titleH - cornerSpan));
+                    const guikit::Rect bEdge(winBounds.x + cornerSpan, winBounds.Bottom() - gripThick, std::max(0.0f, winBounds.w - cornerSpan * 2.0f), gripThick * 2.0f);
+
+                    // Green traffic-light button & titlebar double-click (Maximize / Restore toggle)
+                    const float dotD = 10.0f * winScale;
+                    const float dotGap = 7.0f * winScale;
+                    const guikit::Rect greenBtnRect(
+                        winBounds.x + 12.0f * winScale + (dotD + dotGap) * 2.0f - 2.0f,
+                        winBounds.y,
+                        dotD + 4.0f,
+                        titleH
+                    );
+                    const guikit::Rect titlebarRect(winBounds.x, winBounds.y, winBounds.w, titleH);
+
+                    const bool occluded = ui.IsMouseOccluded(winId, mouse);
+                    const bool otherActive = ui.GetActiveId().IsValid() && ui.GetActiveId() != winResizeId;
+
+                    uint8_t hovEdge = 0;
+                    if (!occluded && !otherActive) {
+                        if (brCorner.Contains(mouse))      hovEdge = 2 | 4;
+                        else if (blCorner.Contains(mouse)) hovEdge = 1 | 4;
+                        else if (rEdge.Contains(mouse))    hovEdge = 2;
+                        else if (lEdge.Contains(mouse))    hovEdge = 1;
+                        else if (bEdge.Contains(mouse))    hovEdge = 4;
+                    }
+                    if (hovEdge != demoCtx.previewWindowHoverEdge) {
+                        demoCtx.previewWindowHoverEdge = hovEdge;
+                        ui.InvalidateAll();
+                    }
+
+                    auto applyEdgeCursor = [&](uint8_t edge) {
+                        if (edge == (2 | 4))      ui.SetCursor(guikit::CursorType::ResizeNWSE);
+                        else if (edge == (1 | 4)) ui.SetCursor(guikit::CursorType::ResizeNESW);
+                        else if (edge & (1 | 2))  ui.SetCursor(guikit::CursorType::ResizeEW);
+                        else if (edge & 4)        ui.SetCursor(guikit::CursorType::ResizeNS);
+                    };
+
+                    const float maxFitW = std::max(320.0f, std::floor(availPxW / effectiveZoom));
+                    const float maxFitH = std::max(220.0f, std::floor(availPxH / effectiveZoom));
+
+                    auto toggleMaximizeRestore = [&]() {
+                        if (demoCtx.previewWindowCustomSize) {
+                            demoCtx.previewWindowCustomSize = false;
+                        } else {
+                            demoCtx.previewWindowCustomSize = true;
+                            demoCtx.previewWindowW = std::clamp(std::round(maxFitW * 0.78f), 320.0f, maxFitW);
+                            demoCtx.previewWindowH = std::clamp(std::round(maxFitH * 0.78f), 220.0f, maxFitH);
+                        }
+                        ui.InvalidateAll();
+                    };
+
+                    if (demoCtx.previewWindowResizeEdge == 0 && !occluded && !otherActive) {
+                        if (hovEdge != 0) {
+                            applyEdgeCursor(hovEdge);
+                            if (ui.IsMouseDoubleClicked()) {
+                                demoCtx.previewWindowCustomSize = false;
+                                ui.ConsumeMouseClick();
+                                ui.InvalidateAll();
+                            } else if (ui.IsMouseClicked()) {
+                                demoCtx.previewWindowResizeEdge = hovEdge;
+                                demoCtx.previewWindowDragStartMouse = mouse;
+                                demoCtx.previewWindowDragStartW = demoCtx.previewWindowCustomSize
+                                    ? demoCtx.previewWindowW
+                                    : maxFitW;
+                                demoCtx.previewWindowDragStartH = demoCtx.previewWindowCustomSize
+                                    ? demoCtx.previewWindowH
+                                    : maxFitH;
+                                demoCtx.previewWindowW = demoCtx.previewWindowDragStartW;
+                                demoCtx.previewWindowH = demoCtx.previewWindowDragStartH;
+                                demoCtx.previewWindowCustomSize = true;
+                                ui.SetActiveId(winResizeId);
+                                ui.ConsumeMouseClick();
+                                ui.InvalidateAll();
+                            }
+                        } else if (greenBtnRect.Contains(mouse)) {
+                            ui.SetCursor(guikit::CursorType::Pointer);
+                            if (ui.IsMouseClicked()) {
+                                toggleMaximizeRestore();
+                                ui.ConsumeMouseClick();
+                            }
+                        } else if (titlebarRect.Contains(mouse) && ui.IsMouseDoubleClicked()) {
+                            toggleMaximizeRestore();
+                            ui.ConsumeMouseClick();
+                        }
+                    }
+
+                    if (demoCtx.previewWindowResizeEdge != 0) {
+                        if (ui.IsMouseDown()) {
+                            ui.SetActiveId(winResizeId);
+                            applyEdgeCursor(demoCtx.previewWindowResizeEdge);
+                            const uint8_t edge = demoCtx.previewWindowResizeEdge;
+                            // Symmetric 2x delta keeps the dragged edge locked 1:1 under the cursor while centered
+                            if (edge & 2) {
+                                const float dx = (mouse.x - demoCtx.previewWindowDragStartMouse.x) * 2.0f / effectiveZoom;
+                                demoCtx.previewWindowW = std::clamp(std::round(demoCtx.previewWindowDragStartW + dx), 320.0f, maxFitW);
+                            } else if (edge & 1) {
+                                const float dx = (demoCtx.previewWindowDragStartMouse.x - mouse.x) * 2.0f / effectiveZoom;
+                                demoCtx.previewWindowW = std::clamp(std::round(demoCtx.previewWindowDragStartW + dx), 320.0f, maxFitW);
+                            }
+                            if (edge & 4) {
+                                const float dy = (mouse.y - demoCtx.previewWindowDragStartMouse.y) * 2.0f / effectiveZoom;
+                                demoCtx.previewWindowH = std::clamp(std::round(demoCtx.previewWindowDragStartH + dy), 220.0f, maxFitH);
+                            }
+                            ui.InvalidateAll();
+                            ui.RequestRepaint(2);
+                        } else {
+                            demoCtx.previewWindowResizeEdge = 0;
+                            if (demoCtx.previewWindowW >= maxFitW - 1.5f && demoCtx.previewWindowH >= maxFitH - 1.5f) {
+                                demoCtx.previewWindowCustomSize = false;
+                            }
+                            if (ui.GetActiveId() == winResizeId) {
+                                ui.SetActiveId(guikit::Id::Null());
+                            }
+                            ui.InvalidateAll();
+                        }
+                    }
+                }
+
+                winNode->scrollbarHovered = (demoCtx.previewWindowHoverEdge != 0);
+                winNode->scrollbarActive = (demoCtx.previewWindowResizeEdge != 0);
+
                 const guikit::Color titlebarBg = (demoCtx.previewTheme.mode == guikit::ThemeMode::Light)
                     ? guikit::Color(241, 245, 249, 255)
                     : guikit::Color(15, 23, 42, 255);
@@ -491,8 +680,12 @@ inline void RenderPreviewViewport(
                             .variant = guikit::UiVariant::Secondary
                         });
                         ui.Spacer();
-                        const int clientW = std::max(0, static_cast<int>(std::round(availPxW / effectiveZoom)));
-                        const int clientH = std::max(0, static_cast<int>(std::round((availPxH - 28.0f * shellScale) / effectiveZoom)));
+                        const int clientW = demoCtx.previewWindowCustomSize
+                            ? std::max(0, static_cast<int>(std::lround(demoCtx.previewWindowW)))
+                            : std::max(0, static_cast<int>(std::round(availPxW / effectiveZoom)));
+                        const int clientH = demoCtx.previewWindowCustomSize
+                            ? std::max(0, static_cast<int>(std::lround(demoCtx.previewWindowH - 28.0f)))
+                            : std::max(0, static_cast<int>(std::round((availPxH - 28.0f * shellScale) / effectiveZoom)));
                         ui.Text(ui.Format("{} x {}", clientW, clientH), {
                             .role = guikit::TextRole::CodeSmall,
                             .variant = guikit::UiVariant::Muted

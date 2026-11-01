@@ -161,6 +161,12 @@ public:
     void OnKeyDown(Key key, KeyModifiers mods = {});
     void OnMouseWheel(float x, float y);
 
+    /// Sets the requested OS mouse cursor shape for the current frame.
+    void SetCursor(CursorType cursor) noexcept { m_cursor = cursor; }
+
+    /// Returns the OS mouse cursor shape requested during the current frame.
+    [[nodiscard]] CursorType GetCursor() const noexcept { return m_cursor; }
+
     // --- Reactive Repaint & Idle Management ---
     /// Request the event loop to repaint a given number of frames (e.g. 3 frames to settle hover/click).
     void RequestRepaint(int frames = 3) noexcept;
@@ -2027,6 +2033,7 @@ private:
     Id m_hoveredId{Id::Null()};
     Id m_activeId{Id::Null()};
     Id m_focusedId{Id::Null()};
+    CursorType m_cursor{CursorType::Default};
 
     // Active text edit state
     struct ActiveEditState {

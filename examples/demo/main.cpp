@@ -1033,6 +1033,7 @@ int main(int argc, char* argv[]) {
             }
         }
         ui.EndFrame(canvas);
+        guikit::demo::ApplySystemCursor(ui.GetCursor());
         metrics.MarkCpuDone();
 
         const bool shouldPresent = ui.HasDirtyDamage() || !reactiveMode;

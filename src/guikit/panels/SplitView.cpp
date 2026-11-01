@@ -432,6 +432,10 @@ SplitViewScope SplitView::Open(
             }
         }
 
+        if (st.sashHovered || st.dragging) {
+            ctx.SetCursor(isHoriz ? CursorType::ResizeEW : CursorType::ResizeNS);
+        }
+
         ctx.EndOverlayHitCheck();
     } else {
         st.dragging = false;

@@ -722,6 +722,7 @@ TableScope Table::Open(
         );
 
         if (state.resizingCol >= 0) {
+            ctx.SetCursor(CursorType::ResizeEW);
             if (mouseDown && state.resizingCol < static_cast<int>(data->columnCount)) {
                 const uint16_t colIdx = static_cast<uint16_t>(state.resizingCol);
                 const float minW = std::max(28.0f * scale, data->columns[colIdx].minWidth * scale);
@@ -754,6 +755,7 @@ TableScope Table::Open(
                     const float divX = data->resolvedColX[i] + data->resolvedColW[i];
                     if (std::abs(localHeaderX - divX) <= gripHalfW) {
                         data->hoveredDividerCol = static_cast<int>(i);
+                        ctx.SetCursor(CursorType::ResizeEW);
                         if (mouseClicked) {
                             const double now = (ctx.GetCurrentTime)();
                             if (state.lastDividerCol == static_cast<int>(i) && (now - state.lastDividerClickTime) <= 0.35) {

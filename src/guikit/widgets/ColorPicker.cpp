@@ -135,7 +135,8 @@ Vec2 MeasureColorPickerBox(const ColorPickerOptions& opts, UiSize size, ICanvas*
         const float textW = (canvas != nullptr)
             ? canvas->MeasureText(sample, fontSize).x
             : (static_cast<float>(sample.size()) * fontSize * 0.62f);
-        naturalW = boxH + textW + m.paddingX * 2.0f + m.iconSize + 12.0f;
+        const float alphaExtra = opts.showAlpha ? theme.Scale(38.0f) : 0.0f;
+        naturalW = boxH + textW + alphaExtra + m.paddingX * 2.0f + m.iconSize + theme.Scale(12.0f);
     }
     if (opts.minWidth.has_value()) {
         naturalW = std::max(theme.Scale(*opts.minWidth), naturalW);
@@ -314,24 +315,29 @@ Response ColorPicker::Run(
                 isOpen = false;
                 state.dragTarget = 0;
             } else {
-                const Vec2 popDims = DefaultPanelDimensions(optsCopy, theme);
-                float popupX = ctrlRect.x;
-                float popupY = ctrlRect.Bottom() + 4.0f;
-                const Vec2 vp = ctx.GetViewportSize();
-                if (vp.y > 0.0f && popupY + popDims.y > vp.y - 6.0f) {
-                    const float upY = ctrlRect.y - 4.0f - popDims.y;
-                    if (upY >= 6.0f) {
-                        popupY = upY;
-                    }
-                }
-                if (vp.x > 0.0f) {
-                    popupX = std::clamp(popupX, 6.0f, std::max(6.0f, vp.x - popDims.x - 6.0f));
-                }
-                ctx.OpenPopup(id, Rect(popupX, popupY, popDims.x, popDims.y));
                 isOpen = true;
                 state.dragTarget = 0;
             }
         }
+    }
+
+    if (!optsCopy.inlinePanel && isOpen) {
+        const Vec2 popDims = DefaultPanelDimensions(optsCopy, theme);
+        float popupX = ctrlRect.x;
+        float popupY = ctrlRect.Bottom() + 4.0f;
+        const Vec2 vp = ctx.GetViewportSize();
+        if (vp.y > 0.0f && popupY + popDims.y > vp.y - 6.0f) {
+            const float upY = ctrlRect.y - 4.0f - popDims.y;
+            if (upY >= 6.0f) {
+                popupY = upY;
+            }
+        }
+        if (vp.x > 0.0f) {
+            popupX = std::clamp(popupX, 6.0f, std::max(6.0f, vp.x - popDims.x - 6.0f));
+        }
+        const Rect popRect(popupX, popupY, popDims.x, popDims.y);
+        ctx.OpenPopup(id, popRect);
+        ctx.RegisterOverlayHitRegion(id, popRect);
     }
 
     // Interactive handling for either the open floating popup OR the inline panel
@@ -339,6 +345,9 @@ Response ColorPicker::Run(
     state.hoveredSwatch = -1;
 
     if (panelActive) {
+        if (!optsCopy.inlinePanel) {
+            ctx.BeginOverlayHitCheck(id);
+        }
         const Rect activePanelRect = optsCopy.inlinePanel ? ctrlRect : ctx.GetOpenPopupRect();
         const PanelLayout L = ComputePanelLayout(activePanelRect, optsCopy, theme);
         const Vec2 mouse = ctx.GetMousePos();
@@ -437,6 +446,9 @@ Response ColorPicker::Run(
             ctx.ClosePopup();
             isOpen = false;
             state.dragTarget = 0;
+        }
+        if (!optsCopy.inlinePanel) {
+            ctx.EndOverlayHitCheck();
         }
     } else {
         state.dragTarget = 0;
@@ -638,7 +650,8 @@ void ColorPicker::Render(
         const Rect textRect(textStartX, ctrlRect.y, textW, ctrlRect.h);
         canvas.DrawTextBox(hexText, textRect, fontSize, textCol, 0.0f, 0.5f);
 
-        if (opts.showAlpha && textW > 110.0f) {
+        const float hexW = canvas.MeasureText(hexText, fontSize).x;
+        if (opts.showAlpha && textW > hexW + theme.Scale(36.0f)) {
             char alphaBuf[16]{};
             const int alphaPct = static_cast<int>(std::round((static_cast<float>(value.a) / 255.0f) * 100.0f));
             std::snprintf(alphaBuf, sizeof(alphaBuf), "%d%%", alphaPct);

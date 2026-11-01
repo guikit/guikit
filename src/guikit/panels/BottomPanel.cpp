@@ -269,6 +269,9 @@ BottomPanelScope BottomPanel::Open(
                 ctx.ConsumeMouseClick();
             }
         }
+        if (state.sashHovered || state.draggingSash) {
+            ctx.SetCursor(CursorType::ResizeNS);
+        }
         ctx.EndOverlayHitCheck();
     } else {
         state.draggingSash = false;

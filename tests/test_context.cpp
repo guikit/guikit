@@ -11655,6 +11655,44 @@ int main() {
         CHECK(outerState2.offset.y > 0.0f);
     }
 
+    // -------------------------------------------------------------------------
+    // Test: Floating ColorPicker popup responds to mouse clicks & drags
+    // -------------------------------------------------------------------------
+    {
+        using namespace guikit;
+        Context ui;
+        SdlCanvas canvas(nullptr);
+        Color col(59, 130, 246, 235);
+        Response cpRes{};
+
+        auto renderCp = [&]() {
+            ui.BeginFrame({500.0f, 500.0f});
+            cpRes = ui.ColorPicker(col, {.showHex = true, .showAlpha = true, .showSwatches = true});
+            ui.EndFrame(canvas);
+        };
+
+        renderCp();
+        const Rect btnRect = ui.GetPrevFrameBounds(cpRes.id);
+        CHECK(btnRect.w > 0.0f);
+
+        // 1. Click button to open floating ColorPicker popup
+        ui.OnMouseMove(btnRect.Center());
+        ui.OnMouseDown(1);
+        ui.OnMouseUp(1);
+        renderCp();
+        CHECK(ui.IsPopupOpen(cpRes.id));
+
+        // 2. Click inside the SV square of the open popup and verify color changes
+        const Rect popRect = ui.GetOpenPopupRect();
+        CHECK(popRect.w > 0.0f);
+        ui.OnMouseMove({popRect.x + 24.0f, popRect.y + 24.0f});
+        ui.OnMouseDown(1);
+        renderCp();
+        CHECK(cpRes.changed);
+        ui.OnMouseUp(1);
+        renderCp();
+    }
+
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";
         return 0;

@@ -12,6 +12,19 @@
 
 namespace guikit {
 
+/// Standard system mouse cursor shapes requested by interactive widgets and resize handles.
+enum class CursorType : uint8_t {
+    Default = 0,
+    Pointer,
+    Text,
+    ResizeEW,
+    ResizeNS,
+    ResizeNWSE,
+    ResizeNESW,
+    Move,
+    NotAllowed
+};
+
 /// 2D floating-point vector for layout coordinates, sizes, and offsets.
 struct Vec2 {
     float x{0.0f};

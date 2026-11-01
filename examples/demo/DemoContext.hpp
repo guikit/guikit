@@ -332,6 +332,14 @@ struct DemoContext {
     float previewCustomZoom = 1.0f;  // Custom zoom factor set via Ctrl + MouseWheel
     float previewEffectiveZoom = 1.0f;     // Resolved effective zoom factor for current frame
     float displayPxPerMm = 96.0f / 25.4f;  // Physical monitor density (px/mm) for Real 1:1 mode
+    bool previewWindowCustomSize = false;  // false = Maximized (Stretch), true = user-resized WxH (dp)
+    float previewWindowW = 760.0f;         // User-resized window width in logical dp
+    float previewWindowH = 500.0f;         // User-resized window height in logical dp
+    uint8_t previewWindowResizeEdge = 0;   // Active resize edge bitmask (1=Left, 2=Right, 4=Bottom)
+    uint8_t previewWindowHoverEdge = 0;    // Hovered resize edge bitmask (1=Left, 2=Right, 4=Bottom)
+    guikit::Vec2 previewWindowDragStartMouse{0.0f, 0.0f};
+    float previewWindowDragStartW = 0.0f;
+    float previewWindowDragStartH = 0.0f;
 
     guikit::UiTheme shellTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
     guikit::UiTheme previewTheme = guikit::UiTheme::Dark(guikit::Density::Standard);

@@ -38,6 +38,7 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
     m_toastHostVisitedThisFrame = false;
     m_activeTooltip = {};
     m_activeTooltipAnchor = {};
+    m_cursor = CursorType::Default;
 
     const auto& activeFocusables = (m_prevFrameModalId.IsValid() && !m_prevModalFocusableIds.empty())
         ? m_prevModalFocusableIds

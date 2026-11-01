@@ -348,6 +348,9 @@ SidebarScope Sidebar::Open(
                 ctx.ConsumeMouseClick();
             }
         }
+        if (state.sashHovered || state.draggingSash) {
+            ctx.SetCursor(CursorType::ResizeEW);
+        }
         ctx.EndOverlayHitCheck();
     } else {
         state.draggingSash = false;
