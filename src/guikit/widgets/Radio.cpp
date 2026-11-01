@@ -18,7 +18,7 @@ ControlSpec EffectiveRadioControl(const RadioOptions& opts, UiSize size, const U
     ctrl.border = opts.border;
     ctrl.defaultLayout = ElementLayout::Inline;
     ctrl.defaultInlineOrder = InlineOrder::ControlFirst;
-    ctrl.labelGap = m.descGap;
+    ctrl.labelGap = m.labelGap;
     ctrl.descGap = m.descGap;
     ctrl.inlineGap = m.gap;
     ctrl.stretchable = false;

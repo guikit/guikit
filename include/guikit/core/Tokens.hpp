@@ -775,6 +775,7 @@ struct SwitchMetrics {
     float knobDiameter;
     float knobPadding;
     float gap;
+    float labelGap;
     float descGap;
 };
 
@@ -783,6 +784,7 @@ struct CheckboxMetrics {
     float boxSize;
     float cornerRadius;
     float gap;
+    float labelGap;
     float descGap;
     float strokeWidth;
 };

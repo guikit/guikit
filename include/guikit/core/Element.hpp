@@ -84,7 +84,7 @@ struct ElementSpec {
     Border border{};                                      ///< Outer element border thickness, corner radius, and per-state color
     UiSize widgetSize{UiSize::Md};                        ///< Active UiSize token
     float labelGap{6.0f};                                 ///< Vertical gap between label bar and control/description
-    float descGap{4.0f};                                  ///< Vertical gap between control/label and description
+    float descGap{6.0f};                                  ///< Vertical gap between control/label and description
     float inlineGap{10.0f};                               ///< Horizontal gap in Inline layout
     bool hasControl{true};                                ///< False for control-less elements (Element / Heading); true when a widget control is present
     bool headingTypography{false};                        ///< True to use HeadingMetrics typography scale; false for standard control LabelLarge/LabelSmall

@@ -516,11 +516,13 @@ Vec2 Element::Measure(
         return applyFixedWidthAndOuterPad({totalW, totalH});
     }
 
+    const float adjacentTextGap = std::min(spec.descGap, theme.GetHeading(spec.widgetSize).lineGap);
+
     if (spec.layout == ElementLayout::Top) {
         const float totalW = std::max({intrinsicControlSize.x, labelDims.x, descDims.x});
         float textH = 0.0f;
         if (hasLabel) textH += labelDims.y;
-        if (hasDesc)  textH += (hasLabel ? spec.descGap : 0.0f) + descDims.y;
+        if (hasDesc)  textH += (hasLabel ? adjacentTextGap : 0.0f) + descDims.y;
         return applyFixedWidthAndOuterPad({totalW, textH + spec.labelGap + intrinsicControlSize.y});
     }
 
@@ -528,7 +530,7 @@ Vec2 Element::Measure(
         const float totalW = std::max({intrinsicControlSize.x, labelDims.x, descDims.x});
         float textH = 0.0f;
         if (hasLabel) textH += labelDims.y;
-        if (hasDesc)  textH += (hasLabel ? spec.descGap : 0.0f) + descDims.y;
+        if (hasDesc)  textH += (hasLabel ? adjacentTextGap : 0.0f) + descDims.y;
         return applyFixedWidthAndOuterPad({totalW, intrinsicControlSize.y + spec.descGap + textH});
     }
 
@@ -537,7 +539,7 @@ Vec2 Element::Measure(
     const bool hasAnyText = (textW > 0.0f) || hasLabel || hasDesc;
     float textH = 0.0f;
     if (hasLabel && hasDesc) {
-        textH = labelDims.y + spec.descGap + descDims.y;
+        textH = labelDims.y + adjacentTextGap + descDims.y;
     } else if (hasLabel) {
         textH = labelDims.y;
     } else if (hasDesc) {
@@ -678,12 +680,13 @@ ElementGeometry Element::Resolve(
             geom.descRect = Rect(blockX, curY, blockW, descH);
         }
     } else if (spec.layout == ElementLayout::Top) {
+        const float adjacentTextGap = std::min(spec.descGap, theme.GetHeading(spec.widgetSize).lineGap);
         const float blockW = compactNaturalBlock ? std::min(bounds.w, std::max(ctrlW, measuredTextW)) : bounds.w;
         const float labelH = resolveLabelH(blockW);
         const float descH = geom.hasDesc
             ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas)
             : 0.0f;
-        const float textTotalH = (geom.hasLabel ? labelH : 0.0f) + (geom.hasDesc ? (geom.hasLabel ? spec.descGap : 0.0f) + descH : 0.0f) + spec.labelGap;
+        const float textTotalH = (geom.hasLabel ? labelH : 0.0f) + (geom.hasDesc ? (geom.hasLabel ? adjacentTextGap : 0.0f) + descH : 0.0f) + spec.labelGap;
         const float availCtrlH = std::max(0.0f, bounds.h - textTotalH);
         const float ctrlH = stretchStandaloneH ? availCtrlH : std::min(intrinsicControlSize.y, availCtrlH);
         const float blockX = bounds.x;
@@ -692,7 +695,7 @@ ElementGeometry Element::Resolve(
         float curY = bounds.y;
         if (geom.hasLabel) {
             geom.labelRect = Rect(blockX, curY, blockW, labelH);
-            curY += labelH + (geom.hasDesc ? spec.descGap : 0.0f);
+            curY += labelH + (geom.hasDesc ? adjacentTextGap : 0.0f);
         }
         if (geom.hasDesc) {
             geom.descRect = Rect(blockX, curY, blockW, descH);
@@ -701,12 +704,13 @@ ElementGeometry Element::Resolve(
         curY += spec.labelGap;
         geom.controlRect = Rect(ctrlX, curY, ctrlW, ctrlH);
     } else if (spec.layout == ElementLayout::Bottom) {
+        const float adjacentTextGap = std::min(spec.descGap, theme.GetHeading(spec.widgetSize).lineGap);
         const float blockW = compactNaturalBlock ? std::min(bounds.w, std::max(ctrlW, measuredTextW)) : bounds.w;
         const float labelH = resolveLabelH(blockW);
         const float descH = geom.hasDesc
             ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas)
             : 0.0f;
-        const float textTotalH = spec.descGap + (geom.hasLabel ? labelH : 0.0f) + (geom.hasDesc ? (geom.hasLabel ? spec.descGap : 0.0f) + descH : 0.0f);
+        const float textTotalH = spec.descGap + (geom.hasLabel ? labelH : 0.0f) + (geom.hasDesc ? (geom.hasLabel ? adjacentTextGap : 0.0f) + descH : 0.0f);
         const float availCtrlH = std::max(0.0f, bounds.h - textTotalH);
         const float ctrlH = stretchStandaloneH ? availCtrlH : std::min(intrinsicControlSize.y, availCtrlH);
         const float blockX = bounds.x;
@@ -717,12 +721,13 @@ ElementGeometry Element::Resolve(
         curY += geom.controlRect.h + spec.descGap;
         if (geom.hasLabel) {
             geom.labelRect = Rect(blockX, curY, blockW, labelH);
-            curY += labelH + (geom.hasDesc ? spec.descGap : 0.0f);
+            curY += labelH + (geom.hasDesc ? adjacentTextGap : 0.0f);
         }
         if (geom.hasDesc) {
             geom.descRect = Rect(blockX, curY, blockW, descH);
         }
     } else { // ElementLayout::Inline
+        const float adjacentTextGap = std::min(spec.descGap, theme.GetHeading(spec.widgetSize).lineGap);
         const float gap = spec.inlineGap;
         if (stretchableCtrl && spec.stretch == StretchMode::Fill && !ctrlSpec.width.has_value()) {
             ctrlW = std::max(0.0f, bounds.w - measuredTextW - gap);
@@ -737,7 +742,7 @@ ElementGeometry Element::Resolve(
             ? TextUtil::MeasureUiTextHeight(spec.description, textBlockW, geom.descFontSize, descLineH, canvas)
             : 0.0f;
 
-        const float totalTextH = (geom.hasLabel && geom.hasDesc) ? (labelH + spec.descGap + descH) : (geom.hasLabel ? labelH : descH);
+        const float totalTextH = (geom.hasLabel && geom.hasDesc) ? (labelH + adjacentTextGap + descH) : (geom.hasLabel ? labelH : descH);
         const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
         const float ctrlH = stretchStandaloneH ? bounds.h : std::min(intrinsicControlSize.y, bounds.h);
 
@@ -751,7 +756,7 @@ ElementGeometry Element::Resolve(
             float textY = startY;
             if (geom.hasLabel) {
                 geom.labelRect = Rect(bounds.x, textY, textBlockW, labelH);
-                textY += labelH + spec.descGap;
+                textY += labelH + adjacentTextGap;
             }
             if (geom.hasDesc) {
                 geom.descRect = Rect(bounds.x, textY, textBlockW, descH);
@@ -767,7 +772,7 @@ ElementGeometry Element::Resolve(
             float textY = startY;
             if (geom.hasLabel) {
                 geom.labelRect = Rect(textX, textY, textBlockW, labelH);
-                textY += labelH + spec.descGap;
+                textY += labelH + adjacentTextGap;
             }
             if (geom.hasDesc) {
                 geom.descRect = Rect(textX, textY, textBlockW, descH);

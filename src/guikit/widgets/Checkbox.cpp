@@ -18,7 +18,7 @@ ControlSpec EffectiveCheckboxControl(const CheckboxOptions& opts, UiSize size, c
     ctrl.border = opts.border;
     ctrl.defaultLayout = ElementLayout::Inline;
     ctrl.defaultInlineOrder = InlineOrder::ControlFirst;
-    ctrl.labelGap = m.descGap;
+    ctrl.labelGap = m.labelGap;
     ctrl.descGap = m.descGap;
     ctrl.inlineGap = m.gap;
     ctrl.stretchable = false;

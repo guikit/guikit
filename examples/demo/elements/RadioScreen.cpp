@@ -50,7 +50,7 @@ void RenderRadioStage(guikit::Context& ui, DemoContext& ctx) {
         .disabled = ctx.elemDisabled
     };
     if (s_state.groupDemo) {
-        if (auto col = ui.Column({.gap = 10.0f})) {
+        if (auto col = ui.Column({.gap = 14.0f})) {
             if (auto el = ui.Size(ctx.elemSize).Element({
                 .label = guikit::UiText{ctx.elemLabel.empty() ? "Option A — Automatic Gain (AGC)" : ctx.elemLabel, ctx.elemLabelVariant},
                 .description = ctx.GetElementDescription(),

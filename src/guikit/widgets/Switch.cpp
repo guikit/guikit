@@ -48,7 +48,7 @@ ControlSpec EffectiveSwitchControl(const SwitchOptions& opts, UiSize size, const
     ctrl.border = opts.border;
     ctrl.defaultLayout = ElementLayout::Inline;
     ctrl.defaultInlineOrder = InlineOrder::ControlFirst;
-    ctrl.labelGap = m.descGap;
+    ctrl.labelGap = m.labelGap;
     ctrl.descGap = m.descGap;
     ctrl.inlineGap = m.gap;
     ctrl.stretchable = false;
