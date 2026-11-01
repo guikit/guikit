@@ -40,6 +40,22 @@ SpinBoxStepStyle ResolveEffectiveStepStyle(const SpinBoxOptions& opts) noexcept 
     return opts.stepStyle;
 }
 
+struct InlineStepMetrics {
+    float btnSize{0.0f};
+    float btnGap{0.0f};
+    float padX{0.0f};
+    float sectionWidth{0.0f};
+};
+
+InlineStepMetrics ComputeInlineStepMetrics(const InputFieldMetrics& m, const UiTheme& theme) noexcept {
+    InlineStepMetrics sm{};
+    sm.btnSize = m.iconSize + theme.Scale(4.0f);
+    sm.btnGap = theme.Scale(2.0f);
+    sm.padX = std::max(theme.Scale(6.0f), std::round(m.paddingX * 0.55f));
+    sm.sectionWidth = sm.padX * 2.0f + sm.btnSize * 2.0f + sm.btnGap;
+    return sm;
+}
+
 Vec2 MeasureSpinBox(
     const SpinBoxOptions& opts,
     UiSize size,
@@ -69,20 +85,21 @@ Vec2 MeasureSpinBox(
                 }
             }
 
-            float totalW = m.paddingX * 2.0f + contentW + 4.0f;
+            const float affixInnerGap = theme.Scale(4.0f);
+            float totalW = m.paddingX * 2.0f + contentW + affixInnerGap;
             if (opts.prefix.HasContentOrReserve()) {
                 const float pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
-                const float pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, canvas);
-                const float pGap = (opts.prefix.HasIcon() && !opts.prefix.HasText()) ? 6.0f : 4.0f;
+                const float pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, affixInnerGap, canvas);
+                const float pGap = theme.Scale((opts.prefix.HasIcon() && !opts.prefix.HasText()) ? 6.0f : 4.0f);
                 totalW += pW + pGap;
             }
             if (opts.suffix.HasContentOrReserve()) {
                 const float sFont = theme.ResolveFontSize(opts.suffix.text, TextRole::LabelMedium, size);
-                const float sW = TextUtil::MeasureAffixWidth(opts.suffix, sFont, m.iconSize, 4.0f, canvas);
-                totalW += sW + 6.0f;
+                const float sW = TextUtil::MeasureAffixWidth(opts.suffix, sFont, m.iconSize, affixInnerGap, canvas);
+                totalW += sW + theme.Scale(6.0f);
             }
             if (effStyle == SpinBoxStepStyle::Inline) {
-                totalW += (m.iconSize + 4.0f) * 2.0f + 10.0f;
+                totalW += ComputeInlineStepMetrics(m, theme).sectionWidth;
             } else if (effStyle == SpinBoxStepStyle::Detached || effStyle == SpinBoxStepStyle::Split) {
                 totalW += extBtnsW;
             }
@@ -119,9 +136,12 @@ struct SpinBoxState {
 
 struct SpinBoxRects {
     Rect boxRect{};
+    Rect prefixRect{};
     Rect textRect{};
+    Rect suffixRect{};
     Rect stepMinusRect{};
     Rect stepPlusRect{};
+    float stepSepX{0.0f};
 };
 
 SpinBoxRects ResolveSpinBoxRects(
@@ -135,10 +155,14 @@ SpinBoxRects ResolveSpinBoxRects(
     const InputFieldMetrics& m = theme.GetInputField(size);
     const SpinBoxStepStyle effStyle = showStepBtns ? ResolveEffectiveStepStyle(opts) : SpinBoxStepStyle::None;
     const float extGap = theme.Scale(4.0f);
+    const float affixInnerGap = theme.Scale(4.0f);
 
     Rect boxRect = bounds;
+    Rect prefixRect{};
+    Rect suffixRect{};
     Rect stepMinusRect{};
     Rect stepPlusRect{};
+    float stepSepX = 0.0f;
 
     if (effStyle == SpinBoxStepStyle::Detached) {
         const float btnH = bounds.h;
@@ -158,35 +182,41 @@ SpinBoxRects ResolveSpinBoxRects(
     float leftX = boxRect.x + m.paddingX;
     if (opts.prefix.HasContentOrReserve()) {
         const float pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
-        const float pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, canvas);
-        const float pGap = (opts.prefix.HasIcon() && !opts.prefix.HasText()) ? 6.0f : 4.0f;
+        const float pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, affixInnerGap, canvas);
+        prefixRect = Rect(leftX, boxRect.y, pW, boxRect.h);
+        const float pGap = theme.Scale((opts.prefix.HasIcon() && !opts.prefix.HasText()) ? 6.0f : 4.0f);
         leftX += pW + pGap;
     }
 
-    float rightX = boxRect.x + boxRect.w - m.paddingX;
-
+    float rightX = boxRect.Right() - m.paddingX;
     if (effStyle == SpinBoxStepStyle::Inline) {
-        const float btnSize = m.iconSize + 4.0f;
-        const float btnY = boxRect.y + (boxRect.h - btnSize) * 0.5f;
-        rightX -= btnSize;
-        stepPlusRect = Rect(rightX, btnY, btnSize, btnSize);
-        rightX -= (2.0f + btnSize);
-        stepMinusRect = Rect(rightX, btnY, btnSize, btnSize);
-        rightX -= 6.0f;
+        const InlineStepMetrics sm = ComputeInlineStepMetrics(m, theme);
+        const float btnY = boxRect.y + (boxRect.h - sm.btnSize) * 0.5f;
+        const float plusX = boxRect.Right() - sm.padX - sm.btnSize;
+        const float minusX = plusX - sm.btnGap - sm.btnSize;
+        stepPlusRect = Rect(plusX, btnY, sm.btnSize, sm.btnSize);
+        stepMinusRect = Rect(minusX, btnY, sm.btnSize, sm.btnSize);
+        stepSepX = minusX - sm.padX;
+        rightX = stepSepX - m.paddingX;
     }
 
     if (opts.suffix.HasContentOrReserve()) {
         const float sFont = theme.ResolveFontSize(opts.suffix.text, TextRole::LabelMedium, size);
-        const float sW = TextUtil::MeasureAffixWidth(opts.suffix, sFont, m.iconSize, 4.0f, canvas);
-        rightX -= sW + 6.0f;
+        const float sW = TextUtil::MeasureAffixWidth(opts.suffix, sFont, m.iconSize, affixInnerGap, canvas);
+        rightX -= sW;
+        suffixRect = Rect(rightX, boxRect.y, sW, boxRect.h);
+        rightX -= theme.Scale(6.0f);
     }
 
     const float availW = std::max(0.0f, rightX - leftX);
     return SpinBoxRects{
         .boxRect = boxRect,
+        .prefixRect = prefixRect,
         .textRect = Rect(leftX, boxRect.y, availW, boxRect.h),
+        .suffixRect = suffixRect,
         .stepMinusRect = stepMinusRect,
-        .stepPlusRect = stepPlusRect
+        .stepPlusRect = stepPlusRect,
+        .stepSepX = stepSepX
     };
 }
 
@@ -833,83 +863,58 @@ void SpinBox::Render(
     }
 
     const float inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);
+    const float affixInnerGap = theme.Scale(4.0f);
 
-    float leftX = boxRect.x + m.paddingX;
-    if (opts.prefix.HasContentOrReserve()) {
+    if (opts.prefix.HasContentOrReserve() && rects.prefixRect.w > 0.0f) {
         const float pFont = theme.ResolveFontSize(opts.prefix.text, TextRole::LabelMedium, size);
         const Color pTextCol = theme.ResolveTextColor(opts.prefix.text, UiVariant::Secondary, disabled, inputHovered, focused);
         const Color pIconCol = opts.prefix.text.color.HasAny() ? pTextCol : unitCol;
-        const float pW = TextUtil::MeasureAffixWidth(opts.prefix, pFont, m.iconSize, 4.0f, &canvas);
-        TextUtil::DrawAffix(canvas, opts.prefix, Rect(leftX, boxRect.y, pW, boxRect.h), pFont, m.iconSize, pTextCol, pIconCol, 4.0f);
-        const float pGap = (opts.prefix.HasIcon() && !opts.prefix.HasText()) ? 6.0f : 4.0f;
-        leftX += pW + pGap;
+        TextUtil::DrawAffix(canvas, opts.prefix, rects.prefixRect, pFont, m.iconSize, pTextCol, pIconCol, affixInnerGap);
     }
 
-    float rightX = boxRect.x + boxRect.w - m.paddingX;
     if (effStyle == SpinBoxStepStyle::Inline) {
-        const float btnSize = m.iconSize + 4.0f;
-        const float btnY = boxRect.y + (boxRect.h - btnSize) * 0.5f;
-        const float iconSz = std::max(8.0f, m.iconSize - 2.0f);
+        const float iconSz = std::max(theme.Scale(8.0f), m.iconSize - theme.Scale(2.0f));
+        const float btnRadius = theme.Scale(4.0f);
+        const float sepInsetY = theme.Scale(5.0f);
 
-        // '+' button on far right
-        rightX -= btnSize;
-        const Rect plusBtnRect(rightX, btnY, btnSize, btnSize);
-        if ((stepPlusHovered || stepPlusPressed) && !disabled && !stepPlusDisabled) {
-            const Color hovBg = stepPlusPressed ? accentCol.WithAlphaF(0.28f) : pal.surfaceHover;
-            canvas.DrawRoundRect(plusBtnRect, 4.0f, hovBg, Color::Transparent(), 0.0f);
-        }
-        const Rect plusIcRect(
-            rightX + (btnSize - iconSz) * 0.5f,
-            boxRect.y + (boxRect.h - iconSz) * 0.5f,
-            iconSz,
-            iconSz
-        );
-        const Color plusCol = (disabled || stepPlusDisabled)
-            ? unitCol.WithAlphaF(0.35f)
-            : ((stepPlusHovered || stepPlusPressed) ? (opts.color.HasAny() ? accentCol : pal.textPrimary) : unitCol);
-        Icon::Plus().Draw(canvas, plusIcRect, plusCol);
+        auto drawInlineStepBtn = [&](const Rect& btnRect, const Icon& ic, bool btnHov, bool btnPress, bool btnDis) {
+            if (btnRect.w <= 0.0f || btnRect.h <= 0.0f) return;
+            if ((btnHov || btnPress) && !disabled && !btnDis) {
+                const Color hovBg = btnPress ? accentCol.WithAlphaF(0.28f) : pal.surfaceHover;
+                canvas.DrawRoundRect(btnRect, btnRadius, hovBg, Color::Transparent(), 0.0f);
+            }
+            const Rect icRect(
+                btnRect.x + (btnRect.w - iconSz) * 0.5f,
+                btnRect.y + (btnRect.h - iconSz) * 0.5f,
+                iconSz,
+                iconSz
+            );
+            const Color icCol = (disabled || btnDis)
+                ? unitCol.WithAlphaF(0.35f)
+                : ((btnHov || btnPress) ? (opts.color.HasAny() ? accentCol : pal.textPrimary) : unitCol);
+            ic.Draw(canvas, icRect, icCol);
+        };
 
-        // '-' button to the left of '+'
-        rightX -= (2.0f + btnSize);
-        const Rect minusBtnRect(rightX, btnY, btnSize, btnSize);
-        if ((stepMinusHovered || stepMinusPressed) && !disabled && !stepMinusDisabled) {
-            const Color hovBg = stepMinusPressed ? accentCol.WithAlphaF(0.28f) : pal.surfaceHover;
-            canvas.DrawRoundRect(minusBtnRect, 4.0f, hovBg, Color::Transparent(), 0.0f);
-        }
-        const Rect minusIcRect(
-            rightX + (btnSize - iconSz) * 0.5f,
-            boxRect.y + (boxRect.h - iconSz) * 0.5f,
-            iconSz,
-            iconSz
-        );
-        const Color minusCol = (disabled || stepMinusDisabled)
-            ? unitCol.WithAlphaF(0.35f)
-            : ((stepMinusHovered || stepMinusPressed) ? (opts.color.HasAny() ? accentCol : pal.textPrimary) : unitCol);
-        Icon::Minus().Draw(canvas, minusIcRect, minusCol);
+        drawInlineStepBtn(rects.stepPlusRect, Icon::Plus(), stepPlusHovered, stepPlusPressed, stepPlusDisabled);
+        drawInlineStepBtn(rects.stepMinusRect, Icon::Minus(), stepMinusHovered, stepMinusPressed, stepMinusDisabled);
 
         // Subtle vertical separator before stepper buttons
-        const float sepX = rightX - 3.0f;
         canvas.DrawLine(
-            {sepX, boxRect.y + 5.0f},
-            {sepX, boxRect.Bottom() - 5.0f},
+            {rects.stepSepX, boxRect.y + sepInsetY},
+            {rects.stepSepX, boxRect.Bottom() - sepInsetY},
             disabled ? pal.border.WithAlphaF(0.25f) : pal.border.WithAlphaF(0.65f),
             1.0f
         );
-        rightX -= 6.0f;
     }
 
-    if (opts.suffix.HasContentOrReserve()) {
+    if (opts.suffix.HasContentOrReserve() && rects.suffixRect.w > 0.0f) {
         const float sFont = theme.ResolveFontSize(opts.suffix.text, TextRole::LabelMedium, size);
         const Color sTextCol = theme.ResolveTextColor(opts.suffix.text, UiVariant::Secondary, disabled, hovered, focused);
         const Color sIconCol = opts.suffix.text.color.HasAny() ? sTextCol : unitCol;
-        const float sW = TextUtil::MeasureAffixWidth(opts.suffix, sFont, m.iconSize, 4.0f, &canvas);
-        rightX -= sW;
-        TextUtil::DrawAffix(canvas, opts.suffix, Rect(rightX, boxRect.y, sW, boxRect.h), sFont, m.iconSize, sTextCol, sIconCol, 4.0f);
-        rightX -= 6.0f;
+        TextUtil::DrawAffix(canvas, opts.suffix, rects.suffixRect, sFont, m.iconSize, sTextCol, sIconCol, affixInnerGap);
     }
 
-    const float availW = std::max(0.0f, rightX - leftX);
-    const Rect textRect(leftX, boxRect.y, availW, boxRect.h);
+    const Rect textRect = rects.textRect;
     canvas.PushClip(textRect);
 
     if (focused && !disabled && !scrubbing && selStart != selEnd && !displayText.empty()) {
