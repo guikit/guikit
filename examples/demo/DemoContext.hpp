@@ -83,6 +83,85 @@ constexpr bool IsFullStageCategory(NavCategory cat) noexcept {
            cat == NavCategory::SceneBpmnEditor;
 }
 
+enum class PreviewFormFactor : uint8_t {
+    Window = 0, ///< Desktop OS Window with titlebar (traffic lights, title, W x H badge)
+    Tablet,     ///< Tablet / Touch Panel bezel (camera dot + Home Indicator)
+    Phone,      ///< Smartphone / Handheld bezel (Dynamic Island + 9:41 status + Home Indicator)
+    Full        ///< Clean edge-to-edge artboard on the recessed backdrop
+};
+
+inline constexpr std::array<std::string_view, 4> kPreviewFormFactorNames = {
+    "Window",
+    "Tablet",
+    "Phone",
+    "Full"
+};
+
+enum class PreviewZoomMode : uint8_t {
+    Fit = 0,     ///< Auto-fit device to available canvas (or 100% in Window/Full)
+    Real1To1,    ///< 1:1 physical millimeter match using monitor EDID / DPI
+    Zoom75,      ///< 75%
+    Zoom100,     ///< 100%
+    Zoom125,     ///< 125%
+    Zoom150,     ///< 150%
+    Zoom175,     ///< 175%
+    Zoom200,     ///< 200%
+    Custom       ///< Custom zoom factor driven by Ctrl + MouseWheel
+};
+
+inline constexpr std::array<std::string_view, 8> kPreviewZoomPresetNames = {
+    "Fit",
+    "1:1",
+    "75%",
+    "100%",
+    "125%",
+    "150%",
+    "175%",
+    "200%"
+};
+
+constexpr std::string_view CategoryDisplayTitle(NavCategory cat) noexcept {
+    switch (cat) {
+        case NavCategory::ElemHeading:       return "Heading — Section & Title Typography";
+        case NavCategory::ElemButton:        return "Button — Interactive Push Control";
+        case NavCategory::ElemSlider:        return "Slider & StepSlider — Continuous & Discrete";
+        case NavCategory::ElemLevelMeter:    return "LevelMeter — Segmented Audio/DSP VU Meter";
+        case NavCategory::ElemKnob:          return "Knob — Rotary Parameter Control";
+        case NavCategory::ElemSpinBox:       return "SpinBox — Precision Numeric Stepper";
+        case NavCategory::ElemInputField:    return "InputField — Text & Validated Input";
+        case NavCategory::ElemTagInput:      return "TagInput — Editable Multi-Tag Chips";
+        case NavCategory::ElemSelect:        return "Select & MultiSelect — Dropdown & ComboBox";
+        case NavCategory::ElemSegmented:     return "Segmented — Mutually Exclusive Pill Bar";
+        case NavCategory::ElemColorPicker:   return "ColorPicker — 2D HSV Canvas & HEX/RGBA";
+        case NavCategory::ElemDatePicker:    return "DatePicker — Calendar Grid & Time Stepper";
+        case NavCategory::ElemSwitch:        return "Switch — Toggle & Symmetric Dual-Label";
+        case NavCategory::ElemCheckbox:      return "Checkbox — Tri-State Boolean Control";
+        case NavCategory::ElemRadio:         return "Radio — Exclusive Option Group";
+        case NavCategory::ElemImage:         return "Image — Vector SVG & Raster Display";
+        case NavCategory::PanelCard:         return "Card — Surface Container & Elevation";
+        case NavCategory::PanelSplitView:    return "SplitView — Resizable Dual-Pane Sash";
+        case NavCategory::PanelTabBar:       return "TabBar — Scrollable & Closable Tabs";
+        case NavCategory::PanelNavigation:   return "Navigation — Breadcrumb & Pagination";
+        case NavCategory::PanelToolbar:      return "Toolbar — Command Strip & Tool Palettes";
+        case NavCategory::PanelSidebar:      return "Sidebar — Application Workbench Shell";
+        case NavCategory::PanelTreeView:     return "TreeView — Hierarchical Node Explorer";
+        case NavCategory::PanelTable:        return "Table — 100k Virtualized Data Grid";
+        case NavCategory::PanelOverlays:     return "Overlays — Modal, Toast & CommandPalette";
+        case NavCategory::ContentMarkdown:   return "Markdown — Rich Document Renderer";
+        case NavCategory::ContentCodeEditor: return "Code Editor — Syntax Highlighting & Minimap";
+        case NavCategory::SceneSchematic2D:  return "Schematic 2D — Node Graph Canvas";
+        case NavCategory::SceneOsmMap:       return "GIS Map — ENC Nautical & OSM Tile Engine";
+        case NavCategory::SceneSignalView:   return "Signal View — DSP Waveform & Spectrogram";
+        case NavCategory::SceneSonarView:    return "Sonar Radar — DDS Polar Heatmap & Tracker";
+        case NavCategory::SceneWaterfallView:return "Waterfall — DOA Bearing-Timegram";
+        case NavCategory::SceneImageView:    return "Image View — 16-bit Scientific Inspector";
+        case NavCategory::SceneAttitudeView: return "Attitude PFD — Primary Flight Display";
+        case NavCategory::SceneCarDashboard: return "Car Cluster — Digital Cockpit Instrument";
+        case NavCategory::SceneBpmnEditor:   return "BPMN 2.0 Modeler — Workflow Diagram Editor";
+    }
+    return "GuiKit Preview";
+}
+
 inline constexpr std::array<std::string_view, 3> kStretchModeNames = {"Compact", "Space", "Fill"};
 inline constexpr std::array<std::string_view, 4> kElementLayoutNames = {"Stacked", "Top", "Bottom", "Inline"};
 inline constexpr std::array<std::string_view, 2> kInlineOrderNames = {"LabelFirst", "ControlFirst"};
@@ -247,6 +326,12 @@ struct DemoContext {
     bool previewBounds = false;
     bool previewInspect = false;
     bool previewShowCode = true;
+    size_t previewFormFactorIdx = 0; // 0 = Window, 1 = Tablet, 2 = Phone, 3 = Full
+    bool previewLandscape = false;   // Orientation state for Tablet / Phone
+    size_t previewZoomModeIdx = 3;   // 0=Fit, 1=Real 1:1, 2=75%, 3=100%, 4=125%, 5=150%, 6=175%, 7=200%, 8=Custom
+    float previewCustomZoom = 1.0f;  // Custom zoom factor set via Ctrl + MouseWheel
+    float previewEffectiveZoom = 1.0f;     // Resolved effective zoom factor for current frame
+    float displayPxPerMm = 96.0f / 25.4f;  // Physical monitor density (px/mm) for Real 1:1 mode
 
     guikit::UiTheme shellTheme = guikit::UiTheme::Dark(guikit::Density::Standard);
     guikit::UiTheme previewTheme = guikit::UiTheme::Dark(guikit::Density::Standard);

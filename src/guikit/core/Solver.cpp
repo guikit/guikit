@@ -36,6 +36,10 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         if (HasDirectShellPanel(node)) {
             return true;
         }
+        // Synthetic root or styled surface Box without direct shell panels is a host viewport, not part of an inner shell
+        if (node->parent == nullptr || (node->type == NodeType::Box && node->backgroundColor.a > 0)) {
+            return false;
+        }
         for (const Node* c = node->firstChild; c != nullptr; c = c->nextSibling) {
             if ((c->type == NodeType::Column || c->type == NodeType::Row || c->type == NodeType::Box) &&
                 HasDirectShellPanel(c)) {
@@ -59,8 +63,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (!node->explicitGap) {
                 node->gap = activeTheme.shell.panelGap;
             }
-            const bool isTopLevelShell = (node->parent == nullptr && HasDirectShellPanel(node)) ||
-                (node->parent != nullptr && node->parent->parent == nullptr && !HasDirectShellPanel(node->parent));
+            const bool isTopLevelShell = !IsShellContainer(node->parent);
             if (isTopLevelShell && !node->explicitPadding) {
                 node->padding = activeTheme.shell.windowPadding;
             }
@@ -787,14 +790,15 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             ? static_cast<float>(flowChildCount - 1) * node->gap
             : 0.0f;
 
-        const float freeSpace = std::max(0.0f, contentRect.w - totalGap - baseSum);
+        const float rawFreeSpace = contentRect.w - totalGap - baseSum;
+        const float freeSpace = std::max(0.0f, rawFreeSpace);
         float currentX = contentRect.x;
 
         // Main axis justification when there are no stretch elements
-        if (flexCount == 0 && freeSpace > 0.0f) {
+        if (flexCount == 0) {
             if (node->justify == Justify::Center) {
-                currentX += freeSpace * 0.5f;
-            } else if (node->justify == Justify::End) {
+                currentX += rawFreeSpace * 0.5f;
+            } else if (node->justify == Justify::End && freeSpace > 0.0f) {
                 currentX += freeSpace;
             }
         }
@@ -832,7 +836,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (!child->isSpacer && child->minHeight > 0.0f) {
                 childH = std::max(childH, child->minHeight);
             }
-            if (node->heightMode == SizeMode::Stretch && contentRect.h > 0.0f) {
+            if (node->heightMode == SizeMode::Stretch && contentRect.h > 0.0f && child->heightMode != SizeMode::Fixed) {
                 childH = std::min(childH, contentRect.h);
             }
 

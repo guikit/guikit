@@ -12,6 +12,7 @@
 #include "guikit/backend/SdlGlShaderEngine.hpp"
 #include "guikit/core/FrameMetrics.hpp"
 #include "DemoContext.hpp"
+#include "PreviewViewport.hpp"
 
 namespace {
 
@@ -276,8 +277,7 @@ int main(int argc, char* argv[]) {
         "Heartbeat: 0.5 Hz"
     };
 
-    size_t shellScaleIndex = 0;   // Default: 100%
-    size_t previewScaleIndex = 0; // Default: 100%
+    size_t shellScaleIndex = 0; // Default: 100%
     const std::vector<float> scaleValues = {1.0f, 1.25f, 1.5f, 1.75f, 2.0f};
     const std::vector<std::string_view> scaleLabels = {
         "100%",
@@ -289,6 +289,7 @@ int main(int argc, char* argv[]) {
 
     NavCategory selectedCategory = NavCategory::ElemHeading;
     DemoContext demoCtx;
+    demoCtx.displayPxPerMm = guikit::demo::QueryDisplayPixelsPerMm(window);
     guikit::FrameMetrics metrics;
 
     ui.SetTheme(demoCtx.shellTheme);
@@ -317,6 +318,7 @@ int main(int argc, char* argv[]) {
                 if (event.window.data1 > 0 && event.window.data2 > 0) {
                     winWidth = event.window.data1;
                     winHeight = event.window.data2;
+                    demoCtx.displayPxPerMm = guikit::demo::QueryDisplayPixelsPerMm(window);
                     ui.InvalidateAll();
                     ui.RequestRepaint(3);
                 }
@@ -466,7 +468,6 @@ int main(int argc, char* argv[]) {
         metrics.BeginFrame();
 
         const float shellScale = scaleValues[shellScaleIndex];
-        const float previewScale = scaleValues[previewScaleIndex];
 
         ui.BeginFrame({static_cast<float>(winWidth), static_cast<float>(winHeight)}, 1.0f);
         {
@@ -773,7 +774,64 @@ int main(int argc, char* argv[]) {
                             ui.Text("PREVIEW", {.role = guikit::TextRole::LabelSmall, .variant = guikit::UiVariant::Muted});
                             previewTb.Separator();
 
-                            if (ui.Size(guikit::UiSize::Sm).Select(previewScaleIndex, scaleLabels, {.width = 92.0f}).changed) {
+                            if (ui.Size(guikit::UiSize::Sm).Select(demoCtx.previewFormFactorIdx, guikit::demo::kPreviewFormFactorNames, {.width = 96.0f}).changed) {
+                                if (demoCtx.previewFormFactorIdx == 1) {
+                                    demoCtx.previewLandscape = true;  // Tablet defaults to Landscape
+                                    if (demoCtx.previewZoomModeIdx == static_cast<size_t>(guikit::demo::PreviewZoomMode::Zoom100)) {
+                                        demoCtx.previewZoomModeIdx = static_cast<size_t>(guikit::demo::PreviewZoomMode::Fit);
+                                    }
+                                } else if (demoCtx.previewFormFactorIdx == 2) {
+                                    demoCtx.previewLandscape = false; // Phone defaults to Portrait
+                                    if (demoCtx.previewZoomModeIdx == static_cast<size_t>(guikit::demo::PreviewZoomMode::Zoom100)) {
+                                        demoCtx.previewZoomModeIdx = static_cast<size_t>(guikit::demo::PreviewZoomMode::Fit);
+                                    }
+                                }
+                                ui.InvalidateAll();
+                            }
+
+                            static constexpr std::array<std::string_view, 2> kOrientationVariants = {"Port", "Land"};
+                            const bool canRotateDevice = (demoCtx.previewFormFactorIdx == 1 || demoCtx.previewFormFactorIdx == 2);
+                            if (previewTb.Toggle(demoCtx.previewLandscape, {
+                                .text = {demoCtx.previewLandscape ? "Land" : "Port", kOrientationVariants},
+                                .tooltip = "Rotate Device Orientation (Portrait / Landscape)",
+                                .icon = guikit::Icon::Refresh(),
+                                .color = guikit::StateColor::Info(),
+                                .disabled = !canRotateDevice
+                            }).changed) {
+                                ui.InvalidateAll();
+                            }
+
+                            previewTb.Separator();
+
+                            const int effZoomPct = static_cast<int>(std::lround(demoCtx.previewEffectiveZoom * 100.0f));
+                            guikit::SelectOptions zoomSelectOpts{
+                                .tooltip = "Preview Zoom / Scale (Fit, Real 1:1 physical mm, or Ctrl + MouseWheel)",
+                                .width = 116.0f
+                            };
+                            if (demoCtx.previewZoomModeIdx == static_cast<size_t>(guikit::demo::PreviewZoomMode::Fit) ||
+                                demoCtx.previewZoomModeIdx == static_cast<size_t>(guikit::demo::PreviewZoomMode::Real1To1)) {
+                                zoomSelectOpts.suffix.text = {ui.Format("{}%", effZoomPct), guikit::StateColor::Muted()};
+                            }
+
+                            bool zoomChanged = false;
+                            if (demoCtx.previewZoomModeIdx >= guikit::demo::kPreviewZoomPresetNames.size()) {
+                                const std::string_view customLabel = ui.AllocString(ui.Format("{}%", effZoomPct));
+                                const std::array<std::string_view, 9> zoomItemsWithCustom = {
+                                    guikit::demo::kPreviewZoomPresetNames[0],
+                                    guikit::demo::kPreviewZoomPresetNames[1],
+                                    guikit::demo::kPreviewZoomPresetNames[2],
+                                    guikit::demo::kPreviewZoomPresetNames[3],
+                                    guikit::demo::kPreviewZoomPresetNames[4],
+                                    guikit::demo::kPreviewZoomPresetNames[5],
+                                    guikit::demo::kPreviewZoomPresetNames[6],
+                                    guikit::demo::kPreviewZoomPresetNames[7],
+                                    customLabel
+                                };
+                                zoomChanged = ui.Size(guikit::UiSize::Sm).Select(demoCtx.previewZoomModeIdx, zoomItemsWithCustom, zoomSelectOpts).changed;
+                            } else {
+                                zoomChanged = ui.Size(guikit::UiSize::Sm).Select(demoCtx.previewZoomModeIdx, guikit::demo::kPreviewZoomPresetNames, zoomSelectOpts).changed;
+                            }
+                            if (zoomChanged) {
                                 ui.InvalidateAll();
                             }
 
@@ -813,29 +871,10 @@ int main(int argc, char* argv[]) {
                         }
 
                         if (IsSandboxCategory(selectedCategory)) {
-                            // SANDBOX MODE: Hero Stage + optional C++20 Code Generator
-                            const bool isFullStage = IsFullStageCategory(selectedCategory);
-                            if (auto stageBox = ui.Box({
-                                .widthMode = guikit::SizeMode::Stretch,
-                                .heightMode = guikit::SizeMode::Stretch,
-                                .padding = guikit::Padding::All(isFullStage ? 8.0f : 24.0f),
-                                .background = {demoCtx.previewTheme.palette.surface},
-                                .clipChildren = true,
-                                .theme = &demoCtx.previewTheme,
-                                .scale = previewScale,
-                                .debugBounds = demoCtx.previewBounds,
-                                .inspectMode = demoCtx.previewInspect
-                            })) {
-                                if (isFullStage) {
-                                    DispatchSandboxStage(ui, selectedCategory, demoCtx);
-                                } else if (auto centerRow = ui.Row({
-                                    .align = guikit::Alignment::Center,
-                                    .justify = guikit::Justify::Center,
-                                    .heightMode = guikit::SizeMode::Stretch
-                                })) {
-                                    DispatchSandboxStage(ui, selectedCategory, demoCtx);
-                                }
-                            }
+                            // SANDBOX MODE: Recessed Studio Backdrop + Device Frame + optional C++20 Code Generator
+                            RenderPreviewViewport(ui, demoCtx, selectedCategory, [&]() {
+                                DispatchSandboxStage(ui, selectedCategory, demoCtx);
+                            });
 
                             if (auto codePanel = ui.BottomPanel(demoCtx.previewShowCode, {
                                 .height = 240.0f,
