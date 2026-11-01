@@ -541,6 +541,9 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
     }
 
     if (!restoredFromCache) {
+        if (payload->state) {
+            payload->state->baseLayerValid = false;
+        }
         // =====================================================================
         // PASS A: Static Base Layer (Console frame, GPU hole, Guard Zone, Range Rings, Dial, Colorbar)
         // =====================================================================

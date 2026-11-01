@@ -339,14 +339,17 @@ void DrawWaterfallViewNode(const Node* node, ICanvas& canvas, const UiTheme& the
     if (canvas.SupportsGpuShaders() && state.baseLayerValid && state.baseLayerKey == staticKey) {
         if (canvas.RestoreRegion(r, state.baseLayerPixels, state.baseLayerW, state.baseLayerH)) {
             if (geom.hasWaterfall && !state.ringBufferDb.empty()) {
+                canvas.PushClip(geom.wfRect);
                 const auto gpuDesc = buildGpuDesc();
                 (void)canvas.DrawWaterfallGpuField(gpuDesc, false);
+                canvas.PopClip();
             }
             restoredBase = true;
         }
     }
 
     if (!restoredBase) {
+        state.baseLayerValid = false;
         // =================================================================
         // PASS A: Static Instrument Base Layer (Rulers, Grids, Colorbar, Cutout)
         // =================================================================
@@ -386,8 +389,10 @@ void DrawWaterfallViewNode(const Node* node, ICanvas& canvas, const UiTheme& the
         if (geom.hasWaterfall && geom.wfRect.h > 10.0f) {
             bool gpuHandled = false;
             if (canvas.SupportsGpuShaders() && !state.ringBufferDb.empty()) {
+                canvas.PushClip(geom.wfRect);
                 const auto gpuDesc = buildGpuDesc();
                 gpuHandled = canvas.DrawWaterfallGpuField(gpuDesc, true);
+                canvas.PopClip();
             }
 
             if (!gpuHandled) {

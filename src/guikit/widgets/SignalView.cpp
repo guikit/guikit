@@ -1777,6 +1777,7 @@ SignalViewResponse SignalView::Run(
         }
 
         if (!restoredFromCache) {
+            s.baseLayerCache.valid = false;
             // =====================================================================
             // PASS A: Render Static Base Layer (Overview, Rulers, Waveform, Spec Grid, Markers)
             // =====================================================================

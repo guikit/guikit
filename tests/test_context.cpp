@@ -11889,6 +11889,149 @@ int main() {
             renderSimulatedPhoneLandscape(2.49f);
             ui.EndFrame(thorCanvas);
         }
+
+        // Regression test: Partially-clipped GPU scene widgets (SonarView / WaterfallView) above an open BottomPanel
+        // (TextArea cursor blinking / mouse movement in BottomPanel).
+        // Previously, ThorCanvas::Clear erased GPU passes whenever a dirty rect in BottomPanel intersected the
+        // UNCLIPPED plotRect extending below the ScrollArea clip boundary, causing the GPU underlay to drop and flash black.
+        {
+            Context clipUi;
+            ThorCanvas clipCanvas;
+            std::vector<uint32_t> clipPixels(1200 * 800, 0);
+            clipCanvas.SetTarget(clipPixels.data(), 1200, 800, 1200);
+            clipCanvas.SetGpuShadersEnabled(true);
+
+            std::vector<float> sonarMatrix(64 * 64, 0.5f);
+            std::vector<float> wfSlice(128, -45.0f);
+            uint64_t wfSeq = 1;
+            bool bottomOpen = true;
+            std::string codeBuf = "auto resp = ui.SonarView(polarMatrix, {\n    .numBeams = 180,\n    .numRangeBins = 256\n});";
+            Rect codeAreaRect{};
+            SonarViewResponse lastSonarResp{};
+            WaterfallViewResponse lastWfResp{};
+            bool showWaterfall = false;
+
+            auto renderClippedScene = [&](double timeSec) {
+                clipUi.SetCurrentTime(timeSec);
+                if (auto rootCol = clipUi.Column({.gap = 0.0f, .padding = 0.0f})) {
+                    // Upper ScrollArea is constrained to ~540px while inner simulated tablet/window is 700px tall
+                    if (auto scroll = clipUi.ScrollArea({.gap = 0.0f, .padding = 0.0f})) {
+                        if (auto stageFrame = clipUi.Box({
+                            .widthMode = SizeMode::Fixed,
+                            .heightMode = SizeMode::Fixed,
+                            .fixedWidth = 900.0f,
+                            .fixedHeight = 700.0f,
+                            .clipChildren = true
+                        })) {
+                            if (!showWaterfall) {
+                                lastSonarResp = clipUi.SonarView(sonarMatrix, {
+                                    .numBeams = 64,
+                                    .numRangeBins = 64,
+                                    .displayMode = SonarDisplayMode::SectorWedge,
+                                    .height = 680.0f,
+                                    .heightMode = SizeMode::Fixed
+                                });
+                            } else {
+                                lastWfResp = clipUi.WaterfallView(wfSlice, {
+                                    .mode = WaterfallMode::SpectrumRtsa,
+                                    .viewLayout = WaterfallLayout::SplitTraceAndWaterfall,
+                                    .numBins = 128,
+                                    .historyRows = 64,
+                                    .sliceSequence = wfSeq,
+                                    .height = 680.0f,
+                                    .heightMode = SizeMode::Fixed
+                                });
+                            }
+                        }
+                    }
+                    if (auto bp = clipUi.BottomPanel(bottomOpen, {
+                        .height = 260.0f,
+                        .resizable = true,
+                        .allowCollapse = true
+                    })) {
+                        auto taResp = clipUi.TextArea(codeBuf, {
+                            .autoHeight = false,
+                            .readOnly = true,
+                            .showLineNumbers = true,
+                            .heightMode = SizeMode::Stretch
+                        });
+                        codeAreaRect = taResp.rect;
+                    }
+                }
+            };
+
+            // 1. Settle layout and initial full render for SonarView
+            for (int f = 0; f < 3; ++f) {
+                clipUi.BeginFrame({1200.0f, 800.0f}, 1.0f);
+                renderClippedScene(1.0 + f * 0.1);
+                clipUi.EndFrame(clipCanvas);
+            }
+            CHECK(clipCanvas.HasActiveGpuPasses());
+            CHECK(!clipCanvas.GetSonarGpuPasses().empty());
+            if (!clipCanvas.GetSonarGpuPasses().empty()) {
+                const Rect initialSonarClip = clipCanvas.GetSonarGpuPasses()[0].clipRect;
+                const Rect initialSonarPlot = clipCanvas.GetSonarGpuPasses()[0].plotRect;
+                // Verify the widget is genuinely partially clipped vertically (unclipped plot extends into BottomPanel)
+                CHECK(initialSonarPlot.Bottom() > initialSonarClip.Bottom() + 50.0f);
+                CHECK(initialSonarPlot.Bottom() > codeAreaRect.y);
+
+                // 2. Click inside the BottomPanel TextArea to focus it and trigger cursor blinking (partial dirty rects in BottomPanel)
+                clipUi.OnMouseMove(codeAreaRect.Center());
+                clipUi.OnMouseDown(1);
+                clipUi.OnMouseUp(1);
+                for (int step = 0; step < 6; ++step) {
+                    clipUi.BeginFrame({1200.0f, 800.0f}, 1.0f);
+                    renderClippedScene(2.0 + step * 0.55); // Toggles cursor blink every 0.53s
+                    clipUi.EndFrame(clipCanvas);
+                    // GPU pass must NEVER be dropped when BottomPanel repaints!
+                    CHECK(clipCanvas.HasActiveGpuPasses());
+                    CHECK(!clipCanvas.GetSonarGpuPasses().empty());
+                    if (!clipCanvas.GetSonarGpuPasses().empty()) {
+                        CHECK(std::abs(clipCanvas.GetSonarGpuPasses()[0].clipRect.h - initialSonarClip.h) < 2.0f);
+                    }
+                }
+
+                // 3. Move mouse inside the visible portion of the clipped SonarView and verify unclipped geometry stability
+                clipUi.OnMouseMove({initialSonarClip.Center().x, initialSonarClip.Bottom() - 40.0f});
+                clipUi.BeginFrame({1200.0f, 800.0f}, 1.0f);
+                renderClippedScene(6.0);
+                clipUi.EndFrame(clipCanvas);
+                CHECK(clipCanvas.HasActiveGpuPasses());
+                CHECK(lastSonarResp.hovered);
+                CHECK(lastSonarResp.cursorInsidePlot);
+            }
+
+            // 4. Switch to WaterfallView and verify the same partial-clipping resilience
+            showWaterfall = true;
+            for (int f = 0; f < 3; ++f) {
+                ++wfSeq;
+                clipUi.BeginFrame({1200.0f, 800.0f}, 1.0f);
+                renderClippedScene(7.0 + f * 0.1);
+                clipUi.EndFrame(clipCanvas);
+            }
+            CHECK(clipCanvas.HasActiveGpuPasses());
+            CHECK(!clipCanvas.GetWaterfallGpuPasses().empty());
+            if (!clipCanvas.GetWaterfallGpuPasses().empty()) {
+                const Rect initialWfClip = clipCanvas.GetWaterfallGpuPasses()[0].clipRect;
+                const Rect initialWfPlot = clipCanvas.GetWaterfallGpuPasses()[0].plotRect;
+                CHECK(initialWfPlot.Bottom() > initialWfClip.Bottom() + 50.0f);
+
+                // Blink cursor in BottomPanel while WaterfallView is partially clipped
+                clipUi.OnMouseMove(codeAreaRect.Center());
+                clipUi.OnMouseDown(1);
+                clipUi.OnMouseUp(1);
+                for (int step = 0; step < 6; ++step) {
+                    clipUi.BeginFrame({1200.0f, 800.0f}, 1.0f);
+                    renderClippedScene(8.0 + step * 0.55);
+                    clipUi.EndFrame(clipCanvas);
+                    CHECK(clipCanvas.HasActiveGpuPasses());
+                    CHECK(!clipCanvas.GetWaterfallGpuPasses().empty());
+                    if (!clipCanvas.GetWaterfallGpuPasses().empty()) {
+                        CHECK(std::abs(clipCanvas.GetWaterfallGpuPasses()[0].clipRect.h - initialWfClip.h) < 2.0f);
+                    }
+                }
+            }
+        }
     }
 
     if (g_failures == 0) {

@@ -923,7 +923,9 @@ int main(int argc, char* argv[]) {
 
                 // Application StatusBar
                 if (auto sb = ui.StatusBar()) {
-                    const bool isGpuScene = (selectedCategory == NavCategory::SceneSonarView || selectedCategory == NavCategory::SceneSignalView);
+                    const bool isGpuScene = (selectedCategory == NavCategory::SceneSonarView ||
+                                             selectedCategory == NavCategory::SceneWaterfallView ||
+                                             selectedCategory == NavCategory::SceneSignalView);
                     if (gpuShaderEngine.IsAvailable()) {
                         sb.Item({
                             .text = isGpuScene ? "GPU Shaders: GLSL Underlay Active" : "GPU Shaders: GLSL Ready",

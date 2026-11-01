@@ -283,14 +283,21 @@ void ThorCanvas::Clear(Color color, std::optional<Rect> rect) {
         }
     } else {
         const Rect sClear(rect->x * m_scale, rect->y * m_scale, rect->w * m_scale, rect->h * m_scale);
+        auto isCoveredByClear = [&](const Rect& clipR) noexcept {
+            if (clipR.w <= 0.5f || clipR.h <= 0.5f) return true;
+            return sClear.x <= clipR.x + 1.0f &&
+                   sClear.y <= clipR.y + 1.0f &&
+                   sClear.Right() >= clipR.Right() - 1.0f &&
+                   sClear.Bottom() >= clipR.Bottom() - 1.0f;
+        };
         std::erase_if(m_sonarGpuPasses, [&](const SonarGpuFieldDesc& p) {
-            return p.plotRect.Intersects(sClear);
+            return isCoveredByClear(p.clipRect);
         });
         std::erase_if(m_spectrogramGpuPasses, [&](const SpectrogramGpuFieldDesc& p) {
-            return p.plotRect.Intersects(sClear);
+            return isCoveredByClear(p.clipRect);
         });
         std::erase_if(m_waterfallGpuPasses, [&](const WaterfallGpuFieldDesc& p) {
-            return p.plotRect.Intersects(sClear);
+            return isCoveredByClear(p.clipRect);
         });
 
         const int startX = std::max(0, static_cast<int>(std::floor(sClear.x)));
@@ -1542,6 +1549,10 @@ bool ThorCanvas::DrawSonarGpuField(const SonarGpuFieldDesc& desc, bool punchHole
     scaled.plotRect = Rect(desc.plotRect.x * m_scale, desc.plotRect.y * m_scale,
                            desc.plotRect.w * m_scale, desc.plotRect.h * m_scale);
     scaled.clipRect = m_gpuClipStack.empty() ? scaled.plotRect : scaled.plotRect.Intersect(m_gpuClipStack.back());
+    if (scaled.clipRect.w <= 0.5f || scaled.clipRect.h <= 0.5f) {
+        std::erase_if(m_sonarGpuPasses, [&](const SonarGpuFieldDesc& p) { return p.widgetId == scaled.widgetId; });
+        return true;
+    }
     scaled.origin = Vec2(desc.origin.x * m_scale, desc.origin.y * m_scale);
     scaled.maxRadiusPx = desc.maxRadiusPx * m_scale;
     scaled.bscanInnerRect = Rect(desc.bscanInnerRect.x * m_scale, desc.bscanInnerRect.y * m_scale,
@@ -1571,6 +1582,10 @@ bool ThorCanvas::DrawSpectrogramGpuField(const SpectrogramGpuFieldDesc& desc, bo
     scaled.plotRect = Rect(desc.plotRect.x * m_scale, desc.plotRect.y * m_scale,
                            desc.plotRect.w * m_scale, desc.plotRect.h * m_scale);
     scaled.clipRect = m_gpuClipStack.empty() ? scaled.plotRect : scaled.plotRect.Intersect(m_gpuClipStack.back());
+    if (scaled.clipRect.w <= 0.5f || scaled.clipRect.h <= 0.5f) {
+        std::erase_if(m_spectrogramGpuPasses, [&](const SpectrogramGpuFieldDesc& p) { return p.widgetId == scaled.widgetId; });
+        return true;
+    }
 
     for (auto& existing : m_spectrogramGpuPasses) {
         if (existing.widgetId == scaled.widgetId) {
@@ -1596,6 +1611,10 @@ bool ThorCanvas::DrawWaterfallGpuField(const WaterfallGpuFieldDesc& desc, bool p
     scaled.plotRect = Rect(desc.plotRect.x * m_scale, desc.plotRect.y * m_scale,
                            desc.plotRect.w * m_scale, desc.plotRect.h * m_scale);
     scaled.clipRect = m_gpuClipStack.empty() ? scaled.plotRect : scaled.plotRect.Intersect(m_gpuClipStack.back());
+    if (scaled.clipRect.w <= 0.5f || scaled.clipRect.h <= 0.5f) {
+        std::erase_if(m_waterfallGpuPasses, [&](const WaterfallGpuFieldDesc& p) { return p.widgetId == scaled.widgetId; });
+        return true;
+    }
 
     for (auto& existing : m_waterfallGpuPasses) {
         if (existing.widgetId == scaled.widgetId) {
@@ -1613,10 +1632,11 @@ bool ThorCanvas::CaptureRegion(Rect rect, std::vector<uint32_t>& outPixels, uint
     }
 
     const Rect sRect(rect.x * m_scale, rect.y * m_scale, rect.w * m_scale, rect.h * m_scale);
-    const int x0 = std::clamp(static_cast<int>(std::round(sRect.x)), 0, static_cast<int>(m_width));
-    const int y0 = std::clamp(static_cast<int>(std::round(sRect.y)), 0, static_cast<int>(m_height));
-    const int x1 = std::clamp(static_cast<int>(std::round(sRect.Right())), 0, static_cast<int>(m_width));
-    const int y1 = std::clamp(static_cast<int>(std::round(sRect.Bottom())), 0, static_cast<int>(m_height));
+    const Rect visRect = m_gpuClipStack.empty() ? sRect : sRect.Intersect(m_gpuClipStack.back());
+    const int x0 = std::clamp(static_cast<int>(std::round(visRect.x)), 0, static_cast<int>(m_width));
+    const int y0 = std::clamp(static_cast<int>(std::round(visRect.y)), 0, static_cast<int>(m_height));
+    const int x1 = std::clamp(static_cast<int>(std::round(visRect.Right())), 0, static_cast<int>(m_width));
+    const int y1 = std::clamp(static_cast<int>(std::round(visRect.Bottom())), 0, static_cast<int>(m_height));
     const int w = x1 - x0;
     const int h = y1 - y0;
     if (w <= 0 || h <= 0) {
@@ -1653,10 +1673,11 @@ bool ThorCanvas::RestoreRegion(Rect rect, const std::vector<uint32_t>& inPixels,
     }
 
     const Rect sRect(rect.x * m_scale, rect.y * m_scale, rect.w * m_scale, rect.h * m_scale);
-    const int x0 = std::clamp(static_cast<int>(std::round(sRect.x)), 0, static_cast<int>(m_width));
-    const int y0 = std::clamp(static_cast<int>(std::round(sRect.y)), 0, static_cast<int>(m_height));
-    const int x1 = std::clamp(static_cast<int>(std::round(sRect.Right())), 0, static_cast<int>(m_width));
-    const int y1 = std::clamp(static_cast<int>(std::round(sRect.Bottom())), 0, static_cast<int>(m_height));
+    const Rect visRect = m_gpuClipStack.empty() ? sRect : sRect.Intersect(m_gpuClipStack.back());
+    const int x0 = std::clamp(static_cast<int>(std::round(visRect.x)), 0, static_cast<int>(m_width));
+    const int y0 = std::clamp(static_cast<int>(std::round(visRect.y)), 0, static_cast<int>(m_height));
+    const int x1 = std::clamp(static_cast<int>(std::round(visRect.Right())), 0, static_cast<int>(m_width));
+    const int y1 = std::clamp(static_cast<int>(std::round(visRect.Bottom())), 0, static_cast<int>(m_height));
     const int w = x1 - x0;
     const int h = y1 - y0;
     if (w != static_cast<int>(inW) || h != static_cast<int>(inH)) {

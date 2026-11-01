@@ -166,9 +166,12 @@ Response Context::Interact(Id id) {
     res.id = id;
     res.ctx = this;
 
-    auto it = m_prevFrameBounds.find(id);
-    if (it != m_prevFrameBounds.end()) {
-        res.rect = it->second;
+    auto itUnclipped = m_prevUnclippedBounds.find(id);
+    auto itClipped = m_prevFrameBounds.find(id);
+    if (itUnclipped != m_prevUnclippedBounds.end()) {
+        res.rect = itUnclipped->second;
+    } else if (itClipped != m_prevFrameBounds.end()) {
+        res.rect = itClipped->second;
     }
 
     // Suppress interaction on background widgets occluded by floating popups, modals, splitter sashes, or higher Z-layer panels
@@ -179,8 +182,8 @@ Response Context::Interact(Id id) {
         return res;
     }
 
-    if (it != m_prevFrameBounds.end()) {
-        res.hovered = res.rect.Contains(m_mousePos);
+    if (itClipped != m_prevFrameBounds.end()) {
+        res.hovered = itClipped->second.Contains(m_mousePos);
     }
 
     if (res.hovered) {
@@ -2606,14 +2609,19 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
         node->renderFn(node, canvas, activeTheme);
     }
 
+    Rect childDirtyRect = dirtyRect;
     if (node->clipChildren) {
-        canvas.PushClip(GetNodeContentClipRect(node, activeTheme));
+        const Rect clipRect = GetNodeContentClipRect(node, activeTheme);
+        canvas.PushClip(clipRect);
+        childDirtyRect = dirtyRect.Intersect(clipRect);
     }
 
     // Recurse on children (skip NodeType::Modal during normal tree walk; modals render in RenderModalsRecursive)
-    for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-        if (child->type == NodeType::Modal) continue;
-        RenderNodeRecursive(child, canvas, dirtyRect, activeTheme);
+    if (childDirtyRect.w > 0.0f && childDirtyRect.h > 0.0f) {
+        for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+            if (child->type == NodeType::Modal) continue;
+            RenderNodeRecursive(child, canvas, childDirtyRect, activeTheme);
+        }
     }
 
     if (node->clipChildren) {

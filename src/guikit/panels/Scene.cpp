@@ -688,7 +688,7 @@ void UpdateSceneCameraTransform(
     const float worldScale = std::max(0.0001f, state.zoom * s);
     const Vec2 mousePos = ctx.GetMousePos();
     const bool notOccluded = !ctx.IsMouseOccluded(node->id, mousePos);
-    const bool insideVp = vp.Contains(mousePos) && notOccluded;
+    const bool insideVp = ctx.IsRectHovered(node->id, vp);
     const bool mouseClicked = notOccluded && ctx.IsMouseClicked();
     const bool mouseDown = ctx.IsMouseDown();
     const KeyModifiers mods = ctx.GetKeyModifiers();
@@ -927,7 +927,10 @@ SceneScope Scene::Open(
         );
     }
 
-    Rect prevBounds = ctx.GetPrevFrameBounds(id);
+    Rect prevBounds = ctx.GetPrevUnclippedBounds(id);
+    if (prevBounds.w <= 1.0f || prevBounds.h <= 1.0f) {
+        prevBounds = ctx.GetPrevFrameBounds(id);
+    }
     if (prevBounds.w <= 1.0f || prevBounds.h <= 1.0f) {
         if (state.lastViewport.w > 1.0f && state.lastViewport.h > 1.0f) {
             prevBounds = state.lastViewport;
@@ -1032,7 +1035,7 @@ void Scene::Update(Context& ctx, Node* node) {
     const float s = theme.Scale(1.0f);
     const Vec2 mousePos = ctx.GetMousePos();
     const bool notOccluded = !ctx.IsMouseOccluded(node->id, mousePos);
-    const bool insideVp = vp.Contains(mousePos) && notOccluded;
+    const bool insideVp = ctx.IsRectHovered(node->id, vp);
     const bool mouseDown = ctx.IsMouseDown();
     const KeyModifiers mods = ctx.GetKeyModifiers();
     const bool hudConsumed = state.preUpdateHudConsumed;
