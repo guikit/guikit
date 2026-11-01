@@ -23,7 +23,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$RepoRoot  = Split-Path -Parent $PSScriptRoot
+$RepoRoot  = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $BuildDir  = Join-Path $RepoRoot "build_wasm"
 $StageDir  = Join-Path $RepoRoot "dist\gh-pages"
 $EmsdkDir  = Join-Path $RepoRoot ".emsdk"

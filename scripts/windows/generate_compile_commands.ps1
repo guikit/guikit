@@ -28,7 +28,8 @@ $files = @(
     "tests/test_context.cpp"
 )
 
-$cwd = (Get-Location).Path.Replace("\", "/")
+$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$cwd = $RepoRoot.Replace("\", "/")
 $commands = @()
 
 foreach ($f in $files) {
@@ -39,5 +40,5 @@ foreach ($f in $files) {
     }
 }
 
-$commands | ConvertTo-Json -Depth 4 | Out-File -Encoding utf8 compile_commands.json
+$commands | ConvertTo-Json -Depth 4 | Out-File -Encoding utf8 (Join-Path $RepoRoot "compile_commands.json")
 Write-Output "Successfully generated compile_commands.json with $($files.Count) compilation units."
