@@ -332,7 +332,11 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             } else if (node->aspectRatio > 0.0f && availableWidth > 0.0f) {
                 h = availableWidth / node->aspectRatio;
             }
-            return std::max(node->minHeight, h);
+            const float resolvedH = std::max(node->minHeight, h);
+            if (availableWidth > 0.0f) {
+                node->intrinsicSize.y = resolvedH;
+            }
+            return resolvedH;
         }
 
         if (node->direction == FlexDirection::Wrap) {

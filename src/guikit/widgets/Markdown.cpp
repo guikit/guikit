@@ -1828,6 +1828,7 @@ struct MarkdownPayload {
     int activeSearchMatch{-1};
     int searchMatchCount{0};
     const std::unordered_map<int, bool>* taskOverrides{nullptr};
+    mutable ICanvas* lastCanvas{nullptr};
 };
 
 } // namespace
@@ -2193,6 +2194,7 @@ MarkdownResponse Markdown::Run(
     payload->activeSearchMatch = res.activeSearchMatch;
     payload->searchMatchCount = res.searchMatchCount;
     payload->taskOverrides = &state.taskOverrides;
+    payload->lastCanvas = ctx.GetCanvas();
     node->SetPayload(payload);
 
     node->visualHash = detail::HashArgs(
@@ -2243,10 +2245,13 @@ MarkdownResponse Markdown::Run(
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& th) noexcept -> Vec2 {
         const auto* p = n->As<MarkdownPayload>();
         if (!p) return {0.0f, 0.0f};
+        if (canvas) {
+            p->lastCanvas = canvas;
+        }
         MarkdownOptions mOpts = p->opts;
         float z = p->zoom;
         mOpts.zoom = &z;
-        return Markdown::Measure(p->text, mOpts, n->uiSize, canvas, th, availableWidth);
+        return Markdown::Measure(p->text, mOpts, n->uiSize, canvas ? canvas : p->lastCanvas, th, availableWidth);
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& th) noexcept {
         const auto* p = n->As<MarkdownPayload>();

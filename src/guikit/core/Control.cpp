@@ -298,8 +298,16 @@ void Control::ArrangeStandaloneNode(
     }
     Rect bounds = availableRect;
     Vec2 intrinsic = node->intrinsicSize;
-    if (node->type == NodeType::Image && node->measureFn && bounds.w > 0.0f) {
-        intrinsic = node->measureFn(node, bounds.w, nullptr, theme);
+    if ((node->type == NodeType::Image ||
+         node->type == NodeType::Markdown ||
+         node->type == NodeType::TextArea) &&
+        node->measureFn && bounds.w > 0.0f) {
+        const Vec2 measured = node->measureFn(node, bounds.w, nullptr, theme);
+        if (node->type == NodeType::Image || node->type == NodeType::Markdown) {
+            intrinsic = measured;
+        } else {
+            intrinsic.y = std::max(node->minHeight, measured.y);
+        }
     }
 
     if (node->parent == nullptr) {

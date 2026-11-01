@@ -12138,6 +12138,46 @@ int main() {
             // Measure is now 100% visible inside the clipped viewport
             CHECK_NEAR(tbUi.GetPrevFrameBounds(rMeasure.id).w, tbUi.GetPrevUnclippedBounds(rMeasure.id).w, 1.0f);
         }
+
+        // --- Regression test: Markdown in narrow ScrollArea (Phone Portrait) must not vertically center or add top empty gap ---
+        {
+            Context mdUi;
+            ThorCanvas mdCanvas;
+            std::vector<uint32_t> mdPixels(340 * 600, 0);
+            mdCanvas.SetTarget(mdPixels.data(), 340, 600, 340);
+
+            constexpr std::string_view kDoc =
+                "# GuiKit Rich Markdown Engine\n\n"
+                "Welcome to **GuiKit's** native vector `ui.Markdown` viewer! Everything is parsed into a lightweight cached AST "
+                "and rendered at **60+ FPS** via *ThorVG* with crisp typography, **bold**, *italic*, ~~strikethrough~~, "
+                "`inline code` pills, and interactive links.\n\n"
+                "> [!TIP]\n"
+                "> Hold **Ctrl + MouseWheel** to smoothly zoom, click and drag to **select text** across blocks, "
+                "press `Ctrl+C` to copy, or press `Ctrl+F` to search!\n\n"
+                "## 1. Embedded Image Asset\n\n"
+                "Paragraph two with enough text that wrapping inside a 340px Phone Portrait viewport produces a taller height "
+                "than the initial 520px bottom-up intrinsic measurement.\n";
+
+            Id scrollId{};
+            Id mdId{};
+            for (int f = 0; f < 2; ++f) {
+                mdUi.BeginFrame({340.0f, 600.0f});
+                if (auto scroll = mdUi.ScrollArea({.padding = Padding::All(0.0f)})) {
+                    scrollId = scroll.GetNode()->id;
+                    const auto mdRes = mdUi.Markdown(kDoc);
+                    mdId = mdRes.id;
+                }
+                mdUi.EndFrame(mdCanvas);
+            }
+
+            const Rect scrollRect = mdUi.GetPrevFrameBounds(scrollId);
+            const Rect mdUnclippedRect = mdUi.GetPrevUnclippedBounds(mdId);
+            const Vec2 defaultMeasured = Markdown::Measure(kDoc, {}, UiSize::Md, &mdCanvas, mdUi.GetTheme(), 0.0f);
+            const Vec2 narrowMeasured  = Markdown::Measure(kDoc, {}, UiSize::Md, &mdCanvas, mdUi.GetTheme(), mdUnclippedRect.w);
+            CHECK(narrowMeasured.y > defaultMeasured.y + 20.0f);
+            CHECK_NEAR(mdUnclippedRect.y, scrollRect.y, 1.0f);
+            CHECK_NEAR(mdUnclippedRect.h, narrowMeasured.y, 1.0f);
+        }
     }
 
     if (g_failures == 0) {
