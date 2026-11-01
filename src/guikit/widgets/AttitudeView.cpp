@@ -168,14 +168,18 @@ void DrawConvexPolygonFilled(ICanvas& canvas, const std::vector<Vec2>& poly, Col
     }
 }
 
-/// Builds a rounded rectangle or circular convex polygon representing the ADI sphere boundary.
-[[nodiscard]] std::vector<Vec2> BuildAdiBoundaryPolygon(Rect adiRect, bool circular) {
+/// Builds a full-bleed, rounded-dome, or circular convex polygon representing the ADI horizon boundary.
+[[nodiscard]] std::vector<Vec2> BuildAdiBoundaryPolygon(
+    Rect horizonRect,
+    AttitudeViewportMode viewportMode,
+    float outerCornerRadius = 0.0f
+) {
     std::vector<Vec2> pts;
-    const Vec2 c = adiRect.Center();
-    if (circular) {
+    const Vec2 c = horizonRect.Center();
+    if (viewportMode == AttitudeViewportMode::Circular) {
         constexpr int kSteps = 48;
         pts.reserve(kSteps);
-        const float r = std::min(adiRect.w, adiRect.h) * 0.5f;
+        const float r = std::min(horizonRect.w, horizonRect.h) * 0.5f;
         for (int i = 0; i < kSteps; ++i) {
             const float a = (static_cast<float>(i) / kSteps) * 2.0f * kPi;
             pts.push_back({c.x + std::cos(a) * r, c.y + std::sin(a) * r});
@@ -183,11 +187,24 @@ void DrawConvexPolygonFilled(ICanvas& canvas, const std::vector<Vec2>& poly, Col
         return pts;
     }
 
-    const float cornerR = std::min(adiRect.w, adiRect.h) * 0.22f;
-    const float x0 = adiRect.x + cornerR;
-    const float x1 = adiRect.Right() - cornerR;
-    const float y0 = adiRect.y + cornerR;
-    const float y1 = adiRect.Bottom() - cornerR;
+    const float maxR = std::min(horizonRect.w, horizonRect.h) * 0.5f;
+    const float cornerR = (viewportMode == AttitudeViewportMode::FullBleed)
+        ? std::clamp(outerCornerRadius, 0.0f, maxR)
+        : (maxR * 0.44f);
+
+    if (cornerR <= 0.5f) {
+        pts.reserve(4);
+        pts.push_back({horizonRect.x, horizonRect.y});
+        pts.push_back({horizonRect.Right(), horizonRect.y});
+        pts.push_back({horizonRect.Right(), horizonRect.Bottom()});
+        pts.push_back({horizonRect.x, horizonRect.Bottom()});
+        return pts;
+    }
+
+    const float x0 = horizonRect.x + cornerR;
+    const float x1 = horizonRect.Right() - cornerR;
+    const float y0 = horizonRect.y + cornerR;
+    const float y1 = horizonRect.Bottom() - cornerR;
     constexpr int kArcSteps = 8;
     pts.reserve(kArcSteps * 4 + 4);
 
@@ -1075,6 +1092,80 @@ void DrawFmaBar(
     canvas.DrawTextBox(fdLabel, Rect(fmaRect.x + colW * 4.0f, fmaRect.y, colW, fmaRect.h), 10.5f, pal.fmaWhite, 0.5f, 0.5f);
 }
 
+[[nodiscard]] AttitudeViewportMode ResolveViewportMode(const AttitudeViewOptions& opts) noexcept {
+    if (opts.viewportMode != AttitudeViewportMode::Auto) {
+        return opts.viewportMode;
+    }
+    return (opts.displayMode == AttitudeDisplayMode::CompactADI)
+        ? AttitudeViewportMode::Circular
+        : AttitudeViewportMode::RoundedDome;
+}
+
+struct AttitudeLayout {
+    AttitudeViewportMode viewportMode{AttitudeViewportMode::RoundedDome};
+    bool isFullPfd{false};
+    bool isCompact{false};
+    bool isHud{false};
+    bool isFullBleed{false};
+    bool isCircular{false};
+
+    float pad{8.0f};
+    float fmaH{0.0f};
+    float hdgH{0.0f};
+    float leftTapeW{0.0f};
+    float rightTapeW{0.0f};
+
+    Rect availCenterRect{};
+    Rect adiRect{};
+    Rect horizonRect{};
+    Vec2 adiCenter{};
+    float adiRadius{0.0f};
+    float horizonSpan{0.0f};
+};
+
+[[nodiscard]] AttitudeLayout ComputeAttitudeLayout(Rect r, const AttitudeViewOptions& opts) noexcept {
+    AttitudeLayout lay{};
+    lay.viewportMode = ResolveViewportMode(opts);
+    lay.isFullPfd = (opts.displayMode == AttitudeDisplayMode::FullPFD);
+    lay.isCompact = (opts.displayMode == AttitudeDisplayMode::CompactADI);
+    lay.isHud = (opts.displayMode == AttitudeDisplayMode::HudOverlay);
+    lay.isFullBleed = (lay.viewportMode == AttitudeViewportMode::FullBleed);
+    lay.isCircular = (lay.viewportMode == AttitudeViewportMode::Circular);
+
+    lay.pad = 8.0f;
+    lay.fmaH = (opts.showFmaBar && !lay.isCompact && r.h > 220.0f) ? 26.0f : 0.0f;
+    lay.hdgH = (opts.showHeadingTape && !lay.isCompact && r.h > 220.0f) ? 30.0f : 0.0f;
+    lay.leftTapeW = (lay.isFullPfd && opts.showSpeedAndAltTapes && r.w > 300.0f)
+        ? std::clamp(r.w * 0.14f, 56.0f, 76.0f)
+        : 0.0f;
+    lay.rightTapeW = (lay.isFullPfd && opts.showSpeedAndAltTapes && r.w > 300.0f)
+        ? std::clamp(r.w * 0.19f, 76.0f, 106.0f)
+        : 0.0f;
+
+    const float contentTop = r.y + lay.pad + (lay.fmaH > 0.0f ? (lay.fmaH + 6.0f) : 0.0f);
+    const float contentBot = r.Bottom() - lay.pad - (lay.hdgH > 0.0f ? (lay.hdgH + 6.0f) : 0.0f);
+    const float contentH = std::max(40.0f, contentBot - contentTop);
+
+    const float adiLeft = r.x + lay.pad + (lay.leftTapeW > 0.0f ? (lay.leftTapeW + 8.0f) : 0.0f);
+    const float adiRight = r.Right() - lay.pad - (lay.rightTapeW > 0.0f ? (lay.rightTapeW + 8.0f) : 0.0f);
+    const float availAdiW = std::max(40.0f, adiRight - adiLeft);
+
+    lay.availCenterRect = Rect(adiLeft, contentTop, availAdiW, contentH);
+
+    const float adiSide = std::min(availAdiW, contentH);
+    lay.adiRect = Rect(
+        adiLeft + (availAdiW - adiSide) * 0.5f,
+        contentTop + (contentH - adiSide) * 0.5f,
+        adiSide,
+        adiSide
+    );
+    lay.horizonRect = lay.isFullBleed ? r : lay.adiRect;
+    lay.adiCenter = lay.adiRect.Center();
+    lay.adiRadius = adiSide * 0.5f;
+    lay.horizonSpan = std::hypot(lay.horizonRect.w, lay.horizonRect.h) * 1.25f;
+    return lay;
+}
+
 void RenderAttitudeViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme) noexcept {
     const auto* payload = node->As<AttitudeViewPayload>();
     if (!payload) return;
@@ -1096,38 +1187,10 @@ void RenderAttitudeViewNode(const Node* node, ICanvas& canvas, const UiTheme& th
     canvas.DrawRoundRect(r, radius, bgConsole, borderCol, borderW);
     canvas.PushClip(r);
 
-    // Compute sub-instrument rectangles inside `r`
-    const bool isFullPfd = (opts.displayMode == AttitudeDisplayMode::FullPFD);
-    const bool isCompact = (opts.displayMode == AttitudeDisplayMode::CompactADI);
-    const bool isHud = (opts.displayMode == AttitudeDisplayMode::HudOverlay);
-
-    const float pad = 8.0f;
-    const float fmaH = (opts.showFmaBar && !isCompact && r.h > 220.0f) ? 26.0f : 0.0f;
-    const float hdgH = (opts.showHeadingTape && !isCompact && r.h > 220.0f) ? 30.0f : 0.0f;
-    const float leftTapeW = (isFullPfd && opts.showSpeedAndAltTapes && r.w > 300.0f)
-        ? std::clamp(r.w * 0.14f, 56.0f, 76.0f)
-        : 0.0f;
-    const float rightTapeW = (isFullPfd && opts.showSpeedAndAltTapes && r.w > 300.0f)
-        ? std::clamp(r.w * 0.19f, 76.0f, 106.0f)
-        : 0.0f;
-
-    const float contentTop = r.y + pad + (fmaH > 0.0f ? (fmaH + 6.0f) : 0.0f);
-    const float contentBot = r.Bottom() - pad - (hdgH > 0.0f ? (hdgH + 6.0f) : 0.0f);
-    const float contentH = std::max(40.0f, contentBot - contentTop);
-
-    const float adiLeft = r.x + pad + (leftTapeW > 0.0f ? (leftTapeW + 8.0f) : 0.0f);
-    const float adiRight = r.Right() - pad - (rightTapeW > 0.0f ? (rightTapeW + 8.0f) : 0.0f);
-    const float availAdiW = std::max(40.0f, adiRight - adiLeft);
-
-    const float adiSide = std::min(availAdiW, contentH);
-    const Rect adiRect(
-        adiLeft + (availAdiW - adiSide) * 0.5f,
-        contentTop + (contentH - adiSide) * 0.5f,
-        adiSide,
-        adiSide
-    );
-    const Vec2 adiCenter = adiRect.Center();
-    const float adiRadius = adiSide * 0.5f;
+    const AttitudeLayout lay = ComputeAttitudeLayout(r, opts);
+    const Rect adiRect = lay.adiRect;
+    const Vec2 adiCenter = lay.adiCenter;
+    const float adiRadius = lay.adiRadius;
 
     // 1. Artificial Horizon Sphere (Sky & Ground Half-Plane Clipped Polygons)
     const float horizonRollDeg = (opts.referenceMode == HorizonReferenceMode::WesternMovingHorizon)
@@ -1146,9 +1209,9 @@ void RenderAttitudeViewNode(const Node* node, ICanvas& canvas, const UiTheme& th
         adiCenter.y + (opts.pitchDeg * pxPerDeg) * nGround.y
     };
 
-    const std::vector<Vec2> boundaryPoly = BuildAdiBoundaryPolygon(adiRect, isCompact);
+    const std::vector<Vec2> boundaryPoly = BuildAdiBoundaryPolygon(lay.horizonRect, lay.viewportMode, radius);
 
-    if (!isHud) {
+    if (!lay.isHud) {
         // Clip boundary polygon into Sky (nGround <= 0) and Ground (nSky <= 0)
         const std::vector<Vec2> skyPoly = ClipPolygonHalfPlane(boundaryPoly, horizonOrigin, nGround);
         const std::vector<Vec2> groundPoly = ClipPolygonHalfPlane(boundaryPoly, horizonOrigin, nSky);
@@ -1172,26 +1235,26 @@ void RenderAttitudeViewNode(const Node* node, ICanvas& canvas, const UiTheme& th
         DrawConvexPolygonFilled(canvas, groundGlowPoly, pal.groundGlow);
     }
 
-    // Horizon Dividing Line clipped to the ADI boundary polygon
+    // Horizon Dividing Line clipped to the active horizon boundary
     {
-        const float span = adiRadius * 1.45f;
-        Vec2 h0{horizonOrigin.x - span * u.x, horizonOrigin.y - span * u.y};
-        Vec2 h1{horizonOrigin.x + span * u.x, horizonOrigin.y + span * u.y};
-        if (isCompact) {
+        Vec2 h0{horizonOrigin.x - lay.horizonSpan * u.x, horizonOrigin.y - lay.horizonSpan * u.y};
+        Vec2 h1{horizonOrigin.x + lay.horizonSpan * u.x, horizonOrigin.y + lay.horizonSpan * u.y};
+        if (lay.isCircular) {
             if (ClipSegmentToCircle(h0, h1, adiCenter, adiRadius)) {
                 canvas.DrawLine(h0, h1, pal.horizonLine, 2.2f);
             }
         } else {
-            canvas.PushClip(adiRect);
+            canvas.PushClip(lay.horizonRect);
             canvas.DrawLine(h0, h1, pal.horizonLine, 2.2f);
             canvas.PopClip();
         }
     }
 
     // 2. Pitch Ladder, Zenith/Nadir Reticles & Recovery Chevrons
+    const Rect symbologyClipRect = lay.isFullBleed ? lay.availCenterRect : adiRect;
     if (opts.showPitchLadder) {
-        canvas.PushClip(adiRect);
-        DrawPitchLadder(canvas, adiCenter, adiRadius, opts.pitchDeg, horizonRollDeg, pxPerDeg, pal, isHud);
+        canvas.PushClip(symbologyClipRect);
+        DrawPitchLadder(canvas, adiCenter, adiRadius, opts.pitchDeg, horizonRollDeg, pxPerDeg, pal, lay.isHud);
         canvas.PopClip();
     }
 
@@ -1201,12 +1264,12 @@ void RenderAttitudeViewNode(const Node* node, ICanvas& canvas, const UiTheme& th
     }
 
     // 4. Flight Path Vector (FPV) & Flight Director (FD)
-    canvas.PushClip(adiRect);
+    canvas.PushClip(symbologyClipRect);
     DrawFlightDirectorAndFpv(canvas, adiCenter, adiRadius, opts, pxPerDeg, pal);
 
     // 5. Radio Altimeter AGL Readout near bottom of ADI sphere (when < 2500 ft)
     if (opts.radioAltitudeFeet < 2500.0f) {
-        const float raY = adiRect.Bottom() - (opts.showIlsDiamonds && isFullPfd ? 34.0f : 20.0f);
+        const float raY = adiRect.Bottom() - (opts.showIlsDiamonds && lay.isFullPfd ? 34.0f : 20.0f);
         const Rect raBox(adiCenter.x - 36.0f, raY - 9.0f, 72.0f, 18.0f);
         canvas.DrawRoundRect(raBox, 3.0f, Color(6, 9, 16, 215), pal.tapeBorder, 1.0f);
         char raBuf[24];
@@ -1230,63 +1293,94 @@ void RenderAttitudeViewNode(const Node* node, ICanvas& canvas, const UiTheme& th
     }
     canvas.PopClip();
 
-    // 8. Outer ADI Bezel Frame (Circular ring in CompactADI, Rounded dome frame in FullPFD/HUD)
-    if (isCompact) {
+    // 8. Outer ADI Bezel Frame (Circular ring in Circular mode, Rounded dome frame in RoundedDome mode)
+    if (lay.isCircular) {
         DrawCircleOutline(canvas, adiCenter, adiRadius, pal.bezelRing, 4.0f, 64);
         DrawCircleOutline(canvas, adiCenter, adiRadius + 1.5f, pal.bezelHighlight, 1.2f, 64);
-    } else {
-        const float domeRadius = adiSide * 0.22f;
+    } else if (!lay.isFullBleed) {
+        const float domeRadius = adiRect.w * 0.22f;
         canvas.DrawRoundRect(adiRect, domeRadius, Color::Transparent(), pal.bezelHighlight, 1.5f);
     }
 
     // 9. ILS Localizer & Glideslope Deviation Diamonds
-    if (opts.showIlsDiamonds && !isCompact) {
+    if (opts.showIlsDiamonds && !lay.isCompact) {
         DrawIlsDeviationScales(canvas, adiRect, opts, pal);
     }
 
     // 10. Top FMA Strip, Left Airspeed Tape, Right Altitude/VSI Tape, Bottom Heading Tape
-    if (fmaH > 0.0f) {
-        const Rect fmaRect(r.x + pad, r.y + pad, r.w - pad * 2.0f, fmaH);
+    if (lay.fmaH > 0.0f) {
+        const Rect fmaRect(r.x + lay.pad, r.y + lay.pad, r.w - lay.pad * 2.0f, lay.fmaH);
         DrawFmaBar(canvas, fmaRect, opts, pal);
     }
 
-    if (leftTapeW > 0.0f) {
-        const Rect iasRect(r.x + pad, adiRect.y, leftTapeW, adiRect.h);
+    if (lay.leftTapeW > 0.0f) {
+        const Rect iasRect(r.x + lay.pad, lay.availCenterRect.y, lay.leftTapeW, lay.availCenterRect.h);
         DrawAirspeedTape(canvas, iasRect, opts, pal);
     }
 
-    if (rightTapeW > 0.0f) {
-        const Rect altRect(r.Right() - pad - rightTapeW, adiRect.y, rightTapeW, adiRect.h);
+    if (lay.rightTapeW > 0.0f) {
+        const Rect altRect(r.Right() - lay.pad - lay.rightTapeW, lay.availCenterRect.y, lay.rightTapeW, lay.availCenterRect.h);
         DrawAltitudeAndVsiTape(canvas, altRect, opts, pal);
     }
 
-    if (hdgH > 0.0f) {
-        const Rect hdgRect(adiRect.x, r.Bottom() - pad - hdgH, adiRect.w, hdgH);
+    if (lay.hdgH > 0.0f) {
+        const Rect hdgRect(adiRect.x, r.Bottom() - lay.pad - lay.hdgH, adiRect.w, lay.hdgH);
         DrawHeadingTape(canvas, hdgRect, opts, pal);
     }
 
     // 11. Corner Digital Telemetry Readouts (in CompactADI or HUD mode when side tapes are hidden)
-    if (leftTapeW <= 0.0f) {
+    if (lay.leftTapeW <= 0.0f) {
+        const float topTagY = lay.availCenterRect.y + 2.0f;
         char tlBuf[32];
         std::snprintf(tlBuf, sizeof(tlBuf), "IAS %3.0f KT", opts.airspeedKnots);
-        canvas.DrawText(tlBuf, {r.x + 12.0f, r.y + 10.0f}, 11.0f, pal.fmaGreen);
+        const float tlW = canvas.MeasureText(tlBuf, 11.0f).x;
+        if (lay.isFullBleed && !lay.isHud) {
+            const Rect tlPill(r.x + 8.0f, topTagY - 2.0f, tlW + 12.0f, 20.0f);
+            canvas.DrawRoundRect(tlPill, 3.0f, pal.tapeBg, pal.tapeBorder, 1.0f);
+            canvas.DrawTextBox(tlBuf, tlPill, 11.0f, pal.fmaGreen, 0.5f, 0.5f);
+        } else {
+            canvas.DrawText(tlBuf, {r.x + 12.0f, topTagY}, 11.0f, pal.fmaGreen);
+        }
 
         char trBuf[32];
         std::snprintf(trBuf, sizeof(trBuf), "ALT %5.0f FT", opts.altitudeFeet);
         const float trW = canvas.MeasureText(trBuf, 11.0f).x;
-        canvas.DrawText(trBuf, {r.Right() - trW - 12.0f, r.y + 10.0f}, 11.0f, pal.fmaCyan);
+        if (lay.isFullBleed && !lay.isHud) {
+            const Rect trPill(r.Right() - trW - 20.0f, topTagY - 2.0f, trW + 12.0f, 20.0f);
+            canvas.DrawRoundRect(trPill, 3.0f, pal.tapeBg, pal.tapeBorder, 1.0f);
+            canvas.DrawTextBox(trBuf, trPill, 11.0f, pal.fmaCyan, 0.5f, 0.5f);
+        } else {
+            canvas.DrawText(trBuf, {r.Right() - trW - 12.0f, topTagY}, 11.0f, pal.fmaCyan);
+        }
     }
 
     // Bottom corner attitude & G-load summary tags
     {
         char blBuf[48];
         std::snprintf(blBuf, sizeof(blBuf), "BNK %+05.1f°  PIT %+05.1f°", opts.rollDeg, opts.pitchDeg);
-        canvas.DrawText(blBuf, {r.x + 12.0f, r.Bottom() - 18.0f}, 10.0f, pal.tapeTick);
+        const float blW = canvas.MeasureText(blBuf, 10.0f).x;
 
         char brBuf[48];
         std::snprintf(brBuf, sizeof(brBuf), "HDG %03.0f°  G %+.1f", NormalizeHeadingDeg(opts.headingDeg), opts.gLoad);
         const float brW = canvas.MeasureText(brBuf, 10.0f).x;
-        canvas.DrawText(brBuf, {r.Right() - brW - 12.0f, r.Bottom() - 18.0f}, 10.0f, pal.tapeTick);
+
+        if (lay.isFullBleed && !lay.isHud) {
+            const float pillH = 20.0f;
+            const float pillY = r.Bottom() - lay.pad - pillH;
+            const Rect blPill(r.x + lay.pad, pillY, blW + 12.0f, pillH);
+            const Rect brPill(r.Right() - lay.pad - brW - 12.0f, pillY, brW + 12.0f, pillH);
+            canvas.DrawRoundRect(blPill, 3.0f, pal.tapeBg, pal.tapeBorder, 1.0f);
+            canvas.DrawTextBox(blBuf, blPill, 10.0f, pal.tapeTick, 0.5f, 0.5f);
+            canvas.DrawRoundRect(brPill, 3.0f, pal.tapeBg, pal.tapeBorder, 1.0f);
+            canvas.DrawTextBox(brBuf, brPill, 10.0f, pal.tapeTick, 0.5f, 0.5f);
+        } else {
+            canvas.DrawText(blBuf, {r.x + 12.0f, r.Bottom() - 18.0f}, 10.0f, pal.tapeTick);
+            canvas.DrawText(brBuf, {r.Right() - brW - 12.0f, r.Bottom() - 18.0f}, 10.0f, pal.tapeTick);
+        }
+    }
+
+    if (lay.isFullBleed && borderW > 0.0f) {
+        canvas.DrawRoundRect(r, radius, Color::Transparent(), borderCol, borderW);
     }
 
     canvas.PopClip();
@@ -1349,34 +1443,12 @@ AttitudeViewResponse AttitudeView::Run(
     }
 
     // Resolve ADI sub-rectangle for accurate mouse-to-attitude mapping
-    const bool isFullPfd = (opts.displayMode == AttitudeDisplayMode::FullPFD);
-    const bool isCompact = (opts.displayMode == AttitudeDisplayMode::CompactADI);
-    const float pad = 8.0f;
-    const float fmaH = (opts.showFmaBar && !isCompact && activeRect.h > 220.0f) ? 26.0f : 0.0f;
-    const float hdgH = (opts.showHeadingTape && !isCompact && activeRect.h > 220.0f) ? 30.0f : 0.0f;
-    const float leftTapeW = (isFullPfd && opts.showSpeedAndAltTapes && activeRect.w > 300.0f)
-        ? std::clamp(activeRect.w * 0.14f, 56.0f, 76.0f)
-        : 0.0f;
-    const float rightTapeW = (isFullPfd && opts.showSpeedAndAltTapes && activeRect.w > 300.0f)
-        ? std::clamp(activeRect.w * 0.19f, 76.0f, 106.0f)
-        : 0.0f;
-
-    const float contentTop = activeRect.y + pad + (fmaH > 0.0f ? (fmaH + 6.0f) : 0.0f);
-    const float contentBot = activeRect.Bottom() - pad - (hdgH > 0.0f ? (hdgH + 6.0f) : 0.0f);
-    const float contentH = std::max(40.0f, contentBot - contentTop);
-    const float adiLeft = activeRect.x + pad + (leftTapeW > 0.0f ? (leftTapeW + 8.0f) : 0.0f);
-    const float adiRight = activeRect.Right() - pad - (rightTapeW > 0.0f ? (rightTapeW + 8.0f) : 0.0f);
-    const float availAdiW = std::max(40.0f, adiRight - adiLeft);
-    const float adiSide = std::min(availAdiW, contentH);
-
-    resp.adiRect = Rect(
-        adiLeft + (availAdiW - adiSide) * 0.5f,
-        contentTop + (contentH - adiSide) * 0.5f,
-        adiSide,
-        adiSide
-    );
-    resp.adiCenter = resp.adiRect.Center();
-    resp.adiRadius = adiSide * 0.5f;
+    const AttitudeLayout lay = ComputeAttitudeLayout(activeRect, opts);
+    resp.viewportMode = lay.viewportMode;
+    resp.horizonRect = lay.horizonRect;
+    resp.adiRect = lay.adiRect;
+    resp.adiCenter = lay.adiCenter;
+    resp.adiRadius = lay.adiRadius;
 
     const Vec2 mousePos = ctx.GetMousePos();
     const bool hovered = !isDisabled && ctx.IsRectHovered(id, activeRect);
@@ -1399,7 +1471,7 @@ AttitudeViewResponse AttitudeView::Run(
         const float nx = std::clamp((mousePos.x - resp.adiCenter.x) * invR, -1.0f, 1.0f);
         const float ny = std::clamp((mousePos.y - resp.adiCenter.y) * invR, -1.0f, 1.0f);
         resp.cursorNorm = {nx, ny};
-        resp.cursorInsideAdi = resp.adiRect.Contains(mousePos);
+        resp.cursorInsideAdi = lay.horizonRect.Contains(mousePos);
         resp.cursorRollDeg = nx * 65.0f;
         resp.cursorPitchDeg = -ny * 40.0f;
     }
@@ -1423,6 +1495,7 @@ AttitudeViewResponse AttitudeView::Run(
         opts.background,
         opts.border,
         static_cast<uint8_t>(opts.displayMode),
+        static_cast<uint8_t>(opts.viewportMode),
         static_cast<uint8_t>(opts.referenceMode),
         static_cast<uint8_t>(opts.colorScheme),
         static_cast<uint8_t>(opts.flightDirectorStyle),

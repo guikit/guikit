@@ -522,81 +522,21 @@ void RenderSonarInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Colorbar"})) {
         ui.Size(guikit::UiSize::Sm).Checkbox(s_sonar.showColorbar);
     }
+
+    if (ui.Size(guikit::UiSize::Sm).Button({
+        .text = "Reset Zoom",
+        .icon = guikit::Icon::Refresh(),
+        .color = guikit::StateColor::Secondary(),
+        .stretch = guikit::StretchMode::Fill
+    })) {
+        s_sonar.requestResetView = true;
+    }
 }
 
 void RenderSonarStage(guikit::Context& ui, DemoContext& /*ctx*/) {
     StepSonarSimulation(s_sonar);
     if (s_sonar.liveSimulation) {
         ui.RequestRepaint(2);
-    }
-
-    // Top Tactical Control Strip
-    if (auto tb = ui.Size(guikit::UiSize::Sm).Toolbar()) {
-        if (tb.ToolButton({
-            .text = s_sonar.liveSimulation ? "LIVE PING" : "PAUSED",
-            .icon = s_sonar.liveSimulation ? guikit::Icon::Pause() : guikit::Icon::Play(),
-            .color = s_sonar.liveSimulation ? guikit::StateColor::Success() : guikit::StateColor::Warning(),
-            .active = s_sonar.liveSimulation
-        })) {
-            s_sonar.liveSimulation = !s_sonar.liveSimulation;
-        }
-
-        tb.Separator();
-
-        if (tb.ToolButton({
-            .text = "PPI 360°",
-            .color = (s_sonar.displayModeIndex == 0) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
-            .active = (s_sonar.displayModeIndex == 0)
-        })) {
-            s_sonar.displayModeIndex = 0;
-        }
-        if (tb.ToolButton({
-            .text = "Sector Wedge",
-            .color = (s_sonar.displayModeIndex == 1) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
-            .active = (s_sonar.displayModeIndex == 1)
-        })) {
-            s_sonar.displayModeIndex = 1;
-        }
-        if (tb.ToolButton({
-            .text = "B-Scan",
-            .color = (s_sonar.displayModeIndex == 2) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
-            .active = (s_sonar.displayModeIndex == 2)
-        })) {
-            s_sonar.displayModeIndex = 2;
-        }
-
-        tb.Separator();
-
-        if (tb.ToolButton({
-            .text = "Lock Target-A",
-            .color = (s_sonar.selectedTargetId == 1) ? guikit::StateColor::Danger() : guikit::StateColor::Ghost(),
-            .active = (s_sonar.selectedTargetId == 1)
-        })) {
-            s_sonar.selectedTargetId = 1;
-        }
-        if (tb.ToolButton({
-            .text = "Lock Target-B",
-            .color = (s_sonar.selectedTargetId == 2) ? guikit::StateColor::Danger() : guikit::StateColor::Ghost(),
-            .active = (s_sonar.selectedTargetId == 2)
-        })) {
-            s_sonar.selectedTargetId = 2;
-        }
-        if (tb.ToolButton({
-            .text = "Lock Target-C",
-            .color = (s_sonar.selectedTargetId == 3) ? guikit::StateColor::Info() : guikit::StateColor::Ghost(),
-            .active = (s_sonar.selectedTargetId == 3)
-        })) {
-            s_sonar.selectedTargetId = 3;
-        }
-
-        tb.Spacer();
-
-        if (tb.ToolButton({
-            .text = "Reset Zoom",
-            .icon = guikit::Icon::Refresh()
-        })) {
-            s_sonar.requestResetView = true;
-        }
     }
 
     // Main Autonomous SonarView Widget

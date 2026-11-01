@@ -410,6 +410,15 @@ void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     if (auto el = ui.Element({.label = "TPMS Tire Alert"})) {
         ui.Checkbox(s_car.ttTpmsWarning);
     }
+
+    if (ui.Size(guikit::UiSize::Sm).Button({
+        .text = "Reset Peak G",
+        .icon = guikit::Icon::Refresh(),
+        .color = guikit::StateColor::Secondary(),
+        .stretch = guikit::StretchMode::Fill
+    })) {
+        s_car.peakG = 0.0f;
+    }
 }
 
 void RenderCarDashboardStage(guikit::Context& ui, DemoContext& /*ctx*/) {
@@ -418,94 +427,6 @@ void RenderCarDashboardStage(guikit::Context& ui, DemoContext& /*ctx*/) {
     const bool blinkOn = (std::fmod(s_car.simTimeSec, 0.70) < 0.35);
     const bool autoLeftTurn = (s_car.controlModeIndex <= 2) && (s_car.steeringAngleDeg < -16.0f);
     const bool autoRightTurn = (s_car.controlModeIndex <= 2) && (s_car.steeringAngleDeg > 16.0f);
-
-    // Top Interactive Cockpit Toolbar
-    if (auto tb = ui.Toolbar()) {
-        if (tb.ToolButton({
-            .text = "Mouse Drive",
-            .icon = guikit::Icon::Play(),
-            .color = (s_car.controlModeIndex == 0) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
-            .active = (s_car.controlModeIndex == 0)
-        })) {
-            s_car.controlModeIndex = 0;
-        }
-        if (tb.ToolButton({
-            .text = "Highway ADAS",
-            .color = (s_car.controlModeIndex == 1) ? guikit::StateColor::Info() : guikit::StateColor::Ghost(),
-            .active = (s_car.controlModeIndex == 1)
-        })) {
-            s_car.controlModeIndex = 1;
-        }
-        if (tb.ToolButton({
-            .text = "Track Hot Lap",
-            .color = (s_car.controlModeIndex == 2) ? guikit::StateColor::Danger() : guikit::StateColor::Ghost(),
-            .active = (s_car.controlModeIndex == 2)
-        })) {
-            s_car.controlModeIndex = 2;
-            s_car.driveThemeIndex = 1;
-            s_car.gearSelectorIndex = 4;
-        }
-        if (tb.ToolButton({
-            .text = "Manual",
-            .color = (s_car.controlModeIndex == 3) ? guikit::StateColor::Warning() : guikit::StateColor::Ghost(),
-            .active = (s_car.controlModeIndex == 3)
-        })) {
-            s_car.controlModeIndex = 3;
-        }
-
-        tb.Separator();
-
-        if (tb.ToolButton({
-            .text = "Dual Dial",
-            .color = (s_car.layoutModeIndex == 0) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
-            .active = (s_car.layoutModeIndex == 0)
-        })) {
-            s_car.layoutModeIndex = 0;
-        }
-        if (tb.ToolButton({
-            .text = "Track Central",
-            .color = (s_car.layoutModeIndex == 1) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
-            .active = (s_car.layoutModeIndex == 1)
-        })) {
-            s_car.layoutModeIndex = 1;
-        }
-        if (tb.ToolButton({
-            .text = "Wide EV",
-            .color = (s_car.layoutModeIndex == 2) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
-            .active = (s_car.layoutModeIndex == 2)
-        })) {
-            s_car.layoutModeIndex = 2;
-        }
-
-        tb.Separator();
-
-        if (tb.ToolButton({
-            .text = (s_car.powertrainIndex == 0) ? "ICE Turbo" : "EV Dual-Motor",
-            .color = (s_car.powertrainIndex == 1) ? guikit::StateColor::Success() : guikit::StateColor::Info(),
-            .active = true
-        })) {
-            s_car.powertrainIndex = (s_car.powertrainIndex + 1) % 2;
-            s_car.avgConsumption = (s_car.powertrainIndex == 1) ? 18.4f : 9.2f;
-            s_car.coolantOrBattTempC = (s_car.powertrainIndex == 1) ? 31.0f : 90.0f;
-        }
-
-        if (tb.ToolButton({
-            .text = "Hazard",
-            .color = s_car.ttHazard ? guikit::StateColor::Danger() : guikit::StateColor::Ghost(),
-            .active = s_car.ttHazard
-        })) {
-            s_car.ttHazard = !s_car.ttHazard;
-        }
-
-        tb.Spacer();
-
-        if (tb.ToolButton({
-            .text = "Reset Peak G",
-            .icon = guikit::Icon::Refresh()
-        })) {
-            s_car.peakG = 0.0f;
-        }
-    }
 
     // Main Autonomous CarClusterView Widget
     s_car.lastResp = ui.CarClusterView({

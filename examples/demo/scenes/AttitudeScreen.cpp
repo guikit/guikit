@@ -18,6 +18,7 @@ struct AttitudeDemoState {
     bool initialized{false};
     int controlModeIndex{0};        // 0 = Mouse Follow (Direct), 1 = Virtual Stick (FBW 360 Roll), 2 = Autopilot Figure-8, 3 = Manual Sliders
     int displayModeIndex{0};        // 0 = FullPFD, 1 = CompactADI, 2 = HudOverlay
+    int viewportModeIndex{1};       // 0 = Auto, 1 = FullBleed, 2 = RoundedDome, 3 = Circular
     int referenceModeIndex{0};      // 0 = WesternMovingHorizon, 1 = EasternMovingAircraft (KPPI)
     int colorSchemeIndex{0};        // 0 = GlassCockpit, 1 = HudGreen, 2 = TacticalDark
     int fdStyleIndex{1};            // 0 = Off, 1 = SingleCueVBar, 2 = DualCueCrossbars
@@ -106,9 +107,10 @@ void StepAttitudeSimulation(guikit::Context& ui, AttitudeDemoState& st) {
 
     const float nx = std::clamp((mousePos.x - adiCenter.x) / std::max(40.0f, adiRadius), -1.0f, 1.0f);
     const float ny = std::clamp((mousePos.y - adiCenter.y) / std::max(40.0f, adiRadius), -1.0f, 1.0f);
-    const bool mouseInStage = (adiR.w > 20.0f) &&
-                              mousePos.x >= (adiR.x - 160.0f) && mousePos.x <= (adiR.Right() + 160.0f) &&
-                              mousePos.y >= (adiR.y - 80.0f)  && mousePos.y <= (adiR.Bottom() + 80.0f);
+    const Rect horR = (st.lastResp.horizonRect.w > 20.0f) ? st.lastResp.horizonRect : adiR;
+    const bool mouseInStage = (horR.w > 20.0f) &&
+                              mousePos.x >= (horR.x - 160.0f) && mousePos.x <= (horR.Right() + 160.0f) &&
+                              mousePos.y >= (horR.y - 80.0f)  && mousePos.y <= (horR.Bottom() + 80.0f);
 
     const float prevRoll = st.rollDeg;
     const float prevPitch = st.pitchDeg;
@@ -193,8 +195,14 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     };
     static constexpr std::array<std::string_view, 3> kDisplayModes = {
         "Full PFD (Primary Flight Display)",
-        "Compact ADI (Circular Dial)",
+        "Compact ADI (No Side Tapes)",
         "HUD Overlay (Collimator)"
+    };
+    static constexpr std::array<std::string_view, 4> kViewportModes = {
+        "Auto (By Display Mode)",
+        "Full-Bleed (Edge-to-Edge)",
+        "Rounded Dome (Classic Bezel)",
+        "Circular Sphere"
     };
     static constexpr std::array<std::string_view, 2> kRefModes = {
         "Western (Moving Horizon)",
@@ -231,10 +239,23 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     }
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({
+        .label = "Horizon Viewport",
+        .layout = guikit::ElementLayout::Top
+    })) {
+        ui.Size(guikit::UiSize::Sm).Select(s_att.viewportModeIndex, kViewportModes);
+    }
+
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Horizon Reference Frame",
         .layout = guikit::ElementLayout::Top
     })) {
-        ui.Size(guikit::UiSize::Sm).Select(s_att.referenceModeIndex, kRefModes);
+        if (ui.Size(guikit::UiSize::Sm).Select(s_att.referenceModeIndex, kRefModes).changed) {
+            if (s_att.referenceModeIndex == 1) {
+                s_att.aircraftSymbolIndex = 2; // Russian KPPI silhouette
+            } else if (s_att.aircraftSymbolIndex == 2) {
+                s_att.aircraftSymbolIndex = 0;
+            }
+        }
     }
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({
@@ -344,6 +365,18 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Mouse Stick Vector Overlay"})) {
         ui.Size(guikit::UiSize::Sm).Checkbox(s_att.showMouseStickOverlay);
     }
+
+    if (ui.Size(guikit::UiSize::Sm).Button({
+        .text = "Level Wings",
+        .icon = guikit::Icon::Refresh(),
+        .color = guikit::StateColor::Secondary(),
+        .stretch = guikit::StretchMode::Fill
+    })) {
+        s_att.rollDeg = 0.0f;
+        s_att.pitchDeg = 2.0f;
+        s_att.verticalSpeedFpm = 0.0f;
+        s_att.slipSkid = 0.0f;
+    }
 }
 
 void RenderAttitudeStage(guikit::Context& ui, DemoContext& /*ctx*/) {
@@ -352,93 +385,10 @@ void RenderAttitudeStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         ui.RequestRepaint(2);
     }
 
-    // Top Avionics Control Strip
-    if (auto tb = ui.Size(guikit::UiSize::Sm).Toolbar()) {
-        if (tb.ToolButton({
-            .text = "Mouse Follow",
-            .icon = guikit::Icon::Play(),
-            .color = (s_att.controlModeIndex == 0) ? guikit::StateColor::Success() : guikit::StateColor::Ghost(),
-            .active = (s_att.controlModeIndex == 0)
-        })) {
-            s_att.controlModeIndex = 0;
-        }
-        if (tb.ToolButton({
-            .text = "Virtual Stick (360°)",
-            .color = (s_att.controlModeIndex == 1) ? guikit::StateColor::Success() : guikit::StateColor::Ghost(),
-            .active = (s_att.controlModeIndex == 1)
-        })) {
-            s_att.controlModeIndex = 1;
-        }
-        if (tb.ToolButton({
-            .text = "Autopilot Fig-8",
-            .color = (s_att.controlModeIndex == 2) ? guikit::StateColor::Info() : guikit::StateColor::Ghost(),
-            .active = (s_att.controlModeIndex == 2)
-        })) {
-            s_att.controlModeIndex = 2;
-        }
-        if (tb.ToolButton({
-            .text = "Manual",
-            .color = (s_att.controlModeIndex == 3) ? guikit::StateColor::Warning() : guikit::StateColor::Ghost(),
-            .active = (s_att.controlModeIndex == 3)
-        })) {
-            s_att.controlModeIndex = 3;
-        }
-
-        tb.Separator();
-
-        if (tb.ToolButton({
-            .text = "Full PFD",
-            .color = (s_att.displayModeIndex == 0) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
-            .active = (s_att.displayModeIndex == 0)
-        })) {
-            s_att.displayModeIndex = 0;
-        }
-        if (tb.ToolButton({
-            .text = "Compact ADI",
-            .color = (s_att.displayModeIndex == 1) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
-            .active = (s_att.displayModeIndex == 1)
-        })) {
-            s_att.displayModeIndex = 1;
-        }
-        if (tb.ToolButton({
-            .text = "HUD Overlay",
-            .color = (s_att.displayModeIndex == 2) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
-            .active = (s_att.displayModeIndex == 2)
-        })) {
-            s_att.displayModeIndex = 2;
-        }
-
-        tb.Separator();
-
-        if (tb.ToolButton({
-            .text = (s_att.referenceModeIndex == 0) ? "Ref: Western" : "Ref: KPPI",
-            .color = (s_att.referenceModeIndex == 1) ? guikit::StateColor::Info() : guikit::StateColor::Ghost(),
-            .active = (s_att.referenceModeIndex == 1)
-        })) {
-            s_att.referenceModeIndex = (s_att.referenceModeIndex + 1) % 2;
-            if (s_att.referenceModeIndex == 1) {
-                s_att.aircraftSymbolIndex = 2; // Russian KPPI silhouette
-            } else if (s_att.aircraftSymbolIndex == 2) {
-                s_att.aircraftSymbolIndex = 0;
-            }
-        }
-
-        tb.Spacer();
-
-        if (tb.ToolButton({
-            .text = "Level Wings",
-            .icon = guikit::Icon::Refresh()
-        })) {
-            s_att.rollDeg = 0.0f;
-            s_att.pitchDeg = 2.0f;
-            s_att.verticalSpeedFpm = 0.0f;
-            s_att.slipSkid = 0.0f;
-        }
-    }
-
     // Main Autonomous AttitudeView Widget
     s_att.lastResp = ui.AttitudeView({
         .displayMode = static_cast<guikit::AttitudeDisplayMode>(s_att.displayModeIndex),
+        .viewportMode = static_cast<guikit::AttitudeViewportMode>(s_att.viewportModeIndex),
         .referenceMode = static_cast<guikit::HorizonReferenceMode>(s_att.referenceModeIndex),
         .colorScheme = static_cast<guikit::AttitudeColorScheme>(s_att.colorSchemeIndex),
         .flightDirectorStyle = static_cast<guikit::FlightDirectorStyle>(s_att.fdStyleIndex),
@@ -484,6 +434,12 @@ std::string GenerateAttitudeCode(const DemoContext& /*ctx*/) {
         "AttitudeDisplayMode::CompactADI",
         "AttitudeDisplayMode::HudOverlay"
     };
+    static constexpr std::array<const char*, 4> kViewportEnums = {
+        "AttitudeViewportMode::Auto",
+        "AttitudeViewportMode::FullBleed",
+        "AttitudeViewportMode::RoundedDome",
+        "AttitudeViewportMode::Circular"
+    };
     static constexpr std::array<const char*, 2> kRefEnums = {
         "HorizonReferenceMode::WesternMovingHorizon",
         "HorizonReferenceMode::EasternMovingAircraft"
@@ -506,6 +462,7 @@ std::string GenerateAttitudeCode(const DemoContext& /*ctx*/) {
         "// Avionics Primary Flight Display (PFD) & Artificial Horizon Widget\n"
         "auto resp = ui.AttitudeView({\n"
         "    .displayMode          = guikit::%s,\n"
+        "    .viewportMode         = guikit::%s,\n"
         "    .referenceMode        = guikit::%s,\n"
         "    .colorScheme          = guikit::%s,\n"
         "    .flightDirectorStyle  = guikit::%s,\n"
@@ -527,6 +484,7 @@ std::string GenerateAttitudeCode(const DemoContext& /*ctx*/) {
         "    // Mouse stick telemetry: roll = %.1f deg, pitch = %.1f deg\n"
         "}\n",
         kModeEnums[std::clamp(s_att.displayModeIndex, 0, 2)],
+        kViewportEnums[std::clamp(s_att.viewportModeIndex, 0, 3)],
         kRefEnums[std::clamp(s_att.referenceModeIndex, 0, 1)],
         kSchemeEnums[std::clamp(s_att.colorSchemeIndex, 0, 2)],
         kFdEnums[std::clamp(s_att.fdStyleIndex, 0, 2)],

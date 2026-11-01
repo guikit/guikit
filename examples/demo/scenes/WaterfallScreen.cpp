@@ -426,6 +426,12 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         LoadWaterfallScenario(s_wf, 0);
     }
 
+    if (auto el = ui.Size(guikit::UiSize::Sm).Element({
+        .label = "Live Signal Stream"
+    })) {
+        ui.Size(guikit::UiSize::Sm).Switch(s_wf.liveStream);
+    }
+
     static constexpr std::array<std::string_view, 4> kScenarios = {
         "RTSA: RF SDR Band (FHSS + QPSK)",
         "RTSA: Acoustic LOFAR / DEMON",
@@ -555,94 +561,31 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Invert Time Flow (Bottom-Up)"})) {
         ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.invertTimeAxis);
     }
+
+    if (auto btnRow = ui.Row({.gap = 8.0f})) {
+        if (ui.Size(guikit::UiSize::Sm).Button({
+            .text = "Clear Peak",
+            .icon = guikit::Icon::Refresh(),
+            .color = guikit::StateColor::Secondary(),
+            .stretch = guikit::StretchMode::Fill
+        })) {
+            s_wf.requestResetPeakHold = true;
+        }
+        if (ui.Size(guikit::UiSize::Sm).Button({
+            .text = "Reset Zoom",
+            .icon = guikit::Icon::Search(),
+            .color = guikit::StateColor::Secondary(),
+            .stretch = guikit::StretchMode::Fill
+        })) {
+            s_wf.requestResetZoom = true;
+        }
+    }
 }
 
 void RenderWaterfallStage(guikit::Context& ui, DemoContext& /*ctx*/) {
     StepWaterfallSimulation(s_wf);
     if (s_wf.liveStream) {
         ui.RequestRepaint(2);
-    }
-
-    // Top Operator Console Toolbar
-    if (auto tb = ui.Size(guikit::UiSize::Sm).Toolbar()) {
-        if (tb.ToolButton({
-            .text = s_wf.liveStream ? "STREAMING" : "FROZEN",
-            .icon = s_wf.liveStream ? guikit::Icon::Pause() : guikit::Icon::Play(),
-            .color = s_wf.liveStream ? guikit::StateColor::Success() : guikit::StateColor::Warning(),
-            .active = s_wf.liveStream
-        })) {
-            s_wf.liveStream = !s_wf.liveStream;
-        }
-
-        tb.Separator();
-
-        if (tb.ToolButton({
-            .text = "Spectrum RTSA",
-            .color = (s_wf.modeIndex == 0 && s_wf.scenarioIndex == 0) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
-            .active = (s_wf.modeIndex == 0 && s_wf.scenarioIndex == 0)
-        })) {
-            LoadWaterfallScenario(s_wf, 0);
-        }
-        if (tb.ToolButton({
-            .text = "LOFAR Harmonics",
-            .color = (s_wf.scenarioIndex == 1) ? guikit::StateColor::Primary() : guikit::StateColor::Ghost(),
-            .active = (s_wf.scenarioIndex == 1)
-        })) {
-            LoadWaterfallScenario(s_wf, 1);
-        }
-        if (tb.ToolButton({
-            .text = "Sonar DOA / BTR",
-            .color = (s_wf.scenarioIndex == 2) ? guikit::StateColor::Info() : guikit::StateColor::Ghost(),
-            .active = (s_wf.scenarioIndex == 2)
-        })) {
-            LoadWaterfallScenario(s_wf, 2);
-        }
-        if (tb.ToolButton({
-            .text = "MUSIC DF",
-            .color = (s_wf.scenarioIndex == 3) ? guikit::StateColor::Info() : guikit::StateColor::Ghost(),
-            .active = (s_wf.scenarioIndex == 3)
-        })) {
-            LoadWaterfallScenario(s_wf, 3);
-        }
-
-        tb.Separator();
-
-        if (tb.ToolButton({
-            .text = "Split",
-            .color = (s_wf.layoutIndex == 0) ? guikit::StateColor::Secondary() : guikit::StateColor::Ghost(),
-            .active = (s_wf.layoutIndex == 0)
-        })) {
-            s_wf.layoutIndex = 0;
-        }
-        if (tb.ToolButton({
-            .text = "Waterfall",
-            .color = (s_wf.layoutIndex == 1) ? guikit::StateColor::Secondary() : guikit::StateColor::Ghost(),
-            .active = (s_wf.layoutIndex == 1)
-        })) {
-            s_wf.layoutIndex = 1;
-        }
-        if (tb.ToolButton({
-            .text = "Trace",
-            .color = (s_wf.layoutIndex == 2) ? guikit::StateColor::Secondary() : guikit::StateColor::Ghost(),
-            .active = (s_wf.layoutIndex == 2)
-        })) {
-            s_wf.layoutIndex = 2;
-        }
-
-        tb.Spacer();
-
-        if (tb.ToolButton({
-            .text = "Clear Peak",
-            .icon = guikit::Icon::Refresh()
-        })) {
-            s_wf.requestResetPeakHold = true;
-        }
-        if (tb.ToolButton({
-            .text = "Reset Zoom",
-            .icon = guikit::Icon::Search()
-        })) {
-            s_wf.requestResetZoom = true;
-        }
     }
 
     // Main Autonomous Hardware-Accelerated WaterfallView Widget

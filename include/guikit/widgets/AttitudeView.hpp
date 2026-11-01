@@ -19,8 +19,16 @@ class ICanvas;
 /// Display layout mode for the AttitudeView (Artificial Horizon / Primary Flight Display) widget.
 enum class AttitudeDisplayMode : uint8_t {
     FullPFD = 0,        ///< Complete Primary Flight Display: ADI horizon + IAS speed tape + Altitude & VSI tapes + Heading tape + FMA bar + ILS diamonds
-    CompactADI,         ///< Standalone circular Attitude Director Indicator (artificial horizon dial with digital corner readouts)
+    CompactADI,         ///< Standalone Attitude Director Indicator (artificial horizon without side tapes, with digital corner readouts)
     HudOverlay          ///< Transparent Head-Up Display (HUD) collimator vector symbology without opaque sky/ground fill
+};
+
+/// Viewport geometry and clipping mode for the artificial horizon sphere.
+enum class AttitudeViewportMode : uint8_t {
+    Auto = 0,           ///< Automatic shape based on displayMode (RoundedDome in FullPFD/HudOverlay, Circular in CompactADI)
+    FullBleed,          ///< Edge-to-edge full-screen horizon (Garmin G1000 / G3000 style) with tapes overlaid on top
+    RoundedDome,        ///< Classic central rounded-square ADI dome (Airbus / Boeing PFD style)
+    Circular            ///< Classic circular ADI sphere bezel
 };
 
 /// Coordinate reference frame for the artificial horizon and aircraft symbol.
@@ -54,8 +62,9 @@ enum class AircraftSymbolStyle : uint8_t {
 struct AttitudeViewOptions {
     Align align{Align::Start};
 
-    // --- Display Mode, Reference Frame & Visual Theme ---
+    // --- Display Mode, Viewport Shape, Reference Frame & Visual Theme ---
     AttitudeDisplayMode displayMode{AttitudeDisplayMode::FullPFD};
+    AttitudeViewportMode viewportMode{AttitudeViewportMode::Auto};
     HorizonReferenceMode referenceMode{HorizonReferenceMode::WesternMovingHorizon};
     AttitudeColorScheme colorScheme{AttitudeColorScheme::GlassCockpit};
     FlightDirectorStyle flightDirectorStyle{FlightDirectorStyle::SingleCueVBar};
@@ -116,7 +125,9 @@ struct AttitudeViewOptions {
 /// Rich telemetry and cursor interaction state returned by `ui.AttitudeView(...)`.
 struct AttitudeViewResponse : public Response {
     AttitudeDisplayMode displayMode{AttitudeDisplayMode::FullPFD};
-    Rect adiRect{};                     ///< Resolved screen rectangle of the central artificial horizon sphere
+    AttitudeViewportMode viewportMode{AttitudeViewportMode::RoundedDome};
+    Rect horizonRect{};                 ///< Resolved screen rectangle of the sky/ground horizon fill area
+    Rect adiRect{};                     ///< Resolved screen rectangle of the central artificial horizon symbology zone
     Vec2 adiCenter{};                   ///< Center point of the artificial horizon in screen coordinates
     float adiRadius{0.0f};              ///< Radius of the artificial horizon sphere in pixels
     float visibleFovPitchDeg{50.0f};    ///< Effective vertical pitch field-of-view in degrees
