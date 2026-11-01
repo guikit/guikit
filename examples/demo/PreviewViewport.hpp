@@ -402,34 +402,35 @@ inline void RenderPreviewViewport(
         // Hardware device specifications:
         // - Phone (6.3" iPhone 16 Pro class): 375 x 784 dp  |  71.5 x 149.6 mm
         // - Tablet (8.3" iPad mini / Touch Panel class): 540 x 782 dp  |  134.8 x 195.4 mm
+        const float pxPerMm       = (demoCtx.displayPxPerMm > 0.5f) ? demoCtx.displayPxPerMm : (96.0f / 25.4f);
         const float basePortraitW = isPhone ? 375.0f : 540.0f;
         const float basePortraitH = isPhone ? 784.0f : 782.0f;
         const float baseMmW       = isPhone ? 71.5f  : 134.8f;
         const float baseMmH       = isPhone ? 149.6f : 195.4f;
         const float targetW       = isDeviceMode ? (demoCtx.previewLandscape ? basePortraitH : basePortraitW) : demoCtx.previewWindowW;
         const float targetH       = isDeviceMode ? (demoCtx.previewLandscape ? basePortraitW : basePortraitH) : demoCtx.previewWindowH;
-        const float realMmW       = isDeviceMode ? (demoCtx.previewLandscape ? baseMmH       : baseMmW)       : (targetW * 25.4f / 96.0f);
-        const float realMmH       = isDeviceMode ? (demoCtx.previewLandscape ? baseMmW       : baseMmH)       : (targetH * 25.4f / 96.0f);
 
         const PreviewZoomMode zoomMode = static_cast<PreviewZoomMode>(
             std::min<size_t>(demoCtx.previewZoomModeIdx, static_cast<size_t>(PreviewZoomMode::Custom))
         );
-        const float pxPerMm = (demoCtx.displayPxPerMm > 0.5f) ? demoCtx.displayPxPerMm : (96.0f / 25.4f);
 
         float effectiveZoom = 1.0f;
         switch (zoomMode) {
             case PreviewZoomMode::Fit:
-                if (useCenteredScrollCanvas) {
+                if (isDeviceMode) {
                     effectiveZoom = std::clamp(std::min(availPxW / targetW, availPxH / targetH), 0.35f, 2.50f);
+                } else if (isResizableWindow && demoCtx.previewWindowCustomSize) {
+                    effectiveZoom = std::clamp(std::min(1.0f, std::min(availPxW / targetW, availPxH / targetH)), 0.35f, 1.0f);
                 } else {
                     effectiveZoom = 1.0f;
                 }
                 break;
             case PreviewZoomMode::Real1To1:
                 if (isDeviceMode) {
-                    effectiveZoom = std::clamp((realMmW * pxPerMm) / targetW, 0.35f, 2.50f);
+                    const float devMmW = demoCtx.previewLandscape ? baseMmH : baseMmW;
+                    effectiveZoom = std::clamp((devMmW * pxPerMm) / targetW, 0.35f, 2.50f);
                 } else {
-                    effectiveZoom = std::clamp(pxPerMm / (96.0f / 25.4f), 0.50f, 2.50f);
+                    effectiveZoom = 1.0f;
                 }
                 break;
             case PreviewZoomMode::Zoom75:  effectiveZoom = 0.75f; break;
@@ -442,6 +443,13 @@ inline void RenderPreviewViewport(
                 effectiveZoom = std::clamp(demoCtx.previewCustomZoom, 0.35f, 2.50f);
                 break;
         }
+
+        const float realMmW = isDeviceMode
+            ? (demoCtx.previewLandscape ? baseMmH : baseMmW)
+            : ((targetW * effectiveZoom) / pxPerMm);
+        const float realMmH = isDeviceMode
+            ? (demoCtx.previewLandscape ? baseMmW : baseMmH)
+            : ((targetH * effectiveZoom) / pxPerMm);
 
         // Interactive Ctrl + MouseWheel zoom over the preview viewport
         if (backdropBounds.w > 0.0f && backdropBounds.Contains(ui.GetMousePos()) && ui.GetKeyModifiers().ctrl) {
@@ -512,13 +520,12 @@ inline void RenderPreviewViewport(
                 .gap = 0.0f,
                 .widthMode = demoCtx.previewWindowCustomSize ? guikit::SizeMode::Fixed : guikit::SizeMode::Stretch,
                 .heightMode = demoCtx.previewWindowCustomSize ? guikit::SizeMode::Fixed : guikit::SizeMode::Stretch,
-                .fixedWidth = demoCtx.previewWindowCustomSize ? demoCtx.previewWindowW : 0.0f,
-                .fixedHeight = demoCtx.previewWindowCustomSize ? demoCtx.previewWindowH : 0.0f,
+                .fixedWidth = demoCtx.previewWindowCustomSize ? (demoCtx.previewWindowW * effectiveZoom / shellScale) : 0.0f,
+                .fixedHeight = demoCtx.previewWindowCustomSize ? (demoCtx.previewWindowH * effectiveZoom / shellScale) : 0.0f,
                 .padding = guikit::Padding::All(0.0f),
                 .background = {demoCtx.previewTheme.palette.surface},
                 .border = {.width = resizeActiveOrHovered ? 2.0f : 1.5f, .radius = 10.0f, .color = {winBorderCol}},
-                .clipChildren = true,
-                .scale = demoCtx.previewWindowCustomSize ? std::optional<float>(effectiveZoom) : std::nullopt
+                .clipChildren = true
             })) {
                 guikit::Node* winNode = windowFrame.GetNode();
                 winNode->postRenderFn = &detail::RenderWindowResizeGrip;
@@ -529,7 +536,7 @@ inline void RenderPreviewViewport(
 
                 if (winBounds.w > 40.0f && winBounds.h > 40.0f) {
                     const guikit::Vec2 mouse = ui.GetMousePos();
-                    const float winScale = demoCtx.previewWindowCustomSize ? effectiveZoom : shellScale;
+                    const float winScale = shellScale;
                     const float titleH = 28.0f * winScale;
                     const float gripThick = 7.0f * shellScale;
                     const float cornerSpan = 16.0f * shellScale;
@@ -680,7 +687,8 @@ inline void RenderPreviewViewport(
                         .gap = 8.0f,
                         .align = guikit::Alignment::Center,
                         .heightMode = guikit::SizeMode::Stretch,
-                        .theme = &demoCtx.previewTheme
+                        .theme = &demoCtx.previewTheme,
+                        .scale = shellScale
                     })) {
                         // Left slot reserved for Traffic Lights (3 dots * 10px + 2 * 7px gaps = 44px + 8px breathing room)
                         if (auto tlSlot = ui.Box({
@@ -698,7 +706,7 @@ inline void RenderPreviewViewport(
                             ? std::max(0, static_cast<int>(std::lround(demoCtx.previewWindowW)))
                             : std::max(0, static_cast<int>(std::round(availPxW / effectiveZoom)));
                         const int clientH = demoCtx.previewWindowCustomSize
-                            ? std::max(0, static_cast<int>(std::lround(demoCtx.previewWindowH - 28.0f)))
+                            ? std::max(0, static_cast<int>(std::lround(demoCtx.previewWindowH - (28.0f * shellScale) / effectiveZoom)))
                             : std::max(0, static_cast<int>(std::round((availPxH - 28.0f * shellScale) / effectiveZoom)));
                         ui.Text(ui.Format("{} x {}", clientW, clientH), {
                             .role = guikit::TextRole::CodeSmall,
