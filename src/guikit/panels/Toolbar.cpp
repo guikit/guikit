@@ -4,14 +4,20 @@
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Node.hpp"
+#include "guikit/core/Solver.hpp"
+#include "guikit/panels/Carousel.hpp"
+#include "guikit/panels/ScrollArea.hpp"
 
 namespace guikit {
 
 namespace {
 struct ToolButtonPayload {
     ButtonOptions btn{};
+    UiText origText{};
     UiText badge{};
     StateColor badgeColor{};
+    float expandedWidth{0.0f};
+    bool origSquare{false};
 };
 } // namespace
 
@@ -145,9 +151,15 @@ ToolbarScope Toolbar::Open(
     node->theme = pushedTheme;
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
-    node->direction = isVertical ? FlexDirection::Column : FlexDirection::Row;
+    node->direction = isVertical
+        ? FlexDirection::Column
+        : (opts.overflow == ToolbarOverflow::Wrap ? FlexDirection::Wrap : FlexDirection::Row);
     node->align = Alignment::Center;
-    node->gap = theme.ResolveGap(opts.gap, activeSize);
+    const float defaultGap = std::max(4.0f * activeScale, std::round(theme.GetGap(activeSize) * 0.5f));
+    const float crossPad = 4.0f * activeScale;
+    node->gap = opts.gap.has_value() ? theme.ResolveGap(opts.gap, activeSize) : defaultGap;
+    node->runGap = node->gap;
+    node->clipChildren = true;
 
     Padding toolbarPadding;
     if (opts.padding.has_value()) {
@@ -156,19 +168,18 @@ ToolbarScope Toolbar::Open(
             if (t == UiSize::None) {
                 toolbarPadding = Padding{};
             } else {
-                const float g = theme.GetGap(t);
+                const float g = std::max(4.0f * activeScale, std::round(theme.GetGap(t) * 0.5f));
                 toolbarPadding = isVertical
-                    ? Padding::Symmetric(g * 0.5f, g)
-                    : Padding::Symmetric(g, g * 0.5f);
+                    ? Padding::Symmetric(crossPad, g)
+                    : Padding::Symmetric(g, crossPad);
             }
         } else {
             toolbarPadding = theme.ResolvePadding(opts.padding);
         }
     } else {
-        const float g = theme.GetGap(activeSize);
         toolbarPadding = isVertical
-            ? Padding::Symmetric(g * 0.5f, g)
-            : Padding::Symmetric(g, g * 0.5f);
+            ? Padding::Symmetric(crossPad, defaultGap)
+            : Padding::Symmetric(defaultGap, crossPad);
     }
     node->padding = toolbarPadding;
 
@@ -176,10 +187,26 @@ ToolbarScope Toolbar::Open(
         node->widthMode = SizeMode::Fixed;
         node->fixedWidth = barExtent;
         node->heightMode = (opts.style == ToolbarStyle::Floating) ? SizeMode::Fit : SizeMode::Stretch;
+    } else if (opts.overflow == ToolbarOverflow::Wrap) {
+        node->widthMode = (opts.style == ToolbarStyle::Floating) ? SizeMode::Fit : SizeMode::Stretch;
+        node->heightMode = SizeMode::Fit;
+        node->minHeight = barExtent;
     } else {
         node->widthMode = (opts.style == ToolbarStyle::Floating) ? SizeMode::Fit : SizeMode::Stretch;
         node->heightMode = SizeMode::Fixed;
         node->fixedHeight = barExtent;
+    }
+
+    node->uiSize = activeSize;
+    node->disabled = effectiveDisabled;
+
+    if (!isVertical && (opts.overflow == ToolbarOverflow::AutoCompact || opts.overflow == ToolbarOverflow::Scroll)) {
+        auto* cData = ctx.AllocPayload<CarouselData>();
+        cData->autoCompact = (opts.overflow == ToolbarOverflow::AutoCompact);
+        node->SetPayload(cData);
+        node->arrangeFn = &Toolbar::Arrange;
+        node->postRenderFn = &Carousel::RenderArrows;
+        Carousel::BeginScrollInteraction(ctx, node, cData, true, effectiveDisabled);
     }
 
     const auto& pal = theme.palette;
@@ -220,15 +247,21 @@ ToolbarScope Toolbar::Open(
         node->cornerRadius = theme.ResolveRadius(std::nullopt, activeSize);
     }
 
+    const auto* tbCar = node->As<CarouselData>();
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->visualHash = detail::HashArgs(
         static_cast<uint8_t>(opts.style),
         static_cast<uint8_t>(opts.orientation),
+        static_cast<uint8_t>(opts.overflow),
         node->cornerRadius,
         node->borderWidth,
         opts.background,
-        opts.border
+        opts.border,
+        tbCar ? tbCar->leftArrowHovered : false,
+        tbCar ? tbCar->leftArrowPressed : false,
+        tbCar ? tbCar->rightArrowHovered : false,
+        tbCar ? tbCar->rightArrowPressed : false
     );
 
     ctx.PushScale(activeScale);
@@ -265,9 +298,11 @@ Response Toolbar::ToolButton(
     }
 
     if (res.hovered) {
+        const bool wasCompacted = opts.icon.IsValid() && !opts.text.empty() &&
+                                  res.rect.w > 0.0f && res.rect.w <= res.rect.h + 2.0f;
         const UiText effTooltip = !opts.tooltip.empty()
             ? opts.tooltip
-            : (opts.square && !opts.text.empty() ? opts.text : UiText{});
+            : ((opts.square || wasCompacted) && !opts.text.empty() ? opts.text : UiText{});
         if (!effTooltip.empty()) {
             ctx.SetTooltip(effTooltip, res.rect);
         }
@@ -276,7 +311,9 @@ Response Toolbar::ToolButton(
     Node* node = ctx.CreateNode(NodeType::Button, id);
 
     auto* payload = ctx.AllocPayload<ToolButtonPayload>();
-    payload->btn.text = opts.square ? UiText{} : ctx.AllocText(opts.text);
+    payload->origText = ctx.AllocText(opts.text);
+    payload->origSquare = opts.square;
+    payload->btn.text = opts.square ? UiText{} : payload->origText;
     payload->btn.tooltip = ctx.AllocText(opts.tooltip);
     node->text = payload->btn.text.text;
     payload->btn.icon = opts.icon;
@@ -307,12 +344,20 @@ Response Toolbar::ToolButton(
         static_cast<uint8_t>(opts.icon.GetType()),
         static_cast<uint8_t>(opts.icon.GetId()),
         opts.icon.GetPath(),
-        payload->btn.text,
+        payload->origText,
         payload->badge
     );
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
-        const auto* p = n->As<ToolButtonPayload>();
-        return Button::Measure(p ? p->btn : ButtonOptions{}, n->uiSize, canvas, theme, availableWidth);
+        auto* p = const_cast<ToolButtonPayload*>(n->As<ToolButtonPayload>());
+        if (p) {
+            p->btn.square = p->origSquare;
+            p->btn.text = p->origSquare ? UiText{} : p->origText;
+        }
+        const Vec2 sz = Button::Measure(p ? p->btn : ButtonOptions{}, n->uiSize, canvas, theme, availableWidth);
+        if (p) {
+            p->expandedWidth = sz.x;
+        }
+        return sz;
     };
     node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
         const auto* p = n->As<ToolButtonPayload>();
@@ -379,6 +424,189 @@ void Toolbar::RenderSeparator(
             1.0f
         );
     }
+}
+
+void Toolbar::Arrange(
+    Node* node,
+    const Rect& availableRect,
+    const UiTheme& theme
+) {
+    if (!node) return;
+
+    float w = availableRect.w;
+    float h = (node->heightMode == SizeMode::Fixed) ? node->fixedHeight : availableRect.h;
+    if (node->parent == nullptr && !node->isSpacer && node->widthMode == SizeMode::Fit) {
+        w = node->intrinsicSize.x;
+    }
+
+    node->computedRect = Rect(availableRect.x, availableRect.y, w, h);
+    if (node->childCount == 0) return;
+
+    auto arrangeFittingRow = [&](float contentTotalW) {
+        float boxW = w;
+        float boxX = availableRect.x;
+        if (node->widthMode == SizeMode::Fit) {
+            boxW = std::min(w, contentTotalW + node->padding.Horizontal());
+            if (node->parent != nullptr) {
+                const bool centerInCol = (node->parent->direction == FlexDirection::Column && node->parent->align == Alignment::Center);
+                const bool centerInRow = (node->parent->direction == FlexDirection::Row && node->parent->justify == Justify::Center);
+                const bool endInCol = (node->parent->direction == FlexDirection::Column && node->parent->align == Alignment::End);
+                const bool endInRow = (node->parent->direction == FlexDirection::Row && node->parent->justify == Justify::End);
+                if (centerInCol || centerInRow) {
+                    boxX = availableRect.x + (availableRect.w - boxW) * 0.5f;
+                } else if (endInCol || endInRow) {
+                    boxX = availableRect.Right() - boxW;
+                }
+            }
+        }
+        node->computedRect.x = boxX;
+        node->computedRect.w = boxW;
+        const float sX = boxX + node->padding.left;
+        const float sY = node->computedRect.y + node->padding.top;
+        const float fW = std::max(0.0f, boxW - node->padding.Horizontal());
+        const float fH = std::max(0.0f, node->computedRect.h - node->padding.Vertical());
+
+        if (auto* cData = node->As<CarouselData>()) {
+            cData->showLeftArrow = false;
+            cData->showRightArrow = false;
+            cData->leftArrowRect = Rect(0.0f, 0.0f, 0.0f, 0.0f);
+            cData->rightArrowRect = Rect(0.0f, 0.0f, 0.0f, 0.0f);
+            cData->viewportRect = Rect(sX, sY, fW, fH);
+            cData->targetOffsetX = 0.0f;
+            cData->animatingX = false;
+            cData->stepDirection = 0;
+        }
+        node->scrollOffset.x = 0.0f;
+
+        float nonFlexSum = 0.0f;
+        float totalFlexGrow = 0.0f;
+        uint32_t flowCount = 0;
+        for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+            if (child->type == NodeType::Modal) continue;
+            ++flowCount;
+            if (child->isSpacer || child->widthMode == SizeMode::Stretch) {
+                totalFlexGrow += std::max(0.01f, child->flexGrow);
+            } else if (child->widthMode == SizeMode::Fixed) {
+                nonFlexSum += child->fixedWidth;
+            } else {
+                nonFlexSum += child->intrinsicSize.x;
+            }
+        }
+
+        const float totalGap = (flowCount > 1) ? static_cast<float>(flowCount - 1) * node->gap : 0.0f;
+        const float freeSpace = std::max(0.0f, fW - totalGap - nonFlexSum);
+        node->scrollContentSize = {nonFlexSum + totalGap, fH};
+
+        float curX = sX;
+        for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+            if (child->type == NodeType::Modal) continue;
+            float childW = 0.0f;
+            if (child->isSpacer || child->widthMode == SizeMode::Stretch) {
+                childW = (totalFlexGrow > 0.0f)
+                    ? (freeSpace * (std::max(0.01f, child->flexGrow) / totalFlexGrow))
+                    : 0.0f;
+            } else if (child->widthMode == SizeMode::Fixed) {
+                childW = child->fixedWidth;
+            } else {
+                childW = child->intrinsicSize.x;
+            }
+            const float childH = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight :
+                                 (child->heightMode == SizeMode::Stretch ? fH : child->intrinsicSize.y);
+            float childY = sY;
+            if (node->align == Alignment::Center) {
+                childY += (fH - childH) * 0.5f;
+            } else if (node->align == Alignment::End) {
+                childY += (fH - childH);
+            }
+            child->computedRect = Rect(curX, childY, childW, childH);
+            Solver::Arrange(child, child->computedRect, theme);
+            curX += childW + node->gap;
+        }
+    };
+
+    const float availContentW = std::max(0.0f, w - node->padding.Horizontal());
+    float expandedTotalW = 0.0f;
+    uint32_t flowCount = 0;
+
+    for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+        if (child->type == NodeType::Modal) continue;
+        if (child->type == NodeType::Button) {
+            if (auto* p = child->As<ToolButtonPayload>()) {
+                p->btn.square = p->origSquare;
+                p->btn.text = p->origSquare ? UiText{} : p->origText;
+                child->text = p->btn.text.text;
+                if (p->expandedWidth > 0.0f) {
+                    child->intrinsicSize.x = p->expandedWidth;
+                }
+            }
+        }
+        ++flowCount;
+        if (!child->isSpacer) {
+            const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
+            expandedTotalW += cw;
+        }
+    }
+    if (flowCount > 1) {
+        expandedTotalW += static_cast<float>(flowCount - 1) * node->gap;
+    }
+
+    if (expandedTotalW <= availContentW + 0.5f) {
+        arrangeFittingRow(expandedTotalW);
+        return;
+    }
+
+    auto* cData = node->As<CarouselData>();
+    if (cData && cData->autoCompact) {
+        float compactTotalW = 0.0f;
+        for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+            if (child->type == NodeType::Modal) continue;
+            if (child->type == NodeType::Button) {
+                if (auto* p = child->As<ToolButtonPayload>()) {
+                    if (!p->origSquare && p->btn.icon.IsValid() && !p->origText.empty() &&
+                        p->btn.iconPlacement == Placement::Leading) {
+                        p->btn.square = true;
+                        p->btn.text = UiText{};
+                        child->text = {};
+                        child->intrinsicSize.x = Button::Measure(p->btn, child->uiSize, nullptr, theme).x;
+                    }
+                }
+            }
+            if (!child->isSpacer) {
+                const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
+                compactTotalW += cw;
+            }
+        }
+        if (flowCount > 1) {
+            compactTotalW += static_cast<float>(flowCount - 1) * node->gap;
+        }
+
+        if (compactTotalW <= availContentW + 0.5f) {
+            arrangeFittingRow(compactTotalW);
+            return;
+        }
+    }
+
+    Carousel::Arrange(node, availableRect, theme);
+}
+
+Rect Toolbar::GetContentClipRect(const Node* node) noexcept {
+    if (!node) return Rect{};
+    if (const auto* cData = node->As<CarouselData>()) {
+        if (cData->viewportRect.w > 0.0f || cData->viewportRect.h > 0.0f) {
+            return Rect(
+                cData->viewportRect.x,
+                node->computedRect.y,
+                cData->viewportRect.w,
+                node->computedRect.h
+            );
+        }
+    }
+    return Rect(
+        node->computedRect.x + node->padding.left,
+        node->computedRect.y,
+        std::max(0.0f, node->computedRect.w - node->padding.Horizontal()),
+        node->computedRect.h
+    );
 }
 
 } // namespace guikit

@@ -32,6 +32,10 @@ struct CarouselData {
     Rect leftArrowRect{0.0f, 0.0f, 0.0f, 0.0f};
     Rect rightArrowRect{0.0f, 0.0f, 0.0f, 0.0f};
     Rect viewportRect{0.0f, 0.0f, 0.0f, 0.0f};
+    float targetOffsetX{0.0f};
+    float baseTargetX{0.0f};
+    int8_t stepDirection{0};
+    bool animatingX{false};
     bool showLeftArrow{false};
     bool showRightArrow{false};
     bool leftArrowHovered{false};
@@ -40,6 +44,7 @@ struct CarouselData {
     bool rightArrowPressed{false};
     bool scrollToActiveTab{false};
     bool showBaselineSeparator{false};
+    bool autoCompact{false};
 };
 
 /// Deterministic 64-bit ID for Carousel left navigation arrow button.
@@ -72,6 +77,15 @@ public:
 
     /// Returns the active visible viewport rectangle for children clipping.
     [[nodiscard]] static Rect GetContentClipRect(const Node* node);
+
+    /// Shared arrow & wheel scroll interaction setup for Carousel and horizontal Toolbar nodes.
+    static void BeginScrollInteraction(
+        Context& ctx,
+        Node* node,
+        CarouselData* cData,
+        bool scrollWheel,
+        bool disabled
+    );
 
     /// Synchronizes persistent scroll state with arrangement results.
     static void Update(Context& ctx, Node* node);

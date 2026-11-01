@@ -43,39 +43,72 @@ ContainerScope Carousel::Open(
     cData->opts = opts;
     node->SetPayload(cData);
 
-    auto& state = ctx.GetOrCreateState<ScrollState>(id);
+    BeginScrollInteraction(ctx, node, cData, opts.scrollWheel, activeDisabled);
+    node->visualHash = detail::HashArgs(
+        cData->leftArrowHovered,
+        cData->leftArrowPressed,
+        cData->rightArrowHovered,
+        cData->rightArrowPressed
+    );
 
-    // Handle interactive arrow button clicks from previous frame
+    ctx.PushScale(activeScale);
+    ctx.PushSize(activeSize);
+    ctx.PushDisabled(activeDisabled);
+    ctx.PushContainer(node);
+    return ContainerScope(&ctx, node);
+}
+
+void Carousel::BeginScrollInteraction(
+    Context& ctx,
+    Node* node,
+    CarouselData* cData,
+    bool scrollWheel,
+    bool disabled
+) {
+    if (!node || !cData || !node->id.IsValid()) return;
+    const Id id = node->id;
+    const CarouselMetrics& cm = ctx.GetTheme().GetCarousel(node->uiSize);
+    auto& state = ctx.GetOrCreateState<ScrollState>(id);
+    if (!state.animatingX) {
+        state.targetOffsetX = state.offset.x;
+    }
+
     const Id leftArrowId = GetCarouselLeftArrowId(id);
     const Id rightArrowId = GetCarouselRightArrowId(id);
-    Response leftRes = ctx.Interact(leftArrowId);
-    Response rightRes = ctx.Interact(rightArrowId);
+    const Response leftRes = ctx.Interact(leftArrowId);
+    const Response rightRes = ctx.Interact(rightArrowId);
 
     cData->leftArrowHovered = leftRes.hovered;
     cData->leftArrowPressed = leftRes.pressed;
     cData->rightArrowHovered = rightRes.hovered;
     cData->rightArrowPressed = rightRes.pressed;
+    cData->baseTargetX = state.animatingX ? state.targetOffsetX : state.offset.x;
+    cData->targetOffsetX = cData->baseTargetX;
+    cData->animatingX = state.animatingX;
 
-    const float step = cm.scrollStep;
-
-    if (leftRes.clicked && !activeDisabled) {
-        state.offset.x = std::max(0.0f, state.offset.x - step);
+    if (leftRes.clicked && !disabled) {
+        cData->stepDirection = -1;
+        state.lastAnimTimeSec = ctx.GetCurrentTimeSec();
         ctx.RequestRepaint(3);
     }
-    if (rightRes.clicked && !activeDisabled) {
-        state.offset.x += step;
+    if (rightRes.clicked && !disabled) {
+        cData->stepDirection = 1;
+        state.lastAnimTimeSec = ctx.GetCurrentTimeSec();
         ctx.RequestRepaint(3);
     }
 
-    // Handle horizontal mouse wheel scroll
-    if (opts.scrollWheel && !activeDisabled) {
-        Rect prevBounds = ctx.GetPrevFrameBounds(id);
+    if (scrollWheel && !disabled) {
+        const Rect prevBounds = ctx.GetPrevFrameBounds(id);
         if (prevBounds.w > 0.0f && prevBounds.h > 0.0f && ctx.IsRectHovered(id, prevBounds)) {
-            Vec2 wheel = ctx.GetMouseWheel();
+            const Vec2 wheel = ctx.GetMouseWheel();
             const float wheelDelta = (wheel.x != 0.0f) ? wheel.x : wheel.y;
             if (wheelDelta != 0.0f) {
-                state.offset.x -= wheelDelta * (cm.scrollStep * 0.35f);
-                if (state.offset.x < 0.0f) state.offset.x = 0.0f;
+                const float baseX = state.animatingX ? state.targetOffsetX : state.offset.x;
+                state.targetOffsetX = std::max(0.0f, baseX - wheelDelta * (cm.scrollStep * 0.45f));
+                state.animatingX = true;
+                state.lastAnimTimeSec = ctx.GetCurrentTimeSec();
+                cData->targetOffsetX = state.targetOffsetX;
+                cData->animatingX = true;
                 ctx.ConsumeMouseWheel();
                 ctx.RequestRepaint(3);
             }
@@ -83,12 +116,6 @@ ContainerScope Carousel::Open(
     }
 
     node->scrollOffset = state.offset;
-
-    ctx.PushScale(activeScale);
-    ctx.PushSize(activeSize);
-    ctx.PushDisabled(activeDisabled);
-    ctx.PushContainer(node);
-    return ContainerScope(&ctx, node);
 }
 
 Vec2 Carousel::Measure(const Node* node, float /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) {
@@ -162,6 +189,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
     float totalChildrenW = 0.0f;
     uint32_t activeChildren = 0;
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+        if (child->type == NodeType::Modal) continue;
         const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
         totalChildrenW += cw;
         ++activeChildren;
@@ -181,12 +209,16 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
             cData->leftArrowRect = Rect(0.0f, 0.0f, 0.0f, 0.0f);
             cData->rightArrowRect = Rect(0.0f, 0.0f, 0.0f, 0.0f);
             cData->viewportRect = Rect(startX, startY, fullW, fullH);
+            cData->targetOffsetX = 0.0f;
+            cData->animatingX = false;
+            cData->stepDirection = 0;
         }
         node->scrollOffset.x = 0.0f;
 
         // Arrange children in a standard row
         float curX = startX;
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+            if (child->type == NodeType::Modal) continue;
             float childW = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
             float childH = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight :
                            (child->heightMode == SizeMode::Stretch ? fullH : child->intrinsicSize.y);
@@ -211,46 +243,160 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
     const float arrowGap = cm.gap;
     const float arrowY = startY + (fullH - arrowBtnH) * 0.5f;
     const float btnGutter = arrowMargin + arrowBtnW + arrowGap;
+    const float maxScrollX = std::max(0.0f, totalChildrenW - fullW);
 
-    // Dynamic gutters: only allocate gutter space when an arrow is active
-    bool canScrollLeft = (node->scrollOffset.x > 1.0f);
-    float leftGutter = canScrollLeft ? btnGutter : 0.0f;
-    bool canScrollRight = (node->scrollOffset.x < (totalChildrenW - (fullW - leftGutter)) - 1.0f);
-    float rightGutter = canScrollRight ? btnGutter : 0.0f;
+    // Resolve item-boundary stepping when a navigation arrow was clicked
+    if (cData && cData->stepDirection != 0) {
+        const int8_t dir = cData->stepDirection;
+        cData->stepDirection = 0;
 
-    float viewportX = startX + leftGutter;
-    float viewportW = std::max(0.0f, fullW - leftGutter - rightGutter);
-    float maxScrollX = std::max(0.0f, totalChildrenW - viewportW);
+        const float baseX = std::clamp(cData->baseTargetX, 0.0f, maxScrollX);
+        const float visLeft = baseX + ((baseX > 1.0f) ? btnGutter : 0.0f);
+        const float visRight = baseX + fullW - ((baseX < maxScrollX - 1.0f) ? btnGutter : 0.0f);
+        const float midViewportW = std::max(1.0f, fullW - 2.0f * btnGutter);
+        const float minAdvance = std::min(cm.scrollStep * 0.5f, midViewportW * 0.5f);
+        float nextTarget = baseX;
+
+        if (dir > 0) {
+            float rX = -1.0f;
+            float rRight = -1.0f;
+            float relX = 0.0f;
+            for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+                if (child->type == NodeType::Modal) continue;
+                const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
+                const bool isSep = (child->type == NodeType::Separator || cw <= 4.0f);
+                if (!isSep && (relX + cw > visRight + 1.0f)) {
+                    rX = relX;
+                    rRight = relX + cw;
+                    break;
+                }
+                relX += cw + node->gap;
+            }
+
+            if (rX < 0.0f || (totalChildrenW - rX <= fullW - btnGutter + 1.0f)) {
+                nextTarget = maxScrollX;
+            } else {
+                const float minOffsetForR = rRight - (fullW - btnGutter);
+                const float maxLeadOffset = std::max(baseX + 2.0f, rX - btnGutter);
+                const float desiredMin = std::min(maxLeadOffset, std::max(baseX + minAdvance, minOffsetForR));
+                bool foundSnap = false;
+                relX = 0.0f;
+                for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+                    if (child->type == NodeType::Modal) continue;
+                    const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
+                    if (relX > rX + 0.5f) break;
+                    const bool isSep = (child->type == NodeType::Separator || cw <= 4.0f);
+                    if (!isSep) {
+                        const float cand = relX - btnGutter;
+                        if (cand >= desiredMin - 0.5f) {
+                            nextTarget = cand;
+                            foundSnap = true;
+                            break;
+                        }
+                    }
+                    relX += cw + node->gap;
+                }
+                if (!foundSnap) {
+                    nextTarget = maxLeadOffset;
+                }
+                if (maxScrollX - nextTarget <= btnGutter + 8.0f) {
+                    nextTarget = maxScrollX;
+                }
+            }
+        } else {
+            float lX = -1.0f;
+            float lRight = -1.0f;
+            float relX = 0.0f;
+            for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+                if (child->type == NodeType::Modal) continue;
+                const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
+                const bool isSep = (child->type == NodeType::Separator || cw <= 4.0f);
+                if (!isSep && (relX < visLeft - 1.0f)) {
+                    lX = relX;
+                    lRight = relX + cw;
+                }
+                relX += cw + node->gap;
+            }
+
+            if (lX < 0.0f || (lRight <= fullW - btnGutter + 1.0f)) {
+                nextTarget = 0.0f;
+            } else {
+                const float minOffsetKeepLVisible = lRight - (fullW - btnGutter);
+                const float maxOffsetForL = lX - btnGutter;
+                const float effMinOffset = std::min(maxOffsetForL, std::max(minOffsetKeepLVisible, baseX - midViewportW));
+                bool foundSnap = false;
+                relX = 0.0f;
+                for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+                    if (child->type == NodeType::Modal) continue;
+                    const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
+                    if (relX > lX + 0.5f) break;
+                    const bool isSep = (child->type == NodeType::Separator || cw <= 4.0f);
+                    if (!isSep) {
+                        const float cand = relX - btnGutter;
+                        if (cand >= effMinOffset - 0.5f && cand <= maxOffsetForL + 0.5f) {
+                            nextTarget = cand;
+                            foundSnap = true;
+                            break;
+                        }
+                    }
+                    relX += cw + node->gap;
+                }
+                if (!foundSnap) {
+                    nextTarget = maxOffsetForL;
+                }
+                if (nextTarget <= btnGutter + 8.0f) {
+                    nextTarget = 0.0f;
+                }
+            }
+        }
+
+        cData->targetOffsetX = std::clamp(nextTarget, 0.0f, maxScrollX);
+        cData->animatingX = true;
+    }
 
     // Auto-scroll to active tab if requested
     if (cData && cData->scrollToActiveTab) {
+        cData->scrollToActiveTab = false;
+        const float baseX = cData->animatingX ? cData->targetOffsetX : node->scrollOffset.x;
+        const float visLeft = baseX + ((baseX > 1.0f) ? btnGutter : 0.0f);
+        const float visRight = baseX + fullW - ((baseX < maxScrollX - 1.0f) ? btnGutter : 0.0f);
         float relX = 0.0f;
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+            if (child->type == NodeType::Modal) continue;
             const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
             if (child->active) {
-                if (relX < node->scrollOffset.x) {
-                    node->scrollOffset.x = relX;
-                } else if (relX + cw > node->scrollOffset.x + viewportW) {
-                    node->scrollOffset.x = (relX + cw) - viewportW;
+                float newTarget = baseX;
+                if (relX < visLeft) {
+                    newTarget = (relX + cw <= fullW - btnGutter || relX <= btnGutter + 8.0f)
+                        ? 0.0f
+                        : (relX - btnGutter);
+                } else if (relX + cw > visRight) {
+                    newTarget = (totalChildrenW - relX <= fullW - btnGutter)
+                        ? maxScrollX
+                        : ((relX + cw) - (fullW - btnGutter));
+                }
+                newTarget = std::clamp(newTarget, 0.0f, maxScrollX);
+                if (std::abs(newTarget - node->scrollOffset.x) > 0.5f) {
+                    cData->targetOffsetX = newTarget;
+                    cData->animatingX = true;
                 }
                 break;
             }
             relX += cw + node->gap;
         }
-
-        // Recompute gutters after auto-scroll updated scrollOffset
-        canScrollLeft = (node->scrollOffset.x > 1.0f);
-        leftGutter = canScrollLeft ? btnGutter : 0.0f;
-        canScrollRight = (node->scrollOffset.x < (totalChildrenW - (fullW - leftGutter)) - 1.0f);
-        rightGutter = canScrollRight ? btnGutter : 0.0f;
-
-        viewportX = startX + leftGutter;
-        viewportW = std::max(0.0f, fullW - leftGutter - rightGutter);
-        maxScrollX = std::max(0.0f, totalChildrenW - viewportW);
     }
 
     // Clamp scroll offset
     node->scrollOffset.x = std::clamp(node->scrollOffset.x, 0.0f, maxScrollX);
+
+    // Dynamic gutters: only allocate gutter space when an arrow is active
+    const bool canScrollLeft = (node->scrollOffset.x > 1.0f);
+    const float leftGutter = canScrollLeft ? btnGutter : 0.0f;
+    const bool canScrollRight = (node->scrollOffset.x < maxScrollX - 1.0f);
+    const float rightGutter = canScrollRight ? btnGutter : 0.0f;
+
+    const float viewportX = startX + leftGutter;
+    const float viewportW = std::max(0.0f, fullW - leftGutter - rightGutter);
 
     if (cData) {
         cData->showLeftArrow = canScrollLeft;
@@ -265,9 +411,10 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
         cData->viewportRect = Rect(viewportX, startY, viewportW, fullH);
     }
 
-    // Arrange children within the scrollable viewport
-    float curX = viewportX - node->scrollOffset.x;
+    // Arrange children smoothly relative to startX so toggling leftGutter never causes a position jump
+    float curX = startX - node->scrollOffset.x;
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
+        if (child->type == NodeType::Modal) continue;
         float childW = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
         float childH = (child->heightMode == SizeMode::Fixed) ? child->fixedHeight :
                        (child->heightMode == SizeMode::Stretch ? fullH : child->intrinsicSize.y);
@@ -340,10 +487,23 @@ void Carousel::RenderArrows(
     auto* cData = node->As<CarouselData>();
     if (!cData) return;
 
+    const float sepInsetY = std::max(4.0f, std::round(node->computedRect.h * 0.18f));
+    const float sepY1 = node->computedRect.y + sepInsetY;
+    const float sepY2 = node->computedRect.Bottom() - sepInsetY;
+    const Color sepCol = pal.borderSubtle.WithAlphaF(0.65f);
+
     if (cData->showLeftArrow) {
         drawArrow(cData->leftArrowRect, cData->leftArrowHovered, cData->leftArrowPressed, true);
+        if (sepY2 > sepY1) {
+            const float sepX = std::floor(cData->viewportRect.x) + 0.5f;
+            canvas.DrawLine(Vec2(sepX, sepY1), Vec2(sepX, sepY2), sepCol, 1.0f);
+        }
     }
     if (cData->showRightArrow) {
+        if (sepY2 > sepY1) {
+            const float sepX = std::floor(cData->viewportRect.Right()) - 0.5f;
+            canvas.DrawLine(Vec2(sepX, sepY1), Vec2(sepX, sepY2), sepCol, 1.0f);
+        }
         drawArrow(cData->rightArrowRect, cData->rightArrowHovered, cData->rightArrowPressed, false);
     }
 
@@ -368,7 +528,55 @@ Rect Carousel::GetContentClipRect(const Node* node) {
 void Carousel::Update(Context& ctx, Node* node) {
     if (!node || !node->id.IsValid()) return;
     auto& state = ctx.GetOrCreateState<ScrollState>(node->id);
-    state.offset.x = node->scrollOffset.x;
+    auto* cData = node->As<CarouselData>();
+    const float fullW = std::max(0.0f, node->computedRect.w - node->padding.Horizontal());
+    const float maxScrollX = std::max(0.0f, node->scrollContentSize.x - fullW);
+
+    if (maxScrollX <= 0.5f) {
+        state.offset.x = 0.0f;
+        state.targetOffsetX = 0.0f;
+        state.animatingX = false;
+        if (cData) cData->animatingX = false;
+        node->scrollOffset.x = 0.0f;
+        return;
+    }
+
+    if (cData && cData->animatingX) {
+        state.targetOffsetX = std::clamp(cData->targetOffsetX, 0.0f, maxScrollX);
+        state.animatingX = true;
+    } else if (!state.animatingX) {
+        state.offset.x = std::clamp(node->scrollOffset.x, 0.0f, maxScrollX);
+        state.targetOffsetX = state.offset.x;
+    }
+
+    if (state.animatingX) {
+        state.targetOffsetX = std::clamp(state.targetOffsetX, 0.0f, maxScrollX);
+        const double now = ctx.GetCurrentTimeSec();
+        float dt = static_cast<float>(now - state.lastAnimTimeSec);
+        state.lastAnimTimeSec = now;
+        if (dt <= 0.0001f || dt > 0.25f) {
+            dt = 0.016f;
+        }
+        const float diff = state.targetOffsetX - state.offset.x;
+        if (std::abs(diff) <= 0.75f) {
+            state.offset.x = state.targetOffsetX;
+            state.animatingX = false;
+            if (cData) cData->animatingX = false;
+            ctx.RequestRepaint(2);
+        } else {
+            const float alpha = 1.0f - std::exp(-20.0f * dt);
+            const float stepMove = diff * alpha;
+            const float minMove = (diff > 0.0f) ? std::min(diff, 0.75f) : std::max(diff, -0.75f);
+            state.offset.x += (std::abs(stepMove) < std::abs(minMove)) ? minMove : stepMove;
+            state.offset.x = std::clamp(state.offset.x, 0.0f, maxScrollX);
+            if (cData) cData->animatingX = true;
+            ctx.RequestRepaint(2);
+        }
+        node->scrollOffset.x = state.offset.x;
+    } else {
+        state.offset.x = node->scrollOffset.x;
+        state.targetOffsetX = state.offset.x;
+    }
 }
 
 void Carousel::ScrollToChild(Context& ctx, Node* carouselNode, const Node* targetNode) {
@@ -386,6 +594,8 @@ void Carousel::ScrollToChild(Context& ctx, Node* carouselNode, const Node* targe
         state.offset.x += (targetRight - viewRight);
     }
     if (state.offset.x < 0.0f) state.offset.x = 0.0f;
+    state.targetOffsetX = state.offset.x;
+    state.animatingX = false;
     carouselNode->scrollOffset = state.offset;
 }
 
@@ -394,7 +604,7 @@ void Carousel::CollectBounds(
     std::unordered_map<Id, Rect>& outBounds,
     Rect parentClip
 ) {
-    if (!node || node->type != NodeType::Carousel) return;
+    if (!node || (node->type != NodeType::Carousel && node->type != NodeType::Toolbar)) return;
     const auto* cData = node->As<CarouselData>();
     if (!cData) return;
 

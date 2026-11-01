@@ -379,7 +379,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 lineStart = lineEnd;
             }
 
-            return totalH + node->padding.Vertical();
+            return std::max(node->minHeight, totalH + node->padding.Vertical());
         }
 
         if (node->direction == FlexDirection::Row && node->heightMode == SizeMode::Fit) {
@@ -517,7 +517,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 lineStart = lineEnd;
             }
 
-            return totalH + node->padding.Vertical();
+            return std::max(node->minHeight, totalH + node->padding.Vertical());
         }
 
         return node->intrinsicSize.y;
@@ -1042,7 +1042,10 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         }
 
         if (node->heightMode == SizeMode::Fit) {
-            node->computedRect.h = (currentY - contentRect.y) + node->padding.Vertical();
+            node->computedRect.h = std::max(
+                node->minHeight,
+                (currentY - contentRect.y) + node->padding.Vertical()
+            );
         }
     }
 

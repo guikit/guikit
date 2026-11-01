@@ -2024,6 +2024,9 @@ static Rect GetNodeContentClipRect(const Node* node, const UiTheme& theme) {
     if (node->type == NodeType::Carousel) {
         return Carousel::GetContentClipRect(node);
     }
+    if (node->type == NodeType::Toolbar) {
+        return Toolbar::GetContentClipRect(node);
+    }
     if (node->type == NodeType::Table) {
         return Table::GetBodyClipRect(node, theme);
     }
@@ -2127,7 +2130,7 @@ static void CollectBoundsRecursive(
             outHitNodes.push_back(rec);
         }
 
-        if (node->type == NodeType::Carousel) {
+        if (node->type == NodeType::Carousel || node->type == NodeType::Toolbar) {
             Carousel::CollectBounds(node, outBounds, parentClip);
         }
     }
@@ -2188,7 +2191,7 @@ bool Context::UpdateScrollAreasRecursive(Node* node) {
         }
     } else if (node->type == NodeType::Scene) {
         Scene::Update(*this, node);
-    } else if (node->type == NodeType::Carousel) {
+    } else if (node->type == NodeType::Carousel || (node->type == NodeType::Toolbar && node->As<CarouselData>() != nullptr)) {
         Carousel::Update(*this, node);
         if (std::abs(node->scrollOffset.x - prevScroll.x) > 0.01f ||
             std::abs(node->scrollOffset.y - prevScroll.y) > 0.01f) {
@@ -2232,7 +2235,7 @@ void Context::ScrollToId(Id id) {
         if ((p->type == NodeType::ScrollArea || ((p->type == NodeType::Sidebar || p->type == NodeType::BottomPanel) && p->sidebarScrollable)) && p->id.IsValid()) {
             ScrollArea::ScrollToChild(*this, p, target);
             break;
-        } else if (p->type == NodeType::Carousel && p->id.IsValid()) {
+        } else if ((p->type == NodeType::Carousel || p->type == NodeType::Toolbar) && p->id.IsValid()) {
             Carousel::ScrollToChild(*this, p, target);
             break;
         }

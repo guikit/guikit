@@ -22,6 +22,9 @@ struct ScrollState {
     float dragStartOffset{0.0f};
     float dragStartOffsetX{0.0f};
     Vec2 dragStartMouse{0.0f, 0.0f};
+    float targetOffsetX{0.0f};
+    bool animatingX{false};
+    double lastAnimTimeSec{0.0};
 };
 
 /// Options for configuring a ScrollArea viewport.

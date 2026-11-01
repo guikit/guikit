@@ -8,6 +8,7 @@ namespace {
 struct ToolbarDemoState {
     guikit::ToolbarStyle style = guikit::ToolbarStyle::Surface;
     guikit::Orientation orientation = guikit::Orientation::Horizontal;
+    guikit::ToolbarOverflow overflow = guikit::ToolbarOverflow::AutoCompact;
     bool showBadges = true;
     bool squareIcons = false;
     int activeTool = 0;
@@ -21,6 +22,15 @@ constexpr std::string_view StyleEnumName(guikit::ToolbarStyle s) noexcept {
         case guikit::ToolbarStyle::Header:   return "Header";
         case guikit::ToolbarStyle::Floating: return "Floating";
         default:                             return "Surface";
+    }
+}
+
+constexpr std::string_view OverflowEnumName(guikit::ToolbarOverflow o) noexcept {
+    switch (o) {
+        case guikit::ToolbarOverflow::Scroll: return "Scroll";
+        case guikit::ToolbarOverflow::Wrap:   return "Wrap";
+        case guikit::ToolbarOverflow::Clip:   return "Clip";
+        default:                              return "AutoCompact";
     }
 }
 } // namespace
@@ -50,6 +60,17 @@ void RenderToolbarInspector(guikit::Context& ui, DemoContext& ctx) {
         }
     }
 
+    if (s_tb.orientation == guikit::Orientation::Horizontal) {
+        static constexpr std::array<std::string_view, 4> kOverflowLabels = {"Compact", "Scroll", "Wrap", "Clip"};
+        size_t overflowIdx = static_cast<size_t>(s_tb.overflow);
+        if (auto el = ui.Element({.label = "Overflow Policy", .layout = guikit::ElementLayout::Stacked})) {
+            if (ui.Segmented(overflowIdx, kOverflowLabels).changed) {
+                s_tb.overflow = static_cast<guikit::ToolbarOverflow>(overflowIdx);
+                ui.InvalidateAll();
+            }
+        }
+    }
+
     if (auto el = ui.Element({.label = "Toolbar Size"})) {
         if (ui.StepSlider(ctx.controlsSize, {.showTicks = true, .showLabels = true, .includeNone = true}).changed) {
             ui.InvalidateAll();
@@ -71,7 +92,8 @@ void RenderToolbarStage(guikit::Context& ui, DemoContext& ctx) {
 
     if (auto tb = ui.Size(ctx.controlsSize).Toolbar({
         .style = s_tb.style,
-        .orientation = s_tb.orientation
+        .orientation = s_tb.orientation,
+        .overflow = s_tb.overflow
     })) {
         tb.Item(s_tb.activeTool, 0, {
             .text = "Select",
@@ -133,7 +155,8 @@ std::string GenerateToolbarCode(const DemoContext& ctx) {
     return std::format(
         "if (auto tb = ui.{}Toolbar({{\n"
         "    .style = guikit::ToolbarStyle::{},\n"
-        "    .orientation = guikit::Orientation::{}\n"
+        "    .orientation = guikit::Orientation::{},\n"
+        "    .overflow = guikit::ToolbarOverflow::{}\n"
         "}})) {{\n"
         "    tb.Item(activeTool, 0, {{.text = \"Select\",  .icon = guikit::Icon::Check(),  .color = guikit::StateColor::{}(), .square = {}}});\n"
         "    tb.Item(activeTool, 1, {{.text = \"Pan\",     .icon = guikit::Icon::Folder(), .color = guikit::StateColor::{}(), .square = {}}});\n"
@@ -150,6 +173,7 @@ std::string GenerateToolbarCode(const DemoContext& ctx) {
         FormatUiSizePrefix(ctx.controlsSize),
         StyleEnumName(s_tb.style),
         s_tb.orientation == guikit::Orientation::Vertical ? "Vertical" : "Horizontal",
+        OverflowEnumName(s_tb.overflow),
         VariantName(ctx.btnVariant),
         s_tb.squareIcons ? "true" : "false",
         VariantName(ctx.btnVariant),

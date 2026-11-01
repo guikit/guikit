@@ -26,6 +26,14 @@ enum class ToolbarStyle : uint8_t {
     Floating    ///< Compact fit-to-content floating pill/island with elevated surface & border
 };
 
+/// Horizontal overflow policy for a Toolbar when tools exceed available width.
+enum class ToolbarOverflow : uint8_t {
+    AutoCompact, ///< Collapse Icon+Text tools into square Icon-only tools (with tooltips), then scroll if still overflowing
+    Scroll,      ///< Keep labels intact and scroll horizontally with navigation chevrons and mouse wheel
+    Wrap,        ///< Wrap overflowing tools onto subsequent rows and expand toolbar height
+    Clip         ///< Clip overflowing tools to the toolbar content viewport
+};
+
 /// Configuration options for a ToolButton / Toolbar item.
 struct ToolButtonOptions {
     UiText text{};
@@ -46,9 +54,10 @@ struct ToolButtonOptions {
 
 /// Configuration options for Toolbar container.
 struct ToolbarOptions {
-    ToolbarStyle style{ToolbarStyle::Surface};          ///< Surface (default), Header (flush), or Floating (compact island)
-    Orientation orientation{Orientation::Horizontal};   ///< Horizontal bar or Vertical tool palette
-    std::optional<float> gap{std::nullopt};             ///< Gap between toolbar items (nullopt = inherit size)
+    ToolbarStyle style{ToolbarStyle::Surface};              ///< Surface (default), Header (flush), or Floating (compact island)
+    Orientation orientation{Orientation::Horizontal};       ///< Horizontal bar or Vertical tool palette
+    ToolbarOverflow overflow{ToolbarOverflow::AutoCompact}; ///< Overflow behavior when tools exceed horizontal space
+    std::optional<float> gap{std::nullopt};                 ///< Gap between toolbar items (nullopt = inherit size)
     std::optional<Padding> padding{std::nullopt};       ///< Internal toolbar padding token or explicit insets
     StateColor background{};
     Border border{};
@@ -172,6 +181,14 @@ public:
         const UiTheme& theme = UiTheme::Dark(),
         Orientation orientation = Orientation::Horizontal
     );
+
+    static void Arrange(
+        Node* node,
+        const Rect& availableRect,
+        const UiTheme& theme = UiTheme::Dark()
+    );
+
+    [[nodiscard]] static Rect GetContentClipRect(const Node* node) noexcept;
 };
 
 } // namespace guikit

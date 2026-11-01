@@ -12032,6 +12032,112 @@ int main() {
                 }
             }
         }
+
+        // Toolbar overflow policies: AutoCompact, Scroll, Wrap, Clip
+        {
+            Context tbUi;
+            ThorCanvas tbCanvas;
+            std::vector<uint32_t> tbPixels(800 * 200, 0);
+            tbCanvas.SetTarget(tbPixels.data(), 800, 200, 800);
+
+            ToolbarOverflow policy = ToolbarOverflow::AutoCompact;
+            int activeTool = 0;
+            bool snap = true;
+            bool cap = false;
+            Rect tbRect{};
+            Id tbId{};
+            Response rSelect{}, rPan{}, rMeasure{}, rExport{};
+
+            auto renderTb = [&]() {
+                if (auto col = tbUi.Column({.padding = Padding::All(8.0f)})) {
+                    if (auto tb = tbUi.Toolbar({.style = ToolbarStyle::Surface, .overflow = policy})) {
+                        tbId = tb.response.id;
+                        tbRect = tb.response.rect;
+                        rSelect  = tb.Item(activeTool, 0, {.text = "Select",  .icon = Icon::Check()});
+                        rPan     = tb.Item(activeTool, 1, {.text = "Pan",     .icon = Icon::Folder()});
+                        rMeasure = tb.Item(activeTool, 2, {.text = "Measure", .icon = Icon::Search()});
+                        tb.Separator();
+                        tb.Toggle(snap, {.text = "Snap",    .icon = Icon::Settings()});
+                        tb.Toggle(cap,  {.text = "Capture", .icon = Icon::Play()});
+                        tb.Separator();
+                        rExport = tb.Action({.text = "Export", .icon = Icon::Save()});
+                    }
+                }
+            };
+
+            // 1. Wide viewport (800px): AutoCompact keeps full text labels
+            for (int f = 0; f < 2; ++f) {
+                tbUi.BeginFrame({800.0f, 200.0f});
+                renderTb();
+                tbUi.EndFrame(tbCanvas);
+            }
+            CHECK(rSelect.rect.w > rSelect.rect.h + 15.0f);
+            CHECK(rExport.rect.Right() <= tbRect.Right());
+
+            // 2. Narrow Phone viewport (360px): AutoCompact collapses Icon+Text tools into square icons so all tools fit
+            for (int f = 0; f < 2; ++f) {
+                tbUi.BeginFrame({360.0f, 200.0f});
+                renderTb();
+                tbUi.EndFrame(tbCanvas);
+            }
+            CHECK_NEAR(rSelect.rect.w, rSelect.rect.h, 1.0f);
+            CHECK_NEAR(rExport.rect.w, rExport.rect.h, 1.0f);
+            CHECK(rExport.rect.Right() <= tbRect.Right() + 0.5f);
+
+            // 3. Narrow Phone viewport (320px) with ToolbarOverflow::Wrap: keeps labels and wraps onto multiple rows
+            policy = ToolbarOverflow::Wrap;
+            for (int f = 0; f < 2; ++f) {
+                tbUi.BeginFrame({320.0f, 200.0f});
+                renderTb();
+                tbUi.EndFrame(tbCanvas);
+            }
+            CHECK(rSelect.rect.w > rSelect.rect.h + 15.0f);
+            CHECK(tbRect.h > 70.0f);
+            CHECK(rExport.rect.y > rSelect.rect.y + 20.0f);
+
+            // 4. Narrow Phone viewport (320px) with ToolbarOverflow::Scroll: smooth animation + item-boundary snapping
+            policy = ToolbarOverflow::Scroll;
+            tbUi.SetCurrentTime(1.0);
+            for (int f = 0; f < 2; ++f) {
+                tbUi.BeginFrame({320.0f, 200.0f});
+                renderTb();
+                tbUi.EndFrame(tbCanvas);
+            }
+            const Rect rightArrowRect = tbUi.GetPrevFrameBounds(GetCarouselRightArrowId(tbId));
+            CHECK(rightArrowRect.w > 10.0f);
+            const float startPanX = rPan.rect.x;
+
+            // Click right arrow '>' -> starts smooth animation toward item boundary
+            tbUi.OnMouseMove(rightArrowRect.Center());
+            tbUi.OnMouseDown(1);
+            tbUi.BeginFrame({320.0f, 200.0f});
+            renderTb();
+            tbUi.EndFrame(tbCanvas);
+
+            tbUi.OnMouseUp(1);
+            tbUi.AdvanceTime(0.016);
+            tbUi.BeginFrame({320.0f, 200.0f});
+            renderTb();
+            tbUi.EndFrame(tbCanvas);
+
+            const float midPanX = tbUi.GetPrevUnclippedBounds(rPan.id).x;
+            CHECK(midPanX < startPanX - 1.0f); // Animation started moving left
+            CHECK(tbUi.NeedsRepaint());        // Reactive loop kept awake while animating
+
+            // Advance frames to let smooth ease-out animation settle completely
+            for (int f = 0; f < 25; ++f) {
+                tbUi.AdvanceTime(0.016);
+                tbUi.BeginFrame({320.0f, 200.0f});
+                renderTb();
+                tbUi.EndFrame(tbCanvas);
+            }
+            const float endPanX = tbUi.GetPrevUnclippedBounds(rPan.id).x;
+            CHECK(endPanX < midPanX - 5.0f);
+            // Select is completely scrolled out of the visible viewport (no half-cut fragment!)
+            CHECK(tbUi.GetPrevFrameBounds(rSelect.id).w <= 0.5f);
+            // Measure is now 100% visible inside the clipped viewport
+            CHECK_NEAR(tbUi.GetPrevFrameBounds(rMeasure.id).w, tbUi.GetPrevUnclippedBounds(rMeasure.id).w, 1.0f);
+        }
     }
 
     if (g_failures == 0) {
