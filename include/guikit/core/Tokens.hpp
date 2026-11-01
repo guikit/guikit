@@ -838,6 +838,20 @@ enum class ThemeMode : uint8_t {
     Light
 };
 
+/// Architectural framing style for application shell chrome (Toolbar, Sidebar, ActivityBar, BottomPanel, StatusBar).
+enum class ShellStyle : uint8_t {
+    Docked = 0, ///< Flush edge-to-edge panels (0px outer padding, 0px panel gap, 0px radius, 1px inner-seam divider)
+    Floating    ///< Detached floating islands (outer window padding, inter-panel gap, rounded corners, 4-sided border)
+};
+
+/// Theme-resolved geometric tokens for application shell framing.
+struct ShellMetrics {
+    Padding windowPadding{0.0f};   ///< Outer viewport inset around root shell containers
+    float   panelGap{0.0f};        ///< Gap between adjacent shell panels (Toolbar, Sidebar, BottomPanel, StatusBar, Canvas)
+    float   panelRadius{0.0f};     ///< Default corner radius of shell chrome panels
+    float   panelBorderWidth{1.0f};///< Default border/divider stroke thickness of shell chrome panels
+};
+
 /// Color palette definition for an entire theme.
 struct ThemePalette {
     // 1. Surface and viewport backgrounds

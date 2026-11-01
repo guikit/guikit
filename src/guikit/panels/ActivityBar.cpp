@@ -84,10 +84,11 @@ ActivityBarScope ActivityBar::Open(
     node->align = Alignment::Center;
     node->justify = Justify::Start;
     node->sidebarRight = (opts.side == SidebarSide::Right);
+    const bool effectiveFlush = opts.flushWithSidebar.value_or(theme.shellStyle == ShellStyle::Docked);
     node->sidebarCompact = 1;
     node->sidebarCollapsed = 0;
     node->sidebarScrollable = false;
-    node->sidebarFlush = opts.flushWithSidebar ? 1 : 0;
+    node->sidebarFlush = effectiveFlush ? 1 : 0;
     node->gap = opts.gap.has_value() ? theme.Scale(*opts.gap) : (4.0f * activeScale);
     node->heightMode = SizeMode::Stretch;
 
@@ -113,7 +114,7 @@ ActivityBarScope ActivityBar::Open(
         : Color::Transparent();
     node->cornerRadius = opts.border.radius.has_value()
         ? theme.Scale(*opts.border.radius)
-        : (opts.flushWithSidebar ? 0.0f : theme.ResolveRadius(opts.border.radius, activeSize));
+        : (effectiveFlush ? 0.0f : theme.shell.panelRadius);
     node->clipChildren = true;
     node->uiSize = activeSize;
     node->disabled = activeDisabled;

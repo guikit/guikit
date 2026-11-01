@@ -302,7 +302,7 @@ StatusBarScope StatusBar::Open(
         : theme.Scale(opts.border.width);
     node->cornerRadius = opts.border.radius.has_value()
         ? theme.Scale(*opts.border.radius)
-        : 0.0f;
+        : theme.shell.panelRadius;
 
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;

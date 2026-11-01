@@ -94,11 +94,17 @@ SidebarScope Sidebar::Open(
     std::source_location loc
 ) {
     uint32_t sameSideIndex = 0;
-    if (const Node* parent = ctx.GetCurrentContainer()) {
+    bool hasFlushSibling = false;
+    const Node* parent = ctx.GetCurrentContainer();
+    if (parent != nullptr) {
         const bool isRight = (opts.side == SidebarSide::Right);
         for (const Node* c = parent->firstChild; c != nullptr; c = c->nextSibling) {
-            if (c->type == NodeType::Sidebar && c->sidebarRight == isRight && !c->sidebarFlush) {
-                ++sameSideIndex;
+            if (c->type == NodeType::Sidebar && c->sidebarRight == isRight) {
+                if (c->sidebarFlush) {
+                    hasFlushSibling = true;
+                } else {
+                    ++sameSideIndex;
+                }
             }
         }
     }
@@ -378,7 +384,9 @@ SidebarScope Sidebar::Open(
     node->sidebarScrollable = opts.scrollable && !node->sidebarCollapsed;
     node->gap = theme.ResolveGap(opts.gap, activeSize);
     node->heightMode = SizeMode::Stretch;
-    node->cornerRadius = theme.ResolveRadius(opts.border.radius, activeSize);
+    node->cornerRadius = opts.border.radius.has_value()
+        ? theme.Scale(*opts.border.radius)
+        : (hasFlushSibling ? 0.0f : theme.shell.panelRadius);
     node->clipChildren = opts.clipChildren;
     node->scrollOrientation = Orientation::Vertical;
     node->scrollbarPolicy = opts.scrollbar;

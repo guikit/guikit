@@ -18,8 +18,51 @@ static void ArrangeWrap(Node* node, const Rect& contentRect, const UiTheme& them
 static void ArrangeColumn(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas);
 static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas);
 
+    static bool HasDirectShellPanel(const Node* node) noexcept {
+        if (node == nullptr) return false;
+        for (const Node* c = node->firstChild; c != nullptr; c = c->nextSibling) {
+            if (c->type == NodeType::Sidebar || c->type == NodeType::BottomPanel || c->type == NodeType::StatusBar) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static bool IsShellContainer(const Node* node) noexcept {
+        if (node == nullptr) return false;
+        if (node->type != NodeType::Column && node->type != NodeType::Row && node->type != NodeType::Box) {
+            return false;
+        }
+        if (HasDirectShellPanel(node)) {
+            return true;
+        }
+        for (const Node* c = node->firstChild; c != nullptr; c = c->nextSibling) {
+            if ((c->type == NodeType::Column || c->type == NodeType::Row || c->type == NodeType::Box) &&
+                HasDirectShellPanel(c)) {
+                return true;
+            }
+        }
+        if (HasDirectShellPanel(node->parent)) {
+            for (const Node* c = node->firstChild; c != nullptr; c = c->nextSibling) {
+                if (c->type == NodeType::Toolbar) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     static void MeasureNode(Node* node, ICanvas* canvas, const UiTheme& theme) {
         const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
+
+        if (IsShellContainer(node)) {
+            if (!node->explicitGap) {
+                node->gap = activeTheme.shell.panelGap;
+            }
+            if (node->parent == nullptr && !node->explicitPadding) {
+                node->padding = activeTheme.shell.windowPadding;
+            }
+        }
 
         // Measure children bottom-up first
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {

@@ -241,6 +241,7 @@ inline std::string BgPresetToCode(size_t idx, bool defaultEnabled) {
 
 struct DemoContext {
     bool shellLightMode = false;
+    bool shellFloating = false;
     bool previewDarkMode = true;
     bool previewLightMode = false;
     bool previewBounds = false;

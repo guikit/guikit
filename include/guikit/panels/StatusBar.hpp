@@ -28,7 +28,7 @@ struct StatusBarOptions {
     std::optional<float> gap{std::nullopt};             ///< Horizontal gap between status items (nullopt = auto compact gap)
     std::optional<Padding> padding{std::nullopt};       ///< Internal bar padding (nullopt = auto compact padding)
     StateColor background{};
-    Border border{.width = 1.0f, .radius = 0.0f};
+    Border border{.width = 1.0f};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

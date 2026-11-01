@@ -21,6 +21,8 @@ ContainerScope Box::Open(
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Column;
+    node->explicitGap = opts.gap.has_value() ? 1 : 0;
+    node->explicitPadding = opts.padding.has_value() ? 1 : 0;
     node->gap = theme.ResolveGap(opts.gap, activeSize);
     node->padding = theme.ResolvePadding(opts.padding);
     const auto& pal = theme.palette;

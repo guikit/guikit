@@ -200,18 +200,28 @@ ToolbarScope Toolbar::Open(
         node->backgroundColor = styleBg;
     }
 
+    const bool isShellBar = (opts.style == ToolbarStyle::Surface) &&
+        !opts.border.radius.has_value() &&
+        (node->parent != nullptr) &&
+        !node->parent->explicitPadding &&
+        !node->parent->explicitGap;
+    const bool isDockedHeader = (opts.style == ToolbarStyle::Header) ||
+        (isShellBar && theme.shellStyle == ShellStyle::Docked);
+
     node->borderColor = opts.border.color.Resolve(false, false, effectiveDisabled, pal.border);
     if (opts.border.width > 0.0f) {
-        node->borderWidth = (opts.style == ToolbarStyle::Header) ? 0.0f : theme.Scale(opts.border.width);
+        node->borderWidth = isDockedHeader ? 0.0f : theme.Scale(opts.border.width);
     } else if (opts.border.color.HasAny()) {
-        node->borderWidth = (opts.style == ToolbarStyle::Header) ? 0.0f : theme.Scale(1.0f);
+        node->borderWidth = isDockedHeader ? 0.0f : theme.Scale(1.0f);
     } else if (opts.style == ToolbarStyle::Floating) {
         node->borderWidth = theme.Scale(1.0f);
+    } else if (isShellBar && theme.shellStyle == ShellStyle::Floating) {
+        node->borderWidth = theme.shell.panelBorderWidth;
     } else {
         node->borderWidth = 0.0f;
     }
 
-    if (opts.style == ToolbarStyle::Header) {
+    if (isDockedHeader) {
         if (isVertical) {
             node->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& t) noexcept {
                 const float divW = t.Scale(1.0f);
@@ -233,8 +243,10 @@ ToolbarScope Toolbar::Open(
 
     if (opts.border.radius.has_value()) {
         node->cornerRadius = theme.Scale(*opts.border.radius);
-    } else if (opts.style == ToolbarStyle::Header) {
+    } else if (isDockedHeader) {
         node->cornerRadius = 0.0f;
+    } else if (isShellBar) {
+        node->cornerRadius = theme.shell.panelRadius;
     } else if (opts.style == ToolbarStyle::Floating) {
         node->cornerRadius = theme.ResolveRadius(std::nullopt, activeSize) + 2.0f * activeScale;
     } else {

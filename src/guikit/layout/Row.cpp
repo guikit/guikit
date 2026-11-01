@@ -18,6 +18,8 @@ ContainerScope Row::Open(
     Node* node = ctx.CreateNode(NodeType::Row, id);
     node->theme = pushedTheme;
     node->direction = FlexDirection::Row;
+    node->explicitGap = opts.gap.has_value() ? 1 : 0;
+    node->explicitPadding = opts.padding.has_value() ? 1 : 0;
     if (!opts.gap.has_value() && node->parent != nullptr && node->parent->type == NodeType::Toolbar) {
         node->gap = node->parent->gap;
     } else {

@@ -172,7 +172,9 @@ struct Node {
     uint16_t sidebarCompact : 1 {0};
     uint16_t sidebarCollapsed : 1 {0};
     uint16_t sidebarFlush : 1 {0};
-    uint16_t payloadTypeId : 12 {0}; ///< Runtime type tag for safe Node::As<T>() casting
+    uint16_t explicitGap : 1 {0};
+    uint16_t explicitPadding : 1 {0};
+    uint16_t payloadTypeId : 10 {0}; ///< Runtime type tag for safe Node::As<T>() casting
 
     float fixedWidth{0.0f};
     float fixedHeight{0.0f};

@@ -8,6 +8,7 @@ namespace {
 struct SidebarState {
     int activityIdx = 0;
     int menuIdx = 0;
+    bool floatingFrame = true;
     bool showActivityBar = true;
     guikit::ActivityBarStyle activityStyle = guikit::ActivityBarStyle::Indicator;
     guikit::SidebarMode mode = guikit::SidebarMode::Expanded;
@@ -47,6 +48,14 @@ constexpr std::string_view StatusStyleName(guikit::StatusBarStyle s) noexcept {
 } // namespace
 
 void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
+    size_t frameIdx = s_state.floatingFrame ? 1 : 0;
+    if (auto el = ui.Element({.label = "Workbench Frame", .layout = guikit::ElementLayout::Stacked})) {
+        if (ui.Segmented(frameIdx, {"Docked (Flush)", "Floating (Island)"}).changed) {
+            s_state.floatingFrame = (frameIdx == 1);
+            ui.InvalidateAll();
+        }
+    }
+
     if (auto el = ui.Element({
         .label = "ActivityBar (VS Code Rail)",
         .description = "Primary tool switcher docked flush to Sidebar"
@@ -152,13 +161,17 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
 }
 
 void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
+    const bool isFloating = s_state.floatingFrame;
+    static guikit::UiTheme stageTheme;
+    stageTheme = ui.GetTheme();
+    stageTheme.SetShellStyle(isFloating ? guikit::ShellStyle::Floating : guikit::ShellStyle::Docked);
+
     if (auto workbenchShell = ui.Column({
-        .gap = 0.0f,
         .widthMode = guikit::SizeMode::Stretch,
-        .heightMode = guikit::SizeMode::Stretch
+        .heightMode = guikit::SizeMode::Stretch,
+        .theme = &stageTheme
     })) {
         if (auto demoWorkspace = ui.Box({
-            .gap = 8.0f,
             .widthMode = guikit::SizeMode::Stretch,
             .heightMode = guikit::SizeMode::Stretch
         })) {
@@ -284,6 +297,7 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
             if (auto mainPane = ui.Card({
                 .gap = 8.0f,
                 .padding = guikit::Padding::All(16.0f),
+                .border = {.width = 1.0f, .radius = stageTheme.shell.panelRadius},
                 .widthMode = guikit::SizeMode::Stretch,
                 .heightMode = guikit::SizeMode::Stretch
             })) {
@@ -293,7 +307,8 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
                 ui.Size(guikit::UiSize::Sm).Heading({
                     .label = pageTitles[static_cast<size_t>(std::clamp(s_state.menuIdx, 0, 3))],
                     .description = ui.Format(
-                        "Sidebar: {}  |  BottomPanel: {}",
+                        "Frame: {}  |  Sidebar: {}  |  BottomPanel: {}",
+                        isFloating ? "Floating (Island)" : "Docked (Flush)",
                         ModeEnumName(s_state.mode),
                         s_state.showBottomPanel ? "Expanded" : "Collapsed"
                     ),
@@ -308,8 +323,7 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
             if (auto bp = ui.BottomPanel(s_state.showBottomPanel, {
                 .height = 145.0f,
                 .resizable = s_state.resizable,
-                .allowCollapse = s_state.allowCollapse,
-                .border = {.radius = 6.0f}
+                .allowCollapse = s_state.allowCollapse
             })) {
                 if (auto bpTb = ui.Size(guikit::UiSize::Sm).Toolbar({
                     .style = guikit::ToolbarStyle::Header
@@ -445,7 +459,12 @@ std::string GenerateSidebarCode(const DemoContext& ctx) {
         );
     }
 
-    return actCode + std::format(
+    return std::format(
+        "// Theme-driven application shell framing (Docked vs Floating)\n"
+        "theme.SetShellStyle(guikit::ShellStyle::{});\n"
+        "ui.SetTheme(theme);\n\n",
+        s_state.floatingFrame ? "Floating" : "Docked"
+    ) + actCode + std::format(
         "if (auto sb = ui.Sidebar(sidebarMode, {{\n"
         "    .side = guikit::SidebarSide::{},\n"
         "    .width = {},\n"

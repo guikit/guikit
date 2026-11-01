@@ -13,8 +13,12 @@ namespace guikit {
 struct UiTheme {
     ThemeMode mode{ThemeMode::Dark};
     Density density{Density::Standard};
+    ShellStyle shellStyle{ShellStyle::Docked};
     float lineHeightMultiplier{kDefaultLineHeightMultiplier};
     float scale{1.0f};
+
+    // 0. Application shell framing tokens (resolved from shellStyle + density + scale)
+    ShellMetrics shell{};
 
     // 1. Semantic color palette
     ThemePalette palette{};
@@ -325,6 +329,7 @@ struct UiTheme {
     [[nodiscard]] ConstSpacingProxy Spacing() const noexcept { return ConstSpacingProxy(spacing); }
 
     [[nodiscard]] constexpr Density GetDensity() const noexcept { return density; }
+    [[nodiscard]] constexpr ShellStyle GetShellStyle() const noexcept { return shellStyle; }
     [[nodiscard]] constexpr const ComponentMetrics& GetComponentMetrics(UiSize size) const noexcept { return GetMetrics(size); }
     [[nodiscard]] constexpr float GetLineHeight(float fontSize) const noexcept { return fontSize * lineHeightMultiplier; }
 
@@ -337,6 +342,9 @@ struct UiTheme {
 
     /// Updates metrics, spacing, and radius to the requested density scale.
     void SetDensity(Density d) noexcept;
+
+    /// Updates application shell framing metrics (windowPadding, panelGap, panelRadius, panelBorderWidth) for Docked or Floating style.
+    void SetShellStyle(ShellStyle style) noexcept;
 
     /// Returns a new theme with all metrics, typography, spacing, and radius scaled by factor.
     [[nodiscard]] UiTheme Scaled(float factor) const noexcept;

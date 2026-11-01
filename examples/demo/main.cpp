@@ -470,7 +470,18 @@ int main(int argc, char* argv[]) {
 
         ui.BeginFrame({static_cast<float>(winWidth), static_cast<float>(winHeight)}, 1.0f);
         {
-            if (auto mainCol = ui.Column({.theme = &demoCtx.shellTheme, .scale = shellScale})) {
+            const guikit::ShellStyle activeShellStyle = demoCtx.shellFloating
+                ? guikit::ShellStyle::Floating
+                : guikit::ShellStyle::Docked;
+            if (demoCtx.shellTheme.GetShellStyle() != activeShellStyle) {
+                demoCtx.shellTheme.SetShellStyle(activeShellStyle);
+                ui.SetTheme(demoCtx.shellTheme);
+            }
+
+            if (auto mainCol = ui.Column({
+                .theme = &demoCtx.shellTheme,
+                .scale = shellScale
+            })) {
                 // Engine HUD Toolbar
                 if (auto tb = ui.Toolbar()) {
                     const guikit::StateColor navColor = (navSidebarMode == guikit::SidebarMode::Expanded)
@@ -535,8 +546,19 @@ int main(int argc, char* argv[]) {
                         demoCtx.shellTheme = demoCtx.shellLightMode
                             ? guikit::UiTheme::Light(demoCtx.shellTheme.density)
                             : guikit::UiTheme::Dark(demoCtx.shellTheme.density);
+                        demoCtx.shellTheme.SetShellStyle(demoCtx.shellFloating
+                            ? guikit::ShellStyle::Floating
+                            : guikit::ShellStyle::Docked);
                         ui.SetTheme(demoCtx.shellTheme);
                         ui.SetClearColor(demoCtx.shellTheme.palette.background);
+                        ui.InvalidateAll();
+                    }
+
+                    if (ui.Size(guikit::UiSize::Md).Switch(demoCtx.shellFloating, {
+                        .textLeft = "Dock",
+                        .textRight = "Float",
+                        .symmetric = true
+                    }).changed) {
                         ui.InvalidateAll();
                     }
 
@@ -633,7 +655,7 @@ int main(int argc, char* argv[]) {
                 }
 
                 // Workspace Row containing Sidebar (left) and Content Area (right)
-                if (auto workspaceRow = ui.Row({.gap = 12.0f, .heightMode = guikit::SizeMode::Stretch})) {
+                if (auto workspaceRow = ui.Row({.heightMode = guikit::SizeMode::Stretch})) {
                     // 1. Level 1: 5-Section Catalog Rail
                     if (auto railSidebar = ui.Sidebar(navSidebarMode, {
                         .side = guikit::SidebarSide::Left,
@@ -746,7 +768,6 @@ int main(int argc, char* argv[]) {
 
                     // Content Canvas (Center / Right Workspace)
                     if (auto contentCol = ui.Column({
-                        .gap = demoCtx.colGap,
                         .widthMode = guikit::SizeMode::Stretch,
                         .heightMode = guikit::SizeMode::Stretch
                     })) {
@@ -801,12 +822,17 @@ int main(int argc, char* argv[]) {
                         if (IsSandboxCategory(selectedCategory)) {
                             // SANDBOX MODE: Hero Stage + optional C++20 Code Generator
                             const bool isFullStage = IsFullStageCategory(selectedCategory);
+                            const float shellRadius = demoCtx.shellTheme.shell.panelRadius;
                             if (auto stageBox = ui.Box({
                                 .widthMode = guikit::SizeMode::Stretch,
                                 .heightMode = guikit::SizeMode::Stretch,
                                 .padding = guikit::Padding::All(isFullStage ? 8.0f : 24.0f),
                                 .background = {demoCtx.previewTheme.palette.surface},
-                                .border = {.width = 1.0f, .radius = 8.0f, .color = {demoCtx.previewTheme.palette.borderSubtle}},
+                                .border = {
+                                    .width = (shellRadius > 0.0f) ? 1.0f : 0.0f,
+                                    .radius = shellRadius,
+                                    .color = {demoCtx.previewTheme.palette.borderSubtle}
+                                },
                                 .clipChildren = true,
                                 .theme = &demoCtx.previewTheme,
                                 .scale = previewScale,
@@ -828,7 +854,6 @@ int main(int argc, char* argv[]) {
                                 .height = 240.0f,
                                 .resizable = true,
                                 .allowCollapse = true,
-                                .border = {.width = 1.0f, .radius = 8.0f},
                                 .theme = &demoCtx.shellTheme
                             })) {
                                 if (auto codeTb = ui.Size(guikit::UiSize::Sm).Toolbar({
@@ -871,7 +896,7 @@ int main(int argc, char* argv[]) {
                 }
 
                 // Application StatusBar
-                if (auto sb = ui.StatusBar({.border = {.width = 1.0f, .radius = 6.0f}})) {
+                if (auto sb = ui.StatusBar()) {
                     const bool isGpuScene = (selectedCategory == NavCategory::SceneSonarView || selectedCategory == NavCategory::SceneSignalView);
                     if (gpuShaderEngine.IsAvailable()) {
                         sb.Item({
@@ -940,7 +965,8 @@ int main(int argc, char* argv[]) {
                         {.label = "Go to Sonar Radar (DDS)",               .category = "2D Scenes", .description = "Polar heatmap & target tracker",      .icon = guikit::Icon::Search()},
                         {.label = "Go to BPMN 2.0 Modeler",                .category = "2D Scenes", .description = "Interactive workflow graph & XML",    .icon = guikit::Icon::Edit()},
                         {.label = "Toggle Preview Dark / Light Theme",     .category = "Theme",     .description = "Switch stage palette mode",           .icon = guikit::Icon::Refresh()},
-                        {.label = "Toggle Generated C++20 Code Panel",     .category = "View",      .description = "Show or hide bottom code generator",  .icon = guikit::Icon::Eye()}
+                        {.label = "Toggle Generated C++20 Code Panel",     .category = "View",      .description = "Show or hide bottom code generator",  .icon = guikit::Icon::Eye()},
+                        {.label = "Toggle Docked / Floating Island Shell", .category = "View",      .description = "Switch between flush IDE & floating island frame", .icon = guikit::Icon::Copy()}
                     };
                     const auto cmdResp = ui.CommandPalette(globalPaletteOpen, kGlobalCommands, {
                         .placeholder = "Jump to screen or run command..."
@@ -975,6 +1001,9 @@ int main(int argc, char* argv[]) {
                                 break;
                             case 14:
                                 demoCtx.previewShowCode = !demoCtx.previewShowCode;
+                                break;
+                            case 15:
+                                demoCtx.shellFloating = !demoCtx.shellFloating;
                                 break;
                             default: break;
                         }

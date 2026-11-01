@@ -42,7 +42,7 @@ struct ActivityBarOptions {
     ActivityBarStyle style{ActivityBarStyle::Indicator}; ///< Active item indicator style
     StateColor color{};                                 ///< Default accent color for active items and badges (Default = theme accent)
     SidebarMode* linkedSidebarMode{nullptr};            ///< Optional companion Sidebar mode for VS Code click-to-toggle/expand behavior
-    bool flushWithSidebar{true};                        ///< Dock adjacent same-side Sidebar flush (0px gap) against this rail
+    std::optional<bool> flushWithSidebar{std::nullopt}; ///< Dock adjacent same-side Sidebar flush (nullopt = auto from theme.shellStyle)
     std::optional<float> width{std::nullopt};           ///< Optional explicit rail width (nullopt = auto-fit to square icon cells)
     std::optional<float> gap{4.0f};                     ///< Vertical spacing between consecutive items
     std::optional<Padding> padding{std::nullopt};       ///< Internal rail padding (nullopt = compact symmetric padding)

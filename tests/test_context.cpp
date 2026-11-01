@@ -11482,6 +11482,96 @@ int main() {
         CHECK(rgba.size() == 256u * 256u);
     }
 
+    // Theme-driven Application Shell Framing (ShellStyle::Docked vs ShellStyle::Floating)
+    {
+        using namespace guikit;
+        Context ui;
+        ThorCanvas canvas;
+        std::vector<uint32_t> pixels(800 * 600, 0);
+        canvas.SetTarget(pixels.data(), 800, 600, 800);
+
+        SidebarMode sbMode = SidebarMode::Expanded;
+        bool showBp = true;
+        Id tbId, barId, sbId, bpId, statusId;
+        float tbRadius = -1.0f, barRadius = -1.0f, sbRadius = -1.0f, bpRadius = -1.0f, statusRadius = -1.0f;
+
+        auto renderShell = [&]() {
+            ui.BeginFrame({800.0f, 600.0f});
+            if (auto root = ui.Column({.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch})) {
+                if (auto tb = ui.Toolbar()) {
+                    tbId = tb.GetNode()->id;
+                    tbRadius = tb.GetNode()->cornerRadius;
+                    ui.Text("Top Toolbar");
+                }
+                if (auto body = ui.Box({.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch})) {
+                    if (auto bar = ui.ActivityBar(sbMode)) {
+                        barId = bar.GetNode()->id;
+                        barRadius = bar.GetNode()->cornerRadius;
+                        int tool = 0;
+                        bar.Item(tool, 0, {.icon = Icon::Folder(), .label = "Explorer"});
+                    }
+                    if (auto sb = ui.Sidebar(sbMode, {.width = 180.0f})) {
+                        sbId = sb.GetNode()->id;
+                        sbRadius = sb.GetNode()->cornerRadius;
+                        ui.Text("Sidebar");
+                    }
+                    if (auto card = ui.Card({.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch})) {
+                        ui.Text("Canvas");
+                    }
+                    if (auto bp = ui.BottomPanel(showBp, {.height = 120.0f})) {
+                        bpId = bp.GetNode()->id;
+                        bpRadius = bp.GetNode()->cornerRadius;
+                        ui.Text("Bottom Panel");
+                    }
+                }
+                if (auto st = ui.StatusBar()) {
+                    statusId = st.GetNode()->id;
+                    statusRadius = st.GetNode()->cornerRadius;
+                    st.Item({.text = "Ready"});
+                }
+            }
+            ui.EndFrame(canvas);
+        };
+
+        // 1. Default Docked mode: 0px outer padding, 0px panel gap, 0px corner radius on all chrome panels
+        CHECK(ui.GetTheme().GetShellStyle() == ShellStyle::Docked);
+        renderShell();
+        renderShell();
+        CHECK_NEAR(tbRadius, 0.0f, 0.01f);
+        CHECK_NEAR(barRadius, 0.0f, 0.01f);
+        CHECK_NEAR(sbRadius, 0.0f, 0.01f);
+        CHECK_NEAR(bpRadius, 0.0f, 0.01f);
+        CHECK_NEAR(statusRadius, 0.0f, 0.01f);
+        CHECK_NEAR(ui.GetPrevFrameBounds(tbId).x, 0.0f, 0.01f);
+        CHECK_NEAR(ui.GetPrevFrameBounds(tbId).y, 0.0f, 0.01f);
+        CHECK_NEAR(ui.GetPrevFrameBounds(barId).x, 0.0f, 0.01f);
+        CHECK_NEAR(ui.GetPrevFrameBounds(sbId).x, ui.GetPrevFrameBounds(barId).Right(), 0.01f);
+        CHECK_NEAR(ui.GetPrevFrameBounds(statusId).Bottom(), 600.0f, 0.01f);
+
+        // 2. Switch to Floating mode on theme: automatic windowPadding, panelGap, and rounded corners
+        UiTheme floatTheme = ui.GetTheme();
+        floatTheme.SetShellStyle(ShellStyle::Floating);
+        ui.SetTheme(floatTheme);
+        CHECK(ui.GetTheme().GetShellStyle() == ShellStyle::Floating);
+        const float expectedGap = floatTheme.shell.panelGap;
+        const float expectedRadius = floatTheme.shell.panelRadius;
+        CHECK(expectedGap > 0.0f);
+        CHECK(expectedRadius > 0.0f);
+
+        renderShell();
+        renderShell();
+        CHECK_NEAR(tbRadius, expectedRadius, 0.01f);
+        CHECK_NEAR(barRadius, expectedRadius, 0.01f);
+        CHECK_NEAR(sbRadius, expectedRadius, 0.01f);
+        CHECK_NEAR(bpRadius, expectedRadius, 0.01f);
+        CHECK_NEAR(statusRadius, expectedRadius, 0.01f);
+        CHECK_NEAR(ui.GetPrevFrameBounds(tbId).x, expectedGap, 0.01f);
+        CHECK_NEAR(ui.GetPrevFrameBounds(tbId).y, expectedGap, 0.01f);
+        CHECK_NEAR(ui.GetPrevFrameBounds(barId).x, expectedGap, 0.01f);
+        CHECK_NEAR(ui.GetPrevFrameBounds(sbId).x, ui.GetPrevFrameBounds(barId).Right() + expectedGap, 0.01f);
+        CHECK_NEAR(ui.GetPrevFrameBounds(statusId).Bottom(), 600.0f - expectedGap, 0.01f);
+    }
+
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Context tests passed successfully!\n";
         return 0;

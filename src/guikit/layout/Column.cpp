@@ -18,6 +18,8 @@ ContainerScope Column::Open(
     Node* node = ctx.CreateNode(NodeType::Column, id);
     node->theme = pushedTheme;
     node->direction = FlexDirection::Column;
+    node->explicitGap = opts.gap.has_value() ? 1 : 0;
+    node->explicitPadding = opts.padding.has_value() ? 1 : 0;
     node->gap = ctx.GetTheme().ResolveGap(opts.gap, activeSize);
     node->padding = ctx.GetTheme().ResolvePadding(opts.padding);
     node->align = opts.align;

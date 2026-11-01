@@ -326,12 +326,30 @@ void ApplyDensity(UiTheme& theme, Density d) {
             SliderMetrics{ 38.0f, 8.0f, 26.0f, 13.0f, 6.0f, 8.0f, 8.0f, 4.0f }  // Xl
         }};
     }
+
+    theme.SetShellStyle(theme.shellStyle);
 }
 
 } // namespace
 
 void UiTheme::SetDensity(Density d) noexcept {
     ApplyDensity(*this, d);
+}
+
+void UiTheme::SetShellStyle(ShellStyle style) noexcept {
+    shellStyle = style;
+    if (style == ShellStyle::Docked) {
+        shell.windowPadding    = Padding::All(0.0f);
+        shell.panelGap         = 0.0f;
+        shell.panelRadius      = 0.0f;
+        shell.panelBorderWidth = 1.0f * scale;
+    } else {
+        const float gap = GetGap(UiSize::Sm);
+        shell.windowPadding    = Padding::All(gap);
+        shell.panelGap         = gap;
+        shell.panelRadius      = GetRadius(UiSize::Md);
+        shell.panelBorderWidth = 1.0f * scale;
+    }
 }
 
 UiTheme UiTheme::Dark(Density d) noexcept {
@@ -368,6 +386,13 @@ UiTheme UiTheme::Scaled(float factor) const noexcept {
         return copy;
     }
     copy.scale *= factor;
+    copy.shell.windowPadding.left *= factor;
+    copy.shell.windowPadding.top *= factor;
+    copy.shell.windowPadding.right *= factor;
+    copy.shell.windowPadding.bottom *= factor;
+    copy.shell.panelGap *= factor;
+    copy.shell.panelRadius *= factor;
+    copy.shell.panelBorderWidth *= factor;
     for (auto& s : copy.spacing) s *= factor;
     for (auto& r : copy.radius) r *= factor;
     for (auto& m : copy.metrics) {

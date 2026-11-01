@@ -34,7 +34,7 @@ struct BottomPanelOptions {
     std::optional<float> gap{0.0f};                         ///< Gap between direct children (0px by default so inner Toolbar docks flush)
     std::optional<Padding> padding{Padding::All(0.0f)};     ///< Internal padding (0px by default so inner Toolbar/views fill edge-to-edge)
     StateColor background{};
-    Border border{.width = 1.0f, .radius = 0.0f};
+    Border border{.width = 1.0f};
     bool clipChildren{true};
     bool disabled{false};
     const UiTheme* theme{nullptr};

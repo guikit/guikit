@@ -303,7 +303,9 @@ BottomPanelScope BottomPanel::Open(
     node->sidebarScrollable = opts.scrollable && !node->sidebarCollapsed;
     node->gap = theme.ResolveGap(opts.gap, activeSize);
     node->widthMode = SizeMode::Stretch;
-    node->cornerRadius = theme.ResolveRadius(opts.border.radius, activeSize);
+    node->cornerRadius = opts.border.radius.has_value()
+        ? theme.Scale(*opts.border.radius)
+        : theme.shell.panelRadius;
     node->clipChildren = opts.clipChildren;
     node->scrollOrientation = Orientation::Vertical;
     node->scrollbarPolicy = opts.scrollbar;
