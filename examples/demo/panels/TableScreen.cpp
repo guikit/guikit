@@ -146,6 +146,18 @@ void RenderTableInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
 
     if (g_tableDemo.datasetMode == 0) {
         if (auto el = ui.Element({
+            .label = "Filter Rows",
+            .layout = ElementLayout::Top
+        })) {
+            if (ui.Size(UiSize::Sm).InputField(g_tableDemo.filterQuery, {
+                .placeholder = "Callsign or modulation...",
+                .prefix = Icon::Search(),
+                .clearable = true
+            }).changed) {
+                g_tableDemo.selectedRow = 0;
+            }
+        }
+        if (auto el = ui.Element({
             .label = "Live Signal Telemetry",
             .description = "Animate SNR level meters and bearings in real time"
         })) {
@@ -187,29 +199,6 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
             ui.RequestRepaint(2);
         }
 
-        // Top Filter & Action Bar
-        if (auto topBar = ui.Row({.gap = 10.0f, .align = Alignment::Center})) {
-            if (ui.Size(UiSize::Sm).InputField(g_tableDemo.filterQuery, {
-                .placeholder = "Filter by callsign or modulation (e.g. OFDM, SAT, QPSK)...",
-                .prefix = Icon::Search(),
-                .stretch = StretchMode::Fill,
-                .clearable = true
-            }).changed) {
-                g_tableDemo.selectedRow = 0;
-            }
-
-            if (ui.Size(UiSize::Sm).Button({
-                .text = "Sort by SNR",
-                .icon = Icon::Play(),
-                .color = StateColor::Secondary(),
-                .stretch = StretchMode::Compact
-            })) {
-                g_tableDemo.sortCol = 6;
-                g_tableDemo.sortDir = TableSortDirection::Descending;
-                g_tableDemo.SortRows();
-            }
-        }
-
         // Build filtered indices
         std::vector<size_t> filteredIndices;
         filteredIndices.reserve(g_tableDemo.rows.size());
@@ -245,76 +234,68 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                 : "None"
         );
 
-        if (auto el = ui.Size(g_tableDemo.tableSize).Element({
-            .label = "RF & Acoustic Target Acquisition Table",
-            .description = "Click column headers to sort, drag header dividers to resize, use Up/Down/PgUp/PgDn keys",
-            .icon = Icon::Search(),
-            .badge = {"LIVE DSP", UiVariant::Success},
-            .layout = ElementLayout::Top
+        if (auto table = ui.Size(g_tableDemo.tableSize).Table(kSignalCols, {
+            .totalRows = filteredIndices.size(),
+            .selectedRow = &g_tableDemo.selectedRow,
+            .sortColumn = &g_tableDemo.sortCol,
+            .sortDirection = &g_tableDemo.sortDir,
+            .stickyHeader = g_tableDemo.stickyHeader,
+            .striped = g_tableDemo.striped,
+            .gridLines = g_tableDemo.gridLines,
+            .resizableColumns = g_tableDemo.resizableColumns,
+            .showRowNumbers = g_tableDemo.showRowNumbers,
+            .showFooter = g_tableDemo.showFooter,
+            .footerText = footerBuf
         })) {
-            if (auto table = ui.Size(g_tableDemo.tableSize).Table(kSignalCols, {
-                .totalRows = filteredIndices.size(),
-                .selectedRow = &g_tableDemo.selectedRow,
-                .sortColumn = &g_tableDemo.sortCol,
-                .sortDirection = &g_tableDemo.sortDir,
-                .stickyHeader = g_tableDemo.stickyHeader,
-                .striped = g_tableDemo.striped,
-                .gridLines = g_tableDemo.gridLines,
-                .resizableColumns = g_tableDemo.resizableColumns,
-                .showRowNumbers = g_tableDemo.showRowNumbers,
-                .showFooter = g_tableDemo.showFooter,
-                .footerText = footerBuf
-            })) {
-                if (table.SortChanged()) {
-                    g_tableDemo.SortRows();
+            if (table.SortChanged()) {
+                g_tableDemo.SortRows();
+            }
+
+            for (size_t visRow = table.FirstVisibleRow(); visRow < table.EndVisibleRow(); ++visRow) {
+                if (visRow >= filteredIndices.size()) break;
+                SignalTargetRow& item = g_tableDemo.rows[filteredIndices[visRow]];
+
+                TableRowOptions rowOpts{};
+                if (item.status == 3) {
+                    rowOpts.tint = UiVariant::Danger;
                 }
 
-                for (size_t visRow = table.FirstVisibleRow(); visRow < table.EndVisibleRow(); ++visRow) {
-                    if (visRow >= filteredIndices.size()) break;
-                    SignalTargetRow& item = g_tableDemo.rows[filteredIndices[visRow]];
+                if (auto row = table.Row(visRow, rowOpts)) {
+                    // Col 0: Embedded Checkbox widget
+                    ui.Size(UiSize::Sm).Checkbox(item.tracked, {.color = StateColor::Primary()});
 
-                    TableRowOptions rowOpts{};
-                    if (item.status == 3) {
-                        rowOpts.tint = UiVariant::Danger;
-                    }
+                    // Col 1: Target ID
+                    ui.Text(ui.Format("T-{:04d}", item.id), {.variant = UiVariant::Secondary});
 
-                    if (auto row = table.Row(visRow, rowOpts)) {
-                        // Col 0: Embedded Checkbox widget
-                        ui.Size(UiSize::Sm).Checkbox(item.tracked, {.color = StateColor::Primary()});
+                    // Col 2: Callsign with leading icon
+                    ui.Element({.label = item.callsign, .icon = Icon::Play(), .stretch = StretchMode::Compact});
 
-                        // Col 1: Target ID
-                        ui.Text(ui.Format("T-{:04d}", item.id), {.variant = UiVariant::Secondary});
+                    // Col 3: Modulation badge
+                    ui.Element({.badge = {item.modulation, UiVariant::Info}, .stretch = StretchMode::Compact});
 
-                        // Col 2: Callsign with leading icon
-                        ui.Element({.label = item.callsign, .icon = Icon::Play(), .stretch = StretchMode::Compact});
+                    // Col 4: Frequency
+                    ui.Text(ui.Format("{:.3f} MHz", item.freqMhz));
 
-                        // Col 3: Modulation badge
-                        ui.Element({.badge = {item.modulation, UiVariant::Info}, .stretch = StretchMode::Compact});
+                    // Col 5: Azimuth bearing
+                    ui.Text(
+                        ui.Format("{:+05.1f} deg", item.bearingDeg),
+                        {.variant = (std::abs(item.bearingDeg) < 25.0f) ? UiVariant::Success : UiVariant::Default}
+                    );
 
-                        // Col 4: Frequency
-                        ui.Text(ui.Format("{:.3f} MHz", item.freqMhz));
+                    // Col 6: Embedded Segmented VU ProgressBar widget
+                    ui.Size(UiSize::Sm).ProgressBar(item.snrDb, 0.0f, 40.0f, {
+                        .valueFormat = "%.1f dB",
+                        .segments = 12,
+                        .multiZoneColor = true
+                    });
 
-                        // Col 5: Azimuth bearing
-                        ui.Text(
-                            ui.Format("{:+05.1f} deg", item.bearingDeg),
-                            {.variant = (std::abs(item.bearingDeg) < 25.0f) ? UiVariant::Success : UiVariant::Default}
-                        );
-
-                        // Col 6: Embedded Segmented VU ProgressBar widget
-                        ui.Size(UiSize::Sm).ProgressBar(item.snrDb, 0.0f, 40.0f, {
-                            .valueFormat = "%.1f dB",
-                            .segments = 12,
-                            .multiZoneColor = true
-                        });
-
-                        // Col 7: Status pill badge
-                        static constexpr std::array<const char*, 4> kStatusLabels = {"LOCKED", "TRACKING", "SCANNING", "OVERLOAD"};
-                        static constexpr std::array<UiVariant, 4> kStatusVars = {
-                            UiVariant::Success, UiVariant::Primary, UiVariant::Warning, UiVariant::Danger
-                        };
-                        const size_t stIdx = static_cast<size_t>(std::clamp(item.status, 0, 3));
-                        ui.Element({.badge = {kStatusLabels[stIdx], kStatusVars[stIdx]}, .stretch = StretchMode::Compact});
-                    }
+                    // Col 7: Status pill badge
+                    static constexpr std::array<const char*, 4> kStatusLabels = {"LOCKED", "TRACKING", "SCANNING", "OVERLOAD"};
+                    static constexpr std::array<UiVariant, 4> kStatusVars = {
+                        UiVariant::Success, UiVariant::Primary, UiVariant::Warning, UiVariant::Danger
+                    };
+                    const size_t stIdx = static_cast<size_t>(std::clamp(item.status, 0, 3));
+                    ui.Element({.badge = {kStatusLabels[stIdx], kStatusVars[stIdx]}, .stretch = StretchMode::Compact});
                 }
             }
         }
@@ -338,70 +319,62 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
             g_tableDemo.lastVisibleCount
         );
 
-        if (auto el = ui.Size(g_tableDemo.tableSize).Element({
-            .label = "100,000-Row Virtualized Telemetry Stream",
-            .description = "Only ~20 visible rows are evaluated and rasterized per frame (O(1) memory & CPU cost)",
-            .icon = Icon::Copy(),
-            .badge = {"100,000 ROWS", UiVariant::Primary},
-            .layout = ElementLayout::Top
+        if (auto table = ui.Size(g_tableDemo.tableSize).Table(kVirtualCols, {
+            .totalRows = kTotalVirtualRows,
+            .selectedRow = &g_tableDemo.virtualSelectedRow,
+            .sortColumn = &g_tableDemo.virtualSortCol,
+            .sortDirection = &g_tableDemo.virtualSortDir,
+            .stickyHeader = g_tableDemo.stickyHeader,
+            .striped = g_tableDemo.striped,
+            .gridLines = g_tableDemo.gridLines,
+            .resizableColumns = g_tableDemo.resizableColumns,
+            .showRowNumbers = g_tableDemo.showRowNumbers,
+            .showFooter = g_tableDemo.showFooter,
+            .footerText = ftrBuf
         })) {
-            if (auto table = ui.Size(g_tableDemo.tableSize).Table(kVirtualCols, {
-                .totalRows = kTotalVirtualRows,
-                .selectedRow = &g_tableDemo.virtualSelectedRow,
-                .sortColumn = &g_tableDemo.virtualSortCol,
-                .sortDirection = &g_tableDemo.virtualSortDir,
-                .stickyHeader = g_tableDemo.stickyHeader,
-                .striped = g_tableDemo.striped,
-                .gridLines = g_tableDemo.gridLines,
-                .resizableColumns = g_tableDemo.resizableColumns,
-                .showRowNumbers = g_tableDemo.showRowNumbers,
-                .showFooter = g_tableDemo.showFooter,
-                .footerText = ftrBuf
-            })) {
-                if (g_tableDemo.pendingJumpRow >= 0) {
-                    g_tableDemo.virtualSelectedRow = g_tableDemo.pendingJumpRow;
-                    table.ScrollToRow(static_cast<size_t>(g_tableDemo.pendingJumpRow));
-                    g_tableDemo.pendingJumpRow = -1;
-                }
+            if (g_tableDemo.pendingJumpRow >= 0) {
+                g_tableDemo.virtualSelectedRow = g_tableDemo.pendingJumpRow;
+                table.ScrollToRow(static_cast<size_t>(g_tableDemo.pendingJumpRow));
+                g_tableDemo.pendingJumpRow = -1;
+            }
 
-                const size_t firstRow = table.FirstVisibleRow();
-                const size_t endRow = table.EndVisibleRow();
-                g_tableDemo.lastVisibleCount = (endRow >= firstRow) ? (endRow - firstRow) : 0;
+            const size_t firstRow = table.FirstVisibleRow();
+            const size_t endRow = table.EndVisibleRow();
+            g_tableDemo.lastVisibleCount = (endRow >= firstRow) ? (endRow - firstRow) : 0;
 
-                const bool desc = (g_tableDemo.virtualSortDir == TableSortDirection::Descending);
+            const bool desc = (g_tableDemo.virtualSortDir == TableSortDirection::Descending);
 
-                for (size_t r = firstRow; r < endRow; ++r) {
-                    const size_t logicalIdx = desc ? (kTotalVirtualRows - 1 - r) : r;
-                    if (auto row = table.Row(r)) {
-                        ui.Text(ui.Format("PKT-{:06}", logicalIdx + 1), {.variant = UiVariant::Secondary});
+            for (size_t r = firstRow; r < endRow; ++r) {
+                const size_t logicalIdx = desc ? (kTotalVirtualRows - 1 - r) : r;
+                if (auto row = table.Row(r)) {
+                    ui.Text(ui.Format("PKT-{:06}", logicalIdx + 1), {.variant = UiVariant::Secondary});
 
-                        const uint32_t mins = static_cast<uint32_t>((logicalIdx / 600) % 60);
-                        const uint32_t secs = static_cast<uint32_t>((logicalIdx / 10) % 60);
-                        const uint32_t tenths = static_cast<uint32_t>(logicalIdx % 10);
-                        ui.Text(ui.Format("12:{:02}:{:02}.{}00", mins, secs, tenths));
+                    const uint32_t mins = static_cast<uint32_t>((logicalIdx / 600) % 60);
+                    const uint32_t secs = static_cast<uint32_t>((logicalIdx / 10) % 60);
+                    const uint32_t tenths = static_cast<uint32_t>(logicalIdx % 10);
+                    ui.Text(ui.Format("12:{:02}:{:02}.{}00", mins, secs, tenths));
 
-                        static constexpr std::array<const char*, 6> kNodes = {
-                            "ARRAY-NORTH-A1", "ARRAY-EAST-B4", "HYDROPHONE-C2",
-                            "SDR-RECEIVER-09", "BEAMFORMER-DSP", "SATCOM-GATEWAY"
-                        };
-                        ui.Text(kNodes[logicalIdx % kNodes.size()]);
+                    static constexpr std::array<const char*, 6> kNodes = {
+                        "ARRAY-NORTH-A1", "ARRAY-EAST-B4", "HYDROPHONE-C2",
+                        "SDR-RECEIVER-09", "BEAMFORMER-DSP", "SATCOM-GATEWAY"
+                    };
+                    ui.Text(kNodes[logicalIdx % kNodes.size()]);
 
-                        const float freq = 430.000f + static_cast<float>(logicalIdx % 250) * 0.025f;
-                        ui.Text(ui.Format("{:.3f} MHz", freq));
+                    const float freq = 430.000f + static_cast<float>(logicalIdx % 250) * 0.025f;
+                    ui.Text(ui.Format("{:.3f} MHz", freq));
 
-                        const float rssi = -95.0f + static_cast<float>((logicalIdx * 17) % 65);
-                        ui.Size(UiSize::Xs).ProgressBar(rssi, -100.0f, -30.0f, {
-                            .valueFormat = "%.0f dBm",
-                            .segments = 10,
-                            .multiZoneColor = true
-                        });
+                    const float rssi = -95.0f + static_cast<float>((logicalIdx * 17) % 65);
+                    ui.Size(UiSize::Xs).ProgressBar(rssi, -100.0f, -30.0f, {
+                        .valueFormat = "%.0f dBm",
+                        .segments = 10,
+                        .multiZoneColor = true
+                    });
 
-                        const bool crcOk = (logicalIdx % 19 != 0);
-                        ui.Element({
-                            .badge = {crcOk ? "CRC OK" : "RETRANSMIT", crcOk ? UiVariant::Success : UiVariant::Warning},
-                            .stretch = StretchMode::Compact
-                        });
-                    }
+                    const bool crcOk = (logicalIdx % 19 != 0);
+                    ui.Element({
+                        .badge = {crcOk ? "CRC OK" : "RETRANSMIT", crcOk ? UiVariant::Success : UiVariant::Warning},
+                        .stretch = StretchMode::Compact
+                    });
                 }
             }
         }

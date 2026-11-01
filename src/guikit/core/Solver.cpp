@@ -95,6 +95,8 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         // Custom autonomous measure delegate (leaves or specialized containers)
         if (node->measureFn) {
             node->intrinsicSize = node->measureFn(node, 0.0f, canvas, activeTheme);
+            if (node->minWidth > 0.0f) node->intrinsicSize.x = std::max(node->intrinsicSize.x, node->minWidth);
+            if (node->minHeight > 0.0f) node->intrinsicSize.y = std::max(node->intrinsicSize.y, node->minHeight);
             return;
         }
 
@@ -105,6 +107,8 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             } else {
                 node->intrinsicSize = {0.0f, 0.0f};
             }
+            if (node->minWidth > 0.0f) node->intrinsicSize.x = std::max(node->intrinsicSize.x, node->minWidth);
+            if (node->minHeight > 0.0f) node->intrinsicSize.y = std::max(node->intrinsicSize.y, node->minHeight);
             return;
         }
 
@@ -280,6 +284,29 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
             node->intrinsicSize = {maxWidth + node->padding.Horizontal(), totalHeight};
         }
+
+        if (node->minWidth > 0.0f) {
+            node->intrinsicSize.x = std::max(node->intrinsicSize.x, node->minWidth);
+        }
+        if (node->minHeight > 0.0f) {
+            node->intrinsicSize.y = std::max(node->intrinsicSize.y, node->minHeight);
+        }
+    }
+
+    static float ResolveColumnChildWidth(const Node* parent, const Node* child, float availW) noexcept {
+        if (child->widthMode == SizeMode::Fixed) {
+            return child->fixedWidth;
+        }
+        float childW = availW;
+        if (child->widthMode == SizeMode::Fit || (child->widthMode != SizeMode::Stretch && parent->align != Alignment::Stretch)) {
+            childW = std::max(child->intrinsicSize.x, child->minWidth);
+        } else if (child->minWidth > 0.0f) {
+            childW = std::max(childW, child->minWidth);
+        }
+        if (availW > 0.0f) {
+            childW = std::min(childW, availW);
+        }
+        return childW;
     }
 
     /// Resolves actual vertical dimension for a node given constrained available width.
@@ -408,7 +435,8 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->isSpacer || child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
                 if (child->type == NodeType::BottomPanel && child->sidebarCollapsed) continue;
-                const float ch = ResolveNodeHeight(child, childAvailW, canvas, activeTheme);
+                const float cw = ResolveColumnChildWidth(node, child, childAvailW);
+                const float ch = ResolveNodeHeight(child, cw, canvas, activeTheme);
                 sumH += ch;
                 ++activeChildren;
             }
@@ -416,7 +444,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (activeChildren > 1) {
                 sumH += static_cast<float>(activeChildren - 1) * node->gap;
             }
-            return sumH;
+            return std::max(node->minHeight, sumH);
         }
 
         if (node->direction == FlexDirection::Grid) {
@@ -898,6 +926,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (child->minWidth > 0.0f) {
                 childW = std::max(childW, child->minWidth);
             }
+            if (constrainedRow && flowChildCount == 1 && child->widthMode != SizeMode::Fixed) {
+                childW = std::min(childW, contentRect.w);
+            }
 
             float childH = contentRect.h;
             if (child->heightMode == SizeMode::Fixed) {
@@ -1041,7 +1072,8 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             } else if (child->heightMode == SizeMode::Fixed) {
                 baseSum += child->fixedHeight;
             } else if (!child->isSpacer) { // SizeMode::Fit or Stretch inside Fit/ScrollArea parent
-                baseSum += ResolveNodeHeight(child, contentRect.w, canvas, theme);
+                const float cw = ResolveColumnChildWidth(node, child, contentRect.w);
+                baseSum += ResolveNodeHeight(child, cw, canvas, theme);
             }
         }
 
@@ -1070,6 +1102,8 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 child->computedRect = Rect(contentRect.x, edgeY, contentRect.w, 0.0f);
                 continue;
             }
+            const float childW = ResolveColumnChildWidth(node, child, contentRect.w);
+
             float childH = 0.0f;
             if (child->isSpacer || isChildStretchHeight(child)) {
                 childH = (totalFlexGrow > 0.0f)
@@ -1081,21 +1115,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             } else if (child->heightMode == SizeMode::Fixed) {
                 childH = child->fixedHeight;
             } else if (!child->isSpacer) { // SizeMode::Fit or Stretch inside Fit/ScrollArea parent
-                childH = ResolveNodeHeight(child, contentRect.w, canvas, theme);
-            }
-
-            float childW = contentRect.w;
-            if (child->widthMode == SizeMode::Fixed) {
-                childW = child->fixedWidth;
-            } else if (child->widthMode == SizeMode::Fit || (child->widthMode != SizeMode::Stretch && node->align != Alignment::Stretch)) {
-                childW = child->intrinsicSize.x;
-                if (node->widthMode != SizeMode::Fit && contentRect.w > 0.0f) {
-                    childW = std::min(childW, contentRect.w);
-                }
-            }
-
-            if (child->minWidth > 0.0f) {
-                childW = std::max(childW, child->minWidth);
+                childH = ResolveNodeHeight(child, childW, canvas, theme);
             }
 
             float childX = contentRect.x;

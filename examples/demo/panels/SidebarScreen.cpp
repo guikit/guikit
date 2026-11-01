@@ -9,7 +9,7 @@ struct SidebarState {
     int activityIdx = 0;
     int menuIdx = 0;
     bool floatingFrame = true;
-    bool showActivityBar = true;
+    bool showActivityBar = false;
     guikit::ActivityBarStyle activityStyle = guikit::ActivityBarStyle::Indicator;
     guikit::SidebarMode mode = guikit::SidebarMode::Expanded;
     guikit::SidebarMenuStyle menuStyle = guikit::SidebarMenuStyle::Pill;
@@ -22,10 +22,10 @@ struct SidebarState {
     bool autoWidth = false;
     float fixedWidth = 210.0f;
 
-    // BottomPanel & StatusBar Workbench controls
-    bool showBottomPanel = true;
+    // Optional Workbench shell companions
+    bool showBottomPanel = false;
     int bottomTabIdx = 0;
-    bool showStatusBar = true;
+    bool showStatusBar = false;
     guikit::StatusBarStyle statusBarStyle = guikit::StatusBarStyle::Surface;
 };
 SidebarState s_state;
@@ -48,57 +48,9 @@ constexpr std::string_view StatusStyleName(guikit::StatusBarStyle s) noexcept {
 } // namespace
 
 void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
-    size_t frameIdx = s_state.floatingFrame ? 1 : 0;
-    if (auto el = ui.Element({.label = "Workbench Frame", .layout = guikit::ElementLayout::Stacked})) {
-        if (ui.Segmented(frameIdx, {"Docked (Flush)", "Floating (Island)"}).changed) {
-            s_state.floatingFrame = (frameIdx == 1);
-            ui.InvalidateAll();
-        }
-    }
-
-    if (auto el = ui.Element({
-        .label = "ActivityBar (VS Code Rail)",
-        .description = "Primary tool switcher docked flush to Sidebar"
-    })) {
-        if (ui.Switch(s_state.showActivityBar).changed) ui.InvalidateAll();
-    }
-
-    if (s_state.showActivityBar) {
-        static constexpr std::array<std::string_view, 2> abStyleNames = {"Indicator", "Pill"};
-        size_t abStyleIdx = (s_state.activityStyle == guikit::ActivityBarStyle::Pill) ? 1 : 0;
-        if (auto el = ui.Element({.label = "ActivityBar Style"})) {
-            if (ui.StepSlider(abStyleIdx, abStyleNames, {.showTicks = true, .showLabels = true}).changed) {
-                s_state.activityStyle = (abStyleIdx == 1) ? guikit::ActivityBarStyle::Pill : guikit::ActivityBarStyle::Indicator;
-                ui.InvalidateAll();
-            }
-        }
-    }
-
     if (auto el = ui.Element({.label = "Sidebar Mode", .layout = guikit::ElementLayout::Stacked})) {
         if (ui.Segmented(s_state.mode, {"Expanded", "Compact", "Collapsed"}).changed) {
             ui.InvalidateAll();
-        }
-    }
-
-    if (auto el = ui.Element({
-        .label = "BottomPanel (Resizable Dock)",
-        .description = "Drag top border (Sash) to resize or collapse"
-    })) {
-        if (ui.Switch(s_state.showBottomPanel).changed) ui.InvalidateAll();
-    }
-
-    if (auto el = ui.Element({
-        .label = "StatusBar (Bottom Strip)",
-        .description = "Compact telemetry & action strip at window bottom"
-    })) {
-        if (ui.Switch(s_state.showStatusBar).changed) ui.InvalidateAll();
-    }
-
-    if (s_state.showStatusBar) {
-        if (auto el = ui.Element({.label = "StatusBar Style", .layout = guikit::ElementLayout::Stacked})) {
-            if (ui.Segmented(s_state.statusBarStyle, {"Surface", "Header", "Accent"}).changed) {
-                ui.InvalidateAll();
-            }
         }
     }
 
@@ -146,7 +98,7 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
     if (auto el = ui.Element({.label = "Show Section Headers"})) {
         if (ui.Switch(s_state.showSections).changed) ui.InvalidateAll();
     }
-    if (auto el = ui.Element({.label = "Show Badges (Corner / Trailing)"})) {
+    if (auto el = ui.Element({.label = "Show Badges"})) {
         if (ui.Switch(s_state.showBadges).changed) ui.InvalidateAll();
     }
     const bool notExpanded = (s_state.mode != guikit::SidebarMode::Expanded);
@@ -156,6 +108,56 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
     if (auto el = ui.Element({.label = "Default Width", .disabled = notExpanded || s_state.autoWidth})) {
         if (ui.Slider(s_state.fixedWidth, 140.0f, 320.0f, {.valueFormat = "%.0f px", .disabled = notExpanded || s_state.autoWidth}).changed) {
             ui.InvalidateAll();
+        }
+    }
+
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "SHELL COMPANIONS", .divider = true});
+
+    size_t frameIdx = s_state.floatingFrame ? 1 : 0;
+    if (auto el = ui.Element({.label = "Shell Frame", .layout = guikit::ElementLayout::Stacked})) {
+        if (ui.Segmented(frameIdx, {"Docked (Flush)", "Floating (Island)"}).changed) {
+            s_state.floatingFrame = (frameIdx == 1);
+            ui.InvalidateAll();
+        }
+    }
+
+    if (auto el = ui.Element({
+        .label = "ActivityBar Rail",
+        .description = "Primary icon rail docked flush to Sidebar"
+    })) {
+        if (ui.Switch(s_state.showActivityBar).changed) ui.InvalidateAll();
+    }
+
+    if (s_state.showActivityBar) {
+        static constexpr std::array<std::string_view, 2> abStyleNames = {"Indicator", "Pill"};
+        size_t abStyleIdx = (s_state.activityStyle == guikit::ActivityBarStyle::Pill) ? 1 : 0;
+        if (auto el = ui.Element({.label = "ActivityBar Style"})) {
+            if (ui.StepSlider(abStyleIdx, abStyleNames, {.showTicks = true, .showLabels = true}).changed) {
+                s_state.activityStyle = (abStyleIdx == 1) ? guikit::ActivityBarStyle::Pill : guikit::ActivityBarStyle::Indicator;
+                ui.InvalidateAll();
+            }
+        }
+    }
+
+    if (auto el = ui.Element({
+        .label = "BottomPanel Dock",
+        .description = "Resizable bottom panel below workspace"
+    })) {
+        if (ui.Switch(s_state.showBottomPanel).changed) ui.InvalidateAll();
+    }
+
+    if (auto el = ui.Element({
+        .label = "StatusBar Strip",
+        .description = "Compact status strip at window bottom"
+    })) {
+        if (ui.Switch(s_state.showStatusBar).changed) ui.InvalidateAll();
+    }
+
+    if (s_state.showStatusBar) {
+        if (auto el = ui.Element({.label = "StatusBar Style", .layout = guikit::ElementLayout::Stacked})) {
+            if (ui.Segmented(s_state.statusBarStyle, {"Surface", "Header", "Accent"}).changed) {
+                ui.InvalidateAll();
+            }
         }
     }
 }
@@ -293,28 +295,21 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
                 }
             }
 
-            // 3. Center Main Pane
-            if (auto mainPane = ui.Card({
-                .gap = 8.0f,
-                .padding = guikit::Padding::All(16.0f),
+            // 3. Minimal Center Area (keeps visual focus on the Sidebar)
+            if (auto mainPane = ui.Column({
+                .padding = guikit::Padding::All(24.0f),
+                .align = guikit::Alignment::Center,
+                .justify = guikit::Justify::Center,
                 .widthMode = guikit::SizeMode::Stretch,
                 .heightMode = guikit::SizeMode::Stretch
             })) {
                 static constexpr std::array<std::string_view, 4> pageTitles = {
-                    "Overview Dashboard", "Real-Time Analytics", "Active Deployments", "System Settings"
+                    "Overview", "Analytics", "Deployments", "Settings"
                 };
                 ui.Size(guikit::UiSize::Sm).Heading({
                     .label = pageTitles[static_cast<size_t>(std::clamp(s_state.menuIdx, 0, 3))],
-                    .description = ui.Format(
-                        "Frame: {}  |  Sidebar: {}  |  BottomPanel: {}",
-                        isFloating ? "Floating (Island)" : "Docked (Flush)",
-                        ModeEnumName(s_state.mode),
-                        s_state.showBottomPanel ? "Expanded" : "Collapsed"
-                    ),
-                    .divider = true
-                });
-                ui.Text("Workbench composition combining ActivityBar, Sidebar, BottomPanel (top-edge resizable sash), and StatusBar.", {
-                    .variant = guikit::UiVariant::Secondary
+                    .description = "Drag the Sidebar border sash to resize or snap between Expanded, Compact, and Collapsed modes.",
+                    .badge = {ModeEnumName(s_state.mode), ctx.ResolveControlColor()}
                 });
             }
 

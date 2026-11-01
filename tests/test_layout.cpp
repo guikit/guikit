@@ -1013,6 +1013,44 @@ void TestRowTextDeficitShrinkAndCenterClamp() {
     CHECK_NEAR(wideChild->computedRect.x, 0.0f, 0.001f);
     CHECK_NEAR(wideChild->computedRect.w, 240.0f, 0.001f);
 
+    // 2b. Fit Card with minWidth = 360px inside Justify::Center Row:
+    // - On wide viewport (800px): Card is 360px wide and centered at x = (800 - 360) / 2 = 220px.
+    // - On narrow phone viewport (320px): Card clamps to 320px at x = 0px, and its Fit child clamps to inner width.
+    Node* cardCenterRow = arena.Allocate<Node>();
+    cardCenterRow->direction = FlexDirection::Row;
+    cardCenterRow->justify = Justify::Center;
+    cardCenterRow->align = Alignment::Center;
+    cardCenterRow->widthMode = SizeMode::Stretch;
+    cardCenterRow->heightMode = SizeMode::Stretch;
+
+    Node* cardNode = arena.Allocate<Node>();
+    cardNode->type = NodeType::Card;
+    cardNode->direction = FlexDirection::Column;
+    cardNode->widthMode = SizeMode::Fit;
+    cardNode->heightMode = SizeMode::Fit;
+    cardNode->minWidth = 360.0f;
+    cardNode->padding = Padding::All(16.0f);
+
+    Node* cardText = arena.Allocate<Node>();
+    cardText->type = NodeType::Text;
+    cardText->widthMode = SizeMode::Fit;
+    cardText->heightMode = SizeMode::Fit;
+    cardText->measureFn = +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {200.0f, 20.0f}; };
+    cardNode->AddChild(cardText);
+    cardCenterRow->AddChild(cardNode);
+
+    Solver::Measure(cardCenterRow);
+    CHECK_NEAR(cardNode->intrinsicSize.x, 360.0f, 0.001f);
+
+    Solver::Arrange(cardCenterRow, Rect(0.0f, 0.0f, 800.0f, 400.0f));
+    CHECK_NEAR(cardNode->computedRect.x, 220.0f, 0.001f);
+    CHECK_NEAR(cardNode->computedRect.w, 360.0f, 0.001f);
+
+    Solver::Arrange(cardCenterRow, Rect(0.0f, 0.0f, 320.0f, 400.0f));
+    CHECK_NEAR(cardNode->computedRect.x, 0.0f, 0.001f);
+    CHECK_NEAR(cardNode->computedRect.w, 320.0f, 0.001f);
+    CHECK(cardText->computedRect.Right() <= cardNode->computedRect.Right() - 16.0f + 0.001f);
+
     // 3. Full-stretch clipped Box inside ScrollArea stretches vertically to full viewport height
     Node* scrollBackdrop = arena.Allocate<Node>();
     scrollBackdrop->type = NodeType::ScrollArea;

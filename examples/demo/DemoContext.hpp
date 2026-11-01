@@ -62,14 +62,10 @@ constexpr bool IsSandboxCategory(NavCategory cat) noexcept {
 }
 
 constexpr bool IsFullStageCategory(NavCategory cat) noexcept {
-    return cat == NavCategory::PanelCard ||
-           cat == NavCategory::PanelSplitView ||
-           cat == NavCategory::PanelNavigation ||
-           cat == NavCategory::PanelToolbar ||
+    return cat == NavCategory::PanelSplitView ||
            cat == NavCategory::PanelSidebar ||
            cat == NavCategory::PanelTreeView ||
            cat == NavCategory::PanelTable ||
-           cat == NavCategory::PanelOverlays ||
            cat == NavCategory::ContentMarkdown ||
            cat == NavCategory::ContentCodeEditor ||
            cat == NavCategory::SceneSchematic2D ||

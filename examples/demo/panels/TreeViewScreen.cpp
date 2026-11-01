@@ -17,14 +17,14 @@ struct TreeDemoState {
     guikit::TreeGuides guides = guikit::TreeGuides::Connected;
     guikit::TreeSelectionStyle selectionStyle = guikit::TreeSelectionStyle::Pill;
     float indent = 18.0f;
-    bool showColumns = true;
+    bool showColumns = false;
     bool gridLines = true;
     bool searchable = true;
-    bool showToolbar = true;
+    bool showToolbar = false;
     bool striped = false;
     bool expandOnSelect = false;
-    bool showCheckboxes = true;
-    bool showEmbeddedControls = true;
+    bool showCheckboxes = false;
+    bool showEmbeddedControls = false;
     bool showDescriptions = false;
     bool showBadgesAndDetails = true;
 
