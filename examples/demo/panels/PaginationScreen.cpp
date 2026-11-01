@@ -13,6 +13,7 @@ struct PaginationDemoState {
     bool showFirstLast{true};
     bool showPrevNext{true};
     bool showPageInfo{true};
+    bool interactiveEllipsis{false};
     bool showSurfaceBox{false};
 };
 
@@ -56,6 +57,13 @@ void RenderPaginationInspector(guikit::Context& ui, DemoContext& ctx) {
         }
     }
 
+    if (auto el = ui.Element({
+        .label = "Fast-Jump Ellipsis (...)",
+        .description = "Off = static separator (MUI/Shadcn); On = fast-jump button (Ant Design)"
+    })) {
+        if (ui.Switch(s_pg.interactiveEllipsis).changed) ui.InvalidateAll();
+    }
+
     if (auto el = ui.Element({.label = "First / Last Buttons (« »)"})) {
         if (ui.Switch(s_pg.showFirstLast).changed) ui.InvalidateAll();
     }
@@ -85,6 +93,7 @@ void RenderPaginationStage(guikit::Context& ui, DemoContext& ctx) {
         .showFirstLast = s_pg.showFirstLast,
         .showPrevNext = s_pg.showPrevNext,
         .showPageInfo = s_pg.showPageInfo,
+        .interactiveEllipsis = s_pg.interactiveEllipsis,
         .color = activeCol,
         .background = s_pg.showSurfaceBox ? guikit::StateColor::Surface() : guikit::StateColor::None(),
         .border = s_pg.showSurfaceBox ? guikit::Border{.width = 1.0f, .radius = 8.0f} : guikit::Border::None(),
@@ -101,6 +110,7 @@ std::string GeneratePaginationCode(const DemoContext& ctx) {
         "    .showFirstLast = {},\n"
         "    .showPrevNext = {},\n"
         "    .showPageInfo = {},\n"
+        "    .interactiveEllipsis = {},\n"
         "    .color = guikit::StateColor::{}(),\n"
         "    .disabled = {}\n"
         "}});",
@@ -110,6 +120,7 @@ std::string GeneratePaginationCode(const DemoContext& ctx) {
         s_pg.showFirstLast ? "true" : "false",
         s_pg.showPrevNext ? "true" : "false",
         s_pg.showPageInfo ? "true" : "false",
+        s_pg.interactiveEllipsis ? "true" : "false",
         VariantName(ctx.btnVariant),
         ctx.elemDisabled ? "true" : "false"
     );

@@ -55,6 +55,8 @@ Color ResolveContrastingTextOnFill(Color fill, const ThemePalette& pal) noexcept
     return (lum > 0.62f) ? Color(15, 23, 42, 255) : pal.controlKnobActive;
 }
 
+/// Canonical fixed-slot pagination algorithm (2 * siblingCount + 5 page/ellipsis slots).
+/// Guarantees a constant token count across all pages so the pagination bar never shifts horizontally.
 void BuildPaginationTokens(
     size_t currentPage,
     size_t totalPages,
@@ -65,7 +67,8 @@ void BuildPaginationTokens(
     const size_t safeTotal = std::max<size_t>(1, totalPages);
     const size_t curr = std::min(currentPage, safeTotal - 1);
     const size_t sib = static_cast<size_t>(opts.siblingCount);
-    const size_t jumpStep = sib * 2 + 1;
+    const size_t jumpStep = std::max<size_t>(5, sib * 2 + 3);
+    const size_t totalPageSlots = sib * 2 + 5;
 
     if (opts.showFirstLast) {
         outTokens.push_back(PageToken{
@@ -82,51 +85,62 @@ void BuildPaginationTokens(
         });
     }
 
-    // Collect sorted unique candidate pages: first (0), [curr - sib .. curr + sib], and last (safeTotal - 1)
-    std::vector<size_t> pages;
-    pages.reserve(sib * 2 + 5);
-    pages.push_back(0);
-
-    const size_t rangeStart = (curr > sib) ? (curr - sib) : 0;
-    const size_t rangeEnd = std::min(safeTotal - 1, curr + sib);
-    for (size_t p = rangeStart; p <= rangeEnd; ++p) {
-        if (pages.empty() || pages.back() != p) {
-            pages.push_back(p);
-        }
-    }
-    if (pages.back() != safeTotal - 1) {
-        pages.push_back(safeTotal - 1);
-    }
-
-    for (size_t i = 0; i < pages.size(); ++i) {
-        if (i > 0) {
-            const size_t prevP = pages[i - 1];
-            const size_t nextP = pages[i];
-            if (nextP == prevP + 2) {
-                // Exactly 1 page gap: show the single intermediate page directly instead of "..."
-                outTokens.push_back(PageToken{
-                    .type = PageTokenType::PageNumber,
-                    .targetPage = prevP + 1,
-                    .disabled = false
-                });
-            } else if (nextP > prevP + 2) {
-                // Gap of >= 2 pages: insert interactive "..." ellipsis token
-                const bool isLeft = (prevP < curr);
-                const size_t jumpTarget = isLeft
-                    ? ((curr > jumpStep) ? (curr - jumpStep) : 0)
-                    : std::min(safeTotal - 1, curr + jumpStep);
-                outTokens.push_back(PageToken{
-                    .type = isLeft ? PageTokenType::LeftEllipsis : PageTokenType::RightEllipsis,
-                    .targetPage = jumpTarget,
-                    .disabled = false
-                });
-            }
-        }
+    auto pushPage = [&](size_t p) {
         outTokens.push_back(PageToken{
             .type = PageTokenType::PageNumber,
-            .targetPage = pages[i],
+            .targetPage = p,
             .disabled = false
         });
+    };
+
+    auto pushEllipsis = [&](bool isLeft) {
+        const size_t jumpTarget = isLeft
+            ? ((curr > jumpStep) ? (curr - jumpStep) : 0)
+            : std::min(safeTotal - 1, curr + jumpStep);
+        outTokens.push_back(PageToken{
+            .type = isLeft ? PageTokenType::LeftEllipsis : PageTokenType::RightEllipsis,
+            .targetPage = jumpTarget,
+            .disabled = !opts.interactiveEllipsis
+        });
+    };
+
+    if (safeTotal <= totalPageSlots) {
+        for (size_t p = 0; p < safeTotal; ++p) {
+            pushPage(p);
+        }
+    } else {
+        const size_t leftSibling = (curr > sib) ? (curr - sib) : 0;
+        const size_t rightSibling = std::min(safeTotal - 1, curr + sib);
+
+        const bool showLeftEllipsis = (leftSibling > 2);
+        const bool showRightEllipsis = (rightSibling < safeTotal - 3);
+
+        if (!showLeftEllipsis && showRightEllipsis) {
+            // Left boundary window: show first (2 * sib + 3) pages + "..." + last page
+            const size_t leftItemCount = sib * 2 + 3;
+            for (size_t p = 0; p < leftItemCount; ++p) {
+                pushPage(p);
+            }
+            pushEllipsis(false);
+            pushPage(safeTotal - 1);
+        } else if (showLeftEllipsis && !showRightEllipsis) {
+            // Right boundary window: show first page + "..." + last (2 * sib + 3) pages
+            const size_t rightItemCount = sib * 2 + 3;
+            pushPage(0);
+            pushEllipsis(true);
+            for (size_t p = safeTotal - rightItemCount; p < safeTotal; ++p) {
+                pushPage(p);
+            }
+        } else {
+            // Middle window: show first page + "..." + [leftSibling .. rightSibling] + "..." + last page
+            pushPage(0);
+            pushEllipsis(true);
+            for (size_t p = leftSibling; p <= rightSibling; ++p) {
+                pushPage(p);
+            }
+            pushEllipsis(false);
+            pushPage(safeTotal - 1);
+        }
     }
 
     if (opts.showPrevNext) {
@@ -145,24 +159,22 @@ void BuildPaginationTokens(
     }
 }
 
-float MeasurePageTokenWidth(
-    const PageToken& tok,
+/// Uniform slot width based on the widest page number (totalPages) so switching between 1-digit and 2/3-digit pages never shifts the bar.
+float MeasureUniformSlotWidth(
+    size_t totalPages,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme
 ) noexcept {
     const ComponentMetrics& cm = theme.GetMetrics(size);
     const float minBtnW = cm.defaultHeight;
-    if (tok.type != PageTokenType::PageNumber) {
-        return minBtnW;
-    }
 
     char buf[24];
-    std::snprintf(buf, sizeof(buf), "%zu", tok.targetPage + 1);
+    std::snprintf(buf, sizeof(buf), "%zu", std::max<size_t>(1, totalPages));
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
     const float textW = TextUtil::MeasureWidth(buf, fontSize, canvas);
     const float padX = std::max(theme.Scale(8.0f), cm.paddingX * 0.65f);
-    return std::max(minBtnW, textW + padX * 2.0f);
+    return std::max(minBtnW, std::ceil(textW + padX * 2.0f));
 }
 
 std::string FormatPageInfoText(size_t currentPage, size_t totalPages) {
@@ -171,6 +183,18 @@ std::string FormatPageInfoText(size_t currentPage, size_t totalPages) {
     char buf[64];
     std::snprintf(buf, sizeof(buf), "Page %zu of %zu", curr + 1, safeTotal);
     return std::string(buf);
+}
+
+float MeasureReservedPageInfoWidth(
+    size_t totalPages,
+    UiSize size,
+    ICanvas* canvas,
+    const UiTheme& theme
+) {
+    const size_t safeTotal = std::max<size_t>(1, totalPages);
+    const std::string maxInfoStr = FormatPageInfoText(safeTotal - 1, safeTotal);
+    const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
+    return std::ceil(TextUtil::MeasureWidth(maxInfoStr, fontSize, canvas) + theme.Scale(4.0f));
 }
 
 Vec2 MeasurePaginationNaturalBox(
@@ -186,16 +210,14 @@ Vec2 MeasurePaginationNaturalBox(
     BuildPaginationTokens(currentPage, totalPages, opts, tokens);
 
     const float gap = theme.Scale(4.0f);
+    const float slotW = MeasureUniformSlotWidth(totalPages, size, canvas, theme);
     float totalW = 0.0f;
-    for (size_t i = 0; i < tokens.size(); ++i) {
-        if (i > 0) totalW += gap;
-        totalW += MeasurePageTokenWidth(tokens[i], size, canvas, theme);
+    if (!tokens.empty()) {
+        totalW = static_cast<float>(tokens.size()) * slotW + static_cast<float>(tokens.size() - 1) * gap;
     }
 
     if (opts.showPageInfo) {
-        const std::string infoStr = FormatPageInfoText(currentPage, totalPages);
-        const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
-        totalW += theme.Scale(10.0f) + TextUtil::MeasureWidth(infoStr, fontSize, canvas);
+        totalW += theme.Scale(10.0f) + MeasureReservedPageInfoWidth(totalPages, size, canvas, theme);
     }
 
     if (opts.stretch != StretchMode::Fill && opts.width.has_value() && *opts.width > 0.0f) {
@@ -228,20 +250,14 @@ void ComputePaginationLayout(
 
     outTokenRects.reserve(outTokens.size());
     const float gap = theme.Scale(4.0f);
-    std::vector<float> widths(outTokens.size(), 0.0f);
-    float totalW = 0.0f;
-    for (size_t i = 0; i < outTokens.size(); ++i) {
-        if (i > 0) totalW += gap;
-        widths[i] = MeasurePageTokenWidth(outTokens[i], size, canvas, theme);
-        totalW += widths[i];
-    }
+    const float slotW = MeasureUniformSlotWidth(totalPages, size, canvas, theme);
+    std::vector<float> widths(outTokens.size(), slotW);
+    float totalW = static_cast<float>(outTokens.size()) * slotW + static_cast<float>(outTokens.size() - 1) * gap;
 
     float infoW = 0.0f;
     const float infoGap = theme.Scale(10.0f);
     if (opts.showPageInfo) {
-        const std::string infoStr = FormatPageInfoText(currentPage, totalPages);
-        const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
-        infoW = TextUtil::MeasureWidth(infoStr, fontSize, canvas) + theme.Scale(4.0f);
+        infoW = MeasureReservedPageInfoWidth(totalPages, size, canvas, theme);
         totalW += infoGap + infoW;
     }
 
@@ -466,6 +482,7 @@ Response Pagination::Run(
         optsCopy.showFirstLast,
         optsCopy.showPrevNext,
         optsCopy.showPageInfo,
+        optsCopy.interactiveEllipsis,
         static_cast<uint8_t>(optsCopy.stretch),
         static_cast<uint8_t>(optsCopy.align),
         optsCopy.width.value_or(0.0f),
@@ -532,10 +549,15 @@ void Pagination::Render(
     for (size_t i = 0; i < tokens.size(); ++i) {
         const PageToken& tok = tokens[i];
         const Rect tr = tokenRects[i];
+        const bool isEllipsis = (tok.type == PageTokenType::LeftEllipsis || tok.type == PageTokenType::RightEllipsis);
         const bool tokDisabled = disabled || tok.disabled;
         const bool isHovered = !tokDisabled && (d->hoveredToken == static_cast<int>(i));
         const bool isPressed = !tokDisabled && (d->pressedToken == static_cast<int>(i));
         const bool isActivePage = (tok.type == PageTokenType::PageNumber) && (tok.targetPage == d->currentPage);
+
+        const Color accentColor = d->opts.color.HasAny()
+            ? d->opts.color.Resolve(isHovered, isPressed, tokDisabled, pal.accent)
+            : pal.accent;
 
         Color pillFill = Color::Transparent();
         Color pillStroke = pal.borderSubtle;
@@ -543,17 +565,15 @@ void Pagination::Render(
         Color fgColor = tokDisabled ? pal.textDisabled : (isHovered ? pal.textPrimary : pal.textSecondary);
 
         if (isActivePage) {
-            const Color baseAccent = d->opts.color.HasAny()
-                ? d->opts.color.Resolve(isHovered, isPressed, tokDisabled, pal.accent)
-                : pal.accent;
-            pillFill = tokDisabled ? baseAccent.WithAlphaF(0.40f) : baseAccent;
+            pillFill = tokDisabled ? accentColor.WithAlphaF(0.40f) : accentColor;
             pillStroke = (focused && !tokDisabled) ? pal.focusRing : Color::Transparent();
             pillStrokeW = (focused && !tokDisabled) ? 1.5f : 0.0f;
             fgColor = tokDisabled ? pal.textDisabled : ResolveContrastingTextOnFill(pillFill, pal);
-        } else if (tok.type == PageTokenType::LeftEllipsis || tok.type == PageTokenType::RightEllipsis) {
-            if (isHovered || isPressed) {
+        } else if (isEllipsis) {
+            fgColor = disabled ? pal.textDisabled : pal.textSecondary;
+            if (d->opts.interactiveEllipsis && (isHovered || isPressed)) {
                 pillFill = isPressed ? pal.surfaceActive : pal.surfaceHover;
-                pillStroke = pal.borderHover;
+                pillStroke = accentColor.WithAlphaF(0.65f);
             } else {
                 pillStrokeW = 0.0f;
             }
@@ -564,7 +584,9 @@ void Pagination::Render(
             pillStroke = tokDisabled ? pal.borderSubtle.WithAlphaF(0.45f) : (isHovered ? pal.borderHover : pal.borderSubtle);
         }
 
-        canvas.DrawRoundRect(tr, pillRadius, pillFill, pillStroke, pillStrokeW);
+        if (pillStrokeW > 0.0f || pillFill.a > 0) {
+            canvas.DrawRoundRect(tr, pillRadius, pillFill, pillStroke, pillStrokeW);
+        }
 
         const Vec2 center = tr.Center();
         switch (tok.type) {
@@ -588,8 +610,8 @@ void Pagination::Render(
             }
             case PageTokenType::LeftEllipsis:
             case PageTokenType::RightEllipsis: {
-                if (isHovered) {
-                    DrawDoubleChevron(canvas, tr, tok.type == PageTokenType::LeftEllipsis, iconSz * 0.90f, pal.accent);
+                if (d->opts.interactiveEllipsis && isHovered) {
+                    DrawDoubleChevron(canvas, tr, tok.type == PageTokenType::LeftEllipsis, iconSz * 0.90f, accentColor);
                 } else {
                     canvas.DrawTextBox("...", tr, fontSize, fgColor, 0.5f, 0.5f);
                 }

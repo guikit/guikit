@@ -18,10 +18,11 @@ struct Node;
 
 /// Configuration options for Pagination bar widget.
 struct PaginationOptions {
-    uint32_t siblingCount{1};   ///< Number of page buttons shown on each side of active page
-    bool showFirstLast{true};   ///< Show « (First) and » (Last) buttons
-    bool showPrevNext{true};    ///< Show ‹ (Prev) and › (Next) buttons
-    bool showPageInfo{false};   ///< Show trailing "Page X of Y" summary label
+    uint32_t siblingCount{1};        ///< Number of page buttons shown on each side of active page
+    bool showFirstLast{true};        ///< Show « (First) and » (Last) buttons
+    bool showPrevNext{true};         ///< Show ‹ (Prev) and › (Next) buttons
+    bool showPageInfo{false};        ///< Show trailing "Page X of Y" summary label
+    bool interactiveEllipsis{false}; ///< false = static "..." separator (MUI/Shadcn); true = fast-jump button on "..." (Ant Design)
     StateColor color{};
     StretchMode stretch{StretchMode::Compact};
     Align align{Align::Start};

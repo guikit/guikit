@@ -11467,6 +11467,60 @@ int main() {
             CHECK(!ui.IsPopupOpen(rColBc.id));
             CHECK(rColBc.changed);
             CHECK(collapsedActive == 2);
+
+            // Pagination fixed-slot zero layout shift across all pages 0..19 + Static vs FastJump ellipsis modes
+            const guikit::PaginationOptions pgOpts{.siblingCount = 1, .showFirstLast = true, .showPrevNext = true, .showPageInfo = true};
+            const guikit::Vec2 wPage0 = guikit::Pagination::Measure(0, 20, pgOpts, guikit::UiSize::Md, &canvas, ui.GetTheme());
+            for (size_t p = 1; p < 20; ++p) {
+                const guikit::Vec2 wPageP = guikit::Pagination::Measure(p, 20, pgOpts, guikit::UiSize::Md, &canvas, ui.GetTheme());
+                CHECK_NEAR(wPageP.x, wPage0.x, 0.01f);
+            }
+
+            size_t pgCurr = 4; // Page 5 (middle window: « < 1 ... 4 [5] 6 ... 20 > » -> 11 slots, index 3 is LeftEllipsis)
+            bool fastJump = false;
+            guikit::Response rPgMode{};
+            auto renderPgMode = [&]() {
+                if (auto col = ui.Column({.gap = 8.0f})) {
+                    rPgMode = ui.Pagination(pgCurr, 20, {.siblingCount = 1, .interactiveEllipsis = fastJump});
+                }
+            };
+            for (int f = 0; f < 2; ++f) {
+                ui.BeginFrame({800.0f, 600.0f});
+                renderPgMode();
+                ui.EndFrame(canvas);
+            }
+            // Slot 3 center out of 11 uniform slots: (3 + 0.5) / 11.0
+            const float leftEllipsisX = rPgMode.rect.x + rPgMode.rect.w * (3.5f / 11.0f);
+            ui.OnMouseMove({leftEllipsisX, rPgMode.rect.Center().y});
+            ui.OnMouseDown(1);
+            ui.BeginFrame({800.0f, 600.0f});
+            renderPgMode();
+            ui.EndFrame(canvas);
+            ui.OnMouseUp(1);
+            ui.BeginFrame({800.0f, 600.0f});
+            renderPgMode();
+            ui.EndFrame(canvas);
+            CHECK(!rPgMode.changed);
+            CHECK(pgCurr == 4); // Static mode: ellipsis does not jump
+
+            fastJump = true;
+            pgCurr = 9; // Page 10 -> fast-jump left by 5 lands on Page 5 (index 4)
+            for (int f = 0; f < 2; ++f) {
+                ui.BeginFrame({800.0f, 600.0f});
+                renderPgMode();
+                ui.EndFrame(canvas);
+            }
+            ui.OnMouseMove({leftEllipsisX, rPgMode.rect.Center().y});
+            ui.OnMouseDown(1);
+            ui.BeginFrame({800.0f, 600.0f});
+            renderPgMode();
+            ui.EndFrame(canvas);
+            ui.OnMouseUp(1);
+            ui.BeginFrame({800.0f, 600.0f});
+            renderPgMode();
+            ui.EndFrame(canvas);
+            CHECK(rPgMode.changed);
+            CHECK(pgCurr == 4);
         }
     }
 
