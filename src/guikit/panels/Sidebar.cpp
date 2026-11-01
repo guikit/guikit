@@ -454,13 +454,18 @@ SidebarScope Sidebar::Open(
         opts.border
     );
 
+    ctx.PushScale(activeScale);
+    ctx.PushSize(activeSize);
+    ctx.PushDisabled(activeDisabled);
+    ctx.PushContainer(node);
+
     if (node->sidebarScrollable) {
         node->postRenderFn = &ScrollArea::RenderScrollbar;
 
         auto& scrollState = ctx.GetOrCreateState<ScrollState>(id);
         if (prevBounds.w > 0.0f && prevBounds.h > 0.0f && !node->disabled) {
             const Vec2 wheel = ctx.GetMouseWheel();
-            if (prevBounds.Contains(ctx.GetMousePos()) && !ctx.IsMouseOccluded(id, ctx.GetMousePos()) && wheel.y != 0.0f) {
+            if (prevBounds.Contains(ctx.GetMousePos()) && !ctx.IsMouseOccluded(id, ctx.GetMousePos()) && wheel.y != 0.0f && !ctx.GetKeyModifiers().ctrl) {
                 const ScrollbarMetrics& sm = ctx.GetTheme().GetScrollbar(activeSize);
                 scrollState.offset.y -= wheel.y * sm.scrollStep;
                 if (scrollState.offset.y < 0.0f) scrollState.offset.y = 0.0f;
@@ -554,10 +559,6 @@ SidebarScope Sidebar::Open(
         });
     }
 
-    ctx.PushScale(activeScale);
-    ctx.PushSize(activeSize);
-    ctx.PushDisabled(activeDisabled);
-    ctx.PushContainer(node);
     return SidebarScope(&ctx, node, res, state.mode, reportedLogicalW);
 }
 

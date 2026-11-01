@@ -5786,6 +5786,48 @@ void TestSidebarAndSidebarMenuWorkflow() {
     ui.EndFrame(canvas);
     CHECK(ui.GetPrevFrameBounds(fixedSbId).w < 80.0f);
 
+    // 5. Test Mouse Wheel Scrolling inside an overflowing Sidebar
+    {
+        Context scrollUi;
+        Id scrollSbId = Id::Null();
+        Response firstItemRes;
+        auto renderOverflowSidebar = [&]() {
+            if (auto workspace = scrollUi.Row({.gap = 8.0f, .heightMode = SizeMode::Stretch})) {
+                if (auto sb = scrollUi.Sidebar({.side = SidebarSide::Left, .width = 180.0f, .scrollable = true})) {
+                    scrollSbId = sb.GetNode()->id;
+                    for (int i = 0; i < 30; ++i) {
+                        Response r = scrollUi.Button({.text = scrollUi.Format("Nav Item {}", i).View()});
+                        if (i == 0) {
+                            firstItemRes = r;
+                        }
+                    }
+                }
+            }
+        };
+
+        scrollUi.BeginFrame({400.0f, 200.0f});
+        renderOverflowSidebar();
+        scrollUi.EndFrame(canvas);
+
+        scrollUi.BeginFrame({400.0f, 200.0f});
+        renderOverflowSidebar();
+        scrollUi.EndFrame(canvas);
+
+        const float initialY = scrollUi.GetPrevUnclippedBounds(firstItemRes.id).y;
+        const Rect sbRect = scrollUi.GetPrevFrameBounds(scrollSbId);
+        CHECK(sbRect.w > 100.0f);
+        CHECK(sbRect.h > 150.0f);
+
+        scrollUi.OnMouseMove(sbRect.Center());
+        scrollUi.OnMouseWheel(0.0f, -2.0f);
+        scrollUi.BeginFrame({400.0f, 200.0f});
+        renderOverflowSidebar();
+        scrollUi.EndFrame(canvas);
+
+        const float scrolledY = scrollUi.GetPrevUnclippedBounds(firstItemRes.id).y;
+        CHECK(scrolledY < initialY - 10.0f);
+    }
+
     std::cout << "  [PASS] TestSidebarAndSidebarMenuWorkflow completed\n";
 }
 
