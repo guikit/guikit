@@ -38,12 +38,13 @@ struct StatusBarOptions {
 
 /// Configuration for a static or interactive segment inside a StatusBar.
 struct StatusItemOptions {
-    UiText text{};                                      ///< Segment text label
+    UiText text{};                                      ///< Segment text label (supports .Variants() width reservation)
     Icon icon{};                                        ///< Optional leading vector icon
     Color dotColor{Color::Transparent()};               ///< Optional leading status LED dot color
     StateColor color{};                                 ///< Optional text/icon color override (Default = Secondary)
     UiText badge{};                                     ///< Optional trailing pill badge text
     UiText tooltip{};                                   ///< Optional hover tooltip
+    std::optional<float> minWidth{std::nullopt};        ///< Optional minimum segment width in unscaled points
     bool active{false};                                 ///< Highlight state for toggleable status actions
     bool disabled{false};
 };

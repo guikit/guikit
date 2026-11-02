@@ -4,6 +4,7 @@
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Node.hpp"
+#include "guikit/core/TextUtil.hpp"
 #include "guikit/panels/Toolbar.hpp"
 
 namespace guikit {
@@ -71,23 +72,22 @@ Vec2 MeasureStatusSegment(
         w += 12.0f * scale;
         ++parts;
     }
-    if (!o.text.empty()) {
-        const float textW = canvas
-            ? canvas->MeasureText(o.text.text, fontSize).x
-            : (static_cast<float>(o.text.text.size()) * fontSize * 0.56f);
+    if (!o.text.empty() || o.text.HasContentOrReserve()) {
+        const float textW = TextUtil::MeasureWidth(o.text, fontSize, canvas);
         w += textW;
         ++parts;
     }
-    if (!o.badge.empty()) {
+    if (!o.badge.empty() || o.badge.HasContentOrReserve()) {
         const float badgeFont = std::max(9.0f * scale, fontSize * 0.85f);
-        const float badgeTextW = canvas
-            ? canvas->MeasureText(o.badge.text, badgeFont).x
-            : (static_cast<float>(o.badge.text.size()) * badgeFont * 0.58f);
+        const float badgeTextW = TextUtil::MeasureWidth(o.badge, badgeFont, canvas);
         w += std::max(14.0f * scale, badgeTextW + 8.0f * scale);
         ++parts;
     }
     if (parts > 1) {
         w += static_cast<float>(parts - 1) * itemGap;
+    }
+    if (o.minWidth.has_value() && *o.minWidth > 0.0f) {
+        w = std::max(w, *o.minWidth * scale);
     }
 
     const float h = ResolveStatusBarHeight(theme, node->uiSize, scale) - 4.0f * scale;
@@ -163,9 +163,10 @@ void RenderStatusSegment(
     // 4. Text label
     if (!o.text.empty()) {
         const Vec2 textSz = canvas.MeasureText(o.text.text, fontSize);
-        const float textY = centerY - textSz.y * 0.5f;
+        const float reservedW = std::max(textSz.x, TextUtil::MeasureWidth(o.text, fontSize, &canvas));
+        const float textY = std::round(centerY - textSz.y * 0.5f - 1.5f * scale);
         canvas.DrawText(o.text.text, {curX, textY}, fontSize, fg);
-        curX += textSz.x + itemGap;
+        curX += reservedW + itemGap;
     }
 
     // 5. Optional trailing badge pill
@@ -227,7 +228,16 @@ void StatusBarScope::Separator(float heightRatio, std::source_location loc) {
         };
     };
     sep->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
-        Toolbar::RenderSeparator(canvas, n->computedRect, n->borderColor, theme, Orientation::Horizontal);
+        const Color stroke = n->borderColor.a > 0 ? n->borderColor : theme.palette.borderSubtle;
+        const float midX = std::floor(n->computedRect.Center().x) + 0.5f;
+        const float centerY = n->computedRect.Center().y;
+        const float halfH = std::max(4.0f, std::round(n->computedRect.h * 0.42f));
+        canvas.DrawLine(
+            Vec2(midX, std::round(centerY - halfH)),
+            Vec2(midX, std::round(centerY + halfH)),
+            stroke,
+            1.0f
+        );
     };
 }
 

@@ -15,9 +15,14 @@
         #define NOMINMAX
     #endif
     #include <windows.h>
+    #include <psapi.h>
     #if defined(DrawText)
         #undef DrawText
     #endif
+#elif defined(__APPLE__)
+    #include <ctime>
+    #include <mach/mach.h>
+    #include <unistd.h>
 #else
     #include <ctime>
     #include <unistd.h>
@@ -34,6 +39,8 @@ public:
         m_numProcessors = std::max(1, static_cast<int>(std::thread::hardware_concurrency()));
         m_lastCpuCheckTime = std::chrono::steady_clock::now();
         m_lastProcessCpuSec = QueryProcessCpuSeconds();
+        m_ramBytes = QueryProcessRamBytes();
+        m_displayRamMb = static_cast<float>(static_cast<double>(m_ramBytes) / (1024.0 * 1024.0));
         m_lastDisplayUpdateTime = m_lastCpuCheckTime;
         m_lastFrameTime = m_lastCpuCheckTime;
         m_lastFrameEnd = m_lastCpuCheckTime;
@@ -126,7 +133,7 @@ public:
             m_fpsWindowStart = now;
         }
 
-        // Update process CPU utilization percentage at ~0.5 second intervals
+        // Update process CPU utilization percentage and RAM usage at ~0.5 second intervals
         const double elapsedCpuSec = std::chrono::duration<double>(now - m_lastCpuCheckTime).count();
         if (elapsedCpuSec >= 0.5) {
             const double curCpuSec = QueryProcessCpuSeconds();
@@ -136,54 +143,71 @@ public:
                 m_cpuPercent = std::clamp(pct, 0.0f, 100.0f);
             }
             m_lastProcessCpuSec = curCpuSec;
+            m_ramBytes = QueryProcessRamBytes();
             m_lastCpuCheckTime = now;
         }
 
         // Update formatted status display string at ~0.3 second intervals to prevent visual jitter
         const double displayElapsed = std::chrono::duration<double>(now - m_lastDisplayUpdateTime).count();
         if (displayElapsed >= 0.3 || m_displayFps <= 0.0f || m_isIdle) {
+            if (m_ramBytes == 0) {
+                m_ramBytes = QueryProcessRamBytes();
+            }
             m_displayFps = m_isIdle ? 0.0f : m_smoothedFps;
             m_displayCpuPercent = m_cpuPercent;
             m_displayCpuTimeMs = m_isIdle ? 0.0f : m_smoothedCpuMs;
             m_displayGpuTimeMs = m_isIdle ? 0.0f : m_smoothedGpuMs;
+            m_displayRamMb = static_cast<float>(static_cast<double>(m_ramBytes) / (1024.0 * 1024.0));
 
             const float targetFrameMs = (targetFps > 0.0f) ? (1000.0f / targetFps) : 16.67f;
             m_displayGpuBudgetPercent = std::clamp((m_displayGpuTimeMs / targetFrameMs) * 100.0f, 0.0f, 100.0f);
 
-            char buf[128];
+            char fpsBuf[32];
+            char cpuBuf[48];
+            char gpuBuf[48];
+            char ramBuf[32];
+
             if (m_isIdle) {
-                std::snprintf(
-                    buf,
-                    sizeof(buf),
-                    "0 FPS (Idle) | CPU: %.1f%% (0.00 ms) | GPU: 0.00 ms (0%% budget)",
-                    m_displayCpuPercent
-                );
+                std::snprintf(fpsBuf, sizeof(fpsBuf), "0 FPS (Idle)");
             } else {
-                char cpuTimeBuf[16];
-                if (m_displayCpuTimeMs < 1.0f) {
-                    std::snprintf(cpuTimeBuf, sizeof(cpuTimeBuf), "%.2f ms", m_displayCpuTimeMs);
-                } else {
-                    std::snprintf(cpuTimeBuf, sizeof(cpuTimeBuf), "%.1f ms", m_displayCpuTimeMs);
-                }
-
-                char gpuTimeBuf[16];
-                if (m_displayGpuTimeMs < 1.0f) {
-                    std::snprintf(gpuTimeBuf, sizeof(gpuTimeBuf), "%.2f ms", m_displayGpuTimeMs);
-                } else {
-                    std::snprintf(gpuTimeBuf, sizeof(gpuTimeBuf), "%.1f ms", m_displayGpuTimeMs);
-                }
-
-                std::snprintf(
-                    buf,
-                    sizeof(buf),
-                    "%.0f FPS | CPU: %.1f%% (%s) | GPU: %s (%.0f%% budget)",
-                    m_displayFps,
-                    m_displayCpuPercent,
-                    cpuTimeBuf,
-                    gpuTimeBuf,
-                    m_displayGpuBudgetPercent
-                );
+                std::snprintf(fpsBuf, sizeof(fpsBuf), "%.0f FPS", m_displayFps);
             }
+            std::snprintf(
+                cpuBuf,
+                sizeof(cpuBuf),
+                "CPU: %.2f ms (%.1f%%)",
+                m_displayCpuTimeMs,
+                m_displayCpuPercent
+            );
+            std::snprintf(
+                gpuBuf,
+                sizeof(gpuBuf),
+                "GPU: %.2f ms (%.0f%% budget)",
+                m_displayGpuTimeMs,
+                m_displayGpuBudgetPercent
+            );
+            std::snprintf(
+                ramBuf,
+                sizeof(ramBuf),
+                "RAM: %.1f MB",
+                m_displayRamMb
+            );
+
+            m_fpsString = fpsBuf;
+            m_cpuString = cpuBuf;
+            m_gpuString = gpuBuf;
+            m_ramString = ramBuf;
+
+            char buf[160];
+            std::snprintf(
+                buf,
+                sizeof(buf),
+                "%s | %s | %s | %s",
+                fpsBuf,
+                cpuBuf,
+                gpuBuf,
+                ramBuf
+            );
             m_statusString = buf;
             m_lastDisplayUpdateTime = now;
         }
@@ -194,14 +218,54 @@ public:
     [[nodiscard]] float GetCpuTimeMs() const noexcept { return m_displayCpuTimeMs; }
     [[nodiscard]] float GetGpuTimeMs() const noexcept { return m_displayGpuTimeMs; }
     [[nodiscard]] float GetGpuBudgetPercent() const noexcept { return m_displayGpuBudgetPercent; }
+    [[nodiscard]] size_t GetRamUsageBytes() const noexcept { return m_ramBytes; }
+    [[nodiscard]] float GetRamUsageMb() const noexcept { return m_displayRamMb; }
     [[nodiscard]] bool IsIdle() const noexcept { return m_isIdle; }
 
-    /// Returns human-readable status line, e.g. "60 FPS | CPU: 1.4% (1.8 ms) | GPU: 0.2 ms (2% budget)"
+    [[nodiscard]] std::string_view GetFpsString() const noexcept { return m_fpsString; }
+    [[nodiscard]] std::string_view GetCpuString() const noexcept { return m_cpuString; }
+    [[nodiscard]] std::string_view GetGpuString() const noexcept { return m_gpuString; }
+    [[nodiscard]] std::string_view GetRamString() const noexcept { return m_ramString; }
+
+    /// Returns human-readable status line, e.g. "60 FPS | CPU: 1.4% (1.80 ms) | GPU: 0.20 ms (2% budget) | RAM: 42.3 MB"
     [[nodiscard]] std::string_view GetStatusString() const noexcept {
         return m_statusString;
     }
 
 private:
+    static size_t QueryProcessRamBytes() noexcept {
+#if defined(_WIN32)
+        PROCESS_MEMORY_COUNTERS pmc{};
+        pmc.cb = sizeof(pmc);
+        if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
+            return static_cast<size_t>(pmc.WorkingSetSize);
+        }
+        return 0;
+#elif defined(__APPLE__)
+        mach_task_basic_info_data_t info{};
+        mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
+        if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, reinterpret_cast<task_info_t>(&info), &count) == KERN_SUCCESS) {
+            return static_cast<size_t>(info.resident_size);
+        }
+        return 0;
+#else
+        FILE* fp = std::fopen("/proc/self/statm", "r");
+        if (!fp) {
+            return 0;
+        }
+        unsigned long totalPages = 0;
+        unsigned long rssPages = 0;
+        const int matched = std::fscanf(fp, "%lu %lu", &totalPages, &rssPages);
+        std::fclose(fp);
+        if (matched == 2) {
+            const long pageSize = sysconf(_SC_PAGESIZE);
+            if (pageSize > 0) {
+                return static_cast<size_t>(rssPages) * static_cast<size_t>(pageSize);
+            }
+        }
+        return 0;
+#endif
+    }
     static double QueryProcessCpuSeconds() noexcept {
 #if defined(_WIN32)
         FILETIME creation{}, exit{}, kernel{}, user{};
@@ -251,7 +315,13 @@ private:
     float m_displayCpuTimeMs{0.0f};
     float m_displayGpuTimeMs{0.0f};
     float m_displayGpuBudgetPercent{0.0f};
+    size_t m_ramBytes{0};
+    float m_displayRamMb{0.0f};
 
+    std::string m_fpsString{"0 FPS (Idle)"};
+    std::string m_cpuString{"CPU: 0.00 ms (0.0%)"};
+    std::string m_gpuString{"GPU: 0.00 ms (0% budget)"};
+    std::string m_ramString{"RAM: 0.0 MB"};
     std::string m_statusString{"Initializing metrics..."};
 };
 

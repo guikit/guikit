@@ -932,12 +932,14 @@ int main(int argc, char* argv[]) {
                                              selectedCategory == NavCategory::SceneSignalView);
                     if (gpuShaderEngine.IsAvailable()) {
                         sb.Item({
-                            .text = isGpuScene ? "GPU Shaders: GLSL Underlay Active" : "GPU Shaders: GLSL Ready",
+                            .text = {
+                                isGpuScene ? "GPU Shaders: Active" : "GPU Shaders: Ready",
+                                {"GPU Shaders: Active", "GPU Shaders: Ready"}
+                            },
                             .dotColor = isGpuScene
                                 ? demoCtx.shellTheme.GetVariant(guikit::UiVariant::Success).bg
                                 : demoCtx.shellTheme.GetVariant(guikit::UiVariant::Info).bg,
-                            .color = isGpuScene ? guikit::StateColor::Success() : guikit::StateColor::Info(),
-                            .badge = gpuShadersEnabled ? "GLSL" : "OFF"
+                            .color = isGpuScene ? guikit::StateColor::Success() : guikit::StateColor::Info()
                         });
                     } else {
                         sb.Item({
@@ -949,7 +951,22 @@ int main(int argc, char* argv[]) {
 
                     sb.Separator();
                     sb.Item({
-                        .text = metrics.GetStatusString(),
+                        .text = {metrics.GetFpsString(), {"0 FPS (Idle)", "999 FPS"}},
+                        .color = guikit::StateColor::Secondary()
+                    });
+                    sb.Separator();
+                    sb.Item({
+                        .text = {metrics.GetCpuString(), {"CPU: 99.99 ms (100.0%)"}},
+                        .color = guikit::StateColor::Secondary()
+                    });
+                    sb.Separator();
+                    sb.Item({
+                        .text = {metrics.GetGpuString(), {"GPU: 99.99 ms (100% budget)"}},
+                        .color = guikit::StateColor::Secondary()
+                    });
+                    sb.Separator();
+                    sb.Item({
+                        .text = {metrics.GetRamString(), {"RAM: 9999.9 MB"}},
                         .color = guikit::StateColor::Secondary()
                     });
 

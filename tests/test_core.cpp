@@ -234,6 +234,8 @@ void TestFrameMetrics() {
     CHECK(metrics.GetCpuTimeMs() >= 0.0f);
     CHECK(metrics.GetGpuTimeMs() >= 0.0f);
     CHECK(metrics.GetGpuBudgetPercent() >= 0.0f && metrics.GetGpuBudgetPercent() <= 100.0f);
+    CHECK(metrics.GetRamUsageBytes() > 0);
+    CHECK(metrics.GetRamUsageMb() > 0.0f);
 
     std::string_view status = metrics.GetStatusString();
     CHECK(!status.empty());
@@ -241,6 +243,7 @@ void TestFrameMetrics() {
     CHECK(status.find("CPU:") != std::string_view::npos);
     CHECK(status.find("GPU:") != std::string_view::npos);
     CHECK(status.find("budget") != std::string_view::npos);
+    CHECK(status.find("RAM:") != std::string_view::npos);
 }
 
 void TestNodeFootprint() {
