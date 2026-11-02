@@ -12770,6 +12770,66 @@ int main() {
                 CHECK(mdResp.selectedText.find("`KeyAction`") == std::string::npos);
                 // Soft-wrapped code line must remain a single logical line in plainText / selection
                 CHECK(mdResp.selectedText.find("const guikit::Rect visible = scene.GetVisibleWorldBounds") != std::string::npos);
+
+                // 9. Verify 3-Phase Retained Markdown Layout Cache (Zero-Measurement on Scroll/Hover & Viewport Frustum Culling)
+                struct CountingThorCanvas : public ThorCanvas {
+                    int layoutMeasureCalls{0};
+                    int drawTextCalls{0};
+                    bool insideDrawText{false};
+                    Vec2 MeasureText(std::string_view text, float fontSize) override {
+                        if (!insideDrawText) ++layoutMeasureCalls;
+                        return ThorCanvas::MeasureText(text, fontSize);
+                    }
+                    Vec2 MeasureTextStyled(std::string_view text, float fontSize, FontStyle style) override {
+                        if (!insideDrawText) ++layoutMeasureCalls;
+                        return ThorCanvas::MeasureTextStyled(text, fontSize, style);
+                    }
+                    void DrawTextStyled(std::string_view text, Vec2 pos, float fontSize, Color color, FontStyle style, float angleDeg = 0.0f) override {
+                        ++drawTextCalls;
+                        insideDrawText = true;
+                        ThorCanvas::DrawTextStyled(text, pos, fontSize, color, style, angleDeg);
+                        insideDrawText = false;
+                    }
+                };
+
+                CountingThorCanvas countCanvas;
+                std::vector<uint32_t> countPixels(420 * 1200, 0);
+                countCanvas.SetTarget(countPixels.data(), 420, 1200, 420);
+
+                std::string bigDoc = "# Title Heading\n\nIntro paragraph with [link](https://example.com) and `inline code`.\n\n";
+                for (int i = 0; i < 12; ++i) {
+                    bigDoc += "## Section " + std::to_string(i) + "\n\n";
+                    bigDoc += "Paragraph body for section " + std::to_string(i) + " with **bold**, *italic*, and `pill`.\n\n";
+                }
+
+                Context retainedUi;
+                auto runRetainedFrame = [&](float scrollH) {
+                    retainedUi.BeginFrame({420.0f, scrollH});
+                    if (auto sa = retainedUi.ScrollArea()) {
+                        retainedUi.Markdown(bigDoc);
+                    }
+                    retainedUi.EndFrame(countCanvas);
+                };
+
+                // Warm up initial layout (frames 1 & 2 establish prevUnclippedBounds and build cached layout)
+                runRetainedFrame(160.0f);
+                runRetainedFrame(160.0f);
+
+                // Subsequent frame with mouse move and scroll wheel: must hit retained layout cache with 0 layout MeasureText calls!
+                countCanvas.layoutMeasureCalls = 0;
+                countCanvas.drawTextCalls = 0;
+                retainedUi.OnMouseMove({100.0f, 80.0f});
+                retainedUi.OnMouseWheel(0.0f, -3.0f);
+                runRetainedFrame(160.0f);
+                const int culledDrawCalls = countCanvas.drawTextCalls;
+                CHECK(countCanvas.layoutMeasureCalls == 0);
+                CHECK(culledDrawCalls > 0);
+
+                // Compare against tall 1200px viewport: frustum culling in 160px ScrollArea must draw far fewer text atoms
+                countCanvas.drawTextCalls = 0;
+                runRetainedFrame(1200.0f);
+                const int unculledDrawCalls = countCanvas.drawTextCalls;
+                CHECK(culledDrawCalls * 2 < unculledDrawCalls);
             }
         }
     }

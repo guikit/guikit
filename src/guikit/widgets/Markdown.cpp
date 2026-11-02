@@ -3,6 +3,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -387,6 +388,9 @@ const ParsedMarkdownDoc& GetOrParseMarkdown(std::string_view source) {
                 blk.kind = BlockKind::ImageBlock;
                 blk.imageAlt = std::string(trimmed.substr(2, closeBr - 2));
                 blk.rawText = std::string(TrimView(trimmed.substr(closeBr + 2, closePar - closeBr - 2)));
+                if (!blk.imageAlt.empty()) {
+                    blk.spans = ParseInlineSpans(blk.imageAlt, FontStyle::Italic, false);
+                }
                 doc.blocks.push_back(std::move(blk));
                 ++i;
                 continue;
@@ -800,11 +804,12 @@ void DrawTokenSelectionAndSearchHighlights(
     const PositionedToken& tok,
     std::string_view fullPlainText,
     const RenderOverlayState* overlay,
-    const UiTheme& theme
+    const UiTheme& theme,
+    Vec2 docOrigin
 ) {
     if (!overlay) return;
 
-    // 1. Search match highlights
+    // 1. Search match highlights (tok.rect is in document-local coordinates)
     if (overlay->searchMatches && !overlay->searchMatches->empty()) {
         const auto& matches = *overlay->searchMatches;
         for (size_t mi = 0; mi < matches.size(); ++mi) {
@@ -820,7 +825,7 @@ void DrawTokenSelectionAndSearchHighlights(
                     ? theme.GetVariant(UiVariant::Warning).bg
                     : Color::Transparent();
                 canvas.DrawRoundRect(
-                    Rect(x0, tok.rect.y, x1 - x0, tok.rect.h),
+                    Rect(docOrigin.x + x0, docOrigin.y + tok.rect.y, x1 - x0, tok.rect.h),
                     2.0f,
                     hlBg,
                     hlBorder,
@@ -835,7 +840,7 @@ void DrawTokenSelectionAndSearchHighlights(
         const auto [x0, x1] = SubRangePixelBounds(&canvas, tok, fullPlainText, overlay->selMin, overlay->selMax);
         if (x1 > x0) {
             canvas.DrawRect(
-                Rect(x0, tok.rect.y, x1 - x0, tok.rect.h),
+                Rect(docOrigin.x + x0, docOrigin.y + tok.rect.y, x1 - x0, tok.rect.h),
                 theme.palette.accent.WithAlpha(85)
             );
         }
@@ -847,28 +852,22 @@ void DrawTokenCaretIfPresent(
     const PositionedToken& tok,
     std::string_view fullPlainText,
     const RenderOverlayState* overlay,
-    const UiTheme& theme
+    const UiTheme& theme,
+    Vec2 docOrigin
 ) {
     if (!overlay || !overlay->showCaret) return;
     if (overlay->caretOffset >= tok.charStart && overlay->caretOffset <= tok.charEnd) {
         const float cx = SubRangePixelBounds(&canvas, tok, fullPlainText, overlay->caretOffset, overlay->caretOffset).first;
         canvas.DrawLine(
-            {cx, tok.rect.y + 1.0f},
-            {cx, tok.rect.Bottom() - 1.0f},
+            {docOrigin.x + cx, docOrigin.y + tok.rect.y + 1.0f},
+            {docOrigin.x + cx, docOrigin.y + tok.rect.Bottom() - 1.0f},
             theme.palette.accent,
             1.5f
         );
     }
 }
 
-// --- Inline Rich-Text Span Flow Engine (Measure + Render + Link Hit-Testing + Token Recording) ---
-
-struct FlowResult {
-    float width{0.0f};
-    float height{0.0f};
-    std::string_view hoveredLinkUrl{};
-    Rect hoveredLinkRect{};
-};
+// --- Phase 2A: Pure Inline Rich-Text Span Flow Layout Engine (in local coordinates) ---
 
 struct InlineAtom {
     InlineKind kind{InlineKind::Text};
@@ -889,32 +888,52 @@ struct FlowLine {
     float contentWidth{0.0f};
 };
 
-FlowResult LayoutOrRenderSpans(
+struct PositionedAtom {
+    InlineAtom atom{};
+    Rect localRect{};            // Relative to the InlineFlowLayout's origin (0, 0)
+    float textLocalY{0.0f};      // Relative to the InlineFlowLayout's origin (0, 0)
+    size_t lineIdx{0};
+    size_t tokenIndex{SIZE_MAX}; // Index into MarkdownDocumentLayout::textMap.tokens
+};
+
+struct InlineFlowLayout {
+    float width{0.0f};
+    float height{0.0f};
+    float lineH{0.0f};
+    float scale{1.0f};
+    size_t lineCount{0};
+    std::vector<PositionedAtom> items{};
+};
+
+struct LinkHitRegion {
+    Rect localRect{};
+    std::string_view url{};
+};
+
+InlineFlowLayout BuildInlineFlowLayout(
     ICanvas* canvas,
-    bool doRender,
     const std::vector<InlineSpan>& spans,
-    Rect bounds,
+    float maxWidth,
     float baseFontSize,
     float codeBaseFontSize,
     float lineHeightScale,
     float firstLineIndent,
-    Color baseColor,
     const UiTheme& theme,
     float zoom,
-    Vec2 mousePos = {-1.0f, -1.0f},
     FontStyle overrideStyle = FontStyle::Regular,
-    DocumentTextMap* textMap = nullptr,
-    const RenderOverlayState* overlay = nullptr,
     Align horizontalAlign = Align::Start
 ) {
-    FlowResult res{};
+    InlineFlowLayout res{};
     if (spans.empty()) return res;
 
     const float s = theme.Scale(1.0f) * zoom;
     const float rawLineH = canvas ? canvas->GetLineHeight(baseFontSize) : theme.GetLineHeight(baseFontSize);
     const float lineH = rawLineH * std::clamp(lineHeightScale, 0.8f, 2.5f);
-    const float maxW = (bounds.w > 0.0f) ? bounds.w : 10000.0f;
+    const float maxW = (maxWidth > 0.0f) ? maxWidth : 10000.0f;
     const float codePadX = 4.5f * s;
+
+    res.lineH = lineH;
+    res.scale = s;
 
     // 1. Flatten InlineSpans into initial atomic runs (words, whitespace, code pills)
     std::vector<InlineAtom> rawAtoms;
@@ -1069,7 +1088,6 @@ FlowResult LayoutOrRenderSpans(
             continue;
         }
 
-        // Find end of contiguous non-whitespace cluster [idx .. clusterEnd)
         size_t clusterEnd = idx + 1;
         float clusterW = rawAtoms[idx].width;
         while (clusterEnd < rawAtoms.size() && !rawAtoms[clusterEnd].isWhitespace) {
@@ -1127,20 +1145,28 @@ FlowResult LayoutOrRenderSpans(
     }
     if (flowLines.empty()) return res;
 
-    // 3. Emit tokens into textMap and render each line with per-line horizontal alignment
+    // 3. Materialize PositionedAtoms in flow-local coordinates (0, 0) with pre-measured glyph heights
     const float codeGlyphH = canvas ? canvas->MeasureTextStyled("Mg", codeBaseFontSize, FontStyle::Monospace).y : codeBaseFontSize;
+    std::array<float, 5> cachedGlyphH{};
+    for (uint8_t st = 0; st < 5; ++st) {
+        cachedGlyphH[st] = canvas
+            ? canvas->MeasureTextStyled("Mg", baseFontSize, static_cast<FontStyle>(st)).y
+            : baseFontSize;
+    }
+
     float maxLineW = 0.0f;
+    res.items.reserve(atoms.size());
 
     for (size_t li = 0; li < flowLines.size(); ++li) {
         const FlowLine& fl = flowLines[li];
-        const float lineY = bounds.y + static_cast<float>(li) * lineH;
+        const float lineY = static_cast<float>(li) * lineH;
         maxLineW = std::max(maxLineW, fl.indent + fl.contentWidth);
 
-        float drawX = bounds.x + fl.indent;
-        if (horizontalAlign == Align::Center) {
-            drawX = bounds.x + std::max(0.0f, (bounds.w - fl.contentWidth) * 0.5f);
-        } else if (horizontalAlign == Align::End) {
-            drawX = bounds.x + std::max(0.0f, bounds.w - fl.contentWidth);
+        float drawX = fl.indent;
+        if (horizontalAlign == Align::Center && maxWidth > 0.0f) {
+            drawX = std::max(0.0f, (maxWidth - fl.contentWidth) * 0.5f);
+        } else if (horizontalAlign == Align::End && maxWidth > 0.0f) {
+            drawX = std::max(0.0f, maxWidth - fl.contentWidth);
         }
 
         for (size_t k = 0; k < fl.atomCount; ++k) {
@@ -1153,94 +1179,151 @@ FlowResult LayoutOrRenderSpans(
                     atom.width,
                     pillH
                 );
-                if (textMap) {
-                    textMap->AddToken(pillRect, atom.text, atom.fontSize, FontStyle::Monospace, atom.padX);
-                }
-                if (doRender && canvas) {
-                    canvas->DrawRoundRect(
-                        pillRect,
-                        4.0f * s,
-                        theme.palette.surfaceElevated,
-                        theme.palette.borderSubtle,
-                        1.0f
-                    );
-                    if (textMap && !textMap->tokens.empty()) {
-                        DrawTokenSelectionAndSearchHighlights(*canvas, textMap->tokens.back(), textMap->plainText, overlay, theme);
-                    }
-                    const float codeTextY = pillRect.y + (pillRect.h - ((codeGlyphH > 0.0f) ? codeGlyphH : atom.fontSize)) * 0.5f;
-                    canvas->DrawTextStyled(
-                        atom.text,
-                        {pillRect.x + atom.padX, codeTextY},
-                        atom.fontSize,
-                        theme.palette.accent,
-                        FontStyle::Monospace
-                    );
-                    if (atom.strikethrough) {
-                        const float sy = pillRect.y + pillRect.h * 0.52f;
-                        canvas->DrawLine(
-                            {pillRect.x + atom.padX, sy},
-                            {pillRect.Right() - atom.padX, sy},
-                            theme.palette.accent.WithAlpha(180),
-                            1.2f
-                        );
-                    }
-                    if (textMap && !textMap->tokens.empty()) {
-                        DrawTokenCaretIfPresent(*canvas, textMap->tokens.back(), textMap->plainText, overlay, theme);
-                    }
-                }
+                const float codeTextY = pillRect.y + (pillRect.h - ((codeGlyphH > 0.0f) ? codeGlyphH : atom.fontSize)) * 0.5f;
+                res.items.push_back(PositionedAtom{
+                    .atom = atom,
+                    .localRect = pillRect,
+                    .textLocalY = codeTextY,
+                    .lineIdx = li,
+                    .tokenIndex = SIZE_MAX
+                });
                 drawX += atom.width;
                 continue;
             }
 
             const Rect wordRect(drawX, lineY, atom.width, lineH);
-            const bool isLink = (atom.kind == InlineKind::Link);
-            const bool wordHovered = isLink && wordRect.Contains(mousePos);
-            if (wordHovered) {
-                res.hoveredLinkUrl = atom.url;
-                res.hoveredLinkRect = wordRect;
-            }
+            const uint8_t stIdx = std::min<uint8_t>(4, static_cast<uint8_t>(atom.style));
+            const float glyphH = cachedGlyphH[stIdx];
+            const float textY = lineY + (lineH - ((glyphH > 0.0f) ? glyphH : atom.fontSize)) * 0.5f;
 
-            if (textMap) {
-                textMap->AddToken(wordRect, atom.text, atom.fontSize, atom.style, 0.0f);
-            }
-
-            if (doRender && canvas) {
-                if (textMap && !textMap->tokens.empty()) {
-                    DrawTokenSelectionAndSearchHighlights(*canvas, textMap->tokens.back(), textMap->plainText, overlay, theme);
-                }
-
-                const Color drawCol = isLink ? theme.palette.accent : baseColor;
-                if (!atom.isWhitespace) {
-                    const float glyphH = canvas->MeasureTextStyled("Mg", atom.fontSize, atom.style).y;
-                    const float textY = lineY + (lineH - ((glyphH > 0.0f) ? glyphH : atom.fontSize)) * 0.5f;
-                    canvas->DrawTextStyled(atom.text, {drawX, textY}, atom.fontSize, drawCol, atom.style);
-                }
-
-                if (isLink) {
-                    const float uy = lineY + lineH - 2.0f * s;
-                    const Color uCol = wordHovered ? theme.palette.accent : theme.palette.accent.WithAlpha(140);
-                    canvas->DrawLine({drawX, uy}, {drawX + atom.width, uy}, uCol, wordHovered ? 1.5f : 1.0f);
-                }
-                if (atom.strikethrough) {
-                    const float sy = lineY + lineH * 0.52f;
-                    canvas->DrawLine({drawX, sy}, {drawX + atom.width, sy}, drawCol.WithAlpha(180), 1.2f);
-                }
-                if (textMap && !textMap->tokens.empty()) {
-                    DrawTokenCaretIfPresent(*canvas, textMap->tokens.back(), textMap->plainText, overlay, theme);
-                }
-            }
-
+            res.items.push_back(PositionedAtom{
+                .atom = atom,
+                .localRect = wordRect,
+                .textLocalY = textY,
+                .lineIdx = li,
+                .tokenIndex = SIZE_MAX
+            });
             drawX += atom.width;
-        }
-
-        if (textMap) {
-            textMap->AppendNewline();
         }
     }
 
     res.width = maxLineW;
     res.height = static_cast<float>(flowLines.size()) * lineH;
+    res.lineCount = flowLines.size();
     return res;
+}
+
+constexpr Rect OffsetRect(Rect r, Vec2 delta) noexcept {
+    return Rect(r.x + delta.x, r.y + delta.y, r.w, r.h);
+}
+
+void CommitInlineFlowToDocument(
+    InlineFlowLayout& flow,
+    Vec2 flowDocOrigin,
+    DocumentTextMap& textMap,
+    std::vector<LinkHitRegion>& linkRegions
+) {
+    if (flow.items.empty()) return;
+    size_t currentLine = flow.items.front().lineIdx;
+    for (PositionedAtom& item : flow.items) {
+        if (item.lineIdx != currentLine) {
+            textMap.AppendNewline();
+            currentLine = item.lineIdx;
+        }
+        const Rect docRect = OffsetRect(item.localRect, flowDocOrigin);
+        item.tokenIndex = textMap.tokens.size();
+        if (item.atom.kind == InlineKind::Code) {
+            textMap.AddToken(docRect, item.atom.text, item.atom.fontSize, FontStyle::Monospace, item.atom.padX);
+        } else {
+            textMap.AddToken(docRect, item.atom.text, item.atom.fontSize, item.atom.style, 0.0f);
+            if (item.atom.kind == InlineKind::Link) {
+                linkRegions.push_back(LinkHitRegion{
+                    .localRect = docRect,
+                    .url = item.atom.url
+                });
+            }
+        }
+    }
+    textMap.AppendNewline();
+}
+
+void RenderInlineFlowLayout(
+    ICanvas& canvas,
+    const InlineFlowLayout& flow,
+    Vec2 flowScreenOrigin,
+    Vec2 docScreenOrigin,
+    Color baseColor,
+    const DocumentTextMap& textMap,
+    const RenderOverlayState* overlay,
+    const UiTheme& theme,
+    Vec2 localMousePos
+) {
+    const float s = flow.scale;
+    for (const PositionedAtom& item : flow.items) {
+        const InlineAtom& atom = item.atom;
+        const Rect screenRect = OffsetRect(item.localRect, flowScreenOrigin);
+        const float screenTextY = flowScreenOrigin.y + item.textLocalY;
+        const PositionedToken* tok = (item.tokenIndex < textMap.tokens.size())
+            ? &textMap.tokens[item.tokenIndex]
+            : nullptr;
+
+        if (atom.kind == InlineKind::Code) {
+            canvas.DrawRoundRect(
+                screenRect,
+                4.0f * s,
+                theme.palette.surfaceElevated,
+                theme.palette.borderSubtle,
+                1.0f
+            );
+            if (tok) {
+                DrawTokenSelectionAndSearchHighlights(canvas, *tok, textMap.plainText, overlay, theme, docScreenOrigin);
+            }
+            canvas.DrawTextStyled(
+                atom.text,
+                {screenRect.x + atom.padX, screenTextY},
+                atom.fontSize,
+                theme.palette.accent,
+                FontStyle::Monospace
+            );
+            if (atom.strikethrough) {
+                const float sy = screenRect.y + screenRect.h * 0.52f;
+                canvas.DrawLine(
+                    {screenRect.x + atom.padX, sy},
+                    {screenRect.Right() - atom.padX, sy},
+                    theme.palette.accent.WithAlpha(180),
+                    1.2f
+                );
+            }
+            if (tok) {
+                DrawTokenCaretIfPresent(canvas, *tok, textMap.plainText, overlay, theme, docScreenOrigin);
+            }
+            continue;
+        }
+
+        if (tok) {
+            DrawTokenSelectionAndSearchHighlights(canvas, *tok, textMap.plainText, overlay, theme, docScreenOrigin);
+        }
+
+        const bool isLink = (atom.kind == InlineKind::Link);
+        const bool wordHovered = isLink && tok && tok->rect.Contains(localMousePos);
+        const Color drawCol = isLink ? theme.palette.accent : baseColor;
+
+        if (!atom.isWhitespace) {
+            canvas.DrawTextStyled(atom.text, {screenRect.x, screenTextY}, atom.fontSize, drawCol, atom.style);
+        }
+        if (isLink) {
+            const float uy = screenRect.Bottom() - 2.0f * s;
+            const Color uCol = wordHovered ? theme.palette.accent : theme.palette.accent.WithAlpha(140);
+            canvas.DrawLine({screenRect.x, uy}, {screenRect.Right(), uy}, uCol, wordHovered ? 1.5f : 1.0f);
+        }
+        if (atom.strikethrough) {
+            const float sy = screenRect.y + screenRect.h * 0.52f;
+            canvas.DrawLine({screenRect.x, sy}, {screenRect.Right(), sy}, drawCol.WithAlpha(180), 1.2f);
+        }
+        if (tok) {
+            DrawTokenCaretIfPresent(canvas, *tok, textMap.plainText, overlay, theme, docScreenOrigin);
+        }
+    }
 }
 
 float HeadingFontSize(uint8_t level, const MarkdownOptions& opts, const UiTheme& theme, float zoom) noexcept {
@@ -1278,6 +1361,86 @@ Icon AlertIcon(AlertKind kind) noexcept {
     }
 }
 
+// --- Phase 2B: Retained Document Layout (in document-local coordinates (0, 0)) ---
+
+struct CopyBtnHitRegion {
+    Rect boxLocalRect{};
+    float headerH{0.0f};
+    int codeBlockIndex{-1};
+    std::string_view rawCode{};
+};
+
+struct TaskHitRegion {
+    Rect localHitRect{};
+    int taskIndex{-1};
+    bool defaultChecked{false};
+};
+
+struct CodeRenderSpan {
+    std::string_view text{};
+    Color color{};
+    float localOffsetX{0.0f};
+};
+
+struct CodeVisualLineLayout {
+    size_t logicalLine{0};
+    bool isFirstSlice{true};
+    bool isLastSlice{true};
+    std::string_view sliceStr{};
+    float localY{0.0f};
+    float textLocalY{0.0f};
+    size_t tokenIndex{SIZE_MAX};
+    std::vector<CodeRenderSpan> renderSpans{};
+};
+
+struct BlockLayout {
+    BlockKind kind{BlockKind::Paragraph};
+    size_t astBlockIndex{0};
+    Rect localBounds{}; // Bounding box in document-local coordinates (0, 0), used for O(1) frustum culling
+
+    InlineFlowLayout flow{};
+    Vec2 flowLocalOrigin{};
+    bool hasHeadingDivider{false};
+    float dividerLocalY{0.0f};
+
+    float boxRadius{0.0f};
+    float padX{0.0f};
+    float padY{0.0f};
+    float headerH{0.0f};
+    Rect markerLocalRect{};
+
+    std::vector<CodeVisualLineLayout> codeVisualLines{};
+    float gutterW{0.0f};
+    float codeStartX{0.0f};
+    float spaceW{0.0f};
+    float codeFs{13.0f};
+    float codeLineH{18.0f};
+    float bodyH{0.0f};
+
+    Rect imgLocalRect{};
+    float imgRadius{0.0f};
+
+    std::vector<float> colWidths{};
+    std::vector<float> colX{};
+    std::vector<float> rowHeights{};
+    std::vector<std::vector<InlineFlowLayout>> cellFlows{};
+    std::vector<std::vector<Vec2>> cellFlowOrigins{};
+};
+
+struct MarkdownDocumentLayout {
+    uint64_t layoutKey{0};
+    float totalWidth{0.0f};
+    float totalHeight{0.0f};
+    float effZoom{1.0f};
+    float scale{1.0f};
+    Rect contentLocalBounds{};
+    DocumentTextMap textMap{};
+    std::vector<BlockLayout> blocks{};
+    std::vector<LinkHitRegion> linkRegions{};
+    std::vector<CopyBtnHitRegion> copyRegions{};
+    std::vector<TaskHitRegion> taskRegions{};
+};
+
 struct MarkdownPassResult {
     float totalWidth{0.0f};
     float totalHeight{0.0f};
@@ -1289,32 +1452,107 @@ struct MarkdownPassResult {
     bool hoveredTaskCurrentState{false};
 };
 
-MarkdownPassResult ExecuteMarkdownLayoutAndRender(
+// Fast single-pass intrinsic cell width measurement (avoids building full FlowLines just for column sizing)
+std::pair<float, float> MeasureCellIntrinsicWidths(
     ICanvas* canvas,
-    bool doRender,
-    Rect outerBounds,
+    const std::vector<InlineSpan>& spans,
+    float bodyFs,
+    float inlineCodeFs,
+    FontStyle rowBaseStyle,
+    float scale
+) noexcept {
+    float minTokenW = 0.0f;
+    float unwrappedW = 0.0f;
+    const float codePadW = 9.0f * scale;
+
+    for (const auto& sp : spans) {
+        if (sp.kind == InlineKind::Code) {
+            if (sp.text.empty()) continue;
+            const float w = MeasureStyledSlice(canvas, sp.text, inlineCodeFs, FontStyle::Monospace) + codePadW;
+            minTokenW = std::max(minTokenW, w);
+            unwrappedW += w;
+        } else {
+            const FontStyle effStyle = CombineFontStyles(rowBaseStyle, sp.style);
+            unwrappedW += MeasureStyledSlice(canvas, sp.text, bodyFs, effStyle);
+            std::string_view sv = sp.text;
+            size_t i = 0;
+            while (i < sv.size()) {
+                while (i < sv.size() && (sv[i] == ' ' || sv[i] == '\t' || sv[i] == '\n')) ++i;
+                size_t start = i;
+                while (i < sv.size() && sv[i] != ' ' && sv[i] != '\t' && sv[i] != '\n') ++i;
+                if (i > start) {
+                    minTokenW = std::max(minTokenW, MeasureStyledSlice(canvas, sv.substr(start, i - start), bodyFs, effStyle));
+                }
+            }
+        }
+    }
+    return {minTokenW, unwrappedW};
+}
+
+uint64_t ComputeMarkdownLayoutKey(
+    uint64_t docSourceHash,
+    float outerWidth,
+    float effZoom,
+    const MarkdownOptions& opts,
+    const UiTheme& theme,
+    bool hasCanvasMetrics
+) noexcept {
+    const int32_t qWidth = static_cast<int32_t>(std::round(outerWidth * 2.0f));
+    const int32_t qZoom = static_cast<int32_t>(std::round(effZoom * 1000.0f));
+    return detail::HashArgs(
+        docSourceHash,
+        qWidth,
+        qZoom,
+        hasCanvasMetrics,
+        theme.mode,
+        theme.density,
+        theme.Scale(100.0f),
+        theme.palette.textPrimary.ToUint32(),
+        theme.palette.accent.ToUint32(),
+        opts.bodyFontSize.value_or(-1.0f),
+        opts.headingScale,
+        opts.inlineCodeFontSize.value_or(-1.0f),
+        opts.codeFontSize.value_or(-1.0f),
+        opts.lineHeightScale,
+        opts.documentPadding,
+        opts.maxContentWidth.value_or(-1.0f),
+        opts.blockGap,
+        opts.paragraphIndent,
+        opts.listIndent,
+        opts.blockPadding,
+        opts.blockRadius,
+        opts.headingDividers,
+        opts.codeLineNumbers,
+        opts.syntaxHighlight,
+        opts.codePalette.has_value() ? opts.codePalette->editorBg.ToUint32() : 0u,
+        opts.codePalette.has_value() ? opts.codePalette->keyword.ToUint32() : 0u,
+        opts.imageMaxHeight,
+        opts.imageRadius
+    );
+}
+
+std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
+    ICanvas* canvas,
+    float outerWidth,
     const ParsedMarkdownDoc& doc,
     const MarkdownOptions& opts,
     const UiTheme& theme,
     float zoom,
-    Vec2 mousePos,
-    int hoveredCopyBlock,
-    int activeCopiedBlock,
-    bool disabled,
-    DocumentTextMap* textMap = nullptr,
-    const RenderOverlayState* overlay = nullptr
+    uint64_t layoutKey
 ) {
-    MarkdownPassResult out{};
-    if (textMap) {
-        textMap->Clear();
-    }
+    auto layoutPtr = std::make_shared<MarkdownDocumentLayout>();
+    MarkdownDocumentLayout& out = *layoutPtr;
+    out.layoutKey = layoutKey;
 
     const float effZoom = std::clamp(zoom, 0.5f, 3.0f);
     const float s = theme.Scale(1.0f) * effZoom;
     const float docPad = std::max(0.0f, opts.documentPadding) * s;
 
-    float availW = std::max(120.0f, outerBounds.w - docPad * 2.0f);
-    float startX = outerBounds.x + docPad;
+    out.effZoom = effZoom;
+    out.scale = s;
+
+    float availW = std::max(120.0f, outerWidth - docPad * 2.0f);
+    float startX = docPad;
     if (opts.maxContentWidth.has_value() && *opts.maxContentWidth > 0.0f) {
         const float maxColW = *opts.maxContentWidth * s;
         if (availW > maxColW) {
@@ -1323,7 +1561,9 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
         }
     }
 
-    const Rect contentBounds(startX, outerBounds.y + docPad, availW, outerBounds.h);
+    const Rect contentBounds(startX, docPad, availW, 0.0f);
+    out.contentLocalBounds = contentBounds;
+
     const float bodyFs = (opts.bodyFontSize.has_value() ? theme.Scale(*opts.bodyFontSize) : theme.GetFontSize(TextRole::BodyMedium)) * effZoom;
     const float codeFs = (opts.codeFontSize.has_value() ? theme.Scale(*opts.codeFontSize) : theme.GetFontSize(TextRole::CodeMedium)) * effZoom;
     const float inlineCodeFs = opts.inlineCodeFontSize.has_value()
@@ -1339,20 +1579,23 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
 
     float curY = contentBounds.y;
     bool firstBlock = true;
+    out.blocks.reserve(doc.blocks.size());
 
-    for (const MarkdownBlock& blk : doc.blocks) {
+    for (size_t bIdx = 0; bIdx < doc.blocks.size(); ++bIdx) {
+        const MarkdownBlock& blk = doc.blocks[bIdx];
         if (!firstBlock) {
             curY += (blk.kind == BlockKind::Heading) ? (gap * 1.25f) : gap;
         }
         firstBlock = false;
 
+        BlockLayout bl{};
+        bl.kind = blk.kind;
+        bl.astBlockIndex = bIdx;
+
         switch (blk.kind) {
             case BlockKind::Divider: {
                 const float h = 8.0f * s;
-                if (doRender && canvas) {
-                    const float ly = curY + h * 0.5f;
-                    canvas->DrawLine({contentBounds.x, ly}, {contentBounds.x + availW, ly}, theme.palette.borderSubtle, 1.0f);
-                }
+                bl.localBounds = Rect(contentBounds.x, curY, availW, h);
                 curY += h;
                 out.totalWidth = std::max(out.totalWidth, availW);
                 break;
@@ -1363,63 +1606,52 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                 const float headingInlineCodeFs = opts.inlineCodeFontSize.has_value()
                     ? (inlineCodeFs * (hFs / std::max(1.0f, bodyFs)) * 0.85f)
                     : (hFs * 0.75f);
-                const FlowResult fr = LayoutOrRenderSpans(
+                const float startY = curY;
+                bl.flowLocalOrigin = {contentBounds.x, curY};
+                bl.flow = BuildInlineFlowLayout(
                     canvas,
-                    doRender,
                     blk.spans,
-                    Rect(contentBounds.x, curY, availW, 0.0f),
+                    availW,
                     hFs,
                     headingInlineCodeFs,
                     lhScale,
                     0.0f,
-                    theme.palette.textPrimary,
                     theme,
                     effZoom,
-                    mousePos,
-                    FontStyle::Bold,
-                    textMap,
-                    overlay
+                    FontStyle::Bold
                 );
-                if (!fr.hoveredLinkUrl.empty()) {
-                    out.hoveredLink = fr.hoveredLinkUrl;
-                    out.hoveredLinkRect = fr.hoveredLinkRect;
-                }
-                curY += fr.height;
+                CommitInlineFlowToDocument(bl.flow, bl.flowLocalOrigin, out.textMap, out.linkRegions);
+                curY += bl.flow.height;
                 if (opts.headingDividers && blk.headingLevel <= 2) {
                     curY += 6.0f * s;
-                    if (doRender && canvas) {
-                        canvas->DrawLine({contentBounds.x, curY}, {contentBounds.x + availW, curY}, theme.palette.borderSubtle, 1.0f);
-                    }
+                    bl.hasHeadingDivider = true;
+                    bl.dividerLocalY = curY;
                     curY += 2.0f * s;
                 }
-                out.totalWidth = std::max(out.totalWidth, fr.width);
+                bl.localBounds = Rect(contentBounds.x, startY, availW, curY - startY);
+                out.totalWidth = std::max(out.totalWidth, bl.flow.width);
                 break;
             }
 
             case BlockKind::Paragraph: {
-                const FlowResult fr = LayoutOrRenderSpans(
+                const float startY = curY;
+                bl.flowLocalOrigin = {contentBounds.x, curY};
+                bl.flow = BuildInlineFlowLayout(
                     canvas,
-                    doRender,
                     blk.spans,
-                    Rect(contentBounds.x, curY, availW, 0.0f),
+                    availW,
                     bodyFs,
                     inlineCodeFs,
                     lhScale,
                     paraIndent,
-                    theme.palette.textPrimary,
                     theme,
                     effZoom,
-                    mousePos,
-                    FontStyle::Regular,
-                    textMap,
-                    overlay
+                    FontStyle::Regular
                 );
-                if (!fr.hoveredLinkUrl.empty()) {
-                    out.hoveredLink = fr.hoveredLinkUrl;
-                    out.hoveredLinkRect = fr.hoveredLinkRect;
-                }
-                curY += fr.height;
-                out.totalWidth = std::max(out.totalWidth, fr.width);
+                CommitInlineFlowToDocument(bl.flow, bl.flowLocalOrigin, out.textMap, out.linkRegions);
+                curY += bl.flow.height;
+                bl.localBounds = Rect(contentBounds.x, startY, availW, bl.flow.height);
+                out.totalWidth = std::max(out.totalWidth, bl.flow.width);
                 break;
             }
 
@@ -1427,122 +1659,53 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                 const float padX = blkPad + 2.0f * s;
                 const float padY = blkPad * 0.7f;
                 const float innerW = std::max(40.0f, availW - padX * 2.0f);
-                const FlowResult measureFr = LayoutOrRenderSpans(
+                bl.flowLocalOrigin = {contentBounds.x + padX, curY + padY};
+                bl.flow = BuildInlineFlowLayout(
                     canvas,
-                    false,
                     blk.spans,
-                    Rect(contentBounds.x + padX, curY + padY, innerW, 0.0f),
+                    innerW,
                     bodyFs,
                     inlineCodeFs,
                     lhScale,
                     0.0f,
-                    theme.palette.textSecondary,
                     theme,
                     effZoom,
-                    mousePos,
-                    FontStyle::Italic,
-                    doRender ? nullptr : textMap,
-                    nullptr
+                    FontStyle::Italic
                 );
-                const float boxH = measureFr.height + padY * 2.0f;
-                const Rect boxRect(contentBounds.x, curY, availW, boxH);
-
-                if (doRender && canvas) {
-                    canvas->DrawRoundRect(boxRect, blkRad, theme.palette.surfaceElevated.WithAlpha(140));
-                    canvas->DrawRoundRect(Rect(boxRect.x, boxRect.y, 4.0f * s, boxRect.h), 2.0f * s, theme.palette.borderHover);
-                    LayoutOrRenderSpans(
-                        canvas,
-                        true,
-                        blk.spans,
-                        Rect(contentBounds.x + padX, curY + padY, innerW, 0.0f),
-                        bodyFs,
-                        inlineCodeFs,
-                        lhScale,
-                        0.0f,
-                        theme.palette.textSecondary,
-                        theme,
-                        effZoom,
-                        mousePos,
-                        FontStyle::Italic,
-                        textMap,
-                        overlay
-                    );
-                }
-                if (!measureFr.hoveredLinkUrl.empty()) {
-                    out.hoveredLink = measureFr.hoveredLinkUrl;
-                    out.hoveredLinkRect = measureFr.hoveredLinkRect;
-                }
+                CommitInlineFlowToDocument(bl.flow, bl.flowLocalOrigin, out.textMap, out.linkRegions);
+                const float boxH = bl.flow.height + padY * 2.0f;
+                bl.localBounds = Rect(contentBounds.x, curY, availW, boxH);
+                bl.boxRadius = blkRad;
                 curY += boxH;
                 out.totalWidth = std::max(out.totalWidth, availW);
                 break;
             }
 
             case BlockKind::Alert: {
-                const Color accent = AlertAccentColor(blk.alertKind, theme);
                 const float padX = blkPad + 4.0f * s;
                 const float padY = blkPad * 0.85f;
                 const float headerH = 20.0f * s;
                 const float innerW = std::max(40.0f, availW - padX * 2.0f);
-
-                const FlowResult measureFr = LayoutOrRenderSpans(
+                bl.padX = padX;
+                bl.padY = padY;
+                bl.headerH = headerH;
+                bl.boxRadius = blkRad;
+                bl.flowLocalOrigin = {contentBounds.x + padX, curY + padY + headerH + 4.0f * s};
+                bl.flow = BuildInlineFlowLayout(
                     canvas,
-                    false,
                     blk.spans,
-                    Rect(contentBounds.x + padX, curY + padY + headerH + 4.0f * s, innerW, 0.0f),
+                    innerW,
                     bodyFs,
                     inlineCodeFs,
                     lhScale,
                     0.0f,
-                    theme.palette.textPrimary,
                     theme,
                     effZoom,
-                    mousePos,
-                    FontStyle::Regular,
-                    doRender ? nullptr : textMap,
-                    nullptr
+                    FontStyle::Regular
                 );
-                const float boxH = padY * 2.0f + headerH + 4.0f * s + measureFr.height;
-                const Rect boxRect(contentBounds.x, curY, availW, boxH);
-
-                if (doRender && canvas) {
-                    canvas->DrawRoundRect(boxRect, blkRad, accent.WithAlpha(24), accent.WithAlpha(90), 1.0f);
-                    canvas->DrawRoundRect(Rect(boxRect.x, boxRect.y, 4.0f * s, boxRect.h), 2.0f * s, accent);
-
-                    const Icon ic = AlertIcon(blk.alertKind);
-                    const float icSz = 15.0f * s;
-                    ic.Render(*canvas, Rect(contentBounds.x + padX, curY + padY + (headerH - icSz) * 0.5f, icSz, icSz), accent);
-
-                    const float titleFs = theme.GetFontSize(TextRole::LabelLarge) * effZoom;
-                    canvas->DrawTextStyled(
-                        blk.alertTitle,
-                        {contentBounds.x + padX + icSz + 8.0f * s, curY + padY + (headerH - titleFs) * 0.5f},
-                        titleFs,
-                        accent,
-                        FontStyle::Bold
-                    );
-
-                    LayoutOrRenderSpans(
-                        canvas,
-                        true,
-                        blk.spans,
-                        Rect(contentBounds.x + padX, curY + padY + headerH + 4.0f * s, innerW, 0.0f),
-                        bodyFs,
-                        inlineCodeFs,
-                        lhScale,
-                        0.0f,
-                        theme.palette.textPrimary,
-                        theme,
-                        effZoom,
-                        mousePos,
-                        FontStyle::Regular,
-                        textMap,
-                        overlay
-                    );
-                }
-                if (!measureFr.hoveredLinkUrl.empty()) {
-                    out.hoveredLink = measureFr.hoveredLinkUrl;
-                    out.hoveredLinkRect = measureFr.hoveredLinkRect;
-                }
+                CommitInlineFlowToDocument(bl.flow, bl.flowLocalOrigin, out.textMap, out.linkRegions);
+                const float boxH = padY * 2.0f + headerH + 4.0f * s + bl.flow.height;
+                bl.localBounds = Rect(contentBounds.x, curY, availW, boxH);
                 curY += boxH;
                 out.totalWidth = std::max(out.totalWidth, availW);
                 break;
@@ -1553,84 +1716,44 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                 const float itemX = contentBounds.x + indent;
                 const float itemW = std::max(40.0f, availW - indent);
                 const float lineH = (canvas ? canvas->GetLineHeight(bodyFs) : theme.GetLineHeight(bodyFs)) * lhScale;
-
-                bool isTaskChecked = (blk.taskState == 1);
-                if (blk.taskIndex >= 0 && overlay && overlay->taskOverrides) {
-                    auto it = overlay->taskOverrides->find(blk.taskIndex);
-                    if (it != overlay->taskOverrides->end()) {
-                        isTaskChecked = it->second;
-                    }
-                }
-
                 const float markerX = itemX - 18.0f * s;
+
                 if (blk.taskState >= 0) {
                     const float cbSz = 14.0f * s;
-                    const Rect cbRect(markerX, curY + (lineH - cbSz) * 0.5f, cbSz, cbSz);
-                    if (opts.interactiveTasks && !disabled && cbRect.Inset(-3.0f * s).Contains(mousePos)) {
-                        out.hoveredTaskIndex = blk.taskIndex;
-                        out.hoveredTaskCurrentState = isTaskChecked;
-                    }
-                    if (doRender && canvas) {
-                        const bool cbHovered = (out.hoveredTaskIndex == blk.taskIndex && blk.taskIndex >= 0);
-                        if (isTaskChecked) {
-                            canvas->DrawRoundRect(cbRect, 3.0f * s, theme.palette.accent);
-                            Icon::Check().Render(*canvas, cbRect.Inset(2.0f * s), Color(255, 255, 255, 255));
-                        } else {
-                            canvas->DrawRoundRect(
-                                cbRect,
-                                3.0f * s,
-                                theme.palette.surfaceElevated,
-                                cbHovered ? theme.palette.accent : theme.palette.borderHover,
-                                cbHovered ? 1.5f : 1.2f
-                            );
-                        }
-                    }
-                } else if (doRender && canvas) {
-                    if (blk.isOrderedList) {
-                        char numBuf[16];
-                        std::snprintf(numBuf, sizeof(numBuf), "%u.", static_cast<unsigned>(blk.listNumber));
-                        canvas->DrawTextStyled(
-                            numBuf,
-                            {markerX - 2.0f * s, curY + (lineH - bodyFs) * 0.5f},
-                            bodyFs,
-                            theme.palette.accent,
-                            FontStyle::Bold
-                        );
-                    } else {
-                        const float dotSz = 5.0f * s;
-                        const Rect dotRect(markerX + 4.0f * s, curY + (lineH - dotSz) * 0.5f, dotSz, dotSz);
-                        canvas->DrawRoundRect(dotRect, dotSz * 0.5f, theme.palette.accent);
-                    }
+                    bl.markerLocalRect = Rect(markerX, curY + (lineH - cbSz) * 0.5f, cbSz, cbSz);
+                    out.taskRegions.push_back(TaskHitRegion{
+                        .localHitRect = bl.markerLocalRect.Inset(-3.0f * s),
+                        .taskIndex = blk.taskIndex,
+                        .defaultChecked = (blk.taskState == 1)
+                    });
+                } else if (blk.isOrderedList) {
+                    bl.markerLocalRect = Rect(markerX - 2.0f * s, curY + (lineH - bodyFs) * 0.5f, 16.0f * s, bodyFs);
+                } else {
+                    const float dotSz = 5.0f * s;
+                    bl.markerLocalRect = Rect(markerX + 4.0f * s, curY + (lineH - dotSz) * 0.5f, dotSz, dotSz);
                 }
 
-                const FlowResult fr = LayoutOrRenderSpans(
+                bl.flowLocalOrigin = {itemX, curY};
+                bl.flow = BuildInlineFlowLayout(
                     canvas,
-                    doRender,
                     blk.spans,
-                    Rect(itemX, curY, itemW, 0.0f),
+                    itemW,
                     bodyFs,
                     inlineCodeFs,
                     lhScale,
                     0.0f,
-                    isTaskChecked ? theme.palette.textSecondary : theme.palette.textPrimary,
                     theme,
                     effZoom,
-                    mousePos,
-                    FontStyle::Regular,
-                    textMap,
-                    overlay
+                    FontStyle::Regular
                 );
-                if (!fr.hoveredLinkUrl.empty()) {
-                    out.hoveredLink = fr.hoveredLinkUrl;
-                    out.hoveredLinkRect = fr.hoveredLinkRect;
-                }
-                curY += fr.height;
-                out.totalWidth = std::max(out.totalWidth, indent + fr.width);
+                CommitInlineFlowToDocument(bl.flow, bl.flowLocalOrigin, out.textMap, out.linkRegions);
+                bl.localBounds = Rect(contentBounds.x, curY, availW, std::max(lineH, bl.flow.height));
+                curY += bl.flow.height;
+                out.totalWidth = std::max(out.totalWidth, indent + bl.flow.width);
                 break;
             }
 
             case BlockKind::CodeBlock: {
-                // Split logical lines
                 std::vector<std::string_view> codeLines;
                 size_t p = 0;
                 std::string_view raw = blk.rawText;
@@ -1652,27 +1775,110 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                 const float codeStartX = contentBounds.x + gutterW + padX;
                 const float codeAvailW = std::max(48.0f * s, availW - gutterW - padX * 2.0f);
                 const float spaceW = std::max(1.0f, MeasureStyledSlice(canvas, " ", codeFs, FontStyle::Monospace));
+                const float codeGlyphH = canvas ? canvas->MeasureTextStyled("Mg", codeFs, FontStyle::Monospace).y : codeFs;
 
-                struct CodeVisualLine {
-                    size_t logicalLine{0};
-                    bool isFirstSlice{true};
-                    bool isLastSlice{true};
-                    size_t startCol{0};
-                    size_t length{0};
-                };
+                SyntaxConfig synCfg = SyntaxConfig::ForLanguage(blk.codeLang);
+                if (opts.codePalette.has_value()) {
+                    synCfg.palette = *opts.codePalette;
+                }
+                const Color defaultCodeCol = opts.codePalette.has_value()
+                    ? opts.codePalette->identifier
+                    : theme.palette.textPrimary;
 
-                std::vector<CodeVisualLine> visualLines;
-                visualLines.reserve(codeLines.size());
+                std::vector<TextSpan> syntaxSpans;
+                bool inBlockComment = false;
+
+                bl.codeVisualLines.reserve(codeLines.size());
 
                 for (size_t ln = 0; ln < codeLines.size(); ++ln) {
                     const std::string_view lineStr = codeLines[ln];
+                    syntaxSpans.clear();
+                    if (opts.syntaxHighlight && !lineStr.empty()) {
+                        TextArea::HighlightLine(
+                            lineStr,
+                            ln,
+                            synCfg,
+                            syntaxSpans,
+                            theme,
+                            opts.codePalette.has_value() ? &(*opts.codePalette) : nullptr,
+                            &inBlockComment
+                        );
+                    }
+
+                    auto emitSlice = [&](size_t startCol, size_t len, bool isFirst, bool isLast) {
+                        const size_t vIdx = bl.codeVisualLines.size();
+                        const float ly = curY + headerH + padY + static_cast<float>(vIdx) * codeLineH;
+                        const float textY = ly + (codeLineH - ((codeGlyphH > 0.0f) ? codeGlyphH : codeFs)) * 0.5f;
+                        const std::string_view sliceStr = lineStr.substr(startCol, len);
+                        const float lineW = std::max(spaceW, MeasureStyledSlice(canvas, sliceStr, codeFs, FontStyle::Monospace));
+                        const Rect lineRect(codeStartX, ly, lineW, codeLineH);
+
+                        const size_t tokIdx = out.textMap.tokens.size();
+                        if (!sliceStr.empty()) {
+                            out.textMap.AddToken(lineRect, sliceStr, codeFs, FontStyle::Monospace, 0.0f);
+                        } else {
+                            out.textMap.AddToken(lineRect, " ", codeFs, FontStyle::Monospace, 0.0f);
+                        }
+                        if (isLast) {
+                            out.textMap.AppendNewline();
+                        }
+
+                        CodeVisualLineLayout vline{};
+                        vline.logicalLine = ln;
+                        vline.isFirstSlice = isFirst;
+                        vline.isLastSlice = isLast;
+                        vline.sliceStr = sliceStr;
+                        vline.localY = ly;
+                        vline.textLocalY = textY;
+                        vline.tokenIndex = tokIdx;
+
+                        if (!sliceStr.empty()) {
+                            if (syntaxSpans.empty()) {
+                                vline.renderSpans.push_back(CodeRenderSpan{
+                                    .text = sliceStr,
+                                    .color = defaultCodeCol,
+                                    .localOffsetX = 0.0f
+                                });
+                            } else {
+                                const size_t sliceEnd = startCol + len;
+                                float spanOffX = 0.0f;
+                                for (const TextSpan& sp : syntaxSpans) {
+                                    const size_t spStart = static_cast<size_t>(sp.startCol);
+                                    const size_t spEnd = spStart + static_cast<size_t>(sp.length);
+                                    const size_t segStart = std::max(spStart, startCol);
+                                    const size_t segEnd = std::min({spEnd, sliceEnd, lineStr.size()});
+                                    if (segEnd > segStart) {
+                                        const std::string_view tok = lineStr.substr(segStart, segEnd - segStart);
+                                        bool allSpaces = true;
+                                        for (char ch : tok) {
+                                            if (ch != ' ' && ch != '\t') {
+                                                allSpaces = false;
+                                                break;
+                                            }
+                                        }
+                                        if (!allSpaces) {
+                                            vline.renderSpans.push_back(CodeRenderSpan{
+                                                .text = tok,
+                                                .color = sp.color,
+                                                .localOffsetX = spanOffX
+                                            });
+                                        }
+                                        spanOffX += MeasureStyledSlice(canvas, tok, codeFs, FontStyle::Monospace);
+                                    }
+                                }
+                            }
+                        }
+
+                        bl.codeVisualLines.push_back(std::move(vline));
+                    };
+
                     if (lineStr.empty()) {
-                        visualLines.push_back(CodeVisualLine{ln, true, true, 0, 0});
+                        emitSlice(0, 0, true, true);
                         continue;
                     }
                     const float fullW = MeasureStyledSlice(canvas, lineStr, codeFs, FontStyle::Monospace);
                     if (fullW <= codeAvailW + 0.5f) {
-                        visualLines.push_back(CodeVisualLine{ln, true, true, 0, lineStr.size()});
+                        emitSlice(0, lineStr.size(), true, true);
                         continue;
                     }
 
@@ -1719,245 +1925,31 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                             }
                         }
 
-                        visualLines.push_back(CodeVisualLine{
-                            ln,
-                            (pos == 0),
-                            (splitEnd >= lineStr.size()),
-                            pos,
-                            splitEnd - pos
-                        });
+                        emitSlice(pos, splitEnd - pos, (pos == 0), (splitEnd >= lineStr.size()));
                         pos = splitEnd;
                     }
                 }
 
-                const float bodyH = static_cast<float>(visualLines.size()) * codeLineH + padY * 2.0f;
+                const float bodyH = static_cast<float>(bl.codeVisualLines.size()) * codeLineH + padY * 2.0f;
                 const float totalBoxH = headerH + bodyH;
-                const Rect boxRect(contentBounds.x, curY, availW, totalBoxH);
+                bl.localBounds = Rect(contentBounds.x, curY, availW, totalBoxH);
+                bl.headerH = headerH;
+                bl.padX = padX;
+                bl.padY = padY;
+                bl.boxRadius = blkRad;
+                bl.gutterW = gutterW;
+                bl.codeStartX = codeStartX;
+                bl.spaceW = spaceW;
+                bl.codeFs = codeFs;
+                bl.codeLineH = codeLineH;
+                bl.bodyH = bodyH;
 
-                // Copy button geometry in header
-                const float copyBtnW = (activeCopiedBlock == blk.codeBlockIndex) ? (72.0f * s) : (56.0f * s);
-                const float copyBtnH = 20.0f * s;
-                const Rect copyBtnRect(
-                    boxRect.Right() - copyBtnW - 6.0f * s,
-                    boxRect.y + (headerH - copyBtnH) * 0.5f,
-                    copyBtnW,
-                    copyBtnH
-                );
-                if (opts.showCopyButton && !disabled && copyBtnRect.Contains(mousePos)) {
-                    out.hoveredCopyBlock = blk.codeBlockIndex;
-                    out.hoveredCopyCode = blk.rawText;
-                }
-
-                // Record visual code slices into DocumentTextMap for selection, cursor movement, and search
-                std::vector<size_t> codeLineTokenIndices;
-                if (textMap) {
-                    codeLineTokenIndices.reserve(visualLines.size());
-                    for (size_t vIdx = 0; vIdx < visualLines.size(); ++vIdx) {
-                        const CodeVisualLine& vline = visualLines[vIdx];
-                        const float ly = boxRect.y + headerH + padY + static_cast<float>(vIdx) * codeLineH;
-                        const std::string_view sliceStr = codeLines[vline.logicalLine].substr(vline.startCol, vline.length);
-                        const float lineW = std::max(spaceW, MeasureStyledSlice(canvas, sliceStr, codeFs, FontStyle::Monospace));
-                        const Rect lineRect(codeStartX, ly, lineW, codeLineH);
-                        codeLineTokenIndices.push_back(textMap->tokens.size());
-                        if (!sliceStr.empty()) {
-                            textMap->AddToken(lineRect, sliceStr, codeFs, FontStyle::Monospace, 0.0f);
-                        } else {
-                            textMap->AddToken(lineRect, " ", codeFs, FontStyle::Monospace, 0.0f);
-                        }
-                        if (vline.isLastSlice) {
-                            textMap->AppendNewline();
-                        }
-                    }
-                }
-
-                if (doRender && canvas) {
-                    // Resolve language-specific syntax rules + optional custom SyntaxPalette from TextArea!
-                    SyntaxConfig synCfg = SyntaxConfig::ForLanguage(blk.codeLang);
-                    if (opts.codePalette.has_value()) {
-                        synCfg.palette = *opts.codePalette;
-                    }
-                    const bool hasCustomBg = opts.codePalette.has_value() && opts.codePalette->editorBg.a > 0;
-                    const Color codeBg = hasCustomBg ? opts.codePalette->editorBg : theme.palette.surfaceElevated;
-                    const Color gutterBg = (opts.codePalette.has_value() && opts.codePalette->gutterBg.a > 0)
-                        ? opts.codePalette->gutterBg
-                        : theme.palette.surface;
-                    const Color defaultCodeCol = opts.codePalette.has_value()
-                        ? opts.codePalette->identifier
-                        : theme.palette.textPrimary;
-                    const Color lineNumCol = opts.codePalette.has_value()
-                        ? opts.codePalette->comment
-                        : theme.palette.textMuted;
-                    const Color wsColor = opts.codePalette.has_value()
-                        ? opts.codePalette->comment.WithAlpha(110)
-                        : theme.palette.textMuted.WithAlpha(110);
-
-                    canvas->DrawRoundRect(boxRect, blkRad, codeBg, theme.palette.borderSubtle, 1.0f);
-                    // Header background & divider
-                    canvas->DrawRoundRect(Rect(boxRect.x, boxRect.y, boxRect.w, headerH), blkRad, gutterBg);
-                    canvas->DrawLine(
-                        {boxRect.x, boxRect.y + headerH},
-                        {boxRect.Right(), boxRect.y + headerH},
-                        theme.palette.borderSubtle,
-                        1.0f
-                    );
-
-                    const float lblFs = theme.GetFontSize(TextRole::LabelSmall) * effZoom;
-                    const std::string_view langLabel = blk.codeLang.empty() ? "code" : std::string_view(blk.codeLang);
-                    canvas->DrawTextStyled(
-                        langLabel,
-                        {boxRect.x + padX, boxRect.y + (headerH - lblFs) * 0.5f},
-                        lblFs,
-                        lineNumCol,
-                        FontStyle::Bold
-                    );
-
-                    if (opts.showCopyButton) {
-                        const bool isHov = (hoveredCopyBlock == blk.codeBlockIndex);
-                        const bool isCopied = (activeCopiedBlock == blk.codeBlockIndex);
-                        const Color btnBg = isCopied
-                            ? theme.GetVariant(UiVariant::Success).bg.WithAlpha(40)
-                            : (isHov ? theme.palette.accent.WithAlpha(35) : codeBg);
-                        const Color btnBorder = isCopied
-                            ? theme.GetVariant(UiVariant::Success).bg
-                            : (isHov ? theme.palette.accent : theme.palette.borderSubtle);
-                        const Color btnText = isCopied
-                            ? theme.GetVariant(UiVariant::Success).bg
-                            : (isHov ? theme.palette.accent : defaultCodeCol);
-                        canvas->DrawRoundRect(copyBtnRect, 4.0f * s, btnBg, btnBorder, 1.0f);
-                        canvas->DrawTextBox(
-                            isCopied ? "Copied" : "Copy",
-                            copyBtnRect,
-                            lblFs,
-                            btnText,
-                            0.5f,
-                            0.5f
-                        );
-                    }
-
-                    // Render code lines with gutter, indent guides, whitespace markers, selection & syntax highlighting
-                    canvas->PushClip(Rect(boxRect.x + 1.0f, boxRect.y + headerH + 1.0f, boxRect.w - 2.0f, bodyH - 2.0f));
-                    if (opts.codeLineNumbers) {
-                        canvas->DrawRect(Rect(boxRect.x, boxRect.y + headerH, gutterW, bodyH), gutterBg.WithAlpha(180));
-                        canvas->DrawLine(
-                            {boxRect.x + gutterW, boxRect.y + headerH},
-                            {boxRect.x + gutterW, boxRect.Bottom()},
-                            theme.palette.borderSubtle,
-                            1.0f
-                        );
-                    }
-
-                    const float codeGlyphH = canvas->MeasureTextStyled("Mg", codeFs, FontStyle::Monospace).y;
-                    std::vector<TextSpan> syntaxSpans;
-                    bool inBlockComment = false;
-
-                    for (size_t vIdx = 0; vIdx < visualLines.size(); ++vIdx) {
-                        const CodeVisualLine& vline = visualLines[vIdx];
-                        const size_t ln = vline.logicalLine;
-                        const std::string_view fullLineStr = codeLines[ln];
-                        const std::string_view sliceStr = fullLineStr.substr(vline.startCol, vline.length);
-
-                        const float ly = boxRect.y + headerH + padY + static_cast<float>(vIdx) * codeLineH;
-                        const float textY = ly + (codeLineH - ((codeGlyphH > 0.0f) ? codeGlyphH : codeFs)) * 0.5f;
-
-                        if (opts.codeLineNumbers && vline.isFirstSlice) {
-                            char lnBuf[16];
-                            std::snprintf(lnBuf, sizeof(lnBuf), "%zu", ln + 1);
-                            canvas->DrawTextBox(
-                                lnBuf,
-                                Rect(boxRect.x + 4.0f * s, ly, gutterW - 10.0f * s, codeLineH),
-                                theme.GetFontSize(TextRole::CodeSmall) * effZoom,
-                                lineNumCol,
-                                1.0f,
-                                0.5f
-                            );
-                        }
-
-                        if (textMap && vIdx < codeLineTokenIndices.size()) {
-                            const PositionedToken& tok = textMap->tokens[codeLineTokenIndices[vIdx]];
-                            DrawTokenSelectionAndSearchHighlights(*canvas, tok, textMap->plainText, overlay, theme);
-                        }
-
-                        // Indent guides (every 4 leading spaces on first slice of logical line)
-                        if (opts.codeIndentGuides && vline.isFirstSlice && !sliceStr.empty() && spaceW > 0.0f) {
-                            size_t leadSpaces = 0;
-                            while (leadSpaces < sliceStr.size() && sliceStr[leadSpaces] == ' ') ++leadSpaces;
-                            for (size_t col = 4; col <= leadSpaces; col += 4) {
-                                const float gx = std::round(codeStartX + static_cast<float>(col) * spaceW);
-                                canvas->DrawLine({gx, ly}, {gx, ly + codeLineH}, theme.palette.borderSubtle.WithAlpha(90), 1.0f);
-                            }
-                        }
-
-                        // Visible whitespace markers (space dots and tab arrows)
-                        if (opts.codeShowWhitespace && !sliceStr.empty() && spaceW > 0.0f) {
-                            const float dotR = std::max(1.2f, 1.4f * s);
-                            const float cy = ly + codeLineH * 0.5f;
-                            for (size_t c = 0; c < sliceStr.size(); ++c) {
-                                if (sliceStr[c] == ' ') {
-                                    const float cx = codeStartX + (static_cast<float>(c) + 0.5f) * spaceW;
-                                    canvas->DrawRoundRect(Rect(cx - dotR, cy - dotR, dotR * 2.0f, dotR * 2.0f), dotR, wsColor);
-                                } else if (sliceStr[c] == '\t') {
-                                    const float x0 = codeStartX + static_cast<float>(c) * spaceW + 2.0f * s;
-                                    const float x1 = codeStartX + static_cast<float>(c + 1) * spaceW - 2.0f * s;
-                                    if (x1 > x0) {
-                                        canvas->DrawLine({x0, cy}, {x1, cy}, wsColor, 1.2f);
-                                        canvas->DrawLine({x1 - 3.0f * s, cy - 2.5f * s}, {x1, cy}, wsColor, 1.2f);
-                                        canvas->DrawLine({x1 - 3.0f * s, cy + 2.5f * s}, {x1, cy}, wsColor, 1.2f);
-                                    }
-                                }
-                            }
-                        }
-
-                        if (opts.syntaxHighlight && !fullLineStr.empty()) {
-                            if (vline.isFirstSlice) {
-                                syntaxSpans.clear();
-                                TextArea::HighlightLine(
-                                    fullLineStr,
-                                    ln,
-                                    synCfg,
-                                    syntaxSpans,
-                                    theme,
-                                    opts.codePalette.has_value() ? &(*opts.codePalette) : nullptr,
-                                    &inBlockComment
-                                );
-                            }
-                            if (syntaxSpans.empty() && !sliceStr.empty()) {
-                                canvas->DrawTextStyled(sliceStr, {codeStartX, textY}, codeFs, defaultCodeCol, FontStyle::Monospace);
-                            } else if (!sliceStr.empty()) {
-                                const size_t sliceStart = vline.startCol;
-                                const size_t sliceEnd = vline.startCol + vline.length;
-                                float spanX = codeStartX;
-                                for (const TextSpan& sp : syntaxSpans) {
-                                    const size_t spStart = static_cast<size_t>(sp.startCol);
-                                    const size_t spEnd = spStart + static_cast<size_t>(sp.length);
-                                    const size_t segStart = std::max(spStart, sliceStart);
-                                    const size_t segEnd = std::min({spEnd, sliceEnd, fullLineStr.size()});
-                                    if (segEnd > segStart) {
-                                        const std::string_view tok = fullLineStr.substr(segStart, segEnd - segStart);
-                                        bool allSpaces = true;
-                                        for (char ch : tok) {
-                                            if (ch != ' ' && ch != '\t') {
-                                                allSpaces = false;
-                                                break;
-                                            }
-                                        }
-                                        if (!allSpaces) {
-                                            canvas->DrawTextStyled(tok, {spanX, textY}, codeFs, sp.color, FontStyle::Monospace);
-                                        }
-                                        spanX += canvas->MeasureTextStyled(tok, codeFs, FontStyle::Monospace).x;
-                                    }
-                                }
-                            }
-                        } else if (!sliceStr.empty()) {
-                            canvas->DrawTextStyled(sliceStr, {codeStartX, textY}, codeFs, defaultCodeCol, FontStyle::Monospace);
-                        }
-
-                        if (textMap && vIdx < codeLineTokenIndices.size()) {
-                            const PositionedToken& tok = textMap->tokens[codeLineTokenIndices[vIdx]];
-                            DrawTokenCaretIfPresent(*canvas, tok, textMap->plainText, overlay, theme);
-                        }
-                    }
-                    canvas->PopClip();
-                }
+                out.copyRegions.push_back(CopyBtnHitRegion{
+                    .boxLocalRect = bl.localBounds,
+                    .headerH = headerH,
+                    .codeBlockIndex = blk.codeBlockIndex,
+                    .rawCode = blk.rawText
+                });
 
                 curY += totalBoxH;
                 out.totalWidth = std::max(out.totalWidth, availW);
@@ -1965,6 +1957,7 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
             }
 
             case BlockKind::ImageBlock: {
+                const float startY = curY;
                 Vec2 nat = canvas ? canvas->GetImageSize(blk.rawText) : Vec2{0.0f, 0.0f};
                 if (nat.x <= 0.0f || nat.y <= 0.0f) {
                     nat = {320.0f, 160.0f};
@@ -1975,58 +1968,32 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                 const float imgW = std::max(40.0f, scaledNat.x * scaleFactor);
                 const float imgH = std::max(30.0f, scaledNat.y * scaleFactor);
                 const float imgX = contentBounds.x + (availW - imgW) * 0.5f;
-                const Rect imgRect(imgX, curY, imgW, imgH);
-                const float rad = opts.imageRadius * s;
-
-                if (doRender && canvas) {
-                    if (opts.imageCheckerboard) {
-                        Image::DrawCheckerboard(*canvas, imgRect, rad, theme, 10.0f);
-                    } else {
-                        canvas->DrawRoundRect(imgRect, rad, theme.palette.surfaceElevated);
-                    }
-                    if (!canvas->DrawImage(blk.rawText, imgRect, rad, 255)) {
-                        canvas->DrawTextBox(
-                            blk.imageAlt.empty() ? blk.rawText : std::string_view(blk.imageAlt),
-                            imgRect.Inset(8.0f),
-                            theme.GetFontSize(TextRole::LabelMedium) * effZoom,
-                            theme.palette.textMuted,
-                            0.5f,
-                            0.5f
-                        );
-                    }
-                    canvas->DrawRoundRect(imgRect, rad, Color::Transparent(), theme.palette.borderSubtle, 1.0f);
-                }
+                bl.imgLocalRect = Rect(imgX, curY, imgW, imgH);
+                bl.imgRadius = opts.imageRadius * s;
                 curY += imgH;
 
-                if (!blk.imageAlt.empty()) {
+                if (!blk.spans.empty()) {
                     const float capFs = theme.GetFontSize(TextRole::LabelSmall) * effZoom;
                     const float capCodeFs = capFs * 0.92f;
                     curY += 4.0f * s;
-                    std::vector<InlineSpan> capSpans = ParseInlineSpans(blk.imageAlt, FontStyle::Italic, false);
-                    const FlowResult capFr = LayoutOrRenderSpans(
+                    bl.flowLocalOrigin = {contentBounds.x, curY};
+                    bl.flow = BuildInlineFlowLayout(
                         canvas,
-                        doRender,
-                        capSpans,
-                        Rect(contentBounds.x, curY, availW, 0.0f),
+                        blk.spans,
+                        availW,
                         capFs,
                         capCodeFs,
                         lhScale,
                         0.0f,
-                        theme.palette.textMuted,
                         theme,
                         effZoom,
-                        mousePos,
                         FontStyle::Italic,
-                        textMap,
-                        overlay,
                         Align::Center
                     );
-                    if (!capFr.hoveredLinkUrl.empty()) {
-                        out.hoveredLink = capFr.hoveredLinkUrl;
-                        out.hoveredLinkRect = capFr.hoveredLinkRect;
-                    }
-                    curY += capFr.height;
+                    CommitInlineFlowToDocument(bl.flow, bl.flowLocalOrigin, out.textMap, out.linkRegions);
+                    curY += bl.flow.height;
                 }
+                bl.localBounds = Rect(contentBounds.x, startY, availW, curY - startY);
                 out.totalWidth = std::max(out.totalWidth, availW);
                 break;
             }
@@ -2038,11 +2005,10 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                     numCols = std::max(numCols, r.size());
                 }
 
-                // Adaptive cell padding: scales down smoothly in narrow viewports so columns retain text room
                 const float cellPadX = std::clamp(availW / (static_cast<float>(numCols) * 14.0f), 4.5f * s, 10.0f * s);
                 const float cellPadY = std::clamp(cellPadX * 0.7f, 4.5f * s, 7.0f * s);
 
-                // 1. Measure unbreakable single-token widths and unwrapped natural cell widths at base font sizes
+                // 1. Single-pass intrinsic width measurement per cell
                 std::vector<float> minTextW(numCols, 24.0f * s);
                 std::vector<float> naturalTextW(numCols, 24.0f * s);
 
@@ -2050,48 +2016,16 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                     const FontStyle rowBaseStyle = (r == 0) ? FontStyle::Bold : FontStyle::Regular;
                     const auto& rowCells = blk.tableRows[r];
                     for (size_t c = 0; c < numCols && c < rowCells.size(); ++c) {
-                        const FlowResult natFr = LayoutOrRenderSpans(
+                        const auto [cellMinTokW, cellNatW] = MeasureCellIntrinsicWidths(
                             canvas,
-                            false,
                             rowCells[c].spans,
-                            Rect(0.0f, 0.0f, 10000.0f, 0.0f),
                             bodyFs,
                             inlineCodeFs,
-                            lhScale,
-                            0.0f,
-                            theme.palette.textPrimary,
-                            theme,
-                            effZoom,
-                            mousePos,
                             rowBaseStyle,
-                            nullptr,
-                            nullptr
+                            s
                         );
-                        naturalTextW[c] = std::max(naturalTextW[c], natFr.width);
-
-                        // Measure widest unbreakable token (word or inline code pill) in this cell
-                        float maxTokenW = 0.0f;
-                        for (const auto& sp : rowCells[c].spans) {
-                            if (sp.kind == InlineKind::Code) {
-                                maxTokenW = std::max(
-                                    maxTokenW,
-                                    MeasureStyledSlice(canvas, sp.text, inlineCodeFs, FontStyle::Monospace) + 9.0f * s
-                                );
-                            } else {
-                                const FontStyle effStyle = CombineFontStyles(rowBaseStyle, sp.style);
-                                std::string_view sv = sp.text;
-                                size_t i = 0;
-                                while (i < sv.size()) {
-                                    while (i < sv.size() && (sv[i] == ' ' || sv[i] == '\t' || sv[i] == '\n')) ++i;
-                                    size_t start = i;
-                                    while (i < sv.size() && sv[i] != ' ' && sv[i] != '\t' && sv[i] != '\n') ++i;
-                                    if (i > start) {
-                                        maxTokenW = std::max(maxTokenW, MeasureStyledSlice(canvas, sv.substr(start, i - start), bodyFs, effStyle));
-                                    }
-                                }
-                            }
-                        }
-                        minTextW[c] = std::max(minTextW[c], maxTokenW);
+                        minTextW[c] = std::max(minTextW[c], cellMinTokW);
+                        naturalTextW[c] = std::max(naturalTextW[c], cellNatW);
                     }
                 }
 
@@ -2103,8 +2037,6 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
 
                 const float totalPadW = static_cast<float>(numCols) * cellPadX * 2.0f;
                 const float availTextW = std::max(32.0f * s, availW - totalPadW);
-
-                // Smoothly scale table typography when viewport is narrower than the sum of unbreakable column words
                 const float tableFontScale = (availTextW < sumMinTextW * 1.03f && sumMinTextW > 0.0f)
                     ? std::clamp(availTextW / (sumMinTextW * 1.03f), 0.68f, 1.0f)
                     : 1.0f;
@@ -2124,37 +2056,38 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                     sumNatW += naturalColW[c];
                 }
 
-                std::vector<float> colWidths(numCols, availW / static_cast<float>(numCols));
+                bl.colWidths.assign(numCols, availW / static_cast<float>(numCols));
                 if (availW >= sumNatW && sumNatW > 0.0f) {
                     const float extraW = availW - sumNatW;
                     for (size_t c = 0; c < numCols; ++c) {
-                        colWidths[c] = naturalColW[c] + extraW * (naturalColW[c] / sumNatW);
+                        bl.colWidths[c] = naturalColW[c] + extraW * (naturalColW[c] / sumNatW);
                     }
                 } else if (availW >= sumMinW && sumNatW > sumMinW) {
                     const float flexAvail = availW - sumMinW;
                     const float flexTotal = sumNatW - sumMinW;
                     for (size_t c = 0; c < numCols; ++c) {
-                        colWidths[c] = minColW[c] + flexAvail * ((naturalColW[c] - minColW[c]) / flexTotal);
+                        bl.colWidths[c] = minColW[c] + flexAvail * ((naturalColW[c] - minColW[c]) / flexTotal);
                     }
                 } else if (sumMinW > 0.0f) {
                     for (size_t c = 0; c < numCols; ++c) {
-                        colWidths[c] = availW * (minColW[c] / sumMinW);
+                        bl.colWidths[c] = availW * (minColW[c] / sumMinW);
                     }
                 }
 
-                std::vector<float> colX(numCols, contentBounds.x);
+                bl.colX.resize(numCols, contentBounds.x);
                 {
                     float accumX = contentBounds.x;
                     for (size_t c = 0; c < numCols; ++c) {
-                        colX[c] = accumX;
-                        accumX += colWidths[c];
+                        bl.colX[c] = accumX;
+                        accumX += bl.colWidths[c];
                     }
                 }
 
-                // 2. Measure wrapped height of every cell and determine dynamic row heights
+                // 2. Build each cell's InlineFlowLayout ONCE, compute rowHeights, and commit tokens at centered Y
                 const size_t numRows = blk.tableRows.size();
-                std::vector<std::vector<float>> cellHeights(numRows, std::vector<float>(numCols, 0.0f));
-                std::vector<float> rowHeights(numRows, minRowH);
+                bl.cellFlows.resize(numRows, std::vector<InlineFlowLayout>(numCols));
+                bl.cellFlowOrigins.resize(numRows, std::vector<Vec2>(numCols));
+                bl.rowHeights.assign(numRows, minRowH);
                 float tableH = 0.0f;
 
                 for (size_t r = 0; r < numRows; ++r) {
@@ -2163,115 +2096,567 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                     float maxCellH = 0.0f;
                     for (size_t c = 0; c < numCols && c < rowCells.size(); ++c) {
                         const Align colAlign = (c < blk.tableAligns.size()) ? blk.tableAligns[c] : Align::Start;
-                        const float cellInnerW = std::max(8.0f, colWidths[c] - cellPadX * 2.0f);
-                        const FlowResult cfr = LayoutOrRenderSpans(
+                        const float cellInnerW = std::max(8.0f, bl.colWidths[c] - cellPadX * 2.0f);
+                        bl.cellFlows[r][c] = BuildInlineFlowLayout(
                             canvas,
-                            false,
                             rowCells[c].spans,
-                            Rect(0.0f, 0.0f, cellInnerW, 0.0f),
+                            cellInnerW,
                             tableBodyFs,
                             tableCodeFs,
                             lhScale,
                             0.0f,
-                            theme.palette.textPrimary,
                             theme,
                             tableEffZoom,
-                            mousePos,
                             cellStyle,
-                            nullptr,
-                            nullptr,
                             colAlign
                         );
-                        cellHeights[r][c] = cfr.height;
-                        maxCellH = std::max(maxCellH, cfr.height);
+                        maxCellH = std::max(maxCellH, bl.cellFlows[r][c].height);
                     }
-                    rowHeights[r] = std::max(minRowH, maxCellH + cellPadY * 2.0f);
-                    tableH += rowHeights[r];
+                    bl.rowHeights[r] = std::max(minRowH, maxCellH + cellPadY * 2.0f);
+                    tableH += bl.rowHeights[r];
                 }
 
-                const Rect tableRect(contentBounds.x, curY, availW, tableH);
-                if (doRender && canvas) {
-                    canvas->DrawRoundRect(tableRect, blkRad, theme.palette.surface, theme.palette.borderSubtle, 1.0f);
-                }
-
-                // 3. Render rows and cells with vertical centering, cell clipping, and per-line horizontal alignment
                 float ry = curY;
                 for (size_t r = 0; r < numRows; ++r) {
-                    const float rowH = rowHeights[r];
-                    const Rect rowRect(contentBounds.x, ry, availW, rowH);
-                    if (doRender && canvas) {
-                        if (r == 0) {
-                            canvas->DrawRoundRect(rowRect, blkRad, theme.palette.surfaceElevated);
-                        } else if (r % 2 == 1) {
-                            canvas->DrawRect(rowRect.Inset(1.0f, 0.0f), theme.palette.surfaceElevated.WithAlpha(90));
-                        }
-                        if (r > 0) {
-                            canvas->DrawLine({rowRect.x, ry}, {rowRect.Right(), ry}, theme.palette.borderSubtle, 1.0f);
-                        }
-                    }
-
+                    const float rowH = bl.rowHeights[r];
                     const auto& rowCells = blk.tableRows[r];
-                    for (size_t c = 0; c < numCols; ++c) {
-                        const float cx = colX[c];
-                        const float cw = colWidths[c];
-                        if (doRender && canvas && c > 0) {
-                            canvas->DrawLine({cx, ry}, {cx, ry + rowH}, theme.palette.borderSubtle, 1.0f);
-                        }
-                        if (c < rowCells.size()) {
-                            const Align colAlign = (c < blk.tableAligns.size()) ? blk.tableAligns[c] : Align::Start;
-                            const FontStyle cellStyle = (r == 0) ? FontStyle::Bold : FontStyle::Regular;
-                            const float cellInnerW = std::max(8.0f, cw - cellPadX * 2.0f);
-                            const float cellContentH = cellHeights[r][c];
-                            const float cellContentY = ry + std::max(cellPadY, (rowH - cellContentH) * 0.5f);
-
-                            if (doRender && canvas) {
-                                canvas->PushClip(Rect(cx + 1.0f, ry + 1.0f, std::max(1.0f, cw - 2.0f), std::max(1.0f, rowH - 2.0f)));
-                            }
-                            const FlowResult rfr = LayoutOrRenderSpans(
-                                canvas,
-                                doRender,
-                                rowCells[c].spans,
-                                Rect(cx + cellPadX, cellContentY, cellInnerW, cellContentH),
-                                tableBodyFs,
-                                tableCodeFs,
-                                lhScale,
-                                0.0f,
-                                theme.palette.textPrimary,
-                                theme,
-                                tableEffZoom,
-                                mousePos,
-                                cellStyle,
-                                textMap,
-                                overlay,
-                                colAlign
-                            );
-                            if (doRender && canvas) {
-                                canvas->PopClip();
-                            }
-                            if (!rfr.hoveredLinkUrl.empty()) {
-                                out.hoveredLink = rfr.hoveredLinkUrl;
-                                out.hoveredLinkRect = rfr.hoveredLinkRect;
-                            }
-                        }
+                    for (size_t c = 0; c < numCols && c < rowCells.size(); ++c) {
+                        const float cellContentH = bl.cellFlows[r][c].height;
+                        const float cellContentY = ry + std::max(cellPadY, (rowH - cellContentH) * 0.5f);
+                        const Vec2 cellOrigin{bl.colX[c] + cellPadX, cellContentY};
+                        bl.cellFlowOrigins[r][c] = cellOrigin;
+                        CommitInlineFlowToDocument(bl.cellFlows[r][c], cellOrigin, out.textMap, out.linkRegions);
                     }
                     ry += rowH;
                 }
+
+                bl.localBounds = Rect(contentBounds.x, curY, availW, tableH);
+                bl.boxRadius = blkRad;
+                bl.padX = cellPadX;
+                bl.padY = cellPadY;
                 curY += tableH;
                 out.totalWidth = std::max(out.totalWidth, availW);
                 break;
             }
         }
+
+        out.blocks.push_back(std::move(bl));
     }
 
-    out.totalHeight = std::max(0.0f, (curY - outerBounds.y) + docPad);
+    out.totalHeight = std::max(0.0f, curY + docPad);
     out.totalWidth += docPad * 2.0f;
+    return layoutPtr;
+}
+
+std::shared_ptr<const MarkdownDocumentLayout> GetOrBuildMarkdownLayout(
+    ICanvas* canvas,
+    float outerWidth,
+    const ParsedMarkdownDoc& doc,
+    const MarkdownOptions& opts,
+    const UiTheme& theme,
+    float zoom
+) {
+    static std::unordered_map<uint64_t, std::shared_ptr<const MarkdownDocumentLayout>> s_layoutCache;
+    const float effZoom = std::clamp(zoom, 0.5f, 3.0f);
+    const uint64_t key = ComputeMarkdownLayoutKey(doc.sourceHash, outerWidth, effZoom, opts, theme, canvas != nullptr);
+
+    auto it = s_layoutCache.find(key);
+    if (it != s_layoutCache.end()) {
+        return it->second;
+    }
+    if (s_layoutCache.size() > 32) {
+        s_layoutCache.clear();
+    }
+
+    auto built = BuildMarkdownDocumentLayout(canvas, outerWidth, doc, opts, theme, effZoom, key);
+    s_layoutCache.emplace(key, built);
+    return built;
+}
+
+// --- Phase 3A: O(1) / O(K) Document Hit-Testing (Zero Layout, Zero Font Measurement) ---
+
+MarkdownPassResult HitTestMarkdownLayout(
+    const MarkdownDocumentLayout& layout,
+    Rect outerBounds,
+    Vec2 screenMousePos,
+    int activeCopiedBlock,
+    bool interactiveTasks,
+    bool showCopyButton,
+    bool disabled,
+    const std::unordered_map<int, bool>* taskOverrides
+) noexcept {
+    MarkdownPassResult out{};
+    out.totalWidth = layout.totalWidth;
+    out.totalHeight = layout.totalHeight;
+    if (disabled || !outerBounds.Contains(screenMousePos)) {
+        return out;
+    }
+
+    const Vec2 docOrigin = outerBounds.Pos();
+    const Vec2 localMouse = screenMousePos - docOrigin;
+    const float s = layout.scale;
+
+    for (const LinkHitRegion& lr : layout.linkRegions) {
+        if (lr.localRect.Contains(localMouse)) {
+            out.hoveredLink = lr.url;
+            out.hoveredLinkRect = OffsetRect(lr.localRect, docOrigin);
+            break;
+        }
+    }
+
+    if (showCopyButton) {
+        for (const CopyBtnHitRegion& cr : layout.copyRegions) {
+            const float copyBtnW = (activeCopiedBlock == cr.codeBlockIndex) ? (72.0f * s) : (56.0f * s);
+            const float copyBtnH = 20.0f * s;
+            const Rect btnLocalRect(
+                cr.boxLocalRect.Right() - copyBtnW - 6.0f * s,
+                cr.boxLocalRect.y + (cr.headerH - copyBtnH) * 0.5f,
+                copyBtnW,
+                copyBtnH
+            );
+            if (btnLocalRect.Contains(localMouse)) {
+                out.hoveredCopyBlock = cr.codeBlockIndex;
+                out.hoveredCopyCode = cr.rawCode;
+                break;
+            }
+        }
+    }
+
+    if (interactiveTasks) {
+        for (const TaskHitRegion& tr : layout.taskRegions) {
+            if (tr.localHitRect.Contains(localMouse)) {
+                bool isChecked = tr.defaultChecked;
+                if (taskOverrides) {
+                    auto it = taskOverrides->find(tr.taskIndex);
+                    if (it != taskOverrides->end()) {
+                        isChecked = it->second;
+                    }
+                }
+                out.hoveredTaskIndex = tr.taskIndex;
+                out.hoveredTaskCurrentState = isChecked;
+                break;
+            }
+        }
+    }
+
     return out;
+}
+
+// --- Phase 3B: Zero-Layout Document Rendering with Viewport Frustum Culling ---
+
+void RenderMarkdownDocumentLayout(
+    ICanvas& canvas,
+    const ParsedMarkdownDoc& doc,
+    const MarkdownDocumentLayout& layout,
+    Rect outerBounds,
+    Rect visibleViewportRect,
+    const MarkdownOptions& opts,
+    const UiTheme& theme,
+    Vec2 screenMousePos,
+    int hoveredCopyBlock,
+    int activeCopiedBlock,
+    int hoveredTaskIndex,
+    const RenderOverlayState* overlay
+) {
+    const Vec2 docOrigin = outerBounds.Pos();
+    const Vec2 localMouse = screenMousePos - docOrigin;
+    const float effZoom = layout.effZoom;
+    const float s = layout.scale;
+    const float bodyFs = (opts.bodyFontSize.has_value() ? theme.Scale(*opts.bodyFontSize) : theme.GetFontSize(TextRole::BodyMedium)) * effZoom;
+
+    for (const BlockLayout& bl : layout.blocks) {
+        if (bl.astBlockIndex >= doc.blocks.size()) continue;
+        const MarkdownBlock& blk = doc.blocks[bl.astBlockIndex];
+        const Rect screenBlk = OffsetRect(bl.localBounds, docOrigin);
+
+        // O(1) Viewport Frustum Culling: skip any block completely outside the visible scroll viewport
+        if (visibleViewportRect.h > 0.0f &&
+            (screenBlk.Bottom() < visibleViewportRect.y - 2.0f || screenBlk.y > visibleViewportRect.Bottom() + 2.0f)) {
+            continue;
+        }
+
+        switch (bl.kind) {
+            case BlockKind::Divider: {
+                const float ly = screenBlk.y + screenBlk.h * 0.5f;
+                canvas.DrawLine({screenBlk.x, ly}, {screenBlk.Right(), ly}, theme.palette.borderSubtle, 1.0f);
+                break;
+            }
+
+            case BlockKind::Heading: {
+                RenderInlineFlowLayout(
+                    canvas,
+                    bl.flow,
+                    docOrigin + bl.flowLocalOrigin,
+                    docOrigin,
+                    theme.palette.textPrimary,
+                    layout.textMap,
+                    overlay,
+                    theme,
+                    localMouse
+                );
+                if (bl.hasHeadingDivider) {
+                    const float dy = docOrigin.y + bl.dividerLocalY;
+                    canvas.DrawLine({screenBlk.x, dy}, {screenBlk.Right(), dy}, theme.palette.borderSubtle, 1.0f);
+                }
+                break;
+            }
+
+            case BlockKind::Paragraph: {
+                RenderInlineFlowLayout(
+                    canvas,
+                    bl.flow,
+                    docOrigin + bl.flowLocalOrigin,
+                    docOrigin,
+                    theme.palette.textPrimary,
+                    layout.textMap,
+                    overlay,
+                    theme,
+                    localMouse
+                );
+                break;
+            }
+
+            case BlockKind::Blockquote: {
+                canvas.DrawRoundRect(screenBlk, bl.boxRadius, theme.palette.surfaceElevated.WithAlpha(140));
+                canvas.DrawRoundRect(Rect(screenBlk.x, screenBlk.y, 4.0f * s, screenBlk.h), 2.0f * s, theme.palette.borderHover);
+                RenderInlineFlowLayout(
+                    canvas,
+                    bl.flow,
+                    docOrigin + bl.flowLocalOrigin,
+                    docOrigin,
+                    theme.palette.textSecondary,
+                    layout.textMap,
+                    overlay,
+                    theme,
+                    localMouse
+                );
+                break;
+            }
+
+            case BlockKind::Alert: {
+                const Color accent = AlertAccentColor(blk.alertKind, theme);
+                canvas.DrawRoundRect(screenBlk, bl.boxRadius, accent.WithAlpha(24), accent.WithAlpha(90), 1.0f);
+                canvas.DrawRoundRect(Rect(screenBlk.x, screenBlk.y, 4.0f * s, screenBlk.h), 2.0f * s, accent);
+
+                const Icon ic = AlertIcon(blk.alertKind);
+                const float icSz = 15.0f * s;
+                ic.Render(canvas, Rect(screenBlk.x + bl.padX, screenBlk.y + bl.padY + (bl.headerH - icSz) * 0.5f, icSz, icSz), accent);
+
+                const float titleFs = theme.GetFontSize(TextRole::LabelLarge) * effZoom;
+                canvas.DrawTextStyled(
+                    blk.alertTitle,
+                    {screenBlk.x + bl.padX + icSz + 8.0f * s, screenBlk.y + bl.padY + (bl.headerH - titleFs) * 0.5f},
+                    titleFs,
+                    accent,
+                    FontStyle::Bold
+                );
+
+                RenderInlineFlowLayout(
+                    canvas,
+                    bl.flow,
+                    docOrigin + bl.flowLocalOrigin,
+                    docOrigin,
+                    theme.palette.textPrimary,
+                    layout.textMap,
+                    overlay,
+                    theme,
+                    localMouse
+                );
+                break;
+            }
+
+            case BlockKind::ListItem: {
+                bool isTaskChecked = (blk.taskState == 1);
+                if (blk.taskIndex >= 0 && overlay && overlay->taskOverrides) {
+                    auto it = overlay->taskOverrides->find(blk.taskIndex);
+                    if (it != overlay->taskOverrides->end()) {
+                        isTaskChecked = it->second;
+                    }
+                }
+
+                const Rect markerRect = OffsetRect(bl.markerLocalRect, docOrigin);
+                if (blk.taskState >= 0) {
+                    const bool cbHovered = (hoveredTaskIndex == blk.taskIndex && blk.taskIndex >= 0);
+                    if (isTaskChecked) {
+                        canvas.DrawRoundRect(markerRect, 3.0f * s, theme.palette.accent);
+                        Icon::Check().Render(canvas, markerRect.Inset(2.0f * s), Color(255, 255, 255, 255));
+                    } else {
+                        canvas.DrawRoundRect(
+                            markerRect,
+                            3.0f * s,
+                            theme.palette.surfaceElevated,
+                            cbHovered ? theme.palette.accent : theme.palette.borderHover,
+                            cbHovered ? 1.5f : 1.2f
+                        );
+                    }
+                } else if (blk.isOrderedList) {
+                    char numBuf[16];
+                    std::snprintf(numBuf, sizeof(numBuf), "%u.", static_cast<unsigned>(blk.listNumber));
+                    canvas.DrawTextStyled(
+                        numBuf,
+                        markerRect.Pos(),
+                        bodyFs,
+                        theme.palette.accent,
+                        FontStyle::Bold
+                    );
+                } else {
+                    canvas.DrawRoundRect(markerRect, markerRect.w * 0.5f, theme.palette.accent);
+                }
+
+                RenderInlineFlowLayout(
+                    canvas,
+                    bl.flow,
+                    docOrigin + bl.flowLocalOrigin,
+                    docOrigin,
+                    isTaskChecked ? theme.palette.textSecondary : theme.palette.textPrimary,
+                    layout.textMap,
+                    overlay,
+                    theme,
+                    localMouse
+                );
+                break;
+            }
+
+            case BlockKind::CodeBlock: {
+                const bool hasCustomBg = opts.codePalette.has_value() && opts.codePalette->editorBg.a > 0;
+                const Color codeBg = hasCustomBg ? opts.codePalette->editorBg : theme.palette.surfaceElevated;
+                const Color gutterBg = (opts.codePalette.has_value() && opts.codePalette->gutterBg.a > 0)
+                    ? opts.codePalette->gutterBg
+                    : theme.palette.surface;
+                const Color defaultCodeCol = opts.codePalette.has_value()
+                    ? opts.codePalette->identifier
+                    : theme.palette.textPrimary;
+                const Color lineNumCol = opts.codePalette.has_value()
+                    ? opts.codePalette->comment
+                    : theme.palette.textMuted;
+                const Color wsColor = opts.codePalette.has_value()
+                    ? opts.codePalette->comment.WithAlpha(110)
+                    : theme.palette.textMuted.WithAlpha(110);
+
+                canvas.DrawRoundRect(screenBlk, bl.boxRadius, codeBg, theme.palette.borderSubtle, 1.0f);
+                canvas.DrawRoundRect(Rect(screenBlk.x, screenBlk.y, screenBlk.w, bl.headerH), bl.boxRadius, gutterBg);
+                canvas.DrawLine(
+                    {screenBlk.x, screenBlk.y + bl.headerH},
+                    {screenBlk.Right(), screenBlk.y + bl.headerH},
+                    theme.palette.borderSubtle,
+                    1.0f
+                );
+
+                const float lblFs = theme.GetFontSize(TextRole::LabelSmall) * effZoom;
+                const std::string_view langLabel = blk.codeLang.empty() ? "code" : std::string_view(blk.codeLang);
+                canvas.DrawTextStyled(
+                    langLabel,
+                    {screenBlk.x + bl.padX, screenBlk.y + (bl.headerH - lblFs) * 0.5f},
+                    lblFs,
+                    lineNumCol,
+                    FontStyle::Bold
+                );
+
+                if (opts.showCopyButton) {
+                    const bool isHov = (hoveredCopyBlock == blk.codeBlockIndex);
+                    const bool isCopied = (activeCopiedBlock == blk.codeBlockIndex);
+                    const float copyBtnW = isCopied ? (72.0f * s) : (56.0f * s);
+                    const float copyBtnH = 20.0f * s;
+                    const Rect copyBtnRect(
+                        screenBlk.Right() - copyBtnW - 6.0f * s,
+                        screenBlk.y + (bl.headerH - copyBtnH) * 0.5f,
+                        copyBtnW,
+                        copyBtnH
+                    );
+                    const Color btnBg = isCopied
+                        ? theme.GetVariant(UiVariant::Success).bg.WithAlpha(40)
+                        : (isHov ? theme.palette.accent.WithAlpha(35) : codeBg);
+                    const Color btnBorder = isCopied
+                        ? theme.GetVariant(UiVariant::Success).bg
+                        : (isHov ? theme.palette.accent : theme.palette.borderSubtle);
+                    const Color btnText = isCopied
+                        ? theme.GetVariant(UiVariant::Success).bg
+                        : (isHov ? theme.palette.accent : defaultCodeCol);
+                    canvas.DrawRoundRect(copyBtnRect, 4.0f * s, btnBg, btnBorder, 1.0f);
+                    canvas.DrawTextBox(
+                        isCopied ? "Copied" : "Copy",
+                        copyBtnRect,
+                        lblFs,
+                        btnText,
+                        0.5f,
+                        0.5f
+                    );
+                }
+
+                canvas.PushClip(Rect(screenBlk.x + 1.0f, screenBlk.y + bl.headerH + 1.0f, screenBlk.w - 2.0f, bl.bodyH - 2.0f));
+                if (opts.codeLineNumbers) {
+                    canvas.DrawRect(Rect(screenBlk.x, screenBlk.y + bl.headerH, bl.gutterW, bl.bodyH), gutterBg.WithAlpha(180));
+                    canvas.DrawLine(
+                        {screenBlk.x + bl.gutterW, screenBlk.y + bl.headerH},
+                        {screenBlk.x + bl.gutterW, screenBlk.Bottom()},
+                        theme.palette.borderSubtle,
+                        1.0f
+                    );
+                }
+
+                const float screenCodeStartX = docOrigin.x + bl.codeStartX;
+                const float lineNumFs = theme.GetFontSize(TextRole::CodeSmall) * effZoom;
+
+                for (const CodeVisualLineLayout& vline : bl.codeVisualLines) {
+                    const float screenLy = docOrigin.y + vline.localY;
+                    const float screenTextY = docOrigin.y + vline.textLocalY;
+
+                    if (opts.codeLineNumbers && vline.isFirstSlice) {
+                        char lnBuf[16];
+                        std::snprintf(lnBuf, sizeof(lnBuf), "%zu", vline.logicalLine + 1);
+                        canvas.DrawTextBox(
+                            lnBuf,
+                            Rect(screenBlk.x + 4.0f * s, screenLy, bl.gutterW - 10.0f * s, bl.codeLineH),
+                            lineNumFs,
+                            lineNumCol,
+                            1.0f,
+                            0.5f
+                        );
+                    }
+
+                    const PositionedToken* tok = (vline.tokenIndex < layout.textMap.tokens.size())
+                        ? &layout.textMap.tokens[vline.tokenIndex]
+                        : nullptr;
+                    if (tok) {
+                        DrawTokenSelectionAndSearchHighlights(canvas, *tok, layout.textMap.plainText, overlay, theme, docOrigin);
+                    }
+
+                    if (opts.codeIndentGuides && vline.isFirstSlice && !vline.sliceStr.empty() && bl.spaceW > 0.0f) {
+                        size_t leadSpaces = 0;
+                        while (leadSpaces < vline.sliceStr.size() && vline.sliceStr[leadSpaces] == ' ') ++leadSpaces;
+                        for (size_t col = 4; col <= leadSpaces; col += 4) {
+                            const float gx = std::round(screenCodeStartX + static_cast<float>(col) * bl.spaceW);
+                            canvas.DrawLine({gx, screenLy}, {gx, screenLy + bl.codeLineH}, theme.palette.borderSubtle.WithAlpha(90), 1.0f);
+                        }
+                    }
+
+                    if (opts.codeShowWhitespace && !vline.sliceStr.empty() && bl.spaceW > 0.0f) {
+                        const float dotR = std::max(1.2f, 1.4f * s);
+                        const float cy = screenLy + bl.codeLineH * 0.5f;
+                        for (size_t c = 0; c < vline.sliceStr.size(); ++c) {
+                            if (vline.sliceStr[c] == ' ') {
+                                const float cx = screenCodeStartX + (static_cast<float>(c) + 0.5f) * bl.spaceW;
+                                canvas.DrawRoundRect(Rect(cx - dotR, cy - dotR, dotR * 2.0f, dotR * 2.0f), dotR, wsColor);
+                            } else if (vline.sliceStr[c] == '\t') {
+                                const float x0 = screenCodeStartX + static_cast<float>(c) * bl.spaceW + 2.0f * s;
+                                const float x1 = screenCodeStartX + static_cast<float>(c + 1) * bl.spaceW - 2.0f * s;
+                                if (x1 > x0) {
+                                    canvas.DrawLine({x0, cy}, {x1, cy}, wsColor, 1.2f);
+                                    canvas.DrawLine({x1 - 3.0f * s, cy - 2.5f * s}, {x1, cy}, wsColor, 1.2f);
+                                    canvas.DrawLine({x1 - 3.0f * s, cy + 2.5f * s}, {x1, cy}, wsColor, 1.2f);
+                                }
+                            }
+                        }
+                    }
+
+                    for (const CodeRenderSpan& sp : vline.renderSpans) {
+                        canvas.DrawTextStyled(
+                            sp.text,
+                            {screenCodeStartX + sp.localOffsetX, screenTextY},
+                            bl.codeFs,
+                            sp.color,
+                            FontStyle::Monospace
+                        );
+                    }
+
+                    if (tok) {
+                        DrawTokenCaretIfPresent(canvas, *tok, layout.textMap.plainText, overlay, theme, docOrigin);
+                    }
+                }
+                canvas.PopClip();
+                break;
+            }
+
+            case BlockKind::ImageBlock: {
+                const Rect imgRect = OffsetRect(bl.imgLocalRect, docOrigin);
+                if (opts.imageCheckerboard) {
+                    Image::DrawCheckerboard(canvas, imgRect, bl.imgRadius, theme, 10.0f);
+                } else {
+                    canvas.DrawRoundRect(imgRect, bl.imgRadius, theme.palette.surfaceElevated);
+                }
+                if (!canvas.DrawImage(blk.rawText, imgRect, bl.imgRadius, 255)) {
+                    canvas.DrawTextBox(
+                        blk.imageAlt.empty() ? blk.rawText : std::string_view(blk.imageAlt),
+                        imgRect.Inset(8.0f),
+                        theme.GetFontSize(TextRole::LabelMedium) * effZoom,
+                        theme.palette.textMuted,
+                        0.5f,
+                        0.5f
+                    );
+                }
+                canvas.DrawRoundRect(imgRect, bl.imgRadius, Color::Transparent(), theme.palette.borderSubtle, 1.0f);
+
+                if (!bl.flow.items.empty()) {
+                    RenderInlineFlowLayout(
+                        canvas,
+                        bl.flow,
+                        docOrigin + bl.flowLocalOrigin,
+                        docOrigin,
+                        theme.palette.textMuted,
+                        layout.textMap,
+                        overlay,
+                        theme,
+                        localMouse
+                    );
+                }
+                break;
+            }
+
+            case BlockKind::Table: {
+                if (bl.rowHeights.empty() || bl.colWidths.empty()) break;
+                canvas.DrawRoundRect(screenBlk, bl.boxRadius, theme.palette.surface, theme.palette.borderSubtle, 1.0f);
+
+                const size_t numRows = bl.rowHeights.size();
+                const size_t numCols = bl.colWidths.size();
+                float ry = screenBlk.y;
+
+                for (size_t r = 0; r < numRows; ++r) {
+                    const float rowH = bl.rowHeights[r];
+                    const Rect rowRect(screenBlk.x, ry, screenBlk.w, rowH);
+                    if (r == 0) {
+                        canvas.DrawRoundRect(rowRect, bl.boxRadius, theme.palette.surfaceElevated);
+                    } else if (r % 2 == 1) {
+                        canvas.DrawRect(rowRect.Inset(1.0f, 0.0f), theme.palette.surfaceElevated.WithAlpha(90));
+                    }
+                    if (r > 0) {
+                        canvas.DrawLine({rowRect.x, ry}, {rowRect.Right(), ry}, theme.palette.borderSubtle, 1.0f);
+                    }
+
+                    for (size_t c = 0; c < numCols; ++c) {
+                        const float cx = docOrigin.x + bl.colX[c];
+                        const float cw = bl.colWidths[c];
+                        if (c > 0) {
+                            canvas.DrawLine({cx, ry}, {cx, ry + rowH}, theme.palette.borderSubtle, 1.0f);
+                        }
+                        if (r < bl.cellFlows.size() && c < bl.cellFlows[r].size() && !bl.cellFlows[r][c].items.empty()) {
+                            canvas.PushClip(Rect(cx + 1.0f, ry + 1.0f, std::max(1.0f, cw - 2.0f), std::max(1.0f, rowH - 2.0f)));
+                            RenderInlineFlowLayout(
+                                canvas,
+                                bl.cellFlows[r][c],
+                                docOrigin + bl.cellFlowOrigins[r][c],
+                                docOrigin,
+                                theme.palette.textPrimary,
+                                layout.textMap,
+                                overlay,
+                                theme,
+                                localMouse
+                            );
+                            canvas.PopClip();
+                        }
+                    }
+                    ry += rowH;
+                }
+                break;
+            }
+        }
+    }
 }
 
 struct MarkdownState {
     uint64_t docSourceHash{0};
     int copiedBlockIndex{-1};
     float zoom{1.0f};
+    std::shared_ptr<const MarkdownDocumentLayout> cachedLayout{};
 
     // Selection & Cursor state
     size_t cursorOffset{0};
@@ -2305,6 +2690,7 @@ struct MarkdownPayload {
     float zoom{1.0f};
     int hoveredCopyBlock{-1};
     int activeCopiedBlock{-1};
+    int hoveredTaskIndex{-1};
     bool hasSelection{false};
     size_t selMin{0};
     size_t selMax{0};
@@ -2315,6 +2701,7 @@ struct MarkdownPayload {
     int activeSearchMatch{-1};
     int searchMatchCount{0};
     const std::unordered_map<int, bool>* taskOverrides{nullptr};
+    const MarkdownDocumentLayout* layout{nullptr};
     mutable ICanvas* lastCanvas{nullptr};
 };
 
@@ -2387,7 +2774,7 @@ MarkdownResponse Markdown::Run(
     }
     res.currentZoom = state.zoom;
 
-    // 2. Build Layout & DocumentTextMap on previous unclipped bounds for hit-testing, selection, cursor, and search
+    // 2. Resolve cached Document Layout & DocumentTextMap on previous unclipped bounds (O(1) on cache hit)
     ICanvas* hitCanvas = ctx.GetCanvas();
     Rect hitBounds = ctx.GetPrevUnclippedBounds(id);
     if (hitBounds.w <= 0.0f) {
@@ -2395,24 +2782,19 @@ MarkdownResponse Markdown::Run(
     }
     const Rect ctrlRect = hitBounds;
 
-    DocumentTextMap textMap{};
-    RenderOverlayState hitOverlay{};
-    hitOverlay.taskOverrides = &state.taskOverrides;
+    state.cachedLayout = GetOrBuildMarkdownLayout(hitCanvas, ctrlRect.w, doc, optsCopy, theme, state.zoom);
+    const MarkdownDocumentLayout& layout = *state.cachedLayout;
+    const DocumentTextMap& textMap = layout.textMap;
 
-    const MarkdownPassResult hit = ExecuteMarkdownLayoutAndRender(
-        hitCanvas,
-        false,
+    const MarkdownPassResult hit = HitTestMarkdownLayout(
+        layout,
         ctrlRect,
-        doc,
-        optsCopy,
-        theme,
-        state.zoom,
         baseRes.hovered ? ctx.GetMousePos() : Vec2{-100000.0f, -100000.0f},
-        -1,
         state.copiedBlockIndex,
+        optsCopy.interactiveTasks,
+        optsCopy.showCopyButton,
         effectiveDisabled,
-        &textMap,
-        &hitOverlay
+        &state.taskOverrides
     );
 
     const size_t maxOffset = textMap.plainText.size();
@@ -2454,13 +2836,14 @@ MarkdownResponse Markdown::Run(
             }
         }
 
-        // Mouse click / double-click / drag selection
+        // Mouse click / double-click / drag selection (using document-local mouse coordinates)
         const bool clickedInteractiveSubElement =
             !hit.hoveredLink.empty() || hit.hoveredCopyBlock >= 0 || (hit.hoveredTaskIndex >= 0 && optsCopy.interactiveTasks);
 
         if (optsCopy.enableSelection && baseRes.hovered && ctx.IsMouseClicked() && !clickedInteractiveSubElement) {
             ctx.RequestFocus(id);
-            const size_t hitOff = HitTestDocumentCharOffset(textMap, hitCanvas, ctx.GetMousePos());
+            const Vec2 localMouse = ctx.GetMousePos() - ctrlRect.Pos();
+            const size_t hitOff = HitTestDocumentCharOffset(textMap, hitCanvas, localMouse);
             state.preferredCursorX = -1.0f;
             if (baseRes.doubleClicked) {
                 TextUtil::SelectWordAt(textMap.plainText, hitOff, state.selAnchorOffset, state.cursorOffset);
@@ -2474,7 +2857,8 @@ MarkdownResponse Markdown::Run(
             }
         } else if (state.isDraggingSelection) {
             if (ctx.IsMouseDown()) {
-                state.cursorOffset = HitTestDocumentCharOffset(textMap, hitCanvas, ctx.GetMousePos());
+                const Vec2 localMouse = ctx.GetMousePos() - ctrlRect.Pos();
+                state.cursorOffset = HitTestDocumentCharOffset(textMap, hitCanvas, localMouse);
                 state.preferredCursorX = -1.0f;
             } else {
                 state.isDraggingSelection = false;
@@ -2671,6 +3055,7 @@ MarkdownResponse Markdown::Run(
     payload->zoom = state.zoom;
     payload->hoveredCopyBlock = hoveredCopyBlock;
     payload->activeCopiedBlock = state.copiedBlockIndex;
+    payload->hoveredTaskIndex = hit.hoveredTaskIndex;
     payload->hasSelection = optsCopy.enableSelection && state.HasSelection();
     payload->selMin = state.SelMin();
     payload->selMax = state.SelMax();
@@ -2681,6 +3066,7 @@ MarkdownResponse Markdown::Run(
     payload->activeSearchMatch = res.activeSearchMatch;
     payload->searchMatchCount = res.searchMatchCount;
     payload->taskOverrides = &state.taskOverrides;
+    payload->layout = state.cachedLayout.get();
     payload->lastCanvas = ctx.GetCanvas();
     node->SetPayload(payload);
 
@@ -2715,6 +3101,7 @@ MarkdownResponse Markdown::Run(
         optsCopy.imageMaxHeight,
         optsCopy.imageRadius,
         hoveredCopyBlock,
+        hit.hoveredTaskIndex,
         state.copiedBlockIndex,
         payload->hasSelection,
         payload->selMin,
@@ -2757,7 +3144,20 @@ MarkdownResponse Markdown::Run(
         const ParsedMarkdownDoc& parsedDoc = GetOrParseMarkdown(p->text);
         const Rect ctrlRect = n->computedRect;
 
-        DocumentTextMap renderMap{};
+        // Compute visible viewport rect by intersecting with clipping ancestors (for O(1) block frustum culling)
+        Rect visibleRect = ctrlRect;
+        for (const Node* anc = n->parent; anc != nullptr; anc = anc->parent) {
+            if (anc->clipChildren) {
+                visibleRect = visibleRect.Intersect(anc->computedRect);
+            }
+        }
+
+        std::shared_ptr<const MarkdownDocumentLayout> layoutHolder;
+        const MarkdownDocumentLayout& layout =
+            (p->layout != nullptr && std::abs(p->layout->totalWidth - ctrlRect.w) < 1.0f)
+                ? *p->layout
+                : *(layoutHolder = GetOrBuildMarkdownLayout(&canvas, ctrlRect.w, parsedDoc, p->opts, th, p->zoom));
+
         RenderOverlayState overlay{};
         overlay.hasSelection = p->hasSelection;
         overlay.selMin = p->selMin;
@@ -2769,50 +3169,35 @@ MarkdownResponse Markdown::Run(
 
         std::vector<SearchMatchRange> matches;
         if (!p->activeSearchQuery.empty()) {
-            // Pre-pass to collect plainText so search match ranges are ready before drawing tokens
-            ExecuteMarkdownLayoutAndRender(
-                &canvas,
-                false,
-                ctrlRect,
-                parsedDoc,
-                p->opts,
-                th,
-                p->zoom,
-                {-1.0f, -1.0f},
-                p->hoveredCopyBlock,
-                p->activeCopiedBlock,
-                n->disabled,
-                &renderMap,
-                nullptr
-            );
-            matches = FindSearchMatches(renderMap.plainText, p->activeSearchQuery);
+            matches = FindSearchMatches(layout.textMap.plainText, p->activeSearchQuery);
             overlay.searchMatches = &matches;
         }
 
-        ExecuteMarkdownLayoutAndRender(
-            &canvas,
-            true,
-            ctrlRect,
+        RenderMarkdownDocumentLayout(
+            canvas,
             parsedDoc,
+            layout,
+            ctrlRect,
+            visibleRect,
             p->opts,
             th,
-            p->zoom,
-            {-1.0f, -1.0f},
+            {-100000.0f, -100000.0f},
             p->hoveredCopyBlock,
             p->activeCopiedBlock,
-            n->disabled,
-            &renderMap,
+            p->hoveredTaskIndex,
             &overlay
         );
 
-        // Render floating in-document Search bar if open
+        // Render floating in-document Search bar if open (pinned to visible viewport top-right)
         if (p->searchBarOpen) {
             const float s = th.Scale(1.0f);
             const float barW = 240.0f * s;
             const float barH = 30.0f * s;
+            const float anchorTop = (visibleRect.h > 0.0f) ? visibleRect.y : ctrlRect.y;
+            const float anchorRight = (visibleRect.w > 0.0f) ? visibleRect.Right() : ctrlRect.Right();
             const Rect barRect(
-                ctrlRect.Right() - barW - 10.0f * s,
-                ctrlRect.y + 8.0f * s,
+                anchorRight - barW - 10.0f * s,
+                anchorTop + 8.0f * s,
                 barW,
                 barH
             );
@@ -2893,24 +3278,12 @@ Vec2 Markdown::Measure(
         ctrlW = theme.Scale(*opts.width);
     }
 
-    const MarkdownPassResult res = ExecuteMarkdownLayoutAndRender(
-        canvas,
-        false,
-        Rect(0.0f, 0.0f, ctrlW, 0.0f),
-        doc,
-        opts,
-        theme,
-        effZoom,
-        {-1.0f, -1.0f},
-        -1,
-        -1,
-        opts.disabled
-    );
+    const auto layout = GetOrBuildMarkdownLayout(canvas, ctrlW, doc, opts, theme, effZoom);
 
     const float finalH = (opts.height.has_value() && *opts.height > 0.0f)
         ? theme.Scale(*opts.height)
-        : res.totalHeight;
-    return { std::max(ctrlW, res.totalWidth), finalH };
+        : layout->totalHeight;
+    return { std::max(ctrlW, layout->totalWidth), finalH };
 }
 
 void Markdown::Render(
@@ -2941,18 +3314,31 @@ void Markdown::Render(
     const ParsedMarkdownDoc& doc = GetOrParseMarkdown(markdownText);
     const float effZoom = (opts.zoom != nullptr) ? std::clamp(*opts.zoom, 0.5f, 3.0f) : 1.0f;
 
-    ExecuteMarkdownLayoutAndRender(
-        &canvas,
-        true,
+    const auto layout = GetOrBuildMarkdownLayout(&canvas, bounds.w, doc, opts, theme, effZoom);
+    const MarkdownPassResult hit = HitTestMarkdownLayout(
+        *layout,
         bounds,
+        mousePos,
+        activeCopiedBlock,
+        opts.interactiveTasks,
+        opts.showCopyButton,
+        disabled,
+        nullptr
+    );
+
+    RenderMarkdownDocumentLayout(
+        canvas,
         doc,
+        *layout,
+        bounds,
+        bounds,
         opts,
         theme,
-        effZoom,
         mousePos,
-        hoveredCopyBlock,
+        (hoveredCopyBlock >= 0) ? hoveredCopyBlock : hit.hoveredCopyBlock,
         activeCopiedBlock,
-        disabled
+        hit.hoveredTaskIndex,
+        nullptr
     );
 }
 
