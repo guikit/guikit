@@ -34,75 +34,75 @@ endif()
 #    Zero external OS / Windowing / GPU dependencies (Pure C++20)
 # ==============================================================================
 set(GUIKIT_CORE_SOURCES
-    src/guikit/Context.cpp
-    src/guikit/core/ContainerScope.cpp
-    src/guikit/core/MainWindow.cpp
-    src/guikit/core/Response.cpp
-    src/guikit/core/Theme.cpp
-    src/guikit/core/Assets.cpp
-    src/guikit/core/TextUtil.cpp
-    src/guikit/core/RichText.cpp
-    src/guikit/core/Scrollbar.cpp
-    src/guikit/core/VectorBackend.cpp
-    src/guikit/core/Control.cpp
-    src/guikit/core/Element.cpp
-    src/guikit/core/Solver.cpp
-    src/guikit/graphics/Colormap.cpp
-    src/guikit/graphics/Icon.cpp
-    src/guikit/layout/Row.cpp
-    src/guikit/layout/Column.cpp
-    src/guikit/layout/Wrap.cpp
-    src/guikit/layout/Grid.cpp
-    src/guikit/layout/Spacer.cpp
-    src/guikit/panels/Accordion.cpp
-    src/guikit/panels/ActivityBar.cpp
-    src/guikit/panels/BottomPanel.cpp
-    src/guikit/panels/Box.cpp
-    src/guikit/panels/Card.cpp
-    src/guikit/panels/Carousel.cpp
-    src/guikit/panels/CommandPalette.cpp
-    src/guikit/panels/SplitView.cpp
-    src/guikit/widgets/Breadcrumb.cpp
-    src/guikit/widgets/DatePicker.cpp
-    src/guikit/widgets/LevelMeter.cpp
-    src/guikit/widgets/Pagination.cpp
-    src/guikit/widgets/TagInput.cpp
-    src/guikit/panels/ContextMenu.cpp
-    src/guikit/panels/Modal.cpp
-    src/guikit/panels/ScrollArea.cpp
-    src/guikit/panels/Scene.cpp
-    src/guikit/panels/Sidebar.cpp
-    src/guikit/panels/StatusBar.cpp
-    src/guikit/panels/Table.cpp
-    src/guikit/panels/Toolbar.cpp
-    src/guikit/panels/TreeView.cpp
-    src/guikit/widgets/Button.cpp
-    src/guikit/widgets/Checkbox.cpp
-    src/guikit/widgets/ColorPicker.cpp
-    src/guikit/widgets/Heading.cpp
-    src/guikit/widgets/Histogram.cpp
-    src/guikit/widgets/Image.cpp
-    src/guikit/widgets/ImageView.cpp
-    src/guikit/widgets/InputField.cpp
-    src/guikit/widgets/Knob.cpp
-    src/guikit/widgets/Markdown.cpp
-    src/guikit/widgets/Radio.cpp
-    src/guikit/widgets/Segmented.cpp
-    src/guikit/widgets/Select.cpp
-    src/guikit/widgets/SidebarMenu.cpp
-    src/guikit/widgets/Slider.cpp
-    src/guikit/widgets/SpinBox.cpp
-    src/guikit/widgets/Switch.cpp
-    src/guikit/widgets/TabBar.cpp
-    src/guikit/widgets/Text.cpp
-    src/guikit/widgets/TextArea.cpp
-    src/guikit/widgets/Toast.cpp
+    src/guikit/context.cpp
+    src/guikit/core/container_scope.cpp
+    src/guikit/core/main_window.cpp
+    src/guikit/core/response.cpp
+    src/guikit/core/theme.cpp
+    src/guikit/core/assets.cpp
+    src/guikit/core/text_util.cpp
+    src/guikit/core/rich_text.cpp
+    src/guikit/core/scrollbar.cpp
+    src/guikit/core/vector_backend.cpp
+    src/guikit/core/control.cpp
+    src/guikit/core/element.cpp
+    src/guikit/core/solver.cpp
+    src/guikit/graphics/colormap.cpp
+    src/guikit/graphics/icon.cpp
+    src/guikit/layout/row.cpp
+    src/guikit/layout/column.cpp
+    src/guikit/layout/wrap.cpp
+    src/guikit/layout/grid.cpp
+    src/guikit/layout/spacer.cpp
+    src/guikit/panels/accordion.cpp
+    src/guikit/panels/activity_bar.cpp
+    src/guikit/panels/bottom_panel.cpp
+    src/guikit/panels/box.cpp
+    src/guikit/panels/card.cpp
+    src/guikit/panels/carousel.cpp
+    src/guikit/panels/command_palette.cpp
+    src/guikit/panels/split_view.cpp
+    src/guikit/widgets/breadcrumb.cpp
+    src/guikit/widgets/date_picker.cpp
+    src/guikit/widgets/level_meter.cpp
+    src/guikit/widgets/pagination.cpp
+    src/guikit/widgets/tag_input.cpp
+    src/guikit/panels/context_menu.cpp
+    src/guikit/panels/modal.cpp
+    src/guikit/panels/scroll_area.cpp
+    src/guikit/panels/scene.cpp
+    src/guikit/panels/sidebar.cpp
+    src/guikit/panels/status_bar.cpp
+    src/guikit/panels/table.cpp
+    src/guikit/panels/toolbar.cpp
+    src/guikit/panels/tree_view.cpp
+    src/guikit/widgets/button.cpp
+    src/guikit/widgets/checkbox.cpp
+    src/guikit/widgets/color_picker.cpp
+    src/guikit/widgets/heading.cpp
+    src/guikit/widgets/histogram.cpp
+    src/guikit/widgets/image.cpp
+    src/guikit/widgets/image_view.cpp
+    src/guikit/widgets/input_field.cpp
+    src/guikit/widgets/knob.cpp
+    src/guikit/widgets/markdown.cpp
+    src/guikit/widgets/radio.cpp
+    src/guikit/widgets/segmented.cpp
+    src/guikit/widgets/select.cpp
+    src/guikit/widgets/sidebar_menu.cpp
+    src/guikit/widgets/slider.cpp
+    src/guikit/widgets/spin_box.cpp
+    src/guikit/widgets/switch.cpp
+    src/guikit/widgets/tab_bar.cpp
+    src/guikit/widgets/text.cpp
+    src/guikit/widgets/text_area.cpp
+    src/guikit/widgets/toast.cpp
 )
 
 file(GLOB_RECURSE GUIKIT_EMBEDDED_ASSET_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/assets/*"
 )
-set(GUIKIT_GENERATED_ASSETS_CPP "${CMAKE_CURRENT_BINARY_DIR}/generated/EmbeddedAssets.cpp")
+set(GUIKIT_GENERATED_ASSETS_CPP "${CMAKE_CURRENT_BINARY_DIR}/generated/embedded_assets.cpp")
 
 add_custom_command(
     OUTPUT "${GUIKIT_GENERATED_ASSETS_CPP}"
@@ -135,19 +135,19 @@ target_include_directories(guikit_core PUBLIC
 # ==============================================================================
 if (GUIKIT_BUILD_SCENES)
     set(GUIKIT_SCENES_SOURCES
-        src/guikit/geo/GeoJsonIO.cpp
-        src/guikit/geo/GeoTypes.cpp
-        src/guikit/geo/GisRenderEngine.cpp
-        src/guikit/geo/OsmRasterTileProvider.cpp
-        src/guikit/geo/PolygonTriangulator.cpp
-        src/guikit/net/NetClient.cpp
-        src/guikit/panels/MapView.cpp
-        src/guikit/widgets/AttitudeView.cpp
-        src/guikit/widgets/BpmnEditor.cpp
-        src/guikit/widgets/CarClusterView.cpp
-        src/guikit/widgets/SignalView.cpp
-        src/guikit/widgets/SonarView.cpp
-        src/guikit/widgets/WaterfallView.cpp
+        src/guikit/geo/geo_json_io.cpp
+        src/guikit/geo/geo_types.cpp
+        src/guikit/geo/gis_render_engine.cpp
+        src/guikit/geo/osm_raster_tile_provider.cpp
+        src/guikit/geo/polygon_triangulator.cpp
+        src/guikit/net/net_client.cpp
+        src/guikit/panels/map_view.cpp
+        src/guikit/widgets/attitude_view.cpp
+        src/guikit/widgets/bpmn_editor.cpp
+        src/guikit/widgets/car_cluster_view.cpp
+        src/guikit/widgets/signal_view.cpp
+        src/guikit/widgets/sonar_view.cpp
+        src/guikit/widgets/waterfall_view.cpp
     )
 
     add_library(guikit_scenes STATIC ${GUIKIT_SCENES_SOURCES})
@@ -183,7 +183,7 @@ if (GUIKIT_BUILD_BACKEND_THORVG)
     endif()
 
     add_library(guikit_backend_thorvg STATIC
-        src/guikit/backend/ThorCanvas.cpp
+        src/guikit/backend/thor_canvas.cpp
     )
     add_library(guikit::backend_thorvg ALIAS guikit_backend_thorvg)
 
@@ -217,9 +217,9 @@ if (GUIKIT_BUILD_BACKEND_SDL3)
     endif()
 
     add_library(guikit_backend_sdl3 STATIC
-        src/guikit/backend/SdlWindowBackend.cpp
-        src/guikit/backend/SdlCanvas.cpp
-        src/guikit/backend/SdlGlShaderEngine.cpp
+        src/guikit/backend/sdl_window_backend.cpp
+        src/guikit/backend/sdl_canvas.cpp
+        src/guikit/backend/sdl_gl_shader_engine.cpp
     )
     add_library(guikit::backend_sdl3 ALIAS guikit_backend_sdl3)
 
@@ -249,44 +249,44 @@ endif()
 if (GUIKIT_BUILD_DEMO)
     add_executable(guikit_demo
         examples/demo/main.cpp
-        examples/demo/DemoWindow.cpp
-        examples/demo/elements/HeadingScreen.cpp
-        examples/demo/elements/ButtonScreen.cpp
-        examples/demo/elements/SliderScreen.cpp
-        examples/demo/elements/KnobScreen.cpp
-        examples/demo/elements/SpinBoxScreen.cpp
-        examples/demo/elements/InputScreen.cpp
-        examples/demo/elements/SelectScreen.cpp
-        examples/demo/elements/SegmentedScreen.cpp
-        examples/demo/elements/ColorPickerScreen.cpp
-        examples/demo/elements/DatePickerScreen.cpp
-        examples/demo/elements/LevelMeterScreen.cpp
-        examples/demo/elements/TagInputScreen.cpp
-        examples/demo/panels/SplitViewScreen.cpp
-        examples/demo/panels/BreadcrumbScreen.cpp
-        examples/demo/panels/PaginationScreen.cpp
-        examples/demo/elements/SwitchScreen.cpp
-        examples/demo/elements/CheckboxScreen.cpp
-        examples/demo/elements/RadioScreen.cpp
-        examples/demo/elements/ImageScreen.cpp
-        examples/demo/panels/CardScreen.cpp
-        examples/demo/panels/TabBarScreen.cpp
-        examples/demo/panels/ToolbarScreen.cpp
-        examples/demo/panels/SidebarScreen.cpp
-        examples/demo/panels/TreeViewScreen.cpp
-        examples/demo/panels/TableScreen.cpp
-        examples/demo/panels/OverlaysScreen.cpp
-        examples/demo/content/MarkdownScreen.cpp
-        examples/demo/content/CodeEditorScreen.cpp
-        examples/demo/scenes/SchematicScreen.cpp
-        examples/demo/scenes/OsmMapScreen.cpp
-        examples/demo/scenes/SignalScreen.cpp
-        examples/demo/scenes/SonarScreen.cpp
-        examples/demo/scenes/WaterfallScreen.cpp
-        examples/demo/scenes/ImageViewScreen.cpp
-        examples/demo/scenes/AttitudeScreen.cpp
-        examples/demo/scenes/CarDashboardScreen.cpp
-        examples/demo/scenes/BpmnScreen.cpp
+        examples/demo/demo_window.cpp
+        examples/demo/elements/heading_screen.cpp
+        examples/demo/elements/button_screen.cpp
+        examples/demo/elements/slider_screen.cpp
+        examples/demo/elements/knob_screen.cpp
+        examples/demo/elements/spin_box_screen.cpp
+        examples/demo/elements/input_screen.cpp
+        examples/demo/elements/select_screen.cpp
+        examples/demo/elements/segmented_screen.cpp
+        examples/demo/elements/color_picker_screen.cpp
+        examples/demo/elements/date_picker_screen.cpp
+        examples/demo/elements/level_meter_screen.cpp
+        examples/demo/elements/tag_input_screen.cpp
+        examples/demo/panels/split_view_screen.cpp
+        examples/demo/panels/breadcrumb_screen.cpp
+        examples/demo/panels/pagination_screen.cpp
+        examples/demo/elements/switch_screen.cpp
+        examples/demo/elements/checkbox_screen.cpp
+        examples/demo/elements/radio_screen.cpp
+        examples/demo/elements/image_screen.cpp
+        examples/demo/panels/card_screen.cpp
+        examples/demo/panels/tab_bar_screen.cpp
+        examples/demo/panels/toolbar_screen.cpp
+        examples/demo/panels/sidebar_screen.cpp
+        examples/demo/panels/tree_view_screen.cpp
+        examples/demo/panels/table_screen.cpp
+        examples/demo/panels/overlays_screen.cpp
+        examples/demo/content/markdown_screen.cpp
+        examples/demo/content/code_editor_screen.cpp
+        examples/demo/scenes/schematic_screen.cpp
+        examples/demo/scenes/osm_map_screen.cpp
+        examples/demo/scenes/signal_screen.cpp
+        examples/demo/scenes/sonar_screen.cpp
+        examples/demo/scenes/waterfall_screen.cpp
+        examples/demo/scenes/image_view_screen.cpp
+        examples/demo/scenes/attitude_screen.cpp
+        examples/demo/scenes/car_dashboard_screen.cpp
+        examples/demo/scenes/bpmn_screen.cpp
     )
     target_link_libraries(guikit_demo PRIVATE guikit::guikit)
     if (EMSCRIPTEN)

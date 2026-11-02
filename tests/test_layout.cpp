@@ -1,10 +1,10 @@
 #include <cmath>
 #include <iostream>
-#include "guikit/core/Allocator.hpp"
-#include "guikit/core/Theme.hpp"
-#include "guikit/core/Solver.hpp"
-#include "guikit/core/Node.hpp"
-#include "guikit/panels/Carousel.hpp"
+#include "guikit/core/allocator.hpp"
+#include "guikit/core/theme.hpp"
+#include "guikit/core/solver.hpp"
+#include "guikit/core/node.hpp"
+#include "guikit/panels/carousel.hpp"
 
 static int g_failures = 0;
 

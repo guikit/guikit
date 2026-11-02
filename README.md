@@ -91,10 +91,10 @@ guikit/
 │   ├── layout/          # Flexbox & 12-column Grid solver (Row, Column, Wrap, Grid, Spacer)
 │   ├── panels/          # Containers, splitters, overlays & viewports (Box, Card, SplitView, Table...)
 │   ├── widgets/         # Autonomous immediate-mode widgets & domain instruments
-│   ├── Context.hpp      # Primary immediate-mode UI Context
-│   ├── Core.hpp         # Lightweight core + widgets header
-│   ├── Scenes.hpp       # Domain scenes & GIS header
-│   └── GuiKit.hpp       # Master umbrella include & version macros
+│   ├── context.hpp      # Primary immediate-mode UI Context
+│   ├── core.hpp         # Lightweight core + widgets header
+│   ├── scenes.hpp       # Domain scenes & GIS header
+│   └── guikit.hpp       # Master umbrella include & version macros
 ├── src/guikit/          # Implementation units (.cpp)
 ├── examples/
 │   ├── minimal/         # Single-file ~100-line quickstart application (examples/minimal/main.cpp)

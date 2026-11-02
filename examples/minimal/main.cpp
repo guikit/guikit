@@ -1,4 +1,4 @@
-#include "guikit/GuiKit.hpp"
+#include "guikit/guikit.hpp"
 
 int main(int /*argc*/, char* /*argv*/[]) {
     bool autopilot = true;

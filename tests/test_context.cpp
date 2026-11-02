@@ -1,17 +1,17 @@
 #include <iostream>
 #include <vector>
-#include "guikit/Context.hpp"
-#include "guikit/core/RichText.hpp"
-#include "guikit/core/TextUtil.hpp"
-#include "guikit/core/Theme.hpp"
+#include "guikit/context.hpp"
+#include "guikit/core/rich_text.hpp"
+#include "guikit/core/text_util.hpp"
+#include "guikit/core/theme.hpp"
 #include <SDL3/SDL.h>
-#include "guikit/backend/SdlCanvas.hpp"
-#include "guikit/backend/SdlGlShaderEngine.hpp"
-#include "guikit/backend/SdlWindowBackend.hpp"
-#include "guikit/backend/ThorCanvas.hpp"
-#include "guikit/geo/GeoJsonIO.hpp"
-#include "guikit/geo/GisRenderEngine.hpp"
-#include "guikit/net/NetClient.hpp"
+#include "guikit/backend/sdl_canvas.hpp"
+#include "guikit/backend/sdl_gl_shader_engine.hpp"
+#include "guikit/backend/sdl_window_backend.hpp"
+#include "guikit/backend/thor_canvas.hpp"
+#include "guikit/geo/geo_json_io.hpp"
+#include "guikit/geo/gis_render_engine.hpp"
+#include "guikit/net/net_client.hpp"
 #include "thorvg.h"
 
 static int g_failures = 0;
@@ -8818,7 +8818,7 @@ void TestUnifiedColormapHistogramAndImageView() {
 
     // Frame 2: Switch colormap to Inferno and rotate 90 deg
     monoParams.colormap = Colormap::Inferno;
-    monoParams.rotation = ImageRotation::deg90;
+    monoParams.rotation = ImageRotation::Deg90;
     ui.BeginFrame({static_cast<float>(W), static_cast<float>(H)});
     renderFrame(false);
     ui.EndFrame(canvas);

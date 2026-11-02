@@ -1,7 +1,7 @@
 #include <iostream>
 #include <unordered_set>
-#include "guikit/Core.hpp"
-#include "guikit/geo/MapGrid.hpp"
+#include "guikit/core.hpp"
+#include "guikit/geo/map_grid.hpp"
 
 static int g_failures = 0;
 
