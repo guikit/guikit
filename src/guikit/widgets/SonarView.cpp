@@ -467,31 +467,188 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
 
     const SonarPlotGeometry geom = SonarPlotGeometry::Compute(plotRect, opts, resp.rangeZoom);
 
+    static constexpr std::string_view kSonarFragGlsl = R"(
+#ifdef GL_ES
+precision highp float;
+#endif
+varying vec2 v_uv;
+
+uniform vec4 u_PlotRect;
+uniform vec2 u_GridDims;  // x=numRangeBins, y=numBeams
+uniform vec3 u_BgColor;
+uniform vec4 u_Params[8];
+// u_Params[0]: x=origin.x, y=origin.y, z=maxRadiusPx, w=unused
+// u_Params[1]: x=minRange, y=visibleMaxRange, z=matrixMaxRange, w=displayMode
+// u_Params[2]: x=matrixStartBrg, y=matrixEndBrg, z=headingDeg, w=sectorApertureDeg
+// u_Params[3]: x=bscanRect.x, y=bscanRect.y, z=bscanRect.w, w=bscanRect.h
+// u_Params[4]: x=gainLinear, y=tvgAmount, z=clutterThreshold, w=unused
+uniform sampler2D u_DataTex;
+uniform sampler2D u_LutTex;
+
+float normalizeBearingDeg(float deg) {
+    float r = mod(deg, 360.0);
+    return (r < 0.0) ? (r + 360.0) : r;
+}
+
+float signedAngleDiffDeg(float a, float b) {
+    float d = mod(a - b + 540.0, 360.0) - 180.0;
+    return d;
+}
+
+float decodeRG16(vec4 texel) {
+    return (texel.r * 65280.0 + texel.g * 255.0) / 65535.0;
+}
+
+float samplePolarTexel(float rIdx, float bIdx) {
+    vec2 uv = vec2((rIdx + 0.5) / u_GridDims.x, (bIdx + 0.5) / u_GridDims.y);
+    return decodeRG16(texture2D(u_DataTex, uv));
+}
+
+void main() {
+    vec2 pt = u_PlotRect.xy + v_uv * u_PlotRect.zw;
+    vec2 origin = u_Params[0].xy;
+    float maxRadiusPx = u_Params[0].z;
+
+    float minRange = u_Params[1].x;
+    float visibleMaxRange = u_Params[1].y;
+    float matrixMaxRange = u_Params[1].z;
+    int mode = int(u_Params[1].w + 0.5);
+
+    float matrixStartBrg = u_Params[2].x;
+    float matrixEndBrg = u_Params[2].y;
+    float headingDeg = u_Params[2].z;
+    float sectorApertureDeg = u_Params[2].w;
+
+    vec4 bscanRect = u_Params[3];
+    vec4 dspParams = u_Params[4];
+
+    float rangeMeters = 0.0;
+    float bearingDeg = 0.0;
+    bool validGeom = false;
+
+    if (mode == 0) {
+        float dx = pt.x - origin.x;
+        float dy = origin.y - pt.y;
+        float distPx = sqrt(dx * dx + dy * dy);
+        if (distPx <= maxRadiusPx) {
+            rangeMeters = (distPx / max(1.0, maxRadiusPx)) * visibleMaxRange;
+            float rad = (abs(dx) < 1e-5 && abs(dy) < 1e-5) ? 0.0 : atan(dx, dy);
+            bearingDeg = normalizeBearingDeg(rad * 57.2957795);
+            validGeom = (rangeMeters >= minRange);
+        }
+    } else if (mode == 1) {
+        float dx = pt.x - origin.x;
+        float dy = origin.y - pt.y;
+        float distPx = sqrt(dx * dx + dy * dy);
+        if (distPx <= maxRadiusPx) {
+            float rad = (abs(dx) < 1e-5 && abs(dy) < 1e-5) ? 0.0 : atan(dx, dy);
+            float relDeg = rad * 57.2957795;
+            if (abs(relDeg) <= sectorApertureDeg * 0.5) {
+                rangeMeters = (distPx / max(1.0, maxRadiusPx)) * visibleMaxRange;
+                bearingDeg = normalizeBearingDeg(headingDeg + relDeg);
+                validGeom = (rangeMeters >= minRange);
+            }
+        }
+    } else {
+        if (pt.x >= bscanRect.x && pt.x <= (bscanRect.x + bscanRect.z) &&
+            pt.y >= bscanRect.y && pt.y <= (bscanRect.y + bscanRect.w)) {
+            float u = (pt.x - bscanRect.x) / max(1.0, bscanRect.z);
+            float v = ((bscanRect.y + bscanRect.w) - pt.y) / max(1.0, bscanRect.w);
+            rangeMeters = v * visibleMaxRange;
+            float relDeg = (u - 0.5) * sectorApertureDeg;
+            bearingDeg = normalizeBearingDeg(headingDeg + relDeg);
+            validGeom = (rangeMeters >= minRange);
+        }
+    }
+
+    if (!validGeom) {
+        gl_FragColor = vec4(u_BgColor, 1.0);
+        return;
+    }
+
+    float echo = 0.0;
+    if (rangeMeters >= minRange && rangeMeters <= matrixMaxRange) {
+        float rNorm = clamp(rangeMeters / max(1.0, matrixMaxRange), 0.0, 1.0);
+        float spanDeg = matrixEndBrg - matrixStartBrg;
+        float beamNorm = 0.0;
+        bool inCoverage = true;
+        if (abs(spanDeg) >= 359.5) {
+            beamNorm = normalizeBearingDeg(bearingDeg - matrixStartBrg) / 360.0;
+        } else {
+            float rel = signedAngleDiffDeg(bearingDeg, headingDeg);
+            float halfSpan = max(1.0, abs(spanDeg) * 0.5);
+            if (abs(rel) > halfSpan) {
+                inCoverage = false;
+            } else {
+                beamNorm = (rel + halfSpan) / (2.0 * halfSpan);
+            }
+        }
+
+        if (inCoverage) {
+            float bFloat = clamp(beamNorm, 0.0, 1.0) * max(0.0, u_GridDims.y - 1.0);
+            float rFloat = rNorm * max(0.0, u_GridDims.x - 1.0);
+
+            float b0 = floor(bFloat);
+            float b1 = min(u_GridDims.y - 1.0, b0 + 1.0);
+            float fb = bFloat - b0;
+
+            float r0 = floor(rFloat);
+            float r1 = min(u_GridDims.x - 1.0, r0 + 1.0);
+            float fr = rFloat - r0;
+
+            float v00 = samplePolarTexel(r0, b0);
+            float v01 = samplePolarTexel(r1, b0);
+            float v10 = samplePolarTexel(r0, b1);
+            float v11 = samplePolarTexel(r1, b1);
+
+            float v0 = v00 + fr * (v01 - v00);
+            float v1 = v10 + fr * (v11 - v10);
+            float raw = v0 + fb * (v1 - v0);
+
+            float gainLinear = dspParams.x;
+            float tvgAmount = dspParams.y;
+            float thresh = clamp(dspParams.z, 0.0, 0.85);
+
+            float tvgBoost = 1.0 + tvgAmount * (1.35 * rNorm + 0.55 * sqrt(rNorm));
+            float val = raw * tvgBoost * gainLinear;
+            if (val > thresh) {
+                echo = clamp((val - thresh) / max(0.05, 1.0 - thresh), 0.0, 1.0);
+            }
+        }
+    }
+
+    vec4 mapped = texture2D(u_LutTex, vec2((echo * 255.0 + 0.5) / 256.0, 0.5));
+    gl_FragColor = vec4(mapped.rgb, 1.0);
+}
+)";
+
     auto makeSonarGpuDesc = [&](SonarViewState& state) {
-        ICanvas::SonarGpuFieldDesc gpuDesc{};
+        const float s = canvas.GetScale();
+        const Rect bscan = geom.GetBScanInnerRect();
+        const float gainLinear = std::pow(10.0f, opts.gainDb / 28.0f);
+
+        ICanvas::GpuShaderPassDesc gpuDesc{};
         gpuDesc.widgetId = node->id.value;
-        gpuDesc.dataGeneration = state.gridGeneration;
-        gpuDesc.polarData = state.persistentGrid.data();
-        gpuDesc.numBeams = state.numBeams;
-        gpuDesc.numRangeBins = state.numRangeBins;
-        gpuDesc.colormapId = static_cast<uint8_t>(opts.colormap);
-        CopyColormapLutAbgr(opts.colormap, gpuDesc.colormapAbgr);
+        gpuDesc.shader = {
+            .shaderId = "guikit.sonar.v1",
+            .glslEs2 = kSonarFragGlsl
+        };
         gpuDesc.plotRect = plotRect;
-        gpuDesc.origin = geom.origin;
-        gpuDesc.maxRadiusPx = geom.maxRadiusPx;
-        gpuDesc.minRangeMeters = geom.minRange;
-        gpuDesc.visibleMaxRangeMeters = geom.visibleMaxRange;
-        gpuDesc.matrixMaxRangeMeters = opts.maxRangeMeters;
-        gpuDesc.matrixStartBearingDeg = opts.matrixStartBearingDeg;
-        gpuDesc.matrixEndBearingDeg = opts.matrixEndBearingDeg;
-        gpuDesc.displayMode = static_cast<uint8_t>(geom.mode);
-        gpuDesc.bscanInnerRect = geom.GetBScanInnerRect();
-        gpuDesc.headingDeg = geom.headingDeg;
-        gpuDesc.sectorApertureDeg = geom.sectorApertureDeg;
-        gpuDesc.gainDb = opts.gainDb;
-        gpuDesc.tvgAmount = opts.tvgAmount;
-        gpuDesc.clutterThreshold = opts.clutterThreshold;
         gpuDesc.bgColor = bgConsole;
+        gpuDesc.dataFloats = state.persistentGrid.data();
+        gpuDesc.texWidth = state.numRangeBins;
+        gpuDesc.texHeight = state.numBeams;
+        gpuDesc.fullGeneration = state.gridGeneration;
+        gpuDesc.dataNormOffset = 0.0f;
+        gpuDesc.dataNormScale = 1.0f;
+        gpuDesc.colormapId = static_cast<uint8_t>(opts.colormap);
+        gpuDesc.lutAbgr256 = GetColormapLutAbgr(opts.colormap).data();
+
+        gpuDesc.params[0] = {geom.origin.x * s, geom.origin.y * s, geom.maxRadiusPx * s, 0.0f};
+        gpuDesc.params[1] = {geom.minRange, geom.visibleMaxRange, opts.maxRangeMeters, static_cast<float>(geom.mode)};
+        gpuDesc.params[2] = {opts.matrixStartBearingDeg, opts.matrixEndBearingDeg, geom.headingDeg, geom.sectorApertureDeg};
+        gpuDesc.params[3] = {bscan.x * s, bscan.y * s, bscan.w * s, bscan.h * s};
+        gpuDesc.params[4] = {gainLinear, opts.tvgAmount, opts.clutterThreshold, 0.0f};
         return gpuDesc;
     };
 
@@ -534,7 +691,7 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
                 restoredFromCache = true;
                 canvas.PushClip(plotRect);
                 const auto gpuDesc = makeSonarGpuDesc(state);
-                canvas.DrawSonarGpuField(gpuDesc, false);
+                canvas.DrawGpuShaderPass(gpuDesc, false);
                 canvas.PopClip();
             }
         }
@@ -553,7 +710,7 @@ void RenderSonarViewNode(const Node* node, ICanvas& canvas, const UiTheme& theme
         if (payload->state) {
             SonarViewState& state = *payload->state;
             const auto gpuDesc = makeSonarGpuDesc(state);
-            if (!canvas.DrawSonarGpuField(gpuDesc, true)) {
+            if (!canvas.DrawGpuShaderPass(gpuDesc, true)) {
                 const auto& lutAbgr = GetColormapLutAbgr(opts.colormap);
                 const float resScale = std::min({
                     0.80f,

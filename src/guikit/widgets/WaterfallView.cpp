@@ -308,30 +308,113 @@ void DrawWaterfallViewNode(const Node* node, ICanvas& canvas, const UiTheme& the
     const float xMinNorm = std::clamp((geom.viewMinX - geom.domainMinX) / domainSpan, 0.0f, 1.0f);
     const float xMaxNorm = std::clamp((geom.viewMaxX - geom.domainMinX) / domainSpan, 0.0f, 1.0f);
 
-    auto buildGpuDesc = [&]() noexcept -> ICanvas::WaterfallGpuFieldDesc {
-        ICanvas::WaterfallGpuFieldDesc desc{};
+    static constexpr std::string_view kWaterfallFragGlsl = R"(
+#ifdef GL_ES
+precision highp float;
+#endif
+varying vec2 v_uv;
+
+uniform vec2 u_GridDims;    // x=texWidth (bins), y=texHeight (historyRows)
+uniform vec3 u_BgColor;
+uniform vec4 u_Params[8];
+// u_Params[0]: x=dbFloor, y=dbCeil, z=xMinNorm, w=xMaxNorm
+// u_Params[1]: x=gainDb, y=thresholdGateDb, z=gateSuppression, w=gamma
+// u_Params[2]: x=headRow, y=validRows, z=invertTimeAxis, w=unused
+uniform sampler2D u_DataTex;
+uniform sampler2D u_LutTex;
+
+float decodeRG16(vec4 texel) {
+    return (texel.r * 65280.0 + texel.g * 255.0) / 65535.0;
+}
+
+float sampleRingDbTexel(float xIdx, float rowIdx) {
+    vec2 uv = vec2((xIdx + 0.5) / u_GridDims.x, (rowIdx + 0.5) / u_GridDims.y);
+    return -140.0 + decodeRG16(texture2D(u_DataTex, uv)) * 160.0;
+}
+
+void main() {
+    vec4 dbAndView = u_Params[0];
+    vec4 dspParams = u_Params[1];
+    vec4 ringParams = u_Params[2];
+
+    float timeUv = (ringParams.z > 0.5) ? (1.0 - v_uv.y) : v_uv.y;
+    float ageFloat = clamp(timeUv * max(1.0, u_GridDims.y - 1.0), 0.0, max(0.0, u_GridDims.y - 1.0));
+    if (ageFloat > (ringParams.y - 0.5)) {
+        gl_FragColor = vec4(u_BgColor, 1.0);
+        return;
+    }
+
+    float uNorm = mix(dbAndView.z, dbAndView.w, v_uv.x);
+    float xFloat = clamp(uNorm * u_GridDims.x - 0.5, 0.0, max(0.0, u_GridDims.x - 1.0));
+
+    float x0 = floor(xFloat);
+    float x1 = min(u_GridDims.x - 1.0, x0 + 1.0);
+    float fx = xFloat - x0;
+
+    float age0 = floor(ageFloat);
+    float age1 = min(max(0.0, ringParams.y - 1.0), age0 + 1.0);
+    float fy = ageFloat - age0;
+
+    float row0 = mod(ringParams.x - age0 + u_GridDims.y * 4.0, u_GridDims.y);
+    float row1 = mod(ringParams.x - age1 + u_GridDims.y * 4.0, u_GridDims.y);
+
+    float v00 = sampleRingDbTexel(x0, row0);
+    float v10 = sampleRingDbTexel(x1, row0);
+    float v01 = sampleRingDbTexel(x0, row1);
+    float v11 = sampleRingDbTexel(x1, row1);
+
+    float v0 = v00 + fx * (v10 - v00);
+    float v1 = v01 + fx * (v11 - v01);
+    float dbVal = (v0 + fy * (v1 - v0)) + dspParams.x;
+
+    float dbFloor = dbAndView.x;
+    float dbCeil = dbAndView.y;
+    float norm = clamp((dbVal - dbFloor) / max(1.0, dbCeil - dbFloor), 0.0, 1.0);
+
+    float threshDb = dspParams.y;
+    float gateSupp = clamp(dspParams.z, 0.0, 1.0);
+    if (gateSupp > 0.001 && dbVal < threshDb) {
+        float soft = clamp((dbVal - (threshDb - 10.0)) / 10.0, 0.0, 1.0);
+        norm *= mix(1.0, soft * 0.25, gateSupp);
+    }
+
+    float gamma = max(0.25, dspParams.w);
+    norm = pow(clamp(norm, 0.0, 1.0), gamma);
+
+    vec4 mapped = texture2D(u_LutTex, vec2((norm * 255.0 + 0.5) / 256.0, 0.5));
+    gl_FragColor = vec4(mapped.rgb, 1.0);
+}
+)";
+
+    auto buildGpuDesc = [&]() noexcept -> ICanvas::GpuShaderPassDesc {
+        ICanvas::GpuShaderPassDesc desc{};
         desc.widgetId = static_cast<uint64_t>(node->id.value);
-        desc.fullGeneration = state.fullGeneration;
-        desc.sliceGeneration = state.sliceGeneration;
-        desc.ringBufferDb = state.ringBufferDb.data();
-        desc.texWidth = state.numBins;
-        desc.texHeight = state.historyRows;
-        desc.headRow = state.headRow;
-        desc.validRows = state.validRows;
-        desc.colormapId = static_cast<uint8_t>(opts.colormap);
-        CopyColormapLutAbgr(opts.colormap, desc.colormapAbgr);
+        desc.shader = {
+            .shaderId = "guikit.waterfall.v1",
+            .glslEs2 = kWaterfallFragGlsl
+        };
         desc.plotRect = geom.wfRect;
         desc.clipRect = geom.wfRect;
-        desc.xMinNorm = xMinNorm;
-        desc.xMaxNorm = xMaxNorm;
-        desc.dbFloor = geom.dbFloor;
-        desc.dbCeil = geom.dbCeil;
-        desc.gainDb = opts.gainDb;
-        desc.thresholdGateDb = resp.cursorInside ? state.thresholdGateDb : state.thresholdGateDb;
-        desc.gateSuppression = opts.gateSuppression;
-        desc.gamma = opts.gamma;
-        desc.invertTimeAxis = opts.invertTimeAxis;
         desc.bgColor = bgPanel;
+        desc.dataFloats = state.ringBufferDb.data();
+        desc.texWidth = state.numBins;
+        desc.texHeight = state.historyRows;
+        desc.fullGeneration = state.fullGeneration;
+        desc.sliceGeneration = state.sliceGeneration;
+        desc.headRow = state.headRow;
+        desc.dataNormOffset = -140.0f;
+        desc.dataNormScale = 160.0f;
+        desc.colormapId = static_cast<uint8_t>(opts.colormap);
+        desc.lutAbgr256 = GetColormapLutAbgr(opts.colormap).data();
+
+        desc.params[0] = {geom.dbFloor, geom.dbCeil, xMinNorm, xMaxNorm};
+        desc.params[1] = {opts.gainDb, state.thresholdGateDb, opts.gateSuppression, opts.gamma};
+        desc.params[2] = {
+            static_cast<float>(state.headRow % std::max(1u, state.historyRows)),
+            static_cast<float>(std::min(state.validRows, state.historyRows)),
+            opts.invertTimeAxis ? 1.0f : 0.0f,
+            0.0f
+        };
         return desc;
     };
 
@@ -341,7 +424,7 @@ void DrawWaterfallViewNode(const Node* node, ICanvas& canvas, const UiTheme& the
             if (geom.hasWaterfall && !state.ringBufferDb.empty()) {
                 canvas.PushClip(geom.wfRect);
                 const auto gpuDesc = buildGpuDesc();
-                (void)canvas.DrawWaterfallGpuField(gpuDesc, false);
+                (void)canvas.DrawGpuShaderPass(gpuDesc, false);
                 canvas.PopClip();
             }
             restoredBase = true;
@@ -391,7 +474,7 @@ void DrawWaterfallViewNode(const Node* node, ICanvas& canvas, const UiTheme& the
             if (canvas.SupportsGpuShaders() && !state.ringBufferDb.empty()) {
                 canvas.PushClip(geom.wfRect);
                 const auto gpuDesc = buildGpuDesc();
-                gpuHandled = canvas.DrawWaterfallGpuField(gpuDesc, true);
+                gpuHandled = canvas.DrawGpuShaderPass(gpuDesc, true);
                 canvas.PopClip();
             }
 

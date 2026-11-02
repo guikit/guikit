@@ -1,27 +1,5 @@
 #pragma once
 
-#include <SDL3/SDL.h>
-#if defined(_WIN32)
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#ifdef DrawText
-#undef DrawText
-#endif
-#ifdef small
-#undef small
-#endif
-#ifdef RGB
-#undef RGB
-#endif
-#elif defined(__EMSCRIPTEN__)
-#include <emscripten/html5.h>
-#endif
-
 #include <algorithm>
 #include <cmath>
 #include "DemoContext.hpp"
@@ -29,67 +7,6 @@
 #include "guikit/core/Node.hpp"
 
 namespace guikit::demo {
-
-/// Queries the physical pixel density of the active display in pixels per millimeter (px/mm).
-/// - Windows (`_WIN32`): Queries hardware EDID physical dimensions via GDI `GetDeviceCaps(HORZSIZE / DESKTOPHORZRES)`.
-/// - WebAssembly (`__EMSCRIPTEN__`): Uses `emscripten_get_device_pixel_ratio()` relative to standard 96 CSS DPI.
-/// - Linux / macOS / Fallback: Uses `SDL_GetWindowDisplayScale(window)` relative to 96 DPI.
-inline float QueryDisplayPixelsPerMm(SDL_Window* window) noexcept {
-#if defined(_WIN32)
-    HDC hdc = ::GetDC(nullptr);
-    if (hdc != nullptr) {
-        const int widthMm = ::GetDeviceCaps(hdc, HORZSIZE);
-        const int heightMm = ::GetDeviceCaps(hdc, VERTSIZE);
-        const int widthPx = ::GetDeviceCaps(hdc, DESKTOPHORZRES);
-        const int heightPx = ::GetDeviceCaps(hdc, DESKTOPVERTRES);
-        ::ReleaseDC(nullptr, hdc);
-        if (widthMm > 50 && heightMm > 50 && widthPx > 320 && heightPx > 240) {
-            const float pxPerMmX = static_cast<float>(widthPx) / static_cast<float>(widthMm);
-            const float pxPerMmY = static_cast<float>(heightPx) / static_cast<float>(heightMm);
-            const float avgPxPerMm = 0.5f * (pxPerMmX + pxPerMmY);
-            if (avgPxPerMm >= 1.5f && avgPxPerMm <= 25.0f) {
-                return avgPxPerMm;
-            }
-        }
-    }
-#elif defined(__EMSCRIPTEN__)
-    const double dpr = emscripten_get_device_pixel_ratio();
-    if (dpr > 0.1) {
-        return static_cast<float>((96.0 * dpr) / 25.4);
-    }
-#endif
-    const float displayScale = (window != nullptr) ? SDL_GetWindowDisplayScale(window) : 1.0f;
-    const float safeScale = (displayScale > 0.1f) ? displayScale : 1.0f;
-    return (96.0f * safeScale) / 25.4f;
-}
-
-/// Applies the requested `guikit::CursorType` to the OS hardware cursor via SDL3, caching cursor handles.
-inline void ApplySystemCursor(guikit::CursorType cursor) noexcept {
-    static guikit::CursorType s_activeCursor = guikit::CursorType::Default;
-    if (cursor == s_activeCursor) return;
-    s_activeCursor = cursor;
-
-    static SDL_Cursor* s_cursors[9] = {};
-    const size_t idx = std::min<size_t>(static_cast<size_t>(cursor), 8);
-    if (!s_cursors[idx]) {
-        SDL_SystemCursor sysId = SDL_SYSTEM_CURSOR_DEFAULT;
-        switch (cursor) {
-            case guikit::CursorType::Default:    sysId = SDL_SYSTEM_CURSOR_DEFAULT; break;
-            case guikit::CursorType::Pointer:    sysId = SDL_SYSTEM_CURSOR_POINTER; break;
-            case guikit::CursorType::Text:       sysId = SDL_SYSTEM_CURSOR_TEXT; break;
-            case guikit::CursorType::ResizeEW:   sysId = SDL_SYSTEM_CURSOR_EW_RESIZE; break;
-            case guikit::CursorType::ResizeNS:   sysId = SDL_SYSTEM_CURSOR_NS_RESIZE; break;
-            case guikit::CursorType::ResizeNWSE: sysId = SDL_SYSTEM_CURSOR_NWSE_RESIZE; break;
-            case guikit::CursorType::ResizeNESW: sysId = SDL_SYSTEM_CURSOR_NESW_RESIZE; break;
-            case guikit::CursorType::Move:       sysId = SDL_SYSTEM_CURSOR_MOVE; break;
-            case guikit::CursorType::NotAllowed: sysId = SDL_SYSTEM_CURSOR_NOT_ALLOWED; break;
-        }
-        s_cursors[idx] = SDL_CreateSystemCursor(sysId);
-    }
-    if (s_cursors[idx]) {
-        SDL_SetCursor(s_cursors[idx]);
-    }
-}
 
 namespace detail {
 

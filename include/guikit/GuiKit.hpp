@@ -11,6 +11,9 @@
 
 #include "guikit/Core.hpp"
 #include "guikit/Scenes.hpp"
+#if __has_include(<SDL3/SDL.h>)
+#include "guikit/backend/SdlWindowBackend.hpp"
+#endif
 
 namespace guikit {
 

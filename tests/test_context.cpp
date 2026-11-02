@@ -7469,12 +7469,12 @@ void TestSonarAndSignalGpuShaderPipeline() {
     ui.EndFrame(canvas);
 
     CHECK(canvas.HasActiveGpuPasses());
-    CHECK(canvas.GetSonarGpuPasses().size() == 1);
-    CHECK(canvas.GetSpectrogramGpuPasses().size() == 1);
+    CHECK(canvas.GetGpuShaderPasses().size() == 2);
 
-    const auto& sonarPass = canvas.GetSonarGpuPasses()[0];
-    CHECK(sonarPass.numBeams == 90);
-    CHECK(sonarPass.numRangeBins == 128);
+    const auto& sonarPass = canvas.GetGpuShaderPasses()[0];
+    CHECK(sonarPass.shader.shaderId == "guikit.sonar.v1");
+    CHECK(sonarPass.texHeight == 90);
+    CHECK(sonarPass.texWidth == 128);
     CHECK(sonarPass.plotRect.w > 100.0f);
     CHECK(sonarPass.clipRect.w > 100.0f);
 
@@ -7502,8 +7502,7 @@ void TestSonarAndSignalGpuShaderPipeline() {
 
     CHECK(!ui.IsFullRepaint());
     CHECK(canvas.HasActiveGpuPasses());
-    CHECK(canvas.GetSonarGpuPasses().size() == 1);
-    CHECK(canvas.GetSpectrogramGpuPasses().size() == 1);
+    CHECK(canvas.GetGpuShaderPasses().size() == 2);
 
     // 3. Toggle GPU shaders OFF -> automatic CPU fallback with opaque background in plotRect
     canvas.SetGpuShadersEnabled(false);
@@ -7574,7 +7573,7 @@ void TestSonarAndSignalGpuShaderPipeline() {
 
             // 5. Verify mouse crosshair movement over SignalView uses StaticBaseLayerCache (RestoreRegion),
             //    keeps partial dirty rect (!IsFullRepaint), preserves GPU underlay pass, and runs in < 2.0 ms/frame.
-            const Rect specPlot = canvas.GetSpectrogramGpuPasses()[0].plotRect;
+            const Rect specPlot = canvas.GetGpuShaderPasses()[1].plotRect;
             double totalCrosshairMs = 0.0;
             constexpr int kMoveFrames = 20;
             for (int m = 0; m < kMoveFrames; ++m) {
@@ -7589,7 +7588,7 @@ void TestSonarAndSignalGpuShaderPipeline() {
                 CHECK(ui.HasDirtyDamage());
                 CHECK(!ui.IsFullRepaint());
                 CHECK(canvas.HasActiveGpuPasses());
-                CHECK(canvas.GetSpectrogramGpuPasses().size() == 1);
+                CHECK(canvas.GetGpuShaderPasses().size() == 2);
             }
             const double avgCrosshairMs = totalCrosshairMs / static_cast<double>(kMoveFrames);
             std::cout << "  [BENCH] SignalView mouse crosshair move CPU frame time: " << avgCrosshairMs << " ms/frame\n";
@@ -7705,14 +7704,14 @@ void TestWaterfallViewWidgetAndGpuRingBuffer() {
     CHECK(respDoa.populatedRows >= 3);
     CHECK(respSpec.dominantPeakDb > -40.0f);
     CHECK(respDoa.dominantPeakDb > -40.0f);
-    CHECK(canvas.GetWaterfallGpuPasses().size() == 2);
+    CHECK(canvas.GetGpuShaderPasses().size() == 2);
 
     // Pause ingestion (keep seq constant) and test mouse crosshair movement over WaterfallView uses StaticBaseLayerCache
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
     ui.EndFrame(canvas);
 
-    const Rect wfRect = canvas.GetWaterfallGpuPasses()[0].plotRect;
+    const Rect wfRect = canvas.GetGpuShaderPasses()[0].plotRect;
     ui.OnMouseMove({wfRect.x + 40.0f, wfRect.y + 30.0f});
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
     renderUI();
@@ -7721,7 +7720,7 @@ void TestWaterfallViewWidgetAndGpuRingBuffer() {
     CHECK(respSpec.hovered);
     CHECK(respSpec.cursorInside);
     CHECK(!ui.IsFullRepaint());
-    CHECK(canvas.GetWaterfallGpuPasses().size() == 2);
+    CHECK(canvas.GetGpuShaderPasses().size() == 2);
 
     std::cout << "  [PASS] TestWaterfallViewWidgetAndGpuRingBuffer completed\n";
 }
@@ -12150,10 +12149,10 @@ int main() {
                 clipUi.EndFrame(clipCanvas);
             }
             CHECK(clipCanvas.HasActiveGpuPasses());
-            CHECK(!clipCanvas.GetSonarGpuPasses().empty());
-            if (!clipCanvas.GetSonarGpuPasses().empty()) {
-                const Rect initialSonarClip = clipCanvas.GetSonarGpuPasses()[0].clipRect;
-                const Rect initialSonarPlot = clipCanvas.GetSonarGpuPasses()[0].plotRect;
+            CHECK(!clipCanvas.GetGpuShaderPasses().empty());
+            if (!clipCanvas.GetGpuShaderPasses().empty()) {
+                const Rect initialSonarClip = clipCanvas.GetGpuShaderPasses()[0].clipRect;
+                const Rect initialSonarPlot = clipCanvas.GetGpuShaderPasses()[0].plotRect;
                 // Verify the widget is genuinely partially clipped vertically (unclipped plot extends into BottomPanel)
                 CHECK(initialSonarPlot.Bottom() > initialSonarClip.Bottom() + 50.0f);
                 CHECK(initialSonarPlot.Bottom() > codeAreaRect.y);
@@ -12168,9 +12167,9 @@ int main() {
                     clipUi.EndFrame(clipCanvas);
                     // GPU pass must NEVER be dropped when BottomPanel repaints!
                     CHECK(clipCanvas.HasActiveGpuPasses());
-                    CHECK(!clipCanvas.GetSonarGpuPasses().empty());
-                    if (!clipCanvas.GetSonarGpuPasses().empty()) {
-                        CHECK(std::abs(clipCanvas.GetSonarGpuPasses()[0].clipRect.h - initialSonarClip.h) < 2.0f);
+                    CHECK(!clipCanvas.GetGpuShaderPasses().empty());
+                    if (!clipCanvas.GetGpuShaderPasses().empty()) {
+                        CHECK(std::abs(clipCanvas.GetGpuShaderPasses()[0].clipRect.h - initialSonarClip.h) < 2.0f);
                     }
                 }
 
@@ -12193,10 +12192,10 @@ int main() {
                 clipUi.EndFrame(clipCanvas);
             }
             CHECK(clipCanvas.HasActiveGpuPasses());
-            CHECK(!clipCanvas.GetWaterfallGpuPasses().empty());
-            if (!clipCanvas.GetWaterfallGpuPasses().empty()) {
-                const Rect initialWfClip = clipCanvas.GetWaterfallGpuPasses()[0].clipRect;
-                const Rect initialWfPlot = clipCanvas.GetWaterfallGpuPasses()[0].plotRect;
+            CHECK(!clipCanvas.GetGpuShaderPasses().empty());
+            if (!clipCanvas.GetGpuShaderPasses().empty()) {
+                const Rect initialWfClip = clipCanvas.GetGpuShaderPasses()[0].clipRect;
+                const Rect initialWfPlot = clipCanvas.GetGpuShaderPasses()[0].plotRect;
                 CHECK(initialWfPlot.Bottom() > initialWfClip.Bottom() + 50.0f);
 
                 // Blink cursor in BottomPanel while WaterfallView is partially clipped
@@ -12208,9 +12207,9 @@ int main() {
                     renderClippedScene(8.0 + step * 0.55);
                     clipUi.EndFrame(clipCanvas);
                     CHECK(clipCanvas.HasActiveGpuPasses());
-                    CHECK(!clipCanvas.GetWaterfallGpuPasses().empty());
-                    if (!clipCanvas.GetWaterfallGpuPasses().empty()) {
-                        CHECK(std::abs(clipCanvas.GetWaterfallGpuPasses()[0].clipRect.h - initialWfClip.h) < 2.0f);
+                    CHECK(!clipCanvas.GetGpuShaderPasses().empty());
+                    if (!clipCanvas.GetGpuShaderPasses().empty()) {
+                        CHECK(std::abs(clipCanvas.GetGpuShaderPasses()[0].clipRect.h - initialWfClip.h) < 2.0f);
                     }
                 }
             }

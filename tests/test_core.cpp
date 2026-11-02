@@ -747,6 +747,151 @@ void TestUiVectorAndArenaVector() {
     }
 }
 
+void TestMainWindowHeadlessBackend() {
+    using namespace guikit;
+
+    class HeadlessCanvas final : public ICanvas {
+    public:
+        void Begin(uint32_t, uint32_t, float scale = 1.0f) override {
+            m_scale = scale;
+            m_passes.clear();
+        }
+        void End() override {}
+        [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
+        void SetScale(float scale) override { m_scale = scale; }
+        [[nodiscard]] std::string_view GetBackendName() const noexcept override { return "HeadlessCanvas"; }
+        void Clear(Color, std::optional<Rect> = std::nullopt) override {}
+        void PushClip(Rect) override {}
+        void PopClip() override {}
+        void DrawRect(Rect, Color) override { ++drawCount; }
+        void DrawRoundRect(Rect, float, Color, Color = Color(0, 0, 0, 0), float = 0.0f) override { ++drawCount; }
+        Vec2 MeasureText(std::string_view text, float fontSize) override {
+            return {static_cast<float>(text.size()) * fontSize * 0.55f, fontSize * 1.2f};
+        }
+        [[nodiscard]] float GetLineHeight(float fontSize) override { return fontSize * 1.25f; }
+        void DrawText(std::string_view, Vec2, float, Color) override { ++drawCount; }
+        void DrawTextBox(std::string_view, Rect, float, Color, float = 0.0f, float = 0.5f) override { ++drawCount; }
+        void DrawLine(Vec2, Vec2, Color, float = 1.0f) override { ++drawCount; }
+        bool DrawGpuShaderPass(const GpuShaderPassDesc& desc, bool = true) override {
+            m_passes.push_back(desc);
+            ++drawCount;
+            return true;
+        }
+        [[nodiscard]] const std::vector<GpuShaderPassDesc>& GetGpuShaderPasses() const noexcept override {
+            return m_passes;
+        }
+
+        float m_scale{1.0f};
+        size_t drawCount{0};
+        std::vector<GpuShaderPassDesc> m_passes;
+    };
+
+    class MockWindowBackend final : public IWindowBackend {
+    public:
+        bool Initialize(const MainWindowConfig& cfg, Context&, const WindowHostCallbacks&) override {
+            m_cfg = cfg;
+            initialized = true;
+            return true;
+        }
+        void Shutdown() noexcept override {
+            shutdownCalled = true;
+        }
+        bool PumpEvents(Context&, bool, int) override {
+            return true;
+        }
+        ICanvas& GetCanvas() noexcept override { return m_canvas; }
+        const ICanvas& GetCanvas() const noexcept override { return m_canvas; }
+        void PrepareFrameTarget(Context&) override {}
+        void PresentFrame(const Context&, FrameMetrics& metrics, bool) override {
+            metrics.MarkGpuStart();
+            metrics.MarkGpuDone();
+            ++framesPresented;
+        }
+        int GetWidth() const noexcept override { return m_cfg.width; }
+        int GetHeight() const noexcept override { return m_cfg.height; }
+        float GetDisplayPixelsPerMm() const noexcept override { return 4.0f; }
+        bool IsMinimized() const noexcept override { return false; }
+        bool IsLiveResizeFrame() const noexcept override { return false; }
+        bool IsVsyncEnabled() const noexcept override { return m_vsync; }
+        void SetVsyncEnabled(bool enabled) noexcept override { m_vsync = enabled; }
+        bool IsGpuShadersEnabled() const noexcept override { return m_gpuShaders; }
+        bool IsGpuShadersAvailable() const noexcept override { return true; }
+        void SetGpuShadersEnabled(bool enabled) noexcept override { m_gpuShaders = enabled; }
+        void UpdateSystemCursor(CursorType cursor) noexcept override { lastCursor = cursor; }
+        void OpenUrl(std::string_view) const noexcept override {}
+
+        MainWindowConfig m_cfg{};
+        HeadlessCanvas m_canvas{};
+        bool m_vsync{true};
+        bool m_gpuShaders{true};
+        CursorType lastCursor{CursorType::Default};
+        bool initialized{false};
+        bool shutdownCalled{false};
+        int framesPresented{0};
+    };
+
+    class TestAppWindow final : public MainWindow {
+    public:
+        using MainWindow::MainWindow;
+
+        bool initCalled{false};
+        bool shutdownCalled{false};
+        int guiCount{0};
+
+    protected:
+        void OnInit() override {
+            initCalled = true;
+        }
+        void OnRender(Context& ui) override {
+            ++guiCount;
+            if (auto tb = ui.Toolbar()) {
+                RenderThemeControls(tb);
+                RenderDebugControls(tb);
+                RenderEngineControls(tb);
+            }
+            static constexpr std::array<CommandPaletteItem, 1> kCmds = {{
+                {.label = "Test Cmd", .category = "Test", .shortcut = "Ctrl+T"}
+            }};
+            if (auto sb = ui.StatusBar()) {
+                (void)RenderCommandPalette(sb, kCmds);
+                RenderTelemetryStatus(sb, true);
+            }
+
+            // Emit a universal GPU shader pass descriptor
+            ICanvas::GpuShaderPassDesc pass{};
+            pass.widgetId = 42;
+            pass.plotRect = {10.0f, 10.0f, 200.0f, 100.0f};
+            pass.shader.shaderId = "test.custom_shader";
+            pass.shader.glslEs2 = "void main() {}";
+            pass.params[0] = {1.0f, 2.0f, 3.0f, 4.0f};
+            (void)GetCanvas().DrawGpuShaderPass(pass);
+
+            if (guiCount >= 3) {
+                Close();
+            }
+        }
+        void OnShutdown() override {
+            shutdownCalled = true;
+        }
+    };
+
+    auto backend = std::make_unique<MockWindowBackend>();
+    MockWindowBackend* rawBackend = backend.get();
+
+    TestAppWindow app({.title = "Headless Test", .width = 1000, .height = 800, .reactiveMode = false}, std::move(backend));
+    const int exitCode = app.Run();
+    CHECK(exitCode == 0);
+    CHECK(app.initCalled);
+    CHECK(app.shutdownCalled);
+    CHECK(app.guiCount == 3);
+    CHECK(rawBackend->initialized);
+    CHECK(rawBackend->shutdownCalled);
+    CHECK(rawBackend->framesPresented == 3);
+    CHECK(rawBackend->m_canvas.drawCount > 0);
+    CHECK(rawBackend->m_canvas.GetGpuShaderPasses().size() == 1);
+    CHECK(rawBackend->m_canvas.GetGpuShaderPasses()[0].shader.shaderId == "test.custom_shader");
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Core Foundation...\n";
 
@@ -764,6 +909,7 @@ int main() {
     TestStandaloneCoreModuleZeroDependencies();
     TestEmbeddedAndRuntimeAssets();
     TestUiVectorAndArenaVector();
+    TestMainWindowHeadlessBackend();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Core tests passed successfully!\n";

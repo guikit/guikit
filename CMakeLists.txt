@@ -30,12 +30,13 @@ endif()
 
 # ==============================================================================
 # 1. Module: guikit::core
-#    Context, LayoutSolver, Element, Theme, ICanvas, Base Widgets & Panels
+#    Context, LayoutSolver, Element, Theme, ICanvas, MainWindow, Base Widgets & Panels
 #    Zero external OS / Windowing / GPU dependencies (Pure C++20)
 # ==============================================================================
 set(GUIKIT_CORE_SOURCES
     src/guikit/Context.cpp
     src/guikit/core/ContainerScope.cpp
+    src/guikit/core/MainWindow.cpp
     src/guikit/core/Response.cpp
     src/guikit/core/Theme.cpp
     src/guikit/core/Assets.cpp
@@ -200,7 +201,7 @@ endif()
 
 # ==============================================================================
 # 4. Module: guikit::backend_sdl3
-#    Windowing & Hardware GPU Shader Backend (SdlCanvas, SdlGlShaderEngine)
+#    Windowing & Hardware GPU Shader Backend (SdlWindowBackend, SdlCanvas, SdlGlShaderEngine)
 # ==============================================================================
 if (GUIKIT_BUILD_BACKEND_SDL3)
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/SDL/CMakeLists.txt")
@@ -216,6 +217,7 @@ if (GUIKIT_BUILD_BACKEND_SDL3)
     endif()
 
     add_library(guikit_backend_sdl3 STATIC
+        src/guikit/backend/SdlWindowBackend.cpp
         src/guikit/backend/SdlCanvas.cpp
         src/guikit/backend/SdlGlShaderEngine.cpp
     )
@@ -223,6 +225,9 @@ if (GUIKIT_BUILD_BACKEND_SDL3)
 
     target_compile_features(guikit_backend_sdl3 PUBLIC cxx_std_20)
     target_link_libraries(guikit_backend_sdl3 PUBLIC guikit::core SDL3::SDL3-static)
+    if (TARGET guikit::backend_thorvg)
+        target_link_libraries(guikit_backend_sdl3 PUBLIC guikit::backend_thorvg)
+    endif()
 endif()
 
 # ==============================================================================
@@ -247,6 +252,7 @@ endif()
 if (GUIKIT_BUILD_DEMO)
     add_executable(guikit_demo
         examples/demo/main.cpp
+        examples/demo/DemoWindow.cpp
         examples/demo/elements/HeadingScreen.cpp
         examples/demo/elements/ButtonScreen.cpp
         examples/demo/elements/SliderScreen.cpp

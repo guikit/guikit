@@ -2,9 +2,12 @@
 
 $files = @(
     "src/guikit/Context.cpp",
+    "src/guikit/core/MainWindow.cpp",
     "src/guikit/core/Theme.cpp",
     "src/guikit/backend/ThorCanvas.cpp",
     "src/guikit/backend/SdlCanvas.cpp",
+    "src/guikit/backend/SdlWindowBackend.cpp",
+    "src/guikit/backend/SdlGlShaderEngine.cpp",
     "src/guikit/graphics/Icon.cpp",
     "src/guikit/layout/Row.cpp",
     "src/guikit/layout/Column.cpp",

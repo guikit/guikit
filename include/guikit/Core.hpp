@@ -14,6 +14,7 @@
 #include "guikit/core/Element.hpp"
 #include "guikit/core/FrameMetrics.hpp"
 #include "guikit/core/Id.hpp"
+#include "guikit/core/MainWindow.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/Response.hpp"
 #include "guikit/core/Solver.hpp"

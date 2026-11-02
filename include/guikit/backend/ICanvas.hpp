@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -327,74 +328,48 @@ public:
         Color /*tint*/ = Color(255, 255, 255, 255)
     ) {}
 
-    /// Declarative descriptor for hardware GPU shader rendering of a polar/sector/B-scan sonar/radar field.
-    struct SonarGpuFieldDesc {
-        uint64_t widgetId{0};
-        uint64_t dataGeneration{0};
-        const float* polarData{nullptr}; ///< Row-major [numBeams * numRangeBins] normalized echo [0..1]
-        uint32_t numBeams{0};
-        uint32_t numRangeBins{0};
-        uint8_t colormapId{0};
-        uint32_t colormapAbgr[256]{};
-        Rect plotRect{};
-        Rect clipRect{};
-        Vec2 origin{};
-        float maxRadiusPx{100.0f};
-        float minRangeMeters{0.0f};
-        float visibleMaxRangeMeters{500.0f};
-        float matrixMaxRangeMeters{500.0f};
-        float matrixStartBearingDeg{0.0f};
-        float matrixEndBearingDeg{360.0f};
-        uint8_t displayMode{0}; ///< 0 = PPI_360, 1 = SectorWedge, 2 = BScan
-        Rect bscanInnerRect{};
-        float headingDeg{0.0f};
-        float sectorApertureDeg{120.0f};
-        float gainDb{0.0f};
-        float tvgAmount{0.5f};
-        float clutterThreshold{0.1f};
-        Color bgColor{6, 10, 18, 255};
+    /// Multi-API fragment shader source bundle for hardware GPU underlay passes.
+    struct GpuShaderSource {
+        std::string_view shaderId;     ///< Unique program cache key (e.g. "guikit.sonar.v1")
+        std::string_view glslEs2;      ///< OpenGL 2.1 / OpenGL ES 2.0 / WebGL 1.0 & 2.0 fragment shader source
+        std::string_view wgsl{};       ///< Optional WebGPU WGSL source
+        std::string_view hlsl{};       ///< Optional Direct3D 11/12 HLSL source
+        std::string_view msl{};        ///< Optional Apple Metal MSL source
     };
 
-    /// Declarative descriptor for hardware GPU shader rendering of an STFT spectrogram / waterfall field.
-    struct SpectrogramGpuFieldDesc {
+    /// Generic 16-byte aligned `float4` uniform register (`std140` / `cbuffer` layout).
+    struct GpuFloat4 {
+        float x{0.0f};
+        float y{0.0f};
+        float z{0.0f};
+        float w{0.0f};
+    };
+
+    /// Declarative, domain-agnostic descriptor for a 2D hardware GPU shader underlay pass.
+    struct GpuShaderPassDesc {
         uint64_t widgetId{0};
-        uint64_t dataGeneration{0};
-        const float* dbGrid{nullptr}; ///< Row-major [texHeight * texWidth] dB values
+        GpuShaderSource shader{};
+
+        Rect plotRect{};
+        Rect clipRect{};
+        Color bgColor{0, 0, 0, 255};
+
+        // 2D Data Texture (Slot 0: `u_DataTex`)
+        const float* dataFloats{nullptr};    ///< Row-major [texHeight * texWidth] float field
         uint32_t texWidth{0};
         uint32_t texHeight{0};
-        uint8_t colormapId{0};
-        uint32_t colormapAbgr[256]{};
-        Rect plotRect{};
-        Rect clipRect{};
-        float dbFloor{-100.0f};
-        float dbCeil{0.0f};
-        Color bgColor{8, 6, 22, 255};
-    };
+        uint64_t fullGeneration{0};          ///< Incremented when the full 2D grid changes
+        uint64_t sliceGeneration{0};         ///< Optional: incremented when a single row is written in a circular ring buffer
+        uint32_t headRow{0};                 ///< Optional: ring-buffer head row index [0 .. texHeight-1] for O(1) sub-row upload
+        float dataNormOffset{0.0f};          ///< Value mapped to 0.0 in RG16 upload (0.0 for [0..1] data, -140.0 for dB data)
+        float dataNormScale{1.0f};           ///< Span mapped to [0..1] in RG16 upload (1.0 for [0..1] data, 160.0 for dB data)
 
-    /// Declarative descriptor for hardware GPU ring-buffer shader rendering of a scrolling Waterfall (RTSA Spectrum or DOA/BTR).
-    struct WaterfallGpuFieldDesc {
-        uint64_t widgetId{0};
-        uint64_t fullGeneration{0};         ///< Incremented when the entire ring buffer is reset, resized, or bulk-loaded
-        uint64_t sliceGeneration{0};        ///< Incremented each time a new row is written at `headRow`
-        const float* ringBufferDb{nullptr}; ///< Row-major [texHeight * texWidth] circular buffer of dB values
-        uint32_t texWidth{0};               ///< Number of X bins (frequency bins or azimuth beams)
-        uint32_t texHeight{0};              ///< Number of history rows in the circular buffer
-        uint32_t headRow{0};                ///< Index [0 .. texHeight-1] of the most recently written row (t = 0s)
-        uint32_t validRows{0};              ///< Number of populated rows (1 .. texHeight)
+        // 1D Colormap LUT Texture (Slot 1: `u_LutTex`, 256 x 1 ABGR8888)
         uint8_t colormapId{0};
-        uint32_t colormapAbgr[256]{};
-        Rect plotRect{};
-        Rect clipRect{};
-        float xMinNorm{0.0f};               ///< Visible X start normalized [0..1] for hardware zoom/pan
-        float xMaxNorm{1.0f};               ///< Visible X end normalized [0..1] for hardware zoom/pan
-        float dbFloor{-110.0f};
-        float dbCeil{0.0f};
-        float gainDb{0.0f};
-        float thresholdGateDb{-140.0f};     ///< Noise gate threshold in dB
-        float gateSuppression{0.0f};        ///< [0..1] suppression factor below thresholdGateDb
-        float gamma{1.0f};                  ///< Contrast gamma exponent
-        bool invertTimeAxis{false};         ///< false = newest at top flowing down; true = newest at bottom flowing up
-        Color bgColor{6, 9, 18, 255};
+        const uint32_t* lutAbgr256{nullptr}; ///< Pointer to persistent 256-entry ABGR8888 LUT (zero-copy)
+
+        // Standard 8 x float4 (128-byte std140) uniform parameter bank (`uniform vec4 u_Params[8]`)
+        std::array<GpuFloat4, 8> params{};
     };
 
     /// Enables or disables GPU shader underlay pass recording on this canvas.
@@ -406,35 +381,15 @@ public:
     /// Returns true if one or more GPU shader underlay passes were recorded in the current frame.
     [[nodiscard]] virtual bool HasActiveGpuPasses() const noexcept { return false; }
 
-    /// Returns recorded Sonar GPU shader passes for the current frame.
-    [[nodiscard]] virtual const std::vector<SonarGpuFieldDesc>& GetSonarGpuPasses() const noexcept {
-        static const std::vector<SonarGpuFieldDesc> kEmpty;
+    /// Returns recorded GPU shader underlay passes for the current frame.
+    [[nodiscard]] virtual const std::vector<GpuShaderPassDesc>& GetGpuShaderPasses() const noexcept {
+        static const std::vector<GpuShaderPassDesc> kEmpty;
         return kEmpty;
     }
 
-    /// Returns recorded Spectrogram GPU shader passes for the current frame.
-    [[nodiscard]] virtual const std::vector<SpectrogramGpuFieldDesc>& GetSpectrogramGpuPasses() const noexcept {
-        static const std::vector<SpectrogramGpuFieldDesc> kEmpty;
-        return kEmpty;
-    }
-
-    /// Returns recorded Waterfall GPU shader passes for the current frame.
-    [[nodiscard]] virtual const std::vector<WaterfallGpuFieldDesc>& GetWaterfallGpuPasses() const noexcept {
-        static const std::vector<WaterfallGpuFieldDesc> kEmpty;
-        return kEmpty;
-    }
-
-    /// Queues a GPU shader pass for a sonar/radar polar heatmap and optionally punches a transparent window in the CPU layer.
+    /// Queues a generic 2D GPU shader underlay pass and optionally punches a transparent window in the CPU layer.
     /// Returns true if handled by GPU, or false if the caller should fall back to CPU rasterization.
-    virtual bool DrawSonarGpuField(const SonarGpuFieldDesc& /*desc*/, bool /*punchHole*/ = true) { return false; }
-
-    /// Queues a GPU shader pass for an STFT spectrogram heatmap and optionally punches a transparent window in the CPU layer.
-    /// Returns true if handled by GPU, or false if the caller should fall back to CPU rasterization.
-    virtual bool DrawSpectrogramGpuField(const SpectrogramGpuFieldDesc& /*desc*/, bool /*punchHole*/ = true) { return false; }
-
-    /// Queues a GPU ring-buffer shader pass for a scrolling Waterfall (RTSA or DOA/BTR) and optionally punches a transparent window in the CPU layer.
-    /// Returns true if handled by GPU, or false if the caller should fall back to CPU rasterization.
-    virtual bool DrawWaterfallGpuField(const WaterfallGpuFieldDesc& /*desc*/, bool /*punchHole*/ = true) { return false; }
+    virtual bool DrawGpuShaderPass(const GpuShaderPassDesc& /*pass*/, bool /*punchHole*/ = true) { return false; }
 
     /// Flushes pending draw commands and captures a physical pixel snapshot of `rect` for retained base-layer caching.
     virtual bool CaptureRegion(Rect /*rect*/, std::vector<uint32_t>& /*outPixels*/, uint32_t& /*outW*/, uint32_t& /*outH*/) {

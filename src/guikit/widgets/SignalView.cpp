@@ -1747,19 +1747,76 @@ SignalViewResponse SignalView::Run(
             rad
         );
 
+        static constexpr std::string_view kSpectrogramFragGlsl = R"(
+#ifdef GL_ES
+precision highp float;
+#endif
+varying vec2 v_uv;
+
+uniform vec2 u_GridDims; // x=texWidth, y=texHeight
+uniform vec3 u_BgColor;
+uniform vec4 u_Params[8];
+// u_Params[0]: x=dbFloor, y=dbCeil
+uniform sampler2D u_DataTex;
+uniform sampler2D u_LutTex;
+
+float decodeRG16(vec4 texel) {
+    return (texel.r * 65280.0 + texel.g * 255.0) / 65535.0;
+}
+
+float sampleDbTexel(float xIdx, float yIdx) {
+    vec2 uv = vec2((xIdx + 0.5) / u_GridDims.x, (yIdx + 0.5) / u_GridDims.y);
+    return -140.0 + decodeRG16(texture2D(u_DataTex, uv)) * 160.0;
+}
+
+void main() {
+    float xFloat = clamp(v_uv.x * u_GridDims.x - 0.5, 0.0, max(0.0, u_GridDims.x - 1.0));
+    float yFloat = clamp(v_uv.y * u_GridDims.y - 0.5, 0.0, max(0.0, u_GridDims.y - 1.0));
+
+    float x0 = floor(xFloat);
+    float x1 = min(u_GridDims.x - 1.0, x0 + 1.0);
+    float fx = xFloat - x0;
+
+    float y0 = floor(yFloat);
+    float y1 = min(u_GridDims.y - 1.0, y0 + 1.0);
+    float fy = yFloat - y0;
+
+    float v00 = sampleDbTexel(x0, y0);
+    float v10 = sampleDbTexel(x1, y0);
+    float v01 = sampleDbTexel(x0, y1);
+    float v11 = sampleDbTexel(x1, y1);
+
+    float v0 = v00 + fx * (v10 - v00);
+    float v1 = v01 + fx * (v11 - v01);
+    float dbVal = v0 + fy * (v1 - v0);
+
+    float dbFloor = u_Params[0].x;
+    float dbCeil = u_Params[0].y;
+    float norm = clamp((dbVal - dbFloor) / max(1.0, dbCeil - dbFloor), 0.0, 1.0);
+
+    vec4 mapped = texture2D(u_LutTex, vec2((norm * 255.0 + 0.5) / 256.0, 0.5));
+    gl_FragColor = vec4(mapped.rgb, 1.0);
+}
+)";
+
         auto makeSpecGpuDesc = [&]() {
-            ICanvas::SpectrogramGpuFieldDesc gpuDesc{};
+            ICanvas::GpuShaderPassDesc gpuDesc{};
             gpuDesc.widgetId = n->id.value;
-            gpuDesc.dataGeneration = s.specCache.dbGridGeneration;
-            gpuDesc.dbGrid = s.specCache.dbGrid.data();
+            gpuDesc.shader = {
+                .shaderId = "guikit.spectrogram.v1",
+                .glslEs2 = kSpectrogramFragGlsl
+            };
+            gpuDesc.plotRect = g.specPlotRect;
+            gpuDesc.bgColor = Color(8, 6, 22, 255);
+            gpuDesc.dataFloats = s.specCache.dbGrid.data();
             gpuDesc.texWidth = SpectrogramCache::kTexW;
             gpuDesc.texHeight = SpectrogramCache::kTexH;
+            gpuDesc.fullGeneration = s.specCache.dbGridGeneration;
+            gpuDesc.dataNormOffset = -140.0f;
+            gpuDesc.dataNormScale = 160.0f;
             gpuDesc.colormapId = static_cast<uint8_t>(o.colormap);
-            CopyColormapLutAbgr(o.colormap, gpuDesc.colormapAbgr);
-            gpuDesc.plotRect = g.specPlotRect;
-            gpuDesc.dbFloor = s.specCache.dbFloor;
-            gpuDesc.dbCeil = s.specCache.dbCeil;
-            gpuDesc.bgColor = Color(8, 6, 22, 255);
+            gpuDesc.lutAbgr256 = GetColormapLutAbgr(o.colormap).data();
+            gpuDesc.params[0] = {s.specCache.dbFloor, s.specCache.dbCeil, 0.0f, 0.0f};
             return gpuDesc;
         };
 
@@ -1770,7 +1827,7 @@ SignalViewResponse SignalView::Run(
                 if (g.specPlotRect.w > 0.0f && g.specPlotRect.h > 2.0f && !s.specCache.dbGrid.empty()) {
                     c.PushClip(g.specPlotRect);
                     const auto gpuDesc = makeSpecGpuDesc();
-                    c.DrawSpectrogramGpuField(gpuDesc, false);
+                    c.DrawGpuShaderPass(gpuDesc, false);
                     c.PopClip();
                 }
             }
@@ -1989,7 +2046,7 @@ SignalViewResponse SignalView::Run(
                 c.PushClip(sp);
                 if (!s.specCache.dbGrid.empty()) {
                     const auto gpuDesc = makeSpecGpuDesc();
-                    if (!c.DrawSpectrogramGpuField(gpuDesc, true)) {
+                    if (!c.DrawGpuShaderPass(gpuDesc, true)) {
                         if (!s.specCache.pixels.empty()) {
                             c.DrawPixels(s.specCache.pixels.data(), SpectrogramCache::kTexW, SpectrogramCache::kTexH, sp);
                         } else {
