@@ -168,7 +168,7 @@ add_executable(my_app main.cpp)
 target_link_libraries(my_app PRIVATE guikit::guikit)
 ```
 
-See [`examples/minimal/main.cpp`](examples/minimal/main.cpp) for a complete single-file starter template.
+See [`examples/minimal/main.cpp`](examples/minimal/main.cpp) for a complete single-file starter template, and [`AGENTS.md`](AGENTS.md) for the complete architecture, component selection, and best-practices guide for developers and AI coding agents.
 
 ---
 
