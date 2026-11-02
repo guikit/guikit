@@ -933,6 +933,11 @@ void AppendRingJson(std::string& out, const std::vector<guikit::GeoCoord>& ring,
     return s;
 }
 
+std::filesystem::path Utf8Path(std::string_view utf8) {
+    return std::filesystem::path(
+        std::u8string_view(reinterpret_cast<const char8_t*>(utf8.data()), utf8.size()));
+}
+
 bool TryReadTextFromAssetsOrDisk(
     const std::string& filePath,
     std::string& outContent,
@@ -955,7 +960,7 @@ bool TryReadTextFromAssetsOrDisk(
     const char* prefixes[] = {"", "../", "../../", "../../../"};
     for (const char* prefix : prefixes) {
         const std::string candidate = std::string(prefix) + filePath;
-        std::ifstream ifs(std::filesystem::u8path(candidate), std::ios::binary | std::ios::ate);
+        std::ifstream ifs(Utf8Path(candidate), std::ios::binary | std::ios::ate);
         if (!ifs) continue;
 
         const auto endPos = ifs.tellg();
@@ -1042,7 +1047,7 @@ GeoJsonResult GeoJsonIO::LoadFromFile(const std::string& filePath) {
         return res;
     }
 
-    std::string stem = std::filesystem::u8path(filePath).stem().string();
+    std::string stem = Utf8Path(filePath).stem().string();
     if (stem.empty()) stem = "GeoJSON Layer";
 
     res = ParseFromString(content, stem);
@@ -1121,7 +1126,7 @@ GeoJsonLoadResult GeoJsonIO::LoadThematicLayersFromFile(
         return res;
     }
 
-    std::string stem = std::filesystem::u8path(filePath).stem().string();
+    std::string stem = Utf8Path(filePath).stem().string();
     if (stem.empty()) stem = "GeoJSON Layer";
 
     res = ParseThematicLayersFromString(content, stem, splitByThematicClass);
@@ -1274,7 +1279,7 @@ std::string GeoJsonIO::SerializeLayer(const GeoLayer& layer, bool prettyPrint) {
 }
 
 bool GeoJsonIO::SaveToFile(const GeoLayer& layer, const std::string& filePath, std::string* outError) {
-    std::ofstream ofs(std::filesystem::u8path(filePath), std::ios::binary | std::ios::trunc);
+    std::ofstream ofs(Utf8Path(filePath), std::ios::binary | std::ios::trunc);
     if (!ofs) {
         if (outError) {
             *outError = std::format("Cannot open file for writing: {}", filePath);

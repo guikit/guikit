@@ -72,7 +72,7 @@ void FormatSliderValue(
         } else if (convSpec != '\0') {
             std::snprintf(valBuf, bufSize, fmt.c_str(), value);
         } else {
-            std::snprintf(valBuf, bufSize, fmt.c_str());
+            std::snprintf(valBuf, bufSize, "%s", fmt.c_str());
         }
     } else if (isInt) {
         std::snprintf(valBuf, bufSize, "%lld", static_cast<long long>(std::round(value)));

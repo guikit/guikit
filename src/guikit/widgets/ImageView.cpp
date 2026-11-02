@@ -116,7 +116,7 @@ struct OrientedDimensions {
     }
 
     /// Maps integer display pixel (dx, dy) in [0..dispW-1]x[0..dispH-1] to source pixel (sx, sy) in [0..srcW-1]x[0..srcH-1].
-    [[nodiscard]] constexpr void DisplayToSourcePx(uint32_t dx, uint32_t dy, uint32_t& outSx, uint32_t& outSy) const noexcept {
+    constexpr void DisplayToSourcePx(uint32_t dx, uint32_t dy, uint32_t& outSx, uint32_t& outSy) const noexcept {
         const uint32_t rx = flipH ? (dispW - 1 - dx) : dx;
         const uint32_t ry = flipV ? (dispH - 1 - dy) : dy;
         switch (rotation) {
