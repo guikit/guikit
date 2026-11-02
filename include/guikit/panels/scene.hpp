@@ -79,6 +79,8 @@ struct SceneState {
     std::optional<Vec2> pendingCenterWorld{std::nullopt};
     std::optional<float> pendingCenterZoom{std::nullopt};
     Rect lastViewport{};
+    std::optional<Rect> lastWorldBounds{std::nullopt};
+    Padding lastFitPadding{};
     bool preUpdatedCamera{false};
     bool preUpdateHudConsumed{false};
     bool preUpdateScrollbarBusy{false};
@@ -92,10 +94,21 @@ struct SceneState {
     }
 };
 
+/// Options for positioning, anchor-aligning, and styling world-space text labels in a Scene.
+struct SceneTextOptions {
+    FontStyle style{FontStyle::Regular};
+    Vec2 align{0.0f, 0.0f};     ///< Anchor on text box: {0,0}=TopLeft, {0.5,0}=TopCenter, {0.5,1}=BottomCenter, {1,0.5}=MiddleRight
+    Vec2 offset{0.0f, 0.0f};    ///< Screen-space offset in dp from worldPos (invariant to camera zoom)
+    bool scaleWithZoom{false};  ///< false = constant readable UI font size in dp; true = scales with world zoom
+    float angleDeg{0.0f};       ///< Rotation angle in degrees
+};
+
 /// Configuration options for a 2D Scene camera viewport.
 struct SceneOptions {
     std::optional<Vec2> worldSize{std::nullopt};        ///< Bounded world dimensions (0..W, 0..H), or nullopt for infinite world (OSM maps, graphs)
-    ObjectFit initialFit{ObjectFit::Contain};           ///< Initial camera framing when worldSize is set
+    std::optional<Rect> worldBounds{std::nullopt};      ///< Arbitrary world coordinate rectangle (minX, minY, width, height) to frame in viewport
+    Padding fitPadding{};                               ///< Screen-space inset padding in dp reserved around fitted worldBounds / worldSize
+    ObjectFit initialFit{ObjectFit::Contain};           ///< Initial camera framing when worldSize / worldBounds is set
     SceneBackground backgroundStyle{SceneBackground::Checkerboard};
     float gridStep{32.0f};                              ///< Base world-space step in units for GridDots / GridLines
     Align align{Align::Start};
@@ -114,6 +127,7 @@ struct SceneOptions {
     bool showScrollbars{true};                          ///< Render 2D (X/Y) scrollbars when worldSize overflows viewport
     bool showControls{true};                            ///< Render floating Zoom HUD (-, Fit, 100%, +)
     bool clampToWorld{true};                            ///< Clamp panning to worldSize bounds when worldSize is finite
+    std::optional<bool> scaleStrokeWithZoom{std::nullopt}; ///< Scale line/rect strokeWidth with zoom (defaults to false when worldBounds is set, true otherwise)
     StateColor background{};
     Border border{.width = 1.0f, .radius = 6.0f};
     bool disabled{false};
@@ -337,6 +351,15 @@ public:
         FontStyle style = FontStyle::Regular,
         bool scaleWithZoom = true,
         float angleDeg = 0.0f
+    );
+
+    /// Queues an anchor-aligned text label at a world coordinate with optional screen-space dp offset.
+    void DrawText(
+        std::string_view text,
+        Vec2 worldPos,
+        float fontSize,
+        Color color,
+        const SceneTextOptions& opts
     );
 
     /// Queues aligned text inside a World Coordinate bounding box (with optional rotation angle in degrees).

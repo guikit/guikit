@@ -247,22 +247,64 @@ Rect Context::GetPrevUnclippedBounds(Id id) const {
 }
 
 Rect Context::GetParentPrevFrameBounds() const {
-    for (auto it = m_containerStack.rbegin(); it != m_containerStack.rend(); ++it) {
-        const Node* parent = *it;
+    int startIdx = -1;
+    Rect r{};
+    for (int i = static_cast<int>(m_containerStack.size()) - 1; i >= 0; --i) {
+        const Node* parent = m_containerStack[static_cast<size_t>(i)];
         if (!parent || !parent->id.IsValid()) continue;
         auto found = m_prevFrameBounds.find(parent->id);
         if (found != m_prevFrameBounds.end() && found->second.w > 1.0f && found->second.h > 1.0f) {
-            Rect r = found->second;
-            r.x += parent->padding.left;
-            r.y += parent->padding.top;
-            r.w = std::max(0.0f, r.w - (parent->padding.left + parent->padding.right));
-            r.h = std::max(0.0f, r.h - (parent->padding.top + parent->padding.bottom));
-            if (r.w > 1.0f && r.h > 1.0f) {
-                return r;
+            startIdx = i;
+            r = found->second;
+            break;
+        }
+    }
+    if (startIdx < 0) {
+        return Rect{};
+    }
+
+    const int stackSize = static_cast<int>(m_containerStack.size());
+    for (int i = startIdx; i < stackSize; ++i) {
+        const Node* c = m_containerStack[static_cast<size_t>(i)];
+        if (!c) continue;
+
+        if (i > startIdx) {
+            if (c->heightMode == SizeMode::Fixed && c->fixedHeight > 0.0f) {
+                const float h = std::min(r.h, c->fixedHeight);
+                if (c->type == NodeType::BottomPanel) {
+                    r.y = r.Bottom() - h;
+                }
+                r.h = h;
+            }
+            if (c->widthMode == SizeMode::Fixed && c->fixedWidth > 0.0f) {
+                r.w = std::min(r.w, c->fixedWidth);
+            }
+        } else if ((c->type == NodeType::BottomPanel || c->type == NodeType::Sidebar) &&
+                   c->heightMode == SizeMode::Fixed && c->fixedHeight > 0.0f) {
+            r.h = c->fixedHeight;
+        }
+
+        r.x += c->padding.left;
+        r.y += c->padding.top;
+        r.w = std::max(0.0f, r.w - (c->padding.left + c->padding.right));
+        r.h = std::max(0.0f, r.h - (c->padding.top + c->padding.bottom));
+
+        if (c->direction == FlexDirection::Column &&
+            (i + 1 < stackSize || c->type == NodeType::BottomPanel || c->type == NodeType::Sidebar)) {
+            const Node* stopChild = (i + 1 < stackSize)
+                ? m_containerStack[static_cast<size_t>(i + 1)]
+                : c->lastChild;
+            for (const Node* ch = c->firstChild; ch != nullptr && ch != stopChild; ch = ch->nextSibling) {
+                if (ch->heightMode == SizeMode::Fixed && ch->fixedHeight > 0.0f && !ch->sidebarCollapsed) {
+                    const float consumeH = ch->fixedHeight + c->gap;
+                    r.y += consumeH;
+                    r.h = std::max(0.0f, r.h - consumeH);
+                }
             }
         }
     }
-    return Rect{};
+
+    return (r.w > 1.0f && r.h > 1.0f) ? r : Rect{};
 }
 
 Rect Context::GetPopupViewportRect() const noexcept {

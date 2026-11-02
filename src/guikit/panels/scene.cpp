@@ -15,13 +15,24 @@ namespace guikit {
 
 namespace {
 
+std::optional<Rect> ResolveWorldBounds(const SceneOptions& opts) noexcept {
+    if (opts.worldBounds.has_value() && opts.worldBounds->w > 0.0f && opts.worldBounds->h > 0.0f) {
+        return *opts.worldBounds;
+    }
+    if (opts.worldSize.has_value() && opts.worldSize->x > 0.0f && opts.worldSize->y > 0.0f) {
+        return Rect(0.0f, 0.0f, opts.worldSize->x, opts.worldSize->y);
+    }
+    return std::nullopt;
+}
+
 Vec2 ComputeSceneControlSize(
     const SceneOptions& opts,
     const UiTheme& theme,
     float availableWidth
 ) noexcept {
-    const float defW = opts.worldSize.has_value() ? theme.Scale(opts.worldSize->x) : theme.Scale(360.0f);
-    const float defH = opts.worldSize.has_value() ? theme.Scale(opts.worldSize->y) : theme.Scale(opts.minHeight);
+    const std::optional<Rect> wb = ResolveWorldBounds(opts);
+    const float defW = wb.has_value() ? theme.Scale(wb->w) : theme.Scale(360.0f);
+    const float defH = wb.has_value() ? theme.Scale(wb->h) : theme.Scale(opts.minHeight);
     const float aspect = (defH > 0.0f) ? (defW / defH) : (16.0f / 9.0f);
 
     float ctrlW = defW;
@@ -35,7 +46,7 @@ Vec2 ComputeSceneControlSize(
     float ctrlH = theme.Scale(opts.minHeight);
     if (opts.height.has_value() && *opts.height > 0.0f) {
         ctrlH = theme.Scale(*opts.height);
-    } else if (opts.heightMode == SizeMode::Fit && opts.worldSize.has_value() && aspect > 0.0f) {
+    } else if (opts.heightMode == SizeMode::Fit && wb.has_value() && aspect > 0.0f) {
         ctrlH = std::max(theme.Scale(opts.minHeight), ctrlW / aspect);
     }
 
@@ -50,21 +61,36 @@ void ApplyInitialFit(
 ) noexcept {
     if (vp.w <= 1.0f || vp.h <= 1.0f) return;
 
-    if (!opts.worldSize.has_value() || opts.worldSize->x <= 0.0f || opts.worldSize->y <= 0.0f) {
+    const std::optional<Rect> wb = ResolveWorldBounds(opts);
+    state.lastWorldBounds = wb;
+    state.lastFitPadding = opts.fitPadding;
+
+    if (!wb.has_value()) {
         state.zoom = 1.0f;
         state.pan = { vp.w * 0.5f, vp.h * 0.5f };
         state.initialized = true;
         return;
     }
 
-    const float s = theme.Scale(1.0f);
-    const Vec2 scaledWorld = { opts.worldSize->x * s, opts.worldSize->y * s };
-    const Rect fitted = ComputeBoxFit(opts.initialFit, scaledWorld, Rect(0.0f, 0.0f, vp.w, vp.h));
+    const float s = std::max(0.0001f, theme.Scale(1.0f));
+    const Padding pad = theme.ResolvePadding(opts.fitPadding, UiSize::Md);
+    const Rect availBox(
+        pad.left,
+        pad.top,
+        std::max(1.0f, vp.w - pad.Horizontal()),
+        std::max(1.0f, vp.h - pad.Vertical())
+    );
+    const Vec2 scaledWorld = { wb->w * s, wb->h * s };
+    const Rect fitted = ComputeBoxFit(opts.initialFit, scaledWorld, availBox);
     const float fitZoom = (scaledWorld.x > 0.0f) ? (fitted.w / scaledWorld.x) : 1.0f;
-    state.zoom = std::clamp(fitZoom, opts.minZoom, opts.maxZoom);
+    const float effMinZoom = opts.worldBounds.has_value() ? std::min(opts.minZoom, fitZoom * 0.1f) : opts.minZoom;
+    const float effMaxZoom = opts.worldBounds.has_value() ? std::max(opts.maxZoom, fitZoom * 10.0f) : opts.maxZoom;
+    state.zoom = std::clamp(fitZoom, effMinZoom, effMaxZoom);
+
+    const float ws = s * state.zoom;
     state.pan = {
-        (vp.w - scaledWorld.x * state.zoom) * 0.5f,
-        (vp.h - scaledWorld.y * state.zoom) * 0.5f
+        fitted.Center().x - wb->Center().x * ws,
+        fitted.Center().y - wb->Center().y * ws
     };
     state.initialized = true;
 }
@@ -75,23 +101,36 @@ void ClampCameraToWorld(
     Rect vp,
     const UiTheme& theme
 ) noexcept {
-    if (!opts.clampToWorld || !opts.worldSize.has_value() || vp.w <= 0.0f || vp.h <= 0.0f) {
+    const std::optional<Rect> wb = ResolveWorldBounds(opts);
+    if (!opts.clampToWorld || !wb.has_value() || vp.w <= 0.0f || vp.h <= 0.0f) {
         return;
     }
     const float s = theme.Scale(1.0f);
-    const float worldScreenW = opts.worldSize->x * s * state.zoom;
-    const float worldScreenH = opts.worldSize->y * s * state.zoom;
+    const float ws = s * state.zoom;
+    const Padding pad = theme.ResolvePadding(opts.fitPadding, UiSize::Md);
+    const Rect availBox(
+        pad.left,
+        pad.top,
+        std::max(1.0f, vp.w - pad.Horizontal()),
+        std::max(1.0f, vp.h - pad.Vertical())
+    );
+    const float worldScreenW = wb->w * ws;
+    const float worldScreenH = wb->h * ws;
 
-    if (worldScreenW <= vp.w) {
-        state.pan.x = (vp.w - worldScreenW) * 0.5f;
+    if (worldScreenW <= availBox.w) {
+        state.pan.x = availBox.Center().x - wb->Center().x * ws;
     } else {
-        state.pan.x = std::clamp(state.pan.x, vp.w - worldScreenW, 0.0f);
+        const float minPanX = availBox.Right() - wb->Right() * ws;
+        const float maxPanX = availBox.x - wb->x * ws;
+        state.pan.x = std::clamp(state.pan.x, minPanX, maxPanX);
     }
 
-    if (worldScreenH <= vp.h) {
-        state.pan.y = (vp.h - worldScreenH) * 0.5f;
+    if (worldScreenH <= availBox.h) {
+        state.pan.y = availBox.Center().y - wb->Center().y * ws;
     } else {
-        state.pan.y = std::clamp(state.pan.y, vp.h - worldScreenH, 0.0f);
+        const float minPanY = availBox.Bottom() - wb->Bottom() * ws;
+        const float maxPanY = availBox.y - wb->y * ws;
+        state.pan.y = std::clamp(state.pan.y, minPanY, maxPanY);
     }
 }
 
@@ -614,11 +653,38 @@ void SceneScope::DrawText(
     cmd.itemIndex = m_payload->activeItemIndex;
     cmd.textOrSource = m_ctx->AllocString(text);
     cmd.p1 = worldPos;
+    cmd.p2 = {0.0f, 0.0f};
     cmd.fontSize = fontSize;
     cmd.fill = color;
+    cmd.alignX = 0.0f;
+    cmd.alignY = 0.0f;
     cmd.fontStyle = style;
     cmd.scaleFontWithZoom = scaleWithZoom;
     cmd.angleDeg = angleDeg;
+    m_payload->drawCmds.push_back(cmd);
+}
+
+void SceneScope::DrawText(
+    std::string_view text,
+    Vec2 worldPos,
+    float fontSize,
+    Color color,
+    const SceneTextOptions& opts
+) {
+    if (!m_ctx || !m_payload || text.empty()) return;
+    SceneDrawCmd cmd{};
+    cmd.type = SceneDrawCmd::Type::Text;
+    cmd.itemIndex = m_payload->activeItemIndex;
+    cmd.textOrSource = m_ctx->AllocString(text);
+    cmd.p1 = worldPos;
+    cmd.p2 = opts.offset;
+    cmd.fontSize = fontSize;
+    cmd.fill = color;
+    cmd.alignX = opts.align.x;
+    cmd.alignY = opts.align.y;
+    cmd.fontStyle = opts.style;
+    cmd.scaleFontWithZoom = opts.scaleWithZoom;
+    cmd.angleDeg = opts.angleDeg;
     m_payload->drawCmds.push_back(cmd);
 }
 
@@ -661,7 +727,16 @@ void UpdateSceneCameraTransform(
     SceneState& state = *payload->state;
     const SceneOptions& opts = payload->opts;
 
-    if (!state.initialized) {
+    const std::optional<Rect> curWorldBounds = ResolveWorldBounds(opts);
+    const bool worldConfigChanged =
+        (curWorldBounds != state.lastWorldBounds) ||
+        (opts.fitPadding != state.lastFitPadding);
+    const bool autoRefitOnResize =
+        !opts.pannable && !opts.zoomable && curWorldBounds.has_value() &&
+        !state.pendingCenterWorld.has_value() &&
+        (std::abs(vp.w - state.lastViewport.w) > 0.5f || std::abs(vp.h - state.lastViewport.h) > 0.5f);
+
+    if (!state.initialized || worldConfigChanged || autoRefitOnResize) {
         ApplyInitialFit(state, opts, vp, theme);
     }
     if (state.pendingCenterWorld.has_value()) {
@@ -929,15 +1004,24 @@ SceneScope Scene::Open(
         );
     }
 
-    Rect prevBounds = ctx.GetPrevUnclippedBounds(id);
+    bool inScrollableAncestor = false;
+    for (const Node* anc = node->parent; anc != nullptr; anc = anc->parent) {
+        if (anc->type == NodeType::ScrollArea ||
+            ((anc->type == NodeType::Sidebar || anc->type == NodeType::BottomPanel) && anc->sidebarScrollable)) {
+            inScrollableAncestor = true;
+            break;
+        }
+    }
+    Rect prevBounds = inScrollableAncestor ? ctx.GetPrevUnclippedBounds(id) : ctx.GetPrevFrameBounds(id);
     if (prevBounds.w <= 1.0f || prevBounds.h <= 1.0f) {
-        prevBounds = ctx.GetPrevFrameBounds(id);
+        prevBounds = ctx.GetPrevUnclippedBounds(id);
+    }
+    if (prevBounds.w <= 1.0f || prevBounds.h <= 1.0f) {
+        prevBounds = ctx.GetParentPrevFrameBounds();
     }
     if (prevBounds.w <= 1.0f || prevBounds.h <= 1.0f) {
         if (state.lastViewport.w > 1.0f && state.lastViewport.h > 1.0f) {
             prevBounds = state.lastViewport;
-        } else {
-            prevBounds = ctx.GetParentPrevFrameBounds();
         }
     }
     const Rect prevVp = prevBounds;
@@ -953,6 +1037,14 @@ SceneScope Scene::Open(
     node->visualHash = detail::HashArgs(
         optsCopy.worldSize.has_value() ? optsCopy.worldSize->x : 0.0f,
         optsCopy.worldSize.has_value() ? optsCopy.worldSize->y : 0.0f,
+        optsCopy.worldBounds.has_value() ? optsCopy.worldBounds->x : 0.0f,
+        optsCopy.worldBounds.has_value() ? optsCopy.worldBounds->y : 0.0f,
+        optsCopy.worldBounds.has_value() ? optsCopy.worldBounds->w : 0.0f,
+        optsCopy.worldBounds.has_value() ? optsCopy.worldBounds->h : 0.0f,
+        optsCopy.fitPadding.left,
+        optsCopy.fitPadding.top,
+        optsCopy.fitPadding.right,
+        optsCopy.fitPadding.bottom,
         static_cast<uint8_t>(optsCopy.initialFit),
         static_cast<uint8_t>(optsCopy.backgroundStyle),
         optsCopy.gridStep,
@@ -1019,18 +1111,21 @@ void Scene::Update(Context& ctx, Node* node) {
     const Rect vp = GetViewportRect(node, nullptr, theme);
     if (vp.w <= 1.0f || vp.h <= 1.0f) return;
 
-    state.lastViewport = vp;
     if (!state.preUpdatedCamera) {
         UpdateSceneCameraTransform(ctx, node, payload, vp, theme);
         ctx.InvalidateRect(node->computedRect);
         ctx.RequestRepaint(2);
     } else {
         if (std::abs(vp.w - payload->openViewport.w) > 1.0f || std::abs(vp.h - payload->openViewport.h) > 1.0f) {
+            if (!opts.pannable && !opts.zoomable && ResolveWorldBounds(opts).has_value() && !state.pendingCenterWorld.has_value()) {
+                ApplyInitialFit(state, opts, vp, theme);
+            }
             ctx.InvalidateRect(node->computedRect);
             ctx.RequestRepaint(2);
         }
         ClampCameraToWorld(state, opts, vp, theme);
     }
+    state.lastViewport = vp;
 
     if (node->disabled) return;
 
@@ -1298,6 +1393,8 @@ void Scene::RenderBackgroundAndWorld(
     }
 
     // 3. Execute recorded world-space draw commands (with automatic SceneItem tinting)
+    const bool scaleStroke = opts.scaleStrokeWithZoom.value_or(!opts.worldBounds.has_value());
+    const float strokeScale = scaleStroke ? worldScale : s;
     const int32_t itemCount = static_cast<int32_t>(payload->items.size());
     for (const SceneDrawCmd& cmd : payload->drawCmds) {
         const SceneItemInfo* owner = (cmd.itemIndex >= 0 && cmd.itemIndex < itemCount)
@@ -1327,7 +1424,7 @@ void Scene::RenderBackgroundAndWorld(
                 const Rect dst = worldRectToScreen(cmd.rect);
                 if (dst.Intersects(vp)) {
                     const float sw = (cmd.strokeWidth > 0.0f)
-                        ? std::max(0.75f, cmd.strokeWidth * worldScale * strokeBoost)
+                        ? std::max(0.75f, cmd.strokeWidth * strokeScale * strokeBoost)
                         : 0.0f;
                     Color fill = cmd.fill;
                     Color stroke = cmd.stroke;
@@ -1352,7 +1449,7 @@ void Scene::RenderBackgroundAndWorld(
                     vp.y + state.pan.y + cmd.p2.y * worldScale
                 };
                 const Color col = (tintFactor > 0.0f) ? blendColor(cmd.fill, accentCol, tintFactor) : cmd.fill;
-                canvas.DrawLine(sp1, sp2, col, std::max(0.75f, cmd.strokeWidth * worldScale * strokeBoost));
+                canvas.DrawLine(sp1, sp2, col, std::max(0.75f, cmd.strokeWidth * strokeScale * strokeBoost));
                 break;
             }
             case SceneDrawCmd::Type::Triangle: {
@@ -1369,7 +1466,7 @@ void Scene::RenderBackgroundAndWorld(
                     vp.y + state.pan.y + cmd.p3.y * worldScale
                 };
                 const float sw = (cmd.strokeWidth > 0.0f)
-                    ? std::max(0.75f, cmd.strokeWidth * worldScale * strokeBoost)
+                    ? std::max(0.75f, cmd.strokeWidth * strokeScale * strokeBoost)
                     : 0.0f;
                 const Color fill = (tintFactor > 0.0f) ? blendColor(cmd.fill, accentCol, tintFactor) : cmd.fill;
                 const Color stroke = (tintFactor > 0.0f) ? blendColor(cmd.stroke, accentCol, tintFactor) : cmd.stroke;
@@ -1377,15 +1474,21 @@ void Scene::RenderBackgroundAndWorld(
                 break;
             }
             case SceneDrawCmd::Type::Text: {
-                const Vec2 sp = {
-                    vp.x + state.pan.x + cmd.p1.x * worldScale,
-                    vp.y + state.pan.y + cmd.p1.y * worldScale
+                Vec2 sp = {
+                    vp.x + state.pan.x + cmd.p1.x * worldScale + cmd.p2.x * s,
+                    vp.y + state.pan.y + cmd.p1.y * worldScale + cmd.p2.y * s
                 };
                 const float fs = cmd.scaleFontWithZoom
                     ? (cmd.fontSize * worldScale)
                     : theme.Scale(cmd.fontSize);
                 if (fs >= 2.2f) {
                     const Color col = (tintFactor > 0.0f) ? blendColor(cmd.fill, accentCol, tintFactor) : cmd.fill;
+                    if (cmd.alignX != 0.0f || cmd.alignY != 0.0f) {
+                        const Vec2 ts = canvas.MeasureTextStyled(cmd.textOrSource, fs, cmd.fontStyle);
+                        const float textH = (ts.y > 0.0f) ? ts.y : (fs * 1.18f);
+                        sp.x -= ts.x * cmd.alignX;
+                        sp.y -= textH * cmd.alignY;
+                    }
                     canvas.DrawTextStyled(cmd.textOrSource, sp, fs, col, cmd.fontStyle, cmd.angleDeg);
                 }
                 break;

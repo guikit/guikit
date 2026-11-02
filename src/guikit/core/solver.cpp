@@ -943,7 +943,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (!child->isSpacer && child->minHeight > 0.0f) {
                 childH = std::max(childH, child->minHeight);
             }
-            if (node->heightMode == SizeMode::Stretch && contentRect.h > 0.0f && child->heightMode != SizeMode::Fixed) {
+            if (node->heightMode != SizeMode::Fit && contentRect.h > 0.0f && child->heightMode != SizeMode::Fixed) {
                 childH = std::min(childH, contentRect.h);
             }
 
@@ -1116,7 +1116,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 childH = (totalFlexGrow > 0.0f)
                     ? (freeSpace * (std::max(0.01f, child->flexGrow) / totalFlexGrow))
                     : 0.0f;
-                if (!child->isSpacer && child->minHeight > 0.0f) {
+                if (!child->isSpacer && !parentHasDefiniteHeight && child->minHeight > 0.0f) {
                     childH = std::max(childH, child->minHeight);
                 }
             } else if (child->heightMode == SizeMode::Fixed) {

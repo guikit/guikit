@@ -114,6 +114,42 @@ Files in `assets/` are compiled directly into the binary via `cmake/GenerateEmbe
   - `FontStyle::Regular`, `FontStyle::Bold`, `FontStyle::Italic`, `FontStyle::BoldItalic`, `FontStyle::Monospace`.
   - Never create separate monospace loader functions; pass `FontStyle::Monospace` to `LoadFontFile` / `LoadFontMemory`.
 
+### Rule 9: Use `SceneOptions::worldBounds` + `fitPadding` & `SceneTextOptions` — Do NOT Write Manual Viewport Scaling Math
+When drawing engineering diagrams, sensor schematics, or CAD geometry in `ui.Scene(...)`:
+- Pass `.worldBounds = Rect(minX, minY, spanX, spanY)` and `.fitPadding = Padding(left, top, right, bottom)` so `Scene` frames your physical coordinates (e.g. millimeters) automatically on the current frame with zero 1-frame lag and reserves screen-space margins for labels.
+- Remember that `DrawText(text, pos, ...)` uses the **Top-Left** corner of the glyph box by default, NOT the baseline. Never guess pixel offsets like `pos.x - 14.0f` or `pos.y + 18.0f` for tick/point callouts; use `SceneTextOptions` with `.align` (`{0.5f, 0.0f}` = top-center below X-axis tick, `{0.5f, 1.0f}` = bottom-center above point, `{1.0f, 0.5f}` = middle-right to the left of Y-axis tick) and `.offset` in screen `dp`:
+
+```cpp
+// GOOD: Declarative world framing + anchor-aligned callout labels in screen dp
+if (auto sc = ui.Scene({
+    .worldBounds = guikit::Rect(minX, minZ, spanX, spanZ),
+    .fitPadding  = guikit::Padding(48.0f, 28.0f, 48.0f, 34.0f),
+    .zoomable    = false,
+    .pannable    = false,
+    .showControls = false,
+    .backgroundStyle = guikit::SceneBackground::Solid
+})) {
+    sc.DrawLine({minX, 0.0f}, {maxX, 0.0f}, surfaceCol, 1.5f);
+    sc.DrawLine({0.0f, -0.5f}, {0.0f, 0.5f}, axisCol, 1.2f);
+    sc.DrawText("X = 0", {0.0f, 0.0f}, 13.0f, axisCol, {
+        .align  = {0.5f, 0.0f}, // Top-center anchor
+        .offset = {0.0f, 6.0f}  // 6 dp below world point (0, 0) regardless of zoom
+    });
+}
+
+// BAD: Do NOT manually compute avail_w/avail_h/scale/ox/oz from GetViewportRect(), call CenterOn() every frame, or guess DrawText pixel offsets
+```
+
+### Rule 10: Let `SizeMode::Stretch` Viewports Fill `BottomPanel` / `SplitView` — Do NOT Subtract Magic Toolbar Heights
+Inside a `BottomPanel`, `Sidebar`, or `SplitView`, any child with `.heightMode = SizeMode::Stretch` (`Scene`, `SignalView`, `SonarView`, `WaterfallView`, `MapView`, `ImageView`, `Table`) automatically stretches and shrinks to fit the exact remaining space after sibling `Toolbar`s or headers:
+- Never pass external panel heights with magic offsets like `bottomPanel.Height() - 42.0f` into scene rendering functions.
+- If you draw in screen-proportional coordinates inside `Scene`, read `const Rect vp = sc.GetViewportRect();` directly.
+
+### Rule 11: Adaptive `SizeMode::Stretch` Views (No `ScrollArea`) vs Fixed-Height `SizeMode::Fit` Forms (Wrap in `ScrollArea`)
+When laying out a workspace that shares space with a resizable `BottomPanel` or `SplitView`:
+- **Graphs, diagrams, images, scenes, and tables that must adapt to available size (`SizeMode::Stretch`)**: Place them directly inside a `ui.Column({.heightMode = SizeMode::Stretch})` **WITHOUT** a `ScrollArea`. Wrapping a `Stretch` viewport in a `ScrollArea` prevents it from shrinking when `BottomPanel` expands.
+- **Multi-row forms and settings cards (`SizeMode::Fit`)**: Form controls (`ui.Element`, `SpinBox`, `Select`) have a fixed minimum row height and cannot compress vertically; wrap long settings forms in `ui.ScrollArea({.heightMode = SizeMode::Stretch})` so they scroll cleanly when `BottomPanel` is opened.
+
 ---
 
 ## 2. Layout System Quick Reference

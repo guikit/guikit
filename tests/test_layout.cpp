@@ -1079,6 +1079,40 @@ void TestRowTextDeficitShrinkAndCenterClamp() {
     CHECK_NEAR(winFrame->computedRect.y, 18.0f, 0.001f);
     CHECK_NEAR(winFrame->computedRect.w, 764.0f, 0.001f);
     CHECK_NEAR(winFrame->computedRect.h, 464.0f, 0.001f);
+
+    // 4. Stretch Scene with fallback minHeight=220 inside a Fixed BottomPanel (height=180) with a Toolbar (height=34)
+    // must shrink to exact remaining freeSpace (146px) instead of overflowing BottomPanel to 220px
+    Node* bpNode = arena.Allocate<Node>();
+    bpNode->type = NodeType::BottomPanel;
+    bpNode->direction = FlexDirection::Column;
+    bpNode->widthMode = SizeMode::Stretch;
+    bpNode->heightMode = SizeMode::Fixed;
+    bpNode->fixedHeight = 180.0f;
+    bpNode->sidebarScrollable = false;
+    bpNode->clipChildren = true;
+
+    Node* tbNode = arena.Allocate<Node>();
+    tbNode->type = NodeType::Toolbar;
+    tbNode->widthMode = SizeMode::Stretch;
+    tbNode->heightMode = SizeMode::Fixed;
+    tbNode->fixedHeight = 34.0f;
+    bpNode->AddChild(tbNode);
+
+    Node* scNode = arena.Allocate<Node>();
+    scNode->type = NodeType::Scene;
+    scNode->widthMode = SizeMode::Stretch;
+    scNode->heightMode = SizeMode::Stretch;
+    scNode->minHeight = 220.0f;
+    scNode->clipChildren = true;
+    bpNode->AddChild(scNode);
+
+    Solver::Measure(bpNode);
+    Solver::Arrange(bpNode, Rect(0.0f, 620.0f, 1000.0f, 180.0f));
+
+    CHECK_NEAR(tbNode->computedRect.h, 34.0f, 0.001f);
+    CHECK_NEAR(scNode->computedRect.y, 654.0f, 0.001f);
+    CHECK_NEAR(scNode->computedRect.h, 146.0f, 0.001f);
+    CHECK_NEAR(scNode->computedRect.Bottom(), bpNode->computedRect.Bottom(), 0.001f);
 }
 
 int main() {

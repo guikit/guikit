@@ -13078,6 +13078,85 @@ int main() {
                         CHECK(std::abs(memW.x - memN.x) < 0.05f);
                     }
                 }
+
+                // --- Scene inside BottomPanel: First-Frame Bounds, Stretch Fit, worldBounds + fitPadding & SceneTextOptions ---
+                {
+                    Context sceneBpUi;
+                    ThorCanvas sceneBpCanvas;
+                    const uint32_t sw = 1000;
+                    const uint32_t sh = 700;
+                    std::vector<uint32_t> sceneBpPixels(sw * sh, 0);
+                    sceneBpCanvas.SetTarget(sceneBpPixels.data(), sw, sh, sw);
+
+                    bool showBp = false;
+                    Rect capturedVp{};
+                    Vec2 screenOrigin{};
+                    Vec2 screenTopRight{};
+
+                    auto runSceneBpFrame = [&]() {
+                        sceneBpUi.BeginFrame({static_cast<float>(sw), static_cast<float>(sh)}, 1.0f);
+                        if (auto rootCol = sceneBpUi.Column({
+                            .gap = 0.0f,
+                            .padding = Padding::All(0.0f),
+                            .widthMode = SizeMode::Stretch,
+                            .heightMode = SizeMode::Stretch
+                        })) {
+                            if (auto workCol = sceneBpUi.Column({
+                                .widthMode = SizeMode::Stretch,
+                                .heightMode = SizeMode::Stretch
+                            })) {
+                                sceneBpUi.Text("Workspace");
+                            }
+                            if (showBp) {
+                                if (auto bp = sceneBpUi.BottomPanel({
+                                    .height = 200.0f,
+                                    .minHeight = 140.0f,
+                                    .padding = Padding::All(0.0f)
+                                })) {
+                                    if (auto tb = sceneBpUi.Size(UiSize::Sm).Toolbar({})) {
+                                        sceneBpUi.Text("Prism Schema");
+                                    }
+                                    if (auto sc = sceneBpUi.Scene({
+                                        .worldBounds = Rect(-10.0f, -25.0f, 50.0f, 25.0f),
+                                        .fitPadding = Padding(40.0f, 24.0f, 40.0f, 32.0f),
+                                        .zoomable = false,
+                                        .pannable = false,
+                                        .showScrollbars = false,
+                                        .showControls = false
+                                    })) {
+                                        capturedVp = sc.GetViewportRect();
+                                        screenOrigin = sc.WorldToScreen({0.0f, 0.0f});
+                                        screenTopRight = sc.WorldToScreen({40.0f, -25.0f});
+                                        sc.DrawLine({-10.0f, 0.0f}, {40.0f, 0.0f}, Color(34, 197, 94), 1.5f);
+                                        sc.DrawText("X = 0", {0.0f, 0.0f}, 13.0f, Color(226, 232, 240), {
+                                            .align = {0.5f, 0.0f},
+                                            .offset = {0.0f, 6.0f}
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                        sceneBpUi.EndFrame(sceneBpCanvas);
+                    };
+
+                    // Frame 1: BottomPanel closed
+                    runSceneBpFrame();
+
+                    // Frame 2: Open BottomPanel (200px tall with Sm Toolbar inside)
+                    showBp = true;
+                    runSceneBpFrame();
+
+                    // Even on the VERY FIRST frame BottomPanel opens:
+                    // - capturedVp.h must be ~166px (200px minus ~34px toolbar), NOT 700px (window height) and NOT 220px (minHeight overflow)!
+                    CHECK(capturedVp.w > 990.0f);
+                    CHECK(capturedVp.h > 150.0f && capturedVp.h < 180.0f);
+                    // World point (0, 0) is the bottom edge of worldBounds (y = -25..0), so with fitPadding.bottom = 32,
+                    // screenOrigin.y must sit exactly 32px above the bottom of the Scene viewport!
+                    CHECK_NEAR(screenOrigin.y, capturedVp.Bottom() - 32.0f, 1.5f);
+                    // World point (40, -25) is the top edge of worldBounds, so with fitPadding.top = 24,
+                    // screenTopRight.y must sit 24px below the top of the Scene viewport!
+                    CHECK_NEAR(screenTopRight.y, capturedVp.y + 24.0f, 1.5f);
+                }
             }
         }
     }
