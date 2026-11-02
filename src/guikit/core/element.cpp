@@ -586,7 +586,8 @@ ElementGeometry Element::Resolve(
 
     const float alignFactor = (spec.align == Align::End) ? 1.0f : ((spec.align == Align::Center) ? 0.5f : 0.0f);
 
-    if (!stretchableCtrl && spec.stretch == StretchMode::Fill && ctrlSpec.width.has_value()) {
+    if (!stretchableCtrl && !(geom.hasExternal && spec.layout == ElementLayout::Inline) &&
+        spec.stretch == StretchMode::Fill && ctrlSpec.width.has_value()) {
         const float ratio = std::clamp(*ctrlSpec.width, 0.0f, 1.0f);
         const float minBlockW = (!spec.hasControl && geom.hasDesc)
             ? std::max(intrinsicControlSize.x, TextUtil::MeasureUiTextWidth(spec.description, geom.descFontSize, canvas))
@@ -732,7 +733,14 @@ ElementGeometry Element::Resolve(
         if (stretchableCtrl && spec.stretch == StretchMode::Fill && !ctrlSpec.width.has_value()) {
             ctrlW = std::max(0.0f, bounds.w - measuredTextW - gap);
         }
-        const float availTextW = std::max(0.0f, bounds.w - ctrlW - gap);
+        float colW = ctrlW;
+        if (!stretchableCtrl && spec.stretch == StretchMode::Fill && ctrlSpec.width.has_value()) {
+            const float ratio = std::clamp(*ctrlSpec.width, 0.0f, 1.0f);
+            colW = (ratio < 1.0f && ratio > 0.0f)
+                ? std::min(bounds.w, std::max(bounds.w * ratio, ctrlW))
+                : (bounds.w * ratio);
+        }
+        const float availTextW = std::max(0.0f, bounds.w - colW - gap);
         const float textBlockW = (spec.label.wrap.IsWordWrap() || spec.description.wrap.IsWordWrap())
             ? (compactNaturalBlock ? std::min(measuredTextW, availTextW) : availTextW)
             : std::min(measuredTextW, availTextW);
@@ -747,7 +755,7 @@ ElementGeometry Element::Resolve(
         const float ctrlH = stretchStandaloneH ? bounds.h : std::min(intrinsicControlSize.y, bounds.h);
 
         if (spec.inlineOrder == InlineOrder::LabelFirst) {
-            float ctrlX = bounds.x + bounds.w - ctrlW;
+            float ctrlX = (bounds.x + bounds.w - colW) + (colW - ctrlW) * alignFactor;
             if (compactNaturalBlock) {
                 ctrlX = bounds.x + (textBlockW > 0.0f ? textBlockW + gap : 0.0f);
             }
