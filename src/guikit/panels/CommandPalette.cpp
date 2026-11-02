@@ -19,6 +19,9 @@ struct CommandPalettePersistState {
     float scrollOffset{0.0f};
     Vec2 lastMousePos{-10000.0f, -10000.0f};
     bool wasOpen{false};
+    bool scrollbarDragging{false};
+    float scrollbarDragStartOffset{0.0f};
+    float scrollbarDragStartMouseY{0.0f};
 };
 
 struct FilteredCommandEntry {
@@ -113,6 +116,7 @@ CommandPaletteResponse CommandPalette::Run(
     if (!isOpen) {
         if (st.wasOpen) {
             st.wasOpen = false;
+            st.scrollbarDragging = false;
             ctx.InvalidateAll();
         }
         return res;
@@ -133,6 +137,7 @@ CommandPaletteResponse CommandPalette::Run(
         st.query.clear();
         st.highlightedPos = 0;
         st.scrollOffset = 0.0f;
+        st.scrollbarDragging = false;
         st.lastMousePos = ctx.GetMousePos();
         st.wasOpen = true;
         ctx.InvalidateAll();
@@ -182,8 +187,67 @@ CommandPaletteResponse CommandPalette::Run(
         st.highlightedPos = std::clamp(st.highlightedPos, 0, filteredCount - 1);
     }
 
-    // 3. Compute geometry
+    // 3. Compute geometry from UiSize + Density tokens and content-aware natural row widths
     const float s = (theme.scale > 0.0f) ? theme.scale : ((activeScale > 0.0f) ? activeScale : 1.0f);
+    ICanvas* measureCanvas = ctx.GetCanvas();
+
+    const ComponentMetrics& cm = theme.GetMetrics(activeSize);
+    const InputFieldMetrics& im = theme.GetInputField(activeSize);
+    const SelectMetrics& sm = theme.GetSelect(activeSize);
+
+    const float searchFont = theme.ResolveFontSize(UiText{}, TextRole::BodyMedium, activeSize);
+    const float labelFont  = theme.ResolveFontSize(UiText{}, TextRole::LabelLarge, activeSize);
+    const float descFont   = theme.ResolveFontSize(UiText{}, TextRole::BodySmall, activeSize);
+    const float badgeFont  = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, activeSize);
+
+    const float searchH   = std::round(std::max(im.defaultHeight + 10.0f * s, searchFont * 2.8f));
+    const float rowH      = std::round(std::max(sm.itemHeight + 8.0f * s, labelFont * 2.5f));
+    const float listPadY  = std::round(std::max(4.0f * s, cm.paddingY * 0.75f));
+    const float footerH   = opts.showFooterHints
+        ? std::round(std::max(cm.defaultHeight * 0.82f, badgeFont * 2.5f))
+        : 0.0f;
+    const float rowInsetX = std::round(6.0f * s);
+    const float rowPadX   = std::round(im.paddingX);
+    const float icSz      = std::round(cm.iconSize);
+    const float catPillH  = std::round(std::max(16.0f * s, badgeFont + 7.0f * s));
+    const float keyPillH  = std::round(std::max(18.0f * s, badgeFont + 9.0f * s));
+
+    // Measure uniform tabular category column width across all items (prevents jagged label alignment)
+    float maxCatPillW = 0.0f;
+    for (const auto& it : items) {
+        const std::string_view catSv = it.category.View();
+        if (!catSv.empty()) {
+            const float cw = TextUtil::MeasureWidth(catSv, badgeFont, measureCanvas);
+            maxCatPillW = std::max(maxCatPillW, std::ceil(cw + 12.0f * s));
+        }
+    }
+
+    // Measure natural content width across all items so auto-sizing fits icon + category + label + description + shortcut
+    const float escW = std::round(std::max(32.0f * s, TextUtil::MeasureWidth("ESC", badgeFont, measureCanvas) + 14.0f * s));
+    const float escH = keyPillH;
+    const float clearSz = std::round(std::max(20.0f * s, icSz + 6.0f * s));
+
+    float maxNaturalW = rowPadX * 2.0f + icSz + 10.0f * s
+        + TextUtil::MeasureWidth(opts.placeholder.View(), searchFont, measureCanvas)
+        + clearSz + escW + 36.0f * s;
+
+    for (const auto& it : items) {
+        float rowW = rowInsetX * 2.0f + rowPadX + 10.0f * s + icSz + 10.0f * s;
+        if (maxCatPillW > 0.0f) {
+            rowW += maxCatPillW + 10.0f * s;
+        }
+        rowW += TextUtil::MeasureWidth(it.label.View(), labelFont, measureCanvas);
+        if (!it.description.empty()) {
+            rowW += 12.0f * s + TextUtil::MeasureWidth(it.description.View(), descFont, measureCanvas);
+        }
+        if (!it.shortcut.empty()) {
+            const float sw = TextUtil::MeasureWidth(it.shortcut.View(), badgeFont, measureCanvas);
+            rowW += 12.0f * s + std::ceil(sw + 12.0f * s);
+        }
+        rowW += 22.0f * s; // right breathing room + scrollbar gutter reserve
+        maxNaturalW = std::max(maxNaturalW, rowW);
+    }
+
     Rect backdropRect = ctx.GetPopupViewportRect();
     if (opts.confineToParent) {
         const Rect parentRect = ctx.GetParentPrevFrameBounds();
@@ -192,19 +256,19 @@ CommandPaletteResponse CommandPalette::Run(
         }
     }
 
-    const float targetW = theme.Scale(std::max(260.0f, opts.width));
+    const float minW = theme.Scale(std::max(260.0f, opts.minWidth));
+    const float maxW = std::max(minW, theme.Scale(opts.maxWidth));
+    const float targetW = (opts.width.has_value() && *opts.width > 0.0f)
+        ? theme.Scale(std::max(260.0f, *opts.width))
+        : std::clamp(std::ceil(maxNaturalW), minW, maxW);
     const float cardW = std::round(std::min(std::max(200.0f * s, backdropRect.w - 24.0f * s), targetW));
-    const float searchH = std::round(46.0f * s);
-    const float rowH = std::round(40.0f * s);
-    const float listPadY = std::round(6.0f * s);
     const uint32_t maxVis = std::max<uint32_t>(1u, opts.maxVisibleItems);
     const uint32_t visRows = (filteredCount > 0)
         ? std::min<uint32_t>(static_cast<uint32_t>(filteredCount), maxVis)
         : 1u;
     const float listViewportH = (filteredCount > 0)
         ? (static_cast<float>(visRows) * rowH + listPadY * 2.0f)
-        : std::round(64.0f * s);
-    const float footerH = opts.showFooterHints ? std::round(30.0f * s) : 0.0f;
+        : std::round(rowH * 1.6f);
     const float cardH = searchH + 1.0f + listViewportH + (opts.showFooterHints ? (1.0f + footerH) : 0.0f);
 
     const float cardX = std::round(backdropRect.x + (backdropRect.w - cardW) * 0.5f);
@@ -215,16 +279,13 @@ CommandPaletteResponse CommandPalette::Run(
     const Rect footerRect(cardX, listRect.Bottom() + 1.0f, cardW, footerH);
 
     // Search bar interactive sub-rects (Clear button and ESC pill)
-    const float escW = std::round(34.0f * s);
-    const float escH = std::round(20.0f * s);
     const Rect escRect(
-        searchRect.Right() - 12.0f * s - escW,
-         std::round(searchRect.y + (searchRect.h - escH) * 0.5f),
+        searchRect.Right() - rowPadX - escW,
+        std::round(searchRect.y + (searchRect.h - escH) * 0.5f),
         escW,
         escH
     );
 
-    const float clearSz = std::round(22.0f * s);
     const Rect clearRect(
         escRect.x - 6.0f * s - clearSz,
         std::round(searchRect.y + (searchRect.h - clearSz) * 0.5f),
@@ -300,7 +361,11 @@ CommandPaletteResponse CommandPalette::Run(
         }
     }
 
-    // 5. Mouse wheel & hit testing
+    // 5. Mouse wheel, interactive scrollbar & hit testing
+    // Must enter BeginOverlayHitCheck(id) BEFORE querying GetMouseWheel() / IsMouseClicked() / IsMouseDown()
+    // so CommandPalette's own backdrop overlay hit region does not block its input queries.
+    ctx.BeginOverlayHitCheck(id);
+
     const Vec2 mouse = ctx.GetMousePos();
     const bool mouseMoved = (std::abs(mouse.x - st.lastMousePos.x) > 0.5f || std::abs(mouse.y - st.lastMousePos.y) > 0.5f);
     st.lastMousePos = mouse;
@@ -313,13 +378,51 @@ CommandPaletteResponse CommandPalette::Run(
     }
     st.scrollOffset = std::clamp(st.scrollOffset, 0.0f, maxScroll);
 
-    ctx.BeginOverlayHitCheck(id);
+    const ScrollbarMetrics& sbm = theme.GetScrollbar(activeSize);
+    const bool hasScrollbar = (maxScroll > 0.5f && totalListContentH > 0.0f);
+    const float sbTrackW = std::max(6.0f * s, sbm.trackWidth);
+    const float sbMargin = std::max(3.0f * s, sbm.margin);
+    const float sbTrackX = cardRect.Right() - sbTrackW - sbMargin;
+    const float sbTrackY = listRect.y + listPadY;
+    const float sbTrackH = std::max(10.0f, listRect.h - listPadY * 2.0f);
+    const float sbThumbH = hasScrollbar
+        ? std::clamp((innerListViewportH / totalListContentH) * sbTrackH, std::max(20.0f * s, sbm.minThumbLength), sbTrackH)
+        : 0.0f;
+    const float sbTravel = std::max(0.0f, sbTrackH - sbThumbH);
+    const float sbHitLeft = sbTrackX - 4.0f * s;
+    const Rect sbHitTrackRect(sbHitLeft, listRect.y, std::max(0.0f, cardRect.Right() - sbHitLeft), listRect.h);
+
+    auto computeThumbY = [&]() noexcept {
+        const float ratio = (maxScroll > 0.0f) ? std::clamp(st.scrollOffset / maxScroll, 0.0f, 1.0f) : 0.0f;
+        return sbTrackY + ratio * sbTravel;
+    };
+
+    if (!hasScrollbar) {
+        st.scrollbarDragging = false;
+    } else if (st.scrollbarDragging) {
+        if (ctx.IsMouseDown()) {
+            const float deltaY = mouse.y - st.scrollbarDragStartMouseY;
+            if (sbTravel > 0.0f) {
+                st.scrollOffset = std::clamp(st.scrollbarDragStartOffset + (deltaY / sbTravel) * maxScroll, 0.0f, maxScroll);
+            }
+            ctx.InvalidateAll();
+        } else {
+            st.scrollbarDragging = false;
+            ctx.InvalidateAll();
+        }
+    }
+
+    const float curThumbY = computeThumbY();
+    const Rect sbHitThumbRect(sbHitLeft, curThumbY - 2.0f * s, sbHitTrackRect.w, sbThumbH + 4.0f * s);
+    const bool sbThumbHovered = hasScrollbar && sbHitThumbRect.Contains(mouse);
+    const bool sbTrackHovered = hasScrollbar && sbHitTrackRect.Contains(mouse);
+    const bool sbHovered = sbThumbHovered || sbTrackHovered;
 
     const bool clearBtnHovered = !st.query.empty() && clearRect.Contains(mouse);
     const bool escPillHovered = opts.closeOnEscape && escRect.Contains(mouse);
 
     int hoveredFilteredPos = -1;
-    if (filteredCount > 0 && listRect.Contains(mouse)) {
+    if (filteredCount > 0 && listRect.Contains(mouse) && !sbHovered && !st.scrollbarDragging) {
         const float relY = (mouse.y - (listRect.y + listPadY)) + st.scrollOffset;
         if (relY >= 0.0f) {
             const int idx = static_cast<int>(relY / rowH);
@@ -335,7 +438,23 @@ CommandPaletteResponse CommandPalette::Run(
 
     if (ctx.IsMouseClicked()) {
         if (cardRect.Contains(mouse)) {
-            if (clearBtnHovered) {
+            if (sbThumbHovered) {
+                st.scrollbarDragging = true;
+                st.scrollbarDragStartMouseY = mouse.y;
+                st.scrollbarDragStartOffset = st.scrollOffset;
+                ctx.ConsumeMouseClick();
+                ctx.InvalidateAll();
+            } else if (sbTrackHovered) {
+                if (sbTravel > 0.0f) {
+                    const float targetRatio = std::clamp((mouse.y - sbTrackY - sbThumbH * 0.5f) / sbTravel, 0.0f, 1.0f);
+                    st.scrollOffset = targetRatio * maxScroll;
+                    st.scrollbarDragging = true;
+                    st.scrollbarDragStartMouseY = mouse.y;
+                    st.scrollbarDragStartOffset = st.scrollOffset;
+                }
+                ctx.ConsumeMouseClick();
+                ctx.InvalidateAll();
+            } else if (clearBtnHovered) {
                 st.query.clear();
                 st.highlightedPos = 0;
                 st.scrollOffset = 0.0f;
@@ -345,6 +464,7 @@ CommandPaletteResponse CommandPalette::Run(
             } else if (escPillHovered) {
                 isOpen = false;
                 st.wasOpen = false;
+                st.scrollbarDragging = false;
                 ctx.ConsumeMouseClick();
                 ctx.InvalidateAll();
                 ctx.EndOverlayHitCheck();
@@ -357,6 +477,7 @@ CommandPaletteResponse CommandPalette::Run(
                     res.clicked = true;
                     isOpen = false;
                     st.wasOpen = false;
+                    st.scrollbarDragging = false;
                     ctx.ConsumeMouseClick();
                     ctx.InvalidateAll();
                     ctx.EndOverlayHitCheck();
@@ -366,9 +487,10 @@ CommandPaletteResponse CommandPalette::Run(
             } else {
                 ctx.ConsumeMouseClick();
             }
-        } else if (opts.closeOnBackdropClick && backdropRect.Contains(mouse)) {
+        } else if (opts.closeOnBackdropClick && backdropRect.Contains(mouse) && !st.scrollbarDragging) {
             isOpen = false;
             st.wasOpen = false;
+            st.scrollbarDragging = false;
             ctx.ConsumeMouseClick();
             ctx.InvalidateAll();
             ctx.EndOverlayHitCheck();
@@ -401,6 +523,11 @@ CommandPaletteResponse CommandPalette::Run(
         Rect rowRect{};
     };
 
+    const float sbRightReserve = hasScrollbar ? (sbTrackW + sbMargin) : 0.0f;
+    const Rect sbTrackRect(sbTrackX, sbTrackY, sbTrackW, sbTrackH);
+    const Rect sbThumbRect(sbTrackX, std::round(computeThumbY()), sbTrackW, std::round(sbThumbH));
+    const bool sbDraggingCopy = st.scrollbarDragging;
+
     std::vector<DrawRowItem> drawRows;
     drawRows.reserve(filtered.size());
     for (size_t i = 0; i < filtered.size(); ++i) {
@@ -420,13 +547,12 @@ CommandPaletteResponse CommandPalette::Run(
             .highlighted = (static_cast<int>(i) == st.highlightedPos),
             .matchPos = fe.labelMatchPos,
             .matchLen = fe.labelMatchLen,
-            .rowRect = Rect(cardRect.x + 6.0f * s, std::round(rowY), cardRect.w - 12.0f * s, rowH)
+            .rowRect = Rect(cardRect.x + rowInsetX, std::round(rowY), cardRect.w - rowInsetX * 2.0f - sbRightReserve, rowH)
         });
     }
 
     const std::string queryCopy = st.query;
     const std::string placeholderCopy = std::string(opts.placeholder.View());
-    const float scrollOffsetCopy = st.scrollOffset;
     const bool showFooter = opts.showFooterHints;
     const float backdropOpacity = opts.backdropOpacity;
     const StateColor bgOpt = opts.background;
@@ -448,10 +574,11 @@ CommandPaletteResponse CommandPalette::Run(
         placeholderCopy,
         drawRows = std::move(drawRows),
         totalFiltered,
-        totalListContentH,
-        innerListViewportH,
-        scrollOffsetCopy,
-        maxScroll,
+        hasScrollbar,
+        sbTrackRect,
+        sbThumbRect,
+        sbHovered,
+        sbDraggingCopy,
         showFooter,
         backdropOpacity,
         bgOpt,
@@ -459,6 +586,15 @@ CommandPaletteResponse CommandPalette::Run(
         cursorVis,
         activeSize,
         s,
+        rowPadX,
+        icSz,
+        catPillH,
+        keyPillH,
+        maxCatPillW,
+        searchFont,
+        labelFont,
+        descFont,
+        badgeFont,
         theme
     ](ICanvas& c) {
         const auto& pal = theme.palette;
@@ -504,23 +640,30 @@ CommandPaletteResponse CommandPalette::Run(
         c.DrawRoundRect(cardRect, radius, surfaceBg, borderCol, borderW);
 
         // 3. Top Search Bar
-        const float searchIconSz = std::round(16.0f * s);
+        const float searchIconSz = icSz;
         const Rect searchIconRect(
-            searchRect.x + 14.0f * s,
+            searchRect.x + rowPadX + 2.0f * s,
             std::round(searchRect.y + (searchRect.h - searchIconSz) * 0.5f),
             searchIconSz,
             searchIconSz
         );
         Icon::Search().Draw(c, searchIconRect, primaryCol);
 
-        const float searchFont = theme.ResolveFontSize(UiText{}, TextRole::BodyMedium, activeSize);
         const float textStartX = searchIconRect.Right() + 10.0f * s;
         const float textEndX = (!queryCopy.empty() ? clearRect.x : escRect.x) - 8.0f * s;
         const Rect queryTextRect(textStartX, searchRect.y, std::max(10.0f, textEndX - textStartX), searchRect.h);
 
         c.PushClip(queryTextRect);
         if (queryCopy.empty()) {
-            c.DrawTextBox(placeholderCopy, queryTextRect, searchFont, pal.textMuted, 0.0f, 0.5f);
+            const float placeholderOffset = std::round(4.0f * s);
+            c.DrawTextBox(
+                placeholderCopy,
+                Rect(textStartX + placeholderOffset, searchRect.y, std::max(10.0f, queryTextRect.w - placeholderOffset), searchRect.h),
+                searchFont,
+                pal.textMuted,
+                0.0f,
+                0.5f
+            );
             if (cursorVis) {
                 const float caretH = std::round(searchFont * 1.15f);
                 const Rect caretRect(textStartX, std::round(searchRect.Center().y - caretH * 0.5f), std::max(1.5f, std::round(1.5f * s)), caretH);
@@ -557,7 +700,7 @@ CommandPaletteResponse CommandPalette::Run(
             if (clearBtnHovered) {
                 c.DrawRoundRect(clearRect, 5.0f * s, pal.surfaceHover, Color::Transparent(), 0.0f);
             }
-            const float xSz = std::round(12.0f * s);
+            const float xSz = std::round(icSz * 0.75f);
             const Rect xBox(
                 std::round(clearRect.x + (clearRect.w - xSz) * 0.5f),
                 std::round(clearRect.y + (clearRect.h - xSz) * 0.5f),
@@ -568,7 +711,6 @@ CommandPaletteResponse CommandPalette::Run(
         }
 
         // [ESC] keycap pill on the right of search bar
-        const float badgeFont = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, activeSize);
         const Color keycapBg = escPillHovered ? pal.surfaceActive : pal.surfaceHover;
         c.DrawRoundRect(escRect, 4.0f * s, keycapBg, pal.borderSubtle, 1.0f);
         c.DrawTextBox("ESC", escRect, badgeFont, pal.textMuted, 0.5f, 0.5f);
@@ -581,8 +723,6 @@ CommandPaletteResponse CommandPalette::Run(
 
         // 4. Filtered Command Rows (or empty state)
         c.PushClip(listRect);
-        const float labelFont = theme.ResolveFontSize(UiText{}, TextRole::LabelLarge, activeSize);
-        const float descFont = theme.ResolveFontSize(UiText{}, TextRole::BodySmall, activeSize);
 
         if (totalFiltered == 0) {
             c.DrawTextBox(
@@ -620,19 +760,18 @@ CommandPaletteResponse CommandPalette::Run(
                 Color fg = row.disabled ? pal.textDisabled : pal.textPrimary;
                 Color mutedFg = row.disabled ? pal.textDisabled : pal.textMuted;
 
-                float curX = rr.x + 12.0f * s;
-                float rightEdge = rr.Right() - 10.0f * s;
+                float curX = rr.x + rowPadX;
+                float rightEdge = rr.Right() - 16.0f * s;
 
                 // Right-aligned [shortcut] keycap badge
                 if (!row.shortcut.empty()) {
                     const float sw = c.MeasureText(row.shortcut, badgeFont).x;
                     const float pillW = std::round(sw + 12.0f * s);
-                    const float pillH = std::round(20.0f * s);
                     const Rect pillRect(
                         rightEdge - pillW,
-                        std::round(rr.y + (rr.h - pillH) * 0.5f),
+                        std::round(rr.y + (rr.h - keyPillH) * 0.5f),
                         pillW,
-                        pillH
+                        keyPillH
                     );
                     c.DrawRoundRect(
                         pillRect,
@@ -646,7 +785,6 @@ CommandPaletteResponse CommandPalette::Run(
                 }
 
                 // Leading icon
-                const float icSz = std::round(15.0f * s);
                 const Rect icRect(
                     curX,
                     std::round(rr.y + (rr.h - icSz) * 0.5f),
@@ -660,85 +798,77 @@ CommandPaletteResponse CommandPalette::Run(
                 }
                 curX += icSz + 10.0f * s;
 
-                // Optional [category] pill prefix
-                if (!row.category.empty()) {
-                    const float catW = c.MeasureText(row.category, badgeFont).x;
-                    const float catPillW = std::round(catW + 10.0f * s);
-                    const float catPillH = std::round(18.0f * s);
-                    const Rect catRect(
-                        curX,
-                        std::round(rr.y + (rr.h - catPillH) * 0.5f),
-                        catPillW,
-                        catPillH
-                    );
-                    c.DrawRoundRect(
-                        catRect,
-                        4.0f * s,
-                        primaryCol.WithAlphaF(row.highlighted ? 0.22f : 0.12f),
-                        Color::Transparent(),
-                        0.0f
-                    );
-                    c.DrawTextBox(
-                        row.category,
-                        catRect,
-                        badgeFont,
-                        row.disabled ? pal.textDisabled : primaryCol,
-                        0.5f,
-                        0.5f
-                    );
-                    curX += catPillW + 8.0f * s;
+                // Tabular [category] column prefix (uniform width so all labels align vertically)
+                if (maxCatPillW > 0.0f) {
+                    const float catColW = std::min(maxCatPillW, std::max(36.0f * s, (rightEdge - curX) * 0.30f));
+                    if (!row.category.empty()) {
+                        const Rect catRect(
+                            curX,
+                            std::round(rr.y + (rr.h - catPillH) * 0.5f),
+                            catColW,
+                            catPillH
+                        );
+                        c.DrawRoundRect(
+                            catRect,
+                            4.0f * s,
+                            primaryCol.WithAlphaF(row.highlighted ? 0.22f : 0.12f),
+                            Color::Transparent(),
+                            0.0f
+                        );
+                        const std::string truncCat = TextUtil::TruncateWithEllipsis(
+                            row.category,
+                            std::max(0.0f, catColW - 8.0f * s),
+                            badgeFont,
+                            &c
+                        );
+                        c.DrawTextBox(
+                            truncCat,
+                            catRect,
+                            badgeFont,
+                            row.disabled ? pal.textDisabled : primaryCol,
+                            0.5f,
+                            0.5f
+                        );
+                    }
+                    curX += catColW + 10.0f * s;
                 }
 
-                // Label with matched substring highlight
+                // Label with matched substring highlight and graceful ellipsis fallback
                 const float availTextW = std::max(0.0f, rightEdge - curX);
                 if (availTextW > 4.0f) {
                     const std::string_view labelSv = row.label;
                     const float fullLabelW = c.MeasureText(labelSv, labelFont).x;
+                    const std::string truncLabel = TextUtil::TruncateWithEllipsis(labelSv, availTextW, labelFont, &c);
 
                     if (row.matchPos != std::string_view::npos &&
                         row.matchLen > 0 &&
                         row.matchPos + row.matchLen <= labelSv.size()) {
-                        const std::string_view prefix = labelSv.substr(0, row.matchPos);
-                        const std::string_view matched = labelSv.substr(row.matchPos, row.matchLen);
-                        const std::string_view suffix = labelSv.substr(row.matchPos + row.matchLen);
+                        const float x0 = curX + (row.matchPos == 0
+                            ? 0.0f
+                            : c.MeasureText(labelSv.substr(0, row.matchPos), labelFont).x);
+                        const float x1 = curX + c.MeasureText(labelSv.substr(0, row.matchPos + row.matchLen), labelFont).x;
 
-                        const float prefixW = prefix.empty() ? 0.0f : c.MeasureText(prefix, labelFont).x;
-                        const float matchW = c.MeasureText(matched, labelFont).x;
-                        const float hlH = std::round(labelFont * 1.32f);
-                        const Rect hlRect(
-                            std::round(curX + prefixW - 1.0f * s),
-                            std::round(rr.y + (rr.h - hlH) * 0.5f),
-                            std::round(matchW + 2.0f * s),
-                            hlH
-                        );
-                        c.DrawRoundRect(hlRect, 3.0f * s, primaryCol.WithAlphaF(0.28f), Color::Transparent(), 0.0f);
-
-                        if (!prefix.empty()) {
-                            c.DrawTextBox(prefix, Rect(curX, rr.y, prefixW + 2.0f, rr.h), labelFont, fg, 0.0f, 0.5f);
-                        }
-                        const float lineH = c.GetLineHeight(labelFont);
-                        const float textY = rr.y + (rr.h - lineH) * 0.5f;
-                        c.DrawTextStyled(
-                            matched,
-                            Vec2(curX + prefixW, textY),
-                            labelFont,
-                            row.disabled ? fg : primaryCol,
-                            FontStyle::Bold
-                        );
-                        if (!suffix.empty()) {
-                            const float suffixX = curX + prefixW + matchW;
-                            c.DrawTextBox(
-                                suffix,
-                                Rect(suffixX, rr.y, std::max(0.0f, rightEdge - suffixX), rr.h),
-                                labelFont,
-                                fg,
-                                0.0f,
-                                0.5f
+                        if (x1 <= curX + availTextW + 1.0f && x1 > x0 + 0.5f) {
+                            const float hlH = std::round(labelFont * 1.32f);
+                            const Rect hlRect(
+                                std::round(x0 - 1.5f * s),
+                                std::round(rr.y + (rr.h - hlH) * 0.5f),
+                                std::round((x1 - x0) + 3.0f * s),
+                                hlH
+                            );
+                            c.DrawRoundRect(
+                                hlRect,
+                                3.0f * s,
+                                primaryCol.WithAlphaF(0.32f),
+                                primaryCol.WithAlphaF(0.55f),
+                                1.0f
                             );
                         }
-                    } else {
+                    }
+
+                    if (!truncLabel.empty()) {
                         c.DrawTextBox(
-                            labelSv,
+                            truncLabel,
                             Rect(curX, rr.y, availTextW, rr.h),
                             labelFont,
                             fg,
@@ -747,7 +877,7 @@ CommandPaletteResponse CommandPalette::Run(
                         );
                     }
 
-                    curX += fullLabelW + 10.0f * s;
+                    curX += std::min(fullLabelW, availTextW) + 12.0f * s;
 
                     // Optional secondary description
                     if (!row.description.empty() && rightEdge - curX > 24.0f * s) {
@@ -771,15 +901,23 @@ CommandPaletteResponse CommandPalette::Run(
                 }
             }
 
-            // Subtle scrollbar thumb when list overflows
-            if (maxScroll > 0.5f && totalListContentH > 0.0f) {
-                const float trackH = listRect.h - 8.0f * s;
-                const float thumbH = std::max(18.0f * s, trackH * (innerListViewportH / totalListContentH));
-                const float thumbY = listRect.y + 4.0f * s + (trackH - thumbH) * (scrollOffsetCopy / maxScroll);
+            // Interactive scrollbar track & thumb when list overflows
+            if (hasScrollbar) {
+                const float sbRadius = sbTrackRect.w * 0.5f;
                 c.DrawRoundRect(
-                    Rect(cardRect.Right() - 5.0f * s, std::round(thumbY), 3.0f * s, std::round(thumbH)),
-                    1.5f * s,
-                    pal.textMuted.WithAlphaF(0.45f),
+                    sbTrackRect,
+                    sbRadius,
+                    pal.borderSubtle.WithAlphaF(0.45f),
+                    Color::Transparent(),
+                    0.0f
+                );
+                const Color thumbCol = sbDraggingCopy
+                    ? primaryCol
+                    : (sbHovered ? pal.textSecondary : pal.textMuted.WithAlphaF(0.68f));
+                c.DrawRoundRect(
+                    sbThumbRect,
+                    sbRadius,
+                    thumbCol,
                     Color::Transparent(),
                     0.0f
                 );
@@ -795,23 +933,16 @@ CommandPaletteResponse CommandPalette::Run(
             );
 
             const Rect footerInner(
-                footerRect.x + 14.0f * s,
+                footerRect.x + rowPadX + 2.0f * s,
                 footerRect.y,
-                std::max(0.0f, footerRect.w - 28.0f * s),
+                std::max(0.0f, footerRect.w - (rowPadX + 2.0f * s) * 2.0f),
                 footerRect.h
-            );
-            c.DrawTextBox(
-                "↑↓ Navigate   ↵ Execute   Esc Close",
-                footerInner,
-                badgeFont,
-                pal.textMuted,
-                0.0f,
-                0.5f
             );
 
             const UiString countLabel = (totalFiltered == 1)
                 ? UiString("1 command")
                 : UiString::FormatNew("{} commands", totalFiltered);
+            const float countW = c.MeasureText(countLabel.View(), badgeFont).x;
             c.DrawTextBox(
                 countLabel.View(),
                 footerInner,
@@ -820,6 +951,40 @@ CommandPaletteResponse CommandPalette::Run(
                 1.0f,
                 0.5f
             );
+
+            // Render structured keycap hint pills: [↑↓] Navigate   [Enter] Execute   [Esc] Close
+            struct FooterHint {
+                std::string_view key;
+                std::string_view action;
+            };
+            static constexpr std::array<FooterHint, 3> kHints = {{
+                {"↑↓",    "Navigate"},
+                {"Enter", "Execute"},
+                {"Esc",   "Close"}
+            }};
+
+            float hintX = footerInner.x;
+            const float maxHintRight = footerInner.Right() - countW - 12.0f * s;
+            const float kcapH = std::round(std::max(16.0f * s, badgeFont + 5.0f * s));
+            const float kcapY = std::round(footerRect.y + (footerRect.h - kcapH) * 0.5f);
+
+            for (const auto& h : kHints) {
+                const float kw = c.MeasureText(h.key, badgeFont).x;
+                const float kcapW = std::round(kw + 10.0f * s);
+                const float aw = c.MeasureText(h.action, badgeFont).x;
+                const float groupW = kcapW + 5.0f * s + aw;
+                if (hintX + groupW > maxHintRight) {
+                    break;
+                }
+                const Rect kcapRect(hintX, kcapY, kcapW, kcapH);
+                c.DrawRoundRect(kcapRect, 3.5f * s, pal.surfaceHover, pal.borderSubtle, 1.0f);
+                c.DrawTextBox(h.key, kcapRect, badgeFont, pal.textSecondary, 0.5f, 0.5f);
+
+                const Rect actRect(hintX + kcapW + 5.0f * s, footerRect.y, aw + 4.0f * s, footerRect.h);
+                c.DrawTextBox(h.action, actRect, badgeFont, pal.textMuted, 0.0f, 0.5f);
+
+                hintX += groupW + 14.0f * s;
+            }
         }
     });
 

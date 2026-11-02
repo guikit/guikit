@@ -11339,6 +11339,111 @@ int main() {
         CHECK(rCmd.changed);
         CHECK(rCmd.selectedIndex == 1);
 
+        // 2b. CommandPalette content-aware auto-fit width, explicit width override, and UiSize scaling
+        {
+            static const std::array<guikit::CommandPaletteItem, 2> kShortCmds = {{
+                {.label = "Save", .shortcut = "Ctrl+S"},
+                {.label = "Quit", .shortcut = "Ctrl+Q"}
+            }};
+            static const std::array<guikit::CommandPaletteItem, 2> kLongCmds = {{
+                {.label = "Toggle Docked / Floating Island Shell", .category = "Workspace", .description = "Switch between flush IDE & floating island frame", .shortcut = "Ctrl+Shift+F"},
+                {.label = "Go to LevelMeter / Segmented VU Meter", .category = "Elements",  .description = "LED dB meters, peak-hold & clip LED"}
+            }};
+
+            bool openShort = true;
+            bool openLong = true;
+            bool openExplicit = true;
+            bool openXs = true;
+            bool openXl = true;
+
+            guikit::Context cpUi;
+            cpUi.BeginFrame({800.0f, 600.0f});
+            const auto rShort = cpUi.CommandPalette(openShort, kShortCmds);
+            const auto rLong = cpUi.CommandPalette(openLong, kLongCmds);
+            const auto rExplicit = cpUi.CommandPalette(openExplicit, kLongCmds, {.width = 500.0f});
+            const auto rXs = cpUi.Size(guikit::UiSize::Xs).CommandPalette(openXs, kShortCmds);
+            const auto rXl = cpUi.Size(guikit::UiSize::Xl).CommandPalette(openXl, kShortCmds);
+            cpUi.EndFrame(canvas);
+
+            CHECK(rShort.rect.w >= 480.0f);
+            CHECK(rLong.rect.w > rShort.rect.w);
+            CHECK(rLong.rect.w <= 780.0f);
+            CHECK(std::abs(rExplicit.rect.w - 500.0f) < 1.0f);
+            CHECK(rXl.rect.h > rXs.rect.h);
+
+            // Verify mouse wheel scrolling and interactive scrollbar thumb drag on multi-frame open CommandPalette
+            static const std::array<guikit::CommandPaletteItem, 8> kManyCmds = {{
+                {.label = "Cmd 0"}, {.label = "Cmd 1"}, {.label = "Cmd 2"}, {.label = "Cmd 3"},
+                {.label = "Cmd 4"}, {.label = "Cmd 5"}, {.label = "Cmd 6"}, {.label = "Cmd 7"}
+            }};
+            guikit::Context scrollCpUi;
+            bool openScroll = true;
+            guikit::CommandPaletteResponse rScroll{};
+            auto renderScrollCp = [&]() {
+                rScroll = scrollCpUi.CommandPalette(openScroll, kManyCmds, {.maxVisibleItems = 3});
+            };
+
+            // Frame 1: open palette (maxVisibleItems = 3 -> 8 items overflow)
+            scrollCpUi.BeginFrame({800.0f, 600.0f});
+            renderScrollCp();
+            scrollCpUi.EndFrame(canvas);
+
+            // Frame 2: mouse wheel scroll down while m_prevOverlayHitRegions has the backdrop
+            scrollCpUi.OnMouseMove(rScroll.rect.Center());
+            scrollCpUi.OnMouseWheel(0.0f, -5.0f);
+            scrollCpUi.BeginFrame({800.0f, 600.0f});
+            renderScrollCp();
+            scrollCpUi.EndFrame(canvas);
+            CHECK(openScroll);
+
+            // Frame 3: click first visible row in scrolled viewport -> must select item >= 4 (scrolled down!)
+            scrollCpUi.OnMouseMove({rScroll.rect.x + 80.0f, rScroll.rect.y + 66.0f});
+            scrollCpUi.OnMouseDown(1);
+            scrollCpUi.BeginFrame({800.0f, 600.0f});
+            renderScrollCp();
+            scrollCpUi.EndFrame(canvas);
+            scrollCpUi.OnMouseUp(1);
+            CHECK(!openScroll);
+            CHECK(rScroll.changed);
+            CHECK(rScroll.selectedIndex >= 4);
+
+            // Frame 4..6: reopen and test interactive scrollbar thumb drag
+            openScroll = true;
+            scrollCpUi.BeginFrame({800.0f, 600.0f});
+            renderScrollCp();
+            scrollCpUi.EndFrame(canvas);
+
+            // Click on scrollbar thumb near top-right of list area and drag down
+            const float sbX = rScroll.rect.Right() - 6.0f;
+            const float sbStartY = rScroll.rect.y + 60.0f;
+            scrollCpUi.OnMouseMove({sbX, sbStartY});
+            scrollCpUi.OnMouseDown(1);
+            scrollCpUi.BeginFrame({800.0f, 600.0f});
+            renderScrollCp();
+            scrollCpUi.EndFrame(canvas);
+            CHECK(openScroll); // Clicking scrollbar must NOT close or trigger a row
+
+            scrollCpUi.OnMouseMove({sbX, sbStartY + 80.0f});
+            scrollCpUi.BeginFrame({800.0f, 600.0f});
+            renderScrollCp();
+            scrollCpUi.EndFrame(canvas);
+            scrollCpUi.OnMouseUp(1);
+            scrollCpUi.BeginFrame({800.0f, 600.0f});
+            renderScrollCp();
+            scrollCpUi.EndFrame(canvas);
+            CHECK(openScroll);
+
+            // Click first visible row after dragging scrollbar to bottom -> must select item >= 4
+            scrollCpUi.OnMouseMove({rScroll.rect.x + 80.0f, rScroll.rect.y + 66.0f});
+            scrollCpUi.OnMouseDown(1);
+            scrollCpUi.BeginFrame({800.0f, 600.0f});
+            renderScrollCp();
+            scrollCpUi.EndFrame(canvas);
+            scrollCpUi.OnMouseUp(1);
+            CHECK(!openScroll);
+            CHECK(rScroll.selectedIndex >= 4);
+        }
+
         // 3. UiString Rule-of-Zero copy safety + Breadcrumb & Pagination interactive click tests
         {
             static_assert(std::is_trivially_copyable_v<guikit::UiString>);

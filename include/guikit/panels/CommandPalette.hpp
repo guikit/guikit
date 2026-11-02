@@ -26,8 +26,10 @@ struct CommandPaletteItem {
 
 struct CommandPaletteOptions {
     UiString placeholder{"Type a command or search..."};
-    float width{520.0f};
-    uint32_t maxVisibleItems{8};
+    std::optional<float> width{std::nullopt}; ///< Explicit width in dp (nullopt or <= 0 = auto-fit content within [minWidth..maxWidth])
+    float minWidth{480.0f};                   ///< Minimum width in dp when auto-fitting content
+    float maxWidth{780.0f};                   ///< Maximum width in dp when auto-fitting content
+    uint32_t maxVisibleItems{9};
     float backdropOpacity{0.45f};
     bool closeOnBackdropClick{true};
     bool closeOnEscape{true};

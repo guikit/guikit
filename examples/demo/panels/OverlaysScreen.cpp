@@ -48,8 +48,9 @@ struct OverlaysDemoState {
 
     // CommandPalette settings & state
     bool commandPaletteOpen = false;
-    float paletteWidth = 520.0f;
-    int paletteMaxVisible = 7;
+    bool paletteAutoWidth = true;
+    float paletteWidth = 660.0f;
+    int paletteMaxVisible = 8;
     bool paletteShowFooter = true;
     std::string lastPaletteCommand = "None (press Ctrl+K or click Open)";
 };
@@ -158,8 +159,13 @@ void RenderOverlaysInspector(guikit::Context& ui, DemoContext& ctx) {
             if (ui.Switch(s_ov.confineToastToStage).changed) ui.InvalidateAll();
         }
     } else {
-        if (auto el = ui.Element({.label = "Palette Width"})) {
-            if (ui.Slider(s_ov.paletteWidth, 360.0f, 680.0f, {.valueFormat = "%.0f px", .step = 10.0f}).changed) {
+        if (auto el = ui.Element({.label = "Auto-Fit Content Width"})) {
+            if (ui.Switch(s_ov.paletteAutoWidth).changed) {
+                ui.InvalidateAll();
+            }
+        }
+        if (auto el = ui.Element({.label = "Custom Palette Width", .disabled = s_ov.paletteAutoWidth})) {
+            if (ui.Slider(s_ov.paletteWidth, 380.0f, 820.0f, {.valueFormat = "%.0f px", .step = 10.0f}).changed) {
                 ui.InvalidateAll();
             }
         }
@@ -390,9 +396,9 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
         {.label = "Delete Station Node...",       .category = "Danger",    .description = "Permanently purge active node",       .shortcut = "Del",    .icon = guikit::Icon::Trash()}
     }};
 
-    auto cpRes = guikit::CommandPalette::Run(ui, s_ov.commandPaletteOpen, kPaletteCommands, {
+    auto cpRes = ui.Size(ctx.controlsSize).CommandPalette(s_ov.commandPaletteOpen, kPaletteCommands, {
         .placeholder = "Type a command or search...",
-        .width = s_ov.paletteWidth,
+        .width = s_ov.paletteAutoWidth ? std::nullopt : std::optional<float>(s_ov.paletteWidth),
         .maxVisibleItems = static_cast<uint32_t>(std::max(1, s_ov.paletteMaxVisible)),
         .backdropOpacity = s_ov.backdropOpacity,
         .closeOnBackdropClick = s_ov.closeOnBackdrop,
