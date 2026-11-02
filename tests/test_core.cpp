@@ -143,6 +143,56 @@ void TestBumpAllocator() {
     SampleData* objAfterReset = allocator.Allocate<SampleData>(99, 1.0, "reset");
     CHECK(objAfterReset != nullptr);
     CHECK(objAfterReset->a == 99);
+
+    // Oversized allocation when advancing into a previously-allocated small chunk must resize safely
+    allocator.Reset();
+    void* fillChunk0 = allocator.AllocateRaw(900, 8);
+    CHECK(fillChunk0 != nullptr);
+    void* oversizedInChunk1 = allocator.AllocateRaw(4096, 16);
+    CHECK(oversizedInChunk1 != nullptr);
+    std::memset(oversizedInChunk1, 0xAB, 4096);
+
+    // Non-trivially destructible objects & arrays must invoke ~T() in LIFO order on Reset() and ~Allocator()
+    std::vector<int> dtorOrder;
+    struct TrackedNonTrivial {
+        std::vector<int>* log{nullptr};
+        int id{0};
+        std::vector<int> ownedHeap{1, 2, 3, 4};
+
+        TrackedNonTrivial() = default;
+        TrackedNonTrivial(std::vector<int>* l, int i) : log(l), id(i) {}
+        ~TrackedNonTrivial() {
+            if (log) {
+                log->push_back(id);
+            }
+        }
+    };
+    static_assert(!std::is_trivially_destructible_v<TrackedNonTrivial>);
+
+    {
+        BumpAllocator scopedAlloc(512);
+        auto* n1 = scopedAlloc.Allocate<TrackedNonTrivial>(&dtorOrder, 1);
+        auto* n2 = scopedAlloc.Allocate<TrackedNonTrivial>(&dtorOrder, 2);
+        auto* arr = scopedAlloc.AllocateArray<TrackedNonTrivial>(3);
+        for (int i = 0; i < 3; ++i) {
+            arr[i].log = &dtorOrder;
+            arr[i].id = 10 + i;
+        }
+        CHECK(n1->ownedHeap.size() == 4);
+        CHECK(n2->ownedHeap.size() == 4);
+        CHECK(dtorOrder.empty());
+
+        scopedAlloc.Reset();
+        // LIFO destruction: arr[2] (12), arr[1] (11), arr[0] (10), then n2 (2), then n1 (1)
+        const std::vector<int> expectedAfterReset = {12, 11, 10, 2, 1};
+        CHECK(dtorOrder == expectedAfterReset);
+
+        dtorOrder.clear();
+        auto* n3 = scopedAlloc.Allocate<TrackedNonTrivial>(&dtorOrder, 42);
+        CHECK(n3 != nullptr);
+    }
+    // ~Allocator() destroys remaining objects
+    CHECK(dtorOrder.size() == 1 && dtorOrder[0] == 42);
 }
 
 void TestWidgetResponse() {

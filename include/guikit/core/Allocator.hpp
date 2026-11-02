@@ -1,9 +1,11 @@
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <new>
+#include <span>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -67,12 +69,16 @@ public:
         }
 
         // Current chunk has insufficient space; move to next or allocate a new one
+        const size_t nextCapacity = std::max(m_defaultChunkSize, bytes + alignment);
         if (m_currentChunkIndex + 1 < m_chunks.size()) {
             ++m_currentChunkIndex;
             chunk = &m_chunks[m_currentChunkIndex];
             chunk->offset = 0;
+            if (chunk->capacity < bytes + alignment) {
+                chunk->data = std::make_unique<std::byte[]>(nextCapacity);
+                chunk->capacity = nextCapacity;
+            }
         } else {
-            const size_t nextCapacity = std::max(m_defaultChunkSize, bytes + alignment);
             Grow(nextCapacity);
             chunk = &m_chunks[m_currentChunkIndex];
         }
@@ -90,15 +96,69 @@ public:
     template <typename T, typename... Args>
     [[nodiscard]] T* Allocate(Args&&... args) {
         void* ptr = AllocateRaw(sizeof(T), alignof(T));
-        T* obj = ::new (ptr) T(std::forward<Args>(args)...);
-        if constexpr (!std::is_trivially_destructible_v<T>) {
+        if constexpr (std::is_trivially_destructible_v<T>) {
+            return ::new (ptr) T(std::forward<Args>(args)...);
+        } else {
             auto* node = static_cast<DtorNode*>(AllocateRaw(sizeof(DtorNode), alignof(DtorNode)));
+            T* obj = ::new (ptr) T(std::forward<Args>(args)...);
             node->obj = obj;
             node->destroy = [](void* p) noexcept { static_cast<T*>(p)->~T(); };
             node->next = m_dtorHead;
             m_dtorHead = node;
+            return obj;
         }
-        return obj;
+    }
+
+    /// Allocates and default-constructs a contiguous array of `count` elements in the arena.
+    /// Non-trivially-destructible element types are destroyed in reverse order on Reset() or ~Allocator().
+    template <typename T>
+    [[nodiscard]] T* AllocateArray(size_t count) {
+        if (count == 0) {
+            return nullptr;
+        }
+        T* arr = static_cast<T*>(AllocateRaw(sizeof(T) * count, alignof(T)));
+        if constexpr (std::is_trivially_destructible_v<T>) {
+            for (size_t i = 0; i < count; ++i) {
+                ::new (&arr[i]) T{};
+            }
+            return arr;
+        } else {
+            struct ArrayDtorRecord {
+                DtorNode node{};
+                T* data{nullptr};
+                size_t count{0};
+            };
+            auto* rec = static_cast<ArrayDtorRecord*>(AllocateRaw(sizeof(ArrayDtorRecord), alignof(ArrayDtorRecord)));
+            size_t constructed = 0;
+            try {
+                for (; constructed < count; ++constructed) {
+                    ::new (&arr[constructed]) T{};
+                }
+            } catch (...) {
+                for (size_t i = constructed; i > 0; --i) {
+                    arr[i - 1].~T();
+                }
+                throw;
+            }
+            rec->data = arr;
+            rec->count = count;
+            rec->node.obj = rec;
+            rec->node.destroy = [](void* p) noexcept {
+                auto* r = static_cast<ArrayDtorRecord*>(p);
+                for (size_t i = r->count; i > 0; --i) {
+                    r->data[i - 1].~T();
+                }
+            };
+            rec->node.next = m_dtorHead;
+            m_dtorHead = &rec->node;
+            return arr;
+        }
+    }
+
+    /// Allocates and default-constructs a contiguous span of `count` elements in the arena.
+    template <typename T>
+    [[nodiscard]] std::span<T> AllocateSpan(size_t count) {
+        return std::span<T>(AllocateArray<T>(count), count);
     }
 
     /// Invokes destructors for non-trivial allocations and resets all chunk offsets to zero.

@@ -354,12 +354,10 @@ Response Segmented::Run(
     Node* node = ctx.CreateNode(NodeType::Segmented, id);
 
     optsCopy.tooltip = ctx.AllocText(optsCopy.tooltip);
-    SegmentedItem* arenaItems = items.empty()
-        ? nullptr
-        : static_cast<SegmentedItem*>(ctx.GetArena().AllocateRaw(sizeof(SegmentedItem) * items.size(), alignof(SegmentedItem)));
+    SegmentedItem* arenaItems = ctx.GetArena().AllocateArray<SegmentedItem>(items.size());
     uint64_t itemsHash = 0;
     for (size_t i = 0; i < items.size(); ++i) {
-        ::new (&arenaItems[i]) SegmentedItem(items[i]);
+        arenaItems[i] = items[i];
         arenaItems[i].text = ctx.AllocText(items[i].text);
         arenaItems[i].tooltip = ctx.AllocText(items[i].tooltip);
         itemsHash = detail::HashArgs(

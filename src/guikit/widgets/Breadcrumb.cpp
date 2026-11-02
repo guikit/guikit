@@ -397,11 +397,8 @@ Response Breadcrumb::Run(
     const BreadcrumbOptions& opts,
     std::source_location loc
 ) {
-    BreadcrumbItem* richItems = items.empty()
-        ? nullptr
-        : static_cast<BreadcrumbItem*>(ctx.GetArena().AllocateRaw(sizeof(BreadcrumbItem) * items.size(), alignof(BreadcrumbItem)));
+    BreadcrumbItem* richItems = ctx.GetArena().AllocateArray<BreadcrumbItem>(items.size());
     for (size_t i = 0; i < items.size(); ++i) {
-        ::new (&richItems[i]) BreadcrumbItem{};
         richItems[i].label = ctx.String(items[i]);
     }
     return Run(ctx, activeIndex, std::span<const BreadcrumbItem>(richItems, items.size()), opts, loc);
@@ -753,12 +750,10 @@ Response Breadcrumb::Run(
     node->inspectModeOverride = opts.inspectMode;
 
     optsCopy.tooltip = ctx.String(optsCopy.tooltip.View());
-    BreadcrumbItem* arenaItems = items.empty()
-        ? nullptr
-        : static_cast<BreadcrumbItem*>(ctx.GetArena().AllocateRaw(sizeof(BreadcrumbItem) * items.size(), alignof(BreadcrumbItem)));
+    BreadcrumbItem* arenaItems = ctx.GetArena().AllocateArray<BreadcrumbItem>(items.size());
     uint64_t itemsHash = 0;
     for (size_t i = 0; i < items.size(); ++i) {
-        ::new (&arenaItems[i]) BreadcrumbItem(items[i]);
+        arenaItems[i] = items[i];
         arenaItems[i].label = ctx.String(items[i].label.View());
         arenaItems[i].badge = ctx.String(items[i].badge.View());
         if (!arenaItems[i].icon.GetPath().empty()) {
