@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include "guikit/Context.hpp"
+#include "guikit/core/RichText.hpp"
 #include "guikit/core/TextUtil.hpp"
 #include "guikit/core/Theme.hpp"
 #include <SDL3/SDL.h>
@@ -1883,6 +1884,121 @@ void TestScrollAreaImmediateMode() {
         ui.BeginFrame({600.0f, 220.0f});
         renderMdScroll();
         ui.EndFrame(canvas);
+    }
+
+    // 10. RichText Core Engine: LruCache, CommonMark flanking, self-contained textPool, and UiText::Rich across widgets
+    {
+        // A. Deterministic O(1) LruCache eviction
+        LruCache<uint64_t, int, 3> lru;
+        lru.Insert(1, 10);
+        lru.Insert(2, 20);
+        lru.Insert(3, 30);
+        CHECK(lru.Size() == 3);
+        // Touch key 1 so key 2 becomes the least-recently-used
+        CHECK(lru.Find(1) != nullptr && *lru.Find(1) == 10);
+        lru.Insert(4, 40);
+        CHECK(lru.Size() == 3);
+        CHECK(lru.Find(2) == nullptr); // Evicted!
+        CHECK(lru.Find(1) != nullptr && *lru.Find(1) == 10);
+        CHECK(lru.Find(3) != nullptr && *lru.Find(3) == 30);
+        CHECK(lru.Find(4) != nullptr && *lru.Find(4) == 40);
+
+        // B. CommonMark flanking rule: arithmetic "2 * 3 * 4 = 24" must NOT be misparsed as italic
+        const auto mathSpans = ParseInlineSpans("2 * 3 * 4 = 24");
+        CHECK(mathSpans.size() == 1);
+        if (!mathSpans.empty()) {
+            CHECK(mathSpans[0].kind == InlineKind::Text);
+            CHECK(mathSpans[0].style == FontStyle::Regular);
+            CHECK(mathSpans[0].text == "2 * 3 * 4 = 24");
+        }
+
+        // True inline rich formatting: **bold**, *italic*, `code`
+        const auto richSpans = ParseInlineSpans("Press `Ctrl+S` to **save** or *cancel*.");
+        CHECK(richSpans.size() >= 6);
+        bool sawCode = false;
+        bool sawBold = false;
+        bool sawItalic = false;
+        for (const auto& sp : richSpans) {
+            if (sp.kind == InlineKind::Code && sp.text == "Ctrl+S") sawCode = true;
+            if (sp.style == FontStyle::Bold && sp.text == "save") sawBold = true;
+            if (sp.style == FontStyle::Italic && sp.text == "cancel") sawItalic = true;
+        }
+        CHECK(sawCode);
+        CHECK(sawBold);
+        CHECK(sawItalic);
+
+        // C. Self-contained textPool in InlineFlowLayout: destroying temporary std::string must never dangle atom slices
+        std::shared_ptr<const InlineFlowLayout> cachedFlow;
+        {
+            std::string tempDynamic = std::string("Dynamic ") + "`code_token`" + " and **bold_word**";
+            cachedFlow = GetOrBuildRichTextFlow(&canvas, tempDynamic, 300.0f, 13.0f, 12.0f, 1.35f, UiTheme::Dark());
+            std::fill(tempDynamic.begin(), tempDynamic.end(), 'X');
+        }
+        CHECK(cachedFlow != nullptr);
+        if (cachedFlow) {
+            CHECK(!cachedFlow->textPool.empty());
+            bool foundCodeAtom = false;
+            bool foundBoldAtom = false;
+            for (const auto& pa : cachedFlow->items) {
+                if (pa.atom.kind == InlineKind::Code && pa.atom.text == "code_token") foundCodeAtom = true;
+                if (pa.atom.style == FontStyle::Bold && pa.atom.text == "bold_word") foundBoldAtom = true;
+            }
+            CHECK(foundCodeAtom);
+            CHECK(foundBoldAtom);
+        }
+
+        // D. UiText::Rich integration in ui.Text, ui.Element, and ui.SetTooltip + 0 steady-state font measure calls
+        struct RichCountingCanvas : public ThorCanvas {
+            int layoutMeasureCalls{0};
+            bool insideDrawText{false};
+            Vec2 MeasureText(std::string_view text, float fontSize) override {
+                if (!insideDrawText) ++layoutMeasureCalls;
+                return ThorCanvas::MeasureText(text, fontSize);
+            }
+            Vec2 MeasureTextStyled(std::string_view text, float fontSize, FontStyle style) override {
+                if (!insideDrawText) ++layoutMeasureCalls;
+                return ThorCanvas::MeasureTextStyled(text, fontSize, style);
+            }
+            void DrawTextStyled(std::string_view text, Vec2 pos, float fontSize, Color color, FontStyle style, float angleDeg = 0.0f) override {
+                insideDrawText = true;
+                ThorCanvas::DrawTextStyled(text, pos, fontSize, color, style, angleDeg);
+                insideDrawText = false;
+            }
+        };
+
+        RichCountingCanvas richCanvas;
+        std::vector<uint32_t> richPixels(500 * 300, 0);
+        richCanvas.SetTarget(richPixels.data(), 500, 300, 500);
+
+        Context uiRich;
+        auto buildRichScene = [&]() {
+            if (auto col = uiRich.Column({.gap = 8.0f, .padding = Padding::All(12.0f)})) {
+                uiRich.Text(UiText::Rich("Shortcut: `Ctrl+Shift+P` opens **Command Palette**."));
+                if (auto el = uiRich.Element({
+                    .label = UiText::Rich("Enable `GPU` **Acceleration**"),
+                    .description = UiText::Rich("Uses *hardware* shaders (`OpenGL ES 3.0`) for **60 FPS** rendering.")
+                })) {
+                    bool enabled = true;
+                    uiRich.Switch(enabled);
+                }
+                uiRich.SetTooltip(UiText::Rich("Hover tip with `inline code` and **bold** text"), Rect(10.0f, 10.0f, 100.0f, 24.0f));
+            }
+        };
+
+        richCanvas.layoutMeasureCalls = 0;
+        uiRich.BeginFrame({500.0f, 300.0f});
+        buildRichScene();
+        uiRich.EndFrame(richCanvas);
+        CHECK(uiRich.HasDirtyDamage());
+        CHECK(richCanvas.layoutMeasureCalls > 0);
+
+        // Steady-state frame 2 with full repaint forced: must hit LruCache for both MeasureUiTextWidth and GetOrBuildRichTextFlow!
+        richCanvas.layoutMeasureCalls = 0;
+        uiRich.InvalidateAll();
+        uiRich.BeginFrame({500.0f, 300.0f});
+        buildRichScene();
+        uiRich.EndFrame(richCanvas);
+        CHECK(richCanvas.layoutMeasureCalls == 0);
     }
 }
 

@@ -399,6 +399,7 @@ struct TextSize {
 struct TextWrap {
     uint8_t minLines{0}; ///< Minimum reserved vertical lines (0 = collapse when empty, >=1 = always reserve height)
     uint8_t maxLines{1}; ///< Maximum visible lines (1 = single-line with "...", 0 = unlimited word-wrap, >1 = word-wrap capped at maxLines)
+    bool rich{false};    ///< Opt-in inline rich-text formatting (**bold**, *italic*, ~~strike~~, `code`, [link](url))
 
     /// Returns true if multi-line word wrapping is active (`maxLines == 0` unlimited or `maxLines > 1`).
     [[nodiscard]] constexpr bool IsWordWrap() const noexcept {
@@ -413,6 +414,16 @@ struct TextWrap {
     /// Multi-line word-wrapping mode (`maxLines = 0` means unlimited lines).
     [[nodiscard]] static constexpr TextWrap Word(uint8_t minReserved = 0, uint8_t maxVisible = 0) noexcept {
         return {.minLines = minReserved, .maxLines = maxVisible};
+    }
+
+    /// Multi-line word-wrapped inline rich-text mode (`**bold**`, `*italic*`, `` `code` ``, `~~strike~~`).
+    [[nodiscard]] static constexpr TextWrap Rich(uint8_t minReserved = 0, uint8_t maxVisible = 0) noexcept {
+        return {.minLines = minReserved, .maxLines = maxVisible, .rich = true};
+    }
+
+    /// Single-line inline rich-text mode.
+    [[nodiscard]] static constexpr TextWrap RichSingleLine(uint8_t reserveLines = 0) noexcept {
+        return {.minLines = reserveLines, .maxLines = 1, .rich = true};
     }
 
     /// Reserves vertical height for at least `n` lines even when the text is empty (prevents vertical layout shift).
@@ -495,6 +506,19 @@ struct UiText {
     constexpr void ApplyModifier(TextWrap w) noexcept {
         if (w.minLines > 0) wrap.minLines = w.minLines;
         wrap.maxLines = w.maxLines;
+        if (w.rich) wrap.rich = true;
+    }
+
+    /// Convenience factory for inline rich-text (`**bold**`, `*italic*`, `` `code` ``, `~~strike~~`),
+    /// defaulting to multi-line word wrap unless overridden by a `TextWrap` modifier.
+    template <typename S, detail::UiTextModifier... Mods>
+        requires detail::UiStringLike<S>
+    [[nodiscard]] static constexpr UiText Rich(const S& s, Mods... mods) noexcept {
+        UiText out;
+        out.text = detail::ToUiStringView(s);
+        out.wrap = TextWrap::Rich();
+        (out.ApplyModifier(mods), ...);
+        return out;
     }
 
     constexpr UiText() noexcept = default;
@@ -567,6 +591,11 @@ struct UiText {
     [[nodiscard]] constexpr UiText WithLines(TextWrap w) const noexcept {
         UiText copy = *this;
         copy.wrap = w;
+        return copy;
+    }
+    [[nodiscard]] constexpr UiText WithRich(bool r = true) const noexcept {
+        UiText copy = *this;
+        copy.wrap.rich = r;
         return copy;
     }
     [[nodiscard]] constexpr UiText Reserve(uint8_t n = 1) const noexcept {

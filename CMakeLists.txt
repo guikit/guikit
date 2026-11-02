@@ -41,6 +41,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/core/Theme.cpp
     src/guikit/core/Assets.cpp
     src/guikit/core/TextUtil.cpp
+    src/guikit/core/RichText.cpp
     src/guikit/core/Scrollbar.cpp
     src/guikit/core/VectorBackend.cpp
     src/guikit/core/Control.cpp

@@ -11,6 +11,7 @@
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Control.hpp"
 #include "guikit/core/Node.hpp"
+#include "guikit/core/RichText.hpp"
 #include "guikit/core/TextUtil.hpp"
 #include "guikit/graphics/Icon.hpp"
 #include "guikit/widgets/Image.hpp"
@@ -19,20 +20,6 @@
 namespace guikit {
 
 namespace {
-
-enum class InlineKind : uint8_t {
-    Text = 0,
-    Code,
-    Link
-};
-
-struct InlineSpan {
-    InlineKind kind{InlineKind::Text};
-    FontStyle style{FontStyle::Regular};
-    bool strikethrough{false};
-    std::string text{};
-    std::string url{};
-};
 
 enum class AlertKind : uint8_t {
     None = 0,
@@ -93,148 +80,6 @@ std::string_view TrimView(std::string_view sv) noexcept {
     return sv;
 }
 
-FontStyle CombineFontStyles(FontStyle a, FontStyle b) noexcept {
-    if (a == FontStyle::Monospace || b == FontStyle::Monospace) {
-        return FontStyle::Monospace;
-    }
-    const bool bold = (a == FontStyle::Bold || a == FontStyle::BoldItalic ||
-                       b == FontStyle::Bold || b == FontStyle::BoldItalic);
-    const bool italic = (a == FontStyle::Italic || a == FontStyle::BoldItalic ||
-                         b == FontStyle::Italic || b == FontStyle::BoldItalic);
-    if (bold && italic) return FontStyle::BoldItalic;
-    if (bold) return FontStyle::Bold;
-    if (italic) return FontStyle::Italic;
-    return FontStyle::Regular;
-}
-
-std::vector<InlineSpan> ParseInlineSpans(
-    std::string_view line,
-    FontStyle inheritedStyle = FontStyle::Regular,
-    bool inheritedStrike = false
-) {
-    std::vector<InlineSpan> out;
-    size_t i = 0;
-    const size_t n = line.size();
-
-    std::string cur;
-    auto flushCurrent = [&]() {
-        if (!cur.empty()) {
-            out.push_back(InlineSpan{
-                .kind = InlineKind::Text,
-                .style = inheritedStyle,
-                .strikethrough = inheritedStrike,
-                .text = std::move(cur),
-                .url = {}
-            });
-            cur.clear();
-        }
-    };
-
-    auto appendNested = [&](std::string_view inner, FontStyle addedStyle, bool addedStrike) {
-        auto nested = ParseInlineSpans(
-            inner,
-            CombineFontStyles(inheritedStyle, addedStyle),
-            inheritedStrike || addedStrike
-        );
-        for (auto& sp : nested) {
-            out.push_back(std::move(sp));
-        }
-    };
-
-    while (i < n) {
-        // Inline code: `code`
-        if (line[i] == '`') {
-            const size_t endTick = line.find('`', i + 1);
-            if (endTick != std::string_view::npos && endTick > i + 1) {
-                flushCurrent();
-                out.push_back(InlineSpan{
-                    .kind = InlineKind::Code,
-                    .style = FontStyle::Monospace,
-                    .strikethrough = inheritedStrike,
-                    .text = std::string(line.substr(i + 1, endTick - i - 1)),
-                    .url = {}
-                });
-                i = endTick + 1;
-                continue;
-            }
-        }
-
-        // Link: [label](url)
-        if (line[i] == '[') {
-            const size_t closeBr = line.find(']', i + 1);
-            if (closeBr != std::string_view::npos && closeBr + 1 < n && line[closeBr + 1] == '(') {
-                const size_t closePar = line.find(')', closeBr + 2);
-                if (closePar != std::string_view::npos) {
-                    flushCurrent();
-                    std::string_view labelView = line.substr(i + 1, closeBr - i - 1);
-                    if (labelView.size() >= 2 && labelView.front() == '`' && labelView.back() == '`') {
-                        labelView = labelView.substr(1, labelView.size() - 2);
-                    }
-                    out.push_back(InlineSpan{
-                        .kind = InlineKind::Link,
-                        .style = inheritedStyle,
-                        .strikethrough = inheritedStrike,
-                        .text = std::string(labelView),
-                        .url = std::string(TrimView(line.substr(closeBr + 2, closePar - closeBr - 2)))
-                    });
-                    i = closePar + 1;
-                    continue;
-                }
-            }
-        }
-
-        // Bold + Italic: ***text***
-        if (i + 2 < n && line.substr(i, 3) == "***") {
-            const size_t closePos = line.find("***", i + 3);
-            if (closePos != std::string_view::npos && closePos > i + 3) {
-                flushCurrent();
-                appendNested(line.substr(i + 3, closePos - i - 3), FontStyle::BoldItalic, false);
-                i = closePos + 3;
-                continue;
-            }
-        }
-
-        // Bold: **text**
-        if (i + 1 < n && line.substr(i, 2) == "**") {
-            const size_t closePos = line.find("**", i + 2);
-            if (closePos != std::string_view::npos && closePos > i + 2) {
-                flushCurrent();
-                appendNested(line.substr(i + 2, closePos - i - 2), FontStyle::Bold, false);
-                i = closePos + 2;
-                continue;
-            }
-        }
-
-        // Strikethrough: ~~text~~
-        if (i + 1 < n && line.substr(i, 2) == "~~") {
-            const size_t closePos = line.find("~~", i + 2);
-            if (closePos != std::string_view::npos && closePos > i + 2) {
-                flushCurrent();
-                appendNested(line.substr(i + 2, closePos - i - 2), FontStyle::Regular, true);
-                i = closePos + 2;
-                continue;
-            }
-        }
-
-        // Italic: *text*
-        if (line[i] == '*') {
-            const size_t closePos = line.find('*', i + 1);
-            if (closePos != std::string_view::npos && closePos > i + 1) {
-                flushCurrent();
-                appendNested(line.substr(i + 1, closePos - i - 1), FontStyle::Italic, false);
-                i = closePos + 1;
-                continue;
-            }
-        }
-
-        cur.push_back(line[i]);
-        ++i;
-    }
-
-    flushCurrent();
-    return out;
-}
-
 std::vector<std::string_view> SplitTableCells(std::string_view rowLine) {
     std::string_view s = TrimView(rowLine);
     if (!s.empty() && s.front() == '|') s.remove_prefix(1);
@@ -282,18 +127,15 @@ bool IsTableSeparatorRow(std::string_view line, std::vector<Align>& outAligns) {
     return true;
 }
 
-const ParsedMarkdownDoc& GetOrParseMarkdown(std::string_view source) {
-    static std::unordered_map<uint64_t, ParsedMarkdownDoc> s_cache;
-    const uint64_t h = detail::HashArgs(source);
-    auto it = s_cache.find(h);
-    if (it != s_cache.end()) {
-        return it->second;
-    }
-    if (s_cache.size() > 64) {
-        s_cache.clear();
+std::shared_ptr<const ParsedMarkdownDoc> GetOrParseMarkdown(std::string_view source) {
+    thread_local LruCache<uint64_t, std::shared_ptr<const ParsedMarkdownDoc>, 64> s_cache;
+    const uint64_t h = detail::HashArgs(source, source.size());
+    if (const auto* found = s_cache.Find(h)) {
+        return *found;
     }
 
-    ParsedMarkdownDoc doc{};
+    auto docPtr = std::make_shared<ParsedMarkdownDoc>();
+    ParsedMarkdownDoc& doc = *docPtr;
     doc.sourceHash = h;
 
     std::vector<std::string_view> lines;
@@ -534,796 +376,11 @@ const ParsedMarkdownDoc& GetOrParseMarkdown(std::string_view source) {
         doc.blocks.push_back(std::move(blk));
     }
 
-    auto [insIt, _] = s_cache.emplace(h, std::move(doc));
-    return insIt->second;
-}
-
-// --- Positioned Token / Line Map for Selection, Cursor Navigation & Search ---
-
-struct PositionedToken {
-    Rect rect{};
-    size_t charStart{0};
-    size_t charEnd{0};
-    size_t lineIndex{0};
-    float fontSize{13.0f};
-    FontStyle fontStyle{FontStyle::Regular};
-    float textPadX{0.0f};
-};
-
-struct PositionedLine {
-    float top{0.0f};
-    float bottom{0.0f};
-    size_t firstToken{0};
-    size_t tokenCount{0};
-    size_t charStart{0};
-    size_t charEnd{0};
-};
-
-struct SearchMatchRange {
-    size_t start{0};
-    size_t end{0};
-};
-
-struct DocumentTextMap {
-    std::string plainText{};
-    std::vector<PositionedToken> tokens{};
-    std::vector<PositionedLine> lines{};
-
-    void Clear() {
-        plainText.clear();
-        tokens.clear();
-        lines.clear();
-    }
-
-    void AppendNewline() {
-        if (!plainText.empty() && plainText.back() != '\n') {
-            plainText.push_back('\n');
-        }
-    }
-
-    void AddToken(Rect r, std::string_view text, float fs, FontStyle style, float padX = 0.0f) {
-        if (text.empty()) return;
-        const size_t cStart = plainText.size();
-        plainText.append(text);
-        const size_t cEnd = plainText.size();
-
-        // Determine if this token belongs to the current line or starts a new visual line
-        bool newLine = lines.empty();
-        if (!newLine) {
-            const PositionedLine& lastLine = lines.back();
-            const float lastCy = (lastLine.top + lastLine.bottom) * 0.5f;
-            const float curCy = r.y + r.h * 0.5f;
-            if (std::abs(curCy - lastCy) > std::max(r.h, lastLine.bottom - lastLine.top) * 0.45f) {
-                newLine = true;
-            }
-        }
-
-        if (newLine) {
-            lines.push_back(PositionedLine{
-                .top = r.y,
-                .bottom = r.Bottom(),
-                .firstToken = tokens.size(),
-                .tokenCount = 1,
-                .charStart = cStart,
-                .charEnd = cEnd
-            });
-        } else {
-            PositionedLine& curLine = lines.back();
-            curLine.top = std::min(curLine.top, r.y);
-            curLine.bottom = std::max(curLine.bottom, r.Bottom());
-            curLine.tokenCount += 1;
-            curLine.charEnd = cEnd;
-        }
-
-        tokens.push_back(PositionedToken{
-            .rect = r,
-            .charStart = cStart,
-            .charEnd = cEnd,
-            .lineIndex = lines.size() - 1,
-            .fontSize = fs,
-            .fontStyle = style,
-            .textPadX = padX
-        });
-    }
-};
-
-float MeasureStyledSlice(ICanvas* canvas, std::string_view s, float fs, FontStyle style) noexcept {
-    if (s.empty()) return 0.0f;
-    if (canvas) {
-        return canvas->MeasureTextStyled(s, fs, style).x;
-    }
-    return static_cast<float>(s.size()) * fs * 0.56f;
-}
-
-std::pair<float, float> SubRangePixelBounds(
-    ICanvas* canvas,
-    const PositionedToken& tok,
-    std::string_view fullPlainText,
-    size_t subStart,
-    size_t subEnd
-) noexcept {
-    const size_t s0 = std::clamp(subStart, tok.charStart, tok.charEnd);
-    const size_t s1 = std::clamp(subEnd, tok.charStart, tok.charEnd);
-    const std::string_view tokStr = fullPlainText.substr(tok.charStart, tok.charEnd - tok.charStart);
-    const float baseX = tok.rect.x + tok.textPadX;
-    const float x0 = std::clamp(
-        baseX + MeasureStyledSlice(canvas, tokStr.substr(0, s0 - tok.charStart), tok.fontSize, tok.fontStyle),
-        tok.rect.x,
-        tok.rect.Right()
-    );
-    const float x1 = std::clamp(
-        baseX + MeasureStyledSlice(canvas, tokStr.substr(0, s1 - tok.charStart), tok.fontSize, tok.fontStyle),
-        tok.rect.x,
-        tok.rect.Right()
-    );
-    return {x0, std::max(x0, x1)};
-}
-
-size_t HitTestTokenCharOffset(
-    ICanvas* canvas,
-    const PositionedToken& tok,
-    std::string_view fullPlainText,
-    float mouseX
-) noexcept {
-    const std::string_view tokStr = fullPlainText.substr(tok.charStart, tok.charEnd - tok.charStart);
-    const float relX = mouseX - (tok.rect.x + tok.textPadX);
-    if (relX <= 0.0f) return tok.charStart;
-    if (mouseX >= tok.rect.Right()) return tok.charEnd;
-
-    size_t cur = 0;
-    float prevW = 0.0f;
-    while (cur < tokStr.size()) {
-        const size_t next = TextUtil::NextCharBoundary(tokStr, cur);
-        const float nextW = MeasureStyledSlice(canvas, tokStr.substr(0, next), tok.fontSize, tok.fontStyle);
-        if (relX < (prevW + nextW) * 0.5f) {
-            return tok.charStart + cur;
-        }
-        prevW = nextW;
-        cur = next;
-    }
-    return tok.charEnd;
-}
-
-size_t HitTestDocumentCharOffset(
-    const DocumentTextMap& map,
-    ICanvas* canvas,
-    Vec2 mousePos
-) noexcept {
-    if (map.lines.empty() || map.tokens.empty()) return 0;
-
-    // 1. Find target visual line
-    if (mousePos.y < map.lines.front().top) {
-        return 0;
-    }
-    if (mousePos.y > map.lines.back().bottom) {
-        return map.plainText.size();
-    }
-
-    size_t bestLineIdx = 0;
-    float bestVertDist = 1e9f;
-    for (size_t li = 0; li < map.lines.size(); ++li) {
-        const PositionedLine& ln = map.lines[li];
-        if (mousePos.y >= ln.top && mousePos.y <= ln.bottom) {
-            bestLineIdx = li;
-            break;
-        }
-        const float dist = (mousePos.y < ln.top) ? (ln.top - mousePos.y) : (mousePos.y - ln.bottom);
-        if (dist < bestVertDist) {
-            bestVertDist = dist;
-            bestLineIdx = li;
-        }
-    }
-
-    const PositionedLine& ln = map.lines[bestLineIdx];
-    if (ln.tokenCount == 0) return ln.charStart;
-
-    const PositionedToken& firstTok = map.tokens[ln.firstToken];
-    const PositionedToken& lastTok = map.tokens[ln.firstToken + ln.tokenCount - 1];
-    if (mousePos.x <= firstTok.rect.x) return firstTok.charStart;
-    if (mousePos.x >= lastTok.rect.Right()) return lastTok.charEnd;
-
-    for (size_t ti = 0; ti < ln.tokenCount; ++ti) {
-        const PositionedToken& tok = map.tokens[ln.firstToken + ti];
-        if (mousePos.x >= tok.rect.x && mousePos.x <= tok.rect.Right()) {
-            return HitTestTokenCharOffset(canvas, tok, map.plainText, mousePos.x);
-        }
-        if (ti + 1 < ln.tokenCount) {
-            const PositionedToken& nextTok = map.tokens[ln.firstToken + ti + 1];
-            if (mousePos.x > tok.rect.Right() && mousePos.x < nextTok.rect.x) {
-                const float mid = (tok.rect.Right() + nextTok.rect.x) * 0.5f;
-                return (mousePos.x < mid) ? tok.charEnd : nextTok.charStart;
-            }
-        }
-    }
-    return lastTok.charEnd;
-}
-
-size_t FindLineForCharOffset(const DocumentTextMap& map, size_t offset) noexcept {
-    if (map.lines.empty()) return 0;
-    for (size_t li = 0; li < map.lines.size(); ++li) {
-        if (offset >= map.lines[li].charStart && offset <= map.lines[li].charEnd) {
-            return li;
-        }
-        if (offset < map.lines[li].charStart) {
-            return (li > 0) ? (li - 1) : 0;
-        }
-    }
-    return map.lines.size() - 1;
-}
-
-float GetCursorXForOffset(const DocumentTextMap& map, ICanvas* canvas, size_t offset) noexcept {
-    for (const PositionedToken& tok : map.tokens) {
-        if (offset >= tok.charStart && offset <= tok.charEnd) {
-            return SubRangePixelBounds(canvas, tok, map.plainText, offset, offset).first;
-        }
-    }
-    if (!map.tokens.empty()) {
-        if (offset == 0) return map.tokens.front().rect.x;
-        return map.tokens.back().rect.Right();
-    }
-    return 0.0f;
-}
-
-bool CharEqualsIgnoreCase(char a, char b) noexcept {
-    return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
-}
-
-std::vector<SearchMatchRange> FindSearchMatches(std::string_view text, std::string_view query) {
-    std::vector<SearchMatchRange> matches;
-    if (query.empty() || text.size() < query.size()) return matches;
-
-    for (size_t i = 0; i + query.size() <= text.size(); ++i) {
-        bool ok = true;
-        for (size_t j = 0; j < query.size(); ++j) {
-            if (!CharEqualsIgnoreCase(text[i + j], query[j])) {
-                ok = false;
-                break;
-            }
-        }
-        if (ok) {
-            matches.push_back(SearchMatchRange{i, i + query.size()});
-            i += query.size() - 1;
-        }
-    }
-    return matches;
-}
-
-struct RenderOverlayState {
-    bool hasSelection{false};
-    size_t selMin{0};
-    size_t selMax{0};
-    bool showCaret{false};
-    size_t caretOffset{0};
-    const std::vector<SearchMatchRange>* searchMatches{nullptr};
-    int activeSearchMatch{-1};
-    const std::unordered_map<int, bool>* taskOverrides{nullptr};
-};
-
-void DrawTokenSelectionAndSearchHighlights(
-    ICanvas& canvas,
-    const PositionedToken& tok,
-    std::string_view fullPlainText,
-    const RenderOverlayState* overlay,
-    const UiTheme& theme,
-    Vec2 docOrigin
-) {
-    if (!overlay) return;
-
-    // 1. Search match highlights (tok.rect is in document-local coordinates)
-    if (overlay->searchMatches && !overlay->searchMatches->empty()) {
-        const auto& matches = *overlay->searchMatches;
-        for (size_t mi = 0; mi < matches.size(); ++mi) {
-            const SearchMatchRange& m = matches[mi];
-            if (m.end <= tok.charStart || m.start >= tok.charEnd) continue;
-            const auto [x0, x1] = SubRangePixelBounds(&canvas, tok, fullPlainText, m.start, m.end);
-            if (x1 > x0) {
-                const bool isActive = (static_cast<int>(mi) == overlay->activeSearchMatch);
-                const Color hlBg = isActive
-                    ? theme.GetVariant(UiVariant::Warning).bg.WithAlpha(140)
-                    : theme.GetVariant(UiVariant::Warning).bg.WithAlpha(65);
-                const Color hlBorder = isActive
-                    ? theme.GetVariant(UiVariant::Warning).bg
-                    : Color::Transparent();
-                canvas.DrawRoundRect(
-                    Rect(docOrigin.x + x0, docOrigin.y + tok.rect.y, x1 - x0, tok.rect.h),
-                    2.0f,
-                    hlBg,
-                    hlBorder,
-                    isActive ? 1.0f : 0.0f
-                );
-            }
-        }
-    }
-
-    // 2. Text selection highlight
-    if (overlay->hasSelection && overlay->selMax > tok.charStart && overlay->selMin < tok.charEnd) {
-        const auto [x0, x1] = SubRangePixelBounds(&canvas, tok, fullPlainText, overlay->selMin, overlay->selMax);
-        if (x1 > x0) {
-            canvas.DrawRect(
-                Rect(docOrigin.x + x0, docOrigin.y + tok.rect.y, x1 - x0, tok.rect.h),
-                theme.palette.accent.WithAlpha(85)
-            );
-        }
-    }
-}
-
-void DrawTokenCaretIfPresent(
-    ICanvas& canvas,
-    const PositionedToken& tok,
-    std::string_view fullPlainText,
-    const RenderOverlayState* overlay,
-    const UiTheme& theme,
-    Vec2 docOrigin
-) {
-    if (!overlay || !overlay->showCaret) return;
-    if (overlay->caretOffset >= tok.charStart && overlay->caretOffset <= tok.charEnd) {
-        const float cx = SubRangePixelBounds(&canvas, tok, fullPlainText, overlay->caretOffset, overlay->caretOffset).first;
-        canvas.DrawLine(
-            {docOrigin.x + cx, docOrigin.y + tok.rect.y + 1.0f},
-            {docOrigin.x + cx, docOrigin.y + tok.rect.Bottom() - 1.0f},
-            theme.palette.accent,
-            1.5f
-        );
-    }
-}
-
-// --- Phase 2A: Pure Inline Rich-Text Span Flow Layout Engine (in local coordinates) ---
-
-struct InlineAtom {
-    InlineKind kind{InlineKind::Text};
-    FontStyle style{FontStyle::Regular};
-    bool strikethrough{false};
-    bool isWhitespace{false};
-    std::string_view text{};
-    std::string_view url{};
-    float width{0.0f};
-    float fontSize{13.0f};
-    float padX{0.0f};
-};
-
-struct FlowLine {
-    size_t firstAtom{0};
-    size_t atomCount{0};
-    float indent{0.0f};
-    float contentWidth{0.0f};
-};
-
-struct PositionedAtom {
-    InlineAtom atom{};
-    Rect localRect{};            // Relative to the InlineFlowLayout's origin (0, 0)
-    float textLocalY{0.0f};      // Relative to the InlineFlowLayout's origin (0, 0)
-    size_t lineIdx{0};
-    size_t tokenIndex{SIZE_MAX}; // Index into MarkdownDocumentLayout::textMap.tokens
-};
-
-struct InlineFlowLayout {
-    float width{0.0f};
-    float height{0.0f};
-    float lineH{0.0f};
-    float scale{1.0f};
-    size_t lineCount{0};
-    std::vector<PositionedAtom> items{};
-};
-
-struct LinkHitRegion {
-    Rect localRect{};
-    std::string_view url{};
-};
-
-InlineFlowLayout BuildInlineFlowLayout(
-    ICanvas* canvas,
-    const std::vector<InlineSpan>& spans,
-    float maxWidth,
-    float baseFontSize,
-    float codeBaseFontSize,
-    float lineHeightScale,
-    float firstLineIndent,
-    const UiTheme& theme,
-    float zoom,
-    FontStyle overrideStyle = FontStyle::Regular,
-    Align horizontalAlign = Align::Start
-) {
-    InlineFlowLayout res{};
-    if (spans.empty()) return res;
-
-    const float s = theme.Scale(1.0f) * zoom;
-    const float rawLineH = canvas ? canvas->GetLineHeight(baseFontSize) : theme.GetLineHeight(baseFontSize);
-    const float lineH = rawLineH * std::clamp(lineHeightScale, 0.8f, 2.5f);
-    const float maxW = (maxWidth > 0.0f) ? maxWidth : 10000.0f;
-    const float codePadX = 4.5f * s;
-
-    res.lineH = lineH;
-    res.scale = s;
-
-    // 1. Flatten InlineSpans into initial atomic runs (words, whitespace, code pills)
-    std::vector<InlineAtom> rawAtoms;
-    rawAtoms.reserve(spans.size() * 3);
-
-    for (const InlineSpan& span : spans) {
-        if (span.kind == InlineKind::Code) {
-            if (span.text.empty()) continue;
-            const float textW = MeasureStyledSlice(canvas, span.text, codeBaseFontSize, FontStyle::Monospace);
-            rawAtoms.push_back(InlineAtom{
-                .kind = InlineKind::Code,
-                .style = FontStyle::Monospace,
-                .strikethrough = span.strikethrough,
-                .isWhitespace = false,
-                .text = span.text,
-                .url = {},
-                .width = textW + codePadX * 2.0f,
-                .fontSize = codeBaseFontSize,
-                .padX = codePadX
-            });
-            continue;
-        }
-
-        const FontStyle effStyle = CombineFontStyles(overrideStyle, span.style);
-        std::string_view txt = span.text;
-        size_t pos = 0;
-        while (pos < txt.size()) {
-            size_t nextPos = pos;
-            const bool isWs = (txt[pos] == ' ');
-            if (isWs) {
-                while (nextPos < txt.size() && txt[nextPos] == ' ') ++nextPos;
-            } else {
-                while (nextPos < txt.size() && txt[nextPos] != ' ') ++nextPos;
-            }
-            const std::string_view slice = txt.substr(pos, nextPos - pos);
-            pos = nextPos;
-
-            const float w = MeasureStyledSlice(canvas, slice, baseFontSize, effStyle);
-            rawAtoms.push_back(InlineAtom{
-                .kind = span.kind,
-                .style = effStyle,
-                .strikethrough = span.strikethrough,
-                .isWhitespace = isWs,
-                .text = slice,
-                .url = span.url,
-                .width = w,
-                .fontSize = baseFontSize,
-                .padX = 0.0f
-            });
-        }
-    }
-
-    if (rawAtoms.empty()) return res;
-
-    // 2. Pack atoms into visual lines, keeping contiguous non-whitespace clusters (e.g. `(` + `code` + `)`) together
-    //    and splitting oversized tokens/code pills at delimiter boundaries so nothing overflows maxW or orphans `)`.
-    std::vector<InlineAtom> atoms;
-    atoms.reserve(rawAtoms.size() + 4);
-    std::vector<FlowLine> flowLines;
-    FlowLine curLine{};
-    curLine.firstAtom = 0;
-    curLine.indent = (horizontalAlign == Align::Start) ? std::max(0.0f, firstLineIndent) : 0.0f;
-    float curX = curLine.indent;
-
-    auto measureAtomSlice = [&](const InlineAtom& proto, std::string_view slice) -> float {
-        if (proto.kind == InlineKind::Code) {
-            return MeasureStyledSlice(canvas, slice, proto.fontSize, FontStyle::Monospace) + proto.padX * 2.0f;
-        }
-        return MeasureStyledSlice(canvas, slice, proto.fontSize, proto.style);
-    };
-
-    auto splitAtomForWidth = [&](const InlineAtom& atom, float availW) -> std::pair<InlineAtom, InlineAtom> {
-        std::string_view sv = atom.text;
-        size_t fitEnd = 1;
-        while (fitEnd < sv.size() && (static_cast<unsigned char>(sv[fitEnd]) & 0xC0) == 0x80) {
-            ++fitEnd;
-        }
-        while (fitEnd < sv.size()) {
-            size_t nextCp = fitEnd + 1;
-            while (nextCp < sv.size() && (static_cast<unsigned char>(sv[nextCp]) & 0xC0) == 0x80) {
-                ++nextCp;
-            }
-            if (nextCp < sv.size() && measureAtomSlice(atom, sv.substr(0, nextCp)) <= availW + 0.5f) {
-                fitEnd = nextCp;
-            } else {
-                break;
-            }
-        }
-
-        size_t splitPos = fitEnd;
-        if (fitEnd >= 4) {
-            const size_t minBreak = std::max<size_t>(1, (fitEnd * 45) / 100);
-            for (size_t b = fitEnd; b > minBreak; --b) {
-                const char ch = sv[b - 1];
-                if (ch == '/' || ch == ':' || ch == '.' || ch == '-' || ch == '_') {
-                    splitPos = b;
-                    break;
-                }
-            }
-        }
-
-        InlineAtom head = atom;
-        head.text = sv.substr(0, splitPos);
-        head.width = measureAtomSlice(atom, head.text);
-
-        InlineAtom tail = atom;
-        tail.text = sv.substr(splitPos);
-        tail.width = measureAtomSlice(atom, tail.text);
-        return {head, tail};
-    };
-
-    auto finalizeCurrentLine = [&]() {
-        while (curLine.atomCount > 0 && atoms[curLine.firstAtom + curLine.atomCount - 1].isWhitespace) {
-            curLine.atomCount -= 1;
-        }
-        float w = 0.0f;
-        for (size_t k = 0; k < curLine.atomCount; ++k) {
-            w += atoms[curLine.firstAtom + k].width;
-        }
-        curLine.contentWidth = w;
-        if (curLine.atomCount > 0) {
-            flowLines.push_back(curLine);
-        }
-        curLine = FlowLine{
-            .firstAtom = atoms.size(),
-            .atomCount = 0,
-            .indent = 0.0f,
-            .contentWidth = 0.0f
-        };
-        curX = 0.0f;
-    };
-
-    auto appendAtomToCurrentLine = [&](const InlineAtom& a) {
-        if (curLine.atomCount == 0) {
-            curLine.firstAtom = atoms.size();
-        }
-        atoms.push_back(a);
-        curLine.atomCount += 1;
-        curX += a.width;
-        curLine.contentWidth = curX - curLine.indent;
-    };
-
-    size_t idx = 0;
-    while (idx < rawAtoms.size()) {
-        if (rawAtoms[idx].isWhitespace) {
-            if (curLine.atomCount == 0) {
-                ++idx;
-                continue;
-            }
-            appendAtomToCurrentLine(rawAtoms[idx]);
-            ++idx;
-            continue;
-        }
-
-        size_t clusterEnd = idx + 1;
-        float clusterW = rawAtoms[idx].width;
-        while (clusterEnd < rawAtoms.size() && !rawAtoms[clusterEnd].isWhitespace) {
-            clusterW += rawAtoms[clusterEnd].width;
-            ++clusterEnd;
-        }
-
-        if (curLine.atomCount > 0 && curX + clusterW > maxW + 0.5f) {
-            finalizeCurrentLine();
-        }
-
-        for (size_t k = idx; k < clusterEnd; ++k) {
-            InlineAtom curAtom = rawAtoms[k];
-            const bool hasTrailingPunct =
-                (k + 1 == clusterEnd - 1) &&
-                (rawAtoms[k + 1].kind == InlineKind::Text) &&
-                (rawAtoms[k + 1].text.size() <= 2) &&
-                (rawAtoms[k + 1].width <= maxW * 0.25f);
-            const float trailingSuffixW = hasTrailingPunct ? rawAtoms[k + 1].width : 0.0f;
-
-            while (curX + curAtom.width + trailingSuffixW > maxW + 0.5f) {
-                const bool onlyOpeningPrefixOnLine =
-                    (curLine.atomCount == 1) &&
-                    (atoms[curLine.firstAtom].kind == InlineKind::Text) &&
-                    (atoms[curLine.firstAtom].text.size() <= 2) &&
-                    (atoms[curLine.firstAtom].width <= maxW * 0.25f);
-
-                if (curLine.atomCount > 0 && !onlyOpeningPrefixOnLine) {
-                    finalizeCurrentLine();
-                    continue;
-                }
-
-                if (curAtom.text.size() > 1) {
-                    const float availForHead = std::max(8.0f, maxW - curX);
-                    auto [head, tail] = splitAtomForWidth(curAtom, availForHead);
-                    appendAtomToCurrentLine(head);
-                    finalizeCurrentLine();
-                    curAtom = tail;
-                } else {
-                    if (curLine.atomCount > 0) {
-                        finalizeCurrentLine();
-                    }
-                    break;
-                }
-            }
-
-            appendAtomToCurrentLine(curAtom);
-        }
-
-        idx = clusterEnd;
-    }
-
-    if (curLine.atomCount > 0) {
-        finalizeCurrentLine();
-    }
-    if (flowLines.empty()) return res;
-
-    // 3. Materialize PositionedAtoms in flow-local coordinates (0, 0) with pre-measured glyph heights
-    const float codeGlyphH = canvas ? canvas->MeasureTextStyled("Mg", codeBaseFontSize, FontStyle::Monospace).y : codeBaseFontSize;
-    std::array<float, 5> cachedGlyphH{};
-    for (uint8_t st = 0; st < 5; ++st) {
-        cachedGlyphH[st] = canvas
-            ? canvas->MeasureTextStyled("Mg", baseFontSize, static_cast<FontStyle>(st)).y
-            : baseFontSize;
-    }
-
-    float maxLineW = 0.0f;
-    res.items.reserve(atoms.size());
-
-    for (size_t li = 0; li < flowLines.size(); ++li) {
-        const FlowLine& fl = flowLines[li];
-        const float lineY = static_cast<float>(li) * lineH;
-        maxLineW = std::max(maxLineW, fl.indent + fl.contentWidth);
-
-        float drawX = fl.indent;
-        if (horizontalAlign == Align::Center && maxWidth > 0.0f) {
-            drawX = std::max(0.0f, (maxWidth - fl.contentWidth) * 0.5f);
-        } else if (horizontalAlign == Align::End && maxWidth > 0.0f) {
-            drawX = std::max(0.0f, maxWidth - fl.contentWidth);
-        }
-
-        for (size_t k = 0; k < fl.atomCount; ++k) {
-            const InlineAtom& atom = atoms[fl.firstAtom + k];
-            if (atom.kind == InlineKind::Code) {
-                const float pillH = std::max(atom.fontSize + 4.0f * s, lineH - 2.0f * s);
-                const Rect pillRect(
-                    drawX,
-                    lineY + (lineH - pillH) * 0.5f,
-                    atom.width,
-                    pillH
-                );
-                const float codeTextY = pillRect.y + (pillRect.h - ((codeGlyphH > 0.0f) ? codeGlyphH : atom.fontSize)) * 0.5f;
-                res.items.push_back(PositionedAtom{
-                    .atom = atom,
-                    .localRect = pillRect,
-                    .textLocalY = codeTextY,
-                    .lineIdx = li,
-                    .tokenIndex = SIZE_MAX
-                });
-                drawX += atom.width;
-                continue;
-            }
-
-            const Rect wordRect(drawX, lineY, atom.width, lineH);
-            const uint8_t stIdx = std::min<uint8_t>(4, static_cast<uint8_t>(atom.style));
-            const float glyphH = cachedGlyphH[stIdx];
-            const float textY = lineY + (lineH - ((glyphH > 0.0f) ? glyphH : atom.fontSize)) * 0.5f;
-
-            res.items.push_back(PositionedAtom{
-                .atom = atom,
-                .localRect = wordRect,
-                .textLocalY = textY,
-                .lineIdx = li,
-                .tokenIndex = SIZE_MAX
-            });
-            drawX += atom.width;
-        }
-    }
-
-    res.width = maxLineW;
-    res.height = static_cast<float>(flowLines.size()) * lineH;
-    res.lineCount = flowLines.size();
-    return res;
+    return s_cache.Insert(h, std::move(docPtr));
 }
 
 constexpr Rect OffsetRect(Rect r, Vec2 delta) noexcept {
     return Rect(r.x + delta.x, r.y + delta.y, r.w, r.h);
-}
-
-void CommitInlineFlowToDocument(
-    InlineFlowLayout& flow,
-    Vec2 flowDocOrigin,
-    DocumentTextMap& textMap,
-    std::vector<LinkHitRegion>& linkRegions
-) {
-    if (flow.items.empty()) return;
-    size_t currentLine = flow.items.front().lineIdx;
-    for (PositionedAtom& item : flow.items) {
-        if (item.lineIdx != currentLine) {
-            textMap.AppendNewline();
-            currentLine = item.lineIdx;
-        }
-        const Rect docRect = OffsetRect(item.localRect, flowDocOrigin);
-        item.tokenIndex = textMap.tokens.size();
-        if (item.atom.kind == InlineKind::Code) {
-            textMap.AddToken(docRect, item.atom.text, item.atom.fontSize, FontStyle::Monospace, item.atom.padX);
-        } else {
-            textMap.AddToken(docRect, item.atom.text, item.atom.fontSize, item.atom.style, 0.0f);
-            if (item.atom.kind == InlineKind::Link) {
-                linkRegions.push_back(LinkHitRegion{
-                    .localRect = docRect,
-                    .url = item.atom.url
-                });
-            }
-        }
-    }
-    textMap.AppendNewline();
-}
-
-void RenderInlineFlowLayout(
-    ICanvas& canvas,
-    const InlineFlowLayout& flow,
-    Vec2 flowScreenOrigin,
-    Vec2 docScreenOrigin,
-    Color baseColor,
-    const DocumentTextMap& textMap,
-    const RenderOverlayState* overlay,
-    const UiTheme& theme,
-    Vec2 localMousePos
-) {
-    const float s = flow.scale;
-    for (const PositionedAtom& item : flow.items) {
-        const InlineAtom& atom = item.atom;
-        const Rect screenRect = OffsetRect(item.localRect, flowScreenOrigin);
-        const float screenTextY = flowScreenOrigin.y + item.textLocalY;
-        const PositionedToken* tok = (item.tokenIndex < textMap.tokens.size())
-            ? &textMap.tokens[item.tokenIndex]
-            : nullptr;
-
-        if (atom.kind == InlineKind::Code) {
-            canvas.DrawRoundRect(
-                screenRect,
-                4.0f * s,
-                theme.palette.surfaceElevated,
-                theme.palette.borderSubtle,
-                1.0f
-            );
-            if (tok) {
-                DrawTokenSelectionAndSearchHighlights(canvas, *tok, textMap.plainText, overlay, theme, docScreenOrigin);
-            }
-            canvas.DrawTextStyled(
-                atom.text,
-                {screenRect.x + atom.padX, screenTextY},
-                atom.fontSize,
-                theme.palette.accent,
-                FontStyle::Monospace
-            );
-            if (atom.strikethrough) {
-                const float sy = screenRect.y + screenRect.h * 0.52f;
-                canvas.DrawLine(
-                    {screenRect.x + atom.padX, sy},
-                    {screenRect.Right() - atom.padX, sy},
-                    theme.palette.accent.WithAlpha(180),
-                    1.2f
-                );
-            }
-            if (tok) {
-                DrawTokenCaretIfPresent(canvas, *tok, textMap.plainText, overlay, theme, docScreenOrigin);
-            }
-            continue;
-        }
-
-        if (tok) {
-            DrawTokenSelectionAndSearchHighlights(canvas, *tok, textMap.plainText, overlay, theme, docScreenOrigin);
-        }
-
-        const bool isLink = (atom.kind == InlineKind::Link);
-        const bool wordHovered = isLink && tok && tok->rect.Contains(localMousePos);
-        const Color drawCol = isLink ? theme.palette.accent : baseColor;
-
-        if (!atom.isWhitespace) {
-            canvas.DrawTextStyled(atom.text, {screenRect.x, screenTextY}, atom.fontSize, drawCol, atom.style);
-        }
-        if (isLink) {
-            const float uy = screenRect.Bottom() - 2.0f * s;
-            const Color uCol = wordHovered ? theme.palette.accent : theme.palette.accent.WithAlpha(140);
-            canvas.DrawLine({screenRect.x, uy}, {screenRect.Right(), uy}, uCol, wordHovered ? 1.5f : 1.0f);
-        }
-        if (atom.strikethrough) {
-            const float sy = screenRect.y + screenRect.h * 0.52f;
-            canvas.DrawLine({screenRect.x, sy}, {screenRect.Right(), sy}, drawCol.WithAlpha(180), 1.2f);
-        }
-        if (tok) {
-            DrawTokenCaretIfPresent(canvas, *tok, textMap.plainText, overlay, theme, docScreenOrigin);
-        }
-    }
 }
 
 float HeadingFontSize(uint8_t level, const MarkdownOptions& opts, const UiTheme& theme, float zoom) noexcept {
@@ -1428,6 +485,7 @@ struct BlockLayout {
 };
 
 struct MarkdownDocumentLayout {
+    std::shared_ptr<const ParsedMarkdownDoc> doc{}; // Keeps backing AST & rawText slices alive while layout lives
     uint64_t layoutKey{0};
     float totalWidth{0.0f};
     float totalHeight{0.0f};
@@ -1451,43 +509,6 @@ struct MarkdownPassResult {
     int hoveredTaskIndex{-1};
     bool hoveredTaskCurrentState{false};
 };
-
-// Fast single-pass intrinsic cell width measurement (avoids building full FlowLines just for column sizing)
-std::pair<float, float> MeasureCellIntrinsicWidths(
-    ICanvas* canvas,
-    const std::vector<InlineSpan>& spans,
-    float bodyFs,
-    float inlineCodeFs,
-    FontStyle rowBaseStyle,
-    float scale
-) noexcept {
-    float minTokenW = 0.0f;
-    float unwrappedW = 0.0f;
-    const float codePadW = 9.0f * scale;
-
-    for (const auto& sp : spans) {
-        if (sp.kind == InlineKind::Code) {
-            if (sp.text.empty()) continue;
-            const float w = MeasureStyledSlice(canvas, sp.text, inlineCodeFs, FontStyle::Monospace) + codePadW;
-            minTokenW = std::max(minTokenW, w);
-            unwrappedW += w;
-        } else {
-            const FontStyle effStyle = CombineFontStyles(rowBaseStyle, sp.style);
-            unwrappedW += MeasureStyledSlice(canvas, sp.text, bodyFs, effStyle);
-            std::string_view sv = sp.text;
-            size_t i = 0;
-            while (i < sv.size()) {
-                while (i < sv.size() && (sv[i] == ' ' || sv[i] == '\t' || sv[i] == '\n')) ++i;
-                size_t start = i;
-                while (i < sv.size() && sv[i] != ' ' && sv[i] != '\t' && sv[i] != '\n') ++i;
-                if (i > start) {
-                    minTokenW = std::max(minTokenW, MeasureStyledSlice(canvas, sv.substr(start, i - start), bodyFs, effStyle));
-                }
-            }
-        }
-    }
-    return {minTokenW, unwrappedW};
-}
 
 uint64_t ComputeMarkdownLayoutKey(
     uint64_t docSourceHash,
@@ -1534,7 +555,7 @@ uint64_t ComputeMarkdownLayoutKey(
 std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
     ICanvas* canvas,
     float outerWidth,
-    const ParsedMarkdownDoc& doc,
+    const std::shared_ptr<const ParsedMarkdownDoc>& docPtr,
     const MarkdownOptions& opts,
     const UiTheme& theme,
     float zoom,
@@ -1542,7 +563,9 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
 ) {
     auto layoutPtr = std::make_shared<MarkdownDocumentLayout>();
     MarkdownDocumentLayout& out = *layoutPtr;
+    out.doc = docPtr;
     out.layoutKey = layoutKey;
+    const ParsedMarkdownDoc& doc = *docPtr;
 
     const float effZoom = std::clamp(zoom, 0.5f, 3.0f);
     const float s = theme.Scale(1.0f) * effZoom;
@@ -2016,7 +1039,7 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     const FontStyle rowBaseStyle = (r == 0) ? FontStyle::Bold : FontStyle::Regular;
                     const auto& rowCells = blk.tableRows[r];
                     for (size_t c = 0; c < numCols && c < rowCells.size(); ++c) {
-                        const auto [cellMinTokW, cellNatW] = MeasureCellIntrinsicWidths(
+                        const auto [cellMinTokW, cellNatW] = MeasureInlineSpansIntrinsicWidths(
                             canvas,
                             rowCells[c].spans,
                             bodyFs,
@@ -2151,26 +1174,21 @@ std::shared_ptr<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
 std::shared_ptr<const MarkdownDocumentLayout> GetOrBuildMarkdownLayout(
     ICanvas* canvas,
     float outerWidth,
-    const ParsedMarkdownDoc& doc,
+    const std::shared_ptr<const ParsedMarkdownDoc>& doc,
     const MarkdownOptions& opts,
     const UiTheme& theme,
     float zoom
 ) {
-    static std::unordered_map<uint64_t, std::shared_ptr<const MarkdownDocumentLayout>> s_layoutCache;
+    thread_local LruCache<uint64_t, std::shared_ptr<const MarkdownDocumentLayout>, 32> s_layoutCache;
     const float effZoom = std::clamp(zoom, 0.5f, 3.0f);
-    const uint64_t key = ComputeMarkdownLayoutKey(doc.sourceHash, outerWidth, effZoom, opts, theme, canvas != nullptr);
+    const uint64_t key = ComputeMarkdownLayoutKey(doc->sourceHash, outerWidth, effZoom, opts, theme, canvas != nullptr);
 
-    auto it = s_layoutCache.find(key);
-    if (it != s_layoutCache.end()) {
-        return it->second;
-    }
-    if (s_layoutCache.size() > 32) {
-        s_layoutCache.clear();
+    if (const auto* cached = s_layoutCache.Find(key)) {
+        return *cached;
     }
 
     auto built = BuildMarkdownDocumentLayout(canvas, outerWidth, doc, opts, theme, effZoom, key);
-    s_layoutCache.emplace(key, built);
-    return built;
+    return s_layoutCache.Insert(key, std::move(built));
 }
 
 // --- Phase 3A: O(1) / O(K) Document Hit-Testing (Zero Layout, Zero Font Measurement) ---
@@ -2289,7 +1307,7 @@ void RenderMarkdownDocumentLayout(
                     docOrigin + bl.flowLocalOrigin,
                     docOrigin,
                     theme.palette.textPrimary,
-                    layout.textMap,
+                    &layout.textMap,
                     overlay,
                     theme,
                     localMouse
@@ -2308,7 +1326,7 @@ void RenderMarkdownDocumentLayout(
                     docOrigin + bl.flowLocalOrigin,
                     docOrigin,
                     theme.palette.textPrimary,
-                    layout.textMap,
+                    &layout.textMap,
                     overlay,
                     theme,
                     localMouse
@@ -2325,7 +1343,7 @@ void RenderMarkdownDocumentLayout(
                     docOrigin + bl.flowLocalOrigin,
                     docOrigin,
                     theme.palette.textSecondary,
-                    layout.textMap,
+                    &layout.textMap,
                     overlay,
                     theme,
                     localMouse
@@ -2357,7 +1375,7 @@ void RenderMarkdownDocumentLayout(
                     docOrigin + bl.flowLocalOrigin,
                     docOrigin,
                     theme.palette.textPrimary,
-                    layout.textMap,
+                    &layout.textMap,
                     overlay,
                     theme,
                     localMouse
@@ -2409,7 +1427,7 @@ void RenderMarkdownDocumentLayout(
                     docOrigin + bl.flowLocalOrigin,
                     docOrigin,
                     isTaskChecked ? theme.palette.textSecondary : theme.palette.textPrimary,
-                    layout.textMap,
+                    &layout.textMap,
                     overlay,
                     theme,
                     localMouse
@@ -2593,7 +1611,7 @@ void RenderMarkdownDocumentLayout(
                         docOrigin + bl.flowLocalOrigin,
                         docOrigin,
                         theme.palette.textMuted,
-                        layout.textMap,
+                        &layout.textMap,
                         overlay,
                         theme,
                         localMouse
@@ -2636,7 +1654,7 @@ void RenderMarkdownDocumentLayout(
                                 docOrigin + bl.cellFlowOrigins[r][c],
                                 docOrigin,
                                 theme.palette.textPrimary,
-                                layout.textMap,
+                                &layout.textMap,
                                 overlay,
                                 theme,
                                 localMouse
@@ -2722,9 +1740,9 @@ MarkdownResponse Markdown::Run(
     Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
 
     auto& state = ctx.GetOrCreateState<MarkdownState>(id);
-    const ParsedMarkdownDoc& doc = GetOrParseMarkdown(markdownText);
-    if (state.docSourceHash != doc.sourceHash) {
-        state.docSourceHash = doc.sourceHash;
+    const auto doc = GetOrParseMarkdown(markdownText);
+    if (state.docSourceHash != doc->sourceHash) {
+        state.docSourceHash = doc->sourceHash;
         state.cursorOffset = 0;
         state.selAnchorOffset = 0;
         state.preferredCursorX = -1.0f;
@@ -3071,7 +2089,7 @@ MarkdownResponse Markdown::Run(
     node->SetPayload(payload);
 
     node->visualHash = detail::HashArgs(
-        doc.sourceHash,
+        doc->sourceHash,
         state.zoom,
         optsCopy.width.value_or(-1.0f),
         optsCopy.height.value_or(-1.0f),
@@ -3141,7 +2159,6 @@ MarkdownResponse Markdown::Run(
             canvas.DrawRoundRect(n->computedRect, bR, bgCol, bCol, bW);
         }
 
-        const ParsedMarkdownDoc& parsedDoc = GetOrParseMarkdown(p->text);
         const Rect ctrlRect = n->computedRect;
 
         // Compute visible viewport rect by intersecting with clipping ancestors (for O(1) block frustum culling)
@@ -3156,7 +2173,8 @@ MarkdownResponse Markdown::Run(
         const MarkdownDocumentLayout& layout =
             (p->layout != nullptr && std::abs(p->layout->totalWidth - ctrlRect.w) < 1.0f)
                 ? *p->layout
-                : *(layoutHolder = GetOrBuildMarkdownLayout(&canvas, ctrlRect.w, parsedDoc, p->opts, th, p->zoom));
+                : *(layoutHolder = GetOrBuildMarkdownLayout(&canvas, ctrlRect.w, GetOrParseMarkdown(p->text), p->opts, th, p->zoom));
+        const ParsedMarkdownDoc& parsedDoc = *layout.doc;
 
         RenderOverlayState overlay{};
         overlay.hasSelection = p->hasSelection;
@@ -3267,7 +2285,7 @@ Vec2 Markdown::Measure(
     float availableWidth
 ) {
     (void)size;
-    const ParsedMarkdownDoc& doc = GetOrParseMarkdown(markdownText);
+    const auto doc = GetOrParseMarkdown(markdownText);
     const float effZoom = (opts.zoom != nullptr) ? std::clamp(*opts.zoom, 0.5f, 3.0f) : 1.0f;
 
     float ctrlW = (availableWidth > 0.0f) ? availableWidth : theme.Scale(520.0f);
@@ -3311,7 +2329,7 @@ void Markdown::Render(
         canvas.DrawRoundRect(bounds, bR, bgCol, bCol, bW);
     }
 
-    const ParsedMarkdownDoc& doc = GetOrParseMarkdown(markdownText);
+    const auto doc = GetOrParseMarkdown(markdownText);
     const float effZoom = (opts.zoom != nullptr) ? std::clamp(*opts.zoom, 0.5f, 3.0f) : 1.0f;
 
     const auto layout = GetOrBuildMarkdownLayout(&canvas, bounds.w, doc, opts, theme, effZoom);
@@ -3328,7 +2346,7 @@ void Markdown::Render(
 
     RenderMarkdownDocumentLayout(
         canvas,
-        doc,
+        *doc,
         *layout,
         bounds,
         bounds,

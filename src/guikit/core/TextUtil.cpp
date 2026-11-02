@@ -1,6 +1,7 @@
 #include "guikit/core/TextUtil.hpp"
 #include <algorithm>
 #include "guikit/backend/ICanvas.hpp"
+#include "guikit/core/RichText.hpp"
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/UiVector.hpp"
 
@@ -52,6 +53,22 @@ float TextUtil::MeasureUiTextWidth(
 ) noexcept {
     if (fontSize <= 0.0f) {
         return 0.0f;
+    }
+    if (text.wrap.rich) {
+        const float codeFs = fontSize * 0.92f;
+        auto measureRich = [&](std::string_view sv) -> float {
+            if (sv.empty()) return 0.0f;
+            return GetOrMeasureRichTextIntrinsicWidths(
+                canvas, sv, fontSize, codeFs, FontStyle::Regular, 1.0f
+            ).second;
+        };
+        float maxW = measureRich(text.text);
+        for (std::string_view var : text.variants) {
+            if (!var.empty()) {
+                maxW = std::max(maxW, measureRich(var));
+            }
+        }
+        return maxW;
     }
     float maxW = MeasureWidth(text.text, fontSize, canvas);
     for (std::string_view var : text.variants) {
@@ -248,6 +265,29 @@ float TextUtil::MeasureUiTextHeight(
 
     size_t linesCount = std::max<size_t>(1, text.wrap.minLines);
 
+    if (text.wrap.rich && text.wrap.IsWordWrap()) {
+        static const UiTheme defaultTheme = UiTheme::Dark();
+        const float baseLh = canvas ? canvas->GetLineHeight(fontSize) : (fontSize * kDefaultLineHeightMultiplier);
+        const float lhScale = (baseLh > 0.0f) ? (lineHeight / baseLh) : 1.0f;
+        auto measureRichH = [&](std::string_view sv) -> float {
+            if (sv.empty()) return 0.0f;
+            const float effAvailW = (maxWidth > 0.0f) ? maxWidth : 100000.0f;
+            auto flow = GetOrBuildRichTextFlow(canvas, sv, effAvailW, fontSize, fontSize * 0.92f, lhScale, defaultTheme);
+            return flow->height;
+        };
+        float maxH = std::max(static_cast<float>(linesCount) * lineHeight, measureRichH(text.text));
+        for (std::string_view var : text.variants) {
+            if (!var.empty()) {
+                maxH = std::max(maxH, measureRichH(var));
+            }
+        }
+        if (text.wrap.maxLines > 0) {
+            maxH = std::min(maxH, static_cast<float>(text.wrap.maxLines) * lineHeight);
+            maxH = std::max(maxH, static_cast<float>(text.wrap.minLines) * lineHeight);
+        }
+        return maxH;
+    }
+
     if (text.wrap.IsWordWrap()) {
         auto countLinesFor = [&](std::string_view sv) -> size_t {
             if (sv.empty()) {
@@ -295,6 +335,44 @@ void TextUtil::DrawUiText(
     }
 
     const float lh = (lineHeight > 0.0f) ? lineHeight : (fontSize * kDefaultLineHeightMultiplier);
+
+    if (text.wrap.rich) {
+        static const UiTheme defaultTheme = UiTheme::Dark();
+        const float baseLh = canvas.GetLineHeight(fontSize);
+        const float lhScale = (baseLh > 0.0f) ? (lh / baseLh) : 1.0f;
+        const Align horizAlign = (alignX < 0.25f) ? Align::Start : ((alignX > 0.75f) ? Align::End : Align::Center);
+        const float effAvailW = text.wrap.IsWordWrap() ? bounds.w : 100000.0f;
+        auto flow = GetOrBuildRichTextFlow(
+            &canvas,
+            text.text,
+            effAvailW,
+            fontSize,
+            fontSize * 0.92f,
+            lhScale,
+            defaultTheme,
+            1.0f,
+            FontStyle::Regular,
+            text.wrap.IsWordWrap() ? horizAlign : Align::Start
+        );
+        float drawY = bounds.y;
+        if (!text.wrap.IsWordWrap() && bounds.h > flow->height + kTextSubpixelTolerance) {
+            drawY += (bounds.h - flow->height) * singleLineAlignY;
+        }
+        float drawX = bounds.x;
+        if (!text.wrap.IsWordWrap() && horizAlign != Align::Start) {
+            drawX += (bounds.w - flow->width) * alignX;
+        }
+        const bool needsClip = (!text.wrap.IsWordWrap() && flow->width > bounds.w + kTextSubpixelTolerance) ||
+                               (text.wrap.maxLines > 0 && flow->height > bounds.h + kTextSubpixelTolerance);
+        if (needsClip) {
+            canvas.PushClip(bounds);
+        }
+        RenderInlineFlowLayout(canvas, *flow, {drawX, drawY}, {drawX, drawY}, color, nullptr, nullptr, defaultTheme);
+        if (needsClip) {
+            canvas.PopClip();
+        }
+        return;
+    }
 
     if (!text.wrap.IsWordWrap()) {
         const Rect drawRect = (text.wrap.minLines > 1 && bounds.h > lh + kTextSubpixelTolerance)

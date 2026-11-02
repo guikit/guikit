@@ -3034,7 +3034,7 @@ void Context::RenderTooltipOverlay(ICanvas& canvas, Vec2 logicalSize) {
     const float lineH = canvas.GetLineHeight(fontSize);
 
     const float maxTextW = 280.0f;
-    const float natW = TextUtil::MeasureWidth(m_activeTooltip, fontSize, &canvas);
+    const float natW = TextUtil::MeasureUiTextWidth(m_activeTooltip, fontSize, &canvas);
     const float contentW = std::min(natW, maxTextW);
     const float contentH = TextUtil::MeasureUiTextHeight(
         m_activeTooltip, std::max(1.0f, contentW), fontSize, lineH, &canvas);

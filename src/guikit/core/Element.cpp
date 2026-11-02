@@ -138,7 +138,7 @@ Vec2 Element::MeasureLabelBar(
 
     if (spec.label.HasContentOrReserve()) {
         if (barW > 0.0f) barW += m.gap;
-        const float textW = TextUtil::MeasureWidth(spec.label, labelFontSize, canvas);
+        const float textW = TextUtil::MeasureUiTextWidth(spec.label, labelFontSize, canvas);
         barW += textW;
         const float lineH = canvas ? canvas->GetLineHeight(labelFontSize) : theme.GetLineHeight(labelFontSize);
         barH = std::max(barH, lineH);
@@ -184,7 +184,7 @@ float ResolveChildAvailableWidth(
         return availW;
     }
     if (spec.stretch == StretchMode::Fill && !ctrl.width.has_value()) {
-        const float descW = hasDesc ? TextUtil::MeasureWidth(spec.description, descFontSize, canvas) : 0.0f;
+        const float descW = hasDesc ? TextUtil::MeasureUiTextWidth(spec.description, descFontSize, canvas) : 0.0f;
         const float textW = std::max(measuredLabelBar.x, descW);
         return std::max(theme.GetMetrics(spec.widgetSize).defaultHeight, availW - textW - spec.inlineGap);
     }
@@ -429,7 +429,7 @@ Vec2 Element::Measure(
     if (!stretchableCtrl && ctrlSpec.width.has_value() && spec.stretch == StretchMode::Fill && availableWidth > 0.0f) {
         const float ratio = std::clamp(*ctrlSpec.width, 0.0f, 1.0f);
         const float minBlockW = (!spec.hasControl && spec.description.HasContentOrReserve())
-            ? std::max(intrinsicControlSize.x, TextUtil::MeasureWidth(spec.description, descFontSize, canvas))
+            ? std::max(intrinsicControlSize.x, TextUtil::MeasureUiTextWidth(spec.description, descFontSize, canvas))
             : intrinsicControlSize.x;
         availableWidth = (ratio > 0.0f)
             ? std::min(availableWidth, std::max(availableWidth * ratio, minBlockW))
@@ -457,7 +457,7 @@ Vec2 Element::Measure(
 
     const Vec2 rawLabelBar = hasLabel ? MeasureLabelBar(spec, labelFontSize, canvas, theme) : Vec2{0.0f, 0.0f};
     const float rawLabelW = rawLabelBar.x;
-    const float rawDescW = hasDesc ? TextUtil::MeasureWidth(spec.description, descFontSize, canvas) : 0.0f;
+    const float rawDescW = hasDesc ? TextUtil::MeasureUiTextWidth(spec.description, descFontSize, canvas) : 0.0f;
 
     float effLabelW = rawLabelW;
     float effDescW = rawDescW;
@@ -589,7 +589,7 @@ ElementGeometry Element::Resolve(
     if (!stretchableCtrl && spec.stretch == StretchMode::Fill && ctrlSpec.width.has_value()) {
         const float ratio = std::clamp(*ctrlSpec.width, 0.0f, 1.0f);
         const float minBlockW = (!spec.hasControl && geom.hasDesc)
-            ? std::max(intrinsicControlSize.x, TextUtil::MeasureWidth(spec.description, geom.descFontSize, canvas))
+            ? std::max(intrinsicControlSize.x, TextUtil::MeasureUiTextWidth(spec.description, geom.descFontSize, canvas))
             : intrinsicControlSize.x;
         const float effW = (ratio > 0.0f)
             ? std::min(bounds.w, std::max(bounds.w * ratio, minBlockW))
@@ -632,7 +632,7 @@ ElementGeometry Element::Resolve(
     }
 
     if (geom.hasDesc) {
-        geom.measuredDescW = TextUtil::MeasureWidth(spec.description, geom.descFontSize, canvas);
+        geom.measuredDescW = TextUtil::MeasureUiTextWidth(spec.description, geom.descFontSize, canvas);
     }
 
     float effLabelW = geom.measuredLabelW;
@@ -899,15 +899,23 @@ void Element::RenderText(
                 ? 0.0f
                 : (m.badgeGap + TextUtil::MeasureWidth(spec.badge, badgeFont, &canvas) + 12.0f);
             const float titleAvailW = std::max(0.0f, (barLeftX + barW) - curX - badgeReserveW);
-            float titleW = canvas.MeasureText(spec.label.text, geom.labelFontSize).x;
-            std::string displayTitle(spec.label.text);
-            if (titleW > titleAvailW + kTextSubpixelTolerance && titleAvailW > 0.0f) {
-                displayTitle = TextUtil::TruncateWithEllipsis(spec.label.text, titleAvailW, geom.labelFontSize, &canvas);
-                titleW = canvas.MeasureText(displayTitle, geom.labelFontSize).x;
-            }
             const Rect titleR(curX, topY, titleAvailW, titleLineH);
-            canvas.DrawTextBox(displayTitle, titleR, geom.labelFontSize, labelCol, 0.0f, 0.5f);
-            curX += titleW;
+            if (spec.label.wrap.rich) {
+                const float rawTitleW = TextUtil::MeasureUiTextWidth(spec.label, geom.labelFontSize, &canvas);
+                UiText singleLineRich = spec.label;
+                singleLineRich.wrap.maxLines = 1;
+                TextUtil::DrawUiText(canvas, singleLineRich, titleR, geom.labelFontSize, titleLineH, labelCol, 0.0f, 0.5f);
+                curX += std::min(titleAvailW, rawTitleW);
+            } else {
+                float titleW = canvas.MeasureText(spec.label.text, geom.labelFontSize).x;
+                std::string displayTitle(spec.label.text);
+                if (titleW > titleAvailW + kTextSubpixelTolerance && titleAvailW > 0.0f) {
+                    displayTitle = TextUtil::TruncateWithEllipsis(spec.label.text, titleAvailW, geom.labelFontSize, &canvas);
+                    titleW = canvas.MeasureText(displayTitle, geom.labelFontSize).x;
+                }
+                canvas.DrawTextBox(displayTitle, titleR, geom.labelFontSize, labelCol, 0.0f, 0.5f);
+                curX += titleW;
+            }
         }
 
         if (!spec.badge.empty()) {

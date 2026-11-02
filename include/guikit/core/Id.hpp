@@ -79,6 +79,8 @@ constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexc
         hash = HashVal(val.color, hash);
         hash = HashBytes(&val.wrap.minLines, sizeof(val.wrap.minLines), hash);
         hash = HashBytes(&val.wrap.maxLines, sizeof(val.wrap.maxLines), hash);
+        const uint8_t richVal = val.wrap.rich ? 1u : 0u;
+        hash = HashBytes(&richVal, sizeof(richVal), hash);
         if constexpr (requires { val.variants; }) {
             for (std::string_view v : val.variants) {
                 hash = HashStringView(v, hash);

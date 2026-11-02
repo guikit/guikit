@@ -3,6 +3,7 @@
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Node.hpp"
+#include "guikit/core/RichText.hpp"
 #include "guikit/core/TextUtil.hpp"
 
 namespace guikit {
@@ -96,23 +97,28 @@ Vec2 Text::Measure(
         ? theme.GetLineHeight(fontSize)
         : m.lineHeight;
 
-    auto measureSingleLineW = [&](std::string_view sv) -> float {
-        if (sv.empty()) {
-            return 0.0f;
-        }
-        if (canvas) {
-            return canvas->MeasureText(sv, fontSize).x;
-        }
-        return static_cast<float>(sv.length()) * (fontSize * (m.isMonospace ? kMonospaceCharAdvanceRatio : kDefaultCharAdvanceRatio));
-    };
+    float w = 0.0f;
+    if (label.wrap.rich) {
+        w = TextUtil::MeasureUiTextWidth(label, fontSize, canvas);
+    } else {
+        auto measureSingleLineW = [&](std::string_view sv) -> float {
+            if (sv.empty()) {
+                return 0.0f;
+            }
+            if (canvas) {
+                return canvas->MeasureText(sv, fontSize).x;
+            }
+            return static_cast<float>(sv.length()) * (fontSize * (m.isMonospace ? kMonospaceCharAdvanceRatio : kDefaultCharAdvanceRatio));
+        };
 
-    float w = measureSingleLineW(label.text);
-    for (std::string_view var : label.variants) {
-        w = std::max(w, measureSingleLineW(var));
+        w = measureSingleLineW(label.text);
+        for (std::string_view var : label.variants) {
+            w = std::max(w, measureSingleLineW(var));
+        }
     }
 
     float h = TextUtil::MeasureUiTextHeight(label, availableWidth, fontSize, lineHeight, canvas);
-    if (canvas && !label.text.empty() && !label.wrap.IsWordWrap() && label.wrap.minLines <= 1) {
+    if (canvas && !label.text.empty() && !label.wrap.IsWordWrap() && label.wrap.minLines <= 1 && !label.wrap.rich) {
         h = std::max(h, canvas->MeasureText(label.text, fontSize).y);
     }
     return {w, h};
@@ -174,6 +180,42 @@ void Text::Render(
         alignFactor = 0.5f;
     } else if (opts.align == Align::End) {
         alignFactor = 1.0f;
+    }
+
+    if (label.wrap.rich) {
+        const float baseLh = canvas.GetLineHeight(fontSize);
+        const float lhScale = (baseLh > 0.0f) ? (lineHeight / baseLh) : 1.0f;
+        const float effAvailW = label.wrap.IsWordWrap() ? bounds.w : 100000.0f;
+        auto flow = GetOrBuildRichTextFlow(
+            &canvas,
+            label.text,
+            effAvailW,
+            fontSize,
+            fontSize * 0.92f,
+            lhScale,
+            theme,
+            1.0f,
+            m.isMonospace ? FontStyle::Monospace : FontStyle::Regular,
+            label.wrap.IsWordWrap() ? opts.align : Align::Start
+        );
+        float drawY = bounds.y;
+        if (!label.wrap.IsWordWrap() && bounds.h > flow->height + kTextSubpixelTolerance) {
+            drawY += (bounds.h - flow->height) * 0.5f;
+        }
+        float drawX = bounds.x;
+        if (!label.wrap.IsWordWrap() && opts.align != Align::Start) {
+            drawX += (bounds.w - flow->width) * alignFactor;
+        }
+        const bool needsClip = (!label.wrap.IsWordWrap() && flow->width > bounds.w + kTextSubpixelTolerance) ||
+                               (label.wrap.maxLines > 0 && flow->height > bounds.h + kTextSubpixelTolerance);
+        if (needsClip) {
+            canvas.PushClip(bounds);
+        }
+        RenderInlineFlowLayout(canvas, *flow, {drawX, drawY}, {drawX, drawY}, color, nullptr, nullptr, theme);
+        if (needsClip) {
+            canvas.PopClip();
+        }
+        return;
     }
 
     TextUtil::DrawUiText(canvas, label, bounds, fontSize, lineHeight, color, alignFactor, 0.5f);
