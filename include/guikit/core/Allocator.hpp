@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <memory>
 #include <new>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -20,7 +21,9 @@ public:
         Grow(m_defaultChunkSize);
     }
 
-    ~Allocator() = default;
+    ~Allocator() noexcept {
+        DestroyAll();
+    }
 
     Allocator(const Allocator&) = delete;
     Allocator& operator=(const Allocator&) = delete;
@@ -28,16 +31,21 @@ public:
     Allocator(Allocator&& other) noexcept
         : m_chunks(std::move(other.m_chunks))
         , m_currentChunkIndex(other.m_currentChunkIndex)
-        , m_defaultChunkSize(other.m_defaultChunkSize) {
+        , m_defaultChunkSize(other.m_defaultChunkSize)
+        , m_dtorHead(other.m_dtorHead) {
         other.m_currentChunkIndex = 0;
+        other.m_dtorHead = nullptr;
     }
 
     Allocator& operator=(Allocator&& other) noexcept {
         if (this != &other) {
+            DestroyAll();
             m_chunks = std::move(other.m_chunks);
             m_currentChunkIndex = other.m_currentChunkIndex;
             m_defaultChunkSize = other.m_defaultChunkSize;
+            m_dtorHead = other.m_dtorHead;
             other.m_currentChunkIndex = 0;
+            other.m_dtorHead = nullptr;
         }
         return *this;
     }
@@ -77,14 +85,26 @@ public:
     }
 
     /// Allocates and constructs an object in-place.
+    /// Non-trivially-destructible objects are registered in an intrusive arena list
+    /// so their destructors run on Reset() or ~Allocator().
     template <typename T, typename... Args>
     [[nodiscard]] T* Allocate(Args&&... args) {
         void* ptr = AllocateRaw(sizeof(T), alignof(T));
-        return ::new (ptr) T(std::forward<Args>(args)...);
+        T* obj = ::new (ptr) T(std::forward<Args>(args)...);
+        if constexpr (!std::is_trivially_destructible_v<T>) {
+            auto* node = static_cast<DtorNode*>(AllocateRaw(sizeof(DtorNode), alignof(DtorNode)));
+            node->obj = obj;
+            node->destroy = [](void* p) noexcept { static_cast<T*>(p)->~T(); };
+            node->next = m_dtorHead;
+            m_dtorHead = node;
+        }
+        return obj;
     }
 
-    /// Resets all chunk offsets to zero for the next frame. Does NOT free underlying buffers.
+    /// Invokes destructors for non-trivial allocations and resets all chunk offsets to zero.
+    /// Does NOT free underlying arena chunk buffers.
     void Reset() noexcept {
+        DestroyAll();
         m_currentChunkIndex = 0;
         for (auto& chunk : m_chunks) {
             chunk.offset = 0;
@@ -101,11 +121,24 @@ public:
     }
 
 private:
+    struct DtorNode {
+        void* obj{nullptr};
+        void (*destroy)(void*) noexcept {nullptr};
+        DtorNode* next{nullptr};
+    };
+
     struct Chunk {
         std::unique_ptr<std::byte[]> data;
         size_t capacity{0};
         size_t offset{0};
     };
+
+    void DestroyAll() noexcept {
+        for (DtorNode* n = m_dtorHead; n != nullptr; n = n->next) {
+            n->destroy(n->obj);
+        }
+        m_dtorHead = nullptr;
+    }
 
     void Grow(size_t capacity) {
         Chunk chunk;
@@ -119,6 +152,7 @@ private:
     std::vector<Chunk> m_chunks;
     size_t m_currentChunkIndex{0};
     size_t m_defaultChunkSize{DefaultChunkSize};
+    DtorNode* m_dtorHead{nullptr};
 };
 
 using BumpAllocator = Allocator;
