@@ -174,4 +174,4 @@ See [`examples/minimal/main.cpp`](examples/minimal/main.cpp) for a complete sing
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+BSD Zero Clause License (`0BSD`). See [LICENSE](LICENSE) for details.
