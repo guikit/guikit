@@ -411,6 +411,8 @@ void SceneScope::SetZoom(float zoom) noexcept {
 void SceneScope::CenterOn(Vec2 worldPoint, std::optional<float> zoom) noexcept {
     if (!m_payload || !m_payload->state) return;
     SceneState& st = *m_payload->state;
+    const float prevZoom = st.zoom;
+    const Vec2 prevPan = st.pan;
     if (zoom.has_value()) {
         st.zoom = std::clamp(*zoom, m_payload->opts.minZoom, m_payload->opts.maxZoom);
     }
@@ -423,6 +425,11 @@ void SceneScope::CenterOn(Vec2 worldPoint, std::optional<float> zoom) noexcept {
         st.initialized = true;
         st.pendingCenterWorld.reset();
         st.pendingCenterZoom.reset();
+        if (std::abs(st.zoom - prevZoom) > 0.0001f ||
+            std::abs(st.pan.x - prevPan.x) > 0.01f ||
+            std::abs(st.pan.y - prevPan.y) > 0.01f) {
+            m_ctx->InvalidateRect(m_viewport);
+        }
     } else {
         st.pendingCenterWorld = worldPoint;
         st.pendingCenterZoom = zoom;
@@ -442,6 +449,10 @@ Vec2 SceneScope::GetPan() const noexcept {
 
 bool SceneScope::IsPanning() const noexcept {
     return (m_payload && m_payload->state) ? m_payload->state->panning : false;
+}
+
+bool SceneScope::WasCameraModified() const noexcept {
+    return (m_payload && m_payload->state) ? m_payload->state->cameraModifiedByInput : false;
 }
 
 Vec2 SceneScope::WorldToScreen(Vec2 worldPt) const noexcept {
@@ -754,6 +765,7 @@ void UpdateSceneCameraTransform(
 
     state.preUpdateHudConsumed = false;
     state.preUpdateScrollbarBusy = false;
+    state.cameraModifiedByInput = false;
     if (node->disabled) {
         ClampCameraToWorld(state, opts, vp, theme);
         return;
@@ -884,6 +896,7 @@ void UpdateSceneCameraTransform(
                 };
                 state.zoom = newZoom;
                 state.pan = mouseRel - worldUnderMouse * (newZoom * s);
+                state.cameraModifiedByInput = true;
                 ctx.RequestRepaint(2);
             }
             ctx.ConsumeMouseWheel();
@@ -921,7 +934,11 @@ void UpdateSceneCameraTransform(
             state.panning = true;
         }
         if (state.panning) {
-            state.pan = state.panStartOffset + delta;
+            const Vec2 newPan = state.panStartOffset + delta;
+            if (std::abs(newPan.x - state.pan.x) > 0.01f || std::abs(newPan.y - state.pan.y) > 0.01f) {
+                state.cameraModifiedByInput = true;
+            }
+            state.pan = newPan;
             ctx.RequestRepaint(2);
         }
     }
@@ -1501,16 +1518,20 @@ void Scene::RenderBackgroundAndWorld(
                         : theme.Scale(cmd.fontSize);
                     if (fs >= 2.2f) {
                         const Color col = (tintFactor > 0.0f) ? blendColor(cmd.fill, accentCol, tintFactor) : cmd.fill;
-                        const Vec2 ts = canvas.MeasureTextStyled(cmd.textOrSource, fs, cmd.fontStyle);
-                        const float opticalH = fs * 1.18f;
-                        if (std::abs(cmd.angleDeg + 90.0f) < 1.0f) {
-                            const float tx = dst.x + (dst.w - opticalH) * cmd.alignX;
-                            const float ty = dst.y + ts.x + (dst.h - ts.x) * cmd.alignY;
-                            canvas.DrawTextStyled(cmd.textOrSource, {tx, ty}, fs, col, cmd.fontStyle, cmd.angleDeg);
+                        if (std::abs(cmd.angleDeg) <= 0.01f) {
+                            canvas.DrawTextBoxStyled(cmd.textOrSource, dst, fs, col, cmd.fontStyle, cmd.alignX, cmd.alignY);
                         } else {
-                            const float tx = dst.x + (dst.w - ts.x) * cmd.alignX;
-                            const float ty = dst.y + (dst.h - opticalH) * cmd.alignY;
-                            canvas.DrawTextStyled(cmd.textOrSource, {tx, ty}, fs, col, cmd.fontStyle, cmd.angleDeg);
+                            const Vec2 ts = canvas.MeasureTextStyled(cmd.textOrSource, fs, cmd.fontStyle);
+                            const float opticalH = fs * 1.18f;
+                            if (std::abs(cmd.angleDeg + 90.0f) < 1.0f) {
+                                const float tx = dst.x + (dst.w - opticalH) * cmd.alignX;
+                                const float ty = dst.y + ts.x + (dst.h - ts.x) * cmd.alignY;
+                                canvas.DrawTextStyled(cmd.textOrSource, {tx, ty}, fs, col, cmd.fontStyle, cmd.angleDeg);
+                            } else {
+                                const float tx = dst.x + (dst.w - ts.x) * cmd.alignX;
+                                const float ty = dst.y + (dst.h - opticalH) * cmd.alignY;
+                                canvas.DrawTextStyled(cmd.textOrSource, {tx, ty}, fs, col, cmd.fontStyle, cmd.angleDeg);
+                            }
                         }
                     }
                 }

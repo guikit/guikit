@@ -84,6 +84,7 @@ struct SceneState {
     bool preUpdatedCamera{false};
     bool preUpdateHudConsumed{false};
     bool preUpdateScrollbarBusy{false};
+    bool cameraModifiedByInput{false};
 
     [[nodiscard]] bool IsSelected(uint64_t key) const noexcept {
         if (key == 0) return false;
@@ -257,6 +258,9 @@ public:
 
     /// Returns true if the user is actively dragging/panning the scene viewport.
     [[nodiscard]] bool IsPanning() const noexcept;
+
+    /// Returns true if user input (mouse wheel zoom, drag pan, HUD, or scrollbar) modified camera zoom/pan in this frame.
+    [[nodiscard]] bool WasCameraModified() const noexcept;
 
     /// Returns true if the mouse cursor is currently inside the scene viewport and not occluded by any overlay, panel, or child widget.
     [[nodiscard]] bool IsHovered() const noexcept;

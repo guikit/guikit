@@ -471,16 +471,29 @@ void ThorCanvas::DrawRoundRect(
         if (fill.a > 0) {
             DrawRect(rect, fill);
         }
+        const float invScale = 1.0f / std::max(0.0001f, m_scale);
+        const float rx0 = std::round(rect.x * m_scale) * invScale;
+        const float ry0 = std::round(rect.y * m_scale) * invScale;
+        const float rx1 = std::round(rect.Right() * m_scale) * invScale;
+        const float ry1 = std::round(rect.Bottom() * m_scale) * invScale;
         const float hw = strokeWidth * 0.5f;
-        const float x0 = rect.x - hw;
-        const float y0 = rect.y - hw;
-        const float w = rect.w + strokeWidth;
-        const float h = rect.h + strokeWidth;
+        const float maxRight = (m_width > 0)
+            ? (static_cast<float>(m_width) * invScale - strokeWidth)
+            : (rx1 - hw);
+        const float maxBottom = (m_height > 0)
+            ? (static_cast<float>(m_height) * invScale - strokeWidth)
+            : (ry1 - hw);
+        const float x0 = rx0 - hw;
+        const float y0 = ry0 - hw;
+        const float xR = std::min(rx1 - hw, maxRight);
+        const float yB = std::min(ry1 - hw, maxBottom);
+        const float w = std::max(strokeWidth, (xR - x0) + strokeWidth);
+        const float h = std::max(strokeWidth, (yB - y0) + strokeWidth);
         DrawRect(Rect(x0, y0, w, strokeWidth), stroke);
-        DrawRect(Rect(x0, y0 + h - strokeWidth, w, strokeWidth), stroke);
+        DrawRect(Rect(x0, yB, w, strokeWidth), stroke);
         if (h > strokeWidth * 2.0f) {
             DrawRect(Rect(x0, y0 + strokeWidth, strokeWidth, h - strokeWidth * 2.0f), stroke);
-            DrawRect(Rect(x0 + w - strokeWidth, y0 + strokeWidth, strokeWidth, h - strokeWidth * 2.0f), stroke);
+            DrawRect(Rect(xR, y0 + strokeWidth, strokeWidth, h - strokeWidth * 2.0f), stroke);
         }
         return;
     }
@@ -991,12 +1004,16 @@ void ThorCanvas::DrawTextBoxStyled(
     if (m_targetBuffer && m_width > 0 && m_height > 0 &&
         drawText.find('\n') == std::string_view::npos) {
         const std::string_view stampText = (drawText.size() > 512) ? drawText.substr(0, 512) : drawText;
-        const Vec2 m = MeasureTextStyled(stampText, fontSize, style);
-        const float tx = (bounds.x + (bounds.w - m.x) * alignX) * m_scale;
-        const float ty = (bounds.y + (bounds.h - m.y) * alignY) * m_scale;
+        const float scaledFs = fontSize * m_scale;
+        const TextStampEntry& stamp = ResolveTextStamp(stampText, scaledFs, color, style);
+        if (stamp.empty) return;
+        const TextStampEntry& capStamp = ResolveTextStamp("H", scaledFs, Color(255, 255, 255, 255), style);
+        const int capOffY = capStamp.empty ? static_cast<int>(stamp.offsetY) : static_cast<int>(capStamp.offsetY);
+        const int capH = capStamp.empty ? static_cast<int>(stamp.height) : static_cast<int>(capStamp.height);
+        const float tx = sBounds.x + (sBounds.w - static_cast<float>(stamp.width)) * alignX - static_cast<float>(stamp.offsetX);
+        const float ty = sBounds.y + (sBounds.h - static_cast<float>(capH)) * alignY - static_cast<float>(capOffY);
         const int dstX = static_cast<int>(std::round(tx));
         const int dstY = static_cast<int>(std::round(ty));
-        const TextStampEntry& stamp = ResolveTextStamp(stampText, fontSize * m_scale, color, style);
         BlitTextStamp(stamp, dstX, dstY, Rect(sBounds.x - 2.0f, sBounds.y - 2.0f, sBounds.w + 4.0f, sBounds.h + 4.0f));
         return;
     }

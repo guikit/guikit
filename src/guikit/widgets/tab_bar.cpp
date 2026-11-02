@@ -102,12 +102,8 @@ Response TabBar::Run(
         resolvedPadding.top,
         resolvedPadding.left
     );
-    if (barNode->type == NodeType::Carousel) {
-        if (auto* cData = barNode->As<CarouselData>()) {
-            cData->showBaselineSeparator = (opts.showSeparator && opts.style == TabBarStyle::Underline);
-        }
-    } else if (opts.showSeparator && opts.style == TabBarStyle::Underline) {
-        barNode->postRenderFn = [](const Node* n, ICanvas& canvas, const UiTheme& th) noexcept {
+    if (opts.showSeparator && opts.style == TabBarStyle::Underline) {
+        barNode->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& th) noexcept {
             const float sepY = n->computedRect.Bottom() - 0.5f;
             canvas.DrawLine(
                 Vec2(n->computedRect.x, sepY),
@@ -241,7 +237,7 @@ Vec2 TabBar::MeasureTab(
 ) {
     (void)opts;
     const ComponentMetrics& m = theme.GetMetrics(size);
-    const float labelFont = theme.ResolveFontSize(item.label, TextRole::LabelMedium, size);
+    const float labelFont = theme.ResolveFontSize(item.label, TextRole::LabelLarge, size);
     const float badgeFontSize = theme.ResolveFontSize(item.badge, m.fontSize * 0.78f);
     float contentW = 0.0f;
 
@@ -293,7 +289,7 @@ void TabBar::RenderTab(
     (void)pressed;
     const ComponentMetrics& m = theme.GetMetrics(size);
     const auto& pal = theme.palette;
-    const float labelFont = theme.ResolveFontSize(item.label, TextRole::LabelMedium, size);
+    const float labelFont = theme.ResolveFontSize(item.label, TextRole::LabelLarge, size);
     const float badgeFontSize = theme.ResolveFontSize(item.badge, m.fontSize * 0.78f);
 
     canvas.PushClip(bounds);
@@ -325,7 +321,7 @@ void TabBar::RenderTab(
             const Rect lineR(bounds.x + linePad, bounds.Bottom() - lineH, std::max(0.0f, bounds.w - linePad * 2.0f), lineH);
             canvas.DrawRoundRect(lineR, 1.5f, lineCol);
         }
-        if (focused && !disabled) {
+        if (focused && !active && !disabled) {
             canvas.DrawRoundRect(Rect(bounds.x + 1.0f, bounds.y + 2.0f, std::max(0.0f, bounds.w - 2.0f), std::max(0.0f, bounds.h - 4.0f)), m.cornerRadius, Color::Transparent(), pal.focusRing, 1.5f);
         }
     } else {
