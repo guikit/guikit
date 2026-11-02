@@ -12946,6 +12946,100 @@ int main() {
                 runRetainedFrame(1200.0f);
                 const int unculledDrawCalls = countCanvas.drawTextCalls;
                 CHECK(culledDrawCalls * 2 < unculledDrawCalls);
+
+                // 10. Verify Modal interior Cancel button (modal.Close()) leaves zero backdrop or drop-shadow ghost artifacts
+                {
+                    ThorCanvas modalCanvas;
+                    const uint32_t mw = 600;
+                    const uint32_t mh = 400;
+                    std::vector<uint32_t> modalPixels(mw * mh, 0);
+                    modalCanvas.SetTarget(modalPixels.data(), mw, mh, mw);
+
+                    Context modalUi;
+                    bool modalOpen = false;
+                    std::string statusText = "Ready";
+                    Response cancelBtnRes{};
+                    Rect modalDialogRect{};
+
+                    auto runModalStage = [&]() {
+                        modalUi.BeginFrame({static_cast<float>(mw), static_cast<float>(mh)});
+                        if (auto stage = modalUi.Box({
+                            .widthMode = SizeMode::Stretch,
+                            .heightMode = SizeMode::Stretch,
+                            .padding = Padding::All(24.0f),
+                            .background = {modalUi.GetTheme().palette.surface},
+                            .clipChildren = true
+                        })) {
+                            if (auto col = modalUi.Column({
+                                .gap = 12.0f,
+                                .align = Alignment::Center,
+                                .justify = Justify::Center,
+                                .heightMode = SizeMode::Stretch
+                            })) {
+                                modalUi.Button({.text = "Open Modal Dialog..."});
+                                modalUi.Text(statusText);
+                            }
+
+                            if (auto modal = modalUi.Modal(modalOpen, {
+                                .title = "Configure Station Endpoint",
+                                .subtitle = "Edit connection parameters",
+                                .width = 360.0f,
+                                .backdropOpacity = 0.55f,
+                                .confineToParent = true
+                            })) {
+                                modalDialogRect = modal.response.rect;
+                                cancelBtnRes = modalUi.Button({.text = "Cancel"});
+                                if (cancelBtnRes.clicked) {
+                                    statusText = "Cancelled Modal";
+                                    modal.Close();
+                                }
+                            }
+                        }
+                        modalUi.EndFrame(modalCanvas);
+                    };
+
+                    // Settle closed baseline and sample clean stage surface color at top-left corner (x=40, y=40)
+                    runModalStage();
+                    runModalStage();
+                    const uint32_t cleanBackdropPixel = modalPixels[40 * mw + 40];
+
+                    // Open modal and settle 2 frames
+                    modalOpen = true;
+                    runModalStage();
+                    runModalStage();
+                    CHECK(modalDialogRect.w > 200.0f);
+                    CHECK(cancelBtnRes.rect.w > 30.0f);
+                    // Backdrop pixel must be darkened while modal is open
+                    const uint32_t dimmedBackdropPixel = modalPixels[40 * mw + 40];
+                    CHECK(dimmedBackdropPixel != cleanBackdropPixel);
+
+                    // Click the interior "Cancel" button (triggers modal.Close() inside the ModalScope body)
+                    modalUi.OnMouseMove(cancelBtnRes.rect.Center());
+                    modalUi.OnMouseDown(1);
+                    runModalStage();
+                    modalUi.OnMouseUp(1);
+                    runModalStage(); // Frame N: Cancel clicked -> modal.Close() called
+
+                    CHECK(modalOpen == false);
+                    CHECK(statusText == "Cancelled Modal");
+                    CHECK(modalUi.IsFullRepaint());
+                    // Immediately on Frame N, the modal is detached and backdrop pixel must be restored to clean surface color
+                    CHECK(modalPixels[40 * mw + 40] == cleanBackdropPixel);
+
+                    // Frame N+1: first frame with modalOpen == false from the start -> must also do full repaint & leave zero ghost trace
+                    runModalStage();
+                    CHECK(modalUi.IsFullRepaint());
+                    CHECK(modalPixels[40 * mw + 40] == cleanBackdropPixel);
+                    // Sample below modalDialogRect where the drop shadow was drawn (y = modalDialogRect.Bottom() + 6)
+                    const uint32_t shadowY = std::min<uint32_t>(mh - 1, static_cast<uint32_t>(modalDialogRect.Bottom() + 6.0f));
+                    const uint32_t shadowX = std::min<uint32_t>(mw - 1, static_cast<uint32_t>(modalDialogRect.Center().x));
+                    CHECK(modalPixels[shadowY * mw + shadowX] == cleanBackdropPixel);
+
+                    // Frame N+2: idle -> dirty-rect engine settles with zero dirty damage
+                    runModalStage();
+                    CHECK(!modalUi.HasDirtyDamage());
+                    CHECK(!modalUi.IsFullRepaint());
+                }
             }
         }
     }

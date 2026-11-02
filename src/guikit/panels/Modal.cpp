@@ -64,7 +64,11 @@ void ModalScope::Close() noexcept {
 
 void ModalScope::EndModalIfNeeded() noexcept {
     if (m_activeModal && m_ctx) {
-        m_ctx->EndModalScope(m_openPtr ? *m_openPtr : false);
+        const bool stillOpen = m_openPtr ? *m_openPtr : false;
+        if (!stillOpen && m_node && m_node->parent) {
+            m_node->parent->RemoveChild(m_node);
+        }
+        m_ctx->EndModalScope(stillOpen);
         m_activeModal = false;
     }
 }
@@ -114,6 +118,7 @@ ModalScope Modal::Open(
     if (!open) {
         if (ctx.GetPrevFrameModalId() == id) {
             ctx.ClearModalBlock();
+            ctx.InvalidateAll();
         }
         return ModalScope{};
     }

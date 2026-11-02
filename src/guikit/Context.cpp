@@ -35,6 +35,7 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
     m_currFrameModalId = Id::Null();
     m_currFrameModalBackdropRect = Rect{};
     m_modalScopeDepth = 0;
+    m_modalClosedThisFrame = false;
     m_toastHostVisitedThisFrame = false;
     m_activeTooltip = {};
     m_activeTooltipAnchor = {};
@@ -1518,7 +1519,7 @@ void Context::OnKeyDown(Key key, KeyModifiers mods) {
 
 static Rect ExpandPopupDamageRect(Rect r) noexcept {
     if (r.w <= 0.0f || r.h <= 0.0f) return Rect{};
-    return Rect(r.x - 6.0f, r.y - 6.0f, r.w + 12.0f, r.h + 14.0f);
+    return Rect(r.x - 12.0f, r.y - 12.0f, r.w + 24.0f, r.h + 32.0f);
 }
 
 void Context::OpenPopup(Id id, Rect bounds) {
@@ -2370,7 +2371,14 @@ void Context::EndFrame(ICanvas& canvas) {
         }
         if (n->id.IsValid()) {
             WidgetSnapshot snap;
-            const Rect paddedNodeRect = n->IsLeaf() ? n->computedRect.Inset(-2.0f) : n->computedRect;
+            Rect paddedNodeRect = n->IsLeaf() ? n->computedRect.Inset(-2.0f) : n->computedRect;
+            if (n->type == NodeType::Modal) {
+                paddedNodeRect = n->computedRect.Inset(-16.0f);
+                const Rect bd = Modal::GetBackdropRect(n);
+                if (bd.w > 0.0f && bd.h > 0.0f) {
+                    paddedNodeRect = paddedNodeRect.Union(bd);
+                }
+            }
             snap.rect = paddedNodeRect.Intersect(parentClip);
             const bool trackHoverFlag = n->IsLeaf() || n->type == NodeType::TreeItem || n->type == NodeType::Element;
             snap.flags = ((trackHoverFlag && n->hovered) ? 1u : 0u) |
@@ -2462,12 +2470,15 @@ void Context::EndFrame(ICanvas& canvas) {
     const bool hasTooltip = !m_activeTooltip.empty();
     const bool hasModal = m_currFrameModalId.IsValid() || m_prevFrameModalId.IsValid();
     const bool hasToasts = !m_toasts.empty();
+    const bool hasNonPopupOverlay = !m_overlayPasses.empty() && !m_openPopupId.IsValid();
 
     // Determine whether full repaint or partial dirty rect is required
     m_dirtyRects.clear();
     const float totalViewportArea = logicalSize.x * logicalSize.y;
     if (!m_dirtyRectEnabled || m_forceFullRepaint || m_prevSnapshots.empty() ||
-        hasModal || hasToasts || m_hadToastsLastFrame ||
+        hasModal || m_hadModalLastFrame || m_modalClosedThisFrame ||
+        hasToasts || m_hadToastsLastFrame ||
+        hasNonPopupOverlay || m_hadNonPopupOverlayLastFrame ||
         hasTooltip || m_hadTooltipLastFrame || anyDebugBounds || anyInspectMode) {
         m_isFullRepaint = true;
         m_hasDirtyDamage = true;
@@ -2531,6 +2542,8 @@ void Context::EndFrame(ICanvas& canvas) {
     m_forceFullRepaint = false;
     m_hadTooltipLastFrame = hasTooltip;
     m_hadToastsLastFrame = hasToasts;
+    m_hadModalLastFrame = hasModal || m_modalClosedThisFrame;
+    m_hadNonPopupOverlayLastFrame = hasNonPopupOverlay;
     m_prevFrameModalId = m_currFrameModalId;
     m_prevFrameModalBackdropRect = m_currFrameModalBackdropRect;
     m_prevSnapshots = std::move(currSnapshots);

@@ -1870,7 +1870,9 @@ public:
             --m_modalScopeDepth;
         }
         if (!stillOpen && m_modalScopeDepth == 0) {
+            m_modalClosedThisFrame = true;
             ClearModalBlock();
+            InvalidateAll();
         }
     }
 
@@ -1879,6 +1881,7 @@ public:
         m_currFrameModalBackdropRect = Rect{};
         m_prevFrameModalId = Id::Null();
         m_prevFrameModalBackdropRect = Rect{};
+        m_currModalFocusableIds.clear();
     }
 
     [[nodiscard]] bool IsInModalScope() const noexcept { return m_modalScopeDepth > 0; }
@@ -2187,6 +2190,8 @@ private:
     Id m_currFrameModalId{Id::Null()};
     Rect m_currFrameModalBackdropRect{0.0f, 0.0f, 0.0f, 0.0f};
     int m_modalScopeDepth{0};
+    bool m_hadModalLastFrame{false};
+    bool m_modalClosedThisFrame{false};
     UiText m_activeTooltip{};
     Rect m_activeTooltipAnchor{0.0f, 0.0f, 0.0f, 0.0f};
     Rect m_activeTooltipViewport{0.0f, 0.0f, 0.0f, 0.0f};
@@ -2201,6 +2206,7 @@ private:
         Rect clipRect{};
     };
     std::vector<OverlayPass> m_overlayPasses;
+    bool m_hadNonPopupOverlayLastFrame{false};
     Vec2 m_mouseWheel{0.0f, 0.0f};
     std::unordered_map<detail::StateKey, detail::StoredState, detail::StateKeyHash> m_customStates;
     uint64_t m_frameIndex{0};

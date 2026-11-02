@@ -20,6 +20,8 @@ struct CommandPalettePersistState {
     float scrollOffset{0.0f};
     Vec2 lastMousePos{-10000.0f, -10000.0f};
     bool wasOpen{false};
+    bool prevClearHovered{false};
+    bool prevEscHovered{false};
     ScrollbarState scrollbar{};
 };
 
@@ -373,6 +375,11 @@ CommandPaletteResponse CommandPalette::Run(
 
         clearBtnHovered = !st.query.empty() && clearRect.Contains(mouse);
         escPillHovered = opts.closeOnEscape && escRect.Contains(mouse);
+        if (clearBtnHovered != st.prevClearHovered || escPillHovered != st.prevEscHovered) {
+            st.prevClearHovered = clearBtnHovered;
+            st.prevEscHovered = escPillHovered;
+            ctx.InvalidateAll();
+        }
 
         int hoveredFilteredPos = -1;
         if (filteredCount > 0 && listRect.Contains(mouse) && !st.scrollbar.hovered && !st.scrollbar.dragging) {
