@@ -686,7 +686,7 @@ Response DatePicker::Run(
     bool doneHovered = false;
 
     if (isOpen && wasOpen && !effectiveDisabled) {
-        ctx.BeginOverlayHitCheck(id);
+        auto hitScope = ctx.ScopedOverlayHitCheck(id);
         const Vec2 mouse = ctx.GetMousePos();
         const bool mouseClicked = ctx.IsMouseClicked();
 
@@ -734,7 +734,7 @@ Response DatePicker::Run(
         }
 
         if (popLayout.hasTime) {
-            const Vec2 wheel = ctx.GetPopupMouseWheel(id);
+            const Vec2 wheel = ctx.GetMouseWheel();
             for (int u = 0; u < popLayout.timeUnitCount; ++u) {
                 const size_t su = static_cast<size_t>(u);
                 if (popLayout.timeMinusRects[su].Contains(mouse)) {
@@ -821,8 +821,6 @@ Response DatePicker::Run(
             isOpen = false;
             ctx.RequestFocus(id);
         }
-
-        ctx.EndOverlayHitCheck();
     }
 
     if (isOpen) {

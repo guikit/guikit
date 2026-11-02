@@ -345,7 +345,7 @@ SplitViewScope SplitView::Open(
     const bool hasPrevSash = (st.prevSashRect.w > 0.0f && st.prevSashRect.h > 0.0f);
 
     if (!activeDisabled && hasPrevSash) {
-        ctx.BeginOverlayHitCheck(idSash);
+        auto hitScope = ctx.ScopedOverlayHitCheck(idSash);
         const Vec2 mouse = ctx.GetMousePos();
         const bool occludedByPopup = ctx.GetOpenPopupId().IsValid() && ctx.GetOpenPopupRect().Contains(mouse);
         const bool occludedByModal = ctx.IsModalBlocking(mouse);
@@ -435,8 +435,6 @@ SplitViewScope SplitView::Open(
         if (st.sashHovered || st.dragging) {
             ctx.SetCursor(isHoriz ? CursorType::ResizeEW : CursorType::ResizeNS);
         }
-
-        ctx.EndOverlayHitCheck();
     } else {
         st.dragging = false;
         if (ctx.GetActiveId() == idSash) {

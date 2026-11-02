@@ -1824,8 +1824,33 @@ public:
     void RegisterOverlay(std::function<void(ICanvas&)> drawFn);
     void RegisterOverlayHitRegion(Id id, Rect rect);
     void RegisterOverlayHitBuilder(std::function<void()> builderFn);
-    void BeginOverlayHitCheck(Id id) noexcept { m_activeOverlayHitCheckId = id; }
-    void EndOverlayHitCheck() noexcept { m_activeOverlayHitCheckId = Id::Null(); }
+    /// RAII scope guard that enters an overlay's hit-testing context and restores the previous overlay ID on exit.
+    class [[nodiscard]] OverlayHitCheckScope {
+    public:
+        OverlayHitCheckScope(Context& ctx, Id id) noexcept
+            : m_ctx(&ctx), m_prevId(ctx.m_activeOverlayHitCheckId) {
+            ctx.m_activeOverlayHitCheckId = id;
+        }
+        OverlayHitCheckScope(OverlayHitCheckScope&& other) noexcept
+            : m_ctx(other.m_ctx), m_prevId(other.m_prevId) {
+            other.m_ctx = nullptr;
+        }
+        OverlayHitCheckScope(const OverlayHitCheckScope&) = delete;
+        OverlayHitCheckScope& operator=(const OverlayHitCheckScope&) = delete;
+        OverlayHitCheckScope& operator=(OverlayHitCheckScope&&) = delete;
+        ~OverlayHitCheckScope() noexcept {
+            if (m_ctx) {
+                m_ctx->m_activeOverlayHitCheckId = m_prevId;
+            }
+        }
+    private:
+        Context* m_ctx{nullptr};
+        Id m_prevId{Id::Null()};
+    };
+
+    [[nodiscard]] OverlayHitCheckScope ScopedOverlayHitCheck(Id id) noexcept {
+        return OverlayHitCheckScope(*this, id);
+    }
     void BeginWidgetExecution() noexcept { ++m_widgetExecDepth; }
     void EndWidgetExecution() noexcept { if (m_widgetExecDepth > 0) --m_widgetExecDepth; }
     [[nodiscard]] bool IsMouseOccluded(Id id, Vec2 pos) const noexcept;
@@ -1883,19 +1908,7 @@ public:
     [[nodiscard]] KeyModifiers GetKeyModifiers() const noexcept { return m_keyMods; }
     [[nodiscard]] Vec2 GetViewportSize() const noexcept { return m_viewportSize; }
     [[nodiscard]] Vec2 GetMouseWheel() const noexcept {
-        if (m_openPopupId.IsValid() && m_openPopupRect.Contains(m_mousePos)) {
-            return {0.0f, 0.0f};
-        }
-        if (IsModalBlocking(m_mousePos) || IsMouseBlockedForCurrentScope()) {
-            return {0.0f, 0.0f};
-        }
-        return m_mouseWheel;
-    }
-    [[nodiscard]] Vec2 GetPopupMouseWheel(Id popupId) const noexcept {
-        if (m_openPopupId == popupId && popupId.IsValid()) {
-            return m_mouseWheel;
-        }
-        return {0.0f, 0.0f};
+        return IsMouseBlockedForCurrentScope() ? Vec2{0.0f, 0.0f} : m_mouseWheel;
     }
     void ConsumeMouseWheel() noexcept { m_mouseWheel = {0.0f, 0.0f}; }
     bool ConsumeKey(Key key);

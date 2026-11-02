@@ -4,6 +4,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Tokens.hpp"
 
 namespace guikit {
@@ -134,6 +135,40 @@ public:
         float fontSize,
         ICanvas* canvas = nullptr
     ) noexcept;
+
+    /// Finds the first UTF-8 (ASCII + Cyrillic) case-insensitive occurrence of `needle` inside `haystack`.
+    /// Returns true and populates `[outBytePos, outBytePos + outByteLen)` when found.
+    [[nodiscard]] static bool FindCaseInsensitive(
+        std::string_view haystack,
+        std::string_view needle,
+        size_t& outBytePos,
+        size_t& outByteLen
+    ) noexcept;
+
+    /// Finds the first UTF-8 (ASCII + Cyrillic) case-insensitive occurrence of `needle` inside `haystack`.
+    /// Returns the starting byte offset, or `std::string_view::npos` if not found.
+    [[nodiscard]] static size_t FindCaseInsensitive(
+        std::string_view haystack,
+        std::string_view needle
+    ) noexcept;
+
+    /// Renders single-line text inside `bounds` (with ellipsis truncation if needed) and draws a rounded
+    /// highlight pill behind the matched byte range `[matchPos, matchPos + matchLen)` when `matchPos != npos`.
+    /// Because the text is rendered in a single unbroken pass, baseline and kerning remain 100% invariant.
+    static void DrawHighlightedTextBox(
+        ICanvas& canvas,
+        std::string_view text,
+        Rect bounds,
+        float fontSize,
+        Color textColor,
+        size_t matchPos,
+        size_t matchLen,
+        Color highlightFill,
+        Color highlightBorder = Color::Transparent(),
+        float pillRadius = 3.0f,
+        float alignY = 0.5f,
+        FontStyle style = FontStyle::Regular
+    );
 };
 
 } // namespace guikit

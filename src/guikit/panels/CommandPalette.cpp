@@ -7,6 +7,7 @@
 #include <vector>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
+#include "guikit/core/Scrollbar.hpp"
 #include "guikit/core/TextUtil.hpp"
 
 namespace guikit {
@@ -19,9 +20,7 @@ struct CommandPalettePersistState {
     float scrollOffset{0.0f};
     Vec2 lastMousePos{-10000.0f, -10000.0f};
     bool wasOpen{false};
-    bool scrollbarDragging{false};
-    float scrollbarDragStartOffset{0.0f};
-    float scrollbarDragStartMouseY{0.0f};
+    ScrollbarState scrollbar{};
 };
 
 struct FilteredCommandEntry {
@@ -29,28 +28,6 @@ struct FilteredCommandEntry {
     size_t labelMatchPos{std::string_view::npos};
     size_t labelMatchLen{0};
 };
-
-size_t FindCaseInsensitive(std::string_view haystack, std::string_view needle) noexcept {
-    if (needle.empty()) return 0;
-    if (needle.size() > haystack.size()) return std::string_view::npos;
-
-    const size_t limit = haystack.size() - needle.size();
-    for (size_t i = 0; i <= limit; ++i) {
-        bool match = true;
-        for (size_t j = 0; j < needle.size(); ++j) {
-            const unsigned char c1 = static_cast<unsigned char>(haystack[i + j]);
-            const unsigned char c2 = static_cast<unsigned char>(needle[j]);
-            if (std::tolower(c1) != std::tolower(c2)) {
-                match = false;
-                break;
-            }
-        }
-        if (match) {
-            return i;
-        }
-    }
-    return std::string_view::npos;
-}
 
 std::vector<FilteredCommandEntry> FilterItems(
     std::span<const CommandPaletteItem> items,
@@ -74,18 +51,19 @@ std::vector<FilteredCommandEntry> FilterItems(
         const std::string_view catSv = it.category.View();
         const std::string_view descSv = it.description.View();
 
-        const size_t labelPos = FindCaseInsensitive(labelSv, query);
-        if (labelPos != std::string_view::npos) {
+        size_t labelPos = 0;
+        size_t labelLen = 0;
+        if (TextUtil::FindCaseInsensitive(labelSv, query, labelPos, labelLen)) {
             result.push_back(FilteredCommandEntry{
                 .origIndex = static_cast<int>(i),
                 .labelMatchPos = labelPos,
-                .labelMatchLen = query.size()
+                .labelMatchLen = labelLen
             });
             continue;
         }
 
-        if (FindCaseInsensitive(catSv, query) != std::string_view::npos ||
-            FindCaseInsensitive(descSv, query) != std::string_view::npos) {
+        if (TextUtil::FindCaseInsensitive(catSv, query) != std::string_view::npos ||
+            TextUtil::FindCaseInsensitive(descSv, query) != std::string_view::npos) {
             result.push_back(FilteredCommandEntry{
                 .origIndex = static_cast<int>(i),
                 .labelMatchPos = std::string_view::npos,
@@ -116,7 +94,7 @@ CommandPaletteResponse CommandPalette::Run(
     if (!isOpen) {
         if (st.wasOpen) {
             st.wasOpen = false;
-            st.scrollbarDragging = false;
+            st.scrollbar = {};
             ctx.InvalidateAll();
         }
         return res;
@@ -137,7 +115,7 @@ CommandPaletteResponse CommandPalette::Run(
         st.query.clear();
         st.highlightedPos = 0;
         st.scrollOffset = 0.0f;
-        st.scrollbarDragging = false;
+        st.scrollbar = {};
         st.lastMousePos = ctx.GetMousePos();
         st.wasOpen = true;
         ctx.InvalidateAll();
@@ -362,143 +340,99 @@ CommandPaletteResponse CommandPalette::Run(
     }
 
     // 5. Mouse wheel, interactive scrollbar & hit testing
-    // Must enter BeginOverlayHitCheck(id) BEFORE querying GetMouseWheel() / IsMouseClicked() / IsMouseDown()
-    // so CommandPalette's own backdrop overlay hit region does not block its input queries.
-    ctx.BeginOverlayHitCheck(id);
+    ScrollbarMetrics sbm = theme.GetScrollbar(activeSize);
+    sbm.scrollStep = std::max(sbm.scrollStep, rowH * 1.25f);
+    const Rect sbViewport(
+        listRect.x,
+        listRect.y + listPadY - sbm.margin,
+        listRect.w,
+        std::max(0.0f, listRect.h - (listPadY - sbm.margin) * 2.0f)
+    );
 
     const Vec2 mouse = ctx.GetMousePos();
     const bool mouseMoved = (std::abs(mouse.x - st.lastMousePos.x) > 0.5f || std::abs(mouse.y - st.lastMousePos.y) > 0.5f);
     st.lastMousePos = mouse;
 
-    const Vec2 wheel = ctx.GetMouseWheel();
-    if (wheel.y != 0.0f && backdropRect.Contains(mouse)) {
-        st.scrollOffset = std::clamp(st.scrollOffset - wheel.y * rowH * 1.25f, 0.0f, maxScroll);
-        ctx.ConsumeMouseWheel();
-        ctx.InvalidateAll();
-    }
-    st.scrollOffset = std::clamp(st.scrollOffset, 0.0f, maxScroll);
+    ScrollbarGeometry sbGeom{};
+    bool clearBtnHovered = false;
+    bool escPillHovered = false;
 
-    const ScrollbarMetrics& sbm = theme.GetScrollbar(activeSize);
-    const bool hasScrollbar = (maxScroll > 0.5f && totalListContentH > 0.0f);
-    const float sbTrackW = std::max(6.0f * s, sbm.trackWidth);
-    const float sbMargin = std::max(3.0f * s, sbm.margin);
-    const float sbTrackX = cardRect.Right() - sbTrackW - sbMargin;
-    const float sbTrackY = listRect.y + listPadY;
-    const float sbTrackH = std::max(10.0f, listRect.h - listPadY * 2.0f);
-    const float sbThumbH = hasScrollbar
-        ? std::clamp((innerListViewportH / totalListContentH) * sbTrackH, std::max(20.0f * s, sbm.minThumbLength), sbTrackH)
-        : 0.0f;
-    const float sbTravel = std::max(0.0f, sbTrackH - sbThumbH);
-    const float sbHitLeft = sbTrackX - 4.0f * s;
-    const Rect sbHitTrackRect(sbHitLeft, listRect.y, std::max(0.0f, cardRect.Right() - sbHitLeft), listRect.h);
+    {
+        auto hitScope = ctx.ScopedOverlayHitCheck(id);
 
-    auto computeThumbY = [&]() noexcept {
-        const float ratio = (maxScroll > 0.0f) ? std::clamp(st.scrollOffset / maxScroll, 0.0f, 1.0f) : 0.0f;
-        return sbTrackY + ratio * sbTravel;
-    };
+        sbGeom = Scrollbar::UpdateVertical(
+            ctx,
+            id,
+            sbViewport,
+            totalListContentH,
+            st.scrollOffset,
+            st.scrollbar,
+            sbm,
+            backdropRect
+        );
 
-    if (!hasScrollbar) {
-        st.scrollbarDragging = false;
-    } else if (st.scrollbarDragging) {
-        if (ctx.IsMouseDown()) {
-            const float deltaY = mouse.y - st.scrollbarDragStartMouseY;
-            if (sbTravel > 0.0f) {
-                st.scrollOffset = std::clamp(st.scrollbarDragStartOffset + (deltaY / sbTravel) * maxScroll, 0.0f, maxScroll);
-            }
-            ctx.InvalidateAll();
-        } else {
-            st.scrollbarDragging = false;
-            ctx.InvalidateAll();
-        }
-    }
+        clearBtnHovered = !st.query.empty() && clearRect.Contains(mouse);
+        escPillHovered = opts.closeOnEscape && escRect.Contains(mouse);
 
-    const float curThumbY = computeThumbY();
-    const Rect sbHitThumbRect(sbHitLeft, curThumbY - 2.0f * s, sbHitTrackRect.w, sbThumbH + 4.0f * s);
-    const bool sbThumbHovered = hasScrollbar && sbHitThumbRect.Contains(mouse);
-    const bool sbTrackHovered = hasScrollbar && sbHitTrackRect.Contains(mouse);
-    const bool sbHovered = sbThumbHovered || sbTrackHovered;
-
-    const bool clearBtnHovered = !st.query.empty() && clearRect.Contains(mouse);
-    const bool escPillHovered = opts.closeOnEscape && escRect.Contains(mouse);
-
-    int hoveredFilteredPos = -1;
-    if (filteredCount > 0 && listRect.Contains(mouse) && !sbHovered && !st.scrollbarDragging) {
-        const float relY = (mouse.y - (listRect.y + listPadY)) + st.scrollOffset;
-        if (relY >= 0.0f) {
-            const int idx = static_cast<int>(relY / rowH);
-            if (idx >= 0 && idx < filteredCount) {
-                hoveredFilteredPos = idx;
-                if (mouseMoved && st.highlightedPos != idx) {
-                    st.highlightedPos = idx;
-                    ctx.InvalidateAll();
+        int hoveredFilteredPos = -1;
+        if (filteredCount > 0 && listRect.Contains(mouse) && !st.scrollbar.hovered && !st.scrollbar.dragging) {
+            const float relY = (mouse.y - (listRect.y + listPadY)) + st.scrollOffset;
+            if (relY >= 0.0f) {
+                const int idx = static_cast<int>(relY / rowH);
+                if (idx >= 0 && idx < filteredCount) {
+                    hoveredFilteredPos = idx;
+                    if (mouseMoved && st.highlightedPos != idx) {
+                        st.highlightedPos = idx;
+                        ctx.InvalidateAll();
+                    }
                 }
             }
         }
-    }
 
-    if (ctx.IsMouseClicked()) {
-        if (cardRect.Contains(mouse)) {
-            if (sbThumbHovered) {
-                st.scrollbarDragging = true;
-                st.scrollbarDragStartMouseY = mouse.y;
-                st.scrollbarDragStartOffset = st.scrollOffset;
-                ctx.ConsumeMouseClick();
-                ctx.InvalidateAll();
-            } else if (sbTrackHovered) {
-                if (sbTravel > 0.0f) {
-                    const float targetRatio = std::clamp((mouse.y - sbTrackY - sbThumbH * 0.5f) / sbTravel, 0.0f, 1.0f);
-                    st.scrollOffset = targetRatio * maxScroll;
-                    st.scrollbarDragging = true;
-                    st.scrollbarDragStartMouseY = mouse.y;
-                    st.scrollbarDragStartOffset = st.scrollOffset;
-                }
-                ctx.ConsumeMouseClick();
-                ctx.InvalidateAll();
-            } else if (clearBtnHovered) {
-                st.query.clear();
-                st.highlightedPos = 0;
-                st.scrollOffset = 0.0f;
-                ctx.ConsumeMouseClick();
-                ctx.InvalidateAll();
-                filtered = FilterItems(items, st.query);
-            } else if (escPillHovered) {
-                isOpen = false;
-                st.wasOpen = false;
-                st.scrollbarDragging = false;
-                ctx.ConsumeMouseClick();
-                ctx.InvalidateAll();
-                ctx.EndOverlayHitCheck();
-                return res;
-            } else if (hoveredFilteredPos >= 0 && hoveredFilteredPos < static_cast<int>(filtered.size())) {
-                const int origIdx = filtered[static_cast<size_t>(hoveredFilteredPos)].origIndex;
-                if (origIdx >= 0 && static_cast<size_t>(origIdx) < items.size() && !items[static_cast<size_t>(origIdx)].disabled) {
-                    res.selectedIndex = origIdx;
-                    res.changed = true;
-                    res.clicked = true;
-                    isOpen = false;
-                    st.wasOpen = false;
-                    st.scrollbarDragging = false;
+        if (ctx.IsMouseClicked()) {
+            if (cardRect.Contains(mouse)) {
+                if (clearBtnHovered) {
+                    st.query.clear();
+                    st.highlightedPos = 0;
+                    st.scrollOffset = 0.0f;
                     ctx.ConsumeMouseClick();
                     ctx.InvalidateAll();
-                    ctx.EndOverlayHitCheck();
+                    filtered = FilterItems(items, st.query);
+                    sbGeom = Scrollbar::ComputeVertical(sbViewport, static_cast<float>(filtered.size()) * rowH, st.scrollOffset, sbm);
+                } else if (escPillHovered) {
+                    isOpen = false;
+                    st.wasOpen = false;
+                    st.scrollbar = {};
+                    ctx.ConsumeMouseClick();
+                    ctx.InvalidateAll();
                     return res;
+                } else if (hoveredFilteredPos >= 0 && hoveredFilteredPos < static_cast<int>(filtered.size())) {
+                    const int origIdx = filtered[static_cast<size_t>(hoveredFilteredPos)].origIndex;
+                    if (origIdx >= 0 && static_cast<size_t>(origIdx) < items.size() && !items[static_cast<size_t>(origIdx)].disabled) {
+                        res.selectedIndex = origIdx;
+                        res.changed = true;
+                        res.clicked = true;
+                        isOpen = false;
+                        st.wasOpen = false;
+                        st.scrollbar = {};
+                        ctx.ConsumeMouseClick();
+                        ctx.InvalidateAll();
+                        return res;
+                    }
+                    ctx.ConsumeMouseClick();
+                } else {
+                    ctx.ConsumeMouseClick();
                 }
+            } else if (opts.closeOnBackdropClick && backdropRect.Contains(mouse) && !st.scrollbar.dragging) {
+                isOpen = false;
+                st.wasOpen = false;
+                st.scrollbar = {};
                 ctx.ConsumeMouseClick();
-            } else {
-                ctx.ConsumeMouseClick();
+                ctx.InvalidateAll();
+                return res;
             }
-        } else if (opts.closeOnBackdropClick && backdropRect.Contains(mouse) && !st.scrollbarDragging) {
-            isOpen = false;
-            st.wasOpen = false;
-            st.scrollbarDragging = false;
-            ctx.ConsumeMouseClick();
-            ctx.InvalidateAll();
-            ctx.EndOverlayHitCheck();
-            return res;
         }
     }
-
-    ctx.EndOverlayHitCheck();
 
     // Block underlying widgets from receiving hover/clicks inside backdropRect
     ctx.RegisterOverlayHitRegion(id, backdropRect);
@@ -523,10 +457,9 @@ CommandPaletteResponse CommandPalette::Run(
         Rect rowRect{};
     };
 
-    const float sbRightReserve = hasScrollbar ? (sbTrackW + sbMargin) : 0.0f;
-    const Rect sbTrackRect(sbTrackX, sbTrackY, sbTrackW, sbTrackH);
-    const Rect sbThumbRect(sbTrackX, std::round(computeThumbY()), sbTrackW, std::round(sbThumbH));
-    const bool sbDraggingCopy = st.scrollbarDragging;
+    const float sbRightReserve = sbGeom.visible ? (sbGeom.trackRect.w + sbm.margin) : 0.0f;
+    const bool sbHoveredCopy = st.scrollbar.hovered;
+    const bool sbDraggingCopy = st.scrollbar.dragging;
 
     std::vector<DrawRowItem> drawRows;
     drawRows.reserve(filtered.size());
@@ -574,10 +507,9 @@ CommandPaletteResponse CommandPalette::Run(
         placeholderCopy,
         drawRows = std::move(drawRows),
         totalFiltered,
-        hasScrollbar,
-        sbTrackRect,
-        sbThumbRect,
-        sbHovered,
+        sbGeom,
+        sbm,
+        sbHoveredCopy,
         sbDraggingCopy,
         showFooter,
         backdropOpacity,
@@ -838,44 +770,20 @@ CommandPaletteResponse CommandPalette::Run(
                 if (availTextW > 4.0f) {
                     const std::string_view labelSv = row.label;
                     const float fullLabelW = c.MeasureText(labelSv, labelFont).x;
-                    const std::string truncLabel = TextUtil::TruncateWithEllipsis(labelSv, availTextW, labelFont, &c);
 
-                    if (row.matchPos != std::string_view::npos &&
-                        row.matchLen > 0 &&
-                        row.matchPos + row.matchLen <= labelSv.size()) {
-                        const float x0 = curX + (row.matchPos == 0
-                            ? 0.0f
-                            : c.MeasureText(labelSv.substr(0, row.matchPos), labelFont).x);
-                        const float x1 = curX + c.MeasureText(labelSv.substr(0, row.matchPos + row.matchLen), labelFont).x;
-
-                        if (x1 <= curX + availTextW + 1.0f && x1 > x0 + 0.5f) {
-                            const float hlH = std::round(labelFont * 1.32f);
-                            const Rect hlRect(
-                                std::round(x0 - 1.5f * s),
-                                std::round(rr.y + (rr.h - hlH) * 0.5f),
-                                std::round((x1 - x0) + 3.0f * s),
-                                hlH
-                            );
-                            c.DrawRoundRect(
-                                hlRect,
-                                3.0f * s,
-                                primaryCol.WithAlphaF(0.32f),
-                                primaryCol.WithAlphaF(0.55f),
-                                1.0f
-                            );
-                        }
-                    }
-
-                    if (!truncLabel.empty()) {
-                        c.DrawTextBox(
-                            truncLabel,
-                            Rect(curX, rr.y, availTextW, rr.h),
-                            labelFont,
-                            fg,
-                            0.0f,
-                            0.5f
-                        );
-                    }
+                    TextUtil::DrawHighlightedTextBox(
+                        c,
+                        labelSv,
+                        Rect(curX, rr.y, availTextW, rr.h),
+                        labelFont,
+                        fg,
+                        row.matchPos,
+                        row.matchLen,
+                        primaryCol.WithAlphaF(0.32f),
+                        primaryCol.WithAlphaF(0.55f),
+                        3.0f * s,
+                        0.5f
+                    );
 
                     curX += std::min(fullLabelW, availTextW) + 12.0f * s;
 
@@ -902,26 +810,7 @@ CommandPaletteResponse CommandPalette::Run(
             }
 
             // Interactive scrollbar track & thumb when list overflows
-            if (hasScrollbar) {
-                const float sbRadius = sbTrackRect.w * 0.5f;
-                c.DrawRoundRect(
-                    sbTrackRect,
-                    sbRadius,
-                    pal.borderSubtle.WithAlphaF(0.45f),
-                    Color::Transparent(),
-                    0.0f
-                );
-                const Color thumbCol = sbDraggingCopy
-                    ? primaryCol
-                    : (sbHovered ? pal.textSecondary : pal.textMuted.WithAlphaF(0.68f));
-                c.DrawRoundRect(
-                    sbThumbRect,
-                    sbRadius,
-                    thumbCol,
-                    Color::Transparent(),
-                    0.0f
-                );
-            }
+            Scrollbar::DrawVertical(c, sbGeom, sbHoveredCopy, sbDraggingCopy, sbm, pal, primaryCol);
         }
         c.PopClip();
 

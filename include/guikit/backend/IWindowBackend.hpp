@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 #include "guikit/backend/ICanvas.hpp"
+#include "guikit/backend/VectorBackend.hpp"
 #include "guikit/core/FrameMetrics.hpp"
 #include "guikit/core/Theme.hpp"
 
@@ -31,6 +32,7 @@ struct MainWindowConfig {
     int idleHeartbeatMs = 500;  ///< Periodic wakeup interval in reactive mode (-1 to disable)
     ThemeMode initialThemeMode = ThemeMode::Dark;
     ShellStyle initialShellStyle = ShellStyle::Docked;
+    VectorCanvasFactory canvasFactory = nullptr; ///< Optional per-window custom `ICanvas` factory override
 };
 
 /// Callbacks invoked by an `IWindowBackend` into its hosting `MainWindow`.

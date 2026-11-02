@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <vector>
 #include "guikit/backend/ICanvas.hpp"
+#include "guikit/backend/VectorBackend.hpp"
 
 namespace tvg {
 class SwCanvas;
@@ -74,6 +75,15 @@ public:
         Rect bounds,
         float fontSize,
         Color color,
+        float alignX = 0.0f,
+        float alignY = 0.5f
+    ) override;
+    void DrawTextBoxStyled(
+        std::string_view text,
+        Rect bounds,
+        float fontSize,
+        Color color,
+        FontStyle style,
         float alignX = 0.0f,
         float alignY = 0.5f
     ) override;
@@ -272,5 +282,18 @@ private:
     std::unordered_map<ShapeStampKey, TextStampEntry, ShapeStampKeyHash> m_shapeStampCache;
     std::unordered_map<std::string, ImageCacheEntry> m_imageCache;
 };
+
+/// Creates a new `ThorCanvas` instance.
+[[nodiscard]] std::unique_ptr<ICanvas> CreateThorVectorCanvas(bool loadDefaultFonts = true);
+
+/// Registers the ThorVG vector canvas factory and image decoder as the default vector backend.
+void RegisterThorVectorBackend() noexcept;
+
+namespace detail {
+struct ThorVectorBackendAutoRegistrar {
+    ThorVectorBackendAutoRegistrar() noexcept { RegisterThorVectorBackend(); }
+};
+inline const ThorVectorBackendAutoRegistrar g_thorVectorBackendAutoRegistrar{};
+} // namespace detail
 
 } // namespace guikit

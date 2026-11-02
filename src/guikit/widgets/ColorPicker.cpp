@@ -371,9 +371,7 @@ Response ColorPicker::Run(
     state.hoveredSwatch = -1;
 
     if (panelActive) {
-        if (!optsCopy.inlinePanel) {
-            ctx.BeginOverlayHitCheck(id);
-        }
+        auto hitScope = ctx.ScopedOverlayHitCheck(optsCopy.inlinePanel ? Id::Null() : id);
         const Rect activePanelRect = optsCopy.inlinePanel ? ctrlRect : ctx.GetOpenPopupRect();
         const PanelLayout L = ComputePanelLayout(activePanelRect, optsCopy, theme);
         const Vec2 mouse = ctx.GetMousePos();
@@ -472,9 +470,6 @@ Response ColorPicker::Run(
             ctx.ClosePopup();
             isOpen = false;
             state.dragTarget = 0;
-        }
-        if (!optsCopy.inlinePanel) {
-            ctx.EndOverlayHitCheck();
         }
     } else {
         state.dragTarget = 0;

@@ -126,7 +126,7 @@ BottomPanelScope BottomPanel::Open(
     state.toggleHovered = false;
 
     if (hasInteractiveEdge) {
-        ctx.BeginOverlayHitCheck(sashId);
+        auto hitScope = ctx.ScopedOverlayHitCheck(sashId);
         const Vec2 mouse = ctx.GetMousePos();
         const bool occludedByPopup = ctx.GetOpenPopupId().IsValid() && ctx.GetOpenPopupRect().Contains(mouse);
         const bool occludedByModal = ctx.IsModalBlocking(mouse);
@@ -272,7 +272,6 @@ BottomPanelScope BottomPanel::Open(
         if (state.sashHovered || state.draggingSash) {
             ctx.SetCursor(CursorType::ResizeNS);
         }
-        ctx.EndOverlayHitCheck();
     } else {
         state.draggingSash = false;
         state.togglePressed = false;

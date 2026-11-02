@@ -461,7 +461,7 @@ void ThorCanvas::DrawRoundRect(
 }
 
 Vec2 ThorCanvas::MeasureText(std::string_view text, float fontSize) {
-    return {MeasureTextStyled(text, fontSize, FontStyle::Regular).x, GetLineHeight(fontSize)};
+    return MeasureTextStyled(text, fontSize, FontStyle::Regular);
 }
 
 Vec2 ThorCanvas::MeasureTextStyled(std::string_view text, float fontSize, FontStyle style) {
@@ -899,6 +899,18 @@ void ThorCanvas::DrawTextBox(
     float alignX,
     float alignY
 ) {
+    DrawTextBoxStyled(text, bounds, fontSize, color, FontStyle::Regular, alignX, alignY);
+}
+
+void ThorCanvas::DrawTextBoxStyled(
+    std::string_view text,
+    Rect bounds,
+    float fontSize,
+    Color color,
+    FontStyle style,
+    float alignX,
+    float alignY
+) {
     if (text.empty() || color.a == 0 || bounds.w <= 0.0f || bounds.h <= 0.0f || !m_canvas) return;
     const Rect sBounds(bounds.x * m_scale, bounds.y * m_scale, bounds.w * m_scale, bounds.h * m_scale);
     if (!m_clipStack.empty()) {
@@ -908,7 +920,7 @@ void ThorCanvas::DrawTextBox(
 
     std::string truncated;
     std::string_view drawText = text;
-    if (bounds.w > 0.0f && MeasureText(text, fontSize).x > bounds.w + kTextSubpixelTolerance) {
+    if (bounds.w > 0.0f && MeasureTextStyled(text, fontSize, style).x > bounds.w + kTextSubpixelTolerance) {
         truncated = TextUtil::TruncateWithEllipsis(text, bounds.w, fontSize, this);
         drawText = truncated;
     }
@@ -917,31 +929,42 @@ void ThorCanvas::DrawTextBox(
     if (m_targetBuffer && m_width > 0 && m_height > 0 &&
         drawText.find('\n') == std::string_view::npos) {
         const std::string_view stampText = (drawText.size() > 512) ? drawText.substr(0, 512) : drawText;
-        const Vec2 m = MeasureTextStyled(stampText, fontSize, FontStyle::Regular);
+        const Vec2 m = MeasureTextStyled(stampText, fontSize, style);
         const float tx = (bounds.x + (bounds.w - m.x) * alignX) * m_scale;
         const float ty = (bounds.y + (bounds.h - m.y) * alignY) * m_scale;
         const int dstX = static_cast<int>(std::round(tx));
         const int dstY = static_cast<int>(std::round(ty));
-        const TextStampEntry& stamp = ResolveTextStamp(stampText, fontSize * m_scale, color, FontStyle::Regular);
+        const TextStampEntry& stamp = ResolveTextStamp(stampText, fontSize * m_scale, color, style);
         BlitTextStamp(stamp, dstX, dstY, Rect(sBounds.x - 2.0f, sBounds.y - 2.0f, sBounds.w + 4.0f, sBounds.h + 4.0f));
         return;
     }
 
-    auto txt = tvg::Text::gen();
-    std::string textStr(drawText);
-    txt->text(textStr.c_str());
+    const bool isItalic = (style == FontStyle::Italic || style == FontStyle::BoldItalic);
+    const bool isBold = (style == FontStyle::Bold || style == FontStyle::BoldItalic);
+    auto emitBoxPass = [&](float offsetX) {
+        auto txt = tvg::Text::gen();
+        std::string textStr(drawText);
+        txt->text(textStr.c_str());
 
-    ApplyFont(txt, FontStyle::Regular);
+        ApplyFont(txt, style);
 
-    txt->size(fontSize * m_scale);
-    txt->fill(color.r, color.g, color.b);
-    txt->opacity(color.a);
-    txt->layout(sBounds.w, sBounds.h);
-    txt->align(alignX, alignY);
-    txt->translate(sBounds.x, sBounds.y);
+        txt->size(fontSize * m_scale);
+        if (isItalic) {
+            txt->italic(0.18f);
+        }
+        txt->fill(color.r, color.g, color.b);
+        txt->opacity(color.a);
+        txt->layout(sBounds.w, sBounds.h);
+        txt->align(alignX, alignY);
+        txt->translate(sBounds.x + offsetX * m_scale, sBounds.y);
 
-    m_canvas->add(txt);
-    m_hasPendingPaints = true;
+        m_canvas->add(txt);
+        m_hasPendingPaints = true;
+    };
+    emitBoxPass(0.0f);
+    if (isBold) {
+        emitBoxPass(0.55f);
+    }
 }
 
 void ThorCanvas::DrawLine(Vec2 p1, Vec2 p2, Color color, float strokeWidth) {
@@ -1645,12 +1668,8 @@ bool ThorCanvas::RestoreRegion(Rect rect, const std::vector<uint32_t>& inPixels,
     return true;
 }
 
-std::unique_ptr<ICanvas> CreateVectorCanvas(VectorBackendType /*type*/, bool loadDefaultFonts) {
+std::unique_ptr<ICanvas> CreateThorVectorCanvas(bool loadDefaultFonts) {
     return std::make_unique<ThorCanvas>(loadDefaultFonts);
-}
-
-std::unique_ptr<ICanvas> CreateOffscreenVectorCanvas(VectorBackendType type) {
-    return CreateVectorCanvas(type, /*loadDefaultFonts=*/false);
 }
 
 namespace {
@@ -1671,9 +1690,7 @@ struct FreeDeleter {
 };
 #endif
 
-} // namespace
-
-bool DecodeImageFromMemory(
+bool DecodeThorImageFromMemory(
     std::span<const uint8_t> encodedBytes,
     uint32_t& outWidth,
     uint32_t& outHeight,
@@ -1802,6 +1819,13 @@ bool DecodeImageFromMemory(
     swCanvas->sync();
     delete swCanvas;
     return true;
+}
+
+} // namespace
+
+void RegisterThorVectorBackend() noexcept {
+    RegisterDefaultVectorCanvasFactory(&CreateThorVectorCanvas);
+    RegisterDefaultImageDecoder(&DecodeThorImageFromMemory);
 }
 
 } // namespace guikit

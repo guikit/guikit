@@ -636,4 +636,156 @@ size_t TextUtil::HitTestIndex(
     return (localX < midX) ? boundaries[low] : boundaries[high];
 }
 
+bool TextUtil::FindCaseInsensitive(
+    std::string_view haystack,
+    std::string_view needle,
+    size_t& outBytePos,
+    size_t& outByteLen
+) noexcept {
+    outBytePos = 0;
+    outByteLen = 0;
+    if (needle.empty()) {
+        return true;
+    }
+    if (haystack.empty()) {
+        return false;
+    }
+
+    auto decodeCp = [](std::string_view sv, size_t& ioIdx) noexcept -> uint32_t {
+        if (ioIdx >= sv.size()) return 0;
+        const auto b0 = static_cast<unsigned char>(sv[ioIdx]);
+        if (b0 < 0x80) {
+            ++ioIdx;
+            return b0;
+        }
+        if ((b0 & 0xE0) == 0xC0 && ioIdx + 1 < sv.size()) {
+            const uint32_t cp = ((b0 & 0x1Fu) << 6) | (static_cast<unsigned char>(sv[ioIdx + 1]) & 0x3Fu);
+            ioIdx += 2;
+            return cp;
+        }
+        if ((b0 & 0xF0) == 0xE0 && ioIdx + 2 < sv.size()) {
+            const uint32_t cp = ((b0 & 0x0Fu) << 12) |
+                                ((static_cast<unsigned char>(sv[ioIdx + 1]) & 0x3Fu) << 6) |
+                                (static_cast<unsigned char>(sv[ioIdx + 2]) & 0x3Fu);
+            ioIdx += 3;
+            return cp;
+        }
+        if ((b0 & 0xF8) == 0xF0 && ioIdx + 3 < sv.size()) {
+            const uint32_t cp = ((b0 & 0x07u) << 18) |
+                                ((static_cast<unsigned char>(sv[ioIdx + 1]) & 0x3Fu) << 12) |
+                                ((static_cast<unsigned char>(sv[ioIdx + 2]) & 0x3Fu) << 6) |
+                                (static_cast<unsigned char>(sv[ioIdx + 3]) & 0x3Fu);
+            ioIdx += 4;
+            return cp;
+        }
+        ++ioIdx;
+        return b0;
+    };
+
+    auto toLowerCp = [](uint32_t cp) noexcept -> uint32_t {
+        if (cp >= 'A' && cp <= 'Z') {
+            return cp + ('a' - 'A');
+        }
+        if (cp >= 0x0410 && cp <= 0x042F) { // Cyrillic А..Я -> а..я
+            return cp + 0x20;
+        }
+        if (cp == 0x0401) { // Ё -> ё
+            return 0x0451;
+        }
+        return cp;
+    };
+
+    size_t hStart = 0;
+    while (hStart < haystack.size()) {
+        const size_t matchStart = hStart;
+        size_t hCursor = hStart;
+        size_t nCursor = 0;
+        bool matched = true;
+        while (nCursor < needle.size()) {
+            if (hCursor >= haystack.size()) {
+                matched = false;
+                break;
+            }
+            const uint32_t hCp = toLowerCp(decodeCp(haystack, hCursor));
+            const uint32_t nCp = toLowerCp(decodeCp(needle, nCursor));
+            if (hCp != nCp) {
+                matched = false;
+                break;
+            }
+        }
+        if (matched) {
+            outBytePos = matchStart;
+            outByteLen = hCursor - matchStart;
+            return true;
+        }
+        decodeCp(haystack, hStart);
+    }
+    return false;
+}
+
+size_t TextUtil::FindCaseInsensitive(std::string_view haystack, std::string_view needle) noexcept {
+    size_t pos = 0;
+    size_t len = 0;
+    return FindCaseInsensitive(haystack, needle, pos, len) ? pos : std::string_view::npos;
+}
+
+void TextUtil::DrawHighlightedTextBox(
+    ICanvas& canvas,
+    std::string_view text,
+    Rect bounds,
+    float fontSize,
+    Color textColor,
+    size_t matchPos,
+    size_t matchLen,
+    Color highlightFill,
+    Color highlightBorder,
+    float pillRadius,
+    float alignY,
+    FontStyle style
+) {
+    if (text.empty() || bounds.w <= 1.0f || bounds.h <= 1.0f || fontSize <= 0.0f) {
+        return;
+    }
+
+    const std::string truncText = TruncateWithEllipsis(text, bounds.w, fontSize, &canvas);
+    if (truncText.empty()) {
+        return;
+    }
+
+    if (matchPos != std::string_view::npos &&
+        matchLen > 0 &&
+        matchPos < text.size() &&
+        highlightFill.a > 0) {
+        const size_t safeEnd = std::min(text.size(), matchPos + matchLen);
+        const float x0 = bounds.x + (matchPos == 0
+            ? 0.0f
+            : canvas.MeasureTextStyled(text.substr(0, matchPos), fontSize, style).x);
+        const float x1 = bounds.x + canvas.MeasureTextStyled(text.substr(0, safeEnd), fontSize, style).x;
+
+        if (x1 > x0 + 0.5f && x0 < bounds.Right()) {
+            const float clampedX1 = std::min(x1, bounds.Right());
+            if (clampedX1 > x0 + 0.5f) {
+                const float hlH = std::round(fontSize * 1.30f);
+                const Rect hlRect = Rect(
+                    std::round(x0 - 1.5f),
+                    std::round(bounds.y + (bounds.h - hlH) * alignY),
+                    std::round((clampedX1 - x0) + 3.0f),
+                    hlH
+                ).Intersect(bounds);
+                if (hlRect.w > 0.0f && hlRect.h > 0.0f) {
+                    canvas.DrawRoundRect(
+                        hlRect,
+                        pillRadius,
+                        highlightFill,
+                        highlightBorder,
+                        (highlightBorder.a > 0) ? 1.0f : 0.0f
+                    );
+                }
+            }
+        }
+    }
+
+    canvas.DrawTextBoxStyled(truncText, bounds, fontSize, textColor, style, 0.0f, alignY);
+}
+
 } // namespace guikit

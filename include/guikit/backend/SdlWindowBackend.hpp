@@ -8,7 +8,7 @@
 #include <vector>
 #include "guikit/backend/IWindowBackend.hpp"
 #include "guikit/backend/SdlGlShaderEngine.hpp"
-#include "guikit/backend/ThorCanvas.hpp"
+#include "guikit/backend/VectorBackend.hpp"
 
 namespace guikit {
 
@@ -18,10 +18,10 @@ namespace guikit {
 /// - Linux / macOS / Fallback: Uses `SDL_GetWindowDisplayScale(window)` relative to 96 DPI.
 [[nodiscard]] float QueryDisplayPixelsPerMm(SDL_Window* window = nullptr) noexcept;
 
-/// SDL3 + OpenGL ES3 / WebGL2 + ThorVG implementation of `guikit::IWindowBackend`.
+/// SDL3 + OpenGL ES3 / WebGL2 implementation of `guikit::IWindowBackend` with interchangeable `ICanvas`.
 class SdlWindowBackend final : public IWindowBackend {
 public:
-    SdlWindowBackend() = default;
+    explicit SdlWindowBackend(std::unique_ptr<ICanvas> canvas = nullptr);
     ~SdlWindowBackend() override;
 
     SdlWindowBackend(const SdlWindowBackend&) = delete;
@@ -34,8 +34,8 @@ public:
     [[nodiscard]] bool UsesMainLoopCallback() const noexcept override;
     void RunMainLoopCallback(std::function<bool()> stepFn) override;
 
-    [[nodiscard]] ICanvas& GetCanvas() noexcept override { return m_canvas; }
-    [[nodiscard]] const ICanvas& GetCanvas() const noexcept override { return m_canvas; }
+    [[nodiscard]] ICanvas& GetCanvas() noexcept override { return *m_canvas; }
+    [[nodiscard]] const ICanvas& GetCanvas() const noexcept override { return *m_canvas; }
 
     void PrepareFrameTarget(Context& ui) override;
     void PresentFrame(const Context& ui, FrameMetrics& metrics, bool forcePresent) override;
@@ -82,7 +82,9 @@ private:
     int m_bufHeight = 0;
     std::vector<uint32_t> m_pixelBuffer;
 
-    ThorCanvas m_canvas;
+    std::unique_ptr<ICanvas> m_canvas;
+    bool m_hasExplicitCanvas = false;
+    bool m_usingFallbackCanvas = false;
     SdlGlShaderEngine m_gpuShaderEngine;
 
     bool m_shouldExit = false;
@@ -101,8 +103,11 @@ private:
     CursorType m_activeCursor = CursorType::Default;
 };
 
-/// Creates a new `SdlWindowBackend` instance.
+/// Creates a new `SdlWindowBackend` instance using the default registered vector canvas.
 [[nodiscard]] std::unique_ptr<IWindowBackend> CreateSdlWindowBackend();
+
+/// Creates a new `SdlWindowBackend` instance with an explicitly injected `ICanvas` backend.
+[[nodiscard]] std::unique_ptr<IWindowBackend> CreateSdlWindowBackend(std::unique_ptr<ICanvas> canvas);
 
 /// Registers `CreateSdlWindowBackend` as the default `IWindowBackend` factory for `guikit::MainWindow`.
 void RegisterSdlWindowBackend() noexcept;

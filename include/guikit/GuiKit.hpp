@@ -11,6 +11,9 @@
 
 #include "guikit/Core.hpp"
 #include "guikit/Scenes.hpp"
+#if __has_include("thorvg.h")
+#include "guikit/backend/ThorCanvas.hpp"
+#endif
 #if __has_include(<SDL3/SDL.h>)
 #include "guikit/backend/SdlWindowBackend.hpp"
 #endif

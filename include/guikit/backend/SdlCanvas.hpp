@@ -24,6 +24,7 @@ public:
     [[nodiscard]] SDL_Renderer* GetRenderer() const noexcept { return m_renderer; }
 
     // ICanvas implementation
+    [[nodiscard]] bool UsesCpuFramebuffer() const noexcept override { return false; }
     void Begin(uint32_t width, uint32_t height, float scale = 1.0f) override;
     void End() override;
     [[nodiscard]] float GetScale() const noexcept override { return m_scale; }

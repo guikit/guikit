@@ -51,91 +51,13 @@ size_t SnapToUtf8CodepointBoundary(std::string_view text, size_t idx) noexcept {
     return idx;
 }
 
-uint32_t DecodeUtf8Codepoint(std::string_view sv, size_t& ioIdx) noexcept {
-    if (ioIdx >= sv.size()) return 0;
-    const unsigned char b0 = static_cast<unsigned char>(sv[ioIdx]);
-    if (b0 < 0x80) {
-        ++ioIdx;
-        return b0;
-    }
-    if ((b0 & 0xE0) == 0xC0 && ioIdx + 1 < sv.size()) {
-        const uint32_t cp = ((b0 & 0x1Fu) << 6) | (static_cast<unsigned char>(sv[ioIdx + 1]) & 0x3Fu);
-        ioIdx += 2;
-        return cp;
-    }
-    if ((b0 & 0xF0) == 0xE0 && ioIdx + 2 < sv.size()) {
-        const uint32_t cp = ((b0 & 0x0Fu) << 12) |
-                            ((static_cast<unsigned char>(sv[ioIdx + 1]) & 0x3Fu) << 6) |
-                            (static_cast<unsigned char>(sv[ioIdx + 2]) & 0x3Fu);
-        ioIdx += 3;
-        return cp;
-    }
-    if ((b0 & 0xF8) == 0xF0 && ioIdx + 3 < sv.size()) {
-        const uint32_t cp = ((b0 & 0x07u) << 18) |
-                            ((static_cast<unsigned char>(sv[ioIdx + 1]) & 0x3Fu) << 12) |
-                            ((static_cast<unsigned char>(sv[ioIdx + 2]) & 0x3Fu) << 6) |
-                            (static_cast<unsigned char>(sv[ioIdx + 3]) & 0x3Fu);
-        ioIdx += 4;
-        return cp;
-    }
-    ++ioIdx;
-    return b0;
-}
-
-uint32_t ToLowerCodepoint(uint32_t cp) noexcept {
-    if (cp >= 'A' && cp <= 'Z') {
-        return cp + ('a' - 'A');
-    }
-    if (cp >= 0x0410 && cp <= 0x042F) { // Cyrillic А..Я -> а..я
-        return cp + 0x20;
-    }
-    if (cp == 0x0401) { // Ё -> ё
-        return 0x0451;
-    }
-    return cp;
-}
-
 bool FindCaseInsensitiveSubstring(
     std::string_view haystack,
     std::string_view needle,
     size_t& outBytePos,
     size_t& outByteLen
 ) noexcept {
-    outBytePos = 0;
-    outByteLen = 0;
-    if (needle.empty()) {
-        return true;
-    }
-    if (haystack.empty()) {
-        return false;
-    }
-
-    size_t hStart = 0;
-    while (hStart < haystack.size()) {
-        const size_t matchStart = hStart;
-        size_t hCursor = hStart;
-        size_t nCursor = 0;
-        bool matched = true;
-        while (nCursor < needle.size()) {
-            if (hCursor >= haystack.size()) {
-                matched = false;
-                break;
-            }
-            const uint32_t hCp = ToLowerCodepoint(DecodeUtf8Codepoint(haystack, hCursor));
-            const uint32_t nCp = ToLowerCodepoint(DecodeUtf8Codepoint(needle, nCursor));
-            if (hCp != nCp) {
-                matched = false;
-                break;
-            }
-        }
-        if (matched) {
-            outBytePos = matchStart;
-            outByteLen = hCursor - matchStart;
-            return true;
-        }
-        DecodeUtf8Codepoint(haystack, hStart);
-    }
-    return false;
+    return TextUtil::FindCaseInsensitive(haystack, needle, outBytePos, outByteLen);
 }
 
 bool ContainsCaseInsensitive(std::string_view haystack, std::string_view needle) noexcept {
@@ -853,7 +775,7 @@ Response Select::Run(
     // Process open popup interaction, scrolling, and keyboard navigation
     int hoveredItem = -1;
     if (isOpen && wasOpen && !effectiveDisabled) {
-        ctx.BeginOverlayHitCheck(id);
+        auto hitScope = ctx.ScopedOverlayHitCheck(id);
         const Rect popupRect = ctx.GetOpenPopupRect();
         const Vec2 mouse = ctx.GetMousePos();
         const float viewportH = std::max(0.0f, popupRect.h - 8.0f);
@@ -864,7 +786,7 @@ Response Select::Run(
 
         // 1. Mouse wheel scrolling inside popup
         if (hasScrollbar && popupRect.Contains(mouse)) {
-            const Vec2 wheel = ctx.GetPopupMouseWheel(id);
+            const Vec2 wheel = ctx.GetMouseWheel();
             if (wheel.y != 0.0f || wheel.x != 0.0f) {
                 popupState.scrollY = std::clamp(popupState.scrollY - wheel.y * sm.scrollStep, 0.0f, maxScrollY);
                 ctx.ConsumeMouseWheel();
@@ -1044,7 +966,6 @@ Response Select::Run(
                 }
             }
         }
-        ctx.EndOverlayHitCheck();
     } else if (!isOpen) {
         popupState.draggingScrollbar = false;
         popupState.scrollbarHovered = false;
@@ -1596,15 +1517,21 @@ void Select::RenderPopup(
         if (!highlightQuery.empty() && !item.text.empty()) {
             size_t matchPos = 0;
             size_t matchLen = 0;
-            if (FindCaseInsensitiveSubstring(item.text.text, highlightQuery, matchPos, matchLen) && matchLen > 0) {
-                const float x0 = textLeftX + canvas.MeasureText(item.text.text.substr(0, matchPos), selFont).x;
-                const float x1 = textLeftX + canvas.MeasureText(item.text.text.substr(0, matchPos + matchLen), selFont).x;
-                const float hlH = selFont * 1.25f;
-                const float hlY = itemRect.y + (itemRect.h - hlH) * 0.5f;
-                const Rect hlRect = Rect(x0 - 1.0f, hlY, std::max(2.0f, (x1 - x0) + 2.0f), hlH).Intersect(itemTextRect);
-                if (hlRect.w > 0.0f && hlRect.h > 0.0f) {
-                    canvas.DrawRoundRect(hlRect, 2.0f, pal.accent.WithAlpha(68), Color::Transparent(), 0.0f);
-                }
+            if (TextUtil::FindCaseInsensitive(item.text.text, highlightQuery, matchPos, matchLen) && matchLen > 0) {
+                TextUtil::DrawHighlightedTextBox(
+                    canvas,
+                    item.text.text,
+                    itemTextRect,
+                    selFont,
+                    itemTextCol,
+                    matchPos,
+                    matchLen,
+                    pal.accent.WithAlpha(68),
+                    Color::Transparent(),
+                    2.0f,
+                    0.5f
+                );
+                continue;
             }
         }
 
@@ -2114,15 +2041,21 @@ void RenderMultiPopup(
         if (!highlightQuery.empty() && !item.text.empty()) {
             size_t matchPos = 0;
             size_t matchLen = 0;
-            if (FindCaseInsensitiveSubstring(item.text.text, highlightQuery, matchPos, matchLen) && matchLen > 0) {
-                const float x0 = textLeftX + canvas.MeasureText(item.text.text.substr(0, matchPos), selFont).x;
-                const float x1 = textLeftX + canvas.MeasureText(item.text.text.substr(0, matchPos + matchLen), selFont).x;
-                const float hlH = selFont * 1.25f;
-                const float hlY = itemRect.y + (itemRect.h - hlH) * 0.5f;
-                const Rect hlRect = Rect(x0 - 1.0f, hlY, std::max(2.0f, (x1 - x0) + 2.0f), hlH).Intersect(itemTextRect);
-                if (hlRect.w > 0.0f && hlRect.h > 0.0f) {
-                    canvas.DrawRoundRect(hlRect, 2.0f, primaryCol.WithAlpha(68), Color::Transparent(), 0.0f);
-                }
+            if (TextUtil::FindCaseInsensitive(item.text.text, highlightQuery, matchPos, matchLen) && matchLen > 0) {
+                TextUtil::DrawHighlightedTextBox(
+                    canvas,
+                    item.text.text,
+                    itemTextRect,
+                    selFont,
+                    itemTextCol,
+                    matchPos,
+                    matchLen,
+                    primaryCol.WithAlpha(68),
+                    Color::Transparent(),
+                    2.0f,
+                    0.5f
+                );
+                continue;
             }
         }
 
@@ -2566,7 +2499,7 @@ Response Select::RunMulti(
 
     int hoveredItem = -1;
     if (isOpen && wasOpen && !effectiveDisabled) {
-        ctx.BeginOverlayHitCheck(id);
+        auto hitScope = ctx.ScopedOverlayHitCheck(id);
         const Rect popupRect = ctx.GetOpenPopupRect();
         const Vec2 mouse = ctx.GetMousePos();
         const float viewportH = std::max(0.0f, popupRect.h - 8.0f);
@@ -2576,7 +2509,7 @@ Response Select::RunMulti(
         popupState.scrollY = std::clamp(popupState.scrollY, 0.0f, maxScrollY);
 
         if (hasScrollbar && popupRect.Contains(mouse)) {
-            const Vec2 wheel = ctx.GetPopupMouseWheel(id);
+            const Vec2 wheel = ctx.GetMouseWheel();
             if (wheel.y != 0.0f || wheel.x != 0.0f) {
                 popupState.scrollY = std::clamp(popupState.scrollY - wheel.y * sm.scrollStep, 0.0f, maxScrollY);
                 ctx.ConsumeMouseWheel();
@@ -2719,7 +2652,6 @@ Response Select::RunMulti(
                 }
             }
         }
-        ctx.EndOverlayHitCheck();
     } else if (!isOpen) {
         popupState.draggingScrollbar = false;
         popupState.scrollbarHovered = false;

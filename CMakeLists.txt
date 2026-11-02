@@ -41,6 +41,8 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/core/Theme.cpp
     src/guikit/core/Assets.cpp
     src/guikit/core/TextUtil.cpp
+    src/guikit/core/Scrollbar.cpp
+    src/guikit/core/VectorBackend.cpp
     src/guikit/core/Control.cpp
     src/guikit/core/Element.cpp
     src/guikit/core/Solver.cpp
@@ -194,9 +196,6 @@ if (GUIKIT_BUILD_BACKEND_THORVG)
     if (NOT EMSCRIPTEN)
         target_link_libraries(guikit_backend_thorvg PUBLIC Threads::Threads)
     endif()
-    if (TARGET guikit_scenes)
-        target_link_libraries(guikit_scenes PUBLIC guikit::backend_thorvg)
-    endif()
 endif()
 
 # ==============================================================================
@@ -225,9 +224,6 @@ if (GUIKIT_BUILD_BACKEND_SDL3)
 
     target_compile_features(guikit_backend_sdl3 PUBLIC cxx_std_20)
     target_link_libraries(guikit_backend_sdl3 PUBLIC guikit::core SDL3::SDL3-static)
-    if (TARGET guikit::backend_thorvg)
-        target_link_libraries(guikit_backend_sdl3 PUBLIC guikit::backend_thorvg)
-    endif()
 endif()
 
 # ==============================================================================

@@ -1776,6 +1776,9 @@ private:
                     }
                 }
 
+                if (!workerCanvas) {
+                    workerCanvas = CreateCanvasThreadSafe();
+                }
                 if (!aborted && workerCanvas && job.epoch == GetCurrentEpoch()) {
                     RasterizeCandidatesToPixels(
                         *workerCanvas,

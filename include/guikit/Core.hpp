@@ -7,6 +7,7 @@
 
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
+#include "guikit/backend/VectorBackend.hpp"
 #include "guikit/core/Allocator.hpp"
 #include "guikit/core/Assets.hpp"
 #include "guikit/core/ContainerScope.hpp"
@@ -17,6 +18,7 @@
 #include "guikit/core/MainWindow.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/Response.hpp"
+#include "guikit/core/Scrollbar.hpp"
 #include "guikit/core/Solver.hpp"
 #include "guikit/core/TextUtil.hpp"
 #include "guikit/core/Theme.hpp"

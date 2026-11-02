@@ -117,6 +117,12 @@ public:
         return SurfacePixelFormat::ABGR8888_Premul;
     }
 
+    /// Returns true if this canvas rasterizes into a CPU-side 32-bit pixel buffer bound via `SetTarget(...)`,
+    /// or false if it renders directly to a hardware GPU / window surface without a CPU framebuffer.
+    [[nodiscard]] virtual bool UsesCpuFramebuffer() const noexcept {
+        return true;
+    }
+
     /// Binds an in-memory 32-bit pixel buffer as the rendering target.
     virtual void SetTarget(uint32_t* /*buffer*/, uint32_t /*width*/, uint32_t /*height*/, uint32_t /*stride*/) {}
 
@@ -197,6 +203,32 @@ public:
         float alignX = 0.0f,
         float alignY = 0.5f
     ) = 0;
+
+    /// Draws styled text constrained within a bounding rectangle with horizontal and vertical alignment factors [0..1].
+    virtual void DrawTextBoxStyled(
+        std::string_view text,
+        Rect bounds,
+        float fontSize,
+        Color color,
+        FontStyle /*style*/,
+        float alignX = 0.0f,
+        float alignY = 0.5f
+    ) {
+        DrawTextBox(text, bounds, fontSize, color, alignX, alignY);
+    }
+
+    /// Convenience overload of DrawTextBox with explicit FontStyle.
+    void DrawTextBox(
+        std::string_view text,
+        Rect bounds,
+        float fontSize,
+        Color color,
+        float alignX,
+        float alignY,
+        FontStyle style
+    ) {
+        DrawTextBoxStyled(text, bounds, fontSize, color, style, alignX, alignY);
+    }
 
     /// Draws a line segment between two points.
     virtual void DrawLine(Vec2 p1, Vec2 p2, Color color, float strokeWidth = 1.0f) = 0;

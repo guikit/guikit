@@ -1,4 +1,5 @@
 #include "guikit/backend/SdlWindowBackend.hpp"
+#include "guikit/backend/SdlCanvas.hpp"
 #include "guikit/Context.hpp"
 
 #if defined(_WIN32)
@@ -118,8 +119,38 @@ std::unique_ptr<IWindowBackend> CreateSdlWindowBackend() {
     return std::make_unique<SdlWindowBackend>();
 }
 
+std::unique_ptr<IWindowBackend> CreateSdlWindowBackend(std::unique_ptr<ICanvas> canvas) {
+    return std::make_unique<SdlWindowBackend>(std::move(canvas));
+}
+
 void RegisterSdlWindowBackend() noexcept {
     RegisterDefaultWindowBackendFactory(&CreateSdlWindowBackend);
+}
+
+namespace {
+
+[[nodiscard]] SDL_PixelFormat ResolveSdlPixelFormat(SurfacePixelFormat fmt) noexcept {
+    switch (fmt) {
+        case SurfacePixelFormat::ARGB8888_Premul:
+            return SDL_PIXELFORMAT_ARGB8888;
+        case SurfacePixelFormat::ABGR8888_Premul:
+        default:
+            return SDL_PIXELFORMAT_ABGR8888;
+    }
+}
+
+} // namespace
+
+SdlWindowBackend::SdlWindowBackend(std::unique_ptr<ICanvas> canvas)
+    : m_canvas(std::move(canvas))
+    , m_hasExplicitCanvas(m_canvas != nullptr) {
+    if (!m_canvas) {
+        m_canvas = CreateVectorCanvas();
+        if (!m_canvas) {
+            m_canvas = std::make_unique<SdlCanvas>(nullptr);
+            m_usingFallbackCanvas = true;
+        }
+    }
 }
 
 SdlWindowBackend::~SdlWindowBackend() {
@@ -199,22 +230,42 @@ bool SdlWindowBackend::Initialize(
 
     const bool shadersAvailable = m_gpuShaderEngine.Initialize(m_renderer);
     m_gpuShadersEnabled = m_config.gpuShaders && shadersAvailable;
-    m_canvas.SetGpuShadersEnabled(m_gpuShadersEnabled);
+
+    if (!m_hasExplicitCanvas && m_config.canvasFactory != nullptr) {
+        if (auto custom = m_config.canvasFactory(true)) {
+            m_canvas = std::move(custom);
+            m_usingFallbackCanvas = false;
+        }
+    } else if (m_usingFallbackCanvas && HasDefaultVectorCanvasFactory()) {
+        if (auto promoted = CreateVectorCanvas(true)) {
+            m_canvas = std::move(promoted);
+            m_usingFallbackCanvas = false;
+        }
+    }
+    if (auto* sdlCanvas = dynamic_cast<SdlCanvas*>(m_canvas.get()); sdlCanvas != nullptr) {
+        sdlCanvas->SetRenderer(m_renderer);
+    }
+    m_canvas->SetGpuShadersEnabled(m_gpuShadersEnabled);
 
     m_bufWidth = m_width;
     m_bufHeight = m_height;
-    m_pixelBuffer.assign(static_cast<size_t>(m_bufWidth) * static_cast<size_t>(m_bufHeight), 0);
-    m_canvas.SetTarget(m_pixelBuffer.data(), m_bufWidth, m_bufHeight, m_bufWidth);
+    if (m_canvas->UsesCpuFramebuffer()) {
+        m_pixelBuffer.assign(static_cast<size_t>(m_bufWidth) * static_cast<size_t>(m_bufHeight), 0);
+        m_canvas->SetTarget(m_pixelBuffer.data(), m_bufWidth, m_bufHeight, m_bufWidth);
 
-    m_screenTexture = SDL_CreateTexture(
-        m_renderer,
-        SDL_PIXELFORMAT_ABGR8888,
-        SDL_TEXTUREACCESS_STREAMING,
-        m_bufWidth,
-        m_bufHeight
-    );
-    SDL_SetTextureScaleMode(m_screenTexture, SDL_SCALEMODE_NEAREST);
-    SDL_SetTextureBlendMode(m_screenTexture, SDL_BLENDMODE_BLEND_PREMULTIPLIED);
+        m_screenTexture = SDL_CreateTexture(
+            m_renderer,
+            ResolveSdlPixelFormat(m_canvas->GetPixelFormat()),
+            SDL_TEXTUREACCESS_STREAMING,
+            m_bufWidth,
+            m_bufHeight
+        );
+        SDL_SetTextureScaleMode(m_screenTexture, SDL_SCALEMODE_NEAREST);
+        SDL_SetTextureBlendMode(m_screenTexture, SDL_BLENDMODE_BLEND_PREMULTIPLIED);
+    } else {
+        m_pixelBuffer.clear();
+        m_pixelBuffer.shrink_to_fit();
+    }
 
     m_displayPxPerMm = QueryDisplayPixelsPerMm(m_window);
 
@@ -253,6 +304,9 @@ void SdlWindowBackend::Shutdown() noexcept {
 
     m_gpuShaderEngine.Shutdown();
 
+    if (auto* sdlCanvas = dynamic_cast<SdlCanvas*>(m_canvas.get()); sdlCanvas != nullptr) {
+        sdlCanvas->SetRenderer(nullptr);
+    }
     if (m_screenTexture != nullptr) {
         SDL_DestroyTexture(m_screenTexture);
         m_screenTexture = nullptr;
@@ -584,57 +638,79 @@ void SdlWindowBackend::ProcessEvent(const SDL_Event& event, Context& ui) {
 }
 
 void SdlWindowBackend::PrepareFrameTarget(Context& ui) {
+    if (!m_canvas) {
+        return;
+    }
     if (m_width != m_bufWidth || m_height != m_bufHeight) {
         m_bufWidth = m_width;
         m_bufHeight = m_height;
-        m_pixelBuffer.assign(static_cast<size_t>(m_bufWidth) * static_cast<size_t>(m_bufHeight), 0);
-        m_canvas.SetTarget(m_pixelBuffer.data(), m_bufWidth, m_bufHeight, m_bufWidth);
-        if (m_screenTexture) {
-            SDL_DestroyTexture(m_screenTexture);
+        if (m_canvas->UsesCpuFramebuffer()) {
+            m_pixelBuffer.assign(static_cast<size_t>(m_bufWidth) * static_cast<size_t>(m_bufHeight), 0);
+            m_canvas->SetTarget(m_pixelBuffer.data(), m_bufWidth, m_bufHeight, m_bufWidth);
+            if (m_screenTexture) {
+                SDL_DestroyTexture(m_screenTexture);
+            }
+            m_screenTexture = SDL_CreateTexture(
+                m_renderer,
+                ResolveSdlPixelFormat(m_canvas->GetPixelFormat()),
+                SDL_TEXTUREACCESS_STREAMING,
+                m_bufWidth,
+                m_bufHeight
+            );
+            SDL_SetTextureScaleMode(m_screenTexture, SDL_SCALEMODE_NEAREST);
+            SDL_SetTextureBlendMode(m_screenTexture, SDL_BLENDMODE_BLEND_PREMULTIPLIED);
+        } else {
+            m_pixelBuffer.clear();
+            m_pixelBuffer.shrink_to_fit();
         }
-        m_screenTexture = SDL_CreateTexture(
-            m_renderer,
-            SDL_PIXELFORMAT_ABGR8888,
-            SDL_TEXTUREACCESS_STREAMING,
-            m_bufWidth,
-            m_bufHeight
-        );
-        SDL_SetTextureScaleMode(m_screenTexture, SDL_SCALEMODE_NEAREST);
-        SDL_SetTextureBlendMode(m_screenTexture, SDL_BLENDMODE_BLEND_PREMULTIPLIED);
         ui.InvalidateAll();
+    }
+    if (!m_canvas->UsesCpuFramebuffer() && m_renderer && ui.HasDirtyDamage()) {
+        SDL_RenderClear(m_renderer);
     }
 }
 
 void SdlWindowBackend::PresentFrame(const Context& ui, FrameMetrics& metrics, bool /*forcePresent*/) {
-    if (!m_renderer || !m_screenTexture) {
+    if (!m_renderer || !m_canvas) {
         return;
     }
 
-    metrics.MarkGpuStart();
-    if (ui.HasDirtyDamage()) {
-        if (ui.IsFullRepaint()) {
-            SDL_UpdateTexture(m_screenTexture, nullptr, m_pixelBuffer.data(), m_width * sizeof(uint32_t));
-        } else {
-            const float dpiScale = ui.GetDpiScale();
-            for (const Rect& dr : ui.GetDirtyRects()) {
-                const int x1 = std::clamp(static_cast<int>(std::floor(dr.x * dpiScale)), 0, m_width);
-                const int y1 = std::clamp(static_cast<int>(std::floor(dr.y * dpiScale)), 0, m_height);
-                const int x2 = std::clamp(static_cast<int>(std::ceil(dr.Right() * dpiScale)), 0, m_width);
-                const int y2 = std::clamp(static_cast<int>(std::ceil(dr.Bottom() * dpiScale)), 0, m_height);
-                if (x2 > x1 && y2 > y1) {
-                    const SDL_Rect sdlR = {x1, y1, x2 - x1, y2 - y1};
-                    const uint32_t* src = m_pixelBuffer.data() + static_cast<size_t>(sdlR.y) * m_width + sdlR.x;
-                    SDL_UpdateTexture(m_screenTexture, &sdlR, src, m_width * sizeof(uint32_t));
+    if (m_canvas->UsesCpuFramebuffer()) {
+        if (!m_screenTexture) {
+            return;
+        }
+        metrics.MarkGpuStart();
+        if (ui.HasDirtyDamage()) {
+            if (ui.IsFullRepaint()) {
+                SDL_UpdateTexture(m_screenTexture, nullptr, m_pixelBuffer.data(), m_width * sizeof(uint32_t));
+            } else {
+                const float dpiScale = ui.GetDpiScale();
+                for (const Rect& dr : ui.GetDirtyRects()) {
+                    const int x1 = std::clamp(static_cast<int>(std::floor(dr.x * dpiScale)), 0, m_width);
+                    const int y1 = std::clamp(static_cast<int>(std::floor(dr.y * dpiScale)), 0, m_height);
+                    const int x2 = std::clamp(static_cast<int>(std::ceil(dr.Right() * dpiScale)), 0, m_width);
+                    const int y2 = std::clamp(static_cast<int>(std::ceil(dr.Bottom() * dpiScale)), 0, m_height);
+                    if (x2 > x1 && y2 > y1) {
+                        const SDL_Rect sdlR = {x1, y1, x2 - x1, y2 - y1};
+                        const uint32_t* src = m_pixelBuffer.data() + static_cast<size_t>(sdlR.y) * m_width + sdlR.x;
+                        SDL_UpdateTexture(m_screenTexture, &sdlR, src, m_width * sizeof(uint32_t));
+                    }
                 }
             }
         }
+        SDL_RenderClear(m_renderer);
+        if (m_canvas->HasActiveGpuPasses()) {
+            m_gpuShaderEngine.RenderUnderlays(*m_canvas, static_cast<uint32_t>(m_width), static_cast<uint32_t>(m_height));
+        }
+        SDL_RenderTexture(m_renderer, m_screenTexture, nullptr, nullptr);
+        metrics.MarkGpuDone();
+    } else {
+        metrics.MarkGpuStart();
+        if (m_canvas->HasActiveGpuPasses()) {
+            m_gpuShaderEngine.RenderUnderlays(*m_canvas, static_cast<uint32_t>(m_width), static_cast<uint32_t>(m_height));
+        }
+        metrics.MarkGpuDone();
     }
-    SDL_RenderClear(m_renderer);
-    if (m_canvas.HasActiveGpuPasses()) {
-        m_gpuShaderEngine.RenderUnderlays(m_canvas, static_cast<uint32_t>(m_width), static_cast<uint32_t>(m_height));
-    }
-    SDL_RenderTexture(m_renderer, m_screenTexture, nullptr, nullptr);
-    metrics.MarkGpuDone();
 
     SDL_RenderPresent(m_renderer);
     metrics.MarkFramePresented();
@@ -664,7 +740,9 @@ void SdlWindowBackend::SetVsyncEnabled(bool enabled) noexcept {
 
 void SdlWindowBackend::SetGpuShadersEnabled(bool enabled) noexcept {
     m_gpuShadersEnabled = enabled && m_gpuShaderEngine.IsAvailable();
-    m_canvas.SetGpuShadersEnabled(m_gpuShadersEnabled);
+    if (m_canvas) {
+        m_canvas->SetGpuShadersEnabled(m_gpuShadersEnabled);
+    }
 }
 
 void SdlWindowBackend::UpdateSystemCursor(CursorType cursor) noexcept {

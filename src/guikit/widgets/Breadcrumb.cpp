@@ -618,7 +618,7 @@ Response Breadcrumb::Run(
 
     int hoveredPopupRow = -1;
     if (isOpen && wasOpen && !effectiveDisabled && !collapsedIndices.empty()) {
-        ctx.BeginOverlayHitCheck(id);
+        auto hitScope = ctx.ScopedOverlayHitCheck(id);
         const Rect popupRect = ctx.GetOpenPopupRect();
         const Vec2 mouse = ctx.GetMousePos();
         const float viewportH = std::max(0.0f, popupRect.h - 8.0f);
@@ -627,7 +627,7 @@ Response Breadcrumb::Run(
         state.popupScrollY = std::clamp(state.popupScrollY, 0.0f, maxScrollY);
 
         if (maxScrollY > 0.5f && popupRect.Contains(mouse)) {
-            const Vec2 wheel = ctx.GetPopupMouseWheel(id);
+            const Vec2 wheel = ctx.GetMouseWheel();
             if (wheel.y != 0.0f || wheel.x != 0.0f) {
                 const ScrollbarMetrics& sbm = theme.GetScrollbar(activeSize);
                 state.popupScrollY = std::clamp(state.popupScrollY - wheel.y * sbm.scrollStep, 0.0f, maxScrollY);
@@ -704,7 +704,6 @@ Response Breadcrumb::Run(
                 state.highlightedPopupRow = prevRow;
             }
         }
-        ctx.EndOverlayHitCheck();
     } else if (!effectiveDisabled && ctx.IsFocused(id) && !items.empty()) {
         // Keyboard navigation along the trail when dropdown is closed
         if (ctx.ConsumeKey(Key::Right) || ctx.ConsumeKey(Key::Down)) {

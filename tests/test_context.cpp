@@ -6,6 +6,7 @@
 #include <SDL3/SDL.h>
 #include "guikit/backend/SdlCanvas.hpp"
 #include "guikit/backend/SdlGlShaderEngine.hpp"
+#include "guikit/backend/SdlWindowBackend.hpp"
 #include "guikit/backend/ThorCanvas.hpp"
 #include "guikit/geo/GeoJsonIO.hpp"
 #include "guikit/geo/GisRenderEngine.hpp"
@@ -12464,6 +12465,82 @@ int main() {
             CHECK(narrowMeasured.y > defaultMeasured.y + 20.0f);
             CHECK_NEAR(mdUnclippedRect.y, scrollRect.y, 1.0f);
             CHECK_NEAR(mdUnclippedRect.h, narrowMeasured.y, 1.0f);
+        }
+
+        // --- Architectural test: ScopedOverlayHitCheck nesting, unified ThorCanvas metrics, and TextUtil::FindCaseInsensitive ---
+        {
+            ThorCanvas archCanvas;
+            std::vector<uint32_t> archPixels(320 * 120, 0);
+            archCanvas.SetTarget(archPixels.data(), 320, 120, 320);
+
+            // 1. Unified vertical metrics between MeasureText and MeasureTextStyled
+            const Vec2 mReg = archCanvas.MeasureText("Go to LevelMeter", 13.0f);
+            const Vec2 mSty = archCanvas.MeasureTextStyled("Go to LevelMeter", 13.0f, FontStyle::Regular);
+            CHECK_NEAR(mReg.x, mSty.x, 0.01f);
+            CHECK_NEAR(mReg.y, mSty.y, 0.01f);
+
+            // 2. UTF-8 (ASCII + Cyrillic) case-insensitive substring matching
+            size_t mPos = 0;
+            size_t mLen = 0;
+            CHECK(TextUtil::FindCaseInsensitive("Палитра Команд", "команд", mPos, mLen));
+            CHECK(mPos > 0);
+            CHECK(mLen == std::string_view("Команд").size());
+
+            // 3. Nested ScopedOverlayHitCheck restores outer overlay hit check ID on inner scope exit
+            Context ovUi;
+            const Id outerId(1001u);
+            const Id innerId(1002u);
+
+            ovUi.BeginFrame({320.0f, 120.0f});
+            ovUi.RegisterOverlayHitRegion(outerId, Rect(0.0f, 0.0f, 320.0f, 120.0f));
+            ovUi.EndFrame(archCanvas);
+
+            ovUi.OnMouseMove({100.0f, 60.0f});
+            ovUi.OnMouseWheel(0.0f, -2.0f);
+            ovUi.BeginFrame({320.0f, 120.0f});
+            // Outside overlay scope: blocked by outer_overlay
+            CHECK_NEAR(ovUi.GetMouseWheel().y, 0.0f, 0.001f);
+            {
+                auto outerScope = ovUi.ScopedOverlayHitCheck(outerId);
+                CHECK_NEAR(ovUi.GetMouseWheel().y, -2.0f, 0.001f);
+                {
+                    auto innerScope = ovUi.ScopedOverlayHitCheck(innerId);
+                    CHECK_NEAR(ovUi.GetMouseWheel().y, -2.0f, 0.001f);
+                }
+                // After innerScope exits, outerScope is still active and unblocked!
+                CHECK_NEAR(ovUi.GetMouseWheel().y, -2.0f, 0.001f);
+            }
+            // After outerScope exits, blocked again
+            CHECK_NEAR(ovUi.GetMouseWheel().y, 0.0f, 0.001f);
+            ovUi.EndFrame(archCanvas);
+
+            // 4. VectorBackend registry & SdlWindowBackend ICanvas Dependency Injection
+            CHECK(HasDefaultVectorCanvasFactory() == true);
+            auto defaultVecCanvas = CreateOffscreenVectorCanvas();
+            CHECK(defaultVecCanvas != nullptr);
+            CHECK(defaultVecCanvas->UsesCpuFramebuffer() == true);
+            CHECK(defaultVecCanvas->GetPixelFormat() == SurfacePixelFormat::ABGR8888_Premul);
+
+            SdlCanvas directGpuCanvas(nullptr);
+            CHECK(directGpuCanvas.UsesCpuFramebuffer() == false);
+
+            SdlWindowBackend customWinBackend(std::make_unique<SdlCanvas>(nullptr));
+            CHECK(customWinBackend.GetCanvas().UsesCpuFramebuffer() == false);
+            CHECK(customWinBackend.GetCanvas().GetBackendName() == "SDL3 (Direct GPU)");
+
+            // When no default vector canvas factory is registered, SdlWindowBackend falls back to native SdlCanvas
+            RegisterDefaultVectorCanvasFactory(nullptr);
+            CHECK(HasDefaultVectorCanvasFactory() == false);
+            CHECK(CreateVectorCanvas(false) == nullptr);
+            {
+                SdlWindowBackend fallbackWinBackend;
+                CHECK(fallbackWinBackend.GetCanvas().UsesCpuFramebuffer() == false);
+                CHECK(fallbackWinBackend.GetCanvas().GetBackendName() == "SDL3 (Direct GPU)");
+            }
+
+            // Restore ThorVG vector backend registration
+            RegisterThorVectorBackend();
+            CHECK(HasDefaultVectorCanvasFactory() == true);
         }
     }
 

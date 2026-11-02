@@ -314,41 +314,38 @@ ContextMenuResponse ContextMenu::Run(
     }
 
     // Mouse click handling when already open
-    if (wasPopupOpen) {
-        ctx.BeginOverlayHitCheck(id);
-    }
-    if (wasPopupOpen && (ctx.IsMouseClicked() || ctx.IsRightMouseClicked())) {
-        if (popupRect.Contains(mouse)) {
-            if (ctx.IsMouseClicked() && hoveredIdx >= 0 && static_cast<size_t>(hoveredIdx) < items.size()) {
-                const auto& clickedItem = items[static_cast<size_t>(hoveredIdx)];
-                if (!clickedItem.isSeparatorOnly && !clickedItem.disabled) {
-                    res.clickedIndex = hoveredIdx;
-                    res.clicked = true;
-                    res.changed = true;
-                    ctx.ClosePopup();
-                    isOpen = false;
-                    if (externalOpen) *externalOpen = false;
+    {
+        auto hitScope = ctx.ScopedOverlayHitCheck(wasPopupOpen ? id : Id::Null());
+        if (wasPopupOpen && (ctx.IsMouseClicked() || ctx.IsRightMouseClicked())) {
+            if (popupRect.Contains(mouse)) {
+                if (ctx.IsMouseClicked() && hoveredIdx >= 0 && static_cast<size_t>(hoveredIdx) < items.size()) {
+                    const auto& clickedItem = items[static_cast<size_t>(hoveredIdx)];
+                    if (!clickedItem.isSeparatorOnly && !clickedItem.disabled) {
+                        res.clickedIndex = hoveredIdx;
+                        res.clicked = true;
+                        res.changed = true;
+                        ctx.ClosePopup();
+                        isOpen = false;
+                        if (externalOpen) *externalOpen = false;
+                    }
                 }
+                ctx.ConsumeMouseClick();
+                ctx.InvalidateAll();
+            } else if (ctx.IsRightMouseClicked() && overTrigger && opts.trigger == ContextMenuTrigger::RightClick) {
+                // Reposition context menu to new right-click coordinates inside trigger
+                state.anchorPos = explicitAnchorPos.value_or(mouse);
+                const Rect newRect = clampMenuRect(state.anchorPos, false);
+                ctx.OpenPopup(id, newRect);
+                ctx.ConsumeMouseClick();
+                ctx.InvalidateAll();
+            } else {
+                ctx.ClosePopup();
+                isOpen = false;
+                if (externalOpen) *externalOpen = false;
+                ctx.ConsumeMouseClick();
+                ctx.InvalidateAll();
             }
-            ctx.ConsumeMouseClick();
-            ctx.InvalidateAll();
-        } else if (ctx.IsRightMouseClicked() && overTrigger && opts.trigger == ContextMenuTrigger::RightClick) {
-            // Reposition context menu to new right-click coordinates inside trigger
-            state.anchorPos = explicitAnchorPos.value_or(mouse);
-            const Rect newRect = clampMenuRect(state.anchorPos, false);
-            ctx.OpenPopup(id, newRect);
-            ctx.ConsumeMouseClick();
-            ctx.InvalidateAll();
-        } else {
-            ctx.ClosePopup();
-            isOpen = false;
-            if (externalOpen) *externalOpen = false;
-            ctx.ConsumeMouseClick();
-            ctx.InvalidateAll();
         }
-    }
-    if (wasPopupOpen) {
-        ctx.EndOverlayHitCheck();
     }
 
     state.wasExternalOpen = isOpen && (externalOpen != nullptr ? *externalOpen : true);
