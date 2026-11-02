@@ -494,6 +494,7 @@ void SdlWindowBackend::ProcessEvent(const SDL_Event& event, Context& ui) {
                     }
                 }
                 m_pressedMouseMask = 0;
+                SDL_CaptureMouse(false);
             }
             ui.RequestRepaint(1);
             break;
@@ -524,6 +525,7 @@ void SdlWindowBackend::ProcessEvent(const SDL_Event& event, Context& ui) {
             });
             if (event.button.button >= 1 && event.button.button <= 8) {
                 m_pressedMouseMask |= (1u << event.button.button);
+                SDL_CaptureMouse(true);
             }
             ui.OnMouseDown(event.button.button);
             break;
@@ -532,6 +534,9 @@ void SdlWindowBackend::ProcessEvent(const SDL_Event& event, Context& ui) {
         case SDL_EVENT_MOUSE_BUTTON_UP:
             if (event.button.button >= 1 && event.button.button <= 8) {
                 m_pressedMouseMask &= ~(1u << event.button.button);
+                if (m_pressedMouseMask == 0) {
+                    SDL_CaptureMouse(false);
+                }
             }
             ui.OnMouseUp(event.button.button);
             break;

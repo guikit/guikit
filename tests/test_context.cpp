@@ -12541,6 +12541,162 @@ int main() {
             // Restore ThorVG vector backend registration
             RegisterThorVectorBackend();
             CHECK(HasDefaultVectorCanvasFactory() == true);
+
+            // 5. Active mouse capture (m_activeId) preserves drag across splitter sashes and Z-layers
+            {
+                archPixels.assign(1000 * 600, 0);
+                archCanvas.SetTarget(archPixels.data(), 1000, 600, 1000);
+
+                Context dragUi;
+                bool rightSidebarOpen = true;
+                float wsSliderVal = 50.0f;
+                float sbSliderVal = 50.0f;
+                Rect wsSliderRect{};
+                Rect sbSliderRect{};
+                Rect sbPanelRect{};
+                bool sbBtnHoveredDuringDrag = false;
+                bool customGripDragging = false;
+                float customGripWidth = 400.0f;
+                const Id customGripId(0x9988776655443322ULL);
+
+                auto runDragWorkbench = [&]() {
+                    dragUi.BeginFrame({1000.0f, 600.0f});
+                    if (auto root = dragUi.Row({ .gap = 0.0f, .padding = Padding::All(0.0f), .heightMode = SizeMode::Stretch })) {
+                        if (auto ws = dragUi.Column({ .gap = 12.0f, .padding = Padding::All(20.0f), .widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch })) {
+                            auto rWs = dragUi.Slider(wsSliderVal, 0.0f, 100.0f, { .width = 240.0f });
+                            wsSliderRect = rWs.rect;
+
+                            // Simulate PreviewViewport custom window resize grip in workspace (zLayer == 0)
+                            const Rect gripRect(420.0f, 100.0f, 12.0f, 200.0f);
+                            if (dragUi.IsMouseClicked() && gripRect.Contains(dragUi.GetMousePos())) {
+                                customGripDragging = true;
+                                dragUi.SetActiveId(customGripId);
+                            }
+                            if (customGripDragging) {
+                                if (dragUi.IsMouseDown()) {
+                                    dragUi.SetActiveId(customGripId);
+                                    customGripWidth = dragUi.GetMousePos().x;
+                                } else {
+                                    customGripDragging = false;
+                                }
+                            }
+                        }
+
+                        if (auto sb = dragUi.Sidebar(rightSidebarOpen, {
+                            .side = SidebarSide::Right,
+                            .width = 280.0f,
+                            .minWidth = 180.0f,
+                            .maxWidth = 450.0f,
+                            .resizable = true,
+                            .gap = 10.0f,
+                            .padding = Padding::All(12.0f)
+                        })) {
+                            sbPanelRect = sb.response.rect;
+                            auto rSb = dragUi.Slider(sbSliderVal, 0.0f, 100.0f, { .width = 240.0f });
+                            sbSliderRect = rSb.rect;
+                            auto rBtn = dragUi.Button({ .text = "Sidebar Action" });
+                            sbBtnHoveredDuringDrag = rBtn.hovered;
+                        }
+                    }
+                    dragUi.EndFrame(archCanvas);
+                };
+
+                // Warm up geometry
+                runDragWorkbench();
+                runDragWorkbench();
+                CHECK(wsSliderRect.w > 100.0f);
+                CHECK(sbSliderRect.w > 100.0f);
+                CHECK(sbPanelRect.w > 200.0f);
+
+                // (a) Drag Sidebar Slider across the Sidebar left splitter sash into workspace, then back into Sidebar
+                dragUi.OnMouseMove(sbSliderRect.Center());
+                dragUi.OnMouseDown(1);
+                runDragWorkbench();
+                CHECK(dragUi.GetActiveId().IsValid());
+
+                // Move directly onto the Sidebar's left splitter sash (sbPanelRect.x) while LMB is held down
+                dragUi.OnMouseMove({sbPanelRect.x, sbSliderRect.Center().y});
+                runDragWorkbench();
+                CHECK(dragUi.GetActiveId().IsValid());
+                CHECK_NEAR(sbSliderVal, 0.0f, 1.0f);
+                // Sidebar width must NOT have changed because the slider owns m_activeId
+                CHECK_NEAR(sbPanelRect.w, 280.0f, 1.0f);
+
+                // Move far left into the workspace outside the Sidebar while LMB is still down
+                dragUi.OnMouseMove({200.0f, sbSliderRect.Center().y});
+                runDragWorkbench();
+                CHECK(dragUi.GetActiveId().IsValid());
+                CHECK_NEAR(sbSliderVal, 0.0f, 1.0f);
+
+                // Return into the Sidebar Slider track while LMB is still held down -> slider must still track!
+                const float sbTargetTrackX = sbSliderRect.x + sbSliderRect.w * 0.60f;
+                dragUi.OnMouseMove({sbTargetTrackX, sbSliderRect.Center().y});
+                runDragWorkbench();
+                CHECK(sbSliderVal > 60.0f && sbSliderVal < 90.0f);
+
+                dragUi.OnMouseUp(1);
+                runDragWorkbench();
+                CHECK(!dragUi.GetActiveId().IsValid());
+
+                // (b) Drag Workspace Slider across Sidebar splitter sash and over Sidebar button, then return
+                dragUi.OnMouseMove(wsSliderRect.Center());
+                dragUi.OnMouseDown(1);
+                runDragWorkbench();
+                CHECK(dragUi.GetActiveId().IsValid());
+
+                // Cross over the Sidebar sash into the Sidebar (zLayer == 1) while LMB is held down
+                dragUi.OnMouseMove({sbPanelRect.x, wsSliderRect.Center().y});
+                runDragWorkbench();
+                CHECK(dragUi.GetActiveId().IsValid());
+                CHECK_NEAR(wsSliderVal, 100.0f, 1.0f);
+
+                dragUi.OnMouseMove({sbPanelRect.Center().x, sbSliderRect.Bottom() + 18.0f});
+                runDragWorkbench();
+                CHECK(dragUi.GetActiveId().IsValid());
+                // Passive Sidebar button must NOT highlight while workspace slider owns active capture
+                CHECK(sbBtnHoveredDuringDrag == false);
+
+                // Move back to 25% of workspace slider while LMB is still held down -> must continue dragging!
+                const float wsTarget25X = wsSliderRect.x + wsSliderRect.w * 0.25f;
+                dragUi.OnMouseMove({wsTarget25X, wsSliderRect.Center().y});
+                runDragWorkbench();
+                CHECK(wsSliderVal > 10.0f && wsSliderVal < 40.0f);
+
+                dragUi.OnMouseUp(1);
+                runDragWorkbench();
+                CHECK(!dragUi.GetActiveId().IsValid());
+
+                // (c) Drag custom workspace resize grip (PreviewWindow resize simulation) across Sidebar sash & into Sidebar
+                dragUi.OnMouseMove({425.0f, 150.0f});
+                dragUi.OnMouseDown(1);
+                runDragWorkbench();
+                CHECK(customGripDragging == true);
+                CHECK(dragUi.GetActiveId() == customGripId);
+
+                // Move over Sidebar splitter sash
+                dragUi.OnMouseMove({sbPanelRect.x, 150.0f});
+                runDragWorkbench();
+                CHECK(customGripDragging == true);
+                CHECK_NEAR(customGripWidth, sbPanelRect.x, 0.5f);
+
+                // Move deep inside Sidebar (zLayer == 1)
+                dragUi.OnMouseMove({sbPanelRect.Center().x, 150.0f});
+                runDragWorkbench();
+                CHECK(customGripDragging == true);
+                CHECK_NEAR(customGripWidth, sbPanelRect.Center().x, 0.5f);
+
+                // Return to workspace at x = 510
+                dragUi.OnMouseMove({510.0f, 150.0f});
+                runDragWorkbench();
+                CHECK(customGripDragging == true);
+                CHECK_NEAR(customGripWidth, 510.0f, 0.5f);
+
+                // Release LMB -> EndFrame automatically clears m_activeId even if custom grip doesn't call SetActiveId(Null)
+                dragUi.OnMouseUp(1);
+                runDragWorkbench();
+                CHECK(customGripDragging == false);
+                CHECK(!dragUi.GetActiveId().IsValid());
+            }
         }
     }
 

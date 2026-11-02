@@ -358,10 +358,16 @@ HistogramResponse Histogram::Run(
                 res.pressed = true;
             } else {
                 st.dragMode = HistDragMode::None;
+                if (ctx.GetActiveId() == id) {
+                    ctx.SetActiveId(Id::Null());
+                }
             }
         }
     } else if (!ctx.IsMouseDown()) {
         st.dragMode = HistDragMode::None;
+        if (ctx.GetActiveId() == id) {
+            ctx.SetActiveId(Id::Null());
+        }
     }
 
     // 3. Hover telemetry

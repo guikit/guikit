@@ -776,6 +776,9 @@ ImageViewResponse RunViewportNode(
                 res.pressed = true;
             } else {
                 st.wlDragging = false;
+                if (ctx.GetActiveId() == id) {
+                    ctx.SetActiveId(Id::Null());
+                }
             }
         }
 
@@ -788,6 +791,9 @@ ImageViewResponse RunViewportNode(
                 res.pressed = true;
             } else {
                 st.panning = false;
+                if (ctx.GetActiveId() == id) {
+                    ctx.SetActiveId(Id::Null());
+                }
             }
         }
 
@@ -820,6 +826,9 @@ ImageViewResponse RunViewportNode(
                     res.pressed = true;
                 } else {
                     st.profile.dragging = false;
+                    if (ctx.GetActiveId() == id) {
+                        ctx.SetActiveId(Id::Null());
+                    }
                     if (std::hypot(st.profile.endSrc.x - st.profile.startSrc.x,
                                    st.profile.endSrc.y - st.profile.startSrc.y) < 1.5f) {
                         // Simple right-click clears the profile overlay

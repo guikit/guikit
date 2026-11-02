@@ -215,10 +215,12 @@ Response Knob::Run(
             state.dragging = true;
             state.dragStartVal = currentVal;
             state.dragStartMouse = ctx.GetMousePos();
+            ctx.SetActiveId(id);
         }
 
         if (state.dragging) {
             if (ctx.IsMouseDown()) {
+                ctx.SetActiveId(id);
                 const Vec2 mousePos = ctx.GetMousePos();
                 const float dy = state.dragStartMouse.y - mousePos.y;
                 const float dx = mousePos.x - state.dragStartMouse.x;
@@ -234,6 +236,9 @@ Response Knob::Run(
                 }
             } else {
                 state.dragging = false;
+                if (ctx.GetActiveId() == id) {
+                    ctx.SetActiveId(Id::Null());
+                }
             }
         }
 

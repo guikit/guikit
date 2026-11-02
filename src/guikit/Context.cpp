@@ -186,6 +186,12 @@ Response Context::Interact(Id id) {
         res.hovered = itClipped->second.Contains(m_mousePos);
     }
 
+    if (!m_mouseClicked && !m_rightMouseClicked && !m_middleMouseClicked &&
+        (m_mouseDown || m_rightMouseDown || m_middleMouseDown) &&
+        m_activeId.IsValid() && m_activeId != id) {
+        res.hovered = false;
+    }
+
     if (res.hovered) {
         m_hoveredId = id;
         if (m_mouseClicked) {
@@ -1691,14 +1697,25 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
         return true;
     }
 
-    // If an overlay hit region (splitter sash / toggle pill) is currently being dragged or hovered,
+    const bool clickImpulse = m_mouseClicked || m_rightMouseClicked || m_middleMouseClicked;
+
+    // If an overlay hit region (splitter sash / toggle pill) is currently being dragged,
     // block all non-overlay scopes
     for (const auto& ov : m_prevOverlayHitRegions) {
         if (m_activeId.IsValid() && m_activeId == ov.id) {
             return true;
         }
-        if (ov.rect.Contains(m_mousePos)) {
-            return true;
+    }
+
+    const bool hasActiveCapture = m_activeId.IsValid() && !clickImpulse;
+
+    // Block non-overlay scopes when hovering/clicking an overlay hit region
+    // unless a non-overlay widget/handle already owns active drag capture
+    if (!hasActiveCapture) {
+        for (const auto& ov : m_prevOverlayHitRegions) {
+            if (ov.rect.Contains(m_mousePos)) {
+                return true;
+            }
         }
     }
 
@@ -1715,8 +1732,9 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
         }
     }
 
-    // Block workspace scopes (zLayer == 0) if the mouse is inside a higher Z-layer chrome panel (zLayer >= 1)
-    if (currentZLayer == 0) {
+    // Block workspace scopes (zLayer == 0) if the mouse is inside a higher Z-layer chrome panel (zLayer >= 1),
+    // unless an active drag capture is already in progress
+    if (currentZLayer == 0 && !hasActiveCapture) {
         for (const auto& b : m_prevHitNodes) {
             if (b.blocksHit && b.zLayer > currentZLayer && b.rect.Contains(m_mousePos)) {
                 return true;
@@ -1730,15 +1748,20 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
         const Node* topContainer = m_containerStack.back();
         if (topContainer && topContainer->type == NodeType::Scene && topContainer->id.IsValid()) {
             const Id sceneId = topContainer->id;
+            if (hasActiveCapture && m_activeId != sceneId) {
+                return true;
+            }
             if (IsMouseOccluded(sceneId, m_mousePos)) {
                 return true;
             }
-            if (topContainer->scrollbarHovered || topContainer->scrollbarActive ||
-                topContainer->scrollbarHoveredX || topContainer->scrollbarActiveX) {
+            if (topContainer->scrollbarActive || topContainer->scrollbarActiveX) {
+                return true;
+            }
+            if ((topContainer->scrollbarHovered || topContainer->scrollbarHoveredX) && m_activeId != sceneId) {
                 return true;
             }
             auto itVp = m_prevFrameBounds.find(sceneId);
-            if (itVp != m_prevFrameBounds.end() && itVp->second.w > 1.0f && itVp->second.h > 1.0f) {
+            if (itVp != m_prevFrameBounds.end() && itVp->second.w > 0.1f && itVp->second.h > 0.1f) {
                 if (!itVp->second.Contains(m_mousePos) && m_activeId != sceneId) {
                     return true;
                 }
@@ -2312,6 +2335,9 @@ void Context::EndFrame(ICanvas& canvas) {
     m_middleMouseClicked = false;
     m_middleMouseReleased = false;
     m_mouseWheel = {0.0f, 0.0f};
+    if (!m_mouseDown && !m_rightMouseDown && !m_middleMouseDown) {
+        m_activeId = Id::Null();
+    }
 
     // Calculate dirty damage regions by snapshot diffing
     std::unordered_map<Id, WidgetSnapshot> currSnapshots;
