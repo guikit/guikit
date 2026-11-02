@@ -12697,6 +12697,80 @@ int main() {
                 CHECK(customGripDragging == false);
                 CHECK(!dragUi.GetActiveId().IsValid());
             }
+
+            // 8. Markdown production typography, nested inline spans, dynamic table row heights, and soft-wrapped code blocks
+            {
+                const std::string nestedMd =
+                    "## 1. Embedded Image Asset (`assets/images/lena.png`)\n\n"
+                    "- [x] **Centralized `KeyAction` & `Keymap`** (`Copy`, `Find`, `SelectAll`)\n";
+
+                const std::string tableMd =
+                    "| Component | Layer | Coordinate Space | Responsibility |\n"
+                    "| :--- | :---: | :---: | :--- |\n"
+                    "| `Keymap` | Core | Input Dispatch | Configurable `KeyAction` bindings |\n"
+                    "| `ui.TextArea` | Widget | Line Virtualized | IDE Code Editor & Syntax Engine |\n"
+                    "| `ui.Markdown` | Widget | Flow Layout | Rich AST Document Viewer |\n";
+
+                const std::string longCodeMd =
+                    "```cpp\n"
+                    "const guikit::Rect visible = scene.GetVisibleWorldBounds({1600.0f, 1000.0f}, cameraState);\n"
+                    "```\n";
+
+                Context mdUi;
+                const UiTheme& mdTheme = mdUi.GetTheme();
+                const Vec2 wideTableSz = Markdown::Measure(tableMd, {}, UiSize::Md, &archCanvas, mdTheme, 1200.0f);
+                const Vec2 narrowTableSz = Markdown::Measure(tableMd, {}, UiSize::Md, &archCanvas, mdTheme, 380.0f);
+                // Narrow viewport wraps multi-word table cells and must expand row heights accordingly
+                CHECK(narrowTableSz.y > wideTableSz.y + 20.0f);
+
+                const Vec2 wideCodeSz = Markdown::Measure(longCodeMd, {}, UiSize::Md, &archCanvas, mdTheme, 1200.0f);
+                const Vec2 narrowCodeSz = Markdown::Measure(longCodeMd, {}, UiSize::Md, &archCanvas, mdTheme, 320.0f);
+                // Narrow viewport soft-wraps long code line into multiple visual lines
+                CHECK(narrowCodeSz.y > wideCodeSz.y + 14.0f);
+
+                // Image caption multi-line wrapping in narrow viewports
+                const std::string imgCaptionMd =
+                    "![Lena Standard Test Image (512x512 PNG - Embedded Native & WASM Asset)](assets/images/lena.png)\n";
+                const Vec2 wideImgSz = Markdown::Measure(imgCaptionMd, {}, UiSize::Md, &archCanvas, mdTheme, 1200.0f);
+                const Vec2 narrowImgSz = Markdown::Measure(imgCaptionMd, {}, UiSize::Md, &archCanvas, mdTheme, 280.0f);
+                CHECK(narrowImgSz.y > wideImgSz.y + 10.0f);
+
+                // Ultra-narrow heading with (`assets/images/lena.png`) splits the code pill at '/' and keeps `)` attached
+                const std::string headingCodeMd = "## 1. Embedded Image Asset (`assets/images/lena.png`)\n";
+                const Vec2 wideHeadSz = Markdown::Measure(headingCodeMd, {}, UiSize::Md, &archCanvas, mdTheme, 1200.0f);
+                const Vec2 ultraNarrowHeadSz = Markdown::Measure(headingCodeMd, {}, UiSize::Md, &archCanvas, mdTheme, 200.0f);
+                CHECK(ultraNarrowHeadSz.y > wideHeadSz.y + 20.0f);
+                CHECK(ultraNarrowHeadSz.x <= 200.5f);
+
+                // Verify nested `code` inside **bold** parses without raw backticks and soft-wrapped code copies cleanly
+                MarkdownResponse mdResp;
+                const std::string combinedMd = nestedMd + "\n" + longCodeMd;
+                auto runMdFrame = [&]() {
+                    mdUi.BeginFrame({380.0f, 600.0f});
+                    mdResp = mdUi.Markdown(combinedMd, {.height = 500.0f});
+                    mdUi.EndFrame(archCanvas);
+                };
+
+                runMdFrame();
+                runMdFrame();
+
+                // Click inside Markdown to focus it, then trigger SelectAll (Ctrl+A)
+                mdUi.OnMouseMove({60.0f, 60.0f});
+                mdUi.OnMouseDown(1);
+                runMdFrame();
+                mdUi.OnMouseUp(1);
+                runMdFrame();
+
+                mdUi.OnKeyDown(Key::A, {.ctrl = true});
+                runMdFrame();
+
+                CHECK(!mdResp.selectedText.empty());
+                // Nested `KeyAction` & `Keymap` inside **...** must not contain literal backticks
+                CHECK(mdResp.selectedText.find("Centralized KeyAction & Keymap") != std::string::npos);
+                CHECK(mdResp.selectedText.find("`KeyAction`") == std::string::npos);
+                // Soft-wrapped code line must remain a single logical line in plainText / selection
+                CHECK(mdResp.selectedText.find("const guikit::Rect visible = scene.GetVisibleWorldBounds") != std::string::npos);
+            }
         }
     }
 

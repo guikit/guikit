@@ -518,6 +518,9 @@ Vec2 ThorCanvas::MeasureTextStyled(std::string_view text, float fontSize, FontSt
     if (style == FontStyle::Bold || style == FontStyle::BoldItalic) {
         totalAdvance += 0.6f;
     }
+    if (style == FontStyle::Italic || style == FontStyle::BoldItalic) {
+        totalAdvance += fontSize * 0.12f;
+    }
 
     float glyphBoxH = GetLineHeight(fontSize);
     tvg::TextMetrics tm{};

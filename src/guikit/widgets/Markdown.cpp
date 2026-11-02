@@ -92,22 +92,51 @@ std::string_view TrimView(std::string_view sv) noexcept {
     return sv;
 }
 
-std::vector<InlineSpan> ParseInlineSpans(std::string_view line) {
+FontStyle CombineFontStyles(FontStyle a, FontStyle b) noexcept {
+    if (a == FontStyle::Monospace || b == FontStyle::Monospace) {
+        return FontStyle::Monospace;
+    }
+    const bool bold = (a == FontStyle::Bold || a == FontStyle::BoldItalic ||
+                       b == FontStyle::Bold || b == FontStyle::BoldItalic);
+    const bool italic = (a == FontStyle::Italic || a == FontStyle::BoldItalic ||
+                         b == FontStyle::Italic || b == FontStyle::BoldItalic);
+    if (bold && italic) return FontStyle::BoldItalic;
+    if (bold) return FontStyle::Bold;
+    if (italic) return FontStyle::Italic;
+    return FontStyle::Regular;
+}
+
+std::vector<InlineSpan> ParseInlineSpans(
+    std::string_view line,
+    FontStyle inheritedStyle = FontStyle::Regular,
+    bool inheritedStrike = false
+) {
     std::vector<InlineSpan> out;
     size_t i = 0;
     const size_t n = line.size();
 
     std::string cur;
-    auto flushRegular = [&](FontStyle st = FontStyle::Regular, bool strike = false) {
+    auto flushCurrent = [&]() {
         if (!cur.empty()) {
             out.push_back(InlineSpan{
                 .kind = InlineKind::Text,
-                .style = st,
-                .strikethrough = strike,
+                .style = inheritedStyle,
+                .strikethrough = inheritedStrike,
                 .text = std::move(cur),
                 .url = {}
             });
             cur.clear();
+        }
+    };
+
+    auto appendNested = [&](std::string_view inner, FontStyle addedStyle, bool addedStrike) {
+        auto nested = ParseInlineSpans(
+            inner,
+            CombineFontStyles(inheritedStyle, addedStyle),
+            inheritedStrike || addedStrike
+        );
+        for (auto& sp : nested) {
+            out.push_back(std::move(sp));
         }
     };
 
@@ -116,11 +145,11 @@ std::vector<InlineSpan> ParseInlineSpans(std::string_view line) {
         if (line[i] == '`') {
             const size_t endTick = line.find('`', i + 1);
             if (endTick != std::string_view::npos && endTick > i + 1) {
-                flushRegular();
+                flushCurrent();
                 out.push_back(InlineSpan{
                     .kind = InlineKind::Code,
                     .style = FontStyle::Monospace,
-                    .strikethrough = false,
+                    .strikethrough = inheritedStrike,
                     .text = std::string(line.substr(i + 1, endTick - i - 1)),
                     .url = {}
                 });
@@ -135,12 +164,16 @@ std::vector<InlineSpan> ParseInlineSpans(std::string_view line) {
             if (closeBr != std::string_view::npos && closeBr + 1 < n && line[closeBr + 1] == '(') {
                 const size_t closePar = line.find(')', closeBr + 2);
                 if (closePar != std::string_view::npos) {
-                    flushRegular();
+                    flushCurrent();
+                    std::string_view labelView = line.substr(i + 1, closeBr - i - 1);
+                    if (labelView.size() >= 2 && labelView.front() == '`' && labelView.back() == '`') {
+                        labelView = labelView.substr(1, labelView.size() - 2);
+                    }
                     out.push_back(InlineSpan{
                         .kind = InlineKind::Link,
-                        .style = FontStyle::Regular,
-                        .strikethrough = false,
-                        .text = std::string(line.substr(i + 1, closeBr - i - 1)),
+                        .style = inheritedStyle,
+                        .strikethrough = inheritedStrike,
+                        .text = std::string(labelView),
                         .url = std::string(TrimView(line.substr(closeBr + 2, closePar - closeBr - 2)))
                     });
                     i = closePar + 1;
@@ -153,9 +186,8 @@ std::vector<InlineSpan> ParseInlineSpans(std::string_view line) {
         if (i + 2 < n && line.substr(i, 3) == "***") {
             const size_t closePos = line.find("***", i + 3);
             if (closePos != std::string_view::npos && closePos > i + 3) {
-                flushRegular();
-                cur = std::string(line.substr(i + 3, closePos - i - 3));
-                flushRegular(FontStyle::BoldItalic, false);
+                flushCurrent();
+                appendNested(line.substr(i + 3, closePos - i - 3), FontStyle::BoldItalic, false);
                 i = closePos + 3;
                 continue;
             }
@@ -165,9 +197,8 @@ std::vector<InlineSpan> ParseInlineSpans(std::string_view line) {
         if (i + 1 < n && line.substr(i, 2) == "**") {
             const size_t closePos = line.find("**", i + 2);
             if (closePos != std::string_view::npos && closePos > i + 2) {
-                flushRegular();
-                cur = std::string(line.substr(i + 2, closePos - i - 2));
-                flushRegular(FontStyle::Bold, false);
+                flushCurrent();
+                appendNested(line.substr(i + 2, closePos - i - 2), FontStyle::Bold, false);
                 i = closePos + 2;
                 continue;
             }
@@ -177,9 +208,8 @@ std::vector<InlineSpan> ParseInlineSpans(std::string_view line) {
         if (i + 1 < n && line.substr(i, 2) == "~~") {
             const size_t closePos = line.find("~~", i + 2);
             if (closePos != std::string_view::npos && closePos > i + 2) {
-                flushRegular();
-                cur = std::string(line.substr(i + 2, closePos - i - 2));
-                flushRegular(FontStyle::Regular, true);
+                flushCurrent();
+                appendNested(line.substr(i + 2, closePos - i - 2), FontStyle::Regular, true);
                 i = closePos + 2;
                 continue;
             }
@@ -189,9 +219,8 @@ std::vector<InlineSpan> ParseInlineSpans(std::string_view line) {
         if (line[i] == '*') {
             const size_t closePos = line.find('*', i + 1);
             if (closePos != std::string_view::npos && closePos > i + 1) {
-                flushRegular();
-                cur = std::string(line.substr(i + 1, closePos - i - 1));
-                flushRegular(FontStyle::Italic, false);
+                flushCurrent();
+                appendNested(line.substr(i + 1, closePos - i - 1), FontStyle::Italic, false);
                 i = closePos + 1;
                 continue;
             }
@@ -201,7 +230,7 @@ std::vector<InlineSpan> ParseInlineSpans(std::string_view line) {
         ++i;
     }
 
-    flushRegular();
+    flushCurrent();
     return out;
 }
 
@@ -841,6 +870,25 @@ struct FlowResult {
     Rect hoveredLinkRect{};
 };
 
+struct InlineAtom {
+    InlineKind kind{InlineKind::Text};
+    FontStyle style{FontStyle::Regular};
+    bool strikethrough{false};
+    bool isWhitespace{false};
+    std::string_view text{};
+    std::string_view url{};
+    float width{0.0f};
+    float fontSize{13.0f};
+    float padX{0.0f};
+};
+
+struct FlowLine {
+    size_t firstAtom{0};
+    size_t atomCount{0};
+    float indent{0.0f};
+    float contentWidth{0.0f};
+};
+
 FlowResult LayoutOrRenderSpans(
     ICanvas* canvas,
     bool doRender,
@@ -856,7 +904,8 @@ FlowResult LayoutOrRenderSpans(
     Vec2 mousePos = {-1.0f, -1.0f},
     FontStyle overrideStyle = FontStyle::Regular,
     DocumentTextMap* textMap = nullptr,
-    const RenderOverlayState* overlay = nullptr
+    const RenderOverlayState* overlay = nullptr,
+    Align horizontalAlign = Align::Start
 ) {
     FlowResult res{};
     if (spans.empty()) return res;
@@ -865,107 +914,294 @@ FlowResult LayoutOrRenderSpans(
     const float rawLineH = canvas ? canvas->GetLineHeight(baseFontSize) : theme.GetLineHeight(baseFontSize);
     const float lineH = rawLineH * std::clamp(lineHeightScale, 0.8f, 2.5f);
     const float maxW = (bounds.w > 0.0f) ? bounds.w : 10000.0f;
+    const float codePadX = 4.5f * s;
 
-    float curX = std::max(0.0f, firstLineIndent);
-    float curY = 0.0f;
-    float maxLineW = 0.0f;
-
-    auto measureToken = [&](std::string_view tok, FontStyle st, bool isCode) -> float {
-        const float fs = isCode ? codeBaseFontSize : baseFontSize;
-        float w = MeasureStyledSlice(canvas, tok, fs, st);
-        if (isCode) {
-            w += 10.0f * s; // Horizontal pill padding
-        }
-        return w;
-    };
+    // 1. Flatten InlineSpans into initial atomic runs (words, whitespace, code pills)
+    std::vector<InlineAtom> rawAtoms;
+    rawAtoms.reserve(spans.size() * 3);
 
     for (const InlineSpan& span : spans) {
-        const FontStyle effStyle = (overrideStyle != FontStyle::Regular && span.style == FontStyle::Regular)
-            ? overrideStyle
-            : span.style;
-
         if (span.kind == InlineKind::Code) {
-            const float tokW = measureToken(span.text, FontStyle::Monospace, true);
-            if (curX > 0.0f && curX + tokW > maxW) {
-                maxLineW = std::max(maxLineW, curX);
-                curX = 0.0f;
-                curY += lineH;
-                if (textMap) textMap->AppendNewline();
-            }
-            const float codeFs = codeBaseFontSize;
-            const Rect pillRect(
-                bounds.x + curX,
-                bounds.y + curY + 1.0f * s,
-                tokW,
-                std::max(codeFs + 4.0f * s, lineH - 2.0f * s)
-            );
-            const float padX = 5.0f * s;
-            if (textMap) {
-                textMap->AddToken(pillRect, span.text, codeFs, FontStyle::Monospace, padX);
-            }
-            if (doRender && canvas) {
-                canvas->DrawRoundRect(
-                    pillRect,
-                    4.0f * s,
-                    theme.palette.surfaceElevated,
-                    theme.palette.borderSubtle,
-                    1.0f
-                );
-                if (textMap && !textMap->tokens.empty()) {
-                    DrawTokenSelectionAndSearchHighlights(*canvas, textMap->tokens.back(), textMap->plainText, overlay, theme);
-                }
-                canvas->DrawTextBox(
-                    span.text,
-                    pillRect,
-                    codeFs,
-                    theme.palette.accent,
-                    0.5f,
-                    0.5f
-                );
-                if (textMap && !textMap->tokens.empty()) {
-                    DrawTokenCaretIfPresent(*canvas, textMap->tokens.back(), textMap->plainText, overlay, theme);
-                }
-            }
-            curX += tokW;
+            if (span.text.empty()) continue;
+            const float textW = MeasureStyledSlice(canvas, span.text, codeBaseFontSize, FontStyle::Monospace);
+            rawAtoms.push_back(InlineAtom{
+                .kind = InlineKind::Code,
+                .style = FontStyle::Monospace,
+                .strikethrough = span.strikethrough,
+                .isWhitespace = false,
+                .text = span.text,
+                .url = {},
+                .width = textW + codePadX * 2.0f,
+                .fontSize = codeBaseFontSize,
+                .padX = codePadX
+            });
             continue;
         }
 
-        // Tokenize by words while preserving spaces
+        const FontStyle effStyle = CombineFontStyles(overrideStyle, span.style);
         std::string_view txt = span.text;
         size_t pos = 0;
         while (pos < txt.size()) {
             size_t nextPos = pos;
-            if (txt[pos] == ' ') {
+            const bool isWs = (txt[pos] == ' ');
+            if (isWs) {
                 while (nextPos < txt.size() && txt[nextPos] == ' ') ++nextPos;
             } else {
                 while (nextPos < txt.size() && txt[nextPos] != ' ') ++nextPos;
             }
-
-            std::string_view word = txt.substr(pos, nextPos - pos);
+            const std::string_view slice = txt.substr(pos, nextPos - pos);
             pos = nextPos;
 
-            if (word.front() == ' ' && curX == 0.0f) {
-                continue; // Skip leading spaces at start of wrapped line
+            const float w = MeasureStyledSlice(canvas, slice, baseFontSize, effStyle);
+            rawAtoms.push_back(InlineAtom{
+                .kind = span.kind,
+                .style = effStyle,
+                .strikethrough = span.strikethrough,
+                .isWhitespace = isWs,
+                .text = slice,
+                .url = span.url,
+                .width = w,
+                .fontSize = baseFontSize,
+                .padX = 0.0f
+            });
+        }
+    }
+
+    if (rawAtoms.empty()) return res;
+
+    // 2. Pack atoms into visual lines, keeping contiguous non-whitespace clusters (e.g. `(` + `code` + `)`) together
+    //    and splitting oversized tokens/code pills at delimiter boundaries so nothing overflows maxW or orphans `)`.
+    std::vector<InlineAtom> atoms;
+    atoms.reserve(rawAtoms.size() + 4);
+    std::vector<FlowLine> flowLines;
+    FlowLine curLine{};
+    curLine.firstAtom = 0;
+    curLine.indent = (horizontalAlign == Align::Start) ? std::max(0.0f, firstLineIndent) : 0.0f;
+    float curX = curLine.indent;
+
+    auto measureAtomSlice = [&](const InlineAtom& proto, std::string_view slice) -> float {
+        if (proto.kind == InlineKind::Code) {
+            return MeasureStyledSlice(canvas, slice, proto.fontSize, FontStyle::Monospace) + proto.padX * 2.0f;
+        }
+        return MeasureStyledSlice(canvas, slice, proto.fontSize, proto.style);
+    };
+
+    auto splitAtomForWidth = [&](const InlineAtom& atom, float availW) -> std::pair<InlineAtom, InlineAtom> {
+        std::string_view sv = atom.text;
+        size_t fitEnd = 1;
+        while (fitEnd < sv.size() && (static_cast<unsigned char>(sv[fitEnd]) & 0xC0) == 0x80) {
+            ++fitEnd;
+        }
+        while (fitEnd < sv.size()) {
+            size_t nextCp = fitEnd + 1;
+            while (nextCp < sv.size() && (static_cast<unsigned char>(sv[nextCp]) & 0xC0) == 0x80) {
+                ++nextCp;
+            }
+            if (nextCp < sv.size() && measureAtomSlice(atom, sv.substr(0, nextCp)) <= availW + 0.5f) {
+                fitEnd = nextCp;
+            } else {
+                break;
+            }
+        }
+
+        size_t splitPos = fitEnd;
+        if (fitEnd >= 4) {
+            const size_t minBreak = std::max<size_t>(1, (fitEnd * 45) / 100);
+            for (size_t b = fitEnd; b > minBreak; --b) {
+                const char ch = sv[b - 1];
+                if (ch == '/' || ch == ':' || ch == '.' || ch == '-' || ch == '_') {
+                    splitPos = b;
+                    break;
+                }
+            }
+        }
+
+        InlineAtom head = atom;
+        head.text = sv.substr(0, splitPos);
+        head.width = measureAtomSlice(atom, head.text);
+
+        InlineAtom tail = atom;
+        tail.text = sv.substr(splitPos);
+        tail.width = measureAtomSlice(atom, tail.text);
+        return {head, tail};
+    };
+
+    auto finalizeCurrentLine = [&]() {
+        while (curLine.atomCount > 0 && atoms[curLine.firstAtom + curLine.atomCount - 1].isWhitespace) {
+            curLine.atomCount -= 1;
+        }
+        float w = 0.0f;
+        for (size_t k = 0; k < curLine.atomCount; ++k) {
+            w += atoms[curLine.firstAtom + k].width;
+        }
+        curLine.contentWidth = w;
+        if (curLine.atomCount > 0) {
+            flowLines.push_back(curLine);
+        }
+        curLine = FlowLine{
+            .firstAtom = atoms.size(),
+            .atomCount = 0,
+            .indent = 0.0f,
+            .contentWidth = 0.0f
+        };
+        curX = 0.0f;
+    };
+
+    auto appendAtomToCurrentLine = [&](const InlineAtom& a) {
+        if (curLine.atomCount == 0) {
+            curLine.firstAtom = atoms.size();
+        }
+        atoms.push_back(a);
+        curLine.atomCount += 1;
+        curX += a.width;
+        curLine.contentWidth = curX - curLine.indent;
+    };
+
+    size_t idx = 0;
+    while (idx < rawAtoms.size()) {
+        if (rawAtoms[idx].isWhitespace) {
+            if (curLine.atomCount == 0) {
+                ++idx;
+                continue;
+            }
+            appendAtomToCurrentLine(rawAtoms[idx]);
+            ++idx;
+            continue;
+        }
+
+        // Find end of contiguous non-whitespace cluster [idx .. clusterEnd)
+        size_t clusterEnd = idx + 1;
+        float clusterW = rawAtoms[idx].width;
+        while (clusterEnd < rawAtoms.size() && !rawAtoms[clusterEnd].isWhitespace) {
+            clusterW += rawAtoms[clusterEnd].width;
+            ++clusterEnd;
+        }
+
+        if (curLine.atomCount > 0 && curX + clusterW > maxW + 0.5f) {
+            finalizeCurrentLine();
+        }
+
+        for (size_t k = idx; k < clusterEnd; ++k) {
+            InlineAtom curAtom = rawAtoms[k];
+            const bool hasTrailingPunct =
+                (k + 1 == clusterEnd - 1) &&
+                (rawAtoms[k + 1].kind == InlineKind::Text) &&
+                (rawAtoms[k + 1].text.size() <= 2) &&
+                (rawAtoms[k + 1].width <= maxW * 0.25f);
+            const float trailingSuffixW = hasTrailingPunct ? rawAtoms[k + 1].width : 0.0f;
+
+            while (curX + curAtom.width + trailingSuffixW > maxW + 0.5f) {
+                const bool onlyOpeningPrefixOnLine =
+                    (curLine.atomCount == 1) &&
+                    (atoms[curLine.firstAtom].kind == InlineKind::Text) &&
+                    (atoms[curLine.firstAtom].text.size() <= 2) &&
+                    (atoms[curLine.firstAtom].width <= maxW * 0.25f);
+
+                if (curLine.atomCount > 0 && !onlyOpeningPrefixOnLine) {
+                    finalizeCurrentLine();
+                    continue;
+                }
+
+                if (curAtom.text.size() > 1) {
+                    const float availForHead = std::max(8.0f, maxW - curX);
+                    auto [head, tail] = splitAtomForWidth(curAtom, availForHead);
+                    appendAtomToCurrentLine(head);
+                    finalizeCurrentLine();
+                    curAtom = tail;
+                } else {
+                    if (curLine.atomCount > 0) {
+                        finalizeCurrentLine();
+                    }
+                    break;
+                }
             }
 
-            const float wordW = measureToken(word, effStyle, false);
-            if (curX > 0.0f && curX + wordW > maxW && word.front() != ' ') {
-                maxLineW = std::max(maxLineW, curX);
-                curX = 0.0f;
-                curY += lineH;
-                if (textMap) textMap->AppendNewline();
+            appendAtomToCurrentLine(curAtom);
+        }
+
+        idx = clusterEnd;
+    }
+
+    if (curLine.atomCount > 0) {
+        finalizeCurrentLine();
+    }
+    if (flowLines.empty()) return res;
+
+    // 3. Emit tokens into textMap and render each line with per-line horizontal alignment
+    const float codeGlyphH = canvas ? canvas->MeasureTextStyled("Mg", codeBaseFontSize, FontStyle::Monospace).y : codeBaseFontSize;
+    float maxLineW = 0.0f;
+
+    for (size_t li = 0; li < flowLines.size(); ++li) {
+        const FlowLine& fl = flowLines[li];
+        const float lineY = bounds.y + static_cast<float>(li) * lineH;
+        maxLineW = std::max(maxLineW, fl.indent + fl.contentWidth);
+
+        float drawX = bounds.x + fl.indent;
+        if (horizontalAlign == Align::Center) {
+            drawX = bounds.x + std::max(0.0f, (bounds.w - fl.contentWidth) * 0.5f);
+        } else if (horizontalAlign == Align::End) {
+            drawX = bounds.x + std::max(0.0f, bounds.w - fl.contentWidth);
+        }
+
+        for (size_t k = 0; k < fl.atomCount; ++k) {
+            const InlineAtom& atom = atoms[fl.firstAtom + k];
+            if (atom.kind == InlineKind::Code) {
+                const float pillH = std::max(atom.fontSize + 4.0f * s, lineH - 2.0f * s);
+                const Rect pillRect(
+                    drawX,
+                    lineY + (lineH - pillH) * 0.5f,
+                    atom.width,
+                    pillH
+                );
+                if (textMap) {
+                    textMap->AddToken(pillRect, atom.text, atom.fontSize, FontStyle::Monospace, atom.padX);
+                }
+                if (doRender && canvas) {
+                    canvas->DrawRoundRect(
+                        pillRect,
+                        4.0f * s,
+                        theme.palette.surfaceElevated,
+                        theme.palette.borderSubtle,
+                        1.0f
+                    );
+                    if (textMap && !textMap->tokens.empty()) {
+                        DrawTokenSelectionAndSearchHighlights(*canvas, textMap->tokens.back(), textMap->plainText, overlay, theme);
+                    }
+                    const float codeTextY = pillRect.y + (pillRect.h - ((codeGlyphH > 0.0f) ? codeGlyphH : atom.fontSize)) * 0.5f;
+                    canvas->DrawTextStyled(
+                        atom.text,
+                        {pillRect.x + atom.padX, codeTextY},
+                        atom.fontSize,
+                        theme.palette.accent,
+                        FontStyle::Monospace
+                    );
+                    if (atom.strikethrough) {
+                        const float sy = pillRect.y + pillRect.h * 0.52f;
+                        canvas->DrawLine(
+                            {pillRect.x + atom.padX, sy},
+                            {pillRect.Right() - atom.padX, sy},
+                            theme.palette.accent.WithAlpha(180),
+                            1.2f
+                        );
+                    }
+                    if (textMap && !textMap->tokens.empty()) {
+                        DrawTokenCaretIfPresent(*canvas, textMap->tokens.back(), textMap->plainText, overlay, theme);
+                    }
+                }
+                drawX += atom.width;
+                continue;
             }
 
-            const Rect wordRect(bounds.x + curX, bounds.y + curY, wordW, lineH);
-            const bool isLink = (span.kind == InlineKind::Link);
+            const Rect wordRect(drawX, lineY, atom.width, lineH);
+            const bool isLink = (atom.kind == InlineKind::Link);
             const bool wordHovered = isLink && wordRect.Contains(mousePos);
             if (wordHovered) {
-                res.hoveredLinkUrl = span.url;
+                res.hoveredLinkUrl = atom.url;
                 res.hoveredLinkRect = wordRect;
             }
 
             if (textMap) {
-                textMap->AddToken(wordRect, word, baseFontSize, effStyle, 0.0f);
+                textMap->AddToken(wordRect, atom.text, atom.fontSize, atom.style, 0.0f);
             }
 
             if (doRender && canvas) {
@@ -974,32 +1210,36 @@ FlowResult LayoutOrRenderSpans(
                 }
 
                 const Color drawCol = isLink ? theme.palette.accent : baseColor;
-                const float glyphH = canvas->MeasureTextStyled("Mg", baseFontSize, effStyle).y;
-                const float textY = bounds.y + curY + (lineH - ((glyphH > 0.0f) ? glyphH : baseFontSize)) * 0.5f;
-                canvas->DrawTextStyled(word, {bounds.x + curX, textY}, baseFontSize, drawCol, effStyle);
+                if (!atom.isWhitespace) {
+                    const float glyphH = canvas->MeasureTextStyled("Mg", atom.fontSize, atom.style).y;
+                    const float textY = lineY + (lineH - ((glyphH > 0.0f) ? glyphH : atom.fontSize)) * 0.5f;
+                    canvas->DrawTextStyled(atom.text, {drawX, textY}, atom.fontSize, drawCol, atom.style);
+                }
 
                 if (isLink) {
-                    const float uy = bounds.y + curY + lineH - 2.0f * s;
+                    const float uy = lineY + lineH - 2.0f * s;
                     const Color uCol = wordHovered ? theme.palette.accent : theme.palette.accent.WithAlpha(140);
-                    canvas->DrawLine({bounds.x + curX, uy}, {bounds.x + curX + wordW, uy}, uCol, wordHovered ? 1.5f : 1.0f);
+                    canvas->DrawLine({drawX, uy}, {drawX + atom.width, uy}, uCol, wordHovered ? 1.5f : 1.0f);
                 }
-                if (span.strikethrough) {
-                    const float sy = bounds.y + curY + lineH * 0.52f;
-                    canvas->DrawLine({bounds.x + curX, sy}, {bounds.x + curX + wordW, sy}, drawCol.WithAlpha(180), 1.2f);
+                if (atom.strikethrough) {
+                    const float sy = lineY + lineH * 0.52f;
+                    canvas->DrawLine({drawX, sy}, {drawX + atom.width, sy}, drawCol.WithAlpha(180), 1.2f);
                 }
                 if (textMap && !textMap->tokens.empty()) {
                     DrawTokenCaretIfPresent(*canvas, textMap->tokens.back(), textMap->plainText, overlay, theme);
                 }
             }
 
-            curX += wordW;
+            drawX += atom.width;
+        }
+
+        if (textMap) {
+            textMap->AppendNewline();
         }
     }
 
-    if (textMap) textMap->AppendNewline();
-    maxLineW = std::max(maxLineW, curX);
     res.width = maxLineW;
-    res.height = curY + lineH;
+    res.height = static_cast<float>(flowLines.size()) * lineH;
     return res;
 }
 
@@ -1121,8 +1361,8 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
             case BlockKind::Heading: {
                 const float hFs = HeadingFontSize(blk.headingLevel, opts, theme, effZoom);
                 const float headingInlineCodeFs = opts.inlineCodeFontSize.has_value()
-                    ? (inlineCodeFs * (hFs / std::max(1.0f, bodyFs)))
-                    : (hFs * 0.88f);
+                    ? (inlineCodeFs * (hFs / std::max(1.0f, bodyFs)) * 0.85f)
+                    : (hFs * 0.75f);
                 const FlowResult fr = LayoutOrRenderSpans(
                     canvas,
                     doRender,
@@ -1390,7 +1630,7 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
             }
 
             case BlockKind::CodeBlock: {
-                // Split lines
+                // Split logical lines
                 std::vector<std::string_view> codeLines;
                 size_t p = 0;
                 std::string_view raw = blk.rawText;
@@ -1409,7 +1649,88 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                 const float padY = blkPad * 0.85f;
                 const float padX = blkPad;
                 const float gutterW = opts.codeLineNumbers ? (36.0f * s) : 0.0f;
-                const float bodyH = static_cast<float>(codeLines.size()) * codeLineH + padY * 2.0f;
+                const float codeStartX = contentBounds.x + gutterW + padX;
+                const float codeAvailW = std::max(48.0f * s, availW - gutterW - padX * 2.0f);
+                const float spaceW = std::max(1.0f, MeasureStyledSlice(canvas, " ", codeFs, FontStyle::Monospace));
+
+                struct CodeVisualLine {
+                    size_t logicalLine{0};
+                    bool isFirstSlice{true};
+                    bool isLastSlice{true};
+                    size_t startCol{0};
+                    size_t length{0};
+                };
+
+                std::vector<CodeVisualLine> visualLines;
+                visualLines.reserve(codeLines.size());
+
+                for (size_t ln = 0; ln < codeLines.size(); ++ln) {
+                    const std::string_view lineStr = codeLines[ln];
+                    if (lineStr.empty()) {
+                        visualLines.push_back(CodeVisualLine{ln, true, true, 0, 0});
+                        continue;
+                    }
+                    const float fullW = MeasureStyledSlice(canvas, lineStr, codeFs, FontStyle::Monospace);
+                    if (fullW <= codeAvailW + 0.5f) {
+                        visualLines.push_back(CodeVisualLine{ln, true, true, 0, lineStr.size()});
+                        continue;
+                    }
+
+                    size_t pos = 0;
+                    while (pos < lineStr.size()) {
+                        const size_t approxChars = std::max<size_t>(1, static_cast<size_t>(std::floor(codeAvailW / spaceW)));
+                        size_t fitEnd = std::min(lineStr.size(), pos + approxChars);
+                        while (fitEnd < lineStr.size() && (static_cast<unsigned char>(lineStr[fitEnd]) & 0xC0) == 0x80) {
+                            ++fitEnd;
+                        }
+                        while (fitEnd < lineStr.size()) {
+                            size_t nextCp = fitEnd + 1;
+                            while (nextCp < lineStr.size() && (static_cast<unsigned char>(lineStr[nextCp]) & 0xC0) == 0x80) {
+                                ++nextCp;
+                            }
+                            if (MeasureStyledSlice(canvas, lineStr.substr(pos, nextCp - pos), codeFs, FontStyle::Monospace) <= codeAvailW + 0.5f) {
+                                fitEnd = nextCp;
+                            } else {
+                                break;
+                            }
+                        }
+                        while (fitEnd > pos + 1 && MeasureStyledSlice(canvas, lineStr.substr(pos, fitEnd - pos), codeFs, FontStyle::Monospace) > codeAvailW + 0.5f) {
+                            --fitEnd;
+                            while (fitEnd > pos + 1 && (static_cast<unsigned char>(lineStr[fitEnd]) & 0xC0) == 0x80) {
+                                --fitEnd;
+                            }
+                        }
+
+                        size_t splitEnd = fitEnd;
+                        if (fitEnd < lineStr.size() && (fitEnd - pos) >= 10) {
+                            const size_t minBreak = pos + ((fitEnd - pos) * 60) / 100;
+                            for (size_t k = fitEnd; k > minBreak; --k) {
+                                const char ch = lineStr[k - 1];
+                                if (ch == ' ' || ch == ',' || ch == ';' || ch == '(' || ch == '{' || ch == '[') {
+                                    splitEnd = k;
+                                    break;
+                                }
+                            }
+                        }
+                        if (splitEnd <= pos) {
+                            splitEnd = std::min(lineStr.size(), pos + 1);
+                            while (splitEnd < lineStr.size() && (static_cast<unsigned char>(lineStr[splitEnd]) & 0xC0) == 0x80) {
+                                ++splitEnd;
+                            }
+                        }
+
+                        visualLines.push_back(CodeVisualLine{
+                            ln,
+                            (pos == 0),
+                            (splitEnd >= lineStr.size()),
+                            pos,
+                            splitEnd - pos
+                        });
+                        pos = splitEnd;
+                    }
+                }
+
+                const float bodyH = static_cast<float>(visualLines.size()) * codeLineH + padY * 2.0f;
                 const float totalBoxH = headerH + bodyH;
                 const Rect boxRect(contentBounds.x, curY, availW, totalBoxH);
 
@@ -1427,25 +1748,25 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                     out.hoveredCopyCode = blk.rawText;
                 }
 
-                const float codeStartX = boxRect.x + gutterW + padX;
-                const float spaceW = MeasureStyledSlice(canvas, " ", codeFs, FontStyle::Monospace);
-
-                // Record code lines into DocumentTextMap for selection, cursor movement, and search
+                // Record visual code slices into DocumentTextMap for selection, cursor movement, and search
                 std::vector<size_t> codeLineTokenIndices;
                 if (textMap) {
-                    codeLineTokenIndices.reserve(codeLines.size());
-                    for (size_t ln = 0; ln < codeLines.size(); ++ln) {
-                        const float ly = boxRect.y + headerH + padY + static_cast<float>(ln) * codeLineH;
-                        const std::string_view lineStr = codeLines[ln];
-                        const float lineW = std::max(spaceW, MeasureStyledSlice(canvas, lineStr, codeFs, FontStyle::Monospace));
+                    codeLineTokenIndices.reserve(visualLines.size());
+                    for (size_t vIdx = 0; vIdx < visualLines.size(); ++vIdx) {
+                        const CodeVisualLine& vline = visualLines[vIdx];
+                        const float ly = boxRect.y + headerH + padY + static_cast<float>(vIdx) * codeLineH;
+                        const std::string_view sliceStr = codeLines[vline.logicalLine].substr(vline.startCol, vline.length);
+                        const float lineW = std::max(spaceW, MeasureStyledSlice(canvas, sliceStr, codeFs, FontStyle::Monospace));
                         const Rect lineRect(codeStartX, ly, lineW, codeLineH);
                         codeLineTokenIndices.push_back(textMap->tokens.size());
-                        if (!lineStr.empty()) {
-                            textMap->AddToken(lineRect, lineStr, codeFs, FontStyle::Monospace, 0.0f);
+                        if (!sliceStr.empty()) {
+                            textMap->AddToken(lineRect, sliceStr, codeFs, FontStyle::Monospace, 0.0f);
                         } else {
                             textMap->AddToken(lineRect, " ", codeFs, FontStyle::Monospace, 0.0f);
                         }
-                        textMap->AppendNewline();
+                        if (vline.isLastSlice) {
+                            textMap->AppendNewline();
+                        }
                     }
                 }
 
@@ -1529,11 +1850,16 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                     std::vector<TextSpan> syntaxSpans;
                     bool inBlockComment = false;
 
-                    for (size_t ln = 0; ln < codeLines.size(); ++ln) {
-                        const float ly = boxRect.y + headerH + padY + static_cast<float>(ln) * codeLineH;
+                    for (size_t vIdx = 0; vIdx < visualLines.size(); ++vIdx) {
+                        const CodeVisualLine& vline = visualLines[vIdx];
+                        const size_t ln = vline.logicalLine;
+                        const std::string_view fullLineStr = codeLines[ln];
+                        const std::string_view sliceStr = fullLineStr.substr(vline.startCol, vline.length);
+
+                        const float ly = boxRect.y + headerH + padY + static_cast<float>(vIdx) * codeLineH;
                         const float textY = ly + (codeLineH - ((codeGlyphH > 0.0f) ? codeGlyphH : codeFs)) * 0.5f;
 
-                        if (opts.codeLineNumbers) {
+                        if (opts.codeLineNumbers && vline.isFirstSlice) {
                             char lnBuf[16];
                             std::snprintf(lnBuf, sizeof(lnBuf), "%zu", ln + 1);
                             canvas->DrawTextBox(
@@ -1546,17 +1872,15 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                             );
                         }
 
-                        if (textMap && ln < codeLineTokenIndices.size()) {
-                            const PositionedToken& tok = textMap->tokens[codeLineTokenIndices[ln]];
+                        if (textMap && vIdx < codeLineTokenIndices.size()) {
+                            const PositionedToken& tok = textMap->tokens[codeLineTokenIndices[vIdx]];
                             DrawTokenSelectionAndSearchHighlights(*canvas, tok, textMap->plainText, overlay, theme);
                         }
 
-                        const std::string_view lineStr = codeLines[ln];
-
-                        // Indent guides (every 4 leading spaces)
-                        if (opts.codeIndentGuides && !lineStr.empty() && spaceW > 0.0f) {
+                        // Indent guides (every 4 leading spaces on first slice of logical line)
+                        if (opts.codeIndentGuides && vline.isFirstSlice && !sliceStr.empty() && spaceW > 0.0f) {
                             size_t leadSpaces = 0;
-                            while (leadSpaces < lineStr.size() && lineStr[leadSpaces] == ' ') ++leadSpaces;
+                            while (leadSpaces < sliceStr.size() && sliceStr[leadSpaces] == ' ') ++leadSpaces;
                             for (size_t col = 4; col <= leadSpaces; col += 4) {
                                 const float gx = std::round(codeStartX + static_cast<float>(col) * spaceW);
                                 canvas->DrawLine({gx, ly}, {gx, ly + codeLineH}, theme.palette.borderSubtle.WithAlpha(90), 1.0f);
@@ -1564,14 +1888,14 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                         }
 
                         // Visible whitespace markers (space dots and tab arrows)
-                        if (opts.codeShowWhitespace && !lineStr.empty() && spaceW > 0.0f) {
+                        if (opts.codeShowWhitespace && !sliceStr.empty() && spaceW > 0.0f) {
                             const float dotR = std::max(1.2f, 1.4f * s);
                             const float cy = ly + codeLineH * 0.5f;
-                            for (size_t c = 0; c < lineStr.size(); ++c) {
-                                if (lineStr[c] == ' ') {
+                            for (size_t c = 0; c < sliceStr.size(); ++c) {
+                                if (sliceStr[c] == ' ') {
                                     const float cx = codeStartX + (static_cast<float>(c) + 0.5f) * spaceW;
                                     canvas->DrawRoundRect(Rect(cx - dotR, cy - dotR, dotR * 2.0f, dotR * 2.0f), dotR, wsColor);
-                                } else if (lineStr[c] == '\t') {
+                                } else if (sliceStr[c] == '\t') {
                                     const float x0 = codeStartX + static_cast<float>(c) * spaceW + 2.0f * s;
                                     const float x1 = codeStartX + static_cast<float>(c + 1) * spaceW - 2.0f * s;
                                     if (x1 > x0) {
@@ -1583,24 +1907,32 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                             }
                         }
 
-                        if (opts.syntaxHighlight && !lineStr.empty()) {
-                            syntaxSpans.clear();
-                            TextArea::HighlightLine(
-                                lineStr,
-                                ln,
-                                synCfg,
-                                syntaxSpans,
-                                theme,
-                                opts.codePalette.has_value() ? &(*opts.codePalette) : nullptr,
-                                &inBlockComment
-                            );
-                            if (syntaxSpans.empty()) {
-                                canvas->DrawTextStyled(lineStr, {codeStartX, textY}, codeFs, defaultCodeCol, FontStyle::Monospace);
-                            } else {
+                        if (opts.syntaxHighlight && !fullLineStr.empty()) {
+                            if (vline.isFirstSlice) {
+                                syntaxSpans.clear();
+                                TextArea::HighlightLine(
+                                    fullLineStr,
+                                    ln,
+                                    synCfg,
+                                    syntaxSpans,
+                                    theme,
+                                    opts.codePalette.has_value() ? &(*opts.codePalette) : nullptr,
+                                    &inBlockComment
+                                );
+                            }
+                            if (syntaxSpans.empty() && !sliceStr.empty()) {
+                                canvas->DrawTextStyled(sliceStr, {codeStartX, textY}, codeFs, defaultCodeCol, FontStyle::Monospace);
+                            } else if (!sliceStr.empty()) {
+                                const size_t sliceStart = vline.startCol;
+                                const size_t sliceEnd = vline.startCol + vline.length;
                                 float spanX = codeStartX;
                                 for (const TextSpan& sp : syntaxSpans) {
-                                    if (sp.startCol < lineStr.size() && sp.length > 0) {
-                                        const std::string_view tok = lineStr.substr(sp.startCol, sp.length);
+                                    const size_t spStart = static_cast<size_t>(sp.startCol);
+                                    const size_t spEnd = spStart + static_cast<size_t>(sp.length);
+                                    const size_t segStart = std::max(spStart, sliceStart);
+                                    const size_t segEnd = std::min({spEnd, sliceEnd, fullLineStr.size()});
+                                    if (segEnd > segStart) {
+                                        const std::string_view tok = fullLineStr.substr(segStart, segEnd - segStart);
                                         bool allSpaces = true;
                                         for (char ch : tok) {
                                             if (ch != ' ' && ch != '\t') {
@@ -1615,12 +1947,12 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
                                     }
                                 }
                             }
-                        } else if (!lineStr.empty()) {
-                            canvas->DrawTextStyled(lineStr, {codeStartX, textY}, codeFs, defaultCodeCol, FontStyle::Monospace);
+                        } else if (!sliceStr.empty()) {
+                            canvas->DrawTextStyled(sliceStr, {codeStartX, textY}, codeFs, defaultCodeCol, FontStyle::Monospace);
                         }
 
-                        if (textMap && ln < codeLineTokenIndices.size()) {
-                            const PositionedToken& tok = textMap->tokens[codeLineTokenIndices[ln]];
+                        if (textMap && vIdx < codeLineTokenIndices.size()) {
+                            const PositionedToken& tok = textMap->tokens[codeLineTokenIndices[vIdx]];
                             DrawTokenCaretIfPresent(*canvas, tok, textMap->plainText, overlay, theme);
                         }
                     }
@@ -1668,19 +2000,32 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
 
                 if (!blk.imageAlt.empty()) {
                     const float capFs = theme.GetFontSize(TextRole::LabelSmall) * effZoom;
-                    const float capH = (canvas ? canvas->GetLineHeight(capFs) : theme.GetLineHeight(capFs)) * lhScale + 4.0f * s;
-                    if (doRender && canvas) {
-                        const float tw = canvas->MeasureTextStyled(blk.imageAlt, capFs, FontStyle::Italic).x;
-                        const float tx = contentBounds.x + std::max(0.0f, (availW - tw) * 0.5f);
-                        canvas->DrawTextStyled(
-                            blk.imageAlt,
-                            {tx, curY + 4.0f * s},
-                            capFs,
-                            theme.palette.textMuted,
-                            FontStyle::Italic
-                        );
+                    const float capCodeFs = capFs * 0.92f;
+                    curY += 4.0f * s;
+                    std::vector<InlineSpan> capSpans = ParseInlineSpans(blk.imageAlt, FontStyle::Italic, false);
+                    const FlowResult capFr = LayoutOrRenderSpans(
+                        canvas,
+                        doRender,
+                        capSpans,
+                        Rect(contentBounds.x, curY, availW, 0.0f),
+                        capFs,
+                        capCodeFs,
+                        lhScale,
+                        0.0f,
+                        theme.palette.textMuted,
+                        theme,
+                        effZoom,
+                        mousePos,
+                        FontStyle::Italic,
+                        textMap,
+                        overlay,
+                        Align::Center
+                    );
+                    if (!capFr.hoveredLinkUrl.empty()) {
+                        out.hoveredLink = capFr.hoveredLinkUrl;
+                        out.hoveredLinkRect = capFr.hoveredLinkRect;
                     }
-                    curY += capH;
+                    curY += capFr.height;
                 }
                 out.totalWidth = std::max(out.totalWidth, availW);
                 break;
@@ -1688,20 +2033,171 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
 
             case BlockKind::Table: {
                 if (blk.tableRows.empty()) break;
-                const size_t numCols = std::max<size_t>(1, blk.tableAligns.size());
-                const float colW = availW / static_cast<float>(numCols);
-                const float cellPadX = 10.0f * s;
-                const float cellPadY = 7.0f * s;
-                const float rowH = (canvas ? canvas->GetLineHeight(bodyFs) : theme.GetLineHeight(bodyFs)) * lhScale + cellPadY * 2.0f;
-                const float tableH = static_cast<float>(blk.tableRows.size()) * rowH;
-                const Rect tableRect(contentBounds.x, curY, availW, tableH);
+                size_t numCols = std::max<size_t>(1, blk.tableAligns.size());
+                for (const auto& r : blk.tableRows) {
+                    numCols = std::max(numCols, r.size());
+                }
 
+                // Adaptive cell padding: scales down smoothly in narrow viewports so columns retain text room
+                const float cellPadX = std::clamp(availW / (static_cast<float>(numCols) * 14.0f), 4.5f * s, 10.0f * s);
+                const float cellPadY = std::clamp(cellPadX * 0.7f, 4.5f * s, 7.0f * s);
+
+                // 1. Measure unbreakable single-token widths and unwrapped natural cell widths at base font sizes
+                std::vector<float> minTextW(numCols, 24.0f * s);
+                std::vector<float> naturalTextW(numCols, 24.0f * s);
+
+                for (size_t r = 0; r < blk.tableRows.size(); ++r) {
+                    const FontStyle rowBaseStyle = (r == 0) ? FontStyle::Bold : FontStyle::Regular;
+                    const auto& rowCells = blk.tableRows[r];
+                    for (size_t c = 0; c < numCols && c < rowCells.size(); ++c) {
+                        const FlowResult natFr = LayoutOrRenderSpans(
+                            canvas,
+                            false,
+                            rowCells[c].spans,
+                            Rect(0.0f, 0.0f, 10000.0f, 0.0f),
+                            bodyFs,
+                            inlineCodeFs,
+                            lhScale,
+                            0.0f,
+                            theme.palette.textPrimary,
+                            theme,
+                            effZoom,
+                            mousePos,
+                            rowBaseStyle,
+                            nullptr,
+                            nullptr
+                        );
+                        naturalTextW[c] = std::max(naturalTextW[c], natFr.width);
+
+                        // Measure widest unbreakable token (word or inline code pill) in this cell
+                        float maxTokenW = 0.0f;
+                        for (const auto& sp : rowCells[c].spans) {
+                            if (sp.kind == InlineKind::Code) {
+                                maxTokenW = std::max(
+                                    maxTokenW,
+                                    MeasureStyledSlice(canvas, sp.text, inlineCodeFs, FontStyle::Monospace) + 9.0f * s
+                                );
+                            } else {
+                                const FontStyle effStyle = CombineFontStyles(rowBaseStyle, sp.style);
+                                std::string_view sv = sp.text;
+                                size_t i = 0;
+                                while (i < sv.size()) {
+                                    while (i < sv.size() && (sv[i] == ' ' || sv[i] == '\t' || sv[i] == '\n')) ++i;
+                                    size_t start = i;
+                                    while (i < sv.size() && sv[i] != ' ' && sv[i] != '\t' && sv[i] != '\n') ++i;
+                                    if (i > start) {
+                                        maxTokenW = std::max(maxTokenW, MeasureStyledSlice(canvas, sv.substr(start, i - start), bodyFs, effStyle));
+                                    }
+                                }
+                            }
+                        }
+                        minTextW[c] = std::max(minTextW[c], maxTokenW);
+                    }
+                }
+
+                float sumMinTextW = 0.0f;
+                for (size_t c = 0; c < numCols; ++c) {
+                    minTextW[c] = std::min(minTextW[c], naturalTextW[c]);
+                    sumMinTextW += minTextW[c];
+                }
+
+                const float totalPadW = static_cast<float>(numCols) * cellPadX * 2.0f;
+                const float availTextW = std::max(32.0f * s, availW - totalPadW);
+
+                // Smoothly scale table typography when viewport is narrower than the sum of unbreakable column words
+                const float tableFontScale = (availTextW < sumMinTextW * 1.03f && sumMinTextW > 0.0f)
+                    ? std::clamp(availTextW / (sumMinTextW * 1.03f), 0.68f, 1.0f)
+                    : 1.0f;
+                const float tableBodyFs = bodyFs * tableFontScale;
+                const float tableCodeFs = inlineCodeFs * tableFontScale;
+                const float tableEffZoom = effZoom * tableFontScale;
+                const float minRowH = (canvas ? canvas->GetLineHeight(tableBodyFs) : theme.GetLineHeight(tableBodyFs)) * lhScale + cellPadY * 2.0f;
+
+                std::vector<float> minColW(numCols, 0.0f);
+                std::vector<float> naturalColW(numCols, 0.0f);
+                float sumMinW = 0.0f;
+                float sumNatW = 0.0f;
+                for (size_t c = 0; c < numCols; ++c) {
+                    minColW[c] = minTextW[c] * tableFontScale + cellPadX * 2.0f;
+                    naturalColW[c] = naturalTextW[c] * tableFontScale + cellPadX * 2.0f;
+                    sumMinW += minColW[c];
+                    sumNatW += naturalColW[c];
+                }
+
+                std::vector<float> colWidths(numCols, availW / static_cast<float>(numCols));
+                if (availW >= sumNatW && sumNatW > 0.0f) {
+                    const float extraW = availW - sumNatW;
+                    for (size_t c = 0; c < numCols; ++c) {
+                        colWidths[c] = naturalColW[c] + extraW * (naturalColW[c] / sumNatW);
+                    }
+                } else if (availW >= sumMinW && sumNatW > sumMinW) {
+                    const float flexAvail = availW - sumMinW;
+                    const float flexTotal = sumNatW - sumMinW;
+                    for (size_t c = 0; c < numCols; ++c) {
+                        colWidths[c] = minColW[c] + flexAvail * ((naturalColW[c] - minColW[c]) / flexTotal);
+                    }
+                } else if (sumMinW > 0.0f) {
+                    for (size_t c = 0; c < numCols; ++c) {
+                        colWidths[c] = availW * (minColW[c] / sumMinW);
+                    }
+                }
+
+                std::vector<float> colX(numCols, contentBounds.x);
+                {
+                    float accumX = contentBounds.x;
+                    for (size_t c = 0; c < numCols; ++c) {
+                        colX[c] = accumX;
+                        accumX += colWidths[c];
+                    }
+                }
+
+                // 2. Measure wrapped height of every cell and determine dynamic row heights
+                const size_t numRows = blk.tableRows.size();
+                std::vector<std::vector<float>> cellHeights(numRows, std::vector<float>(numCols, 0.0f));
+                std::vector<float> rowHeights(numRows, minRowH);
+                float tableH = 0.0f;
+
+                for (size_t r = 0; r < numRows; ++r) {
+                    const FontStyle cellStyle = (r == 0) ? FontStyle::Bold : FontStyle::Regular;
+                    const auto& rowCells = blk.tableRows[r];
+                    float maxCellH = 0.0f;
+                    for (size_t c = 0; c < numCols && c < rowCells.size(); ++c) {
+                        const Align colAlign = (c < blk.tableAligns.size()) ? blk.tableAligns[c] : Align::Start;
+                        const float cellInnerW = std::max(8.0f, colWidths[c] - cellPadX * 2.0f);
+                        const FlowResult cfr = LayoutOrRenderSpans(
+                            canvas,
+                            false,
+                            rowCells[c].spans,
+                            Rect(0.0f, 0.0f, cellInnerW, 0.0f),
+                            tableBodyFs,
+                            tableCodeFs,
+                            lhScale,
+                            0.0f,
+                            theme.palette.textPrimary,
+                            theme,
+                            tableEffZoom,
+                            mousePos,
+                            cellStyle,
+                            nullptr,
+                            nullptr,
+                            colAlign
+                        );
+                        cellHeights[r][c] = cfr.height;
+                        maxCellH = std::max(maxCellH, cfr.height);
+                    }
+                    rowHeights[r] = std::max(minRowH, maxCellH + cellPadY * 2.0f);
+                    tableH += rowHeights[r];
+                }
+
+                const Rect tableRect(contentBounds.x, curY, availW, tableH);
                 if (doRender && canvas) {
                     canvas->DrawRoundRect(tableRect, blkRad, theme.palette.surface, theme.palette.borderSubtle, 1.0f);
                 }
 
-                for (size_t r = 0; r < blk.tableRows.size(); ++r) {
-                    const float ry = curY + static_cast<float>(r) * rowH;
+                // 3. Render rows and cells with vertical centering, cell clipping, and per-line horizontal alignment
+                float ry = curY;
+                for (size_t r = 0; r < numRows; ++r) {
+                    const float rowH = rowHeights[r];
                     const Rect rowRect(contentBounds.x, ry, availW, rowH);
                     if (doRender && canvas) {
                         if (r == 0) {
@@ -1716,58 +2212,49 @@ MarkdownPassResult ExecuteMarkdownLayoutAndRender(
 
                     const auto& rowCells = blk.tableRows[r];
                     for (size_t c = 0; c < numCols; ++c) {
-                        const float cx = contentBounds.x + static_cast<float>(c) * colW;
+                        const float cx = colX[c];
+                        const float cw = colWidths[c];
                         if (doRender && canvas && c > 0) {
                             canvas->DrawLine({cx, ry}, {cx, ry + rowH}, theme.palette.borderSubtle, 1.0f);
                         }
                         if (c < rowCells.size()) {
                             const Align colAlign = (c < blk.tableAligns.size()) ? blk.tableAligns[c] : Align::Start;
                             const FontStyle cellStyle = (r == 0) ? FontStyle::Bold : FontStyle::Regular;
-                            const Rect cellInner(cx + cellPadX, ry + cellPadY, std::max(10.0f, colW - cellPadX * 2.0f), rowH - cellPadY * 2.0f);
-                            const FlowResult cfr = LayoutOrRenderSpans(
-                                canvas,
-                                false,
-                                rowCells[c].spans,
-                                cellInner,
-                                bodyFs,
-                                inlineCodeFs,
-                                lhScale,
-                                0.0f,
-                                theme.palette.textPrimary,
-                                theme,
-                                effZoom,
-                                mousePos,
-                                cellStyle,
-                                nullptr,
-                                nullptr
-                            );
-                            float offsetX = 0.0f;
-                            if (colAlign == Align::Center) offsetX = std::max(0.0f, (cellInner.w - cfr.width) * 0.5f);
-                            else if (colAlign == Align::End) offsetX = std::max(0.0f, cellInner.w - cfr.width);
+                            const float cellInnerW = std::max(8.0f, cw - cellPadX * 2.0f);
+                            const float cellContentH = cellHeights[r][c];
+                            const float cellContentY = ry + std::max(cellPadY, (rowH - cellContentH) * 0.5f);
 
+                            if (doRender && canvas) {
+                                canvas->PushClip(Rect(cx + 1.0f, ry + 1.0f, std::max(1.0f, cw - 2.0f), std::max(1.0f, rowH - 2.0f)));
+                            }
                             const FlowResult rfr = LayoutOrRenderSpans(
                                 canvas,
                                 doRender,
                                 rowCells[c].spans,
-                                Rect(cellInner.x + offsetX, cellInner.y, cellInner.w - offsetX, cellInner.h),
-                                bodyFs,
-                                inlineCodeFs,
+                                Rect(cx + cellPadX, cellContentY, cellInnerW, cellContentH),
+                                tableBodyFs,
+                                tableCodeFs,
                                 lhScale,
                                 0.0f,
                                 theme.palette.textPrimary,
                                 theme,
-                                effZoom,
+                                tableEffZoom,
                                 mousePos,
                                 cellStyle,
                                 textMap,
-                                overlay
+                                overlay,
+                                colAlign
                             );
+                            if (doRender && canvas) {
+                                canvas->PopClip();
+                            }
                             if (!rfr.hoveredLinkUrl.empty()) {
                                 out.hoveredLink = rfr.hoveredLinkUrl;
                                 out.hoveredLinkRect = rfr.hoveredLinkRect;
                             }
                         }
                     }
+                    ry += rowH;
                 }
                 curY += tableH;
                 out.totalWidth = std::max(out.totalWidth, availW);
