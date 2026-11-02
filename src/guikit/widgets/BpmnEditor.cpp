@@ -327,6 +327,7 @@ struct BpmnEditorState {
     // Undo / Redo stacks
     std::vector<BpmnDiagram> undoStack{};
     std::vector<BpmnDiagram> redoStack{};
+    BpmnDiagram renderSnapshot{};
 
     // Clipboard for Copy / Paste
     std::vector<BpmnNode> clipboardNodes{};
@@ -407,9 +408,9 @@ struct BpmnEditorState {
 struct BpmnEditorPayload {
     BpmnEditorOptions opts{};
     BpmnEditorResponse resp{};
-    BpmnDiagram diagramSnapshot{};
-    BpmnEditorState stateSnapshot{};
-    std::string activeEditBuffer{};
+    const BpmnDiagram* diagramSnapshot{nullptr};
+    const BpmnEditorState* stateSnapshot{nullptr};
+    std::string_view activeEditBuffer{};
     size_t activeEditCursor{0};
     bool cursorBlinkOn{true};
     float animPhase{0.0f};
@@ -2416,11 +2417,11 @@ void StepTokenSimulation(BpmnDiagram& diagram, BpmnEditorState& state, float dtS
 
 void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     const auto* payload = node->As<BpmnEditorPayload>();
-    if (!payload) return;
+    if (!payload || !payload->diagramSnapshot || !payload->stateSnapshot) return;
 
     const BpmnEditorOptions& opts = payload->opts;
-    const BpmnDiagram& diagram = payload->diagramSnapshot;
-    const BpmnEditorState& state = payload->stateSnapshot;
+    const BpmnDiagram& diagram = *payload->diagramSnapshot;
+    const BpmnEditorState& state = *payload->stateSnapshot;
     const float s = theme.Scale(1.0f);
 
     const Rect viewRect = node->computedRect;
@@ -2886,8 +2887,8 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
         }
         canvas.DrawRoundRect(editBox, 5.0f * s, pal.hudBg, pal.selectAccent, 2.0f * s);
         const std::string displayStr = payload->cursorBlinkOn
-            ? (payload->activeEditBuffer + "|")
-            : payload->activeEditBuffer;
+            ? (std::string(payload->activeEditBuffer) + "|")
+            : std::string(payload->activeEditBuffer);
         canvas.DrawTextBox(displayStr, Rect(editBox.x + 8.0f * s, editBox.y, editBox.w - 16.0f * s, editBox.h), 11.5f * s, pal.textPrimary, 0.0f, 0.5f);
     }
 
@@ -4601,14 +4602,16 @@ BpmnEditorResponse BpmnEditor::Run(
         ctx.SetTooltip(opts.tooltip, baseRes.rect);
     }
 
+    state.renderSnapshot = diagram;
+
     Node* node = ctx.CreateNode(NodeType::BpmnEditor, id);
     auto* payload = ctx.AllocPayload<BpmnEditorPayload>();
     payload->opts = effOpts;
     payload->opts.tooltip = ctx.AllocString(opts.tooltip);
     payload->resp = resp;
-    payload->diagramSnapshot = diagram;
-    payload->stateSnapshot = state;
-    payload->activeEditBuffer = std::move(activeEditStr);
+    payload->diagramSnapshot = &state.renderSnapshot;
+    payload->stateSnapshot = &state;
+    payload->activeEditBuffer = ctx.AllocString(activeEditStr);
     payload->activeEditCursor = activeEditCursor;
     payload->cursorBlinkOn = ctx.IsCursorVisible();
     payload->animPhase = static_cast<float>(std::fmod(nowSec * 0.85, 1.0));

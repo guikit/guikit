@@ -7,6 +7,7 @@
 #include "guikit/core/Element.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
+#include "guikit/core/UiVector.hpp"
 #include "guikit/panels/ScrollArea.hpp"
 #include "guikit/widgets/Checkbox.hpp"
 
@@ -22,7 +23,7 @@ struct TreeViewPayload {
     std::string_view activeFilter{};
     uint32_t nextRootSlot{0};
     int visibleItemCount{0};
-    std::vector<VisibleTreeItemEntry> currVisibleItems{};
+    UiArenaVector<VisibleTreeItemEntry> currVisibleItems{};
 
     uint16_t columnCount{0};
     std::array<TableColumn, TreeViewState::kMaxColumns> columns{};
@@ -330,7 +331,7 @@ void TreeViewScope::Finalize() noexcept {
     }
 
     if (p->state) {
-        p->state->prevVisibleItems = std::move(p->currVisibleItems);
+        p->state->prevVisibleItems.assign(p->currVisibleItems.begin(), p->currVisibleItems.end());
     }
 }
 
@@ -649,6 +650,7 @@ TreeViewScope TreeView::Open(
     payload->ctx = &ctx;
     payload->outerNode = outerNode;
     payload->state = &st;
+    payload->currVisibleItems.BindArena(ctx.GetArena());
     payload->opts = opts;
     payload->opts.title = ctx.AllocText(opts.title);
 

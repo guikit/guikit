@@ -2,6 +2,7 @@
 #include <algorithm>
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Theme.hpp"
+#include "guikit/core/UiVector.hpp"
 
 namespace guikit {
 
@@ -83,7 +84,7 @@ std::string TextUtil::TruncateWithEllipsis(
     const float targetW = maxWidth - dotsW;
 
     // Collect all valid UTF-8 character end offsets
-    std::vector<size_t> boundaries;
+    UiVector<size_t, 64> boundaries;
     boundaries.reserve(text.size() + 1);
     boundaries.push_back(0);
     for (size_t i = 1; i <= text.size(); ++i) {
@@ -604,7 +605,7 @@ size_t TextUtil::HitTestIndex(
     }
 
     // Collect valid UTF-8 character boundary indices
-    std::vector<size_t> boundaries;
+    UiVector<size_t, 64> boundaries;
     boundaries.reserve(text.size() + 1);
     boundaries.push_back(0);
     for (size_t i = 1; i <= text.size(); ++i) {

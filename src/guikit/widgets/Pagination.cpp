@@ -2,11 +2,11 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
-#include <vector>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
+#include "guikit/core/UiVector.hpp"
 #include "guikit/graphics/Icon.hpp"
 
 namespace guikit {
@@ -61,7 +61,7 @@ void BuildPaginationTokens(
     size_t currentPage,
     size_t totalPages,
     const PaginationOptions& opts,
-    std::vector<PageToken>& outTokens
+    UiVector<PageToken, 16>& outTokens
 ) {
     outTokens.clear();
     const size_t safeTotal = std::max<size_t>(1, totalPages);
@@ -177,12 +177,11 @@ float MeasureUniformSlotWidth(
     return std::max(minBtnW, std::ceil(textW + padX * 2.0f));
 }
 
-std::string FormatPageInfoText(size_t currentPage, size_t totalPages) {
+std::string_view FormatPageInfoText(size_t currentPage, size_t totalPages, char (&buf)[64]) noexcept {
     const size_t safeTotal = std::max<size_t>(1, totalPages);
     const size_t curr = std::min(currentPage, safeTotal - 1);
-    char buf[64];
-    std::snprintf(buf, sizeof(buf), "Page %zu of %zu", curr + 1, safeTotal);
-    return std::string(buf);
+    const int n = std::snprintf(buf, sizeof(buf), "Page %zu of %zu", curr + 1, safeTotal);
+    return (n > 0) ? std::string_view(buf, static_cast<size_t>(std::min<int>(n, static_cast<int>(sizeof(buf) - 1)))) : std::string_view{};
 }
 
 float MeasureReservedPageInfoWidth(
@@ -190,9 +189,10 @@ float MeasureReservedPageInfoWidth(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme
-) {
+) noexcept {
     const size_t safeTotal = std::max<size_t>(1, totalPages);
-    const std::string maxInfoStr = FormatPageInfoText(safeTotal - 1, safeTotal);
+    char buf[64];
+    const std::string_view maxInfoStr = FormatPageInfoText(safeTotal - 1, safeTotal, buf);
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
     return std::ceil(TextUtil::MeasureWidth(maxInfoStr, fontSize, canvas) + theme.Scale(4.0f));
 }
@@ -206,7 +206,7 @@ Vec2 MeasurePaginationNaturalBox(
     const UiTheme& theme
 ) {
     const ComponentMetrics& cm = theme.GetMetrics(size);
-    std::vector<PageToken> tokens;
+    UiVector<PageToken, 16> tokens;
     BuildPaginationTokens(currentPage, totalPages, opts, tokens);
 
     const float gap = theme.Scale(4.0f);
@@ -239,8 +239,8 @@ void ComputePaginationLayout(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    std::vector<PageToken>& outTokens,
-    std::vector<Rect>& outTokenRects,
+    UiVector<PageToken, 16>& outTokens,
+    UiVector<Rect, 16>& outTokenRects,
     Rect& outInfoRect
 ) {
     BuildPaginationTokens(currentPage, totalPages, opts, outTokens);
@@ -251,7 +251,7 @@ void ComputePaginationLayout(
     outTokenRects.reserve(outTokens.size());
     const float gap = theme.Scale(4.0f);
     const float slotW = MeasureUniformSlotWidth(totalPages, size, canvas, theme);
-    std::vector<float> widths(outTokens.size(), slotW);
+    UiVector<float, 16> widths(outTokens.size(), slotW);
     float totalW = static_cast<float>(outTokens.size()) * slotW + static_cast<float>(outTokens.size() - 1) * gap;
 
     float infoW = 0.0f;
@@ -375,8 +375,8 @@ Response Pagination::Run(
     const Rect prevBounds = ctx.GetPrevFrameBounds(id);
     const Rect innerBounds = Control::ResolveInnerRect(prevBounds, prevCtrl, activeSize, theme);
 
-    std::vector<PageToken> tokens;
-    std::vector<Rect> tokenRects;
+    UiVector<PageToken, 16> tokens;
+    UiVector<Rect, 16> tokenRects;
     Rect infoRect{};
     ComputePaginationLayout(innerBounds, curr, safeTotal, optsCopy, activeSize, canvas, theme, tokens, tokenRects, infoRect);
 
@@ -535,8 +535,8 @@ void Pagination::Render(
     Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, d->hoveredToken >= 0, d->pressedToken >= 0 || focused);
     const Rect innerRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
 
-    std::vector<PageToken> tokens;
-    std::vector<Rect> tokenRects;
+    UiVector<PageToken, 16> tokens;
+    UiVector<Rect, 16> tokenRects;
     Rect infoRect{};
     ComputePaginationLayout(innerRect, d->currentPage, d->totalPages, d->opts, size, &canvas, theme, tokens, tokenRects, infoRect);
 
@@ -627,7 +627,8 @@ void Pagination::Render(
     }
 
     if (d->opts.showPageInfo && infoRect.w > 0.0f) {
-        const std::string infoStr = FormatPageInfoText(d->currentPage, d->totalPages);
+        char infoBuf[64];
+        const std::string_view infoStr = FormatPageInfoText(d->currentPage, d->totalPages, infoBuf);
         const Color infoCol = disabled ? pal.textDisabled : pal.textSecondary;
         canvas.DrawTextBox(infoStr, infoRect, fontSize, infoCol, 0.0f, 0.5f);
     }

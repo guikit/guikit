@@ -90,6 +90,28 @@ public:
         return reinterpret_cast<void*>(aligned);
     }
 
+    /// Attempts to extend the most recent raw allocation in the active chunk in-place.
+    /// Returns true if `ptr` sits at the top of the active chunk and has sufficient remaining capacity.
+    [[nodiscard]] bool TryExtendRaw(void* ptr, size_t oldBytes, size_t newBytes) noexcept {
+        if (ptr == nullptr || m_chunks.empty()) {
+            return false;
+        }
+        if (newBytes <= oldBytes) {
+            return true;
+        }
+        Chunk& chunk = m_chunks[m_currentChunkIndex];
+        auto* bytePtr = static_cast<std::byte*>(ptr);
+        if (bytePtr + oldBytes != chunk.data.get() + chunk.offset) {
+            return false;
+        }
+        const size_t extra = newBytes - oldBytes;
+        if (chunk.offset + extra > chunk.capacity) {
+            return false;
+        }
+        chunk.offset += extra;
+        return true;
+    }
+
     /// Allocates and constructs an object in-place.
     /// Non-trivially-destructible objects are registered in an intrusive arena list
     /// so their destructors run on Reset() or ~Allocator().

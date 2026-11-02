@@ -22,4 +22,5 @@
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
 #include "guikit/core/UiString.hpp"
+#include "guikit/core/UiVector.hpp"
 #include "guikit/graphics/Icon.hpp"

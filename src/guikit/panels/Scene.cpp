@@ -887,6 +887,8 @@ SceneScope Scene::Open(
     auto* payload = ctx.AllocPayload<ScenePayload>();
     payload->opts = optsCopy;
     payload->state = &state;
+    payload->drawCmds.BindArena(ctx.GetArena());
+    payload->items.BindArena(ctx.GetArena());
     node->SetPayload(payload);
 
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& th) noexcept -> Vec2 {

@@ -5,6 +5,7 @@
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
+#include "guikit/core/UiVector.hpp"
 
 namespace guikit {
 
@@ -109,7 +110,7 @@ void ComputeSegmentRects(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    std::vector<Rect>& outRects
+    UiVector<Rect, 16>& outRects
 ) {
     outRects.clear();
     if (items.empty()) return;
@@ -130,7 +131,7 @@ void ComputeSegmentRects(
             outRects.emplace_back(inner.x + static_cast<float>(i) * segW, inner.y, segW, inner.h);
         }
     } else {
-        std::vector<float> natW(items.size(), 1.0f);
+        UiVector<float, 16> natW(items.size(), 1.0f);
         float sumNat = 0.0f;
         for (size_t i = 0; i < items.size(); ++i) {
             natW[i] = std::max(1.0f, MeasureSegmentNaturalWidth(items[i], size, canvas, theme));
@@ -189,7 +190,7 @@ Response Segmented::Run(
     const SegmentedOptions& opts,
     std::source_location loc
 ) {
-    std::vector<SegmentedItem> richItems;
+    UiVector<SegmentedItem, 16> richItems;
     richItems.reserve(items.size());
     for (std::string_view sv : items) {
         richItems.push_back(SegmentedItem{.text = sv});
@@ -256,7 +257,7 @@ Response Segmented::Run(
     };
 
     const Rect prevBounds = ctx.GetPrevFrameBounds(id);
-    std::vector<Rect> segRects;
+    UiVector<Rect, 16> segRects;
     ComputeSegmentRects(prevBounds, items, optsCopy, activeSize, canvas, theme, segRects);
 
     int hoveredSegment = -1;
@@ -481,7 +482,7 @@ void Segmented::Render(
 
     if (items.empty()) return;
 
-    std::vector<Rect> segRects;
+    UiVector<Rect, 16> segRects;
     ComputeSegmentRects(trackRect, items, opts, size, &canvas, theme, segRects);
     const float pillRadius = std::max(2.0f, trackRadius - inset);
 

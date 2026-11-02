@@ -11,6 +11,7 @@
 #include "guikit/core/Theme.hpp"
 #include "guikit/core/Tokens.hpp"
 #include "guikit/core/Types.hpp"
+#include "guikit/core/UiVector.hpp"
 
 namespace guikit {
 
@@ -161,8 +162,8 @@ struct ScenePayload {
     SceneOptions opts{};
     SceneState* state{nullptr};
     Rect openViewport{};
-    std::vector<SceneDrawCmd> drawCmds{};
-    std::vector<SceneItemInfo> items{};
+    UiArenaVector<SceneDrawCmd> drawCmds{};
+    UiArenaVector<SceneItemInfo> items{};
     int32_t activeItemIndex{-1};
 };
 

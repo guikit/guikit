@@ -1,11 +1,11 @@
 #include "guikit/widgets/Breadcrumb.hpp"
 #include <algorithm>
 #include <cmath>
-#include <vector>
 #include "guikit/Context.hpp"
 #include "guikit/backend/ICanvas.hpp"
 #include "guikit/core/Node.hpp"
 #include "guikit/core/TextUtil.hpp"
+#include "guikit/core/UiVector.hpp"
 
 namespace guikit {
 
@@ -43,7 +43,7 @@ ControlSpec EffectiveBreadcrumbControl(const BreadcrumbOptions& opts, UiSize siz
 void BuildBreadcrumbTokens(
     std::span<const BreadcrumbItem> items,
     const BreadcrumbOptions& opts,
-    std::vector<BreadcrumbToken>& outTokens
+    UiVector<BreadcrumbToken, 16>& outTokens
 ) {
     outTokens.clear();
     if (items.empty()) return;
@@ -124,7 +124,7 @@ Vec2 MeasureBreadcrumbNaturalBox(
     const UiTheme& theme
 ) {
     const ComponentMetrics& cm = theme.GetMetrics(size);
-    std::vector<BreadcrumbToken> tokens;
+    UiVector<BreadcrumbToken, 16> tokens;
     BuildBreadcrumbTokens(items, opts, tokens);
 
     const float sepW = MeasureSeparatorSlotWidth(size, theme);
@@ -154,9 +154,9 @@ void ComputeBreadcrumbLayout(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    std::vector<BreadcrumbToken>& outTokens,
-    std::vector<Rect>& outTokenRects,
-    std::vector<Rect>& outSepRects
+    UiVector<BreadcrumbToken, 16>& outTokens,
+    UiVector<Rect, 16>& outTokenRects,
+    UiVector<Rect, 16>& outSepRects
 ) {
     BuildBreadcrumbTokens(items, opts, outTokens);
     outTokenRects.clear();
@@ -167,7 +167,7 @@ void ComputeBreadcrumbLayout(
     outSepRects.reserve(outTokens.size() > 1 ? outTokens.size() - 1 : 0);
 
     const float sepW = MeasureSeparatorSlotWidth(size, theme);
-    std::vector<float> widths(outTokens.size(), 0.0f);
+    UiVector<float, 16> widths(outTokens.size(), 0.0f);
     float totalW = 0.0f;
     for (size_t i = 0; i < outTokens.size(); ++i) {
         if (i > 0) totalW += sepW;
@@ -463,13 +463,13 @@ Response Breadcrumb::Run(
     const Rect prevBounds = ctx.GetPrevFrameBounds(id);
     const Rect innerBounds = Control::ResolveInnerRect(prevBounds, prevCtrl, activeSize, theme);
 
-    std::vector<BreadcrumbToken> tokens;
-    std::vector<Rect> tokenRects;
-    std::vector<Rect> sepRects;
+    UiVector<BreadcrumbToken, 16> tokens;
+    UiVector<Rect, 16> tokenRects;
+    UiVector<Rect, 16> sepRects;
     ComputeBreadcrumbLayout(innerBounds, items, optsCopy, activeSize, canvas, theme, tokens, tokenRects, sepRects);
 
     int ellipsisTokenIdx = -1;
-    std::vector<size_t> collapsedIndices;
+    UiVector<size_t, 16> collapsedIndices;
     for (size_t i = 0; i < tokens.size(); ++i) {
         if (tokens[i].isEllipsis) {
             ellipsisTokenIdx = static_cast<int>(i);
@@ -772,14 +772,13 @@ Response Breadcrumb::Run(
         const float popupScrollY = state.popupScrollY;
         const int effectiveHoveredRow = (hoveredPopupRow >= 0) ? hoveredPopupRow : state.highlightedPopupRow;
         int activePopupRow = -1;
-        std::vector<BreadcrumbItem> popupItems;
-        popupItems.reserve(collapsedIndices.size());
+        std::span<BreadcrumbItem> popupItems = ctx.GetArena().AllocateSpan<BreadcrumbItem>(collapsedIndices.size());
         for (size_t r = 0; r < collapsedIndices.size(); ++r) {
             const size_t origIdx = collapsedIndices[r];
             if (origIdx == currIndex) {
                 activePopupRow = static_cast<int>(r);
             }
-            popupItems.push_back(arenaItems[origIdx]);
+            popupItems[r] = arenaItems[origIdx];
         }
 
         ctx.SetOpenPopupVisualHash(detail::HashArgs(
@@ -795,11 +794,12 @@ Response Breadcrumb::Run(
         ));
 
         BreadcrumbOptions popupOpts = optsCopy;
-        ctx.RegisterOverlay([currentPopupRect, popupItems = std::move(popupItems), activePopupRow, effectiveHoveredRow, popupOpts, activeSize, theme, popupScrollY](ICanvas& c) {
+        const std::span<const BreadcrumbItem> constPopupItems(popupItems.data(), popupItems.size());
+        ctx.RegisterOverlay([currentPopupRect, constPopupItems, activePopupRow, effectiveHoveredRow, popupOpts, activeSize, theme, popupScrollY](ICanvas& c) {
             RenderBreadcrumbPopup(
                 c,
                 currentPopupRect,
-                std::span<const BreadcrumbItem>(popupItems),
+                constPopupItems,
                 activePopupRow,
                 effectiveHoveredRow,
                 popupOpts,
@@ -881,9 +881,9 @@ void Breadcrumb::Render(
 
     if (d->items.empty()) return;
 
-    std::vector<BreadcrumbToken> tokens;
-    std::vector<Rect> tokenRects;
-    std::vector<Rect> sepRects;
+    UiVector<BreadcrumbToken, 16> tokens;
+    UiVector<Rect, 16> tokenRects;
+    UiVector<Rect, 16> sepRects;
     ComputeBreadcrumbLayout(innerRect, d->items, d->opts, size, &canvas, theme, tokens, tokenRects, sepRects);
 
     canvas.PushClip(bounds);
@@ -970,13 +970,15 @@ void Breadcrumb::Render(
         const float availLabelW = std::max(0.0f, availW - fixedW - ((hasIcon && !item.label.empty()) ? iconGap : 0.0f));
         const bool showLabel = !item.label.empty() && (!hasIcon || availLabelW >= fontSize * 1.1f);
 
-        std::string displayLabel;
+        std::string_view displayLabel{};
+        std::string truncatedLabel;
         float labelW = 0.0f;
         if (showLabel) {
-            displayLabel = std::string(item.label.View());
+            displayLabel = item.label.View();
             labelW = canvas.MeasureText(displayLabel, fontSize).x;
             if (labelW > availLabelW + 0.5f && availLabelW > 0.0f) {
-                displayLabel = TextUtil::TruncateWithEllipsis(item.label.View(), availLabelW, fontSize, &canvas);
+                truncatedLabel = TextUtil::TruncateWithEllipsis(displayLabel, availLabelW, fontSize, &canvas);
+                displayLabel = truncatedLabel;
                 labelW = std::min(availLabelW, canvas.MeasureText(displayLabel, fontSize).x);
             }
         }

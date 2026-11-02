@@ -596,6 +596,154 @@ void TestEmbeddedAndRuntimeAssets() {
     CHECK(!Assets::Exists("assets/runtime/custom.svg"));
 }
 
+void TestUiVectorAndArenaVector() {
+    using namespace guikit;
+
+    static_assert(std::is_trivially_destructible_v<UiArenaVector<int>>);
+    static_assert(std::is_trivially_destructible_v<UiArenaVector<Rect>>);
+    static_assert(!std::is_trivially_destructible_v<UiArenaVector<std::string>>);
+    static_assert(std::is_trivially_destructible_v<ScenePayload>);
+
+    // 1. UiVector inline SBO storage & no self-referential pointer on copy/move
+    {
+        UiVector<int, 4> vec;
+        CHECK(vec.empty());
+        CHECK(vec.IsInline());
+        CHECK(vec.capacity() == 4);
+
+        vec.push_back(10);
+        vec.push_back(20);
+        vec.push_back(30);
+        vec.push_back(40);
+        CHECK(vec.size() == 4);
+        CHECK(vec.IsInline());
+
+        // Copy while inline must have its own independent inline storage
+        UiVector<int, 4> copyVec = vec;
+        CHECK(copyVec.IsInline());
+        CHECK(copyVec.data() != vec.data());
+        copyVec[0] = 99;
+        CHECK(vec[0] == 10);
+
+        // Self-aliasing push_back across inline -> heap boundary
+        vec.push_back(vec[0]);
+        CHECK(vec.size() == 5);
+        CHECK(!vec.IsInline());
+        CHECK(vec[0] == 10);
+        CHECK(vec[4] == 10);
+
+        // Move from heap-allocated UiVector steals heap buffer and resets source to inline
+        const int* heapPtr = vec.data();
+        UiVector<int, 4> movedVec = std::move(vec);
+        CHECK(!movedVec.IsInline());
+        CHECK(movedVec.data() == heapPtr);
+        CHECK(movedVec.size() == 5);
+        CHECK(vec.empty());
+        CHECK(vec.IsInline());
+
+        // Implicit conversion to std::span<const int>
+        auto sumSpan = [](std::span<const int> sp) {
+            int s = 0;
+            for (int v : sp) s += v;
+            return s;
+        };
+        CHECK(sumSpan(movedVec) == (10 + 20 + 30 + 40 + 10));
+    }
+
+    // 2. Non-trivial element lifetime in UiVector
+    {
+        int liveCount = 0;
+        struct TrackedItem {
+            int* counter{nullptr};
+            int value{0};
+            TrackedItem() = default;
+            TrackedItem(int* c, int v) : counter(c), value(v) {
+                if (counter) ++(*counter);
+            }
+            TrackedItem(const TrackedItem& o) : counter(o.counter), value(o.value) {
+                if (counter) ++(*counter);
+            }
+            TrackedItem(TrackedItem&& o) noexcept : counter(o.counter), value(o.value) {
+                o.counter = nullptr;
+            }
+            TrackedItem& operator=(const TrackedItem& o) {
+                if (this != &o) {
+                    if (counter) --(*counter);
+                    counter = o.counter;
+                    value = o.value;
+                    if (counter) ++(*counter);
+                }
+                return *this;
+            }
+            TrackedItem& operator=(TrackedItem&& o) noexcept {
+                if (this != &o) {
+                    if (counter) --(*counter);
+                    counter = o.counter;
+                    value = o.value;
+                    o.counter = nullptr;
+                }
+                return *this;
+            }
+            ~TrackedItem() {
+                if (counter) --(*counter);
+            }
+        };
+
+        {
+            UiVector<TrackedItem, 2> items;
+            items.emplace_back(&liveCount, 1);
+            items.emplace_back(&liveCount, 2);
+            CHECK(items.IsInline());
+            CHECK(liveCount == 2);
+
+            // Spill to heap + self-aliasing copy
+            items.push_back(items[0]);
+            CHECK(!items.IsInline());
+            CHECK(liveCount == 3);
+            CHECK(items[2].value == 1);
+
+            items.erase(items.begin() + 1);
+            CHECK(items.size() == 2);
+            CHECK(liveCount == 2);
+        }
+        CHECK(liveCount == 0);
+    }
+
+    // 3. UiArenaVector in-place growth via Allocator::TryExtendRaw
+    {
+        Allocator arena(4096);
+        UiArenaVector<int> arenaVec(arena, 8);
+        const int* initialPtr = arenaVec.data();
+        CHECK(initialPtr != nullptr);
+        CHECK(arenaVec.capacity() == 8);
+
+        // Push 64 elements while nothing else allocates from `arena`:
+        // TryExtendRaw extends the buffer in-place without moving `data()`!
+        for (int i = 0; i < 64; ++i) {
+            arenaVec.push_back(i * 3);
+        }
+        CHECK(arenaVec.size() == 64);
+        CHECK(arenaVec.data() == initialPtr);
+        CHECK(arenaVec.Span().size() == 64);
+        for (int i = 0; i < 64; ++i) {
+            CHECK(arenaVec[static_cast<size_t>(i)] == i * 3);
+        }
+
+        // Allocate something else on the arena so tip moves, then grow arenaVec again
+        int* separator = arena.Allocate<int>(777);
+        CHECK(*separator == 777);
+        for (int i = 64; i < 150; ++i) {
+            arenaVec.push_back(i * 3);
+        }
+        CHECK(arenaVec.size() == 150);
+        CHECK(arenaVec.data() != initialPtr);
+        CHECK(*separator == 777);
+        CHECK(arenaVec[0] == 0);
+        CHECK(arenaVec[63] == 63 * 3);
+        CHECK(arenaVec[149] == 149 * 3);
+    }
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Core Foundation...\n";
 
@@ -612,6 +760,7 @@ int main() {
     TestTextWrapForceSplitLastWord();
     TestStandaloneCoreModuleZeroDependencies();
     TestEmbeddedAndRuntimeAssets();
+    TestUiVectorAndArenaVector();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Core tests passed successfully!\n";
