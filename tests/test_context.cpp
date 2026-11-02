@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include "guikit/context.hpp"
+#include "guikit/core/assets.hpp"
 #include "guikit/core/rich_text.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/core/theme.hpp"
@@ -13039,6 +13040,43 @@ int main() {
                     runModalStage();
                     CHECK(!modalUi.HasDirtyDamage());
                     CHECK(!modalUi.IsFullRepaint());
+                }
+
+                // --- Unified Font Loading API (LoadFontFile / LoadFontMemory with FontStyle) & Embedded Monospace Font ---
+                {
+                    CHECK(Assets::Exists("assets/fonts/Roboto-Regular.ttf"));
+                    CHECK(Assets::Exists("assets/fonts/JetBrainsMono-Regular.ttf"));
+
+                    ThorCanvas fontCanvas(false);
+                    CHECK(fontCanvas.LoadFontFile("assets/fonts/Roboto-Regular.ttf", FontStyle::Regular));
+                    CHECK(fontCanvas.LoadFontFile("assets/fonts/JetBrainsMono-Regular.ttf", FontStyle::Monospace));
+
+                    // Proportional Regular: "WWWW" is significantly wider than "iiii"
+                    const Vec2 propNarrow = fontCanvas.MeasureTextStyled("iiii", 16.0f, FontStyle::Regular);
+                    const Vec2 propWide = fontCanvas.MeasureTextStyled("WWWW", 16.0f, FontStyle::Regular);
+                    CHECK(propWide.x > propNarrow.x * 1.5f);
+
+                    // Monospace: "iiii" and "WWWW" have identical advance width
+                    const Vec2 monoNarrow = fontCanvas.MeasureTextStyled("iiii", 16.0f, FontStyle::Monospace);
+                    const Vec2 monoWide = fontCanvas.MeasureTextStyled("WWWW", 16.0f, FontStyle::Monospace);
+                    CHECK(monoNarrow.x > 10.0f);
+                    CHECK(std::abs(monoWide.x - monoNarrow.x) < 0.05f);
+
+                    // LoadFontMemory with a temporary vector buffer (tests internal copy safety after buffer destruction)
+                    auto monoAsset = Assets::Find("assets/fonts/JetBrainsMono-Regular.ttf");
+                    CHECK(monoAsset.has_value());
+                    if (monoAsset) {
+                        ThorCanvas memCanvas(false);
+                        {
+                            std::vector<uint8_t> tempFontBytes(monoAsset->data, monoAsset->data + monoAsset->size);
+                            CHECK(memCanvas.LoadFontMemory("TempMonoBold", tempFontBytes, FontStyle::Bold, "ttf"));
+                        }
+                        // tempFontBytes is now destroyed; measuring and rendering must safely use ThorVG's internal copy
+                        const Vec2 memN = memCanvas.MeasureTextStyled("iiii", 16.0f, FontStyle::Bold);
+                        const Vec2 memW = memCanvas.MeasureTextStyled("WWWW", 16.0f, FontStyle::Bold);
+                        CHECK(memN.x > 10.0f);
+                        CHECK(std::abs(memW.x - memN.x) < 0.05f);
+                    }
                 }
             }
         }

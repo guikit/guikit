@@ -32,11 +32,16 @@ public:
     /// Configures the render target buffer (ABGR8888 premultiplied).
     void SetTarget(uint32_t* buffer, uint32_t width, uint32_t height, uint32_t stride) override;
 
-    /// Loads a TrueType/OpenType font from file for text rendering.
-    bool LoadFontFile(const std::string& path) override;
+    /// Loads a TrueType/OpenType font from a virtual asset path or filesystem path for the specified `FontStyle` slot.
+    bool LoadFontFile(std::string_view path, FontStyle style = FontStyle::Regular) override;
 
-    /// Loads a TrueType/OpenType monospace font from file for FontStyle::Monospace rendering.
-    bool LoadMonospaceFontFile(const std::string& path) override;
+    /// Loads a TrueType/OpenType font directly from an in-memory buffer for the specified `FontStyle` slot.
+    bool LoadFontMemory(
+        std::string_view name,
+        std::span<const uint8_t> data,
+        FontStyle style = FontStyle::Regular,
+        std::string_view mimeType = "ttf"
+    ) override;
 
     // ICanvas implementation
     void Begin(uint32_t width, uint32_t height, float scale = 1.0f) override;
@@ -146,6 +151,15 @@ private:
     };
 
     ImageCacheEntry& ResolveImageEntry(std::string_view source);
+    bool LoadFontMemoryInternal(
+        std::string_view name,
+        std::span<const uint8_t> data,
+        FontStyle style,
+        std::string_view mimeType,
+        bool copyData
+    );
+    [[nodiscard]] bool NeedsSyntheticBold(FontStyle style) const noexcept;
+    [[nodiscard]] bool NeedsSyntheticItalic(FontStyle style) const noexcept;
     void ApplyClip(tvg::Paint* paint, std::optional<Rect> bounds = std::nullopt);
     void ApplyFont(tvg::Text* txt, FontStyle style) const;
     void PunchHole(Rect rect);
@@ -168,12 +182,13 @@ private:
 
     std::vector<Rect> m_clipStack;
     std::vector<Rect> m_gpuClipStack;
-    std::string m_defaultFontPath;
-    std::string m_defaultFontName;
-    bool m_fontLoaded{false};
-    std::string m_monoFontPath;
-    std::string m_monoFontName;
-    bool m_monoFontLoaded{false};
+
+    struct FontSlot {
+        std::string name;
+        bool loaded{false};
+    };
+    static constexpr size_t kFontStyleCount = 5;
+    std::array<FontSlot, kFontStyleCount> m_fonts{};
 
     struct TextMeasureKey {
         uint64_t hash;

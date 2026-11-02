@@ -5,6 +5,8 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <thread>
 #include "guikit/core/assets.hpp"
@@ -20,14 +22,34 @@ namespace guikit {
 
 namespace {
 
-std::string ExtractFontName(const std::string& path) {
+std::string ExtractFontName(std::string_view path) {
     const size_t slash = path.find_last_of("/\\");
-    const std::string base = (slash == std::string::npos) ? path : path.substr(slash + 1);
+    const std::string_view base = (slash == std::string_view::npos) ? path : path.substr(slash + 1);
     const size_t dot = base.find_last_of('.');
-    if (dot != std::string::npos && dot > 0) {
-        return base.substr(0, dot);
+    if (dot != std::string_view::npos && dot > 0) {
+        return std::string(base.substr(0, dot));
     }
-    return base;
+    return std::string(base);
+}
+
+[[nodiscard]] constexpr size_t FontStyleSlotIndex(FontStyle style) noexcept {
+    const auto idx = static_cast<size_t>(style);
+    return (idx < 5u) ? idx : 0u;
+}
+
+[[nodiscard]] bool IsStaticEmbeddedAssetPointer(const uint8_t* ptr) noexcept {
+    if (!ptr) return false;
+    for (const auto& entry : detail::GetEmbeddedAssets()) {
+        if (entry.data == ptr) {
+            return true;
+        }
+    }
+    return false;
+}
+
+[[nodiscard]] std::filesystem::path Utf8Path(std::string_view utf8) {
+    return std::filesystem::path(
+        std::u8string_view(reinterpret_cast<const char8_t*>(utf8.data()), utf8.size()));
 }
 
 [[nodiscard]] inline uint32_t AlphaBlendSwar(uint32_t c, uint32_t a) noexcept {
@@ -68,36 +90,33 @@ ThorCanvas::ThorCanvas(bool loadDefaultFonts) {
         return;
     }
 
-    // Auto-detect default fonts across embedded assets and system locations
-    const char* defaultFontCandidates[] = {
+    // Auto-detect primary UI font across embedded assets and system locations
+    const std::string_view defaultFontCandidates[] = {
         "assets/fonts/Roboto-Regular.ttf",
-        "../assets/fonts/Roboto-Regular.ttf",
-        "../../assets/fonts/Roboto-Regular.ttf",
-        "../../../assets/fonts/Roboto-Regular.ttf",
         "C:/Windows/Fonts/segoeui.ttf",
-        "C:/Windows/Fonts/arial.ttf"
+        "C:/Windows/Fonts/arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf"
     };
-    for (const char* candidate : defaultFontCandidates) {
-        if (LoadFontFile(candidate)) {
+    for (std::string_view candidate : defaultFontCandidates) {
+        if (LoadFontFile(candidate, FontStyle::Regular)) {
             break;
         }
     }
 
-    // Auto-detect monospace fonts for code editors & code blocks
-    const char* monoFontCandidates[] = {
+    // Auto-detect monospace font for code editors, Markdown code blocks & telemetry
+    const std::string_view monoFontCandidates[] = {
         "assets/fonts/JetBrainsMono-Regular.ttf",
-        "../assets/fonts/JetBrainsMono-Regular.ttf",
-        "../../assets/fonts/JetBrainsMono-Regular.ttf",
         "assets/fonts/RobotoMono-Regular.ttf",
-        "../assets/fonts/RobotoMono-Regular.ttf",
-        "../../assets/fonts/RobotoMono-Regular.ttf",
         "C:/Windows/Fonts/CascadiaMono.ttf",
         "C:/Windows/Fonts/CascadiaCode.ttf",
         "C:/Windows/Fonts/consola.ttf",
-        "C:/Windows/Fonts/cour.ttf"
+        "C:/Windows/Fonts/cour.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+        "/System/Library/Fonts/Menlo.ttc"
     };
-    for (const char* candidate : monoFontCandidates) {
-        if (LoadMonospaceFontFile(candidate)) {
+    for (std::string_view candidate : monoFontCandidates) {
+        if (LoadFontFile(candidate, FontStyle::Monospace)) {
             break;
         }
     }
@@ -158,91 +177,131 @@ void ThorCanvas::SetTarget(uint32_t* buffer, uint32_t width, uint32_t height, ui
     }
 }
 
-bool ThorCanvas::LoadFontFile(const std::string& path) {
+bool ThorCanvas::LoadFontMemoryInternal(
+    std::string_view name,
+    std::span<const uint8_t> data,
+    FontStyle style,
+    std::string_view mimeType,
+    bool copyData
+) {
+    if (name.empty() || data.empty()) return false;
+
+    const std::string fontName(name);
+    const std::string mimeStr = mimeType.empty() ? "ttf" : std::string(mimeType);
+    if (tvg::Text::load(
+            fontName.c_str(),
+            reinterpret_cast<const char*>(data.data()),
+            static_cast<uint32_t>(data.size()),
+            mimeStr.c_str(),
+            copyData) != tvg::Result::Success) {
+        return false;
+    }
+
+    FontSlot& slot = m_fonts[FontStyleSlotIndex(style)];
+    slot.name = fontName;
+    slot.loaded = true;
+    m_textMeasureCache.clear();
+    m_textStampCache.clear();
+    return true;
+}
+
+bool ThorCanvas::LoadFontMemory(
+    std::string_view name,
+    std::span<const uint8_t> data,
+    FontStyle style,
+    std::string_view mimeType
+) {
+    return LoadFontMemoryInternal(name, data, style, mimeType, true);
+}
+
+bool ThorCanvas::LoadFontFile(std::string_view path, FontStyle style) {
     if (path.empty()) return false;
 
+    // 1. Check virtual / build-time embedded asset registry first (Native + WebAssembly)
     if (auto asset = Assets::Find(path); asset && !asset->Empty()) {
         const std::string fontName = ExtractFontName(path);
-        const char* mime = asset->mimeType.empty() ? "ttf" : asset->mimeType.data();
-        if (tvg::Text::load(
-                fontName.c_str(),
-                reinterpret_cast<const char*>(asset->data),
-                static_cast<uint32_t>(asset->size),
-                mime,
-                false) == tvg::Result::Success) {
-            m_defaultFontPath = Assets::NormalizePath(path);
-            m_defaultFontName = fontName;
-            m_fontLoaded = true;
-            m_textMeasureCache.clear();
-            m_textStampCache.clear();
+        const std::string_view mime = asset->mimeType.empty() ? Assets::InferMimeType(path) : asset->mimeType;
+        const bool copyData = !IsStaticEmbeddedAssetPointer(asset->data);
+        if (LoadFontMemoryInternal(fontName, asset->Bytes(), style, mime, copyData)) {
             return true;
         }
     }
 
-    tvg::Result res = tvg::Text::load(path.c_str());
-    if (res == tvg::Result::Success) {
-        m_defaultFontPath = path;
-        m_defaultFontName = ExtractFontName(path);
-        m_fontLoaded = true;
-        m_textMeasureCache.clear();
-        m_textStampCache.clear();
-        return true;
+    // 2. Check disk (UTF-8 aware path resolution, probing direct path and relative parent prefixes)
+    const std::string fontName = ExtractFontName(path);
+    const std::string_view mime = Assets::InferMimeType(path);
+    const std::filesystem::path relTest = Utf8Path(path);
+    const bool isAbsolute = relTest.is_absolute();
+    const std::string_view prefixes[] = {"", "../", "../../", "../../../"};
+
+    for (std::string_view prefix : prefixes) {
+        if (isAbsolute && !prefix.empty()) break;
+        const std::string candidate = std::string(prefix) + std::string(path);
+        std::ifstream ifs(Utf8Path(candidate), std::ios::binary | std::ios::ate);
+        if (!ifs) continue;
+
+        const auto endPos = ifs.tellg();
+        if (endPos <= 0) continue;
+
+        std::vector<uint8_t> bytes(static_cast<size_t>(endPos));
+        ifs.seekg(0, std::ios::beg);
+        if (!ifs.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()))) {
+            continue;
+        }
+        if (LoadFontMemoryInternal(fontName, bytes, style, mime, true)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool ThorCanvas::NeedsSyntheticBold(FontStyle style) const noexcept {
+    if (style == FontStyle::Bold) {
+        return !m_fonts[FontStyleSlotIndex(FontStyle::Bold)].loaded;
+    }
+    if (style == FontStyle::BoldItalic) {
+        return !m_fonts[FontStyleSlotIndex(FontStyle::BoldItalic)].loaded &&
+               !m_fonts[FontStyleSlotIndex(FontStyle::Bold)].loaded;
     }
     return false;
 }
 
-bool ThorCanvas::LoadMonospaceFontFile(const std::string& path) {
-    if (path.empty()) return false;
-
-    if (auto asset = Assets::Find(path); asset && !asset->Empty()) {
-        const std::string fontName = ExtractFontName(path);
-        const char* mime = asset->mimeType.empty() ? "ttf" : asset->mimeType.data();
-        if (tvg::Text::load(
-                fontName.c_str(),
-                reinterpret_cast<const char*>(asset->data),
-                static_cast<uint32_t>(asset->size),
-                mime,
-                false) == tvg::Result::Success) {
-            m_monoFontPath = Assets::NormalizePath(path);
-            m_monoFontName = fontName;
-            m_monoFontLoaded = true;
-            m_textMeasureCache.clear();
-            m_textStampCache.clear();
-            return true;
-        }
+bool ThorCanvas::NeedsSyntheticItalic(FontStyle style) const noexcept {
+    if (style == FontStyle::Italic) {
+        return !m_fonts[FontStyleSlotIndex(FontStyle::Italic)].loaded;
     }
-
-    tvg::Result res = tvg::Text::load(path.c_str());
-    if (res == tvg::Result::Success) {
-        m_monoFontPath = path;
-        m_monoFontName = ExtractFontName(path);
-        m_monoFontLoaded = true;
-        m_textMeasureCache.clear();
-        m_textStampCache.clear();
-        return true;
+    if (style == FontStyle::BoldItalic) {
+        return !m_fonts[FontStyleSlotIndex(FontStyle::BoldItalic)].loaded &&
+               !m_fonts[FontStyleSlotIndex(FontStyle::Italic)].loaded;
     }
     return false;
 }
 
 void ThorCanvas::ApplyFont(tvg::Text* txt, FontStyle style) const {
     if (!txt) return;
-    if (style == FontStyle::Monospace && m_monoFontLoaded) {
-        if (!m_monoFontName.empty() && txt->font(m_monoFontName.c_str()) == tvg::Result::Success) {
+
+    const FontSlot& primary = m_fonts[FontStyleSlotIndex(style)];
+    if (primary.loaded && !primary.name.empty() && txt->font(primary.name.c_str()) == tvg::Result::Success) {
+        return;
+    }
+
+    if (style == FontStyle::BoldItalic) {
+        const FontSlot& boldSlot = m_fonts[FontStyleSlotIndex(FontStyle::Bold)];
+        if (boldSlot.loaded && !boldSlot.name.empty() && txt->font(boldSlot.name.c_str()) == tvg::Result::Success) {
             return;
         }
-        if (!m_monoFontPath.empty() && txt->font(m_monoFontPath.c_str()) == tvg::Result::Success) {
+        const FontSlot& italicSlot = m_fonts[FontStyleSlotIndex(FontStyle::Italic)];
+        if (italicSlot.loaded && !italicSlot.name.empty() && txt->font(italicSlot.name.c_str()) == tvg::Result::Success) {
             return;
         }
     }
-    if (m_fontLoaded) {
-        if (!m_defaultFontName.empty() && txt->font(m_defaultFontName.c_str()) == tvg::Result::Success) {
-            return;
-        }
-        if (!m_defaultFontPath.empty() && txt->font(m_defaultFontPath.c_str()) == tvg::Result::Success) {
-            return;
-        }
-        txt->font(nullptr);
+
+    const FontSlot& regular = m_fonts[FontStyleSlotIndex(FontStyle::Regular)];
+    if (regular.loaded && !regular.name.empty() && txt->font(regular.name.c_str()) == tvg::Result::Success) {
+        return;
     }
+    txt->font(nullptr);
 }
 
 void ThorCanvas::Begin(uint32_t width, uint32_t height, float scale) {
@@ -515,10 +574,10 @@ Vec2 ThorCanvas::MeasureTextStyled(std::string_view text, float fontSize, FontSt
             cur++;
         }
     }
-    if (style == FontStyle::Bold || style == FontStyle::BoldItalic) {
+    if (NeedsSyntheticBold(style)) {
         totalAdvance += 0.6f;
     }
-    if (style == FontStyle::Italic || style == FontStyle::BoldItalic) {
+    if (NeedsSyntheticItalic(style)) {
         totalAdvance += fontSize * 0.12f;
     }
 
@@ -595,8 +654,8 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveTextStamp(
     m_stampScratch.assign(static_cast<size_t>(bufW) * static_cast<size_t>(bufH), 0u);
     m_stampCanvas->target(m_stampScratch.data(), static_cast<uint32_t>(bufW), static_cast<uint32_t>(bufW), static_cast<uint32_t>(bufH), tvg::ColorSpace::ABGR8888);
 
-    const bool isItalic = (style == FontStyle::Italic || style == FontStyle::BoldItalic);
-    const bool isBold = (style == FontStyle::Bold || style == FontStyle::BoldItalic);
+    const bool isItalic = NeedsSyntheticItalic(style);
+    const bool isBold = NeedsSyntheticBold(style);
     std::string textStr(text);
 
     auto addStampPass = [&](float offsetX) {
@@ -859,8 +918,8 @@ void ThorCanvas::DrawTextStyled(
         return;
     }
 
-    const bool isItalic = (style == FontStyle::Italic || style == FontStyle::BoldItalic);
-    const bool isBold = (style == FontStyle::Bold || style == FontStyle::BoldItalic);
+    const bool isItalic = NeedsSyntheticItalic(style);
+    const bool isBold = NeedsSyntheticBold(style);
     const float rad = hasRot ? (angleDeg * 0.017453292519943295f) : 0.0f;
     const float cosA = hasRot ? std::cos(rad) : 1.0f;
     const float sinA = hasRot ? std::sin(rad) : 0.0f;
@@ -942,8 +1001,8 @@ void ThorCanvas::DrawTextBoxStyled(
         return;
     }
 
-    const bool isItalic = (style == FontStyle::Italic || style == FontStyle::BoldItalic);
-    const bool isBold = (style == FontStyle::Bold || style == FontStyle::BoldItalic);
+    const bool isItalic = NeedsSyntheticItalic(style);
+    const bool isBold = NeedsSyntheticBold(style);
     auto emitBoxPass = [&](float offsetX) {
         auto txt = tvg::Text::gen();
         std::string textStr(drawText);

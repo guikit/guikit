@@ -126,11 +126,20 @@ public:
     /// Binds an in-memory 32-bit pixel buffer as the rendering target.
     virtual void SetTarget(uint32_t* /*buffer*/, uint32_t /*width*/, uint32_t /*height*/, uint32_t /*stride*/) {}
 
-    /// Loads a primary TrueType/OpenType font from file for text rendering.
-    virtual bool LoadFontFile(const std::string& /*path*/) { return false; }
+    /// Loads a TrueType/OpenType font from a virtual asset path or filesystem path for the specified `FontStyle` slot.
+    virtual bool LoadFontFile(std::string_view /*path*/, FontStyle /*style*/ = FontStyle::Regular) {
+        return false;
+    }
 
-    /// Loads a TrueType/OpenType monospace font from file for FontStyle::Monospace rendering.
-    virtual bool LoadMonospaceFontFile(const std::string& /*path*/) { return false; }
+    /// Loads a TrueType/OpenType font directly from an in-memory buffer for the specified `FontStyle` slot.
+    virtual bool LoadFontMemory(
+        std::string_view /*name*/,
+        std::span<const uint8_t> /*data*/,
+        FontStyle /*style*/ = FontStyle::Regular,
+        std::string_view /*mimeType*/ = "ttf"
+    ) {
+        return false;
+    }
 
     /// Prepares the canvas for a new frame with dimensions and optional DPI / UI scale factor.
     virtual void Begin(uint32_t width, uint32_t height, float scale = 1.0f) = 0;
