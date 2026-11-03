@@ -1444,7 +1444,9 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
 }
 
 void Context::RequestRepaint(int frames) noexcept {
-    m_repaintFrames = std::max(m_repaintFrames, frames);
+    if (frames <= 0) return;
+    const int target = (!m_containerStack.empty() && frames == 1) ? 2 : frames;
+    m_repaintFrames = std::max(m_repaintFrames, target);
 }
 
 bool Context::NeedsRepaint() const noexcept {
@@ -2664,6 +2666,7 @@ void Context::EndFrame(ICanvas& canvas) {
     if (m_repaintFrames > 0) {
         --m_repaintFrames;
     }
+    m_containerStack.clear();
 }
 
 void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirtyRect, const UiTheme& parentTheme) {

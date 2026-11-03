@@ -193,6 +193,12 @@ void MainWindow::RenderFrame() {
     m_metrics.EndFrame(60.0f);
 }
 
+void MainWindow::WakeUp() noexcept {
+    if (m_backend) {
+        m_backend->WakeUp();
+    }
+}
+
 void MainWindow::OpenUrl(std::string_view url) const noexcept {
     if (m_backend) {
         m_backend->OpenUrl(url);

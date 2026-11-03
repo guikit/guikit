@@ -36,6 +36,10 @@ public:
     /// Requests the main loop to terminate cleanly at the end of the current step.
     void Close() noexcept { m_running = false; }
 
+    /// Thread-safe wakeup signal: interrupts reactive idle sleep immediately so a new frame is rendered.
+    /// Safe to call from any background thread (e.g. hardware acquisition or compute pipeline callbacks).
+    void WakeUp() noexcept;
+
     /// Opens an external URL in the user's default system browser via the active `IWindowBackend`.
     void OpenUrl(std::string_view url) const noexcept;
 

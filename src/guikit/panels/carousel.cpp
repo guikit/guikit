@@ -506,17 +506,6 @@ void Carousel::RenderArrows(
         }
         drawArrow(cData->rightArrowRect, cData->rightArrowHovered, cData->rightArrowPressed, false);
     }
-
-    // 3. Continuous baseline separator across entire bar width in Underline style
-    if (cData->showBaselineSeparator) {
-        const float sepY = node->computedRect.Bottom() - 0.5f;
-        canvas.DrawLine(
-            Vec2(node->computedRect.x, sepY),
-            Vec2(node->computedRect.Right(), sepY),
-            pal.borderSubtle,
-            1.0f
-        );
-    }
 }
 
 Rect Carousel::GetContentClipRect(const Node* node) {

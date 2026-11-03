@@ -58,6 +58,9 @@ public:
     /// Returns `false` if the main loop should exit.
     virtual bool PumpEvents(Context& ui, bool reactiveMode, int sleepTimeoutMs) = 0;
 
+    /// Thread-safe wakeup signal that interrupts `PumpEvents()` idle sleep immediately when background work arrives.
+    virtual void WakeUp() noexcept {}
+
     /// Returns `true` if the platform requires an inverted callback main loop (e.g. WebAssembly / Emscripten).
     [[nodiscard]] virtual bool UsesMainLoopCallback() const noexcept { return false; }
 

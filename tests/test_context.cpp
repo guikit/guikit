@@ -13156,6 +13156,68 @@ int main() {
                     // World point (40, -25) is the top edge of worldBounds, so with fitPadding.top = 24,
                     // screenTopRight.y must sit 24px below the top of the Scene viewport!
                     CHECK_NEAR(screenTopRight.y, capturedVp.y + 24.0f, 1.5f);
+
+                    // --- RequestRepaint(1) called inside BeginFrame..EndFrame survives EndFrame ---
+                    while (sceneBpUi.NeedsRepaint()) {
+                        runSceneBpFrame();
+                    }
+                    CHECK(!sceneBpUi.NeedsRepaint());
+                    sceneBpUi.BeginFrame({static_cast<float>(sw), static_cast<float>(sh)}, 1.0f);
+                    sceneBpUi.RequestRepaint(1);
+                    sceneBpUi.EndFrame(sceneBpCanvas);
+                    CHECK(sceneBpUi.NeedsRepaint());
+                    CHECK(sceneBpUi.GetRepaintFramesLeft() == 1);
+
+                    // --- SceneScope::WasCameraModified() across wheel zoom & HUD ---
+                    bool camMod = false;
+                    auto runCamScene = [&]() {
+                        sceneBpUi.BeginFrame({400.0f, 300.0f}, 1.0f);
+                        if (auto sc = sceneBpUi.Scene({
+                            .height = 300.0f,
+                            .zoomable = true,
+                            .pannable = true,
+                            .showControls = true
+                        })) {
+                            camMod = sc.WasCameraModified();
+                        }
+                        sceneBpUi.EndFrame(sceneBpCanvas);
+                    };
+                    runCamScene();
+                    CHECK(!camMod);
+                    sceneBpUi.OnMouseMove({200.0f, 150.0f});
+                    sceneBpUi.OnMouseWheel(0.0f, 1.0f);
+                    runCamScene();
+                    CHECK(camMod);
+                    runCamScene();
+                    CHECK(!camMod);
+
+                    // --- ThorCanvas::DrawTextBoxStyled preserves leading spaces at alignX=0 ---
+                    {
+                        ThorCanvas txtCanvas;
+                        std::vector<uint32_t> bufNoSpace(200 * 40, 0);
+                        std::vector<uint32_t> bufWithSpace(200 * 40, 0);
+
+                        txtCanvas.SetTarget(bufNoSpace.data(), 200, 40, 200);
+                        txtCanvas.Begin(200, 40, 1.0f);
+                        txtCanvas.DrawTextBoxStyled("ABC", Rect(10.0f, 4.0f, 180.0f, 32.0f), 16.0f, Color(255, 255, 255), FontStyle::Regular, 0.0f, 0.5f);
+                        txtCanvas.End();
+
+                        txtCanvas.SetTarget(bufWithSpace.data(), 200, 40, 200);
+                        txtCanvas.Begin(200, 40, 1.0f);
+                        txtCanvas.DrawTextBoxStyled("   ABC", Rect(10.0f, 4.0f, 180.0f, 32.0f), 16.0f, Color(255, 255, 255), FontStyle::Regular, 0.0f, 0.5f);
+                        txtCanvas.End();
+
+                        auto findFirstInkX = [](const std::vector<uint32_t>& px) {
+                            int minX = 200;
+                            for (int y = 0; y < 40; ++y) {
+                                for (int x = 0; x < 200; ++x) {
+                                    if (px[y * 200 + x] != 0u && x < minX) minX = x;
+                                }
+                            }
+                            return minX;
+                        };
+                        CHECK(findFirstInkX(bufWithSpace) > findFirstInkX(bufNoSpace) + 6);
+                    }
                 }
             }
         }

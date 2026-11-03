@@ -771,11 +771,14 @@ ElementGeometry Element::Resolve(
             }
         } else {
             // InlineOrder::ControlFirst
-            geom.controlRect = Rect(bounds.x, bounds.y + (bounds.h - ctrlH) * 0.5f, ctrlW, ctrlH);
+            const float ctrlX = compactNaturalBlock
+                ? bounds.x
+                : (bounds.x + (colW - ctrlW) * alignFactor);
+            geom.controlRect = Rect(ctrlX, bounds.y + (bounds.h - ctrlH) * 0.5f, ctrlW, ctrlH);
 
-            float textX = bounds.x + ctrlW + gap;
+            float textX = bounds.x + colW + gap;
             if (!compactNaturalBlock) {
-                textX = std::max(bounds.x + ctrlW + gap, bounds.x + bounds.w - textBlockW);
+                textX = std::max(bounds.x + colW + gap, bounds.x + bounds.w - textBlockW);
             }
             float textY = startY;
             if (geom.hasLabel) {

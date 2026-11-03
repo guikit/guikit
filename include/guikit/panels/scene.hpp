@@ -259,7 +259,7 @@ public:
     /// Returns true if the user is actively dragging/panning the scene viewport.
     [[nodiscard]] bool IsPanning() const noexcept;
 
-    /// Returns true if user input (mouse wheel zoom, drag pan, HUD, or scrollbar) modified camera zoom/pan in this frame.
+    /// Returns true if user input (mouse wheel zoom, drag pan, HUD controls, or scrollbars) modified camera zoom/pan in this frame.
     [[nodiscard]] bool WasCameraModified() const noexcept;
 
     /// Returns true if the mouse cursor is currently inside the scene viewport and not occluded by any overlay, panel, or child widget.

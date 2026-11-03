@@ -43,7 +43,6 @@ struct CarouselData {
     bool leftArrowPressed{false};
     bool rightArrowPressed{false};
     bool scrollToActiveTab{false};
-    bool showBaselineSeparator{false};
     bool autoCompact{false};
 };
 

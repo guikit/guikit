@@ -368,6 +368,10 @@ bool SdlWindowBackend::PumpEvents(Context& ui, bool reactiveMode, int sleepTimeo
         return false;
     }
 
+    if (m_wakePending.exchange(false, std::memory_order_acq_rel)) {
+        ui.RequestRepaint(1);
+    }
+
 #ifdef __EMSCRIPTEN__
     int targetW = m_width;
     int targetH = m_height;
@@ -399,7 +403,7 @@ bool SdlWindowBackend::PumpEvents(Context& ui, bool reactiveMode, int sleepTimeo
     m_lastEmscriptenRenderTime = std::chrono::steady_clock::now();
     return !m_shouldExit;
 #else
-    if ((reactiveMode && !ui.NeedsRepaint()) || m_minimized) {
+    if ((reactiveMode && !ui.NeedsRepaint() && !m_wakePending.load(std::memory_order_acquire)) || m_minimized) {
         const int waitMs = m_minimized ? 250 : sleepTimeoutMs;
         SDL_Event event;
         if (SDL_WaitEventTimeout(&event, waitMs)) {
@@ -414,8 +418,22 @@ bool SdlWindowBackend::PumpEvents(Context& ui, bool reactiveMode, int sleepTimeo
             ProcessEvent(event, ui);
         }
     }
+    if (m_wakePending.exchange(false, std::memory_order_acq_rel)) {
+        ui.RequestRepaint(1);
+    }
     return !m_shouldExit;
 #endif
+}
+
+void SdlWindowBackend::WakeUp() noexcept {
+    if (!m_sdlVideoInitialized || m_shouldExit) {
+        return;
+    }
+    if (!m_wakePending.exchange(true, std::memory_order_acq_rel)) {
+        SDL_Event ev{};
+        ev.type = SDL_EVENT_USER;
+        SDL_PushEvent(&ev);
+    }
 }
 
 bool SDLCALL SdlWindowBackend::LiveResizeEventWatch(void* userdata, SDL_Event* event) {

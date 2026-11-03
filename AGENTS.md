@@ -9,7 +9,7 @@ Always follow these idioms instead of inventing custom layout math, manual SDL/O
 ## 1. Golden Rules (Do / Don't)
 
 ### Rule 1: Use `guikit::MainWindow` — Do NOT Write Manual SDL3 / OpenGL Loops
-`MainWindow` encapsulates window creation, DPI scaling, reactive idle sleep (0% CPU when idle), dirty-rectangle damage tracking, and hardware GPU shader underlays.
+`MainWindow` encapsulates window creation, DPI scaling, reactive idle sleep (0% CPU when idle), dirty-rectangle damage tracking, and hardware GPU shader underlays. When background threads (e.g. hardware acquisition or compute pipelines) produce new data, call `app.WakeUp()` (thread-safe, deduplicated) instead of including `<SDL3/SDL.h>` or pushing raw `SDL_Event`s.
 
 ```cpp
 #include "guikit/guikit.hpp"

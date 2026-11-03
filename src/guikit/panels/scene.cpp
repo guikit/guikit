@@ -405,7 +405,14 @@ float SceneScope::GetWorldScale() const noexcept {
 
 void SceneScope::SetZoom(float zoom) noexcept {
     if (!m_payload || !m_payload->state) return;
-    m_payload->state->zoom = std::clamp(zoom, m_payload->opts.minZoom, m_payload->opts.maxZoom);
+    SceneState& st = *m_payload->state;
+    const float newZoom = std::clamp(zoom, m_payload->opts.minZoom, m_payload->opts.maxZoom);
+    if (std::abs(newZoom - st.zoom) > 0.0001f) {
+        st.zoom = newZoom;
+        if (m_ctx && m_viewport.w > 1.0f && m_viewport.h > 1.0f) {
+            m_ctx->InvalidateRect(m_viewport);
+        }
+    }
 }
 
 void SceneScope::CenterOn(Vec2 worldPoint, std::optional<float> zoom) noexcept {
@@ -441,6 +448,9 @@ void SceneScope::ResetView() noexcept {
     m_payload->state->initialized = false;
     m_payload->state->pendingCenterWorld.reset();
     m_payload->state->pendingCenterZoom.reset();
+    if (m_ctx && m_viewport.w > 1.0f && m_viewport.h > 1.0f) {
+        m_ctx->InvalidateRect(m_viewport);
+    }
 }
 
 Vec2 SceneScope::GetPan() const noexcept {
@@ -771,6 +781,9 @@ void UpdateSceneCameraTransform(
         return;
     }
 
+    const float preInputZoom = state.zoom;
+    const Vec2 preInputPan = state.pan;
+
     const float s = theme.Scale(1.0f);
     const float worldScale = std::max(0.0001f, state.zoom * s);
     const Vec2 mousePos = ctx.GetMousePos();
@@ -944,6 +957,10 @@ void UpdateSceneCameraTransform(
     }
 
     ClampCameraToWorld(state, opts, vp, theme);
+    state.cameraModifiedByInput =
+        (std::abs(state.zoom - preInputZoom) > 0.0001f) ||
+        (std::abs(state.pan.x - preInputPan.x) > 0.01f) ||
+        (std::abs(state.pan.y - preInputPan.y) > 0.01f);
     state.preUpdateHudConsumed = hudConsumed;
     state.preUpdateScrollbarBusy = scrollbarBusy;
 }

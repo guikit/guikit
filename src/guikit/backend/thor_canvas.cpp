@@ -483,8 +483,8 @@ void ThorCanvas::DrawRoundRect(
         const float maxBottom = (m_height > 0)
             ? (static_cast<float>(m_height) * invScale - strokeWidth)
             : (ry1 - hw);
-        const float x0 = rx0 - hw;
-        const float y0 = ry0 - hw;
+        const float x0 = (m_width > 0) ? std::max(0.0f, rx0 - hw) : (rx0 - hw);
+        const float y0 = (m_height > 0) ? std::max(0.0f, ry0 - hw) : (ry0 - hw);
         const float xR = std::min(rx1 - hw, maxRight);
         const float yB = std::min(ry1 - hw, maxBottom);
         const float w = std::max(strokeWidth, (xR - x0) + strokeWidth);
@@ -1010,11 +1010,19 @@ void ThorCanvas::DrawTextBoxStyled(
         const TextStampEntry& capStamp = ResolveTextStamp("H", scaledFs, Color(255, 255, 255, 255), style);
         const int capOffY = capStamp.empty ? static_cast<int>(stamp.offsetY) : static_cast<int>(capStamp.offsetY);
         const int capH = capStamp.empty ? static_cast<int>(stamp.height) : static_cast<int>(capStamp.height);
-        const float tx = sBounds.x + (sBounds.w - static_cast<float>(stamp.width)) * alignX - static_cast<float>(stamp.offsetX);
+        const bool hasEdgeSpace = (stampText.front() == ' ' || stampText.back() == ' ');
+        float tx = sBounds.x;
+        if (alignX > 0.01f && !hasEdgeSpace) {
+            tx = sBounds.x + (sBounds.w - static_cast<float>(stamp.width)) * alignX - static_cast<float>(stamp.offsetX);
+        } else if (alignX > 0.01f) {
+            const Vec2 m = MeasureTextStyled(stampText, fontSize, style);
+            tx = (bounds.x + (bounds.w - m.x) * alignX) * m_scale;
+        }
         const float ty = sBounds.y + (sBounds.h - static_cast<float>(capH)) * alignY - static_cast<float>(capOffY);
         const int dstX = static_cast<int>(std::round(tx));
         const int dstY = static_cast<int>(std::round(ty));
-        BlitTextStamp(stamp, dstX, dstY, Rect(sBounds.x - 2.0f, sBounds.y - 2.0f, sBounds.w + 4.0f, sBounds.h + 4.0f));
+        const float vPad = std::max(4.0f, scaledFs * 0.35f);
+        BlitTextStamp(stamp, dstX, dstY, Rect(sBounds.x - 2.0f, sBounds.y - vPad, sBounds.w + 4.0f, sBounds.h + vPad * 2.0f));
         return;
     }
 

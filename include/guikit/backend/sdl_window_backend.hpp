@@ -2,6 +2,7 @@
 
 #include <SDL3/SDL.h>
 #include <array>
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <memory>
@@ -31,6 +32,7 @@ public:
     void Shutdown() noexcept override;
 
     bool PumpEvents(Context& ui, bool reactiveMode, int sleepTimeoutMs) override;
+    void WakeUp() noexcept override;
     [[nodiscard]] bool UsesMainLoopCallback() const noexcept override;
     void RunMainLoopCallback(std::function<bool()> stepFn) override;
 
@@ -89,6 +91,7 @@ private:
 
     bool m_shouldExit = false;
     bool m_minimized = false;
+    std::atomic<bool> m_wakePending{false};
     bool m_vsyncEnabled = true;
     bool m_gpuShadersEnabled = false;
     bool m_isLiveResizeFrame = false;
