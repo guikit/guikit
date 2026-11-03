@@ -184,13 +184,19 @@ void MainWindow::RenderFrame() {
         m_backend->PresentFrame(m_ui, m_metrics, !m_reactiveMode);
     }
 
-    if (!shouldPresent || (!m_backend->IsVsyncEnabled() && !m_reactiveMode)) {
+    if (shouldPresent && !m_backend->IsVsyncEnabled() && !m_reactiveMode) {
         const auto frameEnd = std::chrono::steady_clock::now();
         const double frameElapsedMs = std::chrono::duration<double, std::milli>(frameEnd - frameWorkStart).count();
-        m_backend->PaceFrame(frameElapsedMs, shouldPresent);
+        m_backend->PaceFrame(frameElapsedMs, true);
     }
 
     m_metrics.EndFrame(60.0f);
+
+    if (!shouldPresent && m_ui.NeedsRepaint()) {
+        const auto frameEnd = std::chrono::steady_clock::now();
+        const double frameElapsedMs = std::chrono::duration<double, std::milli>(frameEnd - frameWorkStart).count();
+        m_backend->PaceFrame(frameElapsedMs, false);
+    }
 }
 
 void MainWindow::WakeUp() noexcept {

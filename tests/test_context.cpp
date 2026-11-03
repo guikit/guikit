@@ -13218,6 +13218,71 @@ int main() {
                         };
                         CHECK(findFirstInkX(bufWithSpace) > findFirstInkX(bufNoSpace) + 6);
                     }
+
+                    // --- Dirty-Rect & Idle Settle with Sidebar, BottomPanel, StatusBar, and Stationary Tooltip ---
+                    {
+                        Context idleUi;
+                        ThorCanvas idleCanvas;
+                        std::vector<uint32_t> idlePixels(800 * 600, 0);
+                        idleCanvas.SetTarget(idlePixels.data(), 800, 600, 800);
+
+                        bool bpOpen = true;
+                        std::string statusLabel = "Ready";
+                        Response tipBtn{};
+
+                        auto runShellFrame = [&]() {
+                            idleUi.BeginFrame({800.0f, 600.0f}, 1.0f);
+                            if (auto root = idleUi.Column({.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch})) {
+                                if (auto tb = idleUi.Toolbar()) {
+                                    tipBtn = tb.Action({.text = "Action", .tooltip = "Stationary Tooltip Test"});
+                                }
+                                if (auto ws = idleUi.Row({.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch})) {
+                                    if (auto sb = idleUi.Sidebar({.width = 200.0f, .resizable = true, .allowCollapse = true})) {
+                                        idleUi.Text("Sidebar Content");
+                                    }
+                                    if (auto mainCol = idleUi.Column({.widthMode = SizeMode::Stretch, .heightMode = SizeMode::Stretch})) {
+                                        idleUi.Text(statusLabel);
+                                        if (auto bp = idleUi.BottomPanel(bpOpen, {.height = 140.0f, .resizable = true, .allowCollapse = true})) {
+                                            idleUi.Text("BottomPanel Content");
+                                        }
+                                    }
+                                }
+                                if (auto stBar = idleUi.StatusBar()) {
+                                    stBar.Item({.text = statusLabel});
+                                }
+                            }
+                            idleUi.EndFrame(idleCanvas);
+                        };
+
+                        // Frame 1 & 2: initial layout settle
+                        runShellFrame();
+                        runShellFrame();
+
+                        // Frame 3: completely idle with Sidebar + BottomPanel overlays registered -> MUST have zero dirty damage!
+                        runShellFrame();
+                        CHECK(!idleUi.HasDirtyDamage());
+                        CHECK(!idleUi.IsFullRepaint());
+
+                        // Frame 4: update a single text label -> MUST do partial dirty-rect repaint (NOT full repaint!)
+                        statusLabel = "Updated";
+                        runShellFrame();
+                        CHECK(idleUi.HasDirtyDamage());
+                        CHECK(!idleUi.IsFullRepaint());
+
+                        // Frame 5: settle again -> zero dirty damage
+                        runShellFrame();
+                        CHECK(!idleUi.HasDirtyDamage());
+
+                        // Frame 6: move mouse over toolbar button with tooltip -> full repaint on tooltip appearance
+                        idleUi.OnMouseMove(tipBtn.rect.Center());
+                        runShellFrame();
+                        CHECK(idleUi.HasDirtyDamage());
+
+                        // Frame 7: mouse remains stationary over button with active tooltip -> MUST settle to zero dirty damage!
+                        runShellFrame();
+                        CHECK(!idleUi.HasDirtyDamage());
+                        CHECK(!idleUi.IsFullRepaint());
+                    }
                 }
             }
         }

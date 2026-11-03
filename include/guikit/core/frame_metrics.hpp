@@ -51,11 +51,37 @@ public:
     /// Call at the very beginning of CPU frame work.
     void BeginFrame() noexcept {
         const auto now = std::chrono::steady_clock::now();
+        m_wokeFromIdle = false;
         if (m_hasPreviousFrame) {
             const auto betweenFrames = now - m_lastFrameEnd;
-            if (std::chrono::duration<float>(betweenFrames).count() > 0.035f) {
-                // Exclude reactive event-loop sleep (SDL_WaitEventTimeout) from active FPS window
-                m_fpsWindowStart += betweenFrames;
+            const float sleepSec = std::chrono::duration<float>(betweenFrames).count();
+            if (sleepSec > 0.25f) {
+                // Thread woke up after >250ms of reactive sleep (e.g. idle heartbeat or wakeup after idle):
+                // transition to idle immediately so UI status bars rendered during this frame see "0 FPS (Idle)"
+                m_wokeFromIdle = true;
+                m_pendingWakePresent = false;
+                m_isIdle = true;
+                m_smoothedFps = 0.0f;
+                m_smoothedCpuMs = 0.0f;
+                m_smoothedGpuMs = 0.0f;
+                m_fpsFrameCount = 0;
+                m_fpsWindowStart = now;
+                UpdateProcessTelemetry(now);
+                RefreshDisplayStrings(now, m_lastTargetFps);
+            } else {
+                if (sleepSec > 0.035f) {
+                    // Exclude brief reactive event-loop sleep (SDL_WaitEventTimeout) from active FPS window
+                    m_fpsWindowStart += betweenFrames;
+                }
+                if (m_pendingWakePresent) {
+                    // Consecutive active frame immediately following a wakeup frame: promote wakeup frame into active metrics
+                    m_isIdle = false;
+                    m_smoothedCpuMs = m_pendingWakeCpuMs;
+                    m_smoothedGpuMs = m_pendingWakeGpuMs;
+                    m_fpsWindowStart = m_pendingWakeStart;
+                    m_fpsFrameCount = 1;
+                    m_pendingWakePresent = false;
+                }
             }
         }
         m_frameStart = now;
@@ -66,8 +92,15 @@ public:
     /// Call immediately after presenting the frame buffer to the display (e.g. after SDL_RenderPresent).
     void MarkFramePresented() noexcept {
         const auto now = std::chrono::steady_clock::now();
-        m_lastPresentedTime = now;
         m_hasPresentedFrames = true;
+        if (m_wokeFromIdle) {
+            // Do not exit idle on an isolated wakeup frame (which may just be StatusBar repainting "0 FPS (Idle)" or RAM).
+            // Record it as pending so if a consecutive active frame follows within <=250ms, both frames count as active.
+            m_pendingWakePresent = true;
+            m_pendingWakeStart = m_frameStart;
+            return;
+        }
+        m_lastPresentedTime = now;
         m_isIdle = false;
         ++m_fpsFrameCount;
     }
@@ -76,10 +109,15 @@ public:
     void MarkCpuDone() noexcept {
         m_cpuDone = std::chrono::steady_clock::now();
         const float workMs = std::chrono::duration<float, std::milli>(m_cpuDone - m_frameStart).count();
+        if (m_wokeFromIdle) {
+            m_pendingWakeCpuMs = workMs;
+            return;
+        }
         if (m_smoothedCpuMs <= 0.0f) {
             m_smoothedCpuMs = workMs;
         } else {
-            m_smoothedCpuMs = m_smoothedCpuMs * 0.85f + workMs * 0.15f;
+            const float alpha = (workMs < m_smoothedCpuMs) ? 0.30f : 0.15f;
+            m_smoothedCpuMs = m_smoothedCpuMs * (1.0f - alpha) + workMs * alpha;
         }
     }
 
@@ -92,10 +130,15 @@ public:
     void MarkGpuDone() noexcept {
         m_gpuDone = std::chrono::steady_clock::now();
         const float gpuMs = std::chrono::duration<float, std::milli>(m_gpuDone - m_gpuStart).count();
+        if (m_wokeFromIdle) {
+            m_pendingWakeGpuMs = gpuMs;
+            return;
+        }
         if (m_smoothedGpuMs <= 0.0f) {
             m_smoothedGpuMs = gpuMs;
         } else {
-            m_smoothedGpuMs = m_smoothedGpuMs * 0.85f + gpuMs * 0.15f;
+            const float alpha = (gpuMs < m_smoothedGpuMs) ? 0.30f : 0.15f;
+            m_smoothedGpuMs = m_smoothedGpuMs * (1.0f - alpha) + gpuMs * alpha;
         }
     }
 
@@ -103,13 +146,16 @@ public:
     void EndFrame(float targetFps = 60.0f) noexcept {
         const auto now = std::chrono::steady_clock::now();
         m_lastFrameEnd = now;
+        m_lastTargetFps = targetFps;
 
-        // Evaluate idle status based on time elapsed since the last physically presented frame
-        if (m_hasPresentedFrames) {
+        // Evaluate idle status based on time elapsed since the last physically presented active frame
+        if (m_hasPresentedFrames && !m_wokeFromIdle) {
             const float idleElapsed = std::chrono::duration<float>(now - m_lastPresentedTime).count();
             if (idleElapsed > 0.25f) {
                 m_isIdle = true;
                 m_smoothedFps = 0.0f;
+                m_smoothedCpuMs = 0.0f;
+                m_smoothedGpuMs = 0.0f;
                 m_fpsFrameCount = 0;
                 m_fpsWindowStart = now;
             } else {
@@ -133,83 +179,12 @@ public:
             m_fpsWindowStart = now;
         }
 
-        // Update process CPU utilization percentage and RAM usage at ~0.5 second intervals
-        const double elapsedCpuSec = std::chrono::duration<double>(now - m_lastCpuCheckTime).count();
-        if (elapsedCpuSec >= 0.5) {
-            const double curCpuSec = QueryProcessCpuSeconds();
-            if (curCpuSec >= 0.0 && m_lastProcessCpuSec >= 0.0) {
-                const double deltaCpu = curCpuSec - m_lastProcessCpuSec;
-                const float pct = static_cast<float>((deltaCpu / (elapsedCpuSec * m_numProcessors)) * 100.0);
-                m_cpuPercent = std::clamp(pct, 0.0f, 100.0f);
-            }
-            m_lastProcessCpuSec = curCpuSec;
-            m_ramBytes = QueryProcessRamBytes();
-            m_lastCpuCheckTime = now;
-        }
+        UpdateProcessTelemetry(now);
 
         // Update formatted status display string at ~0.3 second intervals to prevent visual jitter
         const double displayElapsed = std::chrono::duration<double>(now - m_lastDisplayUpdateTime).count();
         if (displayElapsed >= 0.3 || m_displayFps <= 0.0f || m_isIdle) {
-            if (m_ramBytes == 0) {
-                m_ramBytes = QueryProcessRamBytes();
-            }
-            m_displayFps = m_isIdle ? 0.0f : m_smoothedFps;
-            m_displayCpuPercent = m_cpuPercent;
-            m_displayCpuTimeMs = m_isIdle ? 0.0f : m_smoothedCpuMs;
-            m_displayGpuTimeMs = m_isIdle ? 0.0f : m_smoothedGpuMs;
-            m_displayRamMb = static_cast<float>(static_cast<double>(m_ramBytes) / (1024.0 * 1024.0));
-
-            const float targetFrameMs = (targetFps > 0.0f) ? (1000.0f / targetFps) : 16.67f;
-            m_displayGpuBudgetPercent = std::clamp((m_displayGpuTimeMs / targetFrameMs) * 100.0f, 0.0f, 100.0f);
-
-            char fpsBuf[32];
-            char cpuBuf[48];
-            char gpuBuf[48];
-            char ramBuf[32];
-
-            if (m_isIdle) {
-                std::snprintf(fpsBuf, sizeof(fpsBuf), "0 FPS (Idle)");
-            } else {
-                std::snprintf(fpsBuf, sizeof(fpsBuf), "%.0f FPS", m_displayFps);
-            }
-            std::snprintf(
-                cpuBuf,
-                sizeof(cpuBuf),
-                "CPU: %.2f ms (%.1f%%)",
-                m_displayCpuTimeMs,
-                m_displayCpuPercent
-            );
-            std::snprintf(
-                gpuBuf,
-                sizeof(gpuBuf),
-                "GPU: %.2f ms (%.0f%% budget)",
-                m_displayGpuTimeMs,
-                m_displayGpuBudgetPercent
-            );
-            std::snprintf(
-                ramBuf,
-                sizeof(ramBuf),
-                "RAM: %.1f MB",
-                m_displayRamMb
-            );
-
-            m_fpsString = fpsBuf;
-            m_cpuString = cpuBuf;
-            m_gpuString = gpuBuf;
-            m_ramString = ramBuf;
-
-            char buf[160];
-            std::snprintf(
-                buf,
-                sizeof(buf),
-                "%s | %s | %s | %s",
-                fpsBuf,
-                cpuBuf,
-                gpuBuf,
-                ramBuf
-            );
-            m_statusString = buf;
-            m_lastDisplayUpdateTime = now;
+            RefreshDisplayStrings(now, targetFps);
         }
     }
 
@@ -233,6 +208,84 @@ public:
     }
 
 private:
+    void UpdateProcessTelemetry(std::chrono::steady_clock::time_point now) noexcept {
+        const double elapsedCpuSec = std::chrono::duration<double>(now - m_lastCpuCheckTime).count();
+        if (elapsedCpuSec >= 0.5) {
+            const double curCpuSec = QueryProcessCpuSeconds();
+            if (curCpuSec >= 0.0 && m_lastProcessCpuSec >= 0.0) {
+                const double deltaCpu = curCpuSec - m_lastProcessCpuSec;
+                const float pct = static_cast<float>((deltaCpu / (elapsedCpuSec * m_numProcessors)) * 100.0);
+                m_cpuPercent = std::clamp(pct, 0.0f, 100.0f);
+            }
+            m_lastProcessCpuSec = curCpuSec;
+            m_ramBytes = QueryProcessRamBytes();
+            m_lastCpuCheckTime = now;
+        }
+    }
+
+    void RefreshDisplayStrings(std::chrono::steady_clock::time_point now, float targetFps) noexcept {
+        if (m_ramBytes == 0) {
+            m_ramBytes = QueryProcessRamBytes();
+        }
+        m_displayFps = m_isIdle ? 0.0f : m_smoothedFps;
+        m_displayCpuPercent = m_cpuPercent;
+        m_displayCpuTimeMs = m_isIdle ? 0.0f : m_smoothedCpuMs;
+        m_displayGpuTimeMs = m_isIdle ? 0.0f : m_smoothedGpuMs;
+        m_displayRamMb = static_cast<float>(static_cast<double>(m_ramBytes) / (1024.0 * 1024.0));
+
+        const float targetFrameMs = (targetFps > 0.0f) ? (1000.0f / targetFps) : 16.67f;
+        m_displayGpuBudgetPercent = std::clamp((m_displayGpuTimeMs / targetFrameMs) * 100.0f, 0.0f, 100.0f);
+
+        char fpsBuf[32];
+        char cpuBuf[48];
+        char gpuBuf[48];
+        char ramBuf[32];
+
+        if (m_isIdle) {
+            std::snprintf(fpsBuf, sizeof(fpsBuf), "0 FPS (Idle)");
+        } else {
+            std::snprintf(fpsBuf, sizeof(fpsBuf), "%.0f FPS", m_displayFps);
+        }
+        std::snprintf(
+            cpuBuf,
+            sizeof(cpuBuf),
+            "CPU: %.2f ms (%.1f%%)",
+            m_displayCpuTimeMs,
+            m_displayCpuPercent
+        );
+        std::snprintf(
+            gpuBuf,
+            sizeof(gpuBuf),
+            "GPU: %.2f ms (%.0f%% budget)",
+            m_displayGpuTimeMs,
+            m_displayGpuBudgetPercent
+        );
+        std::snprintf(
+            ramBuf,
+            sizeof(ramBuf),
+            "RAM: %.1f MB",
+            m_displayRamMb
+        );
+
+        m_fpsString = fpsBuf;
+        m_cpuString = cpuBuf;
+        m_gpuString = gpuBuf;
+        m_ramString = ramBuf;
+
+        char buf[160];
+        std::snprintf(
+            buf,
+            sizeof(buf),
+            "%s | %s | %s | %s",
+            fpsBuf,
+            cpuBuf,
+            gpuBuf,
+            ramBuf
+        );
+        m_statusString = buf;
+        m_lastDisplayUpdateTime = now;
+    }
+
     static size_t QueryProcessRamBytes() noexcept {
 #if defined(_WIN32)
         PROCESS_MEMORY_COUNTERS pmc{};
@@ -297,6 +350,7 @@ private:
     std::chrono::steady_clock::time_point m_lastCpuCheckTime{};
     std::chrono::steady_clock::time_point m_lastDisplayUpdateTime{};
     std::chrono::steady_clock::time_point m_fpsWindowStart{};
+    std::chrono::steady_clock::time_point m_pendingWakeStart{};
 
     double m_lastProcessCpuSec{-1.0};
     int m_numProcessors{1};
@@ -304,7 +358,12 @@ private:
     bool m_hasPreviousFrame{false};
     bool m_hasPresentedFrames{false};
     bool m_isIdle{false};
+    bool m_wokeFromIdle{false};
+    bool m_pendingWakePresent{false};
 
+    float m_lastTargetFps{60.0f};
+    float m_pendingWakeCpuMs{0.0f};
+    float m_pendingWakeGpuMs{0.0f};
     float m_smoothedFps{0.0f};
     float m_smoothedCpuMs{0.0f};
     float m_smoothedGpuMs{0.0f};

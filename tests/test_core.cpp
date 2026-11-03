@@ -244,6 +244,38 @@ void TestFrameMetrics() {
     CHECK(status.find("GPU:") != std::string_view::npos);
     CHECK(status.find("budget") != std::string_view::npos);
     CHECK(status.find("RAM:") != std::string_view::npos);
+
+    // Simulate active presented frames followed by >250ms reactive sleep (idle heartbeat)
+    for (int i = 0; i < 4; ++i) {
+        metrics.BeginFrame();
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        metrics.MarkCpuDone();
+        metrics.MarkGpuStart();
+        metrics.MarkGpuDone();
+        metrics.MarkFramePresented();
+        metrics.EndFrame(60.0f);
+    }
+    CHECK(!metrics.IsIdle());
+
+    // Sleep >250ms to simulate reactive idle heartbeat wait
+    std::this_thread::sleep_for(std::chrono::milliseconds(260));
+    metrics.BeginFrame();
+    // Immediately at BeginFrame() (before UI StatusBar rendering), metrics must report Idle
+    CHECK(metrics.IsIdle());
+    CHECK(metrics.GetFpsString() == "0 FPS (Idle)");
+    CHECK(metrics.GetCpuTimeMs() == 0.0f);
+    CHECK(metrics.GetGpuTimeMs() == 0.0f);
+
+    // Even if StatusBar repaints "0 FPS (Idle)" on this heartbeat frame and calls MarkFramePresented(),
+    // isolated heartbeat presentation must NOT kick FrameMetrics out of idle
+    metrics.MarkCpuDone();
+    metrics.MarkGpuStart();
+    metrics.MarkGpuDone();
+    metrics.MarkFramePresented();
+    metrics.EndFrame(60.0f);
+    CHECK(metrics.IsIdle());
+    CHECK(metrics.GetFpsString() == "0 FPS (Idle)");
+    CHECK(metrics.GetCpuTimeMs() == 0.0f);
 }
 
 void TestNodeFootprint() {

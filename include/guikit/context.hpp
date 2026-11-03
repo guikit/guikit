@@ -1822,6 +1822,7 @@ public:
     [[nodiscard]] Rect GetOpenPopupRect() const noexcept { return m_openPopupRect; }
     void SetOpenPopupVisualHash(uint64_t hash) noexcept { m_openPopupVisualHash = hash; }
     void RegisterOverlay(std::function<void(ICanvas&)> drawFn);
+    void MarkModalOverlayActive() noexcept { m_currFrameModalOverlay = true; }
     void RegisterOverlayHitRegion(Id id, Rect rect);
     void RegisterOverlayHitBuilder(std::function<void()> builderFn);
     /// RAII scope guard that enters an overlay's hit-testing context and restores the previous overlay ID on exit.
@@ -2195,6 +2196,7 @@ private:
     UiText m_activeTooltip{};
     Rect m_activeTooltipAnchor{0.0f, 0.0f, 0.0f, 0.0f};
     Rect m_activeTooltipViewport{0.0f, 0.0f, 0.0f, 0.0f};
+    uint64_t m_prevTooltipHash{0};
     bool m_hadTooltipLastFrame{false};
     std::vector<ToastEntry> m_toasts;
     ToastHostOptions m_defaultToastHostOpts{};
@@ -2206,7 +2208,10 @@ private:
         Rect clipRect{};
     };
     std::vector<OverlayPass> m_overlayPasses;
-    bool m_hadNonPopupOverlayLastFrame{false};
+    bool m_currFrameModalOverlay{false};
+    bool m_hadModalOverlayLastFrame{false};
+    bool m_hadDebugBoundsLastFrame{false};
+    bool m_hadInspectModeLastFrame{false};
     Vec2 m_mouseWheel{0.0f, 0.0f};
     std::unordered_map<detail::StateKey, detail::StoredState, detail::StateKeyHash> m_customStates;
     uint64_t m_frameIndex{0};

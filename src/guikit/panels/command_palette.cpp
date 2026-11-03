@@ -22,6 +22,7 @@ struct CommandPalettePersistState {
     bool wasOpen{false};
     bool prevClearHovered{false};
     bool prevEscHovered{false};
+    bool prevCursorVis{true};
     ScrollbarState scrollbar{};
 };
 
@@ -498,8 +499,13 @@ CommandPaletteResponse CommandPalette::Run(
     const StateColor bgOpt = opts.background;
     const Border borderOpt = opts.border;
     const bool cursorVis = ctx.IsCursorVisible();
+    if (cursorVis != st.prevCursorVis) {
+        st.prevCursorVis = cursorVis;
+        ctx.InvalidateAll();
+    }
     const size_t totalFiltered = filtered.size();
 
+    ctx.MarkModalOverlayActive();
     ctx.RegisterOverlay([
         backdropRect,
         cardRect,
