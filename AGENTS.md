@@ -140,6 +140,22 @@ if (auto sc = ui.Scene({
 // BAD: Do NOT manually compute avail_w/avail_h/scale/ox/oz from GetViewportRect(), call CenterOn() every frame, or guess DrawText pixel offsets
 ```
 
+### Rule 9a: `Scene` repaints itself when its drawing changes — use draggable `Item`s for handles, never hand-rolled mouse tracking
+- Every `Draw*` call is folded into the scene's content fingerprint (text, geometry, colors, pixel buffers), so hover highlights, live data and moving markers are repainted without camera changes. Do NOT call `InvalidateRect(sc.GetViewportRect())` / `RequestRepaint` from scene bodies. For large `DrawPixels` buffers that change rarely, pass `contentVersion` (non-zero, bumped on change) to skip per-frame hashing.
+- Points, markers and gates the user moves are `sc.Item({.id = stableId, .hitRect = ..., .draggable = true})`: the scene captures the pointer (no panning, works outside the viewport), sets the move cursor, and cancels on Escape. The caller owns the value: save it on `drag.started`, apply `drag.Delta()` while `drag.active`, restore it on `drag.canceled`. A press-and-release in place is a `Clicked()`. Keep `id` stable across frames (e.g. the table row, not the sorted index).
+- Tooltips: `SceneOptions::tooltip` (scene hovered) and `SceneItemOptions::tooltip` (item hovered; not while dragging).
+
+```cpp
+if (auto it = sc.Item({.id = ui.Format("pt{}", row), .hitRect = Rect{p.x - 7, p.y - 7, 14, 14},
+                       .showSelectionFrame = false, .draggable = true})) {
+    const auto& d = it.GetDrag();
+    if (d.started) saved = value;
+    if (d.active) value = saved + toValue(d.Delta());
+    if (d.canceled) value = saved;
+    sc.DrawCircle(p, it.IsHovered() ? 5.5f : 3.5f, color);
+}
+```
+
 ### Rule 10: Let `SizeMode::Stretch` Viewports Fill `BottomPanel` / `SplitView` — Do NOT Subtract Magic Toolbar Heights
 Inside a `BottomPanel`, `Sidebar`, or `SplitView`, any child with `.heightMode = SizeMode::Stretch` (`Scene`, `SignalView`, `SonarView`, `WaterfallView`, `MapView`, `ImageView`, `Table`) automatically stretches and shrinks to fit the exact remaining space after sibling `Toolbar`s or headers:
 - Never pass external panel heights with magic offsets like `bottomPanel.Height() - 42.0f` into scene rendering functions.

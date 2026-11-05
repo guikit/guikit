@@ -35,6 +35,8 @@ struct SceneItemOptions {
     std::optional<Rect> hitRect{std::nullopt};  ///< Explicit world-space hit box (auto-computed from geometry if nullopt)
     bool selectable{true};                      ///< Whether this item participates in hit-testing and selection
     bool showSelectionFrame{true};              ///< Whether to draw automatic CAD hover/selection box around worldBounds
+    bool draggable{false};                      ///< Pressing the item drags it (SceneItemScope::GetDrag) instead of panning the scene; hit-tested even when SceneOptions::selectableItems is false
+    UiText tooltip{};                           ///< Floating tooltip while the item is hovered (not while dragging)
 };
 
 /// Resolved metadata, interaction flags, and world-space bounding box of a recorded SceneItem.
@@ -48,9 +50,24 @@ struct SceneItemInfo {
     bool hasExplicitBounds{false};  ///< True if hitRect was explicitly provided
     bool selectable{true};
     bool showSelectionFrame{true};
+    bool draggable{false};
+    UiText tooltip{};               ///< Frame-arena allocated tooltip
     bool hovered{false};
     bool selected{false};
     bool clicked{false};
+};
+
+/// Pointer drag of a draggable SceneItem. The scene reports where the pointer is; the caller owns the
+/// dragged value: remember it on `started`, apply `Delta()` while `active`, restore it on `canceled`.
+struct SceneItemDrag {
+    bool started{false};    ///< Pointer pressed on the item this frame (drag begins; `active` is also set)
+    bool active{false};     ///< Pointer held: the item follows it
+    bool ended{false};      ///< Pointer released this frame: commit
+    bool canceled{false};   ///< Escape pressed while dragging: restore the value saved on `started`
+    Vec2 startWorld{};      ///< Pointer world position at press
+    Vec2 currentWorld{};    ///< Pointer world position now (last one on ended / canceled)
+
+    [[nodiscard]] Vec2 Delta() const noexcept { return currentWorld - startWorld; }
 };
 
 /// Persistent camera and interaction state for a 2D Scene viewport.
@@ -73,6 +90,15 @@ struct SceneState {
     uint64_t hoveredItemKey{0};
     uint64_t clickedItemKey{0};
     std::vector<uint64_t> selectedItemKeys{};
+    uint64_t hoveredDraggableKey{0};    ///< hoveredItemKey when that item is draggable (press starts a drag)
+    uint64_t draggedItemKey{0};         ///< Item being dragged (0 = none)
+    uint64_t dragStartedKey{0};         ///< One-frame: drag started on this item
+    uint64_t dragEndedKey{0};           ///< One-frame: drag of this item ended (released or canceled)
+    uint64_t dragClickKey{0};           ///< Drag released without moving: reported as a click in Update
+    bool dragCanceled{false};           ///< One-frame: the ended drag was canceled with Escape
+    Vec2 dragStartWorld{0.0f, 0.0f};
+    Vec2 dragCurrentWorld{0.0f, 0.0f};
+    Vec2 dragStartMouse{0.0f, 0.0f};
     bool boxSelecting{false};
     Vec2 boxSelectStartWorld{0.0f, 0.0f};
     Vec2 boxSelectCurrentWorld{0.0f, 0.0f};
@@ -131,6 +157,7 @@ struct SceneOptions {
     std::optional<bool> scaleStrokeWithZoom{std::nullopt}; ///< Scale line/rect strokeWidth with zoom (defaults to false when worldBounds is set, true otherwise)
     StateColor background{};
     Border border{.width = 1.0f, .radius = 6.0f};
+    UiText tooltip{};                                   ///< Floating tooltip while the scene is hovered and no item with its own tooltip is under the pointer
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};
@@ -180,6 +207,7 @@ struct ScenePayload {
     UiArenaVector<SceneDrawCmd> drawCmds{};
     UiArenaVector<SceneItemInfo> items{};
     int32_t activeItemIndex{-1};
+    uint64_t contentHash{0};        ///< Running fingerprint of drawCmds (incl. text and pixel content) for damage tracking
 };
 
 /// RAII scope that groups world-space draw commands into an interactive, selectable SceneItem.
@@ -191,7 +219,8 @@ public:
         int32_t prevItemIndex,
         bool hovered,
         bool selected,
-        bool clicked
+        bool clicked,
+        SceneItemDrag drag = {}
     ) noexcept;
     ~SceneItemScope() noexcept;
 
@@ -204,6 +233,10 @@ public:
     [[nodiscard]] bool IsHovered() const noexcept { return m_hovered; }
     [[nodiscard]] bool IsSelected() const noexcept { return m_selected; }
     [[nodiscard]] bool Clicked() const noexcept { return m_clicked; }
+    /// True while the pointer drags this item (SceneItemOptions::draggable).
+    [[nodiscard]] bool IsDragging() const noexcept { return m_drag.active; }
+    /// Drag lifecycle and pointer positions for this frame (all false unless the item is draggable).
+    [[nodiscard]] const SceneItemDrag& GetDrag() const noexcept { return m_drag; }
     [[nodiscard]] int32_t GetItemIndex() const noexcept { return m_itemIndex; }
 
 private:
@@ -213,6 +246,7 @@ private:
     bool m_hovered{false};
     bool m_selected{false};
     bool m_clicked{false};
+    SceneItemDrag m_drag{};
 };
 
 /// RAII scope for a 2D Scene container providing World <-> Screen transforms and world-space drawing.
@@ -295,13 +329,16 @@ public:
     );
 
     /// Queues an in-memory ABGR8888 pixel buffer in World Coordinates.
+    /// The buffer content takes part in damage tracking: it is hashed every frame unless
+    /// `contentVersion` (non-zero, changed whenever the pixels change) is given.
     void DrawPixels(
         const uint32_t* pixels,
         uint32_t width,
         uint32_t height,
         Rect worldRect,
         float radius = 0.0f,
-        uint8_t opacity = 255
+        uint8_t opacity = 255,
+        uint64_t contentVersion = 0
     );
 
     /// Queues a filled/stroked rectangle in World Coordinates.
@@ -382,6 +419,9 @@ public:
 private:
     friend class SceneItemScope;
     void FinalizeItem(int32_t itemIndex, int32_t prevItemIndex) noexcept;
+    /// Records a draw command and folds it into the content fingerprint: a scene whose drawing
+    /// changes is repainted even when the camera does not move.
+    void PushCmd(const SceneDrawCmd& cmd) noexcept;
 
     ScenePayload* m_payload{nullptr};
     Rect m_viewport{};

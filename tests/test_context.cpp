@@ -4139,6 +4139,155 @@ void TestVerticalSlider() {
     CHECK_NEAR(gain, 41.0, 1e-9);
 }
 
+// Scene: drawing changes are repainted without camera moves (content fingerprint), draggable items
+// (start / follow / release / Escape cancel / click in place), cursor and tooltips
+void TestSceneContentDamageAndItemDrag() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 420;
+    const uint32_t height = 320;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+
+    float rectX = 50.0f;
+    std::vector<uint32_t> img(16 * 16, 0xff0000ffu);
+    Vec2 handle{200.0f, 150.0f};
+    Vec2 handleAtStart{};
+    SceneItemDrag drag{};
+    bool hovered = false;
+    bool clicked = false;
+    Rect vp{};
+    Vec2 handleScreen{};
+    float worldScale = 1.0f;
+
+    auto frame = [&]() {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        if (auto sc = ui.Scene({
+            .worldSize = Vec2{400.0f, 300.0f},
+            .backgroundStyle = SceneBackground::Solid,
+            .zoomable = false,
+            .pannable = false,
+            .selectableItems = false,
+            .showScrollbars = false,
+            .showControls = false,
+            .tooltip = "scene tip"
+        })) {
+            vp = sc.GetViewportRect();
+            worldScale = sc.GetWorldScale();
+            sc.DrawRect({rectX, 20.0f, 30.0f, 30.0f}, Color(255, 0, 0));
+            sc.DrawPixels(img.data(), 16, 16, {300.0f, 20.0f, 32.0f, 32.0f});
+            if (auto it = sc.Item({
+                .id = "handle",
+                .hitRect = Rect{handle.x - 6.0f, handle.y - 6.0f, 12.0f, 12.0f},
+                .showSelectionFrame = false,
+                .draggable = true,
+                .tooltip = "handle tip"
+            })) {
+                drag = it.GetDrag();
+                if (drag.started) handleAtStart = handle;
+                if (drag.active) handle = handleAtStart + drag.Delta();
+                if (drag.canceled) handle = handleAtStart;
+                hovered = it.IsHovered();
+                clicked = it.Clicked();
+                sc.DrawCircle(handle, 5.0f, Color(0, 255, 0));
+            }
+            handleScreen = sc.WorldToScreen(handle);
+        }
+        ui.EndFrame(canvas);
+    };
+    auto damagesScene = [&]() {
+        for (const Rect& r : ui.GetDirtyRects()) {
+            if (r.Intersects(vp)) return true;
+        }
+        return false;
+    };
+
+    for (int i = 0; i < 5; ++i) frame();
+    frame();
+    CHECK(!damagesScene());
+
+    // 1. Geometry change alone (same number of commands, camera still) repaints the scene
+    rectX = 120.0f;
+    frame();
+    CHECK(damagesScene());
+    frame();
+    CHECK(!damagesScene());
+
+    // 2. Pixel buffer content change (same pointer and size) repaints the scene
+    img[37] = 0xff00ff00u;
+    frame();
+    CHECK(damagesScene());
+    frame();
+    CHECK(!damagesScene());
+
+    // 3. Hover a draggable item: hovered, move cursor, item tooltip
+    ui.OnMouseMove(handleScreen);
+    frame();
+    frame();
+    CHECK(hovered);
+    CHECK(ui.GetCursor() == CursorType::Move);
+    CHECK(ui.GetActiveTooltip().text == "handle tip");
+
+    // 4. Press, drag, release: the item follows the pointer with its grab offset, no panning
+    const Vec2 start = handle;
+    ui.OnMouseDown(1);
+    frame();
+    CHECK(drag.started && drag.active);
+    ui.OnMouseMove(handleScreen + Vec2{40.0f, 20.0f});
+    frame();
+    CHECK(drag.active && !drag.started);
+    CHECK_NEAR(handle.x, start.x + 40.0f / worldScale, 0.5f);
+    CHECK_NEAR(handle.y, start.y + 20.0f / worldScale, 0.5f);
+    CHECK(ui.GetActiveTooltip().text.empty());   // no tooltip while dragging
+    ui.OnMouseUp(1);
+    frame();
+    CHECK(drag.ended && !drag.canceled && !drag.active);
+    CHECK_NEAR(handle.x, start.x + 40.0f / worldScale, 0.5f);
+    frame();
+    CHECK(!drag.ended);
+
+    // 5. Escape cancels: the caller restores the value saved on start
+    const Vec2 committed = handle;
+    ui.OnMouseMove(handleScreen);
+    frame();
+    frame();
+    ui.OnMouseDown(1);
+    frame();
+    ui.OnMouseMove(handleScreen + Vec2{-60.0f, 30.0f});
+    frame();
+    CHECK(std::abs(handle.x - committed.x) > 10.0f);
+    ui.OnKeyDown(Key::Escape);
+    frame();
+    CHECK(drag.ended && drag.canceled);
+    CHECK_NEAR(handle.x, committed.x, 0.01f);
+    CHECK_NEAR(handle.y, committed.y, 0.01f);
+    ui.OnMouseUp(1);
+    frame();
+    CHECK(!drag.active);
+
+    // 6. Press and release in place is a click, not a move
+    ui.OnMouseMove(handleScreen);
+    frame();
+    frame();
+    ui.OnMouseDown(1);
+    frame();
+    ui.OnMouseUp(1);
+    frame();
+    frame();
+    CHECK(clicked);
+    CHECK_NEAR(handle.x, committed.x, 0.01f);
+
+    // 7. Off the item: the scene's own tooltip, default cursor
+    ui.OnMouseMove(Vec2{vp.x + 10.0f, vp.y + vp.h - 10.0f});
+    frame();
+    frame();
+    CHECK(!hovered);
+    CHECK(ui.GetCursor() == CursorType::Default);
+    CHECK(ui.GetActiveTooltip().text == "scene tip");
+}
+
 void TestVerticalStepAndRangeSliders() {
     using namespace guikit;
 
@@ -11264,6 +11413,7 @@ int main() {
     TestSliderAndStepSliderWidgets();
     TestVerticalSlider();
     TestVerticalStepAndRangeSliders();
+    TestSceneContentDamageAndItemDrag();
     TestPixelGeometryAndWidgetUiSizeDecoupling();
     TestTextAreaWidgetWorkflow();
     TestButtonAlignmentAndProceduralIcons();

@@ -15,6 +15,23 @@ namespace guikit {
 
 namespace {
 
+// Fast fingerprint of a pixel buffer for damage tracking (two pixels per multiply-xorshift step;
+// byte-wise FNV is too slow for megapixel images every frame)
+uint64_t HashPixelBuffer(const uint32_t* px, size_t count, uint64_t hash) noexcept {
+    constexpr uint64_t kMul = 0x9E3779B97F4A7C15ull;
+    size_t i = 0;
+    for (; i + 1 < count; i += 2) {
+        const uint64_t w = static_cast<uint64_t>(px[i]) | (static_cast<uint64_t>(px[i + 1]) << 32);
+        hash = (hash ^ w) * kMul;
+        hash ^= hash >> 29;
+    }
+    if (i < count) {
+        hash = (hash ^ px[i]) * kMul;
+        hash ^= hash >> 29;
+    }
+    return hash;
+}
+
 std::optional<Rect> ResolveWorldBounds(const SceneOptions& opts) noexcept {
     if (opts.worldBounds.has_value() && opts.worldBounds->w > 0.0f && opts.worldBounds->h > 0.0f) {
         return *opts.worldBounds;
@@ -184,7 +201,8 @@ SceneItemScope::SceneItemScope(
     int32_t prevItemIndex,
     bool hovered,
     bool selected,
-    bool clicked
+    bool clicked,
+    SceneItemDrag drag
 ) noexcept
     : m_scene(scene)
     , m_itemIndex(itemIndex)
@@ -192,6 +210,7 @@ SceneItemScope::SceneItemScope(
     , m_hovered(hovered)
     , m_selected(selected)
     , m_clicked(clicked)
+    , m_drag(drag)
 {
 }
 
@@ -208,6 +227,7 @@ SceneItemScope::SceneItemScope(SceneItemScope&& other) noexcept
     , m_hovered(other.m_hovered)
     , m_selected(other.m_selected)
     , m_clicked(other.m_clicked)
+    , m_drag(other.m_drag)
 {
     other.m_scene = nullptr;
     other.m_itemIndex = -1;
@@ -249,6 +269,19 @@ SceneItemScope SceneScope::Item(const SceneItemOptions& opts) {
     const bool isSel = state.IsSelected(key);
     const bool isClk = (key != 0 && state.clickedItemKey == key);
 
+    // Drag state was advanced by the pre-update (before the body), so the item sees this frame's pointer
+    SceneItemDrag drag{};
+    if (opts.draggable && key != 0) {
+        drag.active = state.draggedItemKey == key;
+        drag.started = state.dragStartedKey == key;
+        drag.ended = state.dragEndedKey == key;
+        drag.canceled = drag.ended && state.dragCanceled;
+        if (drag.active || drag.ended) {
+            drag.startWorld = state.dragStartWorld;
+            drag.currentWorld = state.dragCurrentWorld;
+        }
+    }
+
     SceneItemInfo info{};
     info.key = key;
     info.id = m_ctx->AllocString(opts.id);
@@ -259,6 +292,8 @@ SceneItemScope SceneScope::Item(const SceneItemOptions& opts) {
     info.worldBounds = opts.hitRect.value_or(Rect{});
     info.selectable = opts.selectable;
     info.showSelectionFrame = opts.showSelectionFrame;
+    info.draggable = opts.draggable;
+    info.tooltip = m_ctx->AllocText(opts.tooltip);
     info.hovered = isHov;
     info.selected = isSel;
     info.clicked = isClk;
@@ -266,7 +301,29 @@ SceneItemScope SceneScope::Item(const SceneItemOptions& opts) {
     m_payload->items.push_back(info);
     m_payload->activeItemIndex = newIdx;
 
-    return SceneItemScope(this, newIdx, prevIdx, isHov, isSel, isClk);
+    return SceneItemScope(this, newIdx, prevIdx, isHov || drag.active, isSel, isClk, drag);
+}
+
+void SceneScope::PushCmd(const SceneDrawCmd& cmd) noexcept {
+    uint64_t h = m_payload->contentHash;
+    const uint8_t type = static_cast<uint8_t>(cmd.type);
+    const uint8_t style = static_cast<uint8_t>(cmd.fontStyle);
+    const uint32_t fill = cmd.fill.ToUint32();
+    const uint32_t stroke = cmd.stroke.ToUint32();
+    const float geom[] = {cmd.rect.x, cmd.rect.y, cmd.rect.w, cmd.rect.h, cmd.p1.x, cmd.p1.y, cmd.p2.x, cmd.p2.y,
+                          cmd.p3.x, cmd.p3.y, cmd.radius, cmd.strokeWidth, cmd.fontSize, cmd.alignX, cmd.alignY,
+                          cmd.angleDeg};
+    h = detail::HashBytes(&type, sizeof(type), h);
+    h = detail::HashBytes(&cmd.itemIndex, sizeof(cmd.itemIndex), h);
+    h = detail::HashBytes(geom, sizeof(geom), h);
+    h = detail::HashBytes(&fill, sizeof(fill), h);
+    h = detail::HashBytes(&stroke, sizeof(stroke), h);
+    h = detail::HashBytes(&style, sizeof(style), h);
+    h = detail::HashBytes(&cmd.opacity, sizeof(cmd.opacity), h);
+    h = detail::HashBytes(&cmd.scaleFontWithZoom, sizeof(cmd.scaleFontWithZoom), h);
+    h = detail::HashStringView(cmd.textOrSource, h);
+    m_payload->contentHash = h;
+    m_payload->drawCmds.push_back(cmd);
 }
 
 void SceneScope::FinalizeItem(int32_t itemIndex, int32_t prevItemIndex) noexcept {
@@ -537,7 +594,7 @@ void SceneScope::DrawImage(
     cmd.rect = worldRect;
     cmd.radius = radius;
     cmd.opacity = opacity;
-    m_payload->drawCmds.push_back(cmd);
+    PushCmd(cmd);
 }
 
 void SceneScope::DrawPixels(
@@ -546,9 +603,13 @@ void SceneScope::DrawPixels(
     uint32_t height,
     Rect worldRect,
     float radius,
-    uint8_t opacity
+    uint8_t opacity,
+    uint64_t contentVersion
 ) {
     if (!m_payload || !pixels || width == 0 || height == 0) return;
+    m_payload->contentHash = contentVersion != 0
+        ? detail::HashInt64(contentVersion, m_payload->contentHash)
+        : HashPixelBuffer(pixels, static_cast<size_t>(width) * height, m_payload->contentHash);
     SceneDrawCmd cmd{};
     cmd.type = SceneDrawCmd::Type::Pixels;
     cmd.itemIndex = m_payload->activeItemIndex;
@@ -558,7 +619,7 @@ void SceneScope::DrawPixels(
     cmd.rect = worldRect;
     cmd.radius = radius;
     cmd.opacity = opacity;
-    m_payload->drawCmds.push_back(cmd);
+    PushCmd(cmd);
 }
 
 void SceneScope::DrawRect(
@@ -577,7 +638,7 @@ void SceneScope::DrawRect(
     cmd.radius = radius;
     cmd.stroke = stroke;
     cmd.strokeWidth = strokeWidth;
-    m_payload->drawCmds.push_back(cmd);
+    PushCmd(cmd);
 }
 
 void SceneScope::DrawCircle(
@@ -615,7 +676,7 @@ void SceneScope::DrawTriangle(
     cmd.fill = fill;
     cmd.stroke = stroke;
     cmd.strokeWidth = strokeWidth;
-    m_payload->drawCmds.push_back(cmd);
+    PushCmd(cmd);
 }
 
 void SceneScope::DrawArc(
@@ -656,7 +717,7 @@ void SceneScope::DrawLine(Vec2 worldP1, Vec2 worldP2, Color color, float strokeW
     cmd.p2 = worldP2;
     cmd.fill = color;
     cmd.strokeWidth = strokeWidth;
-    m_payload->drawCmds.push_back(cmd);
+    PushCmd(cmd);
 }
 
 void SceneScope::DrawText(
@@ -682,7 +743,7 @@ void SceneScope::DrawText(
     cmd.fontStyle = style;
     cmd.scaleFontWithZoom = scaleWithZoom;
     cmd.angleDeg = angleDeg;
-    m_payload->drawCmds.push_back(cmd);
+    PushCmd(cmd);
 }
 
 void SceneScope::DrawText(
@@ -706,7 +767,7 @@ void SceneScope::DrawText(
     cmd.fontStyle = opts.style;
     cmd.scaleFontWithZoom = opts.scaleWithZoom;
     cmd.angleDeg = opts.angleDeg;
-    m_payload->drawCmds.push_back(cmd);
+    PushCmd(cmd);
 }
 
 void SceneScope::DrawTextBox(
@@ -733,7 +794,7 @@ void SceneScope::DrawTextBox(
     cmd.fontStyle = style;
     cmd.scaleFontWithZoom = scaleWithZoom;
     cmd.angleDeg = angleDeg;
-    m_payload->drawCmds.push_back(cmd);
+    PushCmd(cmd);
 }
 
 namespace {
@@ -921,8 +982,46 @@ void UpdateSceneCameraTransform(
         (mousePos.y - vp.y - state.pan.y) / std::max(0.0001f, state.zoom * s)
     };
 
+    // 4a. Item drag: one-frame flags reset, then follow / release / cancel, then press on a draggable item.
+    // Runs before the body so SceneItemScope sees this frame's pointer (no lag).
+    state.dragStartedKey = 0;
+    state.dragEndedKey = 0;
+    state.dragCanceled = false;
+    if (state.draggedItemKey != 0) {
+        const bool canceled = ctx.ConsumeKey(Key::Escape);
+        if (canceled || !mouseDown) {
+            const Vec2 moved = mousePos - state.dragStartMouse;
+            if (!canceled && std::abs(moved.x) < 3.5f && std::abs(moved.y) < 3.5f) {
+                state.dragClickKey = state.draggedItemKey;
+            }
+            state.dragEndedKey = state.draggedItemKey;
+            state.dragCanceled = canceled;
+            state.draggedItemKey = 0;
+            if (ctx.GetActiveId() == node->id) {
+                ctx.SetActiveId(Id::Null());
+            }
+        } else {
+            state.dragCurrentWorld = mouseWorld;
+        }
+        ctx.RequestRepaint(2);
+    }
+    bool dragPressed = false;
+    if (!hudConsumed && !scrollbarBusy && insideVp && mouseClicked && !mods.shift &&
+        state.draggedItemKey == 0 && state.hoveredDraggableKey != 0) {
+        state.draggedItemKey = state.hoveredDraggableKey;
+        state.dragStartedKey = state.draggedItemKey;
+        state.dragStartWorld = mouseWorld;
+        state.dragCurrentWorld = mouseWorld;
+        state.dragStartMouse = mousePos;
+        state.pointerDown = false;
+        state.panning = false;
+        ctx.SetActiveId(node->id);
+        ctx.RequestRepaint(2);
+        dragPressed = true;
+    }
+
     // 4. Pointer Press & Active Drag-to-Pan / Marquee Box Update
-    if (!hudConsumed && !scrollbarBusy && insideVp && mouseClicked) {
+    if (!dragPressed && !hudConsumed && !scrollbarBusy && insideVp && mouseClicked) {
         if (opts.selectableItems && mods.shift) {
             state.boxSelecting = true;
             state.boxSelectStartWorld = mouseWorld;
@@ -995,6 +1094,7 @@ SceneScope Scene::Open(
 
     auto* payload = ctx.AllocPayload<ScenePayload>();
     payload->opts = optsCopy;
+    payload->opts.tooltip = ctx.AllocText(optsCopy.tooltip);   // read in Update, after the caller's string is gone
     payload->state = &state;
     payload->drawCmds.BindArena(ctx.GetArena());
     payload->items.BindArena(ctx.GetArena());
@@ -1184,12 +1284,21 @@ void Scene::Update(Context& ctx, Node* node) {
     // Spatial Hit-Testing for SceneItems (smallest-area / topmost priority)
     const uint64_t prevHoveredKey = state.hoveredItemKey;
     state.hoveredItemKey = 0;
-    if (opts.selectableItems && insideVp && !hudConsumed && !scrollbarBusy && !state.panning && !state.boxSelecting) {
+    state.hoveredDraggableKey = 0;
+    bool anyDraggable = false;
+    for (const SceneItemInfo& item : payload->items) {
+        anyDraggable = anyDraggable || item.draggable;
+    }
+    if (state.draggedItemKey != 0) {
+        state.hoveredItemKey = state.draggedItemKey;   // the dragged item stays "under the pointer"
+    } else if ((opts.selectableItems || anyDraggable) && insideVp && !hudConsumed && !scrollbarBusy &&
+               !state.panning && !state.boxSelecting) {
         const float worldHitPad = (3.5f * s) / std::max(0.0001f, state.zoom * s);
         float bestArea = 1e30f;
 
         for (const SceneItemInfo& item : payload->items) {
-            if (!item.selectable || item.worldBounds.w <= 0.0f || item.worldBounds.h <= 0.0f) {
+            const bool hittable = item.draggable || (opts.selectableItems && item.selectable);
+            if (!hittable || item.worldBounds.w <= 0.0f || item.worldBounds.h <= 0.0f) {
                 continue;
             }
             const Rect hitBox(
@@ -1203,12 +1312,45 @@ void Scene::Update(Context& ctx, Node* node) {
                 if (area <= bestArea * 1.05f) {
                     bestArea = area;
                     state.hoveredItemKey = item.key;
+                    state.hoveredDraggableKey = item.draggable ? item.key : 0;
                 }
             }
         }
     }
     if (state.hoveredItemKey != prevHoveredKey) {
         ctx.RequestRepaint(2);
+    }
+    if (state.draggedItemKey != 0 || state.hoveredDraggableKey != 0) {
+        ctx.SetCursor(CursorType::Move);
+    }
+    // A draggable item pressed and released in place is a click (selects like any item)
+    if (state.dragClickKey != 0) {
+        state.clickedItemKey = state.dragClickKey;
+        if (opts.selectableItems) {
+            for (const SceneItemInfo& item : payload->items) {
+                if (item.key == state.dragClickKey && item.selectable) {
+                    if (!mods.ctrl) state.selectedItemKeys.clear();
+                    if (!state.IsSelected(item.key)) state.selectedItemKeys.push_back(item.key);
+                }
+            }
+        }
+        state.dragClickKey = 0;
+        ctx.RequestRepaint(2);
+    }
+    // Tooltip: hovered item's own, else the scene's (not while dragging or panning)
+    if (insideVp && notOccluded && state.draggedItemKey == 0 && !state.panning && !state.boxSelecting) {
+        const SceneItemInfo* hov = nullptr;
+        for (const SceneItemInfo& item : payload->items) {
+            if (item.key != 0 && item.key == state.hoveredItemKey) hov = &item;
+        }
+        if (hov && !hov->tooltip.text.empty()) {
+            const Rect wb = hov->worldBounds;
+            const float ws = std::max(0.0001f, state.zoom * s);
+            ctx.SetTooltip(hov->tooltip, Rect(vp.x + state.pan.x + wb.x * ws, vp.y + state.pan.y + wb.y * ws,
+                                               wb.w * ws, wb.h * ws));
+        } else if (!opts.tooltip.text.empty()) {
+            ctx.SetTooltip(opts.tooltip, vp);
+        }
     }
 
     // Complete Marquee Box Selection or Click-to-Select on mouse button release
@@ -1281,7 +1423,9 @@ void Scene::Update(Context& ctx, Node* node) {
         payload->openViewport.w,
         payload->openViewport.h,
         payload->drawCmds.size(),
+        payload->contentHash,
         payload->items.size(),
+        state.draggedItemKey,
         state.zoom,
         state.pan.x,
         state.pan.y,

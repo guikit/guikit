@@ -1858,6 +1858,8 @@ public:
     [[nodiscard]] bool IsRectHovered(Id id, const Rect& rect) const noexcept;
     [[nodiscard]] bool IsMouseBlockedForCurrentScope() const noexcept;
     void SetTooltip(UiText tooltip, Rect anchorRect);
+    /// Tooltip requested during the current frame (empty if none).
+    [[nodiscard]] const UiText& GetActiveTooltip() const noexcept { return m_activeTooltip; }
     void RegisterFocusable(Id id, bool disabled = false);
 
     void BeginModalScope(Id id, Rect backdropRect) noexcept {

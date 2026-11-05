@@ -67,7 +67,7 @@
 - **Rich Content**: `Markdown` viewer (GFM tables, alerts, task lists, code blocks, embedded assets) & `TextArea` / `CodeEditor` (syntax highlighting, breakpoints, code folding, minimap & find/replace bar)
 
 ### 3. Specialized 2D Scenes & Domain Workstations (`guikit::scenes`)
-- **Schematic 2D (`Scene`)**: Infinite pan/zoom vector viewport with grid/checkerboard backgrounds and coordinate rulers
+- **Schematic 2D (`Scene`)**: Infinite pan/zoom vector viewport with grid/checkerboard backgrounds and coordinate rulers; selectable and draggable items (pointer capture, Escape cancel), scene/item tooltips, content-fingerprint damage tracking (drawing changes repaint without camera moves)
 - **GIS / Marine Chart (`MapView` + `GisRenderEngine`)**: S-57 / ENC vector Electronic Navigational Chart (`.geojson`) with S-52 Day/Dusk/Night palettes, safety contour isobaths, spot soundings, IALA seamarks, 256×256 vector tile caching, and 7 geodetic projections (`EPSG:3857`, `EPSG:3395`, `EPSG:4326`, `UTM 36N`, `GSK-2011`, `SK-42`, `Arctic Polar`)
 - **Signal View (`SignalView`)**: Dual waveform + STFT spectrogram analyzer with GPU shader acceleration and harmonic cursor readouts
 - **Sonar Radar (`SonarView`)**: Polar PPI 360°, Sector Wedge, and B-Scan sonar/radar display with TVG, clutter gating, and target tracking
