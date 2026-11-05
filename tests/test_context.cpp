@@ -4040,6 +4040,105 @@ void TestSliderAndStepSliderWidgets() {
     CHECK(activeRadius == UiSize::Md);
 }
 
+void TestVerticalSlider() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 400;
+    const uint32_t height = 600;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+    const UiTheme& theme = ui.GetTheme();
+    const SliderMetrics& m = theme.GetSlider(UiSize::Md);
+
+    // 1. Measure: a fader is narrow and tall; the horizontal slider keeps its metrics
+    {
+        const SliderOptions hOpts{.showValue = false, .stretch = StretchMode::Compact};
+        const SliderOptions vOpts{.orientation = Orientation::Vertical, .showValue = false,
+                                  .stretch = StretchMode::Compact};
+        const Vec2 hSize = Slider::Measure(hOpts, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
+        const Vec2 vSize = Slider::Measure(vOpts, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
+        CHECK_NEAR(vSize.x, std::max(m.defaultHeight, m.thumbSize), 0.5f);
+        CHECK_NEAR(vSize.y, m.defaultWidth + m.thumbSize, 0.5f);
+        CHECK_NEAR(hSize.x, vSize.y, 0.5f); // same travel, rotated
+        CHECK(vSize.y > vSize.x);
+
+        // Value above the track adds height, not width beyond the readout
+        const SliderOptions vVal{.orientation = Orientation::Vertical, .valueFormat = "%.0f dB",
+                                 .stretch = StretchMode::Compact};
+        const Vec2 vValSize = Slider::Measure(vVal, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
+        CHECK(vValSize.y > vSize.y);
+
+        // Explicit height for Compact sets the control height
+        const SliderOptions vH{.orientation = Orientation::Vertical, .showValue = false,
+                               .stretch = StretchMode::Compact, .height = 300.0f};
+        const Vec2 vHSize = Slider::Measure(vH, 50.0, 0.0, 100.0, UiSize::Md, &canvas, theme);
+        CHECK_NEAR(vHSize.y, theme.Scale(300.0f), 0.5f);
+    }
+
+    double gain = 20.0;
+    Response r;
+    auto renderUI = [&]() {
+        if (auto col = ui.Column()) {
+            r = ui.Slider(gain, 0.0, 80.0, {.orientation = Orientation::Vertical, .valueFormat = "%.0f dB",
+                                            .step = 1.0});
+        }
+    };
+
+    // 2. Layout: Fill stretches the fader to the available height, the width stays intrinsic
+    ui.BeginFrame({400.0f, 600.0f});
+    renderUI();
+    ui.EndFrame(canvas);
+    const Rect b = ui.GetPrevFrameBounds(r.id);
+    CHECK(b.h > 500.0f);
+    CHECK(b.w < 120.0f);
+    CHECK(b.h > b.w);
+    CHECK_NEAR(gain, 20.0, 1e-9);
+
+    // 3. Pointer: press near the top -> near max, drag near the bottom -> near min
+    ui.OnMouseMove({b.Center().x, b.y + b.h * 0.08f});
+    ui.OnMouseDown(1);
+    ui.BeginFrame({400.0f, 600.0f});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(r.changed);
+    CHECK(gain > 70.0);
+
+    ui.OnMouseMove({b.Center().x, b.y + b.h - 2.0f});
+    ui.BeginFrame({400.0f, 600.0f});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(gain < 2.0);
+    ui.OnMouseUp(1);
+    ui.BeginFrame({400.0f, 600.0f});
+    renderUI();
+    ui.EndFrame(canvas);
+
+    // 4. Mouse wheel up over the fader: +1 step
+    gain = 40.0;
+    ui.OnMouseMove(b.Center());
+    ui.OnMouseWheel(0.0f, 1.0f);
+    ui.BeginFrame({400.0f, 600.0f});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK(r.changed);
+    CHECK_NEAR(gain, 41.0, 1e-9);
+    ui.OnMouseWheel(0.0f, 0.0f);
+
+    // 5. Keyboard: Up increases, Down decreases while focused (focus from the press above)
+    ui.OnKeyDown(Key::Up);
+    ui.BeginFrame({400.0f, 600.0f});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK_NEAR(gain, 42.0, 1e-9);
+    ui.OnKeyDown(Key::Down);
+    ui.BeginFrame({400.0f, 600.0f});
+    renderUI();
+    ui.EndFrame(canvas);
+    CHECK_NEAR(gain, 41.0, 1e-9);
+}
+
 void TestPixelGeometryAndWidgetUiSizeDecoupling() {
     using namespace guikit;
     Context ui;
@@ -11048,6 +11147,7 @@ int main() {
     TestContextCleanArchitectureAndStateGC();
     TestScopedThemeAndScaleOverrides();
     TestSliderAndStepSliderWidgets();
+    TestVerticalSlider();
     TestPixelGeometryAndWidgetUiSizeDecoupling();
     TestTextAreaWidgetWorkflow();
     TestButtonAlignmentAndProceduralIcons();

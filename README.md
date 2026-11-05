@@ -54,7 +54,7 @@
 ### 1. Core Elements & Inputs (`guikit::core`)
 - **Structure & Display**: `Element` (universal label / description / icon / badge / frame wrapper for any control), `Heading` (H1–H4 titles, subtitles, bottom & trailing dividers), `Text` (semantic roles & variants), `Image` (PNG/JPG/SVG with `ImageFit` & rounding), procedural vector `Icon` library
 - **Buttons & Toggles**: `Button`, `Switch`, `Checkbox`, `Radio`, `Segmented` (single-select & multi-select bitmask `SegmentedMask`)
-- **Numeric, Metering & Steppers**: `Slider`, `RangeSlider`, `StepSlider`, `ProgressBar` (smooth, discrete LED segments & indeterminate), `LevelMeter` (single/multi-channel dB VU meter with 3-zone coloring, auto peak-hold & clip LED), `Knob` (rotary dial with bipolar mode, radial ticks & arc), `SpinBox` (inline, detached & split steppers with drag-to-scrub)
+- **Numeric, Metering & Steppers**: `Slider` (horizontal, or vertical fader via `.orientation = Orientation::Vertical`), `RangeSlider`, `StepSlider`, `ProgressBar` (smooth, discrete LED segments & indeterminate), `LevelMeter` (single/multi-channel dB VU meter with 3-zone coloring, auto peak-hold & clip LED), `Knob` (rotary dial with bipolar mode, radial ticks & arc), `SpinBox` (inline, detached & split steppers with drag-to-scrub)
 - **Text, Tags & Selection**: `InputField` (text, password & numeric with validation), `TagInput` (editable multi-tag chips with delimiter splitting & backspace-pop), `Select`, `ComboBox`, `Autocomplete`, `MultiSelect` (multi-chip tag trigger + checkbox dropdown)
 - **Pickers**: `ColorPicker` (interactive 2D HSV canvas, hue/alpha sliders, HEX input & preset swatches), `DatePicker` (`Date`, `DateTime`, and `Time` modes with calendar popover & time steppers)
 

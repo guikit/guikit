@@ -15,9 +15,16 @@ class Context;
 class ICanvas;
 
 /// Clean configuration options for continuous numeric Slider widget.
+///
+/// `orientation = Orientation::Vertical` turns the slider into a fader: min at the bottom, max at the top.
+/// The main axis is then the height: `stretch = Fill` stretches the track to the available height,
+/// `height` sets the control height for Compact/Space, and `width` is the control width in points.
+/// Companion texts and the value move along the main axis: `textRight` (max end) and a Trailing/Top value
+/// above the track, a Leading/Bottom value and `textLeft` (min end) below it, a Thumb value right of the thumb.
 struct SliderOptions {
-    UiText textLeft{};                             ///< Optional companion text inside control on the left of the track
-    UiText textRight{};                            ///< Optional companion text inside control on the right of the track
+    Orientation orientation{Orientation::Horizontal}; ///< Horizontal (min at left) or Vertical (min at bottom); Both = Horizontal
+    UiText textLeft{};                             ///< Optional companion text inside control on the left of the track (below it when Vertical)
+    UiText textRight{};                            ///< Optional companion text inside control on the right of the track (above it when Vertical)
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     UiText valueFormat{};                          ///< Format string and style for value (e.g. "%.1f %%", {"%.1f dB", StateColor::Info()}, or static text; empty text = default numeric format)
     std::optional<double> step{std::nullopt};      ///< Step quantization (defaults to 1.0 for integers, continuous for float)
