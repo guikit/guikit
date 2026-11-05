@@ -4139,6 +4139,121 @@ void TestVerticalSlider() {
     CHECK_NEAR(gain, 41.0, 1e-9);
 }
 
+void TestVerticalStepAndRangeSliders() {
+    using namespace guikit;
+
+    Context ui;
+    ThorCanvas canvas;
+    const uint32_t width = 400;
+    const uint32_t height = 600;
+    std::vector<uint32_t> pixels(width * height, 0);
+    canvas.SetTarget(pixels.data(), width, height, width);
+    const UiTheme& theme = ui.GetTheme();
+    const SliderMetrics& m = theme.GetSlider(UiSize::Md);
+    static constexpr std::array<std::string_view, 4> steps = {"0.5", "1", "2", "6"};
+
+    // 1. Measure: vertical StepSlider reserves a labels column right of the track
+    {
+        const StepSliderOptions bare{.orientation = Orientation::Vertical, .showLabels = false,
+                                     .stretch = StretchMode::Compact};
+        const StepSliderOptions labeled{.orientation = Orientation::Vertical, .stepLabels = steps,
+                                        .stretch = StretchMode::Compact};
+        const Vec2 bareSize = StepSlider::Measure(bare, 0, steps.size(), UiSize::Md, &canvas, theme);
+        const Vec2 labeledSize = StepSlider::Measure(labeled, 0, steps.size(), UiSize::Md, &canvas, theme);
+        CHECK_NEAR(bareSize.x, std::max(m.defaultHeight, m.thumbSize), 0.5f);
+        CHECK(labeledSize.x > bareSize.x + m.tickGap);
+        CHECK_NEAR(labeledSize.y, bareSize.y, 0.5f); // labels do not add height
+
+        const RangeSliderOptions range{.orientation = Orientation::Vertical, .showValue = false,
+                                       .stretch = StretchMode::Compact};
+        const Vec2 rangeSize = RangeSlider::Measure(range, 20.0, 60.0, 0.0, 80.0, UiSize::Md, &canvas, theme);
+        CHECK_NEAR(rangeSize.x, std::max(m.defaultHeight, m.thumbSize), 0.5f);
+        CHECK_NEAR(rangeSize.y, m.defaultWidth + m.thumbSize, 0.5f);
+    }
+
+    size_t stepIdx = 1;
+    double lo = 20.0, hi = 60.0;
+    Response rs, rr;
+    auto renderUI = [&]() {
+        if (auto row = ui.Row({.gap = 40.0f, .heightMode = SizeMode::Stretch})) {
+            rs = ui.StepSlider(stepIdx, steps, {.orientation = Orientation::Vertical});
+            rr = ui.RangeSlider(lo, hi, 0.0, 80.0, {.orientation = Orientation::Vertical, .step = 1.0,
+                                                    .showValue = false});
+        }
+    };
+    auto frame = [&]() {
+        ui.BeginFrame({400.0f, 600.0f});
+        renderUI();
+        ui.EndFrame(canvas);
+    };
+
+    frame();
+    const Rect sb = ui.GetPrevFrameBounds(rs.id);
+    const Rect rb = ui.GetPrevFrameBounds(rr.id);
+    CHECK(sb.h > 500.0f);
+    CHECK(rb.h > 500.0f);
+    CHECK(rb.x > sb.x + sb.w);
+
+    // 2. StepSlider: press near the top -> last step, drag to the bottom -> first step
+    const float trackX = sb.x + std::max(m.defaultHeight, m.thumbSize) * 0.5f;
+    ui.OnMouseMove({trackX, sb.y + 4.0f});
+    ui.OnMouseDown(1);
+    frame();
+    CHECK(rs.changed);
+    CHECK(stepIdx == 3);
+    ui.OnMouseMove({trackX, sb.y + sb.h - 4.0f});
+    frame();
+    CHECK(stepIdx == 0);
+    ui.OnMouseUp(1);
+    frame();
+
+    // Wheel up: next step
+    ui.OnMouseMove({trackX, sb.Center().y});
+    ui.OnMouseWheel(0.0f, 1.0f);
+    frame();
+    CHECK(stepIdx == 1);
+    ui.OnMouseWheel(0.0f, 0.0f);
+    frame();
+
+    // 3. RangeSlider: travel coordinate maps value v to y = bottom - halfThumb - v / 80 * length
+    const float half = m.thumbSize * 0.5f;
+    const float len = rb.h - m.thumbSize;
+    const float rx = rb.x + std::max(m.defaultHeight, m.thumbSize) * 0.5f;
+    auto yOf = [&](double v) { return rb.y + rb.h - half - static_cast<float>(v / 80.0) * len; };
+
+    // Press just below the low thumb -> drags the low thumb (not the high one)
+    ui.OnMouseMove({rx, yOf(15.0)});
+    ui.OnMouseDown(1);
+    frame();
+    CHECK(rr.changed);
+    CHECK(lo < 20.0 && lo > 10.0);
+    CHECK_NEAR(hi, 60.0, 1e-9);
+    ui.OnMouseUp(1);
+    frame();
+
+    // Press above the high thumb -> drags the high thumb
+    ui.OnMouseMove({rx, yOf(70.0)});
+    ui.OnMouseDown(1);
+    frame();
+    CHECK(hi > 65.0);
+    const double loBefore = lo;
+    ui.OnMouseUp(1);
+    frame();
+
+    // Press inside the interval and drag up by 10 units -> both move up together
+    const double span = hi - lo;
+    const double mid = (lo + hi) * 0.5;
+    ui.OnMouseMove({rx, yOf(mid)});
+    ui.OnMouseDown(1);
+    frame();
+    ui.OnMouseMove({rx, yOf(mid + 10.0)});
+    frame();
+    CHECK_NEAR(lo, loBefore + 10.0, 1.0);
+    CHECK_NEAR(hi - lo, span, 1.0);
+    ui.OnMouseUp(1);
+    frame();
+}
+
 void TestPixelGeometryAndWidgetUiSizeDecoupling() {
     using namespace guikit;
     Context ui;
@@ -11148,6 +11263,7 @@ int main() {
     TestScopedThemeAndScaleOverrides();
     TestSliderAndStepSliderWidgets();
     TestVerticalSlider();
+    TestVerticalStepAndRangeSliders();
     TestPixelGeometryAndWidgetUiSizeDecoupling();
     TestTextAreaWidgetWorkflow();
     TestButtonAlignmentAndProceduralIcons();

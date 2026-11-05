@@ -43,14 +43,18 @@ struct SliderOptions {
 };
 
 /// Clean configuration options for discrete N-position StepSlider widget.
+///
+/// `orientation = Orientation::Vertical`: first step at the bottom, last at the top; step labels in a column
+/// right of the ticks. Sizing and companion texts follow the vertical `SliderOptions` rules.
 struct StepSliderOptions {
-    UiText textLeft{};                             ///< Optional companion text inside control on the left of the track
-    UiText textRight{};                            ///< Optional companion text inside control on the right of the track
+    Orientation orientation{Orientation::Horizontal}; ///< Horizontal (first step at left) or Vertical (first step at bottom); Both = Horizontal
+    UiText textLeft{};                             ///< Optional companion text inside control on the left of the track (below it when Vertical)
+    UiText textRight{};                            ///< Optional companion text inside control on the right of the track (above it when Vertical)
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     std::span<const std::string_view> stepLabels{};///< Optional text labels for each discrete step
     Align align{Align::Start};                     ///< Standalone control alignment (Start, Center, End)
     bool showTicks{true};                          ///< Whether to render tick marks at each step
-    bool showLabels{true};                         ///< Whether to render stepLabels below ticks
+    bool showLabels{true};                         ///< Whether to render stepLabels below ticks (right of them when Vertical)
     bool showValue{false};                         ///< Whether to display currently selected label/value inside control
     Placement valuePlacement{Placement::Trailing}; ///< Value position relative to track: Leading, Trailing, Top, Bottom, Thumb
     UiText valueText{};                            ///< Optional custom display text/style for current value
@@ -67,9 +71,13 @@ struct StepSliderOptions {
 };
 
 /// Clean configuration options for two-thumb continuous/stepped RangeSlider widget.
+///
+/// `orientation = Orientation::Vertical`: low thumb below, high thumb above. Sizing and companion texts
+/// follow the vertical `SliderOptions` rules; a Thumb value sits right of the interval middle.
 struct RangeSliderOptions {
-    UiText textLeft{};                             ///< Optional companion text inside control on the left of the track
-    UiText textRight{};                            ///< Optional companion text inside control on the right of the track
+    Orientation orientation{Orientation::Horizontal}; ///< Horizontal (min at left) or Vertical (min at bottom); Both = Horizontal
+    UiText textLeft{};                             ///< Optional companion text inside control on the left of the track (below it when Vertical)
+    UiText textRight{};                            ///< Optional companion text inside control on the right of the track (above it when Vertical)
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     UiText valueFormat{};                          ///< Format string for range values (e.g. "%.0f .. %.0f Hz" or "%.1f %%")
     std::optional<double> step{std::nullopt};      ///< Step quantization (defaults to 1.0 for integers, continuous for float)

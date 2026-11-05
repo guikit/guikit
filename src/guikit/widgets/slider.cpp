@@ -106,7 +106,8 @@ struct SliderControlMetrics {
     float endGutterH{0.0f};    ///< Above the track (max end): textRight, Trailing/Top value
     float startGutterH{0.0f};  ///< Below the track (min end): Leading/Bottom value, textLeft
     float crossW{0.0f};        ///< Track + thumb column width
-    float thumbValW{0.0f};     ///< Thumb value readout right of the thumb
+    float extraLabelsW{0.0f};  ///< StepSlider labels column right of the track
+    float thumbValW{0.0f};     ///< Thumb value readout right of the track (and labels)
     Vec2 intrinsicControlSize{};
 };
 
@@ -126,7 +127,7 @@ SliderControlMetrics ComputeSliderControlMetrics(
     Placement valuePlacement,
     StretchMode stretch,
     std::optional<float> width,
-    float extraLabelsH,
+    float extraLabelsBand,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
@@ -141,7 +142,11 @@ SliderControlMetrics ComputeSliderControlMetrics(
     const float innerGap = kSliderInnerGap;
     SliderControlMetrics cm{};
     cm.trackRowH = std::max(m.defaultHeight, m.thumbSize);
-    cm.extraLabelsH = extraLabelsH;
+    if (IsVerticalSlider(orientation)) {
+        cm.extraLabelsW = extraLabelsBand;   // labels column right of the track
+    } else {
+        cm.extraLabelsH = extraLabelsBand;   // labels row below the track
+    }
 
     const bool hasLeftText = !textLeft.empty() || !textLeft.variants.empty();
     const bool hasRightText = !textRight.empty() || !textRight.variants.empty();
@@ -217,7 +222,8 @@ SliderControlMetrics ComputeSliderControlMetrics(
         }
         const bool stackedValue = showValue && valuePlacement != Placement::Thumb;
         cm.intrinsicControlSize = {
-            std::max({cm.crossW + cm.thumbValW, stackedValue ? cm.valReserveW : 0.0f, cm.leftTextW, cm.rightTextW}),
+            std::max({cm.crossW + cm.extraLabelsW + cm.thumbValW, stackedValue ? cm.valReserveW : 0.0f,
+                      cm.leftTextW, cm.rightTextW}),
             cm.endGutterH + m.defaultWidth + m.thumbSize + cm.startGutterH
         };
         return cm;
@@ -265,10 +271,14 @@ struct SliderTrackLayout {
         return vertical ? Vec2{cross, start - t * length} : Vec2{start + t * length, cross};
     }
 
+    /// Signed distance of `p` along the travel from the min end (grows towards max in both orientations).
+    [[nodiscard]] float Travel(Vec2 p) const noexcept {
+        return vertical ? (start - p.y) : (p.x - start);
+    }
+
     /// Normalized ratio [0, 1] under pointer position `p`.
     [[nodiscard]] float RatioAt(Vec2 p) const noexcept {
-        const float d = vertical ? (start - p.y) : (p.x - start);
-        return std::clamp(d / std::max(1.0f, length), 0.0f, 1.0f);
+        return std::clamp(Travel(p) / std::max(1.0f, length), 0.0f, 1.0f);
     }
 };
 
@@ -282,7 +292,7 @@ SliderTrackLayout ComputeSliderTrackLayout(
     SliderTrackLayout l{};
     l.vertical = vertical;
     if (vertical) {
-        const float contentW = cm.crossW + cm.thumbValW;
+        const float contentW = cm.crossW + cm.extraLabelsW + cm.thumbValW;
         const float offsetX = std::max(0.0f, (ctrlRect.w - contentW) * 0.5f);
         l.region = Rect(
             ctrlRect.x + offsetX,
@@ -361,11 +371,11 @@ void RenderSliderCompanionTextsVertical(
                            cm.leftTextFont, col, 0.5f, 0.5f);
     }
 
-    // Thumb value: right of the thumb, following it
+    // Thumb value: right of the track (and labels column), following the thumb
     if (hasValue && valuePlacement == Placement::Thumb) {
-        canvas.DrawTextBox(effectiveValStr,
-                           Rect(thumbCenter.x + thumbSize * 0.5f + kSliderInnerGap, thumbCenter.y - cm.valLineH * 0.5f,
-                                cm.valReserveW, cm.valLineH),
+        const float x = std::max(thumbCenter.x + thumbSize * 0.5f, layout.region.x + layout.region.w) +
+                        cm.extraLabelsW + kSliderInnerGap;
+        canvas.DrawTextBox(effectiveValStr, Rect(x, thumbCenter.y - cm.valLineH * 0.5f, cm.valReserveW, cm.valLineH),
                            cm.valFont, valCol, 0.0f, 0.5f);
     }
 }
@@ -524,6 +534,29 @@ template <typename Opts>
         }
     }
     return opts.stretch;
+}
+
+/// StepSlider labels band across the track: a row below it (height) when horizontal, a column right of
+/// it (widest label) when vertical; 0 without labels.
+float StepSliderLabelsBand(
+    const StepSliderOptions& opts,
+    size_t totalSteps,
+    const SliderMetrics& m,
+    float tickFont,
+    ICanvas* canvas
+) noexcept {
+    if (!opts.showLabels || opts.stepLabels.empty() || totalSteps <= 1) {
+        return 0.0f;
+    }
+    if (!IsVerticalSlider(opts.orientation)) {
+        return m.tickGap + tickFont * 1.3f;
+    }
+    float widest = 0.0f;
+    const size_t n = std::min(totalSteps, opts.stepLabels.size());
+    for (size_t i = 0; i < n; ++i) {
+        widest = std::max(widest, TextUtil::MeasureWidth(opts.stepLabels[i], tickFont, canvas));
+    }
+    return m.tickGap + widest;
 }
 
 Color ResolveSliderTrackColor(const StateColor& color, bool disabled, const UiTheme& theme) noexcept {
@@ -930,7 +963,7 @@ Response StepSlider::Run(
         ? optsCopy.valueText.text
         : ((curIdx < optsCopy.stepLabels.size()) ? optsCopy.stepLabels[curIdx] : std::string_view{});
     const float tickFont = activeTheme.ResolveFontSize(TextRole::LabelSmall, activeSize);
-    const float extraLabelsH = (optsCopy.showLabels && !optsCopy.stepLabels.empty() && totalSteps > 1) ? (m.tickGap + tickFont * 1.3f) : 0.0f;
+    const float labelsBand = StepSliderLabelsBand(optsCopy, totalSteps, m, tickFont, nullptr);
 
     Rect prevBounds = ctx.GetPrevFrameBounds(id);
     auto& state = ctx.GetOrCreateState<SliderState>(id);
@@ -945,18 +978,15 @@ Response StepSlider::Run(
         res.pressed = false;
         state.dragging = false;
     } else {
-        const float halfThumb = m.thumbSize * 0.5f;
         const SliderControlMetrics cm = ComputeSliderControlMetrics(
             optsCopy.textLeft, optsCopy.textRight, optsCopy.valueText, initStepStr,
             optsCopy.showValue, optsCopy.valuePlacement, optsCopy.stretch, ctrl.width,
-            extraLabelsH, activeSize, nullptr, activeTheme,
-            optsCopy.stepLabels
+            labelsBand, activeSize, nullptr, activeTheme,
+            optsCopy.stepLabels, false, 0.0, 1.0, false, optsCopy.orientation
         );
         const Rect ctrlRect = Control::ResolveInnerRect(prevBounds, ctrl, activeSize, activeTheme);
-        const float trackRegionX = ctrlRect.x + cm.leftGutterW;
-        const float trackRegionW = std::max(m.thumbSize, ctrlRect.w - cm.leftGutterW - cm.rightGutterW);
-        const float trackStartX = trackRegionX + halfThumb;
-        const float trackWidth = std::max(1.0f, trackRegionW - m.thumbSize);
+        const SliderTrackLayout layout =
+            ComputeSliderTrackLayout(ctrlRect, cm, m, IsVerticalSlider(optsCopy.orientation));
 
         if (res.clicked || (res.pressed && !state.dragging)) {
             state.dragging = true;
@@ -972,8 +1002,7 @@ Response StepSlider::Run(
                 }
             } else {
                 res.pressed = true;
-                const float mouseX = ctx.GetMousePos().x;
-                const float t = std::clamp((mouseX - trackStartX) / trackWidth, 0.0f, 1.0f);
+                const float t = layout.RatioAt(ctx.GetMousePos());
                 const size_t newIdx = (totalSteps > 1)
                     ? std::clamp(static_cast<size_t>(std::round(t * static_cast<float>(totalSteps - 1))), size_t{0}, totalSteps - 1)
                     : 0;
@@ -1035,8 +1064,9 @@ Response StepSlider::Run(
     node->hovered = res.hovered;
     node->pressed = res.pressed || state.dragging;
     node->focused = ctx.IsFocused(id);
-    node->widthMode = (optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-    node->heightMode = SizeMode::Fit;
+    const bool vertical = IsVerticalSlider(optsCopy.orientation);
+    node->widthMode = (!vertical && optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
+    node->heightMode = (vertical && optsCopy.stretch == StretchMode::Fill) ? SizeMode::Stretch : SizeMode::Fit;
 
     auto* data = ctx.AllocPayload<StepSliderData>();
     data->opts = optsCopy;
@@ -1052,6 +1082,7 @@ Response StepSlider::Run(
     node->visualHash = detail::HashArgs(
         curIdx,
         totalSteps,
+        static_cast<uint8_t>(data->opts.orientation),
         data->opts.color,
         static_cast<uint8_t>(data->opts.stretch),
         static_cast<uint8_t>(data->opts.align),
@@ -1083,7 +1114,7 @@ Response StepSlider::Run(
                            d->opts, n->uiSize, n->hovered, n->pressed, n->disabled, theme, n->focused);
     };
 
-    Control::SetupNode(ctx, node, ctrl, data->opts.stretch, data->opts.align);
+    Control::SetupNode(ctx, node, ctrl, SliderCrossStretch(data->opts), data->opts.align);
     ctx.AdaptChildToContainer(node);
     if (pushedTheme) {
         ctx.PopTheme();
@@ -1105,7 +1136,7 @@ Vec2 StepSlider::Measure(
     }
     const SliderMetrics& m = theme.GetSlider(size);
     const float tickFont = theme.ResolveFontSize(TextRole::LabelSmall, size);
-    const float extraLabelsH = (opts.showLabels && !opts.stepLabels.empty() && totalSteps > 1) ? (m.tickGap + tickFont * 1.3f) : 0.0f;
+    const float labelsBand = StepSliderLabelsBand(opts, totalSteps, m, tickFont, canvas);
     const std::string_view stepStr = !opts.valueText.empty()
         ? opts.valueText.text
         : ((index < opts.stepLabels.size()) ? opts.stepLabels[index] : std::string_view{});
@@ -1113,10 +1144,10 @@ Vec2 StepSlider::Measure(
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, opts.valueText, stepStr,
         opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
-        extraLabelsH, size, canvas, theme,
-        opts.stepLabels
+        labelsBand, size, canvas, theme,
+        opts.stepLabels, false, 0.0, 1.0, false, opts.orientation
     );
-    return Control::Measure(cm.intrinsicControlSize, ctrl, opts.stretch, size, theme);
+    return Control::Measure(cm.intrinsicControlSize, ctrl, SliderCrossStretch(opts), size, theme);
 }
 
 Vec2 StepSlider::Measure(
@@ -1153,58 +1184,66 @@ void StepSlider::Render(
     const std::string_view stepStr = !opts.valueText.empty()
         ? opts.valueText.text
         : ((index < opts.stepLabels.size()) ? opts.stepLabels[index] : std::string_view{});
-    const float extraLabelsH = (opts.showLabels && !opts.stepLabels.empty() && totalSteps > 1) ? (m.tickGap + tickFont * 1.3f) : 0.0f;
+    const float labelsBand = StepSliderLabelsBand(opts, totalSteps, m, tickFont, &canvas);
 
     const ControlSpec ctrl = EffectiveSliderControl(opts, size, theme);
     const SliderControlMetrics cm = ComputeSliderControlMetrics(
         opts.textLeft, opts.textRight, opts.valueText, stepStr,
         opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
-        extraLabelsH, size, &canvas, theme,
-        opts.stepLabels
+        labelsBand, size, &canvas, theme,
+        opts.stepLabels, false, 0.0, 1.0, false, opts.orientation
     );
     Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, hovered, active || focused);
 
     const Rect ctrlRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
+    const bool vertical = IsVerticalSlider(opts.orientation);
+    const SliderTrackLayout layout = ComputeSliderTrackLayout(ctrlRect, cm, m, vertical);
     const float halfThumb = m.thumbSize * 0.5f;
-    const float trackRegionX = ctrlRect.x + cm.leftGutterW;
-    const float trackRegionW = std::max(m.thumbSize, ctrlRect.w - cm.leftGutterW - cm.rightGutterW);
-    const float trackStartX = trackRegionX + halfThumb;
-    const float trackWidth = std::max(0.0f, trackRegionW - m.thumbSize);
-    const float contentOffsetY = std::max(0.0f, (ctrlRect.h - cm.intrinsicControlSize.y) * 0.5f);
-    const float trackRowY = ctrlRect.y + contentOffsetY + cm.topValH;
-    const float centerY = trackRowY + cm.trackRowH * 0.5f;
+    const float halfTrack = m.trackHeight * 0.5f;
 
     const float ratio = (totalSteps > 1) ? static_cast<float>(index) / static_cast<float>(totalSteps - 1) : 0.0f;
-    const float fillW = ratio * trackWidth;
-    const float thumbCenterX = trackStartX + fillW;
+    const Vec2 thumbCenter = layout.ThumbCenter(ratio);
+    const float fillLen = ratio * layout.length;
+    auto stepRatio = [&](size_t i) { return static_cast<float>(i) / static_cast<float>(totalSteps - 1); };
 
     // 0. Draw companion textLeft / textRight and value readout
-    RenderSliderCompanionTexts(
-        canvas, ctrlRect, trackRegionX, trackRegionW, trackRowY, thumbCenterX,
-        cm, opts.textLeft, opts.textRight, opts.valueText, stepStr,
-        opts.showValue, opts.valuePlacement, disabled, theme
-    );
+    if (vertical) {
+        RenderSliderCompanionTextsVertical(
+            canvas, ctrlRect, layout, thumbCenter, m.thumbSize,
+            cm, opts.textLeft, opts.textRight, opts.valueText, stepStr,
+            opts.showValue, opts.valuePlacement, disabled, theme
+        );
+    } else {
+        RenderSliderCompanionTexts(
+            canvas, ctrlRect, layout.region.x, layout.region.w, layout.region.y, thumbCenter.x,
+            cm, opts.textLeft, opts.textRight, opts.valueText, stepStr,
+            opts.showValue, opts.valuePlacement, disabled, theme
+        );
+    }
 
     // 1. Draw inactive background track
-    const Rect trackBgRect(trackStartX, centerY - m.trackHeight * 0.5f, trackWidth, m.trackHeight);
+    const Rect trackBgRect = vertical
+        ? Rect(layout.cross - halfTrack, layout.start - layout.length, m.trackHeight, layout.length)
+        : Rect(layout.start, layout.cross - halfTrack, layout.length, m.trackHeight);
     Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
     Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
-    canvas.DrawRoundRect(trackBgRect, m.trackHeight * 0.5f, trackBg, trackBorder, 1.0f);
+    canvas.DrawRoundRect(trackBgRect, halfTrack, trackBg, trackBorder, 1.0f);
 
-    // 2. Draw active filled track segment
-    if (fillW > 0.0f) {
-        const Rect fillRect(trackStartX, centerY - m.trackHeight * 0.5f, fillW, m.trackHeight);
+    // 2. Draw active filled track segment (from the first step to the thumb)
+    if (fillLen > 0.0f) {
+        const Rect fillRect = vertical
+            ? Rect(layout.cross - halfTrack, thumbCenter.y, m.trackHeight, fillLen)
+            : Rect(layout.start, layout.cross - halfTrack, fillLen, m.trackHeight);
         Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
-        canvas.DrawRoundRect(fillRect, m.trackHeight * 0.5f, fillCol);
+        canvas.DrawRoundRect(fillRect, halfTrack, fillCol);
     }
 
     // 3. Draw tick dots on track
     if (opts.showTicks && totalSteps > 1) {
         const float tickR = m.tickSize * 0.5f;
         for (size_t i = 0; i < totalSteps; ++i) {
-            const float t = static_cast<float>(i) / static_cast<float>(totalSteps - 1);
-            const float tickX = trackStartX + t * trackWidth;
-            const Rect tickRect(tickX - tickR, centerY - tickR, m.tickSize, m.tickSize);
+            const Vec2 tick = layout.ThumbCenter(stepRatio(i));
+            const Rect tickRect(tick.x - tickR, tick.y - tickR, m.tickSize, m.tickSize);
             Color tickCol = (i <= index) ? pal.surface : pal.textDisabled;
             if (disabled) tickCol = tickCol.WithAlphaF(0.4f);
             canvas.DrawRoundRect(tickRect, tickR, tickCol);
@@ -1212,7 +1251,7 @@ void StepSlider::Render(
     }
 
     // 4. Draw thumb knob
-    const Rect thumbRect(thumbCenterX - halfThumb, centerY - halfThumb, m.thumbSize, m.thumbSize);
+    const Rect thumbRect(thumbCenter.x - halfThumb, thumbCenter.y - halfThumb, m.thumbSize, m.thumbSize);
     Color thumbBg = disabled ? pal.surface.WithAlphaF(0.5f) :
                     active   ? ResolveSliderActiveThumbColor(opts.color, theme) :
                     hovered  ? pal.surface : pal.surface;
@@ -1222,45 +1261,80 @@ void StepSlider::Render(
     const float thumbBorderW = (active || hovered || focused) ? 2.5f : 2.0f;
     canvas.DrawRoundRect(thumbRect, halfThumb, thumbBg, thumbBorder, thumbBorderW);
 
-    // 5. Draw step labels below track (with collision culling so labels never overlap at narrow widths)
+    // 5. Draw step labels (with collision culling so labels never overlap): a row below the track
+    //    when horizontal, a column right of the ticks when vertical
     if (opts.showLabels && !opts.stepLabels.empty() && totalSteps > 1) {
-        const float labelsY = centerY + halfThumb + m.tickGap;
         const size_t nLabels = std::min(totalSteps, opts.stepLabels.size());
         const float minGap = theme.Scale(4.0f);
+        auto labelColor = [&](size_t i) {
+            return (i == index) ? pal.accent : (disabled ? pal.textDisabled : pal.textSecondary);
+        };
 
-        float lastLabelLeft = trackRegionX + trackRegionW;
-        if (nLabels > 1) {
-            const Vec2 lastDims = canvas.MeasureText(opts.stepLabels[nLabels - 1], tickFont);
-            const float lastTickX = trackStartX + trackWidth;
-            lastLabelLeft = std::clamp(
-                lastTickX - lastDims.x * 0.5f,
-                trackRegionX,
-                std::max(trackRegionX, trackRegionX + trackRegionW - lastDims.x)
-            );
-        }
-
-        float prevRight = -1e9f;
-        for (size_t i = 0; i < nLabels; ++i) {
-            const float t = static_cast<float>(i) / static_cast<float>(totalSteps - 1);
-            const float tickX = trackStartX + t * trackWidth;
-            const std::string_view lbl = opts.stepLabels[i];
-            const Vec2 dims = canvas.MeasureText(lbl, tickFont);
-            float lblX = tickX - dims.x * 0.5f;
-            lblX = std::clamp(lblX, trackRegionX, std::max(trackRegionX, trackRegionX + trackRegionW - dims.x));
-
-            const bool isFirst = (i == 0);
-            const bool isLast = (i + 1 == nLabels);
-            if (!isFirst && !isLast) {
-                if (lblX < prevRight + minGap || lblX + dims.x + minGap > lastLabelLeft) {
+        if (vertical) {
+            // Bottom-up from the first step; first and last labels always drawn
+            const float labelsX = layout.region.x + layout.region.w + m.tickGap;
+            const float regionTop = layout.region.y;
+            const float regionBottom = layout.region.y + layout.region.h;
+            auto labelTop = [&](size_t i, float h) {
+                return std::clamp(layout.ThumbCenter(stepRatio(i)).y - h * 0.5f, regionTop,
+                                  std::max(regionTop, regionBottom - h));
+            };
+            const float lastH = canvas.MeasureText(opts.stepLabels[nLabels - 1], tickFont).y;
+            const float lastBottom = labelTop(nLabels - 1, lastH) + lastH;
+            float prevTop = 1e9f;
+            for (size_t i = 0; i < nLabels; ++i) {
+                const std::string_view lbl = opts.stepLabels[i];
+                const float h = canvas.MeasureText(lbl, tickFont).y;
+                const float top = labelTop(i, h);
+                const bool isFirst = (i == 0);
+                const bool isLast = (i + 1 == nLabels);
+                if (!isFirst && !isLast) {
+                    if (top + h + minGap > prevTop || top < lastBottom + minGap) {
+                        continue;
+                    }
+                } else if (isLast && i > 0 && top + h + minGap > prevTop) {
                     continue;
                 }
-            } else if (isLast && i > 0 && lblX < prevRight + minGap) {
-                continue;
+                canvas.DrawText(lbl, Vec2(labelsX, top), tickFont, labelColor(i));
+                prevTop = top;
+            }
+        } else {
+            const float trackRegionX = layout.region.x;
+            const float trackRegionW = layout.region.w;
+            const float labelsY = layout.cross + halfThumb + m.tickGap;
+
+            float lastLabelLeft = trackRegionX + trackRegionW;
+            if (nLabels > 1) {
+                const Vec2 lastDims = canvas.MeasureText(opts.stepLabels[nLabels - 1], tickFont);
+                const float lastTickX = layout.start + layout.length;
+                lastLabelLeft = std::clamp(
+                    lastTickX - lastDims.x * 0.5f,
+                    trackRegionX,
+                    std::max(trackRegionX, trackRegionX + trackRegionW - lastDims.x)
+                );
             }
 
-            Color lblCol = (i == index) ? pal.accent : (disabled ? pal.textDisabled : pal.textSecondary);
-            canvas.DrawText(lbl, Vec2(lblX, labelsY), tickFont, lblCol);
-            prevRight = lblX + dims.x;
+            float prevRight = -1e9f;
+            for (size_t i = 0; i < nLabels; ++i) {
+                const float tickX = layout.ThumbCenter(stepRatio(i)).x;
+                const std::string_view lbl = opts.stepLabels[i];
+                const Vec2 dims = canvas.MeasureText(lbl, tickFont);
+                float lblX = tickX - dims.x * 0.5f;
+                lblX = std::clamp(lblX, trackRegionX, std::max(trackRegionX, trackRegionX + trackRegionW - dims.x));
+
+                const bool isFirst = (i == 0);
+                const bool isLast = (i + 1 == nLabels);
+                if (!isFirst && !isLast) {
+                    if (lblX < prevRight + minGap || lblX + dims.x + minGap > lastLabelLeft) {
+                        continue;
+                    }
+                } else if (isLast && i > 0 && lblX < prevRight + minGap) {
+                    continue;
+                }
+
+                canvas.DrawText(lbl, Vec2(lblX, labelsY), tickFont, labelColor(i));
+                prevRight = lblX + dims.x;
+            }
         }
     }
 }
@@ -1283,7 +1357,7 @@ struct RangeSliderState {
     uint8_t activeThumb{1}; // 0 = low thumb, 1 = high thumb
     double dragStartLow{0.0};
     double dragStartHigh{0.0};
-    float dragStartMouseX{0.0f};
+    float dragStartTravel{0.0f}; // pointer position along the track travel (SliderTrackLayout::Travel)
 };
 
 struct RangeSliderData {
@@ -1412,31 +1486,32 @@ Response RangeSlider::Run(
             optsCopy.textLeft, optsCopy.textRight, optsCopy.valueFormat, initValBuf,
             optsCopy.showValue, optsCopy.valuePlacement, optsCopy.stretch, ctrl.width,
             0.0f, activeSize, nullptr, activeTheme,
-            std::span<const std::string_view>(&maxSpanView, 1)
+            std::span<const std::string_view>(&maxSpanView, 1), false, 0.0, 1.0, false, optsCopy.orientation
         );
         const Rect ctrlRect = Control::ResolveInnerRect(prevBounds, ctrl, activeSize, activeTheme);
-        const float trackRegionX = ctrlRect.x + cm.leftGutterW;
-        const float trackRegionW = std::max(m.thumbSize, ctrlRect.w - cm.leftGutterW - cm.rightGutterW);
-        const float trackStartX = trackRegionX + halfThumb;
-        const float trackWidth = std::max(1.0f, trackRegionW - m.thumbSize);
+        const SliderTrackLayout layout =
+            ComputeSliderTrackLayout(ctrlRect, cm, m, IsVerticalSlider(optsCopy.orientation));
+        const float trackLen = std::max(1.0f, layout.length);
 
+        // Thumb and pointer positions along the travel from the min end (X when horizontal,
+        // distance up from the bottom when vertical)
         const double range = std::max(1e-9, rangeMax - rangeMin);
         const float lowRatio = static_cast<float>(std::clamp((curLow - rangeMin) / range, 0.0, 1.0));
         const float highRatio = static_cast<float>(std::clamp((curHigh - rangeMin) / range, 0.0, 1.0));
-        const float lowThumbX = trackStartX + lowRatio * trackWidth;
-        const float highThumbX = trackStartX + highRatio * trackWidth;
+        const float lowPos = lowRatio * layout.length;
+        const float highPos = highRatio * layout.length;
 
         if (res.clicked || (res.pressed && state.dragMode == RangeDragMode::None)) {
-            const float mouseX = ctx.GetMousePos().x;
-            const float distLow = std::abs(mouseX - lowThumbX);
-            const float distHigh = std::abs(mouseX - highThumbX);
-            const bool insideIntervalBar = (mouseX > lowThumbX + halfThumb * 1.15f) &&
-                                           (mouseX < highThumbX - halfThumb * 1.15f) &&
-                                           ((highThumbX - lowThumbX) > m.thumbSize * 1.8f);
+            const float pos = layout.Travel(ctx.GetMousePos());
+            const float distLow = std::abs(pos - lowPos);
+            const float distHigh = std::abs(pos - highPos);
+            const bool insideIntervalBar = (pos > lowPos + halfThumb * 1.15f) &&
+                                           (pos < highPos - halfThumb * 1.15f) &&
+                                           ((highPos - lowPos) > m.thumbSize * 1.8f);
 
             if (insideIntervalBar || ctx.GetKeyModifiers().shift) {
                 state.dragMode = RangeDragMode::IntervalSpan;
-            } else if (distLow < distHigh || (distLow == distHigh && mouseX < lowThumbX)) {
+            } else if (distLow < distHigh || (distLow == distHigh && pos < lowPos)) {
                 state.dragMode = RangeDragMode::LowThumb;
                 state.activeThumb = 0;
             } else {
@@ -1445,7 +1520,7 @@ Response RangeSlider::Run(
             }
             state.dragStartLow = curLow;
             state.dragStartHigh = curHigh;
-            state.dragStartMouseX = mouseX;
+            state.dragStartTravel = pos;
             ctx.SetActiveId(id);
             ctx.RequestFocus(id);
         }
@@ -1458,7 +1533,8 @@ Response RangeSlider::Run(
                 }
             } else {
                 res.pressed = true;
-                const float mouseX = ctx.GetMousePos().x;
+                const float pos = layout.Travel(ctx.GetMousePos());
+                const float t = layout.RatioAt(ctx.GetMousePos());
                 auto quantize = [&](double v) -> double {
                     if (effectiveStep > 0.0) {
                         v = rangeMin + std::round((v - rangeMin) / effectiveStep) * effectiveStep;
@@ -1467,7 +1543,6 @@ Response RangeSlider::Run(
                 };
 
                 if (state.dragMode == RangeDragMode::LowThumb) {
-                    const float t = std::clamp((mouseX - trackStartX) / trackWidth, 0.0f, 1.0f);
                     double rawLow = quantize(rangeMin + t * (rangeMax - rangeMin));
                     rawLow = std::min(rawLow, curHigh - minSpan);
                     rawLow = std::clamp(rawLow, rangeMin, rangeMax);
@@ -1477,7 +1552,6 @@ Response RangeSlider::Run(
                         ctx.RequestRepaint(3);
                     }
                 } else if (state.dragMode == RangeDragMode::HighThumb) {
-                    const float t = std::clamp((mouseX - trackStartX) / trackWidth, 0.0f, 1.0f);
                     double rawHigh = quantize(rangeMin + t * (rangeMax - rangeMin));
                     rawHigh = std::max(rawHigh, curLow + minSpan);
                     rawHigh = std::clamp(rawHigh, rangeMin, rangeMax);
@@ -1488,7 +1562,7 @@ Response RangeSlider::Run(
                     }
                 } else if (state.dragMode == RangeDragMode::IntervalSpan) {
                     const double span = state.dragStartHigh - state.dragStartLow;
-                    const double deltaVal = ((mouseX - state.dragStartMouseX) / trackWidth) * (rangeMax - rangeMin);
+                    const double deltaVal = ((pos - state.dragStartTravel) / trackLen) * (rangeMax - rangeMin);
                     double newLow = state.dragStartLow + deltaVal;
                     if (newLow < rangeMin) newLow = rangeMin;
                     if (newLow + span > rangeMax) newLow = rangeMax - span;
@@ -1552,8 +1626,9 @@ Response RangeSlider::Run(
     node->hovered = res.hovered;
     node->pressed = res.pressed || (state.dragMode != RangeDragMode::None);
     node->focused = ctx.IsFocused(id);
-    node->widthMode = (optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-    node->heightMode = SizeMode::Fit;
+    const bool vertical = IsVerticalSlider(optsCopy.orientation);
+    node->widthMode = (!vertical && optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
+    node->heightMode = (vertical && optsCopy.stretch == StretchMode::Fill) ? SizeMode::Stretch : SizeMode::Fit;
 
     auto* data = ctx.AllocPayload<RangeSliderData>();
     data->opts = optsCopy;
@@ -1576,6 +1651,7 @@ Response RangeSlider::Run(
         lowBits,
         highBits,
         state.activeThumb,
+        static_cast<uint8_t>(data->opts.orientation),
         data->opts.color,
         static_cast<uint8_t>(data->opts.stretch),
         static_cast<uint8_t>(data->opts.align),
@@ -1611,7 +1687,7 @@ Response RangeSlider::Run(
         );
     };
 
-    Control::SetupNode(ctx, node, ctrl, data->opts.stretch, data->opts.align);
+    Control::SetupNode(ctx, node, ctrl, SliderCrossStretch(data->opts), data->opts.align);
     ctx.AdaptChildToContainer(node);
     if (pushedTheme) {
         ctx.PopTheme();
@@ -1645,9 +1721,9 @@ Vec2 RangeSlider::Measure(
         opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
         opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
         0.0f, size, canvas, theme,
-        std::span<const std::string_view>(&maxSpanView, 1)
+        std::span<const std::string_view>(&maxSpanView, 1), false, 0.0, 1.0, false, opts.orientation
     );
-    return Control::Measure(cm.intrinsicControlSize, ctrl, opts.stretch, size, theme);
+    return Control::Measure(cm.intrinsicControlSize, ctrl, SliderCrossStretch(opts), size, theme);
 }
 
 Vec2 RangeSlider::Measure(
@@ -1700,51 +1776,59 @@ void RangeSlider::Render(
         opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
         opts.showValue, opts.valuePlacement, opts.stretch, ctrl.width,
         0.0f, size, &canvas, theme,
-        std::span<const std::string_view>(&maxSpanView, 1)
+        std::span<const std::string_view>(&maxSpanView, 1), false, 0.0, 1.0, false, opts.orientation
     );
     Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, hovered, active || focused);
 
     const Rect ctrlRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
+    const bool vertical = IsVerticalSlider(opts.orientation);
+    const SliderTrackLayout layout = ComputeSliderTrackLayout(ctrlRect, cm, m, vertical);
     const float halfThumb = m.thumbSize * 0.5f;
-    const float trackRegionX = ctrlRect.x + cm.leftGutterW;
-    const float trackRegionW = std::max(m.thumbSize, ctrlRect.w - cm.leftGutterW - cm.rightGutterW);
-    const float trackStartX = trackRegionX + halfThumb;
-    const float trackWidth = std::max(0.0f, trackRegionW - m.thumbSize);
-    const float contentOffsetY = std::max(0.0f, (ctrlRect.h - cm.intrinsicControlSize.y) * 0.5f);
-    const float trackRowY = ctrlRect.y + contentOffsetY + cm.topValH;
-    const float centerY = trackRowY + cm.trackRowH * 0.5f;
+    const float halfTrack = m.trackHeight * 0.5f;
 
     const double range = rangeMax - rangeMin;
     const float lowRatio = (range > 0.0) ? static_cast<float>(std::clamp((lowValue - rangeMin) / range, 0.0, 1.0)) : 0.0f;
     const float highRatio = (range > 0.0) ? static_cast<float>(std::clamp((highValue - rangeMin) / range, 0.0, 1.0)) : 1.0f;
-    const float lowThumbX = trackStartX + std::min(lowRatio, highRatio) * trackWidth;
-    const float highThumbX = trackStartX + std::max(lowRatio, highRatio) * trackWidth;
-    const float midCenterX = (lowThumbX + highThumbX) * 0.5f;
+    const Vec2 lowThumb = layout.ThumbCenter(std::min(lowRatio, highRatio));
+    const Vec2 highThumb = layout.ThumbCenter(std::max(lowRatio, highRatio));
+    const Vec2 midCenter{(lowThumb.x + highThumb.x) * 0.5f, (lowThumb.y + highThumb.y) * 0.5f};
 
     // 0. Draw companion textLeft / textRight and value readout
-    RenderSliderCompanionTexts(
-        canvas, ctrlRect, trackRegionX, trackRegionW, trackRowY, midCenterX,
-        cm, opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
-        opts.showValue, opts.valuePlacement, disabled, theme
-    );
+    if (vertical) {
+        RenderSliderCompanionTextsVertical(
+            canvas, ctrlRect, layout, midCenter, m.thumbSize,
+            cm, opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
+            opts.showValue, opts.valuePlacement, disabled, theme
+        );
+    } else {
+        RenderSliderCompanionTexts(
+            canvas, ctrlRect, layout.region.x, layout.region.w, layout.region.y, midCenter.x,
+            cm, opts.textLeft, opts.textRight, opts.valueFormat, valBuf,
+            opts.showValue, opts.valuePlacement, disabled, theme
+        );
+    }
 
     // 1. Draw inactive background track
-    const Rect trackBgRect(trackStartX, centerY - m.trackHeight * 0.5f, trackWidth, m.trackHeight);
+    const Rect trackBgRect = vertical
+        ? Rect(layout.cross - halfTrack, layout.start - layout.length, m.trackHeight, layout.length)
+        : Rect(layout.start, layout.cross - halfTrack, layout.length, m.trackHeight);
     const Color trackBg = disabled ? pal.surfaceActive.WithAlphaF(0.4f) : pal.surfaceActive;
     const Color trackBorder = disabled ? pal.border.WithAlphaF(0.3f) : pal.border;
-    canvas.DrawRoundRect(trackBgRect, m.trackHeight * 0.5f, trackBg, trackBorder, 1.0f);
+    canvas.DrawRoundRect(trackBgRect, halfTrack, trackBg, trackBorder, 1.0f);
 
-    // 2. Draw active filled interval [lowThumbX .. highThumbX]
-    const float fillW = std::max(0.0f, highThumbX - lowThumbX);
-    if (fillW > 0.0f) {
-        const Rect fillRect(lowThumbX, centerY - m.trackHeight * 0.5f, fillW, m.trackHeight);
+    // 2. Draw active filled interval between the thumbs
+    const float fillLen = std::max(0.0f, std::abs(highRatio - lowRatio) * layout.length);
+    if (fillLen > 0.0f) {
+        const Rect fillRect = vertical
+            ? Rect(layout.cross - halfTrack, highThumb.y, m.trackHeight, fillLen)
+            : Rect(lowThumb.x, layout.cross - halfTrack, fillLen, m.trackHeight);
         const Color fillCol = ResolveSliderTrackColor(opts.color, disabled, theme);
-        canvas.DrawRoundRect(fillRect, m.trackHeight * 0.5f, fillCol);
+        canvas.DrawRoundRect(fillRect, halfTrack, fillCol);
     }
 
     // 3. Draw low and high thumb knobs
-    auto drawThumb = [&](float thumbX, bool isFocusedThumb) {
-        const Rect thumbRect(thumbX - halfThumb, centerY - halfThumb, m.thumbSize, m.thumbSize);
+    auto drawThumb = [&](Vec2 c, bool isFocusedThumb) {
+        const Rect thumbRect(c.x - halfThumb, c.y - halfThumb, m.thumbSize, m.thumbSize);
         const Color thumbBg = disabled ? pal.surface.WithAlphaF(0.5f) :
                               (active && isFocusedThumb) ? ResolveSliderActiveThumbColor(opts.color, theme) : pal.surface;
         const Color thumbBorder = disabled ? pal.border.WithAlphaF(0.4f) :
@@ -1754,8 +1838,8 @@ void RangeSlider::Render(
         canvas.DrawRoundRect(thumbRect, halfThumb, thumbBg, thumbBorder, thumbBorderW);
     };
 
-    drawThumb(lowThumbX, activeThumb == 0);
-    drawThumb(highThumbX, activeThumb == 1);
+    drawThumb(lowThumb, activeThumb == 0);
+    drawThumb(highThumb, activeThumb == 1);
 }
 
 // ============================================================================
@@ -1860,7 +1944,7 @@ Response ProgressBar::Run(
         );
     };
 
-    Control::SetupNode(ctx, node, ctrl, data->opts.stretch, data->opts.align);
+    Control::SetupNode(ctx, node, ctrl, SliderCrossStretch(data->opts), data->opts.align);
     ctx.AdaptChildToContainer(node);
     if (pushedTheme) {
         ctx.PopTheme();
