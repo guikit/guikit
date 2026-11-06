@@ -1,5 +1,6 @@
 #include "guikit/geo/geo_types.hpp"
 #include "guikit/geo/polygon_triangulator.hpp"
+#include "keel/format.h"
 #include "keel/lru_cache.h"
 #include "keel/number.h"
 #include <algorithm>
@@ -7,7 +8,6 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
-#include <format>
 #include <mutex>
 #include <numbers>
 
@@ -615,14 +615,17 @@ void GeoFeature::ResolveDisplayName(size_t fallbackIndex, std::string_view layer
         return;
     }
     if (!lightOrColor.empty() && !featureCode.empty()) {
-        name = std::format("{} ({})", featureCode, lightOrColor);
+        auto s = keel::format("%s (%s)", featureCode, lightOrColor);
+        name.assign(s.data(), static_cast<size_t>(s.size()));
         return;
     }
     if (!featureCode.empty()) {
         if (!displayId.empty()) {
-            name = std::format("{} #{}", featureCode, displayId);
+            auto s = keel::format("%s #%s", featureCode, displayId);
+            name.assign(s.data(), static_cast<size_t>(s.size()));
         } else {
-            name = std::format("{} #{}", featureCode, fallbackIndex + 1);
+            auto s = keel::format("%s #%zu", featureCode, fallbackIndex + 1);
+            name.assign(s.data(), static_cast<size_t>(s.size()));
         }
         return;
     }
@@ -632,9 +635,11 @@ void GeoFeature::ResolveDisplayName(size_t fallbackIndex, std::string_view layer
     }
 
     if (!displayId.empty()) {
-        name = std::format("{} #{}", GeometryTypeToString(type), displayId);
+        auto s = keel::format("%s #%s", GeometryTypeToString(type), displayId);
+        name.assign(s.data(), static_cast<size_t>(s.size()));
     } else {
-        name = std::format("{} #{}", GeometryTypeToString(type), fallbackIndex + 1);
+        auto s = keel::format("%s #%zu", GeometryTypeToString(type), fallbackIndex + 1);
+        name.assign(s.data(), static_cast<size_t>(s.size()));
     }
 }
 

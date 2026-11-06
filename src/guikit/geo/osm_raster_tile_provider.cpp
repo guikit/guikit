@@ -7,10 +7,10 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
-#include <format>
 #include <limits>
 #include <memory>
 #include <mutex>
+#include "keel/format.h"
 #include "keel/fs.h"
 #include "keel/lru_cache.h"
 
@@ -241,9 +241,9 @@ private:
     }
 
     [[nodiscard]] std::vector<uint8_t> LoadOrFetchOsmPng(int z, int x, int y) const {
-        const std::string dirPath = std::format("{}/{}/{}", m_cacheDir, z, x);
-        const std::string diskPath = std::format("{}/{}.png", dirPath, y);
-        const keel::StringRef diskPathRef(diskPath.data(), static_cast<keel::isize>(diskPath.size()));
+        const auto dirPath = keel::format("%s/%d/%d", m_cacheDir, z, x);
+        const auto diskPath = keel::format("%s/%d.png", dirPath.as_ref(), y);
+        const keel::StringRef diskPathRef = diskPath.as_ref();
 
         if (keel::fs_exists(diskPathRef)) {
             if (auto fileRes = keel::fs_read_file(diskPathRef); fileRes.is_ok()) {
@@ -262,9 +262,10 @@ private:
             return {};
         }
 
-        const std::string url = std::format("https://tile.openstreetmap.org/{}/{}/{}.png", z, x, y);
+        char urlBuf[128];
+        const auto urlRef = keel::format_buf(urlBuf, "https://tile.openstreetmap.org/%d/%d/%d.png", z, x, y);
         guikit::net::HttpRequest req{};
-        req.url = url;
+        req.url.assign(urlRef.data(), static_cast<size_t>(urlRef.size()));
         req.method = guikit::net::HttpMethod::Get;
         req.userAgent = "Hackionics-MarineGIS/1.0 (+https://openstreetmap.org)";
         req.connectTimeoutMs = 2000;
@@ -274,12 +275,12 @@ private:
         const guikit::net::HttpResponse resp = m_httpClient.Execute(req);
         if (resp.Succeeded() && resp.body.size() >= 32 &&
             resp.body[0] == 0x89 && resp.body[1] == 'P' && resp.body[2] == 'N' && resp.body[3] == 'G') {
-            (void)keel::fs_create_dirs(keel::StringRef(dirPath.data(), static_cast<keel::isize>(dirPath.size())));
+            (void)keel::fs_create_dirs(dirPath.as_ref());
 
             // Atomic write via temporary file + rename so concurrent readers never observe partial PNGs
             const uint64_t tmpId = m_accessCounter.fetch_add(1u, std::memory_order_relaxed);
-            const std::string tmpPath = std::format("{}/{}.tmp.{}.png", dirPath, y, tmpId);
-            const keel::StringRef tmpPathRef(tmpPath.data(), static_cast<keel::isize>(tmpPath.size()));
+            const auto tmpPath = keel::format("%s/%d.tmp.%llu.png", dirPath.as_ref(), y, tmpId);
+            const keel::StringRef tmpPathRef = tmpPath.as_ref();
             if (!keel::fs_write_file(
                     tmpPathRef,
                     keel::ArrayRef<keel::u8>(resp.body.data(), static_cast<keel::isize>(resp.body.size())))) {

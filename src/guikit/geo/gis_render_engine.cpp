@@ -1,6 +1,8 @@
 #include "guikit/geo/gis_render_engine.hpp"
 #include "guikit/geo/polygon_triangulator.hpp"
 #include "guikit/backend/vector_backend.hpp"
+#include "keel/format.h"
+#include "keel/hash.h"
 #include "keel/hash_map.h"
 #include "keel/hash_set.h"
 #include <algorithm>
@@ -10,7 +12,6 @@
 #include <condition_variable>
 #include <cstdio>
 #include <cstring>
-#include <format>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -104,11 +105,7 @@ constexpr float kTileGuardBandPx = 8.0f;
 }
 
 void HashCombineBytes(uint64_t& h, const void* data, size_t len) noexcept {
-    const auto* bytes = static_cast<const uint8_t*>(data);
-    for (size_t i = 0; i < len; ++i) {
-        h ^= static_cast<uint64_t>(bytes[i]);
-        h *= 1099511628211ULL;
-    }
+    h = keel::fnv1a64_bytes(data, static_cast<keel::usize>(len), h);
 }
 
 template <typename T>
@@ -1999,7 +1996,7 @@ public:
         const geo::GeoLayer& layer,
         guikit::MapCrs crs
     ) {
-        uint64_t topoHash = 14695981039346656037ULL;
+        uint64_t topoHash = keel::kFnv1aOffsetBasis;
         HashCombineVal(topoHash, crs);
         HashCombineVal(topoHash, layer.uid);
         const size_t fCount = layer.isWindowStreamed
@@ -2850,7 +2847,7 @@ void DrawLoadingTilePlaceholder(
     const GisRenderConfig& cfg,
     guikit::MapCrs crs
 ) noexcept {
-    uint64_t h = 14695981039346656037ULL;
+    uint64_t h = keel::kFnv1aOffsetBasis;
     const uint32_t resolvedTileSz = ResolveTileSizePx(cfg.tileSizePx);
     const bool hasBasemapOverlay = (cfg.showOsmBasemap || cfg.customBasemapProvider != nullptr);
     const bool suppressLandFill = hasBasemapOverlay && cfg.hideLandOverBasemap;
@@ -3018,7 +3015,7 @@ public:
         guikit::MapCrs crs,
         const guikit::Rect& paddedVisNormBox
     ) {
-        uint64_t key = 14695981039346656037ULL;
+        uint64_t key = keel::kFnv1aOffsetBasis;
         HashCombineVal(key, tileZoom);
         HashCombineVal(key, crs);
         HashCombineVal(key, cfg.preferRussianLabels);
@@ -4221,7 +4218,8 @@ GisRenderStats GisRenderEngine::RenderLayers(
             stats.hoveredFeatureUid = hoveredMatch.feat->uid;
             const float hitR = 12.0f * invZ;
             const guikit::Rect cursorHitRect(mouseWorld.x - hitR, mouseWorld.y - hitR, hitR * 2.0f, hitR * 2.0f);
-            const std::string catLabel = std::format("{} [{}]",
+            char catBuf[160];
+            const auto catLabelRef = keel::format_buf(catBuf, "%s [%s]",
                 hoveredMatch.layer->name,
                 hoveredMatch.feat->featureCode.empty()
                     ? geo::GeometryTypeToString(hoveredMatch.feat->type)
@@ -4229,7 +4227,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
             auto item = scene.Item({
                 .id = hoveredMatch.feat->id,
                 .title = hoveredMatch.feat->name,
-                .category = catLabel,
+                .category = std::string_view(catLabelRef.data(), static_cast<size_t>(catLabelRef.size())),
                 .hitRect = cursorHitRect,
                 .selectable = true,
                 .showSelectionFrame = false
@@ -4370,7 +4368,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
             });
 
         const uint32_t bgPx = PackColorABGR8888(chartBaseBg);
-        uint64_t compositeSignature = 14695981039346656037ULL;
+        uint64_t compositeSignature = keel::kFnv1aOffsetBasis;
         HashCombineVal(compositeSignature, viewState.crs);
         HashCombineVal(compositeSignature, tileSizePx);
         HashCombineVal(compositeSignature, bgPx);
@@ -4613,16 +4611,17 @@ GisRenderStats GisRenderEngine::RenderLayers(
                 ++completedCells;
                 ++stats.cachedTilesRendered;
 
-                AppendRenderDebugLog(std::format(
-                    "[RasterTile] frame={} [{}/{}/{}] geo=[{:.3f}..{:.3f}E, {:.3f}..{:.3f}N] drawnLayers=[{}]",
+                const auto logLine = keel::format(
+                    "[RasterTile] frame=%llu [%d/%d/%d] geo=[%.3f..%.3fE, %.3f..%.3fN] drawnLayers=[%s]",
                     s_frameCounter,
                     cell.id.z, cell.id.x, cell.id.y,
                     std::min(cell.geoBounds.nw.lon, cell.geoBounds.se.lon),
                     std::max(cell.geoBounds.nw.lon, cell.geoBounds.se.lon),
                     std::min(cell.geoBounds.nw.lat, cell.geoBounds.se.lat),
                     std::max(cell.geoBounds.nw.lat, cell.geoBounds.se.lat),
-                    layerSummary.empty() ? "EMPTY" : layerSummary
-                ));
+                    layerSummary.empty() ? std::string_view("EMPTY") : std::string_view(layerSummary)
+                );
+                AppendRenderDebugLog(std::string(logLine.data(), static_cast<size_t>(logLine.size())));
             }
         }
 
@@ -4765,8 +4764,8 @@ GisRenderStats GisRenderEngine::RenderLayers(
 
     if (totalInvalidatedTilesThisFrame > 0 || stats.cachedTilesRendered > 0 || syncMs >= 1.0 || declutterMs >= 1.0) {
         const double totalFrameMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - frameRenderStart).count();
-        AppendRenderDebugLog(std::format(
-            "[FrameTiles] frame={} z={} vis=[{:.3f}..{:.3f}E, {:.3f}..{:.3f}N] visTiles={} hit={} new={} pend={} invalidated={} activeFeats={} pagedIn={} ms={:.2f} (sync={:.2f} raster={:.2f} declutter={:.2f})",
+        const auto logLine = keel::format(
+            "[FrameTiles] frame=%llu z=%d vis=[%.3f..%.3fE, %.3f..%.3fN] visTiles=%zu hit=%zu new=%zu pend=%zu invalidated=%zu activeFeats=%zu pagedIn=%zu ms=%.2f (sync=%.2f raster=%.2f declutter=%.2f)",
             s_frameCounter,
             tileZoom,
             std::min(visBounds.nw.lon, visBounds.se.lon),
@@ -4784,7 +4783,8 @@ GisRenderStats GisRenderEngine::RenderLayers(
             syncMs,
             rasterMs,
             declutterMs
-        ));
+        );
+        AppendRenderDebugLog(std::string(logLine.data(), static_cast<size_t>(logLine.size())));
     }
 
     // Pass 3A: Render Accepted Point Symbols (Buoys/Beacons, Underwater Hazards, Generic Points)

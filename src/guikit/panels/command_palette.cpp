@@ -1,10 +1,13 @@
 #include "guikit/panels/command_palette.hpp"
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <string>
 #include <string_view>
 #include <vector>
+#include "keel/format.h"
+#include "keel/small_array.h"
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/scrollbar.hpp"
@@ -32,12 +35,12 @@ struct FilteredCommandEntry {
     size_t labelMatchLen{0};
 };
 
-std::vector<FilteredCommandEntry> FilterItems(
+keel::SmallArray<FilteredCommandEntry, 64> FilterItems(
     std::span<const CommandPaletteItem> items,
     std::string_view query
 ) {
-    std::vector<FilteredCommandEntry> result;
-    result.reserve(items.size());
+    keel::SmallArray<FilteredCommandEntry, 64> result;
+    result.reserve(static_cast<keel::isize>(items.size()));
 
     for (size_t i = 0; i < items.size(); ++i) {
         const auto& it = items[i];
@@ -158,7 +161,7 @@ CommandPaletteResponse CommandPalette::Run(
     }
 
     // 2. Filter items against current query
-    std::vector<FilteredCommandEntry> filtered = FilterItems(items, st.query);
+    keel::SmallArray<FilteredCommandEntry, 64> filtered = FilterItems(items, st.query);
     const int filteredCount = static_cast<int>(filtered.size());
 
     if (filteredCount == 0) {
@@ -329,7 +332,7 @@ CommandPaletteResponse CommandPalette::Run(
 
     if (ctx.ConsumeKey(Key::Enter)) {
         if (st.highlightedPos >= 0 && st.highlightedPos < filteredCount) {
-            const int origIdx = filtered[static_cast<size_t>(st.highlightedPos)].origIndex;
+            const int origIdx = filtered[st.highlightedPos].origIndex;
             if (origIdx >= 0 && static_cast<size_t>(origIdx) < items.size() && !items[static_cast<size_t>(origIdx)].disabled) {
                 res.selectedIndex = origIdx;
                 res.changed = true;
@@ -415,7 +418,7 @@ CommandPaletteResponse CommandPalette::Run(
                     ctx.InvalidateAll();
                     return res;
                 } else if (hoveredFilteredPos >= 0 && hoveredFilteredPos < static_cast<int>(filtered.size())) {
-                    const int origIdx = filtered[static_cast<size_t>(hoveredFilteredPos)].origIndex;
+                    const int origIdx = filtered[hoveredFilteredPos].origIndex;
                     if (origIdx >= 0 && static_cast<size_t>(origIdx) < items.size() && !items[static_cast<size_t>(origIdx)].disabled) {
                         res.selectedIndex = origIdx;
                         res.changed = true;
@@ -470,8 +473,8 @@ CommandPaletteResponse CommandPalette::Run(
     const bool sbDraggingCopy = st.scrollbar.dragging;
 
     std::vector<DrawRowItem> drawRows;
-    drawRows.reserve(filtered.size());
-    for (size_t i = 0; i < filtered.size(); ++i) {
+    drawRows.reserve(static_cast<size_t>(filtered.size()));
+    for (keel::isize i = 0; i < filtered.size(); ++i) {
         const auto& fe = filtered[i];
         const auto& src = items[static_cast<size_t>(fe.origIndex)];
         const float rowY = listRect.y + listPadY + static_cast<float>(i) * rowH - st.scrollOffset;
@@ -503,7 +506,7 @@ CommandPaletteResponse CommandPalette::Run(
         st.prevCursorVis = cursorVis;
         ctx.InvalidateAll();
     }
-    const size_t totalFiltered = filtered.size();
+    const size_t totalFiltered = static_cast<size_t>(filtered.size());
 
     ctx.MarkModalOverlayActive();
     ctx.RegisterOverlay([
@@ -841,9 +844,10 @@ CommandPaletteResponse CommandPalette::Run(
                 footerRect.h
             );
 
-            const std::string countLabel = (totalFiltered == 1)
-                ? std::string("1 command")
-                : std::format("{} commands", totalFiltered);
+            char countBuf[48]{};
+            const std::string_view countLabel = (totalFiltered == 1)
+                ? std::string_view("1 command")
+                : std::string_view(countBuf, static_cast<size_t>(keel::format_buf(countBuf, sizeof(countBuf), "%zu commands", totalFiltered)));
             const float countW = c.MeasureText(countLabel, badgeFont).x;
             c.DrawTextBox(
                 countLabel,

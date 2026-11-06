@@ -2894,10 +2894,10 @@ TextAreaResponse TextArea::Run(
                     const size_t dStart = diag.startCol;
                     const size_t dEnd = (diag.endCol > diag.startCol) ? diag.endCol : logicalLines[vl.logicalLine].length;
                     if (col0 >= dStart && col0 <= dEnd) {
-                        const std::string tip = diag.code.empty()
-                            ? std::string(diag.message)
-                            : std::format("[{}] {}", diag.code, diag.message);
-                        ctx.SetTooltip(ctx.String(tip), Rect(mousePos.x - 4.0f, mousePos.y - 4.0f, 8.0f, 8.0f));
+                        const auto tip = diag.code.empty()
+                            ? ctx.String(diag.message)
+                            : ctx.Format("[%s] %s", diag.code, diag.message);
+                        ctx.SetTooltip(tip, Rect(mousePos.x - 4.0f, mousePos.y - 4.0f, 8.0f, 8.0f));
                         break;
                     }
                 }
@@ -3881,9 +3881,10 @@ void TextArea::Render(
         for (const CodeDebugVar& dv : opts.debugVariables) {
             if (dv.name == extData->hoveredWord) {
                 const float tipFs = theme.GetFontSize(TextRole::LabelSmall, size);
-                const std::string headerStr = dv.type.empty()
-                    ? std::string(dv.name)
-                    : std::format("{} : {}", dv.name, dv.type);
+                char headerBuf[256];
+                const std::string_view headerStr = dv.type.empty()
+                    ? std::string_view(dv.name)
+                    : std::string_view(keel::format_buf(headerBuf, "%s : %s", dv.name, dv.type).data());
                 const float w1 = MeasureChunkNoTabs(&canvas, headerStr, tipFs, FontStyle::Monospace);
                 const float w2 = MeasureChunkNoTabs(&canvas, dv.value, tipFs, FontStyle::Monospace);
                 const float cardW = std::max(w1, w2) + theme.Scale(18.0f);

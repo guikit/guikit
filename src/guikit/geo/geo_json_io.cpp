@@ -2,13 +2,13 @@
 #include "guikit/geo/polygon_triangulator.hpp"
 #include "guikit/core/assets.hpp"
 #include "keel/algo.h"
+#include "keel/format.h"
 #include "keel/fs.h"
 #include "keel/number.h"
 #include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstdio>
-#include <format>
 #include <variant>
 
 namespace guikit::geo {
@@ -165,7 +165,8 @@ private:
 
     bool Fail(std::string_view msg) {
         if (m_error.empty()) {
-            m_error = std::format("JSON parse error at line {}, col {}: {}", m_line, m_col, msg);
+            auto s = keel::format("JSON parse error at line %zu, col %zu: %s", m_line, m_col, msg);
+            m_error.assign(s.data(), static_cast<size_t>(s.size()));
         }
         return false;
     }
@@ -236,13 +237,19 @@ private:
                 if (c == '-' || (c >= '0' && c <= '9')) {
                     return ParseNumber(out);
                 }
-                return Fail(std::format("Unexpected character '{}'", c));
+                {
+                    char buf[64];
+                    auto r = keel::format_buf(buf, "Unexpected character '%c'", c);
+                    return Fail(std::string_view(r.data(), static_cast<size_t>(r.size())));
+                }
         }
     }
 
     bool ParseLiteral(std::string_view lit, bool val, JsonValue& out) {
         if (m_src.substr(m_pos, lit.size()) != lit) {
-            return Fail(std::format("Expected '{}'", lit));
+            char buf[64];
+            auto r = keel::format_buf(buf, "Expected '%s'", lit);
+            return Fail(std::string_view(r.data(), static_cast<size_t>(r.size())));
         }
         for (size_t i = 0; i < lit.size(); ++i) Advance();
         out.data = val;
@@ -806,7 +813,9 @@ void ParseFeatureObject(const JsonValue& featObj, int srsId, std::vector<GeoFeat
         } else if (const auto* i = std::get_if<int64_t>(&idVal->data)) {
             feat.displayId = std::to_string(*i);
         } else if (const auto* d = std::get_if<double>(&idVal->data)) {
-            feat.displayId = std::format("{}", *d);
+            char buf[64];
+            const auto r = keel::format_buf(buf, "{}", *d);
+            feat.displayId.assign(r.data(), static_cast<size_t>(r.size()));
         }
     }
 
@@ -967,7 +976,8 @@ bool TryReadTextFromAssetsOrDisk(
         return true;
     }
 
-    outError = std::format("Cannot open GeoJSON file: {}", filePath);
+    auto s = keel::format("Cannot open GeoJSON file: %s", filePath);
+    outError.assign(s.data(), static_cast<size_t>(s.size()));
     return false;
 }
 
@@ -1022,7 +1032,8 @@ GeoJsonResult GeoJsonIO::ParseFromString(std::string_view jsonText, std::string_
         if (ParseGeometryObject(root, res.layer.srsId, singleFeat, true)) {
             res.layer.features.push_back(std::move(singleFeat));
         } else {
-            res.error = std::format("Unsupported or empty GeoJSON root type '{}'", rootType);
+            auto s = keel::format("Unsupported or empty GeoJSON root type '%s'", rootType);
+            res.error.assign(s.data(), static_cast<size_t>(s.size()));
             return res;
         }
     }
@@ -1297,7 +1308,8 @@ bool GeoJsonIO::SaveToFile(const GeoLayer& layer, const std::string& filePath, s
         keel::StringRef(json.data(), static_cast<keel::isize>(json.size())));
     if (err) {
         if (outError) {
-            *outError = std::format("Cannot open file for writing: {}", filePath);
+            auto s = keel::format("Cannot open file for writing: %s", filePath);
+            outError->assign(s.data(), static_cast<size_t>(s.size()));
         }
         return false;
     }

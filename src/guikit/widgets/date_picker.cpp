@@ -1,7 +1,6 @@
 #include "guikit/widgets/date_picker.hpp"
 #include <algorithm>
 #include <array>
-#include <format>
 #include <string_view>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
@@ -394,8 +393,9 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
         }
 
         // Month & year title ("October 2026")
-        const std::string titleStr = std::format("{} {:04d}", MonthName(d.viewMonth), d.viewYear);
-        canvas.DrawTextBox(titleStr, d.layout.titleRect, bodyFont, pal.textPrimary, 0.5f, 0.5f);
+        char titleBuf[64];
+        const auto titleStr = keel::format_buf(titleBuf, "%s %04d", MonthName(d.viewMonth), d.viewYear);
+        canvas.DrawTextBox(std::string_view(titleStr.data(), static_cast<size_t>(titleStr.size())), d.layout.titleRect, bodyFont, pal.textPrimary, 0.5f, 0.5f);
 
         // Weekday column headers
         static constexpr std::array<std::string_view, 7> kWeekdaysMon = {"Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"};
@@ -454,8 +454,9 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
                 dayCol = accentCol;
             }
 
-            const std::string dayStr = std::format("{}", cell.day);
-            canvas.DrawTextBox(dayStr, cellRect, smallFont, dayCol, 0.5f, 0.5f);
+            char dayBuf[16];
+            const auto dayStr = keel::format_buf(dayBuf, "%d", cell.day);
+            canvas.DrawTextBox(std::string_view(dayStr.data(), static_cast<size_t>(dayStr.size())), cellRect, smallFont, dayCol, 0.5f, 0.5f);
         }
     }
 
@@ -498,8 +499,9 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
             canvas.DrawTextBox("-", minusRect, bodyFont, minusHov ? pal.textPrimary : pal.textSecondary, 0.5f, 0.5f);
             canvas.DrawTextBox("+", plusRect, bodyFont, plusHov ? pal.textPrimary : pal.textSecondary, 0.5f, 0.5f);
 
-            const std::string valStr = std::format("{:02d}{}", vals[su], suffixes[su]);
-            canvas.DrawTextBox(valStr, valRect, smallFont, pal.textPrimary, 0.5f, 0.5f);
+            char valBuf[16];
+            const auto valStr = keel::format_buf(valBuf, "%02d%s", vals[su], suffixes[su]);
+            canvas.DrawTextBox(std::string_view(valStr.data(), static_cast<size_t>(valStr.size())), valRect, smallFont, pal.textPrimary, 0.5f, 0.5f);
 
             if (u + 1 < d.layout.timeUnitCount) {
                 const float colonX = unitRect.Right() + (d.layout.timeUnitRects[su + 1].x - unitRect.Right()) * 0.5f;
@@ -540,21 +542,28 @@ std::string DatePicker::FormatDateTime(const DateTime& dt, DatePickerMode mode, 
     const int minute = std::clamp(dt.minute, 0, 59);
     const int second = std::clamp(dt.second, 0, 59);
 
+    char buf[32];
+    keel::StringRef res;
     switch (mode) {
         case DatePickerMode::Date:
-            return std::format("{:04d}-{:02d}-{:02d}", dt.year, month, day);
+            res = keel::format_buf(buf, "%04d-%02d-%02d", dt.year, month, day);
+            break;
         case DatePickerMode::DateTime:
             if (showSeconds) {
-                return std::format("{:04d}-{:02d}-{:02d} {:02d}:{:02d}:{:02d}", dt.year, month, day, hour, minute, second);
+                res = keel::format_buf(buf, "%04d-%02d-%02d %02d:%02d:%02d", dt.year, month, day, hour, minute, second);
+            } else {
+                res = keel::format_buf(buf, "%04d-%02d-%02d %02d:%02d", dt.year, month, day, hour, minute);
             }
-            return std::format("{:04d}-{:02d}-{:02d} {:02d}:{:02d}", dt.year, month, day, hour, minute);
+            break;
         case DatePickerMode::Time:
             if (showSeconds) {
-                return std::format("{:02d}:{:02d}:{:02d}", hour, minute, second);
+                res = keel::format_buf(buf, "%02d:%02d:%02d", hour, minute, second);
+            } else {
+                res = keel::format_buf(buf, "%02d:%02d", hour, minute);
             }
-            return std::format("{:02d}:{:02d}", hour, minute);
+            break;
     }
-    return std::format("{:04d}-{:02d}-{:02d}", dt.year, month, day);
+    return std::string(res.data(), static_cast<size_t>(res.size()));
 }
 
 Vec2 DatePicker::Measure(

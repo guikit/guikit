@@ -3,6 +3,7 @@
 #include <cmath>
 #include <limits>
 #include <numeric>
+#include "keel/small_array.h"
 
 namespace guikit::geo {
 
@@ -251,11 +252,12 @@ void PolygonTriangulator::TriangulatePolygon(GeoPolygon& poly) {
     if (totalVerts < 3) return;
 
     poly.triangles.reserve(totalVerts - 2);
-    std::vector<uint32_t> indices(totalVerts);
+    keel::SmallArray<uint32_t, 64> indices;
+    indices.resize(static_cast<keel::isize>(totalVerts));
     std::iota(indices.begin(), indices.end(), 0u);
 
     auto isEar = [&](size_t idxInList, bool strictPointCheck) -> bool {
-        const size_t m = indices.size();
+        const size_t m = static_cast<size_t>(indices.size());
         const guikit::GeoCoord a = contour[indices[(idxInList + m - 1) % m]];
         const guikit::GeoCoord b = contour[indices[idxInList]];
         const guikit::GeoCoord c = contour[indices[(idxInList + 1) % m]];
@@ -290,7 +292,7 @@ void PolygonTriangulator::TriangulatePolygon(GeoPolygon& poly) {
     const size_t maxIterations = totalVerts * totalVerts + 32;
 
     while (indices.size() > 3 && guardCounter++ < maxIterations) {
-        const size_t m = indices.size();
+        const size_t m = static_cast<size_t>(indices.size());
         bool clipped = false;
 
         // Pass 1: Strict ear test
@@ -300,7 +302,7 @@ void PolygonTriangulator::TriangulatePolygon(GeoPolygon& poly) {
                 const guikit::GeoCoord b = contour[indices[i]];
                 const guikit::GeoCoord c = contour[indices[(i + 1) % m]];
                 poly.triangles.push_back({a, b, c});
-                indices.erase(indices.begin() + static_cast<std::ptrdiff_t>(i));
+                indices.remove_at(static_cast<keel::isize>(i));
                 clipped = true;
                 break;
             }
@@ -314,7 +316,7 @@ void PolygonTriangulator::TriangulatePolygon(GeoPolygon& poly) {
                 const guikit::GeoCoord b = contour[indices[i]];
                 const guikit::GeoCoord c = contour[indices[(i + 1) % m]];
                 poly.triangles.push_back({a, b, c});
-                indices.erase(indices.begin() + static_cast<std::ptrdiff_t>(i));
+                indices.remove_at(static_cast<keel::isize>(i));
                 clipped = true;
                 break;
             }
@@ -328,7 +330,7 @@ void PolygonTriangulator::TriangulatePolygon(GeoPolygon& poly) {
         if (std::abs(Cross2D(a, b, c)) > kEps) {
             poly.triangles.push_back({a, b, c});
         }
-        indices.erase(indices.begin());
+        indices.remove_at(0);
     }
 
     if (indices.size() == 3) {

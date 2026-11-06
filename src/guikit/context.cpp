@@ -1,15 +1,11 @@
 #include "guikit/context.hpp"
 #include <algorithm>
-#include <format>
 #include <string>
 #include "guikit/core/text_util.hpp"
 
 namespace guikit {
 
 Context::Context() {
-    m_containerStack.reserve(16);
-    m_sizeStack.reserve(16);
-    m_disabledStack.reserve(16);
     m_sizeStack.push_back(UiSize::Md);
     m_disabledStack.push_back(false);
 }
@@ -249,7 +245,7 @@ Rect Context::GetParentPrevFrameBounds() const {
     int startIdx = -1;
     Rect r{};
     for (int i = static_cast<int>(m_containerStack.size()) - 1; i >= 0; --i) {
-        const Node* parent = m_containerStack[static_cast<size_t>(i)];
+        const Node* parent = m_containerStack[i];
         if (!parent || !parent->id.IsValid()) continue;
         const Rect* found = m_prevFrameBounds.get(parent->id);
         if (found != nullptr && found->w > 1.0f && found->h > 1.0f) {
@@ -264,7 +260,7 @@ Rect Context::GetParentPrevFrameBounds() const {
 
     const int stackSize = static_cast<int>(m_containerStack.size());
     for (int i = startIdx; i < stackSize; ++i) {
-        const Node* c = m_containerStack[static_cast<size_t>(i)];
+        const Node* c = m_containerStack[i];
         if (!c) continue;
 
         if (i > startIdx) {
@@ -291,7 +287,7 @@ Rect Context::GetParentPrevFrameBounds() const {
         if (c->direction == FlexDirection::Column &&
             (i + 1 < stackSize || c->type == NodeType::BottomPanel || c->type == NodeType::Sidebar)) {
             const Node* stopChild = (i + 1 < stackSize)
-                ? m_containerStack[static_cast<size_t>(i + 1)]
+                ? m_containerStack[i + 1]
                 : c->lastChild;
             for (const Node* ch = c->firstChild; ch != nullptr && ch != stopChild; ch = ch->nextSibling) {
                 if (ch->heightMode == SizeMode::Fixed && ch->fixedHeight > 0.0f && !ch->sidebarCollapsed) {
@@ -1668,8 +1664,8 @@ bool Context::IsMouseOccluded(Id id, Vec2 pos) const noexcept {
         }
     } else {
         // Sub-part ID (e.g. AccordionHeader / TreeItemRow): check against innermost container on stack
-        for (auto sIt = m_containerStack.rbegin(); sIt != m_containerStack.rend(); ++sIt) {
-            const Node* cNode = *sIt;
+        for (keel::isize sIdx = m_containerStack.size() - 1; sIdx >= 0; --sIdx) {
+            const Node* cNode = m_containerStack[sIdx];
             if (!cNode || !cNode->id.IsValid()) continue;
             const size_t* idxC = m_prevHitNodeMap.get(cNode->id);
             if (idxC != nullptr) {
@@ -3046,39 +3042,46 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
     canvas.PopClip();
 
     // 2. Build DevTools floating info badge
-    std::string typeStr;
+    char typeBuf[64];
+    std::string_view typeStr;
     if (target->type == NodeType::Cell) {
-        typeStr = std::format("Cell ({})", target->colSpan);
+        auto r = keel::format_buf(typeBuf, "Cell (%d)", target->colSpan);
+        typeStr = std::string_view(r.data(), static_cast<size_t>(r.size()));
     } else {
-        typeStr = std::string(target->GetTypeName());
+        typeStr = target->GetTypeName();
     }
 
-    std::string labelStr;
+    std::string_view labelStr;
     if (!target->text.empty()) {
-        labelStr = std::string(target->text.substr(0, 24));
+        labelStr = target->text.substr(0, 24);
     } else if (target->type == NodeType::Heading) {
         if (const auto* h = target->As<HeadingOptions>()) {
             if (!h->label.empty()) {
-                labelStr = std::string(h->label.text.substr(0, 24));
+                labelStr = h->label.text.substr(0, 24);
             }
         }
     }
 
-    std::string line1 = labelStr.empty() ? typeStr : std::format("{} \"{}\"", typeStr, labelStr);
-    std::string line2 = std::format("{:.1f} × {:.1f} px", target->computedRect.w, target->computedRect.h);
-    std::string line3;
+    char line1Buf[128];
+    std::string_view line1 = labelStr.empty() ? typeStr : std::string_view(
+        keel::format_buf(line1Buf, "%s \"%s\"", typeStr, labelStr).data()
+    );
+    char line2Buf[64];
+    std::string_view line2(keel::format_buf(line2Buf, "%.1f × %.1f px", target->computedRect.w, target->computedRect.h).data());
+    char line3Buf[96];
+    std::string_view line3;
     if (p.top > 0.0f || p.bottom > 0.0f || p.left > 0.0f || p.right > 0.0f) {
-        line3 = std::format("pad: {:.0f}, {:.0f}, {:.0f}, {:.0f}", p.top, p.right, p.bottom, p.left);
+        line3 = std::string_view(keel::format_buf(line3Buf, "pad: %.0f, %.0f, %.0f, %.0f", p.top, p.right, p.bottom, p.left).data());
     } else if (target->gap > 0.0f) {
-        line3 = std::format("gap: {:.0f} px", target->gap);
+        line3 = std::string_view(keel::format_buf(line3Buf, "gap: %.0f px", target->gap).data());
     } else if (target->isSpacer) {
-        line3 = std::format("flex: {:.1f}", target->flexGrow);
+        line3 = std::string_view(keel::format_buf(line3Buf, "flex: %.1f", target->flexGrow).data());
     } else {
         const char* alignStr = "Start";
         if (target->align == Alignment::Center) alignStr = "Center";
         else if (target->align == Alignment::End) alignStr = "End";
         else if (target->align == Alignment::Stretch) alignStr = "Stretch";
-        line3 = std::format("align: {}", alignStr);
+        line3 = std::string_view(keel::format_buf(line3Buf, "align: %s", alignStr).data());
     }
 
     const float fontSize = 11.0f;

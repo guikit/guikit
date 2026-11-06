@@ -4,7 +4,6 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
-#include <format>
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 
@@ -2928,15 +2927,17 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
         const Rect topBar = ComputeTopBarRect(viewRect, s);
         canvas.DrawRoundRect(topBar, 6.0f * s, pal.hudBg, pal.hudBorder, 1.2f * s);
 
-        const std::string headerStr = std::format(
-            "BPMN 2.0  |  {}   ({} nodes, {} flows, {} lanes)",
+        char headerBuf[256];
+        const auto headerStr = keel::format_buf(
+            headerBuf,
+            "BPMN 2.0  |  %s   (%zu nodes, %zu flows, %zu lanes)",
             diagram.name,
             diagram.nodes.size(),
             diagram.edges.size(),
             diagram.lanes.size()
         );
         canvas.DrawTextBox(
-            headerStr,
+            std::string_view(headerStr.data(), static_cast<size_t>(headerStr.size())),
             Rect(topBar.x + 12.0f * s, topBar.y, topBar.w * 0.48f, topBar.h),
             11.0f * s,
             pal.textPrimary,

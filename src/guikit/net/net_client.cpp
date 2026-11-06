@@ -1,4 +1,5 @@
 #include "guikit/net/net_client.hpp"
+#include "keel/format.h"
 #include "keel/number.h"
 #include "keel/ring_buffer.h"
 
@@ -6,7 +7,6 @@
 #include <cctype>
 #include <chrono>
 #include <cstring>
-#include <format>
 #include <mutex>
 #include <thread>
 
@@ -119,7 +119,9 @@ private:
 };
 
 [[nodiscard]] std::string FormatWinHttpError(std::string_view context, DWORD errCode) {
-    return std::format("{} (WinHTTP error={})", context, errCode);
+    char buf[192];
+    auto r = keel::format_buf(buf, "%s (WinHTTP error=%u)", context, static_cast<uint32_t>(errCode));
+    return std::string(r.data(), static_cast<size_t>(r.size()));
 }
 
 [[nodiscard]] std::wstring Utf8ToWide(std::string_view utf8) {
@@ -968,7 +970,9 @@ bool WebSocketClient::Connect(std::string_view url, const WebSocketConnectOption
         statusCode != 101) {
         std::lock_guard<std::mutex> lk(m_impl->mutex);
         m_impl->state = WebSocketState::Error;
-        m_impl->lastError = std::format("WebSocket upgrade rejected by server (HTTP {})", statusCode);
+        char buf[128];
+        auto r = keel::format_buf(buf, "WebSocket upgrade rejected by server (HTTP %u)", static_cast<uint32_t>(statusCode));
+        m_impl->lastError.assign(r.data(), static_cast<size_t>(r.size()));
         return false;
     }
 

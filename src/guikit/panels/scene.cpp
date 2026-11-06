@@ -2,7 +2,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
-#include <format>
 #include <string>
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
@@ -1842,7 +1841,9 @@ void Scene::RenderOverlays(
             std::string detailText;
             if (selCount > 1 && !hovItem) {
                 badgeText = "MULTI-SELECT";
-                detailText = std::format("{} components selected  (Ctrl+Click or Shift+Drag)", selCount);
+                char buf[96];
+                auto r = keel::format_buf(buf, "%zu components selected  (Ctrl+Click or Shift+Drag)", selCount);
+                detailText.assign(r.data(), static_cast<size_t>(r.size()));
             } else if (activeInfo) {
                 badgeText = activeInfo->category.empty()
                     ? (activeInfo->selected ? "SELECTED" : "HOVER")
@@ -1853,7 +1854,9 @@ void Scene::RenderOverlays(
                     detailText += activeInfo->title;
                 }
                 if (selCount > 1) {
-                    detailText += std::format("  (+{} selected)", selCount - 1);
+                    char buf[64];
+                    auto r = keel::format_buf(buf, "  (+%zu selected)", selCount - 1);
+                    detailText.append(r.data(), static_cast<size_t>(r.size()));
                 }
             }
 

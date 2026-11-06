@@ -1,7 +1,6 @@
 #pragma once
 
 #include <chrono>
-#include <format>
 #include <functional>
 #include <initializer_list>
 #include <optional>
@@ -1738,11 +1737,12 @@ public:
     }
 
     template <typename... Args>
-    [[nodiscard]] keel::InplaceString<> Format(std::format_string<Args...> fmt, Args&&... args) {
-        char buf[128];
-        auto res = std::format_to_n(buf, sizeof(buf) - 1, fmt, std::forward<Args>(args)...);
-        const size_t len = static_cast<size_t>(res.out - buf);
-        return String(std::string_view(buf, len));
+    [[nodiscard]] keel::InplaceString<> Format(std::string_view fmt, const Args&... args) {
+        auto res = keel::format_inplace<128>(
+            keel::StringRef(fmt.data(), static_cast<keel::isize>(fmt.size())),
+            args...
+        );
+        return String(std::string_view(res.data(), static_cast<size_t>(res.size())));
     }
 
     // --- Core Engine Services for Widgets ---
@@ -2059,11 +2059,11 @@ private:
     bool m_anyScopedInspectActive{false};
 
     keel::Arena m_arena;
-    std::vector<Node*> m_containerStack;
-    std::vector<UiSize> m_sizeStack;
-    std::vector<bool> m_disabledStack;
-    std::vector<UiTheme*> m_themeStack;
-    std::vector<float> m_scaleStack;
+    keel::SmallArray<Node*, 16> m_containerStack;
+    keel::SmallArray<UiSize, 16> m_sizeStack;
+    keel::SmallArray<bool, 16> m_disabledStack;
+    keel::SmallArray<UiTheme*, 8> m_themeStack;
+    keel::SmallArray<float, 8> m_scaleStack;
     Node* m_root{nullptr};
     ICanvas* m_lastCanvas{nullptr};
 

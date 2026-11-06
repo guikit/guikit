@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <string>
 #include <vector>
+#include "keel/small_array.h"
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
@@ -25,7 +26,7 @@ struct TagInputPersistState {
     float scrollOffsetX{0.0f};
     int hoveredChipRemoveIdx{-1};
     bool clearHovered{false};
-    std::vector<Rect> chipRemoveRects{};
+    keel::SmallArray<Rect, 16> chipRemoveRects{};
     Rect clearBtnRect{};
 };
 
@@ -122,8 +123,8 @@ struct TagLayoutResult {
     Rect clearBtnRect{};
     Rect counterRect{};
     std::string counterStr{};
-    std::vector<Rect> chipRects{};
-    std::vector<Rect> chipRemoveRects{};
+    keel::SmallArray<Rect, 16> chipRects{};
+    keel::SmallArray<Rect, 16> chipRemoveRects{};
     size_t visibleChipCount{0};
     size_t overflowCount{0};
     Rect overflowRect{};
@@ -188,15 +189,16 @@ TagLayoutResult ComputeTagLayout(
     const float chipY = boxRect.y + (boxRect.h - chipH) * 0.5f;
     const float chipGap = 4.0f;
 
-    out.chipRects.assign(chips.size(), Rect{});
-    out.chipRemoveRects.assign(chips.size(), Rect{});
+    const keel::isize nChips = static_cast<keel::isize>(chips.size());
+    out.chipRects.assign(nChips, Rect{});
+    out.chipRemoveRects.assign(nChips, Rect{});
 
-    std::vector<float> chipWidths(chips.size(), 0.0f);
+    keel::SmallArray<float, 16> chipWidths(nChips, 0.0f);
     float totalChipsW = 0.0f;
-    for (size_t i = 0; i < chips.size(); ++i) {
-        chipWidths[i] = MeasureChipWidth(chips[i], chipFont, chipIconSz, showRemove, canvas);
+    for (keel::isize i = 0; i < nChips; ++i) {
+        chipWidths[i] = MeasureChipWidth(chips[static_cast<size_t>(i)], chipFont, chipIconSz, showRemove, canvas);
         totalChipsW += chipWidths[i];
-        if (i + 1 < chips.size()) {
+        if (i + 1 < nChips) {
             totalChipsW += chipGap;
         }
     }
@@ -206,7 +208,7 @@ TagLayoutResult ComputeTagLayout(
         out.overflowCount = 0;
 
         float relX = 0.0f;
-        for (size_t i = 0; i < chips.size(); ++i) {
+        for (keel::isize i = 0; i < nChips; ++i) {
             relX += chipWidths[i] + chipGap;
         }
         const float textStartRelX = relX;
@@ -235,7 +237,7 @@ TagLayoutResult ComputeTagLayout(
         out.resolvedScrollX = scrollX;
 
         float curX = out.innerRect.x - scrollX;
-        for (size_t i = 0; i < chips.size(); ++i) {
+        for (keel::isize i = 0; i < nChips; ++i) {
             const float cw = chipWidths[i];
             const Rect cRect(curX, chipY, cw, chipH);
             out.chipRects[i] = cRect;
@@ -256,7 +258,7 @@ TagLayoutResult ComputeTagLayout(
             out.visibleChipCount = chips.size();
             out.overflowCount = 0;
             float curX = out.innerRect.x;
-            for (size_t i = 0; i < chips.size(); ++i) {
+            for (keel::isize i = 0; i < nChips; ++i) {
                 const float cw = chipWidths[i];
                 const Rect cRect(curX, chipY, cw, chipH);
                 out.chipRects[i] = cRect;
@@ -281,7 +283,7 @@ TagLayoutResult ComputeTagLayout(
                 const float ovBadgeW = (remaining > 0)
                     ? (TextUtil::MeasureWidth(ovBuf, chipFont, canvas) + 12.0f + chipGap)
                     : 0.0f;
-                const float nextW = usedW + (i > 0 ? chipGap : 0.0f) + chipWidths[i];
+                const float nextW = usedW + (i > 0 ? chipGap : 0.0f) + chipWidths[static_cast<keel::isize>(i)];
                 if (nextW + ovBadgeW <= availW) {
                     usedW = nextW;
                     fitCount = i + 1;
@@ -294,11 +296,12 @@ TagLayoutResult ComputeTagLayout(
 
             float curX = out.innerRect.x;
             for (size_t i = 0; i < fitCount; ++i) {
-                const float cw = chipWidths[i];
+                const keel::isize ki = static_cast<keel::isize>(i);
+                const float cw = chipWidths[ki];
                 const Rect cRect(curX, chipY, cw, chipH);
-                out.chipRects[i] = cRect;
+                out.chipRects[ki] = cRect;
                 if (showRemove) {
-                    out.chipRemoveRects[i] = Rect(
+                    out.chipRemoveRects[ki] = Rect(
                         cRect.Right() - 4.0f - removeBtnSz,
                         cRect.y + (cRect.h - removeBtnSz) * 0.5f,
                         removeBtnSz,
@@ -400,8 +403,8 @@ Response RunTagInputImpl(
     ICanvas* canvas = ctx.GetCanvas();
 
     auto buildTempViews = [&]() {
-        std::vector<TagChipView> views;
-        views.reserve(tags.size());
+        keel::SmallArray<TagChipView, 16> views;
+        views.reserve(static_cast<keel::isize>(tags.size()));
         for (const auto& t : tags) {
             if constexpr (std::is_same_v<TagT, TagItem>) {
                 views.push_back(TagChipView{
@@ -424,11 +427,11 @@ Response RunTagInputImpl(
         ? res.rect
         : Rect({0.0f, 0.0f}, TagInput::Measure({}, optsCopy, activeSize, canvas, theme));
 
-    if (st.chipRemoveRects.size() != tags.size()) {
+    if (static_cast<size_t>(st.chipRemoveRects.size()) != tags.size()) {
         auto tempViews = buildTempViews();
-        const auto initLayout = ComputeTagLayout(
+        auto initLayout = ComputeTagLayout(
             prevBounds,
-            tempViews,
+            std::span<const TagChipView>(tempViews.data(), static_cast<size_t>(tempViews.size())),
             st.editBuffer,
             st.editBuffer.size(),
             optsCopy,
@@ -439,7 +442,7 @@ Response RunTagInputImpl(
             canvas,
             theme
         );
-        st.chipRemoveRects = initLayout.chipRemoveRects;
+        st.chipRemoveRects = std::move(initLayout.chipRemoveRects);
         st.clearBtnRect = initLayout.clearBtnRect;
     }
 
@@ -451,8 +454,9 @@ Response RunTagInputImpl(
         if (optsCopy.clearable && !tags.empty() && st.clearBtnRect.w > 0.0f && st.clearBtnRect.Contains(mousePos)) {
             st.clearHovered = true;
         } else {
-            for (size_t i = 0; i < st.chipRemoveRects.size() && i < tags.size(); ++i) {
-                if (st.chipRemoveRects[i].w > 0.0f && st.chipRemoveRects[i].Contains(mousePos)) {
+            for (size_t i = 0; i < static_cast<size_t>(st.chipRemoveRects.size()) && i < tags.size(); ++i) {
+                if (st.chipRemoveRects[static_cast<keel::isize>(i)].w > 0.0f &&
+                    st.chipRemoveRects[static_cast<keel::isize>(i)].Contains(mousePos)) {
                     st.hoveredChipRemoveIdx = static_cast<int>(i);
                     break;
                 }
@@ -619,7 +623,7 @@ Response RunTagInputImpl(
     }
 
     const std::span<const TagChipView> chipSpan(arenaChips, chipCount);
-    const TagLayoutResult layoutNow = ComputeTagLayout(
+    TagLayoutResult layoutNow = ComputeTagLayout(
         prevBounds,
         chipSpan,
         st.editBuffer,
@@ -633,7 +637,7 @@ Response RunTagInputImpl(
         theme
     );
     st.scrollOffsetX = layoutNow.resolvedScrollX;
-    st.chipRemoveRects = layoutNow.chipRemoveRects;
+    st.chipRemoveRects = std::move(layoutNow.chipRemoveRects);
     st.clearBtnRect = layoutNow.clearBtnRect;
 
     const ControlSpec ctrl = EffectiveTagInputControl(optsCopy, activeSize, theme);
@@ -940,7 +944,7 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
 
     if (data && data->persistState) {
         data->persistState->scrollOffsetX = layout.resolvedScrollX;
-        data->persistState->chipRemoveRects = layout.chipRemoveRects;
+        data->persistState->chipRemoveRects = layout.chipRemoveRects.clone();
         data->persistState->clearBtnRect = layout.clearBtnRect;
     }
 
@@ -984,7 +988,8 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     const int hoveredRemoveIdx = data ? data->hoveredChipRemoveIdx : -1;
 
     for (size_t i = 0; i < layout.visibleChipCount && i < chips.size(); ++i) {
-        const Rect cRect = layout.chipRects[i];
+        const keel::isize ki = static_cast<keel::isize>(i);
+        const Rect cRect = layout.chipRects[ki];
         if (cRect.Right() < layout.innerRect.x || cRect.x > layout.innerRect.Right()) {
             continue;
         }
@@ -1019,12 +1024,12 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
             cx += chipIconSz + 4.0f;
         }
 
-        const float textRight = showRemove ? layout.chipRemoveRects[i].x - 2.0f : cRect.Right() - 6.0f;
+        const float textRight = showRemove ? layout.chipRemoveRects[ki].x - 2.0f : cRect.Right() - 6.0f;
         const Rect chipTextRect(cx, cRect.y, std::max(0.0f, textRight - cx), cRect.h);
         canvas.DrawTextBox(chip.text, chipTextRect, chipFont, chipTextCol, 0.0f, 0.5f);
 
         if (showRemove) {
-            const Rect remRect = layout.chipRemoveRects[i];
+            const Rect remRect = layout.chipRemoveRects[ki];
             const bool remHovered = (hoveredRemoveIdx == static_cast<int>(i));
             if (remHovered) {
                 canvas.DrawRoundRect(remRect, 3.0f, accent.WithAlphaF(0.28f), Color::Transparent(), 0.0f);
