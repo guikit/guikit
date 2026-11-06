@@ -10,8 +10,8 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/ui_string.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -29,9 +29,9 @@ enum class BreadcrumbSeparator : uint8_t {
 
 /// Individual path segment definition for Breadcrumb navigation widget.
 struct BreadcrumbItem {
-    UiString label{};
+    keel::InplaceString<> label{};
     Icon icon{};
-    UiString badge{};
+    keel::InplaceString<> badge{};
 };
 
 /// Configuration options for Breadcrumb navigation widget.
@@ -45,7 +45,7 @@ struct BreadcrumbOptions {
     std::optional<float> height{std::nullopt};
     StateColor background{};
     Border border{};
-    UiString tooltip{};
+    keel::InplaceString<> tooltip{};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

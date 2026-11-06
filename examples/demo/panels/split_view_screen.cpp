@@ -48,7 +48,7 @@ void RenderPanePlaceholder(
     })) {
         ui.Heading({
             .label = title,
-            .badge = {ui.Format("{:.0f}%", ratioPct).View(), guikit::StateColor::FromVariant(badgeVariant)},
+            .badge = {ui.Format("{:.0f}%", ratioPct), guikit::StateColor::FromVariant(badgeVariant)},
             .align = guikit::Align::Center,
             .stretch = guikit::StretchMode::Compact
         });

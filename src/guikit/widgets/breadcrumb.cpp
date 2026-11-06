@@ -101,11 +101,11 @@ float MeasureTokenNaturalWidth(
     }
     if (!item.label.empty()) {
         if (contentW > 0.0f) contentW += iconGap;
-        contentW += TextUtil::MeasureWidth(item.label.View(), fontSize, canvas);
+        contentW += TextUtil::MeasureWidth(item.label, fontSize, canvas);
     }
     if (!item.badge.empty()) {
         if (contentW > 0.0f) contentW += badgeGap;
-        contentW += TextUtil::MeasureWidth(item.badge.View(), badgeFontSize, canvas) + theme.Scale(10.0f);
+        contentW += TextUtil::MeasureWidth(item.badge, badgeFontSize, canvas) + theme.Scale(10.0f);
     }
 
     return std::max(cm.defaultHeight * 0.75f, contentW + padX * 2.0f);
@@ -350,14 +350,14 @@ void RenderBreadcrumbPopup(
         }
 
         if (!item.badge.empty()) {
-            const float badgeW = canvas.MeasureText(item.badge.View(), badgeFontSize).x + theme.Scale(10.0f);
+            const float badgeW = canvas.MeasureText(item.badge, badgeFontSize).x + theme.Scale(10.0f);
             const float badgeH = badgeFontSize + theme.Scale(5.0f);
             rightX -= badgeW;
             const Rect badgeR(rightX, centerY - badgeH * 0.5f, badgeW, badgeH);
             const Color badgeBg = isSelected ? accentColor.WithAlphaF(0.25f) : pal.surfaceHover;
             const Color badgeFg = isSelected ? accentColor : pal.textSecondary;
             canvas.DrawRoundRect(badgeR, theme.Scale(4.0f), badgeBg);
-            canvas.DrawTextBox(item.badge.View(), badgeR, badgeFontSize, badgeFg, 0.5f, 0.5f);
+            canvas.DrawTextBox(item.badge, badgeR, badgeFontSize, badgeFg, 0.5f, 0.5f);
             rightX -= badgeGap;
         }
 
@@ -369,7 +369,7 @@ void RenderBreadcrumbPopup(
 
         if (!item.label.empty() && rightX > leftX) {
             const Rect textR(leftX, itemRect.y, rightX - leftX, itemRect.h);
-            canvas.DrawTextBox(item.label.View(), textR, fontSize, isSelected ? accentColor : pal.textPrimary, 0.0f, 0.5f);
+            canvas.DrawTextBox(item.label, textR, fontSize, isSelected ? accentColor : pal.textPrimary, 0.0f, 0.5f);
         }
     }
 
@@ -574,10 +574,10 @@ Response Breadcrumb::Run(
                 w += cm.iconSize + iconGap;
             }
             if (!item.label.empty()) {
-                w += TextUtil::MeasureWidth(item.label.View(), fontSize, canvas);
+                w += TextUtil::MeasureWidth(item.label, fontSize, canvas);
             }
             if (!item.badge.empty()) {
-                w += badgeGap + TextUtil::MeasureWidth(item.badge.View(), badgeFontSize, canvas) + theme.Scale(10.0f);
+                w += badgeGap + TextUtil::MeasureWidth(item.badge, badgeFontSize, canvas) + theme.Scale(10.0f);
             }
             if (origIdx == currIndex) {
                 w += cm.iconSize + theme.Scale(8.0f);
@@ -734,7 +734,7 @@ Response Breadcrumb::Run(
     }
 
     if (res.hovered && !isOpen && !optsCopy.tooltip.empty()) {
-        ctx.SetTooltip(optsCopy.tooltip.View(), prevBounds);
+        ctx.SetTooltip(std::string_view(optsCopy.tooltip), prevBounds);
     }
 
     ControlSpec ctrl = EffectiveBreadcrumbControl(optsCopy, activeSize, theme);
@@ -748,21 +748,21 @@ Response Breadcrumb::Run(
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
 
-    optsCopy.tooltip = ctx.String(optsCopy.tooltip.View());
+    optsCopy.tooltip = ctx.String(optsCopy.tooltip);
     BreadcrumbItem* arenaItems = ctx.GetArena().create_array<BreadcrumbItem>(static_cast<keel::isize>(items.size()));
     uint64_t itemsHash = 0;
     for (size_t i = 0; i < items.size(); ++i) {
         arenaItems[i] = items[i];
-        arenaItems[i].label = ctx.String(items[i].label.View());
-        arenaItems[i].badge = ctx.String(items[i].badge.View());
+        arenaItems[i].label = ctx.String(items[i].label);
+        arenaItems[i].badge = ctx.String(items[i].badge);
         if (!arenaItems[i].icon.GetPath().empty()) {
             arenaItems[i].icon = Icon::File(ctx.AllocString(arenaItems[i].icon.GetPath()));
         }
         itemsHash = detail::HashArgs(
             itemsHash,
-            arenaItems[i].label.View(),
+            std::string_view(arenaItems[i].label),
             arenaItems[i].icon,
-            arenaItems[i].badge.View()
+            std::string_view(arenaItems[i].badge)
         );
     }
 
@@ -960,7 +960,7 @@ void Breadcrumb::Render(
         const bool hasIcon = item.icon.IsValid() && (availW >= cm.iconSize * 0.85f);
         float badgeW = 0.0f;
         if (!item.badge.empty()) {
-            badgeW = canvas.MeasureText(item.badge.View(), badgeFontSize).x + theme.Scale(10.0f);
+            badgeW = canvas.MeasureText(item.badge, badgeFontSize).x + theme.Scale(10.0f);
         }
         const bool showBadge = !item.badge.empty() &&
             (availW >= (hasIcon ? cm.iconSize + iconGap : 0.0f) + badgeW + (!item.label.empty() ? fontSize * 1.8f + badgeGap : 0.0f));
@@ -973,7 +973,7 @@ void Breadcrumb::Render(
         std::string truncatedLabel;
         float labelW = 0.0f;
         if (showLabel) {
-            displayLabel = item.label.View();
+            displayLabel = item.label;
             labelW = canvas.MeasureText(displayLabel, fontSize).x;
             if (labelW > availLabelW + 0.5f && availLabelW > 0.0f) {
                 truncatedLabel = TextUtil::TruncateWithEllipsis(displayLabel, availLabelW, fontSize, &canvas);
@@ -1017,7 +1017,7 @@ void Breadcrumb::Render(
             const Color badgeBg = isActiveItem ? accentColor.WithAlphaF(0.25f) : pal.surfaceHover;
             const Color badgeFg = isActiveItem ? accentColor : pal.textSecondary;
             canvas.DrawRoundRect(badgeR, theme.Scale(4.0f), badgeBg);
-            canvas.DrawTextBox(item.badge.View(), badgeR, badgeFontSize, badgeFg, 0.5f, 0.5f);
+            canvas.DrawTextBox(item.badge, badgeR, badgeFontSize, badgeFg, 0.5f, 0.5f);
         }
     }
 

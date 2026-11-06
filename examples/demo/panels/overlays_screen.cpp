@@ -301,7 +301,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
                 }).clicked) {
                     ++s_ov.toastCounter;
                     ui.ShowToast({
-                        .title = ui.Format("Telemetry Sync #{}", s_ov.toastCounter).View(),
+                        .title = std::string_view(ui.Format("Telemetry Sync #{}", s_ov.toastCounter)),
                         .message = "Connected to primary stream at 48.0 kHz.",
                         .variant = guikit::UiVariant::Info,
                         .duration = s_ov.toastDuration,
@@ -409,7 +409,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
 
     if (cpRes.changed && cpRes.selectedIndex >= 0 && static_cast<size_t>(cpRes.selectedIndex) < kPaletteCommands.size()) {
         const auto& cmd = kPaletteCommands[static_cast<size_t>(cpRes.selectedIndex)];
-        s_ov.lastPaletteCommand = std::format("Executed: [{}] {}", cmd.category.View(), cmd.label.View());
+        s_ov.lastPaletteCommand = std::format("Executed: [{}] {}", std::string_view(cmd.category), std::string_view(cmd.label));
         if (cpRes.selectedIndex == 0) s_ov.customModalOpen = true;
         else if (cpRes.selectedIndex == 4) ui.ClearToasts();
         else if (cpRes.selectedIndex == 5) s_ov.confirmDeleteModalOpen = true;

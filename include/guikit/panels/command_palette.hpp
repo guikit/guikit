@@ -8,24 +8,24 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/ui_string.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/string.h"
 
 namespace guikit {
 
 class Context;
 
 struct CommandPaletteItem {
-    UiString label{};       ///< Primary command title
-    UiString category{};    ///< Optional category group/prefix (e.g. "Navigation", "View", "DSP")
-    UiString description{}; ///< Optional secondary description
-    UiString shortcut{};    ///< Optional keyboard shortcut badge (e.g. "Ctrl+K", "F5")
-    Icon icon{};            ///< Optional leading icon
+    keel::InplaceString<> label{};       ///< Primary command title
+    keel::InplaceString<> category{};    ///< Optional category group/prefix (e.g. "Navigation", "View", "DSP")
+    keel::InplaceString<> description{}; ///< Optional secondary description
+    keel::InplaceString<> shortcut{};    ///< Optional keyboard shortcut badge (e.g. "Ctrl+K", "F5")
+    Icon icon{};                         ///< Optional leading icon
     bool disabled{false};
 };
 
 struct CommandPaletteOptions {
-    UiString placeholder{"Type a command or search..."};
+    keel::InplaceString<> placeholder{"Type a command or search..."};
     std::optional<float> width{std::nullopt}; ///< Explicit width in dp (nullopt or <= 0 = auto-fit content within [minWidth..maxWidth])
     float minWidth{480.0f};                   ///< Minimum width in dp when auto-fitting content
     float maxWidth{780.0f};                   ///< Maximum width in dp when auto-fitting content

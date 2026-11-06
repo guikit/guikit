@@ -949,9 +949,9 @@ void TestKeelIntegration() {
     CHECK(arenaArray[10] == 50);
     CHECK(frameArena.used() > 0);
 
-    // 3. UiString <-> keel::StringRef & keel::SmallArray <-> keel::ArrayRef
-    UiString label(keel::StringRef("Keel Bridge"));
-    keel::StringRef ref = label.KeelRef();
+    // 3. keel::InplaceString <-> keel::StringRef & keel::SmallArray <-> keel::ArrayRef
+    keel::InplaceString<> label(keel::StringRef("Keel Bridge"));
+    keel::StringRef ref = label.as_ref();
     CHECK(ref == "Keel Bridge");
 
     const int rawVals[4] = {1, 2, 3, 4};

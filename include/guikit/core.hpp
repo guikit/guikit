@@ -23,5 +23,4 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/ui_string.hpp"
 #include "guikit/graphics/icon.hpp"

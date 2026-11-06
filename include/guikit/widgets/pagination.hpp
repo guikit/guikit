@@ -8,7 +8,7 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/ui_string.hpp"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -30,7 +30,7 @@ struct PaginationOptions {
     std::optional<float> height{std::nullopt};
     StateColor background{};
     Border border{};
-    UiString tooltip{};
+    keel::InplaceString<> tooltip{};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

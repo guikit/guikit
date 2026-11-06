@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <format>
 #include <functional>
 #include <initializer_list>
 #include <optional>
@@ -11,15 +12,16 @@
 #include <typeindex>
 #include <vector>
 #include "keel/arena.h"
+#include "keel/format.h"
 #include "keel/hash_map.h"
 #include "keel/small_array.h"
+#include "keel/string.h"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/id.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/ui_string.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "guikit/core/solver.hpp"
 #include "guikit/core/node.hpp"
@@ -1709,7 +1711,7 @@ public:
     }
 
     // --- String & Formatting Services ---
-    [[nodiscard]] UiString String(std::string_view text);
+    [[nodiscard]] keel::InplaceString<> String(std::string_view text);
     [[nodiscard]] std::string_view AllocString(std::string_view text);
     [[nodiscard]] UiText AllocText(UiText t) {
         if (!t.text.empty()) {
@@ -1736,10 +1738,11 @@ public:
     }
 
     template <typename... Args>
-    [[nodiscard]] UiString Format(std::format_string<Args...> fmt, Args&&... args) {
-        BasicUiString<128> temp;
-        temp.Format(fmt, std::forward<Args>(args)...);
-        return String(temp.View());
+    [[nodiscard]] keel::InplaceString<> Format(std::format_string<Args...> fmt, Args&&... args) {
+        char buf[128];
+        auto res = std::format_to_n(buf, sizeof(buf) - 1, fmt, std::forward<Args>(args)...);
+        const size_t len = static_cast<size_t>(res.out - buf);
+        return String(std::string_view(buf, len));
     }
 
     // --- Core Engine Services for Widgets ---

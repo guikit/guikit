@@ -50,9 +50,9 @@ std::vector<FilteredCommandEntry> FilterItems(
             continue;
         }
 
-        const std::string_view labelSv = it.label.View();
-        const std::string_view catSv = it.category.View();
-        const std::string_view descSv = it.description.View();
+        const std::string_view labelSv = it.label;
+        const std::string_view catSv = it.category;
+        const std::string_view descSv = it.description;
 
         size_t labelPos = 0;
         size_t labelLen = 0;
@@ -196,7 +196,7 @@ CommandPaletteResponse CommandPalette::Run(
     // Measure uniform tabular category column width across all items (prevents jagged label alignment)
     float maxCatPillW = 0.0f;
     for (const auto& it : items) {
-        const std::string_view catSv = it.category.View();
+        const std::string_view catSv = it.category;
         if (!catSv.empty()) {
             const float cw = TextUtil::MeasureWidth(catSv, badgeFont, measureCanvas);
             maxCatPillW = std::max(maxCatPillW, std::ceil(cw + 12.0f * s));
@@ -209,7 +209,7 @@ CommandPaletteResponse CommandPalette::Run(
     const float clearSz = std::round(std::max(20.0f * s, icSz + 6.0f * s));
 
     float maxNaturalW = rowPadX * 2.0f + icSz + 10.0f * s
-        + TextUtil::MeasureWidth(opts.placeholder.View(), searchFont, measureCanvas)
+        + TextUtil::MeasureWidth(opts.placeholder, searchFont, measureCanvas)
         + clearSz + escW + 36.0f * s;
 
     for (const auto& it : items) {
@@ -217,12 +217,12 @@ CommandPaletteResponse CommandPalette::Run(
         if (maxCatPillW > 0.0f) {
             rowW += maxCatPillW + 10.0f * s;
         }
-        rowW += TextUtil::MeasureWidth(it.label.View(), labelFont, measureCanvas);
+        rowW += TextUtil::MeasureWidth(it.label, labelFont, measureCanvas);
         if (!it.description.empty()) {
-            rowW += 12.0f * s + TextUtil::MeasureWidth(it.description.View(), descFont, measureCanvas);
+            rowW += 12.0f * s + TextUtil::MeasureWidth(it.description, descFont, measureCanvas);
         }
         if (!it.shortcut.empty()) {
-            const float sw = TextUtil::MeasureWidth(it.shortcut.View(), badgeFont, measureCanvas);
+            const float sw = TextUtil::MeasureWidth(it.shortcut, badgeFont, measureCanvas);
             rowW += 12.0f * s + std::ceil(sw + 12.0f * s);
         }
         rowW += 22.0f * s; // right breathing room + scrollbar gutter reserve
@@ -479,10 +479,10 @@ CommandPaletteResponse CommandPalette::Run(
             continue;
         }
         drawRows.push_back(DrawRowItem{
-            .label = std::string(src.label.View()),
-            .category = std::string(src.category.View()),
-            .description = std::string(src.description.View()),
-            .shortcut = std::string(src.shortcut.View()),
+            .label = std::string(std::string_view(src.label)),
+            .category = std::string(std::string_view(src.category)),
+            .description = std::string(std::string_view(src.description)),
+            .shortcut = std::string(std::string_view(src.shortcut)),
             .icon = src.icon,
             .disabled = src.disabled,
             .highlighted = (static_cast<int>(i) == st.highlightedPos),
@@ -493,7 +493,7 @@ CommandPaletteResponse CommandPalette::Run(
     }
 
     const std::string queryCopy = st.query;
-    const std::string placeholderCopy = std::string(opts.placeholder.View());
+    const std::string placeholderCopy = std::string(std::string_view(opts.placeholder));
     const bool showFooter = opts.showFooterHints;
     const float backdropOpacity = opts.backdropOpacity;
     const StateColor bgOpt = opts.background;
@@ -841,12 +841,12 @@ CommandPaletteResponse CommandPalette::Run(
                 footerRect.h
             );
 
-            const UiString countLabel = (totalFiltered == 1)
-                ? UiString("1 command")
-                : UiString::FormatNew("{} commands", totalFiltered);
-            const float countW = c.MeasureText(countLabel.View(), badgeFont).x;
+            const std::string countLabel = (totalFiltered == 1)
+                ? std::string("1 command")
+                : std::format("{} commands", totalFiltered);
+            const float countW = c.MeasureText(countLabel, badgeFont).x;
             c.DrawTextBox(
-                countLabel.View(),
+                countLabel,
                 footerInner,
                 badgeFont,
                 pal.textMuted,

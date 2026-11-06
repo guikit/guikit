@@ -555,19 +555,19 @@ void TestUiStringAndContextFormatting() {
     using namespace guikit;
 
     // Test static literal assignment (0 copy)
-    UiString s1 = "Static literal";
+    keel::InplaceString<> s1 = "Static literal";
     CHECK(s1 == "Static literal");
     CHECK(s1.size() == 14);
     CHECK(!s1.empty());
 
     // Test inline buffer formatting
-    UiString s2;
-    s2.Format("Count: {}", 42);
+    keel::InplaceString<> s2;
+    keel::format_into(s2, "Count: %d", 42);
     CHECK(s2 == "Count: 42");
     CHECK(s2.size() == 9);
 
     // Test factory formatting
-    UiString s3 = UiString::FormatNew("Speed: {:.1f}", 12.5f);
+    keel::InplaceString<> s3 = keel::format_inplace("Speed: %.1f", 12.5);
     CHECK(s3 == "Speed: 12.5");
 
     // Test Context arena formatting and interning in UI frame
@@ -6277,7 +6277,7 @@ void TestSidebarAndSidebarMenuWorkflow() {
                 if (auto sb = scrollUi.Sidebar({.side = SidebarSide::Left, .width = 180.0f, .scrollable = true})) {
                     scrollSbId = sb.GetNode()->id;
                     for (int i = 0; i < 30; ++i) {
-                        Response r = scrollUi.Button({.text = scrollUi.Format("Nav Item {}", i).View()});
+                        Response r = scrollUi.Button({.text = scrollUi.Format("Nav Item {}", i)});
                         if (i == 0) {
                             firstItemRes = r;
                         }
@@ -11928,17 +11928,17 @@ int main() {
             CHECK(rScroll.selectedIndex >= 4);
         }
 
-        // 3. UiString Rule-of-Zero copy safety + Breadcrumb & Pagination interactive click tests
+        // 3. keel::InplaceString Rule-of-Zero copy safety + Breadcrumb & Pagination interactive click tests
         {
-            static_assert(std::is_trivially_copyable_v<guikit::UiString>);
-            guikit::UiString copiedInline;
+            static_assert(std::is_trivially_copyable_v<keel::InplaceString<>>);
+            keel::InplaceString<> copiedInline;
             {
                 std::string dynamicStr = "Workspace";
-                copiedInline = guikit::UiString(std::string_view(dynamicStr));
-                guikit::UiString overwriteStack = guikit::UiString(std::string_view(""));
+                copiedInline = keel::InplaceString<>(std::string_view(dynamicStr));
+                keel::InplaceString<> overwriteStack = keel::InplaceString<>(std::string_view(""));
                 (void)overwriteStack;
             }
-            CHECK(copiedInline.View() == "Workspace");
+            CHECK(copiedInline == "Workspace");
             CHECK(std::string_view(copiedInline.c_str()) == "Workspace");
 
             // Click first item ("Home") in Breadcrumb -> changes crumbIdx from 1 to 0

@@ -449,7 +449,7 @@ Response Pagination::Run(
     }
 
     if (res.hovered && !optsCopy.tooltip.empty()) {
-        ctx.SetTooltip(optsCopy.tooltip.View(), prevBounds);
+        ctx.SetTooltip(std::string_view(optsCopy.tooltip), prevBounds);
     }
 
     ControlSpec ctrl = EffectivePaginationControl(optsCopy, activeSize, theme);
@@ -463,7 +463,7 @@ Response Pagination::Run(
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
 
-    optsCopy.tooltip = ctx.String(optsCopy.tooltip.View());
+    optsCopy.tooltip = ctx.String(optsCopy.tooltip);
 
     auto* data = ctx.AllocPayload<PaginationData>();
     data->opts = optsCopy;
