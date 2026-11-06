@@ -11,24 +11,13 @@ namespace guikit {
 namespace {
 
 [[nodiscard]] inline bool IsUtf8LeadByte(uint8_t b) noexcept {
-    return (b & 0xC0) != 0x80;
-}
-
-[[nodiscard]] size_t PrevUtf8CharBoundary(std::string_view text, size_t index) noexcept {
-    if (index >= text.size()) index = text.size();
-    while (index > 0 && !IsUtf8LeadByte(static_cast<uint8_t>(text[index]))) {
-        --index;
-    }
-    return index;
+    return keel::utf8_is_lead_byte(b);
 }
 
 [[nodiscard]] size_t NextUtf8CharBoundary(std::string_view text, size_t index) noexcept {
-    if (index >= text.size()) return text.size();
-    ++index;
-    while (index < text.size() && !IsUtf8LeadByte(static_cast<uint8_t>(text[index]))) {
-        ++index;
-    }
-    return index;
+    return static_cast<size_t>(
+        keel::utf8_next_boundary(keel::StringRef(text.data(), static_cast<keel::isize>(text.size())),
+                                 static_cast<keel::isize>(index)));
 }
 
 } // namespace
@@ -529,144 +518,37 @@ float TextUtil::DrawAffix(
     return curX - rowBounds.x;
 }
 
-namespace {
-
-enum class CharCategory : uint8_t {
-    Whitespace = 0,
-    Word,
-    Punctuation
-};
-
-[[nodiscard]] CharCategory ClassifyUtf8Char(std::string_view text, size_t charStart) noexcept {
-    if (charStart >= text.size()) {
-        return CharCategory::Whitespace;
-    }
-    const uint8_t b = static_cast<uint8_t>(text[charStart]);
-    if (b == ' ' || b == '\t' || b == '\n' || b == '\r') {
-        return CharCategory::Whitespace;
-    }
-    // Treat multi-byte UTF-8 sequences (e.g. Cyrillic, European accents, CJK) and ASCII alnum + '_' as word characters
-    if (b >= 0x80 ||
-        (b >= 'a' && b <= 'z') ||
-        (b >= 'A' && b <= 'Z') ||
-        (b >= '0' && b <= '9') ||
-        b == '_') {
-        return CharCategory::Word;
-    }
-    return CharCategory::Punctuation;
-}
-
-} // namespace
-
 size_t TextUtil::PrevCharBoundary(std::string_view text, size_t index) noexcept {
-    if (text.empty() || index == 0) {
-        return 0;
-    }
-    if (index > text.size()) {
-        index = text.size();
-    }
-    --index;
-    while (index > 0 && !IsUtf8LeadByte(static_cast<uint8_t>(text[index]))) {
-        --index;
-    }
-    return index;
+    return static_cast<size_t>(
+        keel::utf8_prev_boundary(keel::StringRef(text.data(), static_cast<keel::isize>(text.size())),
+                                 static_cast<keel::isize>(index)));
 }
 
 size_t TextUtil::NextCharBoundary(std::string_view text, size_t index) noexcept {
-    return NextUtf8CharBoundary(text, index);
+    return static_cast<size_t>(
+        keel::utf8_next_boundary(keel::StringRef(text.data(), static_cast<keel::isize>(text.size())),
+                                 static_cast<keel::isize>(index)));
 }
 
 size_t TextUtil::PrevWordBoundary(std::string_view text, size_t index) noexcept {
-    if (text.empty() || index == 0) {
-        return 0;
-    }
-    size_t pos = std::min(index, text.size());
-
-    // 1. Skip preceding whitespace backwards
-    while (pos > 0) {
-        const size_t prev = PrevCharBoundary(text, pos);
-        if (ClassifyUtf8Char(text, prev) != CharCategory::Whitespace) {
-            break;
-        }
-        pos = prev;
-    }
-    if (pos == 0) {
-        return 0;
-    }
-
-    // 2. Skip contiguous characters of the same non-whitespace category backwards
-    const size_t firstChar = PrevCharBoundary(text, pos);
-    const CharCategory targetCat = ClassifyUtf8Char(text, firstChar);
-    pos = firstChar;
-    while (pos > 0) {
-        const size_t prev = PrevCharBoundary(text, pos);
-        if (ClassifyUtf8Char(text, prev) != targetCat) {
-            break;
-        }
-        pos = prev;
-    }
-    return pos;
+    return static_cast<size_t>(
+        keel::utf8_prev_word_boundary(keel::StringRef(text.data(), static_cast<keel::isize>(text.size())),
+                                      static_cast<keel::isize>(index)));
 }
 
 size_t TextUtil::NextWordBoundary(std::string_view text, size_t index) noexcept {
-    const size_t n = text.size();
-    if (n == 0 || index >= n) {
-        return n;
-    }
-    size_t pos = index;
-    while (pos > 0 && !IsUtf8LeadByte(static_cast<uint8_t>(text[pos]))) {
-        --pos;
-    }
-
-    // 1. If starting on whitespace, skip whitespace first
-    while (pos < n && ClassifyUtf8Char(text, pos) == CharCategory::Whitespace) {
-        pos = NextCharBoundary(text, pos);
-    }
-    if (pos >= n) {
-        return n;
-    }
-
-    // 2. Skip contiguous characters of the same category forwards
-    const CharCategory targetCat = ClassifyUtf8Char(text, pos);
-    while (pos < n && ClassifyUtf8Char(text, pos) == targetCat) {
-        pos = NextCharBoundary(text, pos);
-    }
-    return pos;
+    return static_cast<size_t>(
+        keel::utf8_next_word_boundary(keel::StringRef(text.data(), static_cast<keel::isize>(text.size())),
+                                      static_cast<keel::isize>(index)));
 }
 
 void TextUtil::SelectWordAt(std::string_view text, size_t index, size_t& outStart, size_t& outEnd) noexcept {
-    if (text.empty()) {
-        outStart = 0;
-        outEnd = 0;
-        return;
-    }
-    const size_t n = text.size();
-    size_t pos = std::min(index, n);
-    if (pos == n) {
-        pos = PrevCharBoundary(text, n);
-    } else {
-        while (pos > 0 && !IsUtf8LeadByte(static_cast<uint8_t>(text[pos]))) {
-            --pos;
-        }
-    }
-
-    const CharCategory cat = ClassifyUtf8Char(text, pos);
-    size_t start = pos;
-    while (start > 0) {
-        const size_t prev = PrevCharBoundary(text, start);
-        if (ClassifyUtf8Char(text, prev) != cat) {
-            break;
-        }
-        start = prev;
-    }
-
-    size_t end = NextCharBoundary(text, pos);
-    while (end < n && ClassifyUtf8Char(text, end) == cat) {
-        end = NextCharBoundary(text, end);
-    }
-
-    outStart = start;
-    outEnd = end;
+    keel::isize s = 0;
+    keel::isize e = 0;
+    keel::utf8_word_bounds_at(keel::StringRef(text.data(), static_cast<keel::isize>(text.size())),
+                              static_cast<keel::isize>(index), s, e);
+    outStart = static_cast<size_t>(s);
+    outEnd = static_cast<size_t>(e);
 }
 
 size_t TextUtil::HitTestIndex(
@@ -721,68 +603,22 @@ bool TextUtil::FindCaseInsensitive(
     size_t& outBytePos,
     size_t& outByteLen
 ) noexcept {
-    outBytePos = 0;
-    outByteLen = 0;
-    if (needle.empty()) {
-        return true;
-    }
-    if (haystack.empty()) {
-        return false;
-    }
-
-    auto decodeCp = [](std::string_view sv, size_t& ioIdx) noexcept -> uint32_t {
-        if (ioIdx >= sv.size()) return 0;
-        keel::isize cursor = static_cast<keel::isize>(ioIdx);
-        const uint32_t cp = keel::utf8_decode_next(keel::StringRef(sv.data(), sv.size()), cursor);
-        ioIdx = static_cast<size_t>(cursor);
-        return cp;
-    };
-
-    auto toLowerCp = [](uint32_t cp) noexcept -> uint32_t {
-        if (cp >= 'A' && cp <= 'Z') {
-            return cp + ('a' - 'A');
-        }
-        if (cp >= 0x0410 && cp <= 0x042F) { // Cyrillic А..Я -> а..я
-            return cp + 0x20;
-        }
-        if (cp == 0x0401) { // Ё -> ё
-            return 0x0451;
-        }
-        return cp;
-    };
-
-    size_t hStart = 0;
-    while (hStart < haystack.size()) {
-        const size_t matchStart = hStart;
-        size_t hCursor = hStart;
-        size_t nCursor = 0;
-        bool matched = true;
-        while (nCursor < needle.size()) {
-            if (hCursor >= haystack.size()) {
-                matched = false;
-                break;
-            }
-            const uint32_t hCp = toLowerCp(decodeCp(haystack, hCursor));
-            const uint32_t nCp = toLowerCp(decodeCp(needle, nCursor));
-            if (hCp != nCp) {
-                matched = false;
-                break;
-            }
-        }
-        if (matched) {
-            outBytePos = matchStart;
-            outByteLen = hCursor - matchStart;
-            return true;
-        }
-        decodeCp(haystack, hStart);
-    }
-    return false;
+    keel::isize pos = 0;
+    keel::isize len = 0;
+    const bool ok = keel::utf8_find_case_insensitive(
+        keel::StringRef(haystack.data(), static_cast<keel::isize>(haystack.size())),
+        keel::StringRef(needle.data(), static_cast<keel::isize>(needle.size())),
+        pos, len);
+    outBytePos = static_cast<size_t>(pos);
+    outByteLen = static_cast<size_t>(len);
+    return ok;
 }
 
 size_t TextUtil::FindCaseInsensitive(std::string_view haystack, std::string_view needle) noexcept {
-    size_t pos = 0;
-    size_t len = 0;
-    return FindCaseInsensitive(haystack, needle, pos, len) ? pos : std::string_view::npos;
+    const keel::isize pos = keel::utf8_find_case_insensitive(
+        keel::StringRef(haystack.data(), static_cast<keel::isize>(haystack.size())),
+        keel::StringRef(needle.data(), static_cast<keel::isize>(needle.size())));
+    return (pos != keel::kInvalidIndex) ? static_cast<size_t>(pos) : std::string_view::npos;
 }
 
 void TextUtil::DrawHighlightedTextBox(

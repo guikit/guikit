@@ -1,16 +1,14 @@
 #include "guikit/geo/geo_json_io.hpp"
 #include "guikit/geo/polygon_triangulator.hpp"
 #include "guikit/core/assets.hpp"
+#include "keel/algo.h"
+#include "keel/fs.h"
+#include "keel/number.h"
 #include <algorithm>
 #include <cctype>
-#include <charconv>
 #include <cmath>
 #include <cstdio>
-#include <filesystem>
 #include <format>
-#include <fstream>
-#include <map>
-#include <sstream>
 #include <variant>
 
 namespace guikit::geo {
@@ -362,19 +360,16 @@ private:
         }
 
         const std::string_view token = m_src.substr(start, m_pos - start);
+        const keel::StringRef tokenRef(token.data(), static_cast<keel::isize>(token.size()));
         if (!isFloat) {
-            int64_t iVal = 0;
-            const auto [ptr, ec] = std::from_chars(token.data(), token.data() + token.size(), iVal);
-            if (ec == std::errc{} && ptr == token.data() + token.size()) {
-                out.data = iVal;
+            if (const auto res = keel::parse_i64(tokenRef); res.is_ok()) {
+                out.data = static_cast<int64_t>(res.value());
                 return true;
             }
         }
 
-        double dVal = 0.0;
-        const auto [ptr, ec] = std::from_chars(token.data(), token.data() + token.size(), dVal);
-        if (ec == std::errc{} && ptr == token.data() + token.size()) {
-            out.data = dVal;
+        if (const auto res = keel::parse_f64(tokenRef); res.is_ok()) {
+            out.data = res.value();
             return true;
         }
 
@@ -514,11 +509,21 @@ public:
     [[nodiscard]] bool ReadDouble(double& out) noexcept {
         SkipWs();
         if (m_pos >= m_sv.size()) return false;
-        const char* begin = m_sv.data() + m_pos;
-        const char* end = m_sv.data() + m_sv.size();
-        const auto [ptr, ec] = std::from_chars(begin, end, out);
-        if (ec != std::errc{} || ptr == begin) return false;
-        m_pos = static_cast<size_t>(ptr - m_sv.data());
+        const size_t start = m_pos;
+        if (m_sv[m_pos] == '+' || m_sv[m_pos] == '-') ++m_pos;
+        while (m_pos < m_sv.size()) {
+            const char c = m_sv[m_pos];
+            if ((c >= '0' && c <= '9') || c == '.' || c == 'e' || c == 'E' || c == '+' || c == '-') {
+                ++m_pos;
+            } else {
+                break;
+            }
+        }
+        if (m_pos == start) return false;
+        const auto res = keel::parse_f64(
+            keel::StringRef(m_sv.data() + start, static_cast<keel::isize>(m_pos - start)));
+        if (!res.is_ok()) return false;
+        out = res.value();
         return true;
     }
 
@@ -933,11 +938,6 @@ void AppendRingJson(std::string& out, const std::vector<guikit::GeoCoord>& ring,
     return s;
 }
 
-std::filesystem::path Utf8Path(std::string_view utf8) {
-    return std::filesystem::path(
-        std::u8string_view(reinterpret_cast<const char8_t*>(utf8.data()), utf8.size()));
-}
-
 bool TryReadTextFromAssetsOrDisk(
     const std::string& filePath,
     std::string& outContent,
@@ -960,16 +960,9 @@ bool TryReadTextFromAssetsOrDisk(
     const char* prefixes[] = {"", "../", "../../", "../../../"};
     for (const char* prefix : prefixes) {
         const std::string candidate = std::string(prefix) + filePath;
-        std::ifstream ifs(Utf8Path(candidate), std::ios::binary | std::ios::ate);
-        if (!ifs) continue;
-
-        const auto endPos = ifs.tellg();
-        outContent.clear();
-        if (endPos > 0) {
-            outContent.resize(static_cast<size_t>(endPos));
-            ifs.seekg(0, std::ios::beg);
-            ifs.read(outContent.data(), static_cast<std::streamsize>(outContent.size()));
-        }
+        auto res = keel::fs_read_text(keel::StringRef(candidate.data(), static_cast<keel::isize>(candidate.size())));
+        if (!res.is_ok()) continue;
+        outContent.assign(res.value().data(), static_cast<size_t>(res.value().size()));
         outResolvedPath = candidate;
         return true;
     }
@@ -1047,7 +1040,9 @@ GeoJsonResult GeoJsonIO::LoadFromFile(const std::string& filePath) {
         return res;
     }
 
-    std::string stem = Utf8Path(filePath).stem().string();
+    const keel::StringRef stemRef =
+        keel::path_stem(keel::StringRef(filePath.data(), static_cast<keel::isize>(filePath.size())));
+    std::string stem(stemRef.data(), static_cast<size_t>(stemRef.size()));
     if (stem.empty()) stem = "GeoJSON Layer";
 
     res = ParseFromString(content, stem);
@@ -1083,24 +1078,39 @@ GeoJsonLoadResult GeoJsonIO::ParseThematicLayersFromString(
         return res;
     }
 
-    std::map<int, GeoLayer> grouped;
+    struct RankedLayer {
+        int rankKey = 0;
+        GeoLayer layer{};
+    };
+    std::vector<RankedLayer> grouped;
     for (GeoFeature& feat : singleRes.layer.features) {
         const int key = CartographicSortRank(feat.chartClass) * 100 + static_cast<int>(feat.chartClass);
-        auto it = grouped.find(key);
-        if (it == grouped.end()) {
-            GeoLayer lyr{};
-            lyr.name = std::string(ChartFeatureClassToString(feat.chartClass));
-            lyr.format = "GeoJSON";
-            lyr.srsId = singleRes.layer.srsId;
-            lyr.dominantChartClass = feat.chartClass;
-            it = grouped.emplace(key, std::move(lyr)).first;
+        GeoLayer* target = nullptr;
+        for (auto& entry : grouped) {
+            if (entry.rankKey == key) {
+                target = &entry.layer;
+                break;
+            }
         }
-        it->second.features.push_back(std::move(feat));
+        if (!target) {
+            RankedLayer rl{};
+            rl.rankKey = key;
+            rl.layer.name = std::string(ChartFeatureClassToString(feat.chartClass));
+            rl.layer.format = "GeoJSON";
+            rl.layer.srsId = singleRes.layer.srsId;
+            rl.layer.dominantChartClass = feat.chartClass;
+            grouped.push_back(std::move(rl));
+            target = &grouped.back().layer;
+        }
+        target->features.push_back(std::move(feat));
     }
+
+    keel::sort(grouped, [](const RankedLayer& a, const RankedLayer& b) noexcept { return a.rankKey < b.rankKey; });
 
     uint64_t nextLayerUid = 1;
     size_t styleIdx = 0;
-    for (auto& [rankKey, layer] : grouped) {
+    for (auto& entry : grouped) {
+        auto& layer = entry.layer;
         layer.style = DefaultStyleForChartClass(layer.dominantChartClass, styleIdx++);
         layer.FinalizeLayer(nextLayerUid++);
         if (layer.hasValidBounds) {
@@ -1126,7 +1136,9 @@ GeoJsonLoadResult GeoJsonIO::LoadThematicLayersFromFile(
         return res;
     }
 
-    std::string stem = Utf8Path(filePath).stem().string();
+    const keel::StringRef stemRef =
+        keel::path_stem(keel::StringRef(filePath.data(), static_cast<keel::isize>(filePath.size())));
+    std::string stem(stemRef.data(), static_cast<size_t>(stemRef.size()));
     if (stem.empty()) stem = "GeoJSON Layer";
 
     res = ParseThematicLayersFromString(content, stem, splitByThematicClass);
@@ -1279,16 +1291,17 @@ std::string GeoJsonIO::SerializeLayer(const GeoLayer& layer, bool prettyPrint) {
 }
 
 bool GeoJsonIO::SaveToFile(const GeoLayer& layer, const std::string& filePath, std::string* outError) {
-    std::ofstream ofs(Utf8Path(filePath), std::ios::binary | std::ios::trunc);
-    if (!ofs) {
+    const std::string json = SerializeLayer(layer, true);
+    const keel::Error err = keel::fs_write_text(
+        keel::StringRef(filePath.data(), static_cast<keel::isize>(filePath.size())),
+        keel::StringRef(json.data(), static_cast<keel::isize>(json.size())));
+    if (err) {
         if (outError) {
             *outError = std::format("Cannot open file for writing: {}", filePath);
         }
         return false;
     }
-    const std::string json = SerializeLayer(layer, true);
-    ofs.write(json.data(), static_cast<std::streamsize>(json.size()));
-    return ofs.good();
+    return true;
 }
 
 std::vector<GeoLayer> GeoJsonIO::BuildDefaultHydrographicChart() {

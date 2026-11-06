@@ -1,11 +1,11 @@
 #include "guikit/net/net_client.hpp"
+#include "keel/number.h"
+#include "keel/ring_buffer.h"
 
 #include <algorithm>
 #include <cctype>
-#include <charconv>
 #include <chrono>
 #include <cstring>
-#include <deque>
 #include <format>
 #include <mutex>
 #include <thread>
@@ -293,24 +293,24 @@ ParsedUrl ParseUrl(std::string_view url) {
         if (!portPart.empty()) {
             if (portPart.front() != ':') return result;
             portPart.remove_prefix(1);
-            uint32_t parsedPort = 0;
-            const auto [ptr, ec] = std::from_chars(portPart.data(), portPart.data() + portPart.size(), parsedPort);
-            if (ec != std::errc{} || ptr != portPart.data() + portPart.size() || parsedPort == 0 || parsedPort > 65535) {
+            const auto portRes =
+                keel::parse_u64(keel::StringRef(portPart.data(), static_cast<keel::isize>(portPart.size())));
+            if (!portRes.is_ok() || portRes.value() == 0 || portRes.value() > 65535) {
                 return result;
             }
-            result.port = static_cast<uint16_t>(parsedPort);
+            result.port = static_cast<uint16_t>(portRes.value());
         }
     } else {
         const size_t colonPos = authority.rfind(':');
         if (colonPos != std::string_view::npos) {
             result.host = std::string(authority.substr(0, colonPos));
             std::string_view portPart = authority.substr(colonPos + 1);
-            uint32_t parsedPort = 0;
-            const auto [ptr, ec] = std::from_chars(portPart.data(), portPart.data() + portPart.size(), parsedPort);
-            if (ec != std::errc{} || ptr != portPart.data() + portPart.size() || parsedPort == 0 || parsedPort > 65535) {
+            const auto portRes =
+                keel::parse_u64(keel::StringRef(portPart.data(), static_cast<keel::isize>(portPart.size())));
+            if (!portRes.is_ok() || portRes.value() == 0 || portRes.value() > 65535) {
                 return result;
             }
-            result.port = static_cast<uint16_t>(parsedPort);
+            result.port = static_cast<uint16_t>(portRes.value());
         } else {
             result.host = std::string(authority);
         }
@@ -793,7 +793,7 @@ struct WebSocketClient::Impl {
     }
 #elif defined(__EMSCRIPTEN__)
     EMSCRIPTEN_WEBSOCKET_T wsHandle{0};
-    std::deque<WebSocketMessage> incomingQueue{};
+    keel::RingBuffer<WebSocketMessage> incomingQueue{};
 
     void CleanupHandles() noexcept {
         if (wsHandle > 0) {

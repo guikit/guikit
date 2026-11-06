@@ -5,13 +5,12 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
-#include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <thread>
 #include "guikit/core/assets.hpp"
 #include "guikit/core/text_util.hpp"
 #include "guikit/core/tokens.hpp"
+#include "keel/fs.h"
 #include "thorvg.h"
 #if __has_include("tvgLodePng.h")
 #include "tvgLodePng.h"
@@ -45,11 +44,6 @@ std::string ExtractFontName(std::string_view path) {
         }
     }
     return false;
-}
-
-[[nodiscard]] std::filesystem::path Utf8Path(std::string_view utf8) {
-    return std::filesystem::path(
-        std::u8string_view(reinterpret_cast<const char8_t*>(utf8.data()), utf8.size()));
 }
 
 [[nodiscard]] inline uint32_t AlphaBlendSwar(uint32_t c, uint32_t a) noexcept {
@@ -230,25 +224,21 @@ bool ThorCanvas::LoadFontFile(std::string_view path, FontStyle style) {
     // 2. Check disk (UTF-8 aware path resolution, probing direct path and relative parent prefixes)
     const std::string fontName = ExtractFontName(path);
     const std::string_view mime = Assets::InferMimeType(path);
-    const std::filesystem::path relTest = Utf8Path(path);
-    const bool isAbsolute = relTest.is_absolute();
+    const bool isAbsolute = keel::path_is_absolute(keel::StringRef(path.data(), static_cast<keel::isize>(path.size())));
     const std::string_view prefixes[] = {"", "../", "../../", "../../../"};
 
     for (std::string_view prefix : prefixes) {
         if (isAbsolute && !prefix.empty()) break;
         const std::string candidate = std::string(prefix) + std::string(path);
-        std::ifstream ifs(Utf8Path(candidate), std::ios::binary | std::ios::ate);
-        if (!ifs) continue;
-
-        const auto endPos = ifs.tellg();
-        if (endPos <= 0) continue;
-
-        std::vector<uint8_t> bytes(static_cast<size_t>(endPos));
-        ifs.seekg(0, std::ios::beg);
-        if (!ifs.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()))) {
-            continue;
-        }
-        if (LoadFontMemoryInternal(fontName, bytes, style, mime, true)) {
+        auto res = keel::fs_read_file(keel::StringRef(candidate.data(), static_cast<keel::isize>(candidate.size())));
+        if (!res.is_ok() || res.value().empty()) continue;
+        const auto& bytes = res.value();
+        if (LoadFontMemoryInternal(
+                fontName,
+                std::span<const uint8_t>(bytes.data(), static_cast<size_t>(bytes.size())),
+                style,
+                mime,
+                true)) {
             return true;
         }
     }

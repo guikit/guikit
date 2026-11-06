@@ -7,13 +7,12 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
-#include <filesystem>
 #include <format>
-#include <fstream>
 #include <limits>
 #include <memory>
 #include <mutex>
-#include <unordered_map>
+#include "keel/fs.h"
+#include "keel/lru_cache.h"
 
 namespace guikit::geo {
 
@@ -155,21 +154,20 @@ public:
     ) const noexcept override {
         const SlippyTileKey normKey = NormalizeKey(key);
         std::lock_guard<std::mutex> lk(m_mutex);
-        auto it = m_ramCache.find(normKey);
-        if (it == m_ramCache.end() || !it->second.image) {
+        CacheEntry* entry = m_ramCache.get(normKey);
+        if (!entry || !entry->image) {
             return nullptr;
         }
 
         // If this entry was synthesized while offline, expire it once the 15s circuit breaker window elapses
-        if (it->second.isFallback) {
+        if (entry->isFallback) {
             const int64_t nowMs = NowSteadyMs();
-            if ((nowMs - it->second.createdAtMs) >= kOfflineRetryIntervalMs) {
+            if ((nowMs - entry->createdAtMs) >= kOfflineRetryIntervalMs) {
                 return nullptr;
             }
         }
 
-        it->second.lastAccess = m_accessCounter.fetch_add(1u, std::memory_order_relaxed);
-        return it->second.image;
+        return entry->image;
     }
 
     [[nodiscard]] std::shared_ptr<const RasterTileImage> FetchTileBlocking(
@@ -204,27 +202,11 @@ public:
         const int64_t nowMs = NowSteadyMs();
         {
             std::lock_guard<std::mutex> lk(m_mutex);
-            if (m_ramCache.size() >= 512 && m_ramCache.find(normKey) == m_ramCache.end()) {
-                uint64_t oldestTick = std::numeric_limits<uint64_t>::max();
-                SlippyTileKey oldestKey{};
-                bool foundOldest = false;
-                for (const auto& [k, v] : m_ramCache) {
-                    if (v.lastAccess < oldestTick) {
-                        oldestTick = v.lastAccess;
-                        oldestKey = k;
-                        foundOldest = true;
-                    }
-                }
-                if (foundOldest) {
-                    m_ramCache.erase(oldestKey);
-                }
-            }
-            m_ramCache[normKey] = CacheEntry{
+            m_ramCache.put(normKey, CacheEntry{
                 .image = tileImg,
-                .lastAccess = m_accessCounter.fetch_add(1u, std::memory_order_relaxed),
                 .createdAtMs = nowMs,
                 .isFallback = isFallback
-            };
+            });
         }
 
         return tileImg;
@@ -240,7 +222,6 @@ private:
 
     struct CacheEntry {
         std::shared_ptr<const RasterTileImage> image{};
-        uint64_t lastAccess{0};
         int64_t createdAtMs{0};
         bool isFallback{false};
     };
@@ -260,22 +241,16 @@ private:
     }
 
     [[nodiscard]] std::vector<uint8_t> LoadOrFetchOsmPng(int z, int x, int y) const {
-        const std::filesystem::path diskPath =
-            std::filesystem::path(m_cacheDir) / std::to_string(z) / std::to_string(x) / (std::to_string(y) + ".png");
+        const std::string dirPath = std::format("{}/{}/{}", m_cacheDir, z, x);
+        const std::string diskPath = std::format("{}/{}.png", dirPath, y);
+        const keel::StringRef diskPathRef(diskPath.data(), static_cast<keel::isize>(diskPath.size()));
 
-        std::error_code ec;
-        if (std::filesystem::exists(diskPath, ec)) {
-            std::ifstream in(diskPath, std::ios::binary | std::ios::ate);
-            if (in) {
-                const auto fileSize = in.tellg();
-                if (fileSize > 32 && fileSize < 4 * 1024 * 1024) {
-                    std::vector<uint8_t> buf(static_cast<size_t>(fileSize));
-                    in.seekg(0, std::ios::beg);
-                    if (in.read(reinterpret_cast<char*>(buf.data()), fileSize)) {
-                        if (buf.size() >= 8 && buf[0] == 0x89 && buf[1] == 'P' && buf[2] == 'N' && buf[3] == 'G') {
-                            return buf;
-                        }
-                    }
+        if (keel::fs_exists(diskPathRef)) {
+            if (auto fileRes = keel::fs_read_file(diskPathRef); fileRes.is_ok()) {
+                const auto& buf = fileRes.value();
+                if (buf.size() > 32 && buf.size() < 4 * 1024 * 1024 &&
+                    buf[0] == 0x89 && buf[1] == 'P' && buf[2] == 'N' && buf[3] == 'G') {
+                    return std::vector<uint8_t>(buf.begin(), buf.end());
                 }
             }
         }
@@ -299,25 +274,20 @@ private:
         const guikit::net::HttpResponse resp = m_httpClient.Execute(req);
         if (resp.Succeeded() && resp.body.size() >= 32 &&
             resp.body[0] == 0x89 && resp.body[1] == 'P' && resp.body[2] == 'N' && resp.body[3] == 'G') {
-            std::filesystem::create_directories(diskPath.parent_path(), ec);
+            (void)keel::fs_create_dirs(keel::StringRef(dirPath.data(), static_cast<keel::isize>(dirPath.size())));
 
             // Atomic write via temporary file + rename so concurrent readers never observe partial PNGs
             const uint64_t tmpId = m_accessCounter.fetch_add(1u, std::memory_order_relaxed);
-            const std::filesystem::path tmpPath =
-                diskPath.parent_path() / std::format("{}.tmp.{}.png", y, tmpId);
-            {
-                std::ofstream out(tmpPath, std::ios::binary | std::ios::trunc);
-                if (out) {
-                    out.write(
-                        reinterpret_cast<const char*>(resp.body.data()),
-                        static_cast<std::streamsize>(resp.body.size())
-                    );
-                    out.flush();
+            const std::string tmpPath = std::format("{}/{}.tmp.{}.png", dirPath, y, tmpId);
+            const keel::StringRef tmpPathRef(tmpPath.data(), static_cast<keel::isize>(tmpPath.size()));
+            if (!keel::fs_write_file(
+                    tmpPathRef,
+                    keel::ArrayRef<keel::u8>(resp.body.data(), static_cast<keel::isize>(resp.body.size())))) {
+                if (keel::fs_rename(tmpPathRef, diskPathRef)) {
+                    (void)keel::fs_remove(tmpPathRef);
                 }
-            }
-            std::filesystem::rename(tmpPath, diskPath, ec);
-            if (ec) {
-                std::filesystem::remove(tmpPath, ec);
+            } else {
+                (void)keel::fs_remove(tmpPathRef);
             }
             return resp.body;
         }
@@ -362,7 +332,7 @@ private:
     std::string m_cacheDir;
     guikit::net::HttpClient m_httpClient;
     mutable std::mutex m_mutex{};
-    mutable std::unordered_map<SlippyTileKey, CacheEntry, SlippyTileKeyHash> m_ramCache{};
+    mutable keel::LruCache<SlippyTileKey, CacheEntry, 512, SlippyTileKeyHash> m_ramCache{};
     mutable std::atomic<uint64_t> m_accessCounter{1};
     mutable std::atomic<int64_t> m_lastNetworkFailureMs{0};
 };

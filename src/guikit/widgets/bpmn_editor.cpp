@@ -4498,7 +4498,7 @@ BpmnEditorResponse BpmnEditor::Run(
                 }
             } else if (ctx.ConsumeShortcut(Key::V, true, false) && !state.clipboardNodes.empty()) {
                 state.PushUndo(diagram);
-                std::unordered_map<uint32_t, uint32_t> idMap;
+                keel::HashMap<uint32_t, uint32_t> idMap;
                 state.selectedNodes.clear();
                 for (BpmnNode copy : state.clipboardNodes) {
                     const uint32_t oldId = copy.id;
@@ -4506,12 +4506,14 @@ BpmnEditorResponse BpmnEditor::Run(
                     copy.pos.x += 40.0f;
                     copy.pos.y += 40.0f;
                     const uint32_t newId = diagram.AddNode(std::move(copy));
-                    idMap[oldId] = newId;
+                    idMap.put(oldId, newId);
                     state.selectedNodes.push_back(newId);
                 }
                 for (const auto& e : state.clipboardEdges) {
-                    if (idMap.contains(e.fromNodeId) && idMap.contains(e.toNodeId)) {
-                        diagram.AddEdge(idMap[e.fromNodeId], idMap[e.toNodeId], e.flowType, e.label, e.fromPort, e.toPort);
+                    const uint32_t* fromNew = idMap.get(e.fromNodeId);
+                    const uint32_t* toNew = idMap.get(e.toNodeId);
+                    if (fromNew && toNew) {
+                        diagram.AddEdge(*fromNew, *toNew, e.flowType, e.label, e.fromPort, e.toPort);
                     }
                 }
                 state.primaryNodeId = state.selectedNodes.empty() ? 0 : state.selectedNodes.back();
@@ -4973,10 +4975,14 @@ bool BpmnEditor::ImportBpmnXml(std::string_view xml, BpmnDiagram& outDiagram) {
     parsed.Clear();
     parsed.name = "Imported BPMN 2.0 Process";
 
-    std::unordered_map<std::string, uint32_t> nodeIdMap;
-    std::unordered_map<std::string, uint32_t> laneIdMap;
-    std::unordered_map<std::string, uint32_t> edgeIdMap;
+    keel::HashMap<keel::String, uint32_t> nodeIdMap;
+    keel::HashMap<keel::String, uint32_t> laneIdMap;
+    keel::HashMap<keel::String, uint32_t> edgeIdMap;
     std::vector<std::pair<uint32_t, std::string>> pendingBoundaryAttach;
+
+    auto toRef = [](std::string_view sv) noexcept {
+        return keel::StringRef(sv.data(), static_cast<keel::isize>(sv.size()));
+    };
 
     size_t pos = 0;
     while (pos < xml.size()) {
@@ -5013,7 +5019,7 @@ bool BpmnEditor::ImportBpmnXml(std::string_view xml, BpmnDiagram& outDiagram) {
             l.name = name.empty() ? "Lane" : name;
             l.poolName = poolName;
             l.rect = Rect(80.0f, 80.0f + static_cast<float>(parsed.lanes.size()) * 190.0f, 1280.0f, 190.0f);
-            laneIdMap[xmlId] = l.id;
+            laneIdMap.put(keel::String::from(toRef(xmlId)), l.id);
             parsed.lanes.push_back(std::move(l));
         } else if (localName == "startEvent" || localName == "intermediateCatchEvent" || localName == "intermediateThrowEvent" ||
                    localName == "boundaryEvent" || localName == "endEvent" ||
@@ -5078,20 +5084,22 @@ bool BpmnEditor::ImportBpmnXml(std::string_view xml, BpmnDiagram& outDiagram) {
                 }
             }
 
-            nodeIdMap[xmlId] = n.id;
+            nodeIdMap.put(keel::String::from(toRef(xmlId)), n.id);
             parsed.nodes.push_back(std::move(n));
         } else if (localName == "sequenceFlow" || localName == "messageFlow" || localName == "association") {
             const std::string xmlId = ExtractXmlAttr(tagContent, "id");
             const std::string srcRef = ExtractXmlAttr(tagContent, "sourceRef");
             const std::string dstRef = ExtractXmlAttr(tagContent, "targetRef");
-            if (!nodeIdMap.contains(srcRef) || !nodeIdMap.contains(dstRef)) continue;
+            const uint32_t* srcIdPtr = nodeIdMap.get(toRef(srcRef));
+            const uint32_t* dstIdPtr = nodeIdMap.get(toRef(dstRef));
+            if (!srcIdPtr || !dstIdPtr) continue;
 
             BpmnEdge e{};
             e.id = ParseTrailingIdNumber(xmlId);
             if (e.id == 0) e.id = parsed.nextId++;
             else parsed.nextId = std::max(parsed.nextId, e.id + 1);
-            e.fromNodeId = nodeIdMap[srcRef];
-            e.toNodeId = nodeIdMap[dstRef];
+            e.fromNodeId = *srcIdPtr;
+            e.toNodeId = *dstIdPtr;
             e.label = ExtractXmlAttr(tagContent, "name");
             if (localName == "messageFlow") e.flowType = BpmnFlowType::MessageFlow;
             else if (localName == "association") e.flowType = BpmnFlowType::Association;
@@ -5099,7 +5107,7 @@ bool BpmnEditor::ImportBpmnXml(std::string_view xml, BpmnDiagram& outDiagram) {
             else if (ExtractXmlAttr(tagContent, "isConditional") == "true") e.flowType = BpmnFlowType::ConditionalFlow;
             else e.flowType = BpmnFlowType::SequenceFlow;
 
-            if (!xmlId.empty()) edgeIdMap[xmlId] = e.id;
+            if (!xmlId.empty()) edgeIdMap.put(keel::String::from(toRef(xmlId)), e.id);
             parsed.edges.push_back(std::move(e));
         } else if (localName == "BPMNShape") {
             const std::string elemRef = ExtractXmlAttr(tagContent, "bpmnElement");
@@ -5117,14 +5125,14 @@ bool BpmnEditor::ImportBpmnXml(std::string_view xml, BpmnDiagram& outDiagram) {
                         const float y = ExtractXmlFloatAttr(bTag, "y", 0.0f);
                         const float w = ExtractXmlFloatAttr(bTag, "width", 100.0f);
                         const float h = ExtractXmlFloatAttr(bTag, "height", 80.0f);
-                        if (nodeIdMap.contains(elemRef)) {
-                            if (BpmnNode* n = parsed.FindNode(nodeIdMap[elemRef])) {
+                        if (const uint32_t* nidPtr = nodeIdMap.get(toRef(elemRef))) {
+                            if (BpmnNode* n = parsed.FindNode(*nidPtr)) {
                                 n->pos = {x, y};
                                 n->size = {w, h};
                                 if (!expandedStr.empty()) n->isExpanded = (expandedStr == "true");
                             }
-                        } else if (laneIdMap.contains(elemRef)) {
-                            if (BpmnLane* l = parsed.FindLane(laneIdMap[elemRef])) {
+                        } else if (const uint32_t* lidPtr = laneIdMap.get(toRef(elemRef))) {
+                            if (BpmnLane* l = parsed.FindLane(*lidPtr)) {
                                 l->rect = Rect(x, y, w, h);
                             }
                         }
@@ -5136,7 +5144,8 @@ bool BpmnEditor::ImportBpmnXml(std::string_view xml, BpmnDiagram& outDiagram) {
             const std::string elemRef = ExtractXmlAttr(tagContent, "bpmnElement");
             const size_t edgeEnd = xml.find("</bpmndi:BPMNEdge>", pos);
             const size_t altEnd = (edgeEnd == std::string_view::npos) ? xml.find("</BPMNEdge>", pos) : edgeEnd;
-            if (altEnd != std::string_view::npos && edgeIdMap.contains(elemRef)) {
+            const uint32_t* eidPtr = edgeIdMap.get(toRef(elemRef));
+            if (altEnd != std::string_view::npos && eidPtr) {
                 const std::string_view edgeBody = xml.substr(pos, altEnd - pos);
                 std::vector<Vec2> allPts;
                 size_t wpScan = 0;
@@ -5150,7 +5159,7 @@ bool BpmnEditor::ImportBpmnXml(std::string_view xml, BpmnDiagram& outDiagram) {
                     wpScan = wEnd + 1;
                 }
                 if (allPts.size() > 2) {
-                    if (BpmnEdge* e = parsed.FindEdge(edgeIdMap[elemRef])) {
+                    if (BpmnEdge* e = parsed.FindEdge(*eidPtr)) {
                         e->waypoints.assign(allPts.begin() + 1, allPts.end() - 1);
                     }
                 }
@@ -5160,9 +5169,9 @@ bool BpmnEditor::ImportBpmnXml(std::string_view xml, BpmnDiagram& outDiagram) {
     }
 
     for (const auto& [bid, hostXmlId] : pendingBoundaryAttach) {
-        if (nodeIdMap.contains(hostXmlId)) {
+        if (const uint32_t* hostIdPtr = nodeIdMap.get(toRef(hostXmlId))) {
             BpmnNode* bn = parsed.FindNode(bid);
-            const BpmnNode* host = parsed.FindNode(nodeIdMap[hostXmlId]);
+            const BpmnNode* host = parsed.FindNode(*hostIdPtr);
             if (bn && host) {
                 bn->attachedToNodeId = host->id;
                 bn->boundaryRatioX = std::clamp((bn->Center().x - host->pos.x) / std::max(1.0f, host->size.x), 0.15f, 0.85f);

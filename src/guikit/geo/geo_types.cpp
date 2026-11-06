@@ -1,15 +1,15 @@
 #include "guikit/geo/geo_types.hpp"
 #include "guikit/geo/polygon_triangulator.hpp"
+#include "keel/lru_cache.h"
+#include "keel/number.h"
 #include <algorithm>
 #include <array>
 #include <cctype>
-#include <charconv>
 #include <cmath>
 #include <cstdio>
 #include <format>
 #include <mutex>
 #include <numbers>
-#include <unordered_map>
 
 namespace guikit::geo {
 
@@ -499,9 +499,10 @@ void GeoFeature::ResolveDisplayName(size_t fallbackIndex, std::string_view layer
                 if (const auto* d = std::get_if<double>(&v.value)) depthMeters = static_cast<float>(*d);
                 else if (const auto* i = std::get_if<int64_t>(&v.value)) depthMeters = static_cast<float>(*i);
                 else if (const auto* s = std::get_if<std::string>(&v.value)) {
-                    float fVal = 0.0f;
-                    const auto [ptr, ec] = std::from_chars(s->data(), s->data() + s->size(), fVal);
-                    if (ec == std::errc{}) depthMeters = fVal;
+                    if (const auto res = keel::parse_f32(keel::StringRef(s->data(), static_cast<keel::isize>(s->size())));
+                        res.is_ok()) {
+                        depthMeters = res.value();
+                    }
                 }
             }
         } else if (EqualsIgnoreCaseAscii(k, "drval1") || EqualsIgnoreCaseAscii(k, "min_depth_m") ||
@@ -510,9 +511,10 @@ void GeoFeature::ResolveDisplayName(size_t fallbackIndex, std::string_view layer
                 if (const auto* d = std::get_if<double>(&v.value)) minDepthMeters = static_cast<float>(*d);
                 else if (const auto* i = std::get_if<int64_t>(&v.value)) minDepthMeters = static_cast<float>(*i);
                 else if (const auto* s = std::get_if<std::string>(&v.value)) {
-                    float fVal = 0.0f;
-                    const auto [ptr, ec] = std::from_chars(s->data(), s->data() + s->size(), fVal);
-                    if (ec == std::errc{}) minDepthMeters = fVal;
+                    if (const auto res = keel::parse_f32(keel::StringRef(s->data(), static_cast<keel::isize>(s->size())));
+                        res.is_ok()) {
+                        minDepthMeters = res.value();
+                    }
                 }
             }
         } else if (EqualsIgnoreCaseAscii(k, "drval2") || EqualsIgnoreCaseAscii(k, "max_depth_m") ||
@@ -521,9 +523,10 @@ void GeoFeature::ResolveDisplayName(size_t fallbackIndex, std::string_view layer
                 if (const auto* d = std::get_if<double>(&v.value)) maxDepthMeters = static_cast<float>(*d);
                 else if (const auto* i = std::get_if<int64_t>(&v.value)) maxDepthMeters = static_cast<float>(*i);
                 else if (const auto* s = std::get_if<std::string>(&v.value)) {
-                    float fVal = 0.0f;
-                    const auto [ptr, ec] = std::from_chars(s->data(), s->data() + s->size(), fVal);
-                    if (ec == std::errc{}) maxDepthMeters = fVal;
+                    if (const auto res = keel::parse_f32(keel::StringRef(s->data(), static_cast<keel::isize>(s->size())));
+                        res.is_ok()) {
+                        maxDepthMeters = res.value();
+                    }
                 }
             }
         } else if (EqualsIgnoreCaseAscii(k, "colour") || EqualsIgnoreCaseAscii(k, "color")) {
@@ -1492,8 +1495,8 @@ public:
     ) const noexcept override {
         const SlippyTileKey normKey = NormalizeKey(key);
         std::lock_guard<std::mutex> lk(m_mutex);
-        auto it = m_cache.find(normKey);
-        return (it != m_cache.end()) ? it->second : nullptr;
+        auto* cached = m_cache.get(normKey);
+        return cached ? *cached : nullptr;
     }
 
     [[nodiscard]] std::shared_ptr<const RasterTileImage> FetchTileBlocking(
@@ -1538,10 +1541,7 @@ public:
 
         {
             std::lock_guard<std::mutex> lk(m_mutex);
-            if (m_cache.size() >= 256) {
-                m_cache.erase(m_cache.begin());
-            }
-            m_cache[normKey] = tileImg;
+            m_cache.put(normKey, tileImg);
         }
         return tileImg;
     }
@@ -1562,7 +1562,7 @@ private:
     }
 
     mutable std::mutex m_mutex{};
-    mutable std::unordered_map<SlippyTileKey, std::shared_ptr<const RasterTileImage>, SlippyTileKeyHash> m_cache{};
+    mutable keel::LruCache<SlippyTileKey, std::shared_ptr<const RasterTileImage>, 256, SlippyTileKeyHash> m_cache{};
 };
 
 } // namespace

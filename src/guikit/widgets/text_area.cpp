@@ -2,7 +2,6 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
-#include <charconv>
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -14,6 +13,7 @@
 #include "guikit/core/text_util.hpp"
 #include "guikit/panels/toolbar.hpp"
 #include "guikit/widgets/button.hpp"
+#include "keel/number.h"
 
 namespace guikit {
 
@@ -2308,9 +2308,10 @@ TextAreaResponse TextArea::Run(
                     performReplaceOne();
                 }
             } else if (state.overlayFocus == 3) {
-                size_t targetLine1 = 0;
-                const auto [ptr, ec] = std::from_chars(state.gotoQuery.data(), state.gotoQuery.data() + state.gotoQuery.size(), targetLine1);
-                if (ec == std::errc{} && targetLine1 >= 1) {
+                const auto lineRes = keel::parse_u64(
+                    keel::StringRef(state.gotoQuery.data(), static_cast<keel::isize>(state.gotoQuery.size())));
+                if (lineRes.is_ok() && lineRes.value() >= 1) {
+                    const size_t targetLine1 = static_cast<size_t>(lineRes.value());
                     const size_t line0 = std::min(targetLine1 - 1, logicalLines.size() - 1);
                     const size_t destOffset = logicalLines[line0].startOffset;
                     ctx.SetTextEditCursor(id, destOffset, destOffset);

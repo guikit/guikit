@@ -1,6 +1,8 @@
 #include "guikit/geo/gis_render_engine.hpp"
 #include "guikit/geo/polygon_triangulator.hpp"
 #include "guikit/backend/vector_backend.hpp"
+#include "keel/hash_map.h"
+#include "keel/hash_set.h"
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -8,13 +10,10 @@
 #include <condition_variable>
 #include <cstdio>
 #include <cstring>
-#include <deque>
 #include <format>
 #include <memory>
 #include <mutex>
 #include <thread>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 namespace guikit::geo {
@@ -1361,7 +1360,7 @@ public:
         {
             std::scoped_lock lk(m_windowMutex, m_tileMutex, m_basemapMutex);
             m_shutdown.store(true, std::memory_order_release);
-            for (auto& [uid, genPtr] : m_layerWindowGenerations) {
+            for (auto [uid, genPtr] : m_layerWindowGenerations) {
                 if (genPtr) genPtr->fetch_add(1, std::memory_order_relaxed);
             }
             m_pendingWindowJobs.clear();
@@ -1385,7 +1384,7 @@ public:
         const uint64_t newEpoch = m_epoch.fetch_add(1, std::memory_order_acq_rel) + 1;
         {
             std::scoped_lock lk(m_windowMutex);
-            for (auto& [uid, genPtr] : m_layerWindowGenerations) {
+            for (auto [uid, genPtr] : m_layerWindowGenerations) {
                 if (genPtr) genPtr->fetch_add(1, std::memory_order_relaxed);
             }
             m_pendingWindowJobs.clear();
@@ -1425,21 +1424,19 @@ public:
         if (!layer.pager) return;
         const uint64_t layerUid = layer.uid;
         std::scoped_lock lk(m_windowMutex);
-        auto& genPtr = m_layerWindowGenerations[layerUid];
+        auto& genPtr = m_layerWindowGenerations.get_or_insert(layerUid);
         if (!genPtr) {
             genPtr = std::make_shared<std::atomic<uint64_t>>(0);
         }
 
         // Check if an identical window job is already pending or in-flight
-        auto pIt = m_pendingWindowJobs.find(layerUid);
-        if (pIt != m_pendingWindowJobs.end()) {
-            const AsyncWindowJob& cur = pIt->second;
-            if (std::abs(cur.req.tileZoom - tileZoom) < 0.05f &&
-                cur.req.scaleFiltering == scaleFiltering &&
-                std::abs(cur.req.viewBounds.nw.lat - visibleGeo.nw.lat) < 1e-6 &&
-                std::abs(cur.req.viewBounds.nw.lon - visibleGeo.nw.lon) < 1e-6 &&
-                std::abs(cur.req.viewBounds.se.lat - visibleGeo.se.lat) < 1e-6 &&
-                std::abs(cur.req.viewBounds.se.lon - visibleGeo.se.lon) < 1e-6) {
+        if (const AsyncWindowJob* cur = m_pendingWindowJobs.get(layerUid)) {
+            if (std::abs(cur->req.tileZoom - tileZoom) < 0.05f &&
+                cur->req.scaleFiltering == scaleFiltering &&
+                std::abs(cur->req.viewBounds.nw.lat - visibleGeo.nw.lat) < 1e-6 &&
+                std::abs(cur->req.viewBounds.nw.lon - visibleGeo.nw.lon) < 1e-6 &&
+                std::abs(cur->req.viewBounds.se.lat - visibleGeo.se.lat) < 1e-6 &&
+                std::abs(cur->req.viewBounds.se.lon - visibleGeo.se.lon) < 1e-6) {
                 return;
             }
         }
@@ -1471,13 +1468,13 @@ public:
         req.frameTick = frameTick;
         req.requestGeneration = nextGen;
 
-        m_pendingWindowJobs[layerUid] = AsyncWindowJob{
+        m_pendingWindowJobs.put(layerUid, AsyncWindowJob{
             .layerUid = layerUid,
             .pager = layer.pager,
             .req = req,
             .epoch = GetCurrentEpoch(),
             .activeGenPtr = genPtr
-        };
+        });
         m_windowCv.notify_one();
     }
 
@@ -1487,9 +1484,8 @@ public:
         std::scoped_lock lk(m_windowMutex);
         for (AsyncWindowResult& res : m_completedWindowResults) {
             if (res.epoch != curEpoch || !res.snapshot) continue;
-            auto gIt = m_layerWindowGenerations.find(res.layerUid);
-            if (gIt != m_layerWindowGenerations.end() && gIt->second) {
-                if (res.generation < gIt->second->load(std::memory_order_relaxed)) {
+            if (const auto* gPtr = m_layerWindowGenerations.get(res.layerUid); gPtr && *gPtr) {
+                if (res.generation < (*gPtr)->load(std::memory_order_relaxed)) {
                     continue; // Superseded by a newer window request for this layer
                 }
             }
@@ -1500,7 +1496,7 @@ public:
 
     [[nodiscard]] size_t GetPendingWindowCount() const {
         std::scoped_lock lk(m_windowMutex);
-        return m_pendingWindowJobs.size() + m_inFlightWindowCount + m_completedWindowResults.size();
+        return static_cast<size_t>(m_pendingWindowJobs.size()) + m_inFlightWindowCount + m_completedWindowResults.size();
     }
 
     [[nodiscard]] bool IsLayerWindowPending(uint64_t layerUid) const {
@@ -1508,7 +1504,7 @@ public:
         if (m_inFlightWindowLayerUid == layerUid && m_inFlightWindowCount > 0) {
             return true;
         }
-        if (m_pendingWindowJobs.find(layerUid) != m_pendingWindowJobs.end()) {
+        if (m_pendingWindowJobs.contains(layerUid)) {
             return true;
         }
         for (const AsyncWindowResult& res : m_completedWindowResults) {
@@ -1521,9 +1517,10 @@ public:
 
     [[nodiscard]] bool IsLayerTilePending(const AsyncLayerTileJobKey& key, uint64_t styleHash, uint64_t windowUpdateFrame) const {
         std::scoped_lock lk(m_tileMutex);
-        auto it = m_inFlightTileKeys.find(key);
-        if (it != m_inFlightTileKeys.end() && it->second.first == styleHash && it->second.second == windowUpdateFrame) {
-            return true;
+        if (const auto* inFlight = m_inFlightTileKeys.get(key)) {
+            if (inFlight->first == styleHash && inFlight->second == windowUpdateFrame) {
+                return true;
+            }
         }
         for (const AsyncLayerTileJob& job : m_pendingTileJobs) {
             if (job.jobKey == key && job.styleHash == styleHash && job.windowUpdateFrame == windowUpdateFrame) {
@@ -1542,11 +1539,10 @@ public:
         job.epoch = GetCurrentEpoch();
         {
             std::scoped_lock lk(m_tileMutex);
-            auto inFlightIt = m_inFlightTileKeys.find(job.jobKey);
-            if (inFlightIt != m_inFlightTileKeys.end() &&
-                inFlightIt->second.first == job.styleHash &&
-                inFlightIt->second.second == job.windowUpdateFrame) {
-                return;
+            if (const auto* inFlight = m_inFlightTileKeys.get(job.jobKey)) {
+                if (inFlight->first == job.styleHash && inFlight->second == job.windowUpdateFrame) {
+                    return;
+                }
             }
             for (AsyncLayerTileJob& existing : m_pendingTileJobs) {
                 if (existing.jobKey == job.jobKey) {
@@ -1600,7 +1596,7 @@ public:
         }
         {
             std::scoped_lock lk(m_basemapMutex);
-            if (m_inFlightBasemapKeys.find(tileKey) != m_inFlightBasemapKeys.end()) {
+            if (m_inFlightBasemapKeys.contains(tileKey)) {
                 return;
             }
             for (AsyncBasemapJob& existing : m_pendingBasemapJobs) {
@@ -1668,8 +1664,9 @@ private:
                     break;
                 }
                 auto it = m_pendingWindowJobs.begin();
-                job = std::move(it->second);
-                m_pendingWindowJobs.erase(it);
+                const uint64_t kUid = (*it).key;
+                job = std::move((*it).value);
+                m_pendingWindowJobs.remove(kUid);
                 m_inFlightWindowCount = 1;
                 m_inFlightWindowLayerUid = job.layerUid;
                 m_inFlightWindowGeo = job.req.viewBounds;
@@ -1740,7 +1737,7 @@ private:
                 }
                 job = std::move(*bestIt);
                 m_pendingTileJobs.erase(bestIt);
-                m_inFlightTileKeys[job.jobKey] = {job.styleHash, job.windowUpdateFrame};
+                m_inFlightTileKeys.put(job.jobKey, std::pair<uint64_t, uint64_t>{job.styleHash, job.windowUpdateFrame});
                 ++m_inFlightTileCount;
             }
 
@@ -1801,7 +1798,7 @@ private:
 
                 if (!aborted && job.epoch == GetCurrentEpoch()) {
                     std::scoped_lock lk(m_tileMutex);
-                    m_inFlightTileKeys.erase(job.jobKey);
+                    m_inFlightTileKeys.remove(job.jobKey);
                     if (m_inFlightTileCount > 0) --m_inFlightTileCount;
                     m_completedTileResults.push_back(std::move(res));
                     continue;
@@ -1810,7 +1807,7 @@ private:
 
             {
                 std::scoped_lock lk(m_tileMutex);
-                m_inFlightTileKeys.erase(job.jobKey);
+                m_inFlightTileKeys.remove(job.jobKey);
                 if (m_inFlightTileCount > 0) --m_inFlightTileCount;
             }
         }
@@ -1855,7 +1852,7 @@ private:
 
             {
                 std::scoped_lock lk(m_basemapMutex);
-                m_inFlightBasemapKeys.erase(job.tileKey);
+                m_inFlightBasemapKeys.remove(job.tileKey);
                 if (m_inFlightBasemapCount > 0) --m_inFlightBasemapCount;
                 if (img && img->IsValid() && job.epoch == GetCurrentEpoch()) {
                     m_completedBasemapResults.push_back(AsyncBasemapResult{
@@ -1875,8 +1872,8 @@ private:
 
     mutable std::mutex m_windowMutex;
     std::condition_variable m_windowCv;
-    std::unordered_map<uint64_t, std::shared_ptr<std::atomic<uint64_t>>> m_layerWindowGenerations;
-    std::unordered_map<uint64_t, AsyncWindowJob> m_pendingWindowJobs;
+    keel::HashMap<uint64_t, std::shared_ptr<std::atomic<uint64_t>>> m_layerWindowGenerations;
+    keel::HashMap<uint64_t, AsyncWindowJob> m_pendingWindowJobs;
     std::vector<AsyncWindowResult> m_completedWindowResults;
     size_t m_inFlightWindowCount{0};
     uint64_t m_inFlightWindowLayerUid{0};
@@ -1887,16 +1884,16 @@ private:
 
     mutable std::mutex m_tileMutex;
     std::condition_variable m_tileCv;
-    std::deque<AsyncLayerTileJob> m_pendingTileJobs;
-    std::unordered_map<AsyncLayerTileJobKey, std::pair<uint64_t, uint64_t>, AsyncLayerTileJobKeyHasher> m_inFlightTileKeys;
+    std::vector<AsyncLayerTileJob> m_pendingTileJobs;
+    keel::HashMap<AsyncLayerTileJobKey, std::pair<uint64_t, uint64_t>, AsyncLayerTileJobKeyHasher> m_inFlightTileKeys;
     std::vector<AsyncLayerTileResult> m_completedTileResults;
     size_t m_inFlightTileCount{0};
     std::vector<std::thread> m_tileWorkers;
 
     mutable std::mutex m_basemapMutex;
     std::condition_variable m_basemapCv;
-    std::deque<AsyncBasemapJob> m_pendingBasemapJobs;
-    std::unordered_set<geo::SlippyTileKey, geo::SlippyTileKeyHash> m_inFlightBasemapKeys;
+    std::vector<AsyncBasemapJob> m_pendingBasemapJobs;
+    keel::HashSet<geo::SlippyTileKey, geo::SlippyTileKeyHash> m_inFlightBasemapKeys;
     std::vector<AsyncBasemapResult> m_completedBasemapResults;
     size_t m_inFlightBasemapCount{0};
     std::vector<std::thread> m_basemapWorkers;
@@ -1933,7 +1930,7 @@ public:
     struct LayerTileStore {
         uint64_t activeTopologyHash{0};
         uint64_t lastWindowUpdateFrame{1};
-        std::unordered_map<TileCoordKey, CachedVectorTile, TileCoordKeyHasher> tiles;
+        keel::HashMap<TileCoordKey, CachedVectorTile, TileCoordKeyHasher> tiles{nullptr};
     };
 
     struct CompositeLayerRef {
@@ -1968,7 +1965,7 @@ public:
             m_activeBasemapSourceId = std::string(basemapSourceId);
             m_basemapTiles.clear();
             ++m_basemapGeneration;
-            for (auto& [k, comp] : m_compositeTiles) {
+            for (auto [k, comp] : m_compositeTiles) {
                 comp.isComplete = false;
                 comp.compositeSignature = 0ULL;
             }
@@ -1982,12 +1979,20 @@ public:
     [[nodiscard]] guikit::MapCrs GetActiveCrs() const noexcept { return m_activeCrs; }
 
     void GarbageCollectLayers(std::span<const geo::GeoLayer> layers) {
-        std::erase_if(m_layerStores, [&](const auto& kv) {
+        std::vector<uint64_t> staleUids;
+        for (auto [uid, store] : m_layerStores) {
+            bool found = false;
             for (const geo::GeoLayer& lyr : layers) {
-                if (lyr.uid == kv.first) return false;
+                if (lyr.uid == uid) {
+                    found = true;
+                    break;
+                }
             }
-            return true;
-        });
+            if (!found) staleUids.push_back(uid);
+        }
+        for (uint64_t uid : staleUids) {
+            m_layerStores.remove(uid);
+        }
     }
 
     [[nodiscard]] LayerTileStore& SyncLayerStore(
@@ -2002,12 +2007,12 @@ public:
             : layer.features.size();
         HashCombineVal(topoHash, fCount);
 
-        LayerTileStore& store = m_layerStores[layer.uid];
+        LayerTileStore& store = m_layerStores.get_or_insert(layer.uid);
         if (store.activeTopologyHash != topoHash) {
             store.tiles.clear();
             store.activeTopologyHash = topoHash;
             ++store.lastWindowUpdateFrame;
-            for (auto& [tileKey, comp] : m_compositeTiles) {
+            for (auto [tileKey, comp] : m_compositeTiles) {
                 comp.isComplete = false;
                 comp.compositeSignature = 0ULL;
             }
@@ -2020,37 +2025,38 @@ public:
         std::span<const guikit::Rect> dirtiedNormBoxes,
         uint64_t frameTick = 0
     ) noexcept {
-        auto sIt = m_layerStores.find(layerUid);
-        if (sIt != m_layerStores.end() && frameTick > 0) {
-            sIt->second.lastWindowUpdateFrame = frameTick;
+        LayerTileStore* storePtr = m_layerStores.get(layerUid);
+        if (storePtr && frameTick > 0) {
+            storePtr->lastWindowUpdateFrame = frameTick;
         }
         size_t invalidatedCount = 0;
-        if (sIt != m_layerStores.end()) {
-            LayerTileStore& store = sIt->second;
-            for (auto it = store.tiles.begin(); it != store.tiles.end();) {
-                bool shouldInvalidate = !it->second.hasAnyGeometry;
+        if (storePtr) {
+            LayerTileStore& store = *storePtr;
+            std::vector<TileCoordKey> toErase;
+            for (auto [tileKey, tile] : store.tiles) {
+                bool shouldInvalidate = !tile.hasAnyGeometry;
                 if (!shouldInvalidate) {
                     for (const guikit::Rect& dirtyBox : dirtiedNormBoxes) {
-                        if (it->second.normQueryBox.Intersects(dirtyBox)) {
+                        if (tile.normQueryBox.Intersects(dirtyBox)) {
                             shouldInvalidate = true;
                             break;
                         }
                     }
                 }
                 if (shouldInvalidate) {
-                    auto cIt = m_compositeTiles.find(it->first);
-                    if (cIt != m_compositeTiles.end()) {
-                        cIt->second.isComplete = false;
-                        cIt->second.compositeSignature = 0ULL;
+                    if (CompositeTile* comp = m_compositeTiles.get(tileKey)) {
+                        comp->isComplete = false;
+                        comp->compositeSignature = 0ULL;
                     }
-                    it = store.tiles.erase(it);
-                    ++invalidatedCount;
-                } else {
-                    ++it;
+                    toErase.push_back(tileKey);
                 }
             }
+            for (const TileCoordKey& tk : toErase) {
+                store.tiles.remove(tk);
+                ++invalidatedCount;
+            }
         }
-        for (auto& [tileKey, comp] : m_compositeTiles) {
+        for (auto [tileKey, comp] : m_compositeTiles) {
             if (!comp.isComplete) continue;
             if (dirtiedNormBoxes.empty() && frameTick > 0) {
                 comp.isComplete = false;
@@ -2075,10 +2081,10 @@ public:
         const TileCoordKey& key,
         uint64_t frameTick
     ) noexcept {
-        auto it = store.tiles.find(key);
-        if (it == store.tiles.end()) return nullptr;
-        it->second.lastUsedFrame = frameTick;
-        return &it->second;
+        CachedVectorTile* tile = store.tiles.get(key);
+        if (!tile) return nullptr;
+        tile->lastUsedFrame = frameTick;
+        return tile;
     }
 
     void MarkTileEmpty(
@@ -2088,10 +2094,10 @@ public:
         uint64_t styleHash,
         uint64_t frameTick
     ) const {
-        if (store.tiles.size() >= m_maxLayerTiles && store.tiles.find(key) == store.tiles.end()) {
+        if (static_cast<size_t>(store.tiles.size()) >= m_maxLayerTiles && !store.tiles.contains(key)) {
             EvictOldestLayerTiles(store, m_maxLayerTiles - std::min<size_t>(32u, m_maxLayerTiles / 4u));
         }
-        CachedVectorTile& tile = store.tiles[key];
+        CachedVectorTile& tile = store.tiles.get_or_insert(key);
         tile.pixels.clear();
         tile.normQueryBox = normQueryBox;
         tile.styleHash = styleHash;
@@ -2104,22 +2110,22 @@ public:
         if (res.jobKey.tileSizePx != m_tileSizePx) {
             return false;
         }
-        auto sIt = m_layerStores.find(res.jobKey.layerUid);
-        if (sIt == m_layerStores.end()) {
+        LayerTileStore* storePtr = m_layerStores.get(res.jobKey.layerUid);
+        if (!storePtr) {
             return false;
         }
-        LayerTileStore& store = sIt->second;
+        LayerTileStore& store = *storePtr;
         if (store.activeTopologyHash != res.topologyHash ||
             res.windowUpdateFrame < store.lastWindowUpdateFrame) {
             return false;
         }
 
         const TileCoordKey key{res.jobKey.z, res.jobKey.x, res.jobKey.y};
-        if (store.tiles.size() >= m_maxLayerTiles && store.tiles.find(key) == store.tiles.end()) {
+        if (static_cast<size_t>(store.tiles.size()) >= m_maxLayerTiles && !store.tiles.contains(key)) {
             EvictOldestLayerTiles(store, m_maxLayerTiles - std::min<size_t>(32u, m_maxLayerTiles / 4u));
         }
 
-        CachedVectorTile& tile = store.tiles[key];
+        CachedVectorTile& tile = store.tiles.get_or_insert(key);
         tile.pixels = std::move(res.pixels);
         tile.normQueryBox = res.queryBox;
         tile.styleHash = res.styleHash;
@@ -2127,16 +2133,15 @@ public:
         tile.lastRasterizedFrame = frameTick;
         tile.hasAnyGeometry = res.hasAnyGeometry;
 
-        auto cIt = m_compositeTiles.find(key);
-        if (cIt != m_compositeTiles.end()) {
-            cIt->second.isComplete = false;
-            cIt->second.compositeSignature = 0ULL;
+        if (CompositeTile* comp = m_compositeTiles.get(key)) {
+            comp->isComplete = false;
+            comp->compositeSignature = 0ULL;
         }
         return true;
     }
 
     [[nodiscard]] bool HasBasemapTile(const TileCoordKey& key) const noexcept {
-        return m_basemapTiles.find(key) != m_basemapTiles.end();
+        return m_basemapTiles.contains(key);
     }
 
     [[nodiscard]] uint64_t GetBasemapGeneration() const noexcept {
@@ -2151,17 +2156,17 @@ public:
         if (!img || !img->IsValid() || tileKey.tileSizePx != m_tileSizePx || sourceId != m_activeBasemapSourceId) {
             return false;
         }
-        if (m_basemapTiles.size() >= m_maxCompositeTiles) {
-            m_basemapTiles.erase(m_basemapTiles.begin());
+        if (static_cast<size_t>(m_basemapTiles.size()) >= m_maxCompositeTiles && !m_basemapTiles.empty()) {
+            const TileCoordKey victimKey = (*m_basemapTiles.begin()).key;
+            m_basemapTiles.remove(victimKey);
         }
         const TileCoordKey key{tileKey.z, tileKey.x, tileKey.y};
-        m_basemapTiles[key] = std::move(img);
+        m_basemapTiles.put(key, std::move(img));
         ++m_basemapGeneration;
 
-        auto cIt = m_compositeTiles.find(key);
-        if (cIt != m_compositeTiles.end()) {
-            cIt->second.isComplete = false;
-            cIt->second.compositeSignature = 0ULL;
+        if (CompositeTile* comp = m_compositeTiles.get(key)) {
+            comp->isComplete = false;
+            comp->compositeSignature = 0ULL;
         }
         return true;
     }
@@ -2170,10 +2175,10 @@ public:
         const TileCoordKey& key,
         uint64_t frameTick
     ) noexcept {
-        auto it = m_compositeTiles.find(key);
-        if (it == m_compositeTiles.end()) return nullptr;
-        it->second.lastUsedFrame = frameTick;
-        return &it->second;
+        CompositeTile* comp = m_compositeTiles.get(key);
+        if (!comp) return nullptr;
+        comp->lastUsedFrame = frameTick;
+        return comp;
     }
 
     CompositeTile& BuildCompositeTile(
@@ -2186,11 +2191,11 @@ public:
         bool useBasemapOverlay = false,
         uint8_t basemapOpacityByte = 255
     ) {
-        if (m_compositeTiles.size() >= m_maxCompositeTiles && m_compositeTiles.find(key) == m_compositeTiles.end()) {
+        if (static_cast<size_t>(m_compositeTiles.size()) >= m_maxCompositeTiles && !m_compositeTiles.contains(key)) {
             EvictOldestCompositeTiles(m_maxCompositeTiles - std::min<size_t>(48u, m_maxCompositeTiles / 4u));
         }
         const size_t numTilePx = static_cast<size_t>(m_tileSizePx) * static_cast<size_t>(m_tileSizePx);
-        CompositeTile& comp = m_compositeTiles[key];
+        CompositeTile& comp = m_compositeTiles.get_or_insert(key);
         comp.pixels.assign(numTilePx, bgPx);
         comp.normQueryBox = normQueryBox;
         comp.compositeSignature = compositeSignature;
@@ -2223,9 +2228,8 @@ public:
         uint64_t frameTick
     ) {
         const size_t numTilePx = static_cast<size_t>(m_tileSizePx) * static_cast<size_t>(m_tileSizePx);
-        auto existingIt = m_compositeTiles.find(key);
-        if (existingIt != m_compositeTiles.end() && !existingIt->second.pixels.empty()) {
-            existingIt->second.lastUsedFrame = frameTick;
+        if (CompositeTile* existing = m_compositeTiles.get(key); existing && !existing->pixels.empty()) {
+            existing->lastUsedFrame = frameTick;
             return true;
         }
 
@@ -2235,9 +2239,8 @@ public:
         for (int shift = 1; shift <= 2; ++shift) {
             if (key.z - shift < 0) break;
             const TileCoordKey parentKey{key.z - shift, key.x >> shift, key.y >> shift};
-            auto pIt = m_compositeTiles.find(parentKey);
-            if (pIt != m_compositeTiles.end() && pIt->second.pixels.size() == numTilePx) {
-                pIt->second.lastUsedFrame = frameTick;
+            if (CompositeTile* pTile = m_compositeTiles.get(parentKey); pTile && pTile->pixels.size() == numTilePx) {
+                pTile->lastUsedFrame = frameTick;
                 ancestorShift = shift;
                 foundParentKey = parentKey;
                 break;
@@ -2251,9 +2254,8 @@ public:
             for (int dy = 0; dy < 2; ++dy) {
                 for (int dx = 0; dx < 2; ++dx) {
                     const TileCoordKey childKey{key.z + 1, (key.x << 1) + dx, (key.y << 1) + dy};
-                    auto cIt = m_compositeTiles.find(childKey);
-                    if (cIt != m_compositeTiles.end() && cIt->second.pixels.size() == numTilePx) {
-                        cIt->second.lastUsedFrame = frameTick;
+                    if (CompositeTile* cTile = m_compositeTiles.get(childKey); cTile && cTile->pixels.size() == numTilePx) {
+                        cTile->lastUsedFrame = frameTick;
                         hasChild[dy][dx] = true;
                         ++foundChildren;
                     }
@@ -2266,20 +2268,20 @@ public:
         }
 
         // Perform eviction and map insertion BEFORE taking any pointers into m_compositeTiles!
-        if (m_compositeTiles.size() >= m_maxCompositeTiles && existingIt == m_compositeTiles.end()) {
+        if (static_cast<size_t>(m_compositeTiles.size()) >= m_maxCompositeTiles && !m_compositeTiles.contains(key)) {
             EvictOldestCompositeTiles(m_maxCompositeTiles - std::min<size_t>(48u, m_maxCompositeTiles / 4u));
         }
 
-        CompositeTile& comp = m_compositeTiles[key];
+        CompositeTile& comp = m_compositeTiles.get_or_insert(key);
         comp.pixels.assign(numTilePx, bgPx);
         comp.lastUsedFrame = frameTick;
         comp.isComplete = false;
 
         const CompositeTile* ancestorTile = nullptr;
         if (ancestorShift > 0) {
-            auto pIt = m_compositeTiles.find(foundParentKey);
-            if (pIt != m_compositeTiles.end() && pIt->second.pixels.size() == numTilePx) {
-                ancestorTile = &pIt->second;
+            if (const CompositeTile* pTile = m_compositeTiles.get(foundParentKey);
+                pTile && pTile->pixels.size() == numTilePx) {
+                ancestorTile = pTile;
             }
         }
 
@@ -2304,11 +2306,10 @@ public:
                 for (int dx = 0; dx < 2; ++dx) {
                     if (!hasChild[dy][dx]) continue;
                     const TileCoordKey childKey{key.z + 1, (key.x << 1) + dx, (key.y << 1) + dy};
-                    auto cIt = m_compositeTiles.find(childKey);
-                    if (cIt == m_compositeTiles.end() || cIt->second.pixels.size() != numTilePx) {
+                    const CompositeTile* child = m_compositeTiles.get(childKey);
+                    if (!child || child->pixels.size() != numTilePx) {
                         continue;
                     }
-                    const CompositeTile* child = &cIt->second;
                     const uint32_t dstBaseX = static_cast<uint32_t>(dx) * kHalf;
                     const uint32_t dstBaseY = static_cast<uint32_t>(dy) * kHalf;
                     for (uint32_t y = 0; y < kHalf; ++y) {
@@ -2553,11 +2554,11 @@ public:
             m_tileCanvas = CreateCanvasThreadSafe();
         }
 
-        if (store.tiles.size() >= m_maxLayerTiles && store.tiles.find(key) == store.tiles.end()) {
+        if (static_cast<size_t>(store.tiles.size()) >= m_maxLayerTiles && !store.tiles.contains(key)) {
             EvictOldestLayerTiles(store, m_maxLayerTiles - std::min<size_t>(32u, m_maxLayerTiles / 4u));
         }
 
-        CachedVectorTile& tile = store.tiles[key];
+        CachedVectorTile& tile = store.tiles.get_or_insert(key);
         tile.normQueryBox = queryBox;
         tile.styleHash = styleHash;
         tile.lastUsedFrame = frameTick;
@@ -2592,11 +2593,10 @@ private:
         uint8_t opacityByte
     ) const {
         const size_t numTilePx = static_cast<size_t>(m_tileSizePx) * static_cast<size_t>(m_tileSizePx);
-        auto exactIt = m_basemapTiles.find(key);
-        if (exactIt != m_basemapTiles.end() && exactIt->second &&
-            exactIt->second->rgbaPixels.size() == numTilePx) {
+        if (const auto* exactPtr = m_basemapTiles.get(key);
+            exactPtr && *exactPtr && (*exactPtr)->rgbaPixels.size() == numTilePx) {
             BlendStraightRgbaBasemapOntoComposite(
-                dstPixels, exactIt->second->rgbaPixels.data(), opacityByte, m_tileSizePx
+                dstPixels, (*exactPtr)->rgbaPixels.data(), opacityByte, m_tileSizePx
             );
             return true;
         }
@@ -2605,10 +2605,9 @@ private:
         for (int shift = 1; shift <= 3; ++shift) {
             if (key.z - shift < 0) break;
             const TileCoordKey parentKey{key.z - shift, key.x >> shift, key.y >> shift};
-            auto pIt = m_basemapTiles.find(parentKey);
-            if (pIt != m_basemapTiles.end() && pIt->second &&
-                pIt->second->rgbaPixels.size() == numTilePx) {
-                const uint32_t* srcData = pIt->second->rgbaPixels.data();
+            if (const auto* pPtr = m_basemapTiles.get(parentKey);
+                pPtr && *pPtr && (*pPtr)->rgbaPixels.size() == numTilePx) {
+                const uint32_t* srcData = (*pPtr)->rgbaPixels.data();
                 const uint32_t subSpan = std::max(1u, m_tileSizePx >> shift);
                 const uint32_t qx = static_cast<uint32_t>(key.x & ((1 << shift) - 1)) * subSpan;
                 const uint32_t qy = static_cast<uint32_t>(key.y & ((1 << shift) - 1)) * subSpan;
@@ -2633,26 +2632,30 @@ private:
     }
 
     static void EvictOldestLayerTiles(LayerTileStore& store, size_t targetCount) {
-        while (store.tiles.size() > targetCount) {
-            auto oldestIt = store.tiles.begin();
-            for (auto it = store.tiles.begin(); it != store.tiles.end(); ++it) {
-                if (it->second.lastUsedFrame < oldestIt->second.lastUsedFrame) {
-                    oldestIt = it;
+        while (static_cast<size_t>(store.tiles.size()) > targetCount && !store.tiles.empty()) {
+            TileCoordKey oldestKey = (*store.tiles.begin()).key;
+            uint64_t oldestFrame = (*store.tiles.begin()).value.lastUsedFrame;
+            for (auto [k, v] : store.tiles) {
+                if (v.lastUsedFrame < oldestFrame) {
+                    oldestFrame = v.lastUsedFrame;
+                    oldestKey = k;
                 }
             }
-            store.tiles.erase(oldestIt);
+            store.tiles.remove(oldestKey);
         }
     }
 
     void EvictOldestCompositeTiles(size_t targetCount) {
-        while (m_compositeTiles.size() > targetCount) {
-            auto oldestIt = m_compositeTiles.begin();
-            for (auto it = m_compositeTiles.begin(); it != m_compositeTiles.end(); ++it) {
-                if (it->second.lastUsedFrame < oldestIt->second.lastUsedFrame) {
-                    oldestIt = it;
+        while (static_cast<size_t>(m_compositeTiles.size()) > targetCount && !m_compositeTiles.empty()) {
+            TileCoordKey oldestKey = (*m_compositeTiles.begin()).key;
+            uint64_t oldestFrame = (*m_compositeTiles.begin()).value.lastUsedFrame;
+            for (auto [k, v] : m_compositeTiles) {
+                if (v.lastUsedFrame < oldestFrame) {
+                    oldestFrame = v.lastUsedFrame;
+                    oldestKey = k;
                 }
             }
-            m_compositeTiles.erase(oldestIt);
+            m_compositeTiles.remove(oldestKey);
         }
     }
 
@@ -2665,9 +2668,9 @@ private:
     uint64_t m_basemapGeneration{1};
     size_t m_maxLayerTiles{256};
     size_t m_maxCompositeTiles{384};
-    std::unordered_map<uint64_t, LayerTileStore> m_layerStores;
-    std::unordered_map<TileCoordKey, CompositeTile, TileCoordKeyHasher> m_compositeTiles;
-    std::unordered_map<TileCoordKey, std::shared_ptr<const geo::RasterTileImage>, TileCoordKeyHasher> m_basemapTiles;
+    keel::HashMap<uint64_t, LayerTileStore> m_layerStores;
+    keel::HashMap<TileCoordKey, CompositeTile, TileCoordKeyHasher> m_compositeTiles;
+    keel::HashMap<TileCoordKey, std::shared_ptr<const geo::RasterTileImage>, TileCoordKeyHasher> m_basemapTiles;
     mutable std::vector<uint32_t> m_upscaledBasemapScratch;
     std::vector<uint32_t> m_queryIndices;
     std::vector<guikit::Vec2> m_clippedRing;
@@ -4319,16 +4322,19 @@ GisRenderStats GisRenderEngine::RenderLayers(
             );
             if (layerOpacityByte == 0) continue;
 
-            auto& store = cache.SyncLayerStore(lyr, viewState.crs);
+            (void)cache.SyncLayerStore(lyr, viewState.crs);
             tileLayers.push_back(OrderedLayerEntry{
                 .layerIdx = li,
                 .layer = &lyr,
-                .store = &store,
+                .store = nullptr,
                 .styleHash = ComputeLayerStyleHash(lyr, cfg, viewState.crs),
                 .opacityByte = layerOpacityByte,
                 .cartoRank = CartographicLayerRank(lyr),
                 .isActiveStyle = (static_cast<int32_t>(li) == cfg.activeStyleLayerIdx)
             });
+        }
+        for (OrderedLayerEntry& entry : tileLayers) {
+            entry.store = &cache.SyncLayerStore(*entry.layer, viewState.crs);
         }
 
         // Drain completed background layer tiles AFTER `SyncLayerStore` so `activeTopologyHash` is initialized
