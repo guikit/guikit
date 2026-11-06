@@ -725,141 +725,33 @@ bool GeoFeature::MatchesSearch(std::string_view query) const {
 }
 
 // ============================================================================
-// LayerSpatialIndex — Flat Sort-Tile-Recursive (STR) R-Tree
+// Feature Spatial Index Builder (keel::RTree)
 // ============================================================================
 
-void LayerSpatialIndex::Build(const std::vector<GeoFeature>& features) {
-    Clear();
+namespace {
+
+void BuildFeatureSpatialIndex(keel::RTree<uint32_t, float>& index, const std::vector<GeoFeature>& features) {
+    index.clear();
     if (features.empty()) return;
 
-    struct Item {
-        uint32_t featIdx;
-        guikit::Rect box;
-        float cx;
-        float cy;
-    };
-
-    std::vector<Item> items;
-    items.reserve(features.size());
+    keel::ArenaTemp scratch = keel::get_scratch();
+    auto* items = scratch.arena().alloc_array<keel::RTreeItem<uint32_t, float>>(static_cast<keel::isize>(features.size()));
+    keel::isize count = 0;
     for (uint32_t i = 0; i < static_cast<uint32_t>(features.size()); ++i) {
         const GeoFeature& f = features[i];
         if (!f.hasValidBounds) continue;
-        guikit::Rect b = f.normBounds;
-        if (b.w < 1e-7f) { b.x -= 0.5e-7f; b.w = 1e-7f; }
-        if (b.h < 1e-7f) { b.y -= 0.5e-7f; b.h = 1e-7f; }
-        items.push_back(Item{
-            .featIdx = i,
-            .box = b,
-            .cx = b.x + b.w * 0.5f,
-            .cy = b.y + b.h * 0.5f
-        });
+        const guikit::Rect& b = f.normBounds;
+        items[count++] = keel::RTreeItem<uint32_t, float>{
+            .id = i,
+            .box = keel::RTreeBox<float>::from_xywh(b.x, b.y, b.w, b.h).inflated_min_size(1e-7f)
+        };
     }
-
-    if (items.empty()) return;
-
-    static constexpr size_t kNodeCap = 16;
-
-    // 1. Sort items by X, slice into vertical strips, and sort each strip by Y (STR packing)
-    std::sort(items.begin(), items.end(), [](const Item& a, const Item& b) {
-        return a.cx < b.cx;
-    });
-
-    const size_t numLeaves = (items.size() + kNodeCap - 1) / kNodeCap;
-    const size_t numStrips = std::max<size_t>(1, static_cast<size_t>(std::ceil(std::sqrt(static_cast<double>(numLeaves)))));
-    const size_t itemsPerStrip = (items.size() + numStrips - 1) / numStrips;
-
-    for (size_t s = 0; s < items.size(); s += itemsPerStrip) {
-        const size_t end = std::min(items.size(), s + itemsPerStrip);
-        std::sort(items.begin() + static_cast<std::ptrdiff_t>(s),
-                  items.begin() + static_cast<std::ptrdiff_t>(end),
-                  [](const Item& a, const Item& b) {
-                      return a.cy < b.cy;
-                  });
-    }
-
-    m_leafFeatureIndices.resize(items.size());
-    for (size_t i = 0; i < items.size(); ++i) {
-        m_leafFeatureIndices[i] = items[i].featIdx;
-    }
-
-    m_nodes.reserve(numLeaves * 2 + 4);
-
-    // 2. Create leaf nodes
-    uint32_t levelStart = 0;
-    for (size_t i = 0; i < items.size(); i += kNodeCap) {
-        const size_t end = std::min(items.size(), i + kNodeCap);
-        guikit::Rect box = items[i].box;
-        for (size_t j = i + 1; j < end; ++j) {
-            const float x0 = std::min(box.x, items[j].box.x);
-            const float y0 = std::min(box.y, items[j].box.y);
-            const float x1 = std::max(box.Right(), items[j].box.Right());
-            const float y1 = std::max(box.Bottom(), items[j].box.Bottom());
-            box = guikit::Rect(x0, y0, x1 - x0, y1 - y0);
-        }
-        m_nodes.push_back(RTreeNode{
-            .bounds = box,
-            .firstChild = static_cast<uint32_t>(i),
-            .count = static_cast<uint16_t>(end - i),
-            .isLeaf = true
-        });
-    }
-    uint32_t levelEnd = static_cast<uint32_t>(m_nodes.size());
-
-    // 3. Build internal levels bottom-up until a single root node remains
-    while (levelEnd - levelStart > 1) {
-        const uint32_t nextLevelStart = levelEnd;
-        for (uint32_t i = levelStart; i < levelEnd; i += static_cast<uint32_t>(kNodeCap)) {
-            const uint32_t end = std::min(levelEnd, i + static_cast<uint32_t>(kNodeCap));
-            guikit::Rect box = m_nodes[i].bounds;
-            for (uint32_t j = i + 1; j < end; ++j) {
-                const float x0 = std::min(box.x, m_nodes[j].bounds.x);
-                const float y0 = std::min(box.y, m_nodes[j].bounds.y);
-                const float x1 = std::max(box.Right(), m_nodes[j].bounds.Right());
-                const float y1 = std::max(box.Bottom(), m_nodes[j].bounds.Bottom());
-                box = guikit::Rect(x0, y0, x1 - x0, y1 - y0);
-            }
-            m_nodes.push_back(RTreeNode{
-                .bounds = box,
-                .firstChild = i,
-                .count = static_cast<uint16_t>(end - i),
-                .isLeaf = false
-            });
-        }
-        levelStart = nextLevelStart;
-        levelEnd = static_cast<uint32_t>(m_nodes.size());
-    }
-
-    m_rootIndex = m_nodes.empty() ? 0 : static_cast<uint32_t>(m_nodes.size() - 1);
-}
-
-void LayerSpatialIndex::QueryBox(guikit::Rect queryBox, std::vector<uint32_t>& outFeatureIndices) const {
-    outFeatureIndices.clear();
-    if (m_nodes.empty()) return;
-
-    std::array<uint32_t, 128> stack{};
-    size_t sp = 0;
-    stack[sp++] = m_rootIndex;
-
-    while (sp > 0) {
-        const RTreeNode& node = m_nodes[stack[--sp]];
-        if (!node.bounds.Intersects(queryBox)) {
-            continue;
-        }
-        if (node.isLeaf) {
-            const uint32_t end = node.firstChild + node.count;
-            for (uint32_t i = node.firstChild; i < end; ++i) {
-                outFeatureIndices.push_back(m_leafFeatureIndices[i]);
-            }
-        } else {
-            const uint32_t end = node.firstChild + node.count;
-            for (uint32_t i = node.firstChild; i < end; ++i) {
-                if (sp < stack.size()) {
-                    stack[sp++] = i;
-                }
-            }
-        }
+    if (count > 0) {
+        index.build(keel::ArrayRef<keel::RTreeItem<uint32_t, float>>(items, count));
     }
 }
+
+} // namespace
 
 void GeoLayer::FinalizeLayer(uint64_t layerUid, bool forceTriangulateAll) {
     uid = layerUid;
@@ -919,7 +811,7 @@ void GeoLayer::FinalizeLayer(uint64_t layerUid, bool forceTriangulateAll) {
             dominantChartClass = (dominantChartClass != ChartFeatureClass::Generic) ? dominantChartClass : savedDominantClass;
             chartClassMask |= savedClassMask;
             ++windowGeneration;
-            spatialIndex.Build(features);
+            BuildFeatureSpatialIndex(spatialIndex, features);
             return;
         }
     }
@@ -1035,7 +927,7 @@ void GeoLayer::FinalizeLayer(uint64_t layerUid, bool forceTriangulateAll) {
     }
 
     ++windowGeneration;
-    spatialIndex.Build(features);
+    BuildFeatureSpatialIndex(spatialIndex, features);
 }
 
 bool GeoLayer::ApplyWindowSnapshot(SpatialWindowSnapshot&& snapshot) noexcept {

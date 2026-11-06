@@ -2394,7 +2394,11 @@ public:
         }
 
         m_candidates.clear();
-        layer.spatialIndex.QueryBox(queryBox, m_queryIndices);
+        m_queryIndices.clear();
+        layer.spatialIndex.query_box(
+            keel::RTreeBox<float>::from_xywh(queryBox.x, queryBox.y, queryBox.w, queryBox.h),
+            [&](uint32_t fIdx) { m_queryIndices.push_back(fIdx); }
+        );
         for (uint32_t fIdx : m_queryIndices) {
             if (fIdx >= layer.features.size()) continue;
             const geo::GeoFeature& feat = layer.features[fIdx];
@@ -3111,7 +3115,11 @@ public:
             };
 
             if (layer.features.size() > 2048) {
-                layer.spatialIndex.QueryBox(queryNormBox, m_queryScratch);
+                m_queryScratch.clear();
+                    layer.spatialIndex.query_box(
+                        keel::RTreeBox<float>::from_xywh(queryNormBox.x, queryNormBox.y, queryNormBox.w, queryNormBox.h),
+                        [&](uint32_t fi) { m_queryScratch.push_back(fi); }
+                    );
                 std::sort(m_queryScratch.begin(), m_queryScratch.end());
                 for (uint32_t fi : m_queryScratch) {
                     if (fi < layer.features.size()) processPass1Feat(fi);
@@ -3161,7 +3169,11 @@ public:
                 };
 
                 if (layer.features.size() > 2048) {
-                    layer.spatialIndex.QueryBox(queryNormBox, m_queryScratch);
+                    m_queryScratch.clear();
+                    layer.spatialIndex.query_box(
+                        keel::RTreeBox<float>::from_xywh(queryNormBox.x, queryNormBox.y, queryNormBox.w, queryNormBox.h),
+                        [&](uint32_t fi) { m_queryScratch.push_back(fi); }
+                    );
                     std::sort(m_queryScratch.begin(), m_queryScratch.end());
                     for (uint32_t fi : m_queryScratch) {
                         if (fi < layer.features.size()) processPass2Feat(fi);
@@ -3218,7 +3230,11 @@ public:
                 };
 
                 if (layer.features.size() > 2048) {
-                    layer.spatialIndex.QueryBox(queryNormBox, m_queryScratch);
+                    m_queryScratch.clear();
+                    layer.spatialIndex.query_box(
+                        keel::RTreeBox<float>::from_xywh(queryNormBox.x, queryNormBox.y, queryNormBox.w, queryNormBox.h),
+                        [&](uint32_t fi) { m_queryScratch.push_back(fi); }
+                    );
                     std::sort(m_queryScratch.begin(), m_queryScratch.end());
                     for (uint32_t fi : m_queryScratch) {
                         if (fi < layer.features.size()) processPass3Feat(fi);
@@ -3263,7 +3279,11 @@ public:
                 };
 
                 if (layer.features.size() > 2048) {
-                    layer.spatialIndex.QueryBox(queryNormBox, m_queryScratch);
+                    m_queryScratch.clear();
+                    layer.spatialIndex.query_box(
+                        keel::RTreeBox<float>::from_xywh(queryNormBox.x, queryNormBox.y, queryNormBox.w, queryNormBox.h),
+                        [&](uint32_t fi) { m_queryScratch.push_back(fi); }
+                    );
                     for (uint32_t fi : m_queryScratch) {
                         if (fi < layer.features.size()) processSoundingFeat(fi);
                     }
@@ -3511,7 +3531,11 @@ CursorHitCache& GetCursorHitCache() noexcept {
         if (!layer.visible || layer.features.empty()) continue;
         if (!layer.normBounds.Intersects(pickBox)) continue;
 
-        layer.spatialIndex.QueryBox(pickBox, candidates);
+        candidates.clear();
+        layer.spatialIndex.query_box(
+            keel::RTreeBox<float>::from_xywh(pickBox.x, pickBox.y, pickBox.w, pickBox.h),
+            [&](uint32_t fIdx) { candidates.push_back(fIdx); }
+        );
         for (uint32_t fIdx : candidates) {
             if (fIdx >= layer.features.size()) continue;
             const geo::GeoFeature& feat = layer.features[fIdx];
@@ -4652,7 +4676,11 @@ GisRenderStats GisRenderEngine::RenderLayers(
                 if (pass == 0 && layer.polygonFeatureCount == 0) continue;
                 if (pass == 1 && layer.lineFeatureCount == 0 && layer.polygonFeatureCount == 0) continue;
 
-                layer.spatialIndex.QueryBox(visNormBox, visIndices);
+                visIndices.clear();
+                layer.spatialIndex.query_box(
+                    keel::RTreeBox<float>::from_xywh(visNormBox.x, visNormBox.y, visNormBox.w, visNormBox.h),
+                    [&](uint32_t fi) { visIndices.push_back(fi); }
+                );
                 if (pass == 0 && layer.HasChartClass(geo::ChartFeatureClass::DepthArea) && visIndices.size() > 1) {
                     std::stable_sort(visIndices.begin(), visIndices.end(),
                         [&layer](uint32_t a, uint32_t b) noexcept {

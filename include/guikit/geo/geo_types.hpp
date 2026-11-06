@@ -14,6 +14,7 @@
 #include "guikit/core/types.hpp"
 #include "guikit/geo/map_grid.hpp"
 #include "guikit/geo/chart_data_source.hpp"
+#include "keel/rtree.h"
 
 namespace guikit::geo {
 
@@ -416,37 +417,6 @@ struct GeoFeature {
     [[nodiscard]] bool MatchesSearch(std::string_view query) const;
 };
 
-/// Flat Sort-Tile-Recursive (STR) R-Tree node over normalized Web Mercator [0..1]x[0..1] bounding boxes.
-struct RTreeNode {
-    guikit::Rect bounds{};
-    uint32_t firstChild{0};
-    uint16_t count{0};
-    bool isLeaf{true};
-};
-
-/// High-speed 2D spatial index (Flat STR R-Tree) for O(log N) frustum culling, tile queries, and hit-testing.
-class LayerSpatialIndex {
-public:
-    void Clear() noexcept {
-        m_nodes.clear();
-        m_leafFeatureIndices.clear();
-        m_rootIndex = 0;
-    }
-
-    [[nodiscard]] bool Empty() const noexcept { return m_nodes.empty(); }
-
-    /// Builds a flat packed STR R-Tree over the features of a layer.
-    void Build(const std::vector<GeoFeature>& features);
-
-    /// Appends indices of all features whose normalized Mercator bounds intersect `queryBox`.
-    void QueryBox(guikit::Rect queryBox, std::vector<uint32_t>& outFeatureIndices) const;
-
-private:
-    std::vector<RTreeNode> m_nodes{};
-    std::vector<uint32_t> m_leafFeatureIndices{};
-    uint32_t m_rootIndex{0};
-};
-
 /// Background spatial window request posted by the UI thread to `AsyncChartStreamer`.
 struct SpatialWindowRequest {
     uint64_t layerUid{0};
@@ -471,7 +441,7 @@ struct SpatialWindowSnapshot {
     uint64_t layerUid{0};
     uint64_t requestGeneration{0};
     std::vector<GeoFeature> features{};
-    LayerSpatialIndex spatialIndex{};
+    keel::RTree<uint32_t, float> spatialIndex{};
     std::vector<guikit::Rect> dirtiedNormBoxes{};
     size_t pointFeatureCount{0};
     size_t lineFeatureCount{0};
@@ -510,7 +480,7 @@ struct GeoLayer {
 
     std::shared_ptr<IFeaturePager> pager{};
     std::vector<GeoFeature> features{};
-    LayerSpatialIndex spatialIndex{};
+    keel::RTree<uint32_t, float> spatialIndex{};
     guikit::GeoBounds bounds{};
     guikit::Rect normBounds{};
     bool hasValidBounds{false};
