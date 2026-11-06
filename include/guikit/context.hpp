@@ -1,6 +1,5 @@
 #pragma once
 
-#include <any>
 #include <chrono>
 #include <functional>
 #include <initializer_list>
@@ -10,8 +9,9 @@
 #include <string_view>
 #include <type_traits>
 #include <typeindex>
-#include <unordered_map>
 #include <vector>
+#include "keel/hash_map.h"
+#include "keel/small_array.h"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/allocator.hpp"
 #include "guikit/core/id.hpp"
@@ -126,16 +126,61 @@ struct StateKey {
 };
 
 struct StateKeyHash {
-    size_t operator()(const StateKey& k) const noexcept {
-        size_t h1 = std::hash<Id>{}(k.id);
-        size_t h2 = k.type.hash_code();
-        return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+    keel::u64 operator()(const StateKey& k) const noexcept {
+        const keel::u64 h1 = keel::Hash<Id>{}(k.id);
+        const keel::u64 h2 = static_cast<keel::u64>(k.type.hash_code());
+        return keel::hash_u64(h1 ^ (h2 + 0x9e3779b97f4a7c15ULL + (h1 << 6) + (h1 >> 2)));
     }
 };
 
 struct StoredState {
-    std::any value;
+    void* ptr{nullptr};
+    void (*destroy)(void*) noexcept {nullptr};
     uint64_t lastFrameActive{0};
+
+    StoredState() noexcept = default;
+
+    template <typename T>
+    static StoredState Create(T&& val, uint64_t frameIndex) {
+        using Decayed = std::decay_t<T>;
+        Decayed* p = keel::default_allocator()->create<Decayed>(std::forward<T>(val));
+        StoredState s;
+        s.ptr = p;
+        s.destroy = [](void* raw) noexcept {
+            keel::default_allocator()->destroy(static_cast<Decayed*>(raw));
+        };
+        s.lastFrameActive = frameIndex;
+        return s;
+    }
+
+    ~StoredState() noexcept {
+        if (ptr && destroy) {
+            destroy(ptr);
+        }
+    }
+
+    StoredState(const StoredState&) = delete;
+    StoredState& operator=(const StoredState&) = delete;
+
+    StoredState(StoredState&& other) noexcept
+        : ptr(other.ptr), destroy(other.destroy), lastFrameActive(other.lastFrameActive) {
+        other.ptr = nullptr;
+        other.destroy = nullptr;
+    }
+
+    StoredState& operator=(StoredState&& other) noexcept {
+        if (this != &other) {
+            if (ptr && destroy) {
+                destroy(ptr);
+            }
+            ptr = other.ptr;
+            destroy = other.destroy;
+            lastFrameActive = other.lastFrameActive;
+            other.ptr = nullptr;
+            other.destroy = nullptr;
+        }
+        return *this;
+    }
 };
 
 } // namespace detail
@@ -1744,7 +1789,7 @@ public:
     [[nodiscard]] Id GetActiveId() const noexcept { return m_activeId; }
     void SetActiveId(Id id) noexcept { m_activeId = id; }
     [[nodiscard]] uint64_t GetFrameIndex() const noexcept { return m_frameIndex; }
-    [[nodiscard]] size_t GetCustomStateCount() const noexcept { return m_customStates.size(); }
+    [[nodiscard]] size_t GetCustomStateCount() const noexcept { return static_cast<size_t>(m_customStates.size()); }
     [[nodiscard]] ICanvas* GetCanvas() const noexcept { return m_lastCanvas; }
 
     // --- Clipboard Services ---
@@ -1944,24 +1989,27 @@ public:
     template <typename T>
     [[nodiscard]] T& GetOrCreateState(Id id, T defaultVal = T{}) {
         detail::StateKey key{id, std::type_index(typeid(T))};
-        auto it = m_customStates.find(key);
-        if (it == m_customStates.end()) {
-            it = m_customStates.emplace(key, detail::StoredState{std::make_any<T>(std::move(defaultVal)), m_frameIndex}).first;
-        } else {
-            it->second.lastFrameActive = m_frameIndex;
+        detail::StoredState* found = m_customStates.get(key);
+        if (!found) {
+            detail::StoredState& inserted = m_customStates.get_or_insert(
+                key,
+                detail::StoredState::Create<T>(std::move(defaultVal), m_frameIndex)
+            );
+            return *static_cast<T*>(inserted.ptr);
         }
-        return std::any_cast<T&>(it->second.value);
+        found->lastFrameActive = m_frameIndex;
+        return *static_cast<T*>(found->ptr);
     }
 
     /// Finds persistent typed state associated with a unique widget Id, or nullptr if not found.
     template <typename T>
     [[nodiscard]] const T* FindState(Id id) const {
         detail::StateKey key{id, std::type_index(typeid(T))};
-        auto it = m_customStates.find(key);
-        if (it == m_customStates.end()) {
+        const detail::StoredState* found = m_customStates.get(key);
+        if (!found) {
             return nullptr;
         }
-        return std::any_cast<T>(&it->second.value);
+        return static_cast<const T*>(found->ptr);
     }
 
 private:
@@ -1994,7 +2042,7 @@ private:
         }
     };
 
-    std::unordered_map<Id, WidgetSnapshot> m_prevSnapshots;
+    keel::HashMap<Id, WidgetSnapshot> m_prevSnapshots;
     std::vector<Rect> m_explicitDamageRects;
     std::vector<Rect> m_dirtyRects;
     Rect m_dirtyRect{0.0f, 0.0f, 0.0f, 0.0f};
@@ -2164,13 +2212,13 @@ private:
         bool blocksHit{false};
     };
 
-    std::unordered_map<Id, Rect> m_prevFrameBounds;
-    std::unordered_map<Id, Rect> m_currFrameBounds;
-    std::unordered_map<Id, Rect> m_prevUnclippedBounds;
-    std::unordered_map<Id, Rect> m_currUnclippedBounds;
+    keel::HashMap<Id, Rect> m_prevFrameBounds;
+    keel::HashMap<Id, Rect> m_currFrameBounds;
+    keel::HashMap<Id, Rect> m_prevUnclippedBounds;
+    keel::HashMap<Id, Rect> m_currUnclippedBounds;
     std::vector<HitNodeRecord> m_prevHitNodes;
     std::vector<HitNodeRecord> m_currHitNodes;
-    std::unordered_map<Id, size_t> m_prevHitNodeMap;
+    keel::HashMap<Id, size_t> m_prevHitNodeMap;
     std::vector<OverlayHitRegion> m_prevOverlayHitRegions;
     std::vector<OverlayHitRegion> m_currOverlayHitRegions;
     std::vector<std::function<void()>> m_overlayHitBuilders;
@@ -2215,7 +2263,7 @@ private:
     bool m_hadDebugBoundsLastFrame{false};
     bool m_hadInspectModeLastFrame{false};
     Vec2 m_mouseWheel{0.0f, 0.0f};
-    std::unordered_map<detail::StateKey, detail::StoredState, detail::StateKeyHash> m_customStates;
+    keel::HashMap<detail::StateKey, detail::StoredState, detail::StateKeyHash> m_customStates;
     uint64_t m_frameIndex{0};
 
     void RenderDebugBoundsRecursive(Node* node, ICanvas& canvas, bool inheritedDebugBounds);

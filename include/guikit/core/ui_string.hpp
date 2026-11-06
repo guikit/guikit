@@ -7,6 +7,8 @@
 #include <format>
 #include <string_view>
 #include <type_traits>
+#include "keel/memory.h"
+#include "keel/ref.h"
 
 namespace guikit {
 
@@ -36,6 +38,11 @@ public:
         Set(sv);
     }
 
+    /// Constructs from a keel::StringRef, storing characters in the inline buffer.
+    BasicUiString(keel::StringRef ref) noexcept {
+        Set(std::string_view(ref.data(), ref.size()));
+    }
+
     /// Assigns a static string literal with zero copy.
     BasicUiString& operator=(const char* literal) noexcept {
         SetStatic(literal);
@@ -45,6 +52,12 @@ public:
     /// Assigns from string_view into the inline buffer.
     BasicUiString& operator=(std::string_view sv) noexcept {
         Set(sv);
+        return *this;
+    }
+
+    /// Assigns from keel::StringRef into the inline buffer.
+    BasicUiString& operator=(keel::StringRef ref) noexcept {
+        Set(std::string_view(ref.data(), ref.size()));
         return *this;
     }
 
@@ -74,7 +87,7 @@ public:
     void Set(std::string_view sv) noexcept {
         m_length = static_cast<uint32_t>(std::min(sv.size(), Capacity - 1));
         if (m_length > 0) {
-            std::memcpy(m_buffer.data(), sv.data(), m_length);
+            keel::mem_copy(m_buffer.data(), sv.data(), m_length);
         }
         m_buffer[m_length] = '\0';
         m_ptr = nullptr;
@@ -109,8 +122,16 @@ public:
         return std::string_view(data(), m_length);
     }
 
+    [[nodiscard]] constexpr operator keel::StringRef() const noexcept {
+        return keel::StringRef(data(), m_length);
+    }
+
     [[nodiscard]] constexpr std::string_view View() const noexcept {
         return std::string_view(data(), m_length);
+    }
+
+    [[nodiscard]] constexpr keel::StringRef KeelRef() const noexcept {
+        return keel::StringRef(data(), m_length);
     }
 
     [[nodiscard]] constexpr const char* c_str() const noexcept {

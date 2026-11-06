@@ -43,6 +43,15 @@ if (NOT EMSCRIPTEN)
 endif()
 
 # ==============================================================================
+# 0. Dependency: keel (0BSD C++20 Foundation Library)
+# ==============================================================================
+if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/keel/CMakeLists.txt")
+    add_subdirectory(third_party/keel EXCLUDE_FROM_ALL)
+else()
+    find_package(keel REQUIRED)
+endif()
+
+# ==============================================================================
 # 1. Module: guikit::core
 #    Context, LayoutSolver, Element, Theme, ICanvas, MainWindow, Base Widgets & Panels
 #    Zero external OS / Windowing / GPU dependencies (Pure C++20)
@@ -143,6 +152,7 @@ target_include_directories(guikit_core PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
+target_link_libraries(guikit_core PUBLIC keel::keel)
 
 # ==============================================================================
 # 2. Module: guikit::scenes

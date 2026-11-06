@@ -4,6 +4,7 @@
 #include "guikit/core/rich_text.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/ui_vector.hpp"
+#include "keel/utf8.h"
 
 namespace guikit {
 
@@ -731,33 +732,10 @@ bool TextUtil::FindCaseInsensitive(
 
     auto decodeCp = [](std::string_view sv, size_t& ioIdx) noexcept -> uint32_t {
         if (ioIdx >= sv.size()) return 0;
-        const auto b0 = static_cast<unsigned char>(sv[ioIdx]);
-        if (b0 < 0x80) {
-            ++ioIdx;
-            return b0;
-        }
-        if ((b0 & 0xE0) == 0xC0 && ioIdx + 1 < sv.size()) {
-            const uint32_t cp = ((b0 & 0x1Fu) << 6) | (static_cast<unsigned char>(sv[ioIdx + 1]) & 0x3Fu);
-            ioIdx += 2;
-            return cp;
-        }
-        if ((b0 & 0xF0) == 0xE0 && ioIdx + 2 < sv.size()) {
-            const uint32_t cp = ((b0 & 0x0Fu) << 12) |
-                                ((static_cast<unsigned char>(sv[ioIdx + 1]) & 0x3Fu) << 6) |
-                                (static_cast<unsigned char>(sv[ioIdx + 2]) & 0x3Fu);
-            ioIdx += 3;
-            return cp;
-        }
-        if ((b0 & 0xF8) == 0xF0 && ioIdx + 3 < sv.size()) {
-            const uint32_t cp = ((b0 & 0x07u) << 18) |
-                                ((static_cast<unsigned char>(sv[ioIdx + 1]) & 0x3Fu) << 12) |
-                                ((static_cast<unsigned char>(sv[ioIdx + 2]) & 0x3Fu) << 6) |
-                                (static_cast<unsigned char>(sv[ioIdx + 3]) & 0x3Fu);
-            ioIdx += 4;
-            return cp;
-        }
-        ++ioIdx;
-        return b0;
+        keel::isize cursor = static_cast<keel::isize>(ioIdx);
+        const uint32_t cp = keel::utf8_decode_next(keel::StringRef(sv.data(), sv.size()), cursor);
+        ioIdx = static_cast<size_t>(cursor);
+        return cp;
     };
 
     auto toLowerCp = [](uint32_t cp) noexcept -> uint32_t {

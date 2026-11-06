@@ -549,9 +549,8 @@ Vec2 ThorCanvas::MeasureTextStyled(std::string_view text, float fontSize, FontSt
     std::memcpy(&fsBits, &fontSize, sizeof(float));
     const TextMeasureKey key{h, fsBits, static_cast<uint8_t>(style)};
 
-    auto it = m_textMeasureCache.find(key);
-    if (it != m_textMeasureCache.end()) {
-        return it->second;
+    if (const Vec2* cached = m_textMeasureCache.get(key)) {
+        return *cached;
     }
 
     if (!m_measureText) {
@@ -605,7 +604,7 @@ Vec2 ThorCanvas::MeasureTextStyled(std::string_view text, float fontSize, FontSt
     if (m_textMeasureCache.size() > 2048) {
         m_textMeasureCache.clear();
     }
-    m_textMeasureCache.emplace(key, result);
+    m_textMeasureCache.put(key, result);
     return result;
 }
 
@@ -636,9 +635,8 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveTextStamp(
         .style = static_cast<uint8_t>(style)
     };
 
-    auto it = m_textStampCache.find(key);
-    if (it != m_textStampCache.end()) {
-        return it->second;
+    if (const TextStampEntry* cached = m_textStampCache.get(key)) {
+        return *cached;
     }
 
     if (m_textStampCache.size() > 4096) {
@@ -649,8 +647,7 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveTextStamp(
     const Vec2 m = MeasureTextStyled(text, qFontSize, style);
     if (m.x <= 0.0f || m.y <= 0.0f) {
         entry.empty = true;
-        auto [insIt, _] = m_textStampCache.emplace(key, std::move(entry));
-        return insIt->second;
+        return m_textStampCache.get_or_insert(key, std::move(entry));
     }
 
     const int padLeft = 3;
@@ -731,8 +728,7 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveTextStamp(
         }
     }
 
-    auto [insIt, _] = m_textStampCache.emplace(key, std::move(entry));
-    return insIt->second;
+    return m_textStampCache.get_or_insert(key, std::move(entry));
 }
 
 const ThorCanvas::TextStampEntry& ThorCanvas::ResolveShapeStamp(
@@ -759,9 +755,8 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveShapeStamp(
         .qStrokeW = qStrokeW
     };
 
-    auto it = m_shapeStampCache.find(key);
-    if (it != m_shapeStampCache.end()) {
-        return it->second;
+    if (const TextStampEntry* cached = m_shapeStampCache.get(key)) {
+        return *cached;
     }
 
     if (m_shapeStampCache.size() > 1024) {
@@ -835,8 +830,7 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveShapeStamp(
         }
     }
 
-    auto [insIt, _] = m_shapeStampCache.emplace(key, std::move(entry));
-    return insIt->second;
+    return m_shapeStampCache.get_or_insert(key, std::move(entry));
 }
 
 void ThorCanvas::BlitTextStamp(
@@ -1005,11 +999,14 @@ void ThorCanvas::DrawTextBoxStyled(
         drawText.find('\n') == std::string_view::npos) {
         const std::string_view stampText = (drawText.size() > 512) ? drawText.substr(0, 512) : drawText;
         const float scaledFs = fontSize * m_scale;
+        const TextStampEntry& capStamp = ResolveTextStamp("H", scaledFs, Color(255, 255, 255, 255), style);
+        const bool capEmpty = capStamp.empty;
+        const int capRawOffY = static_cast<int>(capStamp.offsetY);
+        const int capRawH = static_cast<int>(capStamp.height);
         const TextStampEntry& stamp = ResolveTextStamp(stampText, scaledFs, color, style);
         if (stamp.empty) return;
-        const TextStampEntry& capStamp = ResolveTextStamp("H", scaledFs, Color(255, 255, 255, 255), style);
-        const int capOffY = capStamp.empty ? static_cast<int>(stamp.offsetY) : static_cast<int>(capStamp.offsetY);
-        const int capH = capStamp.empty ? static_cast<int>(stamp.height) : static_cast<int>(capStamp.height);
+        const int capOffY = capEmpty ? static_cast<int>(stamp.offsetY) : capRawOffY;
+        const int capH = capEmpty ? static_cast<int>(stamp.height) : capRawH;
         const bool hasEdgeSpace = (stampText.front() == ' ' || stampText.back() == ' ');
         float tx = sBounds.x;
         if (alignX > 0.01f && !hasEdgeSpace) {
@@ -1256,10 +1253,9 @@ ThorCanvas::ImageCacheEntry& ThorCanvas::ResolveImageEntry(std::string_view sour
     static ImageCacheEntry s_emptyEntry{};
     if (source.empty()) return s_emptyEntry;
 
-    std::string key(source);
-    auto it = m_imageCache.find(key);
-    if (it != m_imageCache.end()) {
-        return it->second;
+    const keel::StringRef keyRef(source.data(), static_cast<keel::isize>(source.size()));
+    if (ImageCacheEntry* existing = m_imageCache.get(keyRef)) {
+        return *existing;
     }
 
     ImageCacheEntry entry{};
@@ -1284,7 +1280,7 @@ ThorCanvas::ImageCacheEntry& ThorCanvas::ResolveImageEntry(std::string_view sour
                 entry.valid = true;
             }
         }
-    } else if (auto asset = Assets::Find(key); asset && !asset->Empty()) {
+    } else if (auto asset = Assets::Find(source); asset && !asset->Empty()) {
         const std::string mimeStr(asset->mimeType);
         const char* mime = mimeStr.empty() ? nullptr : mimeStr.c_str();
         if (probe->load(reinterpret_cast<const char*>(asset->data),
@@ -1308,7 +1304,7 @@ ThorCanvas::ImageCacheEntry& ThorCanvas::ResolveImageEntry(std::string_view sour
     if (!entry.valid && !entry.isInlineSvg) {
         const char* prefixes[] = {"", "../", "../../", "../../../"};
         for (const char* prefix : prefixes) {
-            std::string candidate = std::string(prefix) + key;
+            std::string candidate = std::string(prefix) + std::string(source);
             if (probe->load(candidate.c_str()) == tvg::Result::Success) {
                 float w = 0.0f, h = 0.0f;
                 probe->size(&w, &h);
@@ -1323,8 +1319,7 @@ ThorCanvas::ImageCacheEntry& ThorCanvas::ResolveImageEntry(std::string_view sour
     }
     delete probe;
 
-    auto [insertedIt, _] = m_imageCache.emplace(std::move(key), std::move(entry));
-    return insertedIt->second;
+    return m_imageCache.get_or_insert(keel::String::from(keyRef), std::move(entry));
 }
 
 Vec2 ThorCanvas::GetImageSize(std::string_view source) {

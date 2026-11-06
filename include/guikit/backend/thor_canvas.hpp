@@ -3,10 +3,11 @@
 #include <cstdint>
 #include <cstring>
 #include <string>
-#include <unordered_map>
 #include <vector>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/backend/vector_backend.hpp"
+#include "keel/hash_map.h"
+#include "keel/string.h"
 
 namespace tvg {
 class SwCanvas;
@@ -201,10 +202,10 @@ private:
     };
 
     struct TextMeasureKeyHash {
-        size_t operator()(const TextMeasureKey& k) const noexcept {
+        keel::u64 operator()(const TextMeasureKey& k) const noexcept {
             uint64_t mixed = k.hash ^ (static_cast<uint64_t>(k.fontSizeBits) * 0x9e3779b97f4a7c15ULL);
             mixed ^= static_cast<uint64_t>(k.style) * 0x517cc1b727220a95ULL;
-            return static_cast<size_t>(mixed);
+            return mixed;
         }
     };
 
@@ -225,12 +226,12 @@ private:
     };
 
     struct TextStampKeyHash {
-        size_t operator()(const TextStampKey& k) const noexcept {
+        keel::u64 operator()(const TextStampKey& k) const noexcept {
             uint64_t h = k.textHash;
             h ^= static_cast<uint64_t>(k.fontSizeBits) * 0x9e3779b97f4a7c15ULL;
             h ^= static_cast<uint64_t>(k.colorRgba) * 0xbf58476d1ce4e5b9ULL;
             h ^= (static_cast<uint64_t>(k.textLen) << 8 | k.style) * 0x94d049bb133111ebULL;
-            return static_cast<size_t>(h);
+            return h;
         }
     };
 
@@ -262,12 +263,12 @@ private:
     };
 
     struct ShapeStampKeyHash {
-        size_t operator()(const ShapeStampKey& k) const noexcept {
+        keel::u64 operator()(const ShapeStampKey& k) const noexcept {
             uint64_t h = static_cast<uint64_t>(k.fillRgba) | (static_cast<uint64_t>(k.strokeRgba) << 32);
             h ^= (static_cast<uint64_t>(k.qW) | (static_cast<uint64_t>(k.qH) << 16) |
                   (static_cast<uint64_t>(k.qRad) << 32) | (static_cast<uint64_t>(k.qStrokeW) << 48)) * 0x9e3779b97f4a7c15ULL;
             h ^= h >> 33;
-            return static_cast<size_t>(h * 0xff51afd7ed558ccdULL);
+            return h * 0xff51afd7ed558ccdULL;
         }
     };
 
@@ -292,10 +293,10 @@ private:
         std::optional<Rect> extraClip = std::nullopt
     );
 
-    std::unordered_map<TextMeasureKey, Vec2, TextMeasureKeyHash> m_textMeasureCache;
-    std::unordered_map<TextStampKey, TextStampEntry, TextStampKeyHash> m_textStampCache;
-    std::unordered_map<ShapeStampKey, TextStampEntry, ShapeStampKeyHash> m_shapeStampCache;
-    std::unordered_map<std::string, ImageCacheEntry> m_imageCache;
+    keel::HashMap<TextMeasureKey, Vec2, TextMeasureKeyHash> m_textMeasureCache;
+    keel::HashMap<TextStampKey, TextStampEntry, TextStampKeyHash> m_textStampCache;
+    keel::HashMap<ShapeStampKey, TextStampEntry, ShapeStampKeyHash> m_shapeStampCache;
+    keel::HashMap<keel::String, ImageCacheEntry> m_imageCache;
 };
 
 /// Creates a new `ThorCanvas` instance.

@@ -82,8 +82,8 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
     }
 
     if (m_mouseClicked && m_openPopupId.IsValid()) {
-        auto it = m_prevFrameBounds.find(m_openPopupId);
-        const bool overSelect = (it != m_prevFrameBounds.end()) && it->second.Contains(m_mousePos);
+        const Rect* selectBounds = m_prevFrameBounds.get(m_openPopupId);
+        const bool overSelect = (selectBounds != nullptr) && selectBounds->Contains(m_mousePos);
         const bool overPopup = m_openPopupRect.Contains(m_mousePos);
         if (!overSelect && !overPopup) {
             ClosePopup();
@@ -94,9 +94,9 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
     if (m_mouseClicked && m_focusedId.IsValid()) {
         const bool overOwnPopup = (m_openPopupId == m_focusedId) && m_openPopupRect.Contains(m_mousePos);
         if (!overOwnPopup) {
-            auto it = m_prevFrameBounds.find(m_focusedId);
-            if (it != m_prevFrameBounds.end()) {
-                if (!it->second.Contains(m_mousePos)) {
+            const Rect* focusedBounds = m_prevFrameBounds.get(m_focusedId);
+            if (focusedBounds != nullptr) {
+                if (!focusedBounds->Contains(m_mousePos)) {
                     if (m_editState.id == m_focusedId) {
                         m_editState.id = Id::Null();
                     }
@@ -168,12 +168,12 @@ Response Context::Interact(Id id) {
     res.id = id;
     res.ctx = this;
 
-    auto itUnclipped = m_prevUnclippedBounds.find(id);
-    auto itClipped = m_prevFrameBounds.find(id);
-    if (itUnclipped != m_prevUnclippedBounds.end()) {
-        res.rect = itUnclipped->second;
-    } else if (itClipped != m_prevFrameBounds.end()) {
-        res.rect = itClipped->second;
+    const Rect* pUnclipped = m_prevUnclippedBounds.get(id);
+    const Rect* pClipped = m_prevFrameBounds.get(id);
+    if (pUnclipped != nullptr) {
+        res.rect = *pUnclipped;
+    } else if (pClipped != nullptr) {
+        res.rect = *pClipped;
     }
 
     // Suppress interaction on background widgets occluded by floating popups, modals, splitter sashes, or higher Z-layer panels
@@ -184,8 +184,8 @@ Response Context::Interact(Id id) {
         return res;
     }
 
-    if (itClipped != m_prevFrameBounds.end()) {
-        res.hovered = itClipped->second.Contains(m_mousePos);
+    if (pClipped != nullptr) {
+        res.hovered = pClipped->Contains(m_mousePos);
     }
 
     if (!m_mouseClicked && !m_rightMouseClicked && !m_middleMouseClicked &&
@@ -232,17 +232,15 @@ void Context::AdaptChildToContainer(Node* node) {
 }
 
 Rect Context::GetPrevFrameBounds(Id id) const {
-    auto it = m_prevFrameBounds.find(id);
-    if (it != m_prevFrameBounds.end()) {
-        return it->second;
+    if (const Rect* r = m_prevFrameBounds.get(id)) {
+        return *r;
     }
     return Rect{};
 }
 
 Rect Context::GetPrevUnclippedBounds(Id id) const {
-    auto it = m_prevUnclippedBounds.find(id);
-    if (it != m_prevUnclippedBounds.end()) {
-        return it->second;
+    if (const Rect* r = m_prevUnclippedBounds.get(id)) {
+        return *r;
     }
     return GetPrevFrameBounds(id);
 }
@@ -253,10 +251,10 @@ Rect Context::GetParentPrevFrameBounds() const {
     for (int i = static_cast<int>(m_containerStack.size()) - 1; i >= 0; --i) {
         const Node* parent = m_containerStack[static_cast<size_t>(i)];
         if (!parent || !parent->id.IsValid()) continue;
-        auto found = m_prevFrameBounds.find(parent->id);
-        if (found != m_prevFrameBounds.end() && found->second.w > 1.0f && found->second.h > 1.0f) {
+        const Rect* found = m_prevFrameBounds.get(parent->id);
+        if (found != nullptr && found->w > 1.0f && found->h > 1.0f) {
             startIdx = i;
-            r = found->second;
+            r = *found;
             break;
         }
     }
@@ -314,9 +312,9 @@ Rect Context::GetPopupViewportRect() const noexcept {
     for (const Node* n : m_containerStack) {
         if (!n || !n->id.IsValid()) continue;
         if (n->type == NodeType::Box && n->clipChildren) {
-            auto it = m_prevFrameBounds.find(n->id);
-            if (it != m_prevFrameBounds.end() && it->second.w > 1.0f && it->second.h > 1.0f) {
-                Rect boxRect = it->second;
+            const Rect* found = m_prevFrameBounds.get(n->id);
+            if (found != nullptr && found->w > 1.0f && found->h > 1.0f) {
+                Rect boxRect = *found;
                 if (n->borderWidth > 0.0f && boxRect.w > n->borderWidth * 2.0f && boxRect.h > n->borderWidth * 2.0f) {
                     boxRect = boxRect.Inset(n->borderWidth);
                 }
@@ -1642,9 +1640,9 @@ bool Context::IsMouseOccluded(Id id, Vec2 pos) const noexcept {
         }
     }
 
-    auto itA = m_prevHitNodeMap.find(id);
-    if (itA != m_prevHitNodeMap.end()) {
-        const HitNodeRecord& a = m_prevHitNodes[itA->second];
+    const size_t* idxA = m_prevHitNodeMap.get(id);
+    if (idxA != nullptr) {
+        const HitNodeRecord& a = m_prevHitNodes[*idxA];
         for (const auto& b : m_prevHitNodes) {
             if (!b.blocksHit || b.id == id || !b.rect.Contains(pos)) {
                 continue;
@@ -1675,9 +1673,9 @@ bool Context::IsMouseOccluded(Id id, Vec2 pos) const noexcept {
         for (auto sIt = m_containerStack.rbegin(); sIt != m_containerStack.rend(); ++sIt) {
             const Node* cNode = *sIt;
             if (!cNode || !cNode->id.IsValid()) continue;
-            auto itC = m_prevHitNodeMap.find(cNode->id);
-            if (itC != m_prevHitNodeMap.end()) {
-                const HitNodeRecord& c = m_prevHitNodes[itC->second];
+            const size_t* idxC = m_prevHitNodeMap.get(cNode->id);
+            if (idxC != nullptr) {
+                const HitNodeRecord& c = m_prevHitNodes[*idxC];
                 for (const auto& b : m_prevHitNodes) {
                     if (!b.blocksHit || b.id == c.id || !b.rect.Contains(pos)) {
                         continue;
@@ -1712,8 +1710,8 @@ bool Context::IsRectHovered(Id id, const Rect& rect) const noexcept {
         return false;
     }
     if (id.IsValid()) {
-        auto it = m_prevFrameBounds.find(id);
-        if (it != m_prevFrameBounds.end() && !it->second.Contains(m_mousePos)) {
+        const Rect* prevRect = m_prevFrameBounds.get(id);
+        if (prevRect != nullptr && !prevRect->Contains(m_mousePos)) {
             return false;
         }
     }
@@ -1806,9 +1804,9 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
             if ((topContainer->scrollbarHovered || topContainer->scrollbarHoveredX) && m_activeId != sceneId) {
                 return true;
             }
-            auto itVp = m_prevFrameBounds.find(sceneId);
-            if (itVp != m_prevFrameBounds.end() && itVp->second.w > 0.1f && itVp->second.h > 0.1f) {
-                if (!itVp->second.Contains(m_mousePos) && m_activeId != sceneId) {
+            const Rect* vpRect = m_prevFrameBounds.get(sceneId);
+            if (vpRect != nullptr && vpRect->w > 0.1f && vpRect->h > 0.1f) {
+                if (!vpRect->Contains(m_mousePos) && m_activeId != sceneId) {
                     return true;
                 }
             }
@@ -2151,8 +2149,8 @@ template <typename HitVecT>
 static void CollectBoundsRecursive(
     Node* node,
     const Node* rootNode,
-    std::unordered_map<Id, Rect>& outBounds,
-    std::unordered_map<Id, Rect>& outUnclippedBounds,
+    keel::HashMap<Id, Rect>& outBounds,
+    keel::HashMap<Id, Rect>& outUnclippedBounds,
     HitVecT& outHitNodes,
     uint32_t& ioOrderCounter,
     uint8_t inheritedZLayer,
@@ -2180,12 +2178,12 @@ static void CollectBoundsRecursive(
     if (node->id.IsValid()) {
         if ((node->computedRect.w > 0.0f || node->type == NodeType::Sidebar) &&
             (node->computedRect.h > 0.0f || node->type == NodeType::BottomPanel)) {
-            outUnclippedBounds[node->id] = node->computedRect;
+            outUnclippedBounds.put(node->id, node->computedRect);
         }
         const Rect clipped = node->computedRect.Intersect(parentClip);
         if ((clipped.w > 0.0f || node->type == NodeType::Sidebar) &&
             (clipped.h > 0.0f || node->type == NodeType::BottomPanel)) {
-            outBounds[node->id] = clipped;
+            outBounds.put(node->id, clipped);
         }
 
         if (node != rootNode && clipped.w > 0.0f && clipped.h > 0.0f) {
@@ -2364,7 +2362,7 @@ void Context::EndFrame(ICanvas& canvas) {
     m_prevHitNodeMap.clear();
     m_prevHitNodeMap.reserve(m_prevHitNodes.size());
     for (size_t i = 0; i < m_prevHitNodes.size(); ++i) {
-        m_prevHitNodeMap[m_prevHitNodes[i].id] = i;
+        m_prevHitNodeMap.put(m_prevHitNodes[i].id, i);
     }
 
     m_prevFrameBounds = std::move(m_currFrameBounds);
@@ -2386,7 +2384,7 @@ void Context::EndFrame(ICanvas& canvas) {
     }
 
     // Calculate dirty damage regions by snapshot diffing
-    std::unordered_map<Id, WidgetSnapshot> currSnapshots;
+    keel::HashMap<Id, WidgetSnapshot> currSnapshots;
     currSnapshots.reserve(m_prevSnapshots.size() + 16);
     std::vector<Rect> damageRects = std::move(m_explicitDamageRects);
     m_explicitDamageRects.clear();
@@ -2459,24 +2457,24 @@ void Context::EndFrame(ICanvas& canvas) {
             }
             snap.visualHash = h;
 
-            auto it = m_prevSnapshots.find(n->id);
-            if (it != m_prevSnapshots.end()) {
-                if (it->second != snap) {
+            const WidgetSnapshot* prevSnap = m_prevSnapshots.get(n->id);
+            if (prevSnap != nullptr) {
+                if (*prevSnap != snap) {
                     const bool curValid = (snap.rect.w > 0.0f && snap.rect.h > 0.0f);
-                    const bool prevValid = (it->second.rect.w > 0.0f && it->second.rect.h > 0.0f);
+                    const bool prevValid = (prevSnap->rect.w > 0.0f && prevSnap->rect.h > 0.0f);
                     if (curValid && prevValid) {
-                        addDamage(snap.rect.Union(it->second.rect));
+                        addDamage(snap.rect.Union(prevSnap->rect));
                     } else if (curValid) {
                         addDamage(snap.rect);
                     } else if (prevValid) {
-                        addDamage(it->second.rect);
+                        addDamage(prevSnap->rect);
                     }
                 }
             } else {
                 addDamage(snap.rect);
             }
 
-            currSnapshots.emplace(n->id, snap);
+            currSnapshots.put(n->id, snap);
         }
 
         Rect effectiveClip = parentClip;
@@ -2682,14 +2680,16 @@ void Context::EndFrame(ICanvas& canvas) {
 
     // Periodically prune stale persistent states (every 600 frames = ~10s at 60fps)
     if (m_frameIndex % 600 == 0 && m_frameIndex > 0) {
-        for (auto it = m_customStates.begin(); it != m_customStates.end(); ) {
-            if (it->second.lastFrameActive + 600 < m_frameIndex &&
-                it->first.id != m_focusedId &&
-                it->first.id != m_activeId) {
-                it = m_customStates.erase(it);
-            } else {
-                ++it;
+        keel::SmallArray<detail::StateKey, 16> staleKeys;
+        for (const auto& [key, state] : m_customStates) {
+            if (state.lastFrameActive + 600 < m_frameIndex &&
+                key.id != m_focusedId &&
+                key.id != m_activeId) {
+                staleKeys.push_back(key);
             }
+        }
+        for (const auto& key : staleKeys) {
+            (void)m_customStates.remove(key);
         }
     }
 

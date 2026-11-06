@@ -590,7 +590,7 @@ void Carousel::ScrollToChild(Context& ctx, Node* carouselNode, const Node* targe
 
 void Carousel::CollectBounds(
     const Node* node,
-    std::unordered_map<Id, Rect>& outBounds,
+    keel::HashMap<Id, Rect>& outBounds,
     Rect parentClip
 ) {
     if (!node || (node->type != NodeType::Carousel && node->type != NodeType::Toolbar)) return;
@@ -600,13 +600,13 @@ void Carousel::CollectBounds(
     if (cData->showLeftArrow && cData->leftArrowRect.w > 0.0f) {
         const Rect clippedLeft = cData->leftArrowRect.Intersect(parentClip);
         if (clippedLeft.w > 0.0f && clippedLeft.h > 0.0f) {
-            outBounds[GetCarouselLeftArrowId(node->id)] = clippedLeft;
+            outBounds.put(GetCarouselLeftArrowId(node->id), clippedLeft);
         }
     }
     if (cData->showRightArrow && cData->rightArrowRect.w > 0.0f) {
         const Rect clippedRight = cData->rightArrowRect.Intersect(parentClip);
         if (clippedRight.w > 0.0f && clippedRight.h > 0.0f) {
-            outBounds[GetCarouselRightArrowId(node->id)] = clippedRight;
+            outBounds.put(GetCarouselRightArrowId(node->id), clippedRight);
         }
     }
 }

@@ -2,11 +2,11 @@
 
 #include <optional>
 #include <source_location>
-#include <unordered_map>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/id.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
+#include "keel/hash_map.h"
 
 namespace guikit {
 
@@ -95,7 +95,7 @@ public:
     /// Registers interactive arrow bounds into the bounds map for instantaneous hit testing.
     static void CollectBounds(
         const Node* node,
-        std::unordered_map<Id, Rect>& outBounds,
+        keel::HashMap<Id, Rect>& outBounds,
         Rect parentClip
     );
 

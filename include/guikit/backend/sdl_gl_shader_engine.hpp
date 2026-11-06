@@ -3,9 +3,10 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <vector>
 #include "guikit/backend/i_canvas.hpp"
+#include "keel/hash_map.h"
+#include "keel/string.h"
 
 #if defined(_WIN32) && defined(_MSC_VER)
 // Automatically export high-performance discrete GPU selection symbols (NVIDIA Optimus & AMD PowerXpress)
@@ -82,8 +83,8 @@ private:
 
     uint32_t m_quadVbo{0};
 
-    std::unordered_map<std::string, CompiledProgram> m_programs;
-    std::unordered_map<uint64_t, WidgetTextureCache> m_textureCaches;
+    keel::HashMap<keel::String, CompiledProgram> m_programs;
+    keel::HashMap<uint64_t, WidgetTextureCache> m_textureCaches;
     std::vector<uint32_t> m_uploadScratch;
 };
 

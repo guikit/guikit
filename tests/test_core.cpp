@@ -2,6 +2,7 @@
 #include <unordered_set>
 #include "guikit/core.hpp"
 #include "guikit/geo/map_grid.hpp"
+#include "keel/keel.h"
 
 static int g_failures = 0;
 
@@ -924,6 +925,41 @@ void TestMainWindowHeadlessBackend() {
     CHECK(rawBackend->m_canvas.GetGpuShaderPasses()[0].shader.shaderId == "test.custom_shader");
 }
 
+void TestKeelIntegration() {
+    using namespace guikit;
+
+    // 1. keel::Hash<guikit::Id> & keel::HashMap<Id, Rect>
+    keel::HashMap<Id, Rect> boundsMap;
+    const Id id1 = MakeId(1);
+    const Id id2 = MakeId(2);
+    boundsMap.put(id1, Rect{10.0f, 20.0f, 100.0f, 40.0f});
+    boundsMap.put(id2, Rect{50.0f, 60.0f, 200.0f, 80.0f});
+    CHECK(boundsMap.size() == 2);
+    const Rect* r1 = boundsMap.get(id1);
+    CHECK(r1 != nullptr && *r1 == Rect(10.0f, 20.0f, 100.0f, 40.0f));
+
+    // 2. Allocator::AsKeelAllocator() arena bridge
+    Allocator frameArena(4096);
+    keel::Allocator keelArena = frameArena.AsKeelAllocator();
+    keel::Array<int> arenaArray(&keelArena);
+    for (int i = 0; i < 32; ++i) {
+        arenaArray.push_back(i * 5);
+    }
+    CHECK(arenaArray.size() == 32);
+    CHECK(arenaArray[10] == 50);
+    CHECK(frameArena.GetTotalAllocatedBytes() > 0);
+
+    // 3. UiString <-> keel::StringRef & UiVector <-> keel::ArrayRef
+    UiString label(keel::StringRef("Keel Bridge"));
+    keel::StringRef ref = label.KeelRef();
+    CHECK(ref == "Keel Bridge");
+
+    UiVector<int, 4> uvec = {1, 2, 3, 4};
+    keel::ArrayRef<int> aref = uvec;
+    CHECK(aref.size() == 4);
+    CHECK(aref[2] == 3);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Core Foundation...\n";
 
@@ -942,6 +978,7 @@ int main() {
     TestEmbeddedAndRuntimeAssets();
     TestUiVectorAndArenaVector();
     TestMainWindowHeadlessBackend();
+    TestKeelIntegration();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Core tests passed successfully!\n";

@@ -3,25 +3,23 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <new>
 #include <span>
 #include <type_traits>
 #include <utility>
-#include <vector>
+#include "keel/arena.h"
+#include "keel/memory.h"
 
 namespace guikit {
 
-/// High-performance linear arena allocator for per-frame scratch objects.
-/// Guarantees O(1) allocation, zero heap churn during the frame, and O(1) reset.
+/// High-performance linear arena allocator for per-frame scratch objects, backed by `keel::Arena`.
+/// Reserves virtual address space upfront and commits 64 KB pages on demand with O(1) bump allocation and O(1) reset.
 class Allocator {
 public:
     static constexpr size_t DefaultChunkSize = 64 * 1024; // 64 KB
 
-    explicit Allocator(size_t chunkSize = DefaultChunkSize)
-        : m_defaultChunkSize(chunkSize) {
-        Grow(m_defaultChunkSize);
-    }
+    explicit Allocator(size_t chunkSize = DefaultChunkSize) noexcept
+        : m_arena(std::max<keel::isize>(keel::Arena::kDefaultReserveSize, static_cast<keel::isize>(chunkSize) * 16)) {}
 
     ~Allocator() noexcept {
         DestroyAll();
@@ -31,22 +29,16 @@ public:
     Allocator& operator=(const Allocator&) = delete;
 
     Allocator(Allocator&& other) noexcept
-        : m_chunks(std::move(other.m_chunks))
-        , m_currentChunkIndex(other.m_currentChunkIndex)
-        , m_defaultChunkSize(other.m_defaultChunkSize)
+        : m_arena(std::move(other.m_arena))
         , m_dtorHead(other.m_dtorHead) {
-        other.m_currentChunkIndex = 0;
         other.m_dtorHead = nullptr;
     }
 
     Allocator& operator=(Allocator&& other) noexcept {
         if (this != &other) {
             DestroyAll();
-            m_chunks = std::move(other.m_chunks);
-            m_currentChunkIndex = other.m_currentChunkIndex;
-            m_defaultChunkSize = other.m_defaultChunkSize;
+            m_arena = std::move(other.m_arena);
             m_dtorHead = other.m_dtorHead;
-            other.m_currentChunkIndex = 0;
             other.m_dtorHead = nullptr;
         }
         return *this;
@@ -57,59 +49,13 @@ public:
         if (bytes == 0) {
             return nullptr;
         }
-
-        Chunk* chunk = &m_chunks[m_currentChunkIndex];
-        uintptr_t current = reinterpret_cast<uintptr_t>(chunk->data.get() + chunk->offset);
-        uintptr_t aligned = (current + alignment - 1) & ~(alignment - 1);
-        size_t padding = aligned - current;
-
-        if (chunk->offset + padding + bytes <= chunk->capacity) {
-            chunk->offset += padding + bytes;
-            return reinterpret_cast<void*>(aligned);
-        }
-
-        // Current chunk has insufficient space; move to next or allocate a new one
-        const size_t nextCapacity = std::max(m_defaultChunkSize, bytes + alignment);
-        if (m_currentChunkIndex + 1 < m_chunks.size()) {
-            ++m_currentChunkIndex;
-            chunk = &m_chunks[m_currentChunkIndex];
-            chunk->offset = 0;
-            if (chunk->capacity < bytes + alignment) {
-                chunk->data = std::make_unique<std::byte[]>(nextCapacity);
-                chunk->capacity = nextCapacity;
-            }
-        } else {
-            Grow(nextCapacity);
-            chunk = &m_chunks[m_currentChunkIndex];
-        }
-
-        current = reinterpret_cast<uintptr_t>(chunk->data.get() + chunk->offset);
-        aligned = (current + alignment - 1) & ~(alignment - 1);
-        padding = aligned - current;
-        chunk->offset += padding + bytes;
-        return reinterpret_cast<void*>(aligned);
+        const size_t safeAlign = std::max<size_t>(alignment, 1);
+        return m_arena.alloc(static_cast<keel::isize>(bytes), static_cast<keel::isize>(safeAlign));
     }
 
-    /// Attempts to extend the most recent raw allocation in the active chunk in-place.
-    /// Returns true if `ptr` sits at the top of the active chunk and has sufficient remaining capacity.
+    /// Attempts to extend the most recent raw allocation at the top of the arena in-place.
     [[nodiscard]] bool TryExtendRaw(void* ptr, size_t oldBytes, size_t newBytes) noexcept {
-        if (ptr == nullptr || m_chunks.empty()) {
-            return false;
-        }
-        if (newBytes <= oldBytes) {
-            return true;
-        }
-        Chunk& chunk = m_chunks[m_currentChunkIndex];
-        auto* bytePtr = static_cast<std::byte*>(ptr);
-        if (bytePtr + oldBytes != chunk.data.get() + chunk.offset) {
-            return false;
-        }
-        const size_t extra = newBytes - oldBytes;
-        if (chunk.offset + extra > chunk.capacity) {
-            return false;
-        }
-        chunk.offset += extra;
-        return true;
+        return m_arena.try_extend(ptr, static_cast<keel::isize>(oldBytes), static_cast<keel::isize>(newBytes));
     }
 
     /// Allocates and constructs an object in-place.
@@ -183,36 +129,31 @@ public:
         return std::span<T>(AllocateArray<T>(count), count);
     }
 
-    /// Invokes destructors for non-trivial allocations and resets all chunk offsets to zero.
-    /// Does NOT free underlying arena chunk buffers.
+    /// Invokes destructors for non-trivial allocations and resets the arena cursor to zero in O(1).
+    /// Does NOT uncommit or release underlying virtual memory pages.
     void Reset() noexcept {
         DestroyAll();
-        m_currentChunkIndex = 0;
-        for (auto& chunk : m_chunks) {
-            chunk.offset = 0;
-        }
+        m_arena.reset();
     }
 
-    /// Returns total bytes currently allocated across active chunks in this frame.
+    /// Returns total bytes currently used in this arena frame.
     [[nodiscard]] size_t GetTotalAllocatedBytes() const noexcept {
-        size_t total = 0;
-        for (size_t i = 0; i <= m_currentChunkIndex && i < m_chunks.size(); ++i) {
-            total += m_chunks[i].offset;
-        }
-        return total;
+        return static_cast<size_t>(m_arena.used());
     }
+
+    /// Returns a light-weight `keel::Allocator` handle backed directly by the underlying `keel::Arena`.
+    [[nodiscard]] keel::Allocator AsKeelAllocator() noexcept {
+        return *m_arena.allocator();
+    }
+
+    [[nodiscard]] keel::Arena& GetKeelArena() noexcept { return m_arena; }
+    [[nodiscard]] const keel::Arena& GetKeelArena() const noexcept { return m_arena; }
 
 private:
     struct DtorNode {
         void* obj{nullptr};
         void (*destroy)(void*) noexcept {nullptr};
         DtorNode* next{nullptr};
-    };
-
-    struct Chunk {
-        std::unique_ptr<std::byte[]> data;
-        size_t capacity{0};
-        size_t offset{0};
     };
 
     void DestroyAll() noexcept {
@@ -222,18 +163,7 @@ private:
         m_dtorHead = nullptr;
     }
 
-    void Grow(size_t capacity) {
-        Chunk chunk;
-        chunk.data = std::make_unique<std::byte[]>(capacity);
-        chunk.capacity = capacity;
-        chunk.offset = 0;
-        m_chunks.push_back(std::move(chunk));
-        m_currentChunkIndex = m_chunks.size() - 1;
-    }
-
-    std::vector<Chunk> m_chunks;
-    size_t m_currentChunkIndex{0};
-    size_t m_defaultChunkSize{DefaultChunkSize};
+    keel::Arena m_arena;
     DtorNode* m_dtorHead{nullptr};
 };
 

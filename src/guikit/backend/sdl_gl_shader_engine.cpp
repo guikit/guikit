@@ -1,4 +1,5 @@
 #include "guikit/backend/sdl_gl_shader_engine.hpp"
+#include "keel/small_array.h"
 
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -319,11 +320,11 @@ bool SdlGlShaderEngine::Initialize(SDL_Renderer* renderer) {
 
 void SdlGlShaderEngine::Shutdown() {
     if (m_available) {
-        for (auto& [_, entry] : m_textureCaches) {
+        for (const auto& [_, entry] : m_textureCaches) {
             if (entry.dataTex) g_gl.DeleteTextures(1, &entry.dataTex);
             if (entry.lutTex) g_gl.DeleteTextures(1, &entry.lutTex);
         }
-        for (auto& [_, prog] : m_programs) {
+        for (const auto& [_, prog] : m_programs) {
             if (prog.program) g_gl.DeleteProgram(prog.program);
         }
         if (m_quadVbo) {
@@ -343,9 +344,9 @@ const SdlGlShaderEngine::CompiledProgram* SdlGlShaderEngine::GetOrCompileProgram
         return nullptr;
     }
 
-    const std::string key(src.shaderId);
-    if (auto it = m_programs.find(key); it != m_programs.end()) {
-        return (it->second.program != 0) ? &it->second : nullptr;
+    const keel::StringRef keyRef(src.shaderId.data(), static_cast<keel::isize>(src.shaderId.size()));
+    if (const CompiledProgram* existing = m_programs.get(keyRef)) {
+        return (existing->program != 0) ? existing : nullptr;
     }
 
     CompiledProgram compiled{};
@@ -363,20 +364,23 @@ const SdlGlShaderEngine::CompiledProgram* SdlGlShaderEngine::GetOrCompileProgram
         compiled.uLutTex   = g_gl.GetUniformLocation(compiled.program, "u_LutTex");
     }
 
-    auto [insIt, _] = m_programs.emplace(key, compiled);
-    return (insIt->second.program != 0) ? &insIt->second : nullptr;
+    const CompiledProgram& inserted = m_programs.get_or_insert(keel::String::from(keyRef), compiled);
+    return (inserted.program != 0) ? &inserted : nullptr;
 }
 
 void SdlGlShaderEngine::PruneStaleTextures() {
     constexpr uint64_t kMaxIdleFrames = 300;
-    std::erase_if(m_textureCaches, [&](auto& kv) {
-        if (m_frameCounter - kv.second.lastUsedFrame > kMaxIdleFrames) {
-            if (kv.second.dataTex) g_gl.DeleteTextures(1, &kv.second.dataTex);
-            if (kv.second.lutTex) g_gl.DeleteTextures(1, &kv.second.lutTex);
-            return true;
+    keel::SmallArray<uint64_t, 16> staleIds;
+    for (const auto& [id, entry] : m_textureCaches) {
+        if (m_frameCounter - entry.lastUsedFrame > kMaxIdleFrames) {
+            if (entry.dataTex) g_gl.DeleteTextures(1, &entry.dataTex);
+            if (entry.lutTex) g_gl.DeleteTextures(1, &entry.lutTex);
+            staleIds.push_back(id);
         }
-        return false;
-    });
+    }
+    for (uint64_t id : staleIds) {
+        (void)m_textureCaches.remove(id);
+    }
 }
 
 void SdlGlShaderEngine::RenderPass(
@@ -394,7 +398,7 @@ void SdlGlShaderEngine::RenderPass(
         return;
     }
 
-    auto& cache = m_textureCaches[pass.widgetId];
+    auto& cache = m_textureCaches.get_or_insert(pass.widgetId, WidgetTextureCache{});
     cache.lastUsedFrame = m_frameCounter;
 
     // 1. Ensure 256x1 Colormap LUT texture is created & up to date

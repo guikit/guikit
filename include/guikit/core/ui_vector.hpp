@@ -1,22 +1,23 @@
 #pragma once
 
-#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
-#include <memory>
 #include <new>
 #include <span>
 #include <type_traits>
 #include <utility>
 #include "guikit/core/allocator.hpp"
+#include "keel/memory.h"
+#include "keel/ref.h"
+#include "keel/small_array.h"
 
 namespace guikit {
 
 /// Small-Buffer-Optimized (SBO) contiguous vector for UI layout and widget computations.
-/// Stores up to `InlineCapacity` elements directly on the stack/struct without heap allocation,
+/// Backed by `keel::SmallArray<T, InlineCapacity>`: stores up to `InlineCapacity` elements inline
 /// and never stores a self-referential pointer to its inline buffer (safe across moves/copies).
 template <typename T, size_t InlineCapacity = 16>
 class UiVector {
@@ -33,318 +34,131 @@ public:
     using iterator = T*;
     using const_iterator = const T*;
 
-    constexpr UiVector() noexcept = default;
+    UiVector() noexcept = default;
 
     explicit UiVector(size_t count) {
-        resize(count);
+        m_arr.resize(static_cast<keel::isize>(count));
     }
 
     UiVector(size_t count, const T& value) {
-        assign(count, value);
+        m_arr.assign(static_cast<keel::isize>(count), value);
     }
 
     UiVector(std::initializer_list<T> init) {
-        assign(std::span<const T>(init.begin(), init.size()));
+        m_arr.append(keel::ArrayRef<T>(init.begin(), static_cast<keel::isize>(init.size())));
     }
 
     explicit UiVector(std::span<const T> src) {
-        assign(src);
+        m_arr.append(keel::ArrayRef<T>(src.data(), static_cast<keel::isize>(src.size())));
     }
 
-    UiVector(const UiVector& other) {
-        assign(other.Span());
+    explicit UiVector(keel::ArrayRef<T> src) {
+        m_arr.append(src);
     }
 
-    UiVector(UiVector&& other) noexcept(std::is_nothrow_move_constructible_v<T>) {
-        MoveFrom(std::move(other));
-    }
+    UiVector(const UiVector& other)
+        : m_arr(other.m_arr.clone()) {}
+
+    UiVector(UiVector&& other) noexcept = default;
 
     UiVector& operator=(const UiVector& other) {
         if (this != &other) {
-            assign(other.Span());
+            m_arr.assign(other.m_arr);
         }
         return *this;
     }
 
-    UiVector& operator=(UiVector&& other) noexcept(std::is_nothrow_move_constructible_v<T>) {
-        if (this != &other) {
-            DestroyElements(data(), m_size);
-            FreeHeapBuffer();
-            MoveFrom(std::move(other));
-        }
-        return *this;
-    }
+    UiVector& operator=(UiVector&& other) noexcept = default;
 
-    ~UiVector() noexcept {
-        DestroyElements(data(), m_size);
-        FreeHeapBuffer();
-    }
+    ~UiVector() noexcept = default;
 
-    [[nodiscard]] T* data() noexcept {
-        return m_heap ? m_heap : InlinePtr();
-    }
+    [[nodiscard]] T* data() noexcept { return m_arr.data(); }
+    [[nodiscard]] const T* data() const noexcept { return m_arr.data(); }
 
-    [[nodiscard]] const T* data() const noexcept {
-        return m_heap ? m_heap : InlinePtr();
-    }
-
-    [[nodiscard]] constexpr size_t size() const noexcept { return m_size; }
-    [[nodiscard]] constexpr size_t capacity() const noexcept { return m_capacity; }
-    [[nodiscard]] constexpr bool empty() const noexcept { return m_size == 0; }
-    [[nodiscard]] constexpr bool IsInline() const noexcept { return m_heap == nullptr; }
+    [[nodiscard]] size_t size() const noexcept { return static_cast<size_t>(m_arr.size()); }
+    [[nodiscard]] size_t capacity() const noexcept { return static_cast<size_t>(m_arr.capacity()); }
+    [[nodiscard]] bool empty() const noexcept { return m_arr.empty(); }
+    [[nodiscard]] bool IsInline() const noexcept { return m_arr.is_inline(); }
     [[nodiscard]] static constexpr size_t InlineCapacityValue() noexcept { return InlineCapacity; }
 
-    [[nodiscard]] iterator begin() noexcept { return data(); }
-    [[nodiscard]] const_iterator begin() const noexcept { return data(); }
-    [[nodiscard]] const_iterator cbegin() const noexcept { return data(); }
+    [[nodiscard]] iterator begin() noexcept { return m_arr.begin(); }
+    [[nodiscard]] const_iterator begin() const noexcept { return m_arr.begin(); }
+    [[nodiscard]] const_iterator cbegin() const noexcept { return m_arr.begin(); }
 
-    [[nodiscard]] iterator end() noexcept { return data() + m_size; }
-    [[nodiscard]] const_iterator end() const noexcept { return data() + m_size; }
-    [[nodiscard]] const_iterator cend() const noexcept { return data() + m_size; }
+    [[nodiscard]] iterator end() noexcept { return m_arr.end(); }
+    [[nodiscard]] const_iterator end() const noexcept { return m_arr.end(); }
+    [[nodiscard]] const_iterator cend() const noexcept { return m_arr.end(); }
 
     [[nodiscard]] reference operator[](size_t idx) noexcept {
-        assert(idx < m_size);
-        return data()[idx];
+        assert(idx < size());
+        return m_arr[static_cast<keel::isize>(idx)];
     }
 
     [[nodiscard]] const_reference operator[](size_t idx) const noexcept {
-        assert(idx < m_size);
-        return data()[idx];
+        assert(idx < size());
+        return m_arr[static_cast<keel::isize>(idx)];
     }
 
-    [[nodiscard]] reference front() noexcept {
-        assert(m_size > 0);
-        return data()[0];
-    }
+    [[nodiscard]] reference front() noexcept { return m_arr.front(); }
+    [[nodiscard]] const_reference front() const noexcept { return m_arr.front(); }
 
-    [[nodiscard]] const_reference front() const noexcept {
-        assert(m_size > 0);
-        return data()[0];
-    }
+    [[nodiscard]] reference back() noexcept { return m_arr.back(); }
+    [[nodiscard]] const_reference back() const noexcept { return m_arr.back(); }
 
-    [[nodiscard]] reference back() noexcept {
-        assert(m_size > 0);
-        return data()[m_size - 1];
-    }
+    [[nodiscard]] std::span<T> Span() noexcept { return std::span<T>(m_arr.data(), size()); }
+    [[nodiscard]] std::span<const T> Span() const noexcept { return std::span<const T>(m_arr.data(), size()); }
+    [[nodiscard]] keel::ArrayRef<T> KeelRef() const noexcept { return m_arr; }
+    [[nodiscard]] operator keel::ArrayRef<T>() const noexcept { return m_arr; }
+    [[nodiscard]] operator keel::MutArrayRef<T>() noexcept { return m_arr; }
 
-    [[nodiscard]] const_reference back() const noexcept {
-        assert(m_size > 0);
-        return data()[m_size - 1];
-    }
-
-    [[nodiscard]] std::span<T> Span() noexcept { return std::span<T>(data(), m_size); }
-    [[nodiscard]] std::span<const T> Span() const noexcept { return std::span<const T>(data(), m_size); }
-
-    void clear() noexcept {
-        DestroyElements(data(), m_size);
-        m_size = 0;
-    }
+    void clear() noexcept { m_arr.clear(); }
 
     void reserve(size_t newCap) {
-        if (newCap <= m_capacity) {
-            return;
-        }
-        GrowTo(newCap);
+        m_arr.reserve(static_cast<keel::isize>(newCap));
     }
 
     void resize(size_t newSize) {
-        if (newSize < m_size) {
-            DestroyElements(data() + newSize, m_size - newSize);
-            m_size = static_cast<uint32_t>(newSize);
-        } else if (newSize > m_size) {
-            reserve(newSize);
-            T* cur = data();
-            for (size_t i = m_size; i < newSize; ++i) {
-                ::new (static_cast<void*>(cur + i)) T{};
-            }
-            m_size = static_cast<uint32_t>(newSize);
-        }
+        m_arr.resize(static_cast<keel::isize>(newSize));
     }
 
     void resize(size_t newSize, const T& value) {
-        if (newSize < m_size) {
-            DestroyElements(data() + newSize, m_size - newSize);
-            m_size = static_cast<uint32_t>(newSize);
-        } else if (newSize > m_size) {
-            reserve(newSize);
-            T* cur = data();
-            for (size_t i = m_size; i < newSize; ++i) {
-                ::new (static_cast<void*>(cur + i)) T(value);
-            }
-            m_size = static_cast<uint32_t>(newSize);
-        }
+        m_arr.resize(static_cast<keel::isize>(newSize), value);
     }
 
     void assign(size_t count, const T& value) {
-        clear();
-        reserve(count);
-        T* cur = data();
-        for (size_t i = 0; i < count; ++i) {
-            ::new (static_cast<void*>(cur + i)) T(value);
-        }
-        m_size = static_cast<uint32_t>(count);
+        m_arr.assign(static_cast<keel::isize>(count), value);
     }
 
     void assign(std::span<const T> src) {
-        if (src.data() >= data() && src.data() < data() + m_size) {
-            UiVector tmp(src.size());
-            for (size_t i = 0; i < src.size(); ++i) {
-                tmp[i] = src[i];
-            }
-            *this = std::move(tmp);
-            return;
-        }
-        clear();
-        if (src.empty()) {
-            return;
-        }
-        reserve(src.size());
-        T* dst = data();
-        if constexpr (std::is_trivially_copyable_v<T>) {
-            std::memcpy(static_cast<void*>(dst), src.data(), sizeof(T) * src.size());
-        } else {
-            for (size_t i = 0; i < src.size(); ++i) {
-                ::new (static_cast<void*>(dst + i)) T(src[i]);
-            }
-        }
-        m_size = static_cast<uint32_t>(src.size());
+        m_arr.assign(keel::ArrayRef<T>(src.data(), static_cast<keel::isize>(src.size())));
     }
 
     void push_back(const T& value) {
-        emplace_back(value);
+        m_arr.push_back(value);
     }
 
     void push_back(T&& value) {
-        emplace_back(std::move(value));
+        m_arr.push_back(std::move(value));
     }
 
     template <typename... Args>
     reference emplace_back(Args&&... args) {
-        if (m_size < m_capacity) {
-            T* slot = data() + m_size;
-            T* elem = ::new (static_cast<void*>(slot)) T(std::forward<Args>(args)...);
-            ++m_size;
-            return *elem;
-        }
-        return EmplaceBackSlow(std::forward<Args>(args)...);
+        return m_arr.emplace_back(std::forward<Args>(args)...);
     }
 
     void pop_back() noexcept {
-        assert(m_size > 0);
-        --m_size;
-        if constexpr (!std::is_trivially_destructible_v<T>) {
-            data()[m_size].~T();
-        }
+        m_arr.pop_back();
     }
 
     iterator erase(const_iterator pos) {
         assert(pos >= cbegin() && pos < cend());
-        const size_t idx = static_cast<size_t>(pos - cbegin());
-        T* cur = data();
-        for (size_t i = idx; i + 1 < m_size; ++i) {
-            cur[i] = std::move(cur[i + 1]);
-        }
-        pop_back();
-        return cur + idx;
+        const keel::isize idx = static_cast<keel::isize>(pos - cbegin());
+        m_arr.remove_at(idx);
+        return m_arr.data() + idx;
     }
 
 private:
-    [[nodiscard]] T* InlinePtr() noexcept {
-        return std::launder(reinterpret_cast<T*>(m_inline));
-    }
-
-    [[nodiscard]] const T* InlinePtr() const noexcept {
-        return std::launder(reinterpret_cast<const T*>(m_inline));
-    }
-
-    static T* AllocateHeapBuffer(size_t cap) {
-        return static_cast<T*>(::operator new(sizeof(T) * cap, std::align_val_t(alignof(T))));
-    }
-
-    void FreeHeapBuffer() noexcept {
-        if (m_heap != nullptr) {
-            ::operator delete(m_heap, std::align_val_t(alignof(T)));
-            m_heap = nullptr;
-        }
-    }
-
-    static void DestroyElements(T* ptr, size_t count) noexcept {
-        if constexpr (!std::is_trivially_destructible_v<T>) {
-            for (size_t i = count; i > 0; --i) {
-                ptr[i - 1].~T();
-            }
-        } else {
-            (void)ptr;
-            (void)count;
-        }
-    }
-
-    static void RelocateElements(T* dst, T* src, size_t count) noexcept(std::is_nothrow_move_constructible_v<T>) {
-        if (count == 0) {
-            return;
-        }
-        if constexpr (std::is_trivially_copyable_v<T>) {
-            std::memcpy(static_cast<void*>(dst), static_cast<const void*>(src), sizeof(T) * count);
-        } else {
-            for (size_t i = 0; i < count; ++i) {
-                ::new (static_cast<void*>(dst + i)) T(std::move_if_noexcept(src[i]));
-                src[i].~T();
-            }
-        }
-    }
-
-    void GrowTo(size_t minCap) {
-        const size_t doubled = static_cast<size_t>(m_capacity) * 2;
-        const size_t newCap = std::max(minCap, doubled);
-        T* newBuf = AllocateHeapBuffer(newCap);
-        T* oldBuf = data();
-        RelocateElements(newBuf, oldBuf, m_size);
-        FreeHeapBuffer();
-        m_heap = newBuf;
-        m_capacity = static_cast<uint32_t>(newCap);
-    }
-
-    template <typename... Args>
-    reference EmplaceBackSlow(Args&&... args) {
-        const size_t newCap = std::max<size_t>(static_cast<size_t>(m_capacity) * 2, InlineCapacity + 1);
-        T* newBuf = AllocateHeapBuffer(newCap);
-        // Construct new element before relocating/destroying old buffer to stay safe if args alias an existing element
-        T* newElem = nullptr;
-        try {
-            newElem = ::new (static_cast<void*>(newBuf + m_size)) T(std::forward<Args>(args)...);
-        } catch (...) {
-            ::operator delete(newBuf, std::align_val_t(alignof(T)));
-            throw;
-        }
-        RelocateElements(newBuf, data(), m_size);
-        FreeHeapBuffer();
-        m_heap = newBuf;
-        m_capacity = static_cast<uint32_t>(newCap);
-        ++m_size;
-        return *newElem;
-    }
-
-    void MoveFrom(UiVector&& other) noexcept(std::is_nothrow_move_constructible_v<T>) {
-        if (!other.IsInline()) {
-            m_heap = other.m_heap;
-            m_size = other.m_size;
-            m_capacity = other.m_capacity;
-            other.m_heap = nullptr;
-            other.m_size = 0;
-            other.m_capacity = static_cast<uint32_t>(InlineCapacity);
-        } else {
-            m_heap = nullptr;
-            m_size = other.m_size;
-            m_capacity = static_cast<uint32_t>(InlineCapacity);
-            RelocateElements(InlinePtr(), other.InlinePtr(), other.m_size);
-            other.m_size = 0;
-        }
-    }
-
-    T* m_heap{nullptr};
-    uint32_t m_size{0};
-    uint32_t m_capacity{static_cast<uint32_t>(InlineCapacity)};
-    alignas(T) std::byte m_inline[sizeof(T) * InlineCapacity];
+    keel::SmallArray<T, static_cast<keel::isize>(InlineCapacity)> m_arr;
 };
 
 namespace detail {
@@ -382,7 +196,7 @@ struct ArenaVectorBase<T, false> {
 
 /// Bump-arena-backed contiguous vector for per-frame `Node::payload` structures.
 /// Trivially destructible when `T` is trivially destructible, and expands in-place
-/// via `Allocator::TryExtendRaw` when growing at the tip of the active arena chunk.
+/// via `Allocator::TryExtendRaw` (`keel::Arena::try_extend`) when growing at the tip of the arena.
 template <typename T>
 class UiArenaVector : private detail::ArenaVectorBase<T> {
     using Base = detail::ArenaVectorBase<T>;

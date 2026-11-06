@@ -1,14 +1,15 @@
 #include "guikit/core/assets.hpp"
 #include <algorithm>
-#include <cctype>
-#include <unordered_map>
+#include "keel/array.h"
+#include "keel/hash_map.h"
+#include "keel/string.h"
 
 namespace guikit {
 
 namespace {
 
 struct RuntimeAssetRecord {
-    std::vector<uint8_t> ownedBytes{}; // Always padded with a trailing '\0' when non-empty
+    keel::Array<uint8_t> ownedBytes{}; // Always padded with a trailing '\0' when non-empty
     const uint8_t* externalPtr{nullptr};
     size_t size{0};
     std::string mimeType{};
@@ -18,32 +19,20 @@ struct RuntimeAssetRecord {
     }
 };
 
-std::unordered_map<std::string, RuntimeAssetRecord>& GetRuntimeRegistry() {
-    static std::unordered_map<std::string, RuntimeAssetRecord> s_registry;
+keel::HashMap<keel::String, RuntimeAssetRecord>& GetRuntimeRegistry() {
+    static keel::HashMap<keel::String, RuntimeAssetRecord> s_registry;
     return s_registry;
 }
 
 [[nodiscard]] bool EqualsIgnoreCase(std::string_view a, std::string_view b) noexcept {
-    if (a.size() != b.size()) return false;
-    for (size_t i = 0; i < a.size(); ++i) {
-        if (std::tolower(static_cast<unsigned char>(a[i])) !=
-            std::tolower(static_cast<unsigned char>(b[i]))) {
-            return false;
-        }
-    }
-    return true;
+    return keel::StringRef(a.data(), a.size()).equals_ignore_ascii_case(keel::StringRef(b.data(), b.size()));
 }
 
 } // namespace
 
 std::string Assets::NormalizePath(std::string_view path) {
-    // Trim leading/trailing whitespace
-    while (!path.empty() && (path.front() == ' ' || path.front() == '\t' || path.front() == '\r' || path.front() == '\n')) {
-        path.remove_prefix(1);
-    }
-    while (!path.empty() && (path.back() == ' ' || path.back() == '\t' || path.back() == '\r' || path.back() == '\n')) {
-        path.remove_suffix(1);
-    }
+    const keel::StringRef trimmed = keel::StringRef(path.data(), path.size()).trim();
+    path = std::string_view(trimmed.data(), trimmed.size());
     if (path.empty()) {
         return {};
     }
@@ -112,12 +101,11 @@ std::optional<AssetView> Assets::Find(std::string_view virtualPath) {
     }
 
     const auto& runtimeReg = GetRuntimeRegistry();
-    if (auto it = runtimeReg.find(norm); it != runtimeReg.end()) {
-        const RuntimeAssetRecord& rec = it->second;
+    if (const RuntimeAssetRecord* rec = runtimeReg.get(keel::StringRef(norm.data(), norm.size()))) {
         return AssetView{
-            .data = rec.DataPtr(),
-            .size = rec.size,
-            .mimeType = rec.mimeType
+            .data = rec->DataPtr(),
+            .size = rec->size,
+            .mimeType = rec->mimeType
         };
     }
 
@@ -135,12 +123,11 @@ std::optional<AssetView> Assets::Find(std::string_view virtualPath) {
     // Also allow lookup without the leading "assets/" prefix (e.g. "images/lena.png" -> "assets/images/lena.png")
     if (!norm.starts_with("assets/")) {
         const std::string withPrefix = "assets/" + norm;
-        if (auto it = runtimeReg.find(withPrefix); it != runtimeReg.end()) {
-            const RuntimeAssetRecord& rec = it->second;
+        if (const RuntimeAssetRecord* rec = runtimeReg.get(keel::StringRef(withPrefix.data(), withPrefix.size()))) {
             return AssetView{
-                .data = rec.DataPtr(),
-                .size = rec.size,
-                .mimeType = rec.mimeType
+                .data = rec->DataPtr(),
+                .size = rec->size,
+                .mimeType = rec->mimeType
             };
         }
         for (const auto& entry : embedded) {
@@ -176,7 +163,7 @@ void Assets::Register(
     rec.externalPtr = data;
     rec.size = size;
     rec.mimeType = mimeType.empty() ? std::string(InferMimeType(norm)) : std::string(mimeType);
-    GetRuntimeRegistry()[norm] = std::move(rec);
+    GetRuntimeRegistry().put(keel::String::from(keel::StringRef(norm.data(), norm.size())), std::move(rec));
 }
 
 void Assets::RegisterOwned(
@@ -190,10 +177,11 @@ void Assets::RegisterOwned(
     }
     RuntimeAssetRecord rec{};
     rec.size = bytes.size();
-    bytes.push_back(0); // Null-terminate for non-copy SVG/text loaders
-    rec.ownedBytes = std::move(bytes);
+    rec.ownedBytes.reserve(static_cast<keel::isize>(bytes.size() + 1));
+    rec.ownedBytes.append(keel::ArrayRef<uint8_t>(bytes.data(), bytes.size()));
+    rec.ownedBytes.push_back(0); // Null-terminate for non-copy SVG/text loaders
     rec.mimeType = mimeType.empty() ? std::string(InferMimeType(norm)) : std::string(mimeType);
-    GetRuntimeRegistry()[norm] = std::move(rec);
+    GetRuntimeRegistry().put(keel::String::from(keel::StringRef(norm.data(), norm.size())), std::move(rec));
 }
 
 bool Assets::Unregister(std::string_view virtualPath) {
@@ -201,7 +189,7 @@ bool Assets::Unregister(std::string_view virtualPath) {
     if (norm.empty()) {
         return false;
     }
-    return GetRuntimeRegistry().erase(norm) > 0;
+    return GetRuntimeRegistry().remove(keel::StringRef(norm.data(), norm.size()));
 }
 
 void Assets::ClearRuntime() {
@@ -218,8 +206,9 @@ std::vector<std::string> Assets::ListPaths() {
         result.emplace_back(entry.path);
     }
     for (const auto& [path, _] : runtimeReg) {
-        if (std::find(result.begin(), result.end(), path) == result.end()) {
-            result.push_back(path);
+        const std::string_view sv(path.data(), path.size());
+        if (std::find(result.begin(), result.end(), sv) == result.end()) {
+            result.emplace_back(sv);
         }
     }
     std::sort(result.begin(), result.end());

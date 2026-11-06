@@ -5,7 +5,6 @@
 #include <cstdio>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
@@ -1201,7 +1200,7 @@ MarkdownPassResult HitTestMarkdownLayout(
     bool interactiveTasks,
     bool showCopyButton,
     bool disabled,
-    const std::unordered_map<int, bool>* taskOverrides
+    const keel::HashMap<int, bool>* taskOverrides
 ) noexcept {
     MarkdownPassResult out{};
     out.totalWidth = layout.totalWidth;
@@ -1245,9 +1244,8 @@ MarkdownPassResult HitTestMarkdownLayout(
             if (tr.localHitRect.Contains(localMouse)) {
                 bool isChecked = tr.defaultChecked;
                 if (taskOverrides) {
-                    auto it = taskOverrides->find(tr.taskIndex);
-                    if (it != taskOverrides->end()) {
-                        isChecked = it->second;
+                    if (const bool* ov = taskOverrides->get(tr.taskIndex)) {
+                        isChecked = *ov;
                     }
                 }
                 out.hoveredTaskIndex = tr.taskIndex;
@@ -1386,9 +1384,8 @@ void RenderMarkdownDocumentLayout(
             case BlockKind::ListItem: {
                 bool isTaskChecked = (blk.taskState == 1);
                 if (blk.taskIndex >= 0 && overlay && overlay->taskOverrides) {
-                    auto it = overlay->taskOverrides->find(blk.taskIndex);
-                    if (it != overlay->taskOverrides->end()) {
-                        isTaskChecked = it->second;
+                    if (const bool* ov = overlay->taskOverrides->get(blk.taskIndex)) {
+                        isTaskChecked = *ov;
                     }
                 }
 
@@ -1684,7 +1681,7 @@ struct MarkdownState {
     std::string cachedSelectedText{};
 
     // Interactive Task List overrides
-    std::unordered_map<int, bool> taskOverrides{};
+    keel::HashMap<int, bool> taskOverrides{};
 
     // In-document Search state
     bool searchBarOpen{false};
@@ -1718,7 +1715,7 @@ struct MarkdownPayload {
     std::string_view activeSearchQuery{};
     int activeSearchMatch{-1};
     int searchMatchCount{0};
-    const std::unordered_map<int, bool>* taskOverrides{nullptr};
+    const keel::HashMap<int, bool>* taskOverrides{nullptr};
     const MarkdownDocumentLayout* layout{nullptr};
     mutable ICanvas* lastCanvas{nullptr};
 };
@@ -1843,7 +1840,7 @@ MarkdownResponse Markdown::Run(
             } else if (hit.hoveredTaskIndex >= 0 && optsCopy.interactiveTasks) {
                 if (baseRes.clicked) {
                     const bool nextChecked = !hit.hoveredTaskCurrentState;
-                    state.taskOverrides[hit.hoveredTaskIndex] = nextChecked;
+                    state.taskOverrides.put(hit.hoveredTaskIndex, nextChecked);
                     res.toggledTaskIndex = hit.hoveredTaskIndex;
                     res.toggledTaskChecked = nextChecked;
                     res.changed = true;

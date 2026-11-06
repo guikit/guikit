@@ -2,62 +2,126 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <list>
 #include <memory>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
+#include "keel/array.h"
+#include "keel/hash_map.h"
 
 namespace guikit {
 
 /// Deterministic O(1) Least-Recently-Used (LRU) cache with bounded capacity.
-/// Avoids full-cache `.clear()` spikes when rendering many rich-text or document items.
+/// Backed by a flat `keel::Array` with intrusive index doubly-linked list and `keel::HashMap` (zero node heap allocations).
 template <typename Key, typename Value, size_t Capacity = 64>
 class LruCache {
-public:
-    using ListType = std::list<std::pair<Key, Value>>;
-    using MapType = std::unordered_map<Key, typename ListType::iterator>;
+    static_assert(Capacity > 0, "LruCache Capacity must be greater than 0");
+    static constexpr uint32_t kNil = UINT32_MAX;
 
+    struct Entry {
+        Key key{};
+        Value value{};
+        uint32_t prev{kNil};
+        uint32_t next{kNil};
+    };
+
+public:
     [[nodiscard]] const Value* Find(const Key& key) noexcept {
-        auto it = m_map.find(key);
-        if (it == m_map.end()) {
+        const uint32_t* idxPtr = m_map.get(key);
+        if (!idxPtr) {
             return nullptr;
         }
-        m_list.splice(m_list.begin(), m_list, it->second);
-        return &it->second->second;
+        const uint32_t idx = *idxPtr;
+        MoveToFront(idx);
+        return &m_entries[static_cast<keel::isize>(idx)].value;
     }
 
     const Value& Insert(const Key& key, Value value) {
-        auto it = m_map.find(key);
-        if (it != m_map.end()) {
-            it->second->second = std::move(value);
-            m_list.splice(m_list.begin(), m_list, it->second);
-            return it->second->second;
+        if (uint32_t* idxPtr = m_map.get(key)) {
+            const uint32_t idx = *idxPtr;
+            m_entries[static_cast<keel::isize>(idx)].value = std::move(value);
+            MoveToFront(idx);
+            return m_entries[static_cast<keel::isize>(idx)].value;
         }
-        if (m_map.size() >= Capacity && !m_list.empty()) {
-            m_map.erase(m_list.back().first);
-            m_list.pop_back();
+
+        uint32_t slot = kNil;
+        if (static_cast<size_t>(m_entries.size()) < Capacity) {
+            if (m_entries.capacity() == 0) {
+                m_entries.reserve(static_cast<keel::isize>(Capacity));
+            }
+            slot = static_cast<uint32_t>(m_entries.size());
+            m_entries.push_back(Entry{
+                .key = key,
+                .value = std::move(value),
+                .prev = kNil,
+                .next = kNil
+            });
+        } else {
+            slot = m_tail;
+            Entry& victim = m_entries[static_cast<keel::isize>(slot)];
+            (void)m_map.remove(victim.key);
+            Detach(slot);
+            victim.key = key;
+            victim.value = std::move(value);
         }
-        m_list.emplace_front(key, std::move(value));
-        m_map.emplace(key, m_list.begin());
-        return m_list.front().second;
+
+        AttachFront(slot);
+        m_map.put(key, slot);
+        return m_entries[static_cast<keel::isize>(slot)].value;
     }
 
     void Clear() noexcept {
         m_map.clear();
-        m_list.clear();
+        m_entries.clear();
+        m_head = kNil;
+        m_tail = kNil;
     }
 
-    [[nodiscard]] size_t Size() const noexcept { return m_map.size(); }
+    [[nodiscard]] size_t Size() const noexcept { return static_cast<size_t>(m_map.size()); }
 
 private:
-    ListType m_list{};
-    MapType m_map{};
+    void Detach(uint32_t idx) noexcept {
+        Entry& e = m_entries[static_cast<keel::isize>(idx)];
+        if (e.prev != kNil) {
+            m_entries[static_cast<keel::isize>(e.prev)].next = e.next;
+        } else {
+            m_head = e.next;
+        }
+        if (e.next != kNil) {
+            m_entries[static_cast<keel::isize>(e.next)].prev = e.prev;
+        } else {
+            m_tail = e.prev;
+        }
+        e.prev = kNil;
+        e.next = kNil;
+    }
+
+    void AttachFront(uint32_t idx) noexcept {
+        Entry& e = m_entries[static_cast<keel::isize>(idx)];
+        e.prev = kNil;
+        e.next = m_head;
+        if (m_head != kNil) {
+            m_entries[static_cast<keel::isize>(m_head)].prev = idx;
+        } else {
+            m_tail = idx;
+        }
+        m_head = idx;
+    }
+
+    void MoveToFront(uint32_t idx) noexcept {
+        if (m_head == idx) return;
+        Detach(idx);
+        AttachFront(idx);
+    }
+
+    keel::Array<Entry> m_entries{};
+    keel::HashMap<Key, uint32_t> m_map{};
+    uint32_t m_head{kNil};
+    uint32_t m_tail{kNil};
 };
 
 // ============================================================================
@@ -169,7 +233,7 @@ struct RenderOverlayState {
     size_t caretOffset{0};
     const std::vector<SearchMatchRange>* searchMatches{nullptr};
     int activeSearchMatch{-1};
-    const std::unordered_map<int, bool>* taskOverrides{nullptr};
+    const keel::HashMap<int, bool>* taskOverrides{nullptr};
 };
 
 struct DocumentTextMap {

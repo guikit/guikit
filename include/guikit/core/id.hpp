@@ -4,8 +4,8 @@
 #include <functional>
 #include <source_location>
 #include <string_view>
-
 #include <type_traits>
+#include "keel/hash.h"
 
 namespace guikit {
 
@@ -158,5 +158,13 @@ template <>
 struct std::hash<guikit::Id> {
     size_t operator()(const guikit::Id& id) const noexcept {
         return static_cast<size_t>(id.value);
+    }
+};
+
+// Keel hash support for guikit::Id
+template <>
+struct keel::Hash<guikit::Id> {
+    [[nodiscard]] constexpr keel::u64 operator()(const guikit::Id& id) const noexcept {
+        return keel::hash_u64(id.value);
     }
 };
