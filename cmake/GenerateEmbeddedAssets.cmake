@@ -57,6 +57,12 @@ foreach(REL_PATH IN LISTS REL_ASSET_FILES)
     string(REPLACE "\\" "/" NORM_REL "${REL_PATH}")
     set(VIRTUAL_PATH "assets/${NORM_REL}")
 
+    if (DEFINED EMBED_DEMO_ASSETS AND NOT EMBED_DEMO_ASSETS)
+        if (NORM_REL MATCHES "^(geo|images)/")
+            continue()
+        endif()
+    endif()
+
     get_filename_component(EXT "${NORM_REL}" LAST_EXT)
     string(TOLOWER "${EXT}" EXT_LOWER)
     if (EXT_LOWER STREQUAL ".png")

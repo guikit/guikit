@@ -23,6 +23,20 @@ option(GUIKIT_BUILD_DEMO "Build GuiKit interactive demo and examples" ${PROJECT_
 option(GUIKIT_BUILD_TESTS "Build GuiKit unit tests" ${PROJECT_IS_TOP_LEVEL})
 option(GUIKIT_INSTALL "Enable CMake install targets for GuiKit" ${PROJECT_IS_TOP_LEVEL})
 
+if (GUIKIT_BUILD_DEMO OR GUIKIT_BUILD_TESTS OR GUIKIT_BUILD_SCENES)
+    set(_GUIKIT_DEFAULT_EMBED_DEMO_ASSETS ON)
+else()
+    set(_GUIKIT_DEFAULT_EMBED_DEMO_ASSETS OFF)
+endif()
+option(GUIKIT_EMBED_DEMO_ASSETS "Embed demo showcase assets (lena.png, demo_bay.geojson) into binary" ${_GUIKIT_DEFAULT_EMBED_DEMO_ASSETS})
+
+# Optimize WebAssembly builds for compact binary size (-Oz + Link-Time Optimization)
+if (EMSCRIPTEN)
+    set(CMAKE_C_FLAGS_RELEASE "-Oz -flto -DNDEBUG" CACHE STRING "Emscripten C Release flags" FORCE)
+    set(CMAKE_CXX_FLAGS_RELEASE "-Oz -flto -DNDEBUG" CACHE STRING "Emscripten CXX Release flags" FORCE)
+    set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-Oz -flto" CACHE STRING "Emscripten Release linker flags" FORCE)
+endif()
+
 # --- Threads (Cross-Platform) ---
 if (NOT EMSCRIPTEN)
     find_package(Threads REQUIRED)
@@ -109,6 +123,7 @@ add_custom_command(
     COMMAND "${CMAKE_COMMAND}"
         "-DASSETS_DIR=${CMAKE_CURRENT_SOURCE_DIR}/assets"
         "-DOUTPUT_FILE=${GUIKIT_GENERATED_ASSETS_CPP}"
+        "-DEMBED_DEMO_ASSETS=${GUIKIT_EMBED_DEMO_ASSETS}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenerateEmbeddedAssets.cmake"
     DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenerateEmbeddedAssets.cmake"
@@ -211,6 +226,17 @@ if (GUIKIT_BUILD_BACKEND_SDL3)
         set(SDL_INSTALL OFF CACHE BOOL "" FORCE)
         set(SDL_SHARED OFF CACHE BOOL "" FORCE)
         set(SDL_STATIC ON CACHE BOOL "" FORCE)
+        set(SDL_AUDIO OFF CACHE BOOL "" FORCE)
+        set(SDL_GPU OFF CACHE BOOL "" FORCE)
+        set(SDL_RENDER_GPU OFF CACHE BOOL "" FORCE)
+        set(SDL_CAMERA OFF CACHE BOOL "" FORCE)
+        set(SDL_JOYSTICK OFF CACHE BOOL "" FORCE)
+        set(SDL_HAPTIC OFF CACHE BOOL "" FORCE)
+        set(SDL_HIDAPI OFF CACHE BOOL "" FORCE)
+        set(SDL_POWER OFF CACHE BOOL "" FORCE)
+        set(SDL_SENSOR OFF CACHE BOOL "" FORCE)
+        set(SDL_DIALOG OFF CACHE BOOL "" FORCE)
+        set(SDL_TRAY OFF CACHE BOOL "" FORCE)
         add_subdirectory(third_party/SDL EXCLUDE_FROM_ALL)
     else()
         find_package(SDL3 REQUIRED CONFIG)
@@ -292,12 +318,13 @@ if (GUIKIT_BUILD_DEMO)
     if (EMSCRIPTEN)
         set_target_properties(guikit_demo PROPERTIES SUFFIX ".html")
         target_link_options(guikit_demo PRIVATE
+            "-Oz"
+            "-flto"
             "-sALLOW_MEMORY_GROWTH=1"
             "-sINITIAL_MEMORY=67108864"
             "-sMAX_WEBGL_VERSION=2"
             "-sMIN_WEBGL_VERSION=1"
             "-sEXIT_RUNTIME=0"
-            "--embed-file" "${CMAKE_CURRENT_SOURCE_DIR}/assets@assets"
             "--shell-file" "${CMAKE_CURRENT_SOURCE_DIR}/examples/demo/shell.html"
         )
     else()

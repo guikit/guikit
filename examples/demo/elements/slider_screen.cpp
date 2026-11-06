@@ -23,11 +23,16 @@ struct SliderDemoState {
     bool showTicks = true;
     bool showLabels = true;
     bool showValue = true;
+    guikit::Orientation orientation = guikit::Orientation::Horizontal;
     guikit::Placement valuePlacement = guikit::Placement::Trailing;
     std::string textLeft = "";
     std::string textRight = "";
 };
 SliderDemoState s_state;
+
+constexpr const char* OrientationEnumName(guikit::Orientation o) noexcept {
+    return (o == guikit::Orientation::Vertical) ? "Vertical" : "Horizontal";
+}
 } // namespace
 
 void RenderSliderInspector(guikit::Context& ui, DemoContext&) {
@@ -41,6 +46,19 @@ void RenderSliderInspector(guikit::Context& ui, DemoContext&) {
             .showLabels = true
         }).changed) {
             ui.InvalidateAll();
+        }
+    }
+
+    if (s_state.modeIdx != 3) {
+        int orientIdx = (s_state.orientation == guikit::Orientation::Vertical) ? 1 : 0;
+        static constexpr std::array<std::string_view, 2> orientNames = {"Horizontal", "Vertical (Fader)"};
+        if (auto el = ui.Element({.label = "Orientation"})) {
+            if (ui.Segmented(orientIdx, orientNames).changed) {
+                s_state.orientation = (orientIdx == 1)
+                    ? guikit::Orientation::Vertical
+                    : guikit::Orientation::Horizontal;
+                ui.InvalidateAll();
+            }
         }
     }
 
@@ -157,6 +175,7 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
     })) {
         if (s_state.modeIdx == 0) {
             ui.Size(ctx.controlsSize).Slider(s_state.val, 0.0f, 100.0f, {
+                .orientation = s_state.orientation,
                 .textLeft = s_state.textLeft,
                 .textRight = s_state.textRight,
                 .valueFormat = "%.1f %%",
@@ -174,6 +193,7 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
         } else if (s_state.modeIdx == 1) {
             static constexpr std::array<std::string_view, 5> stepItems = {"Off", "Low", "Mid", "High", "Max"};
             ui.Size(ctx.controlsSize).StepSlider(s_state.stepIdx, stepItems, {
+                .orientation = s_state.orientation,
                 .textLeft = s_state.textLeft,
                 .textRight = s_state.textRight,
                 .showTicks = s_state.showTicks,
@@ -190,6 +210,7 @@ void RenderSliderStage(guikit::Context& ui, DemoContext& ctx) {
             });
         } else if (s_state.modeIdx == 2) {
             ui.Size(ctx.controlsSize).RangeSlider(s_state.rangeLow, s_state.rangeHigh, 0.0f, 100.0f, {
+                .orientation = s_state.orientation,
                 .textLeft = s_state.textLeft,
                 .textRight = s_state.textRight,
                 .valueFormat = "%.0f %%",
@@ -245,6 +266,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             "    .disabled = {}\n"
             "}})) {{\n"
             "    ui.{}Slider(gainValue, 0.0f, 100.0f, {{\n"
+            "        .orientation = guikit::Orientation::{},\n"
             "        .textLeft = \"{}\",\n"
             "        .textRight = \"{}\",\n"
             "        .valueFormat = \"%.1f %%\",\n"
@@ -273,6 +295,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             ctx.FormatElemBorderCode(),
             ctx.elemDisabled ? "true" : "false",
             FormatUiSizePrefix(ctx.controlsSize),
+            OrientationEnumName(s_state.orientation),
             s_state.textLeft,
             s_state.textRight,
             s_state.quantizeStep ? "5.0" : "std::nullopt",
@@ -304,6 +327,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             "    .disabled = {}\n"
             "}})) {{\n"
             "    ui.{}StepSlider(presetIndex, stepItems, {{\n"
+            "        .orientation = guikit::Orientation::{},\n"
             "        .textLeft = \"{}\",\n"
             "        .textRight = \"{}\",\n"
             "        .showTicks = {},\n"
@@ -332,6 +356,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             ctx.FormatElemBorderCode(),
             ctx.elemDisabled ? "true" : "false",
             FormatUiSizePrefix(ctx.controlsSize),
+            OrientationEnumName(s_state.orientation),
             s_state.textLeft,
             s_state.textRight,
             s_state.showTicks ? "true" : "false",
@@ -363,6 +388,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             "    .disabled = {}\n"
             "}})) {{\n"
             "    ui.{}RangeSlider(bandLow, bandHigh, 0.0f, 100.0f, {{\n"
+            "        .orientation = guikit::Orientation::{},\n"
             "        .textLeft = \"{}\",\n"
             "        .textRight = \"{}\",\n"
             "        .valueFormat = \"%.0f %%\",\n"
@@ -392,6 +418,7 @@ std::string GenerateSliderCode(const DemoContext& ctx) {
             ctx.FormatElemBorderCode(),
             ctx.elemDisabled ? "true" : "false",
             FormatUiSizePrefix(ctx.controlsSize),
+            OrientationEnumName(s_state.orientation),
             s_state.textLeft,
             s_state.textRight,
             s_state.quantizeStep ? "5.0" : "std::nullopt",

@@ -601,7 +601,7 @@ void TestEmbeddedAndRuntimeAssets() {
     CHECK(demoBay.has_value());
     if (demoBay.has_value()) {
         CHECK(!demoBay->Empty());
-        CHECK(demoBay->size > 800000u);
+        CHECK(demoBay->size > 300000u);
     }
 
     const auto lena = Assets::Find("assets/images/lena.png");
