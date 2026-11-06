@@ -7,9 +7,9 @@
 #include "guikit/core/element.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
-#include "guikit/core/ui_vector.hpp"
 #include "guikit/panels/scroll_area.hpp"
 #include "guikit/widgets/checkbox.hpp"
+#include "keel/arena.h"
 
 namespace guikit {
 
@@ -23,7 +23,7 @@ struct TreeViewPayload {
     std::string_view activeFilter{};
     uint32_t nextRootSlot{0};
     int visibleItemCount{0};
-    UiArenaVector<VisibleTreeItemEntry> currVisibleItems{};
+    keel::ArenaArray<VisibleTreeItemEntry> currVisibleItems{};
 
     uint16_t columnCount{0};
     std::array<TableColumn, TreeViewState::kMaxColumns> columns{};
@@ -427,8 +427,8 @@ void TreeItemScope::Finalize() noexcept {
         p->rowNode->visualHash = h;
     }
 
-    if (p->tree && p->visibleEntryIdx < p->tree->currVisibleItems.size()) {
-        p->tree->currVisibleItems[p->visibleEntryIdx].isBranch = p->hasChildItems || p->opts.forceBranch;
+    if (p->tree && p->visibleEntryIdx < static_cast<size_t>(p->tree->currVisibleItems.size())) {
+        p->tree->currVisibleItems[static_cast<keel::isize>(p->visibleEntryIdx)].isBranch = p->hasChildItems || p->opts.forceBranch;
     }
 
     const bool filterActive = (p->tree != nullptr && !p->tree->activeFilter.empty());
@@ -473,8 +473,8 @@ void TreeItemScope::Finalize() noexcept {
             p->branchNode->parent->RemoveChild(p->branchNode);
         }
         if (p->tree) {
-            if (p->visibleEntryIdx < p->tree->currVisibleItems.size()) {
-                p->tree->currVisibleItems.resize(p->visibleEntryIdx);
+            if (p->visibleEntryIdx < static_cast<size_t>(p->tree->currVisibleItems.size())) {
+                p->tree->currVisibleItems.resize(static_cast<keel::isize>(p->visibleEntryIdx));
             }
             p->tree->visibleItemCount = p->visibleRowIndex;
         }
@@ -650,7 +650,7 @@ TreeViewScope TreeView::Open(
     payload->ctx = &ctx;
     payload->outerNode = outerNode;
     payload->state = &st;
-    payload->currVisibleItems.BindArena(ctx.GetArena());
+    payload->currVisibleItems.bind_arena(ctx.GetArena());
     payload->opts = opts;
     payload->opts.title = ctx.AllocText(opts.title);
 
@@ -1111,7 +1111,7 @@ TreeItemScope TreeView::OpenItem(
 
     if (treePayload) {
         payload->visibleRowIndex = treePayload->visibleItemCount++;
-        payload->visibleEntryIdx = treePayload->currVisibleItems.size();
+        payload->visibleEntryIdx = static_cast<size_t>(treePayload->currVisibleItems.size());
         treePayload->currVisibleItems.push_back(VisibleTreeItemEntry{
             .idOuter = idOuter,
             .idRow = idRow,

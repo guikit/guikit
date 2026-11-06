@@ -10,10 +10,10 @@
 #include <type_traits>
 #include <typeindex>
 #include <vector>
+#include "keel/arena.h"
 #include "keel/hash_map.h"
 #include "keel/small_array.h"
 #include "guikit/backend/i_canvas.hpp"
-#include "guikit/core/allocator.hpp"
 #include "guikit/core/id.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -1717,9 +1717,7 @@ public:
         }
         if (!t.variants.empty()) {
             const size_t count = t.variants.size();
-            auto* arr = static_cast<std::string_view*>(
-                m_arena.AllocateRaw(sizeof(std::string_view) * count, alignof(std::string_view))
-            );
+            auto* arr = m_arena.alloc_array<std::string_view>(static_cast<keel::isize>(count));
             size_t i = 0;
             for (std::string_view v : t.variants) {
                 arr[i++] = v.empty() ? std::string_view{} : AllocString(v);
@@ -1752,10 +1750,10 @@ public:
     /// Allocates and constructs arbitrary widget payload data in the per-frame scratch arena.
     template <typename T, typename... Args>
     [[nodiscard]] T* AllocPayload(Args&&... args) {
-        return m_arena.Allocate<T>(std::forward<Args>(args)...);
+        return m_arena.create<T>(std::forward<Args>(args)...);
     }
 
-    [[nodiscard]] BumpAllocator& GetArena() noexcept { return m_arena; }
+    [[nodiscard]] keel::Arena& GetArena() noexcept { return m_arena; }
 
     void AdaptChildToContainer(Node* node);
     [[nodiscard]] Rect GetPrevFrameBounds(Id id) const;
@@ -2057,7 +2055,7 @@ private:
     bool m_inspectModeEnabled{false};
     bool m_anyScopedInspectActive{false};
 
-    BumpAllocator m_arena;
+    keel::Arena m_arena;
     std::vector<Node*> m_containerStack;
     std::vector<UiSize> m_sizeStack;
     std::vector<bool> m_disabledStack;

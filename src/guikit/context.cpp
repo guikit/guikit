@@ -113,7 +113,7 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
         }
     }
 
-    m_arena.Reset();
+    m_arena.reset();
     m_containerStack.clear();
     m_sizeStack.clear();
     m_disabledStack.clear();
@@ -133,7 +133,7 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
 
     // Create root container spanning the entire logical viewport
     const Vec2 logicalSize = m_viewportSize / m_dpiScale;
-    m_root = m_arena.Allocate<Node>();
+    m_root = m_arena.create<Node>();
     m_root->type = NodeType::Column;
     m_root->direction = FlexDirection::Column;
     m_root->widthMode = SizeMode::Stretch;
@@ -147,7 +147,7 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
 }
 
 Node* Context::CreateNode(NodeType type, Id id) {
-    Node* node = m_arena.Allocate<Node>();
+    Node* node = m_arena.create<Node>();
     node->type = type;
     node->id = id;
 
@@ -345,7 +345,7 @@ void Context::PopContainer(Node* node) {
 }
 
 UiTheme* Context::PushTheme(const UiTheme& theme) {
-    UiTheme* arenaTheme = m_arena.Allocate<UiTheme>(theme);
+    UiTheme* arenaTheme = m_arena.create<UiTheme>(theme);
     m_themeStack.push_back(arenaTheme);
     return arenaTheme;
 }
@@ -581,10 +581,8 @@ UiString Context::String(std::string_view text) {
 
 std::string_view Context::AllocString(std::string_view text) {
     if (text.empty()) return {};
-    char* buf = static_cast<char*>(m_arena.AllocateRaw(text.size() + 1, alignof(char)));
-    std::memcpy(buf, text.data(), text.size());
-    buf[text.size()] = '\0';
-    return std::string_view(buf, text.size());
+    const keel::StringRef ref = m_arena.alloc_string({text.data(), static_cast<keel::isize>(text.size())});
+    return std::string_view(ref.data(), static_cast<size_t>(ref.size()));
 }
 
 Response Context::Text(UiText label, TextOptions opts, std::source_location loc) {

@@ -1,10 +1,10 @@
 #include <cmath>
 #include <iostream>
-#include "guikit/core/allocator.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/solver.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/panels/carousel.hpp"
+#include "keel/arena.h"
 
 static int g_failures = 0;
 
@@ -30,26 +30,26 @@ static int g_failures = 0;
 void TestRowEqualStretch() {
     using namespace guikit;
 
-    BumpAllocator arena;
+    keel::Arena arena;
 
     // Row width 600, height 100, gap 10, 3 stretch children
-    Node* row = arena.Allocate<Node>();
+    Node* row = arena.create<Node>();
     row->direction = FlexDirection::Row;
     row->widthMode = SizeMode::Stretch;
     row->heightMode = SizeMode::Stretch;
     row->gap = 10.0f;
 
-    Node* c1 = arena.Allocate<Node>();
+    Node* c1 = arena.create<Node>();
     c1->widthMode = SizeMode::Stretch;
     c1->heightMode = SizeMode::Stretch;
     row->AddChild(c1);
 
-    Node* c2 = arena.Allocate<Node>();
+    Node* c2 = arena.create<Node>();
     c2->widthMode = SizeMode::Stretch;
     c2->heightMode = SizeMode::Stretch;
     row->AddChild(c2);
 
-    Node* c3 = arena.Allocate<Node>();
+    Node* c3 = arena.create<Node>();
     c3->widthMode = SizeMode::Stretch;
     c3->heightMode = SizeMode::Stretch;
     row->AddChild(c3);
@@ -71,26 +71,26 @@ void TestRowEqualStretch() {
 void TestRowWithSpacer() {
     using namespace guikit;
 
-    BumpAllocator arena;
+    keel::Arena arena;
 
     // Row width 800, Left item (fixed 100), Spacer, Right item (fixed 100)
-    Node* row = arena.Allocate<Node>();
+    Node* row = arena.create<Node>();
     row->direction = FlexDirection::Row;
     row->widthMode = SizeMode::Stretch;
     row->heightMode = SizeMode::Stretch;
     row->gap = 0.0f;
 
-    Node* left = arena.Allocate<Node>();
+    Node* left = arena.create<Node>();
     left->widthMode = SizeMode::Fixed;
     left->fixedWidth = 100.0f;
     row->AddChild(left);
 
-    Node* spacer = arena.Allocate<Node>();
+    Node* spacer = arena.create<Node>();
     spacer->isSpacer = true;
     spacer->widthMode = SizeMode::Stretch;
     row->AddChild(spacer);
 
-    Node* right = arena.Allocate<Node>();
+    Node* right = arena.create<Node>();
     right->widthMode = SizeMode::Fixed;
     right->fixedWidth = 100.0f;
     row->AddChild(right);
@@ -114,26 +114,26 @@ void TestRowWithSpacer() {
 void TestColumnStickyFooter() {
     using namespace guikit;
 
-    BumpAllocator arena;
+    keel::Arena arena;
 
     // Vertical column height 600: Header (fixed 50), Spacer, Footer (fixed 40)
-    Node* col = arena.Allocate<Node>();
+    Node* col = arena.create<Node>();
     col->direction = FlexDirection::Column;
     col->widthMode = SizeMode::Stretch;
     col->heightMode = SizeMode::Stretch;
     col->gap = 0.0f;
 
-    Node* header = arena.Allocate<Node>();
+    Node* header = arena.create<Node>();
     header->heightMode = SizeMode::Fixed;
     header->fixedHeight = 50.0f;
     col->AddChild(header);
 
-    Node* spacer = arena.Allocate<Node>();
+    Node* spacer = arena.create<Node>();
     spacer->isSpacer = true;
     spacer->heightMode = SizeMode::Stretch;
     col->AddChild(spacer);
 
-    Node* footer = arena.Allocate<Node>();
+    Node* footer = arena.create<Node>();
     footer->heightMode = SizeMode::Fixed;
     footer->fixedHeight = 40.0f;
     col->AddChild(footer);
@@ -157,17 +157,17 @@ void TestColumnStickyFooter() {
 void TestNestedHierarchy() {
     using namespace guikit;
 
-    BumpAllocator arena;
+    keel::Arena arena;
 
     // Outer Column: 800 x 600
-    Node* root = arena.Allocate<Node>();
+    Node* root = arena.create<Node>();
     root->direction = FlexDirection::Column;
     root->widthMode = SizeMode::Stretch;
     root->heightMode = SizeMode::Stretch;
     root->gap = 10.0f;
 
     // Row 1: height 50, two 50/50 buttons
-    Node* row1 = arena.Allocate<Node>();
+    Node* row1 = arena.create<Node>();
     row1->direction = FlexDirection::Row;
     row1->widthMode = SizeMode::Stretch;
     row1->heightMode = SizeMode::Fixed;
@@ -175,29 +175,29 @@ void TestNestedHierarchy() {
     row1->gap = 10.0f;
     root->AddChild(row1);
 
-    Node* btnA = arena.Allocate<Node>();
+    Node* btnA = arena.create<Node>();
     btnA->widthMode = SizeMode::Stretch;
     row1->AddChild(btnA);
 
-    Node* btnB = arena.Allocate<Node>();
+    Node* btnB = arena.create<Node>();
     btnB->widthMode = SizeMode::Stretch;
     row1->AddChild(btnB);
 
     // Vertical Spacer
-    Node* vSpacer = arena.Allocate<Node>();
+    Node* vSpacer = arena.create<Node>();
     vSpacer->isSpacer = true;
     vSpacer->heightMode = SizeMode::Stretch;
     root->AddChild(vSpacer);
 
     // Row 2 (Footer): height 40, one centered button
-    Node* footer = arena.Allocate<Node>();
+    Node* footer = arena.create<Node>();
     footer->direction = FlexDirection::Row;
     footer->widthMode = SizeMode::Stretch;
     footer->heightMode = SizeMode::Fixed;
     footer->fixedHeight = 40.0f;
     root->AddChild(footer);
 
-    Node* footerBtn = arena.Allocate<Node>();
+    Node* footerBtn = arena.create<Node>();
     footerBtn->widthMode = SizeMode::Stretch;
     footer->AddChild(footerBtn);
 
@@ -220,45 +220,45 @@ void TestNestedHierarchy() {
 void TestColumnDeficitNoSquishAndCrop() {
     using namespace guikit;
 
-    BumpAllocator arena;
+    keel::Arena arena;
 
     // Outer Column: Header (50), Card (Fit with 90px intrinsic), Spacer, Footer (40)
     // Gap = 10. Total minimum required height = 50 + 10 + 90 + 10 + 0 + 10 + 40 = 210.
-    Node* root = arena.Allocate<Node>();
+    Node* root = arena.create<Node>();
     root->direction = FlexDirection::Column;
     root->widthMode = SizeMode::Stretch;
     root->heightMode = SizeMode::Stretch;
     root->gap = 10.0f;
 
-    Node* header = arena.Allocate<Node>();
+    Node* header = arena.create<Node>();
     header->heightMode = SizeMode::Fixed;
     header->fixedHeight = 50.0f;
     root->AddChild(header);
 
-    Node* card = arena.Allocate<Node>();
+    Node* card = arena.create<Node>();
     card->direction = FlexDirection::Column;
     card->widthMode = SizeMode::Stretch;
     card->heightMode = SizeMode::Fit;
     card->gap = 10.0f;
 
-    Node* item1 = arena.Allocate<Node>();
+    Node* item1 = arena.create<Node>();
     item1->heightMode = SizeMode::Fixed;
     item1->fixedHeight = 40.0f;
     card->AddChild(item1);
 
-    Node* item2 = arena.Allocate<Node>();
+    Node* item2 = arena.create<Node>();
     item2->heightMode = SizeMode::Fixed;
     item2->fixedHeight = 40.0f;
     card->AddChild(item2);
 
     root->AddChild(card);
 
-    Node* spacer = arena.Allocate<Node>();
+    Node* spacer = arena.create<Node>();
     spacer->isSpacer = true;
     spacer->heightMode = SizeMode::Stretch;
     root->AddChild(spacer);
 
-    Node* footer = arena.Allocate<Node>();
+    Node* footer = arena.create<Node>();
     footer->heightMode = SizeMode::Fixed;
     footer->fixedHeight = 40.0f;
     root->AddChild(footer);
@@ -291,10 +291,10 @@ void TestColumnDeficitNoSquishAndCrop() {
 void TestWrapContainer() {
     using namespace guikit;
 
-    BumpAllocator arena;
+    keel::Arena arena;
 
     // Wrap container: gap = 10, runGap = 12, widthMode = Stretch, heightMode = Fit
-    Node* wrap = arena.Allocate<Node>();
+    Node* wrap = arena.create<Node>();
     wrap->direction = FlexDirection::Wrap;
     wrap->widthMode = SizeMode::Stretch;
     wrap->heightMode = SizeMode::Fit;
@@ -304,7 +304,7 @@ void TestWrapContainer() {
     // 4 items: each fixedWidth = 80, fixedHeight = 30
     Node* items[4];
     for (int i = 0; i < 4; ++i) {
-        items[i] = arena.Allocate<Node>();
+        items[i] = arena.create<Node>();
         items[i]->widthMode = SizeMode::Fixed;
         items[i]->heightMode = SizeMode::Fixed;
         items[i]->fixedWidth = 80.0f;
@@ -358,17 +358,17 @@ void TestWrapContainer() {
 void TestWrapInColumnWithSpacer() {
     using namespace guikit;
 
-    BumpAllocator arena;
+    keel::Arena arena;
 
     // Outer column (width 200, height 300, gap 10)
     // Contains: Wrap (2 items per line = 72px), Spacer, Footer (30px)
-    Node* col = arena.Allocate<Node>();
+    Node* col = arena.create<Node>();
     col->direction = FlexDirection::Column;
     col->widthMode = SizeMode::Stretch;
     col->heightMode = SizeMode::Stretch;
     col->gap = 10.0f;
 
-    Node* wrap = arena.Allocate<Node>();
+    Node* wrap = arena.create<Node>();
     wrap->direction = FlexDirection::Wrap;
     wrap->widthMode = SizeMode::Stretch;
     wrap->heightMode = SizeMode::Fit;
@@ -376,7 +376,7 @@ void TestWrapInColumnWithSpacer() {
     wrap->runGap = 12.0f;
 
     for (int i = 0; i < 4; ++i) {
-        Node* item = arena.Allocate<Node>();
+        Node* item = arena.create<Node>();
         item->widthMode = SizeMode::Fixed;
         item->heightMode = SizeMode::Fixed;
         item->fixedWidth = 80.0f;
@@ -385,12 +385,12 @@ void TestWrapInColumnWithSpacer() {
     }
     col->AddChild(wrap);
 
-    Node* spacer = arena.Allocate<Node>();
+    Node* spacer = arena.create<Node>();
     spacer->isSpacer = true;
     spacer->heightMode = SizeMode::Stretch;
     col->AddChild(spacer);
 
-    Node* footer = arena.Allocate<Node>();
+    Node* footer = arena.create<Node>();
     footer->heightMode = SizeMode::Fixed;
     footer->fixedHeight = 30.0f;
     col->AddChild(footer);
@@ -413,10 +413,10 @@ void TestWrapInColumnWithSpacer() {
 void TestGridLayoutSolver() {
     using namespace guikit;
 
-    BumpAllocator arena;
+    keel::Arena arena;
 
     // Grid container with width 600, gap 12, runGap 16
-    Node* grid = arena.Allocate<Node>();
+    Node* grid = arena.create<Node>();
     grid->direction = FlexDirection::Grid;
     grid->gridColumns = 12;
     grid->gap = 12.0f;
@@ -426,39 +426,39 @@ void TestGridLayoutSolver() {
     grid->heightMode = SizeMode::Fit;
 
     // Row 1: Two cells with colSpan = 6
-    Node* c1 = arena.Allocate<Node>();
+    Node* c1 = arena.create<Node>();
     c1->colSpan = 6;
     c1->heightMode = SizeMode::Fixed;
     c1->fixedHeight = 40.0f;
     grid->AddChild(c1);
 
-    Node* c2 = arena.Allocate<Node>();
+    Node* c2 = arena.create<Node>();
     c2->colSpan = 6;
     c2->heightMode = SizeMode::Fixed;
     c2->fixedHeight = 40.0f;
     grid->AddChild(c2);
 
     // Row 2: Three cells with colSpan = 4
-    Node* c3 = arena.Allocate<Node>();
+    Node* c3 = arena.create<Node>();
     c3->colSpan = 4;
     c3->heightMode = SizeMode::Fixed;
     c3->fixedHeight = 50.0f;
     grid->AddChild(c3);
 
-    Node* c4 = arena.Allocate<Node>();
+    Node* c4 = arena.create<Node>();
     c4->colSpan = 4;
     c4->heightMode = SizeMode::Fixed;
     c4->fixedHeight = 50.0f;
     grid->AddChild(c4);
 
-    Node* c5 = arena.Allocate<Node>();
+    Node* c5 = arena.create<Node>();
     c5->colSpan = 4;
     c5->heightMode = SizeMode::Fixed;
     c5->fixedHeight = 50.0f;
     grid->AddChild(c5);
 
     // Row 3: One cell with colSpan = 12
-    Node* c6 = arena.Allocate<Node>();
+    Node* c6 = arena.create<Node>();
     c6->colSpan = 12;
     c6->heightMode = SizeMode::Fixed;
     c6->fixedHeight = 60.0f;
@@ -509,10 +509,10 @@ void TestGridLayoutSolver() {
 void TestGridResponsiveWrapAndExpand() {
     using namespace guikit;
 
-    BumpAllocator arena;
+    keel::Arena arena;
 
     // Grid container with width 400, gap 10, runGap 15
-    Node* grid = arena.Allocate<Node>();
+    Node* grid = arena.create<Node>();
     grid->direction = FlexDirection::Grid;
     grid->gridColumns = 12;
     grid->gap = 10.0f;
@@ -522,14 +522,14 @@ void TestGridResponsiveWrapAndExpand() {
     grid->heightMode = SizeMode::Fit;
 
     // Two cells with span 6 and minWidth 250
-    Node* c1 = arena.Allocate<Node>();
+    Node* c1 = arena.create<Node>();
     c1->colSpan = 6;
     c1->minWidth = 250.0f;
     c1->heightMode = SizeMode::Fixed;
     c1->fixedHeight = 40.0f;
     grid->AddChild(c1);
 
-    Node* c2 = arena.Allocate<Node>();
+    Node* c2 = arena.create<Node>();
     c2->colSpan = 6;
     c2->minWidth = 250.0f;
     c2->heightMode = SizeMode::Fixed;
@@ -572,10 +572,10 @@ void TestGridResponsiveWrapAndExpand() {
 void TestScrollAreaLayoutSolver() {
     using namespace guikit;
 
-    BumpAllocator arena;
+    keel::Arena arena;
 
     // Viewport container 400x300
-    Node* scroll = arena.Allocate<Node>();
+    Node* scroll = arena.create<Node>();
     scroll->type = NodeType::ScrollArea;
     scroll->direction = FlexDirection::Column;
     scroll->clipChildren = true;
@@ -584,17 +584,17 @@ void TestScrollAreaLayoutSolver() {
     scroll->scrollOffset = {0.0f, 50.0f};
 
     // 3 children, 150px height each -> total content height = 450px
-    Node* c1 = arena.Allocate<Node>();
+    Node* c1 = arena.create<Node>();
     c1->heightMode = SizeMode::Fixed;
     c1->fixedHeight = 150.0f;
     scroll->AddChild(c1);
 
-    Node* c2 = arena.Allocate<Node>();
+    Node* c2 = arena.create<Node>();
     c2->heightMode = SizeMode::Fixed;
     c2->fixedHeight = 150.0f;
     scroll->AddChild(c2);
 
-    Node* c3 = arena.Allocate<Node>();
+    Node* c3 = arena.create<Node>();
     c3->heightMode = SizeMode::Fixed;
     c3->fixedHeight = 150.0f;
     scroll->AddChild(c3);
@@ -636,10 +636,10 @@ void TestScrollAreaLayoutSolver() {
 void TestCustomMeasureAndArrangeDelegates() {
     using namespace guikit;
 
-    BumpAllocator arena;
+    keel::Arena arena;
 
     // Custom widget with measureFn
-    Node* customLeaf = arena.Allocate<Node>();
+    Node* customLeaf = arena.create<Node>();
     customLeaf->measureFn = [](const Node*, float /*availableWidth*/, ICanvas*, const UiTheme&) -> Vec2 {
         return {123.0f, 45.0f};
     };
@@ -649,8 +649,8 @@ void TestCustomMeasureAndArrangeDelegates() {
     CHECK_NEAR(customLeaf->intrinsicSize.y, 45.0f, 0.001f);
 
     // Custom container with arrangeFn
-    Node* customContainer = arena.Allocate<Node>();
-    Node* child = arena.Allocate<Node>();
+    Node* customContainer = arena.create<Node>();
+    Node* child = arena.create<Node>();
     customContainer->AddChild(child);
 
     customContainer->arrangeFn = [](Node* node, const Rect& availableRect, const UiTheme& /*theme*/) {
@@ -671,24 +671,24 @@ void TestCustomMeasureAndArrangeDelegates() {
 void TestStretchColumnInConstrainedRowWithHugeContent() {
     using namespace guikit;
 
-    BumpAllocator arena;
+    keel::Arena arena;
 
     // Row: 1000px wide, 600px high, gap 20px
-    Node* row = arena.Allocate<Node>();
+    Node* row = arena.create<Node>();
     row->direction = FlexDirection::Row;
     row->widthMode = SizeMode::Stretch;
     row->heightMode = SizeMode::Stretch;
     row->gap = 20.0f;
 
     // Sidebar: Fixed 300px
-    Node* sidebar = arena.Allocate<Node>();
+    Node* sidebar = arena.create<Node>();
     sidebar->widthMode = SizeMode::Fixed;
     sidebar->fixedWidth = 300.0f;
     sidebar->heightMode = SizeMode::Stretch;
     row->AddChild(sidebar);
 
     // Content Column: Stretch width (flexGrow = 1.0f)
-    Node* contentCol = arena.Allocate<Node>();
+    Node* contentCol = arena.create<Node>();
     contentCol->direction = FlexDirection::Column;
     contentCol->widthMode = SizeMode::Stretch;
     contentCol->heightMode = SizeMode::Stretch;
@@ -696,7 +696,7 @@ void TestStretchColumnInConstrainedRowWithHugeContent() {
     row->AddChild(contentCol);
 
     // Inside content column: a Carousel with Stretch width and multiple tabs totaling 1500px width
-    Node* carousel = arena.Allocate<Node>();
+    Node* carousel = arena.create<Node>();
     carousel->type = NodeType::Carousel;
     carousel->direction = FlexDirection::Row;
     carousel->widthMode = SizeMode::Stretch;
@@ -706,12 +706,12 @@ void TestStretchColumnInConstrainedRowWithHugeContent() {
     carousel->measureFn = &Carousel::Measure;
     carousel->arrangeFn = &Carousel::Arrange;
 
-    auto* cData = arena.Allocate<CarouselData>();
+    auto* cData = arena.create<CarouselData>();
     carousel->payload = cData;
 
     // Add 10 tabs, each 150px wide = 1500px + 90px gap = 1590px total
     for (int i = 0; i < 10; ++i) {
-        Node* tab = arena.Allocate<Node>();
+        Node* tab = arena.create<Node>();
         tab->widthMode = SizeMode::Fixed;
         tab->fixedWidth = 150.0f;
         tab->heightMode = SizeMode::Stretch;
@@ -720,14 +720,14 @@ void TestStretchColumnInConstrainedRowWithHugeContent() {
     contentCol->AddChild(carousel);
 
     // Also a Grid with two Cell6 items (span 6 each), each containing a card with 380px intrinsic width
-    Node* grid = arena.Allocate<Node>();
+    Node* grid = arena.create<Node>();
     grid->direction = FlexDirection::Grid;
     grid->gridColumns = 12;
     grid->widthMode = SizeMode::Stretch;
     grid->heightMode = SizeMode::Fit;
     grid->gap = 16.0f;
 
-    Node* cell1 = arena.Allocate<Node>();
+    Node* cell1 = arena.create<Node>();
     cell1->direction = FlexDirection::Column;
     cell1->colSpan = 6;
     cell1->minWidth = 380.0f;
@@ -735,7 +735,7 @@ void TestStretchColumnInConstrainedRowWithHugeContent() {
     cell1->fixedHeight = 200.0f;
     grid->AddChild(cell1);
 
-    Node* cell2 = arena.Allocate<Node>();
+    Node* cell2 = arena.create<Node>();
     cell2->direction = FlexDirection::Column;
     cell2->colSpan = 6;
     cell2->minWidth = 380.0f;
@@ -780,10 +780,10 @@ void TestStretchColumnInConstrainedRowWithHugeContent() {
 void TestCarouselArrowScaling() {
     using namespace guikit;
 
-    BumpAllocator arena;
+    keel::Arena arena;
 
     // 1. Arrange at 1.0x scale (default theme, defaultHeight 36px)
-    Node* c1 = arena.Allocate<Node>();
+    Node* c1 = arena.create<Node>();
     c1->type = NodeType::Carousel;
     c1->direction = FlexDirection::Row;
     c1->widthMode = SizeMode::Stretch;
@@ -791,11 +791,11 @@ void TestCarouselArrowScaling() {
     c1->fixedHeight = 36.0f;
     c1->measureFn = &Carousel::Measure;
     c1->arrangeFn = &Carousel::Arrange;
-    auto* d1 = arena.Allocate<CarouselData>();
+    auto* d1 = arena.create<CarouselData>();
     c1->payload = d1;
 
     for (int i = 0; i < 10; ++i) {
-        Node* tab = arena.Allocate<Node>();
+        Node* tab = arena.create<Node>();
         tab->widthMode = SizeMode::Fixed;
         tab->fixedWidth = 100.0f;
         c1->AddChild(tab);
@@ -812,7 +812,7 @@ void TestCarouselArrowScaling() {
     CHECK(h1 >= 25.0f && h1 <= 30.0f);
 
     // 2. Arrange at 2.0x scale (scaled theme, defaultHeight 72px)
-    Node* c2 = arena.Allocate<Node>();
+    Node* c2 = arena.create<Node>();
     c2->type = NodeType::Carousel;
     c2->direction = FlexDirection::Row;
     c2->widthMode = SizeMode::Stretch;
@@ -820,11 +820,11 @@ void TestCarouselArrowScaling() {
     c2->fixedHeight = 72.0f;
     c2->measureFn = &Carousel::Measure;
     c2->arrangeFn = &Carousel::Arrange;
-    auto* d2 = arena.Allocate<CarouselData>();
+    auto* d2 = arena.create<CarouselData>();
     c2->payload = d2;
 
     for (int i = 0; i < 10; ++i) {
-        Node* tab = arena.Allocate<Node>();
+        Node* tab = arena.create<Node>();
         tab->widthMode = SizeMode::Fixed;
         tab->fixedWidth = 200.0f;
         c2->AddChild(tab);
@@ -846,17 +846,17 @@ void TestCarouselArrowScaling() {
 void TestAspectRatioMinHeightAndStretchFallback() {
     using namespace guikit;
 
-    BumpAllocator arena;
+    keel::Arena arena;
 
     // 1. AspectRatio auto-height in a Fit Column
-    Node* col = arena.Allocate<Node>();
+    Node* col = arena.create<Node>();
     col->direction = FlexDirection::Column;
     col->widthMode = SizeMode::Fixed;
     col->fixedWidth = 400.0f;
     col->heightMode = SizeMode::Fit;
     col->gap = 10.0f;
 
-    Node* imgNode = arena.Allocate<Node>();
+    Node* imgNode = arena.create<Node>();
     imgNode->type = NodeType::Image;
     imgNode->widthMode = SizeMode::Stretch;
     imgNode->heightMode = SizeMode::Fit;
@@ -864,7 +864,7 @@ void TestAspectRatioMinHeightAndStretchFallback() {
     col->AddChild(imgNode);
 
     // 2. Stretch child inside a Fit Column falls back to minHeight instead of collapsing to 0!
-    Node* sceneNode = arena.Allocate<Node>();
+    Node* sceneNode = arena.create<Node>();
     sceneNode->type = NodeType::Scene;
     sceneNode->widthMode = SizeMode::Stretch;
     sceneNode->heightMode = SizeMode::Stretch;
@@ -885,10 +885,10 @@ void TestAspectRatioMinHeightAndStretchFallback() {
 void TestRowEqualWidthsFitAndStretch() {
     using namespace guikit;
 
-    BumpAllocator arena;
+    keel::Arena arena;
 
     // 1. Fit Row with equalWidths = true: all items adopt the widest child's intrinsic width (80px)
-    Node* fitRow = arena.Allocate<Node>();
+    Node* fitRow = arena.create<Node>();
     fitRow->direction = FlexDirection::Row;
     fitRow->widthMode = SizeMode::Fit;
     fitRow->heightMode = SizeMode::Fit;
@@ -898,7 +898,7 @@ void TestRowEqualWidthsFitAndStretch() {
     const float widths[5] = {80.0f, 62.0f, 60.0f, 56.0f, 52.0f};
     Node* items[5]{};
     for (int i = 0; i < 5; ++i) {
-        Node* n = arena.Allocate<Node>();
+        Node* n = arena.create<Node>();
         n->widthMode = SizeMode::Fit;
         n->heightMode = SizeMode::Fixed;
         n->fixedHeight = 32.0f;
@@ -928,19 +928,19 @@ void TestRowEqualWidthsFitAndStretch() {
     }
 
     // 2. Stretch Row with equalWidths = true: items divide row width equally
-    Node* stretchRow = arena.Allocate<Node>();
+    Node* stretchRow = arena.create<Node>();
     stretchRow->direction = FlexDirection::Row;
     stretchRow->widthMode = SizeMode::Stretch;
     stretchRow->heightMode = SizeMode::Fit;
     stretchRow->equalWidths = true;
     stretchRow->gap = 10.0f;
 
-    Node* s1 = arena.Allocate<Node>();
+    Node* s1 = arena.create<Node>();
     s1->widthMode = SizeMode::Fit;
     s1->measureFn = +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {50.0f, 32.0f}; };
     stretchRow->AddChild(s1);
 
-    Node* s2 = arena.Allocate<Node>();
+    Node* s2 = arena.create<Node>();
     s2->widthMode = SizeMode::Fit;
     s2->measureFn = +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {110.0f, 32.0f}; };
     stretchRow->AddChild(s2);
@@ -955,30 +955,30 @@ void TestRowEqualWidthsFitAndStretch() {
 void TestRowTextDeficitShrinkAndCenterClamp() {
     using namespace guikit;
 
-    BumpAllocator arena;
+    keel::Arena arena;
 
     // 1. Row (300px, gap 8px) with Fixed left slot (52px), long Text (240px), and short readout Text (56px):
     // Long text absorbs deficit first (shrinks to 176px), short readout keeps its full 56px width!
-    Node* row = arena.Allocate<Node>();
+    Node* row = arena.create<Node>();
     row->direction = FlexDirection::Row;
     row->widthMode = SizeMode::Stretch;
     row->heightMode = SizeMode::Fixed;
     row->fixedHeight = 28.0f;
     row->gap = 8.0f;
 
-    Node* leftSlot = arena.Allocate<Node>();
+    Node* leftSlot = arena.create<Node>();
     leftSlot->widthMode = SizeMode::Fixed;
     leftSlot->fixedWidth = 52.0f;
     leftSlot->heightMode = SizeMode::Stretch;
     row->AddChild(leftSlot);
 
-    Node* longTitle = arena.Allocate<Node>();
+    Node* longTitle = arena.create<Node>();
     longTitle->type = NodeType::Text;
     longTitle->widthMode = SizeMode::Fit;
     longTitle->measureFn = +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {240.0f, 16.0f}; };
     row->AddChild(longTitle);
 
-    Node* shortBadge = arena.Allocate<Node>();
+    Node* shortBadge = arena.create<Node>();
     shortBadge->type = NodeType::Text;
     shortBadge->widthMode = SizeMode::Fit;
     shortBadge->measureFn = +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {56.0f, 14.0f}; };
@@ -995,14 +995,14 @@ void TestRowTextDeficitShrinkAndCenterClamp() {
 
     // 2. Justify::Center Row (240px) with a single Fit child (320px):
     // Child is clamped to 240px and anchored at x = 0.0f (no negative offset).
-    Node* centerRow = arena.Allocate<Node>();
+    Node* centerRow = arena.create<Node>();
     centerRow->direction = FlexDirection::Row;
     centerRow->justify = Justify::Center;
     centerRow->widthMode = SizeMode::Stretch;
     centerRow->heightMode = SizeMode::Fixed;
     centerRow->fixedHeight = 40.0f;
 
-    Node* wideChild = arena.Allocate<Node>();
+    Node* wideChild = arena.create<Node>();
     wideChild->widthMode = SizeMode::Fit;
     wideChild->measureFn = +[](const Node*, float, ICanvas*, const UiTheme&) -> Vec2 { return {320.0f, 32.0f}; };
     centerRow->AddChild(wideChild);
@@ -1016,14 +1016,14 @@ void TestRowTextDeficitShrinkAndCenterClamp() {
     // 2b. Fit Card with minWidth = 360px inside Justify::Center Row:
     // - On wide viewport (800px): Card is 360px wide and centered at x = (800 - 360) / 2 = 220px.
     // - On narrow phone viewport (320px): Card clamps to 320px at x = 0px, and its Fit child clamps to inner width.
-    Node* cardCenterRow = arena.Allocate<Node>();
+    Node* cardCenterRow = arena.create<Node>();
     cardCenterRow->direction = FlexDirection::Row;
     cardCenterRow->justify = Justify::Center;
     cardCenterRow->align = Alignment::Center;
     cardCenterRow->widthMode = SizeMode::Stretch;
     cardCenterRow->heightMode = SizeMode::Stretch;
 
-    Node* cardNode = arena.Allocate<Node>();
+    Node* cardNode = arena.create<Node>();
     cardNode->type = NodeType::Card;
     cardNode->direction = FlexDirection::Column;
     cardNode->widthMode = SizeMode::Fit;
@@ -1031,7 +1031,7 @@ void TestRowTextDeficitShrinkAndCenterClamp() {
     cardNode->minWidth = 360.0f;
     cardNode->padding = Padding::All(16.0f);
 
-    Node* cardText = arena.Allocate<Node>();
+    Node* cardText = arena.create<Node>();
     cardText->type = NodeType::Text;
     cardText->widthMode = SizeMode::Fit;
     cardText->heightMode = SizeMode::Fit;
@@ -1052,7 +1052,7 @@ void TestRowTextDeficitShrinkAndCenterClamp() {
     CHECK(cardText->computedRect.Right() <= cardNode->computedRect.Right() - 16.0f + 0.001f);
 
     // 3. Full-stretch clipped Box inside ScrollArea stretches vertically to full viewport height
-    Node* scrollBackdrop = arena.Allocate<Node>();
+    Node* scrollBackdrop = arena.create<Node>();
     scrollBackdrop->type = NodeType::ScrollArea;
     scrollBackdrop->direction = FlexDirection::Column;
     scrollBackdrop->scrollbarPolicy = VisibilityPolicy::Never;
@@ -1060,14 +1060,14 @@ void TestRowTextDeficitShrinkAndCenterClamp() {
     scrollBackdrop->widthMode = SizeMode::Stretch;
     scrollBackdrop->heightMode = SizeMode::Stretch;
 
-    Node* winFrame = arena.Allocate<Node>();
+    Node* winFrame = arena.create<Node>();
     winFrame->type = NodeType::Box;
     winFrame->widthMode = SizeMode::Stretch;
     winFrame->heightMode = SizeMode::Stretch;
     winFrame->clipChildren = true;
     scrollBackdrop->AddChild(winFrame);
 
-    Node* titlebar = arena.Allocate<Node>();
+    Node* titlebar = arena.create<Node>();
     titlebar->heightMode = SizeMode::Fixed;
     titlebar->fixedHeight = 28.0f;
     winFrame->AddChild(titlebar);
@@ -1082,7 +1082,7 @@ void TestRowTextDeficitShrinkAndCenterClamp() {
 
     // 4. Stretch Scene with fallback minHeight=220 inside a Fixed BottomPanel (height=180) with a Toolbar (height=34)
     // must shrink to exact remaining freeSpace (146px) instead of overflowing BottomPanel to 220px
-    Node* bpNode = arena.Allocate<Node>();
+    Node* bpNode = arena.create<Node>();
     bpNode->type = NodeType::BottomPanel;
     bpNode->direction = FlexDirection::Column;
     bpNode->widthMode = SizeMode::Stretch;
@@ -1091,14 +1091,14 @@ void TestRowTextDeficitShrinkAndCenterClamp() {
     bpNode->sidebarScrollable = false;
     bpNode->clipChildren = true;
 
-    Node* tbNode = arena.Allocate<Node>();
+    Node* tbNode = arena.create<Node>();
     tbNode->type = NodeType::Toolbar;
     tbNode->widthMode = SizeMode::Stretch;
     tbNode->heightMode = SizeMode::Fixed;
     tbNode->fixedHeight = 34.0f;
     bpNode->AddChild(tbNode);
 
-    Node* scNode = arena.Allocate<Node>();
+    Node* scNode = arena.create<Node>();
     scNode->type = NodeType::Scene;
     scNode->widthMode = SizeMode::Stretch;
     scNode->heightMode = SizeMode::Stretch;

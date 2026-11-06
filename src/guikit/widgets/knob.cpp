@@ -293,9 +293,7 @@ Response Knob::Run(
             FormatKnobValue(maxBuf, sizeof(maxBuf), maxVal, isInt, optsCopy);
             FormatKnobValue(midBuf, sizeof(midBuf), minVal + span * 0.888, isInt, optsCopy);
 
-            auto* varArr = static_cast<std::string_view*>(
-                ctx.GetArena().AllocateRaw(sizeof(std::string_view) * 3, alignof(std::string_view))
-            );
+            auto* varArr = ctx.GetArena().alloc_array<std::string_view>(3);
             varArr[0] = ctx.AllocString(minBuf);
             varArr[1] = ctx.AllocString(maxBuf);
             varArr[2] = ctx.AllocString(midBuf);

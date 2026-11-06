@@ -5,7 +5,7 @@
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
-#include "guikit/core/ui_vector.hpp"
+#include "keel/small_array.h"
 
 namespace guikit {
 
@@ -110,11 +110,11 @@ void ComputeSegmentRects(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    UiVector<Rect, 16>& outRects
+    keel::SmallArray<Rect, 16>& outRects
 ) {
     outRects.clear();
     if (items.empty()) return;
-    outRects.reserve(items.size());
+    outRects.reserve(static_cast<keel::isize>(items.size()));
 
     const float inset = (size <= UiSize::Sm) ? 2.0f : 3.0f;
     const Rect inner = trackRect.Inset(inset);
@@ -131,17 +131,17 @@ void ComputeSegmentRects(
             outRects.emplace_back(inner.x + static_cast<float>(i) * segW, inner.y, segW, inner.h);
         }
     } else {
-        UiVector<float, 16> natW(items.size(), 1.0f);
+        keel::SmallArray<float, 16> natW(static_cast<keel::isize>(items.size()), 1.0f);
         float sumNat = 0.0f;
         for (size_t i = 0; i < items.size(); ++i) {
-            natW[i] = std::max(1.0f, MeasureSegmentNaturalWidth(items[i], size, canvas, theme));
-            sumNat += natW[i];
+            natW[static_cast<keel::isize>(i)] = std::max(1.0f, MeasureSegmentNaturalWidth(items[i], size, canvas, theme));
+            sumNat += natW[static_cast<keel::isize>(i)];
         }
         float curX = inner.x;
         for (size_t i = 0; i < items.size(); ++i) {
             const float w = (i + 1 == items.size())
                 ? std::max(0.0f, inner.Right() - curX)
-                : (inner.w * (natW[i] / std::max(1.0f, sumNat)));
+                : (inner.w * (natW[static_cast<keel::isize>(i)] / std::max(1.0f, sumNat)));
             outRects.emplace_back(curX, inner.y, w, inner.h);
             curX += w;
         }
@@ -190,12 +190,12 @@ Response Segmented::Run(
     const SegmentedOptions& opts,
     std::source_location loc
 ) {
-    UiVector<SegmentedItem, 16> richItems;
-    richItems.reserve(items.size());
+    keel::SmallArray<SegmentedItem, 16> richItems;
+    richItems.reserve(static_cast<keel::isize>(items.size()));
     for (std::string_view sv : items) {
         richItems.push_back(SegmentedItem{.text = sv});
     }
-    return Run(ctx, selectedIndex, selectedIntIndex, selectedMask, richItems, opts, loc);
+    return Run(ctx, selectedIndex, selectedIntIndex, selectedMask, std::span<const SegmentedItem>(richItems.data(), static_cast<size_t>(richItems.size())), opts, loc);
 }
 
 Response Segmented::Run(
@@ -257,7 +257,7 @@ Response Segmented::Run(
     };
 
     const Rect prevBounds = ctx.GetPrevFrameBounds(id);
-    UiVector<Rect, 16> segRects;
+    keel::SmallArray<Rect, 16> segRects;
     ComputeSegmentRects(prevBounds, items, optsCopy, activeSize, canvas, theme, segRects);
 
     int hoveredSegment = -1;
@@ -271,9 +271,9 @@ Response Segmented::Run(
     } else {
         const Vec2 mouse = ctx.GetMousePos();
         if (res.hovered || res.pressed || res.clicked) {
-            for (size_t i = 0; i < segRects.size(); ++i) {
+            for (keel::isize i = 0; i < segRects.size(); ++i) {
                 if (segRects[i].Contains(mouse)) {
-                    if (!items[i].disabled) {
+                    if (!items[static_cast<size_t>(i)].disabled) {
                         hoveredSegment = static_cast<int>(i);
                         if (res.pressed) {
                             pressedSegment = static_cast<int>(i);
@@ -335,12 +335,13 @@ Response Segmented::Run(
     if (res.hovered) {
         if (hoveredSegment >= 0) {
             const size_t hIdx = static_cast<size_t>(hoveredSegment);
+            const Rect hRect = segRects[static_cast<keel::isize>(hoveredSegment)];
             if (!items[hIdx].tooltip.empty()) {
-                ctx.SetTooltip(items[hIdx].tooltip, segRects[hIdx]);
+                ctx.SetTooltip(items[hIdx].tooltip, hRect);
             } else if (!items[hIdx].text.empty()) {
                 const float natW = MeasureSegmentNaturalWidth(items[hIdx], activeSize, nullptr, theme);
-                if (segRects[hIdx].w + 1.0f < natW) {
-                    ctx.SetTooltip(items[hIdx].text, segRects[hIdx]);
+                if (hRect.w + 1.0f < natW) {
+                    ctx.SetTooltip(items[hIdx].text, hRect);
                 } else if (!optsCopy.tooltip.empty()) {
                     ctx.SetTooltip(optsCopy.tooltip, prevBounds);
                 }
@@ -355,7 +356,7 @@ Response Segmented::Run(
     Node* node = ctx.CreateNode(NodeType::Segmented, id);
 
     optsCopy.tooltip = ctx.AllocText(optsCopy.tooltip);
-    SegmentedItem* arenaItems = ctx.GetArena().AllocateArray<SegmentedItem>(items.size());
+    SegmentedItem* arenaItems = ctx.GetArena().create_array<SegmentedItem>(static_cast<keel::isize>(items.size()));
     uint64_t itemsHash = 0;
     for (size_t i = 0; i < items.size(); ++i) {
         arenaItems[i] = items[i];
@@ -482,7 +483,7 @@ void Segmented::Render(
 
     if (items.empty()) return;
 
-    UiVector<Rect, 16> segRects;
+    keel::SmallArray<Rect, 16> segRects;
     ComputeSegmentRects(trackRect, items, opts, size, &canvas, theme, segRects);
     const float pillRadius = std::max(2.0f, trackRadius - inset);
 
@@ -502,9 +503,10 @@ void Segmented::Render(
             const bool curHov = (hoveredSegment == static_cast<int>(i));
             const bool nextHov = (hoveredSegment == static_cast<int>(i + 1));
             if (!curSel && !nextSel && !curHov && !nextHov) {
-                const float x = std::round(segRects[i].Right());
-                const float padY = std::max(4.0f, segRects[i].h * 0.22f);
-                canvas.DrawLine({x, segRects[i].y + padY}, {x, segRects[i].Bottom() - padY}, divCol, 1.0f);
+                const Rect& r = segRects[static_cast<keel::isize>(i)];
+                const float x = std::round(r.Right());
+                const float padY = std::max(4.0f, r.h * 0.22f);
+                canvas.DrawLine({x, r.y + padY}, {x, r.Bottom() - padY}, divCol, 1.0f);
             }
         }
     }
@@ -512,7 +514,7 @@ void Segmented::Render(
     // 3. Render segments (active pill, hover highlight, icon, and text)
     for (size_t i = 0; i < items.size(); ++i) {
         const SegmentedItem& item = items[i];
-        const Rect sr = segRects[i];
+        const Rect sr = segRects[static_cast<keel::isize>(i)];
         if (sr.w <= 0.0f || sr.h <= 0.0f) continue;
 
         const bool segDisabled = disabled || item.disabled;

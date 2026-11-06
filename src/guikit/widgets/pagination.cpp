@@ -6,8 +6,8 @@
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
-#include "guikit/core/ui_vector.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/small_array.h"
 
 namespace guikit {
 
@@ -61,7 +61,7 @@ void BuildPaginationTokens(
     size_t currentPage,
     size_t totalPages,
     const PaginationOptions& opts,
-    UiVector<PageToken, 16>& outTokens
+    keel::SmallArray<PageToken, 16>& outTokens
 ) {
     outTokens.clear();
     const size_t safeTotal = std::max<size_t>(1, totalPages);
@@ -206,7 +206,7 @@ Vec2 MeasurePaginationNaturalBox(
     const UiTheme& theme
 ) {
     const ComponentMetrics& cm = theme.GetMetrics(size);
-    UiVector<PageToken, 16> tokens;
+    keel::SmallArray<PageToken, 16> tokens;
     BuildPaginationTokens(currentPage, totalPages, opts, tokens);
 
     const float gap = theme.Scale(4.0f);
@@ -239,8 +239,8 @@ void ComputePaginationLayout(
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme,
-    UiVector<PageToken, 16>& outTokens,
-    UiVector<Rect, 16>& outTokenRects,
+    keel::SmallArray<PageToken, 16>& outTokens,
+    keel::SmallArray<Rect, 16>& outTokenRects,
     Rect& outInfoRect
 ) {
     BuildPaginationTokens(currentPage, totalPages, opts, outTokens);
@@ -251,7 +251,7 @@ void ComputePaginationLayout(
     outTokenRects.reserve(outTokens.size());
     const float gap = theme.Scale(4.0f);
     const float slotW = MeasureUniformSlotWidth(totalPages, size, canvas, theme);
-    UiVector<float, 16> widths(outTokens.size(), slotW);
+    keel::SmallArray<float, 16> widths(outTokens.size(), slotW);
     float totalW = static_cast<float>(outTokens.size()) * slotW + static_cast<float>(outTokens.size() - 1) * gap;
 
     float infoW = 0.0f;
@@ -289,7 +289,7 @@ void ComputePaginationLayout(
     }
 
     float curX = startX;
-    for (size_t i = 0; i < outTokens.size(); ++i) {
+    for (keel::isize i = 0; i < outTokens.size(); ++i) {
         if (i > 0) curX += effGap;
         outTokenRects.emplace_back(curX, innerRect.y, widths[i], innerRect.h);
         curX += widths[i];
@@ -375,8 +375,8 @@ Response Pagination::Run(
     const Rect prevBounds = ctx.GetPrevFrameBounds(id);
     const Rect innerBounds = Control::ResolveInnerRect(prevBounds, prevCtrl, activeSize, theme);
 
-    UiVector<PageToken, 16> tokens;
-    UiVector<Rect, 16> tokenRects;
+    keel::SmallArray<PageToken, 16> tokens;
+    keel::SmallArray<Rect, 16> tokenRects;
     Rect infoRect{};
     ComputePaginationLayout(innerBounds, curr, safeTotal, optsCopy, activeSize, canvas, theme, tokens, tokenRects, infoRect);
 
@@ -391,7 +391,7 @@ Response Pagination::Run(
     } else {
         const Vec2 mouse = ctx.GetMousePos();
         if (res.hovered || res.pressed || res.clicked) {
-            for (size_t i = 0; i < tokenRects.size(); ++i) {
+            for (keel::isize i = 0; i < tokenRects.size(); ++i) {
                 if (tokenRects[i].Contains(mouse)) {
                     if (!tokens[i].disabled) {
                         hoveredToken = static_cast<int>(i);
@@ -406,8 +406,8 @@ Response Pagination::Run(
 
         if (res.clicked) {
             ctx.RequestFocus(id);
-            if (hoveredToken >= 0 && static_cast<size_t>(hoveredToken) < tokens.size()) {
-                const PageToken& tok = tokens[static_cast<size_t>(hoveredToken)];
+            if (hoveredToken >= 0 && static_cast<keel::isize>(hoveredToken) < tokens.size()) {
+                const PageToken& tok = tokens[static_cast<keel::isize>(hoveredToken)];
                 if (!tok.disabled && tok.targetPage < safeTotal && curr != tok.targetPage) {
                     curr = tok.targetPage;
                     currentPage = curr;
@@ -535,8 +535,8 @@ void Pagination::Render(
     Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, d->hoveredToken >= 0, d->pressedToken >= 0 || focused);
     const Rect innerRect = Control::ResolveInnerRect(bounds, ctrl, size, theme);
 
-    UiVector<PageToken, 16> tokens;
-    UiVector<Rect, 16> tokenRects;
+    keel::SmallArray<PageToken, 16> tokens;
+    keel::SmallArray<Rect, 16> tokenRects;
     Rect infoRect{};
     ComputePaginationLayout(innerRect, d->currentPage, d->totalPages, d->opts, size, &canvas, theme, tokens, tokenRects, infoRect);
 
@@ -546,7 +546,7 @@ void Pagination::Render(
 
     canvas.PushClip(bounds);
 
-    for (size_t i = 0; i < tokens.size(); ++i) {
+    for (keel::isize i = 0; i < tokens.size(); ++i) {
         const PageToken& tok = tokens[i];
         const Rect tr = tokenRects[i];
         const bool isEllipsis = (tok.type == PageTokenType::LeftEllipsis || tok.type == PageTokenType::RightEllipsis);

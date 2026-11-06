@@ -109,7 +109,7 @@ void TestIdGeneration() {
 void TestBumpAllocator() {
     using namespace guikit;
 
-    BumpAllocator allocator(1024); // 1 KB chunks for testing
+    keel::Arena allocator(1024); // 1 KB chunks for testing
 
     struct SampleData {
         int a;
@@ -117,43 +117,43 @@ void TestBumpAllocator() {
         std::string_view tag;
     };
 
-    SampleData* obj1 = allocator.Allocate<SampleData>(10, 3.14, "hello");
+    SampleData* obj1 = allocator.create<SampleData>(10, 3.14, "hello");
     CHECK(obj1 != nullptr);
     CHECK(obj1->a == 10);
     CHECK(reinterpret_cast<uintptr_t>(obj1) % alignof(SampleData) == 0);
 
-    SampleData* obj2 = allocator.Allocate<SampleData>(20, 6.28, "world");
+    SampleData* obj2 = allocator.create<SampleData>(20, 6.28, "world");
     CHECK(obj2 != nullptr);
     CHECK(obj2->a == 20);
     CHECK(obj1 != obj2);
 
     // Allocate enough objects to cross chunk boundary
     for (int i = 0; i < 100; ++i) {
-        SampleData* obj = allocator.Allocate<SampleData>(i, static_cast<double>(i), "loop");
+        SampleData* obj = allocator.create<SampleData>(i, static_cast<double>(i), "loop");
         CHECK(obj != nullptr);
         CHECK(obj->a == i);
     }
 
-    CHECK(allocator.GetTotalAllocatedBytes() > 1024);
+    CHECK(allocator.used() > 1024);
 
     // Reset should zero out offset without crashing or leaking
-    allocator.Reset();
-    CHECK(allocator.GetTotalAllocatedBytes() == 0);
+    allocator.reset();
+    CHECK(allocator.used() == 0);
 
     // Reallocation after reset
-    SampleData* objAfterReset = allocator.Allocate<SampleData>(99, 1.0, "reset");
+    SampleData* objAfterReset = allocator.create<SampleData>(99, 1.0, "reset");
     CHECK(objAfterReset != nullptr);
     CHECK(objAfterReset->a == 99);
 
     // Oversized allocation when advancing into a previously-allocated small chunk must resize safely
-    allocator.Reset();
-    void* fillChunk0 = allocator.AllocateRaw(900, 8);
+    allocator.reset();
+    void* fillChunk0 = allocator.alloc(900, 8);
     CHECK(fillChunk0 != nullptr);
-    void* oversizedInChunk1 = allocator.AllocateRaw(4096, 16);
+    void* oversizedInChunk1 = allocator.alloc(4096, 16);
     CHECK(oversizedInChunk1 != nullptr);
     std::memset(oversizedInChunk1, 0xAB, 4096);
 
-    // Non-trivially destructible objects & arrays must invoke ~T() in LIFO order on Reset() and ~Allocator()
+    // Non-trivially destructible objects & arrays must invoke ~T() in LIFO order on reset() and ~Arena()
     std::vector<int> dtorOrder;
     struct TrackedNonTrivial {
         std::vector<int>* log{nullptr};
@@ -171,10 +171,10 @@ void TestBumpAllocator() {
     static_assert(!std::is_trivially_destructible_v<TrackedNonTrivial>);
 
     {
-        BumpAllocator scopedAlloc(512);
-        auto* n1 = scopedAlloc.Allocate<TrackedNonTrivial>(&dtorOrder, 1);
-        auto* n2 = scopedAlloc.Allocate<TrackedNonTrivial>(&dtorOrder, 2);
-        auto* arr = scopedAlloc.AllocateArray<TrackedNonTrivial>(3);
+        keel::Arena scopedAlloc(512);
+        auto* n1 = scopedAlloc.create<TrackedNonTrivial>(&dtorOrder, 1);
+        auto* n2 = scopedAlloc.create<TrackedNonTrivial>(&dtorOrder, 2);
+        auto* arr = scopedAlloc.create_array<TrackedNonTrivial>(3);
         for (int i = 0; i < 3; ++i) {
             arr[i].log = &dtorOrder;
             arr[i].id = 10 + i;
@@ -183,16 +183,16 @@ void TestBumpAllocator() {
         CHECK(n2->ownedHeap.size() == 4);
         CHECK(dtorOrder.empty());
 
-        scopedAlloc.Reset();
+        scopedAlloc.reset();
         // LIFO destruction: arr[2] (12), arr[1] (11), arr[0] (10), then n2 (2), then n1 (1)
         const std::vector<int> expectedAfterReset = {12, 11, 10, 2, 1};
         CHECK(dtorOrder == expectedAfterReset);
 
         dtorOrder.clear();
-        auto* n3 = scopedAlloc.Allocate<TrackedNonTrivial>(&dtorOrder, 42);
+        auto* n3 = scopedAlloc.create<TrackedNonTrivial>(&dtorOrder, 42);
         CHECK(n3 != nullptr);
     }
-    // ~Allocator() destroys remaining objects
+    // ~Arena() destroys remaining objects
     CHECK(dtorOrder.size() == 1 && dtorOrder[0] == 42);
 }
 
@@ -635,16 +635,16 @@ void TestEmbeddedAndRuntimeAssets() {
 void TestUiVectorAndArenaVector() {
     using namespace guikit;
 
-    static_assert(std::is_trivially_destructible_v<UiArenaVector<int>>);
-    static_assert(std::is_trivially_destructible_v<UiArenaVector<Rect>>);
-    static_assert(!std::is_trivially_destructible_v<UiArenaVector<std::string>>);
+    static_assert(std::is_trivially_destructible_v<keel::ArenaArray<int>>);
+    static_assert(std::is_trivially_destructible_v<keel::ArenaArray<Rect>>);
+    static_assert(!std::is_trivially_destructible_v<keel::ArenaArray<std::string>>);
     static_assert(std::is_trivially_destructible_v<ScenePayload>);
 
-    // 1. UiVector inline SBO storage & no self-referential pointer on copy/move
+    // 1. keel::SmallArray inline SBO storage & no self-referential pointer on clone/move
     {
-        UiVector<int, 4> vec;
+        keel::SmallArray<int, 4> vec;
         CHECK(vec.empty());
-        CHECK(vec.IsInline());
+        CHECK(vec.is_inline());
         CHECK(vec.capacity() == 4);
 
         vec.push_back(10);
@@ -652,11 +652,11 @@ void TestUiVectorAndArenaVector() {
         vec.push_back(30);
         vec.push_back(40);
         CHECK(vec.size() == 4);
-        CHECK(vec.IsInline());
+        CHECK(vec.is_inline());
 
-        // Copy while inline must have its own independent inline storage
-        UiVector<int, 4> copyVec = vec;
-        CHECK(copyVec.IsInline());
+        // Clone while inline must have its own independent inline storage
+        keel::SmallArray<int, 4> copyVec = vec.clone();
+        CHECK(copyVec.is_inline());
         CHECK(copyVec.data() != vec.data());
         copyVec[0] = 99;
         CHECK(vec[0] == 10);
@@ -664,29 +664,29 @@ void TestUiVectorAndArenaVector() {
         // Self-aliasing push_back across inline -> heap boundary
         vec.push_back(vec[0]);
         CHECK(vec.size() == 5);
-        CHECK(!vec.IsInline());
+        CHECK(!vec.is_inline());
         CHECK(vec[0] == 10);
         CHECK(vec[4] == 10);
 
-        // Move from heap-allocated UiVector steals heap buffer and resets source to inline
+        // Move from heap-allocated SmallArray steals heap buffer and resets source to inline
         const int* heapPtr = vec.data();
-        UiVector<int, 4> movedVec = std::move(vec);
-        CHECK(!movedVec.IsInline());
+        keel::SmallArray<int, 4> movedVec = std::move(vec);
+        CHECK(!movedVec.is_inline());
         CHECK(movedVec.data() == heapPtr);
         CHECK(movedVec.size() == 5);
         CHECK(vec.empty());
-        CHECK(vec.IsInline());
+        CHECK(vec.is_inline());
 
-        // Implicit conversion to std::span<const int>
+        // Span view
         auto sumSpan = [](std::span<const int> sp) {
             int s = 0;
             for (int v : sp) s += v;
             return s;
         };
-        CHECK(sumSpan(movedVec) == (10 + 20 + 30 + 40 + 10));
+        CHECK(sumSpan({movedVec.data(), static_cast<size_t>(movedVec.size())}) == (10 + 20 + 30 + 40 + 10));
     }
 
-    // 2. Non-trivial element lifetime in UiVector
+    // 2. Non-trivial element lifetime in keel::SmallArray
     {
         int liveCount = 0;
         struct TrackedItem {
@@ -720,53 +720,54 @@ void TestUiVectorAndArenaVector() {
                 }
                 return *this;
             }
-            ~TrackedItem() {
+            ~TrackedItem() noexcept {
                 if (counter) --(*counter);
             }
         };
 
         {
-            UiVector<TrackedItem, 2> items;
+            keel::SmallArray<TrackedItem, 2> items;
             items.emplace_back(&liveCount, 1);
             items.emplace_back(&liveCount, 2);
-            CHECK(items.IsInline());
+            CHECK(items.is_inline());
             CHECK(liveCount == 2);
 
             // Spill to heap + self-aliasing copy
             items.push_back(items[0]);
-            CHECK(!items.IsInline());
+            CHECK(!items.is_inline());
             CHECK(liveCount == 3);
             CHECK(items[2].value == 1);
 
-            items.erase(items.begin() + 1);
+            items.remove_at(1);
             CHECK(items.size() == 2);
             CHECK(liveCount == 2);
         }
         CHECK(liveCount == 0);
     }
 
-    // 3. UiArenaVector in-place growth via Allocator::TryExtendRaw
+    // 3. keel::ArenaArray in-place growth via Arena::try_extend
     {
-        Allocator arena(4096);
-        UiArenaVector<int> arenaVec(arena, 8);
+        keel::Arena arena(4096);
+        keel::ArenaArray<int> arenaVec(arena, 8);
         const int* initialPtr = arenaVec.data();
         CHECK(initialPtr != nullptr);
         CHECK(arenaVec.capacity() == 8);
 
         // Push 64 elements while nothing else allocates from `arena`:
-        // TryExtendRaw extends the buffer in-place without moving `data()`!
+        // try_extend extends the buffer in-place without moving `data()`!
         for (int i = 0; i < 64; ++i) {
             arenaVec.push_back(i * 3);
         }
         CHECK(arenaVec.size() == 64);
         CHECK(arenaVec.data() == initialPtr);
-        CHECK(arenaVec.Span().size() == 64);
+        keel::ArrayRef<int> arenaRef = arenaVec;
+        CHECK(arenaRef.size() == 64);
         for (int i = 0; i < 64; ++i) {
-            CHECK(arenaVec[static_cast<size_t>(i)] == i * 3);
+            CHECK(arenaVec[i] == i * 3);
         }
 
         // Allocate something else on the arena so tip moves, then grow arenaVec again
-        int* separator = arena.Allocate<int>(777);
+        int* separator = arena.create<int>(777);
         CHECK(*separator == 777);
         for (int i = 64; i < 150; ++i) {
             arenaVec.push_back(i * 3);
@@ -938,23 +939,23 @@ void TestKeelIntegration() {
     const Rect* r1 = boundsMap.get(id1);
     CHECK(r1 != nullptr && *r1 == Rect(10.0f, 20.0f, 100.0f, 40.0f));
 
-    // 2. Allocator::AsKeelAllocator() arena bridge
-    Allocator frameArena(4096);
-    keel::Allocator keelArena = frameArena.AsKeelAllocator();
-    keel::Array<int> arenaArray(&keelArena);
+    // 2. keel::Arena::allocator() arena bridge
+    keel::Arena frameArena(4096);
+    keel::Array<int> arenaArray(frameArena.allocator());
     for (int i = 0; i < 32; ++i) {
         arenaArray.push_back(i * 5);
     }
     CHECK(arenaArray.size() == 32);
     CHECK(arenaArray[10] == 50);
-    CHECK(frameArena.GetTotalAllocatedBytes() > 0);
+    CHECK(frameArena.used() > 0);
 
-    // 3. UiString <-> keel::StringRef & UiVector <-> keel::ArrayRef
+    // 3. UiString <-> keel::StringRef & keel::SmallArray <-> keel::ArrayRef
     UiString label(keel::StringRef("Keel Bridge"));
     keel::StringRef ref = label.KeelRef();
     CHECK(ref == "Keel Bridge");
 
-    UiVector<int, 4> uvec = {1, 2, 3, 4};
+    const int rawVals[4] = {1, 2, 3, 4};
+    keel::SmallArray<int, 4> uvec(keel::ArrayRef<int>(rawVals, 4));
     keel::ArrayRef<int> aref = uvec;
     CHECK(aref.size() == 4);
     CHECK(aref[2] == 3);

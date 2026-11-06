@@ -15,6 +15,8 @@
 #include "guikit/graphics/icon.hpp"
 #include "guikit/widgets/image.hpp"
 #include "guikit/widgets/text_area.hpp"
+#include "keel/hash_map.h"
+#include "keel/lru_cache.h"
 
 namespace guikit {
 
@@ -127,9 +129,9 @@ bool IsTableSeparatorRow(std::string_view line, std::vector<Align>& outAligns) {
 }
 
 std::shared_ptr<const ParsedMarkdownDoc> GetOrParseMarkdown(std::string_view source) {
-    thread_local LruCache<uint64_t, std::shared_ptr<const ParsedMarkdownDoc>, 64> s_cache;
+    thread_local keel::LruCache<uint64_t, std::shared_ptr<const ParsedMarkdownDoc>, 64> s_cache;
     const uint64_t h = detail::HashArgs(source, source.size());
-    if (const auto* found = s_cache.Find(h)) {
+    if (const auto* found = s_cache.find(h)) {
         return *found;
     }
 
@@ -375,7 +377,7 @@ std::shared_ptr<const ParsedMarkdownDoc> GetOrParseMarkdown(std::string_view sou
         doc.blocks.push_back(std::move(blk));
     }
 
-    return s_cache.Insert(h, std::move(docPtr));
+    return s_cache.put(h, std::move(docPtr));
 }
 
 constexpr Rect OffsetRect(Rect r, Vec2 delta) noexcept {
@@ -1178,16 +1180,16 @@ std::shared_ptr<const MarkdownDocumentLayout> GetOrBuildMarkdownLayout(
     const UiTheme& theme,
     float zoom
 ) {
-    thread_local LruCache<uint64_t, std::shared_ptr<const MarkdownDocumentLayout>, 32> s_layoutCache;
+    thread_local keel::LruCache<uint64_t, std::shared_ptr<const MarkdownDocumentLayout>, 32> s_layoutCache;
     const float effZoom = std::clamp(zoom, 0.5f, 3.0f);
     const uint64_t key = ComputeMarkdownLayoutKey(doc->sourceHash, outerWidth, effZoom, opts, theme, canvas != nullptr);
 
-    if (const auto* cached = s_layoutCache.Find(key)) {
+    if (const auto* cached = s_layoutCache.find(key)) {
         return *cached;
     }
 
     auto built = BuildMarkdownDocumentLayout(canvas, outerWidth, doc, opts, theme, effZoom, key);
-    return s_layoutCache.Insert(key, std::move(built));
+    return s_layoutCache.put(key, std::move(built));
 }
 
 // --- Phase 3A: O(1) / O(K) Document Hit-Testing (Zero Layout, Zero Font Measurement) ---

@@ -596,9 +596,7 @@ Response RunTagInputImpl(
     const size_t chipCount = tags.size();
     TagChipView* arenaChips = nullptr;
     if (chipCount > 0) {
-        arenaChips = static_cast<TagChipView*>(
-            ctx.GetArena().AllocateRaw(sizeof(TagChipView) * chipCount, alignof(TagChipView))
-        );
+        arenaChips = ctx.GetArena().alloc_array<TagChipView>(static_cast<keel::isize>(chipCount));
         for (size_t i = 0; i < chipCount; ++i) {
             if constexpr (std::is_same_v<TagT, TagItem>) {
                 Icon ic = tags[i].icon;

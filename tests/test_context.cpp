@@ -1889,20 +1889,20 @@ void TestScrollAreaImmediateMode() {
 
     // 10. RichText Core Engine: LruCache, CommonMark flanking, self-contained textPool, and UiText::Rich across widgets
     {
-        // A. Deterministic O(1) LruCache eviction
-        LruCache<uint64_t, int, 3> lru;
-        lru.Insert(1, 10);
-        lru.Insert(2, 20);
-        lru.Insert(3, 30);
-        CHECK(lru.Size() == 3);
+        // A. Deterministic O(1) keel::LruCache eviction
+        keel::LruCache<uint64_t, int, 3> lru;
+        lru.put(1, 10);
+        lru.put(2, 20);
+        lru.put(3, 30);
+        CHECK(lru.size() == 3);
         // Touch key 1 so key 2 becomes the least-recently-used
-        CHECK(lru.Find(1) != nullptr && *lru.Find(1) == 10);
-        lru.Insert(4, 40);
-        CHECK(lru.Size() == 3);
-        CHECK(lru.Find(2) == nullptr); // Evicted!
-        CHECK(lru.Find(1) != nullptr && *lru.Find(1) == 10);
-        CHECK(lru.Find(3) != nullptr && *lru.Find(3) == 30);
-        CHECK(lru.Find(4) != nullptr && *lru.Find(4) == 40);
+        CHECK(lru.find(1) != nullptr && *lru.find(1) == 10);
+        lru.put(4, 40);
+        CHECK(lru.size() == 3);
+        CHECK(lru.find(2) == nullptr); // Evicted!
+        CHECK(lru.find(1) != nullptr && *lru.find(1) == 10);
+        CHECK(lru.find(3) != nullptr && *lru.find(3) == 30);
+        CHECK(lru.find(4) != nullptr && *lru.find(4) == 40);
 
         // B. CommonMark flanking rule: arithmetic "2 * 3 * 4 = 24" must NOT be misparsed as italic
         const auto mathSpans = ParseInlineSpans("2 * 3 * 4 = 24");

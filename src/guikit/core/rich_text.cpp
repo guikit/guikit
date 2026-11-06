@@ -5,6 +5,7 @@
 #include <cmath>
 #include "guikit/core/id.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/lru_cache.h"
 
 namespace guikit {
 
@@ -248,7 +249,7 @@ std::pair<float, float> GetOrMeasureRichTextIntrinsicWidths(
         return {0.0f, 0.0f};
     }
 
-    thread_local LruCache<uint64_t, std::pair<float, float>, 256> s_widthCache;
+    thread_local keel::LruCache<uint64_t, std::pair<float, float>, 256> s_widthCache;
     const int32_t qBodyFs = static_cast<int32_t>(std::round(bodyFs * 10.0f));
     const int32_t qCodeFs = static_cast<int32_t>(std::round(inlineCodeFs * 10.0f));
     const int32_t qScale = static_cast<int32_t>(std::round(scale * 100.0f));
@@ -263,13 +264,13 @@ std::pair<float, float> GetOrMeasureRichTextIntrinsicWidths(
         canvas != nullptr
     );
 
-    if (const auto* cached = s_widthCache.Find(key)) {
+    if (const auto* cached = s_widthCache.find(key)) {
         return *cached;
     }
 
     const auto spans = ParseInlineSpans(richMarkup);
     const auto measured = MeasureInlineSpansIntrinsicWidths(canvas, spans, bodyFs, inlineCodeFs, baseStyle, scale);
-    return s_widthCache.Insert(key, measured);
+    return s_widthCache.put(key, measured);
 }
 
 // ============================================================================
@@ -906,7 +907,7 @@ std::shared_ptr<const InlineFlowLayout> GetOrBuildRichTextFlow(
     FontStyle overrideStyle,
     Align horizontalAlign
 ) {
-    thread_local LruCache<uint64_t, std::shared_ptr<const InlineFlowLayout>, 128> s_flowCache;
+    thread_local keel::LruCache<uint64_t, std::shared_ptr<const InlineFlowLayout>, 128> s_flowCache;
 
     const int32_t qWidth = static_cast<int32_t>(std::round(std::max(0.0f, maxWidth) * 2.0f));
     const int32_t qBaseFs = static_cast<int32_t>(std::round(baseFontSize * 10.0f));
@@ -930,7 +931,7 @@ std::shared_ptr<const InlineFlowLayout> GetOrBuildRichTextFlow(
         canvas != nullptr
     );
 
-    if (const auto* found = s_flowCache.Find(key)) {
+    if (const auto* found = s_flowCache.find(key)) {
         return *found;
     }
 
@@ -950,7 +951,7 @@ std::shared_ptr<const InlineFlowLayout> GetOrBuildRichTextFlow(
             horizontalAlign
         )
     );
-    return s_flowCache.Insert(key, std::move(flowPtr));
+    return s_flowCache.put(key, std::move(flowPtr));
 }
 
 void CommitInlineFlowToDocument(

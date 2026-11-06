@@ -515,7 +515,7 @@ Response ColorPicker::Run(
     Node* node = ctx.CreateNode(NodeType::ColorPicker, id);
     optsCopy.tooltip = ctx.AllocText(optsCopy.tooltip);
     if (!optsCopy.presets.empty()) {
-        Color* arenaPresets = ctx.GetArena().AllocateArray<Color>(optsCopy.presets.size());
+        Color* arenaPresets = ctx.GetArena().create_array<Color>(static_cast<keel::isize>(optsCopy.presets.size()));
         for (size_t i = 0; i < optsCopy.presets.size(); ++i) {
             arenaPresets[i] = optsCopy.presets[i];
         }

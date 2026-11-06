@@ -1096,8 +1096,8 @@ SceneScope Scene::Open(
     payload->opts = optsCopy;
     payload->opts.tooltip = ctx.AllocText(optsCopy.tooltip);   // read in Update, after the caller's string is gone
     payload->state = &state;
-    payload->drawCmds.BindArena(ctx.GetArena());
-    payload->items.BindArena(ctx.GetArena());
+    payload->drawCmds.bind_arena(ctx.GetArena());
+    payload->items.bind_arena(ctx.GetArena());
     node->SetPayload(payload);
 
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& th) noexcept -> Vec2 {

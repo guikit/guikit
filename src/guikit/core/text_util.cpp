@@ -3,7 +3,7 @@
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/rich_text.hpp"
 #include "guikit/core/theme.hpp"
-#include "guikit/core/ui_vector.hpp"
+#include "keel/small_array.h"
 #include "keel/utf8.h"
 
 namespace guikit {
@@ -102,8 +102,8 @@ std::string TextUtil::TruncateWithEllipsis(
     const float targetW = maxWidth - dotsW;
 
     // Collect all valid UTF-8 character end offsets
-    UiVector<size_t, 64> boundaries;
-    boundaries.reserve(text.size() + 1);
+    keel::SmallArray<size_t, 64> boundaries;
+    boundaries.reserve(static_cast<keel::isize>(text.size() + 1));
     boundaries.push_back(0);
     for (size_t i = 1; i <= text.size(); ++i) {
         if (i == text.size() || IsUtf8LeadByte(static_cast<uint8_t>(text[i]))) {
@@ -112,12 +112,12 @@ std::string TextUtil::TruncateWithEllipsis(
     }
 
     // Binary search over character boundaries
-    size_t low = 0;
-    size_t high = boundaries.size() - 1;
-    size_t bestIdx = 0;
+    keel::isize low = 0;
+    keel::isize high = boundaries.size() - 1;
+    keel::isize bestIdx = 0;
 
     while (low <= high) {
-        const size_t mid = low + (high - low) / 2;
+        const keel::isize mid = low + (high - low) / 2;
         const size_t len = boundaries[mid];
         const float w = MeasureWidth(text.substr(0, len), fontSize, canvas);
         if (w <= targetW) {
@@ -684,8 +684,8 @@ size_t TextUtil::HitTestIndex(
     }
 
     // Collect valid UTF-8 character boundary indices
-    UiVector<size_t, 64> boundaries;
-    boundaries.reserve(text.size() + 1);
+    keel::SmallArray<size_t, 64> boundaries;
+    boundaries.reserve(static_cast<keel::isize>(text.size() + 1));
     boundaries.push_back(0);
     for (size_t i = 1; i <= text.size(); ++i) {
         if (i == text.size() || IsUtf8LeadByte(static_cast<uint8_t>(text[i]))) {
@@ -697,10 +697,10 @@ size_t TextUtil::HitTestIndex(
     }
 
     // Binary search for the character interval [boundaries[low], boundaries[low + 1]] containing localX
-    size_t low = 0;
-    size_t high = boundaries.size() - 1;
+    keel::isize low = 0;
+    keel::isize high = boundaries.size() - 1;
     while (low + 1 < high) {
-        const size_t mid = low + (high - low) / 2;
+        const keel::isize mid = low + (high - low) / 2;
         const float w = MeasureWidth(text.substr(0, boundaries[mid]), fontSize, canvas);
         if (w <= localX) {
             low = mid;

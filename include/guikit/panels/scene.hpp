@@ -11,7 +11,7 @@
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
-#include "guikit/core/ui_vector.hpp"
+#include "keel/arena.h"
 
 namespace guikit {
 
@@ -204,8 +204,8 @@ struct ScenePayload {
     SceneOptions opts{};
     SceneState* state{nullptr};
     Rect openViewport{};
-    UiArenaVector<SceneDrawCmd> drawCmds{};
-    UiArenaVector<SceneItemInfo> items{};
+    keel::ArenaArray<SceneDrawCmd> drawCmds{};
+    keel::ArenaArray<SceneItemInfo> items{};
     int32_t activeItemIndex{-1};
     uint64_t contentHash{0};        ///< Running fingerprint of drawCmds (incl. text and pixel content) for damage tracking
 };
