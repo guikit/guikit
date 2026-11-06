@@ -12162,8 +12162,86 @@ int main() {
         ui.EndFrame(canvas);
 
         CHECK(rMono.rect.w > 100.0f && rMono.rect.h > 16.0f);
-        CHECK(rStereo.rect.w > 30.0f && rStereo.rect.h >= 140.0f);
+        CHECK(rStereo.rect.w > 30.0f && rStereo.rect.w < 120.0f);
+        CHECK_NEAR(rStereo.rect.h, 140.0f, 1.0f);
         CHECK(rTags.rect.w > 100.0f && rTags.rect.h > 20.0f);
+
+        // Verify unified vertical stretching policy between Slider and LevelMeter inside Row and Element
+        {
+            guikit::Context vUi;
+            float faderVal = -6.0f;
+            guikit::Response rFaderFill{}, rMeterFill{}, rFaderCompact{}, rMeterCompact{}, rFaderExplicitH{}, rMeterExplicitH{};
+            guikit::Response rElFaderFill{}, rElMeterFill{}, rElFaderSpace{}, rElMeterSpace{};
+
+            for (int f = 0; f < 2; ++f) {
+                vUi.BeginFrame({800.0f, 600.0f});
+                if (auto row = vUi.Row({.gap = 16.0f, .heightMode = guikit::SizeMode::Stretch})) {
+                    rFaderFill = vUi.Slider(faderVal, -60.0f, 0.0f, {
+                        .orientation = guikit::Orientation::Vertical,
+                        .stretch = guikit::StretchMode::Fill
+                    });
+                    rMeterFill = vUi.LevelMeter(stereoLevels, -60.0f, 0.0f, {
+                        .orientation = guikit::Orientation::Vertical,
+                        .stretch = guikit::StretchMode::Fill
+                    });
+                    rFaderCompact = vUi.Slider(faderVal, -60.0f, 0.0f, {
+                        .orientation = guikit::Orientation::Vertical,
+                        .stretch = guikit::StretchMode::Compact
+                    });
+                    rMeterCompact = vUi.LevelMeter(stereoLevels, -60.0f, 0.0f, {
+                        .orientation = guikit::Orientation::Vertical,
+                        .stretch = guikit::StretchMode::Compact
+                    });
+                    rFaderExplicitH = vUi.Slider(faderVal, -60.0f, 0.0f, {
+                        .orientation = guikit::Orientation::Vertical,
+                        .stretch = guikit::StretchMode::Fill,
+                        .height = 200.0f
+                    });
+                    rMeterExplicitH = vUi.LevelMeter(stereoLevels, -60.0f, 0.0f, {
+                        .orientation = guikit::Orientation::Vertical,
+                        .stretch = guikit::StretchMode::Fill,
+                        .height = 200.0f
+                    });
+                    if (auto el = vUi.Element({.label = "Fader Fill", .stretch = guikit::StretchMode::Fill})) {
+                        rElFaderFill = el.response;
+                        vUi.Slider(faderVal, -60.0f, 0.0f, {.orientation = guikit::Orientation::Vertical});
+                    }
+                    if (auto el = vUi.Element({.label = "Meter Fill", .stretch = guikit::StretchMode::Fill})) {
+                        rElMeterFill = el.response;
+                        vUi.LevelMeter(stereoLevels, -60.0f, 0.0f, {.orientation = guikit::Orientation::Vertical});
+                    }
+                    if (auto el = vUi.Element({.label = "Fader Space", .stretch = guikit::StretchMode::Space})) {
+                        rElFaderSpace = el.response;
+                        vUi.Slider(faderVal, -60.0f, 0.0f, {.orientation = guikit::Orientation::Vertical});
+                    }
+                    if (auto el = vUi.Element({.label = "Meter Space", .stretch = guikit::StretchMode::Space})) {
+                        rElMeterSpace = el.response;
+                        vUi.LevelMeter(stereoLevels, -60.0f, 0.0f, {.orientation = guikit::Orientation::Vertical});
+                    }
+                }
+                vUi.EndFrame(canvas);
+            }
+
+            // Fill stretches both vertical Slider and vertical LevelMeter to full container height (600px) and keeps width compact
+            CHECK_NEAR(rFaderFill.rect.h, 600.0f, 1.0f);
+            CHECK_NEAR(rMeterFill.rect.h, 600.0f, 1.0f);
+            CHECK(rFaderFill.rect.w < 120.0f);
+            CHECK(rMeterFill.rect.w < 120.0f);
+
+            // Compact keeps both at their intrinsic vertical height (< 260px)
+            CHECK(rFaderCompact.rect.h > 150.0f && rFaderCompact.rect.h < 260.0f);
+            CHECK(rMeterCompact.rect.h > 150.0f && rMeterCompact.rect.h < 260.0f);
+
+            // Explicit .height overrides Fill stretching on both
+            CHECK_NEAR(rFaderExplicitH.rect.h, 200.0f, 1.0f);
+            CHECK_NEAR(rMeterExplicitH.rect.h, 200.0f, 1.0f);
+
+            // Inside Element: Fill stretches Element height to 600px, while Space keeps Element height compact
+            CHECK_NEAR(rElFaderFill.rect.h, 600.0f, 1.0f);
+            CHECK_NEAR(rElMeterFill.rect.h, 600.0f, 1.0f);
+            CHECK(rElFaderSpace.rect.h < 300.0f);
+            CHECK(rElMeterSpace.rect.h < 300.0f);
+        }
 
         // Click stereo LevelMeter to reset peak/clip latch
         ui.OnMouseMove(rStereo.rect.Center());

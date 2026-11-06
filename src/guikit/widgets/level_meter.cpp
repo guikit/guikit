@@ -119,6 +119,14 @@ float GetDefaultBarThickness(UiSize size, const UiTheme& theme) noexcept {
     }
 }
 
+[[nodiscard]] constexpr bool IsVerticalMeter(Orientation orientation) noexcept {
+    return orientation == Orientation::Vertical;
+}
+
+[[nodiscard]] constexpr StretchMode LevelMeterCrossStretch(const LevelMeterOptions& opts) noexcept {
+    return IsVerticalMeter(opts.orientation) ? StretchMode::Compact : opts.stretch;
+}
+
 ControlSpec EffectiveLevelMeterControl(
     const LevelMeterOptions& opts,
     UiSize size,
@@ -139,6 +147,11 @@ ControlSpec EffectiveLevelMeterControl(
     c.stretchable = true;
     c.stretchHeightWhenStandalone = false;
     c.hasIntrinsicBox = false;
+    if (IsVerticalMeter(opts.orientation)) {
+        // Vertical meter: compact across width; Fill stretches along the main (vertical) axis unless explicit height is set
+        c.stretchable = false;
+        c.stretchHeightWhenStandalone = (opts.stretch == StretchMode::Fill && !opts.height.has_value());
+    }
     return c;
 }
 
@@ -308,14 +321,7 @@ LevelMeterMetrics ComputeLevelMeterMetrics(
         const float topClipH = opts.showClipLed ? (mm.clipLedLen + mm.clipGap) : 0.0f;
         const float bottomLabelH = (mm.labelReserveW > 0.0f) ? (theme.Scale(4.0f) + mm.labelLineH) : 0.0f;
         const float bottomValH = opts.showValue ? (theme.Scale(4.0f) + mm.valLineH) : 0.0f;
-        float defaultTrackH = std::round(theme.Scale(160.0f));
-        if (opts.segments > 0) {
-            const uint32_t segCount = std::clamp<uint32_t>(opts.segments, 2u, 64u);
-            const float gap = (segCount > 28) ? 1.0f : 2.0f;
-            const float totalGaps = gap * static_cast<float>(segCount - 1);
-            const float segH = std::max(2.0f, std::round((defaultTrackH - totalGaps) / static_cast<float>(segCount)));
-            defaultTrackH = static_cast<float>(segCount) * segH + totalGaps;
-        }
+        const float defaultTrackH = std::round(sm.defaultWidth);
 
         const float totalW = std::max(mm.scaleRegionW + barsW, opts.showValue ? mm.valReserveW : 0.0f) + theme.Scale(8.0f);
         const float totalH = topClipH + defaultTrackH + bottomLabelH + bottomValH;
@@ -347,13 +353,12 @@ void DrawChannelBarHorizontal(
 
     uint32_t segCount = 0;
     float gap = 2.0f;
-    float segW = 2.0f;
+    float avgSegW = 2.0f;
     if (opts.segments > 0) {
         segCount = std::clamp<uint32_t>(opts.segments, 2u, 64u);
         gap = (segCount > 28) ? 1.0f : 2.0f;
         const float totalGaps = gap * static_cast<float>(segCount - 1);
-        segW = std::max(1.0f, std::floor((trackRect.w - totalGaps) / static_cast<float>(segCount)));
-        trackRect.w = static_cast<float>(segCount) * segW + totalGaps;
+        avgSegW = std::max(1.0f, (trackRect.w - totalGaps) / static_cast<float>(segCount));
     }
 
     // Recessed housing backdrop
@@ -378,16 +383,21 @@ void DrawChannelBarHorizontal(
             );
         }
 
-        const bool useRound = (std::min(segW, trackRect.h) >= 8.0f);
+        const bool useRound = (std::min(avgSegW, trackRect.h) >= 8.0f);
+        const float stepW = (trackRect.w + gap) / static_cast<float>(segCount);
         for (uint32_t i = 0; i < segCount; ++i) {
-            const float segX = trackRect.x + static_cast<float>(i) * (segW + gap);
+            const float segLeft = std::round(trackRect.x + static_cast<float>(i) * stepW);
+            const float segRight = (i + 1 == segCount)
+                ? trackRect.Right()
+                : std::round(trackRect.x + static_cast<float>(i + 1) * stepW - gap);
+            const float segW = std::max(1.0f, segRight - segLeft);
             const float segThreshold = static_cast<float>(i + 1) / static_cast<float>(segCount);
             const float segMidRatio = (static_cast<float>(i) + 0.5f) / static_cast<float>(segCount);
             const bool isLit = (ch.ratio >= segThreshold - (0.5f / static_cast<float>(segCount))) && (ch.ratio > 0.001f);
             const bool isPeakSeg = (static_cast<int>(i) == peakSegIdx);
 
             const Color zoneCol = ResolveZoneColor(segMidRatio, opts, disabled, theme);
-            const Rect segRect(segX, trackRect.y, segW, trackRect.h);
+            const Rect segRect(segLeft, trackRect.y, segW, trackRect.h);
             const Color fillCol = (isLit || isPeakSeg) ? zoneCol : zoneCol.WithAlphaF(disabled ? 0.08f : 0.16f);
 
             if (useRound) {
@@ -490,15 +500,12 @@ void DrawChannelBarVertical(
 
     uint32_t segCount = 0;
     float gap = 2.0f;
-    float segH = 2.0f;
+    float avgSegH = 2.0f;
     if (opts.segments > 0) {
         segCount = std::clamp<uint32_t>(opts.segments, 2u, 64u);
         gap = (segCount > 28) ? 1.0f : 2.0f;
         const float totalGaps = gap * static_cast<float>(segCount - 1);
-        segH = std::max(1.0f, std::floor((trackRect.h - totalGaps) / static_cast<float>(segCount)));
-        const float exactH = static_cast<float>(segCount) * segH + totalGaps;
-        trackRect.y = std::round(trackRect.Bottom() - exactH);
-        trackRect.h = exactH;
+        avgSegH = std::max(1.0f, (trackRect.h - totalGaps) / static_cast<float>(segCount));
     }
 
     // Recessed housing backdrop
@@ -523,17 +530,22 @@ void DrawChannelBarVertical(
             );
         }
 
-        const bool useRound = (std::min(trackRect.w, segH) >= 8.0f);
+        const bool useRound = (std::min(trackRect.w, avgSegH) >= 8.0f);
+        const float stepH = (trackRect.h + gap) / static_cast<float>(segCount);
         for (uint32_t i = 0; i < segCount; ++i) {
             // Segment 0 is at the bottom, segment segCount-1 is at the top (all integer pixel coordinates)
-            const float segY = trackRect.Bottom() - static_cast<float>(i + 1) * segH - static_cast<float>(i) * gap;
+            const float segBottom = std::round(trackRect.Bottom() - static_cast<float>(i) * stepH);
+            const float segTop = (i + 1 == segCount)
+                ? trackRect.y
+                : std::round(trackRect.Bottom() - (static_cast<float>(i + 1) * stepH - gap));
+            const float segH = std::max(1.0f, segBottom - segTop);
             const float segThreshold = static_cast<float>(i + 1) / static_cast<float>(segCount);
             const float segMidRatio = (static_cast<float>(i) + 0.5f) / static_cast<float>(segCount);
             const bool isLit = (ch.ratio >= segThreshold - (0.5f / static_cast<float>(segCount))) && (ch.ratio > 0.001f);
             const bool isPeakSeg = (static_cast<int>(i) == peakSegIdx);
 
             const Color zoneCol = ResolveZoneColor(segMidRatio, opts, disabled, theme);
-            const Rect segRect(trackRect.x, segY, trackRect.w, segH);
+            const Rect segRect(trackRect.x, segTop, trackRect.w, segH);
             const Color fillCol = (isLit || isPeakSeg) ? zoneCol : zoneCol.WithAlphaF(disabled ? 0.08f : 0.16f);
 
             if (useRound) {
@@ -740,10 +752,13 @@ Response RunLevelMeterImpl(
     node->pressed = res.pressed;
     node->debugBoundsOverride = optsCopy.debugBounds;
     node->inspectModeOverride = optsCopy.inspectMode;
-    node->widthMode = (optsCopy.stretch != StretchMode::Compact && optsCopy.orientation == Orientation::Horizontal)
+    const bool vertical = IsVerticalMeter(optsCopy.orientation);
+    node->widthMode = (!vertical && optsCopy.stretch != StretchMode::Compact)
         ? SizeMode::Stretch
         : SizeMode::Fit;
-    node->heightMode = SizeMode::Fit;
+    node->heightMode = (vertical && optsCopy.stretch == StretchMode::Fill && !optsCopy.height.has_value())
+        ? SizeMode::Stretch
+        : SizeMode::Fit;
     node->text = data->channels[0].formattedValue;
     node->SetPayload(data);
 
@@ -804,7 +819,7 @@ Response RunLevelMeterImpl(
 
     node->renderFn = &LevelMeter::Render;
 
-    Control::SetupNode(ctx, node, ctrl, data->opts.stretch, data->opts.align);
+    Control::SetupNode(ctx, node, ctrl, LevelMeterCrossStretch(data->opts), data->opts.align);
     ctx.AdaptChildToContainer(node);
     if (pushedTheme) {
         ctx.PopTheme();
@@ -859,7 +874,7 @@ Vec2 LevelMeter::Measure(
 ) {
     const ControlSpec ctrl = EffectiveLevelMeterControl(opts, size, theme);
     const LevelMeterMetrics mm = ComputeLevelMeterMetrics(channelCount, min, max, opts, size, canvas, theme);
-    return Control::Measure(mm.intrinsicSize, ctrl, opts.stretch, size, theme);
+    return Control::Measure(mm.intrinsicSize, ctrl, LevelMeterCrossStretch(opts), size, theme);
 }
 
 void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
@@ -903,14 +918,7 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
             leftW = 0.0f;
         }
         const float trackX = std::round(ctrlRect.x + leftW);
-        float trackW = std::max(12.0f, std::round(ctrlRect.w - leftW - clipTotalW - rightW));
-        if (opts.segments > 0) {
-            const uint32_t segCount = std::clamp<uint32_t>(opts.segments, 2u, 64u);
-            const float gap = (segCount > 28) ? 1.0f : 2.0f;
-            const float totalGaps = gap * static_cast<float>(segCount - 1);
-            const float segW = std::max(1.0f, std::floor((trackW - totalGaps) / static_cast<float>(segCount)));
-            trackW = std::min(trackW, static_cast<float>(segCount) * segW + totalGaps);
-        }
+        const float trackW = std::max(12.0f, std::round(ctrlRect.w - leftW - clipTotalW - rightW));
 
         const float rowH = (numCh == 1 && showRightValue)
             ? std::max(mm.barThick, mm.valLineH)
@@ -1055,27 +1063,13 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
         const float chGapInt = std::max(2.0f, std::round(mm.channelGap));
         const float barsW = static_cast<float>(numCh) * barThickInt + static_cast<float>(numCh - 1) * chGapInt;
         const float assemblyW = mm.scaleRegionW + barsW;
-        float assemblyStartX = ctrlRect.x;
-        if (opts.align == Align::Center) {
-            assemblyStartX = ctrlRect.x + std::max(0.0f, (ctrlRect.w - assemblyW) * 0.5f);
-        } else if (opts.align == Align::End) {
-            assemblyStartX = ctrlRect.x + std::max(0.0f, ctrlRect.w - assemblyW);
-        }
+        const float assemblyStartX = ctrlRect.x + std::max(0.0f, (ctrlRect.w - assemblyW) * 0.5f);
 
         const float topClipH = opts.showClipLed ? (mm.clipLedLen + mm.clipGap) : 0.0f;
         const float bottomLabelH = (mm.labelReserveW > 0.0f) ? (theme.Scale(4.0f) + mm.labelLineH) : 0.0f;
         const float bottomValH = opts.showValue ? (theme.Scale(4.0f) + mm.valLineH) : 0.0f;
-        float trackY = std::round(ctrlRect.y + topClipH);
-        float trackH = std::max(24.0f, std::round(ctrlRect.h - topClipH - bottomLabelH - bottomValH));
-        if (opts.segments > 0) {
-            const uint32_t segCount = std::clamp<uint32_t>(opts.segments, 2u, 64u);
-            const float gap = (segCount > 28) ? 1.0f : 2.0f;
-            const float totalGaps = gap * static_cast<float>(segCount - 1);
-            const float segH = std::max(1.0f, std::floor((trackH - totalGaps) / static_cast<float>(segCount)));
-            const float exactH = static_cast<float>(segCount) * segH + totalGaps;
-            trackY = std::round((trackY + trackH) - exactH);
-            trackH = exactH;
-        }
+        const float trackY = std::round(ctrlRect.y + topClipH);
+        const float trackH = std::max(24.0f, std::round(ctrlRect.h - topClipH - bottomLabelH - bottomValH));
         const float barsStartX = std::round(assemblyStartX + mm.scaleRegionW);
 
         // 1. Calibrated vertical scale on the left of the bars (with vertical collision culling)
@@ -1155,11 +1149,9 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
             const std::string_view valStr = d->channels[maxChannelIdx].formattedValue;
             if (!valStr.empty()) {
                 const float valY = trackY + trackH + bottomLabelH + theme.Scale(4.0f);
-                const float valBoxW = std::max(assemblyW, mm.valReserveW);
-                const float valBoxX = assemblyStartX + (assemblyW - valBoxW) * 0.5f;
                 canvas.DrawTextBox(
                     valStr,
-                    Rect(valBoxX, valY, valBoxW, mm.valLineH),
+                    Rect(ctrlRect.x, valY, ctrlRect.w, mm.valLineH),
                     mm.valFont,
                     valCol,
                     0.5f,

@@ -516,9 +516,9 @@ ControlSpec EffectiveSliderControl(const Opts& opts, UiSize size, const UiTheme&
     c.hasIntrinsicBox = false;
     if constexpr (requires { opts.orientation; }) {
         if (IsVerticalSlider(opts.orientation)) {
-            // Fader: never stretches across; Fill stretches along the main (vertical) axis
+            // Fader: never stretches across; Fill stretches along the main (vertical) axis unless explicit height is set
             c.stretchable = false;
-            c.stretchHeightWhenStandalone = (opts.stretch == StretchMode::Fill);
+            c.stretchHeightWhenStandalone = (opts.stretch == StretchMode::Fill && !opts.height.has_value());
         }
     }
     return c;
@@ -737,7 +737,9 @@ Response Slider::Run(
     node->focused = ctx.IsFocused(id);
     const bool vertical = IsVerticalSlider(optsCopy.orientation);
     node->widthMode = (!vertical && optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-    node->heightMode = (vertical && optsCopy.stretch == StretchMode::Fill) ? SizeMode::Stretch : SizeMode::Fit;
+    node->heightMode = (vertical && optsCopy.stretch == StretchMode::Fill && !optsCopy.height.has_value())
+        ? SizeMode::Stretch
+        : SizeMode::Fit;
 
     auto* data = ctx.AllocPayload<SliderData>();
     data->opts = optsCopy;
@@ -1066,7 +1068,9 @@ Response StepSlider::Run(
     node->focused = ctx.IsFocused(id);
     const bool vertical = IsVerticalSlider(optsCopy.orientation);
     node->widthMode = (!vertical && optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-    node->heightMode = (vertical && optsCopy.stretch == StretchMode::Fill) ? SizeMode::Stretch : SizeMode::Fit;
+    node->heightMode = (vertical && optsCopy.stretch == StretchMode::Fill && !optsCopy.height.has_value())
+        ? SizeMode::Stretch
+        : SizeMode::Fit;
 
     auto* data = ctx.AllocPayload<StepSliderData>();
     data->opts = optsCopy;
@@ -1628,7 +1632,9 @@ Response RangeSlider::Run(
     node->focused = ctx.IsFocused(id);
     const bool vertical = IsVerticalSlider(optsCopy.orientation);
     node->widthMode = (!vertical && optsCopy.stretch != StretchMode::Compact) ? SizeMode::Stretch : SizeMode::Fit;
-    node->heightMode = (vertical && optsCopy.stretch == StretchMode::Fill) ? SizeMode::Stretch : SizeMode::Fit;
+    node->heightMode = (vertical && optsCopy.stretch == StretchMode::Fill && !optsCopy.height.has_value())
+        ? SizeMode::Stretch
+        : SizeMode::Fit;
 
     auto* data = ctx.AllocPayload<RangeSliderData>();
     data->opts = optsCopy;
