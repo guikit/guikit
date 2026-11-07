@@ -663,8 +663,8 @@ SplitButtonResponse Toolbar::SplitButton(
 
     menuOpts.trigger = ContextMenuTrigger::LeftClick;
     menuOpts.disabled = effectiveDisabled;
-    if (!menuOpts.minWidth.has_value() || *menuOpts.minWidth > 148.0f) {
-        menuOpts.minWidth = std::max(148.0f, prevRect.w / std::max(0.1f, theme.scale));
+    if (!menuOpts.minWidth.has_value()) {
+        menuOpts.minWidth = std::max(160.0f, prevRect.w / std::max(0.1f, theme.scale));
     }
     const std::optional<Vec2> anchorPos = (prevRect.w > 0.0f && prevRect.h > 0.0f)
         ? std::optional<Vec2>(Vec2{prevRect.x, prevRect.Bottom() + 4.0f})

@@ -67,20 +67,25 @@ ContextMenuResponse ContextMenu::Run(
     // Measure menu geometry
     ICanvas* canvas = ctx.GetCanvas();
     const float s = (theme.scale > 0.0f) ? theme.scale : activeScale;
-    const float rowH = std::round(30.0f * s);
+    const ComponentMetrics& cm = theme.GetMetrics(activeSize);
+    const float rowH = std::round(std::max(32.0f * s, cm.defaultHeight * 0.9f));
     const float sepH = std::round(9.0f * s);
-    const float padX = std::round(10.0f * s);
+    const float padX = std::round(12.0f * s);
     const float padY = std::round(6.0f * s);
-    const float iconSlotW = std::round(22.0f * s);
+    const float icSz = cm.iconSize;
+    const float iconSlotW = std::round(icSz + 8.0f * s);
     const float shortcutGap = std::round(24.0f * s);
-    const float labelFont = theme.ResolveFontSize(UiText{}, TextRole::LabelMedium, activeSize);
-    const float shortcutFont = theme.ResolveFontSize(UiText{}, TextRole::LabelSmall, activeSize);
+    const float labelFont = theme.ResolveFontSize(UiText{}, TextRole::LabelLarge, activeSize);
+    const float shortcutFont = theme.ResolveFontSize(UiText{}, TextRole::LabelMedium, activeSize);
 
     bool anyLeadingSlot = false;
+    bool anyTrailingCheck = false;
     for (const auto& item : items) {
         if (!item.isSeparatorOnly && (item.icon.IsValid() || item.hasCheck || item.checked)) {
             anyLeadingSlot = true;
-            break;
+            if (item.icon.IsValid() && (item.hasCheck || item.checked)) {
+                anyTrailingCheck = true;
+            }
         }
     }
 
@@ -100,7 +105,8 @@ ContextMenuResponse ContextMenu::Run(
             ? 0.0f
             : (shortcutGap + TextUtil::MeasureUiTextWidth(item.shortcut, shortcutFont, canvas));
         const float leadW = anyLeadingSlot ? iconSlotW : 0.0f;
-        maxContentW = std::max(maxContentW, leadW + lw + sw);
+        const float trailW = anyTrailingCheck ? iconSlotW : 0.0f;
+        maxContentW = std::max(maxContentW, leadW + lw + sw + trailW);
     }
 
     float menuW = maxContentW + padX * 2.0f + 8.0f * s;
@@ -405,7 +411,7 @@ ContextMenuResponse ContextMenu::Run(
         items.size()
     ));
 
-    ctx.RegisterOverlay([popupRect, radius, s, padX, iconSlotW, anyLeadingSlot, labelFont, shortcutFont, theme, opts, drawItems](ICanvas& c) {
+    ctx.RegisterOverlay([popupRect, radius, s, padX, icSz, iconSlotW, anyLeadingSlot, anyTrailingCheck, labelFont, shortcutFont, theme, opts, drawItems](ICanvas& c) {
         const auto& pal = theme.palette;
 
         // Soft drop shadow
@@ -436,16 +442,19 @@ ContextMenuResponse ContextMenu::Run(
             if (!it.isSeparatorOnly) {
                 const bool isDanger = (it.variant == UiVariant::Danger);
                 const Color dangerCol = theme.GetVariant(UiVariant::Danger).bg;
+                const bool iconWithCheck = it.icon.IsValid() && (it.hasCheck || it.checked);
 
                 if (it.hovered && !it.disabled) {
                     const Color hovBg = isDanger
                         ? dangerCol.WithAlphaF(theme.mode == ThemeMode::Dark ? 0.22f : 0.14f)
-                        : pal.surfaceHover;
+                        : (it.checked && iconWithCheck ? pal.surfaceActive : pal.surfaceHover);
                     c.DrawRoundRect(it.rect, std::max(4.0f * s, radius - 2.0f * s), hovBg, Color::Transparent(), 0.0f);
+                } else if (it.checked && iconWithCheck) {
+                    c.DrawRoundRect(it.rect, std::max(4.0f * s, radius - 2.0f * s), pal.surfaceHover, Color::Transparent(), 0.0f);
                 }
 
-                Color fg = isDanger ? dangerCol : pal.textPrimary;
-                Color mutedFg = pal.textMuted;
+                Color fg = isDanger ? dangerCol : (it.checked && iconWithCheck ? pal.accent : pal.textPrimary);
+                Color mutedFg = pal.textSecondary;
                 if (it.disabled) {
                     fg = fg.WithAlphaF(0.4f);
                     mutedFg = mutedFg.WithAlphaF(0.4f);
@@ -453,22 +462,34 @@ ContextMenuResponse ContextMenu::Run(
 
                 float textX = it.rect.x + padX - 2.0f * s;
                 if (anyLeadingSlot) {
-                    const float icSz = 14.0f * s;
                     const Rect icRect(
                         textX + (iconSlotW - icSz) * 0.5f - 2.0f * s,
                         it.rect.y + (it.rect.h - icSz) * 0.5f,
                         icSz,
                         icSz
                     );
-                    if (it.checked) {
+                    if (it.icon.IsValid()) {
+                        const Color icCol = isDanger ? fg : (it.checked ? pal.accent : (it.hovered ? fg : mutedFg));
+                        it.icon.Draw(c, icRect, icCol);
+                    } else if (it.checked) {
                         Icon::Check().Draw(c, icRect, isDanger ? dangerCol : pal.accent);
-                    } else if (it.icon.IsValid()) {
-                        it.icon.Draw(c, icRect, isDanger ? fg : (it.hovered ? fg : mutedFg));
                     }
                     textX += iconSlotW;
                 }
 
-                const float rightPad = it.rect.Right() - padX + 2.0f * s;
+                float rightPad = it.rect.Right() - padX + 2.0f * s;
+                if (anyTrailingCheck) {
+                    if (it.checked && iconWithCheck) {
+                        const Rect chkRect(
+                            rightPad - icSz,
+                            it.rect.y + (it.rect.h - icSz) * 0.5f,
+                            icSz,
+                            icSz
+                        );
+                        Icon::Check().Draw(c, chkRect, isDanger ? dangerCol : pal.accent);
+                    }
+                    rightPad -= iconSlotW;
+                }
                 float availW = std::max(10.0f, rightPad - textX);
 
                 if (!it.shortcut.empty()) {
