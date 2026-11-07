@@ -572,7 +572,7 @@ Response Context::Button(ButtonOptions opts, std::source_location loc) {
 keel::InplaceString<> Context::String(std::string_view text) {
     if (text.empty()) return keel::InplaceString<>{};
     const std::string_view arenaSv = AllocString(text);
-    return keel::InplaceString<>(arenaSv);
+    return keel::InplaceString<>(arenaSv.data(), arenaSv.size());
 }
 
 std::string_view Context::AllocString(std::string_view text) {

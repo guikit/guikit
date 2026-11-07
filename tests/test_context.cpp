@@ -582,6 +582,14 @@ void TestUiStringAndContextFormatting() {
     if (auto col = ui.Column({.gap = 8.0f})) {
         ui.Text(ui.Format("Value: {}", 99));
         ui.Button({.text = ui.String("Action")});
+
+        // Verify temporary ui.Format / ui.String converted to std::string_view points into frame arena (not stack)
+        // and does not truncate strings > 64 or > 128 bytes.
+        std::string_view persistedView = std::string_view(ui.Format(
+            "Long UTF-8 summary string exceeding 128 bytes: [0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-0123456789abcdef] {:g} %",
+            0.1 * 0.2));
+        CHECK(persistedView.size() > 130);
+        CHECK(persistedView.ends_with(" 0.02 %"));
     }
     ui.EndFrame(canvas);
 

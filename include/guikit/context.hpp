@@ -1738,8 +1738,8 @@ public:
 
     template <typename... Args>
     [[nodiscard]] keel::InplaceString<> Format(std::string_view fmt, const Args&... args) {
-        auto res = keel::format_inplace<128>(fmt, args...);
-        return String(res);
+        const keel::StringRef sv = keel::format_arena(m_arena, fmt, args...);
+        return keel::InplaceString<>(sv.data(), sv.size());
     }
 
     // --- Core Engine Services for Widgets ---
