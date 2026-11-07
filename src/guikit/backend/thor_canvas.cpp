@@ -224,21 +224,16 @@ bool ThorCanvas::LoadFontFile(std::string_view path, FontStyle style) {
     // 2. Check disk (UTF-8 aware path resolution, probing direct path and relative parent prefixes)
     const std::string fontName = ExtractFontName(path);
     const std::string_view mime = Assets::InferMimeType(path);
-    const bool isAbsolute = keel::path_is_absolute(keel::StringRef(path.data(), static_cast<keel::isize>(path.size())));
+    const bool isAbsolute = keel::path_is_absolute(path);
     const std::string_view prefixes[] = {"", "../", "../../", "../../../"};
 
     for (std::string_view prefix : prefixes) {
         if (isAbsolute && !prefix.empty()) break;
         const std::string candidate = std::string(prefix) + std::string(path);
-        auto res = keel::fs_read_file(keel::StringRef(candidate.data(), static_cast<keel::isize>(candidate.size())));
+        auto res = keel::fs_read_file(candidate);
         if (!res.is_ok() || res.value().empty()) continue;
         const auto& bytes = res.value();
-        if (LoadFontMemoryInternal(
-                fontName,
-                std::span<const uint8_t>(bytes.data(), static_cast<size_t>(bytes.size())),
-                style,
-                mime,
-                true)) {
+        if (LoadFontMemoryInternal(fontName, bytes, style, mime, true)) {
             return true;
         }
     }
@@ -1243,8 +1238,7 @@ ThorCanvas::ImageCacheEntry& ThorCanvas::ResolveImageEntry(std::string_view sour
     static ImageCacheEntry s_emptyEntry{};
     if (source.empty()) return s_emptyEntry;
 
-    const keel::StringRef keyRef(source.data(), static_cast<keel::isize>(source.size()));
-    if (ImageCacheEntry* existing = m_imageCache.get(keyRef)) {
+    if (ImageCacheEntry* existing = m_imageCache.get(source)) {
         return *existing;
     }
 
@@ -1309,7 +1303,7 @@ ThorCanvas::ImageCacheEntry& ThorCanvas::ResolveImageEntry(std::string_view sour
     }
     delete probe;
 
-    return m_imageCache.get_or_insert(keel::String::from(keyRef), std::move(entry));
+    return m_imageCache.get_or_insert(keel::String::from(source), std::move(entry));
 }
 
 Vec2 ThorCanvas::GetImageSize(std::string_view source) {

@@ -289,7 +289,7 @@ void ComputePaginationLayout(
     }
 
     float curX = startX;
-    for (keel::isize i = 0; i < outTokens.size(); ++i) {
+    for (size_t i = 0; i < outTokens.size(); ++i) {
         if (i > 0) curX += effGap;
         outTokenRects.emplace_back(curX, innerRect.y, widths[i], innerRect.h);
         curX += widths[i];
@@ -391,7 +391,7 @@ Response Pagination::Run(
     } else {
         const Vec2 mouse = ctx.GetMousePos();
         if (res.hovered || res.pressed || res.clicked) {
-            for (keel::isize i = 0; i < tokenRects.size(); ++i) {
+            for (size_t i = 0; i < tokenRects.size(); ++i) {
                 if (tokenRects[i].Contains(mouse)) {
                     if (!tokens[i].disabled) {
                         hoveredToken = static_cast<int>(i);
@@ -406,8 +406,8 @@ Response Pagination::Run(
 
         if (res.clicked) {
             ctx.RequestFocus(id);
-            if (hoveredToken >= 0 && static_cast<keel::isize>(hoveredToken) < tokens.size()) {
-                const PageToken& tok = tokens[static_cast<keel::isize>(hoveredToken)];
+            if (hoveredToken >= 0 && static_cast<size_t>(hoveredToken) < tokens.size()) {
+                const PageToken& tok = tokens[static_cast<size_t>(hoveredToken)];
                 if (!tok.disabled && tok.targetPage < safeTotal && curr != tok.targetPage) {
                     curr = tok.targetPage;
                     currentPage = curr;
@@ -546,7 +546,7 @@ void Pagination::Render(
 
     canvas.PushClip(bounds);
 
-    for (keel::isize i = 0; i < tokens.size(); ++i) {
+    for (size_t i = 0; i < tokens.size(); ++i) {
         const PageToken& tok = tokens[i];
         const Rect tr = tokenRects[i];
         const bool isEllipsis = (tok.type == PageTokenType::LeftEllipsis || tok.type == PageTokenType::RightEllipsis);

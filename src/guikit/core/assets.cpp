@@ -177,11 +177,11 @@ void Assets::RegisterOwned(
     }
     RuntimeAssetRecord rec{};
     rec.size = bytes.size();
-    rec.ownedBytes.reserve(static_cast<keel::isize>(bytes.size() + 1));
-    rec.ownedBytes.append(keel::ArrayRef<uint8_t>(bytes.data(), bytes.size()));
+    rec.ownedBytes.reserve(bytes.size() + 1);
+    rec.ownedBytes.append(bytes);
     rec.ownedBytes.push_back(0); // Null-terminate for non-copy SVG/text loaders
     rec.mimeType = mimeType.empty() ? std::string(InferMimeType(norm)) : std::string(mimeType);
-    GetRuntimeRegistry().put(keel::String::from(keel::StringRef(norm.data(), norm.size())), std::move(rec));
+    GetRuntimeRegistry().put(keel::String::from(norm), std::move(rec));
 }
 
 bool Assets::Unregister(std::string_view virtualPath) {
@@ -189,7 +189,7 @@ bool Assets::Unregister(std::string_view virtualPath) {
     if (norm.empty()) {
         return false;
     }
-    return GetRuntimeRegistry().remove(keel::StringRef(norm.data(), norm.size()));
+    return GetRuntimeRegistry().remove(norm);
 }
 
 void Assets::ClearRuntime() {

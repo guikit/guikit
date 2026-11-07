@@ -683,7 +683,7 @@ void TestUiVectorAndArenaVector() {
             for (int v : sp) s += v;
             return s;
         };
-        CHECK(sumSpan({movedVec.data(), static_cast<size_t>(movedVec.size())}) == (10 + 20 + 30 + 40 + 10));
+        CHECK(sumSpan(movedVec) == (10 + 20 + 30 + 40 + 10));
     }
 
     // 2. Non-trivial element lifetime in keel::SmallArray

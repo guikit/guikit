@@ -15,9 +15,7 @@ namespace {
 }
 
 [[nodiscard]] size_t NextUtf8CharBoundary(std::string_view text, size_t index) noexcept {
-    return static_cast<size_t>(
-        keel::utf8_next_boundary(keel::StringRef(text.data(), static_cast<keel::isize>(text.size())),
-                                 static_cast<keel::isize>(index)));
+    return keel::utf8_next_boundary(text, index);
 }
 
 } // namespace
@@ -92,7 +90,7 @@ std::string TextUtil::TruncateWithEllipsis(
 
     // Collect all valid UTF-8 character end offsets
     keel::SmallArray<size_t, 64> boundaries;
-    boundaries.reserve(static_cast<keel::isize>(text.size() + 1));
+    boundaries.reserve(text.size() + 1);
     boundaries.push_back(0);
     for (size_t i = 1; i <= text.size(); ++i) {
         if (i == text.size() || IsUtf8LeadByte(static_cast<uint8_t>(text[i]))) {
@@ -101,12 +99,12 @@ std::string TextUtil::TruncateWithEllipsis(
     }
 
     // Binary search over character boundaries
-    keel::isize low = 0;
-    keel::isize high = boundaries.size() - 1;
-    keel::isize bestIdx = 0;
+    size_t low = 0;
+    size_t high = boundaries.size() - 1;
+    size_t bestIdx = 0;
 
     while (low <= high) {
-        const keel::isize mid = low + (high - low) / 2;
+        const size_t mid = low + (high - low) / 2;
         const size_t len = boundaries[mid];
         const float w = MeasureWidth(text.substr(0, len), fontSize, canvas);
         if (w <= targetW) {
@@ -519,36 +517,23 @@ float TextUtil::DrawAffix(
 }
 
 size_t TextUtil::PrevCharBoundary(std::string_view text, size_t index) noexcept {
-    return static_cast<size_t>(
-        keel::utf8_prev_boundary(keel::StringRef(text.data(), static_cast<keel::isize>(text.size())),
-                                 static_cast<keel::isize>(index)));
+    return keel::utf8_prev_boundary(text, index);
 }
 
 size_t TextUtil::NextCharBoundary(std::string_view text, size_t index) noexcept {
-    return static_cast<size_t>(
-        keel::utf8_next_boundary(keel::StringRef(text.data(), static_cast<keel::isize>(text.size())),
-                                 static_cast<keel::isize>(index)));
+    return keel::utf8_next_boundary(text, index);
 }
 
 size_t TextUtil::PrevWordBoundary(std::string_view text, size_t index) noexcept {
-    return static_cast<size_t>(
-        keel::utf8_prev_word_boundary(keel::StringRef(text.data(), static_cast<keel::isize>(text.size())),
-                                      static_cast<keel::isize>(index)));
+    return keel::utf8_prev_word_boundary(text, index);
 }
 
 size_t TextUtil::NextWordBoundary(std::string_view text, size_t index) noexcept {
-    return static_cast<size_t>(
-        keel::utf8_next_word_boundary(keel::StringRef(text.data(), static_cast<keel::isize>(text.size())),
-                                      static_cast<keel::isize>(index)));
+    return keel::utf8_next_word_boundary(text, index);
 }
 
 void TextUtil::SelectWordAt(std::string_view text, size_t index, size_t& outStart, size_t& outEnd) noexcept {
-    keel::isize s = 0;
-    keel::isize e = 0;
-    keel::utf8_word_bounds_at(keel::StringRef(text.data(), static_cast<keel::isize>(text.size())),
-                              static_cast<keel::isize>(index), s, e);
-    outStart = static_cast<size_t>(s);
-    outEnd = static_cast<size_t>(e);
+    keel::utf8_word_bounds_at(text, index, outStart, outEnd);
 }
 
 size_t TextUtil::HitTestIndex(
@@ -567,7 +552,7 @@ size_t TextUtil::HitTestIndex(
 
     // Collect valid UTF-8 character boundary indices
     keel::SmallArray<size_t, 64> boundaries;
-    boundaries.reserve(static_cast<keel::isize>(text.size() + 1));
+    boundaries.reserve(text.size() + 1);
     boundaries.push_back(0);
     for (size_t i = 1; i <= text.size(); ++i) {
         if (i == text.size() || IsUtf8LeadByte(static_cast<uint8_t>(text[i]))) {
@@ -579,10 +564,10 @@ size_t TextUtil::HitTestIndex(
     }
 
     // Binary search for the character interval [boundaries[low], boundaries[low + 1]] containing localX
-    keel::isize low = 0;
-    keel::isize high = boundaries.size() - 1;
+    size_t low = 0;
+    size_t high = boundaries.size() - 1;
     while (low + 1 < high) {
-        const keel::isize mid = low + (high - low) / 2;
+        const size_t mid = low + (high - low) / 2;
         const float w = MeasureWidth(text.substr(0, boundaries[mid]), fontSize, canvas);
         if (w <= localX) {
             low = mid;
@@ -603,22 +588,11 @@ bool TextUtil::FindCaseInsensitive(
     size_t& outBytePos,
     size_t& outByteLen
 ) noexcept {
-    keel::isize pos = 0;
-    keel::isize len = 0;
-    const bool ok = keel::utf8_find_case_insensitive(
-        keel::StringRef(haystack.data(), static_cast<keel::isize>(haystack.size())),
-        keel::StringRef(needle.data(), static_cast<keel::isize>(needle.size())),
-        pos, len);
-    outBytePos = static_cast<size_t>(pos);
-    outByteLen = static_cast<size_t>(len);
-    return ok;
+    return keel::utf8_find_case_insensitive(haystack, needle, outBytePos, outByteLen);
 }
 
 size_t TextUtil::FindCaseInsensitive(std::string_view haystack, std::string_view needle) noexcept {
-    const keel::isize pos = keel::utf8_find_case_insensitive(
-        keel::StringRef(haystack.data(), static_cast<keel::isize>(haystack.size())),
-        keel::StringRef(needle.data(), static_cast<keel::isize>(needle.size())));
-    return (pos != keel::kInvalidIndex) ? static_cast<size_t>(pos) : std::string_view::npos;
+    return keel::utf8_find_case_insensitive(haystack, needle);
 }
 
 void TextUtil::DrawHighlightedTextBox(

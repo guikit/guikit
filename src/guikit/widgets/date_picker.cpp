@@ -395,7 +395,7 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
         // Month & year title ("October 2026")
         char titleBuf[64];
         const auto titleStr = keel::format_buf(titleBuf, "%s %04d", MonthName(d.viewMonth), d.viewYear);
-        canvas.DrawTextBox(std::string_view(titleStr.data(), static_cast<size_t>(titleStr.size())), d.layout.titleRect, bodyFont, pal.textPrimary, 0.5f, 0.5f);
+        canvas.DrawTextBox(titleStr, d.layout.titleRect, bodyFont, pal.textPrimary, 0.5f, 0.5f);
 
         // Weekday column headers
         static constexpr std::array<std::string_view, 7> kWeekdaysMon = {"Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"};
@@ -456,7 +456,7 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
 
             char dayBuf[16];
             const auto dayStr = keel::format_buf(dayBuf, "%d", cell.day);
-            canvas.DrawTextBox(std::string_view(dayStr.data(), static_cast<size_t>(dayStr.size())), cellRect, smallFont, dayCol, 0.5f, 0.5f);
+            canvas.DrawTextBox(dayStr, cellRect, smallFont, dayCol, 0.5f, 0.5f);
         }
     }
 
@@ -501,7 +501,7 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
 
             char valBuf[16];
             const auto valStr = keel::format_buf(valBuf, "%02d%s", vals[su], suffixes[su]);
-            canvas.DrawTextBox(std::string_view(valStr.data(), static_cast<size_t>(valStr.size())), valRect, smallFont, pal.textPrimary, 0.5f, 0.5f);
+            canvas.DrawTextBox(valStr, valRect, smallFont, pal.textPrimary, 0.5f, 0.5f);
 
             if (u + 1 < d.layout.timeUnitCount) {
                 const float colonX = unitRect.Right() + (d.layout.timeUnitRects[su + 1].x - unitRect.Right()) * 0.5f;
@@ -563,7 +563,7 @@ std::string DatePicker::FormatDateTime(const DateTime& dt, DatePickerMode mode, 
             }
             break;
     }
-    return std::string(res.data(), static_cast<size_t>(res.size()));
+    return std::string(res);
 }
 
 Vec2 DatePicker::Measure(

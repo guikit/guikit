@@ -2308,8 +2308,7 @@ TextAreaResponse TextArea::Run(
                     performReplaceOne();
                 }
             } else if (state.overlayFocus == 3) {
-                const auto lineRes = keel::parse_u64(
-                    keel::StringRef(state.gotoQuery.data(), static_cast<keel::isize>(state.gotoQuery.size())));
+                const auto lineRes = keel::parse_u64(state.gotoQuery);
                 if (lineRes.is_ok() && lineRes.value() >= 1) {
                     const size_t targetLine1 = static_cast<size_t>(lineRes.value());
                     const size_t line0 = std::min(targetLine1 - 1, logicalLines.size() - 1);

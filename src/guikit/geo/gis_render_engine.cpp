@@ -105,7 +105,7 @@ constexpr float kTileGuardBandPx = 8.0f;
 }
 
 void HashCombineBytes(uint64_t& h, const void* data, size_t len) noexcept {
-    h = keel::fnv1a64_bytes(data, static_cast<keel::usize>(len), h);
+    h = keel::fnv1a64_bytes(data, len, h);
 }
 
 template <typename T>
@@ -1493,7 +1493,7 @@ public:
 
     [[nodiscard]] size_t GetPendingWindowCount() const {
         std::scoped_lock lk(m_windowMutex);
-        return static_cast<size_t>(m_pendingWindowJobs.size()) + m_inFlightWindowCount + m_completedWindowResults.size();
+        return m_pendingWindowJobs.size() + m_inFlightWindowCount + m_completedWindowResults.size();
     }
 
     [[nodiscard]] bool IsLayerWindowPending(uint64_t layerUid) const {
@@ -2091,7 +2091,7 @@ public:
         uint64_t styleHash,
         uint64_t frameTick
     ) const {
-        if (static_cast<size_t>(store.tiles.size()) >= m_maxLayerTiles && !store.tiles.contains(key)) {
+        if (store.tiles.size() >= m_maxLayerTiles && !store.tiles.contains(key)) {
             EvictOldestLayerTiles(store, m_maxLayerTiles - std::min<size_t>(32u, m_maxLayerTiles / 4u));
         }
         CachedVectorTile& tile = store.tiles.get_or_insert(key);
@@ -2118,7 +2118,7 @@ public:
         }
 
         const TileCoordKey key{res.jobKey.z, res.jobKey.x, res.jobKey.y};
-        if (static_cast<size_t>(store.tiles.size()) >= m_maxLayerTiles && !store.tiles.contains(key)) {
+        if (store.tiles.size() >= m_maxLayerTiles && !store.tiles.contains(key)) {
             EvictOldestLayerTiles(store, m_maxLayerTiles - std::min<size_t>(32u, m_maxLayerTiles / 4u));
         }
 
@@ -2153,7 +2153,7 @@ public:
         if (!img || !img->IsValid() || tileKey.tileSizePx != m_tileSizePx || sourceId != m_activeBasemapSourceId) {
             return false;
         }
-        if (static_cast<size_t>(m_basemapTiles.size()) >= m_maxCompositeTiles && !m_basemapTiles.empty()) {
+        if (m_basemapTiles.size() >= m_maxCompositeTiles && !m_basemapTiles.empty()) {
             const TileCoordKey victimKey = (*m_basemapTiles.begin()).key;
             m_basemapTiles.remove(victimKey);
         }
@@ -2188,7 +2188,7 @@ public:
         bool useBasemapOverlay = false,
         uint8_t basemapOpacityByte = 255
     ) {
-        if (static_cast<size_t>(m_compositeTiles.size()) >= m_maxCompositeTiles && !m_compositeTiles.contains(key)) {
+        if (m_compositeTiles.size() >= m_maxCompositeTiles && !m_compositeTiles.contains(key)) {
             EvictOldestCompositeTiles(m_maxCompositeTiles - std::min<size_t>(48u, m_maxCompositeTiles / 4u));
         }
         const size_t numTilePx = static_cast<size_t>(m_tileSizePx) * static_cast<size_t>(m_tileSizePx);
@@ -2265,7 +2265,7 @@ public:
         }
 
         // Perform eviction and map insertion BEFORE taking any pointers into m_compositeTiles!
-        if (static_cast<size_t>(m_compositeTiles.size()) >= m_maxCompositeTiles && !m_compositeTiles.contains(key)) {
+        if (m_compositeTiles.size() >= m_maxCompositeTiles && !m_compositeTiles.contains(key)) {
             EvictOldestCompositeTiles(m_maxCompositeTiles - std::min<size_t>(48u, m_maxCompositeTiles / 4u));
         }
 
@@ -2551,7 +2551,7 @@ public:
             m_tileCanvas = CreateCanvasThreadSafe();
         }
 
-        if (static_cast<size_t>(store.tiles.size()) >= m_maxLayerTiles && !store.tiles.contains(key)) {
+        if (store.tiles.size() >= m_maxLayerTiles && !store.tiles.contains(key)) {
             EvictOldestLayerTiles(store, m_maxLayerTiles - std::min<size_t>(32u, m_maxLayerTiles / 4u));
         }
 
@@ -2629,7 +2629,7 @@ private:
     }
 
     static void EvictOldestLayerTiles(LayerTileStore& store, size_t targetCount) {
-        while (static_cast<size_t>(store.tiles.size()) > targetCount && !store.tiles.empty()) {
+        while (store.tiles.size() > targetCount && !store.tiles.empty()) {
             TileCoordKey oldestKey = (*store.tiles.begin()).key;
             uint64_t oldestFrame = (*store.tiles.begin()).value.lastUsedFrame;
             for (auto [k, v] : store.tiles) {
@@ -2643,7 +2643,7 @@ private:
     }
 
     void EvictOldestCompositeTiles(size_t targetCount) {
-        while (static_cast<size_t>(m_compositeTiles.size()) > targetCount && !m_compositeTiles.empty()) {
+        while (m_compositeTiles.size() > targetCount && !m_compositeTiles.empty()) {
             TileCoordKey oldestKey = (*m_compositeTiles.begin()).key;
             uint64_t oldestFrame = (*m_compositeTiles.begin()).value.lastUsedFrame;
             for (auto [k, v] : m_compositeTiles) {
@@ -4227,7 +4227,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
             auto item = scene.Item({
                 .id = hoveredMatch.feat->id,
                 .title = hoveredMatch.feat->name,
-                .category = std::string_view(catLabelRef.data(), static_cast<size_t>(catLabelRef.size())),
+                .category = catLabelRef,
                 .hitRect = cursorHitRect,
                 .selectable = true,
                 .showSelectionFrame = false
@@ -4621,7 +4621,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
                     std::max(cell.geoBounds.nw.lat, cell.geoBounds.se.lat),
                     layerSummary.empty() ? std::string_view("EMPTY") : std::string_view(layerSummary)
                 );
-                AppendRenderDebugLog(std::string(logLine.data(), static_cast<size_t>(logLine.size())));
+                AppendRenderDebugLog(std::string(logLine));
             }
         }
 
@@ -4784,7 +4784,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
             rasterMs,
             declutterMs
         );
-        AppendRenderDebugLog(std::string(logLine.data(), static_cast<size_t>(logLine.size())));
+        AppendRenderDebugLog(std::string(logLine));
     }
 
     // Pass 3A: Render Accepted Point Symbols (Buoys/Beacons, Underwater Hazards, Generic Points)

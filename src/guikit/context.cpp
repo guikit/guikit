@@ -572,13 +572,12 @@ Response Context::Button(ButtonOptions opts, std::source_location loc) {
 keel::InplaceString<> Context::String(std::string_view text) {
     if (text.empty()) return keel::InplaceString<>{};
     const std::string_view arenaSv = AllocString(text);
-    return keel::InplaceString<>(arenaSv.data(), static_cast<keel::isize>(arenaSv.size()));
+    return keel::InplaceString<>(arenaSv);
 }
 
 std::string_view Context::AllocString(std::string_view text) {
     if (text.empty()) return {};
-    const keel::StringRef ref = m_arena.alloc_string({text.data(), static_cast<keel::isize>(text.size())});
-    return std::string_view(ref.data(), static_cast<size_t>(ref.size()));
+    return m_arena.alloc_string(text);
 }
 
 Response Context::Text(UiText label, TextOptions opts, std::source_location loc) {
@@ -1664,8 +1663,8 @@ bool Context::IsMouseOccluded(Id id, Vec2 pos) const noexcept {
         }
     } else {
         // Sub-part ID (e.g. AccordionHeader / TreeItemRow): check against innermost container on stack
-        for (keel::isize sIdx = m_containerStack.size() - 1; sIdx >= 0; --sIdx) {
-            const Node* cNode = m_containerStack[sIdx];
+        for (size_t sIdx = m_containerStack.size(); sIdx > 0; --sIdx) {
+            const Node* cNode = m_containerStack[sIdx - 1];
             if (!cNode || !cNode->id.IsValid()) continue;
             const size_t* idxC = m_prevHitNodeMap.get(cNode->id);
             if (idxC != nullptr) {
@@ -3045,8 +3044,7 @@ void Context::RenderInspectOverlay(Node* root, ICanvas& canvas, Vec2 logicalSize
     char typeBuf[64];
     std::string_view typeStr;
     if (target->type == NodeType::Cell) {
-        auto r = keel::format_buf(typeBuf, "Cell (%d)", target->colSpan);
-        typeStr = std::string_view(r.data(), static_cast<size_t>(r.size()));
+        typeStr = keel::format_buf(typeBuf, "Cell (%d)", target->colSpan);
     } else {
         typeStr = target->GetTypeName();
     }

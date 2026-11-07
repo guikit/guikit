@@ -166,7 +166,7 @@ private:
     bool Fail(std::string_view msg) {
         if (m_error.empty()) {
             auto s = keel::format("JSON parse error at line %zu, col %zu: %s", m_line, m_col, msg);
-            m_error.assign(s.data(), static_cast<size_t>(s.size()));
+            m_error.assign(s.data(), s.size());
         }
         return false;
     }
@@ -239,8 +239,7 @@ private:
                 }
                 {
                     char buf[64];
-                    auto r = keel::format_buf(buf, "Unexpected character '%c'", c);
-                    return Fail(std::string_view(r.data(), static_cast<size_t>(r.size())));
+                    return Fail(keel::format_buf(buf, "Unexpected character '%c'", c));
                 }
         }
     }
@@ -248,8 +247,7 @@ private:
     bool ParseLiteral(std::string_view lit, bool val, JsonValue& out) {
         if (m_src.substr(m_pos, lit.size()) != lit) {
             char buf[64];
-            auto r = keel::format_buf(buf, "Expected '%s'", lit);
-            return Fail(std::string_view(r.data(), static_cast<size_t>(r.size())));
+            return Fail(keel::format_buf(buf, "Expected '%s'", lit));
         }
         for (size_t i = 0; i < lit.size(); ++i) Advance();
         out.data = val;
@@ -367,15 +365,14 @@ private:
         }
 
         const std::string_view token = m_src.substr(start, m_pos - start);
-        const keel::StringRef tokenRef(token.data(), static_cast<keel::isize>(token.size()));
         if (!isFloat) {
-            if (const auto res = keel::parse_i64(tokenRef); res.is_ok()) {
+            if (const auto res = keel::parse_i64(token); res.is_ok()) {
                 out.data = static_cast<int64_t>(res.value());
                 return true;
             }
         }
 
-        if (const auto res = keel::parse_f64(tokenRef); res.is_ok()) {
+        if (const auto res = keel::parse_f64(token); res.is_ok()) {
             out.data = res.value();
             return true;
         }
@@ -527,8 +524,7 @@ public:
             }
         }
         if (m_pos == start) return false;
-        const auto res = keel::parse_f64(
-            keel::StringRef(m_sv.data() + start, static_cast<keel::isize>(m_pos - start)));
+        const auto res = keel::parse_f64(m_sv.substr(start, m_pos - start));
         if (!res.is_ok()) return false;
         out = res.value();
         return true;
@@ -815,7 +811,7 @@ void ParseFeatureObject(const JsonValue& featObj, int srsId, std::vector<GeoFeat
         } else if (const auto* d = std::get_if<double>(&idVal->data)) {
             char buf[64];
             const auto r = keel::format_buf(buf, "{}", *d);
-            feat.displayId.assign(r.data(), static_cast<size_t>(r.size()));
+            feat.displayId.assign(r.data(), r.size());
         }
     }
 
@@ -969,15 +965,15 @@ bool TryReadTextFromAssetsOrDisk(
     const char* prefixes[] = {"", "../", "../../", "../../../"};
     for (const char* prefix : prefixes) {
         const std::string candidate = std::string(prefix) + filePath;
-        auto res = keel::fs_read_text(keel::StringRef(candidate.data(), static_cast<keel::isize>(candidate.size())));
+        auto res = keel::fs_read_text(candidate);
         if (!res.is_ok()) continue;
-        outContent.assign(res.value().data(), static_cast<size_t>(res.value().size()));
+        outContent.assign(res.value().data(), res.value().size());
         outResolvedPath = candidate;
         return true;
     }
 
     auto s = keel::format("Cannot open GeoJSON file: %s", filePath);
-    outError.assign(s.data(), static_cast<size_t>(s.size()));
+    outError.assign(s.data(), s.size());
     return false;
 }
 
@@ -1033,7 +1029,7 @@ GeoJsonResult GeoJsonIO::ParseFromString(std::string_view jsonText, std::string_
             res.layer.features.push_back(std::move(singleFeat));
         } else {
             auto s = keel::format("Unsupported or empty GeoJSON root type '%s'", rootType);
-            res.error.assign(s.data(), static_cast<size_t>(s.size()));
+            res.error.assign(s.data(), s.size());
             return res;
         }
     }
@@ -1051,9 +1047,8 @@ GeoJsonResult GeoJsonIO::LoadFromFile(const std::string& filePath) {
         return res;
     }
 
-    const keel::StringRef stemRef =
-        keel::path_stem(keel::StringRef(filePath.data(), static_cast<keel::isize>(filePath.size())));
-    std::string stem(stemRef.data(), static_cast<size_t>(stemRef.size()));
+    const keel::StringRef stemRef = keel::path_stem(filePath);
+    std::string stem(stemRef);
     if (stem.empty()) stem = "GeoJSON Layer";
 
     res = ParseFromString(content, stem);
@@ -1147,9 +1142,8 @@ GeoJsonLoadResult GeoJsonIO::LoadThematicLayersFromFile(
         return res;
     }
 
-    const keel::StringRef stemRef =
-        keel::path_stem(keel::StringRef(filePath.data(), static_cast<keel::isize>(filePath.size())));
-    std::string stem(stemRef.data(), static_cast<size_t>(stemRef.size()));
+    const keel::StringRef stemRef = keel::path_stem(filePath);
+    std::string stem(stemRef);
     if (stem.empty()) stem = "GeoJSON Layer";
 
     res = ParseThematicLayersFromString(content, stem, splitByThematicClass);
@@ -1303,13 +1297,11 @@ std::string GeoJsonIO::SerializeLayer(const GeoLayer& layer, bool prettyPrint) {
 
 bool GeoJsonIO::SaveToFile(const GeoLayer& layer, const std::string& filePath, std::string* outError) {
     const std::string json = SerializeLayer(layer, true);
-    const keel::Error err = keel::fs_write_text(
-        keel::StringRef(filePath.data(), static_cast<keel::isize>(filePath.size())),
-        keel::StringRef(json.data(), static_cast<keel::isize>(json.size())));
+    const keel::Error err = keel::fs_write_text(filePath, json);
     if (err) {
         if (outError) {
             auto s = keel::format("Cannot open file for writing: %s", filePath);
-            outError->assign(s.data(), static_cast<size_t>(s.size()));
+            outError->assign(s.data(), s.size());
         }
         return false;
     }

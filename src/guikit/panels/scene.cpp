@@ -1843,7 +1843,7 @@ void Scene::RenderOverlays(
                 badgeText = "MULTI-SELECT";
                 char buf[96];
                 auto r = keel::format_buf(buf, "%zu components selected  (Ctrl+Click or Shift+Drag)", selCount);
-                detailText.assign(r.data(), static_cast<size_t>(r.size()));
+                detailText.assign(r.data(), r.size());
             } else if (activeInfo) {
                 badgeText = activeInfo->category.empty()
                     ? (activeInfo->selected ? "SELECTED" : "HOVER")
@@ -1856,7 +1856,7 @@ void Scene::RenderOverlays(
                 if (selCount > 1) {
                     char buf[64];
                     auto r = keel::format_buf(buf, "  (+%zu selected)", selCount - 1);
-                    detailText.append(r.data(), static_cast<size_t>(r.size()));
+                    detailText.append(r.data(), r.size());
                 }
             }
 

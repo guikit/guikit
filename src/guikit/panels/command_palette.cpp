@@ -40,7 +40,7 @@ keel::SmallArray<FilteredCommandEntry, 64> FilterItems(
     std::string_view query
 ) {
     keel::SmallArray<FilteredCommandEntry, 64> result;
-    result.reserve(static_cast<keel::isize>(items.size()));
+    result.reserve(items.size());
 
     for (size_t i = 0; i < items.size(); ++i) {
         const auto& it = items[i];
@@ -473,8 +473,8 @@ CommandPaletteResponse CommandPalette::Run(
     const bool sbDraggingCopy = st.scrollbar.dragging;
 
     std::vector<DrawRowItem> drawRows;
-    drawRows.reserve(static_cast<size_t>(filtered.size()));
-    for (keel::isize i = 0; i < filtered.size(); ++i) {
+    drawRows.reserve(filtered.size());
+    for (size_t i = 0; i < filtered.size(); ++i) {
         const auto& fe = filtered[i];
         const auto& src = items[static_cast<size_t>(fe.origIndex)];
         const float rowY = listRect.y + listPadY + static_cast<float>(i) * rowH - st.scrollOffset;
@@ -506,7 +506,7 @@ CommandPaletteResponse CommandPalette::Run(
         st.prevCursorVis = cursorVis;
         ctx.InvalidateAll();
     }
-    const size_t totalFiltered = static_cast<size_t>(filtered.size());
+    const size_t totalFiltered = filtered.size();
 
     ctx.MarkModalOverlayActive();
     ctx.RegisterOverlay([

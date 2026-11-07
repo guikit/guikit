@@ -265,7 +265,7 @@ private:
         char urlBuf[128];
         const auto urlRef = keel::format_buf(urlBuf, "https://tile.openstreetmap.org/%d/%d/%d.png", z, x, y);
         guikit::net::HttpRequest req{};
-        req.url.assign(urlRef.data(), static_cast<size_t>(urlRef.size()));
+        req.url.assign(urlRef.data(), urlRef.size());
         req.method = guikit::net::HttpMethod::Get;
         req.userAgent = "Hackionics-MarineGIS/1.0 (+https://openstreetmap.org)";
         req.connectTimeoutMs = 2000;
@@ -281,9 +281,7 @@ private:
             const uint64_t tmpId = m_accessCounter.fetch_add(1u, std::memory_order_relaxed);
             const auto tmpPath = keel::format("%s/%d.tmp.%llu.png", dirPath.as_ref(), y, tmpId);
             const keel::StringRef tmpPathRef = tmpPath.as_ref();
-            if (!keel::fs_write_file(
-                    tmpPathRef,
-                    keel::ArrayRef<keel::u8>(resp.body.data(), static_cast<keel::isize>(resp.body.size())))) {
+            if (!keel::fs_write_file(tmpPathRef, resp.body)) {
                 if (keel::fs_rename(tmpPathRef, diskPathRef)) {
                     (void)keel::fs_remove(tmpPathRef);
                 }

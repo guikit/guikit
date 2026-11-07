@@ -344,8 +344,7 @@ const SdlGlShaderEngine::CompiledProgram* SdlGlShaderEngine::GetOrCompileProgram
         return nullptr;
     }
 
-    const keel::StringRef keyRef(src.shaderId.data(), static_cast<keel::isize>(src.shaderId.size()));
-    if (const CompiledProgram* existing = m_programs.get(keyRef)) {
+    if (const CompiledProgram* existing = m_programs.get(src.shaderId)) {
         return (existing->program != 0) ? existing : nullptr;
     }
 
@@ -364,7 +363,7 @@ const SdlGlShaderEngine::CompiledProgram* SdlGlShaderEngine::GetOrCompileProgram
         compiled.uLutTex   = g_gl.GetUniformLocation(compiled.program, "u_LutTex");
     }
 
-    const CompiledProgram& inserted = m_programs.get_or_insert(keel::String::from(keyRef), compiled);
+    const CompiledProgram& inserted = m_programs.get_or_insert(keel::String::from(src.shaderId), compiled);
     return (inserted.program != 0) ? &inserted : nullptr;
 }
 

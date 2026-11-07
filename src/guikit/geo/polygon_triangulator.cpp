@@ -253,11 +253,11 @@ void PolygonTriangulator::TriangulatePolygon(GeoPolygon& poly) {
 
     poly.triangles.reserve(totalVerts - 2);
     keel::SmallArray<uint32_t, 64> indices;
-    indices.resize(static_cast<keel::isize>(totalVerts));
+    indices.resize(totalVerts);
     std::iota(indices.begin(), indices.end(), 0u);
 
     auto isEar = [&](size_t idxInList, bool strictPointCheck) -> bool {
-        const size_t m = static_cast<size_t>(indices.size());
+        const size_t m = indices.size();
         const guikit::GeoCoord a = contour[indices[(idxInList + m - 1) % m]];
         const guikit::GeoCoord b = contour[indices[idxInList]];
         const guikit::GeoCoord c = contour[indices[(idxInList + 1) % m]];
@@ -292,7 +292,7 @@ void PolygonTriangulator::TriangulatePolygon(GeoPolygon& poly) {
     const size_t maxIterations = totalVerts * totalVerts + 32;
 
     while (indices.size() > 3 && guardCounter++ < maxIterations) {
-        const size_t m = static_cast<size_t>(indices.size());
+        const size_t m = indices.size();
         bool clipped = false;
 
         // Pass 1: Strict ear test
@@ -302,7 +302,7 @@ void PolygonTriangulator::TriangulatePolygon(GeoPolygon& poly) {
                 const guikit::GeoCoord b = contour[indices[i]];
                 const guikit::GeoCoord c = contour[indices[(i + 1) % m]];
                 poly.triangles.push_back({a, b, c});
-                indices.remove_at(static_cast<keel::isize>(i));
+                indices.remove_at(i);
                 clipped = true;
                 break;
             }
@@ -316,7 +316,7 @@ void PolygonTriangulator::TriangulatePolygon(GeoPolygon& poly) {
                 const guikit::GeoCoord b = contour[indices[i]];
                 const guikit::GeoCoord c = contour[indices[(i + 1) % m]];
                 poly.triangles.push_back({a, b, c});
-                indices.remove_at(static_cast<keel::isize>(i));
+                indices.remove_at(i);
                 clipped = true;
                 break;
             }

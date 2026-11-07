@@ -2937,7 +2937,7 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
             diagram.lanes.size()
         );
         canvas.DrawTextBox(
-            std::string_view(headerStr.data(), static_cast<size_t>(headerStr.size())),
+            headerStr,
             Rect(topBar.x + 12.0f * s, topBar.y, topBar.w * 0.48f, topBar.h),
             11.0f * s,
             pal.textPrimary,
@@ -4982,7 +4982,7 @@ bool BpmnEditor::ImportBpmnXml(std::string_view xml, BpmnDiagram& outDiagram) {
     std::vector<std::pair<uint32_t, std::string>> pendingBoundaryAttach;
 
     auto toRef = [](std::string_view sv) noexcept {
-        return keel::StringRef(sv.data(), static_cast<keel::isize>(sv.size()));
+        return keel::StringRef(sv);
     };
 
     size_t pos = 0;

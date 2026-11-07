@@ -427,8 +427,8 @@ void TreeItemScope::Finalize() noexcept {
         p->rowNode->visualHash = h;
     }
 
-    if (p->tree && p->visibleEntryIdx < static_cast<size_t>(p->tree->currVisibleItems.size())) {
-        p->tree->currVisibleItems[static_cast<keel::isize>(p->visibleEntryIdx)].isBranch = p->hasChildItems || p->opts.forceBranch;
+    if (p->tree && p->visibleEntryIdx < p->tree->currVisibleItems.size()) {
+        p->tree->currVisibleItems[p->visibleEntryIdx].isBranch = p->hasChildItems || p->opts.forceBranch;
     }
 
     const bool filterActive = (p->tree != nullptr && !p->tree->activeFilter.empty());
@@ -473,8 +473,8 @@ void TreeItemScope::Finalize() noexcept {
             p->branchNode->parent->RemoveChild(p->branchNode);
         }
         if (p->tree) {
-            if (p->visibleEntryIdx < static_cast<size_t>(p->tree->currVisibleItems.size())) {
-                p->tree->currVisibleItems.resize(static_cast<keel::isize>(p->visibleEntryIdx));
+            if (p->visibleEntryIdx < p->tree->currVisibleItems.size()) {
+                p->tree->currVisibleItems.resize(p->visibleEntryIdx);
             }
             p->tree->visibleItemCount = p->visibleRowIndex;
         }
@@ -1111,7 +1111,7 @@ TreeItemScope TreeView::OpenItem(
 
     if (treePayload) {
         payload->visibleRowIndex = treePayload->visibleItemCount++;
-        payload->visibleEntryIdx = static_cast<size_t>(treePayload->currVisibleItems.size());
+        payload->visibleEntryIdx = treePayload->currVisibleItems.size();
         treePayload->currVisibleItems.push_back(VisibleTreeItemEntry{
             .idOuter = idOuter,
             .idRow = idRow,

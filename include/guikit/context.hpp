@@ -1718,7 +1718,7 @@ public:
         }
         if (!t.variants.empty()) {
             const size_t count = t.variants.size();
-            auto* arr = m_arena.alloc_array<std::string_view>(static_cast<keel::isize>(count));
+            auto* arr = m_arena.alloc_array<std::string_view>(count);
             size_t i = 0;
             for (std::string_view v : t.variants) {
                 arr[i++] = v.empty() ? std::string_view{} : AllocString(v);
@@ -1738,11 +1738,8 @@ public:
 
     template <typename... Args>
     [[nodiscard]] keel::InplaceString<> Format(std::string_view fmt, const Args&... args) {
-        auto res = keel::format_inplace<128>(
-            keel::StringRef(fmt.data(), static_cast<keel::isize>(fmt.size())),
-            args...
-        );
-        return String(std::string_view(res.data(), static_cast<size_t>(res.size())));
+        auto res = keel::format_inplace<128>(fmt, args...);
+        return String(res);
     }
 
     // --- Core Engine Services for Widgets ---
@@ -1790,7 +1787,7 @@ public:
     [[nodiscard]] Id GetActiveId() const noexcept { return m_activeId; }
     void SetActiveId(Id id) noexcept { m_activeId = id; }
     [[nodiscard]] uint64_t GetFrameIndex() const noexcept { return m_frameIndex; }
-    [[nodiscard]] size_t GetCustomStateCount() const noexcept { return static_cast<size_t>(m_customStates.size()); }
+    [[nodiscard]] size_t GetCustomStateCount() const noexcept { return m_customStates.size(); }
     [[nodiscard]] ICanvas* GetCanvas() const noexcept { return m_lastCanvas; }
 
     // --- Clipboard Services ---

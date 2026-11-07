@@ -121,7 +121,7 @@ private:
 [[nodiscard]] std::string FormatWinHttpError(std::string_view context, DWORD errCode) {
     char buf[192];
     auto r = keel::format_buf(buf, "%s (WinHTTP error=%u)", context, static_cast<uint32_t>(errCode));
-    return std::string(r.data(), static_cast<size_t>(r.size()));
+    return std::string(r);
 }
 
 [[nodiscard]] std::wstring Utf8ToWide(std::string_view utf8) {
@@ -295,8 +295,7 @@ ParsedUrl ParseUrl(std::string_view url) {
         if (!portPart.empty()) {
             if (portPart.front() != ':') return result;
             portPart.remove_prefix(1);
-            const auto portRes =
-                keel::parse_u64(keel::StringRef(portPart.data(), static_cast<keel::isize>(portPart.size())));
+            const auto portRes = keel::parse_u64(portPart);
             if (!portRes.is_ok() || portRes.value() == 0 || portRes.value() > 65535) {
                 return result;
             }
@@ -307,8 +306,7 @@ ParsedUrl ParseUrl(std::string_view url) {
         if (colonPos != std::string_view::npos) {
             result.host = std::string(authority.substr(0, colonPos));
             std::string_view portPart = authority.substr(colonPos + 1);
-            const auto portRes =
-                keel::parse_u64(keel::StringRef(portPart.data(), static_cast<keel::isize>(portPart.size())));
+            const auto portRes = keel::parse_u64(portPart);
             if (!portRes.is_ok() || portRes.value() == 0 || portRes.value() > 65535) {
                 return result;
             }
@@ -972,7 +970,7 @@ bool WebSocketClient::Connect(std::string_view url, const WebSocketConnectOption
         m_impl->state = WebSocketState::Error;
         char buf[128];
         auto r = keel::format_buf(buf, "WebSocket upgrade rejected by server (HTTP %u)", static_cast<uint32_t>(statusCode));
-        m_impl->lastError.assign(r.data(), static_cast<size_t>(r.size()));
+        m_impl->lastError.assign(r.data(), r.size());
         return false;
     }
 

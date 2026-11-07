@@ -38,11 +38,11 @@ constexpr uint64_t HashBytes(const void* data, size_t size, uint64_t hash = Fnv1
         }
         return hash;
     }
-    return keel::fnv1a64_bytes(data, static_cast<keel::usize>(size), hash);
+    return keel::fnv1a64_bytes(data, size, hash);
 }
 
 constexpr uint64_t HashStringView(std::string_view str, uint64_t hash = Fnv1aOffsetBasis) noexcept {
-    return keel::fnv1a64_chars(str.data(), static_cast<keel::usize>(str.size()), hash);
+    return keel::fnv1a64_chars(str.data(), str.size(), hash);
 }
 
 constexpr uint64_t HashInt64(uint64_t val, uint64_t hash = Fnv1aOffsetBasis) noexcept {

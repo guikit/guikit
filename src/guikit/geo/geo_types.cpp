@@ -499,8 +499,7 @@ void GeoFeature::ResolveDisplayName(size_t fallbackIndex, std::string_view layer
                 if (const auto* d = std::get_if<double>(&v.value)) depthMeters = static_cast<float>(*d);
                 else if (const auto* i = std::get_if<int64_t>(&v.value)) depthMeters = static_cast<float>(*i);
                 else if (const auto* s = std::get_if<std::string>(&v.value)) {
-                    if (const auto res = keel::parse_f32(keel::StringRef(s->data(), static_cast<keel::isize>(s->size())));
-                        res.is_ok()) {
+                    if (const auto res = keel::parse_f32(*s); res.is_ok()) {
                         depthMeters = res.value();
                     }
                 }
@@ -511,8 +510,7 @@ void GeoFeature::ResolveDisplayName(size_t fallbackIndex, std::string_view layer
                 if (const auto* d = std::get_if<double>(&v.value)) minDepthMeters = static_cast<float>(*d);
                 else if (const auto* i = std::get_if<int64_t>(&v.value)) minDepthMeters = static_cast<float>(*i);
                 else if (const auto* s = std::get_if<std::string>(&v.value)) {
-                    if (const auto res = keel::parse_f32(keel::StringRef(s->data(), static_cast<keel::isize>(s->size())));
-                        res.is_ok()) {
+                    if (const auto res = keel::parse_f32(*s); res.is_ok()) {
                         minDepthMeters = res.value();
                     }
                 }
@@ -523,8 +521,7 @@ void GeoFeature::ResolveDisplayName(size_t fallbackIndex, std::string_view layer
                 if (const auto* d = std::get_if<double>(&v.value)) maxDepthMeters = static_cast<float>(*d);
                 else if (const auto* i = std::get_if<int64_t>(&v.value)) maxDepthMeters = static_cast<float>(*i);
                 else if (const auto* s = std::get_if<std::string>(&v.value)) {
-                    if (const auto res = keel::parse_f32(keel::StringRef(s->data(), static_cast<keel::isize>(s->size())));
-                        res.is_ok()) {
+                    if (const auto res = keel::parse_f32(*s); res.is_ok()) {
                         maxDepthMeters = res.value();
                     }
                 }
@@ -616,16 +613,16 @@ void GeoFeature::ResolveDisplayName(size_t fallbackIndex, std::string_view layer
     }
     if (!lightOrColor.empty() && !featureCode.empty()) {
         auto s = keel::format("%s (%s)", featureCode, lightOrColor);
-        name.assign(s.data(), static_cast<size_t>(s.size()));
+        name.assign(s.data(), s.size());
         return;
     }
     if (!featureCode.empty()) {
         if (!displayId.empty()) {
             auto s = keel::format("%s #%s", featureCode, displayId);
-            name.assign(s.data(), static_cast<size_t>(s.size()));
+            name.assign(s.data(), s.size());
         } else {
             auto s = keel::format("%s #%zu", featureCode, fallbackIndex + 1);
-            name.assign(s.data(), static_cast<size_t>(s.size()));
+            name.assign(s.data(), s.size());
         }
         return;
     }
@@ -636,10 +633,10 @@ void GeoFeature::ResolveDisplayName(size_t fallbackIndex, std::string_view layer
 
     if (!displayId.empty()) {
         auto s = keel::format("%s #%s", GeometryTypeToString(type), displayId);
-        name.assign(s.data(), static_cast<size_t>(s.size()));
+        name.assign(s.data(), s.size());
     } else {
         auto s = keel::format("%s #%zu", GeometryTypeToString(type), fallbackIndex + 1);
-        name.assign(s.data(), static_cast<size_t>(s.size()));
+        name.assign(s.data(), s.size());
     }
 }
 
@@ -743,8 +740,8 @@ void BuildFeatureSpatialIndex(keel::RTree<uint32_t, float>& index, const std::ve
     if (features.empty()) return;
 
     keel::ArenaTemp scratch = keel::get_scratch();
-    auto* items = scratch.arena().alloc_array<keel::RTreeItem<uint32_t, float>>(static_cast<keel::isize>(features.size()));
-    keel::isize count = 0;
+    auto* items = scratch.arena().alloc_array<keel::RTreeItem<uint32_t, float>>(features.size());
+    size_t count = 0;
     for (uint32_t i = 0; i < static_cast<uint32_t>(features.size()); ++i) {
         const GeoFeature& f = features[i];
         if (!f.hasValidBounds) continue;
