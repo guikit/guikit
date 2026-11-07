@@ -1329,7 +1329,7 @@ void RenderAttitudeViewNode(const Node* node, ICanvas& canvas, const UiTheme& th
     }
 
     // 11. Corner Digital Telemetry Readouts (in CompactADI or HUD mode when side tapes are hidden)
-    if (lay.leftTapeW <= 0.0f) {
+    if (opts.showSpeedAndAltTapes && lay.leftTapeW <= 0.0f) {
         const float topTagY = lay.availCenterRect.y + 2.0f;
         char tlBuf[32];
         std::snprintf(tlBuf, sizeof(tlBuf), "IAS %3.0f KT", opts.airspeedKnots);
@@ -1366,7 +1366,9 @@ void RenderAttitudeViewNode(const Node* node, ICanvas& canvas, const UiTheme& th
 
         if (lay.isFullBleed && !lay.isHud) {
             const float pillH = 20.0f;
-            const float pillY = r.Bottom() - lay.pad - pillH;
+            const float pillY = ((lay.hdgH > 0.0f) && (adiRect.x < (r.x + lay.pad + blW + 18.0f)))
+                ? (r.Bottom() - lay.pad - lay.hdgH - 6.0f - pillH)
+                : (r.Bottom() - lay.pad - pillH);
             const Rect blPill(r.x + lay.pad, pillY, blW + 12.0f, pillH);
             const Rect brPill(r.Right() - lay.pad - brW - 12.0f, pillY, brW + 12.0f, pillH);
             canvas.DrawRoundRect(blPill, 3.0f, pal.tapeBg, pal.tapeBorder, 1.0f);

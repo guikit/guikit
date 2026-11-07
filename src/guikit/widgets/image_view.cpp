@@ -275,6 +275,8 @@ struct ImageViewInternalState {
     float zoom{1.0f};
     Vec2 pan{0.0f, 0.0f};
     bool fitPending{true};
+    float lastCanvasW{0.0f};
+    float lastCanvasH{0.0f};
     bool panning{false};
     Vec2 panGrabMouse{0.0f, 0.0f};
     Vec2 panGrabStart{0.0f, 0.0f};
@@ -387,8 +389,10 @@ struct ImageViewInternalState {
         }
 
         if (firstLoad) {
+            const float initMin = (data.format == ImageSampleFormat::UInt8 && params.autoStrength == AutoWindowStrength::Off) ? 0.0f : dataMin;
+            const float initMax = (data.format == ImageSampleFormat::UInt8 && params.autoStrength == AutoWindowStrength::Off) ? 255.0f : dataMax;
             for (auto& ch : params.channels) {
-                ch.ResetToRange(dataMin, dataMax);
+                ch.ResetToRange(initMin, initMax);
             }
             params.initialized = true;
             fitPending = true;
@@ -430,6 +434,9 @@ struct ImageViewInternalState {
             return;
         }
 
+        if (displayW != od.dispW || displayH != od.dispH) {
+            fitPending = true;
+        }
         cachedRenderKey = rKey;
         displayW = od.dispW;
         displayH = od.dispH;
@@ -647,6 +654,12 @@ ImageViewResponse RunViewportNode(
 
     const ViewportLayoutGeom vgeom = ViewportLayoutGeom::Compute(boxRect, opts, activeSize, ctx.GetCanvas(), theme);
     const Rect cr = vgeom.canvasRect;
+
+    if (std::abs(cr.w - st.lastCanvasW) > 2.0f || std::abs(cr.h - st.lastCanvasH) > 2.0f) {
+        st.fitPending = true;
+        st.lastCanvasW = cr.w;
+        st.lastCanvasH = cr.h;
+    }
 
     if (st.fitPending && cr.w > 32.0f && cr.h > 32.0f && st.displayW > 0 && st.displayH > 0) {
         FitImageToCanvas(st, cr);
@@ -899,9 +912,13 @@ ImageViewResponse RunViewportNode(
     node->active = res.pressed;
     node->focused = baseRes.focused;
 
+    const float effectiveMinH = (opts.heightMode == SizeMode::Stretch)
+        ? theme.Scale(opts.minHeight)
+        : std::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
+
     if (standaloneElement) {
         node->heightMode = opts.heightMode;
-        node->minHeight = std::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
+        node->minHeight = effectiveMinH;
         ControlSpec ctrlSpec{};
         ctrlSpec.width = opts.width;
         ctrlSpec.height = inheritedH;
@@ -912,7 +929,7 @@ ImageViewResponse RunViewportNode(
                 node->heightMode = SizeMode::Fixed;
                 node->fixedHeight = theme.Scale(*inheritedH);
             }
-            node->minHeight = std::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
+            node->minHeight = effectiveMinH;
             ctx.AdaptChildToContainer(node);
             if (opts.heightMode == SizeMode::Fit && !inheritedH.has_value() && node->heightMode == SizeMode::Stretch) {
                 node->heightMode = SizeMode::Fit;
@@ -922,7 +939,7 @@ ImageViewResponse RunViewportNode(
         node->widthMode = SizeMode::Stretch;
         node->flexGrow = 1.0f;
         node->heightMode = SizeMode::Stretch;
-        node->minHeight = std::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
+        node->minHeight = effectiveMinH;
         ctx.AdaptChildToContainer(node);
     }
 
@@ -985,6 +1002,12 @@ ImageViewResponse RunViewportNode(
         const ViewportLayoutGeom vg = ViewportLayoutGeom::Compute(box, o, n->uiSize, &c, th);
         const ComponentMetrics& tbCm = th.GetMetrics(vg.toolbarSize);
         const Rect cr = vg.canvasRect;
+
+        if (std::abs(cr.w - s.lastCanvasW) > 2.0f || std::abs(cr.h - s.lastCanvasH) > 2.0f) {
+            s.fitPending = true;
+            s.lastCanvasW = cr.w;
+            s.lastCanvasH = cr.h;
+        }
 
         if (s.fitPending && cr.w > 32.0f && cr.h > 32.0f && s.displayW > 0 && s.displayH > 0) {
             FitImageToCanvas(s, cr);
@@ -1306,7 +1329,9 @@ Vec2 ImageView::Measure(
     } else if (opts.width.has_value() && *opts.width > 0.0f) {
         w = theme.Scale(*opts.width);
     }
-    const float h = std::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
+    const float h = (opts.heightMode == SizeMode::Stretch)
+        ? theme.Scale(opts.minHeight)
+        : std::max(theme.Scale(opts.minHeight), theme.Scale(opts.height));
     return {w, h};
 }
 
