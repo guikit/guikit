@@ -416,154 +416,172 @@ void DemoWindow::RenderBottomStatusBar(guikit::Context& ui) {
 }
 
 void DemoWindow::DispatchInspector(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
-    switch (cat) {
+    using InspectorFn = void (*)(guikit::Context&, DemoContext&);
+    static constexpr std::array<InspectorFn, 37> kInspectors = {
         // 1. ELEMENTS
-        case NavCategory::ElemHeading:       RenderHeadingInspector(ui, ctx); break;
-        case NavCategory::ElemButton:        RenderButtonInspector(ui, ctx); break;
-        case NavCategory::ElemSlider:        RenderSliderInspector(ui, ctx); break;
-        case NavCategory::ElemLevelMeter:    RenderLevelMeterInspector(ui, ctx); break;
-        case NavCategory::ElemKnob:          RenderKnobInspector(ui, ctx); break;
-        case NavCategory::ElemSpinBox:       RenderSpinBoxInspector(ui, ctx); break;
-        case NavCategory::ElemInputField:    RenderInputInspector(ui, ctx); break;
-        case NavCategory::ElemTagInput:      RenderTagInputInspector(ui, ctx); break;
-        case NavCategory::ElemSelect:        RenderSelectInspector(ui, ctx); break;
-        case NavCategory::ElemSegmented:     RenderSegmentedInspector(ui, ctx); break;
-        case NavCategory::ElemColorPicker:   RenderColorPickerInspector(ui, ctx); break;
-        case NavCategory::ElemDatePicker:    RenderDatePickerInspector(ui, ctx); break;
-        case NavCategory::ElemSwitch:        RenderSwitchInspector(ui, ctx); break;
-        case NavCategory::ElemCheckbox:      RenderCheckboxInspector(ui, ctx); break;
-        case NavCategory::ElemRadio:         RenderRadioInspector(ui, ctx); break;
-        case NavCategory::ElemImage:         RenderImageInspector(ui, ctx); break;
+        &RenderHeadingInspector,
+        &RenderButtonInspector,
+        &RenderSliderInspector,
+        &RenderLevelMeterInspector,
+        &RenderKnobInspector,
+        &RenderSpinBoxInspector,
+        &RenderInputInspector,
+        &RenderTagInputInspector,
+        &RenderSelectInspector,
+        &RenderSegmentedInspector,
+        &RenderColorPickerInspector,
+        &RenderDatePickerInspector,
+        &RenderSwitchInspector,
+        &RenderCheckboxInspector,
+        &RenderRadioInspector,
+        &RenderImageInspector,
 
         // 2. PANELS & NAV
-        case NavCategory::PanelCard:         RenderCardInspector(ui, ctx); break;
-        case NavCategory::PanelSplitView:    RenderSplitViewInspector(ui, ctx); break;
-        case NavCategory::PanelTabBar:       RenderTabBarInspector(ui, ctx); break;
-        case NavCategory::PanelBreadcrumb:   RenderBreadcrumbInspector(ui, ctx); break;
-        case NavCategory::PanelPagination:   RenderPaginationInspector(ui, ctx); break;
-        case NavCategory::PanelToolbar:      RenderToolbarInspector(ui, ctx); break;
-        case NavCategory::PanelSidebar:      RenderSidebarInspector(ui, ctx); break;
-        case NavCategory::PanelTreeView:     RenderTreeViewInspector(ui, ctx); break;
-        case NavCategory::PanelTable:        RenderTableInspector(ui, ctx); break;
-        case NavCategory::PanelOverlays:     RenderOverlaysInspector(ui, ctx); break;
+        &RenderCardInspector,
+        &RenderSplitViewInspector,
+        &RenderTabBarInspector,
+        &RenderBreadcrumbInspector,
+        &RenderPaginationInspector,
+        &RenderToolbarInspector,
+        &RenderSidebarInspector,
+        &RenderTreeViewInspector,
+        &RenderTableInspector,
+        &RenderOverlaysInspector,
 
         // 3. CONTENT & MEDIA
-        case NavCategory::ContentMarkdown:   RenderMarkdownInspector(ui, ctx); break;
-        case NavCategory::ContentCodeEditor: RenderCodeEditorInspector(ui, ctx); break;
+        &RenderMarkdownInspector,
+        &RenderCodeEditorInspector,
 
         // 4. 2D SCENES
-        case NavCategory::SceneSchematic2D:   RenderSchematicInspector(ui, ctx); break;
-        case NavCategory::SceneOsmMap:        RenderOsmMapInspector(ui, ctx); break;
-        case NavCategory::SceneSignalView:    RenderSignalInspector(ui, ctx); break;
-        case NavCategory::SceneSonarView:     RenderSonarInspector(ui, ctx); break;
-        case NavCategory::SceneWaterfallView: RenderWaterfallInspector(ui, ctx); break;
-        case NavCategory::SceneImageView:     RenderImageViewInspector(ui, ctx); break;
-        case NavCategory::SceneAttitudeView:  RenderAttitudeInspector(ui, ctx); break;
-        case NavCategory::SceneCarDashboard:  RenderCarDashboardInspector(ui, ctx); break;
-        case NavCategory::SceneBpmnEditor:    RenderBpmnInspector(ui, ctx); break;
+        &RenderSchematicInspector,
+        &RenderOsmMapInspector,
+        &RenderSignalInspector,
+        &RenderSonarInspector,
+        &RenderWaterfallInspector,
+        &RenderImageViewInspector,
+        &RenderAttitudeInspector,
+        &RenderCarDashboardInspector,
+        &RenderBpmnInspector,
+    };
+    static_assert(kInspectors.size() == static_cast<size_t>(NavCategory::SceneBpmnEditor) + 1);
+
+    const size_t idx = static_cast<size_t>(cat);
+    if (idx < kInspectors.size()) {
+        kInspectors[idx](ui, ctx);
     }
 }
 
 void DemoWindow::DispatchSandboxStage(guikit::Context& ui, NavCategory cat, DemoContext& ctx) {
-    switch (cat) {
+    using StageFn = void (*)(guikit::Context&, DemoContext&);
+    static constexpr std::array<StageFn, 37> kStages = {
         // 1. ELEMENTS
-        case NavCategory::ElemHeading:       RenderHeadingStage(ui, ctx); break;
-        case NavCategory::ElemButton:        RenderButtonStage(ui, ctx); break;
-        case NavCategory::ElemSlider:        RenderSliderStage(ui, ctx); break;
-        case NavCategory::ElemLevelMeter:    RenderLevelMeterStage(ui, ctx); break;
-        case NavCategory::ElemKnob:          RenderKnobStage(ui, ctx); break;
-        case NavCategory::ElemSpinBox:       RenderSpinBoxStage(ui, ctx); break;
-        case NavCategory::ElemInputField:    RenderInputStage(ui, ctx); break;
-        case NavCategory::ElemTagInput:      RenderTagInputStage(ui, ctx); break;
-        case NavCategory::ElemSelect:        RenderSelectStage(ui, ctx); break;
-        case NavCategory::ElemSegmented:     RenderSegmentedStage(ui, ctx); break;
-        case NavCategory::ElemColorPicker:   RenderColorPickerStage(ui, ctx); break;
-        case NavCategory::ElemDatePicker:    RenderDatePickerStage(ui, ctx); break;
-        case NavCategory::ElemSwitch:        RenderSwitchStage(ui, ctx); break;
-        case NavCategory::ElemCheckbox:      RenderCheckboxStage(ui, ctx); break;
-        case NavCategory::ElemRadio:         RenderRadioStage(ui, ctx); break;
-        case NavCategory::ElemImage:         RenderImageStage(ui, ctx); break;
+        &RenderHeadingStage,
+        &RenderButtonStage,
+        &RenderSliderStage,
+        &RenderLevelMeterStage,
+        &RenderKnobStage,
+        &RenderSpinBoxStage,
+        &RenderInputStage,
+        &RenderTagInputStage,
+        &RenderSelectStage,
+        &RenderSegmentedStage,
+        &RenderColorPickerStage,
+        &RenderDatePickerStage,
+        &RenderSwitchStage,
+        &RenderCheckboxStage,
+        &RenderRadioStage,
+        &RenderImageStage,
 
         // 2. PANELS & NAV
-        case NavCategory::PanelCard:         RenderCardStage(ui, ctx); break;
-        case NavCategory::PanelSplitView:    RenderSplitViewStage(ui, ctx); break;
-        case NavCategory::PanelTabBar:       RenderTabBarStage(ui, ctx); break;
-        case NavCategory::PanelBreadcrumb:   RenderBreadcrumbStage(ui, ctx); break;
-        case NavCategory::PanelPagination:   RenderPaginationStage(ui, ctx); break;
-        case NavCategory::PanelToolbar:      RenderToolbarStage(ui, ctx); break;
-        case NavCategory::PanelSidebar:      RenderSidebarStage(ui, ctx); break;
-        case NavCategory::PanelTreeView:     RenderTreeViewStage(ui, ctx); break;
-        case NavCategory::PanelTable:        RenderTableStage(ui, ctx); break;
-        case NavCategory::PanelOverlays:     RenderOverlaysStage(ui, ctx); break;
+        &RenderCardStage,
+        &RenderSplitViewStage,
+        &RenderTabBarStage,
+        &RenderBreadcrumbStage,
+        &RenderPaginationStage,
+        &RenderToolbarStage,
+        &RenderSidebarStage,
+        &RenderTreeViewStage,
+        &RenderTableStage,
+        &RenderOverlaysStage,
 
         // 3. CONTENT & MEDIA
-        case NavCategory::ContentMarkdown:   RenderMarkdownStage(ui, ctx); break;
-        case NavCategory::ContentCodeEditor: RenderCodeEditorStage(ui, ctx); break;
+        &RenderMarkdownStage,
+        &RenderCodeEditorStage,
 
         // 4. 2D SCENES
-        case NavCategory::SceneSchematic2D:   RenderSchematicStage(ui, ctx); break;
-        case NavCategory::SceneOsmMap:        RenderOsmMapStage(ui, ctx); break;
-        case NavCategory::SceneSignalView:    RenderSignalStage(ui, ctx); break;
-        case NavCategory::SceneSonarView:     RenderSonarStage(ui, ctx); break;
-        case NavCategory::SceneWaterfallView: RenderWaterfallStage(ui, ctx); break;
-        case NavCategory::SceneImageView:     RenderImageViewStage(ui, ctx); break;
-        case NavCategory::SceneAttitudeView:  RenderAttitudeStage(ui, ctx); break;
-        case NavCategory::SceneCarDashboard:  RenderCarDashboardStage(ui, ctx); break;
-        case NavCategory::SceneBpmnEditor:    RenderBpmnStage(ui, ctx); break;
+        &RenderSchematicStage,
+        &RenderOsmMapStage,
+        &RenderSignalStage,
+        &RenderSonarStage,
+        &RenderWaterfallStage,
+        &RenderImageViewStage,
+        &RenderAttitudeStage,
+        &RenderCarDashboardStage,
+        &RenderBpmnStage,
+    };
+    static_assert(kStages.size() == static_cast<size_t>(NavCategory::SceneBpmnEditor) + 1);
 
-        default: break;
+    const size_t idx = static_cast<size_t>(cat);
+    if (idx < kStages.size()) {
+        kStages[idx](ui, ctx);
     }
 }
 
 std::string DemoWindow::DispatchCodeGenerator(NavCategory cat, const DemoContext& ctx) {
-    switch (cat) {
+    using CodeGenFn = std::string (*)(const DemoContext&);
+    static constexpr std::array<CodeGenFn, 37> kGenerators = {
         // 1. ELEMENTS
-        case NavCategory::ElemHeading:       return GenerateHeadingCode(ctx);
-        case NavCategory::ElemButton:        return GenerateButtonCode(ctx);
-        case NavCategory::ElemSlider:        return GenerateSliderCode(ctx);
-        case NavCategory::ElemLevelMeter:    return GenerateLevelMeterCode(ctx);
-        case NavCategory::ElemKnob:          return GenerateKnobCode(ctx);
-        case NavCategory::ElemSpinBox:       return GenerateSpinBoxCode(ctx);
-        case NavCategory::ElemInputField:    return GenerateInputCode(ctx);
-        case NavCategory::ElemTagInput:      return GenerateTagInputCode(ctx);
-        case NavCategory::ElemSelect:        return GenerateSelectCode(ctx);
-        case NavCategory::ElemSegmented:     return GenerateSegmentedCode(ctx);
-        case NavCategory::ElemColorPicker:   return GenerateColorPickerCode(ctx);
-        case NavCategory::ElemDatePicker:    return GenerateDatePickerCode(ctx);
-        case NavCategory::ElemSwitch:        return GenerateSwitchCode(ctx);
-        case NavCategory::ElemCheckbox:      return GenerateCheckboxCode(ctx);
-        case NavCategory::ElemRadio:         return GenerateRadioCode(ctx);
-        case NavCategory::ElemImage:         return GenerateImageCode(ctx);
+        &GenerateHeadingCode,
+        &GenerateButtonCode,
+        &GenerateSliderCode,
+        &GenerateLevelMeterCode,
+        &GenerateKnobCode,
+        &GenerateSpinBoxCode,
+        &GenerateInputCode,
+        &GenerateTagInputCode,
+        &GenerateSelectCode,
+        &GenerateSegmentedCode,
+        &GenerateColorPickerCode,
+        &GenerateDatePickerCode,
+        &GenerateSwitchCode,
+        &GenerateCheckboxCode,
+        &GenerateRadioCode,
+        &GenerateImageCode,
 
         // 2. PANELS & NAV
-        case NavCategory::PanelCard:         return GenerateCardCode(ctx);
-        case NavCategory::PanelSplitView:    return GenerateSplitViewCode(ctx);
-        case NavCategory::PanelTabBar:       return GenerateTabBarCode(ctx);
-        case NavCategory::PanelBreadcrumb:   return GenerateBreadcrumbCode(ctx);
-        case NavCategory::PanelPagination:   return GeneratePaginationCode(ctx);
-        case NavCategory::PanelToolbar:      return GenerateToolbarCode(ctx);
-        case NavCategory::PanelSidebar:      return GenerateSidebarCode(ctx);
-        case NavCategory::PanelTreeView:     return GenerateTreeViewCode(ctx);
-        case NavCategory::PanelTable:        return GenerateTableCode(ctx);
-        case NavCategory::PanelOverlays:     return GenerateOverlaysCode(ctx);
+        &GenerateCardCode,
+        &GenerateSplitViewCode,
+        &GenerateTabBarCode,
+        &GenerateBreadcrumbCode,
+        &GeneratePaginationCode,
+        &GenerateToolbarCode,
+        &GenerateSidebarCode,
+        &GenerateTreeViewCode,
+        &GenerateTableCode,
+        &GenerateOverlaysCode,
 
         // 3. CONTENT & MEDIA
-        case NavCategory::ContentMarkdown:   return GenerateMarkdownCode(ctx);
-        case NavCategory::ContentCodeEditor: return GenerateCodeEditorCode(ctx);
+        &GenerateMarkdownCode,
+        &GenerateCodeEditorCode,
 
         // 4. 2D SCENES
-        case NavCategory::SceneSchematic2D:   return GenerateSchematicCode(ctx);
-        case NavCategory::SceneOsmMap:        return GenerateOsmMapCode(ctx);
-        case NavCategory::SceneSignalView:    return GenerateSignalCode(ctx);
-        case NavCategory::SceneSonarView:     return GenerateSonarCode(ctx);
-        case NavCategory::SceneWaterfallView: return GenerateWaterfallCode(ctx);
-        case NavCategory::SceneImageView:     return GenerateImageViewCode(ctx);
-        case NavCategory::SceneAttitudeView:  return GenerateAttitudeCode(ctx);
-        case NavCategory::SceneCarDashboard:  return GenerateCarDashboardCode(ctx);
-        case NavCategory::SceneBpmnEditor:    return GenerateBpmnCode(ctx);
+        &GenerateSchematicCode,
+        &GenerateOsmMapCode,
+        &GenerateSignalCode,
+        &GenerateSonarCode,
+        &GenerateWaterfallCode,
+        &GenerateImageViewCode,
+        &GenerateAttitudeCode,
+        &GenerateCarDashboardCode,
+        &GenerateBpmnCode,
+    };
+    static_assert(kGenerators.size() == static_cast<size_t>(NavCategory::SceneBpmnEditor) + 1);
 
-        default:                             return {};
+    const size_t idx = static_cast<size_t>(cat);
+    if (idx < kGenerators.size()) {
+        return kGenerators[idx](ctx);
     }
+    return {};
 }
 
 } // namespace guikit::demo

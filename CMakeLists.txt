@@ -326,6 +326,8 @@ if (GUIKIT_BUILD_DEMO)
         target_link_options(guikit_demo PRIVATE
             "-Oz"
             "-flto"
+            "-sSTACK_SIZE=1048576"
+            "-Wl,--stack-first"
             "-sALLOW_MEMORY_GROWTH=1"
             "-sINITIAL_MEMORY=67108864"
             "-sMAX_WEBGL_VERSION=2"
