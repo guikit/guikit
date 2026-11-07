@@ -215,6 +215,7 @@ Response SidebarMenu::Item(
     data->item.badge = ctx.AllocText(item.badge);
     data->item.section = ctx.AllocText(item.section);
     data->item.tooltip = ctx.AllocText(item.tooltip);
+    data->item.icon = ctx.AllocIcon(item.icon);
     data->menuOpts = menuOpts;
 
     node->text = data->item.text.text;
@@ -238,9 +239,9 @@ Response SidebarMenu::Item(
         item.color.HasAny() ? item.color : menuOpts.color,
         item.active,
         effectiveDisabled,
-        static_cast<uint8_t>(item.icon.GetType()),
-        static_cast<uint8_t>(item.icon.GetId()),
-        item.icon.GetPath(),
+        static_cast<uint8_t>(data->item.icon.GetType()),
+        static_cast<uint8_t>(data->item.icon.GetId()),
+        data->item.icon.GetPath(),
         data->item.text,
         data->item.badge
     );

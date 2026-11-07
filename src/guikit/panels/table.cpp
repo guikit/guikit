@@ -599,6 +599,7 @@ TableScope Table::Open(
     for (uint16_t i = 0; i < data->columnCount; ++i) {
         data->columns[i] = columns[i];
         data->columns[i].title = ctx.AllocText(columns[i].title);
+        data->columns[i].icon = ctx.AllocIcon(columns[i].icon);
     }
 
     // Compute regions from previous frame bounds (or parent bounds on first frame)

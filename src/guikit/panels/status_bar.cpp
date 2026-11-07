@@ -382,6 +382,7 @@ Response StatusBar::RenderSegment(
     payload->opts.text = ctx.AllocText(opts.text);
     payload->opts.badge = ctx.AllocText(opts.badge);
     payload->opts.tooltip = ctx.AllocText(opts.tooltip);
+    payload->opts.icon = ctx.AllocIcon(opts.icon);
     payload->barStyle = barStyle;
     payload->interactive = interactive;
     node->SetPayload(payload);

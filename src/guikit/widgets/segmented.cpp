@@ -362,6 +362,7 @@ Response Segmented::Run(
         arenaItems[i] = items[i];
         arenaItems[i].text = ctx.AllocText(items[i].text);
         arenaItems[i].tooltip = ctx.AllocText(items[i].tooltip);
+        arenaItems[i].icon = ctx.AllocIcon(items[i].icon);
         itemsHash = detail::HashArgs(
             itemsHash,
             arenaItems[i].text,

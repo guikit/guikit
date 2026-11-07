@@ -590,6 +590,29 @@ void TestUiStringAndContextFormatting() {
             0.1 * 0.2));
         CHECK(persistedView.size() > 130);
         CHECK(persistedView.ends_with(" 0.02 %"));
+
+        // Verify temporary Icon::File paths are arena-copied via AllocIcon across widgets before EndFrame
+        std::string tempIconPath = "assets/icons/custom_dynamic.svg";
+        Icon arenaIcon = ui.AllocIcon(Icon::File(tempIconPath));
+        int segIdx = 0;
+        const SegmentedItem segItems[] = {
+            {.text = "Seg", .icon = Icon::File(tempIconPath)}
+        };
+        ui.Segmented(segIdx, segItems);
+        if (auto tb = ui.Toolbar()) {
+            ui.ToolButton({.text = "Tool", .icon = Icon::File(tempIconPath)});
+        }
+        if (auto sb = ui.StatusBar()) {
+            sb.Item({.text = "Status", .icon = Icon::File(tempIconPath)});
+        }
+        bool paletteOpen = true;
+        const CommandPaletteItem cmdItems[] = {
+            {.label = ui.Format("Cmd {}", 1), .category = "Cat", .icon = Icon::File(tempIconPath)}
+        };
+        ui.CommandPalette(paletteOpen, cmdItems);
+        // Clobber stack buffer before EndFrame to catch any dangling string_view
+        std::fill(tempIconPath.begin(), tempIconPath.end(), 'X');
+        CHECK(arenaIcon.GetPath() == "assets/icons/custom_dynamic.svg");
     }
     ui.EndFrame(canvas);
 

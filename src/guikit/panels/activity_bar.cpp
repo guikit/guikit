@@ -204,6 +204,7 @@ Response ActivityBar::Item(
     data->item.label = ctx.AllocText(item.label);
     data->item.tooltip = ctx.AllocText(item.tooltip);
     data->item.badge = ctx.AllocText(item.badge);
+    data->item.icon = ctx.AllocIcon(item.icon);
     data->barOpts = barOpts;
 
     node->text = data->item.label.text;
@@ -225,9 +226,9 @@ Response ActivityBar::Item(
         item.color.HasAny() ? item.color : barOpts.color,
         item.active,
         effectiveDisabled,
-        static_cast<uint8_t>(item.icon.GetType()),
-        static_cast<uint8_t>(item.icon.GetId()),
-        item.icon.GetPath(),
+        static_cast<uint8_t>(data->item.icon.GetType()),
+        static_cast<uint8_t>(data->item.icon.GetId()),
+        data->item.icon.GetPath(),
         data->item.label,
         data->item.badge
     );

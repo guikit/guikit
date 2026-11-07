@@ -316,7 +316,7 @@ Response Toolbar::ToolButton(
     payload->btn.text = opts.square ? UiText{} : payload->origText;
     payload->btn.tooltip = ctx.AllocText(opts.tooltip);
     node->text = payload->btn.text.text;
-    payload->btn.icon = opts.icon;
+    payload->btn.icon = ctx.AllocIcon(opts.icon);
     payload->btn.color = opts.color.HasAny() ? opts.color : StateColor::Ghost();
     payload->btn.iconPlacement = opts.iconPlacement;
     payload->btn.align = opts.align;
@@ -341,9 +341,9 @@ Response Toolbar::ToolButton(
         opts.iconColor.value_or(Color::Transparent()),
         static_cast<uint8_t>(opts.stretch),
         activeSize,
-        static_cast<uint8_t>(opts.icon.GetType()),
-        static_cast<uint8_t>(opts.icon.GetId()),
-        opts.icon.GetPath(),
+        static_cast<uint8_t>(payload->btn.icon.GetType()),
+        static_cast<uint8_t>(payload->btn.icon.GetId()),
+        payload->btn.icon.GetPath(),
         payload->origText,
         payload->badge
     );

@@ -1728,11 +1728,16 @@ public:
         return t;
     }
 
+    [[nodiscard]] Icon AllocIcon(Icon ic) {
+        if (!ic.GetPath().empty()) {
+            return Icon::File(AllocString(ic.GetPath()));
+        }
+        return ic;
+    }
+
     [[nodiscard]] UiAffix AllocAffix(UiAffix a) {
         a.text = AllocText(a.text);
-        if (!a.icon.GetPath().empty()) {
-            a.icon = Icon::File(AllocString(a.icon.GetPath()));
-        }
+        a.icon = AllocIcon(a.icon);
         return a;
     }
 

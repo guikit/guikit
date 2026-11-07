@@ -454,12 +454,12 @@ CommandPaletteResponse CommandPalette::Run(
     res.rect = cardRect;
     res.hovered = cardRect.Contains(mouse);
 
-    // 6. Snapshot data for deferred overlay rendering
+    // 6. Snapshot data into frame arena for deferred overlay rendering
     struct DrawRowItem {
-        std::string label;
-        std::string category;
-        std::string description;
-        std::string shortcut;
+        std::string_view label;
+        std::string_view category;
+        std::string_view description;
+        std::string_view shortcut;
         Icon icon;
         bool disabled{false};
         bool highlighted{false};
@@ -472,8 +472,8 @@ CommandPaletteResponse CommandPalette::Run(
     const bool sbHoveredCopy = st.scrollbar.hovered;
     const bool sbDraggingCopy = st.scrollbar.dragging;
 
-    std::vector<DrawRowItem> drawRows;
-    drawRows.reserve(filtered.size());
+    DrawRowItem* arenaRows = ctx.GetArena().create_array<DrawRowItem>(filtered.size());
+    size_t drawRowCount = 0;
     for (size_t i = 0; i < filtered.size(); ++i) {
         const auto& fe = filtered[i];
         const auto& src = items[static_cast<size_t>(fe.origIndex)];
@@ -481,22 +481,23 @@ CommandPaletteResponse CommandPalette::Run(
         if (rowY + rowH < listRect.y || rowY > listRect.Bottom()) {
             continue;
         }
-        drawRows.push_back(DrawRowItem{
-            .label = std::string(std::string_view(src.label)),
-            .category = std::string(std::string_view(src.category)),
-            .description = std::string(std::string_view(src.description)),
-            .shortcut = std::string(std::string_view(src.shortcut)),
-            .icon = src.icon,
+        arenaRows[drawRowCount++] = DrawRowItem{
+            .label = ctx.AllocString(std::string_view(src.label)),
+            .category = ctx.AllocString(std::string_view(src.category)),
+            .description = ctx.AllocString(std::string_view(src.description)),
+            .shortcut = ctx.AllocString(std::string_view(src.shortcut)),
+            .icon = ctx.AllocIcon(src.icon),
             .disabled = src.disabled,
             .highlighted = (static_cast<int>(i) == st.highlightedPos),
             .matchPos = fe.labelMatchPos,
             .matchLen = fe.labelMatchLen,
             .rowRect = Rect(cardRect.x + rowInsetX, std::round(rowY), cardRect.w - rowInsetX * 2.0f - sbRightReserve, rowH)
-        });
+        };
     }
+    const std::span<const DrawRowItem> drawRows(arenaRows, drawRowCount);
 
-    const std::string queryCopy = st.query;
-    const std::string placeholderCopy = std::string(std::string_view(opts.placeholder));
+    const std::string_view queryCopy = ctx.AllocString(st.query);
+    const std::string_view placeholderCopy = ctx.AllocString(std::string_view(opts.placeholder));
     const bool showFooter = opts.showFooterHints;
     const float backdropOpacity = opts.backdropOpacity;
     const StateColor bgOpt = opts.background;
@@ -521,7 +522,7 @@ CommandPaletteResponse CommandPalette::Run(
         escPillHovered,
         queryCopy,
         placeholderCopy,
-        drawRows = std::move(drawRows),
+        drawRows,
         totalFiltered,
         sbGeom,
         sbm,

@@ -355,10 +355,10 @@ ContextMenuResponse ContextMenu::Run(
         return res;
     }
 
-    // Copy items into a snapshot vector for the deferred overlay draw pass
+    // Copy items into an arena snapshot slice for the deferred overlay draw pass
     struct OverlayItemData {
-        std::string label;
-        std::string shortcut;
+        std::string_view label;
+        std::string_view shortcut;
         Icon icon;
         UiVariant variant;
         bool checked;
@@ -370,14 +370,14 @@ ContextMenuResponse ContextMenu::Run(
         bool separatorBelow;
         float sepY;
     };
-    std::vector<OverlayItemData> drawItems;
-    drawItems.reserve(rows.size());
-    for (const auto& r : rows) {
+    OverlayItemData* arenaDrawItems = ctx.GetArena().create_array<OverlayItemData>(rows.size());
+    for (size_t i = 0; i < rows.size(); ++i) {
+        const auto& r = rows[i];
         const auto& src = items[r.itemIndex];
-        drawItems.push_back(OverlayItemData{
-            .label = std::string(src.label.text),
-            .shortcut = std::string(src.shortcut.text),
-            .icon = src.icon,
+        arenaDrawItems[i] = OverlayItemData{
+            .label = ctx.AllocString(src.label.text),
+            .shortcut = ctx.AllocString(src.shortcut.text),
+            .icon = ctx.AllocIcon(src.icon),
             .variant = src.variant,
             .checked = src.checked,
             .hasCheck = src.hasCheck,
@@ -387,8 +387,9 @@ ContextMenuResponse ContextMenu::Run(
             .hovered = r.hovered,
             .separatorBelow = r.separatorBelow,
             .sepY = r.sepY
-        });
+        };
     }
+    const std::span<const OverlayItemData> drawItems(arenaDrawItems, rows.size());
 
     const float radius = opts.border.radius.has_value()
         ? theme.Scale(*opts.border.radius)
@@ -404,7 +405,7 @@ ContextMenuResponse ContextMenu::Run(
         items.size()
     ));
 
-    ctx.RegisterOverlay([popupRect, radius, s, padX, iconSlotW, anyLeadingSlot, labelFont, shortcutFont, theme, opts, drawItems = std::move(drawItems)](ICanvas& c) {
+    ctx.RegisterOverlay([popupRect, radius, s, padX, iconSlotW, anyLeadingSlot, labelFont, shortcutFont, theme, opts, drawItems](ICanvas& c) {
         const auto& pal = theme.palette;
 
         // Soft drop shadow

@@ -1043,8 +1043,7 @@ Response Select::Run(
             : (isSearchable ? popupState.highlightedFilteredIdx : -1);
 
         size_t filteredSelectedIndex = size_t(-1);
-        std::vector<SelectItem> itemsVec;
-        itemsVec.reserve(filteredIndices.size());
+        SelectItem* arenaPopupItems = ctx.GetArena().create_array<SelectItem>(filteredIndices.size());
         for (size_t fi = 0; fi < filteredIndices.size(); ++fi) {
             const size_t origIdx = filteredIndices[fi];
             if (origIdx == currIndex) {
@@ -1054,10 +1053,11 @@ Response Select::Run(
             copy.text = ctx.AllocText(copy.text);
             copy.prefix = ctx.AllocAffix(copy.prefix);
             copy.suffix = ctx.AllocAffix(copy.suffix);
-            itemsVec.push_back(copy);
+            arenaPopupItems[fi] = copy;
         }
+        const std::span<const SelectItem> popupItemsSpan(arenaPopupItems, filteredIndices.size());
 
-        const std::string highlightQueryStr(activeQuery);
+        const std::string_view highlightQueryStr = ctx.AllocString(activeQuery);
         ctx.SetOpenPopupVisualHash(detail::HashArgs(
             currentPopupRect.x,
             currentPopupRect.y,
@@ -1068,18 +1068,18 @@ Response Select::Run(
             popupScrollY,
             sbHovered,
             sbActive,
-            itemsVec.size(),
+            popupItemsSpan.size(),
             detail::HashStringView(highlightQueryStr)
         ));
 
         SelectOptions popupOpts = opts;
         popupOpts.emptyText = ctx.AllocText(opts.emptyText);
 
-        ctx.RegisterOverlay([currentPopupRect, itemsVec = std::move(itemsVec), filteredSelectedIndex, effectiveHoveredIdx, popupOpts, activeSize, theme, popupScrollY, sbHovered, sbActive, highlightQueryStr](ICanvas& canvas) {
+        ctx.RegisterOverlay([currentPopupRect, popupItemsSpan, filteredSelectedIndex, effectiveHoveredIdx, popupOpts, activeSize, theme, popupScrollY, sbHovered, sbActive, highlightQueryStr](ICanvas& canvas) {
             Select::RenderPopup(
                 canvas,
                 currentPopupRect,
-                std::span<const SelectItem>(itemsVec),
+                popupItemsSpan,
                 filteredSelectedIndex,
                 effectiveHoveredIdx,
                 popupOpts,
@@ -2689,16 +2689,14 @@ Response Select::RunMulti(
         const bool sbActive = popupState.scrollbarActive;
         const int effectiveHoveredIdx = (hoveredItem >= 0) ? hoveredItem : popupState.highlightedFilteredIdx;
 
-        std::vector<SelectItem> itemsVec;
-        std::vector<uint8_t> selectedFlags;
-        itemsVec.reserve(filteredIndices.size());
-        selectedFlags.reserve(filteredIndices.size());
+        SelectItem* arenaPopupItems = ctx.GetArena().create_array<SelectItem>(filteredIndices.size());
+        uint8_t* arenaSelectedFlags = ctx.GetArena().alloc_array<uint8_t>(filteredIndices.size());
 
         uint64_t selectionHash = 0;
         for (size_t fi = 0; fi < filteredIndices.size(); ++fi) {
             const size_t origIdx = filteredIndices[fi];
             const bool isSel = std::find(selectedIndices.begin(), selectedIndices.end(), origIdx) != selectedIndices.end();
-            selectedFlags.push_back(isSel ? 1 : 0);
+            arenaSelectedFlags[fi] = isSel ? 1 : 0;
             if (isSel) {
                 selectionHash = detail::HashArgs(selectionHash, fi);
             }
@@ -2706,10 +2704,12 @@ Response Select::RunMulti(
             copy.text = ctx.AllocText(copy.text);
             copy.prefix = ctx.AllocAffix(copy.prefix);
             copy.suffix = ctx.AllocAffix(copy.suffix);
-            itemsVec.push_back(copy);
+            arenaPopupItems[fi] = copy;
         }
+        const std::span<const SelectItem> popupItemsSpan(arenaPopupItems, filteredIndices.size());
+        const std::span<const uint8_t> selectedFlagsSpan(arenaSelectedFlags, filteredIndices.size());
 
-        const std::string highlightQueryStr(activeQuery);
+        const std::string_view highlightQueryStr = ctx.AllocString(activeQuery);
         ctx.SetOpenPopupVisualHash(detail::HashArgs(
             currentPopupRect.x,
             currentPopupRect.y,
@@ -2720,19 +2720,19 @@ Response Select::RunMulti(
             popupScrollY,
             sbHovered,
             sbActive,
-            itemsVec.size(),
+            popupItemsSpan.size(),
             detail::HashStringView(highlightQueryStr)
         ));
 
         SelectOptions popupOpts = opts;
         popupOpts.emptyText = ctx.AllocText(opts.emptyText);
 
-        ctx.RegisterOverlay([currentPopupRect, itemsVec = std::move(itemsVec), selectedFlags = std::move(selectedFlags), effectiveHoveredIdx, popupOpts, activeSize, theme, popupScrollY, sbHovered, sbActive, highlightQueryStr](ICanvas& canvas) {
+        ctx.RegisterOverlay([currentPopupRect, popupItemsSpan, selectedFlagsSpan, effectiveHoveredIdx, popupOpts, activeSize, theme, popupScrollY, sbHovered, sbActive, highlightQueryStr](ICanvas& canvas) {
             RenderMultiPopup(
                 canvas,
                 currentPopupRect,
-                std::span<const SelectItem>(itemsVec),
-                std::span<const uint8_t>(selectedFlags),
+                popupItemsSpan,
+                selectedFlagsSpan,
                 effectiveHoveredIdx,
                 popupOpts,
                 activeSize,

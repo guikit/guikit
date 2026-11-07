@@ -169,6 +169,7 @@ Response TabBar::Run(
         tData->item.label = ctx.AllocText(item.label);
         tData->item.badge = ctx.AllocText(item.badge);
         tData->item.tooltip = ctx.AllocText(item.tooltip);
+        tData->item.icon = ctx.AllocIcon(item.icon);
         tData->barOpts = opts;
         tabNode->text = tData->item.label.text;
         tabNode->SetPayload(tData);
@@ -180,9 +181,9 @@ Response TabBar::Run(
             item.variant,
             tData->item.badge,
             tData->item.label,
-            static_cast<uint8_t>(item.icon.GetType()),
-            static_cast<uint8_t>(item.icon.GetId()),
-            item.icon.GetPath()
+            static_cast<uint8_t>(tData->item.icon.GetType()),
+            static_cast<uint8_t>(tData->item.icon.GetId()),
+            tData->item.icon.GetPath()
         );
         tabNode->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
             const auto* d = n->As<TabItemData>();
