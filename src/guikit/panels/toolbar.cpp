@@ -1,13 +1,13 @@
 #include "guikit/panels/toolbar.hpp"
 #include <algorithm>
 #include <cmath>
-#include <vector>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/solver.hpp"
 #include "guikit/panels/carousel.hpp"
 #include "guikit/panels/scroll_area.hpp"
+#include "keel/small_array.h"
 
 namespace guikit {
 
@@ -278,7 +278,7 @@ SplitButtonResponse ToolbarScope::SplitToggle(
     std::source_location loc
 ) {
     if (!m_ctx) return SplitButtonResponse{};
-    std::vector<ContextMenuItem> menuItems;
+    keel::SmallArray<ContextMenuItem, 16> menuItems;
     menuItems.reserve(items.size());
     for (size_t i = 0; i < items.size(); ++i) {
         ContextMenuItem item{};
@@ -306,12 +306,15 @@ SplitButtonResponse ToolbarScope::SplitToggle(
         opts.color = StateColor::Ghost();
     }
 
-    std::vector<ContextMenuItem> menuItems(items.begin(), items.end());
-    for (size_t i = 0; i < menuItems.size(); ++i) {
-        if (!menuItems[i].isSeparatorOnly) {
-            menuItems[i].hasCheck = true;
-            menuItems[i].checked = (static_cast<int>(i) == selectedIndex);
+    keel::SmallArray<ContextMenuItem, 16> menuItems;
+    menuItems.reserve(items.size());
+    for (size_t i = 0; i < items.size(); ++i) {
+        ContextMenuItem item = items[i];
+        if (!item.isSeparatorOnly) {
+            item.hasCheck = true;
+            item.checked = (static_cast<int>(i) == selectedIndex);
         }
+        menuItems.push_back(item);
     }
 
     SplitButtonResponse res = Toolbar::SplitButton(*m_ctx, opts, menuItems, std::move(menuOpts), loc);
@@ -607,14 +610,21 @@ SplitButtonResponse Toolbar::SplitButton(
     const Rect chevRect(prevRect.Right() - effChevW, prevRect.y, effChevW, prevRect.h);
 
     const Vec2 mouse = ctx.GetMousePos();
-    const bool overClipped = (prevClipped.w > 0.0f && prevClipped.h > 0.0f) && prevClipped.Contains(mouse);
-    const bool inChevron = overClipped && chevRect.Contains(mouse) && !ctx.IsMouseOccluded(id, mouse);
+    const Id activeId = ctx.GetActiveId();
+    const bool otherActive = activeId.IsValid() && activeId != id && !ctx.IsMouseClicked();
+    const bool overClipped = !otherActive && (prevClipped.w > 0.0f && prevClipped.h > 0.0f) && prevClipped.Contains(mouse);
+    const bool overChevron = overClipped && chevRect.Contains(mouse) && !ctx.IsMouseOccluded(id, mouse);
+    const bool inChevron = overChevron && activeId != id;
 
     ctx.RegisterFocusable(id, effectiveDisabled);
 
     Response baseRes{};
     if (!inChevron) {
         baseRes = ctx.Interact(id);
+        if (overChevron) {
+            baseRes.hovered = false;
+            baseRes.clicked = false;
+        }
         if (effectiveDisabled) {
             baseRes.clicked = false;
             baseRes.hovered = false;
@@ -659,7 +669,6 @@ SplitButtonResponse Toolbar::SplitButton(
     payload->isSplit = true;
     payload->splitChevronWidth = chevW;
     payload->chevronHovered = !effectiveDisabled && inChevron;
-    payload->chevronPressed = !effectiveDisabled && inChevron && ctx.IsMouseDown();
 
     menuOpts.trigger = ContextMenuTrigger::LeftClick;
     menuOpts.disabled = effectiveDisabled;
@@ -673,6 +682,7 @@ SplitButtonResponse Toolbar::SplitButton(
         ctx, nullptr, anchorPos, chevRect, menuItems, menuOpts, loc
     );
     payload->chevronOpen = menuRes.isOpen;
+    payload->chevronPressed = !effectiveDisabled && inChevron && (ctx.IsMouseClicked() || menuRes.isOpen);
 
     if ((baseRes.hovered || payload->chevronHovered) && !menuRes.isOpen) {
         const bool wasCompacted = opts.icon.IsValid() && !opts.text.empty() &&

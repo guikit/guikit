@@ -1,10 +1,10 @@
 #include "guikit/panels/context_menu.hpp"
 #include <algorithm>
 #include <cmath>
-#include <vector>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/small_array.h"
 
 namespace guikit {
 
@@ -224,7 +224,7 @@ ContextMenuResponse ContextMenu::Run(
         bool separatorBelow{false};
         float sepY{0.0f};
     };
-    std::vector<RowEntry> rows;
+    keel::SmallArray<RowEntry, 16> rows;
     rows.reserve(items.size());
 
     float curY = popupRect.y + padY;
@@ -408,7 +408,8 @@ ContextMenuResponse ContextMenu::Run(
         popupRect.h,
         hoveredIdx,
         state.keyboardIndex,
-        items.size()
+        items.size(),
+        activeSize
     ));
 
     ctx.RegisterOverlay([popupRect, radius, s, padX, icSz, iconSlotW, anyLeadingSlot, anyTrailingCheck, labelFont, shortcutFont, theme, opts, drawItems](ICanvas& c) {

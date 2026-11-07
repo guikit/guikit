@@ -2570,6 +2570,78 @@ void TestToolbarWidgetWorkflow() {
     ui.OnMouseUp(1);
     renderAdvancedToolbar();
     CHECK(snapActive == true);
+
+    // 6. Test Toolbar SplitButton() and SplitToggle() (main zone vs chevron dropdown + drag across zones)
+    bool trigActive = false;
+    int trigMode = 0;
+    SplitButtonResponse splitRes{};
+    static constexpr std::array<std::string_view, 3> kTrigModes = {"Auto", "Normal", "Single"};
+
+    auto renderSplitToolbar = [&]() {
+        ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+        if (auto tb = ui.Toolbar({.style = ToolbarStyle::Surface})) {
+            splitRes = tb.SplitToggle(trigActive, trigMode, kTrigModes, {
+                .text = "Trigger",
+                .icon = Icon::Flash()
+            });
+        }
+        ui.EndFrame(canvas);
+    };
+
+    renderSplitToolbar();
+    renderSplitToolbar();
+    CHECK(splitRes.rect.w > 40.0f);
+
+    // 6a. Clicking the left main zone toggles trigActive without opening the dropdown
+    const Vec2 mainClickPos{splitRes.rect.x + 12.0f, splitRes.rect.Center().y};
+    ui.OnMouseMove(mainClickPos);
+    ui.OnMouseDown(1);
+    renderSplitToolbar();
+    CHECK(splitRes.pressed);
+    CHECK(!splitRes.isOpen);
+    ui.OnMouseUp(1);
+    renderSplitToolbar();
+    CHECK(splitRes.clicked);
+    CHECK(splitRes.toggled);
+    CHECK(trigActive == true);
+    CHECK(trigMode == 0);
+
+    // 6b. Pressing on the main zone, dragging into the chevron zone, and releasing cancels the click cleanly
+    const Vec2 chevClickPos{splitRes.rect.Right() - 8.0f, splitRes.rect.Center().y};
+    ui.OnMouseMove(mainClickPos);
+    ui.OnMouseDown(1);
+    renderSplitToolbar();
+    CHECK(ui.GetActiveId() == splitRes.id);
+    ui.OnMouseMove(chevClickPos);
+    renderSplitToolbar();
+    CHECK(!splitRes.hovered);
+    ui.OnMouseUp(1);
+    renderSplitToolbar();
+    CHECK(!splitRes.clicked);
+    CHECK(trigActive == true);
+    CHECK(!ui.GetActiveId().IsValid());
+
+    // 6c. Clicking the right chevron opens the dropdown menu and selecting item 2 updates trigMode
+    ui.OnMouseMove(chevClickPos);
+    ui.OnMouseDown(1);
+    renderSplitToolbar();
+    ui.OnMouseUp(1);
+    renderSplitToolbar();
+    CHECK(splitRes.isOpen);
+    CHECK(!splitRes.clicked);
+
+    // Select item index 2 via keyboard Down/Enter in the open popup
+    ui.OnKeyDown(Key::Down);
+    renderSplitToolbar();
+    ui.OnKeyDown(Key::Down);
+    renderSplitToolbar();
+    ui.OnKeyDown(Key::Down);
+    renderSplitToolbar();
+    ui.OnKeyDown(Key::Enter);
+    renderSplitToolbar();
+    CHECK(splitRes.selectionChanged);
+    CHECK(trigMode == 2);
+    CHECK(!splitRes.isOpen);
 }
 
 void TestLabelVariantsStableSizing() {

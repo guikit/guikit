@@ -14,6 +14,8 @@ struct ToolbarDemoState {
     int activeTool = 0;
     bool snapToGrid = true;
     bool liveCapture = false;
+    bool triggerArmed = true;
+    int triggerMode = 0;
 };
 ToolbarDemoState s_tb;
 
@@ -135,6 +137,16 @@ void RenderToolbarStage(guikit::Context& ui, DemoContext& ctx) {
             .badge = (s_tb.showBadges && s_tb.liveCapture) ? "REC" : ""
         });
 
+        static constexpr std::array<std::string_view, 3> kTriggerModes = {
+            "Auto Trigger", "Normal Trigger", "Single Shot"
+        };
+        tb.SplitToggle(s_tb.triggerArmed, s_tb.triggerMode, kTriggerModes, {
+            .text = kTriggerModes[static_cast<size_t>(std::clamp(s_tb.triggerMode, 0, 2))],
+            .tooltip = "Toggle Trigger & Select Mode",
+            .icon = guikit::Icon::Flash(),
+            .square = isSq
+        });
+
         tb.Separator();
 
         tb.Dropdown({
@@ -164,6 +176,9 @@ std::string GenerateToolbarCode(const DemoContext& ctx) {
         "    tb.Separator();\n"
         "    tb.Toggle(snapToGrid,  {{.text = \"Snap\",    .icon = guikit::Icon::Settings(), .color = guikit::StateColor::Info(), .square = {}}});\n"
         "    tb.Toggle(liveCapture, {{.text = \"Capture\", .icon = guikit::Icon::Play(),     .color = guikit::StateColor::Success(), .square = {}}});\n"
+        "    tb.SplitToggle(triggerArmed, triggerMode, {{\"Auto Trigger\", \"Normal Trigger\", \"Single Shot\"}}, {{\n"
+        "        .text = \"Trigger\", .icon = guikit::Icon::Flash(), .square = {}\n"
+        "    }});\n"
         "    tb.Separator();\n"
         "    auto menu = tb.Dropdown({{.text = \"Export\"{}}}, {{\n"
         "        {{.label = \"Export Vector SVG...\", .shortcut = \"Ctrl+E\", .icon = guikit::Icon::Folder()}},\n"
@@ -179,6 +194,7 @@ std::string GenerateToolbarCode(const DemoContext& ctx) {
         VariantName(ctx.btnVariant),
         s_tb.squareIcons ? "true" : "false",
         VariantName(ctx.btnVariant),
+        s_tb.squareIcons ? "true" : "false",
         s_tb.squareIcons ? "true" : "false",
         s_tb.squareIcons ? "true" : "false",
         s_tb.squareIcons ? "true" : "false",
