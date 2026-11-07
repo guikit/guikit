@@ -364,6 +364,7 @@ void SdlWindowBackend::RunMainLoopCallback(std::function<bool()> stepFn) {
 }
 
 bool SdlWindowBackend::PumpEvents(Context& ui, bool reactiveMode, int sleepTimeoutMs) {
+    m_skipRenderThisStep = false;
     if (m_shouldExit) {
         return false;
     }
@@ -392,11 +393,13 @@ bool SdlWindowBackend::PumpEvents(Context& ui, bool reactiveMode, int sleepTimeo
 
     if (reactiveMode && !ui.NeedsRepaint()) {
         if (sleepTimeoutMs <= 0) {
+            m_skipRenderThisStep = true;
             return true;
         }
         const auto now = std::chrono::steady_clock::now();
         const double elapsedMs = std::chrono::duration<double, std::milli>(now - m_lastEmscriptenRenderTime).count();
         if (elapsedMs < static_cast<double>(sleepTimeoutMs)) {
+            m_skipRenderThisStep = true;
             return true;
         }
     }

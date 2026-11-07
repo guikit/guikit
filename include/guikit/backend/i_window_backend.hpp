@@ -87,6 +87,7 @@ public:
     [[nodiscard]] virtual int GetHeight() const noexcept = 0;
     [[nodiscard]] virtual float GetDisplayPixelsPerMm() const noexcept = 0;
     [[nodiscard]] virtual bool IsMinimized() const noexcept = 0;
+    [[nodiscard]] virtual bool ShouldRenderFrame() const noexcept { return !IsMinimized(); }
     [[nodiscard]] virtual bool IsLiveResizeFrame() const noexcept = 0;
 
     [[nodiscard]] virtual bool IsVsyncEnabled() const noexcept = 0;

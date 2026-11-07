@@ -102,7 +102,7 @@ int MainWindow::Run() {
                 m_backend->Shutdown();
                 return false;
             }
-            if (!m_backend->IsMinimized()) {
+            if (m_backend->ShouldRenderFrame()) {
                 RenderFrame();
             }
             return m_running;
@@ -119,7 +119,7 @@ int MainWindow::Run() {
         if (!m_running) {
             break;
         }
-        if (!m_backend->IsMinimized()) {
+        if (m_backend->ShouldRenderFrame()) {
             RenderFrame();
         }
     }

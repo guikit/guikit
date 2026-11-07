@@ -47,6 +47,7 @@ public:
     [[nodiscard]] int GetHeight() const noexcept override { return m_height; }
     [[nodiscard]] float GetDisplayPixelsPerMm() const noexcept override { return m_displayPxPerMm; }
     [[nodiscard]] bool IsMinimized() const noexcept override { return m_minimized; }
+    [[nodiscard]] bool ShouldRenderFrame() const noexcept override { return !m_minimized && !m_skipRenderThisStep; }
     [[nodiscard]] bool IsLiveResizeFrame() const noexcept override { return m_isLiveResizeFrame; }
 
     [[nodiscard]] bool IsVsyncEnabled() const noexcept override { return m_vsyncEnabled; }
@@ -91,6 +92,7 @@ private:
 
     bool m_shouldExit = false;
     bool m_minimized = false;
+    bool m_skipRenderThisStep = false;
     std::atomic<bool> m_wakePending{false};
     bool m_vsyncEnabled = true;
     bool m_gpuShadersEnabled = false;

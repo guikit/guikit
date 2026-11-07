@@ -23,6 +23,8 @@
     #include <ctime>
     #include <mach/mach.h>
     #include <unistd.h>
+#elif defined(__EMSCRIPTEN__)
+    #include <malloc.h>
 #else
     #include <ctime>
     #include <unistd.h>
@@ -109,6 +111,7 @@ public:
     void MarkCpuDone() noexcept {
         m_cpuDone = std::chrono::steady_clock::now();
         const float workMs = std::chrono::duration<float, std::milli>(m_cpuDone - m_frameStart).count();
+        m_accumulatedWorkSec += static_cast<double>(std::max(0.0f, workMs)) * 1e-3;
         if (m_wokeFromIdle) {
             m_pendingWakeCpuMs = workMs;
             return;
@@ -130,6 +133,7 @@ public:
     void MarkGpuDone() noexcept {
         m_gpuDone = std::chrono::steady_clock::now();
         const float gpuMs = std::chrono::duration<float, std::milli>(m_gpuDone - m_gpuStart).count();
+        m_accumulatedWorkSec += static_cast<double>(std::max(0.0f, gpuMs)) * 1e-3;
         if (m_wokeFromIdle) {
             m_pendingWakeGpuMs = gpuMs;
             return;
@@ -211,6 +215,10 @@ private:
     void UpdateProcessTelemetry(std::chrono::steady_clock::time_point now) noexcept {
         const double elapsedCpuSec = std::chrono::duration<double>(now - m_lastCpuCheckTime).count();
         if (elapsedCpuSec >= 0.5) {
+#if defined(__EMSCRIPTEN__)
+            const float pct = static_cast<float>((m_accumulatedWorkSec / elapsedCpuSec) * 100.0);
+            m_cpuPercent = m_isIdle ? 0.0f : std::clamp(pct, 0.0f, 100.0f);
+#else
             const double curCpuSec = QueryProcessCpuSeconds();
             if (curCpuSec >= 0.0 && m_lastProcessCpuSec >= 0.0) {
                 const double deltaCpu = curCpuSec - m_lastProcessCpuSec;
@@ -218,6 +226,8 @@ private:
                 m_cpuPercent = std::clamp(pct, 0.0f, 100.0f);
             }
             m_lastProcessCpuSec = curCpuSec;
+#endif
+            m_accumulatedWorkSec = 0.0;
             m_ramBytes = QueryProcessRamBytes();
             m_lastCpuCheckTime = now;
         }
@@ -301,6 +311,12 @@ private:
             return static_cast<size_t>(info.resident_size);
         }
         return 0;
+#elif defined(__EMSCRIPTEN__)
+        const struct mallinfo mi = mallinfo();
+        if (mi.uordblks > 0) {
+            return static_cast<size_t>(static_cast<unsigned int>(mi.uordblks));
+        }
+        return static_cast<size_t>(__builtin_wasm_memory_size(0)) * 65536ULL;
 #else
         FILE* fp = std::fopen("/proc/self/statm", "r");
         if (!fp) {
@@ -331,6 +347,8 @@ private:
         u.LowPart = user.dwLowDateTime;
         u.HighPart = user.dwHighDateTime;
         return static_cast<double>(k.QuadPart + u.QuadPart) * 1e-7;
+#elif defined(__EMSCRIPTEN__)
+        return 0.0;
 #else
         timespec ts{};
         if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts) != 0) {
@@ -353,6 +371,7 @@ private:
     std::chrono::steady_clock::time_point m_pendingWakeStart{};
 
     double m_lastProcessCpuSec{-1.0};
+    double m_accumulatedWorkSec{0.0};
     int m_numProcessors{1};
     uint32_t m_fpsFrameCount{0};
     bool m_hasPreviousFrame{false};
