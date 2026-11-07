@@ -1,7 +1,6 @@
 #include "guikit/backend/vector_backend.hpp"
 #include "guikit/geo/chart_data_source.hpp"
 #include "guikit/geo/gis_render_engine.hpp"
-#include "guikit/net/net_client.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -12,6 +11,7 @@
 #include <mutex>
 #include "keel/format.h"
 #include "keel/fs.h"
+#include "keel/http.h"
 #include "keel/lru_cache.h"
 
 namespace guikit::geo {
@@ -179,8 +179,8 @@ public:
             return cached;
         }
 
-        // 1. Try persistent disk cache or cross-platform HTTPS fetch via guikit::net::HttpClient
-        std::vector<uint8_t> pngBytes = LoadOrFetchOsmPng(normKey.z, normKey.x, normKey.y);
+        // 1. Try persistent disk cache or cross-platform HTTPS fetch via keel::HttpClient
+        keel::Array<keel::u8> pngBytes = LoadOrFetchOsmPng(normKey.z, normKey.x, normKey.y);
 
         auto tileImg = std::make_shared<RasterTileImage>();
         tileImg->key = normKey;
@@ -240,17 +240,17 @@ private:
         return SlippyTileKey{.z = z, .x = x, .y = y, .tileSizePx = sz};
     }
 
-    [[nodiscard]] std::vector<uint8_t> LoadOrFetchOsmPng(int z, int x, int y) const {
+    [[nodiscard]] keel::Array<keel::u8> LoadOrFetchOsmPng(int z, int x, int y) const {
         const auto dirPath = keel::format("%s/%d/%d", m_cacheDir, z, x);
         const auto diskPath = keel::format("%s/%d.png", dirPath.as_ref(), y);
         const keel::StringRef diskPathRef = diskPath.as_ref();
 
         if (keel::fs_exists(diskPathRef)) {
             if (auto fileRes = keel::fs_read_file(diskPathRef); fileRes.is_ok()) {
-                const auto& buf = fileRes.value();
+                auto& buf = fileRes.value();
                 if (buf.size() > 32 && buf.size() < 4 * 1024 * 1024 &&
                     buf[0] == 0x89 && buf[1] == 'P' && buf[2] == 'N' && buf[3] == 'G') {
-                    return std::vector<uint8_t>(buf.begin(), buf.end());
+                    return keel::move(buf);
                 }
             }
         }
@@ -259,21 +259,21 @@ private:
         const int64_t nowMs = NowSteadyMs();
         const int64_t lastFailMs = m_lastNetworkFailureMs.load(std::memory_order_relaxed);
         if (lastFailMs > 0 && (nowMs - lastFailMs) < kOfflineRetryIntervalMs) {
-            return {};
+            return keel::Array<keel::u8>{};
         }
 
         char urlBuf[128];
         const auto urlRef = keel::format_buf(urlBuf, "https://tile.openstreetmap.org/%d/%d/%d.png", z, x, y);
-        guikit::net::HttpRequest req{};
-        req.url.assign(urlRef.data(), urlRef.size());
-        req.method = guikit::net::HttpMethod::Get;
-        req.userAgent = "Hackionics-MarineGIS/1.0 (+https://openstreetmap.org)";
-        req.connectTimeoutMs = 2000;
-        req.readTimeoutMs = 2500;
-        req.maxResponseBytes = 4u * 1024u * 1024u;
+        keel::HttpRequest req{};
+        req.url = keel::String::from(urlRef);
+        req.method = keel::HttpMethod::Get;
+        req.user_agent = keel::String::from("Hackionics-MarineGIS/1.0 (+https://openstreetmap.org)");
+        req.connect_timeout_ms = 2000;
+        req.read_timeout_ms = 2500;
+        req.max_response_bytes = 4u * 1024u * 1024u;
 
-        const guikit::net::HttpResponse resp = m_httpClient.Execute(req);
-        if (resp.Succeeded() && resp.body.size() >= 32 &&
+        keel::HttpResponse resp = m_httpClient.execute(req);
+        if (resp.succeeded() && resp.body.size() >= 32 &&
             resp.body[0] == 0x89 && resp.body[1] == 'P' && resp.body[2] == 'N' && resp.body[3] == 'G') {
             (void)keel::fs_create_dirs(dirPath.as_ref());
 
@@ -288,11 +288,11 @@ private:
             } else {
                 (void)keel::fs_remove(tmpPathRef);
             }
-            return resp.body;
+            return keel::move(resp.body);
         }
 
         m_lastNetworkFailureMs.store(nowMs, std::memory_order_relaxed);
-        return {};
+        return keel::Array<keel::u8>{};
     }
 
     static void SynthesizeCartographicFallbackTile(
@@ -329,7 +329,7 @@ private:
     }
 
     std::string m_cacheDir;
-    guikit::net::HttpClient m_httpClient;
+    keel::HttpClient m_httpClient;
     mutable std::mutex m_mutex{};
     mutable keel::LruCache<SlippyTileKey, CacheEntry, 512, SlippyTileKeyHash> m_ramCache{};
     mutable std::atomic<uint64_t> m_accessCounter{1};

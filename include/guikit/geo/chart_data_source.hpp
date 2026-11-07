@@ -82,7 +82,7 @@ public:
 [[nodiscard]] std::shared_ptr<IRasterTileProvider> CreateCartographicBasemapTileProvider();
 
 /// Creates a cross-platform OpenStreetMap (XYZ) raster tile provider with RAM + disk cache,
-/// HTTP/HTTPS fetching via `guikit::net::HttpClient`, and LodePNG decoding/scaling.
+/// HTTP/HTTPS fetching via `keel::HttpClient`, and LodePNG decoding/scaling.
 [[nodiscard]] std::shared_ptr<IRasterTileProvider> CreateOsmRasterTileProvider(
     std::string cacheDir = "cache/osm_tiles"
 );

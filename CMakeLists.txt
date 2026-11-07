@@ -43,12 +43,20 @@ if (NOT EMSCRIPTEN)
 endif()
 
 # ==============================================================================
-# 0. Dependency: keel (0BSD C++20 Foundation Library)
+# 0. Dependencies: keel & keel::http (0BSD C++20 Foundation Libraries)
 # ==============================================================================
 if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/keel/CMakeLists.txt")
     add_subdirectory(third_party/keel EXCLUDE_FROM_ALL)
 else()
     find_package(keel REQUIRED)
+endif()
+
+if (GUIKIT_BUILD_SCENES)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/http/CMakeLists.txt")
+        add_subdirectory(third_party/http EXCLUDE_FROM_ALL)
+    else()
+        find_package(keel_http REQUIRED)
+    endif()
 endif()
 
 # ==============================================================================
@@ -165,7 +173,6 @@ if (GUIKIT_BUILD_SCENES)
         src/guikit/geo/gis_render_engine.cpp
         src/guikit/geo/osm_raster_tile_provider.cpp
         src/guikit/geo/polygon_triangulator.cpp
-        src/guikit/net/net_client.cpp
         src/guikit/panels/map_view.cpp
         src/guikit/widgets/attitude_view.cpp
         src/guikit/widgets/bpmn_editor.cpp
@@ -179,18 +186,7 @@ if (GUIKIT_BUILD_SCENES)
     add_library(guikit::scenes ALIAS guikit_scenes)
 
     target_compile_features(guikit_scenes PUBLIC cxx_std_20)
-    target_link_libraries(guikit_scenes PUBLIC guikit::core)
-    if (WIN32)
-        target_link_libraries(guikit_scenes PUBLIC winhttp)
-    elseif (EMSCRIPTEN)
-        target_link_options(guikit_scenes PUBLIC "SHELL:-s FETCH=1" "-lwebsocket.js")
-    else()
-        find_package(CURL QUIET)
-        if (CURL_FOUND)
-            target_link_libraries(guikit_scenes PRIVATE CURL::libcurl)
-            target_compile_definitions(guikit_scenes PRIVATE GUIKIT_HAS_CURL=1)
-        endif()
-    endif()
+    target_link_libraries(guikit_scenes PUBLIC guikit::core keel::http)
     if (NOT EMSCRIPTEN)
         target_link_libraries(guikit_scenes PUBLIC Threads::Threads)
     endif()

@@ -12,7 +12,7 @@
 #include "guikit/backend/thor_canvas.hpp"
 #include "guikit/geo/geo_json_io.hpp"
 #include "guikit/geo/gis_render_engine.hpp"
-#include "guikit/net/net_client.hpp"
+#include "keel/http.h"
 #include "thorvg.h"
 
 static int g_failures = 0;
@@ -12297,23 +12297,23 @@ int main() {
         CHECK(tags.back() == "sonar");
     }
 
-    // Cross-platform guikit::net (URL parser, HttpClient, WebSocketClient) + LodePNG raster tile decoder
+    // Cross-platform keel::http (URL parser, HttpClient, WebSocketClient) + LodePNG raster tile decoder
     {
-        const auto parsedHttps = guikit::net::ParseUrl("https://tile.openstreetmap.org/14/9532/5841.png");
-        CHECK(parsedHttps.valid && parsedHttps.isSecure && !parsedHttps.isWebSocket);
+        const auto parsedHttps = keel::parse_url("https://tile.openstreetmap.org/14/9532/5841.png");
+        CHECK(parsedHttps.valid && parsedHttps.is_secure && !parsedHttps.is_websocket);
         CHECK(parsedHttps.host == "tile.openstreetmap.org" && parsedHttps.port == 443);
-        CHECK(parsedHttps.pathAndQuery == "/14/9532/5841.png");
+        CHECK(parsedHttps.path_and_query == "/14/9532/5841.png");
 
-        const auto parsedWss = guikit::net::ParseUrl("wss://ais.stream.local:8443/live?v=2");
-        CHECK(parsedWss.valid && parsedWss.isSecure && parsedWss.isWebSocket);
+        const auto parsedWss = keel::parse_url("wss://ais.stream.local:8443/live?v=2");
+        CHECK(parsedWss.valid && parsedWss.is_secure && parsedWss.is_websocket);
         CHECK(parsedWss.host == "ais.stream.local" && parsedWss.port == 8443);
-        CHECK(parsedWss.pathAndQuery == "/live?v=2");
+        CHECK(parsedWss.path_and_query == "/live?v=2");
 
-        guikit::net::HttpClient http("GuiKit-Test/1.0");
-        CHECK(!guikit::net::HttpClient::BackendName().empty());
+        keel::HttpClient http("GuiKit-Test/1.0");
+        CHECK(!keel::HttpClient::backend_name().empty());
 
-        guikit::net::WebSocketClient ws;
-        CHECK(ws.GetState() == guikit::net::WebSocketState::Disconnected);
+        keel::WebSocketClient ws;
+        CHECK(ws.state() == keel::WebSocketState::Disconnected);
 
         static constexpr uint8_t kSample1x1Png[] = {
             0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
