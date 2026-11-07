@@ -52,6 +52,14 @@ struct ToolButtonOptions {
     UiText badge{};                             ///< Optional compact corner/trailing badge counter
 };
 
+/// Extended response returned by Toolbar SplitButton and SplitToggle controls.
+struct SplitButtonResponse : public Response {
+    int selectedIndex{-1};        ///< Selected item index (or clicked item index for stateless SplitButton)
+    bool toggled{false};          ///< True when the main button action/toggle was triggered this frame
+    bool selectionChanged{false}; ///< True when a dropdown item was selected this frame
+    bool isOpen{false};           ///< True while the dropdown selector menu is open
+};
+
 /// Configuration options for Toolbar container.
 struct ToolbarOptions {
     ToolbarStyle style{ToolbarStyle::Surface};              ///< Surface (default), Header (flush), or Floating (compact island)
@@ -150,6 +158,84 @@ public:
         );
     }
 
+    /// Adds a split tool button: left zone triggers the primary action, right chevron opens a ContextMenu.
+    SplitButtonResponse SplitButton(
+        ToolButtonOptions opts,
+        std::span<const ContextMenuItem> menuItems,
+        ContextMenuOptions menuOpts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    SplitButtonResponse SplitButton(
+        ToolButtonOptions opts,
+        std::initializer_list<ContextMenuItem> menuItems,
+        ContextMenuOptions menuOpts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return SplitButton(
+            std::move(opts),
+            std::span<const ContextMenuItem>(menuItems.begin(), menuItems.size()),
+            std::move(menuOpts),
+            loc
+        );
+    }
+
+    /// Adds a split toggle button: left zone toggles `active`, right chevron selects `selectedIndex` from `items`.
+    SplitButtonResponse SplitToggle(
+        bool& active,
+        int& selectedIndex,
+        std::span<const std::string_view> items,
+        ToolButtonOptions opts = {},
+        ContextMenuOptions menuOpts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    SplitButtonResponse SplitToggle(
+        bool& active,
+        int& selectedIndex,
+        std::initializer_list<std::string_view> items,
+        ToolButtonOptions opts = {},
+        ContextMenuOptions menuOpts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return SplitToggle(
+            active,
+            selectedIndex,
+            std::span<const std::string_view>(items.begin(), items.size()),
+            std::move(opts),
+            std::move(menuOpts),
+            loc
+        );
+    }
+
+    /// Adds a split toggle button with rich ContextMenuItem entries (supporting icons, shortcuts, disabled items).
+    SplitButtonResponse SplitToggle(
+        bool& active,
+        int& selectedIndex,
+        std::span<const ContextMenuItem> items,
+        ToolButtonOptions opts = {},
+        ContextMenuOptions menuOpts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    SplitButtonResponse SplitToggle(
+        bool& active,
+        int& selectedIndex,
+        std::initializer_list<ContextMenuItem> items,
+        ToolButtonOptions opts = {},
+        ContextMenuOptions menuOpts = {},
+        std::source_location loc = std::source_location::current()
+    ) {
+        return SplitToggle(
+            active,
+            selectedIndex,
+            std::span<const ContextMenuItem>(items.begin(), items.size()),
+            std::move(opts),
+            std::move(menuOpts),
+            loc
+        );
+    }
+
     /// Direct access to underlying Context.
     [[nodiscard]] Context& Ctx() noexcept { return *m_ctx; }
     [[nodiscard]] const Response* operator->() const noexcept { return &response; }
@@ -171,6 +257,14 @@ public:
     static Response ToolButton(
         Context& ctx,
         const ToolButtonOptions& opts = {},
+        std::source_location loc = std::source_location::current()
+    );
+
+    static SplitButtonResponse SplitButton(
+        Context& ctx,
+        const ToolButtonOptions& opts,
+        std::span<const ContextMenuItem> menuItems,
+        ContextMenuOptions menuOpts = {},
         std::source_location loc = std::source_location::current()
     );
 
