@@ -26,7 +26,7 @@ int main(int, char*[]) {
 
     return app.Run([&](guikit::Context& ui) {
         if (auto card = ui.Card({.gap = 12.0f, .padding = guikit::Padding::All(16.0f)})) {
-            ui.Heading({.label = "Audio Channel", .divider = true});
+            ui.Heading({.label = "Audio Channel", .separator = guikit::HeadingSeparator::Bottom});
             if (auto el = ui.Element({.label = "Enable Stage"})) {
                 ui.Switch(enabled);
             }
@@ -194,7 +194,7 @@ When laying out a workspace that shares space with a resizable `BottomPanel` or 
 
 Before drawing custom shapes on `ICanvas`, check this inventory:
 
-- **Typography & Structure**: `Heading` (H1–H4 + description + icon + divider), `Text` (semantic `TextRole` + `UiVariant` + `UiText::Rich`), `Element` (universal form field decorator), `Image` (PNG/JPG/SVG with `ImageFit::Contain`/`Cover`/`ScaleDown` & corner rounding), procedural vector `Icon::*` library (`Icon::Play()`, `Icon::Settings()`, `Icon::Search()`, etc.).
+- **Typography & Structure**: `Heading` (H1–H4 + description + icon + separator), `Text` (semantic `TextRole` + `UiVariant` + `UiText::Rich`), `Element` (universal form field decorator), `Image` (PNG/JPG/SVG with `ImageFit::Contain`/`Cover`/`ScaleDown` & corner rounding), procedural vector `Icon::*` library (`Icon::Play()`, `Icon::Settings()`, `Icon::Search()`, etc.).
 - **Buttons & Selection**: `Button` (solid/outline/ghost, icons, badges, loading spinner), `Switch`, `Checkbox` (with `indeterminate` support), `Radio`, `Segmented` (single-select index) & `SegmentedMask` (multi-select bitmask).
 - **Numeric & Metering**: `Slider`, `RangeSlider` (`minVal`, `maxVal`), `StepSlider` — horizontal, or vertical via `.orientation = Orientation::Vertical` (min at the bottom, `stretch = Fill` fills the height, StepSlider labels right of the ticks), `ProgressBar` (smooth, discrete LED segments, indeterminate), `LevelMeter` (single & multi-channel audio/telemetry dB bargraph with 3-zone coloring, peak-hold & clip LED), `Knob` (rotary encoder with bipolar arc & radial ticks), `SpinBox` (numeric stepper with drag-to-scrub).
 - **Text, Tags & Dropdowns**: `InputField` (text, password, numeric, prefix/suffix icons, clear button, validation), `TagInput` (multi-tag chip editor), `Select` (dropdown), `ComboBox` (searchable select), `Autocomplete` (free-text with suggestions), `MultiSelect` (multi-chip dropdown with checkboxes & "Select All").

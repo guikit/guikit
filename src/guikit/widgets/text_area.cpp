@@ -45,7 +45,7 @@ static constexpr std::array<std::string_view, 86> kCppTypes = {
     "TextLines", "TextVariants", "FontStyle", "Density", "ThemeMode", "Color",
     "Rect", "Vec2", "Padding", "Icon", "IconId", "Align", "Alignment", "Justify",
     "SizeMode", "StretchMode", "Orientation", "ElementLayout", "InlineOrder",
-    "HeadingDivider", "CursorMode", "TabBarStyle", "SyntaxConfig", "SyntaxPalette",
+    "HeadingSeparator", "CursorMode", "TabBarStyle", "SyntaxConfig", "SyntaxPalette",
     "TextSpan", "Element", "Button", "Slider", "StepSlider", "InputField",
     "Select", "Switch", "Checkbox", "Heading", "Text", "TextArea", "TabBar",
     "Toolbar"

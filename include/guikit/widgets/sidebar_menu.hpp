@@ -66,7 +66,7 @@ public:
     /// Adds a section header (with automatic top spacing when preceded by other items).
     void Section(
         UiText title,
-        bool divider = true,
+        bool separator = true,
         std::source_location loc = std::source_location::current()
     );
 

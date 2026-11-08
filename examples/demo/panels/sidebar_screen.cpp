@@ -111,7 +111,7 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
         }
     }
 
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "SHELL COMPANIONS", .divider = true});
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "SHELL COMPANIONS", .separator = guikit::HeadingSeparator::Bottom});
 
     size_t frameIdx = s_state.floatingFrame ? 1 : 0;
     if (auto el = ui.Element({.label = "Shell Frame", .layout = guikit::ElementLayout::Stacked})) {

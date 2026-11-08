@@ -5,6 +5,7 @@
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "guikit/layout/separator.hpp"
 
 namespace guikit {
 
@@ -44,12 +45,12 @@ ElementSpec Heading::MakeSpec(
     };
 }
 
-float Heading::ComputeBottomDividerSpace(
+float Heading::ComputeBottomSeparatorSpace(
     const HeadingOptions& opts,
     UiSize size,
     const UiTheme& theme
 ) noexcept {
-    if (opts.divider && opts.dividerStyle == HeadingDivider::Bottom) {
+    if (opts.separator == HeadingSeparator::Bottom) {
         const HeadingMetrics& m = theme.GetHeading(size);
         const float divPad = std::max(4.0f, m.gap * 0.75f);
         return divPad + 1.0f + divPad * 0.5f;
@@ -106,8 +107,7 @@ Response Heading::Run(
         hOpts->label,
         hOpts->description,
         hOpts->badge,
-        opts.divider,
-        static_cast<uint8_t>(opts.dividerStyle),
+        static_cast<uint8_t>(opts.separator),
         effectiveDisabled,
         static_cast<uint8_t>(opts.icon.GetType()),
         static_cast<uint8_t>(opts.icon.GetId()),
@@ -155,7 +155,7 @@ Vec2 Heading::Measure(
 ) noexcept {
     const ElementSpec spec = MakeSpec(opts, size, opts.disabled, theme);
     Vec2 result = Element::Measure({0.0f, 0.0f}, spec, canvas, theme, availableWidth);
-    result.y += ComputeBottomDividerSpace(opts, size, theme);
+    result.y += ComputeBottomSeparatorSpace(opts, size, theme);
     return result;
 }
 
@@ -175,18 +175,18 @@ void Heading::Render(
 
     const bool effDisabled = disabled || opts.disabled;
     const ElementSpec spec = MakeSpec(opts, size, effDisabled, theme, hovered, active);
-    const float bottomDivSpace = ComputeBottomDividerSpace(opts, size, theme);
+    const float bottomSepSpace = ComputeBottomSeparatorSpace(opts, size, theme);
 
     Rect resolveBounds = bounds;
-    if (bottomDivSpace > 0.0f) {
-        resolveBounds.h = std::max(0.0f, resolveBounds.h - bottomDivSpace);
+    if (bottomSepSpace > 0.0f) {
+        resolveBounds.h = std::max(0.0f, resolveBounds.h - bottomSepSpace);
     }
 
     ElementGeometry geom = Element::Resolve(resolveBounds, {0.0f, 0.0f}, spec, &canvas, theme);
     geom.outerBounds = bounds;
     Element::RenderText(canvas, geom, spec, theme);
 
-    if (!opts.divider) {
+    if (opts.separator == HeadingSeparator::None) {
         return;
     }
 
@@ -194,7 +194,7 @@ void Heading::Render(
     const HeadingMetrics& m = theme.GetHeading(size);
     const float alignFactor = (opts.align == Align::End) ? 1.0f : ((opts.align == Align::Center) ? 0.5f : 0.0f);
 
-    const Color divColor = opts.border.color.Resolve(
+    const Color sepColor = opts.border.color.Resolve(
         hovered,
         active,
         effDisabled,
@@ -230,19 +230,20 @@ void Heading::Render(
         spanX = outer.x + (outer.w - spanW) * alignFactor;
     }
 
-    if (opts.dividerStyle == HeadingDivider::Bottom) {
-        const float divPad = std::max(4.0f, m.gap * 0.75f);
+    if (opts.separator == HeadingSeparator::Bottom) {
+        const float sepPad = std::max(4.0f, m.gap * 0.75f);
         float contentBottom = geom.controlRect.Bottom();
         if (geom.hasLabel) contentBottom = std::max(contentBottom, geom.labelRect.Bottom());
         if (geom.hasDesc)  contentBottom = std::max(contentBottom, geom.descRect.Bottom());
-        const float divY = std::floor(contentBottom + divPad) + 0.5f;
-        canvas.DrawLine(
-            Vec2(spanX, divY),
-            Vec2(spanX + spanW, divY),
-            divColor,
+        const float sepY = std::floor(contentBottom + sepPad) + 0.5f;
+        Separator::RenderLine(
+            canvas,
+            Vec2(spanX, sepY),
+            Vec2(spanX + spanW, sepY),
+            sepColor,
             1.0f
         );
-    } else if (opts.dividerStyle == HeadingDivider::Trailing && geom.controlRect.h > 0.0f) {
+    } else if (opts.separator == HeadingSeparator::Trailing && geom.controlRect.h > 0.0f) {
         const Rect& labelBarRect = geom.controlRect;
         const Vec2 rawBar = MeasureLabelBar(spec, geom.labelFontSize, &canvas, theme);
         const float barW = std::min(labelBarRect.w, rawBar.x);
@@ -255,10 +256,10 @@ void Heading::Render(
         const float spanRight = spanX + spanW;
 
         if (leftEnd > spanX + 4.0f) {
-            canvas.DrawLine(Vec2(spanX, lineY), Vec2(leftEnd, lineY), divColor, 1.0f);
+            Separator::RenderLine(canvas, Vec2(spanX, lineY), Vec2(leftEnd, lineY), sepColor, 1.0f);
         }
         if (spanRight > rightStart + 4.0f) {
-            canvas.DrawLine(Vec2(rightStart, lineY), Vec2(spanRight, lineY), divColor, 1.0f);
+            Separator::RenderLine(canvas, Vec2(rightStart, lineY), Vec2(spanRight, lineY), sepColor, 1.0f);
         }
     }
 }

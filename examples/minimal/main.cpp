@@ -29,7 +29,7 @@ int main(int /*argc*/, char* /*argv*/[]) {
                     .label = "Mission Control",
                     .description = "GuiKit C++20 Immediate-Mode Vector UI",
                     .icon = guikit::Icon::Play(),
-                    .divider = true
+                    .separator = guikit::HeadingSeparator::Bottom
                 });
 
                 if (auto el = ui.Element({

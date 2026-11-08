@@ -45,7 +45,7 @@ void RenderBreadcrumbInspector(guikit::Context& ui, DemoContext& ctx) {
 
     ui.Size(guikit::UiSize::Xs).Heading({
         .label = "Breadcrumb Options",
-        .divider = true
+        .separator = guikit::HeadingSeparator::Bottom
     });
 
     static constexpr std::array<std::string_view, 4> kSepNames = {

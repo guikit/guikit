@@ -155,7 +155,7 @@ void RenderCardStage(guikit::Context& ui, DemoContext& ctx) {
                 .description = "Elevated surface with padding, gap, and border",
                 .icon = guikit::Icon::Folder(),
                 .badge = {"Surface", guikit::StateColor::Primary()},
-                .divider = s_card.showDivider
+                .separator = s_card.showDivider ? guikit::HeadingSeparator::Bottom : guikit::HeadingSeparator::None
             });
         }
 
@@ -183,7 +183,7 @@ std::string GenerateCardCode(const DemoContext& ctx) {
         "    ui.Heading({{\n"
         "        .label = \"Card Container\",\n"
         "        .description = \"Elevated surface with padding, gap, and border\",\n"
-        "        .divider = {}\n"
+        "        .separator = {}\n"
         "    }});\n"
         "    ui.Text(\"First content row inside the card container.\");\n"
         "    ui.Text(\"Second content row spaced by the card's gap property.\");\n"
@@ -197,7 +197,7 @@ std::string GenerateCardCode(const DemoContext& ctx) {
         ctx.cardRadius,
         CardBorderCodeName(),
         s_card.fullWidth ? "Stretch" : "Fit",
-        s_card.showDivider ? "true" : "false"
+        s_card.showDivider ? "guikit::HeadingSeparator::Bottom" : "guikit::HeadingSeparator::None"
     );
 }
 

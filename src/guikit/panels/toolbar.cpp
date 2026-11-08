@@ -162,39 +162,7 @@ void ToolbarScope::InvalidateContext() noexcept {
 
 void ToolbarScope::Separator(float heightRatio, std::source_location loc) {
     if (!m_ctx || !m_node) return;
-    const Id id = m_ctx->MakeChildId(loc);
-    const float scale = m_ctx->GetCurrentScale();
-    const bool isVerticalBar = (m_opts.orientation == Orientation::Vertical);
-
-    Node* sep = m_ctx->CreateNode(NodeType::Separator, id);
-    if (isVerticalBar) {
-        sep->widthMode = SizeMode::Stretch;
-        sep->heightMode = SizeMode::Fixed;
-        sep->fixedHeight = 8.0f * scale;
-        sep->borderColor = m_node->borderColor;
-        sep->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept -> Vec2 {
-            return {20.0f, n->fixedHeight > 0.0f ? n->fixedHeight : 8.0f};
-        };
-        sep->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
-            Toolbar::RenderSeparator(canvas, n->computedRect, n->borderColor, theme, Orientation::Vertical);
-        };
-    } else {
-        sep->widthMode = SizeMode::Fixed;
-        sep->fixedWidth = 10.0f * scale;
-        sep->heightMode = SizeMode::Fixed;
-        const float parentH = (m_node->fixedHeight > 0.0f) ? m_node->fixedHeight : (32.0f * scale);
-        sep->fixedHeight = parentH * std::clamp(heightRatio, 0.1f, 1.0f);
-        sep->borderColor = m_node->borderColor;
-        sep->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept -> Vec2 {
-            return {
-                n->fixedWidth > 0.0f ? n->fixedWidth : 10.0f,
-                n->fixedHeight > 0.0f ? n->fixedHeight : 20.0f
-            };
-        };
-        sep->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
-            Toolbar::RenderSeparator(canvas, n->computedRect, n->borderColor, theme, Orientation::Horizontal);
-        };
-    }
+    guikit::Separator::Run(*m_ctx, heightRatio, m_node->borderColor, loc);
 }
 
 void ToolbarScope::Spacer(std::source_location loc) {
@@ -755,26 +723,14 @@ void Toolbar::RenderSeparator(
     const UiTheme& theme,
     Orientation orientation
 ) {
-    const Color stroke = color.a > 0 ? color : theme.palette.borderSubtle;
-    if (orientation == Orientation::Vertical) {
-        const float midY = std::floor(bounds.Center().y) + 0.5f;
-        const float padX = std::max(2.0f, bounds.w * 0.18f);
-        canvas.DrawLine(
-            Vec2(bounds.x + padX, midY),
-            Vec2(bounds.Right() - padX, midY),
-            stroke,
-            1.0f
-        );
-    } else {
-        const float midX = std::floor(bounds.Center().x) + 0.5f;
-        const float padY = std::max(2.0f, bounds.h * 0.20f);
-        canvas.DrawLine(
-            Vec2(midX, bounds.y + padY),
-            Vec2(midX, bounds.Bottom() - padY),
-            stroke,
-            1.0f
-        );
-    }
+    Separator::Render(
+        canvas,
+        bounds,
+        color,
+        theme,
+        orientation,
+        orientation == Orientation::Vertical ? 0.18f : 0.20f
+    );
 }
 
 void Toolbar::Arrange(

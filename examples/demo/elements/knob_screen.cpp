@@ -87,7 +87,7 @@ void RenderKnobStage(guikit::Context& ui, DemoContext& ctx) {
                 .label = "PARAMETRIC CHANNEL STRIP — VFO / EQ",
                 .description = "Drag vertically/horizontally (Shift = fine, Wheel = step, Double-Click = reset)",
                 .badge = {"DSP", guikit::StateColor::Primary()},
-                .divider = true
+                .separator = guikit::HeadingSeparator::Bottom
             });
             if (auto row = ui.Row({.gap = 24.0f, .align = guikit::Alignment::Center, .justify = guikit::Justify::SpaceBetween})) {
                 if (auto el = ui.Size(ctx.elemSize).Element({

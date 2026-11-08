@@ -29,6 +29,7 @@
 #include "guikit/layout/column.hpp"
 #include "guikit/layout/wrap.hpp"
 #include "guikit/layout/grid.hpp"
+#include "guikit/layout/separator.hpp"
 #include "guikit/layout/spacer.hpp"
 #include "guikit/panels/accordion.hpp"
 #include "guikit/panels/activity_bar.hpp"
@@ -1267,7 +1268,7 @@ public:
         size_t totalSteps,
         StepSliderOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
+    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
         if constexpr (std::is_same_v<std::decay_t<IndexT>, size_t>) {
             return Run<guikit::StepSlider>(&index, nullptr, totalSteps, opts, loc);
         } else if constexpr (std::is_same_v<std::decay_t<IndexT>, int>) {
@@ -1288,7 +1289,7 @@ public:
         std::span<const std::string_view> labels,
         StepSliderOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
+    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
         opts.stepLabels = labels;
         return StepSlider(index, labels.size(), opts, loc);
     }
@@ -1299,7 +1300,7 @@ public:
         std::initializer_list<std::string_view> labels,
         StepSliderOptions opts = {},
         std::source_location loc = std::source_location::current()
-    ) requires (std::is_integral_v<IndexT>) {
+    ) requires (std::is_integral_v<IndexT> || std::is_enum_v<IndexT>) {
         return StepSlider(index, std::span<const std::string_view>(labels.begin(), labels.size()), opts, loc);
     }
 

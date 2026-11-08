@@ -84,6 +84,7 @@ set(GUIKIT_CORE_SOURCES
     src/guikit/layout/column.cpp
     src/guikit/layout/wrap.cpp
     src/guikit/layout/grid.cpp
+    src/guikit/layout/separator.cpp
     src/guikit/layout/spacer.cpp
     src/guikit/panels/accordion.cpp
     src/guikit/panels/activity_bar.cpp

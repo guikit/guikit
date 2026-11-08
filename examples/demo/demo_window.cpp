@@ -129,7 +129,7 @@ void DemoWindow::RenderInspectorSidebar(guikit::Context& ui) {
     })) {
         ui.Size(guikit::UiSize::Xs).Heading({
             .label = "INSPECTOR",
-            .divider = true
+            .separator = guikit::HeadingSeparator::Bottom
         });
 
         if (IsElementCategory(m_selectedCategory)) {

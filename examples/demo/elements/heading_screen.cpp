@@ -17,18 +17,12 @@ void RenderHeadingInspector(guikit::Context& ui, DemoContext& ctx) {
         if (ui.Slider(ctx.elemHeight, 0.0f, 320.0f, {.valueFormat = {(ctx.elemHeight > 0.0f) ? "%.0f px" : "Auto", {"Auto", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
     }
 
-    if (auto el = ui.Element({.label = "Show Divider Line"})) {
-        if (ui.Switch(ctx.elemDivider).changed) ui.InvalidateAll();
-    }
-    static constexpr std::array<std::string_view, 2> divStyles = {"Bottom", "Trailing"};
-    size_t divStyleIdx = (ctx.elemDividerStyle == guikit::HeadingDivider::Trailing) ? 1 : 0;
-    if (auto el = ui.Element({.label = "Divider Placement", .disabled = !ctx.elemDivider})) {
-        if (ui.StepSlider(divStyleIdx, divStyles, {
+    static constexpr std::array<std::string_view, 3> sepStyles = {"None", "Bottom", "Trailing"};
+    if (auto el = ui.Element({.label = "Separator"})) {
+        if (ui.StepSlider(ctx.elemSeparator, sepStyles, {
             .showTicks = true,
-            .showLabels = true,
-            .disabled = !ctx.elemDivider
+            .showLabels = true
         }).changed) {
-            ctx.elemDividerStyle = (divStyleIdx == 1) ? guikit::HeadingDivider::Trailing : guikit::HeadingDivider::Bottom;
             ui.InvalidateAll();
         }
     }
@@ -48,8 +42,7 @@ void RenderHeadingStage(guikit::Context& ui, DemoContext& ctx) {
         .height = ctx.GetElementHeight(),
         .background = ctx.elemBackground,
         .border = ctx.GetElemBorder(),
-        .divider = ctx.elemDivider,
-        .dividerStyle = ctx.elemDividerStyle,
+        .separator = ctx.elemSeparator,
         .disabled = ctx.elemDisabled
     });
 }
@@ -69,8 +62,7 @@ std::string GenerateHeadingCode(const DemoContext& ctx) {
         "    .height = {},\n"
         "    .background = {},\n"
         "    .border = {},\n"
-        "    .divider = {},\n"
-        "    .dividerStyle = guikit::HeadingDivider::{},\n"
+        "    .separator = {},\n"
         "    .disabled = {}\n"
         "}});",
         FormatUiSizePrefix(ctx.elemSize),
@@ -86,8 +78,7 @@ std::string GenerateHeadingCode(const DemoContext& ctx) {
         ctx.FormatElementHeightCode(),
         ctx.FormatElemBackgroundCode(),
         ctx.FormatElemBorderCode(),
-        ctx.elemDivider ? "true" : "false",
-        ctx.FormatDividerStyleCode(),
+        ctx.FormatSeparatorCode(),
         ctx.elemDisabled ? "true" : "false"
     );
 }

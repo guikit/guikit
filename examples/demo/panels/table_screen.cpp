@@ -166,7 +166,7 @@ void RenderTableInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
             }
         }
     } else {
-        ui.Size(UiSize::Xs).Heading({.label = "VIRTUAL JUMP (100,000 ROWS)", .divider = true});
+        ui.Size(UiSize::Xs).Heading({.label = "VIRTUAL JUMP (100,000 ROWS)", .separator = HeadingSeparator::Bottom});
         if (auto row = ui.Row({.gap = 6.0f})) {
             if (ui.Size(UiSize::Sm).Button({.text = "Top (#1)", .color = StateColor::Secondary(), .stretch = StretchMode::Fill})) {
                 g_tableDemo.pendingJumpRow = 0;

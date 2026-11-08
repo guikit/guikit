@@ -370,8 +370,7 @@ struct DemoContext {
     float ctrlBorderWidth = 0.0f;
     guikit::UiVariant ctrlBorderVariant = guikit::UiVariant::Default;
     float ctrlBorderRadius = 6.0f;
-    bool elemDivider = true;
-    guikit::HeadingDivider elemDividerStyle = guikit::HeadingDivider::Bottom;
+    guikit::HeadingSeparator elemSeparator = guikit::HeadingSeparator::Bottom;
     bool elemDisabled = false;
 
     // Shared assembly & container layout tokens
@@ -519,8 +518,12 @@ struct DemoContext {
         return std::string("{\"") + elemBadge + "\", guikit::StateColor::" + std::string(VariantName(elemBadgeVariant)) + "()}";
     }
 
-    std::string_view FormatDividerStyleCode() const noexcept {
-        return (elemDividerStyle == guikit::HeadingDivider::Trailing) ? "Trailing" : "Bottom";
+    std::string_view FormatSeparatorCode() const noexcept {
+        switch (elemSeparator) {
+            case guikit::HeadingSeparator::Bottom:   return "guikit::HeadingSeparator::Bottom";
+            case guikit::HeadingSeparator::Trailing: return "guikit::HeadingSeparator::Trailing";
+            default:                                 return "guikit::HeadingSeparator::None";
+        }
     }
 
     std::string FormatElementWidthCode() const {
@@ -770,7 +773,7 @@ struct DemoContext {
                 .step = 0.5f
             }).changed) ui.InvalidateAll();
         }
-        const bool hasElemBorderOrDivider = (elemBorderWidth > 0.0f) || (cat == NavCategory::ElemHeading && elemDivider);
+        const bool hasElemBorderOrDivider = (elemBorderWidth > 0.0f) || (cat == NavCategory::ElemHeading && elemSeparator != guikit::HeadingSeparator::None);
         if (auto el = ui.Element({.label = "Element Border Color", .disabled = !hasElemBorderOrDivider})) {
             if (ui.StepSlider(elemBorderVariant, {
                 .showTicks = true,

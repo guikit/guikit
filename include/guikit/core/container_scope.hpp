@@ -33,7 +33,7 @@ public:
     }
 
     /// Evaluates to true allowing `if (auto row = ui.Row()) { ... }` syntax.
-    [[nodiscard]] constexpr operator bool() const noexcept {
+    [[nodiscard]] explicit constexpr operator bool() const noexcept {
         return m_node != nullptr;
     }
 

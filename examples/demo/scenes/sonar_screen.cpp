@@ -450,7 +450,7 @@ void RenderSonarInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         }
     }
 
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "Processing", .divider = true});
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "Processing", .separator = guikit::HeadingSeparator::Bottom});
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Gain",
@@ -499,7 +499,7 @@ void RenderSonarInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         }
     }
 
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "Overlays", .divider = true});
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "Overlays", .separator = guikit::HeadingSeparator::Bottom});
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Guard Zone"})) {
         ui.Size(guikit::UiSize::Sm).Checkbox(s_sonar.guardZoneEnabled);

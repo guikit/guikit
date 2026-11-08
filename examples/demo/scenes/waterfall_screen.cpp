@@ -470,7 +470,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         }
     }
 
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "GPU Ring-Buffer & Conditioning", .divider = true});
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "GPU Ring-Buffer & Conditioning", .separator = guikit::HeadingSeparator::Bottom});
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Digital Gain",
@@ -535,7 +535,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         });
     }
 
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "Traces & Tracking Overlays", .divider = true});
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "Traces & Tracking Overlays", .separator = guikit::HeadingSeparator::Bottom});
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Live Instantaneous Trace"})) {
         ui.Size(guikit::UiSize::Sm).Checkbox(s_wf.showLiveTrace);

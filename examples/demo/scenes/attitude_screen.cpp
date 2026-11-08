@@ -279,7 +279,7 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         ui.Size(guikit::UiSize::Sm).Select(s_att.aircraftSymbolIndex, kAircraftSymbols);
     }
 
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "Attitude & Air Data", .divider = true});
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "Attitude & Air Data", .separator = guikit::HeadingSeparator::Bottom});
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Roll / Bank Angle",
@@ -339,7 +339,7 @@ void RenderAttitudeInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         });
     }
 
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "Symbology & Tapes", .divider = true});
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "Symbology & Tapes", .separator = guikit::HeadingSeparator::Bottom});
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = "Pitch Ladder & Chevrons"})) {
         ui.Size(guikit::UiSize::Sm).Checkbox(s_att.showPitchLadder);

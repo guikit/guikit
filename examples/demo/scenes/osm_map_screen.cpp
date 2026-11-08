@@ -177,7 +177,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
     }
 
     // 4. S-52 Vector Display & Tile Engine Filters
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "S-52 & TILE ENGINE FILTERS", .divider = true});
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "S-52 & TILE ENGINE FILTERS", .separator = guikit::HeadingSeparator::Bottom});
     if (auto el = ui.Element({.label = "Vector Tile Cache [z/x/y]"})) {
         if (ui.Switch(s_state.renderConfig.useVectorTileCache).changed) ui.InvalidateAll();
     }
@@ -198,7 +198,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
     }
 
     // 5. Cartographic Grid & HUD Overlays
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "CARTOGRAPHIC OVERLAYS", .divider = true});
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "CARTOGRAPHIC OVERLAYS", .separator = guikit::HeadingSeparator::Bottom});
     if (auto el = ui.Element({.label = "Nautical Graticule (1' = 1 NM)"})) {
         if (ui.Switch(s_state.showNauticalGraticule).changed) ui.InvalidateAll();
     }
@@ -214,7 +214,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
 
     // 6. Thematic Layers from demo_bay.geojson
     if (!s_state.layers.empty()) {
-        ui.Size(guikit::UiSize::Xs).Heading({.label = "THEMATIC ENC LAYERS", .divider = true});
+        ui.Size(guikit::UiSize::Xs).Heading({.label = "THEMATIC ENC LAYERS", .separator = guikit::HeadingSeparator::Bottom});
         for (auto& layer : s_state.layers) {
             const std::string lbl = std::format("{} ({})", layer.name, layer.features.size());
             if (auto el = ui.Size(guikit::UiSize::Sm).Element({.label = lbl})) {

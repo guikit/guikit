@@ -16,7 +16,7 @@ void SidebarMenuScope::InvalidateContext() noexcept {
 
 void SidebarMenuScope::Section(
     UiText title,
-    bool divider,
+    bool separator,
     std::source_location loc
 ) {
     if (!m_ctx || !m_node) return;
@@ -31,7 +31,7 @@ void SidebarMenuScope::Section(
     }
 
     if (m_opts.collapsed) {
-        if (divider) {
+        if (separator) {
             Separator(loc);
         }
         return;
@@ -40,7 +40,7 @@ void SidebarMenuScope::Section(
     m_ctx->PushSize(UiSize::Xs);
     Heading::Run(*m_ctx, HeadingOptions{
         .label = title,
-        .divider = divider
+        .separator = separator ? HeadingSeparator::Bottom : HeadingSeparator::None
     }, loc);
     m_ctx->PopSize();
 }
@@ -55,24 +55,7 @@ Response SidebarMenuScope::Item(
 
 void SidebarMenuScope::Separator(std::source_location loc) {
     if (!m_ctx || !m_node) return;
-    const Id id = m_ctx->MakeChildId(loc);
-    const float scale = m_ctx->GetCurrentScale();
-    Node* sep = m_ctx->CreateNode(NodeType::Separator, id);
-    sep->widthMode = SizeMode::Stretch;
-    sep->heightMode = SizeMode::Fixed;
-    sep->fixedHeight = 8.0f * scale;
-    sep->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept -> Vec2 {
-        return {0.0f, n->fixedHeight > 0.0f ? n->fixedHeight : 8.0f};
-    };
-    sep->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
-        const float y = std::floor(n->computedRect.Center().y) + 0.5f;
-        canvas.DrawLine(
-            {n->computedRect.x + 2.0f, y},
-            {n->computedRect.Right() - 2.0f, y},
-            theme.palette.borderSubtle,
-            1.0f
-        );
-    };
+    guikit::Separator::Run(*m_ctx, 0.0f, Color::Transparent(), loc);
 }
 
 void SidebarMenuScope::Spacer(float flex, std::source_location loc) {

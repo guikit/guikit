@@ -445,7 +445,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
     }
 
     // --- BPMN 2.0 XML Serialization & Round-Trip Import ---
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "BPMN 2.0 XML SERIALIZATION", .divider = true});
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "BPMN 2.0 XML SERIALIZATION", .separator = guikit::HeadingSeparator::Bottom});
     if (auto row = ui.Row({.gap = 6.0f})) {
         if (ui.Button({.text = "Export BPMN XML", .icon = guikit::Icon::Save(), .color = guikit::StateColor::Secondary(), .stretch = guikit::StretchMode::Fill})) {
             s_bpmn.exportedXmlBuffer = guikit::BpmnEditor::ExportBpmnXml(s_bpmn.diagram);
@@ -473,7 +473,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
     }
 
     // --- Token Simulation Section ---
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "TOKEN SIMULATION (BPMN-JS)", .divider = true});
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "TOKEN SIMULATION (BPMN-JS)", .separator = guikit::HeadingSeparator::Bottom});
     if (auto el = ui.Element({
         .label = "Live Token Simulation",
         .description = "Animate instances, parallel forks & XOR switching"
@@ -495,7 +495,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
 
     // --- Selected Element Property Inspector ---
     if (guikit::BpmnNode* selNode = s_bpmn.diagram.FindNode(s_bpmn.selectedNodeId)) {
-        ui.Size(guikit::UiSize::Xs).Heading({.label = "SELECTED NODE PROPERTIES", .divider = true});
+        ui.Size(guikit::UiSize::Xs).Heading({.label = "SELECTED NODE PROPERTIES", .separator = guikit::HeadingSeparator::Bottom});
         if (auto el = ui.Element({.label = "Node Label"})) {
             if (ui.InputField(selNode->label).changed) ui.InvalidateAll();
         }
@@ -574,7 +574,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
             }
         }
     } else if (guikit::BpmnEdge* selEdge = s_bpmn.diagram.FindEdge(s_bpmn.selectedEdgeId)) {
-        ui.Size(guikit::UiSize::Xs).Heading({.label = "SELECTED FLOW PROPERTIES", .divider = true});
+        ui.Size(guikit::UiSize::Xs).Heading({.label = "SELECTED FLOW PROPERTIES", .separator = guikit::HeadingSeparator::Bottom});
         if (auto el = ui.Element({.label = "Flow Condition / Label"})) {
             if (ui.InputField(selEdge->label).changed) ui.InvalidateAll();
         }
@@ -596,7 +596,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
             }
         }
     } else if (guikit::BpmnLane* selLane = s_bpmn.diagram.FindLane(s_bpmn.selectedLaneId)) {
-        ui.Size(guikit::UiSize::Xs).Heading({.label = "SELECTED SWIMLANE", .divider = true});
+        ui.Size(guikit::UiSize::Xs).Heading({.label = "SELECTED SWIMLANE", .separator = guikit::HeadingSeparator::Bottom});
         if (auto el = ui.Element({.label = "Pool Participant"})) {
             if (ui.InputField(selLane->poolName).changed) ui.InvalidateAll();
         }
@@ -606,7 +606,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
     }
 
     // --- Canvas & Modeler Appearance ---
-    ui.Size(guikit::UiSize::Xs).Heading({.label = "MODELER & CANVAS UX", .divider = true});
+    ui.Size(guikit::UiSize::Xs).Heading({.label = "MODELER & CANVAS UX", .separator = guikit::HeadingSeparator::Bottom});
     static constexpr std::array<std::string_view, 4> kThemeNames = {"Auto", "bpmn.io", "Camunda", "Blueprint"};
     size_t thIdx = static_cast<size_t>(s_bpmn.themePreset);
     if (auto el = ui.Element({.label = "Color Theme"})) {

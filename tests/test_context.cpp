@@ -3091,8 +3091,8 @@ void TestHeadingWidgetWorkflow() {
                 .description = "1000 samples/sec",
                 .icon = Icon::Check()
             });
-            head3 = ui.Heading({.label = "Section Divider", .divider = true});
-            head4 = ui.Heading({.label = "Trailing Divider", .divider = true, .dividerStyle = HeadingDivider::Trailing});
+            head3 = ui.Heading({.label = "Section Divider", .separator = HeadingSeparator::Bottom});
+            head4 = ui.Heading({.label = "Trailing Divider", .separator = HeadingSeparator::Trailing});
         }
     };
 
@@ -7224,8 +7224,7 @@ void TestBaseElementsAllInOneEnhancements() {
                     .label = "CenterH",
                     .description = "SubCenter",
                     .align = Align::Center,
-                    .divider = true,
-                    .dividerStyle = HeadingDivider::Trailing
+                    .separator = HeadingSeparator::Trailing
                 });
                 hRight = ui.Heading({
                     .label = "RightH",
@@ -7541,7 +7540,7 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
                 .icon = Icon::Edit(),
                 .background = StateColor::Surface(),
                 .border = {.width = 1.0f},
-                .divider = true
+                .separator = HeadingSeparator::Bottom
             });
             ui.Element({
                 .label = "An element",

@@ -23,25 +23,7 @@ Response ActivityBarScope::Item(
 
 void ActivityBarScope::Separator(std::source_location loc) {
     if (!m_ctx || !m_node) return;
-    const Id id = m_ctx->MakeChildId(loc);
-    const float scale = m_ctx->GetCurrentScale();
-    Node* sep = m_ctx->CreateNode(NodeType::Separator, id);
-    sep->widthMode = SizeMode::Stretch;
-    sep->heightMode = SizeMode::Fixed;
-    sep->fixedHeight = 8.0f * scale;
-    sep->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept -> Vec2 {
-        return {0.0f, n->fixedHeight > 0.0f ? n->fixedHeight : 8.0f};
-    };
-    sep->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
-        const float y = std::floor(n->computedRect.Center().y) + 0.5f;
-        const float inset = std::min(6.0f, n->computedRect.w * 0.18f);
-        canvas.DrawLine(
-            {n->computedRect.x + inset, y},
-            {n->computedRect.Right() - inset, y},
-            theme.palette.borderSubtle,
-            1.0f
-        );
-    };
+    guikit::Separator::Run(*m_ctx, 0.0f, Color::Transparent(), loc);
 }
 
 void ActivityBarScope::Spacer(float flex, std::source_location loc) {

@@ -36,7 +36,7 @@ void RenderPaginationInspector(guikit::Context& ui, DemoContext& ctx) {
 
     ui.Size(guikit::UiSize::Xs).Heading({
         .label = "Pagination Options",
-        .divider = true
+        .separator = guikit::HeadingSeparator::Bottom
     });
 
     if (auto el = ui.Element({.label = "Total Pages"})) {

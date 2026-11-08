@@ -209,36 +209,10 @@ Response StatusBarScope::Action(
 
 void StatusBarScope::Separator(float heightRatio, std::source_location loc) {
     if (!m_ctx || !m_node) return;
-    const Id id = m_ctx->MakeChildId(loc);
-    const float scale = m_ctx->GetCurrentScale();
-
-    Node* sep = m_ctx->CreateNode(NodeType::Separator, id);
-    sep->widthMode = SizeMode::Fixed;
-    sep->fixedWidth = 8.0f * scale;
-    sep->heightMode = SizeMode::Fixed;
-    const float parentH = (m_node->fixedHeight > 0.0f) ? m_node->fixedHeight : (26.0f * scale);
-    sep->fixedHeight = parentH * std::clamp(heightRatio, 0.2f, 0.9f);
-    sep->borderColor = (m_opts.style == StatusBarStyle::Accent)
+    const Color col = (m_opts.style == StatusBarStyle::Accent)
         ? m_ctx->GetTheme().palette.accentText.WithAlphaF(0.3f)
         : m_node->borderColor;
-    sep->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* /*canvas*/, const UiTheme& /*theme*/) noexcept -> Vec2 {
-        return {
-            n->fixedWidth > 0.0f ? n->fixedWidth : 8.0f,
-            n->fixedHeight > 0.0f ? n->fixedHeight : 14.0f
-        };
-    };
-    sep->renderFn = [](const Node* n, ICanvas& canvas, const UiTheme& theme) noexcept {
-        const Color stroke = n->borderColor.a > 0 ? n->borderColor : theme.palette.borderSubtle;
-        const float midX = std::floor(n->computedRect.Center().x) + 0.5f;
-        const float centerY = n->computedRect.Center().y;
-        const float halfH = std::max(4.0f, std::round(n->computedRect.h * 0.42f));
-        canvas.DrawLine(
-            Vec2(midX, std::round(centerY - halfH)),
-            Vec2(midX, std::round(centerY + halfH)),
-            stroke,
-            1.0f
-        );
-    };
+    guikit::Separator::Run(*m_ctx, heightRatio, col, loc);
 }
 
 void StatusBarScope::Spacer(std::source_location loc) {

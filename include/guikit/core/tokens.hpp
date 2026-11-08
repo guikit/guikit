@@ -48,11 +48,11 @@ enum class InlineOrder : uint8_t {
     ControlFirst   ///< Control first (left / start), label/text second (right / end)
 };
 
-/// Divider placement style for Heading.
-enum class HeadingDivider : uint8_t {
+/// Built-in separator placement for Heading.
+enum class HeadingSeparator : uint8_t {
     None = 0,
-    Bottom,   ///< Horizontal divider line underneath the heading
-    Trailing  ///< Inline horizontal divider line flanking/trailing the label bar
+    Bottom,   ///< Horizontal separator line underneath the heading
+    Trailing  ///< Inline horizontal separator line flanking/trailing the label bar
 };
 
 /// 6x3 Typographic Role Matrix (Material 3 scale extended for desktop/engineering).
