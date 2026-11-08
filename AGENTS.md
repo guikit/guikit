@@ -39,16 +39,17 @@ int main(int, char*[]) {
 ```
 
 ### Rule 2: Wrap Form Controls in `ui.Element(...)` — Do NOT Build Manual Label/Row Scaffolding
-Never manually nest `Column` + `Row` + `Text` just to attach a label, description, icon, badge, or validation frame to a control. `ui.Element` handles horizontal (`Left`/`Right`), vertical (`Top`), and `Inline` label placement automatically:
+Never manually nest `Column` + `Row` + `Text` just to attach a label, description, icon, badge, or validation frame to a control. `ui.Element` handles stacked (`Stacked`, `Top`, `Bottom`) and horizontal (`Inline` with `InlineOrder::LabelFirst` / `ControlFirst`) label placement automatically:
 
 ```cpp
 // GOOD: Declarative Element wrapper
 if (auto el = ui.Element({
     .label = "Cutoff Frequency",
     .description = "Low-pass filter corner (-3 dB)",
-    .icon = guikit::Icon::Wave(),
+    .icon = guikit::Icon::Flash(),
     .badge = "Hz",
-    .placement = guikit::ElementPlacement::Left
+    .layout = guikit::ElementLayout::Inline,
+    .inlineOrder = guikit::InlineOrder::LabelFirst
 })) {
     ui.SpinBox(cutoffHz, 20.0f, 20000.0f, 10.0f, {.format = "%.0f Hz"});
 }
@@ -71,8 +72,8 @@ if (ui.Size(guikit::UiSize::Sm).Button({.text = "Compact Action"})) { /* ... */ 
 }
 ```
 
-### Rule 4: Use `ui.Format(...)` for Per-Frame Strings — Do NOT Allocate `std::string` Every Frame
-`ui.Format(fmt, args...)` formats directly into the per-frame arena allocator (`FrameAllocator`) and returns a zero-heap-allocation `std::string_view` valid for the entire frame:
+### Rule 4: Use `ui.Format(...)` & `ui.String(...)` for Per-Frame Strings — Do NOT Allocate `std::string` Every Frame
+`ui.Format(fmt, args...)` and `ui.String(text)` allocate directly into the per-frame `keel::Arena` (`ctx.GetArena()`) and return a zero-heap-allocation `keel::InplaceString<>` (implicitly convertible to `std::string_view`, `UiText`, and `const char*`) valid for the entire frame:
 
 ```cpp
 // GOOD: Zero heap allocation
@@ -96,16 +97,17 @@ Hardcoded colors break Dark/Light theme switching and hover/active states.
 - For interactive widgets (`Button`, `Switch`, `Slider`, etc.), use `StateColor::Primary()`, `StateColor::Success()`, `StateColor::Warning()`, `StateColor::Danger()`, `StateColor::Ghost()`.
 - For surfaces and custom drawing, read tokens from `const auto& pal = ui.GetThemePalette();` (`pal.background`, `pal.surface`, `pal.surfaceElevated`, `pal.border`, `pal.textPrimary`, `pal.textSecondary`, `pal.accent`) and scale pixel distances via `ui.GetTheme().Scale(px)`.
 
-### Rule 7: Disambiguate IDs in Loops via `ui.MakeId(...)`
-Immediate-mode widgets derive their state ID from their label or parent scope. When rendering multiple items with identical labels in a loop, pass `.id = ui.MakeId(i)`:
+### Rule 7: Automatic Loop ID Disambiguation (`MakeChildId`) & Stable Scene Item IDs
+Immediate-mode widgets (`Button`, `Switch`, `Slider`, `Element`, etc.) automatically derive their state ID via `ctx.MakeChildId(loc)`, which hashes `(childIndex, source_location, parentId)`. Widgets rendered in a `for` loop inside a container (`Column`, `Row`, `Card`, `Toolbar`) are automatically disambiguated by `childIndex` without passing manual `.id` fields:
 
 ```cpp
 for (size_t i = 0; i < channels.size(); ++i) {
-    if (ui.Button({.id = ui.MakeId(i), .text = "Mute"})) {
+    if (ui.Button({.text = "Mute"})) {
         channels[i].muted = !channels[i].muted;
     }
 }
 ```
+When creating interactive `Scene` items (`sc.Item(...)`), pass a stable `.id = ui.Format("pt{}", row)` (see Rule 9a).
 
 ### Rule 8: Use `guikit::Assets` & `ICanvas::LoadFontFile` for Cross-Platform / WebAssembly Portability
 Files in `assets/` are compiled directly into the binary via `cmake/GenerateEmbeddedAssets.cmake`.
@@ -197,8 +199,8 @@ Before drawing custom shapes on `ICanvas`, check this inventory:
 - **Numeric & Metering**: `Slider`, `RangeSlider` (`minVal`, `maxVal`), `StepSlider` — horizontal, or vertical via `.orientation = Orientation::Vertical` (min at the bottom, `stretch = Fill` fills the height, StepSlider labels right of the ticks), `ProgressBar` (smooth, discrete LED segments, indeterminate), `LevelMeter` (single & multi-channel audio/telemetry dB bargraph with 3-zone coloring, peak-hold & clip LED), `Knob` (rotary encoder with bipolar arc & radial ticks), `SpinBox` (numeric stepper with drag-to-scrub).
 - **Text, Tags & Dropdowns**: `InputField` (text, password, numeric, prefix/suffix icons, clear button, validation), `TagInput` (multi-tag chip editor), `Select` (dropdown), `ComboBox` (searchable select), `Autocomplete` (free-text with suggestions), `MultiSelect` (multi-chip dropdown with checkboxes & "Select All").
 - **Pickers**: `ColorPicker` (2D HSV saturation/value canvas, hue/alpha sliders, HEX input, swatches), `DatePicker` (`Date`, `DateTime`, `Time` modes with calendar popup & leap-year math).
-- **Navigation & Data**: `TabBar` (underline/pill/card/folder styles, closable tabs, overflow scroll), `Breadcrumb` (with interactive `...` collapse menu), `Pagination` (ellipsis windowing), `Toolbar`, `Sidebar`, `SidebarMenu`, `ActivityBar`, `BottomPanel`, `StatusBar`, `Accordion`, `Carousel`, `TreeView` (multi-column, filterable hierarchy), `Table` (virtualized 100k+ row data grid with sorting & selection).
-- **Overlays**: `Modal` (`if (auto m = ui.Modal(open, opts))`), `Popover`, `ContextMenu`, `CommandPalette` (`Ctrl+K` fuzzy command launcher), `Toast` (`ui.ShowToast(...)` + `ui.RenderToasts()`).
+- **Navigation & Data**: `TabBar` (underline/pill/card/folder styles, closable tabs, overflow scroll), `Breadcrumb` (with interactive `...` collapse menu), `Pagination` (ellipsis windowing), `Toolbar` (`ToolButton` / `Action`, `Toggle`, `Item`, `Dropdown`, `SplitButton`, `SplitToggle`, `Separator`, `Spacer` with `AutoCompact`/`Scroll`/`Wrap`/`Clip` overflow), `Sidebar`, `SidebarMenu`, `ActivityBar`, `BottomPanel`, `StatusBar`, `Accordion`, `Carousel`, `TreeView` (multi-column, filterable hierarchy), `Table` (virtualized 100k+ row data grid with sorting & selection).
+- **Overlays**: `Modal` (`if (auto m = ui.Modal(open, opts))`), `Popover`, `ContextMenu`, `CommandPalette` (`Ctrl+K` fuzzy command launcher), `Toast` (`ui.ShowToast(...)` + `ui.ToastHost()`).
 - **Rich Editors & 2D Domain Scenes (`guikit::scenes`)**: `Markdown`, `TextArea` / `CodeEditor` (syntax highlighting, breakpoints, code folding, minimap, find/replace), `Scene` (infinite pan/zoom vector canvas with grid & rulers), `MapView` (S-52/ENC vector marine GIS chart + 7 geodetic projections), `SignalView` (waveform + STFT spectrogram), `SonarView` (PPI 360° / Sector / B-Scan radar), `WaterfallView` (RTSA spectral waterfall), `ImageView` + `Histogram` (16-bit scientific image workstation with Window/Level & pixel loupe), `AttitudeView` (avionics PFD), `CarClusterView` (automotive cockpit), `BpmnEditor` (interactive BPMN 2.0 modeler & token simulator).
 
 ---
@@ -220,10 +222,13 @@ When modifying or extending GuiKit itself:
    - **Struct Fields, Parameters, Local Variables**: `camelCase` (`fontSize`, `maxWidth`, `borderRadius`).
    - **Private Class Members**: `m_camelCase` (`m_activeId`, `m_hadModalLastFrame`).
    - **Compile-Time Constants**: `kPascalCase` (`kDefaultFontSize`, `kMaxChannels`).
-3. **Formatting & Quality**:
+3. **Zero-Heap-Allocation Hot Paths & Frame Arena Lifetimes (`keel`)**:
+   - Inside widget and layout implementations (`src/guikit/`), avoid per-frame `std::vector`, `std::string`, or `std::format` heap allocations. Use `keel::SmallArray<T, N>` (`#include "keel/small_array.h"`), `ctx.GetArena()` (`keel::Arena`), `ctx.AllocPayload<T>(...)`, and `keel::format_arena(...)`.
+   - Whenever widget options (`UiText`, `UiAffix`, `Icon`) are stored in a `Node` payload or captured into a deferred `ctx.RegisterOverlay(...)` callback, copy their string/path views into the frame arena via `ctx.AllocText(...)`, `ctx.AllocAffix(...)`, `ctx.AllocIcon(...)`, or `ctx.AllocString(...)` so temporary caller buffers never dangle during `EndFrame`.
+4. **Formatting & Quality**:
    - C++20 standard (`constexpr`, `[[nodiscard]]`, `noexcept`, `std::string_view`, `std::span`).
    - Formatting is enforced by `.clang-format` (4-space indent, 120-column limit, `Attach` braces, case-sensitive sorted includes) and `.editorconfig` (UTF-8, LF line endings).
-4. **Building & Running Tests**:
+5. **Building & Running Tests**:
    ```powershell
    cmake -B build
    cmake --build build --target test_core test_layout test_context guikit_demo
