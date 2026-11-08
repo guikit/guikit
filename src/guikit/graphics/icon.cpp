@@ -32,15 +32,32 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
             }
 
             case IconId::Plus: {
-                const float arm = s * 0.30f;
-                canvas.DrawLine(Vec2(cx - arm, cy), Vec2(cx + arm, cy), tint, stroke);
-                canvas.DrawLine(Vec2(cx, cy - arm), Vec2(cx, cy + arm), tint, stroke);
+                const float t = (s >= 11.0f) ? std::max(2.0f, std::round(s * 0.14f)) : 1.5f;
+                const float armLen = std::max(2.0f, std::round(s * 0.25f));
+                const float span = t + armLen * 2.0f;
+                const float vx = std::round(cx - t * 0.5f);
+                const float hy = std::round(cy - t * 0.5f);
+                const float hx0 = vx - armLen;
+                const float vy0 = hy - armLen;
+                const float r = t * 0.5f;
+                canvas.DrawRoundRect(Rect(hx0, hy, span, t), r, tint);
+                if (tint.a == 255) {
+                    canvas.DrawRoundRect(Rect(vx, vy0, t, span), r, tint);
+                } else {
+                    canvas.DrawRect(Rect(vx, vy0, t, armLen), tint);
+                    canvas.DrawRect(Rect(vx, hy + t, t, armLen), tint);
+                }
                 break;
             }
 
             case IconId::Minus: {
-                const float arm = s * 0.30f;
-                canvas.DrawLine(Vec2(cx - arm, cy), Vec2(cx + arm, cy), tint, stroke);
+                const float t = (s >= 11.0f) ? std::max(2.0f, std::round(s * 0.14f)) : 1.5f;
+                const float armLen = std::max(2.0f, std::round(s * 0.25f));
+                const float span = t + armLen * 2.0f;
+                const float vx = std::round(cx - t * 0.5f);
+                const float hy = std::round(cy - t * 0.5f);
+                const float hx0 = vx - armLen;
+                canvas.DrawRoundRect(Rect(hx0, hy, span, t), t * 0.5f, tint);
                 break;
             }
 

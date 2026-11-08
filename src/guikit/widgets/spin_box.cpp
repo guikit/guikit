@@ -129,9 +129,8 @@ struct SpinBoxState {
     bool minusBtnDown{false};
     bool plusBtnDown{false};
     bool wasFocusedOnPress{false};
-    bool scrubbing{false};
-    Vec2 scrubStartPos{};
-    double scrubStartValue{0.0};
+    double repeatStartTime{0.0};
+    double lastRepeatTime{0.0};
 };
 
 struct SpinBoxRects {
@@ -327,6 +326,8 @@ Response SpinBox::Run(
     optsCopy.prefix = ctx.AllocAffix(opts.prefix);
     optsCopy.suffix = ctx.AllocAffix(opts.suffix);
     optsCopy.valueFormat = ctx.AllocText(opts.valueFormat);
+    optsCopy.minusIcon = ctx.AllocIcon(opts.minusIcon);
+    optsCopy.plusIcon = ctx.AllocIcon(opts.plusIcon);
 
     if (opts.min.has_value() || opts.max.has_value()) {
         WriteNumericValue(ReadNumericValue(floatValue, doubleValue, intValue), floatValue, doubleValue, intValue, opts);
@@ -341,7 +342,6 @@ Response SpinBox::Run(
         state.actionBtnDown = false;
         state.minusBtnDown = false;
         state.plusBtnDown = false;
-        state.scrubbing = false;
     }
 
     const UiTheme& theme = ctx.GetTheme();
@@ -355,53 +355,47 @@ Response SpinBox::Run(
     SpinBoxRects rects = ResolveSpinBoxRects(refBounds, optsCopy, activeSize, canvas, theme, showStepBtns);
 
     const Vec2 mousePos = ctx.GetMousePos();
-    const bool stepMinusHovered = showStepBtns && !effectiveDisabled && res.hovered && rects.stepMinusRect.Contains(mousePos);
-    const bool stepPlusHovered = showStepBtns && !effectiveDisabled && res.hovered && rects.stepPlusRect.Contains(mousePos);
+    const bool stepMinusHovered = showStepBtns && !effectiveDisabled && (res.hovered || res.pressed) && rects.stepMinusRect.Contains(mousePos);
+    const bool stepPlusHovered = showStepBtns && !effectiveDisabled && (res.hovered || res.pressed) && rects.stepPlusRect.Contains(mousePos);
 
     double stepClickDelta = 0.0;
     const double stepVal = opts.step.value_or(1.0);
+    const double nowSec = ctx.GetCurrentTime();
     if (mouseJustPressed) {
         state.wasFocusedOnPress = wasFocused;
-        state.scrubbing = false;
-        state.scrubStartPos = mousePos;
-        state.scrubStartValue = ReadNumericValue(floatValue, doubleValue, intValue);
         state.minusBtnDown = false;
         state.plusBtnDown = false;
 
         if (stepMinusHovered) {
             state.actionBtnDown = true;
             state.minusBtnDown = true;
+            state.repeatStartTime = nowSec;
+            state.lastRepeatTime = nowSec;
             stepClickDelta = -stepVal;
+            ctx.RequestRepaint(2);
         } else if (stepPlusHovered) {
             state.actionBtnDown = true;
             state.plusBtnDown = true;
+            state.repeatStartTime = nowSec;
+            state.lastRepeatTime = nowSec;
             stepClickDelta = stepVal;
+            ctx.RequestRepaint(2);
         }
-    }
-
-    // Handle drag-scrub when dragging horizontally before entering active text selection
-    if (opts.dragScrub && !opts.readOnly && !effectiveDisabled && res.pressed && !state.actionBtnDown && !state.wasFocusedOnPress) {
-        const float dx = mousePos.x - state.scrubStartPos.x;
-        if (state.scrubbing || std::abs(dx) > 5.0f) {
-            state.scrubbing = true;
-            const auto mods = ctx.GetKeyModifiers();
-            const double mult = mods.shift ? 0.1 : (mods.ctrl ? 10.0 : 1.0);
-            const double effectiveStep = stepVal * mult;
-            const double stepsMoved = (intValue != nullptr)
-                ? std::round(static_cast<double>(dx) / 6.0)
-                : (static_cast<double>(dx) / 6.0);
-            double nextVal = state.scrubStartValue + stepsMoved * effectiveStep;
-            if (opts.step.has_value() && !mods.shift) {
-                nextVal = std::round((nextVal - state.scrubStartValue) / effectiveStep) * effectiveStep + state.scrubStartValue;
-            }
-            const double prevVal = ReadNumericValue(floatValue, doubleValue, intValue);
-            WriteNumericValue(nextVal, floatValue, doubleValue, intValue, opts);
-            const double updatedVal = ReadNumericValue(floatValue, doubleValue, intValue);
-            if (std::abs(updatedVal - prevVal) > 1e-7) {
-                FormatNumericValue(valBuf, sizeof(valBuf), floatValue, doubleValue, intValue, optsCopy);
-                valStr = valBuf;
-                ctx.SetTextEditBuffer(id, valStr);
-                res.changed = true;
+    } else if (res.pressed && state.actionBtnDown && !opts.readOnly && !effectiveDisabled) {
+        ctx.RequestRepaint(2);
+        const bool activeBtnHovered = (state.minusBtnDown && stepMinusHovered) || (state.plusBtnDown && stepPlusHovered);
+        if (activeBtnHovered) {
+            constexpr double kRepeatInitialDelaySec = 0.40;
+            constexpr double kRepeatIntervalSec = 0.065;
+            constexpr double kFastRepeatDelaySec = 1.60;
+            constexpr double kFastRepeatIntervalSec = 0.032;
+            const double heldSec = nowSec - state.repeatStartTime;
+            if (heldSec >= kRepeatInitialDelaySec) {
+                const double interval = (heldSec >= kFastRepeatDelaySec) ? kFastRepeatIntervalSec : kRepeatIntervalSec;
+                if ((nowSec - state.lastRepeatTime) >= interval) {
+                    state.lastRepeatTime = nowSec;
+                    stepClickDelta = state.minusBtnDown ? -stepVal : stepVal;
+                }
             }
         }
     }
@@ -441,7 +435,7 @@ Response SpinBox::Run(
         const Rect textRect = rects.textRect;
         const float inputFont = theme.ResolveFontSize(optsCopy.valueFormat, TextRole::LabelMedium, activeSize);
 
-        if ((mouseJustPressed || res.pressed) && !state.actionBtnDown && !state.scrubbing) {
+        if ((mouseJustPressed || res.pressed) && !state.actionBtnDown) {
             const float localX = (mousePos.x - textRect.x) + state.scrollX;
             size_t hitIdx = TextUtil::HitTestIndex(currentEditText, localX, inputFont, canvas);
             hitIdx = SnapToUtf8CodepointBoundary(currentEditText, hitIdx);
@@ -596,7 +590,7 @@ Response SpinBox::Run(
     data->selStart = selStart;
     data->selEnd = selEnd;
     data->scrollX = state.scrollX;
-    data->cursorVisible = isFocused && !opts.readOnly && !state.scrubbing && ctx.IsCursorVisible(opts.cursorMode);
+    data->cursorVisible = isFocused && !opts.readOnly && ctx.IsCursorVisible(opts.cursorMode);
     data->cursorWidth = ctx.GetCursorConfig().width;
     data->showStepBtns = showStepBtns;
     data->stepMinusHovered = stepMinusHovered;
@@ -605,7 +599,6 @@ Response SpinBox::Run(
     data->stepPlusPressed = state.plusBtnDown && res.pressed;
     data->stepMinusDisabled = stepMinusDisabled;
     data->stepPlusDisabled = stepPlusDisabled;
-    data->scrubbing = state.scrubbing;
     node->SetPayload(data);
     node->visualHash = detail::HashArgs(
         static_cast<uint8_t>(optsCopy.align),
@@ -633,7 +626,12 @@ Response SpinBox::Run(
         data->stepPlusPressed,
         data->stepMinusDisabled,
         data->stepPlusDisabled,
-        data->scrubbing,
+        static_cast<uint8_t>(optsCopy.minusIcon.GetType()),
+        static_cast<uint8_t>(optsCopy.minusIcon.GetId()),
+        optsCopy.minusIcon.GetPath(),
+        static_cast<uint8_t>(optsCopy.plusIcon.GetType()),
+        static_cast<uint8_t>(optsCopy.plusIcon.GetId()),
+        optsCopy.plusIcon.GetPath(),
         optsCopy.prefix,
         optsCopy.suffix,
         optsCopy.valueFormat
@@ -673,7 +671,6 @@ Response SpinBox::Run(
             d ? d->stepMinusDisabled : false,
             d ? d->stepPlusDisabled : false,
             d ? d->fillRatio : 0.0f,
-            d ? d->scrubbing : false,
             d ? d->stepMinusPressed : false,
             d ? d->stepPlusPressed : false
         );
@@ -740,7 +737,6 @@ void SpinBox::Render(
     bool stepMinusDisabled,
     bool stepPlusDisabled,
     float fillRatio,
-    bool scrubbing,
     bool stepMinusPressed,
     bool stepPlusPressed
 ) {
@@ -765,10 +761,10 @@ void SpinBox::Render(
 
     const VariantColors& primaryVar = theme.GetVariant(UiVariant::Primary);
     const Color accentCol = opts.color.HasAny()
-        ? opts.color.Resolve(hovered && !disabled, (focused || scrubbing) && !disabled, disabled, primaryVar.bg, primaryVar.bgHover, primaryVar.bgActive, primaryVar.bg)
+        ? opts.color.Resolve(hovered && !disabled, focused && !disabled, disabled, primaryVar.bg, primaryVar.bgHover, primaryVar.bgActive, primaryVar.bg)
         : primaryVar.bg;
 
-    if ((focused || scrubbing) && !disabled) {
+    if (focused && !disabled) {
         boxBorder = opts.color.HasAny() ? accentCol : pal.focusRing;
         if (ctrl.border.width > 0.0f || m.strokeWidth > 0.0f) strokeW += 0.5f;
     } else if (inputHovered && !disabled) {
@@ -810,6 +806,9 @@ void SpinBox::Render(
             canvas.DrawRoundRect(barRect, barH * 0.5f, barCol, Color::Transparent(), 0.0f);
         }
     }
+
+    const Icon effMinusIcon = opts.minusIcon.IsValid() ? opts.minusIcon : Icon::Minus();
+    const Icon effPlusIcon = opts.plusIcon.IsValid() ? opts.plusIcon : Icon::Plus();
 
     // External square (H x H) stepper buttons for Detached / Split styles
     if (isExternalStepBtns) {
@@ -858,8 +857,8 @@ void SpinBox::Render(
             ic.Draw(canvas, icRect, icCol);
         };
 
-        drawSquareStepBtn(rects.stepMinusRect, Icon::Minus(), stepMinusHovered, stepMinusPressed, stepMinusDisabled);
-        drawSquareStepBtn(rects.stepPlusRect, Icon::Plus(), stepPlusHovered, stepPlusPressed, stepPlusDisabled);
+        drawSquareStepBtn(rects.stepMinusRect, effMinusIcon, stepMinusHovered, stepMinusPressed, stepMinusDisabled);
+        drawSquareStepBtn(rects.stepPlusRect, effPlusIcon, stepPlusHovered, stepPlusPressed, stepPlusDisabled);
     }
 
     const float inputFont = theme.ResolveFontSize(opts.valueFormat, TextRole::LabelMedium, size);
@@ -873,30 +872,39 @@ void SpinBox::Render(
     }
 
     if (effStyle == SpinBoxStepStyle::Inline) {
-        const float iconSz = std::max(theme.Scale(8.0f), m.iconSize - theme.Scale(2.0f));
+        const float iconSz = std::max(theme.Scale(10.0f), m.iconSize);
         const float btnRadius = theme.Scale(4.0f);
         const float sepInsetY = theme.Scale(5.0f);
 
         auto drawInlineStepBtn = [&](const Rect& btnRect, const Icon& ic, bool btnHov, bool btnPress, bool btnDis) {
             if (btnRect.w <= 0.0f || btnRect.h <= 0.0f) return;
-            if ((btnHov || btnPress) && !disabled && !btnDis) {
-                const Color hovBg = btnPress ? accentCol.WithAlphaF(0.28f) : pal.surfaceHover;
-                canvas.DrawRoundRect(btnRect, btnRadius, hovBg, Color::Transparent(), 0.0f);
+            const bool effDis = disabled || btnDis;
+            Color btnBg = pal.surfaceHover.WithAlphaF(effDis ? 0.18f : 0.45f);
+            Color btnBorder = pal.borderSubtle.WithAlphaF(effDis ? 0.25f : 0.65f);
+            if (!effDis) {
+                if (btnPress) {
+                    btnBg = accentCol.WithAlphaF(0.28f);
+                    btnBorder = accentCol;
+                } else if (btnHov) {
+                    btnBg = pal.surfaceHover;
+                    btnBorder = opts.color.HasAny() ? accentCol.WithAlphaF(0.75f) : pal.borderHover;
+                }
             }
+            canvas.DrawRoundRect(btnRect, btnRadius, btnBg, btnBorder, 1.0f);
             const Rect icRect(
                 btnRect.x + (btnRect.w - iconSz) * 0.5f,
                 btnRect.y + (btnRect.h - iconSz) * 0.5f,
                 iconSz,
                 iconSz
             );
-            const Color icCol = (disabled || btnDis)
+            const Color icCol = effDis
                 ? unitCol.WithAlphaF(0.35f)
-                : ((btnHov || btnPress) ? (opts.color.HasAny() ? accentCol : pal.textPrimary) : unitCol);
+                : ((btnHov || btnPress) ? (opts.color.HasAny() ? accentCol : pal.textPrimary) : pal.textPrimary);
             ic.Draw(canvas, icRect, icCol);
         };
 
-        drawInlineStepBtn(rects.stepPlusRect, Icon::Plus(), stepPlusHovered, stepPlusPressed, stepPlusDisabled);
-        drawInlineStepBtn(rects.stepMinusRect, Icon::Minus(), stepMinusHovered, stepMinusPressed, stepMinusDisabled);
+        drawInlineStepBtn(rects.stepPlusRect, effPlusIcon, stepPlusHovered, stepPlusPressed, stepPlusDisabled);
+        drawInlineStepBtn(rects.stepMinusRect, effMinusIcon, stepMinusHovered, stepMinusPressed, stepMinusDisabled);
 
         // Subtle vertical separator before stepper buttons
         canvas.DrawLine(
@@ -917,7 +925,7 @@ void SpinBox::Render(
     const Rect textRect = rects.textRect;
     canvas.PushClip(textRect);
 
-    if (focused && !disabled && !scrubbing && selStart != selEnd && !displayText.empty()) {
+    if (focused && !disabled && selStart != selEnd && !displayText.empty()) {
         const size_t s0 = std::min({selStart, selEnd, displayText.size()});
         const size_t s1 = std::min(std::max(selStart, selEnd), displayText.size());
         if (s1 > s0) {
@@ -940,7 +948,7 @@ void SpinBox::Render(
         }
     }
 
-    if (focused && !disabled && !opts.readOnly && !scrubbing && cursorVisible) {
+    if (focused && !disabled && !opts.readOnly && cursorVisible) {
         const size_t safeCursor = std::min(cursor, displayText.size());
         const std::string_view sub = displayText.substr(0, safeCursor);
         const float subW = canvas.MeasureText(sub, inputFont).x;

@@ -10,7 +10,7 @@ struct SpinBoxState {
     float maxVal = 500.0f;
     float step = 2.5f;
     guikit::SpinBoxStepStyle stepStyle = guikit::SpinBoxStepStyle::Detached;
-    bool dragScrub = true;
+    int iconStyleIdx = 0; // 0 = Minus/Plus, 1 = Chevrons, 2 = Arrows
     bool showFillBar = true;
     std::string prefix = "";
     std::string suffix = "MHz";
@@ -42,11 +42,14 @@ void RenderSpinBoxInspector(guikit::Context& ui, DemoContext&) {
             ui.InvalidateAll();
         }
     }
+    static constexpr std::array<std::string_view, 3> iconStyleLabels = {"Minus / Plus", "Chevrons", "Arrows"};
     if (auto el = ui.Element({
-        .label = "Drag-to-Scrub",
-        .description = "Drag horizontally on value area to scrub (Shift = fine)"
+        .label = "Stepper Icons",
+        .description = "Custom vector icons for decrement / increment buttons"
     })) {
-        if (ui.Switch(s_state.dragScrub).changed) ui.InvalidateAll();
+        if (ui.Segmented(s_state.iconStyleIdx, iconStyleLabels).changed) {
+            ui.InvalidateAll();
+        }
     }
     if (auto el = ui.Element({
         .label = "Progress Fill Bar",
@@ -78,6 +81,13 @@ void RenderSpinBoxInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderSpinBoxStage(guikit::Context& ui, DemoContext& ctx) {
+    const guikit::Icon minusIc = (s_state.iconStyleIdx == 1)
+        ? guikit::Icon::ChevronDown()
+        : ((s_state.iconStyleIdx == 2) ? guikit::Icon::ArrowLeft() : guikit::Icon::Minus());
+    const guikit::Icon plusIc = (s_state.iconStyleIdx == 1)
+        ? guikit::Icon::ChevronUp()
+        : ((s_state.iconStyleIdx == 2) ? guikit::Icon::ArrowRight() : guikit::Icon::Plus());
+
     if (auto el = ui.Size(ctx.elemSize).Element({
         .label = ctx.GetElementLabel(),
         .description = ctx.GetElementDescription(),
@@ -106,7 +116,8 @@ void RenderSpinBoxStage(guikit::Context& ui, DemoContext& ctx) {
             .max = static_cast<double>(s_state.maxVal),
             .step = static_cast<double>(s_state.step),
             .stepStyle = s_state.stepStyle,
-            .dragScrub = s_state.dragScrub,
+            .minusIcon = minusIc,
+            .plusIcon = plusIc,
             .showFillBar = s_state.showFillBar,
             .disabled = ctx.elemDisabled,
             .readOnly = s_state.readOnly
@@ -115,6 +126,13 @@ void RenderSpinBoxStage(guikit::Context& ui, DemoContext& ctx) {
 }
 
 std::string GenerateSpinBoxCode(const DemoContext& ctx) {
+    const std::string_view minusIconCode = (s_state.iconStyleIdx == 1)
+        ? "guikit::Icon::ChevronDown()"
+        : ((s_state.iconStyleIdx == 2) ? "guikit::Icon::ArrowLeft()" : "guikit::Icon::Minus()");
+    const std::string_view plusIconCode = (s_state.iconStyleIdx == 1)
+        ? "guikit::Icon::ChevronUp()"
+        : ((s_state.iconStyleIdx == 2) ? "guikit::Icon::ArrowRight()" : "guikit::Icon::Plus()");
+
     return std::format(
         "if (auto el = ui.{}Element({{\n"
         "    .label = {},\n"
@@ -144,7 +162,8 @@ std::string GenerateSpinBoxCode(const DemoContext& ctx) {
         "        .max = {:.1f},\n"
         "        .step = {:.1f},\n"
         "        .stepStyle = guikit::SpinBoxStepStyle::{},\n"
-        "        .dragScrub = {},\n"
+        "        .minusIcon = {},\n"
+        "        .plusIcon = {},\n"
         "        .showFillBar = {},\n"
         "        .disabled = {},\n"
         "        .readOnly = {}\n"
@@ -176,7 +195,8 @@ std::string GenerateSpinBoxCode(const DemoContext& ctx) {
         s_state.maxVal,
         s_state.step,
         StepStyleEnumName(s_state.stepStyle),
-        s_state.dragScrub ? "true" : "false",
+        minusIconCode,
+        plusIconCode,
         s_state.showFillBar ? "true" : "false",
         ctx.elemDisabled ? "true" : "false",
         s_state.readOnly ? "true" : "false"

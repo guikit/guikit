@@ -10340,7 +10340,6 @@ void TestKnobSpinBoxAndRadioElements() {
                     .max = 500.0,
                     .step = 10.0,
                     .stepButtons = true,
-                    .dragScrub = true,
                     .showFillBar = true
                 });
             }
@@ -10405,7 +10404,8 @@ void TestKnobSpinBoxAndRadioElements() {
     CHECK(rKnobPan.changed);
     CHECK(std::abs(knobPan - 2.0f) < 0.01f);
 
-    // 3. Test SpinBox horizontal drag-to-scrub on center value region
+    // 3. Test SpinBox: dragging on value region selects text (does NOT scrub value),
+    //    and holding down the '+' button triggers typematic auto-repeat stepping.
     const Vec2 spinCenter = {rSpinFreq.rect.x + rSpinFreq.rect.w * 0.5f, rSpinFreq.rect.y + rSpinFreq.rect.h * 0.5f};
     ui.OnMouseMove(spinCenter);
     ui.OnMouseDown(1);
@@ -10418,8 +10418,49 @@ void TestKnobSpinBoxAndRadioElements() {
     renderScene();
     ui.EndFrame(canvas);
 
+    CHECK(!rSpinFreq.changed);
+    CHECK(std::abs(spinFreq - 100.0f) < 0.01f);
+
+    ui.OnMouseUp(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+
+    // Press and hold '+' button on rSpinFreq:
+    // Initial press steps from 100 -> 110; holding past 0.40s initial delay auto-repeats.
+    const Vec2 spinPlusPt = {rSpinFreq.rect.Right() - 14.0f, rSpinFreq.rect.Bottom() - 16.0f};
+    ui.OnMouseMove(spinPlusPt);
+    ui.SetCurrentTime(10.0);
+    ui.OnMouseDown(1);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
     CHECK(rSpinFreq.changed);
-    CHECK(spinFreq > 100.0f);
+    CHECK_NEAR(spinFreq, 110.0f, 0.01f);
+
+    // Before initial 0.40s typematic delay (t = 10.25s) -> no repeat yet
+    ui.SetCurrentTime(10.25);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+    CHECK(!rSpinFreq.changed);
+    CHECK_NEAR(spinFreq, 110.0f, 0.01f);
+
+    // After 0.40s typematic delay (t = 10.45s) -> first auto-repeat step (110 -> 120)
+    ui.SetCurrentTime(10.45);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+    CHECK(rSpinFreq.changed);
+    CHECK_NEAR(spinFreq, 120.0f, 0.01f);
+
+    // Next repeat interval (t = 10.53s) -> second auto-repeat step (120 -> 130)
+    ui.SetCurrentTime(10.53);
+    ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});
+    renderScene();
+    ui.EndFrame(canvas);
+    CHECK(rSpinFreq.changed);
+    CHECK_NEAR(spinFreq, 130.0f, 0.01f);
 
     ui.OnMouseUp(1);
     ui.BeginFrame({static_cast<float>(width), static_cast<float>(height)});

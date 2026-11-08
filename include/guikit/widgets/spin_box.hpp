@@ -17,7 +17,7 @@ class ICanvas;
 
 /// Visual layout style for SpinBox decrement/increment ('-' / '+') buttons.
 enum class SpinBoxStepStyle : uint8_t {
-    None,       ///< No stepper buttons (keyboard Up/Down, mouse wheel, or drag-scrub only)
+    None,       ///< No stepper buttons (keyboard Up/Down or mouse wheel only)
     Inline,     ///< Compact '-' and '+' buttons integrated inside the right side of the input well
     Detached,   ///< Two square (H x H) '-' and '+' buttons placed outside to the right of the input field
     Split       ///< Square (H x H) '-' button on the left and '+' button on the right of the input field
@@ -40,10 +40,11 @@ struct SpinBoxOptions {
     Border border{};                               ///< SpinBox border stroke & corner radius configuration
     std::optional<double> min{std::nullopt};       ///< Optional minimum numeric value constraint
     std::optional<double> max{std::nullopt};       ///< Optional maximum numeric value constraint
-    std::optional<double> step{std::nullopt};      ///< Step increment for +/- buttons, Up/Down keys, mouse wheel, and drag-scrub (defaults to 1.0)
+    std::optional<double> step{std::nullopt};      ///< Step increment for +/- buttons, Up/Down keys, and mouse wheel (defaults to 1.0)
     SpinBoxStepStyle stepStyle{SpinBoxStepStyle::Inline}; ///< Layout style for '-' and '+' stepper buttons
+    Icon minusIcon{Icon::Minus()};                 ///< Icon rendered inside the decrement ('-') stepper button
+    Icon plusIcon{Icon::Plus()};                   ///< Icon rendered inside the increment ('+') stepper button
     bool stepButtons{true};                        ///< Shows interactive '-' and '+' stepper buttons (false forces SpinBoxStepStyle::None)
-    bool dragScrub{true};                          ///< Allows horizontal mouse drag on the value area to scrub the number
     bool showFillBar{false};                       ///< Renders an accent progress bar along the bottom edge when min & max are set
     bool disabled{false};                          ///< Interaction suppression
     bool readOnly{false};                          ///< Non-editable display mode
@@ -67,7 +68,6 @@ struct SpinBoxData {
     bool stepPlusPressed{false};
     bool stepMinusDisabled{false};
     bool stepPlusDisabled{false};
-    bool scrubbing{false};
 };
 
 /// Autonomous SpinBox widget logic (execution, measuring, and rendering).
@@ -123,7 +123,6 @@ public:
         bool stepMinusDisabled = false,
         bool stepPlusDisabled = false,
         float fillRatio = 0.0f,
-        bool scrubbing = false,
         bool stepMinusPressed = false,
         bool stepPlusPressed = false
     );
