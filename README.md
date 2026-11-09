@@ -113,12 +113,9 @@ guikit/
 - C++20 compiler (MSVC 2022+, Clang 15+, GCC 12+, or Emscripten for WebAssembly)
 - CMake 3.21+
 - Git
-- **Linux (Ubuntu / Debian)** — X11, Wayland, and OpenGL development headers required when building the `SDL3` desktop backend:
+- **Linux (Ubuntu / Debian / Fedora / Arch)** — X11, Wayland, and OpenGL development headers required when building the `SDL3` desktop backend:
   ```bash
-  sudo apt-get update && sudo apt-get install -y \
-      pkg-config libgl-dev libegl-dev \
-      libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev \
-      libwayland-dev libxkbcommon-dev wayland-protocols libdecor-0-dev
+  ./scripts/linux/install-deps.sh
   ```
 
 ### 1. Clone with Submodules
