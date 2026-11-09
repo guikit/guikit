@@ -919,9 +919,11 @@ void Element::RenderText(
                 curX += std::min(titleAvailW, rawTitleW);
             } else {
                 float titleW = canvas.MeasureText(spec.label.text, geom.labelFontSize).x;
-                std::string displayTitle(spec.label.text);
+                keel::InplaceString<256> truncatedTitle;
+                std::string_view displayTitle = spec.label.text;
                 if (titleW > titleAvailW + kTextSubpixelTolerance && titleAvailW > 0.0f) {
-                    displayTitle = TextUtil::TruncateWithEllipsis(spec.label.text, titleAvailW, geom.labelFontSize, &canvas);
+                    truncatedTitle = TextUtil::TruncateWithEllipsis(spec.label.text, titleAvailW, geom.labelFontSize, &canvas);
+                    displayTitle = truncatedTitle;
                     titleW = canvas.MeasureText(displayTitle, geom.labelFontSize).x;
                 }
                 canvas.DrawTextBox(displayTitle, titleR, geom.labelFontSize, labelCol, 0.0f, 0.5f);

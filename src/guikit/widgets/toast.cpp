@@ -1,10 +1,10 @@
 #include "guikit/widgets/toast.hpp"
 #include <algorithm>
 #include <cmath>
-#include <vector>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/small_array.h"
 
 namespace guikit {
 
@@ -75,7 +75,7 @@ void Toast::RunHost(
         float textW{0.0f};
         float msgH{0.0f};
     };
-    std::vector<LayoutToast> layoutList;
+    keel::SmallArray<LayoutToast, 8> layoutList;
     layoutList.reserve(entries.size() - startIdx);
 
     for (size_t i = startIdx; i < entries.size(); ++i) {
@@ -195,18 +195,37 @@ void Toast::RunHost(
 
     // Rebuild snapshot for overlay draw pass after any erasures
     struct DrawToastData {
-        ToastEntry entry;
-        Rect cardRect;
-        Rect closeRect;
-        float textW;
-        float msgH;
+        std::string_view title{};
+        std::string_view message{};
+        UiVariant variant{UiVariant::Info};
+        Icon icon{};
+        float duration{3.5f};
+        double elapsedSec{0.0};
+        bool closable{true};
+        bool showProgress{true};
+        bool hovered{false};
+        bool closeHovered{false};
+        Rect cardRect{};
+        Rect closeRect{};
+        float textW{0.0f};
+        float msgH{0.0f};
     };
-    std::vector<DrawToastData> drawList;
+    keel::SmallArray<DrawToastData, 8> drawList;
     drawList.reserve(layoutList.size());
     for (const auto& lt : layoutList) {
         if (lt.index < entries.size() && entries[lt.index].id != dismissId) {
+            const auto& ent = entries[lt.index];
             drawList.push_back(DrawToastData{
-                .entry = entries[lt.index],
+                .title = ctx.AllocString(ent.title),
+                .message = ctx.AllocString(ent.message),
+                .variant = ent.variant,
+                .icon = ctx.AllocIcon(ent.icon),
+                .duration = ent.duration,
+                .elapsedSec = ent.elapsedSec,
+                .closable = ent.closable,
+                .showProgress = ent.showProgress,
+                .hovered = ent.hovered,
+                .closeHovered = ent.closeHovered,
                 .cardRect = lt.cardRect,
                 .closeRect = lt.closeRect,
                 .textW = lt.textW,
@@ -220,7 +239,7 @@ void Toast::RunHost(
         const float radius = 10.0f * s;
 
         for (const auto& dt : drawList) {
-            const auto& e = dt.entry;
+            const auto& e = dt;
             const Rect& r = dt.cardRect;
 
             // Shadow

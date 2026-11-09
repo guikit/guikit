@@ -377,7 +377,7 @@ void MapViewScope::RenderForegroundOverlays() {
                     /*scaleWithZoom=*/false
                 );
 
-                const std::string nwText = MapGrid::FormatCoord(cell.geoBounds.nw, m_opts.coordFormat, m_opts.crs);
+                const auto nwText = MapGrid::FormatCoord(cell.geoBounds.nw, m_opts.coordFormat, m_opts.crs);
                 m_scene.DrawText(
                     nwText,
                     {r.x + 6.0f * invZ, r.y + 6.0f * invZ},
@@ -455,13 +455,13 @@ void MapViewScope::RenderForegroundOverlays() {
 
         for (const GraticuleLine& m : m_view.meridians) {
             if (m.worldPos >= topRulerStartX && m.worldPos + 44.0f * invZ <= visWorld.Right()) {
-                const std::string lbl = MapGrid::FormatGraticuleTick(m.degrees, /*isLat=*/false, m_view.graticuleStepArcMin);
+                const auto lbl = MapGrid::FormatGraticuleTick(m.degrees, /*isLat=*/false, m_view.graticuleStepArcMin);
                 m_scene.DrawText(lbl, {m.worldPos + 4.0f * invZ, visWorld.y + 3.0f * invZ}, 10.0f, rulerText, FontStyle::Monospace, false);
             }
         }
         for (const GraticuleLine& p : m_view.parallels) {
             if (p.worldPos >= leftRulerStartY + 14.0f * invZ && p.worldPos <= visWorld.Bottom()) {
-                const std::string lbl = MapGrid::FormatGraticuleTick(p.degrees, /*isLat=*/true, m_view.graticuleStepArcMin);
+                const auto lbl = MapGrid::FormatGraticuleTick(p.degrees, /*isLat=*/true, m_view.graticuleStepArcMin);
                 m_scene.DrawText(lbl, {leftBar.x + 4.0f * invZ, p.worldPos - 13.0f * invZ}, 10.0f, rulerText, FontStyle::Monospace, false);
             }
         }

@@ -10,6 +10,29 @@ Context::Context() {
     m_disabledStack.push_back(false);
 }
 
+Context::~Context() {
+    ClearOverlayPasses();
+    ClearOverlayHitBuilders();
+}
+
+void Context::ClearOverlayPasses() noexcept {
+    for (const auto& pass : m_overlayPasses) {
+        if (pass.destroy && pass.ctx) {
+            pass.destroy(pass.ctx);
+        }
+    }
+    m_overlayPasses.clear();
+}
+
+void Context::ClearOverlayHitBuilders() noexcept {
+    for (const auto& b : m_overlayHitBuilders) {
+        if (b.destroy && b.ctx) {
+            b.destroy(b.ctx);
+        }
+    }
+    m_overlayHitBuilders.clear();
+}
+
 void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
     ++m_frameIndex;
     const float effScale = (dpiScale > 0.0f) ? dpiScale : 1.0f;
@@ -24,7 +47,8 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
         m_currentTimeSec = std::chrono::duration<double>(now - m_startTime).count();
     }
 
-    m_overlayPasses.clear();
+    ClearOverlayPasses();
+    ClearOverlayHitBuilders();
     m_currFrameModalOverlay = false;
     m_openPopupVisualHash = 0;
     m_currFocusableIds.clear();
@@ -119,7 +143,6 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
     m_currUnclippedBounds.clear();
     m_currHitNodes.clear();
     m_currOverlayHitRegions.clear();
-    m_overlayHitBuilders.clear();
     m_activeOverlayHitCheckId = Id::Null();
     m_widgetExecDepth = 0;
 
@@ -1539,21 +1562,9 @@ void Context::InvalidateRect(Rect rect) noexcept {
     }
 }
 
-void Context::RegisterOverlay(std::function<void(ICanvas&)> drawFn) {
-    if (drawFn) {
-        m_overlayPasses.push_back(OverlayPass{std::move(drawFn), GetPopupViewportRect()});
-    }
-}
-
 void Context::RegisterOverlayHitRegion(Id id, Rect rect) {
     if (id.IsValid() && rect.w > 0.0f && rect.h > 0.0f) {
         m_currOverlayHitRegions.push_back(OverlayHitRegion{id, rect});
-    }
-}
-
-void Context::RegisterOverlayHitBuilder(std::function<void()> builderFn) {
-    if (builderFn) {
-        m_overlayHitBuilders.push_back(std::move(builderFn));
     }
 }
 
@@ -2286,11 +2297,11 @@ void Context::EndFrame(ICanvas& canvas) {
         m_theme
     );
     for (const auto& builder : m_overlayHitBuilders) {
-        if (builder) {
-            builder();
+        if (builder.invoke) {
+            builder.invoke(builder.ctx);
         }
     }
-    m_overlayHitBuilders.clear();
+    ClearOverlayHitBuilders();
     m_prevOverlayHitRegions = std::move(m_currOverlayHitRegions);
     m_currOverlayHitRegions.clear();
     m_prevHitNodes = std::move(m_currHitNodes);
@@ -2570,10 +2581,10 @@ void Context::EndFrame(ICanvas& canvas) {
                 if (pass.clipRect.w > 0.0f && pass.clipRect.h > 0.0f) {
                     if (!pass.clipRect.Intersects(m_dirtyRect)) continue;
                     canvas.PushClip(pass.clipRect);
-                    pass.drawFn(canvas);
+                    pass.invoke(pass.ctx, canvas);
                     canvas.PopClip();
                 } else {
-                    pass.drawFn(canvas);
+                    pass.invoke(pass.ctx, canvas);
                 }
             }
             if (hasTooltip) {
@@ -2599,10 +2610,10 @@ void Context::EndFrame(ICanvas& canvas) {
                         const Rect clip = pass.clipRect.Intersect(dr);
                         if (clip.w <= 0.0f || clip.h <= 0.0f) continue;
                         canvas.PushClip(clip);
-                        pass.drawFn(canvas);
+                        pass.invoke(pass.ctx, canvas);
                         canvas.PopClip();
                     } else {
-                        pass.drawFn(canvas);
+                        pass.invoke(pass.ctx, canvas);
                     }
                 }
                 canvas.PopClip();

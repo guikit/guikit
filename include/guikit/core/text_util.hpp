@@ -1,11 +1,11 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
 #include <string_view>
-#include <vector>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/tokens.hpp"
+#include "keel/small_array.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -41,9 +41,9 @@ public:
     ) noexcept;
 
     /// Truncates text with trailing ellipsis ("...") so that it fits within maxWidth.
-    /// If text already fits, returns std::string(text).
+    /// If text already fits, returns a zero-copy view inside InplaceString.
     /// If maxWidth cannot even accommodate "...", returns empty string.
-    [[nodiscard]] static std::string TruncateWithEllipsis(
+    [[nodiscard]] static keel::InplaceString<256> TruncateWithEllipsis(
         std::string_view text,
         float maxWidth,
         float fontSize,
@@ -53,7 +53,7 @@ public:
     /// Splits text into wrapped lines that fit within maxWidth points.
     /// Breaks by words/whitespace, falling back to character-level breaking if a word exceeds maxWidth.
     /// Preserves explicit newline characters ('\n').
-    [[nodiscard]] static std::vector<std::string_view> WrapText(
+    [[nodiscard]] static keel::SmallArray<std::string_view, 16> WrapText(
         std::string_view text,
         float maxWidth,
         float fontSize,

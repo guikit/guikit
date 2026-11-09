@@ -764,7 +764,7 @@ CommandPaletteResponse CommandPalette::Run(
                             Color::Transparent(),
                             0.0f
                         );
-                        const std::string truncCat = TextUtil::TruncateWithEllipsis(
+                        const auto truncCat = TextUtil::TruncateWithEllipsis(
                             row.category,
                             std::max(0.0f, catColW - 8.0f * s),
                             badgeFont,
@@ -806,7 +806,7 @@ CommandPaletteResponse CommandPalette::Run(
 
                     // Optional secondary description
                     if (!row.description.empty() && rightEdge - curX > 24.0f * s) {
-                        const std::string truncDesc = TextUtil::TruncateWithEllipsis(
+                        const auto truncDesc = TextUtil::TruncateWithEllipsis(
                             row.description,
                             rightEdge - curX,
                             descFont,

@@ -4611,9 +4611,9 @@ void TestTextWrappingAndBackendIndependence() {
     CHECK(singleW > 0.0f);
 
     // Truncation with ellipsis
-    const std::string trunc = TextUtil::TruncateWithEllipsis("Very long string that needs truncation", 60.0f, 14.0f, nullptr);
+    const auto trunc = TextUtil::TruncateWithEllipsis("Very long string that needs truncation", 60.0f, 14.0f, nullptr);
     CHECK(!trunc.empty());
-    CHECK(trunc.ends_with("..."));
+    CHECK(std::string_view(trunc).ends_with("..."));
     CHECK(TextUtil::MeasureWidth(trunc, 14.0f, nullptr) <= 60.0f + 0.1f);
 
     // Multi-line word wrap
@@ -4704,11 +4704,11 @@ void TestTextWrappingAndBackendIndependence() {
 
     // 5. Verify TextUtil::TruncateWithEllipsis behaves deterministically
     const std::string fullText = "Industrial Dashboard";
-    const std::string trFull = TextUtil::TruncateWithEllipsis(fullText, 400.0f, 14.0f, nullptr);
+    const auto trFull = TextUtil::TruncateWithEllipsis(fullText, 400.0f, 14.0f, nullptr);
     CHECK(trFull == fullText);
 
-    const std::string trShort = TextUtil::TruncateWithEllipsis(fullText, 60.0f, 14.0f, nullptr);
-    CHECK(trShort.ends_with("..."));
+    const auto trShort = TextUtil::TruncateWithEllipsis(fullText, 60.0f, 14.0f, nullptr);
+    CHECK(std::string_view(trShort).ends_with("..."));
     CHECK(trShort.length() < fullText.length());
 }
 

@@ -594,10 +594,12 @@ void Segmented::Render(
                     const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, sr.y + (sr.h - iconSz) * 0.5f, iconSz, iconSz);
                     item.icon.Draw(canvas, iconRect, fgColor);
                 } else {
-                    std::string displayLabel(item.text.text);
+                    keel::InplaceString<256> truncatedLabel;
+                    std::string_view displayLabel = item.text.text;
                     float textW = canvas.MeasureText(displayLabel, fontSize).x;
                     if (textW > availTextW + kTextSubpixelTolerance) {
-                        displayLabel = TextUtil::TruncateWithEllipsis(item.text.text, availTextW, fontSize, &canvas);
+                        truncatedLabel = TextUtil::TruncateWithEllipsis(item.text.text, availTextW, fontSize, &canvas);
+                        displayLabel = truncatedLabel;
                         textW = std::min(availTextW, canvas.MeasureText(displayLabel, fontSize).x);
                     }
                     const float totalW = iconSz + gapX + textW;

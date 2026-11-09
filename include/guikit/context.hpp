@@ -191,7 +191,7 @@ struct StoredState {
 class Context {
 public:
     Context();
-    ~Context() = default;
+    ~Context();
 
     Context(const Context&) = delete;
     Context& operator=(const Context&) = delete;
@@ -1870,10 +1870,41 @@ public:
     [[nodiscard]] Id GetOpenPopupId() const noexcept { return m_openPopupId; }
     [[nodiscard]] Rect GetOpenPopupRect() const noexcept { return m_openPopupRect; }
     void SetOpenPopupVisualHash(uint64_t hash) noexcept { m_openPopupVisualHash = hash; }
-    void RegisterOverlay(std::function<void(ICanvas&)> drawFn);
+    template <typename F>
+        requires std::invocable<std::decay_t<F>&, ICanvas&>
+    void RegisterOverlay(F&& drawFn) {
+        using Decayed = std::decay_t<F>;
+        if constexpr (std::is_pointer_v<Decayed> || requires(const Decayed& f) { static_cast<bool>(f); }) {
+            if (!static_cast<bool>(drawFn)) return;
+        }
+        Decayed* stored = m_arena.create<Decayed>(std::forward<F>(drawFn));
+        m_overlayPasses.push_back(OverlayPass{
+            .ctx = stored,
+            .invoke = +[](void* p, ICanvas& c) { (*static_cast<Decayed*>(p))(c); },
+            .destroy = std::is_trivially_destructible_v<Decayed>
+                ? nullptr
+                : +[](void* p) noexcept { static_cast<Decayed*>(p)->~Decayed(); },
+            .clipRect = GetPopupViewportRect()
+        });
+    }
     void MarkModalOverlayActive() noexcept { m_currFrameModalOverlay = true; }
     void RegisterOverlayHitRegion(Id id, Rect rect);
-    void RegisterOverlayHitBuilder(std::function<void()> builderFn);
+    template <typename F>
+        requires std::invocable<std::decay_t<F>&>
+    void RegisterOverlayHitBuilder(F&& builderFn) {
+        using Decayed = std::decay_t<F>;
+        if constexpr (std::is_pointer_v<Decayed> || requires(const Decayed& f) { static_cast<bool>(f); }) {
+            if (!static_cast<bool>(builderFn)) return;
+        }
+        Decayed* stored = m_arena.create<Decayed>(std::forward<F>(builderFn));
+        m_overlayHitBuilders.push_back(OverlayHitBuilder{
+            .ctx = stored,
+            .invoke = +[](void* p) { (*static_cast<Decayed*>(p))(); },
+            .destroy = std::is_trivially_destructible_v<Decayed>
+                ? nullptr
+                : +[](void* p) noexcept { static_cast<Decayed*>(p)->~Decayed(); }
+        });
+    }
     /// RAII scope guard that enters an overlay's hit-testing context and restores the previous overlay ID on exit.
     class [[nodiscard]] OverlayHitCheckScope {
     public:
@@ -2223,9 +2254,14 @@ private:
     std::vector<HitNodeRecord> m_prevHitNodes;
     std::vector<HitNodeRecord> m_currHitNodes;
     keel::HashMap<Id, size_t> m_prevHitNodeMap;
+    struct OverlayHitBuilder {
+        void* ctx{nullptr};
+        void (*invoke)(void*){nullptr};
+        void (*destroy)(void*) noexcept{nullptr};
+    };
     std::vector<OverlayHitRegion> m_prevOverlayHitRegions;
     std::vector<OverlayHitRegion> m_currOverlayHitRegions;
-    std::vector<std::function<void()>> m_overlayHitBuilders;
+    keel::SmallArray<OverlayHitBuilder, 8> m_overlayHitBuilders;
     Id m_activeOverlayHitCheckId{Id::Null()};
     int m_widgetExecDepth{0};
     std::vector<Id> m_prevFocusableIds;
@@ -2258,10 +2294,14 @@ private:
     bool m_toastHostVisitedThisFrame{false};
     bool m_hadToastsLastFrame{false};
     struct OverlayPass {
-        std::function<void(ICanvas&)> drawFn;
+        void* ctx{nullptr};
+        void (*invoke)(void*, ICanvas&){nullptr};
+        void (*destroy)(void*) noexcept{nullptr};
         Rect clipRect{};
     };
-    std::vector<OverlayPass> m_overlayPasses;
+    keel::SmallArray<OverlayPass, 8> m_overlayPasses;
+    void ClearOverlayPasses() noexcept;
+    void ClearOverlayHitBuilders() noexcept;
     bool m_currFrameModalOverlay{false};
     bool m_hadModalOverlayLastFrame{false};
     bool m_hadDebugBoundsLastFrame{false};

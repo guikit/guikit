@@ -387,12 +387,14 @@ void TabBar::RenderTab(
     const float availLabelW = std::max(0.0f, innerW - iconAndBadgeW - ((hasIcon && hasLabel) ? 6.0f : 0.0f));
     const bool showLabel = !item.label.empty() && (!hasIcon || availLabelW >= labelFont * 1.35f);
 
-    std::string displayLabel(item.label.text);
+    keel::InplaceString<256> truncatedLabel;
+    std::string_view displayLabel = item.label.text;
     float labelW = 0.0f;
     if (showLabel) {
         labelW = canvas.MeasureText(displayLabel, labelFont).x;
         if (labelW > availLabelW + kTextSubpixelTolerance && availLabelW > 0.0f) {
-            displayLabel = TextUtil::TruncateWithEllipsis(item.label.text, availLabelW, labelFont, &canvas);
+            truncatedLabel = TextUtil::TruncateWithEllipsis(item.label.text, availLabelW, labelFont, &canvas);
+            displayLabel = truncatedLabel;
             labelW = std::min(availLabelW, canvas.MeasureText(displayLabel, labelFont).x);
         }
     }

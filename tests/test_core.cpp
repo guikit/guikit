@@ -485,9 +485,9 @@ void TestMapGridAndProjections() {
     CHECK(view.nauticalScale.screenPixels > 20.0f);
 
     // 4. Nautical DMM formatting check
-    const std::string dmmStr = MapGrid::FormatCoord(helgoland, GeoCoordFormat::NauticalDMM);
-    CHECK(dmmStr.find("54") != std::string::npos);
-    CHECK(dmmStr.find("007") != std::string::npos);
+    const auto dmmStr = MapGrid::FormatCoord(helgoland, GeoCoordFormat::NauticalDMM);
+    CHECK(std::string_view(dmmStr).find("54") != std::string_view::npos);
+    CHECK(std::string_view(dmmStr).find("007") != std::string_view::npos);
 }
 
 void TestTextWrapForceSplitLastWord() {

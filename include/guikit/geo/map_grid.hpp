@@ -10,6 +10,7 @@
 #include <string_view>
 #include <vector>
 #include "guikit/core/types.hpp"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -959,13 +960,15 @@ public:
     }
 
     /// Formats a single latitude or longitude value according to the selected maritime/cartographic format.
-    [[nodiscard]] static std::string FormatAxis(double deg, bool isLat, GeoCoordFormat fmt = GeoCoordFormat::NauticalDMM) {
+    [[nodiscard]] static keel::InplaceString<48> FormatAxis(double deg, bool isLat, GeoCoordFormat fmt = GeoCoordFormat::NauticalDMM) noexcept {
         const char hemi = isLat ? (deg >= 0.0 ? 'N' : 'S') : (deg >= 0.0 ? 'E' : 'W');
         const double absDeg = std::abs(deg);
-        char buf[48]{};
+        keel::InplaceString<48> out{};
+        char* buf = out.inline_buffer();
+        int n = 0;
 
         if (fmt == GeoCoordFormat::DecimalDegrees) {
-            std::snprintf(buf, sizeof(buf), isLat ? "%07.4f° %c" : "%08.4f° %c", absDeg, hemi);
+            n = std::snprintf(buf, 48, isLat ? "%07.4f° %c" : "%08.4f° %c", absDeg, hemi);
         } else if (fmt == GeoCoordFormat::DMS) {
             int d = static_cast<int>( std::floor(absDeg) );
             double remMin = (absDeg - static_cast<double>(d)) * 60.0;
@@ -973,44 +976,54 @@ public:
             double s = (remMin - static_cast<double>(m)) * 60.0;
             if (s >= 59.95) { s = 0.0; ++m; }
             if (m >= 60) { m = 0; ++d; }
-            std::snprintf(buf, sizeof(buf), isLat ? "%02d° %02d' %04.1f\" %c" : "%03d° %02d' %04.1f\" %c", d, m, s, hemi);
+            n = std::snprintf(buf, 48, isLat ? "%02d° %02d' %04.1f\" %c" : "%03d° %02d' %04.1f\" %c", d, m, s, hemi);
         } else {
             // Standard OpenSeaMap / Marine GPS Degrees & Decimal Minutes (DD° MM.mm')
             int d = static_cast<int>( std::floor(absDeg) );
             double m = (absDeg - static_cast<double>(d)) * 60.0;
             if (m >= 59.995) { m = 0.0; ++d; }
-            std::snprintf(buf, sizeof(buf), isLat ? "%02d° %05.2f' %c" : "%03d° %05.2f' %c", d, m, hemi);
+            n = std::snprintf(buf, 48, isLat ? "%02d° %05.2f' %c" : "%03d° %05.2f' %c", d, m, hemi);
         }
-        return std::string(buf);
+        if (n > 0) {
+            out.set_inline_size(static_cast<size_t>(n));
+        }
+        return out;
     }
 
     /// Formats a short graticule ruler label (e.g. "54° 15.0' N") for border ticks.
-    [[nodiscard]] static std::string FormatGraticuleTick(double deg, bool isLat, double stepArcMin) {
+    [[nodiscard]] static keel::InplaceString<32> FormatGraticuleTick(double deg, bool isLat, double stepArcMin) noexcept {
         const char hemi = isLat ? (deg >= 0.0 ? 'N' : 'S') : (deg >= 0.0 ? 'E' : 'W');
         const double absDeg = std::abs(deg);
-        char buf[32]{};
+        keel::InplaceString<32> out{};
+        char* buf = out.inline_buffer();
+        int n = 0;
         if (stepArcMin >= 60.0) {
-            std::snprintf(buf, sizeof(buf), "%.0f° %c", absDeg, hemi);
+            n = std::snprintf(buf, 32, "%.0f° %c", absDeg, hemi);
         } else if (stepArcMin >= 1.0) {
             int d = static_cast<int>(std::floor(absDeg + 1e-7));
             double m = (absDeg - static_cast<double>(d)) * 60.0;
             if (m >= 59.95) { m = 0.0; ++d; }
-            std::snprintf(buf, sizeof(buf), "%d° %02.0f' %c", d, m, hemi);
+            n = std::snprintf(buf, 32, "%d° %02.0f' %c", d, m, hemi);
         } else {
             int d = static_cast<int>(std::floor(absDeg + 1e-7));
             double m = (absDeg - static_cast<double>(d)) * 60.0;
             if (m >= 59.995) { m = 0.0; ++d; }
-            std::snprintf(buf, sizeof(buf), "%d° %04.1f' %c", d, m, hemi);
+            n = std::snprintf(buf, 32, "%d° %04.1f' %c", d, m, hemi);
         }
-        return std::string(buf);
+        if (n > 0) {
+            out.set_inline_size(static_cast<size_t>(n));
+        }
+        return out;
     }
 
     /// Formats a full (lat, lon) or planar metric (UTM / GOST Gauss-Kruger) coordinate string.
-    [[nodiscard]] static std::string FormatCoord(
+    [[nodiscard]] static keel::InplaceString<96> FormatCoord(
         GeoCoord c,
         GeoCoordFormat fmt = GeoCoordFormat::NauticalDMM,
         MapCrs activeCrs = MapCrs::EPSG3857_WebMercator
-    ) {
+    ) noexcept {
+        keel::InplaceString<96> out{};
+        char* buf = out.inline_buffer();
         if (fmt == GeoCoordFormat::UTM_Meters) {
             const int zone = (activeCrs == MapCrs::EPSG32636_Utm36N)
                 ? 36
@@ -1025,10 +1038,10 @@ public:
                 .falseNorthing = north ? 0.0 : 10000000.0
             };
             const auto [easting, northing] = TransverseMercatorForward(c, spec);
-            char buf[80]{};
-            std::snprintf(buf, sizeof(buf), "UTM %02d%c  E %.1f m, N %.1f m",
+            const int n = std::snprintf(buf, 96, "UTM %02d%c  E %.1f m, N %.1f m",
                 zone, north ? 'N' : 'S', easting, northing);
-            return std::string(buf);
+            if (n > 0) out.set_inline_size(static_cast<size_t>(n));
+            return out;
         }
         if (fmt == GeoCoordFormat::GaussKruger_Meters) {
             double posLon = ClampLon(c.lon);
@@ -1046,12 +1059,16 @@ public:
                 .falseNorthing = 0.0
             };
             const auto [yEast, xNorth] = TransverseMercatorForward(c, spec);
-            char buf[96]{};
-            std::snprintf(buf, sizeof(buf), "%s Z%d  X %.1f m, Y %.1f m",
+            const int n = std::snprintf(buf, 96, "%s Z%d  X %.1f m, Y %.1f m",
                 useSk42 ? "SK-42" : "GSK-2011", zone, xNorth, yEast);
-            return std::string(buf);
+            if (n > 0) out.set_inline_size(static_cast<size_t>(n));
+            return out;
         }
-        return FormatAxis(c.lat, true, fmt) + ", " + FormatAxis(c.lon, false, fmt);
+        const auto latAxis = FormatAxis(c.lat, true, fmt);
+        const auto lonAxis = FormatAxis(c.lon, false, fmt);
+        const int n = std::snprintf(buf, 96, "%s, %s", latAxis.c_str(), lonAxis.c_str());
+        if (n > 0) out.set_inline_size(static_cast<size_t>(n));
+        return out;
     }
 };
 

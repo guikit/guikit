@@ -1743,7 +1743,7 @@ void TreeView::RenderRow(
         if (detailW > theme.Scale(12.0f)) {
             const float detailX = rightLimit - detailW;
             const Color detailCol = theme.ResolveTextColor(p->opts.detail, UiVariant::Muted, disabled, hovered, selected);
-            const std::string displayDetail = TextUtil::TruncateWithEllipsis(p->opts.detail.text, detailW, rm.detailFont, &canvas);
+            const auto displayDetail = TextUtil::TruncateWithEllipsis(p->opts.detail.text, detailW, rm.detailFont, &canvas);
             canvas.DrawTextBox(displayDetail, Rect(detailX, bounds.y, detailW, bounds.h), rm.detailFont, detailCol, 1.0f, 0.5f);
             rightLimit = detailX - rm.gap;
         }
@@ -1761,7 +1761,7 @@ void TreeView::RenderRow(
         );
         const bool hasDesc = !p->opts.description.empty();
         if (!hasDesc) {
-            const std::string displayLabel = TextUtil::TruncateWithEllipsis(p->opts.label.text, availTextW, rm.labelFont, &canvas);
+            const auto displayLabel = TextUtil::TruncateWithEllipsis(p->opts.label.text, availTextW, rm.labelFont, &canvas);
             canvas.DrawTextBox(displayLabel, Rect(curX, bounds.y, availTextW, bounds.h), rm.labelFont, labelCol, 0.0f, 0.5f);
         } else {
             const float labelLineH = canvas.GetLineHeight(rm.labelFont);
@@ -1770,11 +1770,11 @@ void TreeView::RenderRow(
             const float totalTextH = labelLineH + lineGap + descLineH;
             const float startY = bounds.y + (bounds.h - totalTextH) * 0.5f;
 
-            const std::string displayLabel = TextUtil::TruncateWithEllipsis(p->opts.label.text, availTextW, rm.labelFont, &canvas);
+            const auto displayLabel = TextUtil::TruncateWithEllipsis(p->opts.label.text, availTextW, rm.labelFont, &canvas);
             canvas.DrawTextBox(displayLabel, Rect(curX, startY, availTextW, labelLineH), rm.labelFont, labelCol, 0.0f, 0.5f);
 
             const Color descCol = theme.ResolveTextColor(p->opts.description, UiVariant::Muted, disabled, hovered, selected);
-            const std::string displayDesc = TextUtil::TruncateWithEllipsis(p->opts.description.text, availTextW, rm.descFont, &canvas);
+            const auto displayDesc = TextUtil::TruncateWithEllipsis(p->opts.description.text, availTextW, rm.descFont, &canvas);
             canvas.DrawTextBox(displayDesc, Rect(curX, startY + labelLineH + lineGap, availTextW, descLineH), rm.descFont, descCol, 0.0f, 0.5f);
         }
     }
@@ -1836,7 +1836,7 @@ void TreeView::RenderHeader(
         }
 
         if (!col.title.empty() && titleRect.w > 2.0f) {
-            const std::string truncated = TextUtil::TruncateWithEllipsis(
+            const auto truncated = TextUtil::TruncateWithEllipsis(
                 col.title.text,
                 titleRect.w,
                 headerFontSize,

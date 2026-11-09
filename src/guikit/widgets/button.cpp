@@ -354,9 +354,11 @@ void Button::Render(
                 opts.icon.Draw(canvas, Rect(capsuleRect.x + (capsuleRect.w - m.iconSize) * 0.5f, iconY, m.iconSize, m.iconSize), icoCol);
             } else {
                 float textW = canvas.MeasureText(effectiveCapsuleText.text, capFontSize).x;
-                std::string displayLabel(effectiveCapsuleText.text);
+                keel::InplaceString<256> truncatedLabel;
+                std::string_view displayLabel = effectiveCapsuleText.text;
                 if (textW > availTextW + kTextSubpixelTolerance && availTextW > 0.0f) {
-                    displayLabel = TextUtil::TruncateWithEllipsis(effectiveCapsuleText.text, availTextW, capFontSize, &canvas);
+                    truncatedLabel = TextUtil::TruncateWithEllipsis(effectiveCapsuleText.text, availTextW, capFontSize, &canvas);
+                    displayLabel = truncatedLabel;
                     textW = canvas.MeasureText(displayLabel, capFontSize).x;
                 }
                 const float totalContentW = m.iconSize + gap + textW;
@@ -382,9 +384,11 @@ void Button::Render(
                 opts.icon.Draw(canvas, Rect(capsuleRect.x + (capsuleRect.w - m.iconSize) * 0.5f, iconY, m.iconSize, m.iconSize), icoCol);
             } else {
                 float textW = canvas.MeasureText(effectiveCapsuleText.text, capFontSize).x;
-                std::string displayLabel(effectiveCapsuleText.text);
+                keel::InplaceString<256> truncatedLabel;
+                std::string_view displayLabel = effectiveCapsuleText.text;
                 if (textW > availTextW + kTextSubpixelTolerance && availTextW > 0.0f) {
-                    displayLabel = TextUtil::TruncateWithEllipsis(effectiveCapsuleText.text, availTextW, capFontSize, &canvas);
+                    truncatedLabel = TextUtil::TruncateWithEllipsis(effectiveCapsuleText.text, availTextW, capFontSize, &canvas);
+                    displayLabel = truncatedLabel;
                     textW = canvas.MeasureText(displayLabel, capFontSize).x;
                 }
                 const float totalContentW = m.iconSize + gap + textW;

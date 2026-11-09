@@ -479,6 +479,15 @@ Response ColorPicker::Run(
     FormatHexColor(value, optsCopy.showAlpha, hexBuf, sizeof(hexBuf));
     const std::string_view hexView = ctx.AllocString(hexBuf);
 
+    optsCopy.tooltip = ctx.AllocText(optsCopy.tooltip);
+    if (!optsCopy.presets.empty()) {
+        Color* arenaPresets = ctx.GetArena().create_array<Color>(optsCopy.presets.size());
+        for (size_t i = 0; i < optsCopy.presets.size(); ++i) {
+            arenaPresets[i] = optsCopy.presets[i];
+        }
+        optsCopy.presets = std::span<const Color>(arenaPresets, optsCopy.presets.size());
+    }
+
     // Register floating popover overlay if open
     if (!optsCopy.inlinePanel && isOpen) {
         const Rect popRect = ctx.GetOpenPopupRect();
@@ -498,13 +507,8 @@ Response ColorPicker::Run(
             curV,
             hovSwatch
         ));
-        std::vector<Color> presetsVec(optsCopy.presets.begin(), optsCopy.presets.end());
-        ctx.RegisterOverlay([popRect, curVal, curH, curS, curV, hexView, hovSwatch, optsCopy, presetsVec = std::move(presetsVec), activeSize, effectiveDisabled, theme](ICanvas& c) {
-            ColorPickerOptions popOpts = optsCopy;
-            if (!presetsVec.empty()) {
-                popOpts.presets = std::span<const Color>(presetsVec);
-            }
-            ColorPicker::RenderPanel(c, popRect, curVal, curH, curS, curV, hexView, hovSwatch, popOpts, activeSize, true, effectiveDisabled, theme);
+        ctx.RegisterOverlay([popRect, curVal, curH, curS, curV, hexView, hovSwatch, optsCopy, activeSize, effectiveDisabled, theme](ICanvas& c) {
+            ColorPicker::RenderPanel(c, popRect, curVal, curH, curS, curV, hexView, hovSwatch, optsCopy, activeSize, true, effectiveDisabled, theme);
         });
     }
 
@@ -513,14 +517,6 @@ Response ColorPicker::Run(
     }
 
     Node* node = ctx.CreateNode(NodeType::ColorPicker, id);
-    optsCopy.tooltip = ctx.AllocText(optsCopy.tooltip);
-    if (!optsCopy.presets.empty()) {
-        Color* arenaPresets = ctx.GetArena().create_array<Color>(optsCopy.presets.size());
-        for (size_t i = 0; i < optsCopy.presets.size(); ++i) {
-            arenaPresets[i] = optsCopy.presets[i];
-        }
-        optsCopy.presets = std::span<const Color>(arenaPresets, optsCopy.presets.size());
-    }
 
     auto* data = ctx.AllocPayload<ColorPickerData>();
     data->opts = optsCopy;

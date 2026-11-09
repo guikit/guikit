@@ -1406,7 +1406,7 @@ void Table::RenderChromeAndScrollbars(
             }
 
             if (!col.title.empty() && titleRect.w > 2.0f) {
-                const std::string truncated = TextUtil::TruncateWithEllipsis(
+                const auto truncated = TextUtil::TruncateWithEllipsis(
                     col.title.text,
                     titleRect.w,
                     headerFontSize,

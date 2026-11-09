@@ -6,6 +6,7 @@
 #include "guikit/core/id.hpp"
 #include "guikit/core/text_util.hpp"
 #include "keel/lru_cache.h"
+#include "keel/small_array.h"
 
 namespace guikit {
 
@@ -577,7 +578,7 @@ InlineFlowLayout BuildInlineFlowLayout(
         std::string_view text{};
         std::string_view url{};
     };
-    std::vector<PooledSpanView> pooledSpans;
+    keel::SmallArray<PooledSpanView, 16> pooledSpans;
     pooledSpans.reserve(spans.size());
     for (const InlineSpan& sp : spans) {
         const size_t tStart = res.textPool.size();
@@ -598,7 +599,7 @@ InlineFlowLayout BuildInlineFlowLayout(
     }
 
     // 1. Flatten PooledSpanViews into initial atomic runs (words, whitespace, explicit newlines, code pills)
-    std::vector<InlineAtom> rawAtoms;
+    keel::SmallArray<InlineAtom, 32> rawAtoms;
     rawAtoms.reserve(pooledSpans.size() * 3);
 
     for (const PooledSpanView& span : pooledSpans) {
@@ -667,9 +668,9 @@ InlineFlowLayout BuildInlineFlowLayout(
 
     // 2. Pack atoms into visual lines, keeping contiguous non-whitespace clusters (e.g. `(` + `code` + `)`) together
     //    and splitting oversized tokens/code pills at delimiter boundaries so nothing overflows maxW or orphans `)`.
-    std::vector<InlineAtom> atoms;
+    keel::SmallArray<InlineAtom, 32> atoms;
     atoms.reserve(rawAtoms.size() + 4);
-    std::vector<FlowLine> flowLines;
+    keel::SmallArray<FlowLine, 16> flowLines;
     FlowLine curLine{};
     curLine.firstAtom = 0;
     curLine.indent = (horizontalAlign == Align::Start) ? std::max(0.0f, firstLineIndent) : 0.0f;
