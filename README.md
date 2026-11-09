@@ -113,6 +113,13 @@ guikit/
 - C++20 compiler (MSVC 2022+, Clang 15+, GCC 12+, or Emscripten for WebAssembly)
 - CMake 3.21+
 - Git
+- **Linux (Ubuntu / Debian)** — X11, Wayland, and OpenGL development headers required when building the `SDL3` desktop backend:
+  ```bash
+  sudo apt-get update && sudo apt-get install -y \
+      pkg-config libgl-dev libegl-dev \
+      libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev libxss-dev \
+      libwayland-dev libxkbcommon-dev wayland-protocols libdecor-0-dev
+  ```
 
 ### 1. Clone with Submodules
 ```bash
@@ -120,7 +127,8 @@ git clone --recursive https://github.com/guikit/guikit.git
 cd guikit
 ```
 
-### 2. Desktop Build & Run (Windows)
+### 2. Desktop Build & Run (Windows / Linux)
+**Windows:**
 ```cmd
 :: Configure & build Release
 scripts\windows\desktop-build.cmd
@@ -129,14 +137,24 @@ scripts\windows\desktop-build.cmd
 scripts\windows\desktop-run.cmd
 ```
 
+**Linux:**
+```bash
+# Configure & build Release
+./scripts/linux/desktop-build.sh
+
+# Build & launch the interactive demo
+./scripts/linux/desktop-run.sh
+```
+
 Or via standard CMake:
-```cmd
+```bash
 cmake -B build -S .
-cmake --build build --config Release
+cmake --build build --config Release --parallel
 ctest --test-dir build -C Release --output-on-failure
 ```
 
 ### 3. WebAssembly Build, Local Run & GitHub Pages Deploy
+**Windows:**
 ```cmd
 :: Build WebAssembly bundle (auto-installs local .emsdk if needed)
 scripts\windows\web-build.cmd
@@ -146,6 +164,18 @@ scripts\windows\web-run.cmd
 
 :: Build and publish to GitHub Pages (https://guikit.github.io/demo/)
 scripts\windows\web-publish.cmd
+```
+
+**Linux:**
+```bash
+# Build WebAssembly bundle (auto-installs local .emsdk if needed)
+./scripts/linux/web-build.sh
+
+# Build, start local HTTP server, and open in browser
+./scripts/linux/web-run.sh
+
+# Build and publish to GitHub Pages (https://guikit.github.io/demo/)
+./scripts/linux/web-publish.sh
 ```
 
 ---

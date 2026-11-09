@@ -12,7 +12,7 @@ echo ========================================================
 :: Stop running guikit_demo.exe if open so linker can overwrite it cleanly
 taskkill /F /IM guikit_demo.exe >nul 2>&1
 
-if not exist "build\CMakeCache.txt" (
+if not exist "build\guikit.sln" if not exist "build\build.ninja" if not exist "build\Makefile" (
     echo [INFO] Configuring CMake build directory...
     cmake -B build -S .
     if errorlevel 1 (

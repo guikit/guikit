@@ -1,3 +1,4 @@
+#include <cstring>
 #include <iostream>
 #include <unordered_set>
 #include "guikit/core.hpp"

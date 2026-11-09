@@ -173,6 +173,13 @@ bool SdlWindowBackend::Initialize(
     m_shouldExit = false;
     m_minimized = false;
 
+#if defined(__linux__) && !defined(__ANDROID__)
+    // Prefer X11/XWayland by default on Linux desktop so windows always receive native
+    // titlebars, resize borders, and window positioning even on GNOME Wayland without libdecor.
+    // Users can still override this via the SDL_VIDEO_DRIVER=wayland environment variable.
+    SDL_SetHintWithPriority(SDL_HINT_VIDEO_DRIVER, "x11,wayland", SDL_HINT_DEFAULT);
+#endif
+
     if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) {
         std::cerr << "Failed to initialize SDL3 video subsystem: " << SDL_GetError() << std::endl;
         return false;
