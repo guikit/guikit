@@ -535,10 +535,9 @@ Response Context::Button(ButtonOptions opts, std::source_location loc) {
     return Run<guikit::Button>(opts, loc);
 }
 
-keel::InplaceString<> Context::String(std::string_view text) {
-    if (text.empty()) return keel::InplaceString<>{};
-    const std::string_view arenaSv = AllocString(text);
-    return keel::InplaceString<>(arenaSv.data(), arenaSv.size());
+keel::StringRef Context::String(std::string_view text) {
+    if (text.empty()) return keel::StringRef{};
+    return m_arena.alloc_string(keel::StringRef(text.data(), text.size()));
 }
 
 std::string_view Context::AllocString(std::string_view text) {

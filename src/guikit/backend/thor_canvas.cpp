@@ -972,7 +972,7 @@ void ThorCanvas::DrawTextBoxStyled(
         if (cr.w <= 0.0f || cr.h <= 0.0f || !sBounds.Intersects(cr)) return;
     }
 
-    keel::InplaceString<256> truncated;
+    keel::FixedString<256> truncated;
     std::string_view drawText = text;
     if (bounds.w > 0.0f && MeasureTextStyled(text, fontSize, style).x > bounds.w + kTextSubpixelTolerance) {
         truncated = TextUtil::TruncateWithEllipsis(text, bounds.w, fontSize, this);

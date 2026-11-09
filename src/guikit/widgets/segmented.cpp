@@ -594,7 +594,7 @@ void Segmented::Render(
                     const Rect iconRect(sr.x + (sr.w - iconSz) * 0.5f, sr.y + (sr.h - iconSz) * 0.5f, iconSz, iconSz);
                     item.icon.Draw(canvas, iconRect, fgColor);
                 } else {
-                    keel::InplaceString<256> truncatedLabel;
+                    keel::FixedString<256> truncatedLabel;
                     std::string_view displayLabel = item.text.text;
                     float textW = canvas.MeasureText(displayLabel, fontSize).x;
                     if (textW > availTextW + kTextSubpixelTolerance) {

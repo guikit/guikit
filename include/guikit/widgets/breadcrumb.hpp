@@ -29,9 +29,9 @@ enum class BreadcrumbSeparator : uint8_t {
 
 /// Individual path segment definition for Breadcrumb navigation widget.
 struct BreadcrumbItem {
-    keel::InplaceString<> label{};
+    keel::StringRef label{};
     Icon icon{};
-    keel::InplaceString<> badge{};
+    keel::StringRef badge{};
 };
 
 /// Configuration options for Breadcrumb navigation widget.
@@ -45,7 +45,7 @@ struct BreadcrumbOptions {
     std::optional<float> height{std::nullopt};
     StateColor background{};
     Border border{};
-    keel::InplaceString<> tooltip{};
+    keel::StringRef tooltip{};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

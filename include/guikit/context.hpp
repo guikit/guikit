@@ -1711,7 +1711,7 @@ public:
     }
 
     // --- String & Formatting Services ---
-    [[nodiscard]] keel::InplaceString<> String(std::string_view text);
+    [[nodiscard]] keel::StringRef String(std::string_view text);
     [[nodiscard]] std::string_view AllocString(std::string_view text);
     [[nodiscard]] UiText AllocText(UiText t) {
         if (!t.text.empty()) {
@@ -1743,9 +1743,8 @@ public:
     }
 
     template <typename... Args>
-    [[nodiscard]] keel::InplaceString<> Format(std::string_view fmt, const Args&... args) {
-        const keel::StringRef sv = keel::format_arena(m_arena, fmt, args...);
-        return keel::InplaceString<>(sv.data(), sv.size());
+    [[nodiscard]] keel::StringRef Format(std::string_view fmt, const Args&... args) {
+        return keel::format_arena(m_arena, fmt, args...);
     }
 
     // --- Core Engine Services for Widgets ---

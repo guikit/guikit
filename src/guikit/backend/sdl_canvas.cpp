@@ -236,7 +236,7 @@ void SdlCanvas::DrawTextBox(
 ) {
     if (text.empty() || color.a == 0 || bounds.w <= 0.0f || bounds.h <= 0.0f) return;
 
-    keel::InplaceString<256> truncated;
+    keel::FixedString<256> truncated;
     std::string_view drawText = text;
     if (bounds.w > 0.0f && MeasureText(text, fontSize).x > bounds.w + kTextSubpixelTolerance) {
         truncated = TextUtil::TruncateWithEllipsis(text, bounds.w, fontSize, this);

@@ -73,7 +73,7 @@ if (ui.Size(guikit::UiSize::Sm).Button({.text = "Compact Action"})) { /* ... */ 
 ```
 
 ### Rule 4: Use `ui.Format(...)` & `ui.String(...)` for Per-Frame Strings — Do NOT Allocate `std::string` Every Frame
-`ui.Format(fmt, args...)` and `ui.String(text)` allocate directly into the per-frame `keel::Arena` (`ctx.GetArena()`) and return a zero-heap-allocation `keel::InplaceString<>` (implicitly convertible to `std::string_view`, `UiText`, and `const char*`) valid for the entire frame:
+`ui.Format(fmt, args...)` and `ui.String(text)` allocate directly into the per-frame `keel::Arena` (`ctx.GetArena()`) and return a zero-heap-allocation `keel::StringRef` (implicitly convertible to `std::string_view` and `UiText`) valid for the entire frame:
 
 ```cpp
 // GOOD: Zero heap allocation

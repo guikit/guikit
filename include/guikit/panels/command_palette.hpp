@@ -16,16 +16,16 @@ namespace guikit {
 class Context;
 
 struct CommandPaletteItem {
-    keel::InplaceString<> label{};       ///< Primary command title
-    keel::InplaceString<> category{};    ///< Optional category group/prefix (e.g. "Navigation", "View", "DSP")
-    keel::InplaceString<> description{}; ///< Optional secondary description
-    keel::InplaceString<> shortcut{};    ///< Optional keyboard shortcut badge (e.g. "Ctrl+K", "F5")
-    Icon icon{};                         ///< Optional leading icon
+    keel::StringRef label{};       ///< Primary command title
+    keel::StringRef category{};    ///< Optional category group/prefix (e.g. "Navigation", "View", "DSP")
+    keel::StringRef description{}; ///< Optional secondary description
+    keel::StringRef shortcut{};    ///< Optional keyboard shortcut badge (e.g. "Ctrl+K", "F5")
+    Icon icon{};                   ///< Optional leading icon
     bool disabled{false};
 };
 
 struct CommandPaletteOptions {
-    keel::InplaceString<> placeholder{"Type a command or search..."};
+    keel::StringRef placeholder{"Type a command or search..."};
     std::optional<float> width{std::nullopt}; ///< Explicit width in dp (nullopt or <= 0 = auto-fit content within [minWidth..maxWidth])
     float minWidth{480.0f};                   ///< Minimum width in dp when auto-fitting content
     float maxWidth{780.0f};                   ///< Maximum width in dp when auto-fitting content

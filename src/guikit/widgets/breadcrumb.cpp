@@ -970,7 +970,7 @@ void Breadcrumb::Render(
         const bool showLabel = !item.label.empty() && (!hasIcon || availLabelW >= fontSize * 1.1f);
 
         std::string_view displayLabel{};
-        keel::InplaceString<256> truncatedLabel;
+        keel::FixedString<256> truncatedLabel;
         float labelW = 0.0f;
         if (showLabel) {
             displayLabel = item.label;

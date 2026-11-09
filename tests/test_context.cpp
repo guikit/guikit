@@ -554,20 +554,20 @@ void TestButtonWidgetRunAndResponseChaining() {
 void TestUiStringAndContextFormatting() {
     using namespace guikit;
 
-    // Test static literal assignment (0 copy)
-    keel::InplaceString<> s1 = "Static literal";
+    // Test fixed literal assignment
+    keel::FixedString<> s1 = "Static literal";
     CHECK(s1 == "Static literal");
     CHECK(s1.size() == 14);
     CHECK(!s1.empty());
 
     // Test inline buffer formatting
-    keel::InplaceString<> s2;
+    keel::FixedString<> s2;
     keel::format_into(s2, "Count: %d", 42);
     CHECK(s2 == "Count: 42");
     CHECK(s2.size() == 9);
 
     // Test factory formatting
-    keel::InplaceString<> s3 = keel::format_inplace("Speed: %.1f", 12.5);
+    keel::FixedString<> s3 = keel::format_fixed("Speed: %.1f", 12.5);
     CHECK(s3 == "Speed: 12.5");
 
     // Test Context arena formatting and interning in UI frame
@@ -12071,14 +12071,14 @@ int main() {
             CHECK(rScroll.selectedIndex >= 4);
         }
 
-        // 3. keel::InplaceString Rule-of-Zero copy safety + Breadcrumb & Pagination interactive click tests
+        // 3. keel::FixedString Rule-of-Zero copy safety + Breadcrumb & Pagination interactive click tests
         {
-            static_assert(std::is_trivially_copyable_v<keel::InplaceString<>>);
-            keel::InplaceString<> copiedInline;
+            static_assert(std::is_trivially_copyable_v<keel::FixedString<>>);
+            keel::FixedString<> copiedInline;
             {
                 std::string dynamicStr = "Workspace";
-                copiedInline = keel::InplaceString<>(std::string_view(dynamicStr));
-                keel::InplaceString<> overwriteStack = keel::InplaceString<>(std::string_view(""));
+                copiedInline = keel::FixedString<>(std::string_view(dynamicStr));
+                keel::FixedString<> overwriteStack = keel::FixedString<>(std::string_view(""));
                 (void)overwriteStack;
             }
             CHECK(copiedInline == "Workspace");

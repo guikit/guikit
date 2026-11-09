@@ -41,9 +41,9 @@ public:
     ) noexcept;
 
     /// Truncates text with trailing ellipsis ("...") so that it fits within maxWidth.
-    /// If text already fits, returns a zero-copy view inside InplaceString.
+    /// If text already fits, returns a FixedString copy of text.
     /// If maxWidth cannot even accommodate "...", returns empty string.
-    [[nodiscard]] static keel::InplaceString<256> TruncateWithEllipsis(
+    [[nodiscard]] static keel::FixedString<256> TruncateWithEllipsis(
         std::string_view text,
         float maxWidth,
         float fontSize,

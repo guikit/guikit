@@ -950,8 +950,8 @@ void TestKeelIntegration() {
     CHECK(arenaArray[10] == 50);
     CHECK(frameArena.used() > 0);
 
-    // 3. keel::InplaceString <-> keel::StringRef & keel::SmallArray <-> keel::ArrayRef
-    keel::InplaceString<> label(keel::StringRef("Keel Bridge"));
+    // 3. keel::FixedString <-> keel::StringRef & keel::SmallArray <-> keel::ArrayRef
+    keel::FixedString<> label(keel::StringRef("Keel Bridge"));
     keel::StringRef ref = label.as_ref();
     CHECK(ref == "Keel Bridge");
 

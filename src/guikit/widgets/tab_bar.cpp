@@ -387,7 +387,7 @@ void TabBar::RenderTab(
     const float availLabelW = std::max(0.0f, innerW - iconAndBadgeW - ((hasIcon && hasLabel) ? 6.0f : 0.0f));
     const bool showLabel = !item.label.empty() && (!hasIcon || availLabelW >= labelFont * 1.35f);
 
-    keel::InplaceString<256> truncatedLabel;
+    keel::FixedString<256> truncatedLabel;
     std::string_view displayLabel = item.label.text;
     float labelW = 0.0f;
     if (showLabel) {

@@ -30,7 +30,7 @@ struct PaginationOptions {
     std::optional<float> height{std::nullopt};
     StateColor background{};
     Border border{};
-    keel::InplaceString<> tooltip{};
+    keel::StringRef tooltip{};
     bool disabled{false};
     const UiTheme* theme{nullptr};
     std::optional<float> scale{std::nullopt};

@@ -67,23 +67,19 @@ float TextUtil::MeasureUiTextWidth(
     return maxW;
 }
 
-keel::InplaceString<256> TextUtil::TruncateWithEllipsis(
+keel::FixedString<256> TextUtil::TruncateWithEllipsis(
     std::string_view text,
     float maxWidth,
     float fontSize,
     ICanvas* canvas
 ) {
-    keel::InplaceString<256> out{};
+    keel::FixedString<256> out{};
     if (text.empty() || maxWidth <= 0.0f || fontSize <= 0.0f) {
         return out;
     }
 
     if (MeasureWidth(text, fontSize, canvas) <= maxWidth + kTextSubpixelTolerance) {
-        if (text.size() < keel::InplaceString<256>::capacity()) {
-            out.set(keel::StringRef(text.data(), text.size()));
-        } else {
-            out.set_static(text.data(), text.size());
-        }
+        out.set(keel::StringRef(text.data(), text.size()));
         return out;
     }
 
@@ -122,16 +118,10 @@ keel::InplaceString<256> TextUtil::TruncateWithEllipsis(
         }
     }
 
-    const size_t maxPrefix = keel::InplaceString<256>::capacity() - 3;
+    const size_t maxPrefix = keel::FixedString<256>::capacity() - 3;
     const size_t bestLen = std::min(boundaries[bestIdx], maxPrefix);
-    char* buf = out.inline_buffer();
-    if (bestLen > 0) {
-        keel::mem_copy(buf, text.data(), bestLen);
-    }
-    buf[bestLen] = '.';
-    buf[bestLen + 1] = '.';
-    buf[bestLen + 2] = '.';
-    out.set_inline_size(bestLen + 3);
+    out.set(keel::StringRef(text.data(), bestLen));
+    out.append("...");
     return out;
 }
 
@@ -391,14 +381,9 @@ void TextUtil::DrawUiText(
             : text.text;
 
         if (nlPos != std::string_view::npos) {
-            keel::InplaceString<256> withDots{};
-            const size_t copyLen = std::min(firstLine.size(), keel::InplaceString<256>::capacity() - 3);
-            char* buf = withDots.inline_buffer();
-            if (copyLen > 0) keel::mem_copy(buf, firstLine.data(), copyLen);
-            buf[copyLen] = '.';
-            buf[copyLen + 1] = '.';
-            buf[copyLen + 2] = '.';
-            withDots.set_inline_size(copyLen + 3);
+            const size_t copyLen = std::min(firstLine.size(), keel::FixedString<256>::capacity() - 3);
+            keel::FixedString<256> withDots(firstLine.data(), copyLen);
+            withDots.append("...");
             if (MeasureWidth(withDots, fontSize, &canvas) <= drawRect.w + kTextSubpixelTolerance) {
                 canvas.DrawTextBox(withDots, drawRect, fontSize, color, alignX, effAlignY);
             } else {
@@ -443,18 +428,13 @@ void TextUtil::DrawUiText(
             const size_t nlPos = tail.find('\n');
             const std::string_view paragraphSlice = (nlPos != std::string_view::npos) ? tail.substr(0, nlPos) : tail;
 
-            keel::InplaceString<256> truncated;
+            keel::FixedString<256> truncated;
             if (MeasureWidth(paragraphSlice, fontSize, &canvas) > bounds.w + kTextSubpixelTolerance) {
                 truncated = TruncateWithEllipsis(paragraphSlice, bounds.w, fontSize, &canvas);
             } else {
-                keel::InplaceString<256> withDots{};
-                const size_t copyLen = std::min(paragraphSlice.size(), keel::InplaceString<256>::capacity() - 3);
-                char* buf = withDots.inline_buffer();
-                if (copyLen > 0) keel::mem_copy(buf, paragraphSlice.data(), copyLen);
-                buf[copyLen] = '.';
-                buf[copyLen + 1] = '.';
-                buf[copyLen + 2] = '.';
-                withDots.set_inline_size(copyLen + 3);
+                const size_t copyLen = std::min(paragraphSlice.size(), keel::FixedString<256>::capacity() - 3);
+                keel::FixedString<256> withDots(paragraphSlice.data(), copyLen);
+                withDots.append("...");
                 if (MeasureWidth(withDots, fontSize, &canvas) <= bounds.w + kTextSubpixelTolerance) {
                     truncated = withDots;
                 } else {

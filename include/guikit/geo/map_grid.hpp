@@ -960,10 +960,10 @@ public:
     }
 
     /// Formats a single latitude or longitude value according to the selected maritime/cartographic format.
-    [[nodiscard]] static keel::InplaceString<48> FormatAxis(double deg, bool isLat, GeoCoordFormat fmt = GeoCoordFormat::NauticalDMM) noexcept {
+    [[nodiscard]] static keel::FixedString<48> FormatAxis(double deg, bool isLat, GeoCoordFormat fmt = GeoCoordFormat::NauticalDMM) noexcept {
         const char hemi = isLat ? (deg >= 0.0 ? 'N' : 'S') : (deg >= 0.0 ? 'E' : 'W');
         const double absDeg = std::abs(deg);
-        keel::InplaceString<48> out{};
+        keel::FixedString<48> out{};
         char* buf = out.inline_buffer();
         int n = 0;
 
@@ -991,10 +991,10 @@ public:
     }
 
     /// Formats a short graticule ruler label (e.g. "54° 15.0' N") for border ticks.
-    [[nodiscard]] static keel::InplaceString<32> FormatGraticuleTick(double deg, bool isLat, double stepArcMin) noexcept {
+    [[nodiscard]] static keel::FixedString<32> FormatGraticuleTick(double deg, bool isLat, double stepArcMin) noexcept {
         const char hemi = isLat ? (deg >= 0.0 ? 'N' : 'S') : (deg >= 0.0 ? 'E' : 'W');
         const double absDeg = std::abs(deg);
-        keel::InplaceString<32> out{};
+        keel::FixedString<32> out{};
         char* buf = out.inline_buffer();
         int n = 0;
         if (stepArcMin >= 60.0) {
@@ -1017,12 +1017,12 @@ public:
     }
 
     /// Formats a full (lat, lon) or planar metric (UTM / GOST Gauss-Kruger) coordinate string.
-    [[nodiscard]] static keel::InplaceString<96> FormatCoord(
+    [[nodiscard]] static keel::FixedString<96> FormatCoord(
         GeoCoord c,
         GeoCoordFormat fmt = GeoCoordFormat::NauticalDMM,
         MapCrs activeCrs = MapCrs::EPSG3857_WebMercator
     ) noexcept {
-        keel::InplaceString<96> out{};
+        keel::FixedString<96> out{};
         char* buf = out.inline_buffer();
         if (fmt == GeoCoordFormat::UTM_Meters) {
             const int zone = (activeCrs == MapCrs::EPSG32636_Utm36N)

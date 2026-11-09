@@ -354,7 +354,7 @@ void Button::Render(
                 opts.icon.Draw(canvas, Rect(capsuleRect.x + (capsuleRect.w - m.iconSize) * 0.5f, iconY, m.iconSize, m.iconSize), icoCol);
             } else {
                 float textW = canvas.MeasureText(effectiveCapsuleText.text, capFontSize).x;
-                keel::InplaceString<256> truncatedLabel;
+                keel::FixedString<256> truncatedLabel;
                 std::string_view displayLabel = effectiveCapsuleText.text;
                 if (textW > availTextW + kTextSubpixelTolerance && availTextW > 0.0f) {
                     truncatedLabel = TextUtil::TruncateWithEllipsis(effectiveCapsuleText.text, availTextW, capFontSize, &canvas);
@@ -384,7 +384,7 @@ void Button::Render(
                 opts.icon.Draw(canvas, Rect(capsuleRect.x + (capsuleRect.w - m.iconSize) * 0.5f, iconY, m.iconSize, m.iconSize), icoCol);
             } else {
                 float textW = canvas.MeasureText(effectiveCapsuleText.text, capFontSize).x;
-                keel::InplaceString<256> truncatedLabel;
+                keel::FixedString<256> truncatedLabel;
                 std::string_view displayLabel = effectiveCapsuleText.text;
                 if (textW > availTextW + kTextSubpixelTolerance && availTextW > 0.0f) {
                     truncatedLabel = TextUtil::TruncateWithEllipsis(effectiveCapsuleText.text, availTextW, capFontSize, &canvas);

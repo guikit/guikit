@@ -919,7 +919,7 @@ void Element::RenderText(
                 curX += std::min(titleAvailW, rawTitleW);
             } else {
                 float titleW = canvas.MeasureText(spec.label.text, geom.labelFontSize).x;
-                keel::InplaceString<256> truncatedTitle;
+                keel::FixedString<256> truncatedTitle;
                 std::string_view displayTitle = spec.label.text;
                 if (titleW > titleAvailW + kTextSubpixelTolerance && titleAvailW > 0.0f) {
                     truncatedTitle = TextUtil::TruncateWithEllipsis(spec.label.text, titleAvailW, geom.labelFontSize, &canvas);
