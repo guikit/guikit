@@ -654,7 +654,7 @@ Response DatePicker::Run(
         int syncedMonth{0};
         bool initialized{false};
     };
-    auto& state = ctx.GetOrCreateState<DatePickerState>(id);
+    auto& state = ctx.GetOrCreatePersistentState<DatePickerState>(id);
     if (!state.initialized || value.year != state.syncedYear || value.month != state.syncedMonth) {
         state.viewYear = value.year;
         state.viewMonth = value.month;
@@ -1017,7 +1017,7 @@ void DatePicker::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
     const UiText displayTxt = d ? d->formattedText : UiText{"2026-10-20"};
     const float font = theme.ResolveFontSize(displayTxt, TextRole::LabelMedium, size);
     const Color textCol = disabled ? pal.textPrimary.WithAlphaF(0.40f) : pal.textPrimary;
-    TextUtil::DrawUiText(canvas, displayTxt, textRect, font, bounds.h, textCol, 0.0f, 0.5f);
+    TextUtil::DrawUiText(canvas, displayTxt, textRect, font, bounds.h, textCol, 0.0f, 0.5f, &theme);
 
     canvas.PopClip();
 }

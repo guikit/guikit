@@ -567,7 +567,7 @@ TableScope Table::Open(
         node->flexGrow = 1.0f;
     }
 
-    auto& state = ctx.GetOrCreateState<TableState>(id);
+    auto& state = ctx.GetOrCreatePersistentState<TableState>(id);
     state.visibleRows.clear();
 
     const uint16_t colCount = static_cast<uint16_t>(std::min(columns.size(), kMaxTableColumns));
@@ -854,6 +854,7 @@ TableScope Table::Open(
                         }
                         const Id focusedId = ctx.GetFocusedId();
                         const bool clickedFocusedChild = focusedId.IsValid() && focusedId != id &&
+                            ctx.IsFocused(focusedId) &&
                             ctx.GetPrevFrameBounds(focusedId).Contains(mousePos);
                         if (!clickedFocusedChild) {
                             ctx.RequestFocus(id);
@@ -864,7 +865,7 @@ TableScope Table::Open(
         }
 
         // 4. Keyboard navigation when table is focused or hovered
-        if ((ctx.GetFocusedId() == id || tableHovered) && knownTotalRows > 0) {
+        if ((ctx.IsFocused(id) || tableHovered) && knownTotalRows > 0) {
             int nextSel = state.selectedRow;
             if (ctx.ConsumeAction(KeyAction::MoveDown)) {
                 nextSel = std::clamp(nextSel + 1, 0, static_cast<int>(knownTotalRows) - 1);

@@ -10,7 +10,9 @@
 #define GUIKIT_VERSION_STRING "1.0.0"
 
 #include "guikit/core.hpp"
+#if !defined(GUIKIT_HAS_SCENES) || GUIKIT_HAS_SCENES
 #include "guikit/scenes.hpp"
+#endif
 #if __has_include("thorvg.h")
 #include "guikit/backend/thor_canvas.hpp"
 #endif

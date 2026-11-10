@@ -319,7 +319,9 @@ inline void RenderPreviewViewport(
         // Hardware device specifications:
         // - Phone (6.3" iPhone 16 Pro class): 375 x 784 dp  |  71.5 x 149.6 mm
         // - Tablet (8.3" iPad mini / Touch Panel class): 540 x 782 dp  |  134.8 x 195.4 mm
-        const float pxPerMm       = (demoCtx.displayPxPerMm > 0.5f) ? demoCtx.displayPxPerMm : (96.0f / 25.4f);
+        const float rawPxPerMm    = (demoCtx.displayPxPerMm > 0.5f) ? demoCtx.displayPxPerMm : (96.0f / 25.4f);
+        const float dpiScale      = std::max(0.1f, ui.GetDpiScale());
+        const float pxPerMm       = rawPxPerMm / dpiScale;
         const float basePortraitW = isPhone ? 375.0f : 540.0f;
         const float basePortraitH = isPhone ? 784.0f : 782.0f;
         const float baseMmW       = isPhone ? 71.5f  : 134.8f;

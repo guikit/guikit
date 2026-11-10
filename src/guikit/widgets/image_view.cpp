@@ -1335,26 +1335,18 @@ Vec2 ImageView::Measure(
     return {w, h};
 }
 
-ImageViewResponse ImageView::Run(
-    Context& ctx,
-    const ImageViewData& data,
-    const ImageViewOptions& opts,
-    std::source_location loc
-) {
-    const Id baseId = ctx.MakeChildId(loc);
-    auto& st = ctx.GetOrCreateState<ImageViewInternalState>(baseId);
-    return Run(ctx, data, st.internalParams, opts, loc);
-}
+namespace {
 
-ImageViewResponse ImageView::Run(
+ImageViewResponse RunImageViewImpl(
     Context& ctx,
     const ImageViewData& data,
-    ImageViewParams& params,
+    ImageViewParams* externalParams,
     const ImageViewOptions& opts,
     std::source_location loc
 ) {
     const Id rootId = ctx.MakeChildId(loc);
-    auto& st = ctx.GetOrCreateState<ImageViewInternalState>(rootId);
+    auto& st = ctx.GetOrCreatePersistentState<ImageViewInternalState>(rootId);
+    ImageViewParams& params = externalParams ? *externalParams : st.internalParams;
 
     ImageViewOptions optsCopy = opts;
     std::optional<float> inheritedH{};
@@ -1518,7 +1510,7 @@ ImageViewResponse ImageView::Run(
                         else if (params.activeHistChannel == HistogramChannel::Green) targetBins = st.binsG;
                         else if (params.activeHistChannel == HistogramChannel::Blue) targetBins = st.binsB;
                     }
-                    ApplyQuantileAutoWindow(targetBins, st.dataMin, st.dataMax, params.autoTarget, params.autoStrength, curTp);
+                    ImageView::ApplyQuantileAutoWindow(targetBins, st.dataMin, st.dataMax, params.autoTarget, params.autoStrength, curTp);
                     sidebarChangedParams = true;
                 }
             }
@@ -1540,7 +1532,7 @@ ImageViewResponse ImageView::Run(
                             else if (params.activeHistChannel == HistogramChannel::Green) targetBins = st.binsG;
                             else if (params.activeHistChannel == HistogramChannel::Blue) targetBins = st.binsB;
                         }
-                        ApplyQuantileAutoWindow(targetBins, st.dataMin, st.dataMax, params.autoTarget, params.autoStrength, curTp);
+                        ImageView::ApplyQuantileAutoWindow(targetBins, st.dataMin, st.dataMax, params.autoTarget, params.autoStrength, curTp);
                         sidebarChangedParams = true;
                     }
                 }
@@ -1556,9 +1548,9 @@ ImageViewResponse ImageView::Run(
                     const AutoWindowStrength effStr = (params.autoStrength == AutoWindowStrength::Off)
                         ? AutoWindowStrength::Medium
                         : params.autoStrength;
-                    ApplyQuantileAutoWindow(st.binsR, st.dataMin, st.dataMax, AutoWindowTarget::All, effStr, params.channels[1]);
-                    ApplyQuantileAutoWindow(st.binsG, st.dataMin, st.dataMax, AutoWindowTarget::All, effStr, params.channels[2]);
-                    ApplyQuantileAutoWindow(st.binsB, st.dataMin, st.dataMax, AutoWindowTarget::All, effStr, params.channels[3]);
+                    ImageView::ApplyQuantileAutoWindow(st.binsR, st.dataMin, st.dataMax, AutoWindowTarget::All, effStr, params.channels[1]);
+                    ImageView::ApplyQuantileAutoWindow(st.binsG, st.dataMin, st.dataMax, AutoWindowTarget::All, effStr, params.channels[2]);
+                    ImageView::ApplyQuantileAutoWindow(st.binsB, st.dataMin, st.dataMax, AutoWindowTarget::All, effStr, params.channels[3]);
                     sidebarChangedParams = true;
                 }
             }
@@ -1612,7 +1604,7 @@ ImageViewResponse ImageView::Run(
         .gap = 8.0f,
         .align = Alignment::Stretch,
         .heightMode = optsCopy.heightMode
-    }, loc)) {
+    })) {
         if (Node* rNode = outerRow.GetNode()) {
             const UiTheme& th = ctx.GetTheme();
             if (rNode->parent && rNode->parent->type == NodeType::Element) {
@@ -1631,7 +1623,7 @@ ImageViewResponse ImageView::Run(
             }
         }
 
-        const Id vpId = ctx.MakeChildId(loc);
+        const Id vpId = Id{detail::HashArgs(rootId, 0x494D'4756'5001ULL)};
         if (!optsCopy.sidebarOnRight) {
             renderSidebar();
             if (sidebarChangedParams) {
@@ -1652,6 +1644,27 @@ ImageViewResponse ImageView::Run(
         viewportRes.changed = true;
     }
     return viewportRes;
+}
+
+} // namespace
+
+ImageViewResponse ImageView::Run(
+    Context& ctx,
+    const ImageViewData& data,
+    const ImageViewOptions& opts,
+    std::source_location loc
+) {
+    return RunImageViewImpl(ctx, data, nullptr, opts, loc);
+}
+
+ImageViewResponse ImageView::Run(
+    Context& ctx,
+    const ImageViewData& data,
+    ImageViewParams& params,
+    const ImageViewOptions& opts,
+    std::source_location loc
+) {
+    return RunImageViewImpl(ctx, data, &params, opts, loc);
 }
 
 } // namespace guikit

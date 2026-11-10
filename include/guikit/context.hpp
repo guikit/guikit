@@ -38,9 +38,15 @@
 #include "guikit/panels/card.hpp"
 #include "guikit/panels/carousel.hpp"
 #include "guikit/panels/command_palette.hpp"
+#if !defined(GUIKIT_HAS_SCENES)
+#define GUIKIT_HAS_SCENES 1
+#endif
+
 #include "guikit/panels/scroll_area.hpp"
 #include "guikit/panels/scene.hpp"
+#if GUIKIT_HAS_SCENES
 #include "guikit/panels/map_view.hpp"
+#endif
 #include "guikit/panels/context_menu.hpp"
 #include "guikit/panels/modal.hpp"
 #include "guikit/panels/sidebar.hpp"
@@ -73,15 +79,17 @@
 #include "guikit/widgets/text.hpp"
 #include "guikit/widgets/text_area.hpp"
 #include "guikit/widgets/toast.hpp"
-#include "guikit/widgets/signal_view.hpp"
-#include "guikit/widgets/sonar_view.hpp"
-#include "guikit/widgets/waterfall_view.hpp"
 #include "guikit/graphics/colormap.hpp"
 #include "guikit/widgets/histogram.hpp"
 #include "guikit/widgets/image_view.hpp"
+#if GUIKIT_HAS_SCENES
+#include "guikit/widgets/signal_view.hpp"
+#include "guikit/widgets/sonar_view.hpp"
+#include "guikit/widgets/waterfall_view.hpp"
 #include "guikit/widgets/attitude_view.hpp"
 #include "guikit/widgets/bpmn_editor.hpp"
 #include "guikit/widgets/car_cluster_view.hpp"
+#endif
 
 namespace guikit {
 
@@ -139,11 +147,12 @@ struct StoredState {
     void* ptr{nullptr};
     void (*destroy)(void*) noexcept {nullptr};
     uint64_t lastFrameActive{0};
+    bool persistent{false};
 
     StoredState() noexcept = default;
 
     template <typename T>
-    static StoredState Create(T&& val, uint64_t frameIndex) {
+    static StoredState Create(T&& val, uint64_t frameIndex, bool isPersistent = false) {
         using Decayed = std::decay_t<T>;
         Decayed* p = keel::default_allocator()->create<Decayed>(std::forward<T>(val));
         StoredState s;
@@ -152,6 +161,7 @@ struct StoredState {
             keel::default_allocator()->destroy(static_cast<Decayed*>(raw));
         };
         s.lastFrameActive = frameIndex;
+        s.persistent = isPersistent;
         return s;
     }
 
@@ -165,7 +175,10 @@ struct StoredState {
     StoredState& operator=(const StoredState&) = delete;
 
     StoredState(StoredState&& other) noexcept
-        : ptr(other.ptr), destroy(other.destroy), lastFrameActive(other.lastFrameActive) {
+        : ptr(other.ptr)
+        , destroy(other.destroy)
+        , lastFrameActive(other.lastFrameActive)
+        , persistent(other.persistent) {
         other.ptr = nullptr;
         other.destroy = nullptr;
     }
@@ -178,6 +191,7 @@ struct StoredState {
             ptr = other.ptr;
             destroy = other.destroy;
             lastFrameActive = other.lastFrameActive;
+            persistent = other.persistent;
             other.ptr = nullptr;
             other.destroy = nullptr;
         }
@@ -564,12 +578,14 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
+#if GUIKIT_HAS_SCENES
     [[nodiscard]] MapViewScope MapView(
         MapViewOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
         return Open<guikit::MapView>(opts, loc);
     }
+#endif
 
     [[nodiscard]] TableScope Table(
         std::span<const TableColumn> columns,
@@ -732,6 +748,7 @@ public:
         std::source_location loc = std::source_location::current()
     );
 
+#if GUIKIT_HAS_SCENES
     // --- SignalView (Waveform + Spectrogram DAW Analyzer) Widget ---
     SignalViewResponse SignalView(
         std::span<const float> samples,
@@ -758,6 +775,7 @@ public:
     ) {
         return Run<guikit::WaterfallView>(latestSliceDb, opts, loc);
     }
+#endif
 
     // --- Histogram (Single-Channel & Multi-Channel RGB+Lum Window/Level) Widget ---
     HistogramResponse Histogram(
@@ -787,6 +805,7 @@ public:
         return Run<guikit::ImageView>(data, opts, loc);
     }
 
+#if GUIKIT_HAS_SCENES
     // --- AttitudeView (Avionics Artificial Horizon & Primary Flight Display) Widget ---
     AttitudeViewResponse AttitudeView(
         const AttitudeViewOptions& opts = {},
@@ -811,6 +830,7 @@ public:
     ) {
         return Run<guikit::BpmnEditor>(diagram, opts, loc);
     }
+#endif
 
     // --- Switch Widget ---
     Response Switch(
@@ -1749,6 +1769,7 @@ public:
 
     // --- Core Engine Services for Widgets ---
     Id MakeChildId(std::source_location loc);
+    Id MakeChildIdForParent(Id parentId, std::source_location loc);
     Response Interact(Id id);
     Node* CreateNode(NodeType type, Id id);
     
@@ -1784,6 +1805,7 @@ public:
     [[nodiscard]] bool HasActiveTextEdit(Id id) const noexcept { return m_editState.id == id && id.IsValid(); }
     void ClearFocus() noexcept {
         if (m_editState.id == m_focusedId) {
+            FlushActiveEditHistory();
             m_editState.id = Id::Null();
         }
         m_focusedId = Id::Null();
@@ -1942,6 +1964,23 @@ public:
     void RegisterFocusable(Id id, bool disabled = false);
 
     void BeginModalScope(Id id, Rect backdropRect) noexcept {
+        if (m_modalScopeDepth == 0 && m_focusedId.IsValid()) {
+            const bool focusedBeforeModal = std::find(
+                m_currFocusableIds.begin(), m_currFocusableIds.end(), m_focusedId
+            ) != m_currFocusableIds.end();
+            if (focusedBeforeModal) {
+                if (!m_savedFocusBeforeModal.IsValid()) {
+                    m_savedFocusBeforeModal = m_focusedId;
+                }
+                if (m_editState.id == m_focusedId) {
+                    FlushActiveEditHistory();
+                    m_editState.id = Id::Null();
+                }
+                m_focusedId = Id::Null();
+                m_suspendDirectEditInput = false;
+                m_pendingTextInput.clear();
+            }
+        }
         ++m_modalScopeDepth;
         m_currFrameModalId = id;
         m_currFrameModalBackdropRect = backdropRect;
@@ -2019,7 +2058,7 @@ public:
     void ScrollToId(Id id);
 
     // --- Generic Persistent State Storage ---
-    /// Persistent typed state storage across frames for widgets by deterministic Id and Type.
+    /// Typed state storage across frames for widgets by deterministic Id and Type (garbage-collected if unused for 600+ frames).
     template <typename T>
     [[nodiscard]] T& GetOrCreateState(Id id, T defaultVal = T{}) {
         detail::StateKey key{id, std::type_index(typeid(T))};
@@ -2027,11 +2066,28 @@ public:
         if (!found) {
             detail::StoredState& inserted = m_customStates.get_or_insert(
                 key,
-                detail::StoredState::Create<T>(std::move(defaultVal), m_frameIndex)
+                detail::StoredState::Create<T>(std::move(defaultVal), m_frameIndex, false)
             );
             return *static_cast<T*>(inserted.ptr);
         }
         found->lastFrameActive = m_frameIndex;
+        return *static_cast<T*>(found->ptr);
+    }
+
+    /// Long-lived typed state storage that survives tab switches, collapsed trees, and hidden panels without 600-frame eviction.
+    template <typename T>
+    [[nodiscard]] T& GetOrCreatePersistentState(Id id, T defaultVal = T{}) {
+        detail::StateKey key{id, std::type_index(typeid(T))};
+        detail::StoredState* found = m_customStates.get(key);
+        if (!found) {
+            detail::StoredState& inserted = m_customStates.get_or_insert(
+                key,
+                detail::StoredState::Create<T>(std::move(defaultVal), m_frameIndex, true)
+            );
+            return *static_cast<T*>(inserted.ptr);
+        }
+        found->lastFrameActive = m_frameIndex;
+        found->persistent = true;
         return *static_cast<T*>(found->ptr);
     }
 
@@ -2046,7 +2102,20 @@ public:
         return static_cast<const T*>(found->ptr);
     }
 
+    template <typename T>
+    [[nodiscard]] T* FindMutableState(Id id) {
+        detail::StateKey key{id, std::type_index(typeid(T))};
+        detail::StoredState* found = m_customStates.get(key);
+        if (!found) {
+            return nullptr;
+        }
+        found->lastFrameActive = m_frameIndex;
+        return static_cast<T*>(found->ptr);
+    }
+
 private:
+    void FlushActiveEditHistory() noexcept;
+    [[nodiscard]] bool IsDirectEditAllowed() const noexcept;
     void RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirtyRect, const UiTheme& parentTheme);
     void RenderModalsRecursive(Node* node, ICanvas& canvas, const Rect& dirtyRect, const UiTheme& parentTheme);
     bool UpdateScrollAreasRecursive(Node* node);
@@ -2226,6 +2295,13 @@ private:
         bool HandleKey(Context& ctx, Key key, KeyModifiers mods, bool& outLostFocus);
     };
     ActiveEditState m_editState;
+    struct TextEditHistory {
+        std::string lastText;
+        std::vector<ActiveEditState::EditSnapshot> undoStack;
+        std::vector<ActiveEditState::EditSnapshot> redoStack;
+    };
+    keel::HashMap<Id, TextEditHistory> m_editHistories;
+    Id m_savedFocusBeforeModal{Id::Null()};
     bool m_suspendDirectEditInput{false};
 
     struct QueuedKeyEvent {
@@ -2306,6 +2382,8 @@ private:
     bool m_hadDebugBoundsLastFrame{false};
     bool m_hadInspectModeLastFrame{false};
     Vec2 m_mouseWheel{0.0f, 0.0f};
+    keel::HashMap<const char*, uint64_t> m_fileHashCache;
+    keel::HashMap<uint64_t, uint32_t> m_childIdCounts;
     keel::HashMap<detail::StateKey, detail::StoredState, detail::StateKeyHash> m_customStates;
     uint64_t m_frameIndex{0};
 
@@ -2630,12 +2708,14 @@ public:
         return TransferToContainer(m_ctx->Scene(std::move(opts), loc));
     }
 
+#if GUIKIT_HAS_SCENES
     [[nodiscard]] MapViewScope MapView(
         MapViewOptions opts = {},
         std::source_location loc = std::source_location::current()
     ) {
         return TransferToContainer(m_ctx->MapView(std::move(opts), loc));
     }
+#endif
 
     [[nodiscard]] TableScope Table(
         std::span<const TableColumn> columns,
@@ -2775,6 +2855,7 @@ public:
         return m_ctx->Markdown(markdownText, opts, loc);
     }
 
+#if GUIKIT_HAS_SCENES
     SignalViewResponse SignalView(
         std::span<const float> samples,
         const SignalViewOptions& opts = {},
@@ -2798,6 +2879,7 @@ public:
     ) {
         return m_ctx->WaterfallView(latestSliceDb, opts, loc);
     }
+#endif
 
     HistogramResponse Histogram(
         const HistogramData& data,
@@ -2825,6 +2907,7 @@ public:
         return m_ctx->ImageView(data, opts, loc);
     }
 
+#if GUIKIT_HAS_SCENES
     AttitudeViewResponse AttitudeView(
         const AttitudeViewOptions& opts = {},
         std::source_location loc = std::source_location::current()
@@ -2846,6 +2929,7 @@ public:
     ) {
         return m_ctx->BpmnEditor(diagram, opts, loc);
     }
+#endif
 
     Response Switch(
         bool& value,

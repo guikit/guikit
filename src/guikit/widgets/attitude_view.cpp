@@ -1433,7 +1433,7 @@ AttitudeViewResponse AttitudeView::Run(
     }
     const Rect activeRect = prevBounds;
 
-    auto& state = ctx.GetOrCreateState<AttitudeViewState>(id);
+    auto& state = ctx.GetOrCreatePersistentState<AttitudeViewState>(id);
     if (!state.initialized) {
         state.fovPitchDeg = std::clamp(opts.fieldOfViewPitchDeg, 25.0f, 90.0f);
         state.initialized = true;

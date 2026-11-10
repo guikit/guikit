@@ -123,7 +123,7 @@ SidebarScope Sidebar::Open(
     const Rect parentBounds = ctx.GetParentPrevFrameBounds();
     const float clampedRatio = std::clamp(opts.maxRatio, 0.15f, 0.90f);
 
-    auto& state = ctx.GetOrCreateState<SidebarPersistState>(id);
+    auto& state = ctx.GetOrCreatePersistentState<SidebarPersistState>(id);
     if (!state.initialized) {
         state.initialized = true;
         state.mode = opts.defaultMode;
@@ -472,7 +472,7 @@ SidebarScope Sidebar::Open(
     if (node->sidebarScrollable) {
         node->postRenderFn = &ScrollArea::RenderScrollbar;
 
-        auto& scrollState = ctx.GetOrCreateState<ScrollState>(id);
+        auto& scrollState = ctx.GetOrCreatePersistentState<ScrollState>(id);
         node->scrollOffset = scrollState.offset;
     }
 

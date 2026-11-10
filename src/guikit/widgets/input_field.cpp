@@ -1,11 +1,13 @@
 #include "guikit/widgets/input_field.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <string>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/utf8.h"
 
 namespace guikit {
 
@@ -166,6 +168,32 @@ size_t SnapToUtf8CodepointBoundary(std::string_view text, size_t idx) noexcept {
     return idx;
 }
 
+std::string_view AllocPasswordMask(Context& ctx, std::string_view text) noexcept {
+    const size_t cpCount = keel::utf8_codepoint_count(text);
+    if (cpCount == 0) {
+        return {};
+    }
+    char* buf = ctx.GetArena().alloc_array<char>(cpCount);
+    if (!buf) {
+        return {};
+    }
+    std::memset(buf, '*', cpCount);
+    return {buf, cpCount};
+}
+
+size_t CodepointOffsetToByteIndex(std::string_view text, size_t cpIndex) noexcept {
+    size_t byteIdx = 0;
+    for (size_t i = 0; i < cpIndex && byteIdx < text.size(); ++i) {
+        byteIdx = keel::utf8_next_boundary(text, byteIdx);
+    }
+    return byteIdx;
+}
+
+size_t ByteIndexToCodepointOffset(std::string_view text, size_t byteIndex) noexcept {
+    const size_t clamped = std::min(byteIndex, text.size());
+    return keel::utf8_codepoint_count(text.substr(0, clamped));
+}
+
 } // namespace
 
 Response InputField::Run(
@@ -212,7 +240,7 @@ Response InputField::Run(
 
     std::string_view valStr = (stringValue != nullptr) ? std::string_view(*stringValue) : displayFallback;
 
-    auto& state = ctx.GetOrCreateState<InputFieldState>(id);
+    auto& state = ctx.GetOrCreatePersistentState<InputFieldState>(id);
     if (!res.pressed && !mouseJustPressed) {
         state.actionBtnDown = false;
     }
@@ -266,17 +294,20 @@ Response InputField::Run(
         const float inputFont = theme.ResolveFontSize(optsCopy.valueFormat, TextRole::LabelMedium, activeSize);
 
         const bool isMasked = opts.password && !state.passwordRevealed;
-        std::string maskedEditBuf;
-        std::string_view hitTestText = currentEditText;
-        if (isMasked && !currentEditText.empty()) {
-            maskedEditBuf.assign(currentEditText.size(), '*');
-            hitTestText = maskedEditBuf;
-        }
+        const std::string_view hitTestText = (isMasked && !currentEditText.empty())
+            ? AllocPasswordMask(ctx, currentEditText)
+            : currentEditText;
+
+        auto mapHitToByte = [&](size_t idx) noexcept -> size_t {
+            return isMasked
+                ? CodepointOffsetToByteIndex(currentEditText, idx)
+                : SnapToUtf8CodepointBoundary(currentEditText, idx);
+        };
 
         if ((mouseJustPressed || res.pressed) && !state.actionBtnDown) {
             const float localX = (mousePos.x - textRect.x) + state.scrollX;
-            size_t hitIdx = TextUtil::HitTestIndex(hitTestText, localX, inputFont, canvas);
-            hitIdx = SnapToUtf8CodepointBoundary(currentEditText, hitIdx);
+            const size_t rawHitIdx = TextUtil::HitTestIndex(hitTestText, localX, inputFont, canvas);
+            const size_t hitIdx = mapHitToByte(rawHitIdx);
 
             if (mouseJustPressed) {
                 const double now = ctx.GetCurrentTime();
@@ -300,9 +331,9 @@ Response InputField::Run(
                 } else if (state.clickCount == 2) {
                     size_t wStart = 0;
                     size_t wEnd = 0;
-                    TextUtil::SelectWordAt(hitTestText, hitIdx, wStart, wEnd);
-                    wStart = SnapToUtf8CodepointBoundary(currentEditText, wStart);
-                    wEnd = SnapToUtf8CodepointBoundary(currentEditText, wEnd);
+                    TextUtil::SelectWordAt(hitTestText, rawHitIdx, wStart, wEnd);
+                    wStart = mapHitToByte(wStart);
+                    wEnd = mapHitToByte(wEnd);
                     state.draggingWord = true;
                     state.wordDragStart = wStart;
                     state.wordDragEnd = wEnd;
@@ -317,9 +348,9 @@ Response InputField::Run(
                 } else if (state.draggingWord) {
                     size_t wStart = 0;
                     size_t wEnd = 0;
-                    TextUtil::SelectWordAt(hitTestText, hitIdx, wStart, wEnd);
-                    wStart = SnapToUtf8CodepointBoundary(currentEditText, wStart);
-                    wEnd = SnapToUtf8CodepointBoundary(currentEditText, wEnd);
+                    TextUtil::SelectWordAt(hitTestText, rawHitIdx, wStart, wEnd);
+                    wStart = mapHitToByte(wStart);
+                    wEnd = mapHitToByte(wEnd);
                     if (hitIdx < state.wordDragStart) {
                         ctx.SetTextEditCursor(id, wStart, state.wordDragEnd);
                     } else {
@@ -357,13 +388,14 @@ Response InputField::Run(
         clearHovered = showClearBtn && res.hovered && rects.clearRect.Contains(mousePos);
 
         if (rects.textRect.w > 0.0f && isFocused) {
-            std::string maskedDisplayBuf;
-            std::string_view measureText = displayText;
-            if (opts.password && !state.passwordRevealed && !displayText.empty()) {
-                maskedDisplayBuf.assign(displayText.size(), '*');
-                measureText = maskedDisplayBuf;
-            }
-            const size_t safeCursor = std::min(cursor, measureText.size());
+            const bool maskAfterEdit = opts.password && !state.passwordRevealed;
+            const std::string_view measureText = (maskAfterEdit && !displayText.empty())
+                ? AllocPasswordMask(ctx, displayText)
+                : displayText;
+            const size_t mappedCursor = maskAfterEdit
+                ? ByteIndexToCodepointOffset(displayText, cursor)
+                : cursor;
+            const size_t safeCursor = std::min(mappedCursor, measureText.size());
             const float cursorX = TextUtil::MeasureWidth(measureText.substr(0, safeCursor), inputFont, canvas);
             const float fullTextW = TextUtil::MeasureWidth(measureText, inputFont, canvas);
             const float visibleW = std::max(0.0f, rects.textRect.w - 2.0f);
@@ -385,23 +417,24 @@ Response InputField::Run(
     const size_t selStart = std::min(cursor, selAnchor);
     const size_t selEnd = std::max(cursor, selAnchor);
 
-    std::string maskedFinalBuf;
-    std::string_view renderedText = displayText;
-    if (opts.password && !state.passwordRevealed && !displayText.empty()) {
-        maskedFinalBuf.assign(displayText.size(), '*');
-        renderedText = maskedFinalBuf;
-    }
+    const bool maskRendered = opts.password && !state.passwordRevealed;
+    const std::string_view renderedText = (maskRendered && !displayText.empty())
+        ? AllocPasswordMask(ctx, displayText)
+        : ctx.AllocString(displayText);
+    const size_t renderCursor = maskRendered ? ByteIndexToCodepointOffset(displayText, cursor) : cursor;
+    const size_t renderSelStart = maskRendered ? ByteIndexToCodepointOffset(displayText, selStart) : selStart;
+    const size_t renderSelEnd = maskRendered ? ByteIndexToCodepointOffset(displayText, selEnd) : selEnd;
 
     const ControlSpec ctrl = EffectiveInputControl(optsCopy, activeSize, theme);
     Node* node = ctx.CreateNode(NodeType::InputField, id);
 
     auto* data = ctx.AllocPayload<InputFieldData>();
     data->opts = optsCopy;
-    data->displayText = ctx.AllocString(renderedText);
+    data->displayText = renderedText;
     node->text = data->displayText.empty() ? optsCopy.placeholder.text : data->displayText;
-    data->cursor = cursor;
-    data->selStart = selStart;
-    data->selEnd = selEnd;
+    data->cursor = renderCursor;
+    data->selStart = renderSelStart;
+    data->selEnd = renderSelEnd;
     data->scrollX = state.scrollX;
     data->cursorVisible = isFocused && !opts.readOnly && ctx.IsCursorVisible(opts.cursorMode);
     data->cursorWidth = ctx.GetCursorConfig().width;

@@ -1368,7 +1368,7 @@ void Select::Render(
         const Color mainCol = isPlaceholder
             ? placeholderCol
             : theme.ResolveTextColor(currentText, UiVariant::Default, disabled, hovered, open || focused);
-        TextUtil::DrawUiText(canvas, currentText, textRect, selFont, boxRect.h, mainCol, 0.0f, 0.5f);
+        TextUtil::DrawUiText(canvas, currentText, textRect, selFont, boxRect.h, mainCol, 0.0f, 0.5f, &theme);
     }
 
     canvas.PopClip();
@@ -1436,7 +1436,7 @@ void Select::RenderPopup(
         const UiText emptyTxt = opts.emptyText.empty() ? UiText{"No matching items"} : opts.emptyText;
         const float emptyFont = theme.ResolveFontSize(emptyTxt, TextRole::LabelMedium, size);
         const Color emptyCol = theme.ResolveTextColor(emptyTxt, UiVariant::Muted, false);
-        TextUtil::DrawUiText(canvas, emptyTxt, emptyRect, emptyFont, emptyRect.h, emptyCol, 0.0f, 0.5f);
+        TextUtil::DrawUiText(canvas, emptyTxt, emptyRect, emptyFont, emptyRect.h, emptyCol, 0.0f, 0.5f, &theme);
         canvas.PopClip();
         return;
     }
@@ -1536,7 +1536,7 @@ void Select::RenderPopup(
             }
         }
 
-        TextUtil::DrawUiText(canvas, item.text, itemTextRect, selFont, itemRect.h, itemTextCol, 0.0f, 0.5f);
+        TextUtil::DrawUiText(canvas, item.text, itemTextRect, selFont, itemRect.h, itemTextCol, 0.0f, 0.5f, &theme);
     }
 
     canvas.PopClip();
@@ -1857,7 +1857,7 @@ void RenderMultiSelectNode(
 
         const float maxTxtW = std::max(0.0f, (curX + w - removeBtnW - 2.0f) - innerX);
         const Rect chipTxtRect(innerX, chipY, maxTxtW, chipH);
-        TextUtil::DrawUiText(canvas, chip.text, chipTxtRect, chipFont, chipH, chipTextCol, 0.0f, 0.5f);
+        TextUtil::DrawUiText(canvas, chip.text, chipTxtRect, chipFont, chipH, chipTextCol, 0.0f, 0.5f, &theme);
 
         // Draw chip remove (X) button
         const Rect remBtnRect(curX + w - removeBtnW, chipY, removeBtnW, chipH);
@@ -1920,7 +1920,7 @@ void RenderMultiSelectNode(
         }
     } else if (data.totalSelectedCount == 0 && !opts.placeholder.empty()) {
         const float phFont = theme.ResolveFontSize(opts.placeholder, TextRole::LabelMedium, size);
-        TextUtil::DrawUiText(canvas, opts.placeholder, textRect, phFont, boxRect.h, placeholderCol, 0.0f, 0.5f);
+        TextUtil::DrawUiText(canvas, opts.placeholder, textRect, phFont, boxRect.h, placeholderCol, 0.0f, 0.5f, &theme);
     }
 
     canvas.PopClip();
@@ -1962,7 +1962,7 @@ void RenderMultiPopup(
         const UiText emptyTxt = opts.emptyText.empty() ? UiText{"No matching items"} : opts.emptyText;
         const float emptyFont = theme.ResolveFontSize(emptyTxt, TextRole::LabelMedium, size);
         const Color emptyCol = theme.ResolveTextColor(emptyTxt, UiVariant::Muted, false);
-        TextUtil::DrawUiText(canvas, emptyTxt, emptyRect, emptyFont, emptyRect.h, emptyCol, 0.0f, 0.5f);
+        TextUtil::DrawUiText(canvas, emptyTxt, emptyRect, emptyFont, emptyRect.h, emptyCol, 0.0f, 0.5f, &theme);
         canvas.PopClip();
         return;
     }
@@ -2063,7 +2063,7 @@ void RenderMultiPopup(
             }
         }
 
-        TextUtil::DrawUiText(canvas, item.text, itemTextRect, selFont, itemRect.h, itemTextCol, 0.0f, 0.5f);
+        TextUtil::DrawUiText(canvas, item.text, itemTextRect, selFont, itemRect.h, itemTextCol, 0.0f, 0.5f, &theme);
     }
 
     canvas.PopClip();

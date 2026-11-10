@@ -254,7 +254,7 @@ HistogramResponse Histogram::Run(
         optsCopy.height = *inheritedH;
     }
 
-    auto& st = ctx.GetOrCreateState<HistogramInternalState>(id);
+    auto& st = ctx.GetOrCreatePersistentState<HistogramInternalState>(id);
     Response baseRes = ctx.Interact(id);
 
     HistogramResponse res{};

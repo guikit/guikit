@@ -45,6 +45,7 @@ public:
 
     [[nodiscard]] int GetWidth() const noexcept override { return m_width; }
     [[nodiscard]] int GetHeight() const noexcept override { return m_height; }
+    [[nodiscard]] float GetDpiScale() const noexcept override { return m_dpiScale; }
     [[nodiscard]] float GetDisplayPixelsPerMm() const noexcept override { return m_displayPxPerMm; }
     [[nodiscard]] bool IsMinimized() const noexcept override { return m_minimized; }
     [[nodiscard]] bool ShouldRenderFrame() const noexcept override { return !m_minimized && !m_skipRenderThisStep; }
@@ -66,6 +67,10 @@ public:
     [[nodiscard]] const SdlGlShaderEngine& GetShaderEngine() const noexcept { return m_gpuShaderEngine; }
 
 private:
+    void UpdateDisplayMetrics() noexcept;
+    [[nodiscard]] Vec2 ToLogicalMousePos(float x, float y) const noexcept {
+        return {x * m_mouseCoordScale, y * m_mouseCoordScale};
+    }
     void ProcessEvent(const SDL_Event& event, Context& ui);
     static bool SDLCALL LiveResizeEventWatch(void* userdata, SDL_Event* event);
 
@@ -98,6 +103,8 @@ private:
     bool m_gpuShadersEnabled = false;
     bool m_isLiveResizeFrame = false;
     uint32_t m_pressedMouseMask = 0;
+    float m_dpiScale = 1.0f;
+    float m_mouseCoordScale = 1.0f;
     float m_displayPxPerMm = 96.0f / 25.4f;
 
     std::chrono::steady_clock::time_point m_lastLiveResizeTime{};

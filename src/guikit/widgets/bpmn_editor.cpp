@@ -3087,7 +3087,7 @@ BpmnEditorResponse BpmnEditor::Run(
     BpmnEditorResponse resp{};
     static_cast<Response&>(resp) = baseRes;
 
-    auto& state = ctx.GetOrCreateState<BpmnEditorState>(id);
+    auto& state = ctx.GetOrCreatePersistentState<BpmnEditorState>(id);
 
     BpmnEditorOptions effOpts = opts;
     if (opts.tokenSimulationPtr) effOpts.tokenSimulation = *opts.tokenSimulationPtr;

@@ -1494,7 +1494,7 @@ CarClusterViewResponse CarClusterView::Run(
     resp.layoutMode = opts.layoutMode;
     resp.activeCenterMfd = opts.centerMfdPtr ? *opts.centerMfdPtr : opts.centerMfd;
 
-    auto& state = ctx.GetOrCreateState<CarClusterViewState>(id);
+    auto& state = ctx.GetOrCreatePersistentState<CarClusterViewState>(id);
     // Advance animated road scroll phase proportionally to vehicle speed
     const float speedMps = std::max(0.0f, opts.speedKmh) / 3.6f;
     state.roadScrollPhase = std::fmod(state.roadScrollPhase + static_cast<double>(speedMps) * 0.0018, 1.0);

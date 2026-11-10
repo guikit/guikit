@@ -25,10 +25,25 @@ ContainerScope ScrollArea::Open(
     node->align = opts.align;
     node->justify = opts.justify;
     node->clipChildren = true;
-    node->widthMode = SizeMode::Stretch;
-    node->heightMode = SizeMode::Stretch;
+    node->widthMode = opts.widthMode;
+    node->heightMode = opts.heightMode;
     node->flexGrow = 1.0f;
     const UiTheme& theme = ctx.GetTheme();
+    if (opts.width.has_value() && *opts.width > 0.0f) {
+        node->widthMode = SizeMode::Fixed;
+        node->fixedWidth = theme.Scale(*opts.width);
+    }
+    if (opts.height.has_value() && *opts.height > 0.0f) {
+        node->heightMode = SizeMode::Fixed;
+        node->fixedHeight = theme.Scale(*opts.height);
+    } else if (opts.maxHeight.has_value() && *opts.maxHeight > 0.0f) {
+        auto* layoutData = ctx.AllocPayload<ScrollAreaLayoutData>();
+        layoutData->maxHeight = theme.Scale(*opts.maxHeight);
+        node->SetPayload(layoutData);
+        if (opts.heightMode == SizeMode::Stretch) {
+            node->heightMode = SizeMode::Fit;
+        }
+    }
     const auto& pal = theme.palette;
     node->gap = opts.gap.has_value() ? theme.Scale(*opts.gap) : 0.0f;
     node->padding = theme.ResolvePadding(opts.padding);
@@ -49,7 +64,7 @@ ContainerScope ScrollArea::Open(
     node->postRenderFn = &ScrollArea::RenderScrollbar;
 
     // Retrieve persistent scroll state (mouse wheel is handled bottom-up in ScrollArea::Update)
-    auto& state = ctx.GetOrCreateState<ScrollState>(id);
+    auto& state = ctx.GetOrCreatePersistentState<ScrollState>(id);
     node->scrollOffset = state.offset;
 
     ctx.PushScale(activeScale);
@@ -295,7 +310,7 @@ Rect ScrollArea::GetContentClipRect(const Node* node, const UiTheme& theme) {
 void ScrollArea::Update(Context& ctx, Node* node) {
     if (!node || !node->id.IsValid()) return;
 
-    auto& state = ctx.GetOrCreateState<ScrollState>(node->id);
+    auto& state = ctx.GetOrCreatePersistentState<ScrollState>(node->id);
     if (node->disabled) {
         state.draggingY = false;
         state.draggingX = false;
@@ -424,7 +439,7 @@ void ScrollArea::Update(Context& ctx, Node* node) {
 
 void ScrollArea::ScrollToChild(Context& ctx, Node* scrollNode, const Node* targetNode) {
     if (!scrollNode || !targetNode || !scrollNode->id.IsValid()) return;
-    auto& state = ctx.GetOrCreateState<ScrollState>(scrollNode->id);
+    auto& state = ctx.GetOrCreatePersistentState<ScrollState>(scrollNode->id);
     const float targetTop = targetNode->computedRect.y;
     const float targetBottom = targetNode->computedRect.Bottom();
     const float viewTop = scrollNode->computedRect.y + scrollNode->padding.top;

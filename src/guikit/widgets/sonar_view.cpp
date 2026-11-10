@@ -1189,7 +1189,7 @@ SonarViewResponse SonarView::Run(
     }
     const Rect activeRect = prevBounds;
 
-    auto& state = ctx.GetOrCreateState<SonarViewState>(id);
+    auto& state = ctx.GetOrCreatePersistentState<SonarViewState>(id);
 
     const uint32_t numBeams = std::max(8u, opts.numBeams);
     const uint32_t numBins = std::max(8u, opts.numRangeBins);

@@ -161,6 +161,9 @@ target_include_directories(guikit_core PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
+target_compile_definitions(guikit_core PUBLIC
+    GUIKIT_HAS_SCENES=$<BOOL:${GUIKIT_BUILD_SCENES}>
+)
 target_link_libraries(guikit_core PUBLIC keel::keel)
 
 # ==============================================================================
@@ -281,63 +284,68 @@ endif()
 
 # --- Interactive Showcase Demo ---
 if (GUIKIT_BUILD_DEMO)
-    add_executable(guikit_demo
-        examples/demo/main.cpp
-        examples/demo/demo_window.cpp
-        examples/demo/elements/heading_screen.cpp
-        examples/demo/elements/button_screen.cpp
-        examples/demo/elements/slider_screen.cpp
-        examples/demo/elements/knob_screen.cpp
-        examples/demo/elements/spin_box_screen.cpp
-        examples/demo/elements/input_screen.cpp
-        examples/demo/elements/select_screen.cpp
-        examples/demo/elements/segmented_screen.cpp
-        examples/demo/elements/color_picker_screen.cpp
-        examples/demo/elements/date_picker_screen.cpp
-        examples/demo/elements/level_meter_screen.cpp
-        examples/demo/elements/tag_input_screen.cpp
-        examples/demo/panels/split_view_screen.cpp
-        examples/demo/panels/breadcrumb_screen.cpp
-        examples/demo/panels/pagination_screen.cpp
-        examples/demo/elements/switch_screen.cpp
-        examples/demo/elements/checkbox_screen.cpp
-        examples/demo/elements/radio_screen.cpp
-        examples/demo/elements/image_screen.cpp
-        examples/demo/panels/card_screen.cpp
-        examples/demo/panels/tab_bar_screen.cpp
-        examples/demo/panels/toolbar_screen.cpp
-        examples/demo/panels/sidebar_screen.cpp
-        examples/demo/panels/tree_view_screen.cpp
-        examples/demo/panels/table_screen.cpp
-        examples/demo/panels/overlays_screen.cpp
-        examples/demo/content/markdown_screen.cpp
-        examples/demo/content/code_editor_screen.cpp
-        examples/demo/scenes/schematic_screen.cpp
-        examples/demo/scenes/osm_map_screen.cpp
-        examples/demo/scenes/signal_screen.cpp
-        examples/demo/scenes/sonar_screen.cpp
-        examples/demo/scenes/waterfall_screen.cpp
-        examples/demo/scenes/image_view_screen.cpp
-        examples/demo/scenes/attitude_screen.cpp
-        examples/demo/scenes/car_dashboard_screen.cpp
-        examples/demo/scenes/bpmn_screen.cpp
-    )
-    target_link_libraries(guikit_demo PRIVATE guikit::guikit)
-    if (EMSCRIPTEN)
-        set_target_properties(guikit_demo PROPERTIES SUFFIX ".html")
-        target_link_options(guikit_demo PRIVATE
-            "-Oz"
-            "-flto"
-            "-sSTACK_SIZE=1048576"
-            "-Wl,--stack-first"
-            "-sALLOW_MEMORY_GROWTH=1"
-            "-sINITIAL_MEMORY=67108864"
-            "-sMAX_WEBGL_VERSION=2"
-            "-sMIN_WEBGL_VERSION=1"
-            "-sEXIT_RUNTIME=0"
-            "--shell-file" "${CMAKE_CURRENT_SOURCE_DIR}/examples/demo/shell.html"
+    if (GUIKIT_BUILD_SCENES)
+        add_executable(guikit_demo
+            examples/demo/main.cpp
+            examples/demo/demo_window.cpp
+            examples/demo/elements/heading_screen.cpp
+            examples/demo/elements/button_screen.cpp
+            examples/demo/elements/slider_screen.cpp
+            examples/demo/elements/knob_screen.cpp
+            examples/demo/elements/spin_box_screen.cpp
+            examples/demo/elements/input_screen.cpp
+            examples/demo/elements/select_screen.cpp
+            examples/demo/elements/segmented_screen.cpp
+            examples/demo/elements/color_picker_screen.cpp
+            examples/demo/elements/date_picker_screen.cpp
+            examples/demo/elements/level_meter_screen.cpp
+            examples/demo/elements/tag_input_screen.cpp
+            examples/demo/panels/split_view_screen.cpp
+            examples/demo/panels/breadcrumb_screen.cpp
+            examples/demo/panels/pagination_screen.cpp
+            examples/demo/elements/switch_screen.cpp
+            examples/demo/elements/checkbox_screen.cpp
+            examples/demo/elements/radio_screen.cpp
+            examples/demo/elements/image_screen.cpp
+            examples/demo/panels/card_screen.cpp
+            examples/demo/panels/tab_bar_screen.cpp
+            examples/demo/panels/toolbar_screen.cpp
+            examples/demo/panels/sidebar_screen.cpp
+            examples/demo/panels/tree_view_screen.cpp
+            examples/demo/panels/table_screen.cpp
+            examples/demo/panels/overlays_screen.cpp
+            examples/demo/content/markdown_screen.cpp
+            examples/demo/content/code_editor_screen.cpp
+            examples/demo/scenes/schematic_screen.cpp
+            examples/demo/scenes/osm_map_screen.cpp
+            examples/demo/scenes/signal_screen.cpp
+            examples/demo/scenes/sonar_screen.cpp
+            examples/demo/scenes/waterfall_screen.cpp
+            examples/demo/scenes/image_view_screen.cpp
+            examples/demo/scenes/attitude_screen.cpp
+            examples/demo/scenes/car_dashboard_screen.cpp
+            examples/demo/scenes/bpmn_screen.cpp
         )
+        target_link_libraries(guikit_demo PRIVATE guikit::guikit)
+        if (EMSCRIPTEN)
+            set_target_properties(guikit_demo PROPERTIES SUFFIX ".html")
+            target_link_options(guikit_demo PRIVATE
+                "-Oz"
+                "-flto"
+                "-sSTACK_SIZE=1048576"
+                "-Wl,--stack-first"
+                "-sALLOW_MEMORY_GROWTH=1"
+                "-sINITIAL_MEMORY=67108864"
+                "-sMAX_WEBGL_VERSION=2"
+                "-sMIN_WEBGL_VERSION=1"
+                "-sEXIT_RUNTIME=0"
+                "--shell-file" "${CMAKE_CURRENT_SOURCE_DIR}/examples/demo/shell.html"
+            )
+        endif()
     else()
+        message(STATUS "Skipping guikit_demo because GUIKIT_BUILD_SCENES=OFF (guikit_minimal remains enabled)")
+    endif()
+    if (NOT EMSCRIPTEN)
         add_executable(guikit_minimal
             examples/minimal/main.cpp
         )

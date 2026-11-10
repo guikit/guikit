@@ -156,7 +156,7 @@ void MainWindow::RenderFrame() {
     const auto frameWorkStart = std::chrono::steady_clock::now();
     m_metrics.BeginFrame();
 
-    m_ui.BeginFrame({static_cast<float>(winW), static_cast<float>(winH)}, 1.0f);
+    m_ui.BeginFrame({static_cast<float>(winW), static_cast<float>(winH)}, GetDpiScale());
     {
         const ShellStyle activeShellStyle = m_shellFloating ? ShellStyle::Floating : ShellStyle::Docked;
         if (m_shellTheme.GetShellStyle() != activeShellStyle) {
@@ -217,6 +217,10 @@ int MainWindow::GetWidth() const noexcept {
 
 int MainWindow::GetHeight() const noexcept {
     return m_backend ? m_backend->GetHeight() : m_config.height;
+}
+
+float MainWindow::GetDpiScale() const noexcept {
+    return m_backend ? m_backend->GetDpiScale() : 1.0f;
 }
 
 float MainWindow::GetDisplayPixelsPerMm() const noexcept {

@@ -119,35 +119,46 @@ constexpr uint64_t HashArgs(const Args&... args) noexcept {
     return h;
 }
 
+[[nodiscard]] inline constexpr uint64_t HashCallsiteWithFileHash(
+    Id parentId,
+    uint64_t fileHash,
+    uint32_t line,
+    uint32_t column
+) noexcept {
+    uint64_t hash = Fnv1aOffsetBasis;
+    if (parentId.IsValid()) {
+        hash = HashInt64(parentId.value, hash);
+    }
+    hash = HashInt64(fileHash, hash);
+    hash = HashInt64(static_cast<uint64_t>(line), hash);
+    hash = HashInt64(static_cast<uint64_t>(column), hash);
+    return hash;
+}
+
+[[nodiscard]] inline constexpr Id FinalizeCallsiteId(
+    uint64_t callsiteHash,
+    uint32_t occurrenceIndex
+) noexcept {
+    uint64_t hash = HashInt64(static_cast<uint64_t>(occurrenceIndex), callsiteHash);
+    if (hash == 0) {
+        hash = 1;
+    }
+    return Id{hash};
+}
+
 } // namespace detail
 
-/// Generates an automatic ID combining source location, container child index, and optional parent ID.
+/// Generates an automatic ID combining source location, occurrence index, and optional parent ID.
 [[nodiscard]] inline constexpr Id MakeId(
     uint32_t childIndex,
     std::source_location loc = std::source_location::current(),
     Id parentId = Id::Null()
 ) noexcept {
-    uint64_t hash = detail::Fnv1aOffsetBasis;
-
-    // Incorporate parent ID if nested inside a container
-    if (parentId.IsValid()) {
-        hash = detail::HashInt64(parentId.value, hash);
-    }
-
-    // Incorporate source location: file name, line, and column
-    hash = detail::HashStringView(loc.file_name(), hash);
-    hash = detail::HashInt64(static_cast<uint64_t>(loc.line()), hash);
-    hash = detail::HashInt64(static_cast<uint64_t>(loc.column()), hash);
-
-    // Incorporate container child index to disambiguate loops and multiple elements in single line
-    hash = detail::HashInt64(static_cast<uint64_t>(childIndex), hash);
-
-    // Ensure 0 is reserved for Id::Null
-    if (hash == 0) {
-        hash = 1;
-    }
-
-    return Id{hash};
+    const uint64_t fileHash = detail::HashStringView(loc.file_name());
+    const uint64_t callsiteHash = detail::HashCallsiteWithFileHash(
+        parentId, fileHash, loc.line(), loc.column()
+    );
+    return detail::FinalizeCallsiteId(callsiteHash, childIndex);
 }
 
 } // namespace guikit

@@ -498,7 +498,8 @@ void Modal::Render(
                 titleLineH,
                 titleCol,
                 0.0f,
-                0.5f
+                0.5f,
+                &theme
             );
             textY += titleLineH + 3.0f * s;
         }
@@ -515,7 +516,8 @@ void Modal::Render(
                 subLineH,
                 subCol,
                 0.0f,
-                0.5f
+                0.5f,
+                &theme
             );
         }
 

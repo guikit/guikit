@@ -956,7 +956,7 @@ WaterfallViewResponse WaterfallView::Run(
     auto* payload = ctx.AllocPayload<WaterfallViewPayload>();
     payload->opts = opts;
 
-    auto& state = ctx.GetOrCreateState<WaterfallViewState>(id);
+    auto& state = ctx.GetOrCreatePersistentState<WaterfallViewState>(id);
     payload->state = &state;
 
     const uint32_t numBins = std::max(16u, opts.numBins);

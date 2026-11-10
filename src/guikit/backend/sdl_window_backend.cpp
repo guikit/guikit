@@ -54,12 +54,12 @@ float QueryHdcPixelsPerMm(HDC hdc) noexcept {
 #endif
 
 #ifdef __EMSCRIPTEN__
-bool GetEmscriptenCanvasPhysicalSize(int& outW, int& outH) noexcept {
+bool GetEmscriptenCanvasPhysicalSize(int& outW, int& outH, bool highDpi) noexcept {
     double cssW = 0.0;
     double cssH = 0.0;
     if (emscripten_get_element_css_size("#canvas", &cssW, &cssH) == EMSCRIPTEN_RESULT_SUCCESS &&
         cssW >= 200.0 && cssH >= 200.0) {
-        double dpr = emscripten_get_device_pixel_ratio();
+        double dpr = highDpi ? emscripten_get_device_pixel_ratio() : 1.0;
         if (dpr <= 0.0) {
             dpr = 1.0;
         }
@@ -157,6 +157,25 @@ SdlWindowBackend::~SdlWindowBackend() {
     Shutdown();
 }
 
+void SdlWindowBackend::UpdateDisplayMetrics() noexcept {
+    m_displayPxPerMm = QueryDisplayPixelsPerMm(m_window);
+    const float rawPixelDensity = (m_window != nullptr) ? SDL_GetWindowPixelDensity(m_window) : 1.0f;
+    const float pixelDensity = (rawPixelDensity > 0.01f) ? rawPixelDensity : 1.0f;
+
+    if (m_config.highDpi) {
+#ifdef __EMSCRIPTEN__
+        const double dpr = emscripten_get_device_pixel_ratio();
+        m_dpiScale = (dpr > 0.1) ? static_cast<float>(dpr) : 1.0f;
+#else
+        const float dispScale = (m_window != nullptr) ? SDL_GetWindowDisplayScale(m_window) : 1.0f;
+        m_dpiScale = (dispScale > 0.1f) ? dispScale : 1.0f;
+#endif
+    } else {
+        m_dpiScale = 1.0f;
+    }
+    m_mouseCoordScale = pixelDensity / m_dpiScale;
+}
+
 bool SdlWindowBackend::Initialize(
     const MainWindowConfig& config,
     Context& ui,
@@ -187,7 +206,7 @@ bool SdlWindowBackend::Initialize(
     m_sdlVideoInitialized = true;
 
 #ifdef __EMSCRIPTEN__
-    GetEmscriptenCanvasPhysicalSize(m_width, m_height);
+    GetEmscriptenCanvasPhysicalSize(m_width, m_height, m_config.highDpi);
     const SDL_WindowFlags windowFlags = 0;
 #else
     SDL_WindowFlags windowFlags = 0;
@@ -217,13 +236,35 @@ bool SdlWindowBackend::Initialize(
 #endif
     }
 
+    UpdateDisplayMetrics();
+
+#ifndef __EMSCRIPTEN__
+    float winCoordScale = 1.0f;
+    if (m_config.highDpi) {
+        const float rawPd = SDL_GetWindowPixelDensity(m_window);
+        const float pd = (rawPd > 0.01f) ? rawPd : 1.0f;
+        winCoordScale = std::max(1.0f, m_dpiScale / pd);
+        if (winCoordScale > 1.01f) {
+            SDL_SetWindowSize(
+                m_window,
+                std::max(1, static_cast<int>(std::lround(static_cast<float>(m_config.width) * winCoordScale))),
+                std::max(1, static_cast<int>(std::lround(static_cast<float>(m_config.height) * winCoordScale)))
+            );
+        }
+    }
+    if (m_config.minWidth > 0 && m_config.minHeight > 0) {
+        SDL_SetWindowMinimumSize(
+            m_window,
+            std::max(1, static_cast<int>(std::lround(static_cast<float>(m_config.minWidth) * winCoordScale))),
+            std::max(1, static_cast<int>(std::lround(static_cast<float>(m_config.minHeight) * winCoordScale)))
+        );
+    }
+    SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+#else
     if (m_config.minWidth > 0 && m_config.minHeight > 0) {
         SDL_SetWindowMinimumSize(m_window, m_config.minWidth, m_config.minHeight);
     }
-#ifdef __EMSCRIPTEN__
     SDL_SetWindowSize(m_window, m_width, m_height);
-#else
-    SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 #endif
     SDL_SetRenderVSync(m_renderer, m_vsyncEnabled ? 1 : 0);
     SDL_StartTextInput(m_window);
@@ -234,6 +275,7 @@ bool SdlWindowBackend::Initialize(
         m_width = actualW;
         m_height = actualH;
     }
+    UpdateDisplayMetrics();
 
     const bool shadersAvailable = m_gpuShaderEngine.Initialize(m_renderer);
     m_gpuShadersEnabled = m_config.gpuShaders && shadersAvailable;
@@ -273,8 +315,6 @@ bool SdlWindowBackend::Initialize(
         m_pixelBuffer.clear();
         m_pixelBuffer.shrink_to_fit();
     }
-
-    m_displayPxPerMm = QueryDisplayPixelsPerMm(m_window);
 
     ui.SetClipboardCallbacks(
         []() -> std::string {
@@ -383,11 +423,12 @@ bool SdlWindowBackend::PumpEvents(Context& ui, bool reactiveMode, int sleepTimeo
 #ifdef __EMSCRIPTEN__
     int targetW = m_width;
     int targetH = m_height;
-    if (GetEmscriptenCanvasPhysicalSize(targetW, targetH)) {
+    if (GetEmscriptenCanvasPhysicalSize(targetW, targetH, m_config.highDpi)) {
         if (targetW != m_width || targetH != m_height) {
             SDL_SetWindowSize(m_window, targetW, targetH);
         }
     }
+    UpdateDisplayMetrics();
 
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
@@ -455,7 +496,7 @@ bool SDLCALL SdlWindowBackend::LiveResizeEventWatch(void* userdata, SDL_Event* e
         if (event->window.data1 > 0 && event->window.data2 > 0) {
             self->m_width = event->window.data1;
             self->m_height = event->window.data2;
-            self->m_displayPxPerMm = QueryDisplayPixelsPerMm(self->m_window);
+            self->UpdateDisplayMetrics();
             self->m_boundUi->InvalidateAll();
             self->m_boundUi->RequestRepaint(3);
             if (self->m_callbacks.onResize) {
@@ -496,7 +537,7 @@ void SdlWindowBackend::ProcessEvent(const SDL_Event& event, Context& ui) {
         case SDL_EVENT_WINDOW_SHOWN:
         case SDL_EVENT_WINDOW_MAXIMIZED:
             m_minimized = false;
-            m_displayPxPerMm = QueryDisplayPixelsPerMm(m_window);
+            UpdateDisplayMetrics();
             ui.InvalidateAll();
             ui.RequestRepaint(2);
             break;
@@ -508,7 +549,7 @@ void SdlWindowBackend::ProcessEvent(const SDL_Event& event, Context& ui) {
 
         case SDL_EVENT_WINDOW_DISPLAY_CHANGED:
         case SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED:
-            m_displayPxPerMm = QueryDisplayPixelsPerMm(m_window);
+            UpdateDisplayMetrics();
             ui.InvalidateAll();
             ui.RequestRepaint(2);
             break;
@@ -531,7 +572,7 @@ void SdlWindowBackend::ProcessEvent(const SDL_Event& event, Context& ui) {
             if (event.window.data1 > 0 && event.window.data2 > 0) {
                 m_width = event.window.data1;
                 m_height = event.window.data2;
-                m_displayPxPerMm = QueryDisplayPixelsPerMm(m_window);
+                UpdateDisplayMetrics();
                 ui.InvalidateAll();
                 ui.RequestRepaint(3);
                 if (m_callbacks.onResize) {
@@ -541,10 +582,11 @@ void SdlWindowBackend::ProcessEvent(const SDL_Event& event, Context& ui) {
             break;
 
         case SDL_EVENT_MOUSE_MOTION:
-            ui.OnMouseMove({event.motion.x, event.motion.y});
+            ui.OnMouseMove(ToLogicalMousePos(event.motion.x, event.motion.y));
             break;
 
         case SDL_EVENT_MOUSE_BUTTON_DOWN: {
+            ui.OnMouseMove(ToLogicalMousePos(event.button.x, event.button.y));
             const SDL_Keymod mod = SDL_GetModState();
             ui.SetKeyModifiers({
                 .ctrl  = (mod & SDL_KMOD_CTRL) != 0,
@@ -560,6 +602,7 @@ void SdlWindowBackend::ProcessEvent(const SDL_Event& event, Context& ui) {
         }
 
         case SDL_EVENT_MOUSE_BUTTON_UP:
+            ui.OnMouseMove(ToLogicalMousePos(event.button.x, event.button.y));
             if (event.button.button >= 1 && event.button.button <= 8) {
                 m_pressedMouseMask &= ~(1u << event.button.button);
                 if (m_pressedMouseMask == 0) {
@@ -570,6 +613,7 @@ void SdlWindowBackend::ProcessEvent(const SDL_Event& event, Context& ui) {
             break;
 
         case SDL_EVENT_MOUSE_WHEEL: {
+            ui.OnMouseMove(ToLogicalMousePos(event.wheel.mouse_x, event.wheel.mouse_y));
             const SDL_Keymod mod = SDL_GetModState();
             ui.SetKeyModifiers({
                 .ctrl  = (mod & SDL_KMOD_CTRL) != 0,

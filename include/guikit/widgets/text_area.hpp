@@ -189,6 +189,24 @@ struct TextAreaOptions {
     std::span<const CodeDebugVar> debugVariables{};     ///< Live variables for hover DataTip inspection over identifiers
 };
 
+struct TextAreaLogicalLine {
+    size_t startOffset{0};
+    size_t length{0};
+};
+
+struct TextAreaVisualLine {
+    size_t logicalLine{0};
+    size_t startOffset{0}; ///< Global byte offset in text
+    size_t startCol{0};    ///< Column byte offset within logical line
+    size_t length{0};      ///< Byte length of this visual sub-line
+    bool isFirstSubLine{true};
+};
+
+struct TextAreaFoldRegion {
+    size_t startLine{0}; ///< 0-based start line index
+    size_t endLine{0};   ///< 0-based inclusive end line index
+};
+
 /// Persistent interactive state for TextArea.
 struct TextAreaState {
     float scrollX{0.0f};
@@ -244,6 +262,15 @@ struct TextAreaState {
     std::vector<std::string> baselineSignatures{};
     std::vector<CodeInlineValue> resolvedInlineValues{};
     std::vector<CodeDiagnostic> resolvedDiagnostics{};
+
+    // Cached line / fold / visual layout buffers (avoids per-frame heap allocations & static re-parsing)
+    uint64_t cachedDocHash{0};
+    size_t cachedDocSize{static_cast<size_t>(-1)};
+    bool cachedFoldEnabled{false};
+    uint64_t cachedFoldSyntaxHash{0};
+    std::vector<TextAreaLogicalLine> cachedLogicalLines{};
+    std::vector<TextAreaFoldRegion> cachedFoldRegions{};
+    std::vector<TextAreaVisualLine> scratchVisualLines{};
 };
 
 /// Internal runtime state allocated in frame arena for TextArea nodes.
@@ -287,6 +314,8 @@ struct TextAreaData {
     // Folding & Debugger snapshot
     std::span<const size_t> foldedLines{};
     std::span<const size_t> breakpoints{};
+    std::span<const TextAreaLogicalLine> precomputedLogicalLines{};
+    std::span<const TextAreaFoldRegion> precomputedFoldRegions{};
     int hoveredGutterLine{-1};      ///< 0-based line hovered in breakpoint gutter
     int hoveredFoldLine{-1};        ///< 0-based line hovered in folding chevron area
     int hoveredDebugBtn{-1};        ///< Hovered button index in floating debug toolbar (0..5 = buttons, 98 = grip)

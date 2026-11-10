@@ -29,7 +29,7 @@ AccordionScope Accordion::Open(
     if (externalOpen != nullptr) {
         isOpen = *externalOpen;
     } else {
-        AccordionState& st = ctx.GetOrCreateState<AccordionState>(idOuter, AccordionState{opts.defaultOpen});
+        AccordionState& st = ctx.GetOrCreatePersistentState<AccordionState>(idOuter, AccordionState{opts.defaultOpen});
         isOpen = st.open;
     }
 
@@ -46,7 +46,7 @@ AccordionScope Accordion::Open(
         if (externalOpen != nullptr) {
             *externalOpen = isOpen;
         } else {
-            ctx.GetOrCreateState<AccordionState>(idOuter, AccordionState{opts.defaultOpen}).open = isOpen;
+            ctx.GetOrCreatePersistentState<AccordionState>(idOuter, AccordionState{opts.defaultOpen}).open = isOpen;
         }
         ctx.InvalidateAll();
     }

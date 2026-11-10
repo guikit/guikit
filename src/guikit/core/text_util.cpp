@@ -18,6 +18,34 @@ namespace {
     return keel::utf8_next_boundary(text, index);
 }
 
+[[nodiscard]] size_t ClampUtf8PrefixLength(std::string_view text, size_t maxBytes) noexcept {
+    if (text.size() <= maxBytes) {
+        return text.size();
+    }
+    size_t len = maxBytes;
+    while (len > 0 && !IsUtf8LeadByte(static_cast<uint8_t>(text[len]))) {
+        --len;
+    }
+    return len;
+}
+
+[[nodiscard]] float MeasureStyledWidth(
+    std::string_view text,
+    float fontSize,
+    ICanvas* canvas,
+    FontStyle style
+) noexcept {
+    if (text.empty() || fontSize <= 0.0f) {
+        return 0.0f;
+    }
+    if (canvas) {
+        return (style == FontStyle::Regular)
+            ? canvas->MeasureText(text, fontSize).x
+            : canvas->MeasureTextStyled(text, fontSize, style).x;
+    }
+    return static_cast<float>(text.length()) * (fontSize * kDefaultCharAdvanceRatio);
+}
+
 } // namespace
 
 float TextUtil::MeasureWidth(
@@ -71,19 +99,21 @@ keel::FixedString<256> TextUtil::TruncateWithEllipsis(
     std::string_view text,
     float maxWidth,
     float fontSize,
-    ICanvas* canvas
+    ICanvas* canvas,
+    FontStyle style
 ) {
     keel::FixedString<256> out{};
     if (text.empty() || maxWidth <= 0.0f || fontSize <= 0.0f) {
         return out;
     }
 
-    if (MeasureWidth(text, fontSize, canvas) <= maxWidth + kTextSubpixelTolerance) {
-        out.set(keel::StringRef(text.data(), text.size()));
+    if (MeasureStyledWidth(text, fontSize, canvas, style) <= maxWidth + kTextSubpixelTolerance) {
+        const size_t safeLen = ClampUtf8PrefixLength(text, keel::FixedString<256>::capacity());
+        out.set(keel::StringRef(text.data(), safeLen));
         return out;
     }
 
-    const float dotsW = MeasureWidth("...", fontSize, canvas);
+    const float dotsW = MeasureStyledWidth("...", fontSize, canvas, style);
     if (dotsW >= maxWidth) {
         return out;
     }
@@ -108,7 +138,7 @@ keel::FixedString<256> TextUtil::TruncateWithEllipsis(
     while (low <= high) {
         const size_t mid = low + (high - low) / 2;
         const size_t len = boundaries[mid];
-        const float w = MeasureWidth(text.substr(0, len), fontSize, canvas);
+        const float w = MeasureStyledWidth(text.substr(0, len), fontSize, canvas, style);
         if (w <= targetW) {
             bestIdx = mid;
             low = mid + 1;
@@ -119,7 +149,7 @@ keel::FixedString<256> TextUtil::TruncateWithEllipsis(
     }
 
     const size_t maxPrefix = keel::FixedString<256>::capacity() - 3;
-    const size_t bestLen = std::min(boundaries[bestIdx], maxPrefix);
+    const size_t bestLen = ClampUtf8PrefixLength(text.substr(0, boundaries[bestIdx]), maxPrefix);
     out.set(keel::StringRef(text.data(), bestLen));
     out.append("...");
     return out;
@@ -250,7 +280,8 @@ float TextUtil::MeasureUiTextHeight(
     float maxWidth,
     float fontSize,
     float lineHeight,
-    ICanvas* canvas
+    ICanvas* canvas,
+    const UiTheme* theme
 ) noexcept {
     if (!text.HasContentOrReserve() || fontSize <= 0.0f || lineHeight <= 0.0f) {
         return 0.0f;
@@ -260,12 +291,13 @@ float TextUtil::MeasureUiTextHeight(
 
     if (text.wrap.rich && text.wrap.IsWordWrap()) {
         static const UiTheme defaultTheme = UiTheme::Dark();
+        const UiTheme& activeTheme = theme ? *theme : defaultTheme;
         const float baseLh = canvas ? canvas->GetLineHeight(fontSize) : (fontSize * kDefaultLineHeightMultiplier);
         const float lhScale = (baseLh > 0.0f) ? (lineHeight / baseLh) : 1.0f;
         auto measureRichH = [&](std::string_view sv) -> float {
             if (sv.empty()) return 0.0f;
             const float effAvailW = (maxWidth > 0.0f) ? maxWidth : 100000.0f;
-            auto flow = GetOrBuildRichTextFlow(canvas, sv, effAvailW, fontSize, fontSize * 0.92f, lhScale, defaultTheme);
+            auto flow = GetOrBuildRichTextFlow(canvas, sv, effAvailW, fontSize, fontSize * 0.92f, lhScale, activeTheme);
             return flow->height;
         };
         float maxH = std::max(static_cast<float>(linesCount) * lineHeight, measureRichH(text.text));
@@ -321,7 +353,8 @@ void TextUtil::DrawUiText(
     float lineHeight,
     Color color,
     float alignX,
-    float singleLineAlignY
+    float singleLineAlignY,
+    const UiTheme* theme
 ) {
     if (text.empty() || bounds.w <= 0.0f || bounds.h <= 0.0f || fontSize <= 0.0f) {
         return;
@@ -331,6 +364,7 @@ void TextUtil::DrawUiText(
 
     if (text.wrap.rich) {
         static const UiTheme defaultTheme = UiTheme::Dark();
+        const UiTheme& activeTheme = theme ? *theme : defaultTheme;
         const float baseLh = canvas.GetLineHeight(fontSize);
         const float lhScale = (baseLh > 0.0f) ? (lh / baseLh) : 1.0f;
         const Align horizAlign = (alignX < 0.25f) ? Align::Start : ((alignX > 0.75f) ? Align::End : Align::Center);
@@ -342,7 +376,7 @@ void TextUtil::DrawUiText(
             fontSize,
             fontSize * 0.92f,
             lhScale,
-            defaultTheme,
+            activeTheme,
             1.0f,
             FontStyle::Regular,
             text.wrap.IsWordWrap() ? horizAlign : Align::Start
@@ -360,7 +394,7 @@ void TextUtil::DrawUiText(
         if (needsClip) {
             canvas.PushClip(bounds);
         }
-        RenderInlineFlowLayout(canvas, *flow, {drawX, drawY}, {drawX, drawY}, color, nullptr, nullptr, defaultTheme);
+        RenderInlineFlowLayout(canvas, *flow, {drawX, drawY}, {drawX, drawY}, color, nullptr, nullptr, activeTheme);
         if (needsClip) {
             canvas.PopClip();
         }
@@ -381,7 +415,7 @@ void TextUtil::DrawUiText(
             : text.text;
 
         if (nlPos != std::string_view::npos) {
-            const size_t copyLen = std::min(firstLine.size(), keel::FixedString<256>::capacity() - 3);
+            const size_t copyLen = ClampUtf8PrefixLength(firstLine, keel::FixedString<256>::capacity() - 3);
             keel::FixedString<256> withDots(firstLine.data(), copyLen);
             withDots.append("...");
             if (MeasureWidth(withDots, fontSize, &canvas) <= drawRect.w + kTextSubpixelTolerance) {
@@ -432,7 +466,7 @@ void TextUtil::DrawUiText(
             if (MeasureWidth(paragraphSlice, fontSize, &canvas) > bounds.w + kTextSubpixelTolerance) {
                 truncated = TruncateWithEllipsis(paragraphSlice, bounds.w, fontSize, &canvas);
             } else {
-                const size_t copyLen = std::min(paragraphSlice.size(), keel::FixedString<256>::capacity() - 3);
+                const size_t copyLen = ClampUtf8PrefixLength(paragraphSlice, keel::FixedString<256>::capacity() - 3);
                 keel::FixedString<256> withDots(paragraphSlice.data(), copyLen);
                 withDots.append("...");
                 if (MeasureWidth(withDots, fontSize, &canvas) <= bounds.w + kTextSubpixelTolerance) {
@@ -622,7 +656,7 @@ void TextUtil::DrawHighlightedTextBox(
         return;
     }
 
-    const auto truncText = TruncateWithEllipsis(text, bounds.w, fontSize, &canvas);
+    const auto truncText = TruncateWithEllipsis(text, bounds.w, fontSize, &canvas, style);
     if (truncText.empty()) {
         return;
     }

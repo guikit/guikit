@@ -176,11 +176,11 @@ When laying out a workspace that shares space with a resizable `BottomPanel` or 
 | :--- | :--- | :--- |
 | `ui.Row(opts)` | Horizontal flex container | `.gap`, `.padding`, `.align`, `.justify`, `.widthMode`, `.heightMode` |
 | `ui.Column(opts)` | Vertical flex container | `.gap`, `.padding`, `.align`, `.justify`, `.widthMode`, `.heightMode` |
-| `ui.Wrap(opts)` | Multi-line flow container (chips, tags, cards) | `.gap`, `.rowGap`, `.padding` |
-| `ui.Grid(opts)` | 12-column responsive CSS-like grid | `.columns = 12`, `.gap`, `.rowGap`; children use `grid.Span(cols)` |
+| `ui.Wrap(opts)` | Multi-line flow container (chips, tags, cards) | `.gap`, `.runGap`, `.padding`, `.widthMode` |
+| `ui.Grid(opts)` | 12-column responsive CSS-like grid | `.columns = 12`, `.gap`, `.runGap`; children use `grid.Cell(span)` |
 | `ui.Spacer(size)` | Flexible spring (`size = 0`) or fixed gap (`size > 0`) | Pushes subsequent siblings to the right/bottom |
 | `ui.Box(opts)` / `ui.Card(opts)` | Styled container with background, border, radius & shadow | `.background`, `.border`, `.padding`, `.gap` |
-| `ui.ScrollArea(opts)` | Scrollable viewport with automatic scrollbars | `.scrollX`, `.scrollY`, `.maxHeight` |
+| `ui.ScrollArea(opts)` | Scrollable viewport with automatic scrollbars | `.orientation`, `.scrollbar`, `.maxHeight`, `.heightMode` |
 | `ui.SplitView(ratio, opts)` | Resizable horizontal/vertical 2-pane splitter | `if (auto p1 = split.First())`, `if (auto p2 = split.Second())` |
 
 **Sizing Modes (`SizeMode` / `Sizing`):**
@@ -200,7 +200,7 @@ Before drawing custom shapes on `ICanvas`, check this inventory:
 - **Text, Tags & Dropdowns**: `InputField` (text, password, numeric, prefix/suffix icons, clear button, validation), `TagInput` (multi-tag chip editor), `Select` (dropdown), `ComboBox` (searchable select), `Autocomplete` (free-text with suggestions), `MultiSelect` (multi-chip dropdown with checkboxes & "Select All").
 - **Pickers**: `ColorPicker` (2D HSV saturation/value canvas, hue/alpha sliders, HEX input, swatches), `DatePicker` (`Date`, `DateTime`, `Time` modes with calendar popup & leap-year math).
 - **Navigation & Data**: `TabBar` (underline/pill/card/folder styles, closable tabs, overflow scroll), `Breadcrumb` (with interactive `...` collapse menu), `Pagination` (ellipsis windowing), `Toolbar` (`ToolButton` / `Action`, `Toggle`, `Item`, `Dropdown`, `SplitButton`, `SplitToggle`, `Separator`, `Spacer` with `AutoCompact`/`Scroll`/`Wrap`/`Clip` overflow), `Sidebar`, `SidebarMenu`, `ActivityBar`, `BottomPanel`, `StatusBar`, `Accordion`, `Carousel`, `TreeView` (multi-column, filterable hierarchy), `Table` (virtualized 100k+ row data grid with sorting & selection).
-- **Overlays**: `Modal` (`if (auto m = ui.Modal(open, opts))`), `Popover`, `ContextMenu`, `CommandPalette` (`Ctrl+K` fuzzy command launcher), `Toast` (`ui.ShowToast(...)` + `ui.ToastHost()`).
+- **Overlays**: `Modal` (`if (auto m = ui.Modal(open, opts))`), `ContextMenu`, `CommandPalette` (`Ctrl+K` fuzzy command launcher), `Toast` (`ui.ShowToast(...)` + `ui.ToastHost()`).
 - **Rich Editors & 2D Domain Scenes (`guikit::scenes`)**: `Markdown`, `TextArea` / `CodeEditor` (syntax highlighting, breakpoints, code folding, minimap, find/replace), `Scene` (infinite pan/zoom vector canvas with grid & rulers), `MapView` (S-52/ENC vector marine GIS chart + 7 geodetic projections), `SignalView` (waveform + STFT spectrogram), `SonarView` (PPI 360° / Sector / B-Scan radar), `WaterfallView` (RTSA spectral waterfall), `ImageView` + `Histogram` (16-bit scientific image workstation with Window/Level & pixel loupe), `AttitudeView` (avionics PFD), `CarClusterView` (automotive cockpit), `BpmnEditor` (interactive BPMN 2.0 modeler & token simulator).
 
 ---

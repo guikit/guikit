@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <string>
 #include "guikit/core/text_util.hpp"
+#include "keel/utf8.h"
 
 namespace guikit {
 
@@ -90,6 +91,7 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
                     nextId = activeFocusables[nextIdx];
                 }
                 if (m_editState.id.IsValid() && m_editState.id != nextId) {
+                    FlushActiveEditHistory();
                     m_editState.id = Id::Null();
                 }
                 m_focusedId = nextId;
@@ -118,6 +120,7 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
             if (focusedBounds != nullptr) {
                 if (!focusedBounds->Contains(m_mousePos)) {
                     if (m_editState.id == m_focusedId) {
+                        FlushActiveEditHistory();
                         m_editState.id = Id::Null();
                     }
                     m_focusedId = Id::Null();
@@ -125,6 +128,7 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
                 }
             } else {
                 if (m_editState.id == m_focusedId) {
+                    FlushActiveEditHistory();
                     m_editState.id = Id::Null();
                 }
                 m_focusedId = Id::Null();
@@ -134,6 +138,7 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
     }
 
     m_arena.reset();
+    m_childIdCounts.clear();
     m_containerStack.clear();
     m_sizeStack.clear();
     m_disabledStack.clear();
@@ -176,10 +181,27 @@ Node* Context::CreateNode(NodeType type, Id id) {
     return node;
 }
 
+Id Context::MakeChildIdForParent(Id parentId, std::source_location loc) {
+    const char* filePtr = loc.file_name();
+    uint64_t fileHash = detail::Fnv1aOffsetBasis;
+    if (filePtr != nullptr) {
+        if (const uint64_t* cached = m_fileHashCache.get(filePtr)) {
+            fileHash = *cached;
+        } else {
+            fileHash = detail::HashStringView(filePtr);
+            m_fileHashCache.put(filePtr, fileHash);
+        }
+    }
+    const uint64_t callsiteHash = detail::HashCallsiteWithFileHash(
+        parentId, fileHash, loc.line(), loc.column()
+    );
+    const uint32_t occurrenceIndex = m_childIdCounts.get_or_insert(callsiteHash, 0u)++;
+    return detail::FinalizeCallsiteId(callsiteHash, occurrenceIndex);
+}
+
 Id Context::MakeChildId(std::source_location loc) {
     const Id parentId = m_containerStack.empty() ? Id::Null() : m_containerStack.back()->id;
-    const uint32_t childIndex = m_containerStack.empty() ? 0 : m_containerStack.back()->childCount;
-    return MakeId(childIndex, loc, parentId);
+    return MakeChildIdForParent(parentId, loc);
 }
 
 Response Context::Interact(Id id) {
@@ -709,8 +731,13 @@ uint64_t Context::ShowToast(ToastOptions opts) {
     entry.id = id;
     entry.title = std::string(opts.title.text);
     entry.message = std::string(opts.message.text);
+    entry.titleWrap = opts.title.wrap;
+    entry.messageWrap = opts.message.wrap;
     entry.variant = opts.variant;
     entry.icon = opts.icon;
+    if (!opts.icon.GetPath().empty()) {
+        entry.iconPath = std::string(opts.icon.GetPath());
+    }
     entry.duration = opts.duration;
     entry.showProgress = opts.showProgress;
     entry.closable = opts.closable;
@@ -740,6 +767,7 @@ void Context::ClearToasts() noexcept {
 
 void Context::RequestFocus(Id id) {
     if (m_focusedId != id && m_editState.id.IsValid() && m_editState.id != id) {
+        FlushActiveEditHistory();
         m_editState.id = Id::Null();
     }
     m_focusedId = id;
@@ -914,12 +942,22 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
         preferredColumn.reset();
     }
 
+    auto utf8OffsetAtColumn = [](std::string_view lineSv, size_t targetCodepointCol) noexcept -> size_t {
+        size_t byteOff = 0;
+        for (size_t colIdx = 0; colIdx < targetCodepointCol && byteOff < lineSv.size(); ++colIdx) {
+            byteOff = keel::utf8_next_boundary(lineSv, byteOff);
+        }
+        return std::min(byteOff, lineSv.size());
+    };
+
     auto moveLinesVertically = [&](int lineDelta, bool extendSel) -> bool {
         if (!multiline) return false;
         const size_t safeCur = std::min(cursor, text.size());
         const size_t prevNl = (safeCur > 0) ? text.rfind('\n', safeCur - 1) : std::string::npos;
         size_t curLineStart = (prevNl == std::string::npos) ? 0 : (prevNl + 1);
-        const size_t col = safeCur - curLineStart;
+        const size_t col = keel::utf8_codepoint_count(
+            std::string_view(text).substr(curLineStart, safeCur - curLineStart)
+        );
         if (!preferredColumn.has_value()) {
             preferredColumn = col;
         }
@@ -942,7 +980,8 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
             }
             size_t lineEnd = text.find('\n', curLineStart);
             if (lineEnd == std::string::npos) lineEnd = text.size();
-            cursor = curLineStart + std::min(targetCol, lineEnd - curLineStart);
+            const std::string_view targetLine = std::string_view(text).substr(curLineStart, lineEnd - curLineStart);
+            cursor = curLineStart + utf8OffsetAtColumn(targetLine, targetCol);
         } else if (lineDelta > 0) {
             const int steps = lineDelta;
             size_t curLineEnd = text.find('\n', curLineStart);
@@ -959,7 +998,8 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                 curLineEnd = text.find('\n', curLineStart);
             }
             const size_t lineEnd = (curLineEnd == std::string::npos) ? text.size() : curLineEnd;
-            cursor = curLineStart + std::min(targetCol, lineEnd - curLineStart);
+            const std::string_view targetLine = std::string_view(text).substr(curLineStart, lineEnd - curLineStart);
+            cursor = curLineStart + utf8OffsetAtColumn(targetLine, targetCol);
         }
 
         if (!extendSel) {
@@ -1391,6 +1431,7 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                 selectionAnchor = cursor;
                 return true;
             }
+            ctx.FlushActiveEditHistory();
             outLostFocus = true;
             id = Id::Null();
             return true;
@@ -1487,10 +1528,28 @@ void Context::OnMouseWheel(float x, float y) {
     RequestRepaint(3);
 }
 
+bool Context::IsDirectEditAllowed() const noexcept {
+    if (m_suspendDirectEditInput || m_mouseClicked || !m_focusedId.IsValid() || m_editState.id != m_focusedId) {
+        return false;
+    }
+    if (m_openPopupId.IsValid() && m_openPopupId != m_focusedId) {
+        return false;
+    }
+    if (m_prevFrameModalId.IsValid()) {
+        const bool insideModal = std::find(
+            m_prevModalFocusableIds.begin(), m_prevModalFocusableIds.end(), m_focusedId
+        ) != m_prevModalFocusableIds.end();
+        if (!insideModal) {
+            return false;
+        }
+    }
+    return true;
+}
+
 void Context::OnTextInput(std::string_view utf8Text) {
     ResetCursorBlink();
     RequestRepaint(3);
-    if (!m_suspendDirectEditInput && !m_mouseClicked && m_focusedId.IsValid() && m_editState.id == m_focusedId) {
+    if (IsDirectEditAllowed()) {
         m_editState.Insert(utf8Text);
     } else {
         m_pendingTextInput.emplace_back(utf8Text);
@@ -1506,7 +1565,7 @@ void Context::OnKeyDown(Key key, KeyModifiers mods) {
         ClosePopup();
     }
 
-    if (!m_suspendDirectEditInput && !m_mouseClicked && m_focusedId.IsValid() && m_editState.id == m_focusedId) {
+    if (IsDirectEditAllowed()) {
         bool lostFocus = false;
         if (m_editState.HandleKey(*this, key, mods, lostFocus)) {
             if (lostFocus) {
@@ -1830,6 +1889,30 @@ std::vector<std::string> Context::ConsumePendingTextInput() {
     return res;
 }
 
+void Context::FlushActiveEditHistory() noexcept {
+    if (!m_editState.id.IsValid()) {
+        return;
+    }
+    if (!m_editState.undoStack.empty() || !m_editState.redoStack.empty()) {
+        TextEditHistory* hist = m_editHistories.get(m_editState.id);
+        if (!hist) {
+            m_editHistories.put(m_editState.id, TextEditHistory{});
+            hist = m_editHistories.get(m_editState.id);
+        }
+        if (hist) {
+            hist->lastText = m_editState.text;
+            hist->undoStack = std::move(m_editState.undoStack);
+            hist->redoStack = std::move(m_editState.redoStack);
+        }
+        m_editState.undoStack.clear();
+        m_editState.redoStack.clear();
+    } else if (TextEditHistory* existing = m_editHistories.get(m_editState.id)) {
+        existing->lastText = m_editState.text;
+        existing->undoStack.clear();
+        existing->redoStack.clear();
+    }
+}
+
 std::string_view Context::EnsureTextEdit(
     Id id,
     std::string_view initialText,
@@ -1837,12 +1920,25 @@ std::string_view Context::EnsureTextEdit(
     bool readOnly
 ) {
     if (m_editState.id != id) {
+        FlushActiveEditHistory();
         m_editState.id = id;
         m_editState.text = initialText;
         m_editState.cursor = m_editState.text.size();
         m_editState.selectionAnchor = m_editState.cursor;
         m_editState.undoStack.clear();
         m_editState.redoStack.clear();
+        if (id.IsValid()) {
+            if (TextEditHistory* hist = m_editHistories.get(id)) {
+                if (hist->lastText == initialText) {
+                    m_editState.undoStack = std::move(hist->undoStack);
+                    m_editState.redoStack = std::move(hist->redoStack);
+                } else {
+                    hist->lastText.assign(initialText);
+                    hist->undoStack.clear();
+                    hist->redoStack.clear();
+                }
+            }
+        }
         m_editState.preferredColumn.reset();
         m_editState.changed = false;
         m_editState.submitted = false;
@@ -1915,6 +2011,7 @@ std::string_view Context::GetOrStartTextEdit(
     m_editState.changed = false;
     m_editState.submitted = false;
     if (outSubmitted) {
+        FlushActiveEditHistory();
         m_editState.id = Id::Null();
     }
 
@@ -2232,17 +2329,17 @@ void Context::ScrollToId(Id id) {
     if (!id.IsValid() || !m_root) return;
 
     Node* target = nullptr;
-    std::function<void(Node*)> findNode = [&](Node* n) {
+    auto findNode = [&](auto& self, Node* n) -> void {
         if (!n || target) return;
         if (n->id == id) {
             target = n;
             return;
         }
         for (Node* c = n->firstChild; c != nullptr; c = c->nextSibling) {
-            findNode(c);
+            self(self, c);
         }
     };
-    findNode(m_root);
+    findNode(findNode, m_root);
 
     if (!target) return;
 
@@ -2316,6 +2413,36 @@ void Context::EndFrame(ICanvas& canvas) {
     m_prevFocusableIds = std::move(m_currFocusableIds);
     m_prevModalFocusableIds = std::move(m_currModalFocusableIds);
 
+    // Suspend focus from occluded background widgets when a Modal opens, and restore it when the Modal closes
+    if (m_currFrameModalId.IsValid()) {
+        if (m_focusedId.IsValid()) {
+            const bool insideModal = std::find(
+                m_prevModalFocusableIds.begin(), m_prevModalFocusableIds.end(), m_focusedId
+            ) != m_prevModalFocusableIds.end();
+            if (!insideModal) {
+                if (!m_savedFocusBeforeModal.IsValid()) {
+                    m_savedFocusBeforeModal = m_focusedId;
+                }
+                if (m_editState.id == m_focusedId) {
+                    FlushActiveEditHistory();
+                    m_editState.id = Id::Null();
+                }
+                m_focusedId = Id::Null();
+                m_suspendDirectEditInput = false;
+            }
+        }
+    } else if (m_savedFocusBeforeModal.IsValid()) {
+        if (!m_focusedId.IsValid()) {
+            const bool stillFocusable = std::find(
+                m_prevFocusableIds.begin(), m_prevFocusableIds.end(), m_savedFocusBeforeModal
+            ) != m_prevFocusableIds.end();
+            if (stillFocusable) {
+                m_focusedId = m_savedFocusBeforeModal;
+            }
+        }
+        m_savedFocusBeforeModal = Id::Null();
+    }
+
     // Reset single-frame mouse impulse states
     m_mouseClicked = false;
     m_mouseReleased = false;
@@ -2345,8 +2472,7 @@ void Context::EndFrame(ICanvas& canvas) {
     bool anyDebugBounds = m_debugBoundsEnabled;
     bool anyInspectMode = m_inspectModeEnabled;
 
-    std::function<void(Node*, Rect, const UiTheme&)> collectSnapshots =
-        [&](Node* n, Rect parentClip, const UiTheme& parentTheme) {
+    auto collectSnapshots = [&](auto& self, Node* n, Rect parentClip, const UiTheme& parentTheme) -> void {
         if (!n) return;
         const UiTheme& activeTheme = (n->theme != nullptr) ? *n->theme : parentTheme;
         if (n->type == NodeType::Modal) {
@@ -2430,11 +2556,11 @@ void Context::EndFrame(ICanvas& canvas) {
         }
 
         for (Node* c = n->firstChild; c != nullptr; c = c->nextSibling) {
-            collectSnapshots(c, effectiveClip, activeTheme);
+            self(self, c, effectiveClip, activeTheme);
         }
     };
 
-    collectSnapshots(m_root, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme);
+    collectSnapshots(collectSnapshots, m_root, Rect(0.0f, 0.0f, logicalSize.x, logicalSize.y), m_theme);
     m_anyScopedInspectActive = anyInspectMode;
 
     // Detect removed widgets
@@ -2624,11 +2750,13 @@ void Context::EndFrame(ICanvas& canvas) {
     m_pendingKeyEvents.clear();
     m_pendingTextInput.clear();
 
-    // Periodically prune stale persistent states (every 600 frames = ~10s at 60fps)
+    // Periodically prune stale transient states (every 600 frames = ~10s at 60fps);
+    // persistent widget states (tabs, trees, tables, scenes, scroll offsets, undo stacks) survive until Context destruction.
     if (m_frameIndex % 600 == 0 && m_frameIndex > 0) {
         keel::SmallArray<detail::StateKey, 16> staleKeys;
         for (const auto& [key, state] : m_customStates) {
-            if (state.lastFrameActive + 600 < m_frameIndex &&
+            if (!state.persistent &&
+                state.lastFrameActive + 600 < m_frameIndex &&
                 key.id != m_focusedId &&
                 key.id != m_activeId) {
                 staleKeys.push_back(key);

@@ -20,7 +20,7 @@ GridScope Grid::Open(
     Node* node = ctx.CreateNode(NodeType::Grid, id);
     node->theme = pushedTheme;
     node->direction = FlexDirection::Grid;
-    node->gridColumns = static_cast<uint8_t>(opts.columns);
+    node->gridColumns = static_cast<uint8_t>(std::clamp(opts.columns, 1, 24));
     node->minColWidth = theme.Scale(opts.minColWidth);
     node->gap = theme.ResolveGap(opts.gap, activeSize);
     node->runGap = opts.runGap.has_value() ? theme.Scale(*opts.runGap) : node->gap;
@@ -49,10 +49,11 @@ ContainerScope GridScope::Cell(int span, CellOptions opts, std::source_location 
     UiTheme* pushedTheme = m_ctx->PushScopedTheme(opts.theme, opts.scale);
 
     const UiTheme& theme = m_ctx->GetTheme();
+    const int maxCols = (m_node && m_node->gridColumns > 0) ? static_cast<int>(m_node->gridColumns) : 12;
     Node* node = m_ctx->CreateNode(NodeType::Cell, id);
     node->theme = pushedTheme;
     node->direction = FlexDirection::Column;
-    node->colSpan = std::clamp(span, 1, 12);
+    node->colSpan = static_cast<uint8_t>(std::clamp(span, 1, maxCols));
     node->minWidth = theme.Scale(opts.minWidth);
     node->clipChildren = opts.clipChildren;
     node->gap = theme.ResolveGap(opts.gap, activeSize);
@@ -69,6 +70,11 @@ ContainerScope GridScope::Cell(int span, CellOptions opts, std::source_location 
     m_ctx->PushDisabled(activeDisabled);
     m_ctx->PushContainer(node);
     return ContainerScope(m_ctx, node);
+}
+
+ContainerScope GridScope::Cell(CellOptions opts, std::source_location loc) {
+    const int maxCols = (m_node && m_node->gridColumns > 0) ? static_cast<int>(m_node->gridColumns) : 12;
+    return Cell(maxCols, opts, loc);
 }
 
 ContainerScope GridScope::Cell12(CellOptions opts, std::source_location loc) {

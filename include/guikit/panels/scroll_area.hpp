@@ -27,6 +27,11 @@ struct ScrollState {
     double lastAnimTimeSec{0.0};
 };
 
+/// Internal layout payload for ScrollArea constraints.
+struct ScrollAreaLayoutData {
+    float maxHeight{0.0f};
+};
+
 /// Options for configuring a ScrollArea viewport.
 struct ScrollAreaOptions {
     Orientation orientation{Orientation::Vertical};
@@ -35,6 +40,11 @@ struct ScrollAreaOptions {
     Justify justify{Justify::Start};                ///< Main-axis justification when content is smaller than viewport
     std::optional<float> gap{std::nullopt};        ///< Gap between consecutive scroll items (nullopt = zero)
     std::optional<Padding> padding{std::nullopt};   ///< Viewport content padding (nullopt = zero)
+    std::optional<float> width{std::nullopt};       ///< Explicit fixed width in dp
+    std::optional<float> height{std::nullopt};      ///< Explicit fixed height in dp
+    std::optional<float> maxHeight{std::nullopt};   ///< Maximum viewport height in dp (shrink-wraps content up to maxHeight)
+    SizeMode widthMode{SizeMode::Stretch};
+    SizeMode heightMode{SizeMode::Stretch};
     StateColor background{};
     Border border{};
     bool disabled{false};

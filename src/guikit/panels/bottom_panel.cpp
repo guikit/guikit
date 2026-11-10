@@ -74,7 +74,7 @@ BottomPanelScope BottomPanel::Open(
     const Rect parentBounds = ctx.GetParentPrevFrameBounds();
     const float clampedRatio = std::clamp(opts.maxRatio, 0.15f, 0.95f);
 
-    auto& state = ctx.GetOrCreateState<BottomPanelPersistState>(id);
+    auto& state = ctx.GetOrCreatePersistentState<BottomPanelPersistState>(id);
     if (!state.initialized) {
         state.initialized = true;
         state.mode = opts.defaultMode;
@@ -377,7 +377,7 @@ BottomPanelScope BottomPanel::Open(
     if (node->sidebarScrollable) {
         node->postRenderFn = &ScrollArea::RenderScrollbar;
 
-        auto& scrollState = ctx.GetOrCreateState<ScrollState>(id);
+        auto& scrollState = ctx.GetOrCreatePersistentState<ScrollState>(id);
         node->scrollOffset = scrollState.offset;
     }
 

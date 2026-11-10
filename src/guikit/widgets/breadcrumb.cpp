@@ -448,7 +448,7 @@ Response Breadcrumb::Run(
     const UiTheme theme = ctx.GetTheme();
     ICanvas* canvas = ctx.GetCanvas();
 
-    auto& state = ctx.GetOrCreateState<BreadcrumbPersistentState>(id);
+    auto& state = ctx.GetOrCreatePersistentState<BreadcrumbPersistentState>(id);
     const bool wasOpen = ctx.IsPopupOpen(id);
 
     BreadcrumbOptions optsCopy = opts;

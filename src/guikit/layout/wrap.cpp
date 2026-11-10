@@ -24,7 +24,7 @@ ContainerScope Wrap::Open(
     node->padding = theme.ResolvePadding(opts.padding);
     node->align = opts.align;
     node->justify = opts.justify;
-    node->widthMode = SizeMode::Stretch;
+    node->widthMode = opts.widthMode;
     node->heightMode = opts.heightMode;
     node->uiSize = activeSize;
     node->disabled = activeDisabled;

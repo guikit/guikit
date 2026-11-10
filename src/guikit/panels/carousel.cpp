@@ -68,7 +68,7 @@ void Carousel::BeginScrollInteraction(
     if (!node || !cData || !node->id.IsValid()) return;
     const Id id = node->id;
     const CarouselMetrics& cm = ctx.GetTheme().GetCarousel(node->uiSize);
-    auto& state = ctx.GetOrCreateState<ScrollState>(id);
+    auto& state = ctx.GetOrCreatePersistentState<ScrollState>(id);
     if (!state.animatingX) {
         state.targetOffsetX = state.offset.x;
     }
@@ -516,7 +516,7 @@ Rect Carousel::GetContentClipRect(const Node* node) {
 
 void Carousel::Update(Context& ctx, Node* node) {
     if (!node || !node->id.IsValid()) return;
-    auto& state = ctx.GetOrCreateState<ScrollState>(node->id);
+    auto& state = ctx.GetOrCreatePersistentState<ScrollState>(node->id);
     auto* cData = node->As<CarouselData>();
     const float fullW = std::max(0.0f, node->computedRect.w - node->padding.Horizontal());
     const float maxScrollX = std::max(0.0f, node->scrollContentSize.x - fullW);
@@ -570,7 +570,7 @@ void Carousel::Update(Context& ctx, Node* node) {
 
 void Carousel::ScrollToChild(Context& ctx, Node* carouselNode, const Node* targetNode) {
     if (!carouselNode || !targetNode || !carouselNode->id.IsValid()) return;
-    auto& state = ctx.GetOrCreateState<ScrollState>(carouselNode->id);
+    auto& state = ctx.GetOrCreatePersistentState<ScrollState>(carouselNode->id);
     const float targetLeft = targetNode->computedRect.x;
     const float targetRight = targetNode->computedRect.Right();
     const auto* cData = carouselNode->As<CarouselData>();

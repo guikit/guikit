@@ -653,7 +653,7 @@ Response RunLevelMeterImpl(
     const double span = std::max(1e-9, rangeMax - rangeMin);
     const size_t numCh = std::clamp<size_t>(channelCount, 1, kMaxLevelMeterChannels);
 
-    auto& state = ctx.GetOrCreateState<LevelMeterPersistState>(id);
+    auto& state = ctx.GetOrCreatePersistentState<LevelMeterPersistState>(id);
     const double nowSec = ctx.GetCurrentTime();
     const float dt = (state.prevFrameTimeSec >= 0.0 && nowSec > state.prevFrameTimeSec)
         ? static_cast<float>(std::min(0.25, nowSec - state.prevFrameTimeSec))

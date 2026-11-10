@@ -496,7 +496,7 @@ Vec2 Element::Measure(
     if (hasLabel) {
         const float lineH = canvas ? canvas->GetLineHeight(labelFontSize) : theme.GetLineHeight(labelFontSize);
         const float wrappedH = spec.label.HasContentOrReserve()
-            ? TextUtil::MeasureUiTextHeight(spec.label, textWrapW, labelFontSize, lineH, canvas)
+            ? TextUtil::MeasureUiTextHeight(spec.label, textWrapW, labelFontSize, lineH, canvas, &theme)
             : 0.0f;
         labelDims = {effLabelW, std::max(rawLabelBar.y, wrappedH)};
     }
@@ -504,7 +504,7 @@ Vec2 Element::Measure(
     Vec2 descDims = {0.0f, 0.0f};
     if (hasDesc) {
         const float lineH = canvas ? canvas->GetLineHeight(descFontSize) : theme.GetLineHeight(descFontSize);
-        const float h = TextUtil::MeasureUiTextHeight(spec.description, textWrapW, descFontSize, lineH, canvas);
+        const float h = TextUtil::MeasureUiTextHeight(spec.description, textWrapW, descFontSize, lineH, canvas, &theme);
         descDims = {effDescW, h};
     }
 
@@ -654,7 +654,7 @@ ElementGeometry Element::Resolve(
     const auto resolveLabelH = [&](float availW) noexcept -> float {
         if (!geom.hasLabel) return 0.0f;
         const float wrappedH = spec.label.HasContentOrReserve()
-            ? TextUtil::MeasureUiTextHeight(spec.label, availW, geom.labelFontSize, labelLineH, canvas)
+            ? TextUtil::MeasureUiTextHeight(spec.label, availW, geom.labelFontSize, labelLineH, canvas, &theme)
             : 0.0f;
         return std::max(rawLabelBar.y, wrappedH);
     };
@@ -663,7 +663,7 @@ ElementGeometry Element::Resolve(
         const float blockW = compactNaturalBlock ? std::min(bounds.w, std::max(ctrlW, measuredTextW)) : bounds.w;
         const float labelH = resolveLabelH(blockW);
         const float descH = geom.hasDesc
-            ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas)
+            ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas, &theme)
             : 0.0f;
         const float availCtrlH = std::max(0.0f, bounds.h - (geom.hasLabel ? labelH + spec.labelGap : 0.0f) - (geom.hasDesc ? descH + spec.descGap : 0.0f));
         const float ctrlH = stretchStandaloneH ? availCtrlH : std::min(intrinsicControlSize.y, availCtrlH);
@@ -685,7 +685,7 @@ ElementGeometry Element::Resolve(
         const float blockW = compactNaturalBlock ? std::min(bounds.w, std::max(ctrlW, measuredTextW)) : bounds.w;
         const float labelH = resolveLabelH(blockW);
         const float descH = geom.hasDesc
-            ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas)
+            ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas, &theme)
             : 0.0f;
         const float textTotalH = (geom.hasLabel ? labelH : 0.0f) + (geom.hasDesc ? (geom.hasLabel ? adjacentTextGap : 0.0f) + descH : 0.0f) + spec.labelGap;
         const float availCtrlH = std::max(0.0f, bounds.h - textTotalH);
@@ -709,7 +709,7 @@ ElementGeometry Element::Resolve(
         const float blockW = compactNaturalBlock ? std::min(bounds.w, std::max(ctrlW, measuredTextW)) : bounds.w;
         const float labelH = resolveLabelH(blockW);
         const float descH = geom.hasDesc
-            ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas)
+            ? TextUtil::MeasureUiTextHeight(spec.description, blockW, geom.descFontSize, descLineH, canvas, &theme)
             : 0.0f;
         const float textTotalH = spec.descGap + (geom.hasLabel ? labelH : 0.0f) + (geom.hasDesc ? (geom.hasLabel ? adjacentTextGap : 0.0f) + descH : 0.0f);
         const float availCtrlH = std::max(0.0f, bounds.h - textTotalH);
@@ -747,7 +747,7 @@ ElementGeometry Element::Resolve(
 
         const float labelH = resolveLabelH(textBlockW);
         const float descH = geom.hasDesc
-            ? TextUtil::MeasureUiTextHeight(spec.description, textBlockW, geom.descFontSize, descLineH, canvas)
+            ? TextUtil::MeasureUiTextHeight(spec.description, textBlockW, geom.descFontSize, descLineH, canvas, &theme)
             : 0.0f;
 
         const float totalTextH = (geom.hasLabel && geom.hasDesc) ? (labelH + adjacentTextGap + descH) : (geom.hasLabel ? labelH : descH);
@@ -891,7 +891,7 @@ void Element::RenderText(
     if (spec.hasControl && geom.hasLabel && !hasDecoratedLabelBar) {
         if (!spec.label.empty() && geom.labelRect.w > 0.0f && geom.labelRect.h > 0.0f) {
             const float lineH = canvas.GetLineHeight(geom.labelFontSize);
-            TextUtil::DrawUiText(canvas, spec.label, geom.labelRect, geom.labelFontSize, lineH, labelCol, alignFactor, 0.5f);
+            TextUtil::DrawUiText(canvas, spec.label, geom.labelRect, geom.labelFontSize, lineH, labelCol, alignFactor, 0.5f, &theme);
         }
     } else if ((!spec.hasControl || geom.hasLabel) && labelBarRect.w > 0.0f && labelBarRect.h > 0.0f) {
         const Vec2 rawBar = MeasureLabelBar(spec, geom.labelFontSize, &canvas, theme);
@@ -915,7 +915,7 @@ void Element::RenderText(
                 const float rawTitleW = TextUtil::MeasureUiTextWidth(spec.label, geom.labelFontSize, &canvas);
                 UiText singleLineRich = spec.label;
                 singleLineRich.wrap.maxLines = 1;
-                TextUtil::DrawUiText(canvas, singleLineRich, titleR, geom.labelFontSize, titleLineH, labelCol, 0.0f, 0.5f);
+                TextUtil::DrawUiText(canvas, singleLineRich, titleR, geom.labelFontSize, titleLineH, labelCol, 0.0f, 0.5f, &theme);
                 curX += std::min(titleAvailW, rawTitleW);
             } else {
                 float titleW = canvas.MeasureText(spec.label.text, geom.labelFontSize).x;
@@ -964,7 +964,7 @@ void Element::RenderText(
 
     if (geom.hasDesc && !spec.description.empty() && geom.descRect.w > 0.0f && geom.descRect.h > 0.0f) {
         const float lineH = canvas.GetLineHeight(geom.descFontSize);
-        TextUtil::DrawUiText(canvas, spec.description, geom.descRect, geom.descFontSize, lineH, descCol, alignFactor, 0.5f);
+        TextUtil::DrawUiText(canvas, spec.description, geom.descRect, geom.descFontSize, lineH, descCol, alignFactor, 0.5f, &theme);
     }
 }
 

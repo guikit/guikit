@@ -10,9 +10,11 @@
 #include "guikit/backend/sdl_gl_shader_engine.hpp"
 #include "guikit/backend/sdl_window_backend.hpp"
 #include "guikit/backend/thor_canvas.hpp"
+#if GUIKIT_HAS_SCENES
 #include "guikit/geo/geo_json_io.hpp"
 #include "guikit/geo/gis_render_engine.hpp"
 #include "keel/http.h"
+#endif
 #include "thorvg.h"
 
 static int g_failures = 0;
@@ -7650,6 +7652,7 @@ void TestUnifiedElementHeaderDecorationsAcrossWidgets() {
     std::cout << "  [PASS] TestUnifiedElementHeaderDecorationsAcrossWidgets completed\n";
 }
 
+#if GUIKIT_HAS_SCENES
 void TestSignalViewWidgetWorkflow() {
     using namespace guikit;
 
@@ -8307,6 +8310,7 @@ void TestWaterfallViewWidgetAndGpuRingBuffer() {
 
     std::cout << "  [PASS] TestWaterfallViewWidgetAndGpuRingBuffer completed\n";
 }
+#endif
 
 void TestRangeSliderProgressBarSpinBoxAndRadioButton() {
     using namespace guikit;
@@ -9191,9 +9195,11 @@ void TestUnifiedColormapHistogramAndImageView() {
     std::cout << "  -> TestUnifiedColormapHistogramAndImageView...\n";
 
     // 1. Verify unified Colormap LUTs & inversion symmetry across all 4 scientific widgets
+#if GUIKIT_HAS_SCENES
     static_assert(std::is_same_v<decltype(SignalViewOptions::colormap), Colormap>);
     static_assert(std::is_same_v<decltype(SonarViewOptions::colormap), Colormap>);
     static_assert(std::is_same_v<decltype(WaterfallViewOptions::colormap), Colormap>);
+#endif
     static_assert(std::is_same_v<decltype(ImageViewParams::colormap), Colormap>);
 
     const auto allNames = GetAllColormapNames();
@@ -9522,6 +9528,7 @@ void TestElementOuterFrameAndControlWellFrame() {
     CHECK(rBtnFramed.rect.h > 0.0f);
 }
 
+#if GUIKIT_HAS_SCENES
 void TestAttitudeViewWidgetWorkflow() {
     using namespace guikit;
     Context ui;
@@ -9866,6 +9873,7 @@ void TestGisDemoBayGeoJsonAndRenderEngine() {
     CHECK(stats.renderedFeatures > 0 || stats.cachedTilesHit > 0 || stats.cachedTilesRendered > 0);
     CHECK(stats.renderedVertices > 0);
 }
+#endif
 
 void TestAccordionWidgetWorkflow() {
     using namespace guikit;
@@ -11256,6 +11264,7 @@ void TestBottomPanelAndStatusBarWorkflow() {
     std::cout << "  [PASS] TestBottomPanelAndStatusBarWorkflow completed\n";
 }
 
+#if GUIKIT_HAS_SCENES
 void TestPanelSashAndBodyOcclusionOverMapViewAndScene() {
     Context ui;
     ThorCanvas canvas;
@@ -11507,6 +11516,299 @@ void TestPanelSashAndBodyOcclusionOverMapViewAndScene() {
 
     std::cout << "  [PASS] TestPanelSashAndBodyOcclusionOverMapViewAndScene completed\n";
 }
+#endif
+
+void TestReviewP0AndP1Regressions() {
+    using namespace guikit;
+
+    ThorCanvas canvas;
+    std::vector<uint32_t> pixels(800 * 600, 0);
+    canvas.SetTarget(pixels.data(), 800, 600, 800);
+
+    // 1. Callsite-based MakeChildId: conditional sibling insertion does NOT shift IDs or lose focus,
+    //    while for-loops still disambiguate each iteration cleanly.
+    {
+        Context ui;
+        bool showBanner = false;
+        std::string query = "init";
+        WidgetResponse inputResp{};
+        Id loopIds[3]{};
+
+        auto renderForm = [&]() {
+            ui.BeginFrame({800.0f, 600.0f});
+            if (auto col = ui.Column({.gap = 8.0f, .padding = Padding::All(12.0f)})) {
+                if (showBanner) {
+                    ui.Button({.text = "Warning Banner Action"});
+                    ui.Text("Extra warning description");
+                }
+                inputResp = ui.InputField(query);
+                for (int i = 0; i < 3; ++i) {
+                    loopIds[i] = ui.Button({.text = "LoopBtn"}).id;
+                }
+            }
+            ui.EndFrame(canvas);
+        };
+
+        renderForm();
+        renderForm();
+        const Id idWithoutBanner = inputResp.id;
+        CHECK(loopIds[0] != loopIds[1] && loopIds[1] != loopIds[2] && loopIds[0] != loopIds[2]);
+
+        // Focus InputField, then toggle showBanner ON -> ID & focus must stay intact!
+        ui.RequestFocus(idWithoutBanner);
+        showBanner = true;
+        ui.OnTextInput("!");
+        renderForm();
+
+        CHECK(inputResp.id == idWithoutBanner);
+        CHECK(ui.GetFocusedId() == idWithoutBanner);
+        CHECK(query == "init!");
+    }
+
+    // 2. Persistent widget state survives > 700 hidden frames on an inactive tab (exempt from 600-frame transient GC)
+    {
+        Context ui;
+        int activeTab = 0;
+        Rect scrollViewport{};
+        float firstItemScreenY = 0.0f;
+        bool childFolderVisible = false;
+
+        bool expandTriggered = false;
+        auto renderTabs = [&]() {
+            childFolderVisible = false;
+            ui.BeginFrame({800.0f, 600.0f});
+            if (activeTab == 0) {
+                if (auto row = ui.Row({.gap = 12.0f, .heightMode = SizeMode::Stretch})) {
+                    if (auto sa = ui.ScrollArea({.width = 260.0f, .height = 180.0f})) {
+                        scrollViewport = sa.GetNode()->computedRect;
+                        for (int i = 0; i < 12; ++i) {
+                            auto r = ui.Button({.text = ui.Format("Row {}", i)});
+                            if (i == 0) firstItemScreenY = r.rect.y;
+                        }
+                    }
+                    if (auto tv = ui.TreeView({.stretch = StretchMode::Compact, .width = 260.0f, .height = 240.0f})) {
+                        if (expandTriggered) {
+                            tv.ExpandAll();
+                            expandTriggered = false;
+                        }
+                        if (auto rootNode = ui.TreeItem({.label = "Root", .defaultOpen = true})) {
+                            if (auto subNode = ui.TreeItem({.label = "SubFolder", .defaultOpen = false})) {
+                                childFolderVisible = subNode.open;
+                                (void)ui.TreeItem({.label = "Leaf.cpp"});
+                            }
+                        }
+                    }
+                }
+            } else {
+                ui.Text("Secondary Tab Active");
+            }
+            ui.EndFrame(canvas);
+        };
+
+        renderTabs();
+        renderTabs();
+        const float initialFirstY = firstItemScreenY;
+        CHECK(!childFolderVisible);
+
+        // Scroll the ScrollArea down and expand "SubFolder"
+        expandTriggered = true;
+        ui.OnMouseMove(scrollViewport.Center());
+        ui.OnMouseWheel(0.0f, -3.0f);
+        renderTabs();
+        renderTabs();
+        const float scrolledFirstY = firstItemScreenY;
+        CHECK(scrolledFirstY < initialFirstY - 20.0f);
+        CHECK(childFolderVisible);
+
+        // Switch away to Tab 1 for 700 frames (> 600-frame GC interval)
+        activeTab = 1;
+        for (int f = 0; f < 700; ++f) {
+            renderTabs();
+        }
+
+        // Return to Tab 0 -> ScrollArea scroll offset AND TreeItem expanded state MUST still be preserved!
+        activeTab = 0;
+        renderTabs();
+        renderTabs();
+        CHECK_NEAR(firstItemScreenY, scrolledFirstY, 1.0f);
+        CHECK(childFolderVisible);
+    }
+
+    // 3. Per-widget Undo / Redo history preserved across focus switches between InputFields
+    {
+        Context ui;
+        std::string fieldA = "alpha";
+        std::string fieldB = "beta";
+        Id idA{}, idB{};
+
+        auto renderFields = [&]() {
+            ui.BeginFrame({600.0f, 300.0f});
+            if (auto col = ui.Column({.gap = 8.0f})) {
+                idA = ui.InputField(fieldA).id;
+                idB = ui.InputField(fieldB).id;
+            }
+            ui.EndFrame(canvas);
+        };
+
+        renderFields();
+        ui.RequestFocus(idA);
+        renderFields();
+        ui.OnTextInput("_1");
+        renderFields();
+        CHECK(fieldA == "alpha_1");
+
+        // Switch focus to fieldB and edit it
+        ui.RequestFocus(idB);
+        renderFields();
+        ui.OnTextInput("_2");
+        renderFields();
+        CHECK(fieldB == "beta_2");
+
+        // Switch focus back to fieldA and press Ctrl+Z -> fieldA must undo back to "alpha"!
+        ui.RequestFocus(idA);
+        renderFields();
+        ui.OnKeyDown(Key::Z, KeyModifiers{.ctrl = true});
+        renderFields();
+        CHECK(fieldA == "alpha");
+
+        // And Ctrl+Y redoes fieldA back to "alpha_1"!
+        ui.OnKeyDown(Key::Y, KeyModifiers{.ctrl = true});
+        renderFields();
+        CHECK(fieldA == "alpha_1");
+    }
+
+    // 4. Open Modal traps keyboard input & focus away from background InputField and restores focus on close
+    {
+        Context ui;
+        std::string bgText = "safe";
+        bool modalOpen = false;
+        Id bgId{};
+
+        auto renderModalScene = [&]() {
+            ui.BeginFrame({800.0f, 600.0f});
+            if (auto col = ui.Column({.padding = Padding::All(16.0f)})) {
+                bgId = ui.InputField(bgText).id;
+            }
+            if (auto m = ui.Modal(modalOpen, {.title = "Confirm Action"})) {
+                ui.Text("Modal body");
+                ui.Button({.text = "OK"});
+            }
+            ui.EndFrame(canvas);
+        };
+
+        renderModalScene();
+        ui.RequestFocus(bgId);
+        renderModalScene();
+        CHECK(ui.GetFocusedId() == bgId);
+
+        // Open modal: typing and Backspace must NOT mutate bgText!
+        modalOpen = true;
+        renderModalScene(); // Frame where modal becomes active
+        ui.OnTextInput("LEAK");
+        ui.OnKeyDown(Key::Backspace);
+        renderModalScene();
+        CHECK(bgText == "safe");
+
+        // Closing modal restores focus to bgId so typing resumes cleanly
+        modalOpen = false;
+        renderModalScene();
+        CHECK(ui.GetFocusedId() == bgId);
+        ui.OnTextInput("!");
+        renderModalScene();
+        CHECK(bgText == "safe!");
+    }
+
+    // 5. UTF-8 Cyrillic vertical line navigation, password masking, and case-insensitive search
+    {
+        Context ui;
+        // Line 0: "АБВГ" (4 codepoints, 8 bytes)
+        // Line 1: "abcd" (4 codepoints, 4 bytes)
+        // Line 2: "ДЁЖЗ" (4 codepoints, 8 bytes)
+        std::string doc = "АБВГ\nabcd\nДЁЖЗ";
+        Id taId{};
+
+        auto renderEditor = [&]() {
+            ui.BeginFrame({600.0f, 400.0f});
+            taId = ui.TextArea(doc, {.height = 240.0f, .enableSearch = true}).id;
+            ui.EndFrame(canvas);
+        };
+
+        renderEditor();
+        ui.RequestFocus(taId);
+        renderEditor();
+
+        // Place cursor at start of doc (0), move Right twice -> after "АБ" (byte offset 4, codepoint col 2)
+        ui.SetTextEditCursor(taId, 0, 0);
+        ui.OnKeyDown(Key::Right);
+        ui.OnKeyDown(Key::Right);
+        // Move Down to "abcd" -> codepoint col 2 ("ab|cd"), then Down to "ДЁЖЗ" -> codepoint col 2 ("ДЁ|ЖЗ", byte offset 18)
+        ui.OnKeyDown(Key::Down);
+        ui.OnKeyDown(Key::Down);
+        ui.OnTextInput("!");
+        renderEditor();
+        CHECK(doc == "АБВГ\nabcd\nДЁ!ЖЗ");
+
+        // UTF-8 Password InputField: "пароль" (6 codepoints, 12 bytes) -> Backspace deletes 1 Cyrillic codepoint ("парол")
+        std::string pwd = "пароль";
+        Id pwdId{};
+        auto renderPwd = [&]() {
+            ui.BeginFrame({400.0f, 200.0f});
+            pwdId = ui.InputField(pwd, {.password = true}).id;
+            ui.EndFrame(canvas);
+        };
+        renderPwd();
+        ui.RequestFocus(pwdId);
+        renderPwd();
+        ui.OnKeyDown(Key::End);
+        ui.OnKeyDown(Key::Backspace);
+        renderPwd();
+        CHECK(pwd == "парол");
+
+        // UTF-8 case-insensitive search helper used by TreeView / TagInput / TextArea
+        CHECK(TextUtil::FindCaseInsensitive("Модуль Сигналов", "сигнал") != std::string_view::npos);
+        CHECK(TextUtil::FindCaseInsensitive("Привет", "ПРИВЕТ") == 0u);
+    }
+
+    // 6. ScrollAreaOptions (.maxHeight), WrapOptions (.widthMode = Fit), and GridOptions (.columns = 16)
+    {
+        Context ui;
+        Rect saRect{}, wrapRect{}, fullCellRect{};
+
+        for (int f = 0; f < 2; ++f) {
+            Node* saNode = nullptr;
+            Node* wrapNode = nullptr;
+            Node* fullCellNode = nullptr;
+            ui.BeginFrame({800.0f, 600.0f});
+            if (auto col = ui.Column({.gap = 10.0f, .widthMode = SizeMode::Stretch})) {
+                if (auto sa = ui.ScrollArea({.maxHeight = 140.0f})) {
+                    saNode = sa.GetNode();
+                    for (int i = 0; i < 10; ++i) {
+                        ui.Button({.text = ui.Format("Item {}", i)});
+                    }
+                }
+                if (auto w = ui.Wrap({.gap = 8.0f, .widthMode = SizeMode::Fit})) {
+                    wrapNode = w.GetNode();
+                    ui.Button({.text = "Tag A"});
+                    ui.Button({.text = "Tag B"});
+                }
+                if (auto g = ui.Grid({.columns = 16, .gap = 8.0f})) {
+                    if (auto c = g.Cell()) { // Default span must span all 16 columns!
+                        fullCellNode = c.GetNode();
+                        ui.Button({.text = "Full 16-col Span"});
+                    }
+                }
+            }
+            ui.EndFrame(canvas);
+            if (saNode) saRect = saNode->computedRect;
+            if (wrapNode) wrapRect = wrapNode->computedRect;
+            if (fullCellNode) fullCellRect = fullCellNode->computedRect;
+        }
+
+        CHECK_NEAR(saRect.h, 140.0f, 1.0f);
+        CHECK(wrapRect.w > 40.0f && wrapRect.w < 400.0f);
+        CHECK_NEAR(fullCellRect.w, 800.0f, 1.0f);
+    }
+}
 
 int main() {
     std::cout << std::unitbuf;
@@ -11572,11 +11874,13 @@ int main() {
     TestBaseElementsAllInOneEnhancements();
     TestImageSceneAndMarkdownWidgets();
     TestUnifiedElementHeaderDecorationsAcrossWidgets();
+#if GUIKIT_HAS_SCENES
     TestSignalViewWidgetWorkflow();
     TestMapViewWidgetWorkflow();
     TestSonarViewWidgetWorkflow();
     TestSonarAndSignalGpuShaderPipeline();
     TestWaterfallViewWidgetAndGpuRingBuffer();
+#endif
     TestRangeSliderProgressBarSpinBoxAndRadioButton();
     TestTableVirtualizedDataGridWorkflow();
     TestCodeEditorIdeAndDebuggerWorkflow();
@@ -11584,10 +11888,12 @@ int main() {
     TestUnifiedColormapHistogramAndImageView();
     TestUnifiedElementExplicitHeight();
     TestElementOuterFrameAndControlWellFrame();
+#if GUIKIT_HAS_SCENES
     TestAttitudeViewWidgetWorkflow();
     TestCarClusterViewWidgetWorkflow();
     TestBpmnEditorWidgetWorkflow();
     TestGisDemoBayGeoJsonAndRenderEngine();
+#endif
     TestAccordionWidgetWorkflow();
     TestSizeScopeChainingAndIsolation();
     TestTreeViewAndTreeItemWorkflow();
@@ -11597,7 +11903,10 @@ int main() {
     TestModalContextMenuAndToastWorkflow();
     TestActivityBarAndLinkedSidebarWorkflow();
     TestBottomPanelAndStatusBarWorkflow();
+#if GUIKIT_HAS_SCENES
     TestPanelSashAndBodyOcclusionOverMapViewAndScene();
+#endif
+    TestReviewP0AndP1Regressions();
 
     // Live-Resize policy toggle (Variant 1: Deferred vs Variant 2: Live 60 FPS)
     {
@@ -12440,6 +12749,7 @@ int main() {
         CHECK(tags.back() == "sonar");
     }
 
+#if GUIKIT_HAS_SCENES
     // Cross-platform keel::http (URL parser, HttpClient, WebSocketClient) + LodePNG raster tile decoder
     {
         const auto parsedHttps = keel::parse_url("https://tile.openstreetmap.org/14/9532/5841.png");
@@ -12473,6 +12783,7 @@ int main() {
         CHECK(guikit::geo::DecodePngAndScaleToRgba(kSample1x1Png, 256, rgba));
         CHECK(rgba.size() == 256u * 256u);
     }
+#endif
 
     // Theme-driven Application Shell Framing (ShellStyle::Docked vs ShellStyle::Floating)
     {
@@ -12882,6 +13193,7 @@ int main() {
             ui.EndFrame(thorCanvas);
         }
 
+#if GUIKIT_HAS_SCENES
         // Regression test: Partially-clipped GPU scene widgets (SonarView / WaterfallView) above an open BottomPanel
         // (TextArea cursor blinking / mouse movement in BottomPanel).
         // Previously, ThorCanvas::Clear erased GPU passes whenever a dirty rect in BottomPanel intersected the
@@ -13024,6 +13336,7 @@ int main() {
                 }
             }
         }
+#endif
 
         // Toolbar overflow policies: AutoCompact, Scroll, Wrap, Clip
         {

@@ -60,6 +60,7 @@ public:
 
     [[nodiscard]] int GetWidth() const noexcept;
     [[nodiscard]] int GetHeight() const noexcept;
+    [[nodiscard]] float GetDpiScale() const noexcept;
     [[nodiscard]] float GetDisplayPixelsPerMm() const noexcept;
     [[nodiscard]] bool IsLiveResizeFrame() const noexcept;
     [[nodiscard]] bool IsMinimized() const noexcept;

@@ -53,6 +53,9 @@ struct ToastEntry {
     uint64_t id{0};
     std::string title{};
     std::string message{};
+    TextWrap titleWrap{};
+    TextWrap messageWrap{};
+    std::string iconPath{};
     UiVariant variant{UiVariant::Info};
     Icon icon{};
     float duration{4.0f};

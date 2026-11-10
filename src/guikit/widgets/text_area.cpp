@@ -14,6 +14,7 @@
 #include "guikit/panels/toolbar.hpp"
 #include "guikit/widgets/button.hpp"
 #include "keel/number.h"
+#include "keel/utf8.h"
 
 namespace guikit {
 
@@ -199,23 +200,9 @@ size_t HitTestColumnInLine(
     return lineSub.size();
 }
 
-struct LogicalLine {
-    size_t startOffset{0};
-    size_t length{0};
-};
-
-struct VisualLine {
-    size_t logicalLine{0};
-    size_t startOffset{0}; ///< Global byte offset in text
-    size_t startCol{0};    ///< Column byte offset within logical line
-    size_t length{0};      ///< Byte length of this visual sub-line
-    bool isFirstSubLine{true};
-};
-
-struct FoldRegion {
-    size_t startLine{0}; ///< 0-based start line index
-    size_t endLine{0};   ///< 0-based inclusive end line index
-};
+using LogicalLine = TextAreaLogicalLine;
+using VisualLine = TextAreaVisualLine;
+using FoldRegion = TextAreaFoldRegion;
 
 struct SearchMatch {
     size_t startOffset{0};
@@ -252,7 +239,7 @@ void SplitLogicalLines(std::string_view text, std::vector<LogicalLine>& outLines
 
 void ComputeFoldRegions(
     std::string_view text,
-    const std::vector<LogicalLine>& logicalLines,
+    std::span<const LogicalLine> logicalLines,
     const SyntaxConfig* synCfg,
     std::vector<FoldRegion>& outRegions
 ) {
@@ -397,7 +384,7 @@ bool IsLineHiddenByFold(
 
 void BuildVisualLines(
     std::string_view text,
-    const std::vector<LogicalLine>& logicalLines,
+    std::span<const LogicalLine> logicalLines,
     bool wordWrap,
     float wrapWidth,
     float fontSize,
@@ -457,7 +444,7 @@ void BuildVisualLines(
 
 void FindAllSearchMatches(
     std::string_view text,
-    const std::vector<LogicalLine>& logicalLines,
+    std::span<const LogicalLine> logicalLines,
     std::string_view query,
     bool matchCase,
     bool wholeWord,
@@ -466,44 +453,65 @@ void FindAllSearchMatches(
     outMatches.clear();
     if (query.empty() || text.empty()) return;
 
+    auto isWordCodepoint = [](keel::u32 cp) noexcept -> bool {
+        if (cp < 0x80u) {
+            return IsIdentChar(static_cast<char>(cp));
+        }
+        return (cp >= 0x00C0u && cp <= 0x024Fu && cp != 0x00D7u && cp != 0x00F7u) ||
+               (cp >= 0x0400u && cp <= 0x04FFu);
+    };
+
     const size_t qLen = query.size();
     for (size_t lineIdx = 0; lineIdx < logicalLines.size(); ++lineIdx) {
         const LogicalLine& ll = logicalLines[lineIdx];
-        if (ll.length < qLen) continue;
+        if (matchCase && ll.length < qLen) continue;
         const std::string_view lineStr = text.substr(ll.startOffset, ll.length);
 
-        for (size_t col = 0; col + qLen <= ll.length; ) {
-            bool matched = true;
+        size_t col = 0;
+        while (col < ll.length) {
+            size_t matchStart = std::string_view::npos;
+            size_t matchLen = 0;
             if (matchCase) {
-                matched = (lineStr.substr(col, qLen) == query);
+                matchStart = lineStr.find(query, col);
+                matchLen = qLen;
             } else {
-                for (size_t k = 0; k < qLen; ++k) {
-                    if (ToLowerAscii(lineStr[col + k]) != ToLowerAscii(query[k])) {
-                        matched = false;
-                        break;
-                    }
+                size_t relPos = 0;
+                if (TextUtil::FindCaseInsensitive(lineStr.substr(col), query, relPos, matchLen)) {
+                    matchStart = col + relPos;
                 }
             }
+            if (matchStart == std::string_view::npos || matchLen == 0) {
+                break;
+            }
+            const size_t matchEnd = matchStart + matchLen;
 
-            if (matched && wholeWord) {
-                const bool leftWord = (col > 0) && IsIdentChar(lineStr[col - 1]);
-                const bool rightWord = (col + qLen < ll.length) && IsIdentChar(lineStr[col + qLen]);
-                if (leftWord || rightWord) {
-                    matched = false;
+            bool matched = true;
+            if (wholeWord) {
+                if (matchStart > 0) {
+                    size_t prevOff = keel::utf8_prev_boundary(lineStr, matchStart);
+                    if (isWordCodepoint(keel::utf8_decode_next(lineStr, prevOff))) {
+                        matched = false;
+                    }
+                }
+                if (matched && matchEnd < ll.length) {
+                    size_t nextOff = matchEnd;
+                    if (isWordCodepoint(keel::utf8_decode_next(lineStr, nextOff))) {
+                        matched = false;
+                    }
                 }
             }
 
             if (matched) {
                 outMatches.push_back({
-                    .startOffset = ll.startOffset + col,
-                    .endOffset = ll.startOffset + col + qLen,
+                    .startOffset = ll.startOffset + matchStart,
+                    .endOffset = ll.startOffset + matchEnd,
                     .logicalLine = lineIdx,
-                    .startCol = col,
-                    .endCol = col + qLen
+                    .startCol = matchStart,
+                    .endCol = matchEnd
                 });
-                col += qLen;
+                col = std::max(matchEnd, keel::utf8_next_boundary(lineStr, matchStart));
             } else {
-                ++col;
+                col = keel::utf8_next_boundary(lineStr, matchStart);
             }
         }
     }
@@ -1022,7 +1030,7 @@ struct EditorLayoutRects {
 EditorLayoutRects ComputeEditorLayout(
     Rect bounds,
     std::string_view text,
-    const std::vector<LogicalLine>& logicalLines,
+    std::span<const LogicalLine> logicalLines,
     const TextAreaOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -1398,7 +1406,7 @@ size_t FindVisualLineForOffset(const std::vector<VisualLine>& visualLines, size_
     return visualLines.size() - 1;
 }
 
-size_t FindLogicalLineForOffset(const std::vector<LogicalLine>& logicalLines, size_t offset) noexcept {
+size_t FindLogicalLineForOffset(std::span<const LogicalLine> logicalLines, size_t offset) noexcept {
     if (logicalLines.empty()) return 0;
     for (size_t i = 0; i < logicalLines.size(); ++i) {
         const LogicalLine& ll = logicalLines[i];
@@ -1808,7 +1816,7 @@ TextAreaResponse TextArea::Run(
         ? opts.syntax->lineComment
         : "//";
 
-    auto& state = ctx.GetOrCreateState<TextAreaState>(id);
+    auto& state = ctx.GetOrCreatePersistentState<TextAreaState>(id);
     if (!isFocused) {
         state.overlayFocus = 0;
         ctx.SetSuspendDirectEditInput(false);
@@ -1898,8 +1906,26 @@ TextAreaResponse TextArea::Run(
         ctx.SetTextEditAutoClose(id, opts.autoCloseBrackets);
     }
 
-    std::vector<LogicalLine> logicalLines;
-    SplitLogicalLines(valStr, logicalLines);
+    std::vector<LogicalLine>& logicalLines = state.cachedLogicalLines;
+    std::vector<FoldRegion>& foldRegions = state.cachedFoldRegions;
+    std::vector<VisualLine>& visualLines = state.scratchVisualLines;
+
+    const uint64_t docHash = detail::HashArgs(valStr);
+    const uint64_t foldSyntaxHash = opts.syntax.has_value()
+        ? detail::HashArgs(
+            opts.syntax->lineComment,
+            opts.syntax->foldOpenKeywords.size(),
+            opts.syntax->foldCloseKeywords.size(),
+            opts.syntax->transposeApostrophe
+        )
+        : 0u;
+    const bool docChangedForCache =
+        (logicalLines.empty() || state.cachedDocSize != valStr.size() || state.cachedDocHash != docHash);
+    if (docChangedForCache) {
+        SplitLogicalLines(valStr, logicalLines);
+        state.cachedDocHash = docHash;
+        state.cachedDocSize = valStr.size();
+    }
 
     auto resolveDebugAndDiagnosticMarkers = [&](std::string_view curDoc) {
         if (opts.executionLinePtr != nullptr) {
@@ -1961,9 +1987,12 @@ TextAreaResponse TextArea::Run(
 
     resolveDebugAndDiagnosticMarkers(valStr);
 
-    std::vector<FoldRegion> foldRegions;
     if (opts.codeFolding) {
-        ComputeFoldRegions(valStr, logicalLines, opts.syntax.has_value() ? &*opts.syntax : nullptr, foldRegions);
+        if (docChangedForCache || !state.cachedFoldEnabled || state.cachedFoldSyntaxHash != foldSyntaxHash) {
+            ComputeFoldRegions(valStr, logicalLines, opts.syntax.has_value() ? &*opts.syntax : nullptr, foldRegions);
+            state.cachedFoldEnabled = true;
+            state.cachedFoldSyntaxHash = foldSyntaxHash;
+        }
         // Prune any stale foldedLines that no longer start a valid fold region
         state.foldedLines.erase(
             std::remove_if(state.foldedLines.begin(), state.foldedLines.end(), [&](size_t fl) {
@@ -1972,6 +2001,8 @@ TextAreaResponse TextArea::Run(
             state.foldedLines.end()
         );
     } else {
+        foldRegions.clear();
+        state.cachedFoldEnabled = false;
         state.foldedLines.clear();
     }
 
@@ -2010,7 +2041,6 @@ TextAreaResponse TextArea::Run(
         ensureLineUnfolded(optsCopy.executionLine - 1);
     }
 
-    std::vector<VisualLine> visualLines;
     EditorLayoutRects L = ComputeEditorLayout(
         refBounds, valStr, logicalLines, optsCopy, activeSize, canvas, theme,
         state.zoom, state.scrollX, state.scrollY, copyFeedbackActive,
@@ -2768,10 +2798,17 @@ TextAreaResponse TextArea::Run(
 
             state.prevDocumentText.assign(displayText);
             state.prevLineCount = newLineCount;
+            state.cachedDocHash = detail::HashArgs(displayText);
+            state.cachedDocSize = displayText.size();
             resolveDebugAndDiagnosticMarkers(displayText);
 
             if (opts.codeFolding) {
                 ComputeFoldRegions(displayText, logicalLines, opts.syntax.has_value() ? &*opts.syntax : nullptr, foldRegions);
+                state.cachedFoldEnabled = true;
+                state.cachedFoldSyntaxHash = foldSyntaxHash;
+            } else {
+                foldRegions.clear();
+                state.cachedFoldEnabled = false;
             }
             L = ComputeEditorLayout(
                 refBounds, displayText, logicalLines, optsCopy, activeSize, canvas, theme,
@@ -2953,6 +2990,8 @@ TextAreaResponse TextArea::Run(
         data->hoveredOverlayBtn = hoveredOverlayBtn;
         data->foldedLines = state.foldedLines;
         data->breakpoints = activeBreakpoints;
+        data->precomputedLogicalLines = logicalLines;
+        data->precomputedFoldRegions = foldRegions;
         data->hoveredGutterLine = hoveredGutterLine;
         data->hoveredFoldLine = hoveredFoldLine;
         data->hoveredDebugBtn = hoveredDebugBtn;
@@ -3171,12 +3210,20 @@ void TextArea::Render(
     const std::span<const size_t> breakpoints = extData ? extData->breakpoints
         : (opts.breakpoints ? std::span<const size_t>(*opts.breakpoints) : std::span<const size_t>{});
 
-    std::vector<LogicalLine> logicalLines;
-    SplitLogicalLines(text, logicalLines);
+    std::vector<LogicalLine> fallbackLogicalLines;
+    std::span<const LogicalLine> logicalLines =
+        (extData && !extData->precomputedLogicalLines.empty()) ? extData->precomputedLogicalLines : std::span<const LogicalLine>{};
+    if (logicalLines.empty()) {
+        SplitLogicalLines(text, fallbackLogicalLines);
+        logicalLines = fallbackLogicalLines;
+    }
 
-    std::vector<FoldRegion> foldRegions;
-    if (opts.codeFolding) {
-        ComputeFoldRegions(text, logicalLines, opts.syntax.has_value() ? &*opts.syntax : nullptr, foldRegions);
+    std::vector<FoldRegion> fallbackFoldRegions;
+    std::span<const FoldRegion> foldRegions =
+        (extData && opts.codeFolding) ? extData->precomputedFoldRegions : std::span<const FoldRegion>{};
+    if (opts.codeFolding && (!extData || extData->precomputedLogicalLines.empty())) {
+        ComputeFoldRegions(text, logicalLines, opts.syntax.has_value() ? &*opts.syntax : nullptr, fallbackFoldRegions);
+        foldRegions = fallbackFoldRegions;
     }
 
     std::vector<VisualLine> visualLines;

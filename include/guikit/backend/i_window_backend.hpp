@@ -85,6 +85,7 @@ public:
 
     [[nodiscard]] virtual int GetWidth() const noexcept = 0;
     [[nodiscard]] virtual int GetHeight() const noexcept = 0;
+    [[nodiscard]] virtual float GetDpiScale() const noexcept { return 1.0f; }
     [[nodiscard]] virtual float GetDisplayPixelsPerMm() const noexcept = 0;
     [[nodiscard]] virtual bool IsMinimized() const noexcept = 0;
     [[nodiscard]] virtual bool ShouldRenderFrame() const noexcept { return !IsMinimized(); }

@@ -512,8 +512,8 @@ MapViewScope MapView::Open(
     std::source_location loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    auto& mapState = ctx.GetOrCreateState<MapViewInternalState>(id);
-    auto& sceneState = ctx.GetOrCreateState<SceneState>(id);
+    auto& mapState = ctx.GetOrCreatePersistentState<MapViewInternalState>(id);
+    auto& sceneState = ctx.GetOrCreatePersistentState<SceneState>(id);
 
     const float worldSize = std::max(256.0f, opts.worldSize);
 
@@ -566,7 +566,7 @@ MapViewScope MapView::Open(
         .inspectMode = opts.inspectMode
     };
 
-    SceneScope scene = Scene::Open(ctx, sceneOpts, loc);
+    SceneScope scene = Scene::OpenWithId(ctx, id, sceneOpts);
     const UiTheme& activeTheme = (opts.theme != nullptr) ? *opts.theme : ctx.GetTheme();
     const bool lightMode = (activeTheme.mode == ThemeMode::Light);
 

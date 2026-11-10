@@ -981,7 +981,7 @@ SignalViewResponse SignalView::Run(
     const UiTheme& theme = ctx.GetTheme();
     ICanvas* canvas = ctx.GetCanvas();
 
-    auto& st = ctx.GetOrCreateState<SignalViewInternalState>(id);
+    auto& st = ctx.GetOrCreatePersistentState<SignalViewInternalState>(id);
 
     const float sampleRate = std::max(1.0f, opts.sampleRate);
     const float nyquistHz = 0.5f * sampleRate;

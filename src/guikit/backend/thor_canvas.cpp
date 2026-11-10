@@ -11,6 +11,7 @@
 #include "guikit/core/text_util.hpp"
 #include "guikit/core/tokens.hpp"
 #include "keel/fs.h"
+#include "keel/utf8.h"
 #include "thorvg.h"
 #if __has_include("tvgLodePng.h")
 #include "tvgLodePng.h"
@@ -35,6 +36,38 @@ std::string ExtractFontName(std::string_view path) {
     const auto idx = static_cast<size_t>(style);
     return (idx < 5u) ? idx : 0u;
 }
+
+[[nodiscard]] std::string_view ClampUtf8Prefix(std::string_view text, size_t maxBytes) noexcept {
+    if (text.size() <= maxBytes) {
+        return text;
+    }
+    size_t len = maxBytes;
+    while (len > 0 && !keel::utf8_is_lead_byte(static_cast<uint8_t>(text[len]))) {
+        --len;
+    }
+    return text.substr(0, len);
+}
+
+struct ScopedCStr {
+    char inlineBuf[512];
+    keel::String heapFallback{};
+    const char* ptr{nullptr};
+
+    explicit ScopedCStr(std::string_view sv) {
+        if (sv.size() < sizeof(inlineBuf)) {
+            if (!sv.empty()) {
+                std::memcpy(inlineBuf, sv.data(), sv.size());
+            }
+            inlineBuf[sv.size()] = '\0';
+            ptr = inlineBuf;
+        } else {
+            heapFallback = keel::String::from(sv);
+            ptr = heapFallback.c_str();
+        }
+    }
+
+    [[nodiscard]] const char* c_str() const noexcept { return ptr; }
+};
 
 [[nodiscard]] bool IsStaticEmbeddedAssetPointer(const uint8_t* ptr) noexcept {
     if (!ptr) return false;
@@ -544,7 +577,7 @@ Vec2 ThorCanvas::MeasureTextStyled(std::string_view text, float fontSize, FontSt
     ApplyFont(m_measureText, style);
 
     m_measureText->size(fontSize);
-    std::string textStr(text);
+    const ScopedCStr textStr(text);
     m_measureText->text(textStr.c_str());
 
     float totalAdvance = 0.0f;
@@ -651,7 +684,7 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveTextStamp(
 
     const bool isItalic = NeedsSyntheticItalic(style);
     const bool isBold = NeedsSyntheticBold(style);
-    std::string textStr(text);
+    const ScopedCStr textStr(text);
 
     auto addStampPass = [&](float offsetX) {
         auto* txt = tvg::Text::gen();
@@ -892,7 +925,7 @@ void ThorCanvas::DrawTextStyled(
 
     const bool hasRot = std::abs(angleDeg) > 0.01f;
     if (!hasRot && m_targetBuffer && m_width > 0 && m_height > 0 && text.find('\n') == std::string_view::npos) {
-        const std::string_view stampText = (text.size() > 512) ? text.substr(0, 512) : text;
+        const std::string_view stampText = ClampUtf8Prefix(text, 512);
         const Vec2 m = MeasureTextStyled(stampText, fontSize, style);
         const Rect approxBounds(
             (pos.x - 2.0f) * m_scale,
@@ -915,10 +948,10 @@ void ThorCanvas::DrawTextStyled(
     const float rad = hasRot ? (angleDeg * 0.017453292519943295f) : 0.0f;
     const float cosA = hasRot ? std::cos(rad) : 1.0f;
     const float sinA = hasRot ? std::sin(rad) : 0.0f;
+    const ScopedCStr textStr(text);
 
     auto emitTextPass = [&](float offset) {
         auto txt = tvg::Text::gen();
-        std::string textStr(text);
         txt->text(textStr.c_str());
 
         ApplyFont(txt, style);
@@ -975,14 +1008,14 @@ void ThorCanvas::DrawTextBoxStyled(
     keel::FixedString<256> truncated;
     std::string_view drawText = text;
     if (bounds.w > 0.0f && MeasureTextStyled(text, fontSize, style).x > bounds.w + kTextSubpixelTolerance) {
-        truncated = TextUtil::TruncateWithEllipsis(text, bounds.w, fontSize, this);
+        truncated = TextUtil::TruncateWithEllipsis(text, bounds.w, fontSize, this, style);
         drawText = truncated;
     }
     if (drawText.empty()) return;
 
     if (m_targetBuffer && m_width > 0 && m_height > 0 &&
         drawText.find('\n') == std::string_view::npos) {
-        const std::string_view stampText = (drawText.size() > 512) ? drawText.substr(0, 512) : drawText;
+        const std::string_view stampText = ClampUtf8Prefix(drawText, 512);
         const float scaledFs = fontSize * m_scale;
         const TextStampEntry& capStamp = ResolveTextStamp("H", scaledFs, Color(255, 255, 255, 255), style);
         const bool capEmpty = capStamp.empty;
@@ -1010,9 +1043,9 @@ void ThorCanvas::DrawTextBoxStyled(
 
     const bool isItalic = NeedsSyntheticItalic(style);
     const bool isBold = NeedsSyntheticBold(style);
+    const ScopedCStr textStr(drawText);
     auto emitBoxPass = [&](float offsetX) {
         auto txt = tvg::Text::gen();
-        std::string textStr(drawText);
         txt->text(textStr.c_str());
 
         ApplyFont(txt, style);
@@ -1240,6 +1273,11 @@ ThorCanvas::ImageCacheEntry& ThorCanvas::ResolveImageEntry(std::string_view sour
 
     if (ImageCacheEntry* existing = m_imageCache.get(source)) {
         return *existing;
+    }
+
+    static constexpr size_t kMaxImageCacheEntries = 256;
+    if (m_imageCache.size() >= kMaxImageCacheEntries) {
+        m_imageCache.clear();
     }
 
     ImageCacheEntry entry{};

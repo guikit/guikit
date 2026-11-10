@@ -90,7 +90,7 @@ CommandPaletteResponse CommandPalette::Run(
     std::source_location loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    auto& st = ctx.GetOrCreateState<CommandPalettePersistState>(id);
+    auto& st = ctx.GetOrCreatePersistentState<CommandPalettePersistState>(id);
 
     CommandPaletteResponse res{};
     res.id = id;

@@ -4,6 +4,7 @@
 #include "guikit/core/solver.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/panels/carousel.hpp"
+#include "guikit/panels/scroll_area.hpp"
 #include "keel/arena.h"
 
 static int g_failures = 0;
@@ -1115,6 +1116,98 @@ void TestRowTextDeficitShrinkAndCenterClamp() {
     CHECK_NEAR(scNode->computedRect.Bottom(), bpNode->computedRect.Bottom(), 0.001f);
 }
 
+void TestScrollAreaMaxHeightWrapFitAndDeepTreeGuard() {
+    using namespace guikit;
+
+    keel::Arena arena;
+
+    // 1. ScrollArea with Fit height + maxHeight = 200px inside a Fit Column:
+    //    - Short content (120px) shrink-wraps to 120px.
+    //    - Tall content (450px) caps viewport height at 200px while preserving scrollContentSize.y = 450px.
+    Node* parentCol = arena.create<Node>();
+    parentCol->direction = FlexDirection::Column;
+    parentCol->widthMode = SizeMode::Fixed;
+    parentCol->fixedWidth = 400.0f;
+    parentCol->heightMode = SizeMode::Fit;
+
+    Node* scroll = arena.create<Node>();
+    scroll->type = NodeType::ScrollArea;
+    scroll->direction = FlexDirection::Column;
+    scroll->clipChildren = true;
+    scroll->widthMode = SizeMode::Stretch;
+    scroll->heightMode = SizeMode::Fit;
+    auto* saData = arena.create<ScrollAreaLayoutData>();
+    saData->maxHeight = 200.0f;
+    scroll->SetPayload(saData);
+
+    Node* item1 = arena.create<Node>();
+    item1->heightMode = SizeMode::Fixed;
+    item1->fixedHeight = 120.0f;
+    scroll->AddChild(item1);
+    parentCol->AddChild(scroll);
+
+    Solver::Measure(parentCol);
+    Solver::Arrange(parentCol, Rect(0.0f, 0.0f, 400.0f, 0.0f));
+    CHECK_NEAR(scroll->intrinsicSize.y, 120.0f, 0.001f);
+    CHECK_NEAR(scroll->computedRect.h, 120.0f, 0.001f);
+
+    Node* item2 = arena.create<Node>();
+    item2->heightMode = SizeMode::Fixed;
+    item2->fixedHeight = 330.0f;
+    scroll->AddChild(item2);
+
+    Solver::Measure(parentCol);
+    Solver::Arrange(parentCol, Rect(0.0f, 0.0f, 400.0f, 0.0f));
+    CHECK_NEAR(scroll->intrinsicSize.y, 200.0f, 0.001f);
+    CHECK_NEAR(scroll->computedRect.h, 200.0f, 0.001f);
+    CHECK_NEAR(scroll->scrollContentSize.y, 450.0f, 0.001f);
+    CHECK_NEAR(parentCol->computedRect.h, 200.0f, 0.001f);
+
+    // 2. Wrap container with widthMode = SizeMode::Fit shrink-wraps to single-line content width
+    Node* wrapRow = arena.create<Node>();
+    wrapRow->direction = FlexDirection::Row;
+    wrapRow->widthMode = SizeMode::Stretch;
+    wrapRow->heightMode = SizeMode::Fit;
+
+    Node* fitWrap = arena.create<Node>();
+    fitWrap->direction = FlexDirection::Wrap;
+    fitWrap->widthMode = SizeMode::Fit;
+    fitWrap->heightMode = SizeMode::Fit;
+    fitWrap->gap = 10.0f;
+    fitWrap->runGap = 8.0f;
+
+    for (int i = 0; i < 2; ++i) {
+        Node* chip = arena.create<Node>();
+        chip->widthMode = SizeMode::Fixed;
+        chip->fixedWidth = 90.0f;
+        chip->heightMode = SizeMode::Fixed;
+        chip->fixedHeight = 28.0f;
+        fitWrap->AddChild(chip);
+    }
+    wrapRow->AddChild(fitWrap);
+
+    Solver::Measure(wrapRow);
+    Solver::Arrange(wrapRow, Rect(0.0f, 0.0f, 600.0f, 40.0f));
+    CHECK_NEAR(fitWrap->intrinsicSize.x, 190.0f, 0.001f);
+    CHECK_NEAR(fitWrap->computedRect.w, 190.0f, 0.001f);
+    CHECK_NEAR(fitWrap->computedRect.h, 28.0f, 0.001f);
+
+    // 3. Deep nesting recursion guard (> 128 levels) completes safely without unbounded recursion
+    Node* deepRoot = arena.create<Node>();
+    Node* cur = deepRoot;
+    for (int d = 0; d < 160; ++d) {
+        Node* next = arena.create<Node>();
+        next->direction = FlexDirection::Column;
+        next->widthMode = SizeMode::Stretch;
+        next->heightMode = SizeMode::Fit;
+        cur->AddChild(next);
+        cur = next;
+    }
+    Solver::Measure(deepRoot);
+    Solver::Arrange(deepRoot, Rect(0.0f, 0.0f, 300.0f, 200.0f));
+    CHECK_NEAR(deepRoot->computedRect.w, 300.0f, 0.001f);
+}
+
 int main() {
     std::cout << "[RUN] Testing GuiKit Layout Solver...\n";
 
@@ -1134,6 +1227,7 @@ int main() {
     TestAspectRatioMinHeightAndStretchFallback();
     TestRowEqualWidthsFitAndStretch();
     TestRowTextDeficitShrinkAndCenterClamp();
+    TestScrollAreaMaxHeightWrapFitAndDeepTreeGuard();
 
     if (g_failures == 0) {
         std::cout << "[PASS] All GuiKit Layout tests passed successfully!\n";

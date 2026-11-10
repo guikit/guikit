@@ -90,7 +90,9 @@ void Toast::RunHost(
         }
         if (!e.message.empty()) {
             if (!e.title.empty()) contentH += 3.0f * s;
-            msgH = TextUtil::MeasureUiTextHeight(UiText(e.message), textW, msgFont, msgLineH, canvas);
+            UiText msgText(e.message);
+            msgText.wrap = e.messageWrap;
+            msgH = TextUtil::MeasureUiTextHeight(msgText, textW, msgFont, msgLineH, canvas, &theme);
             contentH += std::max(msgLineH, msgH);
         }
         contentH = std::max(contentH, iconBoxSz);
@@ -197,6 +199,8 @@ void Toast::RunHost(
     struct DrawToastData {
         std::string_view title{};
         std::string_view message{};
+        TextWrap titleWrap{};
+        TextWrap messageWrap{};
         UiVariant variant{UiVariant::Info};
         Icon icon{};
         float duration{3.5f};
@@ -215,11 +219,17 @@ void Toast::RunHost(
     for (const auto& lt : layoutList) {
         if (lt.index < entries.size() && entries[lt.index].id != dismissId) {
             const auto& ent = entries[lt.index];
+            Icon safeIcon = ent.icon;
+            if (!ent.iconPath.empty()) {
+                safeIcon = Icon::File(ent.iconPath);
+            }
             drawList.push_back(DrawToastData{
                 .title = ctx.AllocString(ent.title),
                 .message = ctx.AllocString(ent.message),
+                .titleWrap = ent.titleWrap,
+                .messageWrap = ent.messageWrap,
                 .variant = ent.variant,
-                .icon = ctx.AllocIcon(ent.icon),
+                .icon = ctx.AllocIcon(safeIcon),
                 .duration = ent.duration,
                 .elapsedSec = ent.elapsedSec,
                 .closable = ent.closable,
@@ -288,26 +298,35 @@ void Toast::RunHost(
             const float textX = badgeRect.Right() + 10.0f * s;
             float textY = r.y + padY;
             if (!e.title.empty()) {
-                c.DrawTextBox(
-                    e.title,
+                UiText titleTxt(e.title);
+                titleTxt.wrap = e.titleWrap;
+                titleTxt.wrap.maxLines = 1;
+                TextUtil::DrawUiText(
+                    c,
+                    titleTxt,
                     Rect(textX, textY, dt.textW, titleLineH),
                     titleFont,
+                    titleLineH,
                     pal.textPrimary,
                     0.0f,
-                    0.5f
+                    0.5f,
+                    &theme
                 );
                 textY += titleLineH + 3.0f * s;
             }
             if (!e.message.empty()) {
+                UiText msgTxt(e.message);
+                msgTxt.wrap = e.messageWrap;
                 TextUtil::DrawUiText(
                     c,
-                    UiText(e.message),
+                    msgTxt,
                     Rect(textX, textY, dt.textW, dt.msgH),
                     msgFont,
                     msgLineH,
                     pal.textMuted,
                     0.0f,
-                    0.0f
+                    0.0f,
+                    &theme
                 );
             }
 

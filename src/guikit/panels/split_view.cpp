@@ -323,7 +323,7 @@ SplitViewScope SplitView::Open(
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     const UiTheme& theme = ctx.GetTheme();
 
-    auto& st = ctx.GetOrCreateState<SplitViewPersistState>(id);
+    auto& st = ctx.GetOrCreatePersistentState<SplitViewPersistState>(id);
     if (!st.initialized) {
         st.initialized = true;
         st.ratio = std::clamp(opts.defaultRatio, 0.0f, 1.0f);

@@ -49,10 +49,8 @@ public:
     /// Arbitrary span cell slot (1..12 columns)
     [[nodiscard]] ContainerScope Cell(int span, CellOptions opts = {}, std::source_location loc = std::source_location::current());
 
-    /// Full-width 12-column cell slot
-    [[nodiscard]] ContainerScope Cell(CellOptions opts = {}, std::source_location loc = std::source_location::current()) {
-        return Cell12(opts, loc);
-    }
+    /// Full-width cell slot spanning all columns of this Grid
+    [[nodiscard]] ContainerScope Cell(CellOptions opts = {}, std::source_location loc = std::source_location::current());
 
     [[nodiscard]] ContainerScope Cell12(CellOptions opts = {}, std::source_location loc = std::source_location::current());
     [[nodiscard]] ContainerScope Cell8(CellOptions opts = {}, std::source_location loc = std::source_location::current());

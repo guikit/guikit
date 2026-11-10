@@ -276,7 +276,7 @@ Response ColorPicker::Run(
         optsCopy.width = unscaledW;
     }
 
-    auto& state = ctx.GetOrCreateState<ColorPickerState>(id);
+    auto& state = ctx.GetOrCreatePersistentState<ColorPickerState>(id);
     if (!state.initialized || state.lastSyncedColor != value) {
         RgbToHsv(value, state.h, state.s, state.v);
         state.lastSyncedColor = value;

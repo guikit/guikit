@@ -1070,17 +1070,24 @@ SceneScope Scene::Open(
     const SceneOptions& opts,
     std::source_location loc
 ) {
+    return OpenWithId(ctx, ctx.MakeChildId(loc), opts);
+}
+
+SceneScope Scene::OpenWithId(
+    Context& ctx,
+    Id id,
+    const SceneOptions& opts
+) {
     SceneOptions optsCopy = opts;
     Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
 
-    const Id id = ctx.MakeChildId(loc);
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = optsCopy.disabled || ctx.IsDisabled();
     const float activeScale = optsCopy.scale.value_or(ctx.GetCurrentScale());
     UiTheme* pushedTheme = ctx.PushScopedTheme(optsCopy.theme, optsCopy.scale);
 
     const UiTheme& theme = ctx.GetTheme();
-    auto& state = ctx.GetOrCreateState<SceneState>(id);
+    auto& state = ctx.GetOrCreatePersistentState<SceneState>(id);
 
     Node* node = ctx.CreateNode(NodeType::Scene, id);
     node->theme = pushedTheme;

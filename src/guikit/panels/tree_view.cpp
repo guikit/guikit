@@ -21,7 +21,6 @@ struct TreeViewPayload {
     TreeViewState* state{nullptr};
     TreeViewOptions opts{};
     std::string_view activeFilter{};
-    uint32_t nextRootSlot{0};
     int visibleItemCount{0};
     keel::ArenaArray<VisibleTreeItemEntry> currVisibleItems{};
 
@@ -50,7 +49,6 @@ struct TreeItemPayload {
     Id idOuter{Id::Null()};
     Id idRow{Id::Null()};
     uint16_t depth{0};
-    uint32_t nextChildSlot{0};
     int visibleRowIndex{0};
     size_t visibleEntryIdx{0};
     bool open{true};
@@ -66,20 +64,7 @@ namespace {
 
 bool ContainsIgnoreCase(std::string_view haystack, std::string_view needle) noexcept {
     if (needle.empty()) return true;
-    if (haystack.size() < needle.size()) return false;
-    for (size_t i = 0; i + needle.size() <= haystack.size(); ++i) {
-        bool match = true;
-        for (size_t j = 0; j < needle.size(); ++j) {
-            const unsigned char c1 = static_cast<unsigned char>(haystack[i + j]);
-            const unsigned char c2 = static_cast<unsigned char>(needle[j]);
-            if (std::tolower(c1) != std::tolower(c2)) {
-                match = false;
-                break;
-            }
-        }
-        if (match) return true;
-    }
-    return false;
+    return TextUtil::FindCaseInsensitive(haystack, needle) != std::string_view::npos;
 }
 
 float AlignToFactor(Align align) noexcept {
@@ -495,7 +480,7 @@ TreeViewScope TreeView::Open(
     const UiTheme& theme = ctx.GetTheme();
     const auto& pal = theme.palette;
 
-    TreeViewState& st = ctx.GetOrCreateState<TreeViewState>(idTree);
+    TreeViewState& st = ctx.GetOrCreatePersistentState<TreeViewState>(idTree);
     if (opts.selectedIndex != nullptr) {
         st.selectedIndex = *opts.selectedIndex;
     }
@@ -506,12 +491,12 @@ TreeViewScope TreeView::Open(
     // Handle keyboard navigation across visible tree items from previous frame
     const Rect prevTreeBounds = ctx.GetPrevFrameBounds(idTree);
     const bool treeHovered = prevTreeBounds.w > 0.0f && ctx.IsRectHovered(idTree, prevTreeBounds);
-    bool anyRowFocused = (ctx.GetFocusedId() == idTree);
+    bool anyRowFocused = ctx.IsFocused(idTree);
     int currentVisIdx = -1;
 
     for (size_t i = 0; i < st.prevVisibleItems.size(); ++i) {
         const auto& entry = st.prevVisibleItems[i];
-        if (ctx.GetFocusedId() == entry.idRow) {
+        if (ctx.IsFocused(entry.idRow)) {
             anyRowFocused = true;
         }
         const bool matchId = st.selectedId.IsValid() && entry.idOuter == st.selectedId;
@@ -538,7 +523,7 @@ TreeViewScope TreeView::Open(
             if (entry.externalOpen) {
                 *entry.externalOpen = newOpen;
             }
-            ctx.GetOrCreateState<TreeItemState>(entry.idOuter, TreeItemState{.open = entry.defaultOpen}).open = newOpen;
+            ctx.GetOrCreatePersistentState<TreeItemState>(entry.idOuter, TreeItemState{.open = entry.defaultOpen}).open = newOpen;
             ctx.InvalidateAll();
         };
 
@@ -877,7 +862,7 @@ TreeViewScope TreeView::Open(
     scrollNode->inspectModeOverride = opts.inspectMode;
     scrollNode->postRenderFn = &ScrollArea::RenderScrollbar;
 
-    auto& scrollState = ctx.GetOrCreateState<ScrollState>(idScroll);
+    auto& scrollState = ctx.GetOrCreatePersistentState<ScrollState>(idScroll);
     scrollNode->scrollOffset = scrollState.offset;
     payload->scrollNode = scrollNode;
 
@@ -911,11 +896,8 @@ TreeItemScope TreeView::OpenItem(
     }
 
     Node* targetParent = (parentRow && parentRow->parent) ? parentRow->parent : currContainer;
-    const uint32_t slotIdx = parentPayload
-        ? (parentPayload->nextChildSlot++)
-        : (treePayload ? (treePayload->nextRootSlot++) : (targetParent ? targetParent->childCount : 0u));
     const Id parentId = parentPayload ? parentPayload->idOuter : (targetParent ? targetParent->id : Id::Null());
-    const Id idOuter = Id{detail::HashArgs(parentId, slotIdx, loc.file_name(), loc.line(), loc.column())};
+    const Id idOuter = ctx.MakeChildIdForParent(parentId, loc);
     const Id idRow = Id{detail::HashArgs(idOuter, 0x72EE'17E0'0001ULL)};
 
     const UiSize activeSize = ctx.GetCurrentSize();
@@ -924,7 +906,7 @@ TreeItemScope TreeView::OpenItem(
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
     const UiTheme& theme = ctx.GetTheme();
 
-    TreeItemState& st = ctx.GetOrCreateState<TreeItemState>(idOuter, TreeItemState{.open = opts.defaultOpen});
+    TreeItemState& st = ctx.GetOrCreatePersistentState<TreeItemState>(idOuter, TreeItemState{.open = opts.defaultOpen});
     if (treePayload && treePayload->state && st.seenBulkToggleGen != treePayload->state->bulkToggleGen) {
         st.seenBulkToggleGen = treePayload->state->bulkToggleGen;
         st.open = treePayload->state->bulkToggleOpen;
@@ -1073,7 +1055,7 @@ TreeItemScope TreeView::OpenItem(
     rowNode->disabled = activeDisabled;
     rowNode->hovered = res.hovered;
     rowNode->pressed = res.pressed;
-    rowNode->focused = (ctx.GetFocusedId() == idRow);
+    rowNode->focused = ctx.IsFocused(idRow);
     rowNode->checked = isOpen;
     rowNode->active = isSelected;
     rowNode->widthMode = SizeMode::Stretch;

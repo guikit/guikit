@@ -117,7 +117,7 @@ Vec2 Text::Measure(
         }
     }
 
-    float h = TextUtil::MeasureUiTextHeight(label, availableWidth, fontSize, lineHeight, canvas);
+    float h = TextUtil::MeasureUiTextHeight(label, availableWidth, fontSize, lineHeight, canvas, &theme);
     if (canvas && !label.text.empty() && !label.wrap.IsWordWrap() && label.wrap.minLines <= 1 && !label.wrap.rich) {
         h = std::max(h, canvas->MeasureText(label.text, fontSize).y);
     }
@@ -218,7 +218,7 @@ void Text::Render(
         return;
     }
 
-    TextUtil::DrawUiText(canvas, label, bounds, fontSize, lineHeight, color, alignFactor, 0.5f);
+    TextUtil::DrawUiText(canvas, label, bounds, fontSize, lineHeight, color, alignFactor, 0.5f, &theme);
 }
 
 } // namespace guikit

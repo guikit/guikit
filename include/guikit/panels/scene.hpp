@@ -8,6 +8,7 @@
 #include <vector>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/container_scope.hpp"
+#include "guikit/core/id.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
@@ -435,6 +436,13 @@ public:
         Context& ctx,
         const SceneOptions& opts = {},
         std::source_location loc = std::source_location::current()
+    );
+
+    /// Opens an immediate mode 2D Scene container using an already-resolved widget ID (e.g. MapView wrapper).
+    [[nodiscard]] static SceneScope OpenWithId(
+        Context& ctx,
+        Id explicitId,
+        const SceneOptions& opts = {}
     );
 
     /// Returns the inner viewport clip rectangle for a Scene node.

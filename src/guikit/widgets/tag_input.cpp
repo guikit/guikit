@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include "keel/small_array.h"
+#include "keel/utf8.h"
 #include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/node.hpp"
@@ -76,15 +77,16 @@ std::string_view TrimWhitespace(std::string_view s) noexcept {
 }
 
 bool EqualsIgnoreCase(std::string_view a, std::string_view b) noexcept {
-    if (a.size() != b.size()) return false;
-    for (size_t i = 0; i < a.size(); ++i) {
-        const unsigned char ca = static_cast<unsigned char>(a[i]);
-        const unsigned char cb = static_cast<unsigned char>(b[i]);
-        if (std::tolower(ca) != std::tolower(cb)) {
+    size_t ia = 0;
+    size_t ib = 0;
+    while (ia < a.size() && ib < b.size()) {
+        const keel::u32 ca = keel::utf8_to_lower(keel::utf8_decode_next(a, ia));
+        const keel::u32 cb = keel::utf8_to_lower(keel::utf8_decode_next(b, ib));
+        if (ca != cb) {
             return false;
         }
     }
-    return true;
+    return ia == a.size() && ib == b.size();
 }
 
 std::string FormatCounterText(size_t count, uint32_t maxTags) {
@@ -397,7 +399,7 @@ Response RunTagInputImpl(
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
     optsCopy.prefix = ctx.AllocAffix(opts.prefix);
 
-    auto& st = ctx.GetOrCreateState<TagInputPersistState>(id);
+    auto& st = ctx.GetOrCreatePersistentState<TagInputPersistState>(id);
     const UiTheme& theme = ctx.GetTheme();
     ICanvas* canvas = ctx.GetCanvas();
 

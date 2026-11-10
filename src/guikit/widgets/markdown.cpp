@@ -1738,7 +1738,7 @@ MarkdownResponse Markdown::Run(
     MarkdownOptions optsCopy = opts;
     Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.height);
 
-    auto& state = ctx.GetOrCreateState<MarkdownState>(id);
+    auto& state = ctx.GetOrCreatePersistentState<MarkdownState>(id);
     const auto doc = GetOrParseMarkdown(markdownText);
     if (state.docSourceHash != doc->sourceHash) {
         state.docSourceHash = doc->sourceHash;
@@ -1756,7 +1756,7 @@ MarkdownResponse Markdown::Run(
     MarkdownResponse res{};
     static_cast<Response&>(res) = baseRes;
 
-    const bool isFocused = (ctx.GetFocusedId() == id);
+    const bool isFocused = ctx.IsFocused(id);
 
     // 1. Handle Smooth Zoom (Ctrl+Wheel & KeyAction::ZoomIn/ZoomOut/ZoomReset)
     if (optsCopy.allowZoom && !effectiveDisabled) {

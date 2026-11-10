@@ -10,6 +10,7 @@
 namespace guikit {
 
 class ICanvas;
+struct UiTheme;
 
 /// Subpixel tolerance in points for anti-aliasing and rasterizer grid rounding.
 inline constexpr float kTextSubpixelTolerance = 0.5f;
@@ -47,7 +48,8 @@ public:
         std::string_view text,
         float maxWidth,
         float fontSize,
-        ICanvas* canvas = nullptr
+        ICanvas* canvas = nullptr,
+        FontStyle style = FontStyle::Regular
     );
 
     /// Splits text into wrapped lines that fit within maxWidth points.
@@ -76,7 +78,8 @@ public:
         float maxWidth,
         float fontSize,
         float lineHeight,
-        ICanvas* canvas = nullptr
+        ICanvas* canvas = nullptr,
+        const UiTheme* theme = nullptr
     ) noexcept;
 
     /// Renders a UiText within `bounds`, applying SingleLine "..." truncation or Word wrapping (with optional maxLines "..." truncation).
@@ -88,7 +91,8 @@ public:
         float lineHeight,
         Color color,
         float alignX = 0.0f,
-        float singleLineAlignY = 0.5f
+        float singleLineAlignY = 0.5f,
+        const UiTheme* theme = nullptr
     );
 
     /// Measures total horizontal width of a UiAffix (icon + text + innerGap if both are present).
