@@ -33,6 +33,7 @@ private:
     guikit::SidebarMode m_navSidebarMode = guikit::SidebarMode::Expanded;
     guikit::SidebarMode m_inspectorSidebarMode = guikit::SidebarMode::Expanded;
     NavCategory m_selectedCategory = NavCategory::ElemHeading;
+    NavCategory m_prevRenderedCategory = NavCategory::ElemHeading;
     NavCategory m_cachedCodeCategory = NavCategory::ElemHeading;
     keel::String m_cachedCodeSnippet;
     DemoContext m_demoCtx;

@@ -1189,4 +1189,10 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext& ctx);
 void RenderBpmnStage(guikit::Context& ui, DemoContext& ctx);
 keel::String GenerateBpmnCode(const DemoContext& ctx);
 
+void ReleaseOsmMapDemoBuffers() noexcept;
+void ReleaseSignalDemoBuffers() noexcept;
+void ReleaseSonarDemoBuffers() noexcept;
+void ReleaseWaterfallDemoBuffers() noexcept;
+void ReleaseImageViewDemoBuffers() noexcept;
+
 } // namespace guikit::demo

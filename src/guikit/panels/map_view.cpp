@@ -1,6 +1,7 @@
 #include "guikit/panels/map_view.hpp"
 #include <cmath>
 #include "guikit/context.hpp"
+#include "guikit/geo/gis_render_engine.hpp"
 #include "keel/core.h"
 #include "keel/format.h"
 
@@ -8,11 +9,20 @@ namespace guikit {
 
 namespace {
 
+uint64_t g_lastAnyMapViewOpenSeq = 0;
+
 struct MapViewInternalState {
     bool cameraInitialized{false};
     MapCrs lastCrs{MapCrs::EPSG3857_WebMercator};
     GeoCoord lastCenterGeo{54.1825, 7.8853};
     keel::Optional<Vec2> lastMouseWorld{keel::kNullOpt};
+    uint64_t lastOpenSeq{0};
+
+    void TrimInactiveCaches() noexcept {
+        if (lastOpenSeq == g_lastAnyMapViewOpenSeq) {
+            geo::GisRenderEngine::TrimInactiveCaches();
+        }
+    }
 };
 
 void RenderMapBackgroundLayers(
@@ -527,6 +537,7 @@ MapViewScope MapView::Open(
     const Id id = ctx.MakeChildId(loc);
     auto& mapState = ctx.GetOrCreatePersistentState<MapViewInternalState>(id);
     auto& sceneState = ctx.GetOrCreatePersistentState<SceneState>(id);
+    mapState.lastOpenSeq = ++g_lastAnyMapViewOpenSeq;
 
     const float worldSize = keel::max(256.0f, opts.worldSize);
 

@@ -1,9 +1,13 @@
 #include "guikit/backend/sdl_gl_shader_engine.hpp"
 #include "keel/small_array.h"
+#include "keel/time.h"
 
 #include <SDL3/SDL.h>
 #include <cmath>
 #include <cstring>
+#if defined(__GLIBC__)
+#include <malloc.h>
+#endif
 
 #ifdef _WIN32
 #define GUIKIT_GL_APIENTRY __stdcall
@@ -334,8 +338,9 @@ void SdlGlShaderEngine::Shutdown() {
             m_quadVbo = 0;
         }
     }
-    m_textureCaches.clear();
-    m_programs.clear();
+    m_textureCaches = {};
+    m_programs = {};
+    m_uploadScratch = {};
     m_renderer = nullptr;
     m_available = false;
     m_backendSummary.assign("Disabled");
@@ -369,18 +374,104 @@ const SdlGlShaderEngine::CompiledProgram* SdlGlShaderEngine::GetOrCompileProgram
     return (inserted.program != 0) ? &inserted : nullptr;
 }
 
-void SdlGlShaderEngine::PruneStaleTextures() {
-    constexpr uint64_t kMaxIdleFrames = 300;
-    keel::SmallArray<uint64_t, 16> staleIds;
-    for (const auto& [id, entry] : m_textureCaches) {
-        if (m_frameCounter - entry.lastUsedFrame > kMaxIdleFrames) {
+void SdlGlShaderEngine::ReleaseCachedTextures() {
+    bool releasedMemory = false;
+    if (m_available && m_renderer && !m_textureCaches.empty()) {
+        SDL_FlushRenderer(m_renderer);
+        for (const auto& [_, entry] : m_textureCaches) {
             if (entry.dataTex) g_gl.DeleteTextures(1, &entry.dataTex);
             if (entry.lutTex) g_gl.DeleteTextures(1, &entry.lutTex);
+        }
+        releasedMemory = true;
+    }
+    if (!m_textureCaches.empty() || m_uploadScratch.capacity() > 0u) {
+        m_textureCaches = {};
+        m_uploadScratch = {};
+        releasedMemory = true;
+    }
+    if (releasedMemory) {
+#if defined(__GLIBC__)
+        ::malloc_trim(0);
+#endif
+    }
+}
+
+bool SdlGlShaderEngine::HasIdleCachedResources() const noexcept {
+    if (!m_available) {
+        return false;
+    }
+    for (const auto& [_, entry] : m_textureCaches) {
+        if (entry.lastUsedFrame < m_frameCounter) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void SdlGlShaderEngine::TickFrame(const ICanvas& canvas) {
+    if (!m_available || !m_renderer) {
+        return;
+    }
+    ++m_frameCounter;
+    const uint64_t nowNs = keel::monotonic_ns();
+    if (canvas.HasActiveGpuPasses()) {
+        for (const auto& pass : canvas.GetGpuShaderPasses()) {
+            if (WidgetTextureCache* existing = m_textureCaches.get(pass.widgetId)) {
+                existing->lastUsedFrame = m_frameCounter;
+                existing->lastUsedTimeNs = nowNs;
+            }
+        }
+    }
+    if (m_textureCaches.empty() && m_uploadScratch.capacity() == 0u) {
+        return;
+    }
+    if ((m_frameCounter & 31u) == 0u || (nowNs >= m_lastPruneTimeNs + 500'000'000ULL)) {
+        m_lastPruneTimeNs = nowNs;
+        PruneStaleTextures();
+    }
+}
+
+void SdlGlShaderEngine::PruneStaleTextures() {
+    constexpr uint64_t kMaxIdleFrames = 120;
+    constexpr uint64_t kMaxIdleTimeNs = 1'500'000'000ULL;
+    const uint64_t nowNs = keel::monotonic_ns();
+    keel::SmallArray<uint64_t, 16> staleIds;
+    for (const auto& [id, entry] : m_textureCaches) {
+        const uint64_t idleFrames = (m_frameCounter > entry.lastUsedFrame)
+            ? (m_frameCounter - entry.lastUsedFrame)
+            : 0;
+        const bool staleByFrames = idleFrames > kMaxIdleFrames;
+        const bool staleByTime = (idleFrames > 2) &&
+            (entry.lastUsedTimeNs > 0) &&
+            (nowNs >= entry.lastUsedTimeNs + kMaxIdleTimeNs);
+        if (staleByFrames || staleByTime) {
             staleIds.push_back(id);
         }
     }
+    bool releasedMemory = !staleIds.empty();
+    if (!staleIds.empty() && m_renderer) {
+        SDL_FlushRenderer(m_renderer);
+    }
     for (uint64_t id : staleIds) {
+        if (const WidgetTextureCache* entry = m_textureCaches.get(id)) {
+            if (entry->dataTex) g_gl.DeleteTextures(1, &entry->dataTex);
+            if (entry->lutTex) g_gl.DeleteTextures(1, &entry->lutTex);
+        }
         (void)m_textureCaches.remove(id);
+    }
+    if (m_textureCaches.empty()) {
+        if (m_uploadScratch.capacity() > 0u) {
+            m_uploadScratch = {};
+            releasedMemory = true;
+        }
+        if (releasedMemory) {
+            m_textureCaches = {};
+        }
+    }
+    if (releasedMemory) {
+#if defined(__GLIBC__)
+        ::malloc_trim(0);
+#endif
     }
 }
 
@@ -401,6 +492,7 @@ void SdlGlShaderEngine::RenderPass(
 
     auto& cache = m_textureCaches.get_or_insert(pass.widgetId, WidgetTextureCache{});
     cache.lastUsedFrame = m_frameCounter;
+    cache.lastUsedTimeNs = keel::monotonic_ns();
 
     // 1. Ensure 256x1 Colormap LUT texture is created & up to date
     if (pass.lutAbgr256 != nullptr) {
@@ -469,6 +561,9 @@ void SdlGlShaderEngine::RenderPass(
         cache.uploadedFullGen = pass.fullGeneration;
         cache.uploadedSliceGen = pass.sliceGeneration;
         cache.uploadedHeadRow = pass.headRow;
+        if (total > 65536u) {
+            m_uploadScratch = {};
+        }
     } else if (deltaSlices > 0) {
         // O(1) Circular Ring-Buffer Update: upload only the newly written row(s) via glTexSubImage2D
         m_uploadScratch.resize(pass.texWidth);
@@ -540,7 +635,9 @@ void SdlGlShaderEngine::RenderUnderlays(
         return;
     }
 
-    m_frameCounter++;
+    if (m_frameCounter == 0) {
+        m_frameCounter = 1;
+    }
 
     SDL_FlushRenderer(m_renderer);
 

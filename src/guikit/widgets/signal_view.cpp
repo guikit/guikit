@@ -801,6 +801,28 @@ struct SignalViewInternalState {
     OverviewBitmapCache overviewCache{};
     WaveformBitmapCache waveCache{};
     StaticBaseLayerCache baseLayerCache{};
+
+    void TrimInactiveCaches() noexcept {
+        specCache.pixels = keel::Array<uint32_t>{};
+        specCache.pixelsValid = false;
+        specCache.stftBinsDb = keel::Array<float>{};
+        specCache.stftValid = false;
+        specCache.dbGrid = keel::Array<float>{};
+        specCache.re = keel::Array<float>{};
+        specCache.im = keel::Array<float>{};
+        specCache.winWeights = keel::Array<float>{};
+        specCache.cachedWinSize = 0;
+
+        overviewCache.pixels = keel::Array<uint32_t>{};
+        overviewCache.valid = false;
+
+        waveCache.pixels = keel::Array<uint32_t>{};
+        waveCache.valid = false;
+
+        baseLayerCache.pixels = keel::Array<uint32_t>{};
+        baseLayerCache.valid = false;
+        baseLayerCache.cacheKey = 0;
+    }
 };
 
 struct SignalViewGeometry {

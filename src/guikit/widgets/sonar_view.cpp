@@ -42,6 +42,16 @@ struct SonarViewState {
     uint32_t baseLayerH{0};
     keel::Array<uint32_t> baseLayerPixels{};
     bool baseLayerValid{false};
+
+    void TrimInactiveCaches() noexcept {
+        abgrPixels = keel::Array<uint32_t>{};
+        cachedImgW = 0;
+        cachedImgH = 0;
+        lastInputHash = 0;
+        baseLayerPixels = keel::Array<uint32_t>{};
+        baseLayerValid = false;
+        baseLayerKey = 0;
+    }
 };
 
 struct SonarViewPayload {

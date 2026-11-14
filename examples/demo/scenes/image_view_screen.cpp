@@ -41,12 +41,22 @@ struct ImageViewDemoState {
     ImageViewResponse lastResp{};
 
     void EnsureGenerated() {
-        if (initialized) {
-            return;
+        if (datasetIndex == 0) {
+            if (mono16Pixels.empty()) {
+                GenerateMono16Phantom();
+            }
+            if (!rgbFloatPixels.empty()) {
+                rgbFloatPixels = keel::Array<float>{};
+            }
+        } else {
+            if (rgbFloatPixels.empty()) {
+                GenerateMultispectralRgb();
+            }
+            if (!mono16Pixels.empty()) {
+                mono16Pixels = keel::Array<uint16_t>{};
+            }
         }
         initialized = true;
-        GenerateMono16Phantom();
-        GenerateMultispectralRgb();
     }
 
     void GenerateMono16Phantom() {
@@ -329,6 +339,12 @@ keel::String GenerateImageViewCode(const DemoContext& /*ctx*/) {
         s_imgDemo.viewOpts.showStatusBar ? "true" : "false",
         s_imgDemo.viewOpts.enableLineProfile ? "true" : "false"
     );
+}
+
+void ReleaseImageViewDemoBuffers() noexcept {
+    s_imgDemo.mono16Pixels = {};
+    s_imgDemo.rgbFloatPixels = {};
+    s_imgDemo.initialized = false;
 }
 
 } // namespace guikit::demo

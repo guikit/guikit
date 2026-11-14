@@ -68,6 +68,16 @@ struct WaterfallViewState {
     uint32_t baseLayerH{0};
     keel::Array<uint32_t> baseLayerPixels{};
     bool baseLayerValid{false};
+
+    void TrimInactiveCaches() noexcept {
+        cpuFallbackPixels = keel::Array<uint32_t>{};
+        cpuFallbackW = 0;
+        cpuFallbackH = 0;
+        cpuFallbackKey = 0;
+        baseLayerPixels = keel::Array<uint32_t>{};
+        baseLayerValid = false;
+        baseLayerKey = 0;
+    }
 };
 
 struct WaterfallViewPayload {

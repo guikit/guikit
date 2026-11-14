@@ -272,6 +272,13 @@ struct ImageViewInternalState {
     uint32_t displayH{0};
     keel::Array<uint32_t> displayAbgr{};
 
+    void TrimInactiveCaches() noexcept {
+        displayAbgr = keel::Array<uint32_t>{};
+        cachedRenderKey = 0;
+        displayW = 0;
+        displayH = 0;
+    }
+
     // Viewport camera state
     float zoom{1.0f};
     Vec2 pan{0.0f, 0.0f};

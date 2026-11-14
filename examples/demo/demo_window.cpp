@@ -1,7 +1,47 @@
 #include "demo_window.hpp"
 #include "preview_viewport.hpp"
+#if defined(__GLIBC__)
+#include <malloc.h>
+#endif
 
 namespace guikit::demo {
+
+namespace {
+
+void ReleaseInactiveSceneBuffers(NavCategory leavingCat) noexcept {
+    bool releasedHeavyBuffers = false;
+    switch (leavingCat) {
+        case NavCategory::SceneOsmMap:
+            ReleaseOsmMapDemoBuffers();
+            releasedHeavyBuffers = true;
+            break;
+        case NavCategory::SceneSignalView:
+            ReleaseSignalDemoBuffers();
+            releasedHeavyBuffers = true;
+            break;
+        case NavCategory::SceneSonarView:
+            ReleaseSonarDemoBuffers();
+            releasedHeavyBuffers = true;
+            break;
+        case NavCategory::SceneWaterfallView:
+            ReleaseWaterfallDemoBuffers();
+            releasedHeavyBuffers = true;
+            break;
+        case NavCategory::SceneImageView:
+            ReleaseImageViewDemoBuffers();
+            releasedHeavyBuffers = true;
+            break;
+        default:
+            break;
+    }
+    if (releasedHeavyBuffers) {
+#if defined(__GLIBC__)
+        ::malloc_trim(0);
+#endif
+    }
+}
+
+} // namespace
 
 DemoWindow::DemoWindow()
     : guikit::MainWindow({
@@ -33,6 +73,14 @@ void DemoWindow::OnRender(guikit::Context& ui) {
     RenderTopToolbar(ui);
     RenderWorkspace(ui);
     RenderBottomStatusBar(ui);
+
+    if (m_selectedCategory != m_prevRenderedCategory) {
+        ReleaseInactiveSceneBuffers(m_prevRenderedCategory);
+        m_prevRenderedCategory = m_selectedCategory;
+    }
+    if (!m_demoCtx.previewShowCode && m_cachedCodeSnippet.capacity() > 0) {
+        m_cachedCodeSnippet = {};
+    }
 }
 
 void DemoWindow::RenderTopToolbar(guikit::Context& ui) {

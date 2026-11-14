@@ -162,13 +162,16 @@ struct StateKeyHash {
 struct StoredState {
     void* ptr{nullptr};
     void (*destroy)(void*) noexcept {nullptr};
+    void (*trim)(void*) noexcept {nullptr};
     uint64_t lastFrameActive{0};
+    double lastTimeActiveSec{0.0};
     bool persistent{false};
+    bool cachesTrimmed{false};
 
     StoredState() noexcept = default;
 
     template <typename T>
-    static StoredState Create(T&& val, uint64_t frameIndex, bool isPersistent = false) {
+    static StoredState Create(T&& val, uint64_t frameIndex, double timeSec, bool isPersistent = false) {
         using Decayed = keel::Decay<T>;
         Decayed* p = keel::default_allocator()->create<Decayed>(keel::forward<T>(val));
         StoredState s;
@@ -176,7 +179,13 @@ struct StoredState {
         s.destroy = [](void* raw) noexcept {
             keel::default_allocator()->destroy(static_cast<Decayed*>(raw));
         };
+        if constexpr (requires(Decayed& obj) { obj.TrimInactiveCaches(); }) {
+            s.trim = [](void* raw) noexcept {
+                static_cast<Decayed*>(raw)->TrimInactiveCaches();
+            };
+        }
         s.lastFrameActive = frameIndex;
+        s.lastTimeActiveSec = timeSec;
         s.persistent = isPersistent;
         return s;
     }
@@ -193,10 +202,14 @@ struct StoredState {
     StoredState(StoredState&& other) noexcept
         : ptr(other.ptr)
         , destroy(other.destroy)
+        , trim(other.trim)
         , lastFrameActive(other.lastFrameActive)
-        , persistent(other.persistent) {
+        , lastTimeActiveSec(other.lastTimeActiveSec)
+        , persistent(other.persistent)
+        , cachesTrimmed(other.cachesTrimmed) {
         other.ptr = nullptr;
         other.destroy = nullptr;
+        other.trim = nullptr;
     }
 
     StoredState& operator=(StoredState&& other) noexcept {
@@ -206,10 +219,14 @@ struct StoredState {
             }
             ptr = other.ptr;
             destroy = other.destroy;
+            trim = other.trim;
             lastFrameActive = other.lastFrameActive;
+            lastTimeActiveSec = other.lastTimeActiveSec;
             persistent = other.persistent;
+            cachesTrimmed = other.cachesTrimmed;
             other.ptr = nullptr;
             other.destroy = nullptr;
+            other.trim = nullptr;
         }
         return *this;
     }
@@ -2021,11 +2038,13 @@ public:
         if (!found) {
             detail::StoredState& inserted = m_customStates.get_or_insert(
                 key,
-                detail::StoredState::Create<T>(keel::move(defaultVal), m_frameIndex, false)
+                detail::StoredState::Create<T>(keel::move(defaultVal), m_frameIndex, m_currentTimeSec, false)
             );
             return *static_cast<T*>(inserted.ptr);
         }
         found->lastFrameActive = m_frameIndex;
+        found->lastTimeActiveSec = m_currentTimeSec;
+        found->cachesTrimmed = false;
         return *static_cast<T*>(found->ptr);
     }
 
@@ -2037,12 +2056,14 @@ public:
         if (!found) {
             detail::StoredState& inserted = m_customStates.get_or_insert(
                 key,
-                detail::StoredState::Create<T>(keel::move(defaultVal), m_frameIndex, true)
+                detail::StoredState::Create<T>(keel::move(defaultVal), m_frameIndex, m_currentTimeSec, true)
             );
             return *static_cast<T*>(inserted.ptr);
         }
         found->lastFrameActive = m_frameIndex;
+        found->lastTimeActiveSec = m_currentTimeSec;
         found->persistent = true;
+        found->cachesTrimmed = false;
         return *static_cast<T*>(found->ptr);
     }
 
@@ -2065,6 +2086,8 @@ public:
             return nullptr;
         }
         found->lastFrameActive = m_frameIndex;
+        found->lastTimeActiveSec = m_currentTimeSec;
+        found->cachesTrimmed = false;
         return static_cast<T*>(found->ptr);
     }
 
@@ -2200,7 +2223,7 @@ private:
 
         void SaveUndo() {
             if (undoStack.empty() || undoStack.back().text != text) {
-                if (undoStack.size() >= 128) {
+                if (undoStack.size() >= 64) {
                     undoStack.remove_at(0);
                 }
                 undoStack.push_back(EditSnapshot{text.clone(), cursor, selectionAnchor});
@@ -2344,6 +2367,9 @@ private:
     keel::HashMap<uint64_t, uint32_t> m_childIdCounts;
     keel::HashMap<detail::StateKey, detail::StoredState, detail::StateKeyHash> m_customStates;
     uint64_t m_frameIndex{0};
+    double m_lastCacheTrimSweepSec{0.0};
+    double m_lastTransientPruneSec{0.0};
+    bool m_hasUntrimmedInactiveStates{false};
 
     void RenderDebugBoundsRecursive(Node* node, ICanvas& canvas, bool inheritedDebugBounds);
     void RenderTooltipOverlay(ICanvas& canvas, Vec2 logicalSize);

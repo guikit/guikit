@@ -491,7 +491,10 @@ bool SdlWindowBackend::PumpEvents(Context& ui, bool reactiveMode, int sleepTimeo
     return !m_shouldExit;
 #else
     if ((reactiveMode && !ui.NeedsRepaint() && AtomicLoadAcquireU32(m_wakePending) == 0u) || m_minimized) {
-        const int waitMs = m_minimized ? 250 : sleepTimeoutMs;
+        int waitMs = m_minimized ? 250 : sleepTimeoutMs;
+        if (!m_minimized && m_gpuShaderEngine.HasIdleCachedResources() && (waitMs <= 0 || waitMs > 500)) {
+            waitMs = 500;
+        }
         SDL_Event event;
         if (SDL_WaitEventTimeout(&event, waitMs)) {
             ProcessEvent(event, ui);
@@ -754,6 +757,7 @@ void SdlWindowBackend::PrepareFrameTarget(Context& ui) {
     if (!m_canvas) {
         return;
     }
+    m_gpuShaderEngine.TickFrame(*m_canvas);
     if (m_width != m_bufWidth || m_height != m_bufHeight) {
         m_bufWidth = m_width;
         m_bufHeight = m_height;
@@ -855,6 +859,9 @@ void SdlWindowBackend::SetGpuShadersEnabled(bool enabled) noexcept {
     m_gpuShadersEnabled = enabled && m_gpuShaderEngine.IsAvailable();
     if (m_canvas) {
         m_canvas->SetGpuShadersEnabled(m_gpuShadersEnabled);
+    }
+    if (!m_gpuShadersEnabled) {
+        m_gpuShaderEngine.ReleaseCachedTextures();
     }
 }
 

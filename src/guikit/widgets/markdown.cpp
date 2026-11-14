@@ -129,10 +129,17 @@ bool IsTableSeparatorRow(keel::StringRef line, keel::Array<Align>& outAligns) {
     return true;
 }
 
+uint64_t g_lastAnyMarkdownRunSeq = 0;
+
+auto& GetMarkdownParseCache() {
+    thread_local keel::LruCache<uint64_t, keel::Arc<const ParsedMarkdownDoc>, 8> s_cache;
+    return s_cache;
+}
+
 keel::Arc<const ParsedMarkdownDoc> GetOrParseMarkdown(keel::StringRef source) {
-    thread_local keel::LruCache<uint64_t, keel::Arc<const ParsedMarkdownDoc>, 64> s_cache;
+    auto& cache = GetMarkdownParseCache();
     const uint64_t h = detail::HashArgs(source, source.size());
-    if (const auto* found = s_cache.find(h)) {
+    if (const auto* found = cache.find(h)) {
         return *found;
     }
 
@@ -378,7 +385,7 @@ keel::Arc<const ParsedMarkdownDoc> GetOrParseMarkdown(keel::StringRef source) {
         doc.blocks.push_back(keel::move(blk));
     }
 
-    return s_cache.put(h, keel::move(docPtr));
+    return cache.put(h, keel::move(docPtr));
 }
 
 constexpr Rect OffsetRect(Rect r, Vec2 delta) noexcept {
@@ -482,6 +489,7 @@ struct BlockLayout {
 struct MarkdownDocumentLayout {
     keel::Arc<const ParsedMarkdownDoc> doc{}; // Keeps backing AST & rawText slices alive while layout lives
     uint64_t layoutKey{0};
+    float outerWidth{0.0f};
     float totalWidth{0.0f};
     float totalHeight{0.0f};
     float effZoom{1.0f};
@@ -560,6 +568,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
     MarkdownDocumentLayout& out = *layoutPtr;
     out.doc = docPtr;
     out.layoutKey = layoutKey;
+    out.outerWidth = outerWidth;
     const ParsedMarkdownDoc& doc = *docPtr;
 
     const float effZoom = keel::clamp(zoom, 0.5f, 3.0f);
@@ -1170,6 +1179,16 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
     return layoutPtr;
 }
 
+auto& GetMarkdownLayoutCache() {
+    thread_local keel::LruCache<uint64_t, keel::Arc<const MarkdownDocumentLayout>, 6> s_layoutCache;
+    return s_layoutCache;
+}
+
+void ClearMarkdownThreadCaches() noexcept {
+    GetMarkdownParseCache().clear();
+    GetMarkdownLayoutCache().clear();
+}
+
 keel::Arc<const MarkdownDocumentLayout> GetOrBuildMarkdownLayout(
     ICanvas* canvas,
     float outerWidth,
@@ -1178,16 +1197,16 @@ keel::Arc<const MarkdownDocumentLayout> GetOrBuildMarkdownLayout(
     const UiTheme& theme,
     float zoom
 ) {
-    thread_local keel::LruCache<uint64_t, keel::Arc<const MarkdownDocumentLayout>, 32> s_layoutCache;
+    auto& layoutCache = GetMarkdownLayoutCache();
     const float effZoom = keel::clamp(zoom, 0.5f, 3.0f);
     const uint64_t key = ComputeMarkdownLayoutKey(doc->sourceHash, outerWidth, effZoom, opts, theme, canvas != nullptr);
 
-    if (const auto* cached = s_layoutCache.find(key)) {
+    if (const auto* cached = layoutCache.find(key)) {
         return *cached;
     }
 
     auto built = BuildMarkdownDocumentLayout(canvas, outerWidth, doc, opts, theme, effZoom, key);
-    return s_layoutCache.put(key, keel::move(built));
+    return layoutCache.put(key, keel::move(built));
 }
 
 // --- Phase 3A: O(1) / O(K) Document Hit-Testing (Zero Layout, Zero Font Measurement) ---
@@ -1687,6 +1706,15 @@ struct MarkdownState {
     bool searchBarOpen{false};
     keel::String searchQuery{};
     int activeSearchMatch{0};
+    uint64_t lastRunSeq{0};
+
+    void TrimInactiveCaches() noexcept {
+        cachedLayout.reset();
+        cachedSelectedText = {};
+        if (lastRunSeq == g_lastAnyMarkdownRunSeq) {
+            ClearMarkdownThreadCaches();
+        }
+    }
 
     bool HasSelection() const noexcept {
         return cursorOffset != selAnchorOffset;
@@ -1792,6 +1820,7 @@ MarkdownResponse Markdown::Run(
     optsCopy.tooltip = ctx.AllocText(opts.tooltip);
 
     auto& state = ctx.GetOrCreatePersistentState<MarkdownState>(id);
+    state.lastRunSeq = ++g_lastAnyMarkdownRunSeq;
     const auto doc = GetOrParseMarkdown(markdownText);
     if (state.docSourceHash != doc->sourceHash) {
         state.docSourceHash = doc->sourceHash;
@@ -2198,6 +2227,12 @@ MarkdownResponse Markdown::Run(
         if (canvas) {
             p->lastCanvas = canvas;
         }
+        if (availableWidth <= 0.0f && p->layout != nullptr) {
+            const float finalH = (p->opts.height.has_value() && *p->opts.height > 0.0f)
+                ? th.Scale(*p->opts.height)
+                : p->layout->totalHeight;
+            return {keel::max(p->layout->outerWidth, p->layout->totalWidth), finalH};
+        }
         MarkdownOptions mOpts = CloneMarkdownOptionsWithoutCallbacks(p->opts);
         float z = p->zoom;
         mOpts.zoom = &z;
@@ -2230,7 +2265,7 @@ MarkdownResponse Markdown::Run(
 
         keel::Arc<const MarkdownDocumentLayout> layoutHolder;
         const MarkdownDocumentLayout& layout =
-            (p->layout != nullptr && std::abs(p->layout->totalWidth - ctrlRect.w) < 1.0f)
+            (p->layout != nullptr && std::abs(p->layout->outerWidth - ctrlRect.w) < 1.0f)
                 ? *p->layout
                 : *(layoutHolder = GetOrBuildMarkdownLayout(&canvas, ctrlRect.w, GetOrParseMarkdown(p->text), p->opts, th, p->zoom));
         const ParsedMarkdownDoc& parsedDoc = *layout.doc;

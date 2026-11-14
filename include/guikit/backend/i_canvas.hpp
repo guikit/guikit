@@ -443,6 +443,9 @@ public:
     virtual bool RestoreRegion(Rect /*rect*/, keel::ArrayRef<uint32_t> /*inPixels*/, uint32_t /*inW*/, uint32_t /*inH*/) {
         return false;
     }
+
+    /// Releases regenerable internal glyph, shape, image, and scratch caches when a canvas goes idle.
+    virtual void TrimCaches() noexcept {}
 };
 
 } // namespace guikit

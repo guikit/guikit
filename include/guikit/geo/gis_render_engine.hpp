@@ -76,9 +76,9 @@ struct GisRenderConfig {
     // --- Configurable Tile Engine & Asynchronous Background Streaming ---
     uint32_t tileSizePx{256};                ///< Offscreen vector/raster tile resolution in pixels (128, 256, or 512)
     float tileRenderBudgetMs{8.5f};          ///< Maximum milliseconds spent rasterizing new vector tiles per frame
-    uint32_t maxCompositeTiles{640};         ///< Maximum cached Tier-2 composite screen tiles
-    uint32_t maxLayerTiles{512};             ///< Maximum cached Tier-1 per-layer sparse tiles
-    float featureCacheBudgetMb{512.0f};      ///< Maximum RAM budget (in MB) for resident Out-of-Core feature payloads
+    uint32_t maxCompositeTiles{48};          ///< Maximum cached Tier-2 composite screen tiles
+    uint32_t maxLayerTiles{48};              ///< Maximum global cached Tier-1 pixel-bearing layer tiles
+    float featureCacheBudgetMb{64.0f};       ///< Maximum RAM budget (in MB) for resident Out-of-Core feature payloads
     bool asyncBackgroundStreaming{true};     ///< Stream spatial windows, geometries, and tiles on background worker threads
     bool showLoadingTilePlaceholders{true};  ///< Render animated cartographic placeholder overlay on tiles loading in background
     bool showCautionAndRestrictedZones{true};///< Render regulatory/caution marine polygons (CTNARE, RESARE, TSEZNE, MIPARE)
@@ -130,6 +130,9 @@ public:
 
     /// Explicitly clears the offscreen vector tile cache (e.g., when layers are reloaded or modified).
     static void InvalidateTileCache();
+
+    /// Releases offscreen tile, declutter, basemap, and worker-canvas caches when all MapViews become inactive.
+    static void TrimInactiveCaches() noexcept;
 
     /// Waits until all background spatial window and tile rasterization worker threads are idle (for deterministic tests).
     static bool WaitForBackgroundStreamingIdle(uint32_t timeoutMs = 5000);

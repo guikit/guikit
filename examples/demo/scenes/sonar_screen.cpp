@@ -291,7 +291,7 @@ void StepSonarSimulation(SonarDemoState& st) {
     if (!st.initialized) {
         st.initialized = true;
         st.lastWallNs = nowNs;
-        ApplyScenarioPreset(st, 0);
+        ApplyScenarioPreset(st, st.scenarioIndex);
     }
 
     double dt = static_cast<double>(nowNs - st.lastWallNs) * 1e-9;
@@ -637,6 +637,14 @@ keel::String GenerateSonarCode(const DemoContext& /*ctx*/) {
         s_sonar.guardEndBrg,
         s_sonar.lastResp.guardZoneIntruderCount
     );
+}
+
+void ReleaseSonarDemoBuffers() noexcept {
+    s_sonar.staticBathymetry = {};
+    s_sonar.polarMatrix = {};
+    s_sonar.contacts = {};
+    s_sonar.targetViews = {};
+    s_sonar.initialized = false;
 }
 
 } // namespace guikit::demo

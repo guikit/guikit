@@ -915,7 +915,7 @@ keel::Arc<const InlineFlowLayout> GetOrBuildRichTextFlow(
     FontStyle overrideStyle,
     Align horizontalAlign
 ) {
-    thread_local keel::LruCache<uint64_t, keel::Arc<const InlineFlowLayout>, 128> s_flowCache;
+    thread_local keel::LruCache<uint64_t, keel::Arc<const InlineFlowLayout>, 64> s_flowCache;
 
     const int32_t qWidth = static_cast<int32_t>(std::round(keel::max(0.0f, maxWidth) * 2.0f));
     const int32_t qBaseFs = static_cast<int32_t>(std::round(baseFontSize * 10.0f));

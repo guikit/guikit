@@ -16,6 +16,9 @@
 #include <cmath>
 #include <condition_variable>
 #include <cstring>
+#if defined(__GLIBC__)
+#include <malloc.h>
+#endif
 #include <mutex>
 #include <thread>
 
@@ -39,6 +42,11 @@ std::mutex& GetDefaultBasemapMutex() {
 keel::Arc<IRasterTileProvider>& GetDefaultBasemapStorage() {
     static keel::Arc<IRasterTileProvider> s_provider;
     return s_provider;
+}
+
+keel::Arc<IRasterTileProvider>& GetLastActiveBasemapStorage() {
+    static keel::Arc<IRasterTileProvider> s_lastProvider;
+    return s_lastProvider;
 }
 
 constexpr bool kEnableFileDebugLog = false;
@@ -1159,6 +1167,66 @@ struct AsyncBasemapResult {
     keel::Arc<const geo::RasterTileImage> image;
 };
 
+class TilePixelBufferPool {
+public:
+    void AcquireFilled(keel::Array<uint32_t>& outBuf, size_t numPixels, uint32_t fillVal) {
+        if (outBuf.capacity() != numPixels) {
+            if (outBuf.capacity() > 0u) {
+                outBuf = keel::Array<uint32_t>{};
+            }
+            std::scoped_lock lk(m_mutex);
+            if (m_activeNumPixels == numPixels && !m_freeBuffers.empty()) {
+                outBuf = keel::move(m_freeBuffers.back());
+                m_freeBuffers.pop_back();
+            }
+        }
+        outBuf.assign(numPixels, fillVal);
+    }
+
+    void Recycle(keel::Array<uint32_t>& buf) noexcept {
+        const size_t cap = buf.capacity();
+        if (cap == 0u) {
+            return;
+        }
+        buf.clear();
+        {
+            std::scoped_lock lk(m_mutex);
+            if (m_activeNumPixels == 0u) {
+                m_activeNumPixels = cap;
+            }
+            if (cap == m_activeNumPixels &&
+                m_freeBuffers.size() < kMaxPooledBuffers &&
+                (m_freeBuffers.size() + 1u) * cap * sizeof(uint32_t) <= kMaxPooledBytes) {
+                m_freeBuffers.push_back(keel::move(buf));
+                return;
+            }
+        }
+        buf = keel::Array<uint32_t>{};
+    }
+
+    void Clear(size_t newNumPixels = 0u) noexcept {
+        keel::Array<keel::Array<uint32_t>> toFree;
+        {
+            std::scoped_lock lk(m_mutex);
+            m_activeNumPixels = newNumPixels;
+            toFree = keel::move(m_freeBuffers);
+            m_freeBuffers = {};
+        }
+    }
+
+private:
+    static constexpr size_t kMaxPooledBuffers = 16u;
+    static constexpr size_t kMaxPooledBytes = 4u * 1024u * 1024u;
+    std::mutex m_mutex;
+    size_t m_activeNumPixels{0};
+    keel::Array<keel::Array<uint32_t>> m_freeBuffers;
+};
+
+TilePixelBufferPool& GetTilePixelPool() {
+    static TilePixelBufferPool s_pool;
+    return s_pool;
+}
+
 void RasterizeCandidatesToPixels(
     guikit::ICanvas& canvas,
     guikit::VectorPath& fillPath,
@@ -1186,7 +1254,11 @@ void RasterizeCandidatesToPixels(
     outHasAnyGeometry = false;
     auto ensureCanvasTargeted = [&]() {
         if (!outHasAnyGeometry) {
-            outPixels.assign(static_cast<size_t>(tileSizePx) * static_cast<size_t>(tileSizePx), 0u);
+            GetTilePixelPool().AcquireFilled(
+                outPixels,
+                static_cast<size_t>(tileSizePx) * static_cast<size_t>(tileSizePx),
+                0u
+            );
             canvas.SetTarget(outPixels.data(), tileSizePx, tileSizePx, tileSizePx);
             outHasAnyGeometry = true;
         }
@@ -1340,7 +1412,7 @@ void RasterizeCandidatesToPixels(
     if (outHasAnyGeometry) {
         canvas.End();
     } else {
-        outPixels.clear();
+        GetTilePixelPool().Recycle(outPixels);
     }
 }
 
@@ -1409,6 +1481,9 @@ public:
             std::scoped_lock lk(m_tileMutex);
             m_pendingTileJobs.clear();
             m_inFlightTileKeys.clear();
+            for (AsyncLayerTileResult& res : m_completedTileResults) {
+                GetTilePixelPool().Recycle(res.pixels);
+            }
             m_completedTileResults.clear();
         }
         {
@@ -1418,6 +1493,29 @@ public:
             m_completedBasemapResults.clear();
         }
         (void)newEpoch;
+    }
+
+    void TrimIdleMemory() noexcept {
+        ClearAndBumpEpoch();
+        {
+            std::scoped_lock lk(m_windowMutex);
+            m_pendingWindowJobs = {};
+            m_completedWindowResults = {};
+        }
+        {
+            std::scoped_lock lk(m_tileMutex);
+            m_pendingTileJobs = {};
+            m_inFlightTileKeys = {};
+            m_completedTileResults = {};
+            m_trimGeneration.fetch_add(1, std::memory_order_acq_rel);
+        }
+        {
+            std::scoped_lock lk(m_basemapMutex);
+            m_pendingBasemapJobs = {};
+            m_inFlightBasemapKeys = {};
+            m_completedBasemapResults = {};
+        }
+        m_tileCv.notify_all();
     }
 
     [[nodiscard]] uint64_t GetCurrentEpoch() const noexcept {
@@ -1551,6 +1649,7 @@ public:
     }
 
     void EnqueueLayerTileJob(AsyncLayerTileJob&& job) {
+        static constexpr size_t kMaxPendingTileJobs = 192u;
         job.epoch = GetCurrentEpoch();
         {
             std::scoped_lock lk(m_tileMutex);
@@ -1566,6 +1665,34 @@ public:
                     return;
                 }
             }
+            if (m_pendingTileJobs.size() >= kMaxPendingTileJobs) {
+                const int activeZ = m_activeTileZoom.load(std::memory_order_relaxed);
+                for (size_t i = m_pendingTileJobs.size(); i > 0u; --i) {
+                    if (std::abs(m_pendingTileJobs[i - 1u].jobKey.z - activeZ) > 1) {
+                        m_pendingTileJobs.swap_remove(i - 1u);
+                    }
+                }
+                if (m_pendingTileJobs.size() >= kMaxPendingTileJobs) {
+                    size_t worstIdx = 0u;
+                    for (size_t i = 1u; i < m_pendingTileJobs.size(); ++i) {
+                        const bool worstMatchesZ = (m_pendingTileJobs[worstIdx].jobKey.z == activeZ);
+                        const bool curMatchesZ = (m_pendingTileJobs[i].jobKey.z == activeZ);
+                        if (worstMatchesZ != curMatchesZ) {
+                            if (!curMatchesZ) worstIdx = i;
+                        } else if (m_pendingTileJobs[i].distSq > m_pendingTileJobs[worstIdx].distSq) {
+                            worstIdx = i;
+                        }
+                    }
+                    const bool newMatchesZ = (job.jobKey.z == activeZ);
+                    const bool worstMatchesZ = (m_pendingTileJobs[worstIdx].jobKey.z == activeZ);
+                    if ((newMatchesZ && !worstMatchesZ) ||
+                        (newMatchesZ == worstMatchesZ && job.distSq < m_pendingTileJobs[worstIdx].distSq)) {
+                        m_pendingTileJobs[worstIdx] = keel::move(job);
+                        m_tileCv.notify_one();
+                    }
+                    return;
+                }
+            }
             m_pendingTileJobs.push_back(keel::move(job));
         }
         m_tileCv.notify_one();
@@ -1578,6 +1705,8 @@ public:
         for (AsyncLayerTileResult& res : m_completedTileResults) {
             if (res.epoch == curEpoch) {
                 outResults.push_back(keel::move(res));
+            } else {
+                GetTilePixelPool().Recycle(res.pixels);
             }
         }
         m_completedTileResults.clear();
@@ -1610,6 +1739,7 @@ public:
             return;
         }
         {
+            static constexpr size_t kMaxPendingBasemapJobs = 128u;
             std::scoped_lock lk(m_basemapMutex);
             if (m_inFlightBasemapKeys.contains(tileKey)) {
                 return;
@@ -1617,6 +1747,33 @@ public:
             for (AsyncBasemapJob& existing : m_pendingBasemapJobs) {
                 if (existing.tileKey == tileKey && existing.sourceId == srcId) {
                     existing.distSq = keel::min(existing.distSq, distSq);
+                    return;
+                }
+            }
+            if (m_pendingBasemapJobs.size() >= kMaxPendingBasemapJobs) {
+                const int activeZ = m_activeTileZoom.load(std::memory_order_relaxed);
+                for (size_t i = m_pendingBasemapJobs.size(); i > 0u; --i) {
+                    if (std::abs(m_pendingBasemapJobs[i - 1u].tileKey.z - activeZ) > 2) {
+                        m_pendingBasemapJobs.swap_remove(i - 1u);
+                    }
+                }
+                if (m_pendingBasemapJobs.size() >= kMaxPendingBasemapJobs) {
+                    size_t worstIdx = 0u;
+                    for (size_t i = 1u; i < m_pendingBasemapJobs.size(); ++i) {
+                        if (m_pendingBasemapJobs[i].distSq > m_pendingBasemapJobs[worstIdx].distSq) {
+                            worstIdx = i;
+                        }
+                    }
+                    if (distSq < m_pendingBasemapJobs[worstIdx].distSq) {
+                        m_pendingBasemapJobs[worstIdx] = AsyncBasemapJob{
+                            .sourceId = keel::String::from(srcId),
+                            .provider = provider,
+                            .tileKey = tileKey,
+                            .distSq = distSq,
+                            .epoch = curEpoch
+                        };
+                        m_basemapCv.notify_one();
+                    }
                     return;
                 }
             }
@@ -1728,34 +1885,61 @@ private:
         keel::Array<guikit::Vec2> clippedRing;
         keel::Array<guikit::Vec2> scratchA;
         keel::Array<guikit::Vec2> scratchB;
+        uint64_t localTrimGen = m_trimGeneration.load(std::memory_order_acquire);
 
         for (;;) {
             AsyncLayerTileJob job{};
+            bool shouldTrimWorker = false;
             {
                 std::unique_lock lk(m_tileMutex);
-                m_tileCv.wait(lk, [this]() {
-                    return m_shutdown.load(std::memory_order_acquire) || !m_pendingTileJobs.empty();
+                m_tileCv.wait(lk, [this, &localTrimGen]() {
+                    return m_shutdown.load(std::memory_order_acquire) ||
+                           !m_pendingTileJobs.empty() ||
+                           m_trimGeneration.load(std::memory_order_acquire) != localTrimGen;
                 });
                 if (m_shutdown.load(std::memory_order_acquire)) {
                     break;
                 }
-
-                const int curZ = m_activeTileZoom.load(std::memory_order_relaxed);
-                // Pick the job matching `curZ` and closest to viewport center (`distSq`)
-                size_t bestIdx = 0;
-                for (size_t i = 1; i < m_pendingTileJobs.size(); ++i) {
-                    const bool bestMatchesZ = (m_pendingTileJobs[bestIdx].jobKey.z == curZ);
-                    const bool curMatchesZ = (m_pendingTileJobs[i].jobKey.z == curZ);
-                    if (curMatchesZ != bestMatchesZ) {
-                        if (curMatchesZ) bestIdx = i;
-                    } else if (m_pendingTileJobs[i].distSq < m_pendingTileJobs[bestIdx].distSq) {
-                        bestIdx = i;
+                const uint64_t curTrimGen = m_trimGeneration.load(std::memory_order_acquire);
+                if (curTrimGen != localTrimGen) {
+                    localTrimGen = curTrimGen;
+                    if (m_pendingTileJobs.empty()) {
+                        shouldTrimWorker = true;
                     }
                 }
-                job = keel::move(m_pendingTileJobs[bestIdx]);
-                m_pendingTileJobs.swap_remove(bestIdx);
-                m_inFlightTileKeys.put(job.jobKey, InFlightTileStamp{job.styleHash, job.windowUpdateFrame});
-                ++m_inFlightTileCount;
+                if (!shouldTrimWorker) {
+                    const int curZ = m_activeTileZoom.load(std::memory_order_relaxed);
+                    // Pick the job matching `curZ` and closest to viewport center (`distSq`)
+                    size_t bestIdx = 0;
+                    for (size_t i = 1; i < m_pendingTileJobs.size(); ++i) {
+                        const bool bestMatchesZ = (m_pendingTileJobs[bestIdx].jobKey.z == curZ);
+                        const bool curMatchesZ = (m_pendingTileJobs[i].jobKey.z == curZ);
+                        if (curMatchesZ != bestMatchesZ) {
+                            if (curMatchesZ) bestIdx = i;
+                        } else if (m_pendingTileJobs[i].distSq < m_pendingTileJobs[bestIdx].distSq) {
+                            bestIdx = i;
+                        }
+                    }
+                    job = keel::move(m_pendingTileJobs[bestIdx]);
+                    m_pendingTileJobs.swap_remove(bestIdx);
+                    m_inFlightTileKeys.put(job.jobKey, InFlightTileStamp{job.styleHash, job.windowUpdateFrame});
+                    ++m_inFlightTileCount;
+                }
+            }
+
+            if (shouldTrimWorker) {
+                if (workerCanvas) {
+                    workerCanvas->TrimCaches();
+                }
+                fillPath = guikit::VectorPath{};
+                strokePath = guikit::VectorPath{};
+                clippedRing = {};
+                scratchA = {};
+                scratchB = {};
+#if defined(__GLIBC__)
+                ::malloc_trim(0);
+#endif
+                continue;
             }
 
             const int activeZ = m_activeTileZoom.load(std::memory_order_relaxed);
@@ -1817,9 +2001,14 @@ private:
                     std::scoped_lock lk(m_tileMutex);
                     m_inFlightTileKeys.remove(job.jobKey);
                     if (m_inFlightTileCount > 0) --m_inFlightTileCount;
+                    if (m_completedTileResults.size() >= 256u) {
+                        GetTilePixelPool().Recycle(m_completedTileResults[0].pixels);
+                        m_completedTileResults.swap_remove(0u);
+                    }
                     m_completedTileResults.push_back(keel::move(res));
                     continue;
                 }
+                GetTilePixelPool().Recycle(res.pixels);
             }
 
             {
@@ -1885,6 +2074,7 @@ private:
 
     std::atomic<bool> m_shutdown{false};
     std::atomic<uint64_t> m_epoch{1};
+    std::atomic<uint64_t> m_trimGeneration{0};
     std::atomic<int> m_activeTileZoom{12};
 
     mutable std::mutex m_windowMutex;
@@ -1966,15 +2156,43 @@ public:
     }
 
     void Clear() {
+        for (auto [uid, store] : m_layerStores) {
+            ClearStoreTiles(store);
+        }
         m_layerStores.clear();
+        m_pixelLayerTileCount = 0u;
+        for (auto [k, comp] : m_compositeTiles) {
+            GetTilePixelPool().Recycle(comp.pixels);
+        }
         m_compositeTiles.clear();
         m_basemapTiles.clear();
+        GetTilePixelPool().Recycle(m_upscaledBasemapScratch);
+    }
+
+    void ReleaseMemory() noexcept {
+        Clear();
+        m_layerStores = {};
+        m_compositeTiles = {};
+        m_basemapTiles = {};
+        m_upscaledBasemapScratch = {};
+        m_queryIndices = {};
+        m_clippedRing = {};
+        m_scratchA = {};
+        m_scratchB = {};
+        m_candidates = {};
+        m_syncAsyncCandidates = {};
+        m_fillPath = guikit::VectorPath{};
+        m_strokePath = guikit::VectorPath{};
+        if (m_tileCanvas) {
+            m_tileCanvas->TrimCaches();
+        }
     }
 
     void SyncConfig(const GisRenderConfig& cfg, guikit::MapCrs crs, keel::StringRef basemapSourceId) {
         const uint32_t newTileSize = ResolveTileSizePx(cfg.tileSizePx);
         if (newTileSize != m_tileSizePx || crs != m_activeCrs) {
             Clear();
+            GetTilePixelPool().Clear(static_cast<size_t>(newTileSize) * static_cast<size_t>(newTileSize));
             m_tileSizePx = newTileSize;
             m_activeCrs = crs;
         }
@@ -1987,8 +2205,19 @@ public:
                 comp.compositeSignature = 0ULL;
             }
         }
-        m_maxLayerTiles = keel::clamp<size_t>(cfg.maxLayerTiles, 64u, 2048u);
-        m_maxCompositeTiles = keel::clamp<size_t>(cfg.maxCompositeTiles, 64u, 2048u);
+        const size_t tileAreaScale = (m_tileSizePx > 256u)
+            ? static_cast<size_t>((m_tileSizePx / 256u) * (m_tileSizePx / 256u))
+            : 1u;
+        const size_t rawMaxLayer = keel::clamp<size_t>(cfg.maxLayerTiles, 16u, 2048u);
+        const size_t rawMaxComp = keel::clamp<size_t>(cfg.maxCompositeTiles, 16u, 2048u);
+        m_maxLayerTiles = keel::max<size_t>(16u, rawMaxLayer / tileAreaScale);
+        m_maxCompositeTiles = keel::max<size_t>(16u, rawMaxComp / tileAreaScale);
+        if (m_compositeTiles.size() > m_maxCompositeTiles) {
+            EvictOldestCompositeTiles(m_maxCompositeTiles);
+        }
+        if (m_pixelLayerTileCount > m_maxLayerTiles) {
+            EnforceGlobalLayerPixelBudget(UINT64_MAX);
+        }
     }
 
     [[nodiscard]] uint32_t GetTileSizePx() const noexcept { return m_tileSizePx; }
@@ -2008,6 +2237,9 @@ public:
             if (!found) staleUids.push_back(uid);
         }
         for (uint64_t uid : staleUids) {
+            if (LayerTileStore* st = m_layerStores.get(uid)) {
+                ClearStoreTiles(*st);
+            }
             m_layerStores.remove(uid);
         }
     }
@@ -2026,7 +2258,7 @@ public:
 
         LayerTileStore& store = m_layerStores.get_or_insert(layer.uid);
         if (store.activeTopologyHash != topoHash) {
-            store.tiles.clear();
+            ClearStoreTiles(store);
             store.activeTopologyHash = topoHash;
             ++store.lastWindowUpdateFrame;
             for (auto [tileKey, comp] : m_compositeTiles) {
@@ -2069,6 +2301,9 @@ public:
                 }
             }
             for (const TileCoordKey& tk : toErase) {
+                if (CachedVectorTile* t = store.tiles.get(tk)) {
+                    ReleaseTilePixels(*t);
+                }
                 store.tiles.remove(tk);
                 ++invalidatedCount;
             }
@@ -2110,12 +2345,12 @@ public:
         const guikit::Rect& normQueryBox,
         uint64_t styleHash,
         uint64_t frameTick
-    ) const {
-        if (store.tiles.size() >= m_maxLayerTiles && !store.tiles.contains(key)) {
-            EvictOldestLayerTiles(store, m_maxLayerTiles - keel::min<size_t>(32u, m_maxLayerTiles / 4u));
+    ) {
+        if (store.tiles.size() >= kMaxMetadataTilesPerLayer && !store.tiles.contains(key)) {
+            EvictOldestLayerTiles(store, kMaxMetadataTilesPerLayer - 24u, frameTick);
         }
         CachedVectorTile& tile = store.tiles.get_or_insert(key);
-        tile.pixels.clear();
+        ReleaseTilePixels(tile);
         tile.normQueryBox = normQueryBox;
         tile.styleHash = styleHash;
         tile.lastUsedFrame = frameTick;
@@ -2125,30 +2360,42 @@ public:
 
     bool StoreAsyncLayerTile(AsyncLayerTileResult&& res, uint64_t frameTick) {
         if (res.jobKey.tileSizePx != m_tileSizePx) {
+            GetTilePixelPool().Recycle(res.pixels);
             return false;
         }
         LayerTileStore* storePtr = m_layerStores.get(res.jobKey.layerUid);
         if (!storePtr) {
+            GetTilePixelPool().Recycle(res.pixels);
             return false;
         }
         LayerTileStore& store = *storePtr;
         if (store.activeTopologyHash != res.topologyHash ||
             res.windowUpdateFrame < store.lastWindowUpdateFrame) {
+            GetTilePixelPool().Recycle(res.pixels);
             return false;
         }
 
         const TileCoordKey key{res.jobKey.z, res.jobKey.x, res.jobKey.y};
-        if (store.tiles.size() >= m_maxLayerTiles && !store.tiles.contains(key)) {
-            EvictOldestLayerTiles(store, m_maxLayerTiles - keel::min<size_t>(32u, m_maxLayerTiles / 4u));
+        EnforceGlobalLayerPixelBudget(frameTick);
+        if (store.tiles.size() >= kMaxMetadataTilesPerLayer && !store.tiles.contains(key)) {
+            EvictOldestLayerTiles(store, kMaxMetadataTilesPerLayer - 24u, frameTick);
         }
 
         CachedVectorTile& tile = store.tiles.get_or_insert(key);
-        tile.pixels = keel::move(res.pixels);
+        ReleaseTilePixels(tile);
+        if (res.hasAnyGeometry && !res.pixels.empty()) {
+            tile.pixels = keel::move(res.pixels);
+            if (tile.pixels.capacity() > 0u) {
+                ++m_pixelLayerTileCount;
+            }
+        } else {
+            GetTilePixelPool().Recycle(res.pixels);
+        }
         tile.normQueryBox = res.queryBox;
         tile.styleHash = res.styleHash;
         tile.lastUsedFrame = frameTick;
         tile.lastRasterizedFrame = frameTick;
-        tile.hasAnyGeometry = res.hasAnyGeometry;
+        tile.hasAnyGeometry = res.hasAnyGeometry && !tile.pixels.empty();
 
         if (CompositeTile* comp = m_compositeTiles.get(key)) {
             comp->isComplete = false;
@@ -2173,7 +2420,8 @@ public:
         if (!img || !img->IsValid() || tileKey.tileSizePx != m_tileSizePx || sourceId != m_activeBasemapSourceId) {
             return false;
         }
-        if (m_basemapTiles.size() >= m_maxCompositeTiles && !m_basemapTiles.empty()) {
+        const size_t maxBasemapTiles = keel::min<size_t>(m_maxCompositeTiles, 32u);
+        while (m_basemapTiles.size() >= maxBasemapTiles && !m_basemapTiles.empty()) {
             const TileCoordKey victimKey = (*m_basemapTiles.begin()).key;
             m_basemapTiles.remove(victimKey);
         }
@@ -2209,11 +2457,11 @@ public:
         uint8_t basemapOpacityByte = 255
     ) {
         if (m_compositeTiles.size() >= m_maxCompositeTiles && !m_compositeTiles.contains(key)) {
-            EvictOldestCompositeTiles(m_maxCompositeTiles - keel::min<size_t>(48u, m_maxCompositeTiles / 4u));
+            EvictOldestCompositeTiles(m_maxCompositeTiles - keel::min<size_t>(24u, m_maxCompositeTiles / 4u));
         }
         const size_t numTilePx = static_cast<size_t>(m_tileSizePx) * static_cast<size_t>(m_tileSizePx);
         CompositeTile& comp = m_compositeTiles.get_or_insert(key);
-        comp.pixels.assign(numTilePx, bgPx);
+        GetTilePixelPool().AcquireFilled(comp.pixels, numTilePx, bgPx);
         comp.normQueryBox = normQueryBox;
         comp.compositeSignature = compositeSignature;
         comp.lastUsedFrame = frameTick;
@@ -2286,11 +2534,11 @@ public:
 
         // Perform eviction and map insertion BEFORE taking any pointers into m_compositeTiles!
         if (m_compositeTiles.size() >= m_maxCompositeTiles && !m_compositeTiles.contains(key)) {
-            EvictOldestCompositeTiles(m_maxCompositeTiles - keel::min<size_t>(48u, m_maxCompositeTiles / 4u));
+            EvictOldestCompositeTiles(m_maxCompositeTiles - keel::min<size_t>(24u, m_maxCompositeTiles / 4u));
         }
 
         CompositeTile& comp = m_compositeTiles.get_or_insert(key);
-        comp.pixels.assign(numTilePx, bgPx);
+        GetTilePixelPool().AcquireFilled(comp.pixels, numTilePx, bgPx);
         comp.lastUsedFrame = frameTick;
         comp.isComplete = false;
 
@@ -2572,11 +2820,13 @@ public:
             m_tileCanvas = CreateCanvasThreadSafe();
         }
 
-        if (store.tiles.size() >= m_maxLayerTiles && !store.tiles.contains(key)) {
-            EvictOldestLayerTiles(store, m_maxLayerTiles - keel::min<size_t>(32u, m_maxLayerTiles / 4u));
+        EnforceGlobalLayerPixelBudget(frameTick);
+        if (store.tiles.size() >= kMaxMetadataTilesPerLayer && !store.tiles.contains(key)) {
+            EvictOldestLayerTiles(store, kMaxMetadataTilesPerLayer - 64u, frameTick);
         }
 
         CachedVectorTile& tile = store.tiles.get_or_insert(key);
+        ReleaseTilePixels(tile);
         tile.normQueryBox = queryBox;
         tile.styleHash = styleHash;
         tile.lastUsedFrame = frameTick;
@@ -2601,10 +2851,97 @@ public:
             tile.hasAnyGeometry
         );
 
+        if (tile.hasAnyGeometry && !tile.pixels.empty()) {
+            if (tile.pixels.capacity() > 0u) {
+                ++m_pixelLayerTileCount;
+            }
+        } else {
+            GetTilePixelPool().Recycle(tile.pixels);
+            tile.hasAnyGeometry = false;
+        }
+
         return &tile;
     }
 
+    void EnforceGlobalLayerPixelBudget(uint64_t protectedFrameTick) noexcept {
+        if (m_pixelLayerTileCount <= m_maxLayerTiles) {
+            return;
+        }
+        const size_t targetCount = m_maxLayerTiles - keel::min<size_t>(16u, m_maxLayerTiles / 8u);
+
+        // Pass 1: Prefer evicting Tier-1 pixel buffers whose [z/x/y] already has a complete CompositeTile
+        while (m_pixelLayerTileCount > targetCount) {
+            LayerTileStore* victimStore = nullptr;
+            TileCoordKey victimKey{};
+            uint64_t oldestFrame = UINT64_MAX;
+            for (auto [uid, store] : m_layerStores) {
+                for (auto [k, v] : store.tiles) {
+                    if (v.pixels.capacity() == 0u || v.lastUsedFrame >= protectedFrameTick) {
+                        continue;
+                    }
+                    const CompositeTile* comp = m_compositeTiles.get(k);
+                    if (comp && comp->isComplete && !comp->pixels.empty() && v.lastUsedFrame < oldestFrame) {
+                        oldestFrame = v.lastUsedFrame;
+                        victimStore = &store;
+                        victimKey = k;
+                    }
+                }
+            }
+            if (!victimStore) {
+                break;
+            }
+            if (CachedVectorTile* t = victimStore->tiles.get(victimKey)) {
+                ReleaseTilePixels(*t);
+            }
+            victimStore->tiles.remove(victimKey);
+        }
+
+        // Pass 2: Fallback global LRU eviction across all older pixel-bearing Tier-1 tiles
+        while (m_pixelLayerTileCount > targetCount) {
+            LayerTileStore* victimStore = nullptr;
+            TileCoordKey victimKey{};
+            uint64_t oldestFrame = UINT64_MAX;
+            for (auto [uid, store] : m_layerStores) {
+                for (auto [k, v] : store.tiles) {
+                    if (v.pixels.capacity() > 0u &&
+                        v.lastUsedFrame < protectedFrameTick &&
+                        v.lastUsedFrame < oldestFrame) {
+                        oldestFrame = v.lastUsedFrame;
+                        victimStore = &store;
+                        victimKey = k;
+                    }
+                }
+            }
+            if (!victimStore) {
+                break;
+            }
+            if (CachedVectorTile* t = victimStore->tiles.get(victimKey)) {
+                ReleaseTilePixels(*t);
+            }
+            victimStore->tiles.remove(victimKey);
+        }
+    }
+
 private:
+    static constexpr size_t kMaxMetadataTilesPerLayer = 96u;
+
+    void ReleaseTilePixels(CachedVectorTile& tile) noexcept {
+        if (tile.pixels.capacity() > 0u) {
+            if (m_pixelLayerTileCount > 0u) {
+                --m_pixelLayerTileCount;
+            }
+            GetTilePixelPool().Recycle(tile.pixels);
+        } else {
+            tile.pixels.clear();
+        }
+    }
+
+    void ClearStoreTiles(LayerTileStore& store) noexcept {
+        for (auto [k, tile] : store.tiles) {
+            ReleaseTilePixels(tile);
+        }
+        store.tiles = {};
+    }
     bool BlendBasemapTileOrAncestor(
         uint32_t* dstPixels,
         const TileCoordKey& key,
@@ -2649,21 +2986,29 @@ private:
         return false;
     }
 
-    static void EvictOldestLayerTiles(LayerTileStore& store, size_t targetCount) {
+    void EvictOldestLayerTiles(LayerTileStore& store, size_t targetCount, uint64_t protectedFrameTick) noexcept {
         while (store.tiles.size() > targetCount && !store.tiles.empty()) {
-            TileCoordKey oldestKey = (*store.tiles.begin()).key;
-            uint64_t oldestFrame = (*store.tiles.begin()).value.lastUsedFrame;
+            bool found = false;
+            TileCoordKey oldestKey{};
+            uint64_t oldestFrame = UINT64_MAX;
             for (auto [k, v] : store.tiles) {
-                if (v.lastUsedFrame < oldestFrame) {
+                if (v.lastUsedFrame < protectedFrameTick && v.lastUsedFrame < oldestFrame) {
                     oldestFrame = v.lastUsedFrame;
                     oldestKey = k;
+                    found = true;
                 }
+            }
+            if (!found) {
+                break;
+            }
+            if (CachedVectorTile* t = store.tiles.get(oldestKey)) {
+                ReleaseTilePixels(*t);
             }
             store.tiles.remove(oldestKey);
         }
     }
 
-    void EvictOldestCompositeTiles(size_t targetCount) {
+    void EvictOldestCompositeTiles(size_t targetCount) noexcept {
         while (m_compositeTiles.size() > targetCount && !m_compositeTiles.empty()) {
             TileCoordKey oldestKey = (*m_compositeTiles.begin()).key;
             uint64_t oldestFrame = (*m_compositeTiles.begin()).value.lastUsedFrame;
@@ -2672,6 +3017,9 @@ private:
                     oldestFrame = v.lastUsedFrame;
                     oldestKey = k;
                 }
+            }
+            if (CompositeTile* victim = m_compositeTiles.get(oldestKey)) {
+                GetTilePixelPool().Recycle(victim->pixels);
             }
             m_compositeTiles.remove(oldestKey);
         }
@@ -2684,8 +3032,9 @@ private:
     guikit::MapCrs m_activeCrs{guikit::MapCrs::EPSG3857_WebMercator};
     keel::String m_activeBasemapSourceId;
     uint64_t m_basemapGeneration{1};
-    size_t m_maxLayerTiles{256};
-    size_t m_maxCompositeTiles{384};
+    size_t m_maxLayerTiles{48};
+    size_t m_maxCompositeTiles{48};
+    size_t m_pixelLayerTileCount{0};
     keel::HashMap<uint64_t, LayerTileStore> m_layerStores;
     keel::HashMap<TileCoordKey, CompositeTile, TileCoordKeyHasher> m_compositeTiles;
     keel::HashMap<TileCoordKey, keel::Arc<const geo::RasterTileImage>, TileCoordKeyHasher> m_basemapTiles;
@@ -2706,17 +3055,22 @@ PerLayerTileCacheManager& GetTileCache() {
 [[nodiscard]] keel::Arc<geo::IRasterTileProvider> ResolveActiveBasemapProvider(
     const GisRenderConfig& cfg
 ) {
+    keel::Arc<geo::IRasterTileProvider> resolved;
     if (cfg.customBasemapProvider) {
-        return cfg.customBasemapProvider;
-    }
-    if (cfg.showOsmBasemap) {
+        resolved = cfg.customBasemapProvider;
+    } else if (cfg.showOsmBasemap) {
         if (auto defaultProv = GisRenderEngine::GetDefaultBasemapProvider()) {
-            return defaultProv;
+            resolved = keel::move(defaultProv);
+        } else {
+            static keel::Arc<geo::IRasterTileProvider> s_defaultOsmProvider = geo::CreateOsmRasterTileProvider();
+            resolved = s_defaultOsmProvider;
         }
-        static keel::Arc<geo::IRasterTileProvider> s_defaultOsmProvider = geo::CreateOsmRasterTileProvider();
-        return s_defaultOsmProvider;
     }
-    return nullptr;
+    if (resolved) {
+        std::scoped_lock lk(GetDefaultBasemapMutex());
+        GetLastActiveBasemapStorage() = resolved;
+    }
+    return resolved;
 }
 
 void DrawLoadingTilePlaceholder(
@@ -3046,6 +3400,21 @@ public:
         m_acceptedLabels.clear();
         m_acceptedSoundings.clear();
         ClearOccupiedCells();
+    }
+
+    void ReleaseMemory() noexcept {
+        m_cachedKey = 0;
+        m_safeNormBox = guikit::Rect(0.0f, 0.0f, 0.0f, 0.0f);
+        m_totalDecluttered = 0;
+        m_acceptedSymbols = {};
+        m_acceptedLabels = {};
+        m_acceptedSoundings = {};
+        m_cellKeys = {};
+        m_cellEpochs = {};
+        m_curEpoch = 1;
+        m_occupiedCount = 0;
+        m_queryScratch = {};
+        m_soundingCands = {};
     }
 
     void Sync(
@@ -4011,8 +4380,34 @@ size_t GisRenderEngine::EnforceFeatureRamBudget(
 void GisRenderEngine::InvalidateTileCache() {
     GetAsyncStreamer().ClearAndBumpEpoch();
     GetTileCache().Clear();
+    GetTilePixelPool().Clear();
     GetDeclutterCache().Clear();
     GetCursorHitCache().Clear();
+}
+
+void GisRenderEngine::TrimInactiveCaches() noexcept {
+    GetAsyncStreamer().TrimIdleMemory();
+    GetTileCache().ReleaseMemory();
+    GetTilePixelPool().Clear();
+    GetDeclutterCache().ReleaseMemory();
+    GetCursorHitCache().Clear();
+
+    keel::Arc<IRasterTileProvider> defaultProv;
+    keel::Arc<IRasterTileProvider> lastProv;
+    {
+        std::scoped_lock lk(GetDefaultBasemapMutex());
+        defaultProv = GetDefaultBasemapStorage();
+        lastProv = keel::move(GetLastActiveBasemapStorage());
+    }
+    if (defaultProv) {
+        defaultProv->ClearCache();
+    }
+    if (lastProv && lastProv.get() != defaultProv.get()) {
+        lastProv->ClearCache();
+    }
+#if defined(__GLIBC__)
+    ::malloc_trim(0);
+#endif
 }
 
 bool GisRenderEngine::WaitForBackgroundStreamingIdle(uint32_t timeoutMs) {
@@ -4676,6 +5071,8 @@ GisRenderStats GisRenderEngine::RenderLayers(
             }
         }
 
+        cache.EnforceGlobalLayerPixelBudget(s_frameCounter);
+
         if (useAsyncStreaming || useBasemapOverlay) {
             stats.cachedTilesPending += GetAsyncStreamer().GetPendingLayerTileCount() +
                                         GetAsyncStreamer().GetPendingBasemapCount();
@@ -5064,6 +5461,16 @@ GisRenderStats GisRenderEngine::RenderLayers(
     const size_t maxResidentBytes = static_cast<size_t>(clampedBudgetMb * 1024.0f * 1024.0f);
     const bool budgetChanged = (s_lastMaxResidentBytes != maxResidentBytes);
     const bool cooldownElapsed = (s_frameCounter - s_lastEvictCheckFrame >= 45u);
+    if (!isPanning && stats.cachedTilesPending == 0) {
+        for (const geo::GeoLayer& layer : layers) {
+            if (layer.pager) continue;
+            for (const geo::GeoFeature& feat : layer.features) {
+                if (feat.geometryLoaded && feat.sharedGeometry) {
+                    feat.sharedGeometry.reset();
+                }
+            }
+        }
+    }
     if (!isPanning && stats.cachedTilesPending == 0 &&
         (budgetChanged || s_lastResidentFeatures == 0 || (s_pendingBudgetCheck && cooldownElapsed))) {
         s_lastMaxResidentBytes = maxResidentBytes;

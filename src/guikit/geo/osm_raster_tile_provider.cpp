@@ -4,6 +4,9 @@
 
 #include <atomic>
 #include <cmath>
+#if defined(__GLIBC__)
+#include <malloc.h>
+#endif
 #include <mutex>
 #include "keel/core.h"
 #include "keel/format.h"
@@ -209,8 +212,13 @@ public:
     }
 
     void ClearCache() noexcept override {
-        std::lock_guard<std::mutex> lk(m_mutex);
-        m_ramCache.clear();
+        {
+            std::lock_guard<std::mutex> lk(m_mutex);
+            m_ramCache.clear();
+        }
+#if defined(__GLIBC__)
+        ::malloc_trim(0);
+#endif
     }
 
 private:
@@ -326,7 +334,7 @@ private:
     keel::String m_cacheDir;
     keel::HttpClient m_httpClient;
     mutable std::mutex m_mutex{};
-    mutable keel::LruCache<SlippyTileKey, CacheEntry, 512, SlippyTileKeyHash> m_ramCache{};
+    mutable keel::LruCache<SlippyTileKey, CacheEntry, 32, SlippyTileKeyHash> m_ramCache{};
     mutable std::atomic<uint64_t> m_accessCounter{1};
     mutable std::atomic<int64_t> m_lastNetworkFailureMs{0};
 };

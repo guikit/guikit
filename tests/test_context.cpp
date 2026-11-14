@@ -11981,6 +11981,7 @@ void TestReviewP0AndP1Regressions() {
 
 void TestKeelZeroCopyWidgetBindings();
 void TestExternalStlDuckTypedInterop();
+void TestBoundedCachesAndInactiveStateTrimming();
 
 int main() {
     keel::println("[RUN] Testing GuiKit Context & Immediate Mode API...");
@@ -14689,6 +14690,7 @@ int main() {
 
     TestKeelZeroCopyWidgetBindings();
     TestExternalStlDuckTypedInterop();
+    TestBoundedCachesAndInactiveStateTrimming();
 
     if (g_failures == 0) {
         keel::println("[PASS] All GuiKit Context tests passed successfully!");
@@ -15155,5 +15157,338 @@ void TestExternalStlDuckTypedInterop() {
 
     keel::println("  [PASS] TestExternalStlDuckTypedInterop completed");
 }
+
+void TestBoundedCachesAndInactiveStateTrimming() {
+    using namespace guikit;
+    keel::println("  -> TestBoundedCachesAndInactiveStateTrimming...");
+
+    // 1. Context automatic TrimInactiveCaches() for inactive persistent widget states
+    {
+        struct MockHeavyWidgetState {
+            float zoom{2.75f};
+            int selectedMarker{42};
+            int trimCount{0};
+            keel::Array<uint32_t> offscreenPixels{};
+
+            void TrimInactiveCaches() noexcept {
+                offscreenPixels = keel::Array<uint32_t>{};
+                ++trimCount;
+            }
+        };
+
+        ThorCanvas canvas;
+        keel::Array<uint32_t> fb(320u * 240u, 0u);
+        canvas.SetTarget(fb.data(), 320, 240, 320);
+
+        Context ui;
+        constexpr Id heavyId{0x987654321ULL};
+
+        // Active for 65 frames: offscreen cache must NOT be trimmed
+        for (int f = 0; f < 65; ++f) {
+            ui.BeginFrame({320.0f, 240.0f});
+            auto& st = ui.GetOrCreatePersistentState<MockHeavyWidgetState>(heavyId);
+            if (st.offscreenPixels.empty()) {
+                st.offscreenPixels.assign(16384u, 0xFF112233u);
+            }
+            ui.Text("Active screen");
+            ui.EndFrame(canvas);
+        }
+        {
+            const auto* st = ui.FindState<MockHeavyWidgetState>(heavyId);
+            CHECK(st != nullptr);
+            if (st) {
+                CHECK(st->trimCount == 0);
+                CHECK(st->offscreenPixels.capacity() >= 16384u);
+            }
+        }
+
+        // Idle for 200 frames (> 120-frame threshold): cache trimmed exactly once; persistent user state preserved
+        for (int f = 0; f < 200; ++f) {
+            ui.BeginFrame({320.0f, 240.0f});
+            ui.Text("Other screen");
+            ui.EndFrame(canvas);
+        }
+        {
+            const auto* st = ui.FindState<MockHeavyWidgetState>(heavyId);
+            CHECK(st != nullptr);
+            if (st) {
+                CHECK(st->trimCount == 1);
+                CHECK(st->offscreenPixels.capacity() == 0u);
+                CHECK_NEAR(st->zoom, 2.75f, 1e-5f);
+                CHECK(st->selectedMarker == 42);
+            }
+        }
+
+        // Idle past 650 frames total: persistent state STILL survives (not garbage-collected), trimCount stays 1
+        for (int f = 0; f < 500; ++f) {
+            ui.BeginFrame({320.0f, 240.0f});
+            ui.Text("Still on other screen");
+            ui.EndFrame(canvas);
+        }
+        {
+            const auto* st = ui.FindState<MockHeavyWidgetState>(heavyId);
+            CHECK(st != nullptr);
+            if (st) {
+                CHECK(st->trimCount == 1);
+                CHECK_NEAR(st->zoom, 2.75f, 1e-5f);
+                CHECK(st->selectedMarker == 42);
+            }
+        }
+
+        // Re-activate widget, rebuild cache, then go idle again -> trimmed a second time
+        ui.BeginFrame({320.0f, 240.0f});
+        {
+            auto& st = ui.GetOrCreatePersistentState<MockHeavyWidgetState>(heavyId);
+            st.offscreenPixels.assign(8192u, 0xFF445566u);
+        }
+        ui.EndFrame(canvas);
+
+        for (int f = 0; f < 200; ++f) {
+            ui.BeginFrame({320.0f, 240.0f});
+            ui.Text("Idle again");
+            ui.EndFrame(canvas);
+        }
+        {
+            const auto* st = ui.FindState<MockHeavyWidgetState>(heavyId);
+            CHECK(st != nullptr);
+            if (st) {
+                CHECK(st->trimCount == 2);
+                CHECK(st->offscreenPixels.capacity() == 0u);
+            }
+        }
+    }
+
+    // 2. ThorCanvas StampLruCache eviction under heavy unique text & shape churn
+    {
+        ThorCanvas canvas;
+        keel::Array<uint32_t> fb(400u * 120u, 0u);
+        canvas.SetTarget(fb.data(), 400, 120, 400);
+
+        canvas.Begin(400, 120, 1.0f);
+        canvas.Clear(Color(16, 20, 28, 255));
+        for (int i = 0; i < 1500; ++i) {
+            char buf[64]{};
+            const keel::StringRef label = keel::format_buf(buf, "Telemetry Sample #%04d [%.2f dB]", i, i * 0.125f);
+            canvas.DrawTextBoxStyled(
+                label,
+                Rect(8.0f, 8.0f, 360.0f, 28.0f),
+                14.0f,
+                Color(235, 240, 248, 255),
+                FontStyle::Regular,
+                0.0f,
+                0.5f
+            );
+            const float w = 24.0f + static_cast<float>(i % 140) + 0.25f * static_cast<float>(i & 3);
+            canvas.DrawRoundRect(
+                Rect(8.0f, 48.0f, w, 24.0f),
+                6.0f,
+                Color(56, 189, 248, 220),
+                Color(125, 211, 252, 255),
+                1.0f
+            );
+        }
+        canvas.End();
+
+        size_t nonBgPixels = 0;
+        const uint32_t bgSample = fb[0];
+        for (uint32_t px : fb) {
+            if (px != bgSample) {
+                ++nonBgPixels;
+            }
+        }
+        CHECK(nonBgPixels > 100u);
+    }
+
+#if GUIKIT_HAS_SCENES
+    // 3. GisRenderEngine global Tier-1/Tier-2 tile cache + TilePixelBufferPool pan/zoom stress
+    {
+        GisRenderEngine::InvalidateTileCache();
+
+        keel::Array<geo::GeoLayer> layers;
+        layers.resize(6u);
+        for (size_t li = 0; li < layers.size(); ++li) {
+            geo::GeoLayer& lyr = layers[li];
+            lyr.name = keel::format("Layer_{}", li);
+            lyr.visible = true;
+            lyr.style.primaryColor = Color(static_cast<uint8_t>(40 + li * 30), 120, 200, 255);
+            lyr.style.useCustomColor = true;
+            lyr.style.fillOpacity = 0.75f;
+            lyr.style.strokeWidthPx = 1.25f;
+
+            for (int gx = 0; gx < 6; ++gx) {
+                for (int gy = 0; gy < 6; ++gy) {
+                    geo::GeoFeature feat{};
+                    feat.type = geo::GeometryType::Polygon;
+                    const double baseLat = 59.80 + gx * 0.06 + static_cast<double>(li) * 0.004;
+                    const double baseLon = 29.70 + gy * 0.08 + static_cast<double>(li) * 0.004;
+                    geo::GeoPolygon poly{};
+                    poly.exteriorRing.push_back({baseLat, baseLon});
+                    poly.exteriorRing.push_back({baseLat, baseLon + 0.045});
+                    poly.exteriorRing.push_back({baseLat + 0.040, baseLon + 0.045});
+                    poly.exteriorRing.push_back({baseLat + 0.040, baseLon});
+                    poly.exteriorRing.push_back({baseLat, baseLon});
+                    feat.polygons.push_back(keel::move(poly));
+                    lyr.features.push_back(keel::move(feat));
+                }
+            }
+            lyr.FinalizeLayer(9000u + li);
+        }
+
+        ThorCanvas canvas;
+        keel::Array<uint32_t> fb(640u * 480u, 0u);
+        canvas.SetTarget(fb.data(), 640, 480, 640);
+
+        Context ui;
+        GisRenderConfig cfg{};
+        cfg.maxCompositeTiles = 24;
+        cfg.maxLayerTiles = 24;
+        cfg.asyncBackgroundStreaming = false;
+
+        uint64_t selectedUid = 0;
+        size_t totalRendered = 0;
+        size_t totalHits = 0;
+        for (int step = 0; step < 24; ++step) {
+            const GeoCoord stepCenter{59.92 + (step % 4) * 0.03, 29.85 + (step / 8) * 0.04};
+            const float stepZoom = 11.0f + static_cast<float>((step / 2) % 3);
+            ui.BeginFrame({640.0f, 480.0f});
+            if (auto map = ui.MapView({
+                .initialCenter = stepCenter,
+                .initialTileZoom = stepZoom,
+                .heightMode = SizeMode::Stretch
+            })) {
+                if ((step % 2) == 0) {
+                    map.CenterOnGeo(stepCenter, stepZoom);
+                }
+                const GisRenderStats st = GisRenderEngine::RenderLayers(map, layers, cfg, selectedUid, false);
+                totalRendered += st.cachedTilesRendered;
+                totalHits += st.cachedTilesHit;
+            }
+            ui.EndFrame(canvas);
+        }
+        CHECK(totalRendered > 0u);
+        CHECK(totalHits > 0u);
+
+        // Idle away from MapView for 180 frames -> MapViewInternalState::TrimInactiveCaches()
+        // automatically triggers GisRenderEngine::TrimInactiveCaches(), then re-entering MapView re-renders cleanly
+        for (int f = 0; f < 180; ++f) {
+            ui.BeginFrame({640.0f, 480.0f});
+            ui.Text("Switched away from GIS map");
+            ui.EndFrame(canvas);
+        }
+        canvas.TrimCaches();
+
+        size_t postTrimRendered = 0;
+        for (int step = 0; step < 2; ++step) {
+            ui.BeginFrame({640.0f, 480.0f});
+            if (auto map = ui.MapView({
+                .initialCenter = GeoCoord{59.92, 29.85},
+                .initialTileZoom = 11.0f,
+                .heightMode = SizeMode::Stretch
+            })) {
+                const GisRenderStats st = GisRenderEngine::RenderLayers(map, layers, cfg, selectedUid, false);
+                postTrimRendered += st.cachedTilesRendered;
+            }
+            ui.EndFrame(canvas);
+        }
+        CHECK(postTrimRendered > 0u);
+        GisRenderEngine::InvalidateTileCache();
+    }
+#endif
+
+    // 4. TextArea / CodeEditor & Markdown inactive cache trimming + reactive time-based wakeup & trimming
+    {
+        ThorCanvas canvas;
+        keel::Array<uint32_t> fb(480u * 360u, 0u);
+        canvas.SetTarget(fb.data(), 480, 360, 480);
+
+        Context ui;
+        ui.SetIdleHeartbeatMs(0); // Deep-sleep mode (0% CPU when idle unless untrimmed caches exist)
+        ui.SetCurrentTime(10.0);
+
+        keel::String codeSource = keel::String::from(
+            "#include <cstdint>\n"
+            "int compute(int x) {\n"
+            "    int acc = 0;\n"
+            "    for (int i = 0; i < x; ++i) {\n"
+            "        acc += i * 2;\n"
+            "    }\n"
+            "    return acc;\n"
+            "}\n"
+        );
+        const keel::StringRef mdSource =
+            "# Telemetry Summary\n\n"
+            "Status: **Nominal** | Frame: `1024`\n\n"
+            "| Channel | Gain |\n"
+            "| :--- | ---: |\n"
+            "| CH-01 | -3.0 dB |\n"
+            "| CH-02 | +1.5 dB |\n";
+
+        Id editorId = Id::Null();
+        float initialMdHeight = 0.0f;
+        for (int f = 0; f < 3; ++f) {
+            ui.AdvanceTime(0.016);
+            ui.BeginFrame({480.0f, 360.0f});
+            const Response edRes = ui.CodeEditor(codeSource, {.rows = 6});
+            editorId = edRes.id;
+            const MarkdownResponse mdRes = ui.Markdown(mdSource);
+            initialMdHeight = mdRes.rect.h;
+            ui.EndFrame(canvas);
+        }
+
+        CHECK(editorId.IsValid());
+        CHECK(initialMdHeight > 20.0f);
+        {
+            const auto* edSt = ui.FindState<TextAreaState>(editorId);
+            CHECK(edSt != nullptr);
+            if (edSt) {
+                CHECK(!edSt->cachedLogicalLines.empty());
+                CHECK(edSt->cachedLogicalLines.capacity() > 0u);
+            }
+        }
+
+        // Navigate away from CodeEditor + Markdown and let repaint counter settle (3 frames, tiny dt):
+        // caches are NOT trimmed yet, and GetRecommendedSleepTimeoutMs() wakes deep-sleep at 500 ms.
+        for (int f = 0; f < 3; ++f) {
+            ui.AdvanceTime(0.016);
+            ui.BeginFrame({480.0f, 360.0f});
+            ui.Heading({.label = "Static Dashboard"});
+            ui.EndFrame(canvas);
+        }
+        CHECK(!ui.NeedsRepaint());
+        CHECK(ui.GetRecommendedSleepTimeoutMs() == 500);
+
+        // Advance only 4 reactive heartbeat frames (0.5s each = 2.0s total, far below 120 frames):
+        // time-based reactive cache trimming reclaims TextArea & Markdown caches and restores deep sleep (0 ms).
+        for (int f = 0; f < 4; ++f) {
+            ui.AdvanceTime(0.5);
+            ui.BeginFrame({480.0f, 360.0f});
+            ui.Heading({.label = "Static Dashboard"});
+            ui.EndFrame(canvas);
+        }
+        {
+            const auto* edSt = ui.FindState<TextAreaState>(editorId);
+            CHECK(edSt != nullptr);
+            if (edSt) {
+                CHECK(edSt->cachedLogicalLines.capacity() == 0u);
+                CHECK(edSt->scratchVisualLines.capacity() == 0u);
+            }
+        }
+        CHECK(ui.GetRecommendedSleepTimeoutMs() == 0);
+
+        // Re-visiting Markdown + CodeEditor seamlessly rebuilds layout with identical geometry
+        float rebuiltMdHeight = 0.0f;
+        for (int f = 0; f < 2; ++f) {
+            ui.AdvanceTime(0.016);
+            ui.BeginFrame({480.0f, 360.0f});
+            (void)ui.CodeEditor(codeSource, {.rows = 6});
+            rebuiltMdHeight = ui.Markdown(mdSource).rect.h;
+            ui.EndFrame(canvas);
+        }
+        CHECK_NEAR(rebuiltMdHeight, initialMdHeight, 1.0f);
+    }
+
+    keel::println("  [PASS] TestBoundedCachesAndInactiveStateTrimming completed");
+}
+
 
 

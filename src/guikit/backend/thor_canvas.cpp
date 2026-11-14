@@ -179,6 +179,16 @@ void ThorCanvas::FlushCanvas() {
     }
 }
 
+void ThorCanvas::TrimCaches() noexcept {
+    FlushCanvas();
+    m_textMeasureCache.clear();
+    m_textStampCache.Clear();
+    m_shapeStampCache.Clear();
+    m_imageCache = {};
+    m_imageCacheBytes = 0;
+    m_stampScratch = {};
+}
+
 void ThorCanvas::SyncViewportClip() {
     if (!m_canvas || m_width == 0 || m_height == 0) return;
     FlushCanvas();
@@ -230,7 +240,7 @@ bool ThorCanvas::LoadFontMemoryInternal(
     slot.name.assign(name);
     slot.loaded = true;
     m_textMeasureCache.clear();
-    m_textStampCache.clear();
+    m_textStampCache.Clear();
     return true;
 }
 
@@ -329,9 +339,6 @@ void ThorCanvas::Begin(uint32_t width, uint32_t height, float scale) {
     m_scale = (scale > 0.0f) ? scale : 1.0f;
     m_clipStack.clear();
     m_gpuClipStack.clear();
-    if (m_textStampCache.size() > 4096) {
-        m_textStampCache.clear();
-    }
     if (m_width != width || m_height != height) {
         m_width = width;
         m_height = height;
@@ -545,7 +552,7 @@ void ThorCanvas::DrawRoundRect(
     }
 
     if (m_targetBuffer && m_width > 0 && m_height > 0 &&
-        ((sRect.w <= 320.0f && sRect.h <= 80.0f) || (sRect.w <= 96.0f && sRect.h <= 96.0f))) {
+        ((sRect.w <= 180.0f && sRect.h <= 52.0f) || (sRect.w <= 72.0f && sRect.h <= 72.0f))) {
         const int dstX = static_cast<int>(std::round(sRect.x));
         const int dstY = static_cast<int>(std::round(sRect.y));
         const TextStampEntry& stamp = ResolveShapeStamp(sRect.w, sRect.h, sRadius, fill, stroke, sStrokeW);
@@ -637,10 +644,6 @@ Vec2 ThorCanvas::MeasureTextStyled(keel::StringRef text, float fontSize, FontSty
     }
 
     const Vec2 result{totalAdvance, glyphBoxH};
-
-    if (m_textMeasureCache.size() > 2048) {
-        m_textMeasureCache.clear();
-    }
     m_textMeasureCache.put(key, result);
     return result;
 }
@@ -672,19 +675,15 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveTextStamp(
         .style = static_cast<uint8_t>(style)
     };
 
-    if (const TextStampEntry* cached = m_textStampCache.get(key)) {
+    if (const TextStampEntry* cached = m_textStampCache.Get(key)) {
         return *cached;
-    }
-
-    if (m_textStampCache.size() > 4096) {
-        m_textStampCache.clear();
     }
 
     TextStampEntry entry{};
     const Vec2 m = MeasureTextStyled(text, qFontSize, style);
     if (m.x <= 0.0f || m.y <= 0.0f) {
         entry.empty = true;
-        return m_textStampCache.get_or_insert(key, keel::move(entry));
+        return m_textStampCache.Insert(key, keel::move(entry));
     }
 
     const int padLeft = 3;
@@ -765,7 +764,11 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveTextStamp(
         }
     }
 
-    return m_textStampCache.get_or_insert(key, keel::move(entry));
+    if (m_stampScratch.capacity() > 65536u) {
+        m_stampScratch = keel::Array<uint32_t>{};
+    }
+
+    return m_textStampCache.Insert(key, keel::move(entry));
 }
 
 const ThorCanvas::TextStampEntry& ThorCanvas::ResolveShapeStamp(
@@ -792,12 +795,8 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveShapeStamp(
         .qStrokeW = qStrokeW
     };
 
-    if (const TextStampEntry* cached = m_shapeStampCache.get(key)) {
+    if (const TextStampEntry* cached = m_shapeStampCache.Get(key)) {
         return *cached;
-    }
-
-    if (m_shapeStampCache.size() > 1024) {
-        m_shapeStampCache.clear();
     }
 
     TextStampEntry entry{};
@@ -867,7 +866,11 @@ const ThorCanvas::TextStampEntry& ThorCanvas::ResolveShapeStamp(
         }
     }
 
-    return m_shapeStampCache.get_or_insert(key, keel::move(entry));
+    if (m_stampScratch.capacity() > 65536u) {
+        m_stampScratch = keel::Array<uint32_t>{};
+    }
+
+    return m_shapeStampCache.Insert(key, keel::move(entry));
 }
 
 void ThorCanvas::BlitTextStamp(
@@ -1294,9 +1297,10 @@ ThorCanvas::ImageCacheEntry& ThorCanvas::ResolveImageEntry(keel::StringRef sourc
         return *existing;
     }
 
-    static constexpr size_t kMaxImageCacheEntries = 256;
     if (m_imageCache.size() >= kMaxImageCacheEntries) {
-        m_imageCache.clear();
+        FlushCanvas();
+        m_imageCache = {};
+        m_imageCacheBytes = 0;
     }
 
     ImageCacheEntry entry{};
@@ -1397,13 +1401,45 @@ bool ThorCanvas::DrawImage(
     const uint32_t dstW = static_cast<uint32_t>(keel::max(1, dstX1 - dstX0));
     const uint32_t dstH = static_cast<uint32_t>(keel::max(1, dstY1 - dstY0));
 
-    if (sRad <= 0.0f && m_targetBuffer && dstW <= 256u && dstH <= 256u) {
-        if (entry.cachedRasterW != dstW || entry.cachedRasterH != dstH || entry.cachedPixels.empty()) {
+    const bool isSvgSource =
+        entry.isInlineSvg ||
+        entry.embeddedMimeType.as_ref() == "svg" ||
+        source.ends_with(".svg") ||
+        source.ends_with(".SVG");
+    const uint32_t natW = static_cast<uint32_t>(keel::max(1.0f, std::round(entry.size.x)));
+    const uint32_t natH = static_cast<uint32_t>(keel::max(1.0f, std::round(entry.size.y)));
+    const bool canCacheNativeBitmap = (!isSvgSource && natW <= 512u && natH <= 512u);
+    const bool canCacheSmallSvg = (isSvgSource && sRad <= 0.0f && m_targetBuffer && dstW <= 256u && dstH <= 256u);
+
+    if (canCacheNativeBitmap || canCacheSmallSvg) {
+        const uint32_t cacheW = canCacheNativeBitmap ? natW : dstW;
+        const uint32_t cacheH = canCacheNativeBitmap ? natH : dstH;
+        if (entry.cachedRasterW != cacheW || entry.cachedRasterH != cacheH || entry.cachedPixels.empty()) {
+            const size_t oldBytes = entry.cachedPixels.capacity() * sizeof(uint32_t);
+            m_imageCacheBytes = (m_imageCacheBytes >= oldBytes) ? (m_imageCacheBytes - oldBytes) : 0u;
+            entry.cachedPixels = {};
+            entry.cachedRasterW = 0;
+            entry.cachedRasterH = 0;
+
+            const size_t newBytes = static_cast<size_t>(cacheW) * static_cast<size_t>(cacheH) * sizeof(uint32_t);
+            if (m_imageCacheBytes + newBytes > kMaxImageCacheBytes) {
+                FlushCanvas();
+                for (auto [k, other] : m_imageCache) {
+                    if (&other != &entry && other.cachedPixels.capacity() > 0u) {
+                        const size_t ob = other.cachedPixels.capacity() * sizeof(uint32_t);
+                        m_imageCacheBytes = (m_imageCacheBytes >= ob) ? (m_imageCacheBytes - ob) : 0u;
+                        other.cachedPixels = {};
+                        other.cachedRasterW = 0;
+                        other.cachedRasterH = 0;
+                    }
+                }
+            }
+
             if (!m_stampCanvas) {
                 m_stampCanvas = tvg::SwCanvas::gen(tvg::EngineOption::None);
             }
-            entry.cachedPixels.assign(static_cast<size_t>(dstW) * static_cast<size_t>(dstH), 0u);
-            m_stampCanvas->target(entry.cachedPixels.data(), dstW, dstW, dstH, tvg::ColorSpace::ABGR8888);
+            entry.cachedPixels.assign(static_cast<size_t>(cacheW) * static_cast<size_t>(cacheH), 0u);
+            m_stampCanvas->target(entry.cachedPixels.data(), cacheW, cacheW, cacheH, tvg::ColorSpace::ABGR8888);
 
             auto* pic = tvg::Picture::gen();
             tvg::Result res = tvg::Result::InvalidArguments;
@@ -1424,20 +1460,57 @@ bool ThorCanvas::DrawImage(
                 res = pic->load(entry.resolvedDataOrPath.c_str());
             }
             if (res == tvg::Result::Success) {
-                pic->size(static_cast<float>(dstW), static_cast<float>(dstH));
+                pic->size(static_cast<float>(cacheW), static_cast<float>(cacheH));
                 m_stampCanvas->add(pic);
                 m_stampCanvas->draw(false);
                 m_stampCanvas->sync();
                 m_stampCanvas->remove();
                 m_stampCanvas->sync();
-                entry.cachedRasterW = dstW;
-                entry.cachedRasterH = dstH;
+                entry.cachedRasterW = cacheW;
+                entry.cachedRasterH = cacheH;
+                m_imageCacheBytes += entry.cachedPixels.capacity() * sizeof(uint32_t);
             } else {
+                entry.cachedPixels = {};
                 delete pic;
                 return false;
             }
         }
-        return DrawPixels(entry.cachedPixels.data(), dstW, dstH, destRect, 0.0f, opacity);
+        if (sRad <= 0.0f && m_targetBuffer) {
+            return DrawPixels(entry.cachedPixels.data(), cacheW, cacheH, destRect, 0.0f, opacity);
+        }
+        auto* pic = tvg::Picture::gen();
+        if (pic->load(entry.cachedPixels.data(), cacheW, cacheH, tvg::ColorSpace::ABGR8888, false) != tvg::Result::Success) {
+            delete pic;
+            return false;
+        }
+        const float sx = sBounds.w / static_cast<float>(cacheW);
+        const float sy = sBounds.h / static_cast<float>(cacheH);
+        const tvg::Matrix m = {
+            sx, 0.0f, sBounds.x,
+            0.0f, sy, sBounds.y,
+            0.0f, 0.0f, 1.0f
+        };
+        pic->transform(m);
+        if (opacity < 255) {
+            pic->opacity(opacity);
+        }
+        if (sRad > 0.0f) {
+            Rect clipR = sBounds;
+            float effRad = sRad;
+            if (!m_clipStack.empty()) {
+                const Rect& activeClip = m_clipStack.back();
+                if (!activeClip.Contains(sBounds.Pos()) || !activeClip.Contains({sBounds.Right(), sBounds.Bottom()})) {
+                    clipR = sBounds.Intersect(activeClip);
+                    effRad = 0.0f;
+                }
+            }
+            auto* clipper = tvg::Shape::gen();
+            clipper->appendRect(clipR.x, clipR.y, clipR.w, clipR.h, effRad, effRad);
+            pic->clip(clipper);
+        }
+        m_canvas->add(pic);
+        m_hasPendingPaints = true;
+        return true;
     }
 
     auto* pic = tvg::Picture::gen();

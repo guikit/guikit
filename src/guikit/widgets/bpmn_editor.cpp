@@ -403,11 +403,21 @@ struct BpmnEditorState {
     }
 
     void PushUndo(const BpmnDiagram& d) {
-        if (undoStack.size() >= 48) {
+        if (undoStack.size() >= 24) {
             undoStack.remove_at(0);
         }
         undoStack.push_back(d.clone());
         redoStack.clear();
+    }
+
+    void TrimInactiveCaches() noexcept {
+        renderSnapshot = BpmnDiagram{};
+        dragInitialNodePos = {};
+        dragEdgeInitWaypoints = {};
+        laneContainedNodeOffsets = {};
+        spaceInitialNodes = {};
+        spaceInitialLanes = {};
+        activeGuides = {};
     }
 
     bool Undo(BpmnDiagram& d) {

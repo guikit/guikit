@@ -332,4 +332,10 @@ keel::String GenerateOsmMapCode(const DemoContext&) {
     );
 }
 
+void ReleaseOsmMapDemoBuffers() noexcept {
+    guikit::GisRenderEngine::TrimInactiveCaches();
+    s_state.layers = {};
+    s_state.initialized = false;
+}
+
 } // namespace guikit::demo

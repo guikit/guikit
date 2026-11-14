@@ -3,6 +3,9 @@
 #include "keel/static_array.h"
 #include "keel/time.h"
 #include "keel/utf8.h"
+#if defined(__GLIBC__)
+#include <malloc.h>
+#endif
 
 namespace guikit {
 
@@ -1603,6 +1606,9 @@ int Context::GetRecommendedSleepTimeoutMs() const noexcept {
     if (m_editState.id.IsValid() && m_cursorConfig.mode == CursorBlinkMode::Blinking) {
         return 120; // Periodically wake up for smooth cursor blinking
     }
+    if (m_hasUntrimmedInactiveStates && (m_idleHeartbeatMs <= 0 || m_idleHeartbeatMs > 500)) {
+        return 500;
+    }
     return m_idleHeartbeatMs; // User-configurable heartbeat interval (or <= 0 for deep sleep)
 }
 
@@ -2895,21 +2901,87 @@ void Context::EndFrame(ICanvas& canvas) {
     m_pendingKeyEvents.clear();
     m_pendingTextInput.clear();
 
-    // Periodically prune stale transient states (every 600 frames = ~10s at 60fps);
+    bool trimmedAny = false;
+    if (m_currentTimeSec < m_lastCacheTrimSweepSec) {
+        m_lastCacheTrimSweepSec = m_currentTimeSec;
+    }
+    if (m_currentTimeSec < m_lastTransientPruneSec) {
+        m_lastTransientPruneSec = m_currentTimeSec;
+    }
+
+    // Trim regenerable offscreen pixel/tile/layout caches from inactive widget states
+    // (idle > 120 frames in continuous loops, or >= 1.5s + > 3 frames in reactive idle mode)
+    // while keeping user-facing persistent state (camera, zoom, selections, markers, undo history) intact.
+    const bool checkTrimNow = (m_frameIndex > 0) &&
+        ((m_frameIndex % 60 == 0) ||
+         m_repaintFrames <= 1 ||
+         (m_currentTimeSec - m_lastCacheTrimSweepSec >= 0.5));
+    if (checkTrimNow) {
+        m_lastCacheTrimSweepSec = m_currentTimeSec;
+        bool stillHasUntrimmed = false;
+        for (auto [key, state] : m_customStates) {
+            if (!state.trim || state.cachesTrimmed) {
+                continue;
+            }
+            if (state.lastFrameActive > m_frameIndex) {
+                state.lastFrameActive = m_frameIndex;
+            }
+            if (m_currentTimeSec < state.lastTimeActiveSec) {
+                state.lastTimeActiveSec = m_currentTimeSec;
+            }
+            const uint64_t idleFrames = m_frameIndex - state.lastFrameActive;
+            if (idleFrames == 0 || key.id == m_focusedId || key.id == m_activeId) {
+                continue;
+            }
+            const double idleSec = m_currentTimeSec - state.lastTimeActiveSec;
+            if (idleFrames > 120 || (idleFrames > 3 && idleSec >= 1.5)) {
+                state.trim(state.ptr);
+                state.cachesTrimmed = true;
+                trimmedAny = true;
+            } else {
+                stillHasUntrimmed = true;
+            }
+        }
+        m_hasUntrimmedInactiveStates = stillHasUntrimmed;
+
+        if (!m_focusedId.IsValid() && !m_editState.id.IsValid() &&
+            (m_editState.text.capacity() > 4096 || !m_editState.undoStack.empty() || !m_editState.redoStack.empty())) {
+            m_editState.text = {};
+            m_editState.undoStack = {};
+            m_editState.redoStack = {};
+            trimmedAny = true;
+        }
+    }
+
+    // Periodically prune stale transient states (every 600 frames or >= 10s in reactive mode);
     // persistent widget states (tabs, trees, tables, scenes, scroll offsets, undo stacks) survive until Context destruction.
-    if (m_frameIndex % 600 == 0 && m_frameIndex > 0) {
+    if (m_frameIndex > 0 && ((m_frameIndex % 600 == 0) || (m_currentTimeSec - m_lastTransientPruneSec >= 10.0))) {
+        m_lastTransientPruneSec = m_currentTimeSec;
         keel::SmallArray<detail::StateKey, 16> staleKeys;
         for (const auto& [key, state] : m_customStates) {
-            if (!state.persistent &&
-                state.lastFrameActive + 600 < m_frameIndex &&
-                key.id != m_focusedId &&
-                key.id != m_activeId) {
+            if (state.persistent || key.id == m_focusedId || key.id == m_activeId) {
+                continue;
+            }
+            const uint64_t idleFrames = (m_frameIndex > state.lastFrameActive)
+                ? (m_frameIndex - state.lastFrameActive)
+                : 0;
+            const double idleSec = (m_currentTimeSec > state.lastTimeActiveSec)
+                ? (m_currentTimeSec - state.lastTimeActiveSec)
+                : 0.0;
+            if (idleFrames > 600 || (idleFrames > 5 && idleSec >= 10.0)) {
                 staleKeys.push_back(key);
             }
         }
         for (const auto& key : staleKeys) {
             (void)m_customStates.remove(key);
+            trimmedAny = true;
         }
+    }
+
+    if (trimmedAny) {
+#if defined(__GLIBC__)
+        ::malloc_trim(0);
+#endif
     }
 
     if (m_repaintFrames > 0) {

@@ -307,7 +307,7 @@ void EnsureSignalInitialized() {
     if (!s_sig.initialized) {
         s_sig.initialized = true;
         s_sig.lastWallNs = keel::monotonic_ns();
-        BuildSignalPreset(s_sig, 0);
+        BuildSignalPreset(s_sig, s_sig.presetIdx);
     }
 }
 
@@ -622,6 +622,12 @@ keel::String GenerateSignalCode(const DemoContext&) {
         s_sig.showColorbar ? "true" : "false",
         s_sig.showRms ? "true" : "false"
     );
+}
+
+void ReleaseSignalDemoBuffers() noexcept {
+    s_sig.samples = {};
+    s_sig.markers = {};
+    s_sig.initialized = false;
 }
 
 } // namespace guikit::demo

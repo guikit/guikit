@@ -45,6 +45,16 @@ public:
     /// Must be called after `SDL_RenderClear(renderer)` and before compositing the UI overlay texture.
     void RenderUnderlays(const ICanvas& canvas, uint32_t viewportWidth, uint32_t viewportHeight);
 
+    /// Advances per-frame maintenance and prunes GPU textures / staging buffers of inactive widgets,
+    /// even when the active screen records zero GPU shader passes.
+    void TickFrame(const ICanvas& canvas);
+
+    /// Immediately releases all cached per-widget GPU data/LUT textures and CPU upload scratch buffers.
+    void ReleaseCachedTextures();
+
+    /// Returns true if any cached GPU texture is no longer referenced by an active pass on screen.
+    [[nodiscard]] bool HasIdleCachedResources() const noexcept;
+
 private:
     struct CompiledProgram {
         uint32_t program{0};
@@ -67,6 +77,7 @@ private:
         uint32_t uploadedHeadRow{0};
         uint8_t uploadedColormapId{255};
         uint64_t lastUsedFrame{0};
+        uint64_t lastUsedTimeNs{0};
     };
 
     const CompiledProgram* GetOrCompileProgram(const ICanvas::GpuShaderSource& src);
@@ -77,6 +88,7 @@ private:
     bool m_available{false};
     keel::SmallString<64> m_backendSummary{"Disabled"};
     uint64_t m_frameCounter{0};
+    uint64_t m_lastPruneTimeNs{0};
 
     uint32_t m_quadVbo{0};
 

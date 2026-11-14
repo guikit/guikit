@@ -388,7 +388,7 @@ void LoadWaterfallScenario(WaterfallDemoState& st, int scenarioIdx) {
 
 void StepWaterfallSimulation(WaterfallDemoState& st) {
     if (!st.initialized) {
-        LoadWaterfallScenario(st, 0);
+        LoadWaterfallScenario(st, st.scenarioIndex);
         return;
     }
 
@@ -416,7 +416,7 @@ void StepWaterfallSimulation(WaterfallDemoState& st) {
 
 void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     if (!s_wf.initialized) {
-        LoadWaterfallScenario(s_wf, 0);
+        LoadWaterfallScenario(s_wf, s_wf.scenarioIndex);
     }
 
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({
@@ -690,6 +690,13 @@ keel::String GenerateWaterfallCode(const DemoContext& /*ctx*/) {
         s_wf.showTracks ? "true" : "false",
         s_wf.showHarmonicComb ? "true" : "false"
     );
+}
+
+void ReleaseWaterfallDemoBuffers() noexcept {
+    s_wf.currentSliceDb = {};
+    s_wf.initialHistoryMatrix = {};
+    s_wf.tracks = {};
+    s_wf.initialized = false;
 }
 
 } // namespace guikit::demo

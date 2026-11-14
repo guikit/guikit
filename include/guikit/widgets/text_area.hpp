@@ -276,6 +276,21 @@ struct TextAreaState {
     keel::Array<TextAreaLogicalLine> cachedLogicalLines{};
     keel::Array<TextAreaFoldRegion> cachedFoldRegions{};
     keel::Array<TextAreaVisualLine> scratchVisualLines{};
+
+    void TrimInactiveCaches() noexcept {
+        baselineInitialized = false;
+        prevDocumentText = {};
+        baselineToCurrentLine = {};
+        baselineSignatures = {};
+        resolvedInlineValues = {};
+        resolvedDiagnostics = {};
+        cachedDocHash = 0;
+        cachedDocSize = static_cast<size_t>(-1);
+        cachedFoldSyntaxHash = 0;
+        cachedLogicalLines = {};
+        cachedFoldRegions = {};
+        scratchVisualLines = {};
+    }
 };
 
 /// Internal runtime state allocated in frame arena for TextArea nodes.
