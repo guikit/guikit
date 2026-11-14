@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include <initializer_list>
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -16,7 +15,7 @@ class Context;
 class ICanvas;
 
 /// Visual presentation style for TabBar.
-enum class TabBarStyle : uint8_t {
+enum class TabBarStyle : keel::u8 {
     Underline,  ///< Classic desktop/IDE style: transparent tab background with an accent bottom indicator line
     Pill,       ///< Segmented capsule style: active tab has a rounded background fill
     Card,       ///< Outlined card tabs docked to baseline (open bottom on active tab)
@@ -36,7 +35,7 @@ struct TabItem {
 
 /// Response returned by TabBar::Run, extending Response with closed-tab notification.
 struct TabBarResponse : Response {
-    keel::Optional<size_t> closedIndex{keel::kNullOpt}; ///< Index of the tab whose close ('X') button was clicked this frame
+    keel::Optional<keel::usize> closedIndex{keel::kNullOpt}; ///< Index of the tab whose close ('X') button was clicked this frame
 };
 
 /// Configuration options for TabBar widget.
@@ -68,7 +67,7 @@ public:
     /// Primary immediate mode entry point for TabBar widget.
     static TabBarResponse Run(
         Context& ctx,
-        int& activeIndex,
+        keel::i32& activeIndex,
         keel::ArrayRef<TabItem> tabs,
         const TabBarOptions& opts,
         keel::SourceLocation loc = keel::SourceLocation::current()

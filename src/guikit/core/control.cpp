@@ -227,13 +227,13 @@ void Control::SetupNode(
             parent->visualHash = detail::HashArgs(
                 parent->visualHash,
                 node->visualHash,
-                static_cast<uint8_t>(effStretch),
+                static_cast<keel::u8>(effStretch),
                 spec.width.value_or(0.0f),
                 spec.widthRatio.value_or(-1.0f),
                 spec.height.value_or(0.0f),
                 spec.minWidth.value_or(0.0f),
-                static_cast<uint8_t>(spec.defaultLayout),
-                static_cast<uint8_t>(spec.defaultInlineOrder),
+                static_cast<keel::u8>(spec.defaultLayout),
+                static_cast<keel::u8>(spec.defaultInlineOrder),
                 spec.stretchable,
                 spec.stretchHeightWhenStandalone
             );

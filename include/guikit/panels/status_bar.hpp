@@ -15,7 +15,7 @@ class Context;
 struct Node;
 
 /// Visual surface style of a StatusBar container.
-enum class StatusBarStyle : uint8_t {
+enum class StatusBarStyle : keel::u8 {
     Surface,    ///< Standard subtle system status strip (surface) with a 1px top border
     Header,     ///< Distinct elevated strip (surfaceElevated) with a 1px top border
     Accent      ///< High-contrast primary accent strip (VS Code style)

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -33,7 +32,7 @@ struct ImageOptions {
     StateColor background{};                            ///< Per-state image control box backdrop color (Default/None = off, Surface/Primary/etc. = on)
     Border border{};                                    ///< Image control box border stroke & corner radius configuration
     bool checkerboard{false};                           ///< Render transparency checkerboard pattern behind image
-    uint8_t opacity{255};                               ///< Image opacity [0..255]
+    keel::u8 opacity{255};                               ///< Image opacity [0..255]
     bool disabled{false};
     const UiTheme* theme{nullptr};
     keel::Optional<float> scale{keel::kNullOpt};

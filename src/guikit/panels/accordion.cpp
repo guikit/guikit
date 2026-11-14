@@ -94,13 +94,13 @@ AccordionScope Accordion::Open(
         hData->opts.label,
         hData->opts.description,
         hData->opts.badge,
-        static_cast<uint8_t>(opts.chevronPlacement),
+        static_cast<keel::u8>(opts.chevronPlacement),
         opts.background,
         opts.border,
         isOpen,
         activeDisabled,
-        static_cast<uint8_t>(opts.icon.GetType()),
-        static_cast<uint8_t>(opts.icon.GetId()),
+        static_cast<keel::u8>(opts.icon.GetType()),
+        static_cast<keel::u8>(opts.icon.GetId()),
         hData->opts.icon.GetPath()
     );
     headerNode->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& th) noexcept -> Vec2 {

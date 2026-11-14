@@ -34,17 +34,17 @@ namespace guikit {
 
 namespace {
 
-[[nodiscard]] inline uint32_t AtomicExchangeU32(uint32_t& slot, uint32_t val) noexcept {
+[[nodiscard]] inline keel::u32 AtomicExchangeU32(keel::u32& slot, keel::u32 val) noexcept {
 #if defined(_MSC_VER) && !defined(__clang__)
-    return static_cast<uint32_t>(_InterlockedExchange(reinterpret_cast<volatile long*>(&slot), static_cast<long>(val)));
+    return static_cast<keel::u32>(_InterlockedExchange(reinterpret_cast<volatile long*>(&slot), static_cast<long>(val)));
 #else
     return __atomic_exchange_n(&slot, val, __ATOMIC_ACQ_REL);
 #endif
 }
 
-[[nodiscard]] inline uint32_t AtomicLoadAcquireU32(const uint32_t& slot) noexcept {
+[[nodiscard]] inline keel::u32 AtomicLoadAcquireU32(const keel::u32& slot) noexcept {
 #if defined(_MSC_VER) && !defined(__clang__)
-    const uint32_t v = *static_cast<const volatile uint32_t*>(&slot);
+    const keel::u32 v = *static_cast<const volatile keel::u32*>(&slot);
     MemoryBarrier();
     return v;
 #else
@@ -63,10 +63,10 @@ float QueryHdcPixelsPerMm(HDC hdc) noexcept {
     if (hdc == nullptr) {
         return 0.0f;
     }
-    const int widthMm = ::GetDeviceCaps(hdc, HORZSIZE);
-    const int heightMm = ::GetDeviceCaps(hdc, VERTSIZE);
-    const int widthPx = ::GetDeviceCaps(hdc, DESKTOPHORZRES);
-    const int heightPx = ::GetDeviceCaps(hdc, DESKTOPVERTRES);
+    const keel::i32 widthMm = ::GetDeviceCaps(hdc, HORZSIZE);
+    const keel::i32 heightMm = ::GetDeviceCaps(hdc, VERTSIZE);
+    const keel::i32 widthPx = ::GetDeviceCaps(hdc, DESKTOPHORZRES);
+    const keel::i32 heightPx = ::GetDeviceCaps(hdc, DESKTOPVERTRES);
     if (widthMm > 50 && heightMm > 50 && widthPx > 320 && heightPx > 240) {
         const float pxPerMmX = static_cast<float>(widthPx) / static_cast<float>(widthMm);
         const float pxPerMmY = static_cast<float>(heightPx) / static_cast<float>(heightMm);
@@ -80,7 +80,7 @@ float QueryHdcPixelsPerMm(HDC hdc) noexcept {
 #endif
 
 #ifdef __EMSCRIPTEN__
-bool GetEmscriptenCanvasPhysicalSize(int& outW, int& outH, bool highDpi) noexcept {
+bool GetEmscriptenCanvasPhysicalSize(keel::i32& outW, keel::i32& outH, bool highDpi) noexcept {
     double cssW = 0.0;
     double cssH = 0.0;
     if (emscripten_get_element_css_size("#canvas", &cssW, &cssH) == EMSCRIPTEN_RESULT_SUCCESS &&
@@ -89,8 +89,8 @@ bool GetEmscriptenCanvasPhysicalSize(int& outW, int& outH, bool highDpi) noexcep
         if (dpr <= 0.0) {
             dpr = 1.0;
         }
-        outW = static_cast<int>(std::lround(cssW * dpr));
-        outH = static_cast<int>(std::lround(cssH * dpr));
+        outW = static_cast<keel::i32>(std::lround(cssW * dpr));
+        outH = static_cast<keel::i32>(std::lround(cssH * dpr));
         return true;
     }
     return false;
@@ -283,16 +283,16 @@ bool SdlWindowBackend::Initialize(
         if (winCoordScale > 1.01f) {
             SDL_SetWindowSize(
                 m_window,
-                keel::max(1, static_cast<int>(std::lround(static_cast<float>(m_config.width) * winCoordScale))),
-                keel::max(1, static_cast<int>(std::lround(static_cast<float>(m_config.height) * winCoordScale)))
+                keel::max(1, static_cast<keel::i32>(std::lround(static_cast<float>(m_config.width) * winCoordScale))),
+                keel::max(1, static_cast<keel::i32>(std::lround(static_cast<float>(m_config.height) * winCoordScale)))
             );
         }
     }
     if (m_config.minWidth > 0 && m_config.minHeight > 0) {
         SDL_SetWindowMinimumSize(
             m_window,
-            keel::max(1, static_cast<int>(std::lround(static_cast<float>(m_config.minWidth) * winCoordScale))),
-            keel::max(1, static_cast<int>(std::lround(static_cast<float>(m_config.minHeight) * winCoordScale)))
+            keel::max(1, static_cast<keel::i32>(std::lround(static_cast<float>(m_config.minWidth) * winCoordScale))),
+            keel::max(1, static_cast<keel::i32>(std::lround(static_cast<float>(m_config.minHeight) * winCoordScale)))
         );
     }
     SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
@@ -305,8 +305,8 @@ bool SdlWindowBackend::Initialize(
     SDL_SetRenderVSync(m_renderer, m_vsyncEnabled ? 1 : 0);
     SDL_StartTextInput(m_window);
 
-    int actualW = m_width;
-    int actualH = m_height;
+    keel::i32 actualW = m_width;
+    keel::i32 actualH = m_height;
     if (SDL_GetWindowSizeInPixels(m_window, &actualW, &actualH) && actualW > 0 && actualH > 0) {
         m_width = actualW;
         m_height = actualH;
@@ -335,7 +335,7 @@ bool SdlWindowBackend::Initialize(
     m_bufWidth = m_width;
     m_bufHeight = m_height;
     if (m_canvas->UsesCpuFramebuffer()) {
-        m_pixelBuffer.assign(static_cast<size_t>(m_bufWidth) * static_cast<size_t>(m_bufHeight), 0);
+        m_pixelBuffer.assign(static_cast<keel::usize>(m_bufWidth) * static_cast<keel::usize>(m_bufHeight), 0);
         m_canvas->SetTarget(m_pixelBuffer.data(), m_bufWidth, m_bufHeight, m_bufWidth);
 
         m_screenTexture = SDL_CreateTexture(
@@ -446,7 +446,7 @@ void SdlWindowBackend::RunMainLoopCallback(keel::Function<bool()> stepFn) {
 #endif
 }
 
-bool SdlWindowBackend::PumpEvents(Context& ui, bool reactiveMode, int sleepTimeoutMs) {
+bool SdlWindowBackend::PumpEvents(Context& ui, bool reactiveMode, keel::i32 sleepTimeoutMs) {
     m_skipRenderThisStep = false;
     if (m_shouldExit) {
         return false;
@@ -457,8 +457,8 @@ bool SdlWindowBackend::PumpEvents(Context& ui, bool reactiveMode, int sleepTimeo
     }
 
 #ifdef __EMSCRIPTEN__
-    int targetW = m_width;
-    int targetH = m_height;
+    keel::i32 targetW = m_width;
+    keel::i32 targetH = m_height;
     if (GetEmscriptenCanvasPhysicalSize(targetW, targetH, m_config.highDpi)) {
         if (targetW != m_width || targetH != m_height) {
             SDL_SetWindowSize(m_window, targetW, targetH);
@@ -491,7 +491,7 @@ bool SdlWindowBackend::PumpEvents(Context& ui, bool reactiveMode, int sleepTimeo
     return !m_shouldExit;
 #else
     if ((reactiveMode && !ui.NeedsRepaint() && AtomicLoadAcquireU32(m_wakePending) == 0u) || m_minimized) {
-        int waitMs = m_minimized ? 250 : sleepTimeoutMs;
+        keel::i32 waitMs = m_minimized ? 250 : sleepTimeoutMs;
         if (!m_minimized && m_gpuShaderEngine.HasIdleCachedResources() && (waitMs <= 0 || waitMs > 500)) {
             waitMs = 500;
         }
@@ -596,7 +596,7 @@ void SdlWindowBackend::ProcessEvent(const SDL_Event& event, Context& ui) {
         case SDL_EVENT_WINDOW_FOCUS_LOST:
             ui.SetKeyModifiers({false, false, false});
             if (m_pressedMouseMask != 0) {
-                for (int btn = 1; btn <= 8; ++btn) {
+                for (keel::i32 btn = 1; btn <= 8; ++btn) {
                     if ((m_pressedMouseMask & (1u << btn)) != 0) {
                         ui.OnMouseUp(btn);
                     }
@@ -762,7 +762,7 @@ void SdlWindowBackend::PrepareFrameTarget(Context& ui) {
         m_bufWidth = m_width;
         m_bufHeight = m_height;
         if (m_canvas->UsesCpuFramebuffer()) {
-            m_pixelBuffer.assign(static_cast<size_t>(m_bufWidth) * static_cast<size_t>(m_bufHeight), 0);
+            m_pixelBuffer.assign(static_cast<keel::usize>(m_bufWidth) * static_cast<keel::usize>(m_bufHeight), 0);
             m_canvas->SetTarget(m_pixelBuffer.data(), m_bufWidth, m_bufHeight, m_bufWidth);
             if (m_screenTexture) {
                 SDL_DestroyTexture(m_screenTexture);
@@ -799,32 +799,32 @@ void SdlWindowBackend::PresentFrame(const Context& ui, FrameMetrics& metrics, bo
         metrics.MarkGpuStart();
         if (ui.HasDirtyDamage()) {
             if (ui.IsFullRepaint()) {
-                SDL_UpdateTexture(m_screenTexture, nullptr, m_pixelBuffer.data(), m_width * sizeof(uint32_t));
+                SDL_UpdateTexture(m_screenTexture, nullptr, m_pixelBuffer.data(), m_width * sizeof(keel::u32));
             } else {
                 const float dpiScale = ui.GetDpiScale();
                 for (const Rect& dr : ui.GetDirtyRects()) {
-                    const int x1 = keel::clamp(static_cast<int>(std::floor(dr.x * dpiScale)), 0, m_width);
-                    const int y1 = keel::clamp(static_cast<int>(std::floor(dr.y * dpiScale)), 0, m_height);
-                    const int x2 = keel::clamp(static_cast<int>(std::ceil(dr.Right() * dpiScale)), 0, m_width);
-                    const int y2 = keel::clamp(static_cast<int>(std::ceil(dr.Bottom() * dpiScale)), 0, m_height);
+                    const keel::i32 x1 = keel::clamp(static_cast<keel::i32>(std::floor(dr.x * dpiScale)), 0, m_width);
+                    const keel::i32 y1 = keel::clamp(static_cast<keel::i32>(std::floor(dr.y * dpiScale)), 0, m_height);
+                    const keel::i32 x2 = keel::clamp(static_cast<keel::i32>(std::ceil(dr.Right() * dpiScale)), 0, m_width);
+                    const keel::i32 y2 = keel::clamp(static_cast<keel::i32>(std::ceil(dr.Bottom() * dpiScale)), 0, m_height);
                     if (x2 > x1 && y2 > y1) {
                         const SDL_Rect sdlR = {x1, y1, x2 - x1, y2 - y1};
-                        const uint32_t* src = m_pixelBuffer.data() + static_cast<size_t>(sdlR.y) * m_width + sdlR.x;
-                        SDL_UpdateTexture(m_screenTexture, &sdlR, src, m_width * sizeof(uint32_t));
+                        const keel::u32* src = m_pixelBuffer.data() + static_cast<keel::usize>(sdlR.y) * m_width + sdlR.x;
+                        SDL_UpdateTexture(m_screenTexture, &sdlR, src, m_width * sizeof(keel::u32));
                     }
                 }
             }
         }
         SDL_RenderClear(m_renderer);
         if (m_canvas->HasActiveGpuPasses()) {
-            m_gpuShaderEngine.RenderUnderlays(*m_canvas, static_cast<uint32_t>(m_width), static_cast<uint32_t>(m_height));
+            m_gpuShaderEngine.RenderUnderlays(*m_canvas, static_cast<keel::u32>(m_width), static_cast<keel::u32>(m_height));
         }
         SDL_RenderTexture(m_renderer, m_screenTexture, nullptr, nullptr);
         metrics.MarkGpuDone();
     } else {
         metrics.MarkGpuStart();
         if (m_canvas->HasActiveGpuPasses()) {
-            m_gpuShaderEngine.RenderUnderlays(*m_canvas, static_cast<uint32_t>(m_width), static_cast<uint32_t>(m_height));
+            m_gpuShaderEngine.RenderUnderlays(*m_canvas, static_cast<keel::u32>(m_width), static_cast<keel::u32>(m_height));
         }
         metrics.MarkGpuDone();
     }
@@ -840,7 +840,7 @@ void SdlWindowBackend::PaceFrame(double elapsedMs, bool presented) noexcept {
         const double sleepMs = presented
             ? (targetFrameMs - elapsedMs)
             : keel::min(4.0, targetFrameMs - elapsedMs);
-        SDL_Delay(static_cast<uint32_t>(sleepMs));
+        SDL_Delay(static_cast<keel::u32>(sleepMs));
     }
 #else
     (void)elapsedMs;
@@ -871,7 +871,7 @@ void SdlWindowBackend::UpdateSystemCursor(CursorType cursor) noexcept {
     }
     m_activeCursor = cursor;
 
-    const size_t idx = keel::min<size_t>(static_cast<size_t>(cursor), m_cursors.size() - 1);
+    const keel::usize idx = keel::min<keel::usize>(static_cast<keel::usize>(cursor), m_cursors.size() - 1);
     if (m_cursors[idx] == nullptr) {
         SDL_SystemCursor sysId = SDL_SYSTEM_CURSOR_DEFAULT;
         switch (cursor) {

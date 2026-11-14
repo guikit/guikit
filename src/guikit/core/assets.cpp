@@ -9,12 +9,12 @@ namespace guikit {
 namespace {
 
 struct RuntimeAssetRecord {
-    keel::Array<uint8_t> ownedBytes{}; // Always padded with a trailing '\0' when non-empty
-    const uint8_t* externalPtr{nullptr};
-    size_t size{0};
+    keel::Array<keel::u8> ownedBytes{}; // Always padded with a trailing '\0' when non-empty
+    const keel::u8* externalPtr{nullptr};
+    keel::usize size{0};
     keel::String mimeType{};
 
-    [[nodiscard]] const uint8_t* DataPtr() const noexcept {
+    [[nodiscard]] const keel::u8* DataPtr() const noexcept {
         return externalPtr != nullptr ? externalPtr : (ownedBytes.empty() ? nullptr : ownedBytes.data());
     }
 };
@@ -58,7 +58,7 @@ keel::String Assets::NormalizePath(keel::StringRef path) {
 
     // If an absolute or nested build path contains "/assets/", canonicalize from "assets/"
     if (!sv.starts_with("assets/")) {
-        const size_t pos = sv.find("/assets/");
+        const keel::usize pos = sv.find("/assets/");
         if (pos != keel::StringRef::npos) {
             sv.remove_prefix(pos + 1);
         }
@@ -71,7 +71,7 @@ keel::String Assets::NormalizePath(keel::StringRef path) {
 }
 
 keel::StringRef Assets::InferMimeType(keel::StringRef path) noexcept {
-    const size_t dot = path.rfind('.');
+    const keel::usize dot = path.rfind('.');
     if (dot == keel::StringRef::npos || dot + 1 >= path.size()) {
         return {};
     }
@@ -145,8 +145,8 @@ bool Assets::Exists(keel::StringRef virtualPath) {
 
 void Assets::Register(
     keel::StringRef virtualPath,
-    const uint8_t* data,
-    size_t size,
+    const keel::u8* data,
+    keel::usize size,
     keel::StringRef mimeType
 ) {
     keel::String norm = NormalizePath(virtualPath);
@@ -162,7 +162,7 @@ void Assets::Register(
 
 void Assets::RegisterOwned(
     keel::StringRef virtualPath,
-    keel::ArrayRef<uint8_t> bytes,
+    keel::ArrayRef<keel::u8> bytes,
     keel::StringRef mimeType
 ) {
     keel::String norm = NormalizePath(virtualPath);

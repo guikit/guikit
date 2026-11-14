@@ -61,7 +61,7 @@ Vec2 MeasureStatusSegment(
     const float itemGap = 5.0f * scale;
 
     float w = padX * 2.0f;
-    int parts = 0;
+    keel::i32 parts = 0;
 
     if (o.dotColor.a > 0) {
         w += 6.0f * scale;
@@ -295,7 +295,7 @@ StatusBarScope StatusBar::Open(
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->visualHash = detail::HashArgs(
-        static_cast<uint8_t>(opts.style),
+        static_cast<keel::u8>(opts.style),
         node->fixedHeight,
         opts.background,
         opts.border
@@ -369,12 +369,12 @@ Response StatusBar::RenderSegment(
     node->visualHash = detail::HashArgs(
         payload->opts.text,
         payload->opts.badge,
-        static_cast<uint8_t>(payload->opts.icon.GetType()),
-        static_cast<uint8_t>(payload->opts.icon.GetId()),
+        static_cast<keel::u8>(payload->opts.icon.GetType()),
+        static_cast<keel::u8>(payload->opts.icon.GetId()),
         payload->opts.icon.GetPath(),
         payload->opts.dotColor,
         payload->opts.color,
-        static_cast<uint8_t>(barStyle),
+        static_cast<keel::u8>(barStyle),
         interactive,
         opts.active,
         node->hovered,

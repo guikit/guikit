@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -16,14 +15,14 @@ class Context;
 class ICanvas;
 
 /// Display layout mode for the AttitudeView (Artificial Horizon / Primary Flight Display) widget.
-enum class AttitudeDisplayMode : uint8_t {
+enum class AttitudeDisplayMode : keel::u8 {
     FullPFD = 0,        ///< Complete Primary Flight Display: ADI horizon + IAS speed tape + Altitude & VSI tapes + Heading tape + FMA bar + ILS diamonds
     CompactADI,         ///< Standalone Attitude Director Indicator (artificial horizon without side tapes, with digital corner readouts)
     HudOverlay          ///< Transparent Head-Up Display (HUD) collimator vector symbology without opaque sky/ground fill
 };
 
 /// Viewport geometry and clipping mode for the artificial horizon sphere.
-enum class AttitudeViewportMode : uint8_t {
+enum class AttitudeViewportMode : keel::u8 {
     Auto = 0,           ///< Automatic shape based on displayMode (RoundedDome in FullPFD/HudOverlay, Circular in CompactADI)
     FullBleed,          ///< Edge-to-edge full-screen horizon (Garmin G1000 / G3000 style) with tapes overlaid on top
     RoundedDome,        ///< Classic central rounded-square ADI dome (Airbus / Boeing PFD style)
@@ -31,27 +30,27 @@ enum class AttitudeViewportMode : uint8_t {
 };
 
 /// Coordinate reference frame for the artificial horizon and aircraft symbol.
-enum class HorizonReferenceMode : uint8_t {
+enum class HorizonReferenceMode : keel::u8 {
     WesternMovingHorizon = 0, ///< Western ("Inside-Out" / View from cockpit): Fixed aircraft symbol, horizon rolls and pitches
     EasternMovingAircraft     ///< Russian KPPI / AGD ("Outside-In" / View from ground): Horizon pitches vertically while aircraft silhouette rolls
 };
 
 /// Color palette and avionics visual styling for the AttitudeView instrument.
-enum class AttitudeColorScheme : uint8_t {
+enum class AttitudeColorScheme : keel::u8 {
     GlassCockpit = 0,   ///< Classic avionics sky blue & earth brown (Garmin G1000 / Airbus / Boeing PFD style)
     HudGreen,           ///< High-contrast monochrome phosphor green HUD symbology
     TacticalDark        ///< Modern dark synth-vision telemetry theme matching the GuiKit dark palette
 };
 
 /// Flight Director (FD) command cue symbology mode.
-enum class FlightDirectorStyle : uint8_t {
+enum class FlightDirectorStyle : keel::u8 {
     Off = 0,            ///< Flight Director hidden
     SingleCueVBar,      ///< Single-cue magenta V-Bar wedge command indicator
     DualCueCrossbars    ///< Dual-cue magenta pitch & roll crossbar needles
 };
 
 /// Central fixed/rolling aircraft reference symbol style.
-enum class AircraftSymbolStyle : uint8_t {
+enum class AircraftSymbolStyle : keel::u8 {
     GullWing = 0,       ///< Classic yellow/amber twin L-wings with center bore-sight square
     ClassicW,           ///< W-shaped wing reference symbol with center apex
     RussianSilhouette   ///< KPPI winged silhouette with vertical stabilizer fin

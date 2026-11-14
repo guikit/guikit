@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -19,7 +18,7 @@ class ICanvas;
 struct Node;
 
 /// Visual highlight style for active ActivityBar items.
-enum class ActivityBarStyle : uint8_t {
+enum class ActivityBarStyle : keel::u8 {
     Indicator,  ///< VS Code style vertical accent bar on the outer rail edge + tinted icon
     Pill        ///< Full rounded square capsule highlight behind the active icon
 };
@@ -157,7 +156,7 @@ public:
     /// Declarative span entry point for rendering a list of ActivityBarItems and updating `activeIndex`.
     static Response Run(
         Context& ctx,
-        int& activeIndex,
+        keel::i32& activeIndex,
         keel::ArrayRef<ActivityBarItem> items,
         const ActivityBarOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()

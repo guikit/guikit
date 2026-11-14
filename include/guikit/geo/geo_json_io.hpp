@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstddef>
 #include "guikit/geo/geo_types.hpp"
 #include "keel/array.h"
 #include "keel/ref.h"
@@ -24,8 +23,8 @@ struct GeoJsonLoadResult {
     keel::Array<GeoLayer> layers{};
     guikit::GeoBounds totalBounds{};
     bool hasValidBounds{false};
-    size_t totalFeatures{0};
-    size_t totalVertices{0};
+    keel::usize totalFeatures{0};
+    keel::usize totalVertices{0};
 
     [[nodiscard]] keel::StringRef Error() const noexcept { return errorMessage.as_ref(); }
 };

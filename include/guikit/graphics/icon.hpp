@@ -1,14 +1,14 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/core/types.hpp"
+#include "keel/core.h"
 
 namespace guikit {
 
 class ICanvas;
 
 /// Catalog of standard procedural vector icon glyphs.
-enum class IconId : uint16_t {
+enum class IconId : keel::u16 {
     None = 0,
 
     // Actions & Navigation
@@ -58,7 +58,7 @@ enum class IconId : uint16_t {
 /// First-class Value Object representing an icon (procedural vector, asset file, or texture).
 class Icon {
 public:
-    enum class SourceType : uint8_t {
+    enum class SourceType : keel::u8 {
         None = 0,
         Builtin,  ///< Procedural vector shape drawn directly via ICanvas
         Asset,    ///< SVG / file path
@@ -82,7 +82,7 @@ public:
         return ic;
     }
 
-    [[nodiscard]] static Icon Texture(uint64_t textureId, float width, float height) noexcept {
+    [[nodiscard]] static Icon Texture(keel::u64 textureId, float width, float height) noexcept {
         Icon ic;
         ic.m_type = SourceType::Texture;
         ic.m_textureId = textureId;
@@ -164,7 +164,7 @@ private:
     IconId m_id{IconId::None};
     SourceType m_type{SourceType::None};
     keel::StringRef m_path{};
-    uint64_t m_textureId{0};
+    keel::u64 m_textureId{0};
     Vec2 m_texSize{0.0f, 0.0f};
 };
 

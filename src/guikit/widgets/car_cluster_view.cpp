@@ -155,7 +155,7 @@ void DrawCircularArc(
     float endDeg,
     Color color,
     float thickness,
-    int segments = 36
+    keel::i32 segments = 36
 ) noexcept {
     if (radius <= 1.0f || std::abs(endDeg - startDeg) < 0.2f || segments < 2) return;
     const float step = (endDeg - startDeg) / static_cast<float>(segments);
@@ -163,7 +163,7 @@ void DrawCircularArc(
         center.x + std::cos(startDeg * kDegToRad) * radius,
         center.y + std::sin(startDeg * kDegToRad) * radius
     };
-    for (int i = 1; i <= segments; ++i) {
+    for (keel::i32 i = 1; i <= segments; ++i) {
         const float deg = startDeg + step * static_cast<float>(i);
         const Vec2 cur{
             center.x + std::cos(deg * kDegToRad) * radius,
@@ -205,8 +205,8 @@ void DrawGaugeNeedle(
     canvas.DrawLine(baseCenter, tip, Color(255, 255, 255, 210), 1.2f * s);
 }
 
-void FormatGearText(GearSelector sel, int gear, char outMode[4], char outGear[8]) noexcept {
-    const int clampedGear = keel::clamp(gear, 1, 8);
+void FormatGearText(GearSelector sel, keel::i32 gear, char outMode[4], char outGear[8]) noexcept {
+    const keel::i32 clampedGear = keel::clamp(gear, 1, 8);
     switch (sel) {
         case GearSelector::Park:
             keel::format_buf(outMode, 4, "P");
@@ -255,7 +255,7 @@ void RenderShiftLightStrip(
         loadNorm = keel::clamp(opts.evPowerKw / 420.0f, 0.0f, 1.08f);
     }
 
-    constexpr int kNumLeds = 15;
+    constexpr keel::i32 kNumLeds = 15;
     const float padX = 12.0f * s;
     const float availW = keel::max(40.0f, stripRect.w - padX * 2.0f);
     const float gap = 4.0f * s;
@@ -264,9 +264,9 @@ void RenderShiftLightStrip(
     const float y = stripRect.y + (stripRect.h - ledH) * 0.5f;
 
     const bool shiftFlash = (loadNorm >= 0.97f);
-    const int litCount = static_cast<int>(std::round(keel::clamp(loadNorm, 0.0f, 1.0f) * static_cast<float>(kNumLeds)));
+    const keel::i32 litCount = static_cast<keel::i32>(std::round(keel::clamp(loadNorm, 0.0f, 1.0f) * static_cast<float>(kNumLeds)));
 
-    for (int i = 0; i < kNumLeds; ++i) {
+    for (keel::i32 i = 0; i < kNumLeds; ++i) {
         const float x = stripRect.x + padX + static_cast<float>(i) * (ledW + gap);
         const Rect lr(x, y, ledW, ledH);
         const bool isLit = (i < litCount) && (!shiftFlash || opts.telltales.blinkPhaseOn);
@@ -452,11 +452,11 @@ void RenderSpeedometerDial(
     }
 
     // Major & Minor Speed Ticks + Numeric Labels
-    const int majorStep = (opts.speedUnit == SpeedUnit::Mph) ? 20 : 30;
-    const int minorStep = (opts.speedUnit == SpeedUnit::Mph) ? 5 : 10;
-    const int maxTick = static_cast<int>(std::round(maxSpdDisp));
+    const keel::i32 majorStep = (opts.speedUnit == SpeedUnit::Mph) ? 20 : 30;
+    const keel::i32 minorStep = (opts.speedUnit == SpeedUnit::Mph) ? 5 : 10;
+    const keel::i32 maxTick = static_cast<keel::i32>(std::round(maxSpdDisp));
 
-    for (int v = 0; v <= maxTick; v += minorStep) {
+    for (keel::i32 v = 0; v <= maxTick; v += minorStep) {
         const float frac = static_cast<float>(v) / maxSpdDisp;
         if (frac > 1.001f) break;
         const float deg = kStartDeg + frac * kSweepDeg;
@@ -582,9 +582,9 @@ void RenderTachOrPowerDial(
         }
 
         // Ticks: 0..8 (or 9) x1000 RPM
-        const int maxK = static_cast<int>(std::ceil(maxRpm / 1000.0f));
-        const int totalSubTicks = maxK * 5;
-        for (int t = 0; t <= totalSubTicks; ++t) {
+        const keel::i32 maxK = static_cast<keel::i32>(std::ceil(maxRpm / 1000.0f));
+        const keel::i32 totalSubTicks = maxK * 5;
+        for (keel::i32 t = 0; t <= totalSubTicks; ++t) {
             const float rpmVal = static_cast<float>(t) * 200.0f;
             if (rpmVal > maxRpm + 10.0f) break;
             const float frac = rpmVal / maxRpm;
@@ -799,7 +799,7 @@ void RenderAdasLaneRadarPage(
     const float botHalfW = bodyRect.w * 0.44f;
 
     // Road surface polygon slices with steering curvature
-    constexpr int kRoadSlices = 14;
+    constexpr keel::i32 kRoadSlices = 14;
     auto laneCenterAt = [&](float depthT) noexcept -> float {
         // depthT: 0.0 at horizon (top), 1.0 at bottom (ego car)
         const float farFactor = (1.0f - depthT) * (1.0f - depthT);
@@ -812,7 +812,7 @@ void RenderAdasLaneRadarPage(
     const Color laneRailCol = opts.telltales.laneKeepActive ? pal.ecoGreen : pal.textMuted;
     const Color carpetCol   = pal.primaryAccent.WithAlpha(34);
 
-    for (int i = 0; i < kRoadSlices; ++i) {
+    for (keel::i32 i = 0; i < kRoadSlices; ++i) {
         const float t0 = static_cast<float>(i) / static_cast<float>(kRoadSlices);
         const float t1 = static_cast<float>(i + 1) / static_cast<float>(kRoadSlices);
         const float y0 = horizonY + t0 * roadH;
@@ -841,14 +841,14 @@ void RenderAdasLaneRadarPage(
     }
 
     // Animated scrolling distance chevrons along ego lane carpet
-    for (int k = 0; k < 5; ++k) {
+    for (keel::i32 k = 0; k < 5; ++k) {
         float depthT = std::fmod(static_cast<float>(k) * 0.20f + roadPhase, 1.0f);
         depthT = depthT * depthT; // perspective foreshortening
         if (depthT < 0.08f || depthT > 0.85f) continue;
         const float y = horizonY + depthT * roadH;
         const float lcx = laneCenterAt(depthT);
         const float hw = laneHalfWidthAt(depthT) * 0.42f;
-        const Color chevCol = pal.primaryAccent.WithAlpha(static_cast<uint8_t>(50 + depthT * 120.0f));
+        const Color chevCol = pal.primaryAccent.WithAlpha(static_cast<keel::u8>(50 + depthT * 120.0f));
         canvas.DrawLine({lcx - hw, y + 4.0f * s}, {lcx, y}, chevCol, 1.5f * s);
         canvas.DrawLine({lcx, y}, {lcx + hw, y + 4.0f * s}, chevCol, 1.5f * s);
     }
@@ -967,9 +967,9 @@ void RenderTpmsChassisPage(
     };
     const char* wheelNames[4] = {"FL", "FR", "RL", "RR"};
 
-    for (int i = 0; i < 4; ++i) {
-        const float bar = opts.tirePressureBar[static_cast<size_t>(i)];
-        const float tmpC = opts.tireTempC[static_cast<size_t>(i)];
+    for (keel::i32 i = 0; i < 4; ++i) {
+        const float bar = opts.tirePressureBar[static_cast<keel::usize>(i)];
+        const float tmpC = opts.tireTempC[static_cast<keel::usize>(i)];
         const bool warn = (bar < 2.0f || bar > 3.1f || tmpC > 85.0f);
         const Color wCol = warn ? pal.warningAmber : pal.ecoGreen;
 
@@ -1133,8 +1133,8 @@ void RenderCenterMfd(
     const float startX = footerRect.Center().x - totalDotsW * 0.5f;
     const float dotY = footerRect.Center().y - dotH * 0.5f;
 
-    for (int i = 0; i < 3; ++i) {
-        const bool isCurrent = (static_cast<int>(opts.centerMfd) == i);
+    for (keel::i32 i = 0; i < 3; ++i) {
+        const bool isCurrent = (static_cast<keel::i32>(opts.centerMfd) == i);
         const Rect dr(startX + static_cast<float>(i) * (dotW + dotGap), dotY, dotW, dotH);
         canvas.DrawRoundRect(dr, dotH * 0.5f, isCurrent ? pal.primaryAccent : Color(51, 65, 85, 160));
     }
@@ -1267,7 +1267,7 @@ void RenderBottomTripBar(
     const float startX = botRect.Center().x - totalW * 0.5f;
     const float cy = botRect.Center().y - cellH * 0.5f;
 
-    for (int i = 0; i < 6; ++i) {
+    for (keel::i32 i = 0; i < 6; ++i) {
         const bool active = (opts.gearSelector == kModes[i]);
         const Rect cr(startX + static_cast<float>(i) * (cellW + gap), cy, cellW, cellH);
         if (active) {
@@ -1534,7 +1534,7 @@ CarClusterViewResponse CarClusterView::Run(
             const Rect mfdHit = (opts.layoutMode == ClusterLayoutMode::TrackCentral) ? resp.rightGaugeRect : resp.centerMfdRect;
             if (baseRes.clicked && mfdHit.Contains(mouse)) {
                 if (opts.centerMfdPtr) {
-                    const int nextPage = (static_cast<int>(*opts.centerMfdPtr) + 1) % 3;
+                    const keel::i32 nextPage = (static_cast<keel::i32>(*opts.centerMfdPtr) + 1) % 3;
                     *opts.centerMfdPtr = static_cast<ClusterCenterMfd>(nextPage);
                     resp.activeCenterMfd = *opts.centerMfdPtr;
                     resp.changed = true;
@@ -1544,8 +1544,8 @@ CarClusterViewResponse CarClusterView::Run(
             // Mouse wheel shifts manual gear 1..8
             const float wheelY = ctx.GetMouseWheel().y;
             if (std::abs(wheelY) > 0.01f && opts.manualGearPtr) {
-                const int step = (wheelY > 0.0f) ? 1 : -1;
-                const int newGear = keel::clamp(*opts.manualGearPtr + step, 1, 8);
+                const keel::i32 step = (wheelY > 0.0f) ? 1 : -1;
+                const keel::i32 newGear = keel::clamp(*opts.manualGearPtr + step, 1, 8);
                 if (newGear != *opts.manualGearPtr) {
                     *opts.manualGearPtr = newGear;
                     resp.changed = true;
@@ -1579,7 +1579,7 @@ CarClusterViewResponse CarClusterView::Run(
     node->text = "CarClusterView";
     node->SetPayload(payload);
 
-    const uint16_t telltaleMask = static_cast<uint16_t>(
+    const keel::u16 telltaleMask = static_cast<keel::u16>(
         (payload->opts.telltales.leftTurn             ? (1u << 0)  : 0u) |
         (payload->opts.telltales.rightTurn            ? (1u << 1)  : 0u) |
         (payload->opts.telltales.hazard               ? (1u << 2)  : 0u) |
@@ -1598,12 +1598,12 @@ CarClusterViewResponse CarClusterView::Run(
     );
 
     node->visualHash = detail::HashArgs(
-        static_cast<uint8_t>(payload->opts.layoutMode),
-        static_cast<uint8_t>(payload->opts.powertrain),
-        static_cast<uint8_t>(payload->opts.driveTheme),
-        static_cast<uint8_t>(payload->opts.centerMfd),
-        static_cast<uint8_t>(payload->opts.speedUnit),
-        static_cast<uint8_t>(payload->opts.gearSelector),
+        static_cast<keel::u8>(payload->opts.layoutMode),
+        static_cast<keel::u8>(payload->opts.powertrain),
+        static_cast<keel::u8>(payload->opts.driveTheme),
+        static_cast<keel::u8>(payload->opts.centerMfd),
+        static_cast<keel::u8>(payload->opts.speedUnit),
+        static_cast<keel::u8>(payload->opts.gearSelector),
         payload->opts.speedKmh,
         payload->opts.maxSpeedKmh,
         payload->opts.cruiseTargetKmh,

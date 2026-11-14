@@ -23,7 +23,7 @@ namespace guikit {
 
 namespace {
 
-enum class AlertKind : uint8_t {
+enum class AlertKind : keel::u8 {
     None = 0,
     Note,
     Tip,
@@ -32,7 +32,7 @@ enum class AlertKind : uint8_t {
     Caution
 };
 
-enum class BlockKind : uint8_t {
+enum class BlockKind : keel::u8 {
     Heading = 0,
     Paragraph,
     Blockquote,
@@ -50,12 +50,12 @@ struct TableCell {
 
 struct MarkdownBlock {
     BlockKind kind{BlockKind::Paragraph};
-    uint8_t headingLevel{1};            // 1..6
-    uint8_t indentLevel{0};             // 0..3 for nested lists
+    keel::u8 headingLevel{1};            // 1..6
+    keel::u8 indentLevel{0};             // 0..3 for nested lists
     bool isOrderedList{false};
-    uint16_t listNumber{1};
-    int8_t taskState{-1};               // -1 = normal bullet, 0 = [ ], 1 = [x]
-    int taskIndex{-1};                  // 0-based index across task items in document
+    keel::u16 listNumber{1};
+    keel::i8 taskState{-1};               // -1 = normal bullet, 0 = [ ], 1 = [x]
+    keel::i32 taskIndex{-1};                  // 0-based index across task items in document
     AlertKind alertKind{AlertKind::None};
     keel::String alertTitle{};
     keel::String codeLang{};
@@ -64,11 +64,11 @@ struct MarkdownBlock {
     keel::Array<InlineSpan> spans{};
     keel::Array<Align> tableAligns{};
     keel::Array<keel::Array<TableCell>> tableRows{}; // row 0 = header
-    int codeBlockIndex{-1};
+    keel::i32 codeBlockIndex{-1};
 };
 
 struct ParsedMarkdownDoc {
-    uint64_t sourceHash{0};
+    keel::u64 sourceHash{0};
     keel::Array<MarkdownBlock> blocks{};
 };
 
@@ -88,9 +88,9 @@ keel::Array<keel::StringRef> SplitTableCells(keel::StringRef rowLine) {
     if (!s.empty() && s.back() == '|') s.remove_suffix(1);
 
     keel::Array<keel::StringRef> cells;
-    size_t pos = 0;
+    keel::usize pos = 0;
     while (pos <= s.size()) {
-        const size_t pipe = s.find('|', pos);
+        const keel::usize pipe = s.find('|', pos);
         if (pipe == keel::StringRef::npos) {
             cells.push_back(TrimView(s.substr(pos)));
             break;
@@ -129,16 +129,16 @@ bool IsTableSeparatorRow(keel::StringRef line, keel::Array<Align>& outAligns) {
     return true;
 }
 
-uint64_t g_lastAnyMarkdownRunSeq = 0;
+keel::u64 g_lastAnyMarkdownRunSeq = 0;
 
 auto& GetMarkdownParseCache() {
-    thread_local keel::LruCache<uint64_t, keel::Arc<const ParsedMarkdownDoc>, 8> s_cache;
+    thread_local keel::LruCache<keel::u64, keel::Arc<const ParsedMarkdownDoc>, 8> s_cache;
     return s_cache;
 }
 
 keel::Arc<const ParsedMarkdownDoc> GetOrParseMarkdown(keel::StringRef source) {
     auto& cache = GetMarkdownParseCache();
-    const uint64_t h = detail::HashArgs(source, source.size());
+    const keel::u64 h = detail::HashArgs(source, source.size());
     if (const auto* found = cache.find(h)) {
         return *found;
     }
@@ -148,9 +148,9 @@ keel::Arc<const ParsedMarkdownDoc> GetOrParseMarkdown(keel::StringRef source) {
     doc.sourceHash = h;
 
     keel::Array<keel::StringRef> lines;
-    size_t pos = 0;
+    keel::usize pos = 0;
     while (pos <= source.size()) {
-        const size_t nl = source.find('\n', pos);
+        const keel::usize nl = source.find('\n', pos);
         if (nl == keel::StringRef::npos) {
             lines.push_back(source.substr(pos));
             break;
@@ -161,9 +161,9 @@ keel::Arc<const ParsedMarkdownDoc> GetOrParseMarkdown(keel::StringRef source) {
         pos = nl + 1;
     }
 
-    int nextCodeBlockIdx = 0;
-    int nextTaskIdx = 0;
-    size_t i = 0;
+    keel::i32 nextCodeBlockIdx = 0;
+    keel::i32 nextTaskIdx = 0;
+    keel::usize i = 0;
     while (i < lines.size()) {
         const keel::StringRef rawLine = lines[i];
         const keel::StringRef trimmed = TrimView(rawLine);
@@ -215,7 +215,7 @@ keel::Arc<const ParsedMarkdownDoc> GetOrParseMarkdown(keel::StringRef source) {
 
         // 3. Heading: # .. ######
         if (trimmed.front() == '#') {
-            uint8_t lvl = 0;
+            keel::u8 lvl = 0;
             while (lvl < trimmed.size() && lvl < 6 && trimmed[lvl] == '#') {
                 ++lvl;
             }
@@ -232,8 +232,8 @@ keel::Arc<const ParsedMarkdownDoc> GetOrParseMarkdown(keel::StringRef source) {
 
         // 4. Standalone Image: ![Alt](path)
         if (trimmed.starts_with("![")) {
-            const size_t closeBr = trimmed.find("](");
-            const size_t closePar = (closeBr != keel::StringRef::npos) ? trimmed.find(')', closeBr + 2) : keel::StringRef::npos;
+            const keel::usize closeBr = trimmed.find("](");
+            const keel::usize closePar = (closeBr != keel::StringRef::npos) ? trimmed.find(')', closeBr + 2) : keel::StringRef::npos;
             if (closeBr != keel::StringRef::npos && closePar != keel::StringRef::npos) {
                 MarkdownBlock blk{};
                 blk.kind = BlockKind::ImageBlock;
@@ -261,7 +261,7 @@ keel::Arc<const ParsedMarkdownDoc> GetOrParseMarkdown(keel::StringRef source) {
 
             keel::String combined;
             if (alert != AlertKind::None) {
-                const size_t closeBr = firstContent.find(']');
+                const keel::usize closeBr = firstContent.find(']');
                 keel::StringRef rest = (closeBr != keel::StringRef::npos) ? TrimView(firstContent.substr(closeBr + 1)) : keel::StringRef{};
                 if (!rest.empty()) combined.append(rest);
                 ++i;
@@ -318,11 +318,11 @@ keel::Arc<const ParsedMarkdownDoc> GetOrParseMarkdown(keel::StringRef source) {
         }
 
         // 7. Unordered / Task List Item (- item, * item, - [x] task) or Ordered List Item (1. item)
-        size_t leadingSpaces = 0;
+        keel::usize leadingSpaces = 0;
         while (leadingSpaces < rawLine.size() && rawLine[leadingSpaces] == ' ') {
             ++leadingSpaces;
         }
-        const uint8_t indentLvl = static_cast<uint8_t>(keel::min<size_t>(3, leadingSpaces / 2));
+        const keel::u8 indentLvl = static_cast<keel::u8>(keel::min<keel::usize>(3, leadingSpaces / 2));
 
         if ((trimmed.starts_with("- ") || trimmed.starts_with("* ")) && trimmed.size() > 2) {
             MarkdownBlock blk{};
@@ -344,7 +344,7 @@ keel::Arc<const ParsedMarkdownDoc> GetOrParseMarkdown(keel::StringRef source) {
             continue;
         }
 
-        size_t digitEnd = 0;
+        keel::usize digitEnd = 0;
         while (digitEnd < trimmed.size() && trimmed[digitEnd] >= '0' && trimmed[digitEnd] <= '9') {
             ++digitEnd;
         }
@@ -353,11 +353,11 @@ keel::Arc<const ParsedMarkdownDoc> GetOrParseMarkdown(keel::StringRef source) {
             blk.kind = BlockKind::ListItem;
             blk.indentLevel = indentLvl;
             blk.isOrderedList = true;
-            uint16_t num = 0;
-            for (size_t d = 0; d < digitEnd; ++d) {
-                num = static_cast<uint16_t>(num * 10 + (trimmed[d] - '0'));
+            keel::u16 num = 0;
+            for (keel::usize d = 0; d < digitEnd; ++d) {
+                num = static_cast<keel::u16>(num * 10 + (trimmed[d] - '0'));
             }
-            blk.listNumber = keel::max<uint16_t>(1, num);
+            blk.listNumber = keel::max<keel::u16>(1, num);
             blk.spans = ParseInlineSpans(TrimView(trimmed.substr(digitEnd + 2)));
             doc.blocks.push_back(keel::move(blk));
             ++i;
@@ -392,8 +392,8 @@ constexpr Rect OffsetRect(Rect r, Vec2 delta) noexcept {
     return Rect(r.x + delta.x, r.y + delta.y, r.w, r.h);
 }
 
-float HeadingFontSize(uint8_t level, const MarkdownOptions& opts, const UiTheme& theme, float zoom) noexcept {
-    const HeadingLevel hl = static_cast<HeadingLevel>(keel::clamp<uint8_t>(level, 1, 6));
+float HeadingFontSize(keel::u8 level, const MarkdownOptions& opts, const UiTheme& theme, float zoom) noexcept {
+    const HeadingLevel hl = static_cast<HeadingLevel>(keel::clamp<keel::u8>(level, 1, 6));
     const float base = theme.GetHeading(hl).titleFontSize;
     return base * keel::clamp(opts.headingScale, 0.5f, 2.5f) * zoom;
 }
@@ -425,13 +425,13 @@ Icon AlertIcon(AlertKind kind) noexcept {
 struct CopyBtnHitRegion {
     Rect boxLocalRect{};
     float headerH{0.0f};
-    int codeBlockIndex{-1};
+    keel::i32 codeBlockIndex{-1};
     keel::StringRef rawCode{};
 };
 
 struct TaskHitRegion {
     Rect localHitRect{};
-    int taskIndex{-1};
+    keel::i32 taskIndex{-1};
     bool defaultChecked{false};
 };
 
@@ -442,19 +442,19 @@ struct CodeRenderSpan {
 };
 
 struct CodeVisualLineLayout {
-    size_t logicalLine{0};
+    keel::usize logicalLine{0};
     bool isFirstSlice{true};
     bool isLastSlice{true};
     keel::StringRef sliceStr{};
     float localY{0.0f};
     float textLocalY{0.0f};
-    size_t tokenIndex{SIZE_MAX};
+    keel::usize tokenIndex{keel::kInvalidIndex};
     keel::Array<CodeRenderSpan> renderSpans{};
 };
 
 struct BlockLayout {
     BlockKind kind{BlockKind::Paragraph};
-    size_t astBlockIndex{0};
+    keel::usize astBlockIndex{0};
     Rect localBounds{}; // Bounding box in document-local coordinates (0, 0), used for O(1) frustum culling
 
     InlineFlowLayout flow{};
@@ -488,7 +488,7 @@ struct BlockLayout {
 
 struct MarkdownDocumentLayout {
     keel::Arc<const ParsedMarkdownDoc> doc{}; // Keeps backing AST & rawText slices alive while layout lives
-    uint64_t layoutKey{0};
+    keel::u64 layoutKey{0};
     float outerWidth{0.0f};
     float totalWidth{0.0f};
     float totalHeight{0.0f};
@@ -507,22 +507,22 @@ struct MarkdownPassResult {
     float totalHeight{0.0f};
     keel::StringRef hoveredLink{};
     Rect hoveredLinkRect{};
-    int hoveredCopyBlock{-1};
+    keel::i32 hoveredCopyBlock{-1};
     keel::StringRef hoveredCopyCode{};
-    int hoveredTaskIndex{-1};
+    keel::i32 hoveredTaskIndex{-1};
     bool hoveredTaskCurrentState{false};
 };
 
-uint64_t ComputeMarkdownLayoutKey(
-    uint64_t docSourceHash,
+keel::u64 ComputeMarkdownLayoutKey(
+    keel::u64 docSourceHash,
     float outerWidth,
     float effZoom,
     const MarkdownOptions& opts,
     const UiTheme& theme,
     bool hasCanvasMetrics
 ) noexcept {
-    const int32_t qWidth = static_cast<int32_t>(std::round(outerWidth * 2.0f));
-    const int32_t qZoom = static_cast<int32_t>(std::round(effZoom * 1000.0f));
+    const keel::i32 qWidth = static_cast<keel::i32>(std::round(outerWidth * 2.0f));
+    const keel::i32 qZoom = static_cast<keel::i32>(std::round(effZoom * 1000.0f));
     return detail::HashArgs(
         docSourceHash,
         qWidth,
@@ -562,7 +562,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
     const MarkdownOptions& opts,
     const UiTheme& theme,
     float zoom,
-    uint64_t layoutKey
+    keel::u64 layoutKey
 ) {
     auto layoutPtr = keel::make_arc<MarkdownDocumentLayout>();
     MarkdownDocumentLayout& out = *layoutPtr;
@@ -608,7 +608,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
     bool firstBlock = true;
     out.blocks.reserve(doc.blocks.size());
 
-    for (size_t bIdx = 0; bIdx < doc.blocks.size(); ++bIdx) {
+    for (keel::usize bIdx = 0; bIdx < doc.blocks.size(); ++bIdx) {
         const MarkdownBlock& blk = doc.blocks[bIdx];
         if (!firstBlock) {
             curY += (blk.kind == BlockKind::Heading) ? (gap * 1.25f) : gap;
@@ -782,10 +782,10 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
 
             case BlockKind::CodeBlock: {
                 keel::Array<keel::StringRef> codeLines;
-                size_t p = 0;
+                keel::usize p = 0;
                 keel::StringRef raw = blk.rawText;
                 while (p <= raw.size()) {
-                    const size_t nl = raw.find('\n', p);
+                    const keel::usize nl = raw.find('\n', p);
                     if (nl == keel::StringRef::npos) {
                         codeLines.push_back(raw.substr(p));
                         break;
@@ -817,7 +817,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
 
                 bl.codeVisualLines.reserve(codeLines.size());
 
-                for (size_t ln = 0; ln < codeLines.size(); ++ln) {
+                for (keel::usize ln = 0; ln < codeLines.size(); ++ln) {
                     const keel::StringRef lineStr = codeLines[ln];
                     syntaxSpans.clear();
                     if (opts.syntaxHighlight && !lineStr.empty()) {
@@ -832,15 +832,15 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                         );
                     }
 
-                    auto emitSlice = [&](size_t startCol, size_t len, bool isFirst, bool isLast) {
-                        const size_t vIdx = bl.codeVisualLines.size();
+                    auto emitSlice = [&](keel::usize startCol, keel::usize len, bool isFirst, bool isLast) {
+                        const keel::usize vIdx = bl.codeVisualLines.size();
                         const float ly = curY + headerH + padY + static_cast<float>(vIdx) * codeLineH;
                         const float textY = ly + (codeLineH - ((codeGlyphH > 0.0f) ? codeGlyphH : codeFs)) * 0.5f;
                         const keel::StringRef sliceStr = lineStr.substr(startCol, len);
                         const float lineW = keel::max(spaceW, MeasureStyledSlice(canvas, sliceStr, codeFs, FontStyle::Monospace));
                         const Rect lineRect(codeStartX, ly, lineW, codeLineH);
 
-                        const size_t tokIdx = out.textMap.tokens.size();
+                        const keel::usize tokIdx = out.textMap.tokens.size();
                         if (!sliceStr.empty()) {
                             out.textMap.AddToken(lineRect, sliceStr, codeFs, FontStyle::Monospace, 0.0f);
                         } else {
@@ -867,13 +867,13 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                                     .localOffsetX = 0.0f
                                 });
                             } else {
-                                const size_t sliceEnd = startCol + len;
+                                const keel::usize sliceEnd = startCol + len;
                                 float spanOffX = 0.0f;
                                 for (const TextSpan& sp : syntaxSpans) {
-                                    const size_t spStart = static_cast<size_t>(sp.startCol);
-                                    const size_t spEnd = spStart + static_cast<size_t>(sp.length);
-                                    const size_t segStart = keel::max(spStart, startCol);
-                                    const size_t segEnd = keel::min(spEnd, keel::min(sliceEnd, lineStr.size()));
+                                    const keel::usize spStart = static_cast<keel::usize>(sp.startCol);
+                                    const keel::usize spEnd = spStart + static_cast<keel::usize>(sp.length);
+                                    const keel::usize segStart = keel::max(spStart, startCol);
+                                    const keel::usize segEnd = keel::min(spEnd, keel::min(sliceEnd, lineStr.size()));
                                     if (segEnd > segStart) {
                                         const keel::StringRef tok = lineStr.substr(segStart, segEnd - segStart);
                                         bool allSpaces = true;
@@ -909,15 +909,15 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                         continue;
                     }
 
-                    size_t pos = 0;
+                    keel::usize pos = 0;
                     while (pos < lineStr.size()) {
-                        const size_t approxChars = keel::max<size_t>(1, static_cast<size_t>(std::floor(codeAvailW / spaceW)));
-                        size_t fitEnd = keel::min(lineStr.size(), pos + approxChars);
+                        const keel::usize approxChars = keel::max<keel::usize>(1, static_cast<keel::usize>(std::floor(codeAvailW / spaceW)));
+                        keel::usize fitEnd = keel::min(lineStr.size(), pos + approxChars);
                         while (fitEnd < lineStr.size() && (static_cast<unsigned char>(lineStr[fitEnd]) & 0xC0) == 0x80) {
                             ++fitEnd;
                         }
                         while (fitEnd < lineStr.size()) {
-                            size_t nextCp = fitEnd + 1;
+                            keel::usize nextCp = fitEnd + 1;
                             while (nextCp < lineStr.size() && (static_cast<unsigned char>(lineStr[nextCp]) & 0xC0) == 0x80) {
                                 ++nextCp;
                             }
@@ -934,10 +934,10 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                             }
                         }
 
-                        size_t splitEnd = fitEnd;
+                        keel::usize splitEnd = fitEnd;
                         if (fitEnd < lineStr.size() && (fitEnd - pos) >= 10) {
-                            const size_t minBreak = pos + ((fitEnd - pos) * 60) / 100;
-                            for (size_t k = fitEnd; k > minBreak; --k) {
+                            const keel::usize minBreak = pos + ((fitEnd - pos) * 60) / 100;
+                            for (keel::usize k = fitEnd; k > minBreak; --k) {
                                 const char ch = lineStr[k - 1];
                                 if (ch == ' ' || ch == ',' || ch == ';' || ch == '(' || ch == '{' || ch == '[') {
                                     splitEnd = k;
@@ -1027,7 +1027,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
 
             case BlockKind::Table: {
                 if (blk.tableRows.empty()) break;
-                size_t numCols = keel::max<size_t>(1, blk.tableAligns.size());
+                keel::usize numCols = keel::max<keel::usize>(1, blk.tableAligns.size());
                 for (const auto& r : blk.tableRows) {
                     numCols = keel::max(numCols, r.size());
                 }
@@ -1039,10 +1039,10 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                 keel::Array<float> minTextW(numCols, 24.0f * s);
                 keel::Array<float> naturalTextW(numCols, 24.0f * s);
 
-                for (size_t r = 0; r < blk.tableRows.size(); ++r) {
+                for (keel::usize r = 0; r < blk.tableRows.size(); ++r) {
                     const FontStyle rowBaseStyle = (r == 0) ? FontStyle::Bold : FontStyle::Regular;
                     const auto& rowCells = blk.tableRows[r];
-                    for (size_t c = 0; c < numCols && c < rowCells.size(); ++c) {
+                    for (keel::usize c = 0; c < numCols && c < rowCells.size(); ++c) {
                         const auto [cellMinTokW, cellNatW] = MeasureInlineSpansIntrinsicWidths(
                             canvas,
                             rowCells[c].spans,
@@ -1057,7 +1057,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                 }
 
                 float sumMinTextW = 0.0f;
-                for (size_t c = 0; c < numCols; ++c) {
+                for (keel::usize c = 0; c < numCols; ++c) {
                     minTextW[c] = keel::min(minTextW[c], naturalTextW[c]);
                     sumMinTextW += minTextW[c];
                 }
@@ -1076,7 +1076,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                 keel::Array<float> naturalColW(numCols, 0.0f);
                 float sumMinW = 0.0f;
                 float sumNatW = 0.0f;
-                for (size_t c = 0; c < numCols; ++c) {
+                for (keel::usize c = 0; c < numCols; ++c) {
                     minColW[c] = minTextW[c] * tableFontScale + cellPadX * 2.0f;
                     naturalColW[c] = naturalTextW[c] * tableFontScale + cellPadX * 2.0f;
                     sumMinW += minColW[c];
@@ -1086,17 +1086,17 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                 bl.colWidths.assign(numCols, availW / static_cast<float>(numCols));
                 if (availW >= sumNatW && sumNatW > 0.0f) {
                     const float extraW = availW - sumNatW;
-                    for (size_t c = 0; c < numCols; ++c) {
+                    for (keel::usize c = 0; c < numCols; ++c) {
                         bl.colWidths[c] = naturalColW[c] + extraW * (naturalColW[c] / sumNatW);
                     }
                 } else if (availW >= sumMinW && sumNatW > sumMinW) {
                     const float flexAvail = availW - sumMinW;
                     const float flexTotal = sumNatW - sumMinW;
-                    for (size_t c = 0; c < numCols; ++c) {
+                    for (keel::usize c = 0; c < numCols; ++c) {
                         bl.colWidths[c] = minColW[c] + flexAvail * ((naturalColW[c] - minColW[c]) / flexTotal);
                     }
                 } else if (sumMinW > 0.0f) {
-                    for (size_t c = 0; c < numCols; ++c) {
+                    for (keel::usize c = 0; c < numCols; ++c) {
                         bl.colWidths[c] = availW * (minColW[c] / sumMinW);
                     }
                 }
@@ -1104,28 +1104,28 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                 bl.colX.assign(numCols, contentBounds.x);
                 {
                     float accumX = contentBounds.x;
-                    for (size_t c = 0; c < numCols; ++c) {
+                    for (keel::usize c = 0; c < numCols; ++c) {
                         bl.colX[c] = accumX;
                         accumX += bl.colWidths[c];
                     }
                 }
 
                 // 2. Build each cell's InlineFlowLayout ONCE, compute rowHeights, and commit tokens at centered Y
-                const size_t numRows = blk.tableRows.size();
+                const keel::usize numRows = blk.tableRows.size();
                 bl.cellFlows.resize(numRows);
                 bl.cellFlowOrigins.resize(numRows);
-                for (size_t r = 0; r < numRows; ++r) {
+                for (keel::usize r = 0; r < numRows; ++r) {
                     bl.cellFlows[r].resize(numCols);
                     bl.cellFlowOrigins[r].resize(numCols);
                 }
                 bl.rowHeights.assign(numRows, minRowH);
                 float tableH = 0.0f;
 
-                for (size_t r = 0; r < numRows; ++r) {
+                for (keel::usize r = 0; r < numRows; ++r) {
                     const FontStyle cellStyle = (r == 0) ? FontStyle::Bold : FontStyle::Regular;
                     const auto& rowCells = blk.tableRows[r];
                     float maxCellH = 0.0f;
-                    for (size_t c = 0; c < numCols && c < rowCells.size(); ++c) {
+                    for (keel::usize c = 0; c < numCols && c < rowCells.size(); ++c) {
                         const Align colAlign = (c < blk.tableAligns.size()) ? blk.tableAligns[c] : Align::Start;
                         const float cellInnerW = keel::max(8.0f, bl.colWidths[c] - cellPadX * 2.0f);
                         bl.cellFlows[r][c] = BuildInlineFlowLayout(
@@ -1148,10 +1148,10 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                 }
 
                 float ry = curY;
-                for (size_t r = 0; r < numRows; ++r) {
+                for (keel::usize r = 0; r < numRows; ++r) {
                     const float rowH = bl.rowHeights[r];
                     const auto& rowCells = blk.tableRows[r];
-                    for (size_t c = 0; c < numCols && c < rowCells.size(); ++c) {
+                    for (keel::usize c = 0; c < numCols && c < rowCells.size(); ++c) {
                         const float cellContentH = bl.cellFlows[r][c].height;
                         const float cellContentY = ry + keel::max(cellPadY, (rowH - cellContentH) * 0.5f);
                         const Vec2 cellOrigin{bl.colX[c] + cellPadX, cellContentY};
@@ -1180,7 +1180,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
 }
 
 auto& GetMarkdownLayoutCache() {
-    thread_local keel::LruCache<uint64_t, keel::Arc<const MarkdownDocumentLayout>, 6> s_layoutCache;
+    thread_local keel::LruCache<keel::u64, keel::Arc<const MarkdownDocumentLayout>, 6> s_layoutCache;
     return s_layoutCache;
 }
 
@@ -1199,7 +1199,7 @@ keel::Arc<const MarkdownDocumentLayout> GetOrBuildMarkdownLayout(
 ) {
     auto& layoutCache = GetMarkdownLayoutCache();
     const float effZoom = keel::clamp(zoom, 0.5f, 3.0f);
-    const uint64_t key = ComputeMarkdownLayoutKey(doc->sourceHash, outerWidth, effZoom, opts, theme, canvas != nullptr);
+    const keel::u64 key = ComputeMarkdownLayoutKey(doc->sourceHash, outerWidth, effZoom, opts, theme, canvas != nullptr);
 
     if (const auto* cached = layoutCache.find(key)) {
         return *cached;
@@ -1215,11 +1215,11 @@ MarkdownPassResult HitTestMarkdownLayout(
     const MarkdownDocumentLayout& layout,
     Rect outerBounds,
     Vec2 screenMousePos,
-    int activeCopiedBlock,
+    keel::i32 activeCopiedBlock,
     bool interactiveTasks,
     bool showCopyButton,
     bool disabled,
-    const keel::HashMap<int, bool>* taskOverrides
+    const keel::HashMap<keel::i32, bool>* taskOverrides
 ) noexcept {
     MarkdownPassResult out{};
     out.totalWidth = layout.totalWidth;
@@ -1288,9 +1288,9 @@ void RenderMarkdownDocumentLayout(
     const MarkdownOptions& opts,
     const UiTheme& theme,
     Vec2 screenMousePos,
-    int hoveredCopyBlock,
-    int activeCopiedBlock,
-    int hoveredTaskIndex,
+    keel::i32 hoveredCopyBlock,
+    keel::i32 activeCopiedBlock,
+    keel::i32 hoveredTaskIndex,
     const RenderOverlayState* overlay
 ) {
     const Vec2 docOrigin = outerBounds.Pos();
@@ -1556,9 +1556,9 @@ void RenderMarkdownDocumentLayout(
                     }
 
                     if (opts.codeIndentGuides && vline.isFirstSlice && !vline.sliceStr.empty() && bl.spaceW > 0.0f) {
-                        size_t leadSpaces = 0;
+                        keel::usize leadSpaces = 0;
                         while (leadSpaces < vline.sliceStr.size() && vline.sliceStr[leadSpaces] == ' ') ++leadSpaces;
-                        for (size_t col = 4; col <= leadSpaces; col += 4) {
+                        for (keel::usize col = 4; col <= leadSpaces; col += 4) {
                             const float gx = std::round(screenCodeStartX + static_cast<float>(col) * bl.spaceW);
                             canvas.DrawLine({gx, screenLy}, {gx, screenLy + bl.codeLineH}, theme.palette.borderSubtle.WithAlpha(90), 1.0f);
                         }
@@ -1567,7 +1567,7 @@ void RenderMarkdownDocumentLayout(
                     if (opts.codeShowWhitespace && !vline.sliceStr.empty() && bl.spaceW > 0.0f) {
                         const float dotR = keel::max(1.2f, 1.4f * s);
                         const float cy = screenLy + bl.codeLineH * 0.5f;
-                        for (size_t c = 0; c < vline.sliceStr.size(); ++c) {
+                        for (keel::usize c = 0; c < vline.sliceStr.size(); ++c) {
                             if (vline.sliceStr[c] == ' ') {
                                 const float cx = screenCodeStartX + (static_cast<float>(c) + 0.5f) * bl.spaceW;
                                 canvas.DrawRoundRect(Rect(cx - dotR, cy - dotR, dotR * 2.0f, dotR * 2.0f), dotR, wsColor);
@@ -1640,11 +1640,11 @@ void RenderMarkdownDocumentLayout(
                 if (bl.rowHeights.empty() || bl.colWidths.empty()) break;
                 canvas.DrawRoundRect(screenBlk, bl.boxRadius, theme.palette.surface, theme.palette.borderSubtle, 1.0f);
 
-                const size_t numRows = bl.rowHeights.size();
-                const size_t numCols = bl.colWidths.size();
+                const keel::usize numRows = bl.rowHeights.size();
+                const keel::usize numCols = bl.colWidths.size();
                 float ry = screenBlk.y;
 
-                for (size_t r = 0; r < numRows; ++r) {
+                for (keel::usize r = 0; r < numRows; ++r) {
                     const float rowH = bl.rowHeights[r];
                     const Rect rowRect(screenBlk.x, ry, screenBlk.w, rowH);
                     if (r == 0) {
@@ -1656,7 +1656,7 @@ void RenderMarkdownDocumentLayout(
                         canvas.DrawLine({rowRect.x, ry}, {rowRect.Right(), ry}, theme.palette.borderSubtle, 1.0f);
                     }
 
-                    for (size_t c = 0; c < numCols; ++c) {
+                    for (keel::usize c = 0; c < numCols; ++c) {
                         const float cx = docOrigin.x + bl.colX[c];
                         const float cw = bl.colWidths[c];
                         if (c > 0) {
@@ -1687,26 +1687,26 @@ void RenderMarkdownDocumentLayout(
 }
 
 struct MarkdownState {
-    uint64_t docSourceHash{0};
-    int copiedBlockIndex{-1};
+    keel::u64 docSourceHash{0};
+    keel::i32 copiedBlockIndex{-1};
     float zoom{1.0f};
     keel::Arc<const MarkdownDocumentLayout> cachedLayout{};
 
     // Selection & Cursor state
-    size_t cursorOffset{0};
-    size_t selAnchorOffset{0};
+    keel::usize cursorOffset{0};
+    keel::usize selAnchorOffset{0};
     bool isDraggingSelection{false};
     float preferredCursorX{-1.0f};
     keel::String cachedSelectedText{};
 
     // Interactive Task List overrides
-    keel::HashMap<int, bool> taskOverrides{};
+    keel::HashMap<keel::i32, bool> taskOverrides{};
 
     // In-document Search state
     bool searchBarOpen{false};
     keel::String searchQuery{};
-    int activeSearchMatch{0};
-    uint64_t lastRunSeq{0};
+    keel::i32 activeSearchMatch{0};
+    keel::u64 lastRunSeq{0};
 
     void TrimInactiveCaches() noexcept {
         cachedLayout.reset();
@@ -1719,10 +1719,10 @@ struct MarkdownState {
     bool HasSelection() const noexcept {
         return cursorOffset != selAnchorOffset;
     }
-    size_t SelMin() const noexcept {
+    keel::usize SelMin() const noexcept {
         return keel::min(cursorOffset, selAnchorOffset);
     }
-    size_t SelMax() const noexcept {
+    keel::usize SelMax() const noexcept {
         return keel::max(cursorOffset, selAnchorOffset);
     }
 };
@@ -1777,19 +1777,19 @@ struct MarkdownPayload {
     keel::StringRef text{};
     MarkdownOptions opts{};
     float zoom{1.0f};
-    int hoveredCopyBlock{-1};
-    int activeCopiedBlock{-1};
-    int hoveredTaskIndex{-1};
+    keel::i32 hoveredCopyBlock{-1};
+    keel::i32 activeCopiedBlock{-1};
+    keel::i32 hoveredTaskIndex{-1};
     bool hasSelection{false};
-    size_t selMin{0};
-    size_t selMax{0};
+    keel::usize selMin{0};
+    keel::usize selMax{0};
     bool showCaret{false};
-    size_t caretOffset{0};
+    keel::usize caretOffset{0};
     bool searchBarOpen{false};
     keel::StringRef activeSearchQuery{};
-    int activeSearchMatch{-1};
-    int searchMatchCount{0};
-    const keel::HashMap<int, bool>* taskOverrides{nullptr};
+    keel::i32 activeSearchMatch{-1};
+    keel::i32 searchMatchCount{0};
+    const keel::HashMap<keel::i32, bool>* taskOverrides{nullptr};
     const MarkdownDocumentLayout* layout{nullptr};
     mutable ICanvas* lastCanvas{nullptr};
 };
@@ -1896,11 +1896,11 @@ MarkdownResponse Markdown::Run(
         &state.taskOverrides
     );
 
-    const size_t maxOffset = textMap.plainText.size();
+    const keel::usize maxOffset = textMap.plainText.size();
     state.cursorOffset = keel::min(state.cursorOffset, maxOffset);
     state.selAnchorOffset = keel::min(state.selAnchorOffset, maxOffset);
 
-    int hoveredCopyBlock = hit.hoveredCopyBlock;
+    keel::i32 hoveredCopyBlock = hit.hoveredCopyBlock;
 
     // 3. Handle Links, Copy Button, Task Checkboxes, and Mouse Text Selection
     if (!effectiveDisabled) {
@@ -1944,7 +1944,7 @@ MarkdownResponse Markdown::Run(
         if (optsCopy.enableSelection && baseRes.hovered && ctx.IsMouseClicked() && !clickedInteractiveSubElement) {
             ctx.RequestFocus(id);
             const Vec2 localMouse = ctx.GetMousePos() - ctrlRect.Pos();
-            const size_t hitOff = HitTestDocumentCharOffset(textMap, hitCanvas, localMouse);
+            const keel::usize hitOff = HitTestDocumentCharOffset(textMap, hitCanvas, localMouse);
             state.preferredCursorX = -1.0f;
             if (baseRes.doubleClicked) {
                 TextUtil::SelectWordAt(textMap.plainText, hitOff, state.selAnchorOffset, state.cursorOffset);
@@ -1987,13 +1987,13 @@ MarkdownResponse Markdown::Run(
                 state.activeSearchMatch -= 1;
             } else if (ctx.ConsumeAction(KeyAction::DeletePrevChar)) {
                 if (!state.searchQuery.empty()) {
-                    const size_t prev = TextUtil::PrevCharBoundary(state.searchQuery, state.searchQuery.size());
+                    const keel::usize prev = TextUtil::PrevCharBoundary(state.searchQuery, state.searchQuery.size());
                     state.searchQuery.resize(prev);
                     state.activeSearchMatch = 0;
                 }
             } else if (ctx.ConsumeAction(KeyAction::DeletePrevWord)) {
                 if (!state.searchQuery.empty()) {
-                    const size_t prev = TextUtil::PrevWordBoundary(state.searchQuery, state.searchQuery.size());
+                    const keel::usize prev = TextUtil::PrevWordBoundary(state.searchQuery, state.searchQuery.size());
                     state.searchQuery.resize(prev);
                     state.activeSearchMatch = 0;
                 }
@@ -2013,7 +2013,7 @@ MarkdownResponse Markdown::Run(
         }
 
         if (optsCopy.enableSelection) {
-            auto moveCursorHoriz = [&](size_t newOff, bool extendSelection) {
+            auto moveCursorHoriz = [&](keel::usize newOff, bool extendSelection) {
                 state.cursorOffset = keel::min(newOff, maxOffset);
                 if (!extendSelection) {
                     state.selAnchorOffset = state.cursorOffset;
@@ -2022,18 +2022,18 @@ MarkdownResponse Markdown::Run(
                 ctx.RequestRepaint(2);
             };
 
-            auto moveCursorVert = [&](int lineDelta, bool extendSelection) {
+            auto moveCursorVert = [&](keel::i32 lineDelta, bool extendSelection) {
                 if (textMap.lines.empty()) return;
-                const size_t curLine = FindLineForCharOffset(textMap, state.cursorOffset);
+                const keel::usize curLine = FindLineForCharOffset(textMap, state.cursorOffset);
                 if (state.preferredCursorX < 0.0f) {
                     state.preferredCursorX = GetCursorXForOffset(textMap, hitCanvas, state.cursorOffset);
                 }
-                const int targetLine = keel::clamp(
-                    static_cast<int>(curLine) + lineDelta,
+                const keel::i32 targetLine = keel::clamp(
+                    static_cast<keel::i32>(curLine) + lineDelta,
                     0,
-                    static_cast<int>(textMap.lines.size()) - 1
+                    static_cast<keel::i32>(textMap.lines.size()) - 1
                 );
-                const PositionedLine& ln = textMap.lines[static_cast<size_t>(targetLine)];
+                const PositionedLine& ln = textMap.lines[static_cast<keel::usize>(targetLine)];
                 const float targetY = (ln.top + ln.bottom) * 0.5f;
                 state.cursorOffset = HitTestDocumentCharOffset(textMap, hitCanvas, {state.preferredCursorX, targetY});
                 if (!extendSelection) {
@@ -2044,8 +2044,8 @@ MarkdownResponse Markdown::Run(
 
             if (ctx.ConsumeAction(KeyAction::Copy)) {
                 if (state.HasSelection()) {
-                    const size_t s0 = state.SelMin();
-                    const size_t s1 = state.SelMax();
+                    const keel::usize s0 = state.SelMin();
+                    const keel::usize s1 = state.SelMax();
                     ctx.SetClipboardText(textMap.plainText.as_ref().substr(s0, s1 - s0));
                 }
             } else if (ctx.ConsumeAction(KeyAction::SelectAll)) {
@@ -2096,22 +2096,22 @@ MarkdownResponse Markdown::Run(
                 moveCursorVert(10, true);
             } else if (ctx.ConsumeAction(KeyAction::MoveLineStart)) {
                 if (!textMap.lines.empty()) {
-                    const size_t li = FindLineForCharOffset(textMap, state.cursorOffset);
+                    const keel::usize li = FindLineForCharOffset(textMap, state.cursorOffset);
                     moveCursorHoriz(textMap.lines[li].charStart, false);
                 }
             } else if (ctx.ConsumeAction(KeyAction::MoveLineEnd)) {
                 if (!textMap.lines.empty()) {
-                    const size_t li = FindLineForCharOffset(textMap, state.cursorOffset);
+                    const keel::usize li = FindLineForCharOffset(textMap, state.cursorOffset);
                     moveCursorHoriz(textMap.lines[li].charEnd, false);
                 }
             } else if (ctx.ConsumeAction(KeyAction::SelectLineStart)) {
                 if (!textMap.lines.empty()) {
-                    const size_t li = FindLineForCharOffset(textMap, state.cursorOffset);
+                    const keel::usize li = FindLineForCharOffset(textMap, state.cursorOffset);
                     moveCursorHoriz(textMap.lines[li].charStart, true);
                 }
             } else if (ctx.ConsumeAction(KeyAction::SelectLineEnd)) {
                 if (!textMap.lines.empty()) {
-                    const size_t li = FindLineForCharOffset(textMap, state.cursorOffset);
+                    const keel::usize li = FindLineForCharOffset(textMap, state.cursorOffset);
                     moveCursorHoriz(textMap.lines[li].charEnd, true);
                 }
             } else if (ctx.ConsumeAction(KeyAction::MoveDocStart)) {
@@ -2131,12 +2131,12 @@ MarkdownResponse Markdown::Run(
         ? optsCopy.searchQuery
         : state.searchQuery.as_ref();
     const auto matches = FindSearchMatches(textMap.plainText, effectiveQuery);
-    res.searchMatchCount = static_cast<int>(matches.size());
+    res.searchMatchCount = static_cast<keel::i32>(matches.size());
     if (!matches.empty()) {
         if (state.activeSearchMatch < 0) {
-            state.activeSearchMatch = static_cast<int>(matches.size()) - 1;
+            state.activeSearchMatch = static_cast<keel::i32>(matches.size()) - 1;
         } else {
-            state.activeSearchMatch = state.activeSearchMatch % static_cast<int>(matches.size());
+            state.activeSearchMatch = state.activeSearchMatch % static_cast<keel::i32>(matches.size());
         }
         res.activeSearchMatch = state.activeSearchMatch;
     } else {
@@ -2406,8 +2406,8 @@ void Markdown::Render(
     const MarkdownOptions& opts,
     UiSize size,
     Vec2 mousePos,
-    int hoveredCopyBlock,
-    int activeCopiedBlock,
+    keel::i32 hoveredCopyBlock,
+    keel::i32 activeCopiedBlock,
     bool disabled,
     const UiTheme& theme
 ) {

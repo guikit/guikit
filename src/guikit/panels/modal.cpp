@@ -122,7 +122,7 @@ ModalScope Modal::Open(
         return ModalScope{};
     }
 
-    const Id closeBtnId(detail::HashArgs(id.value, uint64_t(0x4D4F44414C5F58ull)));
+    const Id closeBtnId(detail::HashArgs(id.value, keel::u64(0x4D4F44414C5F58ull)));
     const UiSize activeSize = ctx.GetCurrentSize();
     const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
 
@@ -263,7 +263,7 @@ ModalScope Modal::Open(
     node->visualHash = detail::HashArgs(
         allocatedOpts.title.text,
         allocatedOpts.subtitle.text,
-        static_cast<uint32_t>(allocatedOpts.variant),
+        static_cast<keel::u32>(allocatedOpts.variant),
         allocatedOpts.width,
         allocatedOpts.backdropOpacity,
         allocatedOpts.backdropColor.value_or(Color::Transparent()).ToUint32(),
@@ -288,7 +288,7 @@ Vec2 Modal::Measure(
 ) {
     float totalH = node->padding.Vertical();
     float maxW = 0.0f;
-    uint32_t activeChildren = 0;
+    keel::u32 activeChildren = 0;
 
     for (const Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
         if (child->type == NodeType::Modal) continue;
@@ -386,7 +386,7 @@ void Modal::Render(
     } else {
         const float alpha = keel::clamp(opts.backdropOpacity, 0.0f, 0.95f);
         if (alpha > 0.001f && backdropRect.w > 0.0f && backdropRect.h > 0.0f) {
-            canvas.DrawRect(backdropRect, Color(4, 7, 14, static_cast<uint8_t>(std::round(alpha * 255.0f))));
+            canvas.DrawRect(backdropRect, Color(4, 7, 14, static_cast<keel::u8>(std::round(alpha * 255.0f))));
         }
     }
 

@@ -59,7 +59,7 @@ double QuantizeAndClamp(double val, double minVal, double maxVal, keel::Optional
 
 void FormatKnobValue(
     char* buf,
-    size_t bufSize,
+    keel::usize bufSize,
     double val,
     bool isInt,
     const KnobOptions& opts
@@ -67,11 +67,11 @@ void FormatKnobValue(
     if (!opts.valueFormat.empty()) {
         if (opts.valueFormat.text.find('%') == keel::StringRef::npos) {
             std::snprintf(buf, bufSize, "%.*s",
-                          static_cast<int>(opts.valueFormat.text.size()),
+                          static_cast<keel::i32>(opts.valueFormat.text.size()),
                           opts.valueFormat.text.data());
         } else {
             char fmtBuf[128]{};
-            const size_t copyLen = keel::min(opts.valueFormat.text.size(), sizeof(fmtBuf) - 1);
+            const keel::usize copyLen = keel::min(opts.valueFormat.text.size(), sizeof(fmtBuf) - 1);
             std::memcpy(fmtBuf, opts.valueFormat.text.data(), copyLen);
             fmtBuf[copyLen] = '\0';
             if (isInt && opts.valueFormat.text.find('f') == keel::StringRef::npos) {
@@ -119,19 +119,19 @@ void DrawAnnularArc(
     const float rOuter = radius + halfT;
     const float rInner = keel::max(0.5f, radius - halfT);
     const float span = endAngleRad - startAngleRad;
-    const int segs = keel::clamp(static_cast<int>(std::ceil(span / (kPi / 24.0f))), 6, 64);
+    const keel::i32 segs = keel::clamp(static_cast<keel::i32>(std::ceil(span / (kPi / 24.0f))), 6, 64);
 
     VectorPath path;
-    path.Reserve(static_cast<size_t>(segs * 2 + 4), static_cast<size_t>(segs * 2 + 4));
+    path.Reserve(static_cast<keel::usize>(segs * 2 + 4), static_cast<keel::usize>(segs * 2 + 4));
 
-    for (int i = 0; i <= segs; ++i) {
+    for (keel::i32 i = 0; i <= segs; ++i) {
         const float t = static_cast<float>(i) / static_cast<float>(segs);
         const float a = startAngleRad + span * t;
         const Vec2 pt(center.x + std::cos(a) * rOuter, center.y + std::sin(a) * rOuter);
         if (i == 0) path.MoveTo(pt);
         else        path.LineTo(pt);
     }
-    for (int i = segs; i >= 0; --i) {
+    for (keel::i32 i = segs; i >= 0; --i) {
         const float t = static_cast<float>(i) / static_cast<float>(segs);
         const float a = startAngleRad + span * t;
         const Vec2 pt(center.x + std::cos(a) * rInner, center.y + std::sin(a) * rInner);
@@ -157,7 +157,7 @@ Response Knob::Run(
     Context& ctx,
     double* doubleVal,
     float* floatVal,
-    int64_t* intVal,
+    keel::i64* intVal,
     double minVal,
     double maxVal,
     const KnobOptions& opts,
@@ -194,7 +194,7 @@ Response Knob::Run(
         const double q = QuantizeAndClamp(v, minVal, maxVal, effectiveStep);
         if (doubleVal != nullptr) *doubleVal = q;
         if (floatVal != nullptr)  *floatVal = static_cast<float>(q);
-        if (intVal != nullptr)    *intVal = static_cast<int64_t>(std::llround(q));
+        if (intVal != nullptr)    *intVal = static_cast<keel::i64>(std::llround(q));
     };
 
     double currentVal = QuantizeAndClamp(readVal(), minVal, maxVal, effectiveStep);
@@ -344,10 +344,10 @@ Response Knob::Run(
     node->text = data->valueText;
     node->visualHash = detail::HashArgs(
         optsCopy.color,
-        static_cast<uint8_t>(optsCopy.align),
-        static_cast<uint8_t>(optsCopy.stretch),
+        static_cast<keel::u8>(optsCopy.align),
+        static_cast<keel::u8>(optsCopy.stretch),
         optsCopy.showValue,
-        static_cast<uint8_t>(optsCopy.valuePlacement),
+        static_cast<keel::u8>(optsCopy.valuePlacement),
         optsCopy.bipolar,
         optsCopy.showTicks,
         optsCopy.tickCount,
@@ -572,13 +572,13 @@ void Knob::Render(
 
     // 1. Radial scale ticks around outer perimeter
     if (opts.showTicks && outerR >= 12.0f) {
-        const uint32_t numTicks = keel::clamp(opts.tickCount == 0 ? 11u : opts.tickCount, 2u, 31u);
+        const keel::u32 numTicks = keel::clamp(opts.tickCount == 0 ? 11u : opts.tickCount, 2u, 31u);
         const float rTickOuter = outerR;
         const float rTickInner = outerR - tickLen;
         const float loT = keel::min(normOrig, normVal);
         const float hiT = keel::max(normOrig, normVal);
 
-        for (uint32_t i = 0; i < numTicks; ++i) {
+        for (keel::u32 i = 0; i < numTicks; ++i) {
             const float t = static_cast<float>(i) / static_cast<float>(numTicks - 1);
             const float a = kMinAngleRad + kSweepRad * t;
             const bool isMajor = (i == 0) || (i + 1 == numTicks) || (numTicks % 2 == 1 && i == numTicks / 2);

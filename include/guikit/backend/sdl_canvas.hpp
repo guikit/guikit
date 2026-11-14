@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/backend/i_canvas.hpp"
+#include "keel/core.h"
 
 struct SDL_Renderer;
 
@@ -23,7 +23,7 @@ public:
 
     // ICanvas implementation
     [[nodiscard]] bool UsesCpuFramebuffer() const noexcept override { return false; }
-    void Begin(uint32_t width, uint32_t height, float scale = 1.0f) override;
+    void Begin(keel::u32 width, keel::u32 height, float scale = 1.0f) override;
     void End() override;
     [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
     void SetScale(float scale) override;
@@ -57,7 +57,7 @@ public:
     void DrawLine(Vec2 p1, Vec2 p2, Color color, float strokeWidth = 1.0f) override;
 
     void DrawTexture(
-        uint64_t textureId,
+        keel::u64 textureId,
         Rect destRect,
         keel::Optional<Rect> srcRect = keel::kNullOpt,
         Color tint = Color(255, 255, 255, 255)
@@ -67,8 +67,8 @@ private:
     void ApplyActiveClip();
 
     SDL_Renderer* m_renderer{nullptr};
-    uint32_t m_width{0};
-    uint32_t m_height{0};
+    keel::u32 m_width{0};
+    keel::u32 m_height{0};
     float m_scale{1.0f};
     keel::Array<Rect> m_clipStack;
 };

@@ -29,16 +29,16 @@ namespace guikit {
 
 namespace {
 
-[[nodiscard]] int QueryNumProcessors() noexcept {
+[[nodiscard]] keel::i32 QueryNumProcessors() noexcept {
 #if defined(_WIN32)
     SYSTEM_INFO sysInfo{};
     GetSystemInfo(&sysInfo);
-    return keel::max(1, static_cast<int>(sysInfo.dwNumberOfProcessors));
+    return keel::max(1, static_cast<keel::i32>(sysInfo.dwNumberOfProcessors));
 #elif defined(__EMSCRIPTEN__)
     return 1;
 #else
     const long n = sysconf(_SC_NPROCESSORS_ONLN);
-    return (n > 0) ? static_cast<int>(n) : 1;
+    return (n > 0) ? static_cast<keel::i32>(n) : 1;
 #endif
 }
 
@@ -258,27 +258,27 @@ void FrameMetrics::RefreshDisplayStrings(keel::u64 nowNs, float targetFps) noexc
     m_lastDisplayUpdateTimeNs = nowNs;
 }
 
-size_t FrameMetrics::QueryProcessRamBytes() noexcept {
+keel::usize FrameMetrics::QueryProcessRamBytes() noexcept {
 #if defined(_WIN32)
     PROCESS_MEMORY_COUNTERS pmc{};
     pmc.cb = sizeof(pmc);
     if (GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc))) {
-        return static_cast<size_t>(pmc.WorkingSetSize);
+        return static_cast<keel::usize>(pmc.WorkingSetSize);
     }
     return 0;
 #elif defined(__APPLE__)
     mach_task_basic_info_data_t info{};
     mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
     if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, reinterpret_cast<task_info_t>(&info), &count) == KERN_SUCCESS) {
-        return static_cast<size_t>(info.resident_size);
+        return static_cast<keel::usize>(info.resident_size);
     }
     return 0;
 #elif defined(__EMSCRIPTEN__)
     const struct mallinfo mi = mallinfo();
     if (mi.uordblks > 0) {
-        return static_cast<size_t>(static_cast<unsigned int>(mi.uordblks));
+        return static_cast<keel::usize>(static_cast<keel::u32>(mi.uordblks));
     }
-    return static_cast<size_t>(__builtin_wasm_memory_size(0)) * 65536ULL;
+    return static_cast<keel::usize>(__builtin_wasm_memory_size(0)) * 65536ULL;
 #else
     FILE* fp = std::fopen("/proc/self/statm", "r");
     if (!fp) {
@@ -286,12 +286,12 @@ size_t FrameMetrics::QueryProcessRamBytes() noexcept {
     }
     unsigned long totalPages = 0;
     unsigned long rssPages = 0;
-    const int matched = std::fscanf(fp, "%lu %lu", &totalPages, &rssPages);
+    const keel::i32 matched = std::fscanf(fp, "%lu %lu", &totalPages, &rssPages);
     std::fclose(fp);
     if (matched == 2) {
         const long pageSize = sysconf(_SC_PAGESIZE);
         if (pageSize > 0) {
-            return static_cast<size_t>(rssPages) * static_cast<size_t>(pageSize);
+            return static_cast<keel::usize>(rssPages) * static_cast<keel::usize>(pageSize);
         }
     }
     return 0;

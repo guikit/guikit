@@ -26,10 +26,10 @@ namespace guikit {
 
 namespace {
 
-constexpr size_t kHistBins = 256;
-constexpr size_t kToneLutSize = 4096;
+constexpr keel::usize kHistBins = 256;
+constexpr keel::usize kToneLutSize = 4096;
 
-[[nodiscard]] float ReadSampleAsFloat(const ImageViewData& data, size_t index) noexcept {
+[[nodiscard]] float ReadSampleAsFloat(const ImageViewData& data, keel::usize index) noexcept {
     if (!data.rawPixels || index >= data.sampleCount) {
         return 0.0f;
     }
@@ -37,19 +37,19 @@ constexpr size_t kToneLutSize = 4096;
         case ImageSampleFormat::Float32:
             return static_cast<const float*>(data.rawPixels)[index];
         case ImageSampleFormat::UInt16:
-            return static_cast<float>(static_cast<const uint16_t*>(data.rawPixels)[index]);
+            return static_cast<float>(static_cast<const keel::u16*>(data.rawPixels)[index]);
         case ImageSampleFormat::UInt8:
-            return static_cast<float>(static_cast<const uint8_t*>(data.rawPixels)[index]);
+            return static_cast<float>(static_cast<const keel::u8*>(data.rawPixels)[index]);
     }
     return 0.0f;
 }
 
-[[nodiscard]] keel::StaticArray<float, 4> ReadPixelChannels(const ImageViewData& data, uint32_t sx, uint32_t sy) noexcept {
+[[nodiscard]] keel::StaticArray<float, 4> ReadPixelChannels(const ImageViewData& data, keel::u32 sx, keel::u32 sy) noexcept {
     keel::StaticArray<float, 4> out{0.0f, 0.0f, 0.0f, 1.0f};
     if (data.Empty() || sx >= data.width || sy >= data.height) {
         return out;
     }
-    const size_t base = (static_cast<size_t>(sy) * data.width + sx) * data.channels;
+    const keel::usize base = (static_cast<keel::usize>(sy) * data.width + sx) * data.channels;
     if (data.channels == 1) {
         const float v = ReadSampleAsFloat(data, base);
         out[0] = v;
@@ -68,19 +68,19 @@ constexpr size_t kToneLutSize = 4096;
     return 0.2126f * r + 0.7152f * g + 0.0722f * b;
 }
 
-[[nodiscard]] uint64_t ComputeImageFingerprint(const ImageViewData& data) noexcept {
+[[nodiscard]] keel::u64 ComputeImageFingerprint(const ImageViewData& data) noexcept {
     if (data.Empty()) {
         return 0;
     }
     if (data.dataGeneration != 0) {
-        return detail::HashArgs(data.dataGeneration, data.width, data.height, data.channels, static_cast<uint8_t>(data.format));
+        return detail::HashArgs(data.dataGeneration, data.width, data.height, data.channels, static_cast<keel::u8>(data.format));
     }
-    uint64_t h = detail::HashArgs(data.width, data.height, data.channels, static_cast<uint8_t>(data.format), data.sampleCount);
-    const size_t probes = keel::min<size_t>(64, data.sampleCount);
-    for (size_t i = 0; i < probes; ++i) {
-        const size_t idx = (i * (data.sampleCount - 1)) / keel::max<size_t>(1, probes - 1);
+    keel::u64 h = detail::HashArgs(data.width, data.height, data.channels, static_cast<keel::u8>(data.format), data.sampleCount);
+    const keel::usize probes = keel::min<keel::usize>(64, data.sampleCount);
+    for (keel::usize i = 0; i < probes; ++i) {
+        const keel::usize idx = (i * (data.sampleCount - 1)) / keel::max<keel::usize>(1, probes - 1);
         const float v = ReadSampleAsFloat(data, idx);
-        uint32_t bits = 0;
+        keel::u32 bits = 0;
         std::memcpy(&bits, &v, sizeof(float));
         h = detail::HashArgs(h, bits);
     }
@@ -89,17 +89,17 @@ constexpr size_t kToneLutSize = 4096;
 
 /// Forward and inverse coordinate mapping between Source Image (srcW x srcH) and Oriented Display Image (dispW x dispH).
 struct OrientedDimensions {
-    uint32_t srcW{0};
-    uint32_t srcH{0};
-    uint32_t dispW{0};
-    uint32_t dispH{0};
+    keel::u32 srcW{0};
+    keel::u32 srcH{0};
+    keel::u32 dispW{0};
+    keel::u32 dispH{0};
     ImageRotation rotation{ImageRotation::Deg0};
     bool flipH{false};
     bool flipV{false};
 
     static constexpr OrientedDimensions Compute(
-        uint32_t w,
-        uint32_t h,
+        keel::u32 w,
+        keel::u32 h,
         ImageRotation rot,
         bool fh,
         bool fv
@@ -117,9 +117,9 @@ struct OrientedDimensions {
     }
 
     /// Maps integer display pixel (dx, dy) in [0..dispW-1]x[0..dispH-1] to source pixel (sx, sy) in [0..srcW-1]x[0..srcH-1].
-    constexpr void DisplayToSourcePx(uint32_t dx, uint32_t dy, uint32_t& outSx, uint32_t& outSy) const noexcept {
-        const uint32_t rx = flipH ? (dispW - 1 - dx) : dx;
-        const uint32_t ry = flipV ? (dispH - 1 - dy) : dy;
+    constexpr void DisplayToSourcePx(keel::u32 dx, keel::u32 dy, keel::u32& outSx, keel::u32& outSy) const noexcept {
+        const keel::u32 rx = flipH ? (dispW - 1 - dx) : dx;
+        const keel::u32 ry = flipV ? (dispH - 1 - dy) : dy;
         switch (rotation) {
             case ImageRotation::Deg0:
                 outSx = rx;
@@ -213,37 +213,37 @@ struct ProfileCrossSection {
         const float dx = endSrc.x - startSrc.x;
         const float dy = endSrc.y - startSrc.y;
         const float dist = std::hypot(dx, dy);
-        const int n = keel::clamp(static_cast<int>(std::round(dist)) + 1, 2, 2048);
+        const keel::i32 n = keel::clamp(static_cast<keel::i32>(std::round(dist)) + 1, 2, 2048);
 
-        samplesLum.resize(static_cast<size_t>(n));
+        samplesLum.resize(static_cast<keel::usize>(n));
         if (data.channels >= 3) {
-            samplesR.resize(static_cast<size_t>(n));
-            samplesG.resize(static_cast<size_t>(n));
-            samplesB.resize(static_cast<size_t>(n));
+            samplesR.resize(static_cast<keel::usize>(n));
+            samplesG.resize(static_cast<keel::usize>(n));
+            samplesB.resize(static_cast<keel::usize>(n));
         }
 
         float mn = 1e30f;
         float mx = -1e30f;
         double sum = 0.0;
 
-        for (int i = 0; i < n; ++i) {
+        for (keel::i32 i = 0; i < n; ++i) {
             const float t = (n > 1) ? (static_cast<float>(i) / static_cast<float>(n - 1)) : 0.0f;
-            const uint32_t sx = keel::min(data.width - 1, static_cast<uint32_t>(keel::max(0.0f, std::floor(startSrc.x + t * dx))));
-            const uint32_t sy = keel::min(data.height - 1, static_cast<uint32_t>(keel::max(0.0f, std::floor(startSrc.y + t * dy))));
+            const keel::u32 sx = keel::min(data.width - 1, static_cast<keel::u32>(keel::max(0.0f, std::floor(startSrc.x + t * dx))));
+            const keel::u32 sy = keel::min(data.height - 1, static_cast<keel::u32>(keel::max(0.0f, std::floor(startSrc.y + t * dy))));
             const auto ch = ReadPixelChannels(data, sx, sy);
 
             if (data.channels == 1) {
                 const float v = ch[0];
-                samplesLum[static_cast<size_t>(i)] = v;
+                samplesLum[static_cast<keel::usize>(i)] = v;
                 if (v < mn) mn = v;
                 if (v > mx) mx = v;
                 sum += static_cast<double>(v);
             } else {
                 const float lum = ComputeLuminance(ch[0], ch[1], ch[2]);
-                samplesLum[static_cast<size_t>(i)] = lum;
-                samplesR[static_cast<size_t>(i)] = ch[0];
-                samplesG[static_cast<size_t>(i)] = ch[1];
-                samplesB[static_cast<size_t>(i)] = ch[2];
+                samplesLum[static_cast<keel::usize>(i)] = lum;
+                samplesR[static_cast<keel::usize>(i)] = ch[0];
+                samplesG[static_cast<keel::usize>(i)] = ch[1];
+                samplesB[static_cast<keel::usize>(i)] = ch[2];
                 mn = keel::min(keel::min(mn, ch[0]), keel::min(ch[1], ch[2]));
                 mx = keel::max(keel::max(mx, ch[0]), keel::max(ch[1], ch[2]));
                 sum += static_cast<double>(lum);
@@ -257,23 +257,23 @@ struct ProfileCrossSection {
 };
 
 struct ImageViewInternalState {
-    uint64_t cachedDataFp{0};
+    keel::u64 cachedDataFp{0};
     float dataMin{0.0f};
     float dataMax{65535.0f};
     float dataMean{0.0f};
-    keel::StaticArray<uint32_t, kHistBins> binsLum{};
-    keel::StaticArray<uint32_t, kHistBins> binsR{};
-    keel::StaticArray<uint32_t, kHistBins> binsG{};
-    keel::StaticArray<uint32_t, kHistBins> binsB{};
+    keel::StaticArray<keel::u32, kHistBins> binsLum{};
+    keel::StaticArray<keel::u32, kHistBins> binsR{};
+    keel::StaticArray<keel::u32, kHistBins> binsG{};
+    keel::StaticArray<keel::u32, kHistBins> binsB{};
 
     // Cached tone-mapped & oriented ABGR8888 display buffer (rebuilt ONLY when data or tonal/transform params change)
-    uint64_t cachedRenderKey{0};
-    uint32_t displayW{0};
-    uint32_t displayH{0};
-    keel::Array<uint32_t> displayAbgr{};
+    keel::u64 cachedRenderKey{0};
+    keel::u32 displayW{0};
+    keel::u32 displayH{0};
+    keel::Array<keel::u32> displayAbgr{};
 
     void TrimInactiveCaches() noexcept {
-        displayAbgr = keel::Array<uint32_t>{};
+        displayAbgr = keel::Array<keel::u32>{};
         cachedRenderKey = 0;
         displayW = 0;
         displayH = 0;
@@ -317,7 +317,7 @@ struct ImageViewInternalState {
             return;
         }
 
-        const uint64_t fp = ComputeImageFingerprint(data);
+        const keel::u64 fp = ComputeImageFingerprint(data);
         if (fp == cachedDataFp && params.initialized) {
             return;
         }
@@ -328,10 +328,10 @@ struct ImageViewInternalState {
         float mn = 1e30f;
         float mx = -1e30f;
         double sum = 0.0;
-        const size_t numPixels = static_cast<size_t>(data.width) * data.height;
+        const keel::usize numPixels = static_cast<keel::usize>(data.width) * data.height;
 
         if (data.channels == 1) {
-            for (size_t i = 0; i < numPixels; ++i) {
+            for (keel::usize i = 0; i < numPixels; ++i) {
                 const float v = ReadSampleAsFloat(data, i);
                 if (std::isfinite(v)) {
                     if (v < mn) mn = v;
@@ -340,8 +340,8 @@ struct ImageViewInternalState {
                 }
             }
         } else {
-            for (size_t i = 0; i < numPixels; ++i) {
-                const size_t base = i * data.channels;
+            for (keel::usize i = 0; i < numPixels; ++i) {
+                const keel::usize base = i * data.channels;
                 const float r = ReadSampleAsFloat(data, base + 0);
                 const float g = ReadSampleAsFloat(data, base + 1);
                 const float b = ReadSampleAsFloat(data, base + 2);
@@ -362,7 +362,7 @@ struct ImageViewInternalState {
 
         dataMin = mn;
         dataMax = mx;
-        dataMean = static_cast<float>(sum / static_cast<double>(keel::max<size_t>(1, numPixels)));
+        dataMean = static_cast<float>(sum / static_cast<double>(keel::max<keel::usize>(1, numPixels)));
 
         binsLum.fill(0);
         binsR.fill(0);
@@ -371,24 +371,24 @@ struct ImageViewInternalState {
 
         const float scale = static_cast<float>(kHistBins - 1) / (dataMax - dataMin);
         if (data.channels == 1) {
-            for (size_t i = 0; i < numPixels; ++i) {
+            for (keel::usize i = 0; i < numPixels; ++i) {
                 const float v = ReadSampleAsFloat(data, i);
                 if (std::isfinite(v)) {
-                    const size_t bin = static_cast<size_t>(keel::clamp((v - dataMin) * scale, 0.0f, static_cast<float>(kHistBins - 1)));
+                    const keel::usize bin = static_cast<keel::usize>(keel::clamp((v - dataMin) * scale, 0.0f, static_cast<float>(kHistBins - 1)));
                     binsLum[bin]++;
                 }
             }
         } else {
-            for (size_t i = 0; i < numPixels; ++i) {
-                const size_t base = i * data.channels;
+            for (keel::usize i = 0; i < numPixels; ++i) {
+                const keel::usize base = i * data.channels;
                 const float r = ReadSampleAsFloat(data, base + 0);
                 const float g = ReadSampleAsFloat(data, base + 1);
                 const float b = ReadSampleAsFloat(data, base + 2);
                 const float lum = ComputeLuminance(r, g, b);
-                const size_t bL = static_cast<size_t>(keel::clamp((lum - dataMin) * scale, 0.0f, static_cast<float>(kHistBins - 1)));
-                const size_t bR = static_cast<size_t>(keel::clamp((r - dataMin) * scale, 0.0f, static_cast<float>(kHistBins - 1)));
-                const size_t bG = static_cast<size_t>(keel::clamp((g - dataMin) * scale, 0.0f, static_cast<float>(kHistBins - 1)));
-                const size_t bB = static_cast<size_t>(keel::clamp((b - dataMin) * scale, 0.0f, static_cast<float>(kHistBins - 1)));
+                const keel::usize bL = static_cast<keel::usize>(keel::clamp((lum - dataMin) * scale, 0.0f, static_cast<float>(kHistBins - 1)));
+                const keel::usize bR = static_cast<keel::usize>(keel::clamp((r - dataMin) * scale, 0.0f, static_cast<float>(kHistBins - 1)));
+                const keel::usize bG = static_cast<keel::usize>(keel::clamp((g - dataMin) * scale, 0.0f, static_cast<float>(kHistBins - 1)));
+                const keel::usize bB = static_cast<keel::usize>(keel::clamp((b - dataMin) * scale, 0.0f, static_cast<float>(kHistBins - 1)));
                 binsLum[bL]++;
                 binsR[bR]++;
                 binsG[bG]++;
@@ -423,22 +423,22 @@ struct ImageViewInternalState {
             data.width, data.height, params.rotation, params.flipHorizontal, params.flipVertical
         );
 
-        uint64_t rKey = detail::HashArgs(
+        keel::u64 rKey = detail::HashArgs(
             cachedDataFp,
             od.dispW,
             od.dispH,
-            static_cast<uint8_t>(params.rotation),
+            static_cast<keel::u8>(params.rotation),
             params.flipHorizontal,
             params.flipVertical,
-            static_cast<uint8_t>(params.displayChannel),
-            static_cast<uint8_t>(params.colormap)
+            static_cast<keel::u8>(params.displayChannel),
+            static_cast<keel::u8>(params.colormap)
         );
         for (const auto& ch : params.channels) {
             rKey = detail::HashArgs(rKey, ch.window, ch.level, ch.gamma, ch.invert);
         }
 
         if (rKey == cachedRenderKey && displayW == od.dispW && displayH == od.dispH &&
-            displayAbgr.size() == static_cast<size_t>(od.dispW) * od.dispH) {
+            displayAbgr.size() == static_cast<keel::usize>(od.dispW) * od.dispH) {
             return;
         }
 
@@ -448,7 +448,7 @@ struct ImageViewInternalState {
         cachedRenderKey = rKey;
         displayW = od.dispW;
         displayH = od.dispH;
-        displayAbgr.resize(static_cast<size_t>(displayW) * displayH);
+        displayAbgr.resize(static_cast<keel::usize>(displayW) * displayH);
 
         const float minV = dataMin;
         const float spanV = keel::max(1e-5f, dataMax - dataMin);
@@ -467,8 +467,8 @@ struct ImageViewInternalState {
 
             // Build 4096-entry ABGR8888 LUT combining Window/Level/Gamma/Invert + active Colormap
             const auto& cmapLut = GetColormapLutAbgr(params.colormap, false);
-            keel::StaticArray<uint32_t, kToneLutSize> toneAbgrLut{};
-            for (size_t i = 0; i < kToneLutSize; ++i) {
+            keel::StaticArray<keel::u32, kToneLutSize> toneAbgrLut{};
+            for (keel::usize i = 0; i < kToneLutSize; ++i) {
                 const float val = minV + (static_cast<float>(i) / static_cast<float>(kToneLutSize - 1)) * spanV;
                 float t = activeTp->Evaluate(val);
                 if (data.channels >= 3 && params.displayChannel != ImageDisplayChannel::CompositeRgb &&
@@ -477,18 +477,18 @@ struct ImageViewInternalState {
                     const float masterVal = minV + t * spanV;
                     t = params.channels[0].Evaluate(masterVal);
                 }
-                const size_t cIdx = static_cast<size_t>(keel::clamp(std::round(t * 255.0f), 0.0f, 255.0f));
+                const keel::usize cIdx = static_cast<keel::usize>(keel::clamp(std::round(t * 255.0f), 0.0f, 255.0f));
                 toneAbgrLut[i] = cmapLut[cIdx];
             }
 
-            for (uint32_t dy = 0; dy < displayH; ++dy) {
-                uint32_t* rowOut = displayAbgr.data() + static_cast<size_t>(dy) * displayW;
-                for (uint32_t dx = 0; dx < displayW; ++dx) {
-                    uint32_t sx = 0, sy = 0;
+            for (keel::u32 dy = 0; dy < displayH; ++dy) {
+                keel::u32* rowOut = displayAbgr.data() + static_cast<keel::usize>(dy) * displayW;
+                for (keel::u32 dx = 0; dx < displayW; ++dx) {
+                    keel::u32 sx = 0, sy = 0;
                     od.DisplayToSourcePx(dx, dy, sx, sy);
                     float sample = 0.0f;
                     if (data.channels == 1) {
-                        sample = ReadSampleAsFloat(data, static_cast<size_t>(sy) * data.width + sx);
+                        sample = ReadSampleAsFloat(data, static_cast<keel::usize>(sy) * data.width + sx);
                     } else {
                         const auto ch = ReadPixelChannels(data, sx, sy);
                         switch (params.displayChannel) {
@@ -499,36 +499,36 @@ struct ImageViewInternalState {
                             case ImageDisplayChannel::CompositeRgb:  sample = ComputeLuminance(ch[0], ch[1], ch[2]); break;
                         }
                     }
-                    const size_t lutIdx = static_cast<size_t>(keel::clamp((sample - minV) * invSpanLut, 0.0f, static_cast<float>(kToneLutSize - 1)));
+                    const keel::usize lutIdx = static_cast<keel::usize>(keel::clamp((sample - minV) * invSpanLut, 0.0f, static_cast<float>(kToneLutSize - 1)));
                     rowOut[dx] = toneAbgrLut[lutIdx];
                 }
             }
         } else {
             // Full Multi-Channel RGB Composite Mode: build 4096-entry LUTs for R, G, B combining Channel + Master curves
-            keel::StaticArray<uint8_t, kToneLutSize> lutR{};
-            keel::StaticArray<uint8_t, kToneLutSize> lutG{};
-            keel::StaticArray<uint8_t, kToneLutSize> lutB{};
+            keel::StaticArray<keel::u8, kToneLutSize> lutR{};
+            keel::StaticArray<keel::u8, kToneLutSize> lutG{};
+            keel::StaticArray<keel::u8, kToneLutSize> lutB{};
 
-            for (size_t i = 0; i < kToneLutSize; ++i) {
+            for (keel::usize i = 0; i < kToneLutSize; ++i) {
                 const float val = minV + (static_cast<float>(i) / static_cast<float>(kToneLutSize - 1)) * spanV;
                 const float tr = params.channels[0].Evaluate(minV + params.channels[1].Evaluate(val) * spanV);
                 const float tg = params.channels[0].Evaluate(minV + params.channels[2].Evaluate(val) * spanV);
                 const float tb = params.channels[0].Evaluate(minV + params.channels[3].Evaluate(val) * spanV);
-                lutR[i] = static_cast<uint8_t>(keel::clamp(std::round(tr * 255.0f), 0.0f, 255.0f));
-                lutG[i] = static_cast<uint8_t>(keel::clamp(std::round(tg * 255.0f), 0.0f, 255.0f));
-                lutB[i] = static_cast<uint8_t>(keel::clamp(std::round(tb * 255.0f), 0.0f, 255.0f));
+                lutR[i] = static_cast<keel::u8>(keel::clamp(std::round(tr * 255.0f), 0.0f, 255.0f));
+                lutG[i] = static_cast<keel::u8>(keel::clamp(std::round(tg * 255.0f), 0.0f, 255.0f));
+                lutB[i] = static_cast<keel::u8>(keel::clamp(std::round(tb * 255.0f), 0.0f, 255.0f));
             }
 
             const float maxIdxF = static_cast<float>(kToneLutSize - 1);
-            for (uint32_t dy = 0; dy < displayH; ++dy) {
-                uint32_t* rowOut = displayAbgr.data() + static_cast<size_t>(dy) * displayW;
-                for (uint32_t dx = 0; dx < displayW; ++dx) {
-                    uint32_t sx = 0, sy = 0;
+            for (keel::u32 dy = 0; dy < displayH; ++dy) {
+                keel::u32* rowOut = displayAbgr.data() + static_cast<keel::usize>(dy) * displayW;
+                for (keel::u32 dx = 0; dx < displayW; ++dx) {
+                    keel::u32 sx = 0, sy = 0;
                     od.DisplayToSourcePx(dx, dy, sx, sy);
                     const auto ch = ReadPixelChannels(data, sx, sy);
-                    const size_t ir = static_cast<size_t>(keel::clamp((ch[0] - minV) * invSpanLut, 0.0f, maxIdxF));
-                    const size_t ig = static_cast<size_t>(keel::clamp((ch[1] - minV) * invSpanLut, 0.0f, maxIdxF));
-                    const size_t ib = static_cast<size_t>(keel::clamp((ch[2] - minV) * invSpanLut, 0.0f, maxIdxF));
+                    const keel::usize ir = static_cast<keel::usize>(keel::clamp((ch[0] - minV) * invSpanLut, 0.0f, maxIdxF));
+                    const keel::usize ig = static_cast<keel::usize>(keel::clamp((ch[1] - minV) * invSpanLut, 0.0f, maxIdxF));
+                    const keel::usize ib = static_cast<keel::usize>(keel::clamp((ch[2] - minV) * invSpanLut, 0.0f, maxIdxF));
                     rowOut[dx] = PackAbgr(Color(lutR[ir], lutG[ig], lutB[ib], 255));
                 }
             }
@@ -576,7 +576,7 @@ struct ViewportLayoutGeom {
             g.topBarRect = Rect(box.x + 1.0f, box.y + 1.0f, keel::max(0.0f, box.w - 2.0f), topH);
             float bx = g.topBarRect.x + gap;
             const float by = g.topBarRect.y + padY;
-            for (size_t i = 0; i < kToolLabels.size(); ++i) {
+            for (keel::usize i = 0; i < kToolLabels.size(); ++i) {
                 ButtonOptions bOpts{};
                 if (i == 2) {
                     bOpts.icon = Icon::Minus();
@@ -636,7 +636,7 @@ struct ImageViewViewportPayload {
     ImageViewOptions opts{};
     ImageViewResponse resp{};
     ImageViewInternalState* state{nullptr};
-    int hoveredToolBtn{-1};
+    keel::i32 hoveredToolBtn{-1};
 };
 
 ImageViewResponse RunViewportNode(
@@ -680,12 +680,12 @@ ImageViewResponse RunViewportNode(
     );
 
     // 1. Top Toolbar quick buttons
-    int hoveredToolBtn = -1;
+    keel::i32 hoveredToolBtn = -1;
     bool clickedToolbar = false;
     if (!effectiveDisabled && vgeom.hasTopBar && baseRes.hovered) {
-        for (size_t i = 0; i < vgeom.toolBtnRects.size(); ++i) {
+        for (keel::usize i = 0; i < vgeom.toolBtnRects.size(); ++i) {
             if (vgeom.toolBtnRects[i].Contains(mouse)) {
-                hoveredToolBtn = static_cast<int>(i);
+                hoveredToolBtn = static_cast<keel::i32>(i);
                 if (ctx.IsMouseClicked()) {
                     clickedToolbar = true;
                     ctx.SetActiveId(Id::Null());
@@ -704,7 +704,7 @@ ImageViewResponse RunViewportNode(
                             ZoomAroundPoint(st, cr, centerPt, st.zoom * 1.25f);
                             break;
                         case 4: // 90 deg rotate CW
-                            params.rotation = static_cast<ImageRotation>((static_cast<uint8_t>(params.rotation) + 1) % 4);
+                            params.rotation = static_cast<ImageRotation>((static_cast<keel::u8>(params.rotation) + 1) % 4);
                             st.fitPending = true;
                             res.paramsChanged = true;
                             break;
@@ -761,7 +761,7 @@ ImageViewResponse RunViewportNode(
                 st.lastClickPos = mouse;
 
                 if (opts.enableCtrlWlDrag && mods.ctrl) {
-                    const size_t chIdx = static_cast<size_t>(params.activeHistChannel);
+                    const keel::usize chIdx = static_cast<keel::usize>(params.activeHistChannel);
                     st.wlDragging = true;
                     st.wlGrabMouse = mouse;
                     st.wlGrabWindow = params.channels[chIdx].window;
@@ -783,7 +783,7 @@ ImageViewResponse RunViewportNode(
         if (st.wlDragging) {
             if (ctx.IsMouseDown()) {
                 ctx.SetActiveId(id);
-                const size_t chIdx = static_cast<size_t>(params.activeHistChannel);
+                const keel::usize chIdx = static_cast<keel::usize>(params.activeHistChannel);
                 const float domainSpan = keel::max(1e-4f, st.dataMax - st.dataMin);
                 const float sensitivity = (mods.shift ? 0.25f : 1.0f) * (domainSpan / 320.0f);
                 const float dx = mouse.x - st.wlGrabMouse.x;
@@ -878,8 +878,8 @@ ImageViewResponse RunViewportNode(
         const float dispY = (mouse.y - cr.y - st.pan.y) / keel::max(1e-4f, st.zoom);
         if (dispX >= 0.0f && dispY >= 0.0f &&
             dispX < static_cast<float>(st.displayW) && dispY < static_cast<float>(st.displayH)) {
-            uint32_t sx = 0, sy = 0;
-            od.DisplayToSourcePx(static_cast<uint32_t>(dispX), static_cast<uint32_t>(dispY), sx, sy);
+            keel::u32 sx = 0, sy = 0;
+            od.DisplayToSourcePx(static_cast<keel::u32>(dispX), static_cast<keel::u32>(dispY), sx, sy);
             res.cursorInsideImage = true;
             res.cursorImageX = sx;
             res.cursorImageY = sy;
@@ -897,7 +897,7 @@ ImageViewResponse RunViewportNode(
     res.profileActive = st.profile.active;
     res.profileStartPx = st.profile.startSrc;
     res.profileEndPx = st.profile.endSrc;
-    res.profileSampleCount = static_cast<uint32_t>(st.profile.samplesLum.size());
+    res.profileSampleCount = static_cast<keel::u32>(st.profile.samplesLum.size());
     res.profileMin = st.profile.minVal;
     res.profileMax = st.profile.maxVal;
     res.profileMean = st.profile.meanVal;
@@ -1029,8 +1029,8 @@ ImageViewResponse RunViewportNode(
             c.DrawRect(vg.topBarRect, barBg);
             c.DrawLine({vg.topBarRect.x, vg.topBarRect.Bottom()}, {vg.topBarRect.Right(), vg.topBarRect.Bottom()}, borderCol, 1.0f);
 
-            for (size_t i = 0; i < ViewportLayoutGeom::kToolLabels.size(); ++i) {
-                const bool isHovered = (p->hoveredToolBtn == static_cast<int>(i));
+            for (keel::usize i = 0; i < ViewportLayoutGeom::kToolLabels.size(); ++i) {
+                const bool isHovered = (p->hoveredToolBtn == static_cast<keel::i32>(i));
                 const bool activeToggle =
                     (i == 5 && prm.flipHorizontal) ||
                     (i == 6 && prm.flipVertical) ||
@@ -1057,7 +1057,7 @@ ImageViewResponse RunViewportNode(
             char modeBuf[64]{};
             if (d.channels == 1 || prm.displayChannel != ImageDisplayChannel::CompositeRgb) {
                 std::snprintf(modeBuf, sizeof(modeBuf), "%.*s%s | %.0f%%",
-                              static_cast<int>(GetColormapName(prm.colormap).size()),
+                              static_cast<keel::i32>(GetColormapName(prm.colormap).size()),
                               GetColormapName(prm.colormap).data(),
                               prm.channels[0].invert ? " (Inv)" : "",
                               s.zoom * 100.0f);
@@ -1098,17 +1098,17 @@ ImageViewResponse RunViewportNode(
 
             // High-zoom pixel grid (>= 12x zoom)
             if (o.showPixelGridAtHighZoom && s.zoom >= 12.0f) {
-                const Color gridCol(255, 255, 255, static_cast<uint8_t>(keel::clamp((s.zoom - 10.0f) * 4.0f, 18.0f, 75.0f)));
-                const uint32_t x0 = static_cast<uint32_t>(keel::max(0.0f, std::floor((cr.x - destRect.x) / s.zoom)));
-                const uint32_t x1 = keel::min(s.displayW, static_cast<uint32_t>(std::ceil((cr.Right() - destRect.x) / s.zoom)));
-                const uint32_t y0 = static_cast<uint32_t>(keel::max(0.0f, std::floor((cr.y - destRect.y) / s.zoom)));
-                const uint32_t y1 = keel::min(s.displayH, static_cast<uint32_t>(std::ceil((cr.Bottom() - destRect.y) / s.zoom)));
+                const Color gridCol(255, 255, 255, static_cast<keel::u8>(keel::clamp((s.zoom - 10.0f) * 4.0f, 18.0f, 75.0f)));
+                const keel::u32 x0 = static_cast<keel::u32>(keel::max(0.0f, std::floor((cr.x - destRect.x) / s.zoom)));
+                const keel::u32 x1 = keel::min(s.displayW, static_cast<keel::u32>(std::ceil((cr.Right() - destRect.x) / s.zoom)));
+                const keel::u32 y0 = static_cast<keel::u32>(keel::max(0.0f, std::floor((cr.y - destRect.y) / s.zoom)));
+                const keel::u32 y1 = keel::min(s.displayH, static_cast<keel::u32>(std::ceil((cr.Bottom() - destRect.y) / s.zoom)));
 
-                for (uint32_t gx = x0; gx <= x1; ++gx) {
+                for (keel::u32 gx = x0; gx <= x1; ++gx) {
                     const float sx = destRect.x + static_cast<float>(gx) * s.zoom;
                     c.DrawLine({sx, keel::max(cr.y, destRect.y)}, {sx, keel::min(cr.Bottom(), destRect.Bottom())}, gridCol, 1.0f);
                 }
-                for (uint32_t gy = y0; gy <= y1; ++gy) {
+                for (keel::u32 gy = y0; gy <= y1; ++gy) {
                     const float sy = destRect.y + static_cast<float>(gy) * s.zoom;
                     c.DrawLine({keel::max(cr.x, destRect.x), sy}, {keel::min(cr.Right(), destRect.Right()), sy}, gridCol, 1.0f);
                 }
@@ -1169,9 +1169,9 @@ ImageViewResponse RunViewportNode(
 
                 auto drawProfileTrace = [&](keel::ArrayRef<float> vec, Color col, float strokeW) {
                     if (vec.size() < 2) return;
-                    const size_t nPts = vec.size();
+                    const keel::usize nPts = vec.size();
                     Vec2 prev{};
-                    for (size_t i = 0; i < nPts; ++i) {
+                    for (keel::usize i = 0; i < nPts; ++i) {
                         const float u = static_cast<float>(i) / static_cast<float>(nPts - 1);
                         const float vNorm = keel::clamp((vec[i] - pMin) / pSpan, 0.0f, 1.0f);
                         const Vec2 pt{
@@ -1206,7 +1206,7 @@ ImageViewResponse RunViewportNode(
             c.DrawRect(vg.statusRect, barBg);
             c.DrawLine({vg.statusRect.x, vg.statusRect.y}, {vg.statusRect.Right(), vg.statusRect.y}, borderCol, 1.0f);
 
-            const auto& masterTp = prm.channels[static_cast<size_t>(prm.activeHistChannel)];
+            const auto& masterTp = prm.channels[static_cast<keel::usize>(prm.activeHistChannel)];
             char statusLeft[160]{};
             std::snprintf(
                 statusLeft,
@@ -1273,7 +1273,7 @@ ImageViewResponse RunViewportNode(
 } // namespace
 
 void ImageView::ApplyQuantileAutoWindow(
-    keel::ArrayRef<uint32_t> bins,
+    keel::ArrayRef<keel::u32> bins,
     float minVal,
     float maxVal,
     AutoWindowTarget target,
@@ -1286,8 +1286,8 @@ void ImageView::ApplyQuantileAutoWindow(
         return;
     }
 
-    uint64_t total = 0;
-    for (uint32_t c : bins) {
+    keel::u64 total = 0;
+    for (keel::u32 c : bins) {
         total += c;
     }
     if (total == 0) {
@@ -1303,9 +1303,9 @@ void ImageView::ApplyQuantileAutoWindow(
         if (q <= 0.0f) return minVal;
         if (q >= 1.0f) return maxVal;
         const double targetCount = static_cast<double>(q) * static_cast<double>(total);
-        uint64_t accum = 0;
-        for (size_t i = 0; i < bins.size(); ++i) {
-            const uint64_t nextAccum = accum + bins[i];
+        keel::u64 accum = 0;
+        for (keel::usize i = 0; i < bins.size(); ++i) {
+            const keel::u64 nextAccum = accum + bins[i];
             if (static_cast<double>(nextAccum) >= targetCount) {
                 const double binFraction = (bins[i] > 0)
                     ? ((targetCount - static_cast<double>(accum)) / static_cast<double>(bins[i]))
@@ -1407,8 +1407,8 @@ ImageViewResponse RunImageViewImpl(
                 ? HistogramData::Rgb(st.binsLum, st.binsR, st.binsG, st.binsB, st.dataMin, st.dataMax)
                 : HistogramData::Mono(st.binsLum, st.dataMin, st.dataMax);
 
-            const size_t activeChIdx = (data.channels >= 3)
-                ? static_cast<size_t>(params.activeHistChannel)
+            const keel::usize activeChIdx = (data.channels >= 3)
+                ? static_cast<keel::usize>(params.activeHistChannel)
                 : 0u;
             ChannelTransferParams& activeTp = params.channels[activeChIdx];
 
@@ -1439,7 +1439,7 @@ ImageViewResponse RunImageViewImpl(
                     "Isolate Blue Channel",
                     "Isolate Luminance"
                 };
-                int dispChIdx = static_cast<int>(params.displayChannel);
+                keel::i32 dispChIdx = static_cast<keel::i32>(params.displayChannel);
                 if (auto el = ctx.Element({.label = "View Mode"})) {
                     if (ctx.Select(dispChIdx, kDispChNames).changed) {
                         params.displayChannel = static_cast<ImageDisplayChannel>(dispChIdx);
@@ -1455,7 +1455,7 @@ ImageViewResponse RunImageViewImpl(
             // Window / Level / Gamma sliders for the active channel
             const float span = keel::max(1.0f, st.dataMax - st.dataMin);
             const float minW = keel::max(0.01f, span * 0.002f);
-            ChannelTransferParams& curTp = params.channels[static_cast<size_t>((data.channels >= 3) ? params.activeHistChannel : HistogramChannel::Master)];
+            ChannelTransferParams& curTp = params.channels[static_cast<keel::usize>((data.channels >= 3) ? params.activeHistChannel : HistogramChannel::Master)];
             const keel::StringRef wlFmt = (span >= 50.0f) ? "%.0f" : "%.2f";
 
             if (auto el = ctx.Element({.label = "W (Window)"})) {
@@ -1507,7 +1507,7 @@ ImageViewResponse RunImageViewImpl(
             // --- Section 2: Colormap (for 1-channel or isolated channel) ---
             const bool canUseColormap = (data.channels == 1) || (params.displayChannel != ImageDisplayChannel::CompositeRgb);
             ctx.Disabled(!canUseColormap, [&]() {
-                int cmapIdx = static_cast<int>(params.colormap);
+                keel::i32 cmapIdx = static_cast<keel::i32>(params.colormap);
                 if (auto el = ctx.Element({
                     .label = "Colormap",
                     .description = canUseColormap ? keel::StringRef{} : "Select an isolated channel to apply Colormap"
@@ -1522,11 +1522,11 @@ ImageViewResponse RunImageViewImpl(
             // --- Section 3: Auto Window (Quantile Clipping) ---
             ctx.Text("Auto Window", {.role = TextRole::LabelLarge});
             static constexpr keel::StaticArray<keel::StringRef, 3> kAutoTargets = {"Black", "White", "All"};
-            int targetIdx = static_cast<int>(params.autoTarget);
+            keel::i32 targetIdx = static_cast<keel::i32>(params.autoTarget);
             if (ctx.StepSlider(targetIdx, kAutoTargets, {.showValue = false}).changed) {
                 params.autoTarget = static_cast<AutoWindowTarget>(targetIdx);
                 if (params.autoStrength != AutoWindowStrength::Off) {
-                    keel::ArrayRef<uint32_t> targetBins = st.binsLum;
+                    keel::ArrayRef<keel::u32> targetBins = st.binsLum;
                     if (data.channels >= 3) {
                         if (params.activeHistChannel == HistogramChannel::Red) targetBins = st.binsR;
                         else if (params.activeHistChannel == HistogramChannel::Green) targetBins = st.binsG;
@@ -1539,7 +1539,7 @@ ImageViewResponse RunImageViewImpl(
 
             if (auto strRow = ctx.Row({.gap = 6.0f})) {
                 static constexpr keel::StaticArray<keel::StringRef, 3> kStrengthNames = {"Off", "Medium", "Strong"};
-                for (size_t i = 0; i < 3; ++i) {
+                for (keel::usize i = 0; i < 3; ++i) {
                     const auto sMode = static_cast<AutoWindowStrength>(i);
                     const bool isSel = (params.autoStrength == sMode);
                     if (ctx.Button({
@@ -1548,7 +1548,7 @@ ImageViewResponse RunImageViewImpl(
                         .stretch = StretchMode::Fill
                     }).clicked) {
                         params.autoStrength = sMode;
-                        keel::ArrayRef<uint32_t> targetBins = st.binsLum;
+                        keel::ArrayRef<keel::u32> targetBins = st.binsLum;
                         if (data.channels >= 3) {
                             if (params.activeHistChannel == HistogramChannel::Red) targetBins = st.binsR;
                             else if (params.activeHistChannel == HistogramChannel::Green) targetBins = st.binsG;
@@ -1590,7 +1590,7 @@ ImageViewResponse RunImageViewImpl(
             }
 
             static constexpr keel::StaticArray<keel::StringRef, 4> kRotLabels = {"0\xC2\xB0", "90\xC2\xB0", "180\xC2\xB0", "270\xC2\xB0"};
-            int rotIdx = static_cast<int>(params.rotation);
+            keel::i32 rotIdx = static_cast<keel::i32>(params.rotation);
             if (auto el = ctx.Element({.label = "Rotate"})) {
                 if (ctx.StepSlider(rotIdx, kRotLabels, {.showValue = false}).changed) {
                     params.rotation = static_cast<ImageRotation>(rotIdx);

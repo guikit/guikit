@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/backend/i_canvas.hpp"
 #include "keel/smart_ptr.h"
 
@@ -11,10 +10,10 @@ using VectorCanvasFactory = keel::UniquePtr<ICanvas>(*)(bool loadDefaultFonts);
 
 /// Callback signature for decoding an encoded raster image (PNG / JPEG / WebP) from memory into 32-bit RGBA8888 pixels.
 using ImageDecoderFn = bool(*)(
-    keel::ArrayRef<uint8_t> encodedBytes,
-    uint32_t& outWidth,
-    uint32_t& outHeight,
-    keel::Array<uint32_t>& outRgbaPixels
+    keel::ArrayRef<keel::u8> encodedBytes,
+    keel::u32& outWidth,
+    keel::u32& outHeight,
+    keel::Array<keel::u32>& outRgbaPixels
 );
 
 /// Registers the default `ICanvas` factory used by `CreateVectorCanvas()` and `CreateOffscreenVectorCanvas()`.
@@ -37,10 +36,10 @@ void RegisterDefaultImageDecoder(ImageDecoderFn decoder) noexcept;
 /// into 32-bit RGBA8888 pixels (`(A << 24) | (B << 16) | (G << 8) | R`).
 /// Thread-safe and safe to invoke from background worker threads.
 [[nodiscard]] bool DecodeImageFromMemory(
-    keel::ArrayRef<uint8_t> encodedBytes,
-    uint32_t& outWidth,
-    uint32_t& outHeight,
-    keel::Array<uint32_t>& outRgbaPixels
+    keel::ArrayRef<keel::u8> encodedBytes,
+    keel::u32& outWidth,
+    keel::u32& outHeight,
+    keel::Array<keel::u32>& outRgbaPixels
 );
 
 } // namespace guikit

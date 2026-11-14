@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
@@ -28,7 +27,7 @@ struct CommandPaletteOptions {
     keel::Optional<float> width{keel::kNullOpt}; ///< Explicit width in dp (nullopt or <= 0 = auto-fit content within [minWidth..maxWidth])
     float minWidth{480.0f};                      ///< Minimum width in dp when auto-fitting content
     float maxWidth{780.0f};                      ///< Maximum width in dp when auto-fitting content
-    uint32_t maxVisibleItems{9};
+    keel::u32 maxVisibleItems{9};
     float backdropOpacity{0.45f};
     keel::Optional<Color> backdropColor{keel::kNullOpt};
     bool closeOnBackdropClick{true};
@@ -42,7 +41,7 @@ struct CommandPaletteOptions {
 };
 
 struct CommandPaletteResponse : public Response {
-    int selectedIndex{-1}; ///< Index in `items` triggered this frame (-1 if none)
+    keel::i32 selectedIndex{-1}; ///< Index in `items` triggered this frame (-1 if none)
 };
 
 class CommandPalette {

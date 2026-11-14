@@ -86,11 +86,11 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
             case IconId::Refresh: {
                 const float r = s * 0.31f;
                 // Draw a 280-degree open circular arc (from +35 deg to +315 deg)
-                constexpr int kSegs = 12;
+                constexpr keel::i32 kSegs = 12;
                 const float startAng = 0.610865f;  // 35 deg
                 const float endAng   = 5.497787f;  // 315 deg (-45 deg, top-right)
                 Vec2 prevPt(cx + r * std::cos(startAng), cy + r * std::sin(startAng));
-                for (int i = 1; i <= kSegs; ++i) {
+                for (keel::i32 i = 1; i <= kSegs; ++i) {
                     const float t = static_cast<float>(i) / static_cast<float>(kSegs);
                     const float ang = startAng + t * (endAng - startAng);
                     const Vec2 curPt(cx + r * std::cos(ang), cy + r * std::sin(ang));
@@ -162,7 +162,7 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
                 const float toothStroke = keel::max(2.0f, stroke * 1.3f);
 
                 // 6 radial gear teeth spaced at 60 degree intervals
-                for (int i = 0; i < 6; ++i) {
+                for (keel::i32 i = 0; i < 6; ++i) {
                     const float angle = static_cast<float>(i) * 1.04719755f; // pi / 3
                     const float ca = std::cos(angle);
                     const float sa = std::sin(angle);
@@ -301,11 +301,11 @@ void Icon::Draw(ICanvas& canvas, Rect bounds, Color tint) const {
 
                 const float arcCy = cy + s * 0.08f;
                 const float arcR = s * 0.33f;
-                constexpr int kSegs = 8;
+                constexpr keel::i32 kSegs = 8;
                 const float startAng = -2.65f; // ~ -152 deg (left-bottom)
                 const float endAng   = -0.49f; // ~ -28 deg (right-bottom)
                 Vec2 prevPt(cx + arcR * std::cos(startAng), arcCy + arcR * std::sin(startAng));
-                for (int i = 1; i <= kSegs; ++i) {
+                for (keel::i32 i = 1; i <= kSegs; ++i) {
                     const float t = static_cast<float>(i) / static_cast<float>(kSegs);
                     const float ang = startAng + t * (endAng - startAng);
                     const Vec2 curPt(cx + arcR * std::cos(ang), arcCy + arcR * std::sin(ang));

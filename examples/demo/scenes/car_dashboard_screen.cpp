@@ -1,5 +1,4 @@
 #include <cmath>
-#include <cstdint>
 #include "../demo_context.hpp"
 
 namespace guikit::demo {
@@ -8,13 +7,13 @@ namespace {
 
 struct CarDashboardDemoState {
     bool initialized{false};
-    int controlModeIndex{0};        // 0 = Mouse Drive (Gas/Brake/Steer), 1 = Highway ADAS Cruise, 2 = Track Hot Lap, 3 = Manual Sliders
-    int layoutModeIndex{0};         // 0 = DualDial, 1 = TrackCentral, 2 = ModernWide
-    int powertrainIndex{0};         // 0 = IceTurbo, 1 = ElectricDualMotor
-    int driveThemeIndex{0};         // 0 = ComfortCyan, 1 = SportCrimson, 2 = EcoEmerald, 3 = TrackGold
+    keel::i32 controlModeIndex{0};        // 0 = Mouse Drive (Gas/Brake/Steer), 1 = Highway ADAS Cruise, 2 = Track Hot Lap, 3 = Manual Sliders
+    keel::i32 layoutModeIndex{0};         // 0 = DualDial, 1 = TrackCentral, 2 = ModernWide
+    keel::i32 powertrainIndex{0};         // 0 = IceTurbo, 1 = ElectricDualMotor
+    keel::i32 driveThemeIndex{0};         // 0 = ComfortCyan, 1 = SportCrimson, 2 = EcoEmerald, 3 = TrackGold
     guikit::ClusterCenterMfd centerMfd{guikit::ClusterCenterMfd::AdasLaneRadar};
-    int speedUnitIndex{0};          // 0 = Kmh, 1 = Mph
-    int gearSelectorIndex{3};       // 0=P, 1=R, 2=N, 3=D, 4=S, 5=M
+    keel::i32 speedUnitIndex{0};          // 0 = Kmh, 1 = Mph
+    keel::i32 gearSelectorIndex{3};       // 0=P, 1=R, 2=N, 3=D, 4=S, 5=M
 
     // Primary Vehicle Telemetry
     float speedKmh{98.0f};
@@ -24,7 +23,7 @@ struct CarDashboardDemoState {
     float rpm{2650.0f};
     float redlineRpm{7000.0f};
     float maxRpm{8500.0f};
-    int currentGear{5};
+    keel::i32 currentGear{5};
     float evPowerKw{42.0f};
     float throttlePct{20.0f};
     float brakePct{0.0f};
@@ -71,7 +70,7 @@ struct CarDashboardDemoState {
     bool ttLaneKeep{true};
 
     double simTimeSec{0.0};
-    uint64_t lastWallNs{0};
+    keel::u64 lastWallNs{0};
     guikit::CarClusterViewResponse lastResp{};
 };
 
@@ -95,32 +94,32 @@ void ComputeAutomaticGearAndRpm(CarDashboardDemoState& st, bool sportShift) noex
     const float downshiftRpm = sportShift ? 2800.0f : 1450.0f;
 
     if (st.gearSelectorIndex != 5) { // Not Manual mode -> automatic shift logic
-        int g = keel::clamp(st.currentGear, 1, 8);
-        float ratio = kGearKmhPer1000Rpm[static_cast<size_t>(g - 1)];
+        keel::i32 g = keel::clamp(st.currentGear, 1, 8);
+        float ratio = kGearKmhPer1000Rpm[static_cast<keel::usize>(g - 1)];
         float calcRpm = keel::max(820.0f, (st.speedKmh / ratio) * 1000.0f);
 
         while (g < 8 && calcRpm > upshiftRpm) {
             ++g;
-            ratio = kGearKmhPer1000Rpm[static_cast<size_t>(g - 1)];
+            ratio = kGearKmhPer1000Rpm[static_cast<keel::usize>(g - 1)];
             calcRpm = keel::max(820.0f, (st.speedKmh / ratio) * 1000.0f);
         }
         while (g > 1 && calcRpm < downshiftRpm && st.speedKmh > 6.0f) {
             --g;
-            ratio = kGearKmhPer1000Rpm[static_cast<size_t>(g - 1)];
+            ratio = kGearKmhPer1000Rpm[static_cast<keel::usize>(g - 1)];
             calcRpm = keel::max(820.0f, (st.speedKmh / ratio) * 1000.0f);
         }
         st.currentGear = g;
     }
 
-    const int effGear = keel::clamp(st.currentGear, 1, 8);
-    const float ratio = kGearKmhPer1000Rpm[static_cast<size_t>(effGear - 1)];
+    const keel::i32 effGear = keel::clamp(st.currentGear, 1, 8);
+    const float ratio = kGearKmhPer1000Rpm[static_cast<keel::usize>(effGear - 1)];
     const float wheelRpm = (st.speedKmh / ratio) * 1000.0f;
     const float targetRpm = keel::clamp(keel::max(820.0f + st.throttlePct * 6.0f, wheelRpm), 800.0f, st.maxRpm);
     st.rpm += (targetRpm - st.rpm) * 0.25f;
 }
 
 void StepCarSimulation(guikit::Context& ui, CarDashboardDemoState& st) {
-    const uint64_t nowNs = keel::monotonic_ns();
+    const keel::u64 nowNs = keel::monotonic_ns();
     if (!st.initialized) {
         st.lastWallNs = nowNs;
         st.initialized = true;
@@ -287,10 +286,10 @@ void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         "P (Park)", "R (Reverse)", "N (Neutral)", "D (Drive)", "S (Sport)", "M (Manual)"
     };
 
-    size_t ctrlIdx = static_cast<size_t>(keel::clamp(s_car.controlModeIndex, 0, 3));
+    keel::usize ctrlIdx = static_cast<keel::usize>(keel::clamp(s_car.controlModeIndex, 0, 3));
     if (auto el = ui.Element({.label = "Control / Simulation Mode"})) {
         if (ui.Select(ctrlIdx, kControlModes).changed) {
-            s_car.controlModeIndex = static_cast<int>(ctrlIdx);
+            s_car.controlModeIndex = static_cast<keel::i32>(ctrlIdx);
             if (s_car.controlModeIndex == 2) {
                 s_car.driveThemeIndex = 1; // SportCrimson
                 s_car.gearSelectorIndex = 4; // Sport
@@ -298,47 +297,47 @@ void RenderCarDashboardInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         }
     }
 
-    size_t layIdx = static_cast<size_t>(keel::clamp(s_car.layoutModeIndex, 0, 2));
+    keel::usize layIdx = static_cast<keel::usize>(keel::clamp(s_car.layoutModeIndex, 0, 2));
     if (auto el = ui.Element({.label = "Cluster Architecture"})) {
         if (ui.Select(layIdx, kLayoutModes).changed) {
-            s_car.layoutModeIndex = static_cast<int>(layIdx);
+            s_car.layoutModeIndex = static_cast<keel::i32>(layIdx);
         }
     }
 
-    size_t ptIdx = static_cast<size_t>(keel::clamp(s_car.powertrainIndex, 0, 1));
+    keel::usize ptIdx = static_cast<keel::usize>(keel::clamp(s_car.powertrainIndex, 0, 1));
     if (auto el = ui.Element({.label = "Powertrain Mode"})) {
         if (ui.Select(ptIdx, kPowertrains).changed) {
-            s_car.powertrainIndex = static_cast<int>(ptIdx);
+            s_car.powertrainIndex = static_cast<keel::i32>(ptIdx);
             s_car.avgConsumption = (s_car.powertrainIndex == 1) ? 18.4f : 9.2f;
             s_car.coolantOrBattTempC = (s_car.powertrainIndex == 1) ? 31.0f : 90.0f;
         }
     }
 
-    size_t thmIdx = static_cast<size_t>(keel::clamp(s_car.driveThemeIndex, 0, 3));
+    keel::usize thmIdx = static_cast<keel::usize>(keel::clamp(s_car.driveThemeIndex, 0, 3));
     if (auto el = ui.Element({.label = "Drive Mode Theme"})) {
         if (ui.Select(thmIdx, kDriveThemes).changed) {
-            s_car.driveThemeIndex = static_cast<int>(thmIdx);
+            s_car.driveThemeIndex = static_cast<keel::i32>(thmIdx);
         }
     }
 
-    size_t mfdIdx = static_cast<size_t>(s_car.centerMfd);
+    keel::usize mfdIdx = static_cast<keel::usize>(s_car.centerMfd);
     if (auto el = ui.Element({.label = "Center MFD Screen"})) {
         if (ui.Select(mfdIdx, kMfdPages).changed) {
             s_car.centerMfd = static_cast<guikit::ClusterCenterMfd>(mfdIdx);
         }
     }
 
-    size_t unitIdx = static_cast<size_t>(keel::clamp(s_car.speedUnitIndex, 0, 1));
+    keel::usize unitIdx = static_cast<keel::usize>(keel::clamp(s_car.speedUnitIndex, 0, 1));
     if (auto el = ui.Element({.label = "Measurement Units"})) {
         if (ui.Select(unitIdx, kSpeedUnits).changed) {
-            s_car.speedUnitIndex = static_cast<int>(unitIdx);
+            s_car.speedUnitIndex = static_cast<keel::i32>(unitIdx);
         }
     }
 
-    size_t gearSelIdx = static_cast<size_t>(keel::clamp(s_car.gearSelectorIndex, 0, 5));
+    keel::usize gearSelIdx = static_cast<keel::usize>(keel::clamp(s_car.gearSelectorIndex, 0, 5));
     if (auto el = ui.Element({.label = "Transmission Selector"})) {
         if (ui.Select(gearSelIdx, kGearSelectors).changed) {
-            s_car.gearSelectorIndex = static_cast<int>(gearSelIdx);
+            s_car.gearSelectorIndex = static_cast<keel::i32>(gearSelIdx);
         }
     }
 
@@ -529,10 +528,10 @@ keel::String GenerateCarDashboardCode(const DemoContext& /*ctx*/) {
         "    .centerMfdPtr     = &centerMfd,\n"
         "    .heightMode       = guikit::SizeMode::Stretch\n"
         "}});\n",
-        kLayoutEnums[static_cast<size_t>(keel::clamp(s_car.layoutModeIndex, 0, 2))],
-        kPtEnums[static_cast<size_t>(keel::clamp(s_car.powertrainIndex, 0, 1))],
-        kThemeEnums[static_cast<size_t>(keel::clamp(s_car.driveThemeIndex, 0, 3))],
-        kMfdEnums[static_cast<size_t>(keel::clamp(static_cast<int>(s_car.centerMfd), 0, 2))],
+        kLayoutEnums[static_cast<keel::usize>(keel::clamp(s_car.layoutModeIndex, 0, 2))],
+        kPtEnums[static_cast<keel::usize>(keel::clamp(s_car.powertrainIndex, 0, 1))],
+        kThemeEnums[static_cast<keel::usize>(keel::clamp(s_car.driveThemeIndex, 0, 3))],
+        kMfdEnums[static_cast<keel::usize>(keel::clamp(static_cast<keel::i32>(s_car.centerMfd), 0, 2))],
         s_car.speedKmh,
         s_car.rpm,
         s_car.currentGear,

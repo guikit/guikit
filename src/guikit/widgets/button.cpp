@@ -53,10 +53,10 @@ void DrawButtonSpinner(ICanvas& canvas, Rect r, Color col, float phase) {
     constexpr float kTwoPi = 2.0f * kButtonPi;
     const float startA = phase * kTwoPi;
     const float sweep = 1.38f * kButtonPi;
-    constexpr int kSegs = 18;
+    constexpr keel::i32 kSegs = 18;
     VectorPath path;
     path.Reserve(kSegs + 1, kSegs + 1);
-    for (int i = 0; i <= kSegs; ++i) {
+    for (keel::i32 i = 0; i <= kSegs; ++i) {
         const float a = startA + sweep * (static_cast<float>(i) / static_cast<float>(kSegs));
         const Vec2 pt(center.x + std::cos(a) * radius, center.y + std::sin(a) * radius);
         if (i == 0) path.MoveTo(pt);
@@ -213,13 +213,13 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
     node->visualHash = detail::HashArgs(
         bOpts->color,
         bOpts->iconPlacement,
-        static_cast<uint8_t>(bOpts->align),
+        static_cast<keel::u8>(bOpts->align),
         bOpts->active,
         bOpts->loading,
         loadingPhase,
         bOpts->square,
         bOpts->iconColor.value_or(Color::Transparent()),
-        static_cast<uint8_t>(bOpts->stretch),
+        static_cast<keel::u8>(bOpts->stretch),
         bOpts->width.value_or(0.0f),
         bOpts->widthRatio.value_or(-1.0f),
         bOpts->height.value_or(0.0f),
@@ -227,8 +227,8 @@ Response Button::Run(Context& ctx, const ButtonOptions& opts, keel::SourceLocati
         activeSize,
         bOpts->background,
         bOpts->border,
-        static_cast<uint8_t>(bOpts->icon.GetType()),
-        static_cast<uint8_t>(bOpts->icon.GetId()),
+        static_cast<keel::u8>(bOpts->icon.GetType()),
+        static_cast<keel::u8>(bOpts->icon.GetId()),
         bOpts->icon.GetPath(),
         bOpts->text,
         bOpts->badge

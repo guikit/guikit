@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include "keel/core.h"
 #include "keel/optional.h"
 #include "keel/ref.h"
@@ -17,7 +15,7 @@ class ICanvas;
 
 struct LevelMeterOptions {
     Orientation orientation{Orientation::Horizontal}; ///< Horizontal or Vertical meter bar(s)
-    uint32_t segments{24};                            ///< 0 = smooth continuous bar; >0 = discrete LED cells (e.g. 16, 24, 32)
+    keel::u32 segments{24};                            ///< 0 = smooth continuous bar; >0 = discrete LED cells (e.g. 16, 24, 32)
     bool multiZoneColor{true};                        ///< 3-zone coloring (Success/Green -> Warning/Amber -> Danger/Red)
     float warningRatio{0.70f};                        ///< Normalized threshold [0..1] for Warning zone
     float dangerRatio{0.88f};                         ///< Normalized threshold [0..1] for Danger zone
@@ -69,7 +67,7 @@ public:
     );
 
     static Vec2 Measure(
-        size_t channelCount,
+        keel::usize channelCount,
         double min,
         double max,
         const LevelMeterOptions& opts,

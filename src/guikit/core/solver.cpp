@@ -10,12 +10,12 @@ namespace guikit {
 
 namespace {
 
-static constexpr uint32_t kMaxLayoutDepth = 128;
-thread_local uint32_t g_layoutDepth = 0;
+static constexpr keel::u32 kMaxLayoutDepth = 128;
+thread_local keel::u32 g_layoutDepth = 0;
 
 struct LayoutDepthGuard {
-    uint32_t& depth;
-    explicit LayoutDepthGuard(uint32_t& d) noexcept : depth(d) { ++depth; }
+    keel::u32& depth;
+    explicit LayoutDepthGuard(keel::u32& d) noexcept : depth(d) { ++depth; }
     ~LayoutDepthGuard() noexcept { --depth; }
 };
 
@@ -145,7 +145,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
             float totalHeight = node->padding.Vertical();
             float maxWidth = 0.0f;
-            uint32_t activeChildren = 0;
+            keel::u32 activeChildren = 0;
 
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->type == NodeType::Modal) continue;
@@ -195,7 +195,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         if (node->direction == FlexDirection::Row || node->direction == FlexDirection::Wrap) {
             float totalWidth = node->padding.Horizontal();
             float maxHeight = 0.0f;
-            uint32_t activeChildren = 0;
+            keel::u32 activeChildren = 0;
 
             if (node->direction == FlexDirection::Row && (node->equalWidths || node->widthMode == SizeMode::Fit)) {
                 float nonStretchSum = 0.0f;
@@ -241,7 +241,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             }
             node->intrinsicSize = {totalWidth, maxHeight + node->padding.Vertical()};
         } else if (node->direction == FlexDirection::Grid) {
-            const int totalCols = (node->gridColumns > 0) ? node->gridColumns : 12;
+            const keel::i32 totalCols = (node->gridColumns > 0) ? node->gridColumns : 12;
             const float gap = node->gap;
             const float runGap = (node->runGap > 0.0f) ? node->runGap : gap;
 
@@ -252,10 +252,10 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             Node* lineStart = node->firstChild;
             while (lineStart != nullptr) {
                 Node* lineEnd = lineStart;
-                int currentSpan = 0;
+                keel::i32 currentSpan = 0;
                 float currentLineWidth = 0.0f;
                 float lineMaxH = 0.0f;
-                uint32_t itemsInLine = 0;
+                keel::u32 itemsInLine = 0;
 
                 while (lineEnd != nullptr) {
                     if (lineEnd->isSpacer || lineEnd->type == NodeType::Modal) {
@@ -263,7 +263,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                         continue;
                     }
 
-                    const int span = keel::clamp<int>(lineEnd->colSpan, 1, totalCols);
+                    const keel::i32 span = keel::clamp<keel::i32>(lineEnd->colSpan, 1, totalCols);
                     if (itemsInLine > 0 && currentSpan + span > totalCols) {
                         break;
                     }
@@ -303,7 +303,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         } else { // FlexDirection::Column
             float totalHeight = node->padding.Vertical();
             float maxWidth = 0.0f;
-            uint32_t activeChildren = 0;
+            keel::u32 activeChildren = 0;
 
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->type == NodeType::Modal) continue;
@@ -395,7 +395,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                 Node* lineEnd = lineStart;
                 float currentLineWidth = 0.0f;
                 float lineMaxH = 0.0f;
-                uint32_t itemsInLine = 0;
+                keel::u32 itemsInLine = 0;
 
                 while (lineEnd != nullptr) {
                     if (lineEnd->isSpacer || lineEnd->type == NodeType::Sidebar || lineEnd->type == NodeType::Modal) {
@@ -438,7 +438,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
         if (node->direction == FlexDirection::Row && node->heightMode == SizeMode::Fit) {
             const float contentW = keel::max(0.0f, availableWidth - node->padding.Horizontal());
-            uint32_t flowChildCount = 0;
+            keel::u32 flowChildCount = 0;
             float baseSum = 0.0f;
             float totalFlexGrow = 0.0f;
 
@@ -492,7 +492,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
         if (node->direction == FlexDirection::Column && node->heightMode == SizeMode::Fit) {
             const float childAvailW = keel::max(0.0f, availableWidth - node->padding.Horizontal());
             float sumH = node->padding.Vertical();
-            uint32_t activeChildren = 0;
+            keel::u32 activeChildren = 0;
 
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->isSpacer || child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
@@ -519,7 +519,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
         if (node->direction == FlexDirection::Grid) {
             const float availW = keel::max(0.0f, availableWidth - node->padding.Horizontal());
-            const int totalCols = (node->gridColumns > 0) ? node->gridColumns : 12;
+            const keel::i32 totalCols = (node->gridColumns > 0) ? node->gridColumns : 12;
             const float gap = node->gap;
             const float runGap = (node->runGap > 0.0f) ? node->runGap : node->gap;
 
@@ -529,9 +529,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
             while (lineStart != nullptr) {
                 Node* lineEnd = lineStart;
-                int currentLineSpan = 0;
+                keel::i32 currentLineSpan = 0;
                 float lineMaxH = 0.0f;
-                uint32_t itemsInLine = 0;
+                keel::u32 itemsInLine = 0;
 
                 while (lineEnd != nullptr) {
                     if (lineEnd->isSpacer || lineEnd->type == NodeType::Sidebar || lineEnd->type == NodeType::Modal) {
@@ -539,7 +539,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                         continue;
                     }
 
-                    int span = keel::clamp<int>(lineEnd->colSpan, 1, totalCols);
+                    keel::i32 span = keel::clamp<keel::i32>(lineEnd->colSpan, 1, totalCols);
                     const float reqMinW = (lineEnd->minWidth > 0.0f) ? lineEnd->minWidth : ((node->minColWidth > 0.0f) ? node->minColWidth : lineEnd->intrinsicSize.x);
 
                     if (itemsInLine > 0) {
@@ -670,7 +670,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (allowH) {
                 if (node->direction == FlexDirection::Row) {
                     float sumW = 0.0f;
-                    uint32_t active = 0;
+                    keel::u32 active = 0;
                     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                         if (child->isSpacer || child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
                         const bool isFullStretchViewport = (child->widthMode == SizeMode::Stretch && child->heightMode == SizeMode::Stretch && child->clipChildren);
@@ -709,7 +709,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             if (!needScrollbarY && allowV && node->scrollbarPolicy == VisibilityPolicy::Auto) {
                 const float measureW = allowH ? keel::max(fullW, naturalContentW) : fullW;
                 float testH = 0.0f;
-                uint32_t active = 0;
+                keel::u32 active = 0;
                 for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                     if (child->isSpacer || child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
                     const bool isFullStretchViewport = (child->widthMode == SizeMode::Stretch && child->heightMode == SizeMode::Stretch && child->clipChildren);
@@ -734,7 +734,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             const float effectiveContentW = allowH ? keel::max(viewportW, naturalContentW) : viewportW;
 
             float contentH = 0.0f;
-            uint32_t activeChildren = 0;
+            keel::u32 activeChildren = 0;
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->isSpacer || child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
                 const bool isFullStretchViewport = (child->widthMode == SizeMode::Stretch && child->heightMode == SizeMode::Stretch && child->clipChildren);
@@ -789,7 +789,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
         // Dock direct NodeType::Sidebar children to Left / Right in call order
         bool hasSidebars = false;
-        uint32_t nonSidebarCount = 0;
+        keel::u32 nonSidebarCount = 0;
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
             if (child->type == NodeType::Modal) continue;
             if (child->type == NodeType::Sidebar) {
@@ -804,8 +804,8 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             float rightX = contentRect.Right();
             const float topY = contentRect.y;
             const float availH = contentRect.h;
-            uint32_t leftSidebarCount = 0;
-            uint32_t rightSidebarCount = 0;
+            keel::u32 leftSidebarCount = 0;
+            keel::u32 rightSidebarCount = 0;
             bool prevLeftFlush = false;
             bool prevRightFlush = false;
 
@@ -877,13 +877,13 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
     }
 
     static void ArrangeRow(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas) {
-        uint32_t flowChildCount = 0;
+        keel::u32 flowChildCount = 0;
         float baseSum = 0.0f;
         float totalFlexGrow = 0.0f;
-        uint32_t flexCount = 0;
+        keel::u32 flexCount = 0;
 
         float maxEqualTrackW = 0.0f;
-        uint32_t spacerCount = 0;
+        keel::u32 spacerCount = 0;
         if (node->equalWidths) {
             for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
                 if (child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
@@ -1070,7 +1070,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             Node* lineEnd = lineStart;
             float currentLineWidth = 0.0f;
             float lineMaxH = 0.0f;
-            uint32_t itemsInLine = 0;
+            keel::u32 itemsInLine = 0;
 
             while (lineEnd != nullptr) {
                 if (lineEnd->isSpacer || lineEnd->type == NodeType::Sidebar || lineEnd->type == NodeType::Modal) {
@@ -1172,10 +1172,10 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             return child->widthMode == SizeMode::Stretch && child->clipChildren;
         };
 
-        uint32_t flowChildCount = 0;
+        keel::u32 flowChildCount = 0;
         float baseSum = 0.0f;
         float totalFlexGrow = 0.0f;
-        uint32_t flexCount = 0;
+        keel::u32 flexCount = 0;
 
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
             if (child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
@@ -1262,7 +1262,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
     static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& theme, ICanvas* canvas) {
         const float availW = contentRect.w;
-        const int totalCols = (node->gridColumns > 0) ? node->gridColumns : 12;
+        const keel::i32 totalCols = (node->gridColumns > 0) ? node->gridColumns : 12;
         const float gap = node->gap;
         const float runGap = (node->runGap > 0.0f) ? node->runGap : node->gap;
 
@@ -1272,9 +1272,9 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
 
         while (lineStart != nullptr) {
             Node* lineEnd = lineStart;
-            int currentLineSpan = 0;
+            keel::i32 currentLineSpan = 0;
             float lineMaxH = 0.0f;
-            uint32_t itemsInLine = 0;
+            keel::u32 itemsInLine = 0;
 
             // Pass 1: measure items fitting in line and find maximum line height
             while (lineEnd != nullptr) {
@@ -1283,7 +1283,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
                     continue;
                 }
 
-                int span = keel::clamp<int>(lineEnd->colSpan, 1, totalCols);
+                keel::i32 span = keel::clamp<keel::i32>(lineEnd->colSpan, 1, totalCols);
                 const float reqMinW = (lineEnd->minWidth > 0.0f) ? lineEnd->minWidth : ((node->minColWidth > 0.0f) ? node->minColWidth : lineEnd->intrinsicSize.x);
 
                 if (itemsInLine > 0) {
@@ -1339,7 +1339,7 @@ static void ArrangeGrid(Node* node, const Rect& contentRect, const UiTheme& them
             for (Node* child = lineStart; child != lineEnd; child = child->nextSibling) {
                 if (child->isSpacer || child->type == NodeType::Sidebar || child->type == NodeType::Modal) continue;
 
-                int span = keel::clamp<int>(child->colSpan, 1, totalCols);
+                keel::i32 span = keel::clamp<keel::i32>(child->colSpan, 1, totalCols);
                 const float reqMinW = (child->minWidth > 0.0f) ? child->minWidth : ((node->minColWidth > 0.0f) ? node->minColWidth : child->intrinsicSize.x);
                 if (itemsInLine == 1 && (lineEnd != nullptr || (reqMinW > 0.0f && ((static_cast<float>(span) / static_cast<float>(totalCols)) * (availW + gap) - gap) < reqMinW))) {
                     span = totalCols;

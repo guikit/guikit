@@ -1,14 +1,12 @@
 #pragma once
 
 #include <cmath>
-#include <cstddef>
-#include <cstdint>
 #include "guikit/guikit.hpp"
 #include "keel/keel.h"
 
 namespace guikit::demo {
 
-enum class NavCategory : uint8_t {
+enum class NavCategory : keel::u8 {
     // 1. ELEMENTS (Atomic Controls)
     ElemHeading = 0,
     ElemButton,
@@ -81,7 +79,7 @@ constexpr bool IsFullStageCategory(NavCategory cat) noexcept {
            cat == NavCategory::SceneBpmnEditor;
 }
 
-enum class PreviewFormFactor : uint8_t {
+enum class PreviewFormFactor : keel::u8 {
     Window = 0, ///< Desktop OS Window with titlebar (traffic lights, title, W x H badge)
     Tablet,     ///< Tablet / Touch Panel bezel (camera dot + Home Indicator)
     Phone,      ///< Smartphone / Handheld bezel (Dynamic Island + 9:41 status + Home Indicator)
@@ -95,7 +93,7 @@ inline constexpr keel::StaticArray<keel::StringRef, 4> kPreviewFormFactorNames =
     "Full"
 };
 
-enum class PreviewZoomMode : uint8_t {
+enum class PreviewZoomMode : keel::u8 {
     Fit = 0,     ///< Auto-fit device to available canvas (or 100% in Window/Full)
     Real1To1,    ///< 1:1 physical millimeter match using monitor EDID / DPI
     Zoom75,      ///< 75%
@@ -275,7 +273,7 @@ inline keel::String FormatDesc(bool show, keel::StringRef text, guikit::UiVarian
 inline constexpr keel::StaticArray<keel::StringRef, 9> kBgPresetShort = {"Off", "Srf", "Pri", "Sec", "Suc", "Wrn", "Dgr", "Inf", "Gho"};
 
 constexpr guikit::StateColor BgPresetToStateColor(
-    size_t idx,
+    keel::usize idx,
     bool defaultEnabled,
     float tint = 1.0f,
     float alpha = 1.0f
@@ -302,7 +300,7 @@ constexpr guikit::StateColor BgPresetToStateColor(
     return res;
 }
 
-constexpr guikit::StateColor BgPresetToTrackColor(size_t idx) noexcept {
+constexpr guikit::StateColor BgPresetToTrackColor(keel::usize idx) noexcept {
     switch (idx) {
         case 2:  return guikit::StateColor::FromTextVariant(guikit::UiVariant::Primary);
         case 3:  return guikit::StateColor::FromTextVariant(guikit::UiVariant::Secondary);
@@ -316,7 +314,7 @@ constexpr guikit::StateColor BgPresetToTrackColor(size_t idx) noexcept {
 }
 
 inline keel::String BgPresetToCode(
-    size_t idx,
+    keel::usize idx,
     bool defaultEnabled,
     float tint = 1.0f,
     float alpha = 1.0f
@@ -351,17 +349,17 @@ struct DemoContext {
     bool previewBounds = false;
     bool previewInspect = false;
     bool previewShowCode = true;
-    size_t previewFormFactorIdx = 0; // 0 = Window, 1 = Tablet, 2 = Phone, 3 = Full
+    keel::usize previewFormFactorIdx = 0; // 0 = Window, 1 = Tablet, 2 = Phone, 3 = Full
     bool previewLandscape = false;   // Orientation state for Tablet / Phone
-    size_t previewZoomModeIdx = 3;   // 0=Fit, 1=Real 1:1, 2=75%, 3=100%, 4=125%, 5=150%, 6=175%, 7=200%, 8=Custom
+    keel::usize previewZoomModeIdx = 3;   // 0=Fit, 1=Real 1:1, 2=75%, 3=100%, 4=125%, 5=150%, 6=175%, 7=200%, 8=Custom
     float previewCustomZoom = 1.0f;  // Custom zoom factor set via Ctrl + MouseWheel
     float previewEffectiveZoom = 1.0f;     // Resolved effective zoom factor for current frame
     float displayPxPerMm = 96.0f / 25.4f;  // Physical monitor density (px/mm) for Real 1:1 mode
     bool previewWindowCustomSize = false;  // false = Maximized (Stretch), true = user-resized WxH (dp)
     float previewWindowW = 760.0f;         // User-resized window width in logical dp
     float previewWindowH = 500.0f;         // User-resized window height in logical dp
-    uint8_t previewWindowResizeEdge = 0;   // Active resize edge bitmask (1=Left, 2=Right, 4=Bottom)
-    uint8_t previewWindowHoverEdge = 0;    // Hovered resize edge bitmask (1=Left, 2=Right, 4=Bottom)
+    keel::u8 previewWindowResizeEdge = 0;   // Active resize edge bitmask (1=Left, 2=Right, 4=Bottom)
+    keel::u8 previewWindowHoverEdge = 0;    // Hovered resize edge bitmask (1=Left, 2=Right, 4=Bottom)
     guikit::Vec2 previewWindowDragStartMouse{0.0f, 0.0f};
     float previewWindowDragStartW = 0.0f;
     float previewWindowDragStartH = 0.0f;
@@ -384,18 +382,18 @@ struct DemoContext {
     guikit::ElementLayout elemLayout = guikit::ElementLayout::Stacked;
     guikit::InlineOrder elemInlineOrder = guikit::InlineOrder::LabelFirst;
     guikit::Align elemAlign = guikit::Align::Start;
-    size_t elemStretchIdx = 2; // 0 = Compact, 1 = Space, 2 = Fill
+    keel::usize elemStretchIdx = 2; // 0 = Compact, 1 = Space, 2 = Fill
     float elemWidth = 0.0f;    // 0 = Auto (px in Compact/Space)
     float elemFillRatio = 0.5f; // 0.0..1.0 ratio in Fill mode
     float elemHeight = 0.0f;   // 0 = Auto (px)
-    size_t elemBgIdx = 0;      // 0 = None (Default), 1 = Surface, 2..8 = Primary..Ghost
+    keel::usize elemBgIdx = 0;      // 0 = None (Default), 1 = Surface, 2..8 = Primary..Ghost
     float elemBgTint = 0.15f;
     float elemBgAlpha = 1.0f;
     guikit::StateColor elemBackground = guikit::StateColor::Default();
     float elemBorderWidth = 0.0f;
     guikit::UiVariant elemBorderVariant = guikit::UiVariant::Default;
     float elemBorderRadius = 8.0f;
-    keel::StaticArray<size_t, 16> ctrlBgIdxByCat = {0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0};
+    keel::StaticArray<keel::usize, 16> ctrlBgIdxByCat = {0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0};
     float ctrlBgTint = 1.0f;
     float ctrlBgAlpha = 1.0f;
     float ctrlBorderWidth = 0.0f;
@@ -474,8 +472,8 @@ struct DemoContext {
     }
 
     guikit::StateColor GetControlBackground(NavCategory cat) const noexcept {
-        const size_t idx = static_cast<size_t>(cat);
-        const size_t bgIdx = (idx < ctrlBgIdxByCat.size()) ? ctrlBgIdxByCat[idx] : 0;
+        const keel::usize idx = static_cast<keel::usize>(cat);
+        const keel::usize bgIdx = (idx < ctrlBgIdxByCat.size()) ? ctrlBgIdxByCat[idx] : 0;
         return BgPresetToStateColor(bgIdx, IsCtrlBgDefaultEnabled(cat), ctrlBgTint, ctrlBgAlpha);
     }
 
@@ -484,8 +482,8 @@ struct DemoContext {
     }
 
     keel::String FormatControlBackgroundCode(NavCategory cat) const {
-        const size_t idx = static_cast<size_t>(cat);
-        const size_t bgIdx = (idx < ctrlBgIdxByCat.size()) ? ctrlBgIdxByCat[idx] : 0;
+        const keel::usize idx = static_cast<keel::usize>(cat);
+        const keel::usize bgIdx = (idx < ctrlBgIdxByCat.size()) ? ctrlBgIdxByCat[idx] : 0;
         return BgPresetToCode(bgIdx, IsCtrlBgDefaultEnabled(cat), ctrlBgTint, ctrlBgAlpha);
     }
 
@@ -692,8 +690,8 @@ struct DemoContext {
             guikit::UiVariant::Muted, guikit::UiVariant::Default, guikit::UiVariant::Primary,
             guikit::UiVariant::Success, guikit::UiVariant::Warning, guikit::UiVariant::Danger, guikit::UiVariant::Info
         };
-        size_t descVarIdx = 0;
-        for (size_t i = 0; i < descVars.size(); ++i) {
+        keel::usize descVarIdx = 0;
+        for (keel::usize i = 0; i < descVars.size(); ++i) {
             if (descVars[i] == descVar) {
                 descVarIdx = i;
                 break;
@@ -718,9 +716,9 @@ struct DemoContext {
         guikit::ElementLayout& layout,
         guikit::InlineOrder& inlineOrder,
         guikit::Align& elementAlign,
-        size_t& stretchIdx
+        keel::usize& stretchIdx
     ) {
-        size_t layoutIdx = static_cast<size_t>(layout);
+        keel::usize layoutIdx = static_cast<keel::usize>(layout);
         if (auto el = ui.Element({.label = "Element Layout", .disabled = !hasExternal})) {
             if (ui.StepSlider(layoutIdx, kElementLayoutNames, {.showTicks = true, .showLabels = true, .disabled = !hasExternal}).changed) {
                 layout = static_cast<guikit::ElementLayout>(layoutIdx);
@@ -728,7 +726,7 @@ struct DemoContext {
             }
         }
 
-        size_t orderIdx = static_cast<size_t>(inlineOrder);
+        keel::usize orderIdx = static_cast<keel::usize>(inlineOrder);
         if (auto el = ui.Element({.label = "Inline Order", .disabled = (!hasExternal || layout != guikit::ElementLayout::Inline)})) {
             if (ui.StepSlider(orderIdx, kInlineOrderNames, {.showTicks = true, .showLabels = true, .disabled = (!hasExternal || layout != guikit::ElementLayout::Inline)}).changed) {
                 inlineOrder = static_cast<guikit::InlineOrder>(orderIdx);
@@ -736,7 +734,7 @@ struct DemoContext {
             }
         }
 
-        size_t alignIdx = static_cast<size_t>(elementAlign);
+        keel::usize alignIdx = static_cast<keel::usize>(elementAlign);
         if (auto el = ui.Element({.label = "Element Alignment", .disabled = (!hasExternal && stretchIdx == 0)})) {
             if (ui.StepSlider(alignIdx, kLabelAlignNames, {.showTicks = true, .showLabels = true, .disabled = (!hasExternal && stretchIdx == 0)}).changed) {
                 elementAlign = static_cast<guikit::Align>(alignIdx);
@@ -914,7 +912,7 @@ struct DemoContext {
             if (ui.Slider(elemHeight, 0.0f, 320.0f, {.valueFormat = {(elemHeight > 0.0f) ? "%.0f px" : "Auto", {"Auto", "%.0f px"}}, .step = 10.0f}).changed) ui.InvalidateAll();
         }
 
-        size_t& ctrlBgIdx = ctrlBgIdxByCat[static_cast<size_t>(cat)];
+        keel::usize& ctrlBgIdx = ctrlBgIdxByCat[static_cast<keel::usize>(cat)];
         if (auto el = ui.Element({.label = "Control Background"})) {
             if (ui.StepSlider(ctrlBgIdx, kBgPresetShort, {
                 .showTicks = true,
@@ -1001,7 +999,7 @@ struct DemoContext {
         }
 
         static constexpr keel::StaticArray<keel::StringRef, 3> asmDensityLabels = {"Compact", "Standard", "Touch"};
-        size_t dIdx = (previewTheme.density == guikit::Density::Compact) ? 0 : ((previewTheme.density == guikit::Density::Touch) ? 2 : 1);
+        keel::usize dIdx = (previewTheme.density == guikit::Density::Compact) ? 0 : ((previewTheme.density == guikit::Density::Touch) ? 2 : 1);
         if (auto el = ui.Element({.label = "Layout Density"})) {
             if (ui.StepSlider(dIdx, asmDensityLabels, {.showTicks = true, .showLabels = true}).changed) {
                 previewTheme.density = (dIdx == 0) ? guikit::Density::Compact : ((dIdx == 2) ? guikit::Density::Touch : guikit::Density::Standard);

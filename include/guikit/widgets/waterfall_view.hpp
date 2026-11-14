@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
@@ -19,20 +18,20 @@ class Context;
 class ICanvas;
 
 /// Domain operating mode for the WaterfallView analyzer & tracker.
-enum class WaterfallMode : uint8_t {
+enum class WaterfallMode : keel::u8 {
     SpectrumRtsa = 0,   ///< Real-Time Spectrum Analyzer (RTSA): Frequency (Hz/kHz/MHz) vs Scrolling Time (s)
     DoaBtr              ///< Bearing-Time Record (BTR) / Direction-Of-Arrival (DOA) Tracker: Azimuth (deg) vs Time (s)
 };
 
 /// Panel arrangement within the WaterfallView viewport.
-enum class WaterfallLayout : uint8_t {
+enum class WaterfallLayout : keel::u8 {
     SplitTraceAndWaterfall = 0, ///< Upper instantaneous trace (Live + Peak Hold + Avg + Gate) + Lower scrolling Waterfall
     WaterfallOnly,              ///< Full-height scrolling Waterfall heatmap
     TraceOnly                   ///< Full-height instantaneous Spectrum / DOA Spatial Response trace plot
 };
 
 /// Tracking state of an automated DOA contact or frequency-agile emitter track.
-enum class WaterfallTrackStatus : uint8_t {
+enum class WaterfallTrackStatus : keel::u8 {
     Tracking = 0,       ///< Locked active target track with high SNR
     Coasting,           ///< Memory-predicted track during temporary signal fade
     Alarm               ///< Priority alert / sector intrusion / high-SNR emitter threat
@@ -47,7 +46,7 @@ struct WaterfallTrackPoint {
 
 /// Tracked DOA target (BTR contact) or spectral emitter trajectory overlaid on the waterfall & top trace.
 struct WaterfallTrack {
-    int id{0};
+    keel::i32 id{0};
     keel::FixedString<64> callsign{};
     WaterfallTrackStatus status{WaterfallTrackStatus::Tracking};
     float currentX{0.0f};               ///< Current Bearing (deg) or Frequency (Hz) at t = 0s
@@ -81,8 +80,8 @@ struct WaterfallViewOptions {
     WaterfallLayout viewLayout{WaterfallLayout::SplitTraceAndWaterfall};
     Colormap colormap{Colormap::Turbo};
 
-    uint32_t numBins{512};                          ///< Number of X bins per slice (frequency bins or azimuth beams)
-    uint32_t historyRows{300};                      ///< Circular ring-buffer capacity in rows (e.g. 180..1024)
+    keel::u32 numBins{512};                          ///< Number of X bins per slice (frequency bins or azimuth beams)
+    keel::u32 historyRows{300};                      ///< Circular ring-buffer capacity in rows (e.g. 180..1024)
     float historyDurationSec{30.0f};                ///< Total historical time span in seconds corresponding to `historyRows`
     float minX{0.0f};                               ///< Full-scale minimum X (e.g. 0 Hz or -180 deg)
     float maxX{24000.0f};                           ///< Full-scale maximum X (e.g. 24000 Hz or +180 deg)
@@ -90,7 +89,7 @@ struct WaterfallViewOptions {
     bool invertTimeAxis{false};                     ///< false = 0s at top flowing down; true = 0s at bottom flowing up
 
     // --- Streaming & Snapshot Data Ingestion ---
-    uint64_t sliceSequence{0};                      ///< Monotonic counter; when incremented, `latestSliceDb` is pushed as a new row
+    keel::u64 sliceSequence{0};                      ///< Monotonic counter; when incremented, `latestSliceDb` is pushed as a new row
     keel::ArrayRef<float> initialHistoryMatrix{};   ///< Optional [historyRows * numBins] dB matrix (row 0 = newest) for bulk preload
 
     // --- DSP & Display Conditioning Parameters ---
@@ -118,7 +117,7 @@ struct WaterfallViewOptions {
     bool showGrid{true};                            ///< Render frequency/bearing and time graticule lines
 
     // --- Two-Way Interactive State Bindings ---
-    int* selectedTrackId{nullptr};                  ///< Optional external ID of selected track (-1 = none)
+    keel::i32* selectedTrackId{nullptr};                  ///< Optional external ID of selected track (-1 = none)
     float* viewMinX{nullptr};                       ///< Optional external visible X start (wheel zoom / drag pan)
     float* viewMaxX{nullptr};                       ///< Optional external visible X end (wheel zoom / drag pan)
     float* selectionStartX{nullptr};                ///< Optional external band/sector selection start X
@@ -171,13 +170,13 @@ struct WaterfallViewResponse : public Response {
     float selectionSpanX{0.0f};
     float selectionBandPowerDb{-110.0f}; ///< Integrated power / peak dB inside selected band or sector
 
-    int hoveredTrackId{-1};
-    int selectedTrackId{-1};
+    keel::i32 hoveredTrackId{-1};
+    keel::i32 selectedTrackId{-1};
     bool trackSelectionChanged{false};
 
     float dominantPeakX{0.0f};
     float dominantPeakDb{-110.0f};
-    uint32_t populatedRows{0};
+    keel::u32 populatedRows{0};
 };
 
 /// Autonomous Hardware-Accelerated Waterfall (RTSA Spectrum Analyzer & DOA / BTR Target Tracker) widget.

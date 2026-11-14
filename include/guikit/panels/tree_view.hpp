@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/id.hpp"
 #include "guikit/core/response.hpp"
@@ -28,14 +26,14 @@ struct TreeItemPayload;
 using TreeColumn = TableColumn;
 
 /// Visual style of hierarchy indentation guide lines in a TreeView.
-enum class TreeGuides : uint8_t {
+enum class TreeGuides : keel::u8 {
     None = 0,   ///< Clean indentation without guide lines
     Vertical,   ///< Vertical indent guide lines along open branches
     Connected   ///< Vertical + horizontal L-shaped branch connectors to each child item
 };
 
 /// Visual highlight presentation for selected rows in a TreeView.
-enum class TreeSelectionStyle : uint8_t {
+enum class TreeSelectionStyle : keel::u8 {
     Pill = 0,   ///< Rounded capsule highlight across the row
     Indicator   ///< Subtle tinted row background with a vertical accent bar on the left edge
 };
@@ -85,7 +83,7 @@ struct TreeViewOptions {
     keel::StringRef searchPlaceholder{"Filter tree..."};            ///< Placeholder text for the search input
     TreeFilterSink filterText{};                                    ///< Optional bound external filter query string
     bool showToolbar{false};                                        ///< Show Expand All / Collapse All buttons in the header bar
-    int* selectedIndex{nullptr};                                    ///< Optional bound 0-based index of the selected item (-1 = none)
+    keel::i32* selectedIndex{nullptr};                                    ///< Optional bound 0-based index of the selected item (-1 = none)
     Id* selectedId{nullptr};                                        ///< Optional bound Id of the selected item
     VisibilityPolicy scrollbar{VisibilityPolicy::Auto};             ///< Scrollbar visibility policy
     StretchMode stretch{StretchMode::Fill};                         ///< Horizontal sizing mode
@@ -127,7 +125,7 @@ struct TreeItemOptions {
 struct TreeItemState {
     bool open{true};
     bool hasChildItems{false};
-    uint32_t seenBulkToggleGen{0};
+    keel::u32 seenBulkToggleGen{0};
     Rect chevronRect{};
     Rect checkboxRect{};
     Rect controlsRect{};
@@ -138,8 +136,8 @@ struct VisibleTreeItemEntry {
     Id idOuter{Id::Null()};
     Id idRow{Id::Null()};
     Id parentIdOuter{Id::Null()};
-    int index{0};
-    uint16_t depth{0};
+    keel::i32 index{0};
+    keel::u16 depth{0};
     bool isBranch{false};
     bool isOpen{false};
     bool defaultOpen{true};
@@ -149,23 +147,23 @@ struct VisibleTreeItemEntry {
 
 /// Persistent per-TreeView state stored in Context.
 struct TreeViewState {
-    static constexpr size_t kMaxColumns = 16;
+    static constexpr keel::usize kMaxColumns = 16;
 
     keel::SmallString<128> filterText{};
     Id selectedId{Id::Null()};
-    int selectedIndex{-1};
-    uint32_t bulkToggleGen{0};
+    keel::i32 selectedIndex{-1};
+    keel::u32 bulkToggleGen{0};
     bool bulkToggleOpen{true};
     keel::Array<VisibleTreeItemEntry> prevVisibleItems{};
 
-    uint16_t userColCount{0};
+    keel::u16 userColCount{0};
     keel::StaticArray<float, kMaxColumns> userColWidths{};
     keel::StaticArray<bool, kMaxColumns> hasUserColWidth{};
-    int resizingCol{-1};
+    keel::i32 resizingCol{-1};
     float resizeStartX{0.0f};
     float resizeStartWidth{0.0f};
     double lastDividerClickTime{-10.0};
-    int lastDividerCol{-1};
+    keel::i32 lastDividerCol{-1};
     Rect lastHeaderRect{};
     float lastColOriginX{0.0f};
     float lastColTotalW{0.0f};
@@ -208,10 +206,10 @@ public:
     [[nodiscard]] keel::StringRef GetFilterText() const noexcept;
 
     /// Returns the number of visible TreeItems emitted so far in this TreeView during the current frame.
-    [[nodiscard]] int VisibleItemCount() const noexcept;
+    [[nodiscard]] keel::i32 VisibleItemCount() const noexcept;
 
     /// Returns the 0-based traversal index of the currently selected item (-1 if none).
-    [[nodiscard]] int GetSelectedIndex() const noexcept;
+    [[nodiscard]] keel::i32 GetSelectedIndex() const noexcept;
 
     /// Returns the Id of the currently selected item (Id::Null() if none).
     [[nodiscard]] Id GetSelectedId() const noexcept;

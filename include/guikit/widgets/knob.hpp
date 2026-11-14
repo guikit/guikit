@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include "keel/core.h"
 #include "keel/optional.h"
 #include "keel/ref.h"
@@ -20,7 +19,7 @@ struct KnobOptions {
     UiText valueFormat{};                          ///< Format string for value (e.g. "%.1f dB", "%.0f %%"; empty = default numeric format)
     keel::Optional<double> step{keel::kNullOpt};   ///< Step quantization (defaults to 1.0 for integers, continuous for float/double)
     keel::Optional<double> defaultValue{keel::kNullOpt}; ///< Optional reset value on double-click
-    uint32_t tickCount{11};                        ///< Number of radial tick marks when showTicks is true (0 = auto from step or 11)
+    keel::u32 tickCount{11};                        ///< Number of radial tick marks when showTicks is true (0 = auto from step or 11)
     bool showValue{true};                          ///< Whether to display current formatted value text
     bool showTicks{true};                          ///< Render radial scale tick marks around the dial
     bool showArc{true};                            ///< Render outer track & active value arc around the rotor
@@ -62,7 +61,7 @@ public:
         Context& ctx,
         double* doubleVal,
         float* floatVal,
-        int64_t* intVal,
+        keel::i64* intVal,
         double minVal,
         double maxVal,
         const KnobOptions& opts = {},

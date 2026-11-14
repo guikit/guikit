@@ -10,7 +10,7 @@ struct KnobDemoState {
     bool quantizeStep = false;
     bool showArc = true;
     bool showTicks = true;
-    uint32_t tickCount = 11;
+    keel::u32 tickCount = 11;
     bool showValue = true;
     guikit::Placement valuePlacement = guikit::Placement::Bottom;
     bool rackDemo = false;
@@ -64,7 +64,7 @@ void RenderKnobInspector(guikit::Context& ui, DemoContext&) {
     }
 
     static constexpr keel::StaticArray<keel::StringRef, 5> valPlaceNames = {"Lead", "Trail", "Top", "Btm", "Thumb"};
-    size_t valPlaceIdx = static_cast<size_t>(s_state.valuePlacement);
+    keel::usize valPlaceIdx = static_cast<keel::usize>(s_state.valuePlacement);
     if (auto el = ui.Element({.label = "Value Placement", .disabled = !s_state.showValue})) {
         if (ui.StepSlider(valPlaceIdx, valPlaceNames, {
             .showTicks = true,

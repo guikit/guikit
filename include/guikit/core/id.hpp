@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include "keel/core.h"
 #include "keel/hash.h"
 #include "keel/ref.h"
@@ -9,10 +8,10 @@ namespace guikit {
 
 /// 64-bit unique widget identifier generated automatically without manual string tags.
 struct Id {
-    uint64_t value{0};
+    keel::u64 value{0};
 
     constexpr Id() noexcept = default;
-    constexpr explicit Id(uint64_t inValue) noexcept : value(inValue) {}
+    constexpr explicit Id(keel::u64 inValue) noexcept : value(inValue) {}
 
     [[nodiscard]] static constexpr Id Null() noexcept { return Id{0}; }
     [[nodiscard]] constexpr bool IsValid() const noexcept { return value != 0; }
@@ -27,14 +26,14 @@ struct Id {
 namespace detail {
 
 /// 64-bit FNV-1a hash algorithm (delegates to keel::fnv1a64_*).
-inline constexpr uint64_t Fnv1aOffsetBasis = keel::kFnv1aOffsetBasis;
-inline constexpr uint64_t Fnv1aPrime = keel::kFnv1aPrime;
+inline constexpr keel::u64 Fnv1aOffsetBasis = keel::kFnv1aOffsetBasis;
+inline constexpr keel::u64 Fnv1aPrime = keel::kFnv1aPrime;
 
-constexpr uint64_t HashBytes(const void* data, size_t size, uint64_t hash = Fnv1aOffsetBasis) noexcept {
+constexpr keel::u64 HashBytes(const void* data, keel::usize size, keel::u64 hash = Fnv1aOffsetBasis) noexcept {
     if (__builtin_is_constant_evaluated()) {
-        const auto* bytes = static_cast<const uint8_t*>(data);
-        for (size_t i = 0; i < size; ++i) {
-            hash ^= static_cast<uint64_t>(bytes[i]);
+        const auto* bytes = static_cast<const keel::u8*>(data);
+        for (keel::usize i = 0; i < size; ++i) {
+            hash ^= static_cast<keel::u64>(bytes[i]);
             hash *= Fnv1aPrime;
         }
         return hash;
@@ -42,16 +41,16 @@ constexpr uint64_t HashBytes(const void* data, size_t size, uint64_t hash = Fnv1
     return keel::fnv1a64_bytes(data, size, hash);
 }
 
-constexpr uint64_t HashStringView(keel::StringRef str, uint64_t hash = Fnv1aOffsetBasis) noexcept {
+constexpr keel::u64 HashStringView(keel::StringRef str, keel::u64 hash = Fnv1aOffsetBasis) noexcept {
     return keel::fnv1a64_chars(str.data(), str.size(), hash);
 }
 
-constexpr uint64_t HashInt64(uint64_t val, uint64_t hash = Fnv1aOffsetBasis) noexcept {
+constexpr keel::u64 HashInt64(keel::u64 val, keel::u64 hash = Fnv1aOffsetBasis) noexcept {
     return HashBytes(&val, sizeof(val), hash);
 }
 
 template <typename T>
-constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexcept {
+constexpr keel::u64 HashVal(const T& val, keel::u64 hash = Fnv1aOffsetBasis) noexcept {
     using CleanT = keel::Decay<T>;
     if constexpr (keel::IsSame<CleanT, const char*>) {
         return val ? HashStringView(keel::StringRef(val), hash) : hash;
@@ -59,9 +58,9 @@ constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexc
         return HashStringView(keel::StringRef(val), hash);
     } else if constexpr (requires { val.text; val.icon; val.iconPlacement; }) {
         hash = HashVal(val.text, hash);
-        const uint8_t icType = static_cast<uint8_t>(val.icon.GetType());
-        const uint16_t icId = static_cast<uint16_t>(val.icon.GetId());
-        const uint8_t icPlace = static_cast<uint8_t>(val.iconPlacement);
+        const keel::u8 icType = static_cast<keel::u8>(val.icon.GetType());
+        const keel::u16 icId = static_cast<keel::u16>(val.icon.GetId());
+        const keel::u8 icPlace = static_cast<keel::u8>(val.iconPlacement);
         hash = HashBytes(&icType, sizeof(icType), hash);
         hash = HashBytes(&icId, sizeof(icId), hash);
         hash = HashStringView(val.icon.GetPath(), hash);
@@ -70,16 +69,16 @@ constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexc
     } else if constexpr (requires { val.text; val.size; val.color; val.wrap; }) {
         hash = HashStringView(val.text, hash);
         hash = HashBytes(&val.size.px, sizeof(val.size.px), hash);
-        const uint8_t presetVal = static_cast<uint8_t>(val.size.preset);
-        const uint8_t hasRole = val.size.role.has_value() ? 1u : 0u;
-        const uint8_t roleVal = val.size.role.has_value() ? static_cast<uint8_t>(*val.size.role) : 0u;
+        const keel::u8 presetVal = static_cast<keel::u8>(val.size.preset);
+        const keel::u8 hasRole = val.size.role.has_value() ? 1u : 0u;
+        const keel::u8 roleVal = val.size.role.has_value() ? static_cast<keel::u8>(*val.size.role) : 0u;
         hash = HashBytes(&presetVal, sizeof(presetVal), hash);
         hash = HashBytes(&hasRole, sizeof(hasRole), hash);
         hash = HashBytes(&roleVal, sizeof(roleVal), hash);
         hash = HashVal(val.color, hash);
         hash = HashBytes(&val.wrap.minLines, sizeof(val.wrap.minLines), hash);
         hash = HashBytes(&val.wrap.maxLines, sizeof(val.wrap.maxLines), hash);
-        const uint8_t richVal = val.wrap.rich ? 1u : 0u;
+        const keel::u8 richVal = val.wrap.rich ? 1u : 0u;
         hash = HashBytes(&richVal, sizeof(richVal), hash);
         if constexpr (requires { val.variants; }) {
             for (keel::StringRef v : val.variants) {
@@ -89,8 +88,8 @@ constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexc
         return hash;
     } else if constexpr (requires { val.normal; val.hover; val.active; val.disabled; }) {
         auto hashOptCol = [&](const auto& opt) noexcept {
-            const uint8_t has = opt.has_value() ? 1u : 0u;
-            const uint32_t rgba = opt.has_value() ? opt->ToUint32() : 0u;
+            const keel::u8 has = opt.has_value() ? 1u : 0u;
+            const keel::u32 rgba = opt.has_value() ? opt->ToUint32() : 0u;
             hash = HashBytes(&has, sizeof(has), hash);
             hash = HashBytes(&rgba, sizeof(rgba), hash);
         };
@@ -99,7 +98,7 @@ constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexc
         hashOptCol(val.active);
         hashOptCol(val.disabled);
         if constexpr (requires { val.token; }) {
-            const uint8_t tok = static_cast<uint8_t>(val.token);
+            const keel::u8 tok = static_cast<keel::u8>(val.token);
             hash = HashBytes(&tok, sizeof(tok), hash);
         }
         if constexpr (requires { val.surfaceTint; val.alphaScale; }) {
@@ -114,7 +113,7 @@ constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexc
         hash = HashVal(val.color, hash);
         return hash;
     } else if constexpr (requires { val.placement; val.width; val.color; }) {
-        const uint8_t pl = static_cast<uint8_t>(val.placement);
+        const keel::u8 pl = static_cast<keel::u8>(val.placement);
         hash = HashBytes(&pl, sizeof(pl), hash);
         hash = HashBytes(&val.width, sizeof(val.width), hash);
         hash = HashVal(val.color, hash);
@@ -128,33 +127,33 @@ constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexc
 }
 
 template <typename... Args>
-constexpr uint64_t HashArgs(const Args&... args) noexcept {
-    uint64_t h = Fnv1aOffsetBasis;
+constexpr keel::u64 HashArgs(const Args&... args) noexcept {
+    keel::u64 h = Fnv1aOffsetBasis;
     ((h = HashVal(args, h)), ...);
     return h;
 }
 
-[[nodiscard]] inline constexpr uint64_t HashCallsiteWithFileHash(
+[[nodiscard]] inline constexpr keel::u64 HashCallsiteWithFileHash(
     Id parentId,
-    uint64_t fileHash,
-    uint32_t line,
-    uint32_t column
+    keel::u64 fileHash,
+    keel::u32 line,
+    keel::u32 column
 ) noexcept {
-    uint64_t hash = Fnv1aOffsetBasis;
+    keel::u64 hash = Fnv1aOffsetBasis;
     if (parentId.IsValid()) {
         hash = HashInt64(parentId.value, hash);
     }
     hash = HashInt64(fileHash, hash);
-    hash = HashInt64(static_cast<uint64_t>(line), hash);
-    hash = HashInt64(static_cast<uint64_t>(column), hash);
+    hash = HashInt64(static_cast<keel::u64>(line), hash);
+    hash = HashInt64(static_cast<keel::u64>(column), hash);
     return hash;
 }
 
 [[nodiscard]] inline constexpr Id FinalizeCallsiteId(
-    uint64_t callsiteHash,
-    uint32_t occurrenceIndex
+    keel::u64 callsiteHash,
+    keel::u32 occurrenceIndex
 ) noexcept {
-    uint64_t hash = HashInt64(static_cast<uint64_t>(occurrenceIndex), callsiteHash);
+    keel::u64 hash = HashInt64(static_cast<keel::u64>(occurrenceIndex), callsiteHash);
     if (hash == 0) {
         hash = 1;
     }
@@ -165,12 +164,12 @@ constexpr uint64_t HashArgs(const Args&... args) noexcept {
 
 /// Generates an automatic ID combining source location, occurrence index, and optional parent ID.
 [[nodiscard]] inline constexpr Id MakeId(
-    uint32_t childIndex,
+    keel::u32 childIndex,
     keel::SourceLocation loc = keel::SourceLocation::current(),
     Id parentId = Id::Null()
 ) noexcept {
-    const uint64_t fileHash = detail::HashStringView(loc.file_name());
-    const uint64_t callsiteHash = detail::HashCallsiteWithFileHash(
+    const keel::u64 fileHash = detail::HashStringView(loc.file_name());
+    const keel::u64 callsiteHash = detail::HashCallsiteWithFileHash(
         parentId, fileHash, loc.line(), loc.column()
     );
     return detail::FinalizeCallsiteId(callsiteHash, childIndex);

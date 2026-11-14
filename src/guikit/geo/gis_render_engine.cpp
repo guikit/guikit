@@ -28,7 +28,7 @@ namespace {
 
 std::atomic<GisRenderEngine::BreadcrumbCallback> g_breadcrumbCallback{nullptr};
 
-void EmitRenderBreadcrumb(const char* stage, int z = -1, int x = -1, int y = -1) noexcept {
+void EmitRenderBreadcrumb(const char* stage, keel::i32 z = -1, keel::i32 x = -1, keel::i32 y = -1) noexcept {
     if (auto cb = g_breadcrumbCallback.load(std::memory_order_relaxed)) {
         cb(stage, z, x, y);
     }
@@ -60,7 +60,7 @@ constexpr bool kEnableFileDebugLog = false;
 
 constexpr float kTileGuardBandPx = 8.0f;
 
-[[nodiscard]] constexpr uint32_t ResolveTileSizePx(uint32_t reqSize) noexcept {
+[[nodiscard]] constexpr keel::u32 ResolveTileSizePx(keel::u32 reqSize) noexcept {
     if (reqSize <= 192u) return 128u;
     if (reqSize >= 384u) return 512u;
     return 256u;
@@ -83,14 +83,14 @@ constexpr float kTileGuardBandPx = 8.0f;
 
 [[nodiscard]] guikit::Color WithAlpha(guikit::Color c, float alphaFactor) noexcept {
     const float a = keel::clamp(alphaFactor * 255.0f, 0.0f, 255.0f);
-    return guikit::Color(c.r, c.g, c.b, static_cast<uint8_t>(std::lround(a)));
+    return guikit::Color(c.r, c.g, c.b, static_cast<keel::u8>(std::lround(a)));
 }
 
-[[nodiscard]] guikit::Color BrightenColor(guikit::Color c, int delta) noexcept {
+[[nodiscard]] guikit::Color BrightenColor(guikit::Color c, keel::i32 delta) noexcept {
     return guikit::Color(
-        static_cast<uint8_t>(keel::clamp(static_cast<int>(c.r) + delta, 0, 255)),
-        static_cast<uint8_t>(keel::clamp(static_cast<int>(c.g) + delta, 0, 255)),
-        static_cast<uint8_t>(keel::clamp(static_cast<int>(c.b) + delta, 0, 255)),
+        static_cast<keel::u8>(keel::clamp(static_cast<keel::i32>(c.r) + delta, 0, 255)),
+        static_cast<keel::u8>(keel::clamp(static_cast<keel::i32>(c.g) + delta, 0, 255)),
+        static_cast<keel::u8>(keel::clamp(static_cast<keel::i32>(c.b) + delta, 0, 255)),
         c.a
     );
 }
@@ -98,19 +98,19 @@ constexpr float kTileGuardBandPx = 8.0f;
 [[nodiscard]] guikit::Color LerpColor(guikit::Color a, guikit::Color b, float t) noexcept {
     const float ct = keel::clamp(t, 0.0f, 1.0f);
     return guikit::Color(
-        static_cast<uint8_t>(std::lround(static_cast<float>(a.r) + (static_cast<float>(b.r) - static_cast<float>(a.r)) * ct)),
-        static_cast<uint8_t>(std::lround(static_cast<float>(a.g) + (static_cast<float>(b.g) - static_cast<float>(a.g)) * ct)),
-        static_cast<uint8_t>(std::lround(static_cast<float>(a.b) + (static_cast<float>(b.b) - static_cast<float>(a.b)) * ct)),
-        static_cast<uint8_t>(std::lround(static_cast<float>(a.a) + (static_cast<float>(b.a) - static_cast<float>(a.a)) * ct))
+        static_cast<keel::u8>(std::lround(static_cast<float>(a.r) + (static_cast<float>(b.r) - static_cast<float>(a.r)) * ct)),
+        static_cast<keel::u8>(std::lround(static_cast<float>(a.g) + (static_cast<float>(b.g) - static_cast<float>(a.g)) * ct)),
+        static_cast<keel::u8>(std::lround(static_cast<float>(a.b) + (static_cast<float>(b.b) - static_cast<float>(a.b)) * ct)),
+        static_cast<keel::u8>(std::lround(static_cast<float>(a.a) + (static_cast<float>(b.a) - static_cast<float>(a.a)) * ct))
     );
 }
 
-void HashCombineBytes(uint64_t& h, const void* data, size_t len) noexcept {
+void HashCombineBytes(keel::u64& h, const void* data, keel::usize len) noexcept {
     h = keel::fnv1a64_bytes(data, len, h);
 }
 
 template <typename T>
-void HashCombineVal(uint64_t& h, const T& val) noexcept {
+void HashCombineVal(keel::u64& h, const T& val) noexcept {
     HashCombineBytes(h, &val, sizeof(T));
 }
 
@@ -120,7 +120,7 @@ void HashCombineVal(uint64_t& h, const T& val) noexcept {
 
 [[nodiscard]] bool ShouldSkipFeatureAtZoom(
     const geo::GeoFeature& feat,
-    int tileZoom,
+    keel::i32 tileZoom,
     const GisRenderConfig& cfg
 ) noexcept {
     if (feat.chartClass == geo::ChartFeatureClass::CoverageMask) {
@@ -489,7 +489,7 @@ struct ResolvedFeatureStyle {
     }
 }
 
-[[nodiscard]] int CartographicPainterRank(const geo::GeoFeature& feat) noexcept {
+[[nodiscard]] keel::i32 CartographicPainterRank(const geo::GeoFeature& feat) noexcept {
     // Standard IHO S-52 painter order: base water (DepthArea) -> LandArea -> marine/fairway areas -> structures/hazards -> contours -> coastline
     switch (feat.chartClass) {
         case geo::ChartFeatureClass::DepthArea:           return 10;
@@ -509,7 +509,7 @@ struct ResolvedFeatureStyle {
     }
 }
 
-[[nodiscard]] int CartographicLayerRank(const geo::GeoLayer& layer) noexcept {
+[[nodiscard]] keel::i32 CartographicLayerRank(const geo::GeoLayer& layer) noexcept {
     switch (layer.dominantChartClass) {
         case geo::ChartFeatureClass::DepthArea:           return 10;
         case geo::ChartFeatureClass::LandArea:            return 15;
@@ -524,9 +524,9 @@ struct ResolvedFeatureStyle {
         case geo::ChartFeatureClass::CoverageMask:        return 80;
         default:                                          break;
     }
-    int minRank = 90;
-    const size_t sampleLimit = keel::min<size_t>(layer.features.size(), 32);
-    for (size_t i = 0; i < sampleLimit; ++i) {
+    keel::i32 minRank = 90;
+    const keel::usize sampleLimit = keel::min<keel::usize>(layer.features.size(), 32);
+    for (keel::usize i = 0; i < sampleLimit; ++i) {
         const geo::GeoFeature& f = layer.features[i];
         if (!f.HasPolygons() && !f.HasLines()) continue;
         minRank = keel::min(minRank, CartographicPainterRank(f));
@@ -640,7 +640,7 @@ void ClipRingToTileGuardBand(
     float maxX = -1e30f;
     float minY =  1e30f;
     float maxY = -1e30f;
-    for (size_t i = 0; i < normRing.size(); ++i) {
+    for (keel::usize i = 0; i < normRing.size(); ++i) {
         const guikit::Vec2 ptPx = ProjectNorm3857PtToTilePx(
             normRing[i], u0, v0, invSpanU, invSpanV, cell, crs, tileSizeF
         );
@@ -769,8 +769,8 @@ void ClipRingToTileGuardBand(
     const float kMin = -kTileGuardBandPx;
     const float kMax = tileSizeF + kTileGuardBandPx;
 
-    auto outCode = [kMin, kMax](float x, float y) noexcept -> int {
-        int c = 0;
+    auto outCode = [kMin, kMax](float x, float y) noexcept -> keel::i32 {
+        keel::i32 c = 0;
         if (x < kMin) c |= 1;
         else if (x > kMax) c |= 2;
         if (y < kMin) c |= 4;
@@ -778,14 +778,14 @@ void ClipRingToTileGuardBand(
         return c;
     };
 
-    int c0 = outCode(p0.x, p0.y);
-    int c1 = outCode(p1.x, p1.y);
+    keel::i32 c0 = outCode(p0.x, p0.y);
+    keel::i32 c1 = outCode(p1.x, p1.y);
 
-    for (int iter = 0; iter < 8; ++iter) {
+    for (keel::i32 iter = 0; iter < 8; ++iter) {
         if ((c0 | c1) == 0) return true;
         if ((c0 & c1) != 0) return false;
 
-        const int cOut = c0 ? c0 : c1;
+        const keel::i32 cOut = c0 ? c0 : c1;
         float x = 0.0f;
         float y = 0.0f;
         const float dx = p1.x - p0.x;
@@ -816,7 +816,7 @@ void ClipRingToTileGuardBand(
     return false;
 }
 
-size_t AppendPolylineToVectorPath(
+keel::usize AppendPolylineToVectorPath(
     guikit::VectorPath& path,
     keel::ArrayRef<guikit::Vec2> normLine,
     float u0,
@@ -831,7 +831,7 @@ size_t AppendPolylineToVectorPath(
 ) {
     if (normLine.size() < 2) return 0;
 
-    size_t emittedSegments = 0;
+    keel::usize emittedSegments = 0;
     bool penDown = false;
     guikit::Vec2 lastDrawn{-1e9f, -1e9f};
     guikit::Vec2 prevPx = ProjectNorm3857PtToTilePx(
@@ -858,7 +858,7 @@ size_t AppendPolylineToVectorPath(
         ++emittedSegments;
     };
 
-    for (size_t i = 1; i < normLine.size(); ++i) {
+    for (keel::usize i = 1; i < normLine.size(); ++i) {
         const guikit::Vec2 currPx = ProjectNorm3857PtToTilePx(
             normLine[i], u0, v0, invSpanU, invSpanV, cell, crs, tileSizeF
         );
@@ -888,56 +888,56 @@ size_t AppendPolylineToVectorPath(
 //   Tier 2: Per-Cell Composited Opaque ABGR8888 Screen Tiles + Mipmap Fallback
 // ============================================================================
 
-[[nodiscard]] constexpr uint32_t PackColorABGR8888(guikit::Color c) noexcept {
-    return (static_cast<uint32_t>(c.a) << 24) |
-           (static_cast<uint32_t>(c.b) << 16) |
-           (static_cast<uint32_t>(c.g) << 8)  |
-           static_cast<uint32_t>(c.r);
+[[nodiscard]] constexpr keel::u32 PackColorABGR8888(guikit::Color c) noexcept {
+    return (static_cast<keel::u32>(c.a) << 24) |
+           (static_cast<keel::u32>(c.b) << 16) |
+           (static_cast<keel::u32>(c.g) << 8)  |
+           static_cast<keel::u32>(c.r);
 }
 
 void BlendPremulTileOntoOpaqueComposite(
-    uint32_t* __restrict dst,
-    const uint32_t* __restrict src,
-    uint8_t layerOpacity,
-    uint32_t tileSizePx
+    keel::u32* __restrict dst,
+    const keel::u32* __restrict src,
+    keel::u8 layerOpacity,
+    keel::u32 tileSizePx
 ) noexcept {
-    const size_t kNumPx = static_cast<size_t>(tileSizePx) * static_cast<size_t>(tileSizePx);
+    const keel::usize kNumPx = static_cast<keel::usize>(tileSizePx) * static_cast<keel::usize>(tileSizePx);
     if (layerOpacity == 0) return;
 
     if (layerOpacity == 255) {
-        for (size_t i = 0; i < kNumPx; ++i) {
-            const uint32_t s = src[i];
+        for (keel::usize i = 0; i < kNumPx; ++i) {
+            const keel::u32 s = src[i];
             if (s == 0u) continue;
-            const uint32_t sa = s >> 24;
+            const keel::u32 sa = s >> 24;
             if (sa == 255u) {
                 dst[i] = s;
             } else {
-                const uint32_t d = dst[i];
-                const uint32_t invA = 255u - sa;
-                const uint32_t sr = s & 0xFFu;
-                const uint32_t sg = (s >> 8) & 0xFFu;
-                const uint32_t sb = (s >> 16) & 0xFFu;
-                const uint32_t dr = keel::min(255u, sr + (((d & 0xFFu) * invA + 127u) >> 8));
-                const uint32_t dg = keel::min(255u, sg + ((((d >> 8) & 0xFFu) * invA + 127u) >> 8));
-                const uint32_t db = keel::min(255u, sb + ((((d >> 16) & 0xFFu) * invA + 127u) >> 8));
+                const keel::u32 d = dst[i];
+                const keel::u32 invA = 255u - sa;
+                const keel::u32 sr = s & 0xFFu;
+                const keel::u32 sg = (s >> 8) & 0xFFu;
+                const keel::u32 sb = (s >> 16) & 0xFFu;
+                const keel::u32 dr = keel::min(255u, sr + (((d & 0xFFu) * invA + 127u) >> 8));
+                const keel::u32 dg = keel::min(255u, sg + ((((d >> 8) & 0xFFu) * invA + 127u) >> 8));
+                const keel::u32 db = keel::min(255u, sb + ((((d >> 16) & 0xFFu) * invA + 127u) >> 8));
                 dst[i] = 0xFF000000u | (db << 16) | (dg << 8) | dr;
             }
         }
     } else {
-        const uint32_t op = layerOpacity;
-        for (size_t i = 0; i < kNumPx; ++i) {
-            const uint32_t s = src[i];
+        const keel::u32 op = layerOpacity;
+        for (keel::usize i = 0; i < kNumPx; ++i) {
+            const keel::u32 s = src[i];
             if (s == 0u) continue;
-            const uint32_t sa = ((s >> 24) * op + 127u) >> 8;
+            const keel::u32 sa = ((s >> 24) * op + 127u) >> 8;
             if (sa == 0u) continue;
-            const uint32_t sr = ((s & 0xFFu) * op + 127u) >> 8;
-            const uint32_t sg = (((s >> 8) & 0xFFu) * op + 127u) >> 8;
-            const uint32_t sb = (((s >> 16) & 0xFFu) * op + 127u) >> 8;
-            const uint32_t d = dst[i];
-            const uint32_t invA = 255u - sa;
-            const uint32_t dr = keel::min(255u, sr + (((d & 0xFFu) * invA + 127u) >> 8));
-            const uint32_t dg = keel::min(255u, sg + ((((d >> 8) & 0xFFu) * invA + 127u) >> 8));
-            const uint32_t db = keel::min(255u, sb + ((((d >> 16) & 0xFFu) * invA + 127u) >> 8));
+            const keel::u32 sr = ((s & 0xFFu) * op + 127u) >> 8;
+            const keel::u32 sg = (((s >> 8) & 0xFFu) * op + 127u) >> 8;
+            const keel::u32 sb = (((s >> 16) & 0xFFu) * op + 127u) >> 8;
+            const keel::u32 d = dst[i];
+            const keel::u32 invA = 255u - sa;
+            const keel::u32 dr = keel::min(255u, sr + (((d & 0xFFu) * invA + 127u) >> 8));
+            const keel::u32 dg = keel::min(255u, sg + ((((d >> 8) & 0xFFu) * invA + 127u) >> 8));
+            const keel::u32 db = keel::min(255u, sb + ((((d >> 16) & 0xFFu) * invA + 127u) >> 8));
             dst[i] = 0xFF000000u | (db << 16) | (dg << 8) | dr;
         }
     }
@@ -960,56 +960,56 @@ void DestroyCanvasThreadSafe(keel::UniquePtr<guikit::ICanvas>& canvas) noexcept 
 }
 
 void BlendStraightRgbaBasemapOntoComposite(
-    uint32_t* __restrict dst,
-    const uint32_t* __restrict src,
-    uint8_t basemapOpacity,
-    uint32_t tileSizePx
+    keel::u32* __restrict dst,
+    const keel::u32* __restrict src,
+    keel::u8 basemapOpacity,
+    keel::u32 tileSizePx
 ) noexcept {
-    const size_t kNumPx = static_cast<size_t>(tileSizePx) * static_cast<size_t>(tileSizePx);
+    const keel::usize kNumPx = static_cast<keel::usize>(tileSizePx) * static_cast<keel::usize>(tileSizePx);
     if (basemapOpacity == 0) return;
 
     if (basemapOpacity == 255) {
-        for (size_t i = 0; i < kNumPx; ++i) {
-            const uint32_t s = src[i];
-            const uint32_t sa = s >> 24;
+        for (keel::usize i = 0; i < kNumPx; ++i) {
+            const keel::u32 s = src[i];
+            const keel::u32 sa = s >> 24;
             if (sa == 0u) continue;
             if (sa == 255u) {
                 dst[i] = s;
             } else {
-                const uint32_t d = dst[i];
-                const uint32_t invA = 255u - sa;
-                const uint32_t sr = s & 0xFFu;
-                const uint32_t sg = (s >> 8) & 0xFFu;
-                const uint32_t sb = (s >> 16) & 0xFFu;
-                const uint32_t dr = ((sr * sa + (d & 0xFFu) * invA) + 127u) >> 8;
-                const uint32_t dg = ((sg * sa + ((d >> 8) & 0xFFu) * invA) + 127u) >> 8;
-                const uint32_t db = ((sb * sa + ((d >> 16) & 0xFFu) * invA) + 127u) >> 8;
+                const keel::u32 d = dst[i];
+                const keel::u32 invA = 255u - sa;
+                const keel::u32 sr = s & 0xFFu;
+                const keel::u32 sg = (s >> 8) & 0xFFu;
+                const keel::u32 sb = (s >> 16) & 0xFFu;
+                const keel::u32 dr = ((sr * sa + (d & 0xFFu) * invA) + 127u) >> 8;
+                const keel::u32 dg = ((sg * sa + ((d >> 8) & 0xFFu) * invA) + 127u) >> 8;
+                const keel::u32 db = ((sb * sa + ((d >> 16) & 0xFFu) * invA) + 127u) >> 8;
                 dst[i] = 0xFF000000u | (db << 16) | (dg << 8) | dr;
             }
         }
     } else {
-        const uint32_t op = basemapOpacity;
-        for (size_t i = 0; i < kNumPx; ++i) {
-            const uint32_t s = src[i];
-            const uint32_t sa = ((s >> 24) * op + 127u) >> 8;
+        const keel::u32 op = basemapOpacity;
+        for (keel::usize i = 0; i < kNumPx; ++i) {
+            const keel::u32 s = src[i];
+            const keel::u32 sa = ((s >> 24) * op + 127u) >> 8;
             if (sa == 0u) continue;
-            const uint32_t d = dst[i];
-            const uint32_t invA = 255u - sa;
-            const uint32_t sr = s & 0xFFu;
-            const uint32_t sg = (s >> 8) & 0xFFu;
-            const uint32_t sb = (s >> 16) & 0xFFu;
-            const uint32_t dr = ((sr * sa + (d & 0xFFu) * invA) + 127u) >> 8;
-            const uint32_t dg = ((sg * sa + ((d >> 8) & 0xFFu) * invA) + 127u) >> 8;
-            const uint32_t db = ((sb * sa + ((d >> 16) & 0xFFu) * invA) + 127u) >> 8;
+            const keel::u32 d = dst[i];
+            const keel::u32 invA = 255u - sa;
+            const keel::u32 sr = s & 0xFFu;
+            const keel::u32 sg = (s >> 8) & 0xFFu;
+            const keel::u32 sb = (s >> 16) & 0xFFu;
+            const keel::u32 dr = ((sr * sa + (d & 0xFFu) * invA) + 127u) >> 8;
+            const keel::u32 dg = ((sg * sa + ((d >> 8) & 0xFFu) * invA) + 127u) >> 8;
+            const keel::u32 db = ((sb * sa + ((d >> 16) & 0xFFu) * invA) + 127u) >> 8;
             dst[i] = 0xFF000000u | (db << 16) | (dg << 8) | dr;
         }
     }
 }
 
 struct TileCoordKey {
-    int z{0};
-    int x{0};
-    int y{0};
+    keel::i32 z{0};
+    keel::i32 x{0};
+    keel::i32 y{0};
 
     [[nodiscard]] bool operator==(const TileCoordKey& o) const noexcept {
         return z == o.z && x == o.x && y == o.y;
@@ -1017,37 +1017,37 @@ struct TileCoordKey {
 };
 
 struct TileCoordKeyHasher {
-    [[nodiscard]] size_t operator()(const TileCoordKey& k) const noexcept {
-        uint64_t h = static_cast<uint64_t>(k.z) * 0x9E3779B97F4A7C15ULL;
-        h ^= static_cast<uint64_t>(k.x) * 0xBF58476D1CE4E5B9ULL;
-        h ^= static_cast<uint64_t>(k.y) * 0x94D049BB133111EBULL;
-        return static_cast<size_t>(h);
+    [[nodiscard]] keel::usize operator()(const TileCoordKey& k) const noexcept {
+        keel::u64 h = static_cast<keel::u64>(k.z) * 0x9E3779B97F4A7C15ULL;
+        h ^= static_cast<keel::u64>(k.x) * 0xBF58476D1CE4E5B9ULL;
+        h ^= static_cast<keel::u64>(k.y) * 0x94D049BB133111EBULL;
+        return static_cast<keel::usize>(h);
     }
 };
 
 struct CachedVectorTile {
-    keel::Array<uint32_t> pixels;
+    keel::Array<keel::u32> pixels;
     guikit::Rect normQueryBox{};
-    uint64_t styleHash{0};
-    uint64_t lastUsedFrame{0};
-    uint64_t lastRasterizedFrame{0};
+    keel::u64 styleHash{0};
+    keel::u64 lastUsedFrame{0};
+    keel::u64 lastRasterizedFrame{0};
     bool hasAnyGeometry{false};
 };
 
 struct CompositeTile {
-    keel::Array<uint32_t> pixels;
+    keel::Array<keel::u32> pixels;
     guikit::Rect normQueryBox{};
-    uint64_t compositeSignature{0};
-    uint64_t lastUsedFrame{0};
-    uint64_t lastUpdatedFrame{0};
+    keel::u64 compositeSignature{0};
+    keel::u64 lastUsedFrame{0};
+    keel::u64 lastUpdatedFrame{0};
     bool isComplete{false};
 };
 
 struct AsyncTileCandidate {
-    uint32_t featureIndex{0};
-    uint64_t featureUid{0};
-    int64_t sqliteRowId{0};
-    int32_t srsId{4326};
+    keel::u32 featureIndex{0};
+    keel::u64 featureUid{0};
+    keel::i64 sqliteRowId{0};
+    keel::i32 srsId{4326};
     geo::ChartFeatureClass chartClass{geo::ChartFeatureClass::Generic};
     float maxDimPx{256.0f};
     ResolvedFeatureStyle style{};
@@ -1055,11 +1055,11 @@ struct AsyncTileCandidate {
 };
 
 struct AsyncLayerTileJobKey {
-    uint64_t layerUid{0};
-    int z{0};
-    int x{0};
-    int y{0};
-    uint32_t tileSizePx{256};
+    keel::u64 layerUid{0};
+    keel::i32 z{0};
+    keel::i32 x{0};
+    keel::i32 y{0};
+    keel::u32 tileSizePx{256};
 
     [[nodiscard]] bool operator==(const AsyncLayerTileJobKey& o) const noexcept {
         return layerUid == o.layerUid && z == o.z && x == o.x && y == o.y && tileSizePx == o.tileSizePx;
@@ -1067,54 +1067,54 @@ struct AsyncLayerTileJobKey {
 };
 
 struct AsyncLayerTileJobKeyHasher {
-    [[nodiscard]] size_t operator()(const AsyncLayerTileJobKey& k) const noexcept {
-        uint64_t h = k.layerUid ^ 0x9E3779B97F4A7C15ULL;
+    [[nodiscard]] keel::usize operator()(const AsyncLayerTileJobKey& k) const noexcept {
+        keel::u64 h = k.layerUid ^ 0x9E3779B97F4A7C15ULL;
         HashCombineVal(h, k.z);
         HashCombineVal(h, k.x);
         HashCombineVal(h, k.y);
         HashCombineVal(h, k.tileSizePx);
-        return static_cast<size_t>(h);
+        return static_cast<keel::usize>(h);
     }
 };
 
 struct InFlightTileStamp {
-    uint64_t styleHash{0};
-    uint64_t windowUpdateFrame{0};
+    keel::u64 styleHash{0};
+    keel::u64 windowUpdateFrame{0};
 };
 
 struct WindowGenCounter {
-    alignas(8) uint64_t value{0};
+    alignas(8) keel::u64 value{0};
 
-    uint64_t FetchAddRelaxed(uint64_t delta = 1) noexcept {
+    keel::u64 FetchAddRelaxed(keel::u64 delta = 1) noexcept {
 #if defined(__clang__) || defined(__GNUC__)
         return __atomic_fetch_add(&value, delta, __ATOMIC_RELAXED);
 #else
-        return std::atomic_ref<uint64_t>(value).fetch_add(delta, std::memory_order_relaxed);
+        return std::atomic_ref<keel::u64>(value).fetch_add(delta, std::memory_order_relaxed);
 #endif
     }
 
-    [[nodiscard]] uint64_t LoadRelaxed() const noexcept {
+    [[nodiscard]] keel::u64 LoadRelaxed() const noexcept {
 #if defined(__clang__) || defined(__GNUC__)
         return __atomic_load_n(&value, __ATOMIC_RELAXED);
 #else
-        return std::atomic_ref<const uint64_t>(value).load(std::memory_order_relaxed);
+        return std::atomic_ref<const keel::u64>(value).load(std::memory_order_relaxed);
 #endif
     }
 };
 
 struct AsyncLoadedFeaturePayload {
-    uint64_t layerUid{0};
-    uint32_t featureIndex{0};
-    uint64_t featureUid{0};
+    keel::u64 layerUid{0};
+    keel::u32 featureIndex{0};
+    keel::u64 featureUid{0};
     keel::Arc<const geo::DecodedGeometryPayload> payload;
 };
 
 struct AsyncLayerTileJob {
     AsyncLayerTileJobKey jobKey{};
-    uint64_t topologyHash{0};
-    uint64_t styleHash{0};
-    uint64_t windowUpdateFrame{0};
-    uint64_t epoch{0};
+    keel::u64 topologyHash{0};
+    keel::u64 styleHash{0};
+    keel::u64 windowUpdateFrame{0};
+    keel::u64 epoch{0};
     guikit::OsmTileCell cell{};
     guikit::MapCrs crs{guikit::MapCrs::EPSG3857_WebMercator};
     guikit::Rect queryBox{};
@@ -1127,28 +1127,28 @@ struct AsyncLayerTileJob {
 
 struct AsyncLayerTileResult {
     AsyncLayerTileJobKey jobKey{};
-    uint64_t topologyHash{0};
-    uint64_t styleHash{0};
-    uint64_t windowUpdateFrame{0};
-    uint64_t epoch{0};
+    keel::u64 topologyHash{0};
+    keel::u64 styleHash{0};
+    keel::u64 windowUpdateFrame{0};
+    keel::u64 epoch{0};
     guikit::Rect queryBox{};
-    keel::Array<uint32_t> pixels;
+    keel::Array<keel::u32> pixels;
     bool hasAnyGeometry{false};
     keel::Array<AsyncLoadedFeaturePayload> newlyLoadedPayloads;
 };
 
 struct AsyncWindowJob {
-    uint64_t layerUid{0};
+    keel::u64 layerUid{0};
     keel::Arc<geo::IFeaturePager> pager;
     geo::SpatialWindowRequest req{};
-    uint64_t epoch{0};
+    keel::u64 epoch{0};
     keel::Arc<WindowGenCounter> activeGenPtr;
 };
 
 struct AsyncWindowResult {
-    uint64_t layerUid{0};
-    uint64_t generation{0};
-    uint64_t epoch{0};
+    keel::u64 layerUid{0};
+    keel::u64 generation{0};
+    keel::u64 epoch{0};
     keel::Arc<geo::SpatialWindowSnapshot> snapshot;
 };
 
@@ -1157,22 +1157,22 @@ struct AsyncBasemapJob {
     keel::Arc<geo::IRasterTileProvider> provider;
     geo::SlippyTileKey tileKey{};
     float distSq{0.0f};
-    uint64_t epoch{0};
+    keel::u64 epoch{0};
 };
 
 struct AsyncBasemapResult {
     keel::String sourceId;
     geo::SlippyTileKey tileKey{};
-    uint64_t epoch{0};
+    keel::u64 epoch{0};
     keel::Arc<const geo::RasterTileImage> image;
 };
 
 class TilePixelBufferPool {
 public:
-    void AcquireFilled(keel::Array<uint32_t>& outBuf, size_t numPixels, uint32_t fillVal) {
+    void AcquireFilled(keel::Array<keel::u32>& outBuf, keel::usize numPixels, keel::u32 fillVal) {
         if (outBuf.capacity() != numPixels) {
             if (outBuf.capacity() > 0u) {
-                outBuf = keel::Array<uint32_t>{};
+                outBuf = keel::Array<keel::u32>{};
             }
             std::scoped_lock lk(m_mutex);
             if (m_activeNumPixels == numPixels && !m_freeBuffers.empty()) {
@@ -1183,8 +1183,8 @@ public:
         outBuf.assign(numPixels, fillVal);
     }
 
-    void Recycle(keel::Array<uint32_t>& buf) noexcept {
-        const size_t cap = buf.capacity();
+    void Recycle(keel::Array<keel::u32>& buf) noexcept {
+        const keel::usize cap = buf.capacity();
         if (cap == 0u) {
             return;
         }
@@ -1196,16 +1196,16 @@ public:
             }
             if (cap == m_activeNumPixels &&
                 m_freeBuffers.size() < kMaxPooledBuffers &&
-                (m_freeBuffers.size() + 1u) * cap * sizeof(uint32_t) <= kMaxPooledBytes) {
+                (m_freeBuffers.size() + 1u) * cap * sizeof(keel::u32) <= kMaxPooledBytes) {
                 m_freeBuffers.push_back(keel::move(buf));
                 return;
             }
         }
-        buf = keel::Array<uint32_t>{};
+        buf = keel::Array<keel::u32>{};
     }
 
-    void Clear(size_t newNumPixels = 0u) noexcept {
-        keel::Array<keel::Array<uint32_t>> toFree;
+    void Clear(keel::usize newNumPixels = 0u) noexcept {
+        keel::Array<keel::Array<keel::u32>> toFree;
         {
             std::scoped_lock lk(m_mutex);
             m_activeNumPixels = newNumPixels;
@@ -1215,11 +1215,11 @@ public:
     }
 
 private:
-    static constexpr size_t kMaxPooledBuffers = 16u;
-    static constexpr size_t kMaxPooledBytes = 4u * 1024u * 1024u;
+    static constexpr keel::usize kMaxPooledBuffers = 16u;
+    static constexpr keel::usize kMaxPooledBytes = 4u * 1024u * 1024u;
     std::mutex m_mutex;
-    size_t m_activeNumPixels{0};
-    keel::Array<keel::Array<uint32_t>> m_freeBuffers;
+    keel::usize m_activeNumPixels{0};
+    keel::Array<keel::Array<keel::u32>> m_freeBuffers;
 };
 
 TilePixelBufferPool& GetTilePixelPool() {
@@ -1237,11 +1237,11 @@ void RasterizeCandidatesToPixels(
     keel::ArrayRef<AsyncTileCandidate> candidates,
     const guikit::OsmTileCell& cell,
     guikit::MapCrs crs,
-    uint32_t tileSizePx,
+    keel::u32 tileSizePx,
     const guikit::Rect& queryBox,
     bool lodSimplification,
     float lodPixelTolerance,
-    keel::Array<uint32_t>& outPixels,
+    keel::Array<keel::u32>& outPixels,
     bool& outHasAnyGeometry
 ) {
     const float tileSizeF = static_cast<float>(tileSizePx);
@@ -1256,7 +1256,7 @@ void RasterizeCandidatesToPixels(
         if (!outHasAnyGeometry) {
             GetTilePixelPool().AcquireFilled(
                 outPixels,
-                static_cast<size_t>(tileSizePx) * static_cast<size_t>(tileSizePx),
+                static_cast<keel::usize>(tileSizePx) * static_cast<keel::usize>(tileSizePx),
                 0u
             );
             canvas.SetTarget(outPixels.data(), tileSizePx, tileSizePx, tileSizePx);
@@ -1271,10 +1271,10 @@ void RasterizeCandidatesToPixels(
 
     strokePath.Clear();
     guikit::PathPaint activeStrokePaint{};
-    uint32_t activeStrokeRgba = 0;
-    uint32_t activeStrokeWidthBits = 0;
+    keel::u32 activeStrokeRgba = 0;
+    keel::u32 activeStrokeWidthBits = 0;
     bool activeStrokeDashed = false;
-    size_t activeStrokeSegments = 0;
+    keel::usize activeStrokeSegments = 0;
 
     auto flushActiveStroke = [&]() {
         if (activeStrokeSegments > 0 && !strokePath.Empty()) {
@@ -1347,8 +1347,8 @@ void RasterizeCandidatesToPixels(
 
         // 2. Polygon Outline & LineStrings (Style-Bucket Compound Path Batching)
         if (st.renderStroke && st.strokeColor.a > 0 && st.strokeWidthPx > 0.0f) {
-            const uint32_t strokeRgba = st.strokeColor.ToUint32();
-            uint32_t strokeWidthBits = 0;
+            const keel::u32 strokeRgba = st.strokeColor.ToUint32();
+            keel::u32 strokeWidthBits = 0;
             std::memcpy(&strokeWidthBits, &st.strokeWidthPx, sizeof(float));
             const bool isDashed = (cand.chartClass == geo::ChartFeatureClass::NavigationLine ||
                                    cand.chartClass == geo::ChartFeatureClass::FairwayArea ||
@@ -1377,7 +1377,7 @@ void RasterizeCandidatesToPixels(
                 activeStrokeDashed = isDashed;
             }
 
-            size_t addedStrokeSegs = 0;
+            keel::usize addedStrokeSegs = 0;
             for (const geo::GeoPolygon& poly : geom.polygons) {
                 if (poly.hasValidBounds && !poly.normBounds.Intersects(queryBox)) {
                     continue;
@@ -1395,7 +1395,7 @@ void RasterizeCandidatesToPixels(
                 }
             }
 
-            for (size_t li = 0; li < geom.normLines.size(); ++li) {
+            for (keel::usize li = 0; li < geom.normLines.size(); ++li) {
                 const auto& line = (useLodRings && li < geom.normLinesLod.size() && geom.normLinesLod[li].size() >= 2)
                     ? geom.normLinesLod[li]
                     : geom.normLines[li];
@@ -1430,14 +1430,14 @@ public:
 #if !defined(__EMSCRIPTEN__) || defined(__EMSCRIPTEN_PTHREADS__)
         m_windowWorker = std::thread([this]() { WindowWorkerLoop(); });
 
-        const unsigned int hw = keel::max(2u, std::thread::hardware_concurrency());
-        const size_t numTileWorkers = keel::clamp<size_t>(hw / 2u, 2u, 4u);
+        const keel::u32 hw = keel::max(2u, std::thread::hardware_concurrency());
+        const keel::usize numTileWorkers = keel::clamp<keel::usize>(hw / 2u, 2u, 4u);
         m_tileWorkers.reserve(numTileWorkers);
-        for (size_t i = 0; i < numTileWorkers; ++i) {
+        for (keel::usize i = 0; i < numTileWorkers; ++i) {
             m_tileWorkers.emplace_back([this]() { TileWorkerLoop(); });
         }
 
-        for (size_t i = 0; i < 2; ++i) {
+        for (keel::usize i = 0; i < 2; ++i) {
             m_basemapWorkers.emplace_back([this]() { BasemapWorkerLoop(); });
         }
 #endif
@@ -1468,7 +1468,7 @@ public:
     }
 
     void ClearAndBumpEpoch() {
-        const uint64_t newEpoch = m_epoch.fetch_add(1, std::memory_order_acq_rel) + 1;
+        const keel::u64 newEpoch = m_epoch.fetch_add(1, std::memory_order_acq_rel) + 1;
         {
             std::scoped_lock lk(m_windowMutex);
             for (auto [uid, genPtr] : m_layerWindowGenerations) {
@@ -1518,11 +1518,11 @@ public:
         m_tileCv.notify_all();
     }
 
-    [[nodiscard]] uint64_t GetCurrentEpoch() const noexcept {
+    [[nodiscard]] keel::u64 GetCurrentEpoch() const noexcept {
         return m_epoch.load(std::memory_order_acquire);
     }
 
-    void SetActiveTileZoom(int z) noexcept {
+    void SetActiveTileZoom(keel::i32 z) noexcept {
         m_activeTileZoom.store(z, std::memory_order_relaxed);
     }
 
@@ -1532,10 +1532,10 @@ public:
         const guikit::Rect& visibleNormBox,
         float tileZoom,
         bool scaleFiltering,
-        uint64_t frameTick
+        keel::u64 frameTick
     ) {
         if (!layer.pager) return;
-        const uint64_t layerUid = layer.uid;
+        const keel::u64 layerUid = layer.uid;
         std::scoped_lock lk(m_windowMutex);
         auto& genPtr = m_layerWindowGenerations.get_or_insert(layerUid);
         if (!genPtr) {
@@ -1563,7 +1563,7 @@ public:
             return;
         }
 
-        const uint64_t nextGen = genPtr->FetchAddRelaxed(1) + 1;
+        const keel::u64 nextGen = genPtr->FetchAddRelaxed(1) + 1;
         geo::SpatialWindowRequest req{};
         req.layerUid = layerUid;
         req.srsId = layer.srsId;
@@ -1593,7 +1593,7 @@ public:
 
     void DrainCompletedWindows(keel::Array<AsyncWindowResult>& outResults) {
         outResults.clear();
-        const uint64_t curEpoch = GetCurrentEpoch();
+        const keel::u64 curEpoch = GetCurrentEpoch();
         std::scoped_lock lk(m_windowMutex);
         for (AsyncWindowResult& res : m_completedWindowResults) {
             if (res.epoch != curEpoch || !res.snapshot) continue;
@@ -1607,12 +1607,12 @@ public:
         m_completedWindowResults.clear();
     }
 
-    [[nodiscard]] size_t GetPendingWindowCount() const {
+    [[nodiscard]] keel::usize GetPendingWindowCount() const {
         std::scoped_lock lk(m_windowMutex);
         return m_pendingWindowJobs.size() + m_inFlightWindowCount + m_completedWindowResults.size();
     }
 
-    [[nodiscard]] bool IsLayerWindowPending(uint64_t layerUid) const {
+    [[nodiscard]] bool IsLayerWindowPending(keel::u64 layerUid) const {
         std::scoped_lock lk(m_windowMutex);
         if (m_inFlightWindowLayerUid == layerUid && m_inFlightWindowCount > 0) {
             return true;
@@ -1628,7 +1628,7 @@ public:
         return false;
     }
 
-    [[nodiscard]] bool IsLayerTilePending(const AsyncLayerTileJobKey& key, uint64_t styleHash, uint64_t windowUpdateFrame) const {
+    [[nodiscard]] bool IsLayerTilePending(const AsyncLayerTileJobKey& key, keel::u64 styleHash, keel::u64 windowUpdateFrame) const {
         std::scoped_lock lk(m_tileMutex);
         if (const auto* inFlight = m_inFlightTileKeys.get(key)) {
             if (inFlight->styleHash == styleHash && inFlight->windowUpdateFrame == windowUpdateFrame) {
@@ -1649,7 +1649,7 @@ public:
     }
 
     void EnqueueLayerTileJob(AsyncLayerTileJob&& job) {
-        static constexpr size_t kMaxPendingTileJobs = 192u;
+        static constexpr keel::usize kMaxPendingTileJobs = 192u;
         job.epoch = GetCurrentEpoch();
         {
             std::scoped_lock lk(m_tileMutex);
@@ -1666,15 +1666,15 @@ public:
                 }
             }
             if (m_pendingTileJobs.size() >= kMaxPendingTileJobs) {
-                const int activeZ = m_activeTileZoom.load(std::memory_order_relaxed);
-                for (size_t i = m_pendingTileJobs.size(); i > 0u; --i) {
+                const keel::i32 activeZ = m_activeTileZoom.load(std::memory_order_relaxed);
+                for (keel::usize i = m_pendingTileJobs.size(); i > 0u; --i) {
                     if (std::abs(m_pendingTileJobs[i - 1u].jobKey.z - activeZ) > 1) {
                         m_pendingTileJobs.swap_remove(i - 1u);
                     }
                 }
                 if (m_pendingTileJobs.size() >= kMaxPendingTileJobs) {
-                    size_t worstIdx = 0u;
-                    for (size_t i = 1u; i < m_pendingTileJobs.size(); ++i) {
+                    keel::usize worstIdx = 0u;
+                    for (keel::usize i = 1u; i < m_pendingTileJobs.size(); ++i) {
                         const bool worstMatchesZ = (m_pendingTileJobs[worstIdx].jobKey.z == activeZ);
                         const bool curMatchesZ = (m_pendingTileJobs[i].jobKey.z == activeZ);
                         if (worstMatchesZ != curMatchesZ) {
@@ -1700,7 +1700,7 @@ public:
 
     void DrainCompletedLayerTiles(keel::Array<AsyncLayerTileResult>& outResults) {
         outResults.clear();
-        const uint64_t curEpoch = GetCurrentEpoch();
+        const keel::u64 curEpoch = GetCurrentEpoch();
         std::scoped_lock lk(m_tileMutex);
         for (AsyncLayerTileResult& res : m_completedTileResults) {
             if (res.epoch == curEpoch) {
@@ -1712,7 +1712,7 @@ public:
         m_completedTileResults.clear();
     }
 
-    [[nodiscard]] size_t GetPendingLayerTileCount() const {
+    [[nodiscard]] keel::usize GetPendingLayerTileCount() const {
         std::scoped_lock lk(m_tileMutex);
         return m_pendingTileJobs.size() + m_inFlightTileCount + m_completedTileResults.size();
     }
@@ -1723,7 +1723,7 @@ public:
         float distSq
     ) {
         if (!provider) return;
-        const uint64_t curEpoch = GetCurrentEpoch();
+        const keel::u64 curEpoch = GetCurrentEpoch();
         const keel::StringRef srcId = provider->GetSourceId();
         if (!HasBackgroundWorkerThreads()) {
             auto img = provider->FetchTileBlocking(tileKey);
@@ -1739,7 +1739,7 @@ public:
             return;
         }
         {
-            static constexpr size_t kMaxPendingBasemapJobs = 128u;
+            static constexpr keel::usize kMaxPendingBasemapJobs = 128u;
             std::scoped_lock lk(m_basemapMutex);
             if (m_inFlightBasemapKeys.contains(tileKey)) {
                 return;
@@ -1751,15 +1751,15 @@ public:
                 }
             }
             if (m_pendingBasemapJobs.size() >= kMaxPendingBasemapJobs) {
-                const int activeZ = m_activeTileZoom.load(std::memory_order_relaxed);
-                for (size_t i = m_pendingBasemapJobs.size(); i > 0u; --i) {
+                const keel::i32 activeZ = m_activeTileZoom.load(std::memory_order_relaxed);
+                for (keel::usize i = m_pendingBasemapJobs.size(); i > 0u; --i) {
                     if (std::abs(m_pendingBasemapJobs[i - 1u].tileKey.z - activeZ) > 2) {
                         m_pendingBasemapJobs.swap_remove(i - 1u);
                     }
                 }
                 if (m_pendingBasemapJobs.size() >= kMaxPendingBasemapJobs) {
-                    size_t worstIdx = 0u;
-                    for (size_t i = 1u; i < m_pendingBasemapJobs.size(); ++i) {
+                    keel::usize worstIdx = 0u;
+                    for (keel::usize i = 1u; i < m_pendingBasemapJobs.size(); ++i) {
                         if (m_pendingBasemapJobs[i].distSq > m_pendingBasemapJobs[worstIdx].distSq) {
                             worstIdx = i;
                         }
@@ -1790,7 +1790,7 @@ public:
 
     void DrainCompletedBasemapTiles(keel::Array<AsyncBasemapResult>& outResults) {
         outResults.clear();
-        const uint64_t curEpoch = GetCurrentEpoch();
+        const keel::u64 curEpoch = GetCurrentEpoch();
         std::scoped_lock lk(m_basemapMutex);
         for (AsyncBasemapResult& res : m_completedBasemapResults) {
             if (res.epoch == curEpoch) {
@@ -1800,13 +1800,13 @@ public:
         m_completedBasemapResults.clear();
     }
 
-    [[nodiscard]] size_t GetPendingBasemapCount() const {
+    [[nodiscard]] keel::usize GetPendingBasemapCount() const {
         std::scoped_lock lk(m_basemapMutex);
         return m_pendingBasemapJobs.size() + m_inFlightBasemapCount + m_completedBasemapResults.size();
     }
 
-    bool WaitForIdle(uint32_t timeoutMs = 5000) {
-        const uint64_t deadlineMs = keel::monotonic_ms() + static_cast<uint64_t>(timeoutMs);
+    bool WaitForIdle(keel::u32 timeoutMs = 5000) {
+        const keel::u64 deadlineMs = keel::monotonic_ms() + static_cast<keel::u64>(timeoutMs);
         for (;;) {
             bool anyActive = false;
             {
@@ -1836,7 +1836,7 @@ private:
                     break;
                 }
                 auto it = m_pendingWindowJobs.begin();
-                const uint64_t kUid = (*it).key;
+                const keel::u64 kUid = (*it).key;
                 job = keel::move((*it).value);
                 m_pendingWindowJobs.remove(kUid);
                 m_inFlightWindowCount = 1;
@@ -1860,7 +1860,7 @@ private:
                 m_inFlightWindowLayerUid = 0;
                 if (snapshot && snapshot->changed && job.epoch == GetCurrentEpoch()) {
                     // Replace any earlier undrained result for the same layer
-                    for (size_t ri = m_completedWindowResults.size(); ri > 0; --ri) {
+                    for (keel::usize ri = m_completedWindowResults.size(); ri > 0; --ri) {
                         if (m_completedWindowResults[ri - 1].layerUid == job.layerUid) {
                             m_completedWindowResults.swap_remove(ri - 1);
                         }
@@ -1885,7 +1885,7 @@ private:
         keel::Array<guikit::Vec2> clippedRing;
         keel::Array<guikit::Vec2> scratchA;
         keel::Array<guikit::Vec2> scratchB;
-        uint64_t localTrimGen = m_trimGeneration.load(std::memory_order_acquire);
+        keel::u64 localTrimGen = m_trimGeneration.load(std::memory_order_acquire);
 
         for (;;) {
             AsyncLayerTileJob job{};
@@ -1900,7 +1900,7 @@ private:
                 if (m_shutdown.load(std::memory_order_acquire)) {
                     break;
                 }
-                const uint64_t curTrimGen = m_trimGeneration.load(std::memory_order_acquire);
+                const keel::u64 curTrimGen = m_trimGeneration.load(std::memory_order_acquire);
                 if (curTrimGen != localTrimGen) {
                     localTrimGen = curTrimGen;
                     if (m_pendingTileJobs.empty()) {
@@ -1908,10 +1908,10 @@ private:
                     }
                 }
                 if (!shouldTrimWorker) {
-                    const int curZ = m_activeTileZoom.load(std::memory_order_relaxed);
+                    const keel::i32 curZ = m_activeTileZoom.load(std::memory_order_relaxed);
                     // Pick the job matching `curZ` and closest to viewport center (`distSq`)
-                    size_t bestIdx = 0;
-                    for (size_t i = 1; i < m_pendingTileJobs.size(); ++i) {
+                    keel::usize bestIdx = 0;
+                    for (keel::usize i = 1; i < m_pendingTileJobs.size(); ++i) {
                         const bool bestMatchesZ = (m_pendingTileJobs[bestIdx].jobKey.z == curZ);
                         const bool curMatchesZ = (m_pendingTileJobs[i].jobKey.z == curZ);
                         if (curMatchesZ != bestMatchesZ) {
@@ -1942,7 +1942,7 @@ private:
                 continue;
             }
 
-            const int activeZ = m_activeTileZoom.load(std::memory_order_relaxed);
+            const keel::i32 activeZ = m_activeTileZoom.load(std::memory_order_relaxed);
             const bool obsoleteZoom = (std::abs(job.jobKey.z - activeZ) > 1);
             if (!obsoleteZoom && job.epoch == GetCurrentEpoch()) {
                 AsyncLayerTileResult res{};
@@ -2033,9 +2033,9 @@ private:
                     break;
                 }
 
-                const int curZ = m_activeTileZoom.load(std::memory_order_relaxed);
-                size_t bestIdx = 0;
-                for (size_t i = 1; i < m_pendingBasemapJobs.size(); ++i) {
+                const keel::i32 curZ = m_activeTileZoom.load(std::memory_order_relaxed);
+                keel::usize bestIdx = 0;
+                for (keel::usize i = 1; i < m_pendingBasemapJobs.size(); ++i) {
                     const bool bestMatchesZ = (m_pendingBasemapJobs[bestIdx].tileKey.z == curZ);
                     const bool curMatchesZ = (m_pendingBasemapJobs[i].tileKey.z == curZ);
                     if (curMatchesZ != bestMatchesZ) {
@@ -2051,7 +2051,7 @@ private:
             }
 
             keel::Arc<const geo::RasterTileImage> img;
-            const int activeZ = m_activeTileZoom.load(std::memory_order_relaxed);
+            const keel::i32 activeZ = m_activeTileZoom.load(std::memory_order_relaxed);
             if (job.provider && job.epoch == GetCurrentEpoch() && std::abs(job.tileKey.z - activeZ) <= 2) {
                 img = job.provider->FetchTileBlocking(job.tileKey);
             }
@@ -2073,17 +2073,17 @@ private:
     }
 
     std::atomic<bool> m_shutdown{false};
-    std::atomic<uint64_t> m_epoch{1};
-    std::atomic<uint64_t> m_trimGeneration{0};
-    std::atomic<int> m_activeTileZoom{12};
+    std::atomic<keel::u64> m_epoch{1};
+    std::atomic<keel::u64> m_trimGeneration{0};
+    std::atomic<keel::i32> m_activeTileZoom{12};
 
     mutable std::mutex m_windowMutex;
     std::condition_variable m_windowCv;
-    keel::HashMap<uint64_t, keel::Arc<WindowGenCounter>> m_layerWindowGenerations;
-    keel::HashMap<uint64_t, AsyncWindowJob> m_pendingWindowJobs;
+    keel::HashMap<keel::u64, keel::Arc<WindowGenCounter>> m_layerWindowGenerations;
+    keel::HashMap<keel::u64, AsyncWindowJob> m_pendingWindowJobs;
     keel::Array<AsyncWindowResult> m_completedWindowResults;
-    size_t m_inFlightWindowCount{0};
-    uint64_t m_inFlightWindowLayerUid{0};
+    keel::usize m_inFlightWindowCount{0};
+    keel::u64 m_inFlightWindowLayerUid{0};
     guikit::GeoBounds m_inFlightWindowGeo{};
     float m_inFlightWindowZoom{-1.0f};
     bool m_inFlightWindowScaleFilter{true};
@@ -2094,7 +2094,7 @@ private:
     keel::Array<AsyncLayerTileJob> m_pendingTileJobs;
     keel::HashMap<AsyncLayerTileJobKey, InFlightTileStamp, AsyncLayerTileJobKeyHasher> m_inFlightTileKeys;
     keel::Array<AsyncLayerTileResult> m_completedTileResults;
-    size_t m_inFlightTileCount{0};
+    keel::usize m_inFlightTileCount{0};
     keel::Array<std::thread> m_tileWorkers;
 
     mutable std::mutex m_basemapMutex;
@@ -2102,7 +2102,7 @@ private:
     keel::Array<AsyncBasemapJob> m_pendingBasemapJobs;
     keel::HashSet<geo::SlippyTileKey, geo::SlippyTileKeyHash> m_inFlightBasemapKeys;
     keel::Array<AsyncBasemapResult> m_completedBasemapResults;
-    size_t m_inFlightBasemapCount{0};
+    keel::usize m_inFlightBasemapCount{0};
     keel::Array<std::thread> m_basemapWorkers;
 };
 
@@ -2128,21 +2128,21 @@ class PerLayerTileCacheManager {
 public:
     struct TileCandidate {
         const geo::GeoFeature* feat{nullptr};
-        uint32_t featIdx{0};
-        int painterRank{0};
+        keel::u32 featIdx{0};
+        keel::i32 painterRank{0};
         float sortDepth{0.0f};
         float maxDimPx{256.0f};
     };
 
     struct LayerTileStore {
-        uint64_t activeTopologyHash{0};
-        uint64_t lastWindowUpdateFrame{1};
+        keel::u64 activeTopologyHash{0};
+        keel::u64 lastWindowUpdateFrame{1};
         keel::HashMap<TileCoordKey, CachedVectorTile, TileCoordKeyHasher> tiles{nullptr};
     };
 
     struct CompositeLayerRef {
         LayerTileStore* store{nullptr};
-        uint8_t opacityByte{255};
+        keel::u8 opacityByte{255};
     };
 
     PerLayerTileCacheManager()
@@ -2189,10 +2189,10 @@ public:
     }
 
     void SyncConfig(const GisRenderConfig& cfg, guikit::MapCrs crs, keel::StringRef basemapSourceId) {
-        const uint32_t newTileSize = ResolveTileSizePx(cfg.tileSizePx);
+        const keel::u32 newTileSize = ResolveTileSizePx(cfg.tileSizePx);
         if (newTileSize != m_tileSizePx || crs != m_activeCrs) {
             Clear();
-            GetTilePixelPool().Clear(static_cast<size_t>(newTileSize) * static_cast<size_t>(newTileSize));
+            GetTilePixelPool().Clear(static_cast<keel::usize>(newTileSize) * static_cast<keel::usize>(newTileSize));
             m_tileSizePx = newTileSize;
             m_activeCrs = crs;
         }
@@ -2205,27 +2205,27 @@ public:
                 comp.compositeSignature = 0ULL;
             }
         }
-        const size_t tileAreaScale = (m_tileSizePx > 256u)
-            ? static_cast<size_t>((m_tileSizePx / 256u) * (m_tileSizePx / 256u))
+        const keel::usize tileAreaScale = (m_tileSizePx > 256u)
+            ? static_cast<keel::usize>((m_tileSizePx / 256u) * (m_tileSizePx / 256u))
             : 1u;
-        const size_t rawMaxLayer = keel::clamp<size_t>(cfg.maxLayerTiles, 16u, 2048u);
-        const size_t rawMaxComp = keel::clamp<size_t>(cfg.maxCompositeTiles, 16u, 2048u);
-        m_maxLayerTiles = keel::max<size_t>(16u, rawMaxLayer / tileAreaScale);
-        m_maxCompositeTiles = keel::max<size_t>(16u, rawMaxComp / tileAreaScale);
+        const keel::usize rawMaxLayer = keel::clamp<keel::usize>(cfg.maxLayerTiles, 16u, 2048u);
+        const keel::usize rawMaxComp = keel::clamp<keel::usize>(cfg.maxCompositeTiles, 16u, 2048u);
+        m_maxLayerTiles = keel::max<keel::usize>(16u, rawMaxLayer / tileAreaScale);
+        m_maxCompositeTiles = keel::max<keel::usize>(16u, rawMaxComp / tileAreaScale);
         if (m_compositeTiles.size() > m_maxCompositeTiles) {
             EvictOldestCompositeTiles(m_maxCompositeTiles);
         }
         if (m_pixelLayerTileCount > m_maxLayerTiles) {
-            EnforceGlobalLayerPixelBudget(UINT64_MAX);
+            EnforceGlobalLayerPixelBudget(~keel::u64{0});
         }
     }
 
-    [[nodiscard]] uint32_t GetTileSizePx() const noexcept { return m_tileSizePx; }
+    [[nodiscard]] keel::u32 GetTileSizePx() const noexcept { return m_tileSizePx; }
     [[nodiscard]] float GetTileSizeF() const noexcept { return static_cast<float>(m_tileSizePx); }
     [[nodiscard]] guikit::MapCrs GetActiveCrs() const noexcept { return m_activeCrs; }
 
     void GarbageCollectLayers(keel::ArrayRef<geo::GeoLayer> layers) {
-        keel::Array<uint64_t> staleUids;
+        keel::Array<keel::u64> staleUids;
         for (auto [uid, store] : m_layerStores) {
             bool found = false;
             for (const geo::GeoLayer& lyr : layers) {
@@ -2236,7 +2236,7 @@ public:
             }
             if (!found) staleUids.push_back(uid);
         }
-        for (uint64_t uid : staleUids) {
+        for (keel::u64 uid : staleUids) {
             if (LayerTileStore* st = m_layerStores.get(uid)) {
                 ClearStoreTiles(*st);
             }
@@ -2248,11 +2248,11 @@ public:
         const geo::GeoLayer& layer,
         guikit::MapCrs crs
     ) {
-        uint64_t topoHash = keel::kFnv1aOffsetBasis;
+        keel::u64 topoHash = keel::kFnv1aOffsetBasis;
         HashCombineVal(topoHash, crs);
         HashCombineVal(topoHash, layer.uid);
-        const size_t fCount = layer.isWindowStreamed
-            ? keel::max(layer.estimatedTotalFeatures, static_cast<size_t>(1u))
+        const keel::usize fCount = layer.isWindowStreamed
+            ? keel::max(layer.estimatedTotalFeatures, static_cast<keel::usize>(1u))
             : layer.features.size();
         HashCombineVal(topoHash, fCount);
 
@@ -2269,16 +2269,16 @@ public:
         return store;
     }
 
-    size_t InvalidateTilesForDirtiedBoxes(
-        uint64_t layerUid,
+    keel::usize InvalidateTilesForDirtiedBoxes(
+        keel::u64 layerUid,
         keel::ArrayRef<guikit::Rect> dirtiedNormBoxes,
-        uint64_t frameTick = 0
+        keel::u64 frameTick = 0
     ) noexcept {
         LayerTileStore* storePtr = m_layerStores.get(layerUid);
         if (storePtr && frameTick > 0) {
             storePtr->lastWindowUpdateFrame = frameTick;
         }
-        size_t invalidatedCount = 0;
+        keel::usize invalidatedCount = 0;
         if (storePtr) {
             LayerTileStore& store = *storePtr;
             keel::Array<TileCoordKey> toErase;
@@ -2331,7 +2331,7 @@ public:
     [[nodiscard]] static const CachedVectorTile* FindTile(
         LayerTileStore& store,
         const TileCoordKey& key,
-        uint64_t frameTick
+        keel::u64 frameTick
     ) noexcept {
         CachedVectorTile* tile = store.tiles.get(key);
         if (!tile) return nullptr;
@@ -2343,8 +2343,8 @@ public:
         LayerTileStore& store,
         const TileCoordKey& key,
         const guikit::Rect& normQueryBox,
-        uint64_t styleHash,
-        uint64_t frameTick
+        keel::u64 styleHash,
+        keel::u64 frameTick
     ) {
         if (store.tiles.size() >= kMaxMetadataTilesPerLayer && !store.tiles.contains(key)) {
             EvictOldestLayerTiles(store, kMaxMetadataTilesPerLayer - 24u, frameTick);
@@ -2358,7 +2358,7 @@ public:
         tile.hasAnyGeometry = false;
     }
 
-    bool StoreAsyncLayerTile(AsyncLayerTileResult&& res, uint64_t frameTick) {
+    bool StoreAsyncLayerTile(AsyncLayerTileResult&& res, keel::u64 frameTick) {
         if (res.jobKey.tileSizePx != m_tileSizePx) {
             GetTilePixelPool().Recycle(res.pixels);
             return false;
@@ -2408,7 +2408,7 @@ public:
         return m_basemapTiles.contains(key);
     }
 
-    [[nodiscard]] uint64_t GetBasemapGeneration() const noexcept {
+    [[nodiscard]] keel::u64 GetBasemapGeneration() const noexcept {
         return m_basemapGeneration;
     }
 
@@ -2420,7 +2420,7 @@ public:
         if (!img || !img->IsValid() || tileKey.tileSizePx != m_tileSizePx || sourceId != m_activeBasemapSourceId) {
             return false;
         }
-        const size_t maxBasemapTiles = keel::min<size_t>(m_maxCompositeTiles, 32u);
+        const keel::usize maxBasemapTiles = keel::min<keel::usize>(m_maxCompositeTiles, 32u);
         while (m_basemapTiles.size() >= maxBasemapTiles && !m_basemapTiles.empty()) {
             const TileCoordKey victimKey = (*m_basemapTiles.begin()).key;
             m_basemapTiles.remove(victimKey);
@@ -2438,7 +2438,7 @@ public:
 
     [[nodiscard]] CompositeTile* FindCompositeTile(
         const TileCoordKey& key,
-        uint64_t frameTick
+        keel::u64 frameTick
     ) noexcept {
         CompositeTile* comp = m_compositeTiles.get(key);
         if (!comp) return nullptr;
@@ -2449,17 +2449,17 @@ public:
     CompositeTile& BuildCompositeTile(
         const TileCoordKey& key,
         const guikit::Rect& normQueryBox,
-        uint64_t compositeSignature,
-        uint32_t bgPx,
+        keel::u64 compositeSignature,
+        keel::u32 bgPx,
         keel::ArrayRef<CompositeLayerRef> layerRefs,
-        uint64_t frameTick,
+        keel::u64 frameTick,
         bool useBasemapOverlay = false,
-        uint8_t basemapOpacityByte = 255
+        keel::u8 basemapOpacityByte = 255
     ) {
         if (m_compositeTiles.size() >= m_maxCompositeTiles && !m_compositeTiles.contains(key)) {
-            EvictOldestCompositeTiles(m_maxCompositeTiles - keel::min<size_t>(24u, m_maxCompositeTiles / 4u));
+            EvictOldestCompositeTiles(m_maxCompositeTiles - keel::min<keel::usize>(24u, m_maxCompositeTiles / 4u));
         }
-        const size_t numTilePx = static_cast<size_t>(m_tileSizePx) * static_cast<size_t>(m_tileSizePx);
+        const keel::usize numTilePx = static_cast<keel::usize>(m_tileSizePx) * static_cast<keel::usize>(m_tileSizePx);
         CompositeTile& comp = m_compositeTiles.get_or_insert(key);
         GetTilePixelPool().AcquireFilled(comp.pixels, numTilePx, bgPx);
         comp.normQueryBox = normQueryBox;
@@ -2489,19 +2489,19 @@ public:
     // so zooming in or out immediately displays a full-stack chart preview with zero blanking.
     bool SeedFallbackFromHierarchy(
         const TileCoordKey& key,
-        uint32_t bgPx,
-        uint64_t frameTick
+        keel::u32 bgPx,
+        keel::u64 frameTick
     ) {
-        const size_t numTilePx = static_cast<size_t>(m_tileSizePx) * static_cast<size_t>(m_tileSizePx);
+        const keel::usize numTilePx = static_cast<keel::usize>(m_tileSizePx) * static_cast<keel::usize>(m_tileSizePx);
         if (CompositeTile* existing = m_compositeTiles.get(key); existing && !existing->pixels.empty()) {
             existing->lastUsedFrame = frameTick;
             return true;
         }
 
         // 1. Check Parent [z-1] or Grandparent [z-2] and pin its LRU frameTick BEFORE any cache eviction
-        int ancestorShift = 0;
+        keel::i32 ancestorShift = 0;
         TileCoordKey foundParentKey{};
-        for (int shift = 1; shift <= 2; ++shift) {
+        for (keel::i32 shift = 1; shift <= 2; ++shift) {
             if (key.z - shift < 0) break;
             const TileCoordKey parentKey{key.z - shift, key.x >> shift, key.y >> shift};
             if (CompositeTile* pTile = m_compositeTiles.get(parentKey); pTile && pTile->pixels.size() == numTilePx) {
@@ -2514,10 +2514,10 @@ public:
 
         // 2. Check Children [z+1, 2x+dx, 2y+dy] and pin their LRU frameTick BEFORE any cache eviction
         bool hasChild[2][2]{{false, false}, {false, false}};
-        int foundChildren = 0;
+        keel::i32 foundChildren = 0;
         if (key.z < 22) {
-            for (int dy = 0; dy < 2; ++dy) {
-                for (int dx = 0; dx < 2; ++dx) {
+            for (keel::i32 dy = 0; dy < 2; ++dy) {
+                for (keel::i32 dx = 0; dx < 2; ++dx) {
                     const TileCoordKey childKey{key.z + 1, (key.x << 1) + dx, (key.y << 1) + dy};
                     if (CompositeTile* cTile = m_compositeTiles.get(childKey); cTile && cTile->pixels.size() == numTilePx) {
                         cTile->lastUsedFrame = frameTick;
@@ -2534,7 +2534,7 @@ public:
 
         // Perform eviction and map insertion BEFORE taking any pointers into m_compositeTiles!
         if (m_compositeTiles.size() >= m_maxCompositeTiles && !m_compositeTiles.contains(key)) {
-            EvictOldestCompositeTiles(m_maxCompositeTiles - keel::min<size_t>(24u, m_maxCompositeTiles / 4u));
+            EvictOldestCompositeTiles(m_maxCompositeTiles - keel::min<keel::usize>(24u, m_maxCompositeTiles / 4u));
         }
 
         CompositeTile& comp = m_compositeTiles.get_or_insert(key);
@@ -2551,36 +2551,36 @@ public:
         }
 
         if (ancestorTile) {
-            const uint32_t subSpan = m_tileSizePx >> ancestorShift;
-            const uint32_t qx = static_cast<uint32_t>(key.x & ((1 << ancestorShift) - 1)) * subSpan;
-            const uint32_t qy = static_cast<uint32_t>(key.y & ((1 << ancestorShift) - 1)) * subSpan;
-            for (uint32_t y = 0; y < m_tileSizePx; ++y) {
-                const uint32_t sy = keel::min(m_tileSizePx - 1u, qy + (y >> ancestorShift));
-                const uint32_t* srcRow = ancestorTile->pixels.data() + static_cast<size_t>(sy) * m_tileSizePx;
-                uint32_t* dstRow = comp.pixels.data() + static_cast<size_t>(y) * m_tileSizePx;
-                for (uint32_t x = 0; x < m_tileSizePx; ++x) {
-                    const uint32_t sx = keel::min(m_tileSizePx - 1u, qx + (x >> ancestorShift));
+            const keel::u32 subSpan = m_tileSizePx >> ancestorShift;
+            const keel::u32 qx = static_cast<keel::u32>(key.x & ((1 << ancestorShift) - 1)) * subSpan;
+            const keel::u32 qy = static_cast<keel::u32>(key.y & ((1 << ancestorShift) - 1)) * subSpan;
+            for (keel::u32 y = 0; y < m_tileSizePx; ++y) {
+                const keel::u32 sy = keel::min(m_tileSizePx - 1u, qy + (y >> ancestorShift));
+                const keel::u32* srcRow = ancestorTile->pixels.data() + static_cast<keel::usize>(sy) * m_tileSizePx;
+                keel::u32* dstRow = comp.pixels.data() + static_cast<keel::usize>(y) * m_tileSizePx;
+                for (keel::u32 x = 0; x < m_tileSizePx; ++x) {
+                    const keel::u32 sx = keel::min(m_tileSizePx - 1u, qx + (x >> ancestorShift));
                     dstRow[x] = srcRow[sx];
                 }
             }
         }
 
         if (foundChildren > 0 && (foundChildren == 4 || ancestorTile != nullptr)) {
-            const uint32_t kHalf = m_tileSizePx >> 1;
-            for (int dy = 0; dy < 2; ++dy) {
-                for (int dx = 0; dx < 2; ++dx) {
+            const keel::u32 kHalf = m_tileSizePx >> 1;
+            for (keel::i32 dy = 0; dy < 2; ++dy) {
+                for (keel::i32 dx = 0; dx < 2; ++dx) {
                     if (!hasChild[dy][dx]) continue;
                     const TileCoordKey childKey{key.z + 1, (key.x << 1) + dx, (key.y << 1) + dy};
                     const CompositeTile* child = m_compositeTiles.get(childKey);
                     if (!child || child->pixels.size() != numTilePx) {
                         continue;
                     }
-                    const uint32_t dstBaseX = static_cast<uint32_t>(dx) * kHalf;
-                    const uint32_t dstBaseY = static_cast<uint32_t>(dy) * kHalf;
-                    for (uint32_t y = 0; y < kHalf; ++y) {
-                        const uint32_t* srcRow = child->pixels.data() + static_cast<size_t>(y << 1) * m_tileSizePx;
-                        uint32_t* dstRow = comp.pixels.data() + static_cast<size_t>(dstBaseY + y) * m_tileSizePx + dstBaseX;
-                        for (uint32_t x = 0; x < kHalf; ++x) {
+                    const keel::u32 dstBaseX = static_cast<keel::u32>(dx) * kHalf;
+                    const keel::u32 dstBaseY = static_cast<keel::u32>(dy) * kHalf;
+                    for (keel::u32 y = 0; y < kHalf; ++y) {
+                        const keel::u32* srcRow = child->pixels.data() + static_cast<keel::usize>(y << 1) * m_tileSizePx;
+                        keel::u32* dstRow = comp.pixels.data() + static_cast<keel::usize>(dstBaseY + y) * m_tileSizePx + dstBaseX;
+                        for (keel::u32 x = 0; x < kHalf; ++x) {
                             dstRow[x] = srcRow[x << 1];
                         }
                     }
@@ -2594,19 +2594,19 @@ public:
     const CachedVectorTile* RasterizeOrDispatchLayerTile(
         LayerTileStore& store,
         const TileCoordKey& key,
-        uint64_t styleHash,
+        keel::u64 styleHash,
         const guikit::OsmTileCell& cell,
         guikit::MapCrs crs,
         const geo::GeoLayer& layer,
         const GisRenderConfig& cfg,
-        uint64_t frameTick,
+        keel::u64 frameTick,
         float distSqToCenter,
         bool allowAsyncDispatch,
         bool canRunSyncFastPath,
-        size_t* outPagedInCount = nullptr,
+        keel::usize* outPagedInCount = nullptr,
         bool hasDeadline = false,
-        uint64_t deadlineUs = 0,
-        size_t minPagedBeforeCheck = 96,
+        keel::u64 deadlineUs = 0,
+        keel::usize minPagedBeforeCheck = 96,
         bool* outAbortedOrQueued = nullptr
     ) {
         const float tileSizeF = static_cast<float>(m_tileSizePx);
@@ -2663,9 +2663,9 @@ public:
         m_queryIndices.clear();
         layer.spatialIndex.query_box(
             keel::RTreeBox<float>::from_xywh(queryBox.x, queryBox.y, queryBox.w, queryBox.h),
-            [&](uint32_t fIdx) { m_queryIndices.push_back(fIdx); }
+            [&](keel::u32 fIdx) { m_queryIndices.push_back(fIdx); }
         );
-        for (uint32_t fIdx : m_queryIndices) {
+        for (keel::u32 fIdx : m_queryIndices) {
             if (fIdx >= layer.features.size()) continue;
             const geo::GeoFeature& feat = layer.features[fIdx];
 
@@ -2695,7 +2695,7 @@ public:
                 }
             }
 
-            const int rank = CartographicPainterRank(feat);
+            const keel::i32 rank = CartographicPainterRank(feat);
             float depthKey = 0.0f;
             if (feat.chartClass == geo::ChartFeatureClass::DepthArea) {
                 const float d = feat.minDepthMeters;
@@ -2727,8 +2727,8 @@ public:
                 return a.featIdx < b.featIdx;
             });
 
-        size_t missingDiskCount = 0;
-        size_t totalCandidateVertices = 0;
+        keel::usize missingDiskCount = 0;
+        keel::usize totalCandidateVertices = 0;
         for (const TileCandidate& cand : m_candidates) {
             const geo::GeoFeature& feat = *cand.feat;
             totalCandidateVertices += feat.VertexCount();
@@ -2782,7 +2782,7 @@ public:
         }
 
         // Synchronous path (used for lightweight already-in-RAM tiles or when asyncBackgroundStreaming is disabled)
-        size_t newlyPagedInTile = 0;
+        keel::usize newlyPagedInTile = 0;
         m_syncAsyncCandidates.clear();
         m_syncAsyncCandidates.reserve(m_candidates.size());
         for (const TileCandidate& cand : m_candidates) {
@@ -2863,17 +2863,17 @@ public:
         return &tile;
     }
 
-    void EnforceGlobalLayerPixelBudget(uint64_t protectedFrameTick) noexcept {
+    void EnforceGlobalLayerPixelBudget(keel::u64 protectedFrameTick) noexcept {
         if (m_pixelLayerTileCount <= m_maxLayerTiles) {
             return;
         }
-        const size_t targetCount = m_maxLayerTiles - keel::min<size_t>(16u, m_maxLayerTiles / 8u);
+        const keel::usize targetCount = m_maxLayerTiles - keel::min<keel::usize>(16u, m_maxLayerTiles / 8u);
 
         // Pass 1: Prefer evicting Tier-1 pixel buffers whose [z/x/y] already has a complete CompositeTile
         while (m_pixelLayerTileCount > targetCount) {
             LayerTileStore* victimStore = nullptr;
             TileCoordKey victimKey{};
-            uint64_t oldestFrame = UINT64_MAX;
+            keel::u64 oldestFrame = ~keel::u64{0};
             for (auto [uid, store] : m_layerStores) {
                 for (auto [k, v] : store.tiles) {
                     if (v.pixels.capacity() == 0u || v.lastUsedFrame >= protectedFrameTick) {
@@ -2900,7 +2900,7 @@ public:
         while (m_pixelLayerTileCount > targetCount) {
             LayerTileStore* victimStore = nullptr;
             TileCoordKey victimKey{};
-            uint64_t oldestFrame = UINT64_MAX;
+            keel::u64 oldestFrame = ~keel::u64{0};
             for (auto [uid, store] : m_layerStores) {
                 for (auto [k, v] : store.tiles) {
                     if (v.pixels.capacity() > 0u &&
@@ -2923,7 +2923,7 @@ public:
     }
 
 private:
-    static constexpr size_t kMaxMetadataTilesPerLayer = 96u;
+    static constexpr keel::usize kMaxMetadataTilesPerLayer = 96u;
 
     void ReleaseTilePixels(CachedVectorTile& tile) noexcept {
         if (tile.pixels.capacity() > 0u) {
@@ -2943,11 +2943,11 @@ private:
         store.tiles = {};
     }
     bool BlendBasemapTileOrAncestor(
-        uint32_t* dstPixels,
+        keel::u32* dstPixels,
         const TileCoordKey& key,
-        uint8_t opacityByte
+        keel::u8 opacityByte
     ) const {
-        const size_t numTilePx = static_cast<size_t>(m_tileSizePx) * static_cast<size_t>(m_tileSizePx);
+        const keel::usize numTilePx = static_cast<keel::usize>(m_tileSizePx) * static_cast<keel::usize>(m_tileSizePx);
         if (const auto* exactPtr = m_basemapTiles.get(key);
             exactPtr && *exactPtr && (*exactPtr)->rgbaPixels.size() == numTilePx) {
             BlendStraightRgbaBasemapOntoComposite(
@@ -2957,23 +2957,23 @@ private:
         }
 
         // Check parent [z-1], [z-2], [z-3] for progressive basemap mipmap fallback while exact z downloads
-        for (int shift = 1; shift <= 3; ++shift) {
+        for (keel::i32 shift = 1; shift <= 3; ++shift) {
             if (key.z - shift < 0) break;
             const TileCoordKey parentKey{key.z - shift, key.x >> shift, key.y >> shift};
             if (const auto* pPtr = m_basemapTiles.get(parentKey);
                 pPtr && *pPtr && (*pPtr)->rgbaPixels.size() == numTilePx) {
-                const uint32_t* srcData = (*pPtr)->rgbaPixels.data();
-                const uint32_t subSpan = keel::max(1u, m_tileSizePx >> shift);
-                const uint32_t qx = static_cast<uint32_t>(key.x & ((1 << shift) - 1)) * subSpan;
-                const uint32_t qy = static_cast<uint32_t>(key.y & ((1 << shift) - 1)) * subSpan;
+                const keel::u32* srcData = (*pPtr)->rgbaPixels.data();
+                const keel::u32 subSpan = keel::max(1u, m_tileSizePx >> shift);
+                const keel::u32 qx = static_cast<keel::u32>(key.x & ((1 << shift) - 1)) * subSpan;
+                const keel::u32 qy = static_cast<keel::u32>(key.y & ((1 << shift) - 1)) * subSpan;
 
                 m_upscaledBasemapScratch.resize(numTilePx);
-                for (uint32_t y = 0; y < m_tileSizePx; ++y) {
-                    const uint32_t sy = keel::min(m_tileSizePx - 1u, qy + (y >> shift));
-                    const uint32_t* srcRow = srcData + static_cast<size_t>(sy) * m_tileSizePx;
-                    uint32_t* dstRow = m_upscaledBasemapScratch.data() + static_cast<size_t>(y) * m_tileSizePx;
-                    for (uint32_t x = 0; x < m_tileSizePx; ++x) {
-                        const uint32_t sx = keel::min(m_tileSizePx - 1u, qx + (x >> shift));
+                for (keel::u32 y = 0; y < m_tileSizePx; ++y) {
+                    const keel::u32 sy = keel::min(m_tileSizePx - 1u, qy + (y >> shift));
+                    const keel::u32* srcRow = srcData + static_cast<keel::usize>(sy) * m_tileSizePx;
+                    keel::u32* dstRow = m_upscaledBasemapScratch.data() + static_cast<keel::usize>(y) * m_tileSizePx;
+                    for (keel::u32 x = 0; x < m_tileSizePx; ++x) {
+                        const keel::u32 sx = keel::min(m_tileSizePx - 1u, qx + (x >> shift));
                         dstRow[x] = srcRow[sx];
                     }
                 }
@@ -2986,11 +2986,11 @@ private:
         return false;
     }
 
-    void EvictOldestLayerTiles(LayerTileStore& store, size_t targetCount, uint64_t protectedFrameTick) noexcept {
+    void EvictOldestLayerTiles(LayerTileStore& store, keel::usize targetCount, keel::u64 protectedFrameTick) noexcept {
         while (store.tiles.size() > targetCount && !store.tiles.empty()) {
             bool found = false;
             TileCoordKey oldestKey{};
-            uint64_t oldestFrame = UINT64_MAX;
+            keel::u64 oldestFrame = ~keel::u64{0};
             for (auto [k, v] : store.tiles) {
                 if (v.lastUsedFrame < protectedFrameTick && v.lastUsedFrame < oldestFrame) {
                     oldestFrame = v.lastUsedFrame;
@@ -3008,10 +3008,10 @@ private:
         }
     }
 
-    void EvictOldestCompositeTiles(size_t targetCount) noexcept {
+    void EvictOldestCompositeTiles(keel::usize targetCount) noexcept {
         while (m_compositeTiles.size() > targetCount && !m_compositeTiles.empty()) {
             TileCoordKey oldestKey = (*m_compositeTiles.begin()).key;
-            uint64_t oldestFrame = (*m_compositeTiles.begin()).value.lastUsedFrame;
+            keel::u64 oldestFrame = (*m_compositeTiles.begin()).value.lastUsedFrame;
             for (auto [k, v] : m_compositeTiles) {
                 if (v.lastUsedFrame < oldestFrame) {
                     oldestFrame = v.lastUsedFrame;
@@ -3028,18 +3028,18 @@ private:
     keel::UniquePtr<guikit::ICanvas> m_tileCanvas;
     guikit::VectorPath m_fillPath;
     guikit::VectorPath m_strokePath;
-    uint32_t m_tileSizePx{256};
+    keel::u32 m_tileSizePx{256};
     guikit::MapCrs m_activeCrs{guikit::MapCrs::EPSG3857_WebMercator};
     keel::String m_activeBasemapSourceId;
-    uint64_t m_basemapGeneration{1};
-    size_t m_maxLayerTiles{48};
-    size_t m_maxCompositeTiles{48};
-    size_t m_pixelLayerTileCount{0};
-    keel::HashMap<uint64_t, LayerTileStore> m_layerStores;
+    keel::u64 m_basemapGeneration{1};
+    keel::usize m_maxLayerTiles{48};
+    keel::usize m_maxCompositeTiles{48};
+    keel::usize m_pixelLayerTileCount{0};
+    keel::HashMap<keel::u64, LayerTileStore> m_layerStores;
     keel::HashMap<TileCoordKey, CompositeTile, TileCoordKeyHasher> m_compositeTiles;
     keel::HashMap<TileCoordKey, keel::Arc<const geo::RasterTileImage>, TileCoordKeyHasher> m_basemapTiles;
-    mutable keel::Array<uint32_t> m_upscaledBasemapScratch;
-    keel::Array<uint32_t> m_queryIndices;
+    mutable keel::Array<keel::u32> m_upscaledBasemapScratch;
+    keel::Array<keel::u32> m_queryIndices;
     keel::Array<guikit::Vec2> m_clippedRing;
     keel::Array<guikit::Vec2> m_scratchA;
     keel::Array<guikit::Vec2> m_scratchB;
@@ -3080,7 +3080,7 @@ void DrawLoadingTilePlaceholder(
     float invZ,
     bool darkChartSurface,
     bool hasPreview,
-    uint64_t frameCounter
+    keel::u64 frameCounter
 ) {
     const guikit::Rect& r = cell.worldRect;
     const float cellScreenW = r.w * zoom;
@@ -3145,8 +3145,8 @@ void DrawLoadingTilePlaceholder(
     scene.DrawLine({bx1, by1}, {bx1, by1 - armLenW}, accentCol, bracketStrokeW);
 
     // 3. Animated radar/sonar loading spinner + [z/x/y] tile status badge
-    const uint64_t nowMs = keel::monotonic_ms();
-    const uint32_t cellPhase = static_cast<uint32_t>((cell.id.x * 37 + cell.id.y * 17) & 63);
+    const keel::u64 nowMs = keel::monotonic_ms();
+    const keel::u32 cellPhase = static_cast<keel::u32>((cell.id.x * 37 + cell.id.y * 17) & 63);
     const float spinAngleDeg = std::fmod(
         static_cast<float>(nowMs % 3600ULL) * 0.30f +
         static_cast<float>(frameCounter % 180ULL) * 4.0f +
@@ -3215,13 +3215,13 @@ void DrawLoadingTilePlaceholder(
     }
 }
 
-[[nodiscard]] uint64_t ComputeLayerStyleHash(
+[[nodiscard]] keel::u64 ComputeLayerStyleHash(
     const geo::GeoLayer& lyr,
     const GisRenderConfig& cfg,
     guikit::MapCrs crs
 ) noexcept {
-    uint64_t h = keel::kFnv1aOffsetBasis;
-    const uint32_t resolvedTileSz = ResolveTileSizePx(cfg.tileSizePx);
+    keel::u64 h = keel::kFnv1aOffsetBasis;
+    const keel::u32 resolvedTileSz = ResolveTileSizePx(cfg.tileSizePx);
     const bool hasBasemapOverlay = (cfg.showOsmBasemap || cfg.customBasemapProvider != nullptr);
     const bool suppressLandFill = hasBasemapOverlay && cfg.hideLandOverBasemap;
     HashCombineVal(h, crs);
@@ -3239,8 +3239,8 @@ void DrawLoadingTilePlaceholder(
     HashCombineVal(h, suppressLandFill);
 
     HashCombineVal(h, lyr.uid);
-    const size_t fCount = lyr.isWindowStreamed
-        ? keel::max(lyr.estimatedTotalFeatures, static_cast<size_t>(1u))
+    const keel::usize fCount = lyr.isWindowStreamed
+        ? keel::max(lyr.estimatedTotalFeatures, static_cast<keel::usize>(1u))
         : lyr.features.size();
     HashCombineVal(h, fCount);
     HashCombineVal(h, lyr.style.useCustomColor);
@@ -3299,11 +3299,11 @@ void DrawLoadingTilePlaceholder(
     return {};
 }
 
-[[maybe_unused]] [[nodiscard]] size_t CountUtf8CodePoints(keel::StringRef s) noexcept {
-    size_t count = 0;
-    for (size_t i = 0; i < s.size();) {
-        const uint8_t c = static_cast<uint8_t>(s[i]);
-        size_t seqLen = 1;
+[[maybe_unused]] [[nodiscard]] keel::usize CountUtf8CodePoints(keel::StringRef s) noexcept {
+    keel::usize count = 0;
+    for (keel::usize i = 0; i < s.size();) {
+        const keel::u8 c = static_cast<keel::u8>(s[i]);
+        keel::usize seqLen = 1;
         if ((c & 0x80u) == 0u) seqLen = 1;
         else if ((c & 0xE0u) == 0xC0u) seqLen = 2;
         else if ((c & 0xF0u) == 0xE0u) seqLen = 3;
@@ -3319,7 +3319,7 @@ void DrawLoadingTilePlaceholder(
     const geo::GeoFeature& feat,
     const GisRenderConfig& cfg,
     keel::String& scratchBuf,
-    size_t* outCharCount = nullptr
+    keel::usize* outCharCount = nullptr
 ) {
     if (outCharCount) *outCharCount = 0;
 
@@ -3342,11 +3342,11 @@ void DrawLoadingTilePlaceholder(
     }
 
     // 3. Configurable character limit (UTF-8 codepoint-aware truncation so Cyrillic never splits mid-character)
-    size_t charCount = 0;
-    size_t cutByteOffset = raw.size();
-    for (size_t i = 0; i < raw.size();) {
-        const uint8_t c = static_cast<uint8_t>(raw[i]);
-        size_t seqLen = 1;
+    keel::usize charCount = 0;
+    keel::usize cutByteOffset = raw.size();
+    for (keel::usize i = 0; i < raw.size();) {
+        const keel::u8 c = static_cast<keel::u8>(raw[i]);
+        keel::usize seqLen = 1;
         if ((c & 0x80u) == 0u) seqLen = 1;
         else if ((c & 0xE0u) == 0xC0u) seqLen = 2;
         else if ((c & 0xF0u) == 0xE0u) seqLen = 3;
@@ -3389,8 +3389,8 @@ void DrawLoadingTilePlaceholder(
 class WorldDeclutterCache {
 public:
     struct AcceptedItem {
-        uint32_t layerIdx{0};
-        uint32_t featIdx{0};
+        keel::u32 layerIdx{0};
+        keel::u32 featIdx{0};
     };
 
     void Clear() noexcept {
@@ -3420,16 +3420,16 @@ public:
     void Sync(
         keel::ArrayRef<geo::GeoLayer> layers,
         const GisRenderConfig& cfg,
-        int tileZoom,
+        keel::i32 tileZoom,
         guikit::MapCrs crs,
         const guikit::Rect& paddedVisNormBox
     ) {
-        uint64_t key = keel::kFnv1aOffsetBasis;
+        keel::u64 key = keel::kFnv1aOffsetBasis;
         HashCombineVal(key, tileZoom);
         HashCombineVal(key, crs);
         HashCombineVal(key, cfg.preferRussianLabels);
         for (char ch : cfg.preferredLanguage) {
-            HashCombineVal(key, static_cast<uint8_t>(ch));
+            HashCombineVal(key, static_cast<keel::u8>(ch));
         }
         HashCombineVal(key, cfg.showSoundings);
         HashCombineVal(key, cfg.showFeatureCallouts);
@@ -3446,7 +3446,7 @@ public:
             HashCombineVal(key, lyr.style.showLabels);
             HashCombineVal(key, lyr.style.pointRadiusPx);
             HashCombineVal(key, lyr.style.renderAsSeamark);
-            const size_t fCount = lyr.features.size();
+            const keel::usize fCount = lyr.features.size();
             HashCombineVal(key, fCount);
             HashCombineVal(key, lyr.windowGeneration);
         }
@@ -3497,7 +3497,7 @@ public:
         };
 
         // Pass 1: Buoys, Beacons & Generic Point Features (highest priority — only scan layers with points!)
-        for (size_t li = 0; li < layers.size(); ++li) {
+        for (keel::usize li = 0; li < layers.size(); ++li) {
             const geo::GeoLayer& layer = layers[li];
             if (!layer.visible || layer.pointFeatureCount == 0 || layer.features.empty()) continue;
             if (layer.chartClassMask != 0u &&
@@ -3509,20 +3509,20 @@ public:
             const float ptScale = keel::clamp(layer.style.pointRadiusPx / 6.5f, 0.35f, 3.5f);
             const float boxHalf = 7.0f * ptScale;
 
-            auto processPass1Feat = [&](uint32_t fi) {
+            auto processPass1Feat = [&](keel::u32 fi) {
                 const geo::GeoFeature& feat = layer.features[fi];
                 if (feat.normPoints.empty() || feat.points.empty()) return;
 
                 if (feat.chartClass == geo::ChartFeatureClass::BuoyOrBeacon) {
                     const guikit::Vec2 wpt = toWorldPx(feat.normPoints[0], feat.points[0]);
                     if (TryReserveWorldBox(wpt.x - boxHalf, wpt.y - boxHalf, boxHalf * 2.0f, boxHalf * 2.0f)) {
-                        m_acceptedSymbols.push_back({static_cast<uint32_t>(li), fi});
+                        m_acceptedSymbols.push_back({static_cast<keel::u32>(li), fi});
                     } else {
                         ++m_totalDecluttered;
                     }
                 } else if (feat.chartClass == geo::ChartFeatureClass::Generic &&
                            !feat.HasPolygons() && !feat.HasLines()) {
-                    m_acceptedSymbols.push_back({static_cast<uint32_t>(li), fi});
+                    m_acceptedSymbols.push_back({static_cast<keel::u32>(li), fi});
                 }
             };
 
@@ -3530,22 +3530,22 @@ public:
                 m_queryScratch.clear();
                 layer.spatialIndex.query_box(
                     keel::RTreeBox<float>::from_xywh(queryNormBox.x, queryNormBox.y, queryNormBox.w, queryNormBox.h),
-                    [&](uint32_t fi) { m_queryScratch.push_back(fi); }
+                    [&](keel::u32 fi) { m_queryScratch.push_back(fi); }
                 );
                 keel::sort(m_queryScratch);
-                for (uint32_t fi : m_queryScratch) {
+                for (keel::u32 fi : m_queryScratch) {
                     if (fi < layer.features.size()) processPass1Feat(fi);
                 }
             } else {
-                for (size_t fi = 0; fi < layer.features.size(); ++fi) {
-                    processPass1Feat(static_cast<uint32_t>(fi));
+                for (keel::usize fi = 0; fi < layer.features.size(); ++fi) {
+                    processPass1Feat(static_cast<keel::u32>(fi));
                 }
             }
         }
 
         // Pass 2: Underwater Hazards, Point Structures (PILPNT / SLCONS), & Land Elevations (LNDELV)
         if (tileZoom >= 11) {
-            for (size_t li = 0; li < layers.size(); ++li) {
+            for (keel::usize li = 0; li < layers.size(); ++li) {
                 const geo::GeoLayer& layer = layers[li];
                 if (!layer.visible || layer.pointFeatureCount == 0 || layer.features.empty()) continue;
                 if (layer.chartClassMask != 0u &&
@@ -3557,7 +3557,7 @@ public:
                 if (!layer.normBounds.Intersects(queryNormBox)) continue;
                 const float ptScale = keel::clamp(layer.style.pointRadiusPx / 6.5f, 0.35f, 3.5f);
 
-                auto processPass2Feat = [&](uint32_t fi) {
+                auto processPass2Feat = [&](keel::u32 fi) {
                     const geo::GeoFeature& feat = layer.features[fi];
                     if (feat.normPoints.empty() || feat.points.empty() ||
                         feat.HasPolygons() || feat.HasLines()) {
@@ -3574,7 +3574,7 @@ public:
                     const guikit::Vec2 wpt = toWorldPx(feat.normPoints[0], feat.points[0]);
                     const float boxHalf = (isHazard ? 6.0f : 4.5f) * ptScale;
                     if (TryReserveWorldBox(wpt.x - boxHalf, wpt.y - boxHalf, boxHalf * 2.0f, boxHalf * 2.0f)) {
-                        m_acceptedSymbols.push_back({static_cast<uint32_t>(li), fi});
+                        m_acceptedSymbols.push_back({static_cast<keel::u32>(li), fi});
                     } else {
                         ++m_totalDecluttered;
                     }
@@ -3584,15 +3584,15 @@ public:
                     m_queryScratch.clear();
                     layer.spatialIndex.query_box(
                         keel::RTreeBox<float>::from_xywh(queryNormBox.x, queryNormBox.y, queryNormBox.w, queryNormBox.h),
-                        [&](uint32_t fi) { m_queryScratch.push_back(fi); }
+                        [&](keel::u32 fi) { m_queryScratch.push_back(fi); }
                     );
                     keel::sort(m_queryScratch);
-                    for (uint32_t fi : m_queryScratch) {
+                    for (keel::u32 fi : m_queryScratch) {
                         if (fi < layer.features.size()) processPass2Feat(fi);
                     }
                 } else {
-                    for (size_t fi = 0; fi < layer.features.size(); ++fi) {
-                        processPass2Feat(static_cast<uint32_t>(fi));
+                    for (keel::usize fi = 0; fi < layer.features.size(); ++fi) {
+                        processPass2Feat(static_cast<keel::u32>(fi));
                     }
                 }
             }
@@ -3601,12 +3601,12 @@ public:
         // Pass 3: Cartographic Text Labels (`labelRu` / `labelEn` / Named Features)
         if (cfg.showFeatureCallouts) {
             keel::String labelScratch;
-            constexpr uint32_t kNoCalloutMask =
-                (1u << static_cast<uint8_t>(geo::ChartFeatureClass::Sounding)) |
-                (1u << static_cast<uint8_t>(geo::ChartFeatureClass::DepthArea)) |
-                (1u << static_cast<uint8_t>(geo::ChartFeatureClass::CoverageMask));
+            constexpr keel::u32 kNoCalloutMask =
+                (1u << static_cast<keel::u8>(geo::ChartFeatureClass::Sounding)) |
+                (1u << static_cast<keel::u8>(geo::ChartFeatureClass::DepthArea)) |
+                (1u << static_cast<keel::u8>(geo::ChartFeatureClass::CoverageMask));
 
-            for (size_t li = 0; li < layers.size(); ++li) {
+            for (keel::usize li = 0; li < layers.size(); ++li) {
                 const geo::GeoLayer& layer = layers[li];
                 if (!layer.visible || !layer.style.showLabels || layer.features.empty()) continue;
                 if (layer.IsExclusivelyChartClasses(kNoCalloutMask)) {
@@ -3614,7 +3614,7 @@ public:
                 }
                 if (!layer.normBounds.Intersects(queryNormBox)) continue;
 
-                auto processPass3Feat = [&](uint32_t fi) {
+                auto processPass3Feat = [&](keel::u32 fi) {
                     const geo::GeoFeature& feat = layer.features[fi];
                     if (feat.chartClass == geo::ChartFeatureClass::Sounding ||
                         feat.chartClass == geo::ChartFeatureClass::DepthArea ||
@@ -3624,7 +3624,7 @@ public:
                     if (tileZoom < 11 && feat.chartClass != geo::ChartFeatureClass::TextLabel) return;
                     if (ShouldSkipFeatureAtZoom(feat, tileZoom, cfg)) return;
 
-                    size_t charCount = 0;
+                    keel::usize charCount = 0;
                     const keel::StringRef labelText = FormatMapCalloutLabel(feat, cfg, labelScratch, &charCount);
                     if (labelText.empty()) return;
 
@@ -3635,7 +3635,7 @@ public:
                     const float offsetY = -7.0f;
 
                     if (TryReserveWorldBox(wpt.x + offsetX, wpt.y + offsetY - 4.0f, estWidthPx, estHeightPx)) {
-                        m_acceptedLabels.push_back({static_cast<uint32_t>(li), fi});
+                        m_acceptedLabels.push_back({static_cast<keel::u32>(li), fi});
                     } else {
                         ++m_totalDecluttered;
                     }
@@ -3645,15 +3645,15 @@ public:
                     m_queryScratch.clear();
                     layer.spatialIndex.query_box(
                         keel::RTreeBox<float>::from_xywh(queryNormBox.x, queryNormBox.y, queryNormBox.w, queryNormBox.h),
-                        [&](uint32_t fi) { m_queryScratch.push_back(fi); }
+                        [&](keel::u32 fi) { m_queryScratch.push_back(fi); }
                     );
                     keel::sort(m_queryScratch);
-                    for (uint32_t fi : m_queryScratch) {
+                    for (keel::u32 fi : m_queryScratch) {
                         if (fi < layer.features.size()) processPass3Feat(fi);
                     }
                 } else {
-                    for (size_t fi = 0; fi < layer.features.size(); ++fi) {
-                        processPass3Feat(static_cast<uint32_t>(fi));
+                    for (keel::usize fi = 0; fi < layer.features.size(); ++fi) {
+                        processPass3Feat(static_cast<keel::u32>(fi));
                     }
                 }
             }
@@ -3666,7 +3666,7 @@ public:
 
             m_soundingCands.clear();
 
-            for (size_t li = 0; li < layers.size(); ++li) {
+            for (keel::usize li = 0; li < layers.size(); ++li) {
                 const geo::GeoLayer& layer = layers[li];
                 if (!layer.visible || layer.pointFeatureCount == 0 || layer.features.empty()) continue;
                 if (layer.chartClassMask != 0u && !layer.HasChartClass(geo::ChartFeatureClass::Sounding)) {
@@ -3674,7 +3674,7 @@ public:
                 }
                 if (!layer.normBounds.Intersects(queryNormBox)) continue;
 
-                auto processSoundingFeat = [&](uint32_t fi) {
+                auto processSoundingFeat = [&](keel::u32 fi) {
                     const geo::GeoFeature& feat = layer.features[fi];
                     if (feat.chartClass != geo::ChartFeatureClass::Sounding ||
                         feat.normPoints.empty() || feat.points.empty()) return;
@@ -3682,7 +3682,7 @@ public:
 
                     const guikit::Vec2 wpt = toWorldPx(feat.normPoints[0], feat.points[0]);
                     m_soundingCands.push_back(SoundingCand{
-                        .layerIdx = static_cast<uint32_t>(li),
+                        .layerIdx = static_cast<keel::u32>(li),
                         .featIdx = fi,
                         .depth = feat.depthMeters,
                         .wx = wpt.x,
@@ -3694,14 +3694,14 @@ public:
                     m_queryScratch.clear();
                     layer.spatialIndex.query_box(
                         keel::RTreeBox<float>::from_xywh(queryNormBox.x, queryNormBox.y, queryNormBox.w, queryNormBox.h),
-                        [&](uint32_t fi) { m_queryScratch.push_back(fi); }
+                        [&](keel::u32 fi) { m_queryScratch.push_back(fi); }
                     );
-                    for (uint32_t fi : m_queryScratch) {
+                    for (keel::u32 fi : m_queryScratch) {
                         if (fi < layer.features.size()) processSoundingFeat(fi);
                     }
                 } else {
-                    for (size_t fi = 0; fi < layer.features.size(); ++fi) {
-                        processSoundingFeat(static_cast<uint32_t>(fi));
+                    for (keel::usize fi = 0; fi < layer.features.size(); ++fi) {
+                        processSoundingFeat(static_cast<keel::u32>(fi));
                     }
                 }
             }
@@ -3726,11 +3726,11 @@ public:
     [[nodiscard]] keel::ArrayRef<AcceptedItem> GetAcceptedSymbols() const noexcept { return m_acceptedSymbols; }
     [[nodiscard]] keel::ArrayRef<AcceptedItem> GetAcceptedLabels() const noexcept { return m_acceptedLabels; }
     [[nodiscard]] keel::ArrayRef<AcceptedItem> GetAcceptedSoundings() const noexcept { return m_acceptedSoundings; }
-    [[nodiscard]] size_t GetTotalDecluttered() const noexcept { return m_totalDecluttered; }
+    [[nodiscard]] keel::usize GetTotalDecluttered() const noexcept { return m_totalDecluttered; }
 
 private:
-    static constexpr size_t kCellTableSize = 131072; // 2^17 slots (~1.5 MB flat table, zero heap allocations)
-    static constexpr size_t kCellTableMask = kCellTableSize - 1;
+    static constexpr keel::usize kCellTableSize = 131072; // 2^17 slots (~1.5 MB flat table, zero heap allocations)
+    static constexpr keel::usize kCellTableMask = kCellTableSize - 1;
 
     void ClearOccupiedCells() noexcept {
         if (m_cellEpochs.size() != kCellTableSize) {
@@ -3747,20 +3747,20 @@ private:
         m_occupiedCount = 0;
     }
 
-    [[nodiscard]] static uint64_t PackCell(int32_t cx, int32_t cy) noexcept {
-        return (static_cast<uint64_t>(static_cast<uint32_t>(cx)) << 32) |
-               static_cast<uint64_t>(static_cast<uint32_t>(cy));
+    [[nodiscard]] static keel::u64 PackCell(keel::i32 cx, keel::i32 cy) noexcept {
+        return (static_cast<keel::u64>(static_cast<keel::u32>(cx)) << 32) |
+               static_cast<keel::u64>(static_cast<keel::u32>(cy));
     }
 
-    [[nodiscard]] static size_t HashCellKey(uint64_t k) noexcept {
+    [[nodiscard]] static keel::usize HashCellKey(keel::u64 k) noexcept {
         k ^= k >> 33;
         k *= 0xff51afd7ed558ccdULL;
         k ^= k >> 33;
-        return static_cast<size_t>(k) & kCellTableMask;
+        return static_cast<keel::usize>(k) & kCellTableMask;
     }
 
-    [[nodiscard]] bool ContainsCell(uint64_t key) const noexcept {
-        size_t idx = HashCellKey(key);
+    [[nodiscard]] bool ContainsCell(keel::u64 key) const noexcept {
+        keel::usize idx = HashCellKey(key);
         while (m_cellEpochs[idx] == m_curEpoch) {
             if (m_cellKeys[idx] == key) return true;
             idx = (idx + 1) & kCellTableMask;
@@ -3768,9 +3768,9 @@ private:
         return false;
     }
 
-    void InsertCell(uint64_t key) noexcept {
+    void InsertCell(keel::u64 key) noexcept {
         if (m_occupiedCount >= (kCellTableSize * 3) / 4) return;
-        size_t idx = HashCellKey(key);
+        keel::usize idx = HashCellKey(key);
         while (m_cellEpochs[idx] == m_curEpoch) {
             if (m_cellKeys[idx] == key) return;
             idx = (idx + 1) & kCellTableMask;
@@ -3781,21 +3781,21 @@ private:
     }
 
     [[nodiscard]] bool TryReserveWorldBox(float wx, float wy, float w, float h) noexcept {
-        const int32_t c0 = static_cast<int32_t>(std::floor(wx * 0.125f));
-        const int32_t c1 = static_cast<int32_t>(std::floor((wx + w) * 0.125f));
-        const int32_t r0 = static_cast<int32_t>(std::floor(wy * 0.125f));
-        const int32_t r1 = static_cast<int32_t>(std::floor((wy + h) * 0.125f));
+        const keel::i32 c0 = static_cast<keel::i32>(std::floor(wx * 0.125f));
+        const keel::i32 c1 = static_cast<keel::i32>(std::floor((wx + w) * 0.125f));
+        const keel::i32 r0 = static_cast<keel::i32>(std::floor(wy * 0.125f));
+        const keel::i32 r1 = static_cast<keel::i32>(std::floor((wy + h) * 0.125f));
 
-        for (int32_t r = r0; r <= r1; ++r) {
-            for (int32_t c = c0; c <= c1; ++c) {
+        for (keel::i32 r = r0; r <= r1; ++r) {
+            for (keel::i32 c = c0; c <= c1; ++c) {
                 if (ContainsCell(PackCell(c, r))) {
                     return false;
                 }
             }
         }
 
-        for (int32_t r = r0; r <= r1; ++r) {
-            for (int32_t c = c0; c <= c1; ++c) {
+        for (keel::i32 r = r0; r <= r1; ++r) {
+            for (keel::i32 c = c0; c <= c1; ++c) {
                 InsertCell(PackCell(c, r));
             }
         }
@@ -3803,24 +3803,24 @@ private:
     }
 
     struct SoundingCand {
-        uint32_t layerIdx;
-        uint32_t featIdx;
+        keel::u32 layerIdx;
+        keel::u32 featIdx;
         float depth;
         float wx;
         float wy;
     };
 
-    uint64_t m_cachedKey{0};
+    keel::u64 m_cachedKey{0};
     guikit::Rect m_safeNormBox{0.0f, 0.0f, 0.0f, 0.0f};
-    size_t m_totalDecluttered{0};
+    keel::usize m_totalDecluttered{0};
     keel::Array<AcceptedItem> m_acceptedSymbols;
     keel::Array<AcceptedItem> m_acceptedLabels;
     keel::Array<AcceptedItem> m_acceptedSoundings;
-    keel::Array<uint64_t> m_cellKeys;
-    keel::Array<uint32_t> m_cellEpochs;
-    uint32_t m_curEpoch{1};
-    size_t m_occupiedCount{0};
-    keel::Array<uint32_t> m_queryScratch;
+    keel::Array<keel::u64> m_cellKeys;
+    keel::Array<keel::u32> m_cellEpochs;
+    keel::u32 m_curEpoch{1};
+    keel::usize m_occupiedCount{0};
+    keel::Array<keel::u32> m_queryScratch;
     keel::Array<SoundingCand> m_soundingCands;
 };
 
@@ -3836,7 +3836,7 @@ WorldDeclutterCache& GetDeclutterCache() {
 [[nodiscard]] bool PointInNormRing(guikit::Vec2 pt, keel::ArrayRef<guikit::Vec2> ring) noexcept {
     if (ring.size() < 3) return false;
     bool inside = false;
-    for (size_t i = 0, j = ring.size() - 1; i < ring.size(); j = i++) {
+    for (keel::usize i = 0, j = ring.size() - 1; i < ring.size(); j = i++) {
         const guikit::Vec2& vi = ring[i];
         const guikit::Vec2& vj = ring[j];
         if (((vi.y > pt.y) != (vj.y > pt.y)) &&
@@ -3872,11 +3872,11 @@ struct HitTestMatch {
 struct CursorHitCache {
     guikit::Vec2 cursorNorm{-1e9f, -1e9f};
     float pickRadiusNorm{0.0f};
-    int tileZoom{-1};
-    size_t layerCount{0};
+    keel::i32 tileZoom{-1};
+    keel::usize layerCount{0};
     bool showCoverageBounds{false};
     bool showCautionAndRestrictedZones{true};
-    uint64_t matchedUid{0};
+    keel::u64 matchedUid{0};
     bool valid{false};
 
     void Clear() noexcept { valid = false; matchedUid = 0; }
@@ -3890,11 +3890,11 @@ CursorHitCache& GetCursorHitCache() noexcept {
 [[nodiscard]] HitTestMatch FindFeatureUnderCursor(
     guikit::Vec2 cursorNorm,
     float pickRadiusNorm,
-    int tileZoom,
+    keel::i32 tileZoom,
     keel::ArrayRef<geo::GeoLayer> layers,
     const GisRenderConfig& cfg,
-    uint64_t frameTick,
-    size_t* outPagedInCount = nullptr
+    keel::u64 frameTick,
+    keel::usize* outPagedInCount = nullptr
 ) {
     CursorHitCache& hc = GetCursorHitCache();
     const float moveDx = cursorNorm.x - hc.cursorNorm.x;
@@ -3937,8 +3937,8 @@ CursorHitCache& GetCursorHitCache() noexcept {
     HitTestMatch bestPoly{};
     float bestPolyArea = 1e30f;
 
-    size_t syncHitPagedCount = 0;
-    keel::Array<uint32_t> candidates;
+    keel::usize syncHitPagedCount = 0;
+    keel::Array<keel::u32> candidates;
     for (const geo::GeoLayer& layer : layers) {
         if (!layer.visible || layer.features.empty()) continue;
         if (!layer.normBounds.Intersects(pickBox)) continue;
@@ -3946,9 +3946,9 @@ CursorHitCache& GetCursorHitCache() noexcept {
         candidates.clear();
         layer.spatialIndex.query_box(
             keel::RTreeBox<float>::from_xywh(pickBox.x, pickBox.y, pickBox.w, pickBox.h),
-            [&](uint32_t fIdx) { candidates.push_back(fIdx); }
+            [&](keel::u32 fIdx) { candidates.push_back(fIdx); }
         );
-        for (uint32_t fIdx : candidates) {
+        for (keel::u32 fIdx : candidates) {
             if (fIdx >= layer.features.size()) continue;
             const geo::GeoFeature& feat = layer.features[fIdx];
             if (ShouldSkipFeatureAtZoom(feat, tileZoom, cfg)) continue;
@@ -3983,9 +3983,9 @@ CursorHitCache& GetCursorHitCache() noexcept {
                 if (!wasLoaded && outPagedInCount) {
                     ++(*outPagedInCount);
                 }
-                for (size_t li = 0; li < feat.normLines.size(); ++li) {
+                for (keel::usize li = 0; li < feat.normLines.size(); ++li) {
                     const auto& line = (useLodHit && li < feat.normLinesLod.size() && feat.normLinesLod[li].size() >= 2) ? feat.normLinesLod[li] : feat.normLines[li];
-                    for (size_t i = 1; i < line.size(); ++i) {
+                    for (keel::usize i = 1; i < line.size(); ++i) {
                         const float dSq = PointToSegmentDistSq(cursorNorm, line[i - 1], line[i]);
                         if (dSq <= bestLineDistSq) {
                             bestLineDistSq = dSq;
@@ -4102,7 +4102,7 @@ void DrawWorldRing(
     bool drawVertexHandles,
     float handleRadiusWorld,
     guikit::Color handleFill,
-    size_t& ioRenderedVerts
+    keel::usize& ioRenderedVerts
 ) {
     if (ring.size() < 2) return;
 
@@ -4151,7 +4151,7 @@ void DrawWorldRing(
         scene.DrawCircle(firstW, handleRadiusWorld, handleFill, strokeColor, strokeWidthWorld * 0.6f);
     }
 
-    for (size_t i = 1; i < ring.size(); ++i) {
+    for (keel::usize i = 1; i < ring.size(); ++i) {
         const guikit::Vec2 currW = map.GeoToWorld(ring[i]);
         const float dx = currW.x - prevW.x;
         const float dy = currW.y - prevW.y;
@@ -4191,9 +4191,9 @@ void RenderHighlightedFeatureOverlay(
     float invZ,
     float minSegWorldSq,
     bool drawHandles,
-    uint64_t frameTick,
-    size_t& ioRenderedVerts,
-    size_t* outPagedInCount = nullptr
+    keel::u64 frameTick,
+    keel::usize& ioRenderedVerts,
+    keel::usize* outPagedInCount = nullptr
 ) {
     const bool wasLoaded = feat.geometryLoaded;
     if (!feat.EnsureGeometryLoaded(frameTick)) {
@@ -4231,22 +4231,22 @@ void RenderHighlightedFeatureOverlay(
 
 } // namespace
 
-size_t GisRenderEngine::EnforceFeatureRamBudget(
+keel::usize GisRenderEngine::EnforceFeatureRamBudget(
     keel::ArrayRef<geo::GeoLayer> layers,
-    size_t maxResidentBytes,
-    uint64_t protectedTick,
-    size_t* outResidentFeatures,
-    size_t* outResidentBytes
+    keel::usize maxResidentBytes,
+    keel::u64 protectedTick,
+    keel::usize* outResidentFeatures,
+    keel::usize* outResidentBytes
 ) {
-    size_t totalResidentBytes = 0;
-    size_t totalResidentFeatures = 0;
-    size_t streamedChunkBytes = 0;
+    keel::usize totalResidentBytes = 0;
+    keel::usize totalResidentFeatures = 0;
+    keel::usize streamedChunkBytes = 0;
 
     for (const geo::GeoLayer& layer : layers) {
         if (!layer.pager) continue;
         if (layer.isWindowStreamed) {
-            const size_t chBytes = layer.pager->GetCachedChunkBytes();
-            const size_t chFeats = layer.pager->GetCachedFeatureCount();
+            const keel::usize chBytes = layer.pager->GetCachedChunkBytes();
+            const keel::usize chFeats = layer.pager->GetCachedFeatureCount();
             totalResidentBytes += chBytes;
             streamedChunkBytes += chBytes;
             totalResidentFeatures += chFeats;
@@ -4267,20 +4267,20 @@ size_t GisRenderEngine::EnforceFeatureRamBudget(
         }
     }
 
-    size_t evictedCount = 0;
+    keel::usize evictedCount = 0;
     if (totalResidentBytes > maxResidentBytes) {
-        const size_t targetBytes = (maxResidentBytes * 85u) / 100u;
+        const keel::usize targetBytes = (maxResidentBytes * 85u) / 100u;
 
         // 1. First evict cold decoded WKB feature payloads (polygons/lines) so lightweight chunk metadata stays cached
         {
             struct EvictCandidate {
                 const geo::GeoFeature* feat{nullptr};
-                uint64_t lastAccessTick{0};
-                uint32_t bytes{0};
+                keel::u64 lastAccessTick{0};
+                keel::u32 bytes{0};
                 bool isWindowStreamed{false};
             };
             keel::Array<EvictCandidate> evictPool;
-            evictPool.reserve(keel::min<size_t>(totalResidentFeatures, 65536u));
+            evictPool.reserve(keel::min<keel::usize>(totalResidentFeatures, 65536u));
 
             for (const geo::GeoLayer& layer : layers) {
                 if (!layer.pager) continue;
@@ -4317,12 +4317,12 @@ size_t GisRenderEngine::EnforceFeatureRamBudget(
                 if (totalResidentBytes <= targetBytes) {
                     break;
                 }
-                const size_t beforeBytes = cand.feat->residentHeapBytes;
+                const keel::usize beforeBytes = cand.feat->residentHeapBytes;
                 cand.feat->UnloadGeometryPayload();
                 cand.feat->UnloadPropertiesPayload();
-                const size_t afterBytes = cand.feat->residentHeapBytes;
+                const keel::usize afterBytes = cand.feat->residentHeapBytes;
                 if (beforeBytes > afterBytes) {
-                    const size_t freed = beforeBytes - afterBytes;
+                    const keel::usize freed = beforeBytes - afterBytes;
                     totalResidentBytes = (totalResidentBytes > freed) ? (totalResidentBytes - freed) : 0;
                     if (!cand.isWindowStreamed && afterBytes == 0 && totalResidentFeatures > 0) {
                         --totalResidentFeatures;
@@ -4336,12 +4336,12 @@ size_t GisRenderEngine::EnforceFeatureRamBudget(
         if (totalResidentBytes > targetBytes && streamedChunkBytes > 0) {
             for (const geo::GeoLayer& layer : layers) {
                 if (!layer.pager || !layer.isWindowStreamed) continue;
-                const size_t lyrBytes = layer.pager->GetCachedChunkBytes();
+                const keel::usize lyrBytes = layer.pager->GetCachedChunkBytes();
                 if (lyrBytes == 0) continue;
-                const size_t lyrTarget = (maxResidentBytes == 0)
+                const keel::usize lyrTarget = (maxResidentBytes == 0)
                     ? 0u
-                    : static_cast<size_t>((static_cast<double>(targetBytes) * static_cast<double>(lyrBytes)) /
-                                          static_cast<double>(keel::max<size_t>(1u, totalResidentBytes)));
+                    : static_cast<keel::usize>((static_cast<double>(targetBytes) * static_cast<double>(lyrBytes)) /
+                                          static_cast<double>(keel::max<keel::usize>(1u, totalResidentBytes)));
                 evictedCount += layer.pager->EvictChunksToBudget(lyrTarget, protectedTick);
             }
 
@@ -4410,7 +4410,7 @@ void GisRenderEngine::TrimInactiveCaches() noexcept {
 #endif
 }
 
-bool GisRenderEngine::WaitForBackgroundStreamingIdle(uint32_t timeoutMs) {
+bool GisRenderEngine::WaitForBackgroundStreamingIdle(keel::u32 timeoutMs) {
     return GetAsyncStreamer().WaitForIdle(timeoutMs);
 }
 
@@ -4446,10 +4446,10 @@ GisRenderStats GisRenderEngine::RenderLayers(
     guikit::MapViewScope& map,
     keel::ArrayRef<geo::GeoLayer> layers,
     const GisRenderConfig& cfg,
-    uint64_t& ioSelectedFeatureUid,
+    keel::u64& ioSelectedFeatureUid,
     bool lightMode
 ) {
-    static uint64_t s_frameCounter = 1;
+    static keel::u64 s_frameCounter = 1;
     ++s_frameCounter;
 
     GisRenderStats stats{};
@@ -4463,16 +4463,16 @@ GisRenderStats GisRenderEngine::RenderLayers(
     const float invZ = 1.0f / zoom;
     const float minSegWorld = cfg.lodSimplification ? (cfg.lodPixelTolerance * invZ) : 0.0f;
     const float minSegWorldSq = minSegWorld * minSegWorld;
-    const int tileZoom = viewState.tileZoom;
+    const keel::i32 tileZoom = viewState.tileZoom;
     GetAsyncStreamer().SetActiveTileZoom(tileZoom);
 
-    const uint32_t configuredTileSizePx = ResolveTileSizePx(cfg.tileSizePx);
+    const keel::u32 configuredTileSizePx = ResolveTileSizePx(cfg.tileSizePx);
     const keel::Arc<geo::IRasterTileProvider> activeBasemapProvider = ResolveActiveBasemapProvider(cfg);
     const keel::StringRef basemapSourceId = activeBasemapProvider
         ? activeBasemapProvider->GetSourceId()
         : keel::StringRef{};
-    const uint8_t basemapOpacityByte = activeBasemapProvider
-        ? static_cast<uint8_t>(keel::clamp(std::lround(keel::clamp(cfg.basemapOpacity, 0.0f, 1.0f) * 255.0f), 0L, 255L))
+    const keel::u8 basemapOpacityByte = activeBasemapProvider
+        ? static_cast<keel::u8>(keel::clamp(std::lround(keel::clamp(cfg.basemapOpacity, 0.0f, 1.0f) * 255.0f), 0L, 255L))
         : 0u;
     const bool useBasemapOverlay = (activeBasemapProvider != nullptr && basemapOpacityByte > 0);
 
@@ -4544,12 +4544,12 @@ GisRenderStats GisRenderEngine::RenderLayers(
         tileUnionGeoBounds.se = {keel::clamp(uMinLat, -85.05112878, 85.05112878), keel::clamp(uMaxLon, -180.0, 180.0)};
     }
 
-    const uint64_t frameRenderStartUs = keel::monotonic_us();
+    const keel::u64 frameRenderStartUs = keel::monotonic_us();
 
     // Stream active spatial window chunks for massive Out-of-Core GeoPackage layers.
-    const uint64_t syncStartUs = keel::monotonic_us();
+    const keel::u64 syncStartUs = keel::monotonic_us();
     keel::Array<guikit::Rect> dirtiedBoxes;
-    size_t totalInvalidatedTilesThisFrame = 0;
+    keel::usize totalInvalidatedTilesThisFrame = 0;
 
     if (useAsyncStreaming) {
         keel::Array<AsyncWindowResult> completedWindows;
@@ -4559,7 +4559,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
             for (const geo::GeoLayer& layer : layers) {
                 if (layer.uid == winRes.layerUid) {
                     const keel::Array<guikit::Rect> snapDirtied = winRes.snapshot->dirtiedNormBoxes.clone();
-                    const size_t newlyPaged = winRes.snapshot->newlyPagedFeatures;
+                    const keel::usize newlyPaged = winRes.snapshot->newlyPagedFeatures;
                     if (const_cast<geo::GeoLayer&>(layer).ApplyWindowSnapshot(keel::move(*winRes.snapshot))) {
                         stats.pagedInFeaturesThisFrame += newlyPaged;
                         totalInvalidatedTilesThisFrame += GetTileCache().InvalidateTilesForDirtiedBoxes(
@@ -4580,7 +4580,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
 
         if (!useAsyncStreaming) {
             dirtiedBoxes.clear();
-            const size_t prevCachedFeats = layer.pager->GetCachedFeatureCount();
+            const keel::usize prevCachedFeats = layer.pager->GetCachedFeatureCount();
             if (layer.pager->SyncSpatialWindow(
                     const_cast<geo::GeoLayer&>(layer),
                     targetWindowBounds,
@@ -4589,7 +4589,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
                     cfg.scaleFiltering,
                     s_frameCounter,
                     &dirtiedBoxes)) {
-                const size_t curCachedFeats = layer.pager->GetCachedFeatureCount();
+                const keel::usize curCachedFeats = layer.pager->GetCachedFeatureCount();
                 if (curCachedFeats > prevCachedFeats) {
                     stats.pagedInFeaturesThisFrame += (curCachedFeats - prevCachedFeats);
                 }
@@ -4618,7 +4618,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
     }
     const double syncMs = static_cast<double>(keel::monotonic_us() - syncStartUs) * 0.001;
 
-    size_t activeWindowFeatures = 0;
+    keel::usize activeWindowFeatures = 0;
     for (const geo::GeoLayer& layer : layers) {
         if (layer.visible) {
             ++stats.visibleLayers;
@@ -4640,7 +4640,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
     // 1. O(log N) R-Tree Interactive Hit-Testing under Mouse Cursor
     //    (Suppressed while actively dragging/panning the map)
     // ========================================================================
-    EmitRenderBreadcrumb("GisRenderEngine::Stage1_CursorHitTest", static_cast<int>(s_frameCounter), tileZoom);
+    EmitRenderBreadcrumb("GisRenderEngine::Stage1_CursorHitTest", static_cast<keel::i32>(s_frameCounter), tileZoom);
     HitTestMatch hoveredMatch{};
     if (cfg.enableFeaturePicking && !isPanning && scene.IsHovered() && activeWindowFeatures > 0) {
         const guikit::Vec2 mouseWorld = scene.GetMouseWorldPos();
@@ -4690,7 +4690,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
     // ========================================================================
     // 2. Static Polygons & Lines: Two-Tier Atomic [z/x/y] Vector Tile Compositor
     // ========================================================================
-    EmitRenderBreadcrumb("GisRenderEngine::Stage2_VectorTileCompositor", static_cast<int>(s_frameCounter), static_cast<int>(viewState.visibleTiles.size()));
+    EmitRenderBreadcrumb("GisRenderEngine::Stage2_VectorTileCompositor", static_cast<keel::i32>(s_frameCounter), static_cast<keel::i32>(viewState.visibleTiles.size()));
     if (!viewState.visibleTiles.empty()) {
         float minTileWorldX = viewState.visibleTiles.front().worldRect.x;
         float minTileWorldY = viewState.visibleTiles.front().worldRect.y;
@@ -4709,14 +4709,14 @@ GisRenderStats GisRenderEngine::RenderLayers(
     }
 
     double rasterMs = 0.0;
-    const size_t numVisTiles = viewState.visibleTiles.size();
+    const keel::usize numVisTiles = viewState.visibleTiles.size();
     if (cfg.useVectorTileCache && !viewState.visibleTiles.empty()) {
-        const uint64_t rasterPassStartUs = keel::monotonic_us();
+        const keel::u64 rasterPassStartUs = keel::monotonic_us();
         PerLayerTileCacheManager& cache = GetTileCache();
         cache.SyncConfig(cfg, viewState.crs, basemapSourceId);
         cache.GarbageCollectLayers(layers);
 
-        const uint32_t tileSizePx = cache.GetTileSizePx();
+        const keel::u32 tileSizePx = cache.GetTileSizePx();
         const float tileSizeF = cache.GetTileSizeF();
 
         if (useBasemapOverlay) {
@@ -4730,18 +4730,18 @@ GisRenderStats GisRenderEngine::RenderLayers(
         }
 
         struct OrderedLayerEntry {
-            size_t layerIdx{0};
+            keel::usize layerIdx{0};
             const geo::GeoLayer* layer{nullptr};
             PerLayerTileCacheManager::LayerTileStore* store{nullptr};
-            uint64_t styleHash{0};
-            uint8_t opacityByte{255};
-            int cartoRank{90};
+            keel::u64 styleHash{0};
+            keel::u8 opacityByte{255};
+            keel::i32 cartoRank{90};
             bool isActiveStyle{false};
         };
 
         keel::Array<OrderedLayerEntry> tileLayers;
         tileLayers.reserve(layers.size());
-        for (size_t li = 0; li < layers.size(); ++li) {
+        for (keel::usize li = 0; li < layers.size(); ++li) {
             const geo::GeoLayer& lyr = layers[li];
             if (!lyr.visible || (lyr.polygonFeatureCount == 0 && lyr.lineFeatureCount == 0)) {
                 continue;
@@ -4753,7 +4753,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
                     effectiveOpacity *= keel::clamp(cfg.bathymetryOverBasemapOpacity, 0.05f, 1.0f);
                 }
             }
-            const uint8_t layerOpacityByte = static_cast<uint8_t>(
+            const keel::u8 layerOpacityByte = static_cast<keel::u8>(
                 keel::clamp(std::lround(effectiveOpacity * 255.0f), 0L, 255L)
             );
             if (layerOpacityByte == 0) continue;
@@ -4766,7 +4766,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
                 .styleHash = ComputeLayerStyleHash(lyr, cfg, viewState.crs),
                 .opacityByte = layerOpacityByte,
                 .cartoRank = CartographicLayerRank(lyr),
-                .isActiveStyle = (static_cast<int32_t>(li) == cfg.activeStyleLayerIdx)
+                .isActiveStyle = (static_cast<keel::i32>(li) == cfg.activeStyleLayerIdx)
             });
         }
         for (OrderedLayerEntry& entry : tileLayers) {
@@ -4805,8 +4805,8 @@ GisRenderStats GisRenderEngine::RenderLayers(
                 return a.layerIdx < b.layerIdx;
             });
 
-        const uint32_t bgPx = PackColorABGR8888(chartBaseBg);
-        uint64_t compositeSignature = keel::kFnv1aOffsetBasis;
+        const keel::u32 bgPx = PackColorABGR8888(chartBaseBg);
+        keel::u64 compositeSignature = keel::kFnv1aOffsetBasis;
         HashCombineVal(compositeSignature, viewState.crs);
         HashCombineVal(compositeSignature, tileSizePx);
         HashCombineVal(compositeSignature, bgPx);
@@ -4832,15 +4832,15 @@ GisRenderStats GisRenderEngine::RenderLayers(
         const guikit::Vec2 viewCenterW = map.GeoToWorld(viewState.center);
 
         struct PendingCellTask {
-            size_t cellIdx{0};
-            uint64_t lastUpdatedFrame{0};
+            keel::usize cellIdx{0};
+            keel::u64 lastUpdatedFrame{0};
             float distSq{0.0f};
             bool hasPreview{false};
         };
         keel::Array<PendingCellTask> pendingCells;
         pendingCells.reserve(numVisTiles);
 
-        for (size_t ci = 0; ci < numVisTiles; ++ci) {
+        for (keel::usize ci = 0; ci < numVisTiles; ++ci) {
             const guikit::OsmTileCell& cell = viewState.visibleTiles[ci];
             const TileCoordKey key{cell.id.z, cell.id.x, cell.id.y};
 
@@ -4948,12 +4948,12 @@ GisRenderStats GisRenderEngine::RenderLayers(
 
             const float baseBudgetMs = keel::clamp(cfg.tileRenderBudgetMs, 1.0f, 30.0f);
             const float effectiveBudgetMs = isPanning ? keel::min(baseBudgetMs, 4.0f) : baseBudgetMs;
-            const uint64_t deadlineUs = frameRenderStartUs + static_cast<uint64_t>(effectiveBudgetMs * 1000.0f);
-            const uint64_t fastPathDeadlineUs = frameRenderStartUs + static_cast<uint64_t>(isPanning ? 1400 : 2500);
-            size_t completedCells = 0;
+            const keel::u64 deadlineUs = frameRenderStartUs + static_cast<keel::u64>(effectiveBudgetMs * 1000.0f);
+            const keel::u64 fastPathDeadlineUs = frameRenderStartUs + static_cast<keel::u64>(isPanning ? 1400 : 2500);
+            keel::usize completedCells = 0;
 
-            for (size_t pi = 0; pi < pendingCells.size(); ++pi) {
-                const size_t ci = pendingCells[pi].cellIdx;
+            for (keel::usize pi = 0; pi < pendingCells.size(); ++pi) {
+                const keel::usize ci = pendingCells[pi].cellIdx;
                 if (!useAsyncStreaming &&
                     (completedCells >= 1 || syncMs >= 3.0) &&
                     keel::monotonic_us() >= deadlineUs) {
@@ -4996,7 +4996,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
                     }
 
                     bool abortedOrQueued = false;
-                    const size_t minPagedBeforeCheck = (completedCells == 0) ? 48u : 16u;
+                    const keel::usize minPagedBeforeCheck = (completedCells == 0) ? 48u : 16u;
                     const bool canRunSyncFastPath =
                         !useAsyncStreaming || (keel::monotonic_us() < fastPathDeadlineUs);
                     const CachedVectorTile* rendered = cache.RasterizeOrDispatchLayerTile(
@@ -5112,12 +5112,12 @@ GisRenderStats GisRenderEngine::RenderLayers(
         // Direct immediate-mode vector pass (used when VectorTileCache is toggled off)
         struct OrderedDirectLayer {
             const geo::GeoLayer* layer{nullptr};
-            size_t layerIdx{0};
-            int rank{90};
+            keel::usize layerIdx{0};
+            keel::i32 rank{90};
         };
         keel::Array<OrderedDirectLayer> orderedLayers;
         orderedLayers.reserve(layers.size());
-        for (size_t li = 0; li < layers.size(); ++li) {
+        for (keel::usize li = 0; li < layers.size(); ++li) {
             const geo::GeoLayer& layer = layers[li];
             if (!layer.visible || layer.features.empty()) continue;
             if (cfg.frustumCulling && !layer.normBounds.Intersects(visNormBox)) continue;
@@ -5129,8 +5129,8 @@ GisRenderStats GisRenderEngine::RenderLayers(
                 return a.layerIdx < b.layerIdx;
             });
 
-        keel::Array<uint32_t> visIndices;
-        for (int pass = 0; pass < 2; ++pass) {
+        keel::Array<keel::u32> visIndices;
+        for (keel::i32 pass = 0; pass < 2; ++pass) {
             for (const OrderedDirectLayer& entry : orderedLayers) {
                 const geo::GeoLayer& layer = *entry.layer;
                 if (pass == 0 && layer.polygonFeatureCount == 0) continue;
@@ -5139,11 +5139,11 @@ GisRenderStats GisRenderEngine::RenderLayers(
                 visIndices.clear();
                 layer.spatialIndex.query_box(
                     keel::RTreeBox<float>::from_xywh(visNormBox.x, visNormBox.y, visNormBox.w, visNormBox.h),
-                    [&](uint32_t fi) { visIndices.push_back(fi); }
+                    [&](keel::u32 fi) { visIndices.push_back(fi); }
                 );
                 if (pass == 0 && layer.HasChartClass(geo::ChartFeatureClass::DepthArea) && visIndices.size() > 1) {
                     keel::sort(visIndices,
-                        [&layer](uint32_t a, uint32_t b) noexcept {
+                        [&layer](keel::u32 a, keel::u32 b) noexcept {
                             const geo::GeoFeature& fa = layer.features[a];
                             const geo::GeoFeature& fb = layer.features[b];
                             const float da = !std::isnan(fa.minDepthMeters) ? fa.minDepthMeters
@@ -5155,7 +5155,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
                         });
                 }
 
-                for (uint32_t fIdx : visIndices) {
+                for (keel::u32 fIdx : visIndices) {
                     if (fIdx >= layer.features.size()) continue;
                     const geo::GeoFeature& feat = layer.features[fIdx];
                     if (ShouldSkipFeatureAtZoom(feat, tileZoom, cfg)) continue;
@@ -5211,8 +5211,8 @@ GisRenderStats GisRenderEngine::RenderLayers(
     // 3. Pan-Invariant World-Space Decluttered Overlay Pass
     //    (Pre-Indexed Compact Lists: O(accepted) instead of O(totalFeatures))
     // ========================================================================
-    EmitRenderBreadcrumb("GisRenderEngine::Stage3_WorldDeclutterOverlay", static_cast<int>(s_frameCounter), tileZoom);
-    const uint64_t declutterStartUs = keel::monotonic_us();
+    EmitRenderBreadcrumb("GisRenderEngine::Stage3_WorldDeclutterOverlay", static_cast<keel::i32>(s_frameCounter), tileZoom);
+    const keel::u64 declutterStartUs = keel::monotonic_us();
     WorldDeclutterCache& declutterCache = GetDeclutterCache();
     declutterCache.Sync(layers, cfg, tileZoom, viewState.crs, paddedVisNormBox);
     stats.declutteredLabels = declutterCache.GetTotalDecluttered();
@@ -5357,7 +5357,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
                 continue;
             }
 
-            size_t charCount = 0;
+            keel::usize charCount = 0;
             const keel::StringRef labelText = FormatMapCalloutLabel(feat, cfg, labelScratch, &charCount);
             if (labelText.empty()) continue;
 
@@ -5401,8 +5401,8 @@ GisRenderStats GisRenderEngine::RenderLayers(
 
             const guikit::GeoCoord pt = feat.points[0];
             const float d = keel::max(0.0f, feat.depthMeters);
-            const int wholeM = static_cast<int>(std::floor(d + 0.04f));
-            const int tenths = static_cast<int>(std::lround((d - static_cast<float>(wholeM)) * 10.0f));
+            const keel::i32 wholeM = static_cast<keel::i32>(std::floor(d + 0.04f));
+            const keel::i32 tenths = static_cast<keel::i32>(std::lround((d - static_cast<float>(wholeM)) * 10.0f));
             const guikit::Color sndCol = (d <= cfg.safetyContourM) ? shallowSndCol : deepSndCol;
 
             char wholeBuf[16]{};
@@ -5447,18 +5447,18 @@ GisRenderStats GisRenderEngine::RenderLayers(
     // ========================================================================
     // 5. Out-of-Core LRU Feature RAM Budget Eviction (Throttled when Idle)
     // ========================================================================
-    static size_t s_cumulativeEvicted = 0;
-    static size_t s_lastResidentFeatures = 0;
-    static size_t s_lastResidentBytes = 0;
-    static size_t s_lastMaxResidentBytes = 0;
-    static uint64_t s_lastEvictCheckFrame = 0;
+    static keel::usize s_cumulativeEvicted = 0;
+    static keel::usize s_lastResidentFeatures = 0;
+    static keel::usize s_lastResidentBytes = 0;
+    static keel::usize s_lastMaxResidentBytes = 0;
+    static keel::u64 s_lastEvictCheckFrame = 0;
     static bool s_pendingBudgetCheck = false;
     if (stats.pagedInFeaturesThisFrame > 0) {
         s_pendingBudgetCheck = true;
     }
 
     const float clampedBudgetMb = keel::clamp(cfg.featureCacheBudgetMb, 1.0f, 1024.0f);
-    const size_t maxResidentBytes = static_cast<size_t>(clampedBudgetMb * 1024.0f * 1024.0f);
+    const keel::usize maxResidentBytes = static_cast<keel::usize>(clampedBudgetMb * 1024.0f * 1024.0f);
     const bool budgetChanged = (s_lastMaxResidentBytes != maxResidentBytes);
     const bool cooldownElapsed = (s_frameCounter - s_lastEvictCheckFrame >= 45u);
     if (!isPanning && stats.cachedTilesPending == 0) {

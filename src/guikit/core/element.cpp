@@ -296,12 +296,12 @@ ElementScope Element::Open(
 
     const StretchMode initStretch = opts.stretch.value_or(StretchMode::Fill);
     node->visualHash = detail::HashArgs(
-        static_cast<uint8_t>(opts.layout.value_or(ElementLayout::Stacked)),
+        static_cast<keel::u8>(opts.layout.value_or(ElementLayout::Stacked)),
         opts.layout.has_value(),
-        static_cast<uint8_t>(opts.inlineOrder.value_or(InlineOrder::LabelFirst)),
+        static_cast<keel::u8>(opts.inlineOrder.value_or(InlineOrder::LabelFirst)),
         opts.inlineOrder.has_value(),
-        static_cast<uint8_t>(opts.align),
-        static_cast<uint8_t>(initStretch),
+        static_cast<keel::u8>(opts.align),
+        static_cast<keel::u8>(initStretch),
         opts.stretch.has_value(),
         opts.width.value_or(0.0f),
         opts.widthRatio.value_or(-1.0f),
@@ -311,8 +311,8 @@ ElementScope Element::Open(
         payload->opts.description,
         payload->opts.badge,
         effectiveDisabled,
-        static_cast<uint8_t>(opts.icon.GetType()),
-        static_cast<uint8_t>(opts.icon.GetId()),
+        static_cast<keel::u8>(opts.icon.GetType()),
+        static_cast<keel::u8>(opts.icon.GetId()),
         payload->opts.icon.GetPath()
     );
 

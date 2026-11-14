@@ -11,14 +11,14 @@ struct TagInputDemoState {
     keel::SmallString<128> placeholder{"Add tag..."};
     keel::SmallString<64> prefix{""};
     guikit::UiVariant tagVariant = guikit::UiVariant::Primary;
-    int maxTags = 8;
+    keel::i32 maxTags = 8;
     bool allowDuplicates = false;
     bool splitOnComma = true;
     bool splitOnSpace = false;
     bool clearable = true;
     bool showCounter = true;
     bool readOnly = false;
-    size_t sampleCounter = 0;
+    keel::usize sampleCounter = 0;
 };
 
 TagInputDemoState s_state;
@@ -45,8 +45,8 @@ constexpr keel::StaticArray<keel::StringRef, 8> kSampleTags = {
 } // namespace
 
 void RenderTagInputInspector(guikit::Context& ui, DemoContext&) {
-    size_t varIdx = 0;
-    for (size_t i = 0; i < kTagVariants.size(); ++i) {
+    keel::usize varIdx = 0;
+    for (keel::usize i = 0; i < kTagVariants.size(); ++i) {
         if (kTagVariants[i] == s_state.tagVariant) {
             varIdx = i;
             break;
@@ -113,7 +113,7 @@ void RenderTagInputInspector(guikit::Context& ui, DemoContext&) {
         }).clicked) {
             const keel::StringRef candidate = kSampleTags[s_state.sampleCounter % kSampleTags.size()];
             ++s_state.sampleCounter;
-            if (s_state.maxTags == 0 || s_state.tags.size() < static_cast<size_t>(s_state.maxTags)) {
+            if (s_state.maxTags == 0 || s_state.tags.size() < static_cast<keel::usize>(s_state.maxTags)) {
                 s_state.tags.emplace_back(candidate);
                 ui.InvalidateAll();
             }
@@ -148,7 +148,7 @@ void RenderTagInputStage(guikit::Context& ui, DemoContext& ctx) {
             .placeholder = s_state.placeholder,
             .prefix = s_state.prefix,
             .tagVariant = s_state.tagVariant,
-            .maxTags = static_cast<uint32_t>(s_state.maxTags),
+            .maxTags = static_cast<keel::u32>(s_state.maxTags),
             .allowDuplicates = s_state.allowDuplicates,
             .splitOnComma = s_state.splitOnComma,
             .splitOnSpace = s_state.splitOnSpace,

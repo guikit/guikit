@@ -5,7 +5,7 @@ namespace guikit::demo {
 namespace {
 struct RadioState {
     bool groupDemo = true;
-    int selectedIdx = 0;
+    keel::i32 selectedIdx = 0;
     bool singleChecked = true;
 };
 RadioState s_state;
@@ -22,10 +22,10 @@ void RenderRadioInspector(guikit::Context& ui, DemoContext&) {
     }
     if (s_state.groupDemo) {
         static constexpr keel::StaticArray<keel::StringRef, 3> optNames = {"Opt A", "Opt B", "Opt C"};
-        size_t idx = static_cast<size_t>(keel::clamp(s_state.selectedIdx, 0, 2));
+        keel::usize idx = static_cast<keel::usize>(keel::clamp(s_state.selectedIdx, 0, 2));
         if (auto el = ui.Element({.label = "Active Selection"})) {
             if (ui.StepSlider(idx, optNames, {.showTicks = true, .showLabels = true}).changed) {
-                s_state.selectedIdx = static_cast<int>(idx);
+                s_state.selectedIdx = static_cast<keel::i32>(idx);
                 ui.InvalidateAll();
             }
         }

@@ -20,7 +20,7 @@ namespace {
 struct JsonKeyValue;
 
 struct JsonValue {
-    enum class Kind : uint8_t {
+    enum class Kind : keel::u8 {
         Null = 0,
         Bool,
         Int,
@@ -34,7 +34,7 @@ struct JsonValue {
     Kind kind{Kind::Null};
     union {
         bool boolVal;
-        int64_t intVal;
+        keel::i64 intVal;
         double doubleVal{0.0};
     };
     keel::StringRef textVal{};
@@ -83,7 +83,7 @@ const JsonValue* JsonValue::Find(keel::StringRef key) const noexcept {
     return nullptr;
 }
 
-void AppendUtf8Codepoint(keel::String& out, uint32_t cp) {
+void AppendUtf8Codepoint(keel::String& out, keel::u32 cp) {
     if (cp <= 0x7Fu) {
         out.push_back(static_cast<char>(cp));
     } else if (cp <= 0x7FFu) {
@@ -107,9 +107,9 @@ public:
         : m_src(src), m_arena(arena) {
         // Skip UTF-8 BOM if present
         if (m_src.size() >= 3 &&
-            static_cast<uint8_t>(m_src[0]) == 0xEF &&
-            static_cast<uint8_t>(m_src[1]) == 0xBB &&
-            static_cast<uint8_t>(m_src[2]) == 0xBF) {
+            static_cast<keel::u8>(m_src[0]) == 0xEF &&
+            static_cast<keel::u8>(m_src[1]) == 0xBB &&
+            static_cast<keel::u8>(m_src[2]) == 0xBF) {
             m_pos = 3;
         }
     }
@@ -129,7 +129,7 @@ public:
     }
 
 private:
-    static constexpr int kMaxDepth = 128;
+    static constexpr keel::i32 kMaxDepth = 128;
 
     [[nodiscard]] bool AtEnd() const noexcept { return m_pos >= m_src.size(); }
     [[nodiscard]] char Peek() const noexcept { return AtEnd() ? '\0' : m_src[m_pos]; }
@@ -174,8 +174,8 @@ private:
     bool ParseRawBracketSlice(JsonValue& out) {
         SkipWhitespace();
         if (Peek() != '[') return Fail("Expected '[' for coordinates array");
-        const size_t startPos = m_pos;
-        int bracketDepth = 0;
+        const keel::usize startPos = m_pos;
+        keel::i32 bracketDepth = 0;
         bool inString = false;
 
         while (m_pos < m_src.size()) {
@@ -212,7 +212,7 @@ private:
         return Fail("Unterminated '[' in coordinates array");
     }
 
-    bool ParseValue(JsonValue& out, int depth) {
+    bool ParseValue(JsonValue& out, keel::i32 depth) {
         if (depth > kMaxDepth) {
             return Fail("Maximum nesting depth exceeded");
         }
@@ -252,7 +252,7 @@ private:
             char buf[64];
             return Fail(keel::format_buf(buf, "Expected '%s'", lit));
         }
-        for (size_t i = 0; i < lit.size(); ++i) Advance();
+        for (keel::usize i = 0; i < lit.size(); ++i) Advance();
         out = JsonValue{};
         out.kind = JsonValue::Kind::Bool;
         out.boolVal = val;
@@ -263,23 +263,23 @@ private:
         if (m_src.substr(m_pos, 4) != "null") {
             return Fail("Expected 'null'");
         }
-        for (int i = 0; i < 4; ++i) Advance();
+        for (keel::i32 i = 0; i < 4; ++i) Advance();
         out = JsonValue{};
         out.kind = JsonValue::Kind::Null;
         return true;
     }
 
-    bool ParseHex4(uint32_t& outVal) {
+    bool ParseHex4(keel::u32& outVal) {
         if (m_pos + 4 > m_src.size()) {
             return Fail("Incomplete \\uXXXX escape");
         }
-        uint32_t val = 0;
-        for (int i = 0; i < 4; ++i) {
+        keel::u32 val = 0;
+        for (keel::i32 i = 0; i < 4; ++i) {
             const char c = Advance();
             val <<= 4;
-            if (c >= '0' && c <= '9') val |= static_cast<uint32_t>(c - '0');
-            else if (c >= 'a' && c <= 'f') val |= static_cast<uint32_t>(c - 'a' + 10);
-            else if (c >= 'A' && c <= 'F') val |= static_cast<uint32_t>(c - 'A' + 10);
+            if (c >= '0' && c <= '9') val |= static_cast<keel::u32>(c - '0');
+            else if (c >= 'a' && c <= 'f') val |= static_cast<keel::u32>(c - 'a' + 10);
+            else if (c >= 'A' && c <= 'F') val |= static_cast<keel::u32>(c - 'A' + 10);
             else return Fail("Invalid hex digit in \\uXXXX escape");
         }
         outVal = val;
@@ -288,16 +288,16 @@ private:
 
     bool ParseString(keel::StringRef& out) {
         if (Advance() != '"') return Fail("Expected '\"'");
-        const size_t rawStart = m_pos;
+        const keel::usize rawStart = m_pos;
 
         // Fast zero-copy scan for unescaped strings (direct slice into m_src!)
         bool hasEscape = false;
-        size_t scanPos = m_pos;
+        keel::usize scanPos = m_pos;
         while (scanPos < m_src.size()) {
             const char sc = m_src[scanPos];
             if (sc == '"') {
-                const size_t len = scanPos - rawStart;
-                for (size_t k = 0; k <= len; ++k) Advance();
+                const keel::usize len = scanPos - rawStart;
+                for (keel::usize k = 0; k <= len; ++k) Advance();
                 out = m_src.substr(rawStart, len);
                 return true;
             }
@@ -331,14 +331,14 @@ private:
                     case 'r':  m_scratchStr.push_back('\r'); break;
                     case 't':  m_scratchStr.push_back('\t'); break;
                     case 'u': {
-                        uint32_t cp = 0;
+                        keel::u32 cp = 0;
                         if (!ParseHex4(cp)) return false;
                         // Handle UTF-16 surrogate pair
                         if (cp >= 0xD800u && cp <= 0xDBFFu) {
                             if (m_pos + 2 <= m_src.size() && m_src[m_pos] == '\\' && m_src[m_pos + 1] == 'u') {
                                 Advance();
                                 Advance();
-                                uint32_t low = 0;
+                                keel::u32 low = 0;
                                 if (!ParseHex4(low)) return false;
                                 if (low >= 0xDC00u && low <= 0xDFFFu) {
                                     cp = 0x10000u + (((cp - 0xD800u) << 10) | (low - 0xDC00u));
@@ -360,7 +360,7 @@ private:
     }
 
     bool ParseNumber(JsonValue& out) {
-        const size_t start = m_pos;
+        const keel::usize start = m_pos;
         bool isFloat = false;
 
         if (Peek() == '-') Advance();
@@ -398,7 +398,7 @@ private:
             if (const auto res = keel::parse_i64(token); res.is_ok()) {
                 out = JsonValue{};
                 out.kind = JsonValue::Kind::Int;
-                out.intVal = static_cast<int64_t>(res.value());
+                out.intVal = static_cast<keel::i64>(res.value());
                 return true;
             }
         }
@@ -413,7 +413,7 @@ private:
         return Fail("Invalid numeric literal");
     }
 
-    bool ParseArray(JsonValue& out, int depth) {
+    bool ParseArray(JsonValue& out, keel::i32 depth) {
         if (Advance() != '[') return Fail("Expected '['");
         SkipWhitespace();
         if (Peek() == ']') {
@@ -447,7 +447,7 @@ private:
         }
 
         JsonValue* dst = m_arena.alloc_array<JsonValue>(elems.size());
-        for (size_t i = 0; i < elems.size(); ++i) {
+        for (keel::usize i = 0; i < elems.size(); ++i) {
             dst[i] = elems[i];
         }
         out = JsonValue{};
@@ -456,7 +456,7 @@ private:
         return true;
     }
 
-    bool ParseObject(JsonValue& out, int depth) {
+    bool ParseObject(JsonValue& out, keel::i32 depth) {
         if (Advance() != '{') return Fail("Expected '{'");
         SkipWhitespace();
         if (Peek() == '}') {
@@ -507,7 +507,7 @@ private:
         }
 
         JsonKeyValue* dst = m_arena.alloc_array<JsonKeyValue>(pairs.size());
-        for (size_t i = 0; i < pairs.size(); ++i) {
+        for (keel::usize i = 0; i < pairs.size(); ++i) {
             dst[i] = pairs[i];
         }
         out = JsonValue{};
@@ -518,9 +518,9 @@ private:
 
     keel::StringRef m_src;
     keel::Arena& m_arena;
-    size_t m_pos{0};
-    size_t m_line{1};
-    size_t m_col{1};
+    keel::usize m_pos{0};
+    keel::usize m_line{1};
+    keel::usize m_col{1};
     keel::String m_scratchStr{};
     keel::String m_error{};
 };
@@ -531,7 +531,7 @@ private:
 
 class CoordSliceReader {
 public:
-    explicit CoordSliceReader(keel::StringRef sv, int srsId) noexcept
+    explicit CoordSliceReader(keel::StringRef sv, keel::i32 srsId) noexcept
         : m_sv(sv), m_srsId(srsId) {}
 
     void SkipWs() noexcept {
@@ -562,7 +562,7 @@ public:
     [[nodiscard]] bool ReadDouble(double& out) noexcept {
         SkipWs();
         if (m_pos >= m_sv.size()) return false;
-        const size_t start = m_pos;
+        const keel::usize start = m_pos;
         if (m_sv[m_pos] == '+' || m_sv[m_pos] == '-') ++m_pos;
         while (m_pos < m_sv.size()) {
             const char c = m_sv[m_pos];
@@ -625,7 +625,7 @@ public:
     [[nodiscard]] bool ReadMultiLineRings(keel::Array<keel::Array<guikit::GeoCoord>>& outLines) {
         if (!Consume('[')) return false;
         if (Consume(']')) return true;
-        size_t added = 0;
+        keel::usize added = 0;
         while (true) {
             keel::Array<guikit::GeoCoord> line;
             if (!ReadCoordRing(line)) return false;
@@ -679,7 +679,7 @@ public:
     [[nodiscard]] bool ReadMultiPolygonRings(keel::Array<GeoPolygon>& outPolys) {
         if (!Consume('[')) return false;
         if (Consume(']')) return false;
-        const size_t before = outPolys.size();
+        const keel::usize before = outPolys.size();
         while (true) {
             (void)ReadPolygonRings(outPolys);
             if (Consume(',')) {
@@ -695,8 +695,8 @@ public:
 
 private:
     keel::StringRef m_sv;
-    int m_srsId{4326};
-    size_t m_pos{0};
+    keel::i32 m_srsId{4326};
+    keel::usize m_pos{0};
 };
 
 // ============================================================================
@@ -727,7 +727,7 @@ void AppendCompactJsonValue(keel::String& out, const JsonValue& v) {
             break;
         case JsonValue::Kind::Array:
             out.push_back('[');
-            for (size_t i = 0; i < v.arrVal.size(); ++i) {
+            for (keel::usize i = 0; i < v.arrVal.size(); ++i) {
                 if (i > 0) out.append(", ");
                 AppendCompactJsonValue(out, v.arrVal[i]);
             }
@@ -735,7 +735,7 @@ void AppendCompactJsonValue(keel::String& out, const JsonValue& v) {
             break;
         case JsonValue::Kind::Object:
             out.push_back('{');
-            for (size_t i = 0; i < v.objVal.size(); ++i) {
+            for (keel::usize i = 0; i < v.objVal.size(); ++i) {
                 if (i > 0) out.append(", ");
                 out.append(v.objVal[i].key);
                 out.append(": ");
@@ -761,7 +761,7 @@ void AppendCompactJsonValue(keel::String& out, const JsonValue& v) {
     }
 }
 
-bool ParseGeometryObject(const JsonValue& geomObj, int srsId, GeoFeature& feat, bool isTopLevel = true) {
+bool ParseGeometryObject(const JsonValue& geomObj, keel::i32 srsId, GeoFeature& feat, bool isTopLevel = true) {
     if (geomObj.IsNull()) return false;
     const auto* typeVal = geomObj.Find("type");
     if (!typeVal || !typeVal->IsString()) return false;
@@ -846,7 +846,7 @@ bool ParseGeometryObject(const JsonValue& geomObj, int srsId, GeoFeature& feat, 
     return false;
 }
 
-int DetectGeoJsonSrsId(const JsonValue& rootObj) {
+keel::i32 DetectGeoJsonSrsId(const JsonValue& rootObj) {
     const auto* crsVal = rootObj.Find("crs");
     if (!crsVal || !crsVal->IsObject()) return 4326;
     const auto* propsVal = crsVal->Find("properties");
@@ -864,7 +864,7 @@ int DetectGeoJsonSrsId(const JsonValue& rootObj) {
     return 4326;
 }
 
-void ParseFeatureObject(const JsonValue& featObj, int srsId, keel::Array<GeoFeature>& outFeatures) {
+void ParseFeatureObject(const JsonValue& featObj, keel::i32 srsId, keel::Array<GeoFeature>& outFeatures) {
     if (!featObj.IsObject()) return;
 
     GeoFeature feat;
@@ -915,7 +915,7 @@ void EscapeJsonString(keel::String& out, keel::StringRef sv) {
             default:
                 if (static_cast<unsigned char>(c) < 0x20u) {
                     char buf[8];
-                    out.append(keel::format_buf(buf, "\\u%04x", static_cast<unsigned int>(static_cast<unsigned char>(c))));
+                    out.append(keel::format_buf(buf, "\\u%04x", static_cast<keel::u32>(static_cast<unsigned char>(c))));
                 } else {
                     out.push_back(c);
                 }
@@ -927,7 +927,7 @@ void EscapeJsonString(keel::String& out, keel::StringRef sv) {
 
 void AppendRingJson(keel::String& out, keel::ArrayRef<guikit::GeoCoord> ring, bool closeRing) {
     out.push_back('[');
-    for (size_t i = 0; i < ring.size(); ++i) {
+    for (keel::usize i = 0; i < ring.size(); ++i) {
         if (i > 0) out.append(", ");
         char buf[64];
         out.append(keel::format_buf(buf, "[%.6f, %.6f]", ring[i].lon, ring[i].lat));
@@ -943,7 +943,7 @@ void AppendRingJson(keel::String& out, keel::ArrayRef<guikit::GeoCoord> ring, bo
     out.push_back(']');
 }
 
-[[nodiscard]] int CartographicSortRank(ChartFeatureClass cls) noexcept {
+[[nodiscard]] keel::i32 CartographicSortRank(ChartFeatureClass cls) noexcept {
     switch (cls) {
         case ChartFeatureClass::CoverageMask:       return 5;
         case ChartFeatureClass::DepthArea:          return 10;
@@ -964,7 +964,7 @@ void AppendRingJson(keel::String& out, keel::ArrayRef<guikit::GeoCoord> ring, bo
     return 70;
 }
 
-[[nodiscard]] LayerStyle DefaultStyleForChartClass(ChartFeatureClass cls, size_t idx) noexcept {
+[[nodiscard]] LayerStyle DefaultStyleForChartClass(ChartFeatureClass cls, keel::usize idx) noexcept {
     LayerStyle s{};
     s.primaryColor = SrsTransform::DefaultLayerColor(idx);
     switch (cls) {
@@ -1047,7 +1047,7 @@ bool TryReadTextFromAssetsOrDisk(
 
 GeoJsonResult GeoJsonIO::ParseFromString(keel::StringRef jsonText, keel::StringRef defaultLayerName) {
     GeoJsonResult res;
-    keel::Arena domArena(keel::max<size_t>(keel::Arena::kDefaultReserveSize, jsonText.size() * 4u + 1024u * 1024u));
+    keel::Arena domArena(keel::max<keel::usize>(keel::Arena::kDefaultReserveSize, jsonText.size() * 4u + 1024u * 1024u));
     JsonValue root{};
     JsonParser parser(jsonText, domArena);
     if (!parser.ParseRoot(root, res.error)) {
@@ -1149,12 +1149,12 @@ GeoJsonLoadResult GeoJsonIO::ParseThematicLayersFromString(
     }
 
     struct RankedLayer {
-        int rankKey = 0;
+        keel::i32 rankKey = 0;
         GeoLayer layer{};
     };
     keel::Array<RankedLayer> grouped;
     for (GeoFeature& feat : singleRes.layer.features) {
-        const int key = CartographicSortRank(feat.chartClass) * 100 + static_cast<int>(feat.chartClass);
+        const keel::i32 key = CartographicSortRank(feat.chartClass) * 100 + static_cast<keel::i32>(feat.chartClass);
         GeoLayer* target = nullptr;
         for (auto& entry : grouped) {
             if (entry.rankKey == key) {
@@ -1177,8 +1177,8 @@ GeoJsonLoadResult GeoJsonIO::ParseThematicLayersFromString(
 
     keel::sort(grouped, [](const RankedLayer& a, const RankedLayer& b) noexcept { return a.rankKey < b.rankKey; });
 
-    uint64_t nextLayerUid = 1;
-    size_t styleIdx = 0;
+    keel::u64 nextLayerUid = 1;
+    keel::usize styleIdx = 0;
     for (auto& entry : grouped) {
         auto& layer = entry.layer;
         layer.style = DefaultStyleForChartClass(layer.dominantChartClass, styleIdx++);
@@ -1237,7 +1237,7 @@ keel::String GeoJsonIO::SerializeLayer(const GeoLayer& layer, bool prettyPrint) 
     out.append("\"features\": [");
     out.append(nl);
 
-    for (size_t fi = 0; fi < layer.features.size(); ++fi) {
+    for (keel::usize fi = 0; fi < layer.features.size(); ++fi) {
         const GeoFeature& feat = layer.features[fi];
         (void)feat.EnsureGeometryLoaded();
         (void)feat.EnsurePropertiesLoaded();
@@ -1259,7 +1259,7 @@ keel::String GeoJsonIO::SerializeLayer(const GeoLayer& layer, bool prettyPrint) 
         // Properties
         out.append(ind3);
         out.append("\"properties\": {");
-        for (size_t pi = 0; pi < feat.properties.size(); ++pi) {
+        for (keel::usize pi = 0; pi < feat.properties.size(); ++pi) {
             if (pi > 0) out.append(", ");
             const auto& [k, v] = feat.properties[pi];
             EscapeJsonString(out, k.as_ref());
@@ -1303,7 +1303,7 @@ keel::String GeoJsonIO::SerializeLayer(const GeoLayer& layer, bool prettyPrint) 
                 out.append("]}");
             } else {
                 out.append("{\"type\": \"MultiPolygon\", \"coordinates\": [");
-                for (size_t p = 0; p < feat.polygons.size(); ++p) {
+                for (keel::usize p = 0; p < feat.polygons.size(); ++p) {
                     if (p > 0) out.append(", ");
                     out.push_back('[');
                     AppendRingJson(out, feat.polygons[p].exteriorRing, true);
@@ -1322,7 +1322,7 @@ keel::String GeoJsonIO::SerializeLayer(const GeoLayer& layer, bool prettyPrint) 
                 out.push_back('}');
             } else {
                 out.append("{\"type\": \"MultiLineString\", \"coordinates\": [");
-                for (size_t l = 0; l < feat.lines.size(); ++l) {
+                for (keel::usize l = 0; l < feat.lines.size(); ++l) {
                     if (l > 0) out.append(", ");
                     AppendRingJson(out, feat.lines[l], false);
                 }

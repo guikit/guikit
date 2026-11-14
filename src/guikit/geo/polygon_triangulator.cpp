@@ -59,8 +59,8 @@ void BridgeHoleIntoContour(
     }
 
     // 1. Find rightmost vertex M of the hole (maximum longitude)
-    size_t holeMaxIdx = 0;
-    for (size_t i = 1; i < hole.size(); ++i) {
+    keel::usize holeMaxIdx = 0;
+    for (keel::usize i = 1; i < hole.size(); ++i) {
         if (hole[i].lon > hole[holeMaxIdx].lon ||
             (std::abs(hole[i].lon - hole[holeMaxIdx].lon) <= kEps && hole[i].lat > hole[holeMaxIdx].lat)) {
             holeMaxIdx = i;
@@ -70,11 +70,11 @@ void BridgeHoleIntoContour(
 
     // 2. Cast ray M + t * (1, 0) (eastward along constant latitude M.lat) against all contour edges
     double bestIntersectLon = HUGE_VAL;
-    size_t bestEdgeEndpointIdx = SIZE_MAX;
+    keel::usize bestEdgeEndpointIdx = keel::kInvalidIndex;
     guikit::GeoCoord I{};
 
-    const size_t n = contour.size();
-    for (size_t i = 0; i < n; ++i) {
+    const keel::usize n = contour.size();
+    for (keel::usize i = 0; i < n; ++i) {
         const guikit::GeoCoord v0 = contour[i];
         const guikit::GeoCoord v1 = contour[(i + 1) % n];
 
@@ -104,10 +104,10 @@ void BridgeHoleIntoContour(
     }
 
     // Fallback: if ray missed due to numerical edge cases, connect to closest contour vertex
-    if (bestEdgeEndpointIdx == SIZE_MAX) {
+    if (bestEdgeEndpointIdx == keel::kInvalidIndex) {
         double minDistSq = HUGE_VAL;
         bestEdgeEndpointIdx = 0;
-        for (size_t i = 0; i < n; ++i) {
+        for (keel::usize i = 0; i < n; ++i) {
             const double dx = contour[i].lon - M.lon;
             const double dy = contour[i].lat - M.lat;
             const double d2 = dx * dx + dy * dy;
@@ -129,9 +129,9 @@ void BridgeHoleIntoContour(
 
             double minAngleCos = -2.0; // We want smallest angle with +X axis (i.e. largest cos)
             double minDistSq = HUGE_VAL;
-            size_t visibleIdx = bestEdgeEndpointIdx;
+            keel::usize visibleIdx = bestEdgeEndpointIdx;
 
-            for (size_t i = 0; i < n; ++i) {
+            for (keel::usize i = 0; i < n; ++i) {
                 if (i == bestEdgeEndpointIdx) continue;
                 const guikit::GeoCoord prev = contour[(i + n - 1) % n];
                 const guikit::GeoCoord curr = contour[i];
@@ -164,14 +164,14 @@ void BridgeHoleIntoContour(
     keel::Array<guikit::GeoCoord> merged;
     merged.reserve(contour.size() + hole.size() + 2);
 
-    for (size_t i = 0; i <= bestEdgeEndpointIdx; ++i) {
+    for (keel::usize i = 0; i <= bestEdgeEndpointIdx; ++i) {
         merged.push_back(contour[i]);
     }
-    for (size_t i = 0; i < hole.size(); ++i) {
+    for (keel::usize i = 0; i < hole.size(); ++i) {
         merged.push_back(hole[(holeMaxIdx + i) % hole.size()]);
     }
     merged.push_back(hole[holeMaxIdx]);
-    for (size_t i = bestEdgeEndpointIdx; i < contour.size(); ++i) {
+    for (keel::usize i = bestEdgeEndpointIdx; i < contour.size(); ++i) {
         merged.push_back(contour[i]);
     }
 
@@ -183,8 +183,8 @@ void BridgeHoleIntoContour(
 double PolygonTriangulator::SignedAreaLonLat(keel::ArrayRef<guikit::GeoCoord> ring) noexcept {
     if (ring.size() < 3) return 0.0;
     double area2 = 0.0;
-    const size_t n = ring.size();
-    for (size_t i = 0; i < n; ++i) {
+    const keel::usize n = ring.size();
+    for (keel::usize i = 0; i < n; ++i) {
         const auto& p0 = ring[i];
         const auto& p1 = ring[(i + 1) % n];
         area2 += (p0.lon * p1.lat - p1.lon * p0.lat);
@@ -248,18 +248,18 @@ void PolygonTriangulator::TriangulatePolygon(GeoPolygon& poly) {
     }
 
     // Ear-Clipping on the single merged simple polygon `contour`
-    const size_t totalVerts = contour.size();
+    const keel::usize totalVerts = contour.size();
     if (totalVerts < 3) return;
 
     poly.triangles.reserve(totalVerts - 2);
-    keel::SmallArray<uint32_t, 64> indices;
+    keel::SmallArray<keel::u32, 64> indices;
     indices.resize(totalVerts);
-    for (size_t i = 0; i < totalVerts; ++i) {
-        indices[i] = static_cast<uint32_t>(i);
+    for (keel::usize i = 0; i < totalVerts; ++i) {
+        indices[i] = static_cast<keel::u32>(i);
     }
 
-    auto isEar = [&](size_t idxInList, bool strictPointCheck) -> bool {
-        const size_t m = indices.size();
+    auto isEar = [&](keel::usize idxInList, bool strictPointCheck) -> bool {
+        const keel::usize m = indices.size();
         const guikit::GeoCoord a = contour[indices[(idxInList + m - 1) % m]];
         const guikit::GeoCoord b = contour[indices[idxInList]];
         const guikit::GeoCoord c = contour[indices[(idxInList + 1) % m]];
@@ -275,7 +275,7 @@ void PolygonTriangulator::TriangulatePolygon(GeoPolygon& poly) {
         }
 
         // No other vertex of the remaining polygon may lie strictly inside triangle (a, b, c)
-        for (size_t j = 0; j < m; ++j) {
+        for (keel::usize j = 0; j < m; ++j) {
             if (j == idxInList || j == (idxInList + m - 1) % m || j == (idxInList + 1) % m) {
                 continue;
             }
@@ -290,15 +290,15 @@ void PolygonTriangulator::TriangulatePolygon(GeoPolygon& poly) {
         return true;
     };
 
-    size_t guardCounter = 0;
-    const size_t maxIterations = totalVerts * totalVerts + 32;
+    keel::usize guardCounter = 0;
+    const keel::usize maxIterations = totalVerts * totalVerts + 32;
 
     while (indices.size() > 3 && guardCounter++ < maxIterations) {
-        const size_t m = indices.size();
+        const keel::usize m = indices.size();
         bool clipped = false;
 
         // Pass 1: Strict ear test
-        for (size_t i = 0; i < m; ++i) {
+        for (keel::usize i = 0; i < m; ++i) {
             if (isEar(i, /*strictPointCheck=*/true)) {
                 const guikit::GeoCoord a = contour[indices[(i + m - 1) % m]];
                 const guikit::GeoCoord b = contour[indices[i]];
@@ -312,7 +312,7 @@ void PolygonTriangulator::TriangulatePolygon(GeoPolygon& poly) {
         if (clipped) continue;
 
         // Pass 2: Relaxed convex ear test (for self-touching / bridge-degenerate vertices)
-        for (size_t i = 0; i < m; ++i) {
+        for (keel::usize i = 0; i < m; ++i) {
             if (isEar(i, /*strictPointCheck=*/false)) {
                 const guikit::GeoCoord a = contour[indices[(i + m - 1) % m]];
                 const guikit::GeoCoord b = contour[indices[i]];

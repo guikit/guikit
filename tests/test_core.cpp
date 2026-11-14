@@ -9,7 +9,7 @@ extern "C" __declspec(dllimport) void __stdcall Sleep(unsigned long dwMillisecon
 #include "guikit/geo/map_grid.hpp"
 #include "keel/keel.h"
 
-static int g_failures = 0;
+static keel::i32 g_failures = 0;
 
 #define CHECK(cond)                                                         \
     do {                                                                    \
@@ -137,7 +137,7 @@ void TestBumpAllocator() {
     keel::Arena allocator(1024); // 1 KB chunks for testing
 
     struct SampleData {
-        int a;
+        keel::i32 a;
         double b;
         keel::StringRef tag;
     };
@@ -145,7 +145,7 @@ void TestBumpAllocator() {
     SampleData* obj1 = allocator.create<SampleData>(10, 3.14, "hello");
     CHECK(obj1 != nullptr);
     CHECK(obj1->a == 10);
-    CHECK(reinterpret_cast<uintptr_t>(obj1) % alignof(SampleData) == 0);
+    CHECK(reinterpret_cast<keel::usize>(obj1) % alignof(SampleData) == 0);
 
     SampleData* obj2 = allocator.create<SampleData>(20, 6.28, "world");
     CHECK(obj2 != nullptr);
@@ -153,7 +153,7 @@ void TestBumpAllocator() {
     CHECK(obj1 != obj2);
 
     // Allocate enough objects to cross chunk boundary
-    for (int i = 0; i < 100; ++i) {
+    for (keel::i32 i = 0; i < 100; ++i) {
         SampleData* obj = allocator.create<SampleData>(i, static_cast<double>(i), "loop");
         CHECK(obj != nullptr);
         CHECK(obj->a == i);
@@ -179,11 +179,11 @@ void TestBumpAllocator() {
     std::memset(oversizedInChunk1, 0xAB, 4096);
 
     // Non-trivially destructible objects & arrays must invoke ~T() in LIFO order on reset() and ~Arena()
-    keel::Array<int> dtorOrder;
+    keel::Array<keel::i32> dtorOrder;
     struct TrackedNonTrivial {
-        keel::Array<int>* log{nullptr};
-        int id{0};
-        keel::SmallArray<int, 4> ownedHeap{};
+        keel::Array<keel::i32>* log{nullptr};
+        keel::i32 id{0};
+        keel::SmallArray<keel::i32, 4> ownedHeap{};
 
         TrackedNonTrivial() {
             ownedHeap.push_back(1);
@@ -191,7 +191,7 @@ void TestBumpAllocator() {
             ownedHeap.push_back(3);
             ownedHeap.push_back(4);
         }
-        TrackedNonTrivial(keel::Array<int>* l, int i) : TrackedNonTrivial() {
+        TrackedNonTrivial(keel::Array<keel::i32>* l, keel::i32 i) : TrackedNonTrivial() {
             log = l;
             id = i;
         }
@@ -208,7 +208,7 @@ void TestBumpAllocator() {
         auto* n1 = scopedAlloc.create<TrackedNonTrivial>(&dtorOrder, 1);
         auto* n2 = scopedAlloc.create<TrackedNonTrivial>(&dtorOrder, 2);
         auto* arr = scopedAlloc.create_array<TrackedNonTrivial>(3);
-        for (int i = 0; i < 3; ++i) {
+        for (keel::i32 i = 0; i < 3; ++i) {
             arr[i].log = &dtorOrder;
             arr[i].id = 10 + i;
         }
@@ -218,7 +218,7 @@ void TestBumpAllocator() {
 
         scopedAlloc.reset();
         // LIFO destruction: arr[2] (12), arr[1] (11), arr[0] (10), then n2 (2), then n1 (1)
-        static constexpr keel::StaticArray<int, 5> expectedAfterReset = {{12, 11, 10, 2, 1}};
+        static constexpr keel::StaticArray<keel::i32, 5> expectedAfterReset = {{12, 11, 10, 2, 1}};
         CHECK(dtorOrder.as_ref() == expectedAfterReset.as_ref());
 
         dtorOrder.clear();
@@ -249,7 +249,7 @@ void TestFrameMetrics() {
     CHECK(!metrics.GetStatusString().empty());
 
     // Simulate 5 frames
-    for (int i = 0; i < 5; ++i) {
+    for (keel::i32 i = 0; i < 5; ++i) {
         metrics.BeginFrame();
         // Simulate small CPU work
         SleepMicroseconds(2000);
@@ -280,7 +280,7 @@ void TestFrameMetrics() {
     CHECK(status.find("RAM:") != keel::StringRef::npos);
 
     // Simulate active presented frames followed by >250ms reactive sleep (idle heartbeat)
-    for (int i = 0; i < 4; ++i) {
+    for (keel::i32 i = 0; i < 4; ++i) {
         metrics.BeginFrame();
         SleepMicroseconds(1000);
         metrics.MarkCpuDone();
@@ -321,12 +321,12 @@ void TestNodeFootprint() {
 
     // Verify generic payload casting
     Node n;
-    int dummyPayload = 42;
+    keel::i32 dummyPayload = 42;
     n.payload = &dummyPayload;
-    CHECK(*n.As<int>() == 42);
+    CHECK(*n.As<keel::i32>() == 42);
 
     const Node& constN = n;
-    CHECK(*constN.As<int>() == 42);
+    CHECK(*constN.As<keel::i32>() == 42);
 }
 
 void TestCarouselMetricsTokens() {
@@ -629,7 +629,7 @@ void TestStandaloneCoreModuleZeroDependencies() {
 
     class NullCanvas final : public ICanvas {
     public:
-        void Begin(uint32_t, uint32_t, float scale = 1.0f) override { m_scale = scale; }
+        void Begin(keel::u32, keel::u32, float scale = 1.0f) override { m_scale = scale; }
         void End() override {}
         [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
         void SetScale(float scale) override { m_scale = scale; }
@@ -648,7 +648,7 @@ void TestStandaloneCoreModuleZeroDependencies() {
         void DrawLine(Vec2, Vec2, Color, float = 1.0f) override { ++drawCount; }
 
         float m_scale{1.0f};
-        size_t drawCount{0};
+        keel::usize drawCount{0};
     };
 
     Context ui;
@@ -656,7 +656,7 @@ void TestStandaloneCoreModuleZeroDependencies() {
 
     float sliderVal = 0.5f;
     bool switchVal = true;
-    int selectedRow = 0;
+    keel::i32 selectedRow = 0;
 
     static constexpr keel::StaticArray<TableColumn, 2> cols = {{
         {.title = "Key",   .width = 120.0f},
@@ -672,7 +672,7 @@ void TestStandaloneCoreModuleZeroDependencies() {
             ui.Switch(switchVal);
         }
         if (auto table = ui.Table(cols, {.totalRows = 10, .selectedRow = &selectedRow, .height = 180.0f})) {
-            for (size_t r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {
+            for (keel::usize r = table.FirstVisibleRow(); r < table.EndVisibleRow(); ++r) {
                 if (auto row = table.Row(r)) {
                     ui.Text(ui.Format("K-{:02}", r));
                     ui.Element({.badge = {"OK", UiVariant::Success}, .stretch = StretchMode::Compact});
@@ -720,9 +720,9 @@ void TestEmbeddedAndRuntimeAssets() {
     }
 
     // 2. Verify runtime asset registration & override cleanup
-    keel::SmallArray<uint8_t, 8> customSvg;
+    keel::SmallArray<keel::u8, 8> customSvg;
     for (char ch : keel::StringRef("<svg/>")) {
-        customSvg.push_back(static_cast<uint8_t>(ch));
+        customSvg.push_back(static_cast<keel::u8>(ch));
     }
     Assets::RegisterOwned("assets/runtime/custom.svg", customSvg);
     CHECK(Assets::Exists("assets/runtime/custom.svg"));
@@ -739,14 +739,14 @@ void TestEmbeddedAndRuntimeAssets() {
 void TestUiVectorAndArenaVector() {
     using namespace guikit;
 
-    static_assert(keel::IsTriviallyDestructible<keel::ArenaArray<int>>);
+    static_assert(keel::IsTriviallyDestructible<keel::ArenaArray<keel::i32>>);
     static_assert(keel::IsTriviallyDestructible<keel::ArenaArray<Rect>>);
     static_assert(!keel::IsTriviallyDestructible<keel::ArenaArray<keel::String>>);
     static_assert(keel::IsTriviallyDestructible<ScenePayload>);
 
     // 1. keel::SmallArray inline SBO storage & no self-referential pointer on clone/move
     {
-        keel::SmallArray<int, 4> vec;
+        keel::SmallArray<keel::i32, 4> vec;
         CHECK(vec.empty());
         CHECK(vec.is_inline());
         CHECK(vec.capacity() == 4);
@@ -759,7 +759,7 @@ void TestUiVectorAndArenaVector() {
         CHECK(vec.is_inline());
 
         // Clone while inline must have its own independent inline storage
-        keel::SmallArray<int, 4> copyVec = vec.clone();
+        keel::SmallArray<keel::i32, 4> copyVec = vec.clone();
         CHECK(copyVec.is_inline());
         CHECK(copyVec.data() != vec.data());
         copyVec[0] = 99;
@@ -773,8 +773,8 @@ void TestUiVectorAndArenaVector() {
         CHECK(vec[4] == 10);
 
         // Move from heap-allocated SmallArray steals heap buffer and resets source to inline
-        const int* heapPtr = vec.data();
-        keel::SmallArray<int, 4> movedVec = keel::move(vec);
+        const keel::i32* heapPtr = vec.data();
+        keel::SmallArray<keel::i32, 4> movedVec = keel::move(vec);
         CHECK(!movedVec.is_inline());
         CHECK(movedVec.data() == heapPtr);
         CHECK(movedVec.size() == 5);
@@ -782,9 +782,9 @@ void TestUiVectorAndArenaVector() {
         CHECK(vec.is_inline());
 
         // ArrayRef view
-        auto sumSpan = [](keel::ArrayRef<int> sp) {
-            int s = 0;
-            for (int v : sp) s += v;
+        auto sumSpan = [](keel::ArrayRef<keel::i32> sp) {
+            keel::i32 s = 0;
+            for (keel::i32 v : sp) s += v;
             return s;
         };
         CHECK(sumSpan(movedVec) == (10 + 20 + 30 + 40 + 10));
@@ -792,12 +792,12 @@ void TestUiVectorAndArenaVector() {
 
     // 2. Non-trivial element lifetime in keel::SmallArray
     {
-        int liveCount = 0;
+        keel::i32 liveCount = 0;
         struct TrackedItem {
-            int* counter{nullptr};
-            int value{0};
+            keel::i32* counter{nullptr};
+            keel::i32 value{0};
             TrackedItem() = default;
-            TrackedItem(int* c, int v) : counter(c), value(v) {
+            TrackedItem(keel::i32* c, keel::i32 v) : counter(c), value(v) {
                 if (counter) ++(*counter);
             }
             TrackedItem(const TrackedItem& o) : counter(o.counter), value(o.value) {
@@ -852,28 +852,28 @@ void TestUiVectorAndArenaVector() {
     // 3. keel::ArenaArray in-place growth via Arena::try_extend
     {
         keel::Arena arena(4096);
-        keel::ArenaArray<int> arenaVec(arena, 8);
-        const int* initialPtr = arenaVec.data();
+        keel::ArenaArray<keel::i32> arenaVec(arena, 8);
+        const keel::i32* initialPtr = arenaVec.data();
         CHECK(initialPtr != nullptr);
         CHECK(arenaVec.capacity() == 8);
 
         // Push 64 elements while nothing else allocates from `arena`:
         // try_extend extends the buffer in-place without moving `data()`!
-        for (int i = 0; i < 64; ++i) {
+        for (keel::i32 i = 0; i < 64; ++i) {
             arenaVec.push_back(i * 3);
         }
         CHECK(arenaVec.size() == 64);
         CHECK(arenaVec.data() == initialPtr);
-        keel::ArrayRef<int> arenaRef = arenaVec;
+        keel::ArrayRef<keel::i32> arenaRef = arenaVec;
         CHECK(arenaRef.size() == 64);
-        for (int i = 0; i < 64; ++i) {
+        for (keel::i32 i = 0; i < 64; ++i) {
             CHECK(arenaVec[i] == i * 3);
         }
 
         // Allocate something else on the arena so tip moves, then grow arenaVec again
-        int* separator = arena.create<int>(777);
+        keel::i32* separator = arena.create<keel::i32>(777);
         CHECK(*separator == 777);
-        for (int i = 64; i < 150; ++i) {
+        for (keel::i32 i = 64; i < 150; ++i) {
             arenaVec.push_back(i * 3);
         }
         CHECK(arenaVec.size() == 150);
@@ -890,7 +890,7 @@ void TestMainWindowHeadlessBackend() {
 
     class HeadlessCanvas final : public ICanvas {
     public:
-        void Begin(uint32_t, uint32_t, float scale = 1.0f) override {
+        void Begin(keel::u32, keel::u32, float scale = 1.0f) override {
             m_scale = scale;
             m_passes.clear();
         }
@@ -920,7 +920,7 @@ void TestMainWindowHeadlessBackend() {
         }
 
         float m_scale{1.0f};
-        size_t drawCount{0};
+        keel::usize drawCount{0};
         keel::Array<GpuShaderPassDesc> m_passes;
     };
 
@@ -934,7 +934,7 @@ void TestMainWindowHeadlessBackend() {
         void Shutdown() noexcept override {
             shutdownCalled = true;
         }
-        bool PumpEvents(Context&, bool, int) override {
+        bool PumpEvents(Context&, bool, keel::i32) override {
             return true;
         }
         ICanvas& GetCanvas() noexcept override { return m_canvas; }
@@ -945,8 +945,8 @@ void TestMainWindowHeadlessBackend() {
             metrics.MarkGpuDone();
             ++framesPresented;
         }
-        int GetWidth() const noexcept override { return m_cfg.width; }
-        int GetHeight() const noexcept override { return m_cfg.height; }
+        keel::i32 GetWidth() const noexcept override { return m_cfg.width; }
+        keel::i32 GetHeight() const noexcept override { return m_cfg.height; }
         float GetDisplayPixelsPerMm() const noexcept override { return 4.0f; }
         bool IsMinimized() const noexcept override { return false; }
         bool IsLiveResizeFrame() const noexcept override { return false; }
@@ -965,7 +965,7 @@ void TestMainWindowHeadlessBackend() {
         CursorType lastCursor{CursorType::Default};
         bool initialized{false};
         bool shutdownCalled{false};
-        int framesPresented{0};
+        keel::i32 framesPresented{0};
     };
 
     class TestAppWindow final : public MainWindow {
@@ -974,7 +974,7 @@ void TestMainWindowHeadlessBackend() {
 
         bool initCalled{false};
         bool shutdownCalled{false};
-        int guiCount{0};
+        keel::i32 guiCount{0};
 
     protected:
         void OnInit() override {
@@ -1020,7 +1020,7 @@ void TestMainWindowHeadlessBackend() {
         {.title = "Headless Test", .width = 1000, .height = 800, .reactiveMode = false},
         keel::move(backend)
     );
-    const int exitCode = app.Run();
+    const keel::i32 exitCode = app.Run();
     CHECK(exitCode == 0);
     CHECK(app.initCalled);
     CHECK(app.shutdownCalled);
@@ -1048,8 +1048,8 @@ void TestKeelIntegration() {
 
     // 2. keel::Arena::allocator() arena bridge
     keel::Arena frameArena(4096);
-    keel::Array<int> arenaArray(frameArena.allocator());
-    for (int i = 0; i < 32; ++i) {
+    keel::Array<keel::i32> arenaArray(frameArena.allocator());
+    for (keel::i32 i = 0; i < 32; ++i) {
         arenaArray.push_back(i * 5);
     }
     CHECK(arenaArray.size() == 32);
@@ -1061,9 +1061,9 @@ void TestKeelIntegration() {
     keel::StringRef ref = label.as_ref();
     CHECK(ref == "Keel Bridge");
 
-    const int rawVals[4] = {1, 2, 3, 4};
-    keel::SmallArray<int, 4> uvec(keel::ArrayRef<int>(rawVals, 4));
-    keel::ArrayRef<int> aref = uvec;
+    const keel::i32 rawVals[4] = {1, 2, 3, 4};
+    keel::SmallArray<keel::i32, 4> uvec(keel::ArrayRef<keel::i32>(rawVals, 4));
+    keel::ArrayRef<keel::i32> aref = uvec;
     CHECK(aref.size() == 4);
     CHECK(aref[2] == 3);
 
@@ -1080,7 +1080,7 @@ void TestKeelIntegration() {
         nullSink.clear();
         CHECK(nullSink.empty());
 
-        keel::Array<size_t> dynIndices;
+        keel::Array<keel::usize> dynIndices;
         IndexListSink arrSink(&dynIndices);
         CHECK(arrSink.has_target() && arrSink != nullptr);
         arrSink.push_back(10);
@@ -1097,7 +1097,7 @@ void TestKeelIntegration() {
         arrSink.clear();
         CHECK(arrSink.empty() && dynIndices.empty());
 
-        keel::SmallArray<size_t, 8> smallIndices;
+        keel::SmallArray<keel::usize, 8> smallIndices;
         IndexListSink smallSink(&smallIndices);
         CHECK(smallSink.has_target());
         smallSink.push_back(3);
@@ -1106,13 +1106,13 @@ void TestKeelIntegration() {
         smallSink.push_back(15);
         CHECK(smallIndices.is_inline());
         CHECK(smallSink.size() == 4);
-        size_t sum = 0;
-        for (size_t v : smallSink) {
+        keel::usize sum = 0;
+        for (keel::usize v : smallSink) {
             sum += v;
         }
         CHECK(sum == (3 + 7 + 11 + 15));
         smallSink.erase_at(2);
-        static constexpr keel::StaticArray<size_t, 3> expectedSmall = {{3, 7, 15}};
+        static constexpr keel::StaticArray<keel::usize, 3> expectedSmall = {{3, 7, 15}};
         CHECK(smallSink.as_ref() == expectedSmall.as_ref());
         smallSink.clear();
         CHECK(smallSink.empty() && smallIndices.empty());

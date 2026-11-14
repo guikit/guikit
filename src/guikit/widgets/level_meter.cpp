@@ -12,7 +12,7 @@ namespace guikit {
 
 namespace {
 
-constexpr size_t kMaxLevelMeterChannels = 8;
+constexpr keel::usize kMaxLevelMeterChannels = 8;
 constexpr double kPeakHoldDurationSec = 0.80;
 
 struct LevelMeterPersistState {
@@ -36,13 +36,13 @@ struct LevelMeterData {
     LevelMeterOptions opts;
     double min{-60.0};
     double max{0.0};
-    size_t channelCount{1};
+    keel::usize channelCount{1};
     keel::StaticArray<LevelMeterChannelData, kMaxLevelMeterChannels> channels{};
 };
 
 void FormatMeterValue(
     char* valBuf,
-    size_t bufSize,
+    keel::usize bufSize,
     double value,
     keel::StringRef format
 ) noexcept {
@@ -50,13 +50,13 @@ void FormatMeterValue(
         char convSpec = '\0';
         bool isLongLong = false;
         bool isLong = false;
-        for (size_t i = 0; i < format.size(); ++i) {
+        for (keel::usize i = 0; i < format.size(); ++i) {
             if (format[i] == '%') {
                 if (i + 1 < format.size() && format[i + 1] == '%') {
                     ++i;
                     continue;
                 }
-                for (size_t j = i + 1; j < format.size(); ++j) {
+                for (keel::usize j = i + 1; j < format.size(); ++j) {
                     const char c = format[j];
                     if (c == 'l') {
                         if (isLong) isLongLong = true;
@@ -71,7 +71,7 @@ void FormatMeterValue(
         }
 
         char fmt[128]{};
-        const size_t copyLen = keel::min(format.size(), sizeof(fmt) - 1);
+        const keel::usize copyLen = keel::min(format.size(), sizeof(fmt) - 1);
         std::memcpy(fmt, format.data(), copyLen);
         fmt[copyLen] = '\0';
         if (convSpec == 'd' || convSpec == 'i' || convSpec == 'u' ||
@@ -96,7 +96,7 @@ void FormatMeterValue(
 
 void FormatScaleTickLabel(
     char* buf,
-    size_t bufSize,
+    keel::usize bufSize,
     double val,
     double span
 ) noexcept {
@@ -218,7 +218,7 @@ struct LevelMeterMetrics {
 };
 
 LevelMeterMetrics ComputeLevelMeterMetrics(
-    size_t channelCount,
+    keel::usize channelCount,
     double min,
     double max,
     const LevelMeterOptions& opts,
@@ -227,7 +227,7 @@ LevelMeterMetrics ComputeLevelMeterMetrics(
     const UiTheme& theme
 ) noexcept {
     const SliderMetrics& sm = theme.GetSlider(size);
-    const size_t numCh = keel::clamp<size_t>(channelCount, 1, kMaxLevelMeterChannels);
+    const keel::usize numCh = keel::clamp<keel::usize>(channelCount, 1, kMaxLevelMeterChannels);
     const double rangeMin = keel::min(min, max);
     const double rangeMax = keel::max(min, max);
     const double span = keel::max(1e-6, rangeMax - rangeMin);
@@ -242,7 +242,7 @@ LevelMeterMetrics ComputeLevelMeterMetrics(
     mm.labelLineH = canvas ? canvas->GetLineHeight(mm.labelFont) : theme.GetLineHeight(mm.labelFont);
 
     if (!opts.channelLabels.empty()) {
-        for (size_t i = 0; i < keel::min(numCh, opts.channelLabels.size()); ++i) {
+        for (keel::usize i = 0; i < keel::min(numCh, opts.channelLabels.size()); ++i) {
             if (!opts.channelLabels[i].empty()) {
                 mm.labelReserveW = keel::max(
                     mm.labelReserveW,
@@ -312,7 +312,7 @@ LevelMeterMetrics ComputeLevelMeterMetrics(
         // Vertical orientation
         if (opts.showScale) {
             float maxScaleLblW = 0.0f;
-            for (int i = 0; i <= 5; ++i) {
+            for (keel::i32 i = 0; i <= 5; ++i) {
                 const double t = static_cast<double>(i) / 5.0;
                 char sbuf[32];
                 FormatScaleTickLabel(sbuf, sizeof(sbuf), rangeMin + t * span, span);
@@ -355,11 +355,11 @@ void DrawChannelBarHorizontal(
     const float warnT = keel::clamp(opts.warningRatio, 0.05f, 0.98f);
     const float dangerT = keel::clamp(opts.dangerRatio, warnT + 0.01f, 0.995f);
 
-    uint32_t segCount = 0;
+    keel::u32 segCount = 0;
     float gap = 2.0f;
     float avgSegW = 2.0f;
     if (opts.segments > 0) {
-        segCount = keel::clamp<uint32_t>(opts.segments, 2u, 64u);
+        segCount = keel::clamp<keel::u32>(opts.segments, 2u, 64u);
         gap = (segCount > 28) ? 1.0f : 2.0f;
         const float totalGaps = gap * static_cast<float>(segCount - 1);
         avgSegW = keel::max(1.0f, (trackRect.w - totalGaps) / static_cast<float>(segCount));
@@ -378,18 +378,18 @@ void DrawChannelBarHorizontal(
     canvas.DrawRoundRect(housingRect, keel::min(3.0f, housingRect.h * 0.22f), housingBg, housingBorder, 1.0f);
 
     if (opts.segments > 0) {
-        int peakSegIdx = -1;
+        keel::i32 peakSegIdx = -1;
         if (ch.peakRatio > 0.005f) {
             peakSegIdx = keel::clamp(
-                static_cast<int>(std::ceil(ch.peakRatio * static_cast<float>(segCount))) - 1,
+                static_cast<keel::i32>(std::ceil(ch.peakRatio * static_cast<float>(segCount))) - 1,
                 0,
-                static_cast<int>(segCount) - 1
+                static_cast<keel::i32>(segCount) - 1
             );
         }
 
         const bool useRound = (keel::min(avgSegW, trackRect.h) >= 8.0f);
         const float stepW = (trackRect.w + gap) / static_cast<float>(segCount);
-        for (uint32_t i = 0; i < segCount; ++i) {
+        for (keel::u32 i = 0; i < segCount; ++i) {
             const float segLeft = std::round(trackRect.x + static_cast<float>(i) * stepW);
             const float segRight = (i + 1 == segCount)
                 ? trackRect.Right()
@@ -398,7 +398,7 @@ void DrawChannelBarHorizontal(
             const float segThreshold = static_cast<float>(i + 1) / static_cast<float>(segCount);
             const float segMidRatio = (static_cast<float>(i) + 0.5f) / static_cast<float>(segCount);
             const bool isLit = (ch.ratio >= segThreshold - (0.5f / static_cast<float>(segCount))) && (ch.ratio > 0.001f);
-            const bool isPeakSeg = (static_cast<int>(i) == peakSegIdx);
+            const bool isPeakSeg = (static_cast<keel::i32>(i) == peakSegIdx);
 
             const Color zoneCol = ResolveZoneColor(segMidRatio, opts, disabled, theme);
             const Rect segRect(segLeft, trackRect.y, segW, trackRect.h);
@@ -502,11 +502,11 @@ void DrawChannelBarVertical(
     const float warnT = keel::clamp(opts.warningRatio, 0.05f, 0.98f);
     const float dangerT = keel::clamp(opts.dangerRatio, warnT + 0.01f, 0.995f);
 
-    uint32_t segCount = 0;
+    keel::u32 segCount = 0;
     float gap = 2.0f;
     float avgSegH = 2.0f;
     if (opts.segments > 0) {
-        segCount = keel::clamp<uint32_t>(opts.segments, 2u, 64u);
+        segCount = keel::clamp<keel::u32>(opts.segments, 2u, 64u);
         gap = (segCount > 28) ? 1.0f : 2.0f;
         const float totalGaps = gap * static_cast<float>(segCount - 1);
         avgSegH = keel::max(1.0f, (trackRect.h - totalGaps) / static_cast<float>(segCount));
@@ -525,18 +525,18 @@ void DrawChannelBarVertical(
     canvas.DrawRoundRect(housingRect, keel::min(3.0f, housingRect.w * 0.22f), housingBg, housingBorder, 1.0f);
 
     if (opts.segments > 0) {
-        int peakSegIdx = -1;
+        keel::i32 peakSegIdx = -1;
         if (ch.peakRatio > 0.005f) {
             peakSegIdx = keel::clamp(
-                static_cast<int>(std::ceil(ch.peakRatio * static_cast<float>(segCount))) - 1,
+                static_cast<keel::i32>(std::ceil(ch.peakRatio * static_cast<float>(segCount))) - 1,
                 0,
-                static_cast<int>(segCount) - 1
+                static_cast<keel::i32>(segCount) - 1
             );
         }
 
         const bool useRound = (keel::min(trackRect.w, avgSegH) >= 8.0f);
         const float stepH = (trackRect.h + gap) / static_cast<float>(segCount);
-        for (uint32_t i = 0; i < segCount; ++i) {
+        for (keel::u32 i = 0; i < segCount; ++i) {
             // Segment 0 is at the bottom, segment segCount-1 is at the top (all integer pixel coordinates)
             const float segBottom = std::round(trackRect.Bottom() - static_cast<float>(i) * stepH);
             const float segTop = (i + 1 == segCount)
@@ -546,7 +546,7 @@ void DrawChannelBarVertical(
             const float segThreshold = static_cast<float>(i + 1) / static_cast<float>(segCount);
             const float segMidRatio = (static_cast<float>(i) + 0.5f) / static_cast<float>(segCount);
             const bool isLit = (ch.ratio >= segThreshold - (0.5f / static_cast<float>(segCount))) && (ch.ratio > 0.001f);
-            const bool isPeakSeg = (static_cast<int>(i) == peakSegIdx);
+            const bool isPeakSeg = (static_cast<keel::i32>(i) == peakSegIdx);
 
             const Color zoneCol = ResolveZoneColor(segMidRatio, opts, disabled, theme);
             const Rect segRect(trackRect.x, segTop, trackRect.w, segH);
@@ -637,7 +637,7 @@ void DrawChannelBarVertical(
 Response RunLevelMeterImpl(
     Context& ctx,
     const double* values,
-    size_t channelCount,
+    keel::usize channelCount,
     double min,
     double max,
     const LevelMeterOptions& opts,
@@ -655,7 +655,7 @@ Response RunLevelMeterImpl(
     const double rangeMin = keel::min(min, max);
     const double rangeMax = keel::max(min, max);
     const double span = keel::max(1e-9, rangeMax - rangeMin);
-    const size_t numCh = keel::clamp<size_t>(channelCount, 1, kMaxLevelMeterChannels);
+    const keel::usize numCh = keel::clamp<keel::usize>(channelCount, 1, kMaxLevelMeterChannels);
 
     auto& state = ctx.GetOrCreatePersistentState<LevelMeterPersistState>(id);
     const double nowSec = ctx.GetCurrentTime();
@@ -686,7 +686,7 @@ Response RunLevelMeterImpl(
     const keel::StringRef fmt = optsCopy.valueFormat.text.empty() ? "%.1f dB" : optsCopy.valueFormat.text;
     bool needsDecayRepaint = false;
 
-    for (size_t ch = 0; ch < numCh; ++ch) {
+    for (keel::usize ch = 0; ch < numCh; ++ch) {
         const double rawVal = (values != nullptr) ? values[ch] : rangeMin;
         const double clampedVal = keel::clamp(rawVal, rangeMin, rangeMax);
         const float ratio = static_cast<float>(keel::clamp((clampedVal - rangeMin) / span, 0.0, 1.0));
@@ -766,8 +766,8 @@ Response RunLevelMeterImpl(
     node->text = data->channels[0].formattedValue;
     node->SetPayload(data);
 
-    uint64_t chHash = 0;
-    for (size_t ch = 0; ch < numCh; ++ch) {
+    keel::u64 chHash = 0;
+    for (keel::usize ch = 0; ch < numCh; ++ch) {
         const auto& cd = data->channels[ch];
         chHash = detail::HashArgs(
             chHash,
@@ -784,7 +784,7 @@ Response RunLevelMeterImpl(
         data->min,
         data->max,
         data->channelCount,
-        static_cast<uint8_t>(data->opts.orientation),
+        static_cast<keel::u8>(data->opts.orientation),
         data->opts.segments,
         data->opts.multiZoneColor,
         data->opts.warningRatio,
@@ -795,8 +795,8 @@ Response RunLevelMeterImpl(
         data->opts.showValue,
         data->opts.barThickness.value_or(0.0f),
         data->opts.color,
-        static_cast<uint8_t>(data->opts.stretch),
-        static_cast<uint8_t>(data->opts.align),
+        static_cast<keel::u8>(data->opts.stretch),
+        static_cast<keel::u8>(data->opts.align),
         data->opts.background,
         data->opts.border,
         data->opts.width.value_or(0.0f),
@@ -853,13 +853,13 @@ Response LevelMeter::Run(
     keel::SourceLocation loc
 ) {
     keel::StaticArray<double, kMaxLevelMeterChannels> vals{};
-    const size_t count = channelValues.empty()
+    const keel::usize count = channelValues.empty()
         ? 1
         : keel::min(channelValues.size(), kMaxLevelMeterChannels);
     if (channelValues.empty()) {
         vals[0] = static_cast<double>(min);
     } else {
-        for (size_t i = 0; i < count; ++i) {
+        for (keel::usize i = 0; i < count; ++i) {
             vals[i] = static_cast<double>(channelValues[i]);
         }
     }
@@ -867,7 +867,7 @@ Response LevelMeter::Run(
 }
 
 Vec2 LevelMeter::Measure(
-    size_t channelCount,
+    keel::usize channelCount,
     double min,
     double max,
     const LevelMeterOptions& opts,
@@ -893,7 +893,7 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
     const UiSize size = node->uiSize;
     const bool disabled = node->disabled;
     const bool hovered = node->hovered;
-    const size_t numCh = keel::clamp<size_t>(d->channelCount, 1, kMaxLevelMeterChannels);
+    const keel::usize numCh = keel::clamp<keel::usize>(d->channelCount, 1, kMaxLevelMeterChannels);
 
     const ControlSpec ctrl = EffectiveLevelMeterControl(opts, size, theme);
     Control::RenderFrame(canvas, bounds, ctrl, size, disabled, theme, hovered, node->pressed);
@@ -931,7 +931,7 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
         const float totalContentH = barsTotalH + mm.scaleRegionH;
         const float startY = ctrlRect.y + keel::max(0.0f, (ctrlRect.h - totalContentH) * 0.5f);
 
-        for (size_t ch = 0; ch < numCh; ++ch) {
+        for (keel::usize ch = 0; ch < numCh; ++ch) {
             const LevelMeterChannelData& cd = d->channels[ch];
             const float rowY = startY + static_cast<float>(ch) * (rowH + mm.channelGap);
             const float barY = std::round(rowY + (rowH - std::round(mm.barThick)) * 0.5f);
@@ -977,10 +977,10 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
         if (opts.showScale && trackW >= theme.Scale(28.0f)) {
             const float tickTopY = std::round(startY + barsTotalH + theme.Scale(3.0f));
             const float labelTopY = tickTopY + mm.scaleTickLen + theme.Scale(1.0f);
-            constexpr int kMajorTicks = 5; // 6 major positions: 0%, 20%, 40%, 60%, 80%, 100%
+            constexpr keel::i32 kMajorTicks = 5; // 6 major positions: 0%, 20%, 40%, 60%, 80%, 100%
             const bool showMinorTicks = (trackW >= theme.Scale(80.0f));
 
-            for (int i = 0; i <= kMajorTicks * 2; ++i) {
+            for (keel::i32 i = 0; i <= kMajorTicks * 2; ++i) {
                 const bool isMajor = (i % 2 == 0);
                 if (!isMajor && !showMinorTicks) continue;
                 const float t = static_cast<float>(i) / static_cast<float>(kMajorTicks * 2);
@@ -999,10 +999,10 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
                 bool visible{false};
             };
             keel::StaticArray<MajorTickLabel, kMajorTicks + 1> majorLabels{};
-            for (int m = 0; m <= kMajorTicks; ++m) {
+            for (keel::i32 m = 0; m <= kMajorTicks; ++m) {
                 const float t = static_cast<float>(m) / static_cast<float>(kMajorTicks);
                 const float tx = std::round(trackX + t * trackW);
-                auto& ml = majorLabels[static_cast<size_t>(m)];
+                auto& ml = majorLabels[static_cast<keel::usize>(m)];
                 ml.tx = tx;
                 FormatScaleTickLabel(ml.text, sizeof(ml.text), d->min + static_cast<double>(t) * span, span);
                 ml.tw = keel::max(theme.Scale(10.0f), TextUtil::MeasureWidth(keel::StringRef(ml.text), mm.scaleFont, &canvas));
@@ -1023,8 +1023,8 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
 
             const float minGap = theme.Scale(6.0f);
             bool allFit = true;
-            for (int m = 0; m < kMajorTicks; ++m) {
-                if (majorLabels[static_cast<size_t>(m)].rightX + minGap > majorLabels[static_cast<size_t>(m + 1)].leftX) {
+            for (keel::i32 m = 0; m < kMajorTicks; ++m) {
+                if (majorLabels[static_cast<keel::usize>(m)].rightX + minGap > majorLabels[static_cast<keel::usize>(m + 1)].leftX) {
                     allFit = false;
                     break;
                 }
@@ -1044,8 +1044,8 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
                 }
             }
 
-            for (int m = 0; m <= kMajorTicks; ++m) {
-                const auto& ml = majorLabels[static_cast<size_t>(m)];
+            for (keel::i32 m = 0; m <= kMajorTicks; ++m) {
+                const auto& ml = majorLabels[static_cast<keel::usize>(m)];
                 if (!ml.visible) continue;
                 const float boxW = keel::max(ml.tw + theme.Scale(4.0f), theme.Scale(28.0f));
                 float boxX = ml.tx - boxW * 0.5f;
@@ -1081,13 +1081,13 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
             const float tickRightX = std::round(barsStartX - theme.Scale(4.0f));
             const float labelRightX = tickRightX - mm.scaleTickLen - theme.Scale(3.0f);
             const float labelW = keel::max(8.0f, labelRightX - assemblyStartX);
-            constexpr int kMajorTicks = 5;
+            constexpr keel::i32 kMajorTicks = 5;
             const bool showMinorTicks = (trackH >= theme.Scale(70.0f));
             float lastDrawnY = 1e9f;
             const float minGapY = mm.scaleLineH * 0.95f;
             const float topMostY = trackY;
 
-            for (int i = 0; i <= kMajorTicks * 2; ++i) {
+            for (keel::i32 i = 0; i <= kMajorTicks * 2; ++i) {
                 const bool isMajor = (i % 2 == 0);
                 if (!isMajor && !showMinorTicks) continue;
                 const float t = static_cast<float>(i) / static_cast<float>(kMajorTicks * 2);
@@ -1117,8 +1117,8 @@ void LevelMeter::Render(const Node* node, ICanvas& canvas, const UiTheme& theme)
         }
 
         // 2. Vertical channel bars & channel labels below each bar
-        size_t maxChannelIdx = 0;
-        for (size_t ch = 0; ch < numCh; ++ch) {
+        keel::usize maxChannelIdx = 0;
+        for (keel::usize ch = 0; ch < numCh; ++ch) {
             const LevelMeterChannelData& cd = d->channels[ch];
             if (cd.value > d->channels[maxChannelIdx].value) {
                 maxChannelIdx = ch;

@@ -16,8 +16,8 @@ constexpr T ResolveDatePickerNavCat() noexcept {
 
 struct DatePickerDemoState {
     guikit::DateTime value{2026, 10, 20, 14, 30, 0};
-    int modeIdx = 0; // 0 = Date, 1 = DateTime, 2 = Time
-    int colorIdx = 0; // 0 = Default, 1 = Emerald, 2 = Amber, 3 = Rose
+    keel::i32 modeIdx = 0; // 0 = Date, 1 = DateTime, 2 = Time
+    keel::i32 colorIdx = 0; // 0 = Default, 1 = Emerald, 2 = Amber, 3 = Rose
     bool showSeconds = false;
     bool showTodayButton = true;
     bool firstDayMonday = true;

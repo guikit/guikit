@@ -9,7 +9,7 @@ struct ButtonState {
     guikit::Placement iconPlacement = guikit::Placement::Leading;
     guikit::Align controlAlign = guikit::Align::Center;
     bool square = false;
-    int clicks = 0;
+    keel::i32 clicks = 0;
 };
 ButtonState s_state;
 } // namespace
@@ -26,7 +26,7 @@ void RenderButtonInspector(guikit::Context& ui, DemoContext&) {
     }
 
     static constexpr keel::StaticArray<keel::StringRef, 3> alignNames = {"Start (Left)", "Center", "End (Right)"};
-    size_t alignIdx = (s_state.controlAlign == guikit::Align::Start) ? 0 : ((s_state.controlAlign == guikit::Align::End) ? 2 : 1);
+    keel::usize alignIdx = (s_state.controlAlign == guikit::Align::Start) ? 0 : ((s_state.controlAlign == guikit::Align::End) ? 2 : 1);
     const bool alignDisabled = s_state.square;
     if (auto el = ui.Element({.label = "Content Alignment", .disabled = alignDisabled})) {
         if (ui.StepSlider(alignIdx, alignNames, {.showTicks = true, .showLabels = true, .disabled = alignDisabled}).changed) {
@@ -38,7 +38,7 @@ void RenderButtonInspector(guikit::Context& ui, DemoContext&) {
         if (ui.Switch(s_state.hasIcon).changed) ui.InvalidateAll();
     }
     static constexpr keel::StaticArray<keel::StringRef, 4> placeNames = {"Leading", "Trailing", "Top", "Bottom"};
-    size_t placeIdx = (s_state.iconPlacement == guikit::Placement::Trailing) ? 1 : ((s_state.iconPlacement == guikit::Placement::Top) ? 2 : ((s_state.iconPlacement == guikit::Placement::Bottom) ? 3 : 0));
+    keel::usize placeIdx = (s_state.iconPlacement == guikit::Placement::Trailing) ? 1 : ((s_state.iconPlacement == guikit::Placement::Top) ? 2 : ((s_state.iconPlacement == guikit::Placement::Bottom) ? 3 : 0));
     const bool placeDisabled = !s_state.hasIcon || s_state.square;
     if (auto el = ui.Element({.label = "Icon Placement", .disabled = placeDisabled})) {
         if (ui.StepSlider(placeIdx, placeNames, {.showTicks = true, .showLabels = true, .disabled = placeDisabled}).changed) {

@@ -18,14 +18,14 @@ class ICanvas;
 struct Node;
 
 /// Visual presentation and sizing mode for a Toolbar container.
-enum class ToolbarStyle : uint8_t {
+enum class ToolbarStyle : keel::u8 {
     Surface,    ///< Standard rounded surface bar stretching across the parent container
     Header,     ///< Flush edge-to-edge header strip (0px corner radius, 1px subtle border)
     Floating    ///< Compact fit-to-content floating pill/island with elevated surface & border
 };
 
 /// Horizontal overflow policy for a Toolbar when tools exceed available width.
-enum class ToolbarOverflow : uint8_t {
+enum class ToolbarOverflow : keel::u8 {
     AutoCompact, ///< Collapse Icon+Text tools into square Icon-only tools (with tooltips), then scroll if still overflowing
     Scroll,      ///< Keep labels intact and scroll horizontally with navigation chevrons and mouse wheel
     Wrap,        ///< Wrap overflowing tools onto subsequent rows and expand toolbar height
@@ -52,7 +52,7 @@ struct ToolButtonOptions {
 
 /// Extended response returned by Toolbar SplitButton and SplitToggle controls.
 struct SplitButtonResponse : public Response {
-    int selectedIndex{-1};        ///< Selected item index (or clicked item index for stateless SplitButton)
+    keel::i32 selectedIndex{-1};        ///< Selected item index (or clicked item index for stateless SplitButton)
     bool toggled{false};          ///< True when the main button action/toggle was triggered this frame
     bool selectionChanged{false}; ///< True when a dropdown item was selected this frame
     bool isOpen{false};           ///< True while the dropdown selector menu is open
@@ -156,7 +156,7 @@ public:
     /// Adds a split toggle button: left zone toggles `active`, right chevron selects `selectedIndex` from `items`.
     SplitButtonResponse SplitToggle(
         bool& active,
-        int& selectedIndex,
+        keel::i32& selectedIndex,
         keel::ArrayRef<keel::StringRef> items,
         ToolButtonOptions opts = {},
         ContextMenuOptions menuOpts = {},
@@ -164,7 +164,7 @@ public:
     );
 
     template <IndexLike IndexT>
-        requires(!keel::IsSame<keel::RemoveCv<IndexT>, int>)
+        requires(!keel::IsSame<keel::RemoveCv<IndexT>, keel::i32>)
     SplitButtonResponse SplitToggle(
         bool& active,
         IndexT& selectedIndex,
@@ -173,7 +173,7 @@ public:
         ContextMenuOptions menuOpts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        int raw = static_cast<int>(selectedIndex);
+        keel::i32 raw = static_cast<keel::i32>(selectedIndex);
         const SplitButtonResponse r = SplitToggle(active, raw, items, keel::move(opts), keel::move(menuOpts), loc);
         if (r.selectionChanged && raw >= 0) {
             selectedIndex = static_cast<IndexT>(raw);
@@ -184,7 +184,7 @@ public:
     /// Adds a split toggle button with rich ContextMenuItem entries (supporting icons, shortcuts, disabled items).
     SplitButtonResponse SplitToggle(
         bool& active,
-        int& selectedIndex,
+        keel::i32& selectedIndex,
         keel::ArrayRef<ContextMenuItem> items,
         ToolButtonOptions opts = {},
         ContextMenuOptions menuOpts = {},
@@ -192,7 +192,7 @@ public:
     );
 
     template <IndexLike IndexT>
-        requires(!keel::IsSame<keel::RemoveCv<IndexT>, int>)
+        requires(!keel::IsSame<keel::RemoveCv<IndexT>, keel::i32>)
     SplitButtonResponse SplitToggle(
         bool& active,
         IndexT& selectedIndex,
@@ -201,7 +201,7 @@ public:
         ContextMenuOptions menuOpts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        int raw = static_cast<int>(selectedIndex);
+        keel::i32 raw = static_cast<keel::i32>(selectedIndex);
         const SplitButtonResponse r = SplitToggle(active, raw, items, keel::move(opts), keel::move(menuOpts), loc);
         if (r.selectionChanged && raw >= 0) {
             selectedIndex = static_cast<IndexT>(raw);

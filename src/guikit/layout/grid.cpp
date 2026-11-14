@@ -21,7 +21,7 @@ GridScope Grid::Open(
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Grid;
-    node->gridColumns = static_cast<uint8_t>(keel::clamp(opts.columns, 1, 24));
+    node->gridColumns = static_cast<keel::u8>(keel::clamp(opts.columns, 1, 24));
     node->minColWidth = theme.Scale(opts.minColWidth);
     node->gap = theme.ResolveGap(opts.gap, activeSize);
     node->runGap = opts.runGap.has_value() ? theme.Scale(*opts.runGap) : node->gap;
@@ -61,7 +61,7 @@ GridScope Grid::Open(
     return GridScope(&ctx, node);
 }
 
-ContainerScope GridScope::Cell(int span, CellOptions opts, keel::SourceLocation loc) {
+ContainerScope GridScope::Cell(keel::i32 span, CellOptions opts, keel::SourceLocation loc) {
     if (!m_ctx) return ContainerScope(nullptr, nullptr);
 
     const Id id = m_ctx->MakeChildId(loc);
@@ -71,13 +71,13 @@ ContainerScope GridScope::Cell(int span, CellOptions opts, keel::SourceLocation 
     UiTheme* pushedTheme = m_ctx->PushScopedTheme(opts.theme, opts.scale);
 
     const UiTheme& theme = m_ctx->GetTheme();
-    const int maxCols = (m_node && m_node->gridColumns > 0) ? static_cast<int>(m_node->gridColumns) : 12;
+    const keel::i32 maxCols = (m_node && m_node->gridColumns > 0) ? static_cast<keel::i32>(m_node->gridColumns) : 12;
     Node* node = m_ctx->CreateNode(NodeType::Cell, id);
     node->theme = pushedTheme;
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->direction = FlexDirection::Column;
-    node->colSpan = static_cast<uint8_t>(keel::clamp(span, 1, maxCols));
+    node->colSpan = static_cast<keel::u8>(keel::clamp(span, 1, maxCols));
     node->minWidth = theme.Scale(opts.minWidth);
     if (opts.maxWidth.has_value() && *opts.maxWidth > 0.0f) {
         node->maxWidth = theme.Scale(*opts.maxWidth);
@@ -110,7 +110,7 @@ ContainerScope GridScope::Cell(int span, CellOptions opts, keel::SourceLocation 
 }
 
 ContainerScope GridScope::Cell(CellOptions opts, keel::SourceLocation loc) {
-    const int maxCols = (m_node && m_node->gridColumns > 0) ? static_cast<int>(m_node->gridColumns) : 12;
+    const keel::i32 maxCols = (m_node && m_node->gridColumns > 0) ? static_cast<keel::i32>(m_node->gridColumns) : 12;
     return Cell(maxCols, opts, loc);
 }
 

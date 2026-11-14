@@ -83,7 +83,7 @@ foreach(REL_PATH IN LISTS REL_ASSET_FILES)
     file(READ "${FULL_PATH}" HEX_CONTENT HEX)
 
     string(APPEND CPP_OUT "// ${VIRTUAL_PATH} (${BYTE_SIZE} bytes)\n")
-    string(APPEND CPP_OUT "alignas(16) static constexpr uint8_t kAsset_${ASSET_IDX}[] = {\n")
+    string(APPEND CPP_OUT "alignas(16) static constexpr keel::u8 kAsset_${ASSET_IDX}[] = {\n")
 
     guikit_hex_to_c_array("${HEX_CONTENT}" FORMATTED_HEX)
     string(APPEND CPP_OUT "${FORMATTED_HEX}")

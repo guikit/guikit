@@ -1,5 +1,4 @@
 #include <cmath>
-#include <cstdint>
 #include <cstring>
 #include "../demo_context.hpp"
 
@@ -10,13 +9,13 @@ namespace {
 struct WaterfallDemoState {
     bool initialized{false};
     bool liveStream{true};
-    int scenarioIndex{0};       // 0 = RF SDR Spectrum, 1 = LOFAR/DEMON Harmonics, 2 = Sonar Towed-Array DOA/BTR, 3 = RF MUSIC DOA
-    int modeIndex{0};           // 0 = SpectrumRtsa, 1 = DoaBtr
-    int layoutIndex{0};         // 0 = SplitTraceAndWaterfall, 1 = WaterfallOnly, 2 = TraceOnly
+    keel::i32 scenarioIndex{0};       // 0 = RF SDR Spectrum, 1 = LOFAR/DEMON Harmonics, 2 = Sonar Towed-Array DOA/BTR, 3 = RF MUSIC DOA
+    keel::i32 modeIndex{0};           // 0 = SpectrumRtsa, 1 = DoaBtr
+    keel::i32 layoutIndex{0};         // 0 = SplitTraceAndWaterfall, 1 = WaterfallOnly, 2 = TraceOnly
     Colormap colormap{Colormap::Turbo};
 
-    uint32_t numBins{512};
-    uint32_t historyRows{240};
+    keel::u32 numBins{512};
+    keel::u32 historyRows{240};
     float historyDurationSec{30.0f};
     float minX{0.0f};
     float maxX{24000.0f};
@@ -45,28 +44,28 @@ struct WaterfallDemoState {
     bool showGrid{true};
     bool invertTimeAxis{false};
 
-    int selectedTrackId{1};
+    keel::i32 selectedTrackId{1};
     float harmonicFundamentalX{1450.0f};
     bool requestResetZoom{false};
     bool requestResetPeakHold{false};
     bool requestClearHistory{false};
 
-    uint64_t sliceSequence{1};
+    keel::u64 sliceSequence{1};
     keel::Array<float> currentSliceDb{};
     keel::Array<float> initialHistoryMatrix{};
     keel::Array<WaterfallTrack> tracks{};
 
     double simTimeSec{0.0};
     double sliceAccumSec{0.0};
-    uint64_t lastWallNs{0};
+    keel::u64 lastWallNs{0};
 
     WaterfallViewResponse lastResp{};
 };
 
 WaterfallDemoState s_wf{};
 
-[[nodiscard]] inline float FastHashNoise(uint32_t x, uint32_t y, uint32_t seed) noexcept {
-    uint32_t n = x * 374761393u + y * 668265263u + seed * 1442695041u;
+[[nodiscard]] inline float FastHashNoise(keel::u32 x, keel::u32 y, keel::u32 seed) noexcept {
+    keel::u32 n = x * 374761393u + y * 668265263u + seed * 1442695041u;
     n = (n ^ (n >> 13u)) * 1274126177u;
     n = n ^ (n >> 16u);
     return static_cast<float>(n & 0xFFFFu) / 65535.0f;
@@ -81,10 +80,10 @@ WaterfallDemoState s_wf{};
 void SynthesizeSliceAtTime(
     const WaterfallDemoState& st,
     double tSec,
-    uint32_t rowSeed,
+    keel::u32 rowSeed,
     float* outSliceDb
 ) noexcept {
-    const uint32_t N = st.numBins;
+    const keel::u32 N = st.numBins;
     const float spanX = st.maxX - st.minX;
 
     if (st.modeIndex == 0) {
@@ -97,7 +96,7 @@ void SynthesizeSliceAtTime(
             const float genF = 7850.0f + 95.0f * static_cast<float>(std::cos(tSec * 0.27));
             const float cavBurst = keel::max(0.0f, static_cast<float>(std::sin(tSec * 1.9) - 0.55f));
 
-            for (uint32_t i = 0; i < N; ++i) {
+            for (keel::u32 i = 0; i < N; ++i) {
                 const float u = static_cast<float>(i) / static_cast<float>(N - 1);
                 const float f = st.minX + u * spanX;
                 const float n1 = FastHashNoise(i, rowSeed, 101u);
@@ -108,7 +107,7 @@ void SynthesizeSliceAtTime(
 
                 // Fundamental shaft/blade harmonic comb: f0, 2*f0, 3*f0, 4*f0, 5*f0, 6*f0
                 const float harmAmps[6] = {-18.0f, -24.0f, -31.0f, -38.0f, -45.0f, -52.0f};
-                for (int h = 1; h <= 6; ++h) {
+                for (keel::i32 h = 1; h <= 6; ++h) {
                     const float hf = f0 * static_cast<float>(h);
                     const float lobe = GaussianLobe(f, hf, 26.0f + 4.0f * h);
                     if (lobe > 1e-4f) {
@@ -136,14 +135,14 @@ void SynthesizeSliceAtTime(
             const float qpskBw = 2200.0f;
 
             // FHSS Hopper changes slot every 0.85 seconds
-            const uint32_t hopSlot = static_cast<uint32_t>(std::floor(keel::max(0.0, tSec + 100.0) / 0.85));
+            const keel::u32 hopSlot = static_cast<keel::u32>(std::floor(keel::max(0.0, tSec + 100.0) / 0.85));
             const float hopFreq = 13200.0f + static_cast<float>((hopSlot * 2654435761u) % 5200u);
 
             // Swept LFM Chirp between 19.2 kHz and 22.4 kHz
             const float chirpPhase = static_cast<float>(std::fmod(keel::max(0.0, tSec + 100.0) * 0.65, 1.0));
             const float chirpF = 19200.0f + chirpPhase * 3000.0f;
 
-            for (uint32_t i = 0; i < N; ++i) {
+            for (keel::u32 i = 0; i < N; ++i) {
                 const float u = static_cast<float>(i) / static_cast<float>(N - 1);
                 const float f = st.minX + u * spanX;
                 const float n1 = FastHashNoise(i, rowSeed, 313u);
@@ -190,7 +189,7 @@ void SynthesizeSliceAtTime(
         const float beamWidth = isMusic ? 1.8f : 4.2f;
         const float sidelobeLevel = isMusic ? 0.015f : 0.085f;
 
-        for (uint32_t i = 0; i < N; ++i) {
+        for (keel::u32 i = 0; i < N; ++i) {
             const float u = static_cast<float>(i) / static_cast<float>(N - 1);
             const float deg = st.minX + u * spanX;
             const float n1 = FastHashNoise(i, rowSeed, 509u);
@@ -222,12 +221,12 @@ void SynthesizeSliceAtTime(
 
 void RebuildTracksAtTime(WaterfallDemoState& st, double nowSec) {
     st.tracks.clear();
-    constexpr int kHistoryPts = 32;
+    constexpr keel::i32 kHistoryPts = 32;
     const float histDur = st.historyDurationSec;
 
     if (st.modeIndex == 1) {
         // 4 DOA / BTR Target Tracks
-        auto buildDoaTrack = [&](int id, const char* callsign, WaterfallTrackStatus status, float levelDb, float snrDb, float gateW, auto brgFn) {
+        auto buildDoaTrack = [&](keel::i32 id, const char* callsign, WaterfallTrackStatus status, float levelDb, float snrDb, float gateW, auto brgFn) {
             WaterfallTrack trk{};
             trk.id = id;
             trk.callsign = callsign;
@@ -238,7 +237,7 @@ void RebuildTracksAtTime(WaterfallDemoState& st, double nowSec) {
             trk.currentX = brgFn(nowSec);
             trk.driftRatePerSec = (brgFn(nowSec) - brgFn(nowSec - 0.5)) / 0.5f;
             trk.history.reserve(kHistoryPts);
-            for (int k = 0; k < kHistoryPts; ++k) {
+            for (keel::i32 k = 0; k < kHistoryPts; ++k) {
                 const float age = (static_cast<float>(k) / static_cast<float>(kHistoryPts - 1)) * histDur;
                 trk.history.push_back(WaterfallTrackPoint{
                     .timeAgoSec = age,
@@ -263,7 +262,7 @@ void RebuildTracksAtTime(WaterfallDemoState& st, double nowSec) {
         });
     } else if (st.scenarioIndex == 1) {
         // LOFAR / DEMON tracked shaft fundamental & generator tonal
-        auto buildSpecTrack = [&](int id, const char* callsign, WaterfallTrackStatus status, float levelDb, float gateW, auto freqFn) {
+        auto buildSpecTrack = [&](keel::i32 id, const char* callsign, WaterfallTrackStatus status, float levelDb, float gateW, auto freqFn) {
             WaterfallTrack trk{};
             trk.id = id;
             trk.callsign = callsign;
@@ -274,7 +273,7 @@ void RebuildTracksAtTime(WaterfallDemoState& st, double nowSec) {
             trk.currentX = freqFn(nowSec);
             trk.driftRatePerSec = (freqFn(nowSec) - freqFn(nowSec - 0.5)) / 0.5f;
             trk.history.reserve(kHistoryPts);
-            for (int k = 0; k < kHistoryPts; ++k) {
+            for (keel::i32 k = 0; k < kHistoryPts; ++k) {
                 const float age = (static_cast<float>(k) / static_cast<float>(kHistoryPts - 1)) * histDur;
                 trk.history.push_back(WaterfallTrackPoint{
                     .timeAgoSec = age,
@@ -302,7 +301,7 @@ void RebuildTracksAtTime(WaterfallDemoState& st, double nowSec) {
         trk.gateWidth = 420.0f;
         trk.currentX = 3400.0f + 320.0f * static_cast<float>(std::sin(nowSec * 0.35));
         trk.driftRatePerSec = 320.0f * 0.35f * static_cast<float>(std::cos(nowSec * 0.35));
-        for (int k = 0; k < kHistoryPts; ++k) {
+        for (keel::i32 k = 0; k < kHistoryPts; ++k) {
             const float age = (static_cast<float>(k) / static_cast<float>(kHistoryPts - 1)) * histDur;
             const double t = nowSec - static_cast<double>(age);
             trk.history.push_back(WaterfallTrackPoint{
@@ -315,7 +314,7 @@ void RebuildTracksAtTime(WaterfallDemoState& st, double nowSec) {
     }
 }
 
-void LoadWaterfallScenario(WaterfallDemoState& st, int scenarioIdx) {
+void LoadWaterfallScenario(WaterfallDemoState& st, keel::i32 scenarioIdx) {
     st.scenarioIndex = keel::clamp(scenarioIdx, 0, 3);
     if (st.scenarioIndex == 0) {
         // RF SDR Wideband Spectrum RTSA
@@ -367,13 +366,13 @@ void LoadWaterfallScenario(WaterfallDemoState& st, int scenarioIdx) {
     st.simTimeSec = 60.0;
     st.sliceAccumSec = 0.0;
     st.currentSliceDb.resize(st.numBins);
-    st.initialHistoryMatrix.resize(static_cast<size_t>(st.historyRows) * st.numBins);
+    st.initialHistoryMatrix.resize(static_cast<keel::usize>(st.historyRows) * st.numBins);
 
     // Pre-populate all historyRows so the waterfall is 100% full immediately upon switching scenarios
     const double rowDt = static_cast<double>(st.historyDurationSec) / static_cast<double>(keel::max(1u, st.historyRows - 1));
-    for (uint32_t age = 0; age < st.historyRows; ++age) {
+    for (keel::u32 age = 0; age < st.historyRows; ++age) {
         const double tRow = st.simTimeSec - static_cast<double>(age) * rowDt;
-        float* dstRow = st.initialHistoryMatrix.data() + static_cast<size_t>(age) * st.numBins;
+        float* dstRow = st.initialHistoryMatrix.data() + static_cast<keel::usize>(age) * st.numBins;
         SynthesizeSliceAtTime(st, tRow, 1000u - age, dstRow);
     }
     std::memcpy(st.currentSliceDb.data(), st.initialHistoryMatrix.data(), st.numBins * sizeof(float));
@@ -392,7 +391,7 @@ void StepWaterfallSimulation(WaterfallDemoState& st) {
         return;
     }
 
-    const uint64_t nowNs = keel::monotonic_ns();
+    const keel::u64 nowNs = keel::monotonic_ns();
     const double dt = keel::clamp(static_cast<double>(nowNs - st.lastWallNs) * 1e-9, 0.0, 0.1);
     st.lastWallNs = nowNs;
 
@@ -407,7 +406,7 @@ void StepWaterfallSimulation(WaterfallDemoState& st) {
     if (st.sliceAccumSec >= slicePeriod) {
         st.sliceAccumSec = std::fmod(st.sliceAccumSec, slicePeriod);
         st.sliceSequence++;
-        SynthesizeSliceAtTime(st, st.simTimeSec, static_cast<uint32_t>(st.sliceSequence), st.currentSliceDb.data());
+        SynthesizeSliceAtTime(st, st.simTimeSec, static_cast<keel::u32>(st.sliceSequence), st.currentSliceDb.data());
         RebuildTracksAtTime(st, st.simTimeSec);
     }
 }
@@ -431,7 +430,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         "DOA/BTR: Towed-Array Sonar",
         "DOA/BTR: RF MUSIC Direction Finder"
     };
-    int scenIdx = s_wf.scenarioIndex;
+    keel::i32 scenIdx = s_wf.scenarioIndex;
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Preset Scenario",
         .layout = guikit::ElementLayout::Top
@@ -453,7 +452,7 @@ void RenderWaterfallInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         ui.Size(guikit::UiSize::Sm).Select(s_wf.layoutIndex, kLayouts);
     }
 
-    int cmapIdx = static_cast<int>(s_wf.colormap);
+    keel::i32 cmapIdx = static_cast<keel::i32>(s_wf.colormap);
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "GPU Colormap LUT",
         .layout = guikit::ElementLayout::Top
@@ -670,8 +669,8 @@ keel::String GenerateWaterfallCode(const DemoContext& /*ctx*/) {
         "    .thresholdGateDbPtr = &thresholdGateDb,\n"
         "    .heightMode         = guikit::SizeMode::Stretch\n"
         "}});\n",
-        kModeEnums[static_cast<size_t>(keel::clamp(s_wf.modeIndex, 0, 1))],
-        kLayoutEnums[static_cast<size_t>(keel::clamp(s_wf.layoutIndex, 0, 2))],
+        kModeEnums[static_cast<keel::usize>(keel::clamp(s_wf.modeIndex, 0, 1))],
+        kLayoutEnums[static_cast<keel::usize>(keel::clamp(s_wf.layoutIndex, 0, 2))],
         cmapName,
         s_wf.numBins,
         s_wf.historyRows,

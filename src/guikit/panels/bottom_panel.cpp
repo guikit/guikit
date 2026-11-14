@@ -60,7 +60,7 @@ BottomPanelScope BottomPanel::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const Id sashId(detail::HashArgs(id.value, uint64_t(0x42505F53415348ull)));
+    const Id sashId(detail::HashArgs(id.value, keel::u64(0x42505F53415348ull)));
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
     const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
@@ -356,7 +356,7 @@ BottomPanelScope BottomPanel::Open(
     }
 
     node->visualHash = detail::HashArgs(
-        static_cast<uint8_t>(state.mode),
+        static_cast<keel::u8>(state.mode),
         state.customHeight,
         state.sashHovered,
         state.draggingSash,

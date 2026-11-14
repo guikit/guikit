@@ -3,7 +3,7 @@
 int main(int /*argc*/, char* /*argv*/[]) {
     bool autopilot = true;
     float thrustPct = 72.5f;
-    int pulseCount = 0;
+    keel::i32 pulseCount = 0;
 
     guikit::MainWindow app({
         .title = "GuiKit Minimal Quickstart",

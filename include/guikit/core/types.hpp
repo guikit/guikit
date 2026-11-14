@@ -1,8 +1,6 @@
 #pragma once
 
 #include <cmath>
-#include <cstddef>
-#include <cstdint>
 #include <initializer_list>
 #include "keel/core.h"
 #include "keel/ref.h"
@@ -10,13 +8,15 @@
 
 namespace guikit {
 
+static_assert(sizeof(float) == 4 && sizeof(double) == 8, "GuiKit requires 32-bit float and 64-bit double");
+
 /// Concept matching any integral or enum index type except `bool`.
 template <typename T>
 concept IndexLike = (keel::IsIntegral<keel::RemoveCvRef<T>> || keel::IsEnum<keel::RemoveCvRef<T>>) &&
                     !keel::IsSame<keel::RemoveCvRef<T>, bool>;
 
 /// Standard system mouse cursor shapes requested by interactive widgets and resize handles.
-enum class CursorType : uint8_t {
+enum class CursorType : keel::u8 {
     Default = 0,
     Pointer,
     Text,
@@ -161,21 +161,21 @@ struct Rect {
 
 /// 32-bit RGBA color with linear blending utilities.
 struct Color {
-    uint8_t r{0};
-    uint8_t g{0};
-    uint8_t b{0};
-    uint8_t a{255};
+    keel::u8 r{0};
+    keel::u8 g{0};
+    keel::u8 b{0};
+    keel::u8 a{255};
 
     constexpr Color() noexcept = default;
-    constexpr Color(uint8_t inR, uint8_t inG, uint8_t inB, uint8_t inA = 255) noexcept
+    constexpr Color(keel::u8 inR, keel::u8 inG, keel::u8 inB, keel::u8 inA = 255) noexcept
         : r(inR), g(inG), b(inB), a(inA) {}
 
     /// Pack as little-endian 32-bit integer (ABGR in memory / 0xAABBGGRR).
-    [[nodiscard]] constexpr uint32_t ToUint32() const noexcept {
-        return (static_cast<uint32_t>(a) << 24) |
-               (static_cast<uint32_t>(b) << 16) |
-               (static_cast<uint32_t>(g) << 8) |
-               static_cast<uint32_t>(r);
+    [[nodiscard]] constexpr keel::u32 ToUint32() const noexcept {
+        return (static_cast<keel::u32>(a) << 24) |
+               (static_cast<keel::u32>(b) << 16) |
+               (static_cast<keel::u32>(g) << 8) |
+               static_cast<keel::u32>(r);
     }
 
     [[nodiscard]] constexpr bool operator==(const Color& other) const noexcept {
@@ -187,24 +187,24 @@ struct Color {
     }
 
     /// Construct from hexadecimal value (0xRRGGBBAA or 0xRRGGBB).
-    [[nodiscard]] static constexpr Color Hex(uint32_t hex, bool hasAlpha = true) noexcept {
+    [[nodiscard]] static constexpr Color Hex(keel::u32 hex, bool hasAlpha = true) noexcept {
         if (hasAlpha) {
             return {
-                static_cast<uint8_t>((hex >> 24) & 0xFF),
-                static_cast<uint8_t>((hex >> 16) & 0xFF),
-                static_cast<uint8_t>((hex >> 8) & 0xFF),
-                static_cast<uint8_t>(hex & 0xFF)
+                static_cast<keel::u8>((hex >> 24) & 0xFF),
+                static_cast<keel::u8>((hex >> 16) & 0xFF),
+                static_cast<keel::u8>((hex >> 8) & 0xFF),
+                static_cast<keel::u8>(hex & 0xFF)
             };
         }
         return {
-            static_cast<uint8_t>((hex >> 16) & 0xFF),
-            static_cast<uint8_t>((hex >> 8) & 0xFF),
-            static_cast<uint8_t>(hex & 0xFF),
+            static_cast<keel::u8>((hex >> 16) & 0xFF),
+            static_cast<keel::u8>((hex >> 8) & 0xFF),
+            static_cast<keel::u8>(hex & 0xFF),
             255
         };
     }
 
-    [[nodiscard]] static constexpr Color Rgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255) noexcept {
+    [[nodiscard]] static constexpr Color Rgba(keel::u8 r, keel::u8 g, keel::u8 b, keel::u8 a = 255) noexcept {
         return {r, g, b, a};
     }
 
@@ -212,42 +212,42 @@ struct Color {
         return {0, 0, 0, 0};
     }
 
-    [[nodiscard]] constexpr Color WithAlpha(uint8_t newAlpha) const noexcept {
+    [[nodiscard]] constexpr Color WithAlpha(keel::u8 newAlpha) const noexcept {
         return {r, g, b, newAlpha};
     }
 
     [[nodiscard]] constexpr Color WithAlphaF(float factor) const noexcept {
         const float clamped = keel::clamp(factor, 0.0f, 1.0f);
-        return {r, g, b, static_cast<uint8_t>(static_cast<float>(a) * clamped)};
+        return {r, g, b, static_cast<keel::u8>(static_cast<float>(a) * clamped)};
     }
 
-    [[nodiscard]] constexpr Color ScaleAlpha(uint8_t scale) const noexcept {
+    [[nodiscard]] constexpr Color ScaleAlpha(keel::u8 scale) const noexcept {
         if (scale == 255) return *this;
         return {
             r,
             g,
             b,
-            static_cast<uint8_t>((static_cast<uint32_t>(a) * static_cast<uint32_t>(scale) + 127u) / 255u)
+            static_cast<keel::u8>((static_cast<keel::u32>(a) * static_cast<keel::u32>(scale) + 127u) / 255u)
         };
     }
 
-    [[nodiscard]] static constexpr Color Mix255(Color base, Color accent, uint8_t weight) noexcept {
-        const uint32_t w = weight;
-        const uint32_t inv = 255u - w;
+    [[nodiscard]] static constexpr Color Mix255(Color base, Color accent, keel::u8 weight) noexcept {
+        const keel::u32 w = weight;
+        const keel::u32 inv = 255u - w;
         return {
-            static_cast<uint8_t>((static_cast<uint32_t>(base.r) * inv + static_cast<uint32_t>(accent.r) * w + 127u) / 255u),
-            static_cast<uint8_t>((static_cast<uint32_t>(base.g) * inv + static_cast<uint32_t>(accent.g) * w + 127u) / 255u),
-            static_cast<uint8_t>((static_cast<uint32_t>(base.b) * inv + static_cast<uint32_t>(accent.b) * w + 127u) / 255u),
-            static_cast<uint8_t>((static_cast<uint32_t>(base.a) * inv + static_cast<uint32_t>(accent.a) * w + 127u) / 255u)
+            static_cast<keel::u8>((static_cast<keel::u32>(base.r) * inv + static_cast<keel::u32>(accent.r) * w + 127u) / 255u),
+            static_cast<keel::u8>((static_cast<keel::u32>(base.g) * inv + static_cast<keel::u32>(accent.g) * w + 127u) / 255u),
+            static_cast<keel::u8>((static_cast<keel::u32>(base.b) * inv + static_cast<keel::u32>(accent.b) * w + 127u) / 255u),
+            static_cast<keel::u8>((static_cast<keel::u32>(base.a) * inv + static_cast<keel::u32>(accent.a) * w + 127u) / 255u)
         };
     }
 
     [[nodiscard]] static constexpr Color Lerp(Color a, Color b, float t) noexcept {
         const float f = keel::clamp(t, 0.0f, 1.0f);
-        auto lerpCh = [f](uint8_t u0, uint8_t u1) constexpr noexcept -> uint8_t {
+        auto lerpCh = [f](keel::u8 u0, keel::u8 u1) constexpr noexcept -> keel::u8 {
             const float v0 = static_cast<float>(u0);
             const float v1 = static_cast<float>(u1);
-            return static_cast<uint8_t>(v0 + f * (v1 - v0));
+            return static_cast<keel::u8>(v0 + f * (v1 - v0));
         };
         return {
             lerpCh(a.r, b.r),
@@ -259,7 +259,7 @@ struct Color {
 };
 
 /// Logical key codes for keyboard navigation and text editing.
-enum class Key : uint16_t {
+enum class Key : keel::u16 {
     None = 0,
     Backspace,
     Delete,
@@ -303,7 +303,7 @@ struct KeyModifiers {
 
 /// Semantic keyboard actions decoupled from physical key codes.
 /// Widgets react to KeyAction rather than hardcoded Key + KeyModifiers combinations.
-enum class KeyAction : uint8_t {
+enum class KeyAction : keel::u8 {
     None = 0,
 
     // Clipboard & Selection
@@ -424,7 +424,7 @@ struct KeyBinding {
 /// Centralized, user-configurable keybinding table mapping KeyAction to KeyChords.
 class Keymap {
 public:
-    static constexpr size_t kActionCount = static_cast<size_t>(KeyAction::Count);
+    static constexpr keel::usize kActionCount = static_cast<keel::usize>(KeyAction::Count);
 
     constexpr Keymap() noexcept = default;
 
@@ -511,7 +511,7 @@ public:
 
     /// Binds a semantic action to a primary (and optional secondary) key chord.
     constexpr void Bind(KeyAction action, KeyChord primary, KeyChord secondary = {}) noexcept {
-        const size_t idx = static_cast<size_t>(action);
+        const keel::usize idx = static_cast<keel::usize>(action);
         if (idx > 0 && idx < kActionCount) {
             m_bindings[idx] = KeyBinding{primary, secondary};
         }
@@ -519,7 +519,7 @@ public:
 
     /// Removes all key bindings for the specified action.
     constexpr void Unbind(KeyAction action) noexcept {
-        const size_t idx = static_cast<size_t>(action);
+        const keel::usize idx = static_cast<keel::usize>(action);
         if (idx > 0 && idx < kActionCount) {
             m_bindings[idx] = KeyBinding{};
         }
@@ -527,20 +527,20 @@ public:
 
     /// Returns the current binding for the specified action.
     [[nodiscard]] constexpr KeyBinding GetBinding(KeyAction action) const noexcept {
-        const size_t idx = static_cast<size_t>(action);
+        const keel::usize idx = static_cast<keel::usize>(action);
         return (idx > 0 && idx < kActionCount) ? m_bindings[idx] : KeyBinding{};
     }
 
     /// Returns true if the given (key, mods) event matches the specified semantic action.
     [[nodiscard]] constexpr bool Matches(KeyAction action, Key key, KeyModifiers mods) const noexcept {
-        const size_t idx = static_cast<size_t>(action);
+        const keel::usize idx = static_cast<keel::usize>(action);
         return (idx > 0 && idx < kActionCount) && m_bindings[idx].Matches(key, mods);
     }
 
     /// Resolves a physical (key, mods) event into its bound KeyAction, or KeyAction::None if unbound.
     [[nodiscard]] constexpr KeyAction Resolve(Key key, KeyModifiers mods) const noexcept {
         if (key == Key::None) return KeyAction::None;
-        for (size_t i = 1; i < kActionCount; ++i) {
+        for (keel::usize i = 1; i < kActionCount; ++i) {
             if (m_bindings[i].Matches(key, mods)) {
                 return static_cast<KeyAction>(i);
             }
@@ -553,7 +553,7 @@ private:
 };
 
 /// Visual blinking mode for input caret / cursor.
-enum class CursorBlinkMode : uint8_t {
+enum class CursorBlinkMode : keel::u8 {
     Blinking,  ///< Standard alternating visibility (~1 Hz)
     Solid,     ///< Always visible while focused (reduced motion / industrial UI)
     Hidden     ///< Never rendered
@@ -566,17 +566,15 @@ struct CursorConfig {
     float width{1.5f};          ///< Caret line width in pixels
 };
 
-
-
 /// Universal 1D/2D orientation for layout and components (ScrollArea, Splitter, Slider, Separator).
-enum class Orientation : uint8_t {
+enum class Orientation : keel::u8 {
     Vertical,
     Horizontal,
     Both
 };
 
 /// Universal conditional visibility policy (Scrollbars, ClearButtons, Headers, Legends).
-enum class VisibilityPolicy : uint8_t {
+enum class VisibilityPolicy : keel::u8 {
     Auto,    ///< Context-dependent / shown when needed (e.g. on overflow, content presence, hover)
     Always,  ///< Unconditionally shown
     Never    ///< Suppressed / never rendered
@@ -614,7 +612,7 @@ public:
     [[nodiscard]] constexpr auto begin() const noexcept { return m_span.begin(); }
     [[nodiscard]] constexpr auto end() const noexcept { return m_span.end(); }
     [[nodiscard]] constexpr bool empty() const noexcept { return m_span.empty(); }
-    [[nodiscard]] constexpr size_t size() const noexcept { return m_span.size(); }
+    [[nodiscard]] constexpr keel::usize size() const noexcept { return m_span.size(); }
     [[nodiscard]] constexpr keel::ArrayRef<keel::StringRef> span() const noexcept { return m_span; }
 
     [[nodiscard]] constexpr bool operator==(const TextVariants& other) const noexcept {
@@ -631,10 +629,10 @@ static_assert(sizeof(TextVariants) == 2 * sizeof(void*), "TextVariants must rema
 template <typename C>
 concept WritableIndexList =
     !keel::IsConst<C> &&
-    requires(C& c, const C& cc, size_t v) {
-        { c.data() } -> keel::SameAs<size_t*>;
-        { cc.data() } -> keel::SameAs<const size_t*>;
-        { cc.size() } -> keel::SameAs<size_t>;
+    requires(C& c, const C& cc, keel::usize v) {
+        { c.data() } -> keel::SameAs<keel::usize*>;
+        { cc.data() } -> keel::SameAs<const keel::usize*>;
+        { cc.size() } -> keel::SameAs<keel::usize>;
         c.push_back(v);
         c.pop_back();
         c.clear();
@@ -644,9 +642,9 @@ concept WritableIndexList =
 class IndexListSink {
 public:
     struct Ops {
-        keel::MutArrayRef<size_t> (*view_fn)(void* obj) noexcept;
-        void (*push_fn)(void* obj, size_t val);
-        void (*erase_at_fn)(void* obj, size_t idx);
+        keel::MutArrayRef<keel::usize> (*view_fn)(void* obj) noexcept;
+        void (*push_fn)(void* obj, keel::usize val);
+        void (*erase_at_fn)(void* obj, keel::usize idx);
         void (*clear_fn)(void* obj);
     };
 
@@ -667,27 +665,27 @@ public:
     [[nodiscard]] constexpr bool operator==(decltype(nullptr)) const noexcept { return !has_target(); }
     [[nodiscard]] constexpr bool operator!=(decltype(nullptr)) const noexcept { return has_target(); }
 
-    [[nodiscard]] keel::ArrayRef<size_t> as_ref() const noexcept {
+    [[nodiscard]] keel::ArrayRef<keel::usize> as_ref() const noexcept {
         if (!has_target()) return {};
-        const keel::MutArrayRef<size_t> m = m_ops->view_fn(m_obj);
-        return keel::ArrayRef<size_t>(m.data(), m.size());
+        const keel::MutArrayRef<keel::usize> m = m_ops->view_fn(m_obj);
+        return keel::ArrayRef<keel::usize>(m.data(), m.size());
     }
 
-    [[nodiscard]] keel::MutArrayRef<size_t> as_mut_ref() const noexcept {
-        return has_target() ? m_ops->view_fn(m_obj) : keel::MutArrayRef<size_t>{};
+    [[nodiscard]] keel::MutArrayRef<keel::usize> as_mut_ref() const noexcept {
+        return has_target() ? m_ops->view_fn(m_obj) : keel::MutArrayRef<keel::usize>{};
     }
 
-    [[nodiscard]] size_t size() const noexcept { return as_ref().size(); }
+    [[nodiscard]] keel::usize size() const noexcept { return as_ref().size(); }
     [[nodiscard]] bool empty() const noexcept { return as_ref().empty(); }
-    [[nodiscard]] const size_t* begin() const noexcept { return as_ref().begin(); }
-    [[nodiscard]] const size_t* end() const noexcept { return as_ref().end(); }
-    [[nodiscard]] size_t& operator[](size_t i) const noexcept { return as_mut_ref()[i]; }
+    [[nodiscard]] const keel::usize* begin() const noexcept { return as_ref().begin(); }
+    [[nodiscard]] const keel::usize* end() const noexcept { return as_ref().end(); }
+    [[nodiscard]] keel::usize& operator[](keel::usize i) const noexcept { return as_mut_ref()[i]; }
 
-    void push_back(size_t val) const {
+    void push_back(keel::usize val) const {
         if (has_target()) m_ops->push_fn(m_obj, val);
     }
 
-    void erase_at(size_t idx) const {
+    void erase_at(keel::usize idx) const {
         if (has_target()) m_ops->erase_at_fn(m_obj, idx);
     }
 
@@ -699,23 +697,23 @@ private:
     template <WritableIndexList C>
     static const Ops& ops_for() noexcept {
         static constexpr Ops kOps{
-            +[](void* obj) noexcept -> keel::MutArrayRef<size_t> {
+            +[](void* obj) noexcept -> keel::MutArrayRef<keel::usize> {
                 auto& c = *static_cast<C*>(obj);
-                return keel::MutArrayRef<size_t>(c.data(), c.size());
+                return keel::MutArrayRef<keel::usize>(c.data(), c.size());
             },
-            +[](void* obj, size_t val) {
+            +[](void* obj, keel::usize val) {
                 auto& c = *static_cast<C*>(obj);
                 if constexpr (requires(const C& cc) { cc.full(); }) {
                     if (c.full()) return;
                 }
                 c.push_back(val);
             },
-            +[](void* obj, size_t idx) {
+            +[](void* obj, keel::usize idx) {
                 auto& c = *static_cast<C*>(obj);
-                const size_t n = c.size();
+                const keel::usize n = c.size();
                 if (idx >= n) return;
-                size_t* p = c.data();
-                for (size_t i = idx + 1; i < n; ++i) {
+                keel::usize* p = c.data();
+                for (keel::usize i = idx + 1; i < n; ++i) {
                     p[i - 1] = p[i];
                 }
                 c.pop_back();
@@ -739,7 +737,7 @@ namespace literals {
 } // namespace literals
 
 /// Universal design token scale for density, typography, spacing, and component dimensions.
-enum class UiSize : uint8_t {
+enum class UiSize : keel::u8 {
     None = 0, ///< Zero / unpadded / no gap / square corners
     Xs,       ///< Extra Small (compact toolbars, inline badges, dense data tables)
     Sm,       ///< Small (secondary panels, compact forms)
@@ -749,7 +747,7 @@ enum class UiSize : uint8_t {
 };
 
 /// Direction of primary layout axis.
-enum class FlexDirection : uint8_t {
+enum class FlexDirection : keel::u8 {
     Row,    ///< Children laid out horizontally from left to right
     Column, ///< Children laid out vertically from top to bottom
     Wrap,   ///< Children laid out horizontally and wrapped to subsequent lines upon overflow
@@ -757,21 +755,21 @@ enum class FlexDirection : uint8_t {
 };
 
 /// Sizing policy along an axis.
-enum class SizeMode : uint8_t {
+enum class SizeMode : keel::u8 {
     Stretch,    ///< Expands to fill available space allocated by parent container
     Fit,        ///< Shrinks to hug content / intrinsic child sizes
     Fixed       ///< Explicit dimension in points
 };
 
 /// Stretch layout behavior for composite widgets containing labels and interactive controls.
-enum class StretchMode : uint8_t {
+enum class StretchMode : keel::u8 {
     Compact, ///< Compact intrinsic size based on content (no row stretching)
     Space,   ///< Row stretches full width; control stays compact and extra space becomes air/gap
     Fill     ///< Row stretches full width; control stretches to fill all remaining available space
 };
 
 /// Alignment along the cross axis (perpendicular to FlexDirection).
-enum class Alignment : uint8_t {
+enum class Alignment : keel::u8 {
     Start,      ///< Align to start of cross axis (Top in Row, Left in Column)
     Center,     ///< Center along cross axis
     End,        ///< Align to end of cross axis (Bottom in Row, Right in Column)
@@ -782,7 +780,7 @@ enum class Alignment : uint8_t {
 using Align = Alignment;
 
 /// Distribution along the main axis (parallel to FlexDirection) when space is not fully stretched.
-enum class Justify : uint8_t {
+enum class Justify : keel::u8 {
     Start,          ///< Pack children at start of main axis
     Center,         ///< Center children along main axis
     End,            ///< Pack children at end of main axis
@@ -790,7 +788,7 @@ enum class Justify : uint8_t {
 };
 
 /// Content fitting policy within a target bounding box (Image, Scene, Video).
-enum class ObjectFit : uint8_t {
+enum class ObjectFit : keel::u8 {
     Contain,    ///< Scale uniformly to fit entirely inside destination bounds (default)
     Cover,      ///< Scale uniformly to fill destination bounds completely (cropping excess)
     Fill,       ///< Stretch non-uniformly to match destination width and height

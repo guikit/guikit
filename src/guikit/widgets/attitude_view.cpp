@@ -161,7 +161,7 @@ void DrawConvexPolygonFilled(ICanvas& canvas, keel::ArrayRef<Vec2> poly, Color f
     center.x *= invN;
     center.y *= invN;
 
-    for (size_t i = 0; i < poly.size(); ++i) {
+    for (keel::usize i = 0; i < poly.size(); ++i) {
         const Vec2& a = poly[i];
         const Vec2& b = poly[(i + 1) % poly.size()];
         canvas.DrawTriangle(center, a, b, fill);
@@ -177,10 +177,10 @@ void DrawConvexPolygonFilled(ICanvas& canvas, keel::ArrayRef<Vec2> poly, Color f
     keel::SmallArray<Vec2, 64> pts;
     const Vec2 c = horizonRect.Center();
     if (viewportMode == AttitudeViewportMode::Circular) {
-        constexpr int kSteps = 48;
+        constexpr keel::i32 kSteps = 48;
         pts.reserve(kSteps);
         const float r = keel::min(horizonRect.w, horizonRect.h) * 0.5f;
-        for (int i = 0; i < kSteps; ++i) {
+        for (keel::i32 i = 0; i < kSteps; ++i) {
             const float a = (static_cast<float>(i) / kSteps) * 2.0f * kPi;
             pts.push_back({c.x + std::cos(a) * r, c.y + std::sin(a) * r});
         }
@@ -205,7 +205,7 @@ void DrawConvexPolygonFilled(ICanvas& canvas, keel::ArrayRef<Vec2> poly, Color f
     const float x1 = horizonRect.Right() - cornerR;
     const float y0 = horizonRect.y + cornerR;
     const float y1 = horizonRect.Bottom() - cornerR;
-    constexpr int kArcSteps = 8;
+    constexpr keel::i32 kArcSteps = 8;
     pts.reserve(kArcSteps * 4 + 4);
 
     const keel::StaticArray<Vec2, 4> centers = {
@@ -216,8 +216,8 @@ void DrawConvexPolygonFilled(ICanvas& canvas, keel::ArrayRef<Vec2> poly, Color f
     };
     const keel::StaticArray<float, 4> startAngles = {-0.5f * kPi, 0.0f, 0.5f * kPi, kPi};
 
-    for (size_t corner = 0; corner < 4; ++corner) {
-        for (int s = 0; s <= kArcSteps; ++s) {
+    for (keel::usize corner = 0; corner < 4; ++corner) {
+        for (keel::i32 s = 0; s <= kArcSteps; ++s) {
             const float a = startAngles[corner] + (static_cast<float>(s) / kArcSteps) * (0.5f * kPi);
             pts.push_back({
                 centers[corner].x + std::cos(a) * cornerR,
@@ -253,10 +253,10 @@ void DrawConvexPolygonFilled(ICanvas& canvas, keel::ArrayRef<Vec2> poly, Color f
     return true;
 }
 
-void DrawCircleOutline(ICanvas& canvas, Vec2 center, float radius, Color stroke, float strokeWidth = 1.5f, int steps = 36) noexcept {
+void DrawCircleOutline(ICanvas& canvas, Vec2 center, float radius, Color stroke, float strokeWidth = 1.5f, keel::i32 steps = 36) noexcept {
     if (radius <= 0.5f || stroke.a == 0) return;
     Vec2 prev{center.x + radius, center.y};
-    for (int i = 1; i <= steps; ++i) {
+    for (keel::i32 i = 1; i <= steps; ++i) {
         const float a = (static_cast<float>(i) / steps) * 2.0f * kPi;
         const Vec2 curr{center.x + std::cos(a) * radius, center.y + std::sin(a) * radius};
         canvas.DrawLine(prev, curr, stroke, strokeWidth);
@@ -264,11 +264,11 @@ void DrawCircleOutline(ICanvas& canvas, Vec2 center, float radius, Color stroke,
     }
 }
 
-void DrawFilledCircle(ICanvas& canvas, Vec2 center, float radius, Color fill, Color stroke = Color::Transparent(), float strokeWidth = 0.0f, int steps = 28) noexcept {
+void DrawFilledCircle(ICanvas& canvas, Vec2 center, float radius, Color fill, Color stroke = Color::Transparent(), float strokeWidth = 0.0f, keel::i32 steps = 28) noexcept {
     if (radius <= 0.5f) return;
     if (fill.a > 0) {
         Vec2 prev{center.x + radius, center.y};
-        for (int i = 1; i <= steps; ++i) {
+        for (keel::i32 i = 1; i <= steps; ++i) {
             const float a = (static_cast<float>(i) / steps) * 2.0f * kPi;
             const Vec2 curr{center.x + std::cos(a) * radius, center.y + std::sin(a) * radius};
             canvas.DrawTriangle(center, prev, curr, fill);
@@ -326,7 +326,7 @@ void DrawPitchLadder(
         }
     };
 
-    for (int halfSteps = -34; halfSteps <= 34; ++halfSteps) {
+    for (keel::i32 halfSteps = -34; halfSteps <= 34; ++halfSteps) {
         if (halfSteps == 0) continue; // Horizon line is drawn across full sphere
         const float deg = static_cast<float>(halfSteps) * 2.5f;
         if (std::abs(deg - pitchDeg) * pxPerDeg > ladderClipR * 1.15f) continue;
@@ -345,7 +345,7 @@ void DrawPitchLadder(
         // Tips point toward the horizon: for deg > 0, toward +n (downward); for deg < 0, toward -n (upward)
         const float tipPitchDelta = (deg > 0.0f) ? (-tipLen / pxPerDeg) : (+tipLen / pxPerDeg);
 
-        for (int side = -1; side <= 1; side += 2) {
+        for (keel::i32 side = -1; side <= 1; side += 2) {
             const float s = static_cast<float>(side);
             const float xInner = s * innerGap;
             const float xOuter = s * outerSpan;
@@ -370,13 +370,13 @@ void DrawPitchLadder(
 
         // Degree labels on both sides of 10-degree bars
         if (isTen) {
-            const int absDeg = static_cast<int>(std::round(std::abs(deg)));
+            const keel::i32 absDeg = static_cast<keel::i32>(std::round(std::abs(deg)));
             char buf[8];
             const keel::StringRef lbl = keel::format_buf(buf, "%d", absDeg);
             const float fontSize = keel::clamp(clipRadius * 0.072f, 9.5f, 12.5f);
             const Vec2 textSz = canvas.MeasureText(lbl, fontSize);
 
-            for (int side = -1; side <= 1; side += 2) {
+            for (keel::i32 side = -1; side <= 1; side += 2) {
                 const float labelX = static_cast<float>(side) * (outerSpan + textSz.x * 0.7f + 5.0f);
                 const Vec2 pt = toScreen(labelX, deg);
                 const float dx = pt.x - center.x;
@@ -400,7 +400,7 @@ void DrawPitchLadder(
     }
 
     // Zenith (+90 deg) and Nadir (-90 deg) reticles
-    for (int pole = -1; pole <= 1; pole += 2) {
+    for (keel::i32 pole = -1; pole <= 1; pole += 2) {
         const float poleDeg = static_cast<float>(pole) * 90.0f;
         const Vec2 pt = toScreen(0.0f, poleDeg);
         const float dx = pt.x - center.x;
@@ -429,12 +429,12 @@ void DrawBankScale(
     const float arcR = radius * 0.85f;
 
     // 1. Upper bank arc from -60 to +60 deg (where 0 deg is straight up at -pi/2)
-    constexpr int kArcSegments = 36;
+    constexpr keel::i32 kArcSegments = 36;
     Vec2 prev{
         center.x + std::sin(-60.0f * kDegToRad) * arcR,
         center.y - std::cos(-60.0f * kDegToRad) * arcR
     };
-    for (int i = 1; i <= kArcSegments; ++i) {
+    for (keel::i32 i = 1; i <= kArcSegments; ++i) {
         const float deg = -60.0f + (static_cast<float>(i) / kArcSegments) * 120.0f;
         const float rad = deg * kDegToRad;
         const Vec2 curr{
@@ -446,8 +446,8 @@ void DrawBankScale(
     }
 
     // 2. Bank scale radial ticks at +-10, +-20, +-30, +-45, +-60 deg
-    constexpr keel::StaticArray<int, 10> kTicks = {-60, -45, -30, -20, -10, 10, 20, 30, 45, 60};
-    for (int tDeg : kTicks) {
+    constexpr keel::StaticArray<keel::i32, 10> kTicks = {-60, -45, -30, -20, -10, 10, 20, 30, 45, 60};
+    for (keel::i32 tDeg : kTicks) {
         const float rad = static_cast<float>(tDeg) * kDegToRad;
         const float s = std::sin(rad);
         const float c = std::cos(rad);
@@ -572,7 +572,7 @@ void DrawFlightDirectorAndFpv(
         const float wingDrop = radius * 0.085f;
         const float wingThick = radius * 0.036f;
 
-        for (int side = -1; side <= 1; side += 2) {
+        for (keel::i32 side = -1; side <= 1; side += 2) {
             const float s = static_cast<float>(side);
             const Vec2 pTip{
                 apex.x + s * (radius * 0.035f) * u.x,
@@ -637,7 +637,7 @@ void DrawAircraftReferenceSymbol(
         const float barH = keel::max(3.2f, radius * 0.022f);
         const float dropH = radius * 0.065f;
 
-        for (int side = -1; side <= 1; side += 2) {
+        for (keel::i32 side = -1; side <= 1; side += 2) {
             const float s = static_cast<float>(side);
             // Horizontal wing bar
             DrawQuadFilled(
@@ -672,10 +672,10 @@ void DrawAircraftReferenceSymbol(
             pt(+radius * 0.16f, 0.0f),
             pt(+radius * 0.36f, 0.0f)
         };
-        for (size_t i = 0; i + 1 < wPts.size(); ++i) {
+        for (keel::usize i = 0; i + 1 < wPts.size(); ++i) {
             canvas.DrawLine(wPts[i], wPts[i + 1], pal.aircraftStroke, 5.0f);
         }
-        for (size_t i = 0; i + 1 < wPts.size(); ++i) {
+        for (keel::usize i = 0; i + 1 < wPts.size(); ++i) {
             canvas.DrawLine(wPts[i], wPts[i + 1], pal.aircraftFill, 2.8f);
         }
     } else {
@@ -720,8 +720,8 @@ void DrawAirspeedTape(
     canvas.PushClip(bodyRect);
 
     const float curIas = keel::max(0.0f, opts.airspeedKnots);
-    const int minKt = keel::max(0, static_cast<int>(std::floor((curIas - 55.0f) / 5.0f)) * 5);
-    const int maxKt = static_cast<int>(std::ceil((curIas + 55.0f) / 5.0f)) * 5;
+    const keel::i32 minKt = keel::max(0, static_cast<keel::i32>(std::floor((curIas - 55.0f) / 5.0f)) * 5);
+    const keel::i32 maxKt = static_cast<keel::i32>(std::ceil((curIas + 55.0f) / 5.0f)) * 5;
 
     // Speed envelope colored strips along right edge of tape (Red stall < 110 kt, Green 135..310 kt, Red Vmo > 330 kt)
     auto ktToY = [&](float kt) noexcept -> float {
@@ -748,7 +748,7 @@ void DrawAirspeedTape(
     }
 
     // Ticks every 5 knots, numbers every 10 knots
-    for (int kt = minKt; kt <= maxKt; kt += 5) {
+    for (keel::i32 kt = minKt; kt <= maxKt; kt += 5) {
         const float y = ktToY(static_cast<float>(kt));
         if (y < bodyRect.y - 8.0f || y > bodyRect.Bottom() + 8.0f) continue;
 
@@ -798,7 +798,7 @@ void DrawAirspeedTape(
     canvas.DrawRoundRect(botBox, 3.0f, Color(9, 13, 24, 235), pal.tapeBorder, 1.0f);
     char machBuf[24];
     canvas.DrawTextBox(
-        keel::format_buf(machBuf, "M .%03d", keel::clamp(static_cast<int>(std::round(opts.machNumber * 1000.0f)), 0, 999)),
+        keel::format_buf(machBuf, "M .%03d", keel::clamp(static_cast<keel::i32>(std::round(opts.machNumber * 1000.0f)), 0, 999)),
         botBox,
         10.5f,
         pal.fmaGreen,
@@ -836,14 +836,14 @@ void DrawAltitudeAndVsiTape(
     canvas.PushClip(altBody);
 
     const float curAlt = opts.altitudeFeet;
-    const int minFt = static_cast<int>(std::floor((curAlt - 550.0f) / 20.0f)) * 20;
-    const int maxFt = static_cast<int>(std::ceil((curAlt + 550.0f) / 20.0f)) * 20;
+    const keel::i32 minFt = static_cast<keel::i32>(std::floor((curAlt - 550.0f) / 20.0f)) * 20;
+    const keel::i32 maxFt = static_cast<keel::i32>(std::ceil((curAlt + 550.0f) / 20.0f)) * 20;
 
     auto ftToY = [&](float ft) noexcept -> float {
         return midY - (ft - curAlt) * pxPerFoot;
     };
 
-    for (int ft = minFt; ft <= maxFt; ft += 20) {
+    for (keel::i32 ft = minFt; ft <= maxFt; ft += 20) {
         const float y = ftToY(static_cast<float>(ft));
         if (y < altBody.y - 8.0f || y > altBody.Bottom() + 8.0f) continue;
 
@@ -912,8 +912,8 @@ void DrawAltitudeAndVsiTape(
         return vsiMidY - sign * norm * vsiHalfH;
     };
 
-    constexpr keel::StaticArray<int, 7> kVsiMarks = {-4000, -2000, -1000, 0, 1000, 2000, 4000};
-    for (int fpm : kVsiMarks) {
+    constexpr keel::StaticArray<keel::i32, 7> kVsiMarks = {-4000, -2000, -1000, 0, 1000, 2000, 4000};
+    for (keel::i32 fpm : kVsiMarks) {
         const float y = fpmToY(static_cast<float>(fpm));
         const bool isZero = (fpm == 0);
         canvas.DrawLine({vsiRect.x, y}, {vsiRect.x + (isZero ? 8.0f : 5.0f), y}, pal.tapeTick, isZero ? 1.6f : 1.1f);
@@ -954,14 +954,14 @@ void DrawHeadingTape(
     const float midX = hdgRect.x + hdgRect.w * 0.5f;
     const float pxPerDeg = hdgRect.w / 70.0f; // +-35 deg visible compass span
 
-    const int baseFive = static_cast<int>(std::floor(curHdg / 5.0f)) * 5;
-    for (int offset = -40; offset <= 40; offset += 5) {
-        const int rawDeg = baseFive + offset;
+    const keel::i32 baseFive = static_cast<keel::i32>(std::floor(curHdg / 5.0f)) * 5;
+    for (keel::i32 offset = -40; offset <= 40; offset += 5) {
+        const keel::i32 rawDeg = baseFive + offset;
         const float diff = SignedAngleDiffDeg(static_cast<float>(rawDeg), curHdg);
         const float x = midX + diff * pxPerDeg;
         if (x < hdgRect.x - 10.0f || x > hdgRect.Right() + 10.0f) continue;
 
-        const int normDeg = ((rawDeg % 360) + 360) % 360;
+        const keel::i32 normDeg = ((rawDeg % 360) + 360) % 360;
         const bool isTen = (normDeg % 10 == 0);
         const bool isCardinal = (normDeg % 90 == 0);
         const float tickH = isTen ? 7.5f : 4.0f;
@@ -1025,7 +1025,7 @@ void DrawIlsDeviationScales(
     canvas.DrawRoundRect(locBar, 4.0f, Color(9, 13, 24, 195), pal.tapeBorder, 1.0f);
 
     canvas.DrawLine({c.x, locY - 5.0f}, {c.x, locY + 5.0f}, pal.fmaWhite, 1.6f);
-    for (int dot = -2; dot <= 2; ++dot) {
+    for (keel::i32 dot = -2; dot <= 2; ++dot) {
         if (dot == 0) continue;
         const float dx = (static_cast<float>(dot) / 2.0f) * locHalfW;
         DrawCircleOutline(canvas, {c.x + dx, locY}, 2.4f, pal.tapeTick, 1.2f, 12);
@@ -1047,7 +1047,7 @@ void DrawIlsDeviationScales(
     canvas.DrawRoundRect(gsBar, 4.0f, Color(9, 13, 24, 195), pal.tapeBorder, 1.0f);
 
     canvas.DrawLine({gsX - 5.0f, c.y}, {gsX + 5.0f, c.y}, pal.fmaWhite, 1.6f);
-    for (int dot = -2; dot <= 2; ++dot) {
+    for (keel::i32 dot = -2; dot <= 2; ++dot) {
         if (dot == 0) continue;
         const float dy = (static_cast<float>(dot) / 2.0f) * gsHalfH;
         DrawCircleOutline(canvas, {gsX, c.y + dy}, 2.4f, pal.tapeTick, 1.2f, 12);
@@ -1074,7 +1074,7 @@ void DrawFmaBar(
     canvas.DrawRoundRect(fmaRect, 3.0f, pal.tapeBg, pal.tapeBorder, 1.0f);
 
     const float colW = fmaRect.w / 5.0f;
-    for (int i = 1; i < 5; ++i) {
+    for (keel::i32 i = 1; i < 5; ++i) {
         const float x = fmaRect.x + colW * static_cast<float>(i);
         canvas.DrawLine({x, fmaRect.y + 3.0f}, {x, fmaRect.Bottom() - 3.0f}, pal.tapeBorder, 1.0f);
     }
@@ -1503,12 +1503,12 @@ AttitudeViewResponse AttitudeView::Run(
     node->visualHash = detail::HashArgs(
         opts.background,
         opts.border,
-        static_cast<uint8_t>(opts.displayMode),
-        static_cast<uint8_t>(opts.viewportMode),
-        static_cast<uint8_t>(opts.referenceMode),
-        static_cast<uint8_t>(opts.colorScheme),
-        static_cast<uint8_t>(opts.flightDirectorStyle),
-        static_cast<uint8_t>(opts.aircraftSymbol),
+        static_cast<keel::u8>(opts.displayMode),
+        static_cast<keel::u8>(opts.viewportMode),
+        static_cast<keel::u8>(opts.referenceMode),
+        static_cast<keel::u8>(opts.colorScheme),
+        static_cast<keel::u8>(opts.flightDirectorStyle),
+        static_cast<keel::u8>(opts.aircraftSymbol),
         opts.rollDeg,
         opts.pitchDeg,
         opts.headingDeg,

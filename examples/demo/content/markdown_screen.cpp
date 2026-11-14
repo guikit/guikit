@@ -29,7 +29,7 @@ struct MarkdownDemoState {
     bool headingDividers = true;
 
     // Code Block Styling (shared with CodeEditor)
-    size_t codeSchemeIdx = 3; // Default to Dracula
+    keel::usize codeSchemeIdx = 3; // Default to Dracula
     static constexpr keel::StaticArray<keel::StringRef, 8> codeSchemeLabels = {
         "Theme Default",
         "VS Code Dark+",
@@ -53,13 +53,13 @@ struct MarkdownDemoState {
 
     // Status feedback
     keel::String lastClickedLink{};
-    int lastToggledTask = -1;
+    keel::i32 lastToggledTask = -1;
     bool lastToggledChecked = false;
-    int searchMatches = 0;
+    keel::i32 searchMatches = 0;
 };
 MarkdownDemoState s_state;
 
-keel::Optional<guikit::SyntaxPalette> ResolveCodePalette(size_t idx) noexcept {
+keel::Optional<guikit::SyntaxPalette> ResolveCodePalette(keel::usize idx) noexcept {
     switch (idx) {
         case 1: return guikit::SyntaxPalette::VsCodeDark();
         case 2: return guikit::SyntaxPalette::Monokai();
@@ -72,7 +72,7 @@ keel::Optional<guikit::SyntaxPalette> ResolveCodePalette(size_t idx) noexcept {
     }
 }
 
-keel::StringRef CodePaletteExpr(size_t idx) noexcept {
+keel::StringRef CodePaletteExpr(keel::usize idx) noexcept {
     switch (idx) {
         case 1: return "guikit::SyntaxPalette::VsCodeDark()";
         case 2: return "guikit::SyntaxPalette::Monokai()";

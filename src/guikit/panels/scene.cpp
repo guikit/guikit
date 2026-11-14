@@ -16,11 +16,11 @@ namespace {
 
 // Fast fingerprint of a pixel buffer for damage tracking (two pixels per multiply-xorshift step;
 // byte-wise FNV is too slow for megapixel images every frame)
-uint64_t HashPixelBuffer(const uint32_t* px, size_t count, uint64_t hash) noexcept {
-    constexpr uint64_t kMul = 0x9E3779B97F4A7C15ull;
-    size_t i = 0;
+keel::u64 HashPixelBuffer(const keel::u32* px, keel::usize count, keel::u64 hash) noexcept {
+    constexpr keel::u64 kMul = 0x9E3779B97F4A7C15ull;
+    keel::usize i = 0;
     for (; i + 1 < count; i += 2) {
-        const uint64_t w = static_cast<uint64_t>(px[i]) | (static_cast<uint64_t>(px[i + 1]) << 32);
+        const keel::u64 w = static_cast<keel::u64>(px[i]) | (static_cast<keel::u64>(px[i + 1]) << 32);
         hash = (hash ^ w) * kMul;
         hash ^= hash >> 29;
     }
@@ -196,8 +196,8 @@ HudLayout ComputeHudLayout(Rect vp, const UiTheme& theme, bool hasHScroll, bool 
 
 SceneItemScope::SceneItemScope(
     SceneScope* scene,
-    int32_t itemIndex,
-    int32_t prevItemIndex,
+    keel::i32 itemIndex,
+    keel::i32 prevItemIndex,
     bool hovered,
     bool selected,
     bool clicked,
@@ -244,17 +244,17 @@ SceneItemScope SceneScope::Item(const SceneItemOptions& opts) {
         return SceneItemScope(nullptr, -1, -1, false, false, false);
     }
 
-    const int32_t prevIdx = m_payload->activeItemIndex;
-    const int32_t newIdx = static_cast<int32_t>(m_payload->items.size());
+    const keel::i32 prevIdx = m_payload->activeItemIndex;
+    const keel::i32 newIdx = static_cast<keel::i32>(m_payload->items.size());
 
-    uint64_t baseKey = detail::HashStringView(opts.id.empty() ? opts.title : opts.id);
+    keel::u64 baseKey = detail::HashStringView(opts.id.empty() ? opts.title : opts.id);
     if (baseKey == 0) {
-        baseKey = detail::HashArgs(static_cast<uint32_t>(newIdx + 1));
+        baseKey = detail::HashArgs(static_cast<keel::u32>(newIdx + 1));
     }
     // Disambiguate if another item in the same scene shares the same base string key
-    uint64_t key = baseKey;
+    keel::u64 key = baseKey;
     if (m_payload->items.size() < 256) {
-        uint32_t dupCount = 0;
+        keel::u32 dupCount = 0;
         for (const SceneItemInfo& existing : m_payload->items) {
             if (existing.key == key) {
                 ++dupCount;
@@ -286,7 +286,7 @@ SceneItemScope SceneScope::Item(const SceneItemOptions& opts) {
     info.id = m_ctx->AllocString(opts.id);
     info.title = m_ctx->AllocString(opts.title);
     info.category = m_ctx->AllocString(opts.category);
-    info.firstCmdIndex = static_cast<int32_t>(m_payload->drawCmds.size());
+    info.firstCmdIndex = static_cast<keel::i32>(m_payload->drawCmds.size());
     info.hasExplicitBounds = opts.hitRect.has_value();
     info.worldBounds = opts.hitRect.value_or(Rect{});
     info.selectable = opts.selectable;
@@ -304,11 +304,11 @@ SceneItemScope SceneScope::Item(const SceneItemOptions& opts) {
 }
 
 void SceneScope::PushCmd(const SceneDrawCmd& cmd) noexcept {
-    uint64_t h = m_payload->contentHash;
-    const uint8_t type = static_cast<uint8_t>(cmd.type);
-    const uint8_t style = static_cast<uint8_t>(cmd.fontStyle);
-    const uint32_t fill = cmd.fill.ToUint32();
-    const uint32_t stroke = cmd.stroke.ToUint32();
+    keel::u64 h = m_payload->contentHash;
+    const keel::u8 type = static_cast<keel::u8>(cmd.type);
+    const keel::u8 style = static_cast<keel::u8>(cmd.fontStyle);
+    const keel::u32 fill = cmd.fill.ToUint32();
+    const keel::u32 stroke = cmd.stroke.ToUint32();
     const float geom[] = {cmd.rect.x, cmd.rect.y, cmd.rect.w, cmd.rect.h, cmd.p1.x, cmd.p1.y, cmd.p2.x, cmd.p2.y,
                           cmd.p3.x, cmd.p3.y, cmd.radius, cmd.strokeWidth, cmd.fontSize, cmd.alignX, cmd.alignY,
                           cmd.angleDeg};
@@ -325,15 +325,15 @@ void SceneScope::PushCmd(const SceneDrawCmd& cmd) noexcept {
     m_payload->drawCmds.push_back(cmd);
 }
 
-void SceneScope::FinalizeItem(int32_t itemIndex, int32_t prevItemIndex) noexcept {
+void SceneScope::FinalizeItem(keel::i32 itemIndex, keel::i32 prevItemIndex) noexcept {
     if (!m_payload) return;
     m_payload->activeItemIndex = prevItemIndex;
 
-    if (itemIndex < 0 || itemIndex >= static_cast<int32_t>(m_payload->items.size())) {
+    if (itemIndex < 0 || itemIndex >= static_cast<keel::i32>(m_payload->items.size())) {
         return;
     }
 
-    SceneItemInfo& item = m_payload->items[static_cast<size_t>(itemIndex)];
+    SceneItemInfo& item = m_payload->items[static_cast<keel::usize>(itemIndex)];
     if (item.hasExplicitBounds) {
         return;
     }
@@ -355,9 +355,9 @@ void SceneScope::FinalizeItem(int32_t itemIndex, int32_t prevItemIndex) noexcept
         expandPt({r.Right(), r.Bottom()});
     };
 
-    const int32_t cmdCount = static_cast<int32_t>(m_payload->drawCmds.size());
-    for (int32_t i = item.firstCmdIndex; i < cmdCount; ++i) {
-        const SceneDrawCmd& cmd = m_payload->drawCmds[static_cast<size_t>(i)];
+    const keel::i32 cmdCount = static_cast<keel::i32>(m_payload->drawCmds.size());
+    for (keel::i32 i = item.firstCmdIndex; i < cmdCount; ++i) {
+        const SceneDrawCmd& cmd = m_payload->drawCmds[static_cast<keel::usize>(i)];
         if (cmd.itemIndex != itemIndex) continue;
 
         switch (cmd.type) {
@@ -384,8 +384,8 @@ void SceneScope::FinalizeItem(int32_t itemIndex, int32_t prevItemIndex) noexcept
 
     // Fallback if the item consists solely of text commands
     if (!hasGeom) {
-        for (int32_t i = item.firstCmdIndex; i < cmdCount; ++i) {
-            const SceneDrawCmd& cmd = m_payload->drawCmds[static_cast<size_t>(i)];
+        for (keel::i32 i = item.firstCmdIndex; i < cmdCount; ++i) {
+            const SceneDrawCmd& cmd = m_payload->drawCmds[static_cast<keel::usize>(i)];
             if (cmd.itemIndex != itemIndex) continue;
             if (cmd.type == SceneDrawCmd::Type::TextBox) {
                 expandRect(cmd.rect);
@@ -424,7 +424,7 @@ const SceneItemInfo* SceneScope::GetHoveredItem() const noexcept {
     return nullptr;
 }
 
-size_t SceneScope::GetSelectedCount() const noexcept {
+keel::usize SceneScope::GetSelectedCount() const noexcept {
     return (m_payload && m_payload->state) ? m_payload->state->selectedItemKeys.size() : 0;
 }
 
@@ -438,7 +438,7 @@ void SceneScope::ClearSelection() noexcept {
 
 void SceneScope::SelectItem(keel::StringRef id, bool addToSelection) noexcept {
     if (!m_payload || !m_payload->state || id.empty()) return;
-    const uint64_t key = detail::HashStringView(id);
+    const keel::u64 key = detail::HashStringView(id);
     if (!addToSelection) {
         m_payload->state->selectedItemKeys.clear();
     }
@@ -571,7 +571,7 @@ bool SceneScope::IsHovered() const noexcept {
     return true;
 }
 
-bool SceneScope::WasClicked(int button) const noexcept {
+bool SceneScope::WasClicked(keel::i32 button) const noexcept {
     if (!IsHovered() || !m_ctx) return false;
     if (button == 1) return m_ctx->IsMouseClicked();
     if (button == 2) return m_ctx->IsMiddleMouseClicked();
@@ -583,7 +583,7 @@ void SceneScope::DrawImage(
     keel::StringRef source,
     Rect worldRect,
     float radius,
-    uint8_t opacity
+    keel::u8 opacity
 ) {
     if (!m_ctx || !m_payload || source.empty()) return;
     SceneDrawCmd cmd{};
@@ -597,18 +597,18 @@ void SceneScope::DrawImage(
 }
 
 void SceneScope::DrawPixels(
-    const uint32_t* pixels,
-    uint32_t width,
-    uint32_t height,
+    const keel::u32* pixels,
+    keel::u32 width,
+    keel::u32 height,
     Rect worldRect,
     float radius,
-    uint8_t opacity,
-    uint64_t contentVersion
+    keel::u8 opacity,
+    keel::u64 contentVersion
 ) {
     if (!m_payload || !pixels || width == 0 || height == 0) return;
     m_payload->contentHash = contentVersion != 0
         ? detail::HashInt64(contentVersion, m_payload->contentHash)
-        : HashPixelBuffer(pixels, static_cast<size_t>(width) * height, m_payload->contentHash);
+        : HashPixelBuffer(pixels, static_cast<keel::usize>(width) * height, m_payload->contentHash);
     SceneDrawCmd cmd{};
     cmd.type = SceneDrawCmd::Type::Pixels;
     cmd.itemIndex = m_payload->activeItemIndex;
@@ -622,16 +622,16 @@ void SceneScope::DrawPixels(
 }
 
 void SceneScope::DrawPixels(
-    keel::ArrayRef<uint32_t> pixels,
-    uint32_t width,
-    uint32_t height,
+    keel::ArrayRef<keel::u32> pixels,
+    keel::u32 width,
+    keel::u32 height,
     Rect worldRect,
     float radius,
-    uint8_t opacity,
-    uint64_t contentVersion
+    keel::u8 opacity,
+    keel::u64 contentVersion
 ) {
     if (pixels.empty() || width == 0 || height == 0) return;
-    if (pixels.size() < static_cast<size_t>(width) * height) return;
+    if (pixels.size() < static_cast<keel::usize>(width) * height) return;
     DrawPixels(pixels.data(), width, height, worldRect, radius, opacity, contentVersion);
 }
 
@@ -699,7 +699,7 @@ void SceneScope::DrawArc(
     float sweepAngleDeg,
     Color color,
     float strokeWidth,
-    int segments
+    keel::i32 segments
 ) {
     if (!m_payload || worldRadius <= 0.0f || segments < 2 || std::abs(sweepAngleDeg) < 0.01f) return;
     constexpr float kDegToRad = 3.14159265358979323846f / 180.0f;
@@ -710,7 +710,7 @@ void SceneScope::DrawArc(
         worldCenter.x + std::cos(startRad) * worldRadius,
         worldCenter.y + std::sin(startRad) * worldRadius
     };
-    for (int i = 1; i <= segments; ++i) {
+    for (keel::i32 i = 1; i <= segments; ++i) {
         const float ang = startRad + stepRad * static_cast<float>(i);
         const Vec2 cur{
             worldCenter.x + std::cos(ang) * worldRadius,
@@ -740,7 +740,7 @@ void SceneScope::DrawPolyline(
     bool closed
 ) {
     if (!m_payload || points.size() < 2) return;
-    for (size_t i = 0; i + 1 < points.size(); ++i) {
+    for (keel::usize i = 0; i + 1 < points.size(); ++i) {
         DrawLine(points[i], points[i + 1], color, strokeWidth);
     }
     if (closed && points.size() >= 3) {
@@ -756,7 +756,7 @@ void SceneScope::DrawPolygon(
 ) {
     if (!m_payload || points.size() < 3) return;
     if (fill.a > 0) {
-        for (size_t i = 1; i + 1 < points.size(); ++i) {
+        for (keel::usize i = 1; i + 1 < points.size(); ++i) {
             DrawTriangle(points[0], points[i], points[i + 1], fill);
         }
     }
@@ -1232,13 +1232,13 @@ SceneScope Scene::OpenWithId(
         optsCopy.fitPadding.top,
         optsCopy.fitPadding.right,
         optsCopy.fitPadding.bottom,
-        static_cast<uint8_t>(optsCopy.initialFit),
-        static_cast<uint8_t>(optsCopy.backgroundStyle),
+        static_cast<keel::u8>(optsCopy.initialFit),
+        static_cast<keel::u8>(optsCopy.backgroundStyle),
         optsCopy.gridStep,
         optsCopy.background,
         optsCopy.border,
-        static_cast<uint8_t>(optsCopy.stretch),
-        static_cast<uint8_t>(optsCopy.heightMode),
+        static_cast<keel::u8>(optsCopy.stretch),
+        static_cast<keel::u8>(optsCopy.heightMode),
         optsCopy.width.value_or(0.0f),
         optsCopy.height.value_or(0.0f),
         optsCopy.showScrollbars,
@@ -1335,7 +1335,7 @@ void Scene::Update(Context& ctx, Node* node) {
     };
 
     // Spatial Hit-Testing for SceneItems (smallest-area / topmost priority)
-    const uint64_t prevHoveredKey = state.hoveredItemKey;
+    const keel::u64 prevHoveredKey = state.hoveredItemKey;
     state.hoveredItemKey = 0;
     state.hoveredDraggableKey = 0;
     bool anyDraggable = false;
@@ -1437,7 +1437,7 @@ void Scene::Update(Context& ctx, Node* node) {
                 state.clickedItemKey = state.hoveredItemKey;
                 if (mods.ctrl) {
                     bool removed = false;
-                    for (size_t i = 0; i < state.selectedItemKeys.size(); ++i) {
+                    for (keel::usize i = 0; i < state.selectedItemKeys.size(); ++i) {
                         if (state.selectedItemKeys[i] == state.hoveredItemKey) {
                             state.selectedItemKeys.remove_at(i);
                             removed = true;
@@ -1464,8 +1464,8 @@ void Scene::Update(Context& ctx, Node* node) {
     }
 
     // Sync current-frame item flags and visualHash so rendering & damage tracking are immediate
-    uint64_t selHash = 0;
-    for (uint64_t k : state.selectedItemKeys) {
+    keel::u64 selHash = 0;
+    for (keel::u64 k : state.selectedItemKeys) {
         selHash = detail::HashArgs(selHash, k);
     }
     for (SceneItemInfo& item : payload->items) {
@@ -1606,9 +1606,9 @@ void Scene::RenderBackgroundAndWorld(
     auto blendColor = [](Color c, Color target, float t) noexcept -> Color {
         if (c.a == 0) return c;
         return Color(
-            static_cast<uint8_t>(std::round(c.r + (target.r - c.r) * t)),
-            static_cast<uint8_t>(std::round(c.g + (target.g - c.g) * t)),
-            static_cast<uint8_t>(std::round(c.b + (target.b - c.b) * t)),
+            static_cast<keel::u8>(std::round(c.r + (target.r - c.r) * t)),
+            static_cast<keel::u8>(std::round(c.g + (target.g - c.g) * t)),
+            static_cast<keel::u8>(std::round(c.b + (target.b - c.b) * t)),
             c.a
         );
     };
@@ -1631,10 +1631,10 @@ void Scene::RenderBackgroundAndWorld(
     // 3. Execute recorded world-space draw commands (with automatic SceneItem tinting)
     const bool scaleStroke = opts.scaleStrokeWithZoom.value_or(!opts.worldBounds.has_value());
     const float strokeScale = scaleStroke ? worldScale : s;
-    const int32_t itemCount = static_cast<int32_t>(payload->items.size());
+    const keel::i32 itemCount = static_cast<keel::i32>(payload->items.size());
     for (const SceneDrawCmd& cmd : payload->drawCmds) {
         const SceneItemInfo* owner = (cmd.itemIndex >= 0 && cmd.itemIndex < itemCount)
-            ? &payload->items[static_cast<size_t>(cmd.itemIndex)]
+            ? &payload->items[static_cast<keel::usize>(cmd.itemIndex)]
             : nullptr;
         const bool isSel = owner && owner->selected;
         const bool isHov = owner && owner->hovered && !isSel;
@@ -1868,7 +1868,7 @@ void Scene::RenderOverlays(
         canvas.DrawRoundRect(hud.barRect, 6.0f * s, hudBg, hudBorder, 1.0f);
 
         const float fs = theme.GetFontSize(TextRole::LabelSmall);
-        auto drawHudBtn = [&](Rect r, keel::StringRef text, uint8_t btnId) {
+        auto drawHudBtn = [&](Rect r, keel::StringRef text, keel::u8 btnId) {
             if (state.hoveredHudBtn == btnId) {
                 canvas.DrawRoundRect(r, 4.0f * s, theme.palette.accent.WithAlpha(45));
             }
@@ -1893,7 +1893,7 @@ void Scene::RenderOverlays(
             if (item.selected) primarySelItem = &item;
         }
 
-        const size_t selCount = state.selectedItemKeys.size();
+        const keel::usize selCount = state.selectedItemKeys.size();
         const SceneItemInfo* activeInfo = hovItem ? hovItem : primarySelItem;
         if (activeInfo || selCount > 0) {
             keel::SmallString<64> badgeText;

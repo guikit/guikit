@@ -4,8 +4,8 @@ namespace guikit::demo {
 
 namespace {
 struct SidebarState {
-    int activityIdx = 0;
-    int menuIdx = 0;
+    keel::i32 activityIdx = 0;
+    keel::i32 menuIdx = 0;
     bool floatingFrame = true;
     bool showActivityBar = false;
     guikit::ActivityBarStyle activityStyle = guikit::ActivityBarStyle::Indicator;
@@ -22,7 +22,7 @@ struct SidebarState {
 
     // Optional Workbench shell companions
     bool showBottomPanel = false;
-    int bottomTabIdx = 0;
+    keel::i32 bottomTabIdx = 0;
     bool showStatusBar = false;
     guikit::StatusBarStyle statusBarStyle = guikit::StatusBarStyle::Surface;
 };
@@ -58,7 +58,7 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
     ctx.RenderVariantPicker(ui);
 
     static constexpr keel::StaticArray<keel::StringRef, 2> sbMenuStyleNames = {"Pill", "Indicator"};
-    size_t sbStyleIdx = (s_state.menuStyle == guikit::SidebarMenuStyle::Indicator) ? 1 : 0;
+    keel::usize sbStyleIdx = (s_state.menuStyle == guikit::SidebarMenuStyle::Indicator) ? 1 : 0;
     if (auto el = ui.Element({.label = "Menu Style"})) {
         if (ui.StepSlider(sbStyleIdx, sbMenuStyleNames, {.showTicks = true, .showLabels = true}).changed) {
             s_state.menuStyle = (sbStyleIdx == 1) ? guikit::SidebarMenuStyle::Indicator : guikit::SidebarMenuStyle::Pill;
@@ -67,7 +67,7 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
     }
 
     static constexpr keel::StaticArray<keel::StringRef, 2> sbSideNames = {"Left", "Right"};
-    size_t sbSideIdx = (s_state.side == guikit::SidebarSide::Right) ? 1 : 0;
+    keel::usize sbSideIdx = (s_state.side == guikit::SidebarSide::Right) ? 1 : 0;
     if (auto el = ui.Element({.label = "Dock Side"})) {
         if (ui.StepSlider(sbSideIdx, sbSideNames, {.showTicks = true, .showLabels = true}).changed) {
             s_state.side = (sbSideIdx == 1) ? guikit::SidebarSide::Right : guikit::SidebarSide::Left;
@@ -111,7 +111,7 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
 
     ui.Size(guikit::UiSize::Xs).Heading({.label = "SHELL COMPANIONS", .separator = guikit::HeadingSeparator::Bottom});
 
-    size_t frameIdx = s_state.floatingFrame ? 1 : 0;
+    keel::usize frameIdx = s_state.floatingFrame ? 1 : 0;
     if (auto el = ui.Element({.label = "Shell Frame", .layout = guikit::ElementLayout::Stacked})) {
         if (ui.Segmented(frameIdx, {"Docked (Flush)", "Floating (Island)"}).changed) {
             s_state.floatingFrame = (frameIdx == 1);
@@ -128,7 +128,7 @@ void RenderSidebarInspector(guikit::Context& ui, DemoContext& ctx) {
 
     if (s_state.showActivityBar) {
         static constexpr keel::StaticArray<keel::StringRef, 2> abStyleNames = {"Indicator", "Pill"};
-        size_t abStyleIdx = (s_state.activityStyle == guikit::ActivityBarStyle::Pill) ? 1 : 0;
+        keel::usize abStyleIdx = (s_state.activityStyle == guikit::ActivityBarStyle::Pill) ? 1 : 0;
         if (auto el = ui.Element({.label = "ActivityBar Style"})) {
             if (ui.StepSlider(abStyleIdx, abStyleNames, {.showTicks = true, .showLabels = true}).changed) {
                 s_state.activityStyle = (abStyleIdx == 1) ? guikit::ActivityBarStyle::Pill : guikit::ActivityBarStyle::Indicator;
@@ -250,7 +250,7 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
                 .allowCollapse = s_state.allowCollapse,
                 .scrollable = true
             })) {
-                const int prevIdx = s_state.menuIdx;
+                const keel::i32 prevIdx = s_state.menuIdx;
                 if (auto menu = ui.Size(ctx.controlsSize).SidebarMenu({
                     .style = s_state.menuStyle,
                     .color = ctx.ResolveControlColor()
@@ -260,7 +260,7 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
                     };
                     if (s_state.showSections) {
                         menu.Section(s_state.showActivityBar
-                            ? actHeaders[static_cast<size_t>(keel::clamp(s_state.activityIdx, 0, 2))]
+                            ? actHeaders[static_cast<keel::usize>(keel::clamp(s_state.activityIdx, 0, 2))]
                             : keel::StringRef("WORKSPACE"));
                     }
                     menu.Item(s_state.menuIdx, 0, {
@@ -305,7 +305,7 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
                     "Overview", "Analytics", "Deployments", "Settings"
                 };
                 ui.Size(guikit::UiSize::Sm).Heading({
-                    .label = pageTitles[static_cast<size_t>(keel::clamp(s_state.menuIdx, 0, 3))],
+                    .label = pageTitles[static_cast<keel::usize>(keel::clamp(s_state.menuIdx, 0, 3))],
                     .description = "Drag the Sidebar border sash to resize or snap between Expanded, Compact, and Collapsed modes.",
                     .badge = {ModeEnumName(s_state.mode), ctx.ResolveControlColor()}
                 });
@@ -354,7 +354,7 @@ void RenderSidebarStage(guikit::Context& ui, DemoContext& ctx) {
                         "[Warn] 2 boundary reflections attenuated below -65 dB threshold.",
                         "[Slice 2D] Drag the top border of this BottomPanel up/down to resize the cross-section viewport."
                     };
-                    ui.Text(tabContents[static_cast<size_t>(keel::clamp(s_state.bottomTabIdx, 0, 2))], {
+                    ui.Text(tabContents[static_cast<keel::usize>(keel::clamp(s_state.bottomTabIdx, 0, 2))], {
                         .role = guikit::TextRole::BodySmall,
                         .variant = guikit::UiVariant::Secondary
                     });

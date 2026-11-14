@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include <initializer_list>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/response.hpp"
@@ -19,7 +18,7 @@ class ICanvas;
 struct Node;
 
 /// Visual presentation style for SidebarMenu items.
-enum class SidebarMenuStyle : uint8_t {
+enum class SidebarMenuStyle : keel::u8 {
     Pill,       ///< Full rounded capsule highlight for the active item
     Indicator   ///< Subtle tinted background with a vertical accent bar on the left edge
 };
@@ -117,7 +116,7 @@ public:
     /// Primary immediate-mode span entry point (renders all items and updates activeIndex on selection).
     static Response Run(
         Context& ctx,
-        int& activeIndex,
+        keel::i32& activeIndex,
         keel::ArrayRef<SidebarMenuItem> items,
         const SidebarMenuOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()

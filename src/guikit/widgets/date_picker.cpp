@@ -46,14 +46,14 @@ Color ResolveAccentColor(const DatePickerOptions& opts, const UiTheme& theme, bo
     return disabled ? fallback.WithAlphaF(0.40f) : fallback;
 }
 
-constexpr int CompareDateOnly(int y1, int m1, int d1, int y2, int m2, int d2) noexcept {
+constexpr keel::i32 CompareDateOnly(keel::i32 y1, keel::i32 m1, keel::i32 d1, keel::i32 y2, keel::i32 m2, keel::i32 d2) noexcept {
     if (y1 != y2) return (y1 < y2) ? -1 : 1;
     if (m1 != m2) return (m1 < m2) ? -1 : 1;
     if (d1 != d2) return (d1 < d2) ? -1 : 1;
     return 0;
 }
 
-constexpr int CompareDateTimeByMode(const DateTime& a, const DateTime& b, DatePickerMode mode) noexcept {
+constexpr keel::i32 CompareDateTimeByMode(const DateTime& a, const DateTime& b, DatePickerMode mode) noexcept {
     if (mode == DatePickerMode::Date) {
         return CompareDateOnly(a.year, a.month, a.day, b.year, b.month, b.day);
     }
@@ -63,7 +63,7 @@ constexpr int CompareDateTimeByMode(const DateTime& a, const DateTime& b, DatePi
         if (a.second != b.second) return (a.second < b.second) ? -1 : 1;
         return 0;
     }
-    const int dc = CompareDateOnly(a.year, a.month, a.day, b.year, b.month, b.day);
+    const keel::i32 dc = CompareDateOnly(a.year, a.month, a.day, b.year, b.month, b.day);
     if (dc != 0) return dc;
     if (a.hour != b.hour) return (a.hour < b.hour) ? -1 : 1;
     if (a.minute != b.minute) return (a.minute < b.minute) ? -1 : 1;
@@ -71,7 +71,7 @@ constexpr int CompareDateTimeByMode(const DateTime& a, const DateTime& b, DatePi
     return 0;
 }
 
-constexpr bool IsDayCellDisabled(int year, int month, int day, const DatePickerOptions& opts) noexcept {
+constexpr bool IsDayCellDisabled(keel::i32 year, keel::i32 month, keel::i32 day, const DatePickerOptions& opts) noexcept {
     if (opts.minDate.has_value() &&
         CompareDateOnly(year, month, day, opts.minDate->year, opts.minDate->month, opts.minDate->day) < 0) {
         return true;
@@ -132,9 +132,9 @@ ControlSpec EffectiveDatePickerControl(const DatePickerOptions& opts, UiSize siz
     return c;
 }
 
-constexpr keel::StringRef MonthName(int month, keel::ArrayRef<keel::StringRef> customMonths = {}) noexcept {
-    if (customMonths.size() >= 12 && month >= 1 && month <= 12 && !customMonths[static_cast<size_t>(month - 1)].empty()) {
-        return customMonths[static_cast<size_t>(month - 1)];
+constexpr keel::StringRef MonthName(keel::i32 month, keel::ArrayRef<keel::StringRef> customMonths = {}) noexcept {
+    if (customMonths.size() >= 12 && month >= 1 && month <= 12 && !customMonths[static_cast<keel::usize>(month - 1)].empty()) {
+        return customMonths[static_cast<keel::usize>(month - 1)];
     }
     switch (month) {
         case 1:  return "January";
@@ -153,10 +153,10 @@ constexpr keel::StringRef MonthName(int month, keel::ArrayRef<keel::StringRef> c
     }
 }
 
-void StepMonth(int& ioYear, int& ioMonth, int deltaMonths) noexcept {
-    int total = (ioYear * 12 + (ioMonth - 1)) + deltaMonths;
+void StepMonth(keel::i32& ioYear, keel::i32& ioMonth, keel::i32 deltaMonths) noexcept {
+    keel::i32 total = (ioYear * 12 + (ioMonth - 1)) + deltaMonths;
     ioYear = total / 12;
-    int m = total % 12;
+    keel::i32 m = total % 12;
     if (m < 0) {
         m += 12;
         ioYear -= 1;
@@ -165,45 +165,45 @@ void StepMonth(int& ioYear, int& ioMonth, int deltaMonths) noexcept {
 }
 
 struct DayCellEntry {
-    int year{2026};
-    int month{10};
-    int day{1};
+    keel::i32 year{2026};
+    keel::i32 month{10};
+    keel::i32 day{1};
     bool isCurrentMonth{true};
 };
 
-keel::StaticArray<DayCellEntry, 42> BuildCalendarGrid(int viewYear, int viewMonth, bool firstDayMonday) noexcept {
+keel::StaticArray<DayCellEntry, 42> BuildCalendarGrid(keel::i32 viewYear, keel::i32 viewMonth, bool firstDayMonday) noexcept {
     keel::StaticArray<DayCellEntry, 42> cells{};
-    const int clampedMonth = keel::clamp(viewMonth, 1, 12);
-    const int firstDow = DatePicker::DayOfWeek(viewYear, clampedMonth, 1); // 0 = Sun .. 6 = Sat
-    const int leading = firstDayMonday ? ((firstDow + 6) % 7) : firstDow;
-    const int daysInCurr = DatePicker::DaysInMonth(viewYear, clampedMonth);
+    const keel::i32 clampedMonth = keel::clamp(viewMonth, 1, 12);
+    const keel::i32 firstDow = DatePicker::DayOfWeek(viewYear, clampedMonth, 1); // 0 = Sun .. 6 = Sat
+    const keel::i32 leading = firstDayMonday ? ((firstDow + 6) % 7) : firstDow;
+    const keel::i32 daysInCurr = DatePicker::DaysInMonth(viewYear, clampedMonth);
 
-    int prevYear = viewYear;
-    int prevMonth = clampedMonth;
+    keel::i32 prevYear = viewYear;
+    keel::i32 prevMonth = clampedMonth;
     StepMonth(prevYear, prevMonth, -1);
-    const int daysInPrev = DatePicker::DaysInMonth(prevYear, prevMonth);
+    const keel::i32 daysInPrev = DatePicker::DaysInMonth(prevYear, prevMonth);
 
-    int nextYear = viewYear;
-    int nextMonth = clampedMonth;
+    keel::i32 nextYear = viewYear;
+    keel::i32 nextMonth = clampedMonth;
     StepMonth(nextYear, nextMonth, +1);
 
-    for (int i = 0; i < 42; ++i) {
+    for (keel::i32 i = 0; i < 42; ++i) {
         if (i < leading) {
-            cells[static_cast<size_t>(i)] = DayCellEntry{
+            cells[static_cast<keel::usize>(i)] = DayCellEntry{
                 .year = prevYear,
                 .month = prevMonth,
                 .day = daysInPrev - leading + 1 + i,
                 .isCurrentMonth = false
             };
         } else if (i < leading + daysInCurr) {
-            cells[static_cast<size_t>(i)] = DayCellEntry{
+            cells[static_cast<keel::usize>(i)] = DayCellEntry{
                 .year = viewYear,
                 .month = clampedMonth,
                 .day = i - leading + 1,
                 .isCurrentMonth = true
             };
         } else {
-            cells[static_cast<size_t>(i)] = DayCellEntry{
+            cells[static_cast<keel::usize>(i)] = DayCellEntry{
                 .year = nextYear,
                 .month = nextMonth,
                 .day = i - (leading + daysInCurr) + 1,
@@ -235,7 +235,7 @@ void DrawCalendarIcon(ICanvas& canvas, Rect r, Color col) {
     const float dotSz = keel::max(1.6f, r.w * 0.11f);
     const float row1Y = sepY + (bodyRect.Bottom() - sepY) * 0.30f - dotSz * 0.5f;
     const float row2Y = sepY + (bodyRect.Bottom() - sepY) * 0.68f - dotSz * 0.5f;
-    for (int colIdx = 0; colIdx < 3; ++colIdx) {
+    for (keel::i32 colIdx = 0; colIdx < 3; ++colIdx) {
         const float cx = bodyRect.x + bodyRect.w * (0.25f + static_cast<float>(colIdx) * 0.25f) - dotSz * 0.5f;
         canvas.DrawRoundRect(Rect(cx, row1Y, dotSz, dotSz), 0.8f, col);
         canvas.DrawRoundRect(Rect(cx, row2Y, dotSz, dotSz), 0.8f, col);
@@ -273,7 +273,7 @@ struct DatePickerPopoverLayout {
 
     // Time selector bar
     Rect timeBarRect{};
-    int timeUnitCount{0};
+    keel::i32 timeUnitCount{0};
     keel::StaticArray<Rect, 3> timeUnitRects{};
     keel::StaticArray<Rect, 3> timeMinusRects{};
     keel::StaticArray<Rect, 3> timeValueRects{};
@@ -409,12 +409,12 @@ DatePickerPopoverLayout ComputePopoverLayout(
         const float unitW = (innerW - totalGap) / static_cast<float>(l.timeUnitCount);
         const float stepBtnW = theme.Scale(22.0f);
 
-        for (int u = 0; u < l.timeUnitCount; ++u) {
+        for (keel::i32 u = 0; u < l.timeUnitCount; ++u) {
             const float ux = innerX + static_cast<float>(u) * (unitW + unitGap);
-            l.timeUnitRects[static_cast<size_t>(u)] = Rect(ux, unitY, unitW, unitH);
-            l.timeMinusRects[static_cast<size_t>(u)] = Rect(ux, unitY, stepBtnW, unitH);
-            l.timePlusRects[static_cast<size_t>(u)] = Rect(ux + unitW - stepBtnW, unitY, stepBtnW, unitH);
-            l.timeValueRects[static_cast<size_t>(u)] = Rect(ux + stepBtnW, unitY, keel::max(0.0f, unitW - stepBtnW * 2.0f), unitH);
+            l.timeUnitRects[static_cast<keel::usize>(u)] = Rect(ux, unitY, unitW, unitH);
+            l.timeMinusRects[static_cast<keel::usize>(u)] = Rect(ux, unitY, stepBtnW, unitH);
+            l.timePlusRects[static_cast<keel::usize>(u)] = Rect(ux + unitW - stepBtnW, unitY, stepBtnW, unitH);
+            l.timeValueRects[static_cast<keel::usize>(u)] = Rect(ux + stepBtnW, unitY, keel::max(0.0f, unitW - stepBtnW * 2.0f), unitH);
         }
         curY += timeH + sectionGap;
     }
@@ -434,14 +434,14 @@ DatePickerPopoverLayout ComputePopoverLayout(
 struct DatePickerPopupRenderData {
     DatePickerPopoverLayout layout{};
     DateTime value{};
-    int viewYear{2026};
-    int viewMonth{10};
+    keel::i32 viewYear{2026};
+    keel::i32 viewMonth{10};
     DatePickerOptions opts{};
     UiSize size{UiSize::Md};
     UiTheme theme{};
-    int hoveredNavBtn{-1};
-    int hoveredDayCell{-1};
-    int hoveredTimeBtn{-1};
+    keel::i32 hoveredNavBtn{-1};
+    keel::i32 hoveredDayCell{-1};
+    keel::i32 hoveredTimeBtn{-1};
     bool todayHovered{false};
     bool doneHovered{false};
 };
@@ -470,13 +470,13 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
             d.layout.nextYearRect
         };
         const keel::StaticArray<keel::StringRef, 4> navLabels = {"\xC2\xAB", "\xE2\x80\xB9", "\xE2\x80\xBA", "\xC2\xBB"};
-        for (int i = 0; i < 4; ++i) {
+        for (keel::i32 i = 0; i < 4; ++i) {
             const bool hov = (d.hoveredNavBtn == i);
             if (hov) {
-                canvas.DrawRoundRect(navRects[static_cast<size_t>(i)], 4.0f, pal.surfaceHover);
+                canvas.DrawRoundRect(navRects[static_cast<keel::usize>(i)], 4.0f, pal.surfaceHover);
             }
             const Color navCol = hov ? pal.textPrimary : pal.textSecondary;
-            canvas.DrawTextBox(navLabels[static_cast<size_t>(i)], navRects[static_cast<size_t>(i)], bodyFont * 1.15f, navCol, 0.5f, 0.45f);
+            canvas.DrawTextBox(navLabels[static_cast<keel::usize>(i)], navRects[static_cast<keel::usize>(i)], bodyFont * 1.15f, navCol, 0.5f, 0.45f);
         }
 
         // Month & year title ("October 2026")
@@ -487,11 +487,11 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
 
         // Weekday column headers (indexed 0 = Sunday .. 6 = Saturday)
         static constexpr keel::StaticArray<keel::StringRef, 7> kDefaultWeekdaysSun = {"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"};
-        for (int col = 0; col < 7; ++col) {
-            const int dow = (col + (d.opts.firstDayMonday ? 1 : 0)) % 7;
-            const keel::StringRef wLabel = (d.opts.weekdayNames.size() >= 7 && !d.opts.weekdayNames[static_cast<size_t>(dow)].empty())
-                ? d.opts.weekdayNames[static_cast<size_t>(dow)]
-                : kDefaultWeekdaysSun[static_cast<size_t>(dow)];
+        for (keel::i32 col = 0; col < 7; ++col) {
+            const keel::i32 dow = (col + (d.opts.firstDayMonday ? 1 : 0)) % 7;
+            const keel::StringRef wLabel = (d.opts.weekdayNames.size() >= 7 && !d.opts.weekdayNames[static_cast<keel::usize>(dow)].empty())
+                ? d.opts.weekdayNames[static_cast<keel::usize>(dow)]
+                : kDefaultWeekdaysSun[static_cast<keel::usize>(dow)];
             const Rect wRect(
                 d.layout.weekdayRowRect.x + static_cast<float>(col) * d.layout.cellW,
                 d.layout.weekdayRowRect.y,
@@ -504,9 +504,9 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
         // 6x7 day grid (42 cells)
         const DateTime todayRef = d.opts.todayOverride.value_or(DateTime::Today());
         const auto cells = BuildCalendarGrid(d.viewYear, d.viewMonth, d.opts.firstDayMonday);
-        for (int idx = 0; idx < 42; ++idx) {
-            const int row = idx / 7;
-            const int col = idx % 7;
+        for (keel::i32 idx = 0; idx < 42; ++idx) {
+            const keel::i32 row = idx / 7;
+            const keel::i32 col = idx % 7;
             const Rect cellRect(
                 d.layout.gridRect.x + static_cast<float>(col) * d.layout.cellW,
                 d.layout.gridRect.y + static_cast<float>(row) * d.layout.cellH,
@@ -520,7 +520,7 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
                 keel::max(0.0f, cellRect.h - 3.0f)
             );
 
-            const DayCellEntry& cell = cells[static_cast<size_t>(idx)];
+            const DayCellEntry& cell = cells[static_cast<keel::usize>(idx)];
             const bool cellDisabled = IsDayCellDisabled(cell.year, cell.month, cell.day, d.opts);
             const bool isSelected = (cell.year == d.value.year && cell.month == d.value.month && cell.day == d.value.day);
             const bool isToday = (cell.year == todayRef.year && cell.month == todayRef.month && cell.day == todayRef.day);
@@ -565,15 +565,15 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
             );
         }
 
-        const keel::StaticArray<int, 3> vals = {
+        const keel::StaticArray<keel::i32, 3> vals = {
             keel::clamp(d.value.hour, 0, 23),
             keel::clamp(d.value.minute, 0, 59),
             keel::clamp(d.value.second, 0, 59)
         };
         const keel::StaticArray<keel::StringRef, 3> suffixes = {"h", "m", "s"};
 
-        for (int u = 0; u < d.layout.timeUnitCount; ++u) {
-            const size_t su = static_cast<size_t>(u);
+        for (keel::i32 u = 0; u < d.layout.timeUnitCount; ++u) {
+            const keel::usize su = static_cast<keel::usize>(u);
             const Rect& unitRect = d.layout.timeUnitRects[su];
             const Rect& minusRect = d.layout.timeMinusRects[su];
             const Rect& valRect = d.layout.timeValueRects[su];
@@ -629,12 +629,12 @@ void RenderDatePickerPopover(ICanvas& canvas, const DatePickerPopupRenderData& d
 } // namespace
 
 keel::FixedString<32> DatePicker::FormatDateTime(const DateTime& dt, DatePickerMode mode, bool showSeconds) {
-    const int month = keel::clamp(dt.month, 1, 12);
-    const int maxDay = DaysInMonth(dt.year, month);
-    const int day = keel::clamp(dt.day, 1, maxDay);
-    const int hour = keel::clamp(dt.hour, 0, 23);
-    const int minute = keel::clamp(dt.minute, 0, 59);
-    const int second = keel::clamp(dt.second, 0, 59);
+    const keel::i32 month = keel::clamp(dt.month, 1, 12);
+    const keel::i32 maxDay = DaysInMonth(dt.year, month);
+    const keel::i32 day = keel::clamp(dt.day, 1, maxDay);
+    const keel::i32 hour = keel::clamp(dt.hour, 0, 23);
+    const keel::i32 minute = keel::clamp(dt.minute, 0, 59);
+    const keel::i32 second = keel::clamp(dt.second, 0, 59);
 
     char buf[32];
     keel::StringRef res;
@@ -739,14 +739,14 @@ Response DatePicker::Run(
     Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
     if (!opts.monthNames.empty()) {
         auto* arr = ctx.GetArena().alloc_array<keel::StringRef>(opts.monthNames.size());
-        for (size_t i = 0; i < opts.monthNames.size(); ++i) {
+        for (keel::usize i = 0; i < opts.monthNames.size(); ++i) {
             arr[i] = ctx.AllocString(opts.monthNames[i]);
         }
         optsCopy.monthNames = keel::ArrayRef<keel::StringRef>(arr, opts.monthNames.size());
     }
     if (!opts.weekdayNames.empty()) {
         auto* arr = ctx.GetArena().alloc_array<keel::StringRef>(opts.weekdayNames.size());
-        for (size_t i = 0; i < opts.weekdayNames.size(); ++i) {
+        for (keel::usize i = 0; i < opts.weekdayNames.size(); ++i) {
             arr[i] = ctx.AllocString(opts.weekdayNames[i]);
         }
         optsCopy.weekdayNames = keel::ArrayRef<keel::StringRef>(arr, opts.weekdayNames.size());
@@ -764,10 +764,10 @@ Response DatePicker::Run(
         : Rect({0.0f, 0.0f}, intrinsicDims);
 
     struct DatePickerState {
-        int viewYear{2026};
-        int viewMonth{10};
-        int syncedYear{0};
-        int syncedMonth{0};
+        keel::i32 viewYear{2026};
+        keel::i32 viewMonth{10};
+        keel::i32 syncedYear{0};
+        keel::i32 syncedMonth{0};
         bool initialized{false};
     };
     auto& state = ctx.GetOrCreatePersistentState<DatePickerState>(id);
@@ -804,9 +804,9 @@ Response DatePicker::Run(
         ctx.RegisterOverlayHitRegion(id, popLayout.popupRect);
     }
 
-    int hoveredNavBtn = -1;
-    int hoveredDayCell = -1;
-    int hoveredTimeBtn = -1;
+    keel::i32 hoveredNavBtn = -1;
+    keel::i32 hoveredDayCell = -1;
+    keel::i32 hoveredTimeBtn = -1;
     bool todayHovered = false;
     bool doneHovered = false;
 
@@ -822,8 +822,8 @@ Response DatePicker::Run(
                 popLayout.nextMonthRect,
                 popLayout.nextYearRect
             };
-            for (int i = 0; i < 4; ++i) {
-                if (navRects[static_cast<size_t>(i)].Contains(mouse)) {
+            for (keel::i32 i = 0; i < 4; ++i) {
+                if (navRects[static_cast<keel::usize>(i)].Contains(mouse)) {
                     hoveredNavBtn = i;
                     if (mouseClicked) {
                         if (i == 0) state.viewYear -= 1;
@@ -837,11 +837,11 @@ Response DatePicker::Run(
             }
 
             if (popLayout.gridRect.Contains(mouse)) {
-                const int col = keel::clamp(static_cast<int>((mouse.x - popLayout.gridRect.x) / popLayout.cellW), 0, 6);
-                const int row = keel::clamp(static_cast<int>((mouse.y - popLayout.gridRect.y) / popLayout.cellH), 0, 5);
-                const int cellIdx = row * 7 + col;
+                const keel::i32 col = keel::clamp(static_cast<keel::i32>((mouse.x - popLayout.gridRect.x) / popLayout.cellW), 0, 6);
+                const keel::i32 row = keel::clamp(static_cast<keel::i32>((mouse.y - popLayout.gridRect.y) / popLayout.cellH), 0, 5);
+                const keel::i32 cellIdx = row * 7 + col;
                 const auto cells = BuildCalendarGrid(state.viewYear, state.viewMonth, optsCopy.firstDayMonday);
-                const DayCellEntry& chosen = cells[static_cast<size_t>(cellIdx)];
+                const DayCellEntry& chosen = cells[static_cast<keel::usize>(cellIdx)];
                 const bool cellDisabled = IsDayCellDisabled(chosen.year, chosen.month, chosen.day, optsCopy);
                 if (!cellDisabled) {
                     hoveredDayCell = cellIdx;
@@ -869,8 +869,8 @@ Response DatePicker::Run(
 
         if (popLayout.hasTime) {
             const Vec2 wheel = ctx.GetMouseWheel();
-            for (int u = 0; u < popLayout.timeUnitCount; ++u) {
-                const size_t su = static_cast<size_t>(u);
+            for (keel::i32 u = 0; u < popLayout.timeUnitCount; ++u) {
+                const keel::usize su = static_cast<keel::usize>(u);
                 if (popLayout.timeMinusRects[su].Contains(mouse)) {
                     hoveredTimeBtn = u * 2;
                     if (mouseClicked) {
@@ -897,7 +897,7 @@ Response DatePicker::Run(
 
                 if (wheel.y != 0.0f && popLayout.timeUnitRects[su].Contains(mouse)) {
                     const DateTime prev = value;
-                    const int step = (wheel.y > 0.0f) ? 1 : -1;
+                    const keel::i32 step = (wheel.y > 0.0f) ? 1 : -1;
                     if (u == 0) value.hour = (value.hour + 24 + step) % 24;
                     else if (u == 1) value.minute = (value.minute + 60 + step) % 60;
                     else value.second = (value.second + 60 + step) % 60;
@@ -989,7 +989,7 @@ Response DatePicker::Run(
             value.second,
             state.viewYear,
             state.viewMonth,
-            static_cast<uint8_t>(optsCopy.mode),
+            static_cast<keel::u8>(optsCopy.mode),
             optsCopy.showSeconds,
             optsCopy.showTodayButton,
             optsCopy.firstDayMonday,
@@ -1037,12 +1037,12 @@ Response DatePicker::Run(
     node->debugBoundsOverride = optsCopy.debugBounds;
     node->inspectModeOverride = optsCopy.inspectMode;
     node->visualHash = detail::HashArgs(
-        static_cast<uint8_t>(optsCopy.mode),
+        static_cast<keel::u8>(optsCopy.mode),
         optsCopy.showSeconds,
         optsCopy.showTodayButton,
         optsCopy.firstDayMonday,
-        static_cast<uint8_t>(optsCopy.stretch),
-        static_cast<uint8_t>(optsCopy.align),
+        static_cast<keel::u8>(optsCopy.stretch),
+        static_cast<keel::u8>(optsCopy.align),
         optsCopy.width.value_or(0.0f),
         optsCopy.height.value_or(0.0f),
         optsCopy.color,

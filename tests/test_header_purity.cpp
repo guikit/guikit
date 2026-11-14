@@ -85,18 +85,18 @@
 // 3. Verify `guikit::geo` internal/GIS symbols do NOT leak into `namespace guikit`
 namespace purity_probe {
 struct PolygonTriangulator {
-    int ok{1};
+    keel::i32 ok{1};
 };
 struct LayerStyle {
-    int ok{1};
+    keel::i32 ok{1};
 };
 struct AttributeValue {
-    int ok{1};
+    keel::i32 ok{1};
 };
 } // namespace purity_probe
 
 namespace {
-[[nodiscard]] int VerifyNamespaceHygiene() noexcept {
+[[nodiscard]] keel::i32 VerifyNamespaceHygiene() noexcept {
     using namespace guikit;
     using namespace purity_probe;
 
@@ -114,5 +114,11 @@ namespace {
 int main() {
     static_assert(guikit::Version::major >= 1);
     static_assert(sizeof(guikit::Node) <= 256);
+    static_assert(sizeof(keel::i8) == 1 && sizeof(keel::u8) == 1);
+    static_assert(sizeof(keel::i16) == 2 && sizeof(keel::u16) == 2);
+    static_assert(sizeof(keel::i32) == 4 && sizeof(keel::u32) == 4);
+    static_assert(sizeof(keel::i64) == 8 && sizeof(keel::u64) == 8);
+    static_assert(sizeof(keel::isize) == sizeof(void*) && sizeof(keel::usize) == sizeof(void*));
+    static_assert(sizeof(float) == 4 && sizeof(double) == 8);
     return (VerifyNamespaceHygiene() == 3) ? 0 : 1;
 }

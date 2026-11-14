@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/backend/vector_backend.hpp"
 #include "guikit/core/frame_metrics.hpp"
@@ -16,10 +15,10 @@ class Context;
 /// Configuration options for initializing a `guikit::MainWindow` application host.
 struct MainWindowConfig {
     keel::FixedString<128> title{"GuiKit Application"};
-    int width = 1380;
-    int height = 800;
-    int minWidth = 320;
-    int minHeight = 240;
+    keel::i32 width = 1380;
+    keel::i32 height = 800;
+    keel::i32 minWidth = 320;
+    keel::i32 minHeight = 240;
     bool resizable = true;
     bool maximized = false;
     bool fullscreen = false;
@@ -31,7 +30,7 @@ struct MainWindowConfig {
     bool debugShortcuts = true; ///< Enables Ctrl+I / Ctrl+Shift+C (Inspect) and Ctrl+B (Bounds)
     bool scaleShortcuts = true; ///< Enables Ctrl+Plus / Ctrl+Minus / Ctrl+0 UI shell scaling
     bool autoShellScope = true; ///< Wraps OnRender() in a root Column with shellTheme & shellScale
-    int idleHeartbeatMs = 500;  ///< Periodic wakeup interval in reactive mode (-1 to disable)
+    keel::i32 idleHeartbeatMs = 500;  ///< Periodic wakeup interval in reactive mode (-1 to disable)
     float targetFps = 60.0f;    ///< Target frame rate for telemetry budget and non-VSync frame pacing
     float initialScale = 1.0f;  ///< Initial shell UI scale factor (0.5 .. 3.0)
     ThemeMode initialThemeMode = ThemeMode::Dark;
@@ -44,7 +43,7 @@ struct MainWindowConfig {
 /// Callbacks invoked by an `IWindowBackend` into its hosting `MainWindow`.
 struct WindowHostCallbacks {
     keel::Function<bool()> onCloseRequested;
-    keel::Function<void(int width, int height)> onResize;
+    keel::Function<void(keel::i32 width, keel::i32 height)> onResize;
     keel::Function<void()> onLiveResizeRender;
 };
 
@@ -62,7 +61,7 @@ public:
 
     /// Polls or sleeps for platform events and dispatches input into `ui`.
     /// Returns `false` if the main loop should exit.
-    virtual bool PumpEvents(Context& ui, bool reactiveMode, int sleepTimeoutMs) = 0;
+    virtual bool PumpEvents(Context& ui, bool reactiveMode, keel::i32 sleepTimeoutMs) = 0;
 
     /// Thread-safe wakeup signal that interrupts `PumpEvents()` idle sleep immediately when background work arrives.
     virtual void WakeUp() noexcept {}
@@ -89,8 +88,8 @@ public:
         (void)presented;
     }
 
-    [[nodiscard]] virtual int GetWidth() const noexcept = 0;
-    [[nodiscard]] virtual int GetHeight() const noexcept = 0;
+    [[nodiscard]] virtual keel::i32 GetWidth() const noexcept = 0;
+    [[nodiscard]] virtual keel::i32 GetHeight() const noexcept = 0;
     [[nodiscard]] virtual float GetDpiScale() const noexcept { return 1.0f; }
     [[nodiscard]] virtual float GetDisplayPixelsPerMm() const noexcept = 0;
     [[nodiscard]] virtual bool IsMinimized() const noexcept = 0;

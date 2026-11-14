@@ -58,8 +58,8 @@ keel::Array<InlineSpan> ParseInlineSpans(
     bool inheritedStrike
 ) {
     keel::Array<InlineSpan> out;
-    size_t i = 0;
-    const size_t n = line.size();
+    keel::usize i = 0;
+    const keel::usize n = line.size();
 
     keel::String cur;
     auto flushCurrent = [&]() {
@@ -89,7 +89,7 @@ keel::Array<InlineSpan> ParseInlineSpans(
     while (i < n) {
         // 1. Inline code: `code`
         if (line[i] == '`') {
-            const size_t endTick = line.find('`', i + 1);
+            const keel::usize endTick = line.find('`', i + 1);
             if (endTick != keel::StringRef::npos && endTick > i + 1) {
                 flushCurrent();
                 out.push_back(InlineSpan{
@@ -106,9 +106,9 @@ keel::Array<InlineSpan> ParseInlineSpans(
 
         // 2. Link: [label](url)
         if (line[i] == '[') {
-            const size_t closeBr = line.find(']', i + 1);
+            const keel::usize closeBr = line.find(']', i + 1);
             if (closeBr != keel::StringRef::npos && closeBr + 1 < n && line[closeBr + 1] == '(') {
-                const size_t closePar = line.find(')', closeBr + 2);
+                const keel::usize closePar = line.find(')', closeBr + 2);
                 if (closePar != keel::StringRef::npos && closeBr > i + 1) {
                     flushCurrent();
                     const keel::StringRef linkUrl = TrimView(line.substr(closeBr + 2, closePar - closeBr - 2));
@@ -132,7 +132,7 @@ keel::Array<InlineSpan> ParseInlineSpans(
 
         // 3. Strikethrough: ~~strike~~
         if (i + 1 < n && line[i] == '~' && line[i + 1] == '~') {
-            const size_t endTilde = line.find("~~", i + 2);
+            const keel::usize endTilde = line.find("~~", i + 2);
             if (endTilde != keel::StringRef::npos && endTilde > i + 2) {
                 flushCurrent();
                 appendNested(line.substr(i + 2, endTilde - i - 2), FontStyle::Regular, true);
@@ -143,7 +143,7 @@ keel::Array<InlineSpan> ParseInlineSpans(
 
         // 4. BoldItalic: ***bold italic***
         if (i + 2 < n && line[i] == '*' && line[i + 1] == '*' && line[i + 2] == '*') {
-            const size_t endStar = line.find("***", i + 3);
+            const keel::usize endStar = line.find("***", i + 3);
             if (endStar != keel::StringRef::npos && endStar > i + 3) {
                 flushCurrent();
                 appendNested(line.substr(i + 3, endStar - i - 3), FontStyle::BoldItalic, false);
@@ -154,7 +154,7 @@ keel::Array<InlineSpan> ParseInlineSpans(
 
         // 5. Bold: **bold**
         if (i + 1 < n && line[i] == '*' && line[i + 1] == '*') {
-            const size_t endStar = line.find("**", i + 2);
+            const keel::usize endStar = line.find("**", i + 2);
             if (endStar != keel::StringRef::npos && endStar > i + 2) {
                 flushCurrent();
                 appendNested(line.substr(i + 2, endStar - i - 2), FontStyle::Bold, false);
@@ -166,10 +166,10 @@ keel::Array<InlineSpan> ParseInlineSpans(
         // 6. Italic: *italic* (CommonMark flanking: no whitespace immediately inside '*')
         if (line[i] == '*' && i + 1 < n &&
             line[i + 1] != ' ' && line[i + 1] != '\t' && line[i + 1] != '\n') {
-            size_t searchFrom = i + 1;
-            size_t foundEnd = keel::StringRef::npos;
+            keel::usize searchFrom = i + 1;
+            keel::usize foundEnd = keel::StringRef::npos;
             while (searchFrom < n) {
-                const size_t cand = line.find('*', searchFrom);
+                const keel::usize cand = line.find('*', searchFrom);
                 if (cand == keel::StringRef::npos) break;
                 if (cand + 1 < n && line[cand + 1] == '*') {
                     searchFrom = cand + 2;
@@ -218,9 +218,9 @@ FloatPair MeasureInlineSpansIntrinsicWidths(
         } else {
             const FontStyle effStyle = CombineFontStyles(rowBaseStyle, sp.style);
             keel::StringRef txt = sp.text;
-            size_t pos = 0;
+            keel::usize pos = 0;
             while (pos < txt.size()) {
-                size_t nextPos = pos;
+                keel::usize nextPos = pos;
                 const bool isWs = (txt[pos] == ' ' || txt[pos] == '\t' || txt[pos] == '\n');
                 if (isWs) {
                     while (nextPos < txt.size() && (txt[nextPos] == ' ' || txt[nextPos] == '\t' || txt[nextPos] == '\n')) ++nextPos;
@@ -252,18 +252,18 @@ FloatPair GetOrMeasureRichTextIntrinsicWidths(
         return {0.0f, 0.0f};
     }
 
-    thread_local keel::LruCache<uint64_t, FloatPair, 256> s_widthCache;
-    const int32_t qBodyFs = static_cast<int32_t>(std::round(bodyFs * 10.0f));
-    const int32_t qCodeFs = static_cast<int32_t>(std::round(inlineCodeFs * 10.0f));
-    const int32_t qScale = static_cast<int32_t>(std::round(scale * 100.0f));
+    thread_local keel::LruCache<keel::u64, FloatPair, 256> s_widthCache;
+    const keel::i32 qBodyFs = static_cast<keel::i32>(std::round(bodyFs * 10.0f));
+    const keel::i32 qCodeFs = static_cast<keel::i32>(std::round(inlineCodeFs * 10.0f));
+    const keel::i32 qScale = static_cast<keel::i32>(std::round(scale * 100.0f));
 
-    const uint64_t key = detail::HashArgs(
+    const keel::u64 key = detail::HashArgs(
         richMarkup,
         richMarkup.size(),
         qBodyFs,
         qCodeFs,
         qScale,
-        static_cast<uint8_t>(baseStyle),
+        static_cast<keel::u8>(baseStyle),
         canvas != nullptr
     );
 
@@ -282,11 +282,11 @@ FloatPair GetOrMeasureRichTextIntrinsicWidths(
 
 void DocumentTextMap::AddToken(Rect r, keel::StringRef str, float fontSize, FontStyle style, float textPadX) {
     if (str.empty()) return;
-    const size_t cStart = plainText.size();
+    const keel::usize cStart = plainText.size();
     plainText.append(str);
-    const size_t cEnd = plainText.size();
+    const keel::usize cEnd = plainText.size();
 
-    size_t lineIdx = 0;
+    keel::usize lineIdx = 0;
     if (!lines.empty() && std::abs(lines.back().top - r.y) < r.h * 0.5f) {
         lineIdx = lines.size() - 1;
         PositionedLine& ln = lines.back();
@@ -330,16 +330,16 @@ FloatPair SubRangePixelBounds(
     ICanvas* canvas,
     const PositionedToken& tok,
     keel::StringRef fullPlainText,
-    size_t selMin,
-    size_t selMax
+    keel::usize selMin,
+    keel::usize selMax
 ) {
-    const size_t s0 = keel::max(selMin, tok.charStart);
-    const size_t s1 = keel::min(selMax, tok.charEnd);
+    const keel::usize s0 = keel::max(selMin, tok.charStart);
+    const keel::usize s1 = keel::min(selMax, tok.charEnd);
     if (s0 > s1) return {tok.rect.x, tok.rect.x};
 
     const keel::StringRef tokStr = fullPlainText.substr(tok.charStart, tok.charEnd - tok.charStart);
-    const size_t rel0 = s0 - tok.charStart;
-    const size_t rel1 = s1 - tok.charStart;
+    const keel::usize rel0 = s0 - tok.charStart;
+    const keel::usize rel1 = s1 - tok.charStart;
 
     const float baseX = tok.rect.x + tok.textPadX;
     const float x0 = (rel0 == 0)
@@ -351,7 +351,7 @@ FloatPair SubRangePixelBounds(
     return {x0, keel::max(x0, x1)};
 }
 
-size_t HitTestDocumentCharOffset(
+keel::usize HitTestDocumentCharOffset(
     const DocumentTextMap& map,
     ICanvas* canvas,
     Vec2 mousePos
@@ -365,9 +365,9 @@ size_t HitTestDocumentCharOffset(
         return map.plainText.size();
     }
 
-    size_t bestLine = 0;
+    keel::usize bestLine = 0;
     float bestDistY = 1e9f;
-    for (size_t li = 0; li < map.lines.size(); ++li) {
+    for (keel::usize li = 0; li < map.lines.size(); ++li) {
         const PositionedLine& ln = map.lines[li];
         if (mousePos.y >= ln.top && mousePos.y <= ln.bottom) {
             bestLine = li;
@@ -389,7 +389,7 @@ size_t HitTestDocumentCharOffset(
     if (mousePos.x <= firstTok.rect.x) return firstTok.charStart;
     if (mousePos.x >= lastTok.rect.Right()) return lastTok.charEnd;
 
-    for (size_t k = 0; k < ln.tokenCount; ++k) {
+    for (keel::usize k = 0; k < ln.tokenCount; ++k) {
         const PositionedToken& tok = map.tokens[ln.firstToken + k];
         if (mousePos.x <= tok.rect.Right()) {
             if (mousePos.x <= tok.rect.x + tok.textPadX) {
@@ -400,10 +400,10 @@ size_t HitTestDocumentCharOffset(
                 tok.charEnd - tok.charStart
             );
             const float localX = mousePos.x - (tok.rect.x + tok.textPadX);
-            size_t curIdx = 0;
+            keel::usize curIdx = 0;
             float prevW = 0.0f;
             while (curIdx < tokStr.size()) {
-                const size_t nextIdx = TextUtil::NextCharBoundary(tokStr, curIdx);
+                const keel::usize nextIdx = TextUtil::NextCharBoundary(tokStr, curIdx);
                 const float curW = MeasureStyledSlice(canvas, tokStr.substr(0, nextIdx), tok.fontSize, tok.fontStyle);
                 if (localX < (prevW + curW) * 0.5f) {
                     return tok.charStart + curIdx;
@@ -418,9 +418,9 @@ size_t HitTestDocumentCharOffset(
     return lastTok.charEnd;
 }
 
-size_t FindLineForCharOffset(const DocumentTextMap& map, size_t offset) noexcept {
+keel::usize FindLineForCharOffset(const DocumentTextMap& map, keel::usize offset) noexcept {
     if (map.lines.empty()) return 0;
-    for (size_t li = 0; li < map.lines.size(); ++li) {
+    for (keel::usize li = 0; li < map.lines.size(); ++li) {
         if (offset >= map.lines[li].charStart && offset <= map.lines[li].charEnd) {
             return li;
         }
@@ -428,7 +428,7 @@ size_t FindLineForCharOffset(const DocumentTextMap& map, size_t offset) noexcept
     return map.lines.size() - 1;
 }
 
-float GetCursorXForOffset(const DocumentTextMap& map, ICanvas* canvas, size_t offset) {
+float GetCursorXForOffset(const DocumentTextMap& map, ICanvas* canvas, keel::usize offset) {
     for (const auto& tok : map.tokens) {
         if (offset >= tok.charStart && offset <= tok.charEnd) {
             return SubRangePixelBounds(canvas, tok, map.plainText, offset, offset).first;
@@ -445,9 +445,9 @@ keel::Array<SearchMatchRange> FindSearchMatches(keel::StringRef text, keel::Stri
     keel::Array<SearchMatchRange> matches;
     if (query.empty() || text.size() < query.size()) return matches;
 
-    for (size_t i = 0; i + query.size() <= text.size(); ++i) {
+    for (keel::usize i = 0; i + query.size() <= text.size(); ++i) {
         bool ok = true;
-        for (size_t j = 0; j < query.size(); ++j) {
+        for (keel::usize j = 0; j < query.size(); ++j) {
             if (!CharEqualsIgnoreCase(text[i + j], query[j])) {
                 ok = false;
                 break;
@@ -473,12 +473,12 @@ void DrawTokenSelectionAndSearchHighlights(
 
     if (overlay->searchMatches && !overlay->searchMatches->empty()) {
         const auto& matches = *overlay->searchMatches;
-        for (size_t mi = 0; mi < matches.size(); ++mi) {
+        for (keel::usize mi = 0; mi < matches.size(); ++mi) {
             const SearchMatchRange& m = matches[mi];
             if (m.end <= tok.charStart || m.start >= tok.charEnd) continue;
             const auto [x0, x1] = SubRangePixelBounds(&canvas, tok, fullPlainText, m.start, m.end);
             if (x1 > x0) {
-                const bool isActive = (static_cast<int>(mi) == overlay->activeSearchMatch);
+                const bool isActive = (static_cast<keel::i32>(mi) == overlay->activeSearchMatch);
                 const Color hlBg = isActive
                     ? theme.GetVariant(UiVariant::Warning).bg.WithAlpha(140)
                     : theme.GetVariant(UiVariant::Warning).bg.WithAlpha(65);
@@ -533,8 +533,8 @@ void DrawTokenCaretIfPresent(
 
 namespace {
 struct FlowLine {
-    size_t firstAtom{0};
-    size_t atomCount{0};
+    keel::usize firstAtom{0};
+    keel::usize atomCount{0};
     float indent{0.0f};
     float contentWidth{0.0f};
 };
@@ -567,7 +567,7 @@ InlineFlowLayout BuildInlineFlowLayout(
 
     // Pack all span text & URLs into res.textPool so all keel::StringRef slices inside `res.items`
     // are 100% self-contained and never dangle even if caller destroys `spans`.
-    size_t totalPoolBytes = 0;
+    keel::usize totalPoolBytes = 0;
     for (const InlineSpan& sp : spans) {
         totalPoolBytes += sp.text.size() + sp.url.size();
     }
@@ -583,11 +583,11 @@ InlineFlowLayout BuildInlineFlowLayout(
     keel::SmallArray<PooledSpanView, 16> pooledSpans;
     pooledSpans.reserve(spans.size());
     for (const InlineSpan& sp : spans) {
-        const size_t tStart = res.textPool.size();
+        const keel::usize tStart = res.textPool.size();
         res.textPool.append(keel::ArrayRef<char>(sp.text.data(), sp.text.size()));
         const keel::StringRef tView(res.textPool.data() + tStart, sp.text.size());
 
-        const size_t uStart = res.textPool.size();
+        const keel::usize uStart = res.textPool.size();
         res.textPool.append(keel::ArrayRef<char>(sp.url.data(), sp.url.size()));
         const keel::StringRef uView(res.textPool.data() + uStart, sp.url.size());
 
@@ -624,7 +624,7 @@ InlineFlowLayout BuildInlineFlowLayout(
 
         const FontStyle effStyle = CombineFontStyles(overrideStyle, span.style);
         keel::StringRef txt = span.text;
-        size_t pos = 0;
+        keel::usize pos = 0;
         while (pos < txt.size()) {
             if (txt[pos] == '\n') {
                 rawAtoms.push_back(InlineAtom{
@@ -641,7 +641,7 @@ InlineFlowLayout BuildInlineFlowLayout(
                 ++pos;
                 continue;
             }
-            size_t nextPos = pos;
+            keel::usize nextPos = pos;
             const bool isWs = (txt[pos] == ' ');
             if (isWs) {
                 while (nextPos < txt.size() && txt[nextPos] == ' ') ++nextPos;
@@ -692,12 +692,12 @@ InlineFlowLayout BuildInlineFlowLayout(
 
     auto splitAtomForWidth = [&](const InlineAtom& atom, float availW) -> AtomSplit {
         keel::StringRef sv = atom.text;
-        size_t fitEnd = 1;
+        keel::usize fitEnd = 1;
         while (fitEnd < sv.size() && (static_cast<unsigned char>(sv[fitEnd]) & 0xC0) == 0x80) {
             ++fitEnd;
         }
         while (fitEnd < sv.size()) {
-            size_t nextCp = fitEnd + 1;
+            keel::usize nextCp = fitEnd + 1;
             while (nextCp < sv.size() && (static_cast<unsigned char>(sv[nextCp]) & 0xC0) == 0x80) {
                 ++nextCp;
             }
@@ -708,10 +708,10 @@ InlineFlowLayout BuildInlineFlowLayout(
             }
         }
 
-        size_t splitPos = fitEnd;
+        keel::usize splitPos = fitEnd;
         if (fitEnd >= 4) {
-            const size_t minBreak = keel::max<size_t>(1, (fitEnd * 45) / 100);
-            for (size_t b = fitEnd; b > minBreak; --b) {
+            const keel::usize minBreak = keel::max<keel::usize>(1, (fitEnd * 45) / 100);
+            for (keel::usize b = fitEnd; b > minBreak; --b) {
                 const char ch = sv[b - 1];
                 if (ch == '/' || ch == ':' || ch == '.' || ch == '-' || ch == '_') {
                     splitPos = b;
@@ -735,7 +735,7 @@ InlineFlowLayout BuildInlineFlowLayout(
             curLine.atomCount -= 1;
         }
         float w = 0.0f;
-        for (size_t k = 0; k < curLine.atomCount; ++k) {
+        for (keel::usize k = 0; k < curLine.atomCount; ++k) {
             w += atoms[curLine.firstAtom + k].width;
         }
         curLine.contentWidth = w;
@@ -761,7 +761,7 @@ InlineFlowLayout BuildInlineFlowLayout(
         curLine.contentWidth = curX - curLine.indent;
     };
 
-    size_t idx = 0;
+    keel::usize idx = 0;
     while (idx < rawAtoms.size()) {
         if (rawAtoms[idx].isWhitespace) {
             if (rawAtoms[idx].text == "\n") {
@@ -778,7 +778,7 @@ InlineFlowLayout BuildInlineFlowLayout(
             continue;
         }
 
-        size_t clusterEnd = idx + 1;
+        keel::usize clusterEnd = idx + 1;
         float clusterW = rawAtoms[idx].width;
         while (clusterEnd < rawAtoms.size() && !rawAtoms[clusterEnd].isWhitespace) {
             clusterW += rawAtoms[clusterEnd].width;
@@ -789,7 +789,7 @@ InlineFlowLayout BuildInlineFlowLayout(
             finalizeCurrentLine();
         }
 
-        for (size_t k = idx; k < clusterEnd; ++k) {
+        for (keel::usize k = idx; k < clusterEnd; ++k) {
             InlineAtom curAtom = rawAtoms[k];
             const bool hasTrailingPunct =
                 (k + 1 == clusterEnd - 1) &&
@@ -838,7 +838,7 @@ InlineFlowLayout BuildInlineFlowLayout(
     // 3. Materialize PositionedAtoms in flow-local coordinates (0, 0) with pre-measured glyph heights
     const float codeGlyphH = canvas ? canvas->MeasureTextStyled("Mg", codeBaseFontSize, FontStyle::Monospace).y : codeBaseFontSize;
     keel::StaticArray<float, 5> cachedGlyphH{};
-    for (uint8_t st = 0; st < 5; ++st) {
+    for (keel::u8 st = 0; st < 5; ++st) {
         cachedGlyphH[st] = canvas
             ? canvas->MeasureTextStyled("Mg", baseFontSize, static_cast<FontStyle>(st)).y
             : baseFontSize;
@@ -847,7 +847,7 @@ InlineFlowLayout BuildInlineFlowLayout(
     float maxLineW = 0.0f;
     res.items.reserve(atoms.size());
 
-    for (size_t li = 0; li < flowLines.size(); ++li) {
+    for (keel::usize li = 0; li < flowLines.size(); ++li) {
         const FlowLine& fl = flowLines[li];
         const float lineY = static_cast<float>(li) * lineH;
         maxLineW = keel::max(maxLineW, fl.indent + fl.contentWidth);
@@ -859,7 +859,7 @@ InlineFlowLayout BuildInlineFlowLayout(
             drawX = keel::max(0.0f, maxWidth - fl.contentWidth);
         }
 
-        for (size_t k = 0; k < fl.atomCount; ++k) {
+        for (keel::usize k = 0; k < fl.atomCount; ++k) {
             const InlineAtom& atom = atoms[fl.firstAtom + k];
             if (atom.kind == InlineKind::Code) {
                 const float pillH = keel::max(atom.fontSize + 4.0f * s, lineH - 2.0f * s);
@@ -875,14 +875,14 @@ InlineFlowLayout BuildInlineFlowLayout(
                     .localRect = pillRect,
                     .textLocalY = codeTextY,
                     .lineIdx = li,
-                    .tokenIndex = SIZE_MAX
+                    .tokenIndex = keel::kInvalidIndex
                 });
                 drawX += atom.width;
                 continue;
             }
 
             const Rect wordRect(drawX, lineY, atom.width, lineH);
-            const uint8_t stIdx = keel::min<uint8_t>(4, static_cast<uint8_t>(atom.style));
+            const keel::u8 stIdx = keel::min<keel::u8>(4, static_cast<keel::u8>(atom.style));
             const float glyphH = cachedGlyphH[stIdx];
             const float textY = lineY + (lineH - ((glyphH > 0.0f) ? glyphH : atom.fontSize)) * 0.5f;
 
@@ -891,7 +891,7 @@ InlineFlowLayout BuildInlineFlowLayout(
                 .localRect = wordRect,
                 .textLocalY = textY,
                 .lineIdx = li,
-                .tokenIndex = SIZE_MAX
+                .tokenIndex = keel::kInvalidIndex
             });
             drawX += atom.width;
         }
@@ -915,16 +915,16 @@ keel::Arc<const InlineFlowLayout> GetOrBuildRichTextFlow(
     FontStyle overrideStyle,
     Align horizontalAlign
 ) {
-    thread_local keel::LruCache<uint64_t, keel::Arc<const InlineFlowLayout>, 64> s_flowCache;
+    thread_local keel::LruCache<keel::u64, keel::Arc<const InlineFlowLayout>, 64> s_flowCache;
 
-    const int32_t qWidth = static_cast<int32_t>(std::round(keel::max(0.0f, maxWidth) * 2.0f));
-    const int32_t qBaseFs = static_cast<int32_t>(std::round(baseFontSize * 10.0f));
-    const int32_t qCodeFs = static_cast<int32_t>(std::round(codeBaseFontSize * 10.0f));
-    const int32_t qLhScale = static_cast<int32_t>(std::round(lineHeightScale * 100.0f));
-    const int32_t qZoom = static_cast<int32_t>(std::round(zoom * 100.0f));
-    const int32_t qThemeScale = static_cast<int32_t>(std::round(theme.scale * 100.0f));
+    const keel::i32 qWidth = static_cast<keel::i32>(std::round(keel::max(0.0f, maxWidth) * 2.0f));
+    const keel::i32 qBaseFs = static_cast<keel::i32>(std::round(baseFontSize * 10.0f));
+    const keel::i32 qCodeFs = static_cast<keel::i32>(std::round(codeBaseFontSize * 10.0f));
+    const keel::i32 qLhScale = static_cast<keel::i32>(std::round(lineHeightScale * 100.0f));
+    const keel::i32 qZoom = static_cast<keel::i32>(std::round(zoom * 100.0f));
+    const keel::i32 qThemeScale = static_cast<keel::i32>(std::round(theme.scale * 100.0f));
 
-    const uint64_t key = detail::HashArgs(
+    const keel::u64 key = detail::HashArgs(
         richMarkup,
         richMarkup.size(),
         qWidth,
@@ -933,9 +933,9 @@ keel::Arc<const InlineFlowLayout> GetOrBuildRichTextFlow(
         qLhScale,
         qZoom,
         qThemeScale,
-        static_cast<uint8_t>(overrideStyle),
-        static_cast<uint8_t>(horizontalAlign),
-        static_cast<uint8_t>(theme.mode),
+        static_cast<keel::u8>(overrideStyle),
+        static_cast<keel::u8>(horizontalAlign),
+        static_cast<keel::u8>(theme.mode),
         canvas != nullptr
     );
 
@@ -969,7 +969,7 @@ void CommitInlineFlowToDocument(
     keel::Array<LinkHitRegion>& linkRegions
 ) {
     if (flow.items.empty()) return;
-    size_t currentLine = flow.items.front().lineIdx;
+    keel::usize currentLine = flow.items.front().lineIdx;
     for (PositionedAtom& item : flow.items) {
         if (item.lineIdx != currentLine) {
             textMap.AppendNewline();

@@ -99,8 +99,8 @@ ActivityBarScope ActivityBar::Open(
     node->disabled = activeDisabled;
 
     node->visualHash = detail::HashArgs(
-        static_cast<uint8_t>(opts.side),
-        static_cast<uint8_t>(opts.style),
+        static_cast<keel::u8>(opts.side),
+        static_cast<keel::u8>(opts.style),
         opts.color,
         opts.flushWithSidebar,
         opts.background,
@@ -117,7 +117,7 @@ ActivityBarScope ActivityBar::Open(
 
 Response ActivityBar::Run(
     Context& ctx,
-    int& activeIndex,
+    keel::i32& activeIndex,
     keel::ArrayRef<ActivityBarItem> items,
     const ActivityBarOptions& opts,
     keel::SourceLocation loc
@@ -125,8 +125,8 @@ Response ActivityBar::Run(
     Response barRes{};
     if (auto scope = Open(ctx, opts, loc)) {
         barRes = scope.response;
-        for (size_t i = 0; i < items.size(); ++i) {
-            Response itemRes = scope.Item(activeIndex, static_cast<int>(i), items[i], loc);
+        for (keel::usize i = 0; i < items.size(); ++i) {
+            Response itemRes = scope.Item(activeIndex, static_cast<keel::i32>(i), items[i], loc);
             if (itemRes.clicked) {
                 barRes.clicked = true;
             }
@@ -200,13 +200,13 @@ Response ActivityBar::Item(
     node->fixedHeight = m.defaultHeight;
 
     node->visualHash = detail::HashArgs(
-        static_cast<uint8_t>(barOpts.side),
-        static_cast<uint8_t>(barOpts.style),
+        static_cast<keel::u8>(barOpts.side),
+        static_cast<keel::u8>(barOpts.style),
         item.color.HasAny() ? item.color : barOpts.color,
         item.active,
         effectiveDisabled,
-        static_cast<uint8_t>(data->item.icon.GetType()),
-        static_cast<uint8_t>(data->item.icon.GetId()),
+        static_cast<keel::u8>(data->item.icon.GetType()),
+        static_cast<keel::u8>(data->item.icon.GetId()),
         data->item.icon.GetPath(),
         data->item.label,
         data->item.badge

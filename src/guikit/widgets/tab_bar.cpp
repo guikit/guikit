@@ -21,7 +21,7 @@ Rect ComputeTabCloseButtonRect(Rect bounds, const ComponentMetrics& m) noexcept 
 
 TabBarResponse TabBar::Run(
     Context& ctx,
-    int& activeIndex,
+    keel::i32& activeIndex,
     keel::ArrayRef<TabItem> tabs,
     const TabBarOptions& opts,
     keel::SourceLocation loc
@@ -134,7 +134,7 @@ TabBarResponse TabBar::Run(
     }
 
     // Auto-scroll to active tab when activeIndex changes or on initial display
-    int& lastActive = ctx.GetOrCreatePersistentState<int>(barNode->id, -1);
+    keel::i32& lastActive = ctx.GetOrCreatePersistentState<keel::i32>(barNode->id, -1);
     if (lastActive != activeIndex) {
         lastActive = activeIndex;
         if (barNode->type == NodeType::Carousel) {
@@ -144,9 +144,9 @@ TabBarResponse TabBar::Run(
         }
     }
 
-    for (size_t i = 0; i < tabs.size(); ++i) {
+    for (keel::usize i = 0; i < tabs.size(); ++i) {
         const TabItem& item = tabs[i];
-        const Id tabId = MakeId(static_cast<uint32_t>(i), loc, barNode->id);
+        const Id tabId = MakeId(static_cast<keel::u32>(i), loc, barNode->id);
         const bool effectiveDisabled = activeDisabled || item.disabled;
 
         ctx.RegisterFocusable(tabId, effectiveDisabled);
@@ -186,11 +186,11 @@ TabBarResponse TabBar::Run(
             ctx.SetTooltip(item.tooltip, tabRes.rect);
         }
 
-        if (tabRes.clicked && !effectiveDisabled && activeIndex != static_cast<int>(i)) {
-            activeIndex = static_cast<int>(i);
+        if (tabRes.clicked && !effectiveDisabled && activeIndex != static_cast<keel::i32>(i)) {
+            activeIndex = static_cast<keel::i32>(i);
             res.changed = true;
             res.clicked = true;
-            ctx.GetOrCreatePersistentState<int>(barNode->id) = activeIndex;
+            ctx.GetOrCreatePersistentState<keel::i32>(barNode->id) = activeIndex;
             if (barNode->type == NodeType::Carousel) {
                 if (auto* cData = barNode->As<CarouselData>()) {
                     cData->scrollToActiveTab = true;
@@ -220,8 +220,8 @@ TabBarResponse TabBar::Run(
             closeHovered,
             tData->item.badge,
             tData->item.label,
-            static_cast<uint8_t>(tData->item.icon.GetType()),
-            static_cast<uint8_t>(tData->item.icon.GetId()),
+            static_cast<keel::u8>(tData->item.icon.GetType()),
+            static_cast<keel::u8>(tData->item.icon.GetId()),
             tData->item.icon.GetPath()
         );
         tabNode->measureFn = [](const Node* n, float /*availableWidth*/, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {
@@ -251,7 +251,7 @@ TabBarResponse TabBar::Run(
                 d ? d->closeHovered : false
             );
         };
-        tabNode->active = (activeIndex == static_cast<int>(i));
+        tabNode->active = (activeIndex == static_cast<keel::i32>(i));
         tabNode->uiSize = activeSize;
         tabNode->disabled = effectiveDisabled;
         tabNode->hovered = tabRes.hovered;

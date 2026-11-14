@@ -6,7 +6,7 @@ namespace guikit::demo {
 namespace {
 
 struct ImageState {
-    size_t sourceIdx = 0;
+    keel::usize sourceIdx = 0;
     static constexpr keel::StaticArray<keel::StringRef, 2> sources = {
         "assets/images/lena.png",
         "assets/images/missing_preview.png"
@@ -46,7 +46,7 @@ void RenderImageInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    size_t fitIdx = static_cast<size_t>(s_state.fit);
+    keel::usize fitIdx = static_cast<keel::usize>(s_state.fit);
     if (auto el = ui.Element({.label = "ObjectFit Policy"})) {
         if (ui.StepSlider(fitIdx, ImageState::fitModeNames, {
             .showTicks = true,
@@ -58,7 +58,7 @@ void RenderImageInspector(guikit::Context& ui, DemoContext&) {
     }
 
     static constexpr keel::StaticArray<keel::StringRef, 3> alignNames = {"Start", "Center", "End"};
-    size_t axIdx = static_cast<size_t>(s_state.alignX);
+    keel::usize axIdx = static_cast<keel::usize>(s_state.alignX);
     if (auto el = ui.Element({.label = "Horizontal Fit Align"})) {
         if (ui.StepSlider(axIdx, alignNames, {
             .showTicks = true,
@@ -69,7 +69,7 @@ void RenderImageInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    size_t ayIdx = static_cast<size_t>(s_state.alignY);
+    keel::usize ayIdx = static_cast<keel::usize>(s_state.alignY);
     if (auto el = ui.Element({.label = "Vertical Fit Align"})) {
         if (ui.StepSlider(ayIdx, alignNames, {
             .showTicks = true,
@@ -97,7 +97,7 @@ void RenderImageInspector(guikit::Context& ui, DemoContext&) {
 }
 
 void RenderImageStage(guikit::Context& ui, DemoContext& ctx) {
-    const uint8_t alpha = static_cast<uint8_t>(keel::clamp(std::lround(s_state.opacityPct * 2.55f), 0l, 255l));
+    const keel::u8 alpha = static_cast<keel::u8>(keel::clamp(std::lround(s_state.opacityPct * 2.55f), 0l, 255l));
     if (auto el = ui.Size(ctx.elemSize).Element({
         .label = ctx.GetElementLabel(),
         .description = ctx.GetElementDescription(),
@@ -129,7 +129,7 @@ void RenderImageStage(guikit::Context& ui, DemoContext& ctx) {
 }
 
 keel::String GenerateImageCode(const DemoContext& ctx) {
-    const int alpha = static_cast<int>(keel::clamp(std::lround(s_state.opacityPct * 2.55f), 0l, 255l));
+    const keel::i32 alpha = static_cast<keel::i32>(keel::clamp(std::lround(s_state.opacityPct * 2.55f), 0l, 255l));
 
     return keel::format(
         "if (auto el = ui.{}Element({{\n"
@@ -175,7 +175,7 @@ keel::String GenerateImageCode(const DemoContext& ctx) {
         FormatUiSizePrefix(ctx.controlsSize),
         ImageState::sources[s_state.sourceIdx % ImageState::sources.size()],
         s_state.altText,
-        ImageState::fitModeNames[static_cast<size_t>(s_state.fit)],
+        ImageState::fitModeNames[static_cast<keel::usize>(s_state.fit)],
         AlignName(s_state.alignX),
         AlignName(s_state.alignY),
         StretchModeEnumName(ctx.GetElementStretch()),

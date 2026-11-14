@@ -1,8 +1,6 @@
 #pragma once
 
 #include <cmath>
-#include <cstddef>
-#include <cstdint>
 #include "guikit/core/types.hpp"
 #include "keel/array.h"
 #include "keel/core.h"
@@ -19,7 +17,7 @@ struct GeoPlanar {
 };
 
 /// Coordinate Reference System (CRS) / Map Projection model.
-enum class MapCrs : uint8_t {
+enum class MapCrs : keel::u8 {
     EPSG3857_WebMercator = 0,   ///< Spherical Web Mercator (OSM, OpenSeaMap, Google/Mapbox standard)
     EPSG3395_WorldMercator,     ///< WGS84 Ellipsoidal Mercator (True conformal nautical chart projection)
     EPSG4326_PlateCarree,       ///< Equirectangular WGS84 Geographic Lon/Lat grid
@@ -30,7 +28,7 @@ enum class MapCrs : uint8_t {
 };
 
 /// Display formatting mode for geographic and geodetic planar coordinates.
-enum class GeoCoordFormat : uint8_t {
+enum class GeoCoordFormat : keel::u8 {
     NauticalDMM = 0,            ///< Degrees & Decimal Minutes: 54° 10.92' N, 007° 53.20' E (1' lat = 1 NM)
     DecimalDegrees,             ///< Signed/cardinal decimal degrees: 54.1820° N, 007.8867° E
     DMS,                        ///< Degrees, Minutes, Seconds: 54° 10' 55" N, 007° 53' 12" E
@@ -123,9 +121,9 @@ using GeoBBox = GeoBounds;
 
 /// Slippy Map tile pyramid address [z/x/y].
 struct OsmTileId {
-    int z{0};                   ///< Zoom level [0..19]
-    int x{0};                   ///< Tile column [0..2^z - 1] (West -> East)
-    int y{0};                   ///< Tile row [0..2^z - 1] (North -> South)
+    keel::i32 z{0};                   ///< Zoom level [0..19]
+    keel::i32 x{0};                   ///< Tile column [0..2^z - 1] (West -> East)
+    keel::i32 y{0};                   ///< Tile row [0..2^z - 1] (North -> South)
 
     [[nodiscard]] constexpr bool operator==(const OsmTileId& o) const noexcept {
         return z == o.z && x == o.x && y == o.y;
@@ -143,7 +141,7 @@ struct OsmTileCell {
 struct GraticuleLine {
     double degrees{0.0};        ///< Latitude or longitude in degrees
     float worldPos{0.0f};       ///< X (for meridian) or Y (for parallel) in Scene world coordinates
-    int stepIndex{0};           ///< Signed integer multiple of stepDeg from 0° (for pan-invariant ruler zebra bars)
+    keel::i32 stepIndex{0};           ///< Signed integer multiple of stepDeg from 0° (for pan-invariant ruler zebra bars)
     bool isMajor{false};        ///< True if whole degree or major 5x subdivision
     bool isZero{false};         ///< True for Equator (0° lat) or Prime Meridian (0° lon)
 };
@@ -157,15 +155,15 @@ struct MapScaleBar {
 
 /// Universal callback for resolving a tile image source (file path, URI, or cached PNG/SVG asset).
 /// `layerIndex == 0` is the base map (e.g. OSM), `layerIndex == 1` is an overlay (e.g. OpenSeaMap seamark).
-using TileSourceCallback = keel::StringRef (*)(OsmTileId tile, int layerIndex, void* userData);
+using TileSourceCallback = keel::StringRef (*)(OsmTileId tile, keel::i32 layerIndex, void* userData);
 
 /// Configuration for map projection, tile pyramid, and nautical graticule calculation.
 struct MapGridConfig {
     MapCrs crs{MapCrs::EPSG3857_WebMercator};
     float worldSize{2048.0f};   ///< Scene world extent (0..worldSize in X and Y)
-    int baseZoom{3};            ///< Tile zoom level corresponding to sceneZoom == 1.0f (2048 / 256 = 8 = 2^3)
-    int minTileZoom{1};
-    int maxTileZoom{18};
+    keel::i32 baseZoom{3};            ///< Tile zoom level corresponding to sceneZoom == 1.0f (2048 / 256 = 8 = 2^3)
+    keel::i32 minTileZoom{1};
+    keel::i32 maxTileZoom{18};
     float zoomBias{0.0f};       ///< Optional LOD offset applied before selecting integer tile level z
     TileSourceCallback tileSource{nullptr};
     void* tileSourceUserData{nullptr};
@@ -175,13 +173,13 @@ struct MapGridConfig {
 struct MapViewState {
     MapCrs crs{MapCrs::EPSG3857_WebMercator};
     float continuousZoom{3.0f}; ///< Smooth fractional zoom level: baseZoom + log2(sceneZoom)
-    int tileZoom{3};            ///< Active discrete tile pyramid level z
-    int totalTilesPerAxis{8};   ///< 2^z tiles along each axis
-    int minTileX{0};
-    int maxTileX{0};
-    int minTileY{0};
-    int maxTileY{0};
-    int visibleTileCount{0};
+    keel::i32 tileZoom{3};            ///< Active discrete tile pyramid level z
+    keel::i32 totalTilesPerAxis{8};   ///< 2^z tiles along each axis
+    keel::i32 minTileX{0};
+    keel::i32 maxTileX{0};
+    keel::i32 minTileY{0};
+    keel::i32 maxTileY{0};
+    keel::i32 visibleTileCount{0};
 
     GeoCoord center{};          ///< Geographic coordinates at the center of the viewport
     GeoCoord cursor{};          ///< Geographic coordinates directly under the mouse cursor
@@ -333,7 +331,7 @@ public:
 
         double theta = std::atan2(z2 * dstEllipsoid.a, p * b2);
         double phi2 = 0.0;
-        for (int i = 0; i < 2; ++i) {
+        for (keel::i32 i = 0; i < 2; ++i) {
             const double sinT = std::sin(theta);
             const double cosT = std::cos(theta);
             phi2 = std::atan2(
@@ -452,7 +450,7 @@ public:
         const double Q = std::atanh(sinChi);
         const double sinhQ = std::sinh(Q);
         double tau = sinhQ;
-        for (int iter = 0; iter < 5; ++iter) {
+        for (keel::i32 iter = 0; iter < 5; ++iter) {
             const double tauHyp = std::hypot(1.0, tau);
             const double sigma = std::sinh(e * std::atanh(e * tau / tauHyp));
             const double tauP = tau * std::hypot(1.0, sigma) - sigma * tauHyp;
@@ -535,7 +533,7 @@ public:
 
         const double t = (rho * tC) / (a * mC);
         double phi = 0.5 * kPi - 2.0 * std::atan(t);
-        for (int iter = 0; iter < 6; ++iter) {
+        for (keel::i32 iter = 0; iter < 6; ++iter) {
             const double eSin = e * std::sin(phi);
             const double cf = std::pow((1.0 - eSin) / (1.0 + eSin), 0.5 * e);
             phi = 0.5 * kPi - 2.0 * std::atan(t * cf);
@@ -657,7 +655,7 @@ public:
             const double mercY = kPi * (1.0 - 2.0 * ny);
             const double t = std::exp(-mercY);
             double phi = 0.5 * kPi - 2.0 * std::atan(t);
-            for (int iter = 0; iter < 6; ++iter) {
+            for (keel::i32 iter = 0; iter < 6; ++iter) {
                 const double eSin = kWgs84Eccentricity * std::sin(phi);
                 const double cf = std::pow((1.0 - eSin) / (1.0 + eSin), 0.5 * kWgs84Eccentricity);
                 phi = 0.5 * kPi - 2.0 * std::atan(t * cf);
@@ -684,26 +682,26 @@ public:
     }
 
     /// Converts a geographic Coordinate into fractional slippy tile coordinates at zoom level z.
-    [[nodiscard]] static Vec2 GeoToTileFraction(GeoCoord geo, int z, MapCrs crs = MapCrs::EPSG3857_WebMercator) noexcept {
-        const int clampedZ = keel::clamp(z, 0, 22);
+    [[nodiscard]] static Vec2 GeoToTileFraction(GeoCoord geo, keel::i32 z, MapCrs crs = MapCrs::EPSG3857_WebMercator) noexcept {
+        const keel::i32 clampedZ = keel::clamp(z, 0, 22);
         const float n = static_cast<float>(1 << clampedZ);
         const Vec2 norm = GeoToNormalized(geo, crs);
         return {norm.x * n, norm.y * n};
     }
 
     /// Converts a geographic coordinate into integer [z/x/y] tile indices.
-    [[nodiscard]] static OsmTileId GeoToTileId(GeoCoord geo, int z, MapCrs crs = MapCrs::EPSG3857_WebMercator) noexcept {
-        const int clampedZ = keel::clamp(z, 0, 22);
-        const int n = 1 << clampedZ;
+    [[nodiscard]] static OsmTileId GeoToTileId(GeoCoord geo, keel::i32 z, MapCrs crs = MapCrs::EPSG3857_WebMercator) noexcept {
+        const keel::i32 clampedZ = keel::clamp(z, 0, 22);
+        const keel::i32 n = 1 << clampedZ;
         const Vec2 f = GeoToTileFraction(geo, clampedZ, crs);
-        const int tx = keel::clamp(static_cast<int>(std::floor(f.x)), 0, n - 1);
-        const int ty = keel::clamp(static_cast<int>(std::floor(f.y)), 0, n - 1);
+        const keel::i32 tx = keel::clamp(static_cast<keel::i32>(std::floor(f.x)), 0, n - 1);
+        const keel::i32 ty = keel::clamp(static_cast<keel::i32>(std::floor(f.y)), 0, n - 1);
         return {clampedZ, tx, ty};
     }
 
     /// Returns the Scene world-space rectangle occupied by tile [z/x/y].
     [[nodiscard]] static Rect TileToWorldRect(OsmTileId tile, float worldSize) noexcept {
-        const int clampedZ = keel::clamp(tile.z, 0, 22);
+        const keel::i32 clampedZ = keel::clamp(tile.z, 0, 22);
         const float n = static_cast<float>(1 << clampedZ);
         const float tileWorldW = worldSize / n;
         return Rect(
@@ -716,7 +714,7 @@ public:
 
     /// Returns the geographic NW and SE bounds of tile [z/x/y] (evaluating all 4 corners + center for rotated/polar CRS).
     [[nodiscard]] static GeoBounds TileToGeoBounds(OsmTileId tile, MapCrs crs = MapCrs::EPSG3857_WebMercator) noexcept {
-        const int clampedZ = keel::clamp(tile.z, 0, 22);
+        const keel::i32 clampedZ = keel::clamp(tile.z, 0, 22);
         const float invN = 1.0f / static_cast<float>(1 << clampedZ);
         const float x0 = static_cast<float>(tile.x) * invN;
         const float y0 = static_cast<float>(tile.y) * invN;
@@ -739,7 +737,7 @@ public:
     }
 
     /// Computes the Scene zoom factor required to achieve a target continuous tile zoom level.
-    [[nodiscard]] static float TileZoomToSceneZoom(float targetTileZoom, int baseZoom = 3) noexcept {
+    [[nodiscard]] static float TileZoomToSceneZoom(float targetTileZoom, keel::i32 baseZoom = 3) noexcept {
         return std::pow(2.0f, targetTileZoom - static_cast<float>(baseZoom));
     }
 
@@ -877,7 +875,7 @@ public:
         // 1. Continuous and integer tile pyramid zoom level
         out.continuousZoom = static_cast<float>(cfg.baseZoom) + std::log2(safeZoom) + cfg.zoomBias;
         out.tileZoom = keel::clamp(
-            static_cast<int>(std::floor(out.continuousZoom + 0.5f)),
+            static_cast<keel::i32>(std::floor(out.continuousZoom + 0.5f)),
             cfg.minTileZoom,
             cfg.maxTileZoom
         );
@@ -913,18 +911,18 @@ public:
         const float nF = static_cast<float>(out.totalTilesPerAxis);
         const float tileWorldW = safeWorld / nF;
 
-        out.minTileX = keel::clamp(static_cast<int>(std::floor(vx0 / tileWorldW)), 0, out.totalTilesPerAxis - 1);
-        out.maxTileX = keel::clamp(static_cast<int>(std::floor(keel::max(vx0, vx1 - 1e-4f) / tileWorldW)), 0, out.totalTilesPerAxis - 1);
-        out.minTileY = keel::clamp(static_cast<int>(std::floor(vy0 / tileWorldW)), 0, out.totalTilesPerAxis - 1);
-        out.maxTileY = keel::clamp(static_cast<int>(std::floor(keel::max(vy0, vy1 - 1e-4f) / tileWorldW)), 0, out.totalTilesPerAxis - 1);
+        out.minTileX = keel::clamp(static_cast<keel::i32>(std::floor(vx0 / tileWorldW)), 0, out.totalTilesPerAxis - 1);
+        out.maxTileX = keel::clamp(static_cast<keel::i32>(std::floor(keel::max(vx0, vx1 - 1e-4f) / tileWorldW)), 0, out.totalTilesPerAxis - 1);
+        out.minTileY = keel::clamp(static_cast<keel::i32>(std::floor(vy0 / tileWorldW)), 0, out.totalTilesPerAxis - 1);
+        out.maxTileY = keel::clamp(static_cast<keel::i32>(std::floor(keel::max(vy0, vy1 - 1e-4f) / tileWorldW)), 0, out.totalTilesPerAxis - 1);
 
-        const int countX = keel::max(0, out.maxTileX - out.minTileX + 1);
-        const int countY = keel::max(0, out.maxTileY - out.minTileY + 1);
+        const keel::i32 countX = keel::max(0, out.maxTileX - out.minTileX + 1);
+        const keel::i32 countY = keel::max(0, out.maxTileY - out.minTileY + 1);
         out.visibleTileCount = countX * countY;
-        out.visibleTiles.reserve(static_cast<size_t>(out.visibleTileCount));
+        out.visibleTiles.reserve(static_cast<keel::usize>(out.visibleTileCount));
 
-        for (int ty = out.minTileY; ty <= out.maxTileY; ++ty) {
-            for (int tx = out.minTileX; tx <= out.maxTileX; ++tx) {
+        for (keel::i32 ty = out.minTileY; ty <= out.maxTileY; ++ty) {
+            for (keel::i32 tx = out.minTileX; tx <= out.maxTileX; ++tx) {
                 const OsmTileId id{out.tileZoom, tx, ty};
                 out.visibleTiles.push_back(OsmTileCell{
                     .id = id,
@@ -958,9 +956,9 @@ public:
 
         if (stepDeg > 0.0) {
             // Meridians (West -> East), padded by 1 step so border ruler zebra bars clip smoothly at edges
-            const int iLonStart = static_cast<int>(std::floor(out.visibleBounds.nw.lon / stepDeg)) - 1;
-            const int iLonEnd   = static_cast<int>(std::ceil(out.visibleBounds.se.lon / stepDeg)) + 1;
-            for (int idx = iLonStart; idx <= iLonEnd; ++idx) {
+            const keel::i32 iLonStart = static_cast<keel::i32>(std::floor(out.visibleBounds.nw.lon / stepDeg)) - 1;
+            const keel::i32 iLonEnd   = static_cast<keel::i32>(std::ceil(out.visibleBounds.se.lon / stepDeg)) + 1;
+            for (keel::i32 idx = iLonStart; idx <= iLonEnd; ++idx) {
                 const double lon = static_cast<double>(idx) * stepDeg;
                 if (lon < -180.0 - 1e-6 || lon > 180.0 + 1e-6) continue;
                 const float wx = GeoToWorld({out.center.lat, lon}, safeWorld, cfg.crs).x;
@@ -976,9 +974,9 @@ public:
             }
 
             // Parallels (South -> North), padded by 1 step so border ruler zebra bars clip smoothly at edges
-            const int iLatStart = static_cast<int>(std::floor(out.visibleBounds.se.lat / stepDeg)) - 1;
-            const int iLatEnd   = static_cast<int>(std::ceil(out.visibleBounds.nw.lat / stepDeg)) + 1;
-            for (int idx = iLatStart; idx <= iLatEnd; ++idx) {
+            const keel::i32 iLatStart = static_cast<keel::i32>(std::floor(out.visibleBounds.se.lat / stepDeg)) - 1;
+            const keel::i32 iLatEnd   = static_cast<keel::i32>(std::ceil(out.visibleBounds.nw.lat / stepDeg)) + 1;
+            for (keel::i32 idx = iLatStart; idx <= iLatEnd; ++idx) {
                 const double lat = static_cast<double>(idx) * stepDeg;
                 const double maxL = IsCylindricalCrs(cfg.crs)
                     ? ((cfg.crs == MapCrs::EPSG4326_PlateCarree) ? 89.9 : kMaxMercatorLat)
@@ -1009,16 +1007,16 @@ public:
             return keel::format_fixed<48>(isLat ? "%07.4f° %c" : "%08.4f° %c", absDeg, hemi);
         }
         if (fmt == GeoCoordFormat::DMS) {
-            int d = static_cast<int>(std::floor(absDeg));
+            keel::i32 d = static_cast<keel::i32>(std::floor(absDeg));
             double remMin = (absDeg - static_cast<double>(d)) * 60.0;
-            int m = static_cast<int>(std::floor(remMin));
+            keel::i32 m = static_cast<keel::i32>(std::floor(remMin));
             double s = (remMin - static_cast<double>(m)) * 60.0;
             if (s >= 59.95) { s = 0.0; ++m; }
             if (m >= 60) { m = 0; ++d; }
             return keel::format_fixed<48>(isLat ? "%02d° %02d' %04.1f\" %c" : "%03d° %02d' %04.1f\" %c", d, m, s, hemi);
         }
         // Standard OpenSeaMap / Marine GPS Degrees & Decimal Minutes (DD° MM.mm')
-        int d = static_cast<int>(std::floor(absDeg));
+        keel::i32 d = static_cast<keel::i32>(std::floor(absDeg));
         double m = (absDeg - static_cast<double>(d)) * 60.0;
         if (m >= 59.995) { m = 0.0; ++d; }
         return keel::format_fixed<48>(isLat ? "%02d° %05.2f' %c" : "%03d° %05.2f' %c", d, m, hemi);
@@ -1032,12 +1030,12 @@ public:
             return keel::format_fixed<32>("%.0f° %c", absDeg, hemi);
         }
         if (stepArcMin >= 1.0) {
-            int d = static_cast<int>(std::floor(absDeg + 1e-7));
+            keel::i32 d = static_cast<keel::i32>(std::floor(absDeg + 1e-7));
             double m = (absDeg - static_cast<double>(d)) * 60.0;
             if (m >= 59.95) { m = 0.0; ++d; }
             return keel::format_fixed<32>("%d° %02.0f' %c", d, m, hemi);
         }
-        int d = static_cast<int>(std::floor(absDeg + 1e-7));
+        keel::i32 d = static_cast<keel::i32>(std::floor(absDeg + 1e-7));
         double m = (absDeg - static_cast<double>(d)) * 60.0;
         if (m >= 59.995) { m = 0.0; ++d; }
         return keel::format_fixed<32>("%d° %04.1f' %c", d, m, hemi);
@@ -1050,9 +1048,9 @@ public:
         MapCrs activeCrs = MapCrs::EPSG3857_WebMercator
     ) noexcept {
         if (fmt == GeoCoordFormat::UTM_Meters) {
-            const int zone = (activeCrs == MapCrs::EPSG32636_Utm36N)
+            const keel::i32 zone = (activeCrs == MapCrs::EPSG32636_Utm36N)
                 ? 36
-                : keel::clamp(static_cast<int>(std::floor((ClampLon(c.lon) + 180.0) / 6.0)) + 1, 1, 60);
+                : keel::clamp(static_cast<keel::i32>(std::floor((ClampLon(c.lon) + 180.0) / 6.0)) + 1, 1, 60);
             const bool north = (c.lat >= 0.0);
             const TransverseMercatorSpec spec{
                 .ellipsoid = EllipsoidSpec::Wgs84(),
@@ -1069,9 +1067,9 @@ public:
         if (fmt == GeoCoordFormat::GaussKruger_Meters) {
             double posLon = ClampLon(c.lon);
             if (posLon < 0.0) posLon += 360.0;
-            const int zone = (activeCrs == MapCrs::EPSG20906_Gsk2011Zone6 || activeCrs == MapCrs::EPSG28406_Pulkovo42Zone6)
+            const keel::i32 zone = (activeCrs == MapCrs::EPSG20906_Gsk2011Zone6 || activeCrs == MapCrs::EPSG28406_Pulkovo42Zone6)
                 ? 6
-                : keel::clamp(static_cast<int>(std::floor(posLon / 6.0)) + 1, 1, 60);
+                : keel::clamp(static_cast<keel::i32>(std::floor(posLon / 6.0)) + 1, 1, 60);
             const bool useSk42 = (activeCrs == MapCrs::EPSG28406_Pulkovo42Zone6);
             const TransverseMercatorSpec spec{
                 .ellipsoid = useSk42 ? EllipsoidSpec::Krassowsky1940() : EllipsoidSpec::Gsk2011(),

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -38,33 +36,33 @@ concept WritableTagStringList =
     !keel::IsConst<C> &&
     !keel::IsSame<keel::Decay<C>, StringTagListSink> &&
     requires(C& c, const C& cc) {
-        requires keel::IsSame<decltype(cc.size()), size_t>;
-        c[size_t{0}];
-        cc[size_t{0}];
+        requires keel::IsSame<decltype(cc.size()), keel::usize>;
+        c[keel::usize{0}];
+        cc[keel::usize{0}];
         c.pop_back();
         c.clear();
     } &&
-    keel::WritableString<keel::RemoveCvRef<decltype((*static_cast<C*>(nullptr))[size_t{0}])>> &&
+    keel::WritableString<keel::RemoveCvRef<decltype((*static_cast<C*>(nullptr))[keel::usize{0}])>> &&
     (requires(C& c, keel::StringRef ref) {
         c.allocator();
-        keel::RemoveCvRef<decltype(c[size_t{0}])>(ref, c.allocator());
+        keel::RemoveCvRef<decltype(c[keel::usize{0}])>(ref, c.allocator());
     } || requires(C& c, keel::StringRef ref) {
-        keel::RemoveCvRef<decltype(c[size_t{0}])>(ref);
-    } || requires(C& c, const char* p, size_t n) {
-        keel::RemoveCvRef<decltype(c[size_t{0}])>(p, n);
+        keel::RemoveCvRef<decltype(c[keel::usize{0}])>(ref);
+    } || requires(C& c, const char* p, keel::usize n) {
+        keel::RemoveCvRef<decltype(c[keel::usize{0}])>(p, n);
     }) &&
-    (requires(C& c) { c.try_push_back(keel::move(c[size_t{0}])); } ||
-     requires(C& c) { c.push_back(keel::move(c[size_t{0}])); });
+    (requires(C& c) { c.try_push_back(keel::move(c[keel::usize{0}])); } ||
+     requires(C& c) { c.push_back(keel::move(c[keel::usize{0}])); });
 
 /// Non-owning type-erased mutable adapter over a list of writable UTF-8 tag strings.
 class StringTagListSink {
 public:
     struct Ops {
-        size_t (*size_fn)(const void* obj) noexcept;
-        keel::StringRef (*get_fn)(const void* obj, size_t idx) noexcept;
+        keel::usize (*size_fn)(const void* obj) noexcept;
+        keel::StringRef (*get_fn)(const void* obj, keel::usize idx) noexcept;
         void (*clear_fn)(void* obj);
         void (*push_fn)(void* obj, keel::StringRef ref);
-        void (*erase_at_fn)(void* obj, size_t idx);
+        void (*erase_at_fn)(void* obj, keel::usize idx);
     };
 
     constexpr StringTagListSink() noexcept = default;
@@ -77,10 +75,10 @@ public:
     [[nodiscard]] constexpr bool has_target() const noexcept { return m_obj != nullptr && m_ops != nullptr; }
     [[nodiscard]] explicit constexpr operator bool() const noexcept { return has_target(); }
 
-    [[nodiscard]] size_t size() const noexcept { return has_target() ? m_ops->size_fn(m_obj) : 0; }
+    [[nodiscard]] keel::usize size() const noexcept { return has_target() ? m_ops->size_fn(m_obj) : 0; }
     [[nodiscard]] bool empty() const noexcept { return size() == 0; }
 
-    [[nodiscard]] keel::StringRef get(size_t i) const noexcept {
+    [[nodiscard]] keel::StringRef get(keel::usize i) const noexcept {
         return has_target() ? m_ops->get_fn(m_obj, i) : keel::StringRef{};
     }
 
@@ -92,23 +90,23 @@ public:
         if (has_target()) m_ops->push_fn(m_obj, ref);
     }
 
-    void erase_at(size_t idx) const {
+    void erase_at(keel::usize idx) const {
         if (has_target()) m_ops->erase_at_fn(m_obj, idx);
     }
 
 private:
     template <WritableTagStringList C>
     static const Ops& ops_for() noexcept {
-        using ElemT = keel::RemoveCvRef<decltype((*static_cast<C*>(nullptr))[size_t{0}])>;
+        using ElemT = keel::RemoveCvRef<decltype((*static_cast<C*>(nullptr))[keel::usize{0}])>;
         static constexpr Ops kOps{
-            +[](const void* obj) noexcept -> size_t {
+            +[](const void* obj) noexcept -> keel::usize {
                 return static_cast<const C*>(obj)->size();
             },
-            +[](const void* obj, size_t idx) noexcept -> keel::StringRef {
+            +[](const void* obj, keel::usize idx) noexcept -> keel::StringRef {
                 const auto& c = *static_cast<const C*>(obj);
                 if (idx >= c.size()) return {};
                 const auto& elem = c[idx];
-                return keel::StringRef(elem.data(), static_cast<size_t>(elem.size()));
+                return keel::StringRef(elem.data(), static_cast<keel::usize>(elem.size()));
             },
             +[](void* obj) {
                 static_cast<C*>(obj)->clear();
@@ -134,11 +132,11 @@ private:
                     c.push_back(makeElem());
                 }
             },
-            +[](void* obj, size_t idx) {
+            +[](void* obj, keel::usize idx) {
                 auto& c = *static_cast<C*>(obj);
-                const size_t n = c.size();
+                const keel::usize n = c.size();
                 if (idx >= n) return;
-                for (size_t i = idx + 1; i < n; ++i) {
+                for (keel::usize i = idx + 1; i < n; ++i) {
                     c[i - 1] = keel::move(c[i]);
                 }
                 c.pop_back();
@@ -160,7 +158,7 @@ concept WritableTagItemList =
     requires(C& c, const C& cc, const TagItem& item) {
         requires keel::IsSame<decltype(c.data()), TagItem*>;
         requires keel::IsSame<decltype(cc.data()), const TagItem*>;
-        requires keel::IsSame<decltype(cc.size()), size_t>;
+        requires keel::IsSame<decltype(cc.size()), keel::usize>;
         c.push_back(item);
         c.pop_back();
         c.clear();
@@ -173,7 +171,7 @@ public:
         keel::MutArrayRef<TagItem> (*view_fn)(void* obj) noexcept;
         void (*clear_fn)(void* obj);
         void (*push_fn)(void* obj, const TagItem& item);
-        void (*erase_at_fn)(void* obj, size_t idx);
+        void (*erase_at_fn)(void* obj, keel::usize idx);
     };
 
     constexpr TagItemListSink() noexcept = default;
@@ -196,9 +194,9 @@ public:
         return has_target() ? m_ops->view_fn(m_obj) : keel::MutArrayRef<TagItem>{};
     }
 
-    [[nodiscard]] size_t size() const noexcept { return as_ref().size(); }
+    [[nodiscard]] keel::usize size() const noexcept { return as_ref().size(); }
     [[nodiscard]] bool empty() const noexcept { return as_ref().empty(); }
-    [[nodiscard]] const TagItem& operator[](size_t i) const noexcept { return as_ref()[i]; }
+    [[nodiscard]] const TagItem& operator[](keel::usize i) const noexcept { return as_ref()[i]; }
 
     void clear() const {
         if (has_target()) m_ops->clear_fn(m_obj);
@@ -208,7 +206,7 @@ public:
         if (has_target()) m_ops->push_fn(m_obj, item);
     }
 
-    void erase_at(size_t idx) const {
+    void erase_at(keel::usize idx) const {
         if (has_target()) m_ops->erase_at_fn(m_obj, idx);
     }
 
@@ -234,12 +232,12 @@ private:
                     c.push_back(item);
                 }
             },
-            +[](void* obj, size_t idx) {
+            +[](void* obj, keel::usize idx) {
                 auto& c = *static_cast<C*>(obj);
-                const size_t n = c.size();
+                const keel::usize n = c.size();
                 if (idx >= n) return;
                 TagItem* p = c.data();
-                for (size_t i = idx + 1; i < n; ++i) {
+                for (keel::usize i = idx + 1; i < n; ++i) {
                     p[i - 1] = keel::move(p[i]);
                 }
                 c.pop_back();
@@ -256,7 +254,7 @@ struct TagInputOptions {
     UiText placeholder{"Add tag..."};              ///< Placeholder text shown when empty or in trailing inline input
     UiAffix prefix{};                              ///< Optional leading icon/text inside field on left
     UiVariant tagVariant{UiVariant::Primary};      ///< Default visual variant for tag pills
-    uint32_t maxTags{0};                           ///< Maximum allowed tags (0 = unlimited)
+    keel::u32 maxTags{0};                           ///< Maximum allowed tags (0 = unlimited)
     bool allowDuplicates{false};                   ///< Whether duplicate tag strings are permitted
     bool splitOnComma{true};                       ///< Commit tag(s) when typing ',' or ';'
     bool splitOnSpace{false};                      ///< Commit tag when typing space ' '

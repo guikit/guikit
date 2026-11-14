@@ -1,22 +1,22 @@
 #pragma once
 
 #include <cassert>
-#include <cstdint>
 #include "guikit/core/id.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "keel/core.h"
 
 namespace guikit {
 
 namespace detail {
-inline uint16_t NextPayloadTypeId() noexcept {
-    static uint16_t counter = 0;
+inline keel::u16 NextPayloadTypeId() noexcept {
+    static keel::u16 counter = 0;
     return ++counter;
 }
 
 template <typename T>
-[[nodiscard]] inline uint16_t GetPayloadTypeId() noexcept {
-    static const uint16_t id = NextPayloadTypeId();
+[[nodiscard]] inline keel::u16 GetPayloadTypeId() noexcept {
+    static const keel::u16 id = NextPayloadTypeId();
     return id;
 }
 } // namespace detail
@@ -36,7 +36,7 @@ using ArrangeFunc = void (*)(Node* node, const Rect& availableRect, const UiThem
 using RenderFunc = void (*)(const Node* node, ICanvas& canvas, const UiTheme& theme);
 
 /// Fundamental semantic category of a scene graph element.
-enum class NodeCategory : uint8_t {
+enum class NodeCategory : keel::u8 {
     Layout,     ///< Pure geometry and flow distribution: Row, Column, Wrap, Grid, Cell
     Container,  ///< Visual surface and viewport boundary: Card, Box, ScrollArea, Carousel
     Widget,     ///< Terminal interactive or content leaf element: Button, Input, Switch, Text...
@@ -45,7 +45,7 @@ enum class NodeCategory : uint8_t {
 
 /// Type of element represented by a frame graph node.
 /// Partitioned by numeric ranges for fast categorization and user extensibility.
-enum class NodeType : uint16_t {
+enum class NodeType : keel::u16 {
     // --- Layouts (1..99): Pure flow distribution ---
     Row         = 1,
     Column      = 2,
@@ -127,16 +127,16 @@ struct Node {
     Node* nextSibling{nullptr};
     const UiTheme* theme{nullptr};
 
-    uint32_t childIndex{0};     ///< Index of this node within its parent container
-    uint32_t childCount{0};     ///< Total number of direct children
+    keel::u32 childIndex{0};     ///< Index of this node within its parent container
+    keel::u32 childCount{0};     ///< Total number of direct children
 
     Id id{Id::Null()};          ///< Unique identity
-    uint64_t visualHash{0};     ///< Fast visual fingerprint for frame-to-frame damage tracking
+    keel::u64 visualHash{0};     ///< Fast visual fingerprint for frame-to-frame damage tracking
 
     // Layout configuration & ambient state
     NodeType type{NodeType::Container};
-    uint8_t gridColumns{12};    ///< Number of columns in Grid layout container
-    uint8_t colSpan{12};        ///< Number of grid columns occupied by this item (1..12)
+    keel::u8 gridColumns{12};    ///< Number of columns in Grid layout container
+    keel::u8 colSpan{12};        ///< Number of grid columns occupied by this item (1..12)
     keel::Optional<bool> debugBoundsOverride{keel::kNullOpt};
     keel::Optional<bool> inspectModeOverride{keel::kNullOpt};
 
@@ -165,14 +165,14 @@ struct Node {
     bool sidebarScrollable : 1 {true};
     bool ctrlStretchable : 1 {true};
     bool ctrlStretchH : 1 {false};
-    uint16_t equalWidths : 1 {0};
-    uint16_t sidebarCompact : 1 {0};
-    uint16_t sidebarCollapsed : 1 {0};
-    uint16_t sidebarFlush : 1 {0};
-    uint16_t explicitGap : 1 {0};
-    uint16_t explicitPadding : 1 {0};
-    uint16_t explicitRadius : 1 {0};
-    uint16_t payloadTypeId : 9 {0}; ///< Runtime type tag for safe Node::As<T>() casting
+    keel::u16 equalWidths : 1 {0};
+    keel::u16 sidebarCompact : 1 {0};
+    keel::u16 sidebarCollapsed : 1 {0};
+    keel::u16 sidebarFlush : 1 {0};
+    keel::u16 explicitGap : 1 {0};
+    keel::u16 explicitPadding : 1 {0};
+    keel::u16 explicitRadius : 1 {0};
+    keel::u16 payloadTypeId : 9 {0}; ///< Runtime type tag for safe Node::As<T>() casting
 
     float fixedWidth{0.0f};
     float fixedHeight{0.0f};
@@ -241,7 +241,7 @@ struct Node {
 
     /// Returns the fundamental semantic category of this element.
     [[nodiscard]] constexpr NodeCategory GetCategory() const noexcept {
-        const auto val = static_cast<uint16_t>(type);
+        const auto val = static_cast<keel::u16>(type);
         if (type == NodeType::Spacer || isSpacer) {
             return NodeCategory::Spacer;
         }
@@ -325,7 +325,7 @@ struct Node {
             case NodeType::CommandPalette:  return "CommandPalette";
             case NodeType::LevelMeter:      return "LevelMeter";
             case NodeType::TagInput:        return "TagInput";
-            default:                       return (static_cast<uint16_t>(type) >= static_cast<uint16_t>(NodeType::User)) ? "UserWidget" : "Unknown";
+            default:                       return (static_cast<keel::u16>(type) >= static_cast<keel::u16>(NodeType::User)) ? "UserWidget" : "Unknown";
         }
     }
 

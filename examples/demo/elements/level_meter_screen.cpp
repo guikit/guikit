@@ -7,13 +7,13 @@ namespace guikit::demo {
 namespace {
 
 struct LevelMeterDemoState {
-    size_t channelModeIdx = 1; // 0 = Single-Channel (Mono dBFS), 1 = Stereo Dual-Channel (L / R)
-    size_t orientationIdx = 0; // 0 = Horizontal, 1 = Vertical
+    keel::usize channelModeIdx = 1; // 0 = Single-Channel (Mono dBFS), 1 = Stereo Dual-Channel (L / R)
+    keel::usize orientationIdx = 0; // 0 = Horizontal, 1 = Vertical
     float levelDb = -8.5f;
     float stereoSpreadDb = 3.5f;
     bool simulateLive = false;
     bool segmented = true;
-    uint32_t segments = 24;
+    keel::u32 segments = 24;
     bool multiZoneColor = true;
     bool autoPeakHold = true;
     bool showClipLed = true;
@@ -210,7 +210,7 @@ void RenderLevelMeterStage(guikit::Context& ui, DemoContext& ctx) {
 
 keel::String GenerateLevelMeterCode(const DemoContext& ctx) {
     const keel::StringRef orientName = (s_state.orientationIdx == 0) ? "Horizontal" : "Vertical";
-    const uint32_t segVal = s_state.segmented ? s_state.segments : 0u;
+    const keel::u32 segVal = s_state.segmented ? s_state.segments : 0u;
 
     if (s_state.channelModeIdx == 1) {
         return keel::format(

@@ -135,12 +135,12 @@ Response Image::Run(
         payload->opts.alt,
         optsCopy.background,
         optsCopy.border,
-        static_cast<uint8_t>(optsCopy.fit),
-        static_cast<uint8_t>(optsCopy.align),
-        static_cast<uint8_t>(optsCopy.alignX),
-        static_cast<uint8_t>(optsCopy.alignY),
-        static_cast<uint8_t>(optsCopy.stretch),
-        static_cast<uint8_t>(optsCopy.heightMode),
+        static_cast<keel::u8>(optsCopy.fit),
+        static_cast<keel::u8>(optsCopy.align),
+        static_cast<keel::u8>(optsCopy.alignX),
+        static_cast<keel::u8>(optsCopy.alignY),
+        static_cast<keel::u8>(optsCopy.stretch),
+        static_cast<keel::u8>(optsCopy.heightMode),
         optsCopy.width.value_or(0.0f),
         optsCopy.height.value_or(0.0f),
         optsCopy.maxHeight.value_or(0.0f),
@@ -227,11 +227,11 @@ void Image::DrawCheckerboard(
     canvas.PushClip(rect.Inset(keel::max(1.0f, radius * 0.25f)));
 
     const float step = keel::max(4.0f, theme.Scale(cellSize));
-    const int cols = static_cast<int>(std::ceil(rect.w / step));
-    const int rows = static_cast<int>(std::ceil(rect.h / step));
+    const keel::i32 cols = static_cast<keel::i32>(std::ceil(rect.w / step));
+    const keel::i32 rows = static_cast<keel::i32>(std::ceil(rect.h / step));
 
-    for (int r = 0; r < rows; ++r) {
-        for (int c = (r & 1); c < cols; c += 2) {
+    for (keel::i32 r = 0; r < rows; ++r) {
+        for (keel::i32 c = (r & 1); c < cols; c += 2) {
             const float x = rect.x + static_cast<float>(c) * step;
             const float y = rect.y + static_cast<float>(r) * step;
             const float w = keel::min(step, rect.Right() - x);
@@ -288,7 +288,7 @@ void Image::Render(
         canvas.PushClip(box);
     }
 
-    const uint8_t effAlpha = disabled ? static_cast<uint8_t>(opts.opacity / 2) : opts.opacity;
+    const keel::u8 effAlpha = disabled ? static_cast<keel::u8>(opts.opacity / 2) : opts.opacity;
     const float imgRad = (std::abs(fitted.w - box.w) < 1.5f && std::abs(fitted.h - box.h) < 1.5f) ? rad : 0.0f;
     const bool drawn = canvas.DrawImage(source, fitted, imgRad, effAlpha);
 

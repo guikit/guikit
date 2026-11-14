@@ -122,7 +122,7 @@ Vec2 Carousel::Measure(const Node* node, float /*availableWidth*/, ICanvas* /*ca
 
     float totalWidth = node->padding.Horizontal();
     float maxHeight = 0.0f;
-    uint32_t activeChildren = 0;
+    keel::u32 activeChildren = 0;
 
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
         const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
@@ -186,7 +186,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
 
     // 1. Calculate total width of all children
     float totalChildrenW = 0.0f;
-    uint32_t activeChildren = 0;
+    keel::u32 activeChildren = 0;
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
         if (child->type == NodeType::Modal) continue;
         const float cw = (child->widthMode == SizeMode::Fixed) ? child->fixedWidth : child->intrinsicSize.x;
@@ -246,7 +246,7 @@ void Carousel::Arrange(Node* node, const Rect& availableRect, const UiTheme& the
 
     // Resolve item-boundary stepping when a navigation arrow was clicked
     if (cData && cData->stepDirection != 0) {
-        const int8_t dir = cData->stepDirection;
+        const keel::i8 dir = cData->stepDirection;
         cData->stepDirection = 0;
 
         const float baseX = keel::clamp(cData->baseTargetX, 0.0f, maxScrollX);

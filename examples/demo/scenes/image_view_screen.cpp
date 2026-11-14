@@ -1,5 +1,4 @@
 #include <cmath>
-#include <cstdint>
 #include "../demo_context.hpp"
 
 namespace guikit::demo {
@@ -7,11 +6,11 @@ namespace guikit::demo {
 namespace {
 
 constexpr float kPi = 3.14159265358979323846f;
-constexpr uint32_t kDemoImgW = 1024;
-constexpr uint32_t kDemoImgH = 768;
+constexpr keel::u32 kDemoImgW = 1024;
+constexpr keel::u32 kDemoImgH = 768;
 
-[[nodiscard]] inline float HashNoise2D(uint32_t x, uint32_t y, uint32_t seed) noexcept {
-    uint32_t n = x * 374761393u + y * 668265263u + seed * 1442695041u;
+[[nodiscard]] inline float HashNoise2D(keel::u32 x, keel::u32 y, keel::u32 seed) noexcept {
+    keel::u32 n = x * 374761393u + y * 668265263u + seed * 1442695041u;
     n = (n ^ (n >> 13u)) * 1274126177u;
     n = n ^ (n >> 16u);
     return static_cast<float>(n & 0xFFFFu) / 65535.0f;
@@ -19,11 +18,11 @@ constexpr uint32_t kDemoImgH = 768;
 
 struct ImageViewDemoState {
     bool initialized{false};
-    int datasetIndex{0}; // 0 = 16-bit Radiographic/NDT Phantom (1ch), 1 = Multi-Channel Fluorescence/Spectral (3ch RGB)
+    keel::i32 datasetIndex{0}; // 0 = 16-bit Radiographic/NDT Phantom (1ch), 1 = Multi-Channel Fluorescence/Spectral (3ch RGB)
 
-    keel::Array<uint16_t> mono16Pixels{};
+    keel::Array<keel::u16> mono16Pixels{};
     keel::Array<float> rgbFloatPixels{};
-    uint64_t generationCounter{1};
+    keel::u64 generationCounter{1};
 
     ImageViewParams paramsMono{};
     ImageViewParams paramsRgb{};
@@ -53,20 +52,20 @@ struct ImageViewDemoState {
                 GenerateMultispectralRgb();
             }
             if (!mono16Pixels.empty()) {
-                mono16Pixels = keel::Array<uint16_t>{};
+                mono16Pixels = keel::Array<keel::u16>{};
             }
         }
         initialized = true;
     }
 
     void GenerateMono16Phantom() {
-        mono16Pixels.resize(static_cast<size_t>(kDemoImgW) * kDemoImgH);
+        mono16Pixels.resize(static_cast<keel::usize>(kDemoImgW) * kDemoImgH);
         const float cx = kDemoImgW * 0.5f;
         const float cy = kDemoImgH * 0.54f;
 
-        for (uint32_t y = 0; y < kDemoImgH; ++y) {
+        for (keel::u32 y = 0; y < kDemoImgH; ++y) {
             const float ny = static_cast<float>(y) / static_cast<float>(kDemoImgH - 1);
-            for (uint32_t x = 0; x < kDemoImgW; ++x) {
+            for (keel::u32 x = 0; x < kDemoImgW; ++x) {
                 const float nx = static_cast<float>(x) / static_cast<float>(kDemoImgW - 1);
 
                 // 1. Smooth background gradient (12% .. 82% of 16-bit range)
@@ -74,7 +73,7 @@ struct ImageViewDemoState {
 
                 // 2. Top 10-step optical density calibration wedge
                 if (y >= 28 && y <= 104 && x >= 64 && x < 960) {
-                    const int step = static_cast<int>((x - 64) * 10 / (960 - 64));
+                    const keel::i32 step = static_cast<keel::i32>((x - 64) * 10 / (960 - 64));
                     v = 4500.0f + static_cast<float>(step) * 5800.0f;
                     // Subtle internal calibration pinholes inside each step
                     const float stepCenterX = 64.0f + (static_cast<float>(step) + 0.5f) * (896.0f / 10.0f);
@@ -114,8 +113,8 @@ struct ImageViewDemoState {
                 // 5. Low-contrast subtle inclusions array (bottom-right) for W/L inspection
                 if (x >= 690 && x <= 955 && y >= 520 && y <= 715) {
                     v = 44000.0f;
-                    for (int row = 0; row < 3; ++row) {
-                        for (int col = 0; col < 4; ++col) {
+                    for (keel::i32 row = 0; row < 3; ++row) {
+                        for (keel::i32 col = 0; col < 4; ++col) {
                             const float icx = 730.0f + static_cast<float>(col) * 62.0f;
                             const float icy = 555.0f + static_cast<float>(row) * 60.0f;
                             const float rad = 18.0f - static_cast<float>(row) * 4.0f;
@@ -131,19 +130,19 @@ struct ImageViewDemoState {
                 // 6. Sensor quantum noise
                 const float noise = (HashNoise2D(x, y, 1337u) + HashNoise2D(x, y, 7919u) - 1.0f) * 480.0f;
                 const float clamped = keel::clamp(std::round(v + noise), 0.0f, 65535.0f);
-                mono16Pixels[static_cast<size_t>(y) * kDemoImgW + x] = static_cast<uint16_t>(clamped);
+                mono16Pixels[static_cast<keel::usize>(y) * kDemoImgW + x] = static_cast<keel::u16>(clamped);
             }
         }
     }
 
     void GenerateMultispectralRgb() {
-        rgbFloatPixels.resize(static_cast<size_t>(kDemoImgW) * kDemoImgH * 3u);
+        rgbFloatPixels.resize(static_cast<keel::usize>(kDemoImgW) * kDemoImgH * 3u);
         const float cx = kDemoImgW * 0.5f;
         const float cy = kDemoImgH * 0.52f;
 
-        for (uint32_t y = 0; y < kDemoImgH; ++y) {
+        for (keel::u32 y = 0; y < kDemoImgH; ++y) {
             const float ny = static_cast<float>(y) / static_cast<float>(kDemoImgH - 1);
-            for (uint32_t x = 0; x < kDemoImgW; ++x) {
+            for (keel::u32 x = 0; x < kDemoImgW; ++x) {
                 const float nx = static_cast<float>(x) / static_cast<float>(kDemoImgW - 1);
                 const float dx = static_cast<float>(x) - cx;
                 const float dy = static_cast<float>(y) - cy;
@@ -161,7 +160,7 @@ struct ImageViewDemoState {
                 red += 2850.0f * ringEnv * (0.35f + 0.65f * web);
 
                 // Green Channel: cellular organelle clusters & top calibration bars
-                for (int k = 0; k < 6; ++k) {
+                for (keel::i32 k = 0; k < 6; ++k) {
                     const float a = static_cast<float>(k) * (2.0f * kPi / 6.0f);
                     const float ox = cx + std::cos(a) * 135.0f;
                     const float oy = cy + std::sin(a) * 135.0f;
@@ -188,7 +187,7 @@ struct ImageViewDemoState {
                 const float nG = (HashNoise2D(x, y, 202u) - 0.5f) * 75.0f;
                 const float nB = (HashNoise2D(x, y, 303u) - 0.5f) * 75.0f;
 
-                const size_t base = (static_cast<size_t>(y) * kDemoImgW + x) * 3u;
+                const keel::usize base = (static_cast<keel::usize>(y) * kDemoImgW + x) * 3u;
                 rgbFloatPixels[base + 0] = keel::clamp(red + nR,   0.0f, 4095.0f);
                 rgbFloatPixels[base + 1] = keel::clamp(green + nG, 0.0f, 4095.0f);
                 rgbFloatPixels[base + 2] = keel::clamp(blue + nB,  0.0f, 4095.0f);
@@ -218,7 +217,7 @@ void RenderImageViewInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
     ImageViewParams& activeParams = (s_imgDemo.datasetIndex == 0) ? s_imgDemo.paramsMono : s_imgDemo.paramsRgb;
 
     static constexpr keel::StaticArray<keel::StringRef, 3> kHistScales = {"Sqrt", "Log", "Linear"};
-    int scaleIdx = static_cast<int>(activeParams.histScaleMode);
+    keel::i32 scaleIdx = static_cast<keel::i32>(activeParams.histScaleMode);
     if (auto el = ui.Element({.label = "Histogram Scale"})) {
         if (ui.StepSlider(scaleIdx, kHistScales, {.showValue = false}).changed) {
             activeParams.histScaleMode = static_cast<HistogramScaleMode>(scaleIdx);
@@ -306,7 +305,7 @@ void RenderImageViewStage(guikit::Context& ui, DemoContext& /*ctx*/) {
 
 keel::String GenerateImageViewCode(const DemoContext& /*ctx*/) {
     const ImageViewParams& prm = (s_imgDemo.datasetIndex == 0) ? s_imgDemo.paramsMono : s_imgDemo.paramsRgb;
-    const auto& ch = prm.channels[static_cast<size_t>(prm.activeHistChannel)];
+    const auto& ch = prm.channels[static_cast<keel::usize>(prm.activeHistChannel)];
 
     return keel::format(
         "// Single-Channel (16-bit/float) & Multi-Channel (RGB) Scientific ImageView\n"

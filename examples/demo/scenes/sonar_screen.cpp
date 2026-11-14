@@ -1,5 +1,4 @@
 #include <cmath>
-#include <cstdint>
 #include "../demo_context.hpp"
 
 namespace guikit::demo {
@@ -11,7 +10,7 @@ constexpr float kDegToRad = kPi / 180.0f;
 constexpr float kRadToDeg = 180.0f / kPi;
 
 struct DynamicContact {
-    int id{0};
+    keel::i32 id{0};
     keel::FixedString<64> callsign{};
     SonarTargetClass classification{SonarTargetClass::Diver};
     // Cartesian position in meters relative to sensor (X = East, Y = North)
@@ -30,9 +29,9 @@ struct DynamicContact {
 struct SonarDemoState {
     bool initialized{false};
     bool liveSimulation{true};
-    int scenarioIndex{0};           // 0 = Harbor Defense DDS, 1 = FLS Shipwreck Inspection, 2 = Offshore Rig 360 Sweep
-    int displayModeIndex{0};        // 0 = PPI_360, 1 = SectorWedge, 2 = BScan
-    int scanModeIndex{0};           // 0 = MultibeamContinuous, 1 = RotatingSweep
+    keel::i32 scenarioIndex{0};           // 0 = Harbor Defense DDS, 1 = FLS Shipwreck Inspection, 2 = Offshore Rig 360 Sweep
+    keel::i32 displayModeIndex{0};        // 0 = PPI_360, 1 = SectorWedge, 2 = BScan
+    keel::i32 scanModeIndex{0};           // 0 = MultibeamContinuous, 1 = RotatingSweep
     Colormap colormap{Colormap::Gold};
 
     float maxRangeMeters{500.0f};
@@ -60,14 +59,14 @@ struct SonarDemoState {
     float guardStartBrg{315.0f};
     float guardEndBrg{55.0f};
 
-    int selectedTargetId{1};
+    keel::i32 selectedTargetId{1};
     float eblBearingDeg{22.0f};
     float vrmRangeMeters{210.0f};
     bool requestResetView{false};
     bool requestClearPersistence{false};
 
-    uint32_t numBeams{180};
-    uint32_t numRangeBins{256};
+    keel::u32 numBeams{180};
+    keel::u32 numRangeBins{256};
     keel::Array<float> staticBathymetry{};
     keel::Array<float> polarMatrix{};
     keel::Array<DynamicContact> contacts{};
@@ -75,7 +74,7 @@ struct SonarDemoState {
 
     double simTimeSec{0.0};
     double lastTrailSampleSec{0.0};
-    uint64_t lastWallNs{0};
+    keel::u64 lastWallNs{0};
 
     SonarViewResponse lastResp{};
 };
@@ -92,20 +91,20 @@ SonarDemoState s_sonar{};
     return std::fmod(a - b + 540.0f, 360.0f) - 180.0f;
 }
 
-[[nodiscard]] inline float FastHashNoise(uint32_t x, uint32_t y, uint32_t seed) noexcept {
-    uint32_t n = x * 374761393u + y * 668265263u + seed * 1442695041u;
+[[nodiscard]] inline float FastHashNoise(keel::u32 x, keel::u32 y, keel::u32 seed) noexcept {
+    keel::u32 n = x * 374761393u + y * 668265263u + seed * 1442695041u;
     n = (n ^ (n >> 13u)) * 1274126177u;
     n = n ^ (n >> 16u);
     return static_cast<float>(n & 0xFFFFu) / 65535.0f;
 }
 
 void BuildStaticBathymetry(SonarDemoState& st) {
-    const size_t total = static_cast<size_t>(st.numBeams) * st.numRangeBins;
+    const keel::usize total = static_cast<keel::usize>(st.numBeams) * st.numRangeBins;
     st.staticBathymetry.assign(total, 0.0f);
 
-    for (uint32_t b = 0; b < st.numBeams; ++b) {
+    for (keel::u32 b = 0; b < st.numBeams; ++b) {
         const float brg = (static_cast<float>(b) / static_cast<float>(st.numBeams)) * 360.0f;
-        for (uint32_t r = 0; r < st.numRangeBins; ++r) {
+        for (keel::u32 r = 0; r < st.numRangeBins; ++r) {
             const float rNorm = static_cast<float>(r) / static_cast<float>(st.numRangeBins - 1);
             const float rng = rNorm * st.maxRangeMeters;
 
@@ -147,12 +146,12 @@ void BuildStaticBathymetry(SonarDemoState& st) {
                 }
             }
 
-            st.staticBathymetry[static_cast<size_t>(b) * st.numRangeBins + r] = keel::clamp(val, 0.0f, 1.0f);
+            st.staticBathymetry[static_cast<keel::usize>(b) * st.numRangeBins + r] = keel::clamp(val, 0.0f, 1.0f);
         }
     }
 }
 
-void ApplyScenarioPreset(SonarDemoState& st, int presetIdx) {
+void ApplyScenarioPreset(SonarDemoState& st, keel::i32 presetIdx) {
     st.scenarioIndex = presetIdx;
     st.contacts.clear();
 
@@ -287,7 +286,7 @@ void ApplyScenarioPreset(SonarDemoState& st, int presetIdx) {
 }
 
 void StepSonarSimulation(SonarDemoState& st) {
-    const uint64_t nowNs = keel::monotonic_ns();
+    const keel::u64 nowNs = keel::monotonic_ns();
     if (!st.initialized) {
         st.initialized = true;
         st.lastWallNs = nowNs;
@@ -336,16 +335,16 @@ void StepSonarSimulation(SonarDemoState& st) {
     st.targetViews.clear();
     st.targetViews.reserve(st.contacts.size());
 
-    const size_t totalCells = static_cast<size_t>(st.numBeams) * st.numRangeBins;
+    const keel::usize totalCells = static_cast<keel::usize>(st.numBeams) * st.numRangeBins;
     if (st.staticBathymetry.size() != totalCells) {
         BuildStaticBathymetry(st);
     }
     st.polarMatrix = st.staticBathymetry.clone();
 
     // Add time-varying acoustic speckle noise
-    const uint32_t frameSeed = static_cast<uint32_t>(st.simTimeSec * 30.0);
-    for (size_t i = 0; i < totalCells; ++i) {
-        const float speckle = (FastHashNoise(static_cast<uint32_t>(i), frameSeed, 7u) - 0.5f) * 0.07f;
+    const keel::u32 frameSeed = static_cast<keel::u32>(st.simTimeSec * 30.0);
+    for (keel::usize i = 0; i < totalCells; ++i) {
+        const float speckle = (FastHashNoise(static_cast<keel::u32>(i), frameSeed, 7u) - 0.5f) * 0.07f;
         st.polarMatrix[i] = keel::clamp(st.polarMatrix[i] + speckle, 0.0f, 1.0f);
     }
 
@@ -372,13 +371,13 @@ void StepSonarSimulation(SonarDemoState& st) {
         // Paint 2D polar Gaussian signature into `polarMatrix`
         const float invSigR2 = 1.0f / keel::max(4.0f, c.radialSpreadMeters * c.radialSpreadMeters);
         const float invSigB2 = 1.0f / keel::max(1.0f, c.angularSpreadDeg * c.angularSpreadDeg);
-        for (uint32_t b = 0; b < st.numBeams; ++b) {
+        for (keel::u32 b = 0; b < st.numBeams; ++b) {
             const float beamBrg = (static_cast<float>(b) / static_cast<float>(st.numBeams)) * 360.0f;
             const float dBrg = AngleDiffDeg(beamBrg, brgDeg);
             if (std::abs(dBrg) > c.angularSpreadDeg * 3.2f) continue;
 
-            float* row = st.polarMatrix.data() + static_cast<size_t>(b) * st.numRangeBins;
-            for (uint32_t r = 0; r < st.numRangeBins; ++r) {
+            float* row = st.polarMatrix.data() + static_cast<keel::usize>(b) * st.numRangeBins;
+            for (keel::u32 r = 0; r < st.numRangeBins; ++r) {
                 const float binRng = (static_cast<float>(r) / static_cast<float>(st.numRangeBins - 1)) * st.maxRangeMeters;
                 const float dRng = binRng - rMeters;
                 if (std::abs(dRng) > c.radialSpreadMeters * 3.2f) continue;
@@ -389,14 +388,14 @@ void StepSonarSimulation(SonarDemoState& st) {
         }
 
         // Paint faint wake trail echoes along historical trail points
-        for (size_t ti = 0; ti < c.trail.size(); ++ti) {
+        for (keel::usize ti = 0; ti < c.trail.size(); ++ti) {
             const float wakeWeight = 0.28f * (static_cast<float>(ti + 1) / static_cast<float>(c.trail.size() + 1));
             const float trR = c.trail[ti].rangeMeters;
             const float trB = c.trail[ti].bearingDeg;
-            const uint32_t bCenter = static_cast<uint32_t>(NormalizeDeg(trB) / 360.0f * st.numBeams) % st.numBeams;
-            const uint32_t rCenter = static_cast<uint32_t>(keel::clamp(trR / st.maxRangeMeters, 0.0f, 0.999f) * st.numRangeBins);
-            st.polarMatrix[static_cast<size_t>(bCenter) * st.numRangeBins + rCenter] =
-                keel::min(1.0f, st.polarMatrix[static_cast<size_t>(bCenter) * st.numRangeBins + rCenter] + wakeWeight);
+            const keel::u32 bCenter = static_cast<keel::u32>(NormalizeDeg(trB) / 360.0f * st.numBeams) % st.numBeams;
+            const keel::u32 rCenter = static_cast<keel::u32>(keel::clamp(trR / st.maxRangeMeters, 0.0f, 0.999f) * st.numRangeBins);
+            st.polarMatrix[static_cast<keel::usize>(bCenter) * st.numRangeBins + rCenter] =
+                keel::min(1.0f, st.polarMatrix[static_cast<keel::usize>(bCenter) * st.numRangeBins + rCenter] + wakeWeight);
         }
     }
 }
@@ -434,7 +433,7 @@ void RenderSonarInspector(guikit::Context& ui, DemoContext& /*ctx*/) {
         ui.Size(guikit::UiSize::Sm).Select(s_sonar.scanModeIndex, kScanModeItems);
     }
 
-    int cmapIdx = static_cast<int>(s_sonar.colormap);
+    keel::i32 cmapIdx = static_cast<keel::i32>(s_sonar.colormap);
     if (auto el = ui.Size(guikit::UiSize::Sm).Element({
         .label = "Colormap",
         .layout = guikit::ElementLayout::Top
@@ -621,8 +620,8 @@ keel::String GenerateSonarCode(const DemoContext& /*ctx*/) {
         "}}\n",
         s_sonar.numBeams,
         s_sonar.numRangeBins,
-        kModeEnums[static_cast<size_t>(keel::clamp(s_sonar.displayModeIndex, 0, 2))],
-        kScanEnums[static_cast<size_t>(keel::clamp(s_sonar.scanModeIndex, 0, 1))],
+        kModeEnums[static_cast<keel::usize>(keel::clamp(s_sonar.displayModeIndex, 0, 2))],
+        kScanEnums[static_cast<keel::usize>(keel::clamp(s_sonar.scanModeIndex, 0, 1))],
         cmapName,
         s_sonar.maxRangeMeters,
         s_sonar.sectorApertureDeg,

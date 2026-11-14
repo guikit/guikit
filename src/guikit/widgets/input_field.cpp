@@ -91,10 +91,10 @@ struct InputFieldState {
     float scrollX{0.0f};
     double lastClickTime{-10.0};
     Vec2 lastClickPos{-1000.0f, -1000.0f};
-    int clickCount{0};
+    keel::i32 clickCount{0};
     bool draggingWord{false};
-    size_t wordDragStart{0};
-    size_t wordDragEnd{0};
+    keel::usize wordDragStart{0};
+    keel::usize wordDragEnd{0};
     bool passwordRevealed{false};
     bool actionBtnDown{false};
 };
@@ -159,7 +159,7 @@ InputBoxRects ResolveInputBoxRects(
     };
 }
 
-size_t SnapToUtf8CodepointBoundary(keel::StringRef text, size_t idx) noexcept {
+keel::usize SnapToUtf8CodepointBoundary(keel::StringRef text, keel::usize idx) noexcept {
     idx = keel::min(idx, text.size());
     while (idx > 0 && idx < text.size() && (static_cast<unsigned char>(text[idx]) & 0xC0) == 0x80) {
         --idx;
@@ -168,7 +168,7 @@ size_t SnapToUtf8CodepointBoundary(keel::StringRef text, size_t idx) noexcept {
 }
 
 keel::StringRef AllocPasswordMask(Context& ctx, keel::StringRef text) noexcept {
-    const size_t cpCount = keel::utf8_codepoint_count(text);
+    const keel::usize cpCount = keel::utf8_codepoint_count(text);
     if (cpCount == 0) {
         return {};
     }
@@ -180,16 +180,16 @@ keel::StringRef AllocPasswordMask(Context& ctx, keel::StringRef text) noexcept {
     return {buf, cpCount};
 }
 
-size_t CodepointOffsetToByteIndex(keel::StringRef text, size_t cpIndex) noexcept {
-    size_t byteIdx = 0;
-    for (size_t i = 0; i < cpIndex && byteIdx < text.size(); ++i) {
+keel::usize CodepointOffsetToByteIndex(keel::StringRef text, keel::usize cpIndex) noexcept {
+    keel::usize byteIdx = 0;
+    for (keel::usize i = 0; i < cpIndex && byteIdx < text.size(); ++i) {
         byteIdx = keel::utf8_next_boundary(text, byteIdx);
     }
     return byteIdx;
 }
 
-size_t ByteIndexToCodepointOffset(keel::StringRef text, size_t byteIndex) noexcept {
-    const size_t clamped = keel::min(byteIndex, text.size());
+keel::usize ByteIndexToCodepointOffset(keel::StringRef text, keel::usize byteIndex) noexcept {
+    const keel::usize clamped = keel::min(byteIndex, text.size());
     return keel::utf8_codepoint_count(text.substr(0, clamped));
 }
 
@@ -197,19 +197,19 @@ keel::StringRef SanitizeInputText(
     Context& ctx,
     keel::StringRef raw,
     InputFilter filter,
-    size_t maxLength
+    keel::usize maxLength
 ) noexcept {
     if (raw.empty()) return raw;
 
     keel::StringRef filtered = raw;
     if (filter != InputFilter::Any) {
         char* out = ctx.GetArena().alloc_array<char>(raw.size());
-        size_t outLen = 0;
+        keel::usize outLen = 0;
         bool hasDecimal = false;
         bool hasExp = false;
         bool afterExp = false;
 
-        for (size_t i = 0; i < raw.size(); ++i) {
+        for (keel::usize i = 0; i < raw.size(); ++i) {
             const char ch = raw[i];
             if (filter == InputFilter::Integer) {
                 if ((ch == '-' || ch == '+') && outLen == 0) {
@@ -250,7 +250,7 @@ keel::StringRef SanitizeInputText(
     }
 
     if (maxLength > 0) {
-        const size_t cutByte = CodepointOffsetToByteIndex(filtered, maxLength);
+        const keel::usize cutByte = CodepointOffsetToByteIndex(filtered, maxLength);
         if (cutByte < filtered.size()) {
             filtered = filtered.substr(0, cutByte);
         }
@@ -351,8 +351,8 @@ Response InputField::Run(
         }
     }
 
-    size_t cursor = 0;
-    size_t selAnchor = 0;
+    keel::usize cursor = 0;
+    keel::usize selAnchor = 0;
     keel::StringRef displayText = valStr;
     const InputFilter effFilter = (opts.filter != InputFilter::Any)
         ? opts.filter
@@ -377,7 +377,7 @@ Response InputField::Run(
             ? AllocPasswordMask(ctx, currentEditText)
             : currentEditText;
 
-        auto mapHitToByte = [&](size_t idx) noexcept -> size_t {
+        auto mapHitToByte = [&](keel::usize idx) noexcept -> keel::usize {
             return isMasked
                 ? CodepointOffsetToByteIndex(currentEditText, idx)
                 : SnapToUtf8CodepointBoundary(currentEditText, idx);
@@ -386,8 +386,8 @@ Response InputField::Run(
         if ((mouseJustPressed || res.pressed) && !state.actionBtnDown &&
             !(opts.selectAllOnFocus && justGainedFocus && mouseJustPressed)) {
             const float localX = (mousePos.x - textRect.x) + state.scrollX;
-            const size_t rawHitIdx = TextUtil::HitTestIndex(hitTestText, localX, inputFont, canvas);
-            const size_t hitIdx = mapHitToByte(rawHitIdx);
+            const keel::usize rawHitIdx = TextUtil::HitTestIndex(hitTestText, localX, inputFont, canvas);
+            const keel::usize hitIdx = mapHitToByte(rawHitIdx);
 
             if (mouseJustPressed) {
                 const double now = ctx.GetCurrentTime();
@@ -403,14 +403,14 @@ Response InputField::Run(
                 if (state.clickCount == 1) {
                     state.draggingWord = false;
                     if (ctx.GetKeyModifiers().shift && wasFocused) {
-                        const size_t anchor = ctx.GetTextEditAnchor(id);
+                        const keel::usize anchor = ctx.GetTextEditAnchor(id);
                         ctx.SetTextEditCursor(id, hitIdx, anchor);
                     } else {
                         ctx.SetTextEditCursor(id, hitIdx, hitIdx);
                     }
                 } else if (state.clickCount == 2) {
-                    size_t wStart = 0;
-                    size_t wEnd = 0;
+                    keel::usize wStart = 0;
+                    keel::usize wEnd = 0;
                     TextUtil::SelectWordAt(hitTestText, rawHitIdx, wStart, wEnd);
                     wStart = mapHitToByte(wStart);
                     wEnd = mapHitToByte(wEnd);
@@ -426,8 +426,8 @@ Response InputField::Run(
                 if (state.clickCount >= 3) {
                     ctx.SetTextEditCursor(id, currentEditText.size(), 0);
                 } else if (state.draggingWord) {
-                    size_t wStart = 0;
-                    size_t wEnd = 0;
+                    keel::usize wStart = 0;
+                    keel::usize wEnd = 0;
                     TextUtil::SelectWordAt(hitTestText, rawHitIdx, wStart, wEnd);
                     wStart = mapHitToByte(wStart);
                     wEnd = mapHitToByte(wEnd);
@@ -437,7 +437,7 @@ Response InputField::Run(
                         ctx.SetTextEditCursor(id, wEnd, state.wordDragStart);
                     }
                 } else {
-                    const size_t anchor = ctx.GetTextEditAnchor(id);
+                    const keel::usize anchor = ctx.GetTextEditAnchor(id);
                     ctx.SetTextEditCursor(id, hitIdx, anchor);
                 }
             }
@@ -500,10 +500,10 @@ Response InputField::Run(
             const keel::StringRef measureText = (maskAfterEdit && !displayText.empty())
                 ? AllocPasswordMask(ctx, displayText)
                 : displayText;
-            const size_t mappedCursor = maskAfterEdit
+            const keel::usize mappedCursor = maskAfterEdit
                 ? ByteIndexToCodepointOffset(displayText, cursor)
                 : cursor;
-            const size_t safeCursor = keel::min(mappedCursor, measureText.size());
+            const keel::usize safeCursor = keel::min(mappedCursor, measureText.size());
             const float cursorX = TextUtil::MeasureWidth(measureText.substr(0, safeCursor), inputFont, canvas);
             const float fullTextW = TextUtil::MeasureWidth(measureText, inputFont, canvas);
             const float visibleW = keel::max(0.0f, rects.textRect.w - 2.0f);
@@ -522,16 +522,16 @@ Response InputField::Run(
         state.scrollX = 0.0f;
     }
 
-    const size_t selStart = keel::min(cursor, selAnchor);
-    const size_t selEnd = keel::max(cursor, selAnchor);
+    const keel::usize selStart = keel::min(cursor, selAnchor);
+    const keel::usize selEnd = keel::max(cursor, selAnchor);
 
     const bool maskRendered = opts.password && !state.passwordRevealed;
     const keel::StringRef renderedText = (maskRendered && !displayText.empty())
         ? AllocPasswordMask(ctx, displayText)
         : ctx.AllocString(displayText);
-    const size_t renderCursor = maskRendered ? ByteIndexToCodepointOffset(displayText, cursor) : cursor;
-    const size_t renderSelStart = maskRendered ? ByteIndexToCodepointOffset(displayText, selStart) : selStart;
-    const size_t renderSelEnd = maskRendered ? ByteIndexToCodepointOffset(displayText, selEnd) : selEnd;
+    const keel::usize renderCursor = maskRendered ? ByteIndexToCodepointOffset(displayText, cursor) : cursor;
+    const keel::usize renderSelStart = maskRendered ? ByteIndexToCodepointOffset(displayText, selStart) : selStart;
+    const keel::usize renderSelEnd = maskRendered ? ByteIndexToCodepointOffset(displayText, selEnd) : selEnd;
 
     const ControlSpec ctrl = EffectiveInputControl(optsCopy, activeSize, theme);
     Node* node = ctx.CreateNode(NodeType::InputField, id);
@@ -554,8 +554,8 @@ Response InputField::Run(
     data->passwordRevealed = state.passwordRevealed;
     node->SetPayload(data);
     node->visualHash = detail::HashArgs(
-        static_cast<uint8_t>(optsCopy.align),
-        static_cast<uint8_t>(optsCopy.stretch),
+        static_cast<keel::u8>(optsCopy.align),
+        static_cast<keel::u8>(optsCopy.stretch),
         optsCopy.color,
         optsCopy.background,
         optsCopy.border,
@@ -666,13 +666,13 @@ void InputField::Render(
     UiSize size,
     bool hovered,
     bool focused,
-    size_t cursor,
+    keel::usize cursor,
     bool disabled,
     bool cursorVisible,
     float cursorWidth,
     const UiTheme& theme,
-    size_t selStart,
-    size_t selEnd,
+    keel::usize selStart,
+    keel::usize selEnd,
     float scrollX,
     bool showClearBtn,
     bool clearHovered,
@@ -795,8 +795,8 @@ void InputField::Render(
     canvas.PushClip(textRect);
 
     if (focused && !disabled && selStart != selEnd && !displayText.empty()) {
-        const size_t s0 = keel::min(keel::min(selStart, selEnd), displayText.size());
-        const size_t s1 = keel::min(keel::max(selStart, selEnd), displayText.size());
+        const keel::usize s0 = keel::min(keel::min(selStart, selEnd), displayText.size());
+        const keel::usize s1 = keel::min(keel::max(selStart, selEnd), displayText.size());
         if (s1 > s0) {
             const float x0 = textRect.x - scrollX + canvas.MeasureText(displayText.substr(0, s0), inputFont).x;
             const float x1 = textRect.x - scrollX + canvas.MeasureText(displayText.substr(0, s1), inputFont).x;
@@ -823,7 +823,7 @@ void InputField::Render(
     }
 
     if (focused && !disabled && !opts.readOnly && cursorVisible) {
-        const size_t safeCursor = keel::min(cursor, displayText.size());
+        const keel::usize safeCursor = keel::min(cursor, displayText.size());
         const keel::StringRef sub = displayText.substr(0, safeCursor);
         const float subW = canvas.MeasureText(sub, inputFont).x;
         const float caretX = textRect.x - scrollX + subW;

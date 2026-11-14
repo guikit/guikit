@@ -10,6 +10,7 @@
 #define GUIKIT_VERSION_STRING "1.0.0"
 
 #include "guikit/core.hpp"
+#include "keel/core.h"
 #if defined(GUIKIT_HAS_SCENES) && GUIKIT_HAS_SCENES
 #include "guikit/scenes.hpp"
 #endif
@@ -41,9 +42,9 @@ inline const DefaultBackendsAutoRegistrar g_defaultBackendsAutoRegistrar{};
 #endif
 
 struct Version {
-    static constexpr int major = GUIKIT_VERSION_MAJOR;
-    static constexpr int minor = GUIKIT_VERSION_MINOR;
-    static constexpr int patch = GUIKIT_VERSION_PATCH;
+    static constexpr keel::i32 major = GUIKIT_VERSION_MAJOR;
+    static constexpr keel::i32 minor = GUIKIT_VERSION_MINOR;
+    static constexpr keel::i32 patch = GUIKIT_VERSION_PATCH;
     static constexpr keel::StringRef string = GUIKIT_VERSION_STRING;
 };
 

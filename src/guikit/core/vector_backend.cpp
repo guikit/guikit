@@ -61,10 +61,10 @@ keel::UniquePtr<ICanvas> CreateOffscreenVectorCanvas() {
 }
 
 bool DecodeImageFromMemory(
-    keel::ArrayRef<uint8_t> encodedBytes,
-    uint32_t& outWidth,
-    uint32_t& outHeight,
-    keel::Array<uint32_t>& outRgbaPixels
+    keel::ArrayRef<keel::u8> encodedBytes,
+    keel::u32& outWidth,
+    keel::u32& outHeight,
+    keel::Array<keel::u32>& outRgbaPixels
 ) {
     outWidth = 0;
     outHeight = 0;

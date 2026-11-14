@@ -5,9 +5,9 @@ namespace guikit::demo {
 namespace {
 
 struct PaginationDemoState {
-    size_t currentPage{4};
-    int totalPages{20};
-    int siblingCount{1};
+    keel::usize currentPage{4};
+    keel::i32 totalPages{20};
+    keel::i32 siblingCount{1};
     bool showFirstLast{true};
     bool showPrevNext{true};
     bool showPageInfo{true};
@@ -39,8 +39,8 @@ void RenderPaginationInspector(guikit::Context& ui, DemoContext& ctx) {
 
     if (auto el = ui.Element({.label = "Total Pages"})) {
         if (ui.Slider(s_pg.totalPages, 3, 30, {.valueFormat = "%d pages"}).changed) {
-            if (s_pg.currentPage >= static_cast<size_t>(s_pg.totalPages)) {
-                s_pg.currentPage = static_cast<size_t>(s_pg.totalPages - 1);
+            if (s_pg.currentPage >= static_cast<keel::usize>(s_pg.totalPages)) {
+                s_pg.currentPage = static_cast<keel::usize>(s_pg.totalPages - 1);
             }
             ui.InvalidateAll();
         }
@@ -81,13 +81,13 @@ void RenderPaginationInspector(guikit::Context& ui, DemoContext& ctx) {
 
 void RenderPaginationStage(guikit::Context& ui, DemoContext& ctx) {
     const guikit::StateColor activeCol = guikit::StateColor::FromVariant(ctx.btnVariant);
-    const size_t totalPages = static_cast<size_t>(keel::max(1, s_pg.totalPages));
+    const keel::usize totalPages = static_cast<keel::usize>(keel::max(1, s_pg.totalPages));
     if (s_pg.currentPage >= totalPages) {
         s_pg.currentPage = totalPages - 1;
     }
 
     ui.Size(ctx.controlsSize).Pagination(s_pg.currentPage, totalPages, {
-        .siblingCount = static_cast<uint32_t>(keel::max(0, s_pg.siblingCount)),
+        .siblingCount = static_cast<keel::u32>(keel::max(0, s_pg.siblingCount)),
         .showFirstLast = s_pg.showFirstLast,
         .showPrevNext = s_pg.showPrevNext,
         .showPageInfo = s_pg.showPageInfo,

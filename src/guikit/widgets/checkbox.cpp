@@ -90,9 +90,9 @@ Response Checkbox::Run(
     node->SetPayload(ctx.AllocPayload<CheckboxOptions>(optsCopy));
     node->visualHash = detail::HashArgs(
         optsCopy.color,
-        static_cast<uint8_t>(optsCopy.align),
+        static_cast<keel::u8>(optsCopy.align),
         optsCopy.indeterminate,
-        static_cast<uint8_t>(optsCopy.stretch),
+        static_cast<keel::u8>(optsCopy.stretch),
         optsCopy.width.value_or(0.0f),
         optsCopy.widthRatio.value_or(-1.0f),
         optsCopy.height.value_or(0.0f),

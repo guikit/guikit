@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/core/types.hpp"
 #include "keel/array.h"
 #include "keel/optional.h"
@@ -8,7 +7,7 @@
 namespace guikit {
 
 /// Typographic style variants for rich text and Markdown rendering.
-enum class FontStyle : uint8_t {
+enum class FontStyle : keel::u8 {
     Regular = 0,
     Bold,
     Italic,
@@ -17,14 +16,14 @@ enum class FontStyle : uint8_t {
 };
 
 /// Native 32-bit pixel format written by software/hybrid vector canvases into target memory.
-enum class SurfacePixelFormat : uint8_t {
+enum class SurfacePixelFormat : keel::u8 {
     ABGR8888_Premul = 0, ///< 0xAABBGGRR premultiplied alpha (SDL_PIXELFORMAT_ABGR8888 on little-endian)
     ARGB8888_Premul = 1  ///< 0xAARRGGBB premultiplied alpha (SDL_PIXELFORMAT_ARGB8888 / Blend2D PRGB32)
 };
 
 /// Path command verbs for engine-agnostic 2D vector paths.
 /// Values match standard vector rasterizer command encodings (Close=0, MoveTo=1, LineTo=2, CubicTo=3).
-enum class PathVerb : uint8_t {
+enum class PathVerb : keel::u8 {
     Close   = 0,
     MoveTo  = 1,
     LineTo  = 2,
@@ -32,7 +31,7 @@ enum class PathVerb : uint8_t {
 };
 
 /// Polygon interior winding rule (IHO S-52 / SVG / OGC standard).
-enum class FillRule : uint8_t {
+enum class FillRule : keel::u8 {
     NonZero = 0, ///< Non-zero winding rule (exterior polygons without holes)
     EvenOdd = 1  ///< Even-odd alternating rule (polygons with interior island holes)
 };
@@ -55,7 +54,7 @@ struct VectorPath {
         points.clear();
     }
 
-    void Reserve(size_t verbCap, size_t ptCap) {
+    void Reserve(keel::usize verbCap, keel::usize ptCap) {
         verbs.reserve(verbCap);
         points.reserve(ptCap);
     }
@@ -85,7 +84,7 @@ struct VectorPath {
         if (ring.size() < 3) return;
         verbs.push_back(PathVerb::MoveTo);
         points.push_back(ring[0]);
-        for (size_t i = 1; i < ring.size(); ++i) {
+        for (keel::usize i = 1; i < ring.size(); ++i) {
             verbs.push_back(PathVerb::LineTo);
             points.push_back(ring[i]);
         }
@@ -127,7 +126,7 @@ public:
     }
 
     /// Binds an in-memory 32-bit pixel buffer as the rendering target.
-    virtual void SetTarget(uint32_t* /*buffer*/, uint32_t /*width*/, uint32_t /*height*/, uint32_t /*stride*/) {}
+    virtual void SetTarget(keel::u32* /*buffer*/, keel::u32 /*width*/, keel::u32 /*height*/, keel::u32 /*stride*/) {}
 
     /// Loads a TrueType/OpenType font from a virtual asset path or filesystem path for the specified `FontStyle` slot.
     virtual bool LoadFontFile(keel::StringRef /*path*/, FontStyle /*style*/ = FontStyle::Regular) {
@@ -137,7 +136,7 @@ public:
     /// Loads a TrueType/OpenType font directly from an in-memory buffer for the specified `FontStyle` slot.
     virtual bool LoadFontMemory(
         keel::StringRef /*name*/,
-        keel::ArrayRef<uint8_t> /*data*/,
+        keel::ArrayRef<keel::u8> /*data*/,
         FontStyle /*style*/ = FontStyle::Regular,
         keel::StringRef /*mimeType*/ = "ttf"
     ) {
@@ -145,7 +144,7 @@ public:
     }
 
     /// Prepares the canvas for a new frame with dimensions and optional DPI / UI scale factor.
-    virtual void Begin(uint32_t width, uint32_t height, float scale = 1.0f) = 0;
+    virtual void Begin(keel::u32 width, keel::u32 height, float scale = 1.0f) = 0;
 
     /// Finalizes and commits all recorded rendering commands.
     virtual void End() = 0;
@@ -276,8 +275,8 @@ public:
         Vec2 startPt{};
         Vec2 curPt{};
         bool hasSubpath = false;
-        size_t ptIdx = 0;
-        const size_t numPts = path.points.size();
+        keel::usize ptIdx = 0;
+        const keel::usize numPts = path.points.size();
         for (PathVerb verb : path.verbs) {
             switch (verb) {
                 case PathVerb::MoveTo:
@@ -330,19 +329,19 @@ public:
         keel::StringRef /*source*/,
         Rect /*destRect*/,
         float /*cornerRadius*/ = 0.0f,
-        uint8_t /*opacity*/ = 255
+        keel::u8 /*opacity*/ = 255
     ) {
         return false;
     }
 
     /// Draws an in-memory 32-bit ABGR8888 pixel buffer (`(a << 24) | (b << 16) | (g << 8) | r`) stretched to `destRect`.
     virtual bool DrawPixels(
-        const uint32_t* pixels,
-        uint32_t width,
-        uint32_t height,
+        const keel::u32* pixels,
+        keel::u32 width,
+        keel::u32 height,
         Rect destRect,
         float cornerRadius = 0.0f,
-        uint8_t opacity = 255
+        keel::u8 opacity = 255
     ) {
         (void)cornerRadius;
         if (!pixels || width == 0 || height == 0 || opacity == 0 || destRect.w <= 0.0f || destRect.h <= 0.0f) {
@@ -350,14 +349,14 @@ public:
         }
         const float cw = destRect.w / static_cast<float>(width);
         const float ch = destRect.h / static_cast<float>(height);
-        for (uint32_t y = 0; y < height; ++y) {
+        for (keel::u32 y = 0; y < height; ++y) {
             const float ry = destRect.y + static_cast<float>(y) * ch;
-            for (uint32_t x = 0; x < width; ++x) {
-                const uint32_t px = pixels[y * width + x];
-                const uint8_t r = static_cast<uint8_t>(px & 0xFFu);
-                const uint8_t g = static_cast<uint8_t>((px >> 8) & 0xFFu);
-                const uint8_t b = static_cast<uint8_t>((px >> 16) & 0xFFu);
-                const uint8_t a = static_cast<uint8_t>(((px >> 24) & 0xFFu) * opacity / 255u);
+            for (keel::u32 x = 0; x < width; ++x) {
+                const keel::u32 px = pixels[y * width + x];
+                const keel::u8 r = static_cast<keel::u8>(px & 0xFFu);
+                const keel::u8 g = static_cast<keel::u8>((px >> 8) & 0xFFu);
+                const keel::u8 b = static_cast<keel::u8>((px >> 16) & 0xFFu);
+                const keel::u8 a = static_cast<keel::u8>(((px >> 24) & 0xFFu) * opacity / 255u);
                 DrawRect(Rect(destRect.x + static_cast<float>(x) * cw, ry, cw + 0.5f, ch + 0.5f), Color(r, g, b, a));
             }
         }
@@ -366,7 +365,7 @@ public:
 
     /// Draws a hardware or memory texture (e.g. SDL_Texture* handle or image id).
     virtual void DrawTexture(
-        uint64_t /*textureId*/,
+        keel::u64 /*textureId*/,
         Rect /*destRect*/,
         keel::Optional<Rect> /*srcRect*/ = keel::kNullOpt,
         Color /*tint*/ = Color(255, 255, 255, 255)
@@ -391,7 +390,7 @@ public:
 
     /// Declarative, domain-agnostic descriptor for a 2D hardware GPU shader underlay pass.
     struct GpuShaderPassDesc {
-        uint64_t widgetId{0};
+        keel::u64 widgetId{0};
         GpuShaderSource shader{};
 
         Rect plotRect{};
@@ -400,17 +399,17 @@ public:
 
         // 2D Data Texture (Slot 0: `u_DataTex`)
         const float* dataFloats{nullptr};    ///< Row-major [texHeight * texWidth] float field
-        uint32_t texWidth{0};
-        uint32_t texHeight{0};
-        uint64_t fullGeneration{0};          ///< Incremented when the full 2D grid changes
-        uint64_t sliceGeneration{0};         ///< Optional: incremented when a single row is written in a circular ring buffer
-        uint32_t headRow{0};                 ///< Optional: ring-buffer head row index [0 .. texHeight-1] for O(1) sub-row upload
+        keel::u32 texWidth{0};
+        keel::u32 texHeight{0};
+        keel::u64 fullGeneration{0};          ///< Incremented when the full 2D grid changes
+        keel::u64 sliceGeneration{0};         ///< Optional: incremented when a single row is written in a circular ring buffer
+        keel::u32 headRow{0};                 ///< Optional: ring-buffer head row index [0 .. texHeight-1] for O(1) sub-row upload
         float dataNormOffset{0.0f};          ///< Value mapped to 0.0 in RG16 upload (0.0 for [0..1] data, -140.0 for dB data)
         float dataNormScale{1.0f};           ///< Span mapped to [0..1] in RG16 upload (1.0 for [0..1] data, 160.0 for dB data)
 
         // 1D Colormap LUT Texture (Slot 1: `u_LutTex`, 256 x 1 ABGR8888)
-        uint8_t colormapId{0};
-        const uint32_t* lutAbgr256{nullptr}; ///< Pointer to persistent 256-entry ABGR8888 LUT (zero-copy)
+        keel::u8 colormapId{0};
+        const keel::u32* lutAbgr256{nullptr}; ///< Pointer to persistent 256-entry ABGR8888 LUT (zero-copy)
 
         // Standard 8 x float4 (128-byte std140) uniform parameter bank (`uniform vec4 u_Params[8]`)
         keel::StaticArray<GpuFloat4, 8> params{};
@@ -435,12 +434,12 @@ public:
     virtual bool DrawGpuShaderPass(const GpuShaderPassDesc& /*pass*/, bool /*punchHole*/ = true) { return false; }
 
     /// Flushes pending draw commands and captures a physical pixel snapshot of `rect` for retained base-layer caching.
-    virtual bool CaptureRegion(Rect /*rect*/, keel::Array<uint32_t>& /*outPixels*/, uint32_t& /*outW*/, uint32_t& /*outH*/) {
+    virtual bool CaptureRegion(Rect /*rect*/, keel::Array<keel::u32>& /*outPixels*/, keel::u32& /*outW*/, keel::u32& /*outH*/) {
         return false;
     }
 
     /// Flushes pending draw commands and blits a previously captured pixel snapshot directly into the target surface.
-    virtual bool RestoreRegion(Rect /*rect*/, keel::ArrayRef<uint32_t> /*inPixels*/, uint32_t /*inW*/, uint32_t /*inH*/) {
+    virtual bool RestoreRegion(Rect /*rect*/, keel::ArrayRef<keel::u32> /*inPixels*/, keel::u32 /*inW*/, keel::u32 /*inH*/) {
         return false;
     }
 

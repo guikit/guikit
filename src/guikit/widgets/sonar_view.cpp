@@ -1,7 +1,5 @@
 #include "guikit/widgets/sonar_view.hpp"
 #include <cmath>
-#include <cstddef>
-#include <cstdint>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
@@ -19,36 +17,36 @@ constexpr float kDegToRad = kPi / 180.0f;
 constexpr float kRadToDeg = 180.0f / kPi;
 
 struct SonarViewState {
-    uint32_t numBeams{0};
-    uint32_t numRangeBins{0};
+    keel::u32 numBeams{0};
+    keel::u32 numRangeBins{0};
     keel::Array<float> persistentGrid{};
-    keel::Array<uint32_t> abgrPixels{};
+    keel::Array<keel::u32> abgrPixels{};
     keel::Array<SonarTarget> renderedTargets{};
-    uint32_t cachedImgW{0};
-    uint32_t cachedImgH{0};
-    uint64_t gridGeneration{1};
-    uint64_t lastInputHash{0};
+    keel::u32 cachedImgW{0};
+    keel::u32 cachedImgH{0};
+    keel::u64 gridGeneration{1};
+    keel::u64 lastInputHash{0};
 
     float rangeZoom{1.0f};
     float eblBearingDeg{35.0f};
     float vrmRangeMeters{220.0f};
     bool eblVrmDragging{false};
-    int selectedTargetId{-1};
+    keel::i32 selectedTargetId{-1};
     float prevSweepAngleDeg{0.0f};
     bool initialized{false};
 
-    uint64_t baseLayerKey{0};
-    uint32_t baseLayerW{0};
-    uint32_t baseLayerH{0};
-    keel::Array<uint32_t> baseLayerPixels{};
+    keel::u64 baseLayerKey{0};
+    keel::u32 baseLayerW{0};
+    keel::u32 baseLayerH{0};
+    keel::Array<keel::u32> baseLayerPixels{};
     bool baseLayerValid{false};
 
     void TrimInactiveCaches() noexcept {
-        abgrPixels = keel::Array<uint32_t>{};
+        abgrPixels = keel::Array<keel::u32>{};
         cachedImgW = 0;
         cachedImgH = 0;
         lastInputHash = 0;
-        baseLayerPixels = keel::Array<uint32_t>{};
+        baseLayerPixels = keel::Array<keel::u32>{};
         baseLayerValid = false;
         baseLayerKey = 0;
     }
@@ -58,9 +56,9 @@ struct SonarViewPayload {
     SonarViewOptions opts{};
     SonarViewResponse resp{};
     SonarViewState* state{nullptr};
-    uint32_t imgW{0};
-    uint32_t imgH{0};
-    const uint32_t* abgrData{nullptr};
+    keel::u32 imgW{0};
+    keel::u32 imgH{0};
+    const keel::u32* abgrData{nullptr};
 };
 
 /// Normalizes an angle in degrees to [0, 360).
@@ -233,12 +231,12 @@ struct SonarPlotGeometry {
     const float bFloat = keel::clamp(beamNorm, 0.0f, 1.0f) * static_cast<float>(state.numBeams - 1);
     const float rFloat = rNorm * static_cast<float>(state.numRangeBins - 1);
 
-    const uint32_t b0 = static_cast<uint32_t>(bFloat);
-    const uint32_t b1 = keel::min(state.numBeams - 1, b0 + 1);
+    const keel::u32 b0 = static_cast<keel::u32>(bFloat);
+    const keel::u32 b1 = keel::min(state.numBeams - 1, b0 + 1);
     const float fb = bFloat - static_cast<float>(b0);
 
-    const uint32_t r0 = static_cast<uint32_t>(rFloat);
-    const uint32_t r1 = keel::min(state.numRangeBins - 1, r0 + 1);
+    const keel::u32 r0 = static_cast<keel::u32>(rFloat);
+    const keel::u32 r1 = keel::min(state.numRangeBins - 1, r0 + 1);
     const float fr = rFloat - static_cast<float>(r0);
 
     const float v00 = state.persistentGrid[b0 * state.numRangeBins + r0];
@@ -292,12 +290,12 @@ void DrawClosedPolygon(
 ) {
     if (pts.size() < 3) return;
     if (fill.a > 0) {
-        for (size_t i = 1; i + 1 < pts.size(); ++i) {
+        for (keel::usize i = 1; i + 1 < pts.size(); ++i) {
             canvas.DrawTriangle(pts[0], pts[i], pts[i + 1], fill);
         }
     }
     if (stroke.a > 0 && strokeWidth > 0.0f) {
-        for (size_t i = 0; i < pts.size(); ++i) {
+        for (keel::usize i = 0; i < pts.size(); ++i) {
             canvas.DrawLine(pts[i], pts[(i + 1) % pts.size()], stroke, strokeWidth);
         }
     }
@@ -311,11 +309,11 @@ void DrawArcPolyline(
     float endScreenDeg,
     Color color,
     float thickness,
-    int segments = 48
+    keel::i32 segments = 48
 ) {
     if (radiusPx <= 1.0f || segments < 2) return;
     Vec2 prev{};
-    for (int i = 0; i <= segments; ++i) {
+    for (keel::i32 i = 0; i <= segments; ++i) {
         const float t = static_cast<float>(i) / static_cast<float>(segments);
         const float deg = startScreenDeg + t * (endScreenDeg - startScreenDeg);
         const float rad = deg * kDegToRad;
@@ -357,12 +355,12 @@ void DrawTargetSymbol(
 
     // 1. Snail trail (historical positions)
     if (target.trail.size() >= 2) {
-        for (size_t i = 0; i < target.trail.size(); ++i) {
+        for (keel::usize i = 0; i < target.trail.size(); ++i) {
             const float alphaFrac = static_cast<float>(i + 1) / static_cast<float>(target.trail.size() + 1);
             const Vec2 tp = geom.PolarToScreen(target.trail[i].rangeMeters, target.trail[i].bearingDeg);
             if (geom.plotRect.Contains(tp)) {
                 Color tc = symColor;
-                tc.a = static_cast<uint8_t>(alphaFrac * 150.0f);
+                tc.a = static_cast<keel::u8>(alphaFrac * 150.0f);
                 DrawCircleOutline(canvas, tp, 2.2f, tc);
             }
         }
@@ -397,7 +395,7 @@ void DrawTargetSymbol(
         DrawCircleOutline(canvas, pos, 2.0f, symColor);
     } else if (target.classification == SonarTargetClass::UUV) {
         keel::StaticArray<Vec2, 6> hex{};
-        for (size_t i = 0; i < 6; ++i) {
+        for (keel::usize i = 0; i < 6; ++i) {
             const float a = (static_cast<float>(i) * 60.0f - 30.0f) * kDegToRad;
             hex[i] = {pos.x + std::cos(a) * r, pos.y + std::sin(a) * r};
         }
@@ -650,7 +648,7 @@ void main() {
         gpuDesc.fullGeneration = state.gridGeneration;
         gpuDesc.dataNormOffset = 0.0f;
         gpuDesc.dataNormScale = 1.0f;
-        gpuDesc.colormapId = static_cast<uint8_t>(opts.colormap);
+        gpuDesc.colormapId = static_cast<keel::u8>(opts.colormap);
         gpuDesc.lutAbgr256 = GetColormapLutAbgr(opts.colormap).data();
 
         gpuDesc.params[0] = {geom.origin.x * s, geom.origin.y * s, geom.maxRadiusPx * s, 0.0f};
@@ -661,15 +659,15 @@ void main() {
         return gpuDesc;
     };
 
-    const uint64_t staticKey = detail::HashArgs(
+    const keel::u64 staticKey = detail::HashArgs(
         std::round(r.x * 2.0f),
         std::round(r.y * 2.0f),
         std::round(r.w * 2.0f),
         std::round(r.h * 2.0f),
         canvas.GetScale(),
         canvas.SupportsGpuShaders(),
-        static_cast<uint8_t>(opts.displayMode),
-        static_cast<uint8_t>(opts.colormap),
+        static_cast<keel::u8>(opts.displayMode),
+        static_cast<keel::u8>(opts.colormap),
         opts.maxRangeMeters,
         opts.minRangeMeters,
         opts.headingDeg,
@@ -728,26 +726,26 @@ void main() {
                         460.0f / keel::max(1.0f, plotRect.h)
                     )
                 );
-                const uint32_t imgW = static_cast<uint32_t>(keel::max(64.0f, std::round(plotRect.w * resScale)));
-                const uint32_t imgH = static_cast<uint32_t>(keel::max(64.0f, std::round(plotRect.h * resScale)));
+                const keel::u32 imgW = static_cast<keel::u32>(keel::max(64.0f, std::round(plotRect.w * resScale)));
+                const keel::u32 imgH = static_cast<keel::u32>(keel::max(64.0f, std::round(plotRect.h * resScale)));
                 state.cachedImgW = imgW;
                 state.cachedImgH = imgH;
-                state.abgrPixels.resize(static_cast<size_t>(imgW) * imgH, 0u);
+                state.abgrPixels.resize(static_cast<keel::usize>(imgW) * imgH, 0u);
 
-                const uint32_t bgAbgr = PackAbgr(bgConsole);
+                const keel::u32 bgAbgr = PackAbgr(bgConsole);
                 const float stepX = plotRect.w / static_cast<float>(imgW);
                 const float stepY = plotRect.h / static_cast<float>(imgH);
 
-                for (uint32_t py = 0; py < imgH; ++py) {
-                    uint32_t* rowPtr = state.abgrPixels.data() + static_cast<size_t>(py) * imgW;
+                for (keel::u32 py = 0; py < imgH; ++py) {
+                    keel::u32* rowPtr = state.abgrPixels.data() + static_cast<keel::usize>(py) * imgW;
                     const float sy = plotRect.y + (static_cast<float>(py) + 0.5f) * stepY;
-                    for (uint32_t px = 0; px < imgW; ++px) {
+                    for (keel::u32 px = 0; px < imgW; ++px) {
                         const float sx = plotRect.x + (static_cast<float>(px) + 0.5f) * stepX;
                         float rMeters = 0.0f;
                         float brgDeg = 0.0f;
                         if (geom.ScreenToPolar({sx, sy}, rMeters, brgDeg)) {
                             const float echo = SampleProcessedEcho(state, opts, rMeters, brgDeg);
-                            const size_t idx = static_cast<size_t>(keel::clamp(echo * 255.0f, 0.0f, 255.0f));
+                            const keel::usize idx = static_cast<keel::usize>(keel::clamp(echo * 255.0f, 0.0f, 255.0f));
                             rowPtr[px] = lutAbgr[idx];
                         } else {
                             rowPtr[px] = bgAbgr;
@@ -780,8 +778,8 @@ void main() {
                     float span = std::fmod(opts.guardZone.endBearingDeg - opts.guardZone.startBearingDeg + 360.0f, 360.0f);
                     if (span <= 0.01f) span = 360.0f;
 
-                    constexpr int kArcSteps = 28;
-                    for (int i = 0; i < kArcSteps; ++i) {
+                    constexpr keel::i32 kArcSteps = 28;
+                    for (keel::i32 i = 0; i < kArcSteps; ++i) {
                         const float b0 = opts.guardZone.startBearingDeg + (static_cast<float>(i) / kArcSteps) * span;
                         const float b1 = opts.guardZone.startBearingDeg + (static_cast<float>(i + 1) / kArcSteps) * span;
                         const Vec2 outer0 = geom.PolarToScreen(gzMaxR, b0);
@@ -820,10 +818,10 @@ void main() {
         }
 
         // 3. Range Rings & Azimuth Spokes / Bearing Dial
-        const uint32_t ringCount = keel::clamp(opts.rangeRingCount, 2u, 10u);
+        const keel::u32 ringCount = keel::clamp(opts.rangeRingCount, 2u, 10u);
         if (geom.mode == SonarDisplayMode::PPI_360) {
             if (opts.showRangeRings) {
-                for (uint32_t i = 1; i <= ringCount; ++i) {
+                for (keel::u32 i = 1; i <= ringCount; ++i) {
                     const float frac = static_cast<float>(i) / static_cast<float>(ringCount);
                     const float rPx = frac * geom.maxRadiusPx;
                     const Color c = (i == ringCount) ? gridMajorCol : gridLineCol;
@@ -836,7 +834,7 @@ void main() {
             }
 
             if (opts.showBearingDial) {
-                for (int deg = 0; deg < 360; deg += 30) {
+                for (keel::i32 deg = 0; deg < 360; deg += 30) {
                     const float rad = static_cast<float>(deg) * kDegToRad;
                     const Vec2 inner{geom.origin.x + std::sin(rad) * (geom.maxRadiusPx * 0.12f),
                                      geom.origin.y - std::cos(rad) * (geom.maxRadiusPx * 0.12f)};
@@ -846,7 +844,7 @@ void main() {
                     canvas.DrawLine(inner, outer, cardinal ? gridMajorCol : gridLineCol, cardinal ? 1.2f : 0.9f);
                 }
 
-                for (int deg = 0; deg < 360; deg += 5) {
+                for (keel::i32 deg = 0; deg < 360; deg += 5) {
                     const float rad = static_cast<float>(deg) * kDegToRad;
                     const bool major = (deg % 30 == 0);
                     const bool med = (deg % 10 == 0);
@@ -876,7 +874,7 @@ void main() {
         } else if (geom.mode == SonarDisplayMode::SectorWedge) {
             const float halfAp = geom.sectorApertureDeg * 0.5f;
             if (opts.showRangeRings) {
-                for (uint32_t i = 1; i <= ringCount; ++i) {
+                for (keel::u32 i = 1; i <= ringCount; ++i) {
                     const float frac = static_cast<float>(i) / static_cast<float>(ringCount);
                     const float rPx = frac * geom.maxRadiusPx;
                     const bool outer = (i == ringCount);
@@ -908,7 +906,7 @@ void main() {
             canvas.DrawLine(geom.origin, rightEdge, gridMajorCol, 1.5f);
 
             if (opts.showBearingDial) {
-                const int stepDeg = (geom.sectorApertureDeg <= 90.0f) ? 15 : 30;
+                const keel::i32 stepDeg = (geom.sectorApertureDeg <= 90.0f) ? 15 : 30;
                 for (float rel = -halfAp; rel <= halfAp + 0.1f; rel += static_cast<float>(stepDeg)) {
                     const float brg = NormalizeBearingDeg(geom.headingDeg + rel);
                     const Vec2 pOuter = geom.PolarToScreen(geom.visibleMaxRange, brg);
@@ -929,7 +927,7 @@ void main() {
             const Rect inner = geom.GetBScanInnerRect();
             canvas.DrawRoundRect(inner, 0.0f, Color::Transparent(), gridMajorCol, 1.2f);
             if (opts.showRangeRings) {
-                for (uint32_t i = 1; i <= ringCount; ++i) {
+                for (keel::u32 i = 1; i <= ringCount; ++i) {
                     const float frac = static_cast<float>(i) / static_cast<float>(ringCount);
                     const float y = inner.Bottom() - frac * inner.h;
                     canvas.DrawLine({inner.x, y}, {inner.Right(), y}, gridLineCol, 1.0f);
@@ -940,7 +938,7 @@ void main() {
             }
             if (opts.showBearingDial) {
                 const float halfAp = geom.sectorApertureDeg * 0.5f;
-                for (int i = 0; i <= 6; ++i) {
+                for (keel::i32 i = 0; i <= 6; ++i) {
                     const float u = static_cast<float>(i) / 6.0f;
                     const float x = inner.x + u * inner.w;
                     canvas.DrawLine({x, inner.y}, {x, inner.Bottom()}, gridLineCol, 1.0f);
@@ -967,10 +965,10 @@ void main() {
             canvas.DrawLine({barStrip.x - 3.0f, threshY}, {barStrip.Right() + 3.0f, threshY}, Color(244, 63, 94, 230), 1.8f);
 
             canvas.DrawText("dB", {colorbarRect.x + 8.0f, colorbarRect.y + 6.0f}, 10.0f, accentTextCol);
-            for (int i = 0; i <= 4; ++i) {
+            for (keel::i32 i = 0; i <= 4; ++i) {
                 const float frac = static_cast<float>(i) / 4.0f;
                 const float y = barStrip.y + frac * barStrip.h;
-                const int dbVal = -i * 15;
+                const keel::i32 dbVal = -i * 15;
                 char dbBuf[16];
                 const keel::StringRef dbStr = keel::format_buf(dbBuf, "%d", dbVal);
                 canvas.DrawText(dbStr, {barStrip.Right() + 4.0f, y - 5.0f}, 9.5f, labelTextCol);
@@ -1224,9 +1222,9 @@ SonarViewResponse SonarView::Run(
 
     auto& state = ctx.GetOrCreatePersistentState<SonarViewState>(id);
 
-    const uint32_t numBeams = keel::max(8u, opts.numBeams);
-    const uint32_t numBins = keel::max(8u, opts.numRangeBins);
-    const size_t totalCells = static_cast<size_t>(numBeams) * numBins;
+    const keel::u32 numBeams = keel::max(8u, opts.numBeams);
+    const keel::u32 numBins = keel::max(8u, opts.numRangeBins);
+    const keel::usize totalCells = static_cast<keel::usize>(numBeams) * numBins;
 
     if (!state.initialized || state.numBeams != numBeams || state.numRangeBins != numBins || opts.requestClearPersistence) {
         state.numBeams = numBeams;
@@ -1263,16 +1261,16 @@ SonarViewResponse SonarView::Run(
     // 1. Update Polar Persistence Buffer from `polarMatrix`
     const float persist = keel::clamp(opts.persistence, 0.0f, 0.97f);
     if (polarMatrix.size() >= totalCells) {
-        uint64_t inHash = detail::HashArgs(opts.sweepAngleDeg, static_cast<uint8_t>(opts.scanMode), persist);
-        const size_t step = keel::max<size_t>(1, totalCells / 64);
-        for (size_t i = 0; i < totalCells; i += step) {
+        keel::u64 inHash = detail::HashArgs(opts.sweepAngleDeg, static_cast<keel::u8>(opts.scanMode), persist);
+        const keel::usize step = keel::max<keel::usize>(1, totalCells / 64);
+        for (keel::usize i = 0; i < totalCells; i += step) {
             inHash = detail::HashArgs(inHash, polarMatrix[i]);
         }
         if (inHash != state.lastInputHash || state.gridGeneration <= 1) {
             state.lastInputHash = inHash;
             state.gridGeneration++;
             if (opts.scanMode == SonarScanMode::MultibeamContinuous) {
-                for (size_t i = 0; i < totalCells; ++i) {
+                for (keel::usize i = 0; i < totalCells; ++i) {
                     const float incoming = keel::clamp(polarMatrix[i], 0.0f, 1.0f);
                     const float decayed = state.persistentGrid[i] * persist;
                     state.persistentGrid[i] = keel::max(incoming, decayed * 0.92f + incoming * 0.08f);
@@ -1281,7 +1279,7 @@ SonarViewResponse SonarView::Run(
                 const float frameDecay = 0.965f + 0.032f * persist;
                 const float spanDeg = opts.matrixEndBearingDeg - opts.matrixStartBearingDeg;
                 const float halfSweep = keel::max(3.0f, opts.sweepBeamWidthDeg * 0.5f);
-                for (uint32_t b = 0; b < numBeams; ++b) {
+                for (keel::u32 b = 0; b < numBeams; ++b) {
                     const float beamNorm = static_cast<float>(b) / static_cast<float>(keel::max(1u, numBeams - 1));
                     float beamBrg = 0.0f;
                     if (std::abs(spanDeg) >= 359.5f) {
@@ -1291,9 +1289,9 @@ SonarViewResponse SonarView::Run(
                     }
                     const float diff = std::abs(SignedAngleDiffDeg(beamBrg, opts.sweepAngleDeg));
                     const bool inBeam = (diff <= halfSweep);
-                    float* row = state.persistentGrid.data() + static_cast<size_t>(b) * numBins;
-                    const float* srcRow = polarMatrix.data() + static_cast<size_t>(b) * numBins;
-                    for (uint32_t r = 0; r < numBins; ++r) {
+                    float* row = state.persistentGrid.data() + static_cast<keel::usize>(b) * numBins;
+                    const float* srcRow = polarMatrix.data() + static_cast<keel::usize>(b) * numBins;
+                    for (keel::u32 r = 0; r < numBins; ++r) {
                         float v = row[r] * frameDecay;
                         if (inBeam) {
                             const float beamWeight = 1.0f - (diff / (halfSweep + 0.1f)) * 0.35f;
@@ -1420,14 +1418,14 @@ SonarViewResponse SonarView::Run(
 
     state.renderedTargets.clear();
     state.renderedTargets.reserve(opts.targets.size());
-    uint64_t targetsFp = detail::HashArgs(opts.targets.size(), resp.hoveredTargetId);
+    keel::u64 targetsFp = detail::HashArgs(opts.targets.size(), resp.hoveredTargetId);
     for (const auto& t : opts.targets) {
         state.renderedTargets.push_back(t.clone());
         targetsFp = detail::HashArgs(
             targetsFp,
             t.id,
             t.callsign,
-            static_cast<uint8_t>(t.classification),
+            static_cast<keel::u8>(t.classification),
             t.rangeMeters,
             t.bearingDeg,
             t.speedMetersPerSec,
@@ -1450,10 +1448,10 @@ SonarViewResponse SonarView::Run(
     node->text = "SonarView";
     node->SetPayload(payload);
 
-    uint64_t gridFp = 0;
+    keel::u64 gridFp = 0;
     if (!state.persistentGrid.empty()) {
-        const size_t stride = keel::max<size_t>(1, state.persistentGrid.size() / 64);
-        for (size_t i = 0; i < state.persistentGrid.size(); i += stride) {
+        const keel::usize stride = keel::max<keel::usize>(1, state.persistentGrid.size() / 64);
+        for (keel::usize i = 0; i < state.persistentGrid.size(); i += stride) {
             gridFp = detail::HashArgs(gridFp, state.persistentGrid[i]);
         }
     }
@@ -1461,9 +1459,9 @@ SonarViewResponse SonarView::Run(
     node->visualHash = detail::HashArgs(
         gridFp,
         targetsFp,
-        static_cast<uint8_t>(opts.displayMode),
-        static_cast<uint8_t>(opts.scanMode),
-        static_cast<uint8_t>(opts.colormap),
+        static_cast<keel::u8>(opts.displayMode),
+        static_cast<keel::u8>(opts.scanMode),
+        static_cast<keel::u8>(opts.colormap),
         opts.gainDb,
         opts.tvgAmount,
         opts.clutterThreshold,

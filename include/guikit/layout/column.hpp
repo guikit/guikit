@@ -3,6 +3,7 @@
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "keel/core.h"
 
 namespace guikit {
 

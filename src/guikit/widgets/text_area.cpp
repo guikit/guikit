@@ -131,19 +131,19 @@ bool ContainsToken(keel::ArrayRef<keel::StringRef> list, keel::StringRef token) 
     return false;
 }
 
-bool ContainsSizeT(keel::ArrayRef<size_t> list, size_t val) noexcept {
-    for (size_t item : list) {
+bool ContainsSizeT(keel::ArrayRef<keel::usize> list, keel::usize val) noexcept {
+    for (keel::usize item : list) {
         if (item == val) return true;
     }
     return false;
 }
 
-void SortSizeT(keel::MutArrayRef<size_t> arr) noexcept {
-    const size_t n = arr.size();
-    for (size_t gap = n / 2; gap > 0; gap /= 2) {
-        for (size_t i = gap; i < n; ++i) {
-            const size_t temp = arr[i];
-            size_t j = i;
+void SortSizeT(keel::MutArrayRef<keel::usize> arr) noexcept {
+    const keel::usize n = arr.size();
+    for (keel::usize gap = n / 2; gap > 0; gap /= 2) {
+        for (keel::usize i = gap; i < n; ++i) {
+            const keel::usize temp = arr[i];
+            keel::usize j = i;
             while (j >= gap && arr[j - gap] > temp) {
                 arr[j] = arr[j - gap];
                 j -= gap;
@@ -153,22 +153,22 @@ void SortSizeT(keel::MutArrayRef<size_t> arr) noexcept {
     }
 }
 
-void StringEraseSpan(keel::String& s, size_t pos, size_t len) {
+void StringEraseSpan(keel::String& s, keel::usize pos, keel::usize len) {
     if (pos >= s.size() || len == 0) return;
-    const size_t rem = keel::min(len, s.size() - pos);
-    const size_t tail = s.size() - (pos + rem);
+    const keel::usize rem = keel::min(len, s.size() - pos);
+    const keel::usize tail = s.size() - (pos + rem);
     if (tail > 0) {
         keel::mem_move(s.data() + pos, s.data() + pos + rem, tail);
     }
     s.resize(s.size() - rem);
 }
 
-void StringInsertSpan(keel::String& s, size_t pos, keel::StringRef ins) {
+void StringInsertSpan(keel::String& s, keel::usize pos, keel::StringRef ins) {
     if (ins.empty()) return;
-    const size_t oldSize = s.size();
-    const size_t clampedPos = keel::min(pos, oldSize);
+    const keel::usize oldSize = s.size();
+    const keel::usize clampedPos = keel::min(pos, oldSize);
     s.resize(oldSize + ins.size());
-    const size_t tail = oldSize - clampedPos;
+    const keel::usize tail = oldSize - clampedPos;
     if (tail > 0) {
         keel::mem_move(s.data() + clampedPos + ins.size(), s.data() + clampedPos, tail);
     }
@@ -194,28 +194,28 @@ float MeasureSegmentWidth(
     keel::StringRef seg,
     float fontSize,
     FontStyle style,
-    uint8_t tabSize = 4
+    keel::u8 tabSize = 4
 ) noexcept {
     if (seg.empty() || fontSize <= 0.0f) return 0.0f;
-    const size_t firstTab = seg.find('\t');
+    const keel::usize firstTab = seg.find('\t');
     if (firstTab == keel::StringRef::npos) {
         return MeasureChunkNoTabs(canvas, seg, fontSize, style);
     }
 
-    const float tabCols = static_cast<float>(keel::clamp<int>(tabSize, 1, 16));
+    const float tabCols = static_cast<float>(keel::clamp<keel::i32>(tabSize, 1, 16));
     const float tabW = MeasureChunkNoTabs(canvas, " ", fontSize, style) * tabCols;
     float totalW = 0.0f;
-    size_t pos = 0;
+    keel::usize pos = 0;
     while (pos < seg.size()) {
         if (seg[pos] == '\t') {
-            size_t tabEnd = pos + 1;
+            keel::usize tabEnd = pos + 1;
             while (tabEnd < seg.size() && seg[tabEnd] == '\t') {
                 ++tabEnd;
             }
             totalW += static_cast<float>(tabEnd - pos) * tabW;
             pos = tabEnd;
         } else {
-            size_t nextTab = seg.find('\t', pos);
+            keel::usize nextTab = seg.find('\t', pos);
             if (nextTab == keel::StringRef::npos) {
                 nextTab = seg.size();
             }
@@ -226,19 +226,19 @@ float MeasureSegmentWidth(
     return totalW;
 }
 
-size_t HitTestColumnInLine(
+keel::usize HitTestColumnInLine(
     ICanvas* canvas,
     keel::StringRef lineSub,
     float localX,
     float fontSize,
     FontStyle style,
-    uint8_t tabSize = 4
+    keel::u8 tabSize = 4
 ) noexcept {
     if (lineSub.empty() || localX <= 0.0f) return 0;
-    size_t pos = 0;
+    keel::usize pos = 0;
     float prevW = 0.0f;
     while (pos < lineSub.size()) {
-        const size_t nextPos = TextUtil::NextCharBoundary(lineSub, pos);
+        const keel::usize nextPos = TextUtil::NextCharBoundary(lineSub, pos);
         const float nextW = MeasureSegmentWidth(canvas, lineSub.substr(0, nextPos), fontSize, style, tabSize);
         const float mid = (prevW + nextW) * 0.5f;
         if (localX < mid) {
@@ -255,19 +255,19 @@ using VisualLine = TextAreaVisualLine;
 using FoldRegion = TextAreaFoldRegion;
 
 struct SearchMatch {
-    size_t startOffset{0};
-    size_t endOffset{0};
-    size_t logicalLine{0};
-    size_t startCol{0};
-    size_t endCol{0};
+    keel::usize startOffset{0};
+    keel::usize endOffset{0};
+    keel::usize logicalLine{0};
+    keel::usize startCol{0};
+    keel::usize endCol{0};
 };
 
 void SortFoldRegions(keel::MutArrayRef<FoldRegion> arr) noexcept {
-    const size_t n = arr.size();
-    for (size_t gap = n / 2; gap > 0; gap /= 2) {
-        for (size_t i = gap; i < n; ++i) {
+    const keel::usize n = arr.size();
+    for (keel::usize gap = n / 2; gap > 0; gap /= 2) {
+        for (keel::usize i = gap; i < n; ++i) {
             const FoldRegion temp = arr[i];
-            size_t j = i;
+            keel::usize j = i;
             while (j >= gap) {
                 const FoldRegion& prev = arr[j - gap];
                 const bool tempBeforePrev =
@@ -284,18 +284,18 @@ void SortFoldRegions(keel::MutArrayRef<FoldRegion> arr) noexcept {
 
 void SplitLogicalLines(keel::StringRef text, keel::Array<LogicalLine>& outLines) {
     outLines.clear();
-    size_t start = 0;
+    keel::usize start = 0;
     while (start <= text.size()) {
-        const size_t nl = text.find('\n', start);
+        const keel::usize nl = text.find('\n', start);
         if (nl == keel::StringRef::npos) {
-            size_t len = text.size() - start;
+            keel::usize len = text.size() - start;
             if (len > 0 && text[start + len - 1] == '\r') {
                 --len;
             }
             outLines.push_back({start, len});
             break;
         }
-        size_t len = nl - start;
+        keel::usize len = nl - start;
         if (len > 0 && text[start + len - 1] == '\r') {
             --len;
         }
@@ -317,7 +317,7 @@ void ComputeFoldRegions(
     if (logicalLines.size() < 2) return;
 
     struct OpenEntry {
-        size_t lineIdx{0};
+        keel::usize lineIdx{0};
         bool isKeyword{false};
     };
     keel::SmallArray<OpenEntry, 16> stack;
@@ -326,9 +326,9 @@ void ComputeFoldRegions(
     const auto openKw = synCfg ? synCfg->foldOpenKeywords : keel::ArrayRef<keel::StringRef>{};
     const auto closeKw = synCfg ? synCfg->foldCloseKeywords : keel::ArrayRef<keel::StringRef>{};
 
-    for (size_t i = 0; i < logicalLines.size(); ++i) {
+    for (keel::usize i = 0; i < logicalLines.size(); ++i) {
         const keel::StringRef raw = text.substr(logicalLines[i].startOffset, logicalLines[i].length);
-        size_t p = 0;
+        keel::usize p = 0;
         while (p < raw.size() && (raw[p] == ' ' || raw[p] == '\t')) ++p;
         if (p >= raw.size()) continue;
         if (!lineComment.empty() && raw.substr(p).starts_with(lineComment)) continue;
@@ -336,17 +336,17 @@ void ComputeFoldRegions(
         // Check leading keyword opener/closer (e.g. MATLAB function/if/for ... end)
         if (!openKw.empty() || !closeKw.empty()) {
             if (IsIdentStart(raw[p])) {
-                size_t wEnd = p + 1;
+                keel::usize wEnd = p + 1;
                 while (wEnd < raw.size() && IsIdentChar(raw[wEnd])) ++wEnd;
                 const keel::StringRef firstWord = raw.substr(p, wEnd - p);
                 if (ContainsToken(openKw, firstWord)) {
                     // Check that the same line doesn't already end with 'end'
                     bool closedOnSameLine = false;
-                    size_t scan = wEnd;
+                    keel::usize scan = wEnd;
                     while (scan < raw.size()) {
                         if (!lineComment.empty() && raw.substr(scan).starts_with(lineComment)) break;
                         if (IsIdentStart(raw[scan])) {
-                            size_t e2 = scan + 1;
+                            keel::usize e2 = scan + 1;
                             while (e2 < raw.size() && IsIdentChar(raw[e2])) ++e2;
                             if (ContainsToken(closeKw, raw.substr(scan, e2 - scan))) {
                                 closedOnSameLine = true;
@@ -360,8 +360,8 @@ void ComputeFoldRegions(
                         stack.push_back({i, true});
                     }
                 } else if (ContainsToken(closeKw, firstWord)) {
-                    for (size_t sIdx = stack.size(); sIdx > 0; --sIdx) {
-                        const size_t k = sIdx - 1;
+                    for (keel::usize sIdx = stack.size(); sIdx > 0; --sIdx) {
+                        const keel::usize k = sIdx - 1;
                         if (stack[k].isKeyword) {
                             if (i > stack[k].lineIdx) {
                                 outRegions.push_back({stack[k].lineIdx, i});
@@ -377,7 +377,7 @@ void ComputeFoldRegions(
         // Check brace '{' and '}' blocks
         bool inStr = false;
         char quoteC = '\0';
-        for (size_t cIdx = p; cIdx < raw.size(); ++cIdx) {
+        for (keel::usize cIdx = p; cIdx < raw.size(); ++cIdx) {
             const char c = raw[cIdx];
             if (!inStr && !lineComment.empty() && raw.substr(cIdx).starts_with(lineComment)) {
                 break;
@@ -402,8 +402,8 @@ void ComputeFoldRegions(
             if (c == '{') {
                 stack.push_back({i, false});
             } else if (c == '}') {
-                for (size_t sIdx = stack.size(); sIdx > 0; --sIdx) {
-                    const size_t k = sIdx - 1;
+                for (keel::usize sIdx = stack.size(); sIdx > 0; --sIdx) {
+                    const keel::usize k = sIdx - 1;
                     if (!stack[k].isKeyword) {
                         if (i > stack[k].lineIdx) {
                             outRegions.push_back({stack[k].lineIdx, i});
@@ -419,7 +419,7 @@ void ComputeFoldRegions(
     SortFoldRegions(outRegions);
 }
 
-const FoldRegion* FindFoldRegionStartingAt(keel::ArrayRef<FoldRegion> regions, size_t lineIdx) noexcept {
+const FoldRegion* FindFoldRegionStartingAt(keel::ArrayRef<FoldRegion> regions, keel::usize lineIdx) noexcept {
     for (const FoldRegion& r : regions) {
         if (r.startLine == lineIdx) return &r;
         if (r.startLine > lineIdx) break;
@@ -427,8 +427,8 @@ const FoldRegion* FindFoldRegionStartingAt(keel::ArrayRef<FoldRegion> regions, s
     return nullptr;
 }
 
-bool IsLineFoldedStart(keel::ArrayRef<size_t> foldedLines, size_t lineIdx) noexcept {
-    for (size_t fl : foldedLines) {
+bool IsLineFoldedStart(keel::ArrayRef<keel::usize> foldedLines, keel::usize lineIdx) noexcept {
+    for (keel::usize fl : foldedLines) {
         if (fl == lineIdx) return true;
     }
     return false;
@@ -436,11 +436,11 @@ bool IsLineFoldedStart(keel::ArrayRef<size_t> foldedLines, size_t lineIdx) noexc
 
 bool IsLineHiddenByFold(
     keel::ArrayRef<FoldRegion> regions,
-    keel::ArrayRef<size_t> foldedLines,
-    size_t lineIdx
+    keel::ArrayRef<keel::usize> foldedLines,
+    keel::usize lineIdx
 ) noexcept {
     if (foldedLines.empty() || regions.empty()) return false;
-    for (size_t fl : foldedLines) {
+    for (keel::usize fl : foldedLines) {
         if (lineIdx <= fl) continue;
         if (const FoldRegion* r = FindFoldRegionStartingAt(regions, fl)) {
             if (lineIdx > r->startLine && lineIdx <= r->endLine) {
@@ -461,13 +461,13 @@ void BuildVisualLines(
     ICanvas* canvas,
     keel::Array<VisualLine>& outVisual,
     keel::ArrayRef<FoldRegion> foldRegions = {},
-    keel::ArrayRef<size_t> foldedLines = {},
-    uint8_t tabSize = 4
+    keel::ArrayRef<keel::usize> foldedLines = {},
+    keel::u8 tabSize = 4
 ) {
     outVisual.clear();
     outVisual.reserve(logicalLines.size());
 
-    for (size_t i = 0; i < logicalLines.size(); ++i) {
+    for (keel::usize i = 0; i < logicalLines.size(); ++i) {
         if (IsLineHiddenByFold(foldRegions, foldedLines, i)) {
             continue;
         }
@@ -484,13 +484,13 @@ void BuildVisualLines(
             continue;
         }
 
-        size_t subStart = 0;
+        keel::usize subStart = 0;
         bool first = true;
         while (subStart < ll.length) {
-            size_t cur = subStart;
-            size_t lastBreak = subStart;
+            keel::usize cur = subStart;
+            keel::usize lastBreak = subStart;
             while (cur < ll.length) {
-                const size_t next = TextUtil::NextCharBoundary(lineStr, cur);
+                const keel::usize next = TextUtil::NextCharBoundary(lineStr, cur);
                 const float w = MeasureSegmentWidth(canvas, lineStr.substr(subStart, next - subStart), fontSize, style, tabSize);
                 if (w > wrapWidth && cur > subStart) {
                     break;
@@ -500,8 +500,8 @@ void BuildVisualLines(
                     lastBreak = cur;
                 }
             }
-            const size_t takeEnd = (lastBreak > subStart && cur < ll.length) ? lastBreak : cur;
-            const size_t subLen = keel::max<size_t>(1, takeEnd - subStart);
+            const keel::usize takeEnd = (lastBreak > subStart && cur < ll.length) ? lastBreak : cur;
+            const keel::usize subLen = keel::max<keel::usize>(1, takeEnd - subStart);
             outVisual.push_back({i, ll.startOffset + subStart, subStart, subLen, first});
             first = false;
             subStart += subLen;
@@ -531,21 +531,21 @@ void FindAllSearchMatches(
                (cp >= 0x0400u && cp <= 0x04FFu);
     };
 
-    const size_t qLen = query.size();
-    for (size_t lineIdx = 0; lineIdx < logicalLines.size(); ++lineIdx) {
+    const keel::usize qLen = query.size();
+    for (keel::usize lineIdx = 0; lineIdx < logicalLines.size(); ++lineIdx) {
         const LogicalLine& ll = logicalLines[lineIdx];
         if (matchCase && ll.length < qLen) continue;
         const keel::StringRef lineStr = text.substr(ll.startOffset, ll.length);
 
-        size_t col = 0;
+        keel::usize col = 0;
         while (col < ll.length) {
-            size_t matchStart = keel::StringRef::npos;
-            size_t matchLen = 0;
+            keel::usize matchStart = keel::StringRef::npos;
+            keel::usize matchLen = 0;
             if (matchCase) {
                 matchStart = lineStr.find(query, col);
                 matchLen = qLen;
             } else {
-                size_t relPos = 0;
+                keel::usize relPos = 0;
                 if (TextUtil::FindCaseInsensitive(lineStr.substr(col), query, relPos, matchLen)) {
                     matchStart = col + relPos;
                 }
@@ -553,18 +553,18 @@ void FindAllSearchMatches(
             if (matchStart == keel::StringRef::npos || matchLen == 0) {
                 break;
             }
-            const size_t matchEnd = matchStart + matchLen;
+            const keel::usize matchEnd = matchStart + matchLen;
 
             bool matched = true;
             if (wholeWord) {
                 if (matchStart > 0) {
-                    size_t prevOff = keel::utf8_prev_boundary(lineStr, matchStart);
+                    keel::usize prevOff = keel::utf8_prev_boundary(lineStr, matchStart);
                     if (isWordCodepoint(keel::utf8_decode_next(lineStr, prevOff))) {
                         matched = false;
                     }
                 }
                 if (matched && matchEnd < ll.length) {
-                    size_t nextOff = matchEnd;
+                    keel::usize nextOff = matchEnd;
                     if (isWordCodepoint(keel::utf8_decode_next(lineStr, nextOff))) {
                         matched = false;
                     }
@@ -589,18 +589,18 @@ void FindAllSearchMatches(
 
 bool FindMatchingBracketPair(
     keel::StringRef text,
-    size_t cursorOffset,
-    size_t& outOpenOffset,
-    size_t& outCloseOffset
+    keel::usize cursorOffset,
+    keel::usize& outOpenOffset,
+    keel::usize& outCloseOffset
 ) noexcept {
     if (text.empty()) return false;
-    const size_t safeCur = keel::min(cursorOffset, text.size());
+    const keel::usize safeCur = keel::min(cursorOffset, text.size());
 
     auto isBracket = [](char c) noexcept {
         return c == '(' || c == ')' || c == '[' || c == ']' || c == '{' || c == '}';
     };
 
-    size_t brPos = keel::StringRef::npos;
+    keel::usize brPos = keel::StringRef::npos;
     if (safeCur < text.size() && isBracket(text[safeCur])) {
         brPos = safeCur;
     } else if (safeCur > 0 && isBracket(text[safeCur - 1])) {
@@ -614,10 +614,10 @@ bool FindMatchingBracketPair(
                       : (c == '[') ? ']' : (c == ']') ? '['
                       : (c == '{') ? '}' : '{';
 
-    int depth = 0;
+    keel::i32 depth = 0;
     if (forward) {
-        const size_t maxScan = keel::min(text.size(), brPos + 16384);
-        for (size_t i = brPos; i < maxScan; ++i) {
+        const keel::usize maxScan = keel::min(text.size(), brPos + 16384);
+        for (keel::usize i = brPos; i < maxScan; ++i) {
             if (text[i] == c) ++depth;
             else if (text[i] == target) {
                 --depth;
@@ -629,9 +629,9 @@ bool FindMatchingBracketPair(
             }
         }
     } else {
-        const size_t minScan = (brPos > 16384) ? (brPos - 16384) : 0;
-        for (size_t i = brPos + 1; i > minScan; --i) {
-            const size_t idx = i - 1;
+        const keel::usize minScan = (brPos > 16384) ? (brPos - 16384) : 0;
+        for (keel::usize i = brPos + 1; i > minScan; --i) {
+            const keel::usize idx = i - 1;
             if (text[idx] == c) ++depth;
             else if (text[idx] == target) {
                 --depth;
@@ -646,9 +646,9 @@ bool FindMatchingBracketPair(
     return false;
 }
 
-keel::StringRef ExtractWordAtOffset(keel::StringRef text, size_t offset, size_t* outStartOffset = nullptr) noexcept {
+keel::StringRef ExtractWordAtOffset(keel::StringRef text, keel::usize offset, keel::usize* outStartOffset = nullptr) noexcept {
     if (text.empty()) return {};
-    size_t pos = keel::min(offset, text.size());
+    keel::usize pos = keel::min(offset, text.size());
     if (pos == text.size() || !IsIdentChar(text[pos])) {
         if (pos > 0 && IsIdentChar(text[pos - 1])) {
             --pos;
@@ -656,10 +656,10 @@ keel::StringRef ExtractWordAtOffset(keel::StringRef text, size_t offset, size_t*
             return {};
         }
     }
-    size_t s = pos;
+    keel::usize s = pos;
     while (s > 0 && IsIdentChar(text[s - 1])) --s;
     if (!IsIdentStart(text[s])) return {};
-    size_t e = pos + 1;
+    keel::usize e = pos + 1;
     while (e < text.size() && IsIdentChar(text[e])) ++e;
     if (outStartOffset) *outStartOffset = s;
     return text.substr(s, e - s);
@@ -669,7 +669,7 @@ keel::StringRef ExtractCodeWithoutLineComment(
     keel::StringRef lineText,
     keel::StringRef commentPrefix
 ) noexcept {
-    size_t start = 0;
+    keel::usize start = 0;
     while (start < lineText.size() && (lineText[start] == ' ' || lineText[start] == '\t' || lineText[start] == '\r')) {
         ++start;
     }
@@ -683,8 +683,8 @@ keel::StringRef ExtractCodeWithoutLineComment(
 
     bool inQuotes = false;
     char quoteChar = '\0';
-    size_t codeLen = sub.size();
-    for (size_t i = 0; i < sub.size(); ++i) {
+    keel::usize codeLen = sub.size();
+    for (keel::usize i = 0; i < sub.size(); ++i) {
         const char c = sub[i];
         if (inQuotes) {
             if (c == '\\' && i + 1 < sub.size()) {
@@ -724,12 +724,12 @@ keel::StringRef ExtractCodeWithoutLineComment(
 bool HasCodeBeforeOffsetOnLine(
     keel::StringRef docText,
     const LogicalLine& ll,
-    size_t cursorOffset
+    keel::usize cursorOffset
 ) noexcept {
     if (cursorOffset <= ll.startOffset) {
         return false;
     }
-    const size_t len = keel::min(cursorOffset - ll.startOffset, ll.length);
+    const keel::usize len = keel::min(cursorOffset - ll.startOffset, ll.length);
     const keel::StringRef prefix = docText.substr(ll.startOffset, len);
     for (char c : prefix) {
         if (c != ' ' && c != '\t' && c != '\r') {
@@ -740,7 +740,7 @@ bool HasCodeBeforeOffsetOnLine(
 }
 
 keel::StringRef ExtractLeadingIdentifierOrKey(keel::StringRef code) noexcept {
-    size_t i = 0;
+    keel::usize i = 0;
     while (i < code.size() && (code[i] == ' ' || code[i] == '\t' || code[i] == '(' || code[i] == '[' || code[i] == '*' || code[i] == '&')) {
         ++i;
     }
@@ -748,7 +748,7 @@ keel::StringRef ExtractLeadingIdentifierOrKey(keel::StringRef code) noexcept {
         return {};
     }
     if (code[i] == '"') {
-        const size_t start = i++;
+        const keel::usize start = i++;
         while (i < code.size() && code[i] != '"') {
             if (code[i] == '\\' && i + 1 < code.size()) ++i;
             ++i;
@@ -757,7 +757,7 @@ keel::StringRef ExtractLeadingIdentifierOrKey(keel::StringRef code) noexcept {
         return code.substr(start, i - start);
     }
     if (IsIdentStart(code[i])) {
-        const size_t start = i++;
+        const keel::usize start = i++;
         while (i < code.size() && IsIdentChar(code[i])) {
             ++i;
         }
@@ -775,9 +775,9 @@ keel::StringRef ExtractAssignedTargetIdentifier(keel::StringRef code) noexcept {
         return {};
     }
 
-    int parenDepth = 0;
-    size_t eqPos = keel::StringRef::npos;
-    for (size_t i = 0; i < code.size(); ++i) {
+    keel::i32 parenDepth = 0;
+    keel::usize eqPos = keel::StringRef::npos;
+    for (keel::usize i = 0; i < code.size(); ++i) {
         const char c = code[i];
         if (c == '(' || c == '[') {
             ++parenDepth;
@@ -796,7 +796,7 @@ keel::StringRef ExtractAssignedTargetIdentifier(keel::StringRef code) noexcept {
         return {};
     }
 
-    size_t p = eqPos;
+    keel::usize p = eqPos;
     if (p > 0 && (code[p - 1] == '+' || code[p - 1] == '-' || code[p - 1] == '*' ||
                   code[p - 1] == '/' || code[p - 1] == '|' || code[p - 1] == '&' || code[p - 1] == '^')) {
         --p;
@@ -807,7 +807,7 @@ keel::StringRef ExtractAssignedTargetIdentifier(keel::StringRef code) noexcept {
     if (p > 0 && (code[p - 1] == ')' || code[p - 1] == ']')) {
         const char closeBr = code[p - 1];
         const char openBr = (closeBr == ')') ? '(' : '[';
-        int depth = 0;
+        keel::i32 depth = 0;
         while (p > 0) {
             --p;
             if (code[p] == closeBr) ++depth;
@@ -820,7 +820,7 @@ keel::StringRef ExtractAssignedTargetIdentifier(keel::StringRef code) noexcept {
             --p;
         }
     }
-    const size_t endIdent = p;
+    const keel::usize endIdent = p;
     while (p > 0 && IsIdentChar(code[p - 1])) {
         --p;
     }
@@ -856,19 +856,19 @@ bool DoesLineMatchBaselineSignature(
     return !baseLead.empty() && (curLead == baseLead);
 }
 
-size_t ResolveTrackedCodeLine(
+keel::usize ResolveTrackedCodeLine(
     keel::StringRef docText,
     keel::ArrayRef<LogicalLine> logicalLines,
-    size_t requestedLine1,
+    keel::usize requestedLine1,
     keel::StringRef explicitAnchor,
-    keel::ArrayRef<size_t> baselineToCurrentLine,
+    keel::ArrayRef<keel::usize> baselineToCurrentLine,
     keel::ArrayRef<keel::String> baselineSignatures,
     keel::StringRef commentPrefix
 ) noexcept {
     if (logicalLines.empty() || requestedLine1 == 0) {
         return 0;
     }
-    auto getLineCode = [&](size_t line1) noexcept -> keel::StringRef {
+    auto getLineCode = [&](keel::usize line1) noexcept -> keel::StringRef {
         if (line1 < 1 || line1 > logicalLines.size()) {
             return {};
         }
@@ -876,7 +876,7 @@ size_t ResolveTrackedCodeLine(
         return ExtractCodeWithoutLineComment(docText.substr(ll.startOffset, ll.length), commentPrefix);
     };
 
-    const size_t mappedLine1 = (requestedLine1 < baselineToCurrentLine.size() && baselineToCurrentLine[requestedLine1] > 0)
+    const keel::usize mappedLine1 = (requestedLine1 < baselineToCurrentLine.size() && baselineToCurrentLine[requestedLine1] > 0)
         ? baselineToCurrentLine[requestedLine1]
         : requestedLine1;
     const keel::StringRef baseSig = (requestedLine1 < baselineSignatures.size())
@@ -888,7 +888,7 @@ size_t ResolveTrackedCodeLine(
         if (!mappedCode.empty() && (mappedCode.find(explicitAnchor) != keel::StringRef::npos || DoesLineMatchBaselineSignature(mappedCode, baseSig))) {
             return mappedLine1;
         }
-        for (size_t delta = 1; delta <= logicalLines.size(); ++delta) {
+        for (keel::usize delta = 1; delta <= logicalLines.size(); ++delta) {
             if (mappedLine1 + delta <= logicalLines.size()) {
                 const keel::StringRef c = getLineCode(mappedLine1 + delta);
                 if (!c.empty() && c.find(explicitAnchor) != keel::StringRef::npos) {
@@ -910,7 +910,7 @@ size_t ResolveTrackedCodeLine(
         return mappedLine1;
     }
     if (!baseSig.empty()) {
-        for (size_t delta = 1; delta <= 2; ++delta) {
+        for (keel::usize delta = 1; delta <= 2; ++delta) {
             if (mappedLine1 + delta <= logicalLines.size() && getLineCode(mappedLine1 + delta) == baseSig) {
                 return mappedLine1 + delta;
             }
@@ -938,7 +938,7 @@ EditorFontMetrics ResolveEditorFontMetrics(
     float baseFontSize,
     float effZoom,
     FontStyle style,
-    uint8_t tabSize = 4
+    keel::u8 tabSize = 4
 ) noexcept {
     EditorFontMetrics m{};
     const float clampedZoom = keel::clamp(effZoom, 0.5f, 3.0f);
@@ -960,7 +960,7 @@ EditorFontMetrics ResolveEditorFontMetrics(
 
     m.lineHeight = keel::max(theme.GetLineHeight(m.fontSize), m.glyphBoxH * 1.14f);
     m.textOffsetY = (m.lineHeight - m.glyphBoxH) * 0.5f;
-    m.tabAdvance = m.spaceAdvance * static_cast<float>(keel::clamp<int>(tabSize, 1, 16));
+    m.tabAdvance = m.spaceAdvance * static_cast<float>(keel::clamp<keel::i32>(tabSize, 1, 16));
     return m;
 }
 
@@ -985,9 +985,9 @@ Vec2 MeasureEditorBox(
     const float padX = keel::max(theme.Scale(10.0f), cm.paddingX);
     const float statusH = opts.showStatusBar ? theme.Scale(22.0f) : 0.0f;
 
-    size_t lineCount = 1;
-    size_t maxLineChars = 0;
-    size_t curChars = 0;
+    keel::usize lineCount = 1;
+    keel::usize maxLineChars = 0;
+    keel::usize curChars = 0;
     for (char c : text) {
         if (c == '\n') {
             ++lineCount;
@@ -1005,14 +1005,14 @@ Vec2 MeasureEditorBox(
     } else if (opts.autoHeight) {
         boxH = static_cast<float>(lineCount) * lineHeight + padY * 2.0f + statusH;
     } else if (opts.rows.has_value()) {
-        const uint32_t r = keel::max(1u, *opts.rows);
+        const keel::u32 r = keel::max(1u, *opts.rows);
         boxH = static_cast<float>(r) * lineHeight + padY * 2.0f + statusH;
     } else {
         boxH = 4.0f * lineHeight + padY * 2.0f + statusH;
     }
 
-    size_t digits = 2;
-    size_t n = lineCount;
+    keel::usize digits = 2;
+    keel::usize n = lineCount;
     while (n >= 100) {
         ++digits;
         n /= 10;
@@ -1034,7 +1034,7 @@ Vec2 MeasureEditorBox(
         boxW = availableWidth * ratio;
     } else {
         const float charAdv = MeasureChunkNoTabs(canvas, "M", fontSize, textStyle);
-        const float estimatedW = gutterWidth + padX * 2.0f + static_cast<float>(keel::min<size_t>(maxLineChars, 80)) * charAdv + theme.Scale(24.0f);
+        const float estimatedW = gutterWidth + padX * 2.0f + static_cast<float>(keel::min<keel::usize>(maxLineChars, 80)) * charAdv + theme.Scale(24.0f);
         boxW = keel::max(boxW, estimatedW);
     }
 
@@ -1115,7 +1115,7 @@ EditorLayoutRects ComputeEditorLayout(
     bool replaceOpen,
     bool gotoOpen,
     keel::ArrayRef<FoldRegion> foldRegions,
-    keel::ArrayRef<size_t> foldedLines,
+    keel::ArrayRef<keel::usize> foldedLines,
     keel::Array<VisualLine>& outVisualLines,
     float debugToolbarRatio = -1.0f
 ) {
@@ -1139,8 +1139,8 @@ EditorLayoutRects ComputeEditorLayout(
     const float padY = keel::max(theme.Scale(8.0f), cm.paddingY);
     const float padX = keel::max(theme.Scale(10.0f), cm.paddingX);
 
-    size_t digits = 2;
-    size_t n = keel::max<size_t>(1, logicalLines.size());
+    keel::usize digits = 2;
+    keel::usize n = keel::max<keel::usize>(1, logicalLines.size());
     while (n >= 100) {
         ++digits;
         n /= 10;
@@ -1215,7 +1215,7 @@ EditorLayoutRects ComputeEditorLayout(
 
     L.maxLineW = 0.0f;
     if (!opts.wordWrap) {
-        for (size_t li = 0; li < logicalLines.size(); ++li) {
+        for (keel::usize li = 0; li < logicalLines.size(); ++li) {
             const LogicalLine& ll = logicalLines[li];
             if (ll.length == 0) continue;
             const keel::StringRef ls = text.substr(ll.startOffset, ll.length);
@@ -1452,7 +1452,7 @@ EditorLayoutRects ComputeEditorLayout(
         }
 
         float bx = barX + pad + gripW;
-        for (size_t i = 0; i < 6; ++i) {
+        for (keel::usize i = 0; i < 6; ++i) {
             if (i == 4) {
                 bx += sepExtra; // Group separator before Restart & Stop
             }
@@ -1464,11 +1464,11 @@ EditorLayoutRects ComputeEditorLayout(
     return L;
 }
 
-size_t FindVisualLineForOffset(keel::ArrayRef<VisualLine> visualLines, size_t offset) noexcept {
+keel::usize FindVisualLineForOffset(keel::ArrayRef<VisualLine> visualLines, keel::usize offset) noexcept {
     if (visualLines.empty()) return 0;
-    for (size_t i = 0; i < visualLines.size(); ++i) {
+    for (keel::usize i = 0; i < visualLines.size(); ++i) {
         const VisualLine& vl = visualLines[i];
-        const size_t vlEnd = vl.startOffset + vl.length;
+        const keel::usize vlEnd = vl.startOffset + vl.length;
         if (offset >= vl.startOffset && offset <= vlEnd) {
             if (offset == vlEnd && i + 1 < visualLines.size() && visualLines[i + 1].logicalLine == vl.logicalLine) {
                 continue;
@@ -1479,9 +1479,9 @@ size_t FindVisualLineForOffset(keel::ArrayRef<VisualLine> visualLines, size_t of
     return visualLines.size() - 1;
 }
 
-size_t FindLogicalLineForOffset(keel::ArrayRef<LogicalLine> logicalLines, size_t offset) noexcept {
+keel::usize FindLogicalLineForOffset(keel::ArrayRef<LogicalLine> logicalLines, keel::usize offset) noexcept {
     if (logicalLines.empty()) return 0;
-    for (size_t i = 0; i < logicalLines.size(); ++i) {
+    for (keel::usize i = 0; i < logicalLines.size(); ++i) {
         const LogicalLine& ll = logicalLines[i];
         if (offset >= ll.startOffset && offset <= ll.startOffset + ll.length) {
             return i;
@@ -1624,7 +1624,7 @@ SyntaxConfig SyntaxConfig::ForLanguage(keel::StringRef langTag) noexcept {
 
 void TextArea::HighlightLine(
     keel::StringRef lineText,
-    size_t /*lineIndex*/,
+    keel::usize /*lineIndex*/,
     const SyntaxConfig& config,
     keel::Array<TextSpan>& outSpans,
     const UiTheme& theme,
@@ -1639,22 +1639,22 @@ void TextArea::HighlightLine(
         : (config.palette.has_value() ? *config.palette : theme.syntax);
 
     if (!config.enabled) {
-        outSpans.push_back({0, static_cast<uint32_t>(lineText.size()), pal.identifier});
+        outSpans.push_back({0, static_cast<keel::u32>(lineText.size()), pal.identifier});
         return;
     }
 
-    const size_t len = lineText.size();
-    size_t i = 0;
+    const keel::usize len = lineText.size();
+    keel::usize i = 0;
 
     // Stateful multiline block comment continuation from previous line
     if (inOutBlockComment && *inOutBlockComment && !config.blockCommentEnd.empty()) {
-        const size_t endPos = lineText.find(config.blockCommentEnd);
+        const keel::usize endPos = lineText.find(config.blockCommentEnd);
         if (endPos == keel::StringRef::npos) {
-            outSpans.push_back({0, static_cast<uint32_t>(len), pal.comment});
+            outSpans.push_back({0, static_cast<keel::u32>(len), pal.comment});
             return;
         }
         i = endPos + config.blockCommentEnd.size();
-        outSpans.push_back({0, static_cast<uint32_t>(i), pal.comment});
+        outSpans.push_back({0, static_cast<keel::u32>(i), pal.comment});
         *inOutBlockComment = false;
     }
 
@@ -1664,31 +1664,31 @@ void TextArea::HighlightLine(
             ++i;
         }
         if (i > 0) {
-            outSpans.push_back({0, static_cast<uint32_t>(i), pal.identifier});
+            outSpans.push_back({0, static_cast<keel::u32>(i), pal.identifier});
         }
     }
 
     // Section header check (e.g. "%%" in MATLAB or "// ===" in C++)
     if (!config.sectionPrefix.empty() && i + config.sectionPrefix.size() <= len &&
         lineText.substr(i, config.sectionPrefix.size()) == config.sectionPrefix) {
-        outSpans.push_back({static_cast<uint32_t>(i), static_cast<uint32_t>(len - i), pal.preprocessor});
+        outSpans.push_back({static_cast<keel::u32>(i), static_cast<keel::u32>(len - i), pal.preprocessor});
         return;
     }
 
     // Preprocessor directive check
     if (config.preprocessorPrefix != '\0' && i < len && lineText[i] == config.preprocessorPrefix) {
-        size_t qPos = keel::StringRef::npos;
-        for (size_t k = i + 1; k < len; ++k) {
+        keel::usize qPos = keel::StringRef::npos;
+        for (keel::usize k = i + 1; k < len; ++k) {
             if (lineText[k] == '"' || lineText[k] == '<') {
                 qPos = k;
                 break;
             }
         }
         if (qPos != keel::StringRef::npos && config.highlightStrings) {
-            outSpans.push_back({static_cast<uint32_t>(i), static_cast<uint32_t>(qPos - i), pal.preprocessor});
-            outSpans.push_back({static_cast<uint32_t>(qPos), static_cast<uint32_t>(len - qPos), pal.string});
+            outSpans.push_back({static_cast<keel::u32>(i), static_cast<keel::u32>(qPos - i), pal.preprocessor});
+            outSpans.push_back({static_cast<keel::u32>(qPos), static_cast<keel::u32>(len - qPos), pal.string});
         } else {
-            outSpans.push_back({static_cast<uint32_t>(i), static_cast<uint32_t>(len - i), pal.preprocessor});
+            outSpans.push_back({static_cast<keel::u32>(i), static_cast<keel::u32>(len - i), pal.preprocessor});
         }
         return;
     }
@@ -1696,11 +1696,11 @@ void TextArea::HighlightLine(
     while (i < len) {
         // 1. Whitespace run
         if (lineText[i] == ' ' || lineText[i] == '\t') {
-            const size_t start = i;
+            const keel::usize start = i;
             while (i < len && (lineText[i] == ' ' || lineText[i] == '\t')) {
                 ++i;
             }
-            outSpans.push_back({static_cast<uint32_t>(start), static_cast<uint32_t>(i - start), pal.identifier});
+            outSpans.push_back({static_cast<keel::u32>(start), static_cast<keel::u32>(i - start), pal.identifier});
             continue;
         }
 
@@ -1708,10 +1708,10 @@ void TextArea::HighlightLine(
         if (!config.blockCommentStart.empty() &&
             i + config.blockCommentStart.size() <= len &&
             lineText.substr(i, config.blockCommentStart.size()) == config.blockCommentStart) {
-            const size_t start = i;
+            const keel::usize start = i;
             i += config.blockCommentStart.size();
             if (!config.blockCommentEnd.empty()) {
-                const size_t endPos = lineText.find(config.blockCommentEnd, i);
+                const keel::usize endPos = lineText.find(config.blockCommentEnd, i);
                 if (endPos != keel::StringRef::npos) {
                     i = endPos + config.blockCommentEnd.size();
                 } else {
@@ -1723,7 +1723,7 @@ void TextArea::HighlightLine(
             } else {
                 i = len;
             }
-            outSpans.push_back({static_cast<uint32_t>(start), static_cast<uint32_t>(i - start), pal.comment});
+            outSpans.push_back({static_cast<keel::u32>(start), static_cast<keel::u32>(i - start), pal.comment});
             continue;
         }
 
@@ -1731,7 +1731,7 @@ void TextArea::HighlightLine(
         if (!config.lineComment.empty() &&
             i + config.lineComment.size() <= len &&
             lineText.substr(i, config.lineComment.size()) == config.lineComment) {
-            outSpans.push_back({static_cast<uint32_t>(i), static_cast<uint32_t>(len - i), pal.comment});
+            outSpans.push_back({static_cast<keel::u32>(i), static_cast<keel::u32>(len - i), pal.comment});
             break;
         }
 
@@ -1740,13 +1740,13 @@ void TextArea::HighlightLine(
             if (lineText[i] == '\'' && config.transposeApostrophe && i > 0) {
                 const char prev = lineText[i - 1];
                 if (IsIdentChar(prev) || prev == ')' || prev == ']' || prev == '}' || prev == '.') {
-                    outSpans.push_back({static_cast<uint32_t>(i), 1u, config.highlightPunctuation ? pal.punctuation : pal.identifier});
+                    outSpans.push_back({static_cast<keel::u32>(i), 1u, config.highlightPunctuation ? pal.punctuation : pal.identifier});
                     ++i;
                     continue;
                 }
             }
             const char quote = lineText[i];
-            const size_t start = i++;
+            const keel::usize start = i++;
             while (i < len) {
                 if (lineText[i] == '\\' && i + 1 < len) {
                     i += 2;
@@ -1760,13 +1760,13 @@ void TextArea::HighlightLine(
             }
             Color strCol = pal.string;
             if (config.highlightJsonKeys && quote == '"') {
-                size_t look = i;
+                keel::usize look = i;
                 while (look < len && (lineText[look] == ' ' || lineText[look] == '\t')) ++look;
                 if (look < len && lineText[look] == ':') {
                     strCol = pal.type;
                 }
             }
-            outSpans.push_back({static_cast<uint32_t>(start), static_cast<uint32_t>(i - start), strCol});
+            outSpans.push_back({static_cast<keel::u32>(start), static_cast<keel::u32>(i - start), strCol});
             continue;
         }
 
@@ -1774,18 +1774,18 @@ void TextArea::HighlightLine(
         if (config.highlightNumbers &&
             (std::isdigit(static_cast<unsigned char>(lineText[i])) ||
              (lineText[i] == '.' && i + 1 < len && std::isdigit(static_cast<unsigned char>(lineText[i + 1]))))) {
-            const size_t start = i++;
+            const keel::usize start = i++;
             while (i < len && (std::isalnum(static_cast<unsigned char>(lineText[i])) || lineText[i] == '.' ||
                                (!config.transposeApostrophe && lineText[i] == '\''))) {
                 ++i;
             }
-            outSpans.push_back({static_cast<uint32_t>(start), static_cast<uint32_t>(i - start), pal.number});
+            outSpans.push_back({static_cast<keel::u32>(start), static_cast<keel::u32>(i - start), pal.number});
             continue;
         }
 
         // 6. Identifier / keyword / type / builtin / function call
         if (IsIdentStart(lineText[i])) {
-            const size_t start = i++;
+            const keel::usize start = i++;
             while (i < len && IsIdentChar(lineText[i])) {
                 ++i;
             }
@@ -1798,7 +1798,7 @@ void TextArea::HighlightLine(
             } else if (ContainsToken(config.builtins, word)) {
                 tokenColor = pal.function;
             } else if (config.highlightFunctions) {
-                size_t look = i;
+                keel::usize look = i;
                 while (look < len && (lineText[look] == ' ' || lineText[look] == '\t')) {
                     ++look;
                 }
@@ -1806,12 +1806,12 @@ void TextArea::HighlightLine(
                     tokenColor = pal.function;
                 }
             }
-            outSpans.push_back({static_cast<uint32_t>(start), static_cast<uint32_t>(i - start), tokenColor});
+            outSpans.push_back({static_cast<keel::u32>(start), static_cast<keel::u32>(i - start), tokenColor});
             continue;
         }
 
         // 7. Punctuation / operators
-        const size_t start = i++;
+        const keel::usize start = i++;
         while (i < len &&
                lineText[i] != ' ' && lineText[i] != '\t' &&
                lineText[i] != '"' && lineText[i] != '\'' &&
@@ -1830,8 +1830,8 @@ void TextArea::HighlightLine(
             ++i;
         }
         outSpans.push_back({
-            static_cast<uint32_t>(start),
-            static_cast<uint32_t>(i - start),
+            static_cast<keel::u32>(start),
+            static_cast<keel::u32>(i - start),
             config.highlightPunctuation ? pal.punctuation : pal.identifier
         });
     }
@@ -1839,7 +1839,7 @@ void TextArea::HighlightLine(
 
 void TextArea::CppHighlighter(
     keel::StringRef lineText,
-    size_t lineIndex,
+    keel::usize lineIndex,
     keel::Array<TextSpan>& outSpans,
     const UiTheme& theme,
     void* /*userData*/
@@ -1898,7 +1898,7 @@ TextAreaResponse TextArea::Run(
         auto copyStrArray = [&](keel::ArrayRef<keel::StringRef> src) -> keel::ArrayRef<keel::StringRef> {
             if (src.empty()) return {};
             keel::MutArrayRef<keel::StringRef> dst = ctx.GetArena().create_slice<keel::StringRef>(src.size());
-            for (size_t i = 0; i < src.size(); ++i) {
+            for (keel::usize i = 0; i < src.size(); ++i) {
                 dst[i] = ctx.AllocString(src[i]);
             }
             return dst;
@@ -1911,7 +1911,7 @@ TextAreaResponse TextArea::Run(
     }
     if (!opts.debugVariables.empty()) {
         keel::MutArrayRef<CodeDebugVar> vars = ctx.GetArena().create_slice<CodeDebugVar>(opts.debugVariables.size());
-        for (size_t i = 0; i < opts.debugVariables.size(); ++i) {
+        for (keel::usize i = 0; i < opts.debugVariables.size(); ++i) {
             vars[i].name = ctx.AllocString(opts.debugVariables[i].name);
             vars[i].value = ctx.AllocString(opts.debugVariables[i].value);
             vars[i].type = ctx.AllocString(opts.debugVariables[i].type);
@@ -1941,7 +1941,7 @@ TextAreaResponse TextArea::Run(
         state.baselineToCurrentLine.assign(initLines.size() + 1, 0);
         state.baselineSignatures.clear();
         state.baselineSignatures.resize(initLines.size() + 1);
-        for (size_t i = 0; i < initLines.size(); ++i) {
+        for (keel::usize i = 0; i < initLines.size(); ++i) {
             state.baselineToCurrentLine[i + 1] = i + 1;
             const keel::StringRef rawLine = callerText.substr(initLines[i].startOffset, initLines[i].length);
             state.baselineSignatures[i + 1].assign(ExtractCodeWithoutLineComment(rawLine, lineCmtPrefix));
@@ -2021,8 +2021,8 @@ TextAreaResponse TextArea::Run(
     keel::Array<FoldRegion>& foldRegions = state.cachedFoldRegions;
     keel::Array<VisualLine>& visualLines = state.scratchVisualLines;
 
-    const uint64_t docHash = detail::HashArgs(valStr);
-    const uint64_t foldSyntaxHash = opts.syntax.has_value()
+    const keel::u64 docHash = detail::HashArgs(valStr);
+    const keel::u64 foldSyntaxHash = opts.syntax.has_value()
         ? detail::HashArgs(
             opts.syntax->lineComment,
             opts.syntax->foldOpenKeywords.size(),
@@ -2054,7 +2054,7 @@ TextAreaResponse TextArea::Run(
         state.resolvedInlineValues.reserve(opts.inlineValues.size());
         for (const CodeInlineValue& iv : opts.inlineValues) {
             if (iv.text.empty()) continue;
-            const size_t resolvedLine = ResolveTrackedCodeLine(
+            const keel::usize resolvedLine = ResolveTrackedCodeLine(
                 curDoc, logicalLines, iv.line, iv.anchor,
                 state.baselineToCurrentLine, state.baselineSignatures, lineCmtPrefix
             );
@@ -2072,7 +2072,7 @@ TextAreaResponse TextArea::Run(
         state.resolvedDiagnostics.clear();
         state.resolvedDiagnostics.reserve(opts.diagnostics.size());
         for (const CodeDiagnostic& diag : opts.diagnostics) {
-            const size_t resolvedLine = ResolveTrackedCodeLine(
+            const keel::usize resolvedLine = ResolveTrackedCodeLine(
                 curDoc, logicalLines, diag.line, diag.anchor,
                 state.baselineToCurrentLine, state.baselineSignatures, lineCmtPrefix
             );
@@ -2085,9 +2085,9 @@ TextAreaResponse TextArea::Run(
                 if (!diag.anchor.empty()) {
                     const LogicalLine& ll = logicalLines[resolvedLine - 1];
                     const keel::StringRef fullLine = curDoc.substr(ll.startOffset, ll.length);
-                    if (const size_t anchorPos = fullLine.find(diag.anchor); anchorPos != keel::StringRef::npos) {
-                        d.startCol = static_cast<uint32_t>(anchorPos);
-                        d.endCol = static_cast<uint32_t>(anchorPos + diag.anchor.size());
+                    if (const keel::usize anchorPos = fullLine.find(diag.anchor); anchorPos != keel::StringRef::npos) {
+                        d.startCol = static_cast<keel::u32>(anchorPos);
+                        d.endCol = static_cast<keel::u32>(anchorPos + diag.anchor.size());
                     }
                 }
                 state.resolvedDiagnostics.push_back(d);
@@ -2105,9 +2105,9 @@ TextAreaResponse TextArea::Run(
             state.cachedFoldSyntaxHash = foldSyntaxHash;
         }
         // Prune any stale foldedLines that no longer start a valid fold region
-        size_t writeIdx = 0;
-        for (size_t i = 0; i < state.foldedLines.size(); ++i) {
-            const size_t fl = state.foldedLines[i];
+        keel::usize writeIdx = 0;
+        for (keel::usize i = 0; i < state.foldedLines.size(); ++i) {
+            const keel::usize fl = state.foldedLines[i];
             if (FindFoldRegionStartingAt(foldRegions, fl) != nullptr) {
                 state.foldedLines[writeIdx++] = fl;
             }
@@ -2123,11 +2123,11 @@ TextAreaResponse TextArea::Run(
         ? opts.breakpoints
         : IndexListSink(state.internalBreakpoints);
 
-    auto toggleBreakpointAtLine = [&](size_t line1Based) {
+    auto toggleBreakpointAtLine = [&](keel::usize line1Based) {
         if (line1Based == 0 || line1Based > logicalLines.size()) return;
-        const keel::ArrayRef<size_t> bpView = activeBreakpoints.as_ref();
-        size_t foundIdx = bpView.size();
-        for (size_t i = 0; i < bpView.size(); ++i) {
+        const keel::ArrayRef<keel::usize> bpView = activeBreakpoints.as_ref();
+        keel::usize foundIdx = bpView.size();
+        for (keel::usize i = 0; i < bpView.size(); ++i) {
             if (bpView[i] == line1Based) {
                 foundIdx = i;
                 break;
@@ -2143,11 +2143,11 @@ TextAreaResponse TextArea::Run(
         res.toggledBreakpointLine = line1Based;
     };
 
-    auto ensureLineUnfolded = [&](size_t line0Based) {
+    auto ensureLineUnfolded = [&](keel::usize line0Based) {
         if (state.foldedLines.empty()) return;
-        size_t writeIdx = 0;
-        for (size_t i = 0; i < state.foldedLines.size(); ++i) {
-            const size_t fl = state.foldedLines[i];
+        keel::usize writeIdx = 0;
+        for (keel::usize i = 0; i < state.foldedLines.size(); ++i) {
+            const keel::usize fl = state.foldedLines[i];
             bool shouldUnfold = false;
             if (const FoldRegion* r = FindFoldRegionStartingAt(foldRegions, fl)) {
                 shouldUnfold = (line0Based > r->startLine && line0Based <= r->endLine);
@@ -2172,13 +2172,13 @@ TextAreaResponse TextArea::Run(
         state.debugToolbarRatio
     );
 
-    auto scrollLogicalLineIntoView = [&](size_t line0Based) {
+    auto scrollLogicalLineIntoView = [&](keel::usize line0Based) {
         ensureLineUnfolded(line0Based);
         BuildVisualLines(valStr, logicalLines, opts.wordWrap, L.textViewport.w, L.fontSize, textStyle, canvas, visualLines, foldRegions, state.foldedLines, opts.tabSize);
         L.totalContentH = static_cast<float>(visualLines.size()) * L.lineHeight;
         L.maxScrollY = keel::max(0.0f, L.totalContentH - L.textViewport.h);
-        size_t targetVis = 0;
-        for (size_t v = 0; v < visualLines.size(); ++v) {
+        keel::usize targetVis = 0;
+        for (keel::usize v = 0; v < visualLines.size(); ++v) {
             if (visualLines[v].logicalLine >= line0Based) {
                 targetVis = v;
                 break;
@@ -2206,7 +2206,7 @@ TextAreaResponse TextArea::Run(
             state.searchOpen = true;
             state.gotoOpen = false;
             state.overlayFocus = 1;
-            size_t s0 = 0, s1 = 0;
+            keel::usize s0 = 0, s1 = 0;
             if (ctx.GetTextEditSelection(id, s0, s1) && s1 > s0 && (s1 - s0) <= 64) {
                 const keel::StringRef sel = valStr.substr(s0, s1 - s0);
                 if (sel.find('\n') == keel::StringRef::npos) {
@@ -2220,7 +2220,7 @@ TextAreaResponse TextArea::Run(
             state.replaceOpen = true;
             state.gotoOpen = false;
             state.overlayFocus = state.searchQuery.empty() ? 1 : 2;
-            size_t s0 = 0, s1 = 0;
+            keel::usize s0 = 0, s1 = 0;
             if (state.searchQuery.empty() && ctx.GetTextEditSelection(id, s0, s1) && s1 > s0 && (s1 - s0) <= 64) {
                 const keel::StringRef sel = valStr.substr(s0, s1 - s0);
                 if (sel.find('\n') == keel::StringRef::npos) {
@@ -2240,18 +2240,18 @@ TextAreaResponse TextArea::Run(
             const keel::StringRef cmtPrefix = (opts.syntax.has_value() && !opts.syntax->lineComment.empty())
                 ? opts.syntax->lineComment
                 : "//";
-            size_t selS = state.selectionStart;
-            size_t selE = state.selectionEnd;
+            keel::usize selS = state.selectionStart;
+            keel::usize selE = state.selectionEnd;
             if (selE > selS && selE <= valStr.size() && valStr[selE - 1] == '\n') {
                 --selE;
             }
-            const size_t firstLine = FindLogicalLineForOffset(logicalLines, selS);
-            const size_t lastLine = FindLogicalLineForOffset(logicalLines, selE);
+            const keel::usize firstLine = FindLogicalLineForOffset(logicalLines, selS);
+            const keel::usize lastLine = FindLogicalLineForOffset(logicalLines, selE);
 
             bool allCommented = true;
-            for (size_t li = firstLine; li <= lastLine; ++li) {
+            for (keel::usize li = firstLine; li <= lastLine; ++li) {
                 const keel::StringRef ls = valStr.substr(logicalLines[li].startOffset, logicalLines[li].length);
-                size_t p = 0;
+                keel::usize p = 0;
                 while (p < ls.size() && (ls[p] == ' ' || ls[p] == '\t')) ++p;
                 if (p >= ls.size()) continue;
                 if (!ls.substr(p).starts_with(cmtPrefix)) {
@@ -2261,28 +2261,28 @@ TextAreaResponse TextArea::Run(
             }
 
             keel::String newDoc = keel::String::from(valStr);
-            size_t newCur = state.cursor;
-            size_t newAnc = (state.cursor == state.selectionStart) ? state.selectionEnd : state.selectionStart;
-            ptrdiff_t cumulativeShift = 0;
+            keel::usize newCur = state.cursor;
+            keel::usize newAnc = (state.cursor == state.selectionStart) ? state.selectionEnd : state.selectionStart;
+            keel::isize cumulativeShift = 0;
 
-            for (size_t li = firstLine; li <= lastLine; ++li) {
-                const size_t lineStart = static_cast<size_t>(static_cast<ptrdiff_t>(logicalLines[li].startOffset) + cumulativeShift);
-                const size_t lineLen = logicalLines[li].length;
+            for (keel::usize li = firstLine; li <= lastLine; ++li) {
+                const keel::usize lineStart = static_cast<keel::usize>(static_cast<keel::isize>(logicalLines[li].startOffset) + cumulativeShift);
+                const keel::usize lineLen = logicalLines[li].length;
                 const keel::StringRef ls = newDoc.as_ref().substr(lineStart, lineLen);
-                size_t p = 0;
+                keel::usize p = 0;
                 while (p < ls.size() && (ls[p] == ' ' || ls[p] == '\t')) ++p;
                 if (p >= ls.size() && firstLine != lastLine) continue;
 
-                const size_t editPos = lineStart + p;
+                const keel::usize editPos = lineStart + p;
                 if (allCommented && ls.substr(p).starts_with(cmtPrefix)) {
-                    size_t remLen = cmtPrefix.size();
+                    keel::usize remLen = cmtPrefix.size();
                     if (p + remLen < ls.size() && ls[p + remLen] == ' ') {
                         ++remLen;
                     }
                     StringEraseSpan(newDoc, editPos, remLen);
                     if (newCur > editPos) newCur = (newCur >= editPos + remLen) ? (newCur - remLen) : editPos;
                     if (newAnc > editPos) newAnc = (newAnc >= editPos + remLen) ? (newAnc - remLen) : editPos;
-                    cumulativeShift -= static_cast<ptrdiff_t>(remLen);
+                    cumulativeShift -= static_cast<keel::isize>(remLen);
                 } else if (!allCommented) {
                     keel::SmallString<32> ins;
                     ins.append(cmtPrefix);
@@ -2290,7 +2290,7 @@ TextAreaResponse TextArea::Run(
                     StringInsertSpan(newDoc, editPos, ins);
                     if (newCur >= editPos) newCur += ins.size();
                     if (newAnc >= editPos) newAnc += ins.size();
-                    cumulativeShift += static_cast<ptrdiff_t>(ins.size());
+                    cumulativeShift += static_cast<keel::isize>(ins.size());
                 }
             }
 
@@ -2302,7 +2302,7 @@ TextAreaResponse TextArea::Run(
 
         // Debugger actions: ToggleBreakpoint (F9), DebugContinue (F5), DebugStop (Shift+F5), DebugStepOver (F10), DebugStepInto (F11), DebugStepOut (Shift+F11)
         if ((opts.breakpoints.has_target() || opts.enableBreakpoints) && ctx.ConsumeAction(KeyAction::ToggleBreakpoint)) {
-            const size_t curLine0 = FindLogicalLineForOffset(logicalLines, state.cursor);
+            const keel::usize curLine0 = FindLogicalLineForOffset(logicalLines, state.cursor);
             toggleBreakpointAtLine(curLine0 + 1);
         }
         if (ctx.ConsumeAction(KeyAction::DebugContinue)) {
@@ -2330,7 +2330,7 @@ TextAreaResponse TextArea::Run(
         state.activeMatchIdx = 0;
     }
 
-    auto jumpToSearchMatch = [&](size_t matchIdx) {
+    auto jumpToSearchMatch = [&](keel::usize matchIdx) {
         if (searchMatches.empty()) return;
         state.activeMatchIdx = matchIdx % searchMatches.size();
         const SearchMatch& m = searchMatches[state.activeMatchIdx];
@@ -2350,7 +2350,7 @@ TextAreaResponse TextArea::Run(
         newDoc.append(valStr.substr(0, m.startOffset));
         newDoc.append(state.replaceQuery);
         newDoc.append(valStr.substr(m.endOffset));
-        const size_t newCur = m.startOffset + state.replaceQuery.size();
+        const keel::usize newCur = m.startOffset + state.replaceQuery.size();
         ctx.ApplyTextEditChange(id, newDoc, newCur, newCur);
         valStr = ctx.EnsureTextEdit(id, newDoc, true, opts.readOnly);
         SplitLogicalLines(valStr, logicalLines);
@@ -2367,14 +2367,14 @@ TextAreaResponse TextArea::Run(
         if (opts.readOnly || searchMatches.empty() || state.searchQuery.empty()) return;
         keel::String newDoc;
         newDoc.reserve(valStr.size());
-        size_t lastPos = 0;
+        keel::usize lastPos = 0;
         for (const SearchMatch& m : searchMatches) {
             newDoc.append(valStr.substr(lastPos, m.startOffset - lastPos));
             newDoc.append(state.replaceQuery);
             lastPos = m.endOffset;
         }
         newDoc.append(valStr.substr(lastPos));
-        const size_t newCur = keel::min(state.cursor, newDoc.size());
+        const keel::usize newCur = keel::min(state.cursor, newDoc.size());
         ctx.ApplyTextEditChange(id, newDoc, newCur, newCur);
         valStr = ctx.EnsureTextEdit(id, newDoc, true, opts.readOnly);
         SplitLogicalLines(valStr, logicalLines);
@@ -2393,8 +2393,8 @@ TextAreaResponse TextArea::Run(
                 state.searchOpen = true;
             }
             if (!searchMatches.empty()) {
-                const size_t n = searchMatches.size();
-                const size_t nextIdx = findPrev ? ((state.activeMatchIdx + n - 1) % n) : ((state.activeMatchIdx + 1) % n);
+                const keel::usize n = searchMatches.size();
+                const keel::usize nextIdx = findPrev ? ((state.activeMatchIdx + n - 1) % n) : ((state.activeMatchIdx + 1) % n);
                 jumpToSearchMatch(nextIdx);
             }
         }
@@ -2455,8 +2455,8 @@ TextAreaResponse TextArea::Run(
         if (ctx.ConsumeAction(KeyAction::Confirm) || ctx.ConsumeKey(Key::Enter, kMods)) {
             if (state.overlayFocus == 1) {
                 if (!searchMatches.empty()) {
-                    const size_t n = searchMatches.size();
-                    const size_t nextIdx = kMods.shift ? ((state.activeMatchIdx + n - 1) % n) : ((state.activeMatchIdx + 1) % n);
+                    const keel::usize n = searchMatches.size();
+                    const keel::usize nextIdx = kMods.shift ? ((state.activeMatchIdx + n - 1) % n) : ((state.activeMatchIdx + 1) % n);
                     jumpToSearchMatch(nextIdx);
                 }
             } else if (state.overlayFocus == 2) {
@@ -2468,9 +2468,9 @@ TextAreaResponse TextArea::Run(
             } else if (state.overlayFocus == 3) {
                 const auto lineRes = keel::parse_u64(state.gotoQuery);
                 if (lineRes.is_ok() && lineRes.value() >= 1) {
-                    const size_t targetLine1 = static_cast<size_t>(lineRes.value());
-                    const size_t line0 = keel::min(targetLine1 - 1, logicalLines.size() - 1);
-                    const size_t destOffset = logicalLines[line0].startOffset;
+                    const keel::usize targetLine1 = static_cast<keel::usize>(lineRes.value());
+                    const keel::usize line0 = keel::min(targetLine1 - 1, logicalLines.size() - 1);
+                    const keel::usize destOffset = logicalLines[line0].startOffset;
                     ctx.SetTextEditCursor(id, destOffset, destOffset);
                     state.cursor = destOffset;
                     state.selectionStart = destOffset;
@@ -2486,7 +2486,7 @@ TextAreaResponse TextArea::Run(
             FindAllSearchMatches(valStr, logicalLines, state.searchQuery, state.matchCase, state.wholeWord, searchMatches);
             state.searchMatchCount = searchMatches.size();
             state.activeMatchIdx = 0;
-            for (size_t mi = 0; mi < searchMatches.size(); ++mi) {
+            for (keel::usize mi = 0; mi < searchMatches.size(); ++mi) {
                 if (searchMatches[mi].startOffset >= state.cursor) {
                     state.activeMatchIdx = mi;
                     break;
@@ -2527,7 +2527,7 @@ TextAreaResponse TextArea::Run(
     const bool minimapHovered = L.hasMinimap && res.hovered && L.minimapRect.Contains(mousePos);
 
     // Hit-test Search/Replace overlay buttons
-    int hoveredOverlayBtn = -1;
+    keel::i32 hoveredOverlayBtn = -1;
     if ((state.searchOpen || state.gotoOpen) && res.hovered && L.searchOverlay.panelRect.Contains(mousePos)) {
         const auto& S = L.searchOverlay;
         if (S.toggleReplaceBtn.w > 0.0f && S.toggleReplaceBtn.Contains(mousePos)) hoveredOverlayBtn = 0;
@@ -2544,10 +2544,10 @@ TextAreaResponse TextArea::Run(
     }
 
     // Hit-test Debug Toolbar buttons & 6-dot drag grip handle
-    int hoveredDebugBtn = -1;
+    keel::i32 hoveredDebugBtn = -1;
     if (opts.showDebugToolbar && res.hovered && L.debugToolbar.panelRect.w > 0.0f && L.debugToolbar.panelRect.Contains(mousePos)) {
-        for (int i = 0; i < 6; ++i) {
-            if (L.debugToolbar.btnRects[static_cast<size_t>(i)].Contains(mousePos)) {
+        for (keel::i32 i = 0; i < 6; ++i) {
+            if (L.debugToolbar.btnRects[static_cast<keel::usize>(i)].Contains(mousePos)) {
                 hoveredDebugBtn = i;
                 break;
             }
@@ -2558,20 +2558,20 @@ TextAreaResponse TextArea::Run(
     }
 
     // Hit-test Gutter (Breakpoints & Code Folding chevrons)
-    int hoveredGutterLine = -1;
-    int hoveredFoldLine = -1;
+    keel::i32 hoveredGutterLine = -1;
+    keel::i32 hoveredFoldLine = -1;
     if (res.hovered && L.gutterRect.w > 0.0f && L.gutterRect.Contains(mousePos)) {
         const float relY = (mousePos.y - L.textViewport.y) + state.scrollY;
-        const int rawVisIdx = static_cast<int>(std::floor(relY / keel::max(1.0f, L.lineHeight)));
-        if (rawVisIdx >= 0 && rawVisIdx < static_cast<int>(visualLines.size())) {
-            const VisualLine& vl = visualLines[static_cast<size_t>(rawVisIdx)];
+        const keel::i32 rawVisIdx = static_cast<keel::i32>(std::floor(relY / keel::max(1.0f, L.lineHeight)));
+        if (rawVisIdx >= 0 && rawVisIdx < static_cast<keel::i32>(visualLines.size())) {
+            const VisualLine& vl = visualLines[static_cast<keel::usize>(rawVisIdx)];
             if (vl.isFirstSubLine) {
                 if (opts.codeFolding && mousePos.x >= L.gutterRect.Right() - L.foldColWidth - 2.0f) {
                     if (FindFoldRegionStartingAt(foldRegions, vl.logicalLine) != nullptr) {
-                        hoveredFoldLine = static_cast<int>(vl.logicalLine);
+                        hoveredFoldLine = static_cast<keel::i32>(vl.logicalLine);
                     }
                 } else if (opts.breakpoints.has_target() || opts.enableBreakpoints) {
-                    hoveredGutterLine = static_cast<int>(vl.logicalLine);
+                    hoveredGutterLine = static_cast<keel::i32>(vl.logicalLine);
                 }
             }
         }
@@ -2621,7 +2621,7 @@ TextAreaResponse TextArea::Run(
                 FindAllSearchMatches(valStr, logicalLines, state.searchQuery, state.matchCase, state.wholeWord, searchMatches);
                 state.searchMatchCount = searchMatches.size();
             } else if (hoveredOverlayBtn == 3 && !searchMatches.empty()) {
-                const size_t n = searchMatches.size();
+                const keel::usize n = searchMatches.size();
                 jumpToSearchMatch((state.activeMatchIdx + n - 1) % n);
             } else if (hoveredOverlayBtn == 4 && !searchMatches.empty()) {
                 jumpToSearchMatch((state.activeMatchIdx + 1) % searchMatches.size());
@@ -2667,9 +2667,9 @@ TextAreaResponse TextArea::Run(
             }
         } else if (hoveredFoldLine >= 0) {
             consumedByChrome = true;
-            const size_t fl = static_cast<size_t>(hoveredFoldLine);
-            size_t foundIdx = state.foldedLines.size();
-            for (size_t fi = 0; fi < state.foldedLines.size(); ++fi) {
+            const keel::usize fl = static_cast<keel::usize>(hoveredFoldLine);
+            keel::usize foundIdx = state.foldedLines.size();
+            for (keel::usize fi = 0; fi < state.foldedLines.size(); ++fi) {
                 if (state.foldedLines[fi] == fl) {
                     foundIdx = fi;
                     break;
@@ -2689,7 +2689,7 @@ TextAreaResponse TextArea::Run(
             );
         } else if (hoveredGutterLine >= 0) {
             consumedByChrome = true;
-            toggleBreakpointAtLine(static_cast<size_t>(hoveredGutterLine) + 1);
+            toggleBreakpointAtLine(static_cast<keel::usize>(hoveredGutterLine) + 1);
         } else if (copyHovered) {
             consumedByChrome = true;
             keel::StringRef toCopy = valStr;
@@ -2778,8 +2778,8 @@ TextAreaResponse TextArea::Run(
     state.scrollY = keel::clamp(state.scrollY, 0.0f, L.maxScrollY);
     state.scrollX = keel::clamp(state.scrollX, 0.0f, L.maxScrollX);
 
-    size_t cursor = state.cursor;
-    size_t selAnchor = state.cursor;
+    keel::usize cursor = state.cursor;
+    keel::usize selAnchor = state.cursor;
     keel::StringRef displayText = valStr;
 
     if (isFocused || ctx.HasActiveTextEdit(id)) {
@@ -2788,12 +2788,12 @@ TextAreaResponse TextArea::Run(
             const float relY = (mousePos.y - L.textViewport.y) + state.scrollY;
             const float relX = (mousePos.x - L.textViewport.x) + state.scrollX;
 
-            const int rawVisIdx = static_cast<int>(std::floor(relY / keel::max(1.0f, L.lineHeight)));
-            const size_t visIdx = static_cast<size_t>(keel::clamp(rawVisIdx, 0, static_cast<int>(visualLines.size()) - 1));
+            const keel::i32 rawVisIdx = static_cast<keel::i32>(std::floor(relY / keel::max(1.0f, L.lineHeight)));
+            const keel::usize visIdx = static_cast<keel::usize>(keel::clamp(rawVisIdx, 0, static_cast<keel::i32>(visualLines.size()) - 1));
             const VisualLine& vl = visualLines[visIdx];
             const keel::StringRef subStr = valStr.substr(vl.startOffset, vl.length);
-            const size_t colInSub = HitTestColumnInLine(canvas, subStr, relX, L.fontSize, textStyle, opts.tabSize);
-            const size_t hitIdx = vl.startOffset + colInSub;
+            const keel::usize colInSub = HitTestColumnInLine(canvas, subStr, relX, L.fontSize, textStyle, opts.tabSize);
+            const keel::usize hitIdx = vl.startOffset + colInSub;
 
             if (mouseJustPressed) {
                 const float dist = (mousePos - state.lastClickPos).Length();
@@ -2808,14 +2808,14 @@ TextAreaResponse TextArea::Run(
                 if (state.clickCount == 1) {
                     state.draggingWord = false;
                     if (ctx.GetKeyModifiers().shift && wasFocused) {
-                        const size_t anchor = ctx.GetTextEditAnchor(id);
+                        const keel::usize anchor = ctx.GetTextEditAnchor(id);
                         ctx.SetTextEditCursor(id, hitIdx, anchor);
                     } else {
                         ctx.SetTextEditCursor(id, hitIdx, hitIdx);
                     }
                 } else if (state.clickCount == 2) {
-                    size_t wStart = 0;
-                    size_t wEnd = 0;
+                    keel::usize wStart = 0;
+                    keel::usize wEnd = 0;
                     TextUtil::SelectWordAt(valStr, hitIdx, wStart, wEnd);
                     state.draggingWord = true;
                     state.wordDragStart = wStart;
@@ -2844,8 +2844,8 @@ TextAreaResponse TextArea::Run(
                     const LogicalLine& ll = logicalLines[vl.logicalLine];
                     ctx.SetTextEditCursor(id, ll.startOffset + ll.length, ll.startOffset);
                 } else if (state.draggingWord) {
-                    size_t wStart = 0;
-                    size_t wEnd = 0;
+                    keel::usize wStart = 0;
+                    keel::usize wEnd = 0;
                     TextUtil::SelectWordAt(valStr, hitIdx, wStart, wEnd);
                     if (hitIdx < state.wordDragStart) {
                         ctx.SetTextEditCursor(id, wStart, state.wordDragEnd);
@@ -2853,7 +2853,7 @@ TextAreaResponse TextArea::Run(
                         ctx.SetTextEditCursor(id, wEnd, state.wordDragStart);
                     }
                 } else {
-                    const size_t anchor = ctx.GetTextEditAnchor(id);
+                    const keel::usize anchor = ctx.GetTextEditAnchor(id);
                     ctx.SetTextEditCursor(id, hitIdx, anchor);
                 }
             }
@@ -2883,38 +2883,38 @@ TextAreaResponse TextArea::Run(
             keel::Array<LogicalLine> oldLogicalLines;
             SplitLogicalLines(state.prevDocumentText, oldLogicalLines);
             SplitLogicalLines(displayText, logicalLines);
-            const size_t oldLineCount = oldLogicalLines.size();
-            const size_t newLineCount = logicalLines.size();
+            const keel::usize oldLineCount = oldLogicalLines.size();
+            const keel::usize newLineCount = logicalLines.size();
 
             // Automatically shift breakpoints, executionLine, and baseline line mapping when lines are inserted/deleted
             if (newLineCount != oldLineCount) {
-                const ptrdiff_t diff = static_cast<ptrdiff_t>(newLineCount) - static_cast<ptrdiff_t>(oldLineCount);
+                const keel::isize diff = static_cast<keel::isize>(newLineCount) - static_cast<keel::isize>(oldLineCount);
                 const keel::StringRef oldDoc = state.prevDocumentText.as_ref();
-                size_t prefixLen = 0;
-                const size_t maxCommon = keel::min(oldDoc.size(), displayText.size());
+                keel::usize prefixLen = 0;
+                const keel::usize maxCommon = keel::min(oldDoc.size(), displayText.size());
                 while (prefixLen < maxCommon && oldDoc[prefixLen] == displayText[prefixLen]) {
                     ++prefixLen;
                 }
-                size_t rawSuffixLen = 0;
+                keel::usize rawSuffixLen = 0;
                 while (rawSuffixLen < maxCommon &&
                        oldDoc[oldDoc.size() - 1 - rawSuffixLen] == displayText[displayText.size() - 1 - rawSuffixLen]) {
                     ++rawSuffixLen;
                 }
-                const size_t suffixBound = oldDoc.size() - rawSuffixLen;
-                const size_t editLo = keel::min(prefixLen, suffixBound);
-                const size_t editHi = keel::max(prefixLen, suffixBound);
-                const size_t safePreCur = keel::clamp(
+                const keel::usize suffixBound = oldDoc.size() - rawSuffixLen;
+                const keel::usize editLo = keel::min(prefixLen, suffixBound);
+                const keel::usize editHi = keel::max(prefixLen, suffixBound);
+                const keel::usize safePreCur = keel::clamp(
                     keel::min(state.prevCursor, oldDoc.size()),
                     editLo,
                     editHi
                 );
-                const size_t oldEditLine0 = FindLogicalLineForOffset(oldLogicalLines, safePreCur);
-                const size_t oldEditLine1 = oldEditLine0 + 1;
-                const size_t safePostCur = keel::min(cursor, displayText.size());
-                const size_t newEditLine0 = FindLogicalLineForOffset(logicalLines, safePostCur);
-                const size_t newEditLine1 = newEditLine0 + 1;
+                const keel::usize oldEditLine0 = FindLogicalLineForOffset(oldLogicalLines, safePreCur);
+                const keel::usize oldEditLine1 = oldEditLine0 + 1;
+                const keel::usize safePostCur = keel::min(cursor, displayText.size());
+                const keel::usize newEditLine0 = FindLogicalLineForOffset(logicalLines, safePostCur);
+                const keel::usize newEditLine1 = newEditLine0 + 1;
 
-                size_t shiftStartLine1 = oldEditLine1;
+                keel::usize shiftStartLine1 = oldEditLine1;
                 if (diff > 0) {
                     const bool hasCodeBefore = HasCodeBeforeOffsetOnLine(
                         state.prevDocumentText,
@@ -2926,31 +2926,31 @@ TextAreaResponse TextArea::Run(
                     shiftStartLine1 = newEditLine1 + 1;
                 }
 
-                const ptrdiff_t minTargetLine = (diff < 0) ? static_cast<ptrdiff_t>(newEditLine1) : 1;
-                auto shiftLineNum = [&](size_t& lineNum) {
+                const keel::isize minTargetLine = (diff < 0) ? static_cast<keel::isize>(newEditLine1) : 1;
+                auto shiftLineNum = [&](keel::usize& lineNum) {
                     if (lineNum == 0) return;
                     if (lineNum >= shiftStartLine1) {
-                        const ptrdiff_t shifted = keel::max<ptrdiff_t>(minTargetLine, static_cast<ptrdiff_t>(lineNum) + diff);
-                        lineNum = keel::min<size_t>(static_cast<size_t>(shifted), newLineCount);
+                        const keel::isize shifted = keel::max<keel::isize>(minTargetLine, static_cast<keel::isize>(lineNum) + diff);
+                        lineNum = keel::min<keel::usize>(static_cast<keel::usize>(shifted), newLineCount);
                     } else if (lineNum > newLineCount) {
                         lineNum = newLineCount;
                     }
                 };
 
-                keel::MutArrayRef<size_t> bpMut = activeBreakpoints.as_mut_ref();
-                for (size_t& bp : bpMut) {
+                keel::MutArrayRef<keel::usize> bpMut = activeBreakpoints.as_mut_ref();
+                for (keel::usize& bp : bpMut) {
                     shiftLineNum(bp);
                 }
                 if (bpMut.size() > 1) {
                     SortSizeT(bpMut);
-                    for (size_t bi = bpMut.size() - 1; bi > 0; --bi) {
+                    for (keel::usize bi = bpMut.size() - 1; bi > 0; --bi) {
                         if (bpMut[bi] == bpMut[bi - 1]) {
                             activeBreakpoints.erase_at(bi);
                         }
                     }
                 }
 
-                for (size_t b = 1; b < state.baselineToCurrentLine.size(); ++b) {
+                for (keel::usize b = 1; b < state.baselineToCurrentLine.size(); ++b) {
                     shiftLineNum(state.baselineToCurrentLine[b]);
                 }
 
@@ -2960,7 +2960,7 @@ TextAreaResponse TextArea::Run(
                     state.prevExecutionLine = *opts.executionLinePtr;
                 }
 
-                res.lineDelta = static_cast<int>(diff);
+                res.lineDelta = static_cast<keel::i32>(diff);
                 res.editLine = (diff > 0) ? oldEditLine1 : newEditLine1;
             }
 
@@ -2992,7 +2992,7 @@ TextAreaResponse TextArea::Run(
         state.selectionEnd = keel::max(cursor, selAnchor);
 
         // If cursor moved into a folded region via keyboard navigation, unfold it
-        const size_t curLogical = FindLogicalLineForOffset(logicalLines, cursor);
+        const keel::usize curLogical = FindLogicalLineForOffset(logicalLines, cursor);
         if (IsLineHiddenByFold(foldRegions, state.foldedLines, curLogical)) {
             ensureLineUnfolded(curLogical);
             L = ComputeEditorLayout(
@@ -3006,7 +3006,7 @@ TextAreaResponse TextArea::Run(
 
         // Auto-scroll to keep active cursor visible when cursor or text changes
         if (cursor != state.prevCursor || displayText.size() != state.prevTextSize) {
-            const size_t curVisRow = FindVisualLineForOffset(visualLines, cursor);
+            const keel::usize curVisRow = FindVisualLineForOffset(visualLines, cursor);
             const VisualLine& cvl = visualLines[curVisRow];
             const float curTop = static_cast<float>(curVisRow) * L.lineHeight;
             const float curBot = curTop + L.lineHeight;
@@ -3018,7 +3018,7 @@ TextAreaResponse TextArea::Run(
             }
 
             if (!opts.wordWrap && L.textViewport.w > 0.0f) {
-                const size_t colOffset = (cursor >= cvl.startOffset) ? keel::min(cursor - cvl.startOffset, cvl.length) : 0;
+                const keel::usize colOffset = (cursor >= cvl.startOffset) ? keel::min(cursor - cvl.startOffset, cvl.length) : 0;
                 const keel::StringRef prefix = displayText.substr(cvl.startOffset, colOffset);
                 const float curX = MeasureSegmentWidth(canvas, prefix, L.fontSize, textStyle, opts.tabSize);
                 const float margin = theme.Scale(16.0f);
@@ -3052,7 +3052,7 @@ TextAreaResponse TextArea::Run(
             "Restart Debugger",
             "Stop Debugging (Shift+F5)"
         };
-        ctx.SetTooltip(kDbgTips[static_cast<size_t>(hoveredDebugBtn)], L.debugToolbar.btnRects[static_cast<size_t>(hoveredDebugBtn)]);
+        ctx.SetTooltip(kDbgTips[static_cast<keel::usize>(hoveredDebugBtn)], L.debugToolbar.btnRects[static_cast<keel::usize>(hoveredDebugBtn)]);
     } else if (hoveredDebugBtn == 98 && !state.draggingDebugToolbar) {
         ctx.SetTooltip("Drag to move Debug Toolbar (Double-click to reset)", L.debugToolbar.gripRect);
     } else if (hoveredOverlayBtn >= 0) {
@@ -3067,24 +3067,24 @@ TextAreaResponse TextArea::Run(
             "Replace All Matches"
         };
         if (hoveredOverlayBtn < 8) {
-            ctx.SetTooltip(kOverlayTips[static_cast<size_t>(hoveredOverlayBtn)], Rect(mousePos.x - 4.0f, mousePos.y - 4.0f, 8.0f, 8.0f));
+            ctx.SetTooltip(kOverlayTips[static_cast<keel::usize>(hoveredOverlayBtn)], Rect(mousePos.x - 4.0f, mousePos.y - 4.0f, 8.0f, 8.0f));
         }
     }
 
     // Detect hovered word & diagnostic tooltip in textViewport
     keel::StringRef hoveredWord{};
-    size_t hoveredWordLine = 0;
-    size_t hoveredWordCol = 0;
+    keel::usize hoveredWordLine = 0;
+    keel::usize hoveredWordCol = 0;
     if (res.hovered && L.textViewport.Contains(mousePos) && hoveredOverlayBtn < 0 && hoveredDebugBtn < 0) {
         const float relY = (mousePos.y - L.textViewport.y) + state.scrollY;
         const float relX = (mousePos.x - L.textViewport.x) + state.scrollX;
-        const int rawVisIdx = static_cast<int>(std::floor(relY / keel::max(1.0f, L.lineHeight)));
-        if (rawVisIdx >= 0 && rawVisIdx < static_cast<int>(visualLines.size())) {
-            const VisualLine& vl = visualLines[static_cast<size_t>(rawVisIdx)];
+        const keel::i32 rawVisIdx = static_cast<keel::i32>(std::floor(relY / keel::max(1.0f, L.lineHeight)));
+        if (rawVisIdx >= 0 && rawVisIdx < static_cast<keel::i32>(visualLines.size())) {
+            const VisualLine& vl = visualLines[static_cast<keel::usize>(rawVisIdx)];
             const keel::StringRef subStr = displayText.substr(vl.startOffset, vl.length);
-            const size_t colInSub = HitTestColumnInLine(canvas, subStr, relX, L.fontSize, textStyle, opts.tabSize);
-            const size_t hitOffset = vl.startOffset + colInSub;
-            size_t wordStartOff = 0;
+            const keel::usize colInSub = HitTestColumnInLine(canvas, subStr, relX, L.fontSize, textStyle, opts.tabSize);
+            const keel::usize hitOffset = vl.startOffset + colInSub;
+            keel::usize wordStartOff = 0;
             hoveredWord = ExtractWordAtOffset(displayText, hitOffset, &wordStartOff);
             if (!hoveredWord.empty()) {
                 hoveredWordLine = vl.logicalLine;
@@ -3094,9 +3094,9 @@ TextAreaResponse TextArea::Run(
             // Check if hovering over a diagnostic on this line
             for (const CodeDiagnostic& diag : optsCopy.diagnostics) {
                 if (diag.line == vl.logicalLine + 1 && !diag.message.empty()) {
-                    const size_t col0 = vl.startCol + colInSub;
-                    const size_t dStart = diag.startCol;
-                    const size_t dEnd = (diag.endCol > diag.startCol) ? diag.endCol : logicalLines[vl.logicalLine].length;
+                    const keel::usize col0 = vl.startCol + colInSub;
+                    const keel::usize dStart = diag.startCol;
+                    const keel::usize dEnd = (diag.endCol > diag.startCol) ? diag.endCol : logicalLines[vl.logicalLine].length;
                     if (col0 >= dStart && col0 <= dEnd) {
                         const auto tip = diag.code.empty()
                             ? ctx.String(diag.message)
@@ -3110,8 +3110,8 @@ TextAreaResponse TextArea::Run(
     }
 
     // Populate TextAreaResponse telemetry
-    const size_t safeCur = keel::min(cursor, displayText.size());
-    const size_t curLogIdx = FindLogicalLineForOffset(logicalLines, safeCur);
+    const keel::usize safeCur = keel::min(cursor, displayText.size());
+    const keel::usize curLogIdx = FindLogicalLineForOffset(logicalLines, safeCur);
     res.cursorLine = curLogIdx + 1;
     res.cursorColumn = (safeCur - logicalLines[curLogIdx].startOffset) + 1;
     res.totalLines = logicalLines.size();
@@ -3123,18 +3123,18 @@ TextAreaResponse TextArea::Run(
     const bool cursorVisible = isFocused && ctx.IsCursorVisible(opts.cursorMode);
     const float cursorWidth = ctx.GetCursorConfig().width;
 
-    const keel::ArrayRef<size_t> bpView = activeBreakpoints.as_ref();
-    keel::MutArrayRef<size_t> arenaBps{};
+    const keel::ArrayRef<keel::usize> bpView = activeBreakpoints.as_ref();
+    keel::MutArrayRef<keel::usize> arenaBps{};
     if (!bpView.empty()) {
-        arenaBps = ctx.GetArena().create_slice<size_t>(bpView.size());
-        for (size_t i = 0; i < bpView.size(); ++i) {
+        arenaBps = ctx.GetArena().create_slice<keel::usize>(bpView.size());
+        for (keel::usize i = 0; i < bpView.size(); ++i) {
             arenaBps[i] = bpView[i];
         }
     }
-    keel::MutArrayRef<size_t> arenaFolded{};
+    keel::MutArrayRef<keel::usize> arenaFolded{};
     if (!state.foldedLines.empty()) {
-        arenaFolded = ctx.GetArena().create_slice<size_t>(state.foldedLines.size());
-        for (size_t i = 0; i < state.foldedLines.size(); ++i) {
+        arenaFolded = ctx.GetArena().create_slice<keel::usize>(state.foldedLines.size());
+        for (keel::usize i = 0; i < state.foldedLines.size(); ++i) {
             arenaFolded[i] = state.foldedLines[i];
         }
     }
@@ -3190,14 +3190,14 @@ TextAreaResponse TextArea::Run(
     }
     node->SetPayload(data);
 
-    uint64_t markersHash = detail::HashArgs(optsCopy.diagnostics.size(), optsCopy.inlineValues.size(), bpView.size());
+    keel::u64 markersHash = detail::HashArgs(optsCopy.diagnostics.size(), optsCopy.inlineValues.size(), bpView.size());
     for (const CodeInlineValue& iv : optsCopy.inlineValues) {
-        markersHash = detail::HashArgs(markersHash, iv.line, iv.text, static_cast<uint8_t>(iv.variant));
+        markersHash = detail::HashArgs(markersHash, iv.line, iv.text, static_cast<keel::u8>(iv.variant));
     }
     for (const CodeDiagnostic& d : optsCopy.diagnostics) {
-        markersHash = detail::HashArgs(markersHash, d.line, d.startCol, d.endCol, static_cast<uint8_t>(d.severity), d.message);
+        markersHash = detail::HashArgs(markersHash, d.line, d.startCol, d.endCol, static_cast<keel::u8>(d.severity), d.message);
     }
-    for (size_t bp : bpView) {
+    for (keel::usize bp : bpView) {
         markersHash = detail::HashArgs(markersHash, bp);
     }
 
@@ -3209,8 +3209,8 @@ TextAreaResponse TextArea::Run(
         data ? data->text : displayText,
         optsCopy.placeholder,
         optsCopy.color,
-        static_cast<uint8_t>(optsCopy.align),
-        static_cast<uint8_t>(optsCopy.stretch),
+        static_cast<keel::u8>(optsCopy.align),
+        static_cast<keel::u8>(optsCopy.stretch),
         optsCopy.width.value_or(-1.0f),
         optsCopy.widthRatio.value_or(-1.0f),
         optsCopy.readOnly,
@@ -3237,7 +3237,7 @@ TextAreaResponse TextArea::Run(
         optsCopy.codeFolding,
         optsCopy.executionLine,
         optsCopy.showDebugToolbar,
-        static_cast<uint8_t>(optsCopy.debugToolbarAlign),
+        static_cast<keel::u8>(optsCopy.debugToolbarAlign),
         state.debugToolbarRatio,
         state.draggingDebugToolbar,
         optsCopy.toolbarSize.value_or(activeSize),
@@ -3368,7 +3368,7 @@ void TextArea::Render(
     UiSize size,
     bool hovered,
     bool focused,
-    size_t cursor,
+    keel::usize cursor,
     bool disabled,
     bool cursorVisible,
     float scrollY,
@@ -3402,14 +3402,14 @@ void TextArea::Render(
     const float effZoom = keel::clamp(extData ? extData->zoom : opts.zoom, 0.5f, 3.0f);
     const float effScrollX = extData ? extData->scrollX : 0.0f;
     const float effScrollY = extData ? extData->scrollY : scrollY;
-    const size_t selStart = extData ? extData->selectionStart : cursor;
-    const size_t selEnd = extData ? extData->selectionEnd : cursor;
+    const keel::usize selStart = extData ? extData->selectionStart : cursor;
+    const keel::usize selEnd = extData ? extData->selectionEnd : cursor;
     const bool hasSelection = (selEnd > selStart);
     const bool searchOpen = extData && extData->searchOpen;
     const bool replaceOpen = extData && extData->replaceOpen;
     const bool gotoOpen = extData && extData->gotoOpen;
-    const keel::ArrayRef<size_t> foldedLines = extData ? extData->foldedLines : keel::ArrayRef<size_t>{};
-    const keel::ArrayRef<size_t> breakpoints = extData ? extData->breakpoints : opts.breakpoints.as_ref();
+    const keel::ArrayRef<keel::usize> foldedLines = extData ? extData->foldedLines : keel::ArrayRef<keel::usize>{};
+    const keel::ArrayRef<keel::usize> breakpoints = extData ? extData->breakpoints : opts.breakpoints.as_ref();
 
     keel::Array<LogicalLine> fallbackLogicalLines;
     keel::ArrayRef<LogicalLine> logicalLines =
@@ -3470,7 +3470,7 @@ void TextArea::Render(
         FindAllSearchMatches(text, logicalLines, extData->searchQuery, extData->matchCase, extData->wholeWord, searchMatches);
     }
 
-    const size_t safeCursor = keel::min(cursor, text.size());
+    const keel::usize safeCursor = keel::min(cursor, text.size());
     keel::StringRef activeWord{};
     if (opts.highlightOccurrences && focused && !disabled && !searchOpen) {
         if (hasSelection && (selEnd - selStart) <= 48) {
@@ -3485,8 +3485,8 @@ void TextArea::Render(
         }
     }
 
-    size_t matchBracketOpen = keel::StringRef::npos;
-    size_t matchBracketClose = keel::StringRef::npos;
+    keel::usize matchBracketOpen = keel::StringRef::npos;
+    keel::usize matchBracketClose = keel::StringRef::npos;
     const bool hasBracketPair = opts.matchBrackets && focused && !disabled &&
         FindMatchingBracketPair(text, safeCursor, matchBracketOpen, matchBracketClose);
 
@@ -3507,8 +3507,8 @@ void TextArea::Render(
     const float clampedScrollY = keel::clamp(effScrollY, 0.0f, L.maxScrollY);
     const float clampedScrollX = keel::clamp(effScrollX, 0.0f, L.maxScrollX);
 
-    const size_t activeVisRow = FindVisualLineForOffset(visualLines, safeCursor);
-    const size_t activeLogicalLine = visualLines[activeVisRow].logicalLine;
+    const keel::usize activeVisRow = FindVisualLineForOffset(visualLines, safeCursor);
+    const keel::usize activeLogicalLine = visualLines[activeVisRow].logicalLine;
 
     // 4. Placeholder when empty
     if (text.empty() && !opts.placeholder.empty() && !focused) {
@@ -3526,18 +3526,18 @@ void TextArea::Render(
     }
 
     // 5. Virtualized visible lines loop
-    const size_t totalVisLines = visualLines.size();
-    const size_t firstVisLine = (L.lineHeight > 0.0f)
-        ? static_cast<size_t>(keel::max(0.0f, std::floor(clampedScrollY / L.lineHeight)))
+    const keel::usize totalVisLines = visualLines.size();
+    const keel::usize firstVisLine = (L.lineHeight > 0.0f)
+        ? static_cast<keel::usize>(keel::max(0.0f, std::floor(clampedScrollY / L.lineHeight)))
         : 0;
-    const size_t maxVisCount = (L.lineHeight > 0.0f)
-        ? (static_cast<size_t>(std::ceil(textViewport.h / L.lineHeight)) + 2)
+    const keel::usize maxVisCount = (L.lineHeight > 0.0f)
+        ? (static_cast<keel::usize>(std::ceil(textViewport.h / L.lineHeight)) + 2)
         : totalVisLines;
-    const size_t lastVisLine = keel::min(totalVisLines, firstVisLine + maxVisCount);
+    const keel::usize lastVisLine = keel::min(totalVisLines, firstVisLine + maxVisCount);
 
     keel::Array<TextSpan> syntaxSpans;
     syntaxSpans.reserve(32);
-    size_t cachedLogicalLine = static_cast<size_t>(-1);
+    keel::usize cachedLogicalLine = static_cast<keel::usize>(-1);
 
     const bool useCallbackSyntax = (opts.syntaxHighlighter != nullptr);
     const bool useConfigSyntax = (!useCallbackSyntax && opts.syntax.has_value() && opts.syntax->enabled);
@@ -3546,23 +3546,23 @@ void TextArea::Render(
     // Compute multiline block comment state up to the first visible logical line
     bool inBlockComment = false;
     if (useConfigSyntax && !opts.syntax->blockCommentStart.empty() && !opts.syntax->blockCommentEnd.empty() && firstVisLine < totalVisLines) {
-        const size_t targetLog = visualLines[firstVisLine].logicalLine;
-        const size_t scanStart = (targetLog > 250) ? (targetLog - 250) : 0;
-        for (size_t li = scanStart; li < targetLog; ++li) {
+        const keel::usize targetLog = visualLines[firstVisLine].logicalLine;
+        const keel::usize scanStart = (targetLog > 250) ? (targetLog - 250) : 0;
+        for (keel::usize li = scanStart; li < targetLog; ++li) {
             const keel::StringRef ls = text.substr(logicalLines[li].startOffset, logicalLines[li].length);
-            size_t pos = 0;
+            keel::usize pos = 0;
             while (pos < ls.size()) {
                 if (!inBlockComment) {
                     if (!opts.syntax->lineComment.empty() && ls.substr(pos).starts_with(opts.syntax->lineComment) &&
                         !ls.substr(pos).starts_with(opts.syntax->blockCommentStart)) {
                         break;
                     }
-                    const size_t bStart = ls.find(opts.syntax->blockCommentStart, pos);
+                    const keel::usize bStart = ls.find(opts.syntax->blockCommentStart, pos);
                     if (bStart == keel::StringRef::npos) break;
                     inBlockComment = true;
                     pos = bStart + opts.syntax->blockCommentStart.size();
                 } else {
-                    const size_t bEnd = ls.find(opts.syntax->blockCommentEnd, pos);
+                    const keel::usize bEnd = ls.find(opts.syntax->blockCommentEnd, pos);
                     if (bEnd == keel::StringRef::npos) break;
                     inBlockComment = false;
                     pos = bEnd + opts.syntax->blockCommentEnd.size();
@@ -3573,7 +3573,7 @@ void TextArea::Render(
 
     Rect hoveredWordScreenRect{};
 
-    for (size_t vIdx = firstVisLine; vIdx < lastVisLine; ++vIdx) {
+    for (keel::usize vIdx = firstVisLine; vIdx < lastVisLine; ++vIdx) {
         const VisualLine& vl = visualLines[vIdx];
         const float lineY = textViewport.y + static_cast<float>(vIdx) * L.lineHeight - clampedScrollY;
         if (lineY + L.lineHeight < innerBounds.y || lineY > innerBounds.Bottom()) {
@@ -3607,7 +3607,7 @@ void TextArea::Render(
 
             // Breakpoint indicator (left lane of bpColWidth)
             const bool hasBp = ContainsSizeT(breakpoints, vl.logicalLine + 1);
-            const bool hovBp = extData && (extData->hoveredGutterLine == static_cast<int>(vl.logicalLine));
+            const bool hovBp = extData && (extData->hoveredGutterLine == static_cast<keel::i32>(vl.logicalLine));
             if (hasBp || hovBp) {
                 const float bpR = keel::min(L.lineHeight * 0.28f, theme.Scale(5.0f) * effZoom);
                 const float bpX = innerBounds.x + keel::max(bpR + theme.Scale(3.5f), L.bpColWidth * 0.25f);
@@ -3635,9 +3635,9 @@ void TextArea::Render(
             // Line number
             if (opts.showLineNumbers) {
                 char numBuf[16]{};
-                const int nLen = std::snprintf(numBuf, sizeof(numBuf), "%zu", vl.logicalLine + 1);
+                const keel::i32 nLen = std::snprintf(numBuf, sizeof(numBuf), "%zu", vl.logicalLine + 1);
                 if (nLen > 0) {
-                    const keel::StringRef numStr(numBuf, static_cast<size_t>(nLen));
+                    const keel::StringRef numStr(numBuf, static_cast<keel::usize>(nLen));
                     const bool isCurrentLine = focused && !disabled && (vl.logicalLine == activeLogicalLine);
                     const Color numCol = disabled
                         ? pal.textDisabled
@@ -3653,7 +3653,7 @@ void TextArea::Render(
             if (opts.codeFolding) {
                 if (FindFoldRegionStartingAt(foldRegions, vl.logicalLine) != nullptr) {
                     const bool isFolded = IsLineFoldedStart(foldedLines, vl.logicalLine);
-                    const bool hovFold = extData && (extData->hoveredFoldLine == static_cast<int>(vl.logicalLine));
+                    const bool hovFold = extData && (extData->hoveredFoldLine == static_cast<keel::i32>(vl.logicalLine));
                     const Color chevCol = hovFold ? editorTextPrimary : editorTextSecondary;
                     const float cx = L.gutterRect.Right() - L.foldColWidth * 0.5f;
                     const float icoSz = keel::min(L.foldColWidth * 0.85f, theme.Scale(11.0f));
@@ -3671,22 +3671,22 @@ void TextArea::Render(
         canvas.PushClip(Rect(textViewport.x, innerBounds.y, textViewport.w, innerBounds.h));
 
         const float startX = textViewport.x - clampedScrollX;
-        const size_t vlEndOffset = vl.startOffset + vl.length;
+        const keel::usize vlEndOffset = vl.startOffset + vl.length;
         const LogicalLine& ll = logicalLines[vl.logicalLine];
         const keel::StringRef fullLineStr = text.substr(ll.startOffset, ll.length);
         const keel::StringRef subLineStr = text.substr(vl.startOffset, vl.length);
 
         // Indent guides
-        const size_t tabStep = keel::clamp<size_t>(opts.tabSize, 1, 16);
+        const keel::usize tabStep = keel::clamp<keel::usize>(opts.tabSize, 1, 16);
         if (opts.showIndentGuides && vl.isFirstSubLine && !fullLineStr.empty()) {
-            size_t leadSpaces = 0;
+            keel::usize leadSpaces = 0;
             for (char ch : fullLineStr) {
                 if (ch == ' ') ++leadSpaces;
                 else if (ch == '\t') leadSpaces += tabStep;
                 else break;
             }
             const Color guideCol = hasCustomEditorSurface ? editorBorderSubtle : pal.borderSubtle.WithAlphaF(0.42f);
-            for (size_t g = tabStep; g < leadSpaces; g += tabStep) {
+            for (keel::usize g = tabStep; g < leadSpaces; g += tabStep) {
                 const float gx = startX + static_cast<float>(g) * L.metrics.spaceAdvance;
                 if (gx >= textViewport.x && gx <= textViewport.Right()) {
                     canvas.DrawLine({gx, lineY}, {gx, lineY + L.lineHeight}, guideCol, 1.0f);
@@ -3696,8 +3696,8 @@ void TextArea::Render(
 
         // Word occurrence highlights on this line
         if (!activeWord.empty() && subLineStr.size() >= activeWord.size()) {
-            const size_t wLen = activeWord.size();
-            for (size_t col = 0; col + wLen <= subLineStr.size(); ) {
+            const keel::usize wLen = activeWord.size();
+            for (keel::usize col = 0; col + wLen <= subLineStr.size(); ) {
                 if (subLineStr.substr(col, wLen) == activeWord) {
                     const bool leftOk = (col == 0) || !IsIdentChar(subLineStr[col - 1]);
                     const bool rightOk = (col + wLen == subLineStr.size()) || !IsIdentChar(subLineStr[col + wLen]);
@@ -3721,12 +3721,12 @@ void TextArea::Render(
 
         // Search match highlights on this line
         if (!searchMatches.empty()) {
-            for (size_t mi = 0; mi < searchMatches.size(); ++mi) {
+            for (keel::usize mi = 0; mi < searchMatches.size(); ++mi) {
                 const SearchMatch& m = searchMatches[mi];
                 if (m.logicalLine != vl.logicalLine) continue;
                 if (m.endOffset <= vl.startOffset || m.startOffset >= vlEndOffset) continue;
-                const size_t s0 = keel::max(m.startOffset, vl.startOffset) - vl.startOffset;
-                const size_t s1 = keel::min(m.endOffset, vlEndOffset) - vl.startOffset;
+                const keel::usize s0 = keel::max(m.startOffset, vl.startOffset) - vl.startOffset;
+                const keel::usize s1 = keel::min(m.endOffset, vlEndOffset) - vl.startOffset;
                 const float mx = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, s0), L.fontSize, textStyle, opts.tabSize);
                 const float mw = MeasureSegmentWidth(&canvas, subLineStr.substr(s0, s1 - s0), L.fontSize, textStyle, opts.tabSize);
                 const bool isActiveMatch = (extData && mi == extData->activeMatchIdx);
@@ -3738,8 +3738,8 @@ void TextArea::Render(
 
         // Selection highlight rectangle
         if (hasSelection && focused && !disabled) {
-            const size_t s0 = keel::max(selStart, vl.startOffset);
-            const size_t s1 = keel::min(selEnd, vlEndOffset);
+            const keel::usize s0 = keel::max(selStart, vl.startOffset);
+            const keel::usize s1 = keel::min(selEnd, vlEndOffset);
             if (s1 > s0 || (selStart <= vl.startOffset && selEnd > vlEndOffset)) {
                 const keel::StringRef preSel = text.substr(vl.startOffset, s0 - vl.startOffset);
                 const keel::StringRef midSel = text.substr(s0, s1 - s0);
@@ -3756,10 +3756,10 @@ void TextArea::Render(
 
         // Bracket matching boxes
         if (hasBracketPair) {
-            const size_t bracketOffsets[2] = {matchBracketOpen, matchBracketClose};
-            for (size_t bOff : bracketOffsets) {
+            const keel::usize bracketOffsets[2] = {matchBracketOpen, matchBracketClose};
+            for (keel::usize bOff : bracketOffsets) {
                 if (bOff >= vl.startOffset && bOff < vlEndOffset) {
-                    const size_t bCol = bOff - vl.startOffset;
+                    const keel::usize bCol = bOff - vl.startOffset;
                     const float bx = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, bCol), L.fontSize, textStyle, opts.tabSize);
                     const float bw = L.metrics.spaceAdvance;
                     canvas.DrawRoundRect(
@@ -3775,7 +3775,7 @@ void TextArea::Render(
 
         // Track screen position of hoveredWord for DataTip overlay
         if (extData && !extData->hoveredWord.empty() && vl.logicalLine == extData->hoveredWordLine && vl.isFirstSubLine) {
-            const size_t wCol = keel::min(extData->hoveredWordCol, subLineStr.size());
+            const keel::usize wCol = keel::min(extData->hoveredWordCol, subLineStr.size());
             const float wx = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, wCol), L.fontSize, textStyle, opts.tabSize);
             const float ww = MeasureSegmentWidth(&canvas, extData->hoveredWord, L.fontSize, textStyle, opts.tabSize);
             hoveredWordScreenRect = Rect(wx, lineY, ww, L.lineHeight);
@@ -3785,20 +3785,20 @@ void TextArea::Render(
         const Color wsCol = editorTextMuted.WithAlphaF(0.55f);
         const float wsCenterY = lineY + L.lineHeight * 0.52f;
         const float wsDotR = keel::max(1.1f, theme.Scale(1.35f) * effZoom);
-        auto drawSpaceDots = [&](float baseX, size_t count) {
+        auto drawSpaceDots = [&](float baseX, keel::usize count) {
             if (!opts.showWhitespace || count == 0) return;
-            for (size_t i = 0; i < count; ++i) {
+            for (keel::usize i = 0; i < count; ++i) {
                 const float dx = baseX + (static_cast<float>(i) + 0.5f) * L.metrics.spaceAdvance;
                 if (dx >= textViewport.x - 2.0f && dx <= textViewport.Right() + 2.0f) {
                     canvas.DrawRoundRect(Rect(dx - wsDotR, wsCenterY - wsDotR, wsDotR * 2.0f, wsDotR * 2.0f), wsDotR, wsCol);
                 }
             }
         };
-        auto drawTabArrows = [&](float baseX, size_t count) {
+        auto drawTabArrows = [&](float baseX, keel::usize count) {
             if (!opts.showWhitespace || count == 0) return;
             const float strokeW = keel::max(1.0f, theme.Scale(1.15f) * effZoom);
             const float headSz = keel::min(L.lineHeight * 0.20f, L.metrics.spaceAdvance * 0.45f);
-            for (size_t i = 0; i < count; ++i) {
+            for (keel::usize i = 0; i < count; ++i) {
                 const float tx0 = baseX + static_cast<float>(i) * L.metrics.tabAdvance + L.metrics.spaceAdvance * 0.35f;
                 const float tx1 = baseX + static_cast<float>(i + 1) * L.metrics.tabAdvance - L.metrics.spaceAdvance * 0.35f;
                 if (tx1 >= textViewport.x - 2.0f && tx0 <= textViewport.Right() + 2.0f && tx1 > tx0) {
@@ -3812,25 +3812,25 @@ void TextArea::Render(
         float curX = startX;
         if (vl.length > 0) {
             auto drawPiece = [&](keel::StringRef piece, Color col) {
-                size_t p = 0;
+                keel::usize p = 0;
                 while (p < piece.size()) {
                     if (piece[p] == '\t') {
-                        size_t tabEnd = p + 1;
+                        keel::usize tabEnd = p + 1;
                         while (tabEnd < piece.size() && piece[tabEnd] == '\t') {
                             ++tabEnd;
                         }
-                        const size_t tabCount = tabEnd - p;
+                        const keel::usize tabCount = tabEnd - p;
                         drawTabArrows(curX, tabCount);
                         curX += static_cast<float>(tabCount) * L.metrics.tabAdvance;
                         p = tabEnd;
                     } else {
-                        size_t nextTab = piece.find('\t', p);
+                        keel::usize nextTab = piece.find('\t', p);
                         if (nextTab == keel::StringRef::npos) {
                             nextTab = piece.size();
                         }
                         const keel::StringRef seg = piece.substr(p, nextTab - p);
 
-                        size_t firstNonSpace = 0;
+                        keel::usize firstNonSpace = 0;
                         while (firstNonSpace < seg.size() && seg[firstNonSpace] == ' ') {
                             ++firstNonSpace;
                         }
@@ -3840,7 +3840,7 @@ void TextArea::Render(
                         }
 
                         if (firstNonSpace < seg.size()) {
-                            size_t lastNonSpace = seg.size();
+                            keel::usize lastNonSpace = seg.size();
                             while (lastNonSpace > firstNonSpace && seg[lastNonSpace - 1] == ' ') {
                                 --lastNonSpace;
                             }
@@ -3849,7 +3849,7 @@ void TextArea::Render(
                             if (curX + bodyW >= textViewport.x - 4.0f && curX <= textViewport.Right() + 4.0f) {
                                 canvas.DrawTextStyled(body, Vec2{curX, textY}, L.fontSize, col, textStyle);
                                 if (opts.showWhitespace) {
-                                    for (size_t bi = 0; bi < body.size(); ++bi) {
+                                    for (keel::usize bi = 0; bi < body.size(); ++bi) {
                                         if (body[bi] == ' ') {
                                             const float spX = curX + MeasureChunkNoTabs(&canvas, body.substr(0, bi), L.fontSize, textStyle) + L.metrics.spaceAdvance * 0.5f;
                                             canvas.DrawRoundRect(Rect(spX - wsDotR, wsCenterY - wsDotR, wsDotR * 2.0f, wsDotR * 2.0f), wsDotR, wsCol);
@@ -3859,7 +3859,7 @@ void TextArea::Render(
                             }
                             curX += bodyW;
 
-                            const size_t trailingSpaces = seg.size() - lastNonSpace;
+                            const keel::usize trailingSpaces = seg.size() - lastNonSpace;
                             if (trailingSpaces > 0) {
                                 drawSpaceDots(curX, trailingSpaces);
                                 curX += static_cast<float>(trailingSpaces) * L.metrics.spaceAdvance;
@@ -3889,18 +3889,18 @@ void TextArea::Render(
                     cachedLogicalLine = vl.logicalLine;
                 }
 
-                const size_t subStartCol = vl.startCol;
-                const size_t subEndCol = vl.startCol + vl.length;
-                size_t curCol = subStartCol;
+                const keel::usize subStartCol = vl.startCol;
+                const keel::usize subEndCol = vl.startCol + vl.length;
+                keel::usize curCol = subStartCol;
 
                 for (const TextSpan& sp : syntaxSpans) {
-                    const size_t spStart = sp.startCol;
-                    const size_t spEnd = sp.startCol + sp.length;
+                    const keel::usize spStart = sp.startCol;
+                    const keel::usize spEnd = sp.startCol + sp.length;
                     if (spEnd <= subStartCol) continue;
                     if (spStart >= subEndCol) break;
 
-                    const size_t clipStart = keel::max(spStart, subStartCol);
-                    const size_t clipEnd = keel::min(spEnd, subEndCol);
+                    const keel::usize clipStart = keel::max(spStart, subStartCol);
+                    const keel::usize clipEnd = keel::min(spEnd, subEndCol);
 
                     if (clipStart > curCol) {
                         drawPiece(fullLineStr.substr(curCol, clipStart - curCol), synPal.identifier);
@@ -3983,14 +3983,14 @@ void TextArea::Render(
         if (!opts.diagnostics.empty()) {
             for (const CodeDiagnostic& diag : opts.diagnostics) {
                 if (diag.line != vl.logicalLine + 1) continue;
-                size_t dStart = diag.startCol;
-                size_t dEnd = (diag.endCol > diag.startCol) ? keel::min<size_t>(diag.endCol, fullLineStr.size()) : fullLineStr.size();
+                keel::usize dStart = diag.startCol;
+                keel::usize dEnd = (diag.endCol > diag.startCol) ? keel::min<keel::usize>(diag.endCol, fullLineStr.size()) : fullLineStr.size();
                 if (dStart == 0 && diag.endCol == 0) {
                     while (dStart < fullLineStr.size() && (fullLineStr[dStart] == ' ' || fullLineStr[dStart] == '\t')) ++dStart;
                 }
                 if (dEnd <= vl.startCol || dStart >= vl.startCol + vl.length) continue;
-                const size_t s0 = keel::max(dStart, vl.startCol) - vl.startCol;
-                const size_t s1 = keel::min(dEnd, vl.startCol + vl.length) - vl.startCol;
+                const keel::usize s0 = keel::max(dStart, vl.startCol) - vl.startCol;
+                const keel::usize s1 = keel::min(dEnd, vl.startCol + vl.length) - vl.startCol;
                 const float x0 = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, s0), L.fontSize, textStyle, opts.tabSize);
                 const float x1 = startX + MeasureSegmentWidth(&canvas, subLineStr.substr(0, s1), L.fontSize, textStyle, opts.tabSize);
                 const Color sqCol = (diag.severity == DiagnosticSeverity::Error) ? Color(239, 68, 68, 235)
@@ -4002,7 +4002,7 @@ void TextArea::Render(
 
         // Render active cursor caret (when focus is in the code editor)
         if (focused && cursorVisible && !disabled && vIdx == activeVisRow && (!extData || extData->overlayFocus == 0)) {
-            const size_t colInSub = (safeCursor >= vl.startOffset)
+            const keel::usize colInSub = (safeCursor >= vl.startOffset)
                 ? keel::min(safeCursor - vl.startOffset, vl.length)
                 : 0;
             const keel::StringRef beforeCursor = text.substr(vl.startOffset, colInSub);
@@ -4037,14 +4037,14 @@ void TextArea::Render(
 
         const float microStep = theme.Scale(3.0f);
         const float microH = theme.Scale(1.6f);
-        const size_t maxMiniLines = static_cast<size_t>(keel::max(1.0f, L.minimapRect.h / microStep));
-        const size_t startVis = (visualLines.size() > maxMiniLines && L.maxScrollY > 0.0f)
-            ? static_cast<size_t>((clampedScrollY / L.maxScrollY) * static_cast<float>(visualLines.size() - maxMiniLines))
+        const keel::usize maxMiniLines = static_cast<keel::usize>(keel::max(1.0f, L.minimapRect.h / microStep));
+        const keel::usize startVis = (visualLines.size() > maxMiniLines && L.maxScrollY > 0.0f)
+            ? static_cast<keel::usize>((clampedScrollY / L.maxScrollY) * static_cast<float>(visualLines.size() - maxMiniLines))
             : 0;
-        const size_t endVis = keel::min(visualLines.size(), startVis + maxMiniLines);
+        const keel::usize endVis = keel::min(visualLines.size(), startVis + maxMiniLines);
 
         // Draw viewport slider box on minimap
-        const float visCountF = static_cast<float>(keel::max<size_t>(1, lastVisLine - firstVisLine));
+        const float visCountF = static_cast<float>(keel::max<keel::usize>(1, lastVisLine - firstVisLine));
         const float vpTopY = L.minimapRect.y + static_cast<float>(firstVisLine > startVis ? firstVisLine - startVis : 0) * microStep;
         const float vpH = keel::min(L.minimapRect.Bottom() - vpTopY, visCountF * microStep);
         const bool miniActive = extData && (extData->minimapHovered || extData->minimapDragging);
@@ -4054,7 +4054,7 @@ void TextArea::Render(
         );
 
         const float charScale = (L.minimapRect.w - theme.Scale(8.0f)) / 90.0f;
-        for (size_t mv = startVis; mv < endVis; ++mv) {
+        for (keel::usize mv = startVis; mv < endVis; ++mv) {
             const VisualLine& vl = visualLines[mv];
             const float my = L.minimapRect.y + static_cast<float>(mv - startVis) * microStep + theme.Scale(2.0f);
             const keel::StringRef ls = text.substr(vl.startOffset, vl.length);
@@ -4069,11 +4069,11 @@ void TextArea::Render(
             }
 
             // Draw micro-tokens
-            size_t cIdx = 0;
+            keel::usize cIdx = 0;
             while (cIdx < ls.size() && cIdx < 88) {
                 while (cIdx < ls.size() && (ls[cIdx] == ' ' || ls[cIdx] == '\t')) ++cIdx;
                 if (cIdx >= ls.size() || cIdx >= 88) break;
-                const size_t tokStart = cIdx;
+                const keel::usize tokStart = cIdx;
                 while (cIdx < ls.size() && ls[cIdx] != ' ' && ls[cIdx] != '\t' && cIdx < 88) ++cIdx;
                 const keel::StringRef tok = ls.substr(tokStart, cIdx - tokStart);
                 Color mCol = synPal.identifier.WithAlphaF(0.55f);
@@ -4103,12 +4103,12 @@ void TextArea::Render(
         canvas.DrawRoundRect(L.vThumbRect, sm.cornerRadius, thumbCol);
 
         // Overview ruler ticks on vertical scrollbar track
-        const float totalLinesF = static_cast<float>(keel::max<size_t>(1, logicalLines.size()));
+        const float totalLinesF = static_cast<float>(keel::max<keel::usize>(1, logicalLines.size()));
         for (const SearchMatch& m : searchMatches) {
             const float ty = L.vTrackRect.y + (static_cast<float>(m.logicalLine) / totalLinesF) * L.vTrackRect.h;
             canvas.DrawRect(Rect(L.vTrackRect.x, ty, L.vTrackRect.w, theme.Scale(2.0f)), Color(245, 158, 11, 210));
         }
-        for (size_t bp : breakpoints) {
+        for (keel::usize bp : breakpoints) {
             if (bp >= 1 && bp <= logicalLines.size()) {
                 const float ty = L.vTrackRect.y + (static_cast<float>(bp - 1) / totalLinesF) * L.vTrackRect.h;
                 canvas.DrawRect(Rect(L.vTrackRect.x, ty, L.vTrackRect.w, theme.Scale(2.5f)), Color(239, 68, 68, 230));
@@ -4177,7 +4177,7 @@ void TextArea::Render(
         const float gripX = DT.panelRect.x + (gripSlotW - dotStepX - dotSz) * 0.5f;
         const float gripCy = DT.panelRect.y + DT.panelRect.h * 0.5f;
         const Color gripCol = gripDragging ? pal.focusRing : (gripHovered ? pal.textPrimary : pal.textMuted.WithAlphaF(0.75f));
-        for (int r = -1; r <= 1; ++r) {
+        for (keel::i32 r = -1; r <= 1; ++r) {
             const float dy = gripCy + static_cast<float>(r) * dotStepY - dotSz * 0.5f;
             canvas.DrawRoundRect(Rect(gripX, dy, dotSz, dotSz), dotSz * 0.5f, gripCol);
             canvas.DrawRoundRect(Rect(gripX + dotStepX, dy, dotSz, dotSz), dotSz * 0.5f, gripCol);
@@ -4208,13 +4208,13 @@ void TextArea::Render(
             Color(34, 197, 94),   // Restart - Emerald/Green (VS Code style)
             Color(239, 68, 68)    // Stop (Shift+F5) - Red
         };
-        for (int i = 0; i < 6; ++i) {
-            const Rect br = DT.btnRects[static_cast<size_t>(i)];
+        for (keel::i32 i = 0; i < 6; ++i) {
+            const Rect br = DT.btnRects[static_cast<keel::usize>(i)];
             const bool bHov = extData && (extData->hoveredDebugBtn == i);
-            const Color baseCol = dbgColors[static_cast<size_t>(i)];
+            const Color baseCol = dbgColors[static_cast<keel::usize>(i)];
 
             ButtonOptions bOpts{};
-            bOpts.icon = Icon(kDbgIcons[static_cast<size_t>(i)]);
+            bOpts.icon = Icon(kDbgIcons[static_cast<keel::usize>(i)]);
             bOpts.square = true;
             bOpts.color = StateColor::Ghost();
             bOpts.iconColor = bHov ? baseCol : baseCol.WithAlphaF(0.95f);
@@ -4228,8 +4228,8 @@ void TextArea::Render(
         const auto& S = L.searchOverlay;
         canvas.DrawRoundRect(S.panelRect, btnRad + theme.Scale(2.0f), pal.surfaceElevated.WithAlphaF(0.97f), pal.borderHover, 1.0f);
 
-        const int hovBtn = extData->hoveredOverlayBtn;
-        auto renderSquareToolBtn = [&](Rect rBtn, IconId iconId, bool activeToggle, int btnIdx) {
+        const keel::i32 hovBtn = extData->hoveredOverlayBtn;
+        auto renderSquareToolBtn = [&](Rect rBtn, IconId iconId, bool activeToggle, keel::i32 btnIdx) {
             if (rBtn.w <= 0.0f) return;
             ButtonOptions bOpts{};
             bOpts.icon = Icon(iconId);
@@ -4397,13 +4397,13 @@ void TextArea::Render(
         );
 
         const float sbFs = theme.GetFontSize(TextRole::LabelSmall, size);
-        const size_t curLine1 = activeLogicalLine + 1;
-        const size_t curCol1 = (safeCursor >= logicalLines[activeLogicalLine].startOffset)
+        const keel::usize curLine1 = activeLogicalLine + 1;
+        const keel::usize curCol1 = (safeCursor >= logicalLines[activeLogicalLine].startOffset)
             ? (safeCursor - logicalLines[activeLogicalLine].startOffset + 1)
             : 1;
 
-        size_t errCnt = 0;
-        size_t warnCnt = 0;
+        keel::usize errCnt = 0;
+        keel::usize warnCnt = 0;
         for (const CodeDiagnostic& d : opts.diagnostics) {
             if (d.severity == DiagnosticSeverity::Error) ++errCnt;
             else if (d.severity == DiagnosticSeverity::Warning) ++warnCnt;
@@ -4466,8 +4466,8 @@ void TextArea::Render(
             : "Plain Text";
         char rightStatus[96]{};
         std::snprintf(rightStatus, sizeof(rightStatus), "Spaces: 4  |  UTF-8  |  %d%%  |  %.*s",
-                      static_cast<int>(std::lround(effZoom * 100.0f)),
-                      static_cast<int>(langName.size()), langName.data());
+                      static_cast<keel::i32>(std::lround(effZoom * 100.0f)),
+                      static_cast<keel::i32>(langName.size()), langName.data());
         canvas.DrawTextBox(
             rightStatus,
             Rect(L.statusBarRect.x + L.statusBarRect.w * 0.45f, L.statusBarRect.y, L.statusBarRect.w * 0.55f - theme.Scale(10.0f), L.statusBarRect.h),

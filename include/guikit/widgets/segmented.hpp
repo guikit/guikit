@@ -47,11 +47,11 @@ struct SegmentedOptions {
 struct SegmentedData {
     SegmentedOptions opts{};
     keel::ArrayRef<SegmentedItem> items{};
-    size_t selectedIndex{size_t(-1)};
-    uint32_t selectedMask{0};
+    keel::usize selectedIndex{keel::usize(-1)};
+    keel::u32 selectedMask{0};
     bool multiSelect{false};
-    int hoveredSegment{-1};
-    int pressedSegment{-1};
+    keel::i32 hoveredSegment{-1};
+    keel::i32 pressedSegment{-1};
 };
 
 /// Autonomous Segmented control widget logic (execution, measuring, and rendering).
@@ -60,9 +60,9 @@ public:
     /// Primary immediate mode entry point for single-select Segmented control with rich SegmentedItem elements.
     static Response Run(
         Context& ctx,
-        size_t* selectedIndex,
-        int* selectedIntIndex,
-        uint32_t* selectedMask,
+        keel::usize* selectedIndex,
+        keel::i32* selectedIntIndex,
+        keel::u32* selectedMask,
         keel::ArrayRef<SegmentedItem> items,
         const SegmentedOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
@@ -71,9 +71,9 @@ public:
     /// Convenience immediate mode entry point for Segmented control with plain StringRef items.
     static Response Run(
         Context& ctx,
-        size_t* selectedIndex,
-        int* selectedIntIndex,
-        uint32_t* selectedMask,
+        keel::usize* selectedIndex,
+        keel::i32* selectedIntIndex,
+        keel::u32* selectedMask,
         keel::ArrayRef<keel::StringRef> items,
         const SegmentedOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
@@ -101,11 +101,11 @@ public:
         ICanvas& canvas,
         Rect bounds,
         keel::ArrayRef<SegmentedItem> items,
-        size_t selectedIndex,
-        uint32_t selectedMask,
+        keel::usize selectedIndex,
+        keel::u32 selectedMask,
         bool multiSelect,
-        int hoveredSegment,
-        int pressedSegment,
+        keel::i32 hoveredSegment,
+        keel::i32 pressedSegment,
         const SegmentedOptions& opts,
         UiSize size,
         bool disabled = false,

@@ -1,6 +1,5 @@
 #include "guikit/widgets/histogram.hpp"
 #include <cmath>
-#include <cstddef>
 #include <cstdio>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/context.hpp"
@@ -14,7 +13,7 @@ namespace guikit {
 
 namespace {
 
-enum class HistDragMode : uint8_t {
+enum class HistDragMode : keel::u8 {
     None = 0,
     DragLow,
     DragHigh,
@@ -69,7 +68,7 @@ struct HistogramGeometry {
             float px = g.headerRect.Right() - totalPillsW;
             const float py = g.headerRect.y + 1.0f * scale;
             const float ph = keel::max(12.0f, g.headerRect.h - 2.0f * scale);
-            for (size_t i = 0; i < 4; ++i) {
+            for (keel::usize i = 0; i < 4; ++i) {
                 g.pillRects[i] = Rect(px, py, pillW, ph);
                 px += pillW + pillGap;
             }
@@ -96,7 +95,7 @@ struct HistogramGeometry {
     return g;
 }
 
-[[nodiscard]] float ScaleBinValue(uint32_t count, uint32_t maxCount, HistogramScaleMode mode) noexcept {
+[[nodiscard]] float ScaleBinValue(keel::u32 count, keel::u32 maxCount, HistogramScaleMode mode) noexcept {
     if (count == 0 || maxCount == 0) {
         return 0.0f;
     }
@@ -111,15 +110,15 @@ struct HistogramGeometry {
     return 0.0f;
 }
 
-[[nodiscard]] uint32_t MaxBinOf(keel::ArrayRef<uint32_t> bins) noexcept {
-    uint32_t m = 1;
-    for (uint32_t v : bins) {
+[[nodiscard]] keel::u32 MaxBinOf(keel::ArrayRef<keel::u32> bins) noexcept {
+    keel::u32 m = 1;
+    for (keel::u32 v : bins) {
         if (v > m) m = v;
     }
     return m;
 }
 
-void FormatHistValue(char* buf, size_t bufSize, float v, float span) noexcept {
+void FormatHistValue(char* buf, keel::usize bufSize, float v, float span) noexcept {
     if (span >= 50.0f) {
         std::snprintf(buf, bufSize, "%.0f", v);
     } else if (span >= 2.0f) {
@@ -146,8 +145,8 @@ void FormatHistValue(char* buf, size_t bufSize, float v, float span) noexcept {
 void DrawChannelDistribution(
     ICanvas& c,
     const Rect& plotRect,
-    keel::ArrayRef<uint32_t> bins,
-    uint32_t maxCount,
+    keel::ArrayRef<keel::u32> bins,
+    keel::u32 maxCount,
     HistogramScaleMode scaleMode,
     Color fillCol,
     Color strokeCol
@@ -155,13 +154,13 @@ void DrawChannelDistribution(
     if (bins.empty() || plotRect.w <= 2.0f || plotRect.h <= 2.0f) {
         return;
     }
-    const size_t n = bins.size();
+    const keel::usize n = bins.size();
     const float barW = plotRect.w / static_cast<float>(n);
     const float usableH = keel::max(2.0f, plotRect.h - 3.0f);
 
     Vec2 prevTop{};
     bool hasPrev = false;
-    for (size_t i = 0; i < n; ++i) {
+    for (keel::usize i = 0; i < n; ++i) {
         const float normH = keel::clamp(ScaleBinValue(bins[i], maxCount, scaleMode), 0.0f, 1.0f);
         const float bh = normH * usableH;
         const float bx = plotRect.x + static_cast<float>(i) * barW;
@@ -191,9 +190,9 @@ void DrawTransferCurveLine(
     const float xlo = plotRect.x + keel::clamp((tp.Low() - minVal) / domainSpan, 0.0f, 1.0f) * plotRect.w;
     const float xhi = plotRect.x + keel::clamp((tp.High() - minVal) / domainSpan, 0.0f, 1.0f) * plotRect.w;
 
-    constexpr int kSegments = 24;
+    constexpr keel::i32 kSegments = 24;
     Vec2 prevPt{};
-    for (int i = 0; i <= kSegments; ++i) {
+    for (keel::i32 i = 0; i <= kSegments; ++i) {
         const float u = static_cast<float>(i) / static_cast<float>(kSegments);
         const float val = tp.Low() + u * tp.window;
         const float outY = tp.Evaluate(val);
@@ -279,7 +278,7 @@ HistogramResponse Histogram::Run(
     // 1. Check interactive channel pills [RGB | R | G | B]
     bool clickedPill = false;
     if (!effectiveDisabled && geom.hasPills && baseRes.hovered && ctx.IsMouseClicked()) {
-        for (size_t i = 0; i < 4; ++i) {
+        for (keel::usize i = 0; i < 4; ++i) {
             if (geom.pillRects[i].Contains(mouse)) {
                 const auto targetCh = static_cast<HistogramChannel>(i);
                 if (targetCh != res.activeChannel) {
@@ -379,15 +378,15 @@ HistogramResponse Histogram::Run(
     if (baseRes.hovered && geom.plotRect.Contains(mouse)) {
         const float u = keel::clamp((mouse.x - geom.plotRect.x) / keel::max(1.0f, geom.plotRect.w), 0.0f, 1.0f);
         res.hoveredValue = minVal + u * domainSpan;
-        keel::ArrayRef<uint32_t> activeBins = data.binsLum;
+        keel::ArrayRef<keel::u32> activeBins = data.binsLum;
         if (data.channelCount >= 3) {
             if (res.activeChannel == HistogramChannel::Red && !data.binsR.empty()) activeBins = data.binsR;
             else if (res.activeChannel == HistogramChannel::Green && !data.binsG.empty()) activeBins = data.binsG;
             else if (res.activeChannel == HistogramChannel::Blue && !data.binsB.empty()) activeBins = data.binsB;
         }
         if (!activeBins.empty()) {
-            const size_t idx = keel::min(activeBins.size() - 1, static_cast<size_t>(u * static_cast<float>(activeBins.size())));
-            res.hoveredBin = static_cast<int>(idx);
+            const keel::usize idx = keel::min(activeBins.size() - 1, static_cast<keel::usize>(u * static_cast<float>(activeBins.size())));
+            res.hoveredBin = static_cast<keel::i32>(idx);
             res.hoveredCount = activeBins[idx];
         }
     }
@@ -438,11 +437,11 @@ HistogramResponse Histogram::Run(
     }
 
     // Visual hash for damage tracking
-    uint64_t binsFp = data.binsLum.size();
-    auto mixBins = [&](keel::ArrayRef<uint32_t> b) {
+    keel::u64 binsFp = data.binsLum.size();
+    auto mixBins = [&](keel::ArrayRef<keel::u32> b) {
         if (b.empty()) return;
-        const size_t step = keel::max<size_t>(1, b.size() / 16);
-        for (size_t i = 0; i < b.size(); i += step) {
+        const keel::usize step = keel::max<keel::usize>(1, b.size() / 16);
+        for (keel::usize i = 0; i < b.size(); i += step) {
             binsFp = detail::HashArgs(binsFp, b[i]);
         }
     };
@@ -463,9 +462,9 @@ HistogramResponse Histogram::Run(
         transfer.level,
         transfer.gamma,
         transfer.invert,
-        static_cast<uint8_t>(optsCopy.scaleMode),
-        static_cast<uint8_t>(res.activeChannel),
-        static_cast<uint8_t>(optsCopy.colormap),
+        static_cast<keel::u8>(optsCopy.scaleMode),
+        static_cast<keel::u8>(res.activeChannel),
+        static_cast<keel::u8>(optsCopy.colormap),
         optsCopy.showColorbar,
         optsCopy.showTransferCurve,
         optsCopy.showChannelPills,
@@ -473,7 +472,7 @@ HistogramResponse Histogram::Run(
         optsCopy.background,
         optsCopy.border,
         res.hoveredBin,
-        static_cast<uint8_t>(st.dragMode),
+        static_cast<keel::u8>(st.dragMode),
         activeSize,
         effectiveDisabled
     );
@@ -538,7 +537,7 @@ HistogramResponse Histogram::Run(
 
             if (g.hasPills) {
                 static constexpr keel::StaticArray<keel::StringRef, 4> kPillLabels = {"RGB", "R", "G", "B"};
-                for (size_t i = 0; i < 4; ++i) {
+                for (keel::usize i = 0; i < 4; ++i) {
                     const auto ch = static_cast<HistogramChannel>(i);
                     const bool isSelected = (o.activeChannel == ch);
                     const Color chAccent = GetChannelAccentColor(ch, isDark);
@@ -560,7 +559,7 @@ HistogramResponse Histogram::Run(
         c.PushClip(pr.Inset(1.0f));
 
         // Subtle 25%, 50%, 75% grid lines
-        for (int k = 1; k <= 3; ++k) {
+        for (keel::i32 k = 1; k <= 3; ++k) {
             const float u = static_cast<float>(k) * 0.25f;
             const float gx = pr.x + u * pr.w;
             const float gy = pr.y + u * pr.h;
@@ -570,12 +569,12 @@ HistogramResponse Histogram::Run(
 
         // Render Single-Channel or Multi-Channel Bins
         if (d.channelCount < 3) {
-            const uint32_t maxB = MaxBinOf(d.binsLum);
+            const keel::u32 maxB = MaxBinOf(d.binsLum);
             const Color barFill = isDark ? Color(120, 165, 225, 165) : Color(70, 130, 210, 165);
             const Color barStroke = isDark ? Color(165, 210, 255, 230) : Color(37, 99, 235, 230);
             DrawChannelDistribution(c, pr, d.binsLum, maxB, o.scaleMode, barFill, barStroke);
         } else {
-            uint32_t maxAll = keel::max(
+            keel::u32 maxAll = keel::max(
                 keel::max(MaxBinOf(d.binsLum), MaxBinOf(d.binsR)),
                 keel::max(MaxBinOf(d.binsG), MaxBinOf(d.binsB))
             );
@@ -652,15 +651,15 @@ HistogramResponse Histogram::Run(
             if (d.channelCount < 3 || o.activeChannel == HistogramChannel::Master) {
                 DrawColormapBar(c, g.colorbarRect, o.colormap, false, tp.invert, 2.0f * scale, borderCol);
             } else {
-                keel::StaticArray<uint32_t, 256> chLut{};
-                for (size_t i = 0; i < 256; ++i) {
-                    const uint8_t v = static_cast<uint8_t>(tp.invert ? (255 - i) : i);
+                keel::StaticArray<keel::u32, 256> chLut{};
+                for (keel::usize i = 0; i < 256; ++i) {
+                    const keel::u8 v = static_cast<keel::u8>(tp.invert ? (255 - i) : i);
                     if (o.activeChannel == HistogramChannel::Red) {
-                        chLut[i] = PackAbgr(Color(v, static_cast<uint8_t>(v / 8), static_cast<uint8_t>(v / 8), 255));
+                        chLut[i] = PackAbgr(Color(v, static_cast<keel::u8>(v / 8), static_cast<keel::u8>(v / 8), 255));
                     } else if (o.activeChannel == HistogramChannel::Green) {
-                        chLut[i] = PackAbgr(Color(static_cast<uint8_t>(v / 8), v, static_cast<uint8_t>(v / 8), 255));
+                        chLut[i] = PackAbgr(Color(static_cast<keel::u8>(v / 8), v, static_cast<keel::u8>(v / 8), 255));
                     } else {
-                        chLut[i] = PackAbgr(Color(static_cast<uint8_t>(v / 8), static_cast<uint8_t>(v / 6), v, 255));
+                        chLut[i] = PackAbgr(Color(static_cast<keel::u8>(v / 8), static_cast<keel::u8>(v / 6), v, 255));
                     }
                 }
                 c.DrawPixels(chLut.data(), 256, 1, g.colorbarRect, 2.0f * scale, 255);

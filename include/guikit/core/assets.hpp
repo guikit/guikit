@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include "keel/array.h"
 #include "keel/optional.h"
 #include "keel/ref.h"
@@ -11,15 +9,15 @@ namespace guikit {
 
 /// Non-owning view over an embedded or runtime-registered binary asset.
 struct AssetView {
-    const uint8_t* data{nullptr};
-    size_t size{0};
+    const keel::u8* data{nullptr};
+    keel::usize size{0};
     keel::StringRef mimeType{}; // Format/extension hint: "png", "svg", "jpg", "ttf", etc.
 
     [[nodiscard]] constexpr bool Empty() const noexcept {
         return data == nullptr || size == 0;
     }
 
-    [[nodiscard]] constexpr keel::ArrayRef<uint8_t> Bytes() const noexcept {
+    [[nodiscard]] constexpr keel::ArrayRef<keel::u8> Bytes() const noexcept {
         return {data, size};
     }
 
@@ -35,8 +33,8 @@ namespace detail {
 struct EmbeddedAssetEntry {
     keel::StringRef path;
     keel::StringRef mimeType;
-    const uint8_t* data{nullptr};
-    size_t size{0};
+    const keel::u8* data{nullptr};
+    keel::usize size{0};
 };
 
 /// Provided by the build-time generated embedded_assets.cpp translation unit.
@@ -67,15 +65,15 @@ public:
     /// The caller must ensure `data` remains valid for the lifetime of the registration.
     static void Register(
         keel::StringRef virtualPath,
-        const uint8_t* data,
-        size_t size,
+        const keel::u8* data,
+        keel::usize size,
         keel::StringRef mimeType = {}
     );
 
     /// Registers or overrides an owned byte buffer in the runtime asset registry.
     static void RegisterOwned(
         keel::StringRef virtualPath,
-        keel::ArrayRef<uint8_t> bytes,
+        keel::ArrayRef<keel::u8> bytes,
         keel::StringRef mimeType = {}
     );
 

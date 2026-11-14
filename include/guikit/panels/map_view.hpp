@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include "guikit/geo/map_grid.hpp"
 #include "guikit/panels/scene.hpp"
 #include "keel/core.h"
@@ -31,9 +29,9 @@ struct MapViewOptions {
     MapCrs crs{MapCrs::EPSG3857_WebMercator};
     GeoCoordFormat coordFormat{GeoCoordFormat::NauticalDMM};
     float worldSize{2048.0f};                   ///< Internal world extent (0..worldSize in X and Y)
-    int baseZoom{3};                            ///< Tile zoom level corresponding to sceneZoom == 1.0f (2048 / 256 = 8 = 2^3)
-    int minTileZoom{1};
-    int maxTileZoom{18};
+    keel::i32 baseZoom{3};                            ///< Tile zoom level corresponding to sceneZoom == 1.0f (2048 / 256 = 8 = 2^3)
+    keel::i32 minTileZoom{1};
+    keel::i32 maxTileZoom{18};
     float zoomBias{0.0f};
     TileSourceCallback tileSource{nullptr};     ///< Optional callback resolving tile [z/x/y] to SVG/PNG/JPG path
     void* tileSourceUserData{nullptr};
@@ -113,7 +111,7 @@ public:
     [[nodiscard]] GeoCoord GetCenterGeo() const noexcept { return m_view.center; }
     [[nodiscard]] GeoCoord GetCursorGeo() const noexcept { return m_view.cursor; }
     [[nodiscard]] GeoBounds GetVisibleGeoBounds() const noexcept { return m_view.visibleBounds; }
-    [[nodiscard]] int GetTileZoom() const noexcept { return m_view.tileZoom; }
+    [[nodiscard]] keel::i32 GetTileZoom() const noexcept { return m_view.tileZoom; }
     [[nodiscard]] float GetContinuousZoom() const noexcept { return m_view.continuousZoom; }
     [[nodiscard]] double GetMetersPerPixel() const noexcept { return m_view.metersPerPixel; }
     [[nodiscard]] double GetGraticuleStepArcMin() const noexcept { return m_view.graticuleStepArcMin; }
@@ -169,7 +167,7 @@ public:
         float sweepAngleDeg,
         Color stroke,
         float strokeWidthPx = 1.8f,
-        int segments = 16
+        keel::i32 segments = 16
     );
 
     /// Draws a zoom-invariant text label anchored at a geographic coordinate with an optional pixel offset.
@@ -192,10 +190,10 @@ public:
     [[nodiscard]] SceneScope& GetScene() noexcept { return m_scene; }
     [[nodiscard]] const SceneScope& GetScene() const noexcept { return m_scene; }
     [[nodiscard]] bool IsHovered() const noexcept { return m_scene.IsHovered(); }
-    [[nodiscard]] bool WasClicked(int button = 1) const noexcept { return m_scene.WasClicked(button); }
+    [[nodiscard]] bool WasClicked(keel::i32 button = 1) const noexcept { return m_scene.WasClicked(button); }
     [[nodiscard]] keel::ArrayRef<SceneItemInfo> GetItems() const noexcept { return m_scene.GetItems(); }
     [[nodiscard]] const SceneItemInfo* GetHoveredItem() const noexcept { return m_scene.GetHoveredItem(); }
-    [[nodiscard]] size_t GetSelectedCount() const noexcept { return m_scene.GetSelectedCount(); }
+    [[nodiscard]] keel::usize GetSelectedCount() const noexcept { return m_scene.GetSelectedCount(); }
 
 private:
     void RenderForegroundOverlays();

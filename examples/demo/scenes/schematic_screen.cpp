@@ -19,7 +19,7 @@ SchematicState s_state;
 } // namespace
 
 void RenderSchematicInspector(guikit::Context& ui, DemoContext&) {
-    size_t bgIdx = static_cast<size_t>(s_state.bg);
+    keel::usize bgIdx = static_cast<keel::usize>(s_state.bg);
     if (auto el = ui.Element({.label = "Canvas Backdrop"})) {
         if (ui.StepSlider(bgIdx, SchematicState::bgNames, {.showTicks = true, .showLabels = true}).changed) {
             s_state.bg = static_cast<guikit::SceneBackground>(bgIdx);
@@ -77,7 +77,7 @@ keel::String GenerateSchematicCode(const DemoContext& ctx) {
         "    const auto pal = guikit::demo::SchematicPalette::{}();\n"
         "    guikit::demo::RenderQuad303Schematic(scene, pal);\n"
         "}}",
-        SchematicState::bgNames[static_cast<size_t>(s_state.bg)],
+        SchematicState::bgNames[static_cast<keel::usize>(s_state.bg)],
         s_state.gridStep,
         s_state.selectableItems ? "true" : "false",
         s_state.showScrollbars ? "true" : "false",

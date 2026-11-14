@@ -34,7 +34,7 @@ struct CarouselData {
     Rect viewportRect{0.0f, 0.0f, 0.0f, 0.0f};
     float targetOffsetX{0.0f};
     float baseTargetX{0.0f};
-    int8_t stepDirection{0};
+    keel::i8 stepDirection{0};
     bool animatingX{false};
     bool showLeftArrow{false};
     bool showRightArrow{false};

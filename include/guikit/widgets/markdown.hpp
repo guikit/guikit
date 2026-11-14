@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
@@ -68,7 +67,7 @@ struct MarkdownOptions {
 
     // --- Callbacks ---
     keel::SmallFunction<void(keel::StringRef)> onLinkClick{};  ///< Optional callback invoked when a link [text](url) is clicked
-    keel::SmallFunction<void(int, bool)> onTaskToggle{};       ///< Optional callback invoked when a task checkbox is toggled (taskIndex, checked)
+    keel::SmallFunction<void(keel::i32, bool)> onTaskToggle{};       ///< Optional callback invoked when a task checkbox is toggled (taskIndex, checked)
 
     UiText tooltip{};
     bool disabled{false};
@@ -81,12 +80,12 @@ struct MarkdownOptions {
 /// Extended response returned by `ui.Markdown(...)`.
 struct MarkdownResponse : public Response {
     keel::StringRef clickedLink{};                          ///< Non-empty on the frame a Markdown hyperlink was clicked
-    int copiedBlockIndex{-1};                               ///< >= 0 on the frame a code block's Copy button was clicked
-    int toggledTaskIndex{-1};                               ///< >= 0 on the frame a task list checkbox was toggled
+    keel::i32 copiedBlockIndex{-1};                               ///< >= 0 on the frame a code block's Copy button was clicked
+    keel::i32 toggledTaskIndex{-1};                               ///< >= 0 on the frame a task list checkbox was toggled
     bool toggledTaskChecked{false};                         ///< New checked state when toggledTaskIndex >= 0
     float currentZoom{1.0f};                                ///< Effective zoom factor (0.5f .. 3.0f)
-    int searchMatchCount{0};                                ///< Number of active search matches in the document
-    int activeSearchMatch{-1};                              ///< 0-based active search match index
+    keel::i32 searchMatchCount{0};                                ///< Number of active search matches in the document
+    keel::i32 activeSearchMatch{-1};                              ///< 0-based active search match index
     keel::StringRef selectedText{};                         ///< Currently selected text slice (valid for frame lifetime)
 };
 
@@ -119,8 +118,8 @@ public:
         const MarkdownOptions& opts,
         UiSize size,
         Vec2 mousePos = {-1.0f, -1.0f},
-        int hoveredCopyBlock = -1,
-        int activeCopiedBlock = -1,
+        keel::i32 hoveredCopyBlock = -1,
+        keel::i32 activeCopiedBlock = -1,
         bool disabled = false,
         const UiTheme& theme = UiTheme::Dark()
     );

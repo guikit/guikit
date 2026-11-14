@@ -17,7 +17,7 @@ namespace {
 
 struct CommandPalettePersistState {
     keel::SmallString<128> query{};
-    int highlightedPos{0};
+    keel::i32 highlightedPos{0};
     float scrollOffset{0.0f};
     Vec2 lastMousePos{-10000.0f, -10000.0f};
     bool wasOpen{false};
@@ -28,9 +28,9 @@ struct CommandPalettePersistState {
 };
 
 struct FilteredCommandEntry {
-    int origIndex{0};
-    size_t labelMatchPos{keel::kInvalidIndex};
-    size_t labelMatchLen{0};
+    keel::i32 origIndex{0};
+    keel::usize labelMatchPos{keel::kInvalidIndex};
+    keel::usize labelMatchLen{0};
 };
 
 keel::SmallArray<FilteredCommandEntry, 64> FilterItems(
@@ -40,11 +40,11 @@ keel::SmallArray<FilteredCommandEntry, 64> FilterItems(
     keel::SmallArray<FilteredCommandEntry, 64> result;
     result.reserve(items.size());
 
-    for (size_t i = 0; i < items.size(); ++i) {
+    for (keel::usize i = 0; i < items.size(); ++i) {
         const auto& it = items[i];
         if (query.empty()) {
             result.push_back(FilteredCommandEntry{
-                .origIndex = static_cast<int>(i),
+                .origIndex = static_cast<keel::i32>(i),
                 .labelMatchPos = keel::kInvalidIndex,
                 .labelMatchLen = 0
             });
@@ -55,11 +55,11 @@ keel::SmallArray<FilteredCommandEntry, 64> FilterItems(
         const keel::StringRef catSv = it.category;
         const keel::StringRef descSv = it.description;
 
-        size_t labelPos = 0;
-        size_t labelLen = 0;
+        keel::usize labelPos = 0;
+        keel::usize labelLen = 0;
         if (TextUtil::FindCaseInsensitive(labelSv, query, labelPos, labelLen)) {
             result.push_back(FilteredCommandEntry{
-                .origIndex = static_cast<int>(i),
+                .origIndex = static_cast<keel::i32>(i),
                 .labelMatchPos = labelPos,
                 .labelMatchLen = labelLen
             });
@@ -69,7 +69,7 @@ keel::SmallArray<FilteredCommandEntry, 64> FilterItems(
         if (TextUtil::FindCaseInsensitive(catSv, query) != keel::kInvalidIndex ||
             TextUtil::FindCaseInsensitive(descSv, query) != keel::kInvalidIndex) {
             result.push_back(FilteredCommandEntry{
-                .origIndex = static_cast<int>(i),
+                .origIndex = static_cast<keel::i32>(i),
                 .labelMatchPos = keel::kInvalidIndex,
                 .labelMatchLen = 0
             });
@@ -134,7 +134,7 @@ CommandPaletteResponse CommandPalette::Run(
             if (bsMods.ctrl) {
                 st.query.clear();
             } else {
-                const size_t prev = TextUtil::PrevCharBoundary(st.query.as_ref(), st.query.size());
+                const keel::usize prev = TextUtil::PrevCharBoundary(st.query.as_ref(), st.query.size());
                 st.query.resize(prev);
             }
             queryModified = true;
@@ -160,7 +160,7 @@ CommandPaletteResponse CommandPalette::Run(
 
     // 2. Filter items against current query
     keel::SmallArray<FilteredCommandEntry, 64> filtered = FilterItems(items, st.query.as_ref());
-    const int filteredCount = static_cast<int>(filtered.size());
+    const keel::i32 filteredCount = static_cast<keel::i32>(filtered.size());
 
     if (filteredCount == 0) {
         st.highlightedPos = -1;
@@ -244,9 +244,9 @@ CommandPaletteResponse CommandPalette::Run(
         ? theme.Scale(keel::max(260.0f, *opts.width))
         : keel::clamp(std::ceil(maxNaturalW), minW, maxW);
     const float cardW = std::round(keel::min(keel::max(200.0f * s, backdropRect.w - 24.0f * s), targetW));
-    const uint32_t maxVis = keel::max<uint32_t>(1u, opts.maxVisibleItems);
-    const uint32_t visRows = (filteredCount > 0)
-        ? keel::min<uint32_t>(static_cast<uint32_t>(filteredCount), maxVis)
+    const keel::u32 maxVis = keel::max<keel::u32>(1u, opts.maxVisibleItems);
+    const keel::u32 visRows = (filteredCount > 0)
+        ? keel::min<keel::u32>(static_cast<keel::u32>(filteredCount), maxVis)
         : 1u;
     const float listViewportH = (filteredCount > 0)
         ? (static_cast<float>(visRows) * rowH + listPadY * 2.0f)
@@ -292,7 +292,7 @@ CommandPaletteResponse CommandPalette::Run(
     };
 
     // 4. Keyboard navigation & execution
-    auto moveHighlight = [&](int delta) {
+    auto moveHighlight = [&](keel::i32 delta) {
         if (filteredCount <= 0) return;
         st.highlightedPos = keel::clamp(st.highlightedPos + delta, 0, filteredCount - 1);
         scrollHighlightedIntoView();
@@ -316,9 +316,9 @@ CommandPaletteResponse CommandPalette::Run(
     } else if (ctx.ConsumeKey(Key::End)) {
         moveHighlight(filteredCount);
     } else if (ctx.ConsumeKey(Key::PageUp)) {
-        moveHighlight(-static_cast<int>(maxVis));
+        moveHighlight(-static_cast<keel::i32>(maxVis));
     } else if (ctx.ConsumeKey(Key::PageDown)) {
-        moveHighlight(static_cast<int>(maxVis));
+        moveHighlight(static_cast<keel::i32>(maxVis));
     }
 
     if (opts.closeOnEscape && ctx.ConsumeKey(Key::Escape)) {
@@ -330,8 +330,8 @@ CommandPaletteResponse CommandPalette::Run(
 
     if (ctx.ConsumeKey(Key::Enter)) {
         if (st.highlightedPos >= 0 && st.highlightedPos < filteredCount) {
-            const int origIdx = filtered[st.highlightedPos].origIndex;
-            if (origIdx >= 0 && static_cast<size_t>(origIdx) < items.size() && !items[static_cast<size_t>(origIdx)].disabled) {
+            const keel::i32 origIdx = filtered[st.highlightedPos].origIndex;
+            if (origIdx >= 0 && static_cast<keel::usize>(origIdx) < items.size() && !items[static_cast<keel::usize>(origIdx)].disabled) {
                 res.selectedIndex = origIdx;
                 res.changed = true;
                 res.clicked = true;
@@ -383,11 +383,11 @@ CommandPaletteResponse CommandPalette::Run(
             ctx.InvalidateAll();
         }
 
-        int hoveredFilteredPos = -1;
+        keel::i32 hoveredFilteredPos = -1;
         if (filteredCount > 0 && listRect.Contains(mouse) && !st.scrollbar.hovered && !st.scrollbar.dragging) {
             const float relY = (mouse.y - (listRect.y + listPadY)) + st.scrollOffset;
             if (relY >= 0.0f) {
-                const int idx = static_cast<int>(relY / rowH);
+                const keel::i32 idx = static_cast<keel::i32>(relY / rowH);
                 if (idx >= 0 && idx < filteredCount) {
                     hoveredFilteredPos = idx;
                     if (mouseMoved && st.highlightedPos != idx) {
@@ -415,9 +415,9 @@ CommandPaletteResponse CommandPalette::Run(
                     ctx.ConsumeMouseClick();
                     ctx.InvalidateAll();
                     return res;
-                } else if (hoveredFilteredPos >= 0 && hoveredFilteredPos < static_cast<int>(filtered.size())) {
-                    const int origIdx = filtered[hoveredFilteredPos].origIndex;
-                    if (origIdx >= 0 && static_cast<size_t>(origIdx) < items.size() && !items[static_cast<size_t>(origIdx)].disabled) {
+                } else if (hoveredFilteredPos >= 0 && hoveredFilteredPos < static_cast<keel::i32>(filtered.size())) {
+                    const keel::i32 origIdx = filtered[hoveredFilteredPos].origIndex;
+                    if (origIdx >= 0 && static_cast<keel::usize>(origIdx) < items.size() && !items[static_cast<keel::usize>(origIdx)].disabled) {
                         res.selectedIndex = origIdx;
                         res.changed = true;
                         res.clicked = true;
@@ -461,8 +461,8 @@ CommandPaletteResponse CommandPalette::Run(
         Icon icon;
         bool disabled{false};
         bool highlighted{false};
-        size_t matchPos{keel::kInvalidIndex};
-        size_t matchLen{0};
+        keel::usize matchPos{keel::kInvalidIndex};
+        keel::usize matchLen{0};
         Rect rowRect{};
     };
 
@@ -471,10 +471,10 @@ CommandPaletteResponse CommandPalette::Run(
     const bool sbDraggingCopy = st.scrollbar.dragging;
 
     DrawRowItem* arenaRows = ctx.GetArena().create_array<DrawRowItem>(filtered.size());
-    size_t drawRowCount = 0;
-    for (size_t i = 0; i < filtered.size(); ++i) {
+    keel::usize drawRowCount = 0;
+    for (keel::usize i = 0; i < filtered.size(); ++i) {
         const auto& fe = filtered[i];
-        const auto& src = items[static_cast<size_t>(fe.origIndex)];
+        const auto& src = items[static_cast<keel::usize>(fe.origIndex)];
         const float rowY = listRect.y + listPadY + static_cast<float>(i) * rowH - st.scrollOffset;
         if (rowY + rowH < listRect.y || rowY > listRect.Bottom()) {
             continue;
@@ -486,7 +486,7 @@ CommandPaletteResponse CommandPalette::Run(
             .shortcut = ctx.AllocString(src.shortcut),
             .icon = ctx.AllocIcon(src.icon),
             .disabled = src.disabled,
-            .highlighted = (static_cast<int>(i) == st.highlightedPos),
+            .highlighted = (static_cast<keel::i32>(i) == st.highlightedPos),
             .matchPos = fe.labelMatchPos,
             .matchLen = fe.labelMatchLen,
             .rowRect = Rect(cardRect.x + rowInsetX, std::round(rowY), cardRect.w - rowInsetX * 2.0f - sbRightReserve, rowH)
@@ -506,7 +506,7 @@ CommandPaletteResponse CommandPalette::Run(
         st.prevCursorVis = cursorVis;
         ctx.InvalidateAll();
     }
-    const size_t totalFiltered = filtered.size();
+    const keel::usize totalFiltered = filtered.size();
 
     ctx.MarkModalOverlayActive();
     ctx.RegisterOverlay([
@@ -557,7 +557,7 @@ CommandPaletteResponse CommandPalette::Run(
         } else {
             const float alpha = keel::clamp(backdropOpacity, 0.0f, 0.95f);
             if (alpha > 0.001f && backdropRect.w > 0.0f && backdropRect.h > 0.0f) {
-                c.DrawRect(backdropRect, Color(0, 0, 0, static_cast<uint8_t>(std::round(alpha * 255.0f))));
+                c.DrawRect(backdropRect, Color(0, 0, 0, static_cast<keel::u8>(std::round(alpha * 255.0f))));
             }
         }
 

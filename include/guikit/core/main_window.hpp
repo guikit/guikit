@@ -1,9 +1,9 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/context.hpp"
 #include "guikit/backend/i_window_backend.hpp"
 #include "guikit/core/frame_metrics.hpp"
+#include "keel/core.h"
 
 namespace guikit {
 
@@ -22,10 +22,10 @@ public:
 
     /// Initializes the window backend and enters the main application loop.
     /// Invokes `OnInit()`, then `OnRender(ui)` each frame, and `OnShutdown()` before exit.
-    int Run();
+    keel::i32 Run();
 
     /// Convenience overload that runs the main loop using the provided per-frame `renderCallback`.
-    int Run(RenderCallback renderCallback);
+    keel::i32 Run(RenderCallback renderCallback);
 
     /// Requests the main loop to terminate cleanly at the end of the current step.
     void Close() noexcept { m_running = false; }
@@ -52,8 +52,8 @@ public:
 
     [[nodiscard]] const FrameMetrics& GetMetrics() const noexcept { return m_metrics; }
 
-    [[nodiscard]] int GetWidth() const noexcept;
-    [[nodiscard]] int GetHeight() const noexcept;
+    [[nodiscard]] keel::i32 GetWidth() const noexcept;
+    [[nodiscard]] keel::i32 GetHeight() const noexcept;
     [[nodiscard]] float GetDpiScale() const noexcept;
     [[nodiscard]] float GetDisplayPixelsPerMm() const noexcept;
     [[nodiscard]] bool IsLiveResizeFrame() const noexcept;
@@ -85,8 +85,8 @@ public:
 
     [[nodiscard]] float GetShellScale() const noexcept { return m_shellScale; }
     void SetShellScale(float scale) noexcept;
-    [[nodiscard]] size_t GetShellScaleIndex() const noexcept { return m_shellScaleIndex; }
-    void SetShellScaleIndex(size_t index) noexcept;
+    [[nodiscard]] keel::usize GetShellScaleIndex() const noexcept { return m_shellScaleIndex; }
+    void SetShellScaleIndex(keel::usize index) noexcept;
 
     [[nodiscard]] bool IsCommandPaletteOpen() const noexcept { return m_commandPaletteOpen; }
     void SetCommandPaletteOpen(bool open) noexcept;
@@ -143,7 +143,7 @@ public:
         "200%"
     }};
 
-    static constexpr keel::StaticArray<int, 5> kHeartbeatMsValues = {{-1, 250, 500, 1000, 2000}};
+    static constexpr keel::StaticArray<keel::i32, 5> kHeartbeatMsValues = {{-1, 250, 500, 1000, 2000}};
     static constexpr keel::StaticArray<keel::StringRef, 5> kHeartbeatLabels = {{
         "Heartbeat: Off",
         "Heartbeat: 4 Hz",
@@ -160,7 +160,7 @@ protected:
     virtual void OnRender(Context& ui);
 
     /// Called when the window pixel dimensions change.
-    virtual void OnResize(int width, int height) {
+    virtual void OnResize(keel::i32 width, keel::i32 height) {
         (void)width;
         (void)height;
     }
@@ -186,8 +186,8 @@ private:
     bool m_shellLightMode = false;
     bool m_shellFloating = false;
     float m_shellScale = 1.0f;
-    size_t m_shellScaleIndex = 0;
-    size_t m_heartbeatIndex = 2;
+    keel::usize m_shellScaleIndex = 0;
+    keel::usize m_heartbeatIndex = 2;
     bool m_commandPaletteOpen = false;
 
     bool m_running = false;

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -20,7 +18,7 @@ class Context;
 class ICanvas;
 
 /// Primary BPMN 2.0 element classification.
-enum class BpmnNodeType : uint8_t {
+enum class BpmnNodeType : keel::u8 {
     StartEvent = 0,         ///< Thin single-circle Start Event (36-40px)
     IntermediateEvent,      ///< Double-ring Intermediate Catch/Throw Event
     BoundaryEvent,          ///< Double-ring Boundary Event attached to the border of a Task / SubProcess
@@ -34,7 +32,7 @@ enum class BpmnNodeType : uint8_t {
 };
 
 /// Event trigger / result symbol drawn inside Start, Intermediate, Boundary, and End events.
-enum class BpmnEventDefinition : uint8_t {
+enum class BpmnEventDefinition : keel::u8 {
     None = 0,               ///< Blank circle (Untyped Start / Intermediate / End)
     Message,                ///< Envelope icon (Message Catch / Throw)
     Timer,                  ///< Clock face icon (Timer cycle / timeout)
@@ -45,7 +43,7 @@ enum class BpmnEventDefinition : uint8_t {
 };
 
 /// Activity specialization marker drawn in the top-left corner of a `BpmnNodeType::Task`.
-enum class BpmnTaskType : uint8_t {
+enum class BpmnTaskType : keel::u8 {
     None = 0,               ///< Abstract / untyped task
     User,                   ///< Person bust icon (Human workflow step)
     Service,                ///< Gear / cogwheel icon (Automated microservice / API call)
@@ -58,7 +56,7 @@ enum class BpmnTaskType : uint8_t {
 };
 
 /// Routing semantics marker drawn inside a `BpmnNodeType::Gateway` diamond.
-enum class BpmnGatewayType : uint8_t {
+enum class BpmnGatewayType : keel::u8 {
     Exclusive = 0,          ///< Data-based Exclusive Gateway (`XOR` with `×` marker)
     Parallel,               ///< Parallel fork/join Gateway (`AND` with `+` marker)
     Inclusive,              ///< Inclusive Gateway (`OR` with `○` ring marker)
@@ -66,7 +64,7 @@ enum class BpmnGatewayType : uint8_t {
 };
 
 /// Connection semantics for BPMN 2.0 edges (`BpmnEdge`).
-enum class BpmnFlowType : uint8_t {
+enum class BpmnFlowType : keel::u8 {
     SequenceFlow = 0,       ///< Solid directed line with filled arrowhead
     ConditionalFlow,        ///< Solid directed line with mini-diamond at source and filled arrowhead
     DefaultFlow,            ///< Solid directed line with slash tick `\` at source and filled arrowhead
@@ -75,7 +73,7 @@ enum class BpmnFlowType : uint8_t {
 };
 
 /// Cardinal port attachment side on a BPMN node.
-enum class BpmnPortSide : uint8_t {
+enum class BpmnPortSide : keel::u8 {
     Auto = 0,               ///< Automatically choose optimal side based on relative node geometry
     Left,                   ///< West port
     Right,                  ///< East port
@@ -84,7 +82,7 @@ enum class BpmnPortSide : uint8_t {
 };
 
 /// Active interactive cursor/creation tool in the `bpmn.io`-style left palette.
-enum class BpmnTool : uint8_t {
+enum class BpmnTool : keel::u8 {
     Select = 0,             ///< Standard click/move/context-pad tool (`V`)
     Hand,                   ///< Canvas pan hand tool (`H`)
     Lasso,                  ///< Marquee multi-selection box tool (`L`)
@@ -103,13 +101,13 @@ enum class BpmnTool : uint8_t {
 };
 
 /// Edge routing geometry algorithm.
-enum class BpmnRoutingMode : uint8_t {
+enum class BpmnRoutingMode : keel::u8 {
     Orthogonal = 0,         ///< Manhattan H-V-H / V-H-V routing with rounded bends (classic BPMN 2.0 standard)
     Bezier                  ///< Smooth cubic Bezier curve routing
 };
 
 /// Visual color theme preset for the BPMN canvas.
-enum class BpmnThemePreset : uint8_t {
+enum class BpmnThemePreset : keel::u8 {
     Auto = 0,               ///< Adapts automatically to the active `UiTheme` (Dark / Light)
     BpmnIoClassic,          ///< Signature `bpmn.io` daylight paper canvas with crisp charcoal & semantic strokes
     CamundaDark,            ///< Deep slate dark modeler with vibrant semantic BPMN accents
@@ -118,7 +116,7 @@ enum class BpmnThemePreset : uint8_t {
 
 /// Horizontal Participant Pool / Swimlane band (`BpmnLane`).
 struct BpmnLane {
-    uint32_t id{0};
+    keel::u32 id{0};
     keel::FixedString<128> poolName{"Order Fulfillment Pool"};
     keel::FixedString<128> name{"Lane"};
     Rect rect{80.0f, 80.0f, 1260.0f, 210.0f}; ///< World-space bounding rectangle
@@ -129,7 +127,7 @@ struct BpmnLane {
 
 /// Individual BPMN 2.0 graphical node (`BpmnNode`).
 struct BpmnNode {
-    uint32_t id{0};
+    keel::u32 id{0};
     BpmnNodeType type{BpmnNodeType::Task};
     keel::FixedString<256> label{"Task"};
     keel::FixedString<256> documentation{};   ///< Optional SLA / condition / microservice metadata
@@ -141,15 +139,15 @@ struct BpmnNode {
     BpmnEventDefinition eventDef{BpmnEventDefinition::None};
     bool nonInterrupting{false};              ///< Dashed border for non-interrupting Boundary / Intermediate events
 
-    uint32_t attachedToNodeId{0};             ///< For `BoundaryEvent`: parent `Task` / `SubProcess` ID
+    keel::u32 attachedToNodeId{0};             ///< For `BoundaryEvent`: parent `Task` / `SubProcess` ID
     float boundaryRatioX{0.72f};              ///< Normalized position [0.15 .. 0.85] along parent bottom edge
-    uint32_t laneId{0};                       ///< Optional owning swimlane ID
+    keel::u32 laneId{0};                       ///< Optional owning swimlane ID
 
     // --- Token Simulation & SLA Telemetry ---
-    uint32_t activeOutgoingEdgeId{0};         ///< Selected outgoing edge ID for Exclusive (XOR) gateway in simulation
+    keel::u32 activeOutgoingEdgeId{0};         ///< Selected outgoing edge ID for Exclusive (XOR) gateway in simulation
     float slaDurationMs{420.0f};              ///< Nominal activity duration / SLA metric (ms)
-    uint32_t tokenExecutionCount{0};          ///< Total tokens that have passed through this node
-    uint32_t activeTokensInside{0};           ///< Live tokens currently dwelling inside this node
+    keel::u32 tokenExecutionCount{0};          ///< Total tokens that have passed through this node
+    keel::u32 activeTokensInside{0};           ///< Live tokens currently dwelling inside this node
 
     // --- Activity Markers & Layout Offsets ---
     bool isExpanded{false};                   ///< True for expanded Sub-Process container (`320x180`)
@@ -171,9 +169,9 @@ struct BpmnNode {
 
 /// Directed BPMN 2.0 connection / flow (`BpmnEdge`).
 struct BpmnEdge {
-    uint32_t id{0};
-    uint32_t fromNodeId{0};
-    uint32_t toNodeId{0};
+    keel::u32 id{0};
+    keel::u32 fromNodeId{0};
+    keel::u32 toNodeId{0};
     BpmnPortSide fromPort{BpmnPortSide::Auto};
     BpmnPortSide toPort{BpmnPortSide::Auto};
     BpmnFlowType flowType{BpmnFlowType::SequenceFlow};
@@ -198,12 +196,12 @@ struct BpmnEdge {
 
 /// Live animated process instance token for `bpmn-js-token-simulation` mode.
 struct BpmnToken {
-    uint32_t id{0};
-    uint32_t edgeId{0};                       ///< Non-zero when token is traveling along an edge
-    uint32_t nodeId{0};                       ///< Non-zero when token is executing inside a Task / IntermediateEvent
+    keel::u32 id{0};
+    keel::u32 edgeId{0};                       ///< Non-zero when token is traveling along an edge
+    keel::u32 nodeId{0};                       ///< Non-zero when token is executing inside a Task / IntermediateEvent
     float progress{0.0f};                     ///< Normalized progress in [0.0 .. 1.0]
     Color color{16, 185, 129, 255};           ///< Token badge color
-    uint32_t instanceId{1};                   ///< Process instance identifier
+    keel::u32 instanceId{1};                   ///< Process instance identifier
 
     [[nodiscard]] BpmnToken clone() const noexcept { return *this; }
 };
@@ -215,7 +213,7 @@ struct BpmnDiagram {
     keel::Array<BpmnNode> nodes{};
     keel::Array<BpmnEdge> edges{};
     keel::Array<BpmnToken> tokens{};
-    uint32_t nextId{1};
+    keel::u32 nextId{1};
 
     [[nodiscard]] BpmnDiagram clone() const {
         BpmnDiagram out{};
@@ -228,14 +226,14 @@ struct BpmnDiagram {
         return out;
     }
 
-    [[nodiscard]] uint32_t AllocateId() noexcept {
+    [[nodiscard]] keel::u32 AllocateId() noexcept {
         for (const auto& l : lanes) if (l.id >= nextId) nextId = l.id + 1;
         for (const auto& n : nodes) if (n.id >= nextId) nextId = n.id + 1;
         for (const auto& e : edges) if (e.id >= nextId) nextId = e.id + 1;
         return nextId++;
     }
 
-    [[nodiscard]] BpmnNode* FindNode(uint32_t id) noexcept {
+    [[nodiscard]] BpmnNode* FindNode(keel::u32 id) noexcept {
         if (id == 0) return nullptr;
         for (auto& n : nodes) {
             if (n.id == id) return &n;
@@ -243,7 +241,7 @@ struct BpmnDiagram {
         return nullptr;
     }
 
-    [[nodiscard]] const BpmnNode* FindNode(uint32_t id) const noexcept {
+    [[nodiscard]] const BpmnNode* FindNode(keel::u32 id) const noexcept {
         if (id == 0) return nullptr;
         for (const auto& n : nodes) {
             if (n.id == id) return &n;
@@ -251,7 +249,7 @@ struct BpmnDiagram {
         return nullptr;
     }
 
-    [[nodiscard]] BpmnEdge* FindEdge(uint32_t id) noexcept {
+    [[nodiscard]] BpmnEdge* FindEdge(keel::u32 id) noexcept {
         if (id == 0) return nullptr;
         for (auto& e : edges) {
             if (e.id == id) return &e;
@@ -259,7 +257,7 @@ struct BpmnDiagram {
         return nullptr;
     }
 
-    [[nodiscard]] const BpmnEdge* FindEdge(uint32_t id) const noexcept {
+    [[nodiscard]] const BpmnEdge* FindEdge(keel::u32 id) const noexcept {
         if (id == 0) return nullptr;
         for (const auto& e : edges) {
             if (e.id == id) return &e;
@@ -267,7 +265,7 @@ struct BpmnDiagram {
         return nullptr;
     }
 
-    [[nodiscard]] BpmnLane* FindLane(uint32_t id) noexcept {
+    [[nodiscard]] BpmnLane* FindLane(keel::u32 id) noexcept {
         if (id == 0) return nullptr;
         for (auto& l : lanes) {
             if (l.id == id) return &l;
@@ -275,7 +273,7 @@ struct BpmnDiagram {
         return nullptr;
     }
 
-    [[nodiscard]] const BpmnLane* FindLane(uint32_t id) const noexcept {
+    [[nodiscard]] const BpmnLane* FindLane(keel::u32 id) const noexcept {
         if (id == 0) return nullptr;
         for (const auto& l : lanes) {
             if (l.id == id) return &l;
@@ -307,7 +305,7 @@ struct BpmnDiagram {
         return {120.0f, 80.0f};
     }
 
-    uint32_t AddLane(keel::StringRef poolName, keel::StringRef laneName, Rect rect, Color accent = Color(0, 0, 0, 0)) {
+    keel::u32 AddLane(keel::StringRef poolName, keel::StringRef laneName, Rect rect, Color accent = Color(0, 0, 0, 0)) {
         BpmnLane lane{};
         lane.id = AllocateId();
         lane.poolName = poolName;
@@ -318,7 +316,7 @@ struct BpmnDiagram {
         return lanes.back().id;
     }
 
-    uint32_t AddNode(BpmnNode node) {
+    keel::u32 AddNode(BpmnNode node) {
         if (node.id == 0) {
             node.id = AllocateId();
         } else if (node.id >= nextId) {
@@ -332,9 +330,9 @@ struct BpmnDiagram {
         return nodes.back().id;
     }
 
-    uint32_t AddEdge(
-        uint32_t fromId,
-        uint32_t toId,
+    keel::u32 AddEdge(
+        keel::u32 fromId,
+        keel::u32 toId,
         BpmnFlowType type = BpmnFlowType::SequenceFlow,
         keel::StringRef label = {},
         BpmnPortSide fromPort = BpmnPortSide::Auto,
@@ -358,25 +356,25 @@ struct BpmnDiagram {
         return edges.back().id;
     }
 
-    bool RemoveEdge(uint32_t edgeId) noexcept {
+    bool RemoveEdge(keel::u32 edgeId) noexcept {
         if (edgeId == 0) return false;
-        const size_t before = edges.size();
+        const keel::usize before = edges.size();
         RemoveMatching(edges, [edgeId](const BpmnEdge& e) { return e.id == edgeId; });
         RemoveMatching(tokens, [edgeId](const BpmnToken& t) { return t.edgeId == edgeId; });
         return edges.size() != before;
     }
 
-    bool RemoveNode(uint32_t nodeId) noexcept {
+    bool RemoveNode(keel::u32 nodeId) noexcept {
         if (nodeId == 0) return false;
-        keel::SmallArray<uint32_t, 8> toRemove;
+        keel::SmallArray<keel::u32, 8> toRemove;
         toRemove.push_back(nodeId);
         for (const auto& n : nodes) {
             if (n.type == BpmnNodeType::BoundaryEvent && n.attachedToNodeId == nodeId) {
                 toRemove.push_back(n.id);
             }
         }
-        const size_t before = nodes.size();
-        for (uint32_t remId : toRemove) {
+        const keel::usize before = nodes.size();
+        for (keel::u32 remId : toRemove) {
             RemoveMatching(edges, [remId](const BpmnEdge& e) {
                 return e.fromNodeId == remId || e.toNodeId == remId;
             });
@@ -390,9 +388,9 @@ struct BpmnDiagram {
         return nodes.size() != before;
     }
 
-    bool RemoveLane(uint32_t laneId) noexcept {
+    bool RemoveLane(keel::u32 laneId) noexcept {
         if (laneId == 0) return false;
-        const size_t before = lanes.size();
+        const keel::usize before = lanes.size();
         RemoveMatching(lanes, [laneId](const BpmnLane& l) { return l.id == laneId; });
         for (auto& n : nodes) {
             if (n.laneId == laneId) n.laneId = 0;
@@ -434,8 +432,8 @@ struct BpmnDiagram {
 private:
     template <typename T, typename Pred>
     static void RemoveMatching(keel::Array<T>& arr, Pred&& pred) noexcept {
-        size_t writeIdx = 0;
-        for (size_t readIdx = 0; readIdx < arr.size(); ++readIdx) {
+        keel::usize writeIdx = 0;
+        for (keel::usize readIdx = 0; readIdx < arr.size(); ++readIdx) {
             if (!pred(arr[readIdx])) {
                 if (writeIdx != readIdx) {
                     arr[writeIdx] = keel::move(arr[readIdx]);
@@ -476,9 +474,9 @@ struct BpmnEditorOptions {
     // --- Optional Two-Way State Bindings ---
     bool* tokenSimulationPtr{nullptr};          ///< Optional binding for the canvas "Token Simulation" toggle button
     BpmnRoutingMode* routingModePtr{nullptr};   ///< Optional binding for Orthogonal / Bezier routing toggle
-    uint32_t* selectedNodeIdPtr{nullptr};       ///< Optional binding to observe/drive primary selected node ID
-    uint32_t* selectedEdgeIdPtr{nullptr};       ///< Optional binding to observe/drive primary selected edge ID
-    uint32_t* selectedLaneIdPtr{nullptr};       ///< Optional binding to observe/drive primary selected lane ID
+    keel::u32* selectedNodeIdPtr{nullptr};       ///< Optional binding to observe/drive primary selected node ID
+    keel::u32* selectedEdgeIdPtr{nullptr};       ///< Optional binding to observe/drive primary selected edge ID
+    keel::u32* selectedLaneIdPtr{nullptr};       ///< Optional binding to observe/drive primary selected lane ID
 
     // --- Sizing & Styling ---
     StretchMode stretch{StretchMode::Fill};
@@ -504,17 +502,17 @@ struct BpmnEditorResponse : public Response {
     Vec2 mouseWorldPos{0.0f, 0.0f};     ///< Current cursor position in BPMN world coordinates
 
     BpmnTool activeTool{BpmnTool::Select};
-    uint32_t selectedNodeId{0};         ///< Primary selected node ID (0 = none)
-    uint32_t selectedEdgeId{0};         ///< Primary selected edge ID (0 = none)
-    uint32_t selectedLaneId{0};         ///< Primary selected lane ID (0 = none)
-    size_t selectedNodeCount{0};        ///< Number of currently selected nodes (including multi-select)
-    uint32_t hoveredNodeId{0};          ///< Node currently under cursor
-    uint32_t hoveredEdgeId{0};          ///< Edge currently under cursor
+    keel::u32 selectedNodeId{0};         ///< Primary selected node ID (0 = none)
+    keel::u32 selectedEdgeId{0};         ///< Primary selected edge ID (0 = none)
+    keel::u32 selectedLaneId{0};         ///< Primary selected lane ID (0 = none)
+    keel::usize selectedNodeCount{0};        ///< Number of currently selected nodes (including multi-select)
+    keel::u32 hoveredNodeId{0};          ///< Node currently under cursor
+    keel::u32 hoveredEdgeId{0};          ///< Edge currently under cursor
 
     bool simulationActive{false};       ///< True when Token Simulation mode is active
-    size_t activeTokenCount{0};         ///< Number of live tokens currently flowing/executing
-    size_t undoDepth{0};                ///< Available Undo snapshots
-    size_t redoDepth{0};                ///< Available Redo snapshots
+    keel::usize activeTokenCount{0};         ///< Number of live tokens currently flowing/executing
+    keel::usize undoDepth{0};                ///< Available Undo snapshots
+    keel::usize redoDepth{0};                ///< Available Redo snapshots
     bool diagramModified{false};        ///< True on the frame a structural or property edit occurred
 };
 

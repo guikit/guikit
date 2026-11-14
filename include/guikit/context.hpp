@@ -1,8 +1,6 @@
 #pragma once
 
 #include <cmath>
-#include <cstddef>
-#include <cstdint>
 #include "keel/arena.h"
 #include "keel/array.h"
 #include "keel/core.h"
@@ -113,10 +111,10 @@ concept MutableForeignStringView =
     !keel::IsSame<keel::RemoveCvRef<SV>, keel::StringRef> &&
     !keel::WritableString<SV> &&
     keel::IsTriviallyCopyable<keel::RemoveCvRef<SV>> &&
-    requires(SV& sv, const char* d, size_t n) {
+    requires(SV& sv, const char* d, keel::usize n) {
         typename keel::RemoveCvRef<SV>::traits_type;
         { sv.data() } -> keel::detail::ConvertibleTo<const char*>;
-        { sv.size() } -> keel::detail::ConvertibleTo<size_t>;
+        { sv.size() } -> keel::detail::ConvertibleTo<keel::usize>;
         sv = keel::RemoveCvRef<SV>(d, n);
     };
 
@@ -163,7 +161,7 @@ struct StoredState {
     void* ptr{nullptr};
     void (*destroy)(void*) noexcept {nullptr};
     void (*trim)(void*) noexcept {nullptr};
-    uint64_t lastFrameActive{0};
+    keel::u64 lastFrameActive{0};
     double lastTimeActiveSec{0.0};
     bool persistent{false};
     bool cachesTrimmed{false};
@@ -171,7 +169,7 @@ struct StoredState {
     StoredState() noexcept = default;
 
     template <typename T>
-    static StoredState Create(T&& val, uint64_t frameIndex, double timeSec, bool isPersistent = false) {
+    static StoredState Create(T&& val, keel::u64 frameIndex, double timeSec, bool isPersistent = false) {
         using Decayed = keel::Decay<T>;
         Decayed* p = keel::default_allocator()->create<Decayed>(keel::forward<T>(val));
         StoredState s;
@@ -249,8 +247,8 @@ public:
 
     // --- Input Handling ---
     void OnMouseMove(Vec2 pos);
-    void OnMouseDown(int button);
-    void OnMouseUp(int button);
+    void OnMouseDown(keel::i32 button);
+    void OnMouseUp(keel::i32 button);
     void OnTextInput(keel::StringRef utf8Text);
     void OnKeyDown(Key key, KeyModifiers mods = {});
     void OnMouseWheel(float x, float y);
@@ -263,22 +261,22 @@ public:
 
     // --- Reactive Repaint & Idle Management ---
     /// Request the event loop to repaint a given number of frames (e.g. 3 frames to settle hover/click).
-    void RequestRepaint(int frames = 3) noexcept;
+    void RequestRepaint(keel::i32 frames = 3) noexcept;
 
     /// Returns the number of pending repaint frames left in the counter.
-    [[nodiscard]] int GetRepaintFramesLeft() const noexcept { return m_repaintFrames; }
+    [[nodiscard]] keel::i32 GetRepaintFramesLeft() const noexcept { return m_repaintFrames; }
 
     /// Returns true if the UI requires a repaint (pending frames, mouse held down, or active edit/popup).
     [[nodiscard]] bool NeedsRepaint() const noexcept;
 
     /// Sets the idle heartbeat interval in milliseconds (e.g. 500ms). Set to -1 or 0 to disable periodic heartbeat (deep sleep).
-    void SetIdleHeartbeatMs(int timeoutMs) noexcept { m_idleHeartbeatMs = timeoutMs; }
+    void SetIdleHeartbeatMs(keel::i32 timeoutMs) noexcept { m_idleHeartbeatMs = timeoutMs; }
 
     /// Returns the configured idle heartbeat interval in milliseconds.
-    [[nodiscard]] int GetIdleHeartbeatMs() const noexcept { return m_idleHeartbeatMs; }
+    [[nodiscard]] keel::i32 GetIdleHeartbeatMs() const noexcept { return m_idleHeartbeatMs; }
 
     /// Recommended timeout in milliseconds for SDL_WaitEventTimeout in reactive mode.
-    [[nodiscard]] int GetRecommendedSleepTimeoutMs() const noexcept;
+    [[nodiscard]] keel::i32 GetRecommendedSleepTimeoutMs() const noexcept;
 
     // --- Dirty Rect & Damage Tracking ---
     /// Enables or disables dirty damage rect tracking (enabled by default).
@@ -552,10 +550,10 @@ public:
             ~ExecGuard() noexcept { c.EndWidgetExecution(); }
         } guard{*this};
         BeginWidgetExecution();
-        if constexpr (keel::IsSame<keel::Decay<IndexT>, int>) {
+        if constexpr (keel::IsSame<keel::Decay<IndexT>, keel::i32>) {
             return guikit::ActivityBar::Run(*this, activeIndex, items, opts, loc);
         } else {
-            int idx = static_cast<int>(activeIndex);
+            keel::i32 idx = static_cast<keel::i32>(activeIndex);
             Response r = guikit::ActivityBar::Run(*this, idx, items, opts, loc);
             if (r.changed && idx >= 0) {
                 activeIndex = static_cast<IndexT>(idx);
@@ -983,22 +981,22 @@ public:
                 value = static_cast<Decayed>(tmp);
             }
             return r;
-        } else if constexpr (keel::IsSame<Decayed, int64_t>) {
+        } else if constexpr (keel::IsSame<Decayed, keel::i64>) {
             return Run<guikit::SpinBox>(nullptr, nullptr, &value, opts, loc);
         } else {
-            constexpr int64_t kInt64Max = static_cast<int64_t>((~uint64_t{0}) >> 1);
-            constexpr int64_t kInt64Min = -kInt64Max - 1;
-            constexpr size_t kBits = sizeof(Decayed) * 8;
-            constexpr int64_t kTypeMin = keel::IsUnsigned<Decayed>
-                ? int64_t{0}
-                : ((sizeof(Decayed) >= sizeof(int64_t)) ? kInt64Min : -(int64_t{1} << (kBits - 1)));
-            constexpr int64_t kTypeMax = keel::IsUnsigned<Decayed>
-                ? ((sizeof(Decayed) >= sizeof(uint64_t))
+            constexpr keel::i64 kInt64Max = static_cast<keel::i64>((~keel::u64{0}) >> 1);
+            constexpr keel::i64 kInt64Min = -kInt64Max - 1;
+            constexpr keel::usize kBits = sizeof(Decayed) * 8;
+            constexpr keel::i64 kTypeMin = keel::IsUnsigned<Decayed>
+                ? keel::i64{0}
+                : ((sizeof(Decayed) >= sizeof(keel::i64)) ? kInt64Min : -(keel::i64{1} << (kBits - 1)));
+            constexpr keel::i64 kTypeMax = keel::IsUnsigned<Decayed>
+                ? ((sizeof(Decayed) >= sizeof(keel::u64))
                        ? kInt64Max
-                       : static_cast<int64_t>(static_cast<Decayed>(~Decayed{0})))
-                : ((sizeof(Decayed) >= sizeof(int64_t))
+                       : static_cast<keel::i64>(static_cast<Decayed>(~Decayed{0})))
+                : ((sizeof(Decayed) >= sizeof(keel::i64))
                        ? kInt64Max
-                       : ((int64_t{1} << (kBits - 1)) - 1));
+                       : ((keel::i64{1} << (kBits - 1)) - 1));
             if constexpr (keel::IsUnsigned<Decayed>) {
                 if (!opts.min.has_value()) {
                     opts.min = 0.0;
@@ -1006,9 +1004,9 @@ public:
                     opts.min = keel::max(0.0, *opts.min);
                 }
             }
-            int64_t tmp = (keel::IsUnsigned<Decayed> && static_cast<uint64_t>(value) > static_cast<uint64_t>(kTypeMax))
+            keel::i64 tmp = (keel::IsUnsigned<Decayed> && static_cast<keel::u64>(value) > static_cast<keel::u64>(kTypeMax))
                 ? kTypeMax
-                : static_cast<int64_t>(value);
+                : static_cast<keel::i64>(value);
             Response r = Run<guikit::SpinBox>(nullptr, nullptr, &tmp, opts, loc);
             if (r.changed) {
                 value = static_cast<Decayed>(keel::clamp(tmp, kTypeMin, kTypeMax));
@@ -1075,9 +1073,9 @@ public:
         SelectOptions opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        if constexpr (keel::IsSame<keel::Decay<T>, size_t>) {
+        if constexpr (keel::IsSame<keel::Decay<T>, keel::usize>) {
             return Run<guikit::Select>(&selected, nullptr, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
-        } else if constexpr (keel::IsSame<keel::Decay<T>, int>) {
+        } else if constexpr (keel::IsSame<keel::Decay<T>, keel::i32>) {
             return Run<guikit::Select>(nullptr, &selected, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
         } else if constexpr (IndexLike<T>) {
             constexpr bool isSignedIndex = []() constexpr {
@@ -1088,14 +1086,14 @@ public:
                 }
             }();
             if constexpr (isSignedIndex) {
-                int idx = static_cast<int>(selected);
+                keel::i32 idx = static_cast<keel::i32>(selected);
                 Response r = Run<guikit::Select>(nullptr, &idx, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
                 if (r.changed) {
                     selected = static_cast<T>(idx);
                 }
                 return r;
             } else {
-                size_t idx = static_cast<size_t>(selected);
+                keel::usize idx = static_cast<keel::usize>(selected);
                 Response r = Run<guikit::Select>(&idx, nullptr, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
                 if (r.changed) {
                     selected = static_cast<T>(idx);
@@ -1107,7 +1105,7 @@ public:
         } else if constexpr (keel::IsSame<keel::RemoveCvRef<T>, keel::StringRef>) {
             return Run<guikit::Select>(nullptr, nullptr, keel::Optional<keel::StringSink>{}, &selected, items, opts, loc);
         } else if constexpr (MutableForeignStringView<T>) {
-            keel::StringRef sr(selected.data(), static_cast<size_t>(selected.size()));
+            keel::StringRef sr(selected.data(), static_cast<keel::usize>(selected.size()));
             Response r = Run<guikit::Select>(nullptr, nullptr, keel::Optional<keel::StringSink>{}, &sr, items, opts, loc);
             if (r.changed) {
                 selected = keel::RemoveCvRef<T>(sr.data(), sr.size());
@@ -1123,9 +1121,9 @@ public:
         SelectOptions opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        if constexpr (keel::IsSame<keel::Decay<T>, size_t>) {
+        if constexpr (keel::IsSame<keel::Decay<T>, keel::usize>) {
             return Run<guikit::Select>(&selected, nullptr, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
-        } else if constexpr (keel::IsSame<keel::Decay<T>, int>) {
+        } else if constexpr (keel::IsSame<keel::Decay<T>, keel::i32>) {
             return Run<guikit::Select>(nullptr, &selected, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
         } else if constexpr (IndexLike<T>) {
             constexpr bool isSignedIndex = []() constexpr {
@@ -1136,14 +1134,14 @@ public:
                 }
             }();
             if constexpr (isSignedIndex) {
-                int idx = static_cast<int>(selected);
+                keel::i32 idx = static_cast<keel::i32>(selected);
                 Response r = Run<guikit::Select>(nullptr, &idx, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
                 if (r.changed) {
                     selected = static_cast<T>(idx);
                 }
                 return r;
             } else {
-                size_t idx = static_cast<size_t>(selected);
+                keel::usize idx = static_cast<keel::usize>(selected);
                 Response r = Run<guikit::Select>(&idx, nullptr, keel::Optional<keel::StringSink>{}, nullptr, items, opts, loc);
                 if (r.changed) {
                     selected = static_cast<T>(idx);
@@ -1155,7 +1153,7 @@ public:
         } else if constexpr (keel::IsSame<keel::RemoveCvRef<T>, keel::StringRef>) {
             return Run<guikit::Select>(nullptr, nullptr, keel::Optional<keel::StringSink>{}, &selected, items, opts, loc);
         } else if constexpr (MutableForeignStringView<T>) {
-            keel::StringRef sr(selected.data(), static_cast<size_t>(selected.size()));
+            keel::StringRef sr(selected.data(), static_cast<keel::usize>(selected.size()));
             Response r = Run<guikit::Select>(nullptr, nullptr, keel::Optional<keel::StringSink>{}, &sr, items, opts, loc);
             if (r.changed) {
                 selected = keel::RemoveCvRef<T>(sr.data(), sr.size());
@@ -1255,7 +1253,7 @@ public:
             ~ExecGuard() noexcept { c.EndWidgetExecution(); }
         } guard{*this};
         BeginWidgetExecution();
-        int idx = static_cast<int>(activeIndex);
+        keel::i32 idx = static_cast<keel::i32>(activeIndex);
         TabBarResponse r = TabBar::Run(*this, idx, tabs, opts, loc);
         if (r.changed && idx >= 0) activeIndex = static_cast<IndexT>(idx);
         return r;
@@ -1280,7 +1278,7 @@ public:
             ~ExecGuard() noexcept { c.EndWidgetExecution(); }
         } guard{*this};
         BeginWidgetExecution();
-        int idx = static_cast<int>(activeIndex);
+        keel::i32 idx = static_cast<keel::i32>(activeIndex);
         Response r = SidebarMenu::Run(*this, idx, items, opts, loc);
         if (r.changed && idx >= 0) activeIndex = static_cast<IndexT>(idx);
         return r;
@@ -1300,7 +1298,7 @@ public:
         } else if constexpr (keel::IsSame<keel::Decay<T>, float>) {
             return Run<guikit::Slider>(nullptr, &value, nullptr, static_cast<double>(min), static_cast<double>(max), opts, loc);
         } else {
-            int64_t val64 = static_cast<int64_t>(value);
+            keel::i64 val64 = static_cast<keel::i64>(value);
             Response res = Run<guikit::Slider>(nullptr, nullptr, &val64, static_cast<double>(min), static_cast<double>(max), opts, loc);
             if (res.changed) {
                 value = static_cast<T>(val64);
@@ -1323,8 +1321,8 @@ public:
         } else if constexpr (keel::IsSame<keel::Decay<T>, float>) {
             return Run<guikit::RangeSlider>(nullptr, nullptr, &lowValue, &highValue, nullptr, nullptr, static_cast<double>(min), static_cast<double>(max), opts, loc);
         } else {
-            int64_t low64 = static_cast<int64_t>(lowValue);
-            int64_t high64 = static_cast<int64_t>(highValue);
+            keel::i64 low64 = static_cast<keel::i64>(lowValue);
+            keel::i64 high64 = static_cast<keel::i64>(highValue);
             Response res = Run<guikit::RangeSlider>(nullptr, nullptr, nullptr, nullptr, &low64, &high64, static_cast<double>(min), static_cast<double>(max), opts, loc);
             if (res.changed) {
                 lowValue = static_cast<T>(low64);
@@ -1356,16 +1354,16 @@ public:
         requires (!keel::IsConst<IndexT>)
     Response StepSlider(
         IndexT& index,
-        size_t totalSteps,
+        keel::usize totalSteps,
         StepSliderOptions opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        if constexpr (keel::IsSame<keel::Decay<IndexT>, size_t>) {
+        if constexpr (keel::IsSame<keel::Decay<IndexT>, keel::usize>) {
             return Run<guikit::StepSlider>(&index, nullptr, totalSteps, opts, loc);
-        } else if constexpr (keel::IsSame<keel::Decay<IndexT>, int>) {
+        } else if constexpr (keel::IsSame<keel::Decay<IndexT>, keel::i32>) {
             return Run<guikit::StepSlider>(nullptr, &index, totalSteps, opts, loc);
         } else {
-            int idxInt = static_cast<int>(index);
+            keel::i32 idxInt = static_cast<keel::i32>(index);
             Response res = Run<guikit::StepSlider>(nullptr, &idxInt, totalSteps, opts, loc);
             if (res.changed) {
                 index = static_cast<IndexT>(idxInt);
@@ -1411,10 +1409,10 @@ public:
             return Run<guikit::Knob>(&value, nullptr, nullptr, min, max, opts, loc);
         } else if constexpr (keel::IsSame<keel::Decay<T>, float>) {
             return Run<guikit::Knob>(nullptr, &value, nullptr, static_cast<double>(min), static_cast<double>(max), opts, loc);
-        } else if constexpr (keel::IsSame<keel::Decay<T>, int64_t>) {
+        } else if constexpr (keel::IsSame<keel::Decay<T>, keel::i64>) {
             return Run<guikit::Knob>(nullptr, nullptr, &value, static_cast<double>(min), static_cast<double>(max), opts, loc);
         } else {
-            int64_t valInt = static_cast<int64_t>(value);
+            keel::i64 valInt = static_cast<keel::i64>(value);
             Response res = Run<guikit::Knob>(nullptr, nullptr, &valInt, static_cast<double>(min), static_cast<double>(max), opts, loc);
             if (res.changed) {
                 value = static_cast<T>(valInt);
@@ -1432,10 +1430,10 @@ public:
         SegmentedOptions opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        if constexpr (keel::IsSame<keel::Decay<IndexT>, size_t>) {
+        if constexpr (keel::IsSame<keel::Decay<IndexT>, keel::usize>) {
             return Run<guikit::Segmented>(&selectedIndex, nullptr, nullptr, items, opts, loc);
         } else {
-            int idx = static_cast<int>(selectedIndex);
+            keel::i32 idx = static_cast<keel::i32>(selectedIndex);
             Response r = Run<guikit::Segmented>(nullptr, &idx, nullptr, items, opts, loc);
             if (r.changed && idx >= 0) {
                 selectedIndex = static_cast<IndexT>(idx);
@@ -1452,10 +1450,10 @@ public:
         SegmentedOptions opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        if constexpr (keel::IsSame<keel::Decay<IndexT>, size_t>) {
+        if constexpr (keel::IsSame<keel::Decay<IndexT>, keel::usize>) {
             return Run<guikit::Segmented>(&selectedIndex, nullptr, nullptr, items, opts, loc);
         } else {
-            int idx = static_cast<int>(selectedIndex);
+            keel::i32 idx = static_cast<keel::i32>(selectedIndex);
             Response r = Run<guikit::Segmented>(nullptr, &idx, nullptr, items, opts, loc);
             if (r.changed && idx >= 0) {
                 selectedIndex = static_cast<IndexT>(idx);
@@ -1465,7 +1463,7 @@ public:
     }
 
     Response SegmentedMask(
-        uint32_t& selectedMask,
+        keel::u32& selectedMask,
         keel::ArrayRef<SegmentedItem> items,
         SegmentedOptions opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
@@ -1474,7 +1472,7 @@ public:
     }
 
     Response SegmentedMask(
-        uint32_t& selectedMask,
+        keel::u32& selectedMask,
         keel::ArrayRef<keel::StringRef> items,
         SegmentedOptions opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
@@ -1549,10 +1547,10 @@ public:
         BreadcrumbOptions opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        if constexpr (keel::IsSame<keel::Decay<IndexT>, size_t>) {
+        if constexpr (keel::IsSame<keel::Decay<IndexT>, keel::usize>) {
             return Run<guikit::Breadcrumb>(activeIndex, items, opts, loc);
         } else {
-            int idx = static_cast<int>(activeIndex);
+            keel::i32 idx = static_cast<keel::i32>(activeIndex);
             Response r = Run<guikit::Breadcrumb>(idx, items, opts, loc);
             if (r.changed && idx >= 0) activeIndex = static_cast<IndexT>(idx);
             return r;
@@ -1567,10 +1565,10 @@ public:
         BreadcrumbOptions opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        if constexpr (keel::IsSame<keel::Decay<IndexT>, size_t>) {
+        if constexpr (keel::IsSame<keel::Decay<IndexT>, keel::usize>) {
             return Run<guikit::Breadcrumb>(activeIndex, items, opts, loc);
         } else {
-            int idx = static_cast<int>(activeIndex);
+            keel::i32 idx = static_cast<keel::i32>(activeIndex);
             Response r = Run<guikit::Breadcrumb>(idx, items, opts, loc);
             if (r.changed && idx >= 0) activeIndex = static_cast<IndexT>(idx);
             return r;
@@ -1585,11 +1583,11 @@ public:
         PaginationOptions opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
-        if constexpr (keel::IsSame<keel::Decay<IndexT>, size_t>) {
-            return Run<guikit::Pagination>(currentPage, static_cast<size_t>(totalPages), opts, loc);
+        if constexpr (keel::IsSame<keel::Decay<IndexT>, keel::usize>) {
+            return Run<guikit::Pagination>(currentPage, static_cast<keel::usize>(totalPages), opts, loc);
         } else {
-            int page = static_cast<int>(currentPage);
-            Response r = Run<guikit::Pagination>(page, static_cast<int>(totalPages), opts, loc);
+            keel::i32 page = static_cast<keel::i32>(currentPage);
+            Response r = Run<guikit::Pagination>(page, static_cast<keel::i32>(totalPages), opts, loc);
             if (r.changed && page >= 0) currentPage = static_cast<IndexT>(page);
             return r;
         }
@@ -1676,10 +1674,10 @@ public:
     }
 
     // --- Toast Notification System ---
-    uint64_t ShowToast(ToastOptions opts);
-    void DismissToast(uint64_t id) noexcept;
+    keel::u64 ShowToast(ToastOptions opts);
+    void DismissToast(keel::u64 id) noexcept;
     void ClearToasts() noexcept;
-    [[nodiscard]] size_t GetActiveToastCount() const noexcept { return m_toasts.size(); }
+    [[nodiscard]] keel::usize GetActiveToastCount() const noexcept { return m_toasts.size(); }
     [[nodiscard]] keel::Array<ToastEntry>& GetToastEntries() noexcept { return m_toasts; }
     [[nodiscard]] keel::ArrayRef<ToastEntry> GetToastEntries() const noexcept { return m_toasts; }
     void MarkToastHostVisited() noexcept { m_toastHostVisitedThisFrame = true; }
@@ -1697,9 +1695,9 @@ public:
             t.text = AllocString(t.text);
         }
         if (!t.variants.empty()) {
-            const size_t count = t.variants.size();
+            const keel::usize count = t.variants.size();
             auto* arr = m_arena.alloc_array<keel::StringRef>(count);
-            size_t i = 0;
+            keel::usize i = 0;
             for (keel::StringRef v : t.variants) {
                 arr[i++] = v.empty() ? keel::StringRef{} : AllocString(v);
             }
@@ -1772,8 +1770,8 @@ public:
 
     [[nodiscard]] Id GetActiveId() const noexcept { return m_activeId; }
     void SetActiveId(Id id) noexcept { m_activeId = id; }
-    [[nodiscard]] uint64_t GetFrameIndex() const noexcept { return m_frameIndex; }
-    [[nodiscard]] size_t GetCustomStateCount() const noexcept { return m_customStates.size(); }
+    [[nodiscard]] keel::u64 GetFrameIndex() const noexcept { return m_frameIndex; }
+    [[nodiscard]] keel::usize GetCustomStateCount() const noexcept { return m_customStates.size(); }
     [[nodiscard]] ICanvas* GetCanvas() const noexcept { return m_lastCanvas; }
 
     // --- Clipboard & Host Services ---
@@ -1802,7 +1800,7 @@ public:
     keel::StringRef GetOrStartTextEdit(
         Id id,
         keel::StringRef initialText,
-        size_t& outCursor,
+        keel::usize& outCursor,
         bool& outChanged,
         bool& outSubmitted,
         bool multiline = false
@@ -1811,8 +1809,8 @@ public:
     keel::StringRef GetOrStartTextEdit(
         Id id,
         keel::StringRef initialText,
-        size_t& outCursor,
-        size_t& outSelectionAnchor,
+        keel::usize& outCursor,
+        keel::usize& outSelectionAnchor,
         bool& outChanged,
         bool& outSubmitted,
         bool multiline = false,
@@ -1820,15 +1818,15 @@ public:
     );
 
     void SetTextEditBuffer(Id id, keel::StringRef text);
-    void SetTextEditCursor(Id id, size_t cursor, size_t selectionAnchor) noexcept;
+    void SetTextEditCursor(Id id, keel::usize cursor, keel::usize selectionAnchor) noexcept;
     void SetTextEditAutoClose(Id id, bool enabled) noexcept;
-    void SetTextEditIndentation(Id id, uint8_t tabSize, bool insertSpaces) noexcept;
-    void ApplyTextEditChange(Id id, keel::StringRef newText, size_t newCursor, size_t newSelectionAnchor);
+    void SetTextEditIndentation(Id id, keel::u8 tabSize, bool insertSpaces) noexcept;
+    void ApplyTextEditChange(Id id, keel::StringRef newText, keel::usize newCursor, keel::usize newSelectionAnchor);
     bool UndoTextEdit(Id id);
     bool RedoTextEdit(Id id);
     void SetSuspendDirectEditInput(bool suspend) noexcept { m_suspendDirectEditInput = suspend; }
-    [[nodiscard]] bool GetTextEditSelection(Id id, size_t& outStart, size_t& outEnd) const noexcept;
-    [[nodiscard]] size_t GetTextEditAnchor(Id id) const noexcept {
+    [[nodiscard]] bool GetTextEditSelection(Id id, keel::usize& outStart, keel::usize& outEnd) const noexcept;
+    [[nodiscard]] keel::usize GetTextEditAnchor(Id id) const noexcept {
         return (m_editState.id == id && id.IsValid()) ? m_editState.selectionAnchor : 0;
     }
 
@@ -1858,7 +1856,7 @@ public:
     [[nodiscard]] bool IsPopupOpen(Id id) const noexcept { return m_openPopupId == id && id.IsValid(); }
     [[nodiscard]] Id GetOpenPopupId() const noexcept { return m_openPopupId; }
     [[nodiscard]] Rect GetOpenPopupRect() const noexcept { return m_openPopupRect; }
-    void SetOpenPopupVisualHash(uint64_t hash) noexcept { m_openPopupVisualHash = hash; }
+    void SetOpenPopupVisualHash(keel::u64 hash) noexcept { m_openPopupVisualHash = hash; }
     template <typename F>
         requires requires(keel::Decay<F>& f, ICanvas& c) { f(c); }
     void RegisterOverlay(F&& drawFn) {
@@ -2101,12 +2099,12 @@ private:
     // Widget snapshot for frame-to-frame change detection
     struct WidgetSnapshot {
         Rect rect{};
-        uint64_t visualHash{0};
-        uint32_t flags{0}; // bits: 0=hovered, 1=pressed, 2=disabled, 3=checked, 4=cursorVisible, 5=activeEdit, 6=tabActive, 7=focused, 8..11=scrollbar
-        size_t cursor{0};
-        size_t selectionAnchor{0};
-        uint32_t bgColor{0};
-        uint32_t borderColor{0};
+        keel::u64 visualHash{0};
+        keel::u32 flags{0}; // bits: 0=hovered, 1=pressed, 2=disabled, 3=checked, 4=cursorVisible, 5=activeEdit, 6=tabActive, 7=focused, 8..11=scrollbar
+        keel::usize cursor{0};
+        keel::usize selectionAnchor{0};
+        keel::u32 bgColor{0};
+        keel::u32 borderColor{0};
 
         bool operator==(const WidgetSnapshot& o) const noexcept {
             return rect == o.rect &&
@@ -2173,8 +2171,8 @@ private:
     bool m_middleMouseReleased{false};
     KeyModifiers m_keyMods{};
     Keymap m_keymap{Keymap::Default()};
-    int m_repaintFrames{3};
-    int m_idleHeartbeatMs{500};
+    keel::i32 m_repaintFrames{3};
+    keel::i32 m_idleHeartbeatMs{500};
 
     // Clipboard & host state
     ClipboardGetFn m_clipboardGetFn{};
@@ -2191,33 +2189,33 @@ private:
     struct ActiveEditState {
         struct EditSnapshot {
             keel::String text;
-            size_t cursor{0};
-            size_t selectionAnchor{0};
+            keel::usize cursor{0};
+            keel::usize selectionAnchor{0};
         };
 
         Id id{Id::Null()};
         keel::String text;
-        size_t cursor{0};
-        size_t selectionAnchor{0};
+        keel::usize cursor{0};
+        keel::usize selectionAnchor{0};
         keel::Array<EditSnapshot> undoStack;
         keel::Array<EditSnapshot> redoStack;
-        keel::Optional<size_t> preferredColumn;
+        keel::Optional<keel::usize> preferredColumn;
         bool changed{false};
         bool submitted{false};
         bool multiline{false};
         bool readOnly{false};
         bool autoCloseBrackets{false};
-        uint8_t tabSize{4};
+        keel::u8 tabSize{4};
         bool insertSpaces{true};
 
         [[nodiscard]] bool HasSelection() const noexcept { return cursor != selectionAnchor; }
-        [[nodiscard]] size_t SelectionStart() const noexcept { return keel::min(cursor, selectionAnchor); }
-        [[nodiscard]] size_t SelectionEnd() const noexcept { return keel::max(cursor, selectionAnchor); }
+        [[nodiscard]] keel::usize SelectionStart() const noexcept { return keel::min(cursor, selectionAnchor); }
+        [[nodiscard]] keel::usize SelectionEnd() const noexcept { return keel::max(cursor, selectionAnchor); }
 
         [[nodiscard]] keel::StringRef SelectedText() const noexcept {
             if (!HasSelection()) return {};
-            const size_t s = keel::min(SelectionStart(), text.size());
-            const size_t e = keel::min(SelectionEnd(), text.size());
+            const keel::usize s = keel::min(SelectionStart(), text.size());
+            const keel::usize e = keel::min(SelectionEnd(), text.size());
             return text.substr(s, e - s);
         }
 
@@ -2296,10 +2294,10 @@ private:
     struct HitNodeRecord {
         Id id{Id::Null()};
         Rect rect{};
-        uint32_t preIndex{0};
-        uint32_t postIndex{0};
+        keel::u32 preIndex{0};
+        keel::u32 postIndex{0};
         NodeType type{NodeType::Container};
-        uint8_t zLayer{0};
+        keel::u8 zLayer{0};
         bool blocksHit{false};
     };
 
@@ -2309,7 +2307,7 @@ private:
     keel::HashMap<Id, Rect> m_currUnclippedBounds;
     keel::Array<HitNodeRecord> m_prevHitNodes;
     keel::Array<HitNodeRecord> m_currHitNodes;
-    keel::HashMap<Id, size_t> m_prevHitNodeMap;
+    keel::HashMap<Id, keel::usize> m_prevHitNodeMap;
     struct OverlayHitBuilder {
         void* ctx{nullptr};
         void (*invoke)(void*){nullptr};
@@ -2319,7 +2317,7 @@ private:
     keel::Array<OverlayHitRegion> m_currOverlayHitRegions;
     keel::SmallArray<OverlayHitBuilder, 8> m_overlayHitBuilders;
     Id m_activeOverlayHitCheckId{Id::Null()};
-    int m_widgetExecDepth{0};
+    keel::i32 m_widgetExecDepth{0};
     keel::Array<Id> m_prevFocusableIds;
     keel::Array<Id> m_currFocusableIds;
     keel::Array<Id> m_prevModalFocusableIds;
@@ -2328,25 +2326,25 @@ private:
     // Floating popup, tooltip, modal & toast overlay state
     Id m_openPopupId{Id::Null()};
     Rect m_openPopupRect{0.0f, 0.0f, 0.0f, 0.0f};
-    uint64_t m_openPopupVisualHash{0};
+    keel::u64 m_openPopupVisualHash{0};
     Id m_prevOpenPopupId{Id::Null()};
     Rect m_prevOpenPopupRect{0.0f, 0.0f, 0.0f, 0.0f};
-    uint64_t m_prevOpenPopupVisualHash{0};
+    keel::u64 m_prevOpenPopupVisualHash{0};
     Id m_prevFrameModalId{Id::Null()};
     Rect m_prevFrameModalBackdropRect{0.0f, 0.0f, 0.0f, 0.0f};
     Id m_currFrameModalId{Id::Null()};
     Rect m_currFrameModalBackdropRect{0.0f, 0.0f, 0.0f, 0.0f};
-    int m_modalScopeDepth{0};
+    keel::i32 m_modalScopeDepth{0};
     bool m_hadModalLastFrame{false};
     bool m_modalClosedThisFrame{false};
     UiText m_activeTooltip{};
     Rect m_activeTooltipAnchor{0.0f, 0.0f, 0.0f, 0.0f};
     Rect m_activeTooltipViewport{0.0f, 0.0f, 0.0f, 0.0f};
-    uint64_t m_prevTooltipHash{0};
+    keel::u64 m_prevTooltipHash{0};
     bool m_hadTooltipLastFrame{false};
     keel::Array<ToastEntry> m_toasts;
     ToastHostOptions m_defaultToastHostOpts{};
-    uint64_t m_nextToastId{0};
+    keel::u64 m_nextToastId{0};
     bool m_toastHostVisitedThisFrame{false};
     bool m_hadToastsLastFrame{false};
     struct OverlayPass {
@@ -2363,10 +2361,10 @@ private:
     bool m_hadDebugBoundsLastFrame{false};
     bool m_hadInspectModeLastFrame{false};
     Vec2 m_mouseWheel{0.0f, 0.0f};
-    keel::HashMap<const char*, uint64_t> m_fileHashCache;
-    keel::HashMap<uint64_t, uint32_t> m_childIdCounts;
+    keel::HashMap<const char*, keel::u64> m_fileHashCache;
+    keel::HashMap<keel::u64, keel::u32> m_childIdCounts;
     keel::HashMap<detail::StateKey, detail::StoredState, detail::StateKeyHash> m_customStates;
-    uint64_t m_frameIndex{0};
+    keel::u64 m_frameIndex{0};
     double m_lastCacheTrimSweepSec{0.0};
     double m_lastTransientPruneSec{0.0};
     bool m_hasUntrimmedInactiveStates{false};
@@ -3213,7 +3211,7 @@ public:
         requires (!keel::IsConst<IndexT>)
     Response StepSlider(
         IndexT& index,
-        size_t totalSteps,
+        keel::usize totalSteps,
         StepSliderOptions opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     ) {
@@ -3281,7 +3279,7 @@ public:
     }
 
     Response SegmentedMask(
-        uint32_t& selectedMask,
+        keel::u32& selectedMask,
         keel::ArrayRef<SegmentedItem> items,
         SegmentedOptions opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
@@ -3290,7 +3288,7 @@ public:
     }
 
     Response SegmentedMask(
-        uint32_t& selectedMask,
+        keel::u32& selectedMask,
         keel::ArrayRef<keel::StringRef> items,
         SegmentedOptions opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()

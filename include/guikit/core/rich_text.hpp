@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
@@ -17,7 +15,7 @@ namespace guikit {
 // 1. Inline Rich-Text AST Spans & Parser
 // ============================================================================
 
-enum class InlineKind : uint8_t {
+enum class InlineKind : keel::u8 {
     Text = 0,
     Code,
     Link
@@ -102,9 +100,9 @@ struct FloatPair {
 
 struct PositionedToken {
     Rect rect{};
-    size_t charStart{0};
-    size_t charEnd{0};
-    size_t lineIndex{0};
+    keel::usize charStart{0};
+    keel::usize charEnd{0};
+    keel::usize lineIndex{0};
     float fontSize{13.0f};
     FontStyle fontStyle{FontStyle::Regular};
     float textPadX{0.0f};
@@ -113,10 +111,10 @@ struct PositionedToken {
 struct PositionedLine {
     float top{0.0f};
     float bottom{0.0f};
-    size_t firstToken{0};
-    size_t tokenCount{0};
-    size_t charStart{0};
-    size_t charEnd{0};
+    keel::usize firstToken{0};
+    keel::usize tokenCount{0};
+    keel::usize charStart{0};
+    keel::usize charEnd{0};
 };
 
 struct LinkHitRegion {
@@ -125,19 +123,19 @@ struct LinkHitRegion {
 };
 
 struct SearchMatchRange {
-    size_t start{0};
-    size_t end{0};
+    keel::usize start{0};
+    keel::usize end{0};
 };
 
 struct RenderOverlayState {
     bool hasSelection{false};
-    size_t selMin{0};
-    size_t selMax{0};
+    keel::usize selMin{0};
+    keel::usize selMax{0};
     bool showCaret{false};
-    size_t caretOffset{0};
+    keel::usize caretOffset{0};
     const keel::Array<SearchMatchRange>* searchMatches{nullptr};
-    int activeSearchMatch{-1};
-    const keel::HashMap<int, bool>* taskOverrides{nullptr};
+    keel::i32 activeSearchMatch{-1};
+    const keel::HashMap<keel::i32, bool>* taskOverrides{nullptr};
 };
 
 struct DocumentTextMap {
@@ -153,25 +151,25 @@ struct DocumentTextMap {
     ICanvas* canvas,
     const PositionedToken& tok,
     keel::StringRef fullPlainText,
-    size_t selMin,
-    size_t selMax
+    keel::usize selMin,
+    keel::usize selMax
 );
 
-[[nodiscard]] size_t HitTestDocumentCharOffset(
+[[nodiscard]] keel::usize HitTestDocumentCharOffset(
     const DocumentTextMap& map,
     ICanvas* canvas,
     Vec2 mousePos
 );
 
-[[nodiscard]] size_t FindLineForCharOffset(
+[[nodiscard]] keel::usize FindLineForCharOffset(
     const DocumentTextMap& map,
-    size_t offset
+    keel::usize offset
 ) noexcept;
 
 [[nodiscard]] float GetCursorXForOffset(
     const DocumentTextMap& map,
     ICanvas* canvas,
-    size_t offset
+    keel::usize offset
 );
 
 [[nodiscard]] keel::Array<SearchMatchRange> FindSearchMatches(
@@ -217,8 +215,8 @@ struct PositionedAtom {
     InlineAtom atom{};
     Rect localRect{};            ///< Relative to the InlineFlowLayout's origin (0, 0)
     float textLocalY{0.0f};      ///< Relative to the InlineFlowLayout's origin (0, 0)
-    size_t lineIdx{0};
-    size_t tokenIndex{SIZE_MAX}; ///< Index into DocumentTextMap::tokens
+    keel::usize lineIdx{0};
+    keel::usize tokenIndex{keel::kInvalidIndex}; ///< Index into DocumentTextMap::tokens
 };
 
 /// Self-contained, immutable inline flow layout in local (0, 0) coordinates.
@@ -230,7 +228,7 @@ struct InlineFlowLayout {
     float height{0.0f};
     float lineH{0.0f};
     float scale{1.0f};
-    size_t lineCount{0};
+    keel::usize lineCount{0};
     keel::Array<PositionedAtom> items{};
 
     InlineFlowLayout() = default;
@@ -253,7 +251,7 @@ struct InlineFlowLayout {
     }
 
 private:
-    void RebaseViews(const char* oldBase, size_t poolLen) noexcept {
+    void RebaseViews(const char* oldBase, keel::usize poolLen) noexcept {
         if (!oldBase || poolLen == 0 || textPool.empty()) return;
         const char* newBase = textPool.data();
         for (PositionedAtom& pa : items) {

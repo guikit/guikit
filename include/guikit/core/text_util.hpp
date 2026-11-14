@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/tokens.hpp"
 #include "keel/small_array.h"
@@ -118,22 +117,22 @@ public:
     );
 
     /// Returns the byte index of the previous UTF-8 codepoint boundary before `index`.
-    [[nodiscard]] static size_t PrevCharBoundary(keel::StringRef text, size_t index) noexcept;
+    [[nodiscard]] static keel::usize PrevCharBoundary(keel::StringRef text, keel::usize index) noexcept;
 
     /// Returns the byte index of the next UTF-8 codepoint boundary after `index`.
-    [[nodiscard]] static size_t NextCharBoundary(keel::StringRef text, size_t index) noexcept;
+    [[nodiscard]] static keel::usize NextCharBoundary(keel::StringRef text, keel::usize index) noexcept;
 
     /// Returns the byte index of the previous word boundary before `index` (for Ctrl+Left / Ctrl+Backspace).
-    [[nodiscard]] static size_t PrevWordBoundary(keel::StringRef text, size_t index) noexcept;
+    [[nodiscard]] static keel::usize PrevWordBoundary(keel::StringRef text, keel::usize index) noexcept;
 
     /// Returns the byte index of the next word boundary after `index` (for Ctrl+Right / Ctrl+Delete).
-    [[nodiscard]] static size_t NextWordBoundary(keel::StringRef text, size_t index) noexcept;
+    [[nodiscard]] static keel::usize NextWordBoundary(keel::StringRef text, keel::usize index) noexcept;
 
     /// Computes the `[outStart, outEnd]` byte range of the word or token at `index` (for double-click selection).
-    static void SelectWordAt(keel::StringRef text, size_t index, size_t& outStart, size_t& outEnd) noexcept;
+    static void SelectWordAt(keel::StringRef text, keel::usize index, keel::usize& outStart, keel::usize& outEnd) noexcept;
 
     /// Hit-tests a horizontal local coordinate `localX` (in points from text start) to the nearest UTF-8 character boundary byte index.
-    [[nodiscard]] static size_t HitTestIndex(
+    [[nodiscard]] static keel::usize HitTestIndex(
         keel::StringRef text,
         float localX,
         float fontSize,
@@ -145,13 +144,13 @@ public:
     [[nodiscard]] static bool FindCaseInsensitive(
         keel::StringRef haystack,
         keel::StringRef needle,
-        size_t& outBytePos,
-        size_t& outByteLen
+        keel::usize& outBytePos,
+        keel::usize& outByteLen
     ) noexcept;
 
     /// Finds the first UTF-8 (ASCII + Cyrillic) case-insensitive occurrence of `needle` inside `haystack`.
     /// Returns the starting byte offset, or `keel::kInvalidIndex` if not found.
-    [[nodiscard]] static size_t FindCaseInsensitive(
+    [[nodiscard]] static keel::usize FindCaseInsensitive(
         keel::StringRef haystack,
         keel::StringRef needle
     ) noexcept;
@@ -165,8 +164,8 @@ public:
         Rect bounds,
         float fontSize,
         Color textColor,
-        size_t matchPos,
-        size_t matchLen,
+        keel::usize matchPos,
+        keel::usize matchLen,
         Color highlightFill,
         Color highlightBorder = Color::Transparent(),
         float pillRadius = 3.0f,

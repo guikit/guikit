@@ -1,8 +1,6 @@
 #include "guikit/widgets/bpmn_editor.hpp"
 
 #include <cmath>
-#include <cstddef>
-#include <cstdint>
 #include "guikit/context.hpp"
 #include "guikit/core/control.hpp"
 #include "keel/algo.h"
@@ -222,19 +220,19 @@ struct AlignmentGuide {
 };
 
 struct NodePosEntry {
-    uint32_t id{0};
+    keel::u32 id{0};
     Vec2 pos{0.0f, 0.0f};
 };
 
 struct LaneRectEntry {
-    uint32_t id{0};
+    keel::u32 id{0};
     Rect rect{};
 };
 
 struct BpmnEditorState {
     bool initialized{false};
-    size_t lastDiagramNodeCount{0};
-    uint32_t lastFirstNodeId{0};
+    keel::usize lastDiagramNodeCount{0};
+    keel::u32 lastFirstNodeId{0};
 
     Vec2 pan{60.0f, 44.0f};
     float zoom{1.0f};
@@ -242,23 +240,23 @@ struct BpmnEditorState {
     BpmnTool activeTool{BpmnTool::Select};
 
     // Selection state
-    keel::Array<uint32_t> selectedNodes{};
-    uint32_t primaryNodeId{0};
-    uint32_t selectedEdgeId{0};
-    uint32_t selectedLaneId{0};
+    keel::Array<keel::u32> selectedNodes{};
+    keel::u32 primaryNodeId{0};
+    keel::u32 selectedEdgeId{0};
+    keel::u32 selectedLaneId{0};
 
-    uint32_t hoveredNodeId{0};
-    uint32_t hoveredEdgeId{0};
-    uint32_t hoveredLaneId{0};
-    uint32_t hoveredLabelNodeId{0};
-    uint32_t hoveredLabelEdgeId{0};
+    keel::u32 hoveredNodeId{0};
+    keel::u32 hoveredEdgeId{0};
+    keel::u32 hoveredLaneId{0};
+    keel::u32 hoveredLabelNodeId{0};
+    keel::u32 hoveredLabelEdgeId{0};
 
-    int hoveredPaletteIdx{-1};
-    int hoveredContextPadBtn{-1};
-    int hoveredReplaceMenuItem{-1};
-    int hoveredResizeCorner{-1};   // 0=NW, 1=NE, 2=SE, 3=SW
-    int hoveredEdgeSegIdx{-1};     // Hovered orthogonal segment index on selected/hovered edge
-    int hoveredEdgeEndpoint{0};    // 0=none, 1=source, 2=target
+    keel::i32 hoveredPaletteIdx{-1};
+    keel::i32 hoveredContextPadBtn{-1};
+    keel::i32 hoveredReplaceMenuItem{-1};
+    keel::i32 hoveredResizeCorner{-1};   // 0=NW, 1=NE, 2=SE, 3=SW
+    keel::i32 hoveredEdgeSegIdx{-1};     // Hovered orthogonal segment index on selected/hovered edge
+    keel::i32 hoveredEdgeEndpoint{0};    // 0=none, 1=source, 2=target
 
     // Replace Menu (`🔧 Change Type`) popover
     bool replaceMenuOpen{false};
@@ -272,41 +270,41 @@ struct BpmnEditorState {
     bool dragUndoRecorded{false};
     Vec2 dragStartWorld{0.0f, 0.0f};
     keel::Array<NodePosEntry> dragInitialNodePos{};
-    uint32_t dragBoundaryHostId{0};
+    keel::u32 dragBoundaryHostId{0};
 
     // Node corner resize (`Task`, `SubProcess`, `TextAnnotation`)
     bool resizingNode{false};
-    int resizeCorner{-1};
+    keel::i32 resizeCorner{-1};
     Vec2 resizeStartWorld{0.0f, 0.0f};
     Rect resizeInitialBounds{};
 
     // External label dragging (`Event`, `Gateway`, `DataObject`, `DataStore`, `BpmnEdge`)
     bool draggingLabel{false};
-    uint32_t dragLabelNodeId{0};
-    uint32_t dragLabelEdgeId{0};
+    keel::u32 dragLabelNodeId{0};
+    keel::u32 dragLabelEdgeId{0};
     Vec2 dragLabelStartWorld{0.0f, 0.0f};
     Vec2 dragLabelInitOffset{0.0f, 0.0f};
 
     // Orthogonal Edge Segment & Endpoint Reconnect dragging (`ConnectionSegmentMove` / `BendpointMove`)
     bool draggingEdgeSegment{false};
-    uint32_t dragEdgeId{0};
-    int dragEdgeSegIdx{-1};
+    keel::u32 dragEdgeId{0};
+    keel::i32 dragEdgeSegIdx{-1};
     bool dragEdgeSegHorizontal{true};
     Vec2 dragEdgeStartWorld{0.0f, 0.0f};
     keel::Array<Vec2> dragEdgeInitWaypoints{};
 
     bool reconnectingEdge{false};
-    uint32_t reconnectEdgeId{0};
-    int reconnectEndpoint{0}; // 1=fromNodeId, 2=toNodeId
+    keel::u32 reconnectEdgeId{0};
+    keel::i32 reconnectEndpoint{0}; // 1=fromNodeId, 2=toNodeId
     Vec2 reconnectEndWorld{0.0f, 0.0f};
-    uint32_t reconnectSnapNodeId{0};
+    keel::u32 reconnectSnapNodeId{0};
 
     // Palette Drag-to-Create + Live Ghost Preview Smart Alignment
     bool paletteDragCreating{false};
     Vec2 ghostSnappedPos{0.0f, 0.0f};
 
     bool draggingLane{false};
-    int laneResizeEdge{0}; // 0 = move, 1 = right edge, 2 = bottom edge
+    keel::i32 laneResizeEdge{0}; // 0 = move, 1 = right edge, 2 = bottom edge
     Vec2 laneDragStartWorld{0.0f, 0.0f};
     Rect laneInitialRect{};
     keel::Array<NodePosEntry> laneContainedNodeOffsets{};
@@ -327,15 +325,15 @@ struct BpmnEditorState {
 
     // Interactive wire connection
     bool connectingWire{false};
-    uint32_t connectFromNodeId{0};
+    keel::u32 connectFromNodeId{0};
     BpmnPortSide connectFromPort{BpmnPortSide::Auto};
     Vec2 connectEndWorld{0.0f, 0.0f};
-    uint32_t connectSnapNodeId{0};
+    keel::u32 connectSnapNodeId{0};
 
     // Inline text editing (double-click)
-    uint32_t editingNodeId{0};
-    uint32_t editingEdgeId{0};
-    uint32_t editingLaneId{0};
+    keel::u32 editingNodeId{0};
+    keel::u32 editingEdgeId{0};
+    keel::u32 editingLaneId{0};
 
     // Smart alignment guides active during node drag or ghost creation preview
     keel::Array<AlignmentGuide> activeGuides{};
@@ -352,20 +350,20 @@ struct BpmnEditorState {
     // Token simulation timing
     double lastSimTickSec{0.0};
     double spawnCooldownSec{0.0};
-    uint32_t nextTokenId{1};
-    uint32_t nextInstanceId{1};
+    keel::u32 nextTokenId{1};
+    keel::u32 nextInstanceId{1};
     bool simPaused{false};
 
-    [[nodiscard]] bool IsNodeSelected(uint32_t id) const noexcept {
+    [[nodiscard]] bool IsNodeSelected(keel::u32 id) const noexcept {
         if (id == 0) return false;
         if (primaryNodeId == id) return true;
-        for (uint32_t selId : selectedNodes) {
+        for (keel::u32 selId : selectedNodes) {
             if (selId == id) return true;
         }
         return false;
     }
 
-    void SelectSingleNode(uint32_t id) {
+    void SelectSingleNode(keel::u32 id) {
         selectedNodes.clear();
         if (id != 0) selectedNodes.push_back(id);
         primaryNodeId = id;
@@ -374,10 +372,10 @@ struct BpmnEditorState {
         replaceMenuOpen = false;
     }
 
-    void ToggleNodeSelection(uint32_t id) {
+    void ToggleNodeSelection(keel::u32 id) {
         if (id == 0) return;
         bool removed = false;
-        for (size_t i = 0; i < selectedNodes.size(); ++i) {
+        for (keel::usize i = 0; i < selectedNodes.size(); ++i) {
             if (selectedNodes[i] == id) {
                 selectedNodes.remove_at(i);
                 primaryNodeId = selectedNodes.empty() ? 0 : selectedNodes.back();
@@ -445,7 +443,7 @@ struct BpmnEditorPayload {
     const BpmnDiagram* diagramSnapshot{nullptr};
     const BpmnEditorState* stateSnapshot{nullptr};
     keel::StringRef activeEditBuffer{};
-    size_t activeEditCursor{0};
+    keel::usize activeEditCursor{0};
     bool cursorBlinkOn{true};
     float animPhase{0.0f};
 };
@@ -463,26 +461,26 @@ void DrawWrappedTextBox(
     FontStyle style = FontStyle::Regular,
     float alignX = 0.5f,
     float alignY = 0.5f,
-    size_t maxLines = 3
+    keel::usize maxLines = 3
 ) {
     if (text.empty() || color.a == 0 || bounds.w <= 4.0f || bounds.h <= 4.0f || maxLines == 0) return;
 
     keel::SmallArray<keel::SmallString<128>, 8> lines;
 
-    size_t pos = 0;
+    keel::usize pos = 0;
     while (pos <= text.size() && lines.size() < maxLines) {
-        const size_t nl = text.find('\n', pos);
+        const keel::usize nl = text.find('\n', pos);
         const keel::StringRef para = (nl == keel::kInvalidIndex)
             ? text.substr(pos)
             : text.substr(pos, nl - pos);
 
         // Word-wrap `para` into `bounds.w`
-        size_t wPos = 0;
+        keel::usize wPos = 0;
         keel::SmallString<128> currentLine;
         while (wPos < para.size() && lines.size() < maxLines) {
             while (wPos < para.size() && para[wPos] == ' ') ++wPos;
             if (wPos >= para.size()) break;
-            const size_t nextSpace = para.find(' ', wPos);
+            const keel::usize nextSpace = para.find(' ', wPos);
             const keel::StringRef word = (nextSpace == keel::kInvalidIndex)
                 ? para.substr(wPos)
                 : para.substr(wPos, nextSpace - wPos);
@@ -696,7 +694,7 @@ void SimplifyOrthogonalPoints(keel::SmallArray<Vec2, 32>& pts) {
     keel::SmallArray<Vec2, 32> out;
     out.reserve(pts.size());
     out.push_back(pts.front());
-    for (size_t i = 1; i < pts.size(); ++i) {
+    for (keel::usize i = 1; i < pts.size(); ++i) {
         if (std::hypot(pts[i].x - out.back().x, pts[i].y - out.back().y) > 0.8f) {
             out.push_back(pts[i]);
         }
@@ -708,7 +706,7 @@ void SimplifyOrthogonalPoints(keel::SmallArray<Vec2, 32>& pts) {
     keel::SmallArray<Vec2, 32> clean;
     clean.reserve(out.size());
     clean.push_back(out.front());
-    for (size_t i = 1; i + 1 < out.size(); ++i) {
+    for (keel::usize i = 1; i + 1 < out.size(); ++i) {
         const Vec2 a = clean.back();
         const Vec2 b = out[i];
         const Vec2 c = out[i + 1];
@@ -783,8 +781,8 @@ void SimplifyOrthogonalPoints(keel::SmallArray<Vec2, 32>& pts) {
         const float tangent = keel::clamp(dist * 0.42f, 28.0f, 150.0f);
         const Vec2 c0{p0.x + d0.x * tangent, p0.y + d0.y * tangent};
         const Vec2 c1{p1.x + d1.x * tangent, p1.y + d1.y * tangent};
-        constexpr int kSteps = 18;
-        for (int i = 1; i < kSteps; ++i) {
+        constexpr keel::i32 kSteps = 18;
+        for (keel::i32 i = 1; i < kSteps; ++i) {
             const float t = static_cast<float>(i) / static_cast<float>(kSteps);
             const float u = 1.0f - t;
             const float b0 = u * u * u;
@@ -935,7 +933,7 @@ void SimplifyOrthogonalPoints(keel::SmallArray<Vec2, 32>& pts) {
                     keel::max(srcBox.Right(), dstBox.Right()) + 16.0f,
                     keel::min(srcBox.x, dstBox.x) - 16.0f
                 };
-                for (int pass = 0; pass < 2 && !routed; ++pass) {
+                for (keel::i32 pass = 0; pass < 2 && !routed; ++pass) {
                     for (float dx : candX) {
                         if (isPathClear({s0, {dx, s0.y}, {dx, s1.y}, s1}, pass == 0)) {
                             pts.push_back({dx, s0.y});
@@ -973,7 +971,7 @@ void SimplifyOrthogonalPoints(keel::SmallArray<Vec2, 32>& pts) {
                 keel::max(srcBox.Right(), dstBox.Right()) + 18.0f,
                 keel::min(srcBox.x, dstBox.x) - 18.0f
             };
-            for (int pass = 0; pass < 2 && !routed; ++pass) {
+            for (keel::i32 pass = 0; pass < 2 && !routed; ++pass) {
                 for (float mx : candMidX) {
                     if ((mx - p1.x) * d1.x >= 10.0f &&
                         isPathClear({s0, {mx, s0.y}, {mx, p1.y}, s1}, pass == 0)) {
@@ -1009,7 +1007,7 @@ void SimplifyOrthogonalPoints(keel::SmallArray<Vec2, 32>& pts) {
                 srcBox.y - 14.0f,
                 keel::max(srcBox.Bottom(), dstBox.Bottom()) + 18.0f
             };
-            for (int pass = 0; pass < 2 && !routed; ++pass) {
+            for (keel::i32 pass = 0; pass < 2 && !routed; ++pass) {
                 for (float my : candMidY) {
                     if ((my - p1.y) * d1.y >= 10.0f &&
                         isPathClear({s0, {s0.x, my}, {p1.x, my}, s1}, pass == 0)) {
@@ -1040,7 +1038,7 @@ void SimplifyOrthogonalPoints(keel::SmallArray<Vec2, 32>& pts) {
     out.reserve(pts.size() * 4);
     out.push_back(pts.front());
 
-    for (size_t i = 1; i + 1 < pts.size(); ++i) {
+    for (keel::usize i = 1; i + 1 < pts.size(); ++i) {
         const Vec2 prev = pts[i - 1];
         const Vec2 curr = pts[i];
         const Vec2 next = pts[i + 1];
@@ -1066,8 +1064,8 @@ void SimplifyOrthogonalPoints(keel::SmallArray<Vec2, 32>& pts) {
         const Vec2 pExit{curr.x + u2.x * r, curr.y + u2.y * r};
 
         out.push_back(pEnter);
-        constexpr int kArcSteps = 4;
-        for (int s = 1; s < kArcSteps; ++s) {
+        constexpr keel::i32 kArcSteps = 4;
+        for (keel::i32 s = 1; s < kArcSteps; ++s) {
             const float t = static_cast<float>(s) / static_cast<float>(kArcSteps);
             const float omt = 1.0f - t;
             out.push_back({
@@ -1112,9 +1110,9 @@ void SimplifyOrthogonalPoints(keel::SmallArray<Vec2, 32>& pts) {
         return pts[0];
     }
     float totalLen = 0.0f;
-    size_t longestIdx = 0;
+    keel::usize longestIdx = 0;
     float longestSeg = -1.0f;
-    for (size_t i = 0; i + 1 < pts.size(); ++i) {
+    for (keel::usize i = 0; i + 1 < pts.size(); ++i) {
         const float seg = std::hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
         totalLen += seg;
         if (seg > longestSeg) {
@@ -1141,7 +1139,7 @@ void SimplifyOrthogonalPoints(keel::SmallArray<Vec2, 32>& pts) {
 
     const float targetDist = keel::clamp(progress, 0.0f, 1.0f) * totalLen;
     float accum = 0.0f;
-    for (size_t i = 0; i + 1 < pts.size(); ++i) {
+    for (keel::usize i = 0; i + 1 < pts.size(); ++i) {
         const float seg = std::hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
         if (accum + seg >= targetDist) {
             const float localT = (seg > 1e-4f) ? (targetDist - accum) / seg : 0.0f;
@@ -1178,8 +1176,8 @@ void DrawDashedLine(ICanvas& canvas, Vec2 a, Vec2 b, Color col, float width, flo
     }
 }
 
-void DrawDashedCircle(ICanvas& canvas, Vec2 center, float r, Color stroke, float strokeWidth, int segments = 16) {
-    for (int i = 0; i < segments; ++i) {
+void DrawDashedCircle(ICanvas& canvas, Vec2 center, float r, Color stroke, float strokeWidth, keel::i32 segments = 16) {
+    for (keel::i32 i = 0; i < segments; ++i) {
         const float a0 = (static_cast<float>(i) * 2.0f * kPi) / static_cast<float>(segments);
         const float a1 = ((static_cast<float>(i) + 0.58f) * 2.0f * kPi) / static_cast<float>(segments);
         canvas.DrawLine(
@@ -1248,7 +1246,7 @@ void DrawEventDefinitionSymbol(
                 strokeColor,
                 sw
             );
-            for (int i = 0; i < 4; ++i) {
+            for (keel::i32 i = 0; i < 4; ++i) {
                 const float ang = static_cast<float>(i) * (kPi * 0.5f);
                 canvas.DrawLine(
                     {center.x + std::cos(ang) * (cr * 0.72f), center.y + std::sin(ang) * (cr * 0.72f)},
@@ -1310,7 +1308,7 @@ void DrawEventDefinitionSymbol(
 }
 
 void DrawCogwheel(ICanvas& canvas, Vec2 c, float r, Color col, Color bgCol, float sw) {
-    for (int i = 0; i < 4; ++i) {
+    for (keel::i32 i = 0; i < 4; ++i) {
         const float ang = static_cast<float>(i) * (kPi * 0.25f);
         canvas.DrawLine(
             {c.x - std::cos(ang) * r, c.y - std::sin(ang) * r},
@@ -1368,7 +1366,7 @@ void DrawTaskTypeMarker(ICanvas& canvas, Rect iconRect, BpmnTaskType taskType, C
         case BpmnTaskType::Script: {
             const Rect sr(c.x - r * 0.72f, c.y - r * 0.85f, r * 1.44f, r * 1.70f);
             canvas.DrawRoundRect(sr, 2.5f * s, bgCol, col, sw);
-            for (int i = 0; i < 3; ++i) {
+            for (keel::i32 i = 0; i < 3; ++i) {
                 const float ly = sr.y + sr.h * (0.28f + static_cast<float>(i) * 0.22f);
                 canvas.DrawLine({sr.x + sr.w * 0.22f, ly}, {sr.Right() - sr.w * 0.22f, ly}, col, sw);
             }
@@ -1426,7 +1424,7 @@ void DrawGatewayMarker(ICanvas& canvas, Vec2 center, float halfSize, BpmnGateway
             canvas.DrawRoundRect(Rect(center.x - r1, center.y - r1, r1 * 2.0f, r1 * 2.0f), r1, Color(0, 0, 0, 0), col, swThin);
             canvas.DrawRoundRect(Rect(center.x - r2, center.y - r2, r2 * 2.0f, r2 * 2.0f), r2, Color(0, 0, 0, 0), col, swThin);
             const float pr = halfSize * 0.24f;
-            for (int i = 0; i < 5; ++i) {
+            for (keel::i32 i = 0; i < 5; ++i) {
                 const float a0 = -kPi * 0.5f + static_cast<float>(i) * (2.0f * kPi / 5.0f);
                 const float a1 = -kPi * 0.5f + static_cast<float>((i + 1) % 5) * (2.0f * kPi / 5.0f);
                 canvas.DrawLine(
@@ -1582,7 +1580,7 @@ void DrawNodeVisual(
     float animPhase,
     bool isLabelHovered = false,
     bool showResizeHandles = false,
-    int hoveredResizeCorner = -1
+    keel::i32 hoveredResizeCorner = -1
 ) {
     const float zs = keel::clamp(zoom, 0.35f, 2.2f) * s;
     const Vec2 center = sr.Center();
@@ -1751,7 +1749,7 @@ void DrawNodeVisual(
             } else if (node.parallelMultiInstance) {
                 const float mh = 9.0f * zs;
                 const float my = sr.Bottom() - mh - 4.0f * zs;
-                for (int i = -1; i <= 1; ++i) {
+                for (keel::i32 i = -1; i <= 1; ++i) {
                     const float mx = center.x + static_cast<float>(i) * 3.5f * zs;
                     canvas.DrawLine({mx, my}, {mx, my + mh}, strokeCol, keel::max(1.2f, 1.45f * zs));
                 }
@@ -1812,10 +1810,10 @@ void DrawNodeVisual(
             );
             if (showResizeHandles && IsResizableNode(node.type)) {
                 const auto handles = GetNodeResizeHandleRects(sr, zoom, s);
-                for (int c = 0; c < 4; ++c) {
+                for (keel::i32 c = 0; c < 4; ++c) {
                     const bool isCornerHov = (hoveredResizeCorner == c);
                     canvas.DrawRoundRect(
-                        handles[static_cast<size_t>(c)],
+                        handles[static_cast<keel::usize>(c)],
                         1.5f * s,
                         isCornerHov ? pal.selectAccent : pal.nodeFill,
                         pal.selectAccent,
@@ -1883,8 +1881,8 @@ void DrawEdgeVisual(
     bool isSelected,
     bool isHovered,
     bool isSimActiveBranch,
-    int hoveredSegIdx = -1,
-    int hoveredEndpoint = 0,
+    keel::i32 hoveredSegIdx = -1,
+    keel::i32 hoveredEndpoint = 0,
     bool isLabelHovered = false
 ) {
     if (rawScreenPts.size() < 2) return;
@@ -1911,12 +1909,12 @@ void DrawEdgeVisual(
         : rawScreenPts;
 
     if (isSelected) {
-        for (size_t i = 0; i + 1 < drawPts.size(); ++i) {
+        for (keel::usize i = 0; i + 1 < drawPts.size(); ++i) {
             canvas.DrawLine(drawPts[i], drawPts[i + 1], pal.selectGlow, sw + 4.5f * zs);
         }
     }
 
-    for (size_t i = 0; i + 1 < drawPts.size(); ++i) {
+    for (keel::usize i = 0; i + 1 < drawPts.size(); ++i) {
         const Vec2 a = drawPts[i];
         const Vec2 b = drawPts[i + 1];
         if (edge.flowType == BpmnFlowType::MessageFlow) {
@@ -1983,7 +1981,7 @@ void DrawEdgeVisual(
 
     // Interactive `bpmn-js` Segment Drag Handles (`ConnectionSegmentMove`) & Endpoint Reconnect Handles (`BendpointMove`)
     if ((isSelected || isHovered) && routingMode == BpmnRoutingMode::Orthogonal) {
-        for (size_t i = 0; i + 1 < rawScreenPts.size(); ++i) {
+        for (keel::usize i = 0; i + 1 < rawScreenPts.size(); ++i) {
             const Vec2 a = rawScreenPts[i];
             const Vec2 b = rawScreenPts[i + 1];
             const float segLen = std::hypot(b.x - a.x, b.y - a.y);
@@ -1992,7 +1990,7 @@ void DrawEdgeVisual(
             const Vec2 mid{(a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f};
             const float hw = isHoriz ? 7.0f * s : 3.2f * s;
             const float hh = isHoriz ? 3.2f * s : 7.0f * s;
-            const bool isSegHov = (hoveredSegIdx == static_cast<int>(i));
+            const bool isSegHov = (hoveredSegIdx == static_cast<keel::i32>(i));
             const Rect pillR(mid.x - hw, mid.y - hh, hw * 2.0f, hh * 2.0f);
             canvas.DrawRoundRect(
                 pillR,
@@ -2078,10 +2076,10 @@ inline constexpr keel::StaticArray<keel::StringRef, 8> kContextPadTooltips = {{
     "Remove element (Del)"
 }};
 
-[[nodiscard]] keel::ArrayRef<int> GetContextPadActionsForNode(const BpmnNode& node) noexcept {
-    static constexpr int kEndActions[] = {4, 5, 6, 7};
-    static constexpr int kArtifactActions[] = {4, 6, 7};
-    static constexpr int kDefaultActions[] = {0, 1, 2, 3, 4, 5, 6, 7};
+[[nodiscard]] keel::ArrayRef<keel::i32> GetContextPadActionsForNode(const BpmnNode& node) noexcept {
+    static constexpr keel::i32 kEndActions[] = {4, 5, 6, 7};
+    static constexpr keel::i32 kArtifactActions[] = {4, 6, 7};
+    static constexpr keel::i32 kDefaultActions[] = {0, 1, 2, 3, 4, 5, 6, 7};
     switch (node.type) {
         case BpmnNodeType::EndEvent:
             // In BPMN 2.0, EndEvent cannot have outgoing SequenceFlow
@@ -2096,7 +2094,7 @@ inline constexpr keel::StaticArray<keel::StringRef, 8> kContextPadTooltips = {{
     }
 }
 
-void DrawContextPadButtonIcon(ICanvas& canvas, Rect r, int btnIdx, Color col, const BpmnPalette& pal, float s) {
+void DrawContextPadButtonIcon(ICanvas& canvas, Rect r, keel::i32 btnIdx, Color col, const BpmnPalette& pal, float s) {
     const Vec2 c = r.Center();
     const float sw = keel::max(1.25f, 1.45f * s);
     switch (btnIdx) {
@@ -2176,7 +2174,7 @@ void DrawPaletteButtonIcon(ICanvas& canvas, Rect r, BpmnTool tool, Color col, co
         case BpmnTool::Hand: {
             const Rect palm(c.x - 5.0f * s, c.y - 2.0f * s, 10.0f * s, 8.0f * s);
             canvas.DrawRoundRect(palm, 2.5f * s, Color(0, 0, 0, 0), col, sw);
-            for (int i = -1; i <= 1; ++i) {
+            for (keel::i32 i = -1; i <= 1; ++i) {
                 const float fx = c.x + static_cast<float>(i) * 3.0f * s;
                 canvas.DrawLine({fx, c.y - 6.5f * s}, {fx, c.y - 2.0f * s}, col, sw);
             }
@@ -2303,7 +2301,7 @@ void SpawnTokenFromStartEvent(BpmnDiagram& diagram, const BpmnNode& startNode, B
         Color(168, 85, 247, 255),
         Color(244, 63, 94, 255)
     }};
-    const uint32_t instId = state.nextInstanceId++;
+    const keel::u32 instId = state.nextInstanceId++;
     const Color col = kTokenColors[(instId - 1) % kTokenColors.size()];
     if (BpmnNode* mutStart = diagram.FindNode(startNode.id)) {
         mutStart->tokenExecutionCount++;
@@ -2342,9 +2340,9 @@ void StepTokenSimulation(BpmnDiagram& diagram, BpmnEditorState& state, float dtS
     for (auto& n : diagram.nodes) n.activeTokensInside = 0;
 
     keel::SmallArray<BpmnToken, 32> spawnedNext{};
-    keel::SmallArray<size_t, 32> removeIndices{};
+    keel::SmallArray<keel::usize, 32> removeIndices{};
 
-    for (size_t i = 0; i < diagram.tokens.size(); ++i) {
+    for (keel::usize i = 0; i < diagram.tokens.size(); ++i) {
         BpmnToken& tok = diagram.tokens[i];
         if (tok.edgeId != 0) {
             tok.progress += dt * 0.95f;
@@ -2357,8 +2355,8 @@ void StepTokenSimulation(BpmnDiagram& diagram, BpmnEditorState& state, float dtS
                 if (target->type == BpmnNodeType::EndEvent) {
                     target->tokenExecutionCount++;
                     if (target->eventDef == BpmnEventDefinition::Terminate) {
-                        const uint32_t termInst = tok.instanceId;
-                        for (size_t k = 0; k < diagram.tokens.size(); ++k) {
+                        const keel::u32 termInst = tok.instanceId;
+                        for (keel::usize k = 0; k < diagram.tokens.size(); ++k) {
                             if (diagram.tokens[k].instanceId == termInst) {
                                 removeIndices.push_back(k);
                             }
@@ -2436,8 +2434,8 @@ void StepTokenSimulation(BpmnDiagram& diagram, BpmnEditorState& state, float dtS
 
     if (!removeIndices.empty()) {
         keel::sort(removeIndices.as_mut_ref());
-        for (size_t k = removeIndices.size(); k > 0; --k) {
-            const size_t remIdx = removeIndices[k - 1];
+        for (keel::usize k = removeIndices.size(); k > 0; --k) {
+            const keel::usize remIdx = removeIndices[k - 1];
             if (k < removeIndices.size() && remIdx == removeIndices[k]) {
                 continue;
             }
@@ -2496,13 +2494,13 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
             const Vec2 wBR = ScreenToWorld({viewRect.Right(), viewRect.Bottom()}, viewRect, pan, zoom);
             const float startX = std::floor(wTL.x / opts.gridStep) * opts.gridStep;
             const float startY = std::floor(wTL.y / opts.gridStep) * opts.gridStep;
-            const int maxCols = static_cast<int>((wBR.x - startX) / opts.gridStep) + 2;
-            const int maxRows = static_cast<int>((wBR.y - startY) / opts.gridStep) + 2;
+            const keel::i32 maxCols = static_cast<keel::i32>((wBR.x - startX) / opts.gridStep) + 2;
+            const keel::i32 maxRows = static_cast<keel::i32>((wBR.y - startY) / opts.gridStep) + 2;
             if (maxCols * maxRows <= 6500) {
-                for (int r = 0; r < maxRows; ++r) {
+                for (keel::i32 r = 0; r < maxRows; ++r) {
                     const float wy = startY + static_cast<float>(r) * opts.gridStep;
                     const float sy = viewRect.y + pan.y + wy * zoom;
-                    for (int c = 0; c < maxCols; ++c) {
+                    for (keel::i32 c = 0; c < maxCols; ++c) {
                         const float wx = startX + static_cast<float>(c) * opts.gridStep;
                         const float sx = viewRect.x + pan.x + wx * zoom;
                         canvas.DrawRect(Rect(sx - 0.8f * s, sy - 0.8f * s, 1.6f * s, 1.6f * s), pal.gridDot);
@@ -2517,7 +2515,7 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
     const float laneStripW = keel::clamp(28.0f * zs, 18.0f * s, 36.0f * s);
 
     // Draw individual lane bands and vertical lane headers first
-    for (size_t i = 0; i < diagram.lanes.size(); ++i) {
+    for (keel::usize i = 0; i < diagram.lanes.size(); ++i) {
         const BpmnLane& lane = diagram.lanes[i];
         const Rect sr = WorldToScreenRect(lane.rect, viewRect, pan, zoom);
         if (sr.Right() < viewRect.x || sr.x > viewRect.Right() || sr.Bottom() < viewRect.y || sr.y > viewRect.Bottom()) {
@@ -2550,10 +2548,10 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
     }
 
     // Draw unified outer Participant Pool vertical header strip for contiguous lanes sharing `poolName`
-    size_t groupStart = 0;
+    keel::usize groupStart = 0;
     while (groupStart < diagram.lanes.size()) {
         const keel::StringRef pName = diagram.lanes[groupStart].poolName;
-        size_t groupEnd = groupStart + 1;
+        keel::usize groupEnd = groupStart + 1;
         Rect unionWorld = diagram.lanes[groupStart].rect;
         while (groupEnd < diagram.lanes.size() && diagram.lanes[groupEnd].poolName == pName) {
             unionWorld = unionWorld.Union(diagram.lanes[groupEnd].rect);
@@ -2637,11 +2635,11 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
     }
 
     // 5. Nodes (`BpmnNode`) - Pass 0: Expanded SubProcess containers, Pass 1: Standard nodes, Pass 2: BoundaryEvents
-    for (int pass = 0; pass < 3; ++pass) {
+    for (keel::i32 pass = 0; pass < 3; ++pass) {
         for (const auto& n : diagram.nodes) {
             const bool isBoundary = (n.type == BpmnNodeType::BoundaryEvent);
             const bool isExpSub = (n.type == BpmnNodeType::SubProcess && n.isExpanded);
-            const int nodePass = isExpSub ? 0 : (isBoundary ? 2 : 1);
+            const keel::i32 nodePass = isExpSub ? 0 : (isBoundary ? 2 : 1);
             if (nodePass != pass) continue;
 
             const Rect sr = WorldToScreenRect(n.Bounds(), viewRect, pan, zoom);
@@ -2787,9 +2785,9 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
     if (opts.showContextPad && !opts.readOnly && !opts.tokenSimulation && state.editingNodeId == 0 && state.editingEdgeId == 0) {
         if (state.primaryNodeId != 0 && state.selectedNodes.size() <= 1) {
             if (const BpmnNode* selNode = diagram.FindNode(state.primaryNodeId)) {
-                const keel::ArrayRef<int> actions = GetContextPadActionsForNode(*selNode);
-                const int cols = keel::min(4, static_cast<int>(actions.size()));
-                const int rows = (static_cast<int>(actions.size()) + 3) / 4;
+                const keel::ArrayRef<keel::i32> actions = GetContextPadActionsForNode(*selNode);
+                const keel::i32 cols = keel::min(4, static_cast<keel::i32>(actions.size()));
+                const keel::i32 rows = (static_cast<keel::i32>(actions.size()) + 3) / 4;
                 const Rect nsr = WorldToScreenRect(selNode->Bounds(), viewRect, pan, zoom);
                 const float btnS = 26.0f * s;
                 const float gap = 4.0f * s;
@@ -2800,10 +2798,10 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
                 const Rect padFrame(padX - 4.0f * s, padY - 4.0f * s, padW, padH);
                 canvas.DrawRoundRect(padFrame, 6.0f * s, pal.hudBg, pal.hudBorder, 1.2f * s);
 
-                for (size_t slot = 0; slot < actions.size(); ++slot) {
-                    const int actIdx = actions[slot];
-                    const int row = static_cast<int>(slot) / 4;
-                    const int col = static_cast<int>(slot) % 4;
+                for (keel::usize slot = 0; slot < actions.size(); ++slot) {
+                    const keel::i32 actIdx = actions[slot];
+                    const keel::i32 row = static_cast<keel::i32>(slot) / 4;
+                    const keel::i32 col = static_cast<keel::i32>(slot) % 4;
                     const Rect br(padX + static_cast<float>(col) * (btnS + gap), padY + static_cast<float>(row) * (btnS + gap), btnS, btnS);
                     const bool isActiveBtn = (actIdx == 5 && state.replaceMenuOpen);
                     const bool isHovBtn = (state.hoveredContextPadBtn == actIdx);
@@ -2819,7 +2817,7 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
 
                 // Floating tooltip for hovered Context Pad button
                 if (state.hoveredContextPadBtn >= 0 && state.hoveredContextPadBtn < 8 && !state.replaceMenuOpen) {
-                    const keel::StringRef tip = kContextPadTooltips[static_cast<size_t>(state.hoveredContextPadBtn)];
+                    const keel::StringRef tip = kContextPadTooltips[static_cast<keel::usize>(state.hoveredContextPadBtn)];
                     const float tfs = 10.0f * s;
                     const Vec2 tm = canvas.MeasureText(tip, tfs);
                     const Rect tipRect(padFrame.x, padFrame.y - tm.y - 10.0f * s, tm.x + 12.0f * s, tm.y + 6.0f * s);
@@ -2829,7 +2827,7 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
 
                 if (state.replaceMenuOpen) {
                     keel::StaticArray<keel::StringRef, 8> items{};
-                    size_t itemCount = 0;
+                    keel::usize itemCount = 0;
                     if (selNode->type == BpmnNodeType::Task || selNode->type == BpmnNodeType::SubProcess) {
                         items = {
                             "User Task", "Service Task", "Send Task", "Receive Task",
@@ -2850,9 +2848,9 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
                     canvas.DrawText("CHANGE ELEMENT TYPE", {popRect.x + 10.0f * s, popRect.y + 7.0f * s}, 9.5f * s, pal.selectAccent);
                     canvas.DrawLine({popRect.x + 6.0f * s, popRect.y + 23.0f * s}, {popRect.Right() - 6.0f * s, popRect.y + 23.0f * s}, pal.hudBorder, 1.0f * s);
 
-                    for (size_t k = 0; k < itemCount; ++k) {
+                    for (keel::usize k = 0; k < itemCount; ++k) {
                         const Rect ir(popRect.x + 6.0f * s, popRect.y + 27.0f * s + static_cast<float>(k) * rowH, popRect.w - 12.0f * s, rowH - 2.0f * s);
-                        const bool isRowHov = (state.hoveredReplaceMenuItem == static_cast<int>(k));
+                        const bool isRowHov = (state.hoveredReplaceMenuItem == static_cast<keel::i32>(k));
                         canvas.DrawRoundRect(ir, 4.0f * s, isRowHov ? pal.hudActiveBg : pal.hudHover);
 
                         const Rect iconBox(ir.x + 5.0f * s, ir.y + 3.0f * s, 16.0f * s, 16.0f * s);
@@ -2889,10 +2887,10 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
                     canvas.DrawRoundRect(bar, 5.0f * s, pal.hudBg, pal.selectAccent, 1.2f * s);
                     static constexpr keel::StaticArray<keel::StringRef, 6> kEdgeActions = {"Seq", "Def \\", "Cond", "Msg", "Auto", "Del"};
                     const float bw = (bar.w - 8.0f * s) / 6.0f;
-                    for (int i = 0; i < 6; ++i) {
+                    for (keel::i32 i = 0; i < 6; ++i) {
                         const Rect br(bar.x + 4.0f * s + static_cast<float>(i) * bw, bar.y + 3.0f * s, bw - 2.0f * s, bar.h - 6.0f * s);
                         canvas.DrawRoundRect(br, 3.0f * s, (i == 5) ? pal.endEventFill : pal.hudHover);
-                        canvas.DrawTextBox(kEdgeActions[static_cast<size_t>(i)], br, 8.6f * s, (i == 5) ? pal.endEventStroke : pal.textPrimary, 0.5f, 0.5f);
+                        canvas.DrawTextBox(kEdgeActions[static_cast<keel::usize>(i)], br, 8.6f * s, (i == 5) ? pal.endEventStroke : pal.textPrimary, 0.5f, 0.5f);
                     }
                 }
             }
@@ -2903,10 +2901,10 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
                 canvas.DrawRoundRect(bar, 5.0f * s, pal.hudBg, pal.selectAccent, 1.2f * s);
                 static constexpr keel::StaticArray<keel::StringRef, 4> kLaneActions = {"+Above", "+Below", "Split /2", "Del Lane"};
                 const float bw = (bar.w - 8.0f * s) / 4.0f;
-                for (int i = 0; i < 4; ++i) {
+                for (keel::i32 i = 0; i < 4; ++i) {
                     const Rect br(bar.x + 4.0f * s + static_cast<float>(i) * bw, bar.y + 3.0f * s, bw - 2.0f * s, bar.h - 6.0f * s);
                     canvas.DrawRoundRect(br, 3.0f * s, (i == 3) ? pal.endEventFill : pal.hudHover);
-                    canvas.DrawTextBox(kLaneActions[static_cast<size_t>(i)], br, 9.0f * s, (i == 3) ? pal.endEventStroke : pal.textPrimary, 0.5f, 0.5f);
+                    canvas.DrawTextBox(kLaneActions[static_cast<keel::usize>(i)], br, 9.0f * s, (i == 3) ? pal.endEventStroke : pal.textPrimary, 0.5f, 0.5f);
                 }
             }
         }
@@ -2946,12 +2944,12 @@ void RenderBpmnEditorNode(const Node* node, ICanvas& canvas, const UiTheme& them
         canvas.DrawRoundRect(palRect, 7.0f * s, pal.hudBg, pal.hudBorder, 1.2f * s);
         float cy = palRect.y + 5.0f * s;
         const float btnH = 25.0f * s;
-        for (size_t idx = 0; idx < kPaletteItems.size(); ++idx) {
+        for (keel::usize idx = 0; idx < kPaletteItems.size(); ++idx) {
             const auto& item = kPaletteItems[idx];
             if (cy + btnH > palRect.Bottom() - 2.0f * s) break;
             const Rect br(palRect.x + 4.0f * s, cy, palRect.w - 8.0f * s, btnH);
             const bool isActive = (state.activeTool == item.tool);
-            const bool isHov = (state.hoveredPaletteIdx == static_cast<int>(idx));
+            const bool isHov = (state.hoveredPaletteIdx == static_cast<keel::i32>(idx));
             if (isActive || isHov) {
                 canvas.DrawRoundRect(br, 4.0f * s, isActive ? pal.hudActiveBg : pal.hudHover, isActive ? pal.selectAccent : pal.hudBorder, 1.1f * s);
             }
@@ -3161,7 +3159,7 @@ BpmnEditorResponse BpmnEditor::Run(
     const Rect viewRect = prevBounds;
     resp.canvasRect = viewRect;
 
-    const uint32_t firstNodeId = diagram.nodes.empty() ? 0 : diagram.nodes.front().id;
+    const keel::u32 firstNodeId = diagram.nodes.empty() ? 0 : diagram.nodes.front().id;
     if ((!state.initialized || state.lastDiagramNodeCount != diagram.nodes.size() || state.lastFirstNodeId != firstNodeId) &&
         viewRect.w > 100.0f && viewRect.h > 100.0f) {
         if (!state.initialized || state.lastFirstNodeId != firstNodeId) {
@@ -3175,7 +3173,7 @@ BpmnEditorResponse BpmnEditor::Run(
     for (auto& n : diagram.nodes) {
         if (n.type == BpmnNodeType::Gateway && n.gatewayType == BpmnGatewayType::Exclusive) {
             bool valid = false;
-            uint32_t firstOut = 0;
+            keel::u32 firstOut = 0;
             for (const auto& e : diagram.edges) {
                 if (e.fromNodeId == n.id && e.flowType != BpmnFlowType::Association) {
                     if (firstOut == 0) firstOut = e.id;
@@ -3202,7 +3200,7 @@ BpmnEditorResponse BpmnEditor::Run(
     }
 
     keel::SmallString<256> activeEditStr{};
-    size_t activeEditCursor = 0;
+    keel::usize activeEditCursor = 0;
     const Id editId = Id(id.value ^ 0x9E3779B97F4A7C15ULL);
     if (state.editingNodeId != 0 || state.editingEdgeId != 0 || state.editingLaneId != 0) {
         keel::StringRef initialText{};
@@ -3315,11 +3313,11 @@ BpmnEditorResponse BpmnEditor::Run(
             if (palRect.Contains(mouse)) {
                 float cy = palRect.y + 5.0f * s;
                 const float btnH = 25.0f * s;
-                for (size_t i = 0; i < kPaletteItems.size(); ++i) {
+                for (keel::usize i = 0; i < kPaletteItems.size(); ++i) {
                     const auto& item = kPaletteItems[i];
                     const Rect br(palRect.x + 4.0f * s, cy, palRect.w - 8.0f * s, btnH);
                     if (br.Contains(mouse)) {
-                        state.hoveredPaletteIdx = static_cast<int>(i);
+                        state.hoveredPaletteIdx = static_cast<keel::i32>(i);
                         if (!hudConsumedClick && lmbClicked) {
                             hudConsumedClick = true;
                             state.activeTool = item.tool;
@@ -3397,8 +3395,8 @@ BpmnEditorResponse BpmnEditor::Run(
                 if (BpmnNode* selNode = diagram.FindNode(state.primaryNodeId)) {
                     const Rect nsr = WorldToScreenRect(selNode->Bounds(), viewRect, state.pan, state.zoom);
                     const auto padActions = GetContextPadActionsForNode(*selNode);
-                    const int numCols = keel::min(4, static_cast<int>(padActions.size()));
-                    const int numRows = (static_cast<int>(padActions.size()) + 3) / 4;
+                    const keel::i32 numCols = keel::min(4, static_cast<keel::i32>(padActions.size()));
+                    const keel::i32 numRows = (static_cast<keel::i32>(padActions.size()) + 3) / 4;
                     const float padX = keel::min(viewRect.Right() - 156.0f * s, nsr.Right() + 10.0f * s);
                     const float padY = keel::clamp(nsr.y - 4.0f * s, viewRect.y + 48.0f * s, viewRect.Bottom() - 100.0f * s);
                     const float btnS = 26.0f * s;
@@ -3414,8 +3412,8 @@ BpmnEditorResponse BpmnEditor::Run(
                         const Rect popRect(padFrame.x, padFrame.Bottom() + 6.0f * s, 210.0f * s, 224.0f * s);
                         if (popRect.Contains(mouse)) {
                             const float rowH = 23.0f * s;
-                            const int idx = static_cast<int>((mouse.y - (popRect.y + 27.0f * s)) / rowH);
-                            const int maxItems = (selNode->type == BpmnNodeType::Task || selNode->type == BpmnNodeType::SubProcess) ? 8
+                            const keel::i32 idx = static_cast<keel::i32>((mouse.y - (popRect.y + 27.0f * s)) / rowH);
+                            const keel::i32 maxItems = (selNode->type == BpmnNodeType::Task || selNode->type == BpmnNodeType::SubProcess) ? 8
                                                : (selNode->type == BpmnNodeType::Gateway ? 4 : 7);
                             if (idx >= 0 && idx < maxItems) {
                                 state.hoveredReplaceMenuItem = idx;
@@ -3445,7 +3443,7 @@ BpmnEditorResponse BpmnEditor::Run(
                                                     BpmnTaskType::User, BpmnTaskType::Service, BpmnTaskType::Send,
                                                     BpmnTaskType::Receive, BpmnTaskType::Script, BpmnTaskType::BusinessRule
                                                 };
-                                                mutNode->taskType = kTaskTypes[static_cast<size_t>(idx)];
+                                                mutNode->taskType = kTaskTypes[static_cast<keel::usize>(idx)];
                                             }
                                             diagram.SyncBoundaryEvents();
                                         } else if (mutNode->type == BpmnNodeType::Gateway && idx < 4) {
@@ -3464,20 +3462,20 @@ BpmnEditorResponse BpmnEditor::Run(
                     }
 
                     if (padFrame.Contains(mouse)) {
-                        for (size_t idx = 0; idx < padActions.size(); ++idx) {
-                            const int actionId = padActions[idx];
-                            const int row = static_cast<int>(idx) / 4;
-                            const int col = static_cast<int>(idx) % 4;
+                        for (keel::usize idx = 0; idx < padActions.size(); ++idx) {
+                            const keel::i32 actionId = padActions[idx];
+                            const keel::i32 row = static_cast<keel::i32>(idx) / 4;
+                            const keel::i32 col = static_cast<keel::i32>(idx) % 4;
                             const Rect br(padX + static_cast<float>(col) * (btnS + gap), padY + static_cast<float>(row) * (btnS + gap), btnS, btnS);
                             if (!br.Contains(mouse)) continue;
                             state.hoveredContextPadBtn = actionId;
                             if (!hudConsumedClick && lmbClicked) {
                                 hudConsumedClick = true;
-                                const uint32_t srcId = selNode->id;
+                                const keel::u32 srcId = selNode->id;
                                 const Vec2 srcPos = selNode->pos;
                                 const Vec2 srcSize = selNode->size;
                                 const Vec2 srcCenter = selNode->Center();
-                                const uint32_t srcLane = selNode->laneId;
+                                const keel::u32 srcLane = selNode->laneId;
 
                                 auto appendQuickNode = [&](BpmnNodeType newType, keel::StringRef label, BpmnFlowType flow) {
                                     state.PushUndo(diagram);
@@ -3496,7 +3494,7 @@ BpmnEditorResponse BpmnEditor::Run(
                                     }
                                     nn.laneId = srcLane;
                                     if (newType == BpmnNodeType::IntermediateEvent) nn.eventDef = BpmnEventDefinition::Timer;
-                                    const uint32_t newId = diagram.AddNode(keel::move(nn));
+                                    const keel::u32 newId = diagram.AddNode(keel::move(nn));
                                     diagram.AddEdge(srcId, newId, flow);
                                     state.SelectSingleNode(newId);
                                     resp.changed = true;
@@ -3543,7 +3541,7 @@ BpmnEditorResponse BpmnEditor::Run(
                         if (bar.Contains(mouse)) {
                             hudConsumedClick = true;
                             const float bw = (bar.w - 8.0f * s) / 6.0f;
-                            const int idx = keel::clamp(static_cast<int>((mouse.x - (bar.x + 4.0f * s)) / bw), 0, 5);
+                            const keel::i32 idx = keel::clamp(static_cast<keel::i32>((mouse.x - (bar.x + 4.0f * s)) / bw), 0, 5);
                             state.PushUndo(diagram);
                             if (idx == 0) selEdge->flowType = BpmnFlowType::SequenceFlow;
                             else if (idx == 1) selEdge->flowType = BpmnFlowType::DefaultFlow;
@@ -3569,15 +3567,15 @@ BpmnEditorResponse BpmnEditor::Run(
                     if (bar.Contains(mouse)) {
                         hudConsumedClick = true;
                         const float bw = (bar.w - 8.0f * s) / 4.0f;
-                        const int idx = keel::clamp(static_cast<int>((mouse.x - (bar.x + 4.0f * s)) / bw), 0, 3);
+                        const keel::i32 idx = keel::clamp(static_cast<keel::i32>((mouse.x - (bar.x + 4.0f * s)) / bw), 0, 3);
                         state.PushUndo(diagram);
                         const Rect curR = selLane->rect;
                         const auto poolName = selLane->poolName;
                         if (idx == 0) {
-                            const uint32_t newId = diagram.AddLane(poolName, "Upper Lane", Rect(curR.x, curR.y - 180.0f, curR.w, 180.0f));
+                            const keel::u32 newId = diagram.AddLane(poolName, "Upper Lane", Rect(curR.x, curR.y - 180.0f, curR.w, 180.0f));
                             state.selectedLaneId = newId;
                         } else if (idx == 1) {
-                            const uint32_t newId = diagram.AddLane(poolName, "Lower Lane", Rect(curR.x, curR.Bottom(), curR.w, 180.0f));
+                            const keel::u32 newId = diagram.AddLane(poolName, "Lower Lane", Rect(curR.x, curR.Bottom(), curR.w, 180.0f));
                             state.selectedLaneId = newId;
                         } else if (idx == 2 && curR.h >= 140.0f) {
                             const float halfH = curR.h * 0.5f;
@@ -3631,8 +3629,8 @@ BpmnEditorResponse BpmnEditor::Run(
                     if (IsResizableNode(selNode->type)) {
                         const Rect nsr = WorldToScreenRect(selNode->Bounds(), viewRect, state.pan, state.zoom);
                         const auto corners = GetNodeResizeHandleRects(nsr, state.zoom, s);
-                        for (int c = 0; c < 4; ++c) {
-                            const Rect& cr = corners[static_cast<size_t>(c)];
+                        for (keel::i32 c = 0; c < 4; ++c) {
+                            const Rect& cr = corners[static_cast<keel::usize>(c)];
                             const Rect hitR(cr.x - 3.0f * s, cr.y - 3.0f * s, cr.w + 6.0f * s, cr.h + 6.0f * s);
                             if (hitR.Contains(mouse)) {
                                 state.hoveredResizeCorner = c;
@@ -3662,12 +3660,12 @@ BpmnEditorResponse BpmnEditor::Run(
                                 state.hoveredEdgeId = selEdge->id;
                             } else if (effOpts.routingMode == BpmnRoutingMode::Orthogonal) {
                                 const float segTolSq = (7.0f * s) * (7.0f * s);
-                                for (size_t i = 0; i + 1 < wpts.size(); ++i) {
+                                for (keel::usize i = 0; i + 1 < wpts.size(); ++i) {
                                     const Vec2 sp0 = WorldToScreen(wpts[i], viewRect, state.pan, state.zoom);
                                     const Vec2 sp1 = WorldToScreen(wpts[i + 1], viewRect, state.pan, state.zoom);
                                     const float segLen = std::hypot(sp1.x - sp0.x, sp1.y - sp0.y);
                                     if (segLen >= 18.0f * s && PointToSegmentDistanceSq(mouse, sp0, sp1) <= segTolSq) {
-                                        state.hoveredEdgeSegIdx = static_cast<int>(i);
+                                        state.hoveredEdgeSegIdx = static_cast<keel::i32>(i);
                                         state.hoveredEdgeId = selEdge->id;
                                         break;
                                     }
@@ -3680,7 +3678,7 @@ BpmnEditorResponse BpmnEditor::Run(
 
             // G3. Check External Labels (Events, Gateways, DataObjects, DataStores, and Edges)
             if (state.hoveredResizeCorner < 0 && state.hoveredEdgeEndpoint == 0 && state.hoveredEdgeSegIdx < 0) {
-                for (size_t revIdx = diagram.nodes.size(); revIdx > 0; --revIdx) {
+                for (keel::usize revIdx = diagram.nodes.size(); revIdx > 0; --revIdx) {
                     const auto& nd = diagram.nodes[revIdx - 1];
                     if (!IsExternalLabelNode(nd.type) || nd.label.empty()) continue;
                     const Rect nsr = WorldToScreenRect(nd.Bounds(), viewRect, state.pan, state.zoom);
@@ -3692,7 +3690,7 @@ BpmnEditorResponse BpmnEditor::Run(
                     }
                 }
                 if (state.hoveredLabelNodeId == 0) {
-                    for (size_t revIdx = diagram.edges.size(); revIdx > 0; --revIdx) {
+                    for (keel::usize revIdx = diagram.edges.size(); revIdx > 0; --revIdx) {
                         const auto& ed = diagram.edges[revIdx - 1];
                         if (ed.label.empty()) continue;
                         const BpmnNode* fn = diagram.FindNode(ed.fromNodeId);
@@ -3715,8 +3713,8 @@ BpmnEditorResponse BpmnEditor::Run(
             // G4. Check Node Bounds (Pass 0: BoundaryEvents, Pass 1: Standard Nodes, Pass 2: Expanded SubProcess Containers)
             if (state.hoveredResizeCorner < 0 && state.hoveredEdgeEndpoint == 0 && state.hoveredEdgeSegIdx < 0 &&
                 state.hoveredLabelNodeId == 0 && state.hoveredLabelEdgeId == 0) {
-                for (int pass = 0; pass < 3 && state.hoveredNodeId == 0; ++pass) {
-                    for (size_t revIdx = diagram.nodes.size(); revIdx > 0; --revIdx) {
+                for (keel::i32 pass = 0; pass < 3 && state.hoveredNodeId == 0; ++pass) {
+                    for (keel::usize revIdx = diagram.nodes.size(); revIdx > 0; --revIdx) {
                         const auto& nd = diagram.nodes[revIdx - 1];
                         const bool isBoundary = (nd.type == BpmnNodeType::BoundaryEvent);
                         const bool isExpandedSub = (nd.type == BpmnNodeType::SubProcess && nd.isExpanded);
@@ -3751,7 +3749,7 @@ BpmnEditorResponse BpmnEditor::Run(
                     const BpmnNode* tn = diagram.FindNode(edge.toNodeId);
                     if (!fn || !tn) continue;
                     const auto wpts = BuildEdgeWorldPoints(diagram, *fn, *tn, edge, effOpts.routingMode);
-                    for (size_t i = 0; i + 1 < wpts.size(); ++i) {
+                    for (keel::usize i = 0; i + 1 < wpts.size(); ++i) {
                         if (PointToSegmentDistanceSq(wp, wpts[i], wpts[i + 1]) <= tolSq) {
                             state.hoveredEdgeId = edge.id;
                             break;
@@ -3761,7 +3759,7 @@ BpmnEditorResponse BpmnEditor::Run(
                 }
             }
 
-            for (size_t revIdx = diagram.lanes.size(); revIdx > 0; --revIdx) {
+            for (keel::usize revIdx = diagram.lanes.size(); revIdx > 0; --revIdx) {
                 const auto& ln = diagram.lanes[revIdx - 1];
                 if (ln.rect.Contains(wp)) {
                     state.hoveredLaneId = ln.id;
@@ -3838,15 +3836,15 @@ BpmnEditorResponse BpmnEditor::Run(
                         break;
                     }
                 } else if (n.type == BpmnNodeType::Gateway && n.gatewayType == BpmnGatewayType::Exclusive && sr.Contains(mouse)) {
-                    keel::SmallArray<uint32_t, 8> outIds;
+                    keel::SmallArray<keel::u32, 8> outIds;
                     for (const auto& e : diagram.edges) {
                         if (e.fromNodeId == n.id && e.flowType != BpmnFlowType::Association) {
                             outIds.push_back(e.id);
                         }
                     }
                     if (!outIds.empty()) {
-                        size_t curIdx = outIds.size();
-                        for (size_t oi = 0; oi < outIds.size(); ++oi) {
+                        keel::usize curIdx = outIds.size();
+                        for (keel::usize oi = 0; oi < outIds.size(); ++oi) {
                             if (outIds[oi] == n.activeOutgoingEdgeId) {
                                 curIdx = oi;
                                 break;
@@ -3922,7 +3920,7 @@ BpmnEditorResponse BpmnEditor::Run(
                     newY = diagram.lanes.back().rect.Bottom();
                     newW = diagram.lanes.back().rect.w;
                 }
-                const uint32_t lid = diagram.AddLane("Order Fulfillment Pool", "New Swimlane", Rect(newX, newY, newW, 190.0f));
+                const keel::u32 lid = diagram.AddLane("Order Fulfillment Pool", "New Swimlane", Rect(newX, newY, newW, 190.0f));
                 state.ClearSelection();
                 state.selectedLaneId = lid;
             } else {
@@ -3956,7 +3954,7 @@ BpmnEditorResponse BpmnEditor::Run(
                 nn.size = BpmnDiagram::DefaultNodeSize(nn.type);
                 nn.pos = state.ghostSnappedPos;
                 nn.laneId = state.hoveredLaneId;
-                const uint32_t newId = diagram.AddNode(keel::move(nn));
+                const keel::u32 newId = diagram.AddNode(keel::move(nn));
                 state.SelectSingleNode(newId);
             }
             state.activeTool = BpmnTool::Select;
@@ -4019,9 +4017,9 @@ BpmnEditorResponse BpmnEditor::Run(
                         state.PushUndo(diagram);
                         const auto fullPts = BuildEdgeWorldPoints(diagram, *fn, *tn, *se, effOpts.routingMode);
                         if (fullPts.size() >= 2) {
-                            int segIdx = state.hoveredEdgeSegIdx;
-                            const bool isHoriz = std::abs(fullPts[static_cast<size_t>(segIdx) + 1].y - fullPts[static_cast<size_t>(segIdx)].y) <=
-                                                 std::abs(fullPts[static_cast<size_t>(segIdx) + 1].x - fullPts[static_cast<size_t>(segIdx)].x);
+                            keel::i32 segIdx = state.hoveredEdgeSegIdx;
+                            const bool isHoriz = std::abs(fullPts[static_cast<keel::usize>(segIdx) + 1].y - fullPts[static_cast<keel::usize>(segIdx)].y) <=
+                                                 std::abs(fullPts[static_cast<keel::usize>(segIdx) + 1].x - fullPts[static_cast<keel::usize>(segIdx)].x);
                             keel::Array<Vec2> inner;
                             if (fullPts.size() <= 2) {
                                 const Vec2 mid{(fullPts.front().x + fullPts.back().x) * 0.5f, (fullPts.front().y + fullPts.back().y) * 0.5f};
@@ -4033,10 +4031,10 @@ BpmnEditorResponse BpmnEditor::Run(
                                     inner.push_back(fullPts[1]);
                                     segIdx = 1;
                                 }
-                                for (size_t k = 1; k + 1 < fullPts.size(); ++k) inner.push_back(fullPts[k]);
-                                if (state.hoveredEdgeSegIdx >= static_cast<int>(fullPts.size()) - 2) {
+                                for (keel::usize k = 1; k + 1 < fullPts.size(); ++k) inner.push_back(fullPts[k]);
+                                if (state.hoveredEdgeSegIdx >= static_cast<keel::i32>(fullPts.size()) - 2) {
                                     inner.push_back(inner.back());
-                                    segIdx = static_cast<int>(inner.size()) - 1;
+                                    segIdx = static_cast<keel::i32>(inner.size()) - 1;
                                 }
                             }
                             se->waypoints = keel::move(inner);
@@ -4102,7 +4100,7 @@ BpmnEditorResponse BpmnEditor::Run(
                         state.dragUndoRecorded = false;
                         state.dragStartWorld = resp.mouseWorldPos;
                         state.dragInitialNodePos.clear();
-                        for (uint32_t selId : state.selectedNodes) {
+                        for (keel::u32 selId : state.selectedNodes) {
                             if (const BpmnNode* sn = diagram.FindNode(selId)) {
                                 state.dragInitialNodePos.push_back(NodePosEntry{selId, sn->pos});
                                 if (sn->type == BpmnNodeType::SubProcess && sn->isExpanded) {
@@ -4228,18 +4226,18 @@ BpmnEditorResponse BpmnEditor::Run(
                         resp.mouseWorldPos.y - state.dragEdgeStartWorld.y
                     };
                     se->waypoints = state.dragEdgeInitWaypoints.clone();
-                    const int wpIdx0 = state.dragEdgeSegIdx - 1;
-                    const int wpIdx1 = state.dragEdgeSegIdx;
+                    const keel::i32 wpIdx0 = state.dragEdgeSegIdx - 1;
+                    const keel::i32 wpIdx1 = state.dragEdgeSegIdx;
                     if (state.dragEdgeSegHorizontal) {
-                        float newY = ((wpIdx0 >= 0 && wpIdx0 < static_cast<int>(se->waypoints.size())) ? se->waypoints[static_cast<size_t>(wpIdx0)].y : resp.mouseWorldPos.y) + delta.y;
+                        float newY = ((wpIdx0 >= 0 && wpIdx0 < static_cast<keel::i32>(se->waypoints.size())) ? se->waypoints[static_cast<keel::usize>(wpIdx0)].y : resp.mouseWorldPos.y) + delta.y;
                         if (effOpts.snapToGrid && !mods.alt) newY = SnapValue(newY, effOpts.gridStep);
-                        if (wpIdx0 >= 0 && wpIdx0 < static_cast<int>(se->waypoints.size())) se->waypoints[static_cast<size_t>(wpIdx0)].y = newY;
-                        if (wpIdx1 >= 0 && wpIdx1 < static_cast<int>(se->waypoints.size())) se->waypoints[static_cast<size_t>(wpIdx1)].y = newY;
+                        if (wpIdx0 >= 0 && wpIdx0 < static_cast<keel::i32>(se->waypoints.size())) se->waypoints[static_cast<keel::usize>(wpIdx0)].y = newY;
+                        if (wpIdx1 >= 0 && wpIdx1 < static_cast<keel::i32>(se->waypoints.size())) se->waypoints[static_cast<keel::usize>(wpIdx1)].y = newY;
                     } else {
-                        float newX = ((wpIdx0 >= 0 && wpIdx0 < static_cast<int>(se->waypoints.size())) ? se->waypoints[static_cast<size_t>(wpIdx0)].x : resp.mouseWorldPos.x) + delta.x;
+                        float newX = ((wpIdx0 >= 0 && wpIdx0 < static_cast<keel::i32>(se->waypoints.size())) ? se->waypoints[static_cast<keel::usize>(wpIdx0)].x : resp.mouseWorldPos.x) + delta.x;
                         if (effOpts.snapToGrid && !mods.alt) newX = SnapValue(newX, effOpts.gridStep);
-                        if (wpIdx0 >= 0 && wpIdx0 < static_cast<int>(se->waypoints.size())) se->waypoints[static_cast<size_t>(wpIdx0)].x = newX;
-                        if (wpIdx1 >= 0 && wpIdx1 < static_cast<int>(se->waypoints.size())) se->waypoints[static_cast<size_t>(wpIdx1)].x = newX;
+                        if (wpIdx0 >= 0 && wpIdx0 < static_cast<keel::i32>(se->waypoints.size())) se->waypoints[static_cast<keel::usize>(wpIdx0)].x = newX;
+                        if (wpIdx1 >= 0 && wpIdx1 < static_cast<keel::i32>(se->waypoints.size())) se->waypoints[static_cast<keel::usize>(wpIdx1)].x = newX;
                     }
                     resp.changed = true;
                     resp.diagramModified = true;
@@ -4266,7 +4264,7 @@ BpmnEditorResponse BpmnEditor::Run(
             } else {
                 if (BpmnEdge* re = diagram.FindEdge(state.reconnectEdgeId)) {
                     if (state.reconnectSnapNodeId != 0) {
-                        const uint32_t otherId = (state.reconnectEndpoint == 1) ? re->toNodeId : re->fromNodeId;
+                        const keel::u32 otherId = (state.reconnectEndpoint == 1) ? re->toNodeId : re->fromNodeId;
                         if (state.reconnectSnapNodeId != otherId) {
                             state.PushUndo(diagram);
                             if (state.reconnectEndpoint == 1) {
@@ -4530,7 +4528,7 @@ BpmnEditorResponse BpmnEditor::Run(
                             }
                         }
                     }
-                    const uint32_t eid = diagram.AddEdge(state.connectFromNodeId, state.connectSnapNodeId, flow);
+                    const keel::u32 eid = diagram.AddEdge(state.connectFromNodeId, state.connectSnapNodeId, flow);
                     state.ClearSelection();
                     state.selectedEdgeId = eid;
                     resp.changed = true;
@@ -4560,7 +4558,7 @@ BpmnEditorResponse BpmnEditor::Run(
             } else if (ctx.ConsumeShortcut(Key::C, true, false)) {
                 state.clipboardNodes.clear();
                 state.clipboardEdges.clear();
-                for (uint32_t nid : state.selectedNodes) {
+                for (keel::u32 nid : state.selectedNodes) {
                     if (const BpmnNode* n = diagram.FindNode(nid)) state.clipboardNodes.push_back(*n);
                 }
                 for (const auto& e : diagram.edges) {
@@ -4570,20 +4568,20 @@ BpmnEditorResponse BpmnEditor::Run(
                 }
             } else if (ctx.ConsumeShortcut(Key::V, true, false) && !state.clipboardNodes.empty()) {
                 state.PushUndo(diagram);
-                keel::HashMap<uint32_t, uint32_t> idMap;
+                keel::HashMap<keel::u32, keel::u32> idMap;
                 state.selectedNodes.clear();
                 for (BpmnNode copy : state.clipboardNodes) {
-                    const uint32_t oldId = copy.id;
+                    const keel::u32 oldId = copy.id;
                     copy.id = 0;
                     copy.pos.x += 40.0f;
                     copy.pos.y += 40.0f;
-                    const uint32_t newId = diagram.AddNode(keel::move(copy));
+                    const keel::u32 newId = diagram.AddNode(keel::move(copy));
                     idMap.put(oldId, newId);
                     state.selectedNodes.push_back(newId);
                 }
                 for (const auto& e : state.clipboardEdges) {
-                    const uint32_t* fromNew = idMap.get(e.fromNodeId);
-                    const uint32_t* toNew = idMap.get(e.toNodeId);
+                    const keel::u32* fromNew = idMap.get(e.fromNodeId);
+                    const keel::u32* toNew = idMap.get(e.toNodeId);
                     if (fromNew && toNew) {
                         diagram.AddEdge(*fromNew, *toNew, e.flowType, e.label, e.fromPort, e.toPort);
                     }
@@ -4593,8 +4591,8 @@ BpmnEditorResponse BpmnEditor::Run(
                 resp.diagramModified = true;
             } else if (ctx.ConsumeShortcut(Key::D, true, false) && !state.selectedNodes.empty()) {
                 state.PushUndo(diagram);
-                keel::Array<uint32_t> newSel;
-                for (uint32_t nid : state.selectedNodes) {
+                keel::Array<keel::u32> newSel;
+                for (keel::u32 nid : state.selectedNodes) {
                     if (const BpmnNode* n = diagram.FindNode(nid)) {
                         BpmnNode copy = *n;
                         copy.id = 0;
@@ -4611,7 +4609,7 @@ BpmnEditorResponse BpmnEditor::Run(
                 if (!state.selectedNodes.empty()) {
                     state.PushUndo(diagram);
                     const auto toDel = state.selectedNodes.clone();
-                    for (uint32_t nid : toDel) diagram.RemoveNode(nid);
+                    for (keel::u32 nid : toDel) diagram.RemoveNode(nid);
                     state.ClearSelection();
                     resp.changed = true;
                     resp.diagramModified = true;
@@ -4696,7 +4694,7 @@ BpmnEditorResponse BpmnEditor::Run(
     node->text = "BpmnEditor";
     node->SetPayload(payload);
 
-    uint64_t graphHash = detail::HashArgs(
+    keel::u64 graphHash = detail::HashArgs(
         diagram.name,
         diagram.lanes.size(),
         diagram.nodes.size(),
@@ -4708,9 +4706,9 @@ BpmnEditorResponse BpmnEditor::Run(
     }
     for (const auto& n : diagram.nodes) {
         graphHash = detail::HashArgs(
-            graphHash, n.id, static_cast<uint8_t>(n.type), n.label, n.documentation,
+            graphHash, n.id, static_cast<keel::u8>(n.type), n.label, n.documentation,
             n.pos.x, n.pos.y, n.size.x, n.size.y,
-            static_cast<uint8_t>(n.taskType), static_cast<uint8_t>(n.gatewayType), static_cast<uint8_t>(n.eventDef),
+            static_cast<keel::u8>(n.taskType), static_cast<keel::u8>(n.gatewayType), static_cast<keel::u8>(n.eventDef),
             n.nonInterrupting, n.isExpanded, n.labelOffset.x, n.labelOffset.y,
             n.activeOutgoingEdgeId, n.tokenExecutionCount, n.activeTokensInside,
             n.slaDurationMs, n.loopMarker, n.parallelMultiInstance
@@ -4718,7 +4716,7 @@ BpmnEditorResponse BpmnEditor::Run(
     }
     for (const auto& e : diagram.edges) {
         graphHash = detail::HashArgs(
-            graphHash, e.id, e.fromNodeId, e.toNodeId, static_cast<uint8_t>(e.flowType), e.label,
+            graphHash, e.id, e.fromNodeId, e.toNodeId, static_cast<keel::u8>(e.flowType), e.label,
             e.labelOffset.x, e.labelOffset.y, e.waypoints.size()
         );
         for (const auto& wp : e.waypoints) {
@@ -4726,13 +4724,13 @@ BpmnEditorResponse BpmnEditor::Run(
         }
     }
     for (const auto& t : diagram.tokens) {
-        graphHash = detail::HashArgs(graphHash, t.id, t.edgeId, t.nodeId, static_cast<int>(t.progress * 200.0f));
+        graphHash = detail::HashArgs(graphHash, t.id, t.edgeId, t.nodeId, static_cast<keel::i32>(t.progress * 200.0f));
     }
 
     node->visualHash = detail::HashArgs(
         graphHash,
-        static_cast<uint8_t>(payload->opts.routingMode),
-        static_cast<uint8_t>(payload->opts.themePreset),
+        static_cast<keel::u8>(payload->opts.routingMode),
+        static_cast<keel::u8>(payload->opts.themePreset),
         payload->opts.showLeftPalette,
         payload->opts.showTopBar,
         payload->opts.showContextPad,
@@ -4747,7 +4745,7 @@ BpmnEditorResponse BpmnEditor::Run(
         state.pan.x,
         state.pan.y,
         state.zoom,
-        static_cast<uint8_t>(state.activeTool),
+        static_cast<keel::u8>(state.activeTool),
         state.primaryNodeId,
         state.selectedEdgeId,
         state.selectedLaneId,
@@ -4780,7 +4778,7 @@ BpmnEditorResponse BpmnEditor::Run(
         state.editingLaneId,
         payload->activeEditBuffer,
         payload->cursorBlinkOn,
-        effOpts.tokenSimulation ? static_cast<int>(payload->animPhase * 60.0f) : 0,
+        effOpts.tokenSimulation ? static_cast<keel::i32>(payload->animPhase * 60.0f) : 0,
         viewRect.w,
         viewRect.h,
         effectiveSize,
@@ -4844,7 +4842,7 @@ keel::String EscapeXmlText(keel::StringRef s) {
 
 keel::String UnescapeXmlText(keel::StringRef s) {
     keel::String out = keel::String::with_capacity(s.size());
-    for (size_t i = 0; i < s.size(); ++i) {
+    for (keel::usize i = 0; i < s.size(); ++i) {
         if (s[i] == '&') {
             if (s.substr(i, 5) == "&amp;")  { out.push_back('&');  i += 4; continue; }
             if (s.substr(i, 4) == "&lt;")   { out.push_back('<');  i += 3; continue; }
@@ -4861,10 +4859,10 @@ keel::String UnescapeXmlText(keel::StringRef s) {
 keel::String ExtractXmlAttr(keel::StringRef tag, keel::StringRef attrName) {
     keel::SmallString<64> needle = keel::SmallString<64>::from(attrName);
     needle.append("=\"");
-    const size_t pos = tag.find(needle);
+    const keel::usize pos = tag.find(needle);
     if (pos == keel::kInvalidIndex) return keel::String{};
-    const size_t valStart = pos + needle.size();
-    const size_t valEnd = tag.find('"', valStart);
+    const keel::usize valStart = pos + needle.size();
+    const keel::usize valEnd = tag.find('"', valStart);
     if (valEnd == keel::kInvalidIndex) return keel::String{};
     return UnescapeXmlText(tag.substr(valStart, valEnd - valStart));
 }
@@ -4876,16 +4874,16 @@ float ExtractXmlFloatAttr(keel::StringRef tag, keel::StringRef attrName, float f
     return parsed.is_ok() ? parsed.value() : fallback;
 }
 
-uint32_t ParseTrailingIdNumber(keel::StringRef xmlId) {
-    size_t i = xmlId.size();
+keel::u32 ParseTrailingIdNumber(keel::StringRef xmlId) {
+    keel::usize i = xmlId.size();
     while (i > 0 && xmlId[i - 1] >= '0' && xmlId[i - 1] <= '9') --i;
     if (i == xmlId.size()) return 0;
     const auto parsed = keel::parse_u64(xmlId.substr(i));
-    return parsed.is_ok() ? static_cast<uint32_t>(parsed.value()) : 0;
+    return parsed.is_ok() ? static_cast<keel::u32>(parsed.value()) : 0;
 }
 
 struct PendingBoundaryAttach {
-    uint32_t nodeId{0};
+    keel::u32 nodeId{0};
     keel::String hostXmlId{};
 };
 
@@ -5013,10 +5011,10 @@ keel::String BpmnEditor::ExportBpmnXml(const BpmnDiagram& diagram) {
             "      </bpmndi:BPMNShape>\n",
             l.id,
             l.id,
-            static_cast<int>(l.rect.x),
-            static_cast<int>(l.rect.y),
-            static_cast<int>(l.rect.w),
-            static_cast<int>(l.rect.h)
+            static_cast<keel::i32>(l.rect.x),
+            static_cast<keel::i32>(l.rect.y),
+            static_cast<keel::i32>(l.rect.w),
+            static_cast<keel::i32>(l.rect.h)
         );
     }
 
@@ -5029,10 +5027,10 @@ keel::String BpmnEditor::ExportBpmnXml(const BpmnDiagram& diagram) {
         keel::format_into(
             xml,
             "        <dc:Bounds x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" />\n",
-            static_cast<int>(n.pos.x),
-            static_cast<int>(n.pos.y),
-            static_cast<int>(n.size.x),
-            static_cast<int>(n.size.y)
+            static_cast<keel::i32>(n.pos.x),
+            static_cast<keel::i32>(n.pos.y),
+            static_cast<keel::i32>(n.size.x),
+            static_cast<keel::i32>(n.size.y)
         );
         if (std::abs(n.labelOffset.x) > 0.5f || std::abs(n.labelOffset.y) > 0.5f) {
             keel::format_into(
@@ -5040,8 +5038,8 @@ keel::String BpmnEditor::ExportBpmnXml(const BpmnDiagram& diagram) {
                 "        <bpmndi:BPMNLabel>\n"
                 "          <dc:Bounds x=\"{}\" y=\"{}\" width=\"90\" height=\"20\" />\n"
                 "        </bpmndi:BPMNLabel>\n",
-                static_cast<int>(n.pos.x + n.labelOffset.x),
-                static_cast<int>(n.pos.y + n.labelOffset.y)
+                static_cast<keel::i32>(n.pos.x + n.labelOffset.x),
+                static_cast<keel::i32>(n.pos.y + n.labelOffset.y)
             );
         }
         xml.append("      </bpmndi:BPMNShape>\n");
@@ -5057,8 +5055,8 @@ keel::String BpmnEditor::ExportBpmnXml(const BpmnDiagram& diagram) {
             keel::format_into(
                 xml,
                 "        <di:waypoint x=\"{}\" y=\"{}\" />\n",
-                static_cast<int>(pt.x),
-                static_cast<int>(pt.y)
+                static_cast<keel::i32>(pt.x),
+                static_cast<keel::i32>(pt.y)
             );
         }
         if (std::abs(e.labelOffset.x) > 0.5f || std::abs(e.labelOffset.y) > 0.5f) {
@@ -5067,8 +5065,8 @@ keel::String BpmnEditor::ExportBpmnXml(const BpmnDiagram& diagram) {
                 "        <bpmndi:BPMNLabel>\n"
                 "          <dc:Bounds x=\"{}\" y=\"{}\" width=\"80\" height=\"20\" />\n"
                 "        </bpmndi:BPMNLabel>\n",
-                static_cast<int>(e.labelOffset.x),
-                static_cast<int>(e.labelOffset.y)
+                static_cast<keel::i32>(e.labelOffset.x),
+                static_cast<keel::i32>(e.labelOffset.y)
             );
         }
         xml.append("      </bpmndi:BPMNEdge>\n");
@@ -5089,29 +5087,29 @@ bool BpmnEditor::ImportBpmnXml(keel::StringRef xml, BpmnDiagram& outDiagram) {
     parsed.Clear();
     parsed.name = "Imported BPMN 2.0 Process";
 
-    keel::HashMap<keel::String, uint32_t> nodeIdMap;
-    keel::HashMap<keel::String, uint32_t> laneIdMap;
-    keel::HashMap<keel::String, uint32_t> edgeIdMap;
+    keel::HashMap<keel::String, keel::u32> nodeIdMap;
+    keel::HashMap<keel::String, keel::u32> laneIdMap;
+    keel::HashMap<keel::String, keel::u32> edgeIdMap;
     keel::Array<PendingBoundaryAttach> pendingBoundaryAttach;
 
-    size_t pos = 0;
+    keel::usize pos = 0;
     while (pos < xml.size()) {
-        const size_t lt = xml.find('<', pos);
+        const keel::usize lt = xml.find('<', pos);
         if (lt == keel::kInvalidIndex) break;
-        const size_t gt = xml.find('>', lt + 1);
+        const keel::usize gt = xml.find('>', lt + 1);
         if (gt == keel::kInvalidIndex) break;
 
         const keel::StringRef tagContent = xml.substr(lt + 1, gt - lt - 1);
         pos = gt + 1;
         if (tagContent.empty() || tagContent[0] == '?' || tagContent[0] == '!' || tagContent[0] == '/') continue;
 
-        size_t nameEnd = 0;
+        keel::usize nameEnd = 0;
         while (nameEnd < tagContent.size() && tagContent[nameEnd] != ' ' && tagContent[nameEnd] != '\t' &&
                tagContent[nameEnd] != '\r' && tagContent[nameEnd] != '\n' && tagContent[nameEnd] != '/') {
             ++nameEnd;
         }
         const keel::StringRef tagName = tagContent.substr(0, nameEnd);
-        const size_t colon = tagName.find(':');
+        const keel::usize colon = tagName.find(':');
         const keel::StringRef localName = (colon != keel::kInvalidIndex) ? tagName.substr(colon + 1) : tagName;
 
         if (localName == "process") {
@@ -5185,7 +5183,7 @@ bool BpmnEditor::ImportBpmnXml(keel::StringRef xml, BpmnDiagram& outDiagram) {
                 keel::SmallString<64> closeNeedle = keel::SmallString<64>::from("</");
                 closeNeedle.append(tagName);
                 closeNeedle.push_back('>');
-                const size_t closePos = xml.find(closeNeedle, pos);
+                const keel::usize closePos = xml.find(closeNeedle, pos);
                 if (closePos != keel::kInvalidIndex) {
                     const keel::StringRef body = xml.substr(pos, closePos - pos);
                     if (body.find("messageEventDefinition") != keel::kInvalidIndex)        n.eventDef = BpmnEventDefinition::Message;
@@ -5204,8 +5202,8 @@ bool BpmnEditor::ImportBpmnXml(keel::StringRef xml, BpmnDiagram& outDiagram) {
             keel::String xmlId = ExtractXmlAttr(tagContent, "id");
             const keel::String srcRef = ExtractXmlAttr(tagContent, "sourceRef");
             const keel::String dstRef = ExtractXmlAttr(tagContent, "targetRef");
-            const uint32_t* srcIdPtr = nodeIdMap.get(srcRef.as_ref());
-            const uint32_t* dstIdPtr = nodeIdMap.get(dstRef.as_ref());
+            const keel::u32* srcIdPtr = nodeIdMap.get(srcRef.as_ref());
+            const keel::u32* dstIdPtr = nodeIdMap.get(dstRef.as_ref());
             if (!srcIdPtr || !dstIdPtr) continue;
 
             BpmnEdge e{};
@@ -5227,26 +5225,26 @@ bool BpmnEditor::ImportBpmnXml(keel::StringRef xml, BpmnDiagram& outDiagram) {
         } else if (localName == "BPMNShape") {
             const keel::String elemRef = ExtractXmlAttr(tagContent, "bpmnElement");
             const keel::String expandedStr = ExtractXmlAttr(tagContent, "isExpanded");
-            const size_t shapeEnd = xml.find("</bpmndi:BPMNShape>", pos);
-            const size_t altEnd = (shapeEnd == keel::kInvalidIndex) ? xml.find("</BPMNShape>", pos) : shapeEnd;
+            const keel::usize shapeEnd = xml.find("</bpmndi:BPMNShape>", pos);
+            const keel::usize altEnd = (shapeEnd == keel::kInvalidIndex) ? xml.find("</BPMNShape>", pos) : shapeEnd;
             if (altEnd != keel::kInvalidIndex) {
                 const keel::StringRef shapeBody = xml.substr(pos, altEnd - pos);
-                const size_t bPos = shapeBody.find("Bounds");
+                const keel::usize bPos = shapeBody.find("Bounds");
                 if (bPos != keel::kInvalidIndex) {
-                    const size_t bEnd = shapeBody.find('>', bPos);
+                    const keel::usize bEnd = shapeBody.find('>', bPos);
                     if (bEnd != keel::kInvalidIndex) {
                         const keel::StringRef bTag = shapeBody.substr(bPos, bEnd - bPos);
                         const float x = ExtractXmlFloatAttr(bTag, "x", 0.0f);
                         const float y = ExtractXmlFloatAttr(bTag, "y", 0.0f);
                         const float w = ExtractXmlFloatAttr(bTag, "width", 100.0f);
                         const float h = ExtractXmlFloatAttr(bTag, "height", 80.0f);
-                        if (const uint32_t* nidPtr = nodeIdMap.get(elemRef.as_ref())) {
+                        if (const keel::u32* nidPtr = nodeIdMap.get(elemRef.as_ref())) {
                             if (BpmnNode* n = parsed.FindNode(*nidPtr)) {
                                 n->pos = {x, y};
                                 n->size = {w, h};
                                 if (!expandedStr.empty()) n->isExpanded = (expandedStr == "true");
                             }
-                        } else if (const uint32_t* lidPtr = laneIdMap.get(elemRef.as_ref())) {
+                        } else if (const keel::u32* lidPtr = laneIdMap.get(elemRef.as_ref())) {
                             if (BpmnLane* l = parsed.FindLane(*lidPtr)) {
                                 l->rect = Rect(x, y, w, h);
                             }
@@ -5257,17 +5255,17 @@ bool BpmnEditor::ImportBpmnXml(keel::StringRef xml, BpmnDiagram& outDiagram) {
             }
         } else if (localName == "BPMNEdge") {
             const keel::String elemRef = ExtractXmlAttr(tagContent, "bpmnElement");
-            const size_t edgeEnd = xml.find("</bpmndi:BPMNEdge>", pos);
-            const size_t altEnd = (edgeEnd == keel::kInvalidIndex) ? xml.find("</BPMNEdge>", pos) : edgeEnd;
-            const uint32_t* eidPtr = edgeIdMap.get(elemRef.as_ref());
+            const keel::usize edgeEnd = xml.find("</bpmndi:BPMNEdge>", pos);
+            const keel::usize altEnd = (edgeEnd == keel::kInvalidIndex) ? xml.find("</BPMNEdge>", pos) : edgeEnd;
+            const keel::u32* eidPtr = edgeIdMap.get(elemRef.as_ref());
             if (altEnd != keel::kInvalidIndex && eidPtr) {
                 const keel::StringRef edgeBody = xml.substr(pos, altEnd - pos);
                 keel::SmallArray<Vec2, 16> allPts;
-                size_t wpScan = 0;
+                keel::usize wpScan = 0;
                 while (wpScan < edgeBody.size()) {
-                    const size_t wPos = edgeBody.find("waypoint", wpScan);
+                    const keel::usize wPos = edgeBody.find("waypoint", wpScan);
                     if (wPos == keel::kInvalidIndex) break;
-                    const size_t wEnd = edgeBody.find('>', wPos);
+                    const keel::usize wEnd = edgeBody.find('>', wPos);
                     if (wEnd == keel::kInvalidIndex) break;
                     const keel::StringRef wTag = edgeBody.substr(wPos, wEnd - wPos);
                     allPts.push_back(Vec2{ExtractXmlFloatAttr(wTag, "x", 0.0f), ExtractXmlFloatAttr(wTag, "y", 0.0f)});
@@ -5284,7 +5282,7 @@ bool BpmnEditor::ImportBpmnXml(keel::StringRef xml, BpmnDiagram& outDiagram) {
     }
 
     for (const auto& [bid, hostXmlId] : pendingBoundaryAttach) {
-        if (const uint32_t* hostIdPtr = nodeIdMap.get(hostXmlId.as_ref())) {
+        if (const keel::u32* hostIdPtr = nodeIdMap.get(hostXmlId.as_ref())) {
             BpmnNode* bn = parsed.FindNode(bid);
             const BpmnNode* host = parsed.FindNode(*hostIdPtr);
             if (bn && host) {

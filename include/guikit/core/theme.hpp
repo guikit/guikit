@@ -1,8 +1,8 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "keel/core.h"
 
 namespace guikit {
 
@@ -57,21 +57,21 @@ struct UiTheme {
     // --- Fast Inline Accessors ---
 
     [[nodiscard]] constexpr const ComponentMetrics& GetMetrics(UiSize size) const noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < metrics.size()) ? metrics[idx] : metrics[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < metrics.size()) ? metrics[idx] : metrics[static_cast<keel::usize>(UiSize::Md)];
     }
     [[nodiscard]] constexpr ComponentMetrics& GetMetrics(UiSize size) noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < metrics.size()) ? metrics[idx] : metrics[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < metrics.size()) ? metrics[idx] : metrics[static_cast<keel::usize>(UiSize::Md)];
     }
 
     [[nodiscard]] constexpr const VariantColors& GetVariant(UiVariant variant) const noexcept {
-        const size_t idx = static_cast<size_t>(variant);
-        return (idx < variants.size()) ? variants[idx] : variants[static_cast<size_t>(UiVariant::Default)];
+        const keel::usize idx = static_cast<keel::usize>(variant);
+        return (idx < variants.size()) ? variants[idx] : variants[static_cast<keel::usize>(UiVariant::Default)];
     }
     [[nodiscard]] constexpr VariantColors& GetVariant(UiVariant variant) noexcept {
-        const size_t idx = static_cast<size_t>(variant);
-        return (idx < variants.size()) ? variants[idx] : variants[static_cast<size_t>(UiVariant::Default)];
+        const keel::usize idx = static_cast<keel::usize>(variant);
+        return (idx < variants.size()) ? variants[idx] : variants[static_cast<keel::usize>(UiVariant::Default)];
     }
 
     [[nodiscard]] constexpr Color GetTextColor(UiVariant variant) const noexcept {
@@ -85,12 +85,12 @@ struct UiTheme {
     }
 
     [[nodiscard]] constexpr const TypographyMetrics& GetTypography(TextRole role) const noexcept {
-        const size_t idx = static_cast<size_t>(role);
-        return (idx < typography.size()) ? typography[idx] : typography[static_cast<size_t>(TextRole::BodyMedium)];
+        const keel::usize idx = static_cast<keel::usize>(role);
+        return (idx < typography.size()) ? typography[idx] : typography[static_cast<keel::usize>(TextRole::BodyMedium)];
     }
     [[nodiscard]] constexpr TypographyMetrics& GetTypography(TextRole role) noexcept {
-        const size_t idx = static_cast<size_t>(role);
-        return (idx < typography.size()) ? typography[idx] : typography[static_cast<size_t>(TextRole::BodyMedium)];
+        const keel::usize idx = static_cast<keel::usize>(role);
+        return (idx < typography.size()) ? typography[idx] : typography[static_cast<keel::usize>(TextRole::BodyMedium)];
     }
 
     /// Resolves font size for a semantic TextRole at a given widget UiSize.
@@ -159,8 +159,8 @@ struct UiTheme {
     /// Applies `surfaceTint` (tonal mix onto this theme's opaque `surface` palette) and `alphaScale` (post-resolve opacity) to a resolved `StateColor`.
     [[nodiscard]] constexpr StateColor ApplyStateColorModifiers(
         StateColor res,
-        uint8_t surfaceTint,
-        uint8_t alphaScale
+        keel::u8 surfaceTint,
+        keel::u8 alphaScale
     ) const noexcept {
         if (!res.HasAny() || res.IsNone()) {
             return res;
@@ -178,9 +178,9 @@ struct UiTheme {
                 palette.surfaceActive.a
             ).WithAlpha(palette.surface.a);
 
-            auto tintOver = [](Color surf, Color accent, uint8_t tint) constexpr noexcept -> Color {
-                const uint32_t effW = (static_cast<uint32_t>(tint) * static_cast<uint32_t>(accent.a) + 127u) / 255u;
-                return Color::Mix255(surf, accent, static_cast<uint8_t>(effW)).WithAlpha(surf.a);
+            auto tintOver = [](Color surf, Color accent, keel::u8 tint) constexpr noexcept -> Color {
+                const keel::u32 effW = (static_cast<keel::u32>(tint) * static_cast<keel::u32>(accent.a) + 127u) / 255u;
+                return Color::Mix255(surf, accent, static_cast<keel::u8>(effW)).WithAlpha(surf.a);
             };
 
             const Color baseNormal = res.normal.value_or(opaqueSurface);
@@ -386,21 +386,21 @@ struct UiTheme {
     }
 
     [[nodiscard]] constexpr const ScrollbarMetrics& GetScrollbar(UiSize size) const noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < scrollbars.size()) ? scrollbars[idx] : scrollbars[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < scrollbars.size()) ? scrollbars[idx] : scrollbars[static_cast<keel::usize>(UiSize::Md)];
     }
     [[nodiscard]] constexpr ScrollbarMetrics& GetScrollbar(UiSize size) noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < scrollbars.size()) ? scrollbars[idx] : scrollbars[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < scrollbars.size()) ? scrollbars[idx] : scrollbars[static_cast<keel::usize>(UiSize::Md)];
     }
 
     [[nodiscard]] constexpr const CarouselMetrics& GetCarousel(UiSize size) const noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < carousels.size()) ? carousels[idx] : carousels[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < carousels.size()) ? carousels[idx] : carousels[static_cast<keel::usize>(UiSize::Md)];
     }
     [[nodiscard]] constexpr CarouselMetrics& GetCarousel(UiSize size) noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < carousels.size()) ? carousels[idx] : carousels[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < carousels.size()) ? carousels[idx] : carousels[static_cast<keel::usize>(UiSize::Md)];
     }
 
     /// Scales an explicit logical dimension (dp at 100% scale) by the active theme scale factor.
@@ -409,8 +409,8 @@ struct UiTheme {
     }
 
     [[nodiscard]] constexpr float GetGap(UiSize size) const noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < spacing.size()) ? spacing[idx] : spacing[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < spacing.size()) ? spacing[idx] : spacing[static_cast<keel::usize>(UiSize::Md)];
     }
 
     /// Resolves an optional explicit gap (in base dp) or falls back to the theme spacing token for fallbackSize.
@@ -419,8 +419,8 @@ struct UiTheme {
     }
 
     [[nodiscard]] constexpr float GetRadius(UiSize size) const noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < radius.size()) ? radius[idx] : radius[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < radius.size()) ? radius[idx] : radius[static_cast<keel::usize>(UiSize::Md)];
     }
 
     /// Resolves an optional explicit corner radius (in base dp) or falls back to the theme radius token for fallbackSize.
@@ -430,11 +430,11 @@ struct UiTheme {
 
     [[nodiscard]] constexpr Padding GetPadding(UiSize size) const noexcept {
         if (size == UiSize::None) return Padding{};
-        const float val = (size == UiSize::Xs) ? spacing[static_cast<size_t>(UiSize::Sm)] :
-                          (size == UiSize::Sm) ? spacing[static_cast<size_t>(UiSize::Md)] :
-                          (size == UiSize::Md) ? spacing[static_cast<size_t>(UiSize::Lg)] :
-                          (size == UiSize::Lg) ? spacing[static_cast<size_t>(UiSize::Xl)] :
-                          (spacing[static_cast<size_t>(UiSize::Xl)] * 1.5f);
+        const float val = (size == UiSize::Xs) ? spacing[static_cast<keel::usize>(UiSize::Sm)] :
+                          (size == UiSize::Sm) ? spacing[static_cast<keel::usize>(UiSize::Md)] :
+                          (size == UiSize::Md) ? spacing[static_cast<keel::usize>(UiSize::Lg)] :
+                          (size == UiSize::Lg) ? spacing[static_cast<keel::usize>(UiSize::Xl)] :
+                          (spacing[static_cast<keel::usize>(UiSize::Xl)] * 1.5f);
         return Padding::All(val);
     }
 
@@ -453,48 +453,48 @@ struct UiTheme {
     }
 
     [[nodiscard]] constexpr const SwitchMetrics& GetSwitch(UiSize size) const noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < switches.size()) ? switches[idx] : switches[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < switches.size()) ? switches[idx] : switches[static_cast<keel::usize>(UiSize::Md)];
     }
     [[nodiscard]] constexpr SwitchMetrics& GetSwitch(UiSize size) noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < switches.size()) ? switches[idx] : switches[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < switches.size()) ? switches[idx] : switches[static_cast<keel::usize>(UiSize::Md)];
     }
 
     [[nodiscard]] constexpr const CheckboxMetrics& GetCheckbox(UiSize size) const noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < checkboxes.size()) ? checkboxes[idx] : checkboxes[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < checkboxes.size()) ? checkboxes[idx] : checkboxes[static_cast<keel::usize>(UiSize::Md)];
     }
     [[nodiscard]] constexpr CheckboxMetrics& GetCheckbox(UiSize size) noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < checkboxes.size()) ? checkboxes[idx] : checkboxes[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < checkboxes.size()) ? checkboxes[idx] : checkboxes[static_cast<keel::usize>(UiSize::Md)];
     }
 
     [[nodiscard]] constexpr const InputFieldMetrics& GetInputField(UiSize size) const noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < inputs.size()) ? inputs[idx] : inputs[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < inputs.size()) ? inputs[idx] : inputs[static_cast<keel::usize>(UiSize::Md)];
     }
     [[nodiscard]] constexpr InputFieldMetrics& GetInputField(UiSize size) noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < inputs.size()) ? inputs[idx] : inputs[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < inputs.size()) ? inputs[idx] : inputs[static_cast<keel::usize>(UiSize::Md)];
     }
 
     [[nodiscard]] constexpr const SelectMetrics& GetSelect(UiSize size) const noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < selects.size()) ? selects[idx] : selects[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < selects.size()) ? selects[idx] : selects[static_cast<keel::usize>(UiSize::Md)];
     }
     [[nodiscard]] constexpr SelectMetrics& GetSelect(UiSize size) noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < selects.size()) ? selects[idx] : selects[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < selects.size()) ? selects[idx] : selects[static_cast<keel::usize>(UiSize::Md)];
     }
 
     [[nodiscard]] constexpr const HeadingMetrics& GetHeading(UiSize size) const noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < headings.size()) ? headings[idx] : headings[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < headings.size()) ? headings[idx] : headings[static_cast<keel::usize>(UiSize::Md)];
     }
     [[nodiscard]] constexpr HeadingMetrics& GetHeading(UiSize size) noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < headings.size()) ? headings[idx] : headings[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < headings.size()) ? headings[idx] : headings[static_cast<keel::usize>(UiSize::Md)];
     }
 
     [[nodiscard]] constexpr const HeadingMetrics& GetHeading(
@@ -504,7 +504,7 @@ struct UiTheme {
         if (level == HeadingLevel::Auto) {
             return GetHeading(fallbackSize);
         }
-        const size_t idx = static_cast<size_t>(level);
+        const keel::usize idx = static_cast<keel::usize>(level);
         return (idx < headingLevels.size()) ? headingLevels[idx] : GetHeading(fallbackSize);
     }
     [[nodiscard]] constexpr HeadingMetrics& GetHeading(
@@ -514,17 +514,17 @@ struct UiTheme {
         if (level == HeadingLevel::Auto) {
             return GetHeading(fallbackSize);
         }
-        const size_t idx = static_cast<size_t>(level);
+        const keel::usize idx = static_cast<keel::usize>(level);
         return (idx < headingLevels.size()) ? headingLevels[idx] : GetHeading(fallbackSize);
     }
 
     [[nodiscard]] constexpr const SliderMetrics& GetSlider(UiSize size) const noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < sliders.size()) ? sliders[idx] : sliders[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < sliders.size()) ? sliders[idx] : sliders[static_cast<keel::usize>(UiSize::Md)];
     }
     [[nodiscard]] constexpr SliderMetrics& GetSlider(UiSize size) noexcept {
-        const size_t idx = static_cast<size_t>(size);
-        return (idx < sliders.size()) ? sliders[idx] : sliders[static_cast<size_t>(UiSize::Md)];
+        const keel::usize idx = static_cast<keel::usize>(size);
+        return (idx < sliders.size()) ? sliders[idx] : sliders[static_cast<keel::usize>(UiSize::Md)];
     }
 
     struct SpacingProxy {

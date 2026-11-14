@@ -24,11 +24,11 @@ struct CodeEditorState {
     bool showWhitespace = false;
     float zoom = 1.0f;
 
-    size_t syntaxMode = 0; // 0 = C++20, 1 = MATLAB, 2 = JSON, 3 = Python, 4 = Custom
+    keel::usize syntaxMode = 0; // 0 = C++20, 1 = MATLAB, 2 = JSON, 3 = Python, 4 = Custom
     static constexpr keel::StaticArray<keel::StringRef, 5> syntaxLabels = {
         "C++20", "MATLAB", "JSON", "Python", "Custom"
     };
-    size_t colorScheme = 0; // 0 = Theme Default, 1 = VS Code Dark+, 2 = Monokai, 3 = Dracula, 4 = One Dark, 5 = MATLAB, 6 = Solarized, 7 = GitHub Light
+    keel::usize colorScheme = 0; // 0 = Theme Default, 1 = VS Code Dark+, 2 = Monokai, 3 = Dracula, 4 = One Dark, 5 = MATLAB, 6 = Solarized, 7 = GitHub Light
     static constexpr keel::StaticArray<keel::StringRef, 8> colorSchemeLabels = {
         "Theme Default",
         "VS Code Dark+",
@@ -41,15 +41,15 @@ struct CodeEditorState {
     };
     static constexpr keel::StaticArray<keel::StringRef, 5> customKeywords = {"rule", "when", "then", "emit", "alert"};
     static constexpr keel::StaticArray<keel::StringRef, 4> customTypes = {"Sensor", "Signal", "Threshold", "Millis"};
-    size_t debugToolbarAlignIdx = 1; // 0 = Left (Start), 1 = Center, 2 = Right (End)
+    keel::usize debugToolbarAlignIdx = 1; // 0 = Left (Start), 1 = Center, 2 = Right (End)
     static constexpr keel::StaticArray<keel::StringRef, 3> debugToolbarAlignLabels = {
         "Left", "Center", "Right"
     };
 
     keel::String editorBuffer{};
-    keel::Array<size_t> breakpoints{};
-    size_t executionLine = 14;
-    int stepCounter = 0;
+    keel::Array<keel::usize> breakpoints{};
+    keel::usize executionLine = 14;
+    keel::i32 stepCounter = 0;
     keel::FixedString<128> lastDebugEvent = "Paused at breakpoint";
 
     keel::Array<keel::String> ownedStrings{};
@@ -66,14 +66,14 @@ struct CodeEditorState {
         return ownedStrings.back().as_ref();
     }
 
-    size_t FindLineContaining(keel::StringRef needle, size_t fallbackLine) const {
+    keel::usize FindLineContaining(keel::StringRef needle, keel::usize fallbackLine) const {
         if (needle.empty()) return fallbackLine;
         const keel::StringRef buf = editorBuffer.as_ref();
-        size_t lineNum = 1;
-        size_t pos = 0;
+        keel::usize lineNum = 1;
+        keel::usize pos = 0;
         while (pos <= buf.size()) {
-            const size_t nextNl = buf.find('\n', pos);
-            const size_t len = (nextNl == keel::StringRef::npos) ? (buf.size() - pos) : (nextNl - pos);
+            const keel::usize nextNl = buf.find('\n', pos);
+            const keel::usize len = (nextNl == keel::StringRef::npos) ? (buf.size() - pos) : (nextNl - pos);
             const keel::StringRef lineView = buf.substr(pos, len);
             if (lineView.contains(needle)) {
                 return lineNum;
@@ -116,8 +116,8 @@ struct CodeEditorState {
             if (showInlineValues && executionLine > 0) {
                 const float gainVal = 1.85f + 0.05f * static_cast<float>(stepCounter % 5);
                 const float rmsVal = 0.707f * gainVal;
-                const size_t loopLine = FindLineContaining("for (size_t k", 16);
-                const size_t accLine = FindLineContaining("float weighted", 18);
+                const keel::usize loopLine = FindLineContaining("for (size_t k", 16);
+                const keel::usize accLine = FindLineContaining("float weighted", 18);
                 inlineValues.push_back({11, "sampleRate = 48000.0 Hz, nyquist = 24000.0 Hz", UiVariant::Info, "nyquist"});
                 inlineValues.push_back({14, StoreString(keel::format("gain = {:.2f}, cutoffHz = 2400.0f", gainVal)), UiVariant::Success, "energyAcc = 0.0"});
                 if (executionLine >= loopLine) {
@@ -151,8 +151,8 @@ struct CodeEditorState {
                 });
             }
             if (showInlineValues && executionLine > 0) {
-                const size_t fftLine = FindLineContaining("H = fft(", 15);
-                const size_t snrLine = FindLineContaining("snr_dB = max(", 20);
+                const keel::usize fftLine = FindLineContaining("H = fft(", 15);
+                const keel::usize snrLine = FindLineContaining("snr_dB = max(", 20);
                 inlineValues.push_back({9, "Fs = 10000, N = 1024, f0 = 1250", UiVariant::Info, "N = length(x)"});
                 inlineValues.push_back({13, "w = 1024x1 double [hann window]", UiVariant::Success, "w = hann("});
                 if (executionLine >= fftLine) {
@@ -225,7 +225,7 @@ struct CodeEditorState {
         }
     }
 
-    void LoadPreset(size_t mode) {
+    void LoadPreset(keel::usize mode) {
         syntaxMode = mode;
         stepCounter = 0;
         if (mode == 0) { // C++20
@@ -348,21 +348,21 @@ struct CodeEditorState {
         RebuildDynamicDebugData();
     }
 
-    size_t CountLines() const {
-        size_t count = 1;
+    keel::usize CountLines() const {
+        keel::usize count = 1;
         for (char c : editorBuffer) {
             if (c == '\n') ++count;
         }
         return count;
     }
 
-    bool IsLineExecutable(size_t line1Based) const {
+    bool IsLineExecutable(keel::usize line1Based) const {
         const keel::StringRef buf = editorBuffer.as_ref();
-        size_t cur = 1;
-        size_t pos = 0;
+        keel::usize cur = 1;
+        keel::usize pos = 0;
         while (pos <= buf.size()) {
-            const size_t nextNl = buf.find('\n', pos);
-            const size_t len = (nextNl == keel::StringRef::npos) ? (buf.size() - pos) : (nextNl - pos);
+            const keel::usize nextNl = buf.find('\n', pos);
+            const keel::usize len = (nextNl == keel::StringRef::npos) ? (buf.size() - pos) : (nextNl - pos);
             if (cur == line1Based) {
                 const keel::StringRef trimmed = buf.substr(pos, len).trim();
                 if (trimmed.empty()) return false;
@@ -380,7 +380,7 @@ struct CodeEditorState {
     }
 
     void HandleDebugAction(CodeDebugAction action) {
-        const size_t totalLines = CountLines();
+        const keel::usize totalLines = CountLines();
         if (action == CodeDebugAction::Stop) {
             executionLine = 0;
             lastDebugEvent = "Debugger stopped (Press F5 or Restart to begin)";
@@ -390,8 +390,8 @@ struct CodeEditorState {
             lastDebugEvent = keel::format_fixed<128>("Debugger restarted at Ln {}", executionLine);
         } else if (action == CodeDebugAction::StepOver || action == CodeDebugAction::StepInto) {
             ++stepCounter;
-            size_t nextLine = (executionLine == 0) ? 1 : (executionLine + 1);
-            for (size_t tries = 0; tries < totalLines; ++tries) {
+            keel::usize nextLine = (executionLine == 0) ? 1 : (executionLine + 1);
+            for (keel::usize tries = 0; tries < totalLines; ++tries) {
                 if (nextLine > totalLines) nextLine = 1;
                 if (IsLineExecutable(nextLine)) break;
                 ++nextLine;
@@ -400,7 +400,7 @@ struct CodeEditorState {
             lastDebugEvent = keel::format_fixed<128>("Stepped to Ln {} (step #{})", executionLine, stepCounter);
         } else if (action == CodeDebugAction::StepOut) {
             ++stepCounter;
-            executionLine = keel::min(totalLines, keel::max<size_t>(1, executionLine + 3));
+            executionLine = keel::min(totalLines, keel::max<keel::usize>(1, executionLine + 3));
             lastDebugEvent = keel::format_fixed<128>("Stepped out to Ln {}", executionLine);
         } else if (action == CodeDebugAction::Continue) {
             ++stepCounter;
@@ -408,8 +408,8 @@ struct CodeEditorState {
                 executionLine = (executionLine == 0) ? 1 : 0;
                 lastDebugEvent = (executionLine > 0) ? "Running — paused at entry" : "Program finished";
             } else {
-                size_t foundBp = breakpoints.front();
-                for (size_t bp : breakpoints) {
+                keel::usize foundBp = breakpoints.front();
+                for (keel::usize bp : breakpoints) {
                     if (bp > executionLine) {
                         foundBp = bp;
                         break;

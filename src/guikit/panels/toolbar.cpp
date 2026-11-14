@@ -243,7 +243,7 @@ SplitButtonResponse ToolbarScope::SplitButton(
 
 SplitButtonResponse ToolbarScope::SplitToggle(
     bool& active,
-    int& selectedIndex,
+    keel::i32& selectedIndex,
     keel::ArrayRef<keel::StringRef> items,
     ToolButtonOptions opts,
     ContextMenuOptions menuOpts,
@@ -252,11 +252,11 @@ SplitButtonResponse ToolbarScope::SplitToggle(
     if (!m_ctx) return SplitButtonResponse{};
     keel::SmallArray<ContextMenuItem, 16> menuItems;
     menuItems.reserve(items.size());
-    for (size_t i = 0; i < items.size(); ++i) {
+    for (keel::usize i = 0; i < items.size(); ++i) {
         ContextMenuItem item{};
         item.label = UiText{items[i]};
         item.hasCheck = true;
-        item.checked = (static_cast<int>(i) == selectedIndex);
+        item.checked = (static_cast<keel::i32>(i) == selectedIndex);
         menuItems.push_back(item);
     }
     return SplitToggle(active, selectedIndex, keel::ArrayRef<ContextMenuItem>(menuItems), keel::move(opts), keel::move(menuOpts), loc);
@@ -264,7 +264,7 @@ SplitButtonResponse ToolbarScope::SplitToggle(
 
 SplitButtonResponse ToolbarScope::SplitToggle(
     bool& active,
-    int& selectedIndex,
+    keel::i32& selectedIndex,
     keel::ArrayRef<ContextMenuItem> items,
     ToolButtonOptions opts,
     ContextMenuOptions menuOpts,
@@ -280,11 +280,11 @@ SplitButtonResponse ToolbarScope::SplitToggle(
 
     keel::SmallArray<ContextMenuItem, 16> menuItems;
     menuItems.reserve(items.size());
-    for (size_t i = 0; i < items.size(); ++i) {
+    for (keel::usize i = 0; i < items.size(); ++i) {
         ContextMenuItem item = items[i];
         if (!item.isSeparatorOnly) {
             item.hasCheck = true;
-            item.checked = (static_cast<int>(i) == selectedIndex);
+            item.checked = (static_cast<keel::i32>(i) == selectedIndex);
         }
         menuItems.push_back(item);
     }
@@ -296,7 +296,7 @@ SplitButtonResponse ToolbarScope::SplitToggle(
         res.changed = true;
         m_ctx->InvalidateAll();
     }
-    if (res.selectionChanged && res.selectedIndex >= 0 && res.selectedIndex < static_cast<int>(menuItems.size())) {
+    if (res.selectionChanged && res.selectedIndex >= 0 && res.selectedIndex < static_cast<keel::i32>(menuItems.size())) {
         if (selectedIndex != res.selectedIndex) {
             selectedIndex = res.selectedIndex;
         }
@@ -437,9 +437,9 @@ ToolbarScope Toolbar::Open(
     node->uiSize = activeSize;
     node->disabled = effectiveDisabled;
     node->visualHash = detail::HashArgs(
-        static_cast<uint8_t>(opts.style),
-        static_cast<uint8_t>(opts.orientation),
-        static_cast<uint8_t>(opts.overflow),
+        static_cast<keel::u8>(opts.style),
+        static_cast<keel::u8>(opts.orientation),
+        static_cast<keel::u8>(opts.overflow),
         node->cornerRadius,
         node->borderWidth,
         opts.background,
@@ -525,10 +525,10 @@ Response Toolbar::ToolButton(
         opts.active,
         opts.square,
         opts.iconColor.value_or(Color::Transparent()),
-        static_cast<uint8_t>(opts.stretch),
+        static_cast<keel::u8>(opts.stretch),
         activeSize,
-        static_cast<uint8_t>(payload->btn.icon.GetType()),
-        static_cast<uint8_t>(payload->btn.icon.GetId()),
+        static_cast<keel::u8>(payload->btn.icon.GetType()),
+        static_cast<keel::u8>(payload->btn.icon.GetId()),
         payload->btn.icon.GetPath(),
         payload->origText,
         payload->badge
@@ -674,10 +674,10 @@ SplitButtonResponse Toolbar::SplitButton(
         opts.active,
         opts.square,
         opts.iconColor.value_or(Color::Transparent()),
-        static_cast<uint8_t>(opts.stretch),
+        static_cast<keel::u8>(opts.stretch),
         activeSize,
-        static_cast<uint8_t>(payload->btn.icon.GetType()),
-        static_cast<uint8_t>(payload->btn.icon.GetId()),
+        static_cast<keel::u8>(payload->btn.icon.GetType()),
+        static_cast<keel::u8>(payload->btn.icon.GetId()),
         payload->btn.icon.GetPath(),
         payload->origText,
         payload->badge,
@@ -791,7 +791,7 @@ void Toolbar::Arrange(
 
         float nonFlexSum = 0.0f;
         float totalFlexGrow = 0.0f;
-        uint32_t flowCount = 0;
+        keel::u32 flowCount = 0;
         for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
             if (child->type == NodeType::Modal) continue;
             ++flowCount;
@@ -837,7 +837,7 @@ void Toolbar::Arrange(
 
     const float availContentW = keel::max(0.0f, w - node->padding.Horizontal());
     float expandedTotalW = 0.0f;
-    uint32_t flowCount = 0;
+    keel::u32 flowCount = 0;
 
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
         if (child->type == NodeType::Modal) continue;

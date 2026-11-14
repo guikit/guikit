@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include <cstring>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/backend/vector_backend.hpp"
@@ -31,7 +30,7 @@ public:
     }
 
     /// Configures the render target buffer (ABGR8888 premultiplied).
-    void SetTarget(uint32_t* buffer, uint32_t width, uint32_t height, uint32_t stride) override;
+    void SetTarget(keel::u32* buffer, keel::u32 width, keel::u32 height, keel::u32 stride) override;
 
     /// Loads a TrueType/OpenType font from a virtual asset path or filesystem path for the specified `FontStyle` slot.
     bool LoadFontFile(keel::StringRef path, FontStyle style = FontStyle::Regular) override;
@@ -39,13 +38,13 @@ public:
     /// Loads a TrueType/OpenType font directly from an in-memory buffer for the specified `FontStyle` slot.
     bool LoadFontMemory(
         keel::StringRef name,
-        keel::ArrayRef<uint8_t> data,
+        keel::ArrayRef<keel::u8> data,
         FontStyle style = FontStyle::Regular,
         keel::StringRef mimeType = "ttf"
     ) override;
 
     // ICanvas implementation
-    void Begin(uint32_t width, uint32_t height, float scale = 1.0f) override;
+    void Begin(keel::u32 width, keel::u32 height, float scale = 1.0f) override;
     void End() override;
     [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
     void SetScale(float scale) override { m_scale = (scale > 0.0f) ? scale : 1.0f; }
@@ -109,15 +108,15 @@ public:
         keel::StringRef source,
         Rect destRect,
         float cornerRadius = 0.0f,
-        uint8_t opacity = 255
+        keel::u8 opacity = 255
     ) override;
     bool DrawPixels(
-        const uint32_t* pixels,
-        uint32_t width,
-        uint32_t height,
+        const keel::u32* pixels,
+        keel::u32 width,
+        keel::u32 height,
         Rect destRect,
         float cornerRadius = 0.0f,
-        uint8_t opacity = 255
+        keel::u8 opacity = 255
     ) override;
 
     void SetGpuShadersEnabled(bool enabled) noexcept override {
@@ -128,8 +127,8 @@ public:
     }
     [[nodiscard]] bool SupportsGpuShaders() const noexcept override { return m_gpuShadersEnabled; }
     bool DrawGpuShaderPass(const GpuShaderPassDesc& pass, bool punchHole = true) override;
-    bool CaptureRegion(Rect rect, keel::Array<uint32_t>& outPixels, uint32_t& outW, uint32_t& outH) override;
-    bool RestoreRegion(Rect rect, keel::ArrayRef<uint32_t> inPixels, uint32_t inW, uint32_t inH) override;
+    bool CaptureRegion(Rect rect, keel::Array<keel::u32>& outPixels, keel::u32& outW, keel::u32& outH) override;
+    bool RestoreRegion(Rect rect, keel::ArrayRef<keel::u32> inPixels, keel::u32 inW, keel::u32 inH) override;
     void TrimCaches() noexcept override;
 
     [[nodiscard]] keel::ArrayRef<GpuShaderPassDesc> GetGpuShaderPasses() const noexcept override { return m_gpuPasses; }
@@ -140,22 +139,22 @@ public:
 private:
     struct ImageCacheEntry {
         keel::String resolvedDataOrPath;
-        const uint8_t* embeddedData{nullptr};
-        size_t embeddedSize{0};
+        const keel::u8* embeddedData{nullptr};
+        keel::usize embeddedSize{0};
         keel::SmallString<16> embeddedMimeType;
         Vec2 size{0.0f, 0.0f};
         bool isInlineSvg{false};
         bool isEmbedded{false};
         bool valid{false};
-        uint32_t cachedRasterW{0};
-        uint32_t cachedRasterH{0};
-        keel::Array<uint32_t> cachedPixels;
+        keel::u32 cachedRasterW{0};
+        keel::u32 cachedRasterH{0};
+        keel::Array<keel::u32> cachedPixels;
     };
 
     ImageCacheEntry& ResolveImageEntry(keel::StringRef source);
     bool LoadFontMemoryInternal(
         keel::StringRef name,
-        keel::ArrayRef<uint8_t> data,
+        keel::ArrayRef<keel::u8> data,
         FontStyle style,
         keel::StringRef mimeType,
         bool copyData
@@ -170,12 +169,12 @@ private:
 
     tvg::SwCanvas* m_canvas{nullptr};
     tvg::SwCanvas* m_stampCanvas{nullptr};
-    keel::Array<uint32_t> m_stampScratch;
+    keel::Array<keel::u32> m_stampScratch;
     tvg::Text* m_measureText{nullptr};
-    uint32_t* m_targetBuffer{nullptr};
-    uint32_t m_width{0};
-    uint32_t m_height{0};
-    uint32_t m_stride{0};
+    keel::u32* m_targetBuffer{nullptr};
+    keel::u32 m_width{0};
+    keel::u32 m_height{0};
+    keel::u32 m_stride{0};
     float m_scale{1.0f};
     bool m_gpuShadersEnabled{false};
     bool m_hasPendingPaints{false};
@@ -189,13 +188,13 @@ private:
         keel::String name;
         bool loaded{false};
     };
-    static constexpr size_t kFontStyleCount = 5;
+    static constexpr keel::usize kFontStyleCount = 5;
     keel::StaticArray<FontSlot, kFontStyleCount> m_fonts{};
 
     struct TextMeasureKey {
-        uint64_t hash;
-        uint32_t fontSizeBits;
-        uint8_t style;
+        keel::u64 hash;
+        keel::u32 fontSizeBits;
+        keel::u8 style;
 
         bool operator==(const TextMeasureKey& other) const noexcept {
             return hash == other.hash && fontSizeBits == other.fontSizeBits && style == other.style;
@@ -204,18 +203,18 @@ private:
 
     struct TextMeasureKeyHash {
         keel::u64 operator()(const TextMeasureKey& k) const noexcept {
-            uint64_t mixed = k.hash ^ (static_cast<uint64_t>(k.fontSizeBits) * 0x9e3779b97f4a7c15ULL);
-            mixed ^= static_cast<uint64_t>(k.style) * 0x517cc1b727220a95ULL;
+            keel::u64 mixed = k.hash ^ (static_cast<keel::u64>(k.fontSizeBits) * 0x9e3779b97f4a7c15ULL);
+            mixed ^= static_cast<keel::u64>(k.style) * 0x517cc1b727220a95ULL;
             return mixed;
         }
     };
 
     struct TextStampKey {
-        uint64_t textHash{0};
-        uint32_t fontSizeBits{0};
-        uint32_t colorRgba{0};
-        uint16_t textLen{0};
-        uint8_t style{0};
+        keel::u64 textHash{0};
+        keel::u32 fontSizeBits{0};
+        keel::u32 colorRgba{0};
+        keel::u16 textLen{0};
+        keel::u8 style{0};
 
         bool operator==(const TextStampKey& o) const noexcept {
             return textHash == o.textHash &&
@@ -228,30 +227,30 @@ private:
 
     struct TextStampKeyHash {
         keel::u64 operator()(const TextStampKey& k) const noexcept {
-            uint64_t h = k.textHash;
-            h ^= static_cast<uint64_t>(k.fontSizeBits) * 0x9e3779b97f4a7c15ULL;
-            h ^= static_cast<uint64_t>(k.colorRgba) * 0xbf58476d1ce4e5b9ULL;
-            h ^= (static_cast<uint64_t>(k.textLen) << 8 | k.style) * 0x94d049bb133111ebULL;
+            keel::u64 h = k.textHash;
+            h ^= static_cast<keel::u64>(k.fontSizeBits) * 0x9e3779b97f4a7c15ULL;
+            h ^= static_cast<keel::u64>(k.colorRgba) * 0xbf58476d1ce4e5b9ULL;
+            h ^= (static_cast<keel::u64>(k.textLen) << 8 | k.style) * 0x94d049bb133111ebULL;
             return h;
         }
     };
 
     struct TextStampEntry {
-        keel::Array<uint32_t> pixels;
-        uint16_t width{0};
-        uint16_t height{0};
-        int16_t offsetX{0};
-        int16_t offsetY{0};
+        keel::Array<keel::u32> pixels;
+        keel::u16 width{0};
+        keel::u16 height{0};
+        keel::i16 offsetX{0};
+        keel::i16 offsetY{0};
         bool empty{false};
     };
 
     struct ShapeStampKey {
-        uint32_t fillRgba{0};
-        uint32_t strokeRgba{0};
-        uint16_t qW{0};
-        uint16_t qH{0};
-        uint16_t qRad{0};
-        uint16_t qStrokeW{0};
+        keel::u32 fillRgba{0};
+        keel::u32 strokeRgba{0};
+        keel::u16 qW{0};
+        keel::u16 qH{0};
+        keel::u16 qRad{0};
+        keel::u16 qStrokeW{0};
 
         bool operator==(const ShapeStampKey& o) const noexcept {
             return fillRgba == o.fillRgba &&
@@ -265,41 +264,41 @@ private:
 
     struct ShapeStampKeyHash {
         keel::u64 operator()(const ShapeStampKey& k) const noexcept {
-            uint64_t h = static_cast<uint64_t>(k.fillRgba) | (static_cast<uint64_t>(k.strokeRgba) << 32);
-            h ^= (static_cast<uint64_t>(k.qW) | (static_cast<uint64_t>(k.qH) << 16) |
-                  (static_cast<uint64_t>(k.qRad) << 32) | (static_cast<uint64_t>(k.qStrokeW) << 48)) * 0x9e3779b97f4a7c15ULL;
+            keel::u64 h = static_cast<keel::u64>(k.fillRgba) | (static_cast<keel::u64>(k.strokeRgba) << 32);
+            h ^= (static_cast<keel::u64>(k.qW) | (static_cast<keel::u64>(k.qH) << 16) |
+                  (static_cast<keel::u64>(k.qRad) << 32) | (static_cast<keel::u64>(k.qStrokeW) << 48)) * 0x9e3779b97f4a7c15ULL;
             h ^= h >> 33;
             return h * 0xff51afd7ed558ccdULL;
         }
     };
 
-    template <typename Key, size_t MaxEntries, size_t MaxPixelBytes, typename HashFn>
+    template <typename Key, keel::usize MaxEntries, keel::usize MaxPixelBytes, typename HashFn>
     class StampLruCache {
-        static constexpr uint32_t kNil = 0xFFFFFFFFu;
+        static constexpr keel::u32 kNil = 0xFFFFFFFFu;
 
         struct Node {
             Key key{};
             TextStampEntry entry{};
-            uint32_t prev{kNil};
-            uint32_t next{kNil};
+            keel::u32 prev{kNil};
+            keel::u32 next{kNil};
         };
 
     public:
         [[nodiscard]] const TextStampEntry* Get(const Key& key) noexcept {
-            const uint32_t* idxPtr = m_map.get(key);
+            const keel::u32* idxPtr = m_map.get(key);
             if (!idxPtr) {
                 return nullptr;
             }
-            const uint32_t idx = *idxPtr;
+            const keel::u32 idx = *idxPtr;
             MoveToFront(idx);
             return &m_nodes[idx].entry;
         }
 
         const TextStampEntry& Insert(const Key& key, TextStampEntry&& entry) {
-            const size_t newBytes = entry.pixels.capacity() * sizeof(uint32_t);
-            if (const uint32_t* existingPtr = m_map.get(key)) {
-                const uint32_t idx = *existingPtr;
-                const size_t oldBytes = m_nodes[idx].entry.pixels.capacity() * sizeof(uint32_t);
+            const keel::usize newBytes = entry.pixels.capacity() * sizeof(keel::u32);
+            if (const keel::u32* existingPtr = m_map.get(key)) {
+                const keel::u32 idx = *existingPtr;
+                const keel::usize oldBytes = m_nodes[idx].entry.pixels.capacity() * sizeof(keel::u32);
                 m_totalPixelBytes = (m_totalPixelBytes >= oldBytes) ? (m_totalPixelBytes - oldBytes) : 0u;
                 m_nodes[idx].entry = keel::move(entry);
                 m_totalPixelBytes += newBytes;
@@ -316,7 +315,7 @@ private:
                 EvictTail();
             }
 
-            uint32_t slot = kNil;
+            keel::u32 slot = kNil;
             if (m_freeHead != kNil) {
                 slot = m_freeHead;
                 m_freeHead = m_nodes[slot].next;
@@ -328,7 +327,7 @@ private:
                 if (m_nodes.capacity() == 0u) {
                     m_nodes.reserve(MaxEntries);
                 }
-                slot = static_cast<uint32_t>(m_nodes.size());
+                slot = static_cast<keel::u32>(m_nodes.size());
                 m_nodes.push_back(Node{
                     .key = key,
                     .entry = keel::move(entry),
@@ -357,18 +356,18 @@ private:
             if (m_tail == kNil) {
                 return;
             }
-            const uint32_t slot = m_tail;
+            const keel::u32 slot = m_tail;
             Node& victim = m_nodes[slot];
-            const size_t oldBytes = victim.entry.pixels.capacity() * sizeof(uint32_t);
+            const keel::usize oldBytes = victim.entry.pixels.capacity() * sizeof(keel::u32);
             m_totalPixelBytes = (m_totalPixelBytes >= oldBytes) ? (m_totalPixelBytes - oldBytes) : 0u;
             (void)m_map.remove(victim.key);
             Detach(slot);
-            victim.entry.pixels = keel::Array<uint32_t>{};
+            victim.entry.pixels = keel::Array<keel::u32>{};
             victim.next = m_freeHead;
             m_freeHead = slot;
         }
 
-        void Detach(uint32_t idx) noexcept {
+        void Detach(keel::u32 idx) noexcept {
             Node& n = m_nodes[idx];
             if (n.prev != kNil) {
                 m_nodes[n.prev].next = n.next;
@@ -384,7 +383,7 @@ private:
             n.next = kNil;
         }
 
-        void AttachFront(uint32_t idx) noexcept {
+        void AttachFront(keel::u32 idx) noexcept {
             Node& n = m_nodes[idx];
             n.prev = kNil;
             n.next = m_head;
@@ -396,7 +395,7 @@ private:
             m_head = idx;
         }
 
-        void MoveToFront(uint32_t idx) noexcept {
+        void MoveToFront(keel::u32 idx) noexcept {
             if (idx == m_head) {
                 return;
             }
@@ -405,11 +404,11 @@ private:
         }
 
         keel::Array<Node> m_nodes;
-        keel::HashMap<Key, uint32_t, HashFn> m_map;
-        size_t m_totalPixelBytes{0};
-        uint32_t m_head{kNil};
-        uint32_t m_tail{kNil};
-        uint32_t m_freeHead{kNil};
+        keel::HashMap<Key, keel::u32, HashFn> m_map;
+        keel::usize m_totalPixelBytes{0};
+        keel::u32 m_head{kNil};
+        keel::u32 m_tail{kNil};
+        keel::u32 m_freeHead{kNil};
     };
 
     const TextStampEntry& ResolveTextStamp(
@@ -428,21 +427,21 @@ private:
     );
     void BlitTextStamp(
         const TextStampEntry& stamp,
-        int dstX,
-        int dstY,
+        keel::i32 dstX,
+        keel::i32 dstY,
         keel::Optional<Rect> extraClip = keel::kNullOpt
     );
 
-    static constexpr size_t kMaxTextStampBytes = 2u * 1024u * 1024u;
-    static constexpr size_t kMaxShapeStampBytes = 1u * 1024u * 1024u;
-    static constexpr size_t kMaxImageCacheEntries = 48u;
-    static constexpr size_t kMaxImageCacheBytes = 4u * 1024u * 1024u;
+    static constexpr keel::usize kMaxTextStampBytes = 2u * 1024u * 1024u;
+    static constexpr keel::usize kMaxShapeStampBytes = 1u * 1024u * 1024u;
+    static constexpr keel::usize kMaxImageCacheEntries = 48u;
+    static constexpr keel::usize kMaxImageCacheBytes = 4u * 1024u * 1024u;
 
     keel::LruCache<TextMeasureKey, Vec2, 1024, TextMeasureKeyHash> m_textMeasureCache;
     StampLruCache<TextStampKey, 512, kMaxTextStampBytes, TextStampKeyHash> m_textStampCache;
     StampLruCache<ShapeStampKey, 192, kMaxShapeStampBytes, ShapeStampKeyHash> m_shapeStampCache;
     keel::HashMap<keel::String, ImageCacheEntry> m_imageCache;
-    size_t m_imageCacheBytes{0};
+    keel::usize m_imageCacheBytes{0};
 };
 
 /// Creates a new `ThorCanvas` instance.

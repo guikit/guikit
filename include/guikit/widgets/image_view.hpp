@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
@@ -20,28 +18,28 @@ class Context;
 class ICanvas;
 
 /// Pixel sample data type for `ImageViewData`.
-enum class ImageSampleFormat : uint8_t {
+enum class ImageSampleFormat : keel::u8 {
     Float32 = 0,    ///< 32-bit floating-point intensity or RGB[A] samples
     UInt16,         ///< 16-bit unsigned integer (e.g. 12/14/16-bit radiograph, thermal, scientific CMOS)
     UInt8           ///< 8-bit unsigned integer (0..255)
 };
 
 /// Which tail(s) of the intensity distribution are clipped by quantile Auto Window.
-enum class AutoWindowTarget : uint8_t {
+enum class AutoWindowTarget : keel::u8 {
     Black = 0,      ///< Clip only the low (black) tail quantile
     White,          ///< Clip only the high (white) tail quantile
     All             ///< Clip both low and high tails symmetrically
 };
 
 /// Quantile clipping strength for Auto Window.
-enum class AutoWindowStrength : uint8_t {
+enum class AutoWindowStrength : keel::u8 {
     Off = 0,        ///< 0% tail clip (full [min, max] dynamic range)
     Medium,         ///< 1.0% tail clip (removes outlier hot/dead pixels and stretches contrast)
     Strong          ///< 5.0% tail clip (aggressive contrast expansion)
 };
 
 /// Orthogonal rotation angle applied to the displayed image.
-enum class ImageRotation : uint8_t {
+enum class ImageRotation : keel::u8 {
     Deg0 = 0,
     Deg90,
     Deg180,
@@ -49,7 +47,7 @@ enum class ImageRotation : uint8_t {
 };
 
 /// Channel isolation mode when viewing a multi-channel (RGB/RGBA) image.
-enum class ImageDisplayChannel : uint8_t {
+enum class ImageDisplayChannel : keel::u8 {
     CompositeRgb = 0, ///< Full multi-channel RGB color composite
     RedOnly,          ///< Isolate Red channel (allows Colormap pseudo-coloring)
     GreenOnly,        ///< Isolate Green channel (allows Colormap pseudo-coloring)
@@ -60,24 +58,24 @@ enum class ImageDisplayChannel : uint8_t {
 /// Non-owning descriptor for a 1-, 3-, or 4-channel image buffer passed to `ui.ImageView`.
 struct ImageViewData {
     const void* rawPixels{nullptr};
-    size_t sampleCount{0};
-    uint32_t width{0};
-    uint32_t height{0};
-    uint32_t channels{1};                       ///< 1 (Mono), 3 (RGB), or 4 (RGBA)
+    keel::usize sampleCount{0};
+    keel::u32 width{0};
+    keel::u32 height{0};
+    keel::u32 channels{1};                       ///< 1 (Mono), 3 (RGB), or 4 (RGBA)
     ImageSampleFormat format{ImageSampleFormat::Float32};
-    uint64_t dataGeneration{0};                 ///< Optional generation counter; 0 = auto-hash
+    keel::u64 dataGeneration{0};                 ///< Optional generation counter; 0 = auto-hash
 
     [[nodiscard]] bool Empty() const noexcept {
         return !rawPixels || width == 0 || height == 0 || channels == 0 ||
-               sampleCount < static_cast<size_t>(width) * height * channels;
+               sampleCount < static_cast<keel::usize>(width) * height * channels;
     }
 
     [[nodiscard]] static ImageViewData FromFloat(
         keel::ArrayRef<float> pixels,
-        uint32_t w,
-        uint32_t h,
-        uint32_t ch = 1,
-        uint64_t gen = 0
+        keel::u32 w,
+        keel::u32 h,
+        keel::u32 ch = 1,
+        keel::u64 gen = 0
     ) noexcept {
         return ImageViewData{
             .rawPixels = pixels.data(),
@@ -91,11 +89,11 @@ struct ImageViewData {
     }
 
     [[nodiscard]] static ImageViewData FromU16(
-        keel::ArrayRef<uint16_t> pixels,
-        uint32_t w,
-        uint32_t h,
-        uint32_t ch = 1,
-        uint64_t gen = 0
+        keel::ArrayRef<keel::u16> pixels,
+        keel::u32 w,
+        keel::u32 h,
+        keel::u32 ch = 1,
+        keel::u64 gen = 0
     ) noexcept {
         return ImageViewData{
             .rawPixels = pixels.data(),
@@ -109,11 +107,11 @@ struct ImageViewData {
     }
 
     [[nodiscard]] static ImageViewData FromU8(
-        keel::ArrayRef<uint8_t> pixels,
-        uint32_t w,
-        uint32_t h,
-        uint32_t ch = 3,
-        uint64_t gen = 0
+        keel::ArrayRef<keel::u8> pixels,
+        keel::u32 w,
+        keel::u32 h,
+        keel::u32 ch = 3,
+        keel::u64 gen = 0
     ) noexcept {
         return ImageViewData{
             .rawPixels = pixels.data(),
@@ -187,15 +185,15 @@ struct ImageViewResponse : public Response {
     Vec2 panOffset{0.0f, 0.0f};         ///< Current pan offset in screen pixels
 
     bool cursorInsideImage{false};      ///< True when mouse cursor is over a valid source image pixel
-    uint32_t cursorImageX{0};           ///< Source image X coordinate [0 .. width-1]
-    uint32_t cursorImageY{0};           ///< Source image Y coordinate [0 .. height-1]
+    keel::u32 cursorImageX{0};           ///< Source image X coordinate [0 .. width-1]
+    keel::u32 cursorImageY{0};           ///< Source image Y coordinate [0 .. height-1]
     keel::StaticArray<float, 4> cursorSample{}; ///< Raw sample values under cursor (ch 0..3)
     float cursorLuminance{0.0f};        ///< Raw intensity (1ch) or luminance (3ch) under cursor
 
     bool profileActive{false};          ///< True when a cross-section RMB line profile is active
     Vec2 profileStartPx{0.0f, 0.0f};    ///< Line profile start in source image coordinates
     Vec2 profileEndPx{0.0f, 0.0f};      ///< Line profile end in source image coordinates
-    uint32_t profileSampleCount{0};     ///< Number of samples along the cross-section
+    keel::u32 profileSampleCount{0};     ///< Number of samples along the cross-section
     float profileMin{0.0f};
     float profileMax{0.0f};
     float profileMean{0.0f};
@@ -233,7 +231,7 @@ public:
 
     /// Computes quantile-based Auto Window on a 256-bin histogram distribution.
     static void ApplyQuantileAutoWindow(
-        keel::ArrayRef<uint32_t> bins,
+        keel::ArrayRef<keel::u32> bins,
         float minVal,
         float maxVal,
         AutoWindowTarget target,

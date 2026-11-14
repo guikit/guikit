@@ -7,6 +7,7 @@
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
+#include "keel/core.h"
 
 namespace guikit {
 

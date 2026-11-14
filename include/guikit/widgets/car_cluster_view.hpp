@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -17,20 +16,20 @@ class Context;
 class ICanvas;
 
 /// Instrument cluster architectural layout mode for `CarClusterView`.
-enum class ClusterLayoutMode : uint8_t {
+enum class ClusterLayoutMode : keel::u8 {
     DualDial = 0,       ///< Classic Digital Cockpit: Left Speedometer dial + Center MFD + Right Tachometer / Power-Regen dial
     TrackCentral,       ///< Motorsport / GT Mode: Dominant central Tachometer + digital speed/gear + Left & Right telemetry wings
     ModernWide          ///< Panoramic EV / ADAS Cockpit: Wide central 3D lane & radar stage + sweeping side arc gauges
 };
 
 /// Powertrain architecture mode controlling tachometer vs power/regen metering and thermal/energy readouts.
-enum class PowertrainMode : uint8_t {
+enum class PowertrainMode : keel::u8 {
     IceTurbo = 0,       ///< Internal Combustion Turbo + 8-speed DCT/PDK (RPM 0..8500, Redline, Gear 1..8, Boost bar, Oil Temp, Fuel)
     ElectricDualMotor   ///< Performance Dual-Motor EV (-150 kW Regen .. 0 .. +450 kW Power, SoC %, Battery Temp, kWh/100km)
 };
 
 /// Visual color theme and drive mode styling for the digital instrument cluster.
-enum class ClusterDriveTheme : uint8_t {
+enum class ClusterDriveTheme : keel::u8 {
     ComfortCyan = 0,    ///< Deep slate glass cockpit with crisp ice-cyan and cool white accents
     SportCrimson,       ///< Carbon-black performance theme with aggressive crimson red and amber highlights
     EcoEmerald,         ///< Efficiency-focused emerald green and aqua-teal palette
@@ -38,20 +37,20 @@ enum class ClusterDriveTheme : uint8_t {
 };
 
 /// Active page displayed inside the central Multi-Function Display (MFD) viewport.
-enum class ClusterCenterMfd : uint8_t {
+enum class ClusterCenterMfd : keel::u8 {
     AdasLaneRadar = 0,  ///< 3D ADAS highway lane perspective, dynamic steering path, radar lead car & ACC distance
     TpmsChassis,        ///< 4-wheel chassis vector diagram with per-wheel tire pressure (bar/psi) and temperature
     GForceDynamics      ///< 2D Lateral/Longitudinal G-Meter accelerometer reticle, steering angle, AWD split & boost/power
 };
 
 /// Measurement unit system for speed, distance, temperature, and pressure readouts.
-enum class SpeedUnit : uint8_t {
+enum class SpeedUnit : keel::u8 {
     Kmh = 0,            ///< Metric: km/h, km, °C, bar, L/100km (or kWh/100km)
     Mph                 ///< Imperial: mph, mi, °F, psi, mpg (or mi/kWh)
 };
 
 /// Transmission selector state (`P R N D S M`).
-enum class GearSelector : uint8_t {
+enum class GearSelector : keel::u8 {
     Park = 0,
     Reverse,
     Neutral,
@@ -99,7 +98,7 @@ struct CarClusterViewOptions {
     float rpm{2850.0f};                 ///< Engine speed in RPM (0 .. maxRpm) for `PowertrainMode::IceTurbo`
     float redlineRpm{7000.0f};          ///< Redline threshold in RPM where warning ticks & shift lights engage
     float maxRpm{8500.0f};              ///< Full-scale tachometer maximum in RPM (6000 .. 10000)
-    int currentGear{5};                 ///< Active forward gear ratio (1 .. 8) when in D / S / M
+    keel::i32 currentGear{5};                 ///< Active forward gear ratio (1 .. 8) when in D / S / M
     float evPowerKw{48.0f};             ///< Electric motor net power in kW (-150 kW Regen .. +450 kW Power)
     float throttlePct{22.0f};           ///< Accelerator pedal position in % (0 .. 100)
     float brakePct{0.0f};               ///< Brake pedal pressure in % (0 .. 100)
@@ -135,7 +134,7 @@ struct CarClusterViewOptions {
     CarTelltaleFlags telltales{};
 
     // --- Optional Two-Way Bindings ---
-    int* manualGearPtr{nullptr};        ///< Optional binding: mouse wheel steps gear 1..8 when hovered
+    keel::i32* manualGearPtr{nullptr};        ///< Optional binding: mouse wheel steps gear 1..8 when hovered
     ClusterCenterMfd* centerMfdPtr{nullptr}; ///< Optional binding: clicking MFD page dots cycles MFD screen
 
     // --- Sizing & Styling ---

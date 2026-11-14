@@ -82,7 +82,7 @@ Vec2 MeasureSegmentedBox(
         }
     }
 
-    const size_t count = keel::max<size_t>(1, items.size());
+    const keel::usize count = keel::max<keel::usize>(1, items.size());
     float totalW = opts.equalWidth
         ? (maxSegW * static_cast<float>(count) + inset * 2.0f)
         : (sumSegW + inset * 2.0f);
@@ -119,7 +119,7 @@ void ComputeSegmentRects(
     const float inset = (size <= UiSize::Sm) ? 2.0f : 3.0f;
     const Rect inner = trackRect.Inset(inset);
     if (inner.w <= 0.0f || inner.h <= 0.0f) {
-        for (size_t i = 0; i < items.size(); ++i) {
+        for (keel::usize i = 0; i < items.size(); ++i) {
             outRects.emplace_back(trackRect.x, trackRect.y, 0.0f, 0.0f);
         }
         return;
@@ -127,18 +127,18 @@ void ComputeSegmentRects(
 
     if (opts.equalWidth || items.size() == 1) {
         const float segW = inner.w / static_cast<float>(items.size());
-        for (size_t i = 0; i < items.size(); ++i) {
+        for (keel::usize i = 0; i < items.size(); ++i) {
             outRects.emplace_back(inner.x + static_cast<float>(i) * segW, inner.y, segW, inner.h);
         }
     } else {
         keel::SmallArray<float, 16> natW(items.size(), 1.0f);
         float sumNat = 0.0f;
-        for (size_t i = 0; i < items.size(); ++i) {
+        for (keel::usize i = 0; i < items.size(); ++i) {
             natW[i] = keel::max(1.0f, MeasureSegmentNaturalWidth(items[i], size, canvas, theme));
             sumNat += natW[i];
         }
         float curX = inner.x;
-        for (size_t i = 0; i < items.size(); ++i) {
+        for (keel::usize i = 0; i < items.size(); ++i) {
             const float w = (i + 1 == items.size())
                 ? keel::max(0.0f, inner.Right() - curX)
                 : (inner.w * (natW[i] / keel::max(1.0f, sumNat)));
@@ -183,9 +183,9 @@ Vec2 Segmented::Measure(
 
 Response Segmented::Run(
     Context& ctx,
-    size_t* selectedIndex,
-    int* selectedIntIndex,
-    uint32_t* selectedMask,
+    keel::usize* selectedIndex,
+    keel::i32* selectedIntIndex,
+    keel::u32* selectedMask,
     keel::ArrayRef<keel::StringRef> items,
     const SegmentedOptions& opts,
     keel::SourceLocation loc
@@ -200,9 +200,9 @@ Response Segmented::Run(
 
 Response Segmented::Run(
     Context& ctx,
-    size_t* selectedIndex,
-    int* selectedIntIndex,
-    uint32_t* selectedMask,
+    keel::usize* selectedIndex,
+    keel::i32* selectedIntIndex,
+    keel::u32* selectedMask,
     keel::ArrayRef<SegmentedItem> items,
     const SegmentedOptions& opts,
     keel::SourceLocation loc
@@ -233,31 +233,31 @@ Response Segmented::Run(
     Response res = ctx.Interact(id);
 
     const bool multiSelect = (selectedMask != nullptr);
-    size_t currIndex = size_t(-1);
-    uint32_t currMask = 0;
+    keel::usize currIndex = keel::usize(-1);
+    keel::u32 currMask = 0;
 
     if (multiSelect) {
         currMask = *selectedMask;
     } else if (selectedIndex != nullptr) {
         if (*selectedIndex < items.size()) currIndex = *selectedIndex;
     } else if (selectedIntIndex != nullptr) {
-        if (*selectedIntIndex >= 0 && static_cast<size_t>(*selectedIntIndex) < items.size()) {
-            currIndex = static_cast<size_t>(*selectedIntIndex);
+        if (*selectedIntIndex >= 0 && static_cast<keel::usize>(*selectedIntIndex) < items.size()) {
+            currIndex = static_cast<keel::usize>(*selectedIntIndex);
         }
     }
 
-    auto applySingleSelection = [&](size_t newIdx) {
+    auto applySingleSelection = [&](keel::usize newIdx) {
         if (newIdx < items.size() && !items[newIdx].disabled && currIndex != newIdx) {
             currIndex = newIdx;
             if (selectedIndex != nullptr) *selectedIndex = newIdx;
-            if (selectedIntIndex != nullptr) *selectedIntIndex = static_cast<int>(newIdx);
+            if (selectedIntIndex != nullptr) *selectedIntIndex = static_cast<keel::i32>(newIdx);
             res.changed = true;
         }
     };
 
-    auto toggleMaskBit = [&](size_t bitIdx) {
+    auto toggleMaskBit = [&](keel::usize bitIdx) {
         if (bitIdx < items.size() && bitIdx < 32 && !items[bitIdx].disabled) {
-            currMask ^= (1u << static_cast<uint32_t>(bitIdx));
+            currMask ^= (1u << static_cast<keel::u32>(bitIdx));
             if (selectedMask != nullptr) *selectedMask = currMask;
             res.changed = true;
         }
@@ -267,8 +267,8 @@ Response Segmented::Run(
     keel::SmallArray<Rect, 16> segRects;
     ComputeSegmentRects(prevBounds, items, optsCopy, activeSize, canvas, theme, segRects);
 
-    int hoveredSegment = -1;
-    int pressedSegment = -1;
+    keel::i32 hoveredSegment = -1;
+    keel::i32 pressedSegment = -1;
 
     if (effectiveDisabled) {
         res.clicked = false;
@@ -278,12 +278,12 @@ Response Segmented::Run(
     } else {
         const Vec2 mouse = ctx.GetMousePos();
         if (res.hovered || res.pressed || res.clicked) {
-            for (size_t i = 0; i < segRects.size(); ++i) {
+            for (keel::usize i = 0; i < segRects.size(); ++i) {
                 if (segRects[i].Contains(mouse)) {
                     if (!items[i].disabled) {
-                        hoveredSegment = static_cast<int>(i);
+                        hoveredSegment = static_cast<keel::i32>(i);
                         if (res.pressed) {
-                            pressedSegment = static_cast<int>(i);
+                            pressedSegment = static_cast<keel::i32>(i);
                         }
                     }
                     break;
@@ -295,9 +295,9 @@ Response Segmented::Run(
             ctx.RequestFocus(id);
             if (hoveredSegment >= 0) {
                 if (multiSelect) {
-                    toggleMaskBit(static_cast<size_t>(hoveredSegment));
+                    toggleMaskBit(static_cast<keel::usize>(hoveredSegment));
                 } else {
-                    applySingleSelection(static_cast<size_t>(hoveredSegment));
+                    applySingleSelection(static_cast<keel::usize>(hoveredSegment));
                 }
             }
         }
@@ -305,16 +305,16 @@ Response Segmented::Run(
         // Keyboard navigation when focused in single-select mode
         if (ctx.IsFocused(id) && !multiSelect && !items.empty()) {
             if (ctx.ConsumeKey(Key::Right) || ctx.ConsumeKey(Key::Down)) {
-                const size_t start = (currIndex == size_t(-1)) ? 0 : (currIndex + 1);
-                for (size_t i = start; i < items.size(); ++i) {
+                const keel::usize start = (currIndex == keel::usize(-1)) ? 0 : (currIndex + 1);
+                for (keel::usize i = start; i < items.size(); ++i) {
                     if (!items[i].disabled) {
                         applySingleSelection(i);
                         break;
                     }
                 }
             } else if (ctx.ConsumeKey(Key::Left) || ctx.ConsumeKey(Key::Up)) {
-                if (currIndex != size_t(-1) && currIndex > 0) {
-                    for (size_t k = currIndex; k > 0; --k) {
+                if (currIndex != keel::usize(-1) && currIndex > 0) {
+                    for (keel::usize k = currIndex; k > 0; --k) {
                         if (!items[k - 1].disabled) {
                             applySingleSelection(k - 1);
                             break;
@@ -322,14 +322,14 @@ Response Segmented::Run(
                     }
                 }
             } else if (ctx.ConsumeKey(Key::Home)) {
-                for (size_t i = 0; i < items.size(); ++i) {
+                for (keel::usize i = 0; i < items.size(); ++i) {
                     if (!items[i].disabled) {
                         applySingleSelection(i);
                         break;
                     }
                 }
             } else if (ctx.ConsumeKey(Key::End)) {
-                for (size_t k = items.size(); k > 0; --k) {
+                for (keel::usize k = items.size(); k > 0; --k) {
                     if (!items[k - 1].disabled) {
                         applySingleSelection(k - 1);
                         break;
@@ -341,7 +341,7 @@ Response Segmented::Run(
 
     if (res.hovered) {
         if (hoveredSegment >= 0) {
-            const size_t hIdx = static_cast<size_t>(hoveredSegment);
+            const keel::usize hIdx = static_cast<keel::usize>(hoveredSegment);
             const Rect hRect = segRects[hIdx];
             if (!items[hIdx].tooltip.empty()) {
                 ctx.SetTooltip(items[hIdx].tooltip, hRect);
@@ -365,8 +365,8 @@ Response Segmented::Run(
 
     optsCopy.tooltip = ctx.AllocText(optsCopy.tooltip);
     SegmentedItem* arenaItems = ctx.GetArena().create_array<SegmentedItem>(items.size());
-    uint64_t itemsHash = 0;
-    for (size_t i = 0; i < items.size(); ++i) {
+    keel::u64 itemsHash = 0;
+    for (keel::usize i = 0; i < items.size(); ++i) {
         arenaItems[i] = items[i];
         arenaItems[i].text = ctx.AllocText(items[i].text);
         arenaItems[i].tooltip = ctx.AllocText(items[i].tooltip);
@@ -375,7 +375,7 @@ Response Segmented::Run(
             itemsHash,
             arenaItems[i].text,
             arenaItems[i].icon,
-            static_cast<uint8_t>(arenaItems[i].iconPlacement),
+            static_cast<keel::u8>(arenaItems[i].iconPlacement),
             arenaItems[i].disabled
         );
     }
@@ -397,8 +397,8 @@ Response Segmented::Run(
         multiSelect,
         hoveredSegment,
         pressedSegment,
-        static_cast<uint8_t>(optsCopy.stretch),
-        static_cast<uint8_t>(optsCopy.align),
+        static_cast<keel::u8>(optsCopy.stretch),
+        static_cast<keel::u8>(optsCopy.align),
         optsCopy.width.value_or(0.0f),
         optsCopy.height.value_or(0.0f),
         optsCopy.minWidth.value_or(0.0f),
@@ -450,11 +450,11 @@ void Segmented::Render(
     ICanvas& canvas,
     Rect bounds,
     keel::ArrayRef<SegmentedItem> items,
-    size_t selectedIndex,
-    uint32_t selectedMask,
+    keel::usize selectedIndex,
+    keel::u32 selectedMask,
     bool multiSelect,
-    int hoveredSegment,
-    int pressedSegment,
+    keel::i32 hoveredSegment,
+    keel::i32 pressedSegment,
     const SegmentedOptions& opts,
     UiSize size,
     bool disabled,
@@ -500,9 +500,9 @@ void Segmented::Render(
     ComputeSegmentRects(trackRect, items, opts, size, &canvas, theme, segRects);
     const float pillRadius = keel::max(2.0f, trackRadius - inset);
 
-    auto isSegmentSelected = [&](size_t idx) noexcept -> bool {
+    auto isSegmentSelected = [&](keel::usize idx) noexcept -> bool {
         if (multiSelect) {
-            return idx < 32 && ((selectedMask & (1u << static_cast<uint32_t>(idx))) != 0u);
+            return idx < 32 && ((selectedMask & (1u << static_cast<keel::u32>(idx))) != 0u);
         }
         return idx == selectedIndex;
     };
@@ -510,11 +510,11 @@ void Segmented::Render(
     // 2. Render subtle vertical dividers between adjacent unselected segments
     if (opts.showDividers && items.size() > 1) {
         const Color divCol = pal.borderSubtle.WithAlpha(disabled ? 55 : 120);
-        for (size_t i = 0; i + 1 < items.size(); ++i) {
+        for (keel::usize i = 0; i + 1 < items.size(); ++i) {
             const bool curSel = isSegmentSelected(i);
             const bool nextSel = isSegmentSelected(i + 1);
-            const bool curHov = (hoveredSegment == static_cast<int>(i));
-            const bool nextHov = (hoveredSegment == static_cast<int>(i + 1));
+            const bool curHov = (hoveredSegment == static_cast<keel::i32>(i));
+            const bool nextHov = (hoveredSegment == static_cast<keel::i32>(i + 1));
             if (!curSel && !nextSel && !curHov && !nextHov) {
                 const Rect& r = segRects[i];
                 const float x = std::round(r.Right());
@@ -525,15 +525,15 @@ void Segmented::Render(
     }
 
     // 3. Render segments (active pill, hover highlight, icon, and text)
-    for (size_t i = 0; i < items.size(); ++i) {
+    for (keel::usize i = 0; i < items.size(); ++i) {
         const SegmentedItem& item = items[i];
         const Rect sr = segRects[i];
         if (sr.w <= 0.0f || sr.h <= 0.0f) continue;
 
         const bool segDisabled = disabled || item.disabled;
         const bool selected = isSegmentSelected(i);
-        const bool hovered = !segDisabled && (hoveredSegment == static_cast<int>(i));
-        const bool pressed = !segDisabled && (pressedSegment == static_cast<int>(i));
+        const bool hovered = !segDisabled && (hoveredSegment == static_cast<keel::i32>(i));
+        const bool pressed = !segDisabled && (pressedSegment == static_cast<keel::i32>(i));
 
         Color fgColor = segDisabled ? pal.textMuted : (hovered ? pal.textPrimary : pal.textSecondary);
 

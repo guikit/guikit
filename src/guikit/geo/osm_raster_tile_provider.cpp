@@ -19,19 +19,19 @@
 namespace guikit::geo {
 
 bool DecodePngAndScaleToRgba(
-    keel::ArrayRef<uint8_t> pngBytes,
-    uint32_t targetSizePx,
-    keel::Array<uint32_t>& outRgba
+    keel::ArrayRef<keel::u8> pngBytes,
+    keel::u32 targetSizePx,
+    keel::Array<keel::u32>& outRgba
 ) {
     if (pngBytes.size() < 8 || targetSizePx == 0 || targetSizePx > 4096) {
         return false;
     }
 
-    uint32_t srcW = 0;
-    uint32_t srcH = 0;
-    keel::Array<uint32_t> srcRgba;
+    keel::u32 srcW = 0;
+    keel::u32 srcH = 0;
+    keel::Array<keel::u32> srcRgba;
     if (!guikit::DecodeImageFromMemory(pngBytes, srcW, srcH, srcRgba) ||
-        srcW == 0 || srcH == 0 || srcRgba.size() != static_cast<size_t>(srcW) * srcH) {
+        srcW == 0 || srcH == 0 || srcRgba.size() != static_cast<keel::usize>(srcW) * srcH) {
         return false;
     }
 
@@ -41,33 +41,33 @@ bool DecodePngAndScaleToRgba(
         return true;
     }
 
-    outRgba.resize(static_cast<size_t>(targetSizePx) * targetSizePx);
+    outRgba.resize(static_cast<keel::usize>(targetSizePx) * targetSizePx);
 
     // Fast 2x2 box filter path when downscaling by exact 2x (e.g. 256x256 -> 128x128)
     if (srcW == targetSizePx * 2u && srcH == targetSizePx * 2u) {
-        for (uint32_t dy = 0; dy < targetSizePx; ++dy) {
-            const uint32_t sy0 = dy * 2u;
-            const uint32_t sy1 = sy0 + 1u;
-            const uint32_t* row0 = srcRgba.data() + static_cast<size_t>(sy0) * srcW;
-            const uint32_t* row1 = srcRgba.data() + static_cast<size_t>(sy1) * srcW;
-            uint32_t* dstRow = outRgba.data() + static_cast<size_t>(dy) * targetSizePx;
+        for (keel::u32 dy = 0; dy < targetSizePx; ++dy) {
+            const keel::u32 sy0 = dy * 2u;
+            const keel::u32 sy1 = sy0 + 1u;
+            const keel::u32* row0 = srcRgba.data() + static_cast<keel::usize>(sy0) * srcW;
+            const keel::u32* row1 = srcRgba.data() + static_cast<keel::usize>(sy1) * srcW;
+            keel::u32* dstRow = outRgba.data() + static_cast<keel::usize>(dy) * targetSizePx;
 
-            for (uint32_t dx = 0; dx < targetSizePx; ++dx) {
-                const uint32_t sx0 = dx * 2u;
-                const uint32_t sx1 = sx0 + 1u;
+            for (keel::u32 dx = 0; dx < targetSizePx; ++dx) {
+                const keel::u32 sx0 = dx * 2u;
+                const keel::u32 sx1 = sx0 + 1u;
 
-                const uint32_t p00 = row0[sx0];
-                const uint32_t p10 = row0[sx1];
-                const uint32_t p01 = row1[sx0];
-                const uint32_t p11 = row1[sx1];
+                const keel::u32 p00 = row0[sx0];
+                const keel::u32 p10 = row0[sx1];
+                const keel::u32 p01 = row1[sx0];
+                const keel::u32 p11 = row1[sx1];
 
-                const uint32_t r = (((p00 >>  0u) & 0xFFu) + ((p10 >>  0u) & 0xFFu) +
+                const keel::u32 r = (((p00 >>  0u) & 0xFFu) + ((p10 >>  0u) & 0xFFu) +
                                     ((p01 >>  0u) & 0xFFu) + ((p11 >>  0u) & 0xFFu) + 2u) >> 2u;
-                const uint32_t g = (((p00 >>  8u) & 0xFFu) + ((p10 >>  8u) & 0xFFu) +
+                const keel::u32 g = (((p00 >>  8u) & 0xFFu) + ((p10 >>  8u) & 0xFFu) +
                                     ((p01 >>  8u) & 0xFFu) + ((p11 >>  8u) & 0xFFu) + 2u) >> 2u;
-                const uint32_t b = (((p00 >> 16u) & 0xFFu) + ((p10 >> 16u) & 0xFFu) +
+                const keel::u32 b = (((p00 >> 16u) & 0xFFu) + ((p10 >> 16u) & 0xFFu) +
                                     ((p01 >> 16u) & 0xFFu) + ((p11 >> 16u) & 0xFFu) + 2u) >> 2u;
-                const uint32_t a = (((p00 >> 24u) & 0xFFu) + ((p10 >> 24u) & 0xFFu) +
+                const keel::u32 a = (((p00 >> 24u) & 0xFFu) + ((p10 >> 24u) & 0xFFu) +
                                     ((p01 >> 24u) & 0xFFu) + ((p11 >> 24u) & 0xFFu) + 2u) >> 2u;
 
                 dstRow[dx] = (a << 24u) | (b << 16u) | (g << 8u) | r;
@@ -80,21 +80,21 @@ bool DecodePngAndScaleToRgba(
     const float scaleX = static_cast<float>(srcW) / static_cast<float>(targetSizePx);
     const float scaleY = static_cast<float>(srcH) / static_cast<float>(targetSizePx);
 
-    for (uint32_t dy = 0; dy < targetSizePx; ++dy) {
+    for (keel::u32 dy = 0; dy < targetSizePx; ++dy) {
         const float srcYf = (static_cast<float>(dy) + 0.5f) * scaleY - 0.5f;
-        const int y0 = keel::clamp(static_cast<int>(std::floor(srcYf)), 0, static_cast<int>(srcH) - 1);
-        const int y1 = keel::clamp(y0 + 1, 0, static_cast<int>(srcH) - 1);
+        const keel::i32 y0 = keel::clamp(static_cast<keel::i32>(std::floor(srcYf)), 0, static_cast<keel::i32>(srcH) - 1);
+        const keel::i32 y1 = keel::clamp(y0 + 1, 0, static_cast<keel::i32>(srcH) - 1);
         const float fy = keel::clamp(srcYf - static_cast<float>(y0), 0.0f, 1.0f);
         const float invFy = 1.0f - fy;
 
-        const uint32_t* row0 = srcRgba.data() + static_cast<size_t>(y0) * srcW;
-        const uint32_t* row1 = srcRgba.data() + static_cast<size_t>(y1) * srcW;
-        uint32_t* dstRow = outRgba.data() + static_cast<size_t>(dy) * targetSizePx;
+        const keel::u32* row0 = srcRgba.data() + static_cast<keel::usize>(y0) * srcW;
+        const keel::u32* row1 = srcRgba.data() + static_cast<keel::usize>(y1) * srcW;
+        keel::u32* dstRow = outRgba.data() + static_cast<keel::usize>(dy) * targetSizePx;
 
-        for (uint32_t dx = 0; dx < targetSizePx; ++dx) {
+        for (keel::u32 dx = 0; dx < targetSizePx; ++dx) {
             const float srcXf = (static_cast<float>(dx) + 0.5f) * scaleX - 0.5f;
-            const int x0 = keel::clamp(static_cast<int>(std::floor(srcXf)), 0, static_cast<int>(srcW) - 1);
-            const int x1 = keel::clamp(x0 + 1, 0, static_cast<int>(srcW) - 1);
+            const keel::i32 x0 = keel::clamp(static_cast<keel::i32>(std::floor(srcXf)), 0, static_cast<keel::i32>(srcW) - 1);
+            const keel::i32 x1 = keel::clamp(x0 + 1, 0, static_cast<keel::i32>(srcW) - 1);
             const float fx = keel::clamp(srcXf - static_cast<float>(x0), 0.0f, 1.0f);
             const float invFx = 1.0f - fx;
 
@@ -103,23 +103,23 @@ bool DecodePngAndScaleToRgba(
             const float w01 = invFx * fy;
             const float w11 = fx * fy;
 
-            const uint32_t p00 = row0[x0];
-            const uint32_t p10 = row0[x1];
-            const uint32_t p01 = row1[x0];
-            const uint32_t p11 = row1[x1];
+            const keel::u32 p00 = row0[x0];
+            const keel::u32 p10 = row0[x1];
+            const keel::u32 p01 = row1[x0];
+            const keel::u32 p11 = row1[x1];
 
-            const auto sampleChannel = [&](uint32_t shift) noexcept -> uint32_t {
+            const auto sampleChannel = [&](keel::u32 shift) noexcept -> keel::u32 {
                 const float val = w00 * static_cast<float>((p00 >> shift) & 0xFFu) +
                                   w10 * static_cast<float>((p10 >> shift) & 0xFFu) +
                                   w01 * static_cast<float>((p01 >> shift) & 0xFFu) +
                                   w11 * static_cast<float>((p11 >> shift) & 0xFFu);
-                return static_cast<uint32_t>(keel::clamp(static_cast<int>(val + 0.5f), 0, 255));
+                return static_cast<keel::u32>(keel::clamp(static_cast<keel::i32>(val + 0.5f), 0, 255));
             };
 
-            const uint32_t r = sampleChannel(0u);
-            const uint32_t g = sampleChannel(8u);
-            const uint32_t b = sampleChannel(16u);
-            const uint32_t a = sampleChannel(24u);
+            const keel::u32 r = sampleChannel(0u);
+            const keel::u32 g = sampleChannel(8u);
+            const keel::u32 b = sampleChannel(16u);
+            const keel::u32 a = sampleChannel(24u);
 
             dstRow[dx] = (a << 24u) | (b << 16u) | (g << 8u) | r;
         }
@@ -144,8 +144,8 @@ public:
         return "OpenStreetMap Standard";
     }
 
-    [[nodiscard]] int GetMinZoom() const noexcept override { return 0; }
-    [[nodiscard]] int GetMaxZoom() const noexcept override { return 19; }
+    [[nodiscard]] keel::i32 GetMinZoom() const noexcept override { return 0; }
+    [[nodiscard]] keel::i32 GetMaxZoom() const noexcept override { return 19; }
 
     [[nodiscard]] keel::Arc<const RasterTileImage> TryGetCachedTile(
         const SlippyTileKey& key
@@ -159,7 +159,7 @@ public:
 
         // If this entry was synthesized while offline, expire it once the 15s circuit breaker window elapses
         if (entry->isFallback) {
-            const int64_t nowMs = NowSteadyMs();
+            const keel::i64 nowMs = NowSteadyMs();
             if ((nowMs - entry->createdAtMs) >= kOfflineRetryIntervalMs) {
                 return {};
             }
@@ -192,13 +192,13 @@ public:
 
         // 2. Clean cartographic fallback if offline or in headless test environment without internet
         const bool isFallback =
-            !decoded || tileImg->rgbaPixels.size() != static_cast<size_t>(normKey.tileSizePx) * normKey.tileSizePx;
+            !decoded || tileImg->rgbaPixels.size() != static_cast<keel::usize>(normKey.tileSizePx) * normKey.tileSizePx;
         if (isFallback) {
             SynthesizeCartographicFallbackTile(normKey, tileImg->rgbaPixels);
         }
 
         keel::Arc<const RasterTileImage> constImg = keel::move(tileImg);
-        const int64_t nowMs = NowSteadyMs();
+        const keel::i64 nowMs = NowSteadyMs();
         {
             std::lock_guard<std::mutex> lk(m_mutex);
             m_ramCache.put(normKey, CacheEntry{
@@ -222,28 +222,28 @@ public:
     }
 
 private:
-    static constexpr int64_t kOfflineRetryIntervalMs = 15000;
+    static constexpr keel::i64 kOfflineRetryIntervalMs = 15000;
 
     struct CacheEntry {
         keel::Arc<const RasterTileImage> image{};
-        int64_t createdAtMs{0};
+        keel::i64 createdAtMs{0};
         bool isFallback{false};
     };
 
-    [[nodiscard]] static int64_t NowSteadyMs() noexcept {
-        return static_cast<int64_t>(keel::monotonic_ms()) + 1;
+    [[nodiscard]] static keel::i64 NowSteadyMs() noexcept {
+        return static_cast<keel::i64>(keel::monotonic_ms()) + 1;
     }
 
     [[nodiscard]] static SlippyTileKey NormalizeKey(const SlippyTileKey& k) noexcept {
-        const int z = keel::clamp(k.z, 0, 19);
-        const int n = 1 << z;
-        const int x = ((k.x % n) + n) % n;
-        const int y = keel::clamp(k.y, 0, n - 1);
-        const uint32_t sz = (k.tileSizePx <= 160u) ? 128u : ((k.tileSizePx >= 384u) ? 512u : 256u);
+        const keel::i32 z = keel::clamp(k.z, 0, 19);
+        const keel::i32 n = 1 << z;
+        const keel::i32 x = ((k.x % n) + n) % n;
+        const keel::i32 y = keel::clamp(k.y, 0, n - 1);
+        const keel::u32 sz = (k.tileSizePx <= 160u) ? 128u : ((k.tileSizePx >= 384u) ? 512u : 256u);
         return SlippyTileKey{.z = z, .x = x, .y = y, .tileSizePx = sz};
     }
 
-    [[nodiscard]] keel::Array<keel::u8> LoadOrFetchOsmPng(int z, int x, int y) const {
+    [[nodiscard]] keel::Array<keel::u8> LoadOrFetchOsmPng(keel::i32 z, keel::i32 x, keel::i32 y) const {
         const auto dirPath = keel::format("%s/%d/%d", m_cacheDir, z, x);
         const auto diskPath = keel::format("%s/%d.png", dirPath.as_ref(), y);
         const keel::StringRef diskPathRef = diskPath.as_ref();
@@ -259,8 +259,8 @@ private:
         }
 
         // Circuit breaker: if network failed in the last 15 seconds, avoid blocking worker threads
-        const int64_t nowMs = NowSteadyMs();
-        const int64_t lastFailMs = m_lastNetworkFailureMs.load(std::memory_order_relaxed);
+        const keel::i64 nowMs = NowSteadyMs();
+        const keel::i64 lastFailMs = m_lastNetworkFailureMs.load(std::memory_order_relaxed);
         if (lastFailMs > 0 && (nowMs - lastFailMs) < kOfflineRetryIntervalMs) {
             return keel::Array<keel::u8>{};
         }
@@ -281,7 +281,7 @@ private:
             (void)keel::fs_create_dirs(dirPath.as_ref());
 
             // Atomic write via temporary file + rename so concurrent readers never observe partial PNGs
-            const uint64_t tmpId = m_accessCounter.fetch_add(1u, std::memory_order_relaxed);
+            const keel::u64 tmpId = m_accessCounter.fetch_add(1u, std::memory_order_relaxed);
             const auto tmpPath = keel::format("%s/%d.tmp.%llu.png", dirPath.as_ref(), y, tmpId);
             const keel::StringRef tmpPathRef = tmpPath.as_ref();
             if (!keel::fs_write_file(tmpPathRef, resp.body)) {
@@ -300,33 +300,33 @@ private:
 
     static void SynthesizeCartographicFallbackTile(
         const SlippyTileKey& key,
-        keel::Array<uint32_t>& outRgba
+        keel::Array<keel::u32>& outRgba
     ) {
-        const uint32_t sz = key.tileSizePx;
-        outRgba.resize(static_cast<size_t>(sz) * sz);
+        const keel::u32 sz = key.tileSizePx;
+        outRgba.resize(static_cast<keel::usize>(sz) * sz);
 
         const bool evenChecker = ((key.x + key.y) & 1) == 0;
-        const uint8_t baseR = evenChecker ? 236 : 231;
-        const uint8_t baseG = evenChecker ? 233 : 228;
-        const uint8_t baseB = evenChecker ? 222 : 216;
-        const uint32_t subStep = keel::max(16u, sz / 4u);
+        const keel::u8 baseR = evenChecker ? 236 : 231;
+        const keel::u8 baseG = evenChecker ? 233 : 228;
+        const keel::u8 baseB = evenChecker ? 222 : 216;
+        const keel::u32 subStep = keel::max(16u, sz / 4u);
 
-        for (uint32_t py = 0; py < sz; ++py) {
-            for (uint32_t px = 0; px < sz; ++px) {
-                uint8_t r = baseR;
-                uint8_t g = baseG;
-                uint8_t b = baseB;
+        for (keel::u32 py = 0; py < sz; ++py) {
+            for (keel::u32 px = 0; px < sz; ++px) {
+                keel::u8 r = baseR;
+                keel::u8 g = baseG;
+                keel::u8 b = baseB;
 
                 if (px == 0 || py == 0) {
                     r = 188; g = 198; b = 208;
                 } else if ((px % subStep) == 0 || (py % subStep) == 0) {
                     r = 216; g = 214; b = 204;
                 }
-                const size_t idx = static_cast<size_t>(py) * sz + px;
-                outRgba[idx] = (static_cast<uint32_t>(255u) << 24u) |
-                               (static_cast<uint32_t>(b) << 16u) |
-                               (static_cast<uint32_t>(g) << 8u) |
-                               static_cast<uint32_t>(r);
+                const keel::usize idx = static_cast<keel::usize>(py) * sz + px;
+                outRgba[idx] = (static_cast<keel::u32>(255u) << 24u) |
+                               (static_cast<keel::u32>(b) << 16u) |
+                               (static_cast<keel::u32>(g) << 8u) |
+                               static_cast<keel::u32>(r);
             }
         }
     }
@@ -335,8 +335,8 @@ private:
     keel::HttpClient m_httpClient;
     mutable std::mutex m_mutex{};
     mutable keel::LruCache<SlippyTileKey, CacheEntry, 32, SlippyTileKeyHash> m_ramCache{};
-    mutable std::atomic<uint64_t> m_accessCounter{1};
-    mutable std::atomic<int64_t> m_lastNetworkFailureMs{0};
+    mutable std::atomic<keel::u64> m_accessCounter{1};
+    mutable std::atomic<keel::i64> m_lastNetworkFailureMs{0};
 };
 
 } // namespace

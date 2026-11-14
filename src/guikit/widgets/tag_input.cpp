@@ -24,7 +24,7 @@ struct TagChipView {
 struct TagInputPersistState {
     keel::SmallString<64> editBuffer{};
     float scrollOffsetX{0.0f};
-    int hoveredChipRemoveIdx{-1};
+    keel::i32 hoveredChipRemoveIdx{-1};
     bool clearHovered{false};
     keel::SmallArray<Rect, 16> chipRemoveRects{};
     Rect clearBtnRect{};
@@ -34,10 +34,10 @@ struct TagInputNodeData {
     TagInputOptions opts{};
     keel::ArrayRef<TagChipView> chips{};
     keel::StringRef editBuffer{};
-    size_t cursor{0};
+    keel::usize cursor{0};
     bool cursorVisible{false};
     float cursorWidth{1.5f};
-    int hoveredChipRemoveIdx{-1};
+    keel::i32 hoveredChipRemoveIdx{-1};
     bool clearHovered{false};
     float scrollOffsetX{0.0f};
     TagInputPersistState* persistState{nullptr};
@@ -65,11 +65,11 @@ ControlSpec EffectiveTagInputControl(const TagInputOptions& opts, UiSize size, c
 }
 
 keel::StringRef TrimWhitespace(keel::StringRef s) noexcept {
-    size_t start = 0;
+    keel::usize start = 0;
     while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start])) != 0) {
         ++start;
     }
-    size_t end = s.size();
+    keel::usize end = s.size();
     while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1])) != 0) {
         --end;
     }
@@ -77,8 +77,8 @@ keel::StringRef TrimWhitespace(keel::StringRef s) noexcept {
 }
 
 bool EqualsIgnoreCase(keel::StringRef a, keel::StringRef b) noexcept {
-    size_t ia = 0;
-    size_t ib = 0;
+    keel::usize ia = 0;
+    keel::usize ib = 0;
     while (ia < a.size() && ib < b.size()) {
         const keel::u32 ca = keel::utf8_to_lower(keel::utf8_decode_next(a, ia));
         const keel::u32 cb = keel::utf8_to_lower(keel::utf8_decode_next(b, ib));
@@ -89,7 +89,7 @@ bool EqualsIgnoreCase(keel::StringRef a, keel::StringRef b) noexcept {
     return ia == a.size() && ib == b.size();
 }
 
-keel::FixedString<48> FormatCounterText(size_t count, uint32_t maxTags) noexcept {
+keel::FixedString<48> FormatCounterText(keel::usize count, keel::u32 maxTags) noexcept {
     char buf[48];
     if (maxTags > 0) {
         std::snprintf(buf, sizeof(buf), "%zu/%u", count, maxTags);
@@ -127,8 +127,8 @@ struct TagLayoutResult {
     keel::FixedString<48> counterStr{};
     keel::SmallArray<Rect, 16> chipRects{};
     keel::SmallArray<Rect, 16> chipRemoveRects{};
-    size_t visibleChipCount{0};
-    size_t overflowCount{0};
+    keel::usize visibleChipCount{0};
+    keel::usize overflowCount{0};
     Rect overflowRect{};
     float inlineTextX{0.0f};
     float resolvedScrollX{0.0f};
@@ -138,7 +138,7 @@ TagLayoutResult ComputeTagLayout(
     Rect boxRect,
     keel::ArrayRef<TagChipView> chips,
     keel::StringRef editBuffer,
-    size_t cursor,
+    keel::usize cursor,
     const TagInputOptions& opts,
     UiSize size,
     bool focused,
@@ -191,13 +191,13 @@ TagLayoutResult ComputeTagLayout(
     const float chipY = boxRect.y + (boxRect.h - chipH) * 0.5f;
     const float chipGap = 4.0f;
 
-    const size_t nChips = chips.size();
+    const keel::usize nChips = chips.size();
     out.chipRects.assign(nChips, Rect{});
     out.chipRemoveRects.assign(nChips, Rect{});
 
     keel::SmallArray<float, 16> chipWidths(nChips, 0.0f);
     float totalChipsW = 0.0f;
-    for (size_t i = 0; i < nChips; ++i) {
+    for (keel::usize i = 0; i < nChips; ++i) {
         chipWidths[i] = MeasureChipWidth(chips[i], chipFont, chipIconSz, showRemove, canvas);
         totalChipsW += chipWidths[i];
         if (i + 1 < nChips) {
@@ -210,11 +210,11 @@ TagLayoutResult ComputeTagLayout(
         out.overflowCount = 0;
 
         float relX = 0.0f;
-        for (size_t i = 0; i < nChips; ++i) {
+        for (keel::usize i = 0; i < nChips; ++i) {
             relX += chipWidths[i] + chipGap;
         }
         const float textStartRelX = relX;
-        const size_t safeCursor = keel::min(cursor, editBuffer.size());
+        const keel::usize safeCursor = keel::min(cursor, editBuffer.size());
         const float cursorOffset = TextUtil::MeasureWidth(editBuffer.substr(0, safeCursor), inputFont, canvas);
         const float fullEditW = keel::max(
             TextUtil::MeasureWidth(editBuffer, inputFont, canvas) + 12.0f,
@@ -239,7 +239,7 @@ TagLayoutResult ComputeTagLayout(
         out.resolvedScrollX = scrollX;
 
         float curX = out.innerRect.x - scrollX;
-        for (size_t i = 0; i < nChips; ++i) {
+        for (keel::usize i = 0; i < nChips; ++i) {
             const float cw = chipWidths[i];
             const Rect cRect(curX, chipY, cw, chipH);
             out.chipRects[i] = cRect;
@@ -260,7 +260,7 @@ TagLayoutResult ComputeTagLayout(
             out.visibleChipCount = chips.size();
             out.overflowCount = 0;
             float curX = out.innerRect.x;
-            for (size_t i = 0; i < nChips; ++i) {
+            for (keel::usize i = 0; i < nChips; ++i) {
                 const float cw = chipWidths[i];
                 const Rect cRect(curX, chipY, cw, chipH);
                 out.chipRects[i] = cRect;
@@ -276,10 +276,10 @@ TagLayoutResult ComputeTagLayout(
             }
             out.inlineTextX = curX;
         } else {
-            size_t fitCount = 0;
+            keel::usize fitCount = 0;
             float usedW = 0.0f;
-            for (size_t i = 0; i < chips.size(); ++i) {
-                const size_t remaining = chips.size() - (i + 1);
+            for (keel::usize i = 0; i < chips.size(); ++i) {
+                const keel::usize remaining = chips.size() - (i + 1);
                 char ovBuf[32];
                 std::snprintf(ovBuf, sizeof(ovBuf), "+%zu", remaining);
                 const float ovBadgeW = (remaining > 0)
@@ -297,7 +297,7 @@ TagLayoutResult ComputeTagLayout(
             out.overflowCount = chips.size() - fitCount;
 
             float curX = out.innerRect.x;
-            for (size_t i = 0; i < fitCount; ++i) {
+            for (keel::usize i = 0; i < fitCount; ++i) {
                 const float cw = chipWidths[i];
                 const Rect cRect(curX, chipY, cw, chipH);
                 out.chipRects[i] = cRect;
@@ -405,9 +405,9 @@ Response RunTagInputImpl(
 
     auto buildTempViews = [&]() {
         keel::SmallArray<TagChipView, 16> views;
-        const size_t n = tags.size();
+        const keel::usize n = tags.size();
         views.reserve(n);
-        for (size_t i = 0; i < n; ++i) {
+        for (keel::usize i = 0; i < n; ++i) {
             views.push_back(getChip(i, optsCopy.tagVariant));
         }
         return views;
@@ -444,10 +444,10 @@ Response RunTagInputImpl(
         if (optsCopy.clearable && !tags.empty() && st.clearBtnRect.w > 0.0f && st.clearBtnRect.Contains(mousePos)) {
             st.clearHovered = true;
         } else {
-            for (size_t i = 0; i < st.chipRemoveRects.size() && i < tags.size(); ++i) {
+            for (keel::usize i = 0; i < st.chipRemoveRects.size() && i < tags.size(); ++i) {
                 if (st.chipRemoveRects[i].w > 0.0f &&
                     st.chipRemoveRects[i].Contains(mousePos)) {
-                    st.hoveredChipRemoveIdx = static_cast<int>(i);
+                    st.hoveredChipRemoveIdx = static_cast<keel::i32>(i);
                     break;
                 }
             }
@@ -458,8 +458,8 @@ Response RunTagInputImpl(
     if ((mouseJustPressed || res.clicked) && !effectiveDisabled) {
         if (!optsCopy.readOnly) {
             if (mouseJustPressed && st.hoveredChipRemoveIdx >= 0 &&
-                static_cast<size_t>(st.hoveredChipRemoveIdx) < tags.size()) {
-                tags.erase_at(static_cast<size_t>(st.hoveredChipRemoveIdx));
+                static_cast<keel::usize>(st.hoveredChipRemoveIdx) < tags.size()) {
+                tags.erase_at(static_cast<keel::usize>(st.hoveredChipRemoveIdx));
                 st.hoveredChipRemoveIdx = -1;
                 res.changed = true;
                 ctx.RequestFocus(id);
@@ -486,8 +486,8 @@ Response RunTagInputImpl(
     bool isFocused = ctx.IsFocused(id) && !effectiveDisabled;
     res.focused = isFocused;
 
-    size_t cursor = st.editBuffer.size();
-    size_t selAnchor = cursor;
+    keel::usize cursor = st.editBuffer.size();
+    keel::usize selAnchor = cursor;
 
     auto tryCommitToken = [&](keel::StringRef raw) -> bool {
         const keel::StringRef token = TrimWhitespace(raw);
@@ -498,14 +498,14 @@ Response RunTagInputImpl(
             return false;
         }
         if (!optsCopy.allowDuplicates) {
-            const size_t existingCount = tags.size();
-            for (size_t i = 0; i < existingCount; ++i) {
+            const keel::usize existingCount = tags.size();
+            for (keel::usize i = 0; i < existingCount; ++i) {
                 if (EqualsIgnoreCase(getChip(i, optsCopy.tagVariant).text, token)) {
                     return false;
                 }
             }
         }
-        const size_t beforeCount = tags.size();
+        const keel::usize beforeCount = tags.size();
         pushToken(token);
         return tags.size() > beforeCount;
     };
@@ -532,17 +532,17 @@ Response RunTagInputImpl(
                 return false;
             };
 
-            size_t lastDelimPos = keel::StringRef::npos;
-            for (size_t i = 0; i < st.editBuffer.size(); ++i) {
+            keel::usize lastDelimPos = keel::StringRef::npos;
+            for (keel::usize i = 0; i < st.editBuffer.size(); ++i) {
                 if (isDelimiter(st.editBuffer[i])) {
                     lastDelimPos = i;
                 }
             }
 
             if (lastDelimPos != keel::StringRef::npos) {
-                size_t tokenStart = 0;
+                keel::usize tokenStart = 0;
                 bool anyAdded = false;
-                for (size_t i = 0; i <= lastDelimPos; ++i) {
+                for (keel::usize i = 0; i <= lastDelimPos; ++i) {
                     if (isDelimiter(st.editBuffer[i])) {
                         const keel::StringRef seg(st.editBuffer.data() + tokenStart, i - tokenStart);
                         if (tryCommitToken(seg)) {
@@ -589,11 +589,11 @@ Response RunTagInputImpl(
         }
     }
 
-    const size_t chipCount = tags.size();
+    const keel::usize chipCount = tags.size();
     TagChipView* arenaChips = nullptr;
     if (chipCount > 0) {
         arenaChips = ctx.GetArena().alloc_array<TagChipView>(chipCount);
-        for (size_t i = 0; i < chipCount; ++i) {
+        for (keel::usize i = 0; i < chipCount; ++i) {
             TagChipView cv = getChip(i, optsCopy.tagVariant);
             if (!cv.icon.GetPath().empty()) {
                 cv.icon = Icon::File(ctx.AllocString(cv.icon.GetPath()));
@@ -640,22 +640,22 @@ Response RunTagInputImpl(
     data->persistState = &st;
     node->SetPayload(data);
 
-    uint64_t chipsHash = detail::HashArgs(chipCount);
-    for (size_t i = 0; i < chipCount; ++i) {
+    keel::u64 chipsHash = detail::HashArgs(chipCount);
+    for (keel::usize i = 0; i < chipCount; ++i) {
         chipsHash = detail::HashArgs(
             chipsHash,
             chipSpan[i].text,
-            static_cast<uint8_t>(chipSpan[i].variant),
-            static_cast<uint16_t>(chipSpan[i].icon.GetId()),
+            static_cast<keel::u8>(chipSpan[i].variant),
+            static_cast<keel::u16>(chipSpan[i].icon.GetId()),
             chipSpan[i].icon.GetPath()
         );
     }
 
     node->visualHash = detail::HashArgs(
         chipsHash,
-        static_cast<uint8_t>(optsCopy.tagVariant),
-        static_cast<uint8_t>(optsCopy.align),
-        static_cast<uint8_t>(optsCopy.stretch),
+        static_cast<keel::u8>(optsCopy.tagVariant),
+        static_cast<keel::u8>(optsCopy.align),
+        static_cast<keel::u8>(optsCopy.stretch),
         optsCopy.maxTags,
         optsCopy.clearable,
         optsCopy.showCounter,
@@ -692,7 +692,7 @@ Response RunTagInputImpl(
                 const float chipIconSz = keel::max(10.0f, m.iconSize - 2.0f);
                 const bool showRemove = !d->opts.readOnly && !n->disabled;
                 float contentW = m.paddingX * 2.0f;
-                for (size_t i = 0; i < d->chips.size(); ++i) {
+                for (keel::usize i = 0; i < d->chips.size(); ++i) {
                     contentW += MeasureChipWidth(d->chips[i], chipFont, chipIconSz, showRemove, c) + 4.0f;
                 }
                 if (!d->opts.readOnly) {
@@ -751,7 +751,7 @@ Response TagInput::Run(
         tags,
         opts,
         loc,
-        [tags](size_t idx, UiVariant defaultVariant) noexcept -> TagChipView {
+        [tags](keel::usize idx, UiVariant defaultVariant) noexcept -> TagChipView {
             return TagChipView{
                 .text = tags.get(idx),
                 .variant = defaultVariant,
@@ -775,7 +775,7 @@ Response TagInput::Run(
         tags,
         opts,
         loc,
-        [tags](size_t idx, UiVariant defaultVariant) noexcept -> TagChipView {
+        [tags](keel::usize idx, UiVariant defaultVariant) noexcept -> TagChipView {
             const TagItem& item = tags[idx];
             return TagChipView{
                 .text = item.text.as_ref(),
@@ -925,7 +925,7 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
 
     const keel::ArrayRef<TagChipView> chips = data ? data->chips : keel::ArrayRef<TagChipView>{};
     const keel::StringRef editBuf = data ? data->editBuffer : keel::StringRef{};
-    const size_t cursor = data ? data->cursor : 0;
+    const keel::usize cursor = data ? data->cursor : 0;
     const float scrollIn = data ? data->scrollOffsetX : 0.0f;
 
     const TagLayoutResult layout = ComputeTagLayout(
@@ -985,9 +985,9 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
     canvas.PushClip(layout.innerRect);
 
     const bool showRemove = !opts.readOnly && !disabled;
-    const int hoveredRemoveIdx = data ? data->hoveredChipRemoveIdx : -1;
+    const keel::i32 hoveredRemoveIdx = data ? data->hoveredChipRemoveIdx : -1;
 
-    for (size_t i = 0; i < layout.visibleChipCount && i < chips.size(); ++i) {
+    for (keel::usize i = 0; i < layout.visibleChipCount && i < chips.size(); ++i) {
         const Rect cRect = layout.chipRects[i];
         if (cRect.Right() < layout.innerRect.x || cRect.x > layout.innerRect.Right()) {
             continue;
@@ -1029,7 +1029,7 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
 
         if (showRemove) {
             const Rect remRect = layout.chipRemoveRects[i];
-            const bool remHovered = (hoveredRemoveIdx == static_cast<int>(i));
+            const bool remHovered = (hoveredRemoveIdx == static_cast<keel::i32>(i));
             if (remHovered) {
                 canvas.DrawRoundRect(remRect, 3.0f, accent.WithAlphaF(0.28f), Color::Transparent(), 0.0f);
             }
@@ -1066,7 +1066,7 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
         }
 
         if (focused && !disabled && data && data->cursorVisible) {
-            const size_t safeCursor = keel::min(cursor, editBuf.size());
+            const keel::usize safeCursor = keel::min(cursor, editBuf.size());
             const float subW = canvas.MeasureText(editBuf.substr(0, safeCursor), inputFont).x;
             const float caretX = inlineRect.x + subW;
             const float caretH = inputFont * 1.15f;

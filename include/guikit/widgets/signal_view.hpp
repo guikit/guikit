@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
@@ -20,25 +18,25 @@ class Context;
 class ICanvas;
 
 /// Vertical arrangement order of the synchronized Waveform and Spectrogram panels.
-enum class SignalPanelOrder : uint8_t {
+enum class SignalPanelOrder : keel::u8 {
     WaveformTop = 0,    ///< Waveform on top, Spectrogram on bottom
     SpectrogramTop      ///< Spectrogram on top, Waveform on bottom
 };
 
 /// Vertical scale mode for the Waveform amplitude ruler and plot.
-enum class AmplitudeScale : uint8_t {
+enum class AmplitudeScale : keel::u8 {
     dBFS = 0,           ///< Logarithmic decibels full scale (0 dB, -6 dB, -12 dB, -24 dB, -48 dB, -inf)
     Linear              ///< Linear normalized sample amplitude (-1.0 .. 0.0 .. +1.0)
 };
 
 /// Vertical frequency scale mode for the Spectrogram frequency ruler and heatmap.
-enum class FrequencyScale : uint8_t {
+enum class FrequencyScale : keel::u8 {
     Linear = 0,         ///< Linear frequency distribution (0 Hz .. Fs/2)
     Logarithmic         ///< Logarithmic / psychoacoustic frequency distribution (minFreq .. Fs/2)
 };
 
 /// Windowing function applied to each Short-Time Fourier Transform (STFT) frame.
-enum class FftWindowType : uint8_t {
+enum class FftWindowType : keel::u8 {
     Hann = 0,           ///< Raised-cosine Hann window (balanced main-lobe width & sidelobe roll-off)
     Hamming,            ///< Hamming window (suppressed nearest sidelobe)
     BlackmanHarris,     ///< 4-term Blackman-Harris window (>92 dB sidelobe suppression for high dynamic range)
@@ -93,7 +91,7 @@ struct SignalViewOptions {
     FrequencyScale frequencyScale{FrequencyScale::Linear};
     Colormap colormap{Colormap::Inferno};
     FftWindowType fftWindow{FftWindowType::Hann};
-    uint32_t fftSize{512};                          ///< Radix-2 FFT size (256, 512, 1024, 2048)
+    keel::u32 fftSize{512};                          ///< Radix-2 FFT size (256, 512, 1024, 2048)
     float dbFloor{-90.0f};                          ///< Spectrogram minimum power floor in dBFS
     float dbCeil{0.0f};                             ///< Spectrogram ceiling in dBFS
     float waveformGain{1.0f};                       ///< Default vertical amplitude zoom factor (1.0 = 0 dB)
@@ -144,7 +142,7 @@ struct SignalViewResponse : public Response {
     double viewStartSec{0.0};
     double viewEndSec{0.0};
     double totalDurationSec{0.0};
-    size_t totalSamples{0};
+    keel::usize totalSamples{0};
     float splitRatio{0.46f};
     float waveformGain{1.0f};
     float viewMinFreqHz{0.0f};
@@ -154,7 +152,7 @@ struct SignalViewResponse : public Response {
 
     bool cursorInsidePlot{false};
     double cursorTimeSec{0.0};
-    size_t cursorSampleIndex{0};
+    keel::usize cursorSampleIndex{0};
     float cursorAmplitude{0.0f};
     float cursorDbFs{-120.0f};
     float cursorFreqHz{0.0f};
@@ -164,8 +162,8 @@ struct SignalViewResponse : public Response {
     float selectionRmsDbFs{-120.0f};
     float selectionCentroidHz{0.0f};
 
-    int hoveredMarkerIndex{-1};
-    int activeMarkerIndex{-1};
+    keel::i32 hoveredMarkerIndex{-1};
+    keel::i32 activeMarkerIndex{-1};
 };
 
 /// Autonomous DAW-grade Waveform + Spectrogram signal analyzer widget.

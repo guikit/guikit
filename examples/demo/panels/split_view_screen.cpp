@@ -6,8 +6,8 @@ namespace guikit::demo {
 namespace {
 
 struct SplitViewDemoState {
-    size_t layoutModeIdx = 1;      // 0 = 3-Pane Nested, 1 = 2-Pane Single (default to clean 2-Pane)
-    size_t orientationIdx = 0;     // 0 = Horizontal, 1 = Vertical
+    keel::usize layoutModeIdx = 1;      // 0 = 3-Pane Nested, 1 = 2-Pane Single (default to clean 2-Pane)
+    keel::usize orientationIdx = 0;     // 0 = Horizontal, 1 = Vertical
     float primaryRatio = 0.35f;
     float secondaryRatio = 0.55f;
     float sashSize = 6.0f;

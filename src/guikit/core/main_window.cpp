@@ -42,7 +42,7 @@ MainWindow::MainWindow(MainWindowConfig config, keel::UniquePtr<IWindowBackend> 
     }
     m_ui.SetOpenUrlCallback([this](keel::StringRef url) { OpenUrl(url); });
     SetShellScale(m_config.initialScale);
-    for (size_t i = 0; i < kHeartbeatMsValues.size(); ++i) {
+    for (keel::usize i = 0; i < kHeartbeatMsValues.size(); ++i) {
         if (kHeartbeatMsValues[i] == m_config.idleHeartbeatMs) {
             m_heartbeatIndex = i;
             break;
@@ -56,12 +56,12 @@ MainWindow::~MainWindow() {
     }
 }
 
-int MainWindow::Run(RenderCallback renderCallback) {
+keel::i32 MainWindow::Run(RenderCallback renderCallback) {
     m_renderCallback = keel::move(renderCallback);
     return Run();
 }
 
-int MainWindow::Run() {
+keel::i32 MainWindow::Run() {
     if (!m_backend) {
         m_backend = CreateDefaultWindowBackend();
         if (!m_backend) {
@@ -82,7 +82,7 @@ int MainWindow::Run() {
             }
             return false;
         },
-        .onResize = [this](int w, int h) {
+        .onResize = [this](keel::i32 w, keel::i32 h) {
             OnResize(w, h);
         },
         .onLiveResizeRender = [this]() {
@@ -117,7 +117,7 @@ int MainWindow::Run() {
                 m_backend->Shutdown();
                 return false;
             }
-            const int timeoutMs = m_ui.GetRecommendedSleepTimeoutMs();
+            const keel::i32 timeoutMs = m_ui.GetRecommendedSleepTimeoutMs();
             if (!m_backend->PumpEvents(m_ui, m_reactiveMode, timeoutMs)) {
                 m_running = false;
                 OnShutdown();
@@ -133,7 +133,7 @@ int MainWindow::Run() {
     }
 
     while (m_running) {
-        const int timeoutMs = m_ui.GetRecommendedSleepTimeoutMs();
+        const keel::i32 timeoutMs = m_ui.GetRecommendedSleepTimeoutMs();
         if (!m_backend->PumpEvents(m_ui, m_reactiveMode, timeoutMs)) {
             m_running = false;
             break;
@@ -161,8 +161,8 @@ void MainWindow::RenderFrame() {
     if (m_inRenderFrame || !m_backend) {
         return;
     }
-    const int winW = m_backend->GetWidth();
-    const int winH = m_backend->GetHeight();
+    const keel::i32 winW = m_backend->GetWidth();
+    const keel::i32 winH = m_backend->GetHeight();
     if (winW <= 0 || winH <= 0) {
         return;
     }
@@ -247,11 +247,11 @@ void MainWindow::OpenUrl(keel::StringRef url) const noexcept {
     }
 }
 
-int MainWindow::GetWidth() const noexcept {
+keel::i32 MainWindow::GetWidth() const noexcept {
     return m_backend ? m_backend->GetWidth() : m_config.width;
 }
 
-int MainWindow::GetHeight() const noexcept {
+keel::i32 MainWindow::GetHeight() const noexcept {
     return m_backend ? m_backend->GetHeight() : m_config.height;
 }
 
@@ -332,9 +332,9 @@ void MainWindow::SetShellFloating(bool floating) noexcept {
 
 void MainWindow::SetShellScale(float scale) noexcept {
     m_shellScale = keel::clamp(scale, 0.5f, 3.0f);
-    size_t bestIdx = 0;
+    keel::usize bestIdx = 0;
     float bestDiff = 1e9f;
-    for (size_t i = 0; i < kScaleValues.size(); ++i) {
+    for (keel::usize i = 0; i < kScaleValues.size(); ++i) {
         const float d = std::abs(kScaleValues[i] - m_shellScale);
         if (d < bestDiff) {
             bestDiff = d;
@@ -345,7 +345,7 @@ void MainWindow::SetShellScale(float scale) noexcept {
     m_ui.InvalidateAll();
 }
 
-void MainWindow::SetShellScaleIndex(size_t index) noexcept {
+void MainWindow::SetShellScaleIndex(keel::usize index) noexcept {
     m_shellScaleIndex = keel::min(index, kScaleValues.size() - 1);
     m_shellScale = kScaleValues[m_shellScaleIndex];
     m_ui.InvalidateAll();

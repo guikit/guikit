@@ -3,6 +3,7 @@
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/tokens.hpp"
 #include "guikit/core/types.hpp"
+#include "keel/core.h"
 
 namespace guikit {
 
@@ -11,7 +12,7 @@ class Context;
 
 /// Options for configuring a 12-column responsive cell grid layout.
 struct GridOptions {
-    int columns{12};                                  ///< Total number of columns in the grid (default: 12)
+    keel::i32 columns{12};                                  ///< Total number of columns in the grid (default: 12)
     float minColWidth{0.0f};                          ///< Minimum column width before wrapping items (0 = auto content intrinsic)
     keel::Optional<float> gap{keel::kNullOpt};        ///< Horizontal gap between columns (nullopt = from theme)
     keel::Optional<float> runGap{keel::kNullOpt};     ///< Vertical gap between wrapped rows (nullopt = match gap)
@@ -60,7 +61,7 @@ public:
     using ContainerScope::ContainerScope;
 
     /// Arbitrary span cell slot (1..12 columns)
-    [[nodiscard]] ContainerScope Cell(int span, CellOptions opts = {}, keel::SourceLocation loc = keel::SourceLocation::current());
+    [[nodiscard]] ContainerScope Cell(keel::i32 span, CellOptions opts = {}, keel::SourceLocation loc = keel::SourceLocation::current());
 
     /// Full-width cell slot spanning all columns of this Grid
     [[nodiscard]] ContainerScope Cell(CellOptions opts = {}, keel::SourceLocation loc = keel::SourceLocation::current());

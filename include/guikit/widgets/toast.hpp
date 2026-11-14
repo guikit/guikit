@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
@@ -14,7 +12,7 @@ class Context;
 class ICanvas;
 
 /// Anchor corner/edge for the floating Toast notification stack.
-enum class ToastPlacement : uint8_t {
+enum class ToastPlacement : keel::u8 {
     BottomRight = 0,
     TopRight,
     BottomLeft,
@@ -40,7 +38,7 @@ struct ToastHostOptions {
     float width{320.0f};
     float gap{8.0f};
     float margin{16.0f};
-    size_t maxVisible{5};
+    keel::usize maxVisible{5};
     bool pauseOnHover{true};
     bool confineToParent{false}; ///< Anchor inside current container bounds instead of full viewport
     const UiTheme* theme{nullptr};
@@ -49,7 +47,7 @@ struct ToastHostOptions {
 
 /// Active runtime state of a single queued Toast notification.
 struct ToastEntry {
-    uint64_t id{0};
+    keel::u64 id{0};
     keel::String title{};
     keel::String message{};
     TextWrap titleWrap{};

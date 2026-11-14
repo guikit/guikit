@@ -43,7 +43,7 @@ void RenderInputInspector(guikit::Context& ui, DemoContext&) {
     }
 
     static constexpr keel::StaticArray<keel::StringRef, 3> cursorModes = {"Blinking", "Solid", "Hidden"};
-    size_t curIdx = (s_state.cursorMode == guikit::CursorBlinkMode::Solid) ? 1 : ((s_state.cursorMode == guikit::CursorBlinkMode::Hidden) ? 2 : 0);
+    keel::usize curIdx = (s_state.cursorMode == guikit::CursorBlinkMode::Solid) ? 1 : ((s_state.cursorMode == guikit::CursorBlinkMode::Hidden) ? 2 : 0);
     if (auto el = ui.Element({.label = "Cursor Blink Mode"})) {
         if (ui.StepSlider(curIdx, cursorModes, {.showTicks = true, .showLabels = true}).changed) {
             s_state.cursorMode = (curIdx == 1) ? guikit::CursorBlinkMode::Solid : ((curIdx == 2) ? guikit::CursorBlinkMode::Hidden : guikit::CursorBlinkMode::Blinking);

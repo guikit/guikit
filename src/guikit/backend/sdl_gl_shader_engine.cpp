@@ -24,87 +24,87 @@ namespace guikit {
 namespace {
 
 // Standard OpenGL 2.0 / OpenGL ES 2.0 constants
-constexpr uint32_t kGL_FALSE                        = 0;
-constexpr uint32_t kGL_TRIANGLES                    = 0x0004;
-constexpr uint32_t kGL_SCISSOR_TEST                 = 0x0C11;
-constexpr uint32_t kGL_SCISSOR_BOX                  = 0x0C10;
-constexpr uint32_t kGL_VIEWPORT                     = 0x0BA2;
-constexpr uint32_t kGL_BLEND                        = 0x0BE2;
-constexpr uint32_t kGL_UNPACK_ROW_LENGTH            = 0x0CF2;
-constexpr uint32_t kGL_UNPACK_SKIP_ROWS             = 0x0CF3;
-constexpr uint32_t kGL_UNPACK_SKIP_PIXELS           = 0x0CF4;
-constexpr uint32_t kGL_UNPACK_ALIGNMENT             = 0x0CF5;
-constexpr uint32_t kGL_TEXTURE_2D                   = 0x0DE1;
-constexpr uint32_t kGL_TEXTURE_BINDING_2D           = 0x8069;
-constexpr uint32_t kGL_UNSIGNED_BYTE                = 0x1401;
-constexpr uint32_t kGL_FLOAT                        = 0x1406;
-constexpr uint32_t kGL_RGBA                         = 0x1908;
-constexpr uint32_t kGL_NEAREST                      = 0x2600;
-constexpr uint32_t kGL_LINEAR                       = 0x2601;
-constexpr uint32_t kGL_TEXTURE_MAG_FILTER           = 0x2800;
-constexpr uint32_t kGL_TEXTURE_MIN_FILTER           = 0x2801;
-constexpr uint32_t kGL_TEXTURE_WRAP_S               = 0x2802;
-constexpr uint32_t kGL_TEXTURE_WRAP_T               = 0x2803;
-constexpr uint32_t kGL_CLAMP_TO_EDGE                = 0x812F;
-constexpr uint32_t kGL_TEXTURE0                     = 0x84C0;
-constexpr uint32_t kGL_TEXTURE1                     = 0x84C1;
-constexpr uint32_t kGL_ACTIVE_TEXTURE               = 0x84E0;
-constexpr uint32_t kGL_ARRAY_BUFFER                 = 0x8892;
-constexpr uint32_t kGL_ARRAY_BUFFER_BINDING         = 0x8894;
-constexpr uint32_t kGL_STATIC_DRAW                  = 0x88E4;
-constexpr uint32_t kGL_FRAGMENT_SHADER              = 0x8B30;
-constexpr uint32_t kGL_VERTEX_SHADER                = 0x8B31;
-constexpr uint32_t kGL_COMPILE_STATUS               = 0x8B81;
-constexpr uint32_t kGL_LINK_STATUS                  = 0x8B82;
-constexpr uint32_t kGL_CURRENT_PROGRAM              = 0x8B8D;
-constexpr uint32_t kGL_VERTEX_ATTRIB_ARRAY_ENABLED  = 0x8622;
+constexpr keel::u32 kGL_FALSE                        = 0;
+constexpr keel::u32 kGL_TRIANGLES                    = 0x0004;
+constexpr keel::u32 kGL_SCISSOR_TEST                 = 0x0C11;
+constexpr keel::u32 kGL_SCISSOR_BOX                  = 0x0C10;
+constexpr keel::u32 kGL_VIEWPORT                     = 0x0BA2;
+constexpr keel::u32 kGL_BLEND                        = 0x0BE2;
+constexpr keel::u32 kGL_UNPACK_ROW_LENGTH            = 0x0CF2;
+constexpr keel::u32 kGL_UNPACK_SKIP_ROWS             = 0x0CF3;
+constexpr keel::u32 kGL_UNPACK_SKIP_PIXELS           = 0x0CF4;
+constexpr keel::u32 kGL_UNPACK_ALIGNMENT             = 0x0CF5;
+constexpr keel::u32 kGL_TEXTURE_2D                   = 0x0DE1;
+constexpr keel::u32 kGL_TEXTURE_BINDING_2D           = 0x8069;
+constexpr keel::u32 kGL_UNSIGNED_BYTE                = 0x1401;
+constexpr keel::u32 kGL_FLOAT                        = 0x1406;
+constexpr keel::u32 kGL_RGBA                         = 0x1908;
+constexpr keel::u32 kGL_NEAREST                      = 0x2600;
+constexpr keel::u32 kGL_LINEAR                       = 0x2601;
+constexpr keel::u32 kGL_TEXTURE_MAG_FILTER           = 0x2800;
+constexpr keel::u32 kGL_TEXTURE_MIN_FILTER           = 0x2801;
+constexpr keel::u32 kGL_TEXTURE_WRAP_S               = 0x2802;
+constexpr keel::u32 kGL_TEXTURE_WRAP_T               = 0x2803;
+constexpr keel::u32 kGL_CLAMP_TO_EDGE                = 0x812F;
+constexpr keel::u32 kGL_TEXTURE0                     = 0x84C0;
+constexpr keel::u32 kGL_TEXTURE1                     = 0x84C1;
+constexpr keel::u32 kGL_ACTIVE_TEXTURE               = 0x84E0;
+constexpr keel::u32 kGL_ARRAY_BUFFER                 = 0x8892;
+constexpr keel::u32 kGL_ARRAY_BUFFER_BINDING         = 0x8894;
+constexpr keel::u32 kGL_STATIC_DRAW                  = 0x88E4;
+constexpr keel::u32 kGL_FRAGMENT_SHADER              = 0x8B30;
+constexpr keel::u32 kGL_VERTEX_SHADER                = 0x8B31;
+constexpr keel::u32 kGL_COMPILE_STATUS               = 0x8B81;
+constexpr keel::u32 kGL_LINK_STATUS                  = 0x8B82;
+constexpr keel::u32 kGL_CURRENT_PROGRAM              = 0x8B8D;
+constexpr keel::u32 kGL_VERTEX_ATTRIB_ARRAY_ENABLED  = 0x8622;
 
 // Dynamically resolved OpenGL 2.0 / ES 2.0 function table
 struct GlProcs {
-    void     (GUIKIT_GL_APIENTRY* GetIntegerv)(uint32_t pname, int* data) = nullptr;
-    uint8_t  (GUIKIT_GL_APIENTRY* IsEnabled)(uint32_t cap) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* Enable)(uint32_t cap) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* Disable)(uint32_t cap) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* Viewport)(int x, int y, int width, int height) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* Scissor)(int x, int y, int width, int height) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* PixelStorei)(uint32_t pname, int param) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* ActiveTexture)(uint32_t texture) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* GenTextures)(int n, uint32_t* textures) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* DeleteTextures)(int n, const uint32_t* textures) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* BindTexture)(uint32_t target, uint32_t texture) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* TexParameteri)(uint32_t target, uint32_t pname, int param) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* TexImage2D)(uint32_t target, int level, int internalformat, int width, int height, int border, uint32_t format, uint32_t type, const void* pixels) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* TexSubImage2D)(uint32_t target, int level, int xoffset, int yoffset, int width, int height, uint32_t format, uint32_t type, const void* pixels) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* GenBuffers)(int n, uint32_t* buffers) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* DeleteBuffers)(int n, const uint32_t* buffers) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* BindBuffer)(uint32_t target, uint32_t buffer) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* BufferData)(uint32_t target, ptrdiff_t size, const void* data, uint32_t usage) = nullptr;
-    uint32_t (GUIKIT_GL_APIENTRY* CreateShader)(uint32_t type) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* DeleteShader)(uint32_t shader) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* ShaderSource)(uint32_t shader, int count, const char* const* string, const int* length) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* CompileShader)(uint32_t shader) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* GetShaderiv)(uint32_t shader, uint32_t pname, int* params) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* GetShaderInfoLog)(uint32_t shader, int bufSize, int* length, char* infoLog) = nullptr;
-    uint32_t (GUIKIT_GL_APIENTRY* CreateProgram)() = nullptr;
-    void     (GUIKIT_GL_APIENTRY* DeleteProgram)(uint32_t program) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* AttachShader)(uint32_t program, uint32_t shader) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* BindAttribLocation)(uint32_t program, uint32_t index, const char* name) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* LinkProgram)(uint32_t program) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* GetProgramiv)(uint32_t program, uint32_t pname, int* params) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* GetProgramInfoLog)(uint32_t program, int bufSize, int* length, char* infoLog) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* UseProgram)(uint32_t program) = nullptr;
-    int      (GUIKIT_GL_APIENTRY* GetUniformLocation)(uint32_t program, const char* name) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* Uniform1i)(int location, int v0) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* Uniform1f)(int location, float v0) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* Uniform2f)(int location, float v0, float v1) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* Uniform3f)(int location, float v0, float v1, float v2) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* Uniform4f)(int location, float v0, float v1, float v2, float v3) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* Uniform4fv)(int location, int count, const float* value) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* EnableVertexAttribArray)(uint32_t index) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* DisableVertexAttribArray)(uint32_t index) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* GetVertexAttribiv)(uint32_t index, uint32_t pname, int* params) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* VertexAttribPointer)(uint32_t index, int size, uint32_t type, uint8_t normalized, int stride, const void* pointer) = nullptr;
-    void     (GUIKIT_GL_APIENTRY* DrawArrays)(uint32_t mode, int first, int count) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* GetIntegerv)(keel::u32 pname, keel::i32* data) = nullptr;
+    keel::u8  (GUIKIT_GL_APIENTRY* IsEnabled)(keel::u32 cap) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* Enable)(keel::u32 cap) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* Disable)(keel::u32 cap) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* Viewport)(keel::i32 x, keel::i32 y, keel::i32 width, keel::i32 height) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* Scissor)(keel::i32 x, keel::i32 y, keel::i32 width, keel::i32 height) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* PixelStorei)(keel::u32 pname, keel::i32 param) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* ActiveTexture)(keel::u32 texture) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* GenTextures)(keel::i32 n, keel::u32* textures) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* DeleteTextures)(keel::i32 n, const keel::u32* textures) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* BindTexture)(keel::u32 target, keel::u32 texture) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* TexParameteri)(keel::u32 target, keel::u32 pname, keel::i32 param) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* TexImage2D)(keel::u32 target, keel::i32 level, keel::i32 internalformat, keel::i32 width, keel::i32 height, keel::i32 border, keel::u32 format, keel::u32 type, const void* pixels) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* TexSubImage2D)(keel::u32 target, keel::i32 level, keel::i32 xoffset, keel::i32 yoffset, keel::i32 width, keel::i32 height, keel::u32 format, keel::u32 type, const void* pixels) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* GenBuffers)(keel::i32 n, keel::u32* buffers) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* DeleteBuffers)(keel::i32 n, const keel::u32* buffers) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* BindBuffer)(keel::u32 target, keel::u32 buffer) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* BufferData)(keel::u32 target, keel::isize size, const void* data, keel::u32 usage) = nullptr;
+    keel::u32 (GUIKIT_GL_APIENTRY* CreateShader)(keel::u32 type) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* DeleteShader)(keel::u32 shader) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* ShaderSource)(keel::u32 shader, keel::i32 count, const char* const* string, const keel::i32* length) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* CompileShader)(keel::u32 shader) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* GetShaderiv)(keel::u32 shader, keel::u32 pname, keel::i32* params) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* GetShaderInfoLog)(keel::u32 shader, keel::i32 bufSize, keel::i32* length, char* infoLog) = nullptr;
+    keel::u32 (GUIKIT_GL_APIENTRY* CreateProgram)() = nullptr;
+    void     (GUIKIT_GL_APIENTRY* DeleteProgram)(keel::u32 program) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* AttachShader)(keel::u32 program, keel::u32 shader) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* BindAttribLocation)(keel::u32 program, keel::u32 index, const char* name) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* LinkProgram)(keel::u32 program) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* GetProgramiv)(keel::u32 program, keel::u32 pname, keel::i32* params) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* GetProgramInfoLog)(keel::u32 program, keel::i32 bufSize, keel::i32* length, char* infoLog) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* UseProgram)(keel::u32 program) = nullptr;
+    keel::i32      (GUIKIT_GL_APIENTRY* GetUniformLocation)(keel::u32 program, const char* name) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* Uniform1i)(keel::i32 location, keel::i32 v0) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* Uniform1f)(keel::i32 location, float v0) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* Uniform2f)(keel::i32 location, float v0, float v1) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* Uniform3f)(keel::i32 location, float v0, float v1, float v2) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* Uniform4f)(keel::i32 location, float v0, float v1, float v2, float v3) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* Uniform4fv)(keel::i32 location, keel::i32 count, const float* value) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* EnableVertexAttribArray)(keel::u32 index) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* DisableVertexAttribArray)(keel::u32 index) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* GetVertexAttribiv)(keel::u32 index, keel::u32 pname, keel::i32* params) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* VertexAttribPointer)(keel::u32 index, keel::i32 size, keel::u32 type, keel::u8 normalized, keel::i32 stride, const void* pointer) = nullptr;
+    void     (GUIKIT_GL_APIENTRY* DrawArrays)(keel::u32 mode, keel::i32 first, keel::i32 count) = nullptr;
 };
 
 GlProcs g_gl{};
@@ -164,14 +164,14 @@ bool LoadAllGlProcs() noexcept {
     return ok;
 }
 
-uint32_t CompileGlShader(uint32_t type, keel::StringRef src) noexcept {
-    uint32_t shader = g_gl.CreateShader(type);
+keel::u32 CompileGlShader(keel::u32 type, keel::StringRef src) noexcept {
+    keel::u32 shader = g_gl.CreateShader(type);
     if (!shader) return 0;
     const char* ptr = src.data();
-    const int len = static_cast<int>(src.size());
+    const keel::i32 len = static_cast<keel::i32>(src.size());
     g_gl.ShaderSource(shader, 1, &ptr, &len);
     g_gl.CompileShader(shader);
-    int compiled = 0;
+    keel::i32 compiled = 0;
     g_gl.GetShaderiv(shader, kGL_COMPILE_STATUS, &compiled);
     if (!compiled) {
         char logBuf[512]{};
@@ -183,16 +183,16 @@ uint32_t CompileGlShader(uint32_t type, keel::StringRef src) noexcept {
     return shader;
 }
 
-uint32_t BuildGlProgram(keel::StringRef vsSrc, keel::StringRef fsSrc) noexcept {
-    uint32_t vs = CompileGlShader(kGL_VERTEX_SHADER, vsSrc);
+keel::u32 BuildGlProgram(keel::StringRef vsSrc, keel::StringRef fsSrc) noexcept {
+    keel::u32 vs = CompileGlShader(kGL_VERTEX_SHADER, vsSrc);
     if (!vs) return 0;
-    uint32_t fs = CompileGlShader(kGL_FRAGMENT_SHADER, fsSrc);
+    keel::u32 fs = CompileGlShader(kGL_FRAGMENT_SHADER, fsSrc);
     if (!fs) {
         g_gl.DeleteShader(vs);
         return 0;
     }
 
-    uint32_t prog = g_gl.CreateProgram();
+    keel::u32 prog = g_gl.CreateProgram();
     g_gl.AttachShader(prog, vs);
     g_gl.AttachShader(prog, fs);
     g_gl.BindAttribLocation(prog, 0, "a_uv");
@@ -201,7 +201,7 @@ uint32_t BuildGlProgram(keel::StringRef vsSrc, keel::StringRef fsSrc) noexcept {
     g_gl.DeleteShader(vs);
     g_gl.DeleteShader(fs);
 
-    int linked = 0;
+    keel::i32 linked = 0;
     g_gl.GetProgramiv(prog, kGL_LINK_STATUS, &linked);
     if (!linked) {
         char logBuf[512]{};
@@ -245,11 +245,11 @@ void main() {
 }
 )";
 
-[[nodiscard]] inline uint32_t PackRG16Norm(float normVal) noexcept {
+[[nodiscard]] inline keel::u32 PackRG16Norm(float normVal) noexcept {
     const float clamped = keel::clamp(normVal, 0.0f, 1.0f);
-    const uint32_t q = static_cast<uint32_t>(std::lround(clamped * 65535.0f));
-    const uint32_t hi = (q >> 8) & 0xFFu;
-    const uint32_t lo = q & 0xFFu;
+    const keel::u32 q = static_cast<keel::u32>(std::lround(clamped * 65535.0f));
+    const keel::u32 hi = (q >> 8) & 0xFFu;
+    const keel::u32 lo = q & 0xFFu;
     return hi | (lo << 8) | 0xFF000000u;
 }
 
@@ -290,7 +290,7 @@ bool SdlGlShaderEngine::Initialize(SDL_Renderer* renderer) {
     }
 
     // Validate GLSL compiler and linker with a minimal probe shader
-    const uint32_t probeProgram = BuildGlProgram(kSharedVertSrc, kProbeFragSrc);
+    const keel::u32 probeProgram = BuildGlProgram(kSharedVertSrc, kProbeFragSrc);
     if (!probeProgram) {
         m_backendSummary.assign("Unavailable (GLSL compilation failed)");
         return false;
@@ -307,12 +307,12 @@ bool SdlGlShaderEngine::Initialize(SDL_Renderer* renderer) {
         1.0f, 1.0f
     };
 
-    int prevVbo = 0;
+    keel::i32 prevVbo = 0;
     g_gl.GetIntegerv(kGL_ARRAY_BUFFER_BINDING, &prevVbo);
     g_gl.GenBuffers(1, &m_quadVbo);
     g_gl.BindBuffer(kGL_ARRAY_BUFFER, m_quadVbo);
     g_gl.BufferData(kGL_ARRAY_BUFFER, sizeof(kQuadVerts), kQuadVerts, kGL_STATIC_DRAW);
-    g_gl.BindBuffer(kGL_ARRAY_BUFFER, static_cast<uint32_t>(prevVbo));
+    g_gl.BindBuffer(kGL_ARRAY_BUFFER, static_cast<keel::u32>(prevVbo));
 
     SDL_FlushRenderer(renderer);
 
@@ -413,7 +413,7 @@ void SdlGlShaderEngine::TickFrame(const ICanvas& canvas) {
         return;
     }
     ++m_frameCounter;
-    const uint64_t nowNs = keel::monotonic_ns();
+    const keel::u64 nowNs = keel::monotonic_ns();
     if (canvas.HasActiveGpuPasses()) {
         for (const auto& pass : canvas.GetGpuShaderPasses()) {
             if (WidgetTextureCache* existing = m_textureCaches.get(pass.widgetId)) {
@@ -432,12 +432,12 @@ void SdlGlShaderEngine::TickFrame(const ICanvas& canvas) {
 }
 
 void SdlGlShaderEngine::PruneStaleTextures() {
-    constexpr uint64_t kMaxIdleFrames = 120;
-    constexpr uint64_t kMaxIdleTimeNs = 1'500'000'000ULL;
-    const uint64_t nowNs = keel::monotonic_ns();
-    keel::SmallArray<uint64_t, 16> staleIds;
+    constexpr keel::u64 kMaxIdleFrames = 120;
+    constexpr keel::u64 kMaxIdleTimeNs = 1'500'000'000ULL;
+    const keel::u64 nowNs = keel::monotonic_ns();
+    keel::SmallArray<keel::u64, 16> staleIds;
     for (const auto& [id, entry] : m_textureCaches) {
-        const uint64_t idleFrames = (m_frameCounter > entry.lastUsedFrame)
+        const keel::u64 idleFrames = (m_frameCounter > entry.lastUsedFrame)
             ? (m_frameCounter - entry.lastUsedFrame)
             : 0;
         const bool staleByFrames = idleFrames > kMaxIdleFrames;
@@ -452,7 +452,7 @@ void SdlGlShaderEngine::PruneStaleTextures() {
     if (!staleIds.empty() && m_renderer) {
         SDL_FlushRenderer(m_renderer);
     }
-    for (uint64_t id : staleIds) {
+    for (keel::u64 id : staleIds) {
         if (const WidgetTextureCache* entry = m_textureCaches.get(id)) {
             if (entry->dataTex) g_gl.DeleteTextures(1, &entry->dataTex);
             if (entry->lutTex) g_gl.DeleteTextures(1, &entry->lutTex);
@@ -477,8 +477,8 @@ void SdlGlShaderEngine::PruneStaleTextures() {
 
 void SdlGlShaderEngine::RenderPass(
     const ICanvas::GpuShaderPassDesc& pass,
-    uint32_t viewportW,
-    uint32_t viewportH
+    keel::u32 viewportW,
+    keel::u32 viewportH
 ) {
     if (pass.clipRect.w <= 0.5f || pass.clipRect.h <= 0.5f ||
         pass.texWidth == 0 || pass.texHeight == 0 || !pass.dataFloats) {
@@ -500,11 +500,11 @@ void SdlGlShaderEngine::RenderPass(
         if (!cache.lutTex) {
             g_gl.GenTextures(1, &cache.lutTex);
             g_gl.BindTexture(kGL_TEXTURE_2D, cache.lutTex);
-            g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_MIN_FILTER, static_cast<int>(kGL_LINEAR));
-            g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_MAG_FILTER, static_cast<int>(kGL_LINEAR));
-            g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_WRAP_S, static_cast<int>(kGL_CLAMP_TO_EDGE));
-            g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_WRAP_T, static_cast<int>(kGL_CLAMP_TO_EDGE));
-            g_gl.TexImage2D(kGL_TEXTURE_2D, 0, static_cast<int>(kGL_RGBA), 256, 1, 0, kGL_RGBA, kGL_UNSIGNED_BYTE, pass.lutAbgr256);
+            g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_MIN_FILTER, static_cast<keel::i32>(kGL_LINEAR));
+            g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_MAG_FILTER, static_cast<keel::i32>(kGL_LINEAR));
+            g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_WRAP_S, static_cast<keel::i32>(kGL_CLAMP_TO_EDGE));
+            g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_WRAP_T, static_cast<keel::i32>(kGL_CLAMP_TO_EDGE));
+            g_gl.TexImage2D(kGL_TEXTURE_2D, 0, static_cast<keel::i32>(kGL_RGBA), 256, 1, 0, kGL_RGBA, kGL_UNSIGNED_BYTE, pass.lutAbgr256);
             cache.uploadedColormapId = pass.colormapId;
         } else {
             g_gl.BindTexture(kGL_TEXTURE_2D, cache.lutTex);
@@ -528,34 +528,34 @@ void SdlGlShaderEngine::RenderPass(
         cache.uploadedSliceGen = 0;
 
         g_gl.BindTexture(kGL_TEXTURE_2D, cache.dataTex);
-        g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_MIN_FILTER, static_cast<int>(kGL_NEAREST));
-        g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_MAG_FILTER, static_cast<int>(kGL_NEAREST));
-        g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_WRAP_S, static_cast<int>(kGL_CLAMP_TO_EDGE));
-        g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_WRAP_T, static_cast<int>(kGL_CLAMP_TO_EDGE));
+        g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_MIN_FILTER, static_cast<keel::i32>(kGL_NEAREST));
+        g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_MAG_FILTER, static_cast<keel::i32>(kGL_NEAREST));
+        g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_WRAP_S, static_cast<keel::i32>(kGL_CLAMP_TO_EDGE));
+        g_gl.TexParameteri(kGL_TEXTURE_2D, kGL_TEXTURE_WRAP_T, static_cast<keel::i32>(kGL_CLAMP_TO_EDGE));
     } else {
         g_gl.BindTexture(kGL_TEXTURE_2D, cache.dataTex);
     }
 
     const float invNormScale = 1.0f / keel::max(1e-6f, pass.dataNormScale);
     const bool needFullUpload = dimsChanged || (cache.uploadedFullGen != pass.fullGeneration);
-    const uint64_t deltaSlices = (pass.sliceGeneration > 0 && pass.sliceGeneration >= cache.uploadedSliceGen)
+    const keel::u64 deltaSlices = (pass.sliceGeneration > 0 && pass.sliceGeneration >= cache.uploadedSliceGen)
         ? (pass.sliceGeneration - cache.uploadedSliceGen)
         : 0;
 
     if (needFullUpload || (pass.sliceGeneration > 0 && (pass.sliceGeneration < cache.uploadedSliceGen || deltaSlices >= pass.texHeight))) {
-        const size_t total = static_cast<size_t>(pass.texWidth) * pass.texHeight;
+        const keel::usize total = static_cast<keel::usize>(pass.texWidth) * pass.texHeight;
         m_uploadScratch.resize(total);
-        for (size_t i = 0; i < total; ++i) {
+        for (keel::usize i = 0; i < total; ++i) {
             const float normVal = (pass.dataFloats[i] - pass.dataNormOffset) * invNormScale;
             m_uploadScratch[i] = PackRG16Norm(normVal);
         }
         if (dimsChanged) {
-            g_gl.TexImage2D(kGL_TEXTURE_2D, 0, static_cast<int>(kGL_RGBA),
-                            static_cast<int>(pass.texWidth), static_cast<int>(pass.texHeight),
+            g_gl.TexImage2D(kGL_TEXTURE_2D, 0, static_cast<keel::i32>(kGL_RGBA),
+                            static_cast<keel::i32>(pass.texWidth), static_cast<keel::i32>(pass.texHeight),
                             0, kGL_RGBA, kGL_UNSIGNED_BYTE, m_uploadScratch.data());
         } else {
             g_gl.TexSubImage2D(kGL_TEXTURE_2D, 0, 0, 0,
-                               static_cast<int>(pass.texWidth), static_cast<int>(pass.texHeight),
+                               static_cast<keel::i32>(pass.texWidth), static_cast<keel::i32>(pass.texHeight),
                                kGL_RGBA, kGL_UNSIGNED_BYTE, m_uploadScratch.data());
         }
         cache.uploadedFullGen = pass.fullGeneration;
@@ -567,17 +567,17 @@ void SdlGlShaderEngine::RenderPass(
     } else if (deltaSlices > 0) {
         // O(1) Circular Ring-Buffer Update: upload only the newly written row(s) via glTexSubImage2D
         m_uploadScratch.resize(pass.texWidth);
-        for (uint64_t s = 0; s < deltaSlices; ++s) {
-            const uint32_t rowIdx = static_cast<uint32_t>(
-                (static_cast<uint64_t>(pass.headRow) + static_cast<uint64_t>(pass.texHeight) * 4ULL - s) % pass.texHeight
+        for (keel::u64 s = 0; s < deltaSlices; ++s) {
+            const keel::u32 rowIdx = static_cast<keel::u32>(
+                (static_cast<keel::u64>(pass.headRow) + static_cast<keel::u64>(pass.texHeight) * 4ULL - s) % pass.texHeight
             );
-            const float* rowSrc = pass.dataFloats + static_cast<size_t>(rowIdx) * pass.texWidth;
-            for (uint32_t x = 0; x < pass.texWidth; ++x) {
+            const float* rowSrc = pass.dataFloats + static_cast<keel::usize>(rowIdx) * pass.texWidth;
+            for (keel::u32 x = 0; x < pass.texWidth; ++x) {
                 const float normVal = (rowSrc[x] - pass.dataNormOffset) * invNormScale;
                 m_uploadScratch[x] = PackRG16Norm(normVal);
             }
-            g_gl.TexSubImage2D(kGL_TEXTURE_2D, 0, 0, static_cast<int>(rowIdx),
-                               static_cast<int>(pass.texWidth), 1,
+            g_gl.TexSubImage2D(kGL_TEXTURE_2D, 0, 0, static_cast<keel::i32>(rowIdx),
+                               static_cast<keel::i32>(pass.texWidth), 1,
                                kGL_RGBA, kGL_UNSIGNED_BYTE, m_uploadScratch.data());
         }
         cache.uploadedSliceGen = pass.sliceGeneration;
@@ -585,15 +585,15 @@ void SdlGlShaderEngine::RenderPass(
     }
 
     // 3. Configure Scissor Box (converting top-left UI coords to bottom-left GL coords)
-    const int scX = keel::max(0, static_cast<int>(std::floor(pass.clipRect.x)));
-    const int scTop = keel::max(0, static_cast<int>(std::floor(pass.clipRect.y)));
-    const int scRight = keel::min(static_cast<int>(viewportW), static_cast<int>(std::ceil(pass.clipRect.Right())));
-    const int scBottom = keel::min(static_cast<int>(viewportH), static_cast<int>(std::ceil(pass.clipRect.Bottom())));
-    const int scW = scRight - scX;
-    const int scH = scBottom - scTop;
+    const keel::i32 scX = keel::max(0, static_cast<keel::i32>(std::floor(pass.clipRect.x)));
+    const keel::i32 scTop = keel::max(0, static_cast<keel::i32>(std::floor(pass.clipRect.y)));
+    const keel::i32 scRight = keel::min(static_cast<keel::i32>(viewportW), static_cast<keel::i32>(std::ceil(pass.clipRect.Right())));
+    const keel::i32 scBottom = keel::min(static_cast<keel::i32>(viewportH), static_cast<keel::i32>(std::ceil(pass.clipRect.Bottom())));
+    const keel::i32 scW = scRight - scX;
+    const keel::i32 scH = scBottom - scTop;
     if (scW <= 0 || scH <= 0) return;
 
-    const int glScY = static_cast<int>(viewportH) - scBottom;
+    const keel::i32 glScY = static_cast<keel::i32>(viewportH) - scBottom;
     g_gl.Scissor(scX, glScY, scW, scH);
 
     // 4. Bind Shader Program & Standard Uniforms
@@ -614,7 +614,7 @@ void SdlGlShaderEngine::RenderPass(
                        static_cast<float>(pass.bgColor.b) / 255.0f);
     }
     if (prog->uParams >= 0) {
-        g_gl.Uniform4fv(prog->uParams, static_cast<int>(pass.params.size()), &pass.params[0].x);
+        g_gl.Uniform4fv(prog->uParams, static_cast<keel::i32>(pass.params.size()), &pass.params[0].x);
     }
     if (prog->uDataTex >= 0) {
         g_gl.Uniform1i(prog->uDataTex, 0);
@@ -628,8 +628,8 @@ void SdlGlShaderEngine::RenderPass(
 
 void SdlGlShaderEngine::RenderUnderlays(
     const ICanvas& canvas,
-    uint32_t viewportWidth,
-    uint32_t viewportHeight
+    keel::u32 viewportWidth,
+    keel::u32 viewportHeight
 ) {
     if (!m_available || !m_renderer || viewportWidth == 0 || viewportHeight == 0 || !canvas.HasActiveGpuPasses()) {
         return;
@@ -642,22 +642,22 @@ void SdlGlShaderEngine::RenderUnderlays(
     SDL_FlushRenderer(m_renderer);
 
     // Save current OpenGL state
-    int prevProgram = 0;
-    int prevVbo = 0;
-    int prevActiveTex = 0;
-    int prevTex0 = 0;
-    int prevTex1 = 0;
-    int prevViewport[4] = {0, 0, 0, 0};
-    int prevScissorBox[4] = {0, 0, 0, 0};
-    int prevUnpackAlign = 4;
-    int prevAttrEnabled[3] = {0, 0, 0};
+    keel::i32 prevProgram = 0;
+    keel::i32 prevVbo = 0;
+    keel::i32 prevActiveTex = 0;
+    keel::i32 prevTex0 = 0;
+    keel::i32 prevTex1 = 0;
+    keel::i32 prevViewport[4] = {0, 0, 0, 0};
+    keel::i32 prevScissorBox[4] = {0, 0, 0, 0};
+    keel::i32 prevUnpackAlign = 4;
+    keel::i32 prevAttrEnabled[3] = {0, 0, 0};
 #ifndef __EMSCRIPTEN__
-    int prevUnpackRowLength = 0;
-    int prevUnpackSkipRows = 0;
-    int prevUnpackSkipPixels = 0;
+    keel::i32 prevUnpackRowLength = 0;
+    keel::i32 prevUnpackSkipRows = 0;
+    keel::i32 prevUnpackSkipPixels = 0;
 #endif
-    const uint8_t prevScissorEnabled = g_gl.IsEnabled(kGL_SCISSOR_TEST);
-    const uint8_t prevBlendEnabled = g_gl.IsEnabled(kGL_BLEND);
+    const keel::u8 prevScissorEnabled = g_gl.IsEnabled(kGL_SCISSOR_TEST);
+    const keel::u8 prevBlendEnabled = g_gl.IsEnabled(kGL_BLEND);
 
     g_gl.GetIntegerv(kGL_CURRENT_PROGRAM, &prevProgram);
     g_gl.GetIntegerv(kGL_ARRAY_BUFFER_BINDING, &prevVbo);
@@ -665,7 +665,7 @@ void SdlGlShaderEngine::RenderUnderlays(
     g_gl.GetIntegerv(kGL_VIEWPORT, prevViewport);
     g_gl.GetIntegerv(kGL_SCISSOR_BOX, prevScissorBox);
     g_gl.GetIntegerv(kGL_UNPACK_ALIGNMENT, &prevUnpackAlign);
-    for (uint32_t i = 0; i < 3; ++i) {
+    for (keel::u32 i = 0; i < 3; ++i) {
         g_gl.GetVertexAttribiv(i, kGL_VERTEX_ATTRIB_ARRAY_ENABLED, &prevAttrEnabled[i]);
     }
 #ifndef __EMSCRIPTEN__
@@ -680,7 +680,7 @@ void SdlGlShaderEngine::RenderUnderlays(
     g_gl.GetIntegerv(kGL_TEXTURE_BINDING_2D, &prevTex1);
 
     // Set state for GPU underlay shader passes
-    g_gl.Viewport(0, 0, static_cast<int>(viewportWidth), static_cast<int>(viewportHeight));
+    g_gl.Viewport(0, 0, static_cast<keel::i32>(viewportWidth), static_cast<keel::i32>(viewportHeight));
     g_gl.Enable(kGL_SCISSOR_TEST);
     g_gl.Disable(kGL_BLEND);
     g_gl.PixelStorei(kGL_UNPACK_ALIGNMENT, 4);
@@ -705,21 +705,21 @@ void SdlGlShaderEngine::RenderUnderlays(
     }
 
     // Restore OpenGL state cleanly so SDL_Renderer (including opengles2/WebGL) can composite the UI layer without interference
-    for (uint32_t i = 0; i < 3; ++i) {
+    for (keel::u32 i = 0; i < 3; ++i) {
         if (prevAttrEnabled[i]) {
             g_gl.EnableVertexAttribArray(i);
         } else {
             g_gl.DisableVertexAttribArray(i);
         }
     }
-    g_gl.BindBuffer(kGL_ARRAY_BUFFER, static_cast<uint32_t>(prevVbo));
-    g_gl.UseProgram(static_cast<uint32_t>(prevProgram));
+    g_gl.BindBuffer(kGL_ARRAY_BUFFER, static_cast<keel::u32>(prevVbo));
+    g_gl.UseProgram(static_cast<keel::u32>(prevProgram));
 
     g_gl.ActiveTexture(kGL_TEXTURE1);
-    g_gl.BindTexture(kGL_TEXTURE_2D, static_cast<uint32_t>(prevTex1));
+    g_gl.BindTexture(kGL_TEXTURE_2D, static_cast<keel::u32>(prevTex1));
     g_gl.ActiveTexture(kGL_TEXTURE0);
-    g_gl.BindTexture(kGL_TEXTURE_2D, static_cast<uint32_t>(prevTex0));
-    g_gl.ActiveTexture(static_cast<uint32_t>(prevActiveTex));
+    g_gl.BindTexture(kGL_TEXTURE_2D, static_cast<keel::u32>(prevTex0));
+    g_gl.ActiveTexture(static_cast<keel::u32>(prevActiveTex));
 
     g_gl.PixelStorei(kGL_UNPACK_ALIGNMENT, prevUnpackAlign);
 #ifndef __EMSCRIPTEN__

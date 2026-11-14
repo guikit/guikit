@@ -1,6 +1,5 @@
 #include "../demo_context.hpp"
 #include <cmath>
-#include <cstdint>
 
 namespace guikit::demo {
 
@@ -10,14 +9,14 @@ constexpr float kPi = 3.14159265358979323846f;
 constexpr float kTwoPi = 2.0f * kPi;
 
 struct SignalDemoState {
-    size_t presetIdx = 0;
+    keel::usize presetIdx = 0;
     float sampleRate = 48000.0f;
     keel::Array<float> samples;
     keel::Array<guikit::SignalMarker> markers;
     guikit::SignalSelection selection{};
     double playheadSec = 0.42;
     bool livePlayhead = false;
-    uint64_t lastWallNs = 0;
+    keel::u64 lastWallNs = 0;
 
     guikit::SignalPanelOrder panelOrder = guikit::SignalPanelOrder::WaveformTop;
     float splitRatio = 0.45f;
@@ -25,7 +24,7 @@ struct SignalDemoState {
     guikit::FrequencyScale frequencyScale = guikit::FrequencyScale::Linear;
     guikit::Colormap colormap = guikit::Colormap::Inferno;
     guikit::FftWindowType fftWindow = guikit::FftWindowType::Hann;
-    size_t fftSizeIdx = 1; // 0=256, 1=512, 2=1024, 3=2048
+    keel::usize fftSizeIdx = 1; // 0=256, 1=512, 2=1024, 3=2048
     float dbFloor = -92.0f;
     float waveformGain = 1.0f;
 
@@ -73,29 +72,29 @@ struct SignalDemoState {
         "256", "512", "1024", "2048"
     };
 
-    static constexpr keel::StaticArray<uint32_t, 4> fftSizeValues = {
+    static constexpr keel::StaticArray<keel::u32, 4> fftSizeValues = {
         256, 512, 1024, 2048
     };
 };
 
 SignalDemoState s_sig;
 
-uint32_t NextRng(uint32_t& state) noexcept {
+keel::u32 NextRng(keel::u32& state) noexcept {
     state ^= state << 13;
     state ^= state >> 17;
     state ^= state << 5;
     return state;
 }
 
-float WhiteNoise(uint32_t& state) noexcept {
+float WhiteNoise(keel::u32& state) noexcept {
     return (static_cast<float>(NextRng(state) & 0x00FFFFFFu) / 8388608.0f) - 1.0f;
 }
 
-void BuildSignalPreset(SignalDemoState& st, size_t preset) {
+void BuildSignalPreset(SignalDemoState& st, keel::usize preset) {
     st.presetIdx = preset;
     st.sampleRate = 48000.0f;
     st.markers.clear();
-    uint32_t rng = 0x9E3779B9u + static_cast<uint32_t>(preset * 101u);
+    keel::u32 rng = 0x9E3779B9u + static_cast<keel::u32>(preset * 101u);
 
     if (preset == 0) {
         // 2.0 seconds @ 48 kHz = 96,000 samples:
@@ -103,11 +102,11 @@ void BuildSignalPreset(SignalDemoState& st, size_t preset) {
         // Segment B (0.55 - 0.85s): High-frequency sibilant burst + FM bell
         // Segment C (0.85 - 1.45s): Multi-harmonic exponential & linear chirp
         // Segment D (1.45 - 2.00s): Vibrato chord + decaying echoes
-        const size_t N = 96000;
+        const keel::usize N = 96000;
         st.samples.assign(N, 0.0f);
         double phaseF0 = 0.0;
         double phaseChirp = 0.0;
-        for (size_t i = 0; i < N; ++i) {
+        for (keel::usize i = 0; i < N; ++i) {
             const float t = static_cast<float>(i) / st.sampleRate;
             float v = 0.002f * WhiteNoise(rng);
 
@@ -118,7 +117,7 @@ void BuildSignalPreset(SignalDemoState& st, size_t preset) {
                 const float f1Center = 900.0f + 700.0f * (t / 0.55f);
                 const float f2Center = 2400.0f + 1600.0f * std::sin(kPi * (t / 0.55f));
                 float sum = 0.0f;
-                for (int h = 1; h <= 28; ++h) {
+                for (keel::i32 h = 1; h <= 28; ++h) {
                     const float fh = f0 * static_cast<float>(h);
                     if (fh >= st.sampleRate * 0.48f) break;
                     const float d1 = (fh - f1Center) / 380.0f;
@@ -172,13 +171,13 @@ void BuildSignalPreset(SignalDemoState& st, size_t preset) {
         st.playheadSec = 0.42;
     } else if (preset == 1) {
         // Preset 1: LFM Radar & Frequency-Hopping Telemetry (96,000 samples / 2.0s)
-        const size_t N = 96000;
+        const keel::usize N = 96000;
         st.samples.assign(N, 0.0f);
         double phase = 0.0;
         static constexpr keel::StaticArray<float, 8> hopFreqs = {
             1800.0f, 6400.0f, 3600.0f, 11200.0f, 4800.0f, 15400.0f, 8200.0f, 19200.0f
         };
-        for (size_t i = 0; i < N; ++i) {
+        for (keel::usize i = 0; i < N; ++i) {
             const float t = static_cast<float>(i) / st.sampleRate;
             float v = 0.008f * WhiteNoise(rng);
             // Continuous pilot beacon at 1.0 kHz
@@ -203,7 +202,7 @@ void BuildSignalPreset(SignalDemoState& st, size_t preset) {
             } else if (t >= 1.02f && t < 1.94f) {
                 // Stepped FHSS Telemetry Hops
                 const float hopDur = (1.94f - 1.02f) / static_cast<float>(hopFreqs.size());
-                const size_t hopIdx = keel::min(hopFreqs.size() - 1, static_cast<size_t>((t - 1.02f) / hopDur));
+                const keel::usize hopIdx = keel::min(hopFreqs.size() - 1, static_cast<keel::usize>((t - 1.02f) / hopDur));
                 const float hopLocal = std::fmod(t - 1.02f, hopDur) / hopDur;
                 const float env = std::sin(kPi * hopLocal);
                 const float f = hopFreqs[hopIdx];
@@ -226,13 +225,13 @@ void BuildSignalPreset(SignalDemoState& st, size_t preset) {
         st.playheadSec = 0.74;
     } else if (preset == 2) {
         // Preset 2: Percussive Transients & Overdrive Saturation (96,000 samples / 2.0s)
-        const size_t N = 96000;
+        const keel::usize N = 96000;
         st.samples.assign(N, 0.0f);
         static constexpr keel::StaticArray<float, 6> hitTimes = {0.08f, 0.38f, 0.68f, 0.98f, 1.28f, 1.58f};
-        for (size_t i = 0; i < N; ++i) {
+        for (keel::usize i = 0; i < N; ++i) {
             const float t = static_cast<float>(i) / st.sampleRate;
             float v = 0.003f * WhiteNoise(rng);
-            for (size_t h = 0; h < hitTimes.size(); ++h) {
+            for (keel::usize h = 0; h < hitTimes.size(); ++h) {
                 const float dt = t - hitTimes[h];
                 if (dt >= 0.0f && dt < 0.28f) {
                     const float pitchDrop = 140.0f + 580.0f * std::exp(-dt * 42.0f);
@@ -268,10 +267,10 @@ void BuildSignalPreset(SignalDemoState& st, size_t preset) {
     } else {
         // Preset 3: Ultra-Long 1,200,000 samples (25.0 seconds @ 48 kHz)
         // Demonstrates O(W) multi-resolution Mipmap Pyramid + on-demand STFT
-        const size_t N = 1200000;
+        const keel::usize N = 1200000;
         st.samples.assign(N, 0.0f);
         double phase = 0.0;
-        for (size_t i = 0; i < N; ++i) {
+        for (keel::usize i = 0; i < N; ++i) {
             const float t = static_cast<float>(i) / st.sampleRate;
             const float macroEnv = 0.55f + 0.40f * std::sin(kTwoPi * 0.18f * t);
             const float sweepFreq = 400.0f + 8500.0f * (0.5f + 0.5f * std::sin(kTwoPi * 0.12f * t));
@@ -312,7 +311,7 @@ void EnsureSignalInitialized() {
 }
 
 void StepSignalPlayback(SignalDemoState& st) {
-    const uint64_t nowNs = keel::monotonic_ns();
+    const keel::u64 nowNs = keel::monotonic_ns();
     double dt = static_cast<double>(nowNs - st.lastWallNs) * 1e-9;
     st.lastWallNs = nowNs;
     dt = keel::clamp(dt, 0.0, 0.08);
@@ -353,7 +352,7 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    size_t orderIdx = static_cast<size_t>(s_sig.panelOrder);
+    keel::usize orderIdx = static_cast<keel::usize>(s_sig.panelOrder);
     if (auto el = ui.Element({.label = "Panel Stack Order"})) {
         if (ui.StepSlider(orderIdx, SignalDemoState::panelOrderNames, {
             .showTicks = true,
@@ -373,7 +372,7 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    size_t ampIdx = static_cast<size_t>(s_sig.amplitudeScale);
+    keel::usize ampIdx = static_cast<keel::usize>(s_sig.amplitudeScale);
     if (auto el = ui.Element({.label = "Waveform Amplitude Scale"})) {
         if (ui.StepSlider(ampIdx, SignalDemoState::ampScaleNames, {
             .showTicks = true,
@@ -383,7 +382,7 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    size_t freqIdx = static_cast<size_t>(s_sig.frequencyScale);
+    keel::usize freqIdx = static_cast<keel::usize>(s_sig.frequencyScale);
     if (auto el = ui.Element({.label = "Spectrogram Frequency Scale"})) {
         if (ui.StepSlider(freqIdx, SignalDemoState::freqScaleNames, {
             .showTicks = true,
@@ -393,7 +392,7 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    size_t cmapIdx = static_cast<size_t>(s_sig.colormap);
+    keel::usize cmapIdx = static_cast<keel::usize>(s_sig.colormap);
     if (auto el = ui.Element({.label = "Spectrogram Colormap"})) {
         if (ui.Select(cmapIdx, guikit::GetAllColormapNames()).changed) {
             s_sig.colormap = static_cast<guikit::Colormap>(cmapIdx);
@@ -407,7 +406,7 @@ void RenderSignalInspector(guikit::Context& ui, DemoContext&) {
         });
     }
 
-    size_t winIdx = static_cast<size_t>(s_sig.fftWindow);
+    keel::usize winIdx = static_cast<keel::usize>(s_sig.fftWindow);
     if (auto el = ui.Element({.label = "FFT Window Function"})) {
         if (ui.StepSlider(winIdx, SignalDemoState::windowNames, {
             .showTicks = true,
@@ -526,7 +525,7 @@ void RenderSignalStage(guikit::Context& ui, DemoContext&) {
         ui.RequestRepaint(2);
     }
 
-    const uint32_t fftSize = SignalDemoState::fftSizeValues[s_sig.fftSizeIdx];
+    const keel::u32 fftSize = SignalDemoState::fftSizeValues[s_sig.fftSizeIdx];
     s_sig.lastResp = ui.SignalView(s_sig.samples, {
         .sampleRate = s_sig.sampleRate,
         .panelOrder = s_sig.panelOrder,
@@ -579,7 +578,7 @@ keel::String GenerateSignalCode(const DemoContext&) {
         "Hann", "Hamming", "BlackmanHarris", "Rectangular"
     };
 
-    const uint32_t fftSize = SignalDemoState::fftSizeValues[s_sig.fftSizeIdx];
+    const keel::u32 fftSize = SignalDemoState::fftSizeValues[s_sig.fftSizeIdx];
     return keel::format(
         "// Synchronized DAW Waveform (Mipmap Pyramid) + STFT Spectrogram Analyzer\n"
         "auto resp = ui.SignalView(samples, {{\n"
@@ -606,12 +605,12 @@ keel::String GenerateSignalCode(const DemoContext&) {
         "    .heightMode = guikit::SizeMode::Stretch\n"
         "}});\n",
         s_sig.sampleRate,
-        orderEnums[static_cast<size_t>(s_sig.panelOrder)],
+        orderEnums[static_cast<keel::usize>(s_sig.panelOrder)],
         s_sig.splitRatio,
-        ampEnums[static_cast<size_t>(s_sig.amplitudeScale)],
-        freqEnums[static_cast<size_t>(s_sig.frequencyScale)],
+        ampEnums[static_cast<keel::usize>(s_sig.amplitudeScale)],
+        freqEnums[static_cast<keel::usize>(s_sig.frequencyScale)],
         guikit::GetColormapName(s_sig.colormap),
-        winEnums[static_cast<size_t>(s_sig.fftWindow)],
+        winEnums[static_cast<keel::usize>(s_sig.fftWindow)],
         fftSize,
         s_sig.dbFloor,
         s_sig.waveformGain,

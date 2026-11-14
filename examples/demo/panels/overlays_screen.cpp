@@ -6,7 +6,7 @@ namespace guikit::demo {
 namespace {
 
 struct OverlaysDemoState {
-    size_t activeOverlay = 0; // 0 = Modal, 1 = ContextMenu, 2 = Toast, 3 = CommandPalette
+    keel::usize activeOverlay = 0; // 0 = Modal, 1 = ContextMenu, 2 = Toast, 3 = CommandPalette
 
     // Modal settings & state
     bool customModalOpen = false;
@@ -23,30 +23,30 @@ struct OverlaysDemoState {
     keel::FixedString<128> lastModalStatus = "Ready";
 
     // ContextMenu settings & state
-    size_t triggerModeIdx = 0; // 0 = RightClick, 1 = LeftClick
+    keel::usize triggerModeIdx = 0; // 0 = RightClick, 1 = LeftClick
     float menuMinWidth = 200.0f;
     bool itemBookmarked = true;
     bool itemLocked = false;
     bool itemGridSnap = true;
     keel::FixedString<128> lastMenuAction = "No item clicked yet";
-    int duplicateCount = 0;
+    keel::i32 duplicateCount = 0;
 
     // Toast settings & state
-    size_t toastPlacementIdx = 0; // BottomRight, TopRight, BottomLeft, TopLeft, TopCenter, BottomCenter
+    keel::usize toastPlacementIdx = 0; // BottomRight, TopRight, BottomLeft, TopLeft, TopCenter, BottomCenter
     float toastDuration = 4.0f;
     float toastWidth = 320.0f;
-    int toastMaxVisible = 5;
+    keel::i32 toastMaxVisible = 5;
     bool toastPauseOnHover = true;
     bool toastShowProgress = true;
     bool toastClosable = true;
     bool confineToastToStage = false;
-    int toastCounter = 0;
+    keel::i32 toastCounter = 0;
 
     // CommandPalette settings & state
     bool commandPaletteOpen = false;
     bool paletteAutoWidth = true;
     float paletteWidth = 660.0f;
-    int paletteMaxVisible = 8;
+    keel::i32 paletteMaxVisible = 8;
     bool paletteShowFooter = true;
     keel::FixedString<160> lastPaletteCommand = "None (press Ctrl+K or click Open)";
 };
@@ -395,7 +395,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
     auto cpRes = ui.Size(ctx.controlsSize).CommandPalette(s_ov.commandPaletteOpen, kPaletteCommands, {
         .placeholder = "Type a command or search...",
         .width = s_ov.paletteAutoWidth ? keel::kNullOpt : keel::Optional<float>(s_ov.paletteWidth),
-        .maxVisibleItems = static_cast<uint32_t>(keel::max(1, s_ov.paletteMaxVisible)),
+        .maxVisibleItems = static_cast<keel::u32>(keel::max(1, s_ov.paletteMaxVisible)),
         .backdropOpacity = s_ov.backdropOpacity,
         .closeOnBackdropClick = s_ov.closeOnBackdrop,
         .closeOnEscape = s_ov.closeOnEscape,
@@ -403,8 +403,8 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
         .confineToParent = s_ov.confineModalToStage
     });
 
-    if (cpRes.changed && cpRes.selectedIndex >= 0 && static_cast<size_t>(cpRes.selectedIndex) < kPaletteCommands.size()) {
-        const auto& cmd = kPaletteCommands[static_cast<size_t>(cpRes.selectedIndex)];
+    if (cpRes.changed && cpRes.selectedIndex >= 0 && static_cast<keel::usize>(cpRes.selectedIndex) < kPaletteCommands.size()) {
+        const auto& cmd = kPaletteCommands[static_cast<keel::usize>(cpRes.selectedIndex)];
         s_ov.lastPaletteCommand = keel::format_fixed<160>("Executed: [{}] {}", cmd.category, cmd.label);
         if (cpRes.selectedIndex == 0) s_ov.customModalOpen = true;
         else if (cpRes.selectedIndex == 4) ui.ClearToasts();
@@ -486,7 +486,7 @@ void RenderOverlaysStage(guikit::Context& ui, DemoContext& ctx) {
     ui.ToastHost({
         .placement = static_cast<guikit::ToastPlacement>(s_ov.toastPlacementIdx),
         .width = s_ov.toastWidth,
-        .maxVisible = static_cast<size_t>(keel::max(1, s_ov.toastMaxVisible)),
+        .maxVisible = static_cast<keel::usize>(keel::max(1, s_ov.toastMaxVisible)),
         .pauseOnHover = s_ov.toastPauseOnHover,
         .confineToParent = s_ov.confineToastToStage
     });

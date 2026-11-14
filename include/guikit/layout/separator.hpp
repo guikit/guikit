@@ -2,6 +2,7 @@
 
 #include "guikit/core/theme.hpp"
 #include "guikit/core/types.hpp"
+#include "keel/core.h"
 
 namespace guikit {
 

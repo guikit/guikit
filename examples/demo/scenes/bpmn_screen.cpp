@@ -10,12 +10,12 @@ void BuildOrderFulfillmentDiagram(guikit::BpmnDiagram& d) {
     d.Clear();
     d.name = "E-Commerce Order & Payment Orchestration";
 
-    const uint32_t laneCust = d.AddLane("Order Fulfillment Pool", "Customer & Checkout", guikit::Rect(60.0f, 60.0f, 1340.0f, 190.0f));
-    const uint32_t lanePay  = d.AddLane("Order Fulfillment Pool", "Payment & Fraud Engine", guikit::Rect(60.0f, 250.0f, 1340.0f, 230.0f));
-    const uint32_t laneWh   = d.AddLane("Order Fulfillment Pool", "Warehouse & Logistics", guikit::Rect(60.0f, 480.0f, 1340.0f, 220.0f));
+    const keel::u32 laneCust = d.AddLane("Order Fulfillment Pool", "Customer & Checkout", guikit::Rect(60.0f, 60.0f, 1340.0f, 190.0f));
+    const keel::u32 lanePay  = d.AddLane("Order Fulfillment Pool", "Payment & Fraud Engine", guikit::Rect(60.0f, 250.0f, 1340.0f, 230.0f));
+    const keel::u32 laneWh   = d.AddLane("Order Fulfillment Pool", "Warehouse & Logistics", guikit::Rect(60.0f, 480.0f, 1340.0f, 220.0f));
 
     // Row 1 (Customer & Checkout): center Y = 150.0f
-    const uint32_t nStart = d.AddNode({
+    const keel::u32 nStart = d.AddNode({
         .type = guikit::BpmnNodeType::StartEvent,
         .label = "Order Placed",
         .pos = {130.0f, 132.0f},
@@ -23,7 +23,7 @@ void BuildOrderFulfillmentDiagram(guikit::BpmnDiagram& d) {
         .laneId = laneCust
     });
 
-    const uint32_t nCheckout = d.AddNode({
+    const keel::u32 nCheckout = d.AddNode({
         .type = guikit::BpmnNodeType::Task,
         .label = "Verify Cart & KYC",
         .documentation = "SLA: 180ms",
@@ -34,7 +34,7 @@ void BuildOrderFulfillmentDiagram(guikit::BpmnDiagram& d) {
     });
 
     // Row 2 (Payment & Fraud Engine): center Y = 340.0f
-    const uint32_t nRiskRule = d.AddNode({
+    const keel::u32 nRiskRule = d.AddNode({
         .type = guikit::BpmnNodeType::Task,
         .label = "Evaluate Fraud DMN",
         .documentation = "DMN Table v4.2",
@@ -44,7 +44,7 @@ void BuildOrderFulfillmentDiagram(guikit::BpmnDiagram& d) {
         .slaDurationMs = 280.0f
     });
 
-    const uint32_t nGwRisk = d.AddNode({
+    const keel::u32 nGwRisk = d.AddNode({
         .type = guikit::BpmnNodeType::Gateway,
         .label = "Risk Approved?",
         .pos = {400.0f, 315.0f},
@@ -52,7 +52,7 @@ void BuildOrderFulfillmentDiagram(guikit::BpmnDiagram& d) {
         .laneId = lanePay
     });
 
-    const uint32_t nCharge = d.AddNode({
+    const keel::u32 nCharge = d.AddNode({
         .type = guikit::BpmnNodeType::Task,
         .label = "Charge Payment API",
         .documentation = "Stripe / Adyen RPC",
@@ -62,7 +62,7 @@ void BuildOrderFulfillmentDiagram(guikit::BpmnDiagram& d) {
         .slaDurationMs = 640.0f
     });
 
-    const uint32_t nBoundErr = d.AddNode({
+    const keel::u32 nBoundErr = d.AddNode({
         .type = guikit::BpmnNodeType::BoundaryEvent,
         .label = "Card Declined",
         .eventDef = guikit::BpmnEventDefinition::Error,
@@ -71,7 +71,7 @@ void BuildOrderFulfillmentDiagram(guikit::BpmnDiagram& d) {
         .laneId = lanePay
     });
 
-    const uint32_t nNotifyFail = d.AddNode({
+    const keel::u32 nNotifyFail = d.AddNode({
         .type = guikit::BpmnNodeType::Task,
         .label = "Send Decline Alert",
         .documentation = "Email + Push",
@@ -81,7 +81,7 @@ void BuildOrderFulfillmentDiagram(guikit::BpmnDiagram& d) {
         .slaDurationMs = 240.0f
     });
 
-    const uint32_t nEndCancel = d.AddNode({
+    const keel::u32 nEndCancel = d.AddNode({
         .type = guikit::BpmnNodeType::EndEvent,
         .label = "Order Aborted",
         .pos = {860.0f, 132.0f},
@@ -89,7 +89,7 @@ void BuildOrderFulfillmentDiagram(guikit::BpmnDiagram& d) {
         .laneId = laneCust
     });
 
-    const uint32_t nGwFork = d.AddNode({
+    const keel::u32 nGwFork = d.AddNode({
         .type = guikit::BpmnNodeType::Gateway,
         .label = "Parallel Fork",
         .pos = {760.0f, 315.0f},
@@ -97,7 +97,7 @@ void BuildOrderFulfillmentDiagram(guikit::BpmnDiagram& d) {
         .laneId = lanePay
     });
 
-    const uint32_t nInvoice = d.AddNode({
+    const keel::u32 nInvoice = d.AddNode({
         .type = guikit::BpmnNodeType::Task,
         .label = "Emit Fiscal Invoice",
         .documentation = "PDF + Ledger",
@@ -108,7 +108,7 @@ void BuildOrderFulfillmentDiagram(guikit::BpmnDiagram& d) {
     });
 
     // Row 3 (Warehouse & Logistics): center Y = 580.0f
-    const uint32_t nPickPack = d.AddNode({
+    const keel::u32 nPickPack = d.AddNode({
         .type = guikit::BpmnNodeType::Task,
         .label = "Reserve & Pick Items",
         .documentation = "WMS Batch |||",
@@ -119,14 +119,14 @@ void BuildOrderFulfillmentDiagram(guikit::BpmnDiagram& d) {
         .parallelMultiInstance = true
     });
 
-    const uint32_t nDataStore = d.AddNode({
+    const keel::u32 nDataStore = d.AddNode({
         .type = guikit::BpmnNodeType::DataStore,
         .label = "Inventory DB",
         .pos = {690.0f, 600.0f},
         .laneId = laneWh
     });
 
-    const uint32_t nGwJoin = d.AddNode({
+    const keel::u32 nGwJoin = d.AddNode({
         .type = guikit::BpmnNodeType::Gateway,
         .label = "Sync Join",
         .pos = {1040.0f, 555.0f},
@@ -134,7 +134,7 @@ void BuildOrderFulfillmentDiagram(guikit::BpmnDiagram& d) {
         .laneId = laneWh
     });
 
-    const uint32_t nSubShip = d.AddNode({
+    const keel::u32 nSubShip = d.AddNode({
         .type = guikit::BpmnNodeType::SubProcess,
         .label = "Carrier Dispatch & Track",
         .pos = {1140.0f, 538.0f},
@@ -142,7 +142,7 @@ void BuildOrderFulfillmentDiagram(guikit::BpmnDiagram& d) {
         .slaDurationMs = 750.0f
     });
 
-    const uint32_t nEndOk = d.AddNode({
+    const keel::u32 nEndOk = d.AddNode({
         .type = guikit::BpmnNodeType::EndEvent,
         .label = "Order Fulfilled",
         .pos = {1330.0f, 562.0f},
@@ -150,7 +150,7 @@ void BuildOrderFulfillmentDiagram(guikit::BpmnDiagram& d) {
         .laneId = laneWh
     });
 
-    const uint32_t nNote = d.AddNode({
+    const keel::u32 nNote = d.AddNode({
         .type = guikit::BpmnNodeType::TextAnnotation,
         .label = "PCI-DSS 4.0 Tokenized\nIdempotent Retry = 3x",
         .pos = {440.0f, 412.0f},
@@ -160,7 +160,7 @@ void BuildOrderFulfillmentDiagram(guikit::BpmnDiagram& d) {
     d.AddEdge(nStart, nCheckout, guikit::BpmnFlowType::SequenceFlow);
     d.AddEdge(nCheckout, nRiskRule, guikit::BpmnFlowType::SequenceFlow);
     d.AddEdge(nRiskRule, nGwRisk, guikit::BpmnFlowType::SequenceFlow);
-    const uint32_t eApproved = d.AddEdge(nGwRisk, nCharge, guikit::BpmnFlowType::DefaultFlow, "Approved");
+    const keel::u32 eApproved = d.AddEdge(nGwRisk, nCharge, guikit::BpmnFlowType::DefaultFlow, "Approved");
     d.AddEdge(nGwRisk, nNotifyFail, guikit::BpmnFlowType::ConditionalFlow, "High Risk", guikit::BpmnPortSide::Top, guikit::BpmnPortSide::Left);
     d.AddEdge(nBoundErr, nNotifyFail, guikit::BpmnFlowType::SequenceFlow, "Declined", guikit::BpmnPortSide::Bottom, guikit::BpmnPortSide::Bottom);
     d.AddEdge(nNotifyFail, nEndCancel, guikit::BpmnFlowType::SequenceFlow);
@@ -183,18 +183,18 @@ void BuildCiCdCanaryDiagram(guikit::BpmnDiagram& d) {
     d.Clear();
     d.name = "Cloud CI/CD Canary Deployment & Auto-Rollback";
 
-    const uint32_t laneBuild = d.AddLane("GitOps Delivery Pool", "Build & SAST Security", guikit::Rect(60.0f, 70.0f, 1240.0f, 210.0f));
-    const uint32_t laneProd  = d.AddLane("GitOps Delivery Pool", "Kubernetes Production SRE", guikit::Rect(60.0f, 280.0f, 1240.0f, 240.0f));
+    const keel::u32 laneBuild = d.AddLane("GitOps Delivery Pool", "Build & SAST Security", guikit::Rect(60.0f, 70.0f, 1240.0f, 210.0f));
+    const keel::u32 laneProd  = d.AddLane("GitOps Delivery Pool", "Kubernetes Production SRE", guikit::Rect(60.0f, 280.0f, 1240.0f, 240.0f));
 
     // Row 1 (Build & SAST Security): center Y = 170.0f
-    const uint32_t nStart = d.AddNode({
+    const keel::u32 nStart = d.AddNode({
         .type = guikit::BpmnNodeType::StartEvent,
         .label = "Main Commit",
         .pos = {130.0f, 152.0f},
         .eventDef = guikit::BpmnEventDefinition::Signal,
         .laneId = laneBuild
     });
-    const uint32_t nBuild = d.AddNode({
+    const keel::u32 nBuild = d.AddNode({
         .type = guikit::BpmnNodeType::Task,
         .label = "Compile & Containerize",
         .documentation = "Docker Buildx",
@@ -203,7 +203,7 @@ void BuildCiCdCanaryDiagram(guikit::BpmnDiagram& d) {
         .laneId = laneBuild,
         .slaDurationMs = 520.0f
     });
-    const uint32_t nScan = d.AddNode({
+    const keel::u32 nScan = d.AddNode({
         .type = guikit::BpmnNodeType::Task,
         .label = "SBOM & CVE Policy",
         .documentation = "OPA Gatekeeper",
@@ -214,7 +214,7 @@ void BuildCiCdCanaryDiagram(guikit::BpmnDiagram& d) {
     });
 
     // Row 2 (Kubernetes Production SRE): center Y = 390.0f
-    const uint32_t nCanary = d.AddNode({
+    const keel::u32 nCanary = d.AddNode({
         .type = guikit::BpmnNodeType::Task,
         .label = "Deploy Canary (10%)",
         .documentation = "Argo Rollouts",
@@ -223,7 +223,7 @@ void BuildCiCdCanaryDiagram(guikit::BpmnDiagram& d) {
         .laneId = laneProd,
         .slaDurationMs = 740.0f
     });
-    const uint32_t nBoundSla = d.AddNode({
+    const keel::u32 nBoundSla = d.AddNode({
         .type = guikit::BpmnNodeType::BoundaryEvent,
         .label = "p99 > 250ms",
         .eventDef = guikit::BpmnEventDefinition::Error,
@@ -231,7 +231,7 @@ void BuildCiCdCanaryDiagram(guikit::BpmnDiagram& d) {
         .boundaryRatioX = 0.70f,
         .laneId = laneProd
     });
-    const uint32_t nWait = d.AddNode({
+    const keel::u32 nWait = d.AddNode({
         .type = guikit::BpmnNodeType::IntermediateEvent,
         .label = "Soak 15m",
         .pos = {760.0f, 372.0f},
@@ -239,7 +239,7 @@ void BuildCiCdCanaryDiagram(guikit::BpmnDiagram& d) {
         .laneId = laneProd,
         .slaDurationMs = 450.0f
     });
-    const uint32_t nPromote = d.AddNode({
+    const keel::u32 nPromote = d.AddNode({
         .type = guikit::BpmnNodeType::Task,
         .label = "Promote 100% Traffic",
         .documentation = "Istio VirtualService",
@@ -248,7 +248,7 @@ void BuildCiCdCanaryDiagram(guikit::BpmnDiagram& d) {
         .laneId = laneProd,
         .slaDurationMs = 420.0f
     });
-    const uint32_t nRollback = d.AddNode({
+    const keel::u32 nRollback = d.AddNode({
         .type = guikit::BpmnNodeType::Task,
         .label = "Auto-Rollback Helm",
         .documentation = "PagerDuty Incident",
@@ -257,14 +257,14 @@ void BuildCiCdCanaryDiagram(guikit::BpmnDiagram& d) {
         .laneId = laneBuild,
         .slaDurationMs = 340.0f
     });
-    const uint32_t nEndLive = d.AddNode({
+    const keel::u32 nEndLive = d.AddNode({
         .type = guikit::BpmnNodeType::EndEvent,
         .label = "Release Live",
         .pos = {1060.0f, 372.0f},
         .eventDef = guikit::BpmnEventDefinition::Signal,
         .laneId = laneProd
     });
-    const uint32_t nEndAbort = d.AddNode({
+    const keel::u32 nEndAbort = d.AddNode({
         .type = guikit::BpmnNodeType::EndEvent,
         .label = "Rolled Back",
         .pos = {1060.0f, 152.0f},
@@ -286,18 +286,18 @@ void BuildAiUnderwritingDiagram(guikit::BpmnDiagram& d) {
     d.Clear();
     d.name = "AI Credit Underwriting & Escalation Workflow";
 
-    const uint32_t laneApi  = d.AddLane("FinTech Lending Pool", "API Gateway & ML Scoring", guikit::Rect(60.0f, 70.0f, 1220.0f, 210.0f));
-    const uint32_t laneRisk = d.AddLane("FinTech Lending Pool", "Credit Committee & Legal", guikit::Rect(60.0f, 280.0f, 1220.0f, 220.0f));
+    const keel::u32 laneApi  = d.AddLane("FinTech Lending Pool", "API Gateway & ML Scoring", guikit::Rect(60.0f, 70.0f, 1220.0f, 210.0f));
+    const keel::u32 laneRisk = d.AddLane("FinTech Lending Pool", "Credit Committee & Legal", guikit::Rect(60.0f, 280.0f, 1220.0f, 220.0f));
 
     // Row 1 (API Gateway & ML Scoring): center Y = 170.0f
-    const uint32_t nStart = d.AddNode({
+    const keel::u32 nStart = d.AddNode({
         .type = guikit::BpmnNodeType::StartEvent,
         .label = "Loan Request",
         .pos = {130.0f, 152.0f},
         .eventDef = guikit::BpmnEventDefinition::Message,
         .laneId = laneApi
     });
-    const uint32_t nMl = d.AddNode({
+    const keel::u32 nMl = d.AddNode({
         .type = guikit::BpmnNodeType::Task,
         .label = "Run XGBoost Credit Model",
         .documentation = "Feature Store RPC",
@@ -306,7 +306,7 @@ void BuildAiUnderwritingDiagram(guikit::BpmnDiagram& d) {
         .laneId = laneApi,
         .slaDurationMs = 360.0f
     });
-    const uint32_t nGw = d.AddNode({
+    const keel::u32 nGw = d.AddNode({
         .type = guikit::BpmnNodeType::Gateway,
         .label = "Score Tier?",
         .pos = {410.0f, 145.0f},
@@ -315,7 +315,7 @@ void BuildAiUnderwritingDiagram(guikit::BpmnDiagram& d) {
     });
 
     // Row 2 (Credit Committee & Legal): center Y = 380.0f
-    const uint32_t nManual = d.AddNode({
+    const keel::u32 nManual = d.AddNode({
         .type = guikit::BpmnNodeType::Task,
         .label = "Senior Underwriter Audit",
         .documentation = "Manual KYC Review",
@@ -324,7 +324,7 @@ void BuildAiUnderwritingDiagram(guikit::BpmnDiagram& d) {
         .laneId = laneRisk,
         .slaDurationMs = 920.0f
     });
-    const uint32_t nBoundEsc = d.AddNode({
+    const keel::u32 nBoundEsc = d.AddNode({
         .type = guikit::BpmnNodeType::BoundaryEvent,
         .label = "SLA > 4h",
         .eventDef = guikit::BpmnEventDefinition::Escalation,
@@ -333,7 +333,7 @@ void BuildAiUnderwritingDiagram(guikit::BpmnDiagram& d) {
         .boundaryRatioX = 0.68f,
         .laneId = laneRisk
     });
-    const uint32_t nContract = d.AddNode({
+    const keel::u32 nContract = d.AddNode({
         .type = guikit::BpmnNodeType::Task,
         .label = "Disburse & Sign Contract",
         .documentation = "Call Activity",
@@ -342,7 +342,7 @@ void BuildAiUnderwritingDiagram(guikit::BpmnDiagram& d) {
         .laneId = laneApi,
         .slaDurationMs = 480.0f
     });
-    const uint32_t nEnd = d.AddNode({
+    const keel::u32 nEnd = d.AddNode({
         .type = guikit::BpmnNodeType::EndEvent,
         .label = "Loan Funded",
         .pos = {1020.0f, 152.0f},
@@ -352,7 +352,7 @@ void BuildAiUnderwritingDiagram(guikit::BpmnDiagram& d) {
 
     d.AddEdge(nStart, nMl);
     d.AddEdge(nMl, nGw);
-    const uint32_t eAuto = d.AddEdge(nGw, nContract, guikit::BpmnFlowType::DefaultFlow, "Auto-Approve (>740)");
+    const keel::u32 eAuto = d.AddEdge(nGw, nContract, guikit::BpmnFlowType::DefaultFlow, "Auto-Approve (>740)");
     d.AddEdge(nGw, nManual, guikit::BpmnFlowType::ConditionalFlow, "Manual Review", guikit::BpmnPortSide::Bottom, guikit::BpmnPortSide::Left);
     d.AddEdge(nManual, nContract, guikit::BpmnFlowType::SequenceFlow, "Cleared", guikit::BpmnPortSide::Right, guikit::BpmnPortSide::Bottom);
     d.AddEdge(nBoundEsc, nContract, guikit::BpmnFlowType::MessageFlow, "Escalated", guikit::BpmnPortSide::Bottom, guikit::BpmnPortSide::Bottom);
@@ -363,7 +363,7 @@ void BuildAiUnderwritingDiagram(guikit::BpmnDiagram& d) {
 
 struct BpmnDemoState {
     bool initialized{false};
-    size_t presetIdx{0};
+    keel::usize presetIdx{0};
     guikit::BpmnDiagram diagram{};
 
     guikit::BpmnThemePreset themePreset{guikit::BpmnThemePreset::Auto};
@@ -385,9 +385,9 @@ struct BpmnDemoState {
     float simulationSpeed{1.0f};
     bool showSlaHeatmap{false};
 
-    uint32_t selectedNodeId{0};
-    uint32_t selectedEdgeId{0};
-    uint32_t selectedLaneId{0};
+    keel::u32 selectedNodeId{0};
+    keel::u32 selectedEdgeId{0};
+    keel::u32 selectedLaneId{0};
     guikit::BpmnEditorResponse lastResp{};
     keel::String exportedXmlBuffer{};
     keel::String xmlStatusText{};
@@ -399,7 +399,7 @@ struct BpmnDemoState {
         }
     }
 
-    void LoadPreset(size_t idx) {
+    void LoadPreset(keel::usize idx) {
         presetIdx = idx;
         selectedNodeId = 0;
         selectedEdgeId = 0;
@@ -522,7 +522,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
                     "None", "User Task", "Service Task", "Send Task", "Receive Task",
                     "Script Task", "Manual Task", "Business Rule (DMN)", "Call Activity"
                 };
-                size_t tk = static_cast<size_t>(selNode->taskType);
+                keel::usize tk = static_cast<keel::usize>(selNode->taskType);
                 if (auto el = ui.Element({.label = "Task Subtype"})) {
                     if (ui.Select(tk, kTaskKindNames).changed) {
                         selNode->taskType = static_cast<guikit::BpmnTaskType>(tk);
@@ -540,7 +540,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
             static constexpr keel::StaticArray<keel::StringRef, 4> kGwNames = {
                 "Exclusive (XOR x)", "Parallel (AND +)", "Inclusive (OR o)", "Event-Based"
             };
-            size_t gk = static_cast<size_t>(selNode->gatewayType);
+            keel::usize gk = static_cast<keel::usize>(selNode->gatewayType);
             if (auto el = ui.Element({.label = "Gateway Semantics"})) {
                 if (ui.Select(gk, kGwNames).changed) {
                     selNode->gatewayType = static_cast<guikit::BpmnGatewayType>(gk);
@@ -554,7 +554,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
             static constexpr keel::StaticArray<keel::StringRef, 7> kEvNames = {
                 "None", "Message", "Timer", "Error", "Signal", "Escalation", "Terminate"
             };
-            size_t ek = static_cast<size_t>(selNode->eventDef);
+            keel::usize ek = static_cast<keel::usize>(selNode->eventDef);
             if (auto el = ui.Element({.label = "Event Trigger / Result"})) {
                 if (ui.Select(ek, kEvNames).changed) {
                     selNode->eventDef = static_cast<guikit::BpmnEventDefinition>(ek);
@@ -581,7 +581,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
         static constexpr keel::StaticArray<keel::StringRef, 5> kFlowNames = {
             "Sequence Flow", "Conditional Flow (Diamond)", "Default Flow (Slash \\)", "Message Flow (Dashed)", "Association (Dotted)"
         };
-        size_t fk = static_cast<size_t>(selEdge->flowType);
+        keel::usize fk = static_cast<keel::usize>(selEdge->flowType);
         if (auto el = ui.Element({.label = "Flow Type"})) {
             if (ui.Select(fk, kFlowNames).changed) {
                 selEdge->flowType = static_cast<guikit::BpmnFlowType>(fk);
@@ -608,7 +608,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
     // --- Canvas & Modeler Appearance ---
     ui.Size(guikit::UiSize::Xs).Heading({.label = "MODELER & CANVAS UX", .separator = guikit::HeadingSeparator::Bottom});
     static constexpr keel::StaticArray<keel::StringRef, 4> kThemeNames = {"Auto", "bpmn.io", "Camunda", "Blueprint"};
-    size_t thIdx = static_cast<size_t>(s_bpmn.themePreset);
+    keel::usize thIdx = static_cast<keel::usize>(s_bpmn.themePreset);
     if (auto el = ui.Element({.label = "Color Theme"})) {
         if (ui.StepSlider(thIdx, kThemeNames, {.showTicks = true, .showLabels = true}).changed) {
             s_bpmn.themePreset = static_cast<guikit::BpmnThemePreset>(thIdx);
@@ -617,7 +617,7 @@ void RenderBpmnInspector(guikit::Context& ui, DemoContext&) {
     }
 
     static constexpr keel::StaticArray<keel::StringRef, 2> kRouteNames = {"Orthogonal (Manhattan)", "Cubic Bezier"};
-    size_t rtIdx = static_cast<size_t>(s_bpmn.routingMode);
+    keel::usize rtIdx = static_cast<keel::usize>(s_bpmn.routingMode);
     if (auto el = ui.Element({.label = "Edge Routing"})) {
         if (ui.StepSlider(rtIdx, kRouteNames, {.showTicks = true, .showLabels = true}).changed) {
             s_bpmn.routingMode = static_cast<guikit::BpmnRoutingMode>(rtIdx);
@@ -700,7 +700,7 @@ keel::String GenerateBpmnCode(const DemoContext&) {
         "keel::String xml = guikit::BpmnEditor::ExportBpmnXml(diagram);\n"
         "guikit::BpmnEditor::ImportBpmnXml(xml, diagram);",
         (s_bpmn.routingMode == guikit::BpmnRoutingMode::Orthogonal) ? "Orthogonal" : "Bezier",
-        kThemeEnum[static_cast<size_t>(s_bpmn.themePreset)],
+        kThemeEnum[static_cast<keel::usize>(s_bpmn.themePreset)],
         s_bpmn.showLeftPalette ? "true" : "false",
         s_bpmn.showTopBar ? "true" : "false",
         s_bpmn.showContextPad ? "true" : "false",

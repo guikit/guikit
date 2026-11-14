@@ -10,9 +10,9 @@ namespace {
 
 struct RgbaStop {
     float t;
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
+    keel::u8 r;
+    keel::u8 g;
+    keel::u8 b;
 };
 
 [[nodiscard]] Color SampleGradientStops(keel::ArrayRef<RgbaStop> stops, float t) noexcept {
@@ -20,14 +20,14 @@ struct RgbaStop {
     if (stops.empty()) {
         return Color(0, 0, 0, 255);
     }
-    for (size_t i = 0; i + 1 < stops.size(); ++i) {
+    for (keel::usize i = 0; i + 1 < stops.size(); ++i) {
         if (t >= stops[i].t && t <= stops[i + 1].t) {
             const float span = keel::max(1e-5f, stops[i + 1].t - stops[i].t);
             const float u = (t - stops[i].t) / span;
             return Color(
-                static_cast<uint8_t>(keel::clamp(std::round(stops[i].r + u * (stops[i + 1].r - stops[i].r)), 0.0f, 255.0f)),
-                static_cast<uint8_t>(keel::clamp(std::round(stops[i].g + u * (stops[i + 1].g - stops[i].g)), 0.0f, 255.0f)),
-                static_cast<uint8_t>(keel::clamp(std::round(stops[i].b + u * (stops[i + 1].b - stops[i].b)), 0.0f, 255.0f)),
+                static_cast<keel::u8>(keel::clamp(std::round(stops[i].r + u * (stops[i + 1].r - stops[i].r)), 0.0f, 255.0f)),
+                static_cast<keel::u8>(keel::clamp(std::round(stops[i].g + u * (stops[i + 1].g - stops[i].g)), 0.0f, 255.0f)),
+                static_cast<keel::u8>(keel::clamp(std::round(stops[i].b + u * (stops[i + 1].b - stops[i].b)), 0.0f, 255.0f)),
                 255
             );
         }
@@ -179,25 +179,25 @@ struct RgbaStop {
     return kGrayscale;
 }
 
-constexpr size_t kColormapCount = static_cast<size_t>(Colormap::Count);
+constexpr keel::usize kColormapCount = static_cast<keel::usize>(Colormap::Count);
 
 struct ColormapLutCache {
     keel::StaticArray<keel::StaticArray<Color, 256>, kColormapCount> colorNormal{};
     keel::StaticArray<keel::StaticArray<Color, 256>, kColormapCount> colorInverted{};
-    keel::StaticArray<keel::StaticArray<uint32_t, 256>, kColormapCount> abgrNormal{};
-    keel::StaticArray<keel::StaticArray<uint32_t, 256>, kColormapCount> abgrInverted{};
+    keel::StaticArray<keel::StaticArray<keel::u32, 256>, kColormapCount> abgrNormal{};
+    keel::StaticArray<keel::StaticArray<keel::u32, 256>, kColormapCount> abgrInverted{};
 
     ColormapLutCache() noexcept {
-        for (size_t m = 0; m < kColormapCount; ++m) {
+        for (keel::usize m = 0; m < kColormapCount; ++m) {
             const auto cmap = static_cast<Colormap>(m);
             const auto stops = GetStopsForColormap(cmap);
-            for (size_t i = 0; i < 256; ++i) {
+            for (keel::usize i = 0; i < 256; ++i) {
                 const float t = static_cast<float>(i) / 255.0f;
                 const Color c = SampleGradientStops(stops, t);
                 colorNormal[m][i] = c;
                 abgrNormal[m][i] = PackAbgr(c);
             }
-            for (size_t i = 0; i < 256; ++i) {
+            for (keel::usize i = 0; i < 256; ++i) {
                 colorInverted[m][i] = colorNormal[m][255 - i];
                 abgrInverted[m][i] = abgrNormal[m][255 - i];
             }
@@ -210,8 +210,8 @@ struct ColormapLutCache {
     return s_cache;
 }
 
-[[nodiscard]] constexpr size_t SanitizeIndex(Colormap map) noexcept {
-    const size_t idx = static_cast<size_t>(map);
+[[nodiscard]] constexpr keel::usize SanitizeIndex(Colormap map) noexcept {
+    const keel::usize idx = static_cast<keel::usize>(map);
     return idx < kColormapCount ? idx : 0u;
 }
 
@@ -225,31 +225,31 @@ Color SampleColormap(Colormap map, float t, bool invert) noexcept {
     return SampleGradientStops(GetStopsForColormap(map), t);
 }
 
-uint32_t SampleColormapAbgr(Colormap map, float t, bool invert) noexcept {
+keel::u32 SampleColormapAbgr(Colormap map, float t, bool invert) noexcept {
     return PackAbgr(SampleColormap(map, t, invert));
 }
 
 const keel::StaticArray<Color, 256>& GetColormapLut(Colormap map, bool invert) noexcept {
     const auto& cache = GetCache();
-    const size_t idx = SanitizeIndex(map);
+    const keel::usize idx = SanitizeIndex(map);
     return invert ? cache.colorInverted[idx] : cache.colorNormal[idx];
 }
 
-const keel::StaticArray<uint32_t, 256>& GetColormapLutAbgr(Colormap map, bool invert) noexcept {
+const keel::StaticArray<keel::u32, 256>& GetColormapLutAbgr(Colormap map, bool invert) noexcept {
     const auto& cache = GetCache();
-    const size_t idx = SanitizeIndex(map);
+    const keel::usize idx = SanitizeIndex(map);
     return invert ? cache.abgrInverted[idx] : cache.abgrNormal[idx];
 }
 
-void CopyColormapLutAbgr(Colormap map, uint32_t outAbgr[256], bool invert) noexcept {
+void CopyColormapLutAbgr(Colormap map, keel::u32 outAbgr[256], bool invert) noexcept {
     if (!outAbgr) return;
     const auto& lut = GetColormapLutAbgr(map, invert);
-    std::memcpy(outAbgr, lut.data(), 256 * sizeof(uint32_t));
+    std::memcpy(outAbgr, lut.data(), 256 * sizeof(keel::u32));
 }
 
 keel::StringRef GetColormapName(Colormap map) noexcept {
     const auto names = GetAllColormapNames();
-    const size_t idx = SanitizeIndex(map);
+    const keel::usize idx = SanitizeIndex(map);
     return names[idx];
 }
 

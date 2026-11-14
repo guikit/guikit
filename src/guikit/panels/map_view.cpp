@@ -9,14 +9,14 @@ namespace guikit {
 
 namespace {
 
-uint64_t g_lastAnyMapViewOpenSeq = 0;
+keel::u64 g_lastAnyMapViewOpenSeq = 0;
 
 struct MapViewInternalState {
     bool cameraInitialized{false};
     MapCrs lastCrs{MapCrs::EPSG3857_WebMercator};
     GeoCoord lastCenterGeo{54.1825, 7.8853};
     keel::Optional<Vec2> lastMouseWorld{keel::kNullOpt};
-    uint64_t lastOpenSeq{0};
+    keel::u64 lastOpenSeq{0};
 
     void TrimInactiveCaches() noexcept {
         if (lastOpenSeq == g_lastAnyMapViewOpenSeq) {
@@ -162,7 +162,7 @@ void MapViewScope::DrawGeoPolyline(
     if (coords.size() < 2) return;
     const float invZ = 1.0f / keel::max(0.0001f, m_scene.GetZoom());
     const float w = strokeWidthPx * invZ;
-    for (size_t i = 0; i + 1 < coords.size(); ++i) {
+    for (keel::usize i = 0; i + 1 < coords.size(); ++i) {
         m_scene.DrawLine(GeoToWorld(coords[i]), GeoToWorld(coords[i + 1]), color, w);
     }
     if (closed && coords.size() >= 3) {
@@ -188,7 +188,7 @@ void MapViewScope::DrawGeoArc(
     float sweepAngleDeg,
     Color stroke,
     float strokeWidthPx,
-    int segments
+    keel::i32 segments
 ) {
     const float invZ = 1.0f / keel::max(0.0001f, m_scene.GetZoom());
     m_scene.DrawArc(
@@ -318,14 +318,14 @@ void MapViewScope::RenderForegroundOverlays() {
             const double maxLat = keel::clamp(m_view.visibleBounds.nw.lat, -89.9, 89.9);
             const double minLon = keel::clamp(m_view.visibleBounds.nw.lon, -180.0, 180.0);
             const double maxLon = keel::clamp(m_view.visibleBounds.se.lon, -180.0, 180.0);
-            constexpr int kMeridianSegs = 12;
-            constexpr int kParallelSegs = 18;
+            constexpr keel::i32 kMeridianSegs = 12;
+            constexpr keel::i32 kParallelSegs = 18;
 
             for (const GraticuleLine& m : m_view.meridians) {
                 const Color col = m.isZero ? gratZeroCol : (m.isMajor ? gratMajorCol : gratMinorCol);
                 const float w = (m.isZero ? 1.8f : (m.isMajor ? 1.25f : 0.85f)) * invZ;
                 Vec2 prevW = GeoToWorld({minLat, m.degrees});
-                for (int s = 1; s <= kMeridianSegs; ++s) {
+                for (keel::i32 s = 1; s <= kMeridianSegs; ++s) {
                     const double t = static_cast<double>(s) / static_cast<double>(kMeridianSegs);
                     const double lat = minLat + t * (maxLat - minLat);
                     const Vec2 currW = GeoToWorld({lat, m.degrees});
@@ -338,7 +338,7 @@ void MapViewScope::RenderForegroundOverlays() {
                 const Color col = p.isZero ? gratZeroCol : (p.isMajor ? gratMajorCol : gratMinorCol);
                 const float w = (p.isZero ? 1.8f : (p.isMajor ? 1.25f : 0.85f)) * invZ;
                 Vec2 prevW = GeoToWorld({p.degrees, minLon});
-                for (int s = 1; s <= kParallelSegs; ++s) {
+                for (keel::i32 s = 1; s <= kParallelSegs; ++s) {
                     const double t = static_cast<double>(s) / static_cast<double>(kParallelSegs);
                     const double lon = minLon + t * (maxLon - minLon);
                     const Vec2 currW = GeoToWorld({p.degrees, lon});
@@ -430,9 +430,9 @@ void MapViewScope::RenderForegroundOverlays() {
         m_scene.DrawRect(topBar, rulerBg);
         m_scene.DrawRect(leftBar, rulerBg);
 
-        for (size_t i = 0; i + 1 < m_view.meridians.size(); ++i) {
+        for (keel::usize i = 0; i + 1 < m_view.meridians.size(); ++i) {
             const GraticuleLine& m = m_view.meridians[i];
-            const int absIdx = m.stepIndex < 0 ? -m.stepIndex : m.stepIndex;
+            const keel::i32 absIdx = m.stepIndex < 0 ? -m.stepIndex : m.stepIndex;
             if ((absIdx & 1) == 0) {
                 const float nextX = m_view.meridians[i + 1].worldPos;
                 const float x0 = keel::max(topRulerStartX, keel::min(m.worldPos, nextX));
@@ -446,9 +446,9 @@ void MapViewScope::RenderForegroundOverlays() {
             }
         }
 
-        for (size_t i = 0; i + 1 < m_view.parallels.size(); ++i) {
+        for (keel::usize i = 0; i + 1 < m_view.parallels.size(); ++i) {
             const GraticuleLine& p = m_view.parallels[i];
-            const int absIdx = p.stepIndex < 0 ? -p.stepIndex : p.stepIndex;
+            const keel::i32 absIdx = p.stepIndex < 0 ? -p.stepIndex : p.stepIndex;
             if ((absIdx & 1) == 0) {
                 const float nextY = m_view.parallels[i + 1].worldPos;
                 const float y0 = keel::max(leftRulerStartY, keel::min(p.worldPos, nextY));

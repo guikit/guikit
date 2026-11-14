@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -19,7 +18,7 @@ class ICanvas;
 struct Node;
 
 /// Visual separator glyph style rendered between consecutive breadcrumb items.
-enum class BreadcrumbSeparator : uint8_t {
+enum class BreadcrumbSeparator : keel::u8 {
     Chevron, ///< › chevron vector icon
     Slash,   ///< / slash separator
     Arrow,   ///< → arrow vector icon
@@ -36,7 +35,7 @@ struct BreadcrumbItem {
 /// Configuration options for Breadcrumb navigation widget.
 struct BreadcrumbOptions {
     BreadcrumbSeparator separator{BreadcrumbSeparator::Chevron};
-    uint32_t maxVisibleItems{0}; ///< 0 = show all (auto-collapses if viewport is narrower than trail); >= 2 collapses middle items into an interactive "..." dropdown menu when items.size() > maxVisibleItems
+    keel::u32 maxVisibleItems{0}; ///< 0 = show all (auto-collapses if viewport is narrower than trail); >= 2 collapses middle items into an interactive "..." dropdown menu when items.size() > maxVisibleItems
     StateColor color{};
     StretchMode stretch{StretchMode::Compact};
     Align align{Align::Start};
@@ -57,10 +56,10 @@ struct BreadcrumbOptions {
 struct BreadcrumbData {
     BreadcrumbOptions opts{};
     keel::ArrayRef<BreadcrumbItem> items{};
-    size_t activeIndex{0};
+    keel::usize activeIndex{0};
     bool popupOpen{false};
-    int hoveredToken{-1};
-    int pressedToken{-1};
+    keel::i32 hoveredToken{-1};
+    keel::i32 pressedToken{-1};
 };
 
 /// Autonomous Breadcrumb path navigation widget (execution, measuring, and rendering).
@@ -68,7 +67,7 @@ class Breadcrumb {
 public:
     static Response Run(
         Context& ctx,
-        size_t& activeIndex,
+        keel::usize& activeIndex,
         keel::ArrayRef<keel::StringRef> items,
         const BreadcrumbOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
@@ -76,7 +75,7 @@ public:
 
     static Response Run(
         Context& ctx,
-        size_t& activeIndex,
+        keel::usize& activeIndex,
         keel::ArrayRef<BreadcrumbItem> items,
         const BreadcrumbOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
@@ -84,7 +83,7 @@ public:
 
     static Response Run(
         Context& ctx,
-        int& activeIndex,
+        keel::i32& activeIndex,
         keel::ArrayRef<keel::StringRef> items,
         const BreadcrumbOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
@@ -92,7 +91,7 @@ public:
 
     static Response Run(
         Context& ctx,
-        int& activeIndex,
+        keel::i32& activeIndex,
         keel::ArrayRef<BreadcrumbItem> items,
         const BreadcrumbOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()

@@ -20,8 +20,8 @@ namespace {
     return false;
 }
 
-[[nodiscard]] size_t FindIdIndex(keel::ArrayRef<Id> list, Id target) noexcept {
-    for (size_t i = 0; i < list.size(); ++i) {
+[[nodiscard]] keel::usize FindIdIndex(keel::ArrayRef<Id> list, Id target) noexcept {
+    for (keel::usize i = 0; i < list.size(); ++i) {
         if (list[i] == target) {
             return i;
         }
@@ -30,26 +30,26 @@ namespace {
 }
 
 /// Searches backwards in `s[0 .. maxExclusivePos - 1]` for `c`, returning `keel::StringRef::npos` if not found.
-[[nodiscard]] size_t StrRfindBefore(keel::StringRef s, char c, size_t maxExclusivePos) noexcept {
+[[nodiscard]] keel::usize StrRfindBefore(keel::StringRef s, char c, keel::usize maxExclusivePos) noexcept {
     if (maxExclusivePos == 0 || s.empty()) {
         return keel::StringRef::npos;
     }
     return s.substr(0, keel::min(maxExclusivePos, s.size())).rfind(c);
 }
 
-void StrEraseRange(keel::String& s, size_t pos, size_t count) noexcept {
+void StrEraseRange(keel::String& s, keel::usize pos, keel::usize count) noexcept {
     if (pos >= s.size() || count == 0) {
         return;
     }
-    const size_t actual = keel::min(count, s.size() - pos);
-    const size_t tail = s.size() - (pos + actual);
+    const keel::usize actual = keel::min(count, s.size() - pos);
+    const keel::usize tail = s.size() - (pos + actual);
     if (tail > 0) {
         keel::mem_move(s.data() + pos, s.data() + pos + actual, tail);
     }
     s.resize(s.size() - actual);
 }
 
-void StrInsert(keel::String& s, size_t pos, keel::StringRef ins) {
+void StrInsert(keel::String& s, keel::usize pos, keel::StringRef ins) {
     if (ins.empty()) {
         return;
     }
@@ -63,18 +63,18 @@ void StrInsert(keel::String& s, size_t pos, keel::StringRef ins) {
         StrInsert(s, pos, copy.as_ref());
         return;
     }
-    const size_t oldLen = s.size();
-    const size_t insLen = ins.size();
+    const keel::usize oldLen = s.size();
+    const keel::usize insLen = ins.size();
     s.resize(oldLen + insLen);
     keel::mem_move(s.data() + pos + insLen, s.data() + pos, oldLen - pos);
     keel::mem_copy(s.data() + pos, ins.data(), insLen);
 }
 
-void StrInsertChar(keel::String& s, size_t pos, char c) {
+void StrInsertChar(keel::String& s, keel::usize pos, char c) {
     StrInsert(s, pos, keel::StringRef(&c, 1));
 }
 
-void StrReplace(keel::String& s, size_t pos, size_t count, keel::StringRef rep) {
+void StrReplace(keel::String& s, keel::usize pos, keel::usize count, keel::StringRef rep) {
     pos = keel::min(pos, s.size());
     if (s.data() != nullptr && rep.data() >= s.data() && rep.data() <= s.data() + s.size()) {
         keel::String copy = keel::String::from(rep);
@@ -87,8 +87,8 @@ void StrReplace(keel::String& s, size_t pos, size_t count, keel::StringRef rep) 
 
 template <typename T, typename Pred>
 void ArrayEraseIf(keel::Array<T>& arr, Pred&& pred) noexcept {
-    size_t writeIdx = 0;
-    for (size_t i = 0; i < arr.size(); ++i) {
+    keel::usize writeIdx = 0;
+    for (keel::usize i = 0; i < arr.size(); ++i) {
         if (!pred(arr[i])) {
             if (writeIdx != i) {
                 arr[writeIdx] = keel::move(arr[i]);
@@ -172,20 +172,20 @@ void Context::BeginFrame(Vec2 viewportSize, float dpiScale) {
             m_editState.id == m_focusedId &&
             (m_editState.multiline || m_suspendDirectEditInput) &&
             !m_editState.readOnly;
-        for (size_t evIdx = 0; evIdx < m_pendingKeyEvents.size(); ) {
+        for (keel::usize evIdx = 0; evIdx < m_pendingKeyEvents.size(); ) {
             const QueuedKeyEvent ev = m_pendingKeyEvents[evIdx];
             const bool isIndent = m_keymap.Matches(KeyAction::Indent, ev.key, ev.mods);
             const bool isUnindent = m_keymap.Matches(KeyAction::Unindent, ev.key, ev.mods);
             if ((isIndent || isUnindent) && !multilineEditorFocused) {
                 const bool reverse = isUnindent;
                 m_pendingKeyEvents.remove_at(evIdx);
-                const size_t curIdx = FindIdIndex(activeFocusables, m_focusedId);
+                const keel::usize curIdx = FindIdIndex(activeFocusables, m_focusedId);
                 Id nextId = Id::Null();
                 if (curIdx == keel::kInvalidIndex) {
                     nextId = reverse ? activeFocusables.back() : activeFocusables.front();
                 } else {
-                    const size_t n = activeFocusables.size();
-                    const size_t nextIdx = reverse ? ((curIdx + n - 1) % n) : ((curIdx + 1) % n);
+                    const keel::usize n = activeFocusables.size();
+                    const keel::usize nextIdx = reverse ? ((curIdx + n - 1) % n) : ((curIdx + 1) % n);
                     nextId = activeFocusables[nextIdx];
                 }
                 if (m_editState.id.IsValid() && m_editState.id != nextId) {
@@ -281,19 +281,19 @@ Node* Context::CreateNode(NodeType type, Id id) {
 
 Id Context::MakeChildIdForParent(Id parentId, keel::SourceLocation loc) {
     const char* filePtr = loc.file_name();
-    uint64_t fileHash = detail::Fnv1aOffsetBasis;
+    keel::u64 fileHash = detail::Fnv1aOffsetBasis;
     if (filePtr != nullptr) {
-        if (const uint64_t* cached = m_fileHashCache.get(filePtr)) {
+        if (const keel::u64* cached = m_fileHashCache.get(filePtr)) {
             fileHash = *cached;
         } else {
             fileHash = detail::HashStringView(filePtr);
             m_fileHashCache.put(filePtr, fileHash);
         }
     }
-    const uint64_t callsiteHash = detail::HashCallsiteWithFileHash(
+    const keel::u64 callsiteHash = detail::HashCallsiteWithFileHash(
         parentId, fileHash, loc.line(), loc.column()
     );
-    const uint32_t occurrenceIndex = m_childIdCounts.get_or_insert(callsiteHash, 0u)++;
+    const keel::u32 occurrenceIndex = m_childIdCounts.get_or_insert(callsiteHash, 0u)++;
     return detail::FinalizeCallsiteId(callsiteHash, occurrenceIndex);
 }
 
@@ -385,10 +385,10 @@ Rect Context::GetPrevUnclippedBounds(Id id) const {
 }
 
 Rect Context::GetParentPrevFrameBounds() const {
-    int startIdx = -1;
+    keel::i32 startIdx = -1;
     Rect r{};
-    for (int i = static_cast<int>(m_containerStack.size()) - 1; i >= 0; --i) {
-        const Node* parent = m_containerStack[static_cast<size_t>(i)];
+    for (keel::i32 i = static_cast<keel::i32>(m_containerStack.size()) - 1; i >= 0; --i) {
+        const Node* parent = m_containerStack[static_cast<keel::usize>(i)];
         if (!parent || !parent->id.IsValid()) continue;
         const Rect* found = m_prevFrameBounds.get(parent->id);
         if (found != nullptr && found->w > 1.0f && found->h > 1.0f) {
@@ -401,9 +401,9 @@ Rect Context::GetParentPrevFrameBounds() const {
         return Rect{};
     }
 
-    const int stackSize = static_cast<int>(m_containerStack.size());
-    for (int i = startIdx; i < stackSize; ++i) {
-        const Node* c = m_containerStack[static_cast<size_t>(i)];
+    const keel::i32 stackSize = static_cast<keel::i32>(m_containerStack.size());
+    for (keel::i32 i = startIdx; i < stackSize; ++i) {
+        const Node* c = m_containerStack[static_cast<keel::usize>(i)];
         if (!c) continue;
 
         if (i > startIdx) {
@@ -430,7 +430,7 @@ Rect Context::GetParentPrevFrameBounds() const {
         if (c->direction == FlexDirection::Column &&
             (i + 1 < stackSize || c->type == NodeType::BottomPanel || c->type == NodeType::Sidebar)) {
             const Node* stopChild = (i + 1 < stackSize)
-                ? m_containerStack[static_cast<size_t>(i + 1)]
+                ? m_containerStack[static_cast<keel::usize>(i + 1)]
                 : c->lastChild;
             for (const Node* ch = c->firstChild; ch != nullptr && ch != stopChild; ch = ch->nextSibling) {
                 if (ch->heightMode == SizeMode::Fixed && ch->fixedHeight > 0.0f && !ch->sidebarCollapsed) {
@@ -747,8 +747,8 @@ Response Context::StepSlider(
     const keel::ArrayRef<UiSize> sizesSpan = hasNone ? kSizesWithNone.as_ref() : kSizes.as_ref();
     const keel::ArrayRef<keel::StringRef> labelsSpan = hasNone ? kSizeLabelsWithNone.as_ref() : kSizeLabels.as_ref();
 
-    size_t idx = hasNone ? 0 : 2;
-    for (size_t i = 0; i < sizesSpan.size(); ++i) {
+    keel::usize idx = hasNone ? 0 : 2;
+    for (keel::usize i = 0; i < sizesSpan.size(); ++i) {
         if (sizesSpan[i] == size) {
             idx = i;
             break;
@@ -782,8 +782,8 @@ Response Context::StepSlider(
         UiVariant::Warning, UiVariant::Danger, UiVariant::Info, UiVariant::Ghost
     }};
 
-    size_t idx = 0;
-    for (size_t i = 0; i < kVariants.size(); ++i) {
+    keel::usize idx = 0;
+    for (keel::usize i = 0; i < kVariants.size(); ++i) {
         if (kVariants[i] == variant) {
             idx = i;
             break;
@@ -834,8 +834,8 @@ SidebarMenuScope Context::SidebarMenu(
     return Open<guikit::SidebarMenu>(opts, loc);
 }
 
-uint64_t Context::ShowToast(ToastOptions opts) {
-    const uint64_t id = ++m_nextToastId;
+keel::u64 Context::ShowToast(ToastOptions opts) {
+    const keel::u64 id = ++m_nextToastId;
     ToastEntry entry{};
     entry.id = id;
     entry.title = keel::String::from(opts.title.text);
@@ -857,8 +857,8 @@ uint64_t Context::ShowToast(ToastOptions opts) {
     return id;
 }
 
-void Context::DismissToast(uint64_t id) noexcept {
-    for (size_t i = 0; i < m_toasts.size(); ++i) {
+void Context::DismissToast(keel::u64 id) noexcept {
+    for (keel::usize i = 0; i < m_toasts.size(); ++i) {
         if (m_toasts[i].id == id) {
             m_toasts.remove_at(i);
             InvalidateAll();
@@ -911,8 +911,8 @@ bool Context::ActiveEditState::DeleteSelection() {
     }
     SaveUndo();
     preferredColumn.reset();
-    const size_t s = keel::min(SelectionStart(), text.size());
-    const size_t e = keel::min(SelectionEnd(), text.size());
+    const keel::usize s = keel::min(SelectionStart(), text.size());
+    const keel::usize e = keel::min(SelectionEnd(), text.size());
     if (e > s) {
         StrEraseRange(text, s, e - s);
         cursor = s;
@@ -931,7 +931,7 @@ void Context::ActiveEditState::Insert(keel::StringRef utf8Text) {
 
     keel::String sanitized = keel::String::with_capacity(utf8Text.size());
     for (char c : utf8Text) {
-        const uint8_t u = static_cast<uint8_t>(c);
+        const keel::u8 u = static_cast<keel::u8>(c);
         if (c == '\r') {
             continue;
         }
@@ -955,7 +955,7 @@ void Context::ActiveEditState::Insert(keel::StringRef utf8Text) {
 
     if (autoCloseBrackets && multiline && !readOnly && sanitized.size() == 1) {
         const char c = sanitized[0];
-        const size_t safeCur = keel::min(cursor, text.size());
+        const keel::usize safeCur = keel::min(cursor, text.size());
 
         // Overtype closing bracket/quote if cursor is right before it
         if (!HasSelection() && safeCur < text.size() &&
@@ -976,8 +976,8 @@ void Context::ActiveEditState::Insert(keel::StringRef utf8Text) {
         if (closeChar != 0) {
             if (HasSelection()) {
                 SaveUndo();
-                const size_t s = keel::min(SelectionStart(), text.size());
-                const size_t e = keel::min(SelectionEnd(), text.size());
+                const keel::usize s = keel::min(SelectionStart(), text.size());
+                const keel::usize e = keel::min(SelectionEnd(), text.size());
                 StrInsertChar(text, e, closeChar);
                 StrInsertChar(text, s, c);
                 selectionAnchor = s + 1;
@@ -1019,8 +1019,8 @@ void Context::ActiveEditState::Insert(keel::StringRef utf8Text) {
 
     SaveUndo();
     if (HasSelection()) {
-        const size_t s = keel::min(SelectionStart(), text.size());
-        const size_t e = keel::min(SelectionEnd(), text.size());
+        const keel::usize s = keel::min(SelectionStart(), text.size());
+        const keel::usize e = keel::min(SelectionEnd(), text.size());
         if (e > s) {
             StrEraseRange(text, s, e - s);
         }
@@ -1050,30 +1050,30 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
         preferredColumn.reset();
     }
 
-    auto utf8OffsetAtColumn = [](keel::StringRef lineSv, size_t targetCodepointCol) noexcept -> size_t {
-        size_t byteOff = 0;
-        for (size_t colIdx = 0; colIdx < targetCodepointCol && byteOff < lineSv.size(); ++colIdx) {
+    auto utf8OffsetAtColumn = [](keel::StringRef lineSv, keel::usize targetCodepointCol) noexcept -> keel::usize {
+        keel::usize byteOff = 0;
+        for (keel::usize colIdx = 0; colIdx < targetCodepointCol && byteOff < lineSv.size(); ++colIdx) {
             byteOff = keel::utf8_next_boundary(lineSv, byteOff);
         }
         return keel::min(byteOff, lineSv.size());
     };
 
-    auto moveLinesVertically = [&](int lineDelta, bool extendSel) -> bool {
+    auto moveLinesVertically = [&](keel::i32 lineDelta, bool extendSel) -> bool {
         if (!multiline) return false;
-        const size_t safeCur = keel::min(cursor, text.size());
-        const size_t prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
-        size_t curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
-        const size_t col = keel::utf8_codepoint_count(
+        const keel::usize safeCur = keel::min(cursor, text.size());
+        const keel::usize prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
+        keel::usize curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
+        const keel::usize col = keel::utf8_codepoint_count(
             text.substr(curLineStart, safeCur - curLineStart)
         );
         if (!preferredColumn.has_value()) {
             preferredColumn = col;
         }
-        const size_t targetCol = *preferredColumn;
+        const keel::usize targetCol = *preferredColumn;
 
         if (lineDelta < 0) {
-            const int steps = -lineDelta;
-            for (int s = 0; s < steps; ++s) {
+            const keel::i32 steps = -lineDelta;
+            for (keel::i32 s = 0; s < steps; ++s) {
                 if (curLineStart == 0) {
                     if (s == 0) {
                         cursor = 0;
@@ -1082,18 +1082,18 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                     }
                     break;
                 }
-                const size_t prevLineEnd = curLineStart - 1;
-                const size_t prevPrevNl = StrRfindBefore(text.as_ref(), '\n', prevLineEnd);
+                const keel::usize prevLineEnd = curLineStart - 1;
+                const keel::usize prevPrevNl = StrRfindBefore(text.as_ref(), '\n', prevLineEnd);
                 curLineStart = (prevPrevNl == keel::StringRef::npos) ? 0 : (prevPrevNl + 1);
             }
-            size_t lineEnd = text.find('\n', curLineStart);
+            keel::usize lineEnd = text.find('\n', curLineStart);
             if (lineEnd == keel::StringRef::npos) lineEnd = text.size();
             const keel::StringRef targetLine = text.substr(curLineStart, lineEnd - curLineStart);
             cursor = curLineStart + utf8OffsetAtColumn(targetLine, targetCol);
         } else if (lineDelta > 0) {
-            const int steps = lineDelta;
-            size_t curLineEnd = text.find('\n', curLineStart);
-            for (int s = 0; s < steps; ++s) {
+            const keel::i32 steps = lineDelta;
+            keel::usize curLineEnd = text.find('\n', curLineStart);
+            for (keel::i32 s = 0; s < steps; ++s) {
                 if (curLineEnd == keel::StringRef::npos) {
                     if (s == 0) {
                         cursor = text.size();
@@ -1105,7 +1105,7 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                 curLineStart = curLineEnd + 1;
                 curLineEnd = text.find('\n', curLineStart);
             }
-            const size_t lineEnd = (curLineEnd == keel::StringRef::npos) ? text.size() : curLineEnd;
+            const keel::usize lineEnd = (curLineEnd == keel::StringRef::npos) ? text.size() : curLineEnd;
             const keel::StringRef targetLine = text.substr(curLineStart, lineEnd - curLineStart);
             cursor = curLineStart + utf8OffsetAtColumn(targetLine, targetCol);
         }
@@ -1120,19 +1120,19 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
         case KeyAction::MoveLineUp:
         case KeyAction::MoveLineDown: {
             if (!multiline || readOnly) return false;
-            const size_t safeCur = keel::min(cursor, text.size());
-            const size_t prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
-            const size_t curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
-            size_t curLineEnd = text.find('\n', safeCur);
+            const keel::usize safeCur = keel::min(cursor, text.size());
+            const keel::usize prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
+            const keel::usize curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
+            keel::usize curLineEnd = text.find('\n', safeCur);
             if (curLineEnd == keel::StringRef::npos) curLineEnd = text.size();
-            const size_t col = safeCur - curLineStart;
+            const keel::usize col = safeCur - curLineStart;
 
             if (action == KeyAction::MoveLineUp) {
                 if (curLineStart > 0) {
                     SaveUndo();
-                    const size_t prevLineEnd = curLineStart - 1;
-                    const size_t prevPrevNl = StrRfindBefore(text.as_ref(), '\n', prevLineEnd);
-                    const size_t prevLineStart = (prevPrevNl == keel::StringRef::npos) ? 0 : (prevPrevNl + 1);
+                    const keel::usize prevLineEnd = curLineStart - 1;
+                    const keel::usize prevPrevNl = StrRfindBefore(text.as_ref(), '\n', prevLineEnd);
+                    const keel::usize prevLineStart = (prevPrevNl == keel::StringRef::npos) ? 0 : (prevPrevNl + 1);
                     keel::String curLine = keel::String::from(text.substr(curLineStart, curLineEnd - curLineStart));
                     keel::String prevLine = keel::String::from(text.substr(prevLineStart, prevLineEnd - prevLineStart));
                     keel::String swapped = keel::String::with_capacity(curLine.size() + 1 + prevLine.size());
@@ -1147,8 +1147,8 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
             } else {
                 if (curLineEnd < text.size()) {
                     SaveUndo();
-                    const size_t nextLineStart = curLineEnd + 1;
-                    size_t nextLineEnd = text.find('\n', nextLineStart);
+                    const keel::usize nextLineStart = curLineEnd + 1;
+                    keel::usize nextLineEnd = text.find('\n', nextLineStart);
                     if (nextLineEnd == keel::StringRef::npos) nextLineEnd = text.size();
                     keel::String curLine = keel::String::from(text.substr(curLineStart, curLineEnd - curLineStart));
                     keel::String nextLine = keel::String::from(text.substr(nextLineStart, nextLineEnd - nextLineStart));
@@ -1210,7 +1210,7 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
             if (HasSelection()) {
                 const keel::String sel = keel::String::from(SelectedText());
                 if (!sel.empty()) {
-                    size_t nextPos = text.find(sel.as_ref(), SelectionEnd());
+                    keel::usize nextPos = text.find(sel.as_ref(), SelectionEnd());
                     if (nextPos == keel::StringRef::npos) {
                         nextPos = text.find(sel.as_ref(), 0);
                     }
@@ -1221,12 +1221,12 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                     }
                 }
             }
-            const size_t safeCur = keel::min(cursor, text.size());
-            const size_t prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
-            const size_t curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
-            size_t curLineEnd = text.find('\n', safeCur);
+            const keel::usize safeCur = keel::min(cursor, text.size());
+            const keel::usize prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
+            const keel::usize curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
+            keel::usize curLineEnd = text.find('\n', safeCur);
             if (curLineEnd == keel::StringRef::npos) curLineEnd = text.size();
-            const size_t col = safeCur - curLineStart;
+            const keel::usize col = safeCur - curLineStart;
             keel::String dup = keel::String::with_capacity(1 + (curLineEnd - curLineStart));
             dup.push_back('\n');
             dup.append(text.substr(curLineStart, curLineEnd - curLineStart));
@@ -1241,10 +1241,10 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
         case KeyAction::DeleteLine: {
             if (!multiline || readOnly) return false;
             SaveUndo();
-            const size_t safeCur = keel::min(cursor, text.size());
-            const size_t prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
-            const size_t curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
-            size_t curLineEnd = text.find('\n', safeCur);
+            const keel::usize safeCur = keel::min(cursor, text.size());
+            const keel::usize prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
+            const keel::usize curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
+            keel::usize curLineEnd = text.find('\n', safeCur);
             if (curLineEnd != keel::StringRef::npos) {
                 StrEraseRange(text, curLineStart, curLineEnd - curLineStart + 1);
                 cursor = keel::min(curLineStart, text.size());
@@ -1268,7 +1268,7 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                 DeleteSelection();
             } else if (cursor > 0 && !text.empty()) {
                 SaveUndo();
-                const size_t safeCur = keel::min(cursor, text.size());
+                const keel::usize safeCur = keel::min(cursor, text.size());
                 if (autoCloseBrackets && multiline && !byWord && safeCur < text.size()) {
                     const char prevC = text[safeCur - 1];
                     const char nextC = text[safeCur];
@@ -1284,7 +1284,7 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                         return true;
                     }
                 }
-                const size_t prev = byWord
+                const keel::usize prev = byWord
                     ? TextUtil::PrevWordBoundary(text.as_ref(), safeCur)
                     : TextUtil::PrevCharBoundary(text.as_ref(), safeCur);
                 if (safeCur > prev) {
@@ -1307,7 +1307,7 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                 DeleteSelection();
             } else if (cursor < text.size()) {
                 SaveUndo();
-                const size_t next = byWord
+                const keel::usize next = byWord
                     ? TextUtil::NextWordBoundary(text.as_ref(), cursor)
                     : TextUtil::NextCharBoundary(text.as_ref(), cursor);
                 if (next > cursor) {
@@ -1391,10 +1391,10 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
             const bool extendSel = (action == KeyAction::SelectLineStart || action == KeyAction::SelectDocStart);
             const bool docStart = (action == KeyAction::MoveDocStart || action == KeyAction::SelectDocStart);
             if (multiline && !docStart) {
-                const size_t safeCur = keel::min(cursor, text.size());
-                const size_t prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
-                const size_t lineStart = (prevNl == keel::StringRef::npos) ? 0 : prevNl + 1;
-                size_t firstNonWs = lineStart;
+                const keel::usize safeCur = keel::min(cursor, text.size());
+                const keel::usize prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
+                const keel::usize lineStart = (prevNl == keel::StringRef::npos) ? 0 : prevNl + 1;
+                keel::usize firstNonWs = lineStart;
                 while (firstNonWs < text.size() && (text[firstNonWs] == ' ' || text[firstNonWs] == '\t')) {
                     ++firstNonWs;
                 }
@@ -1421,7 +1421,7 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
             const bool extendSel = (action == KeyAction::SelectLineEnd || action == KeyAction::SelectDocEnd);
             const bool docEnd = (action == KeyAction::MoveDocEnd || action == KeyAction::SelectDocEnd);
             if (multiline && !docEnd) {
-                const size_t nextNl = text.find('\n', cursor);
+                const keel::usize nextNl = text.find('\n', cursor);
                 cursor = (nextNl == keel::StringRef::npos) ? text.size() : nextNl;
             } else {
                 cursor = text.size();
@@ -1435,32 +1435,32 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
         case KeyAction::Indent:
         case KeyAction::Unindent: {
             if (multiline && !readOnly) {
-                const size_t stepCols = keel::clamp<size_t>(tabSize, 1, 16);
+                const keel::usize stepCols = keel::clamp<keel::usize>(tabSize, 1, 16);
                 keel::FixedString<20> indentUnit;
                 if (insertSpaces) {
-                    for (size_t i = 0; i < stepCols; ++i) indentUnit.push_back(' ');
+                    for (keel::usize i = 0; i < stepCols; ++i) indentUnit.push_back(' ');
                 } else {
                     indentUnit.push_back('\t');
                 }
-                const size_t unitLen = indentUnit.size();
+                const keel::usize unitLen = indentUnit.size();
                 const bool unindent = (action == KeyAction::Unindent);
                 const bool multiLineSel = HasSelection() && (SelectedText().find('\n') != keel::StringRef::npos);
                 if (unindent || multiLineSel) {
-                    const size_t selS = keel::min(SelectionStart(), text.size());
-                    size_t selE = keel::min(SelectionEnd(), text.size());
+                    const keel::usize selS = keel::min(SelectionStart(), text.size());
+                    keel::usize selE = keel::min(SelectionEnd(), text.size());
                     if (selE > selS && text[selE - 1] == '\n') {
                         --selE;
                     }
-                    const size_t prevNl = StrRfindBefore(text.as_ref(), '\n', selS);
-                    const size_t blockStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
-                    size_t blockEnd = text.find('\n', selE);
+                    const keel::usize prevNl = StrRfindBefore(text.as_ref(), '\n', selS);
+                    const keel::usize blockStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
+                    keel::usize blockEnd = text.find('\n', selE);
                     if (blockEnd == keel::StringRef::npos) blockEnd = text.size();
 
                     SaveUndo();
-                    size_t pos = blockStart;
+                    keel::usize pos = blockStart;
                     bool anyModified = false;
                     while (pos <= blockEnd && pos <= text.size()) {
-                        size_t lineEnd = text.find('\n', pos);
+                        keel::usize lineEnd = text.find('\n', pos);
                         if (lineEnd == keel::StringRef::npos) lineEnd = text.size();
 
                         if (!unindent) {
@@ -1471,7 +1471,7 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                             lineEnd += unitLen;
                             anyModified = true;
                         } else {
-                            size_t rem = 0;
+                            keel::usize rem = 0;
                             if (pos < lineEnd && text[pos] == '\t') {
                                 rem = 1;
                             } else {
@@ -1512,18 +1512,18 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
         case KeyAction::Confirm:
             if (multiline) {
                 if (!readOnly) {
-                    const size_t stepCols = keel::clamp<size_t>(tabSize, 1, 16);
+                    const keel::usize stepCols = keel::clamp<keel::usize>(tabSize, 1, 16);
                     keel::FixedString<20> indentUnit;
                     if (insertSpaces) {
-                        for (size_t i = 0; i < stepCols; ++i) indentUnit.push_back(' ');
+                        for (keel::usize i = 0; i < stepCols; ++i) indentUnit.push_back(' ');
                     } else {
                         indentUnit.push_back('\t');
                     }
-                    const size_t safeCur = keel::min(cursor, text.size());
-                    const size_t prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
-                    const size_t curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
+                    const keel::usize safeCur = keel::min(cursor, text.size());
+                    const keel::usize prevNl = StrRfindBefore(text.as_ref(), '\n', safeCur);
+                    const keel::usize curLineStart = (prevNl == keel::StringRef::npos) ? 0 : (prevNl + 1);
                     keel::String indent;
-                    for (size_t i = curLineStart; i < safeCur && (text[i] == ' ' || text[i] == '\t'); ++i) {
+                    for (keel::usize i = curLineStart; i < safeCur && (text[i] == ' ' || text[i] == '\t'); ++i) {
                         indent.push_back(text[i]);
                     }
                     if (autoCloseBrackets && !HasSelection() && safeCur > 0 && safeCur < text.size()) {
@@ -1549,7 +1549,7 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
                         }
                     }
                     if (autoCloseBrackets && !HasSelection() && safeCur > curLineStart) {
-                        size_t checkPos = safeCur;
+                        keel::usize checkPos = safeCur;
                         while (checkPos > curLineStart && (text[checkPos - 1] == ' ' || text[checkPos - 1] == '\t')) {
                             --checkPos;
                         }
@@ -1583,9 +1583,9 @@ bool Context::ActiveEditState::HandleKey(Context& ctx, Key key, KeyModifiers mod
     }
 }
 
-void Context::RequestRepaint(int frames) noexcept {
+void Context::RequestRepaint(keel::i32 frames) noexcept {
     if (frames <= 0) return;
-    const int target = (!m_containerStack.empty() && frames == 1) ? 2 : frames;
+    const keel::i32 target = (!m_containerStack.empty() && frames == 1) ? 2 : frames;
     m_repaintFrames = keel::max(m_repaintFrames, target);
 }
 
@@ -1599,7 +1599,7 @@ bool Context::NeedsRepaint() const noexcept {
     return false;
 }
 
-int Context::GetRecommendedSleepTimeoutMs() const noexcept {
+keel::i32 Context::GetRecommendedSleepTimeoutMs() const noexcept {
     if (NeedsRepaint()) {
         return 0;
     }
@@ -1625,7 +1625,7 @@ void Context::OnMouseMove(Vec2 pos) {
     }
 }
 
-void Context::OnMouseDown(int button) {
+void Context::OnMouseDown(keel::i32 button) {
     if (button == 1) { // Left mouse button
         m_mouseDown = true;
         m_mouseClicked = true;
@@ -1652,7 +1652,7 @@ void Context::OnMouseDown(int button) {
     }
 }
 
-void Context::OnMouseUp(int button) {
+void Context::OnMouseUp(keel::i32 button) {
     if (button == 1) { // Left mouse button
         m_mouseDown = false;
         m_mouseReleased = true;
@@ -1787,7 +1787,7 @@ bool Context::IsMouseOccluded(Id id, Vec2 pos) const noexcept {
         }
     }
 
-    const size_t* idxA = m_prevHitNodeMap.get(id);
+    const keel::usize* idxA = m_prevHitNodeMap.get(id);
     if (idxA != nullptr) {
         const HitNodeRecord& a = m_prevHitNodes[*idxA];
         for (const auto& b : m_prevHitNodes) {
@@ -1817,10 +1817,10 @@ bool Context::IsMouseOccluded(Id id, Vec2 pos) const noexcept {
         }
     } else {
         // Sub-part ID (e.g. AccordionHeader / TreeItemRow): check against innermost container on stack
-        for (size_t sIdx = m_containerStack.size(); sIdx > 0; --sIdx) {
+        for (keel::usize sIdx = m_containerStack.size(); sIdx > 0; --sIdx) {
             const Node* cNode = m_containerStack[sIdx - 1];
             if (!cNode || !cNode->id.IsValid()) continue;
-            const size_t* idxC = m_prevHitNodeMap.get(cNode->id);
+            const keel::usize* idxC = m_prevHitNodeMap.get(cNode->id);
             if (idxC != nullptr) {
                 const HitNodeRecord& c = m_prevHitNodes[*idxC];
                 for (const auto& b : m_prevHitNodes) {
@@ -1911,15 +1911,15 @@ bool Context::IsMouseBlockedForCurrentScope() const noexcept {
     }
 
     // Determine current scope Z-layer from container stack
-    uint8_t currentZLayer = (m_modalScopeDepth > 0) ? 2 : 0;
+    keel::u8 currentZLayer = (m_modalScopeDepth > 0) ? 2 : 0;
     for (const Node* n : m_containerStack) {
         if (!n) continue;
         if (n->type == NodeType::Modal) {
-            currentZLayer = keel::max<uint8_t>(currentZLayer, 2);
+            currentZLayer = keel::max<keel::u8>(currentZLayer, 2);
         } else if (n->type == NodeType::Sidebar ||
                    n->type == NodeType::BottomPanel ||
                    n->type == NodeType::StatusBar) {
-            currentZLayer = keel::max<uint8_t>(currentZLayer, 1);
+            currentZLayer = keel::max<keel::u8>(currentZLayer, 1);
         }
     }
 
@@ -1982,7 +1982,7 @@ void Context::RegisterFocusable(Id id, bool disabled) {
 }
 
 bool Context::ConsumeKey(Key key) {
-    for (size_t i = 0; i < m_pendingKeyEvents.size(); ++i) {
+    for (keel::usize i = 0; i < m_pendingKeyEvents.size(); ++i) {
         if (m_pendingKeyEvents[i].key == key) {
             m_pendingKeyEvents.remove_at(i);
             return true;
@@ -1992,7 +1992,7 @@ bool Context::ConsumeKey(Key key) {
 }
 
 bool Context::ConsumeKey(Key key, KeyModifiers& outMods) {
-    for (size_t i = 0; i < m_pendingKeyEvents.size(); ++i) {
+    for (keel::usize i = 0; i < m_pendingKeyEvents.size(); ++i) {
         if (m_pendingKeyEvents[i].key == key) {
             outMods = m_pendingKeyEvents[i].mods;
             m_pendingKeyEvents.remove_at(i);
@@ -2003,7 +2003,7 @@ bool Context::ConsumeKey(Key key, KeyModifiers& outMods) {
 }
 
 bool Context::ConsumeShortcut(Key key, bool ctrl, bool shift, bool alt) {
-    for (size_t i = 0; i < m_pendingKeyEvents.size(); ++i) {
+    for (keel::usize i = 0; i < m_pendingKeyEvents.size(); ++i) {
         const auto& ev = m_pendingKeyEvents[i];
         if (ev.key == key && ev.mods.ctrl == ctrl && ev.mods.shift == shift && ev.mods.alt == alt) {
             m_pendingKeyEvents.remove_at(i);
@@ -2017,7 +2017,7 @@ bool Context::ConsumeAction(KeyAction action) {
     if (action == KeyAction::None) {
         return false;
     }
-    for (size_t i = 0; i < m_pendingKeyEvents.size(); ++i) {
+    for (keel::usize i = 0; i < m_pendingKeyEvents.size(); ++i) {
         const auto& ev = m_pendingKeyEvents[i];
         if (m_keymap.Matches(action, ev.key, ev.mods)) {
             m_pendingKeyEvents.remove_at(i);
@@ -2109,20 +2109,20 @@ keel::StringRef Context::EnsureTextEdit(
 keel::StringRef Context::GetOrStartTextEdit(
     Id id,
     keel::StringRef initialText,
-    size_t& outCursor,
+    keel::usize& outCursor,
     bool& outChanged,
     bool& outSubmitted,
     bool multiline
 ) {
-    size_t anchor = 0;
+    keel::usize anchor = 0;
     return GetOrStartTextEdit(id, initialText, outCursor, anchor, outChanged, outSubmitted, multiline, false);
 }
 
 keel::StringRef Context::GetOrStartTextEdit(
     Id id,
     keel::StringRef initialText,
-    size_t& outCursor,
-    size_t& outSelectionAnchor,
+    keel::usize& outCursor,
+    keel::usize& outSelectionAnchor,
     bool& outChanged,
     bool& outSubmitted,
     bool multiline,
@@ -2135,7 +2135,7 @@ keel::StringRef Context::GetOrStartTextEdit(
     }
     m_pendingTextInput.clear();
 
-    for (size_t i = 0; i < m_pendingKeyEvents.size(); ) {
+    for (keel::usize i = 0; i < m_pendingKeyEvents.size(); ) {
         const QueuedKeyEvent ev = m_pendingKeyEvents[i];
         bool lostFocus = false;
         if (m_editState.HandleKey(*this, ev.key, ev.mods, lostFocus)) {
@@ -2178,7 +2178,7 @@ void Context::SetTextEditBuffer(Id id, keel::StringRef text) {
     ResetCursorBlink();
 }
 
-void Context::SetTextEditCursor(Id id, size_t cursor, size_t selectionAnchor) noexcept {
+void Context::SetTextEditCursor(Id id, keel::usize cursor, keel::usize selectionAnchor) noexcept {
     if (m_editState.id == id && id.IsValid()) {
         m_editState.cursor = keel::min(cursor, m_editState.text.size());
         m_editState.selectionAnchor = keel::min(selectionAnchor, m_editState.text.size());
@@ -2193,14 +2193,14 @@ void Context::SetTextEditAutoClose(Id id, bool enabled) noexcept {
     }
 }
 
-void Context::SetTextEditIndentation(Id id, uint8_t tabSize, bool insertSpaces) noexcept {
+void Context::SetTextEditIndentation(Id id, keel::u8 tabSize, bool insertSpaces) noexcept {
     if (m_editState.id == id && id.IsValid()) {
-        m_editState.tabSize = static_cast<uint8_t>(keel::clamp<int>(tabSize, 1, 16));
+        m_editState.tabSize = static_cast<keel::u8>(keel::clamp<keel::i32>(tabSize, 1, 16));
         m_editState.insertSpaces = insertSpaces;
     }
 }
 
-void Context::ApplyTextEditChange(Id id, keel::StringRef newText, size_t newCursor, size_t newSelectionAnchor) {
+void Context::ApplyTextEditChange(Id id, keel::StringRef newText, keel::usize newCursor, keel::usize newSelectionAnchor) {
     if (!id.IsValid() || m_editState.id != id || m_editState.readOnly) return;
     m_editState.SaveUndo();
     m_editState.text.assign(newText);
@@ -2231,7 +2231,7 @@ bool Context::RedoTextEdit(Id id) {
     return false;
 }
 
-bool Context::GetTextEditSelection(Id id, size_t& outStart, size_t& outEnd) const noexcept {
+bool Context::GetTextEditSelection(Id id, keel::usize& outStart, keel::usize& outEnd) const noexcept {
     if (m_editState.id == id && id.IsValid()) {
         outStart = m_editState.SelectionStart();
         outEnd = m_editState.SelectionEnd();
@@ -2350,8 +2350,8 @@ static void CollectBoundsRecursive(
     keel::HashMap<Id, Rect>& outBounds,
     keel::HashMap<Id, Rect>& outUnclippedBounds,
     HitVecT& outHitNodes,
-    uint32_t& ioOrderCounter,
-    uint8_t inheritedZLayer,
+    keel::u32& ioOrderCounter,
+    keel::u8 inheritedZLayer,
     Rect parentClip,
     const UiTheme& theme
 ) {
@@ -2360,18 +2360,18 @@ static void CollectBoundsRecursive(
     const UiTheme& activeTheme = (node->theme != nullptr) ? *node->theme : theme;
 
     // Out-of-flow modals are rendered at top level above ancestor ScrollAreas/clips
-    uint8_t curZLayer = inheritedZLayer;
+    keel::u8 curZLayer = inheritedZLayer;
     if (node->type == NodeType::Modal) {
         parentClip = node->computedRect;
         curZLayer = 2;
     } else if ((node->type == NodeType::Sidebar || node->type == NodeType::BottomPanel) && !node->sidebarCollapsed) {
-        curZLayer = keel::max<uint8_t>(curZLayer, 1);
+        curZLayer = keel::max<keel::u8>(curZLayer, 1);
     } else if (node->type == NodeType::StatusBar) {
-        curZLayer = keel::max<uint8_t>(curZLayer, 1);
+        curZLayer = keel::max<keel::u8>(curZLayer, 1);
     }
 
-    const uint32_t preIdx = ++ioOrderCounter;
-    size_t hitRecordIdx = size_t(-1);
+    const keel::u32 preIdx = ++ioOrderCounter;
+    keel::usize hitRecordIdx = keel::usize(-1);
 
     if (node->id.IsValid()) {
         if ((node->computedRect.w > 0.0f || node->type == NodeType::Sidebar) &&
@@ -2422,7 +2422,7 @@ static void CollectBoundsRecursive(
         );
     }
 
-    if (hitRecordIdx != size_t(-1)) {
+    if (hitRecordIdx != keel::usize(-1)) {
         outHitNodes[hitRecordIdx].postIndex = ioOrderCounter;
     }
 }
@@ -2536,7 +2536,7 @@ void Context::EndFrame(ICanvas& canvas) {
     }
 
     // Cache computed bounds, Z-order hit records, overlay hit regions, and focusable widget list for next frame
-    uint32_t hitOrderCounter = 0;
+    keel::u32 hitOrderCounter = 0;
     CollectBoundsRecursive(
         m_root,
         m_root,
@@ -2560,7 +2560,7 @@ void Context::EndFrame(ICanvas& canvas) {
     m_currHitNodes.clear();
     m_prevHitNodeMap.clear();
     m_prevHitNodeMap.reserve(m_prevHitNodes.size());
-    for (size_t i = 0; i < m_prevHitNodes.size(); ++i) {
+    for (keel::usize i = 0; i < m_prevHitNodes.size(); ++i) {
         m_prevHitNodeMap.put(m_prevHitNodes[i].id, i);
     }
 
@@ -2662,7 +2662,7 @@ void Context::EndFrame(ICanvas& canvas) {
             snap.bgColor = n->backgroundColor.ToUint32();
             snap.borderColor = n->borderColor.ToUint32();
 
-            uint64_t h = n->visualHash != 0 ? n->visualHash : detail::HashStringView(n->text);
+            keel::u64 h = n->visualHash != 0 ? n->visualHash : detail::HashStringView(n->text);
             h = detail::HashArgs(
                 h,
                 n->computedRect.x,
@@ -2736,7 +2736,7 @@ void Context::EndFrame(ICanvas& canvas) {
     m_prevOpenPopupVisualHash = m_openPopupVisualHash;
 
     const bool hasTooltip = !m_activeTooltip.empty();
-    const uint64_t tooltipHash = hasTooltip
+    const keel::u64 tooltipHash = hasTooltip
         ? detail::HashArgs(
               m_activeTooltip,
               m_activeTooltipAnchor,
@@ -2795,8 +2795,8 @@ void Context::EndFrame(ICanvas& canvas) {
         bool mergedAny = true;
         while (mergedAny && m_dirtyRects.size() > 1) {
             mergedAny = false;
-            for (size_t i = 0; i < m_dirtyRects.size() && !mergedAny; ++i) {
-                for (size_t j = i + 1; j < m_dirtyRects.size(); ++j) {
+            for (keel::usize i = 0; i < m_dirtyRects.size() && !mergedAny; ++i) {
+                for (keel::usize j = i + 1; j < m_dirtyRects.size(); ++j) {
                     if (m_dirtyRects[i].Intersects(m_dirtyRects[j])) {
                         m_dirtyRects[i] = m_dirtyRects[i].Union(m_dirtyRects[j]);
                         m_dirtyRects.remove_at(j);
@@ -2814,7 +2814,7 @@ void Context::EndFrame(ICanvas& canvas) {
         } else {
             Rect unionRect = m_dirtyRects[0];
             float totalDamageArea = m_dirtyRects[0].Area();
-            for (size_t i = 1; i < m_dirtyRects.size(); ++i) {
+            for (keel::usize i = 1; i < m_dirtyRects.size(); ++i) {
                 unionRect = unionRect.Union(m_dirtyRects[i]);
                 totalDamageArea += m_dirtyRects[i].Area();
             }
@@ -2845,7 +2845,7 @@ void Context::EndFrame(ICanvas& canvas) {
 
     // If damage exists, clear target buffer and rasterize scene graph
     if (m_hasDirtyDamage) {
-        canvas.Begin(static_cast<uint32_t>(m_viewportSize.x), static_cast<uint32_t>(m_viewportSize.y), m_dpiScale);
+        canvas.Begin(static_cast<keel::u32>(m_viewportSize.x), static_cast<keel::u32>(m_viewportSize.y), m_dpiScale);
 
         if (m_isFullRepaint) {
             canvas.PushClip(m_dirtyRect);
@@ -2929,7 +2929,7 @@ void Context::EndFrame(ICanvas& canvas) {
             if (m_currentTimeSec < state.lastTimeActiveSec) {
                 state.lastTimeActiveSec = m_currentTimeSec;
             }
-            const uint64_t idleFrames = m_frameIndex - state.lastFrameActive;
+            const keel::u64 idleFrames = m_frameIndex - state.lastFrameActive;
             if (idleFrames == 0 || key.id == m_focusedId || key.id == m_activeId) {
                 continue;
             }
@@ -2962,7 +2962,7 @@ void Context::EndFrame(ICanvas& canvas) {
             if (state.persistent || key.id == m_focusedId || key.id == m_activeId) {
                 continue;
             }
-            const uint64_t idleFrames = (m_frameIndex > state.lastFrameActive)
+            const keel::u64 idleFrames = (m_frameIndex > state.lastFrameActive)
                 ? (m_frameIndex - state.lastFrameActive)
                 : 0;
             const double idleSec = (m_currentTimeSec > state.lastTimeActiveSec)
@@ -3052,8 +3052,8 @@ void Context::RenderNodeRecursive(Node* node, ICanvas& canvas, const Rect& dirty
                 }
             }
             if (outerBg.a > 0) {
-                const int steps = static_cast<int>(std::ceil(rad));
-                for (int i = 0; i < steps; ++i) {
+                const keel::i32 steps = static_cast<keel::i32>(std::ceil(rad));
+                for (keel::i32 i = 0; i < steps; ++i) {
                     const float dy = static_cast<float>(i);
                     const float rem = keel::max(0.0f, rad - dy - 0.35f);
                     const float dx = keel::max(0.0f, rad - std::sqrt(keel::max(0.0f, rad * rad - rem * rem)));

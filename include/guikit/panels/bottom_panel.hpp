@@ -14,7 +14,7 @@ class Context;
 struct Node;
 
 /// Display and sizing state of a BottomPanel container.
-enum class BottomPanelMode : uint8_t {
+enum class BottomPanelMode : keel::u8 {
     Expanded,   ///< Open mode (explicit/user-resized height or Fit to content)
     Collapsed   ///< Minimized mode (0px layout height with interactive top edge / toggle handle)
 };

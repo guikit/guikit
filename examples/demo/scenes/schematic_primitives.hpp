@@ -263,7 +263,7 @@ public:
     }
 
     /// Helper to draw an aligned two-line or single-line component label on the left (`side < 0`) or right (`side > 0`).
-    void SideLabel(Vec2 anchor, int side, keel::StringRef line1, keel::StringRef line2 = "") {
+    void SideLabel(Vec2 anchor, keel::i32 side, keel::StringRef line1, keel::StringRef line2 = "") {
         const float boxW = 48.0f;
         const float alignX = (side >= 0) ? 0.0f : 1.0f;
         const float rx = (side >= 0) ? anchor.x : (anchor.x - boxW);
@@ -287,7 +287,7 @@ public:
         bool vertical,
         keel::StringRef refDes,
         keel::StringRef value,
-        int labelSide = 1,
+        keel::i32 labelSide = 1,
         bool dashed = false
     ) {
         auto item = m_scene.Item({
@@ -346,7 +346,7 @@ public:
         bool vertical,
         keel::StringRef refDes,
         keel::StringRef value,
-        int labelSide = -1
+        keel::i32 labelSide = -1
     ) {
         auto item = m_scene.Item({
             .id = refDes,
@@ -379,7 +379,7 @@ public:
     }
 
     /// Draws a BS 3939 cartridge fuse (`FS1`) with continuous conductor passing through the body.
-    void Fuse(Vec2 center, bool vertical, keel::StringRef refDes, int labelSide = 1) {
+    void Fuse(Vec2 center, bool vertical, keel::StringRef refDes, keel::i32 labelSide = 1) {
         auto item = m_scene.Item({
             .id = refDes,
             .title = "Mains Fuse",
@@ -409,8 +409,8 @@ public:
         keel::StringRef refDes,
         keel::StringRef value,
         bool electrolytic = false,
-        int posSide = -1,
-        int labelSide = -1
+        keel::i32 posSide = -1,
+        keel::i32 labelSide = -1
     ) {
         auto item = m_scene.Item({
             .id = refDes,
@@ -477,10 +477,10 @@ public:
             .title = "Output Choke",
             .category = "Inductor"
         });
-        const int loops = 4;
+        const keel::i32 loops = 4;
         const float r = totalWidth / (static_cast<float>(loops) * 2.0f);
         AddCutout(Rect(center.x - totalWidth * 0.5f, center.y - 2.0f, totalWidth, 4.0f));
-        for (int i = 0; i < loops; ++i) {
+        for (keel::i32 i = 0; i < loops; ++i) {
             const float cx = (center.x - totalWidth * 0.5f) + r * (2.0f * static_cast<float>(i) + 1.0f);
             m_scene.DrawArc({cx, center.y}, r, 180.0f, 180.0f, m_pal.inkBold, m_pal.symbolWidth, 10);
         }
@@ -500,7 +500,7 @@ public:
         keel::StringRef refDes,
         keel::StringRef partNum = "",
         bool isZener = false,
-        int labelSide = 1
+        keel::i32 labelSide = 1
     ) {
         keel::Optional<SceneItemScope> itemScope;
         if (!refDes.empty()) {
@@ -570,7 +570,7 @@ public:
         keel::StringRef partNum,
         bool baseLeft = true,
         bool emitterAtTop = false,
-        int labelSide = -1
+        keel::i32 labelSide = -1
     ) {
         auto item = m_scene.Item({
             .id = refDes,
@@ -628,7 +628,7 @@ public:
             SideLabel({center.x - r - 2.0f, center.y - 12.5f}, -1, refDes, partNum);
             return;
         }
-        const int side = (labelSide != 0) ? labelSide : (baseLeft ? 1 : -1);
+        const keel::i32 side = (labelSide != 0) ? labelSide : (baseLeft ? 1 : -1);
         const float ax = (side > 0) ? (center.x + r + 3.5f) : (center.x - r - 3.5f);
         const bool onBaseSide = (baseLeft && side < 0) || (!baseLeft && side > 0);
         if (onBaseSide) {
@@ -778,7 +778,7 @@ public:
         const float coreBot = ty + 292.0f;
         const float priX = tx + 12.0f;
         const float priR = 6.2f;
-        const int secLoops = 8;
+        const keel::i32 secLoops = 8;
         const float secR = (ySecBot - ySecTop) / (static_cast<float>(secLoops) * 2.0f);
 
         {
@@ -791,7 +791,7 @@ public:
 
             // Secondary winding (left of core, loops bulging LEFT: 90 deg sweep 180 deg)
             // Includes 8 active loops (ySecTop..ySecBot) + 3 lower loops with open tap tail
-            for (int i = 0; i < secLoops + 3; ++i) {
+            for (keel::i32 i = 0; i < secLoops + 3; ++i) {
                 const float cy = ySecTop + secR * (2.0f * static_cast<float>(i) + 1.0f);
                 m_scene.DrawArc({tx, cy}, secR, 90.0f, 180.0f, m_pal.inkBold, m_pal.symbolWidth, 9);
             }
@@ -803,11 +803,11 @@ public:
 
             // Two primary windings (right of core, loops bulging RIGHT: -90 deg sweep 180 deg)
             // Upper primary winding (9 loops: y = ty+10 .. ty+122)
-            for (int i = 0; i < 9; ++i) {
+            for (keel::i32 i = 0; i < 9; ++i) {
                 m_scene.DrawArc({priX, ty + 10.0f + priR * (2.0f * i + 1.0f)}, priR, -90.0f, 180.0f, m_pal.inkBold, m_pal.symbolWidth, 8);
             }
             // Lower primary winding (11 loops: y = ty+148 .. ty+284)
-            for (int i = 0; i < 11; ++i) {
+            for (keel::i32 i = 0; i < 11; ++i) {
                 m_scene.DrawArc({priX, ty + 148.0f + priR * (2.0f * i + 1.0f)}, priR, -90.0f, 180.0f, m_pal.inkBold, m_pal.symbolWidth, 8);
             }
         }
@@ -822,7 +822,7 @@ public:
                 .category = "Selector"
             });
             m_scene.DrawCircle(selCenter, 20.0f, Color::Transparent(), m_pal.inkBold, m_pal.symbolWidth);
-            for (int p = 0; p < 6; ++p) {
+            for (keel::i32 p = 0; p < 6; ++p) {
                 const float ang = (static_cast<float>(p) * 60.0f - 90.0f) * (3.14159265f / 180.0f);
                 pads[p] = {selCenter.x + std::cos(ang) * 13.0f, selCenter.y + std::sin(ang) * 13.0f};
                 SolderPad(pads[p], 2.3f);
@@ -967,7 +967,7 @@ public:
         // Right edge solder pads 1..9
         const char* padNums9[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9"};
         const float padYs9[] = {36.0f, 62.0f, 80.0f, 98.0f, 116.0f, 134.0f, 152.0f, 178.0f, 196.0f};
-        for (int i = 0; i < 9; ++i) {
+        for (keel::i32 i = 0; i < 9; ++i) {
             const float py = y0 + padYs9[i];
             SolderPad({x1 - 24.0f, py}, 2.6f);
             m_scene.DrawTextBox(padNums9[i], Rect(x1 - 44.0f, py - 4.5f, 15.0f, 9.0f), 6.0f, m_pal.inkBold, 1.0f, 0.5f, FontStyle::Bold);
@@ -989,7 +989,7 @@ public:
         m_scene.DrawTextBox("RV200", Rect(botBoard.x + 12.0f, botBoard.Bottom() - 22.0f, 44.0f, 9.0f), 6.0f, m_pal.inkBold, 0.5f, 0.5f, FontStyle::Bold);
 
         const char* padNums4[] = {"12", "13", "14", "15"};
-        for (int i = 0; i < 4; ++i) {
+        for (keel::i32 i = 0; i < 4; ++i) {
             const float py = botBoard.y + 38.0f + static_cast<float>(i) * 16.0f;
             SolderPad({botBoard.Right() - 28.0f, py}, 2.6f);
             m_scene.DrawTextBox(padNums4[i], Rect(botBoard.Right() - 22.0f, py - 4.5f, 18.0f, 9.0f), 6.0f, m_pal.inkBold, 0.0f, 0.5f, FontStyle::Bold);
@@ -1037,7 +1037,7 @@ public:
 
         // Left Revision Table horizontal rows
         const float rh = box.h / 6.0f;
-        for (int r = 1; r <= 5; ++r) {
+        for (keel::i32 r = 1; r <= 5; ++r) {
             const float ry = box.y + static_cast<float>(r) * rh;
             m_scene.DrawLine({box.x, ry}, {midX, ry}, m_pal.ink, 0.9f);
         }

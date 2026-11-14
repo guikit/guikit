@@ -97,11 +97,11 @@ Response Heading::Run(
     node->debugBoundsOverride = opts.debugBounds;
     node->inspectModeOverride = opts.inspectMode;
     node->visualHash = detail::HashArgs(
-        static_cast<uint8_t>(opts.level),
-        static_cast<uint8_t>(opts.layout),
-        static_cast<uint8_t>(opts.inlineOrder),
-        static_cast<uint8_t>(opts.align),
-        static_cast<uint8_t>(opts.stretch),
+        static_cast<keel::u8>(opts.level),
+        static_cast<keel::u8>(opts.layout),
+        static_cast<keel::u8>(opts.inlineOrder),
+        static_cast<keel::u8>(opts.align),
+        static_cast<keel::u8>(opts.stretch),
         opts.width.value_or(0.0f),
         opts.widthRatio.value_or(-1.0f),
         opts.background,
@@ -111,8 +111,8 @@ Response Heading::Run(
         hOpts->badge,
         opts.separator,
         effectiveDisabled,
-        static_cast<uint8_t>(opts.icon.GetType()),
-        static_cast<uint8_t>(opts.icon.GetId()),
+        static_cast<keel::u8>(opts.icon.GetType()),
+        static_cast<keel::u8>(opts.icon.GetId()),
         hOpts->icon.GetPath()
     );
     node->measureFn = [](const Node* n, float availableWidth, ICanvas* canvas, const UiTheme& theme) noexcept -> Vec2 {

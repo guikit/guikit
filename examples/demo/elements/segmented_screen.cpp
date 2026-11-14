@@ -4,8 +4,8 @@ namespace guikit::demo {
 
 namespace {
 struct SegmentedDemoState {
-    size_t selectedIdx = 1;
-    uint32_t selectedMask = 0b0101u;
+    keel::usize selectedIdx = 1;
+    keel::u32 selectedMask = 0b0101u;
     bool multiSelect = false;
     bool showIcons = true;
     bool showText = true;
@@ -40,7 +40,7 @@ void RenderSegmentedInspector(guikit::Context& ui, DemoContext&) {
     }
 
     static constexpr keel::StaticArray<keel::StringRef, 4> placeNames = {"Leading", "Trailing", "Top", "Bottom"};
-    size_t placeIdx = static_cast<size_t>(s_state.iconPlacement);
+    keel::usize placeIdx = static_cast<keel::usize>(s_state.iconPlacement);
     if (placeIdx > 3) placeIdx = 0;
     if (auto el = ui.Element({
         .label = "Icon Placement",

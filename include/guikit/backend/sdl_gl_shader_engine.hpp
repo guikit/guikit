@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/backend/i_canvas.hpp"
 #include "keel/hash_map.h"
 #include "keel/string.h"
@@ -43,7 +42,7 @@ public:
 
     /// Renders all active `GpuShaderPassDesc` passes recorded on `canvas` into the current OpenGL backbuffer.
     /// Must be called after `SDL_RenderClear(renderer)` and before compositing the UI overlay texture.
-    void RenderUnderlays(const ICanvas& canvas, uint32_t viewportWidth, uint32_t viewportHeight);
+    void RenderUnderlays(const ICanvas& canvas, keel::u32 viewportWidth, keel::u32 viewportHeight);
 
     /// Advances per-frame maintenance and prunes GPU textures / staging buffers of inactive widgets,
     /// even when the active screen records zero GPU shader passes.
@@ -57,44 +56,44 @@ public:
 
 private:
     struct CompiledProgram {
-        uint32_t program{0};
-        int uViewport{-1};
-        int uPlotRect{-1};
-        int uGridDims{-1};
-        int uBgColor{-1};
-        int uParams{-1};
-        int uDataTex{-1};
-        int uLutTex{-1};
+        keel::u32 program{0};
+        keel::i32 uViewport{-1};
+        keel::i32 uPlotRect{-1};
+        keel::i32 uGridDims{-1};
+        keel::i32 uBgColor{-1};
+        keel::i32 uParams{-1};
+        keel::i32 uDataTex{-1};
+        keel::i32 uLutTex{-1};
     };
 
     struct WidgetTextureCache {
-        uint32_t dataTex{0};
-        uint32_t lutTex{0};
-        uint32_t width{0};
-        uint32_t height{0};
-        uint64_t uploadedFullGen{0};
-        uint64_t uploadedSliceGen{0};
-        uint32_t uploadedHeadRow{0};
-        uint8_t uploadedColormapId{255};
-        uint64_t lastUsedFrame{0};
-        uint64_t lastUsedTimeNs{0};
+        keel::u32 dataTex{0};
+        keel::u32 lutTex{0};
+        keel::u32 width{0};
+        keel::u32 height{0};
+        keel::u64 uploadedFullGen{0};
+        keel::u64 uploadedSliceGen{0};
+        keel::u32 uploadedHeadRow{0};
+        keel::u8 uploadedColormapId{255};
+        keel::u64 lastUsedFrame{0};
+        keel::u64 lastUsedTimeNs{0};
     };
 
     const CompiledProgram* GetOrCompileProgram(const ICanvas::GpuShaderSource& src);
-    void RenderPass(const ICanvas::GpuShaderPassDesc& pass, uint32_t viewportW, uint32_t viewportH);
+    void RenderPass(const ICanvas::GpuShaderPassDesc& pass, keel::u32 viewportW, keel::u32 viewportH);
     void PruneStaleTextures();
 
     SDL_Renderer* m_renderer{nullptr};
     bool m_available{false};
     keel::SmallString<64> m_backendSummary{"Disabled"};
-    uint64_t m_frameCounter{0};
-    uint64_t m_lastPruneTimeNs{0};
+    keel::u64 m_frameCounter{0};
+    keel::u64 m_lastPruneTimeNs{0};
 
-    uint32_t m_quadVbo{0};
+    keel::u32 m_quadVbo{0};
 
     keel::HashMap<keel::String, CompiledProgram> m_programs;
-    keel::HashMap<uint64_t, WidgetTextureCache> m_textureCaches;
-    keel::Array<uint32_t> m_uploadScratch;
+    keel::HashMap<keel::u64, WidgetTextureCache> m_textureCaches;
+    keel::Array<keel::u32> m_uploadScratch;
 };
 
 } // namespace guikit

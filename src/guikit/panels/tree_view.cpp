@@ -20,14 +20,14 @@ struct TreeViewPayload {
     TreeViewState* state{nullptr};
     TreeViewOptions opts{};
     keel::StringRef activeFilter{};
-    int visibleItemCount{0};
+    keel::i32 visibleItemCount{0};
     keel::ArenaArray<VisibleTreeItemEntry> currVisibleItems{};
 
-    uint16_t columnCount{0};
+    keel::u16 columnCount{0};
     keel::StaticArray<TableColumn, TreeViewState::kMaxColumns> columns{};
     keel::StaticArray<float, TreeViewState::kMaxColumns> resolvedColX{};
     keel::StaticArray<float, TreeViewState::kMaxColumns> resolvedColW{};
-    int hoveredDividerCol{-1};
+    keel::i32 hoveredDividerCol{-1};
     float resolvedColOriginX{0.0f};
     float resolvedColTotalW{0.0f};
 };
@@ -47,9 +47,9 @@ struct TreeItemPayload {
     TreeItemOptions opts{};
     Id idOuter{Id::Null()};
     Id idRow{Id::Null()};
-    uint16_t depth{0};
-    int visibleRowIndex{0};
-    size_t visibleEntryIdx{0};
+    keel::u16 depth{0};
+    keel::i32 visibleRowIndex{0};
+    keel::usize visibleEntryIdx{0};
     bool open{true};
     bool effectiveOpen{true};
     bool selected{false};
@@ -93,7 +93,7 @@ void ResolveTreeColumns(TreeViewPayload& tree, float totalW, const UiTheme& them
     float fixedSum = 0.0f;
     float flexSum = 0.0f;
 
-    for (uint16_t i = 0; i < tree.columnCount; ++i) {
+    for (keel::u16 i = 0; i < tree.columnCount; ++i) {
         const auto& col = tree.columns[i];
         const float minW = keel::max(36.0f * scale, col.minWidth * scale);
         const float maxW = (col.maxWidth > 0.0f) ? (col.maxWidth * scale) : 100000.0f;
@@ -115,7 +115,7 @@ void ResolveTreeColumns(TreeViewPayload& tree, float totalW, const UiTheme& them
     const float remainingW = keel::max(0.0f, availW - fixedSum);
     float curX = 0.0f;
 
-    for (uint16_t i = 0; i < tree.columnCount; ++i) {
+    for (keel::u16 i = 0; i < tree.columnCount; ++i) {
         const auto& col = tree.columns[i];
         const float minW = keel::max(36.0f * scale, col.minWidth * scale);
         const float maxW = (col.maxWidth > 0.0f) ? (col.maxWidth * scale) : 100000.0f;
@@ -206,7 +206,7 @@ Vec2 MeasureEmbeddedChild(
          child->type == NodeType::Column || child->type == NodeType::Box)) {
         float sumW = 0.0f;
         float maxH = 0.0f;
-        uint32_t gcCount = 0;
+        keel::u32 gcCount = 0;
         const float gap = (child->gap > 0.0f) ? child->gap : rm.gap;
         for (const Node* gc = child->firstChild; gc != nullptr; gc = gc->nextSibling) {
             const Vec2 gm = MeasureEmbeddedChild(gc, availRowWidth, false, keel::kNullOpt, rm, canvas, childTheme);
@@ -269,7 +269,7 @@ Vec2 MeasureControlsSlot(
 
     float totalW = 0.0f;
     float maxH = 0.0f;
-    uint32_t count = 0;
+    keel::u32 count = 0;
     const bool singleChild = (rowNode->childCount == 1);
 
     for (const Node* child = rowNode->firstChild; child != nullptr; child = child->nextSibling) {
@@ -343,11 +343,11 @@ keel::StringRef TreeViewScope::GetFilterText() const noexcept {
     return m_payload ? m_payload->activeFilter : keel::StringRef{};
 }
 
-int TreeViewScope::VisibleItemCount() const noexcept {
+keel::i32 TreeViewScope::VisibleItemCount() const noexcept {
     return m_payload ? m_payload->visibleItemCount : 0;
 }
 
-int TreeViewScope::GetSelectedIndex() const noexcept {
+keel::i32 TreeViewScope::GetSelectedIndex() const noexcept {
     if (!m_payload) return -1;
     if (m_payload->opts.selectedIndex) return *m_payload->opts.selectedIndex;
     return m_payload->state ? m_payload->state->selectedIndex : -1;
@@ -405,7 +405,7 @@ void TreeItemScope::Finalize() noexcept {
     m_payload = nullptr;
 
     if (p->rowNode) {
-        uint64_t h = detail::HashArgs(p->rowNode->visualHash, p->hasChildItems);
+        keel::u64 h = detail::HashArgs(p->rowNode->visualHash, p->hasChildItems);
         for (const Node* ch = p->rowNode->firstChild; ch != nullptr; ch = ch->nextSibling) {
             h = detail::HashArgs(h, ch->id.value, ch->visualHash, ch->hovered, ch->pressed, ch->checked);
             for (const Node* gc = ch->firstChild; gc != nullptr; gc = gc->nextSibling) {
@@ -495,9 +495,9 @@ TreeViewScope TreeView::Open(
     const Rect prevTreeBounds = ctx.GetPrevFrameBounds(idTree);
     const bool treeHovered = prevTreeBounds.w > 0.0f && ctx.IsRectHovered(idTree, prevTreeBounds);
     bool anyRowFocused = ctx.IsFocused(idTree);
-    int currentVisIdx = -1;
+    keel::i32 currentVisIdx = -1;
 
-    for (size_t i = 0; i < st.prevVisibleItems.size(); ++i) {
+    for (keel::usize i = 0; i < st.prevVisibleItems.size(); ++i) {
         const auto& entry = st.prevVisibleItems[i];
         if (ctx.IsFocused(entry.idRow)) {
             anyRowFocused = true;
@@ -505,14 +505,14 @@ TreeViewScope TreeView::Open(
         const bool matchId = st.selectedId.IsValid() && entry.idOuter == st.selectedId;
         const bool matchIdx = (st.selectedIndex >= 0 && entry.index == st.selectedIndex);
         if (matchId || matchIdx) {
-            currentVisIdx = static_cast<int>(i);
+            currentVisIdx = static_cast<keel::i32>(i);
         }
     }
 
     if (!activeDisabled && (anyRowFocused || treeHovered) && !st.prevVisibleItems.empty()) {
-        auto selectVisibleAt = [&](int visIdx) {
-            visIdx = keel::clamp(visIdx, 0, static_cast<int>(st.prevVisibleItems.size()) - 1);
-            const auto& target = st.prevVisibleItems[static_cast<size_t>(visIdx)];
+        auto selectVisibleAt = [&](keel::i32 visIdx) {
+            visIdx = keel::clamp(visIdx, 0, static_cast<keel::i32>(st.prevVisibleItems.size()) - 1);
+            const auto& target = st.prevVisibleItems[static_cast<keel::usize>(visIdx)];
             st.selectedId = target.idOuter;
             st.selectedIndex = target.index;
             if (opts.selectedId) *opts.selectedId = target.idOuter;
@@ -537,24 +537,24 @@ TreeViewScope TreeView::Open(
         } else if (ctx.ConsumeKey(Key::Home)) {
             selectVisibleAt(0);
         } else if (ctx.ConsumeKey(Key::End)) {
-            selectVisibleAt(static_cast<int>(st.prevVisibleItems.size()) - 1);
-        } else if (currentVisIdx >= 0 && static_cast<size_t>(currentVisIdx) < st.prevVisibleItems.size()) {
-            const auto& cur = st.prevVisibleItems[static_cast<size_t>(currentVisIdx)];
+            selectVisibleAt(static_cast<keel::i32>(st.prevVisibleItems.size()) - 1);
+        } else if (currentVisIdx >= 0 && static_cast<keel::usize>(currentVisIdx) < st.prevVisibleItems.size()) {
+            const auto& cur = st.prevVisibleItems[static_cast<keel::usize>(currentVisIdx)];
             if (ctx.ConsumeKey(Key::Right)) {
                 if (cur.isBranch && !cur.isOpen) {
                     setBranchOpen(cur, true);
                 } else if (cur.isBranch && cur.isOpen &&
-                           static_cast<size_t>(currentVisIdx + 1) < st.prevVisibleItems.size() &&
-                           st.prevVisibleItems[static_cast<size_t>(currentVisIdx + 1)].parentIdOuter == cur.idOuter) {
+                           static_cast<keel::usize>(currentVisIdx + 1) < st.prevVisibleItems.size() &&
+                           st.prevVisibleItems[static_cast<keel::usize>(currentVisIdx + 1)].parentIdOuter == cur.idOuter) {
                     selectVisibleAt(currentVisIdx + 1);
                 }
             } else if (ctx.ConsumeKey(Key::Left)) {
                 if (cur.isBranch && cur.isOpen) {
                     setBranchOpen(cur, false);
                 } else if (cur.parentIdOuter.IsValid()) {
-                    for (size_t i = 0; i < st.prevVisibleItems.size(); ++i) {
+                    for (keel::usize i = 0; i < st.prevVisibleItems.size(); ++i) {
                         if (st.prevVisibleItems[i].idOuter == cur.parentIdOuter) {
-                            selectVisibleAt(static_cast<int>(i));
+                            selectVisibleAt(static_cast<keel::i32>(i));
                             break;
                         }
                     }
@@ -645,11 +645,11 @@ TreeViewScope TreeView::Open(
     payload->opts = opts;
     payload->opts.title = ctx.AllocText(opts.title);
 
-    const uint16_t colCount = static_cast<uint16_t>(
+    const keel::u16 colCount = static_cast<keel::u16>(
         keel::min(opts.columns.size(), TreeViewState::kMaxColumns)
     );
     payload->columnCount = colCount;
-    for (uint16_t i = 0; i < colCount; ++i) {
+    for (keel::u16 i = 0; i < colCount; ++i) {
         payload->columns[i] = opts.columns[i];
         payload->columns[i].title = ctx.AllocText(opts.columns[i].title);
         if (!opts.columns[i].icon.GetPath().empty()) {
@@ -683,8 +683,8 @@ TreeViewScope TreeView::Open(
         );
 
         if (st.resizingCol >= 0) {
-            if (mouseDown && st.resizingCol < static_cast<int>(colCount)) {
-                const uint16_t colIdx = static_cast<uint16_t>(st.resizingCol);
+            if (mouseDown && st.resizingCol < static_cast<keel::i32>(colCount)) {
+                const keel::u16 colIdx = static_cast<keel::u16>(st.resizingCol);
                 const float minW = keel::max(36.0f * scale, payload->columns[colIdx].minWidth * scale);
                 const float maxW = (payload->columns[colIdx].maxWidth > 0.0f)
                     ? (payload->columns[colIdx].maxWidth * scale)
@@ -703,32 +703,32 @@ TreeViewScope TreeView::Open(
             }
         } else if (headerHitRect.Contains(mousePos) && !ctx.IsMouseOccluded(idTree, mousePos)) {
             const float localX = mousePos.x - prevOriginX;
-            for (uint16_t i = 0; i + 1 < colCount; ++i) {
+            for (keel::u16 i = 0; i + 1 < colCount; ++i) {
                 if (!payload->columns[i].resizable) continue;
                 const float divX = payload->resolvedColX[i] + payload->resolvedColW[i];
                 if (std::abs(localX - divX) <= gripHalfW) {
-                    payload->hoveredDividerCol = static_cast<int>(i);
+                    payload->hoveredDividerCol = static_cast<keel::i32>(i);
                     if (mouseClicked) {
                         const double now = (ctx.GetCurrentTime)();
-                        if (st.lastDividerCol == static_cast<int>(i) && (now - st.lastDividerClickTime) <= 0.35) {
+                        if (st.lastDividerCol == static_cast<keel::i32>(i) && (now - st.lastDividerClickTime) <= 0.35) {
                             st.hasUserColWidth.fill(false);
                             st.resizingCol = -1;
                             ResolveTreeColumns(*payload, prevTotalW, theme);
                         } else {
                             // Snapshot columns 0..i so the left edge of column `i` stays anchored during drag
-                            for (uint16_t j = 0; j <= i; ++j) {
+                            for (keel::u16 j = 0; j <= i; ++j) {
                                 if (!st.hasUserColWidth[j]) {
                                     st.userColWidths[j] = payload->resolvedColW[j] / scale;
                                     st.hasUserColWidth[j] = true;
                                 }
                             }
-                            st.resizingCol = static_cast<int>(i);
+                            st.resizingCol = static_cast<keel::i32>(i);
                             st.resizeStartX = mousePos.x;
                             st.resizeStartWidth = payload->resolvedColW[i];
                             ctx.SetActiveId(idTree);
                         }
                         st.lastDividerClickTime = now;
-                        st.lastDividerCol = static_cast<int>(i);
+                        st.lastDividerCol = static_cast<keel::i32>(i);
                         ctx.InvalidateAll();
                     }
                     break;
@@ -831,8 +831,8 @@ TreeViewScope TreeView::Open(
         headerNode->disabled = activeDisabled;
         headerNode->SetPayload(payload);
         headerNode->renderFn = &TreeView::RenderHeader;
-        uint64_t hHash = detail::HashArgs(colCount, st.resizingCol, payload->hoveredDividerCol, activeDisabled);
-        for (uint16_t i = 0; i < colCount; ++i) {
+        keel::u64 hHash = detail::HashArgs(colCount, st.resizingCol, payload->hoveredDividerCol, activeDisabled);
+        for (keel::u16 i = 0; i < colCount; ++i) {
             hHash = detail::HashArgs(hHash, payload->columns[i].title, st.userColWidths[i], st.hasUserColWidth[i]);
         }
         headerNode->visualHash = hHash;
@@ -946,7 +946,7 @@ TreeItemScope TreeView::OpenItem(
 
     bool wasToggled = false;
     bool wasCheckChanged = false;
-    const int itemTraversalIndex = treePayload ? treePayload->visibleItemCount : 0;
+    const keel::i32 itemTraversalIndex = treePayload ? treePayload->visibleItemCount : 0;
 
     bool isSelected = opts.selected;
     if (treePayload && treePayload->state) {
@@ -1094,7 +1094,7 @@ TreeItemScope TreeView::OpenItem(
     }
     payload->idOuter = idOuter;
     payload->idRow = idRow;
-    payload->depth = parentPayload ? static_cast<uint16_t>(parentPayload->depth + 1u) : 0u;
+    payload->depth = parentPayload ? static_cast<keel::u16>(parentPayload->depth + 1u) : 0u;
     payload->open = isOpen;
     payload->effectiveOpen = effectiveOpen;
     payload->selected = isSelected;
@@ -1139,16 +1139,16 @@ TreeItemScope TreeView::OpenItem(
         opts.background,
         opts.border,
         activeDisabled,
-        static_cast<uint8_t>(opts.icon.GetType()),
-        static_cast<uint8_t>(opts.icon.GetId()),
-        static_cast<uint8_t>(opts.openIcon.GetType()),
-        static_cast<uint8_t>(opts.openIcon.GetId()),
+        static_cast<keel::u8>(opts.icon.GetType()),
+        static_cast<keel::u8>(opts.icon.GetId()),
+        static_cast<keel::u8>(opts.openIcon.GetType()),
+        static_cast<keel::u8>(opts.openIcon.GetId()),
         opts.color,
-        treePayload ? static_cast<uint8_t>(treePayload->opts.selectionStyle) : uint8_t{0},
+        treePayload ? static_cast<keel::u8>(treePayload->opts.selectionStyle) : keel::u8{0},
         treePayload ? treePayload->opts.color : StateColor{},
         treePayload ? treePayload->opts.striped : false,
         treePayload ? treePayload->opts.gridLines : false,
-        treePayload ? treePayload->columnCount : uint16_t{0},
+        treePayload ? treePayload->columnCount : keel::u16{0},
         payload->visibleRowIndex & 1
     );
 
@@ -1278,8 +1278,8 @@ void ArrangeEmbeddedContainerChildren(
     }
 
     float totalW = 0.0f;
-    uint32_t count = 0;
-    uint32_t stretchCount = 0;
+    keel::u32 count = 0;
+    keel::u32 stretchCount = 0;
 
     for (Node* gc = containerNode->firstChild; gc != nullptr; gc = gc->nextSibling) {
         if (gc->isSpacer) continue;
@@ -1394,7 +1394,7 @@ void TreeView::ArrangeRow(
         }
 
         Rect unionControls{};
-        uint16_t colIdx = 1;
+        keel::u16 colIdx = 1;
         for (Node* child = rowNode->firstChild; child != nullptr; child = child->nextSibling, ++colIdx) {
             if (colIdx >= p->tree->columnCount) {
                 child->computedRect = Rect{};
@@ -1804,7 +1804,7 @@ void TreeView::RenderHeader(
     canvas.PushClip(headerRect);
     canvas.DrawRect(headerRect, pal.surfaceElevated);
 
-    for (uint16_t i = 0; i < tree->columnCount; ++i) {
+    for (keel::u16 i = 0; i < tree->columnCount; ++i) {
         const auto& col = tree->columns[i];
         const float colX = colOriginX + tree->resolvedColX[i];
         const float colW = tree->resolvedColW[i];
@@ -1847,8 +1847,8 @@ void TreeView::RenderHeader(
 
         if (i + 1 < tree->columnCount) {
             const float divX = keel::min(std::floor(colX + colW) + 0.5f, headerRect.Right() - 1.5f);
-            const bool dividerActive = (tree->state && tree->state->resizingCol == static_cast<int>(i)) ||
-                                       (tree->hoveredDividerCol == static_cast<int>(i));
+            const bool dividerActive = (tree->state && tree->state->resizingCol == static_cast<keel::i32>(i)) ||
+                                       (tree->hoveredDividerCol == static_cast<keel::i32>(i));
             const Color divCol = dividerActive ? pal.accent : pal.borderSubtle;
             const float divThick = dividerActive ? (2.0f * scale) : 1.0f;
             const float padY = dividerActive ? (3.0f * scale) : (5.0f * scale);
@@ -1890,7 +1890,7 @@ void TreeView::RenderOverlay(
     canvas.PushClip(bodyRect);
 
     if (tree->opts.gridLines) {
-        for (uint16_t i = 0; i + 1 < tree->columnCount; ++i) {
+        for (keel::u16 i = 0; i + 1 < tree->columnCount; ++i) {
             const float divX = std::floor(colOriginX + tree->resolvedColX[i] + tree->resolvedColW[i]) + 0.5f;
             if (divX >= bodyRect.x && divX < bodyRect.Right() - 0.5f) {
                 canvas.DrawLine(
@@ -1903,11 +1903,11 @@ void TreeView::RenderOverlay(
         }
     }
 
-    const int activeDivCol = (tree->state && tree->state->resizingCol >= 0)
+    const keel::i32 activeDivCol = (tree->state && tree->state->resizingCol >= 0)
         ? tree->state->resizingCol
         : tree->hoveredDividerCol;
-    if (activeDivCol >= 0 && static_cast<uint16_t>(activeDivCol) + 1 < tree->columnCount) {
-        const uint16_t colIdx = static_cast<uint16_t>(activeDivCol);
+    if (activeDivCol >= 0 && static_cast<keel::u16>(activeDivCol) + 1 < tree->columnCount) {
+        const keel::u16 colIdx = static_cast<keel::u16>(activeDivCol);
         const float guideX = keel::clamp(
             std::floor(colOriginX + tree->resolvedColX[colIdx] + tree->resolvedColW[colIdx]) + 0.5f,
             bodyRect.x + 1.0f,

@@ -60,7 +60,7 @@ void DemoWindow::OnInit() {
     m_demoCtx.shellFloating = IsShellFloating();
 }
 
-void DemoWindow::OnResize(int /*width*/, int /*height*/) {
+void DemoWindow::OnResize(keel::i32 /*width*/, keel::i32 /*height*/) {
     m_demoCtx.displayPxPerMm = GetDisplayPixelsPerMm();
 }
 
@@ -225,13 +225,13 @@ void DemoWindow::RenderPreviewToolbar(guikit::Context& ui) {
         if (ui.Size(guikit::UiSize::Sm).Select(m_demoCtx.previewFormFactorIdx, kPreviewFormFactorNames, {.width = 96.0f}).changed) {
             if (m_demoCtx.previewFormFactorIdx == 1) {
                 m_demoCtx.previewLandscape = true;  // Tablet defaults to Landscape
-                if (m_demoCtx.previewZoomModeIdx == static_cast<size_t>(PreviewZoomMode::Zoom100)) {
-                    m_demoCtx.previewZoomModeIdx = static_cast<size_t>(PreviewZoomMode::Fit);
+                if (m_demoCtx.previewZoomModeIdx == static_cast<keel::usize>(PreviewZoomMode::Zoom100)) {
+                    m_demoCtx.previewZoomModeIdx = static_cast<keel::usize>(PreviewZoomMode::Fit);
                 }
             } else if (m_demoCtx.previewFormFactorIdx == 2) {
                 m_demoCtx.previewLandscape = false; // Phone defaults to Portrait
-                if (m_demoCtx.previewZoomModeIdx == static_cast<size_t>(PreviewZoomMode::Zoom100)) {
-                    m_demoCtx.previewZoomModeIdx = static_cast<size_t>(PreviewZoomMode::Fit);
+                if (m_demoCtx.previewZoomModeIdx == static_cast<keel::usize>(PreviewZoomMode::Zoom100)) {
+                    m_demoCtx.previewZoomModeIdx = static_cast<keel::usize>(PreviewZoomMode::Fit);
                 }
             }
             ui.InvalidateAll();
@@ -251,13 +251,13 @@ void DemoWindow::RenderPreviewToolbar(guikit::Context& ui) {
 
         previewTb.Separator();
 
-        const int effZoomPct = static_cast<int>(std::lround(m_demoCtx.previewEffectiveZoom * 100.0f));
+        const keel::i32 effZoomPct = static_cast<keel::i32>(std::lround(m_demoCtx.previewEffectiveZoom * 100.0f));
         guikit::SelectOptions zoomSelectOpts{
             .tooltip = "Preview Zoom / Scale (Fit, Real 1:1 physical mm, or Ctrl + MouseWheel)",
             .width = 116.0f
         };
-        if (m_demoCtx.previewZoomModeIdx == static_cast<size_t>(PreviewZoomMode::Fit) ||
-            m_demoCtx.previewZoomModeIdx == static_cast<size_t>(PreviewZoomMode::Real1To1)) {
+        if (m_demoCtx.previewZoomModeIdx == static_cast<keel::usize>(PreviewZoomMode::Fit) ||
+            m_demoCtx.previewZoomModeIdx == static_cast<keel::usize>(PreviewZoomMode::Real1To1)) {
             zoomSelectOpts.suffix.text = {ui.Format("{}%", effZoomPct), guikit::StateColor::Muted()};
         }
 
@@ -511,9 +511,9 @@ void DemoWindow::DispatchInspector(guikit::Context& ui, NavCategory cat, DemoCon
         &RenderCarDashboardInspector,
         &RenderBpmnInspector,
     };
-    static_assert(kInspectors.size() == static_cast<size_t>(NavCategory::SceneBpmnEditor) + 1);
+    static_assert(kInspectors.size() == static_cast<keel::usize>(NavCategory::SceneBpmnEditor) + 1);
 
-    const size_t idx = static_cast<size_t>(cat);
+    const keel::usize idx = static_cast<keel::usize>(cat);
     if (idx < kInspectors.size()) {
         kInspectors[idx](ui, ctx);
     }
@@ -567,9 +567,9 @@ void DemoWindow::DispatchSandboxStage(guikit::Context& ui, NavCategory cat, Demo
         &RenderCarDashboardStage,
         &RenderBpmnStage,
     };
-    static_assert(kStages.size() == static_cast<size_t>(NavCategory::SceneBpmnEditor) + 1);
+    static_assert(kStages.size() == static_cast<keel::usize>(NavCategory::SceneBpmnEditor) + 1);
 
-    const size_t idx = static_cast<size_t>(cat);
+    const keel::usize idx = static_cast<keel::usize>(cat);
     if (idx < kStages.size()) {
         kStages[idx](ui, ctx);
     }
@@ -623,9 +623,9 @@ keel::String DemoWindow::DispatchCodeGenerator(NavCategory cat, const DemoContex
         &GenerateCarDashboardCode,
         &GenerateBpmnCode,
     };
-    static_assert(kGenerators.size() == static_cast<size_t>(NavCategory::SceneBpmnEditor) + 1);
+    static_assert(kGenerators.size() == static_cast<keel::usize>(NavCategory::SceneBpmnEditor) + 1);
 
-    const size_t idx = static_cast<size_t>(cat);
+    const keel::usize idx = static_cast<keel::usize>(cat);
     if (idx < kGenerators.size()) {
         return kGenerators[idx](ctx);
     }

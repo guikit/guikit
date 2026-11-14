@@ -12,7 +12,7 @@ namespace {
 struct ContextMenuPersistState {
     Vec2 anchorPos{0.0f, 0.0f};
     Rect triggerRect{0.0f, 0.0f, 0.0f, 0.0f};
-    int keyboardIndex{-1};
+    keel::i32 keyboardIndex{-1};
     bool wasExternalOpen{false};
 };
 
@@ -218,7 +218,7 @@ ContextMenuResponse ContextMenu::Run(
     // Build item rects & process hover / click / keyboard navigation
     struct RowEntry {
         Rect rect{};
-        size_t itemIndex{0};
+        keel::usize itemIndex{0};
         bool hovered{false};
         bool separatorBelow{false};
         float sepY{0.0f};
@@ -227,9 +227,9 @@ ContextMenuResponse ContextMenu::Run(
     rows.reserve(items.size());
 
     float curY = popupRect.y + padY;
-    int hoveredIdx = -1;
+    keel::i32 hoveredIdx = -1;
 
-    for (size_t i = 0; i < items.size(); ++i) {
+    for (keel::usize i = 0; i < items.size(); ++i) {
         const auto& item = items[i];
         if (item.isSeparatorOnly) {
             RowEntry sepRow{};
@@ -244,7 +244,7 @@ ContextMenuResponse ContextMenu::Run(
         const Rect itemRect(popupRect.x + 4.0f * s, curY, popupRect.w - 8.0f * s, rowH);
         const bool isHov = !item.disabled && itemRect.Contains(mouse);
         if (isHov) {
-            hoveredIdx = static_cast<int>(i);
+            hoveredIdx = static_cast<keel::i32>(i);
             state.keyboardIndex = hoveredIdx;
         }
 
@@ -262,16 +262,16 @@ ContextMenuResponse ContextMenu::Run(
     }
 
     // Keyboard navigation (Up / Down / Enter / Escape)
-    auto stepSelectable = [&](int dir) {
-        const int n = static_cast<int>(items.size());
+    auto stepSelectable = [&](keel::i32 dir) {
+        const keel::i32 n = static_cast<keel::i32>(items.size());
         if (n <= 0) return;
-        int cur = state.keyboardIndex;
-        for (int step = 0; step < n; ++step) {
+        keel::i32 cur = state.keyboardIndex;
+        for (keel::i32 step = 0; step < n; ++step) {
             cur = (cur < 0)
                 ? (dir > 0 ? 0 : n - 1)
                 : ((cur + dir + n) % n);
-            if (!items[static_cast<size_t>(cur)].isSeparatorOnly &&
-                !items[static_cast<size_t>(cur)].disabled) {
+            if (!items[static_cast<keel::usize>(cur)].isSeparatorOnly &&
+                !items[static_cast<keel::usize>(cur)].disabled) {
                 state.keyboardIndex = cur;
                 ctx.InvalidateAll();
                 break;
@@ -292,8 +292,8 @@ ContextMenuResponse ContextMenu::Run(
         ctx.InvalidateAll();
         return res;
     } else if (ctx.ConsumeKey(Key::Enter) || ctx.ConsumeKey(Key::Space)) {
-        if (state.keyboardIndex >= 0 && static_cast<size_t>(state.keyboardIndex) < items.size()) {
-            const auto& activeItem = items[static_cast<size_t>(state.keyboardIndex)];
+        if (state.keyboardIndex >= 0 && static_cast<keel::usize>(state.keyboardIndex) < items.size()) {
+            const auto& activeItem = items[static_cast<keel::usize>(state.keyboardIndex)];
             if (!activeItem.isSeparatorOnly && !activeItem.disabled) {
                 res.clickedIndex = state.keyboardIndex;
                 res.clicked = true;
@@ -312,7 +312,7 @@ ContextMenuResponse ContextMenu::Run(
     if (hoveredIdx < 0 && state.keyboardIndex >= 0) {
         hoveredIdx = state.keyboardIndex;
         for (auto& r : rows) {
-            if (static_cast<int>(r.itemIndex) == hoveredIdx) {
+            if (static_cast<keel::i32>(r.itemIndex) == hoveredIdx) {
                 r.hovered = true;
             }
         }
@@ -323,8 +323,8 @@ ContextMenuResponse ContextMenu::Run(
         auto hitScope = ctx.ScopedOverlayHitCheck(wasPopupOpen ? id : Id::Null());
         if (wasPopupOpen && (ctx.IsMouseClicked() || ctx.IsRightMouseClicked())) {
             if (popupRect.Contains(mouse)) {
-                if (ctx.IsMouseClicked() && hoveredIdx >= 0 && static_cast<size_t>(hoveredIdx) < items.size()) {
-                    const auto& clickedItem = items[static_cast<size_t>(hoveredIdx)];
+                if (ctx.IsMouseClicked() && hoveredIdx >= 0 && static_cast<keel::usize>(hoveredIdx) < items.size()) {
+                    const auto& clickedItem = items[static_cast<keel::usize>(hoveredIdx)];
                     if (!clickedItem.isSeparatorOnly && !clickedItem.disabled) {
                         res.clickedIndex = hoveredIdx;
                         res.clicked = true;
@@ -376,7 +376,7 @@ ContextMenuResponse ContextMenu::Run(
         float sepY;
     };
     OverlayItemData* arenaDrawItems = ctx.GetArena().create_array<OverlayItemData>(rows.size());
-    for (size_t i = 0; i < rows.size(); ++i) {
+    for (keel::usize i = 0; i < rows.size(); ++i) {
         const auto& r = rows[i];
         const auto& src = items[r.itemIndex];
         arenaDrawItems[i] = OverlayItemData{

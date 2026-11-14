@@ -5,7 +5,7 @@ namespace guikit::demo {
 namespace {
 
 struct TreeDemoState {
-    int selectedIndex = 0;
+    keel::i32 selectedIndex = 0;
     guikit::Id selectedId = guikit::Id::Null();
     keel::SmallString<128> filterQuery{};
 
@@ -38,10 +38,10 @@ struct TreeDemoState {
     float envExposure = 1.15f;
     bool sunEnabled = true;
     float fogDensity = 35.0f;
-    size_t sonarModeIdx = 0;
+    keel::usize sonarModeIdx = 0;
     bool wfTracking = true;
     bool imuEnabled = true;
-    int calibrateCount = 0;
+    keel::i32 calibrateCount = 0;
 };
 
 TreeDemoState s_tree;
@@ -66,7 +66,7 @@ void RenderTreeViewInspector(guikit::Context& ui, DemoContext& ctx) {
     ctx.RenderVariantPicker(ui);
 
     static constexpr keel::StaticArray<keel::StringRef, 2> kSelStyleNames = {"Pill", "Indicator"};
-    size_t selStyleIdx = (s_tree.selectionStyle == guikit::TreeSelectionStyle::Indicator) ? 1 : 0;
+    keel::usize selStyleIdx = (s_tree.selectionStyle == guikit::TreeSelectionStyle::Indicator) ? 1 : 0;
     if (auto el = ui.Element({.label = "Selection Style"})) {
         if (ui.StepSlider(selStyleIdx, kSelStyleNames, {.showTicks = true, .showLabels = true}).changed) {
             s_tree.selectionStyle = (selStyleIdx == 1)
@@ -77,7 +77,7 @@ void RenderTreeViewInspector(guikit::Context& ui, DemoContext& ctx) {
     }
 
     static constexpr keel::StaticArray<keel::StringRef, 3> kGuideNames = {"None", "Vertical", "Connected"};
-    size_t guideIdx = static_cast<size_t>(s_tree.guides);
+    keel::usize guideIdx = static_cast<keel::usize>(s_tree.guides);
     if (auto el = ui.Element({.label = "Hierarchy Guides"})) {
         if (ui.StepSlider(guideIdx, kGuideNames, {.showTicks = true, .showLabels = true}).changed) {
             s_tree.guides = static_cast<guikit::TreeGuides>(guideIdx);
@@ -129,23 +129,23 @@ void RenderTreeViewInspector(guikit::Context& ui, DemoContext& ctx) {
 
 void RenderTreeViewStage(guikit::Context& ui, DemoContext& ctx) {
     // Compute tri-state parent checkboxes from leaf states
-    const int envCheckedCount = (s_tree.chkSun ? 1 : 0) + (s_tree.chkFog ? 1 : 0);
+    const keel::i32 envCheckedCount = (s_tree.chkSun ? 1 : 0) + (s_tree.chkFog ? 1 : 0);
     bool chkEnvAll = (envCheckedCount == 2);
     const bool indEnv = (envCheckedCount > 0 && envCheckedCount < 2);
 
-    const int sensorCheckedCount = (s_tree.chkSonar ? 1 : 0) + (s_tree.chkWaterfall ? 1 : 0) + (s_tree.chkImu ? 1 : 0);
+    const keel::i32 sensorCheckedCount = (s_tree.chkSonar ? 1 : 0) + (s_tree.chkWaterfall ? 1 : 0) + (s_tree.chkImu ? 1 : 0);
     bool chkSensorsAll = (sensorCheckedCount == 3);
     const bool indSensors = (sensorCheckedCount > 0 && sensorCheckedCount < 3);
 
-    const int sceneCheckedCount = envCheckedCount + sensorCheckedCount;
+    const keel::i32 sceneCheckedCount = envCheckedCount + sensorCheckedCount;
     bool chkSceneAll = (sceneCheckedCount == 5);
     const bool indScene = (sceneCheckedCount > 0 && sceneCheckedCount < 5);
 
-    const int shaderCheckedCount = (s_tree.chkShaderSonar ? 1 : 0) + (s_tree.chkShaderWaterfall ? 1 : 0);
+    const keel::i32 shaderCheckedCount = (s_tree.chkShaderSonar ? 1 : 0) + (s_tree.chkShaderWaterfall ? 1 : 0);
     bool chkShadersAll = (shaderCheckedCount == 2);
     const bool indShaders = (shaderCheckedCount > 0 && shaderCheckedCount < 2);
 
-    const int assetsCheckedCount = shaderCheckedCount + (s_tree.chkThemeJson ? 1 : 0);
+    const keel::i32 assetsCheckedCount = shaderCheckedCount + (s_tree.chkThemeJson ? 1 : 0);
     bool chkAssetsAll = (assetsCheckedCount == 3);
     const bool indAssets = (assetsCheckedCount > 0 && assetsCheckedCount < 3);
 

@@ -1,9 +1,9 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/backend/i_window_backend.hpp"
 #include "guikit/backend/sdl_gl_shader_engine.hpp"
 #include "guikit/backend/vector_backend.hpp"
+#include "keel/core.h"
 
 struct SDL_Window;
 struct SDL_Renderer;
@@ -31,7 +31,7 @@ public:
     bool Initialize(const MainWindowConfig& config, Context& ui, WindowHostCallbacks callbacks) override;
     void Shutdown() noexcept override;
 
-    bool PumpEvents(Context& ui, bool reactiveMode, int sleepTimeoutMs) override;
+    bool PumpEvents(Context& ui, bool reactiveMode, keel::i32 sleepTimeoutMs) override;
     void WakeUp() noexcept override;
     [[nodiscard]] bool UsesMainLoopCallback() const noexcept override;
     void RunMainLoopCallback(keel::Function<bool()> stepFn) override;
@@ -43,8 +43,8 @@ public:
     void PresentFrame(const Context& ui, FrameMetrics& metrics, bool forcePresent) override;
     void PaceFrame(double elapsedMs, bool presented) noexcept override;
 
-    [[nodiscard]] int GetWidth() const noexcept override { return m_width; }
-    [[nodiscard]] int GetHeight() const noexcept override { return m_height; }
+    [[nodiscard]] keel::i32 GetWidth() const noexcept override { return m_width; }
+    [[nodiscard]] keel::i32 GetHeight() const noexcept override { return m_height; }
     [[nodiscard]] float GetDpiScale() const noexcept override { return m_dpiScale; }
     [[nodiscard]] float GetDisplayPixelsPerMm() const noexcept override { return m_displayPxPerMm; }
     [[nodiscard]] bool IsMinimized() const noexcept override { return m_minimized; }
@@ -84,11 +84,11 @@ private:
     SDL_Renderer* m_renderer = nullptr;
     SDL_Texture* m_screenTexture = nullptr;
 
-    int m_width = 1380;
-    int m_height = 800;
-    int m_bufWidth = 0;
-    int m_bufHeight = 0;
-    keel::Array<uint32_t> m_pixelBuffer;
+    keel::i32 m_width = 1380;
+    keel::i32 m_height = 800;
+    keel::i32 m_bufWidth = 0;
+    keel::i32 m_bufHeight = 0;
+    keel::Array<keel::u32> m_pixelBuffer;
 
     keel::UniquePtr<ICanvas> m_canvas;
     bool m_hasExplicitCanvas = false;
@@ -98,11 +98,11 @@ private:
     bool m_shouldExit = false;
     bool m_minimized = false;
     bool m_skipRenderThisStep = false;
-    uint32_t m_wakePending{0};
+    keel::u32 m_wakePending{0};
     bool m_vsyncEnabled = true;
     bool m_gpuShadersEnabled = false;
     bool m_isLiveResizeFrame = false;
-    uint32_t m_pressedMouseMask = 0;
+    keel::u32 m_pressedMouseMask = 0;
     float m_dpiScale = 1.0f;
     float m_mouseCoordScale = 1.0f;
     float m_displayPxPerMm = 96.0f / 25.4f;

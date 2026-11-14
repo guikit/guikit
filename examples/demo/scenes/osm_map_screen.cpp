@@ -1,6 +1,4 @@
 #include <cmath>
-#include <cstddef>
-#include <cstdint>
 #include "../demo_context.hpp"
 #include "guikit/geo/geo_json_io.hpp"
 #include "guikit/geo/gis_render_engine.hpp"
@@ -14,8 +12,8 @@ struct GisScreenState {
     keel::StringRef loadedAssetPath{"assets/geo/demo_bay.geojson"};
     keel::Array<guikit::GeoLayer> layers;
     guikit::GeoBBox chartBounds{};
-    size_t totalFeatures{0};
-    size_t totalVertices{0};
+    keel::usize totalFeatures{0};
+    keel::usize totalVertices{0};
 
     guikit::GeoCoord initialCenter{44.6020, 33.4950};
     float initialTileZoom{13.4f};
@@ -25,7 +23,7 @@ struct GisScreenState {
     guikit::GisRenderConfig renderConfig{};
 
     float worldSize{2048.0f};
-    int baseZoom{3};
+    keel::i32 baseZoom{3};
     bool showTileGrid{false};
     bool showSubTileQuadtree{false};
     bool showNauticalGraticule{true};
@@ -37,7 +35,7 @@ struct GisScreenState {
 
     guikit::MapViewState lastView{};
     guikit::GisRenderStats lastStats{};
-    uint64_t selectedFeatureUid{0};
+    keel::u64 selectedFeatureUid{0};
 
     keel::Optional<guikit::GeoCoord> pendingCenterGeo{};
     keel::Optional<float> pendingTileZoom{};
@@ -130,7 +128,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
     }
 
     // 2. S-52 / ENC Palette & Bathymetry Safety Thresholds
-    size_t palIdx = static_cast<size_t>(s_state.renderConfig.chartPalette);
+    keel::usize palIdx = static_cast<keel::usize>(s_state.renderConfig.chartPalette);
     if (auto el = ui.Element({.label = "Chart Color Palette (S-52 / ENC)"})) {
         if (ui.Select(palIdx, GisScreenState::paletteNames).changed) {
             s_state.renderConfig.chartPalette = static_cast<guikit::ChartPalette>(palIdx);
@@ -148,7 +146,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
     }
 
     // 3. Projection (CRS), Coordinate Readout Format & Tile Size
-    size_t crsIdx = static_cast<size_t>(s_state.crs);
+    keel::usize crsIdx = static_cast<keel::usize>(s_state.crs);
     if (auto el = ui.Element({.label = "Projection (CRS)"})) {
         if (ui.Select(crsIdx, GisScreenState::crsNames).changed) {
             s_state.crs = static_cast<guikit::MapCrs>(crsIdx);
@@ -156,7 +154,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    size_t fmtIdx = static_cast<size_t>(s_state.coordFormat);
+    keel::usize fmtIdx = static_cast<keel::usize>(s_state.coordFormat);
     if (auto el = ui.Element({.label = "Coordinate Format"})) {
         if (ui.Select(fmtIdx, GisScreenState::coordFormatNames).changed) {
             s_state.coordFormat = static_cast<guikit::GeoCoordFormat>(fmtIdx);
@@ -164,7 +162,7 @@ void RenderOsmMapInspector(guikit::Context& ui, DemoContext&) {
         }
     }
 
-    size_t tileSizeIdx = (s_state.renderConfig.tileSizePx <= 128u) ? 0u
+    keel::usize tileSizeIdx = (s_state.renderConfig.tileSizePx <= 128u) ? 0u
                        : ((s_state.renderConfig.tileSizePx >= 512u) ? 2u : 1u);
     if (auto el = ui.Element({.label = "Tile Resolution [z/x/y]"})) {
         if (ui.Select(tileSizeIdx, GisScreenState::tileSizeNames).changed) {
@@ -314,14 +312,14 @@ keel::String GenerateOsmMapCode(const DemoContext&) {
         "        .showFeatureCallouts = {}\n"
         "    }}, selectedFeatureUid);\n"
         "}}",
-        crsEnumNames[static_cast<size_t>(s_state.crs)],
-        fmtEnumNames[static_cast<size_t>(s_state.coordFormat)],
+        crsEnumNames[static_cast<keel::usize>(s_state.crs)],
+        fmtEnumNames[static_cast<keel::usize>(s_state.coordFormat)],
         s_state.initialTileZoom,
         s_state.showNauticalGraticule ? "true" : "false",
         s_state.showBorderRulers ? "true" : "false",
         s_state.showScaleBarOverlay ? "true" : "false",
         s_state.showTileGrid ? "true" : "false",
-        palEnumNames[static_cast<size_t>(s_state.renderConfig.chartPalette)],
+        palEnumNames[static_cast<keel::usize>(s_state.renderConfig.chartPalette)],
         s_state.renderConfig.safetyContourM,
         s_state.renderConfig.tileSizePx,
         s_state.renderConfig.showLoadingTilePlaceholders ? "true" : "false",

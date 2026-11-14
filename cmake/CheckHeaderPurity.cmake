@@ -1,9 +1,9 @@
 # Verifies that all public guikit headers in include/guikit/**/*.hpp:
 # 1. Only contain minimal C/freestanding angle-bracket includes:
-#    <cassert>, <cmath>, <cstddef>, <cstdint>, <cstring>, <initializer_list>, <new>.
-# 2. Do not contain `using namespace` or STL vocabulary types (`std::string`, `std::vector`, `std::optional`, etc.)
-#    outside of comments.
-# 3. Compile standalone and do not transitively include any system header outside that minimal baseline.
+#    <cassert>, <cmath>, <cstring>, <initializer_list>, <new> (no <cstdint> or <cstddef>).
+# 2. Do not contain `using namespace`, STL vocabulary types (`std::string`, `std::vector`, etc.),
+#    or raw C/C++ integer types (`uint32_t`, `size_t`, `int`, etc. — use `keel::*` instead) outside of comments/strings.
+# 3. Compile standalone and do not transitively include any system header outside keel's minimal baseline.
 
 if(NOT DEFINED GUIKIT_INCLUDE_DIR)
     message(FATAL_ERROR "GUIKIT_INCLUDE_DIR must be passed to CheckHeaderPurity.cmake")
@@ -18,8 +18,6 @@ list(SORT GUIKIT_PUBLIC_HEADERS)
 set(ALLOWED_STD_HEADERS
     "cassert"
     "cmath"
-    "cstddef"
-    "cstdint"
     "cstring"
     "initializer_list"
     "new"
@@ -27,6 +25,10 @@ set(ALLOWED_STD_HEADERS
 
 set(FORBIDDEN_STD_REGEX
     "std::(string|wstring|u8string|string_view|vector|span|optional|nullopt|array|function|unique_ptr|shared_ptr|weak_ptr|variant|monostate|unordered_map|unordered_set|map|set|source_location|type_index|chrono)([^A-Za-z0-9_]|$)"
+)
+
+set(FORBIDDEN_RAW_INT_REGEX
+    "(^|[^A-Za-z0-9_])(u?int(8|16|32|64|ptr|max)_t|size_t|ptrdiff_t|short|long|unsigned|signed|int)([^A-Za-z0-9_]|$)"
 )
 
 foreach(HDR IN LISTS GUIKIT_PUBLIC_HEADERS)
@@ -39,15 +41,19 @@ foreach(HDR IN LISTS GUIKIT_PUBLIC_HEADERS)
         if(NOT INC_NAME IN_LIST ALLOWED_STD_HEADERS)
             message(FATAL_ERROR
                 "Header purity violation in ${HDR_REL}: forbidden '#include <${INC_NAME}>'. "
-                "Only <cassert>, <cmath>, <cstddef>, <cstdint>, <cstring>, <initializer_list>, <new> are allowed."
+                "Only <cassert>, <cmath>, <cstring>, <initializer_list>, <new> are allowed (use \"keel/core.h\" for integer types)."
             )
         endif()
     endforeach()
 
-    # 2. Strip block & line comments and check for `using namespace` or forbidden `std::` vocabulary types
+    # 2. Strip comments & string/char literals and check for `using namespace`, STL vocabulary types, or raw C integers
     file(READ "${HDR}" HDR_CONTENT)
     string(REGEX REPLACE "/\\*([^*]|\\*+[^*/])*\\*+/" " " HDR_NO_BLOCK "${HDR_CONTENT}")
-    string(REGEX REPLACE "//[^\r\n]*" "" HDR_CLEAN "${HDR_NO_BLOCK}")
+    string(REGEX REPLACE "//[^\r\n]*" "" HDR_NO_COMMENTS "${HDR_NO_BLOCK}")
+    # Allow ISO C++ [over.literal] required signatures on user-defined `_dp` literals
+    string(REGEX REPLACE "operator\"\"_dp\\((long double|unsigned long long)[^)]*\\)" "operator_dp()" HDR_NO_UDL "${HDR_NO_COMMENTS}")
+    string(REGEX REPLACE "\"([^\"\\\\]|\\\\.)*\"" "\"\"" HDR_NO_STR "${HDR_NO_UDL}")
+    string(REGEX REPLACE "'([^'\\\\]|\\\\.)*'" "''" HDR_CLEAN "${HDR_NO_STR}")
 
     if(HDR_CLEAN MATCHES "using[ \t]+namespace[ \t]+")
         message(FATAL_ERROR "Header purity violation in ${HDR_REL}: 'using namespace' is forbidden in public headers.")
@@ -57,6 +63,13 @@ foreach(HDR IN LISTS GUIKIT_PUBLIC_HEADERS)
         string(REGEX MATCH "${FORBIDDEN_STD_REGEX}" MATCHED_TOKEN "${HDR_CLEAN}")
         message(FATAL_ERROR
             "Header purity violation in ${HDR_REL}: forbidden STL type '${MATCHED_TOKEN}' in public header (use keel::* instead)."
+        )
+    endif()
+
+    if(HDR_CLEAN MATCHES "${FORBIDDEN_RAW_INT_REGEX}")
+        string(REGEX MATCH "${FORBIDDEN_RAW_INT_REGEX}" MATCHED_INT "${HDR_CLEAN}")
+        message(FATAL_ERROR
+            "Header purity violation in ${HDR_REL}: forbidden raw integer type '${MATCHED_INT}' in public header (use keel::i8..i64 / keel::u8..u64 / keel::isize / keel::usize instead)."
         )
     endif()
 endforeach()

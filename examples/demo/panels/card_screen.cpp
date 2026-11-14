@@ -7,8 +7,8 @@ namespace {
 struct CardDemoState {
     bool fullWidth = false;
     float minWidth = 280.0f;
-    size_t bgIdx = 0;     // 0=Surface, 1=None, 2=Primary, 3=Secondary, 4=Success, 5=Warning, 6=Danger, 7=Info
-    size_t borderIdx = 0; // 0=Default, 1=Primary, 2=Secondary, 3=Success, 4=Warning, 5=Danger, 6=Info
+    keel::usize bgIdx = 0;     // 0=Surface, 1=None, 2=Primary, 3=Secondary, 4=Success, 5=Warning, 6=Danger, 7=Info
+    keel::usize borderIdx = 0; // 0=Default, 1=Primary, 2=Secondary, 3=Success, 4=Warning, 5=Danger, 6=Info
     bool showHeader = true;
     bool showDivider = true;
 };

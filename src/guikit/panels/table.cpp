@@ -16,10 +16,10 @@ namespace guikit {
 
 namespace {
 
-constexpr size_t kMaxTableColumns = 16;
+constexpr keel::usize kMaxTableColumns = 16;
 
 struct TableRowRecord {
-    size_t rowIndex{0};
+    keel::usize rowIndex{0};
     TableRowOptions opts{};
 };
 
@@ -32,23 +32,23 @@ struct TableState {
     Vec2 dragStartMouseV{0.0f, 0.0f};
     Vec2 dragStartMouseH{0.0f, 0.0f};
 
-    uint16_t userColCount{0};
+    keel::u16 userColCount{0};
     keel::StaticArray<float, kMaxTableColumns> userColWidths{};
     keel::StaticArray<bool, kMaxTableColumns> hasUserColWidth{};
-    int resizingCol{-1};
+    keel::i32 resizingCol{-1};
     float resizeStartX{0.0f};
     float resizeStartWidth{0.0f};
 
-    int selectedRow{-1};
-    int sortColumn{-1};
+    keel::i32 selectedRow{-1};
+    keel::i32 sortColumn{-1};
     TableSortDirection sortDirection{TableSortDirection::None};
 
     double lastClickTime{-10.0};
-    int lastClickRow{-1};
+    keel::i32 lastClickRow{-1};
     double lastDividerClickTime{-10.0};
-    int lastDividerCol{-1};
+    keel::i32 lastDividerCol{-1};
 
-    size_t prevTotalRows{0};
+    keel::usize prevTotalRows{0};
     float lastViewportHeight{240.0f};
     Rect lastArrangedBounds{};
 
@@ -110,7 +110,7 @@ struct TableData {
     TableOptions opts{};
     TableState* state{nullptr};
 
-    uint16_t columnCount{0};
+    keel::u16 columnCount{0};
     keel::StaticArray<TableColumn, kMaxTableColumns> columns{};
     keel::StaticArray<float, kMaxTableColumns> resolvedColX{};
     keel::StaticArray<float, kMaxTableColumns> resolvedColW{};
@@ -121,21 +121,21 @@ struct TableData {
     float headerHeight{34.0f};
     float footerHeight{0.0f};
 
-    size_t firstVisibleRow{0};
-    size_t endVisibleRow{0};
-    size_t emittedRowCount{0};
+    keel::usize firstVisibleRow{0};
+    keel::usize endVisibleRow{0};
+    keel::usize emittedRowCount{0};
 
     bool hasActiveRow{false};
-    size_t activeRowIndex{0};
-    uint16_t activeColCursor{0};
+    keel::usize activeRowIndex{0};
+    keel::u16 activeColCursor{0};
     Node* activeRowPrevLastChild{nullptr};
     mutable ICanvas* lastCanvas{nullptr};
 
-    int hoveredHeaderCol{-1};
-    int hoveredDividerCol{-1};
-    int hoveredRow{-1};
-    int clickedRow{-1};
-    int doubleClickedRow{-1};
+    keel::i32 hoveredHeaderCol{-1};
+    keel::i32 hoveredDividerCol{-1};
+    keel::i32 hoveredRow{-1};
+    keel::i32 clickedRow{-1};
+    keel::i32 doubleClickedRow{-1};
     bool sortChanged{false};
     bool selectionChanged{false};
 
@@ -155,7 +155,7 @@ void ResolveColumnWidths(TableData& data, float viewportW, const UiTheme& theme)
     float fixedSum = 0.0f;
     float flexSum = 0.0f;
 
-    for (uint16_t i = 0; i < data.columnCount; ++i) {
+    for (keel::u16 i = 0; i < data.columnCount; ++i) {
         const auto& col = data.columns[i];
         const float minW = keel::max(28.0f * scale, col.minWidth * scale);
         const float maxW = (col.maxWidth > 0.0f) ? (col.maxWidth * scale) : 100000.0f;
@@ -177,7 +177,7 @@ void ResolveColumnWidths(TableData& data, float viewportW, const UiTheme& theme)
     const float remainingW = keel::max(0.0f, availForCols - fixedSum);
     float curX = data.rowNumberColW;
 
-    for (uint16_t i = 0; i < data.columnCount; ++i) {
+    for (keel::u16 i = 0; i < data.columnCount; ++i) {
         const auto& col = data.columns[i];
         const float minW = keel::max(28.0f * scale, col.minWidth * scale);
         const float maxW = (col.maxWidth > 0.0f) ? (col.maxWidth * scale) : 100000.0f;
@@ -233,11 +233,11 @@ void ComputeTableRegions(
 void UpdateVisibleRowRange(TableData& data) noexcept {
     if (!data.state) return;
     const float viewH = keel::max(data.rowHeight, data.state->lastViewportHeight);
-    const size_t rawFirst = (data.rowHeight > 0.0f)
-        ? static_cast<size_t>(keel::max(0.0f, std::floor(data.state->scrollOffset.y / data.rowHeight)))
+    const keel::usize rawFirst = (data.rowHeight > 0.0f)
+        ? static_cast<keel::usize>(keel::max(0.0f, std::floor(data.state->scrollOffset.y / data.rowHeight)))
         : 0;
-    const size_t visibleCount = (data.rowHeight > 0.0f)
-        ? (static_cast<size_t>(std::ceil(viewH / data.rowHeight)) + 2)
+    const keel::usize visibleCount = (data.rowHeight > 0.0f)
+        ? (static_cast<keel::usize>(std::ceil(viewH / data.rowHeight)) + 2)
         : 32;
 
     data.firstVisibleRow = (rawFirst > 0) ? (rawFirst - 1) : 0;
@@ -273,7 +273,7 @@ TableScope::~TableScope() noexcept {
         if (m_data->hasActiveRow) {
             EndActiveRow();
         }
-        const size_t totalRows = (m_data->opts.totalRows > 0)
+        const keel::usize totalRows = (m_data->opts.totalRows > 0)
             ? m_data->opts.totalRows
             : m_data->emittedRowCount;
         if (m_data->state) {
@@ -285,7 +285,7 @@ TableScope::~TableScope() noexcept {
         );
 
         // Recompute actual childCount of m_node after virtualized row ID seeding
-        uint32_t actualChildren = 0;
+        keel::u32 actualChildren = 0;
         for (const Node* c = m_node->firstChild; c != nullptr; c = c->nextSibling) {
             ++actualChildren;
         }
@@ -294,7 +294,7 @@ TableScope::~TableScope() noexcept {
         // Compute comprehensive visualHash from scroll offsets, column geometry,
         // visible rows, and direct/cell child widgets so dirty-tracking always
         // repaints the entire Table coherently.
-        uint64_t h = m_node->visualHash;
+        keel::u64 h = m_node->visualHash;
         if (m_data->state) {
             h = detail::HashArgs(
                 h,
@@ -309,7 +309,7 @@ TableScope::~TableScope() noexcept {
                 m_node->scrollbarActiveX,
                 m_data->state->selectedRow,
                 m_data->state->sortColumn,
-                static_cast<uint8_t>(m_data->state->sortDirection),
+                static_cast<keel::u8>(m_data->state->sortDirection),
                 m_data->hoveredRow,
                 m_data->hoveredHeaderCol,
                 m_data->hoveredDividerCol,
@@ -317,7 +317,7 @@ TableScope::~TableScope() noexcept {
                 m_data->endVisibleRow,
                 m_data->state->visibleRows.size()
             );
-            for (uint16_t i = 0; i < m_data->columnCount; ++i) {
+            for (keel::u16 i = 0; i < m_data->columnCount; ++i) {
                 h = detail::HashArgs(h, m_data->resolvedColX[i], m_data->resolvedColW[i]);
             }
             for (const auto& rowRec : m_data->state->visibleRows) {
@@ -326,7 +326,7 @@ TableScope::~TableScope() noexcept {
                     rowRec.rowIndex,
                     rowRec.opts.disabled,
                     rowRec.opts.tint.has_value(),
-                    static_cast<uint8_t>(rowRec.opts.tint.value_or(UiVariant::Default))
+                    static_cast<keel::u8>(rowRec.opts.tint.value_or(UiVariant::Default))
                 );
             }
             for (const Node* c = m_node->firstChild; c != nullptr; c = c->nextSibling) {
@@ -358,11 +358,11 @@ TableScope::~TableScope() noexcept {
     m_ctx->PopContainer(m_node);
 }
 
-size_t TableScope::FirstVisibleRow() const noexcept {
+keel::usize TableScope::FirstVisibleRow() const noexcept {
     return m_data ? m_data->firstVisibleRow : 0;
 }
 
-size_t TableScope::EndVisibleRow() const noexcept {
+keel::usize TableScope::EndVisibleRow() const noexcept {
     return m_data ? m_data->endVisibleRow : 0;
 }
 
@@ -370,7 +370,7 @@ bool TableScope::SortChanged() const noexcept {
     return m_data ? m_data->sortChanged : false;
 }
 
-int TableScope::SortedColumn() const noexcept {
+keel::i32 TableScope::SortedColumn() const noexcept {
     return (m_data && m_data->state) ? m_data->state->sortColumn : -1;
 }
 
@@ -382,23 +382,23 @@ bool TableScope::SelectionChanged() const noexcept {
     return m_data ? m_data->selectionChanged : false;
 }
 
-int TableScope::SelectedRow() const noexcept {
+keel::i32 TableScope::SelectedRow() const noexcept {
     return (m_data && m_data->state) ? m_data->state->selectedRow : -1;
 }
 
-int TableScope::HoveredRow() const noexcept {
+keel::i32 TableScope::HoveredRow() const noexcept {
     return m_data ? m_data->hoveredRow : -1;
 }
 
-int TableScope::ClickedRow() const noexcept {
+keel::i32 TableScope::ClickedRow() const noexcept {
     return m_data ? m_data->clickedRow : -1;
 }
 
-int TableScope::DoubleClickedRow() const noexcept {
+keel::i32 TableScope::DoubleClickedRow() const noexcept {
     return m_data ? m_data->doubleClickedRow : -1;
 }
 
-TableRowScope TableScope::Row(size_t rowIndex, const TableRowOptions& opts) {
+TableRowScope TableScope::Row(keel::usize rowIndex, const TableRowOptions& opts) {
     if (!m_ctx || !m_data || !m_data->state) {
         return TableRowScope{};
     }
@@ -418,7 +418,7 @@ TableRowScope TableScope::Row(size_t rowIndex, const TableRowOptions& opts) {
     m_data->activeColCursor = 0;
     m_data->activeRowPrevLastChild = m_node ? m_node->lastChild : nullptr;
     if (m_node) {
-        m_node->childCount = static_cast<uint32_t>(rowIndex * 64);
+        m_node->childCount = static_cast<keel::u32>(rowIndex * 64);
     }
     m_ctx->PushDisabled(opts.disabled || m_ctx->IsDisabled());
 
@@ -427,7 +427,7 @@ TableRowScope TableScope::Row(size_t rowIndex, const TableRowOptions& opts) {
         .opts = opts
     });
 
-    const int iRow = static_cast<int>(rowIndex);
+    const keel::i32 iRow = static_cast<keel::i32>(rowIndex);
     const bool selected = (m_data->state->selectedRow == iRow);
     const bool hovered = (m_data->hoveredRow == iRow) && !opts.disabled;
     const bool clicked = (m_data->clickedRow == iRow) && !opts.disabled;
@@ -445,10 +445,10 @@ void TableScope::EndActiveRow() noexcept {
         Node* startChild = m_data->activeRowPrevLastChild
             ? m_data->activeRowPrevLastChild->nextSibling
             : m_node->firstChild;
-        uint16_t colIdx = 0;
+        keel::u16 colIdx = 0;
         for (Node* c = startChild; c != nullptr; c = c->nextSibling) {
-            c->colSpan = static_cast<uint8_t>(keel::min<uint16_t>(colIdx++, 255));
-            c->childIndex = static_cast<uint32_t>(m_data->activeRowIndex);
+            c->colSpan = static_cast<keel::u8>(keel::min<keel::u16>(colIdx++, 255));
+            c->childIndex = static_cast<keel::u32>(m_data->activeRowIndex);
         }
     }
     m_data->hasActiveRow = false;
@@ -458,7 +458,7 @@ ContainerScope TableScope::Cell(const TableCellOptions& opts) {
     if (!m_ctx || !m_node || !m_data || !m_data->hasActiveRow) {
         return ContainerScope(nullptr, nullptr);
     }
-    uint16_t colIdx = 0;
+    keel::u16 colIdx = 0;
     for (const Node* c = m_data->activeRowPrevLastChild ? m_data->activeRowPrevLastChild->nextSibling : m_node->firstChild;
          c != nullptr;
          c = c->nextSibling) {
@@ -479,8 +479,8 @@ ContainerScope TableScope::Cell(const TableCellOptions& opts) {
     cellNode->padding = Padding::Symmetric(m_ctx->GetTheme().Scale(6.0f), m_ctx->GetTheme().Scale(2.0f));
     cellNode->gap = m_ctx->GetTheme().Scale(4.0f);
     cellNode->clipChildren = true;
-    cellNode->colSpan = static_cast<uint8_t>(colIdx);
-    cellNode->childIndex = static_cast<uint32_t>(m_data->activeRowIndex);
+    cellNode->colSpan = static_cast<keel::u8>(colIdx);
+    cellNode->childIndex = static_cast<keel::u32>(m_data->activeRowIndex);
 
     m_ctx->PushScale(m_ctx->GetCurrentScale());
     m_ctx->PushSize(m_ctx->GetCurrentSize());
@@ -489,7 +489,7 @@ ContainerScope TableScope::Cell(const TableCellOptions& opts) {
     return ContainerScope(m_ctx, cellNode);
 }
 
-void TableScope::ScrollToRow(size_t rowIndex) {
+void TableScope::ScrollToRow(keel::usize rowIndex) {
     if (!m_data || !m_data->state) return;
     const float rowTop = static_cast<float>(rowIndex) * m_data->rowHeight;
     const float rowBottom = rowTop + m_data->rowHeight;
@@ -499,7 +499,7 @@ void TableScope::ScrollToRow(size_t rowIndex) {
     } else if (rowBottom > m_data->state->scrollOffset.y + viewH) {
         m_data->state->scrollOffset.y = keel::max(0.0f, rowBottom - viewH);
     }
-    const size_t knownTotalRows = (m_data->opts.totalRows > 0)
+    const keel::usize knownTotalRows = (m_data->opts.totalRows > 0)
         ? m_data->opts.totalRows
         : m_data->state->prevTotalRows;
     if (knownTotalRows > 0) {
@@ -569,7 +569,7 @@ TableScope Table::Open(
     auto& state = ctx.GetOrCreatePersistentState<TableState>(id);
     state.visibleRows.clear();
 
-    const uint16_t colCount = static_cast<uint16_t>(keel::min(columns.size(), kMaxTableColumns));
+    const keel::u16 colCount = static_cast<keel::u16>(keel::min(columns.size(), kMaxTableColumns));
     if (state.userColCount != colCount) {
         state.userColCount = colCount;
         state.hasUserColWidth.fill(false);
@@ -595,7 +595,7 @@ TableScope Table::Open(
     data->state = &state;
 
     data->columnCount = colCount;
-    for (uint16_t i = 0; i < data->columnCount; ++i) {
+    for (keel::u16 i = 0; i < data->columnCount; ++i) {
         data->columns[i] = columns[i];
         data->columns[i].title = ctx.AllocText(columns[i].title);
         data->columns[i].icon = ctx.AllocIcon(columns[i].icon);
@@ -620,7 +620,7 @@ TableScope Table::Open(
         state.lastViewportHeight = data->bodyViewportRect.h;
     }
 
-    const size_t knownTotalRows = (optsCopy.totalRows > 0) ? optsCopy.totalRows : state.prevTotalRows;
+    const keel::usize knownTotalRows = (optsCopy.totalRows > 0) ? optsCopy.totalRows : state.prevTotalRows;
     const float estContentH = static_cast<float>(knownTotalRows) * data->rowHeight;
     const float maxScrollY = keel::max(0.0f, estContentH - state.lastViewportHeight);
     const float maxScrollX = keel::max(0.0f, data->totalColumnsW - data->bodyViewportRect.w);
@@ -723,8 +723,8 @@ TableScope Table::Open(
 
         if (state.resizingCol >= 0) {
             ctx.SetCursor(CursorType::ResizeEW);
-            if (mouseDown && state.resizingCol < static_cast<int>(data->columnCount)) {
-                const uint16_t colIdx = static_cast<uint16_t>(state.resizingCol);
+            if (mouseDown && state.resizingCol < static_cast<keel::i32>(data->columnCount)) {
+                const keel::u16 colIdx = static_cast<keel::u16>(state.resizingCol);
                 const float minW = keel::max(28.0f * scale, data->columns[colIdx].minWidth * scale);
                 const float maxW = (data->columns[colIdx].maxWidth > 0.0f)
                     ? (data->columns[colIdx].maxWidth * scale)
@@ -750,15 +750,15 @@ TableScope Table::Open(
 
             // Check column divider grips first
             if (optsCopy.resizableColumns) {
-                for (uint16_t i = 0; i < data->columnCount; ++i) {
+                for (keel::u16 i = 0; i < data->columnCount; ++i) {
                     if (!data->columns[i].resizable) continue;
                     const float divX = data->resolvedColX[i] + data->resolvedColW[i];
                     if (std::abs(localHeaderX - divX) <= gripHalfW) {
-                        data->hoveredDividerCol = static_cast<int>(i);
+                        data->hoveredDividerCol = static_cast<keel::i32>(i);
                         ctx.SetCursor(CursorType::ResizeEW);
                         if (mouseClicked) {
                             const double now = (ctx.GetCurrentTime)();
-                            if (state.lastDividerCol == static_cast<int>(i) && (now - state.lastDividerClickTime) <= 0.35) {
+                            if (state.lastDividerCol == static_cast<keel::i32>(i) && (now - state.lastDividerClickTime) <= 0.35) {
                                 state.hasUserColWidth.fill(false);
                                 state.resizingCol = -1;
                                 ResolveColumnWidths(*data, data->frameRect.w, theme);
@@ -769,13 +769,13 @@ TableScope Table::Open(
                             } else {
                                 // Snapshot all current resolved column widths so flex columns to the left
                                 // do not counter-shrink or shift the left border of column `i` during drag!
-                                for (uint16_t j = 0; j < data->columnCount; ++j) {
+                                for (keel::u16 j = 0; j < data->columnCount; ++j) {
                                     if (!state.hasUserColWidth[j]) {
                                         state.userColWidths[j] = data->resolvedColW[j] / scale;
                                         state.hasUserColWidth[j] = true;
                                     }
                                 }
-                                state.resizingCol = static_cast<int>(i);
+                                state.resizingCol = static_cast<keel::i32>(i);
                                 state.resizeStartX = mousePos.x;
                                 state.resizeStartWidth = data->resolvedColW[i];
                                 ctx.SetActiveId(id);
@@ -783,7 +783,7 @@ TableScope Table::Open(
                                 ctx.RequestRepaint(2);
                             }
                             state.lastDividerClickTime = now;
-                            state.lastDividerCol = static_cast<int>(i);
+                            state.lastDividerCol = static_cast<keel::i32>(i);
                         }
                         break;
                     }
@@ -792,18 +792,18 @@ TableScope Table::Open(
 
             // If not hovering a resize divider, check column header hover & click-to-sort
             if (data->hoveredDividerCol < 0 && data->headerRect.Contains(mousePos)) {
-                for (uint16_t i = 0; i < data->columnCount; ++i) {
+                for (keel::u16 i = 0; i < data->columnCount; ++i) {
                     const float colLeft = data->resolvedColX[i];
                     const float colRight = colLeft + data->resolvedColW[i];
                     if (localHeaderX >= colLeft && localHeaderX < colRight) {
-                        data->hoveredHeaderCol = static_cast<int>(i);
+                        data->hoveredHeaderCol = static_cast<keel::i32>(i);
                         if (mouseClicked && data->columns[i].sortable) {
-                            if (state.sortColumn == static_cast<int>(i)) {
+                            if (state.sortColumn == static_cast<keel::i32>(i)) {
                                 state.sortDirection = (state.sortDirection == TableSortDirection::Ascending)
                                     ? TableSortDirection::Descending
                                     : TableSortDirection::Ascending;
                             } else {
-                                state.sortColumn = static_cast<int>(i);
+                                state.sortColumn = static_cast<keel::i32>(i);
                                 state.sortDirection = TableSortDirection::Ascending;
                             }
                             data->sortChanged = true;
@@ -831,20 +831,20 @@ TableScope Table::Open(
         if (state.resizingCol < 0 && !interactingScrollbar && tableHovered && interactiveBodyRect.Contains(mousePos)) {
             const float contentY = (mousePos.y - data->bodyViewportRect.y) + state.scrollOffset.y;
             if (contentY >= 0.0f && data->rowHeight > 0.0f) {
-                const size_t hitRow = static_cast<size_t>(contentY / data->rowHeight);
+                const keel::usize hitRow = static_cast<keel::usize>(contentY / data->rowHeight);
                 if (knownTotalRows == 0 || hitRow < knownTotalRows) {
-                    data->hoveredRow = static_cast<int>(hitRow);
+                    data->hoveredRow = static_cast<keel::i32>(hitRow);
                     if (mouseClicked) {
-                        data->clickedRow = static_cast<int>(hitRow);
+                        data->clickedRow = static_cast<keel::i32>(hitRow);
                         const double now = (ctx.GetCurrentTime)();
-                        if (state.lastClickRow == static_cast<int>(hitRow) && (now - state.lastClickTime) <= 0.35) {
-                            data->doubleClickedRow = static_cast<int>(hitRow);
+                        if (state.lastClickRow == static_cast<keel::i32>(hitRow) && (now - state.lastClickTime) <= 0.35) {
+                            data->doubleClickedRow = static_cast<keel::i32>(hitRow);
                         }
                         state.lastClickTime = now;
-                        state.lastClickRow = static_cast<int>(hitRow);
+                        state.lastClickRow = static_cast<keel::i32>(hitRow);
 
-                        if (state.selectedRow != static_cast<int>(hitRow)) {
-                            state.selectedRow = static_cast<int>(hitRow);
+                        if (state.selectedRow != static_cast<keel::i32>(hitRow)) {
+                            state.selectedRow = static_cast<keel::i32>(hitRow);
                             data->selectionChanged = true;
                             if (optsCopy.selectedRow) {
                                 *optsCopy.selectedRow = state.selectedRow;
@@ -865,21 +865,21 @@ TableScope Table::Open(
 
         // 4. Keyboard navigation when table is focused or hovered
         if ((ctx.IsFocused(id) || tableHovered) && knownTotalRows > 0) {
-            int nextSel = state.selectedRow;
+            keel::i32 nextSel = state.selectedRow;
             if (ctx.ConsumeAction(KeyAction::MoveDown)) {
-                nextSel = keel::clamp(nextSel + 1, 0, static_cast<int>(knownTotalRows) - 1);
+                nextSel = keel::clamp(nextSel + 1, 0, static_cast<keel::i32>(knownTotalRows) - 1);
             } else if (ctx.ConsumeAction(KeyAction::MoveUp)) {
-                nextSel = keel::clamp((nextSel < 0 ? 0 : nextSel - 1), 0, static_cast<int>(knownTotalRows) - 1);
+                nextSel = keel::clamp((nextSel < 0 ? 0 : nextSel - 1), 0, static_cast<keel::i32>(knownTotalRows) - 1);
             } else if (ctx.ConsumeAction(KeyAction::MoveLineStart) || ctx.ConsumeAction(KeyAction::MoveDocStart)) {
                 nextSel = 0;
             } else if (ctx.ConsumeAction(KeyAction::MoveLineEnd) || ctx.ConsumeAction(KeyAction::MoveDocEnd)) {
-                nextSel = static_cast<int>(knownTotalRows) - 1;
+                nextSel = static_cast<keel::i32>(knownTotalRows) - 1;
             } else if (ctx.ConsumeAction(KeyAction::MovePageDown)) {
-                const int pageStep = keel::max(1, static_cast<int>(state.lastViewportHeight / keel::max(1.0f, data->rowHeight)));
-                nextSel = keel::clamp((nextSel < 0 ? 0 : nextSel) + pageStep, 0, static_cast<int>(knownTotalRows) - 1);
+                const keel::i32 pageStep = keel::max(1, static_cast<keel::i32>(state.lastViewportHeight / keel::max(1.0f, data->rowHeight)));
+                nextSel = keel::clamp((nextSel < 0 ? 0 : nextSel) + pageStep, 0, static_cast<keel::i32>(knownTotalRows) - 1);
             } else if (ctx.ConsumeAction(KeyAction::MovePageUp)) {
-                const int pageStep = keel::max(1, static_cast<int>(state.lastViewportHeight / keel::max(1.0f, data->rowHeight)));
-                nextSel = keel::clamp((nextSel < 0 ? 0 : nextSel) - pageStep, 0, static_cast<int>(knownTotalRows) - 1);
+                const keel::i32 pageStep = keel::max(1, static_cast<keel::i32>(state.lastViewportHeight / keel::max(1.0f, data->rowHeight)));
+                nextSel = keel::clamp((nextSel < 0 ? 0 : nextSel) - pageStep, 0, static_cast<keel::i32>(knownTotalRows) - 1);
             }
 
             if (nextSel != state.selectedRow && nextSel >= 0) {
@@ -910,11 +910,11 @@ TableScope Table::Open(
 
     // Compute visible row range [firstVisibleRow, endVisibleRow) with 1 overscan row above/below
     UpdateVisibleRowRange(*data);
-    const size_t visibleCount = (data->endVisibleRow >= data->firstVisibleRow)
+    const keel::usize visibleCount = (data->endVisibleRow >= data->firstVisibleRow)
         ? (data->endVisibleRow - data->firstVisibleRow)
         : 32;
 
-    const size_t cap = keel::min<size_t>(visibleCount + 2, 128);
+    const keel::usize cap = keel::min<keel::usize>(visibleCount + 2, 128);
     state.visibleRows.reserve(cap);
 
     node->scrollOffset = state.scrollOffset;
@@ -989,12 +989,12 @@ Vec2 Table::Measure(
         ? ResolveDefaultFooterHeight(node->uiSize, theme)
         : 0.0f;
 
-    const size_t totalRows = (data->opts.totalRows > 0)
+    const keel::usize totalRows = (data->opts.totalRows > 0)
         ? data->opts.totalRows
         : data->emittedRowCount;
 
     float naturalW = data->opts.showRowNumbers ? theme.Scale(44.0f) : 0.0f;
-    for (uint16_t i = 0; i < data->columnCount; ++i) {
+    for (keel::u16 i = 0; i < data->columnCount; ++i) {
         const float colW = (data->columns[i].width > 0.0f)
             ? theme.Scale(data->columns[i].width)
             : theme.Scale(keel::max(80.0f, data->columns[i].minWidth));
@@ -1006,7 +1006,7 @@ Vec2 Table::Measure(
         naturalW = keel::max(naturalW, availableWidth);
     }
 
-    const size_t fitRows = keel::clamp<size_t>(totalRows, 3, 12);
+    const keel::usize fitRows = keel::clamp<keel::usize>(totalRows, 3, 12);
     const float naturalTableH = data->opts.height.has_value()
         ? theme.Scale(*data->opts.height)
         : (headerH + static_cast<float>(fitRows) * rowH + footerH);
@@ -1037,13 +1037,13 @@ void Table::Arrange(
     // Position all cell children (both direct widgets and explicit NodeType::Cell containers)
     // inside the virtualized body viewport
     for (Node* child = node->firstChild; child != nullptr; child = child->nextSibling) {
-        const uint16_t colIdx = child->colSpan;
+        const keel::u16 colIdx = child->colSpan;
         if (colIdx >= data->columnCount) {
             child->computedRect = Rect(0.0f, 0.0f, 0.0f, 0.0f);
             continue;
         }
 
-        const size_t rowIndex = static_cast<size_t>(child->childIndex);
+        const keel::usize rowIndex = static_cast<keel::usize>(child->childIndex);
         const float cellX = data->bodyViewportRect.x + data->resolvedColX[colIdx] - node->scrollOffset.x;
         const float cellY = data->bodyViewportRect.y + static_cast<float>(rowIndex) * data->rowHeight - node->scrollOffset.y;
         const float cellW = data->resolvedColW[colIdx];
@@ -1062,7 +1062,7 @@ void Table::Arrange(
             );
 
             float totalChildrenW = 0.0f;
-            uint32_t numGrandChildren = 0;
+            keel::u32 numGrandChildren = 0;
             for (Node* gc = child->firstChild; gc != nullptr; gc = gc->nextSibling) {
                 const UiTheme& gcTheme = gc->theme ? *gc->theme : theme;
                 const Vec2 m = gc->measureFn
@@ -1227,13 +1227,13 @@ void Table::RenderBody(
 
         // Draw row backgrounds (zebra striping, tint, hover, selection, horizontal grid lines)
         for (const auto& rowRec : data->state->visibleRows) {
-            const size_t rIdx = rowRec.rowIndex;
+            const keel::usize rIdx = rowRec.rowIndex;
             const float rowY = data->bodyViewportRect.y + static_cast<float>(rIdx) * data->rowHeight - node->scrollOffset.y;
             const Rect rowRect(data->bodyViewportRect.x, rowY, data->bodyViewportRect.w, data->rowHeight);
 
             if (!rowRect.Intersects(data->bodyViewportRect)) continue;
 
-            const int iRow = static_cast<int>(rIdx);
+            const keel::i32 iRow = static_cast<keel::i32>(rIdx);
             const bool isSelected = (data->state->selectedRow == iRow);
             const bool isHovered = data->opts.hoverableRows && (data->hoveredRow == iRow) && !rowRec.opts.disabled;
 
@@ -1294,7 +1294,7 @@ void Table::RenderBody(
                     );
                 }
             }
-            for (uint16_t i = 0; i < data->columnCount; ++i) {
+            for (keel::u16 i = 0; i < data->columnCount; ++i) {
                 const float divX = std::floor(
                     data->bodyViewportRect.x + data->resolvedColX[i] + data->resolvedColW[i] - node->scrollOffset.x
                 ) + 0.5f;
@@ -1310,11 +1310,11 @@ void Table::RenderBody(
         }
 
         // Draw full-height vertical resize guide line when hovering or dragging a column divider
-        const int activeDivCol = (data->state->resizingCol >= 0)
+        const keel::i32 activeDivCol = (data->state->resizingCol >= 0)
             ? data->state->resizingCol
             : data->hoveredDividerCol;
-        if (activeDivCol >= 0 && static_cast<uint16_t>(activeDivCol) < data->columnCount) {
-            const uint16_t colIdx = static_cast<uint16_t>(activeDivCol);
+        if (activeDivCol >= 0 && static_cast<keel::u16>(activeDivCol) < data->columnCount) {
+            const keel::u16 colIdx = static_cast<keel::u16>(activeDivCol);
             const float guideX = keel::clamp(
                 std::floor(data->bodyViewportRect.x + data->resolvedColX[colIdx] + data->resolvedColW[colIdx] - node->scrollOffset.x) + 0.5f,
                 data->bodyViewportRect.x + 1.0f,
@@ -1368,7 +1368,7 @@ void Table::RenderChromeAndScrollbars(
             canvas.DrawTextBox("#", numHdrRect, headerFontSize, pal.textMuted, 1.0f, 0.5f);
         }
 
-        for (uint16_t i = 0; i < data->columnCount; ++i) {
+        for (keel::u16 i = 0; i < data->columnCount; ++i) {
             const auto& col = data->columns[i];
             const float colX = data->headerRect.x + data->resolvedColX[i] - node->scrollOffset.x;
             const float colW = data->resolvedColW[i];
@@ -1376,8 +1376,8 @@ void Table::RenderChromeAndScrollbars(
 
             if (!colHdrRect.Intersects(data->headerRect)) continue;
 
-            const bool isHovered = (data->hoveredHeaderCol == static_cast<int>(i)) && col.sortable;
-            const bool isSorted = (data->state->sortColumn == static_cast<int>(i)) &&
+            const bool isHovered = (data->hoveredHeaderCol == static_cast<keel::i32>(i)) && col.sortable;
+            const bool isSorted = (data->state->sortColumn == static_cast<keel::i32>(i)) &&
                                   (data->state->sortDirection != TableSortDirection::None);
 
             if (isHovered) {
@@ -1445,8 +1445,8 @@ void Table::RenderChromeAndScrollbars(
 
             // Column divider line + resize handle highlight
             const float divX = keel::min(std::floor(colX + colW) + 0.5f, data->headerRect.Right() - 1.5f);
-            const bool dividerActive = (data->state->resizingCol == static_cast<int>(i)) ||
-                                       (data->hoveredDividerCol == static_cast<int>(i));
+            const bool dividerActive = (data->state->resizingCol == static_cast<keel::i32>(i)) ||
+                                       (data->hoveredDividerCol == static_cast<keel::i32>(i));
             const Color divCol = dividerActive ? pal.accent : pal.border;
             const float divThickness = dividerActive ? (2.0f * scale) : 1.0f;
             canvas.DrawLine(
@@ -1481,15 +1481,15 @@ void Table::RenderChromeAndScrollbars(
         );
 
         const float footerFontSize = ResolveTableFontSize(node->uiSize, theme, true);
-        const size_t totalRows = (data->opts.totalRows > 0)
+        const keel::usize totalRows = (data->opts.totalRows > 0)
             ? data->opts.totalRows
             : data->emittedRowCount;
 
         char summaryBuf[96]{};
         keel::StringRef summaryStr{"0 rows"};
         if (totalRows > 0) {
-            const size_t dispFirst = keel::min(totalRows, data->firstVisibleRow + 1);
-            const size_t dispLast = keel::min(totalRows, data->endVisibleRow);
+            const keel::usize dispFirst = keel::min(totalRows, data->firstVisibleRow + 1);
+            const keel::usize dispLast = keel::min(totalRows, data->endVisibleRow);
             if (data->state->selectedRow >= 0) {
                 summaryStr = keel::format_buf(
                     summaryBuf,

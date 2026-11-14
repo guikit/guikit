@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include "keel/core.h"
 #include "keel/optional.h"
 #include "keel/ref.h"
@@ -108,7 +106,7 @@ struct ProgressBarOptions {
     UiText tooltip{};                              ///< Optional floating tooltip text on hover
     UiText valueFormat{};                          ///< Format string for value (e.g. "%.0f %%", "%.1f dB"; empty = default numeric format)
     keel::Optional<double> peakHoldValue{keel::kNullOpt}; ///< Optional peak-hold marker value on the track (for VU/dB level meters)
-    uint32_t segments{0};                          ///< 0 = smooth continuous bar; >0 = segmented LED/VU level meter (e.g. 20 segments)
+    keel::u32 segments{0};                          ///< 0 = smooth continuous bar; >0 = segmented LED/VU level meter (e.g. 20 segments)
     float warningRatio{0.70f};                     ///< Normalized threshold [0..1] for Warning zone when multiZoneColor is true
     float dangerRatio{0.90f};                      ///< Normalized threshold [0..1] for Danger zone when multiZoneColor is true
     keel::Optional<float> trackHeight{keel::kNullOpt}; ///< Optional bar thickness override in points
@@ -143,7 +141,7 @@ public:
         Context& ctx,
         double* valDouble,
         float* valFloat,
-        int64_t* valInt,
+        keel::i64* valInt,
         double min,
         double max,
         const SliderOptions& opts = {},
@@ -191,17 +189,17 @@ class StepSlider {
 public:
     static Response Run(
         Context& ctx,
-        size_t* indexSizeT,
-        int* indexInt,
-        size_t totalSteps,
+        keel::usize* indexSizeT,
+        keel::i32* indexInt,
+        keel::usize totalSteps,
         const StepSliderOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
 
     static Vec2 Measure(
         const StepSliderOptions& opts,
-        size_t index,
-        size_t totalSteps,
+        keel::usize index,
+        keel::usize totalSteps,
         UiSize size,
         ICanvas* canvas,
         const UiTheme& theme,
@@ -209,8 +207,8 @@ public:
     );
     static Vec2 Measure(
         const StepSliderOptions& opts,
-        size_t index,
-        size_t totalSteps,
+        keel::usize index,
+        keel::usize totalSteps,
         UiSize size,
         ICanvas* canvas = nullptr,
         float availableWidth = 0.0f
@@ -219,8 +217,8 @@ public:
     static void Render(
         ICanvas& canvas,
         Rect bounds,
-        size_t index,
-        size_t totalSteps,
+        keel::usize index,
+        keel::usize totalSteps,
         const StepSliderOptions& opts,
         UiSize size,
         bool hovered,
@@ -240,8 +238,8 @@ public:
         double* highDouble,
         float* lowFloat,
         float* highFloat,
-        int64_t* lowInt,
-        int64_t* highInt,
+        keel::i64* lowInt,
+        keel::i64* highInt,
         double min,
         double max,
         const RangeSliderOptions& opts = {},
@@ -284,7 +282,7 @@ public:
         bool disabled,
         const UiTheme& theme,
         bool focused = false,
-        uint8_t activeThumb = 1
+        keel::u8 activeThumb = 1
     );
 };
 

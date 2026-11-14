@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include "guikit/core/control.hpp"
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
@@ -17,7 +15,7 @@ class Context;
 class ICanvas;
 
 /// Character filter mode for single-line InputField editing.
-enum class InputFilter : uint8_t {
+enum class InputFilter : keel::u8 {
     Any = 0,  ///< Accept all characters (default)
     Integer,  ///< Accept optional leading +/- and ASCII digits [0..9]
     Decimal,  ///< Accept optional leading +/-, digits, decimal '.', and optional 'e'/'E' exponent
@@ -41,7 +39,7 @@ struct InputFieldOptions {
     StateColor color{};                            ///< Optional focus ring & caret accent color override (e.g. StateColor::Danger() for validation error)
     StateColor background{StateColor::Surface()};  ///< Input box surface fill color (Surface/Default = on, None = off, or custom StateColor)
     Border border{};                               ///< Input box border stroke & corner radius configuration
-    size_t maxLength{0};                           ///< Maximum UTF-8 codepoint count allowed (0 = unlimited)
+    keel::usize maxLength{0};                           ///< Maximum UTF-8 codepoint count allowed (0 = unlimited)
     InputFilter filter{InputFilter::Any};          ///< Optional live character filter (Integer, Decimal, Hex)
     bool numericOnly{false};                       ///< Convenience alias for filter = InputFilter::Decimal when filter == InputFilter::Any
     bool selectAllOnFocus{false};                  ///< Automatically select the entire text buffer when the field gains focus
@@ -58,9 +56,9 @@ struct InputFieldOptions {
 struct InputFieldData {
     InputFieldOptions opts{};
     keel::StringRef displayText{};
-    size_t cursor{0};
-    size_t selStart{0};
-    size_t selEnd{0};
+    keel::usize cursor{0};
+    keel::usize selStart{0};
+    keel::usize selEnd{0};
     float scrollX{0.0f};
     float cursorWidth{1.5f};
     bool cursorVisible{true};
@@ -109,13 +107,13 @@ public:
         UiSize size,
         bool hovered = false,
         bool focused = false,
-        size_t cursor = 0,
+        keel::usize cursor = 0,
         bool disabled = false,
         bool cursorVisible = true,
         float cursorWidth = 1.5f,
         const UiTheme& theme = UiTheme::Dark(),
-        size_t selStart = 0,
-        size_t selEnd = 0,
+        keel::usize selStart = 0,
+        keel::usize selEnd = 0,
         float scrollX = 0.0f,
         bool showClearBtn = false,
         bool clearHovered = false,

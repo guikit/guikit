@@ -15,12 +15,12 @@ inline constexpr keel::StaticArray<keel::StringRef, 8> kPlainItems = {
 };
 
 struct SelectState {
-    int mode = 1; // 0 = Select, 1 = ComboBox (Searchable), 2 = Autocomplete (Editable), 3 = MultiSelect
-    size_t idx = 0;
+    keel::i32 mode = 1; // 0 = Select, 1 = ComboBox (Searchable), 2 = Autocomplete (Editable), 3 = MultiSelect
+    keel::usize idx = 0;
     keel::SmallString<128> customText{"Option Alpha"};
-    keel::SmallArray<size_t, 8> multiSelected = keel::SmallArray<size_t, 8>::from({0, 2, 5});
+    keel::SmallArray<keel::usize, 8> multiSelected = keel::SmallArray<keel::usize, 8>::from({0, 2, 5});
     keel::SmallString<128> placeholder{"Select or search..."};
-    uint32_t maxItems = 5;
+    keel::u32 maxItems = 5;
     bool clearable = true;
     bool richItems = true;
     bool hasPrefix = false;
@@ -61,7 +61,7 @@ void RenderSelectInspector(guikit::Context& ui, DemoContext&) {
     float maxItemsFloat = static_cast<float>(s_state.maxItems);
     if (auto el = ui.Element({.label = "Max Visible Menu Items"})) {
         if (ui.Slider(maxItemsFloat, 2.0f, 8.0f, {.valueFormat = "%.0f items", .step = 1.0f}).changed) {
-            s_state.maxItems = static_cast<uint32_t>(maxItemsFloat);
+            s_state.maxItems = static_cast<keel::u32>(maxItemsFloat);
             ui.InvalidateAll();
         }
     }

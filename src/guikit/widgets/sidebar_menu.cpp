@@ -126,7 +126,7 @@ SidebarMenuScope SidebarMenu::Open(
 
 Response SidebarMenu::Run(
     Context& ctx,
-    int& activeIndex,
+    keel::i32& activeIndex,
     keel::ArrayRef<SidebarMenuItem> items,
     const SidebarMenuOptions& opts,
     keel::SourceLocation loc
@@ -134,15 +134,15 @@ Response SidebarMenu::Run(
     Response barRes{};
     if (auto scope = Open(ctx, opts, loc)) {
         barRes.id = scope.GetNode() ? scope.GetNode()->id : Id::Null();
-        for (size_t i = 0; i < items.size(); ++i) {
+        for (keel::usize i = 0; i < items.size(); ++i) {
             if (!items[i].section.empty()) {
                 scope.Section(items[i].section, true, loc);
             }
             SidebarMenuItem it = items[i];
-            it.active = (static_cast<int>(i) == activeIndex);
+            it.active = (static_cast<keel::i32>(i) == activeIndex);
             Response itemRes = scope.Item(it, loc);
-            if (itemRes.clicked && activeIndex != static_cast<int>(i)) {
-                activeIndex = static_cast<int>(i);
+            if (itemRes.clicked && activeIndex != static_cast<keel::i32>(i)) {
+                activeIndex = static_cast<keel::i32>(i);
                 barRes.clicked = true;
                 barRes.changed = true;
                 ctx.InvalidateAll();
@@ -215,14 +215,14 @@ Response SidebarMenu::Item(
     }
 
     node->visualHash = detail::HashArgs(
-        static_cast<uint8_t>(menuOpts.style),
+        static_cast<keel::u8>(menuOpts.style),
         menuOpts.collapsed,
         menuOpts.border,
         item.color.HasAny() ? item.color : menuOpts.color,
         item.active,
         effectiveDisabled,
-        static_cast<uint8_t>(data->item.icon.GetType()),
-        static_cast<uint8_t>(data->item.icon.GetId()),
+        static_cast<keel::u8>(data->item.icon.GetType()),
+        static_cast<keel::u8>(data->item.icon.GetId()),
         data->item.icon.GetPath(),
         data->item.text,
         data->item.badge

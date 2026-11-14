@@ -28,7 +28,7 @@ SdlCanvas::SdlCanvas(SDL_Renderer* renderer) noexcept
 {
 }
 
-void SdlCanvas::Begin(uint32_t width, uint32_t height, float scale) {
+void SdlCanvas::Begin(keel::u32 width, keel::u32 height, float scale) {
     m_width = width;
     m_height = height;
     m_scale = (scale > 0.0f) ? scale : 1.0f;
@@ -94,10 +94,10 @@ void SdlCanvas::ApplyActiveClip() {
     } else {
         const Rect& cr = m_clipStack.back();
         const SDL_Rect sdlR{
-            static_cast<int>(std::floor(cr.x)),
-            static_cast<int>(std::floor(cr.y)),
-            static_cast<int>(std::ceil(cr.w)),
-            static_cast<int>(std::ceil(cr.h))
+            static_cast<keel::i32>(std::floor(cr.x)),
+            static_cast<keel::i32>(std::floor(cr.y)),
+            static_cast<keel::i32>(std::ceil(cr.w)),
+            static_cast<keel::i32>(std::ceil(cr.h))
         };
         SDL_SetRenderClipRect(m_renderer, &sdlR);
     }
@@ -138,13 +138,13 @@ void SdlCanvas::DrawRoundRect(
     }
 
     // Tessellate rounded perimeter using 6 segments per corner
-    constexpr int kSegmentsPerCorner = 6;
-    constexpr int kPerimeterPoints = kSegmentsPerCorner * 4;
+    constexpr keel::i32 kSegmentsPerCorner = 6;
+    constexpr keel::i32 kPerimeterPoints = kSegmentsPerCorner * 4;
 
     keel::SmallArray<SDL_FPoint, kPerimeterPoints + 1> perimeter;
 
     const auto addArc = [&](float cx, float cy, float startAngle, float endAngle) {
-        for (int i = 0; i < kSegmentsPerCorner; ++i) {
+        for (keel::i32 i = 0; i < kSegmentsPerCorner; ++i) {
             const float t = static_cast<float>(i) / static_cast<float>(kSegmentsPerCorner);
             const float angle = startAngle + t * (endAngle - startAngle);
             perimeter.push_back(SDL_FPoint{
@@ -177,8 +177,8 @@ void SdlCanvas::DrawRoundRect(
             vertices.push_back(SDL_Vertex{pt, fcol, {0.0f, 0.0f}});
         }
 
-        keel::SmallArray<int, kPerimeterPoints * 3> indices;
-        for (int i = 0; i < kPerimeterPoints; ++i) {
+        keel::SmallArray<keel::i32, kPerimeterPoints * 3> indices;
+        for (keel::i32 i = 0; i < kPerimeterPoints; ++i) {
             indices.push_back(0); // center
             indices.push_back(i + 1);
             indices.push_back(((i + 1) % kPerimeterPoints) + 1);
@@ -188,9 +188,9 @@ void SdlCanvas::DrawRoundRect(
             m_renderer,
             nullptr,
             vertices.data(),
-            static_cast<int>(vertices.size()),
+            static_cast<keel::i32>(vertices.size()),
             indices.data(),
-            static_cast<int>(indices.size())
+            static_cast<keel::i32>(indices.size())
         );
     }
 
@@ -198,7 +198,7 @@ void SdlCanvas::DrawRoundRect(
         SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_BLEND);
         SDL_SetRenderDrawColor(m_renderer, stroke.r, stroke.g, stroke.b, stroke.a);
         perimeter.push_back(perimeter.front()); // Close loop
-        SDL_RenderLines(m_renderer, perimeter.data(), static_cast<int>(perimeter.size()));
+        SDL_RenderLines(m_renderer, perimeter.data(), static_cast<keel::i32>(perimeter.size()));
     }
 }
 
@@ -280,7 +280,7 @@ void SdlCanvas::DrawLine(Vec2 p1, Vec2 p2, Color color, float strokeWidth) {
 }
 
 void SdlCanvas::DrawTexture(
-    uint64_t textureId,
+    keel::u64 textureId,
     Rect destRect,
     keel::Optional<Rect> srcRect,
     Color tint

@@ -9,7 +9,7 @@ struct SpinBoxState {
     float maxVal = 500.0f;
     float step = 2.5f;
     guikit::SpinBoxStepStyle stepStyle = guikit::SpinBoxStepStyle::Detached;
-    int iconStyleIdx = 0; // 0 = Minus/Plus, 1 = Chevrons, 2 = Arrows
+    keel::i32 iconStyleIdx = 0; // 0 = Minus/Plus, 1 = Chevrons, 2 = Arrows
     bool showFillBar = true;
     keel::SmallString<64> prefix{""};
     keel::SmallString<64> suffix{"MHz"};
@@ -31,7 +31,7 @@ constexpr keel::StringRef StepStyleEnumName(guikit::SpinBoxStepStyle style) noex
 
 void RenderSpinBoxInspector(guikit::Context& ui, DemoContext&) {
     static constexpr keel::StaticArray<keel::StringRef, 4> stepStyleLabels = {"None", "Inline", "Detached", "Split"};
-    int styleIdx = static_cast<int>(s_state.stepStyle);
+    keel::i32 styleIdx = static_cast<keel::i32>(s_state.stepStyle);
     if (auto el = ui.Element({
         .label = "Stepper Style (- / +)",
         .description = "None, Inline inside box, Detached square buttons after box, or Split sides"
@@ -67,7 +67,7 @@ void RenderSpinBoxInspector(guikit::Context& ui, DemoContext&) {
     }
 
     static constexpr keel::StaticArray<keel::StringRef, 3> cursorModes = {"Blinking", "Solid", "Hidden"};
-    size_t curIdx = (s_state.cursorMode == guikit::CursorBlinkMode::Solid) ? 1 : ((s_state.cursorMode == guikit::CursorBlinkMode::Hidden) ? 2 : 0);
+    keel::usize curIdx = (s_state.cursorMode == guikit::CursorBlinkMode::Solid) ? 1 : ((s_state.cursorMode == guikit::CursorBlinkMode::Hidden) ? 2 : 0);
     if (auto el = ui.Element({.label = "Cursor Blink Mode"})) {
         if (ui.StepSlider(curIdx, cursorModes, {.showTicks = true, .showLabels = true}).changed) {
             s_state.cursorMode = (curIdx == 1) ? guikit::CursorBlinkMode::Solid : ((curIdx == 2) ? guikit::CursorBlinkMode::Hidden : guikit::CursorBlinkMode::Blinking);

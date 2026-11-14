@@ -7,7 +7,7 @@
 #include "guikit/panels/scroll_area.hpp"
 #include "keel/keel.h"
 
-static int g_failures = 0;
+static keel::i32 g_failures = 0;
 
 #define CHECK(cond)                                                         \
     do {                                                                    \
@@ -301,7 +301,7 @@ void TestWrapContainer() {
 
     // 4 items: each fixedWidth = 80, fixedHeight = 30
     Node* items[4];
-    for (int i = 0; i < 4; ++i) {
+    for (keel::i32 i = 0; i < 4; ++i) {
         items[i] = arena.create<Node>();
         items[i]->widthMode = SizeMode::Fixed;
         items[i]->heightMode = SizeMode::Fixed;
@@ -347,7 +347,7 @@ void TestWrapContainer() {
     // 4 lines! Height = 4 * 30 + 3 * 12 = 120 + 36 = 156
     Solver::Arrange(wrap, Rect(0.0f, 0.0f, 100.0f, 200.0f));
     CHECK_NEAR(wrap->computedRect.h, 156.0f, 0.001f);
-    for (int i = 0; i < 4; ++i) {
+    for (keel::i32 i = 0; i < 4; ++i) {
         CHECK_NEAR(items[i]->computedRect.x, 0.0f, 0.001f);
         CHECK_NEAR(items[i]->computedRect.y, static_cast<float>(i * (30 + 12)), 0.001f);
     }
@@ -373,7 +373,7 @@ void TestWrapInColumnWithSpacer() {
     wrap->gap = 10.0f;
     wrap->runGap = 12.0f;
 
-    for (int i = 0; i < 4; ++i) {
+    for (keel::i32 i = 0; i < 4; ++i) {
         Node* item = arena.create<Node>();
         item->widthMode = SizeMode::Fixed;
         item->heightMode = SizeMode::Fixed;
@@ -708,7 +708,7 @@ void TestStretchColumnInConstrainedRowWithHugeContent() {
     carousel->payload = cData;
 
     // Add 10 tabs, each 150px wide = 1500px + 90px gap = 1590px total
-    for (int i = 0; i < 10; ++i) {
+    for (keel::i32 i = 0; i < 10; ++i) {
         Node* tab = arena.create<Node>();
         tab->widthMode = SizeMode::Fixed;
         tab->fixedWidth = 150.0f;
@@ -792,7 +792,7 @@ void TestCarouselArrowScaling() {
     auto* d1 = arena.create<CarouselData>();
     c1->payload = d1;
 
-    for (int i = 0; i < 10; ++i) {
+    for (keel::i32 i = 0; i < 10; ++i) {
         Node* tab = arena.create<Node>();
         tab->widthMode = SizeMode::Fixed;
         tab->fixedWidth = 100.0f;
@@ -821,7 +821,7 @@ void TestCarouselArrowScaling() {
     auto* d2 = arena.create<CarouselData>();
     c2->payload = d2;
 
-    for (int i = 0; i < 10; ++i) {
+    for (keel::i32 i = 0; i < 10; ++i) {
         Node* tab = arena.create<Node>();
         tab->widthMode = SizeMode::Fixed;
         tab->fixedWidth = 200.0f;
@@ -895,7 +895,7 @@ void TestRowEqualWidthsFitAndStretch() {
 
     const float widths[5] = {80.0f, 62.0f, 60.0f, 56.0f, 52.0f};
     Node* items[5]{};
-    for (int i = 0; i < 5; ++i) {
+    for (keel::i32 i = 0; i < 5; ++i) {
         Node* n = arena.create<Node>();
         n->widthMode = SizeMode::Fit;
         n->heightMode = SizeMode::Fixed;
@@ -920,7 +920,7 @@ void TestRowEqualWidthsFitAndStretch() {
 
     Solver::Arrange(fitRow, Rect(0.0f, 0.0f, 1000.0f, 40.0f));
     CHECK_NEAR(fitRow->computedRect.w, 432.0f, 0.001f);
-    for (int i = 0; i < 5; ++i) {
+    for (keel::i32 i = 0; i < 5; ++i) {
         CHECK_NEAR(items[i]->computedRect.w, 80.0f, 0.001f);
         CHECK_NEAR(items[i]->computedRect.x, static_cast<float>(i) * 88.0f, 0.001f);
     }
@@ -1173,7 +1173,7 @@ void TestScrollAreaMaxHeightWrapFitAndDeepTreeGuard() {
     fitWrap->gap = 10.0f;
     fitWrap->runGap = 8.0f;
 
-    for (int i = 0; i < 2; ++i) {
+    for (keel::i32 i = 0; i < 2; ++i) {
         Node* chip = arena.create<Node>();
         chip->widthMode = SizeMode::Fixed;
         chip->fixedWidth = 90.0f;
@@ -1192,7 +1192,7 @@ void TestScrollAreaMaxHeightWrapFitAndDeepTreeGuard() {
     // 3. Deep nesting recursion guard (> 128 levels) completes safely without unbounded recursion
     Node* deepRoot = arena.create<Node>();
     Node* cur = deepRoot;
-    for (int d = 0; d < 160; ++d) {
+    for (keel::i32 d = 0; d < 160; ++d) {
         Node* next = arena.create<Node>();
         next->direction = FlexDirection::Column;
         next->widthMode = SizeMode::Stretch;
@@ -1210,7 +1210,7 @@ void TestGapDpAndContainerSizingConstraints() {
 
     class LayoutMockCanvas final : public ICanvas {
     public:
-        void Begin(uint32_t, uint32_t, float s = 1.0f) override { m_scale = s; }
+        void Begin(keel::u32, keel::u32, float s = 1.0f) override { m_scale = s; }
         void End() override {}
         [[nodiscard]] float GetScale() const noexcept override { return m_scale; }
         void SetScale(float s) override { m_scale = s; }

@@ -121,10 +121,10 @@ struct SpinBoxState {
     float scrollX{0.0f};
     double lastClickTime{-10.0};
     Vec2 lastClickPos{-1000.0f, -1000.0f};
-    int clickCount{0};
+    keel::i32 clickCount{0};
     bool draggingWord{false};
-    size_t wordDragStart{0};
-    size_t wordDragEnd{0};
+    keel::usize wordDragStart{0};
+    keel::usize wordDragEnd{0};
     bool actionBtnDown{false};
     bool minusBtnDown{false};
     bool plusBtnDown{false};
@@ -219,7 +219,7 @@ SpinBoxRects ResolveSpinBoxRects(
     };
 }
 
-size_t SnapToUtf8CodepointBoundary(keel::StringRef text, size_t idx) noexcept {
+keel::usize SnapToUtf8CodepointBoundary(keel::StringRef text, keel::usize idx) noexcept {
     idx = keel::min(idx, text.size());
     while (idx > 0 && idx < text.size() && (static_cast<unsigned char>(text[idx]) & 0xC0) == 0x80) {
         --idx;
@@ -237,7 +237,7 @@ double ClampNumericValue(double val, const SpinBoxOptions& opts) noexcept {
     return val;
 }
 
-double ReadNumericValue(float* floatValue, double* doubleValue, int64_t* intValue) noexcept {
+double ReadNumericValue(float* floatValue, double* doubleValue, keel::i64* intValue) noexcept {
     if (floatValue != nullptr) return static_cast<double>(*floatValue);
     if (doubleValue != nullptr) return *doubleValue;
     if (intValue != nullptr) return static_cast<double>(*intValue);
@@ -248,7 +248,7 @@ void WriteNumericValue(
     double nextVal,
     float* floatValue,
     double* doubleValue,
-    int64_t* intValue,
+    keel::i64* intValue,
     const SpinBoxOptions& opts
 ) noexcept {
     const double clamped = ClampNumericValue(nextVal, opts);
@@ -257,21 +257,21 @@ void WriteNumericValue(
     } else if (doubleValue != nullptr) {
         *doubleValue = clamped;
     } else if (intValue != nullptr) {
-        *intValue = static_cast<int64_t>(std::llround(clamped));
+        *intValue = static_cast<keel::i64>(std::llround(clamped));
     }
 }
 
 void FormatNumericValue(
     char* valBuf,
-    size_t bufSize,
+    keel::usize bufSize,
     float* floatValue,
     double* doubleValue,
-    int64_t* intValue,
+    keel::i64* intValue,
     const SpinBoxOptions& opts
 ) noexcept {
     char fmtBuf[128]{};
     const keel::StringRef rawFmt = opts.valueFormat.text;
-    const size_t copyLen = keel::min(rawFmt.size(), sizeof(fmtBuf) - 1);
+    const keel::usize copyLen = keel::min(rawFmt.size(), sizeof(fmtBuf) - 1);
     if (copyLen > 0) {
         std::memcpy(fmtBuf, rawFmt.data(), copyLen);
     }
@@ -280,13 +280,13 @@ void FormatNumericValue(
     char convSpec = '\0';
     bool isLongLong = false;
     bool isLong = false;
-    for (size_t i = 0; i < copyLen; ++i) {
+    for (keel::usize i = 0; i < copyLen; ++i) {
         if (fmtBuf[i] == '%') {
             if (i + 1 < copyLen && fmtBuf[i + 1] == '%') {
                 ++i;
                 continue;
             }
-            for (size_t j = i + 1; j < copyLen; ++j) {
+            for (keel::usize j = i + 1; j < copyLen; ++j) {
                 const char c = fmtBuf[j];
                 if (c == 'l') {
                     if (isLong) isLongLong = true;
@@ -339,7 +339,7 @@ Response SpinBox::Run(
     Context& ctx,
     float* floatValue,
     double* doubleValue,
-    int64_t* intValue,
+    keel::i64* intValue,
     const SpinBoxOptions& opts,
     keel::SourceLocation loc
 ) {
@@ -483,8 +483,8 @@ Response SpinBox::Run(
         }
     }
 
-    size_t cursor = 0;
-    size_t selAnchor = 0;
+    keel::usize cursor = 0;
+    keel::usize selAnchor = 0;
     keel::StringRef displayText = valStr;
 
     if (isFocused || ctx.HasActiveTextEdit(id)) {
@@ -494,7 +494,7 @@ Response SpinBox::Run(
 
         if ((mouseJustPressed || res.pressed) && !state.actionBtnDown) {
             const float localX = (mousePos.x - textRect.x) + state.scrollX;
-            size_t hitIdx = TextUtil::HitTestIndex(currentEditText, localX, inputFont, canvas);
+            keel::usize hitIdx = TextUtil::HitTestIndex(currentEditText, localX, inputFont, canvas);
             hitIdx = SnapToUtf8CodepointBoundary(currentEditText, hitIdx);
 
             if (mouseJustPressed) {
@@ -511,14 +511,14 @@ Response SpinBox::Run(
                 if (state.clickCount == 1) {
                     state.draggingWord = false;
                     if (ctx.GetKeyModifiers().shift && wasFocused) {
-                        const size_t anchor = ctx.GetTextEditAnchor(id);
+                        const keel::usize anchor = ctx.GetTextEditAnchor(id);
                         ctx.SetTextEditCursor(id, hitIdx, anchor);
                     } else {
                         ctx.SetTextEditCursor(id, hitIdx, hitIdx);
                     }
                 } else if (state.clickCount == 2) {
-                    size_t wStart = 0;
-                    size_t wEnd = 0;
+                    keel::usize wStart = 0;
+                    keel::usize wEnd = 0;
                     TextUtil::SelectWordAt(currentEditText, hitIdx, wStart, wEnd);
                     wStart = SnapToUtf8CodepointBoundary(currentEditText, wStart);
                     wEnd = SnapToUtf8CodepointBoundary(currentEditText, wEnd);
@@ -534,8 +534,8 @@ Response SpinBox::Run(
                 if (state.clickCount >= 3) {
                     ctx.SetTextEditCursor(id, currentEditText.size(), 0);
                 } else if (state.draggingWord) {
-                    size_t wStart = 0;
-                    size_t wEnd = 0;
+                    keel::usize wStart = 0;
+                    keel::usize wEnd = 0;
                     TextUtil::SelectWordAt(currentEditText, hitIdx, wStart, wEnd);
                     wStart = SnapToUtf8CodepointBoundary(currentEditText, wStart);
                     wEnd = SnapToUtf8CodepointBoundary(currentEditText, wEnd);
@@ -545,7 +545,7 @@ Response SpinBox::Run(
                         ctx.SetTextEditCursor(id, wEnd, state.wordDragStart);
                     }
                 } else {
-                    const size_t anchor = ctx.GetTextEditAnchor(id);
+                    const keel::usize anchor = ctx.GetTextEditAnchor(id);
                     ctx.SetTextEditCursor(id, hitIdx, anchor);
                 }
             }
@@ -581,7 +581,7 @@ Response SpinBox::Run(
                 const long long i = std::strtoll(s.c_str(), &end, 10);
                 if (end != s.c_str()) {
                     const double clamped = ClampNumericValue(static_cast<double>(i), opts);
-                    *intValue = static_cast<int64_t>(std::llround(clamped));
+                    *intValue = static_cast<keel::i64>(std::llround(clamped));
                 }
             }
             res.changed = true;
@@ -600,7 +600,7 @@ Response SpinBox::Run(
         }
 
         if (rects.textRect.w > 0.0f && isFocused) {
-            const size_t safeCursor = keel::min(cursor, displayText.size());
+            const keel::usize safeCursor = keel::min(cursor, displayText.size());
             const float cursorX = TextUtil::MeasureWidth(displayText.substr(0, safeCursor), inputFont, canvas);
             const float fullTextW = TextUtil::MeasureWidth(displayText, inputFont, canvas);
             const float visibleW = keel::max(0.0f, rects.textRect.w - 2.0f);
@@ -619,8 +619,8 @@ Response SpinBox::Run(
         state.scrollX = 0.0f;
     }
 
-    const size_t selStart = keel::min(cursor, selAnchor);
-    const size_t selEnd = keel::max(cursor, selAnchor);
+    const keel::usize selStart = keel::min(cursor, selAnchor);
+    const keel::usize selEnd = keel::max(cursor, selAnchor);
 
     bool stepMinusDisabled = false;
     bool stepPlusDisabled = false;
@@ -659,9 +659,9 @@ Response SpinBox::Run(
     data->stepPlusDisabled = stepPlusDisabled;
     node->SetPayload(data);
     node->visualHash = detail::HashArgs(
-        static_cast<uint8_t>(optsCopy.align),
-        static_cast<uint8_t>(optsCopy.stretch),
-        static_cast<uint8_t>(optsCopy.stepStyle),
+        static_cast<keel::u8>(optsCopy.align),
+        static_cast<keel::u8>(optsCopy.stretch),
+        static_cast<keel::u8>(optsCopy.stepStyle),
         optsCopy.color,
         optsCopy.background,
         optsCopy.border,
@@ -684,11 +684,11 @@ Response SpinBox::Run(
         data->stepPlusPressed,
         data->stepMinusDisabled,
         data->stepPlusDisabled,
-        static_cast<uint8_t>(optsCopy.minusIcon.GetType()),
-        static_cast<uint8_t>(optsCopy.minusIcon.GetId()),
+        static_cast<keel::u8>(optsCopy.minusIcon.GetType()),
+        static_cast<keel::u8>(optsCopy.minusIcon.GetId()),
         optsCopy.minusIcon.GetPath(),
-        static_cast<uint8_t>(optsCopy.plusIcon.GetType()),
-        static_cast<uint8_t>(optsCopy.plusIcon.GetId()),
+        static_cast<keel::u8>(optsCopy.plusIcon.GetType()),
+        static_cast<keel::u8>(optsCopy.plusIcon.GetId()),
         optsCopy.plusIcon.GetPath(),
         optsCopy.prefix,
         optsCopy.suffix,
@@ -781,13 +781,13 @@ void SpinBox::Render(
     UiSize size,
     bool hovered,
     bool focused,
-    size_t cursor,
+    keel::usize cursor,
     bool disabled,
     bool cursorVisible,
     float cursorWidth,
     const UiTheme& theme,
-    size_t selStart,
-    size_t selEnd,
+    keel::usize selStart,
+    keel::usize selEnd,
     float scrollX,
     bool showStepBtns,
     bool stepMinusHovered,
@@ -993,8 +993,8 @@ void SpinBox::Render(
     canvas.PushClip(textRect);
 
     if (focused && !disabled && selStart != selEnd && !displayText.empty()) {
-        const size_t s0 = keel::min(keel::min(selStart, selEnd), displayText.size());
-        const size_t s1 = keel::min(keel::max(selStart, selEnd), displayText.size());
+        const keel::usize s0 = keel::min(keel::min(selStart, selEnd), displayText.size());
+        const keel::usize s1 = keel::min(keel::max(selStart, selEnd), displayText.size());
         if (s1 > s0) {
             const float x0 = textRect.x - scrollX + canvas.MeasureText(displayText.substr(0, s0), inputFont).x;
             const float x1 = textRect.x - scrollX + canvas.MeasureText(displayText.substr(0, s1), inputFont).x;
@@ -1016,7 +1016,7 @@ void SpinBox::Render(
     }
 
     if (focused && !disabled && !opts.readOnly && cursorVisible) {
-        const size_t safeCursor = keel::min(cursor, displayText.size());
+        const keel::usize safeCursor = keel::min(cursor, displayText.size());
         const keel::StringRef sub = displayText.substr(0, safeCursor);
         const float subW = canvas.MeasureText(sub, inputFont).x;
         const float caretX = textRect.x - scrollX + subW;

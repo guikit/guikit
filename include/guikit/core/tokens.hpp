@@ -1,15 +1,13 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/core/types.hpp"
 #include "guikit/graphics/icon.hpp"
 #include "keel/optional.h"
 
 namespace guikit {
 
-
 /// Semantic visual variants for colors, states, and emphasis across all widgets.
-enum class UiVariant : uint8_t {
+enum class UiVariant : keel::u8 {
     Default,    ///< Neutral base styling
     Primary,    ///< Primary brand/call-to-action color
     Secondary,  ///< Outline / subtle secondary action
@@ -22,7 +20,7 @@ enum class UiVariant : uint8_t {
 };
 
 /// Universal relative placement for companion elements (e.g. icons or value readouts inside controls).
-enum class Placement : uint8_t {
+enum class Placement : keel::u8 {
     Leading,    ///< Placed before primary element (left / start)
     Trailing,   ///< Placed after primary element (right / end)
     Top,        ///< Placed above primary element
@@ -31,7 +29,7 @@ enum class Placement : uint8_t {
 };
 
 /// Compound layout structure for UI elements with external labels/descriptions.
-enum class ElementLayout : uint8_t {
+enum class ElementLayout : keel::u8 {
     Stacked,  ///< Label on top, control in middle, Description on bottom
     Top,      ///< Label and Description above control
     Bottom,   ///< Label and Description below control
@@ -39,13 +37,13 @@ enum class ElementLayout : uint8_t {
 };
 
 /// Sequencing order between external label and interactive control in Inline layout.
-enum class InlineOrder : uint8_t {
+enum class InlineOrder : keel::u8 {
     LabelFirst,    ///< Label/text first (left / start), control second (right / end)
     ControlFirst   ///< Control first (left / start), label/text second (right / end)
 };
 
 /// Semantic heading hierarchy level for `Heading` and document typography (`Auto` inherits from active `UiSize`).
-enum class HeadingLevel : uint8_t {
+enum class HeadingLevel : keel::u8 {
     Auto = 0, ///< Driven by active `UiSize` (`Xs`..`Xl`) via `UiTheme::GetHeading(UiSize)`
     H1   = 1, ///< Primary page / document title (`UiTheme::GetHeading(HeadingLevel::H1)`)
     H2   = 2, ///< Major section heading (`UiTheme::GetHeading(HeadingLevel::H2)`)
@@ -56,14 +54,14 @@ enum class HeadingLevel : uint8_t {
 };
 
 /// Built-in separator placement for Heading.
-enum class HeadingSeparator : uint8_t {
+enum class HeadingSeparator : keel::u8 {
     None = 0,
     Bottom,   ///< Horizontal separator line underneath the heading
     Trailing  ///< Inline horizontal separator line flanking/trailing the label bar
 };
 
 /// 6x3 Typographic Role Matrix (Material 3 scale extended for desktop/engineering).
-enum class TextRole : uint8_t {
+enum class TextRole : keel::u8 {
     // Display (hero metrics, large gauges, KPI counters)
     DisplayLarge,   ///< 40px / LH 48px
     DisplayMedium,  ///< 32px / LH 40px
@@ -96,7 +94,7 @@ enum class TextRole : uint8_t {
 };
 
 /// Semantic theme token tag carried by `StateColor` presets so `UiTheme` can resolve Light/Dark palette variants.
-enum class StateColorToken : uint8_t {
+enum class StateColorToken : keel::u8 {
     Custom = 0,
     Primary,
     Secondary,
@@ -121,8 +119,8 @@ struct StateColor {
     keel::Optional<Color> active{keel::kNullOpt};   ///< Pressed / checked / focused / filled state color
     keel::Optional<Color> disabled{keel::kNullOpt}; ///< Disabled state color
     StateColorToken token{StateColorToken::Custom}; ///< Optional semantic theme token resolved via UiTheme
-    uint8_t surfaceTint{255};                       ///< Surface mix weight (255 = pure color, 0 = pure theme surface)
-    uint8_t alphaScale{255};                        ///< Post-resolve alpha multiplier (255 = 100% opacity, 0 = 0% opacity)
+    keel::u8 surfaceTint{255};                       ///< Surface mix weight (255 = pure color, 0 = pure theme surface)
+    keel::u8 alphaScale{255};                        ///< Post-resolve alpha multiplier (255 = 100% opacity, 0 = 0% opacity)
 
     [[nodiscard]] constexpr bool HasAny() const noexcept {
         return token != StateColorToken::Custom
@@ -137,7 +135,7 @@ struct StateColor {
     [[nodiscard]] constexpr StateColor Tinted(float amount = 0.14f) const noexcept {
         StateColor copy = *this;
         const float clamped = keel::clamp(amount, 0.0f, 1.0f);
-        copy.surfaceTint = static_cast<uint8_t>(clamped * 255.0f + 0.5f);
+        copy.surfaceTint = static_cast<keel::u8>(clamped * 255.0f + 0.5f);
         return copy;
     }
 
@@ -145,12 +143,12 @@ struct StateColor {
     [[nodiscard]] constexpr StateColor WithAlphaF(float factor) const noexcept {
         StateColor copy = *this;
         const float clamped = keel::clamp(factor, 0.0f, 1.0f);
-        copy.alphaScale = static_cast<uint8_t>(clamped * 255.0f + 0.5f);
+        copy.alphaScale = static_cast<keel::u8>(clamped * 255.0f + 0.5f);
         return copy;
     }
 
     /// Scales the resolved alpha channel using an 8-bit multiplier (`0..255`).
-    [[nodiscard]] constexpr StateColor WithAlpha(uint8_t alpha) const noexcept {
+    [[nodiscard]] constexpr StateColor WithAlpha(keel::u8 alpha) const noexcept {
         StateColor copy = *this;
         copy.alphaScale = alpha;
         return copy;
@@ -174,18 +172,18 @@ struct StateColor {
 
     [[nodiscard]] static constexpr Color BrightenColor(Color c) noexcept {
         return Color(
-            static_cast<uint8_t>(keel::min(255, static_cast<int>(c.r) + (255 - static_cast<int>(c.r)) / 5)),
-            static_cast<uint8_t>(keel::min(255, static_cast<int>(c.g) + (255 - static_cast<int>(c.g)) / 5)),
-            static_cast<uint8_t>(keel::min(255, static_cast<int>(c.b) + (255 - static_cast<int>(c.b)) / 5)),
+            static_cast<keel::u8>(keel::min(255, static_cast<keel::i32>(c.r) + (255 - static_cast<keel::i32>(c.r)) / 5)),
+            static_cast<keel::u8>(keel::min(255, static_cast<keel::i32>(c.g) + (255 - static_cast<keel::i32>(c.g)) / 5)),
+            static_cast<keel::u8>(keel::min(255, static_cast<keel::i32>(c.b) + (255 - static_cast<keel::i32>(c.b)) / 5)),
             c.a
         );
     }
 
     [[nodiscard]] static constexpr Color DarkenColor(Color c) noexcept {
         return Color(
-            static_cast<uint8_t>((static_cast<int>(c.r) * 82) / 100),
-            static_cast<uint8_t>((static_cast<int>(c.g) * 82) / 100),
-            static_cast<uint8_t>((static_cast<int>(c.b) * 82) / 100),
+            static_cast<keel::u8>((static_cast<keel::i32>(c.r) * 82) / 100),
+            static_cast<keel::u8>((static_cast<keel::i32>(c.g) * 82) / 100),
+            static_cast<keel::u8>((static_cast<keel::i32>(c.b) * 82) / 100),
             c.a
         );
     }
@@ -537,8 +535,8 @@ struct TextSize {
 /// Pure C++20 aggregate supporting designated initializers (`{.minLines = 1, .maxLines = 2}`)
 /// as well as semantic factory presets (`TextWrap::SingleLine()`, `TextWrap::Word()`, `TextWrap::Reserve(n)`, etc.).
 struct TextWrap {
-    uint8_t minLines{0}; ///< Minimum reserved vertical lines (0 = collapse when empty, >=1 = always reserve height)
-    uint8_t maxLines{1}; ///< Maximum visible lines (1 = single-line with "...", 0 = unlimited word-wrap, >1 = word-wrap capped at maxLines)
+    keel::u8 minLines{0}; ///< Minimum reserved vertical lines (0 = collapse when empty, >=1 = always reserve height)
+    keel::u8 maxLines{1}; ///< Maximum visible lines (1 = single-line with "...", 0 = unlimited word-wrap, >1 = word-wrap capped at maxLines)
     bool rich{false};    ///< Opt-in inline rich-text formatting (**bold**, *italic*, ~~strike~~, `code`, [link](url))
 
     /// Returns true if multi-line word wrapping is active (`maxLines == 0` unlimited or `maxLines > 1`).
@@ -547,39 +545,39 @@ struct TextWrap {
     }
 
     /// Single-line mode with "..." truncation on overflow. Optionally reserves `reserveLines` when empty.
-    [[nodiscard]] static constexpr TextWrap SingleLine(uint8_t reserveLines = 0) noexcept {
+    [[nodiscard]] static constexpr TextWrap SingleLine(keel::u8 reserveLines = 0) noexcept {
         return {.minLines = reserveLines, .maxLines = 1};
     }
 
     /// Multi-line word-wrapping mode (`maxLines = 0` means unlimited lines).
-    [[nodiscard]] static constexpr TextWrap Word(uint8_t minReserved = 0, uint8_t maxVisible = 0) noexcept {
+    [[nodiscard]] static constexpr TextWrap Word(keel::u8 minReserved = 0, keel::u8 maxVisible = 0) noexcept {
         return {.minLines = minReserved, .maxLines = maxVisible};
     }
 
     /// Multi-line word-wrapped inline rich-text mode (`**bold**`, `*italic*`, `` `code` ``, `~~strike~~`).
-    [[nodiscard]] static constexpr TextWrap Rich(uint8_t minReserved = 0, uint8_t maxVisible = 0) noexcept {
+    [[nodiscard]] static constexpr TextWrap Rich(keel::u8 minReserved = 0, keel::u8 maxVisible = 0) noexcept {
         return {.minLines = minReserved, .maxLines = maxVisible, .rich = true};
     }
 
     /// Single-line inline rich-text mode.
-    [[nodiscard]] static constexpr TextWrap RichSingleLine(uint8_t reserveLines = 0) noexcept {
+    [[nodiscard]] static constexpr TextWrap RichSingleLine(keel::u8 reserveLines = 0) noexcept {
         return {.minLines = reserveLines, .maxLines = 1, .rich = true};
     }
 
     /// Reserves vertical height for at least `n` lines even when the text is empty (prevents vertical layout shift).
     /// When `n == 1`, defaults to single-line mode with "..." truncation. When `n > 1`, enables word wrapping.
-    [[nodiscard]] static constexpr TextWrap Reserve(uint8_t n = 1) noexcept {
-        return {.minLines = n, .maxLines = (n == 1) ? uint8_t(1) : uint8_t(0)};
+    [[nodiscard]] static constexpr TextWrap Reserve(keel::u8 n = 1) noexcept {
+        return {.minLines = n, .maxLines = (n == 1) ? keel::u8(1) : keel::u8(0)};
     }
 
     /// Limits multi-line word wrapping to at most `n` lines (truncating the last visible line with "..."),
     /// while collapsing to 0 height when the text is empty.
-    [[nodiscard]] static constexpr TextWrap Max(uint8_t n) noexcept {
+    [[nodiscard]] static constexpr TextWrap Max(keel::u8 n) noexcept {
         return {.minLines = 0, .maxLines = n};
     }
 
     /// Reserves and caps height at exactly `n` lines (`minLines = n`, `maxLines = n`).
-    [[nodiscard]] static constexpr TextWrap Fixed(uint8_t n = 1) noexcept {
+    [[nodiscard]] static constexpr TextWrap Fixed(keel::u8 n = 1) noexcept {
         return {.minLines = n, .maxLines = n};
     }
 
@@ -740,7 +738,7 @@ struct UiText {
         copy.wrap.rich = r;
         return copy;
     }
-    [[nodiscard]] constexpr UiText Reserve(uint8_t n = 1) const noexcept {
+    [[nodiscard]] constexpr UiText Reserve(keel::u8 n = 1) const noexcept {
         return WithWrap(TextWrap::Reserve(n));
     }
 
@@ -749,7 +747,7 @@ struct UiText {
     [[nodiscard]] constexpr bool HasContentOrReserve() const noexcept {
         return !text.empty() || !variants.empty() || wrap.minLines > 0;
     }
-    [[nodiscard]] constexpr size_t length() const noexcept { return text.size(); }
+    [[nodiscard]] constexpr keel::usize length() const noexcept { return text.size(); }
     [[nodiscard]] constexpr const char* data() const noexcept { return text.data(); }
     [[nodiscard]] constexpr operator keel::StringRef() const noexcept { return text; }
 
@@ -1013,20 +1011,20 @@ struct HeadingMetrics {
 };
 
 /// Density scale for component metrics and touch targets.
-enum class Density : uint8_t {
+enum class Density : keel::u8 {
     Standard,  ///< Standard desktop productivity scale
     Compact,   ///< High-density engineering data / dense tabular workflows
     Touch      ///< Touch-friendly enlarged targets and generous spacing
 };
 
 /// Universal color theme modes.
-enum class ThemeMode : uint8_t {
+enum class ThemeMode : keel::u8 {
     Dark,
     Light
 };
 
 /// Architectural framing style for application shell chrome (Toolbar, Sidebar, ActivityBar, BottomPanel, StatusBar).
-enum class ShellStyle : uint8_t {
+enum class ShellStyle : keel::u8 {
     Docked = 0, ///< Flush edge-to-edge panels (0px outer padding, 0px panel gap, 0px radius, 1px inner-seam divider)
     Floating    ///< Detached floating islands (outer window padding, inter-panel gap, rounded corners, 4-sided border)
 };

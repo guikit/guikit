@@ -1,5 +1,4 @@
 #include <cmath>
-#include <cstdint>
 #include "../demo_context.hpp"
 
 namespace guikit::demo {
@@ -11,13 +10,13 @@ constexpr float kDegToRad = kPi / 180.0f;
 
 struct AttitudeDemoState {
     bool initialized{false};
-    int controlModeIndex{0};        // 0 = Mouse Follow (Direct), 1 = Virtual Stick (FBW 360 Roll), 2 = Autopilot Figure-8, 3 = Manual Sliders
-    int displayModeIndex{0};        // 0 = FullPFD, 1 = CompactADI, 2 = HudOverlay
-    int viewportModeIndex{1};       // 0 = Auto, 1 = FullBleed, 2 = RoundedDome, 3 = Circular
-    int referenceModeIndex{0};      // 0 = WesternMovingHorizon, 1 = EasternMovingAircraft (KPPI)
-    int colorSchemeIndex{0};        // 0 = GlassCockpit, 1 = HudGreen, 2 = TacticalDark
-    int fdStyleIndex{1};            // 0 = Off, 1 = SingleCueVBar, 2 = DualCueCrossbars
-    int aircraftSymbolIndex{0};     // 0 = GullWing, 1 = ClassicW, 2 = RussianSilhouette
+    keel::i32 controlModeIndex{0};        // 0 = Mouse Follow (Direct), 1 = Virtual Stick (FBW 360 Roll), 2 = Autopilot Figure-8, 3 = Manual Sliders
+    keel::i32 displayModeIndex{0};        // 0 = FullPFD, 1 = CompactADI, 2 = HudOverlay
+    keel::i32 viewportModeIndex{1};       // 0 = Auto, 1 = FullBleed, 2 = RoundedDome, 3 = Circular
+    keel::i32 referenceModeIndex{0};      // 0 = WesternMovingHorizon, 1 = EasternMovingAircraft (KPPI)
+    keel::i32 colorSchemeIndex{0};        // 0 = GlassCockpit, 1 = HudGreen, 2 = TacticalDark
+    keel::i32 fdStyleIndex{1};            // 0 = Off, 1 = SingleCueVBar, 2 = DualCueCrossbars
+    keel::i32 aircraftSymbolIndex{0};     // 0 = GullWing, 1 = ClassicW, 2 = RussianSilhouette
 
     // Primary Flight Telemetry
     float rollDeg{0.0f};
@@ -58,7 +57,7 @@ struct AttitudeDemoState {
     float fovPitchDeg{50.0f};
 
     double simTimeSec{0.0};
-    uint64_t lastWallNs{0};
+    keel::u64 lastWallNs{0};
     AttitudeViewResponse lastResp{};
 };
 
@@ -77,7 +76,7 @@ AttitudeDemoState s_att{};
 }
 
 void StepAttitudeSimulation(guikit::Context& ui, AttitudeDemoState& st) {
-    const uint64_t nowNs = keel::monotonic_ns();
+    const keel::u64 nowNs = keel::monotonic_ns();
     if (!st.initialized) {
         st.lastWallNs = nowNs;
         st.initialized = true;
@@ -475,11 +474,11 @@ keel::String GenerateAttitudeCode(const DemoContext& /*ctx*/) {
         "if (resp.cursorInsideAdi) {{\n"
         "    // Mouse stick telemetry: roll = {:.1f} deg, pitch = {:.1f} deg\n"
         "}}\n",
-        kModeEnums[static_cast<size_t>(keel::clamp(s_att.displayModeIndex, 0, 2))],
-        kViewportEnums[static_cast<size_t>(keel::clamp(s_att.viewportModeIndex, 0, 3))],
-        kRefEnums[static_cast<size_t>(keel::clamp(s_att.referenceModeIndex, 0, 1))],
-        kSchemeEnums[static_cast<size_t>(keel::clamp(s_att.colorSchemeIndex, 0, 2))],
-        kFdEnums[static_cast<size_t>(keel::clamp(s_att.fdStyleIndex, 0, 2))],
+        kModeEnums[static_cast<keel::usize>(keel::clamp(s_att.displayModeIndex, 0, 2))],
+        kViewportEnums[static_cast<keel::usize>(keel::clamp(s_att.viewportModeIndex, 0, 3))],
+        kRefEnums[static_cast<keel::usize>(keel::clamp(s_att.referenceModeIndex, 0, 1))],
+        kSchemeEnums[static_cast<keel::usize>(keel::clamp(s_att.colorSchemeIndex, 0, 2))],
+        kFdEnums[static_cast<keel::usize>(keel::clamp(s_att.fdStyleIndex, 0, 2))],
         s_att.rollDeg,
         s_att.pitchDeg,
         s_att.headingDeg,

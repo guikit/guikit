@@ -15,7 +15,7 @@ class Context;
 class ICanvas;
 
 /// Trigger mode for opening a ContextMenu popup.
-enum class ContextMenuTrigger : uint8_t {
+enum class ContextMenuTrigger : keel::u8 {
     RightClick = 0, ///< Opens on right mouse click within the trigger rect (positioned at cursor)
     LeftClick,      ///< Opens on left mouse click within the trigger rect (anchored below/above rect)
     Manual          ///< Controlled programmatically via external `bool& open`
@@ -54,7 +54,7 @@ struct ContextMenuOptions {
 
 /// Extended response returned by `ui.ContextMenu(...)`.
 struct ContextMenuResponse : public Response {
-    int clickedIndex{-1}; ///< Index of the menu item activated this frame (-1 if none)
+    keel::i32 clickedIndex{-1}; ///< Index of the menu item activated this frame (-1 if none)
     bool isOpen{false};   ///< True while the context menu popup is open
 };
 

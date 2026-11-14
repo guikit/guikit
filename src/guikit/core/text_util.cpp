@@ -10,20 +10,20 @@ namespace guikit {
 
 namespace {
 
-[[nodiscard]] inline bool IsUtf8LeadByte(uint8_t b) noexcept {
+[[nodiscard]] inline bool IsUtf8LeadByte(keel::u8 b) noexcept {
     return keel::utf8_is_lead_byte(b);
 }
 
-[[nodiscard]] size_t NextUtf8CharBoundary(keel::StringRef text, size_t index) noexcept {
+[[nodiscard]] keel::usize NextUtf8CharBoundary(keel::StringRef text, keel::usize index) noexcept {
     return keel::utf8_next_boundary(text, index);
 }
 
-[[nodiscard]] size_t ClampUtf8PrefixLength(keel::StringRef text, size_t maxBytes) noexcept {
+[[nodiscard]] keel::usize ClampUtf8PrefixLength(keel::StringRef text, keel::usize maxBytes) noexcept {
     if (text.size() <= maxBytes) {
         return text.size();
     }
-    size_t len = maxBytes;
-    while (len > 0 && !IsUtf8LeadByte(static_cast<uint8_t>(text[len]))) {
+    keel::usize len = maxBytes;
+    while (len > 0 && !IsUtf8LeadByte(static_cast<keel::u8>(text[len]))) {
         --len;
     }
     return len;
@@ -108,7 +108,7 @@ keel::FixedString<256> TextUtil::TruncateWithEllipsis(
     }
 
     if (MeasureStyledWidth(text, fontSize, canvas, style) <= maxWidth + kTextSubpixelTolerance) {
-        const size_t safeLen = ClampUtf8PrefixLength(text, keel::FixedString<256>::capacity());
+        const keel::usize safeLen = ClampUtf8PrefixLength(text, keel::FixedString<256>::capacity());
         out.set(keel::StringRef(text.data(), safeLen));
         return out;
     }
@@ -121,23 +121,23 @@ keel::FixedString<256> TextUtil::TruncateWithEllipsis(
     const float targetW = maxWidth - dotsW;
 
     // Collect all valid UTF-8 character end offsets
-    keel::SmallArray<size_t, 64> boundaries;
+    keel::SmallArray<keel::usize, 64> boundaries;
     boundaries.reserve(text.size() + 1);
     boundaries.push_back(0);
-    for (size_t i = 1; i <= text.size(); ++i) {
-        if (i == text.size() || IsUtf8LeadByte(static_cast<uint8_t>(text[i]))) {
+    for (keel::usize i = 1; i <= text.size(); ++i) {
+        if (i == text.size() || IsUtf8LeadByte(static_cast<keel::u8>(text[i]))) {
             boundaries.push_back(i);
         }
     }
 
     // Binary search over character boundaries
-    size_t low = 0;
-    size_t high = boundaries.size() - 1;
-    size_t bestIdx = 0;
+    keel::usize low = 0;
+    keel::usize high = boundaries.size() - 1;
+    keel::usize bestIdx = 0;
 
     while (low <= high) {
-        const size_t mid = low + (high - low) / 2;
-        const size_t len = boundaries[mid];
+        const keel::usize mid = low + (high - low) / 2;
+        const keel::usize len = boundaries[mid];
         const float w = MeasureStyledWidth(text.substr(0, len), fontSize, canvas, style);
         if (w <= targetW) {
             bestIdx = mid;
@@ -148,8 +148,8 @@ keel::FixedString<256> TextUtil::TruncateWithEllipsis(
         }
     }
 
-    const size_t maxPrefix = keel::FixedString<256>::capacity() - 3;
-    const size_t bestLen = ClampUtf8PrefixLength(text.substr(0, boundaries[bestIdx]), maxPrefix);
+    const keel::usize maxPrefix = keel::FixedString<256>::capacity() - 3;
+    const keel::usize bestLen = ClampUtf8PrefixLength(text.substr(0, boundaries[bestIdx]), maxPrefix);
     out.set(keel::StringRef(text.data(), bestLen));
     out.append("...");
     return out;
@@ -166,9 +166,9 @@ keel::SmallArray<keel::StringRef, 16> TextUtil::WrapText(
         return lines;
     }
 
-    size_t lineStart = 0;
-    size_t i = 0;
-    const size_t n = text.size();
+    keel::usize lineStart = 0;
+    keel::usize i = 0;
+    const keel::usize n = text.size();
 
     while (i < n) {
         // Handle explicit newline
@@ -187,11 +187,11 @@ keel::SmallArray<keel::StringRef, 16> TextUtil::WrapText(
             continue;
         }
 
-        const size_t wordStart = i;
+        const keel::usize wordStart = i;
         while (i < n && text[i] != ' ' && text[i] != '\t' && text[i] != '\n') {
             i = NextUtf8CharBoundary(text, i);
         }
-        const size_t wordEnd = i;
+        const keel::usize wordEnd = i;
 
         // Try candidate line from lineStart to wordEnd
         const keel::StringRef candidate = text.substr(lineStart, wordEnd - lineStart);
@@ -205,7 +205,7 @@ keel::SmallArray<keel::StringRef, 16> TextUtil::WrapText(
         // Candidate does not fit
         if (wordStart > lineStart) {
             // Push previous content up to end of previous word
-            size_t prevEnd = wordStart;
+            keel::usize prevEnd = wordStart;
             while (prevEnd > lineStart && (text[prevEnd - 1] == ' ' || text[prevEnd - 1] == '\t')) {
                 --prevEnd;
             }
@@ -222,11 +222,11 @@ keel::SmallArray<keel::StringRef, 16> TextUtil::WrapText(
         }
 
         // Word is wider than maxWidth by itself: break it character by character
-        size_t chunkStart = lineStart;
+        keel::usize chunkStart = lineStart;
         while (chunkStart < wordEnd) {
-            size_t chunkEnd = keel::min(NextUtf8CharBoundary(text, chunkStart), wordEnd);
+            keel::usize chunkEnd = keel::min(NextUtf8CharBoundary(text, chunkStart), wordEnd);
             while (chunkEnd < wordEnd) {
-                const size_t nextBoundary = keel::min(NextUtf8CharBoundary(text, chunkEnd), wordEnd);
+                const keel::usize nextBoundary = keel::min(NextUtf8CharBoundary(text, chunkEnd), wordEnd);
                 if (nextBoundary <= chunkEnd) {
                     break;
                 }
@@ -287,7 +287,7 @@ float TextUtil::MeasureUiTextHeight(
         return 0.0f;
     }
 
-    size_t linesCount = keel::max<size_t>(1, text.wrap.minLines);
+    keel::usize linesCount = keel::max<keel::usize>(1, text.wrap.minLines);
 
     if (text.wrap.rich && text.wrap.IsWordWrap()) {
         static const UiTheme defaultTheme = UiTheme::Dark();
@@ -314,15 +314,15 @@ float TextUtil::MeasureUiTextHeight(
     }
 
     if (text.wrap.IsWordWrap()) {
-        auto countLinesFor = [&](keel::StringRef sv) -> size_t {
+        auto countLinesFor = [&](keel::StringRef sv) -> keel::usize {
             if (sv.empty()) {
                 return 0;
             }
             if (maxWidth > 0.0f) {
                 const auto wrapped = WrapText(sv, maxWidth, fontSize, canvas);
-                return keel::max<size_t>(1, wrapped.size());
+                return keel::max<keel::usize>(1, wrapped.size());
             }
-            size_t count = 1;
+            keel::usize count = 1;
             for (char ch : sv) {
                 if (ch == '\n') {
                     ++count;
@@ -337,8 +337,8 @@ float TextUtil::MeasureUiTextHeight(
         }
 
         if (text.wrap.maxLines > 0) {
-            linesCount = keel::min<size_t>(linesCount, text.wrap.maxLines);
-            linesCount = keel::max<size_t>(linesCount, text.wrap.minLines);
+            linesCount = keel::min<keel::usize>(linesCount, text.wrap.maxLines);
+            linesCount = keel::max<keel::usize>(linesCount, text.wrap.minLines);
         }
     }
 
@@ -409,13 +409,13 @@ void TextUtil::DrawUiText(
             ? 0.5f
             : singleLineAlignY;
 
-        const size_t nlPos = text.text.find('\n');
+        const keel::usize nlPos = text.text.find('\n');
         const keel::StringRef firstLine = (nlPos != keel::kInvalidIndex)
             ? text.text.substr(0, nlPos)
             : text.text;
 
         if (nlPos != keel::kInvalidIndex) {
-            const size_t copyLen = ClampUtf8PrefixLength(firstLine, keel::FixedString<256>::capacity() - 3);
+            const keel::usize copyLen = ClampUtf8PrefixLength(firstLine, keel::FixedString<256>::capacity() - 3);
             keel::FixedString<256> withDots(firstLine.data(), copyLen);
             withDots.append("...");
             if (MeasureWidth(withDots, fontSize, &canvas) <= drawRect.w + kTextSubpixelTolerance) {
@@ -446,27 +446,27 @@ void TextUtil::DrawUiText(
         return;
     }
 
-    const size_t heightFitLines = (lh > 0.0f)
-        ? static_cast<size_t>(keel::max(1.0f, std::floor((bounds.h + kTextSubpixelTolerance) / lh)))
+    const keel::usize heightFitLines = (lh > 0.0f)
+        ? static_cast<keel::usize>(keel::max(1.0f, std::floor((bounds.h + kTextSubpixelTolerance) / lh)))
         : lines.size();
-    const size_t maxAllowedLines = (text.wrap.maxLines > 0)
-        ? keel::min<size_t>(text.wrap.maxLines, heightFitLines)
+    const keel::usize maxAllowedLines = (text.wrap.maxLines > 0)
+        ? keel::min<keel::usize>(text.wrap.maxLines, heightFitLines)
         : heightFitLines;
-    const size_t visibleCount = keel::min(lines.size(), maxAllowedLines);
+    const keel::usize visibleCount = keel::min(lines.size(), maxAllowedLines);
 
-    for (size_t i = 0; i < visibleCount; ++i) {
+    for (keel::usize i = 0; i < visibleCount; ++i) {
         const Rect lineRect(bounds.x, bounds.y + static_cast<float>(i) * lh, bounds.w, lh);
         if (i + 1 == visibleCount && lines.size() > visibleCount) {
-            const size_t startOffset = static_cast<size_t>(lines[i].data() - text.text.data());
+            const keel::usize startOffset = static_cast<keel::usize>(lines[i].data() - text.text.data());
             const keel::StringRef tail = text.text.substr(startOffset);
-            const size_t nlPos = tail.find('\n');
+            const keel::usize nlPos = tail.find('\n');
             const keel::StringRef paragraphSlice = (nlPos != keel::kInvalidIndex) ? tail.substr(0, nlPos) : tail;
 
             keel::FixedString<256> truncated;
             if (MeasureWidth(paragraphSlice, fontSize, &canvas) > bounds.w + kTextSubpixelTolerance) {
                 truncated = TruncateWithEllipsis(paragraphSlice, bounds.w, fontSize, &canvas);
             } else {
-                const size_t copyLen = ClampUtf8PrefixLength(paragraphSlice, keel::FixedString<256>::capacity() - 3);
+                const keel::usize copyLen = ClampUtf8PrefixLength(paragraphSlice, keel::FixedString<256>::capacity() - 3);
                 keel::FixedString<256> withDots(paragraphSlice.data(), copyLen);
                 withDots.append("...");
                 if (MeasureWidth(withDots, fontSize, &canvas) <= bounds.w + kTextSubpixelTolerance) {
@@ -559,27 +559,27 @@ float TextUtil::DrawAffix(
     return curX - rowBounds.x;
 }
 
-size_t TextUtil::PrevCharBoundary(keel::StringRef text, size_t index) noexcept {
+keel::usize TextUtil::PrevCharBoundary(keel::StringRef text, keel::usize index) noexcept {
     return keel::utf8_prev_boundary(text, index);
 }
 
-size_t TextUtil::NextCharBoundary(keel::StringRef text, size_t index) noexcept {
+keel::usize TextUtil::NextCharBoundary(keel::StringRef text, keel::usize index) noexcept {
     return keel::utf8_next_boundary(text, index);
 }
 
-size_t TextUtil::PrevWordBoundary(keel::StringRef text, size_t index) noexcept {
+keel::usize TextUtil::PrevWordBoundary(keel::StringRef text, keel::usize index) noexcept {
     return keel::utf8_prev_word_boundary(text, index);
 }
 
-size_t TextUtil::NextWordBoundary(keel::StringRef text, size_t index) noexcept {
+keel::usize TextUtil::NextWordBoundary(keel::StringRef text, keel::usize index) noexcept {
     return keel::utf8_next_word_boundary(text, index);
 }
 
-void TextUtil::SelectWordAt(keel::StringRef text, size_t index, size_t& outStart, size_t& outEnd) noexcept {
+void TextUtil::SelectWordAt(keel::StringRef text, keel::usize index, keel::usize& outStart, keel::usize& outEnd) noexcept {
     keel::utf8_word_bounds_at(text, index, outStart, outEnd);
 }
 
-size_t TextUtil::HitTestIndex(
+keel::usize TextUtil::HitTestIndex(
     keel::StringRef text,
     float localX,
     float fontSize,
@@ -594,11 +594,11 @@ size_t TextUtil::HitTestIndex(
     }
 
     // Collect valid UTF-8 character boundary indices
-    keel::SmallArray<size_t, 64> boundaries;
+    keel::SmallArray<keel::usize, 64> boundaries;
     boundaries.reserve(text.size() + 1);
     boundaries.push_back(0);
-    for (size_t i = 1; i <= text.size(); ++i) {
-        if (i == text.size() || IsUtf8LeadByte(static_cast<uint8_t>(text[i]))) {
+    for (keel::usize i = 1; i <= text.size(); ++i) {
+        if (i == text.size() || IsUtf8LeadByte(static_cast<keel::u8>(text[i]))) {
             boundaries.push_back(i);
         }
     }
@@ -607,10 +607,10 @@ size_t TextUtil::HitTestIndex(
     }
 
     // Binary search for the character interval [boundaries[low], boundaries[low + 1]] containing localX
-    size_t low = 0;
-    size_t high = boundaries.size() - 1;
+    keel::usize low = 0;
+    keel::usize high = boundaries.size() - 1;
     while (low + 1 < high) {
-        const size_t mid = low + (high - low) / 2;
+        const keel::usize mid = low + (high - low) / 2;
         const float w = MeasureWidth(text.substr(0, boundaries[mid]), fontSize, canvas);
         if (w <= localX) {
             low = mid;
@@ -628,13 +628,13 @@ size_t TextUtil::HitTestIndex(
 bool TextUtil::FindCaseInsensitive(
     keel::StringRef haystack,
     keel::StringRef needle,
-    size_t& outBytePos,
-    size_t& outByteLen
+    keel::usize& outBytePos,
+    keel::usize& outByteLen
 ) noexcept {
     return keel::utf8_find_case_insensitive(haystack, needle, outBytePos, outByteLen);
 }
 
-size_t TextUtil::FindCaseInsensitive(keel::StringRef haystack, keel::StringRef needle) noexcept {
+keel::usize TextUtil::FindCaseInsensitive(keel::StringRef haystack, keel::StringRef needle) noexcept {
     return keel::utf8_find_case_insensitive(haystack, needle);
 }
 
@@ -644,8 +644,8 @@ void TextUtil::DrawHighlightedTextBox(
     Rect bounds,
     float fontSize,
     Color textColor,
-    size_t matchPos,
-    size_t matchLen,
+    keel::usize matchPos,
+    keel::usize matchLen,
     Color highlightFill,
     Color highlightBorder,
     float pillRadius,
@@ -665,7 +665,7 @@ void TextUtil::DrawHighlightedTextBox(
         matchLen > 0 &&
         matchPos < text.size() &&
         highlightFill.a > 0) {
-        const size_t safeEnd = keel::min(text.size(), matchPos + matchLen);
+        const keel::usize safeEnd = keel::min(text.size(), matchPos + matchLen);
         const float x0 = bounds.x + (matchPos == 0
             ? 0.0f
             : canvas.MeasureTextStyled(text.substr(0, matchPos), fontSize, style).x);

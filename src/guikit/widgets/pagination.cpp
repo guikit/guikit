@@ -12,7 +12,7 @@ namespace guikit {
 
 namespace {
 
-enum class PageTokenType : uint8_t {
+enum class PageTokenType : keel::u8 {
     First,
     Prev,
     PageNumber,
@@ -24,7 +24,7 @@ enum class PageTokenType : uint8_t {
 
 struct PageToken {
     PageTokenType type{PageTokenType::PageNumber};
-    size_t targetPage{0};
+    keel::usize targetPage{0};
     bool disabled{false};
 };
 
@@ -58,17 +58,17 @@ Color ResolveContrastingTextOnFill(Color fill, const ThemePalette& pal) noexcept
 /// Canonical fixed-slot pagination algorithm (2 * siblingCount + 5 page/ellipsis slots).
 /// Guarantees a constant token count across all pages so the pagination bar never shifts horizontally.
 void BuildPaginationTokens(
-    size_t currentPage,
-    size_t totalPages,
+    keel::usize currentPage,
+    keel::usize totalPages,
     const PaginationOptions& opts,
     keel::SmallArray<PageToken, 16>& outTokens
 ) {
     outTokens.clear();
-    const size_t safeTotal = keel::max<size_t>(1, totalPages);
-    const size_t curr = keel::min(currentPage, safeTotal - 1);
-    const size_t sib = static_cast<size_t>(opts.siblingCount);
-    const size_t jumpStep = keel::max<size_t>(5, sib * 2 + 3);
-    const size_t totalPageSlots = sib * 2 + 5;
+    const keel::usize safeTotal = keel::max<keel::usize>(1, totalPages);
+    const keel::usize curr = keel::min(currentPage, safeTotal - 1);
+    const keel::usize sib = static_cast<keel::usize>(opts.siblingCount);
+    const keel::usize jumpStep = keel::max<keel::usize>(5, sib * 2 + 3);
+    const keel::usize totalPageSlots = sib * 2 + 5;
 
     if (opts.showFirstLast) {
         outTokens.push_back(PageToken{
@@ -85,7 +85,7 @@ void BuildPaginationTokens(
         });
     }
 
-    auto pushPage = [&](size_t p) {
+    auto pushPage = [&](keel::usize p) {
         outTokens.push_back(PageToken{
             .type = PageTokenType::PageNumber,
             .targetPage = p,
@@ -94,7 +94,7 @@ void BuildPaginationTokens(
     };
 
     auto pushEllipsis = [&](bool isLeft) {
-        const size_t jumpTarget = isLeft
+        const keel::usize jumpTarget = isLeft
             ? ((curr > jumpStep) ? (curr - jumpStep) : 0)
             : keel::min(safeTotal - 1, curr + jumpStep);
         outTokens.push_back(PageToken{
@@ -105,37 +105,37 @@ void BuildPaginationTokens(
     };
 
     if (safeTotal <= totalPageSlots) {
-        for (size_t p = 0; p < safeTotal; ++p) {
+        for (keel::usize p = 0; p < safeTotal; ++p) {
             pushPage(p);
         }
     } else {
-        const size_t leftSibling = (curr > sib) ? (curr - sib) : 0;
-        const size_t rightSibling = keel::min(safeTotal - 1, curr + sib);
+        const keel::usize leftSibling = (curr > sib) ? (curr - sib) : 0;
+        const keel::usize rightSibling = keel::min(safeTotal - 1, curr + sib);
 
         const bool showLeftEllipsis = (leftSibling > 2);
         const bool showRightEllipsis = (rightSibling < safeTotal - 3);
 
         if (!showLeftEllipsis && showRightEllipsis) {
             // Left boundary window: show first (2 * sib + 3) pages + "..." + last page
-            const size_t leftItemCount = sib * 2 + 3;
-            for (size_t p = 0; p < leftItemCount; ++p) {
+            const keel::usize leftItemCount = sib * 2 + 3;
+            for (keel::usize p = 0; p < leftItemCount; ++p) {
                 pushPage(p);
             }
             pushEllipsis(false);
             pushPage(safeTotal - 1);
         } else if (showLeftEllipsis && !showRightEllipsis) {
             // Right boundary window: show first page + "..." + last (2 * sib + 3) pages
-            const size_t rightItemCount = sib * 2 + 3;
+            const keel::usize rightItemCount = sib * 2 + 3;
             pushPage(0);
             pushEllipsis(true);
-            for (size_t p = safeTotal - rightItemCount; p < safeTotal; ++p) {
+            for (keel::usize p = safeTotal - rightItemCount; p < safeTotal; ++p) {
                 pushPage(p);
             }
         } else {
             // Middle window: show first page + "..." + [leftSibling .. rightSibling] + "..." + last page
             pushPage(0);
             pushEllipsis(true);
-            for (size_t p = leftSibling; p <= rightSibling; ++p) {
+            for (keel::usize p = leftSibling; p <= rightSibling; ++p) {
                 pushPage(p);
             }
             pushEllipsis(false);
@@ -161,7 +161,7 @@ void BuildPaginationTokens(
 
 /// Uniform slot width based on the widest page number (totalPages) so switching between 1-digit and 2/3-digit pages never shifts the bar.
 float MeasureUniformSlotWidth(
-    size_t totalPages,
+    keel::usize totalPages,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme
@@ -170,27 +170,27 @@ float MeasureUniformSlotWidth(
     const float minBtnW = cm.defaultHeight;
 
     char buf[24];
-    std::snprintf(buf, sizeof(buf), "%zu", keel::max<size_t>(1, totalPages));
+    std::snprintf(buf, sizeof(buf), "%zu", keel::max<keel::usize>(1, totalPages));
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
     const float textW = TextUtil::MeasureWidth(buf, fontSize, canvas);
     const float padX = keel::max(theme.Scale(8.0f), cm.paddingX * 0.65f);
     return keel::max(minBtnW, std::ceil(textW + padX * 2.0f));
 }
 
-keel::StringRef FormatPageInfoText(size_t currentPage, size_t totalPages, char (&buf)[64]) noexcept {
-    const size_t safeTotal = keel::max<size_t>(1, totalPages);
-    const size_t curr = keel::min(currentPage, safeTotal - 1);
-    const int n = std::snprintf(buf, sizeof(buf), "Page %zu of %zu", curr + 1, safeTotal);
-    return (n > 0) ? keel::StringRef(buf, static_cast<size_t>(keel::min<int>(n, static_cast<int>(sizeof(buf) - 1)))) : keel::StringRef{};
+keel::StringRef FormatPageInfoText(keel::usize currentPage, keel::usize totalPages, char (&buf)[64]) noexcept {
+    const keel::usize safeTotal = keel::max<keel::usize>(1, totalPages);
+    const keel::usize curr = keel::min(currentPage, safeTotal - 1);
+    const keel::i32 n = std::snprintf(buf, sizeof(buf), "Page %zu of %zu", curr + 1, safeTotal);
+    return (n > 0) ? keel::StringRef(buf, static_cast<keel::usize>(keel::min<keel::i32>(n, static_cast<keel::i32>(sizeof(buf) - 1)))) : keel::StringRef{};
 }
 
 float MeasureReservedPageInfoWidth(
-    size_t totalPages,
+    keel::usize totalPages,
     UiSize size,
     ICanvas* canvas,
     const UiTheme& theme
 ) noexcept {
-    const size_t safeTotal = keel::max<size_t>(1, totalPages);
+    const keel::usize safeTotal = keel::max<keel::usize>(1, totalPages);
     char buf[64];
     const keel::StringRef maxInfoStr = FormatPageInfoText(safeTotal - 1, safeTotal, buf);
     const float fontSize = theme.GetFontSize(TextRole::LabelMedium, size);
@@ -198,8 +198,8 @@ float MeasureReservedPageInfoWidth(
 }
 
 Vec2 MeasurePaginationNaturalBox(
-    size_t currentPage,
-    size_t totalPages,
+    keel::usize currentPage,
+    keel::usize totalPages,
     const PaginationOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -233,8 +233,8 @@ Vec2 MeasurePaginationNaturalBox(
 
 void ComputePaginationLayout(
     Rect innerRect,
-    size_t currentPage,
-    size_t totalPages,
+    keel::usize currentPage,
+    keel::usize totalPages,
     const PaginationOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -289,7 +289,7 @@ void ComputePaginationLayout(
     }
 
     float curX = startX;
-    for (size_t i = 0; i < outTokens.size(); ++i) {
+    for (keel::usize i = 0; i < outTokens.size(); ++i) {
         if (i > 0) curX += effGap;
         outTokenRects.emplace_back(curX, innerRect.y, widths[i], innerRect.h);
         curX += widths[i];
@@ -320,8 +320,8 @@ void DrawDoubleChevron(
 } // namespace
 
 Vec2 Pagination::Measure(
-    size_t currentPage,
-    size_t totalPages,
+    keel::usize currentPage,
+    keel::usize totalPages,
     const PaginationOptions& opts,
     UiSize size,
     ICanvas* canvas,
@@ -334,24 +334,24 @@ Vec2 Pagination::Measure(
 
 Response Pagination::Run(
     Context& ctx,
-    int& currentPage,
-    int totalPages,
+    keel::i32& currentPage,
+    keel::i32 totalPages,
     const PaginationOptions& opts,
     keel::SourceLocation loc
 ) {
-    size_t curr = (currentPage >= 0) ? static_cast<size_t>(currentPage) : 0;
-    const size_t total = (totalPages > 0) ? static_cast<size_t>(totalPages) : 1;
+    keel::usize curr = (currentPage >= 0) ? static_cast<keel::usize>(currentPage) : 0;
+    const keel::usize total = (totalPages > 0) ? static_cast<keel::usize>(totalPages) : 1;
     Response res = Run(ctx, curr, total, opts, loc);
     if (res.changed) {
-        currentPage = static_cast<int>(curr);
+        currentPage = static_cast<keel::i32>(curr);
     }
     return res;
 }
 
 Response Pagination::Run(
     Context& ctx,
-    size_t& currentPage,
-    size_t totalPages,
+    keel::usize& currentPage,
+    keel::usize totalPages,
     const PaginationOptions& opts,
     keel::SourceLocation loc
 ) {
@@ -362,8 +362,8 @@ Response Pagination::Run(
     const UiTheme theme = ctx.GetTheme();
     ICanvas* canvas = ctx.GetCanvas();
 
-    const size_t safeTotal = keel::max<size_t>(1, totalPages);
-    size_t curr = keel::min(currentPage, safeTotal - 1);
+    const keel::usize safeTotal = keel::max<keel::usize>(1, totalPages);
+    keel::usize curr = keel::min(currentPage, safeTotal - 1);
 
     PaginationOptions optsCopy = opts;
     Control::InheritElementSizing(ctx, optsCopy.stretch, optsCopy.width, optsCopy.widthRatio);
@@ -380,8 +380,8 @@ Response Pagination::Run(
     Rect infoRect{};
     ComputePaginationLayout(innerBounds, curr, safeTotal, optsCopy, activeSize, canvas, theme, tokens, tokenRects, infoRect);
 
-    int hoveredToken = -1;
-    int pressedToken = -1;
+    keel::i32 hoveredToken = -1;
+    keel::i32 pressedToken = -1;
 
     if (effectiveDisabled) {
         res.clicked = false;
@@ -391,12 +391,12 @@ Response Pagination::Run(
     } else {
         const Vec2 mouse = ctx.GetMousePos();
         if (res.hovered || res.pressed || res.clicked) {
-            for (size_t i = 0; i < tokenRects.size(); ++i) {
+            for (keel::usize i = 0; i < tokenRects.size(); ++i) {
                 if (tokenRects[i].Contains(mouse)) {
                     if (!tokens[i].disabled) {
-                        hoveredToken = static_cast<int>(i);
+                        hoveredToken = static_cast<keel::i32>(i);
                         if (res.pressed) {
-                            pressedToken = static_cast<int>(i);
+                            pressedToken = static_cast<keel::i32>(i);
                         }
                     }
                     break;
@@ -406,8 +406,8 @@ Response Pagination::Run(
 
         if (res.clicked) {
             ctx.RequestFocus(id);
-            if (hoveredToken >= 0 && static_cast<size_t>(hoveredToken) < tokens.size()) {
-                const PageToken& tok = tokens[static_cast<size_t>(hoveredToken)];
+            if (hoveredToken >= 0 && static_cast<keel::usize>(hoveredToken) < tokens.size()) {
+                const PageToken& tok = tokens[static_cast<keel::usize>(hoveredToken)];
                 if (!tok.disabled && tok.targetPage < safeTotal && curr != tok.targetPage) {
                     curr = tok.targetPage;
                     currentPage = curr;
@@ -483,8 +483,8 @@ Response Pagination::Run(
         optsCopy.showPrevNext,
         optsCopy.showPageInfo,
         optsCopy.interactiveEllipsis,
-        static_cast<uint8_t>(optsCopy.stretch),
-        static_cast<uint8_t>(optsCopy.align),
+        static_cast<keel::u8>(optsCopy.stretch),
+        static_cast<keel::u8>(optsCopy.align),
         optsCopy.width.value_or(0.0f),
         optsCopy.height.value_or(0.0f),
         optsCopy.color,
@@ -546,13 +546,13 @@ void Pagination::Render(
 
     canvas.PushClip(bounds);
 
-    for (size_t i = 0; i < tokens.size(); ++i) {
+    for (keel::usize i = 0; i < tokens.size(); ++i) {
         const PageToken& tok = tokens[i];
         const Rect tr = tokenRects[i];
         const bool isEllipsis = (tok.type == PageTokenType::LeftEllipsis || tok.type == PageTokenType::RightEllipsis);
         const bool tokDisabled = disabled || tok.disabled;
-        const bool isHovered = !tokDisabled && (d->hoveredToken == static_cast<int>(i));
-        const bool isPressed = !tokDisabled && (d->pressedToken == static_cast<int>(i));
+        const bool isHovered = !tokDisabled && (d->hoveredToken == static_cast<keel::i32>(i));
+        const bool isPressed = !tokDisabled && (d->pressedToken == static_cast<keel::i32>(i));
         const bool isActivePage = (tok.type == PageTokenType::PageNumber) && (tok.targetPage == d->currentPage);
 
         const Color accentColor = d->opts.color.HasAny()

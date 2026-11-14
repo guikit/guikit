@@ -1,8 +1,6 @@
 #pragma once
 
 #include <cmath>
-#include <cstddef>
-#include <cstdint>
 #include "guikit/core/types.hpp"
 #include "guikit/geo/chart_data_source.hpp"
 #include "guikit/geo/map_grid.hpp"
@@ -16,7 +14,7 @@
 namespace guikit::geo {
 
 /// Standard OGC / RFC 7946 vector geometry classification.
-enum class GeometryType : uint8_t {
+enum class GeometryType : keel::u8 {
     Point = 0,
     MultiPoint,
     LineString,
@@ -56,7 +54,7 @@ enum class GeometryType : uint8_t {
 }
 
 /// Semantic IHO S-57 marine chart object classification (determines Z-order, SCAMIN & symbology).
-enum class ChartFeatureClass : uint8_t {
+enum class ChartFeatureClass : keel::u8 {
     CoverageMask = 0,       ///< M_COVR (coverage boundary only, no opaque fill)
     DepthArea,              ///< DEPARE, DRGARE (bathymetric polygons shaded by safety depth)
     SeabedOrMarineArea,     ///< SEAARE, SBDARE, HRBARE, PRCARE, ACHARE, TSEZNE, RESARE, CTNARE
@@ -118,8 +116,8 @@ struct GeoPolygon {
     guikit::GeoBounds bounds{};
     bool hasValidBounds{false};
 
-    [[nodiscard]] size_t VertexCount() const noexcept {
-        size_t total = exteriorRing.size();
+    [[nodiscard]] keel::usize VertexCount() const noexcept {
+        keel::usize total = exteriorRing.size();
         for (const auto& hole : interiorRings) {
             total += hole.size();
         }
@@ -144,7 +142,7 @@ struct GeoPolygon {
 /// Thread-safe, immutable decoded geometry payload (`keel::Arc<const DecodedGeometryPayload>`).
 /// Shared across background tile rasterizer threads and active window snapshots without deep-copying or data races.
 struct DecodedGeometryPayload {
-    int64_t featureId{0};
+    keel::i64 featureId{0};
     GeometryType type{GeometryType::MultiPolygon};
     keel::Array<guikit::GeoCoord> points{};
     keel::Array<keel::Array<guikit::GeoCoord>> lines{};
@@ -156,10 +154,10 @@ struct DecodedGeometryPayload {
     guikit::Rect normBounds{};
     guikit::GeoCoord centroid{};
     guikit::Vec2 normCentroid{};
-    uint32_t cachedVertexCount{0};
-    uint32_t cachedPolygonCount{0};
-    uint32_t cachedHoleCount{0};
-    uint32_t residentHeapBytes{0};
+    keel::u32 cachedVertexCount{0};
+    keel::u32 cachedPolygonCount{0};
+    keel::u32 cachedHoleCount{0};
+    keel::u32 residentHeapBytes{0};
 
     [[nodiscard]] DecodedGeometryPayload clone() const {
         DecodedGeometryPayload copy{};
@@ -185,7 +183,7 @@ struct DecodedGeometryPayload {
 
 /// Strongly-typed feature attribute value (GeoJSON property or GeoPackage SQLite column).
 struct AttributeValue {
-    enum class Kind : uint8_t {
+    enum class Kind : keel::u8 {
         Null = 0,
         Bool,
         Int,
@@ -199,7 +197,7 @@ struct AttributeValue {
 
     template <typename T>
         requires(keel::IsIntegral<T> && !keel::IsSame<keel::RemoveCv<T>, bool>)
-    AttributeValue(T i) noexcept : m_kind(Kind::Int), m_int(static_cast<int64_t>(i)) {}
+    AttributeValue(T i) noexcept : m_kind(Kind::Int), m_int(static_cast<keel::i64>(i)) {}
 
     AttributeValue(double d) noexcept : m_kind(Kind::Double), m_double(d) {}
     AttributeValue(float f) noexcept : m_kind(Kind::Double), m_double(static_cast<double>(f)) {}
@@ -261,9 +259,9 @@ struct AttributeValue {
     [[nodiscard]] constexpr bool as_bool() const noexcept {
         return m_kind == Kind::Bool ? m_bool : false;
     }
-    [[nodiscard]] constexpr int64_t as_int() const noexcept {
+    [[nodiscard]] constexpr keel::i64 as_int() const noexcept {
         if (m_kind == Kind::Int) return m_int;
-        if (m_kind == Kind::Double) return static_cast<int64_t>(m_double);
+        if (m_kind == Kind::Double) return static_cast<keel::i64>(m_double);
         return 0;
     }
     [[nodiscard]] constexpr double as_double() const noexcept {
@@ -274,7 +272,7 @@ struct AttributeValue {
     [[nodiscard]] keel::StringRef as_string() const noexcept {
         return m_kind == Kind::String ? m_str.as_ref() : keel::StringRef{};
     }
-    [[nodiscard]] size_t string_capacity() const noexcept {
+    [[nodiscard]] keel::usize string_capacity() const noexcept {
         return m_kind == Kind::String ? m_str.capacity() : 0;
     }
 
@@ -286,7 +284,7 @@ private:
     Kind m_kind{Kind::Null};
     union {
         bool m_bool;
-        int64_t m_int;
+        keel::i64 m_int;
         double m_double;
     };
     keel::String m_str{};
@@ -313,24 +311,24 @@ public:
     virtual ~IFeaturePager() = default;
 
     /// Fetches and parses the geometry payload (polygons/lines/Mercator LODs) for `sqliteRowId` into `ioFeature`.
-    virtual bool LoadFeatureGeometry(int64_t sqliteRowId, int defaultSrsId, GeoFeature& ioFeature) const = 0;
+    virtual bool LoadFeatureGeometry(keel::i64 sqliteRowId, keel::i32 defaultSrsId, GeoFeature& ioFeature) const = 0;
 
     /// Fetches all non-null SQLite attribute columns for `sqliteRowId` into `ioFeature.properties`.
-    virtual bool LoadFeatureProperties(int64_t sqliteRowId, GeoFeature& ioFeature) const = 0;
+    virtual bool LoadFeatureProperties(keel::i64 sqliteRowId, GeoFeature& ioFeature) const = 0;
 
     /// Thread-safe: returns a shared, immutable `DecodedGeometryPayload` for `featureId`, decoding it from
     /// the backing source (SQLite or HTTP) on the calling worker thread if not yet in cache.
     [[nodiscard]] virtual keel::Arc<const DecodedGeometryPayload> GetOrLoadGeometryPayload(
-        int64_t featureId,
-        int defaultSrsId,
-        uint64_t accessTick = 0
+        keel::i64 featureId,
+        keel::i32 defaultSrsId,
+        keel::u64 accessTick = 0
     ) const;
 
     /// Non-blocking O(1) RAM lookup: returns the cached `DecodedGeometryPayload` if already decoded in RAM,
     /// or `nullptr` without touching disk/network.
     [[nodiscard]] virtual keel::Arc<const DecodedGeometryPayload> TryGetCachedGeometryPayload(
-        int64_t featureId,
-        uint64_t accessTick = 0
+        keel::i64 featureId,
+        keel::u64 accessTick = 0
     ) const noexcept {
         (void)featureId;
         (void)accessTick;
@@ -360,7 +358,7 @@ public:
     /// If `activeGeneration` no longer matches `req.requestGeneration`, aborts early and returns `nullptr`.
     [[nodiscard]] virtual keel::Arc<SpatialWindowSnapshot> BuildSpatialWindowSnapshot(
         const SpatialWindowRequest& req,
-        const uint64_t* activeGeneration = nullptr
+        const keel::u64* activeGeneration = nullptr
     ) const {
         (void)req;
         (void)activeGeneration;
@@ -376,7 +374,7 @@ public:
         const guikit::Rect& normViewBox,
         float tileZoom,
         bool scaleFiltering,
-        uint64_t frameTick,
+        keel::u64 frameTick,
         keel::Array<guikit::Rect>* outDirtiedNormBoxes = nullptr) const {
         (void)ioLayer;
         (void)geoViewBounds;
@@ -389,13 +387,13 @@ public:
     }
 
     /// Returns current resident heap bytes held by this pager's internal spatial chunk & geometry caches.
-    [[nodiscard]] virtual size_t GetCachedChunkBytes() const noexcept { return 0; }
+    [[nodiscard]] virtual keel::usize GetCachedChunkBytes() const noexcept { return 0; }
 
     /// Returns total number of features currently held in this pager's internal spatial chunk cache.
-    [[nodiscard]] virtual size_t GetCachedFeatureCount() const noexcept { return 0; }
+    [[nodiscard]] virtual keel::usize GetCachedFeatureCount() const noexcept { return 0; }
 
     /// Evicts least-recently-used spatial chunks from the pager's internal cache to stay within `maxBytes`.
-    virtual size_t EvictChunksToBudget(size_t maxBytes, uint64_t protectedTick) const noexcept {
+    virtual keel::usize EvictChunksToBudget(keel::usize maxBytes, keel::u64 protectedTick) const noexcept {
         (void)maxBytes;
         (void)protectedTick;
         return 0;
@@ -407,7 +405,7 @@ public:
 
 /// Single geographic vector feature with geometry, pre-projected Mercator cache, and marine semantics.
 struct GeoFeature {
-    uint64_t uid{0};
+    keel::u64 uid{0};
     keel::String id{};          ///< Scene-unique interactive ID (e.g. "L1_F0")
     keel::String displayId{};   ///< Original feature ID or FID from GeoJSON / GPKG
     keel::String name{};        ///< Resolved human-readable label
@@ -425,14 +423,14 @@ struct GeoFeature {
     keel::String labelEn{};
 
     // Out-of-Core SQLite Spatial Paging & LRU Eviction state
-    int64_t sqliteRowId{0};                         ///< > 0 when backed by an on-disk SQLite .gpkg row
-    int32_t srsId{4326};                            ///< Source SRS ID for on-demand geometry decoding
-    uint32_t cachedVertexCount{0};                  ///< Preserved total vertex count even when geometry is evicted
-    uint32_t cachedPolygonCount{0};                 ///< Preserved polygon count even when geometry is evicted
-    uint32_t cachedHoleCount{0};                    ///< Preserved interior hole count even when geometry is evicted
+    keel::i64 sqliteRowId{0};                         ///< > 0 when backed by an on-disk SQLite .gpkg row
+    keel::i32 srsId{4326};                            ///< Source SRS ID for on-demand geometry decoding
+    keel::u32 cachedVertexCount{0};                  ///< Preserved total vertex count even when geometry is evicted
+    keel::u32 cachedPolygonCount{0};                 ///< Preserved polygon count even when geometry is evicted
+    keel::u32 cachedHoleCount{0};                    ///< Preserved interior hole count even when geometry is evicted
     const IFeaturePager* pager{nullptr};            ///< Non-owning pointer to parent GeoLayer's pager
-    mutable uint32_t residentHeapBytes{0};          ///< Dynamic heap footprint of currently loaded rings & properties
-    mutable uint64_t lastAccessTick{0};             ///< Frame/access tick for LRU geometry & property eviction
+    mutable keel::u32 residentHeapBytes{0};          ///< Dynamic heap footprint of currently loaded rings & properties
+    mutable keel::u64 lastAccessTick{0};             ///< Frame/access tick for LRU geometry & property eviction
     mutable bool geometryLoaded{true};              ///< False when polygon/line rings are unloaded from RAM
     mutable bool propertiesLoaded{true};            ///< False when full attribute dictionary is unloaded from RAM
 
@@ -471,19 +469,19 @@ struct GeoFeature {
     }
 
     /// Number of polygons in this feature (works even when geometry payload is currently paged out).
-    [[nodiscard]] size_t PolygonCount() const noexcept {
+    [[nodiscard]] keel::usize PolygonCount() const noexcept {
         if (!polygons.empty()) return polygons.size();
         if (sharedGeometry && !sharedGeometry->polygons.empty()) return sharedGeometry->polygons.size();
-        return static_cast<size_t>(cachedPolygonCount);
+        return static_cast<keel::usize>(cachedPolygonCount);
     }
 
     /// Ensures the vector geometry payload (`polygons`, `lines`, `normLines`, `normExterior`) is resident in RAM.
     /// Returns true if a page-in from SQLite actually occurred on this call.
-    bool EnsureGeometryLoaded(uint64_t accessTick = 0) const;
+    bool EnsureGeometryLoaded(keel::u64 accessTick = 0) const;
 
     /// Non-blocking O(1) check: if geometry is already loaded or cached in the pager's RAM cache,
     /// attaches it without touching disk/network and returns true. Never blocks on SQLite/HTTP!
-    bool TryEnsureGeometryLoadedNonBlocking(uint64_t accessTick = 0) const noexcept;
+    bool TryEnsureGeometryLoadedNonBlocking(keel::u64 accessTick = 0) const noexcept;
 
     /// Copies or moves decoded geometry fields from a `DecodedGeometryPayload` into this feature.
     void ApplyDecodedGeometryPayload(const DecodedGeometryPayload& payload) const;
@@ -493,10 +491,10 @@ struct GeoFeature {
 
     /// Ensures the full SQLite attribute dictionary (`properties`) is resident in RAM.
     /// Returns true if a page-in from SQLite actually occurred on this call.
-    bool EnsurePropertiesLoaded(uint64_t accessTick = 0) const;
+    bool EnsurePropertiesLoaded(keel::u64 accessTick = 0) const;
 
     /// Updates the LRU access timestamp without triggering I/O.
-    void TouchAccess(uint64_t accessTick) const noexcept {
+    void TouchAccess(keel::u64 accessTick) const noexcept {
         if (accessTick > 0) {
             lastAccessTick = accessTick;
         }
@@ -504,14 +502,14 @@ struct GeoFeature {
 
     /// Evicts heavy polygon/line vertex buffers from RAM (only if backed by an `IFeaturePager` with `sqliteRowId > 0`).
     /// Returns the number of heap bytes freed.
-    size_t UnloadGeometryPayload() const noexcept;
+    keel::usize UnloadGeometryPayload() const noexcept;
 
     /// Evicts the attribute dictionary from RAM (only if backed by an `IFeaturePager` with `sqliteRowId > 0`).
     /// Returns the number of heap bytes freed.
-    size_t UnloadPropertiesPayload() const noexcept;
+    keel::usize UnloadPropertiesPayload() const noexcept;
 
     /// Computes and updates `residentHeapBytes` for the currently loaded vertex rings and properties.
-    size_t RefreshResidentHeapBytes() const noexcept;
+    keel::usize RefreshResidentHeapBytes() const noexcept;
 
     /// Recomputes bounding box, centroid, Web Mercator pre-projection, and LODs.
     void RecomputeBoundsAndCentroid();
@@ -521,7 +519,7 @@ struct GeoFeature {
     void RecomputeNormalizedEnvelopeFromBounds() noexcept;
 
     /// Extracts marine chart metadata (`featureCode`, `chartClass`, depths, labels) and resolves `name`.
-    void ResolveDisplayName(size_t fallbackIndex, keel::StringRef layerHint = {});
+    void ResolveDisplayName(keel::usize fallbackIndex, keel::StringRef layerHint = {});
 
     /// Sets or updates a property key-value pair.
     void SetProperty(keel::StringRef key, AttributeValue val);
@@ -534,14 +532,14 @@ struct GeoFeature {
     [[nodiscard]] float GetPropertyFloat(keel::StringRef key) const noexcept;
 
     /// Total number of vertices across all points, lines, and polygon rings.
-    [[nodiscard]] size_t VertexCount() const noexcept;
-    [[nodiscard]] size_t TotalVertexCount() const noexcept { return VertexCount(); }
+    [[nodiscard]] keel::usize VertexCount() const noexcept;
+    [[nodiscard]] keel::usize TotalVertexCount() const noexcept { return VertexCount(); }
 
     /// Total number of triangulated fill triangles across all polygons.
-    [[nodiscard]] size_t TriangleCount() const noexcept;
+    [[nodiscard]] keel::usize TriangleCount() const noexcept;
 
     /// Total number of interior hole rings across all polygons.
-    [[nodiscard]] size_t HoleCount() const noexcept;
+    [[nodiscard]] keel::usize HoleCount() const noexcept;
 
     /// Case-insensitive full-text search across feature name, ID, feature code, and properties.
     [[nodiscard]] bool MatchesSearch(keel::StringRef query) const;
@@ -549,37 +547,37 @@ struct GeoFeature {
 
 /// Background spatial window request posted by the UI thread to `AsyncChartStreamer`.
 struct SpatialWindowRequest {
-    uint64_t layerUid{0};
-    int srsId{4326};
+    keel::u64 layerUid{0};
+    keel::i32 srsId{4326};
     guikit::GeoBounds layerBounds{};
     bool hasLayerBounds{false};
     ChartFeatureClass dominantClass{ChartFeatureClass::Generic};
-    uint32_t chartClassMask{0};
-    size_t savedPointCount{0};
-    size_t savedLineCount{0};
-    size_t savedPolygonCount{0};
+    keel::u32 chartClassMask{0};
+    keel::usize savedPointCount{0};
+    keel::usize savedLineCount{0};
+    keel::usize savedPolygonCount{0};
     guikit::GeoBounds viewBounds{};
     guikit::Rect normViewBox{};
     float tileZoom{10.0f};
     bool scaleFiltering{true};
-    uint64_t frameTick{0};
-    uint64_t requestGeneration{0};
+    keel::u64 frameTick{0};
+    keel::u64 requestGeneration{0};
 };
 
 /// Self-contained spatial window snapshot built off-thread by `IFeaturePager::BuildSpatialWindowSnapshot`.
 struct SpatialWindowSnapshot {
-    uint64_t layerUid{0};
-    uint64_t requestGeneration{0};
+    keel::u64 layerUid{0};
+    keel::u64 requestGeneration{0};
     keel::Array<GeoFeature> features{};
-    keel::RTree<uint32_t, float> spatialIndex{};
+    keel::RTree<keel::u32, float> spatialIndex{};
     keel::Array<guikit::Rect> dirtiedNormBoxes{};
-    size_t pointFeatureCount{0};
-    size_t lineFeatureCount{0};
-    size_t polygonFeatureCount{0};
-    size_t totalVertices{0};
+    keel::usize pointFeatureCount{0};
+    keel::usize lineFeatureCount{0};
+    keel::usize polygonFeatureCount{0};
+    keel::usize totalVertices{0};
     ChartFeatureClass dominantChartClass{ChartFeatureClass::Generic};
-    uint32_t chartClassMask{0};
-    size_t newlyPagedFeatures{0};
+    keel::u32 chartClassMask{0};
+    keel::usize newlyPagedFeatures{0};
     bool changed{false};
 };
 
@@ -601,46 +599,46 @@ using GeoLayerStyle = LayerStyle;
 
 /// Vector GIS layer loaded from a GeoJSON file or a GeoPackage (.gpkg) feature table.
 struct GeoLayer {
-    uint64_t uid{0};
+    keel::u64 uid{0};
     keel::String name{"Untitled Layer"};
     keel::String sourcePath{};
     keel::String format{"GeoJSON"}; ///< "GeoJSON" or "GeoPackage"
     keel::String tableName{};       ///< SQLite feature table name (for .gpkg)
-    int srsId{4326};                ///< Original spatial reference system ID (e.g. 4326, 3857, 3395)
+    keel::i32 srsId{4326};                ///< Original spatial reference system ID (e.g. 4326, 3857, 3395)
     bool visible{true};
     LayerStyle style{};
 
     keel::Arc<IFeaturePager> pager{};
     keel::Array<GeoFeature> features{};
-    keel::RTree<uint32_t, float> spatialIndex{};
+    keel::RTree<keel::u32, float> spatialIndex{};
     guikit::GeoBounds bounds{};
     guikit::Rect normBounds{};
     bool hasValidBounds{false};
 
     // Cached summary telemetry & semantic classification
-    size_t pointFeatureCount{0};
-    size_t lineFeatureCount{0};
-    size_t polygonFeatureCount{0};
-    size_t totalVertices{0};
-    size_t totalTriangles{0};
-    size_t estimatedTotalFeatures{0}; ///< Total rows in backing SQLite table (even when window-streamed)
-    uint64_t windowGeneration{0};     ///< Incremented whenever active window features are rebuilt
+    keel::usize pointFeatureCount{0};
+    keel::usize lineFeatureCount{0};
+    keel::usize polygonFeatureCount{0};
+    keel::usize totalVertices{0};
+    keel::usize totalTriangles{0};
+    keel::usize estimatedTotalFeatures{0}; ///< Total rows in backing SQLite table (even when window-streamed)
+    keel::u64 windowGeneration{0};     ///< Incremented whenever active window features are rebuilt
     bool isWindowStreamed{false};     ///< True when features are dynamically streamed per viewport window
     ChartFeatureClass dominantChartClass{ChartFeatureClass::Generic};
-    uint32_t chartClassMask{0};       ///< Bitmask of (1u << static_cast<uint8_t>(cls)) present in this layer
+    keel::u32 chartClassMask{0};       ///< Bitmask of (1u << static_cast<uint8_t>(cls)) present in this layer
 
     [[nodiscard]] GeoLayer clone() const;
 
     [[nodiscard]] bool HasChartClass(ChartFeatureClass cls) const noexcept {
-        return (chartClassMask & (1u << static_cast<uint8_t>(cls))) != 0u;
+        return (chartClassMask & (1u << static_cast<keel::u8>(cls))) != 0u;
     }
 
-    [[nodiscard]] bool IsExclusivelyChartClasses(uint32_t allowedMask) const noexcept {
+    [[nodiscard]] bool IsExclusivelyChartClasses(keel::u32 allowedMask) const noexcept {
         return chartClassMask != 0u && (chartClassMask & ~allowedMask) == 0u;
     }
 
     /// Assigns deterministic IDs, pre-projects Mercator LODs, builds the R-Tree spatial index, and computes telemetry.
-    void FinalizeLayer(uint64_t layerUid, bool forceTriangulateAll = false);
+    void FinalizeLayer(keel::u64 layerUid, bool forceTriangulateAll = false);
 
     /// Atomically swaps in a pre-built `SpatialWindowSnapshot` in O(1) time without rebuilding the R-Tree on the UI thread.
     bool ApplyWindowSnapshot(SpatialWindowSnapshot&& snapshot) noexcept;
@@ -655,7 +653,7 @@ struct GeoLayer {
     }
 
     /// Evicts all paged-in geometries & properties from RAM back to SQLite (returning freed bytes).
-    size_t EvictAllPagedPayloads() const noexcept;
+    keel::usize EvictAllPagedPayloads() const noexcept;
 };
 
 /// Coordinate Reference System (SRS) conversion and spatial bounding box utilities.
@@ -665,10 +663,10 @@ public:
     /// Supports EPSG:4326, 3857/900913, 3395, 32601..32660 (UTM N), 32701..32760 (UTM S),
     /// 20901..20960 & 7683 (GSK-2011), 28401..28432 / 28461..28492 & 4284 (Pulkovo 1942 / SK-42),
     /// 20001..20032 / 20061..20092 & 4200 (SK-95), 7679 (PZ-90.11), 3995 (Arctic Polar), and 3031 (Antarctic Polar).
-    [[nodiscard]] static guikit::GeoCoord ToWgs84(double x, double y, int srsId = 4326) noexcept;
+    [[nodiscard]] static guikit::GeoCoord ToWgs84(double x, double y, keel::i32 srsId = 4326) noexcept;
 
     /// Converts WGS84 (lat, lon) into target SRS coordinates (x, y) for any supported EPSG code.
-    [[nodiscard]] static guikit::GeoPlanar FromWgs84(guikit::GeoCoord coord, int srsId = 3857) noexcept;
+    [[nodiscard]] static guikit::GeoPlanar FromWgs84(guikit::GeoCoord coord, keel::i32 srsId = 3857) noexcept;
 
     /// Converts WGS84 (lat, lon) to Web Mercator (EPSG:3857) meters (x, y).
     [[nodiscard]] static guikit::GeoPlanar Wgs84ToWebMercatorMeters(guikit::GeoCoord coord) noexcept;
@@ -689,7 +687,7 @@ public:
     [[nodiscard]] static float EstimateFitTileZoom(const guikit::GeoBounds& bounds) noexcept;
 
     /// Returns a distinct, high-contrast cartographic layer color for a given palette index.
-    [[nodiscard]] static guikit::Color DefaultLayerColor(size_t paletteIndex) noexcept;
+    [[nodiscard]] static guikit::Color DefaultLayerColor(keel::usize paletteIndex) noexcept;
 
     /// Classifies an S-57 / OGC feature code (or thematic layer hint) into a `ChartFeatureClass`.
     [[nodiscard]] static ChartFeatureClass ClassifyFeatureCode(
@@ -702,7 +700,7 @@ public:
 /// Fast O(1)-hinted lookup of a `GeoFeature` by its 64-bit `uid` across a span of `GeoLayer`s.
 [[nodiscard]] const GeoFeature* FindFeatureByUid(
     keel::ArrayRef<GeoLayer> layers,
-    uint64_t uid,
+    keel::u64 uid,
     const GeoLayer** outLayer = nullptr
 ) noexcept;
 

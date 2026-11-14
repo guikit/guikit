@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include "guikit/geo/chart_data_source.hpp"
 #include "guikit/geo/geo_types.hpp"
 #include "guikit/panels/map_view.hpp"
@@ -11,7 +9,7 @@
 namespace guikit::geo {
 
 /// Marine chart color palette modes (S-52 ECDIS standard).
-enum class ChartPalette : uint8_t {
+enum class ChartPalette : keel::u8 {
     MarineDay = 0,      ///< Bright white deep water, vivid cyan/blue shallow bands, warm sand land
     MarineDusk = 1,     ///< Twilight bridge palette with muted bronze land and deep slate water
     MarineNight = 2,    ///< Dark bridge night-vision palette
@@ -36,22 +34,22 @@ using GisColorPalette = ChartPalette;
 
 /// Per-frame rendering telemetry for the GIS viewport.
 struct GisRenderStats {
-    size_t visibleLayers{0};
-    size_t totalFeatures{0};
-    size_t renderedFeatures{0};
-    size_t culledFeatures{0};
-    size_t renderedVertices{0};
-    size_t renderedTriangles{0};
-    size_t cachedTilesHit{0};
-    size_t cachedTilesRendered{0};
-    size_t cachedTilesPending{0};
-    size_t declutteredLabels{0};
-    size_t residentFeatureCount{0};          ///< Number of paged features currently holding resident geometry/properties in RAM
-    size_t residentFeatureBytes{0};          ///< Total dynamic heap bytes currently held by paged features in RAM
-    size_t pagedInFeaturesThisFrame{0};      ///< Features fetched on-demand from backing store during this frame
-    size_t evictedFeaturesTotal{0};          ///< Cumulative features evicted from RAM by the LRU memory manager
-    uint64_t hoveredFeatureUid{0};
-    uint64_t clickedFeatureUid{0};
+    keel::usize visibleLayers{0};
+    keel::usize totalFeatures{0};
+    keel::usize renderedFeatures{0};
+    keel::usize culledFeatures{0};
+    keel::usize renderedVertices{0};
+    keel::usize renderedTriangles{0};
+    keel::usize cachedTilesHit{0};
+    keel::usize cachedTilesRendered{0};
+    keel::usize cachedTilesPending{0};
+    keel::usize declutteredLabels{0};
+    keel::usize residentFeatureCount{0};          ///< Number of paged features currently holding resident geometry/properties in RAM
+    keel::usize residentFeatureBytes{0};          ///< Total dynamic heap bytes currently held by paged features in RAM
+    keel::usize pagedInFeaturesThisFrame{0};      ///< Features fetched on-demand from backing store during this frame
+    keel::usize evictedFeaturesTotal{0};          ///< Cumulative features evicted from RAM by the LRU memory manager
+    keel::u64 hoveredFeatureUid{0};
+    keel::u64 clickedFeatureUid{0};
 };
 
 /// Global rendering options for vector layers and S-57 / S-52 marine chart symbology.
@@ -74,10 +72,10 @@ struct GisRenderConfig {
     float deepContourM{10.0f};               ///< Deep water threshold in meters (default 10.0m)
 
     // --- Configurable Tile Engine & Asynchronous Background Streaming ---
-    uint32_t tileSizePx{256};                ///< Offscreen vector/raster tile resolution in pixels (128, 256, or 512)
+    keel::u32 tileSizePx{256};                ///< Offscreen vector/raster tile resolution in pixels (128, 256, or 512)
     float tileRenderBudgetMs{8.5f};          ///< Maximum milliseconds spent rasterizing new vector tiles per frame
-    uint32_t maxCompositeTiles{48};          ///< Maximum cached Tier-2 composite screen tiles
-    uint32_t maxLayerTiles{48};              ///< Maximum global cached Tier-1 pixel-bearing layer tiles
+    keel::u32 maxCompositeTiles{48};          ///< Maximum cached Tier-2 composite screen tiles
+    keel::u32 maxLayerTiles{48};              ///< Maximum global cached Tier-1 pixel-bearing layer tiles
     float featureCacheBudgetMb{64.0f};       ///< Maximum RAM budget (in MB) for resident Out-of-Core feature payloads
     bool asyncBackgroundStreaming{true};     ///< Stream spatial windows, geometries, and tiles on background worker threads
     bool showLoadingTilePlaceholders{true};  ///< Render animated cartographic placeholder overlay on tiles loading in background
@@ -93,10 +91,10 @@ struct GisRenderConfig {
     // --- Configurable Cartographic Labeling Policy ---
     bool showAreaFeatureLabels{true};        ///< Render text callouts on polygonal marine areas (SEAARE, SBDARE, etc.)
     bool hideMultiLineNotesOnMap{true};      ///< Suppress multi-sentence INFORM/TXTDSC cautionary notes (containing '|') from map surface
-    uint32_t maxMapLabelChars{48};           ///< Maximum characters displayed for a map callout label (0 = unlimited)
+    keel::u32 maxMapLabelChars{48};           ///< Maximum characters displayed for a map callout label (0 = unlimited)
     bool truncateLongLabels{true};           ///< Truncate labels exceeding maxMapLabelChars with "..." instead of dropping them
 
-    int32_t activeStyleLayerIdx{-1};         ///< Layer index currently open in the Style editor (-1 = none)
+    keel::i32 activeStyleLayerIdx{-1};         ///< Layer index currently open in the Style editor (-1 = none)
     ChartPalette chartPalette{ChartPalette::MarineDay};
 };
 
@@ -105,7 +103,7 @@ using GisRenderSettings = GisRenderConfig;
 /// High-performance vector GIS & S-52 marine chart rendering engine over `guikit::MapViewScope`.
 class GisRenderEngine {
 public:
-    using BreadcrumbCallback = void(*)(const char* stage, int z, int x, int y) noexcept;
+    using BreadcrumbCallback = void(*)(const char* stage, keel::i32 z, keel::i32 x, keel::i32 y) noexcept;
 
     /// Renders all visible `GeoLayer`s into `map`, using the R-Tree spatial index, `[z/x/y]` offscreen
     /// ICanvas vector tile cache, S-52 depth shading, screen-space label decluttering, and O(log N) hit-testing.
@@ -113,19 +111,19 @@ public:
         MapViewScope& map,
         keel::ArrayRef<GeoLayer> layers,
         const GisRenderConfig& cfg,
-        uint64_t& ioSelectedFeatureUid,
+        keel::u64& ioSelectedFeatureUid,
         bool lightMode = true
     );
 
     /// Enforces the Out-of-Core LRU memory budget across `layers`, evicting the least-recently-used
     /// feature geometries and attribute dictionaries whose `lastAccessTick < protectedTick` until
     /// resident heap usage is within `maxResidentBytes`. Returns the number of evicted features.
-    static size_t EnforceFeatureRamBudget(
+    static keel::usize EnforceFeatureRamBudget(
         keel::ArrayRef<GeoLayer> layers,
-        size_t maxResidentBytes,
-        uint64_t protectedTick = UINT64_MAX,
-        size_t* outResidentFeatures = nullptr,
-        size_t* outResidentBytes = nullptr
+        keel::usize maxResidentBytes,
+        keel::u64 protectedTick = ~keel::u64{0},
+        keel::usize* outResidentFeatures = nullptr,
+        keel::usize* outResidentBytes = nullptr
     );
 
     /// Explicitly clears the offscreen vector tile cache (e.g., when layers are reloaded or modified).
@@ -135,7 +133,7 @@ public:
     static void TrimInactiveCaches() noexcept;
 
     /// Waits until all background spatial window and tile rasterization worker threads are idle (for deterministic tests).
-    static bool WaitForBackgroundStreamingIdle(uint32_t timeoutMs = 5000);
+    static bool WaitForBackgroundStreamingIdle(keel::u32 timeoutMs = 5000);
 
     /// Computes the background water color for the active palette.
     [[nodiscard]] static Color GetWaterBackgroundColor(ChartPalette palette) noexcept;

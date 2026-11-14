@@ -4,7 +4,7 @@ namespace guikit::demo {
 
 namespace {
 struct TabBarState {
-    int idx = 0;
+    keel::i32 idx = 0;
     guikit::TabBarStyle style = guikit::TabBarStyle::Underline;
     float gap = 4.0f;
     bool showSep = true;
@@ -25,7 +25,7 @@ void RenderTabBarInspector(guikit::Context& ui, DemoContext& ctx) {
         }
     }
     static constexpr keel::StaticArray<keel::StringRef, 2> styleNames = {"Underline", "Pill"};
-    size_t styleIdx = (s_state.style == guikit::TabBarStyle::Pill) ? 1 : 0;
+    keel::usize styleIdx = (s_state.style == guikit::TabBarStyle::Pill) ? 1 : 0;
     if (auto el = ui.Element({.label = "TabBar Style"})) {
         if (ui.StepSlider(styleIdx, styleNames, {.showTicks = true, .showLabels = true}).changed) {
             s_state.style = (styleIdx == 1) ? guikit::TabBarStyle::Pill : guikit::TabBarStyle::Underline;

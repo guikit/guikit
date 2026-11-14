@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include "keel/core.h"
 #include "keel/optional.h"
 #include "keel/ref.h"
@@ -18,12 +17,12 @@ struct Node;
 
 /// Structured calendar date and time value for DatePicker.
 struct DateTime {
-    int year{2026};
-    int month{10};  ///< Month [1..12]
-    int day{20};    ///< Day [1..31]
-    int hour{14};   ///< Hour [0..23]
-    int minute{30}; ///< Minute [0..59]
-    int second{0};  ///< Second [0..59]
+    keel::i32 year{2026};
+    keel::i32 month{10};  ///< Month [1..12]
+    keel::i32 day{20};    ///< Day [1..31]
+    keel::i32 hour{14};   ///< Hour [0..23]
+    keel::i32 minute{30}; ///< Minute [0..59]
+    keel::i32 second{0};  ///< Second [0..59]
 
     /// Returns the current local system date and time.
     [[nodiscard]] static DateTime Today() noexcept;
@@ -32,7 +31,7 @@ struct DateTime {
 };
 
 /// Display and editing mode for DatePicker widget.
-enum class DatePickerMode : uint8_t {
+enum class DatePickerMode : keel::u8 {
     Date,     ///< YYYY-MM-DD
     DateTime, ///< YYYY-MM-DD HH:MM(:SS)
     Time      ///< HH:MM(:SS)
@@ -109,12 +108,12 @@ public:
     );
 
     /// Returns true if the given Gregorian year is a leap year.
-    [[nodiscard]] static constexpr bool IsLeapYear(int year) noexcept {
+    [[nodiscard]] static constexpr bool IsLeapYear(keel::i32 year) noexcept {
         return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
     }
 
     /// Returns the number of days [28..31] in the given month [1..12] of year.
-    [[nodiscard]] static constexpr int DaysInMonth(int year, int month) noexcept {
+    [[nodiscard]] static constexpr keel::i32 DaysInMonth(keel::i32 year, keel::i32 month) noexcept {
         switch (month) {
             case 1: case 3: case 5: case 7: case 8: case 10: case 12: return 31;
             case 4: case 6: case 9: case 11: return 30;
@@ -124,14 +123,14 @@ public:
     }
 
     /// Returns day of week in [0..6] where 0 = Sunday .. 6 = Saturday.
-    [[nodiscard]] static constexpr int DayOfWeek(int year, int month, int day) noexcept {
-        constexpr int t[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
-        int y = year;
-        const int m = keel::clamp(month, 1, 12);
+    [[nodiscard]] static constexpr keel::i32 DayOfWeek(keel::i32 year, keel::i32 month, keel::i32 day) noexcept {
+        constexpr keel::i32 t[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
+        keel::i32 y = year;
+        const keel::i32 m = keel::clamp(month, 1, 12);
         if (m < 3) {
             y -= 1;
         }
-        const int dow = (y + y / 4 - y / 100 + y / 400 + t[m - 1] + day) % 7;
+        const keel::i32 dow = (y + y / 4 - y / 100 + y / 400 + t[m - 1] + day) % 7;
         return (dow < 0) ? (dow + 7) : dow;
     }
 

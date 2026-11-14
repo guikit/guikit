@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include "keel/ref.h"
 #include "keel/string.h"
 
@@ -37,7 +35,7 @@ public:
     [[nodiscard]] float GetCpuTimeMs() const noexcept { return m_displayCpuTimeMs; }
     [[nodiscard]] float GetGpuTimeMs() const noexcept { return m_displayGpuTimeMs; }
     [[nodiscard]] float GetGpuBudgetPercent() const noexcept { return m_displayGpuBudgetPercent; }
-    [[nodiscard]] size_t GetRamUsageBytes() const noexcept { return m_ramBytes; }
+    [[nodiscard]] keel::usize GetRamUsageBytes() const noexcept { return m_ramBytes; }
     [[nodiscard]] float GetRamUsageMb() const noexcept { return m_displayRamMb; }
     [[nodiscard]] bool IsIdle() const noexcept { return m_isIdle; }
 
@@ -55,7 +53,7 @@ private:
     void UpdateProcessTelemetry(keel::u64 nowNs) noexcept;
     void RefreshDisplayStrings(keel::u64 nowNs, float targetFps) noexcept;
 
-    static size_t QueryProcessRamBytes() noexcept;
+    static keel::usize QueryProcessRamBytes() noexcept;
     static double QueryProcessCpuSeconds() noexcept;
 
     keel::u64 m_frameStartNs{0};
@@ -72,8 +70,8 @@ private:
 
     double m_lastProcessCpuSec{-1.0};
     double m_accumulatedWorkSec{0.0};
-    int m_numProcessors{1};
-    uint32_t m_fpsFrameCount{0};
+    keel::i32 m_numProcessors{1};
+    keel::u32 m_fpsFrameCount{0};
     bool m_hasPreviousFrame{false};
     bool m_hasPresentedFrames{false};
     bool m_isIdle{false};
@@ -93,7 +91,7 @@ private:
     float m_displayCpuTimeMs{0.0f};
     float m_displayGpuTimeMs{0.0f};
     float m_displayGpuBudgetPercent{0.0f};
-    size_t m_ramBytes{0};
+    keel::usize m_ramBytes{0};
     float m_displayRamMb{0.0f};
 
     keel::FixedString<64> m_fpsString{"0 FPS (Idle)"};

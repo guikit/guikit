@@ -92,7 +92,7 @@ inline void RenderWindowResizeGrip(const guikit::Node* n, guikit::ICanvas& canva
         : theme.palette.textSecondary.WithAlphaF(0.55f);
     const float bx = r.Right() - 4.0f * s;
     const float by = r.Bottom() - 4.0f * s;
-    for (int i = 0; i < 3; ++i) {
+    for (keel::i32 i = 0; i < 3; ++i) {
         const float span = (3.5f + static_cast<float>(i) * 3.5f) * s;
         canvas.DrawLine({bx - span, by}, {bx, by - span}, gripCol, keel::max(1.0f, 1.2f * s));
     }
@@ -248,7 +248,7 @@ inline void RenderDeviceStatusSafeArea(const guikit::Node* n, guikit::ICanvas& c
 
     // 4-bar cellular signal indicator
     const float sigBaseX = battX - 18.0f * s;
-    for (int i = 0; i < 4; ++i) {
+    for (keel::i32 i = 0; i < 4; ++i) {
         const float bh = (3.0f + static_cast<float>(i) * 1.8f) * s;
         const float bx = sigBaseX + static_cast<float>(i) * 3.5f * s;
         const float by = battY + battH - bh;
@@ -285,7 +285,7 @@ inline void RenderPreviewViewport(
     ContentFn&& renderClientContent
 ) {
     const PreviewFormFactor formFactor = static_cast<PreviewFormFactor>(
-        keel::min<size_t>(demoCtx.previewFormFactorIdx, 3)
+        keel::min<keel::usize>(demoCtx.previewFormFactorIdx, 3)
     );
     const bool isDeviceMode = (formFactor == PreviewFormFactor::Tablet || formFactor == PreviewFormFactor::Phone);
     const bool isPhone = (formFactor == PreviewFormFactor::Phone);
@@ -330,7 +330,7 @@ inline void RenderPreviewViewport(
         const float targetH       = isDeviceMode ? (demoCtx.previewLandscape ? basePortraitW : basePortraitH) : demoCtx.previewWindowH;
 
         const PreviewZoomMode zoomMode = static_cast<PreviewZoomMode>(
-            keel::min<size_t>(demoCtx.previewZoomModeIdx, static_cast<size_t>(PreviewZoomMode::Custom))
+            keel::min<keel::usize>(demoCtx.previewZoomModeIdx, static_cast<keel::usize>(PreviewZoomMode::Custom))
         );
 
         float effectiveZoom = 1.0f;
@@ -378,22 +378,22 @@ inline void RenderPreviewViewport(
                 const float step = (wheelY > 0.0f ? 0.05f : -0.05f) * keel::max(1.0f, std::round(std::abs(wheelY)));
                 effectiveZoom = keel::clamp(snappedBase + step, 0.35f, 2.50f);
                 demoCtx.previewCustomZoom = effectiveZoom;
-                demoCtx.previewZoomModeIdx = static_cast<size_t>(PreviewZoomMode::Custom);
+                demoCtx.previewZoomModeIdx = static_cast<keel::usize>(PreviewZoomMode::Custom);
                 ui.ConsumeMouseWheel();
                 ui.InvalidateAll();
             }
         }
         demoCtx.previewEffectiveZoom = effectiveZoom;
 
-        const int zoomPct = static_cast<int>(std::lround(effectiveZoom * 100.0f));
+        const keel::i32 zoomPct = static_cast<keel::i32>(std::lround(effectiveZoom * 100.0f));
         if (useCenteredScrollCanvas) {
             const keel::StringRef modeTag = (zoomMode == PreviewZoomMode::Real1To1)
                 ? "1:1 Physical"
                 : (zoomMode == PreviewZoomMode::Fit ? "Fit" : "Zoom");
             backdropNode->text = ui.AllocString(ui.Format(
                 "{}x{} dp  |  {:.1f}x{:.1f} mm  |  {} ({}%)",
-                static_cast<int>(std::lround(targetW)),
-                static_cast<int>(std::lround(targetH)),
+                static_cast<keel::i32>(std::lround(targetW)),
+                static_cast<keel::i32>(std::lround(targetH)),
                 realMmW,
                 realMmH,
                 modeTag,
@@ -404,14 +404,14 @@ inline void RenderPreviewViewport(
         }
 
         backdropNode->visualHash = guikit::detail::HashArgs(
-            static_cast<uint8_t>(demoCtx.shellTheme.mode),
-            static_cast<uint8_t>(formFactor),
+            static_cast<keel::u8>(demoCtx.shellTheme.mode),
+            static_cast<keel::u8>(formFactor),
             demoCtx.previewLandscape,
             demoCtx.previewZoomModeIdx,
             zoomPct,
             demoCtx.previewWindowCustomSize,
-            static_cast<int>(demoCtx.previewWindowW),
-            static_cast<int>(demoCtx.previewWindowH)
+            static_cast<keel::i32>(demoCtx.previewWindowW),
+            static_cast<keel::i32>(demoCtx.previewWindowH)
         );
 
         auto invokeStageInsideClient = [&]() {
@@ -450,7 +450,7 @@ inline void RenderPreviewViewport(
                 winNode->postRenderFn = &detail::RenderWindowResizeGrip;
 
                 const guikit::Id winId = winNode->id;
-                const guikit::Id winResizeId(guikit::detail::HashArgs(winId.value, uint64_t(0x57494E5F52535Aull)));
+                const guikit::Id winResizeId(guikit::detail::HashArgs(winId.value, keel::u64(0x57494E5F52535Aull)));
                 const guikit::Rect winBounds = ui.GetPrevFrameBounds(winId);
 
                 if (winBounds.w > 40.0f && winBounds.h > 40.0f) {
@@ -480,7 +480,7 @@ inline void RenderPreviewViewport(
                     const bool occluded = ui.IsMouseOccluded(winId, mouse);
                     const bool otherActive = ui.GetActiveId().IsValid() && ui.GetActiveId() != winResizeId;
 
-                    uint8_t hovEdge = 0;
+                    keel::u8 hovEdge = 0;
                     if (!occluded && !otherActive) {
                         if (brCorner.Contains(mouse))      hovEdge = 2 | 4;
                         else if (blCorner.Contains(mouse)) hovEdge = 1 | 4;
@@ -493,7 +493,7 @@ inline void RenderPreviewViewport(
                         ui.InvalidateAll();
                     }
 
-                    auto applyEdgeCursor = [&](uint8_t edge) {
+                    auto applyEdgeCursor = [&](keel::u8 edge) {
                         if (edge == (2 | 4))      ui.SetCursor(guikit::CursorType::ResizeNWSE);
                         else if (edge == (1 | 4)) ui.SetCursor(guikit::CursorType::ResizeNESW);
                         else if (edge & (1 | 2))  ui.SetCursor(guikit::CursorType::ResizeEW);
@@ -550,7 +550,7 @@ inline void RenderPreviewViewport(
                         if (ui.IsMouseDown()) {
                             ui.SetActiveId(winResizeId);
                             applyEdgeCursor(demoCtx.previewWindowResizeEdge);
-                            const uint8_t edge = demoCtx.previewWindowResizeEdge;
+                            const keel::u8 edge = demoCtx.previewWindowResizeEdge;
                             const float rawDx = mouse.x - demoCtx.previewWindowDragStartMouse.x;
                             const float rawDy = mouse.y - demoCtx.previewWindowDragStartMouse.y;
                             if (demoCtx.previewWindowCustomSize || std::abs(rawDx) > 1.0f || std::abs(rawDy) > 1.0f) {
@@ -621,12 +621,12 @@ inline void RenderPreviewViewport(
                             .variant = guikit::UiVariant::Secondary
                         });
                         ui.Spacer();
-                        const int clientW = demoCtx.previewWindowCustomSize
-                            ? keel::max(0, static_cast<int>(std::lround(demoCtx.previewWindowW)))
-                            : keel::max(0, static_cast<int>(std::round(availPxW / effectiveZoom)));
-                        const int clientH = demoCtx.previewWindowCustomSize
-                            ? keel::max(0, static_cast<int>(std::lround(demoCtx.previewWindowH - (28.0f * shellScale) / effectiveZoom)))
-                            : keel::max(0, static_cast<int>(std::round((availPxH - 28.0f * shellScale) / effectiveZoom)));
+                        const keel::i32 clientW = demoCtx.previewWindowCustomSize
+                            ? keel::max(0, static_cast<keel::i32>(std::lround(demoCtx.previewWindowW)))
+                            : keel::max(0, static_cast<keel::i32>(std::round(availPxW / effectiveZoom)));
+                        const keel::i32 clientH = demoCtx.previewWindowCustomSize
+                            ? keel::max(0, static_cast<keel::i32>(std::lround(demoCtx.previewWindowH - (28.0f * shellScale) / effectiveZoom)))
+                            : keel::max(0, static_cast<keel::i32>(std::round((availPxH - 28.0f * shellScale) / effectiveZoom)));
                         ui.Text(ui.Format("{} x {}", clientW, clientH), {
                             .role = guikit::TextRole::CodeSmall,
                             .variant = guikit::UiVariant::Muted

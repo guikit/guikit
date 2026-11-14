@@ -1,14 +1,14 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/core/types.hpp"
+#include "keel/core.h"
 
 namespace guikit {
 
 class ICanvas;
 
 /// Unified scientific, radiographic, spectral, and tactical color palettes across GuiKit.
-enum class Colormap : uint8_t {
+enum class Colormap : keel::u8 {
     Grayscale = 0,      ///< Linear monochrome black -> white
     Bone,               ///< Medical / radiographic cool steel-blue tinted monochrome
     Amber,              ///< Warm radiographic / golden sepia monochrome
@@ -29,20 +29,20 @@ enum class Colormap : uint8_t {
 };
 
 /// Packs an RGBA `Color` into a 32-bit `ABGR8888` pixel (`(a << 24) | (b << 16) | (g << 8) | r`).
-[[nodiscard]] constexpr uint32_t PackAbgr(Color c) noexcept {
-    return (static_cast<uint32_t>(c.a) << 24u) |
-           (static_cast<uint32_t>(c.b) << 16u) |
-           (static_cast<uint32_t>(c.g) << 8u)  |
-           static_cast<uint32_t>(c.r);
+[[nodiscard]] constexpr keel::u32 PackAbgr(Color c) noexcept {
+    return (static_cast<keel::u32>(c.a) << 24u) |
+           (static_cast<keel::u32>(c.b) << 16u) |
+           (static_cast<keel::u32>(c.g) << 8u)  |
+           static_cast<keel::u32>(c.r);
 }
 
 /// Unpacks a 32-bit `ABGR8888` pixel into a `Color`.
-[[nodiscard]] constexpr Color UnpackAbgr(uint32_t abgr) noexcept {
+[[nodiscard]] constexpr Color UnpackAbgr(keel::u32 abgr) noexcept {
     return Color(
-        static_cast<uint8_t>(abgr & 0xFFu),
-        static_cast<uint8_t>((abgr >> 8u) & 0xFFu),
-        static_cast<uint8_t>((abgr >> 16u) & 0xFFu),
-        static_cast<uint8_t>((abgr >> 24u) & 0xFFu)
+        static_cast<keel::u8>(abgr & 0xFFu),
+        static_cast<keel::u8>((abgr >> 8u) & 0xFFu),
+        static_cast<keel::u8>((abgr >> 16u) & 0xFFu),
+        static_cast<keel::u8>((abgr >> 24u) & 0xFFu)
     );
 }
 
@@ -50,16 +50,16 @@ enum class Colormap : uint8_t {
 [[nodiscard]] Color SampleColormap(Colormap map, float t, bool invert = false) noexcept;
 
 /// Evaluates the specified `Colormap` at normalized position `t` in `[0.0, 1.0]` as packed `ABGR8888`.
-[[nodiscard]] uint32_t SampleColormapAbgr(Colormap map, float t, bool invert = false) noexcept;
+[[nodiscard]] keel::u32 SampleColormapAbgr(Colormap map, float t, bool invert = false) noexcept;
 
 /// Returns a precomputed 256-entry `Color` lookup table for the specified `Colormap` (zero frame allocation).
 [[nodiscard]] const keel::StaticArray<Color, 256>& GetColormapLut(Colormap map, bool invert = false) noexcept;
 
 /// Returns a precomputed 256-entry `ABGR8888` lookup table for the specified `Colormap` (zero frame allocation).
-[[nodiscard]] const keel::StaticArray<uint32_t, 256>& GetColormapLutAbgr(Colormap map, bool invert = false) noexcept;
+[[nodiscard]] const keel::StaticArray<keel::u32, 256>& GetColormapLutAbgr(Colormap map, bool invert = false) noexcept;
 
 /// Copies the precomputed 256-entry `ABGR8888` lookup table into a destination array (e.g. GPU shader descriptor).
-void CopyColormapLutAbgr(Colormap map, uint32_t outAbgr[256], bool invert = false) noexcept;
+void CopyColormapLutAbgr(Colormap map, keel::u32 outAbgr[256], bool invert = false) noexcept;
 
 /// Returns the human-readable display name of a `Colormap`.
 [[nodiscard]] keel::StringRef GetColormapName(Colormap map) noexcept;

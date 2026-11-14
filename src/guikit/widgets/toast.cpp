@@ -64,11 +64,11 @@ void Toast::RunHost(
     const Vec2 mouse = ctx.GetMousePos();
 
     // Determine visible slice (newest toasts up to maxVisible)
-    const size_t maxVis = keel::max<size_t>(1, opts.maxVisible);
-    const size_t startIdx = (entries.size() > maxVis) ? (entries.size() - maxVis) : 0;
+    const keel::usize maxVis = keel::max<keel::usize>(1, opts.maxVisible);
+    const keel::usize startIdx = (entries.size() > maxVis) ? (entries.size() - maxVis) : 0;
 
     struct LayoutToast {
-        size_t index{0};
+        keel::usize index{0};
         Rect cardRect{};
         Rect closeRect{};
         float textW{0.0f};
@@ -77,7 +77,7 @@ void Toast::RunHost(
     keel::SmallArray<LayoutToast, 8> layoutList;
     layoutList.reserve(entries.size() - startIdx);
 
-    for (size_t i = startIdx; i < entries.size(); ++i) {
+    for (keel::usize i = startIdx; i < entries.size(); ++i) {
         const auto& e = entries[i];
         const float rightReserve = e.closable ? (closeBtnSz + 8.0f * s) : 0.0f;
         const float textW = keel::max(40.0f, cardW - padX * 2.0f - (iconBoxSz + 10.0f * s) - rightReserve);
@@ -115,7 +115,7 @@ void Toast::RunHost(
 
     float curY = isBottom ? (hostBounds.Bottom() - margin) : (hostBounds.y + margin);
     // Stack newest closest to anchor edge
-    for (size_t k = layoutList.size(); k > 0; --k) {
+    for (keel::usize k = layoutList.size(); k > 0; --k) {
         auto& lt = layoutList[k - 1];
         float x = hostBounds.x + margin;
         if (isRight) {
@@ -141,7 +141,7 @@ void Toast::RunHost(
     }
 
     // Update timers, hover states, and close clicks
-    uint64_t dismissId = 0;
+    keel::u64 dismissId = 0;
     bool anyAnimated = false;
 
     for (const auto& lt : layoutList) {
@@ -163,7 +163,7 @@ void Toast::RunHost(
     }
 
     // Advance timers on all entries
-    for (size_t i = 0; i < entries.size(); ++i) {
+    for (keel::usize i = 0; i < entries.size(); ++i) {
         auto& e = entries[i];
         const double dt = keel::max(0.0, nowSec - e.lastTickSec);
         e.lastTickSec = nowSec;
@@ -227,7 +227,7 @@ void Toast::RunHost(
         });
     }
 
-    for (size_t i = 0; i < entries.size(); ) {
+    for (keel::usize i = 0; i < entries.size(); ) {
         const bool dismissed = (dismissId != 0 && entries[i].id == dismissId);
         const bool expired = (entries[i].duration > 0.0f && entries[i].elapsedSec >= static_cast<double>(entries[i].duration));
         if (dismissed || expired) {

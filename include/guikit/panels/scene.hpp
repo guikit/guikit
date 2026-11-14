@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include "guikit/backend/i_canvas.hpp"
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/id.hpp"
@@ -21,7 +19,7 @@ class SceneScope;
 struct Node;
 
 /// Visual background pattern for a 2D Scene viewport.
-enum class SceneBackground : uint8_t {
+enum class SceneBackground : keel::u8 {
     Solid = 0,      ///< Solid theme background / surface fill
     Checkerboard,   ///< Transparency checkerboard (for PNG/SVG asset inspection)
     GridDots,       ///< World-space adaptive dot matrix (for schematics and node graphs)
@@ -42,12 +40,12 @@ struct SceneItemOptions {
 
 /// Resolved metadata, interaction flags, and world-space bounding box of a recorded SceneItem.
 struct SceneItemInfo {
-    uint64_t key{0};                ///< Deterministic 64-bit item key
+    keel::u64 key{0};                ///< Deterministic 64-bit item key
     keel::StringRef id{};           ///< Frame-arena allocated identifier
     keel::StringRef title{};        ///< Frame-arena allocated title/value
     keel::StringRef category{};     ///< Frame-arena allocated category
     Rect worldBounds{};             ///< World-space bounding box of the item's geometry
-    int32_t firstCmdIndex{0};       ///< First draw command index belonging to this item
+    keel::i32 firstCmdIndex{0};       ///< First draw command index belonging to this item
     bool hasExplicitBounds{false};  ///< True if hitRect was explicitly provided
     bool selectable{true};
     bool showSelectionFrame{true};
@@ -85,17 +83,17 @@ struct SceneState {
     float dragStartScrollX{0.0f};
     float dragStartScrollY{0.0f};
     Vec2 dragStartScrollMouse{0.0f, 0.0f};
-    uint8_t hoveredHudBtn{0};   ///< 1 = '-', 2 = 'Fit', 3 = '100%', 4 = '+'
+    keel::u8 hoveredHudBtn{0};   ///< 1 = '-', 2 = 'Fit', 3 = '100%', 4 = '+'
 
     // Interactive SceneItem selection & marquee state
-    uint64_t hoveredItemKey{0};
-    uint64_t clickedItemKey{0};
-    keel::Array<uint64_t> selectedItemKeys{};
-    uint64_t hoveredDraggableKey{0};    ///< hoveredItemKey when that item is draggable (press starts a drag)
-    uint64_t draggedItemKey{0};         ///< Item being dragged (0 = none)
-    uint64_t dragStartedKey{0};         ///< One-frame: drag started on this item
-    uint64_t dragEndedKey{0};           ///< One-frame: drag of this item ended (released or canceled)
-    uint64_t dragClickKey{0};           ///< Drag released without moving: reported as a click in Update
+    keel::u64 hoveredItemKey{0};
+    keel::u64 clickedItemKey{0};
+    keel::Array<keel::u64> selectedItemKeys{};
+    keel::u64 hoveredDraggableKey{0};    ///< hoveredItemKey when that item is draggable (press starts a drag)
+    keel::u64 draggedItemKey{0};         ///< Item being dragged (0 = none)
+    keel::u64 dragStartedKey{0};         ///< One-frame: drag started on this item
+    keel::u64 dragEndedKey{0};           ///< One-frame: drag of this item ended (released or canceled)
+    keel::u64 dragClickKey{0};           ///< Drag released without moving: reported as a click in Update
     bool dragCanceled{false};           ///< One-frame: the ended drag was canceled with Escape
     Vec2 dragStartWorld{0.0f, 0.0f};
     Vec2 dragCurrentWorld{0.0f, 0.0f};
@@ -113,9 +111,9 @@ struct SceneState {
     bool preUpdateScrollbarBusy{false};
     bool cameraModifiedByInput{false};
 
-    [[nodiscard]] bool IsSelected(uint64_t key) const noexcept {
+    [[nodiscard]] bool IsSelected(keel::u64 key) const noexcept {
         if (key == 0) return false;
-        for (uint64_t k : selectedItemKeys) {
+        for (keel::u64 k : selectedItemKeys) {
             if (k == key) return true;
         }
         return false;
@@ -169,7 +167,7 @@ struct SceneOptions {
 
 /// Recorded world-space drawing command executed during Scene rendering.
 struct SceneDrawCmd {
-    enum class Type : uint8_t {
+    enum class Type : keel::u8 {
         Image = 0,
         Pixels,
         Rect,
@@ -179,11 +177,11 @@ struct SceneDrawCmd {
         TextBox
     };
     Type type{Type::Rect};
-    int32_t itemIndex{-1};      ///< Owning SceneItemInfo index in ScenePayload::items (-1 if unowned)
+    keel::i32 itemIndex{-1};      ///< Owning SceneItemInfo index in ScenePayload::items (-1 if unowned)
     keel::StringRef textOrSource{};
-    const uint32_t* pixels{nullptr};
-    uint32_t pixelW{0};
-    uint32_t pixelH{0};
+    const keel::u32* pixels{nullptr};
+    keel::u32 pixelW{0};
+    keel::u32 pixelH{0};
     Rect rect{};
     Vec2 p1{};
     Vec2 p2{};
@@ -197,7 +195,7 @@ struct SceneDrawCmd {
     float alignY{0.5f};
     float angleDeg{0.0f};
     FontStyle fontStyle{FontStyle::Regular};
-    uint8_t opacity{255};
+    keel::u8 opacity{255};
     bool scaleFontWithZoom{true};
 };
 
@@ -208,8 +206,8 @@ struct ScenePayload {
     Rect openViewport{};
     keel::ArenaArray<SceneDrawCmd> drawCmds{};
     keel::ArenaArray<SceneItemInfo> items{};
-    int32_t activeItemIndex{-1};
-    uint64_t contentHash{0};        ///< Running fingerprint of drawCmds (incl. text and pixel content) for damage tracking
+    keel::i32 activeItemIndex{-1};
+    keel::u64 contentHash{0};        ///< Running fingerprint of drawCmds (incl. text and pixel content) for damage tracking
 };
 
 /// RAII scope that groups world-space draw commands into an interactive, selectable SceneItem.
@@ -217,8 +215,8 @@ class SceneItemScope {
 public:
     SceneItemScope(
         SceneScope* scene,
-        int32_t itemIndex,
-        int32_t prevItemIndex,
+        keel::i32 itemIndex,
+        keel::i32 prevItemIndex,
         bool hovered,
         bool selected,
         bool clicked,
@@ -239,12 +237,12 @@ public:
     [[nodiscard]] bool IsDragging() const noexcept { return m_drag.active; }
     /// Drag lifecycle and pointer positions for this frame (all false unless the item is draggable).
     [[nodiscard]] const SceneItemDrag& GetDrag() const noexcept { return m_drag; }
-    [[nodiscard]] int32_t GetItemIndex() const noexcept { return m_itemIndex; }
+    [[nodiscard]] keel::i32 GetItemIndex() const noexcept { return m_itemIndex; }
 
 private:
     SceneScope* m_scene{nullptr};
-    int32_t m_itemIndex{-1};
-    int32_t m_prevItemIndex{-1};
+    keel::i32 m_itemIndex{-1};
+    keel::i32 m_prevItemIndex{-1};
     bool m_hovered{false};
     bool m_selected{false};
     bool m_clicked{false};
@@ -266,7 +264,7 @@ public:
     [[nodiscard]] const SceneItemInfo* GetHoveredItem() const noexcept;
 
     /// Returns the number of currently selected items.
-    [[nodiscard]] size_t GetSelectedCount() const noexcept;
+    [[nodiscard]] keel::usize GetSelectedCount() const noexcept;
 
     /// Clears all selected items in the scene.
     void ClearSelection() noexcept;
@@ -302,7 +300,7 @@ public:
     [[nodiscard]] bool IsHovered() const noexcept;
 
     /// Returns true if the given mouse button (1=Left, 2=Middle, 3=Right) was clicked on the unoccluded scene canvas in this frame.
-    [[nodiscard]] bool WasClicked(int button = 1) const noexcept;
+    [[nodiscard]] bool WasClicked(keel::i32 button = 1) const noexcept;
 
     /// Returns the screen-space viewport rectangle.
     [[nodiscard]] Rect GetViewportRect() const noexcept { return m_viewport; }
@@ -327,31 +325,31 @@ public:
         keel::StringRef source,
         Rect worldRect,
         float radius = 0.0f,
-        uint8_t opacity = 255
+        keel::u8 opacity = 255
     );
 
     /// Queues an in-memory ABGR8888 pixel buffer in World Coordinates.
     /// The buffer content takes part in damage tracking: it is hashed every frame unless
     /// `contentVersion` (non-zero, changed whenever the pixels change) is given.
     void DrawPixels(
-        const uint32_t* pixels,
-        uint32_t width,
-        uint32_t height,
+        const keel::u32* pixels,
+        keel::u32 width,
+        keel::u32 height,
         Rect worldRect,
         float radius = 0.0f,
-        uint8_t opacity = 255,
-        uint64_t contentVersion = 0
+        keel::u8 opacity = 255,
+        keel::u64 contentVersion = 0
     );
 
     /// Queues an in-memory ABGR8888 pixel slice in World Coordinates.
     void DrawPixels(
-        keel::ArrayRef<uint32_t> pixels,
-        uint32_t width,
-        uint32_t height,
+        keel::ArrayRef<keel::u32> pixels,
+        keel::u32 width,
+        keel::u32 height,
         Rect worldRect,
         float radius = 0.0f,
-        uint8_t opacity = 255,
-        uint64_t contentVersion = 0
+        keel::u8 opacity = 255,
+        keel::u64 contentVersion = 0
     );
 
     /// Queues a filled/stroked rectangle in World Coordinates.
@@ -390,7 +388,7 @@ public:
         float sweepAngleDeg,
         Color color,
         float strokeWidth = 1.0f,
-        int segments = 14
+        keel::i32 segments = 14
     );
 
     /// Queues a line segment in World Coordinates.
@@ -447,7 +445,7 @@ public:
 
 private:
     friend class SceneItemScope;
-    void FinalizeItem(int32_t itemIndex, int32_t prevItemIndex) noexcept;
+    void FinalizeItem(keel::i32 itemIndex, keel::i32 prevItemIndex) noexcept;
     /// Records a draw command and folds it into the content fingerprint: a scene whose drawing
     /// changes is repainted even when the camera does not move.
     void PushCmd(const SceneDrawCmd& cmd) noexcept;

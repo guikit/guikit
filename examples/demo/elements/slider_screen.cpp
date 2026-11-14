@@ -4,15 +4,15 @@ namespace guikit::demo {
 
 namespace {
 struct SliderDemoState {
-    size_t modeIdx = 0; // 0 = Slider, 1 = StepSlider, 2 = RangeSlider, 3 = ProgressBar
+    keel::usize modeIdx = 0; // 0 = Slider, 1 = StepSlider, 2 = RangeSlider, 3 = ProgressBar
     float val = 65.0f;
-    size_t stepIdx = 2;
+    keel::usize stepIdx = 2;
     float rangeLow = 22.0f;
     float rangeHigh = 78.0f;
     float rangeMinSpan = 10.0f;
     bool quantizeStep = false;
 
-    uint32_t progressSegments = 20;
+    keel::u32 progressSegments = 20;
     bool progressSegmented = false;
     bool progressMultiZone = true;
     bool progressShowPeak = true;
@@ -49,7 +49,7 @@ void RenderSliderInspector(guikit::Context& ui, DemoContext&) {
     }
 
     if (s_state.modeIdx != 3) {
-        int orientIdx = (s_state.orientation == guikit::Orientation::Vertical) ? 1 : 0;
+        keel::i32 orientIdx = (s_state.orientation == guikit::Orientation::Vertical) ? 1 : 0;
         static constexpr keel::StaticArray<keel::StringRef, 2> orientNames = {"Horizontal", "Vertical (Fader)"};
         if (auto el = ui.Element({.label = "Orientation"})) {
             if (ui.Segmented(orientIdx, orientNames).changed) {
@@ -65,7 +65,7 @@ void RenderSliderInspector(guikit::Context& ui, DemoContext&) {
         if (ui.Switch(s_state.showValue).changed) ui.InvalidateAll();
     }
     static constexpr keel::StaticArray<keel::StringRef, 5> valPlaceNames = {"Lead", "Trail", "Top", "Btm", "Thumb"};
-    size_t valPlaceIdx = static_cast<size_t>(s_state.valuePlacement);
+    keel::usize valPlaceIdx = static_cast<keel::usize>(s_state.valuePlacement);
     if (auto el = ui.Element({.label = "Value Placement", .disabled = !s_state.showValue})) {
         if (ui.StepSlider(valPlaceIdx, valPlaceNames, {
             .showTicks = true,

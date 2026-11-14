@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include "keel/core.h"
 #include "keel/optional.h"
 #include "keel/ref.h"
@@ -17,7 +15,7 @@ class Context;
 class ICanvas;
 
 /// Visual layout style for SpinBox decrement/increment ('-' / '+') buttons.
-enum class SpinBoxStepStyle : uint8_t {
+enum class SpinBoxStepStyle : keel::u8 {
     None,       ///< No stepper buttons (keyboard Up/Down or mouse wheel only)
     Inline,     ///< Compact '-' and '+' buttons integrated inside the right side of the input well
     Detached,   ///< Two square (H x H) '-' and '+' buttons placed outside to the right of the input field
@@ -59,9 +57,9 @@ struct SpinBoxData {
     SpinBoxOptions opts{};
     keel::StringRef displayText{};
     float fillRatio{0.0f};
-    size_t cursor{0};
-    size_t selStart{0};
-    size_t selEnd{0};
+    keel::usize cursor{0};
+    keel::usize selStart{0};
+    keel::usize selEnd{0};
     float scrollX{0.0f};
     float cursorWidth{1.5f};
     bool cursorVisible{true};
@@ -82,7 +80,7 @@ public:
         Context& ctx,
         float* floatValue,
         double* doubleValue,
-        int64_t* intValue,
+        keel::i64* intValue,
         const SpinBoxOptions& opts = {},
         keel::SourceLocation loc = keel::SourceLocation::current()
     );
@@ -113,13 +111,13 @@ public:
         UiSize size,
         bool hovered = false,
         bool focused = false,
-        size_t cursor = 0,
+        keel::usize cursor = 0,
         bool disabled = false,
         bool cursorVisible = true,
         float cursorWidth = 1.5f,
         const UiTheme& theme = UiTheme::Dark(),
-        size_t selStart = 0,
-        size_t selEnd = 0,
+        keel::usize selStart = 0,
+        keel::usize selEnd = 0,
         float scrollX = 0.0f,
         bool showStepBtns = true,
         bool stepMinusHovered = false,

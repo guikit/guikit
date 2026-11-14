@@ -14,7 +14,7 @@ Rect ComputeToggleRect(
     const Rect& bounds,
     SidebarSide side,
     SidebarMode /*mode*/,
-    uint32_t sameSideIndex,
+    keel::u32 sameSideIndex,
     float scale
 ) noexcept {
     const float edgeX = (side == SidebarSide::Left) ? bounds.Right() : bounds.x;
@@ -92,7 +92,7 @@ SidebarScope Sidebar::Open(
     const SidebarOptions& opts,
     keel::SourceLocation loc
 ) {
-    uint32_t sameSideIndex = 0;
+    keel::u32 sameSideIndex = 0;
     bool hasFlushSibling = false;
     const Node* parent = ctx.GetCurrentContainer();
     if (parent != nullptr) {
@@ -109,7 +109,7 @@ SidebarScope Sidebar::Open(
     }
 
     const Id id = ctx.MakeChildId(loc);
-    const Id sashId(detail::HashArgs(id.value, uint64_t(0x53425F53415348ull)));
+    const Id sashId(detail::HashArgs(id.value, keel::u64(0x53425F53415348ull)));
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
     const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
@@ -451,7 +451,7 @@ SidebarScope Sidebar::Open(
     }
 
     node->visualHash = detail::HashArgs(
-        static_cast<uint8_t>(state.mode),
+        static_cast<keel::u8>(state.mode),
         state.customWidth,
         state.sashHovered,
         state.draggingSash,

@@ -5,10 +5,10 @@ namespace guikit::demo {
 namespace {
 
 struct BreadcrumbDemoState {
-    size_t crumbIdx{4};
-    size_t separatorIdx{0};
+    keel::usize crumbIdx{4};
+    keel::usize separatorIdx{0};
     guikit::BreadcrumbSeparator separator{guikit::BreadcrumbSeparator::Chevron};
-    int maxVisibleItems{0}; // 0 = show all, 2..5 = collapse middle items into "..."
+    keel::i32 maxVisibleItems{0}; // 0 = show all, 2..5 = collapse middle items into "..."
     bool showCrumbIcons{true};
     bool showCrumbBadges{true};
     bool showSurfaceBox{false};
@@ -83,7 +83,7 @@ void RenderBreadcrumbInspector(guikit::Context& ui, DemoContext& ctx) {
 
 void RenderBreadcrumbStage(guikit::Context& ui, DemoContext& ctx) {
     const guikit::StateColor activeCol = guikit::StateColor::FromVariant(ctx.btnVariant);
-    const uint32_t maxVis = (s_bc.maxVisibleItems >= 2) ? static_cast<uint32_t>(s_bc.maxVisibleItems) : 0u;
+    const keel::u32 maxVis = (s_bc.maxVisibleItems >= 2) ? static_cast<keel::u32>(s_bc.maxVisibleItems) : 0u;
 
     const keel::StaticArray<guikit::BreadcrumbItem, 5> crumbs = {{
         {.label = "Workspace",  .icon = s_bc.showCrumbIcons ? guikit::Icon::Folder()   : guikit::Icon{}},
@@ -105,7 +105,7 @@ void RenderBreadcrumbStage(guikit::Context& ui, DemoContext& ctx) {
 
 keel::String GenerateBreadcrumbCode(const DemoContext& ctx) {
     const auto sizePrefix = FormatUiSizePrefix(ctx.controlsSize);
-    const uint32_t maxVis = (s_bc.maxVisibleItems >= 2) ? static_cast<uint32_t>(s_bc.maxVisibleItems) : 0u;
+    const keel::u32 maxVis = (s_bc.maxVisibleItems >= 2) ? static_cast<keel::u32>(s_bc.maxVisibleItems) : 0u;
 
     return keel::format(
         "static const keel::StaticArray<guikit::BreadcrumbItem, 5> crumbs = {{{{\n"

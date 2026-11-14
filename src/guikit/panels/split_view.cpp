@@ -313,7 +313,7 @@ SplitViewScope SplitView::Open(
     keel::SourceLocation loc
 ) {
     const Id id = ctx.MakeChildId(loc);
-    const Id idSash(detail::HashArgs(id.value, uint64_t(0x53504C545F535348ull)));
+    const Id idSash(detail::HashArgs(id.value, keel::u64(0x53504C545F535348ull)));
 
     const UiSize activeSize = ctx.GetCurrentSize();
     const bool activeDisabled = opts.disabled || ctx.IsDisabled();
@@ -497,7 +497,7 @@ SplitViewScope SplitView::Open(
         st.ratio,
         st.sashHovered,
         st.dragging,
-        static_cast<uint8_t>(opts.orientation),
+        static_cast<keel::u8>(opts.orientation),
         opts.sashSize,
         opts.showGrip,
         opts.collapsible,

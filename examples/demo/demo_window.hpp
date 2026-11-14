@@ -14,7 +14,7 @@ public:
 
 protected:
     void OnInit() override;
-    void OnResize(int width, int height) override;
+    void OnResize(keel::i32 width, keel::i32 height) override;
     void OnRender(guikit::Context& ui) override;
 
 private:

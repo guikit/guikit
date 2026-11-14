@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include "keel/core.h"
 #include "keel/optional.h"
 #include "keel/ref.h"
@@ -43,8 +42,8 @@ struct ColorPickerState {
     float v{0.90f};         ///< Value / Brightness [0..1]
     Color lastSyncedColor{0, 0, 0, 0};
     bool initialized{false};
-    uint8_t dragTarget{0};  ///< 0 = none, 1 = SV square, 2 = Hue bar, 3 = Alpha bar
-    int hoveredSwatch{-1};
+    keel::u8 dragTarget{0};  ///< 0 = none, 1 = SV square, 2 = Hue bar, 3 = Alpha bar
+    keel::i32 hoveredSwatch{-1};
 };
 
 /// Internal runtime payload allocated in frame arena for ColorPicker nodes.
@@ -55,7 +54,7 @@ struct ColorPickerData {
     float s{0.75f};
     float v{0.90f};
     keel::StringRef hexText{};
-    int hoveredSwatch{-1};
+    keel::i32 hoveredSwatch{-1};
     bool isOpen{false};
 };
 
@@ -74,7 +73,7 @@ public:
     static void RgbToHsv(Color c, float& outH, float& outS, float& outV) noexcept;
 
     /// Converts HSV (h in [0..360], s in [0..1], v in [0..1]) and alpha [0..255] to Color.
-    [[nodiscard]] static Color HsvToRgb(float h, float s, float v, uint8_t a = 255) noexcept;
+    [[nodiscard]] static Color HsvToRgb(float h, float s, float v, keel::u8 a = 255) noexcept;
 
     /// Measures intrinsic dimensions of the closed swatch button or inline picker panel.
     static Vec2 Measure(
@@ -100,7 +99,7 @@ public:
         float s,
         float v,
         keel::StringRef hexText,
-        int hoveredSwatch,
+        keel::i32 hoveredSwatch,
         const ColorPickerOptions& opts,
         UiSize size,
         bool hovered = false,
@@ -119,7 +118,7 @@ public:
         float s,
         float v,
         keel::StringRef hexText,
-        int hoveredSwatch,
+        keel::i32 hoveredSwatch,
         const ColorPickerOptions& opts,
         UiSize size,
         bool isFloatingPopup,

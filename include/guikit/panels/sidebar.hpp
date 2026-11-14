@@ -14,13 +14,13 @@ class Context;
 struct Node;
 
 /// Horizontal docking edge for a Sidebar container.
-enum class SidebarSide : uint8_t {
+enum class SidebarSide : keel::u8 {
     Left,   ///< Docks to the left side of the parent container (stacked left-to-right in call order)
     Right   ///< Docks to the right side of the parent container (stacked right-to-left in call order)
 };
 
 /// Display and sizing state of a Sidebar container.
-enum class SidebarMode : uint8_t {
+enum class SidebarMode : keel::u8 {
     Expanded,   ///< Full width mode (explicit/user-resized width or Fit to content)
     Compact,    ///< Compact icon-only rail mode (child SidebarMenu automatically renders icons only)
     Collapsed   ///< Completely minimized mode (0px layout width with interactive edge handle)

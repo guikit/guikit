@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdint>
 #include "guikit/core/response.hpp"
 #include "guikit/core/theme.hpp"
 #include "guikit/core/tokens.hpp"
@@ -19,20 +18,20 @@ class Context;
 class ICanvas;
 
 /// Display geometry mode for the SonarView indicator.
-enum class SonarDisplayMode : uint8_t {
+enum class SonarDisplayMode : keel::u8 {
     PPI_360 = 0,        ///< Full 360-degree Plan Position Indicator (circular harbor/vessel defense radar & sonar)
     SectorWedge,        ///< Forward-looking multibeam fan / wedge (e.g. 60..180 deg Diver Detection Sonar)
     BScan               ///< Rectilinear Azimuth (X) vs Range (Y) unwrapped polar matrix inspector
 };
 
 /// Scan update & persistence mode for the polar acoustic/radar display.
-enum class SonarScanMode : uint8_t {
+enum class SonarScanMode : keel::u8 {
     MultibeamContinuous = 0, ///< Full-sector electronic multibeam ping update with smooth persistence
     RotatingSweep            ///< Rotating or sector-sweeping beam with exponential phosphor afterglow
 };
 
 /// Classification of a tracked underwater or surface contact (ARPA / Diver Detection tracker).
-enum class SonarTargetClass : uint8_t {
+enum class SonarTargetClass : keel::u8 {
     Diver = 0,          ///< Submerged swimmer / combat diver threat (high-priority diamond reticle)
     UUV,                ///< Unmanned Underwater Vehicle / ROV / mini-sub (hexagonal/directional reticle)
     SurfaceCraft,       ///< Surface vessel / tender boat (circular ARPA symbol)
@@ -48,7 +47,7 @@ struct PolarPoint {
 
 /// Tracked contact / target rendered on the tactical overlay with velocity vector and snail-trail history.
 struct SonarTarget {
-    int id{0};
+    keel::i32 id{0};
     keel::FixedString<64> callsign{};
     SonarTargetClass classification{SonarTargetClass::Diver};
     float rangeMeters{100.0f};          ///< Distance from transducer / radar origin in meters
@@ -89,8 +88,8 @@ struct SonarViewOptions {
     Align align{Align::Start};
 
     // --- Polar Matrix Dimensions & Geometry ---
-    uint32_t numBeams{180};                         ///< Number of angular beams (rows) in `polarMatrix`
-    uint32_t numRangeBins{256};                     ///< Number of range bins (columns) per beam in `polarMatrix`
+    keel::u32 numBeams{180};                         ///< Number of angular beams (rows) in `polarMatrix`
+    keel::u32 numRangeBins{256};                     ///< Number of range bins (columns) per beam in `polarMatrix`
     SonarDisplayMode displayMode{SonarDisplayMode::PPI_360};
     SonarScanMode scanMode{SonarScanMode::MultibeamContinuous};
     Colormap colormap{Colormap::Gold};
@@ -120,10 +119,10 @@ struct SonarViewOptions {
     bool showColorbar{true};                        ///< Right-side acoustic intensity (dB) colorbar & threshold gauge
     bool showEblVrm{true};                          ///< Interactive Electronic Bearing Line (EBL) & Variable Range Marker (VRM)
     bool showHudOverlay{true};                      ///< Tactical corner HUD telemetry cards (sensor status, selected target, alarm)
-    uint32_t rangeRingCount{5};                     ///< Number of concentric range divisions
+    keel::u32 rangeRingCount{5};                     ///< Number of concentric range divisions
 
     // --- Two-Way Interactive State Bindings ---
-    int* selectedTargetId{nullptr};                 ///< Optional external ID of currently selected/locked target (-1 = none)
+    keel::i32* selectedTargetId{nullptr};                 ///< Optional external ID of currently selected/locked target (-1 = none)
     float* eblBearingDeg{nullptr};                  ///< Optional external Electronic Bearing Line angle in degrees
     float* vrmRangeMeters{nullptr};                 ///< Optional external Variable Range Marker distance in meters
     float* viewRangeZoom{nullptr};                  ///< Optional external range zoom multiplier (0.25 .. 1.0, wheel-zoomable)
@@ -163,12 +162,12 @@ struct SonarViewResponse : public Response {
     float eblBearingDeg{45.0f};
     float vrmRangeMeters{250.0f};
 
-    int hoveredTargetId{-1};
-    int selectedTargetId{-1};
+    keel::i32 hoveredTargetId{-1};
+    keel::i32 selectedTargetId{-1};
     bool targetSelectionChanged{false};
 
     bool guardZoneAlarm{false};
-    uint32_t guardZoneIntruderCount{0};
+    keel::u32 guardZoneIntruderCount{0};
 };
 
 /// Autonomous Polar Heatmap / Diver Detection Sonar (DDS) / Marine PPI Radar widget.

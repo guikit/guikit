@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
 #include "guikit/core/container_scope.hpp"
 #include "guikit/core/id.hpp"
 #include "guikit/core/response.hpp"
@@ -20,7 +18,7 @@ struct Node;
 struct TableData;
 
 /// Sort direction for a sortable table column.
-enum class TableSortDirection : uint8_t {
+enum class TableSortDirection : keel::u8 {
     None = 0,
     Ascending,
     Descending
@@ -55,13 +53,13 @@ struct TableOptions {
     UiText tooltip{};                                   ///< Optional tooltip when hovering header
 
     // --- Virtualization & Row Metrics ---
-    size_t totalRows{0};                                ///< Total row count (0 = auto-count; >0 enables O(1) virtualized scrolling)
+    keel::usize totalRows{0};                                ///< Total row count (0 = auto-count; >0 enables O(1) virtualized scrolling)
     keel::Optional<float> rowHeight{keel::kNullOpt};    ///< Row height in points (nullopt = derived from UiSize)
     keel::Optional<float> headerHeight{keel::kNullOpt}; ///< Sticky header height in points (nullopt = derived from UiSize)
 
     // --- Selection & Sorting Bindings ---
-    int* selectedRow{nullptr};                          ///< Optional bound index of selected row (-1 = none)
-    int* sortColumn{nullptr};                           ///< Optional bound index of sorted column (-1 = none)
+    keel::i32* selectedRow{nullptr};                          ///< Optional bound index of selected row (-1 = none)
+    keel::i32* sortColumn{nullptr};                           ///< Optional bound index of sorted column (-1 = none)
     TableSortDirection* sortDirection{nullptr};         ///< Optional bound sort direction (Ascending / Descending)
 
     // --- Appearance & Features ---
@@ -95,7 +93,7 @@ class TableScope;
 class TableRowScope {
 public:
     TableRowScope() noexcept = default;
-    TableRowScope(TableScope* table, size_t rowIndex, bool visible, bool selected, bool hovered, bool clicked, bool doubleClicked) noexcept
+    TableRowScope(TableScope* table, keel::usize rowIndex, bool visible, bool selected, bool hovered, bool clicked, bool doubleClicked) noexcept
         : m_table(table)
         , m_rowIndex(rowIndex)
         , m_visible(visible)
@@ -122,7 +120,7 @@ public:
     }
 
     [[nodiscard]] explicit operator bool() const noexcept { return m_visible; }
-    [[nodiscard]] size_t RowIndex() const noexcept { return m_rowIndex; }
+    [[nodiscard]] keel::usize RowIndex() const noexcept { return m_rowIndex; }
     [[nodiscard]] bool Selected() const noexcept { return m_selected; }
     [[nodiscard]] bool Hovered() const noexcept { return m_hovered; }
     [[nodiscard]] bool Clicked() const noexcept { return m_clicked; }
@@ -130,7 +128,7 @@ public:
 
 private:
     TableScope* m_table{nullptr};
-    size_t m_rowIndex{0};
+    keel::usize m_rowIndex{0};
     bool m_visible{false};
     bool m_selected{false};
     bool m_hovered{false};
@@ -162,16 +160,16 @@ public:
     [[nodiscard]] Node* GetNode() const noexcept { return m_node; }
 
     /// First visible row index in the virtualized scroll viewport (inclusive).
-    [[nodiscard]] size_t FirstVisibleRow() const noexcept;
+    [[nodiscard]] keel::usize FirstVisibleRow() const noexcept;
 
     /// One-past-last visible row index in the virtualized scroll viewport (exclusive).
-    [[nodiscard]] size_t EndVisibleRow() const noexcept;
+    [[nodiscard]] keel::usize EndVisibleRow() const noexcept;
 
     /// Returns true on the frame the user clicked a sortable column header.
     [[nodiscard]] bool SortChanged() const noexcept;
 
     /// Active sorted column index (-1 if none).
-    [[nodiscard]] int SortedColumn() const noexcept;
+    [[nodiscard]] keel::i32 SortedColumn() const noexcept;
 
     /// Active sort direction (None / Ascending / Descending).
     [[nodiscard]] TableSortDirection SortDirection() const noexcept;
@@ -180,19 +178,19 @@ public:
     [[nodiscard]] bool SelectionChanged() const noexcept;
 
     /// Currently selected row index (-1 if none).
-    [[nodiscard]] int SelectedRow() const noexcept;
+    [[nodiscard]] keel::i32 SelectedRow() const noexcept;
 
     /// Row index currently hovered by the mouse cursor (-1 if none).
-    [[nodiscard]] int HoveredRow() const noexcept;
+    [[nodiscard]] keel::i32 HoveredRow() const noexcept;
 
     /// Row index clicked this frame (-1 if none).
-    [[nodiscard]] int ClickedRow() const noexcept;
+    [[nodiscard]] keel::i32 ClickedRow() const noexcept;
 
     /// Row index double-clicked this frame (-1 if none).
-    [[nodiscard]] int DoubleClickedRow() const noexcept;
+    [[nodiscard]] keel::i32 DoubleClickedRow() const noexcept;
 
     /// Begins a table row at explicit `rowIndex`. Returns false if row is outside the visible virtualized range.
-    [[nodiscard]] TableRowScope Row(size_t rowIndex, const TableRowOptions& opts = {});
+    [[nodiscard]] TableRowScope Row(keel::usize rowIndex, const TableRowOptions& opts = {});
 
     /// Begins the next sequential row (for small static tables without explicit row index loop).
     [[nodiscard]] TableRowScope Row(const TableRowOptions& opts = {}) {
@@ -205,7 +203,7 @@ public:
     [[nodiscard]] ContainerScope Cell(const TableCellOptions& opts = {});
 
     /// Programmatically scrolls the table viewport so `rowIndex` is visible.
-    void ScrollToRow(size_t rowIndex);
+    void ScrollToRow(keel::usize rowIndex);
 
 private:
     friend class TableRowScope;
@@ -214,7 +212,7 @@ private:
     Context* m_ctx{nullptr};
     Node* m_node{nullptr};
     TableData* m_data{nullptr};
-    size_t m_nextAutoRow{0};
+    keel::usize m_nextAutoRow{0};
 };
 
 /// High-performance virtualized Table / DataGrid container with sticky headers, sorting, and column resizing.

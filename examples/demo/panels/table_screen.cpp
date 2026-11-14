@@ -6,18 +6,18 @@ namespace guikit::demo {
 namespace {
 
 struct SignalTargetRow {
-    int id{0};
+    keel::i32 id{0};
     keel::FixedString<64> callsign{};
     keel::FixedString<32> modulation{};
     float freqMhz{0.0f};
     float bearingDeg{0.0f};
     float snrDb{0.0f};
-    int status{0}; // 0=LOCKED, 1=TRACKING, 2=SCANNING, 3=ALARM
+    keel::i32 status{0}; // 0=LOCKED, 1=TRACKING, 2=SCANNING, 3=ALARM
     bool tracked{true};
 };
 
 struct TableDemoState {
-    size_t datasetMode{0}; // 0 = Rich Signal DataGrid (Widgets + Sort), 1 = 100,000 Rows Virtualized
+    keel::usize datasetMode{0}; // 0 = Rich Signal DataGrid (Widgets + Sort), 1 = 100,000 Rows Virtualized
     UiSize tableSize{UiSize::Md};
     bool striped{true};
     bool gridLines{true};
@@ -28,15 +28,15 @@ struct TableDemoState {
     bool liveTelemetry{true};
 
     keel::SmallString<128> filterQuery{};
-    int selectedRow{0};
-    int sortCol{2}; // Default sorted by Frequency
+    keel::i32 selectedRow{0};
+    keel::i32 sortCol{2}; // Default sorted by Frequency
     TableSortDirection sortDir{TableSortDirection::Ascending};
 
-    int virtualSelectedRow{0};
-    int virtualSortCol{0};
+    keel::i32 virtualSelectedRow{0};
+    keel::i32 virtualSortCol{0};
     TableSortDirection virtualSortDir{TableSortDirection::Ascending};
-    int pendingJumpRow{-1};
-    size_t lastVisibleCount{0};
+    keel::i32 pendingJumpRow{-1};
+    keel::usize lastVisibleCount{0};
 
     keel::Array<SignalTargetRow> rows{};
     bool initialized{false};
@@ -55,15 +55,15 @@ struct TableDemoState {
 
         rows.clear();
         rows.reserve(48);
-        for (int i = 0; i < 48; ++i) {
+        for (keel::i32 i = 0; i < 48; ++i) {
             SignalTargetRow r;
             r.id = 1001 + i;
             r.callsign = keel::format_fixed<64>(
                 "{}-{}",
-                kCallsigns[static_cast<size_t>(i) % kCallsigns.size()],
+                kCallsigns[static_cast<keel::usize>(i) % kCallsigns.size()],
                 (i / 8) + 1
             );
-            r.modulation = kMods[static_cast<size_t>(i * 3) % kMods.size()];
+            r.modulation = kMods[static_cast<keel::usize>(i * 3) % kMods.size()];
             r.freqMhz = 118.500f + static_cast<float>(i) * 14.375f;
             r.bearingDeg = -165.0f + std::fmod(static_cast<float>(i) * 29.5f, 330.0f);
             r.snrDb = 8.0f + std::fmod(static_cast<float>(i) * 7.3f, 31.0f);
@@ -185,7 +185,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         // Animate live telemetry if enabled
         if (g_tableDemo.liveTelemetry) {
             const float t = static_cast<float>((ui.GetCurrentTime)());
-            for (size_t i = 0; i < g_tableDemo.rows.size(); ++i) {
+            for (keel::usize i = 0; i < g_tableDemo.rows.size(); ++i) {
                 auto& r = g_tableDemo.rows[i];
                 if (!r.tracked) continue;
                 const float wave = std::sin(t * 2.2f + static_cast<float>(i) * 0.7f);
@@ -197,9 +197,9 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         }
 
         // Build filtered indices
-        keel::SmallArray<size_t, 64> filteredIndices;
+        keel::SmallArray<keel::usize, 64> filteredIndices;
         const keel::StringRef query = g_tableDemo.filterQuery.as_ref();
-        for (size_t i = 0; i < g_tableDemo.rows.size(); ++i) {
+        for (keel::usize i = 0; i < g_tableDemo.rows.size(); ++i) {
             if (query.empty()) {
                 filteredIndices.push_back(i);
             } else {
@@ -222,8 +222,8 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         }};
 
         const keel::StringRef selCallsign =
-            (g_tableDemo.selectedRow >= 0 && static_cast<size_t>(g_tableDemo.selectedRow) < filteredIndices.size())
-                ? g_tableDemo.rows[filteredIndices[static_cast<size_t>(g_tableDemo.selectedRow)]].callsign.as_ref()
+            (g_tableDemo.selectedRow >= 0 && static_cast<keel::usize>(g_tableDemo.selectedRow) < filteredIndices.size())
+                ? g_tableDemo.rows[filteredIndices[static_cast<keel::usize>(g_tableDemo.selectedRow)]].callsign.as_ref()
                 : keel::StringRef("None");
 
         char footerBuf[128];
@@ -250,7 +250,7 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                 g_tableDemo.SortRows();
             }
 
-            for (size_t visRow = table.FirstVisibleRow(); visRow < table.EndVisibleRow(); ++visRow) {
+            for (keel::usize visRow = table.FirstVisibleRow(); visRow < table.EndVisibleRow(); ++visRow) {
                 if (visRow >= filteredIndices.size()) break;
                 SignalTargetRow& item = g_tableDemo.rows[filteredIndices[visRow]];
 
@@ -293,14 +293,14 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
                     static constexpr keel::StaticArray<UiVariant, 4> kStatusVars = {
                         UiVariant::Success, UiVariant::Primary, UiVariant::Warning, UiVariant::Danger
                     };
-                    const size_t stIdx = static_cast<size_t>(keel::clamp(item.status, 0, 3));
+                    const keel::usize stIdx = static_cast<keel::usize>(keel::clamp(item.status, 0, 3));
                     ui.Element({.badge = {kStatusLabels[stIdx], kStatusVars[stIdx]}, .stretch = StretchMode::Compact});
                 }
             }
         }
     } else {
         // Mode 1: 100,000 Rows Virtualized Stress-Test
-        constexpr size_t kTotalVirtualRows = 100000;
+        constexpr keel::usize kTotalVirtualRows = 100000;
 
         static const keel::StaticArray<TableColumn, 6> kVirtualCols = {{
             {.title = "Packet ID",   .width = 110.0f, .minWidth = 80.0f,  .align = Align::Start,  .sortable = true},
@@ -333,24 +333,24 @@ void RenderTableStage(guikit::Context& ui, DemoContext& /*ctx*/) {
         })) {
             if (g_tableDemo.pendingJumpRow >= 0) {
                 g_tableDemo.virtualSelectedRow = g_tableDemo.pendingJumpRow;
-                table.ScrollToRow(static_cast<size_t>(g_tableDemo.pendingJumpRow));
+                table.ScrollToRow(static_cast<keel::usize>(g_tableDemo.pendingJumpRow));
                 g_tableDemo.pendingJumpRow = -1;
             }
 
-            const size_t firstRow = table.FirstVisibleRow();
-            const size_t endRow = table.EndVisibleRow();
+            const keel::usize firstRow = table.FirstVisibleRow();
+            const keel::usize endRow = table.EndVisibleRow();
             g_tableDemo.lastVisibleCount = (endRow >= firstRow) ? (endRow - firstRow) : 0;
 
             const bool desc = (g_tableDemo.virtualSortDir == TableSortDirection::Descending);
 
-            for (size_t r = firstRow; r < endRow; ++r) {
-                const size_t logicalIdx = desc ? (kTotalVirtualRows - 1 - r) : r;
+            for (keel::usize r = firstRow; r < endRow; ++r) {
+                const keel::usize logicalIdx = desc ? (kTotalVirtualRows - 1 - r) : r;
                 if (auto row = table.Row(r)) {
                     ui.Text(ui.Format("PKT-{:06}", logicalIdx + 1), {.variant = UiVariant::Secondary});
 
-                    const uint32_t mins = static_cast<uint32_t>((logicalIdx / 600) % 60);
-                    const uint32_t secs = static_cast<uint32_t>((logicalIdx / 10) % 60);
-                    const uint32_t tenths = static_cast<uint32_t>(logicalIdx % 10);
+                    const keel::u32 mins = static_cast<keel::u32>((logicalIdx / 600) % 60);
+                    const keel::u32 secs = static_cast<keel::u32>((logicalIdx / 10) % 60);
+                    const keel::u32 tenths = static_cast<keel::u32>(logicalIdx % 10);
                     ui.Text(ui.Format("12:{:02}:{:02}.{}00", mins, secs, tenths));
 
                     static constexpr keel::StaticArray<const char*, 6> kNodes = {
