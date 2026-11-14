@@ -273,19 +273,32 @@ inline std::string FormatDesc(bool show, std::string_view text, guikit::UiVarian
 
 inline constexpr std::array<std::string_view, 9> kBgPresetShort = {"Off", "Srf", "Pri", "Sec", "Suc", "Wrn", "Dgr", "Inf", "Gho"};
 
-constexpr guikit::StateColor BgPresetToStateColor(size_t idx, bool defaultEnabled) noexcept {
+constexpr guikit::StateColor BgPresetToStateColor(
+    size_t idx,
+    bool defaultEnabled,
+    float tint = 1.0f,
+    float alpha = 1.0f
+) noexcept {
+    guikit::StateColor res{};
     switch (idx) {
         case 0:  return defaultEnabled ? guikit::StateColor::None() : guikit::StateColor::Default();
-        case 1:  return guikit::StateColor::Surface();
-        case 2:  return guikit::StateColor::Primary();
-        case 3:  return guikit::StateColor::Secondary();
-        case 4:  return guikit::StateColor::Success();
-        case 5:  return guikit::StateColor::Warning();
-        case 6:  return guikit::StateColor::Danger();
-        case 7:  return guikit::StateColor::Info();
-        case 8:  return guikit::StateColor::Ghost();
+        case 1:  res = guikit::StateColor::Surface(); break;
+        case 2:  res = guikit::StateColor::Primary(); break;
+        case 3:  res = guikit::StateColor::Secondary(); break;
+        case 4:  res = guikit::StateColor::Success(); break;
+        case 5:  res = guikit::StateColor::Warning(); break;
+        case 6:  res = guikit::StateColor::Danger(); break;
+        case 7:  res = guikit::StateColor::Info(); break;
+        case 8:  res = guikit::StateColor::Ghost(); break;
         default: return defaultEnabled ? guikit::StateColor::Surface() : guikit::StateColor::Default();
     }
+    if (idx >= 2 && idx <= 7 && tint < 0.995f) {
+        res = res.Tinted(tint);
+    }
+    if (alpha < 0.995f) {
+        res = res.WithAlphaF(alpha);
+    }
+    return res;
 }
 
 constexpr guikit::StateColor BgPresetToTrackColor(size_t idx) noexcept {
@@ -301,19 +314,36 @@ constexpr guikit::StateColor BgPresetToTrackColor(size_t idx) noexcept {
     }
 }
 
-inline std::string BgPresetToCode(size_t idx, bool defaultEnabled) {
+inline std::string BgPresetToCode(
+    size_t idx,
+    bool defaultEnabled,
+    float tint = 1.0f,
+    float alpha = 1.0f
+) {
+    std::string code;
     switch (idx) {
         case 0:  return defaultEnabled ? "guikit::StateColor::None()" : "guikit::StateColor::Default()";
-        case 1:  return "guikit::StateColor::Surface()";
-        case 2:  return "guikit::StateColor::Primary()";
-        case 3:  return "guikit::StateColor::Secondary()";
-        case 4:  return "guikit::StateColor::Success()";
-        case 5:  return "guikit::StateColor::Warning()";
-        case 6:  return "guikit::StateColor::Danger()";
-        case 7:  return "guikit::StateColor::Info()";
-        case 8:  return "guikit::StateColor::Ghost()";
+        case 1:  code = "guikit::StateColor::Surface()"; break;
+        case 2:  code = "guikit::StateColor::Primary()"; break;
+        case 3:  code = "guikit::StateColor::Secondary()"; break;
+        case 4:  code = "guikit::StateColor::Success()"; break;
+        case 5:  code = "guikit::StateColor::Warning()"; break;
+        case 6:  code = "guikit::StateColor::Danger()"; break;
+        case 7:  code = "guikit::StateColor::Info()"; break;
+        case 8:  code = "guikit::StateColor::Ghost()"; break;
         default: return defaultEnabled ? "guikit::StateColor::Surface()" : "guikit::StateColor::Default()";
     }
+    if (idx >= 2 && idx <= 7 && tint < 0.995f) {
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), ".Tinted(%.2ff)", tint);
+        code += buf;
+    }
+    if (alpha < 0.995f) {
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), ".WithAlphaF(%.2ff)", alpha);
+        code += buf;
+    }
+    return code;
 }
 
 struct DemoContext {
@@ -362,11 +392,15 @@ struct DemoContext {
     float elemFillRatio = 0.5f; // 0.0..1.0 ratio in Fill mode
     float elemHeight = 0.0f;   // 0 = Auto (px)
     size_t elemBgIdx = 0;      // 0 = None (Default), 1 = Surface, 2..8 = Primary..Ghost
+    float elemBgTint = 0.15f;
+    float elemBgAlpha = 1.0f;
     guikit::StateColor elemBackground = guikit::StateColor::Default();
     float elemBorderWidth = 0.0f;
     guikit::UiVariant elemBorderVariant = guikit::UiVariant::Default;
     float elemBorderRadius = 8.0f;
     std::array<size_t, 16> ctrlBgIdxByCat = {0, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0};
+    float ctrlBgTint = 1.0f;
+    float ctrlBgAlpha = 1.0f;
     float ctrlBorderWidth = 0.0f;
     guikit::UiVariant ctrlBorderVariant = guikit::UiVariant::Default;
     float ctrlBorderRadius = 6.0f;
@@ -445,17 +479,17 @@ struct DemoContext {
     guikit::StateColor GetControlBackground(NavCategory cat) const noexcept {
         const size_t idx = static_cast<size_t>(cat);
         const size_t bgIdx = (idx < ctrlBgIdxByCat.size()) ? ctrlBgIdxByCat[idx] : 0;
-        return BgPresetToStateColor(bgIdx, IsCtrlBgDefaultEnabled(cat));
+        return BgPresetToStateColor(bgIdx, IsCtrlBgDefaultEnabled(cat), ctrlBgTint, ctrlBgAlpha);
     }
 
     std::string FormatElemBackgroundCode() const {
-        return BgPresetToCode(elemBgIdx, false);
+        return BgPresetToCode(elemBgIdx, false, elemBgTint, elemBgAlpha);
     }
 
     std::string FormatControlBackgroundCode(NavCategory cat) const {
         const size_t idx = static_cast<size_t>(cat);
         const size_t bgIdx = (idx < ctrlBgIdxByCat.size()) ? ctrlBgIdxByCat[idx] : 0;
-        return BgPresetToCode(bgIdx, IsCtrlBgDefaultEnabled(cat));
+        return BgPresetToCode(bgIdx, IsCtrlBgDefaultEnabled(cat), ctrlBgTint, ctrlBgAlpha);
     }
 
     std::optional<float> GetOptionalControlBorderWidth() const noexcept {
@@ -798,7 +832,29 @@ struct DemoContext {
                 .showLabels = true,
                 .color = BgPresetToTrackColor(elemBgIdx)
             }).changed) {
-                elemBackground = BgPresetToStateColor(elemBgIdx, false);
+                elemBackground = BgPresetToStateColor(elemBgIdx, false, elemBgTint, elemBgAlpha);
+                ui.InvalidateAll();
+            }
+        }
+        const bool hasElemBgTint = (elemBgIdx >= 2 && elemBgIdx <= 7);
+        if (auto el = ui.Element({.label = "Element Background Tint", .disabled = !hasElemBgTint})) {
+            if (ui.Slider(elemBgTint, 0.0f, 1.0f, {
+                .valueFormat = "%.2f",
+                .step = 0.05f,
+                .disabled = !hasElemBgTint
+            }).changed) {
+                elemBackground = BgPresetToStateColor(elemBgIdx, false, elemBgTint, elemBgAlpha);
+                ui.InvalidateAll();
+            }
+        }
+        const bool hasElemBgAlpha = (elemBgIdx >= 1);
+        if (auto el = ui.Element({.label = "Element Background Opacity", .disabled = !hasElemBgAlpha})) {
+            if (ui.Slider(elemBgAlpha, 0.0f, 1.0f, {
+                .valueFormat = "%.2f",
+                .step = 0.05f,
+                .disabled = !hasElemBgAlpha
+            }).changed) {
+                elemBackground = BgPresetToStateColor(elemBgIdx, false, elemBgTint, elemBgAlpha);
                 ui.InvalidateAll();
             }
         }
@@ -878,6 +934,22 @@ struct DemoContext {
                 .showTicks = true,
                 .showLabels = true,
                 .color = BgPresetToTrackColor(ctrlBgIdx)
+            }).changed) ui.InvalidateAll();
+        }
+        const bool hasCtrlBgTint = (ctrlBgIdx >= 2 && ctrlBgIdx <= 7);
+        if (auto el = ui.Element({.label = "Control Background Tint", .disabled = !hasCtrlBgTint})) {
+            if (ui.Slider(ctrlBgTint, 0.0f, 1.0f, {
+                .valueFormat = "%.2f",
+                .step = 0.05f,
+                .disabled = !hasCtrlBgTint
+            }).changed) ui.InvalidateAll();
+        }
+        const bool hasCtrlBgAlpha = (ctrlBgIdx >= 1);
+        if (auto el = ui.Element({.label = "Control Background Opacity", .disabled = !hasCtrlBgAlpha})) {
+            if (ui.Slider(ctrlBgAlpha, 0.0f, 1.0f, {
+                .valueFormat = "%.2f",
+                .step = 0.05f,
+                .disabled = !hasCtrlBgAlpha
             }).changed) ui.InvalidateAll();
         }
 

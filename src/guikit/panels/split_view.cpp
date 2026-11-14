@@ -467,14 +467,12 @@ SplitViewScope SplitView::Open(
 
     const auto& pal = theme.palette;
     outerNode->backgroundColor = opts.background.IsBackgroundEnabled(false)
-        ? (opts.background.HasAny() && !opts.background.IsSurface()
-            ? opts.background.Resolve(false, false, activeDisabled, pal.surface)
-            : pal.surface)
+        ? theme.ResolveColor(opts.background, false, false, activeDisabled, pal.surface)
         : Color::Transparent();
     const float bw = (opts.border.width > 0.0f) ? opts.border.width : (opts.border.color.HasAny() ? 1.0f : 0.0f);
     outerNode->borderWidth = theme.Scale(bw);
     outerNode->borderColor = (bw > 0.0f)
-        ? opts.border.color.Resolve(false, false, activeDisabled, pal.border)
+        ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border)
         : Color::Transparent();
     outerNode->cornerRadius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : 0.0f;
     outerNode->clipChildren = opts.clipChildren;

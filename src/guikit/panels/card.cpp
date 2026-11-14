@@ -53,9 +53,7 @@ ContainerScope Card::Open(
 
     const auto& pal = theme.palette;
     outerNode->backgroundColor = opts.background.IsBackgroundEnabled(true)
-        ? (opts.background.HasAny() && !opts.background.IsSurface()
-            ? theme.ResolveColor(opts.background, false, false, activeDisabled, pal.surface)
-            : pal.surface)
+        ? theme.ResolveColor(opts.background, false, false, activeDisabled, pal.surface)
         : Color::Transparent();
     outerNode->borderWidth = theme.Scale(opts.border.width);
     outerNode->borderColor = (opts.border.width > 0.0f)

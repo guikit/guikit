@@ -1465,7 +1465,7 @@ void Scene::RenderBackgroundAndWorld(
 
     const float rad = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : 0.0f;
     const Color bgCol = opts.background.IsBackgroundEnabled(true)
-        ? (opts.background.IsSurface() ? theme.palette.surface : opts.background.Resolve(false, false, node->disabled, theme.palette.surface))
+        ? theme.ResolveColor(opts.background, false, false, node->disabled, theme.palette.surface)
         : Color::Transparent();
 
     // 1. Render Background Pattern

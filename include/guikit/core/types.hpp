@@ -224,7 +224,28 @@ struct Color {
         return {r, g, b, static_cast<uint8_t>(static_cast<float>(a) * clamped)};
     }
 
-    [[nodiscard]] static Color Lerp(Color a, Color b, float t) noexcept {
+    [[nodiscard]] constexpr Color ScaleAlpha(uint8_t scale) const noexcept {
+        if (scale == 255) return *this;
+        return {
+            r,
+            g,
+            b,
+            static_cast<uint8_t>((static_cast<uint32_t>(a) * static_cast<uint32_t>(scale) + 127u) / 255u)
+        };
+    }
+
+    [[nodiscard]] static constexpr Color Mix255(Color base, Color accent, uint8_t weight) noexcept {
+        const uint32_t w = weight;
+        const uint32_t inv = 255u - w;
+        return {
+            static_cast<uint8_t>((static_cast<uint32_t>(base.r) * inv + static_cast<uint32_t>(accent.r) * w + 127u) / 255u),
+            static_cast<uint8_t>((static_cast<uint32_t>(base.g) * inv + static_cast<uint32_t>(accent.g) * w + 127u) / 255u),
+            static_cast<uint8_t>((static_cast<uint32_t>(base.b) * inv + static_cast<uint32_t>(accent.b) * w + 127u) / 255u),
+            static_cast<uint8_t>((static_cast<uint32_t>(base.a) * inv + static_cast<uint32_t>(accent.a) * w + 127u) / 255u)
+        };
+    }
+
+    [[nodiscard]] static constexpr Color Lerp(Color a, Color b, float t) noexcept {
         const float f = std::clamp(t, 0.0f, 1.0f);
         return {
             static_cast<uint8_t>(std::lerp(static_cast<float>(a.r), static_cast<float>(b.r), f)),

@@ -3086,6 +3086,7 @@ void TestHeadingWidgetWorkflow() {
         public:
             struct RoundRectRec {
                 Rect rect;
+                Color fill;
                 Color stroke;
                 float strokeWidth;
             };
@@ -3096,7 +3097,7 @@ void TestHeadingWidgetWorkflow() {
                 float thickness;
             };
             void DrawRoundRect(Rect rect, float radius, Color fill, Color stroke = Color(0, 0, 0, 0), float strokeWidth = 0.0f) override {
-                roundRects.push_back({rect, stroke, strokeWidth});
+                roundRects.push_back({rect, fill, stroke, strokeWidth});
                 ThorCanvas::DrawRoundRect(rect, radius, fill, stroke, strokeWidth);
             }
             void DrawLine(Vec2 p1, Vec2 p2, Color color, float thickness = 1.0f) override {
@@ -3164,6 +3165,84 @@ void TestHeadingWidgetWorkflow() {
             CHECK(spyCanvas.roundRects[0].stroke == expectedBorderCol);
             CHECK(spyCanvas.lines[0].color == expectedSepCol);
             CHECK_NEAR(spyCanvas.lines[0].thickness, 2.0f, 0.01f);
+        }
+
+        // (c) `background = StateColor::Surface()` MUST NOT be contaminated by `border.color`,
+        // while `.Tinted(...)` and `.WithAlpha(...)` control backdrop independently of `border`.
+        spyCanvas.Clear();
+        HeadingOptions optsPureSurface{
+            .label = "Pure Surface",
+            .background = StateColor::Surface(),
+            .border = {.width = 1.5f, .color = StateColor::Danger()},
+            .separator = HeadingSeparator::None
+        };
+        const Vec2 measuredSurf = Heading::Measure(optsPureSurface, UiSize::Md, &spyCanvas, theme, 800.0f);
+        Heading::Render(spyCanvas, Rect(0.0f, 0.0f, 800.0f, measuredSurf.y), optsPureSurface, UiSize::Md, theme);
+        CHECK(spyCanvas.roundRects.size() == 1);
+        if (spyCanvas.roundRects.size() == 1) {
+            CHECK(spyCanvas.roundRects[0].fill == theme.palette.surface);
+            CHECK(spyCanvas.roundRects[0].stroke == theme.ResolveColor(StateColor::Danger(), false, false, false, theme.palette.borderSubtle));
+        }
+
+        // Even with border.width = 0 and stale border.color = Danger(), Surface() stays pure theme.palette.surface
+        spyCanvas.Clear();
+        optsPureSurface.border = {.width = 0.0f, .color = StateColor::Danger()};
+        Heading::Render(spyCanvas, Rect(0.0f, 0.0f, 800.0f, measuredSurf.y), optsPureSurface, UiSize::Md, theme);
+        CHECK(spyCanvas.roundRects.size() == 1);
+        if (spyCanvas.roundRects.size() == 1) {
+            CHECK(spyCanvas.roundRects[0].fill == theme.palette.surface);
+            CHECK(spyCanvas.roundRects[0].stroke == Color::Transparent());
+        }
+
+        // Explicit tonal surface (`StateColor::Danger().Tinted(0.15f)`) + translucent surface (`WithAlpha(128)`)
+        spyCanvas.Clear();
+        HeadingOptions optsTintedSurface{
+            .label = "Tinted Callout",
+            .background = StateColor::Danger().Tinted(0.15f),
+            .separator = HeadingSeparator::None
+        };
+        Heading::Render(spyCanvas, Rect(0.0f, 0.0f, 800.0f, measuredSurf.y), optsTintedSurface, UiSize::Md, theme);
+        CHECK(spyCanvas.roundRects.size() == 1);
+        if (spyCanvas.roundRects.size() == 1) {
+            const Color expectedTint = theme.ResolveColor(StateColor::Danger().Tinted(0.15f), false, false, false, theme.palette.surface);
+            CHECK(spyCanvas.roundRects[0].fill == expectedTint);
+            CHECK(spyCanvas.roundRects[0].fill.a == 255);
+            CHECK(spyCanvas.roundRects[0].fill != theme.palette.surface);
+            CHECK(spyCanvas.roundRects[0].stroke == Color::Transparent());
+        }
+
+        // Verify `Element` + `Slider` (`Control::RenderFrame`) + `Card` in immediate Context also decouple `background` from `border.color`
+        Context bgCtx;
+        float sliderVal = 0.5f;
+        auto runBgDecoupleFrame = [&]() {
+            spyCanvas.Clear();
+            bgCtx.BeginFrame({800.0f, 200.0f});
+            if (auto card = bgCtx.Card({
+                .background = StateColor::Surface().WithAlpha(128),
+                .border = {.width = 1.0f, .color = StateColor::Warning()}
+            })) {
+                if (auto el = bgCtx.Element({
+                    .label = "Gain",
+                    .background = StateColor::Surface(),
+                    .border = {.width = 1.5f, .color = StateColor::Danger()}
+                })) {
+                    bgCtx.Slider(sliderVal, 0.0f, 1.0f, {
+                        .background = StateColor::Surface(),
+                        .border = {.width = 1.0f, .color = StateColor::Success()}
+                    });
+                }
+            }
+            bgCtx.EndFrame(spyCanvas);
+        };
+        runBgDecoupleFrame();
+        bgCtx.InvalidateAll();
+        runBgDecoupleFrame();
+        // Expect Card (`Surface().WithAlpha(128)`), Element (`Surface()`), and Slider Control well (`Surface()`)
+        CHECK(spyCanvas.roundRects.size() >= 3);
+        if (spyCanvas.roundRects.size() >= 3) {
+            CHECK(spyCanvas.roundRects[0].fill == bgCtx.GetTheme().palette.surface.ScaleAlpha(128));
+            CHECK(spyCanvas.roundRects[1].fill == bgCtx.GetTheme().palette.surface);
+            CHECK(spyCanvas.roundRects[2].fill == bgCtx.GetTheme().palette.surface);
         }
     }
 

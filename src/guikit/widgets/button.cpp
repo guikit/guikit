@@ -304,9 +304,11 @@ void Button::Render(
     const Rect capsuleRect = bounds;
 
     const bool hasCtrlBg = ctrl.HasBackground(true);
-    const StateColor& rawEffColor = (ctrl.background.HasAny() && !ctrl.background.IsSurface() && !ctrl.background.IsNone())
-        ? ctrl.background
-        : opts.color;
+    const bool overrideBg = ctrl.background.HasAny() && !ctrl.background.IsSurface() && !ctrl.background.IsNone();
+    StateColor rawEffColor = overrideBg ? ctrl.background : opts.color;
+    if (!overrideBg && ctrl.background.IsSurface() && ctrl.background.HasAlphaScale()) {
+        rawEffColor = rawEffColor.WithAlpha(ctrl.background.alphaScale);
+    }
     const StateColor effColor = theme.ResolveStateColor(rawEffColor);
 
     Color bg = Color::Transparent();
@@ -320,13 +322,22 @@ void Button::Render(
         borderCol = colors.border;
         if (ctrl.border.width <= 0.0f) borderW = colors.borderWidth;
         if (hasCtrlBg) {
-            if (pressed) bg = colors.bgActive;
-            else if (opts.active) bg = hovered ? colors.bgHover : colors.bgActive;
-            else if (hovered) bg = colors.bgHover;
-            else bg = colors.bg;
+            if (disabled) {
+                bg = effColor.disabled.value_or(colors.bg.WithAlphaF(0.40f));
+            } else if (pressed) {
+                bg = effColor.active.value_or(colors.bgActive);
+            } else if (opts.active) {
+                bg = hovered ? effColor.hover.value_or(colors.bgHover) : effColor.active.value_or(colors.bgActive);
+            } else if (hovered) {
+                bg = effColor.hover.value_or(colors.bgHover);
+            } else {
+                bg = effColor.normal.value_or(colors.bg);
+            }
+            if (!effColor.HasAny() && rawEffColor.HasAlphaScale()) {
+                bg = bg.ScaleAlpha(rawEffColor.alphaScale);
+            }
         }
         if (disabled) {
-            bg = bg.WithAlphaF(0.40f);
             borderCol = borderCol.WithAlphaF(0.40f);
         }
     } else if (effColor.token == StateColorToken::Ghost || (effColor.normal.has_value() && effColor.normal->a == 0)) {
@@ -359,7 +370,11 @@ void Button::Render(
             default: break;
         }
         const VariantColors& fallback = theme.GetVariant(matchedVar);
-        defaultText = hasMatchedVar ? fallback.text : Color::Hex(0xFFFFFFFF);
+        if (rawEffColor.IsTinted() && rawEffColor.GetTint() < 0.55f) {
+            defaultText = hasMatchedVar ? theme.GetTextColor(matchedVar) : theme.palette.textPrimary;
+        } else {
+            defaultText = hasMatchedVar ? fallback.text : Color::Hex(0xFFFFFFFF);
+        }
         if (hasCtrlBg) {
             if (opts.active && !pressed && hovered && !disabled) {
                 bg = effColor.hover.value_or(effColor.normal.value_or(fallback.bgHover));

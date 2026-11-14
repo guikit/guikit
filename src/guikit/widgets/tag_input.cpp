@@ -898,8 +898,12 @@ void TagInput::Render(const Node* node, ICanvas& canvas, const UiTheme& theme) {
         boxBorder = boxBorder.WithAlphaF(0.40f);
     }
 
-    if (ctrl.HasBackground(true) && ctrl.background.HasAny() && !ctrl.background.IsSurface()) {
-        boxBg = theme.ResolveColor(ctrl.background, hovered, focused, disabled, boxBg);
+    if (ctrl.HasBackground(true) && ctrl.background.HasAny()) {
+        if (!ctrl.background.IsSurface()) {
+            boxBg = theme.ResolveColor(ctrl.background, hovered, focused, disabled, boxBg);
+        } else if (ctrl.background.HasAlphaScale()) {
+            boxBg = boxBg.ScaleAlpha(ctrl.background.alphaScale);
+        }
     }
     if (ctrl.border.color.HasAny()) {
         boxBorder = theme.ResolveColor(ctrl.border.color, hovered, focused, disabled, boxBorder);

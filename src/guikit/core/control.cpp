@@ -89,31 +89,17 @@ void Control::RenderFrame(
 
     Color bg = Color::Transparent();
     if (spec.HasBackground(false)) {
-        if (spec.background.HasAny() && !spec.background.IsSurface()) {
-            bg = theme.ResolveColor(
-                spec.background,
-                hovered,
-                active,
-                disabled,
-                pal.surface,
-                pal.surfaceHover,
-                pal.surfaceActive,
-                pal.surface.WithAlphaF(0.40f)
-            );
-        } else {
-            bg = pal.surface;
-            if (spec.border.color.HasAny()) {
-                bg = Color(
-                    static_cast<uint8_t>((static_cast<int>(bg.r) * 86 + static_cast<int>(resolvedBorderAccent.r) * 14) / 100),
-                    static_cast<uint8_t>((static_cast<int>(bg.g) * 86 + static_cast<int>(resolvedBorderAccent.g) * 14) / 100),
-                    static_cast<uint8_t>((static_cast<int>(bg.b) * 86 + static_cast<int>(resolvedBorderAccent.b) * 14) / 100),
-                    255
-                );
-            }
-            if (disabled) {
-                bg = bg.WithAlphaF(0.40f);
-            }
-        }
+        const bool interactiveBg = !spec.background.IsSurface();
+        bg = theme.ResolveColor(
+            spec.background,
+            interactiveBg && hovered,
+            interactiveBg && active,
+            disabled,
+            pal.surface,
+            pal.surfaceHover,
+            pal.surfaceActive,
+            pal.surface.WithAlphaF(0.40f)
+        );
     }
 
     const float strokeW = (spec.border.width > 0.0f) ? theme.Scale(spec.border.width) : 0.0f;

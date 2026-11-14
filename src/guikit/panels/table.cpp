@@ -1213,9 +1213,7 @@ void Table::RenderBody(
 
     // 1. Draw outer table surface background
     if (data->opts.background.IsBackgroundEnabled(true)) {
-        const Color bgCol = data->opts.background.IsSurface()
-            ? pal.surface
-            : data->opts.background.Resolve(false, false, node->disabled, pal.surface);
+        const Color bgCol = theme.ResolveColor(data->opts.background, false, false, node->disabled, pal.surface);
         if (bgCol.a > 0) {
             canvas.DrawRoundRect(data->frameRect, radius, bgCol);
         }

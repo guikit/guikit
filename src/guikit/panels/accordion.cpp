@@ -244,8 +244,12 @@ void Accordion::RenderHeader(
         } else {
             bgColor = pal.surfaceHover.WithAlphaF(0.58f);
         }
+        if (opts.background.IsSurface() && opts.background.HasAlphaScale()) {
+            bgColor = bgColor.ScaleAlpha(opts.background.alphaScale);
+        }
     } else {
-        bgColor = opts.background.Resolve(
+        bgColor = theme.ResolveColor(
+            opts.background,
             hovered,
             pressed,
             disabled,

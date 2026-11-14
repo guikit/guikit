@@ -86,13 +86,11 @@ ActivityBarScope ActivityBar::Open(
         ? theme.ResolvePadding(opts.padding, activeSize)
         : theme.GetPadding(UiSize::Sm);
     node->backgroundColor = opts.background.IsBackgroundEnabled(true)
-        ? (opts.background.HasAny() && !opts.background.IsSurface()
-            ? opts.background.Resolve(false, false, activeDisabled, pal.surface)
-            : pal.surface)
+        ? theme.ResolveColor(opts.background, false, false, activeDisabled, pal.surface)
         : Color::Transparent();
     node->borderWidth = (opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : theme.Scale(opts.border.width);
     node->borderColor = (opts.border.width > 0.0f)
-        ? opts.border.color.Resolve(false, false, activeDisabled, pal.border)
+        ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border)
         : Color::Transparent();
     node->cornerRadius = opts.border.radius.has_value()
         ? theme.Scale(*opts.border.radius)

@@ -476,8 +476,12 @@ void Segmented::Render(
 
     // 1. Render outer segmented track well
     Color trackBg = ctrl.HasBackground(true) ? pal.inputBackground : Color::Transparent();
-    if (ctrl.HasBackground(true) && ctrl.background.HasAny() && !ctrl.background.IsSurface()) {
-        trackBg = theme.ResolveColor(ctrl.background, hoveredSegment >= 0, pressedSegment >= 0, disabled, trackBg);
+    if (ctrl.HasBackground(true) && ctrl.background.HasAny()) {
+        if (!ctrl.background.IsSurface()) {
+            trackBg = theme.ResolveColor(ctrl.background, hoveredSegment >= 0, pressedSegment >= 0, disabled, trackBg);
+        } else if (ctrl.background.HasAlphaScale()) {
+            trackBg = trackBg.ScaleAlpha(ctrl.background.alphaScale);
+        }
     }
     Color trackBorder = focused ? pal.focusRing : pal.inputBorder;
     if (ctrl.border.color.HasAny()) {

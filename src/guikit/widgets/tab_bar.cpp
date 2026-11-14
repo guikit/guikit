@@ -71,7 +71,9 @@ TabBarResponse TabBar::Run(
     const float activeTabGap = opts.gap.has_value() ? theme.Scale(*opts.gap) : defaultTabGap;
 
     const Color resolvedBg = opts.background.IsBackgroundEnabled(false)
-        ? (opts.background.IsSurface() ? theme.palette.surfaceElevated : theme.ResolveColor(opts.background, false, false, activeDisabled, theme.palette.surfaceElevated))
+        ? (opts.background.IsSurface()
+            ? theme.palette.surfaceElevated.ScaleAlpha(opts.background.alphaScale)
+            : theme.ResolveColor(opts.background, false, false, activeDisabled, theme.palette.surfaceElevated))
         : Color::Transparent();
     const Color resolvedBorderCol = (opts.border.width > 0.0f || opts.border.color.HasAny())
         ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, theme.palette.borderSubtle)

@@ -101,6 +101,10 @@ constexpr uint64_t HashVal(const T& val, uint64_t hash = Fnv1aOffsetBasis) noexc
             const uint8_t tok = static_cast<uint8_t>(val.token);
             hash = HashBytes(&tok, sizeof(tok), hash);
         }
+        if constexpr (requires { val.surfaceTint; val.alphaScale; }) {
+            hash = HashBytes(&val.surfaceTint, sizeof(val.surfaceTint), hash);
+            hash = HashBytes(&val.alphaScale, sizeof(val.alphaScale), hash);
+        }
         return hash;
     } else if constexpr (requires { val.width; val.radius; val.color; }) {
         hash = HashBytes(&val.width, sizeof(val.width), hash);

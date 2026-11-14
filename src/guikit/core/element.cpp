@@ -910,31 +910,17 @@ void Element::RenderFrame(
 
     Color bg = Color::Transparent();
     if (spec.background.IsBackgroundEnabled(false)) {
-        if (spec.background.HasAny() && !spec.background.IsSurface()) {
-            bg = theme.ResolveColor(
-                spec.background,
-                spec.hovered,
-                spec.active,
-                spec.disabled,
-                pal.surface,
-                pal.surfaceHover,
-                pal.surfaceActive,
-                pal.surface.WithAlphaF(0.40f)
-            );
-        } else {
-            bg = pal.surface;
-            if (spec.border.color.HasAny()) {
-                bg = Color(
-                    static_cast<uint8_t>((static_cast<int>(bg.r) * 90 + static_cast<int>(resolvedBorderAccent.r) * 10) / 100),
-                    static_cast<uint8_t>((static_cast<int>(bg.g) * 90 + static_cast<int>(resolvedBorderAccent.g) * 10) / 100),
-                    static_cast<uint8_t>((static_cast<int>(bg.b) * 90 + static_cast<int>(resolvedBorderAccent.b) * 10) / 100),
-                    255
-                );
-            }
-            if (spec.disabled) {
-                bg = bg.WithAlphaF(0.40f);
-            }
-        }
+        const bool interactiveBg = !spec.background.IsSurface();
+        bg = theme.ResolveColor(
+            spec.background,
+            interactiveBg && spec.hovered,
+            interactiveBg && spec.active,
+            spec.disabled,
+            pal.surface,
+            pal.surfaceHover,
+            pal.surfaceActive,
+            pal.surface.WithAlphaF(0.40f)
+        );
     }
 
     const float strokeW = (spec.border.width > 0.0f) ? theme.Scale(spec.border.width) : 0.0f;

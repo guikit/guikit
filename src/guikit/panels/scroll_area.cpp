@@ -48,13 +48,11 @@ ContainerScope ScrollArea::Open(
     node->gap = opts.gap.has_value() ? theme.Scale(*opts.gap) : 0.0f;
     node->padding = theme.ResolvePadding(opts.padding);
     node->backgroundColor = opts.background.IsBackgroundEnabled(false)
-        ? (opts.background.HasAny() && !opts.background.IsSurface()
-            ? opts.background.Resolve(false, false, activeDisabled, pal.surface)
-            : pal.surface)
+        ? theme.ResolveColor(opts.background, false, false, activeDisabled, pal.surface)
         : Color::Transparent();
     const float bw = (opts.border.width > 0.0f) ? opts.border.width : (opts.border.color.HasAny() ? 1.0f : 0.0f);
     node->borderWidth = theme.Scale(bw);
-    node->borderColor = (bw > 0.0f) ? opts.border.color.Resolve(false, false, activeDisabled, pal.border) : Color::Transparent();
+    node->borderColor = (bw > 0.0f) ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border) : Color::Transparent();
     node->cornerRadius = opts.border.radius.has_value() ? theme.Scale(*opts.border.radius) : 0.0f;
     node->scrollOrientation = opts.orientation;
     node->scrollbarPolicy = opts.scrollbar;

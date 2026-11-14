@@ -397,12 +397,10 @@ SidebarScope Sidebar::Open(
 
     const auto& pal = theme.palette;
     const Color resolvedBg = opts.background.IsBackgroundEnabled(true)
-        ? (opts.background.HasAny() && !opts.background.IsSurface()
-            ? opts.background.Resolve(false, false, activeDisabled, pal.surface)
-            : pal.surface)
+        ? theme.ResolveColor(opts.background, false, false, activeDisabled, pal.surface)
         : Color::Transparent();
     const Color resolvedBorderCol = (opts.border.width > 0.0f)
-        ? opts.border.color.Resolve(false, false, activeDisabled, pal.border)
+        ? theme.ResolveColor(opts.border.color, false, false, activeDisabled, pal.border)
         : Color::Transparent();
     const float resolvedBorderW = (opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : theme.Scale(opts.border.width);
     float reportedLogicalW = 0.0f;

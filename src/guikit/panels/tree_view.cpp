@@ -618,9 +618,12 @@ TreeViewScope TreeView::Open(
     if (opts.background.IsNone()) {
         outerNode->backgroundColor = Color::Transparent();
     } else if (!opts.background.HasAny() || opts.background.IsSurface()) {
-        outerNode->backgroundColor = pal.surface;
+        outerNode->backgroundColor = opts.background.IsSurface()
+            ? pal.surface.ScaleAlpha(opts.background.alphaScale)
+            : pal.surface;
     } else {
-        outerNode->backgroundColor = opts.background.Resolve(
+        outerNode->backgroundColor = theme.ResolveColor(
+            opts.background,
             treeHovered,
             anyRowFocused,
             activeDisabled,

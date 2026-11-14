@@ -2203,8 +2203,9 @@ MarkdownResponse Markdown::Run(
         if (!p) return;
 
         if (p->opts.background.IsBackgroundEnabled(false) || p->opts.border.color.HasAny() || p->opts.border.width > 0.0f) {
+            const bool interactiveBg = !p->opts.background.IsSurface();
             const Color bgCol = p->opts.background.IsBackgroundEnabled(false)
-                ? (p->opts.background.IsSurface() ? th.palette.surface : th.ResolveColor(p->opts.background, n->hovered, n->pressed, n->disabled, th.palette.surface))
+                ? th.ResolveColor(p->opts.background, interactiveBg && n->hovered, interactiveBg && n->pressed, n->disabled, th.palette.surface)
                 : Color::Transparent();
             const Color bCol = th.ResolveColor(p->opts.border.color, n->hovered, n->pressed, n->disabled, th.palette.border);
             const float bW = (p->opts.border.width > 0.0f) ? th.Scale(p->opts.border.width) : (p->opts.border.color.HasAny() ? th.Scale(1.0f) : 0.0f);
@@ -2375,7 +2376,7 @@ void Markdown::Render(
 
     if (opts.background.IsBackgroundEnabled(false) || opts.border.color.HasAny() || opts.border.width > 0.0f) {
         const Color bgCol = opts.background.IsBackgroundEnabled(false)
-            ? (opts.background.IsSurface() ? theme.palette.surface : theme.ResolveColor(opts.background, false, false, disabled, theme.palette.surface))
+            ? theme.ResolveColor(opts.background, false, false, disabled, theme.palette.surface)
             : Color::Transparent();
         const Color bCol = theme.ResolveColor(opts.border.color, false, false, disabled, theme.palette.border);
         const float bW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : (opts.border.color.HasAny() ? theme.Scale(1.0f) : 0.0f);

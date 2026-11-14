@@ -125,6 +125,8 @@ struct StateColor {
     std::optional<Color> active{std::nullopt};      ///< Pressed / checked / focused / filled state color
     std::optional<Color> disabled{std::nullopt};    ///< Disabled state color
     StateColorToken token{StateColorToken::Custom}; ///< Optional semantic theme token resolved via UiTheme
+    uint8_t surfaceTint{255};                       ///< Surface mix weight (255 = pure color, 0 = pure theme surface)
+    uint8_t alphaScale{255};                        ///< Post-resolve alpha multiplier (255 = 100% opacity, 0 = 0% opacity)
 
     [[nodiscard]] constexpr bool HasAny() const noexcept {
         return token != StateColorToken::Custom
@@ -132,6 +134,46 @@ struct StateColor {
             || hover.has_value()
             || active.has_value()
             || disabled.has_value();
+    }
+
+    /// Mixes this semantic/custom color onto the theme's opaque `surface` palette token (`0.0f` = pure surface, `1.0f` = full accent).
+    /// Produces an opaque tonal surface (callout/well backdrop) that adapts automatically to both Light and Dark themes.
+    [[nodiscard]] constexpr StateColor Tinted(float amount = 0.14f) const noexcept {
+        StateColor copy = *this;
+        const float clamped = std::clamp(amount, 0.0f, 1.0f);
+        copy.surfaceTint = static_cast<uint8_t>(clamped * 255.0f + 0.5f);
+        return copy;
+    }
+
+    /// Scales the resolved alpha channel across all interaction states (`0.0f` = transparent, `1.0f` = unchanged) while keeping theme reactivity.
+    [[nodiscard]] constexpr StateColor WithAlphaF(float factor) const noexcept {
+        StateColor copy = *this;
+        const float clamped = std::clamp(factor, 0.0f, 1.0f);
+        copy.alphaScale = static_cast<uint8_t>(clamped * 255.0f + 0.5f);
+        return copy;
+    }
+
+    /// Scales the resolved alpha channel using an 8-bit multiplier (`0..255`).
+    [[nodiscard]] constexpr StateColor WithAlpha(uint8_t alpha) const noexcept {
+        StateColor copy = *this;
+        copy.alphaScale = alpha;
+        return copy;
+    }
+
+    [[nodiscard]] constexpr bool IsTinted() const noexcept {
+        return surfaceTint < 255;
+    }
+
+    [[nodiscard]] constexpr float GetTint() const noexcept {
+        return static_cast<float>(surfaceTint) / 255.0f;
+    }
+
+    [[nodiscard]] constexpr bool HasAlphaScale() const noexcept {
+        return alphaScale < 255;
+    }
+
+    [[nodiscard]] constexpr float GetAlphaF() const noexcept {
+        return static_cast<float>(alphaScale) / 255.0f;
     }
 
     [[nodiscard]] static constexpr Color BrightenColor(Color c) noexcept {
@@ -162,23 +204,26 @@ struct StateColor {
         Color fallbackActive,
         Color fallbackDisabled
     ) const noexcept {
+        auto applyScale = [this](Color c) constexpr noexcept -> Color {
+            return (alphaScale < 255 && HasAny()) ? c.ScaleAlpha(alphaScale) : c;
+        };
         if (isDisabled) {
-            if (disabled.has_value()) return *disabled;
-            if (normal.has_value()) return normal->WithAlphaF(0.40f);
+            if (disabled.has_value()) return applyScale(*disabled);
+            if (normal.has_value()) return applyScale(normal->WithAlphaF(0.40f));
             return fallbackDisabled;
         }
         if (isActive) {
-            if (active.has_value()) return *active;
-            if (hover.has_value()) return *hover;
-            if (normal.has_value()) return DarkenColor(*normal);
+            if (active.has_value()) return applyScale(*active);
+            if (hover.has_value()) return applyScale(*hover);
+            if (normal.has_value()) return applyScale(DarkenColor(*normal));
             return fallbackActive;
         }
         if (isHovered) {
-            if (hover.has_value()) return *hover;
-            if (normal.has_value()) return BrightenColor(*normal);
+            if (hover.has_value()) return applyScale(*hover);
+            if (normal.has_value()) return applyScale(BrightenColor(*normal));
             return fallbackHover;
         }
-        return normal.value_or(fallbackNormal);
+        return normal.has_value() ? applyScale(*normal) : fallbackNormal;
     }
 
     [[nodiscard]] constexpr Color Resolve(

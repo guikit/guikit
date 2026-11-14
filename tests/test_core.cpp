@@ -1054,6 +1054,58 @@ void TestThemeTokensPaddingAndDateTime() {
     CHECK(light.ResolveColor(customSc, false, false, false, Color()) == customRgb);
     CHECK(dark.ResolveColor(customSc, false, false, false, Color()) == customRgb);
 
+    // 1b. Tonal surface tint (`Tinted`) & theme-reactive opacity (`WithAlphaF` / `WithAlpha`)
+    static_assert(Color::Mix255(Color(10, 20, 30, 255), Color(200, 100, 50, 255), 0) == Color(10, 20, 30, 255));
+    static_assert(Color::Mix255(Color(10, 20, 30, 255), Color(200, 100, 50, 255), 255) == Color(200, 100, 50, 255));
+    static_assert(Color(200, 100, 50, 255).ScaleAlpha(128).a == 128);
+
+    const StateColor dgrPure = StateColor::Danger();
+    const StateColor dgrTint0 = StateColor::Danger().Tinted(0.0f);
+    const StateColor dgrTint15 = StateColor::Danger().Tinted(0.15f);
+    const StateColor dgrTint100 = StateColor::Danger().Tinted(1.0f);
+
+    CHECK(dgrTint15.IsTinted());
+    CHECK(!dgrPure.IsTinted());
+    CHECK(!dgrTint100.IsTinted());
+
+    // Tinted(0.0f) -> pure opaque theme surface; Tinted(1.0f) -> pure semantic variant bg
+    CHECK(dark.ResolveColor(dgrTint0, false, false, false, Color()) == dark.palette.surface);
+    CHECK(light.ResolveColor(dgrTint0, false, false, false, Color()) == light.palette.surface);
+    CHECK(dark.ResolveColor(dgrTint100, false, false, false, Color()) == dark.GetVariant(UiVariant::Danger).bg);
+    CHECK(light.ResolveColor(dgrTint100, false, false, false, Color()) == light.GetVariant(UiVariant::Danger).bg);
+
+    // Tinted(0.15f) -> 100% opaque tonal surface in normal, hover, and active states across Dark & Light
+    const StateColor darkTinted = dark.ResolveStateColor(dgrTint15);
+    const StateColor lightTinted = light.ResolveStateColor(dgrTint15);
+    CHECK(darkTinted.normal.has_value() && darkTinted.normal->a == 255);
+    CHECK(darkTinted.hover.has_value() && darkTinted.hover->a == 255);
+    CHECK(darkTinted.active.has_value() && darkTinted.active->a == 255);
+    CHECK(darkTinted.normal->r > dark.palette.surface.r);
+    CHECK(darkTinted.normal->r < dark.GetVariant(UiVariant::Danger).bg.r);
+
+    CHECK(lightTinted.normal.has_value() && lightTinted.normal->a == 255);
+    CHECK(lightTinted.hover.has_value() && lightTinted.hover->a == 255);
+    CHECK(lightTinted.active.has_value() && lightTinted.active->a == 255);
+    CHECK(lightTinted.normal->g < light.palette.surface.g);
+    CHECK(lightTinted.normal->g > light.GetVariant(UiVariant::Danger).bg.g);
+
+    // Post-resolve alpha scaling (`WithAlphaF`) preserves theme reactivity without double-scaling
+    const StateColor surfHalf = StateColor::Surface().WithAlpha(128);
+    CHECK(surfHalf.IsSurface());
+    CHECK(surfHalf.HasAlphaScale());
+    const Color darkSurfHalf = dark.ResolveColor(surfHalf, false, false, false, Color());
+    const Color lightSurfHalf = light.ResolveColor(surfHalf, false, false, false, Color());
+    CHECK(darkSurfHalf == dark.palette.surface.ScaleAlpha(128));
+    CHECK(lightSurfHalf == light.palette.surface.ScaleAlpha(128));
+
+    const Color customHalf = StateColor::FromColor(Color(100, 150, 200, 255)).WithAlpha(128).Resolve(false, false, false, Color());
+    CHECK(customHalf == Color(100, 150, 200, 128));
+
+    // Dirty-rect hash sensitivity for `surfaceTint` and `alphaScale`
+    CHECK(detail::HashArgs(dgrPure) != detail::HashArgs(dgrTint15));
+    CHECK(detail::HashArgs(dgrTint15) != detail::HashArgs(dgrTint15.WithAlphaF(0.5f)));
+    CHECK(detail::HashArgs(StateColor::Surface()) != detail::HashArgs(surfHalf));
+
     // 2. Negative Padding must never collide with Padding::IsToken()
     const Padding neg1 = Padding::All(-1.0f);
     const Padding neg2 = Padding::All(-2.0f);

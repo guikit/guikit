@@ -408,14 +408,14 @@ ToolbarScope Toolbar::Open(
         : (insideRoundedSurface ? Color::Transparent() : pal.surface);
     if (!opts.background.IsBackgroundEnabled(true)) {
         node->backgroundColor = Color::Transparent();
-    } else if (opts.background.HasAny() && !opts.background.IsSurface()) {
-        node->backgroundColor = opts.background.Resolve(false, false, effectiveDisabled, pal.surface);
+    } else if (opts.background.HasAny()) {
+        node->backgroundColor = theme.ResolveColor(opts.background, false, false, effectiveDisabled, pal.surface);
     } else {
         node->backgroundColor = styleBg;
     }
 
     node->explicitRadius = (opts.border.radius.has_value() || opts.style != ToolbarStyle::Surface) ? 1 : 0;
-    node->borderColor = opts.border.color.Resolve(false, false, effectiveDisabled, pal.border);
+    node->borderColor = theme.ResolveColor(opts.border.color, false, false, effectiveDisabled, pal.border);
     if (opts.border.width > 0.0f) {
         node->borderWidth = theme.Scale(opts.border.width);
     } else if (opts.border.color.HasAny() || opts.style == ToolbarStyle::Header || opts.style == ToolbarStyle::Floating) {

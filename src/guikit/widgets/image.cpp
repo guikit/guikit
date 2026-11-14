@@ -270,9 +270,11 @@ void Image::Render(
         DrawCheckerboard(canvas, box, rad, theme);
     } else if (ctrl.HasBackground(false)) {
         const Color defaultBg = disabled ? theme.palette.surfaceElevated.WithAlphaF(0.40f) : theme.palette.surfaceElevated;
-        const Color bg = (ctrl.background.HasAny() && !ctrl.background.IsSurface())
-            ? ctrl.background.Resolve(hovered, false, disabled, defaultBg)
-            : defaultBg;
+        const Color bg = (!ctrl.background.HasAny())
+            ? defaultBg
+            : (ctrl.background.IsSurface()
+                ? defaultBg.ScaleAlpha(ctrl.background.alphaScale)
+                : theme.ResolveColor(ctrl.background, hovered, false, disabled, defaultBg));
         canvas.DrawRoundRect(box, rad, bg);
     }
 
@@ -298,9 +300,11 @@ void Image::Render(
     if (!drawn) {
         // Clean vector placeholder card when image is missing or empty
         const Color defaultBg = disabled ? theme.palette.surfaceElevated.WithAlphaF(0.40f) : theme.palette.surfaceElevated;
-        const Color bg = (ctrl.background.HasAny() && !ctrl.background.IsSurface())
-            ? ctrl.background.Resolve(hovered, false, disabled, defaultBg)
-            : defaultBg;
+        const Color bg = (!ctrl.background.HasAny())
+            ? defaultBg
+            : (ctrl.background.IsSurface()
+                ? defaultBg.ScaleAlpha(ctrl.background.alphaScale)
+                : theme.ResolveColor(ctrl.background, hovered, false, disabled, defaultBg));
         const Color border = theme.palette.borderSubtle;
         canvas.DrawRoundRect(box, rad, bg, disabled ? border.WithAlphaF(0.40f) : border, 1.0f);
 
@@ -312,7 +316,7 @@ void Image::Render(
     if (ctrl.border.width > 0.0f) {
         Color bCol = disabled ? theme.palette.borderSubtle.WithAlphaF(0.40f) : theme.palette.borderSubtle;
         if (ctrl.border.color.HasAny()) {
-            bCol = ctrl.border.color.Resolve(hovered, false, disabled, bCol);
+            bCol = theme.ResolveColor(ctrl.border.color, hovered, false, disabled, bCol);
         }
         canvas.DrawRoundRect(box, rad, Color::Transparent(), bCol, theme.Scale(ctrl.border.width));
     }

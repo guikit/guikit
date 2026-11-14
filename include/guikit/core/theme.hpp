@@ -158,8 +158,55 @@ struct UiTheme {
         return fallbackFontSize;
     }
 
-    /// Resolves a semantic `StateColor` token against this theme's `variants` and `palette` (controls, surfaces, borders, badges).
-    /// Custom `StateColor` values (`token == StateColorToken::Custom`) are returned unchanged.
+    /// Applies `surfaceTint` (tonal mix onto this theme's opaque `surface` palette) and `alphaScale` (post-resolve opacity) to a resolved `StateColor`.
+    [[nodiscard]] constexpr StateColor ApplyStateColorModifiers(
+        StateColor res,
+        uint8_t surfaceTint,
+        uint8_t alphaScale
+    ) const noexcept {
+        if (!res.HasAny() || res.IsNone()) {
+            return res;
+        }
+        if (surfaceTint < 255 && res.token != StateColorToken::Surface && res.token != StateColorToken::Ghost) {
+            const Color opaqueSurface = palette.surface;
+            const Color opaqueSurfaceHover = Color::Mix255(
+                palette.surface,
+                palette.surfaceHover.WithAlpha(255),
+                palette.surfaceHover.a
+            ).WithAlpha(palette.surface.a);
+            const Color opaqueSurfaceActive = Color::Mix255(
+                palette.surface,
+                palette.surfaceActive.WithAlpha(255),
+                palette.surfaceActive.a
+            ).WithAlpha(palette.surface.a);
+
+            auto tintOver = [](Color surf, Color accent, uint8_t tint) constexpr noexcept -> Color {
+                const uint32_t effW = (static_cast<uint32_t>(tint) * static_cast<uint32_t>(accent.a) + 127u) / 255u;
+                return Color::Mix255(surf, accent, static_cast<uint8_t>(effW)).WithAlpha(surf.a);
+            };
+
+            const Color baseNormal = res.normal.value_or(opaqueSurface);
+            const Color baseHover = res.hover.value_or(StateColor::BrightenColor(baseNormal));
+            const Color baseActive = res.active.value_or(StateColor::DarkenColor(baseNormal));
+
+            res.normal = tintOver(opaqueSurface, baseNormal, surfaceTint);
+            res.hover = tintOver(opaqueSurfaceHover, baseHover, surfaceTint);
+            res.active = tintOver(opaqueSurfaceActive, baseActive, surfaceTint);
+            res.disabled = res.normal->WithAlphaF(0.40f);
+        }
+        if (alphaScale < 255) {
+            if (res.normal.has_value())   res.normal   = res.normal->ScaleAlpha(alphaScale);
+            if (res.hover.has_value())    res.hover    = res.hover->ScaleAlpha(alphaScale);
+            if (res.active.has_value())   res.active   = res.active->ScaleAlpha(alphaScale);
+            if (res.disabled.has_value()) res.disabled = res.disabled->ScaleAlpha(alphaScale);
+        }
+        res.surfaceTint = 255;
+        res.alphaScale = 255;
+        return res;
+    }
+
+    /// Resolves a semantic `StateColor` token against this theme's `variants` and `palette` (controls, surfaces, borders, badges),
+    /// applying any `surfaceTint` (tonal surface mix) and `alphaScale` (post-resolve opacity multiplier).
     [[nodiscard]] constexpr StateColor ResolveStateColor(const StateColor& sc) const noexcept {
         auto fromVar = [this](UiVariant v, StateColorToken tok) constexpr noexcept -> StateColor {
             const VariantColors& vc = GetVariant(v);
@@ -171,96 +218,118 @@ struct UiTheme {
                 .token    = tok
             };
         };
+        StateColor res = sc;
         switch (sc.token) {
-            case StateColorToken::Custom:        return sc;
-            case StateColorToken::Primary:       return fromVar(UiVariant::Primary, sc.token);
-            case StateColorToken::Secondary:     return fromVar(UiVariant::Secondary, sc.token);
-            case StateColorToken::Success:       return fromVar(UiVariant::Success, sc.token);
-            case StateColorToken::Warning:       return fromVar(UiVariant::Warning, sc.token);
-            case StateColorToken::Danger:        return fromVar(UiVariant::Danger, sc.token);
-            case StateColorToken::Info:          return fromVar(UiVariant::Info, sc.token);
+            case StateColorToken::Custom:        break;
+            case StateColorToken::Primary:       res = fromVar(UiVariant::Primary, sc.token); break;
+            case StateColorToken::Secondary:     res = fromVar(UiVariant::Secondary, sc.token); break;
+            case StateColorToken::Success:       res = fromVar(UiVariant::Success, sc.token); break;
+            case StateColorToken::Warning:       res = fromVar(UiVariant::Warning, sc.token); break;
+            case StateColorToken::Danger:        res = fromVar(UiVariant::Danger, sc.token); break;
+            case StateColorToken::Info:          res = fromVar(UiVariant::Info, sc.token); break;
             case StateColorToken::Ghost: {
                 const VariantColors& vc = GetVariant(UiVariant::Ghost);
-                return StateColor{
+                res = StateColor{
                     .normal   = vc.bg,
                     .hover    = vc.bgHover,
                     .active   = vc.bgActive,
                     .disabled = Color::Transparent(),
                     .token    = sc.token
                 };
+                break;
             }
             case StateColorToken::Muted:
             case StateColorToken::TextMuted:
-                return StateColor{
+                res = StateColor{
                     .normal   = palette.textMuted,
                     .hover    = palette.textSecondary,
                     .active   = palette.textMuted,
                     .disabled = palette.textDisabled,
                     .token    = sc.token
                 };
+                break;
             case StateColorToken::TextPrimary:
-                return StateColor{
+                res = StateColor{
                     .normal   = palette.textPrimary,
                     .hover    = palette.textPrimary,
                     .active   = palette.textPrimary,
                     .disabled = palette.textDisabled,
                     .token    = sc.token
                 };
+                break;
             case StateColorToken::TextSecondary:
-                return StateColor{
+                res = StateColor{
                     .normal   = palette.textSecondary,
                     .hover    = palette.textPrimary,
                     .active   = palette.textSecondary,
                     .disabled = palette.textDisabled,
                     .token    = sc.token
                 };
-            case StateColorToken::Surface:
-                return StateColor{
+                break;
+            case StateColorToken::Surface: {
+                const Color opaqueHover = Color::Mix255(
+                    palette.surface,
+                    palette.surfaceHover.WithAlpha(255),
+                    palette.surfaceHover.a
+                ).WithAlpha(palette.surface.a);
+                const Color opaqueActive = Color::Mix255(
+                    palette.surface,
+                    palette.surfaceActive.WithAlpha(255),
+                    palette.surfaceActive.a
+                ).WithAlpha(palette.surface.a);
+                res = StateColor{
                     .normal   = palette.surface,
-                    .hover    = palette.surfaceHover,
-                    .active   = palette.surfaceActive,
+                    .hover    = opaqueHover,
+                    .active   = opaqueActive,
                     .disabled = palette.surface.WithAlphaF(0.40f),
                     .token    = sc.token
                 };
+                break;
+            }
         }
-        return sc;
+        return ApplyStateColorModifiers(res, sc.surfaceTint, sc.alphaScale);
     }
 
     /// Resolves a semantic `StateColor` token specifically for foreground text against this theme's Light/Dark palette.
     [[nodiscard]] constexpr StateColor ResolveTextStateColor(const StateColor& sc) const noexcept {
+        StateColor res = sc;
         switch (sc.token) {
             case StateColorToken::Custom:
-                return sc;
+                break;
             case StateColorToken::TextPrimary:
-                return StateColor{
+                res = StateColor{
                     .normal   = palette.textPrimary,
                     .hover    = palette.textPrimary,
                     .active   = palette.textPrimary,
                     .disabled = palette.textDisabled,
                     .token    = sc.token
                 };
+                break;
             case StateColorToken::Secondary:
             case StateColorToken::Muted:
             case StateColorToken::TextSecondary:
-                return StateColor{
+                res = StateColor{
                     .normal   = palette.textSecondary,
                     .hover    = palette.textPrimary,
                     .active   = palette.textSecondary,
                     .disabled = palette.textDisabled,
                     .token    = sc.token
                 };
+                break;
             case StateColorToken::Ghost:
             case StateColorToken::TextMuted:
-                return StateColor{
+                res = StateColor{
                     .normal   = palette.textMuted,
                     .hover    = palette.textSecondary,
                     .active   = palette.textMuted,
                     .disabled = palette.textDisabled,
                     .token    = sc.token
                 };
+                break;
             default:
                 return ResolveStateColor(sc);
         }
+        return ApplyStateColorModifiers(res, sc.surfaceTint, sc.alphaScale);
     }
 
     /// Resolves a control/surface/border `StateColor` across interaction states using theme-aware semantic tokens.

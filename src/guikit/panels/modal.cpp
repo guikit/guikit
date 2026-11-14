@@ -413,13 +413,15 @@ void Modal::Render(
         ? Color(19, 26, 41, 255)
         : Color(255, 255, 255, 255);
     const Color surfaceBg = opts.background.IsBackgroundEnabled(true)
-        ? (opts.background.HasAny() && !opts.background.IsSurface()
-            ? opts.background.Resolve(false, false, false, defaultSurfaceBg)
-            : defaultSurfaceBg)
+        ? (!opts.background.HasAny()
+            ? defaultSurfaceBg
+            : (opts.background.IsSurface()
+                ? defaultSurfaceBg.ScaleAlpha(opts.background.alphaScale)
+                : theme.ResolveColor(opts.background, false, false, false, defaultSurfaceBg)))
         : Color::Transparent();
     const float borderW = (opts.border.width > 0.0f) ? theme.Scale(opts.border.width) : 0.0f;
     const Color borderCol = (borderW > 0.0f)
-        ? opts.border.color.Resolve(false, false, false, pal.borderHover)
+        ? theme.ResolveColor(opts.border.color, false, false, false, pal.borderHover)
         : Color::Transparent();
     Color accentCol = pal.accent;
     bool hasSemanticVariant = (opts.variant != UiVariant::Default && opts.variant != UiVariant::Ghost && opts.variant != UiVariant::Secondary);

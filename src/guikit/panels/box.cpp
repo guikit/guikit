@@ -27,9 +27,7 @@ ContainerScope Box::Open(
     node->padding = theme.ResolvePadding(opts.padding);
     const auto& pal = theme.palette;
     node->backgroundColor = opts.background.IsBackgroundEnabled(false)
-        ? (opts.background.HasAny() && !opts.background.IsSurface()
-            ? theme.ResolveColor(opts.background, false, false, activeDisabled, pal.surface)
-            : pal.surface)
+        ? theme.ResolveColor(opts.background, false, false, activeDisabled, pal.surface)
         : Color::Transparent();
     const float bw = (opts.border.width > 0.0f) ? opts.border.width : (opts.border.color.HasAny() ? 1.0f : 0.0f);
     node->borderWidth = theme.Scale(bw);

@@ -843,8 +843,12 @@ void SpinBox::Render(
         unitCol = unitCol.WithAlphaF(0.40f);
     }
 
-    if (ctrl.HasBackground(true) && ctrl.background.HasAny() && !ctrl.background.IsSurface()) {
-        boxBg = theme.ResolveColor(ctrl.background, inputHovered, focused, disabled, boxBg);
+    if (ctrl.HasBackground(true) && ctrl.background.HasAny()) {
+        if (!ctrl.background.IsSurface()) {
+            boxBg = theme.ResolveColor(ctrl.background, inputHovered, focused, disabled, boxBg);
+        } else if (ctrl.background.HasAlphaScale()) {
+            boxBg = boxBg.ScaleAlpha(ctrl.background.alphaScale);
+        }
     }
     if (ctrl.border.color.HasAny()) {
         boxBorder = theme.ResolveColor(ctrl.border.color, inputHovered, focused, disabled, boxBorder);
@@ -879,11 +883,16 @@ void SpinBox::Render(
             Color btnBg = ctrl.HasBackground(true) ? pal.inputBackground : Color::Transparent();
             if (ctrl.HasBackground(true) && ctrl.background.HasAny() && !ctrl.background.IsSurface()) {
                 btnBg = theme.ResolveColor(ctrl.background, btnHov && !effDis, btnPress && !effDis, effDis, btnBg);
-            } else if (!effDis) {
-                if (btnPress) {
-                    btnBg = accentCol.WithAlphaF(0.28f);
-                } else if (btnHov) {
-                    btnBg = pal.surfaceHover;
+            } else {
+                if (!effDis) {
+                    if (btnPress) {
+                        btnBg = accentCol.WithAlphaF(0.28f);
+                    } else if (btnHov) {
+                        btnBg = pal.surfaceHover;
+                    }
+                }
+                if (ctrl.HasBackground(true) && ctrl.background.IsSurface() && ctrl.background.HasAlphaScale()) {
+                    btnBg = btnBg.ScaleAlpha(ctrl.background.alphaScale);
                 }
             }
 

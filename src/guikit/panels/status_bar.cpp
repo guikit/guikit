@@ -280,12 +280,12 @@ StatusBarScope StatusBar::Open(
     if (!opts.background.IsBackgroundEnabled(true)) {
         node->backgroundColor = Color::Transparent();
     } else if (opts.background.HasAny() && !opts.background.IsSurface()) {
-        node->backgroundColor = opts.background.Resolve(false, false, effectiveDisabled, styleBg);
+        node->backgroundColor = theme.ResolveColor(opts.background, false, false, effectiveDisabled, styleBg);
     } else {
-        node->backgroundColor = styleBg;
+        node->backgroundColor = opts.background.IsSurface() ? styleBg.ScaleAlpha(opts.background.alphaScale) : styleBg;
     }
 
-    node->borderColor = opts.border.color.Resolve(false, false, effectiveDisabled, pal.border);
+    node->borderColor = theme.ResolveColor(opts.border.color, false, false, effectiveDisabled, pal.border);
     node->borderWidth = (opts.style == StatusBarStyle::Accent && !opts.border.color.HasAny())
         ? 0.0f
         : ((opts.border.width == 1.0f) ? theme.shell.panelBorderWidth : theme.Scale(opts.border.width));
