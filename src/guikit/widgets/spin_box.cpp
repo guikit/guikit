@@ -1,13 +1,12 @@
 #include "guikit/widgets/spin_box.hpp"
 #include <cmath>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include "keel/string.h"
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/format.h"
+#include "keel/number.h"
+#include "keel/string.h"
 
 namespace guikit {
 
@@ -221,7 +220,7 @@ SpinBoxRects ResolveSpinBoxRects(
 
 keel::usize SnapToUtf8CodepointBoundary(keel::StringRef text, keel::usize idx) noexcept {
     idx = keel::min(idx, text.size());
-    while (idx > 0 && idx < text.size() && (static_cast<unsigned char>(text[idx]) & 0xC0) == 0x80) {
+    while (idx > 0 && idx < text.size() && (static_cast<keel::u8>(text[idx]) & 0xC0) == 0x80) {
         --idx;
     }
     return idx;
@@ -257,8 +256,46 @@ void WriteNumericValue(
     } else if (doubleValue != nullptr) {
         *doubleValue = clamped;
     } else if (intValue != nullptr) {
-        *intValue = static_cast<keel::i64>(std::llround(clamped));
+        *intValue = static_cast<keel::i64>(std::round(clamped));
     }
+}
+
+keel::StringRef ExtractNumericPrefix(keel::StringRef text, bool allowFloat) noexcept {
+    keel::usize start = 0;
+    while (start < text.size() && (text[start] == ' ' || text[start] == '\t')) {
+        ++start;
+    }
+    keel::usize i = start;
+    if (i < text.size() && (text[i] == '+' || text[i] == '-')) {
+        ++i;
+    }
+    bool hasDigits = false;
+    while (i < text.size() && text[i] >= '0' && text[i] <= '9') {
+        hasDigits = true;
+        ++i;
+    }
+    if (allowFloat) {
+        if (i < text.size() && text[i] == '.') {
+            ++i;
+            while (i < text.size() && text[i] >= '0' && text[i] <= '9') {
+                hasDigits = true;
+                ++i;
+            }
+        }
+        if (hasDigits && i < text.size() && (text[i] == 'e' || text[i] == 'E')) {
+            keel::usize expPos = i + 1;
+            if (expPos < text.size() && (text[expPos] == '+' || text[expPos] == '-')) {
+                ++expPos;
+            }
+            if (expPos < text.size() && text[expPos] >= '0' && text[expPos] <= '9') {
+                i = expPos + 1;
+                while (i < text.size() && text[i] >= '0' && text[i] <= '9') {
+                    ++i;
+                }
+            }
+        }
+    }
+    return hasDigits ? text.substr(start, i - start) : keel::StringRef{};
 }
 
 void FormatNumericValue(
@@ -269,67 +306,13 @@ void FormatNumericValue(
     keel::i64* intValue,
     const SpinBoxOptions& opts
 ) noexcept {
-    char fmtBuf[128]{};
     const keel::StringRef rawFmt = opts.valueFormat.text;
-    const keel::usize copyLen = keel::min(rawFmt.size(), sizeof(fmtBuf) - 1);
-    if (copyLen > 0) {
-        std::memcpy(fmtBuf, rawFmt.data(), copyLen);
-    }
-    fmtBuf[copyLen] = '\0';
-
-    char convSpec = '\0';
-    bool isLongLong = false;
-    bool isLong = false;
-    for (keel::usize i = 0; i < copyLen; ++i) {
-        if (fmtBuf[i] == '%') {
-            if (i + 1 < copyLen && fmtBuf[i + 1] == '%') {
-                ++i;
-                continue;
-            }
-            for (keel::usize j = i + 1; j < copyLen; ++j) {
-                const char c = fmtBuf[j];
-                if (c == 'l') {
-                    if (isLong) isLongLong = true;
-                    else isLong = true;
-                } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
-                    convSpec = c;
-                    break;
-                }
-            }
-            break;
-        }
-    }
-
-    const bool isIntSpec = (convSpec == 'd' || convSpec == 'i' || convSpec == 'u' ||
-                            convSpec == 'x' || convSpec == 'X' || convSpec == 'o');
-
     if (floatValue != nullptr || doubleValue != nullptr) {
         const double dv = (floatValue != nullptr) ? static_cast<double>(*floatValue) : *doubleValue;
-        if (copyLen == 0) {
-            std::snprintf(valBuf, bufSize, "%.2f", dv);
-        } else if (convSpec == '\0') {
-            std::snprintf(valBuf, bufSize, "%s", fmtBuf);
-        } else if (isIntSpec) {
-            const long long iv = static_cast<long long>(std::llround(dv));
-            if (isLongLong) std::snprintf(valBuf, bufSize, fmtBuf, iv);
-            else if (isLong) std::snprintf(valBuf, bufSize, fmtBuf, static_cast<long>(iv));
-            else std::snprintf(valBuf, bufSize, fmtBuf, static_cast<int>(iv));
-        } else {
-            std::snprintf(valBuf, bufSize, fmtBuf, dv);
-        }
+        keel::format_buf(valBuf, bufSize, rawFmt.empty() ? "{:.2f}" : rawFmt, dv);
     } else if (intValue != nullptr) {
-        const long long iv = static_cast<long long>(*intValue);
-        if (copyLen == 0 || rawFmt == "%.2f") {
-            std::snprintf(valBuf, bufSize, "%lld", iv);
-        } else if (convSpec == '\0') {
-            std::snprintf(valBuf, bufSize, "%s", fmtBuf);
-        } else if (isIntSpec) {
-            if (isLongLong) std::snprintf(valBuf, bufSize, fmtBuf, iv);
-            else if (isLong) std::snprintf(valBuf, bufSize, fmtBuf, static_cast<long>(iv));
-            else std::snprintf(valBuf, bufSize, fmtBuf, static_cast<int>(iv));
-        } else {
-            std::snprintf(valBuf, bufSize, fmtBuf, static_cast<double>(iv));
-        }
+        const keel::StringRef fmt = (rawFmt.empty() || rawFmt == "%.2f") ? "{}" : rawFmt;
+        keel::format_buf(valBuf, bufSize, fmt, *intValue);
     }
 }
 
@@ -562,26 +545,17 @@ Response SpinBox::Run(
 
         if (changed && !opts.readOnly) {
             if (floatValue != nullptr) {
-                char* end = nullptr;
-                const keel::FixedString<64> s(displayText);
-                const float f = std::strtof(s.c_str(), &end);
-                if (end != s.c_str()) {
-                    *floatValue = static_cast<float>(ClampNumericValue(static_cast<double>(f), opts));
+                if (const auto f = keel::parse_f32(ExtractNumericPrefix(displayText, true))) {
+                    *floatValue = static_cast<float>(ClampNumericValue(static_cast<double>(*f), opts));
                 }
             } else if (doubleValue != nullptr) {
-                char* end = nullptr;
-                const keel::FixedString<64> s(displayText);
-                const double d = std::strtod(s.c_str(), &end);
-                if (end != s.c_str()) {
-                    *doubleValue = ClampNumericValue(d, opts);
+                if (const auto d = keel::parse_f64(ExtractNumericPrefix(displayText, true))) {
+                    *doubleValue = ClampNumericValue(*d, opts);
                 }
             } else if (intValue != nullptr) {
-                char* end = nullptr;
-                const keel::FixedString<64> s(displayText);
-                const long long i = std::strtoll(s.c_str(), &end, 10);
-                if (end != s.c_str()) {
-                    const double clamped = ClampNumericValue(static_cast<double>(i), opts);
-                    *intValue = static_cast<keel::i64>(std::llround(clamped));
+                if (const auto i = keel::parse_i64(ExtractNumericPrefix(displayText, false), 10)) {
+                    const double clamped = ClampNumericValue(static_cast<double>(*i), opts);
+                    *intValue = static_cast<keel::i64>(std::round(clamped));
                 }
             }
             res.changed = true;

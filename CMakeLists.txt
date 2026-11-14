@@ -23,6 +23,10 @@ option(GUIKIT_BUILD_DEMO "Build GuiKit interactive demo and examples" ${PROJECT_
 option(GUIKIT_BUILD_TESTS "Build GuiKit unit tests" ${PROJECT_IS_TOP_LEVEL})
 option(GUIKIT_INSTALL "Enable CMake install targets for GuiKit" ${PROJECT_IS_TOP_LEVEL})
 
+if (GUIKIT_BUILD_TESTS)
+    enable_testing()
+endif()
+
 if (GUIKIT_BUILD_DEMO OR GUIKIT_BUILD_TESTS OR GUIKIT_BUILD_SCENES)
     set(_GUIKIT_DEFAULT_EMBED_DEMO_ASSETS ON)
 else()
@@ -54,6 +58,8 @@ if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/keel/CMakeLists.txt")
 else()
     find_package(keel REQUIRED)
 endif()
+
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/GuiKitGuidelines.cmake")
 
 if (GUIKIT_BUILD_SCENES)
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/http/CMakeLists.txt")
@@ -173,6 +179,12 @@ target_include_directories(guikit_core PUBLIC
 )
 target_link_libraries(guikit_core PUBLIC keel::keel)
 
+guikit_enforce_guidelines(guikit_core
+    HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    STANDALONE_HEADERS ${GUIKIT_BUILD_TESTS}
+    TEST_NAME guikit_header_purity_scan
+)
+
 # ==============================================================================
 # 2. Module: guikit::scenes
 #    Scientific / DSP / GIS 2D Views (SignalView, SonarView, WaterfallView, MapView)
@@ -203,6 +215,7 @@ if (GUIKIT_BUILD_SCENES)
     if (NOT EMSCRIPTEN)
         target_link_libraries(guikit_scenes PUBLIC Threads::Threads)
     endif()
+    guikit_enforce_guidelines(guikit_scenes)
 endif()
 
 # ==============================================================================
@@ -227,7 +240,7 @@ if (GUIKIT_BUILD_BACKEND_THORVG)
     target_compile_features(guikit_backend_thorvg PUBLIC cxx_std_20)
     target_compile_definitions(guikit_backend_thorvg PUBLIC GUIKIT_HAS_BACKEND_THORVG=1)
     if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/thorvg/src/loaders/png/tvgLodePng.h")
-        target_include_directories(guikit_backend_thorvg PRIVATE
+        target_include_directories(guikit_backend_thorvg SYSTEM PRIVATE
             "${CMAKE_CURRENT_SOURCE_DIR}/third_party/thorvg/src/loaders/png"
         )
     endif()
@@ -235,6 +248,7 @@ if (GUIKIT_BUILD_BACKEND_THORVG)
     if (NOT EMSCRIPTEN)
         target_link_libraries(guikit_backend_thorvg PUBLIC Threads::Threads)
     endif()
+    keel_enforce_guidelines(guikit_backend_thorvg)
 endif()
 
 # ==============================================================================
@@ -287,6 +301,7 @@ if (GUIKIT_BUILD_BACKEND_SDL3)
     else()
         target_link_libraries(guikit_backend_sdl3 PUBLIC guikit::core PRIVATE SDL3::SDL3)
     endif()
+    keel_enforce_guidelines(guikit_backend_sdl3)
 endif()
 
 # ==============================================================================
@@ -352,6 +367,9 @@ if (GUIKIT_BUILD_DEMO)
             examples/demo/scenes/bpmn_screen.cpp
         )
         target_link_libraries(guikit_demo PRIVATE guikit::guikit)
+        guikit_enforce_guidelines(guikit_demo
+            HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/examples/demo"
+        )
         if (EMSCRIPTEN)
             set_target_properties(guikit_demo PROPERTIES SUFFIX ".html")
             target_link_options(guikit_demo PRIVATE
@@ -375,6 +393,7 @@ if (GUIKIT_BUILD_DEMO)
             examples/minimal/main.cpp
         )
         target_link_libraries(guikit_minimal PRIVATE guikit::guikit)
+        guikit_enforce_guidelines(guikit_minimal)
     endif()
 endif()
 
@@ -424,25 +443,27 @@ if (GUIKIT_INSTALL)
     install(FILES
         "${CMAKE_CURRENT_BINARY_DIR}/guikitConfig.cmake"
         "${CMAKE_CURRENT_BINARY_DIR}/guikitConfigVersion.cmake"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GuiKitGuidelines.cmake"
+        "${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenerateEmbeddedAssets.cmake"
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/guikit"
     )
 endif()
 
 # --- Unit Tests ---
 if (GUIKIT_BUILD_TESTS)
-    enable_testing()
-
     # test_core & test_layout link ONLY against guikit::core (zero external dependencies)
     add_executable(test_core
         tests/test_core.cpp
     )
     target_link_libraries(test_core PRIVATE guikit::core)
+    guikit_enforce_guidelines(test_core)
     add_test(NAME core COMMAND test_core)
 
     add_executable(test_layout
         tests/test_layout.cpp
     )
     target_link_libraries(test_layout PRIVATE guikit::core)
+    guikit_enforce_guidelines(test_layout)
     add_test(NAME layout COMMAND test_layout)
 
     add_executable(test_context
@@ -457,6 +478,8 @@ if (GUIKIT_BUILD_TESTS)
     elseif (TARGET SDL3::SDL3)
         target_link_libraries(test_context PRIVATE SDL3::SDL3)
     endif()
+    # test_context intentionally exercises duck-typed std::string / std::vector / SDL interop
+    keel_enforce_guidelines(test_context BAN_STL OFF)
     add_test(NAME context COMMAND test_context)
 
     add_executable(test_guikit_header_purity
@@ -466,28 +489,14 @@ if (GUIKIT_BUILD_TESTS)
     if (TARGET guikit::scenes)
         target_link_libraries(test_guikit_header_purity PRIVATE guikit::scenes)
     endif()
-    if (MSVC)
-        target_compile_options(test_guikit_header_purity PRIVATE /W4 /WX)
-    else()
-        target_compile_options(test_guikit_header_purity PRIVATE -Wall -Wextra -Wpedantic -Werror)
-    endif()
+    keel_enforce_guidelines(test_guikit_header_purity WARNINGS_AS_ERRORS ON)
     add_test(NAME guikit_header_purity COMMAND test_guikit_header_purity)
 
-    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/keel/include/keel/core.h")
-        set(_GUIKIT_KEEL_INC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/keel/include")
-    else()
-        get_target_property(_GUIKIT_KEEL_INC_DIR keel::keel INTERFACE_INCLUDE_DIRECTORIES)
-    endif()
-    string(REPLACE ";" "|" _GUIKIT_STD_INC_JOINED "${CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES}")
     add_test(
-        NAME guikit_header_purity_scan
+        NAME guikit_guidelines_self_test
         COMMAND ${CMAKE_COMMAND}
-            "-DGUIKIT_INCLUDE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/include"
-            "-DKEEL_INCLUDE_DIR=${_GUIKIT_KEEL_INC_DIR}"
-            "-DCOMPILER_PATH=${CMAKE_CXX_COMPILER}"
-            "-DCOMPILER_ID=${CMAKE_CXX_COMPILER_ID}"
-            "-DSTD_INC_DIRS=${_GUIKIT_STD_INC_JOINED}"
-            "-DCMAKE_BINARY_DIR=${CMAKE_CURRENT_BINARY_DIR}"
-            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CheckHeaderPurity.cmake"
+            "-DCHECK_SCRIPT=${_KEEL_GUIDELINES_CMAKE_DIR}/KeelCheckGuidelines.cmake"
+            "-DSCRATCH_ROOT=${CMAKE_CURRENT_BINARY_DIR}/guidelines_self_test"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_guidelines_enforcement.cmake"
     )
 endif()

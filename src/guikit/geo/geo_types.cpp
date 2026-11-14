@@ -118,7 +118,7 @@ keel::String AttributeValue::ToString() const {
     switch (m_kind) {
         case Kind::Null:   return keel::String::from("null");
         case Kind::Bool:   return keel::String::from(m_bool ? "true" : "false");
-        case Kind::Int:    return keel::format("%lld", static_cast<long long>(m_int));
+        case Kind::Int:    return keel::format("{}", m_int);
         case Kind::Double: return keel::format("%.6g", m_double);
         case Kind::String: return m_str.clone();
     }
@@ -884,18 +884,15 @@ void GeoLayer::FinalizeLayer(keel::u64 layerUid, bool forceTriangulateAll) {
             feat.uid = expectedUid;
             if (isWindowStreamed && feat.sqliteRowId > 0) {
                 char idBuf[40];
-                feat.id.assign(keel::format_buf(idBuf, "L%llu_R%lld",
-                                                static_cast<unsigned long long>(layerUid),
-                                                static_cast<long long>(feat.sqliteRowId)));
+                feat.id.assign(keel::format_buf(idBuf, "L{}_R{}", layerUid, feat.sqliteRowId));
             } else {
                 char idBuf[40];
-                feat.id.assign(keel::format_buf(idBuf, "L%llu_F%zu",
-                                                static_cast<unsigned long long>(layerUid), i));
+                feat.id.assign(keel::format_buf(idBuf, "L{}_F{}", layerUid, i));
             }
         }
         if (feat.displayId.empty()) {
             char dispBuf[24];
-            feat.displayId.assign(keel::format_buf(dispBuf, "%llu", static_cast<unsigned long long>(lowId)));
+            feat.displayId.assign(keel::format_buf(dispBuf, "{}", lowId));
         }
 
         if (doTriangulate && feat.geometryLoaded) {

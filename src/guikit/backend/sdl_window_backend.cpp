@@ -36,7 +36,7 @@ namespace {
 
 [[nodiscard]] inline keel::u32 AtomicExchangeU32(keel::u32& slot, keel::u32 val) noexcept {
 #if defined(_MSC_VER) && !defined(__clang__)
-    return static_cast<keel::u32>(_InterlockedExchange(reinterpret_cast<volatile long*>(&slot), static_cast<long>(val)));
+    return static_cast<keel::u32>(_InterlockedExchange(reinterpret_cast<volatile long*>(&slot), static_cast<long>(val))); // keel-lint: ignore
 #else
     return __atomic_exchange_n(&slot, val, __ATOMIC_ACQ_REL);
 #endif

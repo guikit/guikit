@@ -216,7 +216,7 @@ float SdlCanvas::GetLineHeight(float fontSize) {
 }
 
 void SdlCanvas::DrawText(keel::StringRef text, Vec2 pos, float fontSize, Color color) {
-    if (!m_renderer || text.empty() || color.a == 0) return;
+    if (!m_renderer || text.empty() || fontSize <= 0.0f || color.a == 0) return;
 
     SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(m_renderer, color.r, color.g, color.b, color.a);

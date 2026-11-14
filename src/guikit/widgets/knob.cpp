@@ -1,11 +1,10 @@
 #include "guikit/widgets/knob.hpp"
 #include <cmath>
-#include <cstdio>
-#include <cstring>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/format.h"
 
 namespace guikit {
 
@@ -65,37 +64,17 @@ void FormatKnobValue(
     const KnobOptions& opts
 ) noexcept {
     if (!opts.valueFormat.empty()) {
-        if (opts.valueFormat.text.find('%') == keel::StringRef::npos) {
-            std::snprintf(buf, bufSize, "%.*s",
-                          static_cast<keel::i32>(opts.valueFormat.text.size()),
-                          opts.valueFormat.text.data());
+        if (isInt) {
+            keel::format_buf(buf, bufSize, opts.valueFormat.text, static_cast<keel::i64>(std::round(val)));
         } else {
-            char fmtBuf[128]{};
-            const keel::usize copyLen = keel::min(opts.valueFormat.text.size(), sizeof(fmtBuf) - 1);
-            std::memcpy(fmtBuf, opts.valueFormat.text.data(), copyLen);
-            fmtBuf[copyLen] = '\0';
-            if (isInt && opts.valueFormat.text.find('f') == keel::StringRef::npos) {
-                if (opts.valueFormat.text.find("ll") != keel::StringRef::npos ||
-                    opts.valueFormat.text.find('z') != keel::StringRef::npos) {
-                    std::snprintf(buf, bufSize, fmtBuf, static_cast<long long>(std::llround(val)));
-                } else {
-                    std::snprintf(buf, bufSize, fmtBuf, static_cast<int>(std::llround(val)));
-                }
-            } else {
-                std::snprintf(buf, bufSize, fmtBuf, val);
-            }
+            keel::format_buf(buf, bufSize, opts.valueFormat.text, val);
         }
     } else if (isInt) {
-        std::snprintf(buf, bufSize, "%lld", static_cast<long long>(std::llround(val)));
+        keel::format_buf(buf, bufSize, "{}", static_cast<keel::i64>(std::round(val)));
     } else {
         const double step = opts.step.value_or(0.0);
-        if (step >= 1.0) {
-            std::snprintf(buf, bufSize, "%.0f", val);
-        } else if (step >= 0.1) {
-            std::snprintf(buf, bufSize, "%.1f", val);
-        } else {
-            std::snprintf(buf, bufSize, "%.2f", val);
-        }
+        const keel::StringRef fmt = (step >= 1.0) ? "{:.0f}" : ((step >= 0.1) ? "{:.1f}" : "{:.2f}");
+        keel::format_buf(buf, bufSize, fmt, val);
     }
 }
 
@@ -194,7 +173,7 @@ Response Knob::Run(
         const double q = QuantizeAndClamp(v, minVal, maxVal, effectiveStep);
         if (doubleVal != nullptr) *doubleVal = q;
         if (floatVal != nullptr)  *floatVal = static_cast<float>(q);
-        if (intVal != nullptr)    *intVal = static_cast<keel::i64>(std::llround(q));
+        if (intVal != nullptr)    *intVal = static_cast<keel::i64>(std::round(q));
     };
 
     double currentVal = QuantizeAndClamp(readVal(), minVal, maxVal, effectiveStep);

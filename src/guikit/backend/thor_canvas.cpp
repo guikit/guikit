@@ -1890,8 +1890,8 @@ struct LodePngStateGuard {
 };
 
 struct MallocBytesGuard {
-    unsigned char* ptr{nullptr};
-    explicit MallocBytesGuard(unsigned char* p) noexcept : ptr(p) {}
+    keel::u8* ptr{nullptr};
+    explicit MallocBytesGuard(keel::u8* p) noexcept : ptr(p) {}
     ~MallocBytesGuard() noexcept {
         if (ptr) std::free(ptr);
     }
@@ -1918,8 +1918,8 @@ bool DecodeThorImageFromMemory(
         // 1. Inspect IHDR dimensions first to guard against decompression bombs
         {
             LodePngStateGuard inspectGuard;
-            unsigned inspectW = 0;
-            unsigned inspectH = 0;
+            unsigned inspectW = 0; // keel-lint: ignore
+            unsigned inspectH = 0; // keel-lint: ignore
             if (lodepng_inspect(&inspectW, &inspectH, &inspectGuard.state, encodedBytes.data(), encodedBytes.size()) != 0 ||
                 inspectW == 0 || inspectH == 0 || inspectW > 4096 || inspectH > 4096) {
                 return false;
@@ -1931,10 +1931,10 @@ bool DecodeThorImageFromMemory(
         decodeGuard.state.info_raw.colortype = LCT_RGBA;
         decodeGuard.state.info_raw.bitdepth = 8;
 
-        unsigned char* rawPtr = nullptr;
-        unsigned srcW = 0;
-        unsigned srcH = 0;
-        const unsigned err = lodepng_decode(
+        keel::u8* rawPtr = nullptr;
+        unsigned srcW = 0;         // keel-lint: ignore
+        unsigned srcH = 0;         // keel-lint: ignore
+        const unsigned err = lodepng_decode( // keel-lint: ignore
             &rawPtr,
             &srcW,
             &srcH,
@@ -1956,7 +1956,7 @@ bool DecodeThorImageFromMemory(
         outHeight = srcH;
         const keel::usize totalPx = static_cast<keel::usize>(srcW) * srcH;
         outRgbaPixels.resize(totalPx);
-        const unsigned char* srcBuf = decodedBytes.ptr;
+        const keel::u8* srcBuf = decodedBytes.ptr;
 
 #if !defined(__BYTE_ORDER__) || (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
         std::memcpy(outRgbaPixels.data(), srcBuf, totalPx * sizeof(keel::u32));

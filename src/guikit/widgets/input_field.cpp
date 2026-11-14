@@ -161,7 +161,7 @@ InputBoxRects ResolveInputBoxRects(
 
 keel::usize SnapToUtf8CodepointBoundary(keel::StringRef text, keel::usize idx) noexcept {
     idx = keel::min(idx, text.size());
-    while (idx > 0 && idx < text.size() && (static_cast<unsigned char>(text[idx]) & 0xC0) == 0x80) {
+    while (idx > 0 && idx < text.size() && (static_cast<keel::u8>(text[idx]) & 0xC0) == 0x80) {
         --idx;
     }
     return idx;

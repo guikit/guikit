@@ -1,11 +1,11 @@
 #include "guikit/widgets/slider.hpp"
 #include <cmath>
-#include <cstdio>
 #include <cstring>
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/format.h"
 
 namespace guikit {
 
@@ -34,56 +34,17 @@ void FormatSliderValue(
     keel::StringRef format
 ) noexcept {
     if (!format.empty()) {
-        char convSpec = '\0';
-        bool isLongLong = false;
-        bool isLong = false;
-        for (keel::usize i = 0; i < format.size(); ++i) {
-            if (format[i] == '%') {
-                if (i + 1 < format.size() && format[i + 1] == '%') {
-                    ++i; // skip escaped %%
-                    continue;
-                }
-                for (keel::usize j = i + 1; j < format.size(); ++j) {
-                    const char c = format[j];
-                    if (c == 'l') {
-                        if (isLong) isLongLong = true;
-                        else isLong = true;
-                    } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
-                        convSpec = c;
-                        break;
-                    }
-                }
-                break;
-            }
-        }
-
-        char fmt[128]{};
-        const keel::usize fmtLen = keel::min(format.size(), sizeof(fmt) - 1);
-        std::memcpy(fmt, format.data(), fmtLen);
-        fmt[fmtLen] = '\0';
-        if (convSpec == 'd' || convSpec == 'i' || convSpec == 'u' ||
-            convSpec == 'x' || convSpec == 'X' || convSpec == 'o') {
-            const long long intVal = static_cast<long long>(std::round(value));
-            if (isLongLong) {
-                std::snprintf(valBuf, bufSize, fmt, intVal);
-            } else if (isLong) {
-                std::snprintf(valBuf, bufSize, fmt, static_cast<long>(intVal));
-            } else {
-                std::snprintf(valBuf, bufSize, fmt, static_cast<int>(intVal));
-            }
-        } else if (convSpec != '\0') {
-            std::snprintf(valBuf, bufSize, fmt, value);
+        if (isInt) {
+            keel::format_buf(valBuf, bufSize, format, static_cast<keel::i64>(std::round(value)));
         } else {
-            std::snprintf(valBuf, bufSize, "%s", fmt);
+            keel::format_buf(valBuf, bufSize, format, value);
         }
     } else if (isInt) {
-        std::snprintf(valBuf, bufSize, "%lld", static_cast<long long>(std::round(value)));
+        keel::format_buf(valBuf, bufSize, "{}", static_cast<keel::i64>(std::round(value)));
+    } else if (std::abs(value - std::round(value)) < 0.0001) {
+        keel::format_buf(valBuf, bufSize, "{:.0f}", value);
     } else {
-        if (std::abs(value - std::round(value)) < 0.0001) {
-            std::snprintf(valBuf, bufSize, "%.0f", value);
-        } else {
-            std::snprintf(valBuf, bufSize, "%.1f", value);
-        }
+        keel::format_buf(valBuf, bufSize, "{:.1f}", value);
     }
 }
 
@@ -1395,7 +1356,7 @@ void FormatRangeSliderPair(
     keel::StringRef format
 ) noexcept {
     keel::i32 specCount = 0;
-    keel::usize secondSpecPos = keel::StringRef::npos;
+    keel::i32 braceCount = 0;
     for (keel::usize i = 0; i < format.size(); ++i) {
         if (format[i] == '%') {
             if (i + 1 < format.size() && format[i + 1] == '%') {
@@ -1403,28 +1364,35 @@ void FormatRangeSliderPair(
                 continue;
             }
             ++specCount;
-            if (specCount == 2) {
-                secondSpecPos = i;
+        } else if (format[i] == '{') {
+            if (i + 1 < format.size() && format[i + 1] == '{') {
+                ++i;
+                continue;
             }
+            ++braceCount;
         }
     }
 
-    if (specCount >= 2 && secondSpecPos != keel::StringRef::npos) {
-        const keel::StringRef part1 = format.substr(0, secondSpecPos);
-        const keel::StringRef part2 = format.substr(secondSpecPos);
-        char lowBuf[64];
-        char highBuf[64];
-        FormatSliderValue(lowBuf, sizeof(lowBuf), lowVal, isInt, part1);
-        FormatSliderValue(highBuf, sizeof(highBuf), highVal, isInt, part2);
-        std::snprintf(outBuf, bufSize, "%s%s", lowBuf, highBuf);
+    if (braceCount >= 2 || specCount >= 2) {
+        if (isInt) {
+            keel::format_buf(
+                outBuf,
+                bufSize,
+                format,
+                static_cast<keel::i64>(std::round(lowVal)),
+                static_cast<keel::i64>(std::round(highVal))
+            );
+        } else {
+            keel::format_buf(outBuf, bufSize, format, lowVal, highVal);
+        }
         return;
     }
 
-    char lowBuf[48];
-    char highBuf[48];
+    char lowBuf[48]{};
+    char highBuf[48]{};
     FormatSliderValue(lowBuf, sizeof(lowBuf), lowVal, isInt, format);
     FormatSliderValue(highBuf, sizeof(highBuf), highVal, isInt, format);
-    std::snprintf(outBuf, bufSize, "%s .. %s", lowBuf, highBuf);
+    keel::format_buf(outBuf, bufSize, "{} .. {}", keel::StringRef(lowBuf), keel::StringRef(highBuf));
 }
 
 } // namespace

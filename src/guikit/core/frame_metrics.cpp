@@ -3,6 +3,7 @@
 #include <cstdio>
 #include "keel/core.h"
 #include "keel/format.h"
+#include "keel/number.h"
 #include "keel/time.h"
 
 #if defined(_WIN32)
@@ -37,7 +38,7 @@ namespace {
 #elif defined(__EMSCRIPTEN__)
     return 1;
 #else
-    const long n = sysconf(_SC_NPROCESSORS_ONLN);
+    const keel::i64 n = sysconf(_SC_NPROCESSORS_ONLN);
     return (n > 0) ? static_cast<keel::i32>(n) : 1;
 #endif
 }
@@ -284,14 +285,22 @@ keel::usize FrameMetrics::QueryProcessRamBytes() noexcept {
     if (!fp) {
         return 0;
     }
-    unsigned long totalPages = 0;
-    unsigned long rssPages = 0;
-    const keel::i32 matched = std::fscanf(fp, "%lu %lu", &totalPages, &rssPages);
+    char statmBuf[128]{};
+    const keel::usize bytesRead = std::fread(statmBuf, 1, sizeof(statmBuf) - 1, fp);
     std::fclose(fp);
-    if (matched == 2) {
-        const long pageSize = sysconf(_SC_PAGESIZE);
-        if (pageSize > 0) {
-            return static_cast<keel::usize>(rssPages) * static_cast<keel::usize>(pageSize);
+    const keel::StringRef view(statmBuf, bytesRead);
+    keel::usize pos = 0;
+    while (pos < view.size() && view[pos] == ' ') ++pos;
+    while (pos < view.size() && view[pos] >= '0' && view[pos] <= '9') ++pos;
+    while (pos < view.size() && view[pos] == ' ') ++pos;
+    const keel::usize rssStart = pos;
+    while (pos < view.size() && view[pos] >= '0' && view[pos] <= '9') ++pos;
+    if (pos > rssStart) {
+        if (const auto rssPages = keel::parse_u64(view.substr(rssStart, pos - rssStart))) {
+            const keel::i64 pageSize = sysconf(_SC_PAGESIZE);
+            if (pageSize > 0) {
+                return static_cast<keel::usize>(*rssPages) * static_cast<keel::usize>(pageSize);
+            }
         }
     }
     return 0;

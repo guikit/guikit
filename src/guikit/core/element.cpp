@@ -167,7 +167,6 @@ float ResolveChildAvailableWidth(
     float availableWidth,
     ICanvas* canvas,
     const UiTheme& theme,
-    float labelFontSize,
     float descFontSize,
     Vec2 measuredLabelBar
 ) noexcept {
@@ -328,7 +327,7 @@ ElementScope Element::Open(
             const float labelFs = ResolveLabelFontSize(spec, theme);
             const float descFs = ResolveDescFontSize(spec, theme);
             const Vec2 rawBar = HasLabelBar(spec) ? MeasureLabelBar(spec, labelFs, canvas, theme) : Vec2{0.0f, 0.0f};
-            const float childAvailW = ResolveChildAvailableWidth(spec, availableWidth, canvas, theme, labelFs, descFs, rawBar);
+            const float childAvailW = ResolveChildAvailableWidth(spec, availableWidth, canvas, theme, descFs, rawBar);
             childIntrinsic = child->measureFn
                 ? child->measureFn(child, childAvailW, canvas, childTheme)
                 : child->intrinsicSize;
@@ -351,7 +350,7 @@ ElementScope Element::Open(
         const float labelFs = ResolveLabelFontSize(spec, theme);
         const float descFs = ResolveDescFontSize(spec, theme);
         const Vec2 rawBar = HasLabelBar(spec) ? MeasureLabelBar(spec, labelFs, &canvas, theme) : Vec2{0.0f, 0.0f};
-        const float childAvailW = ResolveChildAvailableWidth(spec, n->computedRect.w, &canvas, theme, labelFs, descFs, rawBar);
+        const float childAvailW = ResolveChildAvailableWidth(spec, n->computedRect.w, &canvas, theme, descFs, rawBar);
         const Vec2 childIntrinsic = child->measureFn
             ? child->measureFn(child, childAvailW, &canvas, childTheme)
             : child->intrinsicSize;
@@ -396,7 +395,7 @@ void Element::Arrange(
     const float labelFs = ResolveLabelFontSize(spec, theme);
     const float descFs = ResolveDescFontSize(spec, theme);
     const Vec2 rawBar = HasLabelBar(spec) ? MeasureLabelBar(spec, labelFs, ep->lastCanvas, theme) : Vec2{0.0f, 0.0f};
-    const float childAvailW = ResolveChildAvailableWidth(spec, bounds.w, ep->lastCanvas, theme, labelFs, descFs, rawBar);
+    const float childAvailW = ResolveChildAvailableWidth(spec, bounds.w, ep->lastCanvas, theme, descFs, rawBar);
     const Vec2 childIntrinsic = child->measureFn
         ? child->measureFn(child, childAvailW, ep->lastCanvas, childTheme)
         : child->intrinsicSize;

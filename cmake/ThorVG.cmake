@@ -89,7 +89,7 @@ target_compile_definitions(thorvg PUBLIC
     NOMINMAX
 )
 
-target_include_directories(thorvg PUBLIC
+target_include_directories(thorvg SYSTEM PUBLIC
     $<BUILD_INTERFACE:${THORVG_DIR}/inc>
 )
 

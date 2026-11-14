@@ -713,7 +713,7 @@ void AppendCompactJsonValue(keel::String& out, const JsonValue& v) {
             break;
         case JsonValue::Kind::Int: {
             char buf[32];
-            out.append(keel::format_buf(buf, "%lld", static_cast<long long>(v.intVal)));
+            out.append(keel::format_buf(buf, "{}", v.intVal));
             break;
         }
         case JsonValue::Kind::Double: {
@@ -874,7 +874,7 @@ void ParseFeatureObject(const JsonValue& featObj, keel::i32 srsId, keel::Array<G
             feat.displayId.assign(idVal->AsString());
         } else if (idVal->IsInt()) {
             char buf[32];
-            feat.displayId.assign(keel::format_buf(buf, "%lld", static_cast<long long>(idVal->intVal)));
+            feat.displayId.assign(keel::format_buf(buf, "{}", idVal->intVal));
         } else if (idVal->IsDouble()) {
             char buf[64];
             feat.displayId.assign(keel::format_buf(buf, "%.6g", idVal->doubleVal));
@@ -913,9 +913,9 @@ void EscapeJsonString(keel::String& out, keel::StringRef sv) {
             case '\r': out.append("\\r"); break;
             case '\t': out.append("\\t"); break;
             default:
-                if (static_cast<unsigned char>(c) < 0x20u) {
+                if (static_cast<keel::u8>(c) < 0x20u) {
                     char buf[8];
-                    out.append(keel::format_buf(buf, "\\u%04x", static_cast<keel::u32>(static_cast<unsigned char>(c))));
+                    out.append(keel::format_buf(buf, "\\u%04x", static_cast<keel::u32>(static_cast<keel::u8>(c))));
                 } else {
                     out.push_back(c);
                 }
@@ -1273,7 +1273,7 @@ keel::String GeoJsonIO::SerializeLayer(const GeoLayer& layer, bool prettyPrint) 
                     break;
                 case AttributeValue::Kind::Int: {
                     char buf[32];
-                    out.append(keel::format_buf(buf, "%lld", static_cast<long long>(v.as_int())));
+                    out.append(keel::format_buf(buf, "{}", v.as_int()));
                     break;
                 }
                 case AttributeValue::Kind::Double: {

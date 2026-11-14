@@ -19,8 +19,6 @@ ContainerScope Carousel::Open(
     const float activeScale = opts.scale.value_or(ctx.GetCurrentScale());
     UiTheme* pushedTheme = ctx.PushScopedTheme(opts.theme, opts.scale);
 
-    const CarouselMetrics& cm = ctx.GetTheme().GetCarousel(activeSize);
-
     Node* node = ctx.CreateNode(NodeType::Carousel, id);
     node->theme = pushedTheme;
     node->direction = FlexDirection::Row;

@@ -13,6 +13,7 @@
 #include "guikit/widgets/text_area.hpp"
 #include "keel/array.h"
 #include "keel/core.h"
+#include "keel/format.h"
 #include "keel/hash_map.h"
 #include "keel/lru_cache.h"
 #include "keel/ref.h"
@@ -913,12 +914,12 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                     while (pos < lineStr.size()) {
                         const keel::usize approxChars = keel::max<keel::usize>(1, static_cast<keel::usize>(std::floor(codeAvailW / spaceW)));
                         keel::usize fitEnd = keel::min(lineStr.size(), pos + approxChars);
-                        while (fitEnd < lineStr.size() && (static_cast<unsigned char>(lineStr[fitEnd]) & 0xC0) == 0x80) {
+                        while (fitEnd < lineStr.size() && (static_cast<keel::u8>(lineStr[fitEnd]) & 0xC0) == 0x80) {
                             ++fitEnd;
                         }
                         while (fitEnd < lineStr.size()) {
                             keel::usize nextCp = fitEnd + 1;
-                            while (nextCp < lineStr.size() && (static_cast<unsigned char>(lineStr[nextCp]) & 0xC0) == 0x80) {
+                            while (nextCp < lineStr.size() && (static_cast<keel::u8>(lineStr[nextCp]) & 0xC0) == 0x80) {
                                 ++nextCp;
                             }
                             if (MeasureStyledSlice(canvas, lineStr.substr(pos, nextCp - pos), codeFs, FontStyle::Monospace) <= codeAvailW + 0.5f) {
@@ -929,7 +930,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                         }
                         while (fitEnd > pos + 1 && MeasureStyledSlice(canvas, lineStr.substr(pos, fitEnd - pos), codeFs, FontStyle::Monospace) > codeAvailW + 0.5f) {
                             --fitEnd;
-                            while (fitEnd > pos + 1 && (static_cast<unsigned char>(lineStr[fitEnd]) & 0xC0) == 0x80) {
+                            while (fitEnd > pos + 1 && (static_cast<keel::u8>(lineStr[fitEnd]) & 0xC0) == 0x80) {
                                 --fitEnd;
                             }
                         }
@@ -947,7 +948,7 @@ keel::Arc<const MarkdownDocumentLayout> BuildMarkdownDocumentLayout(
                         }
                         if (splitEnd <= pos) {
                             splitEnd = keel::min(lineStr.size(), pos + 1);
-                            while (splitEnd < lineStr.size() && (static_cast<unsigned char>(lineStr[splitEnd]) & 0xC0) == 0x80) {
+                            while (splitEnd < lineStr.size() && (static_cast<keel::u8>(lineStr[splitEnd]) & 0xC0) == 0x80) {
                                 ++splitEnd;
                             }
                         }
@@ -1425,9 +1426,9 @@ void RenderMarkdownDocumentLayout(
                     }
                 } else if (blk.isOrderedList) {
                     char numBuf[16];
-                    std::snprintf(numBuf, sizeof(numBuf), "%u.", static_cast<unsigned>(blk.listNumber));
+                    const keel::StringRef numStr = keel::format_buf(numBuf, "{}.", blk.listNumber);
                     canvas.DrawTextStyled(
-                        numBuf,
+                        numStr,
                         markerRect.Pos(),
                         bodyFs,
                         theme.palette.accent,
@@ -2002,7 +2003,7 @@ MarkdownResponse Markdown::Run(
                 if (!typedChunks.empty()) {
                     for (const keel::String& chunk : typedChunks) {
                         for (char ch : chunk) {
-                            if (static_cast<unsigned char>(ch) >= 32) {
+                            if (static_cast<keel::u8>(ch) >= 32) {
                                 state.searchQuery.push_back(ch);
                             }
                         }

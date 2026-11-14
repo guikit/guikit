@@ -1,10 +1,5 @@
 #include <cmath>
 #include <cstring>
-#if defined(_WIN32)
-extern "C" __declspec(dllimport) void __stdcall Sleep(unsigned long dwMilliseconds);
-#elif !defined(__EMSCRIPTEN__)
-#include <ctime>
-#endif
 #include "guikit/core.hpp"
 #include "guikit/geo/map_grid.hpp"
 #include "keel/keel.h"
@@ -20,24 +15,7 @@ static keel::i32 g_failures = 0;
     } while (0)
 
 static void SleepMicroseconds(keel::u64 us) noexcept {
-    const keel::u64 targetNs = keel::monotonic_ns() + us * 1000ULL;
-    for (;;) {
-        const keel::u64 nowNs = keel::monotonic_ns();
-        if (nowNs >= targetNs) break;
-        const keel::u64 remNs = targetNs - nowNs;
-#if defined(_WIN32)
-        if (remNs >= 2000000ULL) {
-            Sleep(static_cast<unsigned long>(remNs / 1000000ULL));
-        }
-#elif !defined(__EMSCRIPTEN__)
-        struct timespec ts{};
-        ts.tv_sec = static_cast<time_t>(remNs / 1000000000ULL);
-        ts.tv_nsec = static_cast<long>(remNs % 1000000000ULL);
-        nanosleep(&ts, nullptr);
-#else
-        (void)remNs;
-#endif
-    }
+    keel::sleep_us(us);
 }
 
 void TestGeometryAndTypes() {
@@ -1286,6 +1264,19 @@ void TestThemeTokensPaddingAndDateTime() {
         CHECK(n.GetTypeName() != "Unknown");
         CHECK(!n.GetTypeName().empty());
     }
+
+#if KEEL_HAS_EXCEPTIONS
+    // Verify zero-heap keel::Exception (`std::exception` compatible) works cleanly under guikit_enforce_guidelines
+    bool caughtStdException = false;
+    try {
+        throw keel::Exception::with_error(
+            keel::Error{keel::ErrorCode::InvalidArgument, 0}, "Invalid gain: {:.1f} dB", 24.5f
+        );
+    } catch (const std::exception& e) {
+        caughtStdException = (keel::StringRef(e.what()) == "Invalid gain: 24.5 dB");
+    }
+    CHECK(caughtStdException);
+#endif
 }
 
 int main() {

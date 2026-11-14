@@ -111,12 +111,12 @@ static constexpr keel::StaticArray<keel::StringRef, 22> kPythonBuiltins = {
 };
 
 bool IsIdentStart(char c) noexcept {
-    const unsigned char u = static_cast<unsigned char>(c);
+    const keel::u8 u = static_cast<keel::u8>(c);
     return std::isalpha(u) || c == '_';
 }
 
 bool IsIdentChar(char c) noexcept {
-    const unsigned char u = static_cast<unsigned char>(c);
+    const keel::u8 u = static_cast<keel::u8>(c);
     return std::isalnum(u) || c == '_';
 }
 
@@ -1317,9 +1317,8 @@ EditorLayoutRects ComputeEditorLayout(
 
         if (opts.allowZoom && std::abs(effZoom - 1.0f) > 0.01f && L.innerBounds.w > tbCm.defaultWidth * 1.75f) {
             char zBuf[16]{};
-            std::snprintf(zBuf, sizeof(zBuf), "%d%%", static_cast<int>(std::lround(effZoom * 100.0f)));
             ButtonOptions zoomOpts{};
-            zoomOpts.text = zBuf;
+            zoomOpts.text = keel::format_buf(zBuf, "{}%", static_cast<keel::i32>(std::round(effZoom * 100.0f)));
             const Vec2 zSz = Button::Measure(zoomOpts, L.toolbarSize, canvas, theme);
             L.zoomBtnRect = Rect(rightCursor - zSz.x, overlayTop, zSz.x, zSz.y);
             rightCursor -= (zSz.x + tbGap * 0.75f);
@@ -1772,10 +1771,10 @@ void TextArea::HighlightLine(
 
         // 5. Numeric literal
         if (config.highlightNumbers &&
-            (std::isdigit(static_cast<unsigned char>(lineText[i])) ||
-             (lineText[i] == '.' && i + 1 < len && std::isdigit(static_cast<unsigned char>(lineText[i + 1]))))) {
+            (std::isdigit(static_cast<keel::u8>(lineText[i])) ||
+             (lineText[i] == '.' && i + 1 < len && std::isdigit(static_cast<keel::u8>(lineText[i + 1]))))) {
             const keel::usize start = i++;
-            while (i < len && (std::isalnum(static_cast<unsigned char>(lineText[i])) || lineText[i] == '.' ||
+            while (i < len && (std::isalnum(static_cast<keel::u8>(lineText[i])) || lineText[i] == '.' ||
                                (!config.transposeApostrophe && lineText[i] == '\''))) {
                 ++i;
             }
@@ -1816,7 +1815,7 @@ void TextArea::HighlightLine(
                lineText[i] != ' ' && lineText[i] != '\t' &&
                lineText[i] != '"' && lineText[i] != '\'' &&
                !IsIdentStart(lineText[i]) &&
-               !std::isdigit(static_cast<unsigned char>(lineText[i]))) {
+               !std::isdigit(static_cast<keel::u8>(lineText[i]))) {
             if (!config.blockCommentStart.empty() &&
                 i + config.blockCommentStart.size() <= len &&
                 lineText.substr(i, config.blockCommentStart.size()) == config.blockCommentStart) {
@@ -2411,7 +2410,7 @@ TextAreaResponse TextArea::Run(
         for (const keel::String& t : typedList) {
             for (char c : t) {
                 if (c >= 32 && c != 127) {
-                    if (state.overlayFocus == 3 && !std::isdigit(static_cast<unsigned char>(c))) {
+                    if (state.overlayFocus == 3 && !std::isdigit(static_cast<keel::u8>(c))) {
                         continue;
                     }
                     targetStr->push_back(c);
@@ -4372,9 +4371,8 @@ void TextArea::Render(
     if (L.zoomBtnRect.w > 0.0f) {
         const bool zHov = extData && extData->zoomBadgeHovered;
         char zBuf[16]{};
-        std::snprintf(zBuf, sizeof(zBuf), "%d%%", static_cast<int>(std::lround(effZoom * 100.0f)));
         ButtonOptions zoomOpts{};
-        zoomOpts.text = zBuf;
+        zoomOpts.text = keel::format_buf(zBuf, "{}%", static_cast<keel::i32>(std::round(effZoom * 100.0f)));
         zoomOpts.color = StateColor::Secondary();
         zoomOpts.stretch = StretchMode::Fill;
         Button::Render(canvas, L.zoomBtnRect, zoomOpts, tbSize, zHov, false, disabled, theme, false);

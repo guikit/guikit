@@ -1,12 +1,11 @@
 #include "guikit/widgets/level_meter.hpp"
 #include <cmath>
-#include <cstdio>
-#include <cstring>
-#include "keel/static_array.h"
-#include "guikit/context.hpp"
 #include "guikit/backend/i_canvas.hpp"
+#include "guikit/context.hpp"
 #include "guikit/core/node.hpp"
 #include "guikit/core/text_util.hpp"
+#include "keel/format.h"
+#include "keel/static_array.h"
 
 namespace guikit {
 
@@ -46,52 +45,7 @@ void FormatMeterValue(
     double value,
     keel::StringRef format
 ) noexcept {
-    if (!format.empty()) {
-        char convSpec = '\0';
-        bool isLongLong = false;
-        bool isLong = false;
-        for (keel::usize i = 0; i < format.size(); ++i) {
-            if (format[i] == '%') {
-                if (i + 1 < format.size() && format[i + 1] == '%') {
-                    ++i;
-                    continue;
-                }
-                for (keel::usize j = i + 1; j < format.size(); ++j) {
-                    const char c = format[j];
-                    if (c == 'l') {
-                        if (isLong) isLongLong = true;
-                        else isLong = true;
-                    } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
-                        convSpec = c;
-                        break;
-                    }
-                }
-                break;
-            }
-        }
-
-        char fmt[128]{};
-        const keel::usize copyLen = keel::min(format.size(), sizeof(fmt) - 1);
-        std::memcpy(fmt, format.data(), copyLen);
-        fmt[copyLen] = '\0';
-        if (convSpec == 'd' || convSpec == 'i' || convSpec == 'u' ||
-            convSpec == 'x' || convSpec == 'X' || convSpec == 'o') {
-            const long long intVal = static_cast<long long>(std::round(value));
-            if (isLongLong) {
-                std::snprintf(valBuf, bufSize, fmt, intVal);
-            } else if (isLong) {
-                std::snprintf(valBuf, bufSize, fmt, static_cast<long>(intVal));
-            } else {
-                std::snprintf(valBuf, bufSize, fmt, static_cast<int>(intVal));
-            }
-        } else if (convSpec != '\0') {
-            std::snprintf(valBuf, bufSize, fmt, value);
-        } else {
-            std::snprintf(valBuf, bufSize, "%s", fmt);
-        }
-    } else {
-        std::snprintf(valBuf, bufSize, "%.1f dB", value);
-    }
+    keel::format_buf(valBuf, bufSize, format.empty() ? "{:.1f} dB" : format, value);
 }
 
 void FormatScaleTickLabel(
@@ -103,11 +57,8 @@ void FormatScaleTickLabel(
     if (std::abs(val) < 1e-4) {
         val = 0.0;
     }
-    if (span >= 10.0 && std::abs(val - std::round(val)) < 0.05) {
-        std::snprintf(buf, bufSize, "%.0f", val);
-    } else {
-        std::snprintf(buf, bufSize, "%.1f", val);
-    }
+    const keel::StringRef fmt = (span >= 10.0 && std::abs(val - std::round(val)) < 0.05) ? "{:.0f}" : "{:.1f}";
+    keel::format_buf(buf, bufSize, fmt, val);
 }
 
 float GetDefaultBarThickness(UiSize size, const UiTheme& theme) noexcept {

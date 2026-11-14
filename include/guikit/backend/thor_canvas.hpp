@@ -9,9 +9,9 @@
 #include "keel/string.h"
 
 namespace tvg {
-class SwCanvas;
-class Paint;
-class Text;
+struct SwCanvas;
+struct Paint;
+struct Text;
 } // namespace tvg
 
 namespace guikit {

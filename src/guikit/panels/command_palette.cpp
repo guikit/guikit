@@ -144,7 +144,7 @@ CommandPaletteResponse CommandPalette::Run(
     const keel::Array<keel::String> pendingText = ctx.ConsumePendingTextInput();
     for (const keel::String& chunk : pendingText) {
         for (char c : chunk) {
-            const unsigned char uc = static_cast<unsigned char>(c);
+            const keel::u8 uc = static_cast<keel::u8>(c);
             if (uc >= 32 && uc != 127) {
                 st.query.push_back(c);
                 queryModified = true;
@@ -533,7 +533,6 @@ CommandPaletteResponse CommandPalette::Run(
         bgOpt,
         borderOpt,
         cursorVis,
-        activeSize,
         s,
         rowPadX,
         icSz,

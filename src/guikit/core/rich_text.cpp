@@ -693,12 +693,12 @@ InlineFlowLayout BuildInlineFlowLayout(
     auto splitAtomForWidth = [&](const InlineAtom& atom, float availW) -> AtomSplit {
         keel::StringRef sv = atom.text;
         keel::usize fitEnd = 1;
-        while (fitEnd < sv.size() && (static_cast<unsigned char>(sv[fitEnd]) & 0xC0) == 0x80) {
+        while (fitEnd < sv.size() && (static_cast<keel::u8>(sv[fitEnd]) & 0xC0) == 0x80) {
             ++fitEnd;
         }
         while (fitEnd < sv.size()) {
             keel::usize nextCp = fitEnd + 1;
-            while (nextCp < sv.size() && (static_cast<unsigned char>(sv[nextCp]) & 0xC0) == 0x80) {
+            while (nextCp < sv.size() && (static_cast<keel::u8>(sv[nextCp]) & 0xC0) == 0x80) {
                 ++nextCp;
             }
             if (nextCp < sv.size() && measureAtomSlice(atom, sv.substr(0, nextCp)) <= availW + 0.5f) {

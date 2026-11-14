@@ -4472,7 +4472,9 @@ GisRenderStats GisRenderEngine::RenderLayers(
         ? activeBasemapProvider->GetSourceId()
         : keel::StringRef{};
     const keel::u8 basemapOpacityByte = activeBasemapProvider
-        ? static_cast<keel::u8>(keel::clamp(std::lround(keel::clamp(cfg.basemapOpacity, 0.0f, 1.0f) * 255.0f), 0L, 255L))
+        ? static_cast<keel::u8>(
+              keel::clamp(static_cast<keel::i32>(std::round(keel::clamp(cfg.basemapOpacity, 0.0f, 1.0f) * 255.0f)), 0, 255)
+          )
         : 0u;
     const bool useBasemapOverlay = (activeBasemapProvider != nullptr && basemapOpacityByte > 0);
 
@@ -4754,7 +4756,7 @@ GisRenderStats GisRenderEngine::RenderLayers(
                 }
             }
             const keel::u8 layerOpacityByte = static_cast<keel::u8>(
-                keel::clamp(std::lround(effectiveOpacity * 255.0f), 0L, 255L)
+                keel::clamp(static_cast<keel::i32>(std::round(effectiveOpacity * 255.0f)), 0, 255)
             );
             if (layerOpacityByte == 0) continue;
 

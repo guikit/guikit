@@ -66,11 +66,11 @@ ControlSpec EffectiveTagInputControl(const TagInputOptions& opts, UiSize size, c
 
 keel::StringRef TrimWhitespace(keel::StringRef s) noexcept {
     keel::usize start = 0;
-    while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start])) != 0) {
+    while (start < s.size() && std::isspace(static_cast<keel::u8>(s[start])) != 0) {
         ++start;
     }
     keel::usize end = s.size();
-    while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1])) != 0) {
+    while (end > start && std::isspace(static_cast<keel::u8>(s[end - 1])) != 0) {
         --end;
     }
     return s.substr(start, end - start);
